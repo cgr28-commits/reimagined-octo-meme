@@ -69,6 +69,7 @@ export default function TermsPage() {
             {TERMS_SECTIONS.map((section, index) => (
               <section
                 key={section.title}
+                id={"id" in section ? section.id : undefined}
                 className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8"
               >
                 <h2 className="text-lg font-bold text-white">

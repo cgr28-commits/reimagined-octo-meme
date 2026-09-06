@@ -71,6 +71,17 @@ console.log("\n=== QuoteCard uses shared messages + red field UX ===");
   assert.doesNotMatch(card, /<PreviewRow label="Email"/);
   assert.match(card, /Journey summary/);
   assert.match(card, /Edit journey/);
+  assert.match(card, /<PreviewRow[\s\S]*label="Trip"/);
+  assert.match(card, /<PreviewRow label="Airport"/);
+  assert.match(card, /<PreviewRow label="Pickup"/);
+  assert.match(card, /<PreviewRow label="Destination"/);
+  assert.match(card, /label=\{returnJourney \? "Outbound" : "Date & time"\}/);
+  assert.match(card, /<PreviewRow[\s\S]*label="Passengers"/);
+  assert.match(card, /<PreviewRow[\s\S]*label="Luggage"/);
+  assert.match(card, /<PreviewRow label="Vehicle" value=\{vehicleShortLabel\(quoteVehicle\)\}/);
+  assert.match(card, /Your fixed journey price/);
+  assert.doesNotMatch(card, /<PreviewRow label="Drop-off"/);
+  assert.doesNotMatch(card, /<PreviewRow label="Suitcases"/);
   console.log("OK  QuoteCard wires exact messages and focuses the first invalid field");
 }
 
@@ -83,12 +94,45 @@ console.log("\n=== Terms checkbox gets a red border ===");
   console.log("OK  Terms/Privacy agreement shows a red border and message");
 }
 
+console.log("\n=== Pay tap validates instead of starting SumUp ===");
+{
+  const card = read("src/components/QuoteCard.tsx");
+  const payHandler = card.slice(card.indexOf("async function handlePayNow()"));
+  const validateIdx = payHandler.indexOf("if (!validateCheckoutRequiredFields())");
+  const loadingIdx = payHandler.indexOf("setPaymentLoading(true)");
+  const checkoutIdx = payHandler.search(/\/payments|createCheckout|hosted-checkout|sumup/i);
+  assert.ok(validateIdx >= 0, "handlePayNow must validate required fields");
+  assert.ok(loadingIdx > validateIdx, "SumUp loading must start only after validation");
+  if (checkoutIdx >= 0) {
+    assert.ok(checkoutIdx > validateIdx, "no SumUp request before validation");
+  }
+  assert.match(card, /onClick=\{\(\) => void handlePayNow\(\)\}/);
+  assert.match(
+    card,
+    /if \(e\.target\.value\.trim\(\)\) \{\s*setCustomerNameError\(""\);/,
+  );
+  assert.match(card, /bookingTextFieldClass\([\s\S]*hasError: Boolean\(customerNameError\)/);
+  assert.match(card, /id="customer-name-error"/);
+  assert.match(card, /role="alert"/);
+  const scroll = read("src/lib/quote-step-nav-scroll.ts");
+  assert.match(scroll, /export function focusFirstInvalidField/);
+  assert.match(scroll, /scrollBookingTargetIntoView\(field/);
+  assert.match(scroll, /field\.focus/);
+  console.log("OK  Pay tap validates all fields, marks errors, scrolls, and blocks SumUp");
+}
+
 console.log("\n=== Marketing consent stays optional ===");
 {
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /<MarketingOptIn /);
   assert.doesNotMatch(card, /marketingOptIn[\s\S]{0,80}required/);
   assert.doesNotMatch(card, /Please .*marketing/i);
+  const validateStart = card.indexOf("function validateCheckoutRequiredFields()");
+  const validateEnd = card.indexOf("function buildPaymentDescription()");
+  const validateFn = card.slice(validateStart, validateEnd);
+  assert.match(validateFn, /validateContactDetails/);
+  assert.match(validateFn, /requireTermsAccepted/);
+  assert.doesNotMatch(validateFn, /marketingOptIn/);
   console.log("OK  marketing opt-in is not a required field");
 }
 

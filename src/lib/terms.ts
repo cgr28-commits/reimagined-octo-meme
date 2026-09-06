@@ -1,4 +1,12 @@
-export const TERMS_LAST_UPDATED = "August 2026 v4";
+import {
+  CANCELLATION_POLICY_PAGE_INTRO,
+  COMPANY_CANCEL_REFUND,
+  FLIGHT_DELAY_POLICY,
+  SPECIFIC_DATE_TRANSPORT_NOTE,
+  STATUTORY_RIGHTS_NOTE,
+} from "../../shared/cancellation-policy";
+
+export const TERMS_LAST_UPDATED = "September 2026 v1";
 
 export const TERMS_SECTIONS = [
   {
@@ -140,38 +148,32 @@ export const TERMS_SECTIONS = [
     ],
   },
   {
+    id: "cancellation",
     title: "Cancellations & Refunds",
-    content: [
-      "The same cancellation policy applies to airport, long-distance and cross-border transfers.",
-    ],
+    content: [CANCELLATION_POLICY_PAGE_INTRO],
     subsections: [
       {
-        subtitle: "At least 24 hours before pickup",
+        subtitle: "More than 24 hours before pickup",
         content: [
-          "If we receive the cancellation at least 24 hours before the scheduled pickup time, we will issue a full refund of the fare paid.",
+          "If we receive your cancellation more than 24 hours before the scheduled pickup time, we will issue a full refund of the fare paid.",
         ],
       },
       {
         subtitle: "Less than 24 hours before pickup",
         content: [
-          "If we receive the cancellation less than 24 hours before the scheduled pickup time, a cancellation charge of up to the full booking price may apply because a driver and time have been reserved specifically for the journey.",
-          "The cancellation charge will not exceed the reasonable loss directly caused by the cancellation. We will take account of costs saved and whether we are able to accept another booking for the reserved time. Any amount paid above our reasonable loss will be refunded.",
+          "If we receive your cancellation less than 24 hours before the scheduled pickup time, the booking is non-refundable.",
         ],
       },
       {
         subtitle: "Flight delays",
-        content: [
-          "Where a correct flight number has been provided, a flight delay will not normally be treated as a cancellation or no-show. We will adjust the planned collection time in accordance with Sections 9 and 10 of these Terms.",
-        ],
+        content: [FLIGHT_DELAY_POLICY],
       },
       {
         subtitle: "Cancellations by us",
-        content: [
-          "If we cancel a confirmed booking and cannot provide the journey, we will issue a full refund.",
-        ],
+        content: [COMPANY_CANCEL_REFUND],
       },
     ],
-    footer: "These terms do not affect the customer’s statutory rights.",
+    footer: `${STATUTORY_RIGHTS_NOTE} ${SPECIFIC_DATE_TRANSPORT_NOTE}`,
   },
   {
     title: "Changes to Your Booking",
@@ -195,7 +197,7 @@ export const TERMS_SECTIONS = [
     contentAfterList: [
       "A customer leaving the airport or another pickup location without contacting us may also be treated as a no-show where this prevents the journey from being provided.",
       "Incorrect booking information will only result in a booking being treated as a no-show where it prevents us from providing the journey after reasonable attempts to contact the customer.",
-      "A no-show charge of up to the full booking price may apply to cover the driver’s reserved time, travel, waiting time and other reasonable costs incurred. The charge will not exceed the reasonable loss caused by the no-show.",
+      "A no-show is non-refundable.",
     ],
   },
   {

@@ -5961,7 +5961,7 @@ function QuoteCard({
                 <PreviewRow label="Airport" value={`${airportName} (${effectiveAirportCode})`} />
               )}
               <PreviewRow label="Pickup" value={pickupLabel} />
-              <PreviewRow label="Drop-off" value={dropoffLabel} />
+              <PreviewRow label="Destination" value={dropoffLabel} />
               {journeyDurationLabel && (
                 <PreviewRow
                   label="Estimated journey time"
@@ -6003,9 +6003,12 @@ function QuoteCard({
                 value={effectivePassengers == null ? "—" : String(effectivePassengers)}
               />
               <PreviewRow
-                label="Suitcases"
+                label="Luggage"
                 value={suitcases == null ? "—" : String(suitcases)}
               />
+              {quoteVehicle ? (
+                <PreviewRow label="Vehicle" value={vehicleShortLabel(quoteVehicle)} />
+              ) : null}
               {pricingConfirmationRequired ? (
                 <PreviewRow label="Pricing" value={priceConfirmationLabel} />
               ) : isManualQuoteJourney ? (

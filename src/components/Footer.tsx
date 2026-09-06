@@ -137,6 +137,10 @@ export default function Footer() {
               Terms &amp; Conditions
             </Link>
             <span className="text-white/20">|</span>
+            <Link href="/cancellation/" className="transition-colors hover:text-emerald">
+              Cancellation Policy
+            </Link>
+            <span className="text-white/20">|</span>
             <Link href="/privacy/" className="transition-colors hover:text-emerald">
               Privacy Policy
             </Link>

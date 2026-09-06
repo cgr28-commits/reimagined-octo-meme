@@ -74,6 +74,7 @@ const pages = [
       ]
     : []),
   { path: "/terms/", changefreq: "yearly", priority: "0.5" },
+  { path: "/cancellation/", changefreq: "yearly", priority: "0.5" },
   { path: "/privacy/", changefreq: "yearly", priority: "0.5" },
   { path: "/contact/", changefreq: "monthly", priority: "0.8" },
   { path: "/unsubscribe/", changefreq: "yearly", priority: "0.3" },
