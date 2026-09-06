@@ -3952,6 +3952,7 @@ function QuoteCard({
 
   // Stage 3: both addresses selected → JOURNEY (One way / Return) only.
   // Pickup alone must not scroll. Route/vehicle renders must not steal viewport.
+  // Desktop only — mobile Step 1 must not jump after an address becomes valid.
   useEffect(() => {
     if (!isA2AFlow || quoteStep !== 1) {
       hadA2aJourneyTypeScrollRef.current = false;
@@ -3965,6 +3966,9 @@ function QuoteCard({
     }
     if (hadA2aJourneyTypeScrollRef.current) return;
     hadA2aJourneyTypeScrollRef.current = true;
+    // Desktop only. On mobile Step 1 the next section may appear below;
+    // the customer scrolls to it themselves.
+    if (detectMobileDevice()) return;
     return scrollQuoteStage("journey-type-selector", { correctAfterMs: 0 });
   }, [a2aShowJourneyMode, isA2AFlow, journeyMode, quoteStep]);
 
@@ -4040,6 +4044,8 @@ function QuoteCard({
       hadLegacyPartyScrollRef.current = false;
       if (hadLegacyJourneyModeScrollRef.current) return;
       hadLegacyJourneyModeScrollRef.current = true;
+      // Address pair complete → One way / Return. Desktop only.
+      if (detectMobileDevice()) return;
       return scrollQuoteStage("journey-type-selector", { correctAfterMs: 0 });
     }
     if (hadLegacyPartyScrollRef.current) return;
