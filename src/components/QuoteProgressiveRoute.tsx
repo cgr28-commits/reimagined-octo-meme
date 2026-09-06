@@ -20,6 +20,7 @@ import {
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
 import { choiceGroupNeedsClass } from "@/lib/quote-ui-highlight";
+import { detectMobileDevice } from "@/lib/device";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
@@ -246,6 +247,12 @@ export default function QuoteProgressiveRoute({
                   key={option.id}
                   type="button"
                   aria-pressed={selected}
+                  onPointerDown={(event) => {
+                    // Below md: do not focus the card — iOS would scroll it into view.
+                    if (detectMobileDevice()) {
+                      event.preventDefault();
+                    }
+                  }}
                   onClick={() => onJourneyIntentChange(option.id)}
                   className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
                 >

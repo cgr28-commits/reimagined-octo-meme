@@ -103,6 +103,26 @@ check("Helper measures header offset and respects reduced motion", () => {
   assert.match(helper, /bookingRequestResult/);
 });
 
+check("Mobile Step 1 journey-type tap does not scroll", () => {
+  assert.match(card, /function applyJourneyIntent/);
+  assert.match(
+    card,
+    /function applyJourneyIntent\([\s\S]*?if \(\s*detectMobileDevice\(\)[\s\S]*?document\.activeElement\.blur\(\)/,
+  );
+  assert.match(
+    card,
+    /hadA2aAddressesScrollRef\.current = true;\s*if \(detectMobileDevice\(\)\) return;/,
+  );
+  assert.match(card, /scrollQuoteStage\("quote-section-addresses"/);
+  assert.match(progressive, /onPointerDown/);
+  assert.match(progressive, /detectMobileDevice\(\)/);
+  // Later Step 1 stages + step changes + validation still scroll.
+  assert.match(card, /scrollQuoteStage\("journey-type-selector"/);
+  assert.match(card, /scrollQuoteStage\("passenger-luggage-section"/);
+  assert.match(card, /pendingQuoteStepNavScrollRef\.current = 2;\s*setQuoteStep\(2\)/);
+  assert.match(card, /focusFirstInvalidField/);
+});
+
 check("Selection-driven auto-scroll stays removed from progressive", () => {
   assert.equal(
     fs.existsSync(path.join(root, "src/lib/quote-mobile-scroll.ts")),
