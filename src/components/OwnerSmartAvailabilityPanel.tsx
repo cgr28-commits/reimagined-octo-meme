@@ -630,10 +630,17 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                             ? ` (${diag.previousPositioningNeededMinutes} min needed)`
                             : ""}
                           {diag.earliestReadyAfterPreviousLocal
-                            ? `, earliest ready at this pickup ${String(diag.earliestReadyAfterPreviousLocal)} from journey completion (not operational window end)`
+                            ? `, driver ready at this location ${String(diag.earliestReadyAfterPreviousLocal)} from journey completion`
+                            : ""}
+                          {typeof diag.proposedAirportBufferMinutes === "number" &&
+                          Number(diag.proposedAirportBufferMinutes) > 0
+                            ? `, then ${diag.proposedAirportBufferMinutes} min airport on-site buffer`
+                            : ""}
+                          {diag.earliestBookablePassengerLocal
+                            ? `, earliest passenger pickup ${String(diag.earliestBookablePassengerLocal)}`
                             : ""}
                           {diag.proposedOnSiteDeadlineLocal
-                            ? ` vs on-site deadline ${String(diag.proposedOnSiteDeadlineLocal)}`
+                            ? ` vs this test on-site deadline ${String(diag.proposedOnSiteDeadlineLocal)}`
                             : ""}
                           {diag.conflictKind ? ` · ${String(diag.conflictKind)}` : ""}
                           {diag.conflictSummary ? ` — ${String(diag.conflictSummary)}` : ""}.

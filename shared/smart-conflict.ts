@@ -92,7 +92,14 @@ export type SmartAvailabilityDiagnostics = {
   previousBookingDestination: string | null;
   previousBookingOperationalEndLocal: string | null;
   previousPositioningNeededMinutes: number | null;
+  /** Driver can be at the proposed pickup location (journey end + drive + turnaround). */
   earliestReadyAfterPreviousLocal: string | null;
+  /**
+   * Earliest passenger time you can type. Airport pickups add the on-site
+   * pre-buffer (default 30) after driver-ready. House pickups equal ready.
+   */
+  earliestBookablePassengerLocal: string | null;
+  proposedAirportBufferMinutes: number;
   proposedOnSiteDeadlineLocal: string | null;
   conflictBookingId: string | null;
   conflictKind: "overlap" | "previous_positioning" | "next_positioning" | "turnaround" | "block" | null;
@@ -752,6 +759,8 @@ function emptyDiagnostics(
     previousBookingOperationalEndLocal: null,
     previousPositioningNeededMinutes: null,
     earliestReadyAfterPreviousLocal: null,
+    earliestBookablePassengerLocal: null,
+    proposedAirportBufferMinutes: 0,
     proposedOnSiteDeadlineLocal: null,
     conflictBookingId: null,
     conflictKind: null,
@@ -877,6 +886,7 @@ export function evaluateSmartAvailability(input: {
     null;
   diagnostics.previousBookingId = previous?.id || null;
   diagnostics.nextBookingId = next?.id || null;
+  diagnostics.proposedAirportBufferMinutes = window.preBuffer;
   diagnostics.proposedOnSiteDeadlineLocal = localFromMs(window.operationalStart);
   if (previous) {
     const prevWindow = jobWindow(previous, input.config);
@@ -896,8 +906,11 @@ export function evaluateSmartAvailability(input: {
       input.config.buffers.minTurnaroundMinutes,
     );
     if (prevWindow.journeyEnd != null) {
-      diagnostics.earliestReadyAfterPreviousLocal = localFromMs(
-        prevWindow.journeyEnd + diagnostics.previousPositioningNeededMinutes * 60_000,
+      const readyMs =
+        prevWindow.journeyEnd + diagnostics.previousPositioningNeededMinutes * 60_000;
+      diagnostics.earliestReadyAfterPreviousLocal = localFromMs(readyMs);
+      diagnostics.earliestBookablePassengerLocal = localFromMs(
+        readyMs + window.preBuffer * 60_000,
       );
     }
   }

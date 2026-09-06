@@ -334,6 +334,8 @@ export async function handleOwnerEvaluateSmartOps(
       previousBookingOperationalEndLocal: availability.diagnostics.previousBookingOperationalEndLocal,
       previousPositioningNeededMinutes: availability.diagnostics.previousPositioningNeededMinutes,
       earliestReadyAfterPreviousLocal: availability.diagnostics.earliestReadyAfterPreviousLocal,
+      earliestBookablePassengerLocal: availability.diagnostics.earliestBookablePassengerLocal,
+      proposedAirportBufferMinutes: availability.diagnostics.proposedAirportBufferMinutes,
       proposedOnSiteDeadlineLocal: availability.diagnostics.proposedOnSiteDeadlineLocal,
       conflictBookingId: availability.diagnostics.conflictBookingId,
       conflictKind: availability.diagnostics.conflictKind,

@@ -2226,10 +2226,35 @@ console.log("\n=== After-Larne positioning starts at 07:33 completion, not 07:48
   assert.equal(at0740.diagnostics.previousBookingOperationalEndLocal, `${MONDAY}T07:48`);
   assert.equal(at0740.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T08:22`);
   assert.notEqual(at0740.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T08:37`);
+  assert.equal(at0740.diagnostics.proposedAirportBufferMinutes, 30);
+  assert.equal(at0740.diagnostics.earliestBookablePassengerLocal, `${MONDAY}T08:52`);
   assert.equal(at0740.available, false);
 
+  // Typing 08:22 as the passenger time is not the boundary. BFS needs you
+  // on site 30 minutes earlier (07:52), but the driver is not ready until 08:22.
+  const at0822 = evaluateSmartAvailability({
+    requested: { ...requested, tripTime: "08:22" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(at0822.diagnostics.proposedOnSiteDeadlineLocal, `${MONDAY}T07:52`);
+  assert.equal(at0822.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T08:22`);
+  assert.equal(at0822.available, false);
+  assert.equal(at0822.reason, SMART_OPS_REASON.CONFLICT_POSITIONING_TIME);
+
+  const at0821 = evaluateSmartAvailability({
+    requested: { ...requested, tripTime: "08:21" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(at0821.available, false);
+
   // Same proposed airport job: on-site deadline is passenger time − 30.
-  // Ready 08:22 → passenger boundary is 08:52 / 08:51, not 08:22 / 08:23.
+  // Driver ready 08:22 → passenger boundary is 08:52 / 08:51, not 08:22 / 08:21.
   const at0852 = evaluateSmartAvailability({
     requested: { ...requested, tripTime: "08:52" },
     occupied: [larneAt0700],
@@ -2239,6 +2264,7 @@ console.log("\n=== After-Larne positioning starts at 07:33 completion, not 07:48
   });
   assert.equal(at0852.diagnostics.proposedOnSiteDeadlineLocal, `${MONDAY}T08:22`);
   assert.equal(at0852.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T08:22`);
+  assert.equal(at0852.diagnostics.earliestBookablePassengerLocal, `${MONDAY}T08:52`);
   assert.equal(at0852.available, true);
 
   const at0851 = evaluateSmartAvailability({
