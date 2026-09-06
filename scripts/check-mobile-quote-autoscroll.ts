@@ -41,8 +41,13 @@ assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
 assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
 assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
 
-// No direct element.scrollIntoView in QuoteCard — booking-nav helper owns scrolling.
-assert.doesNotMatch(card, /\.scrollIntoView\s*\(/);
+// Guided scrolling uses scrollQuoteStage. Direct scrollIntoView is only for
+// Choose another time/date (step 2), not Step 1 journey-type selection.
+assert.match(card, /function handleChooseAnotherTime[\s\S]*field\.scrollIntoView/);
+assert.match(card, /function handleChooseAnotherDate[\s\S]*field\.scrollIntoView/);
+const applyJourneyIntentBlock =
+  card.match(/function applyJourneyIntent[\s\S]*?function applyIntentAirport/)?.[0] ?? "";
+assert.doesNotMatch(applyJourneyIntentBlock, /scrollIntoView|window\.scrollTo/);
 assert.match(card, /scrollQuoteStage/);
 assert.match(card, /pendingQuoteStepNavScrollRef/);
 assert.match(card, /from "@\/lib\/quote-step-nav-scroll"/);
@@ -52,6 +57,10 @@ assert.match(card, /hadJourneySummaryScrollRef/);
 assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
 assert.match(card, /id="step2-journey-summary"/);
 assert.match(card, /scrollQuoteStage\("quote-section-addresses"/);
+assert.match(
+  card,
+  /hadA2aAddressesScrollRef\.current = true;\s*if \(detectMobileDevice\(\)\) return;/,
+);
 assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
 assert.doesNotMatch(card, /hadStep2ScheduleScrollRef/);
 

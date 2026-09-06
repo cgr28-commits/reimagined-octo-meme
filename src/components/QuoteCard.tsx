@@ -2028,6 +2028,15 @@ function QuoteCard({
     if (returnOfferToken) {
       return;
     }
+    // Mobile Step 1: blur before the next fields render so the browser cannot
+    // jump to keep the tapped journey-type button in view.
+    if (
+      detectMobileDevice() &&
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      document.activeElement.blur();
+    }
     if (intent !== journeyIntent) {
       const plan = planJourneyDirectionDependentReset({
         previousIntent: journeyIntent,
@@ -3923,6 +3932,7 @@ function QuoteCard({
   const prevPartyCompleteRef = useRef(false);
 
   // Stage 1: Address to Address tapped → PICKUP / DESTINATION fields.
+  // Desktop only. On mobile (< md / 768px) the viewport must stay still.
   useEffect(() => {
     if (!isA2AFlow || quoteStep !== 1) {
       prevJourneyIntentRef.current = journeyIntent;
@@ -3935,6 +3945,7 @@ function QuoteCard({
     prevJourneyIntentRef.current = journeyIntent;
     if (!becameAddressToAddress || hadA2aAddressesScrollRef.current) return;
     hadA2aAddressesScrollRef.current = true;
+    if (detectMobileDevice()) return;
     // No layout-correction pulse — stage scrolls are precise one-shots (avoids judder).
     return scrollQuoteStage("quote-section-addresses", { correctAfterMs: 0 });
   }, [isA2AFlow, journeyIntent, quoteStep]);

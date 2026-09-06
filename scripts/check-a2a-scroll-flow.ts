@@ -46,6 +46,10 @@ assert.match(card, /step2-flight-details|step2JourneySummaryRef/);
 assert.match(card, /scrollQuoteStage\(bookingResultRef\.current \?\? "bookingRequestResult"/);
 assert.match(card, /becameAddressToAddress/);
 assert.match(card, /hadA2aAddressesScrollRef/);
+assert.match(
+  card,
+  /hadA2aAddressesScrollRef\.current = true;\s*if \(detectMobileDevice\(\)\) return;/,
+);
 assert.match(card, /hadA2aJourneyTypeScrollRef/);
 assert.match(card, /hadA2aPartyScrollRef/);
 assert.match(card, /hadRouteSummaryScrollRef/);
