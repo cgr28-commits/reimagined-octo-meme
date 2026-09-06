@@ -1,14 +1,9 @@
 "use client";
 
-import { SERVICE_FLAGS } from "@/lib/data";
 import QuoteCard from "./QuoteCard";
 import QuoteHelpContact from "./QuoteHelpContact";
 
 export default function HeroSlideshow() {
-  const airportList = SERVICE_FLAGS.belfastCityAirport
-    ? "Belfast International, Belfast City, City of Derry and Dublin"
-    : "Belfast International, City of Derry and Dublin";
-
   return (
     <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-20 md:pt-28">
       <div className="absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
@@ -22,13 +17,13 @@ export default function HeroSlideshow() {
         <div className="order-2 min-w-0 lg:order-1 lg:pt-2">
           <p className="section-eyebrow mb-5 lg:mb-6">Private airport transfers</p>
 
-          <h1 className="font-display text-[2.55rem] font-semibold leading-[1.06] tracking-tight text-white sm:text-5xl lg:text-[3.55rem] xl:text-[3.9rem] xl:leading-[1.04]">
-            My Airport Taxi NI
+          <h1 className="font-display text-balance text-[2.15rem] font-semibold leading-[1.12] tracking-tight text-white sm:text-[2.7rem] sm:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
+            Belfast Airport Transfers{" "}
+            <span className="whitespace-nowrap">– Pre-Booked 24/7</span>
           </h1>
 
           <p className="mt-5 max-w-xl text-base leading-relaxed text-white/68 sm:text-lg lg:mt-6 lg:max-w-xl lg:text-[1.125rem] lg:leading-relaxed">
-            Fixed-price chauffeur-style transfers to {airportList} airports — and door-to-door
-            journeys across Northern Ireland and the Republic of Ireland.
+            Reliable, fixed-price airport transfers to and from Belfast International, Belfast City and Dublin Airport. Book in advance and travel with confidence.
           </p>
 
           <p className="mt-4 max-w-xl text-sm font-medium leading-snug text-white/78 sm:text-[0.95rem]">
