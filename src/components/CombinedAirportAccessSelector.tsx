@@ -1,71 +1,53 @@
 "use client";
 
 import {
+  COMBINED_AIRPORT_ACCESS_RETURN_NOTE,
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
-  canOfferExpressFreeAlternative,
-  expressAirportLegendLabel,
-  expressDropOffConfirmRemovalLabel,
-  expressDropOffRecommendedLabel,
-  expressDropOffRemoveLabel,
-  expressDropOffRemovedExplanation,
-  type ExpressAirportService,
-  type ExpressDropOffAirportCode,
+  combinedAirportAccessConfirmRemovalLabel,
+  combinedAirportAccessRecommendedLabel,
+  combinedAirportAccessRemoveLabel,
 } from "../../shared/express-drop-off";
 
 type Props = {
-  airportCode: ExpressDropOffAirportCode;
-  service?: ExpressAirportService;
+  /** Total Express fee across both legs (e.g. two BFS legs = £5 + £5 = £10). */
+  totalFeeGbp: number;
+  /** True when Express is selected for both legs. */
   selected: boolean;
   removalAcknowledged: boolean;
   onSelectedChange: (selected: boolean) => void;
   onRemovalAcknowledgedChange: (acknowledged: boolean) => void;
-  /** When true, block continuing without acknowledgement (visual emphasis). */
   requireAcknowledgement?: boolean;
-  /** Override free-alternative gate (defaults from shared config + service). */
+  /** Only offer the free alternative when every leg supports it. */
   allowFreeAlternative?: boolean;
-  /** Distinguishes outbound vs return radio groups on the same airport. */
-  idPrefix?: string;
-  /** Optional legend override, e.g. "Outbound journey – Airport drop-off". */
-  heading?: string;
   className?: string;
 };
 
 /**
- * Accessible Express Drop-Off / Pick-Up selector — default recommended / optional free area.
+ * Single "Airport access" control for a return booking. The customer makes
+ * one choice that is applied to both the outbound and return legs together —
+ * the underlying legs remain independently tracked in booking/pricing state.
  */
-export default function ExpressDropOffSelector({
-  airportCode,
-  service = "drop-off",
+export default function CombinedAirportAccessSelector({
+  totalFeeGbp,
   selected,
   removalAcknowledged,
   onSelectedChange,
   onRemovalAcknowledgedChange,
   requireAcknowledgement = false,
-  allowFreeAlternative,
-  idPrefix,
-  heading,
+  allowFreeAlternative = true,
   className = "",
 }: Props) {
-  const groupName = `${idPrefix ? `${idPrefix}-` : ""}express-airport-${service}-${airportCode}`;
-  const freeAvailable =
-    typeof allowFreeAlternative === "boolean"
-      ? allowFreeAlternative
-      : canOfferExpressFreeAlternative({ airportCode, service });
+  const groupName = "combined-airport-access";
 
   return (
     <fieldset
       className={`min-w-0 space-y-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 ${className}`}
       aria-describedby={`${groupName}-note`}
     >
-      <legend className="px-1 text-sm font-semibold text-white">
-        {heading || expressAirportLegendLabel(service)}
-      </legend>
+      <legend className="px-1 text-sm font-semibold text-white">Airport access</legend>
+      <p className="px-1 text-xs text-white/60">{COMBINED_AIRPORT_ACCESS_RETURN_NOTE}</p>
 
-      <div
-        role="radiogroup"
-        aria-label={`${expressAirportLegendLabel(service)} options`}
-        className="space-y-2"
-      >
+      <div role="radiogroup" aria-label="Airport access options" className="space-y-2">
         <label
           className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
             selected
@@ -84,11 +66,11 @@ export default function ExpressDropOffSelector({
             className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
           />
           <span className="min-w-0 leading-snug">
-            {expressDropOffRecommendedLabel(airportCode, service)}
+            {combinedAirportAccessRecommendedLabel(totalFeeGbp)}
           </span>
         </label>
 
-        {freeAvailable ? (
+        {allowFreeAlternative ? (
           <label
             className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
               !selected
@@ -104,17 +86,14 @@ export default function ExpressDropOffSelector({
               className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
             />
             <span className="min-w-0 leading-snug">
-              {expressDropOffRemoveLabel(airportCode, service)}
+              {combinedAirportAccessRemoveLabel(totalFeeGbp)}
             </span>
           </label>
         ) : null}
       </div>
 
-      {freeAvailable && !selected ? (
+      {allowFreeAlternative && !selected ? (
         <div className="space-y-2 rounded-lg border border-amber-400/30 bg-amber-500/5 px-3 py-2.5">
-          <p className="text-xs leading-relaxed text-amber-100/90">
-            {expressDropOffRemovedExplanation(service)}
-          </p>
           <label
             className={`flex min-h-11 cursor-pointer items-start gap-3 text-sm ${
               requireAcknowledgement && !removalAcknowledged
@@ -130,7 +109,7 @@ export default function ExpressDropOffSelector({
               aria-required={requireAcknowledgement}
             />
             <span className="min-w-0 leading-snug">
-              {expressDropOffConfirmRemovalLabel(service)}
+              {combinedAirportAccessConfirmRemovalLabel()}
             </span>
           </label>
         </div>

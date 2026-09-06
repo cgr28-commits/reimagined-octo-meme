@@ -1,16 +1,13 @@
 "use client";
 
-import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
+import CombinedAirportAccessSelector from "@/components/CombinedAirportAccessSelector";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
-  expressDropOffBreakdownLabel,
-  type ExpressAirportService,
-  type ExpressDropOffAirportCode,
+  combinedAirportAccessBreakdownLabel,
 } from "../../shared/express-drop-off";
 
 type Props = {
-  airportCode: ExpressDropOffAirportCode;
-  service?: ExpressAirportService;
+  totalFeeGbp: number;
   selected: boolean;
   removalAcknowledged: boolean;
   onSelectedChange: (selected: boolean) => void;
@@ -24,18 +21,15 @@ type Props = {
   mode?: "full" | "summary";
   editing?: boolean;
   onEditingChange?: (editing: boolean) => void;
-  idPrefix?: string;
-  heading?: string;
   className?: string;
 };
 
 /**
- * Full Express control for the initial quote, or a compact
- * summary with Change on later payment pages.
+ * Full combined "Airport access" control for the initial quote, or a
+ * compact summary with Change on later payment pages, for return bookings.
  */
-export default function ExpressDropOffChoice({
-  airportCode,
-  service = "drop-off",
+export default function CombinedAirportAccessChoice({
+  totalFeeGbp,
   selected,
   removalAcknowledged,
   onSelectedChange,
@@ -45,8 +39,6 @@ export default function ExpressDropOffChoice({
   mode = "full",
   editing = false,
   onEditingChange,
-  idPrefix,
-  heading,
   className = "",
 }: Props) {
   if (mode === "summary" && !editing) {
@@ -56,11 +48,8 @@ export default function ExpressDropOffChoice({
       >
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 space-y-1 text-sm text-white/85">
-            <p className="font-medium text-white">
-              {heading ||
-                (service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off")}
-            </p>
-            <p>{expressDropOffBreakdownLabel(airportCode, selected, service)}</p>
+            <p className="font-medium text-white">Airport access (return)</p>
+            <p>{combinedAirportAccessBreakdownLabel(selected, totalFeeGbp)}</p>
             <p className="text-xs text-white/50">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
           </div>
           {allowFreeAlternative !== false ? (
@@ -79,17 +68,14 @@ export default function ExpressDropOffChoice({
 
   return (
     <div className={`min-w-0 space-y-2 ${className}`}>
-      <ExpressDropOffSelector
-        airportCode={airportCode}
-        service={service}
+      <CombinedAirportAccessSelector
+        totalFeeGbp={totalFeeGbp}
         selected={selected}
         removalAcknowledged={removalAcknowledged}
         onSelectedChange={onSelectedChange}
         onRemovalAcknowledgedChange={onRemovalAcknowledgedChange}
         requireAcknowledgement={requireAcknowledgement}
         allowFreeAlternative={allowFreeAlternative}
-        idPrefix={idPrefix}
-        heading={heading}
       />
       {mode === "summary" && editing ? (
         <button

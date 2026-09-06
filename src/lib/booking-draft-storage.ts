@@ -43,6 +43,7 @@ export type BookingFormDraft = {
   personalQuoteCode?: string;
   /** Customer Express Drop-Off choice — restored across SumUp tab switches. */
   expressDropOffSelected?: boolean;
+  returnExpressDropOffSelected?: boolean;
   savedAt?: string;
 };
 

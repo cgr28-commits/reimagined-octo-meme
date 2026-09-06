@@ -51,6 +51,8 @@ export type PaymentCheckoutRequest = {
    * Server derives eligibility and fee — never trust a browser-supplied fee/total.
    */
   expressDropOffSelected?: boolean;
+  outboundExpressDropOffSelected?: boolean;
+  returnExpressDropOffSelected?: boolean;
   /**
    * Journey fare before airport access.
    * Used with the authoritative website fare composer on open-website checkout.
@@ -283,6 +285,12 @@ export async function createPaymentCheckout(
         : {}),
       ...(typeof request.expressDropOffSelected === "boolean"
         ? { expressDropOffSelected: request.expressDropOffSelected }
+        : {}),
+      ...(typeof request.outboundExpressDropOffSelected === "boolean"
+        ? { outboundExpressDropOffSelected: request.outboundExpressDropOffSelected }
+        : {}),
+      ...(typeof request.returnExpressDropOffSelected === "boolean"
+        ? { returnExpressDropOffSelected: request.returnExpressDropOffSelected }
         : {}),
       ...(typeof request.journeyFareGbp === "number"
         ? { journeyFareGbp: request.journeyFareGbp }

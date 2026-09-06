@@ -18,6 +18,8 @@ export function buildOpenWebsiteFareBreakdown(input: {
   journeyFareBeforeAirportAccessGbp: number;
   airportFixedCostsGbp?: number;
   airportAccessChargeGbp?: number;
+  outboundAirportAccessChargeGbp?: number;
+  returnAirportAccessChargeGbp?: number;
   returnJourney?: boolean;
   returnOfferDiscountRate?: number;
 }): WebsiteFareBreakdown {
@@ -25,6 +27,8 @@ export function buildOpenWebsiteFareBreakdown(input: {
     journeyFareBeforeAirportAccessGbp: input.journeyFareBeforeAirportAccessGbp,
     airportFixedCostsGbp: input.airportFixedCostsGbp ?? 0,
     airportAccessChargeGbp: input.airportAccessChargeGbp ?? 0,
+    outboundAirportAccessChargeGbp: input.outboundAirportAccessChargeGbp ?? 0,
+    returnAirportAccessChargeGbp: input.returnAirportAccessChargeGbp ?? 0,
     returnJourney: Boolean(input.returnJourney),
     ...(typeof input.returnOfferDiscountRate === "number"
       ? { returnOfferDiscountRate: input.returnOfferDiscountRate }
@@ -33,12 +37,21 @@ export function buildOpenWebsiteFareBreakdown(input: {
 }
 
 /** Compact reinforcement directly under the dominant fixed price. */
-export function FixedPriceAssurance({ className = "" }: { className?: string }) {
+export function FixedPriceAssurance({
+  className = "",
+  includesSelectedAirportAccess = false,
+}: {
+  className?: string;
+  /** When Express/free airport access is offered, the headline total already includes that choice. */
+  includesSelectedAirportAccess?: boolean;
+}) {
   return (
     <div className={`mt-1.5 space-y-0.5 ${className}`}>
       <p className="text-sm font-semibold text-emerald">✓ Fixed price. No surprises.</p>
       <p className="text-xs leading-snug text-white/55">
-        The price you book is the price you pay.
+        {includesSelectedAirportAccess
+          ? "Includes your selected airport access option."
+          : "The price you book is the price you pay."}
       </p>
     </div>
   );
@@ -128,13 +141,21 @@ export function PromotionalPriceBreakdown({
   const hasPromo = breakdown.totalPromotionalSavingGbp > 0;
   const accessGbp = breakdown.airportAccessChargeGbp;
   const hasAccess = accessGbp > 0;
-  const journeyDisplayGbp = breakdown.journeyFareDisplayGbp;
+  const showPerLegAccess =
+    breakdown.returnJourney &&
+    (breakdown.outboundAirportAccessChargeGbp > 0 ||
+      breakdown.returnAirportAccessChargeGbp > 0 ||
+      freeAirportAccessSelected);
+  const journeyDisplayGbp = breakdown.returnJourney
+    ? breakdown.originalEligibleJourneyPriceGbp
+    : breakdown.journeyFareDisplayGbp;
+  const journeyLabel = breakdown.returnJourney ? "Return journey fare" : "Journey fare";
   const finalPayableGbp = breakdown.finalAmountPayableGbp;
   if (!hasPromo && !hasAccess && !freeAirportAccessSelected) return null;
 
   return (
     <div className={`mt-2 space-y-1.5 text-xs leading-snug ${className}`}>
-      {hasPromo ? (
+      {hasPromo && !breakdown.returnJourney ? (
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className="text-white/45 line-through">
             {formatGbpFare(
@@ -152,7 +173,7 @@ export function PromotionalPriceBreakdown({
 
       <dl className="space-y-0.5 text-white/60">
         <div className="flex justify-between gap-3">
-          <dt>Journey fare</dt>
+          <dt>{journeyLabel}</dt>
           <dd className="shrink-0 tabular-nums text-white/80">
             {formatGbpFare(journeyDisplayGbp)}
           </dd>
@@ -175,7 +196,26 @@ export function PromotionalPriceBreakdown({
             </dd>
           </div>
         ) : null}
-        {hasAccess ? (
+        {showPerLegAccess ? (
+          <>
+            <div className="flex justify-between gap-3">
+              <dt>Outbound airport charge</dt>
+              <dd className="shrink-0 tabular-nums text-white/80">
+                {breakdown.outboundAirportAccessChargeGbp > 0
+                  ? `+${formatGbpFare(breakdown.outboundAirportAccessChargeGbp)}`
+                  : "Not added"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt>Return airport charge</dt>
+              <dd className="shrink-0 tabular-nums text-white/80">
+                {breakdown.returnAirportAccessChargeGbp > 0
+                  ? `+${formatGbpFare(breakdown.returnAirportAccessChargeGbp)}`
+                  : "Not added"}
+              </dd>
+            </div>
+          </>
+        ) : hasAccess ? (
           <div className="flex justify-between gap-3">
             <dt>{accessLabel}</dt>
             <dd className="shrink-0 tabular-nums text-white/80">
@@ -183,7 +223,7 @@ export function PromotionalPriceBreakdown({
             </dd>
           </div>
         ) : null}
-        {freeAirportAccessSelected && !hasAccess ? (
+        {freeAirportAccessSelected && !hasAccess && !showPerLegAccess ? (
           <div className="flex justify-between gap-3 text-white/55">
             <dt>{accessLabel}</dt>
             <dd className="shrink-0 tabular-nums">Not added</dd>
@@ -204,7 +244,7 @@ export function PromotionalPriceBreakdown({
           </dd>
         </div>
       </dl>
-      {freeAirportAccessSelected && !hasAccess ? (
+      {freeAirportAccessSelected && !hasAccess && !showPerLegAccess ? (
         <p className="text-[11px] leading-snug text-emerald/85">
           ✓ {expressAvoidedChargeMessage(service)}
         </p>
@@ -235,9 +275,13 @@ export function FinalPayableBreakdown({
       </p>
       <dl className="mt-2 space-y-1.5 text-sm">
         <div className="flex justify-between gap-3 text-white/75">
-          <dt>Journey fare</dt>
+          <dt>{breakdown.returnJourney ? "Return journey fare" : "Journey fare"}</dt>
           <dd className="shrink-0 tabular-nums">
-            {formatGbpFare(breakdown.journeyFareDisplayGbp)}
+            {formatGbpFare(
+              breakdown.returnJourney
+                ? breakdown.originalEligibleJourneyPriceGbp
+                : breakdown.journeyFareDisplayGbp,
+            )}
           </dd>
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
@@ -248,7 +292,29 @@ export function FinalPayableBreakdown({
             </dd>
           </div>
         ) : null}
-        {breakdown.airportAccessChargeGbp > 0 ? (
+        {breakdown.returnJourney &&
+        (breakdown.outboundAirportAccessChargeGbp > 0 ||
+          breakdown.returnAirportAccessChargeGbp > 0 ||
+          freeAirportAccessSelected) ? (
+          <>
+            <div className="flex justify-between gap-3 text-white/75">
+              <dt>Outbound airport charge</dt>
+              <dd className="shrink-0 tabular-nums">
+                {breakdown.outboundAirportAccessChargeGbp > 0
+                  ? `+${formatGbpFare(breakdown.outboundAirportAccessChargeGbp)}`
+                  : "Not added"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 text-white/75">
+              <dt>Return airport charge</dt>
+              <dd className="shrink-0 tabular-nums">
+                {breakdown.returnAirportAccessChargeGbp > 0
+                  ? `+${formatGbpFare(breakdown.returnAirportAccessChargeGbp)}`
+                  : "Not added"}
+              </dd>
+            </div>
+          </>
+        ) : breakdown.airportAccessChargeGbp > 0 ? (
           <div className="flex justify-between gap-3 text-white/75">
             <dt>{accessLabel}</dt>
             <dd className="shrink-0 tabular-nums">
@@ -276,7 +342,15 @@ export function FinalPayableBreakdown({
           </dd>
         </div>
       </dl>
-      <FixedPriceAssurance className="mt-2.5" />
+      <FixedPriceAssurance
+        className="mt-2.5"
+        includesSelectedAirportAccess={
+          freeAirportAccessSelected ||
+          breakdown.airportAccessChargeGbp > 0 ||
+          breakdown.outboundAirportAccessChargeGbp > 0 ||
+          breakdown.returnAirportAccessChargeGbp > 0
+        }
+      />
     </div>
   );
 }

@@ -2,7 +2,8 @@
  * Optional airport Express Drop-Off / Pick-Up add-on (customer-facing).
  *
  * Separate from waived automatic BFS/BHD access fees in airport-fixed-costs.ts.
- * Applies once on BFS (£5) / BHD (£4) airport journeys (to or from).
+ * Applies per eligible BFS (£5) / BHD (£4) journey leg (to or from).
+ * Return bookings resolve outbound and return independently.
  * Dublin / LDY / non-airport: never eligible.
  *
  * Free drop-off alternative is always offered.
@@ -119,84 +120,154 @@ export function canOfferExpressFreeAlternative(input: {
   return isExpressFreePickupConfigured(input.airportCode);
 }
 
+export type ExpressDropOffLeg = {
+  leg: "outbound" | "return";
+  service: ExpressAirportService;
+  airportCode: ExpressDropOffAirportCode;
+  feeGbp: number;
+  fromAirport: boolean;
+};
+
 /**
- * Per-journey Express legs. BFS/BHD airport trips charge once (not per return leg).
- * Service follows outbound direction (fromAirport → pick-up, else drop-off).
+ * Per-leg Express eligibility. BFS/BHD airport trips offer Express on each
+ * applicable leg. A return flips direction on the same airport
+ * (to-airport outbound = drop-off; return = pick-up, and vice versa).
  */
 export function resolveExpressDropOffLegs(input: {
   airportCode?: string | null;
   fromAirport?: boolean | null;
   returnJourney?: boolean | null;
-}): Array<{
-  leg: "outbound" | "return";
-  service: ExpressAirportService;
-  airportCode: ExpressDropOffAirportCode;
-  feeGbp: number;
-}> {
+}): ExpressDropOffLeg[] {
   const airportCode = normaliseExpressDropOffAirport(input.airportCode);
   if (!airportCode) {
     return [];
   }
 
-  const service = resolveExpressAirportService({ fromAirport: input.fromAirport });
+  const outboundFromAirport = input.fromAirport === true;
+  const outboundService = resolveExpressAirportService({
+    fromAirport: outboundFromAirport,
+  });
   const feeGbp = EXPRESS_DROP_OFF_FEES_GBP[airportCode];
+  const outbound: ExpressDropOffLeg = {
+    leg: "outbound",
+    service: outboundService,
+    airportCode,
+    feeGbp,
+    fromAirport: outboundFromAirport,
+  };
 
-  // One Express charge per BFS/BHD airport journey (covers outbound / return access).
-  return [{ leg: "outbound", service, airportCode, feeGbp }];
+  if (!input.returnJourney) {
+    return [outbound];
+  }
+
+  const returnFromAirport = !outboundFromAirport;
+  return [
+    outbound,
+    {
+      leg: "return",
+      service: resolveExpressAirportService({ fromAirport: returnFromAirport }),
+      airportCode,
+      feeGbp,
+      fromAirport: returnFromAirport,
+    },
+  ];
 }
+
+export type ExpressDropOffResolvedLeg = ExpressDropOffLeg & {
+  selected: boolean;
+  feeIfSelectedGbp: number;
+  chargedFeeGbp: number;
+  freeAlternativeAvailable: boolean;
+};
 
 export type ExpressDropOffSelection = {
   /** Whether the option UI applies for this journey. */
   eligible: boolean;
   /** Airport the optional charge relates to. */
   airportCode: ExpressDropOffAirportCode | null;
-  /** drop-off vs pick-up copy for the selector. */
+  /** drop-off vs pick-up copy for the primary/outbound selector. */
   service: ExpressAirportService | null;
-  /** Customer may choose the free alternative location. */
+  /** Customer may choose the free alternative on at least one eligible leg. */
   freeAlternativeAvailable: boolean;
-  /** Fee when selected. */
+  /** Fee when every eligible leg is selected. */
   feeIfSelectedGbp: number;
-  /** Customer chose Express (ignored when not eligible). */
+  /** True when any eligible leg is on Express. */
   selected: boolean;
-  /** Fee actually charged (0 when not eligible or not selected). */
+  /** Sum of charged Express fees across selected legs. */
   feeGbp: number;
-  legs: Array<{
-    leg: "outbound" | "return";
-    service: ExpressAirportService;
-    airportCode: ExpressDropOffAirportCode;
-    feeGbp: number;
-  }>;
+  outboundSelected: boolean;
+  returnSelected: boolean;
+  outboundFeeGbp: number;
+  returnFeeGbp: number;
+  legs: ExpressDropOffResolvedLeg[];
 };
+
+function resolveLegSelected(input: {
+  selected?: boolean | null;
+  outboundSelected?: boolean | null;
+  returnSelected?: boolean | null;
+  leg: "outbound" | "return";
+  freeAlternativeAvailable: boolean;
+}): boolean {
+  if (!input.freeAlternativeAvailable) return true;
+  const perLeg =
+    input.leg === "return" ? input.returnSelected : input.outboundSelected;
+  if (typeof perLeg === "boolean") return perLeg;
+  return input.selected !== false;
+}
 
 /**
  * Resolve Express Drop-Off / Pick-Up for a journey.
- * `selected` defaults to true when eligible (product default).
- * When no free alternative is available, selection is forced on.
+ * `selected` defaults to true when eligible (product default) and applies to
+ * every leg that has no explicit outbound/return choice.
+ * When no free alternative is available on a leg, that leg stays on Express.
  */
 export function resolveExpressDropOff(input: {
   airportCode?: string | null;
   fromAirport?: boolean | null;
   returnJourney?: boolean | null;
-  /** Explicit customer/owner choice; default true when eligible. */
+  /** Explicit customer/owner choice applied to every unspecified leg. */
   selected?: boolean | null;
+  outboundSelected?: boolean | null;
+  returnSelected?: boolean | null;
 }): ExpressDropOffSelection {
-  const legs = resolveExpressDropOffLegs(input);
+  const rawLegs = resolveExpressDropOffLegs(input);
+  const legs: ExpressDropOffResolvedLeg[] = rawLegs.map((leg) => {
+    const freeAlternativeAvailable = canOfferExpressFreeAlternative({
+      airportCode: leg.airportCode,
+      service: leg.service,
+    });
+    const selected = resolveLegSelected({
+      selected: input.selected,
+      outboundSelected: input.outboundSelected,
+      returnSelected: input.returnSelected,
+      leg: leg.leg,
+      freeAlternativeAvailable,
+    });
+    const feeIfSelectedGbp = roundGbp(leg.feeGbp);
+    return {
+      ...leg,
+      selected,
+      freeAlternativeAvailable,
+      feeIfSelectedGbp,
+      chargedFeeGbp: selected ? feeIfSelectedGbp : 0,
+    };
+  });
   const eligible = legs.length > 0;
   const airportCode = eligible ? legs[0]!.airportCode : null;
   const service = eligible ? legs[0]!.service : null;
-  const freeAlternativeAvailable = eligible
-    ? canOfferExpressFreeAlternative({ airportCode, service })
-    : false;
+  const freeAlternativeAvailable = legs.some((leg) => leg.freeAlternativeAvailable);
   const feeIfSelectedGbp = roundGbp(
-    legs.reduce((sum, leg) => sum + leg.feeGbp, 0),
+    legs.reduce((sum, leg) => sum + leg.feeIfSelectedGbp, 0),
   );
-  // No free alternative → Express stays selected (cannot opt out).
-  const selected = eligible
-    ? freeAlternativeAvailable
-      ? input.selected !== false
-      : true
-    : false;
-  const feeGbp = selected ? feeIfSelectedGbp : 0;
+  const outbound = legs.find((leg) => leg.leg === "outbound");
+  const ret = legs.find((leg) => leg.leg === "return");
+  const outboundSelected = outbound?.selected ?? false;
+  const returnSelected = ret?.selected ?? false;
+  const outboundFeeGbp = outbound?.chargedFeeGbp ?? 0;
+  const returnFeeGbp = ret?.chargedFeeGbp ?? 0;
+  const feeGbp = roundGbp(outboundFeeGbp + returnFeeGbp);
+  const selected = eligible && legs.some((leg) => leg.selected);
 
   return {
     eligible,
@@ -206,6 +277,10 @@ export function resolveExpressDropOff(input: {
     feeIfSelectedGbp,
     selected,
     feeGbp,
+    outboundSelected,
+    returnSelected,
+    outboundFeeGbp,
+    returnFeeGbp,
     legs,
   };
 }
@@ -311,23 +386,86 @@ export function expressAvoidedChargeMessage(
     : "You’ve avoided the Express Drop-Off charge";
 }
 
+/**
+ * Combined return-booking airport access choice (customer-facing UX).
+ *
+ * Internally each leg is still resolved and stored independently (see
+ * `resolveExpressDropOffLegs` / `ExpressDropOffResolvedLeg`), but on a return
+ * journey the customer is shown a single "Airport access" control that applies
+ * the same Express/free choice to both the outbound and return legs together —
+ * it reduces mobile clutter and surfaces the full £ difference in one place.
+ */
+export const COMBINED_AIRPORT_ACCESS_RETURN_NOTE =
+  "For return bookings, your selection applies to both your outbound and return airport journeys.";
+
+export function combinedAirportAccessRecommendedLabel(totalFeeGbp: number): string {
+  return `Express airport access — ${formatExpressDropOffGbp(totalFeeGbp)} total (Recommended)`;
+}
+
+export function combinedAirportAccessRemoveLabel(totalFeeGbp: number): string {
+  return `Use the designated free airport areas — save ${formatExpressDropOffGbp(totalFeeGbp)}`;
+}
+
+export function combinedAirportAccessConfirmRemovalLabel(): string {
+  return "I understand that the designated free airport areas will be used for both journeys.";
+}
+
+export function combinedAirportAccessBreakdownLabel(
+  selected: boolean,
+  totalFeeGbp: number,
+): string {
+  if (selected) {
+    return `Express airport access (both journeys): ${formatExpressDropOffGbp(totalFeeGbp)}`;
+  }
+  return `Free airport areas selected (both journeys) — you save ${formatExpressDropOffGbp(totalFeeGbp)}`;
+}
+
+/** True only when every leg can offer the free alternative — required to show the combined free option. */
+export function combinedFreeAlternativeAvailable(
+  legs: Pick<ExpressDropOffResolvedLeg, "freeAlternativeAvailable">[],
+): boolean {
+  return legs.length > 0 && legs.every((leg) => leg.freeAlternativeAvailable);
+}
+
+/** Explicit customer choice — never infer from final price alone. */
+export type AirportAccessOption = "express" | "free";
+
 /** Structured fields for quotes / bookings / emails. */
 export type ExpressDropOffPersistedFields = {
   expressDropOffSelected: boolean;
   expressDropOffFee: number;
   expressDropOffAirport: ExpressDropOffAirportCode | null;
+  outboundExpressDropOffSelected?: boolean;
+  returnExpressDropOffSelected?: boolean;
+  outboundAirportAccessOption?: AirportAccessOption | null;
+  returnAirportAccessOption?: AirportAccessOption | null;
+  outboundAirportAccessChargeGbp?: number;
+  returnAirportAccessChargeGbp?: number;
 };
-
-/** Explicit customer choice — never infer from final price alone. */
-export type AirportAccessOption = "express" | "free";
 
 export function toExpressDropOffPersistedFields(
   selection: ExpressDropOffSelection,
 ): ExpressDropOffPersistedFields {
+  const outbound = selection.legs.find((leg) => leg.leg === "outbound");
+  const ret = selection.legs.find((leg) => leg.leg === "return");
   return {
     expressDropOffSelected: selection.eligible ? selection.selected : false,
     expressDropOffFee: selection.feeGbp,
     expressDropOffAirport: selection.eligible ? selection.airportCode : null,
+    ...(outbound
+      ? {
+          outboundExpressDropOffSelected: outbound.selected,
+          outboundAirportAccessOption: outbound.selected ? "express" : "free",
+          outboundAirportAccessChargeGbp: outbound.chargedFeeGbp,
+        }
+      : {}),
+    ...(ret
+      ? {
+          returnExpressDropOffSelected: ret.selected,
+          returnAirportAccessOption: ret.selected ? "express" : "free",
+          returnAirportAccessChargeGbp: ret.chargedFeeGbp,
+        }
+      : {}),
   };
 }
 
@@ -384,6 +522,119 @@ export function formatAirportAccessOptionCustomerLine(input: {
     return "Airport access option: Free designated pick-up area — short walk from terminal";
   }
   return "Airport access option: Free designated drop-off area — short walk to terminal";
+}
+
+function formatAirportAccessLegCustomerValue(input: {
+  option: AirportAccessOption;
+  airportCode: ExpressDropOffAirportCode;
+  service: ExpressAirportService;
+  feeGbp?: number;
+}): string {
+  const product = input.service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
+  if (input.option === "express") {
+    const fee =
+      typeof input.feeGbp === "number" && input.feeGbp > 0
+        ? roundGbp(input.feeGbp)
+        : EXPRESS_DROP_OFF_FEES_GBP[input.airportCode];
+    return `${product} — ${formatExpressDropOffGbp(fee)}`;
+  }
+  return input.service === "pick-up"
+    ? "Free designated pick-up area — short walk from terminal"
+    : "Free designated drop-off area — short walk to terminal";
+}
+
+/**
+ * Customer confirmation lines. Return bookings get one line per applicable leg.
+ */
+export function formatAirportAccessOptionCustomerLines(input: {
+  expressDropOffSelected?: boolean | null;
+  expressDropOffFee?: number | null;
+  expressDropOffAirport?: string | null;
+  fromAirport?: boolean | null;
+  returnJourney?: boolean | null;
+  outboundExpressDropOffSelected?: boolean | null;
+  returnExpressDropOffSelected?: boolean | null;
+  outboundAirportAccessChargeGbp?: number | null;
+  returnAirportAccessChargeGbp?: number | null;
+}): string[] {
+  const selection = resolveExpressDropOff({
+    airportCode: input.expressDropOffAirport,
+    fromAirport: input.fromAirport,
+    returnJourney: input.returnJourney,
+    selected: input.expressDropOffSelected,
+    outboundSelected: input.outboundExpressDropOffSelected,
+    returnSelected: input.returnExpressDropOffSelected,
+  });
+  if (!selection.eligible) return [];
+  if (selection.legs.length <= 1) {
+    const one = formatAirportAccessOptionCustomerLine({
+      ...input,
+      service: selection.service,
+      expressDropOffFee: selection.feeGbp,
+    });
+    return one ? [one] : [];
+  }
+  return selection.legs.map((leg) => {
+    const charged =
+      leg.leg === "return"
+        ? input.returnAirportAccessChargeGbp
+        : input.outboundAirportAccessChargeGbp;
+    const value = formatAirportAccessLegCustomerValue({
+      option: leg.selected ? "express" : "free",
+      airportCode: leg.airportCode,
+      service: leg.service,
+      feeGbp: typeof charged === "number" ? charged : leg.chargedFeeGbp,
+    });
+    const prefix = leg.leg === "outbound" ? "Outbound" : "Return";
+    return `${prefix} airport access: ${value}`;
+  });
+}
+
+export function formatAirportAccessOptionOwnerLines(input: {
+  expressDropOffSelected?: boolean | null;
+  expressDropOffFee?: number | null;
+  expressDropOffAirport?: string | null;
+  fromAirport?: boolean | null;
+  returnJourney?: boolean | null;
+  outboundExpressDropOffSelected?: boolean | null;
+  returnExpressDropOffSelected?: boolean | null;
+  outboundAirportAccessChargeGbp?: number | null;
+  returnAirportAccessChargeGbp?: number | null;
+}): string[] {
+  const selection = resolveExpressDropOff({
+    airportCode: input.expressDropOffAirport,
+    fromAirport: input.fromAirport,
+    returnJourney: input.returnJourney,
+    selected: input.expressDropOffSelected,
+    outboundSelected: input.outboundExpressDropOffSelected,
+    returnSelected: input.returnExpressDropOffSelected,
+  });
+  if (!selection.eligible) return [];
+  if (selection.legs.length <= 1) {
+    const one = formatAirportAccessOptionOwnerLine({
+      ...input,
+      service: selection.service,
+      expressDropOffFee: selection.feeGbp,
+    });
+    return one ? [one] : [];
+  }
+  return selection.legs.map((leg) => {
+    const charged =
+      leg.leg === "return"
+        ? input.returnAirportAccessChargeGbp
+        : input.outboundAirportAccessChargeGbp;
+    const prefix = leg.leg === "outbound" ? "OUTBOUND" : "RETURN";
+    if (leg.selected) {
+      const fee =
+        typeof charged === "number" && charged > 0
+          ? roundGbp(charged)
+          : EXPRESS_DROP_OFF_FEES_GBP[leg.airportCode];
+      return `${prefix} AIRPORT ACCESS: EXPRESS — ${formatExpressDropOffGbp(fee)} PAID`;
+    }
+    return leg.service === "pick-up"
+      ? `${prefix} AIRPORT ACCESS: FREE PICK-UP AREA`
+      : `${prefix} AIRPORT ACCESS: FREE DROP-OFF AREA`;
+  });
 }
 
 /**
@@ -457,6 +708,28 @@ export function canProceedWithoutExpressDropOff(input: {
   if (!input.eligible || input.selected) return true;
   if (input.freeAlternativeAvailable === false) return false;
   return Boolean(input.removalAcknowledged);
+}
+
+/** Every free-alternative Express leg must be acknowledged independently. */
+export function canProceedWithoutExpressDropOffLegs(
+  selection: ExpressDropOffSelection,
+  acknowledgements: {
+    outbound?: boolean;
+    return?: boolean;
+  },
+): boolean {
+  if (!selection.eligible) return true;
+  return selection.legs.every((leg) =>
+    canProceedWithoutExpressDropOff({
+      eligible: true,
+      selected: leg.selected,
+      removalAcknowledged:
+        leg.leg === "return"
+          ? Boolean(acknowledgements.return)
+          : Boolean(acknowledgements.outbound),
+      freeAlternativeAvailable: leg.freeAlternativeAvailable,
+    }),
+  );
 }
 
 /** Parse customer Express choice — fee amounts from the browser are ignored. */
