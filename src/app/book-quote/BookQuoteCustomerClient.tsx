@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
+import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
+import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -523,22 +525,27 @@ function BookQuoteInner() {
         />
       </div>
 
-      {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
-
-      <button
-        type="button"
-        disabled={paying}
-        onClick={() => void pay()}
-        className="min-h-12 w-full max-w-full break-words rounded-xl bg-emerald px-4 py-3 text-base font-semibold leading-snug text-navy disabled:opacity-50"
-      >
-        {paying
-          ? "Starting secure payment…"
-          : `Confirm Booking & Pay ${
-              displayPricing
-                ? formatQuickQuoteAmount(displayPricing.totalGbp)
-                : quote.quotedAmountLabel
-            }`}
-      </button>
+      {isCustomerSmartAvailabilityBlockMessage(error) ? (
+        <CustomerSmartAvailabilityBlocked message={error} />
+      ) : (
+        <>
+          {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
+          <button
+            type="button"
+            disabled={paying}
+            onClick={() => void pay()}
+            className="min-h-12 w-full max-w-full break-words rounded-xl bg-emerald px-4 py-3 text-base font-semibold leading-snug text-navy disabled:opacity-50"
+          >
+            {paying
+              ? "Starting secure payment…"
+              : `Confirm Booking & Pay ${
+                  displayPricing
+                    ? formatQuickQuoteAmount(displayPricing.totalGbp)
+                    : quote.quotedAmountLabel
+                }`}
+          </button>
+        </>
+      )}
       <p className="break-words px-1 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-white/45">
         You will complete payment on SumUp’s secure hosted checkout. Card details are never entered
         on this site.

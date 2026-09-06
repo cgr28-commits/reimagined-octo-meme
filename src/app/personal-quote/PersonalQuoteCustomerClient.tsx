@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
+import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
+import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -673,17 +675,22 @@ function PersonalQuoteInner() {
           paymentAmountLabel={paymentDisplay.paymentAmountLabel}
         />
 
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
-        <button
-          type="submit"
-          disabled={paying || !termsAccepted}
-          className="mt-1 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald px-5 py-3 text-base font-bold text-navy disabled:opacity-60"
-        >
-          {paying
-            ? "Opening secure payment…"
-            : `Pay ${paymentDisplay.paymentAmountLabel} securely with SumUp`}
-        </button>
+        {isCustomerSmartAvailabilityBlockMessage(error) ? (
+          <CustomerSmartAvailabilityBlocked message={error} />
+        ) : (
+          <>
+            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            <button
+              type="submit"
+              disabled={paying || !termsAccepted}
+              className="mt-1 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald px-5 py-3 text-base font-bold text-navy disabled:opacity-60"
+            >
+              {paying
+                ? "Opening secure payment…"
+                : `Pay ${paymentDisplay.paymentAmountLabel} securely with SumUp`}
+            </button>
+          </>
+        )}
         <p className="text-center text-xs text-white/45">
           You will not be asked to run the website quote tool. The agreed fare stays fixed.
         </p>

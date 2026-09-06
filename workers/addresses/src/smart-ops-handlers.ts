@@ -33,6 +33,13 @@ import {
   type SmartReturnParent,
 } from "../shared/smart-return";
 import { evaluateSmartOpsShadow } from "../shared/smart-shadow";
+import {
+  customerSmartAvailabilityPreviewRequested as previewRequestedFromRequest,
+  decideCustomerSmartAvailabilityGate,
+  shouldEnforceCustomerSmartAvailability,
+  type CustomerBookingAvailabilityInput,
+  type CustomerSmartAvailabilityGate,
+} from "../shared/customer-smart-availability";
 import { getBookingSettings } from "./booking-settings-store";
 import {
   appendSmartShadowRecord,
@@ -92,6 +99,62 @@ async function loadOccupied(
     if (parent) parents.push(parent);
   }
   return { occupied, parents };
+}
+
+/**
+ * Customer payment/quote gate. Flag OFF and non-preview → allow.
+ * Fail-open on unexpected errors so quoting/payment cannot break.
+ */
+export async function enforceCustomerSmartAvailabilityGate(input: {
+  store?: KVNamespace;
+  booking: CustomerBookingAvailabilityInput;
+  origin?: string | null;
+  previewRequested?: boolean;
+  now?: Date;
+}): Promise<CustomerSmartAvailabilityGate> {
+  const allow: CustomerSmartAvailabilityGate = {
+    enforce: false,
+    available: true,
+    blocked: false,
+    customerMessage: null,
+    reason: null,
+    decision: null,
+  };
+  if (!input.store) return allow;
+  try {
+    const state = await getSmartOpsState(input.store);
+    const enforce = shouldEnforceCustomerSmartAvailability({
+      smartAvailabilityFlag: state.config.flags.smartAvailability === true,
+      origin: input.origin,
+      previewRequested: input.previewRequested === true,
+    });
+    if (!enforce) return allow;
+    const settings = await getBookingSettings(input.store);
+    const tripDate = String(input.booking.tripDate || "");
+    const { occupied } = await loadOccupied(input.store, {
+      fromYmd: addDaysYmd(tripDate || londonYmd(), -3),
+      toYmd: addDaysYmd(tripDate || londonYmd(), 3),
+    });
+    return decideCustomerSmartAvailabilityGate({
+      enforce: true,
+      booking: input.booking,
+      occupied,
+      rules: state.rules,
+      exceptions: state.exceptions,
+      legacyPeriods: settings.unavailablePeriods,
+      config: state.config,
+      now: input.now,
+    });
+  } catch {
+    return allow;
+  }
+}
+
+export function customerSmartAvailabilityPreviewRequested(request: Request): boolean {
+  return previewRequestedFromRequest({
+    headers: request.headers,
+    url: request.url,
+  });
 }
 
 export function isOwnerSmartOpsPath(pathname: string): boolean {

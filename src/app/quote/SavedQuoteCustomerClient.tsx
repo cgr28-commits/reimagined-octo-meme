@@ -4,6 +4,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
+import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
+import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -571,19 +573,24 @@ function SavedQuoteInner() {
             error={!termsAccepted && error.includes("Terms") ? error : undefined}
           />
 
-          {error ? (
-            <p className="text-sm text-red-300" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={paying}
-            className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {paying ? "Starting secure payment…" : "Confirm Booking & Pay Securely"}
-          </button>
+          {isCustomerSmartAvailabilityBlockMessage(error) ? (
+            <CustomerSmartAvailabilityBlocked message={error} />
+          ) : (
+            <>
+              {error ? (
+                <p className="text-sm text-red-300" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <button
+                type="submit"
+                disabled={paying}
+                className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {paying ? "Starting secure payment…" : "Confirm Booking & Pay Securely"}
+              </button>
+            </>
+          )}
           <p className="text-center text-xs text-white/45">
             Secure card payment powered by SumUp.
           </p>

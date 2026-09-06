@@ -21,7 +21,11 @@ import {
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
-import { recordQuoteShadowSafely } from "./smart-ops-handlers";
+import {
+  customerSmartAvailabilityPreviewRequested,
+  enforceCustomerSmartAvailabilityGate,
+  recordQuoteShadowSafely,
+} from "./smart-ops-handlers";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
@@ -360,11 +364,41 @@ export async function handleQuoteCalculateRequest(
     return json({ ...result, diagnostics }, 422, origin);
   }
 
-  const quoteBody = {
+  const quoteBody: Record<string, unknown> = {
     ...result,
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,
   };
+
+  if (env?.TRACKING_STORE) {
+    const availabilityGate = await enforceCustomerSmartAvailabilityGate({
+      store: env.TRACKING_STORE,
+      origin,
+      previewRequested: customerSmartAvailabilityPreviewRequested(request),
+      booking: {
+        pickupLabel: pickupAddress,
+        dropoffLabel: dropoffAddress,
+        tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
+        tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
+        returnJourney,
+        returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
+        returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
+        vehicle: resolved.vehicleType,
+        airportCode,
+        isFromAirport: fromAirport,
+        routeDurationMinutes: routeMetrics.durationMinutes,
+      },
+    });
+    if (availabilityGate.enforce) {
+      quoteBody.smartAvailability = {
+        enforced: true,
+        available: availabilityGate.available,
+        blocked: availabilityGate.blocked,
+        customerMessage: availabilityGate.customerMessage,
+        reason: availabilityGate.reason,
+      };
+    }
+  }
 
   if (env?.TRACKING_STORE) {
     const outboundDate = String(body.outboundDate ?? schedule.outboundDate ?? "");

@@ -1,4 +1,8 @@
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import {
+  customerSmartAvailabilityPreviewHeaders,
+  withCustomerSmartAvailabilityPreviewUrl,
+} from "@/lib/customer-smart-availability-client";
 import type {
   QuickQuoteDiscountType,
   QuickQuoteJourney,
@@ -90,16 +94,20 @@ export async function calculateServerQuote(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
+    ...customerSmartAvailabilityPreviewHeaders(),
   };
   if (ownerKey?.trim()) {
     headers["X-Owner-Key"] = ownerKey.trim();
   }
-  const response = await fetch(`${WORKER_BASE}/quote/calculate`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(journey),
-    cache: "no-store",
-  });
+  const response = await fetch(
+    withCustomerSmartAvailabilityPreviewUrl(`${WORKER_BASE}/quote/calculate`),
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(journey),
+      cache: "no-store",
+    },
+  );
   const payload = await parseJson(response);
   if (!response.ok) {
     return {

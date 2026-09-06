@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
+import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -64,11 +66,6 @@ function A2aQuotePayInner() {
     try {
       if (!isSumUpPaymentEnabled()) {
         throw new Error("Online payment is not configured");
-      }
-      // Prefer existing SumUp hosted URL from Owner approval when still valid.
-      if (summary.paymentUrl) {
-        window.location.assign(summary.paymentUrl);
-        return;
       }
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
@@ -258,9 +255,15 @@ function A2aQuotePayInner() {
         </>
       )}
 
-      {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
+      {isCustomerSmartAvailabilityBlockMessage(error) ? (
+        <div className="mt-4">
+          <CustomerSmartAvailabilityBlocked message={error} />
+        </div>
+      ) : error ? (
+        <p className="mt-4 text-sm text-red-300">{error}</p>
+      ) : null}
 
-      {summary.payable ? (
+      {summary.payable && !isCustomerSmartAvailabilityBlockMessage(error) ? (
         <>
           <button
             type="button"
@@ -274,7 +277,7 @@ function A2aQuotePayInner() {
             Secure card payment powered by SumUp.
           </p>
         </>
-      ) : (
+      ) : !isCustomerSmartAvailabilityBlockMessage(error) && !summary.payable ? (
         <p className="mt-6 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           {summary.status === "AWAITING_QUOTE"
             ? "This request is still awaiting a quote from us."
@@ -282,7 +285,7 @@ function A2aQuotePayInner() {
               ? "This quote has already been paid."
               : A2A_QUOTE_EXPIRED_CUSTOMER_MESSAGE}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
+import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -171,9 +173,15 @@ function ShortNoticePayInner() {
         </div>
       </dl>
 
-      {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
+      {isCustomerSmartAvailabilityBlockMessage(error) ? (
+        <div className="mt-4">
+          <CustomerSmartAvailabilityBlocked message={error} />
+        </div>
+      ) : error ? (
+        <p className="mt-4 text-sm text-red-300">{error}</p>
+      ) : null}
 
-      {summary.payable ? (
+      {summary.payable && !isCustomerSmartAvailabilityBlockMessage(error) ? (
         <button
           type="button"
           disabled={paying}
@@ -182,7 +190,7 @@ function ShortNoticePayInner() {
         >
           {paying ? "Opening secure payment…" : "Pay Securely"}
         </button>
-      ) : (
+      ) : !isCustomerSmartAvailabilityBlockMessage(error) && !summary.payable ? (
         <p className="mt-6 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           {summary.status === "SHORT_NOTICE_AWAITING_APPROVAL"
             ? "This booking is still awaiting Owner approval."
@@ -192,7 +200,7 @@ function ShortNoticePayInner() {
                 ? "This booking is already paid."
                 : "This payment link is no longer payable."}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

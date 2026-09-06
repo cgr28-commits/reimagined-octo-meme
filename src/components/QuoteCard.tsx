@@ -110,6 +110,7 @@ import {
   isPaymentRouteServiceUnavailableError,
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
+import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import {
   ROUTE_RECONFIRMATION_MESSAGE,
   ROUTE_SERVICE_UNAVAILABLE_MESSAGE,
@@ -2662,6 +2663,10 @@ function QuoteCard({
     (pricedFare?.totalGbp != null ? pricedFare.totalGbp : liveQuote?.amount ?? null);
 
   async function handlePayNow() {
+    if (isCustomerSmartAvailabilityBlockMessage(paymentError)) {
+      return;
+    }
+
     if (!liveQuote || paymentLoading || !canPayNowOnline) {
       if (!canPayNowOnline) {
         if (routeValidationBlockingPayment) {
@@ -5880,7 +5885,12 @@ function QuoteCard({
                     {renderBookingErrorHelp("payment-actions")}
                   </div>
                 ) : null}
-                {openCheckout ? (
+                {isCustomerSmartAvailabilityBlockMessage(paymentError) ? (
+                  <p className="quote-secondary text-xs leading-relaxed">
+                    You can still message us on WhatsApp or send an enquiry. Online payment is
+                    paused for this pickup time only.
+                  </p>
+                ) : openCheckout ? (
                   <div className="space-y-3 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4">
                     <p className="text-sm font-semibold text-emerald">Secure payment ready</p>
                     <p className="text-xs leading-relaxed text-white/75">

@@ -19,10 +19,10 @@ name: Deploy Pages Preview
         description: "Optional note for this preview deploy"
         required: false
         default: "PR smoke-test preview"
-  # Owner-only interactive test of draft PR #460. Does not publish to the live site.
+  # Owner-only interactive test of draft PRs. Does not publish to the live site.
   push:
     branches:
-      - cursor/smart-availability-return-pricing-514b
+      - cursor/customer-smart-availability-gate-514b
 
 concurrency:
   group: pages-preview
@@ -47,6 +47,42 @@ jobs:
 
       - run: npm ci
 
+      - name: Upload Worker preview version (does not change production traffic)
+        id: worker_preview
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          node ../../scripts/sync-worker-shared.mjs
+          npm ci
+          npm install --no-save wrangler@3.109.0
+          DEFAULT_WORKER="https://reimagined-octo-meme.cgr28.workers.dev"
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "::warning::Skipping Worker version upload — preview will call the production Worker, which cannot enforce the customer gate until this code is on a Worker version."
+            echo "url=$DEFAULT_WORKER" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          set +e
+          OUTPUT="$(npx wrangler versions upload --message "customer-smart-availability-gate preview ${GITHUB_SHA}" 2>&1)"
+          STATUS=$?
+          set -e
+          echo "$OUTPUT"
+          if [ "$STATUS" -ne 0 ]; then
+            echo "::warning::Worker version upload failed — Pages preview will call the production Worker. Production smartAvailability stays OFF."
+            echo "url=$DEFAULT_WORKER" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PREVIEW="$(printf '%s\n' "$OUTPUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' | tail -1 || true)"
+          if [ -z "$PREVIEW" ]; then
+            echo "::warning::Could not parse Worker preview URL — falling back to production Worker."
+            echo "url=$DEFAULT_WORKER" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "url=$PREVIEW" >> "$GITHUB_OUTPUT"
+          echo "::notice::Worker preview version (not production traffic): $PREVIEW"
+
       - name: Build static site (preview)
         env:
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
@@ -62,7 +98,10 @@ jobs:
           GOOGLE_ADS_BOOKING_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_BOOKING_CONVERSION_LABEL }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
-          if [ -z "$BOOKINGS_API_URL" ] || [[ "$BOOKINGS_API_URL" == *"myairporttaxini.co.uk"* ]]; then
+          WORKER_PREVIEW="${{ steps.worker_preview.outputs.url }}"
+          if [ -n "$WORKER_PREVIEW" ]; then
+            BOOKINGS_API_URL="${WORKER_PREVIEW%/}/bookings"
+          elif [ -z "$BOOKINGS_API_URL" ] || [[ "$BOOKINGS_API_URL" == *"myairporttaxini.co.uk"* ]]; then
             BOOKINGS_API_URL="https://reimagined-octo-meme.cgr28.workers.dev/bookings"
           fi
           ADDRESSES_API_URL="${BOOKINGS_API_URL%/bookings}/addresses"
