@@ -19,6 +19,8 @@ const hero = read("src/components/HeroSlideshow.tsx");
 assert.match(hero, /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(500px,600px\)\]/);
 assert.match(hero, /lg:max-w-\[1400px\]/);
 assert.match(hero, /lg:items-start/);
+assert.match(hero, /md:order-2 lg:order-1/);
+assert.match(hero, /md:order-1 md:scroll-mt-28 lg:order-2/);
 assert.doesNotMatch(hero, /lg:max-w-md/);
 assert.match(hero, /font-display/);
 assert.match(hero, /id="quote"/);

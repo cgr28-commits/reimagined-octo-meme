@@ -56,10 +56,12 @@ console.log("\n=== 5. Mobile above-the-fold compaction ===");
 {
   const card = read("src/components/QuoteCard.tsx");
   assert.match(hero, /pt-20 md:pt-28/);
+  assert.match(hero, /order-1 min-w-0 md:order-2 lg:order-1/);
+  assert.match(hero, /gap-3\.5/);
   assert.match(card, /Get your fixed price in three quick steps\./);
   assert.doesNotMatch(card.match(/md:hidden[\s\S]{0,200}Get your fixed price/)?.[0] ?? "", /Book and pay securely online/);
   assert.match(card, /Three quick steps — your journey/);
-  console.log("OK  mobile quote intro is compacted; desktop copy retained");
+  console.log("OK  mobile service message sits above quote; quote intro stays compacted");
 }
 
 console.log("\nAll homepage hero CTA checks passed.");

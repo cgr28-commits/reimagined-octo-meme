@@ -14,16 +14,21 @@ const logo = fs.readFileSync(path.join(root, "src/components/Logo.tsx"), "utf8")
 
 assert.match(hero, /Belfast Airport Transfers/);
 assert.match(hero, /– Pre-Booked 24\/7/);
-assert.match(
+assert.doesNotMatch(
   hero,
-  /whitespace-nowrap">– Pre-Booked 24\/7/,
-  "Pre-Booked 24/7 should stay on one line when the H1 wraps",
+  /whitespace-nowrap/,
+  "H1 should wrap naturally — do not force Pre-Booked 24/7 onto one line",
 );
 assert.match(hero, /text-balance/, "longer H1 should use text-balance for clean wraps");
 assert.doesNotMatch(
   hero,
   /<h1[\s\S]*?>[\s\S]*My Airport Taxi NI/,
   "homepage H1 should no longer be the brand name",
+);
+assert.match(
+  hero,
+  /Fixed-price, pre-booked transfers to Belfast International, Belfast City and Dublin Airport\./,
+  "mobile hero should use the shorter pre-booked supporting line",
 );
 
 assert.match(
