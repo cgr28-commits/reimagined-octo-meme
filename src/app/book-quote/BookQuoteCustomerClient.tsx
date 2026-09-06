@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
+import { useCustomerSmartAvailabilityPreflight } from "@/lib/use-customer-smart-availability-preflight";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -113,6 +114,23 @@ function BookQuoteInner() {
   }, [id]);
 
   const journey = quote?.journey;
+
+  useCustomerSmartAvailabilityPreflight(
+    journey
+      ? {
+          pickupLabel: journey.pickupAddress,
+          dropoffLabel: journey.dropoffAddress,
+          tripDate,
+          tripTime,
+          returnJourney: Boolean(journey.returnJourney),
+          returnDate,
+          returnTime,
+          airportCode: journey.airportCode,
+          isFromAirport: journey.fromAirport,
+        }
+      : null,
+    setError,
+  );
 
   const expressSelection = useMemo(() => {
     if (!journey) {

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
+import { useCustomerSmartAvailabilityPreflight } from "@/lib/use-customer-smart-availability-preflight";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -207,6 +208,23 @@ function SavedQuoteInner() {
     tripTime,
     effectiveAmountLabel,
   ]);
+
+  useCustomerSmartAvailabilityPreflight(
+    booking
+      ? {
+          pickupLabel: booking.pickupLabel,
+          dropoffLabel: booking.dropoffLabel,
+          tripDate: booking.tripDate,
+          tripTime: booking.tripTime,
+          returnJourney: booking.returnJourney,
+          returnDate: booking.returnDate,
+          returnTime: booking.returnTime,
+          airportCode: booking.airportCode,
+          isFromAirport: booking.isFromAirport,
+        }
+      : null,
+    setError,
+  );
 
   async function pay() {
     setError("");

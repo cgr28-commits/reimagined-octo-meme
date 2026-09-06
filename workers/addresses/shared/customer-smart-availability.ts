@@ -180,6 +180,25 @@ export type CustomerSmartAvailabilityGate = {
   decision: SmartAvailabilityDecision | null;
 };
 
+/** Customer-visible payload only — never includes owner reason codes or diagnostics. */
+export type PublicCustomerSmartAvailability = {
+  enforced: boolean;
+  available: boolean;
+  blocked: boolean;
+  customerMessage: string | null;
+};
+
+export function toPublicCustomerSmartAvailability(
+  gate: CustomerSmartAvailabilityGate,
+): PublicCustomerSmartAvailability {
+  return {
+    enforced: gate.enforce,
+    available: gate.available,
+    blocked: gate.blocked,
+    customerMessage: gate.blocked ? CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE : gate.customerMessage,
+  };
+}
+
 export function decideCustomerSmartAvailabilityGate(input: {
   enforce: boolean;
   booking: CustomerBookingAvailabilityInput;

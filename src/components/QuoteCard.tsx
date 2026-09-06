@@ -110,7 +110,15 @@ import {
   isPaymentRouteServiceUnavailableError,
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
-import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
+import {
+  checkCustomerSmartAvailability,
+  CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
+  isCustomerSmartAvailabilityBlockMessage,
+  rememberCustomerSmartAvailabilityPreview,
+} from "@/lib/customer-smart-availability-client";
+import { QUOTE_REQUIRED_FIELD_MESSAGES } from "../../shared/quote-required-field-messages";
+import { planJourneyDirectionDependentReset } from "../../shared/quote-journey-direction";
+import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
 import {
   ROUTE_RECONFIRMATION_MESSAGE,
   ROUTE_SERVICE_UNAVAILABLE_MESSAGE,
@@ -626,6 +634,9 @@ function QuoteCard({
   );
   const [pickupPlaceError, setPickupPlaceError] = useState("");
   const [dropoffPlaceError, setDropoffPlaceError] = useState("");
+  const [passengersError, setPassengersError] = useState("");
+  const [suitcasesError, setSuitcasesError] = useState("");
+  const [smartAvailabilityBlocked, setSmartAvailabilityBlocked] = useState(false);
   /** Returning customer must re-pick Places when restore lacked coords / mismatched text. */
   const [routeReconfirmationRequired, setRouteReconfirmationRequired] = useState(false);
   const [pickupRestoredHint, setPickupRestoredHint] = useState(false);
@@ -853,6 +864,10 @@ function QuoteCard({
       setTripMode("airport");
     }
   }, [tripMode]);
+
+  useEffect(() => {
+    rememberCustomerSmartAvailabilityPreview();
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1494,6 +1509,17 @@ function QuoteCard({
             durationMinutes: result.durationMinutes!,
           });
         }
+        if (result.smartAvailability?.enforced) {
+          if (result.smartAvailability.blocked) {
+            setSmartAvailabilityBlocked(true);
+            setPaymentError(CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
+          } else {
+            setSmartAvailabilityBlocked(false);
+            setPaymentError((prev) =>
+              isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
+            );
+          }
+        }
         return true;
       }
       setServerFareParts(null);
@@ -1790,7 +1816,8 @@ function QuoteCard({
     !pricingConfirmationRequired &&
     isInstantPayVehicle(quoteVehicle) &&
     Boolean(liveQuote) &&
-    !routeValidationBlockingPayment;
+    !routeValidationBlockingPayment &&
+    !smartAvailabilityBlocked;
 
   /**
    * Complete results (route + vehicle + price) ready to show and scroll once.
@@ -1996,7 +2023,49 @@ function QuoteCard({
       return;
     }
     if (intent !== journeyIntent) {
-      clearDownstreamQuoteChoices();
+      const plan = planJourneyDirectionDependentReset({
+        previousIntent: journeyIntent,
+        nextIntent: intent,
+      });
+      if (plan.clearPickup) {
+        setPickupPlace(emptySelectedPlace());
+        setPickupAddress("");
+        setPickupRestoredHint(false);
+        setPickupPlaceError("");
+        clearConfirmedPickupPlace();
+        clearPickupAddressStorage();
+      }
+      if (plan.clearDropoff) {
+        setDropoffPlace(emptySelectedPlace());
+        setDropoffAddress("");
+        setDropoffRestoredHint(false);
+        setDropoffPlaceError("");
+        clearConfirmedDropoffPlace();
+        clearDropoffAddressStorage();
+      }
+      if (plan.clearGoingFlight) {
+        setGoingFlightNumber("");
+        setGoingFlightError("");
+        setVerifiedGoingFlight(null);
+        setGoingFlightLookupStatus("idle");
+      }
+      if (plan.clearCollectionFlight) {
+        setCollectionFlightNumber("");
+        setCollectionFlightError("");
+        setVerifiedCollectionFlight(null);
+        setCollectionFlightLookupStatus("idle");
+      }
+      if (plan.clearAirportSelection) {
+        setIntentAirportCode("");
+        setAirportCode("");
+      }
+      setRouteMetrics(null);
+      setServerFareParts(null);
+      setSmartAvailabilityBlocked(false);
+      setPaymentError((prev) =>
+        isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
+      );
+      setFormResetKey((key) => key + 1);
     }
     markQuoteFunnelStarted();
     setJourneyIntent(intent);
@@ -2006,7 +2075,11 @@ function QuoteCard({
       if (intentAirportCode) {
         const place = quickSelectToPlace(intentAirportCode);
         if (place) {
-          handleDropoffPlaceSelect(place);
+          const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+          setDropoffPlace(place);
+          setDropoffAddress(display);
+          setDropoffPlaceError("");
+          saveConfirmedDropoffPlace(place);
           setAirportCode(intentAirportCode);
         }
       }
@@ -2015,23 +2088,13 @@ function QuoteCard({
       if (intentAirportCode) {
         const place = quickSelectToPlace(intentAirportCode);
         if (place) {
-          handlePickupPlaceSelect(place);
+          const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+          setPickupPlace(place);
+          setPickupAddress(display);
+          setPickupPlaceError("");
+          saveConfirmedPickupPlace(place);
           setAirportCode(intentAirportCode);
         }
-      }
-    } else {
-      setIntentAirportCode("");
-      if (detectAirportCodeFromPlace(pickupPlace)) {
-        setPickupPlace(emptySelectedPlace());
-        setPickupAddress("");
-        setPickupRestoredHint(false);
-        clearPickupAddressStorage();
-      }
-      if (detectAirportCodeFromPlace(dropoffPlace)) {
-        setDropoffPlace(emptySelectedPlace());
-        setDropoffAddress("");
-        setDropoffRestoredHint(false);
-        clearDropoffAddressStorage();
       }
     }
   }
@@ -2065,13 +2128,13 @@ function QuoteCard({
   function validateA2APlaces(): boolean {
     let ok = true;
     if (!isPlaceSelected(pickupPlace)) {
-      setPickupPlaceError("Please select a complete address from the suggestions.");
+      setPickupPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.pickup);
       ok = false;
     } else {
       setPickupPlaceError("");
     }
     if (!isPlaceSelected(dropoffPlace)) {
-      setDropoffPlaceError("Please select a complete address from the suggestions.");
+      setDropoffPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.destination);
       ok = false;
     } else {
       setDropoffPlaceError("");
@@ -2105,6 +2168,110 @@ function QuoteCard({
         ? dropoffAddress.trim()
         : airportName
       : dropoffAddress.trim();
+
+  function customerAvailabilityBookingInput() {
+    return {
+      pickupLabel,
+      dropoffLabel,
+      tripDate,
+      tripTime,
+      returnJourney,
+      returnDate,
+      returnTime,
+      vehicle: quoteVehicle,
+      airportCode: effectiveAirportCode || null,
+      isFromAirport,
+      journeyDuration: journeyDurationLabel || null,
+      routeDurationMinutes: routeMetrics?.durationMinutes ?? null,
+      pickupLat: typeof pickupPlace?.lat === "number" ? pickupPlace.lat : null,
+      pickupLng: typeof pickupPlace?.lng === "number" ? pickupPlace.lng : null,
+      dropoffLat: typeof dropoffPlace?.lat === "number" ? dropoffPlace.lat : null,
+      dropoffLng: typeof dropoffPlace?.lng === "number" ? dropoffPlace.lng : null,
+    };
+  }
+
+  async function applyCustomerSmartAvailabilityCheck(): Promise<boolean> {
+    if (!pickupLabel.trim() || !dropoffLabel.trim() || !tripDate.trim() || !tripTime.trim()) {
+      return false;
+    }
+    const result = await checkCustomerSmartAvailability(customerAvailabilityBookingInput());
+    if (result.blocked) {
+      setSmartAvailabilityBlocked(true);
+      setPaymentError(CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
+      return true;
+    }
+    setSmartAvailabilityBlocked(false);
+    setPaymentError((prev) =>
+      isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
+    );
+    return false;
+  }
+
+  useEffect(() => {
+    if (!pickupLabel.trim() || !dropoffLabel.trim() || !tripDate.trim() || !tripTime.trim()) {
+      if (smartAvailabilityBlocked) {
+        setSmartAvailabilityBlocked(false);
+        setPaymentError((prev) =>
+          isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
+        );
+      }
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const result = await checkCustomerSmartAvailability({
+          pickupLabel,
+          dropoffLabel,
+          tripDate,
+          tripTime,
+          returnJourney,
+          returnDate,
+          returnTime,
+          vehicle: quoteVehicle,
+          airportCode: effectiveAirportCode || null,
+          isFromAirport,
+          journeyDuration: journeyDurationLabel || null,
+          routeDurationMinutes: routeMetrics?.durationMinutes ?? null,
+          pickupLat: typeof pickupPlace?.lat === "number" ? pickupPlace.lat : null,
+          pickupLng: typeof pickupPlace?.lng === "number" ? pickupPlace.lng : null,
+          dropoffLat: typeof dropoffPlace?.lat === "number" ? dropoffPlace.lat : null,
+          dropoffLng: typeof dropoffPlace?.lng === "number" ? dropoffPlace.lng : null,
+        });
+        if (cancelled) return;
+        if (result.blocked) {
+          setSmartAvailabilityBlocked(true);
+          setPaymentError(CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
+        } else {
+          setSmartAvailabilityBlocked(false);
+          setPaymentError((prev) =>
+            isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
+          );
+        }
+      })();
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    dropoffLabel,
+    dropoffPlace?.lat,
+    dropoffPlace?.lng,
+    effectiveAirportCode,
+    isFromAirport,
+    journeyDurationLabel,
+    pickupLabel,
+    pickupPlace?.lat,
+    pickupPlace?.lng,
+    quoteVehicle,
+    returnDate,
+    returnJourney,
+    returnTime,
+    routeMetrics?.durationMinutes,
+    tripDate,
+    tripTime,
+  ]);
 
   const quoteAnalyticsValue =
     quoteResultsReady &&
@@ -2317,11 +2484,10 @@ function QuoteCard({
 
     if (needsOutboundFlightNumber) {
       const trimmed = goingFlightNumber.trim();
-      if (
-        !trimmed ||
-        !isValidFlightNumberFormat(trimmed) ||
-        goingFlightLookupStatus === "error"
-      ) {
+      if (!trimmed) {
+        setGoingFlightError(QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber);
+        ok = false;
+      } else if (!isValidFlightNumberFormat(trimmed) || goingFlightLookupStatus === "error") {
         setGoingFlightError(FLIGHT_NUMBER_FORMAT_ERROR);
         ok = false;
       } else {
@@ -2333,8 +2499,10 @@ function QuoteCard({
 
     if (needsReturnCollectionFlightNumber) {
       const trimmed = collectionFlightNumber.trim();
-      if (
-        !trimmed ||
+      if (!trimmed) {
+        setCollectionFlightError(QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber);
+        ok = false;
+      } else if (
         !isValidFlightNumberFormat(trimmed) ||
         collectionFlightLookupStatus === "error"
       ) {
@@ -2367,14 +2535,11 @@ function QuoteCard({
     const retTime = schedule?.returnTime || returnTime;
     let ok = true;
 
-    if (!date) {
-      setTripDateError("Please select your pickup date.");
+    if (!date || !time) {
+      setTripDateError(QUOTE_REQUIRED_FIELD_MESSAGES.dateTime);
       ok = false;
     } else if (!isTripDateOnOrAfterToday(date)) {
       setTripDateError("Pickup date cannot be in the past.");
-      ok = false;
-    } else if (!time) {
-      setTripDateError("Please select your pickup time.");
       ok = false;
     } else if (!isTripDateTimeNotInPast(date, time)) {
       setTripDateError("Pickup time cannot be in the past. Choose a later time.");
@@ -2429,35 +2594,27 @@ function QuoteCard({
     let ok = true;
 
     if (!customerName.trim()) {
-      setCustomerNameError("Please enter your name.");
+      setCustomerNameError(QUOTE_REQUIRED_FIELD_MESSAGES.name);
       ok = false;
     } else {
       setCustomerNameError("");
     }
 
     if (!customerMobile.trim()) {
-      setMobileNumberError(
-        isEnquiryOnly
-          ? "Please enter your mobile number so we can contact you about your enquiry."
-          : "Please enter your mobile number so we can contact you about your booking.",
-      );
+      setMobileNumberError(QUOTE_REQUIRED_FIELD_MESSAGES.mobile);
       ok = false;
     } else if (!isValidMobileNumber(customerMobile)) {
-      setMobileNumberError("Please enter a valid mobile number.");
+      setMobileNumberError(QUOTE_REQUIRED_FIELD_MESSAGES.mobileInvalid);
       ok = false;
     } else {
       setMobileNumberError("");
     }
 
     if (!customerEmail.trim()) {
-      setEmailAddressError(
-        isEnquiryOnly
-          ? "Please enter your email address so we can send your quote."
-          : "Please enter your email address so we can confirm your booking.",
-      );
+      setEmailAddressError(QUOTE_REQUIRED_FIELD_MESSAGES.email);
       ok = false;
     } else if (!isValidEmailAddress(customerEmail)) {
-      setEmailAddressError("Please enter a valid email address.");
+      setEmailAddressError(QUOTE_REQUIRED_FIELD_MESSAGES.emailInvalid);
       ok = false;
     } else {
       setEmailAddressError("");
@@ -2638,7 +2795,7 @@ function QuoteCard({
 
   function requireTermsAccepted(): boolean {
     if (!termsAccepted) {
-      setTermsError("Please accept the Terms & Conditions before continuing.");
+      setTermsError(QUOTE_REQUIRED_FIELD_MESSAGES.terms);
       return false;
     }
 
@@ -2717,6 +2874,14 @@ function QuoteCard({
     }
 
     if (!requireTermsAccepted()) {
+      window.setTimeout(() => {
+        focusFirstInvalidField(cardRef.current ?? document);
+      }, 0);
+      return;
+    }
+
+    const availabilityBlocked = await applyCustomerSmartAvailabilityCheck();
+    if (availabilityBlocked) {
       return;
     }
 
@@ -3436,18 +3601,36 @@ function QuoteCard({
                 : "places_same_pickup_dropoff",
             quoteFunnelParams({ cta: step1Cta }),
           );
+          window.setTimeout(() => {
+            focusFirstInvalidField(cardRef.current ?? document);
+          }, 0);
           return;
         }
       }
       if (!hasQuoteRoute) {
+        if (isA2AFlow && journeyIntent === "to-airport") {
+          setPickupPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.pickup);
+        } else if (isA2AFlow && journeyIntent === "from-airport") {
+          setDropoffPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.destination);
+        } else {
+          if (!pickupAddress.trim() && !isPlaceSelected(pickupPlace)) {
+            setPickupPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.pickup);
+          }
+          if (!dropoffAddress.trim() && !isPlaceSelected(dropoffPlace)) {
+            setDropoffPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.destination);
+          }
+        }
         failStep1(
           "incomplete_route",
           isA2AFlow && journeyIntent === "to-airport"
-            ? "Please select your pickup address."
+            ? QUOTE_REQUIRED_FIELD_MESSAGES.pickup
             : isA2AFlow && journeyIntent === "from-airport"
-              ? "Please select your destination."
+              ? QUOTE_REQUIRED_FIELD_MESSAGES.destination
               : "Please complete your journey details.",
         );
+        window.setTimeout(() => {
+          focusFirstInvalidField(cardRef.current ?? document);
+        }, 0);
         return;
       }
       if (journeyMode == null) {
@@ -3456,11 +3639,22 @@ function QuoteCard({
         return;
       }
       if (!partySelectionReady) {
+        if (passengers == null) {
+          setPassengersError(QUOTE_REQUIRED_FIELD_MESSAGES.passengers);
+        }
+        if (suitcases == null) {
+          setSuitcasesError(QUOTE_REQUIRED_FIELD_MESSAGES.suitcases);
+        }
         failStep1(
           "missing_party",
-          "Select your passenger and suitcase numbers to see your fixed price.",
+          passengers == null
+            ? QUOTE_REQUIRED_FIELD_MESSAGES.passengers
+            : QUOTE_REQUIRED_FIELD_MESSAGES.suitcases,
         );
         scrollQuoteStage("passenger-luggage-section");
+        window.setTimeout(() => {
+          focusFirstInvalidField(cardRef.current ?? document);
+        }, 0);
         return;
       }
       if (
@@ -3519,6 +3713,9 @@ function QuoteCard({
     }
     if (!usesWhatsApp || isManualQuoteJourney) {
       if (!requireTermsAccepted()) {
+        window.setTimeout(() => {
+          focusFirstInvalidField(cardRef.current ?? document);
+        }, 0);
         return;
       }
       void confirmBooking("email");
@@ -3542,7 +3739,7 @@ function QuoteCard({
     setMarketingOptIn(false);
   }
 
-  function handleContinueTravelDetails() {
+  async function handleContinueTravelDetails() {
     setSubmitError("");
     const schedule = syncScheduleFieldsFromInputs();
     if (!validateTripForBooking(schedule)) {
@@ -3550,7 +3747,22 @@ function QuoteCard({
     }
     // Soft lookup loading/unavailable must not require a second click — format validity is the gate.
     if (!validateRequiredFlightNumbers()) {
-      setSubmitError(FLIGHT_NUMBER_FORMAT_ERROR);
+      setSubmitError(
+        goingFlightError || collectionFlightError || QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber,
+      );
+      window.setTimeout(() => {
+        focusFirstInvalidField(cardRef.current ?? document);
+      }, 0);
+      return;
+    }
+    const blocked = await applyCustomerSmartAvailabilityCheck();
+    if (blocked) {
+      window.setTimeout(() => {
+        const el = document.getElementById("customer-smart-availability-blocked");
+        if (el) {
+          scrollQuoteStage(el);
+        }
+      }, 80);
       return;
     }
     if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
@@ -4598,6 +4810,7 @@ function QuoteCard({
               onPassengersChange={(value) => {
                 markQuoteFunnelStarted();
                 setPassengers(value);
+                setPassengersError("");
               }}
               exactPassengers={exactPassengers}
               onExactPassengersChange={setExactPassengers}
@@ -4605,7 +4818,10 @@ function QuoteCard({
               onSuitcasesChange={(value) => {
                 markQuoteFunnelStarted();
                 setSuitcases(value);
+                setSuitcasesError("");
               }}
+              passengersError={passengersError}
+              suitcasesError={suitcasesError}
               isGroupQuote={false}
               showRouteFields={Boolean(journeyIntent)}
               showJourneyModeFields={
@@ -4887,7 +5103,7 @@ function QuoteCard({
               <button
                 type="button"
                 aria-pressed={tripDirection === "to-airport"}
-                onClick={() => setTripDirection("to-airport")}
+                onClick={() => applyJourneyIntent("to-airport")}
                 className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                   tripDirection === "to-airport"
                     ? "bg-emerald text-navy shadow-sm"
@@ -4899,7 +5115,7 @@ function QuoteCard({
               <button
                 type="button"
                 aria-pressed={tripDirection === "from-airport"}
-                onClick={() => setTripDirection("from-airport")}
+                onClick={() => applyJourneyIntent("from-airport")}
                 className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                   tripDirection === "from-airport"
                     ? "bg-emerald text-navy shadow-sm"
@@ -5106,7 +5322,10 @@ function QuoteCard({
               label="Passengers"
               options={Array.from({ length: passengerLimit }, (_, index) => index + 1)}
               value={passengers == null ? null : Math.min(passengers, passengerLimit)}
-              onChange={setPassengers}
+              onChange={(value) => {
+                setPassengers(value);
+                setPassengersError("");
+              }}
               formatOption={formatPassengerChoice}
               needsCompletion={quoteStep === 1 && passengers == null}
             />
@@ -5114,12 +5333,19 @@ function QuoteCard({
               label="Large suitcases (23kg)"
               options={[0, 1, 2, 3, 4].filter((count) => count <= SELECTOR_MAX_SUITCASES)}
               value={suitcases == null ? null : Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
-              onChange={setSuitcases}
+              onChange={(value) => {
+                setSuitcases(value);
+                setSuitcasesError("");
+              }}
               formatOption={formatSuitcaseChoice}
               needsCompletion={quoteStep === 1 && suitcases == null}
             />
           </div>
-          {!partySelectionReady && (
+          {passengersError || suitcasesError ? (
+            <p id="quote-party-error" role="alert" data-field-error className="text-xs text-red-300">
+              {passengersError || suitcasesError}
+            </p>
+          ) : !partySelectionReady ? (
             <p
               id="quote-party-prompt"
               className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
@@ -5127,7 +5353,7 @@ function QuoteCard({
             >
               Select your passenger and suitcase numbers to see your fixed price.
             </p>
-          )}
+          ) : null}
           <input type="hidden" name="vehicle" value={quoteVehicle} />
           <input
             type="hidden"
@@ -5267,13 +5493,19 @@ function QuoteCard({
                 aria-invalid={Boolean(tripDateError)}
                 aria-describedby={tripDateError ? "trip-date-error" : undefined}
                 onChange={(e) => {
-                  setTripDate(e.target.value);
-                  setTripDateError("");
+                  const value = e.target.value;
+                  setTripDate(value);
+                  if (value && tripTime) {
+                    setTripDateError("");
+                  }
                   setReturnDateError("");
                 }}
                 onInput={(e) => {
-                  setTripDate((e.target as HTMLInputElement).value);
-                  setTripDateError("");
+                  const value = (e.target as HTMLInputElement).value;
+                  setTripDate(value);
+                  if (value && tripTime) {
+                    setTripDateError("");
+                  }
                   setReturnDateError("");
                 }}
                 className={quoteDateTimeInputClass()}
@@ -5309,13 +5541,19 @@ function QuoteCard({
                 aria-invalid={Boolean(tripDateError)}
                 aria-describedby={tripDateError ? "trip-date-error" : undefined}
                 onChange={(e) => {
-                  setTripTime(e.target.value);
-                  setTripDateError("");
+                  const value = e.target.value;
+                  setTripTime(value);
+                  if (tripDate && value) {
+                    setTripDateError("");
+                  }
                   setReturnDateError("");
                 }}
                 onInput={(e) => {
-                  setTripTime((e.target as HTMLInputElement).value);
-                  setTripDateError("");
+                  const value = (e.target as HTMLInputElement).value;
+                  setTripTime(value);
+                  if (tripDate && value) {
+                    setTripDateError("");
+                  }
                   setReturnDateError("");
                 }}
                 onBlur={() => {
@@ -5569,8 +5807,12 @@ function QuoteCard({
                   aria-invalid={Boolean(mobileNumberError)}
                   aria-describedby={mobileNumberError ? "customer-mobile-error" : "mobile-helper"}
                   onChange={(e) => {
-                    setCustomerMobile(e.target.value);
-                    if (e.target.value.trim()) {
+                    const value = e.target.value;
+                    setCustomerMobile(value);
+                    if (!mobileNumberError) return;
+                    if (value.trim() && isValidMobileNumber(value)) {
+                      setMobileNumberError("");
+                    } else if (value.trim() && mobileNumberError === QUOTE_REQUIRED_FIELD_MESSAGES.mobile) {
                       setMobileNumberError("");
                     }
                   }}
@@ -5607,8 +5849,12 @@ function QuoteCard({
                 aria-invalid={Boolean(emailAddressError)}
                 aria-describedby={emailAddressError ? "customer-email-error" : "email-helper"}
                 onChange={(e) => {
-                  setCustomerEmail(e.target.value);
-                  if (e.target.value.trim()) {
+                  const value = e.target.value;
+                  setCustomerEmail(value);
+                  if (!emailAddressError) return;
+                  if (value.trim() && isValidEmailAddress(value)) {
+                    setEmailAddressError("");
+                  } else if (value.trim() && emailAddressError === QUOTE_REQUIRED_FIELD_MESSAGES.email) {
                     setEmailAddressError("");
                   }
                 }}
@@ -6058,6 +6304,11 @@ function QuoteCard({
           </>
         ) : quoteStep === 2 ? (
           <div id="quote-step2-next" className="scroll-mt-44 space-y-3 md:scroll-mt-28">
+            {smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError) ? (
+              <div id="customer-smart-availability-blocked">
+                <CustomerSmartAvailabilityBlocked />
+              </div>
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"

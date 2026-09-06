@@ -16,6 +16,7 @@ import {
   isPagesPreviewOrigin,
   requestedJourneysFromCustomerBooking,
   shouldEnforceCustomerSmartAvailability,
+  toPublicCustomerSmartAvailability,
   withCustomerSmartAvailabilityPreviewQuery,
 } from "../shared/customer-smart-availability";
 import {
@@ -215,6 +216,11 @@ console.log("\n=== Flag ON + unavailable → customer cannot proceed to payment 
     "Unfortunately, we’re not available at that time. Please choose another time or contact us on WhatsApp.",
   );
   assert.equal(CUSTOMER_SMART_AVAILABILITY_CODE, "smart_availability_unavailable");
+  const publicPayload = toPublicCustomerSmartAvailability(blocked);
+  assert.equal(publicPayload.blocked, true);
+  assert.equal(publicPayload.customerMessage, CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
+  assert.equal("reason" in publicPayload, false);
+  assert.equal("decision" in publicPayload, false);
   console.log("OK  flag ON + 05:33 is blocked with the exact customer message");
 }
 
@@ -259,6 +265,12 @@ console.log("\n=== Owner tool and customer flow use the same availability decisi
   assert.match(wrapper, /return evaluateSmartAvailability\(\{/);
   assert.match(wrapper, /searchAlternatives:\s*false/);
   assert.doesNotMatch(wrapper, /searchAlternatives:\s*true/);
+  assert.match(wrapper, /export function toPublicCustomerSmartAvailability/);
+  const publicFn = wrapper.slice(
+    wrapper.indexOf("export function toPublicCustomerSmartAvailability"),
+    wrapper.indexOf("export function decideCustomerSmartAvailabilityGate"),
+  );
+  assert.doesNotMatch(publicFn, /reason:/);
   console.log("OK  customer wrapper is evaluateSmartAvailability({ searchAlternatives: false })");
 }
 
@@ -356,8 +368,13 @@ console.log("\n=== Fail-open + refund-test skip + no alternative search ===");
   assert.match(quoteHandler, /return json\(quoteBody, 200, origin\)/);
   assert.match(
     quoteHandler,
-    /quoteBody\.smartAvailability/,
+    /quoteBody\.smartAvailability = toPublicCustomerSmartAvailability/,
     "blocked quotes still return the fare; payment is the hard gate",
+  );
+  assert.doesNotMatch(
+    quoteHandler,
+    /reason: availabilityGate\.reason/,
+    "customer quote payload must not include owner reason codes",
   );
   console.log("OK  missing fields / refund-test / shadow+gate failures stay fail-open");
 }
@@ -454,6 +471,18 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
       `${rel} must hide Pay when the journey is unavailable`,
     );
   }
+  assert.match(
+    read("src/app/book-quote/BookQuoteCustomerClient.tsx"),
+    /useCustomerSmartAvailabilityPreflight/,
+  );
+  assert.match(
+    read("src/app/quote/SavedQuoteCustomerClient.tsx"),
+    /useCustomerSmartAvailabilityPreflight/,
+  );
+  assert.match(
+    read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx"),
+    /useCustomerSmartAvailabilityPreflight/,
+  );
 
   const a2a = read("src/app/pay/a2a-quote/A2aQuotePayClient.tsx");
   assert.doesNotMatch(
@@ -464,11 +493,27 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
 
   const quoteCard = read("src/components/QuoteCard.tsx");
   assert.doesNotMatch(quoteCard, /evaluateSmartAvailability/);
+  assert.match(quoteCard, /checkCustomerSmartAvailability/);
+  assert.match(quoteCard, /smartAvailabilityBlocked/);
+  assert.match(quoteCard, /!smartAvailabilityBlocked/);
+  assert.match(quoteCard, /CustomerSmartAvailabilityBlocked/);
+  assert.match(quoteCard, /planJourneyDirectionDependentReset/);
+  assert.match(quoteCard, /QUOTE_REQUIRED_FIELD_MESSAGES/);
   assert.match(quoteCard, /renderBookingErrorHelp\("payment-actions"\)/);
   assert.match(
     quoteCard,
     /Unfortunately, we’re not available at that time|isCustomerSmartAvailabilityBlockMessage/,
   );
+  assert.doesNotMatch(quoteCard, /decision\.reason|availabilityGate\.reason/);
+
+  const availabilityClient = read("src/lib/customer-smart-availability-client.ts");
+  assert.match(availabilityClient, /sessionStorage/);
+  assert.match(availabilityClient, /\/quote\/availability/);
+  assert.match(availabilityClient, /Fail-open/);
+
+  const quoteApi = read("src/lib/quick-quote-api.ts");
+  assert.match(quoteApi, /smartAvailability/);
+  assert.doesNotMatch(quoteApi, /smartRaw\.reason/);
 
   const cors = read("shared/google-places.ts");
   assert.match(cors, /X-Smart-Availability-Preview/);
@@ -497,7 +542,11 @@ console.log("\n=== Quote/payment behaviour is unchanged when the gate is off ===
 {
   const quoteHandler = read("workers/addresses/src/quote-handlers.ts");
   assert.match(quoteHandler, /if \(availabilityGate\.enforce\) \{\n      quoteBody\.smartAvailability/);
+  assert.match(quoteHandler, /export async function handleQuoteAvailabilityRequest/);
   assert.doesNotMatch(quoteHandler, /return json\(\{[\s\S]*smart_availability_unavailable/);
+  const paymentsIndex = read("workers/addresses/src/index.ts");
+  assert.match(paymentsIndex, /\/quote\/availability/);
+  assert.match(paymentsIndex, /handleQuoteAvailabilityRequest/);
   const payments = read("workers/addresses/src/index.ts");
   assert.match(payments, /createSumUpHostedCheckout\(/);
   const confirm = payments.lastIndexOf("createSumUpHostedCheckout(");

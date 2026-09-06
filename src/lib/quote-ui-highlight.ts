@@ -91,8 +91,11 @@ export function addressFieldShellClass(options: {
 }
 
 /** Soft emerald outline around a choice-card group that still needs a selection. */
-export function choiceGroupNeedsClass(needsCompletion: boolean): string {
+export function choiceGroupNeedsClass(needsCompletion: boolean, hasError = false): string {
   // Always keep the same padding/border box so completing a choice does not shift layout.
+  if (hasError) {
+    return "rounded-2xl border border-red-400/55 bg-red-500/[0.06] p-2 ring-1 ring-red-400/30";
+  }
   if (needsCompletion) {
     return "rounded-2xl border border-emerald/45 bg-emerald/[0.04] p-2 ring-1 ring-emerald/20";
   }

@@ -24,6 +24,13 @@ export type {
   QuickQuoteValidityMode,
 };
 
+export type CustomerSmartAvailabilityQuoteSignal = {
+  enforced: boolean;
+  available: boolean;
+  blocked: boolean;
+  customerMessage: string | null;
+};
+
 export type QuickQuoteCalculateResult =
   | {
       ok: true;
@@ -37,6 +44,7 @@ export type QuickQuoteCalculateResult =
       airportFixedCostsGbp?: number;
       distanceKm?: number;
       durationMinutes?: number;
+      smartAvailability?: CustomerSmartAvailabilityQuoteSignal;
     }
   | { ok: false; reason?: string; message: string; error?: string };
 
@@ -123,6 +131,20 @@ export async function calculateServerQuote(
       message: String(payload.message || "Could not calculate fare"),
     };
   }
+  const smartRaw =
+    payload.smartAvailability && typeof payload.smartAvailability === "object"
+      ? (payload.smartAvailability as Record<string, unknown>)
+      : null;
+  const smartAvailability = smartRaw
+    ? {
+        enforced: smartRaw.enforced === true,
+        available: smartRaw.available !== false,
+        blocked: smartRaw.blocked === true,
+        customerMessage:
+          typeof smartRaw.customerMessage === "string" ? smartRaw.customerMessage : null,
+      }
+    : undefined;
+
   return {
     ok: true,
     amount: Number(payload.amount),
@@ -150,6 +172,7 @@ export async function calculateServerQuote(
           ),
         }
       : {}),
+    ...(smartAvailability ? { smartAvailability } : {}),
   };
 }
 

@@ -57,6 +57,8 @@
     "check:owner-dashboard-today-sections": "npx tsx scripts/check-owner-dashboard-today-sections.ts",
     "check:smart-ops": "npx tsx scripts/check-smart-ops.ts",
     "check:customer-smart-availability": "npx tsx scripts/check-customer-smart-availability.ts",
+    "check:quote-required-fields": "npx tsx scripts/check-quote-required-fields.ts",
+    "check:quote-journey-direction": "npx tsx scripts/check-quote-journey-direction.ts",
     "check:owner-job-nav-links": "npx tsx scripts/check-owner-job-nav-links.ts",
     "check:public-help-fabs": "npx tsx scripts/check-public-help-fabs.ts",
     "check:homepage-hero-ctas": "npx tsx scripts/check-homepage-hero-ctas.ts",

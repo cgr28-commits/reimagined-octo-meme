@@ -39,6 +39,7 @@ function ChoiceGrid({
   formatOption,
   columns,
   needsCompletion = false,
+  hasError = false,
 }: {
   label: string;
   options: number[];
@@ -47,10 +48,11 @@ function ChoiceGrid({
   formatOption?: (value: number) => string;
   columns?: number;
   needsCompletion?: boolean;
+  hasError?: boolean;
 }) {
   const cols = columns ?? options.length;
   return (
-    <div className={choiceGroupNeedsClass(needsCompletion && value == null)}>
+    <div className={choiceGroupNeedsClass(needsCompletion && value == null, hasError)}>
       <p className="form-label">
         {label}
         {needsCompletion && value == null ? (
@@ -117,6 +119,8 @@ export type QuoteProgressiveRouteProps = {
   onExactPassengersChange: (value: number | null) => void;
   suitcases: number | null;
   onSuitcasesChange: (value: number) => void;
+  passengersError?: string;
+  suitcasesError?: string;
   isGroupQuote: boolean;
   showRouteFields: boolean;
   /** Addresses complete — show One Way / Return (not passengers yet). */
@@ -161,6 +165,8 @@ export default function QuoteProgressiveRoute({
   onExactPassengersChange,
   suitcases,
   onSuitcasesChange,
+  passengersError = "",
+  suitcasesError = "",
   isGroupQuote: _isGroupQuote,
   showRouteFields,
   showJourneyModeFields,
@@ -301,6 +307,7 @@ export default function QuoteProgressiveRoute({
         <div id="quote-section-addresses" className="scroll-mt-44 space-y-4 md:scroll-mt-28">
           {(journeyIntent === "to-airport" || journeyIntent === "address-to-address") && (
             <AddressInput
+              key={`pickup-${journeyIntent}`}
               id="pickup"
               name="pickup"
               value={pickupAddress}
@@ -321,6 +328,7 @@ export default function QuoteProgressiveRoute({
           {(journeyIntent === "from-airport" || journeyIntent === "address-to-address") && (
             <div id="quote-section-dropoff">
               <AddressInput
+                key={`dropoff-${journeyIntent}`}
                 id="dropoff"
                 name="dropoff"
                 value={dropoffAddress}
@@ -446,10 +454,17 @@ export default function QuoteProgressiveRoute({
                 onChange={handlePassengersChange}
                 formatOption={formatPassengerChoice}
                 needsCompletion={passengers == null}
+                hasError={Boolean(passengersError)}
               />
-              <p className="quote-secondary text-xs">
-                Private airport transfer for 1–4 passengers.
-              </p>
+              {passengersError ? (
+                <p id="quote-passengers-error" role="alert" data-field-error className="text-xs text-red-300">
+                  {passengersError}
+                </p>
+              ) : (
+                <p className="quote-secondary text-xs">
+                  Private airport transfer for 1–4 passengers.
+                </p>
+              )}
             </div>
 
             <div id="quote-section-suitcases" className="space-y-5 lg:space-y-3.5">
@@ -460,11 +475,17 @@ export default function QuoteProgressiveRoute({
                 onChange={onSuitcasesChange}
                 formatOption={formatSuitcaseChoice}
                 needsCompletion={suitcases == null}
+                hasError={Boolean(suitcasesError)}
               />
+              {suitcasesError ? (
+                <p id="quote-suitcases-error" role="alert" data-field-error className="text-xs text-red-300">
+                  {suitcasesError}
+                </p>
+              ) : null}
             </div>
           </div>
 
-          {(passengers == null || suitcases == null) && (
+          {(passengers == null || suitcases == null) && !passengersError && !suitcasesError && (
             <p
               id="quote-party-prompt"
               className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"

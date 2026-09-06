@@ -26,6 +26,7 @@ import {
   enforceCustomerSmartAvailabilityGate,
   recordQuoteShadowSafely,
 } from "./smart-ops-handlers";
+import { toPublicCustomerSmartAvailability } from "../shared/customer-smart-availability";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
@@ -390,13 +391,7 @@ export async function handleQuoteCalculateRequest(
       },
     });
     if (availabilityGate.enforce) {
-      quoteBody.smartAvailability = {
-        enforced: true,
-        available: availabilityGate.available,
-        blocked: availabilityGate.blocked,
-        customerMessage: availabilityGate.customerMessage,
-        reason: availabilityGate.reason,
-      };
+      quoteBody.smartAvailability = toPublicCustomerSmartAvailability(availabilityGate);
     }
   }
 
@@ -421,4 +416,70 @@ export async function handleQuoteCalculateRequest(
   }
 
   return json(quoteBody, 200, origin);
+}
+
+/**
+ * POST /quote/availability — customer Smart Availability preflight.
+ * Uses the same enforceCustomerSmartAvailabilityGate as /payments.
+ * Never returns owner reason codes or diagnostics.
+ */
+export async function handleQuoteAvailabilityRequest(
+  request: Request,
+  origin: string | null,
+  env?: {
+    TRACKING_STORE?: KVNamespace;
+  },
+): Promise<Response> {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const availabilityGate = await enforceCustomerSmartAvailabilityGate({
+    store: env?.TRACKING_STORE,
+    origin,
+    previewRequested: customerSmartAvailabilityPreviewRequested(request),
+    booking: {
+      pickupLabel: String(body.pickupLabel ?? body.pickupAddress ?? ""),
+      dropoffLabel: String(body.dropoffLabel ?? body.dropoffAddress ?? ""),
+      tripDate: String(body.tripDate ?? body.outboundDate ?? ""),
+      tripTime: String(body.tripTime ?? body.outboundTime ?? ""),
+      returnJourney: body.returnJourney === true,
+      returnDate: String(body.returnDate ?? ""),
+      returnTime: String(body.returnTime ?? ""),
+      vehicle: body.vehicle == null ? null : String(body.vehicle),
+      airportCode: body.airportCode == null ? null : String(body.airportCode),
+      isFromAirport: body.isFromAirport === true,
+      journeyDuration: body.journeyDuration == null ? null : String(body.journeyDuration),
+      routeDurationMinutes:
+        typeof body.routeDurationMinutes === "number"
+          ? body.routeDurationMinutes
+          : typeof body.durationMinutes === "number"
+            ? body.durationMinutes
+            : null,
+      pickupLat: typeof body.pickupLat === "number" ? body.pickupLat : null,
+      pickupLng: typeof body.pickupLng === "number" ? body.pickupLng : null,
+      dropoffLat: typeof body.dropoffLat === "number" ? body.dropoffLat : null,
+      dropoffLng: typeof body.dropoffLng === "number" ? body.dropoffLng : null,
+      isRefundTest: body.isRefundTest === true,
+    },
+  });
+
+  return json(
+    {
+      ok: true,
+      ...toPublicCustomerSmartAvailability(availabilityGate),
+    },
+    200,
+    origin,
+  );
 }

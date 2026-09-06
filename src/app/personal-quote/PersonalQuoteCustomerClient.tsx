@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
+import { useCustomerSmartAvailabilityPreflight } from "@/lib/use-customer-smart-availability-preflight";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -215,6 +216,23 @@ function PersonalQuoteInner() {
       expressDropOffAirport: expressSelection.airportCode,
     });
   }, [quote, returnJourney, expressSelection, expressDropOffSelected]);
+
+  useCustomerSmartAvailabilityPreflight(
+    quote
+      ? {
+          pickupLabel: quote.pickupLabel,
+          dropoffLabel: quote.dropoffLabel,
+          tripDate,
+          tripTime,
+          returnJourney,
+          returnDate,
+          returnTime,
+          airportCode: quote.expressDropOffAirport ?? airportMeta.airportCode,
+          isFromAirport: airportMeta.isFromAirport,
+        }
+      : null,
+    setError,
+  );
 
   function buildBooking(): BookingDetails | null {
     if (!quote || !paymentDisplay) return null;

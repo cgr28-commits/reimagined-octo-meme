@@ -60,10 +60,18 @@ export default function BookingTermsConsent({
           </p>
         </div>
       ) : null}
-      <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-left">
+      <label
+        className={`flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border bg-white/[0.04] px-4 py-3 text-left ${
+          error
+            ? "border-red-400/55 ring-1 ring-red-400/30"
+            : "border-white/15"
+        }`}
+      >
         <input
           type="checkbox"
           checked={accepted}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "booking-terms-error" : undefined}
           onChange={(event) => onAcceptedChange(event.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
         />
@@ -140,7 +148,11 @@ export default function BookingTermsConsent({
           )}
         </span>
       </label>
-      {error && <p className="text-xs text-red-300">{error}</p>}
+      {error && (
+        <p id="booking-terms-error" role="alert" className="text-xs text-red-300">
+          {error}
+        </p>
+      )}
       <p className="text-xs leading-relaxed text-white/45">
         Keep your confirmation email or booking reference as proof of agreement.
       </p>

@@ -325,7 +325,7 @@ import {
   recordQuoteLeadDeduped,
   recordQuoteLeadSent,
 } from "./quote-stats";
-import { handleQuoteCalculateRequest } from "./quote-handlers";
+import { handleQuoteAvailabilityRequest, handleQuoteCalculateRequest } from "./quote-handlers";
 import {
   handleOwnerCreateQuickQuote,
   handlePublicQuickQuoteLookup,
@@ -2989,6 +2989,13 @@ export default {
       (request.method === "POST" || request.method === "OPTIONS")
     ) {
       return handleQuoteCalculateRequest(request, origin, env);
+    }
+
+    if (
+      (url.pathname === "/quote/availability" || url.pathname === "/api/quote/availability") &&
+      (request.method === "POST" || request.method === "OPTIONS")
+    ) {
+      return handleQuoteAvailabilityRequest(request, origin, env);
     }
 
     if (
