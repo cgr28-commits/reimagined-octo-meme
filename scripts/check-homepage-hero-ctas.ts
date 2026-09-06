@@ -35,8 +35,10 @@ console.log("\n=== 2. Benefits sit under heading without competing CTAs ===");
 console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
 {
   assert.match(header, /Get a Quote/);
-  assert.match(hero, /transfers to \{airportList\} airports/);
-  assert.match(hero, /Northern Ireland and the Republic of Ireland\./);
+  assert.match(
+    hero,
+    /Reliable, fixed-price airport transfers to and from Belfast International, Belfast City and Dublin Airport\. Book in advance and travel with confidence\./,
+  );
   console.log("OK  header CTA + destination coverage text present");
 }
 
