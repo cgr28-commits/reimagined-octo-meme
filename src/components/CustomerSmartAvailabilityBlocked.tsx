@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL,
   CUSTOMER_CHOOSE_ANOTHER_TIME_LABEL,
   CUSTOMER_OTHER_TIMES_HEADING,
   CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
@@ -15,15 +16,18 @@ export function CustomerSmartAvailabilityBlocked({
   alternativeTimes = [],
   onSelectAlternative,
   onChooseAnotherTime,
+  onChooseAnotherDate,
   selectingTime = null,
 }: {
   message?: string;
   alternativeTimes?: CustomerPublicAlternativeTime[];
   onSelectAlternative?: (option: CustomerPublicAlternativeTime) => void;
   onChooseAnotherTime?: () => void;
+  onChooseAnotherDate?: () => void;
   selectingTime?: string | null;
 }) {
   const hasAlternatives = alternativeTimes.length > 0 && Boolean(onSelectAlternative);
+  const chooseAnotherDate = onChooseAnotherDate ?? (!hasAlternatives ? onChooseAnotherTime : undefined);
 
   return (
     <div className="space-y-3" data-customer-smart-availability-blocked>
@@ -52,13 +56,22 @@ export function CustomerSmartAvailabilityBlocked({
           </div>
         </div>
       ) : null}
-      {onChooseAnotherTime ? (
+      {hasAlternatives && onChooseAnotherTime ? (
         <button
           type="button"
           onClick={onChooseAnotherTime}
           className="btn-secondary w-full"
         >
           {CUSTOMER_CHOOSE_ANOTHER_TIME_LABEL}
+        </button>
+      ) : null}
+      {!hasAlternatives && chooseAnotherDate ? (
+        <button
+          type="button"
+          onClick={chooseAnotherDate}
+          className="btn-secondary w-full"
+        >
+          {CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL}
         </button>
       ) : null}
       <p className="text-xs leading-relaxed text-white/55">

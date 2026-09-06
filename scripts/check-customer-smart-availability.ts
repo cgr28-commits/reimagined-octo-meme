@@ -8,12 +8,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL,
   CUSTOMER_SMART_AVAILABILITY_CODE,
+  CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE,
   CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
   customerSmartAvailabilityPreviewRequested,
   decideCustomerSmartAvailabilityGate,
   customerUnavailableAtTimeMessage,
   evaluateCustomerSmartAvailability,
+  isCustomerSmartAvailabilityUnavailableMessage,
   isPagesPreviewOrigin,
   isProductionCustomerOrigin,
   OWNER_AVAILABILITY_DEFAULT_DURATION_MINUTES,
@@ -24,6 +27,10 @@ import {
   toPublicCustomerSmartAvailability,
   withCustomerSmartAvailabilityPreviewQuery,
 } from "../shared/customer-smart-availability";
+import {
+  buildQuickBlockRule,
+  normalizeSmartAvailabilityRule,
+} from "../shared/smart-availability";
 import {
   DEFAULT_SMART_OPS_CONFIG,
   customerFacingSmartOpsEnabled,
@@ -574,7 +581,10 @@ console.log("\n=== Alternative suggestions are engine-validated and preview-only
   const blockedUi = read("src/components/CustomerSmartAvailabilityBlocked.tsx");
   assert.match(blockedUi, /CUSTOMER_OTHER_TIMES_HEADING/);
   assert.match(blockedUi, /CUSTOMER_CHOOSE_ANOTHER_TIME_LABEL/);
+  assert.match(blockedUi, /CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL/);
   assert.match(blockedUi, /CUSTOMER_WHATSAPP_SECONDARY_MESSAGE/);
+  assert.match(blockedUi, /hasAlternatives && onChooseAnotherTime/);
+  assert.match(blockedUi, /!hasAlternatives && chooseAnotherDate/);
   assert.doesNotMatch(blockedUi, /BookingErrorWhatsAppHelp/);
   assert.doesNotMatch(blockedUi, /Get Booking Help on WhatsApp/);
   console.log("OK  alternatives are revalidated, public-only, and preview-gated");
@@ -616,6 +626,175 @@ console.log("\n=== 05:18 BFS alternative fits before 07:00 Larne ===");
   assert.equal(cityToLarne, 48);
   assert.equal(positioningTimeNeededMinutes(48, 10), 58);
   console.log("OK  05:18 finishes 05:48, 48+10=58 to Larne, ready 06:46, 14 min spare");
+}
+
+console.log("\n=== Owner rest-of-day / full-day blocks offer Choose another date ===");
+{
+  const sunday = "2026-09-06";
+  const restOfDay = buildQuickBlockRule("rest_of_today", 1, NOW);
+  assert.ok(restOfDay);
+  const restOfDayGate = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: {
+      pickupLabel: bfsToCity.pickupLabel,
+      dropoffLabel: bfsToCity.dropoffLabel,
+      tripDate: sunday,
+      tripTime: "16:00",
+      airportCode: "BFS",
+      isFromAirport: true,
+      routeDurationMinutes: 30,
+      pickupLat: BFS.lat,
+      pickupLng: BFS.lng,
+      dropoffLat: BELFAST.lat,
+      dropoffLng: BELFAST.lng,
+    },
+    occupied: [],
+    rules: restOfDay ? [restOfDay] : [],
+    config,
+    offerAlternatives: true,
+    now: NOW,
+  });
+  assert.equal(restOfDayGate.blocked, true);
+  assert.equal(restOfDayGate.alternativeTimes.length, 0, "rest of day leaves no same-day alternatives");
+  assert.equal(restOfDayGate.customerMessage, CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE);
+  assert.equal(
+    restOfDayGate.customerMessage,
+    "Unfortunately, we’re fully booked/unavailable for the rest of this day.",
+  );
+  assert.equal(isCustomerSmartAvailabilityUnavailableMessage(restOfDayGate.customerMessage), true);
+  assert.equal(CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL, "Choose another date");
+
+  const fullDay = normalizeSmartAvailabilityRule({
+    kind: "full_day",
+    date: MONDAY,
+    enabled: true,
+    note: "Owner full-day unavailable",
+  });
+  assert.ok(fullDay);
+  const fullDayGate = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: {
+      pickupLabel: bfsToCity.pickupLabel,
+      dropoffLabel: bfsToCity.dropoffLabel,
+      tripDate: MONDAY,
+      tripTime: "10:00",
+      airportCode: "BFS",
+      isFromAirport: true,
+      routeDurationMinutes: 30,
+      pickupLat: BFS.lat,
+      pickupLng: BFS.lng,
+      dropoffLat: BELFAST.lat,
+      dropoffLng: BELFAST.lng,
+    },
+    occupied: [],
+    rules: fullDay ? [fullDay] : [],
+    config,
+    offerAlternatives: true,
+    now: NOW,
+  });
+  assert.equal(fullDayGate.blocked, true);
+  assert.equal(fullDayGate.alternativeTimes.length, 0, "full-day owner block has no same-day alternatives");
+  assert.equal(fullDayGate.customerMessage, CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE);
+
+  const bookingConflict = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: {
+      pickupLabel: bfsToCity.pickupLabel,
+      dropoffLabel: bfsToCity.dropoffLabel,
+      tripDate: MONDAY,
+      tripTime: "05:33",
+      airportCode: "BFS",
+      isFromAirport: true,
+      routeDurationMinutes: 30,
+      pickupLat: BFS.lat,
+      pickupLng: BFS.lng,
+      dropoffLat: BELFAST.lat,
+      dropoffLng: BELFAST.lng,
+    },
+    occupied: [larneAt0700],
+    config,
+    offerAlternatives: true,
+    now: NOW,
+  });
+  assert.equal(bookingConflict.blocked, true);
+  assert.ok(bookingConflict.alternativeTimes.length >= 1, "ordinary booking conflict still offers same-day times");
+  assert.equal(bookingConflict.customerMessage, customerUnavailableAtTimeMessage("05:33"));
+  assert.ok(bookingConflict.alternativeTimes.every((item) => item.tripDate === MONDAY));
+
+  const afternoonBlock = normalizeSmartAvailabilityRule({
+    kind: "one_off",
+    startLocal: `${MONDAY}T13:00`,
+    endLocal: `${MONDAY}T15:00`,
+    enabled: true,
+    note: "Partial owner block",
+  });
+  assert.ok(afternoonBlock);
+  const partialGate = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: {
+      pickupLabel: bfsToCity.pickupLabel,
+      dropoffLabel: bfsToCity.dropoffLabel,
+      tripDate: MONDAY,
+      tripTime: "14:00",
+      airportCode: "BFS",
+      isFromAirport: true,
+      routeDurationMinutes: 30,
+      pickupLat: BFS.lat,
+      pickupLng: BFS.lng,
+      dropoffLat: BELFAST.lat,
+      dropoffLng: BELFAST.lng,
+    },
+    occupied: [],
+    rules: afternoonBlock ? [afternoonBlock] : [],
+    config,
+    offerAlternatives: true,
+    now: NOW,
+  });
+  assert.equal(partialGate.blocked, true);
+  assert.ok(partialGate.alternativeTimes.length >= 1, "partial block still offers genuine times that day");
+  assert.ok(partialGate.alternativeTimes.every((item) => item.tripDate === MONDAY));
+  assert.ok(
+    !partialGate.alternativeTimes.some((item) => item.tripTime >= "13:00" && item.tripTime < "15:00"),
+    "must not offer times still inside the owner block",
+  );
+  for (const option of partialGate.alternativeTimes) {
+    const check = evaluateCustomerSmartAvailability({
+      requested: { ...bfsToCity, tripDate: option.tripDate, tripTime: option.tripTime },
+      occupied: [],
+      rules: afternoonBlock ? [afternoonBlock] : [],
+      config,
+      searchAlternatives: false,
+      now: NOW,
+    });
+    assert.equal(check.available, true, `${option.tripTime} must pass the same engine`);
+  }
+  const nextDay = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: {
+      pickupLabel: bfsToCity.pickupLabel,
+      dropoffLabel: bfsToCity.dropoffLabel,
+      tripDate: "2026-09-08",
+      tripTime: "10:00",
+      airportCode: "BFS",
+      isFromAirport: true,
+      routeDurationMinutes: 30,
+      pickupLat: BFS.lat,
+      pickupLng: BFS.lng,
+      dropoffLat: BELFAST.lat,
+      dropoffLng: BELFAST.lng,
+    },
+    occupied: [],
+    rules: fullDay ? [fullDay] : [],
+    config,
+    offerAlternatives: true,
+    now: NOW,
+  });
+  assert.equal(nextDay.blocked, false, "a newly chosen date must revalidate through the same engine");
+
+  const quoteCard = read("src/components/QuoteCard.tsx");
+  assert.match(quoteCard, /handleChooseAnotherDate/);
+  assert.match(quoteCard, /getElementById\("date"\)/);
+  console.log("OK  rest-of-day / full-day use Choose another date; booking conflicts keep alternatives");
 }
 
 console.log("\n=== Preview opt-in enforces without Origin and never on www ===");
@@ -787,6 +966,8 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
   assert.match(quoteCard, /CustomerSmartAvailabilityBlocked/);
   assert.match(quoteCard, /handleSelectAvailabilityAlternative/);
   assert.match(quoteCard, /handleChooseAnotherTime/);
+  assert.match(quoteCard, /handleChooseAnotherDate/);
+  assert.match(quoteCard, /onChooseAnotherDate=\{handleChooseAnotherDate\}/);
   assert.match(quoteCard, /smartAvailabilityBlocked \? null/);
   assert.match(quoteCard, /Continue to your details/);
   assert.match(quoteCard, /isCustomerSmartAvailabilityBlockMessage\(paymentError\)/);
