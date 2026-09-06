@@ -1,7 +1,7 @@
 /**
  * Smart Availability + Smart Return Pricing — owner-configurable flags and buffers.
- * Customer-facing flags default OFF. Live quote/payment behaviour is unchanged
- * until those flags are explicitly enabled.
+ * Signed-off customer flags: Smart Availability and Alternative Times ON.
+ * Smart Return, corridor matching and backup capacity stay OFF. Shadow stays ON.
  */
 
 export const SMART_OPS_REASON = {
@@ -89,15 +89,37 @@ export type SmartOpsConfig = {
   updatedAt: string;
 };
 
+/** Production customer flags after owner sign-off. Other customer engines stay off. */
+export const SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS: SmartOpsFeatureFlags = {
+  smartAvailability: true,
+  alternativeTimeSuggestions: true,
+  smartReturnPricing: false,
+  returnCorridorMatching: false,
+  backupDriverCapacity: false,
+  shadowMode: true,
+};
+
+export function applySignedOffCustomerSmartOpsFlags(config: SmartOpsConfig): SmartOpsConfig {
+  return {
+    ...config,
+    flags: { ...SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS },
+  };
+}
+
+export function customerSmartOpsFlagsMatchSignedOff(flags: SmartOpsFeatureFlags): boolean {
+  return (
+    flags.smartAvailability === SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS.smartAvailability &&
+    flags.alternativeTimeSuggestions ===
+      SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS.alternativeTimeSuggestions &&
+    flags.smartReturnPricing === SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS.smartReturnPricing &&
+    flags.returnCorridorMatching === SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS.returnCorridorMatching &&
+    flags.backupDriverCapacity === SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS.backupDriverCapacity &&
+    flags.shadowMode === SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS.shadowMode
+  );
+}
+
 export const DEFAULT_SMART_OPS_CONFIG: SmartOpsConfig = {
-  flags: {
-    smartAvailability: false,
-    alternativeTimeSuggestions: false,
-    smartReturnPricing: false,
-    returnCorridorMatching: false,
-    backupDriverCapacity: false,
-    shadowMode: true,
-  },
+  flags: { ...SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS },
   buffers: {
     shortJourneyBufferMinutes: 15,
     longDistanceBufferMinutes: 45,

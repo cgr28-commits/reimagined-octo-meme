@@ -208,9 +208,9 @@ export async function handleOwnerSaveSmartOps(
       flags: {
         ...current.config.flags,
         ...incomingFlags,
-        // Locked until this draft is signed off. Owner Test Tool still evaluates fully.
-        smartAvailability: false,
-        alternativeTimeSuggestions: false,
+        // Signed-off customer flags. Owner Test Tool still evaluates fully.
+        smartAvailability: true,
+        alternativeTimeSuggestions: true,
         smartReturnPricing: false,
         returnCorridorMatching: false,
         backupDriverCapacity: false,
@@ -219,18 +219,19 @@ export async function handleOwnerSaveSmartOps(
       updatedAt: new Date().toISOString(),
     });
     const state = await saveSmartOpsState(env.TRACKING_STORE, { ...current, config });
-    const triedCustomerOn =
-      incomingFlags.smartAvailability === true ||
-      incomingFlags.alternativeTimeSuggestions === true ||
+    const triedUnsignedOn =
       incomingFlags.smartReturnPricing === true ||
       incomingFlags.returnCorridorMatching === true ||
       incomingFlags.backupDriverCapacity === true;
+    const triedSignedOffOff =
+      incomingFlags.smartAvailability === false ||
+      incomingFlags.alternativeTimeSuggestions === false;
     return {
       ok: true,
       state,
       locked:
-        triedCustomerOn || incomingFlags.shadowMode === false
-          ? "Customer-facing Smart Availability, Alternative Times, Smart Return, corridor matching and backup capacity stay OFF. Shadow mode stays ON."
+        triedUnsignedOn || triedSignedOffOff || incomingFlags.shadowMode === false
+          ? "Smart Availability and Alternative Times stay ON. Smart Return, corridor matching and backup capacity stay OFF. Shadow mode stays ON."
           : undefined,
     };
   }

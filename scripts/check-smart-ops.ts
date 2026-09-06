@@ -555,8 +555,8 @@ console.log("\n=== O. Disabling Smart Return restores normal pricing ===");
 
 console.log("\n=== P. Disabling Smart Availability leaves current booking behaviour ===");
 {
-  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartAvailability, false);
-  assert.equal(customerFacingSmartOpsEnabled(DEFAULT_SMART_OPS_CONFIG), false);
+  assert.equal(config.flags.smartAvailability, false);
+  assert.equal(customerFacingSmartOpsEnabled(config), false);
   const quote = read("src/components/QuoteCard.tsx");
   assert.doesNotMatch(quote, /evaluateSmartAvailability/);
   assert.doesNotMatch(quote, /OwnerSmartAvailabilityPanel/);
@@ -1401,10 +1401,10 @@ console.log("\n=== Same-place zero-gap jobs need minimum turnaround ===");
   console.log("OK  minimum turnaround");
 }
 
-console.log("\n=== Defaults remain customer-off / shadow-on ===");
+console.log("\n=== Defaults remain signed-off customer flags / shadow-on ===");
 {
-  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartAvailability, false);
-  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.alternativeTimeSuggestions, false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartAvailability, true);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.alternativeTimeSuggestions, true);
   assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartReturnPricing, false);
   assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.returnCorridorMatching, false);
   assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.backupDriverCapacity, false);
@@ -2285,7 +2285,7 @@ console.log("\n=== After-Larne positioning starts at 07:33 completion, not 07:48
 console.log("\n=== Next validation: house, same-airport, sandwich, reverse hop (rules unchanged) ===");
 {
   assert.equal(customerFacingSmartOpsEnabled(config), false);
-  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartAvailability, false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartAvailability, true);
 
   const larneAt0700: SmartOccupiedJob = {
     id: "TAAA4672EAN-33",
