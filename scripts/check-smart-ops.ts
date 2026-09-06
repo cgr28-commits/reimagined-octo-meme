@@ -2281,4 +2281,250 @@ console.log("\n=== After-Larne positioning starts at 07:33 completion, not 07:48
   console.log("OK  33-min Larne finish 07:33 → ready 08:22; BFS boundary 08:52 / 08:51");
 }
 
+console.log("\n=== Next validation: house, same-airport, sandwich, reverse hop (rules unchanged) ===");
+{
+  assert.equal(customerFacingSmartOpsEnabled(config), false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartAvailability, false);
+
+  const larneAt0700: SmartOccupiedJob = {
+    id: "TAAA4672EAN-33",
+    pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+    dropoffLabel: "George Best Belfast City Airport",
+    pickup: LARNE,
+    dropoff: BHD,
+    tripDate: MONDAY,
+    tripTime: "07:00",
+    durationMinutes: 33,
+    airportCode: "BHD",
+  };
+  const now = new Date("2026-09-06T12:00:00+01:00");
+
+  // 1. Other direction of the airport buffer: house pickup after Larne→BHD.
+  // BHD→City 14 + 10 = 24. Ready 07:57. No +30. Boundary 07:57 / 07:56.
+  const bhdToCity = repositionMinutes(BHD, BELFAST, {
+    fromLabel: "George Best Belfast City Airport",
+    toLabel: "Belfast City Centre",
+  });
+  assert.equal(bhdToCity, 14);
+  assert.equal(positioningTimeNeededMinutes(bhdToCity, 10), 24);
+  const house = {
+    pickupLabel: "Belfast City Centre",
+    dropoffLabel: "Belfast International Airport",
+    pickup: BELFAST,
+    dropoff: BFS,
+    tripDate: MONDAY,
+    durationMinutes: 30,
+  };
+  const house0757 = evaluateSmartAvailability({
+    requested: { ...house, tripTime: "07:57" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(house0757.diagnostics.proposedAirportBufferMinutes, 0);
+  assert.equal(house0757.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T07:57`);
+  assert.equal(house0757.diagnostics.earliestBookablePassengerLocal, `${MONDAY}T07:57`);
+  assert.equal(house0757.available, true);
+
+  const house0756 = evaluateSmartAvailability({
+    requested: { ...house, tripTime: "07:56" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(house0756.available, false);
+  assert.equal(house0756.reason, SMART_OPS_REASON.CONFLICT_POSITIONING_TIME);
+  assert.equal(house0756.diagnostics.conflictKind, "previous_positioning");
+
+  // 2. Same-airport continuation: BHD pickup after Larne→BHD. Drive 0 + 10
+  // turnaround → driver-ready 07:43, positioning-only passenger 08:13.
+  // Binding constraint is overlap: previous operational window ends 07:48,
+  // BHD airport on-site is passenger − 30, so 08:18 / 08:17.
+  const sameAirport = {
+    pickupLabel: "George Best Belfast City Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BHD,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    durationMinutes: 20,
+    airportCode: "BHD" as const,
+    isFromAirport: true,
+  };
+  const bhd0813 = evaluateSmartAvailability({
+    requested: { ...sameAirport, tripTime: "08:13" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(bhd0813.diagnostics.previousPositioningMinutes, 0);
+  assert.equal(bhd0813.diagnostics.previousPositioningNeededMinutes, 10);
+  assert.equal(bhd0813.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T07:43`);
+  assert.equal(bhd0813.diagnostics.earliestBookablePassengerLocal, `${MONDAY}T08:13`);
+  assert.equal(bhd0813.available, false);
+  assert.equal(bhd0813.reason, SMART_OPS_REASON.CONFLICT_EXISTING_BOOKING);
+  assert.equal(bhd0813.diagnostics.conflictKind, "overlap");
+
+  const bhd0818 = evaluateSmartAvailability({
+    requested: { ...sameAirport, tripTime: "08:18" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(bhd0818.diagnostics.proposedOnSiteDeadlineLocal, `${MONDAY}T07:48`);
+  assert.equal(bhd0818.available, true);
+
+  const bhd0817 = evaluateSmartAvailability({
+    requested: { ...sameAirport, tripTime: "08:17" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(bhd0817.available, false);
+  assert.equal(bhd0817.reason, SMART_OPS_REASON.CONFLICT_EXISTING_BOOKING);
+  assert.equal(bhd0817.diagnostics.conflictKind, "overlap");
+
+  // 3. Sandwich: Larne 07:00 and a 10:00 City Centre house job.
+  // After-Larne BFS floor remains 08:52. Proposed operational end is pickup+45,
+  // exclusive vs 10:00, so 09:15 is the last BFS pickup that does not overlap 10:00.
+  const cityAt1000: SmartOccupiedJob = {
+    id: "JOB-CITY-1000",
+    pickupLabel: "Belfast City Centre",
+    dropoffLabel: "Belfast International Airport",
+    pickup: BELFAST,
+    dropoff: BFS,
+    tripDate: MONDAY,
+    tripTime: "10:00",
+    durationMinutes: 20,
+  };
+  const bfsBetween = {
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BFS,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    durationMinutes: 30,
+    airportCode: "BFS" as const,
+    isFromAirport: true,
+  };
+  const sandwich0852 = evaluateSmartAvailability({
+    requested: { ...bfsBetween, tripTime: "08:52" },
+    occupied: [larneAt0700, cityAt1000],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(sandwich0852.available, true);
+  assert.equal(sandwich0852.diagnostics.previousBookingId, "TAAA4672EAN-33");
+  assert.equal(sandwich0852.diagnostics.nextBookingId, "JOB-CITY-1000");
+
+  const sandwich0851 = evaluateSmartAvailability({
+    requested: { ...bfsBetween, tripTime: "08:51" },
+    occupied: [larneAt0700, cityAt1000],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(sandwich0851.available, false);
+  assert.equal(sandwich0851.reason, SMART_OPS_REASON.CONFLICT_POSITIONING_TIME);
+
+  const sandwich0915 = evaluateSmartAvailability({
+    requested: { ...bfsBetween, tripTime: "09:15" },
+    occupied: [larneAt0700, cityAt1000],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(sandwich0915.diagnostics.operationalEndLocal, `${MONDAY}T10:00`);
+  assert.equal(sandwich0915.available, true);
+
+  const sandwich0916 = evaluateSmartAvailability({
+    requested: { ...bfsBetween, tripTime: "09:16" },
+    occupied: [larneAt0700, cityAt1000],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(sandwich0916.available, false);
+  assert.equal(sandwich0916.reason, SMART_OPS_REASON.CONFLICT_NEXT_BOOKING);
+  assert.equal(sandwich0916.diagnostics.conflictBookingId, "JOB-CITY-1000");
+  assert.match(String(sandwich0916.diagnostics.conflictSummary), /Overlap/i);
+
+  // 4. Reverse hop: after 05:45 BFS→City, a BHD airport pickup.
+  // City→BHD 14 + 10 = 24. Ready 06:39. Airport +30 → 07:09 / 07:08.
+  const bfsAt0545: SmartOccupiedJob = {
+    id: "JOB-BFS-0545",
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BFS,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    tripTime: "05:45",
+    durationMinutes: 30,
+    airportCode: "BFS",
+    isFromAirport: true,
+  };
+  const bhdAfterBfs = {
+    pickupLabel: "George Best Belfast City Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BHD,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    durationMinutes: 20,
+    airportCode: "BHD" as const,
+    isFromAirport: true,
+  };
+  const reverse0709 = evaluateSmartAvailability({
+    requested: { ...bhdAfterBfs, tripTime: "07:09" },
+    occupied: [bfsAt0545],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(reverse0709.diagnostics.previousPositioningMinutes, 14);
+  assert.equal(reverse0709.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T06:39`);
+  assert.equal(reverse0709.diagnostics.earliestBookablePassengerLocal, `${MONDAY}T07:09`);
+  assert.equal(reverse0709.available, true);
+
+  const reverse0708 = evaluateSmartAvailability({
+    requested: { ...bhdAfterBfs, tripTime: "07:08" },
+    occupied: [bfsAt0545],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(reverse0708.available, false);
+  assert.equal(reverse0708.reason, SMART_OPS_REASON.CONFLICT_POSITIONING_TIME);
+
+  // 5. Next calendar day is not blocked by Monday Larne.
+  const tuesday = addDaysYmd(MONDAY, 1);
+  const nextDay = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      pickup: BFS,
+      dropoff: BELFAST,
+      tripDate: tuesday,
+      tripTime: "07:40",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now,
+  });
+  assert.equal(nextDay.available, true);
+  assert.equal(nextDay.diagnostics.sameCalendarDayAsNext, null);
+
+  console.log(
+    "OK  house 07:57/07:56; same-airport overlap 08:18/08:17; sandwich 08:52–09:15; reverse 07:09/07:08; next day open",
+  );
+}
+
 console.log("\nAll Smart Availability / Smart Return checks passed.");
