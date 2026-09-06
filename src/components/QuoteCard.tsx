@@ -4371,6 +4371,7 @@ function QuoteCard({
             {returnJourney && openWebsiteFareBreakdown ? (
               <PromotionalPriceBreakdown
                 breakdown={openWebsiteFareBreakdown}
+                service={expressSelection.service ?? "drop-off"}
                 freeAirportAccessSelected={
                   expressSelection.eligible && expressSelection.feeGbp === 0
                 }
@@ -4422,6 +4423,7 @@ function QuoteCard({
             {testChargeAmount === null && !appliedPersonalQuote && openWebsiteFareBreakdown ? (
               <PromotionalPriceBreakdown
                 breakdown={openWebsiteFareBreakdown}
+                service={expressSelection.service ?? "drop-off"}
                 freeAirportAccessSelected={
                   expressSelection.eligible && expressSelection.feeGbp === 0
                 }
@@ -6133,6 +6135,7 @@ function QuoteCard({
             openWebsiteFareBreakdown ? (
               <FinalPayableBreakdown
                 breakdown={openWebsiteFareBreakdown}
+                service={expressSelection.service ?? "drop-off"}
                 freeAirportAccessSelected={
                   expressSelection.eligible && expressSelection.feeGbp === 0
                 }

@@ -8,6 +8,11 @@ import {
   formatGbpFare,
   type WebsiteFareBreakdown,
 } from "../../shared/website-fare-breakdown";
+import {
+  expressAirportLegendLabel,
+  expressAvoidedChargeMessage,
+  type ExpressAirportService,
+} from "../../shared/express-drop-off";
 
 export function buildOpenWebsiteFareBreakdown(input: {
   journeyFareBeforeAirportAccessGbp: number;
@@ -107,6 +112,7 @@ export function PromotionalSavingsSummary({
 export function PromotionalPriceBreakdown({
   breakdown,
   freeAirportAccessSelected = false,
+  service = "drop-off",
   className = "",
 }: {
   breakdown: WebsiteFareBreakdown;
@@ -115,8 +121,10 @@ export function PromotionalPriceBreakdown({
    * added. This is not an extra promotional −£5 on the journey fare.
    */
   freeAirportAccessSelected?: boolean;
+  service?: ExpressAirportService;
   className?: string;
 }) {
+  const accessLabel = expressAirportLegendLabel(service);
   const hasPromo = breakdown.totalPromotionalSavingGbp > 0;
   const accessGbp = breakdown.airportAccessChargeGbp;
   const hasAccess = accessGbp > 0;
@@ -169,7 +177,7 @@ export function PromotionalPriceBreakdown({
         ) : null}
         {hasAccess ? (
           <div className="flex justify-between gap-3">
-            <dt>Airport Express Drop-Off</dt>
+            <dt>{accessLabel}</dt>
             <dd className="shrink-0 tabular-nums text-white/80">
               +{formatGbpFare(accessGbp)}
             </dd>
@@ -177,7 +185,7 @@ export function PromotionalPriceBreakdown({
         ) : null}
         {freeAirportAccessSelected && !hasAccess ? (
           <div className="flex justify-between gap-3 text-white/55">
-            <dt>Airport Express Drop-Off</dt>
+            <dt>{accessLabel}</dt>
             <dd className="shrink-0 tabular-nums">Not added</dd>
           </div>
         ) : null}
@@ -198,7 +206,7 @@ export function PromotionalPriceBreakdown({
       </dl>
       {freeAirportAccessSelected && !hasAccess ? (
         <p className="text-[11px] leading-snug text-emerald/85">
-          ✓ You’ve avoided the Express Drop-Off charge
+          ✓ {expressAvoidedChargeMessage(service)}
         </p>
       ) : null}
     </div>
@@ -209,12 +217,15 @@ export function PromotionalPriceBreakdown({
 export function FinalPayableBreakdown({
   breakdown,
   freeAirportAccessSelected = false,
+  service = "drop-off",
   className = "",
 }: {
   breakdown: WebsiteFareBreakdown;
   freeAirportAccessSelected?: boolean;
+  service?: ExpressAirportService;
   className?: string;
 }) {
+  const accessLabel = expressAirportLegendLabel(service);
   return (
     <div
       className={`rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3 ${className}`}
@@ -239,14 +250,14 @@ export function FinalPayableBreakdown({
         ) : null}
         {breakdown.airportAccessChargeGbp > 0 ? (
           <div className="flex justify-between gap-3 text-white/75">
-            <dt>Airport Express Drop-Off</dt>
+            <dt>{accessLabel}</dt>
             <dd className="shrink-0 tabular-nums">
               +{formatGbpFare(breakdown.airportAccessChargeGbp)}
             </dd>
           </div>
         ) : freeAirportAccessSelected ? (
           <div className="flex justify-between gap-3 text-white/55">
-            <dt>Airport Express Drop-Off</dt>
+            <dt>{accessLabel}</dt>
             <dd className="shrink-0 tabular-nums">Not added</dd>
           </div>
         ) : null}

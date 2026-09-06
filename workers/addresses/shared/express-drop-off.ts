@@ -303,6 +303,14 @@ export function expressAirportLegendLabel(
   return service === "pick-up" ? "Airport Express Pick-Up" : "Airport Express Drop-Off";
 }
 
+export function expressAvoidedChargeMessage(
+  service: ExpressAirportService = "drop-off",
+): string {
+  return service === "pick-up"
+    ? "You’ve avoided the Express Pick-Up charge"
+    : "You’ve avoided the Express Drop-Off charge";
+}
+
 /** Structured fields for quotes / bookings / emails. */
 export type ExpressDropOffPersistedFields = {
   expressDropOffSelected: boolean;

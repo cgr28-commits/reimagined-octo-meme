@@ -577,6 +577,44 @@ console.log("\n=== Alternative suggestions are engine-validated and preview-only
   console.log("OK  alternatives are revalidated, public-only, and preview-gated");
 }
 
+console.log("\n=== 05:18 BFS alternative fits before 07:00 Larne ===");
+{
+  const requested = { ...bfsToCity, tripTime: "05:18" };
+  const owner = evaluateSmartAvailability({
+    requested,
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: NOW,
+  });
+  const customer = evaluateCustomerSmartAvailability({
+    requested,
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: NOW,
+  });
+  assert.equal(customer.available, true);
+  assert.equal(owner.available, true);
+  assert.equal(owner.diagnostics.estimatedJourneyDurationMinutes, 30);
+  assert.equal(owner.diagnostics.estimatedCompletionLocal, "2026-09-07T05:48");
+  assert.equal(owner.diagnostics.expectedFinishingLocation, "Belfast City Centre");
+  assert.equal(owner.diagnostics.positioningTravelMinutes, 48);
+  assert.equal(owner.diagnostics.minTurnaroundMinutes, 10);
+  assert.equal(owner.diagnostics.positioningNeededMinutes, 58);
+  assert.equal(owner.diagnostics.earliestReadyLocal, "2026-09-07T06:46");
+  assert.equal(owner.diagnostics.nextPickupLocal, "2026-09-07T07:00");
+  assert.equal(owner.diagnostics.positioningGapMinutes, 72);
+  assert.equal(owner.diagnostics.positioningGapMinutes! - owner.diagnostics.positioningNeededMinutes!, 14);
+  const cityToLarne = repositionMinutes(BELFAST, LARNE, {
+    fromLabel: "Belfast City Centre",
+    toLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+  });
+  assert.equal(cityToLarne, 48);
+  assert.equal(positioningTimeNeededMinutes(48, 10), 58);
+  console.log("OK  05:18 finishes 05:48, 48+10=58 to Larne, ready 06:46, 14 min spare");
+}
+
 console.log("\n=== Preview opt-in enforces without Origin and never on www ===");
 {
   assert.equal(isPagesPreviewOrigin("https://cursor-x.my-airport-taxi-ni-preview.pages.dev"), true);
