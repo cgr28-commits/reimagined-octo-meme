@@ -16,6 +16,7 @@ import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel"
 import OwnerDashboardToolSwitcher, {
   type OwnerDashboardToolTab,
 } from "@/components/OwnerDashboardToolSwitcher";
+import OwnerSmartAvailabilityPanel from "@/components/OwnerSmartAvailabilityPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppDriverDetailsLink,
@@ -2194,6 +2195,7 @@ export default function DriverPageClient({
   const [driverKey, setDriverKey] = useState("");
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
+  const [isOwnerPreviewHost, setIsOwnerPreviewHost] = useState(false);
   const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(
     isOwnerPortal ? "owner" : null,
   );
@@ -2331,6 +2333,14 @@ export default function DriverPageClient({
     },
     [selectedDate, today, view],
   );
+
+  useEffect(() => {
+    if (!isOwnerPortal || typeof window === "undefined") return;
+    const host = window.location.hostname.toLowerCase();
+    setIsOwnerPreviewHost(host.includes("pages.dev") || host.includes("vercel.app"));
+    const tab = new URLSearchParams(window.location.search).get("tab")?.trim().toLowerCase();
+    if (tab === "availability") setOwnerToolTab("availability");
+  }, [isOwnerPortal]);
 
   const refreshJobs = useCallback(() => {
     if (savedKey) {
@@ -2713,6 +2723,12 @@ export default function DriverPageClient({
                   : "Driver dashboard"}
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Bookings</h1>
+            {isOwnerPortal && isOwnerPreviewHost ? (
+              <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50">
+                Signed-in owner preview for draft PR #460. Use Availability and Owner Test Tool here.
+                Live www.myairporttaxini.co.uk is unchanged. Keep customer Smart Availability flags OFF.
+              </p>
+            ) : null}
             <p className="mt-3 text-white/70">
               {isOwnerView ? (
                 <>
@@ -2922,6 +2938,16 @@ export default function DriverPageClient({
                   value={ownerToolTab}
                   onChange={setOwnerToolTab}
                 />
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "availability" ? (
+                <div
+                  id="owner-tool-panel-availability"
+                  role="tabpanel"
+                  aria-labelledby="owner-tool-tab-availability"
+                >
+                  <OwnerSmartAvailabilityPanel ownerKey={savedKey} />
+                </div>
               ) : null}
 
               {isOwnerView && savedKey && ownerToolTab === "a2a-quotes" ? (

@@ -86,7 +86,7 @@ async function removeIdFromDayIndex(
 export async function savePaidBookingRecord(
   store: KVNamespace,
   record: PaidBookingRecord,
-  options?: { previousTripDate?: string },
+  options?: { previousTripDate?: string; previousReturnDate?: string },
 ): Promise<void> {
   await store.put(paidBookingRefKey(record.paymentReference), JSON.stringify(record), {
     expirationTtl: RECORD_TTL,
@@ -120,6 +120,32 @@ export async function savePaidBookingRecord(
       );
     }
     await addIdToDayIndex(store, paidBookingTripDayIndexKey(tripDay), record.paymentReference);
+  }
+
+  const returnDay = record.returnDate?.trim();
+  if (returnDay && /^\d{4}-\d{2}-\d{2}$/.test(returnDay)) {
+    const previousReturnDate = options?.previousReturnDate?.trim();
+    if (
+      previousReturnDate &&
+      previousReturnDate !== returnDay &&
+      /^\d{4}-\d{2}-\d{2}$/.test(previousReturnDate)
+    ) {
+      await removeIdFromDayIndex(
+        store,
+        paidBookingTripDayIndexKey(previousReturnDate),
+        record.paymentReference,
+      );
+    }
+    await addIdToDayIndex(store, paidBookingTripDayIndexKey(returnDay), record.paymentReference);
+  } else if (options?.previousReturnDate?.trim()) {
+    const previousReturnDate = options.previousReturnDate.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(previousReturnDate)) {
+      await removeIdFromDayIndex(
+        store,
+        paidBookingTripDayIndexKey(previousReturnDate),
+        record.paymentReference,
+      );
+    }
   }
 
   if (record.isRefundTest) {
@@ -458,6 +484,47 @@ export async function listUpcomingPaidBookings(
   return [...byRef.values()]
     .filter((record) => !isOwnerOperationalTestBooking(record))
     .filter((record) => bookingInUpcomingHorizon(record, horizonStart, horizonEnd))
+    .sort((a, b) => tripSortKey(a).localeCompare(tripSortKey(b)))
+    .slice(0, limit);
+}
+
+/**
+ * Paid bookings whose outbound trip date or return date falls in [fromYmd, toYmd].
+ * Uses the trip-day index (not payment createdAt) so a booking made months
+ * earlier still appears when its journey date is checked.
+ */
+export async function listPaidBookingsForTripRange(
+  store: KVNamespace,
+  fromYmd: string,
+  toYmd: string,
+  options?: { limit?: number },
+): Promise<PaidBookingRecord[]> {
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(fromYmd) ? fromYmd : londonToday();
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(toYmd) ? toYmd : from;
+  const start = from <= to ? from : to;
+  const end = from <= to ? to : from;
+  const limit = Math.min(Math.max(options?.limit ?? 250, 1), 400);
+  const byRef = new Map<string, PaidBookingRecord>();
+
+  let cursor = start;
+  let guard = 0;
+  while (cursor <= end && guard < 420) {
+    const ids = await store.get<string[]>(paidBookingTripDayIndexKey(cursor), "json");
+    if (Array.isArray(ids)) {
+      for (const id of ids) {
+        if (!id?.trim() || byRef.has(id)) continue;
+        const record = await getPaidBookingRecord(store, id);
+        if (record) byRef.set(record.paymentReference, record);
+      }
+    }
+    if (cursor === end) break;
+    cursor = addDaysYmd(cursor, 1);
+    guard += 1;
+  }
+
+  return [...byRef.values()]
+    .filter((record) => !isOwnerOperationalTestBooking(record))
+    .filter((record) => bookingInUpcomingHorizon(record, start, end))
     .sort((a, b) => tripSortKey(a).localeCompare(tripSortKey(b)))
     .slice(0, limit);
 }

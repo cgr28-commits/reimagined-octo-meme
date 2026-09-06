@@ -19,6 +19,10 @@ name: Deploy Pages Preview
         description: "Optional note for this preview deploy"
         required: false
         default: "PR smoke-test preview"
+  # Owner-only interactive test of draft PR #460. Does not publish to the live site.
+  push:
+    branches:
+      - cursor/smart-availability-return-pricing-514b
 
 concurrency:
   group: pages-preview
@@ -119,5 +123,5 @@ jobs:
             URL="https://${BRANCH_SAFE}.my-airport-taxi-ni-preview.pages.dev"
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "::notice::Preview frontend URL: $URL/manage-booking/"
-          echo "::notice::Stable project URL: https://my-airport-taxi-ni-preview.pages.dev/manage-booking/"
+          echo "::notice::Preview frontend URL: $URL/owner/"
+          echo "::notice::Stable project URL: https://my-airport-taxi-ni-preview.pages.dev/owner/"

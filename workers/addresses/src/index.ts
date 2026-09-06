@@ -140,6 +140,13 @@ import {
   shouldForceShortNotice,
 } from "./short-notice-handlers";
 import {
+  handleOwnerEvaluateSmartOps,
+  handleOwnerGetSmartOps,
+  handleOwnerSaveSmartOps,
+  handleOwnerSmartOpsCalendar,
+  isOwnerSmartOpsPath,
+} from "./smart-ops-handlers";
+import {
   getShortNoticeByAcceptToken,
   getShortNoticeByToken,
   saveShortNoticeBooking,
@@ -1858,6 +1865,10 @@ async function handlePaymentRequest(
         tripLabel: sj.tripLabel || booking.tripLabel || "Airport transfer",
         journeyDistance: sj.journeyDistance,
         journeyDuration: sj.journeyDuration,
+        pickupLat: sj.pickupLat,
+        pickupLng: sj.pickupLng,
+        dropoffLat: sj.dropoffLat,
+        dropoffLng: sj.dropoffLng,
       };
     } else {
       amount = resolved.amount;
@@ -1883,6 +1894,10 @@ async function handlePaymentRequest(
         tripLabel: sj.tripLabel || booking.tripLabel || "Airport transfer",
         journeyDistance: sj.journeyDistance,
         journeyDuration: sj.journeyDuration,
+        pickupLat: sj.pickupLat,
+        pickupLng: sj.pickupLng,
+        dropoffLat: sj.dropoffLat,
+        dropoffLng: sj.dropoffLng,
       };
     }
   }
@@ -1935,6 +1950,17 @@ async function handlePaymentRequest(
       return json(errBody, status, origin);
     }
     const routeMetrics = routeOutcome.metrics;
+    booking = {
+      ...booking,
+      routeDistanceKm: routeMetrics.distanceKm,
+      routeDurationMinutes: routeMetrics.durationMinutes,
+      ...(routeOutcome.pickup
+        ? { pickupLat: routeOutcome.pickup.lat, pickupLng: routeOutcome.pickup.lng }
+        : {}),
+      ...(routeOutcome.dropoff
+        ? { dropoffLat: routeOutcome.dropoff.lat, dropoffLng: routeOutcome.dropoff.lng }
+        : {}),
+    };
 
     // Airport identity / direction from pickup/drop-off labels vs SERVED_AIRPORTS.
     // Never trust client airportCode / isFromAirport / journeyKind / A2A flags.
@@ -3168,6 +3194,60 @@ export default {
           { ...env, TRACKING_STORE: env.TRACKING_STORE },
           body,
         );
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      return json({ error: "Method not allowed" }, 405, origin);
+    }
+
+    if (isOwnerSmartOpsPath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const smartEnv = { ...env, TRACKING_STORE: env.TRACKING_STORE };
+      if (
+        (url.pathname === "/owner/smart-ops" || url.pathname === "/api/owner/smart-ops") &&
+        request.method === "GET"
+      ) {
+        const result = await handleOwnerGetSmartOps(request, smartEnv);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname === "/owner/smart-ops" || url.pathname === "/api/owner/smart-ops") &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerSaveSmartOps(request, smartEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname === "/owner/smart-ops/evaluate" ||
+          url.pathname === "/api/owner/smart-ops/evaluate") &&
+        request.method === "POST"
+      ) {
+        let body: Record<string, unknown>;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400, origin);
+        }
+        const result = await handleOwnerEvaluateSmartOps(request, smartEnv, body);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname === "/owner/smart-ops/calendar" ||
+          url.pathname === "/api/owner/smart-ops/calendar") &&
+        request.method === "GET"
+      ) {
+        const result = await handleOwnerSmartOpsCalendar(request, smartEnv);
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
       }

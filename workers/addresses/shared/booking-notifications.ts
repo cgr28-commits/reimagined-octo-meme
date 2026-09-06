@@ -90,6 +90,13 @@ export type PaidBookingDetails = {
   /** Optional per-leg fares — persisted on the paid record when both are known. */
   outboundFare?: number;
   returnFare?: number;
+  /** Operational coordinates / route snapshot from the quote or payment resolve. */
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  dropoffLat?: number | null;
+  dropoffLng?: number | null;
+  routeDistanceKm?: number | null;
+  routeDurationMinutes?: number | null;
   termsAcceptedAt?: string;
   termsVersion?: string;
   cancellationPolicyVersion?: string;
