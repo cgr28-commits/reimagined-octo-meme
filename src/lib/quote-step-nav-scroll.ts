@@ -159,6 +159,11 @@ export function scheduleBookingNavAfterRender(
     clearancePx?: number;
     /** Re-measure and correct if layout shifted after the first scroll. */
     correctAfterMs?: number;
+    /**
+     * Scroll in this turn when the target is already in the DOM (e.g. after
+     * flushSync). Skips the two-frame wait so the tap does not feel frozen.
+     */
+    immediate?: boolean;
   },
 ): () => void {
   if (typeof window === "undefined") {
@@ -167,6 +172,7 @@ export function scheduleBookingNavAfterRender(
 
   const generation = getScrollJobGeneration();
   let cancelled = false;
+  let raf1 = 0;
   let raf2 = 0;
   let correctionTimer = 0;
   const clearancePx = options?.clearancePx ?? HEADER_CLEARANCE_PX;
@@ -179,29 +185,39 @@ export function scheduleBookingNavAfterRender(
     });
   };
 
-  const raf1 = window.requestAnimationFrame(() => {
-    raf2 = window.requestAnimationFrame(() => {
+  const scheduleCorrection = () => {
+    const correctAfterMs = options?.correctAfterMs;
+    if (correctAfterMs == null || correctAfterMs <= 0) return;
+    correctionTimer = window.setTimeout(() => {
       if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
-      apply(options?.behavior);
+      const element = resolveBookingNavElement(target);
+      if (!element) return;
+      const desired = computeScrollTopBelowHeader(element, clearancePx);
+      if (Math.abs(window.scrollY - desired) > RESULTS_CORRECTION_TOLERANCE_PX) {
+        window.scrollTo({ top: desired, behavior: "auto" });
+      }
+    }, correctAfterMs);
+  };
 
-      const correctAfterMs = options?.correctAfterMs;
-      if (correctAfterMs == null || correctAfterMs <= 0) return;
+  const applyNow = (behavior?: ScrollBehavior) => {
+    if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
+    apply(behavior);
+    scheduleCorrection();
+  };
 
-      correctionTimer = window.setTimeout(() => {
-        if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
-        const element = resolveBookingNavElement(target);
-        if (!element) return;
-        const desired = computeScrollTopBelowHeader(element, clearancePx);
-        if (Math.abs(window.scrollY - desired) > RESULTS_CORRECTION_TOLERANCE_PX) {
-          window.scrollTo({ top: desired, behavior: "auto" });
-        }
-      }, correctAfterMs);
+  if (options?.immediate && resolveBookingNavElement(target)) {
+    applyNow(options?.behavior);
+  } else {
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        applyNow(options?.behavior);
+      });
     });
-  });
+  }
 
   const cancel = () => {
     cancelled = true;
-    window.cancelAnimationFrame(raf1);
+    if (raf1) window.cancelAnimationFrame(raf1);
     if (raf2) window.cancelAnimationFrame(raf2);
     if (correctionTimer) window.clearTimeout(correctionTimer);
   };
@@ -219,6 +235,7 @@ export function scrollQuoteStage(
     behavior?: ScrollBehavior;
     clearancePx?: number;
     correctAfterMs?: number;
+    immediate?: boolean;
   },
 ): () => void {
   cancelCompetingScrollJobs();
@@ -230,6 +247,7 @@ export function scrollQuoteStage(
     correctAfterMs: options?.correctAfterMs ?? 150,
     behavior: options?.behavior,
     clearancePx: options?.clearancePx,
+    immediate: options?.immediate,
   });
 }
 

@@ -23,6 +23,7 @@ name: Deploy Pages Preview
   push:
     branches:
       - cursor/customer-smart-availability-gate-514b
+      - cursor/quote-details-scroll-immediate-514b
 
 concurrency:
   group: pages-preview
