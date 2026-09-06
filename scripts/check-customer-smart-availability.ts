@@ -515,6 +515,7 @@ console.log("\n=== Preview Worker is isolated from production ===");
   assert.doesNotMatch(preview, /crons/);
   const workflow = read(".github/workflows/deploy-pages-preview.yml");
   assert.match(workflow, /wrangler deploy --env preview/);
+  assert.match(workflow, /preview-worker:/);
   assert.doesNotMatch(workflow, /wrangler deploy --env production|npm run deploy/);
   console.log("OK  preview Worker has no cron and is not the production deploy");
 }

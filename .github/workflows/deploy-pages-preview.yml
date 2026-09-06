@@ -32,11 +32,10 @@ permissions:
   contents: read
 
 jobs:
-  build-and-deploy:
+  preview-worker:
     runs-on: ubuntu-latest
-    environment:
-      name: Preview
-      url: ${{ steps.deploy.outputs.url }}
+    outputs:
+      url: ${{ steps.worker_preview.outputs.url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,8 +43,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-
-      - run: npm ci
+          cache-dependency-path: workers/addresses/package-lock.json
 
       - name: Deploy isolated preview Worker (not production)
         id: worker_preview
@@ -91,6 +89,22 @@ jobs:
           echo "url=$PREVIEW_WORKER" >> "$GITHUB_OUTPUT"
           echo "::notice::Preview Worker (not production traffic): $PREVIEW_WORKER"
 
+  build-and-deploy:
+    needs: preview-worker
+    runs-on: ubuntu-latest
+    environment:
+      name: Preview
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
       - name: Build static site (preview)
         env:
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
@@ -106,7 +120,7 @@ jobs:
           GOOGLE_ADS_BOOKING_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_BOOKING_CONVERSION_LABEL }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
-          WORKER_PREVIEW="${{ steps.worker_preview.outputs.url }}"
+          WORKER_PREVIEW="${{ needs.preview-worker.outputs.url }}"
           if [ -n "$WORKER_PREVIEW" ]; then
             BOOKINGS_API_URL="${WORKER_PREVIEW%/}/bookings"
           elif [ -z "$BOOKINGS_API_URL" ] || [[ "$BOOKINGS_API_URL" == *"myairporttaxini.co.uk"* ]]; then
