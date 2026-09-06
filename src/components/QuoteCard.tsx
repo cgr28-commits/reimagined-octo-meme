@@ -135,6 +135,7 @@ import {
 } from "@/lib/personal-quote-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
+import CombinedAirportAccessChoice from "@/components/CombinedAirportAccessChoice";
 import {
   BookWithConfidence,
   FinalPayableBreakdown,
@@ -144,10 +145,10 @@ import {
 } from "@/components/QuoteFareTrust";
 import {
   canProceedWithoutExpressDropOffLegs,
+  combinedFreeAlternativeAvailable,
   composeFareWithExpressDropOff,
   resolveExpressDropOff,
   shouldDefaultExpressSelectedOnNewEligibility,
-  type ExpressAirportService,
 } from "../../shared/express-drop-off";
 import {
   RETURN_OFFER_CONFIG,
@@ -4382,69 +4383,75 @@ function QuoteCard({
     );
   }
 
-  function expressLegHeading(
-    leg: "outbound" | "return",
-    service: ExpressAirportService,
-  ): string {
-    const journey = leg === "outbound" ? "Outbound journey" : "Return journey";
-    const access = service === "pick-up" ? "Airport pick-up" : "Airport drop-off";
-    return `${journey} – ${access}`;
-  }
-
   function renderExpressChoiceInPriceCard(mode: "full" | "summary") {
     if (!expressSelection.eligible || testChargeAmount !== null) {
       return null;
     }
     const legs = expressSelection.legs.filter((leg) => leg.airportCode);
     if (legs.length === 0) return null;
-    return (
-      <div className="mt-3 space-y-3 text-left" data-express-airport-choice>
-        {legs.map((leg) => {
-          const selected =
-            leg.leg === "return"
-              ? returnExpressDropOffSelected
-              : expressDropOffSelected;
-          const acknowledged =
-            leg.leg === "return" ? returnExpressRemovalAck : expressRemovalAck;
-          const heading =
-            legs.length > 1 ? expressLegHeading(leg.leg, leg.service) : undefined;
-          return (
-            <ExpressDropOffChoice
-              key={leg.leg}
-              mode={mode}
-              editing={expressEditingLeg === leg.leg}
-              onEditingChange={(editing) =>
-                setExpressEditingLeg(editing ? leg.leg : null)
+
+    if (legs.length > 1) {
+      // Return journey: the customer makes a single "Airport access" choice
+      // that applies to both legs together (simpler on mobile, and the £
+      // difference is visible immediately). Each leg is still resolved,
+      // priced and persisted independently underneath (see express-drop-off.ts).
+      const allSelected = legs.every((leg) => leg.selected);
+      const allowFreeAlternative = combinedFreeAlternativeAvailable(legs);
+      return (
+        <div className="mt-3 text-left" data-express-airport-choice>
+          <CombinedAirportAccessChoice
+            mode={mode}
+            editing={expressEditingLeg != null}
+            onEditingChange={(editing) =>
+              setExpressEditingLeg(editing ? "outbound" : null)
+            }
+            totalFeeGbp={expressSelection.feeIfSelectedGbp}
+            allowFreeAlternative={allowFreeAlternative}
+            selected={allSelected}
+            removalAcknowledged={expressRemovalAck && returnExpressRemovalAck}
+            requireAcknowledgement={expressAckRequired}
+            onSelectedChange={(nextSelected) => {
+              setExpressDropOffSelected(nextSelected);
+              setReturnExpressDropOffSelected(nextSelected);
+              if (nextSelected) {
+                setExpressRemovalAck(false);
+                setReturnExpressRemovalAck(false);
               }
-              airportCode={leg.airportCode}
-              service={leg.service}
-              allowFreeAlternative={leg.freeAlternativeAvailable}
-              selected={selected}
-              removalAcknowledged={acknowledged}
-              requireAcknowledgement={expressAckRequired}
-              idPrefix={leg.leg}
-              heading={heading}
-              onSelectedChange={(nextSelected) => {
-                if (leg.leg === "return") {
-                  setReturnExpressDropOffSelected(nextSelected);
-                  if (nextSelected) setReturnExpressRemovalAck(false);
-                } else {
-                  setExpressDropOffSelected(nextSelected);
-                  if (nextSelected) setExpressRemovalAck(false);
-                }
-                setExpressAckRequired(false);
-              }}
-              onRemovalAcknowledgedChange={(ack) => {
-                if (leg.leg === "return") {
-                  setReturnExpressRemovalAck(ack);
-                } else {
-                  setExpressRemovalAck(ack);
-                }
-                if (ack) setExpressAckRequired(false);
-              }}
-            />
-          );
-        })}
+              setExpressAckRequired(false);
+            }}
+            onRemovalAcknowledgedChange={(ack) => {
+              setExpressRemovalAck(ack);
+              setReturnExpressRemovalAck(ack);
+              if (ack) setExpressAckRequired(false);
+            }}
+          />
+        </div>
+      );
+    }
+
+    const leg = legs[0]!;
+    return (
+      <div className="mt-3 text-left" data-express-airport-choice>
+        <ExpressDropOffChoice
+          mode={mode}
+          editing={expressEditingLeg === leg.leg}
+          onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
+          airportCode={leg.airportCode}
+          service={leg.service}
+          allowFreeAlternative={leg.freeAlternativeAvailable}
+          selected={expressDropOffSelected}
+          removalAcknowledged={expressRemovalAck}
+          requireAcknowledgement={expressAckRequired}
+          onSelectedChange={(nextSelected) => {
+            setExpressDropOffSelected(nextSelected);
+            if (nextSelected) setExpressRemovalAck(false);
+            setExpressAckRequired(false);
+          }}
+          onRemovalAcknowledgedChange={(ack) => {
+            setExpressRemovalAck(ack);
+            if (ack) setExpressAckRequired(false);
+          }}
+        />
       </div>
     );
   }

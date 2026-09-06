@@ -386,6 +386,47 @@ export function expressAvoidedChargeMessage(
     : "You’ve avoided the Express Drop-Off charge";
 }
 
+/**
+ * Combined return-booking airport access choice (customer-facing UX).
+ *
+ * Internally each leg is still resolved and stored independently (see
+ * `resolveExpressDropOffLegs` / `ExpressDropOffResolvedLeg`), but on a return
+ * journey the customer is shown a single "Airport access" control that applies
+ * the same Express/free choice to both the outbound and return legs together —
+ * it reduces mobile clutter and surfaces the full £ difference in one place.
+ */
+export const COMBINED_AIRPORT_ACCESS_RETURN_NOTE =
+  "For return bookings, your selection applies to both your outbound and return airport journeys.";
+
+export function combinedAirportAccessRecommendedLabel(totalFeeGbp: number): string {
+  return `Express airport access — ${formatExpressDropOffGbp(totalFeeGbp)} total (Recommended)`;
+}
+
+export function combinedAirportAccessRemoveLabel(totalFeeGbp: number): string {
+  return `Use the designated free airport areas — save ${formatExpressDropOffGbp(totalFeeGbp)}`;
+}
+
+export function combinedAirportAccessConfirmRemovalLabel(): string {
+  return "I understand that I’ll use the designated free airport area for both airport journeys.";
+}
+
+export function combinedAirportAccessBreakdownLabel(
+  selected: boolean,
+  totalFeeGbp: number,
+): string {
+  if (selected) {
+    return `Express airport access (both journeys): ${formatExpressDropOffGbp(totalFeeGbp)}`;
+  }
+  return `Free airport areas selected (both journeys) — you save ${formatExpressDropOffGbp(totalFeeGbp)}`;
+}
+
+/** True only when every leg can offer the free alternative — required to show the combined free option. */
+export function combinedFreeAlternativeAvailable(
+  legs: Pick<ExpressDropOffResolvedLeg, "freeAlternativeAvailable">[],
+): boolean {
+  return legs.length > 0 && legs.every((leg) => leg.freeAlternativeAvailable);
+}
+
 /** Explicit customer choice — never infer from final price alone. */
 export type AirportAccessOption = "express" | "free";
 

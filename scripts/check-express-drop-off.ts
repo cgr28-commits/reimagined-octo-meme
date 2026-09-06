@@ -1227,10 +1227,24 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
 
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /returnExpressDropOffSelected/);
-  assert.match(card, /Outbound journey/);
+  assert.match(card, /CombinedAirportAccessChoice/);
+  assert.match(card, /combinedFreeAlternativeAvailable/);
   assert.match(card, /canProceedWithoutExpressDropOffLegs/);
   assert.match(card, /outboundExpressDropOffSelected/);
   assert.match(card, /returnAirportAccessChargeGbp/);
+
+  // Return journey shows one combined "Airport access" choice (not two
+  // separate per-leg selectors) — see CombinedAirportAccessChoice.tsx.
+  const combinedChoice = read("src/components/CombinedAirportAccessChoice.tsx");
+  assert.match(combinedChoice, /Airport access \(return\)/);
+  const combinedSelector = read("src/components/CombinedAirportAccessSelector.tsx");
+  assert.match(combinedSelector, /Airport access</);
+  assert.match(combinedSelector, /COMBINED_AIRPORT_ACCESS_RETURN_NOTE/);
+  const expressShared = read("shared/express-drop-off.ts");
+  assert.match(
+    expressShared,
+    /your selection applies to both your outbound and return airport journeys/,
+  );
 });
 
 console.log("\nAll Express Drop-Off checks passed.");
