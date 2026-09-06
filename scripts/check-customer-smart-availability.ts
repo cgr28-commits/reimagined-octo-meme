@@ -84,25 +84,28 @@ const bfsToCity = {
   isFromAirport: true,
 };
 
-console.log("=== Defaults and customer flags stay OFF ===");
+console.log("=== Signed-off customer flags ===");
 {
-  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartAvailability, false);
-  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.alternativeTimeSuggestions, false);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartAvailability, true);
+  assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.alternativeTimeSuggestions, true);
   assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.smartReturnPricing, false);
   assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.returnCorridorMatching, false);
   assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.backupDriverCapacity, false);
   assert.equal(DEFAULT_SMART_OPS_CONFIG.flags.shadowMode, true);
-  assert.equal(customerFacingSmartOpsEnabled(DEFAULT_SMART_OPS_CONFIG), false);
+  assert.equal(customerFacingSmartOpsEnabled(DEFAULT_SMART_OPS_CONFIG), true);
   assert.equal(customerFacingSmartOpsEnabled(config), false);
 
   const saveHandler = read("workers/addresses/src/smart-ops-handlers.ts");
-  assert.match(saveHandler, /smartAvailability:\s*false/);
-  assert.match(saveHandler, /alternativeTimeSuggestions:\s*false/);
+  assert.match(saveHandler, /smartAvailability:\s*true/);
+  assert.match(saveHandler, /alternativeTimeSuggestions:\s*true/);
   assert.match(saveHandler, /smartReturnPricing:\s*false/);
   assert.match(saveHandler, /returnCorridorMatching:\s*false/);
   assert.match(saveHandler, /backupDriverCapacity:\s*false/);
   assert.match(saveHandler, /shadowMode:\s*true/);
-  console.log("OK  production defaults + save-handler lock keep customer flags OFF");
+  const store = read("workers/addresses/src/smart-ops-store.ts");
+  assert.match(store, /applySignedOffCustomerSmartOpsFlags/);
+  assert.match(store, /customerSmartOpsFlagsMatchSignedOff/);
+  console.log("OK  production defaults + save-handler lock keep signed-off flags");
 }
 
 console.log("\n=== Flag OFF → customer gate does not enforce ===");
