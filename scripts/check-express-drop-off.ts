@@ -18,6 +18,7 @@ import {
   expressAvoidedChargeMessage,
   expressDropOffBreakdownLabel,
   expressDropOffConfirmRemovalLabel,
+  combinedAirportAccessConfirmRemovalLabel,
   expressDropOffRecommendedLabel,
   expressDropOffRemoveLabel,
   expressDropOffRemovedExplanation,
@@ -368,6 +369,10 @@ check("Breakdown / customer copy wording", () => {
   assert.equal(
     expressDropOffConfirmRemovalLabel("pick-up"),
     "I understand I will meet my driver at the designated free pick-up area rather than the Express terminal.",
+  );
+  assert.equal(
+    combinedAirportAccessConfirmRemovalLabel(),
+    "I understand that the designated free airport areas will be used for both journeys.",
   );
   // Direction comes from resolveExpressDropOff(...).service (fromAirport), not duplicate UI state.
   assert.equal(
@@ -1245,6 +1250,15 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
     expressShared,
     /your selection applies to both your outbound and return airport journeys/,
   );
+  assert.match(
+    expressShared,
+    /I understand that the designated free airport areas will be used for both journeys/,
+  );
+
+  const trust = read("src/components/QuoteFareTrust.tsx");
+  assert.match(trust, /Includes your selected airport access option/);
+  assert.match(card, /includesSelectedAirportAccess=\{expressSelection\.eligible\}/);
+  assert.match(card, /Your Fixed Return Journey Price/);
 });
 
 console.log("\nAll Express Drop-Off checks passed.");

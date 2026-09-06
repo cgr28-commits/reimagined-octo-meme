@@ -37,12 +37,21 @@ export function buildOpenWebsiteFareBreakdown(input: {
 }
 
 /** Compact reinforcement directly under the dominant fixed price. */
-export function FixedPriceAssurance({ className = "" }: { className?: string }) {
+export function FixedPriceAssurance({
+  className = "",
+  includesSelectedAirportAccess = false,
+}: {
+  className?: string;
+  /** When Express/free airport access is offered, the headline total already includes that choice. */
+  includesSelectedAirportAccess?: boolean;
+}) {
   return (
     <div className={`mt-1.5 space-y-0.5 ${className}`}>
       <p className="text-sm font-semibold text-emerald">✓ Fixed price. No surprises.</p>
       <p className="text-xs leading-snug text-white/55">
-        The price you book is the price you pay.
+        {includesSelectedAirportAccess
+          ? "Includes your selected airport access option."
+          : "The price you book is the price you pay."}
       </p>
     </div>
   );
@@ -333,7 +342,15 @@ export function FinalPayableBreakdown({
           </dd>
         </div>
       </dl>
-      <FixedPriceAssurance className="mt-2.5" />
+      <FixedPriceAssurance
+        className="mt-2.5"
+        includesSelectedAirportAccess={
+          freeAirportAccessSelected ||
+          breakdown.airportAccessChargeGbp > 0 ||
+          breakdown.outboundAirportAccessChargeGbp > 0 ||
+          breakdown.returnAirportAccessChargeGbp > 0
+        }
+      />
     </div>
   );
 }

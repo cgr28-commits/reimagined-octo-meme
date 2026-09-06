@@ -37,6 +37,8 @@ console.log("=== Express access visible in quote fare UI ===");
   assert.match(card, /freeAirportAccessSelected=\{/);
   assert.match(card, /service=\{expressSelection\.service \?\? "drop-off"\}/);
   assert.match(card, /expressSelection\.feeGbp === 0/);
+  assert.match(trust, /Includes your selected airport access option/);
+  assert.match(card, /includesSelectedAirportAccess=\{expressSelection\.eligible\}/);
   assert.doesNotMatch(trust, /totalPromotionalSavingGbp \+ access/);
   console.log("OK  Journey fare + direction-aware Express line + Amount payable");
 }

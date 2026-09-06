@@ -4562,7 +4562,9 @@ function QuoteCard({
               )}
             </p>
             {testChargeAmount === null && !appliedPersonalQuote ? (
-              <FixedPriceAssurance />
+              <FixedPriceAssurance
+                includesSelectedAirportAccess={expressSelection.eligible}
+              />
             ) : null}
             {testChargeAmount === null && !appliedPersonalQuote && openWebsiteFareBreakdown ? (
               <PromotionalPriceBreakdown

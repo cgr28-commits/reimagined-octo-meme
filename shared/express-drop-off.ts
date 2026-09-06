@@ -407,7 +407,7 @@ export function combinedAirportAccessRemoveLabel(totalFeeGbp: number): string {
 }
 
 export function combinedAirportAccessConfirmRemovalLabel(): string {
-  return "I understand that I’ll use the designated free airport area for both airport journeys.";
+  return "I understand that the designated free airport areas will be used for both journeys.";
 }
 
 export function combinedAirportAccessBreakdownLabel(
