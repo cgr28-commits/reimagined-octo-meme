@@ -53,7 +53,10 @@ export function shouldEnforceCustomerSmartAvailability(input: {
   if (input.previewWorkerEnforce === true) return true;
   if (!input.previewRequested) return false;
   if (isProductionCustomerOrigin(input.origin)) return false;
-  return true;
+  // Missing Origin on the production Worker must stay fail-open. The isolated
+  // preview Worker enforces via previewWorkerEnforce instead.
+  if (!String(input.origin || "").trim()) return false;
+  return isPagesPreviewOrigin(input.origin);
 }
 
 function firstPositiveMinutes(...values: Array<number | null | undefined>): number | null {

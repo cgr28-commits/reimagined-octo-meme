@@ -500,8 +500,8 @@ console.log("\n=== Preview opt-in enforces without Origin and never on www ===")
       smartAvailabilityFlag: false,
       previewRequested: true,
     }),
-    true,
-    "preview header/query with missing Origin must still enforce",
+    false,
+    "missing Origin on the production Worker must stay fail-open",
   );
   assert.equal(
     shouldEnforceCustomerSmartAvailability({
@@ -529,6 +529,15 @@ console.log("\n=== Preview opt-in enforces without Origin and never on www ===")
       previewWorkerEnforce: false,
     }),
     false,
+  );
+  assert.equal(
+    shouldEnforceCustomerSmartAvailability({
+      smartAvailabilityFlag: false,
+      origin: "https://my-airport-taxi-ni-quote.vercel.app",
+      previewRequested: true,
+    }),
+    false,
+    "Vercel preview must not turn on the production Worker",
   );
   const headers = new Headers({ "X-Smart-Availability-Preview": "1" });
   assert.equal(
