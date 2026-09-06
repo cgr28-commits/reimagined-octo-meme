@@ -506,4 +506,17 @@ console.log("\n=== Quote/payment behaviour is unchanged when the gate is off ===
   console.log("OK  quotes still price when blocked; SumUp is created only after the gate");
 }
 
+console.log("\n=== Preview Worker is isolated from production ===");
+{
+  const wrangler = read("workers/addresses/wrangler.toml");
+  assert.match(wrangler, /\[env\.preview\]/);
+  assert.match(wrangler, /name = "reimagined-octo-meme-sa-preview"/);
+  const preview = wrangler.slice(wrangler.indexOf("[env.preview]"));
+  assert.doesNotMatch(preview, /crons/);
+  const workflow = read(".github/workflows/deploy-pages-preview.yml");
+  assert.match(workflow, /wrangler deploy --env preview/);
+  assert.doesNotMatch(workflow, /wrangler deploy --env production|npm run deploy/);
+  console.log("OK  preview Worker has no cron and is not the production deploy");
+}
+
 console.log("\nAll customer Smart Availability gate checks passed.");

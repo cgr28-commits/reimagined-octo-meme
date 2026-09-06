@@ -47,41 +47,49 @@ jobs:
 
       - run: npm ci
 
-      - name: Upload Worker preview version (does not change production traffic)
+      - name: Deploy isolated preview Worker (not production)
         id: worker_preview
         working-directory: workers/addresses
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+          IDEAL_POSTCODES_API_KEY: ${{ secrets.IDEAL_POSTCODES_API_KEY }}
+          GETADDRESS_API_KEY: ${{ secrets.GETADDRESS_API_KEY }}
+          WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          SUMUP_API_KEY: ${{ secrets.SUMUP_API_KEY }}
+          SUMUP_MERCHANT_CODE: ${{ secrets.SUMUP_MERCHANT_CODE }}
         run: |
           set -euo pipefail
           node ../../scripts/sync-worker-shared.mjs
           npm ci
-          npm install --no-save wrangler@3.109.0
           DEFAULT_WORKER="https://reimagined-octo-meme.cgr28.workers.dev"
+          PREVIEW_WORKER="https://reimagined-octo-meme-sa-preview.cgr28.workers.dev"
           if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
-            echo "::warning::Skipping Worker version upload — preview will call the production Worker, which cannot enforce the customer gate until this code is on a Worker version."
+            echo "::warning::Skipping preview Worker deploy — Pages preview would call production and cannot enforce the customer gate."
             echo "url=$DEFAULT_WORKER" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          set +e
-          OUTPUT="$(npx wrangler versions upload --message "customer-smart-availability-gate preview ${GITHUB_SHA}" 2>&1)"
-          STATUS=$?
-          set -e
-          echo "$OUTPUT"
-          if [ "$STATUS" -ne 0 ]; then
-            echo "::warning::Worker version upload failed — Pages preview will call the production Worker. Production smartAvailability stays OFF."
-            echo "url=$DEFAULT_WORKER" >> "$GITHUB_OUTPUT"
-            exit 0
+          put_secret() {
+            local name="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$name" --env preview
+            fi
+          }
+          put_secret GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
+          put_secret IDEAL_POSTCODES_API_KEY "${IDEAL_POSTCODES_API_KEY:-}"
+          put_secret GETADDRESS_API_KEY "${GETADDRESS_API_KEY:-}"
+          put_secret WEB3FORMS_ACCESS_KEY "${WEB3FORMS_ACCESS_KEY:-}"
+          if [ -n "${SUMUP_API_KEY:-}" ] && [ -n "${SUMUP_MERCHANT_CODE:-}" ]; then
+            put_secret SUMUP_API_KEY "$SUMUP_API_KEY"
+            put_secret SUMUP_MERCHANT_CODE "$SUMUP_MERCHANT_CODE"
+          else
+            echo "::warning::SumUp secrets missing on preview Worker — AVAILABLE Pay now may not open checkout."
           fi
-          PREVIEW="$(printf '%s\n' "$OUTPUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' | tail -1 || true)"
-          if [ -z "$PREVIEW" ]; then
-            echo "::warning::Could not parse Worker preview URL — falling back to production Worker."
-            echo "url=$DEFAULT_WORKER" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "url=$PREVIEW" >> "$GITHUB_OUTPUT"
-          echo "::notice::Worker preview version (not production traffic): $PREVIEW"
+          npx wrangler deploy --env preview
+          echo "url=$PREVIEW_WORKER" >> "$GITHUB_OUTPUT"
+          echo "::notice::Preview Worker (not production traffic): $PREVIEW_WORKER"
 
       - name: Build static site (preview)
         env:
@@ -162,5 +170,5 @@ jobs:
             URL="https://${BRANCH_SAFE}.my-airport-taxi-ni-preview.pages.dev"
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "::notice::Preview frontend URL: $URL/owner/"
-          echo "::notice::Stable project URL: https://my-airport-taxi-ni-preview.pages.dev/owner/"
+          echo "::notice::Preview frontend URL: $URL/?smartAvailabilityPreview=1"
+          echo "::notice::Stable project URL: https://my-airport-taxi-ni-preview.pages.dev/?smartAvailabilityPreview=1"
