@@ -23,22 +23,65 @@ export const CUSTOMER_SMART_AVAILABILITY_CODE = "smart_availability_unavailable"
 export const CUSTOMER_SMART_AVAILABILITY_PREVIEW_QUERY = "smartAvailabilityPreview";
 export const CUSTOMER_SMART_AVAILABILITY_PREVIEW_HEADER = "X-Smart-Availability-Preview";
 
+/**
+ * Same default the Owner Availability tool sends (`OwnerSmartAvailabilityPanel`
+ * duration field). Customer live OSRM times can be shorter (25 vs 30) and would
+ * otherwise disagree with the proven Owner result without changing the engine.
+ */
+export const OWNER_AVAILABILITY_DEFAULT_DURATION_MINUTES = 30;
+
 export function isPagesPreviewOrigin(originOrHost?: string | null): boolean {
   return /pages\.dev/i.test(String(originOrHost || ""));
 }
 
+export function isProductionCustomerOrigin(originOrHost?: string | null): boolean {
+  return /(?:^|[/.])myairporttaxini\.co\.uk(?:[:/?#]|$)/i.test(String(originOrHost || ""));
+}
+
 /**
  * Production customers are gated only when the KV flag is on.
- * Pages preview may opt in with a query/header so we can test without
- * enabling the production flag.
+ * Isolated preview Worker / Pages preview may opt in without enabling
+ * the production flag. Missing Origin must not fail-open on preview.
  */
 export function shouldEnforceCustomerSmartAvailability(input: {
   smartAvailabilityFlag: boolean;
   origin?: string | null;
   previewRequested?: boolean;
+  previewWorkerEnforce?: boolean;
 }): boolean {
   if (input.smartAvailabilityFlag === true) return true;
-  return Boolean(input.previewRequested && isPagesPreviewOrigin(input.origin));
+  if (input.previewWorkerEnforce === true) return true;
+  if (!input.previewRequested) return false;
+  if (isProductionCustomerOrigin(input.origin)) return false;
+  return true;
+}
+
+function firstPositiveMinutes(...values: Array<number | null | undefined>): number | null {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return Math.round(value);
+    }
+  }
+  return null;
+}
+
+/**
+ * Customer wiring only. Does not change evaluateSmartAvailability.
+ * Floor short live durations to the Owner Availability default so 05:32 / 05:33
+ * match the proven Owner tool. Longer live durations stay longer.
+ */
+export function resolveCustomerAvailabilityDurationMinutes(
+  booking: CustomerBookingAvailabilityInput,
+): number {
+  const parsedJourney = parseJourneyDurationMinutes(booking.journeyDuration || "");
+  const live = firstPositiveMinutes(
+    booking.routeDurationMinutes,
+    parsedJourney > 0 ? parsedJourney : null,
+  );
+  if (live != null) {
+    return Math.max(live, OWNER_AVAILABILITY_DEFAULT_DURATION_MINUTES);
+  }
+  return OWNER_AVAILABILITY_DEFAULT_DURATION_MINUTES;
 }
 
 export function previewRequestedFromHeaders(headers: {
@@ -135,10 +178,7 @@ function coords(
 export function requestedJourneysFromCustomerBooking(
   booking: CustomerBookingAvailabilityInput,
 ): SmartRequestedJourney[] {
-  const duration =
-    (booking.routeDurationMinutes && booking.routeDurationMinutes > 0
-      ? Math.round(booking.routeDurationMinutes)
-      : 0) || parseJourneyDurationMinutes(booking.journeyDuration || "");
+  const duration = resolveCustomerAvailabilityDurationMinutes(booking);
   const outbound: SmartRequestedJourney = {
     pickupLabel: String(booking.pickupLabel || ""),
     dropoffLabel: String(booking.dropoffLabel || ""),

@@ -79,6 +79,7 @@ export async function handleQuoteCalculateRequest(
     GOOGLE_PLACES_API_KEY?: string;
     GETADDRESS_API_KEY?: string;
     TRACKING_STORE?: KVNamespace;
+    CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
   },
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
@@ -376,6 +377,7 @@ export async function handleQuoteCalculateRequest(
       store: env.TRACKING_STORE,
       origin,
       previewRequested: customerSmartAvailabilityPreviewRequested(request),
+      previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
       booking: {
         pickupLabel: pickupAddress,
         dropoffLabel: dropoffAddress,
@@ -428,6 +430,7 @@ export async function handleQuoteAvailabilityRequest(
   origin: string | null,
   env?: {
     TRACKING_STORE?: KVNamespace;
+    CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
   },
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
@@ -448,6 +451,7 @@ export async function handleQuoteAvailabilityRequest(
     store: env?.TRACKING_STORE,
     origin,
     previewRequested: customerSmartAvailabilityPreviewRequested(request),
+    previewWorkerEnforce: env?.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
     booking: {
       pickupLabel: String(body.pickupLabel ?? body.pickupAddress ?? ""),
       dropoffLabel: String(body.dropoffLabel ?? body.dropoffAddress ?? ""),

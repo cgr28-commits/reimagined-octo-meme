@@ -439,6 +439,8 @@ type Env = {
   RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
   RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
   RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
+  /** Isolated preview Worker only. Must never be set on production [vars]. */
+  CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -1507,6 +1509,7 @@ async function blockedCustomerSmartAvailabilityResponse(
     store: env.TRACKING_STORE,
     origin,
     previewRequested: customerSmartAvailabilityPreviewRequested(request),
+    previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
     booking,
   });
   if (!availabilityGate.blocked) return null;

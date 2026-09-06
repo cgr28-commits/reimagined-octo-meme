@@ -14,7 +14,10 @@ import {
   decideCustomerSmartAvailabilityGate,
   evaluateCustomerSmartAvailability,
   isPagesPreviewOrigin,
+  isProductionCustomerOrigin,
+  OWNER_AVAILABILITY_DEFAULT_DURATION_MINUTES,
   requestedJourneysFromCustomerBooking,
+  resolveCustomerAvailabilityDurationMinutes,
   shouldEnforceCustomerSmartAvailability,
   toPublicCustomerSmartAvailability,
   withCustomerSmartAvailabilityPreviewQuery,
@@ -265,6 +268,12 @@ console.log("\n=== Owner tool and customer flow use the same availability decisi
   assert.match(wrapper, /return evaluateSmartAvailability\(\{/);
   assert.match(wrapper, /searchAlternatives:\s*false/);
   assert.doesNotMatch(wrapper, /searchAlternatives:\s*true/);
+  assert.match(wrapper, /export function resolveCustomerAvailabilityDurationMinutes/);
+  assert.doesNotMatch(
+    wrapper,
+    /evaluateSmartAvailability\s*=/,
+    "customer wrapper must not replace the owner engine",
+  );
   assert.match(wrapper, /export function toPublicCustomerSmartAvailability/);
   const publicFn = wrapper.slice(
     wrapper.indexOf("export function toPublicCustomerSmartAvailability"),
@@ -357,6 +366,7 @@ console.log("\n=== Fail-open + refund-test skip + no alternative search ===");
 
   const gate = read("workers/addresses/src/smart-ops-handlers.ts");
   assert.match(gate, /export async function enforceCustomerSmartAvailabilityGate/);
+  assert.match(gate, /previewWorkerEnforce: input.previewWorkerEnforce === true/);
   assert.match(gate, /catch \{\n    return allow;/);
   assert.match(gate, /Fail-open on unexpected errors/);
 
@@ -365,6 +375,8 @@ console.log("\n=== Fail-open + refund-test skip + no alternative search ===");
   const quoteHandler = read("workers/addresses/src/quote-handlers.ts");
   assert.match(quoteHandler, /recordQuoteShadowSafely/);
   assert.match(quoteHandler, /enforceCustomerSmartAvailabilityGate/);
+  assert.match(quoteHandler, /previewWorkerEnforce: env\.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1"/);
+  assert.match(quoteHandler, /previewWorkerEnforce: env\?\.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1"/);
   assert.match(quoteHandler, /return json\(quoteBody, 200, origin\)/);
   assert.match(
     quoteHandler,
@@ -379,10 +391,94 @@ console.log("\n=== Fail-open + refund-test skip + no alternative search ===");
   console.log("OK  missing fields / refund-test / shadow+gate failures stay fail-open");
 }
 
-console.log("\n=== Preview opt-in is pages.dev only ===");
+console.log("\n=== Live 25-minute OSRM duration still matches Owner 05:32 / 05:33 ===");
+{
+  assert.equal(OWNER_AVAILABILITY_DEFAULT_DURATION_MINUTES, 30);
+  const ownerPanel = read("src/components/OwnerSmartAvailabilityPanel.tsx");
+  assert.match(ownerPanel, /durationMinutes:\s*"30"/);
+
+  assert.equal(
+    resolveCustomerAvailabilityDurationMinutes({ routeDurationMinutes: 25 }),
+    30,
+    "short live OSRM must floor to the Owner default, not change the engine",
+  );
+  assert.equal(
+    resolveCustomerAvailabilityDurationMinutes({ routeDurationMinutes: 45 }),
+    45,
+    "longer live duration must stay longer",
+  );
+  assert.equal(
+    resolveCustomerAvailabilityDurationMinutes({}),
+    30,
+    "missing live duration uses the Owner default, not the geo estimate",
+  );
+  const aligned = requestedJourneysFromCustomerBooking({
+    pickupLabel: bfsToCity.pickupLabel,
+    dropoffLabel: bfsToCity.dropoffLabel,
+    tripDate: MONDAY,
+    tripTime: "05:33",
+    airportCode: "BFS",
+    isFromAirport: true,
+    routeDurationMinutes: 25,
+    pickupLat: BFS.lat,
+    pickupLng: BFS.lng,
+    dropoffLat: BELFAST.lat,
+    dropoffLng: BELFAST.lng,
+  });
+  assert.equal(aligned[0]?.durationMinutes, 30);
+
+  const live25at0532 = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: {
+      pickupLabel: bfsToCity.pickupLabel,
+      dropoffLabel: bfsToCity.dropoffLabel,
+      tripDate: MONDAY,
+      tripTime: "05:32",
+      airportCode: "BFS",
+      isFromAirport: true,
+      routeDurationMinutes: 25,
+      pickupLat: BFS.lat,
+      pickupLng: BFS.lng,
+      dropoffLat: BELFAST.lat,
+      dropoffLng: BELFAST.lng,
+    },
+    occupied: [larneAt0700],
+    config,
+    now: NOW,
+  });
+  const live25at0533 = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: {
+      pickupLabel: bfsToCity.pickupLabel,
+      dropoffLabel: bfsToCity.dropoffLabel,
+      tripDate: MONDAY,
+      tripTime: "05:33",
+      airportCode: "BFS",
+      isFromAirport: true,
+      routeDurationMinutes: 25,
+      pickupLat: BFS.lat,
+      pickupLng: BFS.lng,
+      dropoffLat: BELFAST.lat,
+      dropoffLng: BELFAST.lng,
+    },
+    occupied: [larneAt0700],
+    config,
+    now: NOW,
+  });
+  assert.equal(live25at0532.blocked, false, "05:32 with live 25 min must stay bookable");
+  assert.equal(live25at0533.blocked, true, "05:33 with live 25 min must match Owner 30 min");
+  assert.equal(live25at0533.customerMessage, CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
+  console.log("OK  customer wrapper floors 25 min to Owner 30 without changing the engine");
+}
+
+console.log("\n=== Preview opt-in enforces without Origin and never on www ===");
 {
   assert.equal(isPagesPreviewOrigin("https://cursor-x.my-airport-taxi-ni-preview.pages.dev"), true);
   assert.equal(isPagesPreviewOrigin("https://www.myairporttaxini.co.uk"), false);
+  assert.equal(isProductionCustomerOrigin("https://www.myairporttaxini.co.uk"), true);
+  assert.equal(isProductionCustomerOrigin("https://myairporttaxini.co.uk"), true);
+  assert.equal(isProductionCustomerOrigin(""), false);
+  assert.equal(isProductionCustomerOrigin(null), false);
   assert.equal(
     shouldEnforceCustomerSmartAvailability({
       smartAvailabilityFlag: false,
@@ -396,6 +492,41 @@ console.log("\n=== Preview opt-in is pages.dev only ===");
       smartAvailabilityFlag: false,
       origin: "https://cursor-customer-smart-availability-gate-514b.my-airport-taxi-ni-preview.pages.dev",
       previewRequested: false,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldEnforceCustomerSmartAvailability({
+      smartAvailabilityFlag: false,
+      previewRequested: true,
+    }),
+    true,
+    "preview header/query with missing Origin must still enforce",
+  );
+  assert.equal(
+    shouldEnforceCustomerSmartAvailability({
+      smartAvailabilityFlag: false,
+      origin: "https://www.myairporttaxini.co.uk",
+      previewRequested: true,
+    }),
+    false,
+    "production www must ignore the preview header while the flag is off",
+  );
+  assert.equal(
+    shouldEnforceCustomerSmartAvailability({
+      smartAvailabilityFlag: false,
+      previewRequested: false,
+      previewWorkerEnforce: true,
+    }),
+    true,
+    "isolated preview Worker env var enforces even without the query",
+  );
+  assert.equal(
+    shouldEnforceCustomerSmartAvailability({
+      smartAvailabilityFlag: false,
+      origin: "https://www.myairporttaxini.co.uk",
+      previewRequested: false,
+      previewWorkerEnforce: false,
     }),
     false,
   );
@@ -421,13 +552,14 @@ console.log("\n=== Preview opt-in is pages.dev only ===");
     }),
     false,
   );
-  console.log("OK  preview query/header works on pages.dev and is ignored on www");
+  console.log("OK  preview query/header/worker-env enforce; www stays off");
 }
 
 console.log("\n=== Public booking/payment routes cannot bypass the worker gate ===");
 {
   const payments = read("workers/addresses/src/index.ts");
   assert.match(payments, /async function blockedCustomerSmartAvailabilityResponse/);
+  assert.match(payments, /previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1"/);
   assert.match(payments, /code: "smart_availability_unavailable"/);
   assert.match(payments, /whatsappAvailable: true/);
   assert.match(payments, /shortNoticeBlocked/);
@@ -562,6 +694,13 @@ console.log("\n=== Preview Worker is isolated from production ===");
   assert.match(wrangler, /name = "reimagined-octo-meme-sa-preview"/);
   const preview = wrangler.slice(wrangler.indexOf("[env.preview]"));
   assert.doesNotMatch(preview, /crons/);
+  assert.match(preview, /CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE = "1"/);
+  const productionVars = wrangler.slice(wrangler.indexOf("[vars]"), wrangler.indexOf("[triggers]"));
+  assert.doesNotMatch(
+    productionVars,
+    /CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE/,
+    "production [vars] must not enable the preview enforce switch",
+  );
   const workflow = read(".github/workflows/deploy-pages-preview.yml");
   assert.match(workflow, /wrangler deploy --env preview/);
   assert.match(workflow, /preview-worker:/);

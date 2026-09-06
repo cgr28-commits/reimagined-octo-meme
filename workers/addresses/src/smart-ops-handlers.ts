@@ -110,6 +110,7 @@ export async function enforceCustomerSmartAvailabilityGate(input: {
   booking: CustomerBookingAvailabilityInput;
   origin?: string | null;
   previewRequested?: boolean;
+  previewWorkerEnforce?: boolean;
   now?: Date;
 }): Promise<CustomerSmartAvailabilityGate> {
   const allow: CustomerSmartAvailabilityGate = {
@@ -127,6 +128,7 @@ export async function enforceCustomerSmartAvailabilityGate(input: {
       smartAvailabilityFlag: state.config.flags.smartAvailability === true,
       origin: input.origin,
       previewRequested: input.previewRequested === true,
+      previewWorkerEnforce: input.previewWorkerEnforce === true,
     });
     if (!enforce) return allow;
     const settings = await getBookingSettings(input.store);
