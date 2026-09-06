@@ -84,6 +84,19 @@ export type SmartAvailabilityDiagnostics = {
   minTurnaroundMinutes: number;
   expectedFinishingLocation: string;
   previousBookingId: string | null;
+  previousBookingTripDate: string | null;
+  previousBookingTripTime: string | null;
+  previousBookingPickupLocal: string | null;
+  previousBookingDurationMinutes: number | null;
+  previousBookingCompletionLocal: string | null;
+  previousBookingDestination: string | null;
+  previousBookingOperationalEndLocal: string | null;
+  previousPositioningNeededMinutes: number | null;
+  earliestReadyAfterPreviousLocal: string | null;
+  proposedOnSiteDeadlineLocal: string | null;
+  conflictBookingId: string | null;
+  conflictKind: "overlap" | "previous_positioning" | "next_positioning" | "turnaround" | "block" | null;
+  conflictSummary: string | null;
   nextBookingId: string | null;
   /** Travel from previous dropoff → this pickup. */
   previousPositioningMinutes: number | null;
@@ -725,6 +738,19 @@ function emptyDiagnostics(
     minTurnaroundMinutes: config.buffers.minTurnaroundMinutes,
     expectedFinishingLocation: requested.dropoffLabel,
     previousBookingId: null,
+    previousBookingTripDate: null,
+    previousBookingTripTime: null,
+    previousBookingPickupLocal: null,
+    previousBookingDurationMinutes: null,
+    previousBookingCompletionLocal: null,
+    previousBookingDestination: null,
+    previousBookingOperationalEndLocal: null,
+    previousPositioningNeededMinutes: null,
+    earliestReadyAfterPreviousLocal: null,
+    proposedOnSiteDeadlineLocal: null,
+    conflictBookingId: null,
+    conflictKind: null,
+    conflictSummary: null,
     nextBookingId: null,
     previousPositioningMinutes: null,
     nextPositioningMinutes: null,
@@ -846,12 +872,29 @@ export function evaluateSmartAvailability(input: {
     null;
   diagnostics.previousBookingId = previous?.id || null;
   diagnostics.nextBookingId = next?.id || null;
+  diagnostics.proposedOnSiteDeadlineLocal = localFromMs(window.operationalStart);
   if (previous) {
     const prevWindow = jobWindow(previous, input.config);
+    diagnostics.previousBookingTripDate = normalizeSmartTripDate(previous.tripDate);
+    diagnostics.previousBookingTripTime = normalizeSmartTripTime(previous.tripTime);
+    diagnostics.previousBookingPickupLocal = localFromMs(prevWindow.pickupMs);
+    diagnostics.previousBookingDurationMinutes = prevWindow.duration;
+    diagnostics.previousBookingCompletionLocal = localFromMs(prevWindow.journeyEnd);
+    diagnostics.previousBookingDestination = previous.dropoffLabel;
+    diagnostics.previousBookingOperationalEndLocal = localFromMs(prevWindow.end);
     diagnostics.previousPositioningMinutes = repositionMinutes(prevWindow.dropoff, window.pickup, {
       fromLabel: previous.dropoffLabel,
       toLabel: input.requested.pickupLabel,
     });
+    diagnostics.previousPositioningNeededMinutes = positioningTimeNeededMinutes(
+      diagnostics.previousPositioningMinutes,
+      input.config.buffers.minTurnaroundMinutes,
+    );
+    if (prevWindow.journeyEnd != null) {
+      diagnostics.earliestReadyAfterPreviousLocal = localFromMs(
+        prevWindow.journeyEnd + diagnostics.previousPositioningNeededMinutes * 60_000,
+      );
+    }
   }
   if (next) {
     const nextWindow = jobWindow(next, input.config);
@@ -992,6 +1035,54 @@ export function evaluateSmartAvailability(input: {
   if (!available && input.ownerOverride) {
     available = true;
     reason = SMART_OPS_REASON.OWNER_OVERRIDE;
+  }
+
+  const primaryWarning = warnings[0] || null;
+  diagnostics.conflictBookingId = primaryWarning?.bookingId || null;
+  diagnostics.conflictSummary = primaryWarning?.summary || null;
+  if (blocked) {
+    diagnostics.conflictKind = "block";
+  } else if (primaryWarning) {
+    if (primaryWarning.reason === SMART_OPS_REASON.CONFLICT_MINIMUM_TURNAROUND) {
+      diagnostics.conflictKind = "turnaround";
+    } else if (primaryWarning.reason === SMART_OPS_REASON.CONFLICT_NEXT_BOOKING) {
+      diagnostics.conflictKind = "next_positioning";
+    } else if (
+      primaryWarning.reason === SMART_OPS_REASON.CONFLICT_POSITIONING_TIME ||
+      (previous && primaryWarning.bookingId === previous.id && /reach this pickup|turnaround needed after/i.test(primaryWarning.summary))
+    ) {
+      diagnostics.conflictKind = "previous_positioning";
+    } else if (/overlap/i.test(primaryWarning.summary) || primaryWarning.reason === SMART_OPS_REASON.CONFLICT_EXISTING_BOOKING) {
+      diagnostics.conflictKind = "overlap";
+    } else if (previous && primaryWarning.bookingId === previous.id) {
+      diagnostics.conflictKind = "previous_positioning";
+    } else {
+      diagnostics.conflictKind = "next_positioning";
+    }
+  }
+  const showPreviousHop =
+    Boolean(previous) &&
+    (diagnostics.conflictBookingId === previous?.id ||
+      diagnostics.sameCalendarDayAsNext === false ||
+      !next);
+  if (showPreviousHop && previous && diagnostics.previousPositioningMinutes != null) {
+    const prevWindow = jobWindow(previous, input.config);
+    diagnostics.positioningMinutes = diagnostics.previousPositioningMinutes;
+    diagnostics.positioningTravelMinutes = diagnostics.previousPositioningMinutes;
+    diagnostics.positioningNeededMinutes = diagnostics.previousPositioningNeededMinutes;
+    diagnostics.positioningFromLabel = previous.dropoffLabel;
+    diagnostics.positioningToLabel = input.requested.pickupLabel;
+    diagnostics.positioningFromCoords = prevWindow.dropoff;
+    diagnostics.positioningToCoords = window.pickup;
+    diagnostics.positioningCoordsKnown = Boolean(prevWindow.dropoff && window.pickup);
+    diagnostics.earliestReadyLocal = diagnostics.earliestReadyAfterPreviousLocal;
+    diagnostics.comparisonFromLocal = diagnostics.previousBookingCompletionLocal;
+    diagnostics.comparisonToLocal = diagnostics.proposedOnSiteDeadlineLocal;
+    if (prevWindow.journeyEnd != null && window.operationalStart != null) {
+      diagnostics.positioningGapMinutes = Math.round(
+        (window.operationalStart - prevWindow.journeyEnd) / 60_000,
+      );
+    }
   }
 
   const suggestion = !available && input.searchAlternatives !== false

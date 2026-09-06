@@ -2032,4 +2032,153 @@ console.log("\n=== 7 Sep 05:30 vs 07:00 Larne: 58 already includes the 10-minute
   console.log("OK  05:30 stays available at ready 06:58; 58 is 48+10 once");
 }
 
+console.log("\n=== After-Larne 07:40: previous-booking conflict math (do not loosen rules) ===");
+{
+  const THURSDAY = "2026-09-10";
+  const larneAt0700: SmartOccupiedJob = {
+    id: "TAAA4672EAN",
+    pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+    dropoffLabel: "George Best Belfast City Airport",
+    pickup: LARNE,
+    dropoff: BHD,
+    tripDate: MONDAY,
+    tripTime: "07:00",
+    durationMinutes: 35,
+    airportCode: "BHD",
+  };
+  const laterOn10Sep: SmartOccupiedJob = {
+    id: "JOB-10SEP-NEXT",
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BFS,
+    dropoff: BELFAST,
+    tripDate: THURSDAY,
+    tripTime: "09:00",
+    durationMinutes: 30,
+    airportCode: "BFS",
+    isFromAirport: true,
+  };
+  const requested0740 = {
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BFS,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    tripTime: "07:40",
+    durationMinutes: 30,
+    airportCode: "BFS" as const,
+    isFromAirport: true,
+  };
+  const bhdToBfs = repositionMinutes(BHD, BFS, {
+    fromLabel: "George Best Belfast City Airport",
+    toLabel: "Belfast International Airport",
+  });
+  const neededAfterLarne = positioningTimeNeededMinutes(bhdToBfs, 10);
+  assert.ok(bhdToBfs >= 30, `BHD→BFS should be a real airport hop, got ${bhdToBfs}`);
+  assert.equal(neededAfterLarne, bhdToBfs + 10);
+
+  const at0740 = evaluateSmartAvailability({
+    requested: requested0740,
+    occupied: [larneAt0700, laterOn10Sep],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+
+  // Identification
+  assert.equal(at0740.diagnostics.previousBookingId, "TAAA4672EAN");
+  assert.equal(at0740.diagnostics.previousBookingTripDate, MONDAY);
+  assert.equal(at0740.diagnostics.previousBookingTripTime, "07:00");
+  assert.equal(at0740.diagnostics.previousBookingPickupLocal, `${MONDAY}T07:00`);
+  assert.equal(at0740.diagnostics.previousBookingDurationMinutes, 35);
+  assert.equal(at0740.diagnostics.previousBookingCompletionLocal, `${MONDAY}T07:35`);
+  assert.equal(at0740.diagnostics.previousBookingDestination, "George Best Belfast City Airport");
+  assert.equal(at0740.diagnostics.previousBookingOperationalEndLocal, `${MONDAY}T07:50`);
+
+  // Geography after the Larne job: BHD → BFS + 10-minute turnaround
+  assert.equal(at0740.diagnostics.previousPositioningMinutes, bhdToBfs);
+  assert.equal(at0740.diagnostics.previousPositioningNeededMinutes, neededAfterLarne);
+  assert.equal(at0740.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T08:24`);
+  assert.equal(at0740.diagnostics.requestedPickupLocal, `${MONDAY}T07:40`);
+  assert.equal(at0740.diagnostics.proposedOnSiteDeadlineLocal, `${MONDAY}T07:10`);
+  assert.equal(at0740.diagnostics.operationalStartLocal, `${MONDAY}T07:10`);
+  assert.equal(at0740.diagnostics.estimatedCompletionLocal, `${MONDAY}T08:10`);
+  assert.equal(at0740.diagnostics.operationalEndLocal, `${MONDAY}T08:25`);
+
+  // Decision: 07:40 is rejected. First reason is operational-window overlap
+  // (airport pre-buffer pulls the proposed window back to 07:10, which sits
+  // inside the Larne job’s 07:00–07:50 operational window). Positioning would
+  // also fail (07:35 + 49 = 08:24 after the 07:10 on-site deadline), but the
+  // engine reports overlap first. Do not change that order for this test.
+  assert.equal(at0740.available, false);
+  assert.equal(at0740.reason, SMART_OPS_REASON.CONFLICT_EXISTING_BOOKING);
+  assert.equal(at0740.diagnostics.conflictKind, "overlap");
+  assert.equal(at0740.diagnostics.conflictBookingId, "TAAA4672EAN");
+  assert.match(String(at0740.diagnostics.conflictSummary), /Overlaps operational window of booking TAAA4672EAN/);
+
+  // Banner must talk about the previous hop, not the 10 September next booking.
+  assert.equal(at0740.diagnostics.nextBookingId, "JOB-10SEP-NEXT");
+  assert.equal(at0740.diagnostics.nextBookingTripDate, THURSDAY);
+  assert.equal(at0740.diagnostics.sameCalendarDayAsNext, false);
+  assert.equal(at0740.diagnostics.positioningFromLabel, "George Best Belfast City Airport");
+  assert.equal(at0740.diagnostics.positioningToLabel, "Belfast International Airport");
+  assert.equal(at0740.diagnostics.positioningMinutes, bhdToBfs);
+  assert.equal(at0740.diagnostics.positioningNeededMinutes, neededAfterLarne);
+  assert.equal(at0740.diagnostics.earliestReadyLocal, `${MONDAY}T08:24`);
+  assert.equal(at0740.diagnostics.comparisonFromLocal, `${MONDAY}T07:35`);
+  assert.equal(at0740.diagnostics.comparisonToLocal, `${MONDAY}T07:10`);
+
+  console.log(
+    [
+      `OK  07:40 after Larne→BHD is CONFLICT_EXISTING_BOOKING / overlap`,
+      `previous pickup ${at0740.diagnostics.previousBookingPickupLocal}`,
+      `previous duration ${at0740.diagnostics.previousBookingDurationMinutes} min`,
+      `previous completion ${at0740.diagnostics.previousBookingCompletionLocal} at ${at0740.diagnostics.previousBookingDestination}`,
+      `previous operational end ${at0740.diagnostics.previousBookingOperationalEndLocal}`,
+      `BHD→BFS drive ${bhdToBfs} + turnaround 10 = ${neededAfterLarne} needed`,
+      `earliest ready at BFS ${at0740.diagnostics.earliestReadyAfterPreviousLocal}`,
+      `proposed pickup ${at0740.diagnostics.requestedPickupLocal} / on-site deadline ${at0740.diagnostics.proposedOnSiteDeadlineLocal}`,
+      `10 Sep next booking is identified but is not the conflict`,
+    ].join("; "),
+  );
+
+  // Live-shaped paid booking: stolen BHD coords + stored 14-minute route.
+  // Pickup is recovered to Larne; stored duration 14 is still used. Overlap
+  // remains the first reason — do not rewrite duration just to change 07:40.
+  const fromPaid = occupiedJobsFromPaidBooking({
+    id: "TAAA4672EAN-LIVE",
+    pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+    dropoffLabel: "George Best Belfast City Airport",
+    tripDate: MONDAY,
+    tripTime: "07:00",
+    airportCode: "BHD",
+    pickupLat: BHD.lat,
+    pickupLng: BHD.lng,
+    dropoffLat: BHD.lat,
+    dropoffLng: BHD.lng,
+    routeDurationMinutes: 14,
+  });
+  const live0740 = evaluateSmartAvailability({
+    requested: requested0740,
+    occupied: [...fromPaid, laterOn10Sep],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(live0740.diagnostics.previousBookingId, "TAAA4672EAN-LIVE");
+  assert.equal(live0740.diagnostics.previousBookingDurationMinutes, 14);
+  assert.equal(live0740.diagnostics.previousBookingCompletionLocal, `${MONDAY}T07:14`);
+  assert.equal(live0740.diagnostics.previousBookingOperationalEndLocal, `${MONDAY}T07:29`);
+  assert.equal(live0740.diagnostics.previousBookingDestination, "George Best Belfast City Airport");
+  assert.equal(live0740.diagnostics.previousPositioningMinutes, bhdToBfs);
+  assert.equal(live0740.available, false);
+  assert.equal(live0740.reason, SMART_OPS_REASON.CONFLICT_EXISTING_BOOKING);
+  assert.equal(live0740.diagnostics.conflictKind, "overlap");
+  assert.equal(live0740.diagnostics.conflictBookingId, "TAAA4672EAN-LIVE");
+  assert.equal(live0740.diagnostics.sameCalendarDayAsNext, false);
+  console.log(
+    `OK  live-shaped 14-min stored duration still overlap (finish 07:14, operational end 07:29, ready ${live0740.diagnostics.earliestReadyAfterPreviousLocal})`,
+  );
+}
+
 console.log("\nAll Smart Availability / Smart Return checks passed.");

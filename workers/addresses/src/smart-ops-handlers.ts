@@ -325,6 +325,19 @@ export async function handleOwnerEvaluateSmartOps(
       previousBooking: previous
         ? { id: previous.id, tripDate: previous.tripDate, tripTime: previous.tripTime, label: `${previous.pickupLabel} → ${previous.dropoffLabel}` }
         : null,
+      previousBookingPickupLocal: availability.diagnostics.previousBookingPickupLocal,
+      previousBookingTripDate: availability.diagnostics.previousBookingTripDate,
+      previousBookingTripTime: availability.diagnostics.previousBookingTripTime,
+      previousBookingDurationMinutes: availability.diagnostics.previousBookingDurationMinutes,
+      previousBookingCompletionLocal: availability.diagnostics.previousBookingCompletionLocal,
+      previousBookingDestination: availability.diagnostics.previousBookingDestination,
+      previousBookingOperationalEndLocal: availability.diagnostics.previousBookingOperationalEndLocal,
+      previousPositioningNeededMinutes: availability.diagnostics.previousPositioningNeededMinutes,
+      earliestReadyAfterPreviousLocal: availability.diagnostics.earliestReadyAfterPreviousLocal,
+      proposedOnSiteDeadlineLocal: availability.diagnostics.proposedOnSiteDeadlineLocal,
+      conflictBookingId: availability.diagnostics.conflictBookingId,
+      conflictKind: availability.diagnostics.conflictKind,
+      conflictSummary: availability.diagnostics.conflictSummary,
       nextBooking: next
         ? { id: next.id, tripDate: next.tripDate, tripTime: next.tripTime, label: `${next.pickupLabel} → ${next.dropoffLabel}` }
         : null,

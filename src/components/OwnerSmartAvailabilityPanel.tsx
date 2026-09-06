@@ -608,26 +608,54 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                 >
                   {available ? "Available" : "Not available"}
                   {diag.reason ? ` · ${String(diag.reason)}` : ""}
-                  {(diag.estimatedCompletionLocal || diag.estimatedCompletion) &&
-                  diag.positioningNeededMinutes != null ? (
+                      {diag.previousBookingPickupLocal ||
+                      diag.estimatedCompletionLocal ||
+                      diag.estimatedCompletion ? (
                     <span className="mt-1 block text-xs font-normal opacity-90">
-                      Finishes {String(diag.estimatedCompletionLocal || diag.estimatedCompletion)},
-                      needs {String(diag.positioningNeededMinutes)} min
-                      {typeof diag.positioningTravelMinutes === "number"
-                        ? ` (${diag.positioningTravelMinutes} min drive + ${String(diag.minTurnaround ?? 10)} min turnaround, not stacked twice)`
-                        : " positioning"}
-                      {diag.earliestReadyLocal ? `, earliest ready ${String(diag.earliestReadyLocal)}` : ""}
-                      {diag.nextBookingResolvedLocal || diag.nextPickupLocal
-                        ? `, next pickup ${String(diag.nextBookingResolvedLocal || diag.nextPickupLocal)}`
-                        : ""}
-                      {diag.nextBookingTripDate
-                        ? ` [${String(diag.nextBookingTripDate)} ${String(diag.nextBookingTripTime || "")}]`
-                        : ""}
-                      {typeof diag.positioningGapMinutes === "number"
-                        ? ` (gap ${diag.positioningGapMinutes} min${
-                            diag.sameCalendarDayAsNext === false ? ", different calendar day" : ""
-                          })`
-                        : ""}
+                      {diag.previousBookingPickupLocal ? (
+                        <>
+                          Previous {String(diag.previousBookingPickupLocal)} finishes at{" "}
+                          {String(diag.previousBookingDestination || "unknown destination")} at{" "}
+                          {String(diag.previousBookingCompletionLocal || "unknown")}
+                          {typeof diag.previousBookingDurationMinutes === "number"
+                            ? ` (${diag.previousBookingDurationMinutes} min journey)`
+                            : ""}
+                          {diag.previousBookingOperationalEndLocal
+                            ? `; operational window ends ${String(diag.previousBookingOperationalEndLocal)}`
+                            : ""}
+                          {typeof diag.previousPositioningMinutes === "number"
+                            ? `. Then ${diag.previousPositioningMinutes} min drive to this pickup + ${String(diag.minTurnaround ?? 10)} min turnaround`
+                            : ""}
+                          {typeof diag.previousPositioningNeededMinutes === "number"
+                            ? ` (${diag.previousPositioningNeededMinutes} min needed)`
+                            : ""}
+                          {diag.earliestReadyAfterPreviousLocal
+                            ? `, earliest ready at this pickup ${String(diag.earliestReadyAfterPreviousLocal)}`
+                            : ""}
+                          {diag.proposedOnSiteDeadlineLocal
+                            ? ` vs on-site deadline ${String(diag.proposedOnSiteDeadlineLocal)}`
+                            : ""}
+                          {diag.conflictKind ? ` · ${String(diag.conflictKind)}` : ""}
+                          {diag.conflictSummary ? ` — ${String(diag.conflictSummary)}` : ""}.
+                        </>
+                      ) : null}
+                      {diag.nextBookingResolvedLocal &&
+                      diag.sameCalendarDayAsNext === true &&
+                      diag.conflictKind !== "overlap" &&
+                      diag.conflictKind !== "previous_positioning" ? (
+                        <>
+                          {diag.previousBookingPickupLocal ? " " : ""}
+                          Proposed finishes {String(diag.estimatedCompletionLocal || diag.estimatedCompletion)},
+                          needs {String(diag.positioningNeededMinutes)} min
+                          {typeof diag.nextPositioningMinutes === "number"
+                            ? ` (${diag.nextPositioningMinutes} min drive + ${String(diag.minTurnaround ?? 10)} min turnaround)`
+                            : ""}
+                          {diag.earliestReadyLocal && !diag.previousBookingPickupLocal
+                            ? `, earliest ready ${String(diag.earliestReadyLocal)}`
+                            : ""}
+                          {` before same-day next pickup ${String(diag.nextBookingResolvedLocal)}`}
+                        </>
+                      ) : null}
                     </span>
                   ) : null}
                 </p>
