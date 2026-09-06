@@ -2181,4 +2181,78 @@ console.log("\n=== After-Larne 07:40: previous-booking conflict math (do not loo
   );
 }
 
+console.log("\n=== After-Larne positioning starts at 07:33 completion, not 07:48 operational end ===");
+{
+  // Live diagnostic: 33-minute Larne→BHD, finish 07:33, operational end 07:48.
+  // Intended rule (unchanged): drive + turnaround starts at drop-off.
+  // 07:33 + 39 + 10 = 08:22. 07:48 + 39 + 10 = 08:37 would double-count the 15-min pad.
+  const larneAt0700: SmartOccupiedJob = {
+    id: "TAAA4672EAN-33",
+    pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+    dropoffLabel: "George Best Belfast City Airport",
+    pickup: LARNE,
+    dropoff: BHD,
+    tripDate: MONDAY,
+    tripTime: "07:00",
+    durationMinutes: 33,
+    airportCode: "BHD",
+  };
+  const requested = {
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BFS,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    durationMinutes: 30,
+    airportCode: "BFS" as const,
+    isFromAirport: true,
+  };
+  const bhdToBfs = repositionMinutes(BHD, BFS, {
+    fromLabel: "George Best Belfast City Airport",
+    toLabel: "Belfast International Airport",
+  });
+  assert.equal(bhdToBfs, 39);
+  assert.equal(positioningTimeNeededMinutes(bhdToBfs, 10), 49);
+
+  const at0740 = evaluateSmartAvailability({
+    requested: { ...requested, tripTime: "07:40" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(at0740.diagnostics.previousBookingDurationMinutes, 33);
+  assert.equal(at0740.diagnostics.previousBookingCompletionLocal, `${MONDAY}T07:33`);
+  assert.equal(at0740.diagnostics.previousBookingOperationalEndLocal, `${MONDAY}T07:48`);
+  assert.equal(at0740.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T08:22`);
+  assert.notEqual(at0740.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T08:37`);
+  assert.equal(at0740.available, false);
+
+  // Same proposed airport job: on-site deadline is passenger time − 30.
+  // Ready 08:22 → passenger boundary is 08:52 / 08:51, not 08:22 / 08:23.
+  const at0852 = evaluateSmartAvailability({
+    requested: { ...requested, tripTime: "08:52" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(at0852.diagnostics.proposedOnSiteDeadlineLocal, `${MONDAY}T08:22`);
+  assert.equal(at0852.diagnostics.earliestReadyAfterPreviousLocal, `${MONDAY}T08:22`);
+  assert.equal(at0852.available, true);
+
+  const at0851 = evaluateSmartAvailability({
+    requested: { ...requested, tripTime: "08:51" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(at0851.diagnostics.proposedOnSiteDeadlineLocal, `${MONDAY}T08:21`);
+  assert.equal(at0851.available, false);
+  assert.equal(at0851.reason, SMART_OPS_REASON.CONFLICT_POSITIONING_TIME);
+  assert.equal(at0851.diagnostics.conflictKind, "previous_positioning");
+  console.log("OK  33-min Larne finish 07:33 → ready 08:22; BFS boundary 08:52 / 08:51");
+}
+
 console.log("\nAll Smart Availability / Smart Return checks passed.");

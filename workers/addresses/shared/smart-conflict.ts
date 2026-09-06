@@ -329,7 +329,12 @@ export function isAirportPickupJourney(journey: {
   );
 }
 
-/** Post-journey operational padding (not applied after personal blocks). */
+/**
+ * Occupancy padding after passenger drop-off.
+ * Used only to widen the booking-vs-booking operational window (overlap).
+ * Positioning may start at journey completion — do not add this again on
+ * top of minTurnaroundMinutes, or the same slack is counted twice.
+ */
 export function postJourneyBufferMinutes(
   journey: {
     pickupLabel?: string | null;

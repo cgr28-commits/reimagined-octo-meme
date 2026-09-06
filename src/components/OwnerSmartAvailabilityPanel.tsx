@@ -630,7 +630,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                             ? ` (${diag.previousPositioningNeededMinutes} min needed)`
                             : ""}
                           {diag.earliestReadyAfterPreviousLocal
-                            ? `, earliest ready at this pickup ${String(diag.earliestReadyAfterPreviousLocal)}`
+                            ? `, earliest ready at this pickup ${String(diag.earliestReadyAfterPreviousLocal)} from journey completion (not operational window end)`
                             : ""}
                           {diag.proposedOnSiteDeadlineLocal
                             ? ` vs on-site deadline ${String(diag.proposedOnSiteDeadlineLocal)}`
