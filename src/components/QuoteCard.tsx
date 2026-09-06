@@ -2839,6 +2839,21 @@ function QuoteCard({
     return true;
   }
 
+  /** Marks every invalid checkout field, then scrolls to the first. Does not start payment. */
+  function validateCheckoutRequiredFields(): boolean {
+    const contactOk = validateContactDetails();
+    const termsOk = requireTermsAccepted();
+    if (contactOk && termsOk) return true;
+    window.setTimeout(() => {
+      const root =
+        document.getElementById("step3-customer-details") ??
+        cardRef.current ??
+        document;
+      focusFirstInvalidField(root);
+    }, 0);
+    return false;
+  }
+
   function buildPaymentDescription(): string {
     const vehicleLabel = quoteVehicle.split(" (")[0];
     const tripSummary = isAirportTrip || pickupAirportCode || dropoffAirportCode
@@ -2859,8 +2874,14 @@ function QuoteCard({
     if (isCustomerSmartAvailabilityBlockMessage(paymentError)) {
       return;
     }
+    if (paymentLoading || submitted) {
+      return;
+    }
+    if (!validateCheckoutRequiredFields()) {
+      return;
+    }
 
-    if (!liveQuote || paymentLoading || !canPayNowOnline) {
+    if (!liveQuote || !canPayNowOnline) {
       if (!canPayNowOnline) {
         if (routeValidationBlockingPayment) {
           if (!requireConfirmedPlacesForPayment()) {
@@ -2894,11 +2915,6 @@ function QuoteCard({
       return;
     }
 
-    if (!validateContactDetails()) {
-      setPaymentError("Please enter your full name, mobile number, and email before paying.");
-      return;
-    }
-
     if (!validateRequiredFlightNumbers()) {
       setPaymentError(FLIGHT_NUMBER_FORMAT_ERROR);
       setQuoteStep(2);
@@ -2906,13 +2922,6 @@ function QuoteCard({
     }
 
     if (!requireCapacityConfirmed()) {
-      return;
-    }
-
-    if (!requireTermsAccepted()) {
-      window.setTimeout(() => {
-        focusFirstInvalidField(cardRef.current ?? document);
-      }, 0);
       return;
     }
 
@@ -3480,10 +3489,10 @@ function QuoteCard({
     if (submitted || bookingSent) {
       return;
     }
-    if (!requireCapacityConfirmed()) {
+    if (!validateCheckoutRequiredFields()) {
       return;
     }
-    if (!requireTermsAccepted()) {
+    if (!requireCapacityConfirmed()) {
       return;
     }
 
@@ -3744,16 +3753,10 @@ function QuoteCard({
       return;
     }
 
-    if (!validateContactDetails()) {
+    if (!validateCheckoutRequiredFields()) {
       return;
     }
     if (!usesWhatsApp || isManualQuoteJourney) {
-      if (!requireTermsAccepted()) {
-        window.setTimeout(() => {
-          focusFirstInvalidField(cardRef.current ?? document);
-        }, 0);
-        return;
-      }
       void confirmBooking("email");
     }
   }
@@ -5931,32 +5934,17 @@ function QuoteCard({
                   <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}>
             <div className="mb-4">
               <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                {isManualQuoteJourney
-                  ? "Review your quote request"
-                  : showsRequestQuoteFlow
-                    ? "Review your quote request"
-                    : isEnquiryOnly
-                      ? "Review your enquiry"
-                      : "Review your booking"}
+                {isManualQuoteJourney || showsRequestQuoteFlow
+                  ? "Journey summary"
+                  : isEnquiryOnly
+                    ? "Enquiry summary"
+                    : "Journey summary"}
               </p>
               <p className="mt-1 text-sm text-white/75">
-                {isManualQuoteJourney
-                  ? "Check your details, then submit your quote request — we’ll review it and send your personalised price."
-                  : showsRequestQuoteFlow
-                    ? isOutOfAreaPickupJourney
-                      ? "Check your details, then request your fixed price — out-of-area pickups need manual approval."
-                      : isRoiJourney
-                        ? "Check your details, then request your fixed Republic of Ireland price."
-                        : "Check your details, then request a quote — we’ll confirm availability before the booking is accepted."
-                    : isEnquiryOnly
-                      ? "Check your details, then send an enquiry — we’ll quote you and confirm availability."
-                      : "Please check everything is correct before booking — wrong details can change your price."}
+                Check your journey details before continuing.
               </p>
             </div>
             <dl>
-              <PreviewRow label="Name" value={customerName.trim()} />
-              <PreviewRow label="Mobile" value={customerMobile.trim()} />
-              <PreviewRow label="Email" value={customerEmail.trim()} />
               <PreviewRow
                 label="Trip"
                 value={
@@ -6056,6 +6044,13 @@ function QuoteCard({
                 />
               ) : null}
             </dl>
+            <button
+              type="button"
+              onClick={handleEditBooking}
+              className="btn-secondary mt-4 w-full"
+            >
+              Edit journey
+            </button>
           </div>
 
         {submitError && (
@@ -6235,16 +6230,7 @@ function QuoteCard({
                     <button
                       type="button"
                       onClick={() => void handlePayNow()}
-                      disabled={
-                        paymentLoading ||
-                        submitted ||
-                        !termsAccepted ||
-                        !customerName.trim() ||
-                        !customerEmail.trim() ||
-                        !customerMobile.trim() ||
-                        !tripDetailsReady ||
-                        routeValidationBlockingPayment
-                      }
+                      disabled={paymentLoading || submitted}
                       className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {paymentLoading
@@ -6253,14 +6239,6 @@ function QuoteCard({
                           ? "Pay £1.00 test charge with SumUp"
                           : `Pay ${formatQuote(appliedPersonalQuote?.agreedAmount ?? pricedFare?.totalGbp ?? liveQuote.amount)} now with SumUp`}
                     </button>
-                    {(!customerName.trim() ||
-                      !customerEmail.trim() ||
-                      !customerMobile.trim() ||
-                      !termsAccepted) && (
-                      <p className="text-center text-xs text-amber-200/90">
-                        Enter your name, mobile, email and accept the terms before paying.
-                      </p>
-                    )}
                     <p className="quote-secondary text-center text-xs">
                       Card payments are processed securely by SumUp. You&apos;ll receive a branded
                       invoice by email after payment.
@@ -6288,7 +6266,7 @@ function QuoteCard({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitted || !termsAccepted}
+                  disabled={submitted}
                   className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : confirmButtonLabel}
@@ -6310,7 +6288,7 @@ function QuoteCard({
                 </button>
                 <button
                   type="button"
-                  disabled={submitted || !termsAccepted}
+                  disabled={submitted}
                   onClick={() => void confirmBooking("whatsapp")}
                   className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
@@ -6318,7 +6296,7 @@ function QuoteCard({
                 </button>
                 <button
                   type="button"
-                  disabled={submitted || !termsAccepted}
+                  disabled={submitted}
                   onClick={() => void confirmBooking("email")}
                   className="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
@@ -6343,7 +6321,7 @@ function QuoteCard({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitted || !termsAccepted}
+                  disabled={submitted}
                   className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitted ? submitInProgressLabel : confirmButtonLabel}

@@ -47,15 +47,30 @@ console.log("\n=== QuoteCard uses shared messages + red field UX ===");
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.passengers/);
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.suitcases/);
   assert.match(card, /focusFirstInvalidField/);
+  assert.match(card, /validateCheckoutRequiredFields/);
   assert.match(card, /aria-invalid=\{Boolean\(customerNameError\)\}/);
   assert.match(card, /aria-invalid=\{Boolean\(mobileNumberError\)\}/);
   assert.match(card, /aria-invalid=\{Boolean\(emailAddressError\)\}/);
   assert.match(card, /aria-invalid=\{Boolean\(tripDateError\)\}/);
+  assert.match(card, /disabled=\{paymentLoading \|\| submitted\}/);
+  assert.doesNotMatch(
+    card,
+    /disabled=\{\s*paymentLoading \|\|[\s\S]*!customerName\.trim\(\)/,
+  );
+  assert.doesNotMatch(
+    card,
+    /Enter your name, mobile, email and accept the terms before paying/,
+  );
   assert.doesNotMatch(
     card,
     /Please accept the Terms & Conditions before continuing/,
   );
   assert.doesNotMatch(card, /Please enter your name\./);
+  assert.doesNotMatch(card, /<PreviewRow label="Name"/);
+  assert.doesNotMatch(card, /<PreviewRow label="Mobile"/);
+  assert.doesNotMatch(card, /<PreviewRow label="Email"/);
+  assert.match(card, /Journey summary/);
+  assert.match(card, /Edit journey/);
   console.log("OK  QuoteCard wires exact messages and focuses the first invalid field");
 }
 
