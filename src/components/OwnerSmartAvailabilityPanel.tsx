@@ -612,7 +612,10 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                   diag.positioningNeededMinutes != null ? (
                     <span className="mt-1 block text-xs font-normal opacity-90">
                       Finishes {String(diag.estimatedCompletionLocal || diag.estimatedCompletion)},
-                      needs {String(diag.positioningNeededMinutes)} min positioning
+                      needs {String(diag.positioningNeededMinutes)} min
+                      {typeof diag.positioningTravelMinutes === "number"
+                        ? ` (${diag.positioningTravelMinutes} min drive + ${String(diag.minTurnaround ?? 10)} min turnaround, not stacked twice)`
+                        : " positioning"}
                       {diag.earliestReadyLocal ? `, earliest ready ${String(diag.earliestReadyLocal)}` : ""}
                       {diag.nextBookingResolvedLocal || diag.nextPickupLocal
                         ? `, next pickup ${String(diag.nextBookingResolvedLocal || diag.nextPickupLocal)}`

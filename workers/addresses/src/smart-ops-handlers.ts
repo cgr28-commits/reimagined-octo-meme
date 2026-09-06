@@ -336,6 +336,7 @@ export async function handleOwnerEvaluateSmartOps(
       positioningFromCoords: availability.diagnostics.positioningFromCoords,
       positioningToCoords: availability.diagnostics.positioningToCoords,
       positioningCoordsKnown: availability.diagnostics.positioningCoordsKnown,
+      positioningTravelMinutes: availability.diagnostics.positioningTravelMinutes,
       positioningNeededMinutes: availability.diagnostics.positioningNeededMinutes,
       positioningGapMinutes: availability.diagnostics.positioningGapMinutes,
       earliestReadyLocal: availability.diagnostics.earliestReadyLocal,

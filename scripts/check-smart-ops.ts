@@ -1971,4 +1971,65 @@ console.log("\n=== Same-morning 6 Sep 05:45 vs 6 Sep 07:00 Larne uses full dates
   console.log("OK  6 Sep 05:45 vs same-morning 07:00 is a conflict; next-day 07:00 is not");
 }
 
+console.log("\n=== 7 Sep 05:30 vs 07:00 Larne: 58 already includes the 10-minute turnaround ===");
+{
+  const larneAt0700: SmartOccupiedJob = {
+    id: "JOB-LARNE-0700-BOUNDARY",
+    pickupLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+    dropoffLabel: "George Best Belfast City Airport",
+    pickup: LARNE,
+    dropoff: BHD,
+    tripDate: MONDAY,
+    tripTime: "07:00",
+    durationMinutes: 35,
+    airportCode: "BHD",
+  };
+  const requested = {
+    pickupLabel: "Belfast International Airport",
+    dropoffLabel: "Belfast City Centre",
+    pickup: BFS,
+    dropoff: BELFAST,
+    tripDate: MONDAY,
+    durationMinutes: 30,
+    airportCode: "BFS" as const,
+    isFromAirport: true,
+  };
+  const travel = repositionMinutes(BELFAST, LARNE, {
+    fromLabel: "Belfast City Centre",
+    toLabel: "12 Wyncairn Gardens, Larne BT40 2EB",
+  });
+  assert.equal(travel, 48);
+  assert.equal(positioningTimeNeededMinutes(travel, 10), 58);
+  assert.notEqual(positioningTimeNeededMinutes(travel, 10), 68);
+
+  const at0530 = evaluateSmartAvailability({
+    requested: { ...requested, tripTime: "05:30" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(at0530.diagnostics.positioningTravelMinutes, 48);
+  assert.equal(at0530.diagnostics.minTurnaroundMinutes, 10);
+  assert.equal(at0530.diagnostics.positioningNeededMinutes, 58);
+  assert.equal(at0530.diagnostics.estimatedCompletionLocal, `${MONDAY}T06:00`);
+  assert.equal(at0530.diagnostics.earliestReadyLocal, `${MONDAY}T06:58`);
+  assert.equal(at0530.diagnostics.nextPickupLocal, `${MONDAY}T07:00`);
+  // Arrive ~06:48 after the 48-minute drive; 10-minute turnaround uses 06:48–06:58;
+  // 2 minutes remain before 07:00. That leftover is not a missing turnaround.
+  assert.equal(at0530.available, true);
+
+  const at0545 = evaluateSmartAvailability({
+    requested: { ...requested, tripTime: "05:45" },
+    occupied: [larneAt0700],
+    config,
+    searchAlternatives: false,
+    now: new Date("2026-09-06T12:00:00+01:00"),
+  });
+  assert.equal(at0545.available, false);
+  assert.equal(at0545.diagnostics.positioningNeededMinutes, 58);
+  assert.equal(at0545.diagnostics.earliestReadyLocal, `${MONDAY}T07:13`);
+  console.log("OK  05:30 stays available at ready 06:58; 58 is 48+10 once");
+}
+
 console.log("\nAll Smart Availability / Smart Return checks passed.");

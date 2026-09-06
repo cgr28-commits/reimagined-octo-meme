@@ -96,6 +96,8 @@ export type SmartAvailabilityDiagnostics = {
   positioningFromCoords: SmartCoords | null;
   positioningToCoords: SmartCoords | null;
   positioningCoordsKnown: boolean;
+  /** Drive only. positioningNeededMinutes = this + minTurnaround when drive > 0. */
+  positioningTravelMinutes: number | null;
   positioningNeededMinutes: number | null;
   /** Minutes from estimated drop-off to the next on-site deadline. */
   positioningGapMinutes: number | null;
@@ -732,6 +734,7 @@ function emptyDiagnostics(
     positioningFromCoords: null,
     positioningToCoords: null,
     positioningCoordsKnown: false,
+    positioningTravelMinutes: null,
     positioningNeededMinutes: null,
     positioningGapMinutes: null,
     earliestReadyLocal: null,
@@ -872,6 +875,7 @@ export function evaluateSmartAvailability(input: {
     diagnostics.positioningCoordsKnown = Boolean(prevWindow.dropoff && window.pickup);
   }
   if (diagnostics.positioningMinutes != null) {
+    diagnostics.positioningTravelMinutes = diagnostics.positioningMinutes;
     diagnostics.positioningNeededMinutes = positioningTimeNeededMinutes(
       diagnostics.positioningMinutes,
       input.config.buffers.minTurnaroundMinutes,
