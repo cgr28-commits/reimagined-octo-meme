@@ -257,7 +257,12 @@ function A2aQuotePayInner() {
 
       {isCustomerSmartAvailabilityBlockMessage(error) ? (
         <div className="mt-4">
-          <CustomerSmartAvailabilityBlocked message={error} />
+          <CustomerSmartAvailabilityBlocked
+            message={error}
+            onChooseAnotherTime={() => {
+              window.location.assign("/");
+            }}
+          />
         </div>
       ) : error ? (
         <p className="mt-4 text-sm text-red-300">{error}</p>

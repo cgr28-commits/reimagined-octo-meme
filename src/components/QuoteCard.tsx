@@ -115,7 +115,9 @@ import {
   CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
   isCustomerSmartAvailabilityBlockMessage,
   rememberCustomerSmartAvailabilityPreview,
+  type CustomerSmartAvailabilityCheckResult,
 } from "@/lib/customer-smart-availability-client";
+import type { CustomerPublicAlternativeTime } from "../../shared/customer-smart-availability";
 import { QUOTE_REQUIRED_FIELD_MESSAGES } from "../../shared/quote-required-field-messages";
 import { planJourneyDirectionDependentReset } from "../../shared/quote-journey-direction";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
@@ -637,6 +639,10 @@ function QuoteCard({
   const [passengersError, setPassengersError] = useState("");
   const [suitcasesError, setSuitcasesError] = useState("");
   const [smartAvailabilityBlocked, setSmartAvailabilityBlocked] = useState(false);
+  const [availabilityAlternatives, setAvailabilityAlternatives] = useState<
+    CustomerPublicAlternativeTime[]
+  >([]);
+  const [selectingAlternativeTime, setSelectingAlternativeTime] = useState<string | null>(null);
   /** Returning customer must re-pick Places when restore lacked coords / mismatched text. */
   const [routeReconfirmationRequired, setRouteReconfirmationRequired] = useState(false);
   const [pickupRestoredHint, setPickupRestoredHint] = useState(false);
@@ -1510,15 +1516,12 @@ function QuoteCard({
           });
         }
         if (result.smartAvailability?.enforced) {
-          if (result.smartAvailability.blocked) {
-            setSmartAvailabilityBlocked(true);
-            setPaymentError(CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
-          } else {
-            setSmartAvailabilityBlocked(false);
-            setPaymentError((prev) =>
-              isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
-            );
-          }
+          applyCustomerAvailabilityResult({
+            blocked: Boolean(result.smartAvailability.blocked),
+            available: result.smartAvailability.available !== false,
+            customerMessage: result.smartAvailability.customerMessage,
+            alternativeTimes: result.smartAvailability.alternativeTimes || [],
+          });
         }
         return true;
       }
@@ -2190,27 +2193,68 @@ function QuoteCard({
     };
   }
 
-  async function applyCustomerSmartAvailabilityCheck(): Promise<boolean> {
-    if (!pickupLabel.trim() || !dropoffLabel.trim() || !tripDate.trim() || !tripTime.trim()) {
-      return false;
-    }
-    const result = await checkCustomerSmartAvailability(customerAvailabilityBookingInput());
+  function applyCustomerAvailabilityResult(result: CustomerSmartAvailabilityCheckResult): boolean {
     if (result.blocked) {
       setSmartAvailabilityBlocked(true);
-      setPaymentError(CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
+      setAvailabilityAlternatives(result.alternativeTimes);
+      setPaymentError(result.customerMessage || CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
       return true;
     }
     setSmartAvailabilityBlocked(false);
+    setAvailabilityAlternatives([]);
     setPaymentError((prev) =>
       isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
     );
     return false;
   }
 
+  async function applyCustomerSmartAvailabilityCheck(): Promise<boolean> {
+    if (!pickupLabel.trim() || !dropoffLabel.trim() || !tripDate.trim() || !tripTime.trim()) {
+      return false;
+    }
+    const result = await checkCustomerSmartAvailability(customerAvailabilityBookingInput());
+    return applyCustomerAvailabilityResult(result);
+  }
+
+  async function handleSelectAvailabilityAlternative(option: CustomerPublicAlternativeTime) {
+    setSelectingAlternativeTime(option.tripTime);
+    setTripDate(option.tripDate);
+    setTripTime(option.tripTime);
+    if (tripDateInputRef.current) tripDateInputRef.current.value = option.tripDate;
+    if (tripTimeInputRef.current) tripTimeInputRef.current.value = option.tripTime;
+    setTripDateError("");
+    try {
+      const result = await checkCustomerSmartAvailability({
+        ...customerAvailabilityBookingInput(),
+        tripDate: option.tripDate,
+        tripTime: option.tripTime,
+      });
+      applyCustomerAvailabilityResult(result);
+    } finally {
+      setSelectingAlternativeTime(null);
+    }
+  }
+
+  function handleChooseAnotherTime() {
+    navigateQuoteStep(2);
+    window.setTimeout(() => {
+      const field = tripTimeInputRef.current ?? document.getElementById("time");
+      if (field instanceof HTMLElement) {
+        try {
+          field.focus({ preventScroll: true });
+        } catch {
+          field.focus();
+        }
+        field.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 80);
+  }
+
   useEffect(() => {
     if (!pickupLabel.trim() || !dropoffLabel.trim() || !tripDate.trim() || !tripTime.trim()) {
       if (smartAvailabilityBlocked) {
         setSmartAvailabilityBlocked(false);
+        setAvailabilityAlternatives([]);
         setPaymentError((prev) =>
           isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
         );
@@ -2239,15 +2283,7 @@ function QuoteCard({
           dropoffLng: typeof dropoffPlace?.lng === "number" ? dropoffPlace.lng : null,
         });
         if (cancelled) return;
-        if (result.blocked) {
-          setSmartAvailabilityBlocked(true);
-          setPaymentError(CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
-        } else {
-          setSmartAvailabilityBlocked(false);
-          setPaymentError((prev) =>
-            isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
-          );
-        }
+        applyCustomerAvailabilityResult(result);
       })();
     }, 280);
     return () => {
@@ -3312,7 +3348,7 @@ function QuoteCard({
   }
 
   const showBookingErrorWhatsAppHelp =
-    Boolean(paymentError.trim()) ||
+    (Boolean(paymentError.trim()) && !isCustomerSmartAvailabilityBlockMessage(paymentError)) ||
     Boolean(submitError.trim()) ||
     Boolean(pickupPlaceError.trim()) ||
     Boolean(dropoffPlaceError.trim()) ||
@@ -6112,7 +6148,21 @@ function QuoteCard({
               ref={step3PaymentActionsRef}
               className="scroll-mt-44 space-y-3 md:scroll-mt-28"
             >
-            {canPayNowOnline && liveQuote && (
+            {smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError) ? (
+              <div id="customer-smart-availability-blocked-step3">
+                <CustomerSmartAvailabilityBlocked
+                  message={
+                    isCustomerSmartAvailabilityBlockMessage(paymentError)
+                      ? paymentError
+                      : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE
+                  }
+                  alternativeTimes={availabilityAlternatives}
+                  onSelectAlternative={(option) => void handleSelectAvailabilityAlternative(option)}
+                  onChooseAnotherTime={handleChooseAnotherTime}
+                  selectingTime={selectingAlternativeTime}
+                />
+              </div>
+            ) : canPayNowOnline && liveQuote && (
               <div className="space-y-3">
                 {paymentError ? (
                   <div className="space-y-3">
@@ -6216,7 +6266,7 @@ function QuoteCard({
                 )}
               </div>
             )}
-            {canPayNowOnline ? (
+            {smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError) ? null : canPayNowOnline ? (
               <button
                 type="button"
                 onClick={handleEditBooking}
@@ -6306,7 +6356,17 @@ function QuoteCard({
           <div id="quote-step2-next" className="scroll-mt-44 space-y-3 md:scroll-mt-28">
             {smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError) ? (
               <div id="customer-smart-availability-blocked">
-                <CustomerSmartAvailabilityBlocked />
+                <CustomerSmartAvailabilityBlocked
+                  message={
+                    isCustomerSmartAvailabilityBlockMessage(paymentError)
+                      ? paymentError
+                      : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE
+                  }
+                  alternativeTimes={availabilityAlternatives}
+                  onSelectAlternative={(option) => void handleSelectAvailabilityAlternative(option)}
+                  onChooseAnotherTime={handleChooseAnotherTime}
+                  selectingTime={selectingAlternativeTime}
+                />
               </div>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -6321,14 +6381,16 @@ function QuoteCard({
               >
                 Back
               </button>
-              <button
-                type="button"
-                disabled={submitted}
-                onClick={handleContinueTravelDetails}
-                className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                Continue to your details
-              </button>
+              {smartAvailabilityBlocked ? null : (
+                <button
+                  type="button"
+                  disabled={submitted}
+                  onClick={handleContinueTravelDetails}
+                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  Continue to your details
+                </button>
+              )}
             </div>
             {liveQuote &&
             canPayNowOnline &&

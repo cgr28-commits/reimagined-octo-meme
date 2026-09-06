@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  checkCustomerSmartAvailability,
-  CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
-} from "@/lib/customer-smart-availability-client";
-import type { CustomerBookingAvailabilityInput } from "../../shared/customer-smart-availability";
+import { checkCustomerSmartAvailability } from "@/lib/customer-smart-availability-client";
+import type {
+  CustomerBookingAvailabilityInput,
+  CustomerPublicAlternativeTime,
+} from "../../shared/customer-smart-availability";
 
 /** Hide Pay before SumUp on locked quote pages. Fail-open if the check cannot run. */
 export function useCustomerSmartAvailabilityPreflight(
   booking: CustomerBookingAvailabilityInput | null,
-  onBlocked: (message: string) => void,
+  onBlocked: (message: string, alternativeTimes: CustomerPublicAlternativeTime[]) => void,
 ): void {
   const pickup = booking?.pickupLabel ?? "";
   const dropoff = booking?.dropoffLabel ?? "";
@@ -41,7 +41,10 @@ export function useCustomerSmartAvailabilityPreflight(
       routeDurationMinutes,
     }).then((result) => {
       if (cancelled || !result.blocked) return;
-      onBlocked(CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
+      onBlocked(
+        result.customerMessage || "",
+        result.alternativeTimes,
+      );
     });
     return () => {
       cancelled = true;

@@ -544,7 +544,12 @@ function BookQuoteInner() {
       </div>
 
       {isCustomerSmartAvailabilityBlockMessage(error) ? (
-        <CustomerSmartAvailabilityBlocked message={error} />
+        <CustomerSmartAvailabilityBlocked
+          message={error}
+          onChooseAnotherTime={() => {
+            window.location.assign("/");
+          }}
+        />
       ) : (
         <>
           {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}

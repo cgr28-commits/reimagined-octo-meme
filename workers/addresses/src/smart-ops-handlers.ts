@@ -37,6 +37,7 @@ import {
   customerSmartAvailabilityPreviewRequested as previewRequestedFromRequest,
   decideCustomerSmartAvailabilityGate,
   shouldEnforceCustomerSmartAvailability,
+  shouldOfferCustomerAlternativeTimes,
   type CustomerBookingAvailabilityInput,
   type CustomerSmartAvailabilityGate,
 } from "../shared/customer-smart-availability";
@@ -120,6 +121,7 @@ export async function enforceCustomerSmartAvailabilityGate(input: {
     customerMessage: null,
     reason: null,
     decision: null,
+    alternativeTimes: [],
   };
   if (!input.store) return allow;
   try {
@@ -145,6 +147,12 @@ export async function enforceCustomerSmartAvailabilityGate(input: {
       exceptions: state.exceptions,
       legacyPeriods: settings.unavailablePeriods,
       config: state.config,
+      offerAlternatives: shouldOfferCustomerAlternativeTimes({
+        alternativeTimeSuggestionsFlag: state.config.flags.alternativeTimeSuggestions === true,
+        origin: input.origin,
+        previewRequested: input.previewRequested === true,
+        previewWorkerEnforce: input.previewWorkerEnforce === true,
+      }),
       now: input.now,
     });
   } catch {

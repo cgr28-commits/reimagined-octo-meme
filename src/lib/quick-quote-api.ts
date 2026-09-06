@@ -12,6 +12,10 @@ import type {
   QuickQuoteVehicleChoice,
 } from "../../shared/quick-quote";
 import type { TripRouteMetrics } from "@/lib/trip-route";
+import {
+  parsePublicCustomerAlternativeTimes,
+  type CustomerPublicAlternativeTime,
+} from "../../shared/customer-smart-availability";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -29,6 +33,7 @@ export type CustomerSmartAvailabilityQuoteSignal = {
   available: boolean;
   blocked: boolean;
   customerMessage: string | null;
+  alternativeTimes?: CustomerPublicAlternativeTime[];
 };
 
 export type QuickQuoteCalculateResult =
@@ -142,6 +147,7 @@ export async function calculateServerQuote(
         blocked: smartRaw.blocked === true,
         customerMessage:
           typeof smartRaw.customerMessage === "string" ? smartRaw.customerMessage : null,
+        alternativeTimes: parsePublicCustomerAlternativeTimes(smartRaw.alternativeTimes),
       }
     : undefined;
 

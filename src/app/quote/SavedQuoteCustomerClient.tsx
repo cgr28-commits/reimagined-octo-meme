@@ -592,7 +592,12 @@ function SavedQuoteInner() {
           />
 
           {isCustomerSmartAvailabilityBlockMessage(error) ? (
-            <CustomerSmartAvailabilityBlocked message={error} />
+            <CustomerSmartAvailabilityBlocked
+              message={error}
+              onChooseAnotherTime={() => {
+                window.location.assign("/");
+              }}
+            />
           ) : (
             <>
               {error ? (

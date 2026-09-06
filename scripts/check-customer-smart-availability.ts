@@ -12,6 +12,7 @@ import {
   CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
   customerSmartAvailabilityPreviewRequested,
   decideCustomerSmartAvailabilityGate,
+  customerUnavailableAtTimeMessage,
   evaluateCustomerSmartAvailability,
   isPagesPreviewOrigin,
   isProductionCustomerOrigin,
@@ -19,6 +20,7 @@ import {
   requestedJourneysFromCustomerBooking,
   resolveCustomerAvailabilityDurationMinutes,
   shouldEnforceCustomerSmartAvailability,
+  shouldOfferCustomerAlternativeTimes,
   toPublicCustomerSmartAvailability,
   withCustomerSmartAvailabilityPreviewQuery,
 } from "../shared/customer-smart-availability";
@@ -185,6 +187,7 @@ console.log("\n=== Flag ON + available → customer can continue ===");
   assert.equal(allowed.available, true);
   assert.equal(allowed.customerMessage, null);
   assert.equal(allowed.decision?.alternatives.length, 0);
+  assert.equal(allowed.alternativeTimes.length, 0);
   console.log("OK  flag ON + 05:32 before Larne stays bookable");
 }
 
@@ -213,10 +216,11 @@ console.log("\n=== Flag ON + unavailable → customer cannot proceed to payment 
   assert.equal(blocked.available, false);
   assert.equal(blocked.blocked, true);
   assert.equal(blocked.customerMessage, CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
-  assert.equal(blocked.decision?.alternatives.length, 0, "customer path must not suggest other times");
+  assert.equal(blocked.alternativeTimes.length, 0, "alternatives stay off unless explicitly offered");
+  assert.equal(blocked.decision?.alternatives.length, 0, "customer path must not suggest other times by default");
   assert.equal(
     CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
-    "Unfortunately, we’re not available at that time. Please choose another time or contact us on WhatsApp.",
+    "Unfortunately, we’re not available at that time.",
   );
   assert.equal(CUSTOMER_SMART_AVAILABILITY_CODE, "smart_availability_unavailable");
   const publicPayload = toPublicCustomerSmartAvailability(blocked);
@@ -266,8 +270,7 @@ console.log("\n=== Owner tool and customer flow use the same availability decisi
 
   const wrapper = read("shared/customer-smart-availability.ts");
   assert.match(wrapper, /return evaluateSmartAvailability\(\{/);
-  assert.match(wrapper, /searchAlternatives:\s*false/);
-  assert.doesNotMatch(wrapper, /searchAlternatives:\s*true/);
+  assert.match(wrapper, /searchAlternatives:\s*input\.searchAlternatives === true/);
   assert.match(wrapper, /export function resolveCustomerAvailabilityDurationMinutes/);
   assert.doesNotMatch(
     wrapper,
@@ -367,6 +370,8 @@ console.log("\n=== Fail-open + refund-test skip + no alternative search ===");
   const gate = read("workers/addresses/src/smart-ops-handlers.ts");
   assert.match(gate, /export async function enforceCustomerSmartAvailabilityGate/);
   assert.match(gate, /previewWorkerEnforce: input.previewWorkerEnforce === true/);
+  assert.match(gate, /shouldOfferCustomerAlternativeTimes/);
+  assert.match(gate, /offerAlternatives:/);
   assert.match(gate, /catch \{\n    return allow;/);
   assert.match(gate, /Fail-open on unexpected errors/);
 
@@ -469,6 +474,107 @@ console.log("\n=== Live 25-minute OSRM duration still matches Owner 05:32 / 05:3
   assert.equal(live25at0533.blocked, true, "05:33 with live 25 min must match Owner 30 min");
   assert.equal(live25at0533.customerMessage, CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
   console.log("OK  customer wrapper floors 25 min to Owner 30 without changing the engine");
+}
+
+console.log("\n=== Alternative suggestions are engine-validated and preview-only ===");
+{
+  assert.equal(
+    shouldOfferCustomerAlternativeTimes({
+      alternativeTimeSuggestionsFlag: false,
+      origin: "https://www.myairporttaxini.co.uk",
+      previewRequested: true,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldOfferCustomerAlternativeTimes({
+      alternativeTimeSuggestionsFlag: false,
+      previewWorkerEnforce: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldOfferCustomerAlternativeTimes({
+      alternativeTimeSuggestionsFlag: true,
+    }),
+    true,
+  );
+
+  const booking0533 = {
+    pickupLabel: bfsToCity.pickupLabel,
+    dropoffLabel: bfsToCity.dropoffLabel,
+    tripDate: MONDAY,
+    tripTime: "05:33",
+    airportCode: "BFS" as const,
+    isFromAirport: true,
+    routeDurationMinutes: 25,
+    pickupLat: BFS.lat,
+    pickupLng: BFS.lng,
+    dropoffLat: BELFAST.lat,
+    dropoffLng: BELFAST.lng,
+  };
+  const withoutAlts = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: booking0533,
+    occupied: [larneAt0700],
+    config,
+    offerAlternatives: false,
+    now: NOW,
+  });
+  assert.equal(withoutAlts.blocked, true);
+  assert.equal(withoutAlts.alternativeTimes.length, 0);
+
+  const withAlts = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: booking0533,
+    occupied: [larneAt0700],
+    config,
+    offerAlternatives: true,
+    now: NOW,
+  });
+  assert.equal(withAlts.blocked, true);
+  assert.equal(withAlts.customerMessage, customerUnavailableAtTimeMessage("05:33"));
+  assert.equal(withAlts.customerMessage, "Unfortunately, we’re not available at 05:33.");
+  assert.ok(withAlts.alternativeTimes.length >= 1, "unavailable 05:33 should offer nearby times");
+  assert.ok(!withAlts.alternativeTimes.some((item) => item.tripTime === "05:33"));
+  for (const option of withAlts.alternativeTimes) {
+    const check = evaluateCustomerSmartAvailability({
+      requested: { ...bfsToCity, tripDate: option.tripDate, tripTime: option.tripTime },
+      occupied: [larneAt0700],
+      config,
+      searchAlternatives: false,
+      now: NOW,
+    });
+    assert.equal(check.available, true, `${option.tripTime} must itself be available`);
+    assert.doesNotMatch(option.tripTime, /reason|conflict|TAAA/i);
+  }
+  const publicAlts = toPublicCustomerSmartAvailability(withAlts);
+  assert.equal("reason" in publicAlts, false);
+  assert.equal("decision" in publicAlts, false);
+  assert.ok(publicAlts.alternativeTimes.length === withAlts.alternativeTimes.length);
+  for (const option of publicAlts.alternativeTimes) {
+    assert.equal(Object.keys(option).sort().join(","), "tripDate,tripTime");
+  }
+
+  const selected = withAlts.alternativeTimes[0];
+  const afterTap = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: { ...booking0533, tripDate: selected.tripDate, tripTime: selected.tripTime },
+    occupied: [larneAt0700],
+    config,
+    offerAlternatives: true,
+    now: NOW,
+  });
+  assert.equal(afterTap.blocked, false, "tapping a suggested time must revalidate as available");
+  assert.equal(afterTap.available, true);
+
+  const blockedUi = read("src/components/CustomerSmartAvailabilityBlocked.tsx");
+  assert.match(blockedUi, /CUSTOMER_OTHER_TIMES_HEADING/);
+  assert.match(blockedUi, /CUSTOMER_CHOOSE_ANOTHER_TIME_LABEL/);
+  assert.match(blockedUi, /CUSTOMER_WHATSAPP_SECONDARY_MESSAGE/);
+  assert.doesNotMatch(blockedUi, /BookingErrorWhatsAppHelp/);
+  assert.doesNotMatch(blockedUi, /Get Booking Help on WhatsApp/);
+  console.log("OK  alternatives are revalidated, public-only, and preview-gated");
 }
 
 console.log("\n=== Preview opt-in enforces without Origin and never on www ===");
@@ -638,6 +744,11 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
   assert.match(quoteCard, /smartAvailabilityBlocked/);
   assert.match(quoteCard, /!smartAvailabilityBlocked/);
   assert.match(quoteCard, /CustomerSmartAvailabilityBlocked/);
+  assert.match(quoteCard, /handleSelectAvailabilityAlternative/);
+  assert.match(quoteCard, /handleChooseAnotherTime/);
+  assert.match(quoteCard, /smartAvailabilityBlocked \? null/);
+  assert.match(quoteCard, /Continue to your details/);
+  assert.match(quoteCard, /isCustomerSmartAvailabilityBlockMessage\(paymentError\)/);
   assert.match(quoteCard, /planJourneyDirectionDependentReset/);
   assert.match(quoteCard, /QUOTE_REQUIRED_FIELD_MESSAGES/);
   assert.match(quoteCard, /renderBookingErrorHelp\("payment-actions"\)/);

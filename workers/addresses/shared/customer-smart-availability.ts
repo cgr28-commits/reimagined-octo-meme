@@ -1,13 +1,14 @@
 /**
  * Customer-facing Smart Availability gate.
  * Uses the same evaluateSmartAvailability engine as the Owner Availability tool.
- * Does not change pricing. Alternatives are never suggested on this path.
+ * Does not change pricing. Alternative times, when offered, come from that engine.
  */
 
 import type { SmartOpsConfig } from "./smart-ops-config";
 import {
   evaluateSmartAvailability,
   parseJourneyDurationMinutes,
+  type SmartAlternativeTime,
   type SmartAvailabilityDecision,
   type SmartOccupiedJob,
   type SmartRequestedJourney,
@@ -16,9 +17,19 @@ import type { SmartAvailabilityException, SmartAvailabilityRule } from "./smart-
 import type { UnavailablePeriod } from "./booking-notice";
 
 export const CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE =
+  "Unfortunately, we’re not available at that time.";
+
+export const CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE_LEGACY =
   "Unfortunately, we’re not available at that time. Please choose another time or contact us on WhatsApp.";
 
 export const CUSTOMER_SMART_AVAILABILITY_CODE = "smart_availability_unavailable";
+
+export const CUSTOMER_OTHER_TIMES_HEADING = "Other times we can offer:";
+
+export const CUSTOMER_CHOOSE_ANOTHER_TIME_LABEL = "Choose another time";
+
+export const CUSTOMER_WHATSAPP_SECONDARY_MESSAGE =
+  "Still need help? Send us a WhatsApp message and we’ll reply when available.";
 
 export const CUSTOMER_SMART_AVAILABILITY_PREVIEW_QUERY = "smartAvailabilityPreview";
 export const CUSTOMER_SMART_AVAILABILITY_PREVIEW_HEADER = "X-Smart-Availability-Preview";
@@ -57,6 +68,49 @@ export function shouldEnforceCustomerSmartAvailability(input: {
   // preview Worker enforces via previewWorkerEnforce instead.
   if (!String(input.origin || "").trim()) return false;
   return isPagesPreviewOrigin(input.origin);
+}
+
+/**
+ * Alternative suggestions stay behind the KV flag in production.
+ * The isolated preview Worker may offer them without enabling the production flag.
+ */
+export function shouldOfferCustomerAlternativeTimes(input: {
+  alternativeTimeSuggestionsFlag: boolean;
+  origin?: string | null;
+  previewRequested?: boolean;
+  previewWorkerEnforce?: boolean;
+}): boolean {
+  if (input.alternativeTimeSuggestionsFlag === true) return true;
+  if (input.previewWorkerEnforce === true) return true;
+  if (!input.previewRequested) return false;
+  if (isProductionCustomerOrigin(input.origin)) return false;
+  if (!String(input.origin || "").trim()) return false;
+  return isPagesPreviewOrigin(input.origin);
+}
+
+export function formatCustomerClock(tripTime: string): string {
+  const match = String(tripTime || "").trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return "";
+  return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
+}
+
+export function customerUnavailableAtTimeMessage(tripTime: string): string {
+  const clock = formatCustomerClock(tripTime);
+  return clock
+    ? `Unfortunately, we’re not available at ${clock}.`
+    : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE;
+}
+
+export function isCustomerSmartAvailabilityUnavailableMessage(message?: string | null): boolean {
+  const text = String(message || "").trim();
+  if (!text) return false;
+  if (
+    text === CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE ||
+    text === CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE_LEGACY
+  ) {
+    return true;
+  }
+  return /^Unfortunately, we’re not available at \d{1,2}:\d{2}\.$/.test(text);
 }
 
 function firstPositiveMinutes(...values: Array<number | null | undefined>): number | null {
@@ -121,7 +175,7 @@ export function withCustomerSmartAvailabilityPreviewQuery(url: string): string {
   return parsed.toString();
 }
 
-/** Same engine as the owner tool. Never search alternative times here. */
+/** Same engine as the owner tool. Alternatives only when explicitly requested. */
 export function evaluateCustomerSmartAvailability(input: {
   requested: SmartRequestedJourney;
   occupied: SmartOccupiedJob[];
@@ -129,6 +183,7 @@ export function evaluateCustomerSmartAvailability(input: {
   exceptions?: SmartAvailabilityException[];
   legacyPeriods?: UnavailablePeriod[];
   config: SmartOpsConfig;
+  searchAlternatives?: boolean;
   now?: Date;
 }): SmartAvailabilityDecision {
   return evaluateSmartAvailability({
@@ -138,9 +193,68 @@ export function evaluateCustomerSmartAvailability(input: {
     exceptions: input.exceptions,
     legacyPeriods: input.legacyPeriods,
     config: input.config,
-    searchAlternatives: false,
+    searchAlternatives: input.searchAlternatives === true,
     now: input.now,
   });
+}
+
+export type CustomerPublicAlternativeTime = {
+  tripDate: string;
+  tripTime: string;
+};
+
+export function parsePublicCustomerAlternativeTimes(
+  value: unknown,
+): CustomerPublicAlternativeTime[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: CustomerPublicAlternativeTime[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const tripDate = String((item as { tripDate?: unknown }).tripDate || "").trim();
+    const tripTime = formatCustomerClock(String((item as { tripTime?: unknown }).tripTime || ""));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || !tripTime) continue;
+    const key = `${tripDate}T${tripTime}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ tripDate, tripTime });
+  }
+  return out.slice(0, 4);
+}
+
+export function confirmedCustomerAlternativeTimes(input: {
+  requested: SmartRequestedJourney;
+  occupied: SmartOccupiedJob[];
+  rules?: SmartAvailabilityRule[];
+  exceptions?: SmartAvailabilityException[];
+  legacyPeriods?: UnavailablePeriod[];
+  config: SmartOpsConfig;
+  candidates: SmartAlternativeTime[];
+  now?: Date;
+}): CustomerPublicAlternativeTime[] {
+  const requestedKey = `${input.requested.tripDate}T${formatCustomerClock(input.requested.tripTime)}`;
+  const confirmed: CustomerPublicAlternativeTime[] = [];
+  const seen = new Set<string>();
+  for (const candidate of input.candidates) {
+    const tripDate = String(candidate.tripDate || "").trim();
+    const tripTime = formatCustomerClock(candidate.tripTime);
+    const key = `${tripDate}T${tripTime}`;
+    if (!tripDate || !tripTime || key === requestedKey || seen.has(key)) continue;
+    const decision = evaluateCustomerSmartAvailability({
+      requested: { ...input.requested, tripDate, tripTime },
+      occupied: input.occupied,
+      rules: input.rules,
+      exceptions: input.exceptions,
+      legacyPeriods: input.legacyPeriods,
+      config: input.config,
+      searchAlternatives: false,
+      now: input.now,
+    });
+    if (!decision.available) continue;
+    seen.add(key);
+    confirmed.push({ tripDate, tripTime });
+  }
+  return confirmed.slice(0, 4);
 }
 
 export type CustomerBookingAvailabilityInput = {
@@ -221,6 +335,7 @@ export type CustomerSmartAvailabilityGate = {
   customerMessage: string | null;
   reason: string | null;
   decision: SmartAvailabilityDecision | null;
+  alternativeTimes: CustomerPublicAlternativeTime[];
 };
 
 /** Customer-visible payload only — never includes owner reason codes or diagnostics. */
@@ -229,16 +344,25 @@ export type PublicCustomerSmartAvailability = {
   available: boolean;
   blocked: boolean;
   customerMessage: string | null;
+  alternativeTimes: CustomerPublicAlternativeTime[];
 };
+
+function emptyGate(partial: Omit<CustomerSmartAvailabilityGate, "alternativeTimes">): CustomerSmartAvailabilityGate {
+  return { ...partial, alternativeTimes: [] };
+}
 
 export function toPublicCustomerSmartAvailability(
   gate: CustomerSmartAvailabilityGate,
 ): PublicCustomerSmartAvailability {
+  const alternativeTimes = gate.blocked ? parsePublicCustomerAlternativeTimes(gate.alternativeTimes) : [];
   return {
     enforced: gate.enforce,
     available: gate.available,
     blocked: gate.blocked,
-    customerMessage: gate.blocked ? CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE : gate.customerMessage,
+    customerMessage: gate.blocked
+      ? gate.customerMessage || CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE
+      : null,
+    alternativeTimes,
   };
 }
 
@@ -250,38 +374,39 @@ export function decideCustomerSmartAvailabilityGate(input: {
   exceptions?: SmartAvailabilityException[];
   legacyPeriods?: UnavailablePeriod[];
   config: SmartOpsConfig;
+  offerAlternatives?: boolean;
   now?: Date;
 }): CustomerSmartAvailabilityGate {
   if (!input.enforce) {
-    return {
+    return emptyGate({
       enforce: false,
       available: true,
       blocked: false,
       customerMessage: null,
       reason: null,
       decision: null,
-    };
+    });
   }
   if (input.booking.isRefundTest) {
-    return {
+    return emptyGate({
       enforce: true,
       available: true,
       blocked: false,
       customerMessage: null,
       reason: null,
       decision: null,
-    };
+    });
   }
   const journeys = requestedJourneysFromCustomerBooking(input.booking);
   if (!journeys.length) {
-    return {
+    return emptyGate({
       enforce: true,
       available: true,
       blocked: false,
       customerMessage: null,
       reason: null,
       decision: null,
-    };
+    });
   }
   let last: SmartAvailabilityDecision | null = null;
   for (const requested of journeys) {
@@ -292,26 +417,54 @@ export function decideCustomerSmartAvailabilityGate(input: {
       exceptions: input.exceptions,
       legacyPeriods: input.legacyPeriods,
       config: input.config,
+      searchAlternatives: false,
       now: input.now,
     });
     last = decision;
     if (!decision.available) {
+      let alternativeTimes: CustomerPublicAlternativeTime[] = [];
+      let suggestion = decision;
+      if (input.offerAlternatives === true) {
+        suggestion = evaluateCustomerSmartAvailability({
+          requested,
+          occupied: input.occupied,
+          rules: input.rules,
+          exceptions: input.exceptions,
+          legacyPeriods: input.legacyPeriods,
+          config: input.config,
+          searchAlternatives: true,
+          now: input.now,
+        });
+        alternativeTimes = confirmedCustomerAlternativeTimes({
+          requested,
+          occupied: input.occupied,
+          rules: input.rules,
+          exceptions: input.exceptions,
+          legacyPeriods: input.legacyPeriods,
+          config: input.config,
+          candidates: suggestion.alternatives,
+          now: input.now,
+        });
+      }
       return {
         enforce: true,
         available: false,
         blocked: true,
-        customerMessage: CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
-        reason: decision.reason,
-        decision,
+        customerMessage: alternativeTimes.length
+          ? customerUnavailableAtTimeMessage(requested.tripTime)
+          : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
+        reason: suggestion.reason,
+        decision: suggestion,
+        alternativeTimes,
       };
     }
   }
-  return {
+  return emptyGate({
     enforce: true,
     available: true,
     blocked: false,
     customerMessage: null,
     reason: last?.reason || null,
     decision: last,
-  };
+  });
 }
