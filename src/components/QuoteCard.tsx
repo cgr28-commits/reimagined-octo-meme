@@ -38,7 +38,6 @@ import {
   bookingTextFieldClass,
   quoteDateTimeFieldShellClass,
   quoteDateTimeInputClass,
-  quoteTextFieldClass,
   type QuoteFieldHighlightState,
 } from "@/lib/quote-ui-highlight";
 import {
