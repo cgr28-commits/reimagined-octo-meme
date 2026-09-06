@@ -2167,11 +2167,21 @@ async function handlePaymentRequest(
       body.expressDropOffSelected ?? booking.expressDropOffSelected,
       true,
     );
+    const outboundExpressSelected = parseCustomerExpressDropOffSelected(
+      body.outboundExpressDropOffSelected ?? booking.outboundExpressDropOffSelected,
+      customerExpressSelected,
+    );
+    const returnExpressSelected = parseCustomerExpressDropOffSelected(
+      body.returnExpressDropOffSelected ?? booking.returnExpressDropOffSelected,
+      customerExpressSelected,
+    );
     const express = resolveExpressDropOff({
       airportCode: airportContext.airportCode,
       fromAirport: airportContext.fromAirport,
       returnJourney: booking.returnJourney,
       selected: customerExpressSelected,
+      outboundSelected: outboundExpressSelected,
+      returnSelected: returnExpressSelected,
     });
     const persisted = toExpressDropOffPersistedFields(express);
 
@@ -2192,6 +2202,8 @@ async function handlePaymentRequest(
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
       airportFixedCostsGbp,
       airportAccessChargeGbp: persisted.expressDropOffFee,
+      outboundAirportAccessChargeGbp: persisted.outboundAirportAccessChargeGbp,
+      returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       returnJourney: Boolean(booking.returnJourney),
       ...(returnOfferDiscountRate > 0 ? { returnOfferDiscountRate } : {}),
     });
@@ -2255,6 +2267,12 @@ async function handlePaymentRequest(
       expressDropOffSelected: persisted.expressDropOffSelected,
       expressDropOffFee: persisted.expressDropOffFee,
       expressDropOffAirport: persisted.expressDropOffAirport,
+      outboundExpressDropOffSelected: persisted.outboundExpressDropOffSelected,
+      returnExpressDropOffSelected: persisted.returnExpressDropOffSelected,
+      outboundAirportAccessOption: persisted.outboundAirportAccessOption,
+      returnAirportAccessOption: persisted.returnAirportAccessOption,
+      outboundAirportAccessChargeGbp: persisted.outboundAirportAccessChargeGbp,
+      returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       ...promoFieldsFromFareBreakdown(breakdown),
       // Persist the amount the customer accepted and SumUp will charge.
       finalAmountPayableGbp: sumUpChargeGbp,

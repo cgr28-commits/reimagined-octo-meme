@@ -10,7 +10,7 @@ import { formatMarketingOptInLine } from "../../shared/marketing";
 import type { AdsAttribution } from "../../shared/ads-attribution";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
-  formatAirportAccessOptionCustomerLine,
+  formatAirportAccessOptionCustomerLines,
   formatExpressDropOffSummaryLine,
 } from "../../shared/express-drop-off";
 
@@ -46,6 +46,12 @@ export type BookingDetails = {
   expressDropOffSelected?: boolean;
   expressDropOffFee?: number;
   expressDropOffAirport?: "BFS" | "BHD" | null;
+  outboundExpressDropOffSelected?: boolean;
+  returnExpressDropOffSelected?: boolean;
+  outboundAirportAccessOption?: "express" | "free";
+  returnAirportAccessOption?: "express" | "free";
+  outboundAirportAccessChargeGbp?: number;
+  returnAirportAccessChargeGbp?: number;
   journeyFareBeforePromotionsGbp?: number;
   originalEligibleJourneyPriceGbp?: number;
   returnJourneySavingGbp?: number;
@@ -132,11 +138,16 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
     `Vehicle: ${details.vehicle}\n` +
     (details.estimatedPrice ? `Your fixed journey price: ${details.estimatedPrice}\n` : "") +
     (() => {
-      const accessLine = formatAirportAccessOptionCustomerLine({
+      const accessLines = formatAirportAccessOptionCustomerLines({
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
         fromAirport: details.isFromAirport,
+        returnJourney: details.returnJourney,
+        outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
+        returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
       });
       const expressLine = formatExpressDropOffSummaryLine({
         expressDropOffSelected: details.expressDropOffSelected,
@@ -144,10 +155,10 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
         fromAirport: details.isFromAirport,
       });
-      if (!accessLine && !expressLine) return "";
+      if (accessLines.length === 0 && !expressLine) return "";
       return (
-        (accessLine ? `${accessLine}\n` : "") +
-        (expressLine ? `${expressLine}\n` : "") +
+        (accessLines.length > 0 ? `${accessLines.join("\n")}\n` : "") +
+        (expressLine && !accessLines.includes(expressLine) ? `${expressLine}\n` : "") +
         `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
       );
     })() +

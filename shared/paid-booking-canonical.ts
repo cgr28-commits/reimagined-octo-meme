@@ -55,6 +55,28 @@ export function paidBookingRecordToDetails(record: PaidBookingRecord): PaidBooki
     record.airportAccessOption === null
       ? { airportAccessOption: record.airportAccessOption }
       : {}),
+    ...(typeof record.outboundExpressDropOffSelected === "boolean"
+      ? { outboundExpressDropOffSelected: record.outboundExpressDropOffSelected }
+      : {}),
+    ...(typeof record.returnExpressDropOffSelected === "boolean"
+      ? { returnExpressDropOffSelected: record.returnExpressDropOffSelected }
+      : {}),
+    ...(record.outboundAirportAccessOption === "express" ||
+    record.outboundAirportAccessOption === "free" ||
+    record.outboundAirportAccessOption === null
+      ? { outboundAirportAccessOption: record.outboundAirportAccessOption }
+      : {}),
+    ...(record.returnAirportAccessOption === "express" ||
+    record.returnAirportAccessOption === "free" ||
+    record.returnAirportAccessOption === null
+      ? { returnAirportAccessOption: record.returnAirportAccessOption }
+      : {}),
+    ...(typeof record.outboundAirportAccessChargeGbp === "number"
+      ? { outboundAirportAccessChargeGbp: record.outboundAirportAccessChargeGbp }
+      : {}),
+    ...(typeof record.returnAirportAccessChargeGbp === "number"
+      ? { returnAirportAccessChargeGbp: record.returnAirportAccessChargeGbp }
+      : {}),
     ...(record.dublinArrivalTerminal === "T1" ||
     record.dublinArrivalTerminal === "T2" ||
     record.dublinArrivalTerminal === null

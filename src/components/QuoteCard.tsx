@@ -143,10 +143,11 @@ import {
   buildOpenWebsiteFareBreakdown,
 } from "@/components/QuoteFareTrust";
 import {
-  canProceedWithoutExpressDropOff,
+  canProceedWithoutExpressDropOffLegs,
   composeFareWithExpressDropOff,
   resolveExpressDropOff,
   shouldDefaultExpressSelectedOnNewEligibility,
+  type ExpressAirportService,
 } from "../../shared/express-drop-off";
 import {
   RETURN_OFFER_CONFIG,
@@ -728,9 +729,13 @@ function QuoteCard({
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(true);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
+  const [returnExpressRemovalAck, setReturnExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
-  const [expressEditing, setExpressEditing] = useState(false);
+  const [expressEditingLeg, setExpressEditingLeg] = useState<"outbound" | "return" | null>(
+    null,
+  );
   /** A2A-only: fee line ids the customer independently removed. */
   const [removedAirportFeeIds, setRemovedAirportFeeIds] = useState<string[]>([]);
   const expressEligibilityPrimedRef = useRef(false);
@@ -1045,6 +1050,10 @@ function QuoteCard({
       if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
       if (typeof draft.expressDropOffSelected === "boolean") {
         setExpressDropOffSelected(draft.expressDropOffSelected);
+        expressEligibilityPrimedRef.current = false;
+      }
+      if (typeof draft.returnExpressDropOffSelected === "boolean") {
+        setReturnExpressDropOffSelected(draft.returnExpressDropOffSelected);
         expressEligibilityPrimedRef.current = false;
       }
       if (draft.personalQuoteCode?.trim()) {
@@ -1585,8 +1594,16 @@ function QuoteCard({
         fromAirport: isFromAirport,
         returnJourney,
         selected: expressDropOffSelected,
+        outboundSelected: expressDropOffSelected,
+        returnSelected: returnExpressDropOffSelected,
       }),
-    [effectiveAirportCode, isFromAirport, returnJourney, expressDropOffSelected],
+    [
+      effectiveAirportCode,
+      isFromAirport,
+      returnJourney,
+      expressDropOffSelected,
+      returnExpressDropOffSelected,
+    ],
   );
 
   // Recalculate Express eligibility when airport / direction / return changes.
@@ -1611,13 +1628,16 @@ function QuoteCard({
       })
     ) {
       setExpressDropOffSelected(true);
+      setReturnExpressDropOffSelected(true);
       setExpressRemovalAck(false);
+      setReturnExpressRemovalAck(false);
       setExpressAckRequired(false);
     }
     if (!nowEligible) {
       setExpressRemovalAck(false);
+      setReturnExpressRemovalAck(false);
       setExpressAckRequired(false);
-      setExpressEditing(false);
+      setExpressEditingLeg(null);
     }
     expressWasEligibleRef.current = nowEligible;
   }, [effectiveAirportCode, isFromAirport, returnJourney]);
@@ -1625,15 +1645,16 @@ function QuoteCard({
   // After the free Express acknowledgement is ticked, scroll Book Now into view on mobile.
   // Runs post-paint (not inside the checkbox event) so iOS cannot immediately undo the scroll.
   useEffect(() => {
-    const justChecked = expressRemovalAck && !expressRemovalAckWasCheckedRef.current;
-    expressRemovalAckWasCheckedRef.current = expressRemovalAck;
+    const eitherAck = expressRemovalAck || returnExpressRemovalAck;
+    const justChecked = eitherAck && !expressRemovalAckWasCheckedRef.current;
+    expressRemovalAckWasCheckedRef.current = eitherAck;
     if (!justChecked) return;
 
     const isMobile = isMobileDevice ?? detectMobileDevice();
     if (!isMobile) return;
 
     return scheduleScrollToBookNowAfterExpressAck();
-  }, [expressRemovalAck, isMobileDevice]);
+  }, [expressRemovalAck, returnExpressRemovalAck, isMobileDevice]);
 
   /**
    * Open-website promotional fare path (same-order return discount + return offer).
@@ -1741,6 +1762,8 @@ function QuoteCard({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       airportAccessChargeGbp: expressSelection.feeGbp,
+      outboundAirportAccessChargeGbp: expressSelection.outboundFeeGbp,
+      returnAirportAccessChargeGbp: expressSelection.returnFeeGbp,
       returnJourney,
       ...(applyReturnOffer
         ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
@@ -1751,6 +1774,8 @@ function QuoteCard({
     journeyFareParts.journeyFareGbp,
     journeyFareParts.airportFixedCostsGbp,
     expressSelection.feeGbp,
+    expressSelection.outboundFeeGbp,
+    expressSelection.returnFeeGbp,
     returnJourney,
     returnOfferToken,
     pickupAddress,
@@ -2747,9 +2772,27 @@ function QuoteCard({
       ...(pickupAirportCode ? { pickupAirportCode } : {}),
       ...(dropoffAirportCode ? { dropoffAirportCode } : {}),
       ...(isAirportToAirportJourney ? { isAirportToAirport: true } : {}),
-      expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
+      expressDropOffSelected: expressSelection.eligible ? expressSelection.selected : false,
       expressDropOffFee: expressSelection.feeGbp,
       expressDropOffAirport: expressSelection.airportCode,
+      outboundExpressDropOffSelected: expressSelection.legs.some((leg) => leg.leg === "outbound")
+        ? expressSelection.outboundSelected
+        : undefined,
+      returnExpressDropOffSelected: expressSelection.legs.some((leg) => leg.leg === "return")
+        ? expressSelection.returnSelected
+        : undefined,
+      outboundAirportAccessOption: expressSelection.legs.some((leg) => leg.leg === "outbound")
+        ? expressSelection.outboundSelected
+          ? "express"
+          : "free"
+        : undefined,
+      returnAirportAccessOption: expressSelection.legs.some((leg) => leg.leg === "return")
+        ? expressSelection.returnSelected
+          ? "express"
+          : "free"
+        : undefined,
+      outboundAirportAccessChargeGbp: expressSelection.outboundFeeGbp,
+      returnAirportAccessChargeGbp: expressSelection.returnFeeGbp,
       ...(openWebsiteFareBreakdown
         ? promoFieldsFromFareBreakdown(openWebsiteFareBreakdown)
         : {}),
@@ -2958,16 +3001,14 @@ function QuoteCard({
     }
 
     if (
-      !canProceedWithoutExpressDropOff({
-        eligible: expressSelection.eligible,
-        selected: expressDropOffSelected,
-        removalAcknowledged: expressRemovalAck,
-        freeAlternativeAvailable: expressSelection.freeAlternativeAvailable,
+      !canProceedWithoutExpressDropOffLegs(expressSelection, {
+        outbound: expressRemovalAck,
+        return: returnExpressRemovalAck,
       })
     ) {
       setExpressAckRequired(true);
       setPaymentError(
-        expressSelection.service === "pick-up"
+        expressSelection.legs.some((leg) => !leg.selected && leg.service === "pick-up")
           ? "Please confirm you understand the free pick-up area before continuing without Express Pick-Up."
           : "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
       );
@@ -3017,7 +3058,12 @@ function QuoteCard({
       termsAccepted,
       marketingOptIn,
       personalQuoteCode: appliedPersonalQuote?.code,
-      expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
+      expressDropOffSelected: expressSelection.eligible
+        ? expressSelection.outboundSelected
+        : false,
+      returnExpressDropOffSelected: expressSelection.eligible
+        ? expressSelection.returnSelected
+        : false,
     });
 
     try {
@@ -3035,8 +3081,15 @@ function QuoteCard({
         pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
         dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
         expressDropOffSelected: expressSelection.eligible
-          ? expressDropOffSelected
+          ? expressSelection.outboundSelected
           : false,
+        outboundExpressDropOffSelected: expressSelection.eligible
+          ? expressSelection.outboundSelected
+          : false,
+        returnExpressDropOffSelected:
+          expressSelection.eligible && expressSelection.legs.some((leg) => leg.leg === "return")
+            ? expressSelection.returnSelected
+            : undefined,
         ...(useOpenWebsitePromoPricing && journeyFareParts.journeyFareGbp != null
           ? {
               journeyFareGbp: journeyFareParts.journeyFareGbp,
@@ -3748,24 +3801,22 @@ function QuoteCard({
         return;
       }
       if (
-        !canProceedWithoutExpressDropOff({
-          eligible: expressSelection.eligible,
-          selected: expressDropOffSelected,
-          removalAcknowledged: expressRemovalAck,
-          freeAlternativeAvailable: expressSelection.freeAlternativeAvailable,
+        !canProceedWithoutExpressDropOffLegs(expressSelection, {
+          outbound: expressRemovalAck,
+          return: returnExpressRemovalAck,
         })
       ) {
         setExpressAckRequired(true);
         failStep1(
           "express_ack_required",
-          expressSelection.service === "pick-up"
+          expressSelection.legs.some((leg) => !leg.selected && leg.service === "pick-up")
             ? "Please confirm you understand the free pick-up area before continuing without Express Pick-Up."
             : "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
         );
         return;
       }
       setSubmitError("");
-      setExpressEditing(false);
+      setExpressEditingLeg(null);
       // Blur CTA before DOM swap so iOS does not keep scroll anchored to the old button.
       if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -4331,37 +4382,69 @@ function QuoteCard({
     );
   }
 
+  function expressLegHeading(
+    leg: "outbound" | "return",
+    service: ExpressAirportService,
+  ): string {
+    const journey = leg === "outbound" ? "Outbound journey" : "Return journey";
+    const access = service === "pick-up" ? "Airport pick-up" : "Airport drop-off";
+    return `${journey} – ${access}`;
+  }
+
   function renderExpressChoiceInPriceCard(mode: "full" | "summary") {
-    if (
-      !expressSelection.eligible ||
-      !expressSelection.airportCode ||
-      !expressSelection.service ||
-      testChargeAmount !== null
-    ) {
+    if (!expressSelection.eligible || testChargeAmount !== null) {
       return null;
     }
+    const legs = expressSelection.legs.filter((leg) => leg.airportCode);
+    if (legs.length === 0) return null;
     return (
-      <div className="mt-3 text-left" data-express-airport-choice>
-        <ExpressDropOffChoice
-          mode={mode}
-          editing={expressEditing}
-          onEditingChange={setExpressEditing}
-          airportCode={expressSelection.airportCode}
-          service={expressSelection.service}
-          allowFreeAlternative={expressSelection.freeAlternativeAvailable}
-          selected={expressDropOffSelected}
-          removalAcknowledged={expressRemovalAck}
-          requireAcknowledgement={expressAckRequired}
-          onSelectedChange={(selected) => {
-            setExpressDropOffSelected(selected);
-            setExpressAckRequired(false);
-            if (selected) setExpressRemovalAck(false);
-          }}
-          onRemovalAcknowledgedChange={(ack) => {
-            setExpressRemovalAck(ack);
-            if (ack) setExpressAckRequired(false);
-          }}
-        />
+      <div className="mt-3 space-y-3 text-left" data-express-airport-choice>
+        {legs.map((leg) => {
+          const selected =
+            leg.leg === "return"
+              ? returnExpressDropOffSelected
+              : expressDropOffSelected;
+          const acknowledged =
+            leg.leg === "return" ? returnExpressRemovalAck : expressRemovalAck;
+          const heading =
+            legs.length > 1 ? expressLegHeading(leg.leg, leg.service) : undefined;
+          return (
+            <ExpressDropOffChoice
+              key={leg.leg}
+              mode={mode}
+              editing={expressEditingLeg === leg.leg}
+              onEditingChange={(editing) =>
+                setExpressEditingLeg(editing ? leg.leg : null)
+              }
+              airportCode={leg.airportCode}
+              service={leg.service}
+              allowFreeAlternative={leg.freeAlternativeAvailable}
+              selected={selected}
+              removalAcknowledged={acknowledged}
+              requireAcknowledgement={expressAckRequired}
+              idPrefix={leg.leg}
+              heading={heading}
+              onSelectedChange={(nextSelected) => {
+                if (leg.leg === "return") {
+                  setReturnExpressDropOffSelected(nextSelected);
+                  if (nextSelected) setReturnExpressRemovalAck(false);
+                } else {
+                  setExpressDropOffSelected(nextSelected);
+                  if (nextSelected) setExpressRemovalAck(false);
+                }
+                setExpressAckRequired(false);
+              }}
+              onRemovalAcknowledgedChange={(ack) => {
+                if (leg.leg === "return") {
+                  setReturnExpressRemovalAck(ack);
+                } else {
+                  setExpressRemovalAck(ack);
+                }
+                if (ack) setExpressAckRequired(false);
+              }}
+            />
+          );
+        })}
       </div>
     );
   }

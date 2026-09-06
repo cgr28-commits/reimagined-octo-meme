@@ -60,6 +60,9 @@ export type WebsiteFareBreakdownInput = {
   airportFixedCostsGbp?: number;
   /** Express Drop-Off / Pick-Up fee when selected (0 when free option chosen). */
   airportAccessChargeGbp?: number;
+  /** Optional per-leg Express charges for return bookings. */
+  outboundAirportAccessChargeGbp?: number;
+  returnAirportAccessChargeGbp?: number;
   returnJourney?: boolean;
   /**
    * Secure follow-up return-offer rate (e.g. 0.05). Applied to the current
@@ -81,6 +84,8 @@ export type WebsiteFareBreakdown = {
   /** Transfer subtotal after promos + undiscounted fixed costs (no Express). */
   transferFareAfterPromotionsGbp: number;
   airportAccessChargeGbp: number;
+  outboundAirportAccessChargeGbp: number;
+  returnAirportAccessChargeGbp: number;
   /** Journey + fixed costs + Express (display/audit total before any promo). */
   bookingValueBeforePromotionsGbp: number;
   /**
@@ -107,8 +112,18 @@ export function composeWebsiteFareBreakdown(
   const airportFixedCostsGbp = roundGbp(
     Math.max(0, Number(input.airportFixedCostsGbp) || 0),
   );
+  const outboundAirportAccessChargeGbp = roundGbp(
+    Math.max(0, Number(input.outboundAirportAccessChargeGbp) || 0),
+  );
+  const returnAirportAccessChargeGbp = roundGbp(
+    Math.max(0, Number(input.returnAirportAccessChargeGbp) || 0),
+  );
   const airportAccessChargeGbp = roundGbp(
-    Math.max(0, Number(input.airportAccessChargeGbp) || 0),
+    Math.max(
+      0,
+      Number(input.airportAccessChargeGbp) ||
+        outboundAirportAccessChargeGbp + returnAirportAccessChargeGbp,
+    ),
   );
 
   const returnJourneySavingGbp = returnJourney
@@ -157,6 +172,8 @@ export function composeWebsiteFareBreakdown(
     journeyFareAfterPromotionsGbp,
     transferFareAfterPromotionsGbp,
     airportAccessChargeGbp,
+    outboundAirportAccessChargeGbp,
+    returnAirportAccessChargeGbp,
     bookingValueBeforePromotionsGbp,
     journeyFareDisplayGbp: transferFareAfterPromotionsGbp,
     totalPromotionalSavingGbp,

@@ -16,6 +16,8 @@ export type WebsitePromoPricingFields = {
   totalPromotionalSavingGbp?: number;
   /** Express fee charged (0 when free option selected). */
   airportAccessChargeGbp?: number;
+  outboundAirportAccessChargeGbp?: number;
+  returnAirportAccessChargeGbp?: number;
   journeyFareAfterPromotionsGbp?: number;
   finalAmountPayableGbp?: number;
 };
@@ -30,6 +32,8 @@ export function promoFieldsFromFareBreakdown(
     returnOfferSavingGbp: breakdown.returnOfferSavingGbp,
     totalPromotionalSavingGbp: breakdown.totalPromotionalSavingGbp,
     airportAccessChargeGbp: breakdown.airportAccessChargeGbp,
+    outboundAirportAccessChargeGbp: breakdown.outboundAirportAccessChargeGbp,
+    returnAirportAccessChargeGbp: breakdown.returnAirportAccessChargeGbp,
     journeyFareAfterPromotionsGbp: breakdown.journeyFareAfterPromotionsGbp,
     finalAmountPayableGbp: breakdown.finalAmountPayableGbp,
   };
@@ -51,6 +55,8 @@ export function parseWebsitePromoPricingFields(
     returnOfferSavingGbp: num("returnOfferSavingGbp"),
     totalPromotionalSavingGbp: num("totalPromotionalSavingGbp"),
     airportAccessChargeGbp: num("airportAccessChargeGbp"),
+    outboundAirportAccessChargeGbp: num("outboundAirportAccessChargeGbp"),
+    returnAirportAccessChargeGbp: num("returnAirportAccessChargeGbp"),
     journeyFareAfterPromotionsGbp: num("journeyFareAfterPromotionsGbp"),
     finalAmountPayableGbp: num("finalAmountPayableGbp"),
   };
@@ -78,7 +84,21 @@ export function formatCustomerPromoPricingLines(
       `Return journey saving 5%: −${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
     );
   }
-  if ((fields.airportAccessChargeGbp ?? 0) > 0) {
+  if (
+    (fields.outboundAirportAccessChargeGbp ?? 0) > 0 ||
+    (fields.returnAirportAccessChargeGbp ?? 0) > 0
+  ) {
+    if ((fields.outboundAirportAccessChargeGbp ?? 0) > 0) {
+      lines.push(
+        `Outbound airport charge: ${formatGbpFare(fields.outboundAirportAccessChargeGbp ?? 0)}`,
+      );
+    }
+    if ((fields.returnAirportAccessChargeGbp ?? 0) > 0) {
+      lines.push(
+        `Return airport charge: ${formatGbpFare(fields.returnAirportAccessChargeGbp ?? 0)}`,
+      );
+    }
+  } else if ((fields.airportAccessChargeGbp ?? 0) > 0) {
     lines.push(
       `Airport access charge: ${formatGbpFare(fields.airportAccessChargeGbp ?? 0)}`,
     );
@@ -122,7 +142,23 @@ export function formatCustomerPromoPricingHtmlRows(
       value: `−${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
     });
   }
-  if ((fields.airportAccessChargeGbp ?? 0) > 0) {
+  if (
+    (fields.outboundAirportAccessChargeGbp ?? 0) > 0 ||
+    (fields.returnAirportAccessChargeGbp ?? 0) > 0
+  ) {
+    if ((fields.outboundAirportAccessChargeGbp ?? 0) > 0) {
+      rows.push({
+        label: "Outbound airport charge",
+        value: formatGbpFare(fields.outboundAirportAccessChargeGbp ?? 0),
+      });
+    }
+    if ((fields.returnAirportAccessChargeGbp ?? 0) > 0) {
+      rows.push({
+        label: "Return airport charge",
+        value: formatGbpFare(fields.returnAirportAccessChargeGbp ?? 0),
+      });
+    }
+  } else if ((fields.airportAccessChargeGbp ?? 0) > 0) {
     rows.push({
       label: "Airport access charge",
       value: formatGbpFare(fields.airportAccessChargeGbp ?? 0),

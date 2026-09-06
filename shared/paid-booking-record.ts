@@ -167,6 +167,12 @@ export type PaidBookingRecord = {
   expressDropOffAirport?: "BFS" | "BHD" | null;
   /** "express" | "free" — stored for confirmation/resend clarity. */
   airportAccessOption?: "express" | "free" | null;
+  outboundExpressDropOffSelected?: boolean;
+  returnExpressDropOffSelected?: boolean;
+  outboundAirportAccessOption?: "express" | "free" | null;
+  returnAirportAccessOption?: "express" | "free" | null;
+  outboundAirportAccessChargeGbp?: number;
+  returnAirportAccessChargeGbp?: number;
   /** Dublin Airport arrival terminal for pickup instructions. Never guessed. */
   dublinArrivalTerminal?: "T1" | "T2" | null;
   dublinArrivalTerminalSource?: "flight" | "owner" | "unresolved";

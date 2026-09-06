@@ -23,6 +23,10 @@ type Props = {
   requireAcknowledgement?: boolean;
   /** Override free-alternative gate (defaults from shared config + service). */
   allowFreeAlternative?: boolean;
+  /** Distinguishes outbound vs return radio groups on the same airport. */
+  idPrefix?: string;
+  /** Optional legend override, e.g. "Outbound journey – Airport drop-off". */
+  heading?: string;
   className?: string;
 };
 
@@ -38,9 +42,11 @@ export default function ExpressDropOffSelector({
   onRemovalAcknowledgedChange,
   requireAcknowledgement = false,
   allowFreeAlternative,
+  idPrefix,
+  heading,
   className = "",
 }: Props) {
-  const groupName = `express-airport-${service}-${airportCode}`;
+  const groupName = `${idPrefix ? `${idPrefix}-` : ""}express-airport-${service}-${airportCode}`;
   const freeAvailable =
     typeof allowFreeAlternative === "boolean"
       ? allowFreeAlternative
@@ -52,7 +58,7 @@ export default function ExpressDropOffSelector({
       aria-describedby={`${groupName}-note`}
     >
       <legend className="px-1 text-sm font-semibold text-white">
-        {expressAirportLegendLabel(service)}
+        {heading || expressAirportLegendLabel(service)}
       </legend>
 
       <div

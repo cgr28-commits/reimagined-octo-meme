@@ -15,7 +15,7 @@ import {
   formatCustomerPromoPricingLines,
   type WebsitePromoPricingFields,
 } from "../../../shared/website-promo-pricing";
-import { formatAirportAccessOptionCustomerLine } from "../../../shared/express-drop-off";
+import { formatAirportAccessOptionCustomerLines } from "../../../shared/express-drop-off";
 
 type ViewStatus = "loading" | "confirmed" | "pending" | "missing" | "error";
 
@@ -63,20 +63,27 @@ export default function BookingConfirmedClient() {
         returnJourneySavingGbp: pending.booking.returnJourneySavingGbp,
         totalPromotionalSavingGbp: pending.booking.totalPromotionalSavingGbp,
         airportAccessChargeGbp: pending.booking.airportAccessChargeGbp,
+        outboundAirportAccessChargeGbp: pending.booking.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: pending.booking.returnAirportAccessChargeGbp,
         journeyFareAfterPromotionsGbp: pending.booking.journeyFareAfterPromotionsGbp,
         finalAmountPayableGbp: pending.booking.finalAmountPayableGbp,
       };
       const lines = formatCustomerPromoPricingLines(promoFields).filter(
         (line) => !line.startsWith("Amount paid:"),
       );
-      const accessLine = formatAirportAccessOptionCustomerLine({
+      const accessLines = formatAirportAccessOptionCustomerLines({
         expressDropOffSelected: pending.booking.expressDropOffSelected,
         expressDropOffFee: pending.booking.expressDropOffFee,
         expressDropOffAirport:
           pending.booking.expressDropOffAirport ?? pending.booking.airportCode,
         fromAirport: pending.booking.isFromAirport,
+        returnJourney: pending.booking.returnJourney,
+        outboundExpressDropOffSelected: pending.booking.outboundExpressDropOffSelected,
+        returnExpressDropOffSelected: pending.booking.returnExpressDropOffSelected,
+        outboundAirportAccessChargeGbp: pending.booking.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: pending.booking.returnAirportAccessChargeGbp,
       });
-      setPromoLines(accessLine ? [accessLine, ...lines] : lines);
+      setPromoLines(accessLines.length > 0 ? [...accessLines, ...lines] : lines);
     }
 
     let cancelled = false;

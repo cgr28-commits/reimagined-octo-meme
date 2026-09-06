@@ -19,8 +19,8 @@ import {
 } from "./journey-inclusions";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
-  formatAirportAccessOptionCustomerLine,
-  formatAirportAccessOptionOwnerLine,
+  formatAirportAccessOptionCustomerLines,
+  formatAirportAccessOptionOwnerLines,
   formatExpressDropOffSummaryLine,
 } from "./express-drop-off";
 import {
@@ -81,6 +81,12 @@ export type PaidBookingDetails = {
   expressDropOffAirport?: "BFS" | "BHD" | null;
   /** Explicit access choice stored with the booking ("express" | "free"). */
   airportAccessOption?: "express" | "free" | null;
+  outboundExpressDropOffSelected?: boolean;
+  returnExpressDropOffSelected?: boolean;
+  outboundAirportAccessOption?: "express" | "free" | null;
+  returnAirportAccessOption?: "express" | "free" | null;
+  outboundAirportAccessChargeGbp?: number;
+  returnAirportAccessChargeGbp?: number;
   dublinArrivalTerminal?: "T1" | "T2" | null;
   /** Snapshot of applied promotional pricing (open website). */
   journeyFareBeforePromotionsGbp?: number;
@@ -309,15 +315,29 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     rows.push({ label: "Flight for collection", value: details.returnFlightNumber });
   }
 
-  const accessOption = formatAirportAccessOptionCustomerLine({
+  const accessLines = formatAirportAccessOptionCustomerLines({
     expressDropOffSelected: details.expressDropOffSelected,
     expressDropOffFee: details.expressDropOffFee,
     expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
     fromAirport: details.isFromAirport,
+    returnJourney: details.returnJourney,
+    outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
+    returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+    outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
+    returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
   });
-  if (accessOption) {
-    const value = accessOption.replace(/^Airport access option:\s*/i, "");
-    rows.push({ label: "Airport access option", value });
+  for (const accessOption of accessLines) {
+    const isLeg = /^(Outbound|Return) airport access:/i.test(accessOption);
+    const value = accessOption.replace(
+      isLeg ? /^(Outbound|Return) airport access:\s*/i : /^Airport access option:\s*/i,
+      "",
+    );
+    const label = accessOption.startsWith("Outbound")
+      ? "Outbound airport access"
+      : accessOption.startsWith("Return")
+        ? "Return airport access"
+        : "Airport access option";
+    rows.push({ label, value });
   }
 
   rows.push(
@@ -579,13 +599,18 @@ export function buildCustomerConfirmationEmail(
       details.amountPaid,
     )}\n` +
     (() => {
-      const accessLine = formatAirportAccessOptionCustomerLine({
+      const accessLines = formatAirportAccessOptionCustomerLines({
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
         fromAirport: details.isFromAirport,
+        returnJourney: details.returnJourney,
+        outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
+        returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
       });
-      if (!accessLine) return "\n";
+      if (accessLines.length === 0) return "\n";
       const breakdown = formatExpressDropOffSummaryLine({
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
@@ -593,8 +618,8 @@ export function buildCustomerConfirmationEmail(
         fromAirport: details.isFromAirport,
       });
       return (
-        `${accessLine}\n` +
-        (breakdown && breakdown !== accessLine ? `${breakdown}\n` : "") +
+        `${accessLines.join("\n")}\n` +
+        (breakdown && !accessLines.includes(breakdown) ? `${breakdown}\n` : "") +
         `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n\n`
       );
     })() +
@@ -648,22 +673,32 @@ export function buildOwnerPaidBookingEmail(
     `${"=".repeat(40)}\n` +
     `${formatTripSchedule(details)}\n` +
     (() => {
-      const ownerAccess = formatAirportAccessOptionOwnerLine({
+      const ownerAccess = formatAirportAccessOptionOwnerLines({
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
         fromAirport: details.isFromAirport,
+        returnJourney: details.returnJourney,
+        outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
+        returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
       });
-      if (!ownerAccess) return "";
-      const detail = formatAirportAccessOptionCustomerLine({
+      if (ownerAccess.length === 0) return "";
+      const detail = formatAirportAccessOptionCustomerLines({
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
         fromAirport: details.isFromAirport,
+        returnJourney: details.returnJourney,
+        outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
+        returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
       });
       return (
-        `\n${ownerAccess}\n` +
-        (detail ? `${detail}\n` : "") +
+        `\n${ownerAccess.join("\n")}\n` +
+        (detail.length > 0 ? `${detail.join("\n")}\n` : "") +
         `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
       );
     })() +

@@ -24,6 +24,8 @@ type Props = {
   mode?: "full" | "summary";
   editing?: boolean;
   onEditingChange?: (editing: boolean) => void;
+  idPrefix?: string;
+  heading?: string;
   className?: string;
 };
 
@@ -43,6 +45,8 @@ export default function ExpressDropOffChoice({
   mode = "full",
   editing = false,
   onEditingChange,
+  idPrefix,
+  heading,
   className = "",
 }: Props) {
   if (mode === "summary" && !editing) {
@@ -53,7 +57,8 @@ export default function ExpressDropOffChoice({
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 space-y-1 text-sm text-white/85">
             <p className="font-medium text-white">
-              {service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off"}
+              {heading ||
+                (service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off")}
             </p>
             <p>{expressDropOffBreakdownLabel(airportCode, selected, service)}</p>
             <p className="text-xs text-white/50">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
@@ -83,6 +88,8 @@ export default function ExpressDropOffChoice({
         onRemovalAcknowledgedChange={onRemovalAcknowledgedChange}
         requireAcknowledgement={requireAcknowledgement}
         allowFreeAlternative={allowFreeAlternative}
+        idPrefix={idPrefix}
+        heading={heading}
       />
       {mode === "summary" && editing ? (
         <button
