@@ -4,12 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ISO_WEEKDAYS,
   buildUnavailableTimeRule,
+  compactUnavailableRuleLabel,
   describeUnavailableDate,
-  describeUnavailableRule,
-  isQuickBlockRule,
+  describeUntilEndLocal,
+  resolveCurrentAvailabilityStatus,
+  selectActiveUnavailableRules,
+  untilShortcutEndLocal,
   unavailableFormFromRule,
+  validateUnavailableTimeForm,
   type SmartAvailabilityRule,
   type UnavailableTimeForm,
+  type UntilShortcutId,
 } from "../../shared/smart-availability";
 import { DEFAULT_SMART_OPS_CONFIG, type SmartOpsConfig } from "../../shared/smart-ops-config";
 import {
@@ -48,15 +53,24 @@ const fieldClass =
 const labelClass = "block min-w-0 text-sm font-medium text-white/70";
 
 function emptyForm(today = londonYmd()): UnavailableTimeForm {
+  const date = addDaysYmd(today, 1);
   return {
     repeat: "one_off",
-    date: addDaysYmd(today, 1),
+    date,
+    endDate: date,
     startTime: "00:00",
     endTime: "10:00",
     weekdays: [1],
     note: "",
   };
 }
+
+const UNTIL_SHORTCUTS: Array<{ id: UntilShortcutId; label: string }> = [
+  { id: "tonight_22", label: "Tonight 22:00" },
+  { id: "midnight", label: "Midnight" },
+  { id: "tomorrow_04", label: "Tomorrow 04:00" },
+  { id: "tomorrow_08", label: "Tomorrow 08:00" },
+];
 
 function ruleById(rules: SmartAvailabilityRule[] | undefined, id?: string) {
   if (!id) return null;
@@ -75,6 +89,9 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
   const [calendar, setCalendar] = useState<CalendarState | null>(null);
   const [form, setForm] = useState<UnavailableTimeForm>(() => emptyForm(today));
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [untilOpen, setUntilOpen] = useState(false);
+  const [untilCustom, setUntilCustom] = useState({ date: addDaysYmd(today, 1), time: "04:00" });
   const [test, setTest] = useState({
     pickupLabel: "Belfast International Airport",
     dropoffLabel: "Belfast City Centre",
@@ -88,6 +105,44 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
 
   const config = state?.config || DEFAULT_SMART_OPS_CONFIG;
   const rules = state?.rules || [];
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const now = useMemo(() => new Date(nowMs), [nowMs]);
+  const currentStatus = useMemo(
+    () => resolveCurrentAvailabilityStatus({ rules, exceptions: state?.exceptions, now }),
+    [rules, state?.exceptions, now],
+  );
+  const activeRules = useMemo(
+    () =>
+      selectActiveUnavailableRules(rules, now).sort((a, b) => {
+        const aKey = a.startLocal || a.date || a.startTime || a.id;
+        const bKey = b.startLocal || b.date || b.startTime || b.id;
+        return aKey.localeCompare(bKey);
+      }),
+    [rules, now],
+  );
+  const groupedActiveRules = useMemo(() => {
+    const groups: Array<{ key: string; heading: string; items: SmartAvailabilityRule[] }> = [];
+    const recurring: SmartAvailabilityRule[] = [];
+    for (const rule of activeRules) {
+      if (rule.kind === "recurring") {
+        recurring.push(rule);
+        continue;
+      }
+      const startDate = (rule.startLocal || rule.date || "").slice(0, 10);
+      const heading = startDate ? describeUnavailableDate(startDate, today) : "Upcoming";
+      const existing = groups.find((group) => group.key === startDate);
+      if (existing) existing.items.push(rule);
+      else groups.push({ key: startDate || rule.id, heading, items: [rule] });
+    }
+    if (recurring.length) {
+      groups.push({ key: "recurring", heading: "Every week", items: recurring });
+    }
+    return groups;
+  }, [activeRules, today]);
 
   const load = useCallback(async () => {
     const result = await fetchSmartOpsState(ownerKey);
@@ -144,23 +199,40 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
   function startEdit(rule: SmartAvailabilityRule) {
     setEditingId(rule.id);
     setForm(unavailableFormFromRule(rule, today));
+    setScheduleOpen(true);
+    setUntilOpen(false);
     setMessage("");
-    document.getElementById("owner-add-unavailable")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      document.getElementById("owner-add-unavailable")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }
 
   async function saveUnavailableTime() {
+    const problem = validateUnavailableTimeForm(form);
+    if (problem) {
+      setError(problem);
+      return;
+    }
     const rule = buildUnavailableTimeRule({
       ...form,
       id: editingId || undefined,
       enabled: true,
     });
     if (!rule) {
-      setError("Check the date and times, then tap Save again.");
+      setError(
+        "Unavailable until must be after unavailable from. For an overnight block, set the until date to the next day.",
+      );
       return;
     }
     await run("save_rule", { rule });
     setEditingId(null);
+    setScheduleOpen(false);
     setForm(emptyForm(today));
+  }
+
+  async function applyUntil(endLocal: string) {
+    await run("quick_block", { kind: "until", endLocal });
+    setUntilOpen(false);
   }
 
   const days = useMemo(() => {
@@ -168,24 +240,25 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
     return Array.from({ length: 7 }, (_, i) => addDaysYmd(focusDay, i));
   }, [view, focusDay]);
 
-  const sortedRules = useMemo(
-    () =>
-      [...rules].sort((a, b) => {
-        const aKey = a.startLocal || a.date || a.startTime || a.id;
-        const bKey = b.startLocal || b.date || b.startTime || b.id;
-        return aKey.localeCompare(bKey);
-      }),
-    [rules],
-  );
-
   return (
     <section className="mb-10 w-full min-w-0 max-w-full space-y-4" data-owner-smart-ops>
-      <div className="rounded-2xl border border-amber-400/25 bg-navy/70 p-4 sm:p-5">
+      <div
+        className={`rounded-2xl border p-4 sm:p-5 ${
+          currentStatus.available
+            ? "border-emerald/40 bg-emerald/10"
+            : "border-red-400/40 bg-red-500/10"
+        }`}
+        data-owner-availability-status
+      >
         <h2 className="text-lg font-bold text-white">Availability</h2>
-        <p className="mt-2 text-sm text-white/70">
-          Mark when you cannot take bookings. Customers still use the live website until this is
-          switched on.
+        <p
+          className={`mt-3 text-xl font-extrabold tracking-tight sm:text-2xl ${
+            currentStatus.available ? "text-emerald" : "text-red-100"
+          }`}
+        >
+          {currentStatus.available ? "🟢 AVAILABLE NOW" : `🔴 ${currentStatus.headline}`}
         </p>
+        <p className="mt-1 text-sm text-white/70">{currentStatus.detail}</p>
         {error ? (
           <p className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
             {error}
@@ -196,16 +269,20 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
 
       <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Quick controls</h3>
-        <p className="mt-1 text-sm text-white/60">For something that has just come up.</p>
+        <p className="mt-1 text-sm text-white/60">Most changes take one tap.</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {(
             [
               { label: "1 hour", action: () => run("quick_block", { kind: "hours", hours: 1 }) },
               { label: "2 hours", action: () => run("quick_block", { kind: "hours", hours: 2 }) },
               { label: "4 hours", action: () => run("quick_block", { kind: "hours", hours: 4 }) },
+              { label: "Until…", action: () => setUntilOpen((open) => !open) },
               { label: "Rest of today", action: () => run("quick_block", { kind: "rest_of_today" }) },
-              { label: "Whole day", action: () => run("quick_block", { kind: "whole_day" }) },
-              { label: "Available now", action: () => run("available_now") },
+              {
+                label: "Available now",
+                action: () => run("available_now"),
+                emphasize: currentStatus.available === false,
+              },
             ] as const
           ).map((item) => (
             <button
@@ -213,12 +290,80 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
               type="button"
               disabled={busy}
               onClick={() => void item.action()}
-              className="min-h-11 rounded-xl border border-white/15 px-3 text-sm font-semibold text-white disabled:opacity-60"
+              className={`min-h-12 rounded-xl px-3 text-sm font-semibold disabled:opacity-60 ${
+                "emphasize" in item && item.emphasize
+                  ? "bg-emerald text-navy"
+                  : "border border-white/15 text-white"
+              }`}
             >
               {item.label}
             </button>
           ))}
         </div>
+        {untilOpen ? (
+          <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-navy/80 p-3" data-owner-until-picker>
+            <p className="text-sm font-semibold text-white">Unavailable from now until…</p>
+            <p className="text-xs text-white/55">
+              Start is now. Choose when you want to be available again — overnight is fine.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {UNTIL_SHORTCUTS.map((item) => {
+                const endLocal = untilShortcutEndLocal(item.id, now);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={busy || !endLocal}
+                    onClick={() => endLocal && void applyUntil(endLocal)}
+                    className="min-h-12 rounded-xl border border-white/15 px-3 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {item.label}
+                    {endLocal ? (
+                      <span className="mt-0.5 block text-[11px] font-normal text-white/50">
+                        {describeUntilEndLocal(endLocal, today)}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="pt-1 text-xs font-semibold uppercase tracking-wider text-white/45">
+              Choose date &amp; time
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className={labelClass}>
+                Date
+                <input
+                  type="date"
+                  value={untilCustom.date}
+                  onChange={(event) =>
+                    setUntilCustom((prev) => ({ ...prev, date: event.target.value }))
+                  }
+                  className={fieldClass}
+                />
+              </label>
+              <label className={labelClass}>
+                Time
+                <input
+                  type="time"
+                  value={untilCustom.time}
+                  onChange={(event) =>
+                    setUntilCustom((prev) => ({ ...prev, time: event.target.value }))
+                  }
+                  className={fieldClass}
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void applyUntil(`${untilCustom.date}T${untilCustom.time}`)}
+              className="min-h-12 w-full rounded-xl bg-emerald px-4 text-sm font-bold text-navy"
+            >
+              Confirm until {describeUntilEndLocal(`${untilCustom.date}T${untilCustom.time}`, today)}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div
@@ -226,29 +371,78 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
         className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4"
         data-owner-add-unavailable
       >
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">
-          {editingId ? "Edit unavailable time" : "Add unavailable time"}
-        </h3>
-        <p className="mt-1 text-sm text-white/60">
-          Example: tomorrow, 00:00 to 10:00, this date only — you are free from 10:00.
-        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (scheduleOpen && !editingId) {
+              setScheduleOpen(false);
+              return;
+            }
+            setScheduleOpen(true);
+          }}
+          className="flex min-h-12 w-full items-center justify-between gap-3 text-left"
+        >
+          <span className="text-sm font-bold uppercase tracking-wider text-white/70">
+            {editingId ? "Edit unavailable time" : "+ Schedule unavailable time"}
+          </span>
+          <span className="text-emerald" aria-hidden>
+            {scheduleOpen || editingId ? "▲" : "▼"}
+          </span>
+        </button>
+        {scheduleOpen || editingId ? (
         <div className="mt-3 grid w-full min-w-0 max-w-full grid-cols-1 gap-3">
+          <p className="text-sm text-white/60">
+            For planned future unavailability. Overnight needs an until date on the next day.
+          </p>
           <label className={labelClass}>
-            Date
+            {form.repeat === "recurring" ? "From date" : "Start date"}
             <input
               type="date"
               value={form.date}
-              onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
+              onChange={(event) => {
+                const date = event.target.value;
+                setForm((prev) => ({
+                  ...prev,
+                  date,
+                  endDate: !prev.endDate || prev.endDate < date ? date : prev.endDate,
+                }));
+              }}
               className={fieldClass}
             />
           </label>
+          {form.repeat === "one_off" ? (
+            <label className={labelClass}>
+              Until date
+              <input
+                type="date"
+                value={form.endDate}
+                onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                className={fieldClass}
+              />
+            </label>
+          ) : null}
           <div className="grid w-full min-w-0 max-w-full grid-cols-2 gap-2">
             <label className={labelClass}>
               Unavailable from
               <input
                 type="time"
                 value={form.startTime}
-                onChange={(event) => setForm((prev) => ({ ...prev, startTime: event.target.value }))}
+                onChange={(event) =>
+                  setForm((prev) => {
+                    const startTime = event.target.value;
+                    const next = { ...prev, startTime };
+                    if (
+                      prev.repeat === "one_off" &&
+                      prev.endDate === prev.date &&
+                      prev.endTime &&
+                      startTime &&
+                      prev.endTime <= startTime
+                    ) {
+                      next.endDate = addDaysYmd(prev.date, 1);
+                    }
+                    return next;
+                  })
+                }
                 className={fieldClass}
               />
             </label>
@@ -257,11 +451,31 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
               <input
                 type="time"
                 value={form.endTime}
-                onChange={(event) => setForm((prev) => ({ ...prev, endTime: event.target.value }))}
+                onChange={(event) =>
+                  setForm((prev) => {
+                    const endTime = event.target.value;
+                    const next = { ...prev, endTime };
+                    if (
+                      prev.repeat === "one_off" &&
+                      prev.endDate === prev.date &&
+                      prev.startTime &&
+                      endTime &&
+                      endTime <= prev.startTime
+                    ) {
+                      next.endDate = addDaysYmd(prev.date, 1);
+                    }
+                    return next;
+                  })
+                }
                 className={fieldClass}
               />
             </label>
           </div>
+          {form.repeat === "one_off" && form.endDate && form.endDate !== form.date ? (
+            <p className="text-xs text-emerald/90">
+              Overnight: {form.date} {form.startTime} → {form.endDate} {form.endTime}
+            </p>
+          ) : null}
           <fieldset className="min-w-0">
             <legend className={labelClass}>Repeat</legend>
             <div className="mt-2 grid grid-cols-2 gap-2">
@@ -331,6 +545,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                 disabled={busy}
                 onClick={() => {
                   setEditingId(null);
+                  setScheduleOpen(false);
                   setForm(emptyForm(today));
                 }}
                 className="min-h-11 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white"
@@ -350,49 +565,51 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
             </button>
           </div>
         </div>
+        ) : null}
       </div>
 
       <div className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Your unavailable times</h3>
-        <ul className="mt-3 space-y-3">
-          {sortedRules.map((rule) => (
-            <li
-              key={rule.id}
-              className="w-full min-w-0 rounded-xl border border-white/10 p-3"
-              data-unavailable-rule={rule.id}
-            >
-              <p className="break-words text-sm font-bold text-white">
-                {describeUnavailableRule(rule, today)}
-                {rule.enabled ? "" : " · off"}
-                {isQuickBlockRule(rule) ? " · quick block" : ""}
-              </p>
-              {rule.note && !isQuickBlockRule(rule) ? (
-                <p className="mt-1 break-words text-xs text-white/45">{rule.note}</p>
-              ) : null}
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => startEdit(rule)}
-                  className="min-h-11 flex-1 rounded-xl border border-white/15 px-3 text-sm font-semibold text-white"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void run("delete_rule", { id: rule.id })}
-                  className="min-h-11 flex-1 rounded-xl border border-red-400/30 px-3 text-sm font-semibold text-red-100"
-                >
-                  Delete
-                </button>
-              </div>
-            </li>
+        <div className="mt-3 space-y-4">
+          {groupedActiveRules.map((group) => (
+            <div key={group.key}>
+              <p className="text-xs font-bold uppercase tracking-wider text-white/45">{group.heading}</p>
+              <ul className="mt-1.5 divide-y divide-white/10">
+                {group.items.map((rule) => (
+                  <li
+                    key={rule.id}
+                    className="flex min-h-12 w-full min-w-0 items-center gap-2 py-1.5"
+                    data-unavailable-rule={rule.id}
+                  >
+                    <p className="min-w-0 flex-1 break-words text-sm font-semibold text-white">
+                      {compactUnavailableRuleLabel(rule, today)}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => startEdit(rule)}
+                      className="min-h-11 shrink-0 rounded-xl border border-white/15 px-3 text-sm font-semibold text-white"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label="Delete unavailable time"
+                      onClick={() => void run("delete_rule", { id: rule.id })}
+                      className="min-h-11 min-w-11 shrink-0 rounded-xl border border-red-400/30 text-lg font-bold leading-none text-red-100"
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-          {sortedRules.length === 0 ? (
-            <li className="text-sm text-white/55">None yet. Add a time above or use a quick control.</li>
+          {groupedActiveRules.length === 0 ? (
+            <p className="text-sm text-white/55">None coming up. Use a quick control or schedule a time.</p>
           ) : null}
-        </ul>
+        </div>
       </div>
 
       <div className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4">

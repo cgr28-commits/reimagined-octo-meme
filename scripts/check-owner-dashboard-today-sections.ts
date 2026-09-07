@@ -294,15 +294,29 @@ console.log("\n=== Scenario F: cancelled excluded ===");
   console.log("OK  F: cancelled excluded from upcoming and earned");
 }
 
-console.log("\n=== Historic unsplit return is not 50/50 ===");
+console.log("\n=== Historic unsplit return allocates journey fare per completed leg ===");
 {
   const split = allocateOwnerLegFares({
     returnJourney: true,
     amount: 100,
+    expressDropOffFee: 6,
   });
-  assert.equal(split.splitKnown, false);
-  assert.equal(split.outboundFare, null);
+  assert.equal(split.splitKnown, true);
+  assert.equal(split.allocated, true);
+  assert.equal(split.outboundFare, 47);
+  assert.equal(split.returnFare, 47);
   assert.equal(persistableLegFares({ returnJourney: true, outboundFare: 45, returnFare: 55 })?.outboundFare, 45);
+
+  const stored = allocateOwnerLegFares({
+    returnJourney: true,
+    amount: 100,
+    outboundFare: 52,
+    returnFare: 42,
+    expressDropOffFee: 6,
+  });
+  assert.equal(stored.allocated, false);
+  assert.equal(stored.outboundFare, 52);
+  assert.equal(stored.returnFare, 42);
 
   const unsplit = paid({
     paymentReference: "UNSPLIT",
@@ -310,14 +324,15 @@ console.log("\n=== Historic unsplit return is not 50/50 ===");
     tripDate: "2026-09-03",
     returnDate: "2026-09-10",
     amount: 100,
+    expressDropOffFee: 6,
     outboundJourneyStatus: "completed",
     outboundCompletedAt: "2026-09-03T10:00:00.000Z",
     returnJourneyStatus: "scheduled",
   });
   const mid = buildOwnerOperationalMetrics({ paidBookings: [unsplit], now: NOW });
   assert.equal(mid.week.journeysCompleted, 1);
-  assert.equal(mid.week.earnedRevenueGbp, 0, "unsplit return must not earn the full fare on first leg");
-  assert.ok(mid.unsplitReturnBookingIds.includes("UNSPLIT"));
+  assert.equal(mid.week.earnedRevenueGbp, 47);
+  assert.equal(mid.today.earnedRevenueGbp, 0);
 
   const bothDone = buildOwnerOperationalMetrics({
     paidBookings: [{
@@ -327,9 +342,18 @@ console.log("\n=== Historic unsplit return is not 50/50 ===");
     }],
     now: new Date("2026-09-10T20:00:00+01:00"),
   });
-  assert.equal(bothDone.week.earnedRevenueGbp, 100);
+  assert.equal(bothDone.week.earnedRevenueGbp, 47);
   assert.equal(bothDone.week.journeysCompleted, 1);
-  console.log("OK  historic unsplit return earns on later completion day only");
+  const returnDay = buildOwnerOperationalMetrics({
+    paidBookings: [{
+      ...unsplit,
+      returnJourneyStatus: "completed",
+      returnCompletedAt: "2026-09-10T18:00:00.000Z",
+    }],
+    now: new Date("2026-09-10T20:00:00+01:00"),
+  });
+  assert.equal(returnDay.today.earnedRevenueGbp, 47);
+  console.log("OK  historic unsplit return earns allocated half on each completion day");
 }
 
 console.log("\n=== Today’s upcoming sort + completed heading ===");

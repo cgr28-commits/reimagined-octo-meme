@@ -13,6 +13,7 @@ import {
 } from "../shared/smart-ops-config";
 import {
   buildQuickBlockRule,
+  buildUntilAvailableRule,
   clearActiveQuickBlocks,
   expandSmartAvailabilityIntervals,
   generateSmartRuleId,
@@ -237,10 +238,24 @@ export async function handleOwnerSaveSmartOps(
   }
 
   if (action === "quick_block") {
+    if (body.kind === "until") {
+      const rule = buildUntilAvailableRule(String(body.endLocal || ""));
+      if (!rule) {
+        return {
+          error: "Choose a time after now. Overnight times need tomorrow’s date.",
+          status: 400,
+        };
+      }
+      const state = await saveSmartOpsState(env.TRACKING_STORE, {
+        ...current,
+        rules: [...current.rules, rule],
+      });
+      return { ok: true, state, rule };
+    }
     const kind = body.kind === "rest_of_today" || body.kind === "whole_day" ? body.kind : "hours";
     const hours = Number(body.hours) || 1;
     const rule = buildQuickBlockRule(kind, hours);
-    if (!rule) return { error: "Could not create quick block", status: 400 };
+    if (!rule) return { error: "Could not create that unavailable period", status: 400 };
     const state = await saveSmartOpsState(env.TRACKING_STORE, {
       ...current,
       rules: [...current.rules, rule],

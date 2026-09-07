@@ -54,6 +54,11 @@ export type OwnerOpsPaidBooking = {
   additionalPayments?: OwnerOpsAdditionalPayment[];
   quoteSnapshot?: Record<string, unknown> | null;
   cancelledAt?: string;
+  expressDropOffFee?: number | null;
+  airportAccessChargeGbp?: number | null;
+  outboundAirportAccessChargeGbp?: number | null;
+  returnAirportAccessChargeGbp?: number | null;
+  airportFixedCostsGbp?: number | null;
 };
 
 export type OwnerOpsBookingJob = {
@@ -178,9 +183,68 @@ export function paidBookingIsCancelled(booking: OwnerOpsPaidBooking): boolean {
   );
 }
 
+function firstPositiveGbp(...values: unknown[]): number {
+  for (const value of values) {
+    const amount = Number(value);
+    if (Number.isFinite(amount) && amount > 0) return roundGbp(amount);
+  }
+  return 0;
+}
+
 /**
- * Persist/read per-leg fares in GBP. Never invent a 50/50 split.
- * One-way bookings use the full booking amount for the outbound leg.
+ * Airport pass-through charges included in the customer total.
+ * Prefers per-leg access charges, else a combined access/express fee,
+ * then adds airport fixed costs if stored. Never sums the same charge twice.
+ */
+export function ownerAirportPassThroughChargesGbp(booking: {
+  expressDropOffFee?: number | null;
+  airportAccessChargeGbp?: number | null;
+  outboundAirportAccessChargeGbp?: number | null;
+  returnAirportAccessChargeGbp?: number | null;
+  airportFixedCostsGbp?: number | null;
+  quoteSnapshot?: Record<string, unknown> | null;
+}): number {
+  const snap = booking.quoteSnapshot || {};
+  const outboundAccess = firstPositiveGbp(
+    booking.outboundAirportAccessChargeGbp,
+    snap.outboundAirportAccessChargeGbp,
+  );
+  const returnAccess = firstPositiveGbp(
+    booking.returnAirportAccessChargeGbp,
+    snap.returnAirportAccessChargeGbp,
+  );
+  const perLegAccess = roundGbp(outboundAccess + returnAccess);
+  const combinedAccess = firstPositiveGbp(
+    booking.airportAccessChargeGbp,
+    booking.expressDropOffFee,
+    snap.airportAccessChargeGbp,
+    snap.expressDropOffFee,
+  );
+  const access = perLegAccess > 0 ? perLegAccess : combinedAccess;
+  const fixed = firstPositiveGbp(booking.airportFixedCostsGbp, snap.airportFixedCostsGbp);
+  return roundGbp(access + fixed);
+}
+
+export function ownerJourneyFareAfterAirportChargesGbp(booking: {
+  amount?: number | string | null;
+  expressDropOffFee?: number | null;
+  airportAccessChargeGbp?: number | null;
+  outboundAirportAccessChargeGbp?: number | null;
+  returnAirportAccessChargeGbp?: number | null;
+  airportFixedCostsGbp?: number | null;
+  quoteSnapshot?: Record<string, unknown> | null;
+}): number {
+  const total = roundGbp(Number(booking.amount) || 0);
+  const charges = ownerAirportPassThroughChargesGbp(booking);
+  return roundGbp(Math.max(0, total - charges));
+}
+
+/**
+ * Persist/read per-leg fares in GBP.
+ * Modern bookings keep stored outbound/return fares exactly.
+ * Historic unsplit returns allocate (customer total − airport charges) / 2
+ * for dashboard earned-revenue only — never persisted.
+ * One-way bookings use the journey fare after excluding airport charges.
  */
 export function allocateOwnerLegFares(booking: {
   returnJourney?: boolean;
@@ -188,10 +252,15 @@ export function allocateOwnerLegFares(booking: {
   outboundFare?: number | null;
   returnFare?: number | null;
   quoteSnapshot?: Record<string, unknown> | null;
-}): { outboundFare: number | null; returnFare: number | null; splitKnown: boolean } {
-  const total = roundGbp(Number(booking.amount) || 0);
+  expressDropOffFee?: number | null;
+  airportAccessChargeGbp?: number | null;
+  outboundAirportAccessChargeGbp?: number | null;
+  returnAirportAccessChargeGbp?: number | null;
+  airportFixedCostsGbp?: number | null;
+}): { outboundFare: number | null; returnFare: number | null; splitKnown: boolean; allocated: boolean } {
+  const journeyFare = ownerJourneyFareAfterAirportChargesGbp(booking);
   if (!booking.returnJourney) {
-    return { outboundFare: total, returnFare: null, splitKnown: true };
+    return { outboundFare: journeyFare, returnFare: null, splitKnown: true, allocated: false };
   }
 
   const persistedOut = Number(booking.outboundFare);
@@ -201,6 +270,7 @@ export function allocateOwnerLegFares(booking: {
       outboundFare: roundGbp(persistedOut),
       returnFare: roundGbp(persistedRet),
       splitKnown: true,
+      allocated: false,
     };
   }
 
@@ -212,10 +282,13 @@ export function allocateOwnerLegFares(booking: {
       outboundFare: roundGbp(snapOut),
       returnFare: roundGbp(snapRet),
       splitKnown: true,
+      allocated: false,
     };
   }
 
-  return { outboundFare: null, returnFare: null, splitKnown: false };
+  const outboundFare = roundGbp(journeyFare / 2);
+  const returnFare = roundGbp(journeyFare - outboundFare);
+  return { outboundFare, returnFare, splitKnown: true, allocated: true };
 }
 
 /** Persist both leg fares only when both known values are positive. */
@@ -240,6 +313,11 @@ export function expandOwnerPaidBookingLegs(booking: OwnerOpsPaidBooking): OwnerO
     outboundFare: booking.outboundFare,
     returnFare: booking.returnFare,
     quoteSnapshot: booking.quoteSnapshot,
+    expressDropOffFee: booking.expressDropOffFee,
+    airportAccessChargeGbp: booking.airportAccessChargeGbp,
+    outboundAirportAccessChargeGbp: booking.outboundAirportAccessChargeGbp,
+    returnAirportAccessChargeGbp: booking.returnAirportAccessChargeGbp,
+    airportFixedCostsGbp: booking.airportFixedCostsGbp,
   });
   const cancelled = paidBookingIsCancelled(booking);
   const awaitingPayment = isOwnerOpsAwaitingPaymentStatus(booking.status);
@@ -388,30 +466,16 @@ export function groupFutureJobsByDate(legs: OwnerOpsLeg[], today = ownerOpsToday
 
 /**
  * Earned revenue for a calendar day.
- * Split-known legs count on their own completion day.
- * Historic unsplit returns count the full booking amount on the later
- * completion day only, once both legs are complete.
+ * Each completed journey leg contributes its own fare on its completion day.
+ * Historic return bookings without stored outbound/return fares use the
+ * allocated half of (customer total − airport charges) per completed leg.
  */
 export function earnedRevenueOnDay(allLegs: OwnerOpsLeg[], day: string): number {
   const completed = allLegs.filter((leg) => !leg.cancelled && leg.completed && leg.source === "paid");
   let earned = 0;
-  const seenUnsplit = new Set<string>();
-
   for (const leg of completed) {
-    if (!leg.isReturnBooking || leg.fareKnown) {
-      if (ownerOpsCompletionDay(leg) === day) earned = roundGbp(earned + (Number(leg.fareGbp) || 0));
-      continue;
-    }
-    if (seenUnsplit.has(leg.bookingId)) continue;
-    seenUnsplit.add(leg.bookingId);
-    const pair = completed.filter((item) => item.bookingId === leg.bookingId);
-    if (pair.length < 2) continue;
-    const later = pair
-      .map((item) => ownerOpsCompletionDay(item))
-      .filter(Boolean)
-      .sort()
-      .at(-1);
-    if (later === day) earned = roundGbp(earned + (Number(leg.bookingAmountGbp) || 0));
+    if (ownerOpsCompletionDay(leg) !== day) continue;
+    earned = roundGbp(earned + (Number(leg.fareGbp) || 0));
   }
   return earned;
 }
@@ -536,11 +600,7 @@ export function buildOwnerOperationalMetrics(input: {
   const weekRange = londonWeekRangeContaining(today);
   const monthRange = londonMonthRangeContaining(today);
   const paidLegs = input.paidBookings.flatMap(expandOwnerPaidBookingLegs);
-  const unsplitReturnBookingIds = [...new Set(
-    paidLegs
-      .filter((leg) => leg.isReturnBooking && !leg.fareKnown)
-      .map((leg) => leg.bookingId),
-  )];
+  const unsplitReturnBookingIds: string[] = [];
 
   const period = (fromDay: string, toDay: string): OwnerOperationalPeriodMetrics => {
     const days = daysInInclusiveRange(fromDay, toDay);

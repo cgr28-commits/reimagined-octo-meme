@@ -445,6 +445,16 @@ export async function handlePaidBookingsListRequest(
             ? booking.expressDropOffFee
             : undefined,
         expressDropOffAirport: booking.expressDropOffAirport || undefined,
+        outboundAirportAccessChargeGbp:
+          typeof booking.outboundAirportAccessChargeGbp === "number" &&
+          Number.isFinite(booking.outboundAirportAccessChargeGbp)
+            ? booking.outboundAirportAccessChargeGbp
+            : undefined,
+        returnAirportAccessChargeGbp:
+          typeof booking.returnAirportAccessChargeGbp === "number" &&
+          Number.isFinite(booking.returnAirportAccessChargeGbp)
+            ? booking.returnAirportAccessChargeGbp
+            : undefined,
         airportAccessOption:
           booking.airportAccessOption === "express" ||
           booking.airportAccessOption === "free"

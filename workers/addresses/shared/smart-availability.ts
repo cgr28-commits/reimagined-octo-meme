@@ -131,6 +131,8 @@ function sanitizeNote(value: unknown): string | undefined {
 export type UnavailableTimeForm = {
   repeat: "one_off" | "recurring";
   date: string;
+  /** Explicit end date for one-off blocks (required for overnight). */
+  endDate: string;
   startTime: string;
   endTime: string;
   weekdays: number[];
@@ -167,7 +169,8 @@ export function buildUnavailableTimeRule(
 
   const date = normalizeYmd(input.date);
   if (!date) return null;
-  if (startTime === endTime) {
+  const explicitEndDate = normalizeYmd(input.endDate);
+  if (startTime === endTime && (!explicitEndDate || explicitEndDate === date)) {
     return normalizeSmartAvailabilityRule(
       {
         id: input.id,
@@ -179,13 +182,14 @@ export function buildUnavailableTimeRule(
       now,
     );
   }
-  const overnight = endTime < startTime;
+  const endDate =
+    explicitEndDate || (endTime < startTime ? addDaysYmd(date, 1) : date);
   return normalizeSmartAvailabilityRule(
     {
       id: input.id,
       kind: "one_off",
       startLocal: `${date}T${startTime}`,
-      endLocal: `${overnight ? addDaysYmd(date, 1) : date}T${endTime}`,
+      endLocal: `${endDate}T${endTime}`,
       note: input.note,
       enabled: input.enabled,
     },
@@ -198,6 +202,7 @@ export function unavailableFormFromRule(rule: SmartAvailabilityRule, todayYmd: s
     return {
       repeat: "recurring",
       date: rule.rangeStart || todayYmd,
+      endDate: rule.rangeStart || todayYmd,
       startTime: rule.startTime || "00:00",
       endTime: rule.endTime || "10:00",
       weekdays: [...(rule.weekdays || [])],
@@ -213,6 +218,7 @@ export function unavailableFormFromRule(rule: SmartAvailabilityRule, todayYmd: s
   return {
     repeat: "one_off",
     date: startDate,
+    endDate: endDate || startDate,
     startTime,
     endTime: rule.kind === "full_day" || (endDate !== startDate && endTime === "00:00" && startTime === "00:00")
       ? "00:00"
@@ -241,7 +247,7 @@ export function describeUnavailableRule(rule: SmartAvailabilityRule, todayYmd: s
       .map((d) => ISO_WEEKDAYS.find((item) => item.iso === d)?.label)
       .filter(Boolean)
       .join(", ");
-    return `Every ${days || "selected day"} ${rule.startTime}–${rule.endTime}`;
+    return `Every ${days || "selected day"} · ${rule.startTime}–${rule.endTime}`;
   }
   if (rule.kind === "full_day" && rule.date) {
     return `All day ${describeUnavailableDate(rule.date, todayYmd)}`;
@@ -256,7 +262,10 @@ export function describeUnavailableRule(rule: SmartAvailabilityRule, todayYmd: s
     return `${describeUnavailableDate(startDate, todayYmd)} ${startTime}–${endTime}`;
   }
   if (startDate && endDate) {
-    return `${describeUnavailableDate(startDate, todayYmd)} ${startTime} → ${describeUnavailableDate(endDate, todayYmd)} ${endTime}`;
+    const startLabel =
+      startDate === todayYmd ? "Tonight" : describeUnavailableDate(startDate, todayYmd);
+    const endLabel = describeUnavailableDate(endDate, todayYmd);
+    return `${startLabel} ${startTime} → ${endLabel} ${endTime}`;
   }
   return "Unavailable time";
 }
@@ -559,6 +568,218 @@ export function buildQuickBlockRule(
       startLocal,
       endLocal: formatLondonLocalFromInstant(end),
       note: `Quick block: next ${hours} hour${hours === 1 ? "" : "s"}`,
+    },
+    now,
+  );
+}
+
+export function validateUnavailableTimeForm(
+  form: Partial<UnavailableTimeForm>,
+): string | null {
+  const startTime = normalizeHm(form.startTime);
+  const endTime = normalizeHm(form.endTime);
+  if (!startTime || !endTime) return "Choose a start time and an until time.";
+  if (form.repeat === "recurring") {
+    const weekdays = Array.isArray(form.weekdays) ? form.weekdays : [];
+    if (!weekdays.length) return "Choose at least one day of the week.";
+    return null;
+  }
+  const date = normalizeYmd(form.date);
+  if (!date) return "Choose a start date.";
+  const endDate = normalizeYmd(form.endDate) || (endTime < startTime ? addDaysYmd(date, 1) : date);
+  const start = parseLondonLocalStored(`${date}T${startTime}`);
+  const end = parseLondonLocalStored(`${endDate}T${endTime}`);
+  if (!start || !end) return "Check the date and times, then try again.";
+  if (end.getTime() <= start.getTime()) {
+    return "Unavailable until must be after unavailable from. For an overnight block, set the until date to the next day.";
+  }
+  return null;
+}
+
+export type MergedBlockedInterval = {
+  startMs: number;
+  endMs: number;
+  startLocal: string;
+  endLocal: string;
+};
+
+/**
+ * Merge overlapping or touching intervals so 08:00–10:00 + 09:30–12:00
+ * becomes one continuous 08:00–12:00 window. Adjacent (end === next start)
+ * counts as continuous. Recurring occurrences are merged for display/status
+ * only — source rules stay separate.
+ */
+export function mergeOverlappingBlockedIntervals(
+  intervals: SmartBlockedInterval[],
+): MergedBlockedInterval[] {
+  const sorted = [...intervals].sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+  const merged: MergedBlockedInterval[] = [];
+  for (const interval of sorted) {
+    const last = merged.at(-1);
+    if (last && interval.startMs <= last.endMs) {
+      if (interval.endMs > last.endMs) {
+        last.endMs = interval.endMs;
+        last.endLocal = interval.endLocal;
+      }
+      continue;
+    }
+    merged.push({
+      startMs: interval.startMs,
+      endMs: interval.endMs,
+      startLocal: interval.startLocal,
+      endLocal: interval.endLocal,
+    });
+  }
+  return merged;
+}
+
+export type CurrentAvailabilityStatus = {
+  available: boolean;
+  untilLocal: string | null;
+  untilYmd: string | null;
+  untilTime: string | null;
+  headline: string;
+  detail: string;
+};
+
+export function resolveCurrentAvailabilityStatus(input: {
+  rules: SmartAvailabilityRule[];
+  exceptions?: SmartAvailabilityException[];
+  legacyPeriods?: UnavailablePeriod[];
+  now?: Date;
+}): CurrentAvailabilityStatus {
+  const now = input.now ?? new Date();
+  const nowLocal = formatLondonLocalFromInstant(now);
+  const todayYmd = nowLocal.slice(0, 10);
+  const intervals = expandSmartAvailabilityIntervals({
+    rules: input.rules,
+    exceptions: input.exceptions,
+    legacyPeriods: input.legacyPeriods,
+    fromYmd: addDaysYmd(todayYmd, -1),
+    toYmd: addDaysYmd(todayYmd, 3),
+  });
+  const merged = mergeOverlappingBlockedIntervals(intervals);
+  const nowMs = now.getTime();
+  const active = merged.find((interval) => nowMs >= interval.startMs && nowMs < interval.endMs);
+  if (!active) {
+    return {
+      available: true,
+      untilLocal: null,
+      untilYmd: null,
+      untilTime: null,
+      headline: "AVAILABLE NOW",
+      detail: "Customers can book now.",
+    };
+  }
+  const untilYmd = active.endLocal.slice(0, 10);
+  const untilTime = active.endLocal.slice(11, 16);
+  const tomorrow = addDaysYmd(todayYmd, 1);
+  const untilLabel =
+    untilYmd === todayYmd
+      ? untilTime
+      : untilYmd === tomorrow
+        ? `TOMORROW ${untilTime}`
+        : `${describeUnavailableDate(untilYmd, todayYmd).toUpperCase()} ${untilTime}`;
+  return {
+    available: false,
+    untilLocal: active.endLocal,
+    untilYmd,
+    untilTime,
+    headline: `UNAVAILABLE UNTIL ${untilLabel}`,
+    detail: `Customers cannot book until ${describeUntilEndLocal(active.endLocal, todayYmd)}.`,
+  };
+}
+
+export function isOneOffUnavailableExpired(
+  rule: SmartAvailabilityRule,
+  now = new Date(),
+): boolean {
+  if (rule.kind === "recurring") return false;
+  const endLocal = rule.endLocal;
+  if (!endLocal) return false;
+  const end = parseLondonLocalStored(endLocal);
+  if (!end) return false;
+  return now.getTime() >= end.getTime();
+}
+
+/** Active list: hide expired one-offs and disabled (ended) temporary blocks. Recurring stays. */
+export function selectActiveUnavailableRules(
+  rules: SmartAvailabilityRule[],
+  now = new Date(),
+): SmartAvailabilityRule[] {
+  return rules.filter((rule) => {
+    if (rule.kind === "recurring") return rule.enabled !== false;
+    if (!rule.enabled) return false;
+    return !isOneOffUnavailableExpired(rule, now);
+  });
+}
+
+export function compactUnavailableRuleLabel(
+  rule: SmartAvailabilityRule,
+  todayYmd: string,
+): string {
+  if (rule.kind === "recurring" || rule.kind === "full_day") {
+    return describeUnavailableRule(rule, todayYmd);
+  }
+  const start = rule.startLocal || "";
+  const end = rule.endLocal || "";
+  const startDate = start.slice(0, 10);
+  const endDate = end.slice(0, 10);
+  const startTime = start.slice(11, 16);
+  const endTime = end.slice(11, 16);
+  if (startDate && startDate === endDate) {
+    return `${startTime}–${endTime}`;
+  }
+  return describeUnavailableRule(rule, todayYmd);
+}
+
+export type UntilShortcutId = "tonight_22" | "midnight" | "tomorrow_04" | "tomorrow_08";
+
+export function untilShortcutEndLocal(
+  kind: UntilShortcutId,
+  now = new Date(),
+): string | null {
+  const startLocal = formatLondonLocalFromInstant(now);
+  const ymd = startLocal.slice(0, 10);
+  const hm = startLocal.slice(11, 16);
+  if (kind === "tonight_22") {
+    return hm < "22:00" ? `${ymd}T22:00` : `${addDaysYmd(ymd, 1)}T22:00`;
+  }
+  if (kind === "midnight") {
+    return `${addDaysYmd(ymd, 1)}T00:00`;
+  }
+  if (kind === "tomorrow_04") return `${addDaysYmd(ymd, 1)}T04:00`;
+  if (kind === "tomorrow_08") return `${addDaysYmd(ymd, 1)}T08:00`;
+  return null;
+}
+
+export function describeUntilEndLocal(endLocal: string, todayYmd: string): string {
+  const date = endLocal.slice(0, 10);
+  const time = endLocal.slice(11, 16);
+  if (!date || !time) return endLocal;
+  return `${describeUnavailableDate(date, todayYmd)} ${time}`;
+}
+
+/**
+ * Temporary block from NOW until an explicit London local end.
+ * Midnight-crossing is allowed because the end date is stored on the instant.
+ */
+export function buildUntilAvailableRule(
+  endLocal: string,
+  now = new Date(),
+): SmartAvailabilityRule | null {
+  const startLocal = formatLondonLocalFromInstant(now);
+  const normalizedEnd = normalizeLondonLocalDateTime(endLocal);
+  if (!normalizedEnd) return null;
+  const start = parseLondonLocalStored(startLocal);
+  const end = parseLondonLocalStored(normalizedEnd);
+  if (!start || !end || end.getTime() <= start.getTime()) return null;
+  return normalizeSmartAvailabilityRule(
+    {
+      kind: "one_off",
+      startLocal,
+      endLocal: normalizedEnd,
+      note: `Quick block: until ${normalizedEnd.replace("T", " ")}`,
     },
     now,
   );

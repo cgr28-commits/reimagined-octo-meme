@@ -624,7 +624,7 @@ console.log("\n=== Newry corridor + owner/dashboard wiring ===");
   assert.match(panel, /Shadow test mode/);
   assert.match(panel, /Owner test tool/);
   assert.match(panel, /Quick controls/);
-  assert.match(panel, /Add unavailable time/);
+  assert.match(panel, /Schedule unavailable time/);
   assert.match(panel, /Unavailable from/);
   assert.match(panel, /Unavailable until/);
   assert.match(panel, /This date only/);
@@ -1487,7 +1487,7 @@ console.log("\n=== Add unavailable time: tomorrow 00:00–10:00 one-off ===");
   });
   assert.ok(weekly);
   assert.equal(weekly.kind, "recurring");
-  assert.match(describeUnavailableRule(weekly, MONDAY), /Every Monday 00:00–10:00/);
+  assert.match(describeUnavailableRule(weekly, MONDAY), /Every Monday · 00:00–10:00/);
 
   const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
   assert.match(handlers, /returnCorridorMatching: false/);
