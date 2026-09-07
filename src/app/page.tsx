@@ -13,6 +13,7 @@ import ChauffeurSection from "@/components/ChauffeurSection";
 import EmergePromoCard from "@/components/EmergePromoCard";
 import Footer from "@/components/Footer";
 import { SERVICE_FLAGS } from "@/lib/data";
+import { getFaqPageJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   alternates: {
@@ -21,8 +22,14 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
+  const faqLd = getFaqPageJsonLd();
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+      />
       <Header />
       <main className="overflow-x-clip">
         <HeroSlideshow />

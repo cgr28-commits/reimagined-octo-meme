@@ -1,8 +1,7 @@
-"use client";
-
 import QuoteCard from "./QuoteCard";
 import QuoteHelpContact from "./QuoteHelpContact";
 
+/** Server component: static H1/copy stay outside the QuoteCard client boundary. */
 export default function HeroSlideshow() {
   return (
     <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-20 md:pt-28">

@@ -1,20 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { FAQS, SERVICE_FLAGS } from "@/lib/data";
+import { getVisibleFaqs } from "@/lib/data";
 import SectionHeading from "./SectionHeading";
 
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
-  const faqs = FAQS.filter((faq) => {
-    if (!SERVICE_FLAGS.chauffeur && /chauffeur/i.test(faq.question)) {
-      return false;
-    }
-    if (!SERVICE_FLAGS.dayTrips && /day trip/i.test(faq.question)) {
-      return false;
-    }
-    return true;
-  });
+  const faqs = getVisibleFaqs();
 
   return (
     <section id="faq" className="relative scroll-mt-36 md:scroll-mt-28 py-20 sm:py-28 lg:py-32">

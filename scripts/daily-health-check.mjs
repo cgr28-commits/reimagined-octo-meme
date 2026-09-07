@@ -180,7 +180,6 @@ function tryFixSitemap() {
     "/privacy/",
     "/contact/",
     "/terms/",
-    "/unsubscribe/",
   ];
   let content = existsSync(sitemapPath) ? readFileSync(sitemapPath, "utf8") : "";
   const missing = requiredPaths.filter((path) => {
@@ -206,7 +205,6 @@ function tryFixSitemap() {
         const loc = path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path}`;
         const block = `  <url>
     <loc>${loc}</loc>
-    <lastmod>${RUN_DATE}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${path === "/" ? "1.0" : "0.6"}</priority>
   </url>`;
