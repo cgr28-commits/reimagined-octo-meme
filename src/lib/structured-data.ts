@@ -1,5 +1,7 @@
-import { FAQS, SITE, SITE_PUBLIC_SEO_DESCRIPTION } from "./data";
+import { getVisibleFaqs, SITE, SITE_PUBLIC_SEO_DESCRIPTION } from "./data";
 import { TOURS } from "./tours";
+
+export const BUSINESS_JSON_LD_ID = `${SITE.url}/#business`;
 
 const DESCRIPTION = SITE_PUBLIC_SEO_DESCRIPTION;
 
@@ -51,7 +53,7 @@ export function getLocalBusinessJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": ["TaxiService", "LocalBusiness"],
-    "@id": `${SITE.url}/#business`,
+    "@id": BUSINESS_JSON_LD_ID,
     name: SITE.name,
     description: DESCRIPTION,
     url: SITE.url,
@@ -104,55 +106,31 @@ export function getLocalBusinessJsonLd() {
   };
 }
 
-/** Airport / route landing pages — TaxiService + LocalBusiness with specific areaServed. */
+/**
+ * Airport / transfer landing pages — a Service offered by the one global
+ * business. Must not declare another LocalBusiness or TaxiService.
+ */
 export function getServiceAreaJsonLd(opts: {
   name: string;
   description: string;
   path: string;
   areaServed: string[];
 }) {
-  const openingHours = {
-    "@type": "OpeningHoursSpecification",
-    dayOfWeek: [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ],
-    opens: "00:00",
-    closes: "23:59",
-  };
-
   return {
     "@context": "https://schema.org",
-    "@type": ["TaxiService", "LocalBusiness"],
+    "@type": "Service",
+    "@id": `${SITE.url}${opts.path}#service`,
     name: opts.name,
     description: opts.description,
     url: `${SITE.url}${opts.path}`,
-    provider: {
-      "@id": `${SITE.url}/#business`,
-    },
-    email: SITE.email,
-    telephone: SITE.landline,
-    priceRange: "££",
     serviceType: "Airport Transfer",
-    openingHoursSpecification: openingHours,
+    provider: {
+      "@id": BUSINESS_JSON_LD_ID,
+    },
     areaServed: opts.areaServed.map((name) => ({
       "@type": "Place",
       name,
     })),
-    contactPoint: {
-      "@type": "ContactPoint",
-      telephone: SITE.landline,
-      email: SITE.email,
-      contactType: "customer service",
-      availableLanguage: "English",
-      areaServed: "GB-NIR",
-      hoursAvailable: openingHours,
-    },
   };
 }
 
@@ -160,7 +138,7 @@ export function getFaqPageJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: FAQS.map((faq) => ({
+    mainEntity: getVisibleFaqs().map((faq) => ({
       "@type": "Question",
       name: faq.question,
       acceptedAnswer: {

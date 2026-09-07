@@ -117,6 +117,9 @@ function main() {
     assert.match(content, /isEmergeBelfastPubliclyVisible/);
     assert.match(sitemapScript, /publiclyVisible/);
     assert.doesNotMatch(page, /redirect\(|permanentRedirect|NextResponse\.redirect/i);
+    const pagesFix = read("scripts/fix-github-pages-paths.mjs");
+    assert.match(pagesFix, /removeGeneratedPath\("events\/emerge-belfast-taxi"\)/);
+    assert.match(pagesFix, /publiclyVisible === false/);
   });
 
   check("Destination prefill and WhatsApp reuse existing SITE number", () => {

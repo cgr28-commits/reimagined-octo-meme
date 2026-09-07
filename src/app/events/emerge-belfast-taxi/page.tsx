@@ -18,11 +18,11 @@ export function generateMetadata(): Metadata {
   // Temporary hide: do not expose SEO for a page that returns notFound().
   if (!isEmergeBelfastPubliclyVisible()) {
     return {
-      title: "Not Found",
+      title: "Page not found",
       robots: {
         index: false,
-        follow: false,
-        googleBot: { index: false, follow: false },
+        follow: true,
+        googleBot: { index: false, follow: true },
       },
     };
   }

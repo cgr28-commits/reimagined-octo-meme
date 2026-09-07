@@ -77,7 +77,8 @@ const pages = [
   { path: "/cancellation/", changefreq: "yearly", priority: "0.5" },
   { path: "/privacy/", changefreq: "yearly", priority: "0.5" },
   { path: "/contact/", changefreq: "monthly", priority: "0.8" },
-  { path: "/unsubscribe/", changefreq: "yearly", priority: "0.3" },
+  // /unsubscribe/ is noindex — omit from the sitemap.
+  // /book/, /quote/, /manage-booking/, /pay/, /owner/, /driver/ omitted.
   // EMERGE landing stays at the same URL year to year — omit from sitemap when expired (no 301).
   ...(EMERGE_CAMPAIGN_ACTIVE
     ? [{ path: emergeConfig.path, changefreq: "weekly", priority: "0.85" }]
@@ -88,13 +89,11 @@ const pages = [
     : []),
 ];
 
-const lastmod = new Date().toISOString().split("T")[0];
-
+// Omit lastmod: a build date is not a genuine content-modification date.
 const urls = pages
   .map(
     (page) => `  <url>
     <loc>${SITE_URL}${page.path}</loc>
-    <lastmod>${lastmod}</lastmod>
     <changefreq>${page.changefreq}</changefreq>
     <priority>${page.priority}</priority>
   </url>`,

@@ -507,6 +507,19 @@ export const FAQS = [
   },
 ] as const;
 
+/** FAQs actually rendered on the homepage (schema must match this list). */
+export function getVisibleFaqs() {
+  return FAQS.filter((faq) => {
+    if (!SERVICE_FLAGS.chauffeur && /chauffeur/i.test(faq.question)) {
+      return false;
+    }
+    if (!SERVICE_FLAGS.dayTrips && /day trip/i.test(faq.question)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export const VEHICLE_FLEET = [
   {
     name: "Estate Car",

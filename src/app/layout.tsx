@@ -17,7 +17,7 @@ import {
 } from "@/lib/pricing-config";
 import { getGoogleAdsConfig } from "@/lib/google-ads";
 import { absoluteSiteUrl } from "@/lib/paths";
-import { getFaqPageJsonLd, getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
+import { getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -127,7 +127,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const structuredData = [getWebSiteJsonLd(), getLocalBusinessJsonLd(), getFaqPageJsonLd()];
+  const structuredData = [getWebSiteJsonLd(), getLocalBusinessJsonLd()];
 
   const googleAdsConfig = getGoogleAdsConfig();
 

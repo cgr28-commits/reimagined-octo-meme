@@ -1,4 +1,11 @@
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, relative } from "node:path";
 
 const root = "out";
@@ -87,3 +94,29 @@ function walk(dir) {
 }
 
 walk(root);
+
+/**
+ * GitHub Pages static export serves every generated HTML file as HTTP 200.
+ * Routes that call notFound() still emit a file at that path (error-page shell).
+ * Remove only those known hidden/expired paths so Pages serves out/404.html
+ * with a genuine 404.
+ */
+function removeGeneratedPath(relPath) {
+  const target = join(root, relPath);
+  if (!existsSync(target)) return;
+  rmSync(target, { recursive: true, force: true });
+  console.log(`Removed out/${relPath} so GitHub Pages returns HTTP 404`);
+}
+
+const emergeConfig = JSON.parse(
+  readFileSync(join(process.cwd(), "src/lib/emerge-belfast-config.json"), "utf8"),
+);
+if (emergeConfig.publiclyVisible === false) {
+  removeGeneratedPath("events/emerge-belfast-taxi");
+}
+
+// Keep in sync with SERVICE_FLAGS.dayTrips in src/lib/data.ts
+const DAY_TRIPS_ENABLED = false;
+if (!DAY_TRIPS_ENABLED) {
+  removeGeneratedPath("tours");
+}
