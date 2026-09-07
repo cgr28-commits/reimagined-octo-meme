@@ -200,16 +200,16 @@ export default function OwnerFinancialSummaryPanel({
         ))}
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-white/40">
-        Earned revenue is the value of journey legs completed in the period (Europe/London,
-        Monday–Sunday week). Payments received is money collected in the period — a payment
-        today for a future trip is not this week’s earned income.
+        Earned revenue is the taxi journey fare for legs completed in the period
+        (Europe/London, Monday–Sunday week), excluding airport pass-through charges.
+        A completed return-booking leg counts that day — you do not wait for the other
+        leg. Payments received is money collected in the period — a payment today for a
+        future trip is not this week’s earned income.
       </p>
-      {ops.unsplitReturnBookingIds.length > 0 ? (
-        <p className="mt-1 text-[11px] text-amber-100/70">
-          {ops.unsplitReturnBookingIds.length} historic return booking
-          {ops.unsplitReturnBookingIds.length === 1 ? "" : "s"} have no stored outbound/return
-          fares. Those totals count as earned only when both legs are completed.
-        </p>
+      {ops.allocationTraces.length > 0 ? (
+        <pre className="sr-only" data-owner-earned-allocation>
+          {JSON.stringify(ops.allocationTraces, null, 2)}
+        </pre>
       ) : null}
 
       <div className="mt-3 rounded-xl border border-white/10 bg-navy/40">

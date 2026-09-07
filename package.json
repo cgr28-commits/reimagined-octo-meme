@@ -55,6 +55,7 @@
     "check:owner-safer-journey-buttons": "npx tsx scripts/check-owner-safer-journey-buttons.ts",
     "check:owner-dashboard-layout": "npx tsx scripts/check-owner-dashboard-layout.ts",
     "check:owner-dashboard-today-sections": "npx tsx scripts/check-owner-dashboard-today-sections.ts",
+    "check:owner-availability-earned-revenue": "npx tsx scripts/check-owner-availability-earned-revenue.ts",
     "check:smart-ops": "npx tsx scripts/check-smart-ops.ts",
     "check:customer-smart-availability": "npx tsx scripts/check-customer-smart-availability.ts",
     "check:quote-required-fields": "npx tsx scripts/check-quote-required-fields.ts",
