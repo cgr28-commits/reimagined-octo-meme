@@ -206,6 +206,11 @@ export default function OwnerFinancialSummaryPanel({
         leg. Payments received is money collected in the period — a payment today for a
         future trip is not this week’s earned income.
       </p>
+      {ops.allocationTraces.length > 0 ? (
+        <pre className="sr-only" data-owner-earned-allocation>
+          {JSON.stringify(ops.allocationTraces, null, 2)}
+        </pre>
+      ) : null}
 
       <div className="mt-3 rounded-xl border border-white/10 bg-navy/40">
         <button

@@ -296,6 +296,8 @@ console.log("\n=== Scenario F: cancelled excluded ===");
 
 console.log("\n=== Historic unsplit return allocates journey fare per completed leg ===");
 {
+  // This booking’s own stored values are £100 total and £6 charges.
+  // (100 − 6) / 2 = 47 each — derived, not a production constant.
   const split = allocateOwnerLegFares({
     returnJourney: true,
     amount: 100,

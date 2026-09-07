@@ -25,6 +25,7 @@ import {
 import {
   allocateOwnerLegFares,
   buildOwnerOperationalMetrics,
+  explainOwnerLegFareAllocation,
   ownerAirportPassThroughChargesGbp,
   persistableLegFares,
   type OwnerOpsPaidBooking,
@@ -295,7 +296,7 @@ console.log("\n=== Overnight form validation ===");
   console.log("OK  overnight needs an explicit next-day until date");
 }
 
-console.log("\n=== Revenue A: historic return outbound only ===");
+console.log("\n=== Revenue A: historic return uses THIS booking’s real totals ===");
 {
   const booking = paid({
     paymentReference: "REV-A",
@@ -303,19 +304,43 @@ console.log("\n=== Revenue A: historic return outbound only ===");
     tripDate: TODAY,
     returnDate: "2026-09-14",
     amount: 100,
-    expressDropOffFee: 6,
+    amountPaid: "£129.40",
+    originalAmount: 129.4,
+    outboundAirportAccessChargeGbp: 4,
+    returnAirportAccessChargeGbp: 4,
     outboundJourneyStatus: "completed",
     outboundCompletedAt: "2026-09-07T10:00:00.000Z",
     returnJourneyStatus: "scheduled",
   });
+  const explain = explainOwnerLegFareAllocation(booking);
+  assert.equal(explain.bookingTotalUsedGbp, 129.4);
+  assert.equal(explain.airportChargesUsedGbp, 8);
+  assert.equal(explain.journeyFareAfterChargesGbp, 121.4);
+  assert.equal(explain.outboundAllocatedFareGbp, 60.7);
+  assert.equal(explain.returnAllocatedFareGbp, 60.7);
+  assert.equal(explain.source, "allocated");
   const fares = allocateOwnerLegFares(booking);
   assert.equal(fares.allocated, true);
-  assert.equal(fares.outboundFare, 47);
-  assert.equal(ownerAirportPassThroughChargesGbp(booking), 6);
+  assert.equal(fares.outboundFare, 60.7);
+  assert.notEqual(fares.outboundFare, 47);
+  assert.equal(ownerAirportPassThroughChargesGbp(booking), 8);
   const metrics = buildOwnerOperationalMetrics({ paidBookings: [booking], now: NOW });
   assert.equal(metrics.today.journeysCompleted, 1);
-  assert.equal(metrics.today.earnedRevenueGbp, 47);
-  console.log("OK  Revenue A  completed 1 · earned £47");
+  assert.equal(metrics.today.earnedRevenueGbp, 60.7);
+  console.log(
+    "OK  Revenue A  inspect",
+    JSON.stringify(
+      {
+        bookingTotalUsed: explain.bookingTotalUsedGbp,
+        airportChargesUsed: explain.airportChargesUsedGbp,
+        journeyFareAfterCharges: explain.journeyFareAfterChargesGbp,
+        outboundAllocatedFare: explain.outboundAllocatedFareGbp,
+        returnAllocatedFare: explain.returnAllocatedFareGbp,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 console.log("\n=== Revenue B: return completed later ===");
@@ -325,26 +350,29 @@ console.log("\n=== Revenue B: return completed later ===");
     returnJourney: true,
     tripDate: TODAY,
     returnDate: "2026-09-14",
-    amount: 100,
-    expressDropOffFee: 6,
+    amount: 129.4,
+    amountPaid: "£129.40",
+    originalAmount: 129.4,
+    outboundAirportAccessChargeGbp: 4,
+    returnAirportAccessChargeGbp: 4,
     outboundJourneyStatus: "completed",
     outboundCompletedAt: "2026-09-07T10:00:00.000Z",
     returnJourneyStatus: "completed",
     returnCompletedAt: "2026-09-14T18:00:00.000Z",
   });
   const outboundDay = buildOwnerOperationalMetrics({ paidBookings: [booking], now: NOW });
-  assert.equal(outboundDay.today.earnedRevenueGbp, 47);
+  assert.equal(outboundDay.today.earnedRevenueGbp, 60.7);
   const returnDay = buildOwnerOperationalMetrics({
     paidBookings: [booking],
     now: new Date("2026-09-14T20:00:00+01:00"),
   });
-  assert.equal(returnDay.today.earnedRevenueGbp, 47);
+  assert.equal(returnDay.today.earnedRevenueGbp, 60.7);
   assert.equal(returnDay.today.journeysCompleted, 1);
   assert.equal(
     outboundDay.today.earnedRevenueGbp + returnDay.today.earnedRevenueGbp,
-    94,
+    121.4,
   );
-  console.log("OK  Revenue B  £47 + £47 on their own completion days");
+  console.log("OK  Revenue B  £60.70 + £60.70 on their own completion days");
 }
 
 console.log("\n=== Revenue C: stored leg fares kept ===");
@@ -392,8 +420,10 @@ console.log("\n=== Revenue E: legs in different weeks/months ===");
     returnJourney: true,
     tripDate: "2026-08-28",
     returnDate: "2026-09-14",
-    amount: 100,
-    expressDropOffFee: 6,
+    amount: 129.4,
+    amountPaid: "£129.40",
+    outboundAirportAccessChargeGbp: 4,
+    returnAirportAccessChargeGbp: 4,
     outboundJourneyStatus: "completed",
     outboundCompletedAt: "2026-08-28T11:00:00.000Z",
     returnJourneyStatus: "completed",
@@ -403,16 +433,45 @@ console.log("\n=== Revenue E: legs in different weeks/months ===");
     paidBookings: [booking],
     now: new Date("2026-08-28T20:00:00+01:00"),
   });
-  assert.equal(august.today.earnedRevenueGbp, 47);
-  assert.equal(august.month.earnedRevenueGbp, 47);
+  assert.equal(august.today.earnedRevenueGbp, 60.7);
+  assert.equal(august.month.earnedRevenueGbp, 60.7);
   const september = buildOwnerOperationalMetrics({
     paidBookings: [booking],
     now: new Date("2026-09-14T20:00:00+01:00"),
   });
-  assert.equal(september.today.earnedRevenueGbp, 47);
-  assert.equal(september.month.earnedRevenueGbp, 47);
-  assert.equal(september.week.earnedRevenueGbp, 47);
+  assert.equal(september.today.earnedRevenueGbp, 60.7);
+  assert.equal(september.month.earnedRevenueGbp, 60.7);
+  assert.equal(september.week.earnedRevenueGbp, 60.7);
   console.log("OK  Revenue E  each leg stays on its own period");
+}
+
+console.log("\n=== Stale agreed amount / snapshot 47+47 must not win over £129.40 ===");
+{
+  const stale = paid({
+    paymentReference: "STALE-47",
+    returnJourney: true,
+    amount: 100,
+    amountPaid: "£129.40",
+    originalAmount: 100,
+    expressDropOffFee: 6,
+    outboundAirportAccessChargeGbp: 4,
+    returnAirportAccessChargeGbp: 4,
+    outboundFare: 47,
+    returnFare: 47,
+    quoteSnapshot: { outboundAmount: 47, returnAmount: 47, finalAmountPayableGbp: 129.4 },
+    outboundJourneyStatus: "completed",
+    outboundCompletedAt: "2026-09-07T10:00:00.000Z",
+  });
+  const explain = explainOwnerLegFareAllocation(stale);
+  assert.equal(explain.bookingTotalUsedGbp, 129.4);
+  assert.equal(explain.airportChargesUsedGbp, 8);
+  assert.equal(explain.journeyFareAfterChargesGbp, 121.4);
+  assert.equal(explain.outboundAllocatedFareGbp, 60.7);
+  assert.equal(explain.source, "allocated");
+  assert.notEqual(explain.outboundAllocatedFareGbp, 47);
+  const ops = read("shared/owner-dashboard-ops.ts");
+  assert.doesNotMatch(ops, /(?<![.\d])47(?![.\d])/);
+  console.log("OK  stale £47 split discarded · real £60.70 used");
 }
 
 console.log("\n=== UI wiring ===");
@@ -430,6 +489,7 @@ console.log("\n=== UI wiring ===");
   assert.match(panel, /aria-label="Delete unavailable time"/);
   const finance = read("src/components/OwnerFinancialSummaryPanel.tsx");
   assert.match(finance, /excluding airport pass-through charges/);
+  assert.match(finance, /data-owner-earned-allocation/);
   assert.doesNotMatch(finance, /count as earned only when both legs are completed/);
   const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
   assert.match(handlers, /buildUntilAvailableRule/);
