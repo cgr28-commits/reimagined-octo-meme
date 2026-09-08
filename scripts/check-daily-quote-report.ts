@@ -145,8 +145,10 @@ console.log("\n=== G/H: completed booking still emails; quote is marked Booked =
   assert.match(bookingHandler[0], /sendBookingEmail/);
   assert.match(bookingHandler[0], /markQuoteSessionBookedInStore/);
   assert.match(finalize, /trySendBrandedCustomerEmail/);
+  assert.match(finalize, /trySendOwnerOperationalEmail/);
   assert.match(finalize, /buildOwnerPaidBookingEmail/);
   assert.match(finalize, /markQuoteSessionBookedInStore/);
+  assert.match(finalize, /from "\.\/worker-email"/);
 
   const quoted = session({ quoteTransactionId: "quote_book1", totalGbp: 45 });
   const booked = markQuoteSessionBooked(quoted, {
@@ -252,13 +254,26 @@ console.log("\n=== Worker cron + fail-safe recording ===");
 {
   const worker = read("workers/addresses/src/index.ts");
   const cron = read("workers/addresses/src/daily-quote-report.ts");
+  const email = read("workers/addresses/src/worker-email.ts");
   const client = read("src/lib/submit-quote-lead.ts");
   assert.match(worker, /processDailyQuoteReport/);
   assert.match(cron, /shouldSendDailyQuoteReport/);
-  assert.match(cron, /trySendOwnerOperationalEmail/);
+  assert.match(cron, /trySendResendOnlyEmail/);
+  assert.match(cron, /send\.provider !== "resend"/);
+  assert.match(cron, /provider: "resend"/);
+  assert.match(cron, /console.error\("Daily quote report email failed"/);
+  assert.match(cron, /markDailyQuoteReportSent/);
+  assert.doesNotMatch(cron, /trySendOwnerOperationalEmail/);
+  assert.doesNotMatch(cron, /web3forms|formsubmit|mailchannels|cloudflare-email|Cloudflare Email/i);
+  assert.match(email, /export async function trySendResendOnlyEmail/);
+  assert.match(email, /api\.resend.com\/emails/);
+  assert.match(email, /RESEND_API_KEY/);
+  assert.match(email, /from: `\$\{BUSINESS_NAME\} <\$\{fromEmail\}>`/);
+  assert.match(email, /reply_to: fromEmail/);
+  assert.match(email, /trySendResendOnlyCustomerEmail[\s\S]*trySendResendOnlyEmail/);
   assert.match(client, /Fail safely/);
   assert.match(read("workers/addresses/wrangler.toml"), /DAILY_QUOTE_REPORT_LONDON_HOUR/);
-  console.log("OK  daily report is cron-driven and quote logging cannot block customers");
+  console.log("OK  daily report is Resend-only; failures retry and cannot block customers");
 }
 
 console.log("\nAll daily quote report checks passed.");

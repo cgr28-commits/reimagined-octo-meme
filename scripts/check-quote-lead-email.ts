@@ -52,6 +52,7 @@ const quoteLeadHandler = worker.match(
 );
 assert.ok(quoteLeadHandler, "handleQuoteLeadRequest block missing");
 assert.doesNotMatch(quoteLeadHandler[0], /trySendOwnerOperationalEmail/);
+assert.doesNotMatch(quoteLeadHandler[0], /trySendEmail|trySendResend|sendViaResend|sendBookingEmail/);
 assert.match(quoteLeadHandler[0], /emailed:\s*false/);
 assert.match(worker, /sendBookingEmail/);
 console.log("OK  Worker stores the session; booking emails stay on the booking path");

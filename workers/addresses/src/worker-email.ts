@@ -347,6 +347,35 @@ export async function trySendBrandedCustomerEmail(
 }
 
 /**
+ * Resend only — same BOOKING_FROM_EMAIL / reply-to as booking emails.
+ * Never falls back to Cloudflare Email, Web3Forms, FormSubmit, or MailChannels.
+ */
+export async function trySendResendOnlyEmail(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+): Promise<EmailSendResult> {
+  if (!env.RESEND_API_KEY?.trim()) {
+    return { sent: false, error: "Resend is not configured (RESEND_API_KEY)" };
+  }
+
+  try {
+    const resendId = await sendViaResend(env, options);
+    return {
+      sent: true,
+      provider: "resend",
+      ...(resendId ? { resendId } : {}),
+    };
+  } catch (error) {
+    console.error("Resend-only email failed", error);
+    return {
+      sent: false,
+      provider: "resend",
+      error: error instanceof Error ? error.message : "Resend request failed",
+    };
+  }
+}
+
+/**
  * Google review request emails must go through Resend only.
  * Fallback providers (Web3Forms / MailChannels) can report success without
  * a trustworthy delivery signal — owner UI must only show Sent when Resend accepts.
@@ -359,28 +388,11 @@ export async function trySendResendOnlyCustomerEmail(
     return { sent: false, error: "Missing HTML email body" };
   }
 
-  if (!env.RESEND_API_KEY?.trim()) {
-    return { sent: false, error: "Resend is not configured (RESEND_API_KEY)" };
-  }
-
-  try {
-    const resendId = await sendViaResend(env, {
-      ...options,
-      requireHtml: true,
-      customerDelivery: true,
-    });
-    return {
-      sent: true,
-      provider: "resend",
-      ...(resendId ? { resendId } : {}),
-    };
-  } catch (error) {
-    return {
-      sent: false,
-      provider: "resend",
-      error: error instanceof Error ? error.message : "Resend request failed",
-    };
-  }
+  return trySendResendOnlyEmail(env, {
+    ...options,
+    requireHtml: true,
+    customerDelivery: true,
+  });
 }
 
 export async function sendEmail(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {

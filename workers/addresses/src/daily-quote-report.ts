@@ -9,7 +9,7 @@ import {
   buildDailyQuoteReportText,
   shouldSendDailyQuoteReport,
 } from "../shared/quote-session";
-import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
+import { trySendResendOnlyEmail, type WorkerEmailEnv } from "./worker-email";
 import {
   hasDailyQuoteReportBeenSent,
   listQuoteSessionsForLondonDay,
@@ -29,7 +29,13 @@ function ownerInbox(env: DailyQuoteReportEnv): string {
 export async function processDailyQuoteReport(
   env: DailyQuoteReportEnv,
   now = new Date(),
-): Promise<{ sent: boolean; reason: string; reportDay: string; quoteCount: number }> {
+): Promise<{
+  sent: boolean;
+  reason: string;
+  reportDay: string;
+  quoteCount: number;
+  provider?: string;
+}> {
   if (!quoteSessionStoreConfigured(env.TRACKING_STORE)) {
     return { sent: false, reason: "no_store", reportDay: "", quoteCount: 0 };
   }
@@ -60,19 +66,20 @@ export async function processDailyQuoteReport(
     };
   }
 
-  const send = await trySendOwnerOperationalEmail(env, {
+  const send = await trySendResendOnlyEmail(env, {
     to: ownerInbox(env),
     subject: buildDailyQuoteReportSubject(decision.reportDay),
     body: buildDailyQuoteReportText(decision.reportDay, sessions),
     htmlBody: buildDailyQuoteReportHtml(decision.reportDay, sessions),
   });
-  if (!send.sent) {
-    console.error("Daily quote report email failed", send.error);
+  if (!send.sent || send.provider !== "resend") {
+    console.error("Daily quote report email failed", send.error ?? send.provider);
     return {
       sent: false,
       reason: "email_failed",
       reportDay: decision.reportDay,
       quoteCount: sessions.length,
+      provider: send.provider,
     };
   }
 
@@ -82,5 +89,6 @@ export async function processDailyQuoteReport(
     reason: "sent",
     reportDay: decision.reportDay,
     quoteCount: sessions.length,
+    provider: "resend",
   };
 }
