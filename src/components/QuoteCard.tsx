@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import QuoteProgressiveRoute from "@/components/QuoteProgressiveRoute";
@@ -136,6 +136,7 @@ import {
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import CombinedAirportAccessChoice from "@/components/CombinedAirportAccessChoice";
+import QuoteResultShowcase from "@/components/QuoteResultShowcase";
 import {
   BookWithConfidence,
   FinalPayableBreakdown,
@@ -147,6 +148,8 @@ import {
   canProceedWithoutExpressDropOffLegs,
   combinedFreeAlternativeAvailable,
   composeFareWithExpressDropOff,
+  expressAirportLegendLabel,
+  formatExpressDropOffGbp,
   resolveExpressDropOff,
   shouldDefaultExpressSelectedOnNewEligibility,
 } from "../../shared/express-drop-off";
@@ -3562,6 +3565,7 @@ function QuoteCard({
         onRequestStart={requestStartNewQuote}
         onCancelConfirm={() => setConfirmStartNewQuote(false)}
         onConfirmStart={performStartNewQuote}
+        appearance={placement === "results" ? "quiet" : "default"}
       />
     );
   }
@@ -4456,6 +4460,93 @@ function QuoteCard({
     );
   }
 
+  function renderExpressCollapsible() {
+    if (!expressSelection.eligible || testChargeAmount !== null) {
+      return null;
+    }
+    const expanded = expressEditingLeg != null;
+    const serviceLabel =
+      expressSelection.legs.length > 1
+        ? "Airport access"
+        : expressAirportLegendLabel(expressSelection.service ?? "drop-off");
+    const compactDetail = expressSelection.selected
+      ? `Included — ${formatExpressDropOffGbp(expressSelection.feeIfSelectedGbp)} (Recommended)`
+      : "Free drop-off area selected";
+    return (
+      <div
+        className="overflow-hidden rounded-xl border border-white/12 bg-white/[0.03]"
+        data-express-airport-choice
+      >
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() =>
+            setExpressEditingLeg(expanded ? null : expressSelection.legs[0]?.leg ?? "outbound")
+          }
+          className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
+        >
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-white">{serviceLabel}</span>
+            <span className="mt-0.5 block text-xs text-white/55">{compactDetail}</span>
+          </span>
+          <span
+            className={`shrink-0 text-white/45 transition-transform ${expanded ? "rotate-180" : ""}`}
+            aria-hidden
+          >
+            ▾
+          </span>
+        </button>
+        {expanded ? (
+          <div className="border-t border-white/10 px-3 pb-3">
+            {renderExpressChoiceInPriceCard("full")}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderPriceBreakdownCollapsible() {
+    if (!openWebsiteFareBreakdown || testChargeAmount !== null) {
+      return null;
+    }
+    const payable = formatQuote(openWebsiteFareBreakdown.finalAmountPayableGbp);
+    return (
+      <details className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2.5">
+        <summary className="cursor-pointer list-none text-sm font-medium text-white/80 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center justify-between gap-3">
+            <span>
+              <span className="block">View price breakdown</span>
+              <span className="mt-0.5 block text-xs font-normal text-white/45">
+                See how your {payable} quote is calculated
+              </span>
+            </span>
+            <span className="shrink-0 text-white/45" aria-hidden>
+              ▾
+            </span>
+          </span>
+        </summary>
+        <div className="mt-2 border-t border-white/10 pt-2">
+          <PromotionalPriceBreakdown
+            alwaysShow
+            breakdown={openWebsiteFareBreakdown}
+            service={expressSelection.service ?? "drop-off"}
+            freeAirportAccessSelected={
+              expressSelection.eligible && expressSelection.feeGbp === 0
+            }
+          />
+          {renderAirportFeeLines()}
+          <PriceInclusionBlock
+            isAirportTrip={isAirportLegForInclusions}
+            isFromAirport={isFromAirport}
+            returnJourney={returnJourney}
+            airportCode={effectiveAirportCode}
+            addressToAddress={isAddressToAddressInclusions}
+          />
+        </div>
+      </details>
+    );
+  }
+
   function renderQuotePriceSummaryBody() {
     return (
       <>
@@ -4632,44 +4723,76 @@ function QuoteCard({
     );
   }
 
-  function renderStep1PrimaryActions() {
+  function renderStep1BookButton(options?: { instantTransferLabel?: boolean }) {
+    const instantTransferLabel = options?.instantTransferLabel === true;
+    const amountLabel =
+      paymentAmount != null && Number.isFinite(paymentAmount)
+        ? formatQuote(paymentAmount)
+        : null;
+    const showTransferCta =
+      instantTransferLabel &&
+      Boolean(liveQuote) &&
+      canPayNowOnline &&
+      !isEnquiryOnly &&
+      !showsRequestQuoteFlow &&
+      !submitted &&
+      amountLabel;
     return (
-      <>
-        <button
-          type="submit"
-          id="quote-book-now-button"
-          disabled={
-            submitted ||
-            !quoteChoicesReady ||
-            (isEnquiryOnly ||
-            isManualQuoteJourney ||
-            pricingConfirmationRequired ||
-            exceedsOnlineCapacity
-              ? !hasQuoteRoute
-              : !liveQuote)
-          }
-          className="btn-primary w-full"
-        >
-          {submitted
-            ? submitInProgressLabel
+      <button
+        type="submit"
+        id="quote-book-now-button"
+        disabled={
+          submitted ||
+          !quoteChoicesReady ||
+          (isEnquiryOnly ||
+          isManualQuoteJourney ||
+          pricingConfirmationRequired ||
+          exceedsOnlineCapacity
+            ? !hasQuoteRoute
+            : !liveQuote)
+        }
+        className="btn-primary w-full"
+      >
+        {submitted
+          ? submitInProgressLabel
+          : showTransferCta
+            ? `BOOK THIS TRANSFER — ${amountLabel}`
             : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
               ? "Book Now"
               : "Continue to travel details"}
-        </button>
-        {liveQuote &&
+      </button>
+    );
+  }
+
+  function renderStep1SaveQuote() {
+    if (
+      !(
+        liveQuote &&
         canPayNowOnline &&
         !isEnquiryOnly &&
         !showsRequestQuoteFlow &&
         !appliedPersonalQuote &&
-        !submitted ? (
-          <button
-            type="button"
-            onClick={handleSaveQuoteClick}
-            className="btn-secondary w-full"
-          >
-            Save Quote
-          </button>
-        ) : null}
+        !submitted
+      )
+    ) {
+      return null;
+    }
+    return (
+      <button
+        type="button"
+        onClick={handleSaveQuoteClick}
+        className="btn-secondary w-full"
+      >
+        Save Quote
+      </button>
+    );
+  }
+
+  function renderStep1PrimaryActions() {
+    return (
+      <>
+        {renderStep1BookButton()}
+        {renderStep1SaveQuote()}
         {liveQuote || hasQuoteRoute || passengers != null || suitcases != null
           ? renderStartNewQuoteControls("step1-actions")
           : null}
@@ -4679,6 +4802,75 @@ function QuoteCard({
             {saveQuotePrompt}
           </p>
         ) : null}
+      </>
+    );
+  }
+
+  const showInstantQuoteResultCard =
+    quoteResultsReady &&
+    quoteStep === 1 &&
+    Boolean(liveQuote) &&
+    !isEnquiryOnly &&
+    !isManualQuoteJourney &&
+    !pricingConfirmationRequired &&
+    !showsRequestQuoteFlow &&
+    !exceedsOnlineCapacity &&
+    effectivePassengers != null &&
+    suitcases != null;
+
+  function renderInstantQuoteResultCard() {
+    const amountLabel = formatQuote(
+      testChargeAmount ??
+        pricedFare?.totalGbp ??
+        appliedPersonalQuote?.agreedAmount ??
+        liveQuote!.amount,
+    );
+    const expressIncludedLine =
+      expressSelection.eligible && expressSelection.feeGbp > 0
+        ? `Includes ${expressAirportLegendLabel(expressSelection.service ?? "drop-off")} (${formatExpressDropOffGbp(expressSelection.feeGbp)})`
+        : null;
+    return (
+      <QuoteResultShowcase
+        vehicleType={quoteVehicle}
+        passengers={effectivePassengers as number}
+        suitcases={suitcases as number}
+        priceLabel={
+          appliedPersonalQuote
+            ? "Personal quoted fare"
+            : returnJourney
+              ? "Your fixed return price"
+              : "Your fixed price"
+        }
+        formattedPrice={amountLabel}
+        expressIncludedLine={expressIncludedLine}
+        bookButton={renderStep1BookButton({ instantTransferLabel: true })}
+      />
+    );
+  }
+
+  function renderQuoteResultFollowOn(routeMap: ReactNode) {
+    return (
+      <>
+        {renderExpressCollapsible()}
+        {renderPriceBreakdownCollapsible()}
+        {routeMap}
+        <div
+          id="quote-book-now-anchor"
+          className="h-px w-full scroll-mt-44 md:scroll-mt-28"
+          aria-hidden="true"
+        />
+        <div id="quote-step1-next" className="space-y-2">
+          {renderStep1SaveQuote()}
+          {liveQuote || hasQuoteRoute || passengers != null || suitcases != null
+            ? renderStartNewQuoteControls("results")
+            : null}
+          {renderBookingErrorHelp("step1-actions")}
+          {saveQuotePrompt ? (
+            <p className="text-center text-xs text-emerald/90" role="status">
+              {saveQuotePrompt}
+            </p>
+          ) : null}
+        </div>
       </>
     );
   }
@@ -5101,6 +5293,7 @@ function QuoteCard({
                   can scroll here immediately (do not wait for metrics). Prefetch
                   stays sr-only while the customer is still on passengers/bags.
                 */}
+                {!(quoteResultsReady && quoteStep === 1) ? (
                 <div
                   className={
                     quoteChoicesReady && hasQuoteRoute && quoteStep === 1
@@ -5128,45 +5321,61 @@ function QuoteCard({
                     variant="summary"
                   />
                 </div>
+                ) : null}
 
                 {quoteResultsReady && quoteStep === 1 && (
                   <>
                     {renderBookingErrorHelp("results")}
-                    {renderStartNewQuoteControls("results")}
-                    {!exceedsOnlineCapacity && (
-                      <div className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-3 sm:px-4 sm:py-3.5">
-                        <p className="form-label mb-0">
-                          Vehicle for this journey
-                        </p>
-                        <p className="mt-1.5 font-display text-xl font-semibold tracking-tight text-white sm:text-[1.35rem]">
-                          {vehicleShortLabel(quoteVehicle)}
-                        </p>
-                        <p className="quote-secondary mt-1.5 text-xs leading-relaxed">
-                          Selected automatically from your passengers and luggage.
-                        </p>
-                      </div>
+                    {showInstantQuoteResultCard ? (
+                      renderInstantQuoteResultCard()
+                    ) : (
+                      <>
+                        {!exceedsOnlineCapacity && (
+                          <div className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-3 sm:px-4 sm:py-3.5">
+                            <p className="form-label mb-0">
+                              Vehicle for this journey
+                            </p>
+                            <p className="mt-1.5 font-display text-xl font-semibold tracking-tight text-white sm:text-[1.35rem]">
+                              {vehicleShortLabel(quoteVehicle)}
+                            </p>
+                          </div>
+                        )}
+                        <div
+                          id="quote-price-summary"
+                          className="quote-price-panel"
+                        >
+                          {renderQuotePriceSummaryBody()}
+                        </div>
+                        <div
+                          id="quote-book-now-anchor"
+                          className="h-px w-full scroll-mt-44 md:scroll-mt-28"
+                          aria-hidden="true"
+                        />
+                        <div
+                          id="quote-step1-next"
+                          className="sticky z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+                          style={{ bottom: "var(--matni-cookie-banner-offset, 0px)" }}
+                        >
+                          {renderStep1PrimaryActions()}
+                        </div>
+                      </>
                     )}
-
-                    <div
-                      id="quote-price-summary"
-                      className="quote-price-panel"
-                    >
-                      {renderQuotePriceSummaryBody()}
-                    </div>
-
-                    {/* Non-sticky scroll target — sticky Book Now wrappers defeat iOS scroll rect math. */}
-                    <div
-                      id="quote-book-now-anchor"
-                      className="h-px w-full scroll-mt-44 md:scroll-mt-28"
-                      aria-hidden="true"
-                    />
-                    <div
-                      id="quote-step1-next"
-                      className="sticky z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
-                      style={{ bottom: "var(--matni-cookie-banner-offset, 0px)" }}
-                    >
-                      {renderStep1PrimaryActions()}
-                    </div>
+                    {showInstantQuoteResultCard
+                      ? renderQuoteResultFollowOn(
+                          <TripMap
+                            id="quote-route-summary"
+                            tripMode="address"
+                            originAddress={pickupAddress}
+                            destinationAddress={dropoffAddress}
+                            originLat={pickupPlace.lat}
+                            originLng={pickupPlace.lng}
+                            destinationLat={dropoffPlace.lat}
+                            destinationLng={dropoffPlace.lng}
+                            onRouteMetrics={handleRouteMetrics}
+                            variant="summary"
+                          />,
+                        )
+                      : null}
                   </>
                 )}
               </div>
@@ -5563,70 +5772,96 @@ function QuoteCard({
             style={{ overflowAnchor: "none" }}
           >
             {renderBookingErrorHelp("results")}
-            {renderStartNewQuoteControls("results")}
-            <TripMap
-              id="quote-route-summary"
-              tripMode={tripMode}
-              originAddress={
-                isAirportTrip
-                  ? isFromAirport
-                    ? (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
-                    : pickupAddress
-                  : pickupAddress
-              }
-              destinationAddress={
-                isAirportTrip
-                  ? isFromAirport
-                    ? dropoffAddress
-                    : (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
-                  : dropoffAddress
-              }
-              airportCode={airportCode}
-              tripDirection={tripDirection}
-              originLat={pickupPlace.lat}
-              originLng={pickupPlace.lng}
-              destinationLat={dropoffPlace.lat}
-              destinationLng={dropoffPlace.lng}
-              onRouteMetrics={handleRouteMetrics}
-              variant="summary"
-            />
-            {!exceedsOnlineCapacity && (
-              <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2.5 sm:px-4 sm:py-3">
-                <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                  Vehicle for this journey
-                </p>
-                <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
-                  {vehicleShortLabel(quoteVehicle)}
-                </p>
-                {quoteVehicle === ESTATE ? (
-                  <p className="mt-1.5 text-xs leading-relaxed text-white/70">
-                    Estate selected automatically from your passengers and luggage.
-                  </p>
-                ) : (
-                  <p className="mt-1.5 text-xs leading-relaxed text-white/70">
-                    Saloon selected automatically from your passengers and luggage.
-                  </p>
+            {showInstantQuoteResultCard ? (
+              <>
+                {renderInstantQuoteResultCard()}
+                {renderQuoteResultFollowOn(
+                  <TripMap
+                    id="quote-route-summary"
+                    tripMode={tripMode}
+                    originAddress={
+                      isAirportTrip
+                        ? isFromAirport
+                          ? (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+                          : pickupAddress
+                        : pickupAddress
+                    }
+                    destinationAddress={
+                      isAirportTrip
+                        ? isFromAirport
+                          ? dropoffAddress
+                          : (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+                        : dropoffAddress
+                    }
+                    airportCode={airportCode}
+                    tripDirection={tripDirection}
+                    originLat={pickupPlace.lat}
+                    originLng={pickupPlace.lng}
+                    destinationLat={dropoffPlace.lat}
+                    destinationLng={dropoffPlace.lng}
+                    onRouteMetrics={handleRouteMetrics}
+                    variant="summary"
+                  />,
                 )}
-              </div>
+              </>
+            ) : (
+              <>
+                {!exceedsOnlineCapacity && (
+                  <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2.5 sm:px-4 sm:py-3">
+                    <p className="text-xs font-medium uppercase tracking-wider text-emerald">
+                      Vehicle for this journey
+                    </p>
+                    <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
+                      {vehicleShortLabel(quoteVehicle)}
+                    </p>
+                  </div>
+                )}
+                <div
+                  id="quote-price-summary"
+                  className="quote-price-panel"
+                >
+                  {renderQuotePriceSummaryBody()}
+                </div>
+                <TripMap
+                  id="quote-route-summary"
+                  tripMode={tripMode}
+                  originAddress={
+                    isAirportTrip
+                      ? isFromAirport
+                        ? (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+                        : pickupAddress
+                      : pickupAddress
+                  }
+                  destinationAddress={
+                    isAirportTrip
+                      ? isFromAirport
+                        ? dropoffAddress
+                        : (AIRPORTS.find((a) => a.code === airportCode)?.mapLabel ?? "")
+                      : dropoffAddress
+                  }
+                  airportCode={airportCode}
+                  tripDirection={tripDirection}
+                  originLat={pickupPlace.lat}
+                  originLng={pickupPlace.lng}
+                  destinationLat={dropoffPlace.lat}
+                  destinationLng={dropoffPlace.lng}
+                  onRouteMetrics={handleRouteMetrics}
+                  variant="summary"
+                />
+                <div
+                  id="quote-book-now-anchor"
+                  className="h-px w-full scroll-mt-44 md:scroll-mt-28"
+                  aria-hidden="true"
+                />
+                <div
+                  id="quote-step1-next"
+                  className="sticky z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+                  style={{ bottom: "var(--matni-cookie-banner-offset, 0px)" }}
+                >
+                  {renderStep1PrimaryActions()}
+                </div>
+              </>
             )}
-            <div
-              id="quote-price-summary"
-              className="quote-price-panel"
-            >
-              {renderQuotePriceSummaryBody()}
-            </div>
-            <div
-              id="quote-book-now-anchor"
-              className="h-px w-full scroll-mt-44 md:scroll-mt-28"
-              aria-hidden="true"
-            />
-            <div
-              id="quote-step1-next"
-              className="sticky z-20 -mx-1 space-y-2 border-t border-white/10 bg-navy/95 px-1 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
-              style={{ bottom: "var(--matni-cookie-banner-offset, 0px)" }}
-            >
-              {renderStep1PrimaryActions()}
-            </div>
           </div>
         )}
         </div>

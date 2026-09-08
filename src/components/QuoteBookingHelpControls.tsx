@@ -48,6 +48,8 @@ type StartNewQuoteControlsProps = {
   /** Stable ids for tests; defaults to React useId() so they stay unique per instance. */
   titleId?: string;
   descId?: string;
+  /** Quiet text-link style for below the quote-result card. */
+  appearance?: "default" | "quiet";
 };
 
 /**
@@ -61,6 +63,7 @@ export function StartNewQuoteControls({
   onConfirmStart,
   titleId: titleIdProp,
   descId: descIdProp,
+  appearance = "default",
 }: StartNewQuoteControlsProps) {
   const reactTitleId = useId();
   const reactDescId = useId();
@@ -98,6 +101,21 @@ export function StartNewQuoteControls({
             Start New Quote
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (appearance === "quiet") {
+    return (
+      <div className="space-y-1 text-center" data-start-new-quote-controls>
+        <p className="text-xs text-white/50">Need a quote for a different journey?</p>
+        <button
+          type="button"
+          onClick={onRequestStart}
+          className="text-sm font-medium text-white/55 underline-offset-2 hover:text-white/80 hover:underline"
+        >
+          Clear Details &amp; Start a New Quote
+        </button>
       </div>
     );
   }

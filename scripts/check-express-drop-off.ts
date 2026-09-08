@@ -486,7 +486,10 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   const card = read("src/components/QuoteCard.tsx");
   const choice = read("src/components/ExpressDropOffChoice.tsx");
 
-  // Exact order inside the fixed-price card: title → large price → Express → vehicle details.
+  // Instant result: Express stays a collapsible under the book CTA; step 2 still
+  // uses the existing price-card Express helper (full on step 1 fallback, summary later).
+  assert.match(card, /renderExpressCollapsible/);
+  assert.match(card, /renderExpressChoiceInPriceCard\("full"\)/);
   assert.match(
     card,
     /Your Fixed Journey Price[\s\S]*?quote-price-figure[\s\S]*?FixedPriceAssurance[\s\S]*?renderExpressChoiceInPriceCard[\s\S]*?Vehicle:/,
