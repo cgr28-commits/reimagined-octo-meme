@@ -584,29 +584,37 @@ export default function AddressInput({
     const viewportBottom = viewportTop + viewportHeight;
     const left = Math.max(8, Math.min(rect.left, viewportLeft + viewportWidth - 16));
     const width = Math.min(rect.width, viewportWidth - 16);
-    const spaceBelow = viewportBottom - rect.bottom - 12;
-    const spaceAbove = rect.top - viewportTop - 12;
+    const layoutBelow = window.innerHeight - rect.bottom - 12;
+    const visualBelow = viewportBottom - rect.bottom - 12;
+    const visualAbove = rect.top - viewportTop - 12;
+    const spaceBelow = Math.min(layoutBelow, visualBelow);
+    const spaceAbove = Math.min(rect.top - 12, visualAbove);
     const placeAbove = showAbove || (spaceBelow < 96 && spaceAbove > spaceBelow);
-    if (placeAbove) {
-      setOverlayStyle({
+    const maxHeight = Math.max(96, Math.min(placeAbove ? spaceAbove : spaceBelow, 16 * 16));
+    const top = placeAbove
+      ? Math.max(viewportTop + 8, rect.top - 6 - maxHeight)
+      : rect.bottom + 6;
+    setOverlayStyle((prev) => {
+      const next: CSSProperties = {
         position: "fixed",
         left,
         width,
-        bottom: Math.max(8, window.innerHeight - rect.top + 6),
-        top: "auto",
-        maxHeight: Math.max(96, Math.min(spaceAbove, 16 * 16)),
+        top,
+        bottom: "auto",
+        maxHeight,
         zIndex: 90,
-      });
-      return;
-    }
-    setOverlayStyle({
-      position: "fixed",
-      left,
-      width,
-      top: rect.bottom + 6,
-      bottom: "auto",
-      maxHeight: Math.max(96, Math.min(spaceBelow, 16 * 16)),
-      zIndex: 90,
+      };
+      if (
+        prev &&
+        prev.top === next.top &&
+        prev.left === next.left &&
+        prev.width === next.width &&
+        prev.maxHeight === next.maxHeight &&
+        prev.bottom === next.bottom
+      ) {
+        return prev;
+      }
+      return next;
     });
   }, [showAbove, showSuggestions]);
 
@@ -615,8 +623,12 @@ export default function AddressInput({
       setOverlayStyle(undefined);
       return;
     }
-    updateOverlayPosition();
-    const frame = window.requestAnimationFrame(updateOverlayPosition);
+    let frame = 0;
+    const follow = () => {
+      updateOverlayPosition();
+      frame = window.requestAnimationFrame(follow);
+    };
+    follow();
     window.addEventListener("resize", updateOverlayPosition);
     window.addEventListener("scroll", updateOverlayPosition, true);
     const visual = window.visualViewport;
