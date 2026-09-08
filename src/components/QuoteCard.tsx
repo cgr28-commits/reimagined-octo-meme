@@ -2567,7 +2567,7 @@ function QuoteCard({
       isAirportTrip,
       quoteTransactionId,
       airportCode: effectiveAirportCode || undefined,
-      journeyFareGbp: journeyFareParts.journeyFareGbp,
+      journeyFareGbp: journeyFareParts.journeyFareGbp ?? undefined,
       airportAccessOption: expressSelection.eligible
         ? expressSelection.legs.length > 1
           ? expressSelection.selected
@@ -2580,7 +2580,7 @@ function QuoteCard({
             : expressSelection.service === "pick-up"
               ? "Free Pick-Up"
               : "Free Drop-Off"
-        : null,
+        : undefined,
       airportAccessFeeGbp: expressSelection.feeGbp,
       totalGbp: pricedFare?.totalGbp ?? liveQuote.amount,
       source: "website",
