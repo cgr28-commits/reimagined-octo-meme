@@ -51,7 +51,7 @@ export default function QuoteResultShowcase({
             {vehicleLabel}
           </p>
           <p className="sr-only">Vehicle for this journey</p>
-          <div className="mx-auto mt-1.5 w-full max-w-[420px] lg:mx-0">
+          <div className="-mx-3 mt-1 w-[calc(100%+1.5rem)] max-w-none sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full lg:max-w-[460px]">
             <Image
               src={isEstate ? ESTATE_IMAGE : SALOON_IMAGE}
               alt={
@@ -62,33 +62,30 @@ export default function QuoteResultShowcase({
               width={1400}
               height={700}
               className="mx-auto h-auto w-full object-contain"
-              sizes="(max-width: 640px) 92vw, 420px"
+              sizes="(max-width: 640px) 96vw, 460px"
               priority={false}
             />
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm font-medium text-navy/80 lg:justify-start">
-            <span className="inline-flex items-center gap-1.5">
+          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-medium text-navy/80 min-[390px]:flex-nowrap lg:justify-start">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
               <PassengerIcon />
               {passengerLabel}
             </span>
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
               <SuitcaseIcon />
               {suitcaseLabel}
             </span>
           </div>
-          <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald/12 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-dark">
-            <span aria-hidden>✓</span> Selected for your journey
-          </p>
           {estateDueToLuggage ? (
             <p className="mt-1.5 text-xs text-navy/55">Extra luggage space for your journey</p>
           ) : null}
         </div>
 
-        <div className="mt-5 min-w-0 text-center lg:mt-0 lg:text-left">
+        <div className="mt-4 min-w-0 text-center lg:mt-0 lg:text-left">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
           </p>
-          <p className="font-display mt-1 text-[clamp(2.35rem,8vw,3.15rem)] font-semibold leading-none tracking-tight text-navy tabular-nums">
+          <p className="font-sans mt-1 text-[clamp(3.5rem,1.6rem+10vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-navy tabular-nums lg:text-[clamp(4rem,3rem+2vw,5rem)]">
             {formattedPrice}
           </p>
           <p className="mt-2 text-sm font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
@@ -101,14 +98,22 @@ export default function QuoteResultShowcase({
             🔒 Secure booking · Takes around 2 minutes
           </p>
 
-          <ul className="mt-3 grid grid-cols-2 gap-x-2.5 gap-y-1.5 text-left text-[11px] leading-snug text-navy/65">
+          <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] leading-snug text-navy/65 min-[390px]:text-xs">
+            <Benefit icon="card">
+              Secure payment
+              <span className="block text-navy/50">powered by SumUp</span>
+            </Benefit>
+            <Benefit icon="plane">
+              Flight monitoring
+              <span className="block text-navy/50">for airport pickups</span>
+            </Benefit>
             <Benefit>No hidden charges</Benefit>
-            <Benefit icon="plane">Flight monitoring for airport pickups</Benefit>
-            <Benefit icon="card">Secure payment powered by SumUp</Benefit>
-            <Benefit>Local, reliable service</Benefit>
           </ul>
         </div>
       </div>
+      <p className="mt-3 text-center text-[10px] leading-none text-navy/35 lg:mt-4">
+        Vehicle shown for illustration.
+      </p>
     </div>
   );
 }
@@ -121,8 +126,8 @@ function Benefit({
   icon?: "tick" | "plane" | "card";
 }) {
   return (
-    <li className="flex items-start gap-1.5">
-      <span className="mt-px shrink-0 text-emerald-dark" aria-hidden>
+    <li className="flex min-w-0 flex-col items-center gap-0.5">
+      <span className="shrink-0 text-emerald-dark" aria-hidden>
         {icon === "plane" ? "✈" : icon === "card" ? "💳" : "✓"}
       </span>
       <span>{children}</span>
