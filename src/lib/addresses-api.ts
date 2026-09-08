@@ -54,6 +54,7 @@ export type WorkerAddressSuggestionsResult = {
   needsHouseNumber?: boolean;
   postcode?: string;
   hint?: string;
+  unavailable?: boolean;
 };
 
 export async function fetchWorkerAddressSuggestions(
@@ -81,6 +82,7 @@ export async function fetchWorkerAddressSuggestions(
       needsHouseNumber?: boolean;
       postcode?: string;
       hint?: string;
+      unavailable?: boolean;
     };
 
     return {
@@ -88,6 +90,7 @@ export async function fetchWorkerAddressSuggestions(
       needsHouseNumber: Boolean(payload.needsHouseNumber),
       postcode: payload.postcode,
       hint: payload.hint,
+      unavailable: Boolean(payload.unavailable),
     };
   } catch {
     return null;

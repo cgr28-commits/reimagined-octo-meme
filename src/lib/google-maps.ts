@@ -6,18 +6,12 @@ import {
 } from "@/lib/addresses-api";
 import {
   geocodeAddress,
-  extractLeadingStreetNumber,
-  isNumberedAddressQuery,
-  isStreetOnlyQuery,
+  isPlacesQuotaError,
   resolveGooglePlaceDetails,
-  searchGoogleEstablishments,
-  searchGooglePlaces,
-  searchGooglePostcodePremises,
-  searchGoogleStreetAddresses,
+  searchGoogleAddressSuggestions,
 } from "../../shared/google-places";
 import {
   extractNorthernIrelandPostcode,
-  extractPremisePrefixFromPostcodeQuery,
   isAllowedAutocompleteLabel,
   isFullNorthernIrelandPostcode,
   isPureFullNorthernIrelandPostcodeQuery,
@@ -172,7 +166,10 @@ function toPredictions(
 async function safePredictions(task: Promise<AddressPrediction[]>): Promise<AddressPrediction[]> {
   try {
     return await task;
-  } catch {
+  } catch (error) {
+    if (isPlacesQuotaError(error)) {
+      throw error;
+    }
     return [];
   }
 }
@@ -201,41 +198,13 @@ async function fetchLocalAddressPredictions(
   }
 
   if (GOOGLE_API_KEY) {
-    const premisePrefix = extractPremisePrefixFromPostcodeQuery(trimmed);
-    const postcode = extractNorthernIrelandPostcode(trimmed);
-
-    if (premisePrefix && postcode && isFullNorthernIrelandPostcode(postcode)) {
-      tasks.push(
-        safePredictions(
-          searchGooglePostcodePremises(GOOGLE_API_KEY, trimmed, airportCode).then(toPredictions),
-        ),
-      );
-    }
-
     tasks.push(
       safePredictions(
-        searchGooglePlaces(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then(toPredictions),
+        searchGoogleAddressSuggestions(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then(
+          toPredictions,
+        ),
       ),
     );
-
-    if (!extractLeadingStreetNumber(trimmed) && !premisePrefix) {
-      tasks.push(
-        safePredictions(
-          searchGoogleEstablishments(GOOGLE_API_KEY, trimmed, airportCode, sessionToken).then(
-            toPredictions,
-          ),
-        ),
-      );
-    }
-
-    // Premises text search for street-only, numbered, and number+postcode queries.
-    if (isStreetOnlyQuery(trimmed) || isNumberedAddressQuery(trimmed) || Boolean(premisePrefix)) {
-      tasks.push(
-        safePredictions(
-          searchGoogleStreetAddresses(GOOGLE_API_KEY, trimmed, airportCode).then(toPredictions),
-        ),
-      );
-    }
   }
 
   if (tasks.length === 0) {
@@ -251,6 +220,7 @@ export type AddressPredictionsResult = {
   needsHouseNumber: boolean;
   postcode: string | null;
   hint: string | null;
+  unavailable?: boolean;
 };
 
 export async function fetchAddressPredictions(
@@ -300,33 +270,50 @@ export async function fetchAddressPredictionsDetailed(
     };
   }
 
-  const tasks: Promise<AddressPrediction[]>[] = [];
-
+  // The Worker already calls Places / GetAddress. A second browser-side Places
+  // call on the same Cloud project doubles Autocomplete quota use per keystroke
+  // and is what exhausted the live daily cap.
   if (ADDRESSES_API_URL) {
-    tasks.push(
-      safePredictions(
-        fetchWorkerAddressSuggestions(trimmed, airportCode).then((result) =>
-          (result?.suggestions ?? []).map(toPrediction),
+    const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode);
+    if (worker) {
+      return {
+        predictions: mergePredictions(
+          worker.suggestions.map(toPrediction),
+          airportCode,
+          10,
+          trimmed,
         ),
-      ),
-    );
+        needsHouseNumber: Boolean(worker.needsHouseNumber),
+        postcode: worker.postcode ?? extractNorthernIrelandPostcode(trimmed),
+        hint: worker.hint ?? null,
+        unavailable: Boolean(worker.unavailable),
+      };
+    }
   }
 
   if (GOOGLE_API_KEY || GETADDRESS_API_KEY || IDEAL_POSTCODES_API_KEY) {
-    tasks.push(safePredictions(fetchLocalAddressPredictions(trimmed, airportCode)));
+    try {
+      return {
+        predictions: await fetchLocalAddressPredictions(trimmed, airportCode),
+        needsHouseNumber: false,
+        postcode: extractNorthernIrelandPostcode(trimmed),
+        hint: null,
+      };
+    } catch (error) {
+      if (isPlacesQuotaError(error)) {
+        return {
+          predictions: [],
+          needsHouseNumber: false,
+          postcode: extractNorthernIrelandPostcode(trimmed),
+          hint: "Address suggestions are unavailable right now. Please try again shortly.",
+          unavailable: true,
+        };
+      }
+      throw error;
+    }
   }
 
-  if (tasks.length === 0) {
-    throw new Error("Address lookup is not configured");
-  }
-
-  const results = await Promise.all(tasks);
-  return {
-    predictions: mergePredictions(results.flat(), airportCode, 10, trimmed),
-    needsHouseNumber: false,
-    postcode: extractNorthernIrelandPostcode(trimmed),
-    hint: null,
-  };
+  throw new Error("Address lookup is not configured");
 }
 
 export async function fetchPlaceDetails(
