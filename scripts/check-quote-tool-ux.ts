@@ -106,6 +106,14 @@ check("QuoteCard uses progressive route for A2A primary flow", () => {
   assert.match(card, /We'll use the reverse route for your return journey|We&apos;ll use the reverse route for your return journey/);
   assert.doesNotMatch(card, /Return inferred as/);
   assert.match(card, /5% return journey saving applied/);
+  assert.match(card, /Required for airport pickups/);
+  assert.match(
+    card,
+    /We'll monitor your flight and adjust your collection if it arrives early or is delayed/,
+  );
+  assert.match(card, /BOOKING_FLIGHT_NUMBER_HELPER/);
+  assert.doesNotMatch(card, /id="step2-travel-details"[\s\S]*quote-price-figure/);
+  assert.match(card, /id="step2-travel-details"[\s\S]*font-sans text-\[1\.65rem\] font-extrabold/);
 });
 
 check("Step 2 travel details section scrolls only after explicit step navigation", () => {

@@ -66,7 +66,9 @@ import {
 } from "../../shared/passenger-limits";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
-import { BOOKING_FLIGHT_NUMBER_HELPER, resolveJourneyInclusions } from "@/lib/journey-inclusions";
+import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
+// Shared product copy stays BOOKING_FLIGHT_NUMBER_HELPER on other booking pages.
+// The quote step uses a single shorter line under the input.
 import {
   intentFromDirection,
   isCustomerAirportCode,
@@ -4298,7 +4300,7 @@ function QuoteCard({
           <FlightNumberField
             id="goingFlightNumber"
             label="Flight number"
-            helperText={BOOKING_FLIGHT_NUMBER_HELPER}
+            helperText="We'll monitor your flight and adjust your collection if it arrives early or is delayed."
             value={goingFlightNumber}
             onChange={(value) => {
               setGoingFlightNumber(value);
@@ -4321,7 +4323,7 @@ function QuoteCard({
           <FlightNumberField
             id="collectionFlightNumber"
             label="Return flight number"
-            helperText={BOOKING_FLIGHT_NUMBER_HELPER}
+            helperText="We'll monitor your flight and adjust your collection if it arrives early or is delayed."
             value={collectionFlightNumber}
             onChange={(value) => {
               setCollectionFlightNumber(value);
@@ -4502,10 +4504,10 @@ function QuoteCard({
         : isPickup
           ? "Free designated pick-up"
           : "Free designated drop-off";
-    const changeToFreeLabel = isPickup
-      ? "Change to free pick-up"
-      : isCombined
-        ? "Free option available"
+    const changeToFreeLabel = isCombined
+      ? "Free option available"
+      : isPickup
+        ? "Change to free pick-up"
         : "Change to free drop-off";
     const changeToExpressLabel = isPickup
       ? "Change to Express Pick-Up"
