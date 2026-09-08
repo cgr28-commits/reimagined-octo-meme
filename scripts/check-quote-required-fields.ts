@@ -69,19 +69,16 @@ console.log("\n=== QuoteCard uses shared messages + red field UX ===");
   assert.doesNotMatch(card, /<PreviewRow label="Name"/);
   assert.doesNotMatch(card, /<PreviewRow label="Mobile"/);
   assert.doesNotMatch(card, /<PreviewRow label="Email"/);
-  assert.match(card, /Journey summary/);
-  assert.match(card, /Edit journey/);
-  assert.match(card, /<PreviewRow[\s\S]*label="Trip"/);
-  assert.match(card, /<PreviewRow label="Airport"/);
-  assert.match(card, /<PreviewRow label="Pickup"/);
-  assert.match(card, /<PreviewRow label="Destination"/);
-  assert.match(card, /label=\{returnJourney \? "Outbound" : "Date & time"\}/);
-  assert.match(card, /<PreviewRow[\s\S]*label="Passengers"/);
-  assert.match(card, /<PreviewRow[\s\S]*label="Luggage"/);
-  assert.match(card, /<PreviewRow label="Vehicle" value=\{vehicleShortLabel\(quoteVehicle\)\}/);
-  assert.match(card, /Your fixed journey price/);
-  assert.doesNotMatch(card, /<PreviewRow label="Drop-off"/);
-  assert.doesNotMatch(card, /<PreviewRow label="Suitcases"/);
+  const summary = read("src/components/QuoteCheckoutSummary.tsx");
+  assert.match(card, /QuoteCheckoutSummary/);
+  assert.match(summary, /Edit journey/);
+  assert.match(card, /Total \$\{amountLabel\}/);
+  assert.match(card, /pickupLabel \|\| "Pickup"/);
+  assert.match(card, /dropoffLabel \|\| "Destination"/);
+  assert.match(card, /vehicleShortLabel\(quoteVehicle\)/);
+  assert.match(card, /formatPassengerChoice/);
+  assert.match(card, /formatSuitcaseChoice/);
+  assert.doesNotMatch(card, /<PreviewRow /);
   console.log("OK  QuoteCard wires exact messages and focuses the first invalid field");
 }
 
@@ -109,7 +106,7 @@ console.log("\n=== Pay tap validates instead of starting SumUp ===");
   assert.match(card, /onClick=\{\(\) => void handlePayNow\(\)\}/);
   assert.match(
     card,
-    /if \(e\.target\.value\.trim\(\)\) \{\s*setCustomerNameError\(""\);/,
+    /setCustomerName\(e\.target\.value\);[\s\S]*if \(e\.target\.value\.trim\(\)\) setCustomerNameError\(""\)/,
   );
   assert.match(card, /bookingTextFieldClass\([\s\S]*hasError: Boolean\(customerNameError\)/);
   assert.match(card, /id="customer-name-error"/);

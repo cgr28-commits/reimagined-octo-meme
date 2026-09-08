@@ -137,6 +137,7 @@ import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import CombinedAirportAccessChoice from "@/components/CombinedAirportAccessChoice";
 import QuoteResultShowcase from "@/components/QuoteResultShowcase";
+import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
   BookWithConfidence,
   FinalPayableBreakdown,
@@ -236,12 +237,6 @@ type TripDirection = "to-airport" | "from-airport";
 
 const PICKUP_STORAGE_KEY = PICKUP_ADDRESS_STORAGE_KEY;
 const DROPOFF_STORAGE_KEY = DROPOFF_ADDRESS_STORAGE_KEY;
-
-const BOOKING_PANEL_CLASS =
-  "rounded-xl border border-white/25 bg-navy-light px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:px-5 md:border-white/30 md:shadow-lg md:shadow-black/20";
-const BOOKING_LABEL_CLASS =
-  "mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/80";
-const BOOKING_HELPER_CLASS = "quote-helper-text mt-1.5 text-xs";
 
 function fieldState(options: {
   hasError?: boolean;
@@ -431,15 +426,6 @@ function PriceInclusionBlock({
           ))}
         </ul>
       ) : null}
-    </div>
-  );
-}
-
-function PreviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-0.5 border-b border-white/10 py-2.5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <dt className="form-label mb-0">{label}</dt>
-      <dd className="text-sm text-white sm:max-w-[65%] sm:text-right">{value}</dd>
     </div>
   );
 }
@@ -2292,7 +2278,7 @@ function QuoteCard({
         } catch {
           field.focus();
         }
-        field.scrollIntoView({ behavior: "smooth", block: "center" });
+        scrollQuoteStage(field);
       }
     }, 80);
   }
@@ -2307,7 +2293,7 @@ function QuoteCard({
         } catch {
           field.focus();
         }
-        field.scrollIntoView({ behavior: "smooth", block: "center" });
+        scrollQuoteStage(field);
       }
     }, 80);
   }
@@ -3490,7 +3476,7 @@ function QuoteCard({
     ) {
       return "route";
     }
-    if (paymentError.trim() && canPayNowOnline && liveQuote && quoteStep === 3) {
+    if (paymentError.trim() && canPayNowOnline && liveQuote && quoteStep >= 2) {
       return "payment-actions";
     }
     if (paymentError.trim() && !(canPayNowOnline && liveQuote)) {
@@ -3499,7 +3485,7 @@ function QuoteCard({
     if (submitError.trim()) {
       return "submit";
     }
-    if (paymentPopupBlocked && quoteStep === 3) {
+    if (paymentPopupBlocked && quoteStep >= 2) {
       return "payment-actions";
     }
     if (quoteStep === 3) {
@@ -3696,6 +3682,40 @@ function QuoteCard({
     }
   }
 
+  async function submitCheckoutForm() {
+    setSubmitError("");
+    const schedule = syncScheduleFieldsFromInputs();
+    if (!validateTripForBooking(schedule)) {
+      window.setTimeout(() => {
+        focusFirstInvalidField(cardRef.current ?? document);
+      }, 0);
+      return;
+    }
+    if (!validateRequiredFlightNumbers()) {
+      setSubmitError(
+        goingFlightError || collectionFlightError || QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber,
+      );
+      window.setTimeout(() => {
+        focusFirstInvalidField(cardRef.current ?? document);
+      }, 0);
+      return;
+    }
+    if (canPayNowOnline && liveQuote && !isEnquiryOnly && !showsRequestQuoteFlow) {
+      await handlePayNow();
+      return;
+    }
+    if (!validateCheckoutRequiredFields()) {
+      return;
+    }
+    const blocked = await applyCustomerSmartAvailabilityCheck();
+    if (blocked) {
+      return;
+    }
+    if (!usesWhatsApp || isManualQuoteJourney) {
+      await confirmBooking("email");
+    }
+  }
+
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitError("");
@@ -3837,8 +3857,8 @@ function QuoteCard({
       return;
     }
 
-    if (quoteStep === 2) {
-      // Step 2 uses an explicit Continue handler so date/time DOM values are synced first.
+    if (quoteStep === 2 || quoteStep === 3) {
+      void submitCheckoutForm();
       return;
     }
 
@@ -4272,11 +4292,15 @@ function QuoteCard({
         className="scroll-mt-44 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 md:scroll-mt-28"
       >
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            Flight number{" "}
-            <span className="font-normal text-ink-secondary">(required)</span>
+          <p className="text-xs font-semibold uppercase tracking-wider text-white">
+            Flight details
           </p>
-          <p className="mt-1 text-sm text-white/60">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
+          {needsOutboundFlightNumber ? (
+            <p className="mt-1 text-xs text-white/55">
+              Flight number <span className="font-medium text-white/80">(required)</span>
+            </p>
+          ) : null}
+          <p className="mt-1 text-xs text-white/55">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
         </div>
         {needsOutboundFlightNumber ? (
           <FlightNumberField
@@ -4293,7 +4317,7 @@ function QuoteCard({
             tripDate={tripDate}
             airportCode={effectiveAirportCode}
             direction={isA2AFlow ? "from-airport" : tripDirection}
-            enabled={quoteStep === activeOnStep}
+            enabled={quoteStep >= 2}
             error={goingFlightError}
             onStatusChange={setGoingFlightLookupStatus}
             onVerifiedChange={(flight) => {
@@ -4316,7 +4340,7 @@ function QuoteCard({
             tripDate={returnDate}
             airportCode={effectiveAirportCode}
             direction="from-airport"
-            enabled={quoteStep === activeOnStep}
+            enabled={quoteStep >= 2}
             error={collectionFlightError}
             onStatusChange={setCollectionFlightLookupStatus}
             onVerifiedChange={(flight) => {
@@ -4729,6 +4753,587 @@ function QuoteCard({
     );
   }
 
+  function checkoutTimeLabel(leg: "outbound" | "return" = "outbound"): string {
+    const fromAirport =
+      leg === "return" ? !isFromAirport && returnJourney : isFromAirport;
+    return fromAirport ? "Scheduled flight arrival time" : "Pickup time";
+  }
+
+  function checkoutPayableLabel(): string | null {
+    if (paymentAmount == null || !Number.isFinite(paymentAmount)) return null;
+    return formatQuote(paymentAmount);
+  }
+
+  function checkoutAccessLine(): string | null {
+    if (!expressSelection.eligible) return null;
+    if (expressSelection.selected && expressSelection.feeGbp > 0) {
+      return `Includes ${formatExpressDropOffGbp(expressSelection.feeGbp)} Express Drop-Off`;
+    }
+    return "Free drop-off selected";
+  }
+
+  function renderCheckoutPage() {
+    const amountLabel = checkoutPayableLabel();
+    const payNow =
+      canPayNowOnline && Boolean(liveQuote) && !isEnquiryOnly && !showsRequestQuoteFlow;
+    const partyLine =
+      partySelectionReady && effectivePassengers != null && suitcases != null
+        ? `${vehicleShortLabel(quoteVehicle)} · ${formatPassengerChoice(effectivePassengers)} passenger${
+            effectivePassengers === 1 ? "" : "s"
+          } · ${formatSuitcaseChoice(suitcases)} suitcase${suitcases === 1 ? "" : "s"}`
+        : vehicleShortLabel(quoteVehicle);
+    const showChangeDropOff =
+      expressSelection.eligible && expressSelection.freeAlternativeAvailable;
+    const checkoutBlocked =
+      smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError);
+
+    return (
+      <>
+        <div
+          id="step2-travel-details"
+          ref={step2TravelDetailsRef}
+          className="scroll-mt-44 space-y-4 md:scroll-mt-28"
+        >
+          <h2
+            data-booking-nav-heading
+            tabIndex={-1}
+            className="sr-only"
+          >
+            Step 2 — Complete your booking
+          </h2>
+
+          <section className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-white">Pickup</p>
+            <div className="grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2">
+              <div className="min-w-0 max-w-full">
+                <label htmlFor="date" className="form-label">
+                  {returnJourney ? "Outbound date" : "Date"}
+                </label>
+                <div
+                  className={quoteDateTimeFieldShellClass(
+                    fieldState({
+                      hasError: Boolean(tripDateError),
+                      complete: Boolean(tripDate.trim()),
+                      activeStep: quoteStep >= 2,
+                    }),
+                  )}
+                >
+                  <input
+                    id="date"
+                    ref={tripDateInputRef}
+                    name="date"
+                    type="date"
+                    min={minTripDate}
+                    value={tripDate}
+                    aria-invalid={Boolean(tripDateError)}
+                    aria-describedby={tripDateError ? "trip-date-error" : undefined}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setTripDate(value);
+                      if (value && tripTime) setTripDateError("");
+                      setReturnDateError("");
+                    }}
+                    onInput={(e) => {
+                      const value = (e.target as HTMLInputElement).value;
+                      setTripDate(value);
+                      if (value && tripTime) setTripDateError("");
+                      setReturnDateError("");
+                    }}
+                    className={quoteDateTimeInputClass()}
+                  />
+                </div>
+              </div>
+              <div className="min-w-0 max-w-full">
+                <label htmlFor="time" className="form-label">
+                  {checkoutTimeLabel("outbound")}
+                </label>
+                <div
+                  className={quoteDateTimeFieldShellClass(
+                    fieldState({
+                      hasError: Boolean(tripDateError),
+                      complete: Boolean(tripTime.trim()),
+                      activeStep: quoteStep >= 2,
+                    }),
+                  )}
+                >
+                  <input
+                    id="time"
+                    ref={tripTimeInputRef}
+                    name="time"
+                    type="time"
+                    min={minTripTime}
+                    value={tripTime}
+                    aria-invalid={Boolean(tripDateError)}
+                    aria-describedby={tripDateError ? "trip-date-error" : undefined}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setTripTime(value);
+                      if (tripDate && value) setTripDateError("");
+                      setReturnDateError("");
+                    }}
+                    onInput={(e) => {
+                      const value = (e.target as HTMLInputElement).value;
+                      setTripTime(value);
+                      if (tripDate && value) setTripDateError("");
+                      setReturnDateError("");
+                    }}
+                    onBlur={() => {
+                      requestJourneySummaryScrollAfterTimeConfirm();
+                    }}
+                    className={quoteDateTimeInputClass()}
+                  />
+                </div>
+              </div>
+              <p
+                id="trip-date-error"
+                role={tripDateError ? "alert" : undefined}
+                className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400"
+              >
+                {tripDateError || "\u00a0"}
+              </p>
+            </div>
+            {returnJourney ? (
+              <div className="grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2">
+                <div className="min-w-0 max-w-full">
+                  <label htmlFor="returnDate" className="form-label">
+                    Return date
+                  </label>
+                  <div
+                    className={quoteDateTimeFieldShellClass(
+                      fieldState({
+                        hasError: Boolean(returnDateError),
+                        complete: Boolean(returnDate.trim()),
+                        activeStep: quoteStep >= 2 && returnJourney,
+                      }),
+                    )}
+                  >
+                    <input
+                      id="returnDate"
+                      ref={returnDateInputRef}
+                      name="returnDate"
+                      type="date"
+                      min={minReturnDate}
+                      value={returnDate}
+                      onChange={(e) => {
+                        setReturnDate(e.target.value);
+                        setReturnDateError("");
+                      }}
+                      onInput={(e) => {
+                        setReturnDate((e.target as HTMLInputElement).value);
+                        setReturnDateError("");
+                      }}
+                      className={quoteDateTimeInputClass()}
+                    />
+                  </div>
+                </div>
+                <div className="min-w-0 max-w-full">
+                  <label htmlFor="returnTime" className="form-label">
+                    {checkoutTimeLabel("return")}
+                  </label>
+                  <div
+                    className={quoteDateTimeFieldShellClass(
+                      fieldState({
+                        hasError: Boolean(returnDateError),
+                        complete: Boolean(returnTime.trim()),
+                        activeStep: quoteStep >= 2 && returnJourney,
+                      }),
+                    )}
+                  >
+                    <input
+                      id="returnTime"
+                      ref={returnTimeInputRef}
+                      name="returnTime"
+                      type="time"
+                      min={minReturnTime}
+                      value={returnTime}
+                      onChange={(e) => {
+                        setReturnTime(e.target.value);
+                        setReturnDateError("");
+                      }}
+                      onInput={(e) => {
+                        setReturnTime((e.target as HTMLInputElement).value);
+                        setReturnDateError("");
+                      }}
+                      onBlur={() => {
+                        requestJourneySummaryScrollAfterTimeConfirm();
+                      }}
+                      className={quoteDateTimeInputClass()}
+                    />
+                  </div>
+                </div>
+                <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
+                  {returnDateError || "\u00a0"}
+                </p>
+              </div>
+            ) : null}
+          </section>
+
+          <section
+            id="step3-customer-details"
+            ref={step3CustomerDetailsRef}
+            className="scroll-mt-44 space-y-3 md:scroll-mt-28"
+          >
+            <p
+              data-booking-nav-heading
+              tabIndex={-1}
+              className="text-xs font-semibold uppercase tracking-wider text-white outline-none"
+            >
+              Your details
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="name" className="form-label">
+                  Full name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  value={customerName}
+                  aria-invalid={Boolean(customerNameError)}
+                  aria-describedby={customerNameError ? "customer-name-error" : undefined}
+                  onChange={(e) => {
+                    setCustomerName(e.target.value);
+                    if (e.target.value.trim()) setCustomerNameError("");
+                  }}
+                  placeholder="John Smith"
+                  className={bookingTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(customerNameError),
+                      complete: Boolean(customerName.trim()),
+                      activeStep: quoteStep >= 2,
+                    }),
+                  )}
+                />
+                {customerNameError ? (
+                  <p id="customer-name-error" role="alert" className="mt-1.5 text-xs text-red-300">
+                    {customerNameError}
+                  </p>
+                ) : null}
+              </div>
+              <div>
+                <label htmlFor="mobile" className="form-label">
+                  Mobile number
+                </label>
+                <input
+                  id="mobile"
+                  name="mobile"
+                  type="tel"
+                  autoComplete="tel"
+                  value={customerMobile}
+                  aria-invalid={Boolean(mobileNumberError)}
+                  aria-describedby={mobileNumberError ? "customer-mobile-error" : undefined}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCustomerMobile(value);
+                    if (!mobileNumberError) return;
+                    if (value.trim() && isValidMobileNumber(value)) {
+                      setMobileNumberError("");
+                    } else if (
+                      value.trim() &&
+                      mobileNumberError === QUOTE_REQUIRED_FIELD_MESSAGES.mobile
+                    ) {
+                      setMobileNumberError("");
+                    }
+                  }}
+                  placeholder="07xxx xxxxxx"
+                  className={bookingTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(mobileNumberError),
+                      complete: isValidMobileNumber(customerMobile),
+                      activeStep: quoteStep >= 2,
+                    }),
+                  )}
+                />
+                {mobileNumberError ? (
+                  <p id="customer-mobile-error" role="alert" className="mt-1.5 text-xs text-red-300">
+                    {mobileNumberError}
+                  </p>
+                ) : null}
+              </div>
+              <div>
+                <label htmlFor="email" className="form-label">
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={customerEmail}
+                  aria-invalid={Boolean(emailAddressError)}
+                  aria-describedby={emailAddressError ? "customer-email-error" : undefined}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCustomerEmail(value);
+                    if (!emailAddressError) return;
+                    if (value.trim() && isValidEmailAddress(value)) {
+                      setEmailAddressError("");
+                    } else if (
+                      value.trim() &&
+                      emailAddressError === QUOTE_REQUIRED_FIELD_MESSAGES.email
+                    ) {
+                      setEmailAddressError("");
+                    }
+                  }}
+                  placeholder="you@example.com"
+                  className={bookingTextFieldClass(
+                    fieldState({
+                      hasError: Boolean(emailAddressError),
+                      complete: isValidEmailAddress(customerEmail),
+                      activeStep: quoteStep >= 2,
+                    }),
+                  )}
+                />
+                {emailAddressError ? (
+                  <p id="customer-email-error" role="alert" className="mt-1.5 text-xs text-red-300">
+                    {emailAddressError}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </section>
+
+          {renderFlightDetailsSection(2)}
+
+          <div id="step2-journey-summary" ref={step2JourneySummaryRef}>
+          <QuoteCheckoutSummary
+            routeLine={`${pickupLabel || "Pickup"} → ${dropoffLabel || "Destination"}`}
+            detailLine={partyLine}
+            totalLabel={amountLabel ? `Total ${amountLabel}` : "Total TBC"}
+            accessLine={checkoutAccessLine()}
+            onEditJourney={() => navigateQuoteStep(1)}
+            onChangeDropOff={
+              showChangeDropOff
+                ? () =>
+                    setExpressEditingLeg((current) =>
+                      current ? null : expressSelection.legs[0]?.leg ?? "outbound",
+                    )
+                : null
+            }
+          >
+            {showChangeDropOff && expressEditingLeg != null
+              ? renderExpressChoiceInPriceCard("full")
+              : null}
+          </QuoteCheckoutSummary>
+          </div>
+        </div>
+
+        {paymentError && !(payNow && liveQuote) ? (
+          <div className="space-y-3">
+            <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              {paymentError}
+            </p>
+            {renderBookingErrorHelp("payment-early")}
+          </div>
+        ) : null}
+
+        {submitError ? (
+          <div className="space-y-3">
+            <p
+              id="quote-submit-error"
+              role="alert"
+              className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
+            >
+              {submitError}
+            </p>
+            {renderBookingErrorHelp("submit")}
+          </div>
+        ) : null}
+
+        <div
+          id="step3-payment-actions"
+          ref={step3PaymentActionsRef}
+          className="scroll-mt-44 space-y-3 md:scroll-mt-28"
+        >
+          <div id="quote-step2-next" className="sr-only" />
+          {capacityNeedsConfirm ? (
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-50">
+              <input
+                type="checkbox"
+                checked={capacityConfirmed}
+                onChange={(event) => {
+                  setCapacityConfirmed(event.target.checked);
+                  if (event.target.checked) setCapacityError("");
+                }}
+                className="mt-1 h-4 w-4 shrink-0 rounded border-white/30 bg-navy text-emerald focus:ring-emerald"
+              />
+              <span>
+                I understand luggage capacity may need written confirmation before this booking is
+                accepted.
+                {capacityError ? (
+                  <span className="mt-1 block text-xs text-red-200">{capacityError}</span>
+                ) : null}
+              </span>
+            </label>
+          ) : null}
+
+          <BookingTermsConsent
+            accepted={termsAccepted}
+            onAcceptedChange={(checked) => {
+              setTermsAccepted(checked);
+              if (checked) setTermsError("");
+            }}
+            error={termsError}
+            mode={
+              isManualQuoteJourney
+                ? "quote-request"
+                : payNow
+                  ? "card-payment"
+                  : "booking-request"
+            }
+            paymentAmountLabel={
+              isEnquiryOnly || isManualQuoteJourney
+                ? undefined
+                : testChargeAmount !== null
+                  ? "£1.00"
+                  : amountLabel ?? undefined
+            }
+          />
+
+          <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
+
+          {checkoutBlocked ? (
+            <div id="customer-smart-availability-blocked">
+              <CustomerSmartAvailabilityBlocked
+                message={
+                  isCustomerSmartAvailabilityBlockMessage(paymentError)
+                    ? paymentError
+                    : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE
+                }
+                alternativeTimes={availabilityAlternatives}
+                onSelectAlternative={(option) => void handleSelectAvailabilityAlternative(option)}
+                onChooseAnotherTime={handleChooseAnotherTime}
+                onChooseAnotherDate={handleChooseAnotherDate}
+                selectingTime={selectingAlternativeTime}
+              />
+            </div>
+          ) : payNow && liveQuote ? (
+            <div className="space-y-3">
+              {paymentError ? (
+                <div className="space-y-3">
+                  <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                    {paymentError}
+                  </p>
+                  {renderBookingErrorHelp("payment-actions")}
+                </div>
+              ) : null}
+              {paymentPopupBlocked && !paymentError ? (
+                <div className="space-y-3">
+                  <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                    Payment could not open automatically. Tap “Continue to SumUp” below, or message
+                    us on WhatsApp if you still need help.
+                  </p>
+                  {renderBookingErrorHelp("payment-actions")}
+                </div>
+              ) : null}
+              {openCheckout ? (
+                <div className="space-y-3 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4">
+                  <p className="text-sm font-semibold text-emerald">Secure payment ready</p>
+                  <p className="text-xs leading-relaxed text-white/75">
+                    Your booking details are saved for {openCheckout.amountLabel}. Continue to
+                    SumUp to finish paying, or edit your booking first.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={handleReturnToEditBooking}
+                      className="btn-secondary w-full"
+                    >
+                      Return to / Edit booking
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenPaymentAgain}
+                      disabled={paymentLoading}
+                      className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {paymentLoading ? "Opening secure payment…" : "Continue to SumUp"}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleStartFreshCheckout}
+                    className="w-full text-center text-xs font-medium text-white/55 underline-offset-2 hover:text-white/80 hover:underline"
+                  >
+                    Start a new payment link
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handlePayNow()}
+                  disabled={paymentLoading || submitted}
+                  className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {paymentLoading
+                    ? "Opening secure payment…"
+                    : testChargeAmount !== null
+                      ? "Pay £1.00 test charge with SumUp"
+                      : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
+                </button>
+              )}
+            </div>
+          ) : usesWhatsApp && !isManualQuoteJourney ? (
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={() => void confirmBooking("whatsapp")}
+                className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
+              </button>
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={() => void confirmBooking("email")}
+                className="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitted
+                  ? submitInProgressLabel
+                  : isEnquiryOnly
+                    ? "Send enquiry via email"
+                    : "Send booking via email"}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="submit"
+              disabled={submitted}
+              className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitted ? submitInProgressLabel : confirmButtonLabel}
+            </button>
+          )}
+
+          {liveQuote &&
+          payNow &&
+          !appliedPersonalQuote &&
+          !submitted &&
+          !openCheckout ? (
+            <button
+              type="button"
+              onClick={handleSaveQuoteClick}
+              className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
+            >
+              Save Quote
+            </button>
+          ) : null}
+
+          {renderBookingErrorHelp("step3")}
+          {renderStartNewQuoteControls("step3")}
+          {saveQuotePrompt ? (
+            <p className="text-center text-xs text-emerald/90" role="status">
+              {saveQuotePrompt}
+            </p>
+          ) : null}
+        </div>
+      </>
+    );
+  }
+
   function renderStep1BookButton(options?: { instantTransferLabel?: boolean }) {
     const instantTransferLabel = options?.instantTransferLabel === true;
     const amountLabel =
@@ -5028,9 +5633,13 @@ function QuoteCard({
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
-          className="font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+          className={`${
+            quoteStep >= 2
+              ? "text-[1.05rem] font-semibold uppercase tracking-[0.14em] text-white outline-none sm:text-lg"
+              : "font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+          }`}
         >
-          Get a Live Quote
+          {quoteStep >= 2 ? "COMPLETE YOUR BOOKING" : "Get a Live Quote"}
         </h2>
         {returnOfferToken ? (
           <div className="mt-3 rounded-xl border border-emerald/30 bg-emerald/[0.08] px-3.5 py-3">
@@ -5045,6 +5654,12 @@ function QuoteCard({
           </div>
         ) : null}
         <div className="mt-1 text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed">
+          {quoteStep >= 2 ? (
+            <p className="text-[0.8125rem] sm:text-sm">
+              Enter your pickup time and details, then confirm. Your fare stays the same.
+            </p>
+          ) : (
+            <>
           {/* Mobile: compact — frees space for journey choices above the fold */}
           <p className="md:hidden text-[0.8125rem]">
             Get your fixed price in three quick steps.
@@ -5055,15 +5670,23 @@ function QuoteCard({
               ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
               : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
           </p>
+            </>
+          )}
         </div>
-        <ol className="mt-2 grid grid-cols-3 gap-1 sm:mt-4 sm:gap-2" aria-label="Booking steps">
-          {[
-            { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
-            { step: 2 as const, label: "Price & travel" },
-            { step: 3 as const, label: canPayNowOnline ? "Pay & confirm" : "Your details" },
-          ].map((item) => {
-            const active = quoteStep === item.step;
-            const done = quoteStep > item.step;
+        <ol className={`mt-2 grid gap-1 sm:mt-4 sm:gap-2 ${quoteStep >= 2 ? "grid-cols-2" : "grid-cols-3"}`} aria-label="Booking steps">
+          {(quoteStep >= 2
+            ? [
+                { step: 1 as const, label: "Your journey" },
+                { step: 2 as const, label: "Complete booking" },
+              ]
+            : [
+                { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
+                { step: 2 as const, label: "Price & travel" },
+                { step: 3 as const, label: canPayNowOnline ? "Pay & confirm" : "Your details" },
+              ]
+          ).map((item) => {
+            const active = quoteStep >= 2 ? item.step === 2 : quoteStep === item.step;
+            const done = quoteStep >= 2 ? item.step === 1 : quoteStep > item.step;
             return (
               <li
                 key={item.step}
@@ -5874,925 +6497,8 @@ function QuoteCard({
           </>
         ) : null}
 
-        {quoteStep === 2 ? (
-          <>
-        <div
-          id="step2-travel-details"
-          ref={step2TravelDetailsRef}
-          className="scroll-mt-44 space-y-4 md:scroll-mt-28"
-        >
-        <h2
-          data-booking-nav-heading
-          tabIndex={-1}
-          className="sr-only"
-        >
-          Step 2 — Travel details
-        </h2>
-        <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2 lg:gap-3.5">
-          <div className="min-w-0 max-w-full">
-            <label
-              htmlFor="date"
-              className="form-label"
-            >
-              {returnJourney ? "Outbound Date" : "Date"}{" "}
-              <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
-                (needed to book)
-              </span>
-            </label>
-            <div
-              className={quoteDateTimeFieldShellClass(
-                fieldState({
-                  hasError: Boolean(tripDateError),
-                  complete: Boolean(tripDate.trim()),
-                  activeStep: quoteStep === 2,
-                }),
-              )}
-            >
-              <input
-                id="date"
-                ref={tripDateInputRef}
-                name="date"
-                type="date"
-                min={minTripDate}
-                value={tripDate}
-                aria-invalid={Boolean(tripDateError)}
-                aria-describedby={tripDateError ? "trip-date-error" : undefined}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setTripDate(value);
-                  if (value && tripTime) {
-                    setTripDateError("");
-                  }
-                  setReturnDateError("");
-                }}
-                onInput={(e) => {
-                  const value = (e.target as HTMLInputElement).value;
-                  setTripDate(value);
-                  if (value && tripTime) {
-                    setTripDateError("");
-                  }
-                  setReturnDateError("");
-                }}
-                className={quoteDateTimeInputClass()}
-              />
-            </div>
-          </div>
-          <div className="min-w-0 max-w-full">
-            <label
-              htmlFor="time"
-              className="form-label"
-            >
-              {returnJourney ? "Outbound pick up time" : "Pick up time"}{" "}
-              <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
-                (needed to book)
-              </span>
-            </label>
-            <div
-              className={quoteDateTimeFieldShellClass(
-                fieldState({
-                  hasError: Boolean(tripDateError),
-                  complete: Boolean(tripTime.trim()),
-                  activeStep: quoteStep === 2,
-                }),
-              )}
-            >
-              <input
-                id="time"
-                ref={tripTimeInputRef}
-                name="time"
-                type="time"
-                min={minTripTime}
-                value={tripTime}
-                aria-invalid={Boolean(tripDateError)}
-                aria-describedby={tripDateError ? "trip-date-error" : undefined}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setTripTime(value);
-                  if (tripDate && value) {
-                    setTripDateError("");
-                  }
-                  setReturnDateError("");
-                }}
-                onInput={(e) => {
-                  const value = (e.target as HTMLInputElement).value;
-                  setTripTime(value);
-                  if (tripDate && value) {
-                    setTripDateError("");
-                  }
-                  setReturnDateError("");
-                }}
-                onBlur={() => {
-                  // iPhone Done / tick dismisses the picker → blur. Scroll only then.
-                  requestJourneySummaryScrollAfterTimeConfirm();
-                }}
-                className={quoteDateTimeInputClass()}
-              />
-            </div>
-          </div>
-          <p
-            id="trip-date-error"
-            role={tripDateError ? "alert" : undefined}
-            className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400"
-          >
-            {tripDateError || "\u00a0"}
-          </p>
-        </div>
-
-        <div
-          className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-            returnJourney ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-          }`}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2">
-              <div className="min-w-0 max-w-full">
-                <label
-                  htmlFor="returnDate"
-                  className="form-label"
-                >
-                  Return Date{" "}
-                  <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
-                    (needed to book)
-                  </span>
-                </label>
-                <div
-                  className={quoteDateTimeFieldShellClass(
-                    fieldState({
-                      hasError: Boolean(returnDateError),
-                      complete: Boolean(returnDate.trim()),
-                      activeStep: quoteStep === 2 && returnJourney,
-                    }),
-                  )}
-                >
-                  <input
-                    id="returnDate"
-                    ref={returnDateInputRef}
-                    name="returnDate"
-                    type="date"
-                    min={minReturnDate}
-                    value={returnDate}
-                    onChange={(e) => {
-                      setReturnDate(e.target.value);
-                      setReturnDateError("");
-                    }}
-                    onInput={(e) => {
-                      setReturnDate((e.target as HTMLInputElement).value);
-                      setReturnDateError("");
-                    }}
-                    className={quoteDateTimeInputClass()}
-                  />
-                </div>
-              </div>
-              <div className="min-w-0 max-w-full">
-                <label
-                  htmlFor="returnTime"
-                  className="form-label"
-                >
-                  Return pick up time{" "}
-                  <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
-                    (needed to book)
-                  </span>
-                </label>
-                <div
-                  className={quoteDateTimeFieldShellClass(
-                    fieldState({
-                      hasError: Boolean(returnDateError),
-                      complete: Boolean(returnTime.trim()),
-                      activeStep: quoteStep === 2 && returnJourney,
-                    }),
-                  )}
-                >
-                  <input
-                    id="returnTime"
-                    ref={returnTimeInputRef}
-                    name="returnTime"
-                    type="time"
-                    min={minReturnTime}
-                    value={returnTime}
-                    onChange={(e) => {
-                      setReturnTime(e.target.value);
-                      setReturnDateError("");
-                    }}
-                    onInput={(e) => {
-                      setReturnTime((e.target as HTMLInputElement).value);
-                      setReturnDateError("");
-                    }}
-                    onBlur={() => {
-                      requestJourneySummaryScrollAfterTimeConfirm();
-                    }}
-                    className={quoteDateTimeInputClass()}
-                  />
-                </div>
-              </div>
-              <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
-                {returnDateError || "\u00a0"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {renderFlightDetailsSection(2)}
-
-        <div
-          id="step2-journey-summary"
-          ref={step2JourneySummaryRef}
-          className="scroll-mt-44 rounded-xl border border-white/10 bg-white/5 px-4 py-3 md:scroll-mt-28"
-        >
-          <p
-            data-booking-nav-heading
-            tabIndex={-1}
-            className="form-label mb-0 outline-none"
-          >
-            Your Journey
-          </p>
-          <p className="mt-2 text-sm font-semibold text-white">
-            {pickupLabel || "Pickup"}
-          </p>
-          <p className="my-1 text-center text-emerald" aria-hidden>
-            ↓
-          </p>
-          <p className="text-sm font-semibold text-white">
-            {dropoffLabel || "Destination"}
-          </p>
-          {returnJourney && (
-            <p className="mt-3 text-xs leading-relaxed text-white/65">
-              Return inferred as {dropoffLabel || "destination"} → {pickupLabel || "pickup"}. Only
-              the return date and time are needed below.
-            </p>
-          )}
-          {(tripDate || tripTime) && (
-            <p className="mt-3 text-sm text-white/80">
-              {tripDate ? formatDisplayDate(tripDate) : "Date TBC"}
-              {tripTime ? ` · ${formatDisplayTime(tripTime)}` : ""}
-              {returnJourney && returnDate
-                ? ` · Return ${formatDisplayDate(returnDate)}${returnTime ? ` · ${formatDisplayTime(returnTime)}` : ""}`
-                : ""}
-            </p>
-          )}
-          {partySelectionReady && effectivePassengers != null && suitcases != null ? (
-          <p className="mt-2 text-sm text-white/85">
-            {formatPassengerChoice(effectivePassengers)}{" "}
-            passenger
-            {effectivePassengers === 1 ? "" : "s"}{" "}
-            · {formatSuitcaseChoice(suitcases)} suitcase
-            {suitcases === 1 ? "" : "s"}
-            {!exceedsOnlineCapacity ? ` · ${vehicleShortLabel(quoteVehicle)}` : ""}
-          </p>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => navigateQuoteStep(1)}
-            className="mt-2 text-xs font-semibold text-emerald underline-offset-2 hover:underline"
-          >
-            Edit journey details
-          </button>
-        </div>
-        </div>
-          </>
-        ) : null}
-
-        {quoteStep === 2 && quoteChoicesReady && (
-        <div
-          id="quote-price-summary"
-          data-booking-nav-heading
-          tabIndex={-1}
-          className="quote-price-panel scroll-mt-44 outline-none md:scroll-mt-28"
-        >
-          {renderQuotePriceSummaryBody()}
-        </div>
-        )}
-
-        {quoteStep === 3 ? (
-          <>
-        <div
-          id="step3-customer-details"
-          ref={step3CustomerDetailsRef}
-          className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}
-        >
-          <p
-            data-booking-nav-heading
-            tabIndex={-1}
-            className="text-xs font-medium uppercase tracking-wider text-emerald outline-none"
-          >
-            Your details
-          </p>
-          <p className="mt-1 mb-4 text-sm text-white/75">
-            {isManualQuoteJourney
-              ? "Enter your details and submit your quote request. We’ll review it and send your personalised price — no payment is taken now."
-              : canPayNowOnline
-                ? "Enter your details, accept the terms, then pay securely with SumUp to confirm your booking."
-                : "We need these details for your booking request. For journeys that need manual confirmation, we’ll email a SumUp payment link after we confirm the job."}
-          </p>
-          <div className="space-y-4 lg:space-y-3.5">
-            <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
-              <div>
-                <label htmlFor="name" className={BOOKING_LABEL_CLASS}>
-                  Your Name
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  value={customerName}
-                  aria-invalid={Boolean(customerNameError)}
-                  aria-describedby={customerNameError ? "customer-name-error" : undefined}
-                  onChange={(e) => {
-                    setCustomerName(e.target.value);
-                    if (e.target.value.trim()) {
-                      setCustomerNameError("");
-                    }
-                  }}
-                  placeholder="John Smith"
-                  className={bookingTextFieldClass(
-                    fieldState({
-                      hasError: Boolean(customerNameError),
-                      complete: Boolean(customerName.trim()),
-                      activeStep: quoteStep === 3,
-                    }),
-                  )}
-                />
-                {customerNameError && (
-                  <p id="customer-name-error" role="alert" className="mt-1.5 text-xs text-red-300">
-                    {customerNameError}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="mobile" className={BOOKING_LABEL_CLASS}>
-                  Mobile Number
-                </label>
-                <input
-                  id="mobile"
-                  name="mobile"
-                  type="tel"
-                  autoComplete="tel"
-                  value={customerMobile}
-                  aria-invalid={Boolean(mobileNumberError)}
-                  aria-describedby={mobileNumberError ? "customer-mobile-error" : "mobile-helper"}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setCustomerMobile(value);
-                    if (!mobileNumberError) return;
-                    if (value.trim() && isValidMobileNumber(value)) {
-                      setMobileNumberError("");
-                    } else if (value.trim() && mobileNumberError === QUOTE_REQUIRED_FIELD_MESSAGES.mobile) {
-                      setMobileNumberError("");
-                    }
-                  }}
-                  placeholder="07xxx xxxxxx"
-                  className={bookingTextFieldClass(
-                    fieldState({
-                      hasError: Boolean(mobileNumberError),
-                      complete: isValidMobileNumber(customerMobile),
-                      activeStep: quoteStep === 3,
-                    }),
-                  )}
-                />
-                <p id="mobile-helper" className={BOOKING_HELPER_CLASS}>
-                  So we can call or text if we need to reach you about your booking.
-                </p>
-                {mobileNumberError && (
-                  <p id="customer-mobile-error" role="alert" className="mt-1.5 text-xs text-red-300">
-                    {mobileNumberError}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="email" className={BOOKING_LABEL_CLASS}>
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={customerEmail}
-                aria-invalid={Boolean(emailAddressError)}
-                aria-describedby={emailAddressError ? "customer-email-error" : "email-helper"}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setCustomerEmail(value);
-                  if (!emailAddressError) return;
-                  if (value.trim() && isValidEmailAddress(value)) {
-                    setEmailAddressError("");
-                  } else if (value.trim() && emailAddressError === QUOTE_REQUIRED_FIELD_MESSAGES.email) {
-                    setEmailAddressError("");
-                  }
-                }}
-                placeholder="you@example.com"
-                className={bookingTextFieldClass(
-                  fieldState({
-                    hasError: Boolean(emailAddressError),
-                    complete: isValidEmailAddress(customerEmail),
-                    activeStep: quoteStep === 3,
-                  }),
-                )}
-              />
-              <p id="email-helper" className={BOOKING_HELPER_CLASS}>
-                {canPayNowOnline
-                  ? "We’ll email your booking confirmation and receipt after you pay with SumUp."
-                  : "So we can email your booking confirmation and, when ready, your SumUp payment link."}
-              </p>
-              {emailAddressError && (
-                <p id="customer-email-error" role="alert" className="mt-1.5 text-xs text-red-300">
-                  {emailAddressError}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {paymentError && !(canPayNowOnline && liveQuote) ? (
-          <div className="space-y-3">
-            <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-              {paymentError}
-            </p>
-            {renderBookingErrorHelp("payment-early")}
-          </div>
-        ) : null}
-
-                  <div id="step3-booking-review" className={`${BOOKING_PANEL_CLASS} scroll-mt-44 md:scroll-mt-28`}>
-            <div className="mb-4">
-              <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                {isManualQuoteJourney || showsRequestQuoteFlow
-                  ? "Journey summary"
-                  : isEnquiryOnly
-                    ? "Enquiry summary"
-                    : "Journey summary"}
-              </p>
-              <p className="mt-1 text-sm text-white/75">
-                Check your journey details before continuing.
-              </p>
-            </div>
-            <dl>
-              <PreviewRow
-                label="Trip"
-                value={
-                  isA2AFlow && journeyKind
-                    ? journeyKindLabel(journeyKind)
-                    : isAirportTrip
-                      ? isFromAirport
-                        ? "Airport pickup"
-                        : "Airport drop-off"
-                      : "Address to address"
-                }
-              />
-              {(isAirportTrip || effectiveAirportCode) && airportName && (
-                <PreviewRow label="Airport" value={`${airportName} (${effectiveAirportCode})`} />
-              )}
-              <PreviewRow label="Pickup" value={pickupLabel} />
-              <PreviewRow label="Destination" value={dropoffLabel} />
-              {journeyDurationLabel && (
-                <PreviewRow
-                  label="Estimated journey time"
-                  value={journeyDurationLabel}
-                />
-              )}
-              <PreviewRow
-                label={returnJourney ? "Outbound" : "Date & time"}
-                value={`${formatDisplayDate(tripDate)} at ${formatDisplayTime(tripTime)} (UK local time)`}
-              />
-              {returnJourney && (
-                <PreviewRow
-                  label="Return"
-                  value={`${formatDisplayDate(returnDate)} at ${formatDisplayTime(returnTime)} (UK local time)`}
-                />
-              )}
-              {needsOutboundFlightNumber && (
-                <PreviewRow
-                  label="Flight for going"
-                  value={
-                    verifiedGoingFlight
-                      ? formatVerifiedFlightSummary(verifiedGoingFlight)
-                      : goingFlightNumber.trim().toUpperCase()
-                  }
-                />
-              )}
-              {needsReturnCollectionFlightNumber && (
-                <PreviewRow
-                  label="Flight for collection"
-                  value={
-                    verifiedCollectionFlight
-                      ? formatVerifiedFlightSummary(verifiedCollectionFlight)
-                      : collectionFlightNumber.trim().toUpperCase()
-                  }
-                />
-              )}
-              <PreviewRow
-                label="Passengers"
-                value={effectivePassengers == null ? "—" : String(effectivePassengers)}
-              />
-              <PreviewRow
-                label="Luggage"
-                value={suitcases == null ? "—" : String(suitcases)}
-              />
-              {quoteVehicle ? (
-                <PreviewRow label="Vehicle" value={vehicleShortLabel(quoteVehicle)} />
-              ) : null}
-              {pricingConfirmationRequired ? (
-                <PreviewRow label="Pricing" value={priceConfirmationLabel} />
-              ) : isManualQuoteJourney ? (
-                <PreviewRow
-                  label="Pricing"
-                  value="Personalised quote — we’ll confirm your price"
-                />
-              ) : showsRequestQuoteFlow && liveQuote ? (
-                <PreviewRow
-                  label="Guide price"
-                  value={`${formatQuote(liveQuote.amount)} — request a quote`}
-                />
-              ) : isEnquiryOnly ? (
-                <PreviewRow label="Pricing" value="Enquiry — we’ll quote you" />
-              ) : liveQuote ? (
-                <PreviewRow
-                  label={
-                    appliedPersonalQuote
-                      ? "Personal quoted fare"
-                      : returnJourney
-                        ? "Your fixed return journey price"
-                        : "Your fixed journey price"
-                  }
-                  value={formatQuote(
-                    testChargeAmount ??
-                      pricedFare?.totalGbp ??
-                      appliedPersonalQuote?.agreedAmount ??
-                      liveQuote.amount,
-                  )}
-                />
-              ) : null}
-              {appliedPersonalQuote && liveQuote && testChargeAmount === null ? (
-                <PreviewRow
-                  label="Standard website fare"
-                  value={formatQuote(liveQuote.amount)}
-                />
-              ) : null}
-            </dl>
-            <button
-              type="button"
-              onClick={handleEditBooking}
-              className="btn-secondary mt-4 w-full"
-            >
-              Edit journey
-            </button>
-          </div>
-
-        {submitError && (
-          <div className="space-y-3">
-            <p
-              id="quote-submit-error"
-              role="alert"
-              className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
-            >
-              {submitError}
-            </p>
-            {renderBookingErrorHelp("submit")}
-          </div>
-        )}
-
-        <div className="space-y-3">
-            {capacityNeedsConfirm ? (
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
-                <input
-                  type="checkbox"
-                  checked={capacityConfirmed}
-                  onChange={(event) => {
-                    setCapacityConfirmed(event.target.checked);
-                    if (event.target.checked) {
-                      setCapacityError("");
-                    }
-                  }}
-                  className="mt-1 h-4 w-4 shrink-0 rounded border-white/30 bg-navy text-emerald focus:ring-emerald"
-                />
-                <span>
-                  I understand luggage capacity may need written confirmation before this booking is
-                  accepted.
-                  {capacityError ? (
-                    <span className="mt-1 block text-xs text-red-200">{capacityError}</span>
-                  ) : null}
-                </span>
-              </label>
-            ) : null}
-
-            <BookingTermsConsent
-              accepted={termsAccepted}
-              onAcceptedChange={(checked) => {
-                setTermsAccepted(checked);
-                if (checked) {
-                  setTermsError("");
-                }
-              }}
-              error={termsError}
-              mode={
-                isManualQuoteJourney
-                  ? "quote-request"
-                  : canPayNowOnline
-                    ? "card-payment"
-                    : "booking-request"
-              }
-              paymentAmountLabel={
-                isEnquiryOnly || isManualQuoteJourney
-                  ? undefined
-                  : testChargeAmount !== null
-                    ? "£1.00"
-                    : appliedPersonalQuote
-                      ? formatQuote(appliedPersonalQuote.agreedAmount)
-                      : liveQuote
-                        ? formatQuote(
-                            pricedFare?.totalGbp ?? liveQuote.amount,
-                          )
-                        : undefined
-              }
-            />
-
-            <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
-
-            {canPayNowOnline &&
-            liveQuote &&
-            testChargeAmount === null &&
-            !appliedPersonalQuote &&
-            openWebsiteFareBreakdown ? (
-              <FinalPayableBreakdown
-                breakdown={openWebsiteFareBreakdown}
-                service={expressSelection.service ?? "drop-off"}
-                freeAirportAccessSelected={
-                  expressSelection.eligible && expressSelection.feeGbp === 0
-                }
-              />
-            ) : null}
-
-            {canPayNowOnline && liveQuote && testChargeAmount === null ? (
-              <BookWithConfidence />
-            ) : null}
-
-            <div
-              id="step3-payment-actions"
-              ref={step3PaymentActionsRef}
-              className="scroll-mt-44 space-y-3 md:scroll-mt-28"
-            >
-            {smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError) ? (
-              <div id="customer-smart-availability-blocked-step3">
-                <CustomerSmartAvailabilityBlocked
-                  message={
-                    isCustomerSmartAvailabilityBlockMessage(paymentError)
-                      ? paymentError
-                      : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE
-                  }
-                  alternativeTimes={availabilityAlternatives}
-                  onSelectAlternative={(option) => void handleSelectAvailabilityAlternative(option)}
-                  onChooseAnotherTime={handleChooseAnotherTime}
-                  onChooseAnotherDate={handleChooseAnotherDate}
-                  selectingTime={selectingAlternativeTime}
-                />
-              </div>
-            ) : canPayNowOnline && liveQuote && (
-              <div className="space-y-3">
-                {paymentError ? (
-                  <div className="space-y-3">
-                    <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-                      {paymentError}
-                    </p>
-                    {renderBookingErrorHelp("payment-actions")}
-                  </div>
-                ) : null}
-                {paymentPopupBlocked && !paymentError ? (
-                  <div className="space-y-3">
-                    <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                      Payment could not open automatically. Tap “Continue to SumUp” below, or message
-                      us on WhatsApp if you still need help.
-                    </p>
-                    {renderBookingErrorHelp("payment-actions")}
-                  </div>
-                ) : null}
-                {isCustomerSmartAvailabilityBlockMessage(paymentError) ? (
-                  <p className="quote-secondary text-xs leading-relaxed">
-                    You can still message us on WhatsApp or send an enquiry. Online payment is
-                    paused for this pickup time only.
-                  </p>
-                ) : openCheckout ? (
-                  <div className="space-y-3 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4">
-                    <p className="text-sm font-semibold text-emerald">Secure payment ready</p>
-                    <p className="text-xs leading-relaxed text-white/75">
-                      Your booking details are saved for {openCheckout.amountLabel}. Continue to
-                      SumUp to finish paying, or edit your booking first.
-                    </p>
-                    {paymentPopupBlocked ? (
-                      <p className="text-xs leading-relaxed text-amber-200">
-                        Payment could not open automatically. Tap “Continue to SumUp” below.
-                      </p>
-                    ) : null}
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={handleReturnToEditBooking}
-                        className="btn-secondary w-full"
-                      >
-                        Return to / Edit booking
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleOpenPaymentAgain}
-                        disabled={paymentLoading}
-                        className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {paymentLoading ? "Opening secure payment…" : "Continue to SumUp"}
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleStartFreshCheckout}
-                      className="w-full text-center text-xs font-medium text-white/55 underline-offset-2 hover:text-white/80 hover:underline"
-                    >
-                      Start a new payment link
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <p className="quote-secondary text-xs leading-relaxed">
-                      You’ll be securely redirected to SumUp to complete your payment. Your booking
-                      details stay saved if you return to this page.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void handlePayNow()}
-                      disabled={paymentLoading || submitted}
-                      className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {paymentLoading
-                        ? "Opening secure payment…"
-                        : testChargeAmount !== null
-                          ? "Pay £1.00 test charge with SumUp"
-                          : `Pay ${formatQuote(appliedPersonalQuote?.agreedAmount ?? pricedFare?.totalGbp ?? liveQuote.amount)} now with SumUp`}
-                    </button>
-                    <p className="quote-secondary text-center text-xs">
-                      Card payments are processed securely by SumUp. You&apos;ll receive a branded
-                      invoice by email after payment.
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-            {smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError) ? null : canPayNowOnline ? (
-              <button
-                type="button"
-                onClick={handleEditBooking}
-                className="btn-secondary w-full"
-              >
-                Back to travel details
-              </button>
-            ) : isManualQuoteJourney ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={handleEditBooking}
-                  className="btn-secondary w-full"
-                >
-                  Back to travel details
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitted}
-                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitted ? submitInProgressLabel : confirmButtonLabel}
-                </button>
-              </div>
-            ) : usesWhatsApp ? (
-              <>
-                <p className="quote-secondary text-xs">
-                  {isEnquiryOnly
-                    ? "Choose how to send your enquiry:"
-                    : "Choose how to send your booking:"}
-                </p>
-                <button
-                  type="button"
-                  onClick={handleEditBooking}
-                  className="btn-secondary w-full"
-                >
-                  Back to travel details
-                </button>
-                <button
-                  type="button"
-                  disabled={submitted}
-                  onClick={() => void confirmBooking("whatsapp")}
-                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitted ? submitInProgressLabel : whatsAppConfirmLabel}
-                </button>
-                <button
-                  type="button"
-                  disabled={submitted}
-                  onClick={() => void confirmBooking("email")}
-                  className="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitted
-                    ? submitInProgressLabel
-                    : isEnquiryOnly
-                      ? "Send enquiry via email"
-                      : "Send booking via email"}
-                </button>
-                <p className="quote-secondary text-xs leading-relaxed">
-                  No WhatsApp? Email works too — we&apos;ll confirm at {customerEmail.trim()}.
-                </p>
-              </>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={handleEditBooking}
-                  className="btn-secondary w-full"
-                >
-                  Back to travel details
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitted}
-                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {submitted ? submitInProgressLabel : confirmButtonLabel}
-                </button>
-              </div>
-            )}
-            {renderBookingErrorHelp("step3")}
-            {renderStartNewQuoteControls("step3")}
-            </div>
-          </div>
-          </>
-        ) : quoteStep === 2 ? (
-          <div id="quote-step2-next" className="scroll-mt-44 space-y-3 md:scroll-mt-28">
-            {smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError) ? (
-              <div id="customer-smart-availability-blocked">
-                <CustomerSmartAvailabilityBlocked
-                  message={
-                    isCustomerSmartAvailabilityBlockMessage(paymentError)
-                      ? paymentError
-                      : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE
-                  }
-                  alternativeTimes={availabilityAlternatives}
-                  onSelectAlternative={(option) => void handleSelectAvailabilityAlternative(option)}
-                  onChooseAnotherTime={handleChooseAnotherTime}
-                  onChooseAnotherDate={handleChooseAnotherDate}
-                  selectingTime={selectingAlternativeTime}
-                />
-              </div>
-            ) : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => {
-                  navigateQuoteStep(1);
-                  clearFlightFieldErrors();
-                  setReturnDateError("");
-                }}
-                className="btn-secondary w-full"
-              >
-                Back
-              </button>
-              {smartAvailabilityBlocked ? null : (
-                <button
-                  type="button"
-                  disabled={submitted || continueToDetailsBusy}
-                  onClick={handleContinueTravelDetails}
-                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  Continue to your details
-                </button>
-              )}
-            </div>
-            {liveQuote &&
-            canPayNowOnline &&
-            !isEnquiryOnly &&
-            !showsRequestQuoteFlow &&
-            !appliedPersonalQuote &&
-            !submitted ? (
-              <button
-                type="button"
-                onClick={handleSaveQuoteClick}
-                className="w-full rounded-xl border border-white/25 bg-transparent py-3 text-sm font-semibold text-white transition-all hover:bg-white/5"
-              >
-                Save Quote
-              </button>
-            ) : null}
-            {renderBookingErrorHelp("step2")}
-            {renderStartNewQuoteControls("step2")}
-            {saveQuotePrompt ? (
-              <p className="text-center text-xs text-emerald/90" role="status">
-                {saveQuotePrompt}
-              </p>
-            ) : null}
-            {travelDetailsBlocker ? (
-              <p className="quote-secondary text-center text-xs" role="status">
-                {travelDetailsBlocker}
-              </p>
-            ) : (
-              <p className="quote-secondary text-center text-xs">
-                Next: your contact details to confirm the booking.
-              </p>
-            )}
-          </div>
+        {quoteStep >= 2 ? (
+          renderCheckoutPage()
         ) : quoteResultsReady ? null : (
           <>
             <div

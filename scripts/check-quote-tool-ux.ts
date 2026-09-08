@@ -82,9 +82,8 @@ check("Flight number only at booking for airport pickups — not during Get a Qu
   assert.doesNotMatch(progressive, /AIRPORT_FLIGHT_MONITORING_COPY|We monitor your flight/);
   assert.match(card, /BOOKING_FLIGHT_NUMBER_HELPER/);
   assert.match(card, /quoteStep === 3/);
-  assert.match(card, /enabled=\{quoteStep === 3\}/);
+  assert.match(card, /enabled=\{quoteStep >= 2\}/);
   assert.doesNotMatch(card, /Providing your flight number helps us monitor your arrival/);
-  assert.doesNotMatch(card, /enabled=\{quoteStep === 2\}/);
   // Going flight only when pickup is from airport; return flight only when return is airport pickup
   assert.match(card, /isAirportTrip && isFromAirport/);
   assert.match(card, /isAirportTrip && !isFromAirport/);
@@ -99,7 +98,7 @@ check("Waiting-time copy is centralised correctly", () => {
 check("QuoteCard uses progressive route for A2A primary flow", () => {
   assert.match(card, /QuoteProgressiveRoute/);
   assert.match(card, /applyJourneyIntent/);
-  assert.match(card, /Your Journey/);
+  assert.match(card, /COMPLETE YOUR BOOKING|Edit journey|Your journey/);
 });
 
 check("Step 2 travel details section scrolls only after explicit step navigation", () => {
@@ -139,7 +138,7 @@ check("Public quote tool uses booking-nav scroll (no scrollIntoView / legacy far
 });
 
 check("Journey mode, passengers and suitcases start unselected; results scroll once when ready", () => {
-  assert.match(card, /useState<"one-way" \| "return" \| null>\(null\)/);
+  assert.match(card, /useState<"one-way" \| "return" \| null>\([\s\S]*?null/);
   assert.match(card, /useState<number \| null>\(null\)/);
   assert.match(progressive, /Choose One way or Return to continue\./);
   assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);

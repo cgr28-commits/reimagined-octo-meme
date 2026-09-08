@@ -51,7 +51,7 @@ check("Explicit step CTAs set pending nav scroll then change step", () => {
     card,
     /pendingQuoteStepNavScrollRef\.current = 2;\s*setQuoteStep\(2\)/,
   );
-  // Continue to your details (step 2 → 3): commit + scroll in the same tap
+  // Checkout page keeps the existing step-2/3 anchors and availability gate.
   assert.match(card, /continueToDetailsInFlightRef/);
   assert.match(card, /continueToDetailsBusy/);
   assert.match(card, /flushSync\(\(\) => \{\s*setQuoteStep\(3\);\s*\}\)/);
@@ -64,16 +64,14 @@ check("Explicit step CTAs set pending nav scroll then change step", () => {
     card,
     /pendingQuoteStepNavScrollRef\.current = 3;\s*setQuoteStep\(3\)/,
   );
-  assert.match(card, /disabled=\{submitted \|\| continueToDetailsBusy\}/);
   assert.match(
     card,
     /await applyCustomerSmartAvailabilityCheck\(\);[\s\S]*flushSync\(\(\) => \{\s*setQuoteStep\(3\);/,
   );
-  // Back / Edit journey / Back to travel details use navigateQuoteStep
   assert.match(card, /navigateQuoteStep\(1\)/);
   assert.match(card, /navigateQuoteStep\(2\)/);
-  assert.match(card, /Back to travel details/);
-  assert.match(card, /Continue to your details/);
+  assert.match(card, /submitCheckoutForm/);
+  assert.match(card, /Confirm booking & pay securely/);
 });
 
 check("Scroll effect consumes pending flag once and is quoteStep-gated", () => {
