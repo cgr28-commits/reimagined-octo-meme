@@ -1,42 +1,33 @@
 /**
  * KV persistence for website quote sessions (daily owner report).
- * Failures must never block quotes or bookings — callers catch.
+ * Each session writes its own day-membership marker so concurrent customers
+ * cannot overwrite one another. Failures must never block quotes or bookings.
  */
 
 import {
   QUOTE_SESSION_TTL_SECONDS,
+  collectQuoteTransactionIdsFromMarkerKeys,
   isQuoteTransactionId,
   markQuoteSessionBooked,
   mergeQuoteSessionRecord,
-  normalizeQuoteTransactionId,
-  quoteSessionDayIndexKey,
+  quoteSessionDayMarkerKey,
+  quoteSessionDayMarkerPrefix,
   quoteSessionKey,
   quoteDailyReportSentKey,
   type DailyQuoteSessionInput,
   type DailyQuoteSessionRecord,
 } from "../shared/quote-session";
 
-type DayIndex = { ids: string[]; updatedAt: string };
-
 export function quoteSessionStoreConfigured(store?: KVNamespace): store is KVNamespace {
   return Boolean(store);
 }
 
-async function readDayIndex(store: KVNamespace, londonDay: string): Promise<string[]> {
-  const index = await store.get<DayIndex>(quoteSessionDayIndexKey(londonDay), "json");
-  return Array.isArray(index?.ids)
-    ? index.ids.map((id) => normalizeQuoteTransactionId(String(id))).filter(Boolean)
-    : [];
-}
-
-async function writeDayIndex(
+async function writeDayMembershipMarker(
   store: KVNamespace,
   londonDay: string,
-  ids: string[],
+  quoteTransactionId: string,
 ): Promise<void> {
-  const unique = [...new Set(ids.map(normalizeQuoteTransactionId).filter(Boolean))].slice(0, 2000);
-  const payload: DayIndex = { ids: unique, updatedAt: new Date().toISOString() };
-  await store.put(quoteSessionDayIndexKey(londonDay), JSON.stringify(payload), {
+  await store.put(quoteSessionDayMarkerKey(londonDay, quoteTransactionId), "1", {
     expirationTtl: QUOTE_SESSION_TTL_SECONDS,
   });
 }
@@ -46,12 +37,19 @@ export async function getQuoteSession(
   quoteTransactionId: string,
 ): Promise<DailyQuoteSessionRecord | null> {
   if (!isQuoteTransactionId(quoteTransactionId)) return null;
-  const record = await store.get<DailyQuoteSessionRecord>(
-    quoteSessionKey(quoteTransactionId),
-    "json",
-  );
-  if (!record?.quoteTransactionId) return null;
-  return record;
+  try {
+    const record = await store.get<DailyQuoteSessionRecord>(
+      quoteSessionKey(quoteTransactionId),
+      "json",
+    );
+    if (!record?.quoteTransactionId || !isQuoteTransactionId(record.quoteTransactionId)) {
+      return null;
+    }
+    return record;
+  } catch (error) {
+    console.error("Quote session read failed", error);
+    return null;
+  }
 }
 
 export async function upsertQuoteSession(
@@ -63,13 +61,7 @@ export async function upsertQuoteSession(
   await store.put(quoteSessionKey(record.quoteTransactionId), JSON.stringify(record), {
     expirationTtl: QUOTE_SESSION_TTL_SECONDS,
   });
-  const index = await readDayIndex(store, record.londonDay);
-  if (!index.includes(normalizeQuoteTransactionId(record.quoteTransactionId))) {
-    await writeDayIndex(store, record.londonDay, [
-      normalizeQuoteTransactionId(record.quoteTransactionId),
-      ...index,
-    ]);
-  }
+  await writeDayMembershipMarker(store, record.londonDay, record.quoteTransactionId);
   return { record, created: !existing };
 }
 
@@ -88,25 +80,43 @@ export async function markQuoteSessionBookedInStore(
   await store.put(quoteSessionKey(record.quoteTransactionId), JSON.stringify(record), {
     expirationTtl: QUOTE_SESSION_TTL_SECONDS,
   });
-  const index = await readDayIndex(store, record.londonDay);
-  if (!index.includes(normalizeQuoteTransactionId(record.quoteTransactionId))) {
-    await writeDayIndex(store, record.londonDay, [
-      normalizeQuoteTransactionId(record.quoteTransactionId),
-      ...index,
-    ]);
-  }
+  await writeDayMembershipMarker(store, record.londonDay, record.quoteTransactionId);
   return record;
+}
+
+async function listAllDayMarkerKeys(
+  store: KVNamespace,
+  londonDay: string,
+): Promise<string[]> {
+  const prefix = quoteSessionDayMarkerPrefix(londonDay);
+  const names: string[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = cursor
+      ? await store.list({ prefix, cursor })
+      : await store.list({ prefix });
+    for (const key of page.keys) {
+      names.push(key.name);
+    }
+    if (page.list_complete || !("cursor" in page) || !page.cursor) {
+      break;
+    }
+    cursor = page.cursor;
+  }
+  return names;
 }
 
 export async function listQuoteSessionsForLondonDay(
   store: KVNamespace,
   londonDay: string,
 ): Promise<DailyQuoteSessionRecord[]> {
-  const ids = await readDayIndex(store, londonDay);
+  const markerKeys = await listAllDayMarkerKeys(store, londonDay);
+  const ids = collectQuoteTransactionIdsFromMarkerKeys(markerKeys);
   const records: DailyQuoteSessionRecord[] = [];
   for (const id of ids) {
     const record = await getQuoteSession(store, id);
-    if (record) records.push(record);
+    if (!record) continue;
+    records.push(record);
   }
   return records.sort((a, b) => a.firstQuotedAt.localeCompare(b.firstQuotedAt));
 }

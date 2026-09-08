@@ -7,7 +7,7 @@
 import { todayLondonDate, UK_TIME_ZONE } from "./uk-time";
 
 export const QUOTE_SESSION_TTL_SECONDS = 60 * 60 * 24 * 60;
-export const DEFAULT_DAILY_QUOTE_REPORT_LONDON_HOUR = 0;
+export const DEFAULT_DAILY_QUOTE_REPORT_LONDON_HOUR = 1;
 
 export type DailyQuoteSessionRecord = {
   quoteTransactionId: string;
@@ -63,8 +63,34 @@ export function quoteSessionKey(quoteTransactionId: string): string {
   return `quote_session:${normalizeQuoteTransactionId(quoteTransactionId)}`;
 }
 
-export function quoteSessionDayIndexKey(londonDay: string): string {
-  return `quote_sessions_day:${londonDay}`;
+export function quoteSessionDayMarkerKey(
+  londonDay: string,
+  quoteTransactionId: string,
+): string {
+  return `quote_session_day:${londonDay}:${normalizeQuoteTransactionId(quoteTransactionId)}`;
+}
+
+export function quoteSessionDayMarkerPrefix(londonDay: string): string {
+  return `quote_session_day:${londonDay}:`;
+}
+
+export function quoteTransactionIdFromDayMarkerKey(key: string): string | null {
+  const match = /^quote_session_day:\d{4}-\d{2}-\d{2}:(.+)$/.exec(key);
+  if (!match) return null;
+  const id = normalizeQuoteTransactionId(match[1]);
+  return isQuoteTransactionId(id) ? id : null;
+}
+
+export function collectQuoteTransactionIdsFromMarkerKeys(keys: string[]): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const name of keys) {
+    const id = quoteTransactionIdFromDayMarkerKey(name);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
 }
 
 export function quoteDailyReportSentKey(londonDay: string): string {
