@@ -74,20 +74,22 @@ export function addressFieldShellClass(options: {
   isActiveUi: boolean;
 }): string {
   const base =
-    "rounded-[0.75rem] border bg-white/[0.045] transition-[border-color,box-shadow] duration-150";
+    "rounded-[0.75rem] border bg-white/[0.12] transition-[border-color,box-shadow] duration-150";
+  const focusGlow =
+    "focus-within:border-emerald focus-within:ring-2 focus-within:ring-emerald/45 focus-within:shadow-[0_0_0_3px_rgba(47,191,74,0.22)]";
   if (options.hasError) {
     return `${base} border-red-400/55 ring-1 ring-red-400/30`;
   }
   if (options.needsCompletion) {
-    return `${base} border-emerald/50 ring-1 ring-emerald/25`;
+    return `${base} border-emerald/70 ring-1 ring-emerald/40 ${focusGlow}`;
   }
   if (options.isActiveUi) {
-    return `${base} border-emerald/50 ring-1 ring-emerald/30`;
+    return `${base} border-emerald ring-2 ring-emerald/45 shadow-[0_0_0_3px_rgba(47,191,74,0.22)]`;
   }
   if (options.isComplete) {
-    return `${base} border-emerald/30 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30`;
+    return `${base} border-emerald/50 ${focusGlow}`;
   }
-  return `${base} border-white/12 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30`;
+  return `${base} border-emerald/45 ${focusGlow}`;
 }
 
 /** Soft emerald outline around a choice-card group that still needs a selection. */

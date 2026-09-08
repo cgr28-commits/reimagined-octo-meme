@@ -35,7 +35,19 @@ assert.match(addressFieldShellClass({
   needsCompletion: true,
   isComplete: false,
   isActiveUi: false,
-}), /border-emerald\/50/);
+}), /border-emerald\/70/);
+assert.match(addressFieldShellClass({
+  hasError: false,
+  needsCompletion: true,
+  isComplete: false,
+  isActiveUi: false,
+}), /bg-white\/\[0\.12\]/);
+assert.match(addressFieldShellClass({
+  hasError: false,
+  needsCompletion: false,
+  isComplete: false,
+  isActiveUi: true,
+}), /shadow-\[0_0_0_3px_rgba\(47,191,74,0\.22\)\]/);
 assert.match(choiceGroupNeedsClass(true), /border-emerald\/45/);
 assert.match(choiceGroupNeedsClass(false), /border-transparent/);
 assert.match(choiceGroupNeedsClass(false), /p-2/);
@@ -46,7 +58,7 @@ const card = read("src/components/QuoteCard.tsx");
 assert.match(card, /aria-current=\{active \? "step" : undefined\}/);
 assert.match(card, /quote-step-active|border-emerald bg-emerald\/15/);
 assert.match(card, /sr-only">completed/);
-assert.match(card, /quoteTextFieldClass/);
+assert.match(card, /quoteDateTimeFieldShellClass/);
 assert.match(card, /bookingTextFieldClass/);
 assert.match(card, /needsCompletion=\{quoteStep === 1 && !isPlaceSelected/);
 assert.doesNotMatch(card, /BOOKING_INPUT_CLASS/);
@@ -58,7 +70,10 @@ assert.match(address, /needsCompletion/);
 assert.match(address, /placeComplete/);
 assert.match(address, /requireSuggestion[\s\S]*hasConfirmedSelection/);
 assert.match(address, /z-\[80\]|z-\[90\]/);
-console.log("OK  Places needs placeId; z-index intact");
+assert.match(address, /placeholder:text-white\/70/);
+assert.match(address, /form-label text-\[#dce4ee\]/);
+assert.match(address, /h-12 w-full min-w-0 border-0 bg-transparent/);
+console.log("OK  Places needs placeId; z-index intact; address field contrast lifted");
 
 console.log("\n=== Progressive route ===");
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");
