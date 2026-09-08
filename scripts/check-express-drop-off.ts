@@ -1289,4 +1289,71 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
   assert.match(card, /Your Fixed Return Journey Price/);
 });
 
+check("Express → Free → Express immediately updates displayed and booking amounts", () => {
+  function quoteAmounts(input: {
+    airportCode: "BFS" | "BHD";
+    selected: boolean;
+    transferFareGbp: number;
+  }) {
+    const selection = resolveExpressDropOff({
+      airportCode: input.airportCode,
+      fromAirport: false,
+      selected: input.selected,
+    });
+    const fare = composeFareWithExpressDropOff({
+      transferFareGbp: input.transferFareGbp,
+      expressDropOffFeeGbp: selection.feeGbp,
+    });
+    return {
+      displayed: fare.totalGbp,
+      booking: fare.totalGbp,
+      accessCharge: selection.feeGbp,
+      selected: selection.selected,
+    };
+  }
+
+  // Selecting the labelled free option also auto-acknowledges (selector UX).
+  for (const [airport, fee, transfer] of [
+    ["BFS", 5, 42],
+    ["BHD", 4, 30],
+  ] as const) {
+    const express = quoteAmounts({
+      airportCode: airport,
+      selected: true,
+      transferFareGbp: transfer,
+    });
+    assert.equal(express.selected, true);
+    assert.equal(express.accessCharge, fee);
+    assert.equal(express.displayed, transfer + fee);
+    assert.equal(express.booking, transfer + fee);
+
+    const free = quoteAmounts({
+      airportCode: airport,
+      selected: false,
+      transferFareGbp: transfer,
+    });
+    assert.equal(free.selected, false);
+    assert.equal(free.accessCharge, 0);
+    assert.equal(free.displayed, transfer);
+    assert.equal(free.booking, transfer);
+    assert.equal(free.displayed, express.displayed - fee);
+    assert.ok(
+      canProceedWithoutExpressDropOff({
+        eligible: true,
+        selected: false,
+        removalAcknowledged: true,
+      }),
+    );
+
+    const back = quoteAmounts({
+      airportCode: airport,
+      selected: true,
+      transferFareGbp: transfer,
+    });
+    assert.equal(back.displayed, express.displayed);
+    assert.equal(back.booking, express.booking);
+    assert.equal(back.accessCharge, fee);
+  }
+});
+
 console.log("\nAll Express Drop-Off checks passed.");

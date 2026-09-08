@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   COMBINED_AIRPORT_ACCESS_REMOVED_EXPLANATION,
   COMBINED_AIRPORT_ACCESS_RETURN_NOTE,
