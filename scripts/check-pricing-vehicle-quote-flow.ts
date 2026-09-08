@@ -243,6 +243,28 @@ check("customer-facing copy does not claim weekend costs more", () => {
   assert.doesNotMatch(panel, /Bank Holiday premiums/);
 });
 
+check("Estate fare is exactly £6 above the equivalent Saloon fare", () => {
+  const cityHall = "Belfast City Hall, Belfast BT1 5GS";
+  const saloon = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {}, cityBfsMetrics);
+  const estate = calculateQuote(cityHall, "BFS", ESTATE_VEHICLE, false, {}, cityBfsMetrics);
+  assert.ok(saloon && estate);
+  assert.equal(estate.amount, saloon.amount + 6);
+  assert.equal(selectVehicleForParty(2, 2), SALOON_VEHICLE);
+  assert.equal(selectVehicleForParty(2, 3), ESTATE_VEHICLE);
+});
+
+check("QuoteCard derives vehicle with party and ignores stale server fares", () => {
+  const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
+  assert.match(card, /getAutoVehicle\(pax, suitcases/);
+  assert.match(card, /serverFareParts\.passengers === passengers/);
+  assert.match(card, /serverFareParts\.suitcases === suitcases/);
+  assert.match(card, /matchingServerFareParts/);
+  assert.doesNotMatch(
+    card,
+    /const quoteVehicle = vehicle;/,
+  );
+});
+
 check("shared return discount source of truth unchanged at 5%", () => {
   const rate = JSON.parse(
     fs.readFileSync(path.join(root, "shared/return-journey-discount-rate.json"), "utf8"),

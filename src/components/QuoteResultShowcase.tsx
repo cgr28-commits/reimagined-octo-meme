@@ -15,6 +15,8 @@ type QuoteResultShowcaseProps = {
   priceLabel: string;
   formattedPrice: string;
   expressIncludedLine?: string | null;
+  /** Optional support line under the fixed-price trust copy (e.g. return saving). */
+  savingLine?: string | null;
   bookButton: ReactNode;
 };
 
@@ -31,6 +33,7 @@ export default function QuoteResultShowcase({
   priceLabel,
   formattedPrice,
   expressIncludedLine,
+  savingLine,
   bookButton,
 }: QuoteResultShowcaseProps) {
   const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
@@ -89,6 +92,9 @@ export default function QuoteResultShowcase({
             {formattedPrice}
           </p>
           <p className="mt-2 text-sm font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
+          {savingLine ? (
+            <p className="mt-1 text-xs font-medium text-navy/60">{savingLine}</p>
+          ) : null}
           {expressIncludedLine ? (
             <p className="mt-1 text-xs font-medium text-navy/60">{expressIncludedLine}</p>
           ) : null}

@@ -102,6 +102,10 @@ check("QuoteCard uses progressive route for A2A primary flow", () => {
   assert.match(card, /Your Journey/);
   assert.match(card, /Your transfer/);
   assert.match(card, /Complete your booking/);
+  assert.match(card, /Choose your travel dates and pickup times to continue/);
+  assert.match(card, /We'll use the reverse route for your return journey|We&apos;ll use the reverse route for your return journey/);
+  assert.doesNotMatch(card, /Return inferred as/);
+  assert.match(card, /5% return journey saving applied/);
 });
 
 check("Step 2 travel details section scrolls only after explicit step navigation", () => {

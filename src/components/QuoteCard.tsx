@@ -721,6 +721,8 @@ function QuoteCard({
     journeyFareGbp: number;
     airportFixedCostsGbp: number;
     amountGbp: number;
+    passengers: number;
+    suitcases: number;
   } | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
@@ -755,7 +757,16 @@ function QuoteCard({
     setRouteMetrics(metrics);
   }, []);
 
-  const quoteVehicle = vehicle;
+  // Derive Saloon/Estate in the same render as passengers/suitcases so the
+  // card image and live fare never use different vehicles. Stored `vehicle`
+  // stays in sync for drafts/hidden fields; it is not a one-effect lag source.
+  const quoteVehicle = useMemo(() => {
+    const pax = effectivePartyPassengers(passengers);
+    if (pax == null || suitcases == null) {
+      return vehicle;
+    }
+    return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
+  }, [passengers, suitcases, vehicle]);
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
@@ -1519,6 +1530,8 @@ function QuoteCard({
               ? Math.round(result.airportFixedCostsGbp * 100) / 100
               : 0,
           amountGbp: Math.round(result.amount * 100) / 100,
+          passengers,
+          suitcases,
         });
         if (
           Number.isFinite(result.distanceKm) &&
@@ -1722,15 +1735,25 @@ function QuoteCard({
     returnJourney,
   ]);
 
+  const matchingServerFareParts =
+    serverFareParts &&
+    passengers != null &&
+    suitcases != null &&
+    serverFareParts.passengers === passengers &&
+    serverFareParts.suitcases === suitcases
+      ? serverFareParts
+      : null;
+
   const journeyFareParts = useMemo(() => {
     // Prefer Worker-authoritative split so consent amount matches SumUp requote.
-    if (serverFareParts) {
+    // Ignore a previous party’s fare so Estate/Saloon never display a stale total.
+    if (matchingServerFareParts) {
       const fixedFromLines =
         airportFeeResolution.lines.length > 0
           ? airportFeeResolution.totalAppliedGbp
-          : serverFareParts.airportFixedCostsGbp;
+          : matchingServerFareParts.airportFixedCostsGbp;
       return {
-        journeyFareGbp: serverFareParts.journeyFareGbp,
+        journeyFareGbp: matchingServerFareParts.journeyFareGbp,
         airportFixedCostsGbp: fixedFromLines,
       };
     }
@@ -1752,7 +1775,7 @@ function QuoteCard({
         ? airportFeeResolution.totalAppliedGbp
         : quotedFixed;
     return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
-  }, [liveQuote, airportFeeResolution, serverFareParts]);
+  }, [liveQuote, airportFeeResolution, matchingServerFareParts]);
 
   const openWebsiteFareBreakdown = useMemo(() => {
     if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
@@ -4267,10 +4290,9 @@ function QuoteCard({
       >
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-            Flight number{" "}
-            <span className="font-normal text-ink-secondary">(required)</span>
+            Flight number
           </p>
-          <p className="mt-1 text-sm text-white/60">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
+          <p className="mt-1 text-sm text-white/60">Required for airport pickups</p>
         </div>
         {needsOutboundFlightNumber ? (
           <FlightNumberField
@@ -4483,7 +4505,7 @@ function QuoteCard({
     const changeToFreeLabel = isPickup
       ? "Change to free pick-up"
       : isCombined
-        ? "Change to free airport areas"
+        ? "Free option available"
         : "Change to free drop-off";
     const changeToExpressLabel = isPickup
       ? "Change to Express Pick-Up"
@@ -4890,6 +4912,11 @@ function QuoteCard({
         }
         formattedPrice={amountLabel}
         expressIncludedLine={expressIncludedLine}
+        savingLine={
+          returnJourney && (openWebsiteFareBreakdown?.returnJourneySavingGbp ?? 0) > 0
+            ? "✓ 5% return journey saving applied"
+            : null
+        }
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />
     );
@@ -5931,18 +5958,18 @@ function QuoteCard({
         </h2>
         <p className="sr-only">Step 2 — Travel details</p>
         <p className="text-sm leading-relaxed text-white/65">
-          Add your travel time, then continue to your details.
+          Choose your travel dates and pickup times to continue.
         </p>
+        {returnJourney ? (
+          <p className="form-label mb-0">Outbound journey</p>
+        ) : null}
         <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2 lg:gap-3.5">
           <div className="min-w-0 max-w-full">
             <label
               htmlFor="date"
               className="form-label"
             >
-              {returnJourney ? "Outbound Date" : "Date"}{" "}
-              <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
-                (needed to book)
-              </span>
+              Date
             </label>
             <div
               className={quoteDateTimeFieldShellClass(
@@ -5987,10 +6014,7 @@ function QuoteCard({
               htmlFor="time"
               className="form-label"
             >
-              {returnJourney ? "Outbound pick up time" : "Pick up time"}{" "}
-              <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
-                (needed to book)
-              </span>
+              Pickup time
             </label>
             <div
               className={quoteDateTimeFieldShellClass(
@@ -6049,16 +6073,14 @@ function QuoteCard({
           }`}
         >
           <div className="min-h-0 overflow-hidden">
+            <p className="form-label mb-2 mt-1">Return journey</p>
             <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2">
               <div className="min-w-0 max-w-full">
                 <label
                   htmlFor="returnDate"
                   className="form-label"
                 >
-                  Return Date{" "}
-                  <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
-                    (needed to book)
-                  </span>
+                  Date
                 </label>
                 <div
                   className={quoteDateTimeFieldShellClass(
@@ -6093,10 +6115,7 @@ function QuoteCard({
                   htmlFor="returnTime"
                   className="form-label"
                 >
-                  Return pick up time{" "}
-                  <span className="font-normal normal-case tracking-normal text-ink-secondary/80">
-                    (needed to book)
-                  </span>
+                  Pickup time
                 </label>
                 <div
                   className={quoteDateTimeFieldShellClass(
@@ -6155,20 +6174,70 @@ function QuoteCard({
           >
             Your transfer
           </p>
-          <p className="mt-2 text-sm font-semibold text-white">
-            {pickupLabel || "Pickup"}
-          </p>
-          <p className="my-1 text-center text-emerald" aria-hidden>
-            ↓
-          </p>
-          <p className="text-sm font-semibold text-white">
-            {dropoffLabel || "Destination"}
-          </p>
-          {returnJourney && (
-            <p className="mt-3 text-xs leading-relaxed text-white/65">
-              Return inferred as {dropoffLabel || "destination"} → {pickupLabel || "pickup"}. Only
-              the return date and time are needed below.
-            </p>
+          {returnJourney ? (
+            <div className="mt-3 space-y-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                  Outbound
+                </p>
+                <p className="mt-1 text-sm font-semibold text-white">
+                  {pickupLabel || "Pickup"}
+                </p>
+                <p className="my-1 text-center text-emerald" aria-hidden>
+                  ↓
+                </p>
+                <p className="text-sm font-semibold text-white">
+                  {dropoffLabel || "Destination"}
+                </p>
+                {(tripDate || tripTime) && (
+                  <p className="mt-1.5 text-sm text-white/80">
+                    {tripDate ? formatDisplayDate(tripDate) : "Date TBC"}
+                    {tripTime ? ` · ${formatDisplayTime(tripTime)}` : ""}
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                  Return journey
+                </p>
+                <p className="mt-1 text-sm font-semibold text-white">
+                  {dropoffLabel || "Destination"}
+                </p>
+                <p className="my-1 text-center text-emerald" aria-hidden>
+                  ↓
+                </p>
+                <p className="text-sm font-semibold text-white">
+                  {pickupLabel || "Pickup"}
+                </p>
+                {(returnDate || returnTime) && (
+                  <p className="mt-1.5 text-sm text-white/80">
+                    {returnDate ? formatDisplayDate(returnDate) : "Date TBC"}
+                    {returnTime ? ` · ${formatDisplayTime(returnTime)}` : ""}
+                  </p>
+                )}
+                <p className="mt-2 text-xs leading-relaxed text-white/60">
+                  We&apos;ll use the reverse route for your return journey.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="mt-2 text-sm font-semibold text-white">
+                {pickupLabel || "Pickup"}
+              </p>
+              <p className="my-1 text-center text-emerald" aria-hidden>
+                ↓
+              </p>
+              <p className="text-sm font-semibold text-white">
+                {dropoffLabel || "Destination"}
+              </p>
+              {(tripDate || tripTime) && (
+                <p className="mt-3 text-sm text-white/80">
+                  {tripDate ? formatDisplayDate(tripDate) : "Date TBC"}
+                  {tripTime ? ` · ${formatDisplayTime(tripTime)}` : ""}
+                </p>
+              )}
+            </>
           )}
           {partySelectionReady && effectivePassengers != null && suitcases != null ? (
           <p className="mt-3 text-sm text-white/85">
@@ -6181,16 +6250,28 @@ function QuoteCard({
           </p>
           ) : null}
           {liveQuote || pricedFare || appliedPersonalQuote ? (
-            <p className="mt-2 text-base font-semibold tabular-nums text-white">
-              {formatQuote(
-                testChargeAmount ??
-                  pricedFare?.totalGbp ??
-                  appliedPersonalQuote?.agreedAmount ??
-                  liveQuote?.amount ??
-                  0,
-              )}{" "}
-              <span className="text-sm font-medium text-white/70">fixed price</span>
-            </p>
+            <div className="mt-2">
+              {returnJourney ? (
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                  Return transfer total
+                </p>
+              ) : null}
+              <p className="font-sans text-[1.65rem] font-extrabold leading-none tracking-[-0.03em] text-white tabular-nums">
+                {formatQuote(
+                  testChargeAmount ??
+                    pricedFare?.totalGbp ??
+                    appliedPersonalQuote?.agreedAmount ??
+                    liveQuote?.amount ??
+                    0,
+                )}
+              </p>
+              <p className="mt-1 text-sm font-medium text-white/70">
+                {returnJourney ? "fixed return price" : "fixed price"}
+              </p>
+            </div>
+          ) : null}
+          {returnJourney && (openWebsiteFareBreakdown?.returnJourneySavingGbp ?? 0) > 0 ? (
+            <p className="mt-1.5 text-sm text-emerald">✓ 5% return journey saving applied</p>
           ) : null}
           {expressSelection.eligible ? (
             <p className="mt-1.5 text-sm text-emerald">
@@ -6207,15 +6288,7 @@ function QuoteCard({
                     : "✓ Free designated drop-off selected"}
             </p>
           ) : null}
-          {(tripDate || tripTime) && (
-            <p className="mt-3 text-sm text-white/80">
-              {tripDate ? formatDisplayDate(tripDate) : "Date TBC"}
-              {tripTime ? ` · ${formatDisplayTime(tripTime)}` : ""}
-              {returnJourney && returnDate
-                ? ` · Return ${formatDisplayDate(returnDate)}${returnTime ? ` · ${formatDisplayTime(returnTime)}` : ""}`
-                : ""}
-            </p>
-          )}
+          <p className="mt-1.5 text-sm text-emerald">✓ Fixed price</p>
           <button
             type="button"
             onClick={() => navigateQuoteStep(1)}
