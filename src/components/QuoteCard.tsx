@@ -1893,6 +1893,9 @@ function QuoteCard({
       exceedsOnlineCapacity ||
       isEnquiryOnly);
 
+  /** Customer-facing 3-step progress. Internal quoteStep 2/3 both map to Booking & Pay. */
+  const quoteProgressStep = quoteStep >= 2 ? 3 : quoteResultsReady ? 2 : 1;
+
   const addressesReadyForRoute = isA2AFlow
     ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
     : hasQuoteRoute;
@@ -5713,26 +5716,22 @@ function QuoteCard({
           {/* Desktop: fuller explanation */}
           <p className="hidden md:block">
             {pricingConfirmationRequired
-              ? "Three quick steps — your journey, travel details, then your details. We’ll confirm your fare before any payment."
-              : "Three quick steps — your journey, travel details, then your details. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
+              ? "Three quick steps — Journey, Quote, then Booking & Pay. We’ll confirm your fare before any payment."
+              : "Three quick steps — Journey, Quote, then Booking & Pay. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
           </p>
             </>
           )}
         </div>
-        <ol className={`mt-2 grid gap-1 sm:mt-4 sm:gap-2 ${quoteStep >= 2 ? "grid-cols-2" : "grid-cols-3"}`} aria-label="Booking steps">
-          {(quoteStep >= 2
-            ? [
-                { step: 1 as const, label: "Your journey" },
-                { step: 2 as const, label: "Complete booking" },
-              ]
-            : [
-                { step: 1 as const, label: isA2AFlow ? "Your journey" : "Airport & address" },
-                { step: 2 as const, label: "Price & travel" },
-                { step: 3 as const, label: canPayNowOnline ? "Pay & confirm" : "Your details" },
-              ]
+        <ol className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2" aria-label="Booking steps">
+          {(
+            [
+              { step: 1 as const, label: "Journey" },
+              { step: 2 as const, label: "Quote" },
+              { step: 3 as const, label: "Booking & Pay" },
+            ]
           ).map((item) => {
-            const active = quoteStep >= 2 ? item.step === 2 : quoteStep === item.step;
-            const done = quoteStep >= 2 ? item.step === 1 : quoteStep > item.step;
+            const active = quoteProgressStep === item.step;
+            const done = quoteProgressStep > item.step;
             return (
               <li
                 key={item.step}
@@ -5741,7 +5740,7 @@ function QuoteCard({
                   active ? "quote-step-active" : done ? "quote-step-done" : ""
                 }`}
               >
-                <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider">
+                <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] sm:tracking-wider">
                   {done ? (
                     <svg
                       className="h-3 w-3 shrink-0 text-emerald"

@@ -98,7 +98,7 @@ check("Waiting-time copy is centralised correctly", () => {
 check("QuoteCard uses progressive route for A2A primary flow", () => {
   assert.match(card, /QuoteProgressiveRoute/);
   assert.match(card, /applyJourneyIntent/);
-  assert.match(card, /COMPLETE YOUR BOOKING|Edit journey|Your journey/);
+  assert.match(card, /COMPLETE YOUR BOOKING|Edit journey|Booking & Pay/);
 });
 
 check("Step 2 travel details section scrolls only after explicit step navigation", () => {

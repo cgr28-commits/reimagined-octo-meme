@@ -53,7 +53,7 @@ type StartNewQuoteControlsProps = {
 };
 
 /**
- * Clear Details & Start a New Quote — confirmation dialog uses unique ids so
+ * Start over — confirmation dialog uses unique ids so
  * only one instance should be mounted in the page at a time.
  */
 export function StartNewQuoteControls({
@@ -108,13 +108,13 @@ export function StartNewQuoteControls({
   if (appearance === "quiet") {
     return (
       <div className="space-y-1 text-center" data-start-new-quote-controls>
-        <p className="text-xs text-white/50">Need a quote for a different journey?</p>
+        <p className="text-xs text-white/75">Need a quote for a different journey?</p>
         <button
           type="button"
           onClick={onRequestStart}
-          className="text-sm font-medium text-white/55 underline-offset-2 hover:text-white/80 hover:underline"
+          className="text-sm font-medium text-white/80 underline decoration-white/45 underline-offset-2 hover:text-white hover:decoration-white/70"
         >
-          Clear Details &amp; Start a New Quote
+          Start over
         </button>
       </div>
     );
@@ -122,13 +122,13 @@ export function StartNewQuoteControls({
 
   return (
     <div className="space-y-2 text-center" data-start-new-quote-controls>
-      <p className="text-sm text-white/70">Need a quote for a different journey?</p>
+      <p className="text-sm text-white/80">Need a quote for a different journey?</p>
       <button
         type="button"
         onClick={onRequestStart}
-        className="w-full rounded-xl border border-white/30 bg-transparent px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-emerald/50 hover:bg-white/5"
+        className="w-full rounded-xl border border-white/45 bg-transparent px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-emerald/50 hover:bg-white/5"
       >
-        Clear Details &amp; Start a New Quote
+        Start over
       </button>
     </div>
   );
