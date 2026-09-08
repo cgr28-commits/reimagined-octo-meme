@@ -103,7 +103,8 @@
     "check:pre-xl-desktop-header": "npx tsx scripts/check-pre-xl-desktop-header.ts",
     "check:homepage-premium-cards": "npx tsx scripts/check-homepage-premium-cards.ts",
     "check:company-voice-journey-messages": "npx tsx scripts/check-company-voice-journey-messages.ts",
-    "check:address-autocomplete-quota": "npx tsx scripts/check-address-autocomplete-quota.ts"
+    "check:address-autocomplete-quota": "npx tsx scripts/check-address-autocomplete-quota.ts",
+    "check:address-autocomplete-quality": "npx tsx scripts/check-address-autocomplete-quality.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

@@ -37,8 +37,20 @@ assert.doesNotMatch(
 );
 
 assert.match(places, /searchGoogleAddressSuggestions/);
+assert.match(places, /areGoogleAutocompleteResultsStrong/);
+assert.match(places, /SUGGESTION_CACHE_TTL_MS/);
 assert.match(places, /PLACES_QUOTA_ERROR_NAME/);
 assert.match(places, /throwIfPlacesQuota/);
+assert.match(
+  places,
+  /if \(areGoogleAutocompleteResultsStrong\(trimmed, collected\)\)/,
+  "weak Autocomplete results must not skip the single street fallback",
+);
+assert.doesNotMatch(
+  places,
+  /add\(await searchGooglePlaces[\s\S]*?if \(collected\.length > 0\) \{\s*return/,
+  "must not return as soon as Autocomplete returns any result",
+);
 
 assert.match(worker, /searchGoogleAddressSuggestions/);
 assert.match(worker, /isPlacesQuotaError/);
@@ -52,6 +64,15 @@ assert.doesNotMatch(
 assert.match(input, /result\.unavailable/);
 assert.match(input, /Address suggestions are unavailable right now/);
 assert.match(input, /position: "fixed"/);
+assert.match(input, /suggestionRequestIdRef/);
+assert.match(input, /requestId !== suggestionRequestIdRef\.current/);
+assert.match(input, /AbortController/);
+assert.match(input, /visualViewport/);
+assert.match(input, /visual\?\.addEventListener\("resize"/);
+
+const addressesApi = read("src/lib/addresses-api.ts");
+assert.match(addressesApi, /WORKER_SUGGESTION_CACHE_TTL_MS/);
+assert.match(addressesApi, /signal\?: AbortSignal/);
 
 const quota = new Error("Google Places daily quota exceeded");
 quota.name = PLACES_QUOTA_ERROR_NAME;

@@ -193,6 +193,121 @@ export function isNumberedAddressQuery(query: string): boolean {
   return Boolean(extractLeadingStreetNumber(query));
 }
 
+/** Town/locality typed after a comma, e.g. "7 Glen Manor Road, Newtownabbey". */
+export function extractTypedLocalityHint(query: string): string | null {
+  const afterComma = query.split(",").slice(1).join(" ").trim();
+  if (!afterComma) {
+    return null;
+  }
+
+  const cleaned = afterComma
+    .replace(/\bBT\d{1,2}\s*\d[A-Z]{2}\b/gi, " ")
+    .replace(/\b(uk|united kingdom|northern ireland|ireland|éire|eire)\b/gi, " ")
+    .trim();
+  const token = cleaned.split(/[\s,]+/).find((part) => part.replace(/[^a-z0-9]/gi, "").length >= 3);
+  return token ?? null;
+}
+
+function suggestionHaystack(item: AddressSuggestion): string {
+  return `${item.mainText} ${item.secondaryText} ${item.label}`.toLowerCase();
+}
+
+function significantQueryTokens(query: string): string[] {
+  return query
+    .toLowerCase()
+    .replace(/,/g, " ")
+    .split(/\s+/)
+    .map((token) => token.replace(/[^a-z0-9]/g, ""))
+    .filter((token) => token.length >= 3 && !/^\d+[a-z]?$/.test(token) && !/^bt\d/.test(token));
+}
+
+function resultsCoverQueryTokens(query: string, results: AddressSuggestion[]): boolean {
+  const tokens = significantQueryTokens(query);
+  if (tokens.length === 0) {
+    return true;
+  }
+  const haystacks = results.map(suggestionHaystack);
+  return tokens.every((token) => haystacks.some((haystack) => haystack.includes(token)));
+}
+
+function hasCloseStreetMatch(query: string, results: AddressSuggestion[]): boolean {
+  const streetLine = query.split(",")[0]?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+  if (streetLine.length < 10) {
+    return false;
+  }
+  return results.some((item) => {
+    const main = item.mainText.toLowerCase().replace(/\s+/g, " ");
+    return main === streetLine || main.startsWith(streetLine) || streetLine.startsWith(main);
+  });
+}
+
+/**
+ * Primary Autocomplete is "good enough" only when the list is actually useful
+ * for what the customer typed. One vague or off-locality hit must not block
+ * the single street fallback.
+ */
+export function areGoogleAutocompleteResultsStrong(
+  query: string,
+  results: AddressSuggestion[],
+): boolean {
+  if (results.length === 0) {
+    return false;
+  }
+
+  const userNumber = extractLeadingStreetNumber(query);
+  if (userNumber) {
+    const hasNumber = results.some((item) => {
+      const leading =
+        extractLeadingStreetNumber(item.mainText) ?? extractLeadingStreetNumber(item.label);
+      return leading?.toLowerCase() === userNumber.toLowerCase();
+    });
+    if (!hasNumber) {
+      return false;
+    }
+  }
+
+  const locality = extractTypedLocalityHint(query);
+  if (locality && !results.some((item) => suggestionHaystack(item).includes(locality.toLowerCase()))) {
+    return false;
+  }
+
+  if (!resultsCoverQueryTokens(query, results)) {
+    return false;
+  }
+
+  return results.length >= 3 || Boolean(locality) || hasCloseStreetMatch(query, results);
+}
+
+const SUGGESTION_CACHE_TTL_MS = 45_000;
+const SUGGESTION_CACHE_MAX = 80;
+const suggestionCache = new Map<string, { at: number; items: AddressSuggestion[] }>();
+
+function suggestionCacheKey(airportCode: string, query: string): string {
+  return `${normaliseAirportCode(airportCode)}|${query.trim().toLowerCase()}`;
+}
+
+function readSuggestionCache(key: string): AddressSuggestion[] | null {
+  const hit = suggestionCache.get(key);
+  if (!hit) {
+    return null;
+  }
+  if (Date.now() - hit.at > SUGGESTION_CACHE_TTL_MS) {
+    suggestionCache.delete(key);
+    return null;
+  }
+  return hit.items.map((item) => ({ ...item }));
+}
+
+function writeSuggestionCache(key: string, items: AddressSuggestion[]): void {
+  if (suggestionCache.size >= SUGGESTION_CACHE_MAX) {
+    const oldest = suggestionCache.keys().next().value;
+    if (oldest) {
+      suggestionCache.delete(oldest);
+    }
+  }
+  suggestionCache.set(key, { at: Date.now(), items: items.map((item) => ({ ...item })) });
+}
+
 function formatSuggestion(
   prediction: NonNullable<GoogleAutocompleteResponse["suggestions"]>[number]["placePrediction"],
   userNumber: string | null,
@@ -241,9 +356,9 @@ function throwIfPlacesQuota(response: Response, detail = ""): void {
 }
 
 /**
- * One Places autocomplete first. Extra street / establishment / postcode
- * lookups only run when that primary call returns nothing — avoids burning
- * the daily Autocomplete + SearchText quota on every keystroke.
+ * One Places Autocomplete first. At most one targeted extra call when that
+ * list is empty or weak (street/Text Search for numbered streets; establishments
+ * only when Autocomplete is empty for a non-numbered query).
  */
 export async function searchGoogleAddressSuggestions(
   apiKey: string,
@@ -254,6 +369,12 @@ export async function searchGoogleAddressSuggestions(
   const trimmed = query.trim();
   if (trimmed.length < 3) {
     return [];
+  }
+
+  const cacheKey = suggestionCacheKey(airportCode, trimmed);
+  const cached = readSuggestionCache(cacheKey);
+  if (cached) {
+    return cached;
   }
 
   const premisePrefix = extractPremisePrefixFromPostcodeQuery(trimmed);
@@ -272,30 +393,34 @@ export async function searchGoogleAddressSuggestions(
     }
   };
 
+  const finish = () => {
+    const next = sortSuggestionsByStreetNumber(collected).slice(0, 10);
+    writeSuggestionCache(cacheKey, next);
+    return next;
+  };
+
   if (premisePrefix && postcode && isFullNorthernIrelandPostcode(postcode)) {
     add(await searchGooglePostcodePremises(apiKey, trimmed, airportCode));
-    if (collected.length > 0) {
-      return sortSuggestionsByStreetNumber(collected).slice(0, 10);
+    if (areGoogleAutocompleteResultsStrong(trimmed, collected)) {
+      return finish();
     }
   }
 
   add(await searchGooglePlaces(apiKey, trimmed, airportCode, sessionToken));
-  if (collected.length > 0) {
-    return sortSuggestionsByStreetNumber(collected).slice(0, 10);
-  }
-
-  if (!extractLeadingStreetNumber(trimmed) && !premisePrefix) {
-    add(await searchGoogleEstablishments(apiKey, trimmed, airportCode, sessionToken));
-    if (collected.length > 0) {
-      return sortSuggestionsByStreetNumber(collected).slice(0, 10);
-    }
+  if (areGoogleAutocompleteResultsStrong(trimmed, collected)) {
+    return finish();
   }
 
   if (isStreetOnlyQuery(trimmed) || isNumberedAddressQuery(trimmed) || Boolean(premisePrefix)) {
     add(await searchGoogleStreetAddresses(apiKey, trimmed, airportCode));
+    return finish();
   }
 
-  return sortSuggestionsByStreetNumber(collected).slice(0, 10);
+  if (collected.length === 0) {
+    add(await searchGoogleEstablishments(apiKey, trimmed, airportCode, sessionToken));
+  }
+
+  return finish();
 }
 
 export async function searchGooglePlaces(

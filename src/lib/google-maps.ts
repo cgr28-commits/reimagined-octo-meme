@@ -234,6 +234,7 @@ export async function fetchAddressPredictions(
 export async function fetchAddressPredictionsDetailed(
   input: string,
   airportCode: string,
+  signal?: AbortSignal,
 ): Promise<AddressPredictionsResult> {
   const trimmed = input.trim();
   if (trimmed.length < 3) {
@@ -243,7 +244,7 @@ export async function fetchAddressPredictionsDetailed(
   if (isPureFullNorthernIrelandPostcodeQuery(trimmed)) {
     // Prefer Worker (may return Ideal list if configured); otherwise prompt for house number.
     if (ADDRESSES_API_URL) {
-      const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode);
+      const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode, signal);
       if (worker && worker.suggestions.length > 0) {
         return {
           predictions: worker.suggestions.map(toPrediction),
@@ -274,7 +275,7 @@ export async function fetchAddressPredictionsDetailed(
   // call on the same Cloud project doubles Autocomplete quota use per keystroke
   // and is what exhausted the live daily cap.
   if (ADDRESSES_API_URL) {
-    const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode);
+    const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode, signal);
     if (worker) {
       return {
         predictions: mergePredictions(
