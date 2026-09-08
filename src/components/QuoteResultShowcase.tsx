@@ -14,7 +14,7 @@ type QuoteResultShowcaseProps = {
   suitcases: number;
   priceLabel: string;
   formattedPrice: string;
-  expressIncludedLine?: string | null;
+  airportAccess?: ReactNode;
   bookButton: ReactNode;
 };
 
@@ -30,7 +30,7 @@ export default function QuoteResultShowcase({
   suitcases,
   priceLabel,
   formattedPrice,
-  expressIncludedLine,
+  airportAccess,
   bookButton,
 }: QuoteResultShowcaseProps) {
   const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
@@ -89,8 +89,10 @@ export default function QuoteResultShowcase({
             {formattedPrice}
           </p>
           <p className="mt-2 text-sm font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
-          {expressIncludedLine ? (
-            <p className="mt-1 text-xs font-medium text-navy/60">{expressIncludedLine}</p>
+          {airportAccess ? (
+            <div className="mt-3 text-left" data-quote-result-airport-access>
+              {airportAccess}
+            </div>
           ) : null}
 
           <div className="mt-4">{bookButton}</div>

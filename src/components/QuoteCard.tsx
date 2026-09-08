@@ -146,12 +146,12 @@ import {
   buildOpenWebsiteFareBreakdown,
 } from "@/components/QuoteFareTrust";
 import {
-  EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
   canProceedWithoutExpressDropOffLegs,
   combinedFreeAlternativeAvailable,
   composeFareWithExpressDropOff,
-  expressAirportLegendLabel,
-  formatExpressDropOffGbp,
+  combinedQuoteExpressTitle,
+  expressDropOffRemovedExplanation,
+  expressQuoteExpressTitle,
   resolveExpressDropOff,
   shouldDefaultExpressSelectedOnNewEligibility,
 } from "../../shared/express-drop-off";
@@ -4418,7 +4418,10 @@ function QuoteCard({
     );
   }
 
-  function renderExpressChoiceInPriceCard(mode: "full" | "summary") {
+  function renderExpressChoiceInPriceCard(
+    mode: "full" | "summary",
+    tone: "on-dark" | "on-light" = "on-dark",
+  ) {
     if (!expressSelection.eligible || testChargeAmount !== null) {
       return null;
     }
@@ -4436,6 +4439,7 @@ function QuoteCard({
         <div className="mt-3 text-left" data-express-airport-choice>
           <CombinedAirportAccessChoice
             mode={mode}
+            tone={tone}
             editing={expressEditingLeg != null}
             onEditingChange={(editing) =>
               setExpressEditingLeg(editing ? "outbound" : null)
@@ -4472,6 +4476,7 @@ function QuoteCard({
       <div className="mt-3 text-left" data-express-airport-choice>
         <ExpressDropOffChoice
           mode={mode}
+          tone={tone}
           editing={expressEditingLeg === leg.leg}
           onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
           airportCode={leg.airportCode}
@@ -4494,51 +4499,6 @@ function QuoteCard({
             if (ack) setExpressAckRequired(false);
           }}
         />
-      </div>
-    );
-  }
-
-  function renderExpressCollapsible() {
-    if (!expressSelection.eligible || testChargeAmount !== null) {
-      return null;
-    }
-    const expanded = expressEditingLeg != null;
-    const serviceLabel =
-      expressSelection.legs.length > 1
-        ? "Airport access"
-        : expressAirportLegendLabel(expressSelection.service ?? "drop-off");
-    const compactDetail = expressSelection.selected
-      ? `Included — ${formatExpressDropOffGbp(expressSelection.feeIfSelectedGbp)} (Recommended)`
-      : "Free drop-off area selected";
-    return (
-      <div
-        className="overflow-hidden rounded-xl border border-white/12 bg-white/[0.03]"
-        data-express-airport-choice
-      >
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={() =>
-            setExpressEditingLeg(expanded ? null : expressSelection.legs[0]?.leg ?? "outbound")
-          }
-          className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
-        >
-          <span className="min-w-0">
-            <span className="block text-sm font-medium text-white">{serviceLabel}</span>
-            <span className="mt-0.5 block text-xs text-white/55">{compactDetail}</span>
-          </span>
-          <span
-            className={`shrink-0 text-white/45 transition-transform ${expanded ? "rotate-180" : ""}`}
-            aria-hidden
-          >
-            ▾
-          </span>
-        </button>
-        {expanded ? (
-          <div className="border-t border-white/10 px-3 pb-3">
-            {renderExpressChoiceInPriceCard("full")}
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -4774,10 +4734,17 @@ function QuoteCard({
 
   function checkoutAccessLine(): string | null {
     if (!expressSelection.eligible) return null;
-    if (expressSelection.selected && expressSelection.feeGbp > 0) {
-      return `Includes ${formatExpressDropOffGbp(expressSelection.feeGbp)} Express Drop-Off`;
+    if (expressSelection.legs.length > 1) {
+      return expressSelection.selected && expressSelection.feeGbp > 0
+        ? combinedQuoteExpressTitle(expressSelection.feeGbp, true)
+        : "Free airport areas selected for both journeys.";
     }
-    return EXPRESS_DROP_OFF_REMOVED_EXPLANATION;
+    const service = expressSelection.service ?? "drop-off";
+    const airportCode = expressSelection.legs[0]?.airportCode ?? "BFS";
+    if (expressSelection.selected && expressSelection.feeGbp > 0) {
+      return expressQuoteExpressTitle(airportCode, service, true);
+    }
+    return expressDropOffRemovedExplanation(service);
   }
 
   function renderCheckoutPage() {
@@ -5444,10 +5411,6 @@ function QuoteCard({
         appliedPersonalQuote?.agreedAmount ??
         liveQuote!.amount,
     );
-    const expressIncludedLine =
-      expressSelection.eligible && expressSelection.feeGbp > 0
-        ? `Includes ${expressAirportLegendLabel(expressSelection.service ?? "drop-off")} (${formatExpressDropOffGbp(expressSelection.feeGbp)})`
-        : null;
     return (
       <QuoteResultShowcase
         vehicleType={quoteVehicle}
@@ -5461,7 +5424,7 @@ function QuoteCard({
               : "Your fixed price"
         }
         formattedPrice={amountLabel}
-        expressIncludedLine={expressIncludedLine}
+        airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />
     );
@@ -5470,7 +5433,6 @@ function QuoteCard({
   function renderQuoteResultFollowOn(routeMap: ReactNode) {
     return (
       <>
-        {renderExpressCollapsible()}
         {renderPriceBreakdownCollapsible()}
         {routeMap}
         <div

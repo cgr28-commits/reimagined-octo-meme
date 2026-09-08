@@ -2,11 +2,16 @@
 
 import {
   COMBINED_AIRPORT_ACCESS_RETURN_NOTE,
-  EXPRESS_DROP_OFF_PASSED_ON_NOTE,
   EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
-  combinedAirportAccessRecommendedLabel,
-  combinedAirportAccessRemoveLabel,
+  combinedQuoteExpressTitle,
+  combinedQuoteFreeTitle,
+  expressQuoteExpressHint,
+  expressQuoteFreeHint,
 } from "../../shared/express-drop-off";
+import {
+  accessChoiceStyles,
+  type AirportAccessTone,
+} from "@/components/ExpressDropOffSelector";
 
 type Props = {
   /** Total Express fee across both legs (e.g. two BFS legs = £5 + £5 = £10). */
@@ -20,12 +25,11 @@ type Props = {
   /** Only offer the free alternative when every leg supports it. */
   allowFreeAlternative?: boolean;
   className?: string;
+  tone?: AirportAccessTone;
 };
 
 /**
- * Single "Airport access" control for a return booking. The customer makes
- * one choice that is applied to both the outbound and return legs together —
- * the underlying legs remain independently tracked in booking/pricing state.
+ * Single always-visible "Airport access" control for a return booking.
  */
 export default function CombinedAirportAccessSelector({
   totalFeeGbp,
@@ -36,25 +40,24 @@ export default function CombinedAirportAccessSelector({
   requireAcknowledgement: _requireAcknowledgement = false,
   allowFreeAlternative = true,
   className = "",
+  tone = "on-dark",
 }: Props) {
   const groupName = "combined-airport-access";
+  const light = tone === "on-light";
+  const styles = accessChoiceStyles(light);
 
   return (
     <fieldset
-      className={`min-w-0 space-y-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 ${className}`}
-      aria-describedby={`${groupName}-note`}
+      className={`min-w-0 space-y-2 ${className}`}
+      aria-describedby={!selected && allowFreeAlternative ? `${groupName}-note` : undefined}
     >
-      <legend className="px-1 text-sm font-semibold text-white">Airport access</legend>
-      <p className="px-1 text-xs text-white/60">{COMBINED_AIRPORT_ACCESS_RETURN_NOTE}</p>
+      <legend className={`px-0.5 text-sm font-semibold ${styles.heading}`}>
+        Airport access option
+      </legend>
+      <p className={`px-0.5 text-xs ${styles.hint}`}>{COMBINED_AIRPORT_ACCESS_RETURN_NOTE}</p>
 
       <div role="radiogroup" aria-label="Airport access options" className="space-y-2">
-        <label
-          className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
-            selected
-              ? "border-emerald bg-emerald/10 text-white"
-              : "border-white/15 text-white/80 hover:border-white/30"
-          }`}
-        >
+        <label className={`${styles.card} ${selected ? styles.selected : styles.idle}`}>
           <input
             type="radio"
             name={groupName}
@@ -63,21 +66,20 @@ export default function CombinedAirportAccessSelector({
               onSelectedChange(true);
               onRemovalAcknowledgedChange(false);
             }}
-            className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
+            className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
           />
           <span className="min-w-0 leading-snug">
-            {combinedAirportAccessRecommendedLabel(totalFeeGbp)}
+            <span className="block font-semibold">
+              {combinedQuoteExpressTitle(totalFeeGbp, selected)}
+            </span>
+            <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
+              {expressQuoteExpressHint("drop-off")}
+            </span>
           </span>
         </label>
 
         {allowFreeAlternative ? (
-          <label
-            className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
-              !selected
-                ? "border-amber-400/50 bg-amber-500/10 text-white"
-                : "border-white/15 text-white/80 hover:border-white/30"
-            }`}
-          >
+          <label className={`${styles.card} ${!selected ? styles.selectedFree : styles.idle}`}>
             <input
               type="radio"
               name={groupName}
@@ -86,24 +88,25 @@ export default function CombinedAirportAccessSelector({
                 onSelectedChange(false);
                 onRemovalAcknowledgedChange(true);
               }}
-              className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
+              className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
             />
             <span className="min-w-0 leading-snug">
-              {combinedAirportAccessRemoveLabel(totalFeeGbp)}
+              <span className="block font-semibold">
+                {combinedQuoteFreeTitle(totalFeeGbp, !selected)}
+              </span>
+              <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
+                {expressQuoteFreeHint("drop-off")}
+              </span>
             </span>
           </label>
         ) : null}
       </div>
 
       {allowFreeAlternative && !selected ? (
-        <p className="text-xs leading-relaxed text-white/70">
+        <p id={`${groupName}-note`} className={`text-xs leading-relaxed ${styles.note}`}>
           {EXPRESS_DROP_OFF_REMOVED_EXPLANATION}
         </p>
       ) : null}
-
-      <p id={`${groupName}-note`} className="text-xs text-white/50">
-        {EXPRESS_DROP_OFF_PASSED_ON_NOTE}
-      </p>
     </fieldset>
   );
 }

@@ -22,6 +22,11 @@ import {
   expressDropOffRecommendedLabel,
   expressDropOffRemoveLabel,
   expressDropOffRemovedExplanation,
+  expressAirportOptionHeading,
+  expressQuoteExpressTitle,
+  expressQuoteExpressHint,
+  expressQuoteFreeTitle,
+  expressQuoteFreeHint,
   canProceedWithoutExpressDropOffLegs,
   formatAirportAccessOptionCustomerLine,
   formatAirportAccessOptionCustomerLines,
@@ -348,12 +353,43 @@ check("Breakdown / customer copy wording", () => {
   );
   assert.equal(
     EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
-    "Free drop-off selected. You’ll be dropped at the designated free drop-off area, a short walk from the terminal.",
+    "Free drop-off selected. You’ll be dropped at the designated free airport drop-off area.",
   );
   assert.equal(
     EXPRESS_PICK_UP_REMOVED_EXPLANATION,
-    "Free pick-up selected. You’ll meet your driver at the designated free pick-up area, a short walk from the terminal.",
+    "Free pick-up selected. You’ll be collected from the designated free airport collection area.",
   );
+  assert.equal(expressAirportOptionHeading("pick-up"), "Airport pick-up option");
+  assert.equal(expressAirportOptionHeading("drop-off"), "Airport drop-off option");
+  assert.equal(
+    expressQuoteExpressTitle("BFS", "pick-up", true),
+    "Express Pick-Up — £5 included",
+  );
+  assert.equal(expressQuoteExpressTitle("BFS", "pick-up", false), "Express Pick-Up — add £5");
+  assert.equal(
+    expressQuoteExpressTitle("BHD", "drop-off", true),
+    "Express Drop-Off — £4 included",
+  );
+  assert.equal(expressQuoteExpressTitle("BHD", "drop-off", false), "Express Drop-Off — add £4");
+  assert.equal(
+    expressQuoteExpressHint("pick-up"),
+    "Recommended · Meet closer to the terminal",
+  );
+  assert.equal(
+    expressQuoteExpressHint("drop-off"),
+    "Recommended · Drop-off close to the terminal",
+  );
+  assert.equal(
+    expressQuoteFreeTitle("BFS", "pick-up", false),
+    "Free Pick-Up Area — save £5",
+  );
+  assert.equal(expressQuoteFreeTitle("BFS", "pick-up", true), "Free Pick-Up Area — £0");
+  assert.equal(
+    expressQuoteFreeTitle("BHD", "drop-off", false),
+    "Free Drop-Off Area — save £4",
+  );
+  assert.equal(expressQuoteFreeHint("pick-up"), "Use the designated free collection area");
+  assert.equal(expressQuoteFreeHint("drop-off"), "Use the designated free drop-off area");
   assert.equal(
     expressDropOffRemovedExplanation("drop-off"),
     EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
@@ -486,10 +522,17 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   const card = read("src/components/QuoteCard.tsx");
   const choice = read("src/components/ExpressDropOffChoice.tsx");
 
-  // Instant result: Express stays a collapsible under the book CTA; step 2 still
-  // uses the existing price-card Express helper (full on step 1 fallback, summary later).
-  assert.match(card, /renderExpressCollapsible/);
+  // Instant result: both airport-access options sit on the quote card above Book.
+  // No accordion is required to discover Free. Checkout reuses the same selection.
+  assert.doesNotMatch(card, /function renderExpressCollapsible/);
+  assert.match(card, /airportAccess=\{renderExpressChoiceInPriceCard\("full", "on-light"\)\}/);
   assert.match(card, /renderExpressChoiceInPriceCard\("full"\)/);
+  const showcase = read("src/components/QuoteResultShowcase.tsx");
+  assert.match(showcase, /airportAccess/);
+  assert.match(showcase, /data-quote-result-airport-access/);
+  const accessIdx = showcase.indexOf("data-quote-result-airport-access");
+  const bookIdx = showcase.indexOf("{bookButton}");
+  assert.ok(accessIdx > 0 && bookIdx > accessIdx, "airport access must render before Book");
   assert.match(
     card,
     /Your Fixed Journey Price[\s\S]*?quote-price-figure[\s\S]*?FixedPriceAssurance[\s\S]*?renderExpressChoiceInPriceCard[\s\S]*?Vehicle:/,
@@ -528,9 +571,11 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
 
   // Selector copy matches product wording (direction-aware).
   const selector = read("src/components/ExpressDropOffSelector.tsx");
-  assert.match(selector, /expressDropOffRecommendedLabel/);
-  assert.match(selector, /expressDropOffRemoveLabel/);
+  assert.match(selector, /expressQuoteExpressTitle/);
+  assert.match(selector, /expressQuoteFreeTitle/);
   assert.match(selector, /expressDropOffRemovedExplanation/);
+  assert.match(selector, /expressAirportOptionHeading/);
+  assert.doesNotMatch(selector, /aria-expanded/);
   assert.match(selector, /role="radiogroup"/);
   assert.match(selector, /min-h-11/);
   assert.match(selector, /service/);
@@ -1247,7 +1292,7 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
   const combinedChoice = read("src/components/CombinedAirportAccessChoice.tsx");
   assert.match(combinedChoice, /Airport access \(return\)/);
   const combinedSelector = read("src/components/CombinedAirportAccessSelector.tsx");
-  assert.match(combinedSelector, /Airport access</);
+  assert.match(combinedSelector, /Airport access option/);
   assert.match(combinedSelector, /COMBINED_AIRPORT_ACCESS_RETURN_NOTE/);
   assert.match(combinedSelector, /onRemovalAcknowledgedChange\(true\)/);
   assert.doesNotMatch(combinedSelector, /type="checkbox"/);

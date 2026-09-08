@@ -1,6 +1,8 @@
 "use client";
 
-import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
+import ExpressDropOffSelector, {
+  type AirportAccessTone,
+} from "@/components/ExpressDropOffSelector";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
   expressDropOffBreakdownLabel,
@@ -27,6 +29,7 @@ type Props = {
   idPrefix?: string;
   heading?: string;
   className?: string;
+  tone?: AirportAccessTone;
 };
 
 /**
@@ -48,6 +51,7 @@ export default function ExpressDropOffChoice({
   idPrefix,
   heading,
   className = "",
+  tone = "on-dark",
 }: Props) {
   if (mode === "summary" && !editing) {
     return (
@@ -90,6 +94,7 @@ export default function ExpressDropOffChoice({
         allowFreeAlternative={allowFreeAlternative}
         idPrefix={idPrefix}
         heading={heading}
+        tone={tone}
       />
       {mode === "summary" && editing ? (
         <button
