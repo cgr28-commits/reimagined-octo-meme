@@ -146,6 +146,7 @@ import {
   buildOpenWebsiteFareBreakdown,
 } from "@/components/QuoteFareTrust";
 import {
+  EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
   canProceedWithoutExpressDropOffLegs,
   combinedFreeAlternativeAvailable,
   composeFareWithExpressDropOff,
@@ -4450,6 +4451,9 @@ function QuoteCard({
               if (nextSelected) {
                 setExpressRemovalAck(false);
                 setReturnExpressRemovalAck(false);
+              } else {
+                setExpressRemovalAck(true);
+                setReturnExpressRemovalAck(true);
               }
               setExpressAckRequired(false);
             }}
@@ -4478,7 +4482,11 @@ function QuoteCard({
           requireAcknowledgement={expressAckRequired}
           onSelectedChange={(nextSelected) => {
             setExpressDropOffSelected(nextSelected);
-            if (nextSelected) setExpressRemovalAck(false);
+            if (nextSelected) {
+              setExpressRemovalAck(false);
+            } else {
+              setExpressRemovalAck(true);
+            }
             setExpressAckRequired(false);
           }}
           onRemovalAcknowledgedChange={(ack) => {
@@ -4769,7 +4777,7 @@ function QuoteCard({
     if (expressSelection.selected && expressSelection.feeGbp > 0) {
       return `Includes ${formatExpressDropOffGbp(expressSelection.feeGbp)} Express Drop-Off`;
     }
-    return "Free drop-off selected";
+    return EXPRESS_DROP_OFF_REMOVED_EXPLANATION;
   }
 
   function renderCheckoutPage() {

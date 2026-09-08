@@ -94,7 +94,8 @@ console.log("\n=== Narrow-phone field shells stay full-width ===");
   assert.match(checkout, /grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2/);
   assert.match(checkout, /quoteDateTimeFieldShellClass/);
   assert.match(checkout, /bookingTextFieldClass/);
-  assert.match(summary, /text-base font-semibold tracking-tight text-white/);
+  assert.match(summary, /text-lg font-bold tracking-tight text-white sm:text-xl/);
+  assert.doesNotMatch(summary, /quote-price-figure|font-display/);
   console.log("OK  360/390/430 fields stack; desktop uses two columns");
 }
 

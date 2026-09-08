@@ -3,7 +3,7 @@
 import {
   COMBINED_AIRPORT_ACCESS_RETURN_NOTE,
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
-  combinedAirportAccessConfirmRemovalLabel,
+  EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
   combinedAirportAccessRecommendedLabel,
   combinedAirportAccessRemoveLabel,
 } from "../../shared/express-drop-off";
@@ -30,10 +30,10 @@ type Props = {
 export default function CombinedAirportAccessSelector({
   totalFeeGbp,
   selected,
-  removalAcknowledged,
+  removalAcknowledged: _removalAcknowledged,
   onSelectedChange,
   onRemovalAcknowledgedChange,
-  requireAcknowledgement = false,
+  requireAcknowledgement: _requireAcknowledgement = false,
   allowFreeAlternative = true,
   className = "",
 }: Props) {
@@ -82,7 +82,10 @@ export default function CombinedAirportAccessSelector({
               type="radio"
               name={groupName}
               checked={!selected}
-              onChange={() => onSelectedChange(false)}
+              onChange={() => {
+                onSelectedChange(false);
+                onRemovalAcknowledgedChange(true);
+              }}
               className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
             />
             <span className="min-w-0 leading-snug">
@@ -93,26 +96,9 @@ export default function CombinedAirportAccessSelector({
       </div>
 
       {allowFreeAlternative && !selected ? (
-        <div className="space-y-2 rounded-lg border border-amber-400/30 bg-amber-500/5 px-3 py-2.5">
-          <label
-            className={`flex min-h-11 cursor-pointer items-start gap-3 text-sm ${
-              requireAcknowledgement && !removalAcknowledged
-                ? "text-amber-100"
-                : "text-white/85"
-            }`}
-          >
-            <input
-              type="checkbox"
-              checked={removalAcknowledged}
-              onChange={(e) => onRemovalAcknowledgedChange(e.target.checked)}
-              className="mt-1 h-4 w-4 shrink-0 rounded border-white/30 accent-emerald"
-              aria-required={requireAcknowledgement}
-            />
-            <span className="min-w-0 leading-snug">
-              {combinedAirportAccessConfirmRemovalLabel()}
-            </span>
-          </label>
-        </div>
+        <p className="text-xs leading-relaxed text-white/70">
+          {EXPRESS_DROP_OFF_REMOVED_EXPLANATION}
+        </p>
       ) : null}
 
       <p id={`${groupName}-note`} className="text-xs text-white/50">
