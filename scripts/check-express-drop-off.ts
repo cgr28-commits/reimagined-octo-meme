@@ -23,6 +23,7 @@ import {
   expressDropOffRemoveLabel,
   expressDropOffRemovedExplanation,
   expressAirportOptionHeading,
+  expressCheckoutChangeLabel,
   expressQuoteExpressTitle,
   expressQuoteExpressHint,
   expressQuoteFreeTitle,
@@ -361,6 +362,9 @@ check("Breakdown / customer copy wording", () => {
   );
   assert.equal(expressAirportOptionHeading("pick-up"), "Airport pick-up option");
   assert.equal(expressAirportOptionHeading("drop-off"), "Airport drop-off option");
+  assert.equal(expressCheckoutChangeLabel("pick-up"), "Change pick-up");
+  assert.equal(expressCheckoutChangeLabel("drop-off"), "Change drop-off");
+  assert.equal(expressCheckoutChangeLabel("combined"), "Change airport access");
   assert.equal(
     expressQuoteExpressTitle("BFS", "pick-up", true),
     "Express Pick-Up — £5 included",

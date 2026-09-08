@@ -130,6 +130,10 @@ import {
 } from "../../shared/route-reconfirmation";
 import { calculateServerQuote } from "@/lib/quick-quote-api";
 import {
+  serverFareAppliesToParty,
+  type ServerFarePartyParts,
+} from "@/lib/quote-display-fare";
+import {
   validatePersonalQuoteCode,
   type PersonalQuotePublicSummary,
 } from "@/lib/personal-quote-api";
@@ -150,6 +154,7 @@ import {
   combinedFreeAlternativeAvailable,
   composeFareWithExpressDropOff,
   combinedQuoteExpressTitle,
+  expressCheckoutChangeLabel,
   expressDropOffRemovedExplanation,
   expressQuoteExpressTitle,
   resolveExpressDropOff,
@@ -704,11 +709,8 @@ function QuoteCard({
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
   /** Worker-authoritative journey/fixed split (same engine as SumUp). Prefer over browser metrics. */
-  const [serverFareParts, setServerFareParts] = useState<{
-    journeyFareGbp: number;
-    airportFixedCostsGbp: number;
-    amountGbp: number;
-  } | null>(null);
+  const [serverFareParts, setServerFareParts] = useState<ServerFarePartyParts | null>(null);
+  const serverQuoteGenRef = useRef(0);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
@@ -742,7 +744,11 @@ function QuoteCard({
     setRouteMetrics(metrics);
   }, []);
 
-  const quoteVehicle = vehicle;
+  const quoteVehicle = useMemo(() => {
+    const pax = effectivePartyPassengers(passengers);
+    if (pax == null || suitcases == null) return vehicle;
+    return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
+  }, [passengers, suitcases, vehicle]);
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
@@ -763,7 +769,8 @@ function QuoteCard({
     if (pax == null || suitcases == null) {
       return;
     }
-    setVehicle(getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY));
+    const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
+    setVehicle((current) => (current === next ? current : next));
   }, [passengers, suitcases]);
   const [capacityError, setCapacityError] = useState("");
 
@@ -1478,6 +1485,10 @@ function QuoteCard({
       setServerFareParts(null);
       return false;
     }
+    const requestGen = ++serverQuoteGenRef.current;
+    const requestedPassengers = passengers;
+    const requestedSuitcases = suitcases;
+    const requestedVehicle = quoteVehicle;
     try {
       const result = await calculateServerQuote({
         pickupAddress: pickup,
@@ -1499,6 +1510,9 @@ function QuoteCard({
         dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
         routeMetrics: routeMetrics ?? undefined,
       });
+      if (requestGen !== serverQuoteGenRef.current) {
+        return false;
+      }
       if (
         result.ok &&
         Number.isFinite(result.amount) &&
@@ -1512,6 +1526,9 @@ function QuoteCard({
               ? Math.round(result.airportFixedCostsGbp * 100) / 100
               : 0,
           amountGbp: Math.round(result.amount * 100) / 100,
+          vehicleType: requestedVehicle,
+          passengers: requestedPassengers,
+          suitcases: requestedSuitcases,
         });
         if (
           Number.isFinite(result.distanceKm) &&
@@ -1561,7 +1578,12 @@ function QuoteCard({
     suitcases,
     tripDate,
     tripTime,
+    quoteVehicle,
   ]);
+
+  useEffect(() => {
+    serverQuoteGenRef.current += 1;
+  }, [passengers, suitcases, quoteVehicle]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1715,15 +1737,24 @@ function QuoteCard({
     returnJourney,
   ]);
 
+  const currentServerFareParts = serverFareAppliesToParty(serverFareParts, {
+    passengers,
+    suitcases,
+    vehicleType: quoteVehicle,
+  })
+    ? serverFareParts
+    : null;
+
   const journeyFareParts = useMemo(() => {
-    // Prefer Worker-authoritative split so consent amount matches SumUp requote.
-    if (serverFareParts) {
+    // Prefer Worker-authoritative split only when it belongs to this vehicle/party.
+    // Stale Saloon/Estate splits must never paint on the newly selected vehicle.
+    if (currentServerFareParts) {
       const fixedFromLines =
         airportFeeResolution.lines.length > 0
           ? airportFeeResolution.totalAppliedGbp
-          : serverFareParts.airportFixedCostsGbp;
+          : currentServerFareParts.airportFixedCostsGbp;
       return {
-        journeyFareGbp: serverFareParts.journeyFareGbp,
+        journeyFareGbp: currentServerFareParts.journeyFareGbp,
         airportFixedCostsGbp: fixedFromLines,
       };
     }
@@ -1745,7 +1776,7 @@ function QuoteCard({
         ? airportFeeResolution.totalAppliedGbp
         : quotedFixed;
     return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
-  }, [liveQuote, airportFeeResolution, serverFareParts]);
+  }, [liveQuote, airportFeeResolution, currentServerFareParts]);
 
   const openWebsiteFareBreakdown = useMemo(() => {
     if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
@@ -2530,7 +2561,7 @@ function QuoteCard({
       suitcases: suitcases as number,
       vehicle: quoteVehicle,
       estimatedPrice: formatQuote(
-        serverFareParts?.amountGbp ?? liveQuote.amount,
+        currentServerFareParts?.amountGbp ?? liveQuote.amount,
       ),
       journeyDistance: journeyDistanceLabel || undefined,
       journeyDuration: journeyDurationLabel || undefined,
@@ -2553,7 +2584,7 @@ function QuoteCard({
     returnTime,
     quoteStep,
     quoteTransactionId,
-    serverFareParts?.amountGbp,
+    currentServerFareParts?.amountGbp,
     suitcases,
     tripDate,
     tripTime,
@@ -3876,6 +3907,27 @@ function QuoteCard({
     setQuoteStep(step);
   }
 
+  function handleBackToQuote() {
+    navigateQuoteStep(1);
+  }
+
+  function renderBackToQuoteButton(placement: "top" | "bottom") {
+    return (
+      <button
+        type="button"
+        data-back-to-quote={placement}
+        onClick={handleBackToQuote}
+        className={
+          placement === "top"
+            ? "btn-secondary mt-3 w-full sm:mt-4 sm:max-w-xs"
+            : "btn-secondary w-full"
+        }
+      >
+        ← Back to quote
+      </button>
+    );
+  }
+
   function handleEditBooking() {
     navigateQuoteStep(2);
     setSubmitError("");
@@ -5079,6 +5131,11 @@ function QuoteCard({
             totalLabel={amountLabel ? `Total ${amountLabel}` : "Total TBC"}
             accessLine={checkoutAccessLine()}
             onEditJourney={() => navigateQuoteStep(1)}
+            changeAccessLabel={
+              expressSelection.legs.length > 1
+                ? expressCheckoutChangeLabel("combined")
+                : expressCheckoutChangeLabel(expressSelection.service ?? "drop-off")
+            }
             onChangeDropOff={
               showChangeDropOff
                 ? () =>
@@ -5116,6 +5173,8 @@ function QuoteCard({
             {renderBookingErrorHelp("submit")}
           </div>
         ) : null}
+
+        {renderBackToQuoteButton("bottom")}
 
         <div
           id="step3-payment-actions"
@@ -5693,6 +5752,7 @@ function QuoteCard({
             );
           })}
         </ol>
+        {quoteStep >= 2 ? renderBackToQuoteButton("top") : null}
       </div>
 
       <form id="quoteForm" onSubmit={handleSubmit} className="relative space-y-3 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5">

@@ -9,6 +9,7 @@ type Props = {
   accessLine?: string | null;
   onEditJourney: () => void;
   onChangeDropOff?: (() => void) | null;
+  changeAccessLabel?: string;
   children?: ReactNode;
 };
 
@@ -23,6 +24,7 @@ export default function QuoteCheckoutSummary({
   accessLine,
   onEditJourney,
   onChangeDropOff,
+  changeAccessLabel = "Change drop-off",
   children,
 }: Props) {
   return (
@@ -50,7 +52,7 @@ export default function QuoteCheckoutSummary({
             onClick={onChangeDropOff}
             className="text-emerald underline-offset-2 hover:underline"
           >
-            Change drop-off
+            {changeAccessLabel}
           </button>
         ) : null}
       </div>

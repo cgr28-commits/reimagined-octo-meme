@@ -383,6 +383,14 @@ export function expressAirportOptionHeading(
   return service === "pick-up" ? "Airport pick-up option" : "Airport drop-off option";
 }
 
+/** Optional checkout link — does not re-ask unless the customer taps it. */
+export function expressCheckoutChangeLabel(
+  service: ExpressAirportService | "combined" = "drop-off",
+): string {
+  if (service === "combined") return "Change airport access";
+  return service === "pick-up" ? "Change pick-up" : "Change drop-off";
+}
+
 export function expressQuoteExpressTitle(
   airportCode: ExpressDropOffAirportCode,
   service: ExpressAirportService,
