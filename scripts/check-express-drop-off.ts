@@ -19,6 +19,9 @@ import {
   expressDropOffBreakdownLabel,
   expressDropOffConfirmRemovalLabel,
   combinedAirportAccessConfirmRemovalLabel,
+  combinedAirportAccessRecommendedLabel,
+  combinedAirportAccessRemoveLabel,
+  COMBINED_AIRPORT_ACCESS_REMOVED_EXPLANATION,
   expressDropOffRecommendedLabel,
   expressDropOffRemoveLabel,
   expressDropOffRemovedExplanation,
@@ -291,35 +294,35 @@ check("Personal quote public summary + payment display carry Express fields", ()
 check("Breakdown / customer copy wording", () => {
   assert.equal(
     expressDropOffRecommendedLabel("BFS"),
-    "Keep Express terminal drop-off — £5 (Recommended)",
+    "Express terminal — £5 included (Recommended)",
   );
   assert.equal(
     expressDropOffRecommendedLabel("BHD"),
-    "Keep Express terminal drop-off — £4 (Recommended)",
+    "Express terminal — £4 included (Recommended)",
   );
   assert.equal(
     expressDropOffRecommendedLabel("BFS", "pick-up"),
-    "Keep Express airport pick-up — £5 (Recommended)",
+    "Express terminal — £5 included (Recommended)",
   );
   assert.equal(
     expressDropOffRecommendedLabel("BHD", "pick-up"),
-    "Keep Express airport pick-up — £4 (Recommended)",
+    "Express terminal — £4 included (Recommended)",
   );
   assert.equal(
     expressDropOffRemoveLabel("BFS"),
-    "Use the designated free drop-off area and save £5",
+    "Free drop-off area — save £5",
   );
   assert.equal(
     expressDropOffRemoveLabel("BHD"),
-    "Use the designated free drop-off area and save £4",
+    "Free drop-off area — save £4",
   );
   assert.equal(
     expressDropOffRemoveLabel("BFS", "pick-up"),
-    "Meet your driver at the designated free pick-up area and save £5",
+    "Free pick-up area — save £5",
   );
   assert.equal(
     expressDropOffRemoveLabel("BHD", "pick-up"),
-    "Meet your driver at the designated free pick-up area and save £4",
+    "Free pick-up area — save £4",
   );
   assert.equal(
     expressDropOffBreakdownLabel("BFS", true),
@@ -330,8 +333,8 @@ check("Breakdown / customer copy wording", () => {
     expressDropOffBreakdownLabel("BFS", true, "pick-up"),
     "Belfast International Express Pick-Up: £5",
   );
-  assert.equal(expressAirportLegendLabel("pick-up"), "Airport Express Pick-Up");
-  assert.equal(expressAirportLegendLabel("drop-off"), "Airport Express Drop-Off");
+  assert.equal(expressAirportLegendLabel("pick-up"), "Airport pick-up");
+  assert.equal(expressAirportLegendLabel("drop-off"), "Airport drop-off");
   assert.equal(expressAvoidedChargeMessage("pick-up"), "You’ve avoided the Express Pick-Up charge");
   assert.equal(expressAvoidedChargeMessage("drop-off"), "You’ve avoided the Express Drop-Off charge");
   assert.equal(
@@ -348,11 +351,11 @@ check("Breakdown / customer copy wording", () => {
   );
   assert.equal(
     EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
-    "You’ll be dropped at the designated free drop-off area instead of Express Drop-Off. It’s only a short walk to the terminal.",
+    "Free drop-off selected. You’ll be dropped at the designated free drop-off area, a short walk from the terminal.",
   );
   assert.equal(
     EXPRESS_PICK_UP_REMOVED_EXPLANATION,
-    "You’ll meet your driver at the designated free pick-up area instead of Express Pick-Up. It’s only a short walk from the terminal.",
+    "Free pick-up selected. You’ll meet your driver at the designated free pick-up area, a short walk from the terminal.",
   );
   assert.equal(
     expressDropOffRemovedExplanation("drop-off"),
@@ -373,6 +376,18 @@ check("Breakdown / customer copy wording", () => {
   assert.equal(
     combinedAirportAccessConfirmRemovalLabel(),
     "I understand that the designated free airport areas will be used for both journeys.",
+  );
+  assert.equal(
+    combinedAirportAccessRecommendedLabel(10),
+    "Express terminal — £10 included (Recommended)",
+  );
+  assert.equal(
+    combinedAirportAccessRemoveLabel(8),
+    "Free airport areas — save £8",
+  );
+  assert.equal(
+    COMBINED_AIRPORT_ACCESS_REMOVED_EXPLANATION,
+    "Free areas selected. You’ll use the designated free airport areas, a short walk from the terminal.",
   );
   // Direction comes from resolveExpressDropOff(...).service (fromAirport), not duplicate UI state.
   assert.equal(
@@ -534,6 +549,11 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(selector, /role="radiogroup"/);
   assert.match(selector, /min-h-11/);
   assert.match(selector, /service/);
+  // One-tap free choice: no second acknowledgement checkbox.
+  assert.doesNotMatch(selector, /type="checkbox"/);
+  assert.doesNotMatch(selector, /expressDropOffConfirmRemovalLabel/);
+  assert.match(selector, /onSelectedChange\(false\)/);
+  assert.match(selector, /onRemovalAcknowledgedChange\(true\)/);
 });
 
 check("Removing Express reduces total immediately without changing transfer fare", () => {
@@ -1248,6 +1268,11 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
   const combinedSelector = read("src/components/CombinedAirportAccessSelector.tsx");
   assert.match(combinedSelector, /Airport access</);
   assert.match(combinedSelector, /COMBINED_AIRPORT_ACCESS_RETURN_NOTE/);
+  assert.match(combinedSelector, /COMBINED_AIRPORT_ACCESS_REMOVED_EXPLANATION/);
+  assert.doesNotMatch(combinedSelector, /type="checkbox"/);
+  assert.doesNotMatch(combinedSelector, /combinedAirportAccessConfirmRemovalLabel/);
+  assert.match(combinedSelector, /onSelectedChange\(false\)/);
+  assert.match(combinedSelector, /onRemovalAcknowledgedChange\(true\)/);
   const expressShared = read("shared/express-drop-off.ts");
   assert.match(
     expressShared,

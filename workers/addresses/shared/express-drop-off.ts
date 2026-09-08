@@ -38,10 +38,10 @@ export const EXPRESS_DROP_OFF_PASSED_ON_NOTE =
   "Airport-imposed Express access charges are passed on at cost with no markup.";
 
 export const EXPRESS_DROP_OFF_REMOVED_EXPLANATION =
-  "You’ll be dropped at the designated free drop-off area instead of Express Drop-Off. It’s only a short walk to the terminal.";
+  "Free drop-off selected. You’ll be dropped at the designated free drop-off area, a short walk from the terminal.";
 
 export const EXPRESS_PICK_UP_REMOVED_EXPLANATION =
-  "You’ll meet your driver at the designated free pick-up area instead of Express Pick-Up. It’s only a short walk from the terminal.";
+  "Free pick-up selected. You’ll meet your driver at the designated free pick-up area, a short walk from the terminal.";
 
 function roundGbp(amount: number): number {
   return Math.round(Number(amount) * 100) / 100;
@@ -314,13 +314,10 @@ export function composeFareWithExpressDropOff(input: {
 
 export function expressDropOffRecommendedLabel(
   airportCode: ExpressDropOffAirportCode,
-  service: ExpressAirportService = "drop-off",
+  _service: ExpressAirportService = "drop-off",
 ): string {
   const fee = EXPRESS_DROP_OFF_FEES_GBP[airportCode];
-  if (service === "pick-up") {
-    return `Keep Express airport pick-up — ${formatExpressDropOffGbp(fee)} (Recommended)`;
-  }
-  return `Keep Express terminal drop-off — ${formatExpressDropOffGbp(fee)} (Recommended)`;
+  return `Express terminal — ${formatExpressDropOffGbp(fee)} included (Recommended)`;
 }
 
 export function expressDropOffRemoveLabel(
@@ -329,9 +326,9 @@ export function expressDropOffRemoveLabel(
 ): string {
   const fee = EXPRESS_DROP_OFF_FEES_GBP[airportCode];
   if (service === "pick-up") {
-    return `Meet your driver at the designated free pick-up area and save ${formatExpressDropOffGbp(fee)}`;
+    return `Free pick-up area — save ${formatExpressDropOffGbp(fee)}`;
   }
-  return `Use the designated free drop-off area and save ${formatExpressDropOffGbp(fee)}`;
+  return `Free drop-off area — save ${formatExpressDropOffGbp(fee)}`;
 }
 
 export function expressDropOffRemovedExplanation(
@@ -375,7 +372,7 @@ export function expressDropOffConfirmRemovalLabel(
 export function expressAirportLegendLabel(
   service: ExpressAirportService = "drop-off",
 ): string {
-  return service === "pick-up" ? "Airport Express Pick-Up" : "Airport Express Drop-Off";
+  return service === "pick-up" ? "Airport pick-up" : "Airport drop-off";
 }
 
 export function expressAvoidedChargeMessage(
@@ -399,12 +396,15 @@ export const COMBINED_AIRPORT_ACCESS_RETURN_NOTE =
   "For return bookings, your selection applies to both your outbound and return airport journeys.";
 
 export function combinedAirportAccessRecommendedLabel(totalFeeGbp: number): string {
-  return `Express airport access — ${formatExpressDropOffGbp(totalFeeGbp)} total (Recommended)`;
+  return `Express terminal — ${formatExpressDropOffGbp(totalFeeGbp)} included (Recommended)`;
 }
 
 export function combinedAirportAccessRemoveLabel(totalFeeGbp: number): string {
-  return `Use the designated free airport areas — save ${formatExpressDropOffGbp(totalFeeGbp)}`;
+  return `Free airport areas — save ${formatExpressDropOffGbp(totalFeeGbp)}`;
 }
+
+export const COMBINED_AIRPORT_ACCESS_REMOVED_EXPLANATION =
+  "Free areas selected. You’ll use the designated free airport areas, a short walk from the terminal.";
 
 export function combinedAirportAccessConfirmRemovalLabel(): string {
   return "I understand that the designated free airport areas will be used for both journeys.";
