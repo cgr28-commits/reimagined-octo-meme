@@ -213,11 +213,15 @@ export default function AddressInput({
           }
 
           setLoadError(
-            result.predictions.length === 0 && !result.needsHouseNumber
+            result.unavailable
               ? requireSuggestion
-                ? "No matching addresses found — try a fuller street, hotel or airport name."
-                : "No matching addresses found — keep typing or enter your full address manually."
-              : null,
+                ? "Address suggestions are unavailable right now. Please try again shortly."
+                : "Address suggestions are unavailable right now. Enter your address manually."
+              : result.predictions.length === 0 && !result.needsHouseNumber
+                ? requireSuggestion
+                  ? "No matching addresses found — try a fuller street, hotel or airport name."
+                  : "No matching addresses found — keep typing or enter your full address manually."
+                : null,
           );
 
           // Avoid scrollIntoView on suggestion updates — it causes mobile page jump.
@@ -544,23 +548,42 @@ export default function AddressInput({
   const [overlayStyle, setOverlayStyle] = useState<CSSProperties | undefined>(undefined);
 
   const updateOverlayPosition = useCallback(() => {
-    if (!showAbove || !showSuggestions || !fieldShellRef.current) {
+    if (!showSuggestions || !fieldShellRef.current) {
       setOverlayStyle(undefined);
       return;
     }
     const rect = fieldShellRef.current.getBoundingClientRect();
+    const left = Math.max(8, rect.left);
+    const width = Math.min(rect.width, window.innerWidth - 16);
+    const spaceBelow = window.innerHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    const placeAbove = showAbove || (spaceBelow < 132 && spaceAbove > spaceBelow);
+    if (placeAbove) {
+      setOverlayStyle({
+        position: "fixed",
+        left,
+        width,
+        bottom: Math.max(8, window.innerHeight - rect.top + 6),
+        top: "auto",
+        maxHeight: Math.max(96, Math.min(spaceAbove, 16 * 16)),
+        zIndex: 90,
+      });
+      return;
+    }
+    const top = rect.bottom + 6;
     setOverlayStyle({
       position: "fixed",
-      left: Math.max(8, rect.left),
-      width: Math.min(rect.width, window.innerWidth - 16),
-      bottom: Math.max(8, window.innerHeight - rect.top + 6),
-      top: "auto",
+      left,
+      width,
+      top,
+      bottom: "auto",
+      maxHeight: Math.max(96, Math.min(spaceBelow, 16 * 16)),
       zIndex: 90,
     });
   }, [showAbove, showSuggestions]);
 
   useEffect(() => {
-    if (!showAbove || !showSuggestions) {
+    if (!showSuggestions) {
       setOverlayStyle(undefined);
       return;
     }
@@ -577,11 +600,13 @@ export default function AddressInput({
     <ul
       id={listboxId}
       role="listbox"
-      style={showAbove ? overlayStyle : undefined}
+      style={overlayStyle}
       className={`address-suggestions address-suggestions-overlay max-h-[min(40vh,16rem)] overflow-y-auto overscroll-contain rounded-xl border border-[#d7e0ec] bg-white shadow-xl shadow-black/25 ${
-        showAbove
+        overlayStyle
           ? "z-[90]"
-          : "absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[80]"
+          : showAbove
+            ? "z-[90]"
+            : "absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[80]"
       }`}
     >
       {suggestions.map((prediction, index) => (

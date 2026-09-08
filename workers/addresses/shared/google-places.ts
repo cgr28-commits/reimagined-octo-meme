@@ -222,6 +222,82 @@ function formatSuggestion(
   };
 }
 
+export const PLACES_QUOTA_ERROR_NAME = "PlacesQuotaError";
+
+export function isPlacesQuotaError(error: unknown): boolean {
+  return error instanceof Error && error.name === PLACES_QUOTA_ERROR_NAME;
+}
+
+function placesQuotaError(): Error {
+  const error = new Error("Google Places daily quota exceeded");
+  error.name = PLACES_QUOTA_ERROR_NAME;
+  return error;
+}
+
+function throwIfPlacesQuota(response: Response, detail = ""): void {
+  if (response.status === 429 || /RESOURCE_EXHAUSTED|Quota exceeded/i.test(detail)) {
+    throw placesQuotaError();
+  }
+}
+
+/**
+ * One Places autocomplete first. Extra street / establishment / postcode
+ * lookups only run when that primary call returns nothing — avoids burning
+ * the daily Autocomplete + SearchText quota on every keystroke.
+ */
+export async function searchGoogleAddressSuggestions(
+  apiKey: string,
+  query: string,
+  airportCode: string,
+  sessionToken?: string,
+): Promise<AddressSuggestion[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) {
+    return [];
+  }
+
+  const premisePrefix = extractPremisePrefixFromPostcodeQuery(trimmed);
+  const postcode = extractNorthernIrelandPostcode(trimmed);
+  const collected: AddressSuggestion[] = [];
+  const seen = new Set<string>();
+
+  const add = (items: AddressSuggestion[]) => {
+    for (const item of items) {
+      const key = item.id || item.label.toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      collected.push(item);
+    }
+  };
+
+  if (premisePrefix && postcode && isFullNorthernIrelandPostcode(postcode)) {
+    add(await searchGooglePostcodePremises(apiKey, trimmed, airportCode));
+    if (collected.length > 0) {
+      return sortSuggestionsByStreetNumber(collected).slice(0, 10);
+    }
+  }
+
+  add(await searchGooglePlaces(apiKey, trimmed, airportCode, sessionToken));
+  if (collected.length > 0) {
+    return sortSuggestionsByStreetNumber(collected).slice(0, 10);
+  }
+
+  if (!extractLeadingStreetNumber(trimmed) && !premisePrefix) {
+    add(await searchGoogleEstablishments(apiKey, trimmed, airportCode, sessionToken));
+    if (collected.length > 0) {
+      return sortSuggestionsByStreetNumber(collected).slice(0, 10);
+    }
+  }
+
+  if (isStreetOnlyQuery(trimmed) || isNumberedAddressQuery(trimmed) || Boolean(premisePrefix)) {
+    add(await searchGoogleStreetAddresses(apiKey, trimmed, airportCode));
+  }
+
+  return sortSuggestionsByStreetNumber(collected).slice(0, 10);
+}
+
 export async function searchGooglePlaces(
   apiKey: string,
   query: string,
@@ -271,6 +347,7 @@ export async function searchGooglePlaces(
       `Google Places autocomplete failed (${response.status})`,
       detail.slice(0, 300),
     );
+    throwIfPlacesQuota(response, detail);
     // If premises-restricted autocomplete fails/empty, fall back without type filter.
     if (userNumber) {
       return searchGooglePlacesUntyped(apiKey, query, airportCode, sessionToken);
@@ -328,6 +405,8 @@ async function searchGooglePlacesUntyped(
   });
 
   if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throwIfPlacesQuota(response, detail);
     return [];
   }
 
@@ -385,6 +464,8 @@ export async function searchGoogleStreetAddresses(
   });
 
   if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throwIfPlacesQuota(response, detail);
     return [];
   }
 
@@ -512,6 +593,8 @@ export async function searchGooglePostcodePremises(
     });
 
     if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throwIfPlacesQuota(response, detail);
       continue;
     }
 
@@ -639,6 +722,8 @@ export async function searchGoogleEstablishments(
   });
 
   if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throwIfPlacesQuota(response, detail);
     return [];
   }
 
