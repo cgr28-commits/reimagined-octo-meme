@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -581,11 +582,11 @@ export default function AddressInput({
     const viewportWidth = visual?.width ?? window.innerWidth;
     const viewportHeight = visual?.height ?? window.innerHeight;
     const viewportBottom = viewportTop + viewportHeight;
-    const left = Math.max(viewportLeft + 8, rect.left);
+    const left = Math.max(8, Math.min(rect.left, viewportLeft + viewportWidth - 16));
     const width = Math.min(rect.width, viewportWidth - 16);
     const spaceBelow = viewportBottom - rect.bottom - 12;
     const spaceAbove = rect.top - viewportTop - 12;
-    const placeAbove = showAbove || (spaceBelow < 132 && spaceAbove > spaceBelow);
+    const placeAbove = showAbove || (spaceBelow < 96 && spaceAbove > spaceBelow);
     if (placeAbove) {
       setOverlayStyle({
         position: "fixed",
@@ -598,34 +599,40 @@ export default function AddressInput({
       });
       return;
     }
-    const top = rect.bottom + 6;
     setOverlayStyle({
       position: "fixed",
       left,
       width,
-      top,
+      top: rect.bottom + 6,
       bottom: "auto",
       maxHeight: Math.max(96, Math.min(spaceBelow, 16 * 16)),
       zIndex: 90,
     });
   }, [showAbove, showSuggestions]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!showSuggestions) {
       setOverlayStyle(undefined);
       return;
     }
     updateOverlayPosition();
+    const frame = window.requestAnimationFrame(updateOverlayPosition);
     window.addEventListener("resize", updateOverlayPosition);
     window.addEventListener("scroll", updateOverlayPosition, true);
     const visual = window.visualViewport;
     visual?.addEventListener("resize", updateOverlayPosition);
     visual?.addEventListener("scroll", updateOverlayPosition);
+    const observer = new ResizeObserver(updateOverlayPosition);
+    if (fieldShellRef.current) {
+      observer.observe(fieldShellRef.current);
+    }
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", updateOverlayPosition);
       window.removeEventListener("scroll", updateOverlayPosition, true);
       visual?.removeEventListener("resize", updateOverlayPosition);
       visual?.removeEventListener("scroll", updateOverlayPosition);
+      observer.disconnect();
     };
   }, [showAbove, showSuggestions, updateOverlayPosition, suggestions.length, value]);
 

@@ -69,6 +69,8 @@ assert.match(input, /requestId !== suggestionRequestIdRef\.current/);
 assert.match(input, /AbortController/);
 assert.match(input, /visualViewport/);
 assert.match(input, /visual\?\.addEventListener\("resize"/);
+assert.match(input, /useLayoutEffect/);
+assert.match(input, /ResizeObserver/);
 
 const addressesApi = read("src/lib/addresses-api.ts");
 assert.match(addressesApi, /WORKER_SUGGESTION_CACHE_TTL_MS/);
