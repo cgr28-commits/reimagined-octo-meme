@@ -247,61 +247,65 @@ export default function TripMap({
   }
 
   if (variant === "summary") {
+    const timeLabel = routeMetrics
+      ? formatRouteCardJourneyTime(routeMetrics.durationMinutes)
+      : null;
     return (
       <div
         id={id}
-        className="scroll-mt-44 rounded-xl border border-white/10 bg-white/5 px-4 py-3 md:scroll-mt-28"
+        className="scroll-mt-44 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 md:scroll-mt-28"
         style={{ overflowAnchor: "none" }}
       >
         <p
           data-booking-nav-heading
           tabIndex={-1}
-          className="text-xs font-medium uppercase tracking-wider text-emerald outline-none"
+          className="sr-only outline-none"
         >
           Your Route
         </p>
-        <p className="mt-1 text-sm text-white/70">{links.routeLabel}</p>
-        {routeMetrics ? (
-          <p className="mt-1.5 text-sm font-semibold text-white">
-            {formatRouteCardJourneyTime(routeMetrics.durationMinutes)}
-          </p>
-        ) : originPoint && destinationPoint ? (
-          <p className="mt-1.5 text-xs text-white/50">Calculating journey time…</p>
-        ) : mapError ? (
-          <p className="mt-1.5 text-xs text-white/50">{mapError}</p>
-        ) : (
-          <p className="mt-1.5 text-xs text-white/50">Finding your addresses…</p>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex min-w-0 items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => setShowMap((open) => !open)}
-            className="text-sm font-medium text-emerald transition-colors hover:text-emerald-light"
+            className="min-w-0 text-left text-sm font-medium text-emerald transition-colors hover:text-emerald-light"
           >
-            {showMap ? "Hide route" : "View route"}
+            <span>{showMap ? "Hide route" : "View route"}</span>
+            {timeLabel ? (
+              <span className="mt-0.5 block text-xs font-normal text-white/55">
+                {timeLabel}
+              </span>
+            ) : (
+              <span className="mt-0.5 block text-xs font-normal text-white/45">
+                {originPoint && destinationPoint
+                  ? "Calculating journey time…"
+                  : mapError || "View route on map"}
+              </span>
+            )}
           </button>
           <a
             href={links.mapsLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-medium text-white/55 transition-colors hover:text-emerald"
+            className="shrink-0 text-xs font-medium text-white/45 transition-colors hover:text-emerald"
           >
-            Open in Google Maps
+            Google Maps
           </a>
         </div>
 
         {showMap ? (
-          <div className="mt-3 overflow-hidden rounded-lg border border-white/10">
-            {originPoint && destinationPoint ? (
-              <TripMapView pickup={originPoint} airport={destinationPoint} />
-            ) : (
-              <div className="flex h-40 items-center justify-center px-4 text-center">
-                <p className="text-sm text-white/60">
-                  {mapError ?? "Finding your addresses on the map…"}
-                </p>
-              </div>
-            )}
+          <div className="mt-2.5 space-y-2">
+            <p className="truncate text-xs text-white/50">{links.routeLabel}</p>
+            <div className="overflow-hidden rounded-lg border border-white/10">
+              {originPoint && destinationPoint ? (
+                <TripMapView pickup={originPoint} airport={destinationPoint} />
+              ) : (
+                <div className="flex h-40 items-center justify-center px-4 text-center">
+                  <p className="text-sm text-white/60">
+                    {mapError ?? "Finding your addresses on the map…"}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
       </div>

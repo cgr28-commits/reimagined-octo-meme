@@ -127,6 +127,7 @@ export function PromotionalPriceBreakdown({
   freeAirportAccessSelected = false,
   service = "drop-off",
   className = "",
+  alwaysShow = false,
 }: {
   breakdown: WebsiteFareBreakdown;
   /**
@@ -136,6 +137,8 @@ export function PromotionalPriceBreakdown({
   freeAirportAccessSelected?: boolean;
   service?: ExpressAirportService;
   className?: string;
+  /** Show the journey / payable rows even when there is no Express or promo line. */
+  alwaysShow?: boolean;
 }) {
   const accessLabel = expressAirportLegendLabel(service);
   const hasPromo = breakdown.totalPromotionalSavingGbp > 0;
@@ -151,7 +154,7 @@ export function PromotionalPriceBreakdown({
     : breakdown.journeyFareDisplayGbp;
   const journeyLabel = breakdown.returnJourney ? "Return journey fare" : "Journey fare";
   const finalPayableGbp = breakdown.finalAmountPayableGbp;
-  if (!hasPromo && !hasAccess && !freeAirportAccessSelected) return null;
+  if (!alwaysShow && !hasPromo && !hasAccess && !freeAirportAccessSelected) return null;
 
   return (
     <div className={`mt-2 space-y-1.5 text-xs leading-snug ${className}`}>

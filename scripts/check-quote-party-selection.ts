@@ -97,12 +97,18 @@ check("Scroll sequence: journey-type → passengers → YOUR ROUTE (owned by Quo
   assert.doesNotMatch(card, /schedulePreciseResultsScroll\("quote-price-summary"/);
 });
 
-check("Results order: Your Route → Vehicle → Price → Book Now; overflow-anchor none", () => {
+check("Results order: instant card (vehicle/price/book) then route; overflow-anchor none", () => {
+  const showcase = read("src/components/QuoteResultShowcase.tsx");
   assert.match(card, /quote-route-summary/);
+  assert.match(card, /QuoteResultShowcase/);
+  assert.match(card, /showInstantQuoteResultCard/);
+  assert.match(card, /BOOK THIS TRANSFER/);
   assert.match(card, /Vehicle for this journey/);
   assert.match(card, /Your Fixed Journey Price/);
-  assert.match(card, /sticky bottom-0/);
   assert.match(card, /overflowAnchor: "none"/);
+  assert.match(showcase, /ESTATE_VEHICLE/);
+  assert.match(showcase, /vehicleShortLabel/);
+  assert.doesNotMatch(showcase, /selectVehicleForParty/);
   assert.match(read("src/components/TripMap.tsx"), /Your Route/);
   assert.match(scrollLib, /quote-route-summary/);
   assert.match(scrollLib, /schedulePreciseResultsScroll/);
