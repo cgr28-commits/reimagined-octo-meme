@@ -71,6 +71,8 @@ export type BookingDetails = {
   marketingConsentVersion?: string;
   /** Consented, non-PII campaign attribution; never rendered in customer copy. */
   attribution?: AdsAttribution;
+  /** Quote session id — matches the daily owner quote report, not shown to customers. */
+  quoteTransactionId?: string;
 };
 
 export function isValidMobileNumber(value: string): boolean {

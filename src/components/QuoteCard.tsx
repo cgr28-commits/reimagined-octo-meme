@@ -2498,23 +2498,21 @@ function QuoteCard({
       : "";
 
   useEffect(() => {
-    // The result must actually be visible. Moving to later form steps keeps the
-    // same quote ID; returning with a changed calculation creates a new one.
-    if (quoteStep !== 1) return;
+    // One quoteTransactionId per customer quote session. Luggage / vehicle /
+    // Express / return changes must upsert the same daily-report record.
     if (!quoteCalculationFingerprint) {
       quoteCalculationFingerprintRef.current = "";
-      if (quoteTransactionId) setQuoteTransactionId("");
       return;
     }
-    if (quoteCalculationFingerprintRef.current === quoteCalculationFingerprint) return;
     quoteCalculationFingerprintRef.current = quoteCalculationFingerprint;
+    if (quoteTransactionId) return;
     setQuoteTransactionId(
       createQuoteTransactionId(pageType === "emerge_belfast" ? "emerge" : "quote"),
     );
-  }, [pageType, quoteCalculationFingerprint, quoteStep, quoteTransactionId]);
+  }, [pageType, quoteCalculationFingerprint, quoteTransactionId]);
 
   useEffect(() => {
-    if (!liveQuote || bookingSent || quoteStep !== 1) {
+    if (!liveQuote || bookingSent) {
       return;
     }
     // Wait for the Ads/quote transaction id so owner-email dedupe is by txn.
@@ -2560,31 +2558,53 @@ function QuoteCard({
       passengers: effectivePassengers as number,
       suitcases: suitcases as number,
       vehicle: quoteVehicle,
-      estimatedPrice: formatQuote(
-        currentServerFareParts?.amountGbp ?? liveQuote.amount,
-      ),
+      estimatedPrice: formatQuote(pricedFare?.totalGbp ?? liveQuote.amount),
       journeyDistance: journeyDistanceLabel || undefined,
       journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
       quoteTransactionId,
+      airportCode: effectiveAirportCode || undefined,
+      journeyFareGbp: journeyFareParts.journeyFareGbp,
+      airportAccessOption: expressSelection.eligible
+        ? expressSelection.legs.length > 1
+          ? expressSelection.selected
+            ? "Express access"
+            : "Free airport areas"
+          : expressSelection.selected
+            ? expressSelection.service === "pick-up"
+              ? "Express Pick-Up"
+              : "Express Drop-Off"
+            : expressSelection.service === "pick-up"
+              ? "Free Pick-Up"
+              : "Free Drop-Off"
+        : null,
+      airportAccessFeeGbp: expressSelection.feeGbp,
+      totalGbp: pricedFare?.totalGbp ?? liveQuote.amount,
+      source: "website",
     });
   }, [
     bookingSent,
     dropoffLabel,
+    effectiveAirportCode,
     effectivePassengers,
+    expressSelection.eligible,
+    expressSelection.feeGbp,
+    expressSelection.legs.length,
+    expressSelection.selected,
+    expressSelection.service,
     isAirportTrip,
     isFromAirport,
     journeyDistanceLabel,
     journeyDurationLabel,
+    journeyFareParts.journeyFareGbp,
     liveQuote,
     pickupLabel,
+    pricedFare?.totalGbp,
     quoteVehicle,
     returnDate,
     returnJourney,
     returnTime,
-    quoteStep,
     quoteTransactionId,
-    currentServerFareParts?.amountGbp,
     suitcases,
     tripDate,
     tripTime,
@@ -2800,6 +2820,7 @@ function QuoteCard({
       ...(pickupAirportCode ? { pickupAirportCode } : {}),
       ...(dropoffAirportCode ? { dropoffAirportCode } : {}),
       ...(isAirportToAirportJourney ? { isAirportToAirport: true } : {}),
+      quoteTransactionId: quoteTransactionId || undefined,
       expressDropOffSelected: expressSelection.eligible ? expressSelection.selected : false,
       expressDropOffFee: expressSelection.feeGbp,
       expressDropOffAirport: expressSelection.airportCode,
@@ -5131,11 +5152,7 @@ function QuoteCard({
             totalLabel={amountLabel ? `Total ${amountLabel}` : "Total TBC"}
             accessLine={checkoutAccessLine()}
             onEditJourney={() => navigateQuoteStep(1)}
-            changeAccessLabel={
-              expressSelection.legs.length > 1
-                ? expressCheckoutChangeLabel("combined")
-                : expressCheckoutChangeLabel(expressSelection.service ?? "drop-off")
-            }
+            changeAccessLabel={expressCheckoutChangeLabel()}
             onChangeDropOff={
               showChangeDropOff
                 ? () =>

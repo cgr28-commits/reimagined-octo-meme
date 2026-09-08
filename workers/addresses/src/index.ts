@@ -8,10 +8,9 @@ import {
   sanitizeAdsAttribution,
 } from "../shared/ads-attribution";
 import {
-  buildQuoteLeadMessage,
-  buildQuoteLeadSubject,
   type QuoteLeadDetails,
 } from "../shared/quote-lead";
+import { isQuoteTransactionId, parseGbpAmount } from "../shared/quote-session";
 import {
   corsHeaders,
   geocodeAddress,
@@ -211,6 +210,12 @@ import {
   getSavedQuoteByToken,
   markSavedQuoteExpiredIfNeeded,
 } from "./saved-quote-store";
+import {
+  markQuoteSessionBookedInStore,
+  quoteSessionStoreConfigured,
+  upsertQuoteSession,
+} from "./quote-session-store";
+import { processDailyQuoteReport } from "./daily-quote-report";
 import {
   handleCustomerAmendLookup,
   handleCustomerAmendSchedule,
@@ -434,6 +439,8 @@ type Env = {
   RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
   /** Isolated preview Worker only. Must never be set on production [vars]. */
   CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
+  /** London hour (0–23) to send the previous day's quote report. Default 0. */
+  DAILY_QUOTE_REPORT_LONDON_HOUR?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -1148,6 +1155,15 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
     journeyDistance: body.journeyDistance?.trim() || undefined,
     journeyDuration: body.journeyDuration?.trim() || undefined,
     isAirportTrip: Boolean(body.isAirportTrip),
+    quoteTransactionId: body.quoteTransactionId?.trim() || undefined,
+    airportCode: body.airportCode?.trim() || undefined,
+    journeyFareGbp:
+      typeof body.journeyFareGbp === "number" ? body.journeyFareGbp : undefined,
+    airportAccessOption: body.airportAccessOption?.trim() || undefined,
+    airportAccessFeeGbp:
+      typeof body.airportAccessFeeGbp === "number" ? body.airportAccessFeeGbp : undefined,
+    totalGbp: typeof body.totalGbp === "number" ? body.totalGbp : undefined,
+    source: body.source === "bot" ? "bot" : "website",
   };
 }
 
@@ -1174,51 +1190,56 @@ async function handleQuoteLeadRequest(
     return json({ error: "Missing quote fingerprint" }, 400, origin);
   }
 
-  if (await isDuplicateQuoteLead(fingerprint, env)) {
+  const txn =
+    details.quoteTransactionId?.trim() ||
+    (fingerprint.startsWith("txn:") ? fingerprint.slice(4) : "");
+
+  let recorded = false;
+  let created = false;
+  if (quoteSessionStoreConfigured(env.TRACKING_STORE) && isQuoteTransactionId(txn)) {
     try {
-      await recordQuoteLeadDeduped(env);
+      const result = await upsertQuoteSession(env.TRACKING_STORE, {
+        quoteTransactionId: txn,
+        pickupLabel: details.pickupLabel,
+        dropoffLabel: details.dropoffLabel,
+        airportCode: details.airportCode,
+        journeyDirection: details.tripLabel,
+        tripLabel: details.tripLabel,
+        returnJourney: details.returnJourney,
+        passengers: details.passengers,
+        suitcases: details.suitcases,
+        vehicle: details.vehicle,
+        journeyFareGbp: details.journeyFareGbp,
+        airportAccessOption: details.airportAccessOption,
+        airportAccessFeeGbp: details.airportAccessFeeGbp,
+        totalGbp: details.totalGbp ?? parseGbpAmount(details.estimatedPrice),
+        estimatedPriceLabel: details.estimatedPrice,
+        source: details.source === "bot" ? "bot" : "website",
+      });
+      recorded = true;
+      created = result.created;
     } catch (error) {
-      console.error("Quote lead dedupe counter failed", error);
+      console.error("Quote session upsert failed", error);
     }
-    return json({ ok: true, emailed: false, deduplicated: true }, 200, origin);
-  }
-
-  const skipEmail = body.skipEmail === true;
-  let emailed = false;
-
-  if (!skipEmail) {
-    const toEmail = ownerInbox(env);
-
-    // Prefer Resend / Cloudflare Email — FormSubmit often returns success without delivery.
-    const send = await trySendOwnerOperationalEmail(env, {
-      to: toEmail,
-      subject: buildQuoteLeadSubject(details),
-      body: buildQuoteLeadMessage(details),
-    });
-    if (!send.sent) {
-      console.error("Quote lead email failed", send.error);
-      try {
-        await releaseQuoteLeadFingerprint(fingerprint, env);
-      } catch (error) {
-        console.error("Quote lead fingerprint release failed", error);
-      }
-      return json({ error: "Failed to send quote alert email" }, 502, origin);
-    }
-    emailed = true;
+  } else {
+    recorded = true;
   }
 
   let quoteLeadsTotal: number | null = null;
-  try {
-    quoteLeadsTotal = await recordQuoteLeadSent(env);
-  } catch (error) {
-    console.error("Quote lead counter failed", error);
+  if (created) {
+    try {
+      quoteLeadsTotal = await recordQuoteLeadSent(env);
+    } catch (error) {
+      console.error("Quote lead counter failed", error);
+    }
   }
 
   return json(
     {
       ok: true,
-      emailed,
-      recorded: true,
+      emailed: false,
+      recorded,
+      deduplicated: !created,
       ...(quoteLeadsTotal !== null ? { quoteLeadsTotal } : {}),
     },
     200,
@@ -1320,6 +1341,46 @@ async function handleBookingRequest(
         );
       }
     }
+  }
+
+  try {
+    const txn = String(
+      (body.booking as { quoteTransactionId?: unknown } | undefined)?.quoteTransactionId ?? "",
+    ).trim();
+    if (
+      txn &&
+      bookingReference &&
+      quoteSessionStoreConfigured(env.TRACKING_STORE)
+    ) {
+      const booking = (body.booking ?? {}) as Record<string, unknown>;
+      await markQuoteSessionBookedInStore(env.TRACKING_STORE, {
+        quoteTransactionId: txn,
+        bookingReference,
+        fallback: {
+          pickupLabel: String(booking.pickupLabel ?? ""),
+          dropoffLabel: String(booking.dropoffLabel ?? ""),
+          airportCode: String(booking.airportCode ?? "") || null,
+          journeyDirection: String(booking.tripLabel ?? ""),
+          returnJourney: Boolean(booking.returnJourney),
+          passengers: Number(booking.passengers) || undefined,
+          suitcases: Number(booking.suitcases) || undefined,
+          vehicle: String(booking.vehicle ?? ""),
+          estimatedPriceLabel:
+            typeof booking.estimatedPrice === "string" ? booking.estimatedPrice : undefined,
+          totalGbp:
+            typeof booking.finalAmountPayableGbp === "number"
+              ? booking.finalAmountPayableGbp
+              : parseGbpAmount(booking.estimatedPrice),
+          airportAccessFeeGbp:
+            typeof booking.airportAccessChargeGbp === "number"
+              ? booking.airportAccessChargeGbp
+              : undefined,
+          source: "website",
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Quote session booked mark failed", error);
   }
 
   await maybeRecordMarketingFromPayload(env.TRACKING_STORE, {
@@ -4503,6 +4564,19 @@ export default {
       runAdFraudRetentionCleanup(env).catch((error) => {
         console.error("Ad fraud retention cron failed", error);
       }),
+    );
+
+    // Previous London calendar day — one owner quote report, skip empty days.
+    ctx.waitUntil(
+      processDailyQuoteReport(env)
+        .then((result) => {
+          if (result.sent || result.reason === "email_failed") {
+            console.log("Daily quote report cron", JSON.stringify(result));
+          }
+        })
+        .catch((error) => {
+          console.error("Daily quote report cron failed", error);
+        }),
     );
   },
 };

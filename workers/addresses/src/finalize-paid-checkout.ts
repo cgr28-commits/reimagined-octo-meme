@@ -38,6 +38,8 @@ import { hashReturnOfferToken } from "../shared/return-offer";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
 import { maybeUploadPaidBookingAdsConversion } from "./paid-booking-ads-conversion";
+import { markQuoteSessionBookedInStore, quoteSessionStoreConfigured } from "./quote-session-store";
+import { parseGbpAmount } from "../shared/quote-session";
 
 const BUSINESS_NAME = "My Airport Taxi NI";
 
@@ -460,6 +462,35 @@ export async function finalizePaidCheckout(input: {
     body: ownerEmail.body,
   });
   const ownerNotifySent = ownerCopyResult.sent || ownerEmailResult.sent;
+
+  try {
+    const txn = booking.quoteTransactionId?.trim() || "";
+    const bookedRef = customerReference?.trim() || paymentReference;
+    if (txn && bookedRef && quoteSessionStoreConfigured(env.TRACKING_STORE)) {
+      await markQuoteSessionBookedInStore(env.TRACKING_STORE, {
+        quoteTransactionId: txn,
+        bookingReference: bookedRef,
+        fallback: {
+          pickupLabel: booking.pickupLabel,
+          dropoffLabel: booking.dropoffLabel,
+          airportCode: booking.airportCode,
+          journeyDirection: booking.tripLabel,
+          returnJourney: booking.returnJourney,
+          passengers: booking.passengers,
+          suitcases: booking.suitcases,
+          vehicle: booking.vehicle,
+          airportAccessFeeGbp: booking.airportAccessChargeGbp,
+          totalGbp:
+            booking.finalAmountPayableGbp ??
+            parseGbpAmount(receipt.amountPaid),
+          estimatedPriceLabel: receipt.amountPaid,
+          source: "website",
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Quote session booked mark after payment failed", error);
+  }
 
   await maybeRecordMarketingFromPayload(env.TRACKING_STORE, {
     email: booking.customerEmail,

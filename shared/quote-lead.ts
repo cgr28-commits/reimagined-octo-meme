@@ -18,10 +18,16 @@ export type QuoteLeadDetails = {
   journeyDuration?: string;
   isAirportTrip: boolean;
   /**
-   * Client quote transaction id — preferred dedupe key so the same viewed
-   * quote is emailed once even if journey fields change slightly.
+   * Client quote transaction id — one session across luggage / vehicle / access
+   * recalculations. Used to upsert the daily quote record, not to email.
    */
   quoteTransactionId?: string;
+  airportCode?: string;
+  journeyFareGbp?: number;
+  airportAccessOption?: string;
+  airportAccessFeeGbp?: number;
+  totalGbp?: number;
+  source?: "website" | "bot";
 };
 
 function scheduleLabel(date?: string, time?: string): string {

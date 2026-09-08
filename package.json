@@ -27,6 +27,7 @@
     "check:pricing-confirmation": "npx tsx scripts/check-pricing-confirmation.ts",
     "check:pricing-vehicle-quote-flow": "npx tsx scripts/check-pricing-vehicle-quote-flow.ts",
     "check:quote-lead-email": "npx tsx scripts/check-quote-lead-email.ts",
+    "check:daily-quote-report": "npx tsx scripts/check-daily-quote-report.ts",
     "check:quote-flight-booking-stage": "npx tsx scripts/check-quote-flight-booking-stage.ts",
     "check:airport-pickup-flight": "npx tsx scripts/check-airport-pickup-flight-required.ts",
     "check:restored-places-route": "npx tsx scripts/check-restored-places-route-payment.ts",

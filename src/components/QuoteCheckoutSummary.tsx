@@ -24,7 +24,7 @@ export default function QuoteCheckoutSummary({
   accessLine,
   onEditJourney,
   onChangeDropOff,
-  changeAccessLabel = "Change drop-off",
+  changeAccessLabel = "Change airport access",
   children,
 }: Props) {
   return (
