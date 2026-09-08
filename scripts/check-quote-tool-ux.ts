@@ -100,6 +100,8 @@ check("QuoteCard uses progressive route for A2A primary flow", () => {
   assert.match(card, /QuoteProgressiveRoute/);
   assert.match(card, /applyJourneyIntent/);
   assert.match(card, /Your Journey/);
+  assert.match(card, /Your transfer/);
+  assert.match(card, /Complete your booking/);
 });
 
 check("Step 2 travel details section scrolls only after explicit step navigation", () => {

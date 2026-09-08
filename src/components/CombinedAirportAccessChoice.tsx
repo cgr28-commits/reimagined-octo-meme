@@ -21,6 +21,8 @@ type Props = {
   mode?: "full" | "summary";
   editing?: boolean;
   onEditingChange?: (editing: boolean) => void;
+  /** Quote-card expand only — clearer Express vs free labels. */
+  clarityLabels?: boolean;
   className?: string;
 };
 
@@ -39,6 +41,7 @@ export default function CombinedAirportAccessChoice({
   mode = "full",
   editing = false,
   onEditingChange,
+  clarityLabels = false,
   className = "",
 }: Props) {
   if (mode === "summary" && !editing) {
@@ -76,6 +79,7 @@ export default function CombinedAirportAccessChoice({
         onRemovalAcknowledgedChange={onRemovalAcknowledgedChange}
         requireAcknowledgement={requireAcknowledgement}
         allowFreeAlternative={allowFreeAlternative}
+        clarityLabels={clarityLabels}
       />
       {mode === "summary" && editing ? (
         <button

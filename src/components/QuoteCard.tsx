@@ -4411,6 +4411,7 @@ function QuoteCard({
             }
             totalFeeGbp={expressSelection.feeIfSelectedGbp}
             allowFreeAlternative={allowFreeAlternative}
+            clarityLabels
             selected={allSelected}
             removalAcknowledged={expressRemovalAck && returnExpressRemovalAck}
             requireAcknowledgement={expressAckRequired}
@@ -4443,6 +4444,7 @@ function QuoteCard({
           airportCode={leg.airportCode}
           service={leg.service}
           allowFreeAlternative={leg.freeAlternativeAvailable}
+          clarityLabels
           selected={expressDropOffSelected}
           removalAcknowledged={expressRemovalAck}
           requireAcknowledgement={expressAckRequired}
@@ -4465,13 +4467,29 @@ function QuoteCard({
       return null;
     }
     const expanded = expressEditingLeg != null;
-    const serviceLabel =
-      expressSelection.legs.length > 1
-        ? "Airport access"
-        : expressAirportLegendLabel(expressSelection.service ?? "drop-off");
-    const compactDetail = expressSelection.selected
-      ? `Included — ${formatExpressDropOffGbp(expressSelection.feeIfSelectedGbp)} (Recommended)`
-      : "Free drop-off area selected";
+    const isPickup = expressSelection.service === "pick-up";
+    const isCombined = expressSelection.legs.length > 1;
+    const feeLabel = formatExpressDropOffGbp(expressSelection.feeIfSelectedGbp);
+    const freeAvailable = expressSelection.freeAlternativeAvailable;
+    const serviceLabel = expressSelection.selected
+      ? isCombined
+        ? `Airport access — ${feeLabel}`
+        : `${expressAirportLegendLabel(expressSelection.service ?? "drop-off")} — ${feeLabel}`
+      : isCombined
+        ? "Free designated airport areas"
+        : isPickup
+          ? "Free designated pick-up"
+          : "Free designated drop-off";
+    const changeToFreeLabel = isPickup
+      ? "Change to free pick-up"
+      : isCombined
+        ? "Change to free airport areas"
+        : "Change to free drop-off";
+    const changeToExpressLabel = isPickup
+      ? "Change to Express Pick-Up"
+      : isCombined
+        ? "Change to Express"
+        : "Change to Express Drop-Off";
     return (
       <div
         className="overflow-hidden rounded-xl border border-white/12 bg-white/[0.03]"
@@ -4487,7 +4505,28 @@ function QuoteCard({
         >
           <span className="min-w-0">
             <span className="block text-sm font-medium text-white">{serviceLabel}</span>
-            <span className="mt-0.5 block text-xs text-white/55">{compactDetail}</span>
+            <span className="mt-0.5 block text-xs text-white/55">
+              {expressSelection.selected ? (
+                freeAvailable ? (
+                  <>
+                    Recommended ·{" "}
+                    <span className="font-semibold text-emerald">{changeToFreeLabel}</span>
+                  </>
+                ) : (
+                  "Recommended"
+                )
+              ) : (
+                <>
+                  £0 airport access charge
+                  {freeAvailable ? (
+                    <>
+                      {" · "}
+                      <span className="font-semibold text-white/75">{changeToExpressLabel}</span>
+                    </>
+                  ) : null}
+                </>
+              )}
+            </span>
           </span>
           <span
             className={`shrink-0 text-white/45 transition-transform ${expanded ? "rotate-180" : ""}`}
@@ -4825,9 +4864,17 @@ function QuoteCard({
         appliedPersonalQuote?.agreedAmount ??
         liveQuote!.amount,
     );
+    const expressProduct =
+      expressSelection.legs.length > 1
+        ? "airport access"
+        : expressSelection.service === "pick-up"
+          ? "Express Pick-Up"
+          : "Express Drop-Off";
     const expressIncludedLine =
       expressSelection.eligible && expressSelection.feeGbp > 0
-        ? `Includes ${expressAirportLegendLabel(expressSelection.service ?? "drop-off")} (${formatExpressDropOffGbp(expressSelection.feeGbp)})`
+        ? expressSelection.freeAlternativeAvailable
+          ? `Includes ${formatExpressDropOffGbp(expressSelection.feeGbp)} ${expressProduct} · Free option available`
+          : `Includes ${expressAirportLegendLabel(expressSelection.service ?? "drop-off")} (${formatExpressDropOffGbp(expressSelection.feeGbp)})`
         : null;
     return (
       <QuoteResultShowcase
@@ -5878,10 +5925,14 @@ function QuoteCard({
         <h2
           data-booking-nav-heading
           tabIndex={-1}
-          className="sr-only"
+          className="text-lg font-semibold tracking-tight text-white sm:text-xl"
         >
-          Step 2 — Travel details
+          Complete your booking
         </h2>
+        <p className="sr-only">Step 2 — Travel details</p>
+        <p className="text-sm leading-relaxed text-white/65">
+          Add your travel time, then continue to your details.
+        </p>
         <div className="grid w-full min-w-0 max-w-full gap-4 sm:grid-cols-2 lg:gap-3.5">
           <div className="min-w-0 max-w-full">
             <label
@@ -6088,16 +6139,21 @@ function QuoteCard({
         {renderFlightDetailsSection(2)}
 
         <div
+          id="quote-price-summary"
+          className="scroll-mt-44 outline-none md:scroll-mt-28"
+        >
+        <div
           id="step2-journey-summary"
           ref={step2JourneySummaryRef}
-          className="scroll-mt-44 rounded-xl border border-white/10 bg-white/5 px-4 py-3 md:scroll-mt-28"
+          className="scroll-mt-44 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 md:scroll-mt-28"
         >
+          <p className="sr-only">Your Journey</p>
           <p
             data-booking-nav-heading
             tabIndex={-1}
             className="form-label mb-0 outline-none"
           >
-            Your Journey
+            Your transfer
           </p>
           <p className="mt-2 text-sm font-semibold text-white">
             {pickupLabel || "Pickup"}
@@ -6114,6 +6170,43 @@ function QuoteCard({
               the return date and time are needed below.
             </p>
           )}
+          {partySelectionReady && effectivePassengers != null && suitcases != null ? (
+          <p className="mt-3 text-sm text-white/85">
+            {!exceedsOnlineCapacity ? `${vehicleShortLabel(quoteVehicle)} · ` : ""}
+            {formatPassengerChoice(effectivePassengers)}{" "}
+            passenger
+            {effectivePassengers === 1 ? "" : "s"}{" "}
+            · {formatSuitcaseChoice(suitcases)} suitcase
+            {suitcases === 1 ? "" : "s"}
+          </p>
+          ) : null}
+          {liveQuote || pricedFare || appliedPersonalQuote ? (
+            <p className="mt-2 text-base font-semibold tabular-nums text-white">
+              {formatQuote(
+                testChargeAmount ??
+                  pricedFare?.totalGbp ??
+                  appliedPersonalQuote?.agreedAmount ??
+                  liveQuote?.amount ??
+                  0,
+              )}{" "}
+              <span className="text-sm font-medium text-white/70">fixed price</span>
+            </p>
+          ) : null}
+          {expressSelection.eligible ? (
+            <p className="mt-1.5 text-sm text-emerald">
+              {expressSelection.selected
+                ? expressSelection.legs.length > 1
+                  ? "✓ Express airport access included"
+                  : expressSelection.service === "pick-up"
+                    ? "✓ Express Pick-Up included"
+                    : "✓ Express Drop-Off included"
+                : expressSelection.legs.length > 1
+                  ? "✓ Free designated airport areas selected"
+                  : expressSelection.service === "pick-up"
+                    ? "✓ Free designated pick-up selected"
+                    : "✓ Free designated drop-off selected"}
+            </p>
+          ) : null}
           {(tripDate || tripTime) && (
             <p className="mt-3 text-sm text-white/80">
               {tripDate ? formatDisplayDate(tripDate) : "Date TBC"}
@@ -6123,38 +6216,18 @@ function QuoteCard({
                 : ""}
             </p>
           )}
-          {partySelectionReady && effectivePassengers != null && suitcases != null ? (
-          <p className="mt-2 text-sm text-white/85">
-            {formatPassengerChoice(effectivePassengers)}{" "}
-            passenger
-            {effectivePassengers === 1 ? "" : "s"}{" "}
-            · {formatSuitcaseChoice(suitcases)} suitcase
-            {suitcases === 1 ? "" : "s"}
-            {!exceedsOnlineCapacity ? ` · ${vehicleShortLabel(quoteVehicle)}` : ""}
-          </p>
-          ) : null}
           <button
             type="button"
             onClick={() => navigateQuoteStep(1)}
-            className="mt-2 text-xs font-semibold text-emerald underline-offset-2 hover:underline"
+            className="mt-3 text-xs font-medium text-white/50 underline-offset-2 hover:text-white/75 hover:underline"
           >
             Edit journey details
           </button>
         </div>
         </div>
+        </div>
           </>
         ) : null}
-
-        {quoteStep === 2 && quoteChoicesReady && (
-        <div
-          id="quote-price-summary"
-          data-booking-nav-heading
-          tabIndex={-1}
-          className="quote-price-panel scroll-mt-44 outline-none md:scroll-mt-28"
-        >
-          {renderQuotePriceSummaryBody()}
-        </div>
-        )}
 
         {quoteStep === 3 ? (
           <>
@@ -6733,18 +6806,7 @@ function QuoteCard({
                 />
               </div>
             ) : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => {
-                  navigateQuoteStep(1);
-                  clearFlightFieldErrors();
-                  setReturnDateError("");
-                }}
-                className="btn-secondary w-full"
-              >
-                Back
-              </button>
+            <div className="space-y-3">
               {smartAvailabilityBlocked ? null : (
                 <button
                   type="button"
@@ -6755,6 +6817,17 @@ function QuoteCard({
                   Continue to your details
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  navigateQuoteStep(1);
+                  clearFlightFieldErrors();
+                  setReturnDateError("");
+                }}
+                className="w-full py-2 text-sm font-medium text-white/55 underline-offset-2 hover:text-white/80 hover:underline"
+              >
+                Back
+              </button>
             </div>
             {liveQuote &&
             canPayNowOnline &&

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  EXPRESS_DROP_OFF_FEES_GBP,
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
   canOfferExpressFreeAlternative,
   expressAirportLegendLabel,
@@ -8,6 +9,7 @@ import {
   expressDropOffRecommendedLabel,
   expressDropOffRemoveLabel,
   expressDropOffRemovedExplanation,
+  formatExpressDropOffGbp,
   type ExpressAirportService,
   type ExpressDropOffAirportCode,
 } from "../../shared/express-drop-off";
@@ -27,6 +29,11 @@ type Props = {
   idPrefix?: string;
   /** Optional legend override, e.g. "Outbound journey – Airport drop-off". */
   heading?: string;
+  /**
+   * Quote-card expand only: clearer Express vs free labels.
+   * Does not change options, fees, or acknowledgement behaviour.
+   */
+  clarityLabels?: boolean;
   className?: string;
 };
 
@@ -44,6 +51,7 @@ export default function ExpressDropOffSelector({
   allowFreeAlternative,
   idPrefix,
   heading,
+  clarityLabels = false,
   className = "",
 }: Props) {
   const groupName = `${idPrefix ? `${idPrefix}-` : ""}express-airport-${service}-${airportCode}`;
@@ -51,6 +59,10 @@ export default function ExpressDropOffSelector({
     typeof allowFreeAlternative === "boolean"
       ? allowFreeAlternative
       : canOfferExpressFreeAlternative({ airportCode, service });
+  const feeLabel = formatExpressDropOffGbp(EXPRESS_DROP_OFF_FEES_GBP[airportCode]);
+  const terminalNoun = service === "pick-up" ? "pick-up" : "drop-off";
+  const recommendedCopy = expressDropOffRecommendedLabel(airportCode, service);
+  const removeCopy = expressDropOffRemoveLabel(airportCode, service);
 
   return (
     <fieldset
@@ -84,7 +96,25 @@ export default function ExpressDropOffSelector({
             className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
           />
           <span className="min-w-0 leading-snug">
-            {expressDropOffRecommendedLabel(airportCode, service)}
+            {clarityLabels ? (
+              <>
+                <span className="sr-only">{recommendedCopy}</span>
+                <span aria-hidden className="block font-medium text-white">
+                  Express terminal {terminalNoun} — {feeLabel}
+                </span>
+                <span aria-hidden className="mt-0.5 block text-xs text-white/65">
+                  Closest/convenient terminal {terminalNoun}
+                </span>
+                <span
+                  aria-hidden
+                  className="mt-1 inline-block rounded-full bg-emerald/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald"
+                >
+                  Recommended
+                </span>
+              </>
+            ) : (
+              recommendedCopy
+            )}
           </span>
         </label>
 
@@ -104,7 +134,19 @@ export default function ExpressDropOffSelector({
               className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
             />
             <span className="min-w-0 leading-snug">
-              {expressDropOffRemoveLabel(airportCode, service)}
+              {clarityLabels ? (
+                <>
+                  <span className="sr-only">{removeCopy}</span>
+                  <span aria-hidden className="block font-medium">
+                    Designated free {terminalNoun} — £0
+                  </span>
+                  <span aria-hidden className="mt-0.5 block text-xs text-white/65">
+                    No airport access charge
+                  </span>
+                </>
+              ) : (
+                removeCopy
+              )}
             </span>
           </label>
         ) : null}
