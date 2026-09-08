@@ -8,6 +8,7 @@ import {
   geocodeAddress,
   isPlacesQuotaError,
   resolveGooglePlaceDetails,
+  rankAddressSuggestions,
   searchGoogleAddressSuggestions,
 } from "../../shared/google-places";
 import {
@@ -53,8 +54,6 @@ export type AddressPrediction = {
   secondaryText: string;
 };
 
-import { hasLeadingStreetNumber } from "../../shared/journey-address-label";
-
 function createSessionToken(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -92,24 +91,11 @@ function mergePredictions(
     merged.push(prediction);
   }
 
-  return merged
-    .sort((a, b) => {
-      // Keep served airports at the top when they matched the query.
-      const aServed = served.some((s) => s.placeId === a.placeId);
-      const bServed = served.some((s) => s.placeId === b.placeId);
-      if (aServed && !bServed) return -1;
-      if (!aServed && bServed) return 1;
-      const aHasNumber = hasLeadingStreetNumber(a.mainText);
-      const bHasNumber = hasLeadingStreetNumber(b.mainText);
-      if (aHasNumber && !bHasNumber) {
-        return -1;
-      }
-      if (!aHasNumber && bHasNumber) {
-        return 1;
-      }
-      return 0;
-    })
-    .slice(0, limit);
+  const servedIds = new Set(served.map((item) => item.placeId));
+  const servedFirst = merged.filter((item) => servedIds.has(item.placeId));
+  const remainder = merged.filter((item) => !servedIds.has(item.placeId));
+  const ranked = rankAddressSuggestions(remainder, query, airportCode);
+  return [...servedFirst, ...ranked].slice(0, limit);
 }
 
 function toPrediction(suggestion: {

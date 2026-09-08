@@ -4,6 +4,7 @@ import {
   isAddressAllowedForAirport,
   isAllowedAutocompleteLabel,
   isAllowedCoordinates,
+  isNorthernIrelandText,
   isRepublicOfIrelandText,
   isFullNorthernIrelandPostcode,
   isNorthernIrelandPostcodeQuery,
@@ -17,7 +18,7 @@ import {
   normaliseJourneyAddressLabel,
   withStreetNumber,
 } from "./journey-address-label";
-import { getLdyLocationRestriction } from "./ldy-service-area";
+import { getLdyLocationRestriction, isGreaterBelfastServiceAddress } from "./ldy-service-area";
 
 export {
   extractLeadingStreetNumber,
@@ -230,8 +231,195 @@ export function extractTypedLocalityHint(query: string): string | null {
   return token ?? null;
 }
 
-function suggestionHaystack(item: AddressSuggestion): string {
-  return `${item.mainText} ${item.secondaryText} ${item.label}`.toLowerCase();
+type RankableAddress = {
+  mainText: string;
+  secondaryText?: string;
+  label?: string;
+  description?: string;
+};
+
+function rankableLabel(item: RankableAddress): string {
+  return item.label || item.description || [item.mainText, item.secondaryText].filter(Boolean).join(", ");
+}
+
+function suggestionHaystack(item: RankableAddress): string {
+  return `${item.mainText} ${item.secondaryText ?? ""} ${rankableLabel(item)}`.toLowerCase();
+}
+
+const QUERY_NOISE_TOKENS = new Set([
+  "uk",
+  "unitedkingdom",
+  "northernireland",
+  "ireland",
+  "eire",
+  "éire",
+]);
+
+const STREET_TYPE_TOKENS = new Set([
+  "road",
+  "rd",
+  "street",
+  "st",
+  "avenue",
+  "ave",
+  "av",
+  "drive",
+  "dr",
+  "lane",
+  "ln",
+  "close",
+  "court",
+  "ct",
+  "way",
+  "terrace",
+  "crescent",
+  "place",
+  "pl",
+  "grove",
+  "gardens",
+  "park",
+  "walk",
+  "row",
+  "square",
+  "mews",
+  "hill",
+  "gate",
+  "parade",
+  "rise",
+  "end",
+  "view",
+  "green",
+]);
+
+function normalizeAddressToken(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** House number plus street tokens, including 1-character prefixes such as "M". */
+export function parseNumberedStreetQuery(query: string): {
+  houseNumber: string | null;
+  streetTokens: string[];
+} {
+  const streetLine = query.split(",")[0]?.trim() ?? "";
+  const houseNumber = extractLeadingStreetNumber(streetLine);
+  const rest = houseNumber ? streetLine.slice(houseNumber.length).trim() : streetLine;
+  const streetTokens = rest
+    .split(/[\s/]+/)
+    .map(normalizeAddressToken)
+    .filter(
+      (token) =>
+        token.length >= 1 &&
+        !/^\d+[a-z]?$/.test(token) &&
+        !/^bt\d/.test(token) &&
+        !QUERY_NOISE_TOKENS.has(token),
+    );
+  return { houseNumber, streetTokens };
+}
+
+type StreetTokenMatch = {
+  covered: number;
+  exact: number;
+  prefix: number;
+  allCovered: boolean;
+  continuationStreetType: boolean;
+  lastResultToken?: string;
+};
+
+/**
+ * Consume result street tokens in order. Each typed token must be a prefix of
+ * the next result token (Glenavy covers "Glen", but not a following "M").
+ * Leading unmatched words such as "The" may be skipped; after the first match,
+ * tokens must stay consecutive so "7 Glen M" is not satisfied by "7 Glenavy Road".
+ */
+function matchStreetTokensInOrder(queryTokens: string[], resultTokens: string[]): StreetTokenMatch {
+  let covered = 0;
+  let exact = 0;
+  let prefix = 0;
+  let start = -1;
+
+  for (let index = 0; index < resultTokens.length && covered < queryTokens.length; index += 1) {
+    const queryToken = queryTokens[covered];
+    const resultToken = resultTokens[index];
+    if (resultToken.startsWith(queryToken)) {
+      if (start < 0) {
+        start = index;
+      }
+      if (resultToken === queryToken) {
+        exact += 1;
+      } else {
+        prefix += 1;
+      }
+      covered += 1;
+    } else if (covered > 0) {
+      break;
+    }
+  }
+
+  const allCovered = queryTokens.length > 0 && covered >= queryTokens.length;
+  const nextToken =
+    allCovered && start >= 0 ? resultTokens[start + covered] : undefined;
+
+  return {
+    covered,
+    exact,
+    prefix,
+    allCovered,
+    continuationStreetType: Boolean(nextToken && STREET_TYPE_TOKENS.has(nextToken)),
+    lastResultToken: covered > 0 && start >= 0 ? resultTokens[start + covered - 1] : undefined,
+  };
+}
+
+function numberedResultCoversQuery(
+  query: { houseNumber: string | null; streetTokens: string[] },
+  item: RankableAddress,
+): boolean {
+  if (query.houseNumber) {
+    const leading =
+      extractLeadingStreetNumber(item.mainText) ?? extractLeadingStreetNumber(rankableLabel(item));
+    if (leading?.toLowerCase() !== query.houseNumber.toLowerCase()) {
+      return false;
+    }
+  }
+
+  if (query.streetTokens.length === 0) {
+    return Boolean(query.houseNumber);
+  }
+
+  const resultTokens = parseNumberedStreetQuery(item.mainText).streetTokens;
+  return matchStreetTokensInOrder(query.streetTokens, resultTokens).allCovered;
+}
+
+function numberedResultIsSubstantial(
+  query: string,
+  parsed: { houseNumber: string | null; streetTokens: string[] },
+  item: RankableAddress,
+): boolean {
+  if (!numberedResultCoversQuery(parsed, item)) {
+    return false;
+  }
+  // "7 G" / "7 Gl" / "7 Glen" may stay broad once a prefix match exists.
+  if (parsed.streetTokens.length < 2) {
+    return true;
+  }
+
+  const resultTokens = parseNumberedStreetQuery(item.mainText).streetTokens;
+  const match = matchStreetTokensInOrder(parsed.streetTokens, resultTokens);
+  if (match.continuationStreetType) {
+    return true;
+  }
+  if (match.lastResultToken && STREET_TYPE_TOKENS.has(match.lastResultToken)) {
+    return true;
+  }
+  if (
+    match.exact === parsed.streetTokens.length &&
+    parsed.streetTokens.every((token) => token.length >= 3)
+  ) {
+    return true;
+  }
+
+  const streetLine = query.split(",")[0]?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+  const main = item.mainText.toLowerCase().replace(/\s+/g, " ");
+  return streetLine.length >= 10 && (main === streetLine || main.startsWith(`${streetLine} `));
 }
 
 function significantQueryTokens(query: string): string[] {
@@ -265,8 +453,9 @@ function hasCloseStreetMatch(query: string, results: AddressSuggestion[]): boole
 
 /**
  * Primary Autocomplete is "good enough" only when the list is actually useful
- * for what the customer typed. One vague or off-locality hit must not block
- * the single street fallback.
+ * for what the customer typed. Numbered street queries are never strong merely
+ * because several door-numbered hits exist — typed street tokens must appear
+ * in order as prefixes on at least one result.
  */
 export function areGoogleAutocompleteResultsStrong(
   query: string,
@@ -276,16 +465,21 @@ export function areGoogleAutocompleteResultsStrong(
     return false;
   }
 
-  const userNumber = extractLeadingStreetNumber(query);
-  if (userNumber) {
-    const hasNumber = results.some((item) => {
-      const leading =
-        extractLeadingStreetNumber(item.mainText) ?? extractLeadingStreetNumber(item.label);
-      return leading?.toLowerCase() === userNumber.toLowerCase();
-    });
-    if (!hasNumber) {
+  const parsed = parseNumberedStreetQuery(query);
+  if (parsed.houseNumber) {
+    if (!results.some((item) => numberedResultIsSubstantial(query, parsed, item))) {
       return false;
     }
+
+    const locality = extractTypedLocalityHint(query);
+    if (
+      locality &&
+      !results.some((item) => suggestionHaystack(item).includes(locality.toLowerCase()))
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   const locality = extractTypedLocalityHint(query);
@@ -298,6 +492,115 @@ export function areGoogleAutocompleteResultsStrong(
   }
 
   return results.length >= 3 || Boolean(locality) || hasCloseStreetMatch(query, results);
+}
+
+function geoBiasScore(item: RankableAddress, airportCode: string): number {
+  const code = normaliseAirportCode(airportCode);
+  if (code !== "BFS" && code !== "BHD") {
+    return 0;
+  }
+
+  const hay = suggestionHaystack(item);
+  let score = 0;
+  if (isGreaterBelfastServiceAddress(hay)) {
+    score += 35;
+  } else if (isNorthernIrelandText(hay)) {
+    score += 22;
+  }
+  if (isRepublicOfIrelandText(hay) && !isNorthernIrelandText(hay)) {
+    score -= 15;
+  }
+  return score;
+}
+
+export function scoreAddressSuggestion(
+  item: RankableAddress,
+  query: string,
+  airportCode = "",
+): number {
+  const parsed = parseNumberedStreetQuery(query);
+  const resultParsed = parseNumberedStreetQuery(item.mainText);
+  const match = matchStreetTokensInOrder(parsed.streetTokens, resultParsed.streetTokens);
+  let score = 0;
+
+  if (parsed.houseNumber) {
+    const leading =
+      extractLeadingStreetNumber(item.mainText) ?? extractLeadingStreetNumber(rankableLabel(item));
+    if (leading?.toLowerCase() === parsed.houseNumber.toLowerCase()) {
+      score += 1000;
+    } else if (hasLeadingStreetNumber(item.mainText)) {
+      score += 200;
+    }
+  } else if (hasLeadingStreetNumber(item.mainText)) {
+    score += 40;
+  }
+
+  score += match.exact * 90;
+  score += match.prefix * 50;
+  score += match.covered * 25;
+  if (match.allCovered) {
+    score += 220;
+  }
+  if (match.continuationStreetType) {
+    score += 55;
+  }
+  if (parsed.streetTokens.length > match.covered) {
+    score -= (parsed.streetTokens.length - match.covered) * 80;
+  }
+
+  const typedLine = (query.split(",")[0] ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  const mainLine = item.mainText.toLowerCase().replace(/\s+/g, " ");
+  if (typedLine.length >= 3 && mainLine.startsWith(typedLine)) {
+    score += 70;
+  }
+
+  const locality = extractTypedLocalityHint(query);
+  if (locality && suggestionHaystack(item).includes(locality.toLowerCase())) {
+    score += 80;
+  }
+
+  if (extractNorthernIrelandPostcode(rankableLabel(item))) {
+    score += 20;
+  }
+
+  score += geoBiasScore(item, airportCode);
+  return score;
+}
+
+/**
+ * Local ranking after Google returns. Priority:
+ * house number, street-token prefix/exact match, full token coverage,
+ * selected-airport geographic bias, then remaining nearby results.
+ */
+export function rankAddressSuggestions<T extends RankableAddress>(
+  items: T[],
+  query: string,
+  airportCode = "",
+): T[] {
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+      score: scoreAddressSuggestion(item, query, airportCode),
+    }))
+    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .map((entry) => entry.item);
+}
+
+export type AddressSuggestionTrace = {
+  cacheHit: boolean;
+  primaryLabels: string[];
+  primaryStrong: boolean;
+  fallbackRan: boolean;
+  fallbackKind: "street" | "establishment" | null;
+};
+
+let lastAddressSuggestionTrace: AddressSuggestionTrace | null = null;
+
+export function takeLastAddressSuggestionTrace(): AddressSuggestionTrace | null {
+  const next = lastAddressSuggestionTrace;
+  lastAddressSuggestionTrace = null;
+  return next;
 }
 
 const SUGGESTION_CACHE_TTL_MS = 45_000;
@@ -396,6 +699,13 @@ export async function searchGoogleAddressSuggestions(
   const cacheKey = suggestionCacheKey(airportCode, trimmed);
   const cached = readSuggestionCache(cacheKey);
   if (cached) {
+    lastAddressSuggestionTrace = {
+      cacheHit: true,
+      primaryLabels: cached.map((item) => item.label),
+      primaryStrong: true,
+      fallbackRan: false,
+      fallbackKind: null,
+    };
     return cached;
   }
 
@@ -415,34 +725,62 @@ export async function searchGoogleAddressSuggestions(
     }
   };
 
-  const finish = () => {
-    const next = sortSuggestionsByStreetNumber(collected).slice(0, 10);
+  const finish = (trace: Omit<AddressSuggestionTrace, "cacheHit">) => {
+    const next = rankAddressSuggestions(collected, trimmed, airportCode).slice(0, 10);
     writeSuggestionCache(cacheKey, next);
+    lastAddressSuggestionTrace = { cacheHit: false, ...trace };
     return next;
   };
 
   if (premisePrefix && postcode && isFullNorthernIrelandPostcode(postcode)) {
     add(await searchGooglePostcodePremises(apiKey, trimmed, airportCode));
     if (areGoogleAutocompleteResultsStrong(trimmed, collected)) {
-      return finish();
+      return finish({
+        primaryLabels: collected.map((item) => item.label),
+        primaryStrong: true,
+        fallbackRan: false,
+        fallbackKind: null,
+      });
     }
   }
 
   add(await searchGooglePlaces(apiKey, trimmed, airportCode, sessionToken));
+  const primaryLabels = collected.map((item) => item.label);
   if (areGoogleAutocompleteResultsStrong(trimmed, collected)) {
-    return finish();
+    return finish({
+      primaryLabels,
+      primaryStrong: true,
+      fallbackRan: false,
+      fallbackKind: null,
+    });
   }
 
   if (isStreetOnlyQuery(trimmed) || isNumberedAddressQuery(trimmed) || Boolean(premisePrefix)) {
     add(await searchGoogleStreetAddresses(apiKey, trimmed, airportCode));
-    return finish();
+    return finish({
+      primaryLabels,
+      primaryStrong: false,
+      fallbackRan: true,
+      fallbackKind: "street",
+    });
   }
 
   if (collected.length === 0) {
     add(await searchGoogleEstablishments(apiKey, trimmed, airportCode, sessionToken));
+    return finish({
+      primaryLabels,
+      primaryStrong: false,
+      fallbackRan: true,
+      fallbackKind: "establishment",
+    });
   }
 
-  return finish();
+  return finish({
+    primaryLabels,
+    primaryStrong: false,
+    fallbackRan: false,
+    fallbackKind: null,
+  });
 }
 
 export async function searchGooglePlaces(

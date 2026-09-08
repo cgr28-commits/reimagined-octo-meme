@@ -18,13 +18,14 @@ import {
   isPlacesQuotaError,
   resolveGooglePlaceDetails,
   reverseGeocodeGoogle,
+  rankAddressSuggestions,
   searchGoogleAddressSuggestions,
+  takeLastAddressSuggestionTrace,
 } from "../shared/google-places";
 import {
   extractNorthernIrelandPostcode,
   isAllowedAutocompleteLabel,
   isPureFullNorthernIrelandPostcodeQuery,
-  sortSuggestionsByStreetNumber,
 } from "../shared/address-validation";
 import { matchServedAirportSuggestions, servedAirportFromPlaceId } from "../shared/served-airports";
 import {
@@ -4365,8 +4366,10 @@ export default {
       );
       const suggestions = results.flat();
 
-      const merged = sortSuggestionsByStreetNumber(
+      const merged = rankAddressSuggestions(
         suggestions.filter((item) => isAllowedAutocompleteLabel(item.label, airportCode)),
+        query,
+        airportCode,
       );
 
       // First-class served airports (BFS / BHD / DUB) — reliable even when Places is GB-only.
@@ -4387,6 +4390,9 @@ export default {
       if (env.GETADDRESS_API_KEY?.trim()) providers.push("getaddress");
       if (env.GOOGLE_PLACES_API_KEY?.trim()) providers.push("google");
 
+      const debugRequested = url.searchParams.get("debug") === "1";
+      const trace = debugRequested ? takeLastAddressSuggestionTrace() : null;
+
       return json(
         {
           suggestions: finalSuggestions.slice(0, 10),
@@ -4397,6 +4403,17 @@ export default {
             getaddress: Boolean(env.GETADDRESS_API_KEY?.trim()),
             google: Boolean(env.GOOGLE_PLACES_API_KEY?.trim()),
           },
+          ...(trace
+            ? {
+                debug: {
+                  cacheHit: trace.cacheHit,
+                  primaryStrong: trace.primaryStrong,
+                  fallbackRan: trace.fallbackRan,
+                  fallbackKind: trace.fallbackKind,
+                  primaryLabels: trace.primaryLabels,
+                },
+              }
+            : {}),
         },
         200,
         origin,
