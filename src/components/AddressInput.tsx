@@ -642,7 +642,7 @@ export default function AddressInput({
         </label>
       ) : (
         <div className="mb-1.5 flex items-center justify-between gap-3">
-          <label htmlFor={id} className="form-label">
+          <label htmlFor={id} className="form-label !text-[#dce4ee]">
             {label}
           </label>
           {action}
@@ -682,7 +682,7 @@ export default function AddressInput({
               aria-controls={listboxId}
               aria-autocomplete="list"
               role="combobox"
-              className="address-input box-border h-12 w-full min-w-0 border-0 bg-transparent py-3 pl-4 pr-11 text-base leading-normal text-white placeholder:text-white/30 outline-none truncate"
+              className="address-input box-border h-12 w-full min-w-0 border-0 bg-transparent py-3 pl-4 pr-11 text-base leading-normal text-white placeholder:text-white/70 outline-none truncate"
             />
             {value ? (
               <button
