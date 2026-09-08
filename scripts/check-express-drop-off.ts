@@ -495,6 +495,12 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
     /Your Fixed Journey Price[\s\S]*?quote-price-figure[\s\S]*?FixedPriceAssurance[\s\S]*?renderExpressChoiceInPriceCard[\s\S]*?Vehicle:/,
   );
   assert.match(card, /data-express-airport-choice/);
+  assert.match(card, /Free option available/);
+  assert.match(card, /Change to free drop-off/);
+  assert.match(card, /Free designated drop-off/);
+  assert.match(card, /Complete your booking/);
+  assert.match(card, /Your transfer/);
+  assert.match(card, /Free designated drop-off selected/);
   assert.match(card, /renderExpressChoiceInPriceCard/);
   assert.match(card, /service=\{leg\.service\}|service=\{expressSelection\.service/);
   assert.match(card, /ExpressDropOffChoice/);
@@ -530,6 +536,10 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   const selector = read("src/components/ExpressDropOffSelector.tsx");
   assert.match(selector, /expressDropOffRecommendedLabel/);
   assert.match(selector, /expressDropOffRemoveLabel/);
+  assert.match(selector, /clarityLabels/);
+  assert.match(selector, /Express terminal/);
+  assert.match(selector, /Designated free/);
+  assert.match(selector, /No airport access charge/);
   assert.match(selector, /expressDropOffRemovedExplanation/);
   assert.match(selector, /role="radiogroup"/);
   assert.match(selector, /min-h-11/);

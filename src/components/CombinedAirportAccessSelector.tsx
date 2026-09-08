@@ -6,6 +6,7 @@ import {
   combinedAirportAccessConfirmRemovalLabel,
   combinedAirportAccessRecommendedLabel,
   combinedAirportAccessRemoveLabel,
+  formatExpressDropOffGbp,
 } from "../../shared/express-drop-off";
 
 type Props = {
@@ -19,6 +20,8 @@ type Props = {
   requireAcknowledgement?: boolean;
   /** Only offer the free alternative when every leg supports it. */
   allowFreeAlternative?: boolean;
+  /** Quote-card expand only: clearer Express vs free labels. */
+  clarityLabels?: boolean;
   className?: string;
 };
 
@@ -35,9 +38,13 @@ export default function CombinedAirportAccessSelector({
   onRemovalAcknowledgedChange,
   requireAcknowledgement = false,
   allowFreeAlternative = true,
+  clarityLabels = false,
   className = "",
 }: Props) {
   const groupName = "combined-airport-access";
+  const feeLabel = formatExpressDropOffGbp(totalFeeGbp);
+  const recommendedCopy = combinedAirportAccessRecommendedLabel(totalFeeGbp);
+  const removeCopy = combinedAirportAccessRemoveLabel(totalFeeGbp);
 
   return (
     <fieldset
@@ -66,7 +73,25 @@ export default function CombinedAirportAccessSelector({
             className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
           />
           <span className="min-w-0 leading-snug">
-            {combinedAirportAccessRecommendedLabel(totalFeeGbp)}
+            {clarityLabels ? (
+              <>
+                <span className="sr-only">{recommendedCopy}</span>
+                <span aria-hidden className="block font-medium text-white">
+                  Express airport access — {feeLabel}
+                </span>
+                <span aria-hidden className="mt-0.5 block text-xs text-white/65">
+                  Closest/convenient terminal drop-off on both journeys
+                </span>
+                <span
+                  aria-hidden
+                  className="mt-1 inline-block rounded-full bg-emerald/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald"
+                >
+                  Recommended
+                </span>
+              </>
+            ) : (
+              recommendedCopy
+            )}
           </span>
         </label>
 
@@ -86,7 +111,19 @@ export default function CombinedAirportAccessSelector({
               className="mt-1 h-4 w-4 shrink-0 border-white/30 accent-emerald"
             />
             <span className="min-w-0 leading-snug">
-              {combinedAirportAccessRemoveLabel(totalFeeGbp)}
+              {clarityLabels ? (
+                <>
+                  <span className="sr-only">{removeCopy}</span>
+                  <span aria-hidden className="block font-medium">
+                    Designated free airport areas — £0
+                  </span>
+                  <span aria-hidden className="mt-0.5 block text-xs text-white/65">
+                    No airport access charge
+                  </span>
+                </>
+              ) : (
+                removeCopy
+              )}
             </span>
           </label>
         ) : null}

@@ -26,6 +26,8 @@ type Props = {
   onEditingChange?: (editing: boolean) => void;
   idPrefix?: string;
   heading?: string;
+  /** Quote-card expand only — clearer Express vs free labels. */
+  clarityLabels?: boolean;
   className?: string;
 };
 
@@ -47,6 +49,7 @@ export default function ExpressDropOffChoice({
   onEditingChange,
   idPrefix,
   heading,
+  clarityLabels = false,
   className = "",
 }: Props) {
   if (mode === "summary" && !editing) {
@@ -90,6 +93,7 @@ export default function ExpressDropOffChoice({
         allowFreeAlternative={allowFreeAlternative}
         idPrefix={idPrefix}
         heading={heading}
+        clarityLabels={clarityLabels}
       />
       {mode === "summary" && editing ? (
         <button
