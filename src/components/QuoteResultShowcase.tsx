@@ -47,7 +47,7 @@ export default function QuoteResultShowcase({
     >
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-6">
         <div className="min-w-0 text-center lg:text-left">
-          <p className="font-display text-[1.65rem] font-semibold leading-none tracking-tight text-navy sm:text-[1.85rem]">
+          <p className="font-sans text-[1.65rem] font-bold leading-none tracking-[-0.02em] text-navy sm:text-[1.85rem]">
             {vehicleLabel}
           </p>
           <p className="sr-only">Vehicle for this journey</p>
@@ -98,14 +98,14 @@ export default function QuoteResultShowcase({
             🔒 Secure booking · Takes around 2 minutes
           </p>
 
-          <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] leading-snug text-navy/65 min-[390px]:text-xs">
+          <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-medium leading-snug text-navy/85">
             <Benefit icon="card">
               Secure payment
-              <span className="block text-navy/50">powered by SumUp</span>
+              <span className="block font-normal text-navy/55">powered by SumUp</span>
             </Benefit>
             <Benefit icon="plane">
               Flight monitoring
-              <span className="block text-navy/50">for airport pickups</span>
+              <span className="block font-normal text-navy/55">for airport pickups</span>
             </Benefit>
             <Benefit>No hidden charges</Benefit>
           </ul>
