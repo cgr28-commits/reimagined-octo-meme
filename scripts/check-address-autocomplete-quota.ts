@@ -16,6 +16,14 @@ const maps = read("src/lib/google-maps.ts");
 const input = read("src/components/AddressInput.tsx");
 const worker = read("workers/addresses/src/index.ts");
 const places = read("shared/google-places.ts");
+const card = read("src/components/QuoteCard.tsx");
+
+assert.match(
+  card,
+  /journeyIntent !== "address-to-address" && intentAirportCode/,
+  "To/From airport lookups must use the selected airport, not A2A",
+);
+assert.match(card, /PLACES_LOOKUP_A2A/);
 
 assert.match(maps, /The Worker already calls Places/);
 assert.match(maps, /unavailable: Boolean\(worker\.unavailable\)/);
