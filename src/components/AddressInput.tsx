@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -122,6 +123,8 @@ export default function AddressInput({
   const [houseOrBuilding, setHouseOrBuilding] = useState("");
   const [lockedPostcode, setLockedPostcode] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
+  const suggestionRequestIdRef = useRef(0);
+  const suggestionAbortRef = useRef<AbortController | null>(null);
   const hintId = useId();
   const listboxId = useId();
   const houseHintId = useId();
@@ -132,6 +135,8 @@ export default function AddressInput({
       if (debounceRef.current) {
         window.clearTimeout(debounceRef.current);
       }
+      suggestionAbortRef.current?.abort();
+      suggestionRequestIdRef.current += 1;
     };
   }, []);
 
@@ -167,6 +172,8 @@ export default function AddressInput({
   }, []);
 
   useEffect(() => {
+    suggestionAbortRef.current?.abort();
+    suggestionRequestIdRef.current += 1;
     setSuggestions([]);
     setSuggestionsOpen(false);
     setNeedsHouseNumber(false);
@@ -181,6 +188,8 @@ export default function AddressInput({
       }
 
       const trimmed = query.trim();
+      suggestionAbortRef.current?.abort();
+      const requestId = ++suggestionRequestIdRef.current;
       if (trimmed.length < 3) {
         setSuggestions([]);
         setSuggestionsOpen(false);
@@ -188,8 +197,13 @@ export default function AddressInput({
         return;
       }
 
-      void fetchAddressPredictionsDetailed(trimmed, airportCode)
+      const controller = new AbortController();
+      suggestionAbortRef.current = controller;
+      void fetchAddressPredictionsDetailed(trimmed, airportCode, controller.signal)
         .then((result) => {
+          if (requestId !== suggestionRequestIdRef.current) {
+            return;
+          }
           if (options?.autoConfirmExact) {
             const exact = result.predictions.find((prediction) =>
               isHighConfidenceAddressMatch(trimmed, prediction),
@@ -241,7 +255,16 @@ export default function AddressInput({
             });
           }
         })
-        .catch(() => {
+        .catch((error: unknown) => {
+          if (requestId !== suggestionRequestIdRef.current) {
+            return;
+          }
+          if (
+            (error instanceof DOMException && error.name === "AbortError") ||
+            (error instanceof Error && error.name === "AbortError")
+          ) {
+            return;
+          }
           setSuggestions([]);
           setSuggestionsOpen(false);
           setNeedsHouseNumber(false);
@@ -553,36 +576,37 @@ export default function AddressInput({
       return;
     }
     const rect = fieldShellRef.current.getBoundingClientRect();
-    const left = Math.max(8, rect.left);
-    const width = Math.min(rect.width, window.innerWidth - 16);
-    const spaceBelow = window.innerHeight - rect.bottom - 12;
-    const spaceAbove = rect.top - 12;
-    const placeAbove = showAbove || (spaceBelow < 132 && spaceAbove > spaceBelow);
-    if (placeAbove) {
-      setOverlayStyle({
-        position: "fixed",
-        left,
-        width,
-        bottom: Math.max(8, window.innerHeight - rect.top + 6),
-        top: "auto",
-        maxHeight: Math.max(96, Math.min(spaceAbove, 16 * 16)),
+    const visual = window.visualViewport;
+    const viewportTop = visual?.offsetTop ?? 0;
+    const viewportBottom = viewportTop + (visual?.height ?? window.innerHeight);
+    const spaceBelow = viewportBottom - rect.bottom - 12;
+    const spaceAbove = rect.top - viewportTop - 12;
+    const placeAbove = showAbove || (spaceBelow < 96 && spaceAbove > spaceBelow);
+    const maxHeight = Math.max(96, Math.min(placeAbove ? spaceAbove : Math.max(spaceBelow, 96), 16 * 16));
+    setOverlayStyle((prev) => {
+      const next: CSSProperties = {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        width: "100%",
+        top: placeAbove ? "auto" : "calc(100% + 6px)",
+        bottom: placeAbove ? "calc(100% + 6px)" : "auto",
+        maxHeight,
         zIndex: 90,
-      });
-      return;
-    }
-    const top = rect.bottom + 6;
-    setOverlayStyle({
-      position: "fixed",
-      left,
-      width,
-      top,
-      bottom: "auto",
-      maxHeight: Math.max(96, Math.min(spaceBelow, 16 * 16)),
-      zIndex: 90,
+      };
+      if (
+        prev &&
+        prev.top === next.top &&
+        prev.bottom === next.bottom &&
+        prev.maxHeight === next.maxHeight
+      ) {
+        return prev;
+      }
+      return next;
     });
   }, [showAbove, showSuggestions]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!showSuggestions) {
       setOverlayStyle(undefined);
       return;
@@ -590,9 +614,14 @@ export default function AddressInput({
     updateOverlayPosition();
     window.addEventListener("resize", updateOverlayPosition);
     window.addEventListener("scroll", updateOverlayPosition, true);
+    const visual = window.visualViewport;
+    visual?.addEventListener("resize", updateOverlayPosition);
+    visual?.addEventListener("scroll", updateOverlayPosition);
     return () => {
       window.removeEventListener("resize", updateOverlayPosition);
       window.removeEventListener("scroll", updateOverlayPosition, true);
+      visual?.removeEventListener("resize", updateOverlayPosition);
+      visual?.removeEventListener("scroll", updateOverlayPosition);
     };
   }, [showAbove, showSuggestions, updateOverlayPosition, suggestions.length, value]);
 
@@ -601,12 +630,12 @@ export default function AddressInput({
       id={listboxId}
       role="listbox"
       style={overlayStyle}
-      className={`address-suggestions address-suggestions-overlay max-h-[min(40vh,16rem)] overflow-y-auto overscroll-contain rounded-xl border border-[#d7e0ec] bg-white shadow-xl shadow-black/25 ${
+      className={`address-suggestions address-suggestions-overlay overflow-y-auto overscroll-contain rounded-xl border border-[#d7e0ec] bg-white shadow-xl shadow-black/25 ${
         overlayStyle
           ? "z-[90]"
           : showAbove
-            ? "z-[90]"
-            : "absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[80]"
+            ? "absolute left-0 right-0 bottom-[calc(100%+0.35rem)] z-[90] max-h-[min(40vh,16rem)]"
+            : "absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[80] max-h-[min(40vh,16rem)]"
       }`}
     >
       {suggestions.map((prediction, index) => (

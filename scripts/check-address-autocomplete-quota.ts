@@ -16,6 +16,22 @@ const maps = read("src/lib/google-maps.ts");
 const input = read("src/components/AddressInput.tsx");
 const worker = read("workers/addresses/src/index.ts");
 const places = read("shared/google-places.ts");
+const card = read("src/components/QuoteCard.tsx");
+
+assert.match(
+  card,
+  /journeyIntent !== "address-to-address" && intentAirportCode/,
+  "To/From airport lookups must use the selected airport, not A2A",
+);
+assert.match(card, /PLACES_LOOKUP_A2A/);
+assert.match(card, /Belfast bias, NI preferred, ROI still allowed/);
+assert.match(places, /BELFAST_RANKING_CIRCLE/);
+assert.match(places, /usesIslandPlacesLookup/);
+assert.doesNotMatch(
+  places,
+  /if \(code === "DUB" \|\| code === "A2A"\) \{\s*return \["gb", "ie"\]/,
+  "BFS/BHD must share island region codes, not gb-only",
+);
 
 assert.match(maps, /The Worker already calls Places/);
 assert.match(maps, /unavailable: Boolean\(worker\.unavailable\)/);
@@ -29,8 +45,20 @@ assert.doesNotMatch(
 );
 
 assert.match(places, /searchGoogleAddressSuggestions/);
+assert.match(places, /areGoogleAutocompleteResultsStrong/);
+assert.match(places, /SUGGESTION_CACHE_TTL_MS/);
 assert.match(places, /PLACES_QUOTA_ERROR_NAME/);
 assert.match(places, /throwIfPlacesQuota/);
+assert.match(
+  places,
+  /if \(areGoogleAutocompleteResultsStrong\(trimmed, collected\)\)/,
+  "weak Autocomplete results must not skip the single street fallback",
+);
+assert.doesNotMatch(
+  places,
+  /add\(await searchGooglePlaces[\s\S]*?if \(collected\.length > 0\) \{\s*return/,
+  "must not return as soon as Autocomplete returns any result",
+);
 
 assert.match(worker, /searchGoogleAddressSuggestions/);
 assert.match(worker, /isPlacesQuotaError/);
@@ -43,7 +71,17 @@ assert.doesNotMatch(
 
 assert.match(input, /result\.unavailable/);
 assert.match(input, /Address suggestions are unavailable right now/);
-assert.match(input, /position: "fixed"/);
+assert.match(input, /position: "absolute"/);
+assert.match(input, /suggestionRequestIdRef/);
+assert.match(input, /requestId !== suggestionRequestIdRef\.current/);
+assert.match(input, /AbortController/);
+assert.match(input, /visualViewport/);
+assert.match(input, /visual\?\.addEventListener\("resize"/);
+assert.match(input, /useLayoutEffect/);
+
+const addressesApi = read("src/lib/addresses-api.ts");
+assert.match(addressesApi, /WORKER_SUGGESTION_CACHE_TTL_MS/);
+assert.match(addressesApi, /signal\?: AbortSignal/);
 
 const quota = new Error("Google Places daily quota exceeded");
 quota.name = PLACES_QUOTA_ERROR_NAME;

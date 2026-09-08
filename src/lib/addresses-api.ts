@@ -57,10 +57,66 @@ export type WorkerAddressSuggestionsResult = {
   unavailable?: boolean;
 };
 
+const WORKER_SUGGESTION_CACHE_TTL_MS = 45_000;
+const WORKER_SUGGESTION_CACHE_MAX = 80;
+const workerSuggestionCache = new Map<
+  string,
+  { at: number; value: WorkerAddressSuggestionsResult }
+>();
+
+function workerSuggestionCacheKey(query: string, airportCode: string): string {
+  return `${airportCode.trim().toUpperCase()}|${query.trim().toLowerCase()}`;
+}
+
+function readWorkerSuggestionCache(key: string): WorkerAddressSuggestionsResult | null {
+  const hit = workerSuggestionCache.get(key);
+  if (!hit) {
+    return null;
+  }
+  if (Date.now() - hit.at > WORKER_SUGGESTION_CACHE_TTL_MS) {
+    workerSuggestionCache.delete(key);
+    return null;
+  }
+  return {
+    ...hit.value,
+    suggestions: hit.value.suggestions.map((item) => ({ ...item })),
+  };
+}
+
+function writeWorkerSuggestionCache(key: string, value: WorkerAddressSuggestionsResult): void {
+  if (workerSuggestionCache.size >= WORKER_SUGGESTION_CACHE_MAX) {
+    const oldest = workerSuggestionCache.keys().next().value;
+    if (oldest) {
+      workerSuggestionCache.delete(oldest);
+    }
+  }
+  workerSuggestionCache.set(key, {
+    at: Date.now(),
+    value: {
+      ...value,
+      suggestions: value.suggestions.map((item) => ({ ...item })),
+    },
+  });
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof DOMException && error.name === "AbortError") ||
+    (error instanceof Error && error.name === "AbortError")
+  );
+}
+
 export async function fetchWorkerAddressSuggestions(
   query: string,
   airportCode: string,
+  signal?: AbortSignal,
 ): Promise<WorkerAddressSuggestionsResult | null> {
+  const cacheKey = workerSuggestionCacheKey(query, airportCode);
+  const cached = readWorkerSuggestionCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const baseUrl = resolveAddressesApiUrl();
   const url = new URL(baseUrl);
   url.searchParams.set("q", query);
@@ -71,6 +127,7 @@ export async function fetchWorkerAddressSuggestions(
   try {
     const response = await fetch(url.toString(), {
       headers: { Accept: "application/json" },
+      signal,
     });
 
     if (!response.ok) {
@@ -85,14 +142,19 @@ export async function fetchWorkerAddressSuggestions(
       unavailable?: boolean;
     };
 
-    return {
+    const result: WorkerAddressSuggestionsResult = {
       suggestions: payload.suggestions ?? [],
       needsHouseNumber: Boolean(payload.needsHouseNumber),
       postcode: payload.postcode,
       hint: payload.hint,
       unavailable: Boolean(payload.unavailable),
     };
-  } catch {
+    writeWorkerSuggestionCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    if (signal?.aborted || isAbortError(error)) {
+      throw error instanceof Error ? error : new DOMException("Aborted", "AbortError");
+    }
     return null;
   }
 }

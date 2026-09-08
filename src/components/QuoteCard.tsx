@@ -852,11 +852,17 @@ function QuoteCard({
     journeyKind === "airport-to-address" ||
     Boolean(pickupAirportCode || dropoffAirportCode);
   const isAddressToAddressInclusions = !isAirportLegForInclusions;
-  const addressLookupCode = isA2AFlow
-    ? PLACES_LOOKUP_A2A
-    : isAirportTrip
-      ? airportCode
-      : "BFS";
+  // Public quote is A2A-priced, but Places ranking follows the journey:
+  // To/From BFS/BHD → Belfast bias, NI preferred, ROI still allowed.
+  // DUB / Address-to-address → island-wide bias. England/Scotland/Wales stay blocked.
+  const addressLookupCode =
+    isA2AFlow && journeyIntent !== "address-to-address" && intentAirportCode
+      ? intentAirportCode
+      : isA2AFlow
+        ? PLACES_LOOKUP_A2A
+        : isAirportTrip
+          ? airportCode
+          : "BFS";
 
   useEffect(() => {
     // Public online path is 1–4 only.

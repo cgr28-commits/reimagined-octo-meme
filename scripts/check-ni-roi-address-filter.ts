@@ -71,11 +71,13 @@ expectBlocked("Reading, Berkshire");
 // Street alone without NI/ROI signal stays blocked (still requires place selection + NI context).
 expectBlocked("123 York Street");
 
-console.log("\n=== BFS mode blocks ROI + mainland ===");
-assert.equal(isAllowedAutocompleteLabel("Grafton Street, Dublin", "BFS"), false);
+console.log("\n=== BFS/BHD prefer the island (NI + ROI), still block mainland ===");
+assert.equal(isAllowedAutocompleteLabel("Grafton Street, Dublin", "BFS"), true);
+assert.equal(isAllowedAutocompleteLabel("Letterkenny, Co. Donegal", "BFS"), true);
+assert.equal(isAllowedAutocompleteLabel("Clanbrassil Street, Dundalk", "BHD"), true);
 assert.equal(isAllowedAutocompleteLabel("Oxford Street, London", "BFS"), false);
 assert.equal(isAllowedAutocompleteLabel("High Street, Belfast BT1", "BFS"), true);
-console.log("OK  BFS mode NI-only");
+console.log("OK  BFS/BHD allow ROI and still block mainland GB");
 
 console.log("\n=== Served airports allowed under BFS / BHD / A2A ===");
 for (const code of ["BFS", "BHD", "A2A"] as const) {

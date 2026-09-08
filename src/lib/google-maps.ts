@@ -8,6 +8,7 @@ import {
   geocodeAddress,
   isPlacesQuotaError,
   resolveGooglePlaceDetails,
+  rankAddressSuggestions,
   searchGoogleAddressSuggestions,
 } from "../../shared/google-places";
 import {
@@ -53,8 +54,6 @@ export type AddressPrediction = {
   secondaryText: string;
 };
 
-import { hasLeadingStreetNumber } from "../../shared/journey-address-label";
-
 function createSessionToken(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -92,24 +91,11 @@ function mergePredictions(
     merged.push(prediction);
   }
 
-  return merged
-    .sort((a, b) => {
-      // Keep served airports at the top when they matched the query.
-      const aServed = served.some((s) => s.placeId === a.placeId);
-      const bServed = served.some((s) => s.placeId === b.placeId);
-      if (aServed && !bServed) return -1;
-      if (!aServed && bServed) return 1;
-      const aHasNumber = hasLeadingStreetNumber(a.mainText);
-      const bHasNumber = hasLeadingStreetNumber(b.mainText);
-      if (aHasNumber && !bHasNumber) {
-        return -1;
-      }
-      if (!aHasNumber && bHasNumber) {
-        return 1;
-      }
-      return 0;
-    })
-    .slice(0, limit);
+  const servedIds = new Set(served.map((item) => item.placeId));
+  const servedFirst = merged.filter((item) => servedIds.has(item.placeId));
+  const remainder = merged.filter((item) => !servedIds.has(item.placeId));
+  const ranked = rankAddressSuggestions(remainder, query, airportCode);
+  return [...servedFirst, ...ranked].slice(0, limit);
 }
 
 function toPrediction(suggestion: {
@@ -234,6 +220,7 @@ export async function fetchAddressPredictions(
 export async function fetchAddressPredictionsDetailed(
   input: string,
   airportCode: string,
+  signal?: AbortSignal,
 ): Promise<AddressPredictionsResult> {
   const trimmed = input.trim();
   if (trimmed.length < 3) {
@@ -243,7 +230,7 @@ export async function fetchAddressPredictionsDetailed(
   if (isPureFullNorthernIrelandPostcodeQuery(trimmed)) {
     // Prefer Worker (may return Ideal list if configured); otherwise prompt for house number.
     if (ADDRESSES_API_URL) {
-      const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode);
+      const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode, signal);
       if (worker && worker.suggestions.length > 0) {
         return {
           predictions: worker.suggestions.map(toPrediction),
@@ -274,7 +261,7 @@ export async function fetchAddressPredictionsDetailed(
   // call on the same Cloud project doubles Autocomplete quota use per keystroke
   // and is what exhausted the live daily cap.
   if (ADDRESSES_API_URL) {
-    const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode);
+    const worker = await fetchWorkerAddressSuggestions(trimmed, airportCode, signal);
     if (worker) {
       return {
         predictions: mergePredictions(

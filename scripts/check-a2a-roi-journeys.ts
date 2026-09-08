@@ -269,7 +269,8 @@ check("A2A Places mode allows NI and ROI labels", () => {
 check("A2A Places mode allows IE coordinates", () => {
   assert.equal(isAllowedCoordinates("A2A", 53.35, -6.26), true);
   assert.equal(isAllowedCoordinates("A2A", 54.6, -5.93), true);
-  assert.equal(isAllowedCoordinates("BFS", 53.35, -6.26), false);
+  assert.equal(isAllowedCoordinates("BFS", 53.35, -6.26), true);
+  assert.equal(isAllowedCoordinates("BHD", 55.03, -7.65), true);
 });
 
 check("A2A address parts allow ROI", () => {
@@ -296,7 +297,7 @@ check("A2A address parts allow ROI", () => {
       country: "Ireland",
       city: "Dublin",
     }),
-    false,
+    true,
   );
 });
 
@@ -313,7 +314,14 @@ check("A2A Places locationBias stays within API limits", () => {
   } else {
     assert.ok(bias.rectangle, "A2A bias should use an island rectangle (or valid circle)");
   }
-  assert.equal(getPlacesLocationBiasForTests("BFS"), undefined);
+  const bfsBias = getPlacesLocationBiasForTests("BFS") as
+    | { circle?: { radius?: number; center?: { latitude?: number; longitude?: number } } }
+    | undefined;
+  assert.ok(bfsBias?.circle, "BFS must use a Belfast ranking circle, not an NI-only fence");
+  assert.ok(
+    typeof bfsBias.circle.radius === "number" && bfsBias.circle.radius <= 50000,
+    "BFS ranking circle must be ≤ 50000m",
+  );
 });
 
 check("SERVICE_FLAGS.addressToAddress is enabled", async () => {
