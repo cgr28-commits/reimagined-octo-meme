@@ -578,39 +578,27 @@ export default function AddressInput({
     const rect = fieldShellRef.current.getBoundingClientRect();
     const visual = window.visualViewport;
     const viewportTop = visual?.offsetTop ?? 0;
-    const viewportLeft = visual?.offsetLeft ?? 0;
-    const viewportWidth = visual?.width ?? window.innerWidth;
-    const viewportHeight = visual?.height ?? window.innerHeight;
-    const viewportBottom = viewportTop + viewportHeight;
-    const left = Math.max(8, Math.min(rect.left, viewportLeft + viewportWidth - 16));
-    const width = Math.min(rect.width, viewportWidth - 16);
-    const layoutBelow = window.innerHeight - rect.bottom - 12;
-    const visualBelow = viewportBottom - rect.bottom - 12;
-    const visualAbove = rect.top - viewportTop - 12;
-    const spaceBelow = Math.min(layoutBelow, visualBelow);
-    const spaceAbove = Math.min(rect.top - 12, visualAbove);
+    const viewportBottom = viewportTop + (visual?.height ?? window.innerHeight);
+    const spaceBelow = viewportBottom - rect.bottom - 12;
+    const spaceAbove = rect.top - viewportTop - 12;
     const placeAbove = showAbove || (spaceBelow < 96 && spaceAbove > spaceBelow);
-    const maxHeight = Math.max(96, Math.min(placeAbove ? spaceAbove : spaceBelow, 16 * 16));
-    const top = placeAbove
-      ? Math.max(viewportTop + 8, rect.top - 6 - maxHeight)
-      : rect.bottom + 6;
+    const maxHeight = Math.max(96, Math.min(placeAbove ? spaceAbove : Math.max(spaceBelow, 96), 16 * 16));
     setOverlayStyle((prev) => {
       const next: CSSProperties = {
-        position: "fixed",
-        left,
-        width,
-        top,
-        bottom: "auto",
+        position: "absolute",
+        left: 0,
+        right: 0,
+        width: "100%",
+        top: placeAbove ? "auto" : "calc(100% + 6px)",
+        bottom: placeAbove ? "calc(100% + 6px)" : "auto",
         maxHeight,
         zIndex: 90,
       };
       if (
         prev &&
         prev.top === next.top &&
-        prev.left === next.left &&
-        prev.width === next.width &&
-        prev.maxHeight === next.maxHeight &&
-        prev.bottom === next.bottom
+        prev.bottom === next.bottom &&
+        prev.maxHeight === next.maxHeight
       ) {
         return prev;
       }
@@ -623,28 +611,17 @@ export default function AddressInput({
       setOverlayStyle(undefined);
       return;
     }
-    let frame = 0;
-    const follow = () => {
-      updateOverlayPosition();
-      frame = window.requestAnimationFrame(follow);
-    };
-    follow();
+    updateOverlayPosition();
     window.addEventListener("resize", updateOverlayPosition);
     window.addEventListener("scroll", updateOverlayPosition, true);
     const visual = window.visualViewport;
     visual?.addEventListener("resize", updateOverlayPosition);
     visual?.addEventListener("scroll", updateOverlayPosition);
-    const observer = new ResizeObserver(updateOverlayPosition);
-    if (fieldShellRef.current) {
-      observer.observe(fieldShellRef.current);
-    }
     return () => {
-      window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", updateOverlayPosition);
       window.removeEventListener("scroll", updateOverlayPosition, true);
       visual?.removeEventListener("resize", updateOverlayPosition);
       visual?.removeEventListener("scroll", updateOverlayPosition);
-      observer.disconnect();
     };
   }, [showAbove, showSuggestions, updateOverlayPosition, suggestions.length, value]);
 
@@ -657,7 +634,7 @@ export default function AddressInput({
         overlayStyle
           ? "z-[90]"
           : showAbove
-            ? "z-[90] max-h-[min(40vh,16rem)]"
+            ? "absolute left-0 right-0 bottom-[calc(100%+0.35rem)] z-[90] max-h-[min(40vh,16rem)]"
             : "absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[80] max-h-[min(40vh,16rem)]"
       }`}
     >
