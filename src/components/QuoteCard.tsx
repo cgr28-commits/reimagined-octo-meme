@@ -852,9 +852,9 @@ function QuoteCard({
     journeyKind === "airport-to-address" ||
     Boolean(pickupAirportCode || dropoffAirportCode);
   const isAddressToAddressInclusions = !isAirportLegForInclusions;
-  // Public quote is A2A-priced, but Places bias must follow the journey:
-  // To/From a chosen airport → that airport's fence (BFS/BHD = NI, DUB = island).
-  // Address-to-address only → A2A island-wide bias so ROI streets stay allowed.
+  // Public quote is A2A-priced, but Places ranking follows the journey:
+  // To/From BFS/BHD → Belfast bias, NI preferred, ROI still allowed.
+  // DUB / Address-to-address → island-wide bias. England/Scotland/Wales stay blocked.
   const addressLookupCode =
     isA2AFlow && journeyIntent !== "address-to-address" && intentAirportCode
       ? intentAirportCode

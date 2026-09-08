@@ -54,8 +54,8 @@ check("Downings Donegal label is accepted by A2A address lookup (not BHD-only fi
     }),
     true,
   );
-  // Airport-specific BHD mode rejects ROI residential — that was the QQ bug.
-  assert.equal(isAllowedAutocompleteLabel(PICKUP, "BHD"), false);
+  // Belfast airport lookups must still accept ROI residential addresses.
+  assert.equal(isAllowedAutocompleteLabel(PICKUP, "BHD"), true);
 });
 
 check("QQ + Personal Quote AddressInputs use airportCode=\"A2A\"", () => {

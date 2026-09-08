@@ -272,6 +272,12 @@ export function isGreatBritainMainlandParts(parts: {
   return isGreatBritainMainlandText(combined);
 }
 
+/** BFS/BHD/DUB/A2A lookups cover the island. LDY stays Greater Belfast only. */
+export function airportLookupAllowsRepublicOfIreland(airportCode: string): boolean {
+  const code = normaliseAirportCode(airportCode);
+  return code === "A2A" || code === "DUB" || code === "BFS" || code === "BHD";
+}
+
 export function isAddressAllowedForAirport(
   airportCode: string,
   parts: {
@@ -326,7 +332,7 @@ export function isAddressAllowedForAirport(
     return true;
   }
 
-  if (code === "DUB" && isRepublicOfIrelandAddressParts(parts)) {
+  if (airportLookupAllowsRepublicOfIreland(code) && isRepublicOfIrelandAddressParts(parts)) {
     return true;
   }
 
@@ -454,7 +460,7 @@ export function isAllowedAutocompleteLabel(label: string, airportCode: string): 
     return true;
   }
 
-  if (code === "A2A" || code === "DUB") {
+  if (airportLookupAllowsRepublicOfIreland(code)) {
     if (isNi || isRoi) {
       return true;
     }
@@ -462,12 +468,10 @@ export function isAllowedAutocompleteLabel(label: string, airportCode: string): 
     return isProvisionalServiceAreaAutocompleteLabel(text, code);
   }
 
-  // BFS / BHD / other NI airport modes — Northern Ireland only (airports handled above).
   if (isNi) {
     return true;
   }
 
-  // Do not soft-pass clear ROI labels into NI-airport modes.
   if (isRoi) {
     return false;
   }
@@ -501,8 +505,8 @@ export function isProvisionalServiceAreaAutocompleteLabel(
     return false;
   }
 
-  // ROI-looking labels only provisionally pass in ROI-capable modes.
-  if (isRepublicOfIrelandText(text) && code !== "A2A" && code !== "DUB") {
+  // ROI-looking labels only provisionally pass in island-capable modes.
+  if (isRepublicOfIrelandText(text) && !airportLookupAllowsRepublicOfIreland(code)) {
     return false;
   }
 
@@ -511,8 +515,8 @@ export function isProvisionalServiceAreaAutocompleteLabel(
     return true;
   }
 
-  // ROI modes: Ireland-suffixed labels without a known city whitelist hit.
-  if ((code === "A2A" || code === "DUB") && /\b(ireland|éire|eire)\b/i.test(lower)) {
+  // Island modes: Ireland-suffixed labels without a known city whitelist hit.
+  if (airportLookupAllowsRepublicOfIreland(code) && /\b(ireland|éire|eire)\b/i.test(lower)) {
     return true;
   }
 
@@ -562,7 +566,7 @@ export function isAllowedCoordinates(airportCode: string, lat: number, lon: numb
   }
 
   const code = normaliseAirportCode(airportCode);
-  if (code !== "DUB" && code !== "A2A") {
+  if (!airportLookupAllowsRepublicOfIreland(code)) {
     return false;
   }
 

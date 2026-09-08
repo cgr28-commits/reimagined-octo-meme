@@ -4,6 +4,7 @@ import {
   isAddressAllowedForAirport,
   isAllowedAutocompleteLabel,
   isAllowedCoordinates,
+  isRepublicOfIrelandText,
   isFullNorthernIrelandPostcode,
   isNorthernIrelandPostcodeQuery,
   isPureFullNorthernIrelandPostcodeQuery,
@@ -70,11 +71,31 @@ type GoogleGeocodeResponse = {
   status?: string;
 };
 
+const ISLAND_RECTANGLE = {
+  rectangle: {
+    low: { latitude: 51.4, longitude: -10.8 },
+    high: { latitude: 55.5, longitude: -5.4 },
+  },
+} as const;
+
+/** Midpoint of BFS/BHD — ranks Greater Belfast first without excluding ROI. */
+const BELFAST_RANKING_CIRCLE = {
+  circle: {
+    center: { latitude: 54.64, longitude: -6.05 },
+    radius: 50_000,
+  },
+} as const;
+
+function usesIslandPlacesLookup(airportCode: string): boolean {
+  const code = normaliseAirportCode(airportCode);
+  return code === "A2A" || code === "DUB" || code === "BFS" || code === "BHD";
+}
+
 function getRegionCodes(airportCode: string): string[] {
   const code = normaliseAirportCode(airportCode);
   // Google has no Northern-Ireland-only region code. "gb" includes England/Scotland/Wales,
   // so every suggestion path must also run isAllowedAutocompleteLabel / isAddressAllowedForAirport.
-  if (code === "DUB" || code === "A2A") {
+  if (usesIslandPlacesLookup(code)) {
     return ["gb", "ie"];
   }
   return ["gb"];
@@ -87,14 +108,9 @@ function getLocationRestriction(airportCode: string) {
     return getLdyLocationRestriction();
   }
 
-  if (code === "DUB" || code === "A2A") {
-    // Island-wide rectangle (NI + ROI). Bias toward Belfast is applied separately for A2A.
-    return {
-      rectangle: {
-        low: { latitude: 51.4, longitude: -10.8 },
-        high: { latitude: 55.5, longitude: -5.4 },
-      },
-    };
+  if (usesIslandPlacesLookup(code)) {
+    // Island-wide rectangle (NI + ROI). Never an NI-only hard fence for BFS/BHD.
+    return { ...ISLAND_RECTANGLE };
   }
 
   return {
@@ -106,27 +122,33 @@ function getLocationRestriction(airportCode: string) {
 }
 
 /**
- * Soft bias for A2A — must not exclude ROI results.
+ * Soft ranking bias — must not exclude ROI results.
  * Places Autocomplete circle radius max is 50,000m; an oversized circle
  * causes Google to reject the request and return zero suggestions.
- * Use an island-wide rectangle bias instead (covers NI + ROI).
  */
 function getLocationBias(airportCode: string) {
-  if (normaliseAirportCode(airportCode) !== "A2A") {
-    return undefined;
+  const code = normaliseAirportCode(airportCode);
+  if (code === "BFS" || code === "BHD") {
+    return { ...BELFAST_RANKING_CIRCLE };
   }
-  return {
-    rectangle: {
-      low: { latitude: 51.4, longitude: -10.8 },
-      high: { latitude: 55.5, longitude: -5.4 },
-    },
-  };
+  if (code === "A2A") {
+    return { ...ISLAND_RECTANGLE };
+  }
+  return undefined;
 }
 
 /** Deploy note: shared changes on main trigger the Cloudflare Worker workflow. */
-/** Exported for regression tests — A2A bias must stay Places-API valid. */
+/** Exported for regression tests — bias must stay Places-API valid. */
 export function getPlacesLocationBiasForTests(airportCode: string) {
   return getLocationBias(airportCode);
+}
+
+export function getPlacesLocationRestrictionForTests(airportCode: string) {
+  return getLocationRestriction(airportCode);
+}
+
+export function getPlacesRegionCodesForTests(airportCode: string) {
+  return getRegionCodes(airportCode);
 }
 
 function getAddressComponent(
@@ -562,10 +584,11 @@ export async function searchGoogleStreetAddresses(
   const postcode = extractNorthernIrelandPostcode(trimmed);
 
   // Prefer "7 Glen Manor Road, BT36 7FU" style when the user only typed number + postcode.
+  // Do not force “Northern Ireland” onto a clear ROI query (Dublin / Donegal / Dundalk).
   const scopedQuery =
     premisePrefix && postcode && isFullNorthernIrelandPostcode(postcode)
       ? `${premisePrefix}, ${postcode}, Northern Ireland`
-      : code === "DUB" || code === "A2A"
+      : code === "DUB" || code === "A2A" || isRepublicOfIrelandText(trimmed)
         ? trimmed
         : /northern ireland|,\s*bt/i.test(trimmed)
           ? trimmed

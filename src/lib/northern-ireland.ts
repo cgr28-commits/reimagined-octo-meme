@@ -128,7 +128,10 @@ export function isAddressAllowedForAirport(
     return true;
   }
 
-  if (airportCode === "DUB" && isRepublicOfIrelandAddressParts(parts)) {
+  const code = airportCode.trim().toUpperCase();
+  if ((code === "DUB" || code === "BFS" || code === "BHD" || code === "A2A") &&
+    isRepublicOfIrelandAddressParts(parts)
+  ) {
     return true;
   }
 
@@ -140,7 +143,8 @@ export function isAllowedCoordinates(airportCode: string, lat: number, lon: numb
     return true;
   }
 
-  if (airportCode !== "DUB") {
+  const code = airportCode.trim().toUpperCase();
+  if (code !== "DUB" && code !== "A2A" && code !== "BFS" && code !== "BHD") {
     return false;
   }
 

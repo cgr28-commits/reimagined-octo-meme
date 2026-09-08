@@ -24,6 +24,14 @@ assert.match(
   "To/From airport lookups must use the selected airport, not A2A",
 );
 assert.match(card, /PLACES_LOOKUP_A2A/);
+assert.match(card, /Belfast bias, NI preferred, ROI still allowed/);
+assert.match(places, /BELFAST_RANKING_CIRCLE/);
+assert.match(places, /usesIslandPlacesLookup/);
+assert.doesNotMatch(
+  places,
+  /if \(code === "DUB" \|\| code === "A2A"\) \{\s*return \["gb", "ie"\]/,
+  "BFS/BHD must share island region codes, not gb-only",
+);
 
 assert.match(maps, /The Worker already calls Places/);
 assert.match(maps, /unavailable: Boolean\(worker\.unavailable\)/);
