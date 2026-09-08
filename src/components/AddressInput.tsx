@@ -555,26 +555,29 @@ export default function AddressInput({
     const rect = fieldShellRef.current.getBoundingClientRect();
     const left = Math.max(8, rect.left);
     const width = Math.min(rect.width, window.innerWidth - 16);
-    if (showAbove) {
+    const spaceBelow = window.innerHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    const placeAbove = showAbove || (spaceBelow < 132 && spaceAbove > spaceBelow);
+    if (placeAbove) {
       setOverlayStyle({
         position: "fixed",
         left,
         width,
         bottom: Math.max(8, window.innerHeight - rect.top + 6),
         top: "auto",
+        maxHeight: Math.max(96, Math.min(spaceAbove, 16 * 16)),
         zIndex: 90,
       });
       return;
     }
     const top = rect.bottom + 6;
-    const maxHeight = Math.max(96, Math.min(window.innerHeight - top - 12, 16 * 16));
     setOverlayStyle({
       position: "fixed",
       left,
       width,
       top,
       bottom: "auto",
-      maxHeight,
+      maxHeight: Math.max(96, Math.min(spaceBelow, 16 * 16)),
       zIndex: 90,
     });
   }, [showAbove, showSuggestions]);
