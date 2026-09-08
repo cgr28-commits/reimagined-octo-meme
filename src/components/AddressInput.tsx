@@ -642,7 +642,7 @@ export default function AddressInput({
         </label>
       ) : (
         <div className="mb-1.5 flex items-center justify-between gap-3">
-          <label htmlFor={id} className="form-label text-[#dce4ee]">
+          <label htmlFor={id} className="form-label !text-[#dce4ee]">
             {label}
           </label>
           {action}

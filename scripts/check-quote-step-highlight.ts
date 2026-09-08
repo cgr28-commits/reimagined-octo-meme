@@ -71,7 +71,7 @@ assert.match(address, /placeComplete/);
 assert.match(address, /requireSuggestion[\s\S]*hasConfirmedSelection/);
 assert.match(address, /z-\[80\]|z-\[90\]/);
 assert.match(address, /placeholder:text-white\/70/);
-assert.match(address, /form-label text-\[#dce4ee\]/);
+assert.match(address, /form-label !text-\[#dce4ee\]/);
 assert.match(address, /h-12 w-full min-w-0 border-0 bg-transparent/);
 console.log("OK  Places needs placeId; z-index intact; address field contrast lifted");
 
