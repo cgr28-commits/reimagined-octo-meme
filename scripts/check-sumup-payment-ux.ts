@@ -69,10 +69,13 @@ assert.match(workerEmail, /trySendOwnerOperationalEmail/);
 assert.match(workerEmail, /skipFormSubmit/);
 assert.match(workerIndex, /trySendOwnerOperationalEmail\(env/);
 assert.match(workerIndex, /buildOwnerPaymentAttemptEmail/);
-assert.match(
-  workerIndex,
-  /attemptSend = await trySendOwnerOperationalEmail/,
-);
+assert.match(workerIndex, /sendOwnerAttemptEmail/);
+assert.match(workerIndex, /ctx\?\.waitUntil/);
+const saveIdx = workerIndex.indexOf("savePendingCheckout(paymentStore");
+const emailIdx = workerIndex.indexOf("const sendOwnerAttemptEmail = async");
+const urlIdx = workerIndex.indexOf("paymentUrl: checkout.paymentUrl", emailIdx);
+assert.ok(saveIdx >= 0 && emailIdx > saveIdx, "persist pending checkout before owner email");
+assert.ok(urlIdx > emailIdx, "paymentUrl is returned after email is scheduled");
 console.log("OK  payment-started uses trySendOwnerOperationalEmail (no FormSubmit preference)");
 
 console.log("\n=== SumUp Hosted Checkout (server) ===");
@@ -86,8 +89,7 @@ console.log("OK  hosted_checkout.enabled + hosted_checkout_url; no public SumUp 
 console.log("\n=== QuoteCard same-tab SumUp redirect UX ===");
 const card = read("src/components/QuoteCard.tsx");
 assert.match(card, /window\.location\.assign\(checkout\.paymentUrl\)/);
-assert.match(card, /Opening secure payment…/);
-assert.match(card, /You’ll be securely redirected to SumUp to complete your payment/);
+assert.match(card, /Opening secure SumUp payment…/);
 assert.doesNotMatch(card, /Secure payment will open in a new tab/);
 assert.doesNotMatch(card, /window\.open\(checkout\.paymentUrl,\s*"_blank"/);
 assert.doesNotMatch(card, /window\.open\(openCheckout\.paymentUrl,\s*"_blank"/);

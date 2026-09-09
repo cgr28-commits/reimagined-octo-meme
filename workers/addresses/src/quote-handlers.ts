@@ -29,6 +29,10 @@ import {
 import { toPublicCustomerSmartAvailability } from "../shared/customer-smart-availability";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
+import {
+  resolveQuoteRouteTokenSecret,
+  signQuoteRouteToken,
+} from "./quote-route-token";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 import { resolvePaymentAirportContextFromAddresses } from "../shared/open-website-payment-fares";
 import { calculateAirportToAirportQuote, formatQuote } from "../../../src/lib/quote";
@@ -76,6 +80,7 @@ export async function handleQuoteCalculateRequest(
   env?: {
     OWNER_ACCESS_KEY?: string;
     DRIVER_ACCESS_KEY?: string;
+    QUOTE_ROUTE_TOKEN_SECRET?: string;
     GOOGLE_PLACES_API_KEY?: string;
     GETADDRESS_API_KEY?: string;
     TRACKING_STORE?: KVNamespace;
@@ -371,6 +376,27 @@ export async function handleQuoteCalculateRequest(
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,
   };
+
+  // Opaque HMAC token only — never the secret, never client-supplied metrics.
+  // Issued solely when this Worker resolved the road route used for the fare.
+  if (routeMetricsSource === "worker") {
+    const routeTokenSecret = resolveQuoteRouteTokenSecret(env);
+    if (routeTokenSecret) {
+      try {
+        quoteBody.routeToken = await signQuoteRouteToken({
+          secret: routeTokenSecret,
+          pickupPlaceId,
+          dropoffPlaceId,
+          pickupLabel: pickupAddress,
+          dropoffLabel: dropoffAddress,
+          distanceKm: routeMetrics.distanceKm,
+          durationMinutes: routeMetrics.durationMinutes,
+        });
+      } catch {
+        // Quote still succeeds; /payments falls back to full route resolution.
+      }
+    }
+  }
 
   if (env?.TRACKING_STORE) {
     const availabilityGate = await enforceCustomerSmartAvailabilityGate({

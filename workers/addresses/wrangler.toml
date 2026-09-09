@@ -16,6 +16,7 @@ compatibility_date = "2025-08-01"
 # Customer/action IDs have guarded code defaults: 4955115517 / 7734768680.
 # - GOOGLE_REVIEW_URL  (Google Business "Write a review" link for post-trip emails)
 # - OWNER_ACCESS_KEY   (optional — defaults to DRIVER_ACCESS_KEY for /admin/refund/)
+# - QUOTE_ROUTE_TOKEN_SECRET (optional HMAC for Pay route reuse; falls back to OWNER/DRIVER key)
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
 

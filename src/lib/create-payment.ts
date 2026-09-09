@@ -17,6 +17,11 @@ import {
   customerSmartAvailabilityPreviewHeaders,
   withCustomerSmartAvailabilityPreviewUrl,
 } from "@/lib/customer-smart-availability-client";
+import {
+  CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
+  parsePublicCustomerAlternativeTimes,
+  type CustomerPublicAlternativeTime,
+} from "../../shared/customer-smart-availability";
 
 export type PaymentCheckoutRequest = {
   amount: number;
@@ -75,12 +80,28 @@ export type PaymentCheckoutRequest = {
   /** Live route metrics so the Worker can requote with the canonical engine. */
   routeMetrics?: { distanceKm: number; durationMinutes: number } | null;
   /**
+   * Opaque Worker-signed route token from /quote/calculate.
+   * Lets /payments reuse trusted distance/duration. Never contains secrets.
+   */
+  routeToken?: string | null;
+  /**
    * Final amount shown on the quote card / consent checkbox / price breakdown.
    * Worker compares this to its authoritative final — mismatch → 409, never silent replace.
    */
   acceptedFinalAmountGbp?: number;
   /** Secure return-offer token from /book?returnOffer= — server validates and applies 5%. */
   returnOfferToken?: string;
+};
+
+export type PaymentCheckoutTimings = {
+  availabilityMs?: number;
+  routeTokenMs?: number;
+  routeResolveMs?: number;
+  fareValidationMs?: number;
+  sumupCreateMs?: number;
+  persistMs?: number;
+  ownerNotifyMs?: number;
+  totalResponseMs?: number;
 };
 
 export type PaymentCheckoutResult = {
@@ -92,6 +113,10 @@ export type PaymentCheckoutResult = {
   /** Stable server-issued reference for booking-request conversion deduplication. */
   bookingReference?: string;
   ownerAttemptEmailSent?: boolean;
+  /** Worker stage timings in ms from request start. No customer PII. */
+  timings?: PaymentCheckoutTimings;
+  /** Browser fetch duration for /payments, set by createPaymentCheckout. */
+  clientFetchMs?: number;
   /** Server diverted to Owner approval instead of SumUp. */
   shortNotice?: boolean;
   reference?: string;
@@ -143,12 +168,26 @@ export type PaymentRouteServiceUnavailableError = Error & {
   code: "route_service_unavailable";
 };
 
+export type PaymentSmartAvailabilityError = Error & {
+  code: "smart_availability_unavailable";
+  alternativeTimes: CustomerPublicAlternativeTime[];
+};
+
 export function isPaymentRouteServiceUnavailableError(
   error: unknown,
 ): error is PaymentRouteServiceUnavailableError {
   return (
     error instanceof Error &&
     (error as PaymentRouteServiceUnavailableError).code === "route_service_unavailable"
+  );
+}
+
+export function isPaymentSmartAvailabilityError(
+  error: unknown,
+): error is PaymentSmartAvailabilityError {
+  return (
+    error instanceof Error &&
+    (error as PaymentSmartAvailabilityError).code === "smart_availability_unavailable"
   );
 }
 
@@ -262,6 +301,8 @@ export async function createPaymentCheckout(
     recordAdFraudBehaviour("payment_started");
   });
 
+  const fetchStarted =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
   const response = await fetch(withCustomerSmartAvailabilityPreviewUrl(PAYMENTS_API_URL), {
     method: "POST",
     headers: {
@@ -321,6 +362,7 @@ export async function createPaymentCheckout(
             },
           }
         : {}),
+      ...(request.routeToken?.trim() ? { routeToken: request.routeToken.trim() } : {}),
       ...(typeof request.acceptedFinalAmountGbp === "number" &&
       Number.isFinite(request.acceptedFinalAmountGbp)
         ? {
@@ -376,6 +418,25 @@ export async function createPaymentCheckout(
       throw reconfirm;
     }
     if (
+      response.status === 409 &&
+      payload &&
+      typeof payload === "object" &&
+      (payload as { code?: unknown }).code === "smart_availability_unavailable"
+    ) {
+      const message =
+        typeof (payload as { customerMessage?: unknown }).customerMessage === "string"
+          ? String((payload as { customerMessage: string }).customerMessage)
+          : typeof (payload as { error?: unknown }).error === "string"
+            ? String((payload as { error: string }).error)
+            : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE;
+      const unavailable = new Error(message) as PaymentSmartAvailabilityError;
+      unavailable.code = "smart_availability_unavailable";
+      unavailable.alternativeTimes = parsePublicCustomerAlternativeTimes(
+        (payload as { alternativeTimes?: unknown }).alternativeTimes,
+      );
+      throw unavailable;
+    }
+    if (
       (response.status === 503 || response.status === 409 || response.status === 502) &&
       payload &&
       typeof payload === "object" &&
@@ -409,7 +470,16 @@ export async function createPaymentCheckout(
     throw new Error("Payment service returned an invalid response");
   }
 
-  return result;
+  const clientFetchMs = Math.round(
+    (typeof performance !== "undefined" ? performance.now() : Date.now()) - fetchStarted,
+  );
+  const timings =
+    result.timings && typeof result.timings === "object" ? result.timings : undefined;
+  console.info("[payment-timing]", {
+    clientFetchMs,
+    worker: timings ?? null,
+  });
+  return { ...result, clientFetchMs, ...(timings ? { timings } : {}) };
 }
 
 export async function confirmPaidBooking(

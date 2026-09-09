@@ -46,6 +46,8 @@
     "check:quote-vehicle-fare-refresh": "npx tsx scripts/check-quote-vehicle-fare-refresh.ts",
     "check:paid-booking-ads-conversion": "npx tsx scripts/check-paid-booking-ads-conversion.ts",
     "check:sumup-booking-conversion": "npx tsx scripts/check-sumup-booking-conversion.ts",
+    "check:quote-pay-perf": "npx tsx scripts/check-quote-pay-perf.ts",
+    "check:quote-route-token": "npx tsx scripts/check-quote-route-token.ts",
     "check:emerge-belfast": "npx tsx scripts/check-emerge-belfast-page.ts",
     "check:technical-seo": "npx tsx scripts/check-technical-seo.ts",
     "check:journey-tracking": "npx tsx scripts/check-journey-tracking.ts",

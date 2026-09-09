@@ -140,6 +140,7 @@ import {
   handleOwnerSmartOpsCalendar,
   isOwnerSmartOpsPath,
 } from "./smart-ops-handlers";
+import { toPublicCustomerSmartAvailability } from "../shared/customer-smart-availability";
 import {
   getShortNoticeByAcceptToken,
   getShortNoticeByToken,
@@ -381,6 +382,10 @@ import {
   resolveWorkerTripRouteMetricsForPayment,
 } from "./resolve-route-metrics";
 import {
+  resolveQuoteRouteTokenSecret,
+  verifyQuoteRouteToken,
+} from "./quote-route-token";
+import {
   ESTATE_VEHICLE,
   MINIBUS_VEHICLE,
   SALOON_VEHICLE,
@@ -439,6 +444,8 @@ type Env = {
   RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
   /** Isolated preview Worker only. Must never be set on production [vars]. */
   CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
+  /** HMAC secret for short-lived quote route tokens. Worker-only; never NEXT_PUBLIC. */
+  QUOTE_ROUTE_TOKEN_SECRET?: string;
   /** London hour (0–23) to send the previous day's quote report. Default 0. */
   DAILY_QUOTE_REPORT_LONDON_HOUR?: string;
 };
@@ -1567,11 +1574,15 @@ async function blockedCustomerSmartAvailabilityResponse(
     booking,
   });
   if (!availabilityGate.blocked) return null;
+  const publicGate = toPublicCustomerSmartAvailability(availabilityGate);
   return json(
     {
-      error: availabilityGate.customerMessage,
+      error: publicGate.customerMessage,
       code: "smart_availability_unavailable",
       available: false,
+      blocked: true,
+      customerMessage: publicGate.customerMessage,
+      alternativeTimes: publicGate.alternativeTimes,
       whatsappAvailable: true,
     },
     409,
@@ -1583,7 +1594,45 @@ async function handlePaymentRequest(
   request: Request,
   env: Env,
   origin: string | null,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
+  const paymentStartedAt = Date.now();
+  const paymentTimings: {
+    availabilityMs?: number;
+    routeTokenMs?: number;
+    routeResolveMs?: number;
+    fareValidationMs?: number;
+    sumupCreateMs?: number;
+    persistMs?: number;
+    ownerNotifyMs?: number;
+    totalResponseMs?: number;
+  } = {};
+  let paymentRouteSource: "signed_quote_token" | "full_resolve" | undefined;
+  const addPaymentMs = (key: keyof typeof paymentTimings, ms: number) => {
+    paymentTimings[key] = (paymentTimings[key] ?? 0) + Math.max(0, ms);
+  };
+  async function timePaymentStage<T>(
+    key: keyof typeof paymentTimings,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const started = Date.now();
+    try {
+      return await fn();
+    } finally {
+      addPaymentMs(key, Date.now() - started);
+    }
+  }
+  const finishPaymentTimings = () => {
+    paymentTimings.totalResponseMs = Date.now() - paymentStartedAt;
+    console.log(
+      "payment_checkout_timings",
+      JSON.stringify({
+        ...paymentTimings,
+        ...(paymentRouteSource ? { routeSource: paymentRouteSource } : {}),
+      }),
+    );
+    return paymentTimings;
+  };
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
   const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
 
@@ -1648,13 +1697,13 @@ async function handlePaymentRequest(
       standardWebsiteAmount = record.standardWebsiteAmount;
     }
 
-    const shortNoticeBlocked = await blockedCustomerSmartAvailabilityResponse(
-      request,
-      env,
-      origin,
-      booking,
+    const shortNoticeBlocked = await timePaymentStage("availabilityMs", () =>
+      blockedCustomerSmartAvailabilityResponse(request, env, origin, booking),
     );
-    if (shortNoticeBlocked) return shortNoticeBlocked;
+    if (shortNoticeBlocked) {
+      finishPaymentTimings();
+      return shortNoticeBlocked;
+    }
 
     // Reuse an unpaid checkout when possible (blocks duplicate SumUp sessions).
     if (record.checkoutId && record.paymentUrl) {
@@ -1696,13 +1745,13 @@ async function handlePaymentRequest(
     booking = record.booking;
     a2aQuoteReference = record.reference;
 
-    const a2aBlocked = await blockedCustomerSmartAvailabilityResponse(
-      request,
-      env,
-      origin,
-      booking,
+    const a2aBlocked = await timePaymentStage("availabilityMs", () =>
+      blockedCustomerSmartAvailabilityResponse(request, env, origin, booking),
     );
-    if (a2aBlocked) return a2aBlocked;
+    if (a2aBlocked) {
+      finishPaymentTimings();
+      return a2aBlocked;
+    }
 
     if (record.checkoutId && record.paymentUrl) {
       try {
@@ -1894,13 +1943,13 @@ async function handlePaymentRequest(
         : booking.tripLabel || "Airport transfer",
     };
 
-    const quickQuoteBlocked = await blockedCustomerSmartAvailabilityResponse(
-      request,
-      env,
-      origin,
-      booking,
+    const quickQuoteBlocked = await timePaymentStage("availabilityMs", () =>
+      blockedCustomerSmartAvailabilityResponse(request, env, origin, booking),
     );
-    if (quickQuoteBlocked) return quickQuoteBlocked;
+    if (quickQuoteBlocked) {
+      finishPaymentTimings();
+      return quickQuoteBlocked;
+    }
 
     // Reuse unpaid checkout when present and amount still matches.
     if (record.checkoutId && record.paymentUrl) {
@@ -2051,7 +2100,9 @@ async function handlePaymentRequest(
       : [];
 
     // Never trust body.routeMetrics / client journeyDistance|Duration / client lat/lng
-    // for SumUp. Resolve driving metrics server-side from selected place IDs
+    // for SumUp. A signed quote/route token may reuse Worker OSRM from /quote/calculate
+    // — missing/expired/mismatched tokens must keep this full resolution fallback.
+    // Resolve driving metrics server-side from selected place IDs
     // (Worker Google/Ideal/GetAddress keys → coords → OSRM). Served airports use
     // catalogue coordinates. Text-label geocode is fallback only.
     // Retry once for transient Google/OSRM failures — do not tell the customer
@@ -2060,16 +2111,44 @@ async function handlePaymentRequest(
     const paymentDropoffLabel = String(booking.dropoffLabel ?? "");
     const paymentPickupPlaceId = String(body.pickupPlaceId ?? "").trim();
     const paymentDropoffPlaceId = String(body.dropoffPlaceId ?? "").trim();
-    const routeOutcome = await resolveRouteOutcomeWithRetry(() =>
-      resolveWorkerTripRouteMetricsForPayment({
-        pickupAddress: paymentPickupLabel,
-        dropoffAddress: paymentDropoffLabel,
-        pickupPlaceId: paymentPickupPlaceId || null,
-        dropoffPlaceId: paymentDropoffPlaceId || null,
-        googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-        getAddressApiKey: env.GETADDRESS_API_KEY,
+    const signedRouteToken = String(body.routeToken ?? "").trim();
+    const tokenVerified = await timePaymentStage("routeTokenMs", () =>
+      verifyQuoteRouteToken({
+        token: signedRouteToken,
+        secret: resolveQuoteRouteTokenSecret(env),
+        pickupPlaceId: paymentPickupPlaceId,
+        dropoffPlaceId: paymentDropoffPlaceId,
+        pickupLabel: paymentPickupLabel,
+        dropoffLabel: paymentDropoffLabel,
       }),
     );
+    let routeOutcome: Awaited<ReturnType<typeof resolveWorkerTripRouteMetricsForPayment>>;
+    if (tokenVerified.ok) {
+      paymentRouteSource = "signed_quote_token";
+      paymentTimings.routeResolveMs = 0;
+      routeOutcome = {
+        ok: true,
+        metrics: {
+          distanceKm: tokenVerified.distanceKm,
+          durationMinutes: tokenVerified.durationMinutes,
+          source: "osrm",
+        },
+      };
+    } else {
+      paymentRouteSource = "full_resolve";
+      routeOutcome = await timePaymentStage("routeResolveMs", () =>
+        resolveRouteOutcomeWithRetry(() =>
+          resolveWorkerTripRouteMetricsForPayment({
+            pickupAddress: paymentPickupLabel,
+            dropoffAddress: paymentDropoffLabel,
+            pickupPlaceId: paymentPickupPlaceId || null,
+            dropoffPlaceId: paymentDropoffPlaceId || null,
+            googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+            getAddressApiKey: env.GETADDRESS_API_KEY,
+          }),
+        ),
+      );
+    }
     if (!routeOutcome.ok) {
       const errBody = paymentErrorForRouteFailure(
         routeOutcome.reason,
@@ -2103,6 +2182,7 @@ async function handlePaymentRequest(
     }
     const airportContext = airportCtxResult.context;
 
+    const fareValidationStarted = Date.now();
     let authoritativeQuote: {
       amountGbp: number;
       journeyFareGbp: number;
@@ -2337,6 +2417,7 @@ async function handlePaymentRequest(
         ? { returnOfferSavingGbp: breakdown.returnOfferSavingGbp }
         : {}),
     };
+    addPaymentMs("fareValidationMs", Date.now() - fareValidationStarted);
   }
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
@@ -2351,13 +2432,15 @@ async function handlePaymentRequest(
     return json({ error: "Missing redirect URL" }, 400, origin);
   }
 
-  const availabilityBlocked = await blockedCustomerSmartAvailabilityResponse(
-    request,
-    env,
-    origin,
-    booking,
+  // Availability, fare, SumUp create, and persist stay sequential. Token reuse
+  // only skips Google/OSRM — it does not move SumUp before those gates.
+  const availabilityBlocked = await timePaymentStage("availabilityMs", () =>
+    blockedCustomerSmartAvailabilityResponse(request, env, origin, booking),
   );
-  if (availabilityBlocked) return availabilityBlocked;
+  if (availabilityBlocked) {
+    finishPaymentTimings();
+    return availabilityBlocked;
+  }
 
   if (!booking) {
     const blockers = getPaymentBookingBlockers(
@@ -2389,6 +2472,7 @@ async function handlePaymentRequest(
       origin,
     );
   }
+  const paymentStore = env.TRACKING_STORE;
 
   // Short-notice window: save request for Owner approval — do NOT open SumUp.
   if (!shortNoticeToken && !a2aQuoteToken) {
@@ -2593,13 +2677,15 @@ async function handlePaymentRequest(
 
     let checkout: Awaited<ReturnType<typeof createSumUpHostedCheckout>>;
     try {
-      checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
-        amount: Math.round(amount * 100) / 100,
-        description: sumUpDescription,
-        checkoutReference,
-        redirectUrl,
-        returnUrl,
-      });
+      checkout = await timePaymentStage("sumupCreateMs", () =>
+        createSumUpHostedCheckout(apiKey, merchantCode, {
+          amount: Math.round(amount * 100) / 100,
+          description: sumUpDescription,
+          checkoutReference,
+          redirectUrl,
+          returnUrl,
+        }),
+      );
     } catch (error) {
       if (personalQuoteCode && personalQuoteReservationAttemptId) {
         await clearPersonalQuoteReservation(env.TRACKING_STORE, personalQuoteCode, {
@@ -2622,7 +2708,8 @@ async function handlePaymentRequest(
       );
     }
 
-    await savePendingCheckout(env.TRACKING_STORE, {
+    await timePaymentStage("persistMs", () =>
+      savePendingCheckout(paymentStore, {
       checkoutId: checkout.checkoutId,
       checkoutReference: checkout.checkoutReference,
       amount: Math.round(amount * 100) / 100,
@@ -2644,7 +2731,8 @@ async function handlePaymentRequest(
         : personalQuoteCode
           ? { personalQuotedAmount: Math.round(amount * 100) / 100 }
           : {}),
-    });
+      }),
+    );
 
     if (quickQuoteId) {
       await markQuickQuoteCheckout(env.TRACKING_STORE, quickQuoteId, {
@@ -2680,24 +2768,40 @@ async function handlePaymentRequest(
       }
     }
 
-    // Always notify the owner with contact details when SumUp opens — payment may fail.
+    // Owner payment-attempt email is operational, not required for the customer
+    // redirect. Browser only needs paymentUrl + bookingSaved after persist.
     const amountLabel = formatPaidAmount(Math.round(amount * 100) / 100);
     const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
       amountLabel,
       checkoutId: checkout.checkoutId,
       checkoutReference: checkout.checkoutReference,
     });
-    const attemptSend = await trySendOwnerOperationalEmail(env, {
-      to: ownerInbox(env),
-      subject: attemptEmail.subject,
-      body: attemptEmail.body,
-    });
-    if (attemptSend.sent) {
-      await patchPendingCheckout(env.TRACKING_STORE, checkout.checkoutId, {
-        attemptEmailSentAt: new Date().toISOString(),
+    const sendOwnerAttemptEmail = async () => {
+      const attemptSend = await trySendOwnerOperationalEmail(env, {
+        to: ownerInbox(env),
+        subject: attemptEmail.subject,
+        body: attemptEmail.body,
       });
+      if (attemptSend.sent && env.TRACKING_STORE) {
+        await patchPendingCheckout(env.TRACKING_STORE, checkout.checkoutId, {
+          attemptEmailSentAt: new Date().toISOString(),
+        });
+      } else if (!attemptSend.sent) {
+        console.error("Owner payment-attempt email failed", attemptSend.error);
+      }
+      return attemptSend;
+    };
+    if (ctx?.waitUntil) {
+      paymentTimings.ownerNotifyMs = 0;
+      ctx.waitUntil(
+        sendOwnerAttemptEmail().catch((error) => {
+          console.error("Owner payment-attempt email failed", error);
+        }),
+      );
     } else {
-      console.error("Owner payment-attempt email failed", attemptSend.error);
+      const notifyStarted = Date.now();
+      await sendOwnerAttemptEmail();
+      addPaymentMs("ownerNotifyMs", Date.now() - notifyStarted);
     }
 
     return json(
@@ -2711,7 +2815,7 @@ async function handlePaymentRequest(
         bookingSaved: true,
         bookingReference: checkout.checkoutReference,
         amount: Math.round(amount * 100) / 100,
-        ownerAttemptEmailSent: attemptSend.sent,
+        timings: finishPaymentTimings(),
         ...(shortNoticeReference ? { shortNoticeReference } : {}),
       },
       200,
@@ -3047,7 +3151,7 @@ async function handleFlightLookupRequest(
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const origin = request.headers.get("Origin");
     const url = new URL(request.url);
     const route = routePath(url.pathname);
@@ -4047,7 +4151,7 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
 
-      return handlePaymentRequest(request, env, origin);
+      return handlePaymentRequest(request, env, origin, ctx);
     }
 
     if (route === "payments-webhook") {

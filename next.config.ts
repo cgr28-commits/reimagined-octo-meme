@@ -28,10 +28,22 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    const vehicleImageCache = [
+      {
+        source: "/images/vehicles/:file.webp",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, stale-while-revalidate=2592000",
+          },
+        ],
+      },
+    ];
     if (isGithubPages) {
-      return [];
+      return vehicleImageCache;
     }
     return [
+      ...vehicleImageCache,
       {
         source: "/My-Airport-Taxi-NI.vcf",
         headers: vcardHeaders,

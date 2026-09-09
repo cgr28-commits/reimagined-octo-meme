@@ -108,6 +108,7 @@ import {
   isPaymentFareMismatchError,
   isPaymentRouteReconfirmationError,
   isPaymentRouteServiceUnavailableError,
+  isPaymentSmartAvailabilityError,
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
 import {
@@ -140,6 +141,7 @@ import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import CombinedAirportAccessChoice from "@/components/CombinedAirportAccessChoice";
 import QuoteResultShowcase from "@/components/QuoteResultShowcase";
+import QuoteVehicleImagePreload from "@/components/QuoteVehicleImagePreload";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
   BookWithConfidence,
@@ -362,6 +364,18 @@ function TapChoiceRow({
         })}
       </div>
     </div>
+  );
+}
+
+function PayOpeningLabel() {
+  return (
+    <span className="inline-flex items-center justify-center gap-2">
+      <span
+        className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-navy/25 border-t-navy"
+        aria-hidden
+      />
+      Opening secure SumUp payment…
+    </span>
   );
 }
 
@@ -706,10 +720,13 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+  /** Opaque Worker-signed route token for the currently displayed quote. Not a secret. */
+  const [quoteRouteToken, setQuoteRouteToken] = useState<string | null>(null);
   /** Worker-authoritative journey/fixed split (same engine as SumUp). Prefer over browser metrics. */
   const [serverFareParts, setServerFareParts] = useState<ServerFarePartyParts | null>(null);
   const serverQuoteGenRef = useRef(0);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const paymentInFlightRef = useRef(false);
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
   const [paymentPopupBlocked, setPaymentPopupBlocked] = useState(false);
@@ -1024,6 +1041,7 @@ function QuoteCard({
       setPickupPlaceError("");
       setDropoffPlaceError("");
       setRouteMetrics(null);
+      setQuoteRouteToken(null);
       setServerFareParts(null);
       setRouteReconfirmationRequired(false);
       setPaymentError("");
@@ -1501,6 +1519,7 @@ function QuoteCard({
             durationMinutes: result.durationMinutes!,
           });
         }
+        setQuoteRouteToken(result.routeToken?.trim() || null);
         if (result.smartAvailability?.enforced) {
           applyCustomerAvailabilityResult({
             blocked: Boolean(result.smartAvailability.blocked),
@@ -1512,9 +1531,11 @@ function QuoteCard({
         return true;
       }
       setServerFareParts(null);
+      setQuoteRouteToken(null);
       return false;
     } catch {
       setServerFareParts(null);
+      setQuoteRouteToken(null);
       return false;
     }
   }, [
@@ -1866,12 +1887,14 @@ function QuoteCard({
     setSuitcases(null);
     setExactPassengers(null);
     setRouteMetrics(null);
+    setQuoteRouteToken(null);
     setServerFareParts(null);
   }
 
   /** Any address text edit clears stale route/price — never pay on a previous pair's metrics. */
   function clearStaleRouteAndPriceAfterAddressEdit() {
     setRouteMetrics(null);
+    setQuoteRouteToken(null);
     setServerFareParts(null);
     setRouteReconfirmationRequired(false);
     setPaymentError("");
@@ -1894,6 +1917,7 @@ function QuoteCard({
     }
     setRouteReconfirmationRequired(true);
     setRouteMetrics(null);
+    setQuoteRouteToken(null);
     setServerFareParts(null);
     setPaymentError(ROUTE_RECONFIRMATION_MESSAGE);
     setQuoteStep(1);
@@ -2091,6 +2115,7 @@ function QuoteCard({
         setAirportCode("");
       }
       setRouteMetrics(null);
+      setQuoteRouteToken(null);
       setServerFareParts(null);
       setSmartAvailabilityBlocked(false);
       setPaymentError((prev) =>
@@ -2956,10 +2981,24 @@ function QuoteCard({
     if (isCustomerSmartAvailabilityBlockMessage(paymentError)) {
       return;
     }
-    if (paymentLoading || submitted) {
+    if (paymentLoading || submitted || paymentInFlightRef.current) {
       return;
     }
+    const payTapAt =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    // Immediate loading + tap lock — do not wait for availability or the Worker.
+    paymentInFlightRef.current = true;
+    setPaymentLoading(true);
+    setPaymentError("");
+    setPaymentPopupBlocked(false);
+
+    const abortPay = () => {
+      paymentInFlightRef.current = false;
+      setPaymentLoading(false);
+    };
+
     if (!validateCheckoutRequiredFields()) {
+      abortPay();
       return;
     }
 
@@ -2967,15 +3006,18 @@ function QuoteCard({
       if (!canPayNowOnline) {
         if (routeValidationBlockingPayment) {
           if (!requireConfirmedPlacesForPayment()) {
+            abortPay();
             return;
           }
           setPaymentError(ROUTE_RECONFIRMATION_MESSAGE);
+          abortPay();
           return;
         }
         setPaymentError(
           "Online payment is available when an instant fare is shown. Request to book instead and we’ll email a SumUp link once confirmed.",
         );
       }
+      abortPay();
       return;
     }
 
@@ -2984,6 +3026,7 @@ function QuoteCard({
     });
 
     if (!requireConfirmedPlacesForPayment()) {
+      abortPay();
       return;
     }
 
@@ -2994,21 +3037,19 @@ function QuoteCard({
         travelDetailsBlocker || "Please complete your journey and travel details before paying.",
       );
       setQuoteStep(hasQuoteRoute ? 2 : 1);
+      abortPay();
       return;
     }
 
     if (!validateRequiredFlightNumbers()) {
       setPaymentError(FLIGHT_NUMBER_FORMAT_ERROR);
       setQuoteStep(2);
+      abortPay();
       return;
     }
 
     if (!requireCapacityConfirmed()) {
-      return;
-    }
-
-    const availabilityBlocked = await applyCustomerSmartAvailabilityCheck();
-    if (availabilityBlocked) {
+      abortPay();
       return;
     }
 
@@ -3024,6 +3065,7 @@ function QuoteCard({
           ? "Please confirm you understand the free pick-up area before continuing without Express Pick-Up."
           : "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
       );
+      abortPay();
       return;
     }
 
@@ -3031,14 +3073,12 @@ function QuoteCard({
     const blockers = getPaymentBookingBlockers(bookingDetails);
     if (blockers.length > 0) {
       setPaymentError(blockers[0]);
+      abortPay();
       return;
     }
 
     // Persist draft + pending payment, then same-tab redirect to SumUp Hosted Checkout.
     // window.open after await is blocked on iPhone Safari (no user-gesture), which looks like a dead button.
-    setPaymentLoading(true);
-    setPaymentError("");
-    setPaymentPopupBlocked(false);
 
     const amountLabel = formatQuote(paymentAmount ?? liveQuote.amount);
 
@@ -3078,6 +3118,8 @@ function QuoteCard({
         : false,
     });
 
+    const paymentsRequestAt =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
     try {
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
@@ -3092,6 +3134,7 @@ function QuoteCard({
         booking: bookingDetails,
         pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
         dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
+        ...(quoteRouteToken?.trim() ? { routeToken: quoteRouteToken.trim() } : {}),
         expressDropOffSelected: expressSelection.eligible
           ? expressSelection.outboundSelected
           : false,
@@ -3134,6 +3177,7 @@ function QuoteCard({
           whatsappUrl: checkout.whatsappUrl,
           amountLabel: checkout.amountLabel ?? amountLabel,
         });
+        paymentInFlightRef.current = false;
         setPaymentLoading(false);
         return;
       }
@@ -3141,6 +3185,9 @@ function QuoteCard({
       if (!checkout.paymentUrl || !checkout.checkoutId) {
         throw new Error("Payment service returned an invalid response");
       }
+
+      const paymentsResponseAt =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
 
       savePendingPayment(
         {
@@ -3183,6 +3230,16 @@ function QuoteCard({
         }).catch(() => false);
       }
 
+      const navigateAt =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      console.info("[payment-timing]", {
+        tapToRequestMs: Math.round(paymentsRequestAt - payTapAt),
+        paymentsFetchMs: checkout.clientFetchMs ?? Math.round(paymentsResponseAt - paymentsRequestAt),
+        responseToRedirectMs: Math.round(navigateAt - paymentsResponseAt),
+        tapToNavigateMs: Math.round(navigateAt - payTapAt),
+        worker: checkout.timings ?? null,
+      });
+
       // Same-tab redirect — reliable on iPhone Safari / Android / desktop (no popup).
       window.location.assign(checkout.paymentUrl);
       // Keep loading state until navigation completes; re-enable only if assign somehow fails.
@@ -3198,12 +3255,13 @@ function QuoteCard({
             ? error.message
             : `${error.message} We could not refresh the live quote automatically — please check your journey details.`,
         );
-        setPaymentLoading(false);
+        abortPay();
         return;
       }
       if (isPaymentRouteReconfirmationError(error)) {
         setRouteReconfirmationRequired(true);
         setRouteMetrics(null);
+        setQuoteRouteToken(null);
         setServerFareParts(null);
         const endpoint = error.endpoint ?? "both";
         // Identify only the affected field when the Worker reports which end failed.
@@ -3219,16 +3277,26 @@ function QuoteCard({
         }
         setPaymentError(error.message || ROUTE_RECONFIRMATION_MESSAGE);
         setQuoteStep(1);
-        setPaymentLoading(false);
+        abortPay();
         window.setTimeout(() => {
           focusFirstInvalidField(cardRef.current ?? document);
         }, 80);
         return;
       }
+      if (isPaymentSmartAvailabilityError(error)) {
+        applyCustomerAvailabilityResult({
+          blocked: true,
+          available: false,
+          customerMessage: error.message,
+          alternativeTimes: error.alternativeTimes,
+        });
+        abortPay();
+        return;
+      }
       if (isPaymentRouteServiceUnavailableError(error)) {
         // Do not clear confirmed places or force Step 1 reselection — backend blip.
         setPaymentError(error.message || ROUTE_SERVICE_UNAVAILABLE_MESSAGE);
-        setPaymentLoading(false);
+        abortPay();
         return;
       }
       setPaymentError(
@@ -3236,7 +3304,7 @@ function QuoteCard({
           ? error.message
           : "We couldn't start payment. Please try again or contact us to pay.",
       );
-      setPaymentLoading(false);
+      abortPay();
     }
   }
 
@@ -3247,6 +3315,7 @@ function QuoteCard({
     }
     setPaymentPopupBlocked(false);
     setPaymentError("");
+    paymentInFlightRef.current = true;
     setPaymentLoading(true);
     window.location.assign(openCheckout.paymentUrl);
   }
@@ -3394,10 +3463,12 @@ function QuoteCard({
     );
     setIntentAirportCode(isCustomerAirportCode(initialAirportCode) ? initialAirportCode : "");
     setRouteMetrics(null);
+    setQuoteRouteToken(null);
     setServerFareParts(null);
     setRouteReconfirmationRequired(false);
     setPickupPlaceError("");
     setDropoffPlaceError("");
+    paymentInFlightRef.current = false;
     setPaymentLoading(false);
     setPaymentError("");
     setOpenCheckout(null);
@@ -5261,9 +5332,14 @@ function QuoteCard({
                       type="button"
                       onClick={handleOpenPaymentAgain}
                       disabled={paymentLoading}
+                      aria-busy={paymentLoading}
                       className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {paymentLoading ? "Opening secure payment…" : "Continue to SumUp"}
+                      {paymentLoading ? (
+                        <PayOpeningLabel />
+                      ) : (
+                        "Continue to SumUp"
+                      )}
                     </button>
                   </div>
                   <button
@@ -5279,10 +5355,11 @@ function QuoteCard({
                   type="button"
                   onClick={() => void handlePayNow()}
                   disabled={paymentLoading || submitted}
+                  aria-busy={paymentLoading}
                   className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
-                    ? "Opening secure payment…"
+                    ? <PayOpeningLabel />
                     : testChargeAmount !== null
                       ? "Pay £1.00 test charge with SumUp"
                       : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
@@ -5638,6 +5715,7 @@ function QuoteCard({
 
   return (
     <div ref={cardRef} className="quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
+      <QuoteVehicleImagePreload />
       <div className="mb-4 sm:mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"
