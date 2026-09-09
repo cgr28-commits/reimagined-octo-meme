@@ -565,7 +565,7 @@ export default function AddressInput({
         ? "text-emerald/85"
       : restoredHint && hasConfirmedSelection
         ? "text-emerald/80"
-        : "text-white/40";
+        : "quote-secondary";
 
   const fieldShellRef = useRef<HTMLDivElement>(null);
   const [overlayStyle, setOverlayStyle] = useState<CSSProperties | undefined>(undefined);

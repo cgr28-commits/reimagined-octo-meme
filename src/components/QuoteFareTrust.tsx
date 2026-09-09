@@ -48,7 +48,7 @@ export function FixedPriceAssurance({
   return (
     <div className={`mt-1.5 space-y-0.5 ${className}`}>
       <p className="text-sm font-semibold text-emerald">✓ Fixed price. No surprises.</p>
-      <p className="text-xs leading-snug text-white/55">
+      <p className="text-xs leading-snug quote-secondary">
         {includesSelectedAirportAccess
           ? "Includes your selected airport access option."
           : "The price you book is the price you pay."}
@@ -271,7 +271,7 @@ export function FinalPayableBreakdown({
   const accessLabel = expressAirportLegendLabel(service);
   return (
     <div
-      className={`rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3 ${className}`}
+      className={`rounded-xl quote-panel px-3.5 py-3 ${className}`}
     >
       <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
         Price breakdown

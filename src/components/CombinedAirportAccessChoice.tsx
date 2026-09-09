@@ -47,7 +47,7 @@ export default function CombinedAirportAccessChoice({
   if (mode === "summary" && !editing) {
     return (
       <div
-        className={`min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/5 px-3 py-3 ${className}`}
+        className={`min-w-0 space-y-2 rounded-xl quote-panel px-3 py-3 ${className}`}
       >
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 space-y-1 text-sm text-white/85">

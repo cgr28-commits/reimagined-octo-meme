@@ -41,6 +41,7 @@
     "check:conversion-tracking": "npx tsx scripts/check-conversion-tracking.ts",
     "check:quote-funnel-analytics": "npx tsx scripts/check-quote-funnel-analytics.ts",
     "check:quote-step-highlight": "npx tsx scripts/check-quote-step-highlight.ts",
+    "check:quote-daylight-contrast": "npx tsx scripts/check-quote-daylight-contrast.ts",
     "check:quote-checkout-page": "npx tsx scripts/check-quote-checkout-page.ts",
     "check:quote-vehicle-fare-refresh": "npx tsx scripts/check-quote-vehicle-fare-refresh.ts",
     "check:paid-booking-ads-conversion": "npx tsx scripts/check-paid-booking-ads-conversion.ts",

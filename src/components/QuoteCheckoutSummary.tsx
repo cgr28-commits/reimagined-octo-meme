@@ -32,10 +32,10 @@ export default function QuoteCheckoutSummary({
       id="quote-price-summary"
       data-booking-nav-heading
       tabIndex={-1}
-      className="scroll-mt-44 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-3 outline-none md:scroll-mt-28"
+      className="scroll-mt-44 rounded-xl quote-panel px-3.5 py-3 outline-none md:scroll-mt-28"
     >
       <p className="text-sm font-semibold leading-snug text-white">{routeLine}</p>
-      <p className="mt-1 text-sm text-white/70">{detailLine}</p>
+      <p className="mt-1 text-sm quote-secondary">{detailLine}</p>
       <p className="mt-2 text-lg font-bold tracking-tight text-white sm:text-xl">{totalLabel}</p>
       {accessLine ? <p className="mt-1 text-xs text-white/75">{accessLine}</p> : null}
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold">

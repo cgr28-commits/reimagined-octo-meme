@@ -28,9 +28,10 @@ const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
 
 const SELECT_CARD =
   "flex min-h-[4.25rem] flex-col items-start justify-center rounded-2xl border px-3.5 py-2.5 text-left transition-all sm:min-h-[4.5rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
-const SELECT_CARD_ON = "border-emerald bg-emerald text-navy shadow-sm";
+const SELECT_CARD_ON =
+  "quote-choice-selected border-emerald bg-emerald text-navy shadow-[0_0_0_3px_rgba(47,191,74,0.22)]";
 const SELECT_CARD_OFF =
-  "border-white/15 bg-white/5 text-white hover:border-emerald/40 hover:bg-emerald/10";
+  "quote-choice border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:bg-emerald/10";
 
 function ChoiceGrid({
   label,
@@ -78,8 +79,8 @@ function ChoiceGrid({
               onClick={() => onChange(option)}
               className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
                 selected
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "border border-white/15 bg-white/5 text-white/85 hover:border-emerald/40 hover:text-white"
+                  ? "quote-choice-selected bg-emerald text-navy"
+                  : "quote-choice border border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:text-white"
               }`}
             >
               {formatOption ? formatOption(option) : String(option)}
@@ -217,7 +218,7 @@ export default function QuoteProgressiveRoute({
               {QUOTE_JOURNEY_INTENT_OPTIONS.find((option) => option.id === journeyIntent)?.title ||
                 "Airport transfer"}
             </p>
-            <p className="mt-1 text-xs leading-snug text-white/70">
+            <p className="mt-1 text-xs leading-snug quote-secondary">
               Single return journey from your original trip — direction is set from your booking.
             </p>
           </div>
@@ -301,7 +302,7 @@ export default function QuoteProgressiveRoute({
                 <p className="text-xs text-emerald/85">Please choose an airport.</p>
               )}
               {selectedAirportCode === "LDY" && (
-                <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 quote-secondary text-xs">
+                <p className="rounded-xl quote-panel px-3 py-2 quote-secondary text-xs">
                   City of Derry Airport transfers are between LDY and the greater Belfast area.
                 </p>
               )}
@@ -357,7 +358,7 @@ export default function QuoteProgressiveRoute({
             </div>
           )}
           {journeyIntent === "to-airport" && airportChosen && (
-            <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 quote-secondary text-xs">
+            <p className="rounded-xl quote-panel px-3 py-2 quote-secondary text-xs">
               Destination:{" "}
               <strong className="text-white">
                 {SELECTABLE_AIRPORTS.find((a) => a.code === selectedAirportCode)?.title}
@@ -365,7 +366,7 @@ export default function QuoteProgressiveRoute({
             </p>
           )}
           {journeyIntent === "from-airport" && airportChosen && (
-            <p className="rounded-xl border border-white/10 bg-navy-dark/40 px-3 py-2 quote-secondary text-xs">
+            <p className="rounded-xl quote-panel px-3 py-2 quote-secondary text-xs">
               Pickup:{" "}
               <strong className="text-white">
                 {SELECTABLE_AIRPORTS.find((a) => a.code === selectedAirportCode)?.title}
@@ -395,10 +396,10 @@ export default function QuoteProgressiveRoute({
           <div
             role="group"
             aria-label="One way or return"
-            className={`grid grid-cols-2 overflow-hidden rounded-xl border bg-white/[0.06] ${
+            className={`grid grid-cols-2 overflow-hidden rounded-xl border bg-white/[0.08] ${
               journeyMode == null
-                ? "border-emerald/50 ring-1 ring-emerald/25"
-                : "border-white/15"
+                ? "border-emerald/60 ring-1 ring-emerald/30"
+                : "border-white/28"
             }`}
           >
             <button
@@ -408,7 +409,7 @@ export default function QuoteProgressiveRoute({
               className={`min-h-[52px] w-full px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald lg:min-h-12 ${
                 journeyMode === "one-way"
                   ? "bg-emerald text-navy"
-                  : "bg-transparent text-white/75 hover:bg-white/[0.04] hover:text-white"
+                  : "bg-transparent text-white hover:bg-white/[0.07]"
               }`}
             >
               One way
@@ -420,7 +421,7 @@ export default function QuoteProgressiveRoute({
               className={`min-h-[52px] w-full border-l border-white/40 px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald lg:min-h-12 ${
                 journeyMode === "return"
                   ? "bg-emerald text-navy"
-                  : "bg-transparent text-white/75 hover:bg-white/[0.04] hover:text-white"
+                  : "bg-transparent text-white hover:bg-white/[0.07]"
               }`}
             >
               Return · 5% off
@@ -429,7 +430,7 @@ export default function QuoteProgressiveRoute({
           {journeyMode == null && (
             <p
               id="quote-journey-mode-prompt"
-              className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
+              className="rounded-xl quote-panel px-4 py-3 text-sm text-white"
               role="status"
             >
               Choose One way or Return to continue.
@@ -495,7 +496,7 @@ export default function QuoteProgressiveRoute({
           {(passengers == null || suitcases == null) && !passengersError && !suitcasesError && (
             <p
               id="quote-party-prompt"
-              className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
+              className="rounded-xl quote-panel px-4 py-3 text-sm text-white"
               role="status"
             >
               Select your passenger and suitcase numbers to see your fixed price.
@@ -503,11 +504,11 @@ export default function QuoteProgressiveRoute({
           )}
 
           {journeyIntent === "from-airport" ? (
-            <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 quote-secondary text-xs leading-relaxed">
+            <div className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed">
               <p>{AIRPORT_PICKUP_WAITING_COPY}</p>
             </div>
           ) : journeyIntent === "to-airport" ? (
-            <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 quote-secondary text-xs leading-relaxed">
+            <div className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed">
               <p>{NON_AIRPORT_WAITING_COPY}</p>
               {returnJourney && (
                 <>
@@ -517,7 +518,7 @@ export default function QuoteProgressiveRoute({
               )}
             </div>
           ) : journeyIntent === "address-to-address" ? (
-            <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 quote-secondary text-xs leading-relaxed">
+            <div className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed">
               <p>{NON_AIRPORT_WAITING_COPY}</p>
             </div>
           ) : null}

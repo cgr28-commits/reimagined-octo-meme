@@ -11,16 +11,16 @@ export function quoteTextFieldClass(state: QuoteFieldHighlightState): string {
   // Prefer quoteDateTimeFieldShellClass for type=date|time — Safari often ignores min-width
   // on those replaced controls, so the visible border must live on a wrapping shell.
   const base =
-    "quote-text-input box-border h-12 w-full min-w-0 max-w-full rounded-[0.75rem] bg-white/[0.045] px-4 text-base text-white outline-none transition-[border-color,box-shadow] duration-150 [color-scheme:dark]";
+    "quote-text-input box-border h-12 w-full min-w-0 max-w-full rounded-[0.75rem] bg-white/[0.1] px-4 text-base text-white outline-none transition-[border-color,box-shadow] duration-150 [color-scheme:dark]";
   switch (state) {
     case "error":
-      return `${base} border border-red-400/55 ring-1 ring-inset ring-red-400/30 focus:border-red-400/70 focus:ring-red-400/40`;
+      return `${base} border border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400 focus:ring-red-400/45`;
     case "needs":
-      return `${base} border border-emerald/50 ring-1 ring-inset ring-emerald/25 focus:border-emerald focus:ring-emerald/35`;
+      return `${base} border border-emerald/65 ring-1 ring-inset ring-emerald/30 focus:border-emerald focus:ring-emerald/40`;
     case "complete":
-      return `${base} border border-emerald/30 focus:border-emerald/50 focus:ring-1 focus:ring-inset focus:ring-emerald/30`;
+      return `${base} border border-emerald/45 focus:border-emerald/70 focus:ring-1 focus:ring-inset focus:ring-emerald/35`;
     default:
-      return `${base} border border-white/12 focus:border-emerald/50 focus:ring-1 focus:ring-inset focus:ring-emerald/30`;
+      return `${base} border border-white/30 focus:border-emerald/70 focus:ring-1 focus:ring-inset focus:ring-emerald/35`;
   }
 }
 
@@ -32,16 +32,16 @@ export function quoteTextFieldClass(state: QuoteFieldHighlightState): string {
  */
 export function quoteDateTimeFieldShellClass(state: QuoteFieldHighlightState): string {
   const base =
-    "quote-datetime-shell box-border w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] bg-white/[0.045] transition-[border-color,box-shadow] duration-150";
+    "quote-datetime-shell box-border w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] bg-white/[0.1] transition-[border-color,box-shadow] duration-150";
   switch (state) {
     case "error":
-      return `${base} border border-red-400/55 ring-1 ring-inset ring-red-400/30 focus-within:border-red-400/70`;
+      return `${base} border border-red-400/70 ring-1 ring-inset ring-red-400/35 focus-within:border-red-400`;
     case "needs":
-      return `${base} border border-emerald/50 ring-1 ring-inset ring-emerald/25 focus-within:border-emerald`;
+      return `${base} border border-emerald/65 ring-1 ring-inset ring-emerald/30 focus-within:border-emerald`;
     case "complete":
-      return `${base} border border-emerald/30 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-inset focus-within:ring-emerald/30`;
+      return `${base} border border-emerald/45 focus-within:border-emerald/70 focus-within:ring-1 focus-within:ring-inset focus-within:ring-emerald/35`;
     default:
-      return `${base} border border-white/12 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-inset focus-within:ring-emerald/30`;
+      return `${base} border border-white/30 focus-within:border-emerald/70 focus-within:ring-1 focus-within:ring-inset focus-within:ring-emerald/35`;
   }
 }
 
@@ -53,16 +53,16 @@ export function quoteDateTimeInputClass(): string {
 /** Booking panel text inputs (slightly stronger default border). */
 export function bookingTextFieldClass(state: QuoteFieldHighlightState): string {
   const base =
-    "quote-text-input box-border h-12 w-full min-w-0 max-w-full rounded-[0.75rem] bg-navy-dark px-4 text-white placeholder:text-white/45 outline-none transition-[border-color,box-shadow] duration-150";
+    "quote-text-input box-border h-12 w-full min-w-0 max-w-full rounded-[0.75rem] bg-navy-light px-4 text-white placeholder:text-white/65 outline-none transition-[border-color,box-shadow] duration-150";
   switch (state) {
     case "error":
-      return `${base} border border-red-400/55 ring-1 ring-inset ring-red-400/30 focus:border-red-400/70`;
+      return `${base} border border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400`;
     case "needs":
-      return `${base} border border-emerald/50 ring-1 ring-inset ring-emerald/25 focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/30`;
+      return `${base} border border-emerald/65 ring-1 ring-inset ring-emerald/30 focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/35`;
     case "complete":
-      return `${base} border border-emerald/35 focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25`;
+      return `${base} border border-emerald/45 focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/30`;
     default:
-      return `${base} border border-white/22 focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25 md:border-white/28`;
+      return `${base} border border-white/32 focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/30 md:border-white/38`;
   }
 }
 
@@ -74,32 +74,37 @@ export function addressFieldShellClass(options: {
   isActiveUi: boolean;
 }): string {
   const base =
-    "rounded-[0.75rem] border bg-white/[0.12] transition-[border-color,box-shadow] duration-150";
+    "rounded-[0.75rem] border bg-white/[0.14] transition-[border-color,box-shadow] duration-150";
   const focusGlow =
-    "focus-within:border-emerald focus-within:ring-2 focus-within:ring-emerald/45 focus-within:shadow-[0_0_0_3px_rgba(47,191,74,0.22)]";
+    "focus-within:border-emerald focus-within:ring-2 focus-within:ring-emerald/50 focus-within:shadow-[0_0_0_3px_rgba(47,191,74,0.22)]";
   if (options.hasError) {
-    return `${base} border-red-400/55 ring-1 ring-red-400/30`;
+    return `${base} border-red-400/70 ring-1 ring-red-400/35`;
   }
   if (options.needsCompletion) {
-    return `${base} border-emerald/70 ring-1 ring-emerald/40 ${focusGlow}`;
+    return `${base} border-emerald/75 ring-1 ring-emerald/45 ${focusGlow}`;
   }
   if (options.isActiveUi) {
-    return `${base} border-emerald ring-2 ring-emerald/45 shadow-[0_0_0_3px_rgba(47,191,74,0.22)]`;
+    return `${base} border-emerald ring-2 ring-emerald/50 shadow-[0_0_0_3px_rgba(47,191,74,0.22)]`;
   }
   if (options.isComplete) {
-    return `${base} border-emerald/50 ${focusGlow}`;
+    return `${base} border-emerald/60 ${focusGlow}`;
   }
-  return `${base} border-emerald/45 ${focusGlow}`;
+  return `${base} border-white/32 ${focusGlow}`;
 }
 
 /** Soft emerald outline around a choice-card group that still needs a selection. */
 export function choiceGroupNeedsClass(needsCompletion: boolean, hasError = false): string {
   // Always keep the same padding/border box so completing a choice does not shift layout.
   if (hasError) {
-    return "rounded-2xl border border-red-400/55 bg-red-500/[0.06] p-2 ring-1 ring-red-400/30";
+    return "rounded-2xl border border-red-400/70 bg-red-500/[0.08] p-2 ring-1 ring-red-400/35";
   }
   if (needsCompletion) {
-    return "rounded-2xl border border-emerald/45 bg-emerald/[0.04] p-2 ring-1 ring-emerald/20";
+    return "rounded-2xl border border-emerald/55 bg-emerald/[0.06] p-2 ring-1 ring-emerald/25";
   }
   return "rounded-2xl border border-transparent p-2";
 }
+
+export const QUOTE_CHOICE_OFF =
+  "quote-choice border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:bg-emerald/10";
+export const QUOTE_CHOICE_ON =
+  "quote-choice-selected border-emerald bg-emerald text-navy shadow-[0_0_0_3px_rgba(47,191,74,0.22)]";

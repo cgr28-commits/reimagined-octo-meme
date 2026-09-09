@@ -20,10 +20,10 @@ function read(rel: string): string {
 }
 
 console.log("=== Highlight helpers ===");
-assert.match(quoteTextFieldClass("needs"), /border-emerald\/50/);
+assert.match(quoteTextFieldClass("needs"), /border-emerald\/65/);
 assert.match(quoteTextFieldClass("error"), /border-red-400/);
-assert.match(quoteTextFieldClass("complete"), /border-emerald\/30/);
-assert.match(bookingTextFieldClass("needs"), /border-emerald\/50/);
+assert.match(quoteTextFieldClass("complete"), /border-emerald\/45/);
+assert.match(bookingTextFieldClass("needs"), /border-emerald\/65/);
 assert.match(addressFieldShellClass({
   hasError: true,
   needsCompletion: true,
@@ -35,20 +35,20 @@ assert.match(addressFieldShellClass({
   needsCompletion: true,
   isComplete: false,
   isActiveUi: false,
-}), /border-emerald\/70/);
+}), /border-emerald\/75/);
 assert.match(addressFieldShellClass({
   hasError: false,
   needsCompletion: true,
   isComplete: false,
   isActiveUi: false,
-}), /bg-white\/\[0\.12\]/);
+}), /bg-white\/\[0\.14\]/);
 assert.match(addressFieldShellClass({
   hasError: false,
   needsCompletion: false,
   isComplete: false,
   isActiveUi: true,
 }), /shadow-\[0_0_0_3px_rgba\(47,191,74,0\.22\)\]/);
-assert.match(choiceGroupNeedsClass(true), /border-emerald\/45/);
+assert.match(choiceGroupNeedsClass(true), /border-emerald\/55/);
 assert.match(choiceGroupNeedsClass(false), /border-transparent/);
 assert.match(choiceGroupNeedsClass(false), /p-2/);
 console.log("OK  helpers keep stable padding and error > needs priority");
@@ -72,11 +72,13 @@ assert.doesNotMatch(card, /Price & travel/);
 assert.doesNotMatch(card, /Pay & confirm/);
 assert.doesNotMatch(card, /Airport & address/);
 assert.doesNotMatch(card, /quoteStep >= 2 \? "grid-cols-2"/);
-assert.match(css, /\.quote-step \{[\s\S]*color: rgba\(255,\s*255,\s*255,\s*0\.82\)/);
-assert.match(css, /\.quote-step \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.34\)/);
+assert.match(css, /\.quote-step \{[\s\S]*color: rgba\(255,\s*255,\s*255,\s*0\.94\)/);
+assert.match(css, /\.quote-step \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.46\)/);
 assert.match(css, /\.quote-step-active \{[\s\S]*color: #ffffff/);
-assert.match(css, /\.quote-step-done \{[\s\S]*color: #9ee6ad/);
-assert.match(css, /\.btn-secondary \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.42\)/);
+assert.match(css, /\.quote-step-done \{[\s\S]*color: #b8f0c4/);
+assert.match(css, /\.btn-secondary \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.52\)/);
+assert.match(css, /--quote-card-bg/);
+assert.match(css, /--color-navy: #0a2448/);
 console.log("OK  step indicator + field classes wired");
 
 console.log("\n=== AddressInput Places completion ===");

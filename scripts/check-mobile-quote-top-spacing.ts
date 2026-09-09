@@ -53,7 +53,7 @@ assert.match(hero, /scroll-mt-20 md:scroll-mt-28|scroll-mt-20[\s\S]*md:scroll-mt
 assert.match(prefill, /HEADER_SCROLL_OFFSET = 112/);
 
 // Mobile header: logo + Get a Quote + WhatsApp + Menu; Airports/Manage only in drawer data/menu.
-assert.match(header, /Logo className="h-12 sm:h-16 md:h-20"/);
+assert.match(header, /Logo className="(?:quote-header-logo )?h-12 sm:h-16 md:h-20"/);
 assert.match(header, /Get a Quote/);
 assert.match(header, /Menu/);
 assert.match(header, /data-matni-whatsapp-quick/);
