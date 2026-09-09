@@ -13,24 +13,16 @@ Dependencies are installed by the startup update script (`npm install` for the r
 `NEXT_PUBLIC_ADDRESSES_API_URL` / `NEXT_PUBLIC_BOOKINGS_API_URL` are unset, the frontend calls the
 live production Worker, so the whole site renders and the quote/booking flow works out of the box.
 
-### Running the frontend (important gotcha)
-As of this setup, **`npm run dev` does not work**: it 500s on every page with
-`ReferenceError: Cannot access 'BASE_PATH' before initialization`. This is a pre-existing circular
-import between `src/lib/data.ts` and `src/lib/paths.ts` (`data.ts` calls `withBasePath()` at module
-load while `paths.ts` is still initializing). It fails in both webpack and `--turbopack` dev modes.
-This is a code bug, not an environment issue, and is **not** fixed here (env setup does not modify app code).
+### Running the frontend
+Prefer `npm run dev` on port 3000 for hot reload. `BASE_PATH` / `withBasePath` live in
+`src/lib/base-path.ts` so `data.ts` no longer imports `paths.ts` during module init.
 
-The **production static export build works fine** (it is how the live site is deployed), so to run
-the app locally, build the export and serve the `out/` directory:
+The production static export remains the deploy path:
 
 ```bash
 GITHUB_PAGES=true npm run build   # static export -> ./out
-npx serve out -l 3000             # serve on http://localhost:3000
+npx serve out -l 3000             # optional: serve the export
 ```
-
-The exported site is a full client-side React app, so the interactive quote/booking flow (pricing,
-maps, forms) works when served this way. If `npm run dev` has since been fixed (circular import
-resolved), prefer `npm run dev` on port 3000 for hot reload.
 
 ### Cloudflare Worker (optional for most UI work)
 The frontend defaults to the deployed production Worker, so you only need the Worker locally to test
