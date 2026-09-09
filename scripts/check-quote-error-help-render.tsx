@@ -74,7 +74,7 @@ check("Error-free results: one Start New Quote, no WhatsApp panel", () => {
     createElement(QuoteHelpSurface, { mode: "results" }),
   );
   assert.equal(countMatches(html, /data-start-new-quote-controls/g), 1);
-  assert.equal(countMatches(html, /Clear Details &amp; Start a New Quote/g), 1);
+  assert.equal(countMatches(html, />Start over</g), 1);
   assert.equal(countMatches(html, /data-booking-error-whatsapp-help/g), 0);
   assert.equal(countMatches(html, /Get Booking Help on WhatsApp/g), 0);
   assert.equal(countMatches(html, /data-booking-error-help-cluster/g), 0);
@@ -89,7 +89,7 @@ check("Error surface: one WhatsApp panel and one Start New Quote together", () =
   assert.equal(countMatches(html, /data-booking-error-whatsapp-help/g), 1);
   assert.equal(countMatches(html, /Get Booking Help on WhatsApp/g), 1);
   assert.equal(countMatches(html, /data-start-new-quote-controls/g), 1);
-  assert.equal(countMatches(html, /Clear Details &amp; Start a New Quote/g), 1);
+  assert.equal(countMatches(html, />Start over</g), 1);
   // Map/payment placeholders present but must not add extra controls.
   assert.match(html, /data-map/);
   assert.match(html, /data-payment/);

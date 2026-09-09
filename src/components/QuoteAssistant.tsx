@@ -182,6 +182,7 @@ export default function QuoteAssistant() {
   const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
   const missesRef = useRef(0);
+  const botQuoteSessionIdRef = useRef("");
   const helpTitleId = useId();
   const wasOpenRef = useRef(false);
   const qrSrc = withBasePath("/contact-qr.png");
@@ -247,6 +248,7 @@ export default function QuoteAssistant() {
       setInput("");
       setConsecutiveMisses(0);
       missesRef.current = 0;
+      botQuoteSessionIdRef.current = "";
       setOpen(false);
       try {
         sessionStorage.removeItem(SESSION_KEY);
@@ -497,6 +499,9 @@ export default function QuoteAssistant() {
         const result = await respondToAssistantMessage(text, draftRef.current, {
           consecutiveMisses: missesRef.current,
         });
+        if (result.resetDraft) {
+          botQuoteSessionIdRef.current = "";
+        }
         let nextDraft = result.resetDraft ? emptyQuoteDraft() : result.draft;
         const nextMisses = result.consecutiveMisses ?? 0;
         setDraft(nextDraft);
@@ -517,6 +522,9 @@ export default function QuoteAssistant() {
         if (result.quoteCard) {
           const card = result.quoteCard;
           const fromAirport = nextDraft.direction === "from-airport";
+          if (!botQuoteSessionIdRef.current) {
+            botQuoteSessionIdRef.current = createQuoteTransactionId("bot");
+          }
           scheduleQuoteLeadAlert({
             tripLabel: fromAirport ? "Airport pickup" : "Airport drop-off",
             pickupLabel: fromAirport ? card.airportName : card.address,
@@ -531,7 +539,10 @@ export default function QuoteAssistant() {
             vehicle: card.vehicle,
             estimatedPrice: card.amountLabel,
             isAirportTrip: true,
-            quoteTransactionId: createQuoteTransactionId("bot"),
+            quoteTransactionId: botQuoteSessionIdRef.current,
+            airportCode: nextDraft.airportCode,
+            totalGbp: card.amount,
+            source: "bot",
           });
         }
 
@@ -600,6 +611,7 @@ export default function QuoteAssistant() {
     setInput("");
     setConsecutiveMisses(0);
     missesRef.current = 0;
+    botQuoteSessionIdRef.current = "";
     try {
       sessionStorage.removeItem(SESSION_KEY);
     } catch {

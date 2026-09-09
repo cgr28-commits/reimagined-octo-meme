@@ -30,7 +30,7 @@ const quickQuoteHandlers = read("workers/addresses/src/quick-quote-handlers.ts")
 const scrollLib = read("src/lib/quote-step-nav-scroll.ts");
 
 check("Passengers, suitcases and journey mode initialise as null", () => {
-  assert.match(card, /useState<"one-way" \| "return" \| null>\(null\)/);
+  assert.match(card, /useState<"one-way" \| "return" \| null>\([\s\S]*?null/);
   assert.match(card, /useState<number \| null>\(null\)/);
   assert.match(card, /setPassengers\(null\)/);
   assert.match(card, /setSuitcases\(null\)/);

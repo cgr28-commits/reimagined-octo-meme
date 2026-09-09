@@ -1,6 +1,7 @@
 "use client";
 
 import CombinedAirportAccessSelector from "@/components/CombinedAirportAccessSelector";
+import type { AirportAccessTone } from "@/components/ExpressDropOffSelector";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
   combinedAirportAccessBreakdownLabel,
@@ -22,6 +23,7 @@ type Props = {
   editing?: boolean;
   onEditingChange?: (editing: boolean) => void;
   className?: string;
+  tone?: AirportAccessTone;
 };
 
 /**
@@ -40,6 +42,7 @@ export default function CombinedAirportAccessChoice({
   editing = false,
   onEditingChange,
   className = "",
+  tone = "on-dark",
 }: Props) {
   if (mode === "summary" && !editing) {
     return (
@@ -76,6 +79,7 @@ export default function CombinedAirportAccessChoice({
         onRemovalAcknowledgedChange={onRemovalAcknowledgedChange}
         requireAcknowledgement={requireAcknowledgement}
         allowFreeAlternative={allowFreeAlternative}
+        tone={tone}
       />
       {mode === "summary" && editing ? (
         <button

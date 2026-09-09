@@ -54,7 +54,7 @@ check("QuoteCard asks for flight number on Step 2 travel details (not Step 1)", 
   assert.match(card, /renderFlightDetailsSection\(2\)/);
   assert.match(card, /step2-flight-details/);
   assert.match(card, /BOOKING_FLIGHT_NUMBER_HELPER/);
-  assert.match(card, /enabled=\{quoteStep === activeOnStep\}/);
+  assert.match(card, /enabled=\{quoteStep >= 2\}/);
   // After time Done, scroll to flight block when shown — not past it to journey summary.
   assert.match(card, /preferFlightDetails/);
   assert.match(card, /"step2-flight-details"/);

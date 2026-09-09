@@ -55,6 +55,7 @@ console.log("OK  helpers keep stable padding and error > needs priority");
 
 console.log("\n=== QuoteCard step indicator ===");
 const card = read("src/components/QuoteCard.tsx");
+const css = read("src/app/globals.css");
 assert.match(card, /aria-current=\{active \? "step" : undefined\}/);
 assert.match(card, /quote-step-active|border-emerald bg-emerald\/15/);
 assert.match(card, /sr-only">completed/);
@@ -62,6 +63,20 @@ assert.match(card, /quoteDateTimeFieldShellClass/);
 assert.match(card, /bookingTextFieldClass/);
 assert.match(card, /needsCompletion=\{quoteStep === 1 && !isPlaceSelected/);
 assert.doesNotMatch(card, /BOOKING_INPUT_CLASS/);
+assert.match(card, /label: "Journey"/);
+assert.match(card, /label: "Quote"/);
+assert.match(card, /label: "Booking & Pay"/);
+assert.match(card, /grid-cols-3/);
+assert.match(card, /quoteProgressStep/);
+assert.doesNotMatch(card, /Price & travel/);
+assert.doesNotMatch(card, /Pay & confirm/);
+assert.doesNotMatch(card, /Airport & address/);
+assert.doesNotMatch(card, /quoteStep >= 2 \? "grid-cols-2"/);
+assert.match(css, /\.quote-step \{[\s\S]*color: rgba\(255,\s*255,\s*255,\s*0\.82\)/);
+assert.match(css, /\.quote-step \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.34\)/);
+assert.match(css, /\.quote-step-active \{[\s\S]*color: #ffffff/);
+assert.match(css, /\.quote-step-done \{[\s\S]*color: #9ee6ad/);
+assert.match(css, /\.btn-secondary \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.42\)/);
 console.log("OK  step indicator + field classes wired");
 
 console.log("\n=== AddressInput Places completion ===");

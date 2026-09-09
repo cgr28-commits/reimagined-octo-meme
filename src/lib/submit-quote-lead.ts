@@ -60,14 +60,14 @@ function rememberSentFingerprint(fingerprint: string): void {
     sent.add(fingerprint);
     window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify([...sent].slice(-20)));
   } catch {
-    // Ignore storage failures — server-side dedup still applies.
+    // Ignore storage failures — server-side upsert still applies.
   }
 }
 
-async function postQuoteLeadToWorker(
+async function postQuoteSessionToWorker(
   details: QuoteLeadDetails,
   fingerprint: string,
-): Promise<{ ok: boolean; emailed: boolean; deduplicated: boolean }> {
+): Promise<{ ok: boolean; emailed: boolean; recorded: boolean }> {
   try {
     const response = await fetch(QUOTE_LEADS_API_URL, {
       method: "POST",
@@ -78,50 +78,41 @@ async function postQuoteLeadToWorker(
       body: JSON.stringify({
         ...details,
         fingerprint,
-        // Always let the Worker send (existing Resend / operational chain).
-        // Do not skip after a browser FormSubmit "success" — that caused the regression.
-        skipEmail: false,
+        // Never send an immediate owner email from quote view / recalculation.
+        skipEmail: true,
       }),
     });
 
     const payload = (await response.json().catch(() => null)) as {
       emailed?: unknown;
-      deduplicated?: unknown;
+      recorded?: unknown;
     } | null;
 
     return {
       ok: response.ok,
-      emailed: response.ok && payload?.emailed === true,
-      deduplicated: response.ok && payload?.deduplicated === true,
+      emailed: payload?.emailed === true,
+      recorded: response.ok && payload?.recorded !== false,
     };
   } catch (error) {
-    console.error("Quote lead worker request failed", error);
-    return { ok: false, emailed: false, deduplicated: false };
+    console.error("Quote session record failed", error);
+    return { ok: false, emailed: false, recorded: false };
   }
 }
 
+/** Persist / update one quote session. Never emails the owner. */
 export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> {
   const fingerprint = buildQuoteLeadFingerprint(details);
-  const sent = readSentFingerprints();
-  if (sent.has(fingerprint)) {
-    return;
-  }
-
-  // Restore pre-regression behaviour: Worker sends the owner quote alert once.
-  const worker = await postQuoteLeadToWorker(details, fingerprint);
-  if (worker.deduplicated || worker.emailed) {
+  const worker = await postQuoteSessionToWorker(details, fingerprint);
+  if (worker.ok || worker.recorded) {
     rememberSentFingerprint(fingerprint);
     return;
   }
-
-  throw new Error("Quote lead email failed via worker");
+  // Fail safely — never block the quote UI.
 }
 
 /**
- * Fire the owner “Quote viewed” alert immediately for every visitor who sees a
- * live quote. Not gated on marketing consent or conversion tracking. Cleanup is
- * a no-op so leaving Step 1 (or any remount) cannot cancel the send. Dedupe is
- * by quote transaction id when provided.
+ * Record the latest quote session state for the daily owner report.
+ * Does not send an owner email. Cleanup is a no-op so remounts cannot cancel.
  */
 export function scheduleQuoteLeadAlert(
   details: QuoteLeadDetails,
@@ -131,15 +122,9 @@ export function scheduleQuoteLeadAlert(
     return () => {};
   }
 
-  const fingerprint = buildQuoteLeadFingerprint(details);
-  if (readSentFingerprints().has(fingerprint)) {
-    return () => {};
-  }
-
   void submitQuoteLead(details).catch((error) => {
-    console.error("Quote lead alert failed", error);
+    console.error("Quote session record failed", error);
   });
 
-  // Intentionally no-op: must not cancel the in-flight send on effect cleanup.
   return () => {};
 }

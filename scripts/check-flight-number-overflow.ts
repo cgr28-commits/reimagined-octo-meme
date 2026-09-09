@@ -49,12 +49,16 @@ check("Progressive quote stage has no flight-number input", () => {
 
 check("Booking-stage flight field remains on QuoteCard with quote-text-input", () => {
   assert.match(card, /id="goingFlightNumber"/);
-  assert.match(card, /enabled=\{quoteStep === 3\}/);
-  assert.match(card, /BOOKING_INPUT_CLASS[\s\S]*quote-text-input/);
+  assert.match(card, /enabled=\{quoteStep >= 2\}/);
+  assert.match(flight, /quote-text-input/);
 });
 
 check("Booking contact inputs use quote-text-input (16px)", () => {
-  assert.match(card, /BOOKING_INPUT_CLASS[\s\S]*quote-text-input/);
+  assert.match(card, /bookingTextFieldClass/);
+  assert.match(
+    read("src/lib/quote-ui-highlight.ts"),
+    /export function bookingTextFieldClass[\s\S]*quote-text-input/,
+  );
 });
 
 console.log("\nAll flight-number overflow guards passed.");

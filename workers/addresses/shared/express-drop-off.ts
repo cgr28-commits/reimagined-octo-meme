@@ -38,10 +38,10 @@ export const EXPRESS_DROP_OFF_PASSED_ON_NOTE =
   "Airport-imposed Express access charges are passed on at cost with no markup.";
 
 export const EXPRESS_DROP_OFF_REMOVED_EXPLANATION =
-  "You’ll be dropped at the designated free drop-off area instead of Express Drop-Off. It’s only a short walk to the terminal.";
+  "Free drop-off selected. You’ll be dropped at the designated free airport drop-off area.";
 
 export const EXPRESS_PICK_UP_REMOVED_EXPLANATION =
-  "You’ll meet your driver at the designated free pick-up area instead of Express Pick-Up. It’s only a short walk from the terminal.";
+  "Free pick-up selected. You’ll be collected from the designated free airport collection area.";
 
 function roundGbp(amount: number): number {
   return Math.round(Number(amount) * 100) / 100;
@@ -317,10 +317,8 @@ export function expressDropOffRecommendedLabel(
   service: ExpressAirportService = "drop-off",
 ): string {
   const fee = EXPRESS_DROP_OFF_FEES_GBP[airportCode];
-  if (service === "pick-up") {
-    return `Keep Express airport pick-up — ${formatExpressDropOffGbp(fee)} (Recommended)`;
-  }
-  return `Keep Express terminal drop-off — ${formatExpressDropOffGbp(fee)} (Recommended)`;
+  void service;
+  return `Express terminal — ${formatExpressDropOffGbp(fee)} included`;
 }
 
 export function expressDropOffRemoveLabel(
@@ -329,9 +327,9 @@ export function expressDropOffRemoveLabel(
 ): string {
   const fee = EXPRESS_DROP_OFF_FEES_GBP[airportCode];
   if (service === "pick-up") {
-    return `Meet your driver at the designated free pick-up area and save ${formatExpressDropOffGbp(fee)}`;
+    return `Free pick-up area — save ${formatExpressDropOffGbp(fee)}`;
   }
-  return `Use the designated free drop-off area and save ${formatExpressDropOffGbp(fee)}`;
+  return `Free drop-off area — save ${formatExpressDropOffGbp(fee)}`;
 }
 
 export function expressDropOffRemovedExplanation(
@@ -378,6 +376,63 @@ export function expressAirportLegendLabel(
   return service === "pick-up" ? "Airport Express Pick-Up" : "Airport Express Drop-Off";
 }
 
+/** Visible heading above the always-on quote-result choice. */
+export function expressAirportOptionHeading(
+  service: ExpressAirportService = "drop-off",
+): string {
+  return service === "pick-up" ? "Airport pick-up option" : "Airport drop-off option";
+}
+
+/** Optional checkout link — destination is unchanged; this is airport access only. */
+export function expressCheckoutChangeLabel(
+  _service: ExpressAirportService | "combined" = "drop-off",
+): string {
+  void _service;
+  return "Change airport access";
+}
+
+export function expressQuoteExpressTitle(
+  airportCode: ExpressDropOffAirportCode,
+  service: ExpressAirportService,
+  expressSelected: boolean,
+): string {
+  const fee = formatExpressDropOffGbp(EXPRESS_DROP_OFF_FEES_GBP[airportCode]);
+  const product = service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
+  return expressSelected ? `${product} — ${fee} included` : `${product} — add ${fee}`;
+}
+
+export function expressQuoteExpressHint(service: ExpressAirportService = "drop-off"): string {
+  return service === "pick-up"
+    ? "Recommended · Meet closer to the terminal"
+    : "Recommended · Drop-off close to the terminal";
+}
+
+export function expressQuoteFreeTitle(
+  airportCode: ExpressDropOffAirportCode,
+  service: ExpressAirportService,
+  freeSelected: boolean,
+): string {
+  const fee = formatExpressDropOffGbp(EXPRESS_DROP_OFF_FEES_GBP[airportCode]);
+  const product = service === "pick-up" ? "Free Pick-Up Area" : "Free Drop-Off Area";
+  return freeSelected ? `${product} — £0` : `${product} — save ${fee}`;
+}
+
+export function expressQuoteFreeHint(service: ExpressAirportService = "drop-off"): string {
+  return service === "pick-up"
+    ? "Use the designated free collection area"
+    : "Use the designated free drop-off area";
+}
+
+export function combinedQuoteExpressTitle(totalFeeGbp: number, expressSelected: boolean): string {
+  const fee = formatExpressDropOffGbp(totalFeeGbp);
+  return expressSelected ? `Express access — ${fee} included` : `Express access — add ${fee}`;
+}
+
+export function combinedQuoteFreeTitle(totalFeeGbp: number, freeSelected: boolean): string {
+  const fee = formatExpressDropOffGbp(totalFeeGbp);
+  return freeSelected ? `Free airport areas — £0` : `Free airport areas — save ${fee}`;
+}
+
 export function expressAvoidedChargeMessage(
   service: ExpressAirportService = "drop-off",
 ): string {
@@ -399,11 +454,11 @@ export const COMBINED_AIRPORT_ACCESS_RETURN_NOTE =
   "For return bookings, your selection applies to both your outbound and return airport journeys.";
 
 export function combinedAirportAccessRecommendedLabel(totalFeeGbp: number): string {
-  return `Express airport access — ${formatExpressDropOffGbp(totalFeeGbp)} total (Recommended)`;
+  return `Express terminal — ${formatExpressDropOffGbp(totalFeeGbp)} included`;
 }
 
 export function combinedAirportAccessRemoveLabel(totalFeeGbp: number): string {
-  return `Use the designated free airport areas — save ${formatExpressDropOffGbp(totalFeeGbp)}`;
+  return `Free drop-off area — save ${formatExpressDropOffGbp(totalFeeGbp)}`;
 }
 
 export function combinedAirportAccessConfirmRemovalLabel(): string {
@@ -697,7 +752,9 @@ export function formatAirportAccessOptionDashboardValue(input: {
 }
 
 /**
- * Payment / booking may continue when Express is kept, ineligible, or removal is acknowledged.
+ * Payment / booking may continue when Express is kept, ineligible, or the
+ * customer has explicitly chosen the free airport area. Selecting Free is
+ * confirmation — a separate acknowledgement checkbox is not required.
  */
 export function canProceedWithoutExpressDropOff(input: {
   eligible: boolean;
@@ -707,10 +764,10 @@ export function canProceedWithoutExpressDropOff(input: {
 }): boolean {
   if (!input.eligible || input.selected) return true;
   if (input.freeAlternativeAvailable === false) return false;
-  return Boolean(input.removalAcknowledged);
+  return true;
 }
 
-/** Every free-alternative Express leg must be acknowledged independently. */
+/** Every Express leg must be Express-selected or an explicit Free-area choice. */
 export function canProceedWithoutExpressDropOffLegs(
   selection: ExpressDropOffSelection,
   acknowledgements: {

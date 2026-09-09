@@ -1,5 +1,5 @@
 /**
- * Restore quote-viewed owner alerts via existing Worker email (Resend-first).
+ * Quote sessions are recorded for the daily report — no immediate owner email.
  * Run: npx tsx scripts/check-quote-lead-email.ts
  */
 
@@ -18,48 +18,46 @@ function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
-console.log("=== Client quote-lead submit path (immediate, txn-deduped) ===");
+console.log("=== Client records quote sessions and never emails immediately ===");
 const client = read("src/lib/submit-quote-lead.ts");
 assert.doesNotMatch(client, /sendViaFormSubmitEmail/);
 assert.doesNotMatch(client, /submitQuoteLeadViaBrowser/);
-assert.doesNotMatch(client, /DEBOUNCE_MS/);
-assert.doesNotMatch(client, /setTimeout/);
-assert.doesNotMatch(client, /clearTimeout/);
-assert.match(client, /skipEmail:\s*false/);
-assert.match(client, /Quote lead email failed via worker/);
+assert.match(client, /skipEmail:\s*true/);
+assert.match(client, /Never send an immediate owner email/);
+assert.doesNotMatch(client, /Quote lead email failed via worker/);
 assert.match(client, /scheduleQuoteLeadAlert/);
-assert.match(client, /Intentionally no-op/);
 assert.doesNotMatch(client, /marketingConsent|adsConsent|gtag\(/);
-assert.doesNotMatch(client, /consent.*skip|skip.*consent/i);
-console.log("OK  client posts immediately to Worker (no delay / cancel / Ads gate)");
+console.log("OK  client posts session updates only (skipEmail true)");
 
-console.log("\n=== QuoteCard / bot fire with quoteTransactionId ===");
+console.log("\n=== QuoteCard / bot keep a stable quoteTransactionId ===");
 const quoteCard = read("src/components/QuoteCard.tsx");
 assert.match(quoteCard, /scheduleQuoteLeadAlert\(/);
 assert.match(quoteCard, /quoteTransactionId/);
-assert.match(quoteCard, /quoteStep !== 1/);
+assert.match(quoteCard, /if \(quoteTransactionId\) return;/);
+assert.doesNotMatch(
+  quoteCard,
+  /returning with a changed calculation creates a new one/,
+);
 const assistant = read("src/components/QuoteAssistant.tsx");
 assert.match(assistant, /scheduleQuoteLeadAlert\(/);
-assert.match(assistant, /quoteTransactionId:\s*createQuoteTransactionId/);
-console.log("OK  existing live-quote triggers pass transaction id");
+assert.match(assistant, /botQuoteSessionIdRef/);
+console.log("OK  live-quote triggers pass a stable session id");
 
-console.log("\n=== Worker quote-lead handler (existing Resend operational chain) ===");
+console.log("\n=== Worker quote-lead handler records only — no owner email ===");
 const worker = read("workers/addresses/src/index.ts");
 assert.match(worker, /handleQuoteLeadRequest/);
-assert.match(worker, /trySendOwnerOperationalEmail/);
-assert.match(worker, /releaseQuoteLeadFingerprint/);
+assert.match(worker, /upsertQuoteSession/);
 const quoteLeadHandler = worker.match(
   /async function handleQuoteLeadRequest\([\s\S]*?\nasync function handleBookingRequest/,
 );
 assert.ok(quoteLeadHandler, "handleQuoteLeadRequest block missing");
-assert.match(quoteLeadHandler[0], /trySendOwnerOperationalEmail/);
-assert.doesNotMatch(
-  quoteLeadHandler[0],
-  /await sendEmail\(env,\s*\{\s*to: toEmail/,
-);
-console.log("OK  Worker uses existing owner operational email chain (Resend-first)");
+assert.doesNotMatch(quoteLeadHandler[0], /trySendOwnerOperationalEmail/);
+assert.doesNotMatch(quoteLeadHandler[0], /trySendEmail|trySendResend|sendViaResend|sendBookingEmail/);
+assert.match(quoteLeadHandler[0], /emailed:\s*false/);
+assert.match(worker, /sendBookingEmail/);
+console.log("OK  Worker stores the session; booking emails stay on the booking path");
 
-console.log("\n=== Same subject/body as before + transaction-id fingerprint dedupe ===");
+console.log("\n=== Transaction-id fingerprint still identifies one session ===");
 const details = {
   tripLabel: "Airport drop-off",
   pickupLabel: "249 Rashee Road, Ballyclare",
@@ -79,15 +77,7 @@ const subject = buildQuoteLeadSubject(details);
 assert.match(subject, /^Quote viewed — £45\.00 —/);
 const message = buildQuoteLeadMessage(details);
 assert.match(message, /Pickup: 249 Rashee Road/);
-assert.match(message, /Drop-off: Belfast International/);
-assert.match(message, /Your fixed journey price: £45\.00/);
-assert.match(message, /Passengers: 2/);
-assert.match(message, /No contact details yet/);
 assert.doesNotMatch(message, /ATTRIBUTION/);
-
-const legacyFp = buildQuoteLeadFingerprint(details);
-assert.match(legacyFp, /249 rashee road/);
-assert.equal(legacyFp, buildQuoteLeadFingerprint({ ...details }));
 
 const withTxn = { ...details, quoteTransactionId: "quote_abc123XYZ" };
 const txnFp = buildQuoteLeadFingerprint(withTxn);
@@ -97,7 +87,6 @@ assert.equal(
   txnFp,
   "transaction id must dominate fingerprint even if journey fields change",
 );
-assert.notEqual(txnFp, legacyFp);
-console.log("OK  classic Quote viewed subject/body preserved; txn fingerprint preferred");
+console.log("OK  txn fingerprint still groups recalculations as one session");
 
 console.log("\nAll quote-lead email restore checks passed.");

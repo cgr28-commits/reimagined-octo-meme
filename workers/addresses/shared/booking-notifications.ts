@@ -116,6 +116,8 @@ export type PaidBookingDetails = {
   marketingConsentVersion?: string;
   /** Consented, non-PII campaign attribution; owner/server use only. */
   attribution?: AdsAttribution;
+  /** Quote session id for the daily owner quote report. */
+  quoteTransactionId?: string;
 };
 
 export type PaidBookingReceipt = PaidBookingDetails & {

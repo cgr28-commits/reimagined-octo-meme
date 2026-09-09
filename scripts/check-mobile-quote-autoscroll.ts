@@ -41,10 +41,9 @@ assert.doesNotMatch(card, /pendingScrollToStep2DateRef/);
 assert.doesNotMatch(card, /pendingScrollToStep3CustomerRef/);
 assert.doesNotMatch(card, /scheduleReadyForScrollRef/);
 
-// Guided scrolling uses scrollQuoteStage. Direct scrollIntoView is only for
-// Choose another time/date (step 2), not Step 1 journey-type selection.
-assert.match(card, /function handleChooseAnotherTime[\s\S]*field\.scrollIntoView/);
-assert.match(card, /function handleChooseAnotherDate[\s\S]*field\.scrollIntoView/);
+// Guided scrolling uses scrollQuoteStage, including Choose another time/date.
+assert.match(card, /function handleChooseAnotherTime[\s\S]*scrollQuoteStage\(field\)/);
+assert.match(card, /function handleChooseAnotherDate[\s\S]*scrollQuoteStage\(field\)/);
 const applyJourneyIntentBlock =
   card.match(/function applyJourneyIntent[\s\S]*?function applyIntentAirport/)?.[0] ?? "";
 assert.doesNotMatch(applyJourneyIntentBlock, /scrollIntoView|window\.scrollTo/);

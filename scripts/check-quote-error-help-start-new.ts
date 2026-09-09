@@ -69,7 +69,8 @@ check("QuoteCard shows WhatsApp help only for unresolved booking errors (single 
 check("Start New Quote is a clear outlined control with confirm copy + unique dialog ids", () => {
   const card = read("src/components/QuoteCard.tsx");
   const help = read("src/components/QuoteBookingHelpControls.tsx");
-  assert.match(help, /Clear Details &amp; Start a New Quote|Clear Details & Start a New Quote/);
+  assert.match(help, /Start over/);
+  assert.doesNotMatch(help, /Clear Details/);
   assert.match(help, /Need a quote for a different journey\?/);
   assert.match(
     help,
