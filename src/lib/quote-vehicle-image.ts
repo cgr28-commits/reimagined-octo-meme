@@ -5,6 +5,8 @@ import { ESTATE_VEHICLE, vehicleShortLabel } from "@/lib/vehicle-selection";
 export const QUOTE_SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 export const QUOTE_ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 
+export const QUOTE_VEHICLE_IMAGES = [QUOTE_SALOON_IMAGE, QUOTE_ESTATE_IMAGE] as const;
+
 export function isQuoteShowcaseEstate(vehicleType: string): boolean {
   return vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
 }

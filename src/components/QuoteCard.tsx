@@ -108,6 +108,7 @@ import {
   isPaymentFareMismatchError,
   isPaymentRouteReconfirmationError,
   isPaymentRouteServiceUnavailableError,
+  isPaymentSmartAvailabilityError,
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
 import {
@@ -3042,12 +3043,6 @@ function QuoteCard({
       return;
     }
 
-    const availabilityBlocked = await applyCustomerSmartAvailabilityCheck();
-    if (availabilityBlocked) {
-      abortPay();
-      return;
-    }
-
     if (
       !canProceedWithoutExpressDropOffLegs(expressSelection, {
         outbound: expressRemovalAck,
@@ -3113,6 +3108,8 @@ function QuoteCard({
         : false,
     });
 
+    const paymentsRequestAt =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
     try {
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
@@ -3178,14 +3175,8 @@ function QuoteCard({
         throw new Error("Payment service returned an invalid response");
       }
 
-      const tapToReadyMs = Math.round(
-        (typeof performance !== "undefined" ? performance.now() : Date.now()) - payTapAt,
-      );
-      console.info("[payment-timing]", {
-        tapToReadyMs,
-        workerFetchMs: checkout.clientFetchMs,
-        worker: checkout.timings ?? null,
-      });
+      const paymentsResponseAt =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
 
       savePendingPayment(
         {
@@ -3228,6 +3219,16 @@ function QuoteCard({
         }).catch(() => false);
       }
 
+      const navigateAt =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      console.info("[payment-timing]", {
+        tapToRequestMs: Math.round(paymentsRequestAt - payTapAt),
+        paymentsFetchMs: checkout.clientFetchMs ?? Math.round(paymentsResponseAt - paymentsRequestAt),
+        responseToRedirectMs: Math.round(navigateAt - paymentsResponseAt),
+        tapToNavigateMs: Math.round(navigateAt - payTapAt),
+        worker: checkout.timings ?? null,
+      });
+
       // Same-tab redirect — reliable on iPhone Safari / Android / desktop (no popup).
       window.location.assign(checkout.paymentUrl);
       // Keep loading state until navigation completes; re-enable only if assign somehow fails.
@@ -3268,6 +3269,16 @@ function QuoteCard({
         window.setTimeout(() => {
           focusFirstInvalidField(cardRef.current ?? document);
         }, 80);
+        return;
+      }
+      if (isPaymentSmartAvailabilityError(error)) {
+        applyCustomerAvailabilityResult({
+          blocked: true,
+          available: false,
+          customerMessage: error.message,
+          alternativeTimes: error.alternativeTimes,
+        });
+        abortPay();
         return;
       }
       if (isPaymentRouteServiceUnavailableError(error)) {
@@ -5691,9 +5702,7 @@ function QuoteCard({
 
   return (
     <div ref={cardRef} className="quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
-      {partySelectionReady ? (
-        <QuoteVehicleImagePreload vehicleType={quoteVehicle} />
-      ) : null}
+      <QuoteVehicleImagePreload />
       <div className="mb-4 sm:mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"

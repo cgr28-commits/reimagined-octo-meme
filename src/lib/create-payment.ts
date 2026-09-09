@@ -17,6 +17,11 @@ import {
   customerSmartAvailabilityPreviewHeaders,
   withCustomerSmartAvailabilityPreviewUrl,
 } from "@/lib/customer-smart-availability-client";
+import {
+  CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
+  parsePublicCustomerAlternativeTimes,
+  type CustomerPublicAlternativeTime,
+} from "../../shared/customer-smart-availability";
 
 export type PaymentCheckoutRequest = {
   amount: number;
@@ -84,11 +89,13 @@ export type PaymentCheckoutRequest = {
 };
 
 export type PaymentCheckoutTimings = {
-  validateMs?: number;
+  availabilityMs?: number;
+  routeResolveMs?: number;
+  fareValidationMs?: number;
   sumupCreateMs?: number;
   persistMs?: number;
   ownerNotifyMs?: number;
-  responseMs?: number;
+  totalResponseMs?: number;
 };
 
 export type PaymentCheckoutResult = {
@@ -155,12 +162,26 @@ export type PaymentRouteServiceUnavailableError = Error & {
   code: "route_service_unavailable";
 };
 
+export type PaymentSmartAvailabilityError = Error & {
+  code: "smart_availability_unavailable";
+  alternativeTimes: CustomerPublicAlternativeTime[];
+};
+
 export function isPaymentRouteServiceUnavailableError(
   error: unknown,
 ): error is PaymentRouteServiceUnavailableError {
   return (
     error instanceof Error &&
     (error as PaymentRouteServiceUnavailableError).code === "route_service_unavailable"
+  );
+}
+
+export function isPaymentSmartAvailabilityError(
+  error: unknown,
+): error is PaymentSmartAvailabilityError {
+  return (
+    error instanceof Error &&
+    (error as PaymentSmartAvailabilityError).code === "smart_availability_unavailable"
   );
 }
 
@@ -388,6 +409,25 @@ export async function createPaymentCheckout(
       reconfirm.code = "route_reconfirmation_required";
       reconfirm.endpoint = endpoint;
       throw reconfirm;
+    }
+    if (
+      response.status === 409 &&
+      payload &&
+      typeof payload === "object" &&
+      (payload as { code?: unknown }).code === "smart_availability_unavailable"
+    ) {
+      const message =
+        typeof (payload as { customerMessage?: unknown }).customerMessage === "string"
+          ? String((payload as { customerMessage: string }).customerMessage)
+          : typeof (payload as { error?: unknown }).error === "string"
+            ? String((payload as { error: string }).error)
+            : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE;
+      const unavailable = new Error(message) as PaymentSmartAvailabilityError;
+      unavailable.code = "smart_availability_unavailable";
+      unavailable.alternativeTimes = parsePublicCustomerAlternativeTimes(
+        (payload as { alternativeTimes?: unknown }).alternativeTimes,
+      );
+      throw unavailable;
     }
     if (
       (response.status === 503 || response.status === 409 || response.status === 502) &&

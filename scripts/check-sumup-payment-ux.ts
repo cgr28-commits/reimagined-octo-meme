@@ -71,7 +71,7 @@ assert.match(workerIndex, /trySendOwnerOperationalEmail\(env/);
 assert.match(workerIndex, /buildOwnerPaymentAttemptEmail/);
 assert.match(workerIndex, /sendOwnerAttemptEmail/);
 assert.match(workerIndex, /ctx\?\.waitUntil/);
-const saveIdx = workerIndex.indexOf("await savePendingCheckout(env.TRACKING_STORE");
+const saveIdx = workerIndex.indexOf("savePendingCheckout(paymentStore");
 const emailIdx = workerIndex.indexOf("const sendOwnerAttemptEmail = async");
 const urlIdx = workerIndex.indexOf("paymentUrl: checkout.paymentUrl", emailIdx);
 assert.ok(saveIdx >= 0 && emailIdx > saveIdx, "persist pending checkout before owner email");

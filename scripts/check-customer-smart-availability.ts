@@ -897,6 +897,8 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
   assert.match(payments, /previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1"/);
   assert.match(payments, /code: "smart_availability_unavailable"/);
   assert.match(payments, /whatsappAvailable: true/);
+  assert.match(payments, /toPublicCustomerSmartAvailability/);
+  assert.match(payments, /alternativeTimes: publicGate\.alternativeTimes/);
   assert.match(payments, /shortNoticeBlocked/);
   assert.match(payments, /a2aBlocked/);
   assert.match(payments, /quickQuoteBlocked/);

@@ -1,49 +1,27 @@
 "use client";
 
 import { useEffect } from "react";
-import { preload } from "react-dom";
-import { quoteVehicleImageSrc } from "@/lib/quote-vehicle-image";
-
-type Props = {
-  vehicleType: string;
-};
+import { QUOTE_VEHICLE_IMAGES } from "@/lib/quote-vehicle-image";
 
 /**
- * Start fetching the selected Saloon/Estate quote image as soon as the vehicle
- * is known — before the result card mounts. Switching vehicle updates the
- * preload; we never preload the other type as the visible image.
+ * Warm both quote vehicle webps as soon as the quote form hydrates.
+ * <link rel="preload"> discovers them early; new Image() is the Safari/iPhone
+ * fetch that actually starts when the image is not yet on-screen.
  */
-export default function QuoteVehicleImagePreload({ vehicleType }: Props) {
-  const src = quoteVehicleImageSrc(vehicleType);
-
-  if (src) {
-    preload(src, { as: "image" });
-  }
-
+export default function QuoteVehicleImagePreload() {
   useEffect(() => {
-    if (!src || typeof document === "undefined") return;
-
-    const existing = document.head.querySelector<HTMLLinkElement>(
-      'link[rel="preload"][data-quote-vehicle-image="true"]',
-    );
-    const alreadyMatches =
-      existing &&
-      (existing.getAttribute("href") === src || existing.href.endsWith(src));
-    if (!alreadyMatches) {
-      existing?.remove();
-      const link = document.createElement("link");
-      link.rel = "preload";
-      link.as = "image";
-      link.type = "image/webp";
-      link.href = src;
-      link.setAttribute("data-quote-vehicle-image", "true");
-      document.head.appendChild(link);
+    for (const src of QUOTE_VEHICLE_IMAGES) {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = src;
     }
+  }, []);
 
-    const img = new Image();
-    img.decoding = "async";
-    img.src = src;
-  }, [src]);
-
-  return null;
+  return (
+    <>
+      {QUOTE_VEHICLE_IMAGES.map((src) => (
+        <link key={src} rel="preload" as="image" type="image/webp" href={src} />
+      ))}
+    </>
+  );
 }

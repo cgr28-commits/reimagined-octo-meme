@@ -178,7 +178,7 @@ async function main(): Promise<void> {
   assert.ok(trackingIndex > gateIndex, "tracking must run inside the persistence gate");
   assert.ok(navigationIndex > trackingIndex, "SumUp navigation must happen after tracking wait");
 
-  const saveIndex = worker.indexOf("await savePendingCheckout(env.TRACKING_STORE");
+  const saveIndex = worker.indexOf("savePendingCheckout(paymentStore");
   const acknowledgementIndex = worker.indexOf("bookingSaved: true", saveIndex);
   assert.ok(saveIndex >= 0, "Worker must persist the pending checkout");
   assert.ok(

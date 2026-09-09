@@ -140,6 +140,7 @@ import {
   handleOwnerSmartOpsCalendar,
   isOwnerSmartOpsPath,
 } from "./smart-ops-handlers";
+import { toPublicCustomerSmartAvailability } from "../shared/customer-smart-availability";
 import {
   getShortNoticeByAcceptToken,
   getShortNoticeByToken,
@@ -1567,11 +1568,15 @@ async function blockedCustomerSmartAvailabilityResponse(
     booking,
   });
   if (!availabilityGate.blocked) return null;
+  const publicGate = toPublicCustomerSmartAvailability(availabilityGate);
   return json(
     {
-      error: availabilityGate.customerMessage,
+      error: publicGate.customerMessage,
       code: "smart_availability_unavailable",
       available: false,
+      blocked: true,
+      customerMessage: publicGate.customerMessage,
+      alternativeTimes: publicGate.alternativeTimes,
       whatsappAvailable: true,
     },
     409,
@@ -1587,14 +1592,32 @@ async function handlePaymentRequest(
 ): Promise<Response> {
   const paymentStartedAt = Date.now();
   const paymentTimings: {
-    validateMs?: number;
+    availabilityMs?: number;
+    routeResolveMs?: number;
+    fareValidationMs?: number;
     sumupCreateMs?: number;
     persistMs?: number;
     ownerNotifyMs?: number;
-    responseMs?: number;
+    totalResponseMs?: number;
   } = {};
-  const markPayment = (key: keyof typeof paymentTimings) => {
-    paymentTimings[key] = Date.now() - paymentStartedAt;
+  const addPaymentMs = (key: keyof typeof paymentTimings, ms: number) => {
+    paymentTimings[key] = (paymentTimings[key] ?? 0) + Math.max(0, ms);
+  };
+  async function timePaymentStage<T>(
+    key: keyof typeof paymentTimings,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const started = Date.now();
+    try {
+      return await fn();
+    } finally {
+      addPaymentMs(key, Date.now() - started);
+    }
+  }
+  const finishPaymentTimings = () => {
+    paymentTimings.totalResponseMs = Date.now() - paymentStartedAt;
+    console.log("payment_checkout_timings", JSON.stringify(paymentTimings));
+    return paymentTimings;
   };
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
   const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
@@ -1660,13 +1683,13 @@ async function handlePaymentRequest(
       standardWebsiteAmount = record.standardWebsiteAmount;
     }
 
-    const shortNoticeBlocked = await blockedCustomerSmartAvailabilityResponse(
-      request,
-      env,
-      origin,
-      booking,
+    const shortNoticeBlocked = await timePaymentStage("availabilityMs", () =>
+      blockedCustomerSmartAvailabilityResponse(request, env, origin, booking),
     );
-    if (shortNoticeBlocked) return shortNoticeBlocked;
+    if (shortNoticeBlocked) {
+      finishPaymentTimings();
+      return shortNoticeBlocked;
+    }
 
     // Reuse an unpaid checkout when possible (blocks duplicate SumUp sessions).
     if (record.checkoutId && record.paymentUrl) {
@@ -1708,13 +1731,13 @@ async function handlePaymentRequest(
     booking = record.booking;
     a2aQuoteReference = record.reference;
 
-    const a2aBlocked = await blockedCustomerSmartAvailabilityResponse(
-      request,
-      env,
-      origin,
-      booking,
+    const a2aBlocked = await timePaymentStage("availabilityMs", () =>
+      blockedCustomerSmartAvailabilityResponse(request, env, origin, booking),
     );
-    if (a2aBlocked) return a2aBlocked;
+    if (a2aBlocked) {
+      finishPaymentTimings();
+      return a2aBlocked;
+    }
 
     if (record.checkoutId && record.paymentUrl) {
       try {
@@ -1906,13 +1929,13 @@ async function handlePaymentRequest(
         : booking.tripLabel || "Airport transfer",
     };
 
-    const quickQuoteBlocked = await blockedCustomerSmartAvailabilityResponse(
-      request,
-      env,
-      origin,
-      booking,
+    const quickQuoteBlocked = await timePaymentStage("availabilityMs", () =>
+      blockedCustomerSmartAvailabilityResponse(request, env, origin, booking),
     );
-    if (quickQuoteBlocked) return quickQuoteBlocked;
+    if (quickQuoteBlocked) {
+      finishPaymentTimings();
+      return quickQuoteBlocked;
+    }
 
     // Reuse unpaid checkout when present and amount still matches.
     if (record.checkoutId && record.paymentUrl) {
@@ -2063,7 +2086,9 @@ async function handlePaymentRequest(
       : [];
 
     // Never trust body.routeMetrics / client journeyDistance|Duration / client lat/lng
-    // for SumUp. Resolve driving metrics server-side from selected place IDs
+    // for SumUp. A signed quote/route token (reuse quote-stage OSRM) is a follow-up
+    // — missing/expired/mismatched tokens must keep this full resolution fallback.
+    // Resolve driving metrics server-side from selected place IDs
     // (Worker Google/Ideal/GetAddress keys → coords → OSRM). Served airports use
     // catalogue coordinates. Text-label geocode is fallback only.
     // Retry once for transient Google/OSRM failures — do not tell the customer
@@ -2072,15 +2097,17 @@ async function handlePaymentRequest(
     const paymentDropoffLabel = String(booking.dropoffLabel ?? "");
     const paymentPickupPlaceId = String(body.pickupPlaceId ?? "").trim();
     const paymentDropoffPlaceId = String(body.dropoffPlaceId ?? "").trim();
-    const routeOutcome = await resolveRouteOutcomeWithRetry(() =>
-      resolveWorkerTripRouteMetricsForPayment({
-        pickupAddress: paymentPickupLabel,
-        dropoffAddress: paymentDropoffLabel,
-        pickupPlaceId: paymentPickupPlaceId || null,
-        dropoffPlaceId: paymentDropoffPlaceId || null,
-        googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-        getAddressApiKey: env.GETADDRESS_API_KEY,
-      }),
+    const routeOutcome = await timePaymentStage("routeResolveMs", () =>
+      resolveRouteOutcomeWithRetry(() =>
+        resolveWorkerTripRouteMetricsForPayment({
+          pickupAddress: paymentPickupLabel,
+          dropoffAddress: paymentDropoffLabel,
+          pickupPlaceId: paymentPickupPlaceId || null,
+          dropoffPlaceId: paymentDropoffPlaceId || null,
+          googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+          getAddressApiKey: env.GETADDRESS_API_KEY,
+        }),
+      ),
     );
     if (!routeOutcome.ok) {
       const errBody = paymentErrorForRouteFailure(
@@ -2115,6 +2142,7 @@ async function handlePaymentRequest(
     }
     const airportContext = airportCtxResult.context;
 
+    const fareValidationStarted = Date.now();
     let authoritativeQuote: {
       amountGbp: number;
       journeyFareGbp: number;
@@ -2349,6 +2377,7 @@ async function handlePaymentRequest(
         ? { returnOfferSavingGbp: breakdown.returnOfferSavingGbp }
         : {}),
     };
+    addPaymentMs("fareValidationMs", Date.now() - fareValidationStarted);
   }
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
@@ -2363,14 +2392,13 @@ async function handlePaymentRequest(
     return json({ error: "Missing redirect URL" }, 400, origin);
   }
 
-  const availabilityBlocked = await blockedCustomerSmartAvailabilityResponse(
-    request,
-    env,
-    origin,
-    booking,
+  const availabilityBlocked = await timePaymentStage("availabilityMs", () =>
+    blockedCustomerSmartAvailabilityResponse(request, env, origin, booking),
   );
-  if (availabilityBlocked) return availabilityBlocked;
-  markPayment("validateMs");
+  if (availabilityBlocked) {
+    finishPaymentTimings();
+    return availabilityBlocked;
+  }
 
   if (!booking) {
     const blockers = getPaymentBookingBlockers(
@@ -2402,6 +2430,7 @@ async function handlePaymentRequest(
       origin,
     );
   }
+  const paymentStore = env.TRACKING_STORE;
 
   // Short-notice window: save request for Owner approval — do NOT open SumUp.
   if (!shortNoticeToken && !a2aQuoteToken) {
@@ -2606,14 +2635,15 @@ async function handlePaymentRequest(
 
     let checkout: Awaited<ReturnType<typeof createSumUpHostedCheckout>>;
     try {
-      checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
-        amount: Math.round(amount * 100) / 100,
-        description: sumUpDescription,
-        checkoutReference,
-        redirectUrl,
-        returnUrl,
-      });
-      markPayment("sumupCreateMs");
+      checkout = await timePaymentStage("sumupCreateMs", () =>
+        createSumUpHostedCheckout(apiKey, merchantCode, {
+          amount: Math.round(amount * 100) / 100,
+          description: sumUpDescription,
+          checkoutReference,
+          redirectUrl,
+          returnUrl,
+        }),
+      );
     } catch (error) {
       if (personalQuoteCode && personalQuoteReservationAttemptId) {
         await clearPersonalQuoteReservation(env.TRACKING_STORE, personalQuoteCode, {
@@ -2636,7 +2666,8 @@ async function handlePaymentRequest(
       );
     }
 
-    await savePendingCheckout(env.TRACKING_STORE, {
+    await timePaymentStage("persistMs", () =>
+      savePendingCheckout(paymentStore, {
       checkoutId: checkout.checkoutId,
       checkoutReference: checkout.checkoutReference,
       amount: Math.round(amount * 100) / 100,
@@ -2658,8 +2689,8 @@ async function handlePaymentRequest(
         : personalQuoteCode
           ? { personalQuotedAmount: Math.round(amount * 100) / 100 }
           : {}),
-    });
-    markPayment("persistMs");
+      }),
+    );
 
     if (quickQuoteId) {
       await markQuickQuoteCheckout(env.TRACKING_STORE, quickQuoteId, {
@@ -2726,12 +2757,10 @@ async function handlePaymentRequest(
         }),
       );
     } else {
+      const notifyStarted = Date.now();
       await sendOwnerAttemptEmail();
-      markPayment("ownerNotifyMs");
+      addPaymentMs("ownerNotifyMs", Date.now() - notifyStarted);
     }
-
-    markPayment("responseMs");
-    console.log("payment_checkout_timings", JSON.stringify(paymentTimings));
 
     return json(
       {
@@ -2744,7 +2773,7 @@ async function handlePaymentRequest(
         bookingSaved: true,
         bookingReference: checkout.checkoutReference,
         amount: Math.round(amount * 100) / 100,
-        timings: paymentTimings,
+        timings: finishPaymentTimings(),
         ...(shortNoticeReference ? { shortNoticeReference } : {}),
       },
       200,
