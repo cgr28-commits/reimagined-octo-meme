@@ -1,6 +1,8 @@
 /**
- * Send the previous London calendar day's quote report once.
- * Empty days are skipped. Failures must not affect customers.
+ * Send the current London calendar day's quote report once at 19:30 London.
+ * Includes every website quote session recorded for that London date up to send time.
+ * Empty days are skipped. Resend-only. Failures must not affect customers.
+ * If the 19:30 cron is missed, a later same-day :30 cron can still send once.
  */
 
 import {

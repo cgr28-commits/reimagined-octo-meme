@@ -7,7 +7,7 @@
 import { todayLondonDate, UK_TIME_ZONE } from "./uk-time";
 
 export const QUOTE_SESSION_TTL_SECONDS = 60 * 60 * 24 * 60;
-export const DEFAULT_DAILY_QUOTE_REPORT_LONDON_HOUR = 1;
+export const DEFAULT_DAILY_QUOTE_REPORT_LONDON_HOUR = 19;
 
 export type DailyQuoteSessionRecord = {
   quoteTransactionId: string;
@@ -177,6 +177,12 @@ export function resolveDailyQuoteReportHour(raw?: string | null): number {
   return parsed;
 }
 
+/**
+ * Send the current London calendar day's quote report at or after the configured
+ * London hour. With the production :30 cron that is normally 19:30. Later same-day
+ * :30 crons can catch up if that slot was missed (for example a deploy after 19:30).
+ * The KV sent-marker still prevents a second send that day. Empty days are skipped.
+ */
 export function shouldSendDailyQuoteReport(input: {
   now?: Date;
   configuredLondonHour?: string | null;
@@ -184,7 +190,7 @@ export function shouldSendDailyQuoteReport(input: {
   quoteCount: number;
 }): { send: boolean; reportDay: string; reason: string } {
   const now = input.now ?? new Date();
-  const reportDay = previousLondonCalendarDate(now);
+  const reportDay = todayLondonDate(now);
   if (input.alreadySent) {
     return { send: false, reportDay, reason: "already_sent" };
   }
@@ -193,7 +199,7 @@ export function shouldSendDailyQuoteReport(input: {
   }
   const hour = londonHour(now);
   const target = resolveDailyQuoteReportHour(input.configuredLondonHour);
-  if (hour !== target) {
+  if (hour < target) {
     return { send: false, reportDay, reason: "wrong_hour" };
   }
   return { send: true, reportDay, reason: "due" };

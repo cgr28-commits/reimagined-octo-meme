@@ -237,30 +237,56 @@ console.log("\n=== I/J/K: daily report lists each session once with latest state
   assert.match(html, /BOOKED · Ref ABC123/);
 
   const empty = shouldSendDailyQuoteReport({
-    now: new Date("2026-09-09T00:10:00.000Z"),
+    now: new Date("2026-09-09T19:30:00+01:00"),
     alreadySent: false,
     quoteCount: 0,
   });
   assert.equal(empty.send, false);
   assert.equal(empty.reason, "empty");
+  assert.equal(empty.reportDay, "2026-09-09");
   assert.equal(previousLondonCalendarDate(new Date("2026-09-09T00:10:00+01:00")).length, 10);
 
-  assert.equal(DEFAULT_DAILY_QUOTE_REPORT_LONDON_HOUR, 1);
-  const midnightLondon = shouldSendDailyQuoteReport({
-    now: new Date("2026-09-09T00:10:00+01:00"),
+  assert.equal(DEFAULT_DAILY_QUOTE_REPORT_LONDON_HOUR, 19);
+  const beforeWindow = shouldSendDailyQuoteReport({
+    now: new Date("2026-09-09T18:30:00+01:00"),
     alreadySent: false,
     quoteCount: 2,
   });
-  assert.equal(midnightLondon.send, false);
-  assert.equal(midnightLondon.reason, "wrong_hour");
+  assert.equal(beforeWindow.send, false);
+  assert.equal(beforeWindow.reason, "wrong_hour");
+  assert.equal(beforeWindow.reportDay, "2026-09-09");
   const oneAmLondon = shouldSendDailyQuoteReport({
     now: new Date("2026-09-09T01:05:00+01:00"),
     alreadySent: false,
     quoteCount: 2,
   });
-  assert.equal(oneAmLondon.send, true);
-  assert.equal(oneAmLondon.reason, "due");
-  console.log("OK  report uses latest fare/vehicle/access and sends at 01:00 London");
+  assert.equal(oneAmLondon.send, false);
+  assert.equal(oneAmLondon.reason, "wrong_hour");
+  const sevenThirtyLondon = shouldSendDailyQuoteReport({
+    now: new Date("2026-09-09T19:30:00+01:00"),
+    alreadySent: false,
+    quoteCount: 2,
+  });
+  assert.equal(sevenThirtyLondon.send, true);
+  assert.equal(sevenThirtyLondon.reason, "due");
+  assert.equal(sevenThirtyLondon.reportDay, "2026-09-09");
+  const catchUpSameDay = shouldSendDailyQuoteReport({
+    now: new Date("2026-09-09T20:30:00+01:00"),
+    alreadySent: false,
+    quoteCount: 2,
+  });
+  assert.equal(catchUpSameDay.send, true);
+  assert.equal(catchUpSameDay.reason, "due");
+  assert.equal(catchUpSameDay.reportDay, "2026-09-09");
+  const alreadySent = shouldSendDailyQuoteReport({
+    now: new Date("2026-09-09T20:30:00+01:00"),
+    alreadySent: true,
+    quoteCount: 2,
+  });
+  assert.equal(alreadySent.send, false);
+  assert.equal(alreadySent.reason, "already_sent");
+  assert.equal(alreadySent.reportDay, "2026-09-09");
+  console.log("OK  report uses latest fare/vehicle/access and sends at 19:30 London");
 }
 
 console.log("\n=== Checkout wording is Change airport access ===");
@@ -299,8 +325,12 @@ console.log("\n=== Worker cron + fail-safe recording ===");
   assert.match(email, /trySendResendOnlyCustomerEmail[\s\S]*trySendResendOnlyEmail/);
   assert.match(client, /Fail safely/);
   const wrangler = read("workers/addresses/wrangler.toml");
-  assert.match(wrangler, /DAILY_QUOTE_REPORT_LONDON_HOUR = "1"/);
+  assert.match(wrangler, /DAILY_QUOTE_REPORT_LONDON_HOUR = "19"/);
+  assert.match(wrangler, /crons = \["30 \* \* \* \*"\]/);
+  assert.match(wrangler, /current day's quote report is sent at 19:30 London time/);
+  assert.doesNotMatch(wrangler, /\[env\.preview\.triggers\]/);
   assert.doesNotMatch(wrangler, /DAILY_QUOTE_REPORT_LONDON_HOUR = "0"/);
+  assert.doesNotMatch(wrangler, /DAILY_QUOTE_REPORT_LONDON_HOUR = "1"/);
   const storeSrc = read("workers/addresses/src/quote-session-store.ts");
   const sharedSrc = read("shared/quote-session.ts");
   assert.doesNotMatch(storeSrc, /type DayIndex|readDayIndex|writeDayIndex|quote_sessions_day|quoteSessionDayIndexKey/);

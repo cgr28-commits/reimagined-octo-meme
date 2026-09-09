@@ -439,7 +439,7 @@ type Env = {
   RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
   /** Isolated preview Worker only. Must never be set on production [vars]. */
   CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
-  /** London hour (0–23) to send the previous day's quote report. Default 0. */
+  /** London hour (0–23) to send the current day's quote report. Default 19. */
   DAILY_QUOTE_REPORT_LONDON_HOUR?: string;
 };
 
@@ -4566,7 +4566,7 @@ export default {
       }),
     );
 
-    // Previous London calendar day — one owner quote report, skip empty days.
+    // Current London calendar day — one owner quote report at 19:30 London, skip empty days.
     ctx.waitUntil(
       processDailyQuoteReport(env)
         .then((result) => {
