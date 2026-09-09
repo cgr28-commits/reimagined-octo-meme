@@ -125,7 +125,6 @@ import {
   ROUTE_RECONFIRMATION_MESSAGE,
   ROUTE_SERVICE_UNAVAILABLE_MESSAGE,
   addressTextMatchesPlace,
-  placeDisplayLabel,
   restoredPlacesReadyForPayment,
 } from "../../shared/route-reconfirmation";
 import { calculateServerQuote } from "@/lib/quick-quote-api";
@@ -176,9 +175,15 @@ import {
   readOpenCheckoutSession,
   saveBookingFormDraft,
   saveOpenCheckoutSession,
+  type BookingFormDraft,
   type OpenCheckoutSession,
 } from "@/lib/booking-draft-storage";
 import { clearAbandonedQuotePersistence } from "@/lib/reset-quote-journey";
+import {
+  clearStoredQuoteAddresses,
+  decideQuoteAddressReset,
+  decideQuoteAddressResetFromPageShow,
+} from "@/lib/fresh-visit-address-reset";
 import {
   createPaymentReturnToken,
   savePendingPayment,
@@ -188,10 +193,6 @@ import {
   clearConfirmedPickupPlace,
   clearDropoffAddressStorage,
   clearPickupAddressStorage,
-  DROPOFF_ADDRESS_STORAGE_KEY,
-  PICKUP_ADDRESS_STORAGE_KEY,
-  readConfirmedDropoffPlace,
-  readConfirmedPickupPlace,
   saveConfirmedDropoffPlace,
   saveConfirmedPickupPlace,
   saveDropoffAddressLabel,
@@ -240,9 +241,6 @@ const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
 
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
-
-const PICKUP_STORAGE_KEY = PICKUP_ADDRESS_STORAGE_KEY;
-const DROPOFF_STORAGE_KEY = DROPOFF_ADDRESS_STORAGE_KEY;
 
 function fieldState(options: {
   hasError?: boolean;
@@ -906,6 +904,84 @@ function QuoteCard({
     window.location.replace(confirmedUrl.toString());
   }, []);
 
+  const didApplyFreshVisitAddressPolicyRef = useRef(false);
+
+  function applyNonAddressDraftFields(draft: BookingFormDraft) {
+    if (draft.tripDate) setTripDate(draft.tripDate);
+    if (draft.tripTime) setTripTime(draft.tripTime);
+    if (!returnOfferToken && typeof draft.returnJourney === "boolean") {
+      setJourneyMode(draft.returnJourney ? "return" : "one-way");
+    }
+    if (
+      !returnOfferToken &&
+      (draft.journeyMode === "one-way" || draft.journeyMode === "return")
+    ) {
+      setJourneyMode(draft.journeyMode);
+    }
+    if (draft.returnDate) setReturnDate(draft.returnDate);
+    if (draft.returnTime) setReturnTime(draft.returnTime);
+    if (typeof draft.passengers === "number" && draft.passengers > 0) {
+      setPassengers(clampPassengerCount(draft.passengers));
+    }
+    if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
+      setSuitcases(clampPublicSuitcases(draft.suitcases));
+    }
+    setExactPassengers(null);
+    if (
+      draft.vehicle &&
+      (VEHICLE_TYPES as readonly string[]).includes(String(draft.vehicle))
+    ) {
+      setVehicle(draft.vehicle as VehicleType);
+    }
+    if (draft.customerName) setCustomerName(draft.customerName);
+    if (draft.customerEmail) setCustomerEmail(draft.customerEmail);
+    if (draft.customerMobile) setCustomerMobile(draft.customerMobile);
+    if (draft.goingFlightNumber) setGoingFlightNumber(draft.goingFlightNumber);
+    if (draft.collectionFlightNumber) setCollectionFlightNumber(draft.collectionFlightNumber);
+    if (!returnOfferToken) {
+      if (draft.journeyIntent) setJourneyIntent(draft.journeyIntent);
+      if (draft.intentAirportCode) setIntentAirportCode(draft.intentAirportCode);
+    }
+    if (typeof draft.termsAccepted === "boolean") setTermsAccepted(draft.termsAccepted);
+    if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
+    if (typeof draft.expressDropOffSelected === "boolean") {
+      setExpressDropOffSelected(draft.expressDropOffSelected);
+      expressEligibilityPrimedRef.current = false;
+    }
+    if (typeof draft.returnExpressDropOffSelected === "boolean") {
+      setReturnExpressDropOffSelected(draft.returnExpressDropOffSelected);
+      expressEligibilityPrimedRef.current = false;
+    }
+    if (draft.personalQuoteCode?.trim()) {
+      const code = draft.personalQuoteCode.trim().toUpperCase();
+      // Re-validate from server — never trust a cached agreed amount from sessionStorage.
+      void validatePersonalQuoteCode(code)
+        .then((quote) => {
+          setAppliedPersonalQuote(quote);
+        })
+        .catch(() => {
+          setAppliedPersonalQuote(null);
+        });
+    }
+  }
+
+  function blankQuoteAddressesAfterBrowserRestore() {
+    setPickupAddress("");
+    setDropoffAddress("");
+    setPickupPlace(emptySelectedPlace());
+    setDropoffPlace(emptySelectedPlace());
+    setPickupRestoredHint(false);
+    setDropoffRestoredHint(false);
+    setPickupPlaceError("");
+    setDropoffPlaceError("");
+    setRouteMetrics(null);
+    setServerFareParts(null);
+    setRouteReconfirmationRequired(false);
+    setPaymentError("");
+    setQuoteStep(1);
+    setFormResetKey((key) => key + 1);
+  }
+
   useEffect(() => {
     const testBooking = readTestBookingPrefill();
     if (testBooking) {
@@ -925,173 +1001,57 @@ function QuoteCard({
       return;
     }
 
-    const savedPickup = localStorage.getItem(PICKUP_STORAGE_KEY);
-    const savedDropoff = localStorage.getItem(DROPOFF_STORAGE_KEY);
-    // Keep dedicated landing-page address hints (e.g. Bangor / event venues) over stale localStorage.
-    // Also keep the route-page airport place so transfer landings stay preselected.
-    const keepInitialPickup =
-      Boolean(returnOfferToken) ||
-      isQuoteReadyPlace(initialPickupPlace) ||
-      (initialDirection === "to-airport" && Boolean(initialAddressHint)) ||
-      (initialDirection === "from-airport" && isCustomerAirportCode(initialAirportCode));
-    const keepInitialDropoff =
-      Boolean(returnOfferToken) ||
-      isQuoteReadyPlace(initialDropoffPlace) ||
-      Boolean(initialDropoffHint) ||
-      (initialDirection === "from-airport" && Boolean(initialAddressHint)) ||
-      (initialDirection === "to-airport" && isCustomerAirportCode(initialAirportCode));
+    if (didApplyFreshVisitAddressPolicyRef.current) {
+      return;
+    }
+    didApplyFreshVisitAddressPolicyRef.current = true;
 
-    // Restore quote + customer details after SumUp tab switches / accidental reloads.
+    const visitDecision = decideQuoteAddressReset({
+      trigger: "fresh-load",
+      pathname: window.location.pathname,
+      search: window.location.search,
+      returnOfferToken,
+    });
+
     const draft = readBookingFormDraft();
 
-    // Places first: only quote-ready objects (placeId + lat/lng) count as confirmed.
-    // Address text alone must never unlock payment.
-    const restoredPickupPlace =
-      !keepInitialPickup && draft?.pickupPlace && isQuoteReadyPlace(draft.pickupPlace)
-        ? draft.pickupPlace
-        : !keepInitialPickup
-          ? readConfirmedPickupPlace()
-          : null;
-    const restoredDropoffPlace =
-      !keepInitialDropoff && draft?.dropoffPlace && isQuoteReadyPlace(draft.dropoffPlace)
-        ? draft.dropoffPlace
-        : !keepInitialDropoff
-          ? readConfirmedDropoffPlace()
-          : null;
-
-    const draftPickupText = !keepInitialPickup
-      ? (draft?.pickupAddress?.trim() || savedPickup?.trim() || "")
-      : "";
-    const draftDropoffText = !keepInitialDropoff
-      ? (draft?.dropoffAddress?.trim() || savedDropoff?.trim() || "")
-      : "";
-
-    let needsRouteReconfirm = false;
-
-    if (!keepInitialPickup) {
-      if (
-        restoredPickupPlace &&
-        (!draftPickupText || addressTextMatchesPlace(draftPickupText, restoredPickupPlace))
-      ) {
-        setPickupPlace(restoredPickupPlace);
-        setPickupAddress(placeDisplayLabel(restoredPickupPlace) || draftPickupText);
-        setPickupRestoredHint(true);
-        setPickupPlaceError("");
-      } else if (draftPickupText) {
-        // Text without matching confirmed place — show it, but force reselection.
-        setPickupAddress(draftPickupText);
-        setPickupPlace(emptySelectedPlace());
-        setPickupRestoredHint(false);
-        setPickupPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
-        needsRouteReconfirm = true;
-        clearConfirmedPickupPlace();
-      }
+    if (visitDecision.clearStoredAddresses) {
+      // Never rehydrate pickup/destination from localStorage or an old session draft.
+      clearStoredQuoteAddresses();
     }
 
-    if (!keepInitialDropoff) {
-      if (
-        restoredDropoffPlace &&
-        (!draftDropoffText || addressTextMatchesPlace(draftDropoffText, restoredDropoffPlace))
-      ) {
-        setDropoffPlace(restoredDropoffPlace);
-        setDropoffAddress(placeDisplayLabel(restoredDropoffPlace) || draftDropoffText);
-        setDropoffRestoredHint(true);
-        setDropoffPlaceError("");
-      } else if (draftDropoffText) {
-        setDropoffAddress(draftDropoffText);
-        setDropoffPlace(emptySelectedPlace());
-        setDropoffRestoredHint(false);
-        setDropoffPlaceError(ROUTE_RECONFIRMATION_MESSAGE);
-        needsRouteReconfirm = true;
-        clearConfirmedDropoffPlace();
-      }
-    }
-
-    if (needsRouteReconfirm) {
-      setRouteReconfirmationRequired(true);
-      setRouteMetrics(null);
-      setServerFareParts(null);
-    }
-
-    if (draft && !testBooking) {
-      // Address/place restore handled above — do not re-apply text-only as confirmed.
-      if (draft.tripDate) setTripDate(draft.tripDate);
-      if (draft.tripTime) setTripTime(draft.tripTime);
-      if (!returnOfferToken && typeof draft.returnJourney === "boolean") {
-        setJourneyMode(draft.returnJourney ? "return" : "one-way");
-      }
-      if (
-        !returnOfferToken &&
-        (draft.journeyMode === "one-way" || draft.journeyMode === "return")
-      ) {
-        setJourneyMode(draft.journeyMode);
-      }
-      if (draft.returnDate) setReturnDate(draft.returnDate);
-      if (draft.returnTime) setReturnTime(draft.returnTime);
-      if (typeof draft.passengers === "number" && draft.passengers > 0) {
-        setPassengers(clampPassengerCount(draft.passengers));
-      }
-      if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
-        setSuitcases(clampPublicSuitcases(draft.suitcases));
-      }
-      setExactPassengers(null);
-      if (
-        draft.vehicle &&
-        (VEHICLE_TYPES as readonly string[]).includes(String(draft.vehicle))
-      ) {
-        setVehicle(draft.vehicle as VehicleType);
-      }
-      if (draft.customerName) setCustomerName(draft.customerName);
-      if (draft.customerEmail) setCustomerEmail(draft.customerEmail);
-      if (draft.customerMobile) setCustomerMobile(draft.customerMobile);
-      if (draft.goingFlightNumber) setGoingFlightNumber(draft.goingFlightNumber);
-      if (draft.collectionFlightNumber) setCollectionFlightNumber(draft.collectionFlightNumber);
-      if (!returnOfferToken) {
-        if (draft.journeyIntent) setJourneyIntent(draft.journeyIntent);
-        if (draft.intentAirportCode) setIntentAirportCode(draft.intentAirportCode);
-      }
-      if (typeof draft.termsAccepted === "boolean") setTermsAccepted(draft.termsAccepted);
-      if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
-      if (typeof draft.expressDropOffSelected === "boolean") {
-        setExpressDropOffSelected(draft.expressDropOffSelected);
-        expressEligibilityPrimedRef.current = false;
-      }
-      if (typeof draft.returnExpressDropOffSelected === "boolean") {
-        setReturnExpressDropOffSelected(draft.returnExpressDropOffSelected);
-        expressEligibilityPrimedRef.current = false;
-      }
-      if (draft.personalQuoteCode?.trim()) {
-        const code = draft.personalQuoteCode.trim().toUpperCase();
-        // Re-validate from server — never trust a cached agreed amount from sessionStorage.
-        // Public quote tool no longer offers manual code entry; this restores a code already
-        // stored in the booking draft (e.g. mid-session). Direct personal/quick quote links
-        // use their own pages.
-        void validatePersonalQuoteCode(code)
-          .then((quote) => {
-            setAppliedPersonalQuote(quote);
-          })
-          .catch(() => {
-            setAppliedPersonalQuote(null);
-          });
-      }
-      if (draft.quoteStep === 1 || draft.quoteStep === 2 || draft.quoteStep === 3) {
-        setQuoteStep(draft.quoteStep);
-      }
+    if (draft) {
+      applyNonAddressDraftFields(draft);
     }
 
     const existingCheckout = readOpenCheckoutSession();
     if (existingCheckout) {
       setOpenCheckout(existingCheckout);
     }
-  }, [
-    initialAddressHint,
-    initialAirportCode,
-    initialDirection,
-    initialDropoffHint,
-    initialDropoffPlace,
-    initialPickupPlace,
-    returnOfferToken,
-  ]);
+  }, [returnOfferToken]);
+
+  useEffect(() => {
+    function onPageShow(event: PageTransitionEvent) {
+      if (readTestBookingPrefill()) {
+        return;
+      }
+      const decision = decideQuoteAddressResetFromPageShow({
+        persisted: event.persisted,
+        pathname: window.location.pathname,
+        search: window.location.search,
+        returnOfferToken,
+      });
+      if (decision.clearStoredAddresses) {
+        clearStoredQuoteAddresses();
+      }
+      if (decision.blankVisibleAddressFields) {
+        blankQuoteAddressesAfterBrowserRestore();
+      }
+    }
+
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [returnOfferToken]);
 
   const isLdyTrip = effectiveAirportCode === "LDY";
   const ldyServiceAddress = isFromAirport ? dropoffAddress : pickupAddress;

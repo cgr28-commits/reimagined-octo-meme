@@ -130,6 +130,26 @@ export function clearBookingFormDraft(): void {
   }
 }
 
+/**
+ * Keep passenger / airport / contact draft fields, but drop leftover addresses
+ * so a later visit cannot refill the quote form from sessionStorage.
+ */
+export function stripAddressesFromBookingFormDraft(): BookingFormDraft | null {
+  const draft = readBookingFormDraft();
+  if (!draft) {
+    return null;
+  }
+  const stripped: BookingFormDraft = {
+    ...draft,
+    pickupAddress: "",
+    dropoffAddress: "",
+    pickupPlace: null,
+    dropoffPlace: null,
+  };
+  saveBookingFormDraft(stripped);
+  return stripped;
+}
+
 export function saveOpenCheckoutSession(session: OpenCheckoutSession): void {
   if (!canUseStorage()) {
     return;
