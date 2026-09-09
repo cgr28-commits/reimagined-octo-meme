@@ -7,14 +7,14 @@ type MarketingOptInProps = {
 
 export default function MarketingOptIn({ checked, onCheckedChange }: MarketingOptInProps) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left">
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl quote-panel px-4 py-3 text-left">
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onCheckedChange(event.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/40 bg-navy-dark text-emerald focus:ring-emerald/30"
       />
-      <span className="text-sm leading-relaxed text-white/70">
+      <span className="text-sm leading-relaxed quote-secondary">
         Keep me updated with occasional offers, travel tips and news from My Airport Taxi NI. You
         can unsubscribe at any time via our{" "}
         <Link

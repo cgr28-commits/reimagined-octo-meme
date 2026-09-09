@@ -73,7 +73,7 @@ export function BookWithConfidence({ className = "" }: { className?: string }) {
       <p className="text-sm font-semibold text-emerald">Book with confidence</p>
       <ul className="mt-2 space-y-1.5">
         {items.map((item) => (
-          <li key={item} className="flex gap-2 text-xs leading-snug text-white/75">
+          <li key={item} className="flex gap-2 text-xs leading-snug text-white/88">
             <span className="shrink-0 font-semibold text-emerald" aria-hidden>
               ✓
             </span>
@@ -160,7 +160,7 @@ export function PromotionalPriceBreakdown({
     <div className={`mt-2 space-y-1.5 text-xs leading-snug ${className}`}>
       {hasPromo && !breakdown.returnJourney ? (
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="text-white/45 line-through">
+          <span className="text-white/60 line-through">
             {formatGbpFare(
               breakdown.journeyFareBeforePromotionsGbp + breakdown.airportFixedCostsGbp,
             )}
@@ -174,7 +174,7 @@ export function PromotionalPriceBreakdown({
         </div>
       ) : null}
 
-      <dl className="space-y-0.5 text-white/60">
+      <dl className="space-y-0.5 quote-secondary">
         <div className="flex justify-between gap-3">
           <dt>{journeyLabel}</dt>
           <dd className="shrink-0 tabular-nums text-white/80">
@@ -227,7 +227,7 @@ export function PromotionalPriceBreakdown({
           </div>
         ) : null}
         {freeAirportAccessSelected && !hasAccess && !showPerLegAccess ? (
-          <div className="flex justify-between gap-3 text-white/55">
+          <div className="flex justify-between gap-3 quote-secondary">
             <dt>{accessLabel}</dt>
             <dd className="shrink-0 tabular-nums">Not added</dd>
           </div>
@@ -325,7 +325,7 @@ export function FinalPayableBreakdown({
             </dd>
           </div>
         ) : freeAirportAccessSelected ? (
-          <div className="flex justify-between gap-3 text-white/55">
+          <div className="flex justify-between gap-3 quote-secondary">
             <dt>{accessLabel}</dt>
             <dd className="shrink-0 tabular-nums">Not added</dd>
           </div>

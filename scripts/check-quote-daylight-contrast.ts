@@ -47,6 +47,10 @@ console.log("\n=== Quote containers and step indicator ===");
   assert.match(card, /label: "Journey"/);
   assert.match(card, /label: "Quote"/);
   assert.match(card, /label: "Booking & Pay"/);
+  assert.match(card, /quote-secondary/);
+  assert.match(card, /quote-price-figure/);
+  assert.match(card, /quote-price-panel/);
+  assert.doesNotMatch(card, /text-white\/(45|50|55)/);
   console.log("OK  all three steps share quote-flow / glass-card");
 }
 
@@ -69,6 +73,13 @@ console.log("\n=== Field / selected-state contrast ===");
   assert.match(progressive, /quote-choice/);
   const header = read("src/components/Header.tsx");
   assert.match(header, /quote-header-logo/);
+  const fare = read("src/components/QuoteFareTrust.tsx");
+  assert.match(fare, /quote-secondary/);
+  const terms = read("src/components/BookingTermsConsent.tsx");
+  assert.match(terms, /quote-secondary/);
+  assert.match(terms, /border-white\/28/);
+  const save = read("src/components/SaveQuoteModal.tsx");
+  assert.match(save, /placeholder:text-white\/65/);
   console.log("OK  inputs, choices, and header use the brighter tokens");
 }
 

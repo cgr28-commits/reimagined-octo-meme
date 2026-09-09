@@ -11,7 +11,7 @@ export default function QuoteHelpContact({ className = "" }: { className?: strin
     <p
       className={`mt-3 px-1 text-center text-sm leading-relaxed quote-secondary md:mt-4 ${className}`}
     >
-      <span className="text-white/55">Need help?</span>
+      <span>Need help?</span>
       {" "}
       <a
         href={whatsAppChatUrl()}

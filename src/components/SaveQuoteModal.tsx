@@ -108,8 +108,8 @@ export default function SaveQuoteModal({
       aria-modal="true"
       aria-labelledby="save-quote-title"
     >
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-navy-dark shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/24 bg-navy-dark shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-white/20 px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
               My Airport Taxi NI
@@ -121,7 +121,7 @@ export default function SaveQuoteModal({
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg px-2 py-1 text-sm text-white/60 hover:bg-white/10 hover:text-white"
+            className="rounded-lg px-2 py-1 text-sm quote-secondary hover:bg-white/10 hover:text-white"
             aria-label="Close"
           >
             ✕
@@ -140,24 +140,24 @@ export default function SaveQuoteModal({
               {result.emailSent ? (
                 <p>We’ve emailed you a secure link so you can return and book whenever you’re ready.</p>
               ) : null}
-              <p className="text-white/60">
+              <p className="quote-secondary">
                 Your journey is not booked until payment has been completed.
               </p>
-              <dl className="space-y-2 rounded-xl border border-white/10 bg-navy/50 p-4">
+              <dl className="space-y-2 rounded-xl quote-panel p-4">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-white/55">Reference</dt>
+                  <dt className="quote-secondary">Reference</dt>
                   <dd className="font-mono text-white">{result.reference}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-white/55">Price</dt>
+                  <dt className="quote-secondary">Price</dt>
                   <dd className="text-lg font-semibold text-emerald">{result.amountLabel}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-white/55">Valid until</dt>
+                  <dt className="quote-secondary">Valid until</dt>
                   <dd className="text-right text-white">{result.expiresAtLabel}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-white/55">Email</dt>
+                  <dt className="quote-secondary">Email</dt>
                   <dd className="break-all text-right text-white">{result.email}</dd>
                 </div>
               </dl>
@@ -187,7 +187,7 @@ export default function SaveQuoteModal({
                 needed yet, and you won’t be added to any marketing list.
               </p>
               <div>
-                <label htmlFor={nameId} className="mb-1.5 block text-xs font-medium text-white/60">
+                <label htmlFor={nameId} className="form-label">
                   Your name
                 </label>
                 <input
@@ -199,12 +199,12 @@ export default function SaveQuoteModal({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={submitting}
-                  className="quote-text-input min-h-12 w-full rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35"
+                  className="quote-text-input min-h-12 w-full rounded-xl border border-white/32 bg-navy px-3 text-base text-white placeholder:text-white/65"
                   placeholder="Full name"
                 />
               </div>
               <div>
-                <label htmlFor={emailId} className="mb-1.5 block text-xs font-medium text-white/60">
+                <label htmlFor={emailId} className="form-label">
                   Email address
                 </label>
                 <input
@@ -217,7 +217,7 @@ export default function SaveQuoteModal({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={submitting}
-                  className="quote-text-input min-h-12 w-full rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35"
+                  className="quote-text-input min-h-12 w-full rounded-xl border border-white/32 bg-navy px-3 text-base text-white placeholder:text-white/65"
                   placeholder="you@example.com"
                 />
               </div>

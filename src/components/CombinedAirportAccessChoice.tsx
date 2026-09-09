@@ -53,13 +53,13 @@ export default function CombinedAirportAccessChoice({
           <div className="min-w-0 space-y-1 text-sm text-white/85">
             <p className="font-medium text-white">Airport access (return)</p>
             <p>{combinedAirportAccessBreakdownLabel(selected, totalFeeGbp)}</p>
-            <p className="text-xs text-white/50">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
+            <p className="text-xs quote-secondary">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
           </div>
           {allowFreeAlternative !== false ? (
             <button
               type="button"
               onClick={() => onEditingChange?.(true)}
-              className="min-h-11 shrink-0 rounded-xl border border-white/20 px-3 text-sm font-semibold text-white hover:bg-white/5"
+              className="min-h-11 shrink-0 rounded-xl border border-white/32 px-3 text-sm font-semibold text-white hover:bg-white/10"
             >
               Change
             </button>

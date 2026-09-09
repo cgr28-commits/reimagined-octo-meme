@@ -107,7 +107,7 @@ export default function Header() {
                 className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2 touch-pan-y"
                 aria-label="Mobile navigation"
               >
-                <p className="mb-3 text-sm text-white/60">Airport transfers across Northern Ireland.</p>
+                <p className="mb-3 text-sm quote-secondary">Airport transfers across Northern Ireland.</p>
                 <div className="flex flex-col gap-1">
                   {NAV_LINKS.map((link) => (
                     <SiteNavLink

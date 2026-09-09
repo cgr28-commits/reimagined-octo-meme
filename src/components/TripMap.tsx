@@ -271,11 +271,11 @@ export default function TripMap({
           >
             <span>{showMap ? "Hide route" : "View route"}</span>
             {timeLabel ? (
-              <span className="mt-0.5 block text-xs font-normal text-white/55">
+              <span className="mt-0.5 block text-xs font-normal quote-secondary">
                 {timeLabel}
               </span>
             ) : (
-              <span className="mt-0.5 block text-xs font-normal text-white/45">
+              <span className="mt-0.5 block text-xs font-normal quote-secondary">
                 {originPoint && destinationPoint
                   ? "Calculating journey time…"
                   : mapError || "View route on map"}
@@ -286,7 +286,7 @@ export default function TripMap({
             href={links.mapsLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 text-xs font-medium text-white/45 transition-colors hover:text-emerald"
+            className="shrink-0 text-xs font-medium quote-secondary transition-colors hover:text-emerald"
           >
             Google Maps
           </a>
@@ -294,13 +294,13 @@ export default function TripMap({
 
         {showMap ? (
           <div className="mt-2.5 space-y-2">
-            <p className="truncate text-xs text-white/50">{links.routeLabel}</p>
-            <div className="overflow-hidden rounded-lg border border-white/10">
+            <p className="truncate text-xs quote-secondary">{links.routeLabel}</p>
+            <div className="overflow-hidden rounded-lg border border-white/20">
               {originPoint && destinationPoint ? (
                 <TripMapView pickup={originPoint} airport={destinationPoint} />
               ) : (
                 <div className="flex h-40 items-center justify-center px-4 text-center">
-                  <p className="text-sm text-white/60">
+                  <p className="text-sm quote-secondary">
                     {mapError ?? "Finding your addresses on the map…"}
                   </p>
                 </div>
@@ -322,7 +322,7 @@ export default function TripMap({
             {formatRouteCardJourneyTime(routeMetrics.durationMinutes)}
           </p>
         ) : originPoint && destinationPoint ? (
-          <p className="mt-1.5 text-xs text-white/50">Calculating journey time…</p>
+          <p className="mt-1.5 text-xs quote-secondary">Calculating journey time…</p>
         ) : null}
       </div>
 
@@ -330,7 +330,7 @@ export default function TripMap({
         <TripMapView pickup={originPoint} airport={destinationPoint} />
       ) : (
         <div className="flex h-48 items-center justify-center px-4 text-center sm:h-56">
-          <p className="text-sm text-white/60">
+          <p className="text-sm quote-secondary">
             {mapError ?? "Finding your addresses on the map…"}
           </p>
         </div>
