@@ -80,6 +80,11 @@ export type PaymentCheckoutRequest = {
   /** Live route metrics so the Worker can requote with the canonical engine. */
   routeMetrics?: { distanceKm: number; durationMinutes: number } | null;
   /**
+   * Opaque Worker-signed route token from /quote/calculate.
+   * Lets /payments reuse trusted distance/duration. Never contains secrets.
+   */
+  routeToken?: string | null;
+  /**
    * Final amount shown on the quote card / consent checkbox / price breakdown.
    * Worker compares this to its authoritative final — mismatch → 409, never silent replace.
    */
@@ -90,6 +95,7 @@ export type PaymentCheckoutRequest = {
 
 export type PaymentCheckoutTimings = {
   availabilityMs?: number;
+  routeTokenMs?: number;
   routeResolveMs?: number;
   fareValidationMs?: number;
   sumupCreateMs?: number;
@@ -356,6 +362,7 @@ export async function createPaymentCheckout(
             },
           }
         : {}),
+      ...(request.routeToken?.trim() ? { routeToken: request.routeToken.trim() } : {}),
       ...(typeof request.acceptedFinalAmountGbp === "number" &&
       Number.isFinite(request.acceptedFinalAmountGbp)
         ? {

@@ -720,6 +720,8 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+  /** Opaque Worker-signed route token for the currently displayed quote. Not a secret. */
+  const [quoteRouteToken, setQuoteRouteToken] = useState<string | null>(null);
   /** Worker-authoritative journey/fixed split (same engine as SumUp). Prefer over browser metrics. */
   const [serverFareParts, setServerFareParts] = useState<ServerFarePartyParts | null>(null);
   const serverQuoteGenRef = useRef(0);
@@ -1039,6 +1041,7 @@ function QuoteCard({
       setPickupPlaceError("");
       setDropoffPlaceError("");
       setRouteMetrics(null);
+      setQuoteRouteToken(null);
       setServerFareParts(null);
       setRouteReconfirmationRequired(false);
       setPaymentError("");
@@ -1516,6 +1519,7 @@ function QuoteCard({
             durationMinutes: result.durationMinutes!,
           });
         }
+        setQuoteRouteToken(result.routeToken?.trim() || null);
         if (result.smartAvailability?.enforced) {
           applyCustomerAvailabilityResult({
             blocked: Boolean(result.smartAvailability.blocked),
@@ -1527,9 +1531,11 @@ function QuoteCard({
         return true;
       }
       setServerFareParts(null);
+      setQuoteRouteToken(null);
       return false;
     } catch {
       setServerFareParts(null);
+      setQuoteRouteToken(null);
       return false;
     }
   }, [
@@ -1881,12 +1887,14 @@ function QuoteCard({
     setSuitcases(null);
     setExactPassengers(null);
     setRouteMetrics(null);
+    setQuoteRouteToken(null);
     setServerFareParts(null);
   }
 
   /** Any address text edit clears stale route/price — never pay on a previous pair's metrics. */
   function clearStaleRouteAndPriceAfterAddressEdit() {
     setRouteMetrics(null);
+    setQuoteRouteToken(null);
     setServerFareParts(null);
     setRouteReconfirmationRequired(false);
     setPaymentError("");
@@ -1909,6 +1917,7 @@ function QuoteCard({
     }
     setRouteReconfirmationRequired(true);
     setRouteMetrics(null);
+    setQuoteRouteToken(null);
     setServerFareParts(null);
     setPaymentError(ROUTE_RECONFIRMATION_MESSAGE);
     setQuoteStep(1);
@@ -2106,6 +2115,7 @@ function QuoteCard({
         setAirportCode("");
       }
       setRouteMetrics(null);
+      setQuoteRouteToken(null);
       setServerFareParts(null);
       setSmartAvailabilityBlocked(false);
       setPaymentError((prev) =>
@@ -3124,6 +3134,7 @@ function QuoteCard({
         booking: bookingDetails,
         pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
         dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
+        ...(quoteRouteToken?.trim() ? { routeToken: quoteRouteToken.trim() } : {}),
         expressDropOffSelected: expressSelection.eligible
           ? expressSelection.outboundSelected
           : false,
@@ -3250,6 +3261,7 @@ function QuoteCard({
       if (isPaymentRouteReconfirmationError(error)) {
         setRouteReconfirmationRequired(true);
         setRouteMetrics(null);
+        setQuoteRouteToken(null);
         setServerFareParts(null);
         const endpoint = error.endpoint ?? "both";
         // Identify only the affected field when the Worker reports which end failed.
@@ -3451,6 +3463,7 @@ function QuoteCard({
     );
     setIntentAirportCode(isCustomerAirportCode(initialAirportCode) ? initialAirportCode : "");
     setRouteMetrics(null);
+    setQuoteRouteToken(null);
     setServerFareParts(null);
     setRouteReconfirmationRequired(false);
     setPickupPlaceError("");

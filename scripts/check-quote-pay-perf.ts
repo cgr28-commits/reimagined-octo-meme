@@ -95,6 +95,7 @@ console.log("\n=== Stage-duration timings, no PII ===");
   const card = read("src/components/QuoteCard.tsx");
   for (const key of [
     "availabilityMs",
+    "routeTokenMs",
     "routeResolveMs",
     "fareValidationMs",
     "sumupCreateMs",
@@ -113,6 +114,44 @@ console.log("\n=== Stage-duration timings, no PII ===");
   assert.match(card, /tapToNavigateMs/);
   assert.doesNotMatch(card, /console\.info\("\[payment-timing\]",[\s\S]{0,400}paymentUrl/);
   console.log("OK  timings are per-stage durations; logs omit payment URLs and PII");
+}
+
+console.log("\n=== Signed quote route token is issued and sent, never trusted raw ===");
+{
+  const quote = read("workers/addresses/src/quote-handlers.ts");
+  const token = read("workers/addresses/src/quote-route-token.ts");
+  const worker = read("workers/addresses/src/index.ts");
+  const create = read("src/lib/create-payment.ts");
+  const card = read("src/components/QuoteCard.tsx");
+  const api = read("src/lib/quick-quote-api.ts");
+  assert.match(token, /signQuoteRouteToken/);
+  assert.match(token, /verifyQuoteRouteToken/);
+  assert.match(token, /HMAC/);
+  assert.match(quote, /routeMetricsSource === "worker"/);
+  assert.match(quote, /quoteBody\.routeToken = await signQuoteRouteToken/);
+  assert.match(api, /routeToken: payload\.routeToken\.trim\(\)/);
+  assert.match(card, /setQuoteRouteToken\(result\.routeToken/);
+  assert.match(card, /routeToken: quoteRouteToken\.trim\(\)/);
+  assert.match(create, /routeToken: request\.routeToken\.trim\(\)/);
+  assert.match(worker, /verifyQuoteRouteToken/);
+  assert.match(worker, /signed_quote_token/);
+  assert.match(worker, /resolveWorkerTripRouteMetricsForPayment/);
+  assert.match(worker, /Never trust body\.routeMetrics/);
+  assert.doesNotMatch(quote, /quoteBody\.[^\n]*QUOTE_ROUTE_TOKEN_SECRET/);
+  assert.doesNotMatch(create, /QUOTE_ROUTE_TOKEN_SECRET|OWNER_ACCESS_KEY|HMAC/);
+  assert.doesNotMatch(card, /QUOTE_ROUTE_TOKEN_SECRET|OWNER_ACCESS_KEY/);
+  const tokenIdx = worker.indexOf("verifyQuoteRouteToken");
+  const resolveIdx = worker.indexOf("resolveWorkerTripRouteMetricsForPayment", tokenIdx);
+  const fareIdx = worker.indexOf("calculateAuthoritativeWebsiteQuote", resolveIdx);
+  const saIdx = worker.indexOf("blockedCustomerSmartAvailabilityResponse", fareIdx);
+  const sumupIdx = worker.indexOf("createSumUpHostedCheckout", saIdx);
+  const persistIdx = worker.indexOf("savePendingCheckout(paymentStore", sumupIdx);
+  const urlIdx = worker.indexOf("paymentUrl: checkout.paymentUrl", persistIdx);
+  assert.ok(tokenIdx >= 0 && resolveIdx > tokenIdx, "token verify before full resolve fallback");
+  assert.ok(fareIdx > resolveIdx, "fare still recalculated after route decision");
+  assert.ok(saIdx > fareIdx && saIdx < sumupIdx, "Smart Availability still runs before SumUp");
+  assert.ok(persistIdx > sumupIdx && urlIdx > persistIdx, "persist still gates paymentUrl");
+  console.log("OK  signed route token is Worker-issued, Pay-sent, and fare/SA/SumUp order is unchanged");
 }
 
 console.log("\n=== Pay button immediate SumUp loading ===");

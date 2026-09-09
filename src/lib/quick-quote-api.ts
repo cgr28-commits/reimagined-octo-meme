@@ -49,6 +49,8 @@ export type QuickQuoteCalculateResult =
       airportFixedCostsGbp?: number;
       distanceKm?: number;
       durationMinutes?: number;
+      /** Opaque Worker-signed route token. Never a secret. */
+      routeToken?: string;
       smartAvailability?: CustomerSmartAvailabilityQuoteSignal;
     }
   | { ok: false; reason?: string; message: string; error?: string };
@@ -177,6 +179,9 @@ export async function calculateServerQuote(
             (payload.diagnostics as { routeDurationMinutes?: number }).routeDurationMinutes,
           ),
         }
+      : {}),
+    ...(typeof payload.routeToken === "string" && payload.routeToken.trim()
+      ? { routeToken: payload.routeToken.trim() }
       : {}),
     ...(smartAvailability ? { smartAvailability } : {}),
   };

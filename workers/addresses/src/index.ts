@@ -382,6 +382,10 @@ import {
   resolveWorkerTripRouteMetricsForPayment,
 } from "./resolve-route-metrics";
 import {
+  resolveQuoteRouteTokenSecret,
+  verifyQuoteRouteToken,
+} from "./quote-route-token";
+import {
   ESTATE_VEHICLE,
   MINIBUS_VEHICLE,
   SALOON_VEHICLE,
@@ -440,6 +444,8 @@ type Env = {
   RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
   /** Isolated preview Worker only. Must never be set on production [vars]. */
   CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
+  /** HMAC secret for short-lived quote route tokens. Worker-only; never NEXT_PUBLIC. */
+  QUOTE_ROUTE_TOKEN_SECRET?: string;
   /** London hour (0–23) to send the previous day's quote report. Default 0. */
   DAILY_QUOTE_REPORT_LONDON_HOUR?: string;
 };
@@ -1593,6 +1599,7 @@ async function handlePaymentRequest(
   const paymentStartedAt = Date.now();
   const paymentTimings: {
     availabilityMs?: number;
+    routeTokenMs?: number;
     routeResolveMs?: number;
     fareValidationMs?: number;
     sumupCreateMs?: number;
@@ -1600,6 +1607,7 @@ async function handlePaymentRequest(
     ownerNotifyMs?: number;
     totalResponseMs?: number;
   } = {};
+  let paymentRouteSource: "signed_quote_token" | "full_resolve" | undefined;
   const addPaymentMs = (key: keyof typeof paymentTimings, ms: number) => {
     paymentTimings[key] = (paymentTimings[key] ?? 0) + Math.max(0, ms);
   };
@@ -1616,7 +1624,13 @@ async function handlePaymentRequest(
   }
   const finishPaymentTimings = () => {
     paymentTimings.totalResponseMs = Date.now() - paymentStartedAt;
-    console.log("payment_checkout_timings", JSON.stringify(paymentTimings));
+    console.log(
+      "payment_checkout_timings",
+      JSON.stringify({
+        ...paymentTimings,
+        ...(paymentRouteSource ? { routeSource: paymentRouteSource } : {}),
+      }),
+    );
     return paymentTimings;
   };
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
@@ -2086,7 +2100,7 @@ async function handlePaymentRequest(
       : [];
 
     // Never trust body.routeMetrics / client journeyDistance|Duration / client lat/lng
-    // for SumUp. A signed quote/route token (reuse quote-stage OSRM) is a follow-up
+    // for SumUp. A signed quote/route token may reuse Worker OSRM from /quote/calculate
     // — missing/expired/mismatched tokens must keep this full resolution fallback.
     // Resolve driving metrics server-side from selected place IDs
     // (Worker Google/Ideal/GetAddress keys → coords → OSRM). Served airports use
@@ -2097,18 +2111,44 @@ async function handlePaymentRequest(
     const paymentDropoffLabel = String(booking.dropoffLabel ?? "");
     const paymentPickupPlaceId = String(body.pickupPlaceId ?? "").trim();
     const paymentDropoffPlaceId = String(body.dropoffPlaceId ?? "").trim();
-    const routeOutcome = await timePaymentStage("routeResolveMs", () =>
-      resolveRouteOutcomeWithRetry(() =>
-        resolveWorkerTripRouteMetricsForPayment({
-          pickupAddress: paymentPickupLabel,
-          dropoffAddress: paymentDropoffLabel,
-          pickupPlaceId: paymentPickupPlaceId || null,
-          dropoffPlaceId: paymentDropoffPlaceId || null,
-          googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-          getAddressApiKey: env.GETADDRESS_API_KEY,
-        }),
-      ),
+    const signedRouteToken = String(body.routeToken ?? "").trim();
+    const tokenVerified = await timePaymentStage("routeTokenMs", () =>
+      verifyQuoteRouteToken({
+        token: signedRouteToken,
+        secret: resolveQuoteRouteTokenSecret(env),
+        pickupPlaceId: paymentPickupPlaceId,
+        dropoffPlaceId: paymentDropoffPlaceId,
+        pickupLabel: paymentPickupLabel,
+        dropoffLabel: paymentDropoffLabel,
+      }),
     );
+    let routeOutcome: Awaited<ReturnType<typeof resolveWorkerTripRouteMetricsForPayment>>;
+    if (tokenVerified.ok) {
+      paymentRouteSource = "signed_quote_token";
+      paymentTimings.routeResolveMs = 0;
+      routeOutcome = {
+        ok: true,
+        metrics: {
+          distanceKm: tokenVerified.distanceKm,
+          durationMinutes: tokenVerified.durationMinutes,
+          source: "osrm",
+        },
+      };
+    } else {
+      paymentRouteSource = "full_resolve";
+      routeOutcome = await timePaymentStage("routeResolveMs", () =>
+        resolveRouteOutcomeWithRetry(() =>
+          resolveWorkerTripRouteMetricsForPayment({
+            pickupAddress: paymentPickupLabel,
+            dropoffAddress: paymentDropoffLabel,
+            pickupPlaceId: paymentPickupPlaceId || null,
+            dropoffPlaceId: paymentDropoffPlaceId || null,
+            googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+            getAddressApiKey: env.GETADDRESS_API_KEY,
+          }),
+        ),
+      );
+    }
     if (!routeOutcome.ok) {
       const errBody = paymentErrorForRouteFailure(
         routeOutcome.reason,
@@ -2392,6 +2432,8 @@ async function handlePaymentRequest(
     return json({ error: "Missing redirect URL" }, 400, origin);
   }
 
+  // Availability, fare, SumUp create, and persist stay sequential. Token reuse
+  // only skips Google/OSRM — it does not move SumUp before those gates.
   const availabilityBlocked = await timePaymentStage("availabilityMs", () =>
     blockedCustomerSmartAvailabilityResponse(request, env, origin, booking),
   );
