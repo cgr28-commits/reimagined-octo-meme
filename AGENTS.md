@@ -13,24 +13,28 @@ Dependencies are installed by the startup update script (`npm install` for the r
 `NEXT_PUBLIC_ADDRESSES_API_URL` / `NEXT_PUBLIC_BOOKINGS_API_URL` are unset, the frontend calls the
 live production Worker, so the whole site renders and the quote/booking flow works out of the box.
 
-### Running the frontend (important gotcha)
-As of this setup, **`npm run dev` does not work**: it 500s on every page with
-`ReferenceError: Cannot access 'BASE_PATH' before initialization`. This is a pre-existing circular
-import between `src/lib/data.ts` and `src/lib/paths.ts` (`data.ts` calls `withBasePath()` at module
-load while `paths.ts` is still initializing). It fails in both webpack and `--turbopack` dev modes.
-This is a code bug, not an environment issue, and is **not** fixed here (env setup does not modify app code).
+### Running the frontend
+`npm run dev` works — it serves the site with hot reload at http://localhost:3000. Use this for
+day-to-day development.
 
-The **production static export build works fine** (it is how the live site is deployed), so to run
-the app locally, build the export and serve the `out/` directory:
+Historical note: an earlier revision had a circular import between `src/lib/data.ts` and
+`src/lib/paths.ts` that made `npm run dev` 500 on every page with
+`ReferenceError: Cannot access 'BASE_PATH' before initialization`. That is **fixed** on `main`:
+`paths.ts` no longer imports from `data.ts` (it uses a local `CANONICAL_SITE_ORIGIN` constant), so
+it is a leaf module and the cycle is gone.
+
+Cache gotcha: do **not** run `GITHUB_PAGES=true npm run build` and `npm run dev` against the same
+`.next` directory. The production export and the dev server share `.next`, and mixing them causes
+transient `Cannot find module './####.js'` chunk 404s in dev (not a code bug). If you hit that, run
+`rm -rf .next` and then `npm run dev`.
+
+The site also builds as a static export (how it deploys to GitHub Pages), which you can serve for a
+production-like check:
 
 ```bash
 GITHUB_PAGES=true npm run build   # static export -> ./out
-npx serve out -l 3000             # serve on http://localhost:3000
+npx serve out -l 3000             # optional: serve the exported site
 ```
-
-The exported site is a full client-side React app, so the interactive quote/booking flow (pricing,
-maps, forms) works when served this way. If `npm run dev` has since been fixed (circular import
-resolved), prefer `npm run dev` on port 3000 for hot reload.
 
 ### Cloudflare Worker (optional for most UI work)
 The frontend defaults to the deployed production Worker, so you only need the Worker locally to test
