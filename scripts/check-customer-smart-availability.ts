@@ -1014,6 +1014,24 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
   console.log("OK  every public Pay path hits the same /payments gate");
 }
 
+console.log("\n=== Pay gate does not scan the full upcoming booking horizon ===");
+{
+  const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
+  const loadStart = handlers.indexOf("async function loadOccupied");
+  const loadEnd = handlers.indexOf("export async function enforceCustomerSmartAvailabilityGate");
+  assert.ok(loadStart >= 0 && loadEnd > loadStart);
+  const loadOccupied = handlers.slice(loadStart, loadEnd);
+  assert.match(loadOccupied, /listPaidBookingsForTripRange/);
+  assert.doesNotMatch(loadOccupied, /listUpcomingPaidBookings\(/);
+  assert.doesNotMatch(loadOccupied, /prefix:\s*"booking:ref:"/);
+  const gate = handlers.slice(handlers.indexOf("export async function enforceCustomerSmartAvailabilityGate"));
+  assert.match(gate, /addDaysYmd\(tripDate \|\| londonYmd\(\), -3\)/);
+  assert.match(gate, /addDaysYmd\(tripDate \|\| londonYmd\(\), 3\)/);
+  const upcomingBoard = read("workers/addresses/src/paid-booking-store.ts");
+  assert.match(upcomingBoard, /export async function listUpcomingPaidBookings/);
+  console.log("OK  customer Pay/quote SA uses trip-date ±3 days only; Upcoming board keeps the full list");
+}
+
 console.log("\n=== Quote/payment behaviour is unchanged when the gate is off ===");
 {
   const quoteHandler = read("workers/addresses/src/quote-handlers.ts");

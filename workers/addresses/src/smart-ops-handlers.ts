@@ -4,7 +4,7 @@
  */
 
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
-import { listPaidBookingsForTripRange, listUpcomingPaidBookings } from "./paid-booking-store";
+import { listPaidBookingsForTripRange } from "./paid-booking-store";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { addDaysYmd, londonYmd } from "../shared/upcoming-jobs";
 import {
@@ -84,12 +84,11 @@ async function loadOccupied(
 }> {
   const from = range?.fromYmd || addDaysYmd(londonYmd(), -2);
   const to = range?.toYmd || addDaysYmd(londonYmd(), 180);
-  const [ranged, upcoming] = await Promise.all([
-    listPaidBookingsForTripRange(store, from, to, { limit: 400 }),
-    listUpcomingPaidBookings(store, { pastDays: 7, futureDays: 180, limit: 250 }),
-  ]);
+  // Pay / quote / owner evaluate only need jobs near the requested date.
+  // The Owner Upcoming board still does the full-horizon paid-job list.
+  const ranged = await listPaidBookingsForTripRange(store, from, to, { limit: 400 });
   const bookings = new Map<string, PaidBookingRecord>();
-  for (const booking of [...ranged, ...upcoming]) {
+  for (const booking of ranged) {
     bookings.set(booking.paymentReference, booking);
   }
   const occupied: SmartOccupiedJob[] = [];
@@ -126,7 +125,12 @@ export async function enforceCustomerSmartAvailabilityGate(input: {
   };
   if (!input.store) return allow;
   try {
-    const state = await getSmartOpsState(input.store);
+    const flagsStarted = Date.now();
+    const [state, settings] = await Promise.all([
+      getSmartOpsState(input.store),
+      getBookingSettings(input.store),
+    ]);
+    const flagsMs = Date.now() - flagsStarted;
     const enforce = shouldEnforceCustomerSmartAvailability({
       smartAvailabilityFlag: state.config.flags.smartAvailability === true,
       origin: input.origin,
@@ -134,12 +138,17 @@ export async function enforceCustomerSmartAvailabilityGate(input: {
       previewWorkerEnforce: input.previewWorkerEnforce === true,
     });
     if (!enforce) return allow;
-    const settings = await getBookingSettings(input.store);
     const tripDate = String(input.booking.tripDate || "");
+    const occupiedStarted = Date.now();
     const { occupied } = await loadOccupied(input.store, {
       fromYmd: addDaysYmd(tripDate || londonYmd(), -3),
       toYmd: addDaysYmd(tripDate || londonYmd(), 3),
     });
+    const occupiedMs = Date.now() - occupiedStarted;
+    console.log(
+      "smart_availability_load",
+      JSON.stringify({ flagsMs, occupiedMs, occupiedJobs: occupied.length }),
+    );
     return decideCustomerSmartAvailabilityGate({
       enforce: true,
       booking: input.booking,
