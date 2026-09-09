@@ -97,12 +97,12 @@ console.log("\n=== Pay tap validates instead of starting SumUp ===");
   const payHandler = card.slice(card.indexOf("async function handlePayNow()"));
   const validateIdx = payHandler.indexOf("if (!validateCheckoutRequiredFields())");
   const loadingIdx = payHandler.indexOf("setPaymentLoading(true)");
-  const checkoutIdx = payHandler.search(/\/payments|createCheckout|hosted-checkout|sumup/i);
+  const checkoutIdx = payHandler.indexOf("createPaymentCheckout(");
   assert.ok(validateIdx >= 0, "handlePayNow must validate required fields");
-  assert.ok(loadingIdx > validateIdx, "SumUp loading must start only after validation");
-  if (checkoutIdx >= 0) {
-    assert.ok(checkoutIdx > validateIdx, "no SumUp request before validation");
-  }
+  assert.ok(loadingIdx >= 0, "Pay tap shows a loading state");
+  assert.ok(validateIdx > loadingIdx, "loading may start immediately, but validation still runs");
+  assert.ok(checkoutIdx > validateIdx, "no SumUp checkout before validation");
+  assert.match(payHandler, /if \(!validateCheckoutRequiredFields\(\)\) \{\s*abortPay\(\);\s*return;/);
   assert.match(card, /onClick=\{\(\) => void handlePayNow\(\)\}/);
   assert.match(
     card,

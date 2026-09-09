@@ -1583,7 +1583,19 @@ async function handlePaymentRequest(
   request: Request,
   env: Env,
   origin: string | null,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
+  const paymentStartedAt = Date.now();
+  const paymentTimings: {
+    validateMs?: number;
+    sumupCreateMs?: number;
+    persistMs?: number;
+    ownerNotifyMs?: number;
+    responseMs?: number;
+  } = {};
+  const markPayment = (key: keyof typeof paymentTimings) => {
+    paymentTimings[key] = Date.now() - paymentStartedAt;
+  };
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
   const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
 
@@ -2358,6 +2370,7 @@ async function handlePaymentRequest(
     booking,
   );
   if (availabilityBlocked) return availabilityBlocked;
+  markPayment("validateMs");
 
   if (!booking) {
     const blockers = getPaymentBookingBlockers(
@@ -2600,6 +2613,7 @@ async function handlePaymentRequest(
         redirectUrl,
         returnUrl,
       });
+      markPayment("sumupCreateMs");
     } catch (error) {
       if (personalQuoteCode && personalQuoteReservationAttemptId) {
         await clearPersonalQuoteReservation(env.TRACKING_STORE, personalQuoteCode, {
@@ -2645,6 +2659,7 @@ async function handlePaymentRequest(
           ? { personalQuotedAmount: Math.round(amount * 100) / 100 }
           : {}),
     });
+    markPayment("persistMs");
 
     if (quickQuoteId) {
       await markQuickQuoteCheckout(env.TRACKING_STORE, quickQuoteId, {
@@ -2680,25 +2695,43 @@ async function handlePaymentRequest(
       }
     }
 
-    // Always notify the owner with contact details when SumUp opens — payment may fail.
+    // Owner payment-attempt email is operational, not required for the customer
+    // redirect. Browser only needs paymentUrl + bookingSaved after persist.
     const amountLabel = formatPaidAmount(Math.round(amount * 100) / 100);
     const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
       amountLabel,
       checkoutId: checkout.checkoutId,
       checkoutReference: checkout.checkoutReference,
     });
-    const attemptSend = await trySendOwnerOperationalEmail(env, {
-      to: ownerInbox(env),
-      subject: attemptEmail.subject,
-      body: attemptEmail.body,
-    });
-    if (attemptSend.sent) {
-      await patchPendingCheckout(env.TRACKING_STORE, checkout.checkoutId, {
-        attemptEmailSentAt: new Date().toISOString(),
+    const sendOwnerAttemptEmail = async () => {
+      const attemptSend = await trySendOwnerOperationalEmail(env, {
+        to: ownerInbox(env),
+        subject: attemptEmail.subject,
+        body: attemptEmail.body,
       });
+      if (attemptSend.sent && env.TRACKING_STORE) {
+        await patchPendingCheckout(env.TRACKING_STORE, checkout.checkoutId, {
+          attemptEmailSentAt: new Date().toISOString(),
+        });
+      } else if (!attemptSend.sent) {
+        console.error("Owner payment-attempt email failed", attemptSend.error);
+      }
+      return attemptSend;
+    };
+    if (ctx?.waitUntil) {
+      paymentTimings.ownerNotifyMs = 0;
+      ctx.waitUntil(
+        sendOwnerAttemptEmail().catch((error) => {
+          console.error("Owner payment-attempt email failed", error);
+        }),
+      );
     } else {
-      console.error("Owner payment-attempt email failed", attemptSend.error);
+      await sendOwnerAttemptEmail();
+      markPayment("ownerNotifyMs");
     }
+
+    markPayment("responseMs");
+    console.log("payment_checkout_timings", JSON.stringify(paymentTimings));
 
     return json(
       {
@@ -2711,7 +2744,7 @@ async function handlePaymentRequest(
         bookingSaved: true,
         bookingReference: checkout.checkoutReference,
         amount: Math.round(amount * 100) / 100,
-        ownerAttemptEmailSent: attemptSend.sent,
+        timings: paymentTimings,
         ...(shortNoticeReference ? { shortNoticeReference } : {}),
       },
       200,
@@ -3047,7 +3080,7 @@ async function handleFlightLookupRequest(
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const origin = request.headers.get("Origin");
     const url = new URL(request.url);
     const route = routePath(url.pathname);
@@ -4047,7 +4080,7 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
 
-      return handlePaymentRequest(request, env, origin);
+      return handlePaymentRequest(request, env, origin, ctx);
     }
 
     if (route === "payments-webhook") {

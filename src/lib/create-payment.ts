@@ -83,6 +83,14 @@ export type PaymentCheckoutRequest = {
   returnOfferToken?: string;
 };
 
+export type PaymentCheckoutTimings = {
+  validateMs?: number;
+  sumupCreateMs?: number;
+  persistMs?: number;
+  ownerNotifyMs?: number;
+  responseMs?: number;
+};
+
 export type PaymentCheckoutResult = {
   paymentUrl?: string;
   checkoutId?: string;
@@ -92,6 +100,10 @@ export type PaymentCheckoutResult = {
   /** Stable server-issued reference for booking-request conversion deduplication. */
   bookingReference?: string;
   ownerAttemptEmailSent?: boolean;
+  /** Worker stage timings in ms from request start. No customer PII. */
+  timings?: PaymentCheckoutTimings;
+  /** Browser fetch duration for /payments, set by createPaymentCheckout. */
+  clientFetchMs?: number;
   /** Server diverted to Owner approval instead of SumUp. */
   shortNotice?: boolean;
   reference?: string;
@@ -262,6 +274,8 @@ export async function createPaymentCheckout(
     recordAdFraudBehaviour("payment_started");
   });
 
+  const fetchStarted =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
   const response = await fetch(withCustomerSmartAvailabilityPreviewUrl(PAYMENTS_API_URL), {
     method: "POST",
     headers: {
@@ -409,7 +423,16 @@ export async function createPaymentCheckout(
     throw new Error("Payment service returned an invalid response");
   }
 
-  return result;
+  const clientFetchMs = Math.round(
+    (typeof performance !== "undefined" ? performance.now() : Date.now()) - fetchStarted,
+  );
+  const timings =
+    result.timings && typeof result.timings === "object" ? result.timings : undefined;
+  console.info("[payment-timing]", {
+    clientFetchMs,
+    worker: timings ?? null,
+  });
+  return { ...result, clientFetchMs, ...(timings ? { timings } : {}) };
 }
 
 export async function confirmPaidBooking(

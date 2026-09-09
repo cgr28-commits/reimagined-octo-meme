@@ -2,11 +2,12 @@
 
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { withBasePath } from "@/lib/paths";
 import {
-  ESTATE_VEHICLE,
-  vehicleShortLabel,
-} from "@/lib/vehicle-selection";
+  QUOTE_ESTATE_IMAGE,
+  QUOTE_SALOON_IMAGE,
+  isQuoteShowcaseEstate,
+} from "@/lib/quote-vehicle-image";
+import { vehicleShortLabel } from "@/lib/vehicle-selection";
 
 type QuoteResultShowcaseProps = {
   vehicleType: string;
@@ -18,11 +19,8 @@ type QuoteResultShowcaseProps = {
   bookButton: ReactNode;
 };
 
-// Presentational only: image follows the vehicle type already chosen by
-// selectVehicleForParty / quoteVehicle. No new selection rules.
-
-const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
-const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
+// Presentational only: image follows the already-chosen quote vehicle.
+// No new selection rules.
 
 export default function QuoteResultShowcase({
   vehicleType,
@@ -33,7 +31,8 @@ export default function QuoteResultShowcase({
   airportAccess,
   bookButton,
 }: QuoteResultShowcaseProps) {
-  const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
+  const isEstate = isQuoteShowcaseEstate(vehicleType);
+  const vehicleImage = isEstate ? QUOTE_ESTATE_IMAGE : QUOTE_SALOON_IMAGE;
   const vehicleLabel = vehicleShortLabel(vehicleType);
   const estateDueToLuggage = isEstate && suitcases >= 3;
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
@@ -53,7 +52,8 @@ export default function QuoteResultShowcase({
           <p className="sr-only">Vehicle for this journey</p>
           <div className="-mx-3 mt-1 w-[calc(100%+1.5rem)] max-w-none sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full lg:max-w-[460px]">
             <Image
-              src={isEstate ? ESTATE_IMAGE : SALOON_IMAGE}
+              key={vehicleImage}
+              src={vehicleImage}
               alt={
                 isEstate
                   ? "Estate airport transfer vehicle"
@@ -63,7 +63,9 @@ export default function QuoteResultShowcase({
               height={700}
               className="mx-auto h-auto w-full object-contain"
               sizes="(max-width: 640px) 96vw, 460px"
-              priority={false}
+              priority
+              loading="eager"
+              unoptimized
             />
           </div>
           <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-medium text-navy/80 min-[390px]:flex-nowrap lg:justify-start">
