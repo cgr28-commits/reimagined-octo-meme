@@ -906,83 +906,66 @@ function QuoteCard({
 
   const didApplyFreshVisitAddressPolicyRef = useRef(false);
 
-  function applyNonAddressDraftFields(draft: BookingFormDraft) {
-    if (draft.tripDate) setTripDate(draft.tripDate);
-    if (draft.tripTime) setTripTime(draft.tripTime);
-    if (!returnOfferToken && typeof draft.returnJourney === "boolean") {
-      setJourneyMode(draft.returnJourney ? "return" : "one-way");
-    }
-    if (
-      !returnOfferToken &&
-      (draft.journeyMode === "one-way" || draft.journeyMode === "return")
-    ) {
-      setJourneyMode(draft.journeyMode);
-    }
-    if (draft.returnDate) setReturnDate(draft.returnDate);
-    if (draft.returnTime) setReturnTime(draft.returnTime);
-    if (typeof draft.passengers === "number" && draft.passengers > 0) {
-      setPassengers(clampPassengerCount(draft.passengers));
-    }
-    if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
-      setSuitcases(clampPublicSuitcases(draft.suitcases));
-    }
-    setExactPassengers(null);
-    if (
-      draft.vehicle &&
-      (VEHICLE_TYPES as readonly string[]).includes(String(draft.vehicle))
-    ) {
-      setVehicle(draft.vehicle as VehicleType);
-    }
-    if (draft.customerName) setCustomerName(draft.customerName);
-    if (draft.customerEmail) setCustomerEmail(draft.customerEmail);
-    if (draft.customerMobile) setCustomerMobile(draft.customerMobile);
-    if (draft.goingFlightNumber) setGoingFlightNumber(draft.goingFlightNumber);
-    if (draft.collectionFlightNumber) setCollectionFlightNumber(draft.collectionFlightNumber);
-    if (!returnOfferToken) {
-      if (draft.journeyIntent) setJourneyIntent(draft.journeyIntent);
-      if (draft.intentAirportCode) setIntentAirportCode(draft.intentAirportCode);
-    }
-    if (typeof draft.termsAccepted === "boolean") setTermsAccepted(draft.termsAccepted);
-    if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
-    if (typeof draft.expressDropOffSelected === "boolean") {
-      setExpressDropOffSelected(draft.expressDropOffSelected);
-      expressEligibilityPrimedRef.current = false;
-    }
-    if (typeof draft.returnExpressDropOffSelected === "boolean") {
-      setReturnExpressDropOffSelected(draft.returnExpressDropOffSelected);
-      expressEligibilityPrimedRef.current = false;
-    }
-    if (draft.personalQuoteCode?.trim()) {
-      const code = draft.personalQuoteCode.trim().toUpperCase();
-      // Re-validate from server — never trust a cached agreed amount from sessionStorage.
-      void validatePersonalQuoteCode(code)
-        .then((quote) => {
-          setAppliedPersonalQuote(quote);
-        })
-        .catch(() => {
-          setAppliedPersonalQuote(null);
-        });
-    }
-  }
-
-  function blankQuoteAddressesAfterBrowserRestore() {
-    setPickupAddress("");
-    setDropoffAddress("");
-    setPickupPlace(emptySelectedPlace());
-    setDropoffPlace(emptySelectedPlace());
-    setPickupRestoredHint(false);
-    setDropoffRestoredHint(false);
-    setPickupPlaceError("");
-    setDropoffPlaceError("");
-    setRouteMetrics(null);
-    setServerFareParts(null);
-    setRouteReconfirmationRequired(false);
-    setPaymentError("");
-    setQuoteStep(1);
-    setFormResetKey((key) => key + 1);
-  }
-
   useEffect(() => {
+    function applyNonAddressDraftFields(draft: BookingFormDraft) {
+      if (draft.tripDate) setTripDate(draft.tripDate);
+      if (draft.tripTime) setTripTime(draft.tripTime);
+      if (!returnOfferToken && typeof draft.returnJourney === "boolean") {
+        setJourneyMode(draft.returnJourney ? "return" : "one-way");
+      }
+      if (
+        !returnOfferToken &&
+        (draft.journeyMode === "one-way" || draft.journeyMode === "return")
+      ) {
+        setJourneyMode(draft.journeyMode);
+      }
+      if (draft.returnDate) setReturnDate(draft.returnDate);
+      if (draft.returnTime) setReturnTime(draft.returnTime);
+      if (typeof draft.passengers === "number" && draft.passengers > 0) {
+        setPassengers(clampPassengerCount(draft.passengers));
+      }
+      if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
+        setSuitcases(clampPublicSuitcases(draft.suitcases));
+      }
+      setExactPassengers(null);
+      if (
+        draft.vehicle &&
+        (VEHICLE_TYPES as readonly string[]).includes(String(draft.vehicle))
+      ) {
+        setVehicle(draft.vehicle as VehicleType);
+      }
+      if (draft.customerName) setCustomerName(draft.customerName);
+      if (draft.customerEmail) setCustomerEmail(draft.customerEmail);
+      if (draft.customerMobile) setCustomerMobile(draft.customerMobile);
+      if (draft.goingFlightNumber) setGoingFlightNumber(draft.goingFlightNumber);
+      if (draft.collectionFlightNumber) setCollectionFlightNumber(draft.collectionFlightNumber);
+      if (!returnOfferToken) {
+        if (draft.journeyIntent) setJourneyIntent(draft.journeyIntent);
+        if (draft.intentAirportCode) setIntentAirportCode(draft.intentAirportCode);
+      }
+      if (typeof draft.termsAccepted === "boolean") setTermsAccepted(draft.termsAccepted);
+      if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
+      if (typeof draft.expressDropOffSelected === "boolean") {
+        setExpressDropOffSelected(draft.expressDropOffSelected);
+        expressEligibilityPrimedRef.current = false;
+      }
+      if (typeof draft.returnExpressDropOffSelected === "boolean") {
+        setReturnExpressDropOffSelected(draft.returnExpressDropOffSelected);
+        expressEligibilityPrimedRef.current = false;
+      }
+      if (draft.personalQuoteCode?.trim()) {
+        const code = draft.personalQuoteCode.trim().toUpperCase();
+        // Re-validate from server — never trust a cached agreed amount from sessionStorage.
+        void validatePersonalQuoteCode(code)
+          .then((quote) => {
+            setAppliedPersonalQuote(quote);
+          })
+          .catch(() => {
+            setAppliedPersonalQuote(null);
+          });
+      }
+    }
+
     const testBooking = readTestBookingPrefill();
     if (testBooking) {
       setTestChargeAmount(testBooking.chargeAmount);
@@ -1031,6 +1014,23 @@ function QuoteCard({
   }, [returnOfferToken]);
 
   useEffect(() => {
+    function blankQuoteAddressesAfterBrowserRestore() {
+      setPickupAddress("");
+      setDropoffAddress("");
+      setPickupPlace(emptySelectedPlace());
+      setDropoffPlace(emptySelectedPlace());
+      setPickupRestoredHint(false);
+      setDropoffRestoredHint(false);
+      setPickupPlaceError("");
+      setDropoffPlaceError("");
+      setRouteMetrics(null);
+      setServerFareParts(null);
+      setRouteReconfirmationRequired(false);
+      setPaymentError("");
+      setQuoteStep(1);
+      setFormResetKey((key) => key + 1);
+    }
+
     function onPageShow(event: PageTransitionEvent) {
       if (readTestBookingPrefill()) {
         return;
