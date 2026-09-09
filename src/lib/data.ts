@@ -1,5 +1,5 @@
 import { FAQ_CANCEL_ANSWER } from "../../shared/cancellation-policy";
-import { withBasePath } from "./base-path";
+import { withBasePath } from "./paths";
 
 export const SITE = {
   name: "My Airport Taxi NI",

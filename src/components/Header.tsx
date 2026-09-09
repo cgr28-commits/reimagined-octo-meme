@@ -107,7 +107,7 @@ export default function Header() {
                 className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2 touch-pan-y"
                 aria-label="Mobile navigation"
               >
-                <p className="mb-3 text-sm quote-secondary">Airport transfers across Northern Ireland.</p>
+                <p className="mb-3 text-sm text-white/60">Airport transfers across Northern Ireland.</p>
                 <div className="flex flex-col gap-1">
                   {NAV_LINKS.map((link) => (
                     <SiteNavLink
@@ -168,7 +168,7 @@ export default function Header() {
       >
         {/* Desktop/laptop trust strip — visible from md (768px+), matching pre-xl breakpoint layout */}
         <div className="hidden md:block">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 text-xs font-medium text-white/75 sm:justify-between sm:px-6 sm:text-sm lg:max-w-[1400px] lg:px-10 xl:px-12">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 text-xs font-medium text-white/55 sm:justify-between sm:px-6 sm:text-sm lg:max-w-[1400px] lg:px-10 xl:px-12">
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
               <span className="text-emerald/90">Licensed &amp; insured</span>
               <span className="text-white/20" aria-hidden>
@@ -180,7 +180,7 @@ export default function Header() {
               </span>
               <span className="text-emerald/90">Secure SumUp payment</span>
             </p>
-            <p className="hidden text-white/70 lg:block">24/7 airport transfers across Northern Ireland</p>
+            <p className="hidden text-white/40 lg:block">24/7 airport transfers across Northern Ireland</p>
           </div>
         </div>
 
@@ -198,7 +198,7 @@ export default function Header() {
               <SiteNavLink
                 key={link.href}
                 href={link.href}
-                className="whitespace-nowrap text-sm font-medium text-white/85 transition-colors hover:text-emerald"
+                className="whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald"
               >
                 {link.label}
               </SiteNavLink>

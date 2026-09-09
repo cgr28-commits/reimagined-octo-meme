@@ -15,12 +15,13 @@ live production Worker, so the whole site renders and the quote/booking flow wor
 
 ### Running the frontend
 `npm run dev` works — it serves the site with hot reload at http://localhost:3000. Use this for
-day-to-day development. `BASE_PATH` / `withBasePath` live in `src/lib/base-path.ts` so `data.ts`
-does not import `paths.ts` during module init.
+day-to-day development.
 
 Historical note: an earlier revision had a circular import between `src/lib/data.ts` and
 `src/lib/paths.ts` that made `npm run dev` 500 on every page with
-`ReferenceError: Cannot access 'BASE_PATH' before initialization`. That cycle is gone.
+`ReferenceError: Cannot access 'BASE_PATH' before initialization`. That is **fixed** on `main`:
+`paths.ts` no longer imports from `data.ts` (it uses a local `CANONICAL_SITE_ORIGIN` constant), so
+it is a leaf module and the cycle is gone.
 
 Cache gotcha: do **not** run `GITHUB_PAGES=true npm run build` and `npm run dev` against the same
 `.next` directory. The production export and the dev server share `.next`, and mixing them causes

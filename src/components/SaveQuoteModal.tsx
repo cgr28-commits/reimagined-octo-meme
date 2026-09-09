@@ -108,7 +108,7 @@ export default function SaveQuoteModal({
       aria-modal="true"
       aria-labelledby="save-quote-title"
     >
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/24 bg-navy-dark shadow-2xl">
+      <div className="quote-flow w-full max-w-md overflow-hidden rounded-2xl border border-white/24 bg-navy-dark shadow-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-white/20 px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">

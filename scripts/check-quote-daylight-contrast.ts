@@ -20,23 +20,25 @@ function read(rel: string): string {
 console.log("=== Shared daylight tokens ===");
 {
   const css = read("src/app/globals.css");
-  assert.match(css, /--color-navy-brand: #071c38/);
-  assert.match(css, /--color-navy: #0a2448/);
-  assert.match(css, /--color-navy-light: #143866/);
+  assert.match(css, /--color-navy: #071c38/);
   assert.match(css, /--color-emerald: #2fbf4a/);
-  assert.match(css, /--color-ink-secondary: #c8d3df/);
+  assert.match(css, /--quote-page: #0a2448/);
   assert.match(css, /--quote-card-bg:/);
   assert.match(css, /--quote-card-border:/);
   assert.match(css, /--quote-panel-bg:/);
   assert.match(css, /--quote-input-border:/);
   assert.match(css, /--quote-selected-glow:/);
+  assert.match(css, /--quote-secondary-ink: #c8d3df/);
   assert.match(css, /\.quote-flow \{/);
+  assert.match(css, /\.quote-flow\.glass-card \{/);
+  assert.match(css, /\.quote-flow \.btn-primary \{/);
   assert.match(css, /\.quote-panel \{/);
   assert.match(css, /\.quote-choice \{/);
   assert.match(css, /\.quote-choice-selected \{/);
   assert.match(css, /\.quote-header-logo \{/);
-  assert.match(css, /\.btn-primary:disabled \{[\s\S]*opacity: 0\.62/);
-  console.log("OK  navy/emerald tokens + quote surface classes exist");
+  assert.match(css, /\.quote-flow \.btn-primary:disabled \{[\s\S]*opacity: 0\.62/);
+  assert.doesNotMatch(css, /--color-navy: #0a2448/);
+  console.log("OK  quote tokens are scoped; site navy stays #071c38");
 }
 
 console.log("\n=== Quote containers and step indicator ===");

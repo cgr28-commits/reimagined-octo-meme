@@ -1,18 +1,16 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Brand navy stays #071C38; page navy is a daylight lift (~15–20% clearer). */
-  --color-navy-brand: #071c38;
-  --color-navy: #0a2448;
-  --color-navy-light: #143866;
-  --color-navy-dark: #06182c;
+  --color-navy: #071c38;
+  --color-navy-light: #0c2a52;
+  --color-navy-dark: #041020;
   --color-emerald: #2fbf4a;
-  --color-emerald-light: #45c85c;
+  --color-emerald-light: #3ebf55;
   --color-emerald-dark: #1f9a36;
-  --color-mist: #eef2f8;
-  --color-ink-muted: rgba(236, 241, 248, 0.82);
-  /* Secondary copy on navy — target ~#C8D3DF for outdoor readability */
-  --color-ink-secondary: #c8d3df;
+  --color-mist: #e8edf5;
+  --color-ink-muted: rgba(232, 237, 245, 0.68);
+  /* Readable secondary copy on navy (~#AEB9C8–#BCC6D2) */
+  --color-ink-secondary: #b5c0cd;
   --font-sans: var(--font-manrope);
   --font-display: var(--font-cormorant);
   --radius-control: 0.75rem;
@@ -20,6 +18,7 @@
 }
 
 :root {
+  /* Quote / booking flow only — do not reuse these as site-wide theme tokens. */
   --quote-page: #0a2448;
   --quote-card-bg: rgba(16, 46, 82, 0.94);
   --quote-card-border: rgba(255, 255, 255, 0.24);
@@ -34,6 +33,7 @@
   --quote-selected-glow: 0 0 0 3px rgba(47, 191, 74, 0.22);
   --quote-placeholder: rgba(236, 241, 248, 0.68);
   --quote-price-ink: #ffffff;
+  --quote-secondary-ink: #c8d3df;
 }
 
 html {
@@ -95,17 +95,25 @@ main {
 
 /* Premium surfaces — restrained, not glassy SaaS */
 .glass-card {
-  background: var(--quote-card-bg);
+  background: rgba(8, 24, 48, 0.72);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--quote-card-border);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   box-shadow:
-    0 20px 50px rgba(2, 8, 20, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 20px 50px rgba(2, 8, 20, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .quote-flow {
   color: var(--color-mist);
+}
+
+.quote-flow.glass-card {
+  background: var(--quote-card-bg);
+  border: 1px solid var(--quote-card-border);
+  box-shadow:
+    0 20px 50px rgba(2, 8, 20, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .quote-panel {
@@ -122,7 +130,7 @@ main {
 .quote-choice-selected {
   border-color: var(--quote-selected-border);
   background: var(--color-emerald);
-  color: var(--color-navy-brand, #071c38);
+  color: var(--color-navy);
   box-shadow: var(--quote-selected-glow);
 }
 
@@ -133,14 +141,12 @@ main {
   min-height: 3.125rem;
   border-radius: var(--radius-control);
   background: var(--color-emerald);
-  color: var(--color-navy-brand, #071c38);
+  color: var(--color-navy);
   font-size: 0.9375rem;
   font-weight: 700;
   letter-spacing: -0.012em;
   transition: background-color 0.16s ease, transform 0.16s ease;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.22) inset,
-    0 8px 18px rgba(47, 191, 74, 0.18);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -153,13 +159,23 @@ main {
 
 .btn-primary:disabled {
   cursor: not-allowed;
-  opacity: 0.62;
-  color: #062033;
+  opacity: 0.5;
 }
 
 .btn-primary:focus-visible {
   outline: 2px solid rgba(47, 191, 74, 0.65);
   outline-offset: 2px;
+}
+
+.quote-flow .btn-primary {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 8px 18px rgba(47, 191, 74, 0.18);
+}
+
+.quote-flow .btn-primary:disabled {
+  opacity: 0.62;
+  color: #062033;
 }
 
 .btn-secondary {
@@ -168,8 +184,8 @@ main {
   justify-content: center;
   min-height: 3.125rem;
   border-radius: var(--radius-control);
-  border: 1px solid rgba(255, 255, 255, 0.52);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: transparent;
   color: white;
   font-size: 0.875rem;
   font-weight: 600;
@@ -187,6 +203,11 @@ main {
   outline-offset: 2px;
 }
 
+.quote-flow .btn-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .btn-pay {
   display: inline-flex;
   align-items: center;
@@ -194,12 +215,10 @@ main {
   min-height: 3.125rem;
   border-radius: var(--radius-control);
   background: #ffffff;
-  color: var(--color-navy-brand, #071c38);
+  color: var(--color-navy);
   font-size: 0.9375rem;
   font-weight: 700;
   letter-spacing: -0.012em;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 0 1px rgba(47, 191, 74, 0.22);
   transition: background-color 0.16s ease, transform 0.16s ease;
 }
 
@@ -213,6 +232,15 @@ main {
 
 .btn-pay:disabled {
   cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.quote-flow .btn-pay {
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(47, 191, 74, 0.22);
+}
+
+.quote-flow .btn-pay:disabled {
   opacity: 0.62;
   color: #0a2448;
 }
@@ -291,12 +319,16 @@ main {
   font-weight: 650;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  color: var(--color-ink-secondary);
+}
+
+.quote-flow .form-label {
   color: #d7e0ec;
 }
 
 /* Quote / booking secondary body copy — secondary to headings, still readable on iPhone */
 .quote-secondary {
-  color: var(--color-ink-secondary);
+  color: var(--quote-secondary-ink);
 }
 
 @keyframes contact-fade-up {
@@ -438,7 +470,7 @@ main {
 
 .section-description {
   text-wrap: pretty;
-  color: rgba(236, 241, 248, 0.8);
+  color: rgba(232, 237, 245, 0.62);
 }
 
 .faq-answer {
@@ -474,8 +506,8 @@ main {
   user-select: text;
 }
 
-.quote-text-input::placeholder,
-.address-input::placeholder {
+.quote-flow .quote-text-input::placeholder,
+.quote-flow .address-input::placeholder {
   color: var(--quote-placeholder);
   opacity: 1;
 }
@@ -564,7 +596,7 @@ main {
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
-  color: var(--color-ink-secondary);
+  color: var(--quote-secondary-ink);
 }
 
 .address-suggestions {

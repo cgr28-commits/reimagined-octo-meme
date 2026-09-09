@@ -76,9 +76,10 @@ assert.match(css, /\.quote-step \{[\s\S]*color: rgba\(255,\s*255,\s*255,\s*0\.94
 assert.match(css, /\.quote-step \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.46\)/);
 assert.match(css, /\.quote-step-active \{[\s\S]*color: #ffffff/);
 assert.match(css, /\.quote-step-done \{[\s\S]*color: #b8f0c4/);
-assert.match(css, /\.btn-secondary \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.52\)/);
+assert.match(css, /\.quote-flow \.btn-secondary \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.52\)/);
 assert.match(css, /--quote-card-bg/);
-assert.match(css, /--color-navy: #0a2448/);
+assert.match(css, /--quote-page: #0a2448/);
+assert.match(css, /--color-navy: #071c38/);
 console.log("OK  step indicator + field classes wired");
 
 console.log("\n=== AddressInput Places completion ===");

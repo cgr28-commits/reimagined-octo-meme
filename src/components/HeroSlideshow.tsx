@@ -20,11 +20,11 @@ export default function HeroSlideshow() {
             Belfast Airport Transfers – Pre-Booked 24/7
           </h1>
 
-          <p className="mt-2.5 max-w-xl text-[0.9375rem] leading-snug text-white/82 md:hidden">
+          <p className="mt-2.5 max-w-xl text-[0.9375rem] leading-snug text-white/68 md:hidden">
             Fixed-price, pre-booked private taxi transfers to Belfast International, Belfast City and Dublin Airport.
           </p>
 
-          <p className="mt-5 hidden max-w-xl text-base leading-relaxed text-white/82 sm:text-lg md:block lg:mt-6 lg:max-w-xl lg:text-[1.125rem] lg:leading-relaxed">
+          <p className="mt-5 hidden max-w-xl text-base leading-relaxed text-white/68 sm:text-lg md:block lg:mt-6 lg:max-w-xl lg:text-[1.125rem] lg:leading-relaxed">
             Reliable, fixed-price airport transfers to and from Belfast International, Belfast City and Dublin Airport. Book in advance and travel with confidence.
           </p>
 
@@ -32,7 +32,7 @@ export default function HeroSlideshow() {
             Fixed fares. Reliable airport transfers. No surprises.
           </p>
 
-          <ul className="mt-8 hidden gap-3.5 text-sm text-white/78 sm:grid-cols-2 md:grid lg:mt-10 lg:gap-x-8 lg:gap-y-3.5">
+          <ul className="mt-8 hidden gap-3.5 text-sm text-white/62 sm:grid-cols-2 md:grid lg:mt-10 lg:gap-x-8 lg:gap-y-3.5">
             {[
               "Instant fixed prices online",
               "Airport fees & applicable tolls included",
