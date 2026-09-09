@@ -1,5 +1,6 @@
 /**
- * Restored confirmed address storage checks.
+ * Confirmed-place helpers still exist for the active session.
+ * A later visit must not treat leftover storage as a confirmed address.
  * Run: npx tsx scripts/check-restored-address-confirm.ts
  */
 
@@ -64,34 +65,35 @@ assert.match(storage, /clearConfirmedPickupPlace/);
 assert.match(storage, /isQuoteReadyPlace/);
 console.log("OK  pickup/dropoff place persistence helpers exist");
 
-console.log("\n=== QuoteCard restore + clear wiring ===");
+console.log("\n=== QuoteCard no longer restores leftover addresses ===");
 const card = read("src/components/QuoteCard.tsx");
-assert.match(card, /readConfirmedPickupPlace/);
-assert.match(card, /readConfirmedDropoffPlace/);
+assert.match(card, /decideQuoteAddressReset/);
+assert.match(card, /clearStoredQuoteAddresses/);
+assert.match(card, /pageshow/);
+assert.match(card, /event\.persisted/);
+assert.match(card, /blankQuoteAddressesAfterBrowserRestore/);
 assert.match(card, /saveConfirmedPickupPlace/);
 assert.match(card, /saveConfirmedDropoffPlace/);
 assert.match(card, /clearConfirmedPickupPlace/);
 assert.match(card, /clearConfirmedDropoffPlace/);
 assert.match(card, /clearPickupAddressStorage/);
-assert.match(card, /setPickupRestoredHint\(true\)/);
-assert.match(card, /pickupConfirmedPlace/);
-assert.match(card, /dropoffConfirmedPlace/);
-console.log("OK  QuoteCard restores confirmed places and clears on edit");
+assert.doesNotMatch(card, /readConfirmedPickupPlace/);
+assert.doesNotMatch(card, /readConfirmedDropoffPlace/);
+assert.doesNotMatch(card, /setPickupRestoredHint\(true\)/);
+assert.doesNotMatch(card, /setDropoffRestoredHint\(true\)/);
+console.log("OK  QuoteCard clears leftover addresses instead of restoring them");
 
-console.log("\n=== AddressInput hydration + restored hint ===");
+console.log("\n=== AddressInput still hydrates an in-session confirmed place ===");
 const input = read("src/components/AddressInput.tsx");
 assert.match(input, /confirmedPlace/);
-assert.match(input, /restoredHint/);
-assert.match(input, /Using your previous address/);
 assert.match(input, /selectedPlaceRef\.current = confirmedPlace/);
-console.log("OK  AddressInput hydrates restored confirmation");
+console.log("OK  AddressInput hydrates the current confirmed selection");
 
-console.log("\n=== Progressive route passes restored props ===");
+console.log("\n=== Progressive route still passes confirmed props ===");
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");
 assert.match(progressive, /pickupConfirmedPlace/);
-assert.match(progressive, /pickupRestoredHint/);
 assert.match(progressive, /confirmedPlace=\{pickupConfirmedPlace\}/);
 assert.match(progressive, /confirmedPlace=\{dropoffConfirmedPlace\}/);
-console.log("OK  progressive route wires restored confirmation for both fields");
+console.log("OK  progressive route wires confirmed places for both fields");
 
 console.log("\nAll restored-address confirmation checks passed.");

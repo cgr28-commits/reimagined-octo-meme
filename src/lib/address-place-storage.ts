@@ -1,9 +1,10 @@
 /**
- * Persist confirmed autocomplete places so returning customers can continue
- * without tapping the same suggestion again.
+ * Persist confirmed autocomplete places for the *active* quote session
+ * (edits, Start over, and payment-draft writes).
  *
- * Only quote-ready places (placeId + address + lat/lng) are restored as confirmed.
- * Free-text alone is never treated as confirmed.
+ * A fresh page load or back/forward-cache restore must not treat these as
+ * confirmed — see `fresh-visit-address-reset.ts`. Free-text alone is never
+ * treated as confirmed.
  */
 
 import {
