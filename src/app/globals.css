@@ -17,6 +17,25 @@
   --shadow-soft: 0 12px 40px rgba(2, 10, 24, 0.35);
 }
 
+:root {
+  /* Quote / booking flow only — do not reuse these as site-wide theme tokens. */
+  --quote-page: #0a2448;
+  --quote-card-bg: rgba(16, 46, 82, 0.94);
+  --quote-card-border: rgba(255, 255, 255, 0.24);
+  --quote-panel-bg: rgba(255, 255, 255, 0.08);
+  --quote-panel-border: rgba(255, 255, 255, 0.22);
+  --quote-input-bg: rgba(255, 255, 255, 0.1);
+  --quote-input-border: rgba(255, 255, 255, 0.3);
+  --quote-choice-bg: rgba(255, 255, 255, 0.07);
+  --quote-choice-border: rgba(255, 255, 255, 0.26);
+  --quote-selected-border: #2fbf4a;
+  --quote-selected-bg: rgba(47, 191, 74, 0.16);
+  --quote-selected-glow: 0 0 0 3px rgba(47, 191, 74, 0.22);
+  --quote-placeholder: rgba(236, 241, 248, 0.68);
+  --quote-price-ink: #ffffff;
+  --quote-secondary-ink: #c8d3df;
+}
+
 html {
   scroll-behavior: smooth;
   overflow-x: clip;
@@ -85,6 +104,36 @@ main {
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
+.quote-flow {
+  color: var(--color-mist);
+}
+
+.quote-flow.glass-card {
+  background: var(--quote-card-bg);
+  border: 1px solid var(--quote-card-border);
+  box-shadow:
+    0 20px 50px rgba(2, 8, 20, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.quote-panel {
+  border: 1px solid var(--quote-panel-border);
+  background: var(--quote-panel-bg);
+}
+
+.quote-choice {
+  border: 1px solid var(--quote-choice-border);
+  background: var(--quote-choice-bg);
+  color: #ffffff;
+}
+
+.quote-choice-selected {
+  border-color: var(--quote-selected-border);
+  background: var(--color-emerald);
+  color: var(--color-navy);
+  box-shadow: var(--quote-selected-glow);
+}
+
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -118,6 +167,17 @@ main {
   outline-offset: 2px;
 }
 
+.quote-flow .btn-primary {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 8px 18px rgba(47, 191, 74, 0.18);
+}
+
+.quote-flow .btn-primary:disabled {
+  opacity: 0.62;
+  color: #062033;
+}
+
 .btn-secondary {
   display: inline-flex;
   align-items: center;
@@ -141,6 +201,11 @@ main {
 .btn-secondary:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.35);
   outline-offset: 2px;
+}
+
+.quote-flow .btn-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .btn-pay {
@@ -170,21 +235,33 @@ main {
   opacity: 0.5;
 }
 
+.quote-flow .btn-pay {
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(47, 191, 74, 0.22);
+}
+
+.quote-flow .btn-pay:disabled {
+  opacity: 0.62;
+  color: #0a2448;
+}
+
 .quote-price-figure {
   font-family: var(--font-display), Georgia, serif;
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.05;
-  color: #ffffff;
+  color: var(--quote-price-ink);
   font-variant-numeric: tabular-nums;
-  font-size: clamp(2.15rem, 5.5vw, 2.75rem);
+  font-size: clamp(2.25rem, 6vw, 2.9rem);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
 .quote-price-panel {
   border-radius: 0.875rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(4, 16, 32, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(10, 32, 58, 0.78);
   padding: 1.15rem 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 @media (min-width: 640px) {
@@ -204,9 +281,9 @@ main {
 .quote-step {
   min-height: 2.55rem;
   border-radius: 0.65rem;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  background: rgba(255, 255, 255, 0.11);
+  color: rgba(255, 255, 255, 0.94);
   padding: 0.3rem 0.2rem;
   text-align: center;
   overflow-wrap: break-word;
@@ -222,15 +299,17 @@ main {
 
 .quote-step-active {
   border-color: var(--color-emerald);
-  background: rgba(47, 191, 74, 0.16);
+  background: rgba(47, 191, 74, 0.24);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(47, 191, 74, 0.28);
+  box-shadow:
+    inset 0 0 0 1px rgba(47, 191, 74, 0.45),
+    0 0 0 3px rgba(47, 191, 74, 0.18);
 }
 
 .quote-step-done {
-  border-color: rgba(127, 217, 146, 0.55);
-  background: rgba(47, 191, 74, 0.12);
-  color: #9ee6ad;
+  border-color: rgba(159, 230, 176, 0.7);
+  background: rgba(47, 191, 74, 0.16);
+  color: #b8f0c4;
 }
 
 .form-label {
@@ -243,9 +322,13 @@ main {
   color: var(--color-ink-secondary);
 }
 
+.quote-flow .form-label {
+  color: #d7e0ec;
+}
+
 /* Quote / booking secondary body copy — secondary to headings, still readable on iPhone */
 .quote-secondary {
-  color: var(--color-ink-secondary);
+  color: var(--quote-secondary-ink);
 }
 
 @keyframes contact-fade-up {
@@ -423,6 +506,22 @@ main {
   user-select: text;
 }
 
+.quote-flow .quote-text-input::placeholder,
+.quote-flow .address-input::placeholder {
+  color: var(--quote-placeholder);
+  opacity: 1;
+}
+
+#quoteForm input[type="checkbox"] {
+  accent-color: var(--color-emerald);
+  outline: 1px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 1px;
+}
+
+.quote-header-logo {
+  filter: brightness(1.08) contrast(1.06) saturate(1.04);
+}
+
 .quote-field {
   width: 100%;
   max-width: 100%;
@@ -497,7 +596,7 @@ main {
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
-  color: var(--color-ink-secondary);
+  color: var(--quote-secondary-ink);
 }
 
 .address-suggestions {

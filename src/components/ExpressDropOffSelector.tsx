@@ -130,18 +130,18 @@ export default function ExpressDropOffSelector({
 export function accessChoiceStyles(light: boolean) {
   return {
     heading: light ? "text-navy" : "text-white",
-    hint: light ? "text-navy/55" : "text-white/55",
-    note: light ? "text-navy/70" : "text-white/70",
-    radio: light ? "border-navy/30 accent-emerald" : "border-white/30 accent-emerald",
+    hint: light ? "text-navy/55" : "quote-secondary",
+    note: light ? "text-navy/70" : "quote-secondary",
+    radio: light ? "border-navy/30 accent-emerald" : "border-white/40 accent-emerald",
     card: "flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
     selected: light
       ? "border-emerald bg-emerald/15 text-navy"
-      : "border-emerald bg-emerald/10 text-white",
+      : "border-emerald bg-emerald/15 text-white shadow-[0_0_0_3px_rgba(47,191,74,0.18)]",
     selectedFree: light
       ? "border-amber-600/50 bg-amber-500/15 text-navy"
-      : "border-amber-400/50 bg-amber-500/10 text-white",
+      : "border-amber-400/55 bg-amber-500/12 text-white",
     idle: light
       ? "border-navy/15 text-navy/80 hover:border-navy/30"
-      : "border-white/15 text-white/80 hover:border-white/30",
+      : "border-white/28 text-white hover:border-white/42",
   };
 }

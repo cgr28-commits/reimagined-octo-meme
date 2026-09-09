@@ -47,19 +47,19 @@ export default function CombinedAirportAccessChoice({
   if (mode === "summary" && !editing) {
     return (
       <div
-        className={`min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/5 px-3 py-3 ${className}`}
+        className={`min-w-0 space-y-2 rounded-xl quote-panel px-3 py-3 ${className}`}
       >
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 space-y-1 text-sm text-white/85">
             <p className="font-medium text-white">Airport access (return)</p>
             <p>{combinedAirportAccessBreakdownLabel(selected, totalFeeGbp)}</p>
-            <p className="text-xs text-white/50">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
+            <p className="text-xs quote-secondary">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
           </div>
           {allowFreeAlternative !== false ? (
             <button
               type="button"
               onClick={() => onEditingChange?.(true)}
-              className="min-h-11 shrink-0 rounded-xl border border-white/20 px-3 text-sm font-semibold text-white hover:bg-white/5"
+              className="min-h-11 shrink-0 rounded-xl border border-white/32 px-3 text-sm font-semibold text-white hover:bg-white/10"
             >
               Change
             </button>

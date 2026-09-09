@@ -352,8 +352,8 @@ function TapChoiceRow({
               onClick={() => onChange(option)}
               className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
                 selected
-                  ? "bg-emerald text-navy shadow-sm"
-                  : "border border-white/15 bg-white/5 text-white/85 hover:border-emerald/40 hover:text-white"
+                  ? "quote-choice-selected bg-emerald text-navy"
+                  : "quote-choice border border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:text-white"
               }`}
             >
               {formatOption ? formatOption(option) : String(option)}
@@ -397,7 +397,7 @@ function PriceInclusionBlock({
   });
 
   return (
-    <div className="mt-3 text-xs leading-relaxed text-white/60">
+    <div className="mt-3 text-xs leading-relaxed quote-secondary">
       <p>
         {inclusions.summary}
         {guideSuffix ? ` ${guideSuffix}` : ""}
@@ -4326,18 +4326,18 @@ function QuoteCard({
     return (
       <div
         id={activeOnStep === 2 ? "step2-flight-details" : "step3-flight-details"}
-        className="scroll-mt-44 space-y-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 md:scroll-mt-28"
+        className="scroll-mt-44 space-y-4 rounded-xl quote-panel px-4 py-4 md:scroll-mt-28"
       >
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-white">
             Flight details
           </p>
           {needsOutboundFlightNumber ? (
-            <p className="mt-1 text-xs text-white/55">
+            <p className="mt-1 text-xs quote-secondary">
               Flight number <span className="font-medium text-white/80">(required)</span>
             </p>
           ) : null}
-          <p className="mt-1 text-xs text-white/55">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
+          <p className="mt-1 text-xs quote-secondary">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
         </div>
         {needsOutboundFlightNumber ? (
           <FlightNumberField
@@ -4395,26 +4395,26 @@ function QuoteCard({
     }
     return (
       <div className="mt-3 space-y-2 text-left" data-airport-fee-lines>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+        <p className="text-[11px] font-semibold uppercase tracking-wider quote-secondary">
           Airport charges
         </p>
         <ul className="space-y-2">
           {airportFeeResolution.lines.map((line) => (
             <li
               key={line.id}
-              className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+              className="rounded-lg quote-panel px-3 py-2"
             >
               <div className="flex items-start justify-between gap-3 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium text-white">
                     {line.label}
                     {line.leg === "return" ? (
-                      <span className="ml-1.5 text-xs font-normal text-white/45">
+                      <span className="ml-1.5 text-xs font-normal quote-secondary">
                         (return)
                       </span>
                     ) : null}
                   </p>
-                  <p className="mt-0.5 text-xs text-white/55">
+                  <p className="mt-0.5 text-xs quote-secondary">
                     {line.removed
                       ? "Removed — free-area alternative selected"
                       : line.removable
@@ -4545,16 +4545,16 @@ function QuoteCard({
     }
     const payable = formatQuote(openWebsiteFareBreakdown.finalAmountPayableGbp);
     return (
-      <details className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2.5">
+      <details className="rounded-xl quote-panel px-3 py-2.5">
         <summary className="cursor-pointer list-none text-sm font-medium text-white/80 [&::-webkit-details-marker]:hidden">
           <span className="flex items-center justify-between gap-3">
             <span>
               <span className="block">View price breakdown</span>
-              <span className="mt-0.5 block text-xs font-normal text-white/45">
+              <span className="mt-0.5 block text-xs font-normal quote-secondary">
                 See how your {payable} quote is calculated
               </span>
             </span>
-            <span className="shrink-0 text-white/45" aria-hidden>
+            <span className="shrink-0 quote-secondary" aria-hidden>
               ▾
             </span>
           </span>
@@ -5269,7 +5269,7 @@ function QuoteCard({
                   <button
                     type="button"
                     onClick={handleStartFreshCheckout}
-                    className="w-full text-center text-xs font-medium text-white/55 underline-offset-2 hover:text-white/80 hover:underline"
+                    className="w-full text-center text-xs font-medium quote-secondary underline-offset-2 hover:text-white hover:underline"
                   >
                     Start a new payment link
                   </button>
@@ -5503,7 +5503,7 @@ function QuoteCard({
           shortNoticeResultRef.current = node;
         }}
         id="quote-availability-confirmation"
-        className="glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8"
+        className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8"
       >
         <div className="rounded-xl border border-amber-400/30 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
           <p
@@ -5529,7 +5529,7 @@ function QuoteCard({
             Please message us on WhatsApp. Once availability is confirmed, you&apos;ll be able to pay
             securely online for this booking.
           </p>
-          <p className="mt-5 text-sm text-white/60">
+          <p className="mt-5 text-sm quote-secondary">
             Booking reference:{" "}
             <span className="font-semibold text-white">{shortNoticeResult.reference}</span>
           </p>
@@ -5546,7 +5546,7 @@ function QuoteCard({
             onClick={() => {
               performStartNewQuote();
             }}
-            className="mt-4 block w-full text-sm text-white/55 underline-offset-2 hover:underline sm:mx-auto sm:w-auto"
+            className="mt-4 block w-full text-sm quote-secondary underline-offset-2 hover:underline sm:mx-auto sm:w-auto"
           >
             Start a New Quote
           </button>
@@ -5568,9 +5568,9 @@ function QuoteCard({
           bookingResultRef.current = node;
         }}
         id="bookingRequestResult"
-        className="glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8 md:scroll-mt-28"
+        className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8 md:scroll-mt-28"
       >
-        <div className="rounded-xl border border-white/10 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
+        <div className="rounded-xl quote-panel px-5 py-8 text-center sm:px-8 sm:py-10">
           <p
             data-booking-nav-heading
             tabIndex={-1}
@@ -5606,18 +5606,18 @@ function QuoteCard({
                 : "We’ve received your booking request. If you paid online with SumUp, your booking is confirmed. Otherwise we’ll confirm the job and email a SumUp payment link — your trip is confirmed after payment."}
           </p>
           {(bookingReference || quoteTransactionId) && (
-            <p className="mt-4 text-sm text-white/60">
+            <p className="mt-4 text-sm quote-secondary">
               Reference: {bookingReference || quoteTransactionId}
             </p>
           )}
           {!isManualQuoteJourney && bookingDelivery === "whatsapp" && (
-            <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
+            <p className="mx-auto mt-4 max-w-md text-sm quote-secondary">
               Your {isEnquiryOnly ? "enquiry" : "booking"} message should open in WhatsApp. If it
               didn&apos;t, open WhatsApp and message @{SITE.whatsappUsername}.
             </p>
           )}
           {!isManualQuoteJourney && bookingDelivery === "email" && (
-            <p className="mx-auto mt-4 max-w-md text-sm text-white/60">
+            <p className="mx-auto mt-4 max-w-md text-sm quote-secondary">
               Your {isEnquiryOnly ? "enquiry" : "booking"} has been sent by email. We&apos;ll
               confirm at {customerEmail.trim()}.
             </p>
@@ -5637,7 +5637,7 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
+    <div ref={cardRef} className="quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
       <div className="mb-4 sm:mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"
@@ -5885,7 +5885,7 @@ function QuoteCard({
                     </p>
                   </div>
                 ) : isRoiJourney ? (
-                  <div className="rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-sm text-white/85">
+                  <div className="rounded-xl quote-panel px-4 py-3 text-sm text-white">
                     <p className="font-semibold text-emerald">Republic of Ireland journey – request your fixed price</p>
                     <p className="mt-1 text-xs leading-relaxed text-white/70">
                       Republic of Ireland city destinations (outside Dublin Airport) are quoted
@@ -5966,7 +5966,7 @@ function QuoteCard({
                     ) : (
                       <>
                         {!exceedsOnlineCapacity && (
-                          <div className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-3 sm:px-4 sm:py-3.5">
+                          <div className="rounded-xl quote-panel px-3 py-3 sm:px-4 sm:py-3.5">
                             <p className="form-label mb-0">
                               Vehicle for this journey
                             </p>
@@ -6046,7 +6046,7 @@ function QuoteCard({
             className={`grid grid-cols-2 overflow-hidden rounded-xl border bg-white/[0.06] ${
               journeyMode == null
                 ? "border-emerald/50 ring-1 ring-emerald/25"
-                : "border-white/15"
+                : "border-white/26"
             }`}
           >
             <button
@@ -6059,7 +6059,7 @@ function QuoteCard({
               className={`min-h-[52px] w-full px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald ${
                 journeyMode === "one-way"
                   ? "bg-emerald text-navy"
-                  : "bg-transparent text-white/75 hover:bg-white/[0.04] hover:text-white"
+                  : "bg-transparent text-white/90 hover:bg-white/[0.08] hover:text-white"
               }`}
             >
               One way
@@ -6071,7 +6071,7 @@ function QuoteCard({
               className={`min-h-[52px] w-full border-l border-white/40 px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald ${
                 journeyMode === "return"
                   ? "bg-emerald text-navy"
-                  : "bg-transparent text-white/75 hover:bg-white/[0.04] hover:text-white"
+                  : "bg-transparent text-white/90 hover:bg-white/[0.08] hover:text-white"
               }`}
             >
               Return · 5% off
@@ -6080,7 +6080,7 @@ function QuoteCard({
           {journeyMode == null && (
             <p
               id="quote-journey-mode-prompt"
-              className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
+              className="mt-3 rounded-xl quote-panel px-4 py-3 text-sm text-white"
               role="status"
             >
               Choose One way or Return to continue.
@@ -6096,17 +6096,17 @@ function QuoteCard({
             </p>
             {isLdyTrip ? (
               <>
-                <div className="mb-2 rounded-xl border border-white/10 bg-navy-dark/40 px-4 py-3 text-sm text-white/80">
+                <div className="mb-2 rounded-xl quote-panel px-4 py-3 text-sm text-white">
                   Transfers between City of Derry Airport and the greater Belfast area only.
                 </div>
-                <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+                <div className="grid grid-cols-2 gap-2 rounded-xl quote-panel p-1">
                   <button
                     type="button"
                     aria-pressed={tripDirection === "to-airport"}
                     onClick={() => setTripDirection("to-airport")}
                     className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                       tripDirection === "to-airport"
-                        ? "bg-emerald text-navy shadow-sm"
+                        ? "quote-choice-selected bg-emerald text-navy"
                         : "text-white/70 hover:text-white"
                     }`}
                   >
@@ -6118,7 +6118,7 @@ function QuoteCard({
                     onClick={() => setTripDirection("from-airport")}
                     className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                       tripDirection === "from-airport"
-                        ? "bg-emerald text-navy shadow-sm"
+                        ? "quote-choice-selected bg-emerald text-navy"
                         : "text-white/70 hover:text-white"
                     }`}
                   >
@@ -6127,14 +6127,14 @@ function QuoteCard({
                 </div>
               </>
             ) : (
-            <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+            <div className="grid grid-cols-2 gap-2 rounded-xl quote-panel p-1">
               <button
                 type="button"
                 aria-pressed={tripDirection === "to-airport"}
                 onClick={() => applyJourneyIntent("to-airport")}
                 className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                   tripDirection === "to-airport"
-                    ? "bg-emerald text-navy shadow-sm"
+                    ? "quote-choice-selected bg-emerald text-navy"
                     : "text-white/70 hover:text-white"
                 }`}
               >
@@ -6146,7 +6146,7 @@ function QuoteCard({
                 onClick={() => applyJourneyIntent("from-airport")}
                 className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
                   tripDirection === "from-airport"
-                    ? "bg-emerald text-navy shadow-sm"
+                    ? "quote-choice-selected bg-emerald text-navy"
                     : "text-white/70 hover:text-white"
                 }`}
               >
@@ -6180,7 +6180,7 @@ function QuoteCard({
               onChange={(e) => {
                 setAirportCode(e.target.value);
               }}
-              className="box-border h-12 w-full min-w-0 rounded-xl border border-white/10 bg-navy-light px-4 text-base text-white outline-none transition-colors focus:border-emerald/50 focus:ring-1 focus:ring-emerald/30"
+              className="quote-text-input box-border h-12 w-full min-w-0 rounded-xl border border-white/30 bg-navy-light px-4 text-base text-white outline-none transition-colors focus:border-emerald/70 focus:ring-1 focus:ring-emerald/35"
             >
               <option value="">Select airport</option>
               {AIRPORTS.map((a) => (
@@ -6343,7 +6343,7 @@ function QuoteCard({
         {!isA2AFlow && journeyMode != null && (
         <div
           id="passenger-luggage-section"
-          className="space-y-4 rounded-xl border border-white/10 bg-white/5 px-4 py-4 lg:space-y-3.5 lg:px-4 lg:py-3.5"
+          className="space-y-4 rounded-xl quote-panel px-4 py-4 lg:space-y-3.5 lg:px-4 lg:py-3.5"
         >
           <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
             <TapChoiceRow
@@ -6376,7 +6376,7 @@ function QuoteCard({
           ) : !partySelectionReady ? (
             <p
               id="quote-party-prompt"
-              className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/80"
+              className="rounded-xl quote-panel px-4 py-3 text-sm text-white"
               role="status"
             >
               Select your passenger and suitcase numbers to see your fixed price.

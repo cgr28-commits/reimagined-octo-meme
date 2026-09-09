@@ -56,7 +56,7 @@ export default function ExpressDropOffChoice({
   if (mode === "summary" && !editing) {
     return (
       <div
-        className={`min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/5 px-3 py-3 ${className}`}
+        className={`min-w-0 space-y-2 rounded-xl quote-panel px-3 py-3 ${className}`}
       >
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 space-y-1 text-sm text-white/85">
@@ -65,7 +65,7 @@ export default function ExpressDropOffChoice({
                 (service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off")}
             </p>
             <p>{expressDropOffBreakdownLabel(airportCode, selected, service)}</p>
-            <p className="text-xs text-white/50">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
+            <p className="text-xs quote-secondary">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
           </div>
           {allowFreeAlternative !== false ? (
             <button

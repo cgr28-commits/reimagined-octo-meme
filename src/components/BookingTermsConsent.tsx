@@ -55,8 +55,8 @@ export default function BookingTermsConsent({
         </p>
       </div>
       {mode === "quote-request" ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white/75">
-          <p className="font-semibold text-white/90">Agreement</p>
+        <div className="rounded-xl quote-panel px-4 py-3 text-sm leading-relaxed quote-secondary">
+          <p className="font-semibold text-white">Agreement</p>
           <p className="mt-1.5">
             I understand this is a quote request. My journey is not booked yet. If the quote is
             approved, I’ll receive my personalised price and a secure SumUp payment link. My booking
@@ -68,7 +68,7 @@ export default function BookingTermsConsent({
         className={`flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border bg-white/[0.04] px-4 py-3 text-left ${
           error
             ? "border-red-400/55 ring-1 ring-red-400/30"
-            : "border-white/15"
+            : "border-white/28"
         }`}
       >
         <input
@@ -79,7 +79,7 @@ export default function BookingTermsConsent({
           onChange={(event) => onAcceptedChange(event.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
         />
-        <span className="min-w-0 break-words text-sm leading-relaxed text-white/80">
+        <span className="min-w-0 break-words text-sm leading-relaxed text-white/92">
           {mode === "card-payment" ? (
             <>
               I agree to the{" "}
@@ -115,7 +115,7 @@ export default function BookingTermsConsent({
           {error}
         </p>
       )}
-      <p className="text-xs leading-relaxed text-white/45">
+      <p className="text-xs leading-relaxed quote-secondary">
         Keep your confirmation email or booking reference as proof of agreement.
       </p>
     </div>

@@ -187,7 +187,7 @@ export default function Header() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6 md:py-3 lg:grid lg:max-w-[1400px] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:px-10 xl:gap-x-8 xl:px-12">
           <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
             {/* Mobile keeps compact h-12; md+ restores pre-8d153752 desktop logo scale */}
-            <Logo className="h-12 sm:h-16 md:h-20" />
+            <Logo className="quote-header-logo h-12 sm:h-16 md:h-20" />
           </Link>
 
           <nav
@@ -225,7 +225,7 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 onNavigate={closeMenu}
-                className="inline-flex min-h-11 max-w-[42vw] shrink-0 items-center justify-center rounded-[0.65rem] bg-emerald px-2.5 py-2 text-xs font-bold tracking-tight text-navy transition-colors hover:bg-emerald-light sm:max-w-none sm:px-3.5 sm:text-sm"
+                className="inline-flex min-h-11 max-w-[42vw] shrink-0 items-center justify-center rounded-[0.65rem] bg-emerald px-2.5 py-2 text-xs font-bold tracking-tight text-navy shadow-[0_6px_14px_rgba(47,191,74,0.22)] transition-colors hover:bg-emerald-light sm:max-w-none sm:px-3.5 sm:text-sm"
               >
                 <span className="sm:hidden">Quote</span>
                 <span className="hidden sm:inline">{link.label}</span>
@@ -247,7 +247,7 @@ export default function Header() {
             </a>
             <button
               type="button"
-              className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-[0.65rem] border border-white/12 bg-white/[0.04] px-2.5 py-2 sm:gap-2 sm:px-3"
+              className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-[0.65rem] border border-white/28 bg-white/10 px-2.5 py-2 sm:gap-2 sm:px-3"
               onClick={() => setMenuOpen((open) => !open)}
               aria-expanded={menuOpen}
               aria-controls={menuId}
