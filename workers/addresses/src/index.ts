@@ -12,7 +12,11 @@ import {
   sanitizeAdsAttribution,
 } from "../shared/ads-attribution";
 import {
+  createSerializedQuoteLeadMarkerStore,
+  runQuoteLeadNotification,
   type QuoteLeadDetails,
+  type QuoteLeadKind,
+  type QuoteLeadMarkerStore,
 } from "../shared/quote-lead";
 import { isQuoteTransactionId, parseGbpAmount } from "../shared/quote-session";
 import {
@@ -259,6 +263,12 @@ import {
   runAdFraudRetentionCleanup,
 } from "./ad-fraud-handlers";
 export { RefundCoordinator } from "./refund-coordinator";
+export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
+import {
+  coordinatorClaim,
+  coordinatorPeek,
+  coordinatorRelease,
+} from "./quote-lead-coordinator";
 import {
   handleRefundTestCheckoutRequest,
   handleRefundTestListRequest,
@@ -427,6 +437,8 @@ type Env = {
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
   /** Per-booking refund serialization (Durable Object). */
   REFUND_COORDINATOR?: DurableObjectNamespace;
+  /** Per-fingerprint quote / contact email claim (Durable Object). */
+  QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
   /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   GOOGLE_ADS_CLIENT_ID?: string;
@@ -449,7 +461,8 @@ type Env = {
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
   fingerprint?: string;
-  /** When true, only record stats/dedupe — email already sent from the browser. */
+  kind?: QuoteLeadKind;
+  /** When true, only record the session — used by tests / gradual rollout. */
   skipEmail?: boolean;
 };
 
@@ -1071,56 +1084,19 @@ function buildSumUpCheckoutDescription(
   return base.replace(/\s+/g, " ").trim().slice(0, 140);
 }
 
-async function isDuplicateQuoteLead(
-  fingerprint: string,
-  env: Env,
-): Promise<boolean> {
-  // Claim the fingerprint up front to avoid duplicate emails under concurrency.
-  // On send failure the caller must release the claim so retries can email.
-  if (env.BOOKING_COUNTER) {
-    const key = `quote_lead_fp:${fingerprint}`;
-    const existing = await env.BOOKING_COUNTER.get(key);
-    if (existing) {
-      return true;
-    }
-    await env.BOOKING_COUNTER.put(key, "1", { expirationTtl: 60 * 60 });
-    return false;
+function createQuoteLeadMarkerStore(env: Env): QuoteLeadMarkerStore {
+  if (env.QUOTE_LEAD_COORDINATOR) {
+    const ns = env.QUOTE_LEAD_COORDINATOR;
+    return {
+      peek: (fingerprint) => coordinatorPeek(ns, fingerprint),
+      claim: (fingerprint) => coordinatorClaim(ns, fingerprint),
+      release: (fingerprint) => coordinatorRelease(ns, fingerprint),
+    };
   }
 
-  const cache = (caches as unknown as { default: Cache }).default;
-  const cacheKey = new Request(`https://quote-lead-dedup.internal/${encodeURIComponent(fingerprint)}`);
-  const cached = await cache.match(cacheKey);
-  if (cached) {
-    return true;
-  }
-
-  await cache.put(
-    cacheKey,
-    new Response("1", {
-      headers: { "Cache-Control": "private, max-age=3600" },
-    }),
-  );
-
-  return false;
-}
-
-async function releaseQuoteLeadFingerprint(
-  fingerprint: string,
-  env: Env,
-): Promise<void> {
-  if (env.BOOKING_COUNTER) {
-    await env.BOOKING_COUNTER.delete(`quote_lead_fp:${fingerprint}`);
-    return;
-  }
-
-  // Cache API has no reliable delete across edges; short TTL already limits damage.
-  const cache = (caches as unknown as { default: Cache }).default;
-  const cacheKey = new Request(`https://quote-lead-dedup.internal/${encodeURIComponent(fingerprint)}`);
-  try {
-    await cache.delete(cacheKey);
-  } catch {
-    // ignore
-  }
+  // Same-isolate fallback when the Durable Object binding is missing (local tests).
+  // Never uses KV/cache get-then-put.
+  return createSerializedQuoteLeadMarkerStore();
 }
 
 function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null {
@@ -1174,6 +1150,9 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
       typeof body.airportAccessFeeGbp === "number" ? body.airportAccessFeeGbp : undefined,
     totalGbp: typeof body.totalGbp === "number" ? body.totalGbp : undefined,
     source: body.source === "bot" ? "bot" : "website",
+    customerName: typeof body.customerName === "string" ? body.customerName : undefined,
+    customerEmail: typeof body.customerEmail === "string" ? body.customerEmail : undefined,
+    mobileNumber: typeof body.mobileNumber === "string" ? body.mobileNumber : undefined,
   };
 }
 
@@ -1200,9 +1179,13 @@ async function handleQuoteLeadRequest(
     return json({ error: "Missing quote fingerprint" }, 400, origin);
   }
 
+  const kind: QuoteLeadKind = body.kind === "contact" ? "contact" : "quote";
+
   const txn =
     details.quoteTransactionId?.trim() ||
-    (fingerprint.startsWith("txn:") ? fingerprint.slice(4) : "");
+    (fingerprint.startsWith("txn:") || fingerprint.startsWith("txn-contact:")
+      ? fingerprint.replace(/^txn(?:-contact)?:/, "")
+      : "");
 
   let recorded = false;
   let created = false;
@@ -1244,11 +1227,45 @@ async function handleQuoteLeadRequest(
     }
   }
 
+  let emailed = false;
+  let contactEmailed = false;
+  try {
+    const notify = await runQuoteLeadNotification({
+      details,
+      kind,
+      skipEmail: body.skipEmail === true,
+      store: createQuoteLeadMarkerStore(env),
+      sendEmail: async (subject, bodyText) => {
+        const send = await trySendOwnerOperationalEmail(env, {
+          to: ownerInbox(env),
+          subject,
+          body: bodyText,
+        });
+        if (!send.sent) {
+          console.error("Quote lead owner email failed", send.error);
+        }
+        return send.sent;
+      },
+    });
+    emailed = notify.emailed;
+    contactEmailed = notify.contactEmailed;
+    if (!notify.emailed && kind === "quote" && !body.skipEmail && !created) {
+      try {
+        await recordQuoteLeadDeduped(env);
+      } catch (error) {
+        console.error("Quote lead dedupe counter failed", error);
+      }
+    }
+  } catch (error) {
+    console.error("Quote lead notification failed", error);
+  }
+
   return json(
     {
       ok: true,
-      emailed: false,
+      emailed,
       recorded,
+      contactEmailed,
       deduplicated: !created,
       ...(quoteLeadsTotal !== null ? { quoteLeadsTotal } : {}),
     },

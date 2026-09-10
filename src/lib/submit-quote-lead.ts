@@ -1,6 +1,10 @@
 import {
+  buildQuoteContactFingerprint,
   buildQuoteLeadFingerprint,
+  hasQuoteLeadContact,
+  sanitizeQuoteLeadContact,
   type QuoteLeadDetails,
+  type QuoteLeadKind,
 } from "../../shared/quote-lead";
 
 const SESSION_STORAGE_KEY = "matni-quote-lead-sent";
@@ -64,9 +68,23 @@ function rememberSentFingerprint(fingerprint: string): void {
   }
 }
 
+function journeyOnlyDetails(details: QuoteLeadDetails): QuoteLeadDetails {
+  const {
+    customerName: _name,
+    customerEmail: _email,
+    mobileNumber: _mobile,
+    ...journey
+  } = details;
+  void _name;
+  void _email;
+  void _mobile;
+  return journey;
+}
+
 async function postQuoteSessionToWorker(
   details: QuoteLeadDetails,
   fingerprint: string,
+  kind: QuoteLeadKind,
 ): Promise<{ ok: boolean; emailed: boolean; recorded: boolean }> {
   try {
     const response = await fetch(QUOTE_LEADS_API_URL, {
@@ -78,8 +96,7 @@ async function postQuoteSessionToWorker(
       body: JSON.stringify({
         ...details,
         fingerprint,
-        // Never send an immediate owner email from quote view / recalculation.
-        skipEmail: true,
+        kind,
       }),
     });
 
@@ -94,25 +111,51 @@ async function postQuoteSessionToWorker(
       recorded: response.ok && payload?.recorded !== false,
     };
   } catch (error) {
-    console.error("Quote session record failed", error);
+    console.error("Quote lead request failed", error);
     return { ok: false, emailed: false, recorded: false };
   }
 }
 
-/** Persist / update one quote session. Never emails the owner. */
+/** Persist / update one quote session and email the owner once per quoteTransactionId. */
 export async function submitQuoteLead(details: QuoteLeadDetails): Promise<void> {
-  const fingerprint = buildQuoteLeadFingerprint(details);
-  const worker = await postQuoteSessionToWorker(details, fingerprint);
+  const journey = journeyOnlyDetails(details);
+  const fingerprint = buildQuoteLeadFingerprint(journey);
+  const worker = await postQuoteSessionToWorker(journey, fingerprint, "quote");
   if (worker.ok || worker.recorded) {
-    rememberSentFingerprint(fingerprint);
+    if (worker.emailed) {
+      rememberSentFingerprint(fingerprint);
+    }
     return;
   }
   // Fail safely — never block the quote UI.
 }
 
 /**
- * Record the latest quote session state for the daily owner report.
- * Does not send an owner email. Cleanup is a no-op so remounts cannot cancel.
+ * One contact-details follow-up after an explicit booking-details action.
+ * Remembered only after the worker reports emailed=true so a failed send can retry.
+ */
+export async function submitQuoteContactLead(details: QuoteLeadDetails): Promise<void> {
+  const contact = sanitizeQuoteLeadContact(details);
+  if (!hasQuoteLeadContact(contact) || !details.quoteTransactionId?.trim()) {
+    return;
+  }
+
+  const journey = journeyOnlyDetails(details);
+  const payload = { ...journey, ...contact };
+  const fingerprint = buildQuoteContactFingerprint(payload);
+  if (readSentFingerprints().has(fingerprint)) {
+    return;
+  }
+
+  const worker = await postQuoteSessionToWorker(payload, fingerprint, "contact");
+  if (worker.emailed) {
+    rememberSentFingerprint(fingerprint);
+  }
+}
+
+/**
+ * Record the latest quote session and send the first owner quote email.
+ * Cleanup is a no-op so remounts cannot cancel. Failures never block the UI.
  */
 export function scheduleQuoteLeadAlert(
   details: QuoteLeadDetails,
@@ -123,8 +166,25 @@ export function scheduleQuoteLeadAlert(
   }
 
   void submitQuoteLead(details).catch((error) => {
-    console.error("Quote session record failed", error);
+    console.error("Quote lead email failed via worker", error);
   });
 
   return () => {};
+}
+
+/**
+ * Send the one-off contact-details owner email after Pay / Book / continue.
+ * Must not be called while the customer is typing.
+ */
+export function scheduleQuoteContactAlert(
+  details: QuoteLeadDetails,
+  options?: { enabled?: boolean },
+): void {
+  if (options?.enabled === false || typeof window === "undefined") {
+    return;
+  }
+
+  void submitQuoteContactLead(details).catch((error) => {
+    console.error("Quote contact email failed via worker", error);
+  });
 }
