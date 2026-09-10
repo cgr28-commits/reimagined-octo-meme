@@ -195,22 +195,22 @@ console.log("\n=== Matrix ===\n");
   });
 }
 
-// 7 Belfast → BHD (~4.5 mi → £31, not £30 legacy strip)
+// 7 Belfast → BHD (~4.5 mi → £30, not historical BHD £34)
 {
   const journey = universalJourney(M5);
-  assert.equal(journey, 31);
+  assert.equal(journey, 30);
   const q = calculateQuote(CITY, "BHD", S, false, {}, M5)!;
-  assert.equal(q.amount, 31);
-  assert.notEqual(q.amount, 30, "not legacy strip £30");
+  assert.equal(q.amount, 30);
+  assert.notEqual(q.amount, 34, "not historical BHD minimum £34");
   rows.push({
     id: 7,
     label: "Belfast City Hall → BHD",
     miles: milesOf(M5),
     underlying: journey,
-    areaRule: "universal distance (~4.5 mi → £31)",
+    areaRule: "universal distance (~4.5 mi → £30)",
     accessFees: "BHD fixed £0",
-    other: "not legacy strip £30",
-    rounding: "£31",
+    other: "not historical BHD £34",
+    rounding: "£30",
     final: q.amount,
   });
 }
@@ -218,16 +218,16 @@ console.log("\n=== Matrix ===\n");
 // 8 BHD → Belfast
 {
   const q = calculateQuote(CITY, "BHD", S, false, {}, M5, true)!;
-  assert.equal(q.amount, 31);
+  assert.equal(q.amount, 30);
   rows.push({
     id: 8,
     label: "BHD → Belfast City Hall",
     miles: milesOf(M5),
-    underlying: 31,
+    underlying: 30,
     areaRule: "same as #7",
     accessFees: "fixed costs £0",
     other: "fromAirport=true",
-    rounding: "£31",
+    rounding: "£30",
     final: q.amount,
   });
 }

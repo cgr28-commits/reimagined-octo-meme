@@ -83,18 +83,18 @@ add(
   )?.amount,
 );
 
-// 2 Short BHD airport (~4.5 mi → S£31 E£37)
+// 2 Short BHD airport (~4.5 mi → S£30 E£36)
 {
   const m = metricsForMiles(4.5, 12);
   const expectedS = calculateUniversalSaloonJourneyFareGbp(4.5);
   const expectedE = calculateUniversalEstateJourneyFareGbp(expectedS);
-  assert.equal(expectedS, 31);
-  assert.equal(expectedE, 37);
+  assert.equal(expectedS, 30);
+  assert.equal(expectedE, 36);
   const s = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", S, false, {}, m)?.amount;
   const e = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", E, false, {}, m)?.amount;
   assert.equal(s, expectedS);
   assert.equal(e, expectedE);
-  add("City Hall → BHD", "airport", 4.5, s, e, "universal £31/£37");
+  add("City Hall → BHD", "airport", 4.5, s, e, "universal £30/£36");
 }
 
 // 3 Lisburn → BHD (must scale above city)

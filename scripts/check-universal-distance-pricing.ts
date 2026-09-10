@@ -24,7 +24,9 @@ function metricsForMiles(miles: number, durationMinutes = 40) {
 console.log("=== Calibration knots ===");
 {
   const cases: Array<[number, number]> = [
-    [4, 30],
+    [0, 29],
+    [2, 29],
+    [4, 29],
     [15, 50],
     [32, 80],
     [98, 230],
@@ -36,7 +38,7 @@ console.log("=== Calibration knots ===");
     assert.equal(estate, target + 6, `${miles} mi Estate`);
     assert.equal(estate - saloon, 6);
   }
-  console.log("OK  4/15/32/98 mi calibration + Estate +£6");
+  console.log("OK  0–4/15/32/98 mi calibration + Estate +£6");
 }
 
 console.log("\n=== Full 0–100 mile table (Estate − Saloon = £6) ===");
@@ -55,7 +57,7 @@ console.log("\n=== Full 0–100 mile table (Estate − Saloon = £6) ===");
 
 console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
 {
-  // ~4 miles → £30 Saloon (City Hall-ish to BHD)
+  // 0–4 miles → £29 Saloon (City Hall-ish to BHD)
   const short = calculateQuote(
     "Belfast City Hall BT1",
     "BHD",
@@ -66,8 +68,8 @@ console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
     false,
   );
   assert.ok(short);
-  assert.equal(short!.amount, 30);
-  assert.equal(short!.journeyFareGbp, 30);
+  assert.equal(short!.amount, 29);
+  assert.equal(short!.journeyFareGbp, 29);
   assert.equal(short!.amount, short!.journeyFareGbp);
 
   const shortEstate = calculateQuote(
@@ -79,7 +81,7 @@ console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
     metricsForMiles(4, 12),
     false,
   );
-  assert.equal(shortEstate!.amount, 36);
+  assert.equal(shortEstate!.amount, 35);
   assert.equal(shortEstate!.amount - short!.amount, 6);
 
   // ~32 miles → £80 (Galgorm-ish to BHD with real road miles)
@@ -188,9 +190,13 @@ console.log("\n=== Representative examples ===");
 
 console.log("\n=== Raw formula continuity ===");
 {
+  assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(4) - 29) < 0.01);
   assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(15) - 50) < 0.01);
   assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(32) - 80) < 0.01);
   assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(98) - 230) < 0.01);
+  // 4–15 interpolates from £29 to £50; later knots unchanged.
+  const midShort = rawUniversalSaloonJourneyFareGbp(9.5);
+  assert.ok(Math.abs(midShort - 39.5) < 0.01, `4–15 midpoint should be £39.50, got ${midShort}`);
   const mid = calculateUniversalJourneyFareGbp(25, "Estate Car (1–4 passengers)");
   assert.equal(mid.journeyFareGbp - mid.saloonGbp, 6);
 }

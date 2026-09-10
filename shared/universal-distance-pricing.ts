@@ -5,7 +5,7 @@
  * not town/postcode/zone special cases.
  *
  * Approved calibration (Saloon):
- *   ~4 mi  → £30
+ *   0–4 mi → £29 (flat floor)
  *   ~15 mi → £50
  *   ~32 mi → £80
  *   ~98 mi → £230
@@ -15,7 +15,7 @@
  */
 
 export const UNIVERSAL_ESTATE_PREMIUM_GBP = 6;
-export const UNIVERSAL_SALOON_MINIMUM_GBP = 30;
+export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
 
 /** Statute miles from driving km (same factor as public journey distance labels). */
 export function universalDrivingMilesFromKm(distanceKm: number): number {
@@ -24,12 +24,16 @@ export function universalDrivingMilesFromKm(distanceKm: number): number {
 
 /**
  * Piecewise-linear raw Saloon journey fare before rounding.
- * Knots: (4,30), (15,50), (32,80), (98,230).
+ * Knots: (4,29), (15,50), (32,80), (98,230).
+ * 0–4 miles stay on the £29 floor; 4–15 interpolates smoothly to £50.
+ * Fares from 15 miles onward are unchanged.
  */
 export function rawUniversalSaloonJourneyFareGbp(roadMiles: number): number {
   const m = Math.max(0, Number(roadMiles) || 0);
   if (m <= 4) return UNIVERSAL_SALOON_MINIMUM_GBP;
-  if (m <= 15) return 30 + (20 / 11) * (m - 4);
+  if (m <= 15) {
+    return UNIVERSAL_SALOON_MINIMUM_GBP + ((50 - UNIVERSAL_SALOON_MINIMUM_GBP) / 11) * (m - 4);
+  }
   if (m <= 32) return 50 + (30 / 17) * (m - 15);
   if (m <= 98) return 80 + (150 / 66) * (m - 32);
   return 230 + (150 / 66) * (m - 98);

@@ -184,8 +184,8 @@ function exact(actual: number, target: number, label: string) {
   assert.equal(actual, target, `${label}: expected £${target}, got £${actual}`);
 }
 
-exact(rows[0].newS, 31, "City Hall → BHD S");
-exact(rows[0].newE, 37, "City Hall → BHD E");
+exact(rows[0].newS, 30, "City Hall → BHD S");
+exact(rows[0].newE, 36, "City Hall → BHD E");
 exact(rows[1].newS, 48, "City Hall → BFS S");
 exact(rows[1].newE, 54, "City Hall → BFS E");
 exact(rows[2].newS, 234, "City Hall → DUB S");
@@ -227,6 +227,7 @@ exact(rows[5].newE, rows[5].targetE, "Enniskillen E");
 
 assert.equal(PRICING_CONFIG.universalDistancePricing?.enabled, true);
 assert.equal(PRICING_CONFIG.universalDistancePricing?.estatePremiumGbp, 6);
+assert.equal(PRICING_CONFIG.universalDistancePricing?.saloonMinimumGbp, 29);
 // Historical config retained
 assert.equal(PRICING_CONFIG.airportBasePricesGbp.BHD, 34);
 assert.equal(PRICING_CONFIG.airportMinimumFaresGbp.BHD, 34);
