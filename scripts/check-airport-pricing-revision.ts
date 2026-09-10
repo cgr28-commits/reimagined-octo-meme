@@ -74,14 +74,14 @@ assert.equal(getAirportEstatePremiumGbp("DUB", 45), 6);
 assert.equal(getAirportEstatePremiumGbp("DUB", 140), 6);
 console.log("OK  Live estate premium always £6 (universal); historical tiers not applied");
 
-// BHD city ~4 mi → £30 / estate £36
+// BHD city ~4 mi → £29 / estate £35
 {
   const m = metricsForMiles(4, 12);
   const bhdCity = calculateQuote(cityHall, "BHD", SALOON, false, {}, m);
   assert.ok(bhdCity);
-  assert.equal(bhdCity.amount, 30, "BHD city saloon ~4 mi → £30");
+  assert.equal(bhdCity.amount, 29, "BHD city saloon ~4 mi → £29");
   const bhdCityEstate = calculateQuote(cityHall, "BHD", ESTATE, false, {}, m);
-  assert.equal(bhdCityEstate?.amount, 36, "BHD city estate = 30+6");
+  assert.equal(bhdCityEstate?.amount, 35, "BHD city estate = 29+6");
   console.log(`OK  BHD City Hall saloon £${bhdCity.amount} / estate £${bhdCityEstate?.amount}`);
 }
 
@@ -91,8 +91,8 @@ console.log("OK  Live estate premium always £6 (universal); historical tiers no
   const bfsM = metricsForMiles(14, 25);
   const dubCity = calculateQuote(cityHall, "DUB", SALOON, false, {}, dubM);
   const bfsCity = calculateQuote(cityHall, "BFS", SALOON, false, {}, bfsM);
-  assert.equal(dubCity?.amount, 234, "DUB Belfast centre drop-off = £230 + £4 M1");
-  assert.equal(bfsCity?.amount, 48, "BFS City Hall 14 mi → £48");
+  assert.equal(dubCity?.amount, 233, "DUB Belfast centre drop-off = £229 + £4 M1");
+  assert.equal(bfsCity?.amount, 47, "BFS City Hall 14 mi → £47");
   console.log(`OK  DUB City Hall £${dubCity?.amount}; BFS City Hall £${bfsCity?.amount}`);
 }
 
@@ -127,7 +127,7 @@ console.log("OK  Live estate premium always £6 (universal); historical tiers no
     weekday.amount,
     `airport weekend fare (£${weekend.amount}) must equal weekday (£${weekday.amount})`,
   );
-  assert.equal(weekday.amount, 48);
+  assert.equal(weekday.amount, 47);
   console.log(
     `OK  Airport weekday = weekend £${weekday.amount} (no Bank Holiday / weekend surcharge)`,
   );
@@ -162,8 +162,8 @@ console.log(`OK  A2A still requires route metrics (sample £${a2a.amount})`);
   const bfsEstate = calculateQuote(cityHall, "BFS", ESTATE, false, {}, m);
   const minibus = calculateQuote(cityHall, "BFS", MINIBUS, false, {}, m);
   assert.ok(minibus && minibus.amount > (bfsEstate?.amount ?? 0));
-  assert.equal(bfsCity?.amount, 48);
-  assert.equal(bfsEstate?.amount, calculateUniversalEstateJourneyFareGbp(48));
+  assert.equal(bfsCity?.amount, 47);
+  assert.equal(bfsEstate?.amount, calculateUniversalEstateJourneyFareGbp(47));
   console.log(`OK  Minibus still prices above estate (£${minibus.amount} > £${bfsEstate?.amount})`);
 }
 

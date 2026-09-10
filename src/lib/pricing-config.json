@@ -3,8 +3,8 @@
   "pricingModel": {
     "summary": "Universal road-distance journey fare (shared/universal-distance-pricing.ts) → vehicle (Estate = Saloon + £6) → optional 5% return discount → airport fixed costs → Express/access add-on in UI. Zone tables and Belfast mile floor are retired for live quotes.",
     "addressToAddress": "Same universal distance curve as airport transfers. Requires valid OSRM road metrics; otherwise no fare.",
-    "airport": "Journey fare from road miles only (piecewise Saloon: 4→£30, 15→£50, 32→£80, 98→£230; nearest £1). Estate = Saloon + £6. Zone surcharges and belfastAirportDistanceFloor do not override. No weekend/Bank Holiday journey surcharge (premium rates are 0).",
-    "dublinAirport": "Priced on the same universal distance curve for the road miles to/from DUB, then airportFixedCostsGbp (drop-off +£4 M1; pickup +£5 parking +£4 M1). Long-distance ~98 miles targets ~£230 Saloon journey before fixed costs.",
+    "airport": "Journey fare from road miles only (piecewise Saloon: 0–4→£29, 15→£49, 32→£79, 98→£229; nearest £1). Estate = Saloon + £6. Zone surcharges and belfastAirportDistanceFloor do not override. No weekend/Bank Holiday journey surcharge (premium rates are 0).",
+    "dublinAirport": "Priced on the same universal distance curve for the road miles to/from DUB, then airportFixedCostsGbp (drop-off +£4 M1; pickup +£5 parking +£4 M1). Long-distance ~98 miles targets ~£229 Saloon journey before fixed costs.",
     "vehicles": "Saloon 1–4 pax AND 0–2 large cases; Estate 1–4 pax AND 3–4 cases (+£6 vs Saloon); Minibus 5–7 (builds from Estate × multiplier).",
     "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 × oneWay journey fare). Airport fixed costs and Express are added after and are never discounted.",
     "airportFixedCosts": "Per-leg: BFS/BHD £0 on address↔airport; DUB drop £4 M1 / pick £5 parking +£4 M1; LDY drop £1 / pick £2.50. Express Drop-Off is a separate optional add-on (BFS £5 / BHD £4).",
@@ -385,9 +385,9 @@
   },
   "universalDistancePricing": {
     "enabled": true,
-    "note": "Live airport and address↔address journey fares use road miles only. Piecewise Saloon knots: 4→£30, 15→£50, 32→£80, 98→£230. Round Saloon to nearest £1; Estate = Saloon + £6. Zone surcharges and Belfast floor do not override. Express/access added after journey fare.",
+    "note": "Live airport and address↔address journey fares use road miles only. Piecewise Saloon knots: 0–4→£29, 15→£49, 32→£79, 98→£229. Segments interpolate between those knots. Round Saloon to nearest £1; Estate = Saloon + £6. Zone surcharges and Belfast floor do not override. Express/access added after journey fare.",
     "estatePremiumGbp": 6,
-    "saloonMinimumGbp": 30,
+    "saloonMinimumGbp": 29,
     "roundToNearestGbp": 1
   }
 }
