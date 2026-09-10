@@ -22,7 +22,21 @@ import {
   buildOwnerPaidBookingEmail,
   buildOwnerPaymentAttemptEmail,
 } from "../shared/booking-notifications";
+import {
+  CHILD_SEATS_RANGE_MESSAGE,
+  getPaymentBookingBlockers as websitePaymentGate,
+  parseChildSeatNotesInput,
+  parseChildSeatsInput,
+  type PaymentBookingGateInput,
+} from "../shared/paid-booking-gate";
+import { getPaymentBookingBlockers as workerPaymentGate } from "../workers/addresses/shared/paid-booking-gate";
 import { QUOTE_REQUIRED_FIELD_MESSAGES } from "../shared/quote-required-field-messages";
+import {
+  applyCancelPaymentReturnToQuote,
+  openDesktopSumUpCheckout,
+  type DesktopSumUpPopup,
+  type DesktopSumUpWindow,
+} from "../src/lib/sumup-desktop-handoff";
 
 const root = process.cwd();
 
@@ -190,31 +204,205 @@ console.log("\n=== QuoteCard booking-details wiring ===");
   );
   assert.match(draft, /childSeats\?: number/);
   assert.match(draft, /childSeatNotes\?: string/);
-  assert.match(workerIndex, /childSeats: Math\.min\(2/);
+  assert.match(workerIndex, /childSeats: parseChildSeatsInput\(details\.childSeats\)/);
+  assert.doesNotMatch(
+    workerIndex,
+    /childSeats:\s*Math\.min\(2,\s*Math\.max\(0,\s*Math\.floor\(Number\(details\.childSeats\)\)\)\)/,
+  );
   assert.match(persist, /childSeats: Math\.min\(2/);
   assert.match(confirmed, /Child seats: \$\{pending\.booking\.childSeats\}/);
   assert.match(manage, /Child seats/);
   assert.match(manage, /childSeatNotes/);
+  assert.match(card, /Include all children in the passenger total\./);
+  assert.match(read("src/components/QuoteProgressiveRoute.tsx"), /Include all children in the passenger total\./);
   console.log("OK  QuoteCard state, draft, validation, payload, and summaries");
 }
 
-console.log("\n=== Desktop SumUp opens separately; mobile stays same-tab ===");
+const completeGateBooking: PaymentBookingGateInput = {
+  customerName: "Ada Example",
+  customerEmail: "ada@example.com",
+  mobileNumber: "07700900123",
+  tripLabel: "Airport drop-off",
+  pickupLabel: "10 Donegall Square North, Belfast",
+  dropoffLabel: "Belfast International Airport",
+  returnJourney: false,
+  tripDate: "2026-09-10",
+  tripTime: "09:30",
+  vehicle: "Estate Car (1–4 passengers)",
+  passengers: 2,
+  isAirportTrip: true,
+  airportCode: "BFS",
+  termsAcceptedAt: "2026-09-10T08:00:00.000Z",
+};
+
+function assertGatesAgree(input: PaymentBookingGateInput): string[] {
+  const website = websitePaymentGate(input);
+  const worker = workerPaymentGate(input);
+  assert.deepEqual(website, worker);
+  return website;
+}
+
+console.log("\n=== Paid-booking-gate child-seat API (website + worker copies) ===");
 {
+  assert.equal(parseChildSeatsInput(undefined), 0);
+  assert.equal(parseChildSeatsInput(null), 0);
+  assert.equal(parseChildSeatsInput(""), 0);
+  assert.equal(parseChildSeatsInput(0), 0);
+  assert.equal(parseChildSeatsInput(2), 2);
+  assert.equal(parseChildSeatsInput("1"), 1);
+  assert.ok(Number.isNaN(parseChildSeatsInput(1.5)));
+  assert.ok(Number.isNaN(parseChildSeatsInput("abc")));
+  assert.ok(Number.isNaN(parseChildSeatsInput(true)));
+  assert.equal(parseChildSeatNotesInput("  ages 3 and 6  "), "ages 3 and 6");
+  assert.equal(parseChildSeatNotesInput(undefined), "");
+
+  assert.deepEqual(assertGatesAgree(completeGateBooking), []);
+  assert.deepEqual(assertGatesAgree({ ...completeGateBooking, childSeats: 0 }), []);
+  assert.deepEqual(
+    assertGatesAgree({
+      ...completeGateBooking,
+      childSeats: 2,
+      childSeatNotes: "4-year-old child seat, 7-year-old booster",
+    }),
+    [],
+  );
+
+  const tooMany = assertGatesAgree({
+    ...completeGateBooking,
+    childSeats: 9,
+    childSeatNotes: "should not silently become two seats",
+  });
+  assert.deepEqual(tooMany, [CHILD_SEATS_RANGE_MESSAGE]);
+
+  const negative = assertGatesAgree({ ...completeGateBooking, childSeats: -1 });
+  assert.deepEqual(negative, [CHILD_SEATS_RANGE_MESSAGE]);
+
+  const fractional = assertGatesAgree({
+    ...completeGateBooking,
+    childSeats: 1.7,
+    childSeatNotes: "2-year-old child seat",
+  });
+  assert.deepEqual(fractional, [CHILD_SEATS_RANGE_MESSAGE]);
+
+  const malformed = assertGatesAgree({
+    ...completeGateBooking,
+    childSeats: "two",
+    childSeatNotes: "2-year-old child seat",
+  });
+  assert.deepEqual(malformed, [CHILD_SEATS_RANGE_MESSAGE]);
+
+  const missingNotes = assertGatesAgree({ ...completeGateBooking, childSeats: 1 });
+  assert.deepEqual(missingNotes, [QUOTE_REQUIRED_FIELD_MESSAGES.childSeatNotes]);
+
+  const blankNotes = assertGatesAgree({
+    ...completeGateBooking,
+    childSeats: 1,
+    childSeatNotes: "   ",
+  });
+  assert.deepEqual(blankNotes, [QUOTE_REQUIRED_FIELD_MESSAGES.childSeatNotes]);
+
+  const parsedInvalid = {
+    ...completeGateBooking,
+    childSeats: parseChildSeatsInput(9),
+    childSeatNotes: parseChildSeatNotesInput("notes"),
+  };
+  assert.deepEqual(assertGatesAgree(parsedInvalid), [CHILD_SEATS_RANGE_MESSAGE]);
+  console.log("OK  both gate copies reject malformed child seats and require notes when seats > 0");
+}
+
+function createDesktopWindow(opts: { allowPopup: boolean }) {
+  const navigations: Array<{ target: "popup" | "same-tab"; url: string }> = [];
+  let popup: DesktopSumUpPopup | null = null;
+
+  const win: DesktopSumUpWindow = {
+    open(url) {
+      assert.equal(url, "about:blank");
+      if (!opts.allowPopup) {
+        return null;
+      }
+      let href = "about:blank";
+      popup = {
+        opener: { original: true },
+        location: {
+          get href() {
+            return href;
+          },
+          set href(next: string) {
+            href = next;
+            navigations.push({ target: "popup", url: next });
+          },
+        },
+      };
+      return popup;
+    },
+    location: {
+      href: "https://www.myairporttaxini.com/quote",
+      assign(url) {
+        navigations.push({ target: "same-tab", url });
+      },
+    },
+  };
+
+  return { win, navigations, getPopup: () => popup };
+}
+
+console.log("\n=== Desktop SumUp handoff behaviour ===");
+{
+  const sumupUrl = "https://checkout.sumup.com/pay/ok";
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(card, /function openSumUpPayment\(paymentUrl: string\)/);
-  assert.match(card, /window\.open\(paymentUrl,\s*"_blank",\s*"noopener,noreferrer"\)/);
+
+  const opened = createDesktopWindow({ allowPopup: true });
+  const openedResult = openDesktopSumUpCheckout(opened.win, sumupUrl);
+  assert.equal(openedResult.openedNewTab, true);
+  assert.deepEqual(openedResult.navigations, [{ target: "popup", url: sumupUrl }]);
+  assert.deepEqual(opened.navigations, [{ target: "popup", url: sumupUrl }]);
+  assert.equal(opened.getPopup()?.opener, null);
+  assert.equal(opened.getPopup()?.location.href, sumupUrl);
+  assert.equal(opened.win.location.href, "https://www.myairporttaxini.com/quote");
+  assert.equal(opened.navigations.filter((item) => item.target === "same-tab").length, 0);
+  assert.equal(opened.navigations.length, 1);
+
+  const blocked = createDesktopWindow({ allowPopup: false });
+  const blockedResult = openDesktopSumUpCheckout(blocked.win, sumupUrl);
+  assert.equal(blockedResult.openedNewTab, false);
+  assert.deepEqual(blockedResult.navigations, [{ target: "same-tab", url: sumupUrl }]);
+  assert.deepEqual(blocked.navigations, [{ target: "same-tab", url: sumupUrl }]);
+  assert.equal(blocked.navigations.length, 1);
+  assert.equal(blocked.win.location.href, "https://www.myairporttaxini.com/quote");
+
+  const quoteAfterPay = {
+    quoteStep: 3,
+    openCheckout: { checkoutId: "chk_test", paymentUrl: sumupUrl },
+    paying: true,
+    childSeats: 2,
+    childSeatNotes: "4-year-old child seat, 7-year-old booster",
+    pickupLabel: bookingBase.pickupLabel,
+    dropoffLabel: bookingBase.dropoffLabel,
+    passengers: 2,
+  };
+  const afterCancel = applyCancelPaymentReturnToQuote(quoteAfterPay);
+  assert.equal(afterCancel.quoteStep, 1);
+  assert.equal(afterCancel.openCheckout, null);
+  assert.equal(afterCancel.paying, false);
+  assert.equal(afterCancel.childSeats, 2);
+  assert.equal(afterCancel.childSeatNotes, "4-year-old child seat, 7-year-old booster");
+  assert.equal(afterCancel.pickupLabel, bookingBase.pickupLabel);
+  assert.equal(afterCancel.dropoffLabel, bookingBase.dropoffLabel);
+  assert.equal(afterCancel.passengers, 2);
+
+  assert.match(card, /openDesktopSumUpCheckout\(window,\s*paymentUrl\)/);
+  assert.match(card, /applyCancelPaymentReturnToQuote/);
+  assert.match(card, /clearOpenCheckoutSession\(\)/);
+  assert.match(card, /navigateQuoteStep\(next\.quoteStep/);
+  assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"\)/);
   assert.match(card, /if \(isMobile\) \{[\s\S]{0,180}?window\.location\.assign\(checkout\.paymentUrl\)/);
   assert.match(card, /if \(isMobile\) \{[\s\S]{0,80}?window\.location\.assign\(paymentUrl\)/);
-  assert.match(card, /setPaymentLoading\(false\);\s*return;/);
   assert.match(card, /Secure payment ready/);
   assert.match(card, /Cancel payment and return to quote/);
-  assert.match(
-    card,
-    /SumUp opens in a separate tab\. Close it at any time to return to your saved quote\./,
-  );
-  assert.match(card, /isMobileDevice === false/);
-  assert.doesNotMatch(card, /window\.location\.assign\(checkout\.paymentUrl\);\s*\/\/ Keep loading/);
-  console.log("OK  desktop new-tab handoff with same-tab fallback; mobile same-tab");
+  assert.doesNotMatch(card, /window\.open\(paymentUrl/);
+  assert.doesNotMatch(card, /noopener,noreferrer/);
+  assert.doesNotMatch(card, /cancelled the SumUp|remote SumUp checkout was cancelled/i);
+  console.log("OK  popup leaves quote open; blocked popup falls back once; cancel restores editable quote");
 }
 
 console.log("\nAll child-seat booking and SumUp checks passed.");

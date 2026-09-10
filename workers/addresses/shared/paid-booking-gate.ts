@@ -3,6 +3,8 @@
  * Used by the website Pay button and the Worker /payments endpoint.
  */
 
+import { QUOTE_REQUIRED_FIELD_MESSAGES } from "./quote-required-field-messages";
+
 export type PaymentBookingGateInput = {
   customerName?: string | null;
   customerEmail?: string | null;
@@ -17,10 +19,39 @@ export type PaymentBookingGateInput = {
   returnTime?: string | null;
   vehicle?: string | null;
   passengers?: number | null;
+  childSeats?: unknown;
+  childSeatNotes?: unknown;
   isAirportTrip?: boolean | null;
   airportCode?: string | null;
   termsAcceptedAt?: string | null;
 };
+
+/** Omitted / empty child seats mean none. Non-integers stay invalid so they cannot be clamped into a booking. */
+export function parseChildSeatsInput(raw: unknown): number {
+  if (raw == null || raw === "") {
+    return 0;
+  }
+  if (typeof raw === "number") {
+    return Number.isInteger(raw) ? raw : Number.NaN;
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed === "") {
+      return 0;
+    }
+    if (/^-?\d+$/.test(trimmed)) {
+      return Number(trimmed);
+    }
+  }
+  return Number.NaN;
+}
+
+export function parseChildSeatNotesInput(raw: unknown): string {
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+export const CHILD_SEATS_RANGE_MESSAGE =
+  "Please tell us how many child / booster seats you need.";
 
 function isValidEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -106,6 +137,14 @@ export function getPaymentBookingBlockers(input: PaymentBookingGateInput): strin
   }
   if (!termsAcceptedAt) {
     blockers.push("Terms must be accepted before payment.");
+  }
+
+  const childSeats = parseChildSeatsInput(input.childSeats);
+  const childSeatNotes = parseChildSeatNotesInput(input.childSeatNotes);
+  if (!Number.isInteger(childSeats) || childSeats < 0 || childSeats > 2) {
+    blockers.push(CHILD_SEATS_RANGE_MESSAGE);
+  } else if (childSeats > 0 && !childSeatNotes) {
+    blockers.push(QUOTE_REQUIRED_FIELD_MESSAGES.childSeatNotes);
   }
 
   return blockers;

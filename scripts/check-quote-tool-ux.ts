@@ -52,6 +52,8 @@ check("City of Derry quick-select does not use Dublin toll logic", () => {
 
 check("Passenger and luggage use selectable buttons", () => {
   assert.match(progressive, /Passengers/);
+  assert.match(progressive, /Include all children in the passenger total\./);
+  assert.match(card, /Include all children in the passenger total\./);
   assert.match(progressive, /Suitcases \/ large bags/);
   assert.doesNotMatch(progressive, /Child seats/);
   assert.match(progressive, /One way/);

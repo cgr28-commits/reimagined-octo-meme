@@ -2,7 +2,11 @@ import {
   isValidPassengerCount,
   PASSENGER_LIMIT_ERROR,
 } from "../shared/passenger-limits";
-import { getPaymentBookingBlockers } from "../shared/paid-booking-gate";
+import {
+  getPaymentBookingBlockers,
+  parseChildSeatNotesInput,
+  parseChildSeatsInput,
+} from "../shared/paid-booking-gate";
 import {
   formatAdsAttributionForOwner,
   sanitizeAdsAttribution,
@@ -935,11 +939,9 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     passengers,
     suitcases,
-    ...(Number.isFinite(Number(details.childSeats)) && Number(details.childSeats) > 0
-      ? {
-          childSeats: Math.min(2, Math.max(0, Math.floor(Number(details.childSeats)))),
-          childSeatNotes: String(details.childSeatNotes ?? "").trim() || undefined,
-        }
+    childSeats: parseChildSeatsInput(details.childSeats),
+    ...(parseChildSeatNotesInput(details.childSeatNotes)
+      ? { childSeatNotes: parseChildSeatNotesInput(details.childSeatNotes) }
       : {}),
     vehicle: String(details.vehicle ?? "").trim(),
     journeyDistance: String(details.journeyDistance ?? "").trim() || undefined,

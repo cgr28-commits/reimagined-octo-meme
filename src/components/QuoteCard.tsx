@@ -200,6 +200,10 @@ import {
 } from "@/lib/address-place-storage";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
+import {
+  applyCancelPaymentReturnToQuote,
+  openDesktopSumUpCheckout,
+} from "@/lib/sumup-desktop-handoff";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import GoogleAdsRequestQuote from "@/components/GoogleAdsRequestQuote";
 import type { AdsQuotePageType } from "@/lib/google-ads";
@@ -307,6 +311,7 @@ function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = fal
 
 function TapChoiceRow({
   label,
+  hint,
   options,
   value,
   onChange,
@@ -314,6 +319,7 @@ function TapChoiceRow({
   needsCompletion = false,
 }: {
   label: string;
+  hint?: string;
   options: number[];
   value: number | null;
   onChange: (value: number) => void;
@@ -328,11 +334,18 @@ function TapChoiceRow({
           : "rounded-2xl border border-transparent p-2"
       }
     >
-      <p className="form-label mb-2">
-        {label}
-        {needsCompletion && value == null ? (
-          <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
-            (required)
+      <p className="form-label mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <span>
+          {label}
+          {needsCompletion && value == null ? (
+            <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+              (required)
+            </span>
+          ) : null}
+        </span>
+        {hint ? (
+          <span className="font-semibold normal-case tracking-normal text-[11px] text-white/70">
+            {hint}
           </span>
         ) : null}
       </p>
@@ -3270,12 +3283,13 @@ function QuoteCard({
       window.location.assign(paymentUrl);
       return;
     }
-    const opened = window.open(paymentUrl, "_blank", "noopener,noreferrer");
-    if (!opened) {
-      window.location.assign(paymentUrl);
+    const handoff = openDesktopSumUpCheckout(window, paymentUrl);
+    if (handoff.openedNewTab) {
+      setPaymentLoading(false);
+      setPaymentPopupBlocked(false);
       return;
     }
-    setPaymentLoading(false);
+    // Same-tab fallback already assigned the SumUp URL. Do not navigate again.
   }
 
   function handleOpenPaymentAgain() {
@@ -3290,12 +3304,22 @@ function QuoteCard({
   }
 
   function handleReturnToEditBooking() {
+    const next = applyCancelPaymentReturnToQuote({
+      quoteStep,
+      openCheckout,
+      paying: paymentLoading,
+      childSeats,
+      childSeatNotes,
+    });
+    clearOpenCheckoutSession();
+    setOpenCheckout(next.openCheckout as OpenCheckoutSession | null);
+    setPaymentLoading(next.paying);
     setPaymentError("");
     setPaymentPopupBlocked(false);
-    setQuoteStep(3);
     setSubmitError("");
     setBookingSent(false);
-    // Keep openCheckout so “Continue to SumUp” still works with the same SumUp link.
+    navigateQuoteStep(next.quoteStep as QuoteStepNavTarget);
+    scrollQuoteStage(routeSummaryRef.current ?? "quote-route-summary");
   }
 
   function handleStartFreshCheckout() {
@@ -6474,6 +6498,7 @@ function QuoteCard({
           <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
             <TapChoiceRow
               label="Passengers"
+              hint="Include all children in the passenger total."
               options={Array.from({ length: passengerLimit }, (_, index) => index + 1)}
               value={passengers == null ? null : Math.min(passengers, passengerLimit)}
               onChange={(value) => {
