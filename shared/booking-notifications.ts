@@ -65,6 +65,9 @@ export type PaidBookingDetails = {
   returnFlightNumber?: string;
   passengers: number;
   suitcases: number;
+  /** Number of child / booster seats requested (0–2). */
+  childSeats?: number;
+  childSeatNotes?: string;
   vehicle: string;
   journeyDistance?: string;
   journeyDuration?: string;
@@ -187,6 +190,14 @@ function formatDisplayTime(time: string): string {
   return formatUkTime(time);
 }
 
+function formatChildSeatsLine(details: Pick<PaidBookingDetails, "childSeats" | "childSeatNotes">): string {
+  const seats = Number(details.childSeats);
+  if (!Number.isFinite(seats) || seats <= 0) return "";
+  const count = Math.min(2, Math.floor(seats));
+  const notes = details.childSeatNotes?.trim();
+  return `Child seats: ${count}${notes ? ` (${notes})` : ""}`;
+}
+
 function formatTripScheduleLines(details: PaidBookingDetails): string[] {
   const lines = [
     `Trip: ${details.tripLabel}`,
@@ -215,6 +226,10 @@ function formatTripScheduleLines(details: PaidBookingDetails): string[] {
   lines.push(
     `Passengers: ${details.passengers}`,
     `Suitcases: ${details.suitcases}`,
+  );
+  const childSeatsLine = formatChildSeatsLine(details);
+  if (childSeatsLine) lines.push(childSeatsLine);
+  lines.push(
     `Service: ${vehicleServiceLabel(details.vehicle)}`,
     `Vehicle: ${details.vehicle}`,
   );
@@ -257,6 +272,10 @@ function formatCustomerTripScheduleLines(details: PaidBookingDetails): string[] 
   lines.push(
     `Passengers: ${details.passengers}`,
     `Suitcases: ${details.suitcases}`,
+  );
+  const childSeatsLine = formatChildSeatsLine(details);
+  if (childSeatsLine) lines.push(childSeatsLine);
+  lines.push(
     `Service: ${vehicleServiceLabel(details.vehicle)}`,
     `Vehicle: ${details.vehicle}`,
   );
@@ -345,6 +364,15 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
   rows.push(
     { label: "Passengers", value: String(details.passengers) },
     { label: "Suitcases", value: String(details.suitcases) },
+  );
+  const childSeatsLine = formatChildSeatsLine(details);
+  if (childSeatsLine) {
+    rows.push({
+      label: "Child seats",
+      value: childSeatsLine.replace(/^Child seats:\s*/, ""),
+    });
+  }
+  rows.push(
     { label: "Service", value: vehicleServiceLabel(details.vehicle) },
     { label: "Vehicle", value: details.vehicle },
   );

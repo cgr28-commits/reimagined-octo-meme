@@ -410,8 +410,8 @@ async function main() {
   await check("12. mobile Safari payment UX still same-tab (no popup)", () => {
     const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
     assert.match(card, /Same-tab redirect/);
-    assert.match(card, /window\.location\.assign\(checkout\.paymentUrl\)/);
-    assert.doesNotMatch(card, /window\.open\(checkout\.paymentUrl/);
+    assert.match(card, /if \(isMobile\) \{[\s\S]{0,180}?window\.location\.assign\(checkout\.paymentUrl\)/);
+    assert.match(card, /window\.open\(paymentUrl,\s*"_blank"/);
     // Payment button still gated on confirmed places + route.
     assert.match(card, /routeValidationBlockingPayment/);
   });

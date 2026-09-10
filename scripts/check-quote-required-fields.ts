@@ -28,6 +28,10 @@ console.log("=== Exact required-field messages ===");
     QUOTE_REQUIRED_FIELD_MESSAGES.terms,
     "Please agree to the Terms & Conditions and Privacy Policy",
   );
+  assert.equal(
+    QUOTE_REQUIRED_FIELD_MESSAGES.childSeatNotes,
+    "Please tell us each child’s age and whether you need a child seat or booster seat.",
+  );
   console.log("OK  shared messages match the customer copy");
 }
 
@@ -46,6 +50,7 @@ console.log("\n=== QuoteCard uses shared messages + red field UX ===");
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.terms/);
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.passengers/);
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.suitcases/);
+  assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.childSeatNotes/);
   assert.match(card, /focusFirstInvalidField/);
   assert.match(card, /validateCheckoutRequiredFields/);
   assert.match(card, /aria-invalid=\{Boolean\(customerNameError\)\}/);

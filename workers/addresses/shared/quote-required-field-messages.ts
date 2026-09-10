@@ -16,6 +16,8 @@ export const QUOTE_REQUIRED_FIELD_MESSAGES = {
   terms: "Please agree to the Terms & Conditions and Privacy Policy",
   passengers: "Please select the number of passengers",
   suitcases: "Please select the number of large suitcases",
+  childSeatNotes:
+    "Please tell us each child’s age and whether you need a child seat or booster seat.",
 } as const;
 
 export type QuoteRequiredFieldMessage =

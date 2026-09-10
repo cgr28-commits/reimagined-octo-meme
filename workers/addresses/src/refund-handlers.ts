@@ -1766,6 +1766,12 @@ export async function savePaidBookingRecordFromConfirm(input: {
     returnFlightNumber: input.booking.returnFlightNumber || undefined,
     passengers: input.booking.passengers,
     suitcases: input.booking.suitcases,
+    ...(typeof input.booking.childSeats === "number" && input.booking.childSeats > 0
+      ? {
+          childSeats: Math.min(2, Math.floor(input.booking.childSeats)),
+          childSeatNotes: input.booking.childSeatNotes?.trim() || undefined,
+        }
+      : {}),
     vehicle: input.booking.vehicle,
     journeyDistance: input.booking.journeyDistance,
     journeyDuration: input.booking.journeyDuration,

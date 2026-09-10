@@ -874,6 +874,8 @@ async function logPaidBookingCalendar(
         returnFlightNumber: booking.returnFlightNumber,
         passengers: booking.passengers,
         suitcases: booking.suitcases,
+        childSeats: booking.childSeats,
+        childSeatNotes: booking.childSeatNotes,
         vehicle: booking.vehicle,
         estimatedPrice: amountPaid,
         isAirportTrip: booking.isAirportTrip,
@@ -933,6 +935,12 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     passengers,
     suitcases,
+    ...(Number.isFinite(Number(details.childSeats)) && Number(details.childSeats) > 0
+      ? {
+          childSeats: Math.min(2, Math.max(0, Math.floor(Number(details.childSeats)))),
+          childSeatNotes: String(details.childSeatNotes ?? "").trim() || undefined,
+        }
+      : {}),
     vehicle: String(details.vehicle ?? "").trim(),
     journeyDistance: String(details.journeyDistance ?? "").trim() || undefined,
     journeyDuration: String(details.journeyDuration ?? "").trim() || undefined,

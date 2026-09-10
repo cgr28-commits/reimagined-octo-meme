@@ -97,6 +97,22 @@ export function isValidEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+export function normalizeChildSeats(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.min(2, Math.floor(parsed));
+}
+
+export function formatChildSeatsLine(
+  childSeats?: number,
+  childSeatNotes?: string,
+): string {
+  const seats = normalizeChildSeats(childSeats);
+  if (seats <= 0) return "";
+  const notes = childSeatNotes?.trim();
+  return `Child seats: ${seats}${notes ? ` (${notes})` : ""}`;
+}
+
 function buildTripDetailsBlock(details: BookingDetails, bookingReference?: string): string {
   const reference = bookingReference ?? details.bookingReference;
   const inclusions = resolveJourneyInclusions({
@@ -134,9 +150,10 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
       : "") +
     `Passengers: ${details.passengers}\n` +
     `Suitcases: ${details.suitcases}\n` +
-    (typeof details.childSeats === "number" && details.childSeats > 0
-      ? `Child seats: ${details.childSeats}${details.childSeatNotes ? ` (${details.childSeatNotes})` : ""}\n`
-      : "") +
+    (() => {
+      const childSeatsLine = formatChildSeatsLine(details.childSeats, details.childSeatNotes);
+      return childSeatsLine ? `${childSeatsLine}\n` : "";
+    })() +
     `Vehicle: ${details.vehicle}\n` +
     (details.estimatedPrice ? `Your fixed journey price: ${details.estimatedPrice}\n` : "") +
     (() => {
@@ -212,9 +229,10 @@ export function buildGroupQuoteRequestMessage(
     (reference ? `Reference: ${reference}\n` : "") +
     `Passengers: ${details.passengers}\n` +
     `Luggage (large bags): ${details.suitcases}\n` +
-    (typeof details.childSeats === "number" && details.childSeats > 0
-      ? `Child seats: ${details.childSeats}${details.childSeatNotes ? ` (${details.childSeatNotes})` : ""}\n`
-      : "") +
+    (() => {
+      const childSeatsLine = formatChildSeatsLine(details.childSeats, details.childSeatNotes);
+      return childSeatsLine ? `${childSeatsLine}\n` : "";
+    })() +
     `Pickup: ${details.pickupLabel}\n` +
     `Destination: ${details.dropoffLabel}\n` +
     (details.airportCode ? `Airport: ${details.airportCode}\n` : "") +

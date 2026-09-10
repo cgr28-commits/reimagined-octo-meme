@@ -71,6 +71,13 @@ export default function BookingConfirmedClient() {
       const lines = formatCustomerPromoPricingLines(promoFields).filter(
         (line) => !line.startsWith("Amount paid:"),
       );
+      if (typeof pending.booking.childSeats === "number" && pending.booking.childSeats > 0) {
+        lines.unshift(
+          `Child seats: ${pending.booking.childSeats}${
+            pending.booking.childSeatNotes ? ` (${pending.booking.childSeatNotes})` : ""
+          }`,
+        );
+      }
       const accessLines = formatAirportAccessOptionCustomerLines({
         expressDropOffSelected: pending.booking.expressDropOffSelected,
         expressDropOffFee: pending.booking.expressDropOffFee,

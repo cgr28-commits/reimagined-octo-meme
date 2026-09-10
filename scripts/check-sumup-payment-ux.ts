@@ -83,19 +83,21 @@ assert.match(sumup, /redirect_url/);
 assert.doesNotMatch(sumup, /NEXT_PUBLIC_.*SUMUP|process\.env\.SUMUP/);
 console.log("OK  hosted_checkout.enabled + hosted_checkout_url; no public SumUp key in shared module");
 
-console.log("\n=== QuoteCard same-tab SumUp redirect UX ===");
+console.log("\n=== QuoteCard SumUp handoff UX ===");
 const card = read("src/components/QuoteCard.tsx");
 assert.match(card, /window\.location\.assign\(checkout\.paymentUrl\)/);
 assert.match(card, /Opening secure payment…/);
-assert.match(card, /You’ll be securely redirected to SumUp to complete your payment/);
-assert.doesNotMatch(card, /Secure payment will open in a new tab/);
-assert.doesNotMatch(card, /window\.open\(checkout\.paymentUrl,\s*"_blank"/);
-assert.doesNotMatch(card, /window\.open\(openCheckout\.paymentUrl,\s*"_blank"/);
+assert.match(card, /Secure payment ready/);
+assert.match(card, /Cancel payment and return to quote/);
+assert.match(card, /SumUp opens in a separate tab\. Close it at any time to return to your saved quote\./);
+assert.match(card, /window\.open\(paymentUrl,\s*"_blank"/);
+assert.match(card, /isMobileDevice \?\? detectMobileDevice\(\)/);
+assert.match(card, /if \(isMobile\) \{[\s\S]{0,180}?window\.location\.assign\(checkout\.paymentUrl\)/);
 assert.match(card, /saveBookingFormDraft/);
 assert.match(card, /savePendingPayment/);
 assert.match(card, /saveOpenCheckoutSession/);
 assert.match(card, /Continue to SumUp/);
-console.log("OK  QuoteCard same-tab assign; draft + pending payment preserved");
+console.log("OK  desktop SumUp opens separately; mobile stays same-tab; draft preserved");
 
 const shortNotice = read("src/app/pay/short-notice/ShortNoticePayClient.tsx");
 assert.match(shortNotice, /window\.location\.assign\(checkout\.paymentUrl\)/);
