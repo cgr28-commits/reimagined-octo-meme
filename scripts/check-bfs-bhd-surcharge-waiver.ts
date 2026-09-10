@@ -81,13 +81,13 @@ assert.equal(bhdBfs.airportFixedCostsGbp, 5);
 assert.equal(bfsBhd.amount, underlying.amount + 4);
 assert.equal(bhdBfs.amount, underlying.amount + 5);
 
-// Dublin: ~98 mi → £230 journey + fixed
+// Dublin: ~98 mi → £229 journey + fixed
 const dubDrop = calculateQuote(CITY, "DUB", S, false, {}, M98, false)!;
 const dubPick = calculateQuote(CITY, "DUB", S, false, {}, M98, true)!;
-assert.equal(dubDrop.journeyFareGbp, 230);
+assert.equal(dubDrop.journeyFareGbp, 229);
 assert.equal(dubDrop.airportFixedCostsGbp, 4);
-assert.equal(dubDrop.amount, 234);
+assert.equal(dubDrop.amount, 233);
 assert.equal(dubPick.airportFixedCostsGbp, 9);
-assert.equal(dubPick.amount, 239);
+assert.equal(dubPick.amount, 238);
 
 console.log("OK  universal distance + A2A fixed costs + Dublin fixed costs");

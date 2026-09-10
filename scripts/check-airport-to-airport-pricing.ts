@@ -128,7 +128,7 @@ console.log("=== 1. Routing: airport↔airport uses dedicated helper (not A2A fa
 console.log("\n=== 2. A2A underlying matches universal Saloon (DUB fixed added on airport path) ===");
 {
   const journey = expectedUniversalSaloon(DUB_CROSS_BORDER_METRICS);
-  assert.equal(journey, 245, `168km universal Saloon must be £245, got £${journey}`);
+  assert.equal(journey, 244, `168km universal Saloon must be £244, got £${journey}`);
 
   const underlying = calculatePointToPointQuote(
     "George Best Belfast City Airport, Airport Rd, Belfast BT3 9JH, UK",
@@ -446,9 +446,9 @@ console.log("\n=== 6. Ordinary address ↔ Dublin Airport (direction-aware fixed
     assert.equal(websiteTo!.amount, dropExpected);
     assert.equal(websiteFrom!.amount, pickExpected);
   }
-  // Explicit City Hall 98 mi anchors: drop £234 / pick £239.
-  assert.equal(calculateUniversalSaloonJourneyFareGbp(98) + DUB_DROP_FIXED, 234);
-  assert.equal(calculateUniversalSaloonJourneyFareGbp(98) + DUB_PICK_FIXED, 239);
+  // Explicit City Hall 98 mi anchors: drop £233 / pick £238.
+  assert.equal(calculateUniversalSaloonJourneyFareGbp(98) + DUB_DROP_FIXED, 233);
+  assert.equal(calculateUniversalSaloonJourneyFareGbp(98) + DUB_PICK_FIXED, 238);
   console.log("OK  address→DUB (+£4) and DUB→address (+£9) for City Hall/Lisburn/Bangor");
 }
 

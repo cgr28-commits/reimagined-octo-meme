@@ -6,9 +6,9 @@
  *
  * Approved calibration (Saloon):
  *   0–4 mi → £29 (flat floor)
- *   ~15 mi → £50
- *   ~32 mi → £80
- *   ~98 mi → £230
+ *   ~15 mi → £49
+ *   ~32 mi → £79
+ *   ~98 mi → £229
  *
  * Estate = final rounded Saloon + £6 (never rounded separately).
  * Airport Express / access charges are NOT included here — add after.
@@ -16,6 +16,9 @@
 
 export const UNIVERSAL_ESTATE_PREMIUM_GBP = 6;
 export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
+export const UNIVERSAL_SALOON_15_MILE_GBP = 49;
+export const UNIVERSAL_SALOON_32_MILE_GBP = 79;
+export const UNIVERSAL_SALOON_98_MILE_GBP = 229;
 
 /** Statute miles from driving km (same factor as public journey distance labels). */
 export function universalDrivingMilesFromKm(distanceKm: number): number {
@@ -24,19 +27,34 @@ export function universalDrivingMilesFromKm(distanceKm: number): number {
 
 /**
  * Piecewise-linear raw Saloon journey fare before rounding.
- * Knots: (4,29), (15,50), (32,80), (98,230).
- * 0–4 miles stay on the £29 floor; 4–15 interpolates smoothly to £50.
- * Fares from 15 miles onward are unchanged.
+ * Knots: (4,29), (15,49), (32,79), (98,229).
+ * 0–4 miles stay on the £29 floor; later segments interpolate between knots.
  */
 export function rawUniversalSaloonJourneyFareGbp(roadMiles: number): number {
   const m = Math.max(0, Number(roadMiles) || 0);
   if (m <= 4) return UNIVERSAL_SALOON_MINIMUM_GBP;
   if (m <= 15) {
-    return UNIVERSAL_SALOON_MINIMUM_GBP + ((50 - UNIVERSAL_SALOON_MINIMUM_GBP) / 11) * (m - 4);
+    return (
+      UNIVERSAL_SALOON_MINIMUM_GBP +
+      ((UNIVERSAL_SALOON_15_MILE_GBP - UNIVERSAL_SALOON_MINIMUM_GBP) / 11) * (m - 4)
+    );
   }
-  if (m <= 32) return 50 + (30 / 17) * (m - 15);
-  if (m <= 98) return 80 + (150 / 66) * (m - 32);
-  return 230 + (150 / 66) * (m - 98);
+  if (m <= 32) {
+    return (
+      UNIVERSAL_SALOON_15_MILE_GBP +
+      ((UNIVERSAL_SALOON_32_MILE_GBP - UNIVERSAL_SALOON_15_MILE_GBP) / 17) * (m - 15)
+    );
+  }
+  if (m <= 98) {
+    return (
+      UNIVERSAL_SALOON_32_MILE_GBP +
+      ((UNIVERSAL_SALOON_98_MILE_GBP - UNIVERSAL_SALOON_32_MILE_GBP) / 66) * (m - 32)
+    );
+  }
+  return (
+    UNIVERSAL_SALOON_98_MILE_GBP +
+    ((UNIVERSAL_SALOON_98_MILE_GBP - UNIVERSAL_SALOON_32_MILE_GBP) / 66) * (m - 98)
+  );
 }
 
 /** Single consistent journey rounding: nearest £1. */

@@ -83,12 +83,12 @@ check("Estate = Saloon + £6 on BHD", () => {
 check("Dublin: universal journey + fixed costs", () => {
   const drop = calculateQuote(CITY, "DUB", S, false, {}, M98, false)!;
   const pick = calculateQuote(CITY, "DUB", S, false, {}, M98, true)!;
-  assert.equal(drop.journeyFareGbp, 230);
-  assert.equal(pick.journeyFareGbp, 230);
+  assert.equal(drop.journeyFareGbp, 229);
+  assert.equal(pick.journeyFareGbp, 229);
   assert.equal(drop.airportFixedCostsGbp, 4);
   assert.equal(pick.airportFixedCostsGbp, 9);
-  assert.equal(drop.amount, 234);
-  assert.equal(pick.amount, 239);
+  assert.equal(drop.amount, 233);
+  assert.equal(pick.amount, 238);
 });
 
 check("A2A BFS↔BHD keeps destination-end historical surcharge", () => {
