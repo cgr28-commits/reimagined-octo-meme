@@ -117,7 +117,7 @@ check("City Hall → Dublin RETURN: outbound toll £4 + return parking £5 + tol
   const oneWay = calculateQuote(CITY, "DUB", S, false, {}, DUB_M98, false)!;
   const ret = calculateQuote(CITY, "DUB", S, true, {}, DUB_M98, false)!;
   assert.equal(oneWay.journeyFareGbp, 229);
-  assert.equal(ret.journeyFareGbp, getReturnJourneyFare(229)); // 435.1
+  assert.equal(ret.journeyFareGbp, roundGbp(getReturnJourneyFare(229))); // 435.1
   assert.equal(ret.airportFixedCostsGbp, 4 + 9); // outbound toll + return parking+toll
   assert.equal(ret.amount, roundGbp(435.1 + 13));
   const fees = resolveJourneyAirportFees({
