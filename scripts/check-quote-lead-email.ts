@@ -14,9 +14,12 @@ import {
   buildQuoteLeadFingerprint,
   buildQuoteLeadMessage,
   buildQuoteLeadSubject,
+  createSerializedQuoteLeadMarkerStore,
   decideQuoteLeadEmails,
   hasQuoteLeadContact,
   isCompleteFixedPriceQuote,
+  isFallbackQuotePriceLabel,
+  parsePositiveQuotePriceGbp,
   runQuoteLeadNotification,
   sanitizeQuoteLeadContact,
   sanitizeQuoteLeadPhone,
@@ -47,16 +50,19 @@ const quoteBase: QuoteLeadDetails = {
   airportAccessOption: "Free Drop-Off",
   quoteTransactionId: "quote_abc123XYZ",
   source: "website",
+  totalGbp: 45,
 };
 
-function createMemoryStore(initial: string[] = []): QuoteLeadMarkerStore {
-  const claimed = new Set(initial);
+function createRacyGetThenPutStore(): QuoteLeadMarkerStore {
+  const claimed = new Set<string>();
   return {
     async peek(fingerprint) {
       return claimed.has(fingerprint);
     },
     async claim(fingerprint) {
-      if (claimed.has(fingerprint)) {
+      const existing = claimed.has(fingerprint);
+      await new Promise((resolve) => setTimeout(resolve, 8));
+      if (existing) {
         return false;
       }
       claimed.add(fingerprint);
@@ -118,7 +124,17 @@ console.log("\n=== Worker quote-lead handler emails via operational Resend path 
   assert.match(handler[0], /upsertQuoteSession/);
   assert.match(handler[0], /runQuoteLeadNotification/);
   assert.match(handler[0], /trySendOwnerOperationalEmail/);
-  assert.match(worker, /QUOTE_LEAD_DEDUPE_TTL_SECONDS/);
+  assert.match(worker, /QUOTE_LEAD_COORDINATOR/);
+  assert.match(worker, /createSerializedQuoteLeadMarkerStore/);
+  assert.doesNotMatch(worker, /quote_lead_fp:\$\{fingerprint\}/);
+  assert.doesNotMatch(worker, /quote-lead-dedup\.internal/);
+  assert.doesNotMatch(
+    worker,
+    /BOOKING_COUNTER\.get\(key\)[\s\S]{0,180}BOOKING_COUNTER\.put\(key/,
+  );
+  const coordinator = read("workers/addresses/src/quote-lead-coordinator.ts");
+  assert.match(coordinator, /blockConcurrencyWhile/);
+  assert.match(coordinator, /class QuoteLeadCoordinator/);
   assert.doesNotMatch(handler[0], /sendBookingEmail/);
   assert.doesNotMatch(handler[0], /formatAdsAttributionForOwner/);
   assert.match(worker, /sendBookingEmail/);
@@ -201,7 +217,17 @@ console.log("\n=== Phone validation and contact sanitisation ===");
   assert.equal(hasQuoteLeadContact(invalidPhoneOnly), false);
   assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, pickupLabel: "" }), false);
   assert.equal(isCompleteFixedPriceQuote(quoteBase), true);
-  console.log("OK  invalid telephone numbers are dropped before send");
+  assert.equal(isFallbackQuotePriceLabel("Quote"), true);
+  assert.equal(isFallbackQuotePriceLabel("quote"), true);
+  assert.equal(isFallbackQuotePriceLabel("TBC"), true);
+  assert.equal(isFallbackQuotePriceLabel("£45.00"), false);
+  assert.equal(parsePositiveQuotePriceGbp({ estimatedPrice: "Quote" }), null);
+  assert.equal(parsePositiveQuotePriceGbp({ estimatedPrice: "Quote", totalGbp: 45 }), null);
+  assert.equal(parsePositiveQuotePriceGbp({ estimatedPrice: "£0.00", totalGbp: 0 }), null);
+  assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, estimatedPrice: "Quote", totalGbp: undefined }), false);
+  assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, estimatedPrice: "Quote", totalGbp: 45 }), false);
+  assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, estimatedPrice: "£0", totalGbp: 0 }), false);
+  console.log("OK  invalid telephone numbers are dropped; fallback price text cannot email");
 }
 
 console.log("\n=== Transaction-id fingerprint still identifies one session ===");
@@ -242,11 +268,11 @@ async function checkQuoteLeadBehaviour(): Promise<void> {
     return { result, emails };
   }
 
-  const incomplete = await collect(createMemoryStore(), { ...quoteBase, pickupLabel: "" }, "quote");
+  const incomplete = await collect(createSerializedQuoteLeadMarkerStore(), { ...quoteBase, pickupLabel: "" }, "quote");
   assert.equal(incomplete.result.emailed, false);
   assert.equal(incomplete.emails.length, 0);
 
-  const store = createMemoryStore();
+  const store = createSerializedQuoteLeadMarkerStore();
   const first = await collect(store, quoteBase, "quote");
   assert.equal(first.result.quoteEmailed, true);
   assert.equal(first.emails.length, 1);
@@ -270,7 +296,7 @@ async function checkQuoteLeadBehaviour(): Promise<void> {
   assert.equal(newQuote.emails.length, 1);
   assert.match(newQuote.emails[0].body, /Chat assistant/);
 
-  const failStore = createMemoryStore();
+  const failStore = createSerializedQuoteLeadMarkerStore();
   const failed = await collect(failStore, quoteBase, "quote", false);
   assert.equal(failed.result.emailed, false);
   const retried = await collect(failStore, quoteBase, "quote", true);
@@ -314,7 +340,50 @@ async function checkQuoteLeadBehaviour(): Promise<void> {
     hasValidContact: false,
   });
   assert.equal(websiteDecision.sendQuoteEmail, true);
-  console.log("OK  first quote once; recalculation silent; new txn emails; failed send retries; one contact follow-up");
+
+  const fallbackQuote = await collect(
+    createSerializedQuoteLeadMarkerStore(),
+    { ...quoteBase, estimatedPrice: "Quote", totalGbp: undefined },
+    "quote",
+  );
+  assert.equal(fallbackQuote.result.emailed, false);
+  assert.equal(fallbackQuote.emails.length, 0);
+
+  const atomicStore = createSerializedQuoteLeadMarkerStore();
+  let atomicSends = 0;
+  await Promise.all(
+    Array.from({ length: 12 }, () =>
+      runQuoteLeadNotification({
+        details: quoteBase,
+        kind: "quote",
+        store: atomicStore,
+        sendEmail: async () => {
+          atomicSends += 1;
+          await new Promise((resolve) => setTimeout(resolve, 15));
+          return true;
+        },
+      }),
+    ),
+  );
+  assert.equal(atomicSends, 1);
+
+  const racyStore = createRacyGetThenPutStore();
+  let racySends = 0;
+  await Promise.all(
+    Array.from({ length: 12 }, () =>
+      runQuoteLeadNotification({
+        details: quoteBase,
+        kind: "quote",
+        store: racyStore,
+        sendEmail: async () => {
+          racySends += 1;
+          return true;
+        },
+      }),
+    ),
+  );
+  assert.ok(racySends > 1, `expected get-then-put race to send more than once, got ${racySends}`);
+  console.log("OK  first quote once; recalculation silent; new txn emails; failed send retries; one contact follow-up; concurrent claims send once");
 }
 
 checkQuoteLeadBehaviour()

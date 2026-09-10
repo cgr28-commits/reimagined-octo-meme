@@ -23,9 +23,17 @@ account_id = "36c5c88df4c1f0259413d555f2679f3c"
 name = "REFUND_COORDINATOR"
 class_name = "RefundCoordinator"
 
+[[durable_objects.bindings]]
+name = "QUOTE_LEAD_COORDINATOR"
+class_name = "QuoteLeadCoordinator"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
+
+[[migrations]]
+tag = "v2-quote-lead-coordinator"
+new_sqlite_classes = ["QuoteLeadCoordinator"]
 
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
@@ -83,6 +91,10 @@ id = "53fa3cc2bd46436f90ae19200e599ea1"
 [[env.preview.kv_namespaces]]
 binding = "BOOKING_COUNTER"
 id = "869e2c2e02004d4a88c9cfbf563f1d6a"
+
+[[env.preview.durable_objects.bindings]]
+name = "QUOTE_LEAD_COORDINATOR"
+class_name = "QuoteLeadCoordinator"
 
 [env.preview.vars]
 REVIEW_REQUEST_DELAY_MINUTES = "120"

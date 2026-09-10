@@ -1,5 +1,5 @@
 import { formatUkDateTime, formatUkSubmissionTime } from "./uk-time";
-import { QUOTE_SESSION_TTL_SECONDS } from "./quote-session";
+import { parseGbpAmount, QUOTE_SESSION_TTL_SECONDS } from "./quote-session";
 
 export const QUOTE_LEAD_DEDUPE_TTL_SECONDS = QUOTE_SESSION_TTL_SECONDS;
 export const NO_QUOTE_CONTACT_YET =
@@ -111,9 +111,45 @@ export function hasQuoteLeadContact(contact: QuoteLeadContact): boolean {
   return Boolean(contact.customerName || contact.customerEmail || contact.mobileNumber);
 }
 
+export function isFallbackQuotePriceLabel(value: unknown): boolean {
+  if (typeof value !== "string") {
+    return true;
+  }
+  const trimmed = value.trim();
+  if (!trimmed || !/\d/.test(trimmed)) {
+    return true;
+  }
+  return /^(quote|tbc|poa|on\s*request)(?:\b|$)/i.test(trimmed) && !/£\s*\d/.test(trimmed);
+}
+
+export function parsePositiveQuotePriceGbp(
+  details: Pick<QuoteLeadDetails, "estimatedPrice" | "totalGbp">,
+): number | null {
+  if (isFallbackQuotePriceLabel(details.estimatedPrice)) {
+    return null;
+  }
+  const fromTotal =
+    typeof details.totalGbp === "number" && Number.isFinite(details.totalGbp)
+      ? details.totalGbp
+      : null;
+  const fromLabel = parseGbpAmount(details.estimatedPrice);
+  const amount = fromTotal != null && fromTotal > 0 ? fromTotal : fromLabel;
+  if (amount == null || !Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+  return Math.round(amount * 100) / 100;
+}
+
 export function isCompleteFixedPriceQuote(details: Pick<
   QuoteLeadDetails,
-  "tripLabel" | "pickupLabel" | "dropoffLabel" | "vehicle" | "estimatedPrice" | "passengers" | "suitcases"
+  | "tripLabel"
+  | "pickupLabel"
+  | "dropoffLabel"
+  | "vehicle"
+  | "estimatedPrice"
+  | "totalGbp"
+  | "passengers"
+  | "suitcases"
 >): boolean {
   const passengers = Number(details.passengers);
   const suitcases = Number(details.suitcases);
@@ -122,7 +158,7 @@ export function isCompleteFixedPriceQuote(details: Pick<
       details.pickupLabel?.trim() &&
       details.dropoffLabel?.trim() &&
       details.vehicle?.trim() &&
-      details.estimatedPrice?.trim() &&
+      parsePositiveQuotePriceGbp(details) != null &&
       Number.isFinite(passengers) &&
       passengers >= 1 &&
       Number.isFinite(suitcases) &&
@@ -302,6 +338,56 @@ export type QuoteLeadMarkerStore = {
   release(fingerprint: string): Promise<void>;
 };
 
+/**
+ * Per-fingerprint async mutex. claim/peek/release are exclusive so concurrent
+ * requests cannot both win the same quote or contact email.
+ */
+export function createSerializedQuoteLeadMarkerStore(
+  initial: Iterable<string> = [],
+): QuoteLeadMarkerStore {
+  const claimed = new Set(initial);
+  const tails = new Map<string, Promise<unknown>>();
+
+  async function withLock<T>(key: string, work: () => T | Promise<T>): Promise<T> {
+    const previous = tails.get(key) ?? Promise.resolve();
+    let releaseLock = () => {};
+    const current = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const queued = previous.catch(() => undefined).then(() => current);
+    tails.set(key, queued);
+    await previous.catch(() => undefined);
+    try {
+      return await work();
+    } finally {
+      releaseLock();
+      if (tails.get(key) === queued) {
+        tails.delete(key);
+      }
+    }
+  }
+
+  return {
+    peek(fingerprint) {
+      return withLock(fingerprint, () => claimed.has(fingerprint));
+    },
+    claim(fingerprint) {
+      return withLock(fingerprint, () => {
+        if (claimed.has(fingerprint)) {
+          return false;
+        }
+        claimed.add(fingerprint);
+        return true;
+      });
+    },
+    release(fingerprint) {
+      return withLock(fingerprint, () => {
+        claimed.delete(fingerprint);
+      });
+    },
+  };
+}
+
 export type QuoteLeadNotificationResult = {
   emailed: boolean;
   quoteEmailed: boolean;
@@ -330,19 +416,13 @@ export async function runQuoteLeadNotification(input: {
   const contact = sanitizeQuoteLeadContact(input.details);
   const quoteFingerprint = buildQuoteLeadFingerprint(input.details);
   const contactFingerprint = buildQuoteContactFingerprint(input.details);
-  const quoteAlreadyClaimed = await input.store.peek(quoteFingerprint);
-  const contactAlreadyClaimed = await input.store.peek(contactFingerprint);
-  const decision = decideQuoteLeadEmails({
-    kind: input.kind,
-    completeQuote: true,
-    quoteAlreadyClaimed,
-    contactAlreadyClaimed,
-    hasValidContact: hasQuoteLeadContact(contact),
-  });
-
+  const hasValidContact = hasQuoteLeadContact(contact);
   const result = { ...empty };
 
-  if (decision.claimQuote) {
+  const shouldAttemptQuote = input.kind === "quote" || input.kind === "contact";
+  const shouldAttemptContact = input.kind === "contact" && hasValidContact;
+
+  if (shouldAttemptQuote) {
     const claimed = await input.store.claim(quoteFingerprint);
     if (claimed) {
       const sent = await input.sendEmail(
@@ -351,6 +431,9 @@ export async function runQuoteLeadNotification(input: {
       );
       if (!sent) {
         await input.store.release(quoteFingerprint);
+        if (input.kind === "contact") {
+          return result;
+        }
       } else {
         result.quoteEmailed = true;
         result.quoteRetried = input.kind === "contact";
@@ -358,7 +441,7 @@ export async function runQuoteLeadNotification(input: {
     }
   }
 
-  if (decision.claimContact) {
+  if (shouldAttemptContact) {
     const claimed = await input.store.claim(contactFingerprint);
     if (claimed) {
       const sent = await input.sendEmail(

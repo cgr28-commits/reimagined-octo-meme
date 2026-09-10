@@ -582,7 +582,7 @@ export default function QuoteAssistant() {
             passengers: nextDraft.passengers ?? 1,
             suitcases: nextDraft.suitcases ?? 0,
             vehicle: nextDraft.vehicle || "Estate Car (1–4 passengers)",
-            estimatedPrice: nextDraft.quotedAmountLabel || "Quote",
+            estimatedPrice: nextDraft.quotedAmountLabel || "",
             isAirportTrip: true,
             quoteTransactionId: botQuoteSessionIdRef.current,
             airportCode: nextDraft.airportCode,

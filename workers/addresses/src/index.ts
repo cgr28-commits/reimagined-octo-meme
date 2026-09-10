@@ -12,8 +12,7 @@ import {
   sanitizeAdsAttribution,
 } from "../shared/ads-attribution";
 import {
-  QUOTE_LEAD_DEDUPE_TTL_SECONDS,
-  quoteLeadMarkerKey,
+  createSerializedQuoteLeadMarkerStore,
   runQuoteLeadNotification,
   type QuoteLeadDetails,
   type QuoteLeadKind,
@@ -264,6 +263,12 @@ import {
   runAdFraudRetentionCleanup,
 } from "./ad-fraud-handlers";
 export { RefundCoordinator } from "./refund-coordinator";
+export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
+import {
+  coordinatorClaim,
+  coordinatorPeek,
+  coordinatorRelease,
+} from "./quote-lead-coordinator";
 import {
   handleRefundTestCheckoutRequest,
   handleRefundTestListRequest,
@@ -432,6 +437,8 @@ type Env = {
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
   /** Per-booking refund serialization (Durable Object). */
   REFUND_COORDINATOR?: DurableObjectNamespace;
+  /** Per-fingerprint quote / contact email claim (Durable Object). */
+  QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
   /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   GOOGLE_ADS_CLIENT_ID?: string;
@@ -1077,62 +1084,19 @@ function buildSumUpCheckoutDescription(
   return base.replace(/\s+/g, " ").trim().slice(0, 140);
 }
 
-function quoteLeadDedupCacheKey(fingerprint: string): Request {
-  return new Request(`https://quote-lead-dedup.internal/${encodeURIComponent(fingerprint)}`);
-}
-
 function createQuoteLeadMarkerStore(env: Env): QuoteLeadMarkerStore {
-  return {
-    async peek(fingerprint) {
-      if (env.BOOKING_COUNTER) {
-        return Boolean(await env.BOOKING_COUNTER.get(quoteLeadMarkerKey(fingerprint)));
-      }
-      const cache = (caches as unknown as { default: Cache }).default;
-      return Boolean(await cache.match(quoteLeadDedupCacheKey(fingerprint)));
-    },
-    async claim(fingerprint) {
-      // Claim up front to avoid duplicate emails under concurrency.
-      // On send failure the caller must release the claim so retries can email.
-      if (env.BOOKING_COUNTER) {
-        const key = quoteLeadMarkerKey(fingerprint);
-        const existing = await env.BOOKING_COUNTER.get(key);
-        if (existing) {
-          return false;
-        }
-        await env.BOOKING_COUNTER.put(key, "1", {
-          expirationTtl: QUOTE_LEAD_DEDUPE_TTL_SECONDS,
-        });
-        return true;
-      }
+  if (env.QUOTE_LEAD_COORDINATOR) {
+    const ns = env.QUOTE_LEAD_COORDINATOR;
+    return {
+      peek: (fingerprint) => coordinatorPeek(ns, fingerprint),
+      claim: (fingerprint) => coordinatorClaim(ns, fingerprint),
+      release: (fingerprint) => coordinatorRelease(ns, fingerprint),
+    };
+  }
 
-      const cache = (caches as unknown as { default: Cache }).default;
-      const cacheKey = quoteLeadDedupCacheKey(fingerprint);
-      if (await cache.match(cacheKey)) {
-        return false;
-      }
-      await cache.put(
-        cacheKey,
-        new Response("1", {
-          headers: {
-            "Cache-Control": `private, max-age=${QUOTE_LEAD_DEDUPE_TTL_SECONDS}`,
-          },
-        }),
-      );
-      return true;
-    },
-    async release(fingerprint) {
-      if (env.BOOKING_COUNTER) {
-        await env.BOOKING_COUNTER.delete(quoteLeadMarkerKey(fingerprint));
-        return;
-      }
-      const cache = (caches as unknown as { default: Cache }).default;
-      try {
-        await cache.delete(quoteLeadDedupCacheKey(fingerprint));
-      } catch {
-        // Cache API has no reliable delete across edges; TTL already limits damage.
-      }
-    },
-  };
+  // Same-isolate fallback when the Durable Object binding is missing (local tests).
+  // Never uses KV/cache get-then-put.
+  return createSerializedQuoteLeadMarkerStore();
 }
 
 function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null {
