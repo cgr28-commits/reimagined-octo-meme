@@ -223,14 +223,15 @@ check("homepage benefits include 5% off when you book a return", () => {
   assert.match(hero, /5% off when you book a return/);
 });
 
-check("public quote tool does not ask for child/car seats", () => {
+check("public quote fare step does not ask for child/car seats", () => {
   const progressive = fs.readFileSync(
     path.join(root, "src/components/QuoteProgressiveRoute.tsx"),
     "utf8",
   );
   const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
   assert.doesNotMatch(progressive, /Child seats|Child seat details/);
-  assert.doesNotMatch(card, /onChildSeatsChange|setChildSeats/);
+  assert.match(card, /setChildSeats/);
+  assert.match(card, /Child \/ booster seats/);
 });
 
 check("customer-facing copy does not claim weekend costs more", () => {

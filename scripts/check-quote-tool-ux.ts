@@ -52,16 +52,20 @@ check("City of Derry quick-select does not use Dublin toll logic", () => {
 
 check("Passenger and luggage use selectable buttons", () => {
   assert.match(progressive, /Passengers/);
+  assert.match(progressive, /Include all children in the passenger total\./);
+  assert.match(card, /Include all children in the passenger total\./);
   assert.match(progressive, /Suitcases \/ large bags/);
   assert.doesNotMatch(progressive, /Child seats/);
   assert.match(progressive, /One way/);
   assert.match(progressive, /Return/);
 });
 
-check("Public quote tool has no child/car seat question", () => {
+check("Public quote tool has no child/car seat question on the fare step", () => {
   assert.doesNotMatch(progressive, /Child seats|Child seat details|car seat/i);
-  assert.doesNotMatch(card, /onChildSeatsChange|setChildSeats|childSeatNotes/);
-  assert.doesNotMatch(card, /label=\"Child seats\"/);
+  assert.doesNotMatch(progressive, /onChildSeatsChange|setChildSeats|childSeatNotes/);
+  assert.match(card, /Child \/ booster seats/);
+  assert.match(card, /setChildSeats/);
+  assert.match(card, /childSeatNotes/);
 });
 
 check("Public quote is 1–4 passengers only (no 5–7 / minibus path)", () => {

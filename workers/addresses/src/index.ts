@@ -2,7 +2,11 @@ import {
   isValidPassengerCount,
   PASSENGER_LIMIT_ERROR,
 } from "../shared/passenger-limits";
-import { getPaymentBookingBlockers } from "../shared/paid-booking-gate";
+import {
+  getPaymentBookingBlockers,
+  parseChildSeatNotesInput,
+  parseChildSeatsInput,
+} from "../shared/paid-booking-gate";
 import {
   formatAdsAttributionForOwner,
   sanitizeAdsAttribution,
@@ -874,6 +878,8 @@ async function logPaidBookingCalendar(
         returnFlightNumber: booking.returnFlightNumber,
         passengers: booking.passengers,
         suitcases: booking.suitcases,
+        childSeats: booking.childSeats,
+        childSeatNotes: booking.childSeatNotes,
         vehicle: booking.vehicle,
         estimatedPrice: amountPaid,
         isAirportTrip: booking.isAirportTrip,
@@ -933,6 +939,10 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     passengers,
     suitcases,
+    childSeats: parseChildSeatsInput(details.childSeats),
+    ...(parseChildSeatNotesInput(details.childSeatNotes)
+      ? { childSeatNotes: parseChildSeatNotesInput(details.childSeatNotes) }
+      : {}),
     vehicle: String(details.vehicle ?? "").trim(),
     journeyDistance: String(details.journeyDistance ?? "").trim() || undefined,
     journeyDuration: String(details.journeyDuration ?? "").trim() || undefined,

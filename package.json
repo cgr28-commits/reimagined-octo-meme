@@ -65,6 +65,7 @@
     "check:smart-ops": "npx tsx scripts/check-smart-ops.ts",
     "check:customer-smart-availability": "npx tsx scripts/check-customer-smart-availability.ts",
     "check:quote-required-fields": "npx tsx scripts/check-quote-required-fields.ts",
+    "check:child-seats-booking-sumup": "npx tsx scripts/check-child-seats-booking-sumup.ts",
     "check:quote-journey-direction": "npx tsx scripts/check-quote-journey-direction.ts",
     "check:owner-job-nav-links": "npx tsx scripts/check-owner-job-nav-links.ts",
     "check:public-help-fabs": "npx tsx scripts/check-public-help-fabs.ts",

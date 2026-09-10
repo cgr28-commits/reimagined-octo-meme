@@ -35,6 +35,7 @@ const SELECT_CARD_OFF =
 
 function ChoiceGrid({
   label,
+  hint,
   options,
   value,
   onChange,
@@ -44,6 +45,7 @@ function ChoiceGrid({
   hasError = false,
 }: {
   label: string;
+  hint?: string;
   options: number[];
   value: number | null;
   onChange: (value: number) => void;
@@ -55,11 +57,18 @@ function ChoiceGrid({
   const cols = columns ?? options.length;
   return (
     <div className={choiceGroupNeedsClass(needsCompletion && value == null, hasError)}>
-      <p className="form-label">
-        {label}
-        {needsCompletion && value == null ? (
-          <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
-            (required)
+      <p className="form-label flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <span>
+          {label}
+          {needsCompletion && value == null ? (
+            <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+              (required)
+            </span>
+          ) : null}
+        </span>
+        {hint ? (
+          <span className="font-semibold normal-case tracking-normal text-[11px] text-white/70">
+            {hint}
           </span>
         ) : null}
       </p>
@@ -457,6 +466,7 @@ export default function QuoteProgressiveRoute({
             <div id="quote-section-passengers" className="space-y-5 lg:space-y-3.5">
               <ChoiceGrid
                 label="Passengers"
+                hint="Include all children in the passenger total."
                 options={[1, 2, 3, 4]}
                 value={passengers == null ? null : Math.min(4, Math.max(1, passengers))}
                 onChange={handlePassengersChange}

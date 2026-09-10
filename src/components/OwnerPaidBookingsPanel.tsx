@@ -1746,6 +1746,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 {typeof booking.suitcases === "number"
                   ? `${booking.suitcases} suitcases`
                   : "—"}
+                {typeof booking.childSeats === "number" && booking.childSeats > 0
+                  ? ` · ${booking.childSeats} child seat${booking.childSeats === 1 ? "" : "s"}${
+                      booking.childSeatNotes ? ` (${booking.childSeatNotes})` : ""
+                    }`
+                  : ""}
               </dd>
             </div>
           ) : null}

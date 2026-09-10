@@ -24,6 +24,8 @@ export type TransferBookingEvent = {
   flightNumber?: string;
   passengers?: number;
   suitcases?: number;
+  childSeats?: number;
+  childSeatNotes?: string;
   vehicle?: string;
   estimatedPrice?: string | null;
   isAirportTrip?: boolean;
@@ -269,6 +271,11 @@ function buildTransferDescription(booking: TransferBookingEvent, message?: strin
     booking.returnFlightNumber ? `Flight for collection: ${booking.returnFlightNumber}` : "",
     typeof booking.passengers === "number" ? `Passengers: ${booking.passengers}` : "",
     typeof booking.suitcases === "number" ? `Suitcases: ${booking.suitcases}` : "",
+    typeof booking.childSeats === "number" && booking.childSeats > 0
+      ? `Child seats: ${booking.childSeats}${
+          booking.childSeatNotes ? ` (${booking.childSeatNotes})` : ""
+        }`
+      : "",
     booking.vehicle ? `Vehicle: ${booking.vehicle}` : "",
     booking.estimatedPrice ? `Your fixed journey price: ${booking.estimatedPrice}` : "",
     booking.paid && booking.amountPaid ? `Amount paid: ${booking.amountPaid}` : "",

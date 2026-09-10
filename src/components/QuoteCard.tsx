@@ -11,7 +11,7 @@ import {
   StartNewQuoteControls,
 } from "@/components/QuoteBookingHelpControls";
 import TripMap from "@/components/TripMap";
-import { buildBookingMessage, buildEnquiryBookingMessage, isValidEmailAddress, isValidMobileNumber, type BookingDetails } from "@/lib/booking-message";
+import { buildBookingMessage, buildEnquiryBookingMessage, isValidEmailAddress, isValidMobileNumber, normalizeChildSeats, type BookingDetails } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
@@ -200,6 +200,10 @@ import {
 } from "@/lib/address-place-storage";
 import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
+import {
+  applyCancelPaymentReturnToQuote,
+  openDesktopSumUpCheckout,
+} from "@/lib/sumup-desktop-handoff";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
 import GoogleAdsRequestQuote from "@/components/GoogleAdsRequestQuote";
 import type { AdsQuotePageType } from "@/lib/google-ads";
@@ -307,6 +311,7 @@ function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = fal
 
 function TapChoiceRow({
   label,
+  hint,
   options,
   value,
   onChange,
@@ -314,6 +319,7 @@ function TapChoiceRow({
   needsCompletion = false,
 }: {
   label: string;
+  hint?: string;
   options: number[];
   value: number | null;
   onChange: (value: number) => void;
@@ -328,11 +334,18 @@ function TapChoiceRow({
           : "rounded-2xl border border-transparent p-2"
       }
     >
-      <p className="form-label mb-2">
-        {label}
-        {needsCompletion && value == null ? (
-          <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
-            (required)
+      <p className="form-label mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <span>
+          {label}
+          {needsCompletion && value == null ? (
+            <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+              (required)
+            </span>
+          ) : null}
+        </span>
+        {hint ? (
+          <span className="font-semibold normal-case tracking-normal text-[11px] text-white/70">
+            {hint}
           </span>
         ) : null}
       </p>
@@ -688,6 +701,9 @@ function QuoteCard({
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
+  const [childSeats, setChildSeats] = useState(0);
+  const [childSeatNotes, setChildSeatNotes] = useState("");
+  const [childSeatNotesError, setChildSeatNotesError] = useState("");
   const [saveQuoteOpen, setSaveQuoteOpen] = useState(false);
   const [saveQuotePrompt, setSaveQuotePrompt] = useState("");
   const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() =>
@@ -927,6 +943,9 @@ function QuoteCard({
       if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
         setSuitcases(clampPublicSuitcases(draft.suitcases));
       }
+      setChildSeats(normalizeChildSeats(draft.childSeats));
+      setChildSeatNotes(draft.childSeatNotes?.trim() || "");
+      setChildSeatNotesError("");
       setExactPassengers(null);
       if (
         draft.vehicle &&
@@ -2719,6 +2738,13 @@ function QuoteCard({
       setEmailAddressError("");
     }
 
+    if (childSeats > 0 && !childSeatNotes.trim()) {
+      setChildSeatNotesError(QUOTE_REQUIRED_FIELD_MESSAGES.childSeatNotes);
+      ok = false;
+    } else {
+      setChildSeatNotesError("");
+    }
+
     if (!ok) {
       window.setTimeout(() => {
         const root = document.getElementById("step3-customer-details") ?? document.getElementById("quoteForm");
@@ -2772,6 +2798,8 @@ function QuoteCard({
         : undefined,
       passengers: effectivePassengers as number,
       suitcases: suitcases as number,
+      childSeats,
+      childSeatNotes: childSeats > 0 ? childSeatNotes.trim() : undefined,
       vehicle: quoteVehicle,
       estimatedPrice,
       journeyDistance: journeyDistanceLabel || undefined,
@@ -2871,6 +2899,8 @@ function QuoteCard({
       returnTime: returnJourney ? retTime : undefined,
       passengers: details.passengers,
       suitcases: details.suitcases,
+      childSeats: details.childSeats,
+      childSeatNotes: details.childSeatNotes,
       vehicle: details.vehicle,
       flightNumber: details.flightNumber || undefined,
       returnFlightNumber: details.returnFlightNumber || undefined,
@@ -3034,8 +3064,8 @@ function QuoteCard({
       return;
     }
 
-    // Persist draft + pending payment, then same-tab redirect to SumUp Hosted Checkout.
-    // window.open after await is blocked on iPhone Safari (no user-gesture), which looks like a dead button.
+    // Persist draft + pending payment, then open SumUp. Mobile stays same-tab;
+    // desktop shows the payment-ready panel and opens SumUp from Continue.
     setPaymentLoading(true);
     setPaymentError("");
     setPaymentPopupBlocked(false);
@@ -3058,6 +3088,8 @@ function QuoteCard({
       returnTime,
       ...(passengers != null ? { passengers } : {}),
       ...(suitcases != null ? { suitcases } : {}),
+      childSeats,
+      childSeatNotes: childSeats > 0 ? childSeatNotes.trim() : "",
       exactPassengers,
       vehicle: quoteVehicle,
       customerName,
@@ -3183,9 +3215,14 @@ function QuoteCard({
         }).catch(() => false);
       }
 
-      // Same-tab redirect — reliable on iPhone Safari / Android / desktop (no popup).
-      window.location.assign(checkout.paymentUrl);
-      // Keep loading state until navigation completes; re-enable only if assign somehow fails.
+      const isMobile = isMobileDevice ?? detectMobileDevice();
+      if (isMobile) {
+        // Same-tab redirect — reliable on iPhone Safari / Android (no popup).
+        window.location.assign(checkout.paymentUrl);
+        return;
+      }
+      // Desktop: keep the completed quote visible and wait for Continue to SumUp.
+      setPaymentLoading(false);
       return;
     } catch (error) {
       if (isPaymentFareMismatchError(error)) {
@@ -3240,6 +3277,21 @@ function QuoteCard({
     }
   }
 
+  function openSumUpPayment(paymentUrl: string) {
+    const isMobile = isMobileDevice ?? detectMobileDevice();
+    if (isMobile) {
+      window.location.assign(paymentUrl);
+      return;
+    }
+    const handoff = openDesktopSumUpCheckout(window, paymentUrl);
+    if (handoff.openedNewTab) {
+      setPaymentLoading(false);
+      setPaymentPopupBlocked(false);
+      return;
+    }
+    // Same-tab fallback already assigned the SumUp URL. Do not navigate again.
+  }
+
   function handleOpenPaymentAgain() {
     if (!openCheckout?.paymentUrl) {
       void handlePayNow();
@@ -3248,16 +3300,26 @@ function QuoteCard({
     setPaymentPopupBlocked(false);
     setPaymentError("");
     setPaymentLoading(true);
-    window.location.assign(openCheckout.paymentUrl);
+    openSumUpPayment(openCheckout.paymentUrl);
   }
 
   function handleReturnToEditBooking() {
+    const next = applyCancelPaymentReturnToQuote({
+      quoteStep,
+      openCheckout,
+      paying: paymentLoading,
+      childSeats,
+      childSeatNotes,
+    });
+    clearOpenCheckoutSession();
+    setOpenCheckout(next.openCheckout as OpenCheckoutSession | null);
+    setPaymentLoading(next.paying);
     setPaymentError("");
     setPaymentPopupBlocked(false);
-    setQuoteStep(3);
     setSubmitError("");
     setBookingSent(false);
-    // Keep openCheckout so “Open payment again” still works with the same SumUp link.
+    navigateQuoteStep(next.quoteStep as QuoteStepNavTarget);
+    scrollQuoteStage(routeSummaryRef.current ?? "quote-route-summary");
   }
 
   function handleStartFreshCheckout() {
@@ -3381,6 +3443,9 @@ function QuoteCard({
     setPassengers(null);
     setSuitcases(null);
     setExactPassengers(null);
+    setChildSeats(0);
+    setChildSeatNotes("");
+    setChildSeatNotesError("");
     setSaveQuoteOpen(false);
     setSaveQuotePrompt("");
     setJourneyIntent(
@@ -4791,7 +4856,11 @@ function QuoteCard({
       partySelectionReady && effectivePassengers != null && suitcases != null
         ? `${vehicleShortLabel(quoteVehicle)} · ${formatPassengerChoice(effectivePassengers)} passenger${
             effectivePassengers === 1 ? "" : "s"
-          } · ${formatSuitcaseChoice(suitcases)} suitcase${suitcases === 1 ? "" : "s"}`
+          } · ${formatSuitcaseChoice(suitcases)} suitcase${suitcases === 1 ? "" : "s"}${
+            childSeats > 0
+              ? ` · ${childSeats} child / booster seat${childSeats === 1 ? "" : "s"}`
+              : ""
+          }`
         : vehicleShortLabel(quoteVehicle);
     const showChangeDropOff =
       expressSelection.eligible && expressSelection.freeAlternativeAvailable;
@@ -5103,6 +5172,82 @@ function QuoteCard({
                   </p>
                 ) : null}
               </div>
+              <div>
+                <p className="form-label mb-2">Child / booster seats</p>
+                <div
+                  className="grid grid-cols-3 gap-2"
+                  role="group"
+                  aria-label="Child / booster seats"
+                >
+                  {([0, 1, 2] as const).map((option) => {
+                    const selected = childSeats === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => {
+                          setChildSeats(option);
+                          if (option === 0) {
+                            setChildSeatNotes("");
+                            setChildSeatNotesError("");
+                          } else if (childSeatNotes.trim()) {
+                            setChildSeatNotesError("");
+                          }
+                        }}
+                        className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
+                          selected
+                            ? "quote-choice-selected bg-emerald text-navy"
+                            : "quote-choice border border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:text-white"
+                        }`}
+                      >
+                        {option === 0 ? "None" : String(option)}
+                      </button>
+                    );
+                  })}
+                </div>
+                {childSeats > 0 ? (
+                  <div className="mt-3">
+                    <label htmlFor="child-seat-notes" className="form-label">
+                      Tell us each child’s age and whether you need a child seat or booster seat.
+                    </label>
+                    <textarea
+                      id="child-seat-notes"
+                      name="childSeatNotes"
+                      rows={3}
+                      value={childSeatNotes}
+                      aria-invalid={Boolean(childSeatNotesError)}
+                      aria-describedby={
+                        childSeatNotesError ? "child-seat-notes-error" : "child-seat-availability"
+                      }
+                      onChange={(e) => {
+                        setChildSeatNotes(e.target.value);
+                        if (e.target.value.trim()) setChildSeatNotesError("");
+                      }}
+                      placeholder="e.g. 2-year-old child seat, 6-year-old booster"
+                      className={bookingTextFieldClass(
+                        fieldState({
+                          hasError: Boolean(childSeatNotesError),
+                          complete: Boolean(childSeatNotes.trim()),
+                          activeStep: quoteStep >= 2,
+                        }),
+                      )}
+                    />
+                    {childSeatNotesError ? (
+                      <p
+                        id="child-seat-notes-error"
+                        role="alert"
+                        className="mt-1.5 text-xs text-red-300"
+                      >
+                        {childSeatNotesError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <p id="child-seat-availability" className="mt-2 text-xs leading-relaxed text-white/65">
+                  Child seats are requested subject to availability. We’ll confirm your request.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -5247,15 +5392,20 @@ function QuoteCard({
                   <p className="text-sm font-semibold text-emerald">Secure payment ready</p>
                   <p className="text-xs leading-relaxed text-white/75">
                     Your booking details are saved for {openCheckout.amountLabel}. Continue to
-                    SumUp to finish paying, or edit your booking first.
+                    SumUp to finish paying, or cancel payment and return to your quote.
                   </p>
+                  {isMobileDevice === false ? (
+                    <p className="text-xs leading-relaxed text-white/70">
+                      SumUp opens in a separate tab. Close it at any time to return to your saved quote.
+                    </p>
+                  ) : null}
                   <div className="grid gap-2 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={handleReturnToEditBooking}
                       className="btn-secondary w-full"
                     >
-                      Return to / Edit booking
+                      Cancel payment and return to quote
                     </button>
                     <button
                       type="button"
@@ -6348,6 +6498,7 @@ function QuoteCard({
           <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
             <TapChoiceRow
               label="Passengers"
+              hint="Include all children in the passenger total."
               options={Array.from({ length: passengerLimit }, (_, index) => index + 1)}
               value={passengers == null ? null : Math.min(passengers, passengerLimit)}
               onChange={(value) => {
