@@ -24,7 +24,7 @@ import {
 import { emailAssistantQuote, submitAssistantBooking } from "@/lib/quote-assistant-submit";
 import { START_NEW_QUOTE_EVENT } from "@/lib/reset-quote-journey";
 import { createQuoteTransactionId } from "@/lib/google-ads-client";
-import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import { scheduleQuoteContactAlert, scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 
 const BOT_WORKING_MS = 450;
 const SESSION_KEY = "matni-quote-assistant-v1";
@@ -565,6 +565,32 @@ export default function QuoteAssistant() {
         }
 
         if (result.submitBooking) {
+          const fromAirport = nextDraft.direction === "from-airport";
+          scheduleQuoteContactAlert({
+            tripLabel: fromAirport ? "Airport pickup" : "Airport drop-off",
+            pickupLabel: fromAirport
+              ? nextDraft.airportCode || "Airport"
+              : nextDraft.address || "",
+            dropoffLabel: fromAirport
+              ? nextDraft.address || ""
+              : nextDraft.airportCode || "Airport",
+            returnJourney: Boolean(nextDraft.returnJourney),
+            tripDate: nextDraft.tripDate,
+            tripTime: nextDraft.tripTime,
+            returnDate: nextDraft.returnDate,
+            returnTime: nextDraft.returnTime,
+            passengers: nextDraft.passengers ?? 1,
+            suitcases: nextDraft.suitcases ?? 0,
+            vehicle: nextDraft.vehicle || "Estate Car (1–4 passengers)",
+            estimatedPrice: nextDraft.quotedAmountLabel || "Quote",
+            isAirportTrip: true,
+            quoteTransactionId: botQuoteSessionIdRef.current,
+            airportCode: nextDraft.airportCode,
+            source: "bot",
+            customerName: nextDraft.customerName,
+            customerEmail: nextDraft.customerEmail,
+            mobileNumber: nextDraft.mobileNumber,
+          });
           const submission = await submitAssistantBooking(nextDraft);
           setMessages((prev) => [...prev, { role: "bot", text: submission.message }]);
           playBotReplySound();

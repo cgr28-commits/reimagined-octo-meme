@@ -57,7 +57,7 @@ function session(partial: Partial<DailyQuoteSessionRecord> & { quoteTransactionI
   });
 }
 
-console.log("=== A–D: quote view / recalculation never sends an owner email ===");
+console.log("=== A–D: first completed quote emails once; recalculations only upsert ===");
 {
   const client = read("src/lib/submit-quote-lead.ts");
   const card = read("src/components/QuoteCard.tsx");
@@ -66,16 +66,16 @@ console.log("=== A–D: quote view / recalculation never sends an owner email ==
     /async function handleQuoteLeadRequest\([\s\S]*?\nasync function handleBookingRequest/,
   );
   assert.ok(handler, "quote-lead handler missing");
-  assert.match(client, /skipEmail:\s*true/);
-  assert.match(client, /Never send an immediate owner email/);
-  assert.doesNotMatch(client, /Quote lead email failed via worker/);
+  assert.doesNotMatch(client, /skipEmail:\s*true/);
+  assert.match(client, /fingerprint, "quote"/);
+  assert.match(client, /Quote lead email failed via worker/);
   assert.match(card, /scheduleQuoteLeadAlert\(/);
   assert.match(card, /quoteTransactionId/);
-  assert.doesNotMatch(handler[0], /trySendOwnerOperationalEmail/);
-  assert.match(handler[0], /emailed:\s*false/);
+  assert.match(handler[0], /trySendOwnerOperationalEmail/);
+  assert.match(handler[0], /runQuoteLeadNotification/);
   assert.match(handler[0], /upsertQuoteSession/);
   assert.match(card, /if \(quoteTransactionId\) return;/);
-  console.log("OK  quote generate / luggage / vehicle / Express changes do not email");
+  console.log("OK  same quoteTransactionId upserts; email dedupe is by txn id");
 }
 
 console.log("\n=== E/F: same quoteTransactionId upserts one record; new id is separate ===");

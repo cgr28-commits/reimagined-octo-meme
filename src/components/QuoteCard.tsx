@@ -198,7 +198,7 @@ import {
   saveDropoffAddressLabel,
   savePickupAddressLabel,
 } from "@/lib/address-place-storage";
-import { scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import { scheduleQuoteContactAlert, scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import {
   applyCancelPaymentReturnToQuote,
@@ -2951,6 +2951,58 @@ function QuoteCard({
     return true;
   }
 
+  function notifyOwnerQuoteContactIfReady() {
+    if (!liveQuote || !quoteTransactionId) {
+      return;
+    }
+    const tripLabel = isOutOfAreaPickupJourney
+      ? "Out-of-area pickup — manual quote request"
+      : isRoiJourney
+        ? "Republic of Ireland long-distance transfer"
+        : isA2AFlow && journeyKind
+          ? journeyKindLabel(journeyKind)
+          : isAirportTrip
+            ? isFromAirport
+              ? "Airport pickup"
+              : "Airport drop-off"
+            : "Address to address";
+    scheduleQuoteContactAlert({
+      tripLabel,
+      pickupLabel,
+      dropoffLabel,
+      returnJourney,
+      tripDate: tripDate || undefined,
+      tripTime: tripTime || undefined,
+      returnDate: returnJourney ? returnDate || undefined : undefined,
+      returnTime: returnJourney ? returnTime || undefined : undefined,
+      passengers: effectivePassengers as number,
+      suitcases: (suitcases ?? 0) as number,
+      vehicle: quoteVehicle,
+      estimatedPrice: formatQuote(pricedFare?.totalGbp ?? liveQuote.amount),
+      isAirportTrip,
+      quoteTransactionId,
+      airportCode: effectiveAirportCode || undefined,
+      airportAccessOption: expressSelection.eligible
+        ? expressSelection.legs.length > 1
+          ? expressSelection.selected
+            ? "Express access"
+            : "Free airport areas"
+          : expressSelection.selected
+            ? expressSelection.service === "pick-up"
+              ? "Express Pick-Up"
+              : "Express Drop-Off"
+            : expressSelection.service === "pick-up"
+              ? "Free Pick-Up"
+              : "Free Drop-Off"
+        : undefined,
+      totalGbp: pricedFare?.totalGbp ?? liveQuote.amount,
+      source: "website",
+      customerName,
+      customerEmail,
+      mobileNumber: customerMobile,
+    });
+  }
+
   /** Marks every invalid checkout field, then scrolls to the first. Does not start payment. */
   function validateCheckoutRequiredFields(): boolean {
     const contactOk = validateContactDetails();
@@ -2992,6 +3044,7 @@ function QuoteCard({
     if (!validateCheckoutRequiredFields()) {
       return;
     }
+    notifyOwnerQuoteContactIfReady();
 
     if (!liveQuote || !canPayNowOnline) {
       if (!canPayNowOnline) {
@@ -3650,6 +3703,7 @@ function QuoteCard({
     if (!validateCheckoutRequiredFields()) {
       return;
     }
+    notifyOwnerQuoteContactIfReady();
     if (!requireCapacityConfirmed()) {
       return;
     }
