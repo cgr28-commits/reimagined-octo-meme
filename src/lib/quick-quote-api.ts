@@ -50,6 +50,7 @@ export type QuickQuoteCalculateResult =
       distanceKm?: number;
       durationMinutes?: number;
       smartAvailability?: CustomerSmartAvailabilityQuoteSignal;
+      minimumBookingNoticeHours?: number;
     }
   | { ok: false; reason?: string; message: string; error?: string };
 
@@ -179,6 +180,9 @@ export async function calculateServerQuote(
         }
       : {}),
     ...(smartAvailability ? { smartAvailability } : {}),
+    ...(typeof payload.minimumBookingNoticeHours === "number"
+      ? { minimumBookingNoticeHours: Number(payload.minimumBookingNoticeHours) }
+      : {}),
   };
 }
 

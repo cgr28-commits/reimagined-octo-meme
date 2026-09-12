@@ -1,4 +1,8 @@
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import {
+  MINIMUM_BOOKING_NOTICE_HOURS,
+  normalizeMinimumBookingNoticeHours,
+} from "../../shared/booking-notice";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -84,6 +88,7 @@ export type BookingSettings = {
   unavailablePeriods: UnavailablePeriodSummary[];
   activeUnavailablePeriods?: UnavailablePeriodSummary[];
   activeCount?: number;
+  minimumBookingNoticeHours?: number;
   updatedAt: string;
 };
 
@@ -462,6 +467,43 @@ export async function declineShortNoticeBooking(
     throw new Error(String(payload.error || "Could not decline short-notice booking"));
   }
   return payload.record as ShortNoticeBookingSummary;
+}
+
+export async function fetchPublicMinimumBookingNoticeHours(): Promise<number> {
+  try {
+    const response = await fetch(`${WORKER_BASE}/booking-notice`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    const payload = await parseJson(response);
+    if (!response.ok) return MINIMUM_BOOKING_NOTICE_HOURS;
+    return normalizeMinimumBookingNoticeHours(payload.minimumBookingNoticeHours);
+  } catch {
+    return MINIMUM_BOOKING_NOTICE_HOURS;
+  }
+}
+
+export async function updateMinimumBookingNoticeHours(
+  ownerKey: string,
+  hours: number,
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      action: "set-notice-hours",
+      minimumBookingNoticeHours: hours,
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not save short-notice period"));
+  }
+  return payload.settings as BookingSettings;
 }
 
 export async function fetchBookingSettings(ownerKey: string): Promise<BookingSettings> {

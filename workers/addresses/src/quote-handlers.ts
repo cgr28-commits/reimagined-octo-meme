@@ -27,6 +27,8 @@ import {
   recordQuoteShadowSafely,
 } from "./smart-ops-handlers";
 import { toPublicCustomerSmartAvailability } from "../shared/customer-smart-availability";
+import { MINIMUM_BOOKING_NOTICE_HOURS } from "../shared/booking-notice";
+import { getBookingSettings } from "./booking-settings-store";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
@@ -395,6 +397,8 @@ export async function handleQuoteCalculateRequest(
     if (availabilityGate.enforce) {
       quoteBody.smartAvailability = toPublicCustomerSmartAvailability(availabilityGate);
     }
+    const settings = await getBookingSettings(env.TRACKING_STORE);
+    quoteBody.minimumBookingNoticeHours = settings.minimumBookingNoticeHours;
   }
 
   if (env?.TRACKING_STORE) {
@@ -478,10 +482,15 @@ export async function handleQuoteAvailabilityRequest(
     },
   });
 
+  const noticeHours = env?.TRACKING_STORE
+    ? (await getBookingSettings(env.TRACKING_STORE)).minimumBookingNoticeHours
+    : MINIMUM_BOOKING_NOTICE_HOURS;
+
   return json(
     {
       ok: true,
       ...toPublicCustomerSmartAvailability(availabilityGate),
+      minimumBookingNoticeHours: noticeHours,
     },
     200,
     origin,

@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MINIMUM_BOOKING_NOTICE_HOURS,
+  MAX_MINIMUM_BOOKING_NOTICE_HOURS,
+  MIN_MINIMUM_BOOKING_NOTICE_HOURS,
   formatHoursUntilPickupLabel,
   formatUnavailablePeriodRangeLabel,
   isUnavailablePeriodExpired,
+  normalizeMinimumBookingNoticeHours,
+  parseMinimumBookingNoticeHoursInput,
   vehicleServiceLabel,
 } from "../../shared/booking-notice";
 import { hoursUntilPickup } from "../../shared/refund-ops";
@@ -23,8 +27,10 @@ import {
   resendAlternativeShortNoticeEmail,
   resendShortNoticePaymentEmail,
   restoreShortNoticeToDashboard,
+  updateMinimumBookingNoticeHours,
   updateUnavailablePeriod,
   withdrawAlternativeShortNoticeOffer,
+  type BookingSettings,
   type ShortNoticeBookingSummary,
   type UnavailablePeriodSummary,
 } from "@/lib/short-notice-api";
@@ -166,6 +172,8 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
   const [loading, setLoading] = useState(true);
   const [busyRef, setBusyRef] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
+  const [noticeHoursDraft, setNoticeHoursDraft] = useState(String(MINIMUM_BOOKING_NOTICE_HOURS));
+  const [savedNoticeHours, setSavedNoticeHours] = useState(MINIMUM_BOOKING_NOTICE_HOURS);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -229,8 +237,11 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
     }));
   }
 
-  const applySettings = useCallback((settings: { unavailablePeriods?: UnavailablePeriodSummary[] }) => {
+  const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number }) => {
     setPeriods(Array.isArray(settings.unavailablePeriods) ? settings.unavailablePeriods : []);
+    const hours = normalizeMinimumBookingNoticeHours(settings.minimumBookingNoticeHours);
+    setSavedNoticeHours(hours);
+    setNoticeHoursDraft(String(hours));
   }, []);
 
   const load = useCallback(async () => {
@@ -267,6 +278,25 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
       [...periods].sort((a, b) => a.startLocal.localeCompare(b.startLocal)),
     [periods],
   );
+
+  async function handleSaveNoticeHours() {
+    setSavingSettings(true);
+    setError("");
+    setMessage("");
+    try {
+      const parsed = parseMinimumBookingNoticeHoursInput(noticeHoursDraft);
+      if (parsed == null) {
+        throw new Error("Enter a whole number of hours between 1 and 48.");
+      }
+      const settings = await updateMinimumBookingNoticeHours(ownerKey, parsed);
+      applySettings(settings);
+      setMessage(`Short-notice period saved: ${parsed} hours.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save short-notice period");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
 
   async function handleSavePeriod() {
     setSavingSettings(true);
@@ -494,7 +524,50 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
               Booking Availability
             </p>
-            <h2 className="mt-1 text-lg font-bold text-white">Unavailable periods</h2>
+            <h2 className="mt-1 text-lg font-bold text-white">Short-notice period</h2>
+            <p className="mt-1 break-words text-sm text-white/65">
+              Bookings inside this period require owner approval before payment.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="block min-w-0 text-sm text-white/70">
+            Hours
+            <input
+              type="number"
+              inputMode="numeric"
+              min={MIN_MINIMUM_BOOKING_NOTICE_HOURS}
+              max={MAX_MINIMUM_BOOKING_NOTICE_HOURS}
+              step={1}
+              value={noticeHoursDraft}
+              onChange={(event) => setNoticeHoursDraft(event.target.value)}
+              className={`${fieldClass} sm:w-32`}
+              aria-describedby="short-notice-period-help"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={savingSettings}
+            onClick={() => void handleSaveNoticeHours()}
+            className="min-h-11 w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60 sm:w-auto"
+          >
+            {savingSettings ? "Saving…" : "Save short-notice period"}
+          </button>
+        </div>
+        <p id="short-notice-period-help" className="mt-2 break-words text-xs text-white/45">
+          Current value: {savedNoticeHours} hours. Allowed range {MIN_MINIMUM_BOOKING_NOTICE_HOURS}–
+          {MAX_MINIMUM_BOOKING_NOTICE_HOURS} hours. Exactly {savedNoticeHours}h00 uses normal
+          payment; anything under that is a short-notice request.
+        </p>
+        {message.startsWith("Short-notice period saved") ? (
+          <p className="mt-2 text-sm text-emerald" role="status">
+            {message}
+          </p>
+        ) : null}
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-bold text-white">Unavailable periods</h3>
             <p className="mt-1 break-words text-sm text-white/65">
               Block automatic SumUp for pickups inside these windows (Europe/London). Expired
               periods stop blocking automatically — no need to clear them.
@@ -660,7 +733,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
             Short-notice requests
           </p>
           <p className="mt-1 break-words text-sm text-white/65">
-            {`Journeys inside the ${MINIMUM_BOOKING_NOTICE_HOURS}-hour notice window, plus unavailable-period requests — awaiting your decision before payment.`}
+            {`Journeys inside the ${savedNoticeHours}-hour notice window, plus unavailable-period requests — awaiting your decision before payment.`}
           </p>
         </div>
         <button

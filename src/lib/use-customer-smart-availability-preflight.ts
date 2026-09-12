@@ -2,7 +2,10 @@
 
 import { useEffect } from "react";
 import { checkCustomerSmartAvailability } from "@/lib/customer-smart-availability-client";
-import { isWithinMinimumBookingNotice } from "../../shared/booking-notice";
+import {
+  isWithinMinimumBookingNotice,
+  normalizeMinimumBookingNoticeHours,
+} from "../../shared/booking-notice";
 import type {
   CustomerBookingAvailabilityInput,
   CustomerPublicAlternativeTime,
@@ -42,7 +45,16 @@ export function useCustomerSmartAvailabilityPreflight(
       routeDurationMinutes,
     }).then((result) => {
         if (cancelled || !result.blocked) return;
-        if (isWithinMinimumBookingNotice(tripDate, tripTime)) return;
+        if (
+          isWithinMinimumBookingNotice(
+            tripDate,
+            tripTime,
+            undefined,
+            normalizeMinimumBookingNoticeHours(result.minimumBookingNoticeHours),
+          )
+        ) {
+          return;
+        }
         onBlocked(
         result.customerMessage || "",
         result.alternativeTimes,

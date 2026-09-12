@@ -303,8 +303,10 @@ check("Smart Availability rest-of-day does not hard-block under-12h checkout", (
   assert.match(card, /Request Short-Notice Booking/);
   assert.match(card, /Need a quick answer\? WhatsApp us/);
   assert.match(card, /minimumNoticeRequestHeading/);
-  assert.match(index, /isWithinMinimumBookingNotice\(String\(booking\.tripDate\), String\(booking\.tripTime\)\)/);
-  assert.match(preflight, /isWithinMinimumBookingNotice\(tripDate, tripTime\)/);
+  assert.match(index, /isWithinMinimumBookingNotice\(/);
+  assert.match(index, /settings\.minimumBookingNoticeHours/);
+  assert.match(preflight, /isWithinMinimumBookingNotice\(/);
+  assert.match(preflight, /minimumBookingNoticeHours/);
   assert.match(saved, /isCustomerSmartAvailabilityBlockMessage\(error\) && !isMinimumNoticeRequest/);
   assert.match(bookQuote, /isCustomerSmartAvailabilityBlockMessage\(error\) && !isMinimumNoticeRequest/);
 });

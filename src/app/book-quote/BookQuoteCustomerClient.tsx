@@ -35,6 +35,7 @@ import {
   minimumNoticeRequestBody,
   minimumNoticeRequestHeading,
 } from "../../../shared/booking-notice";
+import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import { SITE } from "@/lib/data";
 
 const fieldClass =
@@ -52,10 +53,13 @@ function BookQuoteInner() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [minimumBookingNoticeHours] = useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
     amountLabel?: string;
+    underMinimumNotice?: boolean;
+    noticeHours?: number;
   } | null>(null);
 
   const [customerName, setCustomerName] = useState("");
@@ -169,7 +173,9 @@ function BookQuoteInner() {
     });
   }, [quote, journey, expressSelection.feeGbp]);
   const isMinimumNoticeRequest = Boolean(
-    tripDate && tripTime && isWithinMinimumBookingNotice(tripDate, tripTime),
+    tripDate &&
+      tripTime &&
+      isWithinMinimumBookingNotice(tripDate, tripTime, undefined, minimumBookingNoticeHours),
   );
   const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
     "Hi, I have a short-notice airport transfer request.",
@@ -298,6 +304,11 @@ function BookQuoteInner() {
             (displayPricing
               ? formatQuickQuoteAmount(displayPricing.totalGbp)
               : quote.quotedAmountLabel),
+          underMinimumNotice: checkout.underMinimumNotice === true || isMinimumNoticeRequest,
+          noticeHours:
+            checkout.minimumBookingNoticeHours ??
+            checkout.minimumNoticeHours ??
+            minimumBookingNoticeHours,
         });
         setPaying(false);
         return;
@@ -337,6 +348,8 @@ function BookQuoteInner() {
           reference={shortNoticeResult.reference}
           amountLabel={shortNoticeResult.amountLabel}
           whatsappUrl={shortNoticeResult.whatsappUrl}
+          underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
+          noticeHours={shortNoticeResult.noticeHours ?? minimumBookingNoticeHours}
         />
       </div>
     );
@@ -601,7 +614,7 @@ function BookQuoteInner() {
                 {minimumNoticeRequestHeading()}
               </p>
               <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-amber-50/90">
-                {minimumNoticeRequestBody()}
+                {minimumNoticeRequestBody(minimumBookingNoticeHours)}
               </p>
             </div>
           ) : (

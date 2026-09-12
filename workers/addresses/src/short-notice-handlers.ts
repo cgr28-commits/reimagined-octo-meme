@@ -32,6 +32,7 @@ import {
   bookingSettingsPublicView,
   deleteUnavailablePeriod,
   getBookingSettings,
+  updateMinimumBookingNoticeHours,
   updateUnavailablePeriod,
 } from "./booking-settings-store";
 import {
@@ -510,10 +511,12 @@ export async function createShortNoticeRequest(options: {
     now,
   );
 
+  const noticeHours = settings.minimumBookingNoticeHours;
   const underMinimumNotice = isWithinMinimumBookingNotice(
     options.booking.tripDate,
     options.booking.tripTime,
     now,
+    noticeHours,
   );
   if (!blocking && !underMinimumNotice) {
     throw new Error("This journey is not inside a short-notice window.");
@@ -540,7 +543,7 @@ export async function createShortNoticeRequest(options: {
     unavailablePeriodIdApplied: blocking?.id ?? null,
     underMinimumNotice,
     ...(underMinimumNotice
-      ? { minimumNoticeHoursApplied: MINIMUM_BOOKING_NOTICE_HOURS }
+      ? { minimumNoticeHoursApplied: noticeHours }
       : {}),
     history: appendShortNoticeHistory(undefined, "request_submitted", createdAt),
     createdAt,
@@ -602,6 +605,7 @@ export async function shouldForceShortNotice(
   blockingPeriodId: string | null;
   blockingPeriodLabel: string | null;
   underMinimumNotice: boolean;
+  minimumNoticeHours: number;
 }> {
   const settings = await getBookingSettings(store);
   const blocking = findBlockingUnavailablePeriod(
@@ -610,10 +614,12 @@ export async function shouldForceShortNotice(
     settings.unavailablePeriods,
     now,
   );
+  const noticeHours = settings.minimumBookingNoticeHours;
   const underMinimumNotice = isWithinMinimumBookingNotice(
     booking.tripDate,
     booking.tripTime,
     now,
+    noticeHours,
   );
   const activePeriods = listActiveUnavailablePeriods(settings.unavailablePeriods, now);
   return {
@@ -622,6 +628,7 @@ export async function shouldForceShortNotice(
     blockingPeriodId: blocking?.id ?? null,
     blockingPeriodLabel: blocking ? formatUnavailablePeriodRangeLabel(blocking) : null,
     underMinimumNotice,
+    minimumNoticeHours: noticeHours,
   };
 }
 
@@ -1512,6 +1519,14 @@ export async function handleOwnerSaveBookingSettings(
   const action = String(body.action ?? "add").trim().toLowerCase();
 
   try {
+    if (action === "set-notice-hours" || action === "set-minimum-booking-notice-hours") {
+      const settings = await updateMinimumBookingNoticeHours(
+        env.TRACKING_STORE,
+        body.minimumBookingNoticeHours ?? body.hours,
+      );
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+
     if (action === "delete") {
       const id = String(body.id ?? "").trim();
       const settings = await deleteUnavailablePeriod(env.TRACKING_STORE, id);
@@ -1607,6 +1622,20 @@ export function isOwnerBookingSettingsPath(pathname: string): boolean {
   return (
     pathname === "/owner/booking-settings" || pathname === "/api/owner/booking-settings"
   );
+}
+
+export function isPublicBookingNoticePath(pathname: string): boolean {
+  return pathname === "/booking-notice" || pathname === "/api/booking-notice";
+}
+
+export async function handlePublicGetBookingNotice(env: {
+  TRACKING_STORE?: KVNamespace;
+}): Promise<{ ok: true; minimumBookingNoticeHours: number }> {
+  if (!env.TRACKING_STORE) {
+    return { ok: true, minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS };
+  }
+  const settings = await getBookingSettings(env.TRACKING_STORE);
+  return { ok: true, minimumBookingNoticeHours: settings.minimumBookingNoticeHours };
 }
 
 export function isPublicShortNoticePath(pathname: string): boolean {

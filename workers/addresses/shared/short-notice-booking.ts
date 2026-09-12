@@ -77,7 +77,7 @@ export type ShortNoticeBookingRecord = {
   automaticBookingsAvailableFromApplied?: string | null;
   /** Unavailable period that triggered Owner approval (if any). */
   unavailablePeriodIdApplied?: string | null;
-  /** True when the 12-hour minimum online notice forced this request. */
+  /** True when the configured minimum online notice forced this request. */
   underMinimumNotice?: boolean;
   /** Append-only audit trail — never overwrites earlier events. */
   history?: ShortNoticeHistoryEvent[];

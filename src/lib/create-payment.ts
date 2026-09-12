@@ -101,7 +101,8 @@ export type PaymentCheckoutResult = {
   blockingPeriodId?: string | null;
   blockingPeriodLabel?: string | null;
   underMinimumNotice?: boolean;
-  /** @deprecated Replaced by unavailable periods */
+  /** Owner-configured short-notice period applied by the Worker. */
+  minimumBookingNoticeHours?: number;
   minimumNoticeHours?: number;
   amount?: number;
   amountLabel?: string;

@@ -29,6 +29,7 @@ import {
   minimumNoticeRequestBody,
   minimumNoticeRequestHeading,
 } from "../../../shared/booking-notice";
+import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import { SITE } from "@/lib/data";
 
 const fieldClass =
@@ -48,10 +49,13 @@ function SavedQuoteInner() {
     "loading",
   );
   const [paying, setPaying] = useState(false);
+  const [minimumBookingNoticeHours] = useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
     amountLabel?: string;
+    underMinimumNotice?: boolean;
+    noticeHours?: number;
   } | null>(null);
   const [bookingMode, setBookingMode] = useState(false);
 
@@ -134,7 +138,9 @@ function SavedQuoteInner() {
   const effectiveAmount = displayAmount ?? quote?.amount ?? 0;
   const effectiveAmountLabel = displayAmountLabel || quote?.amountLabel || "";
   const isMinimumNoticeRequest = Boolean(
-    tripDate && tripTime && isWithinMinimumBookingNotice(tripDate, tripTime),
+    tripDate &&
+      tripTime &&
+      isWithinMinimumBookingNotice(tripDate, tripTime, undefined, minimumBookingNoticeHours),
   );
   const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
     "Hi, I have a short-notice airport transfer request.",
@@ -289,6 +295,11 @@ function SavedQuoteInner() {
           reference: checkout.reference,
           whatsappUrl: checkout.whatsappUrl,
           amountLabel: checkout.amountLabel ?? effectiveAmountLabel,
+          underMinimumNotice: checkout.underMinimumNotice === true || isMinimumNoticeRequest,
+          noticeHours:
+            checkout.minimumBookingNoticeHours ??
+            checkout.minimumNoticeHours ??
+            minimumBookingNoticeHours,
         });
         setPaying(false);
         return;
@@ -328,6 +339,8 @@ function SavedQuoteInner() {
           reference={shortNoticeResult.reference}
           amountLabel={shortNoticeResult.amountLabel}
           whatsappUrl={shortNoticeResult.whatsappUrl}
+          underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
+          noticeHours={shortNoticeResult.noticeHours ?? minimumBookingNoticeHours}
         />
       </div>
     );
@@ -649,7 +662,7 @@ function SavedQuoteInner() {
                     {minimumNoticeRequestHeading()}
                   </p>
                   <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-amber-50/90">
-                    {minimumNoticeRequestBody()}
+                    {minimumNoticeRequestBody(minimumBookingNoticeHours)}
                   </p>
                 </div>
               ) : (
