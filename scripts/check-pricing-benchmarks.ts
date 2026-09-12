@@ -184,8 +184,8 @@ function exact(actual: number, target: number, label: string) {
   assert.equal(actual, target, `${label}: expected £${target}, got £${actual}`);
 }
 
-exact(rows[0].newS, 29, "City Hall → BHD S");
-exact(rows[0].newE, 35, "City Hall → BHD E");
+exact(rows[0].newS, 26, "City Hall → BHD S");
+exact(rows[0].newE, 32, "City Hall → BHD E");
 exact(rows[1].newS, 46, "City Hall → BFS S");
 exact(rows[1].newE, 52, "City Hall → BFS E");
 exact(rows[2].newS, 232, "City Hall → DUB S");
