@@ -137,7 +137,8 @@ check("9. SumUp create uses server amount; UI shows personal quoted fare", () =>
   assert.match(payment, /personalQuoteCode/);
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /Personal quoted fare/);
-  assert.match(card, /Pay \$\{formatQuote\(appliedPersonalQuote\?\.agreedAmount/);
+  assert.match(card, /appliedPersonalQuote\?\.agreedAmount/);
+  assert.match(card, /Confirm booking & pay securely/);
 });
 
 check("10. Failed/abandoned payment does not mark quote used on Pay click", () => {
@@ -270,7 +271,7 @@ check("R6. Abandoned checkout → reservation expires without consuming quote", 
   const shared = read("shared/personal-quote.ts");
   assert.match(shared, /PERSONAL_QUOTE_RESERVATION_TTL_SECONDS/);
   // evaluatePersonalQuote does not treat reservation as used
-  assert.equal(evaluatePersonalQuote(sampleQuote()).ok, true);
+  assert.equal(evaluatePersonalQuote(sampleQuote(), new Date("2026-08-18T12:00:00Z")).ok, true);
   const paymentFn = read("workers/addresses/src/index.ts").slice(
     read("workers/addresses/src/index.ts").indexOf("async function handlePaymentRequest"),
     read("workers/addresses/src/index.ts").indexOf("async function parseWebhookPayload"),
@@ -818,8 +819,9 @@ check("R14c. Owner airport weekend fare matches public (no weekend surcharge)", 
     outboundTime: "10:00",
     returnJourney: false,
   };
-  const publicWeekday = calculateQuote(cityHall, "BFS", vehicle, false, weekdaySchedule);
-  const publicWeekend = calculateQuote(cityHall, "BFS", vehicle, false, weekendSchedule);
+  const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
+  const publicWeekday = calculateQuote(cityHall, "BFS", vehicle, false, weekdaySchedule, cityBfsMetrics);
+  const publicWeekend = calculateQuote(cityHall, "BFS", vehicle, false, weekendSchedule, cityBfsMetrics);
   assert.ok(publicWeekday && publicWeekend);
   assert.equal(publicWeekday!.premiumApplied, false);
   assert.equal(publicWeekend!.premiumApplied, false);
@@ -853,7 +855,7 @@ check("R14c. Owner airport weekend fare matches public (no weekend surcharge)", 
     pickupPlace: cityPlace,
     dropoffPlace: bfsPlace,
     vehicleType: vehicle,
-    routeMetrics: null,
+    routeMetrics: cityBfsMetrics,
     schedule: weekdaySchedule,
   });
   const ownerWeekend = calculateWebsiteOneWayFare({
@@ -862,7 +864,7 @@ check("R14c. Owner airport weekend fare matches public (no weekend surcharge)", 
     pickupPlace: cityPlace,
     dropoffPlace: bfsPlace,
     vehicleType: vehicle,
-    routeMetrics: null,
+    routeMetrics: cityBfsMetrics,
     schedule: weekendSchedule,
   });
   assert.ok(ownerWeekday && ownerWeekend);

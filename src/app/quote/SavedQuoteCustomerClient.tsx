@@ -23,6 +23,13 @@ import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import { savedQuoteScheduleChanged } from "../../../shared/booking-amendment";
+import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
+import {
+  isWithinMinimumBookingNotice,
+  minimumNoticeRequestBody,
+  minimumNoticeRequestHeading,
+} from "../../../shared/booking-notice";
+import { SITE } from "@/lib/data";
 
 const fieldClass =
   "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
@@ -41,6 +48,11 @@ function SavedQuoteInner() {
     "loading",
   );
   const [paying, setPaying] = useState(false);
+  const [shortNoticeResult, setShortNoticeResult] = useState<{
+    reference: string;
+    whatsappUrl: string;
+    amountLabel?: string;
+  } | null>(null);
   const [bookingMode, setBookingMode] = useState(false);
 
   const [customerName, setCustomerName] = useState("");
@@ -121,6 +133,12 @@ function SavedQuoteInner() {
 
   const effectiveAmount = displayAmount ?? quote?.amount ?? 0;
   const effectiveAmountLabel = displayAmountLabel || quote?.amountLabel || "";
+  const isMinimumNoticeRequest = Boolean(
+    tripDate && tripTime && isWithinMinimumBookingNotice(tripDate, tripTime),
+  );
+  const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
+    "Hi, I have a short-notice airport transfer request.",
+  )}`;
 
   useEffect(() => {
     if (!quote || state !== "ok") return;
@@ -266,8 +284,13 @@ function SavedQuoteInner() {
         savedQuoteToken: quote.token,
         standardWebsiteAmount: effectiveAmount,
       });
-      if (checkout.shortNotice && checkout.whatsappUrl) {
-        window.location.href = checkout.whatsappUrl;
+      if (checkout.shortNotice && checkout.reference && checkout.whatsappUrl) {
+        setShortNoticeResult({
+          reference: checkout.reference,
+          whatsappUrl: checkout.whatsappUrl,
+          amountLabel: checkout.amountLabel ?? effectiveAmountLabel,
+        });
+        setPaying(false);
         return;
       }
       if (!checkout.paymentUrl || !checkout.checkoutId) {
@@ -294,6 +317,18 @@ function SavedQuoteInner() {
     return (
       <div className="mx-auto w-full min-w-0 max-w-lg rounded-2xl border border-white/10 bg-navy-dark/70 p-6 text-center text-white/70">
         Loading your saved quote…
+      </div>
+    );
+  }
+
+  if (shortNoticeResult) {
+    return (
+      <div className="mx-auto w-full min-w-0 max-w-lg rounded-2xl border border-white/10 bg-navy-dark/70 p-6">
+        <ShortNoticeRequestReceived
+          reference={shortNoticeResult.reference}
+          amountLabel={shortNoticeResult.amountLabel}
+          whatsappUrl={shortNoticeResult.whatsappUrl}
+        />
       </div>
     );
   }
@@ -586,7 +621,7 @@ function SavedQuoteInner() {
           <BookingTermsConsent
             accepted={termsAccepted}
             onAcceptedChange={setTermsAccepted}
-            mode="card-payment"
+            mode={isMinimumNoticeRequest ? "booking-request" : "card-payment"}
             paymentAmountLabel={effectiveAmountLabel}
             error={!termsAccepted && error.includes("Terms") ? error : undefined}
           />
@@ -605,17 +640,52 @@ function SavedQuoteInner() {
                   {error}
                 </p>
               ) : null}
+              {isMinimumNoticeRequest ? (
+                <div
+                  className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
+                  role="status"
+                >
+                  <p className="text-sm font-semibold text-amber-100">
+                    {minimumNoticeRequestHeading()}
+                  </p>
+                  <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-amber-50/90">
+                    {minimumNoticeRequestBody()}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs leading-relaxed text-white/70">
+                  Your transfer is reserved for your selected pickup time.
+                </p>
+              )}
               <button
                 type="submit"
                 disabled={paying}
                 className="w-full rounded-xl bg-emerald py-3.5 text-sm font-bold text-navy transition-all hover:bg-emerald-light disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {paying ? "Starting secure payment…" : "Confirm Booking & Pay Securely"}
+                {paying
+                  ? isMinimumNoticeRequest
+                    ? "Submitting booking request…"
+                    : "Starting secure payment…"
+                  : isMinimumNoticeRequest
+                    ? `Request Short-Notice Booking — ${effectiveAmountLabel}`
+                    : "Confirm Booking & Pay Securely"}
               </button>
+              {isMinimumNoticeRequest ? (
+                <a
+                  href={shortNoticeWhatsAppHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-center text-sm font-semibold text-white/75 underline-offset-2 hover:text-white hover:underline"
+                >
+                  Need a quick answer? WhatsApp us
+                </a>
+              ) : null}
             </>
           )}
           <p className="text-center text-xs text-white/45">
-            Secure card payment powered by SumUp.
+            {isMinimumNoticeRequest
+              ? "No payment will be taken until we confirm availability."
+              : "Secure card payment powered by SumUp."}
           </p>
         </form>
       ) : null}

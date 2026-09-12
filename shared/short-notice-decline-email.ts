@@ -1,6 +1,6 @@
 /**
- * Customer email after Owner approves a short-notice / unavailable-period booking.
- * Links to the existing secure /pay/short-notice/ page — never creates SumUp checkout.
+ * Customer email when Owner declines an unconfirmed short-notice request.
+ * Not a cancellation — no payment was taken and the booking was never confirmed.
  */
 
 import {
@@ -29,43 +29,32 @@ function customerFirstName(fullName: string): string {
   return first || "there";
 }
 
-export type ShortNoticePaymentLinkEmailDetails = {
+export type ShortNoticeDeclineEmailDetails = {
   customerName: string;
   customerEmail: string;
   pickupLabel: string;
   dropoffLabel: string;
   tripDate: string;
   tripTime: string;
-  amountLabel: string;
   reference: string;
-  payUrl: string;
 };
 
-export function isValidCustomerEmail(value: string | null | undefined): boolean {
-  const email = value?.trim() ?? "";
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-export function buildShortNoticePaymentLinkEmail(
-  details: ShortNoticePaymentLinkEmailDetails,
+export function buildShortNoticeDeclineEmail(
+  details: ShortNoticeDeclineEmailDetails,
   businessName = "My Airport Taxi NI",
 ): { subject: string; text: string; html: string } {
   const firstName = customerFirstName(details.customerName);
-  const subject = `Your ${businessName} booking request has been accepted`;
-  const payUrl = details.payUrl.trim();
+  const subject = `Your ${businessName} booking request`;
 
   const text =
     `Hi ${firstName},\n\n` +
-    `Good news — we have availability for your requested journey.\n\n` +
-    `Your transfer request has been accepted at the quoted price of ${details.amountLabel}.\n\n` +
-    `Journey\n` +
+    `Thank you for your booking request.\n\n` +
+    `We’re sorry, but unfortunately we do not have availability for your requested journey.\n\n` +
     `${details.pickupLabel} → ${details.dropoffLabel}\n` +
     `${details.tripDate} ${details.tripTime}\n` +
     `Request reference: ${details.reference}\n\n` +
-    `To confirm your booking, please complete payment using the secure link below.\n` +
-    `${payUrl}\n\n` +
-    `Your booking will be confirmed once payment has been successfully completed.\n\n` +
-    `Thank you for choosing ${businessName}.\n\n` +
+    `No payment has been taken.\n\n` +
+    `We apologise that we’re unable to accommodate your journey on this occasion.\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}\n` +
     `Phone: ${BUSINESS_PHONE_DISPLAY}\n` +
@@ -87,31 +76,19 @@ export function buildShortNoticePaymentLinkEmail(
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
-              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your booking request has been accepted</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your booking request</div>
             </td>
           </tr>
           <tr>
-            <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
+            <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
-              <p style="margin:0 0 16px;">Good news — we have availability for your requested journey.</p>
-              <p style="margin:0 0 16px;">Your transfer request has been accepted at the quoted price of ${escapeHtml(details.amountLabel)}.</p>
-              <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin:0 0 10px;">Journey</div>
+              <p style="margin:0 0 16px;">Thank you for your booking request.</p>
+              <p style="margin:0 0 16px;">We’re sorry, but unfortunately we do not have availability for your requested journey.</p>
               <p style="margin:0 0 6px;font-weight:600;color:${NAVY};">${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>
-              <p style="margin:0 0 16px;">${escapeHtml(details.tripDate)} · ${escapeHtml(details.tripTime)}</p>
-              <p style="margin:0 0 20px;"><strong style="color:${NAVY};">Request reference:</strong> ${escapeHtml(details.reference)}</p>
-              <p style="margin:0 0 8px;">To confirm your booking, please complete payment using the secure button below.</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:8px 32px 24px;text-align:center;">
-              <a href="${escapeHtml(payUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Pay securely</a>
-              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${escapeHtml(payUrl)}" style="color:${NAVY};word-break:break-all;">${escapeHtml(payUrl)}</a></p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 32px 28px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">Your booking will be confirmed once payment has been successfully completed.</p>
-              <p style="margin:0;">Thank you for choosing ${escapeHtml(businessName)}.</p>
+              <p style="margin:0 0 8px;">${escapeHtml(details.tripDate)} · ${escapeHtml(details.tripTime)}</p>
+              <p style="margin:0 0 16px;"><strong style="color:${NAVY};">Request reference:</strong> ${escapeHtml(details.reference)}</p>
+              <p style="margin:0 0 16px;">No payment has been taken.</p>
+              <p style="margin:0;">We apologise that we’re unable to accommodate your journey on this occasion.</p>
               <p style="margin:20px 0 0;"><strong>${escapeHtml(businessName)}</strong></p>
             </td>
           </tr>

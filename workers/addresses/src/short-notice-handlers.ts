@@ -4,14 +4,17 @@
 
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import {
+  MINIMUM_BOOKING_NOTICE_HOURS,
   computeShortNoticePaymentExpiryIso,
   findBlockingUnavailablePeriod,
   formatUnavailablePeriodRangeLabel,
+  isWithinMinimumBookingNotice,
   listActiveUnavailablePeriods,
   materialJourneyFingerprint,
   vehicleServiceLabel,
 } from "../shared/booking-notice";
 import {
+  appendShortNoticeHistory,
   isShortNoticePayable,
   sanitizeCustomerResponseNote,
   type ShortNoticeBookingRecord,
@@ -21,6 +24,8 @@ import {
   isValidCustomerEmail,
 } from "../shared/short-notice-payment-email";
 import { buildShortNoticeAlternativeOfferEmail } from "../shared/short-notice-alternative-email";
+import { buildShortNoticeDeclineEmail } from "../shared/short-notice-decline-email";
+import { buildShortNoticeRequestReceivedEmail } from "../shared/short-notice-request-received-email";
 import { parseLondonLocalDateTime } from "../shared/uk-time";
 import {
   addUnavailablePeriod,
@@ -30,6 +35,7 @@ import {
   updateUnavailablePeriod,
 } from "./booking-settings-store";
 import {
+  claimShortNoticeDecision,
   generatePaymentToken,
   generateShortNoticeReference,
   getShortNoticeByAcceptToken,
@@ -38,6 +44,7 @@ import {
   listArchivedShortNoticeBookings,
   listOpenShortNoticeBookings,
   saveShortNoticeBooking,
+  type ShortNoticeDecisionAction,
 } from "./short-notice-store";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import {
@@ -250,6 +257,60 @@ async function sendAlternativeOfferEmail(
   return { sent: result.sent, error: result.error };
 }
 
+async function sendDeclineEmail(
+  env: ShortNoticeEnv,
+  record: ShortNoticeBookingRecord,
+): Promise<{ sent: boolean; error?: string }> {
+  if (!isValidCustomerEmail(record.booking.customerEmail)) {
+    return { sent: false, error: "Customer email is missing or invalid." };
+  }
+  const email = buildShortNoticeDeclineEmail({
+    customerName: record.booking.customerName,
+    customerEmail: record.booking.customerEmail.trim(),
+    pickupLabel: record.booking.pickupLabel,
+    dropoffLabel: record.booking.dropoffLabel,
+    tripDate: record.originalRequestedDate ?? record.booking.tripDate,
+    tripTime: record.originalRequestedTime ?? record.booking.tripTime,
+    reference: record.reference,
+  });
+  const result = await trySendBrandedCustomerEmail(env, {
+    to: record.booking.customerEmail.trim(),
+    toName: record.booking.customerName,
+    subject: email.subject,
+    body: email.text,
+    htmlBody: email.html,
+  });
+  return { sent: result.sent, error: result.error };
+}
+
+function decisionInFlightError(existingAction?: ShortNoticeDecisionAction): {
+  error: string;
+  status: number;
+} {
+  if (existingAction === "approve") {
+    return { error: "This request is already being approved. Refresh and try again.", status: 409 };
+  }
+  if (existingAction === "decline") {
+    return { error: "This request is already being declined. Refresh and try again.", status: 409 };
+  }
+  return { error: "This request is already being processed. Refresh and try again.", status: 409 };
+}
+
+async function claimOpenDecisionOrConflict(
+  store: KVNamespace,
+  reference: string,
+  action: ShortNoticeDecisionAction,
+): Promise<{ proceed: true } | { error: string; status: number } | { alreadyClaimed: true }> {
+  const claim = await claimShortNoticeDecision(store, reference, action);
+  if (!claim.ok) {
+    return { error: claim.error, status: 409 };
+  }
+  if (claim.alreadyClaimed) {
+    return { alreadyClaimed: true };
+  }
+  return { proceed: true };
+}
+
 /**
  * Promote a short-notice booking to APPROVED and optionally auto-send the
  * payment-link email. Shared by Owner “Approve requested time” and customer
@@ -320,6 +381,14 @@ async function approveShortNoticeRecord(
     return { error: "Pickup time has passed — cannot approve for payment.", status: 409 };
   }
 
+  const historyTypes = extras.acceptedAlternativeAt
+    ? (["alternative_accepted", "owner_approved", "payment_link_created"] as const)
+    : (["owner_approved", "payment_link_created"] as const);
+  let history = existing.history;
+  for (const type of historyTypes) {
+    history = appendShortNoticeHistory(history, type, approvedAt);
+  }
+
   const record: ShortNoticeBookingRecord = {
     ...existing,
     ...extras,
@@ -331,29 +400,60 @@ async function approveShortNoticeRecord(
     approvedAmount,
     approvedFingerprint: materialFingerprint,
     paymentExpiresAt,
+    history,
     updatedAt: approvedAt,
   };
 
   const payUrl = buildShortNoticePayUrl(siteOrigin, record.paymentToken);
-  let nextRecord = record;
+
+  const latestBeforeSave = await getShortNoticeByReference(env.TRACKING_STORE, record.reference);
+  if (
+    latestBeforeSave?.status === "SHORT_NOTICE_DECLINED" ||
+    latestBeforeSave?.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED"
+  ) {
+    return { error: "This request was declined and cannot be approved.", status: 409 };
+  }
+  if (latestBeforeSave?.status === "SHORT_NOTICE_PAID") {
+    return { error: "This booking has already been paid and confirmed.", status: 409 };
+  }
+
+  // Persist APPROVED before email so a lost concurrent write cannot send a
+  // second acceptance after the other decision has already been stored.
+  await saveShortNoticeBooking(env.TRACKING_STORE, record);
+
+  const latest = (await getShortNoticeByReference(env.TRACKING_STORE, record.reference)) ?? record;
+  let nextRecord = latest;
   let paymentEmailSent = false;
   let paymentEmailError: string | undefined;
 
-  if (shouldAutoSendPaymentLinkEmail(record, payUrl, now)) {
-    const send = await sendPaymentLinkEmail(env, record, payUrl);
+  if (shouldAutoSendPaymentLinkEmail(latest, payUrl, now)) {
+    const send = await sendPaymentLinkEmail(env, latest, payUrl);
     paymentEmailSent = send.sent;
     paymentEmailError = send.error;
     if (send.sent) {
+      const afterSend = await getShortNoticeByReference(env.TRACKING_STORE, record.reference);
+      if (
+        afterSend?.status === "SHORT_NOTICE_DECLINED" ||
+        afterSend?.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" ||
+        afterSend?.status === "SHORT_NOTICE_PAID"
+      ) {
+        return {
+          error:
+            afterSend.status === "SHORT_NOTICE_PAID"
+              ? "This booking has already been paid and confirmed."
+              : "This request was declined and cannot be approved.",
+          status: 409,
+        };
+      }
       nextRecord = {
-        ...record,
+        ...(afterSend ?? latest),
         paymentLinkEmailSentAt: approvedAt,
         paymentLinkEmailPayUrl: payUrl,
         updatedAt: approvedAt,
       };
+      await saveShortNoticeBooking(env.TRACKING_STORE, nextRecord);
     }
   }
-
-  await saveShortNoticeBooking(env.TRACKING_STORE, nextRecord);
 
   return {
     ok: true,
@@ -410,8 +510,13 @@ export async function createShortNoticeRequest(options: {
     now,
   );
 
-  if (!blocking) {
-    throw new Error("Pickup is outside unavailable periods — use SumUp checkout.");
+  const underMinimumNotice = isWithinMinimumBookingNotice(
+    options.booking.tripDate,
+    options.booking.tripTime,
+    now,
+  );
+  if (!blocking && !underMinimumNotice) {
+    throw new Error("This journey is not inside a short-notice window.");
   }
 
   const amount = Math.round(options.amount * 100) / 100;
@@ -421,6 +526,7 @@ export async function createShortNoticeRequest(options: {
     ...options.booking,
     amount,
   });
+  const createdAt = now.toISOString();
 
   const record: ShortNoticeBookingRecord = {
     reference,
@@ -431,9 +537,14 @@ export async function createShortNoticeRequest(options: {
     amountLabel: formatAmountLabel(amount),
     booking: options.booking,
     materialFingerprint: fingerprint,
-    unavailablePeriodIdApplied: blocking.id,
-    createdAt: now.toISOString(),
-    updatedAt: now.toISOString(),
+    unavailablePeriodIdApplied: blocking?.id ?? null,
+    underMinimumNotice,
+    ...(underMinimumNotice
+      ? { minimumNoticeHoursApplied: MINIMUM_BOOKING_NOTICE_HOURS }
+      : {}),
+    history: appendShortNoticeHistory(undefined, "request_submitted", createdAt),
+    createdAt,
+    updatedAt: createdAt,
     ...(options.personalQuoteCode
       ? { personalQuoteCode: options.personalQuoteCode }
       : {}),
@@ -444,6 +555,37 @@ export async function createShortNoticeRequest(options: {
 
   await saveShortNoticeBooking(options.store, record);
   return { record, whatsappUrl: buildCustomerWhatsAppUrl(reference) };
+}
+
+export async function sendShortNoticeRequestReceivedEmail(
+  env: WorkerEmailEnv,
+  record: ShortNoticeBookingRecord,
+): Promise<{ sent: boolean; error?: string }> {
+  if (!record.underMinimumNotice) {
+    return { sent: false };
+  }
+  if (!isValidCustomerEmail(record.booking.customerEmail)) {
+    return { sent: false, error: "Customer email is missing or invalid." };
+  }
+  const email = buildShortNoticeRequestReceivedEmail({
+    customerName: record.booking.customerName,
+    customerEmail: record.booking.customerEmail.trim(),
+    pickupLabel: record.booking.pickupLabel,
+    dropoffLabel: record.booking.dropoffLabel,
+    tripDate: record.booking.tripDate,
+    tripTime: record.booking.tripTime,
+    amountLabel: record.amountLabel,
+    reference: record.reference,
+    noticeHours: record.minimumNoticeHoursApplied ?? MINIMUM_BOOKING_NOTICE_HOURS,
+  });
+  const result = await trySendBrandedCustomerEmail(env, {
+    to: record.booking.customerEmail.trim(),
+    toName: record.booking.customerName,
+    subject: email.subject,
+    body: email.text,
+    htmlBody: email.html,
+  });
+  return { sent: result.sent, error: result.error };
 }
 
 /**
@@ -459,6 +601,7 @@ export async function shouldForceShortNotice(
   gateActive: boolean;
   blockingPeriodId: string | null;
   blockingPeriodLabel: string | null;
+  underMinimumNotice: boolean;
 }> {
   const settings = await getBookingSettings(store);
   const blocking = findBlockingUnavailablePeriod(
@@ -467,12 +610,18 @@ export async function shouldForceShortNotice(
     settings.unavailablePeriods,
     now,
   );
+  const underMinimumNotice = isWithinMinimumBookingNotice(
+    booking.tripDate,
+    booking.tripTime,
+    now,
+  );
   const activePeriods = listActiveUnavailablePeriods(settings.unavailablePeriods, now);
   return {
-    shortNotice: Boolean(blocking),
-    gateActive: activePeriods.length > 0,
+    shortNotice: Boolean(blocking) || underMinimumNotice,
+    gateActive: activePeriods.length > 0 || underMinimumNotice,
     blockingPeriodId: blocking?.id ?? null,
     blockingPeriodLabel: blocking ? formatUnavailablePeriodRangeLabel(blocking) : null,
+    underMinimumNotice,
   };
 }
 
@@ -610,7 +759,17 @@ export async function handleOwnerApproveShortNotice(
       status: 409,
     };
   }
-  if (existing.status !== "SHORT_NOTICE_AWAITING_APPROVAL" && existing.status !== "SHORT_NOTICE_APPROVED") {
+  if (existing.status === "SHORT_NOTICE_APPROVED") {
+    const payUrl = buildShortNoticePayUrl(siteOrigin, existing.paymentToken);
+    return {
+      ok: true,
+      record: existing,
+      payUrl,
+      whatsappPayUrl: buildOwnerWhatsAppPayUrl(existing, payUrl),
+      paymentEmailSent: Boolean(existing.paymentLinkEmailSentAt),
+    };
+  }
+  if (existing.status !== "SHORT_NOTICE_AWAITING_APPROVAL") {
     if (existing.status === "SHORT_NOTICE_DECLINED") {
       return { error: "This request was declined and cannot be approved.", status: 409 };
     }
@@ -618,6 +777,26 @@ export async function handleOwnerApproveShortNotice(
       return { error: "This booking is already paid.", status: 409 };
     }
     return { error: "Booking cannot be approved in its current status.", status: 409 };
+  }
+
+  const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, reference, "approve");
+  if ("error" in claim) return { error: claim.error, status: claim.status };
+  if ("alreadyClaimed" in claim) {
+    const latest = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+    if (latest?.status === "SHORT_NOTICE_APPROVED") {
+      const payUrl = buildShortNoticePayUrl(siteOrigin, latest.paymentToken);
+      return {
+        ok: true,
+        record: latest,
+        payUrl,
+        whatsappPayUrl: buildOwnerWhatsAppPayUrl(latest, payUrl),
+        paymentEmailSent: Boolean(latest.paymentLinkEmailSentAt),
+      };
+    }
+    if (latest?.status === "SHORT_NOTICE_DECLINED") {
+      return { error: "This request was declined and cannot be approved.", status: 409 };
+    }
+    return decisionInFlightError("approve");
   }
 
   return approveShortNoticeRecord(env, existing, siteOrigin, new Date());
@@ -704,6 +883,7 @@ export async function handleOwnerOfferAlternativeTime(
     offeredBy: "Owner",
     offeredNote: schedule.note || undefined,
     acceptToken,
+    history: appendShortNoticeHistory(existing.history, "alternative_time_offered", nowIso),
     updatedAt: nowIso,
   };
 
@@ -898,6 +1078,24 @@ export async function handlePublicAcceptAlternativeTime(
     return { error: "This acceptance link is no longer valid.", status: 409 };
   }
 
+  const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, existing.reference, "approve");
+  if ("error" in claim) return { error: claim.error, status: claim.status };
+  if ("alreadyClaimed" in claim) {
+    const latest = await getShortNoticeByReference(env.TRACKING_STORE, existing.reference);
+    if (latest?.status === "SHORT_NOTICE_APPROVED" && latest.acceptedAlternativeAt) {
+      const payUrl = buildShortNoticePayUrl(siteOrigin, latest.paymentToken);
+      return {
+        ok: true,
+        record: latest,
+        payUrl,
+        whatsappPayUrl: buildOwnerWhatsAppPayUrl(latest, payUrl),
+        paymentEmailSent: Boolean(latest.paymentLinkEmailSentAt),
+        alreadyAccepted: true,
+      };
+    }
+    return decisionInFlightError("approve");
+  }
+
   const now = new Date();
   const acceptedAt = now.toISOString();
   const originalRequestedDate =
@@ -996,6 +1194,16 @@ export async function handlePublicDeclineAlternativeTime(
     return { error: "This link is no longer valid.", status: 409 };
   }
 
+  const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, existing.reference, "decline");
+  if ("error" in claim) return { error: claim.error, status: claim.status };
+  if ("alreadyClaimed" in claim) {
+    const latest = await getShortNoticeByReference(env.TRACKING_STORE, existing.reference);
+    if (latest?.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" && latest.declinedAlternativeAt) {
+      return { ok: true, record: latest, alreadyDeclined: true };
+    }
+    return decisionInFlightError("decline");
+  }
+
   const nowIso = new Date().toISOString();
   const record: ShortNoticeBookingRecord = {
     ...existing,
@@ -1003,6 +1211,7 @@ export async function handlePublicDeclineAlternativeTime(
     customerResponse: "declined",
     customerResponseAt: nowIso,
     declinedAlternativeAt: nowIso,
+    history: appendShortNoticeHistory(existing.history, "alternative_declined", nowIso),
     ...(customerNote ? { customerResponseNote: customerNote } : {}),
     updatedAt: nowIso,
   };
@@ -1132,24 +1341,60 @@ export async function handleOwnerDeclineShortNotice(
   if (existing.status === "SHORT_NOTICE_PAID") {
     return { error: "Already paid — cannot decline.", status: 409 };
   }
+  if (existing.status === "SHORT_NOTICE_DECLINED") {
+    return { ok: true, record: existing };
+  }
   if (
     existing.status !== "SHORT_NOTICE_AWAITING_APPROVAL" &&
     existing.status !== "SHORT_NOTICE_ALTERNATIVE_OFFERED" &&
     existing.status !== "SHORT_NOTICE_APPROVED"
   ) {
-    return { error: "Booking cannot be declined in its current status.", status: 409 };
+    return { error: "Request cannot be declined in its current status.", status: 409 };
+  }
+
+  if (
+    existing.status === "SHORT_NOTICE_AWAITING_APPROVAL" ||
+    existing.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED"
+  ) {
+    const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, reference, "decline");
+    if ("error" in claim) return { error: claim.error, status: claim.status };
+    if ("alreadyClaimed" in claim) {
+      const latest = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+      if (latest?.status === "SHORT_NOTICE_DECLINED") {
+        return { ok: true, record: latest };
+      }
+      if (latest?.status === "SHORT_NOTICE_APPROVED") {
+        return { error: "This request is already being approved. Refresh and try again.", status: 409 };
+      }
+      return decisionInFlightError("decline");
+    }
   }
 
   const nowIso = new Date().toISOString();
-  const record: ShortNoticeBookingRecord = {
+  let record: ShortNoticeBookingRecord = {
     ...existing,
     status: "SHORT_NOTICE_DECLINED",
     declinedAt: nowIso,
     declineReason: String(body.reason ?? "").trim() || undefined,
+    history: appendShortNoticeHistory(existing.history, "owner_declined", nowIso),
     updatedAt: nowIso,
     paymentExpiresAt: nowIso,
   };
+  // Persist DECLINED before email so a concurrent approve cannot send
+  // acceptance after this decline has already been stored.
   await saveShortNoticeBooking(env.TRACKING_STORE, record);
+  const latest = (await getShortNoticeByReference(env.TRACKING_STORE, reference)) ?? record;
+  if (!latest.declineEmailSentAt) {
+    const send = await sendDeclineEmail(env, latest);
+    if (send.sent) {
+      record = { ...latest, declineEmailSentAt: nowIso, updatedAt: nowIso };
+      await saveShortNoticeBooking(env.TRACKING_STORE, record);
+    } else {
+      record = latest;
+    }
+  } else {
+    record = latest;
+  }
   return { ok: true, record };
 }
 
@@ -1220,6 +1465,11 @@ export async function markShortNoticePaid(
     paymentReference,
     checkoutId,
     paidAt: nowIso,
+    history: appendShortNoticeHistory(
+      appendShortNoticeHistory(record.history, "payment_completed", nowIso),
+      "booking_confirmed",
+      nowIso,
+    ),
     updatedAt: nowIso,
   };
   await saveShortNoticeBooking(store, paid);

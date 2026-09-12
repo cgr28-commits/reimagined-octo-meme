@@ -8,6 +8,7 @@ import {
   isShortNoticeArchivedRecord,
   shortNoticeAcceptTokenKey,
   shortNoticeArchivedIndexKey,
+  shortNoticeDecisionKey,
   shortNoticeOpenIndexKey,
   shortNoticeRefKey,
   shortNoticeTokenKey,
@@ -136,4 +137,81 @@ export function generatePaymentToken(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
   return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export type ShortNoticeDecisionAction = "approve" | "decline";
+
+export type ShortNoticeDecisionClaim =
+  | { ok: true; alreadyClaimed: false }
+  | { ok: true; alreadyClaimed: true; existingAction: ShortNoticeDecisionAction }
+  | { ok: false; error: string; existingAction?: ShortNoticeDecisionAction };
+
+type DecisionLockRecord = {
+  token: string;
+  action: ShortNoticeDecisionAction;
+  at: string;
+};
+
+/**
+ * Best-effort exclusive claim for owner approve/decline (and customer
+ * accept/decline of an alternative time).
+ *
+ * Cloudflare KV has no compare-and-swap / if-not-exists, so this
+ * write-then-re-read lock is the strongest guard available without
+ * Durable Objects. A residual last-writer race remains theoretically
+ * possible if two puts land before either verify-read.
+ */
+export async function claimShortNoticeDecision(
+  store: KVNamespace,
+  reference: string,
+  action: ShortNoticeDecisionAction,
+): Promise<ShortNoticeDecisionClaim> {
+  const key = shortNoticeDecisionKey(reference);
+  const existingRaw = await store.get(key);
+  if (existingRaw) {
+    try {
+      const existing = JSON.parse(existingRaw) as DecisionLockRecord;
+      if (existing.action && existing.action !== action) {
+        return {
+          ok: false,
+          error: `This request is already being ${existing.action === "approve" ? "approved" : "declined"}. Refresh and try again.`,
+          existingAction: existing.action,
+        };
+      }
+      if (existing.action === action) {
+        return { ok: true, alreadyClaimed: true, existingAction: action };
+      }
+    } catch {
+      // Replace a corrupt lock below.
+    }
+  }
+
+  const token = crypto.randomUUID();
+  const lock: DecisionLockRecord = {
+    token,
+    action,
+    at: new Date().toISOString(),
+  };
+  await store.put(key, JSON.stringify(lock), { expirationTtl: TTL_SECONDS });
+
+  const verifiedRaw = await store.get(key);
+  if (!verifiedRaw) {
+    return { ok: false, error: "Could not confirm the decision lock. Please try again." };
+  }
+  try {
+    const verified = JSON.parse(verifiedRaw) as DecisionLockRecord;
+    if (verified.token === token && verified.action === action) {
+      return { ok: true, alreadyClaimed: false };
+    }
+    if (verified.action === action) {
+      return { ok: true, alreadyClaimed: true, existingAction: action };
+    }
+    return {
+      ok: false,
+      error: `This request is already being ${verified.action === "approve" ? "approved" : "declined"}. Refresh and try again.`,
+      existingAction: verified.action,
+    };
+  } catch {
+    return { ok: false, error: "Could not confirm the decision lock. Please try again." };
+  }
 }

@@ -35,9 +35,10 @@ console.log("=== Homepage title, description, H1 ===");
   assert.equal(SITE.name, "My Airport Taxi NI");
   assert.equal(
     SITE_PUBLIC_SEO_DESCRIPTION,
-    "Professional airport transfers with clear fixed pricing and 24/7 availability. Airport pickup and drop-off, flight monitoring, and secure online booking across Northern Ireland and beyond.",
+    "Professional airport transfers with clear fixed pricing. Book online 24/7. Airport pickup and drop-off, flight monitoring, and secure online booking across Northern Ireland and beyond.",
   );
-  assert.match(hero, /Belfast Airport Transfers – Pre-Booked 24\/7/);
+  assert.match(hero, /Belfast Airport Transfers/);
+  assert.doesNotMatch(hero, /Pre-Booked 24\/7/);
   console.log("OK  homepage title, meta description and H1 unchanged");
 }
 

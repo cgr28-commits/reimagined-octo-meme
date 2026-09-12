@@ -52,6 +52,8 @@ function check(label: string, fn: () => void) {
 }
 
 const belfast = "10 Donegall Square North, Belfast BT1 5GB";
+/** Belfast centre → BFS ~14 road miles — required by universal distance pricing. */
+const belfastBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
 
 const sleepBlock: UnavailablePeriod = normalizeUnavailablePeriod({
   id: "sleep-1",
@@ -70,9 +72,9 @@ check("1–3. Saloon/Estate/Minibus are instant-pay vehicle types", () => {
 });
 
 check("4–6. Existing pricing formulas produce distinct fares (no invented Minibus rates)", () => {
-  const saloon = calculateQuote(belfast, "BFS", SALOON_VEHICLE);
-  const estate = calculateQuote(belfast, "BFS", ESTATE_VEHICLE);
-  const minibus = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE);
+  const saloon = calculateQuote(belfast, "BFS", SALOON_VEHICLE, false, {}, belfastBfsMetrics);
+  const estate = calculateQuote(belfast, "BFS", ESTATE_VEHICLE, false, {}, belfastBfsMetrics);
+  const minibus = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE, false, {}, belfastBfsMetrics);
   assert.ok(saloon && estate && minibus);
   assert.ok(estate!.amount > saloon!.amount, "Estate > Saloon");
   const expectedMin = Math.round((estate!.amount * 1.55) / 5) * 5;
@@ -87,14 +89,14 @@ check("25–28. One-way + return pricing works for all three services", () => {
     const oneWay = calculateQuote(belfast, "BFS", vehicle, false, {
       outboundDate: "2026-09-15",
       outboundTime: "10:00",
-    });
+    }, belfastBfsMetrics);
     const ret = calculateQuote(belfast, "BFS", vehicle, true, {
       outboundDate: "2026-09-15",
       outboundTime: "10:00",
       returnJourney: true,
       returnDate: "2026-09-16",
       returnTime: "18:00",
-    });
+    }, belfastBfsMetrics);
     assert.ok(oneWay && ret);
     assert.ok(ret!.amount > oneWay!.amount, `${vehicle} return > one-way`);
   }
@@ -242,14 +244,17 @@ check("Worker + UI wiring — unavailable periods replace hours/single-date rule
   assert.match(notice, /isPickupBlockedByUnavailablePeriods/);
   assert.match(notice, /isUnavailablePeriodExpired/);
   assert.match(data, /INSTANT_PAY_VEHICLE_TYPES/);
-  assert.match(card, /Booking requires availability confirmation/);
-  assert.match(card, /confirm availability for your requested pickup time/);
+  assert.match(card, /Request Short-Notice Booking/);
+  assert.match(card, /ShortNoticeRequestReceived|Need a quick answer\? WhatsApp us/);
+  assert.match(notice, /MINIMUM_BOOKING_NOTICE_HOURS/);
+  assert.match(notice, /isWithinMinimumBookingNotice/);
+  assert.match(handlers, /isWithinMinimumBookingNotice/);
   assert.match(panel, /Booking Availability/);
   assert.match(panel, /Add unavailable period/);
   assert.match(panel, /Private Owner note/);
-  assert.match(panel, /Approve requested time/);
+  assert.match(panel, /\{busy \? "Working…" : "Approve"\}/);
   assert.match(panel, /Offer alternative time/);
-  assert.match(panel, /Decline — no availability/);
+  assert.match(panel, /Confirm decline|: "Decline"/);
   assert.doesNotMatch(panel, /Automatic bookings available from/);
   assert.doesNotMatch(panel, /Minimum online booking notice/);
   assert.match(pay, /shortNoticeToken/);

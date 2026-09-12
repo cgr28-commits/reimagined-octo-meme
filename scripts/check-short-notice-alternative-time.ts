@@ -106,16 +106,17 @@ check("Alternative offer email: Accept & pay + Decline CTAs, no GET mutation", (
       "https://www.myairporttaxini.co.uk/accept-alternative-time/?token=abc123",
     ownerNote: "We can do 3pm",
   });
-  assert.match(email.subject, /Alternative pickup time for your My Airport Taxi NI journey/);
+  assert.match(email.subject, /Alternative pickup time available — My Airport Taxi NI/);
   assert.match(email.text, /Hi Jill,/);
   assert.match(email.text, /2026-08-21 14:00/);
   assert.match(email.text, /2026-08-22 15:00/);
-  assert.match(email.text, /Price: £55\.00/);
-  assert.match(email.text, /Accept new pickup time & pay/);
-  assert.match(email.text, /Decline new pickup time/);
-  assert.match(email.text, /No payment will be taken unless you accept/);
-  assert.match(email.html, /Accept new pickup time &amp; pay/);
-  assert.match(email.html, /Decline new pickup time/);
+  assert.match(email.text, /Quoted price:/);
+  assert.match(email.text, /£55\.00/);
+  assert.match(email.text, /Accept alternative time|accept it using the button below/);
+  assert.match(email.text, /Decline alternative|decline the alternative/);
+  assert.match(email.text, /No payment has been taken/);
+  assert.match(email.html, /Accept alternative time/);
+  assert.match(email.html, /Decline alternative/);
   assert.match(email.html, /accept-alternative-time\/\?token=abc123/);
   assert.match(email.html, /We can do 3pm/);
 });
@@ -163,14 +164,15 @@ check("Offered alternative is not payable until accepted/approved", () => {
 
 check("Friday → Saturday alternative keeps the same quoted fare", () => {
   const cityHall = "Belfast City Hall, Belfast BT1 5GS";
+  const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
   const friday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-21",
     outboundTime: "14:00",
-  });
+  }, cityBfsMetrics);
   const saturday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-22",
     outboundTime: "15:00",
-  });
+  }, cityBfsMetrics);
   assert.ok(friday && saturday);
   assert.equal(saturday!.amount, friday!.amount);
   assert.equal(friday!.premiumApplied, false);
@@ -244,14 +246,14 @@ check("Worker + UI wiring for offer / accept / decline / collapse", () => {
   assert.match(index, /remove-from-dashboard/);
   assert.match(index, /restore-to-dashboard/);
   assert.match(index, /short-notice\/archived/);
-  assert.match(panel, /Approve requested time/);
+  assert.match(panel, /\{busy \? "Working…" : "Approve"\}/);
   assert.match(panel, /Offer alternative time/);
-  assert.match(panel, /Decline — no availability/);
+  assert.match(panel, /Decline this short-notice booking request\?/);
   assert.match(panel, /Resend alternative-time email/);
   assert.match(panel, /Change offered time/);
   assert.match(panel, /Withdraw offer/);
-  assert.match(panel, /AWAITING OWNER APPROVAL|AWAITING CUSTOMER RESPONSE/);
-  assert.match(panel, /APPROVED — AWAITING PAYMENT/);
+  assert.match(panel, /Awaiting your decision|Alternative time offered/);
+  assert.match(panel, /Awaiting payment/);
   assert.match(panel, /View \/ Manage ▼/);
   assert.match(panel, /View \/ Manage ▲/);
   assert.match(panel, /data-owner-sn-card="collapsed"/);
@@ -278,8 +280,8 @@ check("Worker + UI wiring for offer / accept / decline / collapse", () => {
   assert.match(api, /removeShortNoticeFromDashboard/);
   assert.match(api, /restoreShortNoticeToDashboard/);
   assert.match(api, /fetchArchivedShortNoticeBookings/);
-  assert.match(acceptPage, /Accept new pickup time & pay/);
-  assert.match(acceptPage, /Decline new pickup time/);
+  assert.match(acceptPage, /Accept alternative time/);
+  assert.match(acceptPage, /Decline alternative/);
   assert.match(acceptPage, /Message for your driver \(optional\)/);
   assert.match(acceptPage, /Thanks for letting us know/);
   assert.match(acceptPage, /Request another journey\/time/);

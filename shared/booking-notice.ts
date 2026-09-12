@@ -4,7 +4,59 @@
  * Expired periods (now >= end) are ignored — no KV write required to expire.
  */
 
+import { hoursUntilPickup } from "./refund-ops";
 import { parseLondonLocalDateTime, parseLondonLocalIso, UK_TIME_ZONE } from "./uk-time";
+
+/**
+ * Minimum elapsed hours before pickup for instant online payment.
+ * Exactly this many hours (or more) uses the normal SumUp flow.
+ * Under this threshold requires Owner approval (short-notice request).
+ * Change this constant only — do not scatter the number across callers.
+ */
+export const MINIMUM_BOOKING_NOTICE_HOURS = 12;
+
+export type ShortNoticeTriggerReason = "unavailable_period" | "under_minimum_notice";
+
+/** True when pickup is strictly under the configured notice window (11h59m yes; 12h00 no). */
+export function isWithinMinimumBookingNotice(
+  tripDate: string,
+  tripTime: string,
+  now = new Date(),
+  noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
+): boolean {
+  const hours = hoursUntilPickup(tripDate, tripTime, now);
+  if (hours == null) return false;
+  return hours < noticeHours;
+}
+
+export function formatHoursUntilPickupLabel(
+  tripDate: string,
+  tripTime: string,
+  now = new Date(),
+): string | null {
+  const hours = hoursUntilPickup(tripDate, tripTime, now);
+  if (hours == null) return null;
+  if (hours < 0) return "pickup time has passed";
+  const totalMinutes = Math.max(0, Math.round(hours * 60));
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h <= 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+export function minimumNoticeRequestHeading(): string {
+  return "Short-notice booking";
+}
+
+export function minimumNoticeRequestBody(
+  noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
+): string {
+  return (
+    `This journey is within our ${noticeHours}-hour advance booking period. You can still request the transfer, but we need to confirm availability before your booking is confirmed.\n\n` +
+    `If we can accommodate your journey, we’ll email you with a secure payment link to confirm your booking.`
+  );
+}
 
 export type BookableServiceCode = "SALOON" | "ESTATE" | "MINIBUS";
 

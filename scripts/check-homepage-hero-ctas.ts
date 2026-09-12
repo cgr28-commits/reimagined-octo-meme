@@ -37,7 +37,7 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
   assert.match(header, /Get a Quote/);
   assert.match(
     hero,
-    /Reliable, fixed-price airport transfers to and from Belfast International, Belfast City and Dublin Airport\. Book in advance and travel with confidence\./,
+    /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
   );
   console.log("OK  header CTA + destination coverage text present");
 }
@@ -60,7 +60,7 @@ console.log("\n=== 5. Mobile above-the-fold compaction ===");
   assert.match(hero, /gap-3\.5/);
   assert.match(card, /Get your fixed price in three quick steps\./);
   assert.doesNotMatch(card.match(/md:hidden[\s\S]{0,200}Get your fixed price/)?.[0] ?? "", /Book and pay securely online/);
-  assert.match(card, /Three quick steps — your journey/);
+  assert.match(card, /Three quick steps — Journey, Quote, then Booking & Pay/);
   console.log("OK  mobile service message sits above quote; quote intro stays compacted");
 }
 

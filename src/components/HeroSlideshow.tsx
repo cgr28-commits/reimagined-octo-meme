@@ -17,15 +17,15 @@ export default function HeroSlideshow() {
           <p className="section-eyebrow mb-2 max-w-full md:mb-5 lg:mb-6">Private taxi airport transfers</p>
 
           <h1 className="font-display text-balance text-[1.95rem] font-semibold leading-[1.12] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
-            Belfast Airport Transfers – Pre-Booked 24/7
+            Belfast Airport Transfers
           </h1>
 
           <p className="mt-2.5 max-w-xl text-[0.9375rem] leading-snug text-white/68 md:hidden">
-            Fixed-price, pre-booked private taxi transfers to Belfast International, Belfast City and Dublin Airport.
+            Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time.
           </p>
 
           <p className="mt-5 hidden max-w-xl text-base leading-relaxed text-white/68 sm:text-lg md:block lg:mt-6 lg:max-w-xl lg:text-[1.125rem] lg:leading-relaxed">
-            Reliable, fixed-price airport transfers to and from Belfast International, Belfast City and Dublin Airport. Book in advance and travel with confidence.
+            Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time.
           </p>
 
           <p className="mt-4 hidden max-w-xl text-sm font-medium leading-snug text-white/78 md:block sm:text-[0.95rem]">
@@ -34,6 +34,7 @@ export default function HeroSlideshow() {
 
           <ul className="mt-8 hidden gap-3.5 text-sm text-white/62 sm:grid-cols-2 md:grid lg:mt-10 lg:gap-x-8 lg:gap-y-3.5">
             {[
+              "A driver reserved for your journey",
               "Instant fixed prices online",
               "Airport fees & applicable tolls included",
               "Flight monitoring on airport pickups",
@@ -60,6 +61,9 @@ export default function HeroSlideshow() {
           className="order-2 min-w-0 w-full scroll-mt-20 md:order-1 md:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
+          <p className="mb-2.5 text-center text-[0.7rem] font-medium leading-snug text-white/62 sm:text-xs md:mb-3 md:text-left">
+            Reserved driver · Fixed price · Flight monitoring · Airport waiting included
+          </p>
           <QuoteCard />
           <QuoteHelpContact />
         </div>

@@ -194,8 +194,8 @@ check("Blocked availability result scrolls to confirmation card on mobile", () =
     card,
     /useEffect\(\(\) => \{[\s\S]*if \(!shortNoticeResult \|\| !pendingShortNoticeScrollRef\.current\)[\s\S]*\}, \[shortNoticeResult\]\)/,
   );
-  assert.match(card, /Booking requires availability confirmation/);
-  assert.match(card, /Message us on WhatsApp/);
+  assert.match(card, /ShortNoticeRequestReceived|Need a quick answer\? WhatsApp us/);
+  assert.match(card, /Need a quick answer\? WhatsApp us/);
   assert.match(card, /scroll-mt-44/);
   // Scroll runs only when the pending flag is set for the blocked result
   assert.match(

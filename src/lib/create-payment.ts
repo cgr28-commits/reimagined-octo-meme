@@ -100,6 +100,7 @@ export type PaymentCheckoutResult = {
   automaticBookingsAvailableFromLabel?: string | null;
   blockingPeriodId?: string | null;
   blockingPeriodLabel?: string | null;
+  underMinimumNotice?: boolean;
   /** @deprecated Replaced by unavailable periods */
   minimumNoticeHours?: number;
   amount?: number;
