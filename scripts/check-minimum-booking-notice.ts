@@ -371,8 +371,10 @@ await checkAsync("Decision lock: write-then-re-read loses to a later opposite ac
 check("Owner approve/decline and alternative responses claim the KV decision lock", () => {
   const handlers = read("workers/addresses/src/short-notice-handlers.ts");
   const store = read("workers/addresses/src/short-notice-store.ts");
+  const booking = read("shared/short-notice-booking.ts");
   assert.match(store, /export async function claimShortNoticeDecision/);
-  assert.match(store, /short-notice:decision:/);
+  assert.match(store, /shortNoticeDecisionKey/);
+  assert.match(booking, /short-notice:decision:/);
   assert.match(handlers, /claimOpenDecisionOrConflict/);
   assert.match(handlers, /claimOpenDecisionOrConflict\(env\.TRACKING_STORE, reference, "approve"\)/);
   assert.match(handlers, /claimOpenDecisionOrConflict\(env\.TRACKING_STORE, reference, "decline"\)/);

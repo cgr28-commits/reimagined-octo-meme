@@ -24,6 +24,7 @@ import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 
 const SALOON = SALOON_VEHICLE;
 const cityHall = "Belfast City Hall, Belfast BT1 5GS";
+const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
 const root = path.resolve(import.meta.dirname, "..");
 
 assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
@@ -52,20 +53,20 @@ console.log("OK  Engine: £100 weekday = £100 weekend (no surcharge)");
 const weekday = calculateQuote(cityHall, "BFS", SALOON, false, {
   outboundDate: "2026-08-19",
   outboundTime: "10:00",
-});
+}, cityBfsMetrics);
 const saturday = calculateQuote(cityHall, "BFS", SALOON, false, {
   outboundDate: "2026-08-22",
   outboundTime: "10:00",
-});
+}, cityBfsMetrics);
 const sunday = calculateQuote(cityHall, "BFS", SALOON, false, {
   outboundDate: "2026-08-23",
   outboundTime: "10:00",
-});
+}, cityBfsMetrics);
 const bankHoliday = calculateQuote(cityHall, "BFS", SALOON, false, {
   outboundDate: "2026-05-04",
   outboundTime: "10:00",
-});
-const noSchedule = calculateQuote(cityHall, "BFS", SALOON, false, {});
+}, cityBfsMetrics);
+const noSchedule = calculateQuote(cityHall, "BFS", SALOON, false, {}, cityBfsMetrics);
 
 assert.ok(weekday && saturday && sunday && bankHoliday && noSchedule);
 assert.equal(weekday.premiumApplied, false);
@@ -85,11 +86,11 @@ console.log(
 const fridayAfternoon = calculateQuote(cityHall, "BFS", SALOON, false, {
   outboundDate: "2026-08-21",
   outboundTime: "14:00",
-});
+}, cityBfsMetrics);
 const saturdayAfternoon = calculateQuote(cityHall, "BFS", SALOON, false, {
   outboundDate: "2026-08-22",
   outboundTime: "15:00",
-});
+}, cityBfsMetrics);
 assert.ok(fridayAfternoon && saturdayAfternoon);
 assert.equal(fridayAfternoon.premiumApplied, false);
 assert.equal(saturdayAfternoon.premiumApplied, false);
@@ -127,7 +128,7 @@ const ownerAirportWeekend = calculateWebsiteOneWayFare({
   pickupPlace: cityPlace,
   dropoffPlace: bfsPlace,
   vehicleType: SALOON,
-  routeMetrics: null,
+  routeMetrics: cityBfsMetrics,
   schedule: { outboundDate: "2026-08-22", outboundTime: "10:00", returnJourney: false },
 });
 assert.ok(ownerAirportWeekend);
@@ -140,7 +141,7 @@ const ownerAirportWeekday = calculateWebsiteOneWayFare({
   pickupPlace: cityPlace,
   dropoffPlace: bfsPlace,
   vehicleType: SALOON,
-  routeMetrics: null,
+  routeMetrics: cityBfsMetrics,
   schedule: { outboundDate: "2026-08-19", outboundTime: "10:00", returnJourney: false },
 });
 assert.ok(ownerAirportWeekday);
@@ -153,7 +154,7 @@ const personalFriday = calculateWebsiteOneWayFare({
   pickupPlace: cityPlace,
   dropoffPlace: bfsPlace,
   vehicleType: SALOON,
-  routeMetrics: null,
+  routeMetrics: cityBfsMetrics,
   schedule: { outboundDate: "2026-08-21", outboundTime: "14:00", returnJourney: false },
 });
 const personalSaturday = calculateWebsiteOneWayFare({
@@ -162,7 +163,7 @@ const personalSaturday = calculateWebsiteOneWayFare({
   pickupPlace: cityPlace,
   dropoffPlace: bfsPlace,
   vehicleType: SALOON,
-  routeMetrics: null,
+  routeMetrics: cityBfsMetrics,
   schedule: { outboundDate: "2026-08-22", outboundTime: "15:00", returnJourney: false },
 });
 assert.ok(personalFriday && personalSaturday);
@@ -184,7 +185,7 @@ const quickQuoteFriday = calculateAuthoritativeWebsiteQuote({
   outboundTime: "14:00",
   passengers: 2,
   suitcases: 1,
-  routeMetrics: { distanceKm: 22, durationMinutes: 28 },
+  routeMetrics: cityBfsMetrics,
 });
 const quickQuoteSaturday = calculateAuthoritativeWebsiteQuote({
   airportCode: "BFS",
@@ -196,7 +197,7 @@ const quickQuoteSaturday = calculateAuthoritativeWebsiteQuote({
   outboundTime: "15:00",
   passengers: 2,
   suitcases: 1,
-  routeMetrics: { distanceKm: 22, durationMinutes: 28 },
+  routeMetrics: cityBfsMetrics,
 });
 assert.equal(quickQuoteFriday.ok, true);
 assert.equal(quickQuoteSaturday.ok, true);
@@ -269,8 +270,8 @@ assert.match(payment, /amount = resolved\.amount/);
 console.log("OK  10. SumUp remains Worker/KV-authoritative");
 
 const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
-assert.match(hero, /Save 5% when you book a return/);
-assert.match(hero, /Secure online booking/);
+assert.match(hero, /5% off when you book a return/);
+assert.match(hero, /Secure card booking where eligible/);
 console.log("OK  Homepage benefits include return saving");
 
 // Alternative-time booking must not introduce a weekend/BH surcharge path.

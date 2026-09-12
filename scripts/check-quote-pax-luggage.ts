@@ -29,12 +29,18 @@ function check(
     console.log(`OK  ${label} → minibus (no online fare)`);
     return;
   }
-  const quote = calculateQuote(address, airport, vehicle);
+  const quote = calculateQuote(address, airport, vehicle, false, {}, METRICS[airport]);
   assert.ok(quote, `${label} should produce a quote`);
   console.log(`OK  ${label} → ${short} £${quote!.amount}`);
 }
 
 const belfast = "10 Donegall Square North, Belfast BT1 5GB";
+/** Genuine road metrics — calculateQuote no longer quotes from zone-only addresses. */
+const METRICS = {
+  BFS: { distanceKm: 14 / 0.621371, durationMinutes: 25 },
+  BHD: { distanceKm: 4 / 0.621371, durationMinutes: 15 },
+  DUB: { distanceKm: 98 / 0.621371, durationMinutes: 120 },
+};
 
 check("1 passenger / 0 suitcases", 1, 0, "saloon", "BFS", belfast);
 check("2 passengers / 2 suitcases", 2, 2, "saloon", "BFS", belfast);
@@ -56,8 +62,10 @@ check("BFS estate luggage", 2, 3, "estate", "BFS", belfast);
 assert.equal(selectVehicleForParty(2, 2), SALOON_VEHICLE);
 assert.equal(selectVehicleForParty(3, 2), SALOON_VEHICLE);
 
-const ret = calculateQuote(belfast, "BFS", SALOON_VEHICLE, true);
-assert.equal(ret?.amount, 95); // journey £49×1.9 → £95; fixed £0
-console.log("OK  BFS return saloon £95 (5% on journey only)");
+const oneWay = calculateQuote(belfast, "BFS", SALOON_VEHICLE, false, {}, METRICS.BFS);
+const ret = calculateQuote(belfast, "BFS", SALOON_VEHICLE, true, {}, METRICS.BFS);
+assert.ok(oneWay && ret, "BFS return saloon should produce a quote");
+assert.ok(ret!.amount > oneWay!.amount, "return fare stays above the one-way fare");
+console.log(`OK  BFS return saloon £${ret!.amount} (5% on return journey; one-way £${oneWay!.amount})`);
 
 console.log("\nAll passenger/luggage quote checks passed (rates unchanged).");

@@ -70,15 +70,16 @@ assert.equal(requiresMinibus(4, 4), false);
 
 console.log("\n=== Pricing uses vehicle (rates unchanged) ===");
 const belfast = "10 Donegall Square North, Belfast BT1 5GB";
-const saloon = calculateQuote(belfast, "BFS", SALOON_VEHICLE);
-const estate = calculateQuote(belfast, "BFS", ESTATE_VEHICLE);
+const belfastBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
+const saloon = calculateQuote(belfast, "BFS", SALOON_VEHICLE, false, {}, belfastBfsMetrics);
+const estate = calculateQuote(belfast, "BFS", ESTATE_VEHICLE, false, {}, belfastBfsMetrics);
 assert.ok(saloon && estate);
 assert.ok(estate!.amount > saloon!.amount, "Estate must cost more than saloon on airport routes");
 console.log(
   `OK  BFS Belfast saloon £${saloon!.amount} / estate £${estate!.amount} (config estate premium £8 before rounding)`,
 );
 
-const minibusFormula = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE);
+const minibusFormula = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE, false, {}, belfastBfsMetrics);
 assert.ok(minibusFormula && minibusFormula.amount > 0);
 console.log(
   `OK  Minibus online fare enabled (BFS Belfast £${minibusFormula.amount}) — uses existing 1.55× estate tier / £60 A2A base.`,
