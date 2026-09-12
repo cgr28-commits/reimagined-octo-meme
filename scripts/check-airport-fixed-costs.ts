@@ -64,15 +64,15 @@ check("BFS/BHD address↔airport: journey only (no fixed add-on)", () => {
   assert.equal(pick.amount, drop.amount);
 
   const bhdCity = calculateQuote(CITY, "BHD", S, false, {}, M4, false)!;
-  assert.equal(bhdCity.amount, 29);
+  assert.equal(bhdCity.amount, 28);
   assert.equal(bhdCity.airportFixedCostsGbp, 0);
 });
 
 check("Estate = Saloon + £6 on BHD", () => {
   const saloon = calculateQuote(CITY, "BHD", S, false, {}, M4, false)!;
   const estate = calculateQuote(CITY, "BHD", E, false, {}, M4, false)!;
-  assert.equal(saloon.amount, 29);
-  assert.equal(estate.amount, 35);
+  assert.equal(saloon.amount, 28);
+  assert.equal(estate.amount, 34);
   assert.equal(estate.amount - saloon.amount, 6);
   assert.equal(
     estate.amount,
@@ -83,12 +83,12 @@ check("Estate = Saloon + £6 on BHD", () => {
 check("Dublin: universal journey + fixed costs", () => {
   const drop = calculateQuote(CITY, "DUB", S, false, {}, M98, false)!;
   const pick = calculateQuote(CITY, "DUB", S, false, {}, M98, true)!;
-  assert.equal(drop.journeyFareGbp, 229);
-  assert.equal(pick.journeyFareGbp, 229);
+  assert.equal(drop.journeyFareGbp, 228);
+  assert.equal(pick.journeyFareGbp, 228);
   assert.equal(drop.airportFixedCostsGbp, 4);
   assert.equal(pick.airportFixedCostsGbp, 9);
-  assert.equal(drop.amount, 233);
-  assert.equal(pick.amount, 238);
+  assert.equal(drop.amount, 232);
+  assert.equal(pick.amount, 237);
 });
 
 check("A2A BFS↔BHD keeps destination-end historical surcharge", () => {

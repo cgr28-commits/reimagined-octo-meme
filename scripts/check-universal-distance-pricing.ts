@@ -24,25 +24,25 @@ function metricsForMiles(miles: number, durationMinutes = 40) {
 console.log("=== Calibration knots ===");
 {
   const cases: Array<[number, number]> = [
-    [0, 29],
-    [2, 29],
-    [4, 29],
-    [5, 31],
-    [10, 40],
-    [15, 49],
-    [20, 58],
-    [25, 67],
-    [30, 75],
-    [32, 79],
-    [35, 86],
-    [40, 97],
-    [50, 120],
-    [60, 143],
-    [70, 165],
-    [80, 188],
-    [90, 211],
-    [98, 229],
-    [100, 234],
+    [0, 28],
+    [2, 28],
+    [4, 28],
+    [5, 30],
+    [10, 39],
+    [15, 48],
+    [20, 57],
+    [25, 66],
+    [30, 74],
+    [32, 78],
+    [35, 85],
+    [40, 96],
+    [50, 119],
+    [60, 142],
+    [70, 164],
+    [80, 187],
+    [90, 210],
+    [98, 228],
+    [100, 233],
   ];
   for (const [miles, target] of cases) {
     const saloon = calculateUniversalSaloonJourneyFareGbp(miles);
@@ -70,7 +70,7 @@ console.log("\n=== Full 0–100 mile table (Estate − Saloon = £6) ===");
 
 console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
 {
-  // 0–4 miles → £29 Saloon (City Hall-ish to BHD)
+  // 0–4 miles → £28 Saloon (City Hall-ish to BHD)
   const short = calculateQuote(
     "Belfast City Hall BT1",
     "BHD",
@@ -81,8 +81,8 @@ console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
     false,
   );
   assert.ok(short);
-  assert.equal(short!.amount, 29);
-  assert.equal(short!.journeyFareGbp, 29);
+  assert.equal(short!.amount, 28);
+  assert.equal(short!.journeyFareGbp, 28);
   assert.equal(short!.amount, short!.journeyFareGbp);
 
   const shortEstate = calculateQuote(
@@ -94,10 +94,10 @@ console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
     metricsForMiles(4, 12),
     false,
   );
-  assert.equal(shortEstate!.amount, 35);
+  assert.equal(shortEstate!.amount, 34);
   assert.equal(shortEstate!.amount - short!.amount, 6);
 
-  // ~32 miles → £79 (Galgorm-ish to BHD with real road miles)
+  // ~32 miles → £78 (Galgorm-ish to BHD with real road miles)
   const mid = calculateQuote(
     "Galgorm Manor Hotel, Ballymena BT42 1EA",
     "BHD",
@@ -107,10 +107,10 @@ console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
     metricsForMiles(32, 46),
     false,
   );
-  assert.equal(mid!.amount, 79);
-  assert.equal(mid!.journeyFareGbp, 79);
+  assert.equal(mid!.amount, 78);
+  assert.equal(mid!.journeyFareGbp, 78);
 
-  // ~98 miles → £229 Saloon (long-distance / Dublin-level)
+  // ~98 miles → £228 Saloon (long-distance / Dublin-level)
   const long = calculateQuote(
     "Dublin area",
     "DUB",
@@ -120,10 +120,10 @@ console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
     metricsForMiles(98, 120),
     false,
   );
-  assert.equal(long!.journeyFareGbp, 229);
+  assert.equal(long!.journeyFareGbp, 228);
   // DUB drop-off fixed +£4
   assert.equal(long!.airportFixedCostsGbp, 4);
-  assert.equal(long!.amount, 233);
+  assert.equal(long!.amount, 232);
 
   // No metrics → no fare (no zone fallback)
   assert.equal(
@@ -141,10 +141,10 @@ console.log("\n=== Express remains separate ===");
     airportFixedCostsGbp: 0,
     airportAccessChargeGbp: 4,
   });
-  assert.equal(breakdown.journeyFareDisplayGbp, 49);
+  assert.equal(breakdown.journeyFareDisplayGbp, 48);
   assert.equal(breakdown.airportAccessChargeGbp, 4);
-  assert.equal(breakdown.finalAmountPayableGbp, 53);
-  console.log("OK  Journey £49 + Express £4 = £53");
+  assert.equal(breakdown.finalAmountPayableGbp, 52);
+  console.log("OK  Journey £48 + Express £4 = £52");
 }
 
 console.log("\n=== Point-to-point same curve ===");
@@ -157,8 +157,8 @@ console.log("\n=== Point-to-point same curve ===");
     {},
     metricsForMiles(15, 25),
   );
-  assert.equal(p2p!.amount, 49);
-  assert.equal(p2p!.journeyFareGbp, 49);
+  assert.equal(p2p!.amount, 48);
+  assert.equal(p2p!.journeyFareGbp, 48);
   console.log("OK  A2A/P2P uses universal curve");
 }
 
@@ -203,12 +203,12 @@ console.log("\n=== Representative examples ===");
 
 console.log("\n=== Raw formula continuity ===");
 {
-  assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(4) - 29) < 0.01);
-  assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(15) - 49) < 0.01);
-  assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(32) - 79) < 0.01);
-  assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(98) - 229) < 0.01);
+  assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(4) - 28) < 0.01);
+  assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(15) - 48) < 0.01);
+  assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(32) - 78) < 0.01);
+  assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(98) - 228) < 0.01);
   const midShort = rawUniversalSaloonJourneyFareGbp(9.5);
-  assert.ok(Math.abs(midShort - 39) < 0.01, `4–15 midpoint should be £39, got ${midShort}`);
+  assert.ok(Math.abs(midShort - 38) < 0.01, `4–15 midpoint should be £38, got ${midShort}`);
   const mid = calculateUniversalJourneyFareGbp(25, "Estate Car (1–4 passengers)");
   assert.equal(mid.journeyFareGbp - mid.saloonGbp, 6);
 }
