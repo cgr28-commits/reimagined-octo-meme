@@ -626,7 +626,7 @@ function SavedQuoteInner() {
             error={!termsAccepted && error.includes("Terms") ? error : undefined}
           />
 
-          {isCustomerSmartAvailabilityBlockMessage(error) ? (
+          {isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
             <CustomerSmartAvailabilityBlocked
               message={error}
               onChooseAnotherTime={() => {

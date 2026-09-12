@@ -1868,7 +1868,7 @@ function QuoteCard({
     isInstantPayVehicle(quoteVehicle) &&
     Boolean(liveQuote) &&
     !routeValidationBlockingPayment &&
-    !smartAvailabilityBlocked;
+    (!smartAvailabilityBlocked || isMinimumNoticeRequest);
 
   /**
    * Complete results (route + vehicle + price) ready to show and scroll once.
@@ -2254,7 +2254,7 @@ function QuoteCard({
   }
 
   function applyCustomerAvailabilityResult(result: CustomerSmartAvailabilityCheckResult): boolean {
-    if (result.blocked) {
+    if (result.blocked && !isMinimumNoticeRequest) {
       setSmartAvailabilityBlocked(true);
       setAvailabilityAlternatives(result.alternativeTimes);
       setPaymentError(result.customerMessage || CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE);
@@ -3048,7 +3048,7 @@ function QuoteCard({
     (pricedFare?.totalGbp != null ? pricedFare.totalGbp : liveQuote?.amount ?? null);
 
   async function handlePayNow() {
-    if (isCustomerSmartAvailabilityBlockMessage(paymentError)) {
+    if (isCustomerSmartAvailabilityBlockMessage(paymentError) && !isMinimumNoticeRequest) {
       return;
     }
     if (paymentLoading || submitted) {
@@ -4934,7 +4934,8 @@ function QuoteCard({
     const showChangeDropOff =
       expressSelection.eligible && expressSelection.freeAlternativeAvailable;
     const checkoutBlocked =
-      smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError);
+      !isMinimumNoticeRequest &&
+      (smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError));
 
     return (
       <>
