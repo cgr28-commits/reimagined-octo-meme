@@ -498,7 +498,7 @@ export async function createShortNoticeRequest(options: {
 }
 
 export async function sendShortNoticeRequestReceivedEmail(
-  env: ShortNoticeEnv,
+  env: WorkerEmailEnv,
   record: ShortNoticeBookingRecord,
 ): Promise<{ sent: boolean; error?: string }> {
   if (!record.underMinimumNotice) {
@@ -709,7 +709,7 @@ export async function handleOwnerApproveShortNotice(
       paymentEmailSent: Boolean(existing.paymentLinkEmailSentAt),
     };
   }
-  if (existing.status !== "SHORT_NOTICE_AWAITING_APPROVAL" && existing.status !== "SHORT_NOTICE_APPROVED") {
+  if (existing.status !== "SHORT_NOTICE_AWAITING_APPROVAL") {
     if (existing.status === "SHORT_NOTICE_DECLINED") {
       return { error: "This request was declined and cannot be approved.", status: 409 };
     }
