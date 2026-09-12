@@ -186,8 +186,9 @@ check("Public quote tool has no personal quote code-entry UI", () => {
 
 check("Short-notice success UI after full form submit", () => {
   assert.match(card, /shortNoticeResult/);
-  assert.match(card, /Booking requires availability confirmation/);
-  assert.match(card, /confirm availability for your requested pickup time before taking/);
+  assert.match(card, /ShortNoticeRequestReceived/);
+  assert.match(card, /Request Short-Notice Booking/);
+  assert.match(card, /Need a quick answer\? WhatsApp us/);
 });
 
 console.log("\nAll quote-tool UX checks passed.");

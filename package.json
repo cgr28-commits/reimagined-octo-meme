@@ -111,7 +111,8 @@
     "check:company-voice-journey-messages": "npx tsx scripts/check-company-voice-journey-messages.ts",
     "check:address-autocomplete-quota": "npx tsx scripts/check-address-autocomplete-quota.ts",
     "check:address-autocomplete-quality": "npx tsx scripts/check-address-autocomplete-quality.ts",
-    "check:belfast-airport-island-lookup": "npx tsx scripts/check-belfast-airport-island-lookup.ts"
+    "check:belfast-airport-island-lookup": "npx tsx scripts/check-belfast-airport-island-lookup.ts",
+    "check:minimum-booking-notice": "npx tsx scripts/check-minimum-booking-notice.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

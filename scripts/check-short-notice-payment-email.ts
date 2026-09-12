@@ -83,13 +83,13 @@ check("Email builder: subject, customer, reference, amount, secure pay URL", () 
   });
   assert.equal(
     email.subject,
-    "Your My Airport Taxi NI booking is ready for payment",
+    "Your My Airport Taxi NI booking request has been accepted",
   );
   assert.match(email.text, /Hi Jill,/);
   assert.match(email.text, /MATNI-SN-TEST01/);
-  assert.match(email.text, /Amount due: £65\.00/);
+  assert.match(email.text, /quoted price of £65\.00/);
   assert.match(email.text, new RegExp(PAY_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(email.html, /Pay securely now/);
+  assert.match(email.html, />Pay securely</);
   assert.match(email.html, /MATNI-SN-TEST01/);
   assert.match(email.html, /£65\.00/);
   assert.match(email.html, /href="https:\/\/www\.myairporttaxini\.co\.uk\/pay\/short-notice\/\?token=secure-token-abc"/);

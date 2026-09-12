@@ -148,6 +148,12 @@ import {
   PromotionalPriceBreakdown,
   buildOpenWebsiteFareBreakdown,
 } from "@/components/QuoteFareTrust";
+import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
+import {
+  isWithinMinimumBookingNotice,
+  minimumNoticeRequestBody,
+  minimumNoticeRequestHeading,
+} from "../../shared/booking-notice";
 import {
   canProceedWithoutExpressDropOffLegs,
   combinedFreeAlternativeAvailable,
@@ -733,6 +739,7 @@ function QuoteCard({
     reference: string;
     whatsappUrl: string;
     amountLabel?: string;
+    underMinimumNotice?: boolean;
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
@@ -1210,6 +1217,12 @@ function QuoteCard({
     (!returnJourney ||
       (Boolean(returnDate && returnTime) &&
         isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)));
+  const isMinimumNoticeRequest = Boolean(
+    tripDate && tripTime && isWithinMinimumBookingNotice(tripDate, tripTime),
+  );
+  const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
+    "Hi, I have a short-notice airport transfer request.",
+  )}`;
 
   const partySelectionReady = isPartySelectionComplete(passengers, suitcases);
   const effectivePassengers = effectivePartyPassengers(passengers);
@@ -3218,6 +3231,8 @@ function QuoteCard({
           reference: checkout.reference,
           whatsappUrl: checkout.whatsappUrl,
           amountLabel: checkout.amountLabel ?? amountLabel,
+          underMinimumNotice:
+            checkout.underMinimumNotice === true || isMinimumNoticeRequest,
         });
         setPaymentLoading(false);
         return;
@@ -5392,9 +5407,11 @@ function QuoteCard({
             mode={
               isManualQuoteJourney
                 ? "quote-request"
-                : payNow
-                  ? "card-payment"
-                  : "booking-request"
+                : isMinimumNoticeRequest
+                  ? "booking-request"
+                  : payNow
+                    ? "card-payment"
+                    : "booking-request"
             }
             paymentAmountLabel={
               isEnquiryOnly || isManualQuoteJourney
@@ -5424,6 +5441,24 @@ function QuoteCard({
             </div>
           ) : payNow && liveQuote ? (
             <div className="space-y-3">
+              {isMinimumNoticeRequest && !openCheckout ? (
+                <div
+                  className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <p className="text-sm font-semibold text-amber-100">
+                    {minimumNoticeRequestHeading()}
+                  </p>
+                  <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-amber-50/90">
+                    {minimumNoticeRequestBody()}
+                  </p>
+                </div>
+              ) : !isMinimumNoticeRequest && !openCheckout ? (
+                <p className="text-xs leading-relaxed text-white/70">
+                  Your transfer is reserved for your selected pickup time.
+                </p>
+              ) : null}
               {paymentError ? (
                 <div className="space-y-3">
                   <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
@@ -5479,6 +5514,7 @@ function QuoteCard({
                   </button>
                 </div>
               ) : (
+                <>
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
@@ -5486,11 +5522,26 @@ function QuoteCard({
                   className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
-                    ? "Opening secure payment…"
+                    ? isMinimumNoticeRequest
+                      ? "Submitting booking request…"
+                      : "Opening secure payment…"
                     : testChargeAmount !== null
                       ? "Pay £1.00 test charge with SumUp"
-                      : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
+                      : isMinimumNoticeRequest
+                        ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                        : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
                 </button>
+                {isMinimumNoticeRequest ? (
+                  <a
+                    href={shortNoticeWhatsAppHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full text-center text-sm font-semibold text-white/75 underline-offset-2 hover:text-white hover:underline"
+                  >
+                    Need a quick answer? WhatsApp us
+                  </a>
+                ) : null}
+                </>
               )}
             </div>
           ) : usesWhatsApp && !isManualQuoteJourney ? (
@@ -5709,52 +5760,21 @@ function QuoteCard({
         id="quote-availability-confirmation"
         className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8"
       >
-        <div className="rounded-xl border border-amber-400/30 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
-          <p
-            data-booking-nav-heading
-            tabIndex={-1}
-            className="text-xs font-medium uppercase tracking-wider text-amber-200 outline-none"
-          >
-            Booking requires availability confirmation
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-            Thanks — we&apos;ve received your journey details.
-          </h2>
-          {shortNoticeResult.amountLabel ? (
-            <p className="quote-price-figure mt-4">
-              {shortNoticeResult.amountLabel}
-            </p>
-          ) : null}
-          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            We just need to confirm availability for your requested pickup time before taking
-            payment.
-          </p>
-          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/70">
-            Please message us on WhatsApp. Once availability is confirmed, you&apos;ll be able to pay
-            securely online for this booking.
-          </p>
-          <p className="mt-5 text-sm quote-secondary">
-            Booking reference:{" "}
-            <span className="font-semibold text-white">{shortNoticeResult.reference}</span>
-          </p>
-          <a
-            href={shortNoticeResult.whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-primary mt-6 w-full max-w-sm sm:w-auto sm:px-8"
-          >
-            Message us on WhatsApp
-          </a>
-          <button
-            type="button"
-            onClick={() => {
-              performStartNewQuote();
-            }}
-            className="mt-4 block w-full text-sm quote-secondary underline-offset-2 hover:underline sm:mx-auto sm:w-auto"
-          >
-            Start a New Quote
-          </button>
-        </div>
+        <ShortNoticeRequestReceived
+          reference={shortNoticeResult.reference}
+          amountLabel={shortNoticeResult.amountLabel}
+          whatsappUrl={shortNoticeResult.whatsappUrl}
+          underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            performStartNewQuote();
+          }}
+          className="mt-4 block w-full text-sm quote-secondary underline-offset-2 hover:underline sm:mx-auto sm:w-auto"
+        >
+          Start a New Quote
+        </button>
       </div>
     );
   }

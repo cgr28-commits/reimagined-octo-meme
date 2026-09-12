@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  MINIMUM_BOOKING_NOTICE_HOURS,
+  formatHoursUntilPickupLabel,
   formatUnavailablePeriodRangeLabel,
   isUnavailablePeriodExpired,
   vehicleServiceLabel,
 } from "../../shared/booking-notice";
+import { hoursUntilPickup } from "../../shared/refund-ops";
 import { SITE } from "@/lib/data";
 import {
   addUnavailablePeriod,
@@ -49,22 +52,55 @@ const EMPTY_DRAFT: PeriodDraft = {
 function statusLabel(status: string): string {
   switch (status) {
     case "SHORT_NOTICE_AWAITING_APPROVAL":
-      return "AWAITING OWNER APPROVAL";
+      return "Short-notice request · Awaiting your decision";
     case "SHORT_NOTICE_ALTERNATIVE_OFFERED":
-      return "AWAITING CUSTOMER RESPONSE";
+      return "Alternative time offered · Awaiting customer response";
     case "SHORT_NOTICE_APPROVED":
-      return "APPROVED — AWAITING PAYMENT";
+      return "Awaiting payment";
     case "SHORT_NOTICE_DECLINED":
-      return "DECLINED — NO AVAILABILITY";
+      return "Declined";
     case "SHORT_NOTICE_ALTERNATIVE_DECLINED":
-      return "ALTERNATIVE TIME DECLINED";
+      return "Alternative declined by customer";
     case "SHORT_NOTICE_PAID":
-      return "PAID";
+      return "Customer paid · Confirmed";
     case "SHORT_NOTICE_EXPIRED":
-      return "EXPIRED";
+      return "Payment expired";
     default:
       return status;
   }
+}
+
+function ownerFacingStatusLabel(booking: ShortNoticeBookingSummary, now = new Date()): string {
+  if (booking.status === "SHORT_NOTICE_APPROVED") {
+    return paymentStatusLabel(booking, now);
+  }
+  return statusLabel(booking.status);
+}
+
+function paymentStatusLabel(booking: ShortNoticeBookingSummary, now = new Date()): string {
+  if (booking.status === "SHORT_NOTICE_PAID") return "Customer paid";
+  if (
+    booking.status === "SHORT_NOTICE_DECLINED" ||
+    booking.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" ||
+    booking.status === "SHORT_NOTICE_AWAITING_APPROVAL" ||
+    booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED"
+  ) {
+    return "No payment taken";
+  }
+  const remainingHours = hoursUntilPickup(booking.booking.tripDate, booking.booking.tripTime, now);
+  if (remainingHours != null && remainingHours < 0) return "Pickup time has passed";
+  if (booking.status === "SHORT_NOTICE_EXPIRED") return "Payment expired";
+  if (booking.status === "SHORT_NOTICE_APPROVED") {
+    if (
+      booking.paymentExpiresAt &&
+      !Number.isNaN(new Date(booking.paymentExpiresAt).getTime()) &&
+      new Date(booking.paymentExpiresAt).getTime() <= now.getTime()
+    ) {
+      return "Payment expired";
+    }
+    return "Awaiting payment";
+  }
+  return "—";
 }
 
 function formatCompactTripWhen(date: string, time: string): string {
@@ -144,6 +180,9 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
   /** Collapsed by default — only expanded refs show full details/controls. */
   const [expandedRefs, setExpandedRefs] = useState<Record<string, boolean>>({});
   const [confirmRemoveRef, setConfirmRemoveRef] = useState<string | null>(null);
+  const [confirmApproveRef, setConfirmApproveRef] = useState<string | null>(null);
+  const [confirmDeclineRef, setConfirmDeclineRef] = useState<string | null>(null);
+  const [confirmOfferRef, setConfirmOfferRef] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [expandedArchivedRefs, setExpandedArchivedRefs] = useState<Record<string, boolean>>({});
 
@@ -618,10 +657,10 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">
-            Short-notice requests awaiting approval
+            Short-notice requests
           </p>
           <p className="mt-1 break-words text-sm text-white/65">
-            Pickups inside an unavailable period — review before SumUp payment.
+            {`Journeys inside the ${MINIMUM_BOOKING_NOTICE_HOURS}-hour notice window, plus unavailable-period requests — awaiting your decision before payment.`}
           </p>
         </div>
         <button
@@ -687,7 +726,10 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       </span>
                     </p>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200/90">
-                      {statusLabel(booking.status)}
+                      Short-notice request
+                    </p>
+                    <p className="text-[11px] font-semibold tracking-wider text-white/70">
+                      {ownerFacingStatusLabel(booking)}
                     </p>
                     {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
                       <>
@@ -728,8 +770,11 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     <p className="mt-1 break-words text-sm text-white/65">
                       {booking.reference} · {booking.amountLabel} · {service}
                     </p>
-                    <p className="mt-1 text-xs uppercase tracking-wider text-amber-200/90">
-                      {statusLabel(booking.status)}
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-amber-200">
+                      Short-notice request
+                    </p>
+                    <p className="mt-0.5 text-xs uppercase tracking-wider text-amber-200/90">
+                      {ownerFacingStatusLabel(booking)}
                     </p>
                   </div>
                   <button
@@ -743,15 +788,19 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                 </div>
                 <dl className="mt-4 grid gap-2 text-sm text-white/70 sm:grid-cols-2">
                   <div>
-                    <dt className="text-white/40">Mobile</dt>
+                    <dt className="text-white/40">Customer name</dt>
+                    <dd>{booking.booking.customerName}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Customer mobile</dt>
                     <dd>{booking.booking.mobileNumber}</dd>
                   </div>
                   <div>
-                    <dt className="text-white/40">Email</dt>
+                    <dt className="text-white/40">Customer email</dt>
                     <dd className="break-all">{booking.booking.customerEmail}</dd>
                   </div>
                   <div>
-                    <dt className="text-white/40">Pickup</dt>
+                    <dt className="text-white/40">Pickup address</dt>
                     <dd className="break-words">{booking.booking.pickupLabel}</dd>
                   </div>
                   <div>
@@ -759,24 +808,56 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     <dd className="break-words">{booking.booking.dropoffLabel}</dd>
                   </div>
                   <div>
-                    <dt className="text-white/40">Pickup date/time</dt>
+                    <dt className="text-white/40">Airport / direction</dt>
                     <dd>
-                      {booking.booking.tripDate} · {booking.booking.tripTime}
+                      {booking.booking.airportCode || booking.booking.tripLabel || "—"}
+                      {booking.booking.isAirportTrip ? " · Airport transfer" : ""}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-white/40">Service</dt>
+                    <dt className="text-white/40">Requested pickup date</dt>
+                    <dd>{requestedDate}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Requested pickup time</dt>
+                    <dd>{requestedTime}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Time remaining until pickup</dt>
+                    <dd>
+                      {formatHoursUntilPickupLabel(
+                        booking.booking.tripDate,
+                        booking.booking.tripTime,
+                      ) ?? "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Passenger count</dt>
+                    <dd>{booking.booking.passengers}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Luggage details</dt>
+                    <dd>{booking.booking.suitcases} suitcases</dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Vehicle category</dt>
                     <dd className="font-semibold text-white">{service}</dd>
                   </div>
                   <div>
-                    <dt className="text-white/40">Passengers / luggage</dt>
-                    <dd>
-                      {booking.booking.passengers} / {booking.booking.suitcases}
-                    </dd>
+                    <dt className="text-white/40">Flight number</dt>
+                    <dd>{booking.booking.flightNumber || "—"}</dd>
                   </div>
                   <div>
-                    <dt className="text-white/40">Flight</dt>
-                    <dd>{booking.booking.flightNumber || "—"}</dd>
+                    <dt className="text-white/40">Quoted journey price</dt>
+                    <dd className="font-semibold text-white">{booking.amountLabel}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Payment status</dt>
+                    <dd>{paymentStatusLabel(booking)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Request / booking status</dt>
+                    <dd>{statusLabel(booking.status)}</dd>
                   </div>
                   <div>
                     <dt className="text-white/40">Return</dt>
@@ -785,10 +866,6 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                         ? `${booking.booking.returnDate || "—"} · ${booking.booking.returnTime || "—"}`
                         : "No"}
                     </dd>
-                  </div>
-                  <div>
-                    <dt className="text-white/40">Vehicle detail</dt>
-                    <dd>{booking.booking.vehicle}</dd>
                   </div>
                 </dl>
 
@@ -837,14 +914,19 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void handleApprove(booking)}
+                        aria-label={`Approve this short-notice booking request for ${booking.amountLabel}`}
+                        onClick={() => {
+                          setConfirmDeclineRef(null);
+                          setConfirmApproveRef(booking.reference);
+                        }}
                         className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
                       >
-                        {busy ? "Working…" : "Approve requested time"}
+                        {busy ? "Working…" : "Approve"}
                       </button>
                       <button
                         type="button"
                         disabled={busy}
+                        aria-label="Offer alternative pickup time"
                         onClick={() =>
                           patchOfferDraft(booking.reference, {
                             open: !offerDraftFor(booking.reference).open,
@@ -862,16 +944,100 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void handleDecline(booking)}
+                        aria-label="Decline this short-notice booking request"
+                        onClick={() => {
+                          setConfirmApproveRef(null);
+                          setConfirmDeclineRef(booking.reference);
+                        }}
                         className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 disabled:opacity-60"
                       >
-                        Decline — no availability
+                        Decline
                       </button>
                     </div>
+                    {confirmApproveRef === booking.reference ? (
+                      <div
+                        className="rounded-xl border border-emerald/30 bg-emerald/10 p-3"
+                        role="dialog"
+                        aria-labelledby={`approve-short-notice-${booking.reference}`}
+                      >
+                        <p
+                          id={`approve-short-notice-${booking.reference}`}
+                          className="text-sm font-semibold text-white"
+                        >
+                          Approve this short-notice booking request for {booking.amountLabel}?
+                        </p>
+                        <p className="mt-1 text-xs text-white/65">
+                          This sends a payment link. The booking is confirmed only after the customer
+                          pays.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setConfirmApproveRef(null)}
+                            className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                          >
+                            Go back
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setConfirmApproveRef(null);
+                              void handleApprove(booking);
+                            }}
+                            className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                          >
+                            {busy ? "Working…" : "Confirm approve"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    {confirmDeclineRef === booking.reference ? (
+                      <div
+                        className="rounded-xl border border-red-400/30 bg-red-500/10 p-3"
+                        role="dialog"
+                        aria-labelledby={`decline-short-notice-${booking.reference}`}
+                      >
+                        <p
+                          id={`decline-short-notice-${booking.reference}`}
+                          className="text-sm font-semibold text-white"
+                        >
+                          Decline this short-notice booking request?
+                        </p>
+                        <p className="mt-1 text-xs text-white/65">
+                          No payment will be taken. This is not a cancellation of a confirmed booking.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setConfirmDeclineRef(null)}
+                            className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                          >
+                            Go back
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setConfirmDeclineRef(null);
+                              void handleDecline(booking);
+                            }}
+                            className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 disabled:opacity-60"
+                          >
+                            {busy ? "Working…" : "Confirm decline"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     {offerDraftFor(booking.reference).open ? (
                       <div className="rounded-xl border border-white/10 bg-navy/50 p-3">
                         <p className="text-sm font-semibold text-white">
                           Offer alternative pickup
+                        </p>
+                        <p className="mt-1 text-sm text-white/70">
+                          Original requested: {requestedDate} · {requestedTime}
                         </p>
                         <p className="mt-1 text-xs text-white/55">
                           Fare stays {booking.amountLabel} — weekend/Bank Holiday does not change
@@ -920,14 +1086,62 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                             placeholder="e.g. We can collect you at 3pm instead"
                           />
                         </label>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void handleOfferAlternative(booking)}
-                          className="mt-3 min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
-                        >
-                          {busy ? "Sending…" : "Send alternative-time email"}
-                        </button>
+                        {confirmOfferRef === booking.reference ? (
+                          <div
+                            className="mt-3 rounded-xl border border-amber-300/40 bg-amber-400/10 p-3"
+                            role="dialog"
+                            aria-labelledby={`offer-short-notice-${booking.reference}`}
+                          >
+                            <p
+                              id={`offer-short-notice-${booking.reference}`}
+                              className="text-sm font-semibold text-white"
+                            >
+                              Send this alternative pickup time?
+                            </p>
+                            <p className="mt-2 text-sm text-white/80">
+                              Original requested time: {requestedTime}
+                            </p>
+                            <p className="text-sm text-white/80">
+                              Proposed time: {offerDraftFor(booking.reference).offeredTime || "—"}
+                            </p>
+                            <p className="text-sm text-white/80">
+                              Proposed date: {offerDraftFor(booking.reference).offeredDate || "—"}
+                            </p>
+                            <p className="text-sm text-white/80">
+                              Quoted price: {booking.amountLabel}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setConfirmOfferRef(null)}
+                                className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                              >
+                                Go back
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => {
+                                  setConfirmOfferRef(null);
+                                  void handleOfferAlternative(booking);
+                                }}
+                                className="min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                              >
+                                {busy ? "Sending…" : "Send alternative-time email"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setConfirmOfferRef(booking.reference)}
+                            className="mt-3 min-h-11 rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60"
+                          >
+                            Review and send
+                          </button>
+                        )}
                       </div>
                     ) : null}
                   </div>
@@ -982,10 +1196,11 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void handleDecline(booking)}
+                        aria-label="Decline this short-notice booking request"
+                        onClick={() => setConfirmDeclineRef(booking.reference)}
                         className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-100 disabled:opacity-60"
                       >
-                        Decline booking
+                        Decline
                       </button>
                     </div>
                     {offerDraftFor(booking.reference).open ? (
@@ -1043,6 +1258,46 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                         </button>
                       </div>
                     ) : null}
+                  </div>
+                ) : null}
+
+                {confirmDeclineRef === booking.reference &&
+                booking.status !== "SHORT_NOTICE_AWAITING_APPROVAL" ? (
+                  <div
+                    className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-3"
+                    role="dialog"
+                    aria-labelledby={`decline-short-notice-open-${booking.reference}`}
+                  >
+                    <p
+                      id={`decline-short-notice-open-${booking.reference}`}
+                      className="text-sm font-semibold text-white"
+                    >
+                      Decline this short-notice booking request?
+                    </p>
+                    <p className="mt-1 text-xs text-white/65">
+                      No payment will be taken. This is not a cancellation of a confirmed booking.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setConfirmDeclineRef(null)}
+                        className="min-h-11 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      >
+                        Go back
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          setConfirmDeclineRef(null);
+                          void handleDecline(booking);
+                        }}
+                        className="min-h-11 rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 disabled:opacity-60"
+                      >
+                        {busy ? "Working…" : "Confirm decline"}
+                      </button>
+                    </div>
                   </div>
                 ) : null}
 

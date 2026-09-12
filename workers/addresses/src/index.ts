@@ -115,6 +115,7 @@ import {
 } from "./owner-profile-handlers";
 import {
   createShortNoticeRequest,
+  sendShortNoticeRequestReceivedEmail,
   handleOwnerApproveShortNotice,
   handleOwnerDeclineShortNotice,
   handleOwnerGetBookingSettings,
@@ -366,6 +367,10 @@ import {
   resolveExpressDropOff,
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
+import {
+  MINIMUM_BOOKING_NOTICE_HOURS,
+  formatHoursUntilPickupLabel,
+} from "../shared/booking-notice";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import {
   handleGetReturnOffer,
@@ -2441,11 +2446,27 @@ async function handlePaymentRequest(
           checkoutId: created.record.reference,
           checkoutReference: `SHORT-NOTICE · ${created.record.reference}`,
         });
+        const pickupRemaining = formatHoursUntilPickupLabel(booking.tripDate, booking.tripTime);
+        const ownerSubject =
+          pickupRemaining && pickupRemaining !== "pickup time has passed"
+            ? `New short-notice booking request — pickup in ${pickupRemaining}`
+            : `New short-notice booking request — ${created.record.reference}`;
         await trySendOwnerOperationalEmail(env, {
           to: ownerInbox(env),
-          subject: `[Short-notice] ${attemptEmail.subject}`,
-          body: `${attemptEmail.body}\n\nStatus: SHORT_NOTICE_AWAITING_APPROVAL\nUnavailable period: ${notice.blockingPeriodLabel ?? notice.blockingPeriodId ?? "—"}\nApprove or decline in the Owner Dashboard.`,
+          subject: ownerSubject,
+          body:
+            `${attemptEmail.body}\n\n` +
+            `Action required: Short-notice request · Awaiting your decision.\n` +
+            `Status: SHORT_NOTICE_AWAITING_APPROVAL\n` +
+            `Quoted price: ${amountLabel}\n` +
+            `Pickup remaining: ${pickupRemaining ?? "—"}\n` +
+            `Unavailable period: ${notice.blockingPeriodLabel ?? notice.blockingPeriodId ?? "—"}\n` +
+            `Under ${MINIMUM_BOOKING_NOTICE_HOURS}-hour notice: ${notice.underMinimumNotice ? "yes" : "no"}\n` +
+            `Open the Owner Dashboard (Booking Availability) to Approve, Offer alternative time, or Decline.`,
         });
+        if (created.record.underMinimumNotice) {
+          await sendShortNoticeRequestReceivedEmail(env, created.record);
+        }
         return json(
           {
             ok: true,
@@ -2454,6 +2475,7 @@ async function handlePaymentRequest(
             whatsappUrl: created.whatsappUrl,
             blockingPeriodId: notice.blockingPeriodId,
             blockingPeriodLabel: notice.blockingPeriodLabel,
+            underMinimumNotice: Boolean(notice.underMinimumNotice),
             amount: created.record.amount,
             amountLabel: created.record.amountLabel,
             status: created.record.status,

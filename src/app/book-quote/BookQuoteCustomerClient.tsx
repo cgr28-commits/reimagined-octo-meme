@@ -29,6 +29,13 @@ import {
   expressDropOffBreakdownLabel,
   resolveExpressDropOff,
 } from "../../../shared/express-drop-off";
+import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
+import {
+  isWithinMinimumBookingNotice,
+  minimumNoticeRequestBody,
+  minimumNoticeRequestHeading,
+} from "../../../shared/booking-notice";
+import { SITE } from "@/lib/data";
 
 const fieldClass =
   "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
@@ -45,6 +52,11 @@ function BookQuoteInner() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [shortNoticeResult, setShortNoticeResult] = useState<{
+    reference: string;
+    whatsappUrl: string;
+    amountLabel?: string;
+  } | null>(null);
 
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -156,6 +168,12 @@ function BookQuoteInner() {
       expressDropOffFeeGbp: expressSelection.feeGbp,
     });
   }, [quote, journey, expressSelection.feeGbp]);
+  const isMinimumNoticeRequest = Boolean(
+    tripDate && tripTime && isWithinMinimumBookingNotice(tripDate, tripTime),
+  );
+  const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
+    "Hi, I have a short-notice airport transfer request.",
+  )}`;
 
   const booking = useMemo((): BookingDetails | null => {
     if (!quote || !journey || !displayPricing) return null;
@@ -271,8 +289,17 @@ function BookQuoteInner() {
           ? expressDropOffSelected
           : false,
       });
-      if (checkout.shortNotice && checkout.whatsappUrl) {
-        window.location.href = checkout.whatsappUrl;
+      if (checkout.shortNotice && checkout.reference && checkout.whatsappUrl) {
+        setShortNoticeResult({
+          reference: checkout.reference,
+          whatsappUrl: checkout.whatsappUrl,
+          amountLabel:
+            checkout.amountLabel ??
+            (displayPricing
+              ? formatQuickQuoteAmount(displayPricing.totalGbp)
+              : quote.quotedAmountLabel),
+        });
+        setPaying(false);
         return;
       }
       if (!checkout.paymentUrl || !checkout.checkoutId) {
@@ -299,6 +326,18 @@ function BookQuoteInner() {
     return (
       <div className="mx-auto w-full min-w-0 max-w-lg rounded-2xl border border-white/10 bg-navy-dark/70 p-6 text-center text-white/70">
         Loading your quote…
+      </div>
+    );
+  }
+
+  if (shortNoticeResult) {
+    return (
+      <div className="mx-auto w-full min-w-0 max-w-lg rounded-2xl border border-white/10 bg-navy-dark/70 p-6">
+        <ShortNoticeRequestReceived
+          reference={shortNoticeResult.reference}
+          amountLabel={shortNoticeResult.amountLabel}
+          whatsappUrl={shortNoticeResult.whatsappUrl}
+        />
       </div>
     );
   }
@@ -533,7 +572,7 @@ function BookQuoteInner() {
         <BookingTermsConsent
           accepted={termsAccepted}
           onAcceptedChange={setTermsAccepted}
-          mode="card-payment"
+          mode={isMinimumNoticeRequest ? "booking-request" : "card-payment"}
           paymentAmountLabel={
             displayPricing
               ? formatQuickQuoteAmount(displayPricing.totalGbp)
@@ -553,6 +592,23 @@ function BookQuoteInner() {
       ) : (
         <>
           {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
+          {isMinimumNoticeRequest ? (
+            <div
+              className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
+              role="status"
+            >
+              <p className="text-sm font-semibold text-amber-100">
+                {minimumNoticeRequestHeading()}
+              </p>
+              <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-amber-50/90">
+                {minimumNoticeRequestBody()}
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs leading-relaxed text-white/70">
+              Your transfer is reserved for your selected pickup time.
+            </p>
+          )}
           <button
             type="button"
             disabled={paying}
@@ -560,18 +616,37 @@ function BookQuoteInner() {
             className="min-h-12 w-full max-w-full break-words rounded-xl bg-emerald px-4 py-3 text-base font-semibold leading-snug text-navy disabled:opacity-50"
           >
             {paying
-              ? "Starting secure payment…"
-              : `Confirm Booking & Pay ${
-                  displayPricing
-                    ? formatQuickQuoteAmount(displayPricing.totalGbp)
-                    : quote.quotedAmountLabel
-                }`}
+              ? isMinimumNoticeRequest
+                ? "Submitting booking request…"
+                : "Starting secure payment…"
+              : isMinimumNoticeRequest
+                ? `Request Short-Notice Booking — ${
+                    displayPricing
+                      ? formatQuickQuoteAmount(displayPricing.totalGbp)
+                      : quote.quotedAmountLabel
+                  }`
+                : `Confirm Booking & Pay ${
+                    displayPricing
+                      ? formatQuickQuoteAmount(displayPricing.totalGbp)
+                      : quote.quotedAmountLabel
+                  }`}
           </button>
+          {isMinimumNoticeRequest ? (
+            <a
+              href={shortNoticeWhatsAppHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center text-sm font-semibold text-white/75 underline-offset-2 hover:text-white hover:underline"
+            >
+              Need a quick answer? WhatsApp us
+            </a>
+          ) : null}
         </>
       )}
       <p className="break-words px-1 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-white/45">
-        You will complete payment on SumUp’s secure hosted checkout. Card details are never entered
-        on this site.
+        {isMinimumNoticeRequest
+          ? "No payment will be taken until we confirm availability."
+          : "You will complete payment on SumUp’s secure hosted checkout. Card details are never entered on this site."}
       </p>
     </div>
   );

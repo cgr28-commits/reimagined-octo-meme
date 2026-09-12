@@ -238,7 +238,7 @@ function AcceptAlternativeInner() {
                 onClick={() => void handleAccept()}
                 className="mt-2 flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald px-5 py-3 text-base font-bold text-navy disabled:opacity-60"
               >
-                {submitting === "accept" ? "Confirming…" : "Accept new pickup time & pay"}
+                {submitting === "accept" ? "Confirming…" : "Accept alternative time"}
               </button>
               <button
                 type="button"
@@ -246,7 +246,7 @@ function AcceptAlternativeInner() {
                 onClick={() => void handleDecline()}
                 className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white/25 bg-transparent px-5 py-3 text-base font-semibold text-white disabled:opacity-60"
               >
-                {submitting === "decline" ? "Sending…" : "Decline new pickup time"}
+                {submitting === "decline" ? "Sending…" : "Decline alternative"}
               </button>
               <p className="text-xs text-white/45">
                 No payment will be taken unless you accept and complete payment. Opening this page

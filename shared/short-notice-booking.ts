@@ -17,6 +17,33 @@ export const SHORT_NOTICE_STATUSES = [
 
 export type ShortNoticeStatus = (typeof SHORT_NOTICE_STATUSES)[number];
 
+export const SHORT_NOTICE_HISTORY_EVENT_TYPES = [
+  "request_submitted",
+  "owner_approved",
+  "owner_declined",
+  "alternative_time_offered",
+  "alternative_accepted",
+  "alternative_declined",
+  "payment_link_created",
+  "payment_completed",
+  "booking_confirmed",
+] as const;
+
+export type ShortNoticeHistoryEventType = (typeof SHORT_NOTICE_HISTORY_EVENT_TYPES)[number];
+
+export type ShortNoticeHistoryEvent = {
+  type: ShortNoticeHistoryEventType;
+  at: string;
+};
+
+export function appendShortNoticeHistory(
+  existing: ShortNoticeHistoryEvent[] | undefined,
+  type: ShortNoticeHistoryEventType,
+  at: string,
+): ShortNoticeHistoryEvent[] {
+  return [...(existing ?? []), { type, at }];
+}
+
 /** Customer response to an Owner alternative-time offer. */
 export type ShortNoticeCustomerResponse = "accepted" | "declined";
 
@@ -50,6 +77,12 @@ export type ShortNoticeBookingRecord = {
   automaticBookingsAvailableFromApplied?: string | null;
   /** Unavailable period that triggered Owner approval (if any). */
   unavailablePeriodIdApplied?: string | null;
+  /** True when the 12-hour minimum online notice forced this request. */
+  underMinimumNotice?: boolean;
+  /** Append-only audit trail — never overwrites earlier events. */
+  history?: ShortNoticeHistoryEvent[];
+  /** Set when the customer decline/no-availability email was sent. */
+  declineEmailSentAt?: string;
   createdAt: string;
   updatedAt: string;
   approvedAt?: string;
