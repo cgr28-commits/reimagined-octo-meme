@@ -180,7 +180,7 @@ export default function Header() {
               </span>
               <span className="text-emerald/90">Secure SumUp payment</span>
             </p>
-            <p className="hidden text-white/40 lg:block">24/7 airport transfers across Northern Ireland</p>
+            <p className="hidden text-white/40 lg:block">Book online 24/7 across Northern Ireland</p>
           </div>
         </div>
 

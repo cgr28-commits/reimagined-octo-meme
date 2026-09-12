@@ -37,7 +37,7 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
   assert.match(header, /Get a Quote/);
   assert.match(
     hero,
-    /Reliable, fixed-price airport transfers to and from Belfast International, Belfast City and Dublin Airport\. Book in advance and travel with confidence\./,
+    /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
   );
   console.log("OK  header CTA + destination coverage text present");
 }

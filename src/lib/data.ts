@@ -18,7 +18,7 @@ export const SITE = {
  * Prefer this in meta, JSON-LD, and footer so search snippets stay aligned.
  */
 export const SITE_PUBLIC_SEO_BLURB =
-  "Professional airport transfers with clear fixed pricing and 24/7 availability.";
+  "Professional airport transfers with clear fixed pricing. Book online 24/7.";
 
 /** Longer homepage / LocalBusiness description (still no static £ amounts). */
 export const SITE_PUBLIC_SEO_DESCRIPTION = `${SITE_PUBLIC_SEO_BLURB} Airport pickup and drop-off, flight monitoring, and secure online booking across Northern Ireland and beyond.`;
@@ -352,9 +352,9 @@ export const WHY_CHOOSE_US = [
       "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include 60 minutes complimentary waiting time.",
   },
   {
-    title: "Driver updates on travel day",
+    title: "A driver reserved for your journey",
     description:
-      "On travel day we email you when your driver is on the way. Your driver may also share their live location with you via WhatsApp when appropriate.",
+      "Your confirmed transfer has a driver and pickup time allocated in advance, with travel-day updates provided where applicable. On travel day we email you when your driver is on the way, and they may share their live location via WhatsApp when appropriate.",
   },
   {
     title: "Meet & greet available",
@@ -372,9 +372,9 @@ export const WHY_CHOOSE_US = [
       "See only the inclusions that apply to your journey — express airport fees where relevant, Dublin tolls where they apply, and simple fixed prices for address-to-address trips.",
   },
   {
-    title: "24/7, 365 days a year",
+    title: "Book online 24/7",
     description:
-      "Early morning and late-night transfers are our speciality — including bank holidays and Christmas.",
+      "Request a transfer online any time — including early mornings, late nights, bank holidays and Christmas. Bookings are confirmed in advance for your chosen pickup time.",
   },
   {
     title: "Private transfers for 1–4 passengers",

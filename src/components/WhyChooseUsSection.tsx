@@ -10,7 +10,7 @@ export default function WhyChooseUsSection() {
           eyebrow="Our Service"
           title="Why Choose Us"
           navId="why-us"
-          description="Clear fixed quotes, flight monitoring, and complimentary waiting — without the guesswork."
+          description="A reserved driver, clear fixed quotes, flight monitoring, and complimentary waiting — without the guesswork."
         />
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:mt-16 lg:grid-cols-3 lg:gap-7">

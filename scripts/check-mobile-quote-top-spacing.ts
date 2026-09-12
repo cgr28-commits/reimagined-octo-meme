@@ -31,7 +31,7 @@ assert.match(hero, /section-eyebrow mb-2[\s\S]*md:mb-5/);
 assert.match(hero, /Private taxi airport transfers/);
 assert.match(
   hero,
-  /Fixed-price, pre-booked private taxi transfers to Belfast International, Belfast City and Dublin Airport\./,
+  /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
 );
 assert.match(hero, /md:hidden/);
 assert.match(hero, /hidden max-w-xl[\s\S]*md:block/);

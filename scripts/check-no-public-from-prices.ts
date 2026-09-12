@@ -42,7 +42,8 @@ function walk(dir: string, out: string[] = []): string[] {
 
 console.log("=== SEO constants ===");
 assert.match(SITE_PUBLIC_SEO_BLURB, /clear fixed pricing/i);
-assert.match(SITE_PUBLIC_SEO_BLURB, /24\/7 availability/i);
+assert.match(SITE_PUBLIC_SEO_BLURB, /Book online 24\/7/);
+assert.doesNotMatch(SITE_PUBLIC_SEO_BLURB, /24\/7 availability/i);
 assert.doesNotMatch(SITE_PUBLIC_SEO_BLURB, /£\d/);
 assert.doesNotMatch(SITE_PUBLIC_SEO_DESCRIPTION, /£\d/);
 assert.doesNotMatch(SITE_PUBLIC_SEO_DESCRIPTION, /prices from/i);

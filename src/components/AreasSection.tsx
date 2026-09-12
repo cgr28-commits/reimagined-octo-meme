@@ -31,7 +31,7 @@ export default function AreasSection() {
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-4">
                 <p className="text-2xl font-bold text-emerald">24/7</p>
-                <p className="text-sm text-white/50">Availability</p>
+                <p className="text-sm text-white/50">Book online</p>
               </div>
             </div>
           </div>

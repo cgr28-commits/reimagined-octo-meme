@@ -61,7 +61,7 @@ export function FixedPriceAssurance({
 export function BookWithConfidence({ className = "" }: { className?: string }) {
   const items = [
     "Fixed price — no surprises",
-    "Reliable, pre-booked airport transfer",
+    "A driver reserved for your journey",
     "Flight monitoring for airport collections",
     "Free cancellation up to 24 hours before pickup",
     "Secure online payment",
