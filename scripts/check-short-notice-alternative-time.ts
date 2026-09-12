@@ -164,14 +164,15 @@ check("Offered alternative is not payable until accepted/approved", () => {
 
 check("Friday → Saturday alternative keeps the same quoted fare", () => {
   const cityHall = "Belfast City Hall, Belfast BT1 5GS";
+  const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
   const friday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-21",
     outboundTime: "14:00",
-  });
+  }, cityBfsMetrics);
   const saturday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-22",
     outboundTime: "15:00",
-  });
+  }, cityBfsMetrics);
   assert.ok(friday && saturday);
   assert.equal(saturday!.amount, friday!.amount);
   assert.equal(friday!.premiumApplied, false);

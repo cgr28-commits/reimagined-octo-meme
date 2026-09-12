@@ -27,6 +27,8 @@ import {
   shouldForceShortNotice,
   resolveShortNoticeForPayment,
 } from "../workers/addresses/src/short-notice-handlers";
+import { claimShortNoticeDecision } from "../workers/addresses/src/short-notice-store";
+import { shortNoticeDecisionKey } from "../shared/short-notice-booking";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -73,7 +75,7 @@ function memoryKv(initial: Record<string, unknown> = {}) {
       if (type === "json") return JSON.parse(raw);
       return raw;
     },
-    async put(key: string, value: string) {
+    async put(key: string, value: string, _options?: { expirationTtl?: number }) {
       data.set(key, value);
     },
   } as unknown as KVNamespace;
@@ -313,6 +315,88 @@ check("Approve is idempotent on already-approved records", () => {
   assert.match(handlers, /if \(existing\.status === "SHORT_NOTICE_DECLINED"\) \{\s*return \{ ok: true, record: existing \}/);
   assert.match(handlers, /buildShortNoticeDeclineEmail/);
   assert.match(handlers, /alreadyAccepted: true/);
+});
+
+await checkAsync("Decision lock: same action is already-claimed; opposite action conflicts", async () => {
+  const store = memoryKv();
+  const first = await claimShortNoticeDecision(store, "MATNI-SN-LOCK-1", "approve");
+  assert.equal(first.ok, true);
+  if (first.ok) assert.equal(first.alreadyClaimed, false);
+
+  const same = await claimShortNoticeDecision(store, "MATNI-SN-LOCK-1", "approve");
+  assert.equal(same.ok, true);
+  if (same.ok) {
+    assert.equal(same.alreadyClaimed, true);
+    assert.equal(same.existingAction, "approve");
+  }
+
+  const opposite = await claimShortNoticeDecision(store, "MATNI-SN-LOCK-1", "decline");
+  assert.equal(opposite.ok, false);
+  if (!opposite.ok) {
+    assert.match(opposite.error, /already being approved/i);
+    assert.equal(opposite.existingAction, "approve");
+  }
+});
+
+await checkAsync("Decision lock: write-then-re-read loses to a later opposite action", async () => {
+  const data = new Map<string, string>();
+  const key = shortNoticeDecisionKey("MATNI-SN-LOCK-2");
+  const store = {
+    async get(lookup: string) {
+      return data.get(lookup) ?? null;
+    },
+    async put(lookup: string, value: string) {
+      data.set(lookup, value);
+      if (lookup === key) {
+        data.set(
+          lookup,
+          JSON.stringify({
+            token: "other-token",
+            action: "decline",
+            at: new Date().toISOString(),
+          }),
+        );
+      }
+    },
+  } as unknown as KVNamespace;
+
+  const claim = await claimShortNoticeDecision(store, "MATNI-SN-LOCK-2", "approve");
+  assert.equal(claim.ok, false);
+  if (!claim.ok) {
+    assert.match(claim.error, /already being declined/i);
+    assert.equal(claim.existingAction, "decline");
+  }
+});
+
+check("Owner approve/decline and alternative responses claim the KV decision lock", () => {
+  const handlers = read("workers/addresses/src/short-notice-handlers.ts");
+  const store = read("workers/addresses/src/short-notice-store.ts");
+  assert.match(store, /export async function claimShortNoticeDecision/);
+  assert.match(store, /short-notice:decision:/);
+  assert.match(handlers, /claimOpenDecisionOrConflict/);
+  assert.match(handlers, /claimOpenDecisionOrConflict\(env\.TRACKING_STORE, reference, "approve"\)/);
+  assert.match(handlers, /claimOpenDecisionOrConflict\(env\.TRACKING_STORE, reference, "decline"\)/);
+  assert.match(handlers, /claimOpenDecisionOrConflict\(env\.TRACKING_STORE, existing\.reference, "approve"\)/);
+  assert.match(handlers, /claimOpenDecisionOrConflict\(env\.TRACKING_STORE, existing\.reference, "decline"\)/);
+
+  const approveFn = handlers.slice(
+    handlers.indexOf("async function approveShortNoticeRecord"),
+    handlers.indexOf("export function publicShortNoticeSummary"),
+  );
+  const firstSave = approveFn.indexOf("await saveShortNoticeBooking");
+  const emailSend = approveFn.indexOf("sendPaymentLinkEmail");
+  assert.ok(firstSave >= 0 && emailSend >= 0 && firstSave < emailSend, "approve persists before email");
+
+  const declineFn = handlers.slice(
+    handlers.indexOf("export async function handleOwnerDeclineShortNotice"),
+    handlers.indexOf("export async function resolveShortNoticeForPayment"),
+  );
+  const declineSave = declineFn.indexOf("await saveShortNoticeBooking");
+  const declineEmail = declineFn.indexOf("sendDeclineEmail");
+  assert.ok(
+    declineSave >= 0 && declineEmail >= 0 && declineSave < declineEmail,
+    "decline persists before email",
+  );
 });
 
 check("Pricing modules and WhatsApp status templates were not edited by this workflow", () => {

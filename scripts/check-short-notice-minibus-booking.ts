@@ -52,6 +52,8 @@ function check(label: string, fn: () => void) {
 }
 
 const belfast = "10 Donegall Square North, Belfast BT1 5GB";
+/** Belfast centre → BFS ~14 road miles — required by universal distance pricing. */
+const belfastBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
 
 const sleepBlock: UnavailablePeriod = normalizeUnavailablePeriod({
   id: "sleep-1",
@@ -70,9 +72,9 @@ check("1–3. Saloon/Estate/Minibus are instant-pay vehicle types", () => {
 });
 
 check("4–6. Existing pricing formulas produce distinct fares (no invented Minibus rates)", () => {
-  const saloon = calculateQuote(belfast, "BFS", SALOON_VEHICLE);
-  const estate = calculateQuote(belfast, "BFS", ESTATE_VEHICLE);
-  const minibus = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE);
+  const saloon = calculateQuote(belfast, "BFS", SALOON_VEHICLE, false, {}, belfastBfsMetrics);
+  const estate = calculateQuote(belfast, "BFS", ESTATE_VEHICLE, false, {}, belfastBfsMetrics);
+  const minibus = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE, false, {}, belfastBfsMetrics);
   assert.ok(saloon && estate && minibus);
   assert.ok(estate!.amount > saloon!.amount, "Estate > Saloon");
   const expectedMin = Math.round((estate!.amount * 1.55) / 5) * 5;
@@ -87,14 +89,14 @@ check("25–28. One-way + return pricing works for all three services", () => {
     const oneWay = calculateQuote(belfast, "BFS", vehicle, false, {
       outboundDate: "2026-09-15",
       outboundTime: "10:00",
-    });
+    }, belfastBfsMetrics);
     const ret = calculateQuote(belfast, "BFS", vehicle, true, {
       outboundDate: "2026-09-15",
       outboundTime: "10:00",
       returnJourney: true,
       returnDate: "2026-09-16",
       returnTime: "18:00",
-    });
+    }, belfastBfsMetrics);
     assert.ok(oneWay && ret);
     assert.ok(ret!.amount > oneWay!.amount, `${vehicle} return > one-way`);
   }

@@ -170,6 +170,11 @@ export function shortNoticeArchivedIndexKey(): string {
   return "short-notice:archived";
 }
 
+/** Best-effort exclusive claim for concurrent owner approve vs decline. */
+export function shortNoticeDecisionKey(reference: string): string {
+  return `short-notice:decision:${reference.trim()}`;
+}
+
 /** Still in an actionable workflow status (before paid / terminal decline). */
 export function isShortNoticeOpenStatus(status: ShortNoticeStatus): boolean {
   return (

@@ -35,6 +35,7 @@ import {
   updateUnavailablePeriod,
 } from "./booking-settings-store";
 import {
+  claimShortNoticeDecision,
   generatePaymentToken,
   generateShortNoticeReference,
   getShortNoticeByAcceptToken,
@@ -43,6 +44,7 @@ import {
   listArchivedShortNoticeBookings,
   listOpenShortNoticeBookings,
   saveShortNoticeBooking,
+  type ShortNoticeDecisionAction,
 } from "./short-notice-store";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import {
@@ -281,6 +283,34 @@ async function sendDeclineEmail(
   return { sent: result.sent, error: result.error };
 }
 
+function decisionInFlightError(existingAction?: ShortNoticeDecisionAction): {
+  error: string;
+  status: number;
+} {
+  if (existingAction === "approve") {
+    return { error: "This request is already being approved. Refresh and try again.", status: 409 };
+  }
+  if (existingAction === "decline") {
+    return { error: "This request is already being declined. Refresh and try again.", status: 409 };
+  }
+  return { error: "This request is already being processed. Refresh and try again.", status: 409 };
+}
+
+async function claimOpenDecisionOrConflict(
+  store: KVNamespace,
+  reference: string,
+  action: ShortNoticeDecisionAction,
+): Promise<{ proceed: true } | { error: string; status: number } | { alreadyClaimed: true }> {
+  const claim = await claimShortNoticeDecision(store, reference, action);
+  if (!claim.ok) {
+    return { error: claim.error, status: 409 };
+  }
+  if (claim.alreadyClaimed) {
+    return { alreadyClaimed: true };
+  }
+  return { proceed: true };
+}
+
 /**
  * Promote a short-notice booking to APPROVED and optionally auto-send the
  * payment-link email. Shared by Owner “Approve requested time” and customer
@@ -375,25 +405,55 @@ async function approveShortNoticeRecord(
   };
 
   const payUrl = buildShortNoticePayUrl(siteOrigin, record.paymentToken);
-  let nextRecord = record;
+
+  const latestBeforeSave = await getShortNoticeByReference(env.TRACKING_STORE, record.reference);
+  if (
+    latestBeforeSave?.status === "SHORT_NOTICE_DECLINED" ||
+    latestBeforeSave?.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED"
+  ) {
+    return { error: "This request was declined and cannot be approved.", status: 409 };
+  }
+  if (latestBeforeSave?.status === "SHORT_NOTICE_PAID") {
+    return { error: "This booking has already been paid and confirmed.", status: 409 };
+  }
+
+  // Persist APPROVED before email so a lost concurrent write cannot send a
+  // second acceptance after the other decision has already been stored.
+  await saveShortNoticeBooking(env.TRACKING_STORE, record);
+
+  const latest = (await getShortNoticeByReference(env.TRACKING_STORE, record.reference)) ?? record;
+  let nextRecord = latest;
   let paymentEmailSent = false;
   let paymentEmailError: string | undefined;
 
-  if (shouldAutoSendPaymentLinkEmail(record, payUrl, now)) {
-    const send = await sendPaymentLinkEmail(env, record, payUrl);
+  if (shouldAutoSendPaymentLinkEmail(latest, payUrl, now)) {
+    const send = await sendPaymentLinkEmail(env, latest, payUrl);
     paymentEmailSent = send.sent;
     paymentEmailError = send.error;
     if (send.sent) {
+      const afterSend = await getShortNoticeByReference(env.TRACKING_STORE, record.reference);
+      if (
+        afterSend?.status === "SHORT_NOTICE_DECLINED" ||
+        afterSend?.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" ||
+        afterSend?.status === "SHORT_NOTICE_PAID"
+      ) {
+        return {
+          error:
+            afterSend.status === "SHORT_NOTICE_PAID"
+              ? "This booking has already been paid and confirmed."
+              : "This request was declined and cannot be approved.",
+          status: 409,
+        };
+      }
       nextRecord = {
-        ...record,
+        ...(afterSend ?? latest),
         paymentLinkEmailSentAt: approvedAt,
         paymentLinkEmailPayUrl: payUrl,
         updatedAt: approvedAt,
       };
+      await saveShortNoticeBooking(env.TRACKING_STORE, nextRecord);
     }
   }
-
-  await saveShortNoticeBooking(env.TRACKING_STORE, nextRecord);
 
   return {
     ok: true,
@@ -719,6 +779,26 @@ export async function handleOwnerApproveShortNotice(
     return { error: "Booking cannot be approved in its current status.", status: 409 };
   }
 
+  const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, reference, "approve");
+  if ("error" in claim) return { error: claim.error, status: claim.status };
+  if ("alreadyClaimed" in claim) {
+    const latest = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+    if (latest?.status === "SHORT_NOTICE_APPROVED") {
+      const payUrl = buildShortNoticePayUrl(siteOrigin, latest.paymentToken);
+      return {
+        ok: true,
+        record: latest,
+        payUrl,
+        whatsappPayUrl: buildOwnerWhatsAppPayUrl(latest, payUrl),
+        paymentEmailSent: Boolean(latest.paymentLinkEmailSentAt),
+      };
+    }
+    if (latest?.status === "SHORT_NOTICE_DECLINED") {
+      return { error: "This request was declined and cannot be approved.", status: 409 };
+    }
+    return decisionInFlightError("approve");
+  }
+
   return approveShortNoticeRecord(env, existing, siteOrigin, new Date());
 }
 
@@ -998,6 +1078,24 @@ export async function handlePublicAcceptAlternativeTime(
     return { error: "This acceptance link is no longer valid.", status: 409 };
   }
 
+  const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, existing.reference, "approve");
+  if ("error" in claim) return { error: claim.error, status: claim.status };
+  if ("alreadyClaimed" in claim) {
+    const latest = await getShortNoticeByReference(env.TRACKING_STORE, existing.reference);
+    if (latest?.status === "SHORT_NOTICE_APPROVED" && latest.acceptedAlternativeAt) {
+      const payUrl = buildShortNoticePayUrl(siteOrigin, latest.paymentToken);
+      return {
+        ok: true,
+        record: latest,
+        payUrl,
+        whatsappPayUrl: buildOwnerWhatsAppPayUrl(latest, payUrl),
+        paymentEmailSent: Boolean(latest.paymentLinkEmailSentAt),
+        alreadyAccepted: true,
+      };
+    }
+    return decisionInFlightError("approve");
+  }
+
   const now = new Date();
   const acceptedAt = now.toISOString();
   const originalRequestedDate =
@@ -1094,6 +1192,16 @@ export async function handlePublicDeclineAlternativeTime(
   }
   if (existing.acceptToken !== token) {
     return { error: "This link is no longer valid.", status: 409 };
+  }
+
+  const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, existing.reference, "decline");
+  if ("error" in claim) return { error: claim.error, status: claim.status };
+  if ("alreadyClaimed" in claim) {
+    const latest = await getShortNoticeByReference(env.TRACKING_STORE, existing.reference);
+    if (latest?.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED" && latest.declinedAlternativeAt) {
+      return { ok: true, record: latest, alreadyDeclined: true };
+    }
+    return decisionInFlightError("decline");
   }
 
   const nowIso = new Date().toISOString();
@@ -1244,6 +1352,24 @@ export async function handleOwnerDeclineShortNotice(
     return { error: "Request cannot be declined in its current status.", status: 409 };
   }
 
+  if (
+    existing.status === "SHORT_NOTICE_AWAITING_APPROVAL" ||
+    existing.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED"
+  ) {
+    const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, reference, "decline");
+    if ("error" in claim) return { error: claim.error, status: claim.status };
+    if ("alreadyClaimed" in claim) {
+      const latest = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+      if (latest?.status === "SHORT_NOTICE_DECLINED") {
+        return { ok: true, record: latest };
+      }
+      if (latest?.status === "SHORT_NOTICE_APPROVED") {
+        return { error: "This request is already being approved. Refresh and try again.", status: 409 };
+      }
+      return decisionInFlightError("decline");
+    }
+  }
+
   const nowIso = new Date().toISOString();
   let record: ShortNoticeBookingRecord = {
     ...existing,
@@ -1254,13 +1380,21 @@ export async function handleOwnerDeclineShortNotice(
     updatedAt: nowIso,
     paymentExpiresAt: nowIso,
   };
-  if (!existing.declineEmailSentAt) {
-    const send = await sendDeclineEmail(env, record);
-    if (send.sent) {
-      record = { ...record, declineEmailSentAt: nowIso, updatedAt: nowIso };
-    }
-  }
+  // Persist DECLINED before email so a concurrent approve cannot send
+  // acceptance after this decline has already been stored.
   await saveShortNoticeBooking(env.TRACKING_STORE, record);
+  const latest = (await getShortNoticeByReference(env.TRACKING_STORE, reference)) ?? record;
+  if (!latest.declineEmailSentAt) {
+    const send = await sendDeclineEmail(env, latest);
+    if (send.sent) {
+      record = { ...latest, declineEmailSentAt: nowIso, updatedAt: nowIso };
+      await saveShortNoticeBooking(env.TRACKING_STORE, record);
+    } else {
+      record = latest;
+    }
+  } else {
+    record = latest;
+  }
   return { ok: true, record };
 }
 
