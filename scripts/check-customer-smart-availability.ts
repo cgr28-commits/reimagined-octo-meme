@@ -14,6 +14,7 @@ import {
   CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
   customerSmartAvailabilityPreviewRequested,
   decideCustomerSmartAvailabilityGate,
+  shouldBypassSmartAvailabilityHardBlockForShortNotice,
   customerUnavailableAtTimeMessage,
   evaluateCustomerSmartAvailability,
   isCustomerSmartAvailabilityUnavailableMessage,
@@ -633,36 +634,59 @@ console.log("\n=== Owner rest-of-day / full-day blocks offer Choose another date
   const sunday = "2026-09-06";
   const restOfDay = buildQuickBlockRule("rest_of_today", 1, NOW);
   assert.ok(restOfDay);
+  const restOfDaySameAfternoon = {
+    pickupLabel: bfsToCity.pickupLabel,
+    dropoffLabel: bfsToCity.dropoffLabel,
+    tripDate: sunday,
+    tripTime: "16:00",
+    airportCode: "BFS",
+    isFromAirport: true,
+    routeDurationMinutes: 30,
+    pickupLat: BFS.lat,
+    pickupLng: BFS.lng,
+    dropoffLat: BELFAST.lat,
+    dropoffLng: BELFAST.lng,
+  };
   const restOfDayGate = decideCustomerSmartAvailabilityGate({
     enforce: true,
-    booking: {
-      pickupLabel: bfsToCity.pickupLabel,
-      dropoffLabel: bfsToCity.dropoffLabel,
-      tripDate: sunday,
-      tripTime: "16:00",
-      airportCode: "BFS",
-      isFromAirport: true,
-      routeDurationMinutes: 30,
-      pickupLat: BFS.lat,
-      pickupLng: BFS.lng,
-      dropoffLat: BELFAST.lat,
-      dropoffLng: BELFAST.lng,
-    },
+    booking: restOfDaySameAfternoon,
     occupied: [],
     rules: restOfDay ? [restOfDay] : [],
     config,
     offerAlternatives: true,
     now: NOW,
   });
-  assert.equal(restOfDayGate.blocked, true);
-  assert.equal(restOfDayGate.alternativeTimes.length, 0, "rest of day leaves no same-day alternatives");
-  assert.equal(restOfDayGate.customerMessage, CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE);
+  // Sunday 12:00 → 16:00 is under 12 hours: owner reviews via short-notice, no hard-block.
+  assert.equal(shouldBypassSmartAvailabilityHardBlockForShortNotice(restOfDaySameAfternoon, NOW), true);
+  assert.equal(restOfDayGate.blocked, false);
+  assert.equal(restOfDayGate.customerMessage, null);
+  assert.equal(CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL, "Choose another date");
+
+  const morningNow = new Date("2026-09-06T07:00:00+01:00");
+  const restOfDayMorning = buildQuickBlockRule("rest_of_today", 1, morningNow);
+  assert.ok(restOfDayMorning);
+  const restOfDayLaterSameDay = decideCustomerSmartAvailabilityGate({
+    enforce: true,
+    booking: {
+      ...restOfDaySameAfternoon,
+      tripTime: "20:00",
+    },
+    occupied: [],
+    rules: restOfDayMorning ? [restOfDayMorning] : [],
+    config,
+    offerAlternatives: true,
+    now: morningNow,
+  });
+  // 07:00 → 20:00 is 13 hours: keep the existing hard-block.
+  assert.equal(restOfDayLaterSameDay.blocked, true);
+  assert.equal(restOfDayLaterSameDay.alternativeTimes.length, 0, "rest of day leaves no same-day alternatives");
+  assert.equal(restOfDayLaterSameDay.customerMessage, CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE);
   assert.equal(
-    restOfDayGate.customerMessage,
+    restOfDayLaterSameDay.customerMessage,
     "Unfortunately, we’re fully booked/unavailable for the rest of this day.",
   );
-  assert.equal(isCustomerSmartAvailabilityUnavailableMessage(restOfDayGate.customerMessage), true);
-  assert.equal(CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL, "Choose another date");
+  assert.equal(isCustomerSmartAvailabilityUnavailableMessage(restOfDayLaterSameDay.customerMessage), true);
+  console.log("OK  under-12h rest-of-day defers to short-notice; 12h+ rest-of-day still hard-blocks");
 
   const fullDay = normalizeSmartAvailabilityRule({
     kind: "full_day",
@@ -901,6 +925,10 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
   assert.match(payments, /a2aBlocked/);
   assert.match(payments, /quickQuoteBlocked/);
   assert.match(payments, /availabilityBlocked/);
+  assert.match(payments, /isWithinMinimumBookingNotice\(String\(booking\.tripDate\), String\(booking\.tripTime\)\)/);
+  const quoteCardWiring = read("src/components/QuoteCard.tsx");
+  assert.match(quoteCardWiring, /result\.blocked && !isMinimumNoticeRequest/);
+  assert.match(quoteCardWiring, /!smartAvailabilityBlocked \|\| isMinimumNoticeRequest/);
   const shortNoticeGateIdx = payments.indexOf("shortNoticeBlocked");
   const shortNoticeReuseIdx = payments.indexOf(
     "Reuse an unpaid checkout when possible",

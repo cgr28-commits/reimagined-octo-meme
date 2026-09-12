@@ -14,7 +14,7 @@ import {
   type SmartRequestedJourney,
 } from "./smart-conflict";
 import type { SmartAvailabilityException, SmartAvailabilityRule } from "./smart-availability";
-import type { UnavailablePeriod } from "./booking-notice";
+import { isWithinMinimumBookingNotice, type UnavailablePeriod } from "./booking-notice";
 
 export const CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE =
   "Unfortunately, we’re not available at that time.";
@@ -380,6 +380,20 @@ export function toPublicCustomerSmartAvailability(
   };
 }
 
+/**
+ * Under the 12-hour notice window the owner reviews via short-notice request.
+ * Do not hard-block the customer for “rest of today” / no same-day alternatives.
+ */
+export function shouldBypassSmartAvailabilityHardBlockForShortNotice(
+  booking: Pick<CustomerBookingAvailabilityInput, "tripDate" | "tripTime">,
+  now = new Date(),
+): boolean {
+  const tripDate = String(booking.tripDate || "").trim();
+  const tripTime = String(booking.tripTime || "").trim();
+  if (!tripDate || !tripTime) return false;
+  return isWithinMinimumBookingNotice(tripDate, tripTime, now);
+}
+
 export function decideCustomerSmartAvailabilityGate(input: {
   enforce: boolean;
   booking: CustomerBookingAvailabilityInput;
@@ -408,6 +422,16 @@ export function decideCustomerSmartAvailabilityGate(input: {
       blocked: false,
       customerMessage: null,
       reason: null,
+      decision: null,
+    });
+  }
+  if (shouldBypassSmartAvailabilityHardBlockForShortNotice(input.booking, input.now)) {
+    return emptyGate({
+      enforce: true,
+      available: true,
+      blocked: false,
+      customerMessage: null,
+      reason: "under_minimum_notice_owner_review",
       decision: null,
     });
   }

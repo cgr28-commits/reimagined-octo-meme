@@ -582,7 +582,7 @@ function BookQuoteInner() {
         />
       </div>
 
-      {isCustomerSmartAvailabilityBlockMessage(error) ? (
+      {isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
         <CustomerSmartAvailabilityBlocked
           message={error}
           onChooseAnotherTime={() => {

@@ -275,6 +275,40 @@ check("Status model maps to the requested request → pay → confirmed flow", (
   assert.equal(history[0]?.type, "request_submitted");
 });
 
+await checkAsync("Under 12h rest-of-day unavailable still creates a short-notice request", async () => {
+  const store = memoryKv({ "booking:settings": { unavailablePeriods: [] } });
+  const now = pickupOffsetNow("2026-09-06", "16:00", 4);
+  const notice = await shouldForceShortNotice(
+    store,
+    sampleBooking({ tripDate: "2026-09-06", tripTime: "16:00" }),
+    now,
+  );
+  assert.equal(notice.shortNotice, true);
+  assert.equal(notice.underMinimumNotice, true);
+});
+
+check("Smart Availability rest-of-day does not hard-block under-12h checkout", () => {
+  const gate = read("shared/customer-smart-availability.ts");
+  const card = read("src/components/QuoteCard.tsx");
+  const index = read("workers/addresses/src/index.ts");
+  const preflight = read("src/lib/use-customer-smart-availability-preflight.ts");
+  const saved = read("src/app/quote/SavedQuoteCustomerClient.tsx");
+  const bookQuote = read("src/app/book-quote/BookQuoteCustomerClient.tsx");
+
+  assert.match(gate, /shouldBypassSmartAvailabilityHardBlockForShortNotice/);
+  assert.match(gate, /under_minimum_notice_owner_review/);
+  assert.match(card, /result\.blocked && !isMinimumNoticeRequest/);
+  assert.match(card, /!isMinimumNoticeRequest &&/);
+  assert.match(card, /!smartAvailabilityBlocked \|\| isMinimumNoticeRequest/);
+  assert.match(card, /Request Short-Notice Booking/);
+  assert.match(card, /Need a quick answer\? WhatsApp us/);
+  assert.match(card, /minimumNoticeRequestHeading/);
+  assert.match(index, /isWithinMinimumBookingNotice\(String\(booking\.tripDate\), String\(booking\.tripTime\)\)/);
+  assert.match(preflight, /isWithinMinimumBookingNotice\(tripDate, tripTime\)/);
+  assert.match(saved, /isCustomerSmartAvailabilityBlockMessage\(error\) && !isMinimumNoticeRequest/);
+  assert.match(bookQuote, /isCustomerSmartAvailabilityBlockMessage\(error\) && !isMinimumNoticeRequest/);
+});
+
 check("Quote / owner / payment wiring keeps fare visible and delays SumUp", () => {
   const card = read("src/components/QuoteCard.tsx");
   const index = read("workers/addresses/src/index.ts");

@@ -370,6 +370,7 @@ import {
 import {
   MINIMUM_BOOKING_NOTICE_HOURS,
   formatHoursUntilPickupLabel,
+  isWithinMinimumBookingNotice,
 } from "../shared/booking-notice";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import {
@@ -1599,6 +1600,13 @@ async function blockedCustomerSmartAvailabilityResponse(
     booking,
   });
   if (!availabilityGate.blocked) return null;
+  if (
+    booking.tripDate &&
+    booking.tripTime &&
+    isWithinMinimumBookingNotice(String(booking.tripDate), String(booking.tripTime))
+  ) {
+    return null;
+  }
   return json(
     {
       error: availabilityGate.customerMessage,
