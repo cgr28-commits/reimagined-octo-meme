@@ -208,7 +208,7 @@ const NI_FIXTURES: Array<{
     fromAirport: true,
     vehicle: SALOON_VEHICLE,
     distanceKm: 4 * 1.609344,
-    expectedAmount: 28,
+    expectedAmount: 25,
   },
   {
     name: "Belfast → BHD ~4 mi Estate",
@@ -217,7 +217,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 4 * 1.609344,
-    expectedAmount: 34,
+    expectedAmount: 31,
   },
   {
     name: "BFS → Derry ~70 mi Saloon weekday",

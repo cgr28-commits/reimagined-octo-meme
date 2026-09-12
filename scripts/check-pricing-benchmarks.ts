@@ -227,7 +227,7 @@ exact(rows[5].newE, rows[5].targetE, "Enniskillen E");
 
 assert.equal(PRICING_CONFIG.universalDistancePricing?.enabled, true);
 assert.equal(PRICING_CONFIG.universalDistancePricing?.estatePremiumGbp, 6);
-assert.equal(PRICING_CONFIG.universalDistancePricing?.saloonMinimumGbp, 28);
+assert.equal(PRICING_CONFIG.universalDistancePricing?.saloonMinimumGbp, 25);
 // Historical config retained
 assert.equal(PRICING_CONFIG.airportBasePricesGbp.BHD, 34);
 assert.equal(PRICING_CONFIG.airportMinimumFaresGbp.BHD, 34);

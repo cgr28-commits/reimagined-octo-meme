@@ -281,14 +281,14 @@ check("Short Belfast City Hall → BFS (~14 mi → £46)", () => {
   });
 });
 
-check("BHD drop-off and pickup (City Hall ~4.5 mi → £29)", () => {
+check("BHD drop-off and pickup (City Hall ~4.5 mi → £26)", () => {
   compareThree({
     label: "City Hall → BHD",
     address: CITY_HALL,
     airportCode: "BHD",
     fromAirport: false,
     metrics: CITY_BHD_METRICS,
-    expected: 29,
+    expected: 26,
   });
   compareThree({
     label: "BHD → City Hall",
@@ -296,7 +296,7 @@ check("BHD drop-off and pickup (City Hall ~4.5 mi → £29)", () => {
     airportCode: "BHD",
     fromAirport: true,
     metrics: CITY_BHD_METRICS,
-    expected: 29,
+    expected: 26,
   });
 });
 

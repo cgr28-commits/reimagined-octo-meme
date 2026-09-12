@@ -74,14 +74,14 @@ assert.equal(getAirportEstatePremiumGbp("DUB", 45), 6);
 assert.equal(getAirportEstatePremiumGbp("DUB", 140), 6);
 console.log("OK  Live estate premium always £6 (universal); historical tiers not applied");
 
-// BHD city ~4 mi → £28 / estate £34
+// BHD city ~4 mi → £25 / estate £31
 {
   const m = metricsForMiles(4, 12);
   const bhdCity = calculateQuote(cityHall, "BHD", SALOON, false, {}, m);
   assert.ok(bhdCity);
-  assert.equal(bhdCity.amount, 28, "BHD city saloon ~4 mi → £28");
+  assert.equal(bhdCity.amount, 25, "BHD city saloon ~4 mi → £25");
   const bhdCityEstate = calculateQuote(cityHall, "BHD", ESTATE, false, {}, m);
-  assert.equal(bhdCityEstate?.amount, 34, "BHD city estate = 28+6");
+  assert.equal(bhdCityEstate?.amount, 31, "BHD city estate = 25+6");
   console.log(`OK  BHD City Hall saloon £${bhdCity.amount} / estate £${bhdCityEstate?.amount}`);
 }
 

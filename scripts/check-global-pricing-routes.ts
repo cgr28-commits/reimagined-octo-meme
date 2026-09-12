@@ -88,13 +88,13 @@ add(
   const m = metricsForMiles(4.5, 12);
   const expectedS = calculateUniversalSaloonJourneyFareGbp(4.5);
   const expectedE = calculateUniversalEstateJourneyFareGbp(expectedS);
-  assert.equal(expectedS, 29);
-  assert.equal(expectedE, 35);
+  assert.equal(expectedS, 26);
+  assert.equal(expectedE, 32);
   const s = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", S, false, {}, m)?.amount;
   const e = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", E, false, {}, m)?.amount;
   assert.equal(s, expectedS);
   assert.equal(e, expectedE);
-  add("City Hall → BHD", "airport", 4.5, s, e, "universal £29/£35");
+  add("City Hall → BHD", "airport", 4.5, s, e, "universal £26/£32");
 }
 
 // 3 Lisburn → BHD (must scale above city)

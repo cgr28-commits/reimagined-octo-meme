@@ -38,9 +38,9 @@ assert.equal(getAirportLegFixedCostGbp("DUB", true), 9);
 assert.equal(getLegacyEmbeddedAccessFeeGbp("BFS"), 0);
 assert.equal(getLegacyEmbeddedAccessFeeGbp("BHD"), 0);
 
-// Address ↔ airport: 0–4 mi → £28 journey (no embed strip)
-assert.equal(calculateQuote(CITY, "BFS", S, false, {}, M4, false)!.amount, 28);
-assert.equal(calculateQuote(CITY, "BHD", S, false, {}, M4, false)!.amount, 28);
+// Address ↔ airport: 0–4 mi → £25 journey (no embed strip)
+assert.equal(calculateQuote(CITY, "BFS", S, false, {}, M4, false)!.amount, 25);
+assert.equal(calculateQuote(CITY, "BHD", S, false, {}, M4, false)!.amount, 25);
 assert.equal(calculateQuote(CITY, "BFS", S, false, {}, null, false), null);
 
 // A2A: collection-only waiver of historical surcharge (destination keeps fee)

@@ -64,15 +64,15 @@ check("BFS/BHD address↔airport: journey only (no fixed add-on)", () => {
   assert.equal(pick.amount, drop.amount);
 
   const bhdCity = calculateQuote(CITY, "BHD", S, false, {}, M4, false)!;
-  assert.equal(bhdCity.amount, 28);
+  assert.equal(bhdCity.amount, 25);
   assert.equal(bhdCity.airportFixedCostsGbp, 0);
 });
 
 check("Estate = Saloon + £6 on BHD", () => {
   const saloon = calculateQuote(CITY, "BHD", S, false, {}, M4, false)!;
   const estate = calculateQuote(CITY, "BHD", E, false, {}, M4, false)!;
-  assert.equal(saloon.amount, 28);
-  assert.equal(estate.amount, 34);
+  assert.equal(saloon.amount, 25);
+  assert.equal(estate.amount, 31);
   assert.equal(estate.amount - saloon.amount, 6);
   assert.equal(
     estate.amount,

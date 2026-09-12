@@ -117,21 +117,21 @@ console.log("\n=== Matrix ===\n");
   });
 }
 
-// 3 Antrim town → BHD (zone retired; universal 8 mi → £35)
+// 3 Antrim town → BHD (zone retired; universal 8 mi → £33)
 {
   const area = matchAreaFromAddress(ANTRIM);
   const journey = universalJourney(M8);
-  assert.equal(journey, 35);
+  assert.equal(journey, 33);
   const q = calculateQuote(ANTRIM, "BHD", S, false, {}, M8)!;
   assert.equal(area, "Antrim");
-  assert.equal(q.amount, 35);
+  assert.equal(q.amount, 33);
   assert.notEqual(q.amount, 65, "Antrim zone £65 retired under universal distance");
   rows.push({
     id: 3,
     label: "Antrim town → BHD",
     miles: milesOf(M8),
     underlying: journey,
-    areaRule: "zone retired — universal distance (8 mi → £35)",
+    areaRule: "zone retired — universal distance (8 mi → £33)",
     accessFees: "BFS/BHD fixed £0",
     other: "NOT Antrim zone £65",
     rounding: `£${q.amount}`,
@@ -195,22 +195,22 @@ console.log("\n=== Matrix ===\n");
   });
 }
 
-// 7 Belfast → BHD (~4.5 mi → £29, not historical BHD £34)
+// 7 Belfast → BHD (~4.5 mi → £26, not historical BHD £34)
 {
   const journey = universalJourney(M5);
-  assert.equal(journey, 29);
+  assert.equal(journey, 26);
   const q = calculateQuote(CITY, "BHD", S, false, {}, M5)!;
-  assert.equal(q.amount, 29);
+  assert.equal(q.amount, 26);
   assert.notEqual(q.amount, 34, "not historical BHD minimum £34");
   rows.push({
     id: 7,
     label: "Belfast City Hall → BHD",
     miles: milesOf(M5),
     underlying: journey,
-    areaRule: "universal distance (~4.5 mi → £29)",
+    areaRule: "universal distance (~4.5 mi → £26)",
     accessFees: "BHD fixed £0",
     other: "not historical BHD £34",
-    rounding: "£29",
+    rounding: "£26",
     final: q.amount,
   });
 }
@@ -218,16 +218,16 @@ console.log("\n=== Matrix ===\n");
 // 8 BHD → Belfast
 {
   const q = calculateQuote(CITY, "BHD", S, false, {}, M5, true)!;
-  assert.equal(q.amount, 29);
+  assert.equal(q.amount, 26);
   rows.push({
     id: 8,
     label: "BHD → Belfast City Hall",
     miles: milesOf(M5),
-    underlying: 29,
+    underlying: 26,
     areaRule: "same as #7",
     accessFees: "fixed costs £0",
     other: "fromAirport=true",
-    rounding: "£29",
+    rounding: "£26",
     final: q.amount,
   });
 }
