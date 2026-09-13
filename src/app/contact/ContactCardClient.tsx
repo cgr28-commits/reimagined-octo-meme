@@ -83,7 +83,10 @@ export default function ContactCardClient() {
             </div>
           </div>
 
-          <p className="contact-fade-up-delay-1 mt-5 text-center text-sm leading-relaxed text-white/70 sm:text-base">
+          <h1 className="contact-fade-up-delay-1 mt-5 text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            Contact My Airport Taxi NI
+          </h1>
+          <p className="mt-2 text-center text-sm leading-relaxed text-white/70 sm:text-base">
             {SITE.tagline}
           </p>
 

@@ -5,7 +5,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { SITE, SITE_PUBLIC_SEO_DESCRIPTION } from "../src/lib/data";
+import {
+  HOMEPAGE_SEO_DESCRIPTION,
+  HOMEPAGE_SEO_TITLE,
+  SITE,
+  SITE_PUBLIC_SEO_DESCRIPTION,
+} from "../src/lib/data";
 import {
   BUSINESS_JSON_LD_ID,
   getFaqPageJsonLd,
@@ -31,15 +36,18 @@ const airportPage = read("src/app/airports/[slug]/page.tsx");
 
 console.log("=== Homepage title, description, H1 ===");
 {
-  assert.match(layout, /\$\{SITE\.name\} \| Premium Airport Transfers Northern Ireland/);
-  assert.equal(SITE.name, "My Airport Taxi NI");
+  assert.match(home, /HOMEPAGE_SEO_TITLE/);
+  assert.match(home, /HOMEPAGE_SEO_DESCRIPTION/);
+  assert.equal(HOMEPAGE_SEO_TITLE, "Belfast Airport Transfers | My Airport Taxi NI");
   assert.equal(
-    SITE_PUBLIC_SEO_DESCRIPTION,
-    "Professional airport transfers with clear fixed pricing. Book online 24/7. Airport pickup and drop-off, flight monitoring, and secure online booking across Northern Ireland and beyond.",
+    HOMEPAGE_SEO_DESCRIPTION,
+    "Pre-book fixed-price transfers to Belfast International, Belfast City and Dublin Airport, with flight monitoring, 60 minutes’ waiting and secure online booking.",
   );
+  assert.equal(SITE.name, "My Airport Taxi NI");
+  assert.doesNotMatch(SITE_PUBLIC_SEO_DESCRIPTION, /£\d/);
   assert.match(hero, /Belfast Airport Transfers/);
   assert.doesNotMatch(hero, /Pre-Booked 24\/7/);
-  console.log("OK  homepage title, meta description and H1 unchanged");
+  console.log("OK  homepage title, meta description and H1");
 }
 
 console.log("\n=== Canonical host ===");
@@ -85,15 +93,20 @@ console.log("\n=== Sitemap ===");
 {
   assert.doesNotMatch(sitemapScript, /path: "\/unsubscribe\/"/);
   assert.doesNotMatch(sitemap, /\/unsubscribe\//);
-  assert.doesNotMatch(sitemap, /<lastmod>/);
-  assert.doesNotMatch(sitemapScript, /<lastmod>/);
+  assert.match(sitemap, /<lastmod>/);
+  assert.match(sitemapScript, /gitLastModifiedDate/);
+  assert.doesNotMatch(sitemapScript, /priority/);
+  assert.doesNotMatch(sitemapScript, /changefreq/);
+  assert.doesNotMatch(sitemap, /<priority>/);
+  assert.doesNotMatch(sitemap, /<changefreq>/);
+  assert.doesNotMatch(sitemapScript, /new Date\(\)\.toISOString\(\)/);
   assert.doesNotMatch(sitemap, /\/manage-booking\//);
   assert.doesNotMatch(sitemap, /\/quote\//);
   assert.doesNotMatch(sitemap, /\/book\//);
   assert.doesNotMatch(sitemap, /\/pay\//);
   assert.match(unsubscribe, /index:\s*false/);
   assert.match(unsubscribe, /follow:\s*true/);
-  console.log("OK  /unsubscribe/ omitted and noindex,follow · no invented lastmod");
+  console.log("OK  /unsubscribe/ omitted and noindex,follow · git lastmod only");
 }
 
 console.log("\n=== Expired event / 404 ===");

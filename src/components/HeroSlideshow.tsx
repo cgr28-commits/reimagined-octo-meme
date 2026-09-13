@@ -20,11 +20,7 @@ export default function HeroSlideshow() {
             Belfast Airport Transfers
           </h1>
 
-          <p className="mt-2.5 max-w-xl text-[0.9375rem] leading-snug text-white/68 md:hidden">
-            Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time.
-          </p>
-
-          <p className="mt-5 hidden max-w-xl text-base leading-relaxed text-white/68 sm:text-lg md:block lg:mt-6 lg:max-w-xl lg:text-[1.125rem] lg:leading-relaxed">
+          <p className="mt-2.5 max-w-xl text-[0.9375rem] leading-snug text-white/68 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
             Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time.
           </p>
 

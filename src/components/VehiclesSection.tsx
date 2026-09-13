@@ -1,9 +1,14 @@
-import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import DeviceBookingCta from "./DeviceBookingCta";
 import SectionHeading from "./SectionHeading";
 
-const HERO_IMAGE = withBasePath("/images/vehicles/flyer-vehicle.jpg");
+const VEHICLE_WIDTHS = [800, 1536] as const;
+
+function vehicleSrcSet(ext: "avif" | "webp"): string {
+  return VEHICLE_WIDTHS.map(
+    (width) => `${withBasePath(`/images/vehicles/flyer-vehicle-${width}.${ext}`)} ${width}w`,
+  ).join(", ");
+}
 
 export default function VehiclesSection() {
   return (
@@ -19,14 +24,28 @@ export default function VehiclesSection() {
 
         <div className="mt-12 grid items-center gap-10 lg:mt-16 lg:grid-cols-2 lg:gap-16">
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/30">
-            <Image
-              src={HERO_IMAGE}
-              alt="Estate car with open boot and suitcases ready for an airport transfer"
-              fill
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              priority={false}
-            />
+            <picture>
+              <source
+                type="image/avif"
+                srcSet={vehicleSrcSet("avif")}
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+              <source
+                type="image/webp"
+                srcSet={vehicleSrcSet("webp")}
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+              <img
+                src={withBasePath("/images/vehicles/flyer-vehicle.jpg")}
+                alt="Estate car with open boot and suitcases ready for an airport transfer"
+                width={1536}
+                height={1024}
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
+            </picture>
             <div className="absolute inset-0 bg-gradient-to-t from-navy/50 via-transparent to-transparent" />
           </div>
 

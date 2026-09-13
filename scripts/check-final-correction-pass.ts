@@ -366,7 +366,7 @@ async function main() {
     const content = fs.readFileSync("src/lib/long-distance-content.ts", "utf8");
     assert.match(page, /as="h1"/);
     assert.match(content, /Private Long-Distance Transfers from Anywhere in Greater Belfast/);
-    assert.match(content, /Long-Distance Transfers from Greater Belfast Across Ireland/);
+    assert.match(content, /export const LONG_DISTANCE_SEO_TITLE = "Long-Distance Transfers"/);
   });
 
   console.log(`\n${passed} correction-pass checks passed`);

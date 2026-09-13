@@ -48,7 +48,7 @@ async function main() {
 
   await check("Includes airport guide page content", () => {
     const titles = chunks.map((c) => c.title).join(" | ");
-    assert.match(titles, /Belfast International Airport Transfers/i);
+    assert.match(titles, /Belfast International Transfers/i);
     assert.match(titles, /Dublin Airport Transfers/i);
   });
 

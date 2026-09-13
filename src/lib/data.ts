@@ -23,6 +23,13 @@ export const SITE_PUBLIC_SEO_BLURB =
 /** Longer homepage / LocalBusiness description (still no static £ amounts). */
 export const SITE_PUBLIC_SEO_DESCRIPTION = `${SITE_PUBLIC_SEO_BLURB} Airport pickup and drop-off, flight monitoring, and secure online booking across Northern Ireland and beyond.`;
 
+/** Homepage `<title>` — keep exact; other pages must stay unique. */
+export const HOMEPAGE_SEO_TITLE = "Belfast Airport Transfers | My Airport Taxi NI";
+
+/** Homepage meta description — keep exact. */
+export const HOMEPAGE_SEO_DESCRIPTION =
+  "Pre-book fixed-price transfers to Belfast International, Belfast City and Dublin Airport, with flight monitoring, 60 minutes’ waiting and secure online booking.";
+
 /**
  * Temporary public holding page. When enabled and before `until`, the site shows
  * a branded offline page (ops routes stay available). After `until`, the full

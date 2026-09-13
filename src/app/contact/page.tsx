@@ -4,14 +4,14 @@ import { SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
 
 export const metadata: Metadata = {
-  title: `Contact card | ${SITE.name}`,
-  description: `Book, WhatsApp @${SITE.whatsappUsername}, email, or save ${SITE.name} to your phone.`,
+  title: "Contact My Airport Taxi NI | Airport Transfers",
+  description: `WhatsApp @${SITE.whatsappUsername}, email or save ${SITE.name} to your phone. Book airport transfers with flight monitoring and secure online booking.`,
   alternates: {
     canonical: "/contact/",
   },
   openGraph: {
-    title: `${SITE.name} — Digital contact card`,
-    description: `Book online · WhatsApp @${SITE.whatsappUsername}`,
+    title: "Contact My Airport Taxi NI | Airport Transfers",
+    description: `WhatsApp @${SITE.whatsappUsername}, email or save ${SITE.name} to your phone.`,
     url: absoluteSiteUrl("/contact/"),
     images: [
       {

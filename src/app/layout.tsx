@@ -52,7 +52,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: offlineActive
     ? `${SITE.name} | Temporarily offline`
-    : `${SITE.name} | Premium Airport Transfers Northern Ireland`,
+    : `${SITE.name} | Airport Transfers`,
   description,
   robots: offlineActive
     ? {

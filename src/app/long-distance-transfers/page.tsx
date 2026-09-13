@@ -9,6 +9,7 @@ import {
   LONG_DISTANCE_HIGHLIGHTS,
   LONG_DISTANCE_INTRO,
   LONG_DISTANCE_PAGE_TITLE,
+  LONG_DISTANCE_SEO_DESCRIPTION,
   LONG_DISTANCE_SEO_TITLE,
   LONG_DISTANCE_SERVICE_NOTES,
 } from "@/lib/long-distance-content";
@@ -16,7 +17,7 @@ import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
   title: `${LONG_DISTANCE_SEO_TITLE} | ${SITE.name}`,
-  description: LONG_DISTANCE_INTRO,
+  description: LONG_DISTANCE_SEO_DESCRIPTION,
   alternates: {
     canonical: "/long-distance-transfers/",
   },
