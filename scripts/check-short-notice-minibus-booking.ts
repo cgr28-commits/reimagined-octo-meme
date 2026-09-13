@@ -240,6 +240,7 @@ check("Worker + UI wiring — unavailable periods replace hours/single-date rule
   assert.doesNotMatch(handlers, /minimumOnlineNoticeHours/);
   assert.doesNotMatch(handlers, /automaticBookingsAvailableFrom/);
   assert.match(settingsStore, /unavailablePeriods/);
+  assert.match(settingsStore, /minimumBookingNoticeHours/);
   assert.match(settingsStore, /Legacy.*ignored|minimumOnlineNoticeHours/);
   assert.match(notice, /isPickupBlockedByUnavailablePeriods/);
   assert.match(notice, /isUnavailablePeriodExpired/);
@@ -250,6 +251,7 @@ check("Worker + UI wiring — unavailable periods replace hours/single-date rule
   assert.match(notice, /isWithinMinimumBookingNotice/);
   assert.match(handlers, /isWithinMinimumBookingNotice/);
   assert.match(panel, /Booking Availability/);
+  assert.match(panel, /Short-notice period/);
   assert.match(panel, /Add unavailable period/);
   assert.match(panel, /Private Owner note/);
   assert.match(panel, /\{busy \? "Working…" : "Approve"\}/);

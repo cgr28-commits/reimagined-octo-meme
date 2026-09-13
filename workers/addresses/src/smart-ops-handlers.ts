@@ -147,6 +147,7 @@ export async function enforceCustomerSmartAvailabilityGate(input: {
       rules: state.rules,
       exceptions: state.exceptions,
       legacyPeriods: settings.unavailablePeriods,
+      noticeHours: settings.minimumBookingNoticeHours,
       config: state.config,
       offerAlternatives: shouldOfferCustomerAlternativeTimes({
         alternativeTimeSuggestionsFlag: state.config.flags.alternativeTimeSuggestions === true,

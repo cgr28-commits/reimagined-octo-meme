@@ -14,7 +14,11 @@ import {
   type SmartRequestedJourney,
 } from "./smart-conflict";
 import type { SmartAvailabilityException, SmartAvailabilityRule } from "./smart-availability";
-import { isWithinMinimumBookingNotice, type UnavailablePeriod } from "./booking-notice";
+import {
+  isWithinMinimumBookingNotice,
+  MINIMUM_BOOKING_NOTICE_HOURS,
+  type UnavailablePeriod,
+} from "./booking-notice";
 
 export const CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE =
   "Unfortunately, we’re not available at that time.";
@@ -381,17 +385,18 @@ export function toPublicCustomerSmartAvailability(
 }
 
 /**
- * Under the 12-hour notice window the owner reviews via short-notice request.
+ * Under the configured minimum-notice window the owner reviews via short-notice request.
  * Do not hard-block the customer for “rest of today” / no same-day alternatives.
  */
 export function shouldBypassSmartAvailabilityHardBlockForShortNotice(
   booking: Pick<CustomerBookingAvailabilityInput, "tripDate" | "tripTime">,
   now = new Date(),
+  noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
 ): boolean {
   const tripDate = String(booking.tripDate || "").trim();
   const tripTime = String(booking.tripTime || "").trim();
   if (!tripDate || !tripTime) return false;
-  return isWithinMinimumBookingNotice(tripDate, tripTime, now);
+  return isWithinMinimumBookingNotice(tripDate, tripTime, now, noticeHours);
 }
 
 export function decideCustomerSmartAvailabilityGate(input: {
@@ -404,6 +409,7 @@ export function decideCustomerSmartAvailabilityGate(input: {
   config: SmartOpsConfig;
   offerAlternatives?: boolean;
   now?: Date;
+  noticeHours?: number;
 }): CustomerSmartAvailabilityGate {
   if (!input.enforce) {
     return emptyGate({
@@ -425,7 +431,13 @@ export function decideCustomerSmartAvailabilityGate(input: {
       decision: null,
     });
   }
-  if (shouldBypassSmartAvailabilityHardBlockForShortNotice(input.booking, input.now)) {
+  if (
+    shouldBypassSmartAvailabilityHardBlockForShortNotice(
+      input.booking,
+      input.now,
+      input.noticeHours,
+    )
+  ) {
     return emptyGate({
       enforce: true,
       available: true,

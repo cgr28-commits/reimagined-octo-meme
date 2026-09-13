@@ -656,8 +656,17 @@ console.log("\n=== Owner rest-of-day / full-day blocks offer Choose another date
     offerAlternatives: true,
     now: NOW,
   });
-  // Sunday 12:00 → 16:00 is under 12 hours: owner reviews via short-notice, no hard-block.
+  // Sunday 12:00 → 16:00 is under the configured notice window: owner reviews via short-notice, no hard-block.
   assert.equal(shouldBypassSmartAvailabilityHardBlockForShortNotice(restOfDaySameAfternoon, NOW), true);
+  assert.equal(shouldBypassSmartAvailabilityHardBlockForShortNotice(restOfDaySameAfternoon, NOW, 6), true);
+  assert.equal(
+    shouldBypassSmartAvailabilityHardBlockForShortNotice(
+      { ...restOfDaySameAfternoon, tripTime: "18:00" },
+      NOW,
+      6,
+    ),
+    false,
+  );
   assert.equal(restOfDayGate.blocked, false);
   assert.equal(restOfDayGate.customerMessage, null);
   assert.equal(CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL, "Choose another date");
@@ -925,7 +934,8 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
   assert.match(payments, /a2aBlocked/);
   assert.match(payments, /quickQuoteBlocked/);
   assert.match(payments, /availabilityBlocked/);
-  assert.match(payments, /isWithinMinimumBookingNotice\(String\(booking\.tripDate\), String\(booking\.tripTime\)\)/);
+  assert.match(payments, /isWithinMinimumBookingNotice\(/);
+  assert.match(payments, /settings\.minimumBookingNoticeHours/);
   const quoteCardWiring = read("src/components/QuoteCard.tsx");
   assert.match(quoteCardWiring, /result\.blocked && !isMinimumNoticeRequest/);
   assert.match(quoteCardWiring, /!smartAvailabilityBlocked \|\| isMinimumNoticeRequest/);

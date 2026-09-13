@@ -130,8 +130,10 @@ import {
   handleOwnerWithdrawAlternativeOffer,
   handlePublicAcceptAlternativeTime,
   handlePublicDeclineAlternativeTime,
+  handlePublicGetBookingNotice,
   isOwnerBookingSettingsPath,
   isOwnerShortNoticePath,
+  isPublicBookingNoticePath,
   isPublicShortNoticePath,
   markShortNoticePaid,
   publicAlternativeOfferSummary,
@@ -368,10 +370,10 @@ import {
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
 import {
-  MINIMUM_BOOKING_NOTICE_HOURS,
   formatHoursUntilPickupLabel,
   isWithinMinimumBookingNotice,
 } from "../shared/booking-notice";
+import { getBookingSettings } from "./booking-settings-store";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import {
   handleGetReturnOffer,
@@ -1600,10 +1602,16 @@ async function blockedCustomerSmartAvailabilityResponse(
     booking,
   });
   if (!availabilityGate.blocked) return null;
+  const settings = await getBookingSettings(env.TRACKING_STORE);
   if (
     booking.tripDate &&
     booking.tripTime &&
-    isWithinMinimumBookingNotice(String(booking.tripDate), String(booking.tripTime))
+    isWithinMinimumBookingNotice(
+      String(booking.tripDate),
+      String(booking.tripTime),
+      undefined,
+      settings.minimumBookingNoticeHours,
+    )
   ) {
     return null;
   }
@@ -2469,7 +2477,7 @@ async function handlePaymentRequest(
             `Quoted price: ${amountLabel}\n` +
             `Pickup remaining: ${pickupRemaining ?? "—"}\n` +
             `Unavailable period: ${notice.blockingPeriodLabel ?? notice.blockingPeriodId ?? "—"}\n` +
-            `Under ${MINIMUM_BOOKING_NOTICE_HOURS}-hour notice: ${notice.underMinimumNotice ? "yes" : "no"}\n` +
+            `Under ${notice.minimumNoticeHours}-hour notice: ${notice.underMinimumNotice ? "yes" : "no"}\n` +
             `Open the Owner Dashboard (Booking Availability) to Approve, Offer alternative time, or Decline.`,
         });
         if (created.record.underMinimumNotice) {
@@ -2484,6 +2492,10 @@ async function handlePaymentRequest(
             blockingPeriodId: notice.blockingPeriodId,
             blockingPeriodLabel: notice.blockingPeriodLabel,
             underMinimumNotice: Boolean(notice.underMinimumNotice),
+            minimumBookingNoticeHours:
+              created.record.minimumNoticeHoursApplied ?? notice.minimumNoticeHours,
+            minimumNoticeHours:
+              created.record.minimumNoticeHoursApplied ?? notice.minimumNoticeHours,
             amount: created.record.amount,
             amountLabel: created.record.amountLabel,
             status: created.record.status,
@@ -3388,6 +3400,19 @@ export default {
 
     if (isOwnerProfilePath(url.pathname) && request.method === "POST") {
       return handleOwnerProfileSaveRequest(request, env, origin);
+    }
+
+    if (isPublicBookingNoticePath(url.pathname)) {
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      }
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      const result = await handlePublicGetBookingNotice({
+        TRACKING_STORE: env.TRACKING_STORE,
+      });
+      return json(result, 200, origin);
     }
 
     if (isOwnerBookingSettingsPath(url.pathname)) {

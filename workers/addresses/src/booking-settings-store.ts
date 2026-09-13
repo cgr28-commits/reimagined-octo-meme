@@ -6,14 +6,19 @@
 import {
   generateUnavailablePeriodId,
   listActiveUnavailablePeriods,
+  MINIMUM_BOOKING_NOTICE_HOURS,
+  normalizeMinimumBookingNoticeHours,
   normalizeUnavailablePeriod,
   normalizeUnavailablePeriods,
+  parseMinimumBookingNoticeHoursInput,
   type UnavailablePeriod,
   type UnavailablePeriodInput,
 } from "../shared/booking-notice";
 
 export type BookingSettings = {
   unavailablePeriods: UnavailablePeriod[];
+  /** Owner-configured short-notice / minimum advance period. Defaults to 12. */
+  minimumBookingNoticeHours: number;
   updatedAt: string;
 };
 
@@ -24,6 +29,7 @@ const MAX_PERIODS = 60;
 export function defaultBookingSettings(): BookingSettings {
   return {
     unavailablePeriods: [],
+    minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
     updatedAt: new Date(0).toISOString(),
   };
 }
@@ -31,6 +37,7 @@ export function defaultBookingSettings(): BookingSettings {
 /**
  * Normalize KV payload. Legacy `minimumOnlineNoticeHours` and
  * `automaticBookingsAvailableFrom` are ignored so only one gate remains.
+ * Missing `minimumBookingNoticeHours` falls back to 12.
  */
 export function normalizeBookingSettings(
   raw:
@@ -43,6 +50,9 @@ export function normalizeBookingSettings(
 ): BookingSettings {
   return {
     unavailablePeriods: normalizeUnavailablePeriods(raw?.unavailablePeriods),
+    minimumBookingNoticeHours: normalizeMinimumBookingNoticeHours(
+      raw?.minimumBookingNoticeHours,
+    ),
     updatedAt: String(raw?.updatedAt ?? new Date().toISOString()),
   };
 }
@@ -67,14 +77,34 @@ async function putBookingSettings(
   return normalized;
 }
 
-/** Full replace (Owner UI). Write only on explicit save. */
+/** Full replace (Owner UI). Write only on explicit save. Preserves notice hours. */
 export async function saveBookingSettings(
   store: KVNamespace,
   settings: BookingSettings,
 ): Promise<BookingSettings> {
+  const current = await getBookingSettings(store);
   const periods = normalizeUnavailablePeriods(settings.unavailablePeriods).slice(0, MAX_PERIODS);
   return putBookingSettings(store, {
     unavailablePeriods: periods,
+    minimumBookingNoticeHours: normalizeMinimumBookingNoticeHours(
+      settings.minimumBookingNoticeHours ?? current.minimumBookingNoticeHours,
+    ),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updateMinimumBookingNoticeHours(
+  store: KVNamespace,
+  hours: unknown,
+): Promise<BookingSettings> {
+  const parsed = parseMinimumBookingNoticeHoursInput(hours);
+  if (parsed == null) {
+    throw new Error("Short-notice period must be a whole number of hours between 1 and 48.");
+  }
+  const current = await getBookingSettings(store);
+  return putBookingSettings(store, {
+    unavailablePeriods: current.unavailablePeriods,
+    minimumBookingNoticeHours: parsed,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -97,6 +127,7 @@ export async function addUnavailablePeriod(
   }
   const settings = await putBookingSettings(store, {
     unavailablePeriods: [...current.unavailablePeriods, period],
+    minimumBookingNoticeHours: current.minimumBookingNoticeHours,
     updatedAt: now.toISOString(),
   });
   return { settings, period };
@@ -129,6 +160,7 @@ export async function updateUnavailablePeriod(
     unavailablePeriods: current.unavailablePeriods.map((entry) =>
       entry.id === trimmedId ? period : entry,
     ),
+    minimumBookingNoticeHours: current.minimumBookingNoticeHours,
     updatedAt: now.toISOString(),
   });
   return { settings, period };
@@ -147,6 +179,7 @@ export async function deleteUnavailablePeriod(
   }
   return putBookingSettings(store, {
     unavailablePeriods: next,
+    minimumBookingNoticeHours: current.minimumBookingNoticeHours,
     updatedAt: new Date().toISOString(),
   });
 }

@@ -8,12 +8,41 @@ import { hoursUntilPickup } from "./refund-ops";
 import { parseLondonLocalDateTime, parseLondonLocalIso, UK_TIME_ZONE } from "./uk-time";
 
 /**
- * Minimum elapsed hours before pickup for instant online payment.
+ * Default / fallback minimum elapsed hours before pickup for instant online payment.
+ * Owner Dashboard "Short-notice period" overrides this at runtime via booking settings KV.
+ * Keep 12 here only as the backward-compatible default when the setting is missing or invalid.
  * Exactly this many hours (or more) uses the normal SumUp flow.
  * Under this threshold requires Owner approval (short-notice request).
- * Change this constant only — do not scatter the number across callers.
  */
 export const MINIMUM_BOOKING_NOTICE_HOURS = 12;
+export const MIN_MINIMUM_BOOKING_NOTICE_HOURS = 1;
+export const MAX_MINIMUM_BOOKING_NOTICE_HOURS = 48;
+
+/** Accept a whole number of hours in 1–48. Invalid owner input must be rejected, not silently defaulted. */
+export function parseMinimumBookingNoticeHoursInput(value: unknown): number | null {
+  if (typeof value === "boolean" || value == null) return null;
+  const raw =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.trim())
+        : NaN;
+  if (!Number.isFinite(raw)) return null;
+  const rounded = Math.round(raw);
+  if (Math.abs(raw - rounded) > 1e-9) return null;
+  if (
+    rounded < MIN_MINIMUM_BOOKING_NOTICE_HOURS ||
+    rounded > MAX_MINIMUM_BOOKING_NOTICE_HOURS
+  ) {
+    return null;
+  }
+  return rounded;
+}
+
+/** Missing/legacy/invalid values fall back to 12 hours. */
+export function normalizeMinimumBookingNoticeHours(value: unknown): number {
+  return parseMinimumBookingNoticeHoursInput(value) ?? MINIMUM_BOOKING_NOTICE_HOURS;
+}
 
 export type ShortNoticeTriggerReason = "unavailable_period" | "under_minimum_notice";
 
@@ -26,7 +55,7 @@ export function isWithinMinimumBookingNotice(
 ): boolean {
   const hours = hoursUntilPickup(tripDate, tripTime, now);
   if (hours == null) return false;
-  return hours < noticeHours;
+  return hours < normalizeMinimumBookingNoticeHours(noticeHours);
 }
 
 export function formatHoursUntilPickupLabel(
@@ -52,8 +81,9 @@ export function minimumNoticeRequestHeading(): string {
 export function minimumNoticeRequestBody(
   noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
 ): string {
+  const hours = normalizeMinimumBookingNoticeHours(noticeHours);
   return (
-    `This journey is within our ${noticeHours}-hour advance booking period. You can still request the transfer, but we need to confirm availability before your booking is confirmed.\n\n` +
+    `This journey is within our ${hours}-hour advance booking period. You can still request the transfer, but we need to confirm availability before your booking is confirmed.\n\n` +
     `If we can accommodate your journey, we’ll email you with a secure payment link to confirm your booking.`
   );
 }

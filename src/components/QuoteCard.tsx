@@ -154,6 +154,7 @@ import {
   minimumNoticeRequestBody,
   minimumNoticeRequestHeading,
 } from "../../shared/booking-notice";
+import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import {
   canProceedWithoutExpressDropOffLegs,
   combinedFreeAlternativeAvailable,
@@ -735,11 +736,14 @@ function QuoteCard({
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
   const [paymentPopupBlocked, setPaymentPopupBlocked] = useState(false);
+  const [minimumBookingNoticeHours, setMinimumBookingNoticeHours] =
+    useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
     amountLabel?: string;
     underMinimumNotice?: boolean;
+    noticeHours?: number;
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
@@ -1218,7 +1222,9 @@ function QuoteCard({
       (Boolean(returnDate && returnTime) &&
         isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)));
   const isMinimumNoticeRequest = Boolean(
-    tripDate && tripTime && isWithinMinimumBookingNotice(tripDate, tripTime),
+    tripDate &&
+      tripTime &&
+      isWithinMinimumBookingNotice(tripDate, tripTime, undefined, minimumBookingNoticeHours),
   );
   const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
     "Hi, I have a short-notice airport transfer request.",
@@ -1533,6 +1539,9 @@ function QuoteCard({
             durationMinutes: result.durationMinutes!,
           });
         }
+        if (typeof result.minimumBookingNoticeHours === "number") {
+          setMinimumBookingNoticeHours(result.minimumBookingNoticeHours);
+        }
         if (result.smartAvailability?.enforced) {
           applyCustomerAvailabilityResult({
             blocked: Boolean(result.smartAvailability.blocked),
@@ -1568,6 +1577,7 @@ function QuoteCard({
     routeMetrics,
     showGuidePrice,
     suitcases,
+    setMinimumBookingNoticeHours,
     tripDate,
     tripTime,
     quoteVehicle,
@@ -3233,6 +3243,10 @@ function QuoteCard({
           amountLabel: checkout.amountLabel ?? amountLabel,
           underMinimumNotice:
             checkout.underMinimumNotice === true || isMinimumNoticeRequest,
+          noticeHours:
+            checkout.minimumBookingNoticeHours ??
+            checkout.minimumNoticeHours ??
+            minimumBookingNoticeHours,
         });
         setPaymentLoading(false);
         return;
@@ -5452,7 +5466,7 @@ function QuoteCard({
                     {minimumNoticeRequestHeading()}
                   </p>
                   <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-amber-50/90">
-                    {minimumNoticeRequestBody()}
+                    {minimumNoticeRequestBody(minimumBookingNoticeHours)}
                   </p>
                 </div>
               ) : !isMinimumNoticeRequest && !openCheckout ? (
@@ -5766,6 +5780,7 @@ function QuoteCard({
           amountLabel={shortNoticeResult.amountLabel}
           whatsappUrl={shortNoticeResult.whatsappUrl}
           underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
+          noticeHours={shortNoticeResult.noticeHours ?? minimumBookingNoticeHours}
         />
         <button
           type="button"

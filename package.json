@@ -112,7 +112,8 @@
     "check:address-autocomplete-quota": "npx tsx scripts/check-address-autocomplete-quota.ts",
     "check:address-autocomplete-quality": "npx tsx scripts/check-address-autocomplete-quality.ts",
     "check:belfast-airport-island-lookup": "npx tsx scripts/check-belfast-airport-island-lookup.ts",
-    "check:minimum-booking-notice": "npx tsx scripts/check-minimum-booking-notice.ts"
+    "check:minimum-booking-notice": "npx tsx scripts/check-minimum-booking-notice.ts",
+    "check:short-notice-period-setting": "npx tsx scripts/check-short-notice-period-setting.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

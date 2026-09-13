@@ -9,8 +9,10 @@ type ShortNoticeRequestReceivedProps = {
   reference: string;
   amountLabel?: string;
   whatsappUrl: string;
-  /** When false, keep period-only availability wording (pickup may still be 12+ hours away). */
+  /** When false, keep period-only availability wording (pickup may still be outside the notice window). */
   underMinimumNotice?: boolean;
+  /** Owner-configured short-notice period applied for this request. */
+  noticeHours?: number;
 };
 
 export default function ShortNoticeRequestReceived({
@@ -18,6 +20,7 @@ export default function ShortNoticeRequestReceived({
   amountLabel,
   whatsappUrl,
   underMinimumNotice = true,
+  noticeHours,
 }: ShortNoticeRequestReceivedProps) {
   return (
     <div className="rounded-xl border border-amber-400/30 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
@@ -36,7 +39,7 @@ export default function ShortNoticeRequestReceived({
       {amountLabel ? <p className="quote-price-figure mt-4">{amountLabel}</p> : null}
       <p className="mx-auto mt-4 max-w-md whitespace-pre-line text-sm leading-relaxed text-white/80 sm:text-base">
         {underMinimumNotice
-          ? minimumNoticeRequestBody()
+          ? minimumNoticeRequestBody(noticeHours)
           : "We just need to confirm availability for your requested pickup time before taking payment. We’ll email you once your request has been reviewed. No payment has been taken."}
       </p>
       <p className="mt-5 text-sm quote-secondary">

@@ -78,10 +78,17 @@ export type CustomerSmartAvailabilityCheckResult = {
   available: boolean;
   customerMessage: string | null;
   alternativeTimes: CustomerPublicAlternativeTime[];
+  minimumBookingNoticeHours?: number;
 };
 
 function failOpenAvailability(): CustomerSmartAvailabilityCheckResult {
   return { blocked: false, available: true, customerMessage: null, alternativeTimes: [] };
+}
+
+function noticeHoursFromPayload(payload: Record<string, unknown>): number | undefined {
+  return typeof payload.minimumBookingNoticeHours === "number"
+    ? payload.minimumBookingNoticeHours
+    : undefined;
 }
 
 /** Preflight only. Never surfaces owner reason codes. Fail-open on errors. */
@@ -116,9 +123,13 @@ export async function checkCustomerSmartAvailability(
         available: false,
         customerMessage,
         alternativeTimes,
+        ...(noticeHoursFromPayload(payload)
+          ? { minimumBookingNoticeHours: noticeHoursFromPayload(payload) }
+          : {}),
       };
     }
-    return failOpenAvailability();
+    const hours = noticeHoursFromPayload(payload);
+    return hours == null ? failOpenAvailability() : { ...failOpenAvailability(), minimumBookingNoticeHours: hours };
   } catch {
     return failOpenAvailability();
   }
