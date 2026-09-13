@@ -42,7 +42,12 @@ import {
   type JourneyAction,
   type JourneyEvidencePack,
 } from "@/lib/tracking-api";
-import { issueBookingRefund, markBookingRefundedExternally } from "@/lib/refund-api";
+import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
+import { markBookingRefundedExternally, type RefundIssueResponse } from "@/lib/refund-api";
+import {
+  fetchOwnerPaidBooking,
+  type OwnerPaidBookingSummary,
+} from "@/lib/paid-bookings-api";
 import { canMarkExternalRefund, isOperationallyCancelled } from "../../../shared/refund-ops";
 import { DEMO_DRIVER_KEY, DEMO_DRIVER_NAME, DEMO_OWNER_KEY, DEMO_ROSTER } from "@/lib/tracking-demo";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
@@ -857,8 +862,7 @@ function DriverJobCard({
   const [refundConfirmOpen, setRefundConfirmOpen] = useState(false);
   const [refundBusy, setRefundBusy] = useState(false);
   const [refundMessage, setRefundMessage] = useState<string | null>(null);
-  const [refundConfirmKey, setRefundConfirmKey] = useState("");
-  const [refundFinalConfirm, setRefundFinalConfirm] = useState(false);
+  const [refundBooking, setRefundBooking] = useState<OwnerPaidBookingSummary | null>(null);
   const [externalRefundConfirmOpen, setExternalRefundConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
@@ -1288,16 +1292,53 @@ function DriverJobCard({
     }
   };
 
-  const startRefund = () => {
+  const startRefund = async () => {
+    const paymentReference = job.paymentReference?.trim();
+    if (!paymentReference) {
+      setRefundMessage("This job has no payment reference.");
+      return;
+    }
     setRefundMessage(null);
-    setRefundConfirmOpen(true);
+    setRefundBusy(true);
+    try {
+      const booking = await fetchOwnerPaidBooking(driverKey, paymentReference);
+      if (!booking) {
+        setRefundMessage(`No paid booking found for ${paymentReference}.`);
+        return;
+      }
+      setRefundBooking(booking);
+      setRefundConfirmOpen(true);
+    } catch (err) {
+      setRefundMessage(err instanceof Error ? err.message : "Could not load booking for refund.");
+    } finally {
+      setRefundBusy(false);
+    }
   };
 
   const cancelRefund = () => {
     setRefundConfirmOpen(false);
+    setRefundBooking(null);
     setRefundMessage(null);
-    setRefundConfirmKey("");
-    setRefundFinalConfirm(false);
+  };
+
+  const handleJourneyRefundSuccess = (
+    result: RefundIssueResponse,
+    booking: OwnerPaidBookingSummary,
+  ) => {
+    setRefundConfirmOpen(false);
+    setRefundBooking(null);
+    const bits = [
+      result.alreadyProcessed
+        ? "Already processed"
+        : result.alreadyRefunded
+          ? "Already fully refunded"
+          : result.sumUpRefunded
+            ? `Refund ${result.refundAmount ?? "issued"}`
+            : "Action completed",
+      result.cancelBooking ? "booking cancelled" : "booking remains active",
+    ];
+    setRefundMessage(`${booking.paymentReference}: ${bits.join(" · ")}.`);
+    onRefunded(job.token, result.refundAmount);
   };
 
   const openEdit = () => {
@@ -1336,59 +1377,6 @@ function DriverJobCard({
       setEditMessage(err instanceof Error ? err.message : "Could not update booking");
     } finally {
       setEditBusy(false);
-    }
-  };
-
-  const confirmRefund = async () => {
-    const paymentReference = job.paymentReference?.trim();
-    if (!paymentReference) {
-      setRefundMessage("This job has no payment reference.");
-      return;
-    }
-    if (!refundConfirmKey.trim()) {
-      setRefundMessage("Re-enter OWNER_ACCESS_KEY to confirm this refund.");
-      return;
-    }
-    if (!refundFinalConfirm) {
-      setRefundMessage("Tick the final confirmation box before continuing.");
-      return;
-    }
-
-    setRefundBusy(true);
-    setRefundMessage(null);
-
-    try {
-      if (isActive) {
-        await setDriverSharing(driverKey, job.token, false);
-        onSharingChange(null);
-      }
-
-      const result = await issueBookingRefund({
-        ownerKey: driverKey,
-        confirmOwnerKey: refundConfirmKey.trim(),
-        paymentReference,
-        trackingToken: job.token,
-        ownerNotes: "Owner dashboard job card — full refund + cancel",
-      });
-
-      if (!result.ok) {
-        setRefundMessage(result.error ?? "Refund could not be completed.");
-        return;
-      }
-
-      setRefundConfirmOpen(false);
-      setRefundConfirmKey("");
-      setRefundFinalConfirm(false);
-      setRefundMessage(
-        result.alreadyRefunded || result.alreadyProcessed
-          ? `Already processed (${result.refundAmount ?? "paid amount"}).`
-          : `Refund issued: ${result.refundAmount ?? "paid amount"}. Customer emailed, calendar updated.`,
-      );
-      onRefunded(job.token, result.refundAmount);
-    } catch (err) {
-      setRefundMessage(err instanceof Error ? err.message : "Refund could not be completed.");
-    } finally {
-      setRefundBusy(false);
     }
   };
 
@@ -1806,10 +1794,10 @@ function DriverJobCard({
           <button
             type="button"
             disabled={refundBusy}
-            onClick={startRefund}
+            onClick={() => void startRefund()}
             className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
           >
-            Issue refund
+            {refundBusy && !refundConfirmOpen ? "Loading booking…" : "Issue refund"}
           </button>
         )}
         {canMarkExternal && !externalRefundConfirmOpen && !refundConfirmOpen && (
@@ -1938,58 +1926,19 @@ function DriverJobCard({
         </p>
       )}
 
-      {canRefund && refundConfirmOpen && (
-        <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-4">
-          <p className="text-sm font-semibold text-red-100">Confirm full refund + cancel</p>
-          <p className="mt-2 text-sm leading-relaxed text-red-100/85">
-            This will refund the customer via SumUp, email them a confirmation, mark the job as
-            cancelled in your calendar, and show it as refunded on this dashboard. Unlocking the
-            dashboard is not enough — re-enter the owner key below.
-          </p>
-          <label className="mt-3 block text-sm text-red-50">
-            Re-enter OWNER_ACCESS_KEY
-            <input
-              type="password"
-              autoComplete="off"
-              value={refundConfirmKey}
-              disabled={refundBusy}
-              onChange={(event) => setRefundConfirmKey(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
-            />
-          </label>
-          <label className="mt-3 flex items-start gap-2 text-sm text-amber-50">
-            <input
-              type="checkbox"
-              checked={refundFinalConfirm}
-              disabled={refundBusy}
-              onChange={(event) => setRefundFinalConfirm(event.target.checked)}
-              className="mt-1"
-            />
-            <span>
-              Refund the remaining balance to the original payment method for{" "}
-              {job.paymentReference} and cancel the booking?
-            </span>
-          </label>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              disabled={refundBusy || !refundFinalConfirm || !refundConfirmKey.trim()}
-              onClick={() => void confirmRefund()}
-              className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:opacity-60"
-            >
-              {refundBusy ? "Processing refund…" : "Confirm refund"}
-            </button>
-            <button
-              type="button"
-              disabled={refundBusy}
-              onClick={cancelRefund}
-              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+      {canRefund && refundConfirmOpen && refundBooking ? (
+        <OwnerCancelRefundModal
+          ownerKey={driverKey}
+          booking={refundBooking}
+          busy={refundBusy}
+          onBusyChange={setRefundBusy}
+          onClose={cancelRefund}
+          onSuccess={handleJourneyRefundSuccess}
+          onError={(message) => setRefundMessage(message)}
+          openedFromLeg={job.journeyLeg === "return" || job.journeyLeg === "outbound" ? job.journeyLeg : null}
+          legTrackingToken={job.token}
+        />
+      ) : null}
 
       {canMarkExternal && externalRefundConfirmOpen && (
         <div className="mt-4 rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">

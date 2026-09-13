@@ -182,7 +182,25 @@ console.log("=== UI single-submit + field order markers ===");
   assert.ok(keyIdx > notesIdx, "notes before owner key");
   const submits = [...modal.matchAll(/data-owner-refund-submit="true"/g)];
   assert.equal(submits.length, 1, "exactly one owner refund submit button");
+  assert.match(modal, /data-refund-return-scope="true"/);
+  assert.match(modal, /partial_refund_keep_active/);
+  assert.match(modal, /There is no automatic/);
+  assert.match(modal, /cancel_leg_partial_refund/);
+  assert.match(modal, /Cancel outbound only/);
+  assert.match(modal, /Cancel return only/);
+  assert.match(modal, /source === "stored" \|\| legSplit\.source === "snapshot"/);
+  assert.match(modal, /data-refund-fill-return="true"/);
+  assert.doesNotMatch(modal, /source === "allocated"/);
   console.log("OK  production modal field order + single submit");
+}
+
+{
+  const jobCard = read("src/app/driver/DriverPageClient.tsx");
+  assert.match(jobCard, /OwnerCancelRefundModal/);
+  assert.match(jobCard, /fetchOwnerPaidBooking/);
+  assert.doesNotMatch(jobCard, /Confirm full refund \+ cancel/);
+  assert.doesNotMatch(jobCard, /Owner dashboard job card — full refund \+ cancel/);
+  console.log("OK  Journey Controls reuses OwnerCancelRefundModal");
 }
 
 {

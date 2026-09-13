@@ -16,6 +16,8 @@ function read(rel: string): string {
 console.log("=== Owner paid bookings UI ===");
 const api = read("src/lib/paid-bookings-api.ts");
 assert.match(api, /fetchOwnerPaidBookings/);
+assert.match(api, /fetchOwnerPaidBooking/);
+assert.match(api, /paymentReference/);
 assert.match(api, /resendPaidBookingConfirmation/);
 assert.match(api, /fetchOwnerPendingCheckouts/);
 assert.match(api, /finalizePaidCheckoutRecovery/);
@@ -49,6 +51,9 @@ console.log("OK  paid-bookings list returns airport access fields");
 
 const page = read("src/app/driver/DriverPageClient.tsx");
 assert.match(page, /OwnerPaidBookingsPanel/);
+assert.match(page, /OwnerCancelRefundModal/);
+assert.match(page, /fetchOwnerPaidBooking/);
+assert.match(handlers, /paymentReferenceFilter|paymentReference/);
 const paidIdx = page.indexOf("<OwnerPaidBookingsPanel");
 const jobsIdx = page.indexOf("<OwnerBookingJobsPanel");
 assert.ok(paidIdx > 0 && jobsIdx > paidIdx, "Paid bookings panel must appear above booking requests");

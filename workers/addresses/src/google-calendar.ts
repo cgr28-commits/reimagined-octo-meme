@@ -532,10 +532,33 @@ async function createCalendarEvent(
 const CANCELLED_SUMMARY_PREFIX = "CANCELLED — ";
 
 type CalendarEventPayload = {
+  id?: string;
   status?: string;
   summary?: string;
   description?: string;
+  start?: { dateTime?: string; timeZone?: string };
 };
+
+export async function getCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+): Promise<CalendarEventPayload | null> {
+  const eventUrl =
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}` +
+    `/events/${encodeURIComponent(eventId)}`;
+  const response = await fetch(eventUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (response.status === 404 || response.status === 410) {
+    return null;
+  }
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Calendar fetch failed (${response.status}): ${detail.slice(0, 200)}`);
+  }
+  return (await response.json()) as CalendarEventPayload;
+}
 
 function buildCancelledEventPatch(
   event: CalendarEventPayload,

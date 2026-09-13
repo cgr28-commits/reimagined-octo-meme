@@ -21,12 +21,15 @@ import {
 } from "@/lib/refund-api";
 import type { OwnerPaidBookingSummary } from "@/lib/paid-bookings-api";
 import { remainingBalanceFillValue } from "@/lib/refund-test-ui";
+import { explainOwnerLegFareAllocation } from "../../shared/owner-dashboard-ops";
 
 export type CancelRefundActionChoice =
   | "cancel_full_refund"
   | "cancel_partial_refund"
   | "cancel_no_refund"
   | "partial_refund_keep_active"
+  | "cancel_outbound_partial"
+  | "cancel_return_partial"
   | "full_refund_choice";
 
 type OwnerCancelRefundModalProps = {
@@ -37,6 +40,10 @@ type OwnerCancelRefundModalProps = {
   onClose: () => void;
   onSuccess: (result: RefundIssueResponse, booking: OwnerPaidBookingSummary) => void;
   onError: (message: string) => void;
+  /** Which tracking/job card opened this form — display only; money is still the checkout. */
+  openedFromLeg?: "outbound" | "return" | null;
+  /** Specific tracking job token when opened from Journey Controls. */
+  legTrackingToken?: string | null;
 };
 
 const ACTION_OPTIONS: {
@@ -65,6 +72,16 @@ const ACTION_OPTIONS: {
     hint: "Refunds money only. Calendar and tracking stay active.",
   },
   {
+    id: "cancel_outbound_partial",
+    label: "Cancel outbound only + typed refund",
+    hint: "Refunds a typed amount via SumUp and cancels only the outbound job and calendar event. Return stays booked.",
+  },
+  {
+    id: "cancel_return_partial",
+    label: "Cancel return only + typed refund",
+    hint: "Refunds a typed amount via SumUp and cancels only the return job and calendar event. Outbound stays booked.",
+  },
+  {
     id: "full_refund_choice",
     label: "Full refund only",
     hint: "Refunds the remaining balance. You must choose whether to also cancel the booking.",
@@ -91,18 +108,66 @@ export default function OwnerCancelRefundModal({
   onClose,
   onSuccess,
   onError,
+  openedFromLeg = null,
+  legTrackingToken = null,
 }: OwnerCancelRefundModalProps) {
   const paid = amountPaidNumber(booking);
   const refunded = amountRefundedNumber(booking);
   const remaining = remainingRefundableBalance(paid, refunded);
   const within24h = isWithin24HoursOfPickup(booking.tripDate, booking.tripTime);
   const fullyRefunded = remaining < 0.01;
+  const isReturnCheckout = Boolean(booking.returnJourney);
+  const legSplit = isReturnCheckout
+    ? explainOwnerLegFareAllocation({
+        returnJourney: booking.returnJourney,
+        amount: booking.amount,
+        amountPaid: booking.amountPaid,
+        originalAmount: booking.originalAmount,
+        additionalPayments: booking.additionalPayments,
+        outboundFare: booking.outboundFare,
+        returnFare: booking.returnFare,
+        quoteSnapshot: booking.quoteSnapshot ?? null,
+        expressDropOffFee: booking.expressDropOffFee,
+        outboundAirportAccessChargeGbp: booking.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: booking.returnAirportAccessChargeGbp,
+      })
+    : null;
+  const validatedSplit =
+    legSplit &&
+    (legSplit.source === "stored" || legSplit.source === "snapshot") &&
+    (legSplit.outboundAllocatedFareGbp ?? 0) > 0 &&
+    (legSplit.returnAllocatedFareGbp ?? 0) > 0;
+
+  const alreadyCancelledLegs = booking.cancelledLegs ?? [];
+  const outboundAlreadyCancelled =
+    alreadyCancelledLegs.includes("outbound") || Boolean(booking.outboundCancelledAt);
+  const returnAlreadyCancelled =
+    alreadyCancelledLegs.includes("return") || Boolean(booking.returnCancelledAt);
 
   const [actionChoice, setActionChoice] = useState<CancelRefundActionChoice>(
-    fullyRefunded ? "cancel_no_refund" : "cancel_full_refund",
+    fullyRefunded
+      ? "cancel_no_refund"
+      : isReturnCheckout &&
+          openedFromLeg === "outbound" &&
+          !outboundAlreadyCancelled
+        ? "cancel_outbound_partial"
+        : isReturnCheckout && openedFromLeg === "return" && !returnAlreadyCancelled
+          ? "cancel_return_partial"
+          : isReturnCheckout
+            ? "partial_refund_keep_active"
+            : "cancel_full_refund",
   );
   const [fullRefundAlsoCancel, setFullRefundAlsoCancel] = useState(true);
-  const [partialAmount, setPartialAmount] = useState("");
+  const [partialAmount, setPartialAmount] = useState(() => {
+    if (!validatedSplit || !legSplit) return "";
+    if (openedFromLeg === "outbound" && !outboundAlreadyCancelled) {
+      return remainingBalanceFillValue(legSplit.outboundAllocatedFareGbp ?? 0);
+    }
+    if (openedFromLeg === "return" && !returnAlreadyCancelled) {
+      return remainingBalanceFillValue(legSplit.returnAllocatedFareGbp ?? 0);
+    }
+    return "";
+  });
   const [reasonCategory, setReasonCategory] =
     useState<RefundReasonCategory>("customer_cancelled_over_24h");
   const [ownerNotes, setOwnerNotes] = useState("");
@@ -121,6 +186,7 @@ export default function OwnerCancelRefundModal({
     let actionKind: RefundActionKind;
     let refundFullRemaining = false;
     let amount: number | null = null;
+    let cancelLeg: "outbound" | "return" | undefined;
 
     if (actionChoice === "cancel_full_refund") {
       actionKind = "cancel_full_refund";
@@ -132,6 +198,14 @@ export default function OwnerCancelRefundModal({
       amount = Number(partialAmount);
     } else if (actionChoice === "partial_refund_keep_active") {
       actionKind = "partial_refund_keep_active";
+      amount = Number(partialAmount);
+    } else if (actionChoice === "cancel_outbound_partial") {
+      actionKind = "cancel_leg_partial_refund";
+      cancelLeg = "outbound";
+      amount = Number(partialAmount);
+    } else if (actionChoice === "cancel_return_partial") {
+      actionKind = "cancel_leg_partial_refund";
+      cancelLeg = "return";
       amount = Number(partialAmount);
     } else if (fullRefundAlsoCancel) {
       actionKind = "full_refund_and_cancel";
@@ -150,7 +224,7 @@ export default function OwnerCancelRefundModal({
             ? roundGbp(amount as number)
             : 0;
 
-    return { cancelBooking, actionKind, refundFullRemaining, amount, refundAmount };
+    return { cancelBooking, actionKind, refundFullRemaining, amount, refundAmount, cancelLeg };
   }, [actionChoice, fullRefundAlsoCancel, partialAmount, remaining]);
 
   const notesNeeded = ownerNotesRequired({
@@ -161,7 +235,10 @@ export default function OwnerCancelRefundModal({
   });
 
   const needsPartialAmount =
-    actionChoice === "cancel_partial_refund" || actionChoice === "partial_refund_keep_active";
+    actionChoice === "cancel_partial_refund" ||
+    actionChoice === "partial_refund_keep_active" ||
+    actionChoice === "cancel_outbound_partial" ||
+    actionChoice === "cancel_return_partial";
 
   const moneyMoveRequired = actionChoice !== "cancel_no_refund";
 
@@ -236,6 +313,25 @@ export default function OwnerCancelRefundModal({
       onError("Nothing left to refund on this booking.");
       return;
     }
+    const cancelLeg = resolved.cancelLeg;
+    const trackingTokenForLeg =
+      cancelLeg === "return"
+        ? (legTrackingToken || booking.returnTrackingToken || "").trim()
+        : cancelLeg === "outbound"
+          ? (legTrackingToken || booking.outboundTrackingToken || booking.trackingToken || "").trim()
+          : (booking.trackingToken || "").trim();
+    if (resolved.actionKind === "cancel_leg_partial_refund") {
+      if (!cancelLeg) {
+        onError("Choose outbound or return before cancelling one leg.");
+        return;
+      }
+      if (!trackingTokenForLeg) {
+        onError(
+          `Cannot cancel the ${cancelLeg} leg — its tracking job token is missing. The other leg will not be touched.`,
+        );
+        return;
+      }
+    }
 
     onBusyChange(true);
     try {
@@ -243,9 +339,13 @@ export default function OwnerCancelRefundModal({
         ownerKey,
         confirmOwnerKey,
         paymentReference: booking.paymentReference,
-        trackingToken: booking.trackingToken,
+        trackingToken:
+          resolved.actionKind === "cancel_leg_partial_refund"
+            ? trackingTokenForLeg
+            : booking.trackingToken,
         actionKind: resolved.actionKind,
         cancelBooking: resolved.cancelBooking,
+        cancelLeg,
         refundFullRemaining: resolved.refundFullRemaining,
         amount: resolved.amount,
         reasonCategory,
@@ -322,6 +422,42 @@ export default function OwnerCancelRefundModal({
         <p className="font-semibold">Remaining refundable: £{remaining.toFixed(2)}</p>
       </div>
 
+      {isReturnCheckout ? (
+        <div
+          className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50"
+          data-refund-return-scope="true"
+        >
+          <p className="font-semibold">This is one checkout for outbound and return.</p>
+          <p className="mt-1 text-amber-50/85">
+            {openedFromLeg === "return"
+              ? "You opened this from the return journey card. The paid total on that card is the combined booking, not the return fare alone."
+              : openedFromLeg === "outbound"
+                ? "You opened this from the outbound journey card. The paid total on that card is the combined booking, not the outbound fare alone."
+                : "The paid total is the combined outbound + return checkout, not one leg."}
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-amber-50/80">
+            <li>Full remaining refund + cancel closes both journeys and refunds £{remaining.toFixed(2)} (if still refundable).</li>
+            <li>A typed partial with “booking stays active” can refund part of the checkout and leave outbound and return booked.</li>
+            <li>A typed partial + cancel still cancels the whole booking, including the other leg.</li>
+            <li>Cancel outbound only / cancel return only refunds the typed amount and closes that job and calendar event only.</li>
+            <li>There is no automatic “refund this leg only” amount from the job card.</li>
+          </ul>
+          {validatedSplit ? (
+            <p className="mt-2 text-xs text-amber-50/80">
+              Recorded split (guidance only): outbound £
+              {legSplit.outboundAllocatedFareGbp!.toFixed(2)} · return £
+              {legSplit.returnAllocatedFareGbp!.toFixed(2)}. Use a button below only to fill the
+              amount field — it does not submit a refund.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-amber-50/80">
+              No validated outbound/return split is stored. Do not assume a 50/50 split on a
+              discounted return. Type the amount you intend to refund.
+            </p>
+          )}
+        </div>
+      ) : null}
+
       {fullyRefunded ? (
         <p
           className="mt-3 rounded-xl border border-emerald/40 bg-emerald/15 px-3 py-2 text-sm font-bold uppercase tracking-wide text-emerald"
@@ -338,6 +474,12 @@ export default function OwnerCancelRefundModal({
         {ACTION_OPTIONS.filter((option) => {
           if (fullyRefunded) {
             return option.id === "cancel_no_refund";
+          }
+          if (option.id === "cancel_outbound_partial") {
+            return isReturnCheckout && !outboundAlreadyCancelled;
+          }
+          if (option.id === "cancel_return_partial") {
+            return isReturnCheckout && !returnAlreadyCancelled;
           }
           return true;
         }).map((option) => (
@@ -406,15 +548,47 @@ export default function OwnerCancelRefundModal({
               data-refund-amount-input="true"
             />
           </label>
-          <button
-            type="button"
-            disabled={busy || remaining < 0.01}
-            onClick={() => setPartialAmount(remainingBalanceFillValue(remaining))}
-            className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
-            data-refund-fill-remaining="true"
-          >
-            Use remaining balance (£{remaining.toFixed(2)})
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || remaining < 0.01}
+              onClick={() => setPartialAmount(remainingBalanceFillValue(remaining))}
+              className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+              data-refund-fill-remaining="true"
+            >
+              Use remaining balance (£{remaining.toFixed(2)})
+            </button>
+            {validatedSplit ? (
+              <>
+                <button
+                  type="button"
+                  disabled={busy || (legSplit.outboundAllocatedFareGbp ?? 0) > remaining + 0.001}
+                  onClick={() =>
+                    setPartialAmount(
+                      remainingBalanceFillValue(legSplit.outboundAllocatedFareGbp ?? 0),
+                    )
+                  }
+                  className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+                  data-refund-fill-outbound="true"
+                >
+                  Fill outbound £{legSplit.outboundAllocatedFareGbp!.toFixed(2)}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || (legSplit.returnAllocatedFareGbp ?? 0) > remaining + 0.001}
+                  onClick={() =>
+                    setPartialAmount(
+                      remainingBalanceFillValue(legSplit.returnAllocatedFareGbp ?? 0),
+                    )
+                  }
+                  className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+                  data-refund-fill-return="true"
+                >
+                  Fill return £{legSplit.returnAllocatedFareGbp!.toFixed(2)}
+                </button>
+              </>
+            ) : null}
+          </div>
           <p className="text-[11px] text-red-100/50">
             Fills the Amount field only — does not submit a refund.
           </p>
@@ -487,11 +661,13 @@ export default function OwnerCancelRefundModal({
           {resolved.refundAmount > 0
             ? `You are about to refund £${resolved.refundAmount.toFixed(2)} to the original payment method for ${booking.paymentReference}.`
             : `Cancel booking ${booking.paymentReference} without a SumUp refund?`}
-          {resolved.cancelBooking && resolved.refundAmount > 0
-            ? " The booking will also be cancelled."
-            : !resolved.cancelBooking && resolved.refundAmount > 0
-              ? " The journey will remain booked."
-              : ""}
+          {resolved.cancelLeg
+            ? ` Only the ${resolved.cancelLeg} journey and its calendar event will be cancelled. The other leg stays booked.`
+            : resolved.cancelBooking && resolved.refundAmount > 0
+              ? " The booking will also be cancelled."
+              : !resolved.cancelBooking && resolved.refundAmount > 0
+                ? " The journey will remain booked."
+                : ""}
         </p>
         <label className="mt-2 flex items-start gap-2 text-sm text-amber-50">
           <input

@@ -55,6 +55,8 @@ export type RefundActionKind =
   | "partial_refund_keep_active"
   | "full_refund_keep_active"
   | "full_refund_and_cancel"
+  /** Refund a typed amount via SumUp and cancel only one tracking/calendar leg. */
+  | "cancel_leg_partial_refund"
   /** Owner marks booking fully refunded after a manual SumUp refund — no payment API. */
   | "mark_external_refund";
 
@@ -122,6 +124,10 @@ export type RefundAuditEntry = {
   idempotencyKey: string;
   actionKind: RefundActionKind;
   operationState: RefundOperationState;
+  /** Set when only one return-booking leg was cancelled. */
+  cancelledLeg?: "outbound" | "return";
+  cancelledTrackingToken?: string;
+  cancelledCalendarEventId?: string;
 };
 
 export type RefundRequestInput = {
@@ -136,6 +142,8 @@ export type RefundRequestInput = {
   idempotencyKey: string;
   confirmOwnerKey: string;
   actionKind: RefundActionKind;
+  /** Required for cancel_leg_partial_refund — must be the specific tracking job token. */
+  cancelLeg?: "outbound" | "return";
 };
 
 export function roundGbp(amount: number): number {
@@ -249,6 +257,20 @@ export function resolveRefundAmountForAction(input: {
   const remaining = roundGbp(input.remainingBalance);
   if (input.actionKind === "cancel_no_refund") {
     return { refundAmount: 0 };
+  }
+  if (input.actionKind === "cancel_leg_partial_refund" && !input.refundFullRemaining) {
+    const raw = Number(input.amount);
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return { refundAmount: 0 };
+    }
+    const amount = roundGbp(raw);
+    if (amount > remaining + 0.001) {
+      return {
+        refundAmount: 0,
+        error: `Refund amount cannot exceed the remaining balance of £${remaining.toFixed(2)}.`,
+      };
+    }
+    return { refundAmount: amount };
   }
   // External mark books the remaining balance as already refunded — no SumUp call.
   if (input.actionKind === "mark_external_refund") {

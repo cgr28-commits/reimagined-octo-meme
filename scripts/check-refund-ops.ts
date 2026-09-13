@@ -131,8 +131,10 @@ assert.match(admin, /finalConfirm/);
 assert.match(admin, /confirmOwnerKey: confirmOwnerKey\.trim\(\)/);
 
 const driver = read("src/app/driver/DriverPageClient.tsx");
-assert.match(driver, /confirmOwnerKey: refundConfirmKey/);
-assert.match(driver, /refundFinalConfirm/);
+assert.match(driver, /OwnerCancelRefundModal/);
+assert.match(driver, /fetchOwnerPaidBooking/);
+assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /confirmOwnerKey/);
+assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /finalConfirm/);
 
 console.log("OK  every UI/HTTP refund path requires fresh confirmOwnerKey");
 
@@ -180,6 +182,7 @@ assert.match(read("src/lib/terms.ts"), /Vehicle Cleaning and Damage/);
 assert.match(read("src/components/OwnerJourneyEvidenceClient.tsx"), /Export dispute evidence/);
 assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /Partial refund only/);
 assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /confirmOwnerKey/);
+assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /cancel_leg_partial_refund/);
 console.log("OK  retained features");
 
 // Silence unused import if tree-shaken differently
