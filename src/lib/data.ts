@@ -26,9 +26,9 @@ export const SITE_PUBLIC_SEO_DESCRIPTION = `${SITE_PUBLIC_SEO_BLURB} Airport pic
 /** Homepage `<title>` — keep exact; other pages must stay unique. */
 export const HOMEPAGE_SEO_TITLE = "Belfast Airport Transfers | My Airport Taxi NI";
 
-/** Homepage meta description — keep exact. */
+/** Homepage meta description — waiting applies to airport pickups only. */
 export const HOMEPAGE_SEO_DESCRIPTION =
-  "Pre-book fixed-price transfers to Belfast International, Belfast City and Dublin Airport, with flight monitoring, 60 minutes’ waiting and secure online booking.";
+  "Pre-book fixed-price Belfast airport transfers with flight monitoring, up to 60 minutes’ complimentary waiting on airport pickups, and secure online booking.";
 
 /**
  * Temporary public holding page. When enabled and before `until`, the site shows

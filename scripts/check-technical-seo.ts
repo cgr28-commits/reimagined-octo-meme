@@ -41,8 +41,10 @@ console.log("=== Homepage title, description, H1 ===");
   assert.equal(HOMEPAGE_SEO_TITLE, "Belfast Airport Transfers | My Airport Taxi NI");
   assert.equal(
     HOMEPAGE_SEO_DESCRIPTION,
-    "Pre-book fixed-price transfers to Belfast International, Belfast City and Dublin Airport, with flight monitoring, 60 minutes’ waiting and secure online booking.",
+    "Pre-book fixed-price Belfast airport transfers with flight monitoring, up to 60 minutes’ complimentary waiting on airport pickups, and secure online booking.",
   );
+  assert.doesNotMatch(HOMEPAGE_SEO_DESCRIPTION, /60 minutes’ waiting(?! on airport pickups)/);
+  assert.match(HOMEPAGE_SEO_DESCRIPTION, /up to 60 minutes’ complimentary waiting on airport pickups/);
   assert.equal(SITE.name, "My Airport Taxi NI");
   assert.doesNotMatch(SITE_PUBLIC_SEO_DESCRIPTION, /£\d/);
   assert.match(hero, /Belfast Airport Transfers/);
@@ -93,13 +95,29 @@ console.log("\n=== Sitemap ===");
 {
   assert.doesNotMatch(sitemapScript, /path: "\/unsubscribe\/"/);
   assert.doesNotMatch(sitemap, /\/unsubscribe\//);
-  assert.match(sitemap, /<lastmod>/);
   assert.match(sitemapScript, /gitLastModifiedDate/);
+  assert.match(sitemapScript, /is-shallow-repository/);
+  assert.match(sitemapScript, /if \(SHALLOW_GIT\) return null/);
   assert.doesNotMatch(sitemapScript, /priority/);
   assert.doesNotMatch(sitemapScript, /changefreq/);
   assert.doesNotMatch(sitemap, /<priority>/);
   assert.doesNotMatch(sitemap, /<changefreq>/);
   assert.doesNotMatch(sitemapScript, /new Date\(\)\.toISOString\(\)/);
+  assert.doesNotMatch(sitemapScript, /lastmod.*new Date|new Date\(\).*lastmod/);
+  const pagesWorkflow = read(".github/workflows/deploy-pages.yml");
+  const previewWorkflow = read(".github/workflows/deploy-pages-preview.yml");
+  assert.match(pagesWorkflow, /fetch-depth:\s*0/);
+  assert.match(previewWorkflow, /fetch-depth:\s*0/);
+  const locationPages = read("src/lib/location-pages.ts");
+  assert.doesNotMatch(locationPages, /60 minutes’ waiting/);
+  assert.doesNotMatch(
+    locationPages,
+    /metaDescription: `Pre-book a fixed-price taxi from \$\{town\.name\} to \$\{airport\.name\}[^`]*waiting/,
+  );
+  assert.match(
+    locationPages,
+    /from Northern Ireland to Dublin Airport \(DUB\), with flight monitoring, included tolls and secure online booking/,
+  );
   assert.doesNotMatch(sitemap, /\/manage-booking\//);
   assert.doesNotMatch(sitemap, /\/quote\//);
   assert.doesNotMatch(sitemap, /\/book\//);

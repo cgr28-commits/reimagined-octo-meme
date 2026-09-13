@@ -15,8 +15,30 @@ function todayLondonDate(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(now);
 }
 
+/** True when git history is incomplete — lastmod would be a shallow-tip date, not the real one. */
+function isShallowRepository() {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
+  } catch {
+    return true;
+  }
+}
+
+const SHALLOW_GIT = isShallowRepository();
+if (SHALLOW_GIT) {
+  console.warn(
+    "Sitemap lastmod omitted: git history is shallow or unavailable. Use fetch-depth: 0 in sitemap builds.",
+  );
+}
+
 /** Real git commit date for a source file. Never invents a build-time lastmod. */
 function gitLastModifiedDate(relPath) {
+  if (SHALLOW_GIT) return null;
   try {
     const iso = execFileSync("git", ["log", "-1", "--format=%cI", "--", relPath], {
       encoding: "utf8",
