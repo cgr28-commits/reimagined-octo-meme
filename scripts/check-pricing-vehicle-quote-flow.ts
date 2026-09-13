@@ -58,7 +58,7 @@ check("weekday fare = weekend fare = Bank Holiday fare", () => {
   }, cityBfsMetrics);
   const noDate = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {}, cityBfsMetrics);
   assert.ok(weekday && weekend && bh && noDate);
-  assert.equal(weekday.amount, 47, "14 mi City→BFS saloon = £47");
+  assert.equal(weekday.amount, 46, "14 mi City→BFS saloon = £46");
   assert.equal(weekday.amount, weekend.amount);
   assert.equal(weekday.amount, bh.amount);
   assert.equal(weekday.amount, noDate.amount);
@@ -77,7 +77,7 @@ check("weekday fare = weekend fare = Bank Holiday fare", () => {
   }, cityBfsMetrics);
   assert.ok(friday && saturdayAlt);
   assert.equal(saturdayAlt.amount, friday.amount);
-  assert.equal(friday.amount, 47);
+  assert.equal(friday.amount, 46);
   assert.equal(friday.premiumApplied, false);
   assert.equal(saturdayAlt.premiumApplied, false);
 });

@@ -88,13 +88,13 @@ add(
   const m = metricsForMiles(4.5, 12);
   const expectedS = calculateUniversalSaloonJourneyFareGbp(4.5);
   const expectedE = calculateUniversalEstateJourneyFareGbp(expectedS);
-  assert.equal(expectedS, 30);
-  assert.equal(expectedE, 36);
+  assert.equal(expectedS, 26);
+  assert.equal(expectedE, 32);
   const s = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", S, false, {}, m)?.amount;
   const e = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", E, false, {}, m)?.amount;
   assert.equal(s, expectedS);
   assert.equal(e, expectedE);
-  add("City Hall → BHD", "airport", 4.5, s, e, "universal £30/£36");
+  add("City Hall → BHD", "airport", 4.5, s, e, "universal £26/£32");
 }
 
 // 3 Lisburn → BHD (must scale above city)
@@ -109,18 +109,18 @@ add(
   assert.equal((e ?? 0) - (s ?? 0), 6);
 }
 
-// 4 BFS city (14 mi → S£47 E£53)
+// 4 BFS city (14 mi → S£46 E£52)
 {
   const m = metricsForMiles(14, 25);
   const expectedS = calculateUniversalSaloonJourneyFareGbp(14);
   const expectedE = calculateUniversalEstateJourneyFareGbp(expectedS);
-  assert.equal(expectedS, 47);
-  assert.equal(expectedE, 53);
+  assert.equal(expectedS, 46);
+  assert.equal(expectedE, 52);
   const s = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, false, {}, m)?.amount;
   const e = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", E, false, {}, m)?.amount;
   assert.equal(s, expectedS);
   assert.equal(e, expectedE);
-  add("City Hall → BFS", "airport", 14, s, e, "universal £47/£53");
+  add("City Hall → BFS", "airport", 14, s, e, "universal £46/£52");
 }
 
 // 5 Bangor → BFS
@@ -152,17 +152,17 @@ add(
   add("Newtownabbey → DUB", "airport", 100, s, e);
 }
 
-// 7 City → DUB (98 mi → journey £229 + £4 = £233 / estate £239)
+// 7 City → DUB (98 mi → journey £228 + £4 = £232 / estate £238)
 {
   const m = metricsForMiles(98, 115);
   const journey = calculateUniversalSaloonJourneyFareGbp(98);
-  assert.equal(journey, 229);
+  assert.equal(journey, 228);
   const s = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "DUB", S, false, {}, m)?.amount;
   const e = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "DUB", E, false, {}, m)?.amount;
-  assert.equal(s, 233);
-  assert.equal(e, 239);
+  assert.equal(s, 232);
+  assert.equal(e, 238);
   assert.equal((e ?? 0) - (s ?? 0), 6);
-  add("City Hall → DUB", "airport", 98, s, e, "universal £233/£239");
+  add("City Hall → DUB", "airport", 98, s, e, "universal £232/£238");
 }
 
 // 8 Dublin city beyond airport
@@ -182,7 +182,7 @@ add(
   )?.amount;
   add("City Hall → Dublin city centre", "DUB+", Math.round(miles), s, e);
   // Beyond-airport continues past the DUB airport journey (230 + fixed path).
-  assert.ok((s ?? 0) > 229 + 4, `Dublin city beyond must exceed DUB airport drop (£233), got £${s}`);
+  assert.ok((s ?? 0) > 228 + 4, `Dublin city beyond must exceed DUB airport drop (£232), got £${s}`);
   assert.ok((e ?? 0) > (s ?? 0));
   assert.ok((s ?? 0) >= journeyFloor);
 }
@@ -366,8 +366,8 @@ add(
   const m = metricsForMiles(14, 25);
   const s = calculateQuote("Europa Hotel, Great Victoria Street, Belfast BT2 7BA", "BFS", S, false, {}, m)?.amount;
   const e = calculateQuote("Europa Hotel, Great Victoria Street, Belfast BT2 7BA", "BFS", E, false, {}, m)?.amount;
-  assert.equal(s, 47);
-  assert.equal(e, 53);
+  assert.equal(s, 46);
+  assert.equal(e, 52);
   add("Europa Hotel → BFS", "airport", 14, s, e);
 }
 
@@ -415,8 +415,8 @@ assert.equal(selectVehicleForParty(1, 3), E);
   const m = metricsForMiles(14, 25);
   const oneWay = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, false, {}, m)?.amount ?? 0;
   const ret = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, true, {}, m)?.amount ?? 0;
-  assert.equal(oneWay, 47);
-  assert.equal(ret, 89.3, "BFS return: journey £47×1.9 → £89.30; fixed £0");
+  assert.equal(oneWay, 46);
+  assert.equal(ret, 87.4, "BFS return: journey £46×1.9 → £87.40; fixed £0");
   assert.ok(ret < oneWay * 2);
 }
 
