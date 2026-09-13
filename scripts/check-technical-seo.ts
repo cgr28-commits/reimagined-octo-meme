@@ -5,7 +5,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { SITE, SITE_PUBLIC_SEO_DESCRIPTION } from "../src/lib/data";
+import {
+  HOMEPAGE_SEO_DESCRIPTION,
+  HOMEPAGE_SEO_TITLE,
+  SITE,
+  SITE_PUBLIC_SEO_DESCRIPTION,
+} from "../src/lib/data";
 import {
   BUSINESS_JSON_LD_ID,
   getFaqPageJsonLd,
@@ -31,15 +36,20 @@ const airportPage = read("src/app/airports/[slug]/page.tsx");
 
 console.log("=== Homepage title, description, H1 ===");
 {
-  assert.match(layout, /\$\{SITE\.name\} \| Premium Airport Transfers Northern Ireland/);
-  assert.equal(SITE.name, "My Airport Taxi NI");
+  assert.match(home, /HOMEPAGE_SEO_TITLE/);
+  assert.match(home, /HOMEPAGE_SEO_DESCRIPTION/);
+  assert.equal(HOMEPAGE_SEO_TITLE, "Belfast Airport Transfers | My Airport Taxi NI");
   assert.equal(
-    SITE_PUBLIC_SEO_DESCRIPTION,
-    "Professional airport transfers with clear fixed pricing. Book online 24/7. Airport pickup and drop-off, flight monitoring, and secure online booking across Northern Ireland and beyond.",
+    HOMEPAGE_SEO_DESCRIPTION,
+    "Pre-book fixed-price Belfast airport transfers with flight monitoring, up to 60 minutes’ complimentary waiting on airport pickups, and secure online booking.",
   );
+  assert.doesNotMatch(HOMEPAGE_SEO_DESCRIPTION, /60 minutes’ waiting(?! on airport pickups)/);
+  assert.match(HOMEPAGE_SEO_DESCRIPTION, /up to 60 minutes’ complimentary waiting on airport pickups/);
+  assert.equal(SITE.name, "My Airport Taxi NI");
+  assert.doesNotMatch(SITE_PUBLIC_SEO_DESCRIPTION, /£\d/);
   assert.match(hero, /Belfast Airport Transfers/);
   assert.doesNotMatch(hero, /Pre-Booked 24\/7/);
-  console.log("OK  homepage title, meta description and H1 unchanged");
+  console.log("OK  homepage title, meta description and H1");
 }
 
 console.log("\n=== Canonical host ===");
@@ -85,15 +95,36 @@ console.log("\n=== Sitemap ===");
 {
   assert.doesNotMatch(sitemapScript, /path: "\/unsubscribe\/"/);
   assert.doesNotMatch(sitemap, /\/unsubscribe\//);
-  assert.doesNotMatch(sitemap, /<lastmod>/);
-  assert.doesNotMatch(sitemapScript, /<lastmod>/);
+  assert.match(sitemapScript, /gitLastModifiedDate/);
+  assert.match(sitemapScript, /is-shallow-repository/);
+  assert.match(sitemapScript, /if \(SHALLOW_GIT\) return null/);
+  assert.doesNotMatch(sitemapScript, /priority/);
+  assert.doesNotMatch(sitemapScript, /changefreq/);
+  assert.doesNotMatch(sitemap, /<priority>/);
+  assert.doesNotMatch(sitemap, /<changefreq>/);
+  assert.doesNotMatch(sitemapScript, /new Date\(\)\.toISOString\(\)/);
+  assert.doesNotMatch(sitemapScript, /lastmod.*new Date|new Date\(\).*lastmod/);
+  const pagesWorkflow = read(".github/workflows/deploy-pages.yml");
+  const previewWorkflow = read(".github/workflows/deploy-pages-preview.yml");
+  assert.match(pagesWorkflow, /fetch-depth:\s*0/);
+  assert.match(previewWorkflow, /fetch-depth:\s*0/);
+  const locationPages = read("src/lib/location-pages.ts");
+  assert.doesNotMatch(locationPages, /60 minutes’ waiting/);
+  assert.doesNotMatch(
+    locationPages,
+    /metaDescription: `Pre-book a fixed-price taxi from \$\{town\.name\} to \$\{airport\.name\}[^`]*waiting/,
+  );
+  assert.match(
+    locationPages,
+    /from Northern Ireland to Dublin Airport \(DUB\), with flight monitoring, included tolls and secure online booking/,
+  );
   assert.doesNotMatch(sitemap, /\/manage-booking\//);
   assert.doesNotMatch(sitemap, /\/quote\//);
   assert.doesNotMatch(sitemap, /\/book\//);
   assert.doesNotMatch(sitemap, /\/pay\//);
   assert.match(unsubscribe, /index:\s*false/);
   assert.match(unsubscribe, /follow:\s*true/);
-  console.log("OK  /unsubscribe/ omitted and noindex,follow · no invented lastmod");
+  console.log("OK  /unsubscribe/ omitted and noindex,follow · git lastmod only");
 }
 
 console.log("\n=== Expired event / 404 ===");

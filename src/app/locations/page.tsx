@@ -17,7 +17,7 @@ import { notFound } from "next/navigation";
 export const metadata: Metadata = {
   title: `Locations We Cover | ${SITE.name}`,
   description:
-    "Areas served across Northern Ireland, Republic of Ireland destinations, airports, and popular long-distance transfer routes. Examples for guidance — get a live quote for your exact journey.",
+    "Areas we cover across Northern Ireland, Ireland destinations, airports and long-distance routes. Examples only — get a live quote for your journey.",
   alternates: {
     canonical: "/locations/",
   },

@@ -41,6 +41,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/manage-booking/"
+                  prefetch={false}
                   className="text-sm text-white/50 transition-colors hover:text-emerald"
                 >
                   Manage Your Booking
@@ -122,10 +123,10 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 sm:flex-row">
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-white/70">
             &copy; {year} {SITE.name}. All rights reserved.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-white/40">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-white/70">
             <Link
               href="/contact/"
               className="rounded-[0.55rem] border border-white/18 px-3 py-1.5 text-xs font-semibold text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
@@ -145,7 +146,7 @@ export default function Footer() {
               Privacy Policy
             </Link>
             <span className="hidden text-white/20 sm:inline">|</span>
-            <span className="text-white/30">Fully licensed &amp; insured private hire operator</span>
+            <span className="text-white/65">Fully licensed &amp; insured private hire operator</span>
           </div>
         </div>
       </div>

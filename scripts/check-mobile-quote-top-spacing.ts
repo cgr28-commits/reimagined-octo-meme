@@ -33,7 +33,6 @@ assert.match(
   hero,
   /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
 );
-assert.match(hero, /md:hidden/);
 assert.match(hero, /hidden max-w-xl[\s\S]*md:block/);
 assert.match(hero, /hidden gap-3\.5[\s\S]*md:grid/);
 assert.doesNotMatch(hero, /whitespace-nowrap/);

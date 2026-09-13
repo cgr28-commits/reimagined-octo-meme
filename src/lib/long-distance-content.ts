@@ -3,8 +3,10 @@
 export const LONG_DISTANCE_PAGE_TITLE =
   "Private Long-Distance Transfers from Anywhere in Greater Belfast";
 
-export const LONG_DISTANCE_SEO_TITLE =
-  "Long-Distance Transfers from Greater Belfast Across Ireland";
+export const LONG_DISTANCE_SEO_TITLE = "Long-Distance Transfers";
+
+export const LONG_DISTANCE_SEO_DESCRIPTION =
+  "Pre-book door-to-door private transfers from Greater Belfast across Ireland, including airport pickups from BFS, BHD, LDY and Dublin. Book securely online.";
 
 export const LONG_DISTANCE_INTRO =
   "Pre-booked, door-to-door private transfers from anywhere in Greater Belfast to destinations throughout Northern Ireland and the Republic of Ireland. Airport pickups are also available from Belfast International Airport, Belfast City Airport, City of Derry Airport and Dublin Airport.";

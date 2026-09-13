@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -12,6 +13,43 @@ const BELFAST_CITY_AIRPORT_ENABLED = true;
 /** Europe/London civil date YYYY-MM-DD — matches shared/uk-time todayLondonDate. */
 function todayLondonDate(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(now);
+}
+
+/** True when git history is incomplete — lastmod would be a shallow-tip date, not the real one. */
+function isShallowRepository() {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
+  } catch {
+    return true;
+  }
+}
+
+const SHALLOW_GIT = isShallowRepository();
+if (SHALLOW_GIT) {
+  console.warn(
+    "Sitemap lastmod omitted: git history is shallow or unavailable. Use fetch-depth: 0 in sitemap builds.",
+  );
+}
+
+/** Real git commit date for a source file. Never invents a build-time lastmod. */
+function gitLastModifiedDate(relPath) {
+  if (SHALLOW_GIT) return null;
+  try {
+    const iso = execFileSync("git", ["log", "-1", "--format=%cI", "--", relPath], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    if (!iso) return null;
+    const day = iso.slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
+  } catch {
+    return null;
+  }
 }
 
 const emergeConfig = JSON.parse(
@@ -45,59 +83,54 @@ const transferSlugs = townSlugs.flatMap((town) =>
 );
 
 const pages = [
-  { path: "/", changefreq: "monthly", priority: "1.0" },
-  { path: "/airports/", changefreq: "monthly", priority: "0.9" },
+  { path: "/", source: "src/app/page.tsx" },
+  { path: "/airports/", source: "src/app/airports/page.tsx" },
   ...airportSlugs.map((slug) => ({
     path: `/airports/${slug}/`,
-    changefreq: "monthly",
-    priority: "0.85",
+    source: "src/lib/location-pages.ts",
   })),
   ...transferSlugs.map((slug) => ({
     path: `/transfers/${slug}/`,
-    changefreq: "monthly",
-    priority: "0.8",
+    source: "src/lib/location-pages.ts",
   })),
   ...(DAY_TRIPS_ENABLED
     ? [
-        { path: "/tours/", changefreq: "monthly", priority: "0.9" },
+        { path: "/tours/", source: "src/app/tours/page.tsx" },
         ...tourSlugs.map((slug) => ({
           path: `/tours/${slug}/`,
-          changefreq: "monthly",
-          priority: "0.8",
+          source: "src/lib/tours.ts",
         })),
       ]
     : []),
   ...(ADDRESS_TO_ADDRESS_ENABLED
     ? [
-        { path: "/long-distance-transfers/", changefreq: "monthly", priority: "0.85" },
-        { path: "/locations/", changefreq: "monthly", priority: "0.8" },
+        { path: "/long-distance-transfers/", source: "src/lib/long-distance-content.ts" },
+        { path: "/locations/", source: "src/lib/locations-content.ts" },
       ]
     : []),
-  { path: "/terms/", changefreq: "yearly", priority: "0.5" },
-  { path: "/cancellation/", changefreq: "yearly", priority: "0.5" },
-  { path: "/privacy/", changefreq: "yearly", priority: "0.5" },
-  { path: "/contact/", changefreq: "monthly", priority: "0.8" },
+  { path: "/terms/", source: "src/lib/terms.ts" },
+  { path: "/cancellation/", source: "shared/cancellation-policy.ts" },
+  { path: "/privacy/", source: "src/lib/privacy.ts" },
+  { path: "/contact/", source: "src/app/contact/page.tsx" },
   // /unsubscribe/ is noindex — omit from the sitemap.
   // /book/, /quote/, /manage-booking/, /pay/, /owner/, /driver/ omitted.
   // EMERGE landing stays at the same URL year to year — omit from sitemap when expired (no 301).
   ...(EMERGE_CAMPAIGN_ACTIVE
-    ? [{ path: emergeConfig.path, changefreq: "weekly", priority: "0.85" }]
+    ? [{ path: emergeConfig.path, source: "src/lib/emerge-belfast-config.json" }]
     : []),
   // /driver/, /owner/, /track/demo/, /test-booking/ intentionally omitted from public sitemap
   ...(TRACKING_DEMO_ENABLED
-    ? [{ path: "/track/demo/", changefreq: "monthly", priority: "0.4" }]
+    ? [{ path: "/track/demo/", source: "src/app/track/demo/page.tsx" }]
     : []),
 ];
 
-// Omit lastmod: a build date is not a genuine content-modification date.
 const urls = pages
-  .map(
-    (page) => `  <url>
-    <loc>${SITE_URL}${page.path}</loc>
-    <changefreq>${page.changefreq}</changefreq>
-    <priority>${page.priority}</priority>
-  </url>`,
-  )
+  .map((page) => {
+    const lastmod = gitLastModifiedDate(page.source);
+    return `  <url>
+    <loc>${SITE_URL}${page.path}</loc>${lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : ""}
+  </url>`;
+  })
   .join("\n");
 
 const xml = `<?xml version="1.0" encoding="UTF-8"?>

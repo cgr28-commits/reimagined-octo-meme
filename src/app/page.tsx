@@ -12,12 +12,19 @@ import VehiclesSection from "@/components/VehiclesSection";
 import ChauffeurSection from "@/components/ChauffeurSection";
 import EmergePromoCard from "@/components/EmergePromoCard";
 import Footer from "@/components/Footer";
-import { SERVICE_FLAGS } from "@/lib/data";
+import { HOMEPAGE_SEO_DESCRIPTION, HOMEPAGE_SEO_TITLE, SERVICE_FLAGS } from "@/lib/data";
 import { getFaqPageJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
+  title: HOMEPAGE_SEO_TITLE,
+  description: HOMEPAGE_SEO_DESCRIPTION,
   alternates: {
     canonical: "/",
+  },
+  openGraph: {
+    title: HOMEPAGE_SEO_TITLE,
+    description: HOMEPAGE_SEO_DESCRIPTION,
+    url: "/",
   },
 };
 

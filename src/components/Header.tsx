@@ -122,6 +122,7 @@ export default function Header() {
                   <hr className="my-3 border-white/10" />
                   <SiteNavLink
                     href="/manage-booking/"
+                    prefetch={false}
                     onNavigate={closeMenu}
                     className="btn-secondary flex min-h-11 w-full items-center justify-center px-5 text-sm"
                   >
@@ -187,7 +188,7 @@ export default function Header() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6 md:py-3 lg:grid lg:max-w-[1400px] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:px-10 xl:gap-x-8 xl:px-12">
           <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
             {/* Mobile keeps compact h-12; md+ restores pre-8d153752 desktop logo scale */}
-            <Logo className="quote-header-logo h-12 sm:h-16 md:h-20" />
+            <Logo className="quote-header-logo h-12 sm:h-16 md:h-20" priority />
           </Link>
 
           <nav
@@ -209,6 +210,7 @@ export default function Header() {
           <div className="hidden items-center gap-3 md:flex lg:justify-self-end">
             <SiteNavLink
               href="/manage-booking/"
+              prefetch={false}
               className="whitespace-nowrap rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-emerald/50 hover:text-emerald lg:px-5"
             >
               Manage Your Booking
