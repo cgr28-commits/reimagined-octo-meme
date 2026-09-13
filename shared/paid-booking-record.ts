@@ -200,6 +200,15 @@ export type PaidBookingRecord = {
   googleAdsPaidConversionClickIdType?: "gclid" | "gbraid" | "wbraid";
   trackingToken?: string;
   calendarEventIds: string[];
+  /** Per-leg Google Calendar event ids — never cancel the other id. */
+  calendarEventIdsByLeg?: {
+    outbound?: string;
+    return?: string;
+  };
+  /** Legs cancelled individually while the shared checkout remains. */
+  cancelledLegs?: Array<"outbound" | "return">;
+  outboundCancelledAt?: string;
+  returnCancelledAt?: string;
   /**
    * Combined compatibility status.
    * Prefer operationalStatus + paymentStatus when present.

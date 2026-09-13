@@ -322,6 +322,19 @@ export type SaveTrackingJobOptions = {
   indexPaymentReference?: boolean;
 };
 
+export async function attachCalendarEventIdToTrackingJob(
+  store: KVNamespace,
+  token: string,
+  calendarEventId: string,
+): Promise<boolean> {
+  const eventId = calendarEventId.trim();
+  const job = await getTrackingJob(store, token);
+  if (!job || !eventId) return false;
+  if (job.calendarEventId?.trim() === eventId) return true;
+  await saveTrackingJob(store, { ...job, calendarEventId: eventId });
+  return true;
+}
+
 export async function saveTrackingJob(
   store: KVNamespace,
   record: TrackingJobRecord,
@@ -667,11 +680,32 @@ export async function markTrackingJobRefunded(
   store: KVNamespace,
   token: string,
   refundAmountLabel?: string,
-  options?: { closeJourney?: boolean },
+  options?: { closeJourney?: boolean; onlyThisJob?: boolean },
 ): Promise<boolean> {
   const record = await getTrackingJob(store, token);
   if (!record) {
     return false;
+  }
+
+  if (options?.onlyThisJob) {
+    const refundedAt = new Date().toISOString();
+    const closeJourney = options.closeJourney === true;
+    const updated: TrackingJobRecord = {
+      ...record,
+      sharingActive: false,
+      customerSharingActive: false,
+      refundedAt,
+      ...(refundAmountLabel?.trim() ? { refundAmountLabel: refundAmountLabel.trim() } : {}),
+      ...(closeJourney
+        ? {
+            journeyStatus: "completed" as const,
+            journeyCompletedAt: record.journeyCompletedAt?.trim() || refundedAt,
+            trackingStoppedAt: record.trackingStoppedAt?.trim() || refundedAt,
+          }
+        : {}),
+    };
+    await saveTrackingJob(store, updated);
+    return true;
   }
 
   const paymentRef = record.paymentReference?.trim() || "";

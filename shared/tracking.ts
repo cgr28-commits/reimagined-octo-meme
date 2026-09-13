@@ -45,6 +45,8 @@ export type TrackingJobRecord = {
   journeyLeg?: "outbound" | "return";
   /** Token of the paired leg (outbound ↔ return) */
   pairedToken?: string;
+  /** Google Calendar event for THIS leg only — never the paired leg. */
+  calendarEventId?: string;
   driverLat?: number;
   driverLng?: number;
   driverUpdatedAt?: string;

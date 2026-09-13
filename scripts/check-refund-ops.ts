@@ -182,6 +182,7 @@ assert.match(read("src/lib/terms.ts"), /Vehicle Cleaning and Damage/);
 assert.match(read("src/components/OwnerJourneyEvidenceClient.tsx"), /Export dispute evidence/);
 assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /Partial refund only/);
 assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /confirmOwnerKey/);
+assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /cancel_leg_partial_refund/);
 console.log("OK  retained features");
 
 // Silence unused import if tree-shaken differently

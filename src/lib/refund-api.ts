@@ -38,6 +38,9 @@ export type RefundIssueResponse = {
   operationalStatus?: string;
   paymentStatus?: string;
   cancelBooking?: boolean;
+  cancelledLeg?: "outbound" | "return";
+  cancelledTrackingToken?: string;
+  cancelledCalendarEventId?: string;
   sumUpRefunded?: boolean;
   calendarCancelled?: number;
   /** @deprecated Use calendarCancelled */
@@ -86,6 +89,7 @@ export async function processBookingRefundOrCancel(input: {
   trackingToken?: string;
   actionKind: RefundActionKind;
   cancelBooking: boolean;
+  cancelLeg?: "outbound" | "return";
   refundFullRemaining: boolean;
   amount?: number | null;
   reasonCategory: RefundReasonCategory;
@@ -107,6 +111,7 @@ export async function processBookingRefundOrCancel(input: {
       confirmOwnerKey: input.confirmOwnerKey.trim(),
       actionKind: input.actionKind,
       cancelBooking: input.cancelBooking,
+      ...(input.cancelLeg ? { cancelLeg: input.cancelLeg } : {}),
       refundFullRemaining: input.refundFullRemaining,
       amount: input.amount ?? null,
       reasonCategory: input.reasonCategory,

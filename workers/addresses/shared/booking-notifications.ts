@@ -1090,6 +1090,7 @@ export type CancellationEmailDetails = RefundConfirmationDetails & {
   customerFacingReason?: string;
   bookingRemainsActive: boolean;
   actionKind: string;
+  cancelledLeg?: "outbound" | "return";
   /** Internal only — never included in customer-facing emails. */
   ownerNotes?: string;
   auditId?: string;
@@ -1176,6 +1177,7 @@ export function buildOwnerRefundAuditEmailBody(
       : "") +
     `\nBOOKING STATUS\n${"=".repeat(40)}\n` +
     `Cancel booking: ${details.cancelBooking ? "Yes" : "No"}\n` +
+    (details.cancelledLeg ? `Cancelled leg: ${details.cancelledLeg}\n` : "") +
     `Booking remains active: ${details.bookingRemainsActive ? "Yes" : "No"}\n` +
     `Booking status: ${customerBookingStatusLabel(details)}\n` +
     (details.operationalStatusAfter
@@ -1220,11 +1222,34 @@ function buildCustomerRefundIntentCopy(details: CancellationEmailDetails): {
   const bookingStatus = customerBookingStatusLabel(details);
   const remainsActive = details.bookingRemainsActive && !details.cancelBooking;
   const amount = details.refundAmount;
+  const cancelledLegLabel =
+    details.cancelledLeg === "return"
+      ? "return journey"
+      : details.cancelledLeg === "outbound"
+        ? "outbound journey"
+        : null;
+  const remainingLegLabel =
+    details.cancelledLeg === "return"
+      ? "outbound journey"
+      : details.cancelledLeg === "outbound"
+        ? "return journey"
+        : null;
 
   let intentText: string;
   let intentHtml: string;
 
-  if (details.cancelBooking && details.refundAmountValue > 0) {
+  if (cancelledLegLabel && remainingLegLabel) {
+    intentText =
+      (details.refundAmountValue > 0
+        ? `A refund of ${amount} has been issued to your original payment method for the cancelled ${cancelledLegLabel}. ${REFUND_FUNDS_TIMING}\n\n`
+        : `Your ${cancelledLegLabel} has been cancelled.\n\n`) +
+      `Your ${remainingLegLabel} remains booked as scheduled.`;
+    intentHtml =
+      (details.refundAmountValue > 0
+        ? `<p>A refund of <strong>${escapeHtml(amount)}</strong> has been issued to your original payment method for the cancelled ${escapeHtml(cancelledLegLabel)}. ${escapeHtml(REFUND_FUNDS_TIMING)}</p>`
+        : `<p>Your ${escapeHtml(cancelledLegLabel)} has been cancelled.</p>`) +
+      `<p><strong>Your ${escapeHtml(remainingLegLabel)} remains booked as scheduled.</strong></p>`;
+  } else if (details.cancelBooking && details.refundAmountValue > 0) {
     intentText =
       `Your booking has been cancelled. A refund of ${amount} has been issued to your original payment method. ${REFUND_FUNDS_TIMING}`;
     intentHtml =

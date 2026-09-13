@@ -872,7 +872,13 @@ async function logPaidBookingCalendar(
   booking: PaidBookingDetails,
   amountPaid: string,
   paymentReference: string,
-): Promise<{ logged: boolean; events?: number; eventIds?: string[]; error?: string }> {
+): Promise<{
+  logged: boolean;
+  events?: number;
+  eventIds?: string[];
+  calendarEventIdsByLeg?: { outbound?: string; return?: string };
+  error?: string;
+}> {
   if (!calendarConfigured(env)) {
     return { logged: false, eventIds: [] };
   }
@@ -909,7 +915,15 @@ async function logPaidBookingCalendar(
         paid: true,
       },
     });
-    return { logged: true, events: eventIds.length, eventIds };
+    return {
+      logged: true,
+      events: eventIds.length,
+      eventIds,
+      calendarEventIdsByLeg: {
+        ...(eventIds[0] ? { outbound: eventIds[0] } : {}),
+        ...(booking.returnJourney && eventIds[1] ? { return: eventIds[1] } : {}),
+      },
+    };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown calendar error";
     console.error("Google Calendar paid booking log failed", detail);

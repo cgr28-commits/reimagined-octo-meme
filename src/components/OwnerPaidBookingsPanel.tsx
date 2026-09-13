@@ -1127,7 +1127,12 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     const thisLegCompleted = displayLeg === "return" ? returnDone : outboundDone;
     const thisLegActive =
       !thisLegCompleted && (displayLeg === "outbound" ? !outboundDone : outboundDone && !returnDone);
-    const isClosed = isOperationallyCancelled(booking.status);
+    const thisLegCancelled =
+      (booking.cancelledLegs ?? []).includes(displayLeg) ||
+      (displayLeg === "outbound"
+        ? Boolean(booking.outboundCancelledAt?.trim())
+        : Boolean(booking.returnCancelledAt?.trim()));
+    const isClosed = isOperationallyCancelled(booking.status) || thisLegCancelled;
     const isCompleted = thisLegCompleted;
     const isActiveCard = !options?.compact && !isClosed && thisLegActive;
     const paymentStatusKey = String(booking.status || "");

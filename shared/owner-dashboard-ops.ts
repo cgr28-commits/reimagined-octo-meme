@@ -56,6 +56,9 @@ export type OwnerOpsPaidBooking = {
   additionalPayments?: OwnerOpsAdditionalPayment[];
   quoteSnapshot?: Record<string, unknown> | null;
   cancelledAt?: string;
+  cancelledLegs?: Array<"outbound" | "return">;
+  outboundCancelledAt?: string;
+  returnCancelledAt?: string;
   expressDropOffFee?: number | null;
   airportAccessChargeGbp?: number | null;
   outboundAirportAccessChargeGbp?: number | null;
@@ -515,8 +518,16 @@ export function expandOwnerPaidBookingLegs(booking: OwnerOpsPaidBooking): OwnerO
     returnAirportAccessChargeGbp: booking.returnAirportAccessChargeGbp,
     airportFixedCostsGbp: booking.airportFixedCostsGbp,
   });
-  const cancelled = paidBookingIsCancelled(booking);
+  const bookingCancelled = paidBookingIsCancelled(booking);
   const awaitingPayment = isOwnerOpsAwaitingPaymentStatus(booking.status);
+  const outboundLegCancelled =
+    bookingCancelled ||
+    Boolean(booking.outboundCancelledAt?.trim()) ||
+    (booking.cancelledLegs ?? []).includes("outbound");
+  const returnLegCancelled =
+    bookingCancelled ||
+    Boolean(booking.returnCancelledAt?.trim()) ||
+    (booking.cancelledLegs ?? []).includes("return");
   const outboundCompleted =
     isOwnerOpsCompletedStatus(booking.outboundJourneyStatus) ||
     (!booking.returnJourney &&
@@ -544,7 +555,7 @@ export function expandOwnerPaidBookingLegs(booking: OwnerOpsPaidBooking): OwnerO
     fareKnown: fares.splitKnown,
     bookingAmountGbp: Number(booking.amount) || parsePounds(booking.amountPaid),
     awaitingPayment,
-    cancelled,
+    cancelled: outboundLegCancelled,
     completed: outboundCompleted,
   };
 
@@ -570,7 +581,7 @@ export function expandOwnerPaidBookingLegs(booking: OwnerOpsPaidBooking): OwnerO
       fareKnown: fares.splitKnown,
       bookingAmountGbp: outbound.bookingAmountGbp,
       awaitingPayment,
-      cancelled,
+      cancelled: returnLegCancelled,
       completed: returnCompleted,
     },
   ];

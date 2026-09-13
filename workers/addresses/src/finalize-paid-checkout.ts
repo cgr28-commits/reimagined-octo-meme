@@ -33,6 +33,10 @@ import { markQuickQuotePaid } from "./quick-quote-store";
 import { markSavedQuoteBookedFromPayment } from "./saved-quote-handlers";
 import { getSavedQuoteByToken } from "./saved-quote-store";
 import { persistableLegFares } from "../shared/owner-dashboard-ops";
+import {
+  attachCalendarEventIdToTrackingJob,
+  findTrackingJobsByPaymentReference,
+} from "./tracking-store";
 import { getReturnOfferByTokenHash, markReturnOfferRedeemed } from "./return-offer-store";
 import { hashReturnOfferToken } from "../shared/return-offer";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
@@ -130,7 +134,13 @@ export type LogPaidBookingCalendarFn = (
   booking: PaidBookingDetails,
   amountPaid: string,
   paymentReference: string,
-) => Promise<{ logged: boolean; events?: number; eventIds?: string[]; error?: string }>;
+) => Promise<{
+  logged: boolean;
+  events?: number;
+  eventIds?: string[];
+  calendarEventIdsByLeg?: { outbound?: string; return?: string };
+  error?: string;
+}>;
 
 /**
  * Verify SumUp payment and send customer + owner confirmation emails.
@@ -400,6 +410,7 @@ export async function finalizePaidCheckout(input: {
         paymentReference,
         trackingToken: tracking.token,
         calendarEventIds: calendar.eventIds ?? [],
+        calendarEventIdsByLeg: calendar.calendarEventIdsByLeg,
         ...(pendingForAudit?.personalQuoteCode
           ? { personalQuoteCode: pendingForAudit.personalQuoteCode }
           : {}),
@@ -411,6 +422,26 @@ export async function finalizePaidCheckout(input: {
           : {}),
       })
     : undefined;
+
+  if (
+    paidBookingStoreConfigured(env.TRACKING_STORE) &&
+    paymentReference &&
+    calendar.calendarEventIdsByLeg
+  ) {
+    const jobs = await findTrackingJobsByPaymentReference(
+      env.TRACKING_STORE,
+      paymentReference,
+    );
+    for (const job of jobs) {
+      const eventId =
+        job.journeyLeg === "return"
+          ? calendar.calendarEventIdsByLeg.return
+          : calendar.calendarEventIdsByLeg.outbound;
+      if (eventId) {
+        await attachCalendarEventIdToTrackingJob(env.TRACKING_STORE, job.token, eventId);
+      }
+    }
+  }
 
   const receipt = {
     ...receiptBase,

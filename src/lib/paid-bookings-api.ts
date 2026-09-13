@@ -92,6 +92,12 @@ export type OwnerPaidBookingSummary = Pick<
   nextUnfinishedLegTime?: string;
   outboundFare?: number | null;
   returnFare?: number | null;
+  outboundTrackingToken?: string;
+  returnTrackingToken?: string;
+  cancelledLegs?: Array<"outbound" | "return">;
+  outboundCancelledAt?: string;
+  returnCancelledAt?: string;
+  calendarEventIdsByLeg?: { outbound?: string; return?: string };
   outboundCompletedAt?: string;
   returnCompletedAt?: string;
   additionalPayments?: PaidBookingRecord["additionalPayments"];

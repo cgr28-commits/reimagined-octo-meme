@@ -42,6 +42,17 @@ import {
 } from "../shared/refund-ops";
 import { shouldMarkTrackingJobsOnRefundSideEffects } from "../shared/refund-tracking-side-effects";
 import {
+  assertLegCancelTarget,
+  bothReturnLegsCancelled,
+  calendarEventMatchesTrackingJob,
+  isJourneyCancelLeg,
+  nextCancelledLegs,
+  otherCalendarEventIds,
+  pickStoredCalendarEventIdForLeg,
+  tokensSafeForSingleLegCancel,
+  type JourneyCancelLeg,
+} from "../shared/refund-leg-cancel";
+import {
   getSumUpCheckout,
   getSuccessfulTransactionId,
   getSumUpTransactionDetails,
@@ -50,6 +61,7 @@ import {
 } from "../shared/sumup-checkout";
 import {
   cancelCalendarEvents,
+  getCalendarEvent,
   getGoogleAccessToken,
   parseServiceAccountJson,
 } from "./google-calendar";
@@ -215,6 +227,9 @@ export type RefundIssueResult = {
   operationalStatus?: string;
   paymentStatus?: string;
   cancelBooking?: boolean;
+  cancelledLeg?: JourneyCancelLeg;
+  cancelledTrackingToken?: string;
+  cancelledCalendarEventId?: string;
   sumUpRefunded?: boolean;
   calendarCancelled?: number;
   /** @deprecated Use calendarCancelled */
@@ -239,6 +254,8 @@ export type ProcessRefundOptions = {
   idempotencyKey?: string;
   confirmOwnerKey: string;
   actionKind?: RefundActionKind;
+  /** One tracking/calendar leg only — never implies cancelBooking. */
+  cancelLeg?: JourneyCancelLeg;
   /** Owner portal vs refund-test vs legacy — stored on audit only. */
   initiatedBy?: "owner" | "owner_refund_test" | "legacy";
   /**
@@ -577,8 +594,10 @@ export async function processBookingRefundOrCancel(
   }
 
   const actionKind: RefundActionKind = options.actionKind ?? "cancel_full_refund";
-  const cancelBooking = options.cancelBooking ?? true;
-  const refundFullRemaining = options.refundFullRemaining ?? true;
+  const isLegCancel = actionKind === "cancel_leg_partial_refund";
+  const cancelBooking = isLegCancel ? false : (options.cancelBooking ?? true);
+  const refundFullRemaining = isLegCancel ? false : (options.refundFullRemaining ?? true);
+  const cancelLeg = isJourneyCancelLeg(options.cancelLeg) ? options.cancelLeg : undefined;
   const reasonCategory = options.reasonCategory ?? "other";
   if (!REFUND_REASON_CATEGORIES.includes(reasonCategory)) {
     return { ok: false, paymentReference, error: "Invalid refund reason category." };
@@ -603,6 +622,43 @@ export async function processBookingRefundOrCancel(
     };
   }
   initialTripDateRef.value = record.tripDate;
+
+  if (isLegCancel) {
+    if (!cancelLeg) {
+      return {
+        ok: false,
+        paymentReference,
+        error: "cancel_leg_partial_refund requires cancelLeg=outbound or return.",
+      };
+    }
+    const requestedToken = options.trackingToken?.trim() || "";
+    if (!requestedToken) {
+      return {
+        ok: false,
+        paymentReference,
+        error: "cancel_leg_partial_refund requires the specific tracking job token for that leg.",
+      };
+    }
+    const targetJob = trackingStoreConfigured(env.TRACKING_STORE)
+      ? await getTrackingJob(env.TRACKING_STORE, requestedToken)
+      : null;
+    const asserted = assertLegCancelTarget({
+      job: targetJob,
+      requestedToken,
+      cancelLeg,
+      booking: {
+        paymentReference,
+        returnJourney: record.returnJourney,
+        tripDate: record.tripDate,
+        returnDate: record.returnDate,
+        pickupLabel: record.pickupLabel,
+        dropoffLabel: record.dropoffLabel,
+      },
+    });
+    if (!asserted.ok) {
+      return { ok: false, paymentReference, error: asserted.error };
+    }
+  }
 
   // External / manual SumUp reconciliation — never touch payment APIs.
   if (actionKind === "mark_external_refund") {
@@ -675,7 +731,7 @@ export async function processBookingRefundOrCancel(
   }
   const requestedRefundAmount = resolved.refundAmount;
 
-  if (requestedRefundAmount <= 0 && !cancelBooking) {
+  if (requestedRefundAmount <= 0 && !cancelBooking && !isLegCancel) {
     return {
       ok: false,
       paymentReference,
@@ -726,6 +782,8 @@ export async function processBookingRefundOrCancel(
     fullOrPartial:
       refundAmount <= 0 ? "none" : remaining - refundAmount <= 0.001 ? "full" : "partial",
     cancelBooking,
+    cancelledLeg: isLegCancel ? cancelLeg : undefined,
+    cancelledTrackingToken: isLegCancel ? options.trackingToken?.trim() : undefined,
     reasonCategory,
     reasonLabel: REFUND_REASON_LABELS[reasonCategory] ?? reasonCategory,
     ownerNotes: notes,
@@ -876,6 +934,8 @@ export async function processBookingRefundOrCancel(
         refundAmount: 0,
         refundAmountLabel: "£0",
         cancelBooking,
+        cancelLeg,
+        trackingToken: options.trackingToken,
         reasonCategory,
         customerFacingReason: options.customerFacingReason?.trim() || undefined,
         actionKind,
@@ -1033,6 +1093,8 @@ export async function processBookingRefundOrCancel(
       refundAmount: actualMoved,
       refundAmountLabel,
       cancelBooking,
+      cancelLeg,
+      trackingToken: options.trackingToken,
       reasonCategory,
       customerFacingReason: options.customerFacingReason?.trim() || undefined,
       actionKind,
@@ -1082,6 +1144,8 @@ export async function processBookingRefundOrCancel(
     refundAmount: 0,
     refundAmountLabel: "£0",
     cancelBooking,
+    cancelLeg,
+    trackingToken: options.trackingToken,
     reasonCategory,
     customerFacingReason: options.customerFacingReason?.trim() || undefined,
     actionKind,
@@ -1358,6 +1422,8 @@ async function finishUncertainRefund(
       refundAmount: prior.refundAmount,
       refundAmountLabel: formatPaidAmount(prior.refundAmount, prior.currency),
       cancelBooking,
+      cancelLeg: prior.cancelledLeg,
+      trackingToken: prior.cancelledTrackingToken,
       reasonCategory: prior.reasonCategory ?? ctx.reasonCategory,
       customerFacingReason: prior.customerFacingReason ?? ctx.customerFacingReason,
       actionKind: prior.actionKind ?? ctx.actionKind,
@@ -1385,6 +1451,213 @@ async function finishUncertainRefund(
   };
 }
 
+async function applyOneLegCancelSideEffects(
+  env: RefundEnv,
+  input: {
+    record: PaidBookingRecord;
+    paymentReference: string;
+    cancelLeg: JourneyCancelLeg;
+    trackingToken: string;
+    refundAmountLabel: string;
+    refundAmount: number;
+    warnings: string[];
+  },
+): Promise<{
+  record: PaidBookingRecord;
+  calendarCancelled: number;
+  trackingMarkedRefunded: boolean;
+  cancelledLeg: JourneyCancelLeg;
+  cancelledTrackingToken: string;
+  cancelledCalendarEventId?: string;
+}> {
+  const warnings = input.warnings;
+  let record = input.record;
+  const requestedToken = input.trackingToken.trim();
+  const job = trackingStoreConfigured(env.TRACKING_STORE)
+    ? await getTrackingJob(env.TRACKING_STORE, requestedToken)
+    : null;
+  const asserted = assertLegCancelTarget({
+    job,
+    requestedToken,
+    cancelLeg: input.cancelLeg,
+    booking: {
+      paymentReference: input.paymentReference,
+      returnJourney: record.returnJourney,
+      tripDate: record.tripDate,
+      returnDate: record.returnDate,
+      pickupLabel: record.pickupLabel,
+      dropoffLabel: record.dropoffLabel,
+    },
+  });
+  if (!asserted.ok) {
+    throw new Error(asserted.error);
+  }
+
+  const pairedToken = asserted.job.pairedToken?.trim();
+  const markGuard = tokensSafeForSingleLegCancel({
+    cancelledToken: asserted.job.token,
+    markedTokens: [asserted.job.token],
+    pairedToken,
+  });
+  if (!markGuard.ok) {
+    throw new Error(markGuard.error);
+  }
+
+  let trackingMarkedRefunded = false;
+  if (trackingStoreConfigured(env.TRACKING_STORE)) {
+    trackingMarkedRefunded = await markTrackingJobRefunded(
+      env.TRACKING_STORE,
+      asserted.job.token,
+      input.refundAmount > 0 ? input.refundAmountLabel : "Cancelled",
+      { onlyThisJob: true },
+    );
+    if (pairedToken) {
+      const paired = await getTrackingJob(env.TRACKING_STORE, pairedToken);
+      if (paired?.refundedAt && paired.refundedAt !== asserted.job.refundedAt) {
+        // Paired job already had its own earlier refund — leave it.
+      } else if (paired && !paired.refundedAt) {
+        // Confirm we did not stamp the other leg.
+      }
+      if (paired && !asserted.job.refundedAt && paired.token === asserted.job.token) {
+        throw new Error("Refusing to continue — paired token collided with the cancelled job.");
+      }
+    }
+  }
+
+  let calendarCancelled = 0;
+  let cancelledCalendarEventId: string | undefined;
+  const storedPick = pickStoredCalendarEventIdForLeg({
+    cancelLeg: input.cancelLeg,
+    jobCalendarEventId: asserted.job.calendarEventId,
+    calendarEventIdsByLeg: record.calendarEventIdsByLeg,
+  });
+  let eventId = storedPick.eventId;
+
+  if (
+    !eventId &&
+    calendarConfigured(env) &&
+    (record.calendarEventIds?.length ?? 0) > 0
+  ) {
+    try {
+      const serviceAccount = parseServiceAccountJson(
+        env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!,
+      );
+      const accessToken = await getGoogleAccessToken(serviceAccount);
+      const calendarId = env.GOOGLE_CALENDAR_ID!.trim();
+      const otherIds = new Set(
+        otherCalendarEventIds({
+          calendarEventIds: record.calendarEventIds,
+          calendarEventIdsByLeg: record.calendarEventIdsByLeg,
+        }),
+      );
+      for (const candidate of record.calendarEventIds) {
+        const id = candidate.trim();
+        if (!id) continue;
+        const event = await getCalendarEvent(accessToken, calendarId, id);
+        if (
+          event &&
+          calendarEventMatchesTrackingJob(event.start?.dateTime, asserted.job)
+        ) {
+          eventId = id;
+          break;
+        }
+        void otherIds;
+      }
+    } catch (error) {
+      warnings.push(
+        error instanceof Error
+          ? `Calendar lookup for one-leg cancel failed: ${error.message}`
+          : "Calendar lookup for one-leg cancel failed",
+      );
+    }
+  }
+
+  const forbidden = otherCalendarEventIds({
+    calendarEventIds: record.calendarEventIds,
+    calendarEventIdsByLeg: record.calendarEventIdsByLeg,
+    keepEventId: eventId,
+  });
+  if (eventId && forbidden.includes(eventId)) {
+    eventId = null;
+    warnings.push("Refused to cancel a calendar event that is also mapped to the other leg.");
+  }
+
+  if (eventId && calendarConfigured(env)) {
+    try {
+      const serviceAccount = parseServiceAccountJson(
+        env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!,
+      );
+      const accessToken = await getGoogleAccessToken(serviceAccount);
+      const refundNote =
+        `${input.refundAmount > 0 ? `Refunded: ${input.refundAmountLabel}` : "Cancelled without refund"}\n` +
+        `Reference: ${input.paymentReference}\n` +
+        `Cancelled leg: ${input.cancelLeg}\n` +
+        `Tracking token: ${asserted.job.token}\n` +
+        `Cancelled at: ${new Date().toISOString()}`;
+      const result = await cancelCalendarEvents(
+        accessToken,
+        env.GOOGLE_CALENDAR_ID!.trim(),
+        [eventId],
+        { refundNote },
+      );
+      calendarCancelled = result.cancelled;
+      cancelledCalendarEventId = eventId;
+      if (result.errors.length > 0) {
+        warnings.push(...result.errors.map((message) => `Calendar: ${message}`));
+      }
+    } catch (error) {
+      warnings.push(
+        error instanceof Error ? error.message : "Calendar cancellation failed",
+      );
+    }
+  } else if (calendarConfigured(env) && (record.calendarEventIds?.length ?? 0) > 0) {
+    warnings.push(
+      `Could not uniquely identify the ${input.cancelLeg} calendar event — no calendar event was cancelled.`,
+    );
+  }
+
+  const now = new Date().toISOString();
+  const cancelledLegs = nextCancelledLegs(record.cancelledLegs, input.cancelLeg);
+  const wholeBookingNowCancelled = bothReturnLegsCancelled(
+    cancelledLegs,
+    record.returnJourney,
+  );
+  const statuses = nextBookingStatuses({
+    cancelBooking: wholeBookingNowCancelled,
+    previouslyCancelled: resolveOperationalStatus(record) === "cancelled",
+    amountPaid: amountPaidOf(record),
+    amountRefundedAfter: amountRefundedOf(record),
+  });
+
+  record = {
+    ...record,
+    cancelledLegs,
+    calendarEventIdsByLeg: {
+      ...(record.calendarEventIdsByLeg ?? {}),
+      ...(asserted.job.calendarEventId
+        ? { [input.cancelLeg]: asserted.job.calendarEventId }
+        : eventId
+          ? { [input.cancelLeg]: eventId }
+          : {}),
+    },
+    ...(input.cancelLeg === "outbound" ? { outboundCancelledAt: record.outboundCancelledAt ?? now } : {}),
+    ...(input.cancelLeg === "return" ? { returnCancelledAt: record.returnCancelledAt ?? now } : {}),
+    operationalStatus: statuses.operationalStatus,
+    paymentStatus: statuses.paymentStatus,
+    status: statuses.status,
+    ...(wholeBookingNowCancelled ? { cancelledAt: record.cancelledAt ?? now } : {}),
+  };
+
+  return {
+    record,
+    calendarCancelled,
+    trackingMarkedRefunded,
+    cancelledLeg: input.cancelLeg,
+    cancelledTrackingToken: asserted.job.token,
+    cancelledCalendarEventId,
+  };
+}
+
 async function completeRefundSideEffects(
   env: RefundEnv,
   input: {
@@ -1394,6 +1667,8 @@ async function completeRefundSideEffects(
     refundAmount: number;
     refundAmountLabel: string;
     cancelBooking: boolean;
+    cancelLeg?: JourneyCancelLeg;
+    trackingToken?: string;
     reasonCategory: RefundReasonCategory;
     customerFacingReason?: string;
     actionKind: RefundActionKind;
@@ -1409,8 +1684,39 @@ async function completeRefundSideEffects(
 
   let calendarCancelled = 0;
   let trackingMarkedRefunded = false;
+  let cancelledLeg: JourneyCancelLeg | undefined;
+  let cancelledTrackingToken: string | undefined;
+  let cancelledCalendarEventId: string | undefined;
 
-  if (input.cancelBooking) {
+  if (
+    input.actionKind === "cancel_leg_partial_refund" &&
+    isJourneyCancelLeg(input.cancelLeg) &&
+    input.trackingToken?.trim()
+  ) {
+    try {
+      const oneLeg = await applyOneLegCancelSideEffects(env, {
+        record,
+        paymentReference: input.paymentReference,
+        cancelLeg: input.cancelLeg,
+        trackingToken: input.trackingToken.trim(),
+        refundAmountLabel: input.refundAmountLabel,
+        refundAmount: input.refundAmount,
+        warnings,
+      });
+      record = oneLeg.record;
+      calendarCancelled = oneLeg.calendarCancelled;
+      trackingMarkedRefunded = oneLeg.trackingMarkedRefunded;
+      cancelledLeg = oneLeg.cancelledLeg;
+      cancelledTrackingToken = oneLeg.cancelledTrackingToken;
+      cancelledCalendarEventId = oneLeg.cancelledCalendarEventId;
+    } catch (error) {
+      warnings.push(
+        error instanceof Error
+          ? `One-leg cancel side effects failed after money movement: ${error.message}`
+          : "One-leg cancel side effects failed after money movement",
+      );
+    }
+  } else if (input.cancelBooking) {
     if (calendarConfigured(env) && record.calendarEventIds.length > 0) {
       try {
         const serviceAccount = parseServiceAccountJson(
@@ -1514,6 +1820,7 @@ async function completeRefundSideEffects(
       customerFacingReason: input.customerFacingReason,
       bookingRemainsActive: operationalAfter === "confirmed",
       actionKind: input.actionKind,
+      cancelledLeg,
       ownerNotes: (record.refundHistory ?? []).find((e) => e.id === input.auditId)?.ownerNotes,
       auditId: input.auditId,
       sumUpTransactionId: record.transactionId,
@@ -1599,6 +1906,9 @@ async function completeRefundSideEffects(
     bookingStatusAfter: record.status,
     sumUpTransactionId: record.transactionId,
     sumUpReference: record.transactionId,
+    cancelledLeg,
+    cancelledTrackingToken,
+    cancelledCalendarEventId,
   });
   await persistRecord(env, record, input.initialTripDate);
 
@@ -1612,6 +1922,9 @@ async function completeRefundSideEffects(
     remainingBalance: remainingAfter,
     status: record.status,
     cancelBooking: input.cancelBooking,
+    cancelledLeg,
+    cancelledTrackingToken,
+    cancelledCalendarEventId,
     sumUpRefunded: input.sumUpRefunded ?? false,
     calendarCancelled,
     calendarDeleted: calendarCancelled,
@@ -1720,6 +2033,10 @@ export async function savePaidBookingRecordFromConfirm(input: {
   paymentReference: string;
   trackingToken?: string;
   calendarEventIds: string[];
+  calendarEventIdsByLeg?: {
+    outbound?: string;
+    return?: string;
+  };
   personalQuoteCode?: string;
   standardWebsiteAmount?: number;
   personalQuotedAmount?: number;
@@ -1833,6 +2150,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
     attribution: input.booking.attribution,
     trackingToken: input.trackingToken,
     calendarEventIds: input.calendarEventIds,
+    ...(input.calendarEventIdsByLeg ? { calendarEventIdsByLeg: input.calendarEventIdsByLeg } : {}),
     status: "confirmed",
     operationalStatus: "confirmed",
     paymentStatus: "paid",
@@ -1929,8 +2247,30 @@ export async function handleRefundRequest(
   const trackingToken = String(body.trackingToken ?? "").trim() || undefined;
   const actionKind = String(body.actionKind ?? "cancel_full_refund") as RefundActionKind;
   const refundTestRequested = body.refundTest === true;
+  const cancelLeg = isJourneyCancelLeg(body.cancelLeg) ? body.cancelLeg : undefined;
+  if (actionKind === "cancel_leg_partial_refund") {
+    if (!cancelLeg) {
+      return json(
+        { error: "cancel_leg_partial_refund requires cancelLeg=outbound or return." },
+        400,
+        origin,
+      );
+    }
+    if (!trackingToken) {
+      return json(
+        {
+          error:
+            "cancel_leg_partial_refund requires the specific tracking job token for that leg.",
+        },
+        400,
+        origin,
+      );
+    }
+  }
   const cancelBooking =
-    typeof body.cancelBooking === "boolean"
+    actionKind === "cancel_leg_partial_refund"
+      ? false
+      : typeof body.cancelBooking === "boolean"
       ? body.cancelBooking
       : actionKind === "cancel_full_refund" ||
         actionKind === "cancel_partial_refund" ||
@@ -1938,7 +2278,9 @@ export async function handleRefundRequest(
         actionKind === "full_refund_and_cancel" ||
         actionKind === "mark_external_refund";
   const refundFullRemaining =
-    typeof body.refundFullRemaining === "boolean"
+    actionKind === "cancel_leg_partial_refund"
+      ? false
+      : typeof body.refundFullRemaining === "boolean"
       ? body.refundFullRemaining
       : actionKind === "cancel_full_refund" ||
         actionKind === "full_refund_keep_active" ||
@@ -2000,6 +2342,7 @@ export async function handleRefundRequest(
     idempotencyKey: String(body.idempotencyKey ?? ""),
     confirmOwnerKey,
     actionKind,
+    cancelLeg,
     initiatedBy: refundTestRequested ? "owner_refund_test" : "owner",
     confirmOwnerKeyVerified: true,
   };
