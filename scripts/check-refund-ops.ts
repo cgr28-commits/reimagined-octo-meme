@@ -131,8 +131,10 @@ assert.match(admin, /finalConfirm/);
 assert.match(admin, /confirmOwnerKey: confirmOwnerKey\.trim\(\)/);
 
 const driver = read("src/app/driver/DriverPageClient.tsx");
-assert.match(driver, /confirmOwnerKey: refundConfirmKey/);
-assert.match(driver, /refundFinalConfirm/);
+assert.match(driver, /OwnerCancelRefundModal/);
+assert.match(driver, /fetchOwnerPaidBooking/);
+assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /confirmOwnerKey/);
+assert.match(read("src/components/OwnerCancelRefundModal.tsx"), /finalConfirm/);
 
 console.log("OK  every UI/HTTP refund path requires fresh confirmOwnerKey");
 

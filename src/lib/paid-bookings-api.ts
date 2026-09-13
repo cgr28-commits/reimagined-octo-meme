@@ -165,6 +165,7 @@ export async function fetchOwnerPaidBookings(
     mode?: "upcoming" | "recent";
     pastDays?: number;
     futureDays?: number;
+    paymentReference?: string;
   },
 ): Promise<OwnerPaidBookingSummary[]> {
   const days = options?.days ?? 30;
@@ -179,6 +180,9 @@ export async function fetchOwnerPaidBookings(
     pastDays: String(pastDays),
     futureDays: String(futureDays),
   });
+  if (options?.paymentReference?.trim()) {
+    params.set("paymentReference", options.paymentReference.trim());
+  }
   const response = await fetch(`${WORKER_BASE}/paid-bookings?${params.toString()}`, {
     headers: {
       Accept: "application/json",
@@ -192,6 +196,17 @@ export async function fetchOwnerPaidBookings(
   return Array.isArray(payload.bookings)
     ? (payload.bookings as OwnerPaidBookingSummary[])
     : [];
+}
+
+/** Load one paid booking by SumUp / invoice reference for owner refund UI. */
+export async function fetchOwnerPaidBooking(
+  ownerKey: string,
+  paymentReference: string,
+): Promise<OwnerPaidBookingSummary | null> {
+  const ref = paymentReference.trim();
+  if (!ref) return null;
+  const bookings = await fetchOwnerPaidBookings(ownerKey, { paymentReference: ref, limit: 1 });
+  return bookings.find((booking) => booking.paymentReference.trim() === ref) ?? bookings[0] ?? null;
 }
 
 export async function fetchOwnerPendingCheckouts(

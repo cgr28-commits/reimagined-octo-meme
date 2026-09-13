@@ -179,25 +179,33 @@ export async function handlePaidBookingsListRequest(
 
   const store = env.TRACKING_STORE;
   const url = new URL(request.url);
+  const paymentReferenceFilter = url.searchParams.get("paymentReference")?.trim() ?? "";
   const mode = String(url.searchParams.get("mode") || "upcoming").trim().toLowerCase();
   const days = Number(url.searchParams.get("days") || "30");
   const limit = Number(url.searchParams.get("limit") || "100");
   const pastDays = Number(url.searchParams.get("pastDays") || "2");
   const futureDays = Number(url.searchParams.get("futureDays") || "90");
 
-  // Upcoming Jobs default: journey/pickup date (not payment-created date).
-  let bookings =
-    mode === "recent" || mode === "created"
-      ? await listRecentPaidBookings(store, { days, limit })
-      : await listUpcomingPaidBookings(store, {
-          pastDays: Number.isFinite(pastDays) ? pastDays : 2,
-          futureDays: Number.isFinite(futureDays) ? futureDays : 90,
-          limit: Number.isFinite(limit) ? limit : 100,
-        });
+  let bookings: PaidBookingRecord[] = [];
+  if (paymentReferenceFilter) {
+    const record = await getPaidBookingRecord(store, paymentReferenceFilter);
+    if (record && !isOwnerOperationalTestBooking(record)) {
+      bookings = [record];
+    }
+  } else if (mode === "recent" || mode === "created") {
+    // Upcoming Jobs default: journey/pickup date (not payment-created date).
+    bookings = await listRecentPaidBookings(store, { days, limit });
+  } else {
+    bookings = await listUpcomingPaidBookings(store, {
+      pastDays: Number.isFinite(pastDays) ? pastDays : 2,
+      futureDays: Number.isFinite(futureDays) ? futureDays : 90,
+      limit: Number.isFinite(limit) ? limit : 100,
+    });
+  }
 
   // Also merge tracking jobs in the journey-date window. Covers finalize gaps where a
   // live tracking job exists for e.g. 19 Aug but the paid-booking KV row is missing.
-  if (mode !== "recent" && mode !== "created") {
+  if (!paymentReferenceFilter && mode !== "recent" && mode !== "created") {
     const today = londonYmdNow();
     const past = Number.isFinite(pastDays) ? pastDays : 2;
     const future = Number.isFinite(futureDays) ? futureDays : 90;

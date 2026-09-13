@@ -1480,6 +1480,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               onClose={() => setRefundConfirmRef(null)}
               onSuccess={(result) => void handleCancelRefundSuccess(result, booking)}
               onError={(message) => setError(message)}
+              openedFromLeg={displayLeg}
             />
           ) : null}
 

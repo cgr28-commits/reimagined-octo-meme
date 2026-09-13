@@ -21,6 +21,7 @@ import {
 } from "@/lib/refund-api";
 import type { OwnerPaidBookingSummary } from "@/lib/paid-bookings-api";
 import { remainingBalanceFillValue } from "@/lib/refund-test-ui";
+import { explainOwnerLegFareAllocation } from "../../shared/owner-dashboard-ops";
 
 export type CancelRefundActionChoice =
   | "cancel_full_refund"
@@ -37,6 +38,8 @@ type OwnerCancelRefundModalProps = {
   onClose: () => void;
   onSuccess: (result: RefundIssueResponse, booking: OwnerPaidBookingSummary) => void;
   onError: (message: string) => void;
+  /** Which tracking/job card opened this form — display only; money is still the checkout. */
+  openedFromLeg?: "outbound" | "return" | null;
 };
 
 const ACTION_OPTIONS: {
@@ -91,15 +94,41 @@ export default function OwnerCancelRefundModal({
   onClose,
   onSuccess,
   onError,
+  openedFromLeg = null,
 }: OwnerCancelRefundModalProps) {
   const paid = amountPaidNumber(booking);
   const refunded = amountRefundedNumber(booking);
   const remaining = remainingRefundableBalance(paid, refunded);
   const within24h = isWithin24HoursOfPickup(booking.tripDate, booking.tripTime);
   const fullyRefunded = remaining < 0.01;
+  const isReturnCheckout = Boolean(booking.returnJourney);
+  const legSplit = isReturnCheckout
+    ? explainOwnerLegFareAllocation({
+        returnJourney: booking.returnJourney,
+        amount: booking.amount,
+        amountPaid: booking.amountPaid,
+        originalAmount: booking.originalAmount,
+        additionalPayments: booking.additionalPayments,
+        outboundFare: booking.outboundFare,
+        returnFare: booking.returnFare,
+        quoteSnapshot: booking.quoteSnapshot ?? null,
+        expressDropOffFee: booking.expressDropOffFee,
+        outboundAirportAccessChargeGbp: booking.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: booking.returnAirportAccessChargeGbp,
+      })
+    : null;
+  const validatedSplit =
+    legSplit &&
+    (legSplit.source === "stored" || legSplit.source === "snapshot") &&
+    (legSplit.outboundAllocatedFareGbp ?? 0) > 0 &&
+    (legSplit.returnAllocatedFareGbp ?? 0) > 0;
 
   const [actionChoice, setActionChoice] = useState<CancelRefundActionChoice>(
-    fullyRefunded ? "cancel_no_refund" : "cancel_full_refund",
+    fullyRefunded
+      ? "cancel_no_refund"
+      : isReturnCheckout
+        ? "partial_refund_keep_active"
+        : "cancel_full_refund",
   );
   const [fullRefundAlsoCancel, setFullRefundAlsoCancel] = useState(true);
   const [partialAmount, setPartialAmount] = useState("");
@@ -322,6 +351,41 @@ export default function OwnerCancelRefundModal({
         <p className="font-semibold">Remaining refundable: £{remaining.toFixed(2)}</p>
       </div>
 
+      {isReturnCheckout ? (
+        <div
+          className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50"
+          data-refund-return-scope="true"
+        >
+          <p className="font-semibold">This is one checkout for outbound and return.</p>
+          <p className="mt-1 text-amber-50/85">
+            {openedFromLeg === "return"
+              ? "You opened this from the return journey card. The paid total on that card is the combined booking, not the return fare alone."
+              : openedFromLeg === "outbound"
+                ? "You opened this from the outbound journey card. The paid total on that card is the combined booking, not the outbound fare alone."
+                : "The paid total is the combined outbound + return checkout, not one leg."}
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-amber-50/80">
+            <li>Full remaining refund + cancel closes both journeys and refunds £{remaining.toFixed(2)} (if still refundable).</li>
+            <li>A typed partial with “booking stays active” can refund part of the checkout and leave outbound and return booked.</li>
+            <li>A typed partial + cancel still cancels the whole booking, including the other leg.</li>
+            <li>There is no automatic “refund this leg only” amount from the job card.</li>
+          </ul>
+          {validatedSplit ? (
+            <p className="mt-2 text-xs text-amber-50/80">
+              Recorded split (guidance only): outbound £
+              {legSplit.outboundAllocatedFareGbp!.toFixed(2)} · return £
+              {legSplit.returnAllocatedFareGbp!.toFixed(2)}. Use a button below only to fill the
+              amount field — it does not submit a refund.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-amber-50/80">
+              No validated outbound/return split is stored. Do not assume a 50/50 split on a
+              discounted return. Type the amount you intend to refund.
+            </p>
+          )}
+        </div>
+      ) : null}
+
       {fullyRefunded ? (
         <p
           className="mt-3 rounded-xl border border-emerald/40 bg-emerald/15 px-3 py-2 text-sm font-bold uppercase tracking-wide text-emerald"
@@ -406,15 +470,47 @@ export default function OwnerCancelRefundModal({
               data-refund-amount-input="true"
             />
           </label>
-          <button
-            type="button"
-            disabled={busy || remaining < 0.01}
-            onClick={() => setPartialAmount(remainingBalanceFillValue(remaining))}
-            className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
-            data-refund-fill-remaining="true"
-          >
-            Use remaining balance (£{remaining.toFixed(2)})
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || remaining < 0.01}
+              onClick={() => setPartialAmount(remainingBalanceFillValue(remaining))}
+              className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+              data-refund-fill-remaining="true"
+            >
+              Use remaining balance (£{remaining.toFixed(2)})
+            </button>
+            {validatedSplit ? (
+              <>
+                <button
+                  type="button"
+                  disabled={busy || (legSplit.outboundAllocatedFareGbp ?? 0) > remaining + 0.001}
+                  onClick={() =>
+                    setPartialAmount(
+                      remainingBalanceFillValue(legSplit.outboundAllocatedFareGbp ?? 0),
+                    )
+                  }
+                  className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+                  data-refund-fill-outbound="true"
+                >
+                  Fill outbound £{legSplit.outboundAllocatedFareGbp!.toFixed(2)}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || (legSplit.returnAllocatedFareGbp ?? 0) > remaining + 0.001}
+                  onClick={() =>
+                    setPartialAmount(
+                      remainingBalanceFillValue(legSplit.returnAllocatedFareGbp ?? 0),
+                    )
+                  }
+                  className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+                  data-refund-fill-return="true"
+                >
+                  Fill return £{legSplit.returnAllocatedFareGbp!.toFixed(2)}
+                </button>
+              </>
+            ) : null}
+          </div>
           <p className="text-[11px] text-red-100/50">
             Fills the Amount field only — does not submit a refund.
           </p>
