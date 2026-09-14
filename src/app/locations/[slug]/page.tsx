@@ -136,7 +136,7 @@ export default async function TownHubPage({ params }: Props) {
                     <p className="mt-1 text-base font-bold text-white">
                       {page.town.name} to {route.airport.name}
                     </p>
-                    <p className="mt-1 text-sm text-white/55">{route.airport.shortName} route page</p>
+                    <p className="mt-1 text-sm text-white/55">{route.airport.shortName} transfers</p>
                   </Link>
                 </li>
               ))}

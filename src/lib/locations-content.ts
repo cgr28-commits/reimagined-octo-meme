@@ -13,12 +13,14 @@ export const LOCATIONS_ROI_EXAMPLES = [
   "Sligo",
 ] as const;
 
-export const LOCATIONS_AIRPORT_EXAMPLES = [
-  "Belfast International (BFS)",
-  "George Best Belfast City (BHD)",
-  "Dublin Airport (DUB)",
-  "City of Derry (LDY)",
+export const LOCATIONS_AIRPORT_LINKS = [
+  { label: "Belfast International (BFS)", href: "/airports/belfast-international/" },
+  { label: "George Best Belfast City (BHD)", href: "/airports/belfast-city/" },
+  { label: "Dublin Airport (DUB)", href: "/airports/dublin/" },
+  { label: "City of Derry (LDY)", href: "/airports/city-of-derry/" },
 ] as const;
+
+export const LOCATIONS_AIRPORT_EXAMPLES = LOCATIONS_AIRPORT_LINKS.map((item) => item.label);
 
 export const LOCATIONS_LONG_DISTANCE_EXAMPLES = [
   "Belfast to Dublin city",

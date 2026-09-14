@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import QuoteNavLink from "@/components/QuoteNavLink";
 import SectionHeading from "@/components/SectionHeading";
 import { AREAS, SERVICE_FLAGS, SITE } from "@/lib/data";
 import {
-  LOCATIONS_AIRPORT_EXAMPLES,
+  LOCATIONS_AIRPORT_LINKS,
   LOCATIONS_LONG_DISTANCE_EXAMPLES,
   LOCATIONS_PAGE_INTRO,
   LOCATIONS_ROI_EXAMPLES,
   LOCATIONS_ROUTE_NOTE,
 } from "@/lib/locations-content";
 import { getTownHubByAreaName, TOWN_HUB_PAGES } from "@/lib/location-pages";
+import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -29,22 +31,28 @@ export default function LocationsPage() {
     notFound();
   }
 
+  const breadcrumb = getBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Locations", path: "/locations/" },
+  ]);
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
+      />
       <Header />
       <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy" />
           <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
-            <Link
-              href="/"
-              className="inline-flex min-h-11 items-center gap-2 text-sm text-white/50 transition-colors hover:text-emerald"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to home
-            </Link>
+            <LandingBreadcrumbs
+              items={[
+                { name: "Home", href: "/" },
+                { name: "Locations" },
+              ]}
+            />
 
             <div className="mt-8 max-w-3xl">
               <SectionHeading
@@ -135,12 +143,14 @@ export default function LocationsPage() {
                   for Greater Belfast connections:
                 </p>
                 <ul className="mt-4 space-y-2">
-                  {LOCATIONS_AIRPORT_EXAMPLES.map((airport) => (
-                    <li
-                      key={airport}
-                      className="rounded-xl border border-white/10 bg-navy-light/50 px-4 py-2.5 text-sm text-white/80"
-                    >
-                      {airport}
+                  {LOCATIONS_AIRPORT_LINKS.map((airport) => (
+                    <li key={airport.href}>
+                      <Link
+                        href={airport.href}
+                        className="block rounded-xl border border-white/10 bg-navy-light/50 px-4 py-2.5 text-sm text-white/80 transition-colors hover:border-emerald/40 hover:text-emerald"
+                      >
+                        {airport.label}
+                      </Link>
                     </li>
                   ))}
                 </ul>

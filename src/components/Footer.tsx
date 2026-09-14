@@ -2,7 +2,7 @@ import Link from "next/link";
 import Logo from "./Logo";
 import FooterContact from "./FooterContact";
 import { NAV_LINKS, SERVICE_FLAGS, SITE, SITE_PUBLIC_SEO_BLURB } from "@/lib/data";
-import { AIRPORT_PAGES } from "@/lib/location-pages";
+import { AIRPORT_PAGES, TOWN_HUB_PAGES } from "@/lib/location-pages";
 import { TOURS } from "@/lib/tours";
 
 export default function Footer() {
@@ -121,6 +121,34 @@ export default function Footer() {
             </p>
           </div>
         </div>
+
+        {SERVICE_FLAGS.addressToAddress ? (
+          <div className="mt-12 border-t border-white/10 pt-8">
+            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+              Airport taxi towns
+            </h3>
+            <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+              {TOWN_HUB_PAGES.map((hub) => (
+                <li key={hub.slug}>
+                  <Link
+                    href={`/locations/${hub.slug}/`}
+                    className="text-sm text-white/50 transition-colors hover:text-emerald"
+                  >
+                    {hub.town.name}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link
+                  href="/locations/"
+                  className="text-sm text-white/50 transition-colors hover:text-emerald"
+                >
+                  All locations
+                </Link>
+              </li>
+            </ul>
+          </div>
+        ) : null}
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 sm:flex-row">
           <p className="text-xs text-white/70">
