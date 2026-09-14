@@ -3,7 +3,8 @@
  * Run: node scripts/optimize-hero-images.mjs
  *
  * Airport pages read optimized/{heroBase}-{width}.* from AIRPORT_HERO in
- * src/lib/airport-hero.ts. Keep this source→output list in sync with that file.
+ * src/lib/airport-hero.ts. Town hubs read DESTINATION_HERO in
+ * src/lib/destination-hero.ts. Keep this source→output list in sync with both.
  */
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -24,6 +25,15 @@ const sources = [
   { source: "belfast-city", output: "belfast-city" },
   { source: "dublin", output: "dublin-airport" },
   { source: "derry-airport", output: "derry-airport" },
+  { source: "carrickfergus-castle", output: "carrickfergus-castle" },
+  { source: "bangor-harbour", output: "bangor-harbour" },
+  { source: "holywood-old-pier", output: "holywood-old-pier" },
+  { source: "antrim-castle-gardens", output: "antrim-castle-gardens" },
+  { source: "larne-chaine-monument", output: "larne-chaine-monument" },
+  { source: "newry-town-hall", output: "newry-town-hall" },
+  { source: "lisburn-linen-centre", output: "lisburn-linen-centre" },
+  { source: "ballyclare-town-hall", output: "ballyclare-town-hall" },
+  { source: "newtownabbey-belfast-lough", output: "newtownabbey-belfast-lough" },
 ];
 
 mkdirSync(outDir, { recursive: true });

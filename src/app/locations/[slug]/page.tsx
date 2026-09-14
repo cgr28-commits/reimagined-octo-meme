@@ -38,14 +38,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: `${page.title} | ${SITE.name}`,
       description: page.metaDescription,
       url: `/locations/${page.slug}/`,
-      images: [
-        {
-          url: withBasePath(`/images/hero/optimized/${page.heroBase}-1920.jpg`),
-          width: 1920,
-          height: 1080,
-          alt: page.heroAlt,
-        },
-      ],
+      images: page.heroBase
+        ? [
+            {
+              url: withBasePath(`/images/hero/optimized/${page.heroBase}-1920.jpg`),
+              width: 1920,
+              height: 1080,
+              alt: page.heroAlt ?? page.town.name,
+            },
+          ]
+        : [
+            {
+              url: withBasePath("/og-image-square.png"),
+              width: 1024,
+              height: 1024,
+              alt: SITE.name,
+            },
+          ],
     },
   };
 }
@@ -82,7 +91,14 @@ export default async function TownHubPage({ params }: Props) {
       <Header />
       <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
         <div className="relative h-56 overflow-hidden sm:h-72">
-          <OptimizedHeroPicture baseName={page.heroBase} alt={page.heroAlt} priority />
+          {page.heroBase && page.heroAlt ? (
+            <OptimizedHeroPicture baseName={page.heroBase} alt={page.heroAlt} priority />
+          ) : (
+            <div
+              className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy"
+              aria-hidden
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/55 to-navy/25" />
         </div>
 

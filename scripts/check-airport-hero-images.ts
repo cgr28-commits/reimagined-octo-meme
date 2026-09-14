@@ -82,6 +82,7 @@ console.log("\n=== Town hubs keep local imagery ===");
   const airportBases = new Set(CODES.map((code) => AIRPORT_HERO[code].heroBase));
   assert.equal(TOWN_HUB_PAGES.length, 10);
   for (const hub of TOWN_HUB_PAGES) {
+    if (!hub.heroBase) continue;
     assert.ok(
       !airportBases.has(hub.heroBase),
       `${hub.slug} should not use an airport terminal photograph`,

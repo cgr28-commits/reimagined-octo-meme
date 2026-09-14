@@ -1,5 +1,6 @@
 import { ALL_AIRPORTS, SERVICE_FLAGS } from "@/lib/data";
 import { getAirportHero } from "@/lib/airport-hero";
+import { getDestinationHero } from "@/lib/destination-hero";
 import { TOWN_HUB_CONTENT } from "@/lib/town-hubs-content";
 import { TRANSFER_ROUTE_CONTENT } from "@/lib/transfer-routes-content";
 
@@ -58,8 +59,8 @@ export type TownHubPage = {
   areas: string[];
   localNotes: string[];
   airportCodes: AirportPage["code"][];
-  heroBase: string;
-  heroAlt: string;
+  heroBase?: string;
+  heroAlt?: string;
 };
 
 const AIRPORT_PAGES_ALL: AirportPage[] = [
@@ -294,8 +295,8 @@ export function getTownHubPages(): TownHubPage[] {
     airportCodes: hub.airportCodes.filter((code) =>
       AIRPORT_PAGES.some((airport) => airport.code === code),
     ),
-    heroBase: hub.heroBase,
-    heroAlt: hub.heroAlt,
+    heroBase: getDestinationHero(hub.townSlug)?.heroBase,
+    heroAlt: getDestinationHero(hub.townSlug)?.alt,
   }));
 }
 
