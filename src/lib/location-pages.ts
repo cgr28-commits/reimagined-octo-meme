@@ -1,4 +1,5 @@
 import { ALL_AIRPORTS, SERVICE_FLAGS } from "@/lib/data";
+import { getAirportHero } from "@/lib/airport-hero";
 import { TOWN_HUB_CONTENT } from "@/lib/town-hubs-content";
 import { TRANSFER_ROUTE_CONTENT } from "@/lib/transfer-routes-content";
 
@@ -85,8 +86,8 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 30 minutes from Belfast city centre in normal traffic",
-    heroBase: "antrim-coast",
-    heroAlt: "Coastal Northern Ireland near Belfast International Airport routes",
+    heroBase: getAirportHero("BFS").heroBase,
+    heroAlt: getAirportHero("BFS").alt,
     areaServed: [
       "Belfast",
       "Newtownabbey",
@@ -125,8 +126,8 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 15 minutes from Belfast city centre in normal traffic",
-    heroBase: "titanic-belfast",
-    heroAlt: "Titanic Belfast near George Best Belfast City Airport",
+    heroBase: getAirportHero("BHD").heroBase,
+    heroAlt: getAirportHero("BHD").alt,
     areaServed: [
       "Belfast",
       "Holywood",
@@ -165,8 +166,8 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 2 hours from Belfast in normal traffic",
-    heroBase: "dublin-beckett-bridge",
-    heroAlt: "Dublin Beckett Bridge for Dublin Airport transfer routes",
+    heroBase: getAirportHero("DUB").heroBase,
+    heroAlt: getAirportHero("DUB").alt,
     areaServed: [
       "Belfast",
       "Lisburn",
@@ -206,8 +207,8 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Belfast area ↔ Derry Airport (longer inter-city transfer)",
-    heroBase: "derry-guildhall",
-    heroAlt: "Derry Guildhall for City of Derry Airport transfer routes",
+    heroBase: getAirportHero("LDY").heroBase,
+    heroAlt: getAirportHero("LDY").alt,
     areaServed: ["Belfast", "Bangor", "Lisburn", "Newtownabbey", "City of Derry Airport"],
   },
 ];
