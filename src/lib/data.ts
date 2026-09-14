@@ -1,4 +1,5 @@
 import { FAQ_CANCEL_ANSWER } from "../../shared/cancellation-policy";
+import { AIRPORT_HERO } from "./airport-hero";
 import { withBasePath } from "./paths";
 
 export const SITE = {
@@ -171,14 +172,18 @@ export const FLIGHT_AIRPORTS = ALL_FLIGHT_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
 );
 
+function airportHeroSlideImage(code: keyof typeof AIRPORT_HERO) {
+  return withBasePath(`/images/hero/optimized/${AIRPORT_HERO[code].heroBase}-1920.jpg`);
+}
+
 export const ALL_HERO_SLIDES = [
   {
     airportCode: "BFS",
     title: "Belfast International Airport Transfers",
     subtitle:
       "Reliable transfers to and from Aldergrove (BFS) with flight tracking, meet & greet, and 60 minutes complimentary waiting time.",
-    image: withBasePath("/images/hero/antrim-coast.jpg"),
-    alt: "Giant's Causeway and the Antrim Coast under blue skies",
+    image: airportHeroSlideImage("BFS"),
+    alt: AIRPORT_HERO.BFS.alt,
     imageClass:
       "hero-photo max-md:scale-[0.88] max-md:origin-center max-md:[object-position:center_40%] md:[object-position:center_center]",
   },
@@ -187,8 +192,8 @@ export const ALL_HERO_SLIDES = [
     title: "Belfast International Airport Transfers",
     subtitle:
       "Reliable transfers to and from Aldergrove (BFS) with flight tracking, meet & greet, and 60 minutes complimentary waiting time.",
-    image: withBasePath("/images/hero/giants-causeway.jpg"),
-    alt: "Basalt columns at the Giant's Causeway, County Antrim",
+    image: airportHeroSlideImage("BFS"),
+    alt: AIRPORT_HERO.BFS.alt,
     imageClass:
       "hero-photo max-md:scale-[0.9] max-md:origin-center max-md:[object-position:center_35%] md:[object-position:center_45%]",
   },
@@ -197,8 +202,8 @@ export const ALL_HERO_SLIDES = [
     title: "Belfast City Airport Transfers",
     subtitle:
       "Quick transfers to George Best Belfast City Airport (BHD) — ideal for business trips and short-haul flights.",
-    image: withBasePath("/images/hero/titanic-belfast.jpg"),
-    alt: "Titanic Belfast museum in the Titanic Quarter",
+    image: airportHeroSlideImage("BHD"),
+    alt: AIRPORT_HERO.BHD.alt,
     imageClass:
       "hero-photo max-md:scale-[0.88] max-md:origin-center max-md:[object-position:center_35%] md:[object-position:center_center]",
   },
@@ -207,8 +212,8 @@ export const ALL_HERO_SLIDES = [
     title: "Belfast City Airport Transfers",
     subtitle:
       "Quick transfers to George Best Belfast City Airport (BHD) — ideal for business trips and short-haul flights.",
-    image: withBasePath("/images/hero/harland-wolff-cranes.jpg"),
-    alt: "Harland and Wolff Samson and Goliath cranes, Belfast",
+    image: airportHeroSlideImage("BHD"),
+    alt: AIRPORT_HERO.BHD.alt,
     imageClass:
       "hero-photo max-md:scale-[0.9] max-md:origin-center max-md:[object-position:center_45%] md:[object-position:center_center]",
   },
@@ -217,8 +222,8 @@ export const ALL_HERO_SLIDES = [
     title: "Dublin Airport Transfers",
     subtitle:
       "Comfortable cross-border transfers to Dublin Airport (DUB) with experienced drivers from Northern Ireland.",
-    image: withBasePath("/images/hero/dublin-beckett-bridge.jpg"),
-    alt: "Samuel Beckett Bridge over the River Liffey, Dublin",
+    image: airportHeroSlideImage("DUB"),
+    alt: AIRPORT_HERO.DUB.alt,
     imageClass:
       "hero-photo max-md:scale-[0.88] max-md:origin-center max-md:[object-position:center_30%] md:[object-position:center_35%]",
   },
@@ -227,8 +232,8 @@ export const ALL_HERO_SLIDES = [
     title: "Dublin Airport Transfers",
     subtitle:
       "Comfortable cross-border transfers to Dublin Airport (DUB) with experienced drivers from Northern Ireland.",
-    image: withBasePath("/images/hero/dublin-custom-house.jpg"),
-    alt: "The Custom House on the River Liffey, Dublin",
+    image: airportHeroSlideImage("DUB"),
+    alt: AIRPORT_HERO.DUB.alt,
     imageClass:
       "hero-photo max-md:scale-[0.9] max-md:origin-center max-md:[object-position:center_40%] md:[object-position:center_center]",
   },
@@ -237,8 +242,8 @@ export const ALL_HERO_SLIDES = [
     title: "City of Derry Airport Transfers",
     subtitle:
       "Transfers between City of Derry Airport (LDY) and the greater Belfast area — departures from Bangor and Belfast, or meet & greet at LDY arrivals.",
-    image: withBasePath("/images/hero/derry-guildhall.jpg"),
-    alt: "Derry Guildhall in Guildhall Square",
+    image: airportHeroSlideImage("LDY"),
+    alt: AIRPORT_HERO.LDY.alt,
     imageClass:
       "hero-photo max-md:scale-[0.88] max-md:origin-center max-md:[object-position:center_22%] md:[object-position:center_30%]",
   },
@@ -247,8 +252,8 @@ export const ALL_HERO_SLIDES = [
     title: "City of Derry Airport Transfers",
     subtitle:
       "Transfers between City of Derry Airport (LDY) and the greater Belfast area — departures from Bangor and Belfast, or meet & greet at LDY arrivals.",
-    image: withBasePath("/images/hero/derry-st-columbs.jpg"),
-    alt: "St Columb's Cathedral above the Derry city walls",
+    image: airportHeroSlideImage("LDY"),
+    alt: AIRPORT_HERO.LDY.alt,
     imageClass:
       "hero-photo max-md:scale-[0.9] max-md:origin-center max-md:[object-position:center_35%] md:[object-position:center_40%]",
   },
