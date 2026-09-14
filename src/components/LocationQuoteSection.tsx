@@ -3,14 +3,14 @@
 import QuoteCard from "@/components/QuoteCard";
 
 type Props = {
-  airportCode: string;
+  airportCode?: string;
   direction?: "to-airport" | "from-airport";
   addressHint?: string;
   heading?: string;
 };
 
 export default function LocationQuoteSection({
-  airportCode,
+  airportCode = "",
   direction = "to-airport",
   addressHint = "",
   heading = "Get your fixed quote",

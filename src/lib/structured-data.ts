@@ -134,11 +134,12 @@ export function getServiceAreaJsonLd(opts: {
   };
 }
 
-export function getFaqPageJsonLd() {
+export function getFaqPageJsonLd(faqs?: Array<{ question: string; answer: string }>) {
+  const items = faqs ?? getVisibleFaqs();
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: getVisibleFaqs().map((faq) => ({
+    mainEntity: items.map((faq) => ({
       "@type": "Question",
       name: faq.question,
       acceptedAnswer: {

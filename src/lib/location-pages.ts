@@ -1,4 +1,6 @@
 import { ALL_AIRPORTS, SERVICE_FLAGS } from "@/lib/data";
+import { TOWN_HUB_CONTENT } from "@/lib/town-hubs-content";
+import { TRANSFER_ROUTE_CONTENT } from "@/lib/transfer-routes-content";
 
 export type AirportPage = {
   slug: string;
@@ -28,12 +30,35 @@ export type TownArea = {
 
 export type TransferRoutePage = {
   slug: string;
+  legacySlugs?: string[];
   town: TownArea;
   airport: AirportPage;
+  hubSlug: string | null;
   title: string;
+  h1: string;
   metaDescription: string;
   intro: string;
+  journeyInfo?: string;
+  goingToAirport?: string;
+  fromAirport?: string;
+  whyBookIntro?: string;
+  localAreasText?: string;
+  faqs?: Array<{ question: string; answer: string }>;
   journeyNotes: string[];
+};
+
+export type TownHubPage = {
+  slug: string;
+  town: TownArea;
+  title: string;
+  h1: string;
+  metaDescription: string;
+  intro: string;
+  areas: string[];
+  localNotes: string[];
+  airportCodes: AirportPage["code"][];
+  heroBase: string;
+  heroAlt: string;
 };
 
 const AIRPORT_PAGES_ALL: AirportPage[] = [
@@ -62,7 +87,16 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     durationNote: "Around 30 minutes from Belfast city centre in normal traffic",
     heroBase: "antrim-coast",
     heroAlt: "Coastal Northern Ireland near Belfast International Airport routes",
-    areaServed: ["Belfast", "Newtownabbey", "Lisburn", "Bangor", "Antrim", "Northern Ireland"],
+    areaServed: [
+      "Belfast",
+      "Newtownabbey",
+      "Carrickfergus",
+      "Ballyclare",
+      "Lisburn",
+      "Bangor",
+      "Antrim",
+      "Northern Ireland",
+    ],
   },
   {
     slug: "belfast-city",
@@ -89,7 +123,16 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     durationNote: "Around 15 minutes from Belfast city centre in normal traffic",
     heroBase: "titanic-belfast",
     heroAlt: "Titanic Belfast near George Best Belfast City Airport",
-    areaServed: ["Belfast", "Holywood", "Bangor", "Newtownabbey", "Northern Ireland"],
+    areaServed: [
+      "Belfast",
+      "Holywood",
+      "Bangor",
+      "Newtownabbey",
+      "Carrickfergus",
+      "Ballyclare",
+      "Lisburn",
+      "Northern Ireland",
+    ],
   },
   {
     slug: "dublin",
@@ -116,7 +159,16 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     durationNote: "Around 2 hours from Belfast in normal traffic",
     heroBase: "dublin-beckett-bridge",
     heroAlt: "Dublin Beckett Bridge for Dublin Airport transfer routes",
-    areaServed: ["Belfast", "Lisburn", "Bangor", "Newtownabbey", "Northern Ireland", "Dublin Airport"],
+    areaServed: [
+      "Belfast",
+      "Lisburn",
+      "Bangor",
+      "Newtownabbey",
+      "Carrickfergus",
+      "Ballyclare",
+      "Northern Ireland",
+      "Dublin Airport",
+    ],
   },
   {
     slug: "city-of-derry",
@@ -147,35 +199,22 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
   },
 ];
 
+const BELFAST_TOWN: TownArea = {
+  slug: "belfast",
+  name: "Belfast",
+  addressHint: "Belfast",
+  blurb:
+    "From city-centre hotels and business districts to south Belfast and the Titanic Quarter, we cover Belfast pickups for every major airport.",
+};
+
 export const TOWN_AREAS: TownArea[] = [
-  {
-    slug: "belfast",
-    name: "Belfast",
-    addressHint: "Belfast",
-    blurb:
-      "From city-centre hotels and business districts to south Belfast and the Titanic Quarter, we cover Belfast pickups for every major airport.",
-  },
-  {
-    slug: "newtownabbey",
-    name: "Newtownabbey",
-    addressHint: "Newtownabbey",
-    blurb:
-      "Newtownabbey and the Shore Road corridor are well placed for Belfast International and Belfast City Airport runs, with straightforward access to the M2.",
-  },
-  {
-    slug: "lisburn",
-    name: "Lisburn",
-    addressHint: "Lisburn",
-    blurb:
-      "Lisburn and surrounding BT28/BT27 areas are a regular pickup zone for Aldergrove, City Airport, and Dublin Airport transfers.",
-  },
-  {
-    slug: "bangor",
-    name: "Bangor",
-    addressHint: "Bangor",
-    blurb:
-      "Bangor and North Down are among our most requested pickup areas — especially for early Belfast International flights and Dublin Airport runs.",
-  },
+  BELFAST_TOWN,
+  ...TOWN_HUB_CONTENT.map((hub) => ({
+    slug: hub.townSlug,
+    name: hub.name,
+    addressHint: hub.addressHint,
+    blurb: hub.blurb,
+  })),
 ];
 
 function airportPagesPublic(): AirportPage[] {
@@ -215,23 +254,124 @@ function buildRouteNotes(town: TownArea, airport: AirportPage): string[] {
   ];
 }
 
+function townBySlug(slug: string): TownArea | undefined {
+  return TOWN_AREAS.find((town) => town.slug === slug);
+}
+
+function airportByCode(code: AirportPage["code"]): AirportPage | undefined {
+  return AIRPORT_PAGES.find((airport) => airport.code === code);
+}
+
+export function getTownHubPages(): TownHubPage[] {
+  return TOWN_HUB_CONTENT.map((hub) => ({
+    slug: hub.hubSlug,
+    town: {
+      slug: hub.townSlug,
+      name: hub.name,
+      addressHint: hub.addressHint,
+      blurb: hub.blurb,
+    },
+    title: hub.title,
+    h1: hub.h1,
+    metaDescription: hub.metaDescription,
+    intro: hub.intro,
+    areas: hub.areas,
+    localNotes: hub.localNotes,
+    airportCodes: hub.airportCodes.filter((code) =>
+      AIRPORT_PAGES.some((airport) => airport.code === code),
+    ),
+    heroBase: hub.heroBase,
+    heroAlt: hub.heroAlt,
+  }));
+}
+
+export const TOWN_HUB_PAGES = getTownHubPages();
+
+function leftoverTransferSlug(town: TownArea, airport: AirportPage): string {
+  if (airport.code === "DUB" && town.slug === "belfast") {
+    return "belfast-to-dublin";
+  }
+  return `${town.slug}-to-${airport.slug}`;
+}
+
+function buildLegacyRoute(town: TownArea, airport: AirportPage): TransferRoutePage {
+  return {
+    slug: leftoverTransferSlug(town, airport),
+    town,
+    airport,
+    hubSlug: TOWN_HUB_PAGES.find((hub) => hub.town.slug === town.slug)?.slug ?? null,
+    title: `${town.name} to ${airport.shortName} Taxi`,
+    h1: `${town.name} to ${airport.shortName} Taxi`,
+    metaDescription: `Pre-book a fixed-price taxi from ${town.name} to ${airport.name}, with flight monitoring and secure online booking.`,
+    intro: `${town.blurb} This page is for ${town.name} ↔ ${airport.shortName} transfers — get a live quote with the airport already selected.`,
+    journeyNotes: buildRouteNotes(town, airport),
+  };
+}
+
 export function getTransferRoutePages(): TransferRoutePage[] {
   const routes: TransferRoutePage[] = [];
-  for (const town of TOWN_AREAS) {
-    for (const airport of AIRPORT_PAGES) {
-      // LDY only for greater Belfast-area towns (all four qualify).
-      const slug = `${town.slug}-to-${airport.slug}`;
-      routes.push({
-        slug,
-        town,
-        airport,
-        title: `${town.name} to ${airport.shortName} Taxi`,
-        metaDescription: `Pre-book a fixed-price taxi from ${town.name} to ${airport.name}, with flight monitoring and secure online booking.`,
-        intro: `${town.blurb} This page is for ${town.name} ↔ ${airport.shortName} transfers — get a live quote with the airport already selected.`,
-        journeyNotes: buildRouteNotes(town, airport),
-      });
+  const seen = new Set<string>();
+
+  for (const content of TRANSFER_ROUTE_CONTENT) {
+    const town = townBySlug(content.townSlug);
+    const airport = airportByCode(content.airportCode);
+    if (!town || !airport) continue;
+    const hubSlug = TOWN_HUB_PAGES.find((hub) => hub.town.slug === town.slug)?.slug ?? null;
+    routes.push({
+      slug: content.slug,
+      legacySlugs: content.legacySlugs,
+      town,
+      airport,
+      hubSlug,
+      title: content.title,
+      h1: content.h1,
+      metaDescription: content.metaDescription,
+      intro: content.intro,
+      journeyInfo: content.journeyInfo,
+      goingToAirport: content.goingToAirport,
+      fromAirport: content.fromAirport,
+      whyBookIntro: content.whyBookIntro,
+      localAreasText: content.localAreasText,
+      faqs: content.faqs,
+      journeyNotes: [
+        content.journeyInfo,
+        content.goingToAirport,
+        content.fromAirport,
+        content.localAreasText,
+      ],
+    });
+    seen.add(content.slug);
+    for (const legacy of content.legacySlugs ?? []) {
+      seen.add(legacy);
     }
   }
+
+  // Keep existing Belfast catalogue pages and LDY pages for the original towns.
+  const leftoverTowns = TOWN_AREAS.filter((town) => town.slug === "belfast");
+  const ldyTowns = TOWN_AREAS.filter((town) =>
+    ["belfast", "newtownabbey", "lisburn", "bangor"].includes(town.slug),
+  );
+
+  for (const town of leftoverTowns) {
+    for (const airport of AIRPORT_PAGES) {
+      const slug = leftoverTransferSlug(town, airport);
+      if (seen.has(slug)) continue;
+      routes.push(buildLegacyRoute(town, airport));
+      seen.add(slug);
+    }
+  }
+
+  const ldy = AIRPORT_PAGES.find((airport) => airport.code === "LDY");
+  if (ldy) {
+    for (const town of ldyTowns) {
+      if (town.slug === "belfast") continue;
+      const slug = `${town.slug}-to-${ldy.slug}`;
+      if (seen.has(slug)) continue;
+      routes.push(buildLegacyRoute(town, ldy));
+      seen.add(slug);
+    }
+  }
+
   return routes;
 }
 
@@ -241,8 +381,41 @@ export function getAirportPage(slug: string): AirportPage | undefined {
   return AIRPORT_PAGES.find((page) => page.slug === slug);
 }
 
+export function getTownHubPage(slug: string): TownHubPage | undefined {
+  return TOWN_HUB_PAGES.find((page) => page.slug === slug);
+}
+
+export function getTownHubByTownSlug(townSlug: string): TownHubPage | undefined {
+  return TOWN_HUB_PAGES.find((page) => page.town.slug === townSlug);
+}
+
+export function getTownHubByAreaName(name: string): TownHubPage | undefined {
+  return TOWN_HUB_PAGES.find((page) => page.town.name === name);
+}
+
 export function getTransferRoutePage(slug: string): TransferRoutePage | undefined {
-  return TRANSFER_ROUTE_PAGES.find((page) => page.slug === slug);
+  return TRANSFER_ROUTE_PAGES.find(
+    (page) => page.slug === slug || page.legacySlugs?.includes(slug),
+  );
+}
+
+export function getTransferStaticSlugs(): string[] {
+  const slugs = new Set<string>();
+  for (const page of TRANSFER_ROUTE_PAGES) {
+    slugs.add(page.slug);
+    for (const legacy of page.legacySlugs ?? []) {
+      slugs.add(legacy);
+    }
+  }
+  return [...slugs];
+}
+
+export function getRoutesForTown(townSlug: string): TransferRoutePage[] {
+  return TRANSFER_ROUTE_PAGES.filter((route) => route.town.slug === townSlug && route.faqs);
+}
+
+export function getCanonicalTransferSlugs(): string[] {
+  return TRANSFER_ROUTE_PAGES.map((page) => page.slug);
 }
 
 /** Short CTA for airport cards/pages — not a marketing fare. */

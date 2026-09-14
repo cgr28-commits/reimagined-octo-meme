@@ -4,21 +4,25 @@ import { notFound } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
+import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
+import LandingCtaRow from "@/components/LandingCtaRow";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
 import QuoteNavLink from "@/components/QuoteNavLink";
+import { LANDING_WHY_BOOK } from "@/lib/landing-why-book";
 import { SITE } from "@/lib/data";
 import {
   getTransferRoutePage,
+  getTransferStaticSlugs,
   TRANSFER_ROUTE_PAGES,
 } from "@/lib/location-pages";
 import { withBasePath } from "@/lib/paths";
-import { getBreadcrumbJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
+import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 
 type Props = { params: Promise<{ slug: string }> };
 
 export function generateStaticParams() {
-  return TRANSFER_ROUTE_PAGES.map((page) => ({ slug: page.slug }));
+  return getTransferStaticSlugs().map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -52,20 +56,31 @@ export default async function TransferRoutePage({ params }: Props) {
   const page = getTransferRoutePage(slug);
   if (!page) notFound();
 
+  const isLanding = Boolean(page.faqs?.length);
+  const hubHref = page.hubSlug ? `/locations/${page.hubSlug}/` : "/locations/";
   const otherFromTown = TRANSFER_ROUTE_PAGES.filter(
     (route) => route.town.slug === page.town.slug && route.slug !== page.slug,
   );
-  const breadcrumb = getBreadcrumbJsonLd([
-    { name: "Home", path: "/" },
-    { name: page.airport.shortName, path: `/airports/${page.airport.slug}/` },
-    { name: `${page.town.name} transfers`, path: `/transfers/${page.slug}/` },
-  ]);
+  const breadcrumbItems = page.hubSlug
+    ? [
+        { name: "Home", path: "/" },
+        { name: "Locations", path: "/locations/" },
+        { name: page.town.name, path: hubHref },
+        { name: page.airport.shortName, path: `/transfers/${page.slug}/` },
+      ]
+    : [
+        { name: "Home", path: "/" },
+        { name: page.airport.shortName, path: `/airports/${page.airport.slug}/` },
+        { name: `${page.town.name} transfers`, path: `/transfers/${page.slug}/` },
+      ];
+  const breadcrumb = getBreadcrumbJsonLd(breadcrumbItems);
   const serviceLd = getServiceAreaJsonLd({
     name: `${SITE.name} — ${page.title}`,
     description: page.metaDescription,
     path: `/transfers/${page.slug}/`,
     areaServed: [page.town.name, page.airport.name, "Northern Ireland"],
   });
+  const faqLd = page.faqs?.length ? getFaqPageJsonLd(page.faqs) : null;
 
   return (
     <>
@@ -77,6 +92,12 @@ export default async function TransferRoutePage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }}
       />
+      {faqLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+        />
+      ) : null}
       <Header />
       <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
         <div className="relative h-56 overflow-hidden sm:h-72">
@@ -89,44 +110,132 @@ export default async function TransferRoutePage({ params }: Props) {
         </div>
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <Link
-            href={`/airports/${page.airport.slug}/`}
-            className="relative z-10 -mt-8 inline-flex min-h-11 items-center gap-2 text-sm text-white/70 transition-colors hover:text-emerald"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            {page.airport.shortName} transfers
-          </Link>
+          {isLanding ? (
+            <LandingBreadcrumbs
+              items={[
+                { name: "Home", href: "/" },
+                { name: "Locations", href: "/locations/" },
+                { name: page.town.name, href: hubHref },
+                { name: page.airport.shortName },
+              ]}
+            />
+          ) : (
+            <Link
+              href={`/airports/${page.airport.slug}/`}
+              className="relative z-10 -mt-8 inline-flex min-h-11 items-center gap-2 text-sm text-white/70 transition-colors hover:text-emerald"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              {page.airport.shortName} transfers
+            </Link>
+          )}
 
           <header className="mt-6">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               {page.town.name} · {page.airport.code}
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.title}</h1>
+            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
-            <QuoteNavLink
-              href="#quote"
-              className="mt-6 inline-flex min-h-11 items-center rounded-full bg-emerald px-6 py-3 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
-            >
-              Quote This Journey
-            </QuoteNavLink>
+            {isLanding ? (
+              <LandingCtaRow
+                quoteLabel="Get an instant quote"
+                whatsappMessage={`Hi, I'd like a taxi from ${page.town.name} to ${page.airport.name}.`}
+              />
+            ) : (
+              <QuoteNavLink
+                href="#quote"
+                className="mt-6 inline-flex min-h-11 items-center rounded-full bg-emerald px-6 py-3 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
+              >
+                Quote This Journey
+              </QuoteNavLink>
+            )}
           </header>
+        </div>
 
-          <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-            <h2 className="text-lg font-bold text-white">Journey notes</h2>
-            <ul className="mt-4 space-y-3 text-sm leading-relaxed text-white/65">
-              {page.journeyNotes.map((note) => (
-                <li key={note} className="flex gap-3">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald" aria-hidden />
-                  <span>{note}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 text-sm text-white/45">
-              Get your fixed price based on your journey. {page.airport.durationNote}
-            </p>
-          </section>
+        <LocationQuoteSection
+          airportCode={page.airport.code}
+          direction="to-airport"
+          addressHint={page.town.addressHint}
+          heading={`${page.town.name} → ${page.airport.shortName} quote`}
+        />
+
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          {isLanding ? (
+            <>
+              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                <h2 className="text-lg font-bold text-white">Journey information</h2>
+                <p className="mt-4 text-sm leading-relaxed text-white/65">{page.journeyInfo}</p>
+              </section>
+
+              <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                <h2 className="text-lg font-bold text-white">
+                  Travelling from {page.town.name} to {page.airport.shortName}
+                </h2>
+                <p className="mt-4 text-sm leading-relaxed text-white/65">{page.goingToAirport}</p>
+              </section>
+
+              <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                <h2 className="text-lg font-bold text-white">
+                  {page.airport.shortName} to {page.town.name}
+                </h2>
+                <p className="mt-4 text-sm leading-relaxed text-white/65">{page.fromAirport}</p>
+              </section>
+
+              <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                <h2 className="text-lg font-bold text-white">Why book with {SITE.name}?</h2>
+                {page.whyBookIntro ? (
+                  <p className="mt-4 text-sm leading-relaxed text-white/65">{page.whyBookIntro}</p>
+                ) : null}
+                <ul className="mt-4 space-y-4">
+                  {LANDING_WHY_BOOK.map((item) => (
+                    <li key={item.title}>
+                      <p className="text-sm font-semibold text-white">{item.title}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-white/65">{item.text}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              {page.localAreasText ? (
+                <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                  <h2 className="text-lg font-bold text-white">
+                    Areas around {page.town.name} we cover
+                  </h2>
+                  <p className="mt-4 text-sm leading-relaxed text-white/65">{page.localAreasText}</p>
+                </section>
+              ) : null}
+
+              {page.faqs ? (
+                <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                  <h2 className="text-lg font-bold text-white">Frequently asked questions</h2>
+                  <dl className="mt-4 space-y-5">
+                    {page.faqs.map((faq) => (
+                      <div key={faq.question}>
+                        <dt className="text-sm font-semibold text-white">{faq.question}</dt>
+                        <dd className="mt-1.5 text-sm leading-relaxed text-white/65">{faq.answer}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              ) : null}
+            </>
+          ) : (
+            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <h2 className="text-lg font-bold text-white">Journey notes</h2>
+              <ul className="mt-4 space-y-3 text-sm leading-relaxed text-white/65">
+                {page.journeyNotes.map((note) => (
+                  <li key={note} className="flex gap-3">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald" aria-hidden />
+                    <span>{note}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-6 text-sm text-white/45">
+                Get your fixed price based on your journey. {page.airport.durationNote}
+              </p>
+            </section>
+          )}
 
           {otherFromTown.length > 0 ? (
             <section className="mt-8">
@@ -138,25 +247,53 @@ export default async function TransferRoutePage({ params }: Props) {
                       href={`/transfers/${route.slug}/`}
                       className="block rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
                     >
-                      {page.town.name} → {route.airport.shortName}
+                      {page.town.name} to {route.airport.name}
                     </Link>
                   </li>
                 ))}
               </ul>
+              {page.hubSlug ? (
+                <p className="mt-4 text-sm text-white/50">
+                  Back to{" "}
+                  <Link href={hubHref} className="text-emerald hover:text-emerald-light">
+                    {page.town.name} airport taxis
+                  </Link>
+                  {" · "}
+                  <Link
+                    href={`/airports/${page.airport.slug}/`}
+                    className="text-emerald hover:text-emerald-light"
+                  >
+                    {page.airport.shortName} transfers
+                  </Link>
+                  {" · "}
+                  <Link href="/airports/" className="text-emerald hover:text-emerald-light">
+                    All airport transfers
+                  </Link>
+                </p>
+              ) : null}
             </section>
           ) : null}
 
           {page.slug === "belfast-to-dublin" ? (
             <EmergeDiscoveryPromo description="Flying into Dublin for EMERGE? Pre-book your airport, hotel or return transfer for 29–30 August 2026." />
           ) : null}
-        </div>
 
-        <LocationQuoteSection
-          airportCode={page.airport.code}
-          direction="to-airport"
-          addressHint={page.town.addressHint}
-          heading={`${page.town.name} → ${page.airport.shortName} quote`}
-        />
+          {isLanding ? (
+            <section className="mt-8 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
+              <h2 className="text-lg font-bold text-white">Get your {page.town.name} transfer quote</h2>
+              <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/75">
+                {page.airport.shortName} is already selected in the quote box. Enter your{" "}
+                {page.town.name} address to see the current fixed price, or message us on WhatsApp.
+              </p>
+              <div className="flex justify-center">
+                <LandingCtaRow
+                  quoteLabel="Get an instant quote"
+                  whatsappMessage={`Hi, I'd like a taxi from ${page.town.name} to ${page.airport.name}.`}
+                />
+              </div>
+            </section>
+          ) : null}
+        </div>
       </main>
       <Footer />
     </>
