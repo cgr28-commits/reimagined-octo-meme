@@ -82,6 +82,11 @@ const townHubSlugs = [
   "ballyclare-airport-taxis",
   "lisburn-airport-taxis",
   "bangor-airport-taxis",
+  "holywood-airport-taxis",
+  "antrim-airport-taxis",
+  "ballymena-airport-taxis",
+  "larne-airport-taxis",
+  "newry-airport-taxis",
 ];
 
 const transferSlugs = [
@@ -107,6 +112,21 @@ const transferSlugs = [
   "bangor-to-belfast-city-airport",
   "bangor-to-dublin-airport",
   "bangor-to-city-of-derry",
+  "holywood-to-belfast-international",
+  "holywood-to-belfast-city-airport",
+  "holywood-to-dublin-airport",
+  "antrim-to-belfast-international",
+  "antrim-to-belfast-city-airport",
+  "antrim-to-dublin-airport",
+  "ballymena-to-belfast-international",
+  "ballymena-to-belfast-city-airport",
+  "ballymena-to-dublin-airport",
+  "larne-to-belfast-international",
+  "larne-to-belfast-city-airport",
+  "larne-to-dublin-airport",
+  "newry-to-belfast-international",
+  "newry-to-belfast-city-airport",
+  "newry-to-dublin-airport",
 ];
 
 const pages = [

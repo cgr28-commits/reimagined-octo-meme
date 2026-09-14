@@ -767,4 +767,754 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       },
     ],
   },
+  {
+    slug: "holywood-to-belfast-international",
+    townSlug: "holywood",
+    airportCode: "BFS",
+    title: "Holywood to Belfast International Airport Taxi",
+    h1: "Holywood to Belfast International Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Holywood to Belfast International Airport. Fixed-price transfer from Cultra, Seahill or the town with online booking.",
+    intro:
+      "A Holywood to Belfast International Airport taxi is the westbound motorway job from the North Down A2: you leave Cultra, Craigavad, Seahill or the town, pass the Harbour Estate, and join the M3/M2 toward Aldergrove. It is not the short City Airport hop Holywood residents know well — International sits on the far side of the city, so the reserved pickup time matters more than a quiet Sunday guess. My Airport Taxi NI quotes a fixed price from your exact street, not a rank estimate from High Street. Enter the address in the box on this page; Belfast International is already selected. Travelling from Belfast International Airport to Holywood? Book the collection here with your flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Add a return when you want both legs on one booking. WhatsApp is available if the plan changes after you pay.",
+    journeyInfo: `Typical routing uses the A2 into Belfast, then the M3 and M2 west toward the airport. An incident at Sydenham or Sandyknowes can add time that is not obvious when you set an alarm in Holywood. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect door to door from Holywood, Cultra, Seahill or Craigavad and drive you to Belfast International. Book ahead of check-in — this is the long Belfast-side of the city, not the City Airport hop. Drop-off uses the Express or free-area option shown on the quote. We do not promise a named kerb beyond what the booking form already describes.",
+    fromAirport:
+      "Travelling from Belfast International Airport to Holywood is booked on this same page. Add a return or a one-way inbound, and give us the flight number so we can monitor landing time. After you clear arrivals, use the private-hire pickup point in the booking. Airport pickups include up to 60 minutes complimentary waiting from the adjusted collection.",
+    whyBookIntro:
+      "Holywood to Aldergrove uses the same booked service as the rest of the site — a confirmed fare, a reserved driver, and flight monitoring when we are collecting you at the airport.",
+    localAreasText:
+      "Cultra lanes and Seahill houses should include the name or number. Marino and Helen’s Bay are collected on this corridor. Marina-side apartments need the block, not only a BT18 postcode.",
+    faqs: [
+      {
+        question: "How much is a taxi from Holywood to Belfast International Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does Holywood to Belfast International take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast International Airport back to Holywood?",
+        answer:
+          "Yes. This page is the canonical booking for both directions. Enter the Holywood drop-off, choose airport pickup, and add the flight number.",
+      },
+      {
+        question: "What if my flight into Belfast International is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Holywood collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Can I book an early-morning transfer from Holywood?",
+        answer:
+          "Yes. First-wave International departures from North Down are a regular booking. Pay online when an instant fare is shown.",
+      },
+      {
+        question: "Can I book and pay online?",
+        answer:
+          "Yes. Belfast International is preselected. Complete the quote and pay securely where an instant fare is available.",
+      },
+    ],
+  },
+  {
+    slug: "holywood-to-belfast-city-airport",
+    townSlug: "holywood",
+    airportCode: "BHD",
+    title: "Holywood to Belfast City Airport Taxi",
+    h1: "Holywood to Belfast City Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Holywood to George Best Belfast City Airport. Fixed-price A2 / Sydenham transfer with online booking.",
+    intro:
+      "Holywood to George Best Belfast City Airport is the shortest of the three airport runs from this town: the A2 and Sydenham Bypass put the terminal on the same coastal corridor as Cultra and Marino. That closeness is why people still under-book it — a delayed Shore Road, a cruise-day queue at the Harbour Estate, or a 06:30 BA departure is enough to miss the flight if you leave the pickup to chance. My Airport Taxi NI reserves a private car from your Holywood, Seahill or Helen’s Bay address with a fixed price from the quote box on this page. City Airport is already selected. Travelling from Belfast City Airport to Holywood? Use this same page, add the flight number, and we will collect from the official pickup point. We monitor inbound flights where possible and include complimentary waiting on airport pickups. WhatsApp is available if you need to reach us. Add a return when you want the trip back from the terminal booked with the outbound.",
+    journeyInfo: `The usual line is the A2 toward Belfast, then the signed City Airport turn at Sydenham. Roadworks on the Bypass change the last mile more often than the town-centre lights. ${QUOTE_TIME}`,
+    goingToAirport:
+      "Door-to-door collection from your Holywood-area address, booked so the drop-off sits before check-in. City Airport security is often quicker than Aldergrove, but the A2 still needs a buffer on weekday mornings. Drop-off uses the Express or free-area option shown on the quote for Belfast City Airport.",
+    fromAirport:
+      "Book City Airport → Holywood as a return or a one-way inbound on this page. Flight monitoring adjusts the collection when you give us the flight number. After landing, use the private-hire pickup point confirmed in the booking. Complimentary waiting on airport pickups is up to 60 minutes.",
+    whyBookIntro:
+      "City Airport from Holywood is a short booked run along the same coastal corridor — still a reserved driver and a fixed price, not a last-minute rank at Sydenham.",
+    localAreasText:
+      "Helen’s Bay and Seahill are North Down coastal pickups — include the house name. Cultra and Marino should give the lane. Town-centre flats need the building, not only “Holywood”.",
+    faqs: [
+      {
+        question: "How much is a taxi from Holywood to Belfast City Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does the Holywood to City Airport journey take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast City Airport back to Holywood?",
+        answer:
+          "Yes. Airport-to-Holywood is booked on this page. Add the flight number so we can watch the inbound.",
+      },
+      {
+        question: "What if my City Airport flight is delayed?",
+        answer:
+          "Tell us the flight number. We monitor it where possible. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Do you collect from Cultra for City Airport?",
+        answer:
+          "Yes. Enter the Cultra address in the quote box. The map prices that street, not a generic Holywood pin.",
+      },
+      {
+        question: "Can I pay online?",
+        answer:
+          "Yes. Where the quote shows an instant fare you can complete booking and payment on this page.",
+      },
+    ],
+  },
+  {
+    slug: "holywood-to-dublin-airport",
+    townSlug: "holywood",
+    airportCode: "DUB",
+    title: "Holywood to Dublin Airport Taxi",
+    h1: "Holywood to Dublin Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Holywood to Dublin Airport. Fixed-price North Down to Dublin transfer with tolls included and online booking.",
+    intro:
+      "Holywood to Dublin Airport is the long A1/M1 day from the North Down coast: you leave the A2, cross the city, and settle onto the dual carriageway south. North Down customers book this more than they expect — Ryanair and Aer Lingus banks at Dublin are often cheaper or better timed than the Belfast options, but the start from Seahill or Craigavad is still an early alarm. My Airport Taxi NI quotes a fixed price from your exact Holywood-area address. Applicable M1 tolls are included on Dublin Airport fares; you do not settle them in the car. Dublin Airport is preselected in the quote box. Travelling from Dublin Airport to Holywood? Book the inbound on this page with the flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Add a return when you want both legs together. WhatsApp is available if the plan changes.",
+    journeyInfo: `After Belfast the route is the A1 toward Newry and the M1 to the airport. An incident south of Sprucefield is the delay that does not show on a Holywood weather app. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect at your Holywood, Cultra or Seahill door and drive you to Dublin Airport. Book far enough ahead of check-in for a cross-border run; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
+    fromAirport:
+      "Travelling from Dublin Airport to Holywood is booked here. Share the flight number so we can monitor the inbound where possible. After you clear arrivals, go to the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+    whyBookIntro:
+      "North Down to Dublin is a reserved diary slot — a fixed price with tolls included, not a rank fare assembled on the M1.",
+    localAreasText:
+      "Give the full BT18 address. Cultra and Marino lanes need the house name so the driver does not wait on the A2. Helen’s Bay is collected with this Holywood-area booking when that is the street you enter.",
+    faqs: [
+      {
+        question: "How much is a taxi from Holywood to Dublin Airport?",
+        answer: `${QUOTE_PRICE} Applicable M1 tolls are included on Dublin Airport fares.`,
+      },
+      {
+        question: "How long does Holywood to Dublin Airport take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Dublin Airport back to Holywood?",
+        answer:
+          "Yes. This page covers both directions. Add the flight number and the Holywood drop-off address.",
+      },
+      {
+        question: "Are tolls included?",
+        answer:
+          "Yes. Applicable M1 tolls are included in the Dublin Airport fare the quote tool shows.",
+      },
+      {
+        question: "What if my Dublin flight is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Holywood collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Can I book an overnight pickup in Holywood?",
+        answer:
+          "Yes. First-wave Dublin departures from North Down are a regular overnight booking.",
+      },
+    ],
+  },
+  {
+    slug: "antrim-to-belfast-international",
+    townSlug: "antrim",
+    airportCode: "BFS",
+    title: "Antrim to Belfast International Airport Taxi",
+    h1: "Antrim to Belfast International Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Antrim to Belfast International Airport. Fixed-price transfer from Templepatrick, Muckamore or the town with online booking.",
+    intro:
+      "Antrim to Belfast International Airport is the shortest International run we quote from a full town: the A26 and the airport access roads put Aldergrove next door to Templepatrick, Muckamore and Dunadry, and only a short hop from Antrim town and Crumlin. Closeness is not the same as leaving it late — security queues and a 05:50 departure still need a reserved car, not a hope that a local taxi is free. My Airport Taxi NI gives you a fixed price from the street you enter in the quote box; Belfast International is already selected. Travelling from Belfast International Airport to Antrim? Book the collection on this page with your flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Randalstown and Crumlin addresses are priced from those streets, not from Antrim bus station. WhatsApp is available if you need to reach us. Add a return when you want both legs on one booking.",
+    journeyInfo: `From the town the usual line is the A26 toward the airport. Templepatrick and hotel collections near the A57 often use the local airport roads rather than going into Antrim first. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect from Antrim town, Templepatrick, Muckamore or Dunadry and drive you to Belfast International. Book so the pickup sits ahead of your check-in even on this short run. Drop-off uses the Express or free-area option shown on the quote.",
+    fromAirport:
+      "Travelling from Belfast International Airport to Antrim is booked on this page. Add the flight number so we can monitor landing time. After arrivals, use the private-hire pickup point in the booking. Airport pickups include up to 60 minutes complimentary waiting.",
+    whyBookIntro:
+      "Antrim to Aldergrove is a short booked hop — still a confirmed fare and a reserved driver, not a last-minute search outside the terminal.",
+    localAreasText:
+      "Name the hotel or house. Templepatrick and Dunadry properties look similar on a map until the driver has the right lane. Crumlin and Randalstown should include the village so the quote does not pin Antrim town.",
+    faqs: [
+      {
+        question: "How much is a taxi from Antrim to Belfast International Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does Antrim to Belfast International take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast International Airport back to Antrim?",
+        answer:
+          "Yes. Travelling from Belfast International Airport to Antrim is booked on this same page. Add the flight number and your Antrim-area address.",
+      },
+      {
+        question: "What happens if my flight is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Antrim collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Do you collect from Templepatrick?",
+        answer:
+          "Yes. Enter the Templepatrick or hotel address. The quote uses that pin, which is often closer to the terminal than Antrim town.",
+      },
+      {
+        question: "Can I book and pay online?",
+        answer:
+          "Yes. Belfast International is preselected. Pay securely where an instant fare is shown.",
+      },
+    ],
+  },
+  {
+    slug: "antrim-to-belfast-city-airport",
+    townSlug: "antrim",
+    airportCode: "BHD",
+    title: "Antrim to Belfast City Airport Taxi",
+    h1: "Antrim to Belfast City Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Antrim to George Best Belfast City Airport. Fixed-price M2 transfer with online booking.",
+    intro:
+      "Antrim to George Best Belfast City Airport is the motorway job east: you leave the Lough Neagh towns, join the M2, and stay on it until the City Airport / Harbour Estate signs at the other end of Belfast. It is a different shape to the International hop Antrim residents know — more city traffic at the far end, and a terminal that rewards a reserved arrival more than a hopeful extra ten minutes. My Airport Taxi NI quotes from your Antrim, Muckamore, Randalstown or Crumlin address with City Airport already selected in the box on this page. Travelling from Belfast City Airport to Antrim? Use this page, add the flight number, and we collect from the official pickup area. We monitor inbound flights where possible and include complimentary waiting on airport pickups. WhatsApp is available after you book. Add a return when you want the homeward leg reserved with the outbound.",
+    journeyInfo: `The M2 is the spine. An incident at Sandyknowes or York Street is the delay that does not appear when you check the time in Antrim town. ${QUOTE_TIME}`,
+    goingToAirport:
+      "Door-to-door collection from your Antrim-area address, booked so drop-off sits before City Airport check-in. The far end is the Harbour Estate, not Aldergrove — leave the buffer the quote time implies. Drop-off uses the Express or free-area option shown on the form.",
+    fromAirport:
+      "Book City Airport → Antrim as a return or inbound on this page. Flight monitoring applies when you share the number. After landing, use the private-hire pickup point confirmed in the booking. Complimentary waiting on airport pickups is up to 60 minutes.",
+    whyBookIntro:
+      "Antrim to City Airport is an M2 booked run — a fixed price and a reserved driver, not a rank at Sydenham after a late train.",
+    localAreasText:
+      "Crumlin and Randalstown need the village in the address so the map does not pin Antrim Castle Gardens by default. Muckamore and Dunadry hotels should include the property name.",
+    faqs: [
+      {
+        question: "How much is a taxi from Antrim to Belfast City Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does Antrim to City Airport take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast City Airport back to Antrim?",
+        answer:
+          "Yes. This page covers both directions. Add the flight number for the inbound collection.",
+      },
+      {
+        question: "What if my City Airport flight is delayed?",
+        answer:
+          "Tell us the flight number. We monitor it where possible. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Can I book an early City Airport transfer from Antrim?",
+        answer:
+          "Yes. Weekday morning City Airport runs from Antrim are a regular booking. Pay online when an instant fare is shown.",
+      },
+      {
+        question: "Can I pay online?",
+        answer:
+          "Yes. Complete the quote on this page and pay securely where an instant fare is available.",
+      },
+    ],
+  },
+  {
+    slug: "antrim-to-dublin-airport",
+    townSlug: "antrim",
+    airportCode: "DUB",
+    title: "Antrim to Dublin Airport Taxi",
+    h1: "Antrim to Dublin Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Antrim to Dublin Airport. Fixed-price transfer with M1 tolls included and online booking.",
+    intro:
+      "Antrim to Dublin Airport is the long southbound day from Lough Neagh: you leave town or Templepatrick, join the M2 or A26 toward Belfast, then commit to the A1/M1. Antrim customers book Dublin when the fare or the connection is better than International — but the clock starts in a different county to the terminal, so the pickup time is the part that cannot be guessed. My Airport Taxi NI shows a fixed price from your exact address. Applicable M1 tolls are included on Dublin Airport fares. Dublin Airport is preselected here. Travelling from Dublin Airport to Antrim? Book that inbound on this page with the flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Dunadry and Muckamore hotels should be named in the pickup field. WhatsApp is available if you need to reach us. Add a return when you want both legs together.",
+    journeyInfo: `After the M2 the route is the A1 and M1. A closure at Sprucefield or Newry is the delay Antrim weather will not mention. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect at your Antrim, Templepatrick or Crumlin door and drive you to Dublin Airport. Book far enough ahead for a cross-border run; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
+    fromAirport:
+      "Travelling from Dublin Airport to Antrim is booked on this page. Share the flight number so we can monitor the inbound where possible. After arrivals, use the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+    whyBookIntro:
+      "Antrim to Dublin is a reserved cross-border slot — fixed price, tolls included, and flight monitoring on the way home.",
+    localAreasText:
+      "Use the full street and townland. Randalstown and Crumlin are not interchangeable with Antrim town on the map. Hotel guests at Dunadry should include the property name.",
+    faqs: [
+      {
+        question: "How much is a taxi from Antrim to Dublin Airport?",
+        answer: `${QUOTE_PRICE} Applicable M1 tolls are included on Dublin Airport fares.`,
+      },
+      {
+        question: "How long does Antrim to Dublin Airport take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Dublin Airport back to Antrim?",
+        answer:
+          "Yes. Travelling from Dublin Airport to Antrim is booked on this page. Add the flight number and your drop-off address.",
+      },
+      {
+        question: "Are M1 tolls included?",
+        answer:
+          "Yes. Applicable M1 tolls are included in the Dublin Airport fare shown by the quote tool.",
+      },
+      {
+        question: "What if my Dublin flight is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Antrim collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Can I book an overnight Antrim pickup?",
+        answer:
+          "Yes. First-wave Dublin flights from the Antrim area are a regular overnight booking.",
+      },
+    ],
+  },
+  {
+    slug: "ballymena-to-belfast-international",
+    townSlug: "ballymena",
+    airportCode: "BFS",
+    title: "Ballymena to Belfast International Airport Taxi",
+    h1: "Ballymena to Belfast International Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Ballymena to Belfast International Airport. Fixed-price A26 transfer from Galgorm, Broughshane or the town.",
+    intro:
+      "Ballymena to Belfast International Airport follows the A26 south through mid-Antrim — a dual-carriageway run rather than a city crawl, which is why Galgorm guests and Broughshane, Cullybackey, Ahoghill and Gracehill residents treat International as their local long-haul terminal. “Local” still means a reserved car: the first easyJet wave does not wait because someone in the town centre was running late. My Airport Taxi NI quotes a fixed price from the street or hotel you enter; Belfast International is already selected. Travelling from Belfast International Airport to Ballymena? Book the collection here with your flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Hotel names matter at Galgorm — several properties share similar countryside postcodes. WhatsApp is available if plans change. Add a return when you want the trip back from the airport booked with the outbound.",
+    journeyInfo: `The A26 is the usual line from the town toward the airport. Broughshane collections join from the A42; Cullybackey comes in from the west before that dual carriageway. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect from Ballymena, Galgorm, Broughshane or the surrounding villages and drive you to Belfast International. Book so the pickup sits ahead of check-in on the first holiday wave. Drop-off uses the Express or free-area option shown on the quote.",
+    fromAirport:
+      "Travelling from Belfast International Airport to Ballymena is booked on this page. Add the flight number so we can monitor landing time. After arrivals, use the private-hire pickup point in the booking. Airport pickups include up to 60 minutes complimentary waiting.",
+    whyBookIntro:
+      "Ballymena to Aldergrove is a mid-Antrim booked run — a confirmed fare and a reserved driver, not a last-minute car on the A26.",
+    localAreasText:
+      "Name the Galgorm hotel or the Broughshane lane. “Ballymena” alone is not enough for a countryside pin. Ahoghill and Gracehill sit west of the town and should be spelled in the address.",
+    faqs: [
+      {
+        question: "How much is a taxi from Ballymena to Belfast International Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does Ballymena to Belfast International take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast International Airport back to Ballymena?",
+        answer:
+          "Yes. This page is for both directions. Add the flight number and your Ballymena-area address.",
+      },
+      {
+        question: "What if my flight is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Ballymena collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Do you collect from Galgorm?",
+        answer:
+          "Yes. Enter the hotel or house name. The quote prices that countryside address, not the town bus station.",
+      },
+      {
+        question: "Can I book and pay online?",
+        answer:
+          "Yes. Belfast International is preselected. Pay securely where an instant fare is shown.",
+      },
+    ],
+  },
+  {
+    slug: "ballymena-to-belfast-city-airport",
+    townSlug: "ballymena",
+    airportCode: "BHD",
+    title: "Ballymena to Belfast City Airport Taxi",
+    h1: "Ballymena to Belfast City Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Ballymena to George Best Belfast City Airport. Fixed-price A26/M2 transfer with online booking.",
+    intro:
+      "Ballymena to George Best Belfast City Airport continues past International country and onto the M2: you leave mid-Antrim, run the A26, then stay eastbound through Belfast to the Harbour Estate. It is the terminal people book for short-haul banks that suit a day trip better than Aldergrove. My Airport Taxi NI fixes the price from your Ballymena, Galgorm or Broughshane address; City Airport is preselected on this page. Travelling from Belfast City Airport to Ballymena? Use this same booking, add the flight number, and we collect from the official pickup area. We monitor inbound flights where possible and include complimentary waiting on airport pickups. WhatsApp is available if you need to reach us. Add a return when you want both legs reserved together.",
+    journeyInfo: `A26 then M2 is the standard line. York Street and the Harbour Estate are where a clear Ballymena run can still lose time at the end. ${QUOTE_TIME}`,
+    goingToAirport:
+      "Door-to-door collection from your Ballymena-area address, booked so drop-off sits before City Airport check-in. The last miles are the Harbour Estate, not the A26. Drop-off uses the Express or free-area option shown on the quote.",
+    fromAirport:
+      "Book City Airport → Ballymena as a return or inbound on this page. Flight monitoring applies when you share the number. After landing, use the private-hire pickup point confirmed in the booking. Complimentary waiting on airport pickups is up to 60 minutes.",
+    whyBookIntro:
+      "Ballymena to City Airport is a reserved A26/M2 run — a fixed price, not a hope that a town taxi will take the Harbour Estate job.",
+    localAreasText:
+      "Ahoghill and Gracehill should be spelled in the address. They are west of the town, not a Galgorm hotel turning. Cullybackey collections come in before the A26.",
+    faqs: [
+      {
+        question: "How much is a taxi from Ballymena to Belfast City Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does Ballymena to City Airport take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast City Airport back to Ballymena?",
+        answer:
+          "Yes. Airport-to-Ballymena is booked on this page. Add the flight number for the inbound.",
+      },
+      {
+        question: "What if my City Airport flight is delayed?",
+        answer:
+          "Tell us the flight number. We monitor it where possible. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Can I book an early-morning transfer from Ballymena?",
+        answer:
+          "Yes. Weekday City Airport starts from mid-Antrim are a regular booking. Pay online when an instant fare is shown.",
+      },
+      {
+        question: "Can I pay online?",
+        answer:
+          "Yes. Complete the quote on this page and pay securely where an instant fare is available.",
+      },
+    ],
+  },
+  {
+    slug: "ballymena-to-dublin-airport",
+    townSlug: "ballymena",
+    airportCode: "DUB",
+    title: "Ballymena to Dublin Airport Taxi",
+    h1: "Ballymena to Dublin Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Ballymena to Dublin Airport. Fixed-price mid-Antrim to Dublin transfer with tolls included.",
+    intro:
+      "Ballymena to Dublin Airport is the longest of the three journeys from this hub: A26 south, M2, then the A1/M1 for the rest of the morning. Mid-Antrim customers book it when Dublin’s schedule or fare beats both Belfast airports — and they need a start time that respects the whole corridor, not a guess based on an International run they do every month. My Airport Taxi NI quotes a fixed price from your exact address. Applicable M1 tolls are included on Dublin Airport fares. Dublin Airport is already selected. Travelling from Dublin Airport to Ballymena? Book the inbound here with the flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Cullybackey and Broughshane add lanes before you even reach the A26; include those villages in the pickup field. WhatsApp is available if the plan changes. Add a return when you want both legs on one booking.",
+    journeyInfo: `After the A26/M2 the route is the A1 and M1. Newry or Sprucefield trouble is the delay a Ballymena forecast will not show. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect at your Ballymena, Galgorm or Broughshane door and drive you to Dublin Airport. Book far enough ahead for a cross-border run; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
+    fromAirport:
+      "Travelling from Dublin Airport to Ballymena is booked on this page. Share the flight number so we can monitor the inbound where possible. After arrivals, use the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+    whyBookIntro:
+      "Mid-Antrim to Dublin is a reserved day on the diary — fixed price, tolls included, and a reserved driver for both directions.",
+    localAreasText:
+      "Galgorm hotels and Gracehill houses need the name. The town-centre pin is the wrong start for those collections. Cullybackey should be written in full.",
+    faqs: [
+      {
+        question: "How much is a taxi from Ballymena to Dublin Airport?",
+        answer: `${QUOTE_PRICE} Applicable M1 tolls are included on Dublin Airport fares.`,
+      },
+      {
+        question: "How long does Ballymena to Dublin Airport take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Dublin Airport back to Ballymena?",
+        answer:
+          "Yes. This page covers both directions. Add the flight number and your Ballymena-area drop-off.",
+      },
+      {
+        question: "Are tolls included?",
+        answer:
+          "Yes. Applicable M1 tolls are included in the Dublin Airport fare the quote tool shows.",
+      },
+      {
+        question: "What if my Dublin flight is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Ballymena collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Do you do overnight Ballymena pickups for Dublin?",
+        answer:
+          "Yes. First-wave Dublin flights from mid-Antrim are a regular overnight booking on this page.",
+      },
+    ],
+  },
+  {
+    slug: "larne-to-belfast-international",
+    townSlug: "larne",
+    airportCode: "BFS",
+    title: "Larne to Belfast International Airport Taxi",
+    h1: "Larne to Belfast International Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Larne to Belfast International Airport. Fixed-price A8/M2 transfer from Glynn, Islandmagee or the harbour town.",
+    intro:
+      "Larne to Belfast International Airport leaves the ferry port and the lough, joins the A8, then turns west on the M2 toward Aldergrove. It is a cross-country shape — harbour town to inland airport — which is why Glynn, Magheramorne, Islandmagee and Ballygally collections need the extra coastal minutes before you even reach the dual carriageway. My Airport Taxi NI quotes a fixed price from the address you enter; Belfast International is already selected. Travelling from Belfast International Airport to Larne? Book the inbound on this page with your flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Harbour hotels and Islandmagee lanes should be named, not listed as “Larne”. WhatsApp is available if a sailing or flight time moves. Add a return when you want both legs reserved together.",
+    journeyInfo: `A8 to the M2, then west to the airport, is the usual line. An incident at the A8/M2 join is the delay that does not show on a Larne harbour webcam. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect from Larne, Glynn, Islandmagee or Ballygally and drive you to Belfast International. Book so the coastal lanes are in the diary before the A8. Drop-off uses the Express or free-area option shown on the quote.",
+    fromAirport:
+      "Travelling from Belfast International Airport to Larne is booked on this page. Add the flight number so we can monitor landing time. After arrivals, use the private-hire pickup point in the booking. Airport pickups include up to 60 minutes complimentary waiting.",
+    whyBookIntro:
+      "Larne to Aldergrove is a harbour-to-inland booked run — a confirmed fare and a reserved driver, not a last-minute car after a sailing.",
+    localAreasText:
+      "Islandmagee and Ballygally need the lane or house name. Ferry-terminal pickups should say which building. Whitehead sits toward Carrickfergus and is collected when that is the address you enter.",
+    faqs: [
+      {
+        question: "How much is a taxi from Larne to Belfast International Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does Larne to Belfast International take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast International Airport back to Larne?",
+        answer:
+          "Yes. Travelling from Belfast International Airport to Larne is booked on this page. Add the flight number and your Larne-area address.",
+      },
+      {
+        question: "What if my flight is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Larne collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Do you collect from Islandmagee?",
+        answer:
+          "Yes. Enter the Islandmagee address. The quote map prices that peninsula, not Larne Main Street.",
+      },
+      {
+        question: "Can I book and pay online?",
+        answer:
+          "Yes. Belfast International is preselected. Pay securely where an instant fare is shown.",
+      },
+    ],
+  },
+  {
+    slug: "larne-to-belfast-city-airport",
+    townSlug: "larne",
+    airportCode: "BHD",
+    title: "Larne to Belfast City Airport Taxi",
+    h1: "Larne to Belfast City Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Larne to George Best Belfast City Airport. Fixed-price A8 transfer from the harbour town or Whitehead.",
+    intro:
+      "Larne to George Best Belfast City Airport stays on the eastern side of the county: A8 toward Belfast, then the Harbour Estate and Sydenham rather than the westbound M2 peel for International. Whitehead and Magheramorne sit on that same coastal approach; Ballygally and Islandmagee add the lough-shore lanes first. My Airport Taxi NI reserves a private car from your exact address with City Airport preselected in the quote box. Travelling from Belfast City Airport to Larne? Use this page, add the flight number, and we collect from the official pickup area. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Ferry passengers connecting to a City Airport flight should name the terminal building so the driver does not wait in the town. WhatsApp is available if you need to reach us. Add a return when you want the trip back from the airport booked with the outbound.",
+    journeyInfo: `The A8 is the spine into north Belfast, then the signed City Airport roads. A queue at the docks can slow the last miles even when Larne itself is clear. ${QUOTE_TIME}`,
+    goingToAirport:
+      "Door-to-door collection from your Larne-area address, booked so drop-off sits before City Airport check-in. Harbour and ferry-terminal pickups need the building name. Drop-off uses the Express or free-area option shown on the quote.",
+    fromAirport:
+      "Book City Airport → Larne as a return or inbound on this page. Flight monitoring applies when you share the number. After landing, use the private-hire pickup point confirmed in the booking. Complimentary waiting on airport pickups is up to 60 minutes.",
+    whyBookIntro:
+      "Larne to City Airport stays on the east-Antrim corridor — a reserved driver and a fixed price, not a rank after the A8.",
+    localAreasText:
+      "Whitehead addresses should include the village. Harbour and seafront hotels need the property name. Magheramorne and Glynn sit on the lough before you reach the A8 proper.",
+    faqs: [
+      {
+        question: "How much is a taxi from Larne to Belfast City Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does Larne to City Airport take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast City Airport back to Larne?",
+        answer:
+          "Yes. This page covers both directions. Add the flight number for the inbound collection.",
+      },
+      {
+        question: "What if my City Airport flight is delayed?",
+        answer:
+          "Tell us the flight number. We monitor it where possible. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Can I book an early transfer from Larne?",
+        answer:
+          "Yes. Morning City Airport runs after an overnight in the harbour town are a regular booking. Pay online when an instant fare is shown.",
+      },
+      {
+        question: "Can I pay online?",
+        answer:
+          "Yes. Complete the quote on this page and pay securely where an instant fare is available.",
+      },
+    ],
+  },
+  {
+    slug: "larne-to-dublin-airport",
+    townSlug: "larne",
+    airportCode: "DUB",
+    title: "Larne to Dublin Airport Taxi",
+    h1: "Larne to Dublin Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Larne to Dublin Airport. Fixed-price harbour-town to Dublin transfer with M1 tolls included.",
+    intro:
+      "Larne to Dublin Airport is the long southbound booking from the ferry port: A8 to the M2, through or around Belfast, then the A1/M1 for the rest of the journey. People here book Dublin when the connection beats both Belfast airports — often after a Cairnryan sailing the evening before — and they need a start time that respects the full corridor, not a City Airport guess. My Airport Taxi NI shows a fixed price from your Larne, Glynn, Islandmagee or Whitehead address. Applicable M1 tolls are included on Dublin Airport fares. Dublin Airport is preselected. Travelling from Dublin Airport to Larne? Book that inbound on this page with the flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. WhatsApp is available if a sailing or flight moves. Add a return when you want both legs together.",
+    journeyInfo: `After the A8/M2 the route is the A1 and M1. An incident at Newry is the delay a Larne harbour forecast will not mention. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect at your Larne, Islandmagee or Whitehead door and drive you to Dublin Airport. Book far enough ahead for a cross-border run after a ferry night; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
+    fromAirport:
+      "Travelling from Dublin Airport to Larne is booked on this page. Share the flight number so we can monitor the inbound where possible. After arrivals, use the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+    whyBookIntro:
+      "Harbour town to Dublin is a reserved day — fixed price, tolls included, and a driver who is not piecing the job together at the port.",
+    localAreasText:
+      "Give the coastal lane or hotel name. Islandmagee and Ballygally are not the same pin as Larne town centre. Ferry-terminal guests should name the building.",
+    faqs: [
+      {
+        question: "How much is a taxi from Larne to Dublin Airport?",
+        answer: `${QUOTE_PRICE} Applicable M1 tolls are included on Dublin Airport fares.`,
+      },
+      {
+        question: "How long does Larne to Dublin Airport take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Dublin Airport back to Larne?",
+        answer:
+          "Yes. Travelling from Dublin Airport to Larne is booked on this page. Add the flight number and your drop-off.",
+      },
+      {
+        question: "Are M1 tolls included?",
+        answer:
+          "Yes. Applicable M1 tolls are included in the Dublin Airport fare shown by the quote tool.",
+      },
+      {
+        question: "What if my Dublin flight is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Larne collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Can I book an overnight Larne pickup for Dublin?",
+        answer:
+          "Yes. First-wave Dublin flights after a night in the harbour town are a regular overnight booking.",
+      },
+    ],
+  },
+  {
+    slug: "newry-to-belfast-international",
+    townSlug: "newry",
+    airportCode: "BFS",
+    title: "Newry to Belfast International Airport Taxi",
+    h1: "Newry to Belfast International Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Newry to Belfast International Airport. Fixed-price A1/M1 transfer from Warrenpoint, Bessbrook or the city.",
+    intro:
+      "Newry to Belfast International Airport is the northbound A1 job that then swings west: you leave the city, Warrenpoint, Rostrevor, Bessbrook or Camlough, run toward Lisburn, and join the M1/M2 for Aldergrove. Newry customers often think Dublin first; International is the Belfast long-haul alternative when the ticket is out of Aldergrove rather than Terminal 1. My Airport Taxi NI quotes a fixed price from your exact street; Belfast International is already selected. Travelling from Belfast International Airport to Newry? Book the collection on this page with your flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Hilltown and Rostrevor add Mournes lanes before the A1 — include those names. WhatsApp is available if you need to reach us. Add a return when you want both legs on one booking.",
+    journeyInfo: `A1 north, then the M1/M2 west to the airport, is the usual line. A queue at Sprucefield can add time after a clear run out of Newry. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect from Newry, Warrenpoint, Bessbrook or Camlough and drive you to Belfast International. Book so the northbound A1 and the westbound M1/M2 sit ahead of check-in. Drop-off uses the Express or free-area option shown on the quote.",
+    fromAirport:
+      "Travelling from Belfast International Airport to Newry is booked on this page. Add the flight number so we can monitor landing time. After arrivals, use the private-hire pickup point in the booking. Airport pickups include up to 60 minutes complimentary waiting.",
+    whyBookIntro:
+      "Newry to Aldergrove is a reserved northbound booking — a confirmed fare and a driver who is not treating it as a Dublin job pointed the wrong way.",
+    localAreasText:
+      "Warrenpoint and Rostrevor should include the town. Bessbrook and Camlough are A25 collections, not Buttercrane. Hilltown is the Mournes approach and needs that name on the quote.",
+    faqs: [
+      {
+        question: "How much is a taxi from Newry to Belfast International Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does Newry to Belfast International take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast International Airport back to Newry?",
+        answer:
+          "Yes. Travelling from Belfast International Airport to Newry is booked on this page. Add the flight number and your Newry-area address.",
+      },
+      {
+        question: "What if my flight is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Newry collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Do you collect from Warrenpoint?",
+        answer:
+          "Yes. Enter the Warrenpoint address. The quote prices the lough shore, not Newry city centre.",
+      },
+      {
+        question: "Can I book and pay online?",
+        answer:
+          "Yes. Belfast International is preselected. Pay securely where an instant fare is shown.",
+      },
+    ],
+  },
+  {
+    slug: "newry-to-belfast-city-airport",
+    townSlug: "newry",
+    airportCode: "BHD",
+    title: "Newry to Belfast City Airport Taxi",
+    h1: "Newry to Belfast City Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Newry to George Best Belfast City Airport. Fixed-price A1 transfer with online booking.",
+    intro:
+      "Newry to George Best Belfast City Airport stays on the A1 into Belfast and then takes the city / Harbour Estate roads to Sydenham instead of peeling west for International. It is the booking for City Airport’s short-haul banks when you live in Newry, Bessbrook or Hilltown and do not want a last-minute hunt at the bus station. My Airport Taxi NI fixes the price from the address you enter; City Airport is preselected. Travelling from Belfast City Airport to Newry? Use this page, add the flight number, and we collect from the official pickup area. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Camlough and Warrenpoint are not interchangeable pins — put the village in the pickup field. WhatsApp is available after you book. Add a return when you want the homeward leg reserved with the outbound.",
+    journeyInfo: `The A1 is the spine as far as Belfast, then the signed City Airport route. Westlink or Sydenham trouble is the last-mile delay after a clear Newry start. ${QUOTE_TIME}`,
+    goingToAirport:
+      "Door-to-door collection from your Newry-area address, booked so drop-off sits before City Airport check-in. The last miles are Sydenham, not Aldergrove. Drop-off uses the Express or free-area option shown on the quote.",
+    fromAirport:
+      "Book City Airport → Newry as a return or inbound on this page. Flight monitoring applies when you share the number. After landing, use the private-hire pickup point confirmed in the booking. Complimentary waiting on airport pickups is up to 60 minutes.",
+    whyBookIntro:
+      "Newry to City Airport is a reserved A1 booking — a fixed price and a driver who knows the Harbour Estate end, not only the Dublin corridor.",
+    localAreasText:
+      "Rostrevor and Hilltown need the townland or hotel. City-centre apartments should give the building, not only “Newry”. Bessbrook collections come off the A25.",
+    faqs: [
+      {
+        question: "How much is a taxi from Newry to Belfast City Airport?",
+        answer: QUOTE_PRICE,
+      },
+      {
+        question: "How long does Newry to City Airport take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Belfast City Airport back to Newry?",
+        answer:
+          "Yes. This page covers both directions. Add the flight number for the inbound collection.",
+      },
+      {
+        question: "What if my City Airport flight is delayed?",
+        answer:
+          "Tell us the flight number. We monitor it where possible. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Can I book an early-morning transfer from Newry?",
+        answer:
+          "Yes. Weekday City Airport starts from Newry are a regular booking. Pay online when an instant fare is shown.",
+      },
+      {
+        question: "Can I pay online?",
+        answer:
+          "Yes. Complete the quote on this page and pay securely where an instant fare is available.",
+      },
+    ],
+  },
+  {
+    slug: "newry-to-dublin-airport",
+    townSlug: "newry",
+    airportCode: "DUB",
+    title: "Newry to Dublin Airport Taxi",
+    h1: "Newry to Dublin Airport Taxi",
+    metaDescription:
+      "Book a private taxi from Newry to Dublin Airport. Fixed-price A1/M1 transfer from Warrenpoint or the city, with tolls included.",
+    intro:
+      "Newry to Dublin Airport is the natural southbound booking from this city: you are already on the A1, the border is minutes away, and the M1 carries you to the terminals that Newry, Warrenpoint and Rostrevor residents use when Belfast does not fit the ticket. That familiarity is why people still leave the pickup too late — a queue at the border or an incident further south is not the same as “sure it’s only down the road.” My Airport Taxi NI quotes a fixed price from your exact address. Applicable M1 tolls are included on Dublin Airport fares. Dublin Airport is preselected. Travelling from Dublin Airport to Newry? Book the inbound on this page with the flight number. We monitor inbound flights where possible and include complimentary waiting on airport pickups. Bessbrook and Camlough should be named so the driver does not wait at the Buttercrane. WhatsApp is available if the plan changes. Add a return when you want both legs together.",
+    journeyInfo: `A1 south then the M1 is the usual line. Border delays are the ones a Newry city-centre clock will not show. ${QUOTE_TIME}`,
+    goingToAirport:
+      "We collect at your Newry, Warrenpoint or Rostrevor door and drive you to Dublin Airport. Book far enough ahead of check-in even on this familiar corridor; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
+    fromAirport:
+      "Travelling from Dublin Airport to Newry is booked on this page. Share the flight number so we can monitor the inbound where possible. After arrivals, use the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+    whyBookIntro:
+      "Newry to Dublin is the corridor residents know — still a reserved car, a fixed price with tolls included, and flight monitoring on the way home.",
+    localAreasText:
+      "Warrenpoint, Rostrevor and Hilltown need the town in the address. City hotels should include the hotel name. Bessbrook and Camlough are not the Buttercrane pin.",
+    faqs: [
+      {
+        question: "How much is a taxi from Newry to Dublin Airport?",
+        answer: `${QUOTE_PRICE} Applicable M1 tolls are included on Dublin Airport fares.`,
+      },
+      {
+        question: "How long does Newry to Dublin Airport take?",
+        answer: QUOTE_TIME,
+      },
+      {
+        question: "Can I book Dublin Airport back to Newry?",
+        answer:
+          "Yes. Travelling from Dublin Airport to Newry is booked on this page. Add the flight number and your drop-off address.",
+      },
+      {
+        question: "Are M1 tolls included?",
+        answer:
+          "Yes. Applicable M1 tolls are included in the Dublin Airport fare the quote tool shows.",
+      },
+      {
+        question: "What if my Dublin flight is delayed?",
+        answer:
+          "Share the flight number. We monitor it where possible and adjust the Newry collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      },
+      {
+        question: "Can I book an overnight Newry pickup?",
+        answer:
+          "Yes. First-wave Dublin departures from Newry and Warrenpoint are a regular overnight booking.",
+      },
+    ],
+  },
 ];

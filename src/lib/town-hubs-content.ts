@@ -1,6 +1,6 @@
 import type { TownHubContent } from "@/lib/town-transfer-types";
 
-/** First SEO batch — five town hubs only. */
+/** Town hub landing pages — Batch 1 (5) plus Batch 2 (5). */
 export const TOWN_HUB_CONTENT: TownHubContent[] = [
   {
     townSlug: "newtownabbey",
@@ -123,5 +123,120 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     airportCodes: ["BFS", "BHD", "DUB"],
     heroBase: "antrim-coast",
     heroAlt: "North Down coast near Bangor airport taxi collections",
+  },
+  {
+    townSlug: "holywood",
+    name: "Holywood",
+    addressHint: "Holywood",
+    hubSlug: "holywood-airport-taxis",
+    title: "Holywood Airport Taxi & Airport Transfers",
+    h1: "Holywood Airport Taxi & Airport Transfers",
+    metaDescription:
+      "Book a private airport taxi from Holywood to Belfast International, Belfast City or Dublin Airport. Fixed-price North Down transfers with online booking.",
+    intro:
+      "Holywood sits on the A2 between Belfast and Bangor, close enough to George Best Belfast City Airport that many residents treat it as their local terminal — and far enough that a pre-booked car still matters when you have bags, a flight time, and no wish to hunt a rank. My Airport Taxi NI runs private airport transfers from Holywood, Cultra, Craigavad, Seahill, Marino and Helen’s Bay to Belfast International, Belfast City and Dublin Airport. You enter the pickup street in the quote box on this page, see a fixed price, and pay online when an instant fare is shown. Belfast City Airport is the short hop along the Sydenham Bypass. Belfast International is the westbound motorway journey via the city or the M3/M2. Dublin Airport is the longer A1/M1 run that North Down customers book for Ryanair and Aer Lingus connections. We monitor inbound flights where possible, include complimentary waiting on airport collections, and WhatsApp is available if plans change after you book.",
+    blurb:
+      "Holywood and the Cultra–Seahill stretch of the A2 are a regular North Down collection area for all three airports.",
+    areas: ["Holywood", "Cultra", "Craigavad", "Seahill", "Helen’s Bay", "Marino"],
+    localNotes: [
+      "Cultra and the Ulster Folk & Transport Museum area need the house name or number — several lanes share similar BT18 postcodes.",
+      "Seahill and Craigavad are collected as Holywood-corridor jobs, not as Bangor marina pickups.",
+      "City Airport is close, but International and Dublin still need the full motorway allowance you see in the quote tool.",
+    ],
+    airportCodes: ["BFS", "BHD", "DUB"],
+    heroBase: "titanic-belfast",
+    heroAlt: "Belfast waterfront near Holywood and Belfast City Airport transfers",
+  },
+  {
+    townSlug: "antrim",
+    name: "Antrim",
+    addressHint: "Antrim",
+    hubSlug: "antrim-airport-taxis",
+    title: "Antrim Airport Taxi & Airport Transfers",
+    h1: "Antrim Airport Taxi & Airport Transfers",
+    metaDescription:
+      "Book a private airport taxi from Antrim to Belfast International, Belfast City or Dublin Airport. Fixed-price transfers from Templepatrick, Muckamore and the town.",
+    intro:
+      "Antrim town sits beside Lough Neagh with Belfast International Airport only a short hop along the A26 — closer than almost any other large town we serve. That proximity is why so many Antrim, Templepatrick, Muckamore, Dunadry, Randalstown and Crumlin bookings are early-morning International departures: you still want a reserved car, a fixed price, and a driver who is not taking a last-minute street hail. My Airport Taxi NI also covers the longer runs from Antrim to George Best Belfast City Airport and Dublin Airport. City Airport means the M2 into east Belfast. Dublin Airport means the A26 or M2 toward the A1/M1. Use the quote box on this page with your exact street — the same calculator as the homepage. We monitor inbound flights where possible, include complimentary waiting on airport pickups, and you can add a return so both legs sit on one booking. WhatsApp is available if you need to reach us after you pay.",
+    blurb:
+      "Antrim, Templepatrick and the A26 corridor are among the closest towns we collect for Belfast International Airport.",
+    areas: ["Antrim", "Templepatrick", "Muckamore", "Randalstown", "Crumlin", "Dunadry"],
+    localNotes: [
+      "Templepatrick and the hotels around the A57 should include the property name — several sit within a short run of the International terminal.",
+      "Randalstown collections use the Toome / A6 approach, not the same timing as an Antrim town-centre pickup.",
+      "Crumlin is on the International side of the lough; say so in the address so the quote uses the correct street, not Antrim town.",
+    ],
+    airportCodes: ["BFS", "BHD", "DUB"],
+    heroBase: "antrim-coast",
+    heroAlt: "Antrim countryside near airport taxi collections for Belfast International",
+  },
+  {
+    townSlug: "ballymena",
+    name: "Ballymena",
+    addressHint: "Ballymena",
+    hubSlug: "ballymena-airport-taxis",
+    title: "Ballymena Airport Taxi & Airport Transfers",
+    h1: "Ballymena Airport Taxi & Airport Transfers",
+    metaDescription:
+      "Book a private airport taxi from Ballymena to Belfast International, Belfast City or Dublin Airport. Fixed-price transfers from Galgorm, Broughshane and the town.",
+    intro:
+      "Ballymena is the largest town in mid-Antrim and a regular origin for airport cars heading south on the A26. Belfast International is the nearest of the three terminals — a rural dual-carriageway run rather than a city-centre crawl — which is why Galgorm hotel guests and Broughshane, Cullybackey, Ahoghill and Gracehill residents often book International first. George Best Belfast City Airport and Dublin Airport are the other two journeys we quote from this hub. City Airport adds the M2 into Sydenham. Dublin Airport is the long A26/M2 then A1/M1 day that needs an honest start time. My Airport Taxi NI gives you a fixed price from your street address, online payment when an instant fare is shown, and a reserved pickup instead of a rank. We monitor inbound flights where possible, include complimentary waiting on airport collections, and WhatsApp is there if the plan changes. Add a return when you want the homeward leg booked with the outbound.",
+    blurb:
+      "Ballymena and the Galgorm–Broughshane hinterland are a core mid-Antrim collection area, especially for Belfast International.",
+    areas: ["Ballymena", "Broughshane", "Cullybackey", "Galgorm", "Ahoghill", "Gracehill"],
+    localNotes: [
+      "Galgorm and the spa hotels should include the hotel name — drivers treat them as countryside pickups, not Ballymena bus-station jobs.",
+      "Cullybackey and Gracehill sit west of the town; allow the extra lanes the quote map will show.",
+      "Broughshane collections come in from the A42, not down the A26 from the town centre.",
+    ],
+    airportCodes: ["BFS", "BHD", "DUB"],
+    heroBase: "antrim-coast",
+    heroAlt: "Mid-Antrim landscape near Ballymena airport taxi collections",
+  },
+  {
+    townSlug: "larne",
+    name: "Larne",
+    addressHint: "Larne",
+    hubSlug: "larne-airport-taxis",
+    title: "Larne Airport Taxi & Airport Transfers",
+    h1: "Larne Airport Taxi & Airport Transfers",
+    metaDescription:
+      "Book a private airport taxi from Larne to Belfast International, Belfast City or Dublin Airport. Fixed-price transfers from Glynn, Islandmagee and the harbour town.",
+    intro:
+      "Larne is the ferry port at the mouth of Larne Lough, and airport transfers from here have a different shape to a Belfast suburb job. You leave the harbour town, Glynn, Magheramorne, Ballygally, Islandmagee or Whitehead and join the A8 toward the M2 — then either peel west for Belfast International or continue toward George Best Belfast City Airport on the harbour side of the city. Dublin Airport is the long southbound day after that motorway join. My Airport Taxi NI books private cars for all three, with a fixed price from your exact address and online payment when an instant fare is shown. Harbour and seafront postcodes need the property name; Islandmagee and Ballygally are coastal lanes, not Larne Main Street. We monitor inbound flights where possible, include complimentary waiting on airport pickups, and you can add a return so the trip back from the terminal is reserved. WhatsApp is available if a sailing or flight time moves after you book.",
+    blurb:
+      "Larne, Islandmagee and the A8 corridor are collected as east-Antrim harbour jobs — not as Carrickfergus Shore Road pickups.",
+    areas: ["Larne", "Glynn", "Ballygally", "Islandmagee", "Whitehead", "Magheramorne"],
+    localNotes: [
+      "Islandmagee and Ballygally need the lane or house name — coastal sats often stop one road short.",
+      "Whitehead sits toward Carrickfergus; we still collect it on Larne-area bookings when that is the address you enter.",
+      "Ferry-terminal and harbour hotels should be named in the pickup field so the driver does not wait on the town-centre rank.",
+    ],
+    airportCodes: ["BFS", "BHD", "DUB"],
+    heroBase: "antrim-coast",
+    heroAlt: "Antrim coast near Larne harbour airport taxi collections",
+  },
+  {
+    townSlug: "newry",
+    name: "Newry",
+    addressHint: "Newry",
+    hubSlug: "newry-airport-taxis",
+    title: "Newry Airport Taxi & Airport Transfers",
+    h1: "Newry Airport Taxi & Airport Transfers",
+    metaDescription:
+      "Book a private airport taxi from Newry to Belfast International, Belfast City or Dublin Airport. Fixed-price transfers from Warrenpoint, Rostrevor and the city.",
+    intro:
+      "Newry sits on the A1 between Belfast and Dublin, which is why Dublin Airport is often the first terminal people here ask about — and why Belfast International and George Best Belfast City Airport still need a proper northbound plan rather than a last-minute cab. My Airport Taxi NI runs private transfers from Newry city, Warrenpoint, Rostrevor, Bessbrook, Camlough and Hilltown to all three airports. Dublin Airport is the southbound M1 after the border. The two Belfast airports are the northbound A1 toward Lisburn and then either the M1/M2 west to International or the city route to Sydenham. Enter your street in the quote box on this page for a fixed price; pay online when an instant fare is shown. We monitor inbound flights where possible, include complimentary waiting on airport collections, and WhatsApp is available if you need to reach us. Add a return when you want the journey back from the terminal booked with the outbound.",
+    blurb:
+      "Newry and the Warrenpoint–Rostrevor coast are on the A1/M1 corridor — well placed for Dublin Airport and still a regular origin for both Belfast airports.",
+    areas: ["Newry", "Warrenpoint", "Rostrevor", "Bessbrook", "Camlough", "Hilltown"],
+    localNotes: [
+      "Warrenpoint and Rostrevor are lough-shore collections — include the townland or hotel name, not only “Newry”.",
+      "Bessbrook and Camlough sit off the A25; they are not the same timing as a Newry Buttercrane pickup.",
+      "Hilltown is the Mournes approach; the quote map will show the extra lanes from the city.",
+    ],
+    airportCodes: ["BFS", "BHD", "DUB"],
+    heroBase: "dublin-beckett-bridge",
+    heroAlt: "A1/M1 corridor near Newry airport taxi collections for Dublin and Belfast",
   },
 ];
