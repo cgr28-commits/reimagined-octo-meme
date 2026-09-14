@@ -83,7 +83,7 @@ export type DestinationHeroSlug = keyof typeof DESTINATION_HERO;
 
 /** Town hubs that still need a genuine local photograph. */
 export const MISSING_DESTINATION_HEROES = [
-  { slug: "ballymena", needed: "Recognisable Ballymena town or local scene" },
+  { slug: "ballymena", needed: "Seven Towers / Ballee roundabout or another recognisable Ballymena landmark" },
 ] as const;
 
 export function getDestinationHero(slug: string): DestinationHeroAsset | undefined {

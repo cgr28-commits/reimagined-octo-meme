@@ -8,3 +8,4 @@ Licence URL: https://creativecommons.org/licenses/by-sa/4.0/
 Date accessed: 2026-09-14
 Attribution required: yes
 Source width x height: 4032 x 3024
+Stored working file: cropped to 4032 x 1760 for a wide hero (pier and lough kept in frame)
