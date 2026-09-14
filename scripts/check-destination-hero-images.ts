@@ -40,7 +40,9 @@ console.log("=== Destination mapping only includes real local photographs ===");
     }
   }
   assert.ok(getDestinationHero("belfast"));
-  assert.equal(getDestinationHero("carrickfergus"), undefined);
+  assert.equal(getDestinationHero("carrickfergus")?.heroBase, "carrickfergus-castle");
+  assert.equal(getDestinationHero("holywood"), undefined);
+  assert.equal(getDestinationHero("ballymena"), undefined);
   console.log("OK  mapped destinations have source + optimized files");
 }
 
@@ -62,14 +64,18 @@ console.log("\n=== Town hubs ===");
   }
   const carrick = TOWN_HUB_PAGES.find((hub) => hub.town.slug === "carrickfergus");
   assert.ok(carrick);
-  assert.equal(carrick.heroBase, undefined);
-  assert.ok(
-    MISSING_DESTINATION_HEROES.some(
-      (item) => item.slug === "carrickfergus" && /Carrickfergus Castle/.test(item.needed),
-    ),
-  );
-  console.log("OK  hubs with no genuine local photo stay unresolved");
-  console.log("    Dedicated Carrickfergus Castle image required.");
+  assert.equal(carrick.heroBase, "carrickfergus-castle");
+  assert.equal(carrick.heroAlt, "Carrickfergus Castle on Belfast Lough");
+  const holywood = TOWN_HUB_PAGES.find((hub) => hub.town.slug === "holywood");
+  assert.ok(holywood);
+  assert.equal(holywood.heroBase, undefined);
+  const ballymena = TOWN_HUB_PAGES.find((hub) => hub.town.slug === "ballymena");
+  assert.ok(ballymena);
+  assert.equal(ballymena.heroBase, undefined);
+  assert.ok(MISSING_DESTINATION_HEROES.some((item) => item.slug === "holywood"));
+  assert.ok(MISSING_DESTINATION_HEROES.some((item) => item.slug === "ballymena"));
+  console.log("OK  hubs with a genuine local photo use DESTINATION_HERO");
+  console.log("    Holywood and Ballymena stay unresolved until a suitable legal photo exists.");
 }
 
 console.log("\n=== Airport pages stay on AIRPORT_HERO ===");
@@ -111,6 +117,31 @@ console.log("\n=== Town hub content has no hardcoded hero paths ===");
   assert.doesNotMatch(hubs, /heroBase/);
   assert.doesNotMatch(hubs, /antrim-coast|titanic-belfast|dublin-beckett/);
   console.log("OK  hub photographs come only from DESTINATION_HERO");
+}
+
+console.log("\n=== Newly sourced destination photos have attribution records ===");
+{
+  const sourced = [
+    "carrickfergus-castle",
+    "bangor-harbour",
+    "antrim-castle-gardens",
+    "larne-chaine-monument",
+    "newry-town-hall",
+    "lisburn-linen-centre",
+    "ballyclare-town-hall",
+    "newtownabbey-belfast-lough",
+  ];
+  for (const name of sourced) {
+    const attr = join(root, "public/images/hero/attributions", `${name}.txt`);
+    assert.ok(existsSync(attr), `missing attribution ${attr}`);
+    const text = readFileSync(attr, "utf8");
+    assert.match(text, /Source URL:/);
+    assert.match(text, /Creator:/);
+    assert.match(text, /Licence:/);
+    assert.match(text, /Date accessed:/);
+    assert.match(text, /Attribution required:/);
+  }
+  console.log("OK  attribution files record source, creator, and licence");
 }
 
 console.log("\nAll destination hero image checks passed.");

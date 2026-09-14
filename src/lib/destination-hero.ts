@@ -13,7 +13,7 @@ export type DestinationHeroAsset = {
 };
 
 /**
- * Only destinations that already have a legitimate, recognisable photograph.
+ * Only destinations that have a legitimate, recognisable photograph.
  * Do not add a town here just to fill a gap.
  */
 export const DESTINATION_HERO = {
@@ -23,22 +23,62 @@ export const DESTINATION_HERO = {
     sourceDir: "hero",
     alt: "Titanic Belfast",
   },
+  carrickfergus: {
+    heroBase: "carrickfergus-castle",
+    sourceBasename: "carrickfergus-castle",
+    sourceDir: "hero",
+    alt: "Carrickfergus Castle on Belfast Lough",
+  },
+  bangor: {
+    heroBase: "bangor-harbour",
+    sourceBasename: "bangor-harbour",
+    sourceDir: "hero",
+    alt: "Bangor harbour from the North Pier",
+  },
+  antrim: {
+    heroBase: "antrim-castle-gardens",
+    sourceBasename: "antrim-castle-gardens",
+    sourceDir: "hero",
+    alt: "Deerpark Bridge in Antrim Castle Gardens",
+  },
+  larne: {
+    heroBase: "larne-chaine-monument",
+    sourceBasename: "larne-chaine-monument",
+    sourceDir: "hero",
+    alt: "Chaine Memorial Tower on the Larne coast",
+  },
+  newry: {
+    heroBase: "newry-town-hall",
+    sourceBasename: "newry-town-hall",
+    sourceDir: "hero",
+    alt: "Newry Town Hall beside the canal",
+  },
+  lisburn: {
+    heroBase: "lisburn-linen-centre",
+    sourceBasename: "lisburn-linen-centre",
+    sourceDir: "hero",
+    alt: "Irish Linen Centre and Lisburn Museum",
+  },
+  ballyclare: {
+    heroBase: "ballyclare-town-hall",
+    sourceBasename: "ballyclare-town-hall",
+    sourceDir: "hero",
+    alt: "Ballyclare Town Hall",
+  },
+  newtownabbey: {
+    heroBase: "newtownabbey-belfast-lough",
+    sourceBasename: "newtownabbey-belfast-lough",
+    sourceDir: "hero",
+    alt: "Belfast Lough from Cave Hill, looking towards the Newtownabbey shoreline",
+  },
 } as const satisfies Record<string, DestinationHeroAsset>;
 
 export type DestinationHeroSlug = keyof typeof DESTINATION_HERO;
 
-/** Town hubs and destination pages that still need a genuine local photograph. */
+/** Town hubs that still need a genuine local photograph. */
 export const MISSING_DESTINATION_HEROES = [
-  { slug: "carrickfergus", needed: "Carrickfergus Castle" },
-  { slug: "bangor", needed: "Bangor Marina or Bangor seafront" },
-  { slug: "holywood", needed: "Holywood or Belfast Lough local scene" },
-  { slug: "antrim", needed: "Antrim town or Lough Neagh local scene" },
+  { slug: "holywood", needed: "Holywood town, Belfast Lough, or another recognisable Holywood scene" },
   { slug: "ballymena", needed: "Recognisable Ballymena town or local scene" },
-  { slug: "larne", needed: "Larne harbour or Larne coast" },
-  { slug: "newry", needed: "Newry city, canal, or a clearly Newry local scene" },
-  { slug: "lisburn", needed: "Recognisable Lisburn local scene" },
-  { slug: "ballyclare", needed: "Recognisable Ballyclare local scene" },
-  { slug: "newtownabbey", needed: "Newtownabbey, Shore Road, or Belfast Lough local scene" },
 ] as const;
 
 export function getDestinationHero(slug: string): DestinationHeroAsset | undefined {

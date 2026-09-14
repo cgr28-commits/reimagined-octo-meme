@@ -47,6 +47,13 @@ export const LANDMARK_HERO_BASES = [
   "derry-st-columbs",
   "mourne-mountains",
   "carrickfergus-castle",
+  "bangor-harbour",
+  "antrim-castle-gardens",
+  "larne-chaine-monument",
+  "newry-town-hall",
+  "lisburn-linen-centre",
+  "ballyclare-town-hall",
+  "newtownabbey-belfast-lough",
 ] as const;
 
 export function getAirportHero(code: AirportHeroCode): AirportHeroAsset {
