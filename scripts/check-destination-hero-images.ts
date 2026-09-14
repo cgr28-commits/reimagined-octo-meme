@@ -41,7 +41,7 @@ console.log("=== Destination mapping only includes real local photographs ===");
   }
   assert.ok(getDestinationHero("belfast"));
   assert.equal(getDestinationHero("carrickfergus")?.heroBase, "carrickfergus-castle");
-  assert.equal(getDestinationHero("holywood"), undefined);
+  assert.equal(getDestinationHero("holywood")?.heroBase, "holywood-old-pier");
   assert.equal(getDestinationHero("ballymena"), undefined);
   console.log("OK  mapped destinations have source + optimized files");
 }
@@ -68,14 +68,15 @@ console.log("\n=== Town hubs ===");
   assert.equal(carrick.heroAlt, "Carrickfergus Castle on Belfast Lough");
   const holywood = TOWN_HUB_PAGES.find((hub) => hub.town.slug === "holywood");
   assert.ok(holywood);
-  assert.equal(holywood.heroBase, undefined);
+  assert.equal(holywood.heroBase, "holywood-old-pier");
+  assert.equal(holywood.heroAlt, "Belfast Lough at sunset from Holywood Old Pier");
   const ballymena = TOWN_HUB_PAGES.find((hub) => hub.town.slug === "ballymena");
   assert.ok(ballymena);
   assert.equal(ballymena.heroBase, undefined);
-  assert.ok(MISSING_DESTINATION_HEROES.some((item) => item.slug === "holywood"));
   assert.ok(MISSING_DESTINATION_HEROES.some((item) => item.slug === "ballymena"));
+  assert.ok(!MISSING_DESTINATION_HEROES.some((item) => item.slug === "holywood"));
   console.log("OK  hubs with a genuine local photo use DESTINATION_HERO");
-  console.log("    Holywood and Ballymena stay unresolved until a suitable legal photo exists.");
+  console.log("    Ballymena stays unresolved until a suitable legal photo exists.");
 }
 
 console.log("\n=== Airport pages stay on AIRPORT_HERO ===");
@@ -130,6 +131,7 @@ console.log("\n=== Newly sourced destination photos have attribution records ===
     "lisburn-linen-centre",
     "ballyclare-town-hall",
     "newtownabbey-belfast-lough",
+    "holywood-old-pier",
   ];
   for (const name of sourced) {
     const attr = join(root, "public/images/hero/attributions", `${name}.txt`);

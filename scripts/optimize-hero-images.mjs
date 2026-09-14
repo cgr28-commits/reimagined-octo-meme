@@ -27,6 +27,7 @@ const sources = [
   { source: "derry-airport", output: "derry-airport" },
   { source: "carrickfergus-castle", output: "carrickfergus-castle" },
   { source: "bangor-harbour", output: "bangor-harbour" },
+  { source: "holywood-old-pier", output: "holywood-old-pier" },
   { source: "antrim-castle-gardens", output: "antrim-castle-gardens" },
   { source: "larne-chaine-monument", output: "larne-chaine-monument" },
   { source: "newry-town-hall", output: "newry-town-hall" },

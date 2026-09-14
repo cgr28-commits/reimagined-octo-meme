@@ -48,6 +48,7 @@ export const LANDMARK_HERO_BASES = [
   "mourne-mountains",
   "carrickfergus-castle",
   "bangor-harbour",
+  "holywood-old-pier",
   "antrim-castle-gardens",
   "larne-chaine-monument",
   "newry-town-hall",

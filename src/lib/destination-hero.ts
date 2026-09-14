@@ -35,6 +35,12 @@ export const DESTINATION_HERO = {
     sourceDir: "hero",
     alt: "Bangor harbour from the North Pier",
   },
+  holywood: {
+    heroBase: "holywood-old-pier",
+    sourceBasename: "holywood-old-pier",
+    sourceDir: "hero",
+    alt: "Belfast Lough at sunset from Holywood Old Pier",
+  },
   antrim: {
     heroBase: "antrim-castle-gardens",
     sourceBasename: "antrim-castle-gardens",
@@ -77,7 +83,6 @@ export type DestinationHeroSlug = keyof typeof DESTINATION_HERO;
 
 /** Town hubs that still need a genuine local photograph. */
 export const MISSING_DESTINATION_HEROES = [
-  { slug: "holywood", needed: "Holywood town, Belfast Lough, or another recognisable Holywood scene" },
   { slug: "ballymena", needed: "Recognisable Ballymena town or local scene" },
 ] as const;
 
