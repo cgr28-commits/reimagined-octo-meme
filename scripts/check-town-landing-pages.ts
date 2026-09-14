@@ -61,6 +61,11 @@ console.log("\n=== First-batch routes ===");
   }
   assert.ok(getTransferRoutePage("newtownabbey-to-dublin"));
   assert.equal(getTransferRoutePage("newtownabbey-to-dublin")?.slug, "newtownabbey-to-dublin-airport");
+  assert.ok(getTransferRoutePage("newtownabbey-to-belfast-city"));
+  assert.equal(
+    getTransferRoutePage("newtownabbey-to-belfast-city")?.slug,
+    "newtownabbey-to-belfast-city-airport",
+  );
   assert.ok(getTransferRoutePage("belfast-to-dublin"));
   assert.equal(getTransferRoutePage("belfast-to-dublin")?.slug, "belfast-to-dublin");
 

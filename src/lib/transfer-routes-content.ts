@@ -63,6 +63,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
   },
   {
     slug: "newtownabbey-to-belfast-city-airport",
+    legacySlugs: ["newtownabbey-to-belfast-city"],
     townSlug: "newtownabbey",
     airportCode: "BHD",
     title: "Newtownabbey to Belfast City Airport Taxi",
@@ -514,6 +515,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
   },
   {
     slug: "lisburn-to-belfast-city-airport",
+    legacySlugs: ["lisburn-to-belfast-city"],
     townSlug: "lisburn",
     airportCode: "BHD",
     title: "Lisburn to Belfast City Airport Taxi",
@@ -665,6 +667,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
   },
   {
     slug: "bangor-to-belfast-city-airport",
+    legacySlugs: ["bangor-to-belfast-city"],
     townSlug: "bangor",
     airportCode: "BHD",
     title: "Bangor to Belfast City Airport Taxi",

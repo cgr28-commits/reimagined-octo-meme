@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
@@ -55,6 +55,9 @@ export default async function TransferRoutePage({ params }: Props) {
   const { slug } = await params;
   const page = getTransferRoutePage(slug);
   if (!page) notFound();
+  if (page.slug !== slug) {
+    permanentRedirect(`/transfers/${page.slug}/`);
+  }
 
   const isLanding = Boolean(page.faqs?.length);
   const hubHref = page.hubSlug ? `/locations/${page.hubSlug}/` : "/locations/";

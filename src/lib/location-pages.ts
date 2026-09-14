@@ -399,15 +399,37 @@ export function getTransferRoutePage(slug: string): TransferRoutePage | undefine
   );
 }
 
-export function getTransferStaticSlugs(): string[] {
-  const slugs = new Set<string>();
+export type TransferLegacyRedirect = {
+  fromSlug: string;
+  toSlug: string;
+  source: string;
+  sourceTrailing: string;
+  destination: string;
+};
+
+/** Previously indexed transfer slugs that now permanently redirect to a new canonical. */
+export function getTransferLegacyRedirects(): TransferLegacyRedirect[] {
+  const canonical = new Set(TRANSFER_ROUTE_PAGES.map((page) => page.slug));
+  const redirects: TransferLegacyRedirect[] = [];
   for (const page of TRANSFER_ROUTE_PAGES) {
-    slugs.add(page.slug);
-    for (const legacy of page.legacySlugs ?? []) {
-      slugs.add(legacy);
+    for (const fromSlug of page.legacySlugs ?? []) {
+      if (!fromSlug || fromSlug === page.slug || canonical.has(fromSlug)) {
+        continue;
+      }
+      redirects.push({
+        fromSlug,
+        toSlug: page.slug,
+        source: `/transfers/${fromSlug}`,
+        sourceTrailing: `/transfers/${fromSlug}/`,
+        destination: `/transfers/${page.slug}/`,
+      });
     }
   }
-  return [...slugs];
+  return redirects;
+}
+
+export function getTransferStaticSlugs(): string[] {
+  return getCanonicalTransferSlugs();
 }
 
 export function getRoutesForTown(townSlug: string): TransferRoutePage[] {
