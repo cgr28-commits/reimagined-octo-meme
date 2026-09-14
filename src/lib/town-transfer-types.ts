@@ -18,8 +18,6 @@ export type TownHubContent = {
   areas: string[];
   localNotes: string[];
   airportCodes: LandingAirportCode[];
-  heroBase: string;
-  heroAlt: string;
 };
 
 export type TransferRouteContent = {

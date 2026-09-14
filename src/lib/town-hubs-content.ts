@@ -29,8 +29,6 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Mallusk business-park collections are straightforward if you share the unit or reception entrance with the booking.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "antrim-coast",
-    heroAlt: "Coastal Northern Ireland near Newtownabbey airport transfer routes",
   },
   {
     townSlug: "carrickfergus",
@@ -52,8 +50,6 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Greenisland is collected with Carrickfergus-area timing, not as a Belfast city job, so the quote uses your exact street.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "antrim-coast",
-    heroAlt: "Antrim coast roads used for Carrickfergus airport transfers",
   },
   {
     townSlug: "ballyclare",
@@ -75,8 +71,6 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "City Airport and Dublin from Ballyclare are longer reserved journeys, not local hops — the quote tool shows distance and time for your address.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "antrim-coast",
-    heroAlt: "Countryside roads near Ballyclare used for airport collections",
   },
   {
     townSlug: "lisburn",
@@ -98,8 +92,6 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "City Airport from Lisburn is timed around the Westlink peak rather than treated as a short local run.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "antrim-coast",
-    heroAlt: "Road approaches used for Lisburn airport taxi transfers",
   },
   {
     townSlug: "bangor",
@@ -121,8 +113,6 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Helen’s Bay and Crawfordsburn are collected with North Down timing, not as Belfast city jobs.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "antrim-coast",
-    heroAlt: "North Down coast near Bangor airport taxi collections",
   },
   {
     townSlug: "holywood",
@@ -144,8 +134,6 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "City Airport is close, but International and Dublin still need the full motorway allowance you see in the quote tool.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "titanic-belfast",
-    heroAlt: "Belfast waterfront near Holywood and Belfast City Airport transfers",
   },
   {
     townSlug: "antrim",
@@ -167,8 +155,6 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Crumlin is on the International side of the lough; say so in the address so the quote uses the correct street, not Antrim town.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "antrim-coast",
-    heroAlt: "Antrim countryside near airport taxi collections for Belfast International",
   },
   {
     townSlug: "ballymena",
@@ -190,8 +176,6 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Broughshane collections come in from the A42, not down the A26 from the town centre.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "antrim-coast",
-    heroAlt: "Mid-Antrim landscape near Ballymena airport taxi collections",
   },
   {
     townSlug: "larne",
@@ -213,8 +197,6 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Ferry-terminal and harbour hotels should be named in the pickup field so the driver does not wait on the town-centre rank.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "antrim-coast",
-    heroAlt: "Antrim coast near Larne harbour airport taxi collections",
   },
   {
     townSlug: "newry",
@@ -236,7 +218,5 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Hilltown is the Mournes approach; the quote map will show the extra lanes from the city.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    heroBase: "dublin-beckett-bridge",
-    heroAlt: "A1/M1 corridor near Newry airport taxi collections for Dublin and Belfast",
   },
 ];

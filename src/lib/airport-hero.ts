@@ -46,6 +46,7 @@ export const LANDMARK_HERO_BASES = [
   "derry-guildhall",
   "derry-st-columbs",
   "mourne-mountains",
+  "carrickfergus-castle",
 ] as const;
 
 export function getAirportHero(code: AirportHeroCode): AirportHeroAsset {
