@@ -76,11 +76,38 @@ const airportSlugs = [
   "city-of-derry",
 ];
 
-const townSlugs = ["belfast", "newtownabbey", "lisburn", "bangor"];
+const townHubSlugs = [
+  "newtownabbey-airport-taxis",
+  "carrickfergus-airport-taxis",
+  "ballyclare-airport-taxis",
+  "lisburn-airport-taxis",
+  "bangor-airport-taxis",
+];
 
-const transferSlugs = townSlugs.flatMap((town) =>
-  airportSlugs.map((airport) => `${town}-to-${airport}`),
-);
+const transferSlugs = [
+  "belfast-to-belfast-international",
+  "belfast-to-belfast-city",
+  "belfast-to-dublin",
+  "belfast-to-city-of-derry",
+  "newtownabbey-to-belfast-international",
+  "newtownabbey-to-belfast-city-airport",
+  "newtownabbey-to-dublin-airport",
+  "newtownabbey-to-city-of-derry",
+  "carrickfergus-to-belfast-international",
+  "carrickfergus-to-belfast-city-airport",
+  "carrickfergus-to-dublin-airport",
+  "ballyclare-to-belfast-international",
+  "ballyclare-to-belfast-city-airport",
+  "ballyclare-to-dublin-airport",
+  "lisburn-to-belfast-international",
+  "lisburn-to-belfast-city-airport",
+  "lisburn-to-dublin-airport",
+  "lisburn-to-city-of-derry",
+  "bangor-to-belfast-international",
+  "bangor-to-belfast-city-airport",
+  "bangor-to-dublin-airport",
+  "bangor-to-city-of-derry",
+];
 
 const pages = [
   { path: "/", source: "src/app/page.tsx" },
@@ -88,6 +115,10 @@ const pages = [
   ...airportSlugs.map((slug) => ({
     path: `/airports/${slug}/`,
     source: "src/lib/location-pages.ts",
+  })),
+  ...townHubSlugs.map((slug) => ({
+    path: `/locations/${slug}/`,
+    source: "src/lib/town-hubs-content.ts",
   })),
   ...transferSlugs.map((slug) => ({
     path: `/transfers/${slug}/`,
@@ -141,5 +172,5 @@ ${urls}
 
 writeFileSync(join(process.cwd(), "public", "sitemap.xml"), xml);
 console.log(
-  `Wrote sitemap with ${pages.length} URLs (airports ${airportSlugs.length}, transfers ${transferSlugs.length}, day trips ${DAY_TRIPS_ENABLED ? "on" : "off"})`,
+  `Wrote sitemap with ${pages.length} URLs (airports ${airportSlugs.length}, town hubs ${townHubSlugs.length}, transfers ${transferSlugs.length}, day trips ${DAY_TRIPS_ENABLED ? "on" : "off"})`,
 );

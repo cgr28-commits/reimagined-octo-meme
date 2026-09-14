@@ -12,6 +12,7 @@ import {
   LOCATIONS_ROI_EXAMPLES,
   LOCATIONS_ROUTE_NOTE,
 } from "@/lib/locations-content";
+import { getTownHubByAreaName, TOWN_HUB_PAGES } from "@/lib/location-pages";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -56,6 +57,29 @@ export default function LocationsPage() {
               />
             </div>
 
+            <section className="mt-14">
+              <h2 className="text-xl font-bold text-white">Airport taxi towns</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">
+                Dedicated airport taxi pages for towns we quote most often, with routes to Belfast
+                International, Belfast City Airport and Dublin Airport.
+              </p>
+              <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {TOWN_HUB_PAGES.map((hub) => (
+                  <li key={hub.slug}>
+                    <Link
+                      href={`/locations/${hub.slug}/`}
+                      className="block rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 transition-colors hover:border-emerald/40"
+                    >
+                      <p className="text-base font-bold text-white">{hub.town.name} airport taxis</p>
+                      <p className="mt-1 text-sm text-white/55">
+                        {hub.town.name} to Belfast International, Belfast City and Dublin Airport
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
             <div className="mt-14 grid gap-10 lg:grid-cols-2">
               <section>
                 <h2 className="text-xl font-bold text-white">Northern Ireland destinations</h2>
@@ -63,14 +87,25 @@ export default function LocationsPage() {
                   Door-to-door drop-offs across NI from Greater Belfast pickups, including:
                 </p>
                 <ul className="mt-4 flex flex-wrap gap-2">
-                  {AREAS.map((area) => (
-                    <li
-                      key={area}
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75"
-                    >
-                      {area}
-                    </li>
-                  ))}
+                  {AREAS.map((area) => {
+                    const hub = getTownHubByAreaName(area);
+                    const chipClass =
+                      "rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75";
+                    return (
+                      <li key={area}>
+                        {hub ? (
+                          <Link
+                            href={`/locations/${hub.slug}/`}
+                            className={`${chipClass} transition-colors hover:border-emerald/40 hover:text-emerald`}
+                          >
+                            {area}
+                          </Link>
+                        ) : (
+                          <span className={chipClass}>{area}</span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
 

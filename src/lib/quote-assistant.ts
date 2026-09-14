@@ -37,6 +37,7 @@ import {
 import {
   AIRPORT_PAGES,
   TOWN_AREAS,
+  TOWN_HUB_PAGES,
   TRANSFER_ROUTE_PAGES,
 } from "@/lib/location-pages";
 import { TOUR_BENEFITS, TOURS } from "@/lib/tours";
@@ -345,11 +346,28 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     });
   }
 
+  for (const hub of TOWN_HUB_PAGES) {
+    chunks.push({
+      title: hub.title,
+      body: [hub.intro, `Local areas: ${hub.areas.join(", ")}.`, ...hub.localNotes].join(" "),
+    });
+  }
+
   // Popular town ↔ airport route notes
   for (const route of TRANSFER_ROUTE_PAGES) {
     chunks.push({
       title: route.title,
-      body: [route.intro, ...route.journeyNotes].join(" "),
+      body: [
+        route.intro,
+        route.journeyInfo,
+        route.goingToAirport,
+        route.fromAirport,
+        route.localAreasText,
+        ...route.journeyNotes,
+        ...(route.faqs ?? []).map((faq) => `${faq.question} ${faq.answer}`),
+      ]
+        .filter(Boolean)
+        .join(" "),
     });
   }
 

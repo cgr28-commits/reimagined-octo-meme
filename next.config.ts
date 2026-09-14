@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { transferLegacyRedirectEntries } from "./src/lib/transfer-legacy-redirects.mjs";
 
 const isGithubPages = process.env.GITHUB_PAGES === "true";
 
@@ -26,6 +27,12 @@ const nextConfig: NextConfig = {
         hostname: "images.unsplash.com",
       },
     ],
+  },
+  async redirects() {
+    if (isGithubPages) {
+      return [];
+    }
+    return transferLegacyRedirectEntries();
   },
   async headers() {
     if (isGithubPages) {

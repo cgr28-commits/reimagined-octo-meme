@@ -88,7 +88,10 @@ console.log("\n=== Structured data ===");
   assert.match(airportPage, /getServiceAreaJsonLd/);
   assert.match(transferPage, /getBreadcrumbJsonLd/);
   assert.match(airportPage, /getBreadcrumbJsonLd/);
-  console.log("OK  homepage-only FAQ · one #business · route Service + breadcrumbs");
+  const townHubPage = read("src/app/locations/[slug]/page.tsx");
+  assert.match(townHubPage, /getServiceAreaJsonLd/);
+  assert.match(townHubPage, /getBreadcrumbJsonLd/);
+  console.log("OK  homepage FAQ · one #business · route/hub Service + breadcrumbs");
 }
 
 console.log("\n=== Sitemap ===");

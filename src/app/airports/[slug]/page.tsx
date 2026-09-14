@@ -11,6 +11,7 @@ import { SITE } from "@/lib/data";
 import {
   AIRPORT_PAGES,
   getAirportPage,
+  TOWN_HUB_PAGES,
   TRANSFER_ROUTE_PAGES,
 } from "@/lib/location-pages";
 import { getBreadcrumbJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
@@ -54,6 +55,7 @@ export default async function AirportTransferPage({ params }: Props) {
   if (!page) notFound();
 
   const relatedRoutes = TRANSFER_ROUTE_PAGES.filter((route) => route.airport.slug === page.slug);
+  const relatedHubs = TOWN_HUB_PAGES.filter((hub) => hub.airportCodes.includes(page.code));
   const breadcrumb = getBreadcrumbJsonLd([
     { name: "Home", path: "/" },
     { name: "Airports", path: "/airports/" },
@@ -136,6 +138,24 @@ export default async function AirportTransferPage({ params }: Props) {
             </ul>
           </section>
 
+          {relatedHubs.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="text-lg font-bold text-white">Towns we serve for {page.shortName}</h2>
+              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                {relatedHubs.map((hub) => (
+                  <li key={hub.slug}>
+                    <Link
+                      href={`/locations/${hub.slug}/`}
+                      className="block rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
+                    >
+                      {hub.town.name} airport taxis
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           {relatedRoutes.length > 0 ? (
             <section className="mt-8">
               <h2 className="text-lg font-bold text-white">Popular routes to {page.shortName}</h2>
@@ -146,7 +166,7 @@ export default async function AirportTransferPage({ params }: Props) {
                       href={`/transfers/${route.slug}/`}
                       className="block rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
                     >
-                      {route.town.name} → {page.shortName}
+                      {route.town.name} to {page.shortName}
                     </Link>
                   </li>
                 ))}
