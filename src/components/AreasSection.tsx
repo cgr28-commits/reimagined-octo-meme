@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { AIRPORTS, AREAS } from "@/lib/data";
+import { getTownHubByAreaName } from "@/lib/location-pages";
 import SectionHeading from "./SectionHeading";
 
 export default function AreasSection() {
@@ -38,15 +40,16 @@ export default function AreasSection() {
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8 lg:p-8">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-              {AREAS.map((area) => (
-                <div
-                  key={area}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-white/75 transition-colors hover:bg-emerald/10 hover:text-white"
-                >
+              {AREAS.map((area) => {
+                const hub = getTownHubByAreaName(area);
+                const chipClass =
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-white/75 transition-colors hover:bg-emerald/10 hover:text-white";
+                const pin = (
                   <svg
                     className="h-4 w-4 shrink-0 text-emerald"
                     fill="currentColor"
                     viewBox="0 0 20 20"
+                    aria-hidden
                   >
                     <path
                       fillRule="evenodd"
@@ -54,10 +57,29 @@ export default function AreasSection() {
                       clipRule="evenodd"
                     />
                   </svg>
-                  {area}
-                </div>
-              ))}
+                );
+                return hub ? (
+                  <Link
+                    key={area}
+                    href={`/locations/${hub.slug}/`}
+                    className={chipClass}
+                  >
+                    {pin}
+                    {area}
+                  </Link>
+                ) : (
+                  <div key={area} className={chipClass}>
+                    {pin}
+                    {area}
+                  </div>
+                );
+              })}
             </div>
+            <p className="mt-5 text-sm text-white/55">
+              <Link href="/locations/" className="text-emerald hover:text-emerald-light">
+                View airport taxi towns
+              </Link>
+            </p>
           </div>
         </div>
       </div>

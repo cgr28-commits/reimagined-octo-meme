@@ -116,6 +116,7 @@
     "check:minimum-booking-notice": "npx tsx scripts/check-minimum-booking-notice.ts",
     "check:short-notice-period-setting": "npx tsx scripts/check-short-notice-period-setting.ts",
     "check:town-landing-pages": "npx tsx scripts/check-town-landing-pages.ts",
+    "check:locations-crawl": "npx tsx scripts/check-locations-crawl.ts",
     "check:transfer-legacy-redirects": "npx tsx scripts/check-transfer-legacy-redirects.ts",
     "check:airport-hero-images": "npx tsx scripts/check-airport-hero-images.ts",
     "check:destination-hero-images": "npx tsx scripts/check-destination-hero-images.ts"
