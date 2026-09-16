@@ -135,7 +135,9 @@ export function getServiceAreaJsonLd(opts: {
   };
 }
 
-export function getFaqPageJsonLd(faqs?: Array<{ question: string; answer: string }>) {
+export function getFaqPageJsonLd(
+  faqs?: ReadonlyArray<{ question: string; answer: string }>,
+) {
   const items = faqs ?? getVisibleFaqs();
   return {
     "@context": "https://schema.org",
