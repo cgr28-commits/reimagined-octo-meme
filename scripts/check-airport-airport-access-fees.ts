@@ -117,21 +117,21 @@ console.log("\n=== Matrix ===\n");
   });
 }
 
-// 3 Antrim town → BHD (zone retired; universal 8 mi → £36)
+// 3 Antrim town → BHD (zone retired; universal 8 mi → £35)
 {
   const area = matchAreaFromAddress(ANTRIM);
   const journey = universalJourney(M8);
-  assert.equal(journey, 36);
+  assert.equal(journey, 35);
   const q = calculateQuote(ANTRIM, "BHD", S, false, {}, M8)!;
   assert.equal(area, "Antrim");
-  assert.equal(q.amount, 36);
+  assert.equal(q.amount, 35);
   assert.notEqual(q.amount, 65, "Antrim zone £65 retired under universal distance");
   rows.push({
     id: 3,
     label: "Antrim town → BHD",
     miles: milesOf(M8),
     underlying: journey,
-    areaRule: "zone retired — universal distance (8 mi → £36)",
+    areaRule: "zone retired — universal distance (8 mi → £35)",
     accessFees: "BFS/BHD fixed £0",
     other: "NOT Antrim zone £65",
     rounding: `£${q.amount}`,

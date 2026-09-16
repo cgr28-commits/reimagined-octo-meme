@@ -64,11 +64,11 @@ console.log("\n=== LDY pickup £2.50 fixed (not rounded away) ===");
     true,
   )!;
   assert.equal(q.airportFixedCostsGbp, 2.5);
-  assert.equal(q.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(75)); // £177
-  assert.equal(q.journeyFareGbp, 177);
-  assert.equal(q.amount, roundGbp(177 + 2.5)); // £179.50 — not Math.round → £180
+  assert.equal(q.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(75)); // £146
+  assert.equal(q.journeyFareGbp, 146);
+  assert.equal(q.amount, roundGbp(146 + 2.5)); // £148.50 — not Math.round → £149
   assertAmountParts(q, "LDY pickup parts");
-  assert.equal(formatQuote(q.amount), "£179.50");
+  assert.equal(formatQuote(q.amount), "£148.50");
   console.log(
     `OK  LDY pickup journey £${q.journeyFareGbp} + £2.50 = £${q.amount} (${formatQuote(q.amount)})`,
   );
