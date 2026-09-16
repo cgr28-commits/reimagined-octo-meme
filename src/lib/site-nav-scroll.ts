@@ -55,7 +55,7 @@ export const SITE_NAV_DESTINATIONS: readonly SiteNavDestination[] = [
     label: "Locations",
     href: "/locations/",
     hash: null,
-    heading: "Where we travel",
+    heading: "Airport Taxi Locations Across Northern Ireland",
     navId: "locations",
   },
   {
