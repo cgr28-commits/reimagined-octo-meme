@@ -148,7 +148,7 @@ export function calculateUniversalJourneyFareGbp(
       };
     }
     case "minibus": {
-      const raw = Math.round((estateGbp * minibusMult) / 5) * 5);
+      const raw = Math.round((estateGbp * minibusMult) / 5) * 5;
       return {
         saloonGbp,
         journeyFareGbp: raw,
