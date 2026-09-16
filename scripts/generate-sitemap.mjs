@@ -163,6 +163,10 @@ const pages = [
   { path: "/cancellation/", source: "shared/cancellation-policy.ts" },
   { path: "/privacy/", source: "src/lib/privacy.ts" },
   { path: "/contact/", source: "src/app/contact/page.tsx" },
+  {
+    path: "/belfast-cruise-terminal-transfers/",
+    source: "src/lib/cruise-terminal-content.ts",
+  },
   // /unsubscribe/ is noindex — omit from the sitemap.
   // /book/, /quote/, /manage-booking/, /pay/, /owner/, /driver/ omitted.
   // EMERGE landing stays at the same URL year to year — omit from sitemap when expired (no 301).

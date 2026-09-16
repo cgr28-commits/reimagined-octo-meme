@@ -68,6 +68,13 @@ async function main() {
     });
   }
 
+  await check("Includes Belfast cruise terminal transfer page", () => {
+    const body = chunks.map((c) => `${c.title} ${c.body}`).join("\n");
+    assert.match(body, /Belfast Cruise Terminal Transfers/);
+    assert.match(body, /belfast-cruise-terminal-transfers/);
+    assert.match(body, /arranged by enquiry/);
+  });
+
   await check("Bot answers cancellation question from site terms/FAQ", async () => {
     const reply = await ask("What is your cancellation and refund policy?");
     assert.match(reply.toLowerCase(), /24 hour|refund|non-refundable/);

@@ -79,6 +79,13 @@ export default function AreasSection() {
               <Link href="/locations/" className="text-emerald hover:text-emerald-light">
                 View airport taxi towns
               </Link>
+              {" · "}
+              <Link
+                href="/belfast-cruise-terminal-transfers/"
+                className="text-emerald hover:text-emerald-light"
+              >
+                Belfast cruise terminal transfers
+              </Link>
             </p>
           </div>
         </div>
