@@ -8,6 +8,8 @@ import SectionHeading from "@/components/SectionHeading";
 import { AREAS, SERVICE_FLAGS, SITE } from "@/lib/data";
 import {
   LOCATIONS_AIRPORT_LINKS,
+  LOCATIONS_HUB_H1,
+  LOCATIONS_HUB_INTRO,
   LOCATIONS_LONG_DISTANCE_EXAMPLES,
   LOCATIONS_PAGE_INTRO,
   LOCATIONS_ROI_EXAMPLES,
@@ -18,9 +20,9 @@ import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: `Locations We Cover | ${SITE.name}`,
+  title: `${LOCATIONS_HUB_H1} | ${SITE.name}`,
   description:
-    "Areas we cover across Northern Ireland, Ireland destinations, airports and long-distance routes. Examples only — get a live quote for your journey.",
+    "Find airport taxi pages for towns across Northern Ireland, plus long-distance destinations we cover. Pre-book transfers to Belfast International, Belfast City, Dublin and City of Derry Airport.",
   alternates: {
     canonical: "/locations/",
   },
@@ -59,17 +61,17 @@ export default function LocationsPage() {
                 as="h1"
                 align="left"
                 eyebrow="Locations"
-                title="Where we travel"
+                title={LOCATIONS_HUB_H1}
                 navId="locations"
-                description={LOCATIONS_PAGE_INTRO}
+                description={LOCATIONS_HUB_INTRO}
               />
             </div>
 
-            <section className="mt-14">
+            <section className="mt-8">
               <h2 className="text-xl font-bold text-white">Airport taxi towns</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">
-                Dedicated airport taxi pages for towns we quote most often, with routes to Belfast
-                International, Belfast City Airport and Dublin Airport.
+                Dedicated airport taxi pages for towns we quote most often. Each town links through
+                to Belfast International, Belfast City and Dublin Airport.
               </p>
               <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {TOWN_HUB_PAGES.map((hub) => (
@@ -89,6 +91,9 @@ export default function LocationsPage() {
             </section>
 
             <div className="mt-14 grid gap-10 lg:grid-cols-2">
+              <section className="lg:col-span-2">
+                <p className="max-w-3xl text-sm leading-relaxed text-white/60">{LOCATIONS_PAGE_INTRO}</p>
+              </section>
               <section>
                 <h2 className="text-xl font-bold text-white">Northern Ireland destinations</h2>
                 <p className="mt-2 text-sm leading-relaxed text-white/60">
