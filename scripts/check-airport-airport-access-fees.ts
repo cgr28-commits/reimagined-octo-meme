@@ -158,13 +158,13 @@ console.log("\n=== Matrix ===\n");
   });
 }
 
-// 5 Belfast → BFS (14 mi → £47)
+// 5 Belfast → BFS (14 mi → £44)
 {
   const area = matchAreaFromAddress(CITY);
   const journey = universalJourney(M14);
-  assert.equal(journey, 47);
+  assert.equal(journey, 44);
   const q = calculateQuote(CITY, "BFS", S, false, {}, M14)!;
-  assert.equal(q.amount, 47);
+  assert.equal(q.amount, 44);
   rows.push({
     id: 5,
     label: "Belfast City Hall → BFS",
@@ -172,7 +172,7 @@ console.log("\n=== Matrix ===\n");
     underlying: journey,
     areaRule: `${area} — universal distance (zone retired)`,
     accessFees: "BFS fixed £0",
-    other: "14 mi → £47",
+    other: "14 mi → £44",
     rounding: `£${q.amount}`,
     final: q.amount,
   });
@@ -181,7 +181,7 @@ console.log("\n=== Matrix ===\n");
 // 6 BFS → Belfast
 {
   const q = calculateQuote(CITY, "BFS", S, false, {}, M14, true)!;
-  assert.equal(q.amount, 47);
+  assert.equal(q.amount, 44);
   rows.push({
     id: 6,
     label: "BFS → Belfast City Hall",
@@ -232,22 +232,22 @@ console.log("\n=== Matrix ===\n");
   });
 }
 
-// 9 Address → DUB (ordinary) — journey £244 + £4 M1 = £248
+// 9 Address → DUB (ordinary) — journey £223 + £4 M1 = £227
 {
   const journey = universalJourney(DUB_METRICS);
-  assert.equal(journey, 244);
+  assert.equal(journey, 223);
   const q = calculateQuote(CITY, "DUB", S, false, {}, DUB_METRICS, false)!;
-  assert.equal(q.amount, 248);
+  assert.equal(q.amount, 227);
   assert.equal(q.airportFixedCostsGbp, 4);
   rows.push({
     id: 9,
     label: "Belfast City Hall → DUB",
     miles: Math.round(drivingMilesFromKm(DUB_METRICS.distanceKm) * 10) / 10,
     underlying: journey,
-    areaRule: "universal distance (168 km → £244 journey)",
+    areaRule: "universal distance (168 km → £223 journey)",
     accessFees: "Dublin drop-off fee £0 + M1 £4",
-    other: "journey £244 + fixed £4 (not zone £234)",
-    rounding: "£248",
+    other: "journey £223 + fixed £4 (not zone £234)",
+    rounding: "£227",
     final: q.amount,
   });
 }
@@ -269,8 +269,8 @@ console.log("\n=== Matrix ===\n");
   const journey = universalJourney(DUB_METRICS);
   assert.equal(buggyA2a.amount, journey);
   assert.equal(q.amount, intended.amount);
-  assert.equal(q.amount, 248);
-  assert.equal(intended.amount, 248);
+  assert.equal(q.amount, 227);
+  assert.equal(intended.amount, 227);
   assert.equal(q.amount, buggyA2a.amount + DUB_DROP_FIXED);
   rows.push({
     id: 10,
@@ -280,7 +280,7 @@ console.log("\n=== Matrix ===\n");
     areaRule: "DUB path (universal journey) — A2A underlying equals journey",
     accessFees: "DUB drop-off path (+£4 M1); NI access fees not stacked",
     other: `underlying £${buggyA2a.amount}; airport = underlying + £4`,
-    rounding: "£248",
+    rounding: "£227",
     final: q.amount,
   });
 }
@@ -299,7 +299,7 @@ console.log("\n=== Matrix ===\n");
   )!;
   const intended = calculateQuote(BFS_ADDR, "DUB", S, false, {}, DUB_METRICS, false)!;
   assert.equal(q.amount, intended.amount);
-  assert.equal(q.amount, 248);
+  assert.equal(q.amount, 227);
   console.log(`OK  BFS→DUB airport↔airport £${q.amount} (matches DUB path £${intended.amount})`);
 }
 

@@ -59,8 +59,8 @@ const ROUTES = [
     metrics: metricsForMiles(14, 25),
     oldS: 55,
     oldE: 65,
-    targetS: 47,
-    targetE: 53,
+    targetS: 44,
+    targetE: 50,
   },
   {
     name: "City Hall → Dublin Airport",
@@ -71,9 +71,9 @@ const ROUTES = [
     metrics: metricsForMiles(98, 115),
     oldS: 230,
     oldE: 240,
-    // Journey £229 + DUB drop £4; estate journey £235 + £4
-    targetS: 233,
-    targetE: 239,
+    // Journey £204 + DUB drop £4; estate journey £210 + £4
+    targetS: 208,
+    targetE: 214,
   },
   {
     name: "City Hall → Newry",
@@ -186,10 +186,10 @@ function exact(actual: number, target: number, label: string) {
 
 exact(rows[0].newS, 30, "City Hall → BHD S");
 exact(rows[0].newE, 36, "City Hall → BHD E");
-exact(rows[1].newS, 47, "City Hall → BFS S");
-exact(rows[1].newE, 53, "City Hall → BFS E");
-exact(rows[2].newS, 233, "City Hall → DUB S");
-exact(rows[2].newE, 239, "City Hall → DUB E");
+exact(rows[1].newS, 44, "City Hall → BFS S");
+exact(rows[1].newE, 50, "City Hall → BFS E");
+exact(rows[2].newS, 208, "City Hall → DUB S");
+exact(rows[2].newE, 214, "City Hall → DUB E");
 exact(rows[3].newS, rows[3].targetS, "Newry S");
 exact(rows[3].newE, rows[3].targetE, "Newry E");
 exact(rows[4].newS, rows[4].targetS, "Derry S");
@@ -262,11 +262,11 @@ assert.equal(
 {
   const m = metricsForMiles(14, 25);
   const oneWay = calculateQuote(hall, "BFS", SALOON, false, {}, m);
-  assert.equal(oneWay?.amount, 47);
+  assert.equal(oneWay?.amount, 44);
   const ret = calculateQuote(hall, "BFS", SALOON, true, {}, m);
-  assert.equal(roundGbp(getReturnJourneyFare(47)), 89.3);
-  // Journey £47 × 1.9 = £89.30; fixed costs £0
-  assert.equal(ret?.amount, 89.3, "BFS return: 5% on journey only; no fixed-cost add-on");
+  assert.equal(roundGbp(getReturnJourneyFare(44)), 83.6);
+  // Journey £44 × 1.9 = £83.60; fixed costs £0
+  assert.equal(ret?.amount, 83.6, "BFS return: 5% on journey only; no fixed-cost add-on");
 }
 
 assert.equal(selectVehicleForParty(2, 2), SALOON);

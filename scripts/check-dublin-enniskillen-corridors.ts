@@ -119,7 +119,7 @@ console.log("\n=== Belfast City Centre ↔ Dublin Airport ===");
 assert.equal(calculateQuote(hall, "DUB", SALOON, false, {}, null, false), null);
 
 const expectedDubJourney = calculateUniversalSaloonJourneyFareGbp(98);
-assert.equal(expectedDubJourney, 229);
+assert.equal(expectedDubJourney, 204);
 const expectedDubDropS = expectedDubJourney + DUB_DROP_FIXED;
 const expectedDubDropE = calculateUniversalEstateJourneyFareGbp(expectedDubJourney) + DUB_DROP_FIXED;
 const expectedDubPickS = expectedDubJourney + DUB_PICK_FIXED;
