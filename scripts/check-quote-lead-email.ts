@@ -18,6 +18,7 @@ import {
   decideQuoteLeadEmails,
   hasQuoteLeadContact,
   isCompleteFixedPriceQuote,
+  sanitizeQuoteLeadAutomaticPrice,
   isFallbackQuotePriceLabel,
   parsePositiveQuotePriceGbp,
   runQuoteLeadNotification,
@@ -227,6 +228,20 @@ console.log("\n=== Phone validation and contact sanitisation ===");
   assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, estimatedPrice: "Quote", totalGbp: undefined }), false);
   assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, estimatedPrice: "Quote", totalGbp: 45 }), false);
   assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, estimatedPrice: "£0", totalGbp: 0 }), false);
+  const outOfAreaAirportPickup = {
+    ...quoteBase,
+    tripLabel: "Airport pickup",
+    pickupLabel: "Dublin Airport, Co. Dublin, Ireland",
+    dropoffLabel: "18 Line of Road, Coalisland, Dungannon BT71 4FJ, UK",
+    airportCode: "DUB",
+    estimatedPrice: "£204.00",
+    totalGbp: 204,
+  };
+  assert.equal(isCompleteFixedPriceQuote(outOfAreaAirportPickup), false);
+  assert.equal(
+    sanitizeQuoteLeadAutomaticPrice(outOfAreaAirportPickup).estimatedPrice,
+    "Request fixed quote",
+  );
   console.log("OK  invalid telephone numbers are dropped; fallback price text cannot email");
 }
 

@@ -1,5 +1,6 @@
 import { formatUkDateTime, formatUkSubmissionTime } from "./uk-time";
 import { parseGbpAmount, QUOTE_SESSION_TTL_SECONDS } from "./quote-session";
+import { quoteLeadAirportPickupRequiresManualApproval } from "./airport-pickup-service-area";
 
 export const QUOTE_LEAD_DEDUPE_TTL_SECONDS = QUOTE_SESSION_TTL_SECONDS;
 export const NO_QUOTE_CONTACT_YET =
@@ -150,7 +151,12 @@ export function isCompleteFixedPriceQuote(details: Pick<
   | "totalGbp"
   | "passengers"
   | "suitcases"
+  | "airportCode"
+  | "isAirportTrip"
 >): boolean {
+  if (quoteLeadAirportPickupRequiresManualApproval(details)) {
+    return false;
+  }
   const passengers = Number(details.passengers);
   const suitcases = Number(details.suitcases);
   return Boolean(
@@ -164,6 +170,23 @@ export function isCompleteFixedPriceQuote(details: Pick<
       Number.isFinite(suitcases) &&
       suitcases >= 0,
   );
+}
+
+const MANUAL_QUOTE_PRICE_LABEL = "Request fixed quote";
+
+/** Strip an automatic £ from owner notifications when the airport pickup is out of area. */
+export function sanitizeQuoteLeadAutomaticPrice(
+  details: QuoteLeadDetails,
+): QuoteLeadDetails {
+  if (!quoteLeadAirportPickupRequiresManualApproval(details)) {
+    return details;
+  }
+  return {
+    ...details,
+    estimatedPrice: MANUAL_QUOTE_PRICE_LABEL,
+    totalGbp: undefined,
+    journeyFareGbp: undefined,
+  };
 }
 
 export function buildQuoteLeadFingerprint(details: QuoteLeadDetails): string {
@@ -409,13 +432,15 @@ export async function runQuoteLeadNotification(input: {
     quoteRetried: false,
   };
 
-  if (!isCompleteFixedPriceQuote(input.details) || input.skipEmail) {
+  const details = sanitizeQuoteLeadAutomaticPrice(input.details);
+
+  if (!isCompleteFixedPriceQuote(details) || input.skipEmail) {
     return empty;
   }
 
-  const contact = sanitizeQuoteLeadContact(input.details);
-  const quoteFingerprint = buildQuoteLeadFingerprint(input.details);
-  const contactFingerprint = buildQuoteContactFingerprint(input.details);
+  const contact = sanitizeQuoteLeadContact(details);
+  const quoteFingerprint = buildQuoteLeadFingerprint(details);
+  const contactFingerprint = buildQuoteContactFingerprint(details);
   const hasValidContact = hasQuoteLeadContact(contact);
   const result = { ...empty };
 
@@ -426,8 +451,8 @@ export async function runQuoteLeadNotification(input: {
     const claimed = await input.store.claim(quoteFingerprint);
     if (claimed) {
       const sent = await input.sendEmail(
-        buildQuoteLeadSubject(input.details),
-        buildQuoteLeadMessage(input.details),
+        buildQuoteLeadSubject(details),
+        buildQuoteLeadMessage(details),
       );
       if (!sent) {
         await input.store.release(quoteFingerprint);
@@ -445,8 +470,8 @@ export async function runQuoteLeadNotification(input: {
     const claimed = await input.store.claim(contactFingerprint);
     if (claimed) {
       const sent = await input.sendEmail(
-        buildQuoteContactSubject({ ...input.details, ...contact }),
-        buildQuoteContactMessage({ ...input.details, ...contact }),
+        buildQuoteContactSubject({ ...details, ...contact }),
+        buildQuoteContactMessage({ ...details, ...contact }),
       );
       if (!sent) {
         await input.store.release(contactFingerprint);

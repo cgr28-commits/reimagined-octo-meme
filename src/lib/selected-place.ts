@@ -644,12 +644,37 @@ export function isGreaterBelfastDestination(place: SelectedPlace): boolean {
 }
 
 /**
+ * BFS / BHD / DUB as pickup: the non-airport destination must be Greater Belfast
+ * (existing classifier). Does not change out-of-area origin → airport rules.
+ * BFS/BHD ↔ ROI stays instant via {@link isBelfastAirportRoiInstantJourney}.
+ */
+export function airportPickupDestinationNeedsManualQuote(
+  pickup: SelectedPlace,
+  dropoff: SelectedPlace,
+): boolean {
+  const pickupAirport = detectAirportCodeFromPlace(pickup);
+  const dropoffAirport = detectAirportCodeFromPlace(dropoff);
+  if (pickupAirport !== "BFS" && pickupAirport !== "BHD" && pickupAirport !== "DUB") {
+    return false;
+  }
+  if (dropoffAirport) {
+    return false;
+  }
+  if (isBelfastAirportRoiInstantJourney(pickup, dropoff)) {
+    return false;
+  }
+  return !isGreaterBelfastDestination(dropoff);
+}
+
+/**
  * Journeys that must not show an automatic fare or immediate payment:
  * - Pure Address-to-Address (no airport on either leg) — personalised quote
  * - ROI city destinations (not DUB airport), or pickups outside NI / not into Greater Belfast
  *   — except BFS/BHD ↔ ROI address (instant via existing pricing engine)
+ * - BFS / BHD / DUB airport pickup to a destination outside Greater Belfast
+ *   — Request Fixed Quote (do not reject the customer)
  *
- * Airport journeys (BFS / BHD / DUB / LDY) keep the instant-quote path.
+ * Airport journeys that remain eligible keep the instant-quote path.
  * Incomplete addresses are validation errors, not manual-quote / out-of-area.
  */
 export function needsManualQuoteApproval(
@@ -674,6 +699,10 @@ export function needsManualQuoteApproval(
   // BFS/BHD ↔ Republic of Ireland address: unlock instant quote (eligibility only).
   if (isBelfastAirportRoiInstantJourney(pickup, dropoff)) {
     return false;
+  }
+
+  if (airportPickupDestinationNeedsManualQuote(pickup, dropoff)) {
+    return true;
   }
 
   if (isOutOfAreaPickup(pickup)) {

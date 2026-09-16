@@ -14,6 +14,7 @@ import {
   OWNER_QUICK_QUOTE_MAX_PASSENGERS,
   PASSENGER_LIMIT_ERROR,
 } from "../../shared/passenger-limits";
+import { destinationEligibleForStandardAirportPickup } from "../../shared/airport-pickup-service-area";
 
 export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
 
@@ -43,6 +44,15 @@ export type QuoteServiceInput = {
    * OWNER_QUICK_QUOTE_MAX_PASSENGERS (7). Public Live Quote must keep the default.
    */
   maxPassengers?: number;
+  /**
+   * When the airport is the pickup (BFS / BHD / DUB), require the non-airport
+   * destination to be inside Greater Belfast. Owner Quick Quote may skip this
+   * so staff can still compute a guide fare. Public / payment keep the default.
+   */
+  enforceAirportPickupServiceArea?: boolean;
+  destinationLat?: number | null;
+  destinationLng?: number | null;
+  destinationPostalCode?: string | null;
 };
 
 export type QuoteServiceSuccess = {
@@ -202,6 +212,25 @@ export function calculateAuthoritativeWebsiteQuote(
         ok: false,
         reason: "incomplete",
         message: "Both pickup and destination are required for an airport transfer.",
+      };
+    }
+
+    if (
+      input.enforceAirportPickupServiceArea !== false &&
+      input.fromAirport &&
+      !destinationEligibleForStandardAirportPickup({
+        airportCode,
+        addressText: address,
+        postalCode: input.destinationPostalCode,
+        lat: input.destinationLat,
+        lng: input.destinationLng,
+      })
+    ) {
+      return {
+        ok: false,
+        reason: "unsupported",
+        message:
+          "Automatic online fares for this airport pickup are for Greater Belfast destinations. Request a fixed quote and we will confirm a personal price — no automatic bookable fare.",
       };
     }
 
