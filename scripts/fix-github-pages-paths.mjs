@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, relative } from "node:path";
+import { writeGitHubPagesLegacyRedirects } from "../src/lib/transfer-legacy-redirects.mjs";
 
 const root = "out";
 
@@ -120,3 +121,6 @@ const DAY_TRIPS_ENABLED = false;
 if (!DAY_TRIPS_ENABLED) {
   removeGeneratedPath("tours");
 }
+
+writeGitHubPagesLegacyRedirects(root);
+console.log("Wrote GitHub Pages legacy transfer redirect HTML");
