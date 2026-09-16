@@ -3,10 +3,15 @@
  * Run: npx tsx scripts/check-transfer-legacy-redirects.ts
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import nextConfig from "../next.config";
-import { TRANSFER_LEGACY_REDIRECTS } from "../src/lib/transfer-legacy-redirects.mjs";
+import {
+  TRANSFER_LEGACY_REDIRECTS,
+  githubPagesLegacyRedirectHtml,
+  writeGitHubPagesLegacyRedirects,
+} from "../src/lib/transfer-legacy-redirects.mjs";
 import {
   getCanonicalTransferSlugs,
   getTransferLegacyRedirects,
@@ -134,6 +139,25 @@ async function main() {
     }
   }
   console.log("OK  sitemap and in-app transfer hrefs use canonical slugs only");
+
+  console.log("\n=== GitHub Pages writes noindex redirect HTML for legacy slugs ===");
+  {
+    const fixScript = read("scripts/fix-github-pages-paths.mjs");
+    assert.match(fixScript, /writeGitHubPagesLegacyRedirects/);
+    const tmp = mkdtempSync(join(tmpdir(), "legacy-redirects-"));
+    writeGitHubPagesLegacyRedirects(tmp);
+    for (const item of TRANSFER_LEGACY_REDIRECTS) {
+      const html = readFileSync(join(tmp, "transfers", item.fromSlug, "index.html"), "utf8");
+      const expected = githubPagesLegacyRedirectHtml(item.toSlug);
+      assert.equal(html, expected);
+      assert.match(html, /noindex, follow/);
+      assert.match(html, new RegExp(`/transfers/${item.toSlug}/`));
+      assert.doesNotMatch(html, /<h1>/);
+      assert.doesNotMatch(html, /_next\/static/);
+    }
+    rmSync(tmp, { recursive: true, force: true });
+    console.log(`OK  ${TRANSFER_LEGACY_REDIRECTS.length} Pages redirect files are noindex + canonical`);
+  }
 
   console.log("\nAll transfer legacy redirect checks passed.");
   console.log(
