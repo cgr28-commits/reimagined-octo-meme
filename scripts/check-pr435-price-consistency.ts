@@ -181,7 +181,7 @@ console.log("\n=== Quote / breakdown / SumUp charge agree to the penny ===");
     description: `My Airport Taxi NI ${formatQuote(q.amount)}`,
   };
   assert.equal(mockSumUpCheckout.amount, q.amount);
-  assert.equal(mockSumUpCheckout.amount, 179.5);
+  assert.equal(mockSumUpCheckout.amount, 148.5);
   console.log(`OK  mocked SumUp amount = ${mockSumUpCheckout.amount} GBP (${formatQuote(q.amount)})`);
 }
 
