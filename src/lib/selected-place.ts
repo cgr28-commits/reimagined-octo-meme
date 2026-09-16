@@ -287,7 +287,7 @@ function isDublinCityTextWithoutAirport(text: string): boolean {
 
 /**
  * True when the place is in the Dublin urban/county area but is NOT Dublin Airport.
- * Used so city hotels/businesses never receive the DUB £229/£235 airport fare alone.
+ * Used so city hotels/businesses never receive the DUB £228/£234 airport fare alone.
  */
 export function isDublinCityNotAirportPlace(place: SelectedPlace): boolean {
   if (!isPlaceSelected(place)) {

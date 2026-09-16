@@ -34,14 +34,14 @@ console.log("=== City Hall → BHD (universal ~4 mi) ===");
 const city = bhd(cityHall);
 assert.ok(city);
 assert.equal(matchAreaFromAddress(cityHall), "Belfast City Centre");
-assert.equal(city.amount, 29);
-assert.equal(city.journeyFareGbp, 29);
+assert.equal(city.amount, 25);
+assert.equal(city.journeyFareGbp, 25);
 assert.equal(city.vehicleAdjustment, 0);
 console.log(`OK  BHD ↔ City Hall saloon £${city.amount} at ~${CITY_MILES} mi`);
 
 const estateCity = bhd(cityHall, ESTATE);
 assert.ok(estateCity);
-assert.equal(estateCity.amount, 35);
+assert.equal(estateCity.amount, 31);
 assert.equal(estateCity.vehicleAdjustment, 6);
 console.log(`OK  City Hall estate £${estateCity.amount} (Saloon + £6)`);
 
@@ -57,7 +57,7 @@ assert.equal(selectVehicleForParty(2, 2), SALOON);
 assert.equal(selectVehicleForParty(2, 3), ESTATE);
 assert.equal(
   calculateUniversalEstateJourneyFareGbp(calculateUniversalSaloonJourneyFareGbp(4)),
-  35,
+  31,
 );
 
 console.log("\nAll BHD city-centre universal checks passed.");

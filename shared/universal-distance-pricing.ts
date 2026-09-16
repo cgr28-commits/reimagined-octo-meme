@@ -5,20 +5,20 @@
  * not town/postcode/zone special cases.
  *
  * Approved calibration (Saloon):
- *   0–4 mi → £29 (flat floor)
- *   ~15 mi → £49
- *   ~32 mi → £79
- *   ~98 mi → £229
+ *   0–4 mi → £25 (flat floor)
+ *   ~15 mi → £48
+ *   ~32 mi → £78
+ *   ~98 mi → £228
  *
  * Estate = final rounded Saloon + £6 (never rounded separately).
  * Airport Express / access charges are NOT included here — add after.
  */
 
 export const UNIVERSAL_ESTATE_PREMIUM_GBP = 6;
-export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
-export const UNIVERSAL_SALOON_15_MILE_GBP = 49;
-export const UNIVERSAL_SALOON_32_MILE_GBP = 79;
-export const UNIVERSAL_SALOON_98_MILE_GBP = 229;
+export const UNIVERSAL_SALOON_MINIMUM_GBP = 25;
+export const UNIVERSAL_SALOON_15_MILE_GBP = 48;
+export const UNIVERSAL_SALOON_32_MILE_GBP = 78;
+export const UNIVERSAL_SALOON_98_MILE_GBP = 228;
 
 /** Statute miles from driving km (same factor as public journey distance labels). */
 export function universalDrivingMilesFromKm(distanceKm: number): number {
@@ -27,8 +27,8 @@ export function universalDrivingMilesFromKm(distanceKm: number): number {
 
 /**
  * Piecewise-linear raw Saloon journey fare before rounding.
- * Knots: (4,29), (15,49), (32,79), (98,229).
- * 0–4 miles stay on the £29 floor; later segments interpolate between knots.
+ * Knots: (4,25), (15,48), (32,78), (98,228).
+ * 0–4 miles stay on the £25 floor; later segments interpolate between knots.
  */
 export function rawUniversalSaloonJourneyFareGbp(roadMiles: number): number {
   const m = Math.max(0, Number(roadMiles) || 0);

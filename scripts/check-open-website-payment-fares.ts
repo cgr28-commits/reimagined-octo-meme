@@ -404,9 +404,9 @@ check("5% return discount still applies on canonical DUB journey", () => {
   // Journey portion only is discounted; fixed costs (outbound toll + return parking+toll) are not.
   assert.ok((ret.journeyFareGbp ?? 0) < (oneWay.journeyFareGbp ?? 0) * 2);
   assert.equal(ret.airportFixedCostsGbp, 13); // £4 + £5 + £4
-  assert.equal(DUB_JOURNEY, 244);
-  assert.equal(ret.journeyFareGbp, 463.6);
-  assert.equal(ret.amount, 476.6);
+  assert.equal(DUB_JOURNEY, 243);
+  assert.equal(ret.journeyFareGbp, 461.7);
+  assert.equal(ret.amount, 474.7);
 });
 
 // --- Route-metric tampering: client distance/duration must never cut SumUp ---
