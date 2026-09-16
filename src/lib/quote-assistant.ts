@@ -21,6 +21,13 @@ import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passe
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 import {
+  CRUISE_TERMINAL_H1,
+  CRUISE_TERMINAL_INTRO,
+  CRUISE_TERMINAL_JOURNEYS,
+  CRUISE_TERMINAL_NOTES,
+  CRUISE_TERMINAL_PATH,
+} from "@/lib/cruise-terminal-content";
+import {
   LONG_DISTANCE_EXAMPLE_ROUTES,
   LONG_DISTANCE_HIGHLIGHTS,
   LONG_DISTANCE_INTRO,
@@ -314,6 +321,17 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
       ].join(" "),
     });
   }
+
+  chunks.push({
+    title: CRUISE_TERMINAL_H1,
+    body: [
+      CRUISE_TERMINAL_INTRO,
+      `Page: ${SITE.url}${CRUISE_TERMINAL_PATH}`,
+      `Typical journeys: ${CRUISE_TERMINAL_JOURNEYS.map((item) => item.title).join("; ")}.`,
+      ...CRUISE_TERMINAL_NOTES.map((note) => `${note.title}: ${note.body}`),
+      "Cruise-terminal collections are arranged by enquiry. Do not quote a cruise fare, apply airport waiting-time rules to the harbour, offer shore excursions, or claim we are an official Belfast Harbour or cruise operator.",
+    ].join(" "),
+  });
 
   // Airport guide pages
   for (const airport of AIRPORT_PAGES) {

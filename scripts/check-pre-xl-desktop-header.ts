@@ -70,6 +70,7 @@ assert.doesNotMatch(layout, /body className="[^"]*max-w-/);
 // Landing pages / sections must clear the desktop header from md (not only xl)
 for (const rel of [
   "src/app/long-distance-transfers/page.tsx",
+  "src/app/belfast-cruise-terminal-transfers/page.tsx",
   "src/app/locations/page.tsx",
   "src/app/transfers/[slug]/page.tsx",
   "src/app/airports/[slug]/page.tsx",

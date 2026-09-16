@@ -115,6 +115,7 @@ export function getServiceAreaJsonLd(opts: {
   description: string;
   path: string;
   areaServed: string[];
+  serviceType?: string;
 }) {
   return {
     "@context": "https://schema.org",
@@ -123,7 +124,7 @@ export function getServiceAreaJsonLd(opts: {
     name: opts.name,
     description: opts.description,
     url: `${SITE.url}${opts.path}`,
-    serviceType: "Airport Transfer",
+    serviceType: opts.serviceType ?? "Airport Transfer",
     provider: {
       "@id": BUSINESS_JSON_LD_ID,
     },
