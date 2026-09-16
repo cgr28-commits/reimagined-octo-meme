@@ -64,11 +64,11 @@ console.log("\n=== LDY pickup £2.50 fixed (not rounded away) ===");
     true,
   )!;
   assert.equal(q.airportFixedCostsGbp, 2.5);
-  assert.equal(q.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(75)); // £177
-  assert.equal(q.journeyFareGbp, 177);
-  assert.equal(q.amount, roundGbp(177 + 2.5)); // £179.50 — not Math.round → £180
+  assert.equal(q.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(75)); // £146
+  assert.equal(q.journeyFareGbp, 146);
+  assert.equal(q.amount, roundGbp(146 + 2.5)); // £148.50 — not Math.round → £149
   assertAmountParts(q, "LDY pickup parts");
-  assert.equal(formatQuote(q.amount), "£179.50");
+  assert.equal(formatQuote(q.amount), "£148.50");
   console.log(
     `OK  LDY pickup journey £${q.journeyFareGbp} + £2.50 = £${q.amount} (${formatQuote(q.amount)})`,
   );
@@ -100,9 +100,9 @@ console.log("\n=== LDY return: fixed both directions, journey discounted ===");
 console.log("\n=== Dublin return: 5% discount produces pence ===");
 {
   const oneWay = calculateQuote("Belfast BT1", "DUB", S, false, {}, miles(98), false)!;
-  assert.equal(oneWay.journeyFareGbp, 229);
+  assert.equal(oneWay.journeyFareGbp, 204);
   assert.equal(oneWay.airportFixedCostsGbp, 4);
-  assert.equal(oneWay.amount, 233);
+  assert.equal(oneWay.amount, 208);
 
   const ret = calculateQuote(
     "Belfast BT1",
@@ -120,13 +120,13 @@ console.log("\n=== Dublin return: 5% discount produces pence ===");
     false,
   )!;
   // Drop-off out + pickup return = £4 + £9 = £13
-  const expectedJourney = roundGbp(getReturnJourneyFare(229)); // 435.1
-  assert.equal(expectedJourney, 435.1);
-  assert.equal(ret.journeyFareGbp, 435.1);
+  const expectedJourney = roundGbp(getReturnJourneyFare(204)); // 387.6
+  assert.equal(expectedJourney, 387.6);
+  assert.equal(ret.journeyFareGbp, 387.6);
   assert.equal(ret.airportFixedCostsGbp, 13);
-  assert.equal(ret.amount, 448.1);
+  assert.equal(ret.amount, 400.6);
   assertAmountParts(ret, "DUB return");
-  console.log(`OK  DUB return journey £435.1 + £13 fixed = £448.1`);
+  console.log(`OK  DUB return journey £387.6 + £13 fixed = £400.6`);
 }
 
 console.log("\n=== A2A with pence (BFS↔BHD destination surcharge) ===");
@@ -181,7 +181,7 @@ console.log("\n=== Quote / breakdown / SumUp charge agree to the penny ===");
     description: `My Airport Taxi NI ${formatQuote(q.amount)}`,
   };
   assert.equal(mockSumUpCheckout.amount, q.amount);
-  assert.equal(mockSumUpCheckout.amount, 179.5);
+  assert.equal(mockSumUpCheckout.amount, 148.5);
   console.log(`OK  mocked SumUp amount = ${mockSumUpCheckout.amount} GBP (${formatQuote(q.amount)})`);
 }
 

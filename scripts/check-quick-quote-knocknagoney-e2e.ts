@@ -1,8 +1,6 @@
 /**
- * End-to-end proof for Quick Quote Knocknagoney → BFS £65.
- * Simulates the UI payload shapes that previously produced £55:
- *   - missing airportCode (point-to-point path)
- *   - short/wrong client routeMetrics overriding Worker resolve
+ * End-to-end proof for Quick Quote Knocknagoney → BFS on the universal curve.
+ * 35.4 km ≈ 22 miles → Saloon £56 on both airport and point-to-point paths.
  *
  * Run: npx tsx scripts/check-quick-quote-knocknagoney-e2e.ts
  * Optional live hit: QUOTE_E2E_LIVE=1 npx tsx scripts/check-quick-quote-knocknagoney-e2e.ts
@@ -45,7 +43,7 @@ check("Inference: Knocknagoney → BFS address text yields airportCode=BFS", () 
   assert.equal(inferred?.fromAirport, false);
 });
 
-check("Missing airportCode without inference prices as £55 (the UI bug)", () => {
+check("Missing airportCode still uses the same 22-mile universal Saloon fare", () => {
   const metrics = { distanceKm: 35.4, durationMinutes: 31 };
   const without = calculateAuthoritativeWebsiteQuote({
     airportCode: null,
@@ -61,7 +59,7 @@ check("Missing airportCode without inference prices as £55 (the UI bug)", () =>
     vehicleType: SALOON_VEHICLE,
   });
   assert.equal(without.ok, true);
-  if (without.ok) assert.equal(without.amount, 55);
+  if (without.ok) assert.equal(without.amount, 56);
 
   const inferred = resolveAirportTransferIntent({
     airportCode: null,
@@ -82,7 +80,7 @@ check("Missing airportCode without inference prices as £55 (the UI bug)", () =>
     vehicleType: SALOON_VEHICLE,
   });
   assert.equal(withInference.ok, true);
-  if (withInference.ok) assert.equal(withInference.amount, 65);
+  if (withInference.ok) assert.equal(withInference.amount, 56);
 });
 
 check("Wiring: Worker infers airport + prefers Worker metrics", () => {
@@ -182,11 +180,11 @@ async function liveProbe() {
     inferredDiagnostics: inferredOnly.diagnostics,
   });
 
-  // After Worker redeploy of this branch: all three must be £65.
+  // After Worker redeploy of this branch: all three must be the same universal fare.
   if (buggy.diagnostics && typeof buggy.diagnostics === "object") {
-    assert.equal(buggy.amount, 65, "Worker must infer BFS and ignore short client metrics");
-    assert.equal(inferredOnly.amount, 65);
-    assert.equal(good.amount, 65);
+    assert.equal(buggy.amount, 56, "Worker must infer BFS and ignore short client metrics");
+    assert.equal(inferredOnly.amount, 56);
+    assert.equal(good.amount, 56);
   } else {
     console.log(
       "NOTE: live Worker has not redeployed airport-inference yet (no diagnostics field).",

@@ -25,6 +25,7 @@ const draft = calculateQuote(
   "Estate Car (1–4 passengers)",
   false,
   {},
+  { distanceKm: 14 / 0.621371, durationMinutes: 25 },
 );
 assert.ok(draft && draft.amount > 0, "airport estate quote works");
 

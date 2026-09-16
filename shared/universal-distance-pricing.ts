@@ -4,11 +4,11 @@
  * One formula for all airport-transfer (and address↔address) journeys —
  * not town/postcode/zone special cases.
  *
- * Approved calibration (Saloon):
+ * Approved Saloon anchors (linear interpolation between neighbouring knots):
  *   0–4 mi → £29 (flat floor)
- *   ~15 mi → £49
- *   ~32 mi → £79
- *   ~98 mi → £229
+ *   6 → £32, 8 → £35, 10 → £38, 12 → £41, 15 → £46
+ *   20 → £53, 25 → £60, 30 → £67, 35 → £74, 40 → £81
+ *   50 → £96, 60 → £115, 70 → £135, 80 → £157, 90 → £181, 100 → £210
  *
  * Estate = final rounded Saloon + £6 (never rounded separately).
  * Airport Express / access charges are NOT included here — add after.
@@ -16,45 +16,67 @@
 
 export const UNIVERSAL_ESTATE_PREMIUM_GBP = 6;
 export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
-export const UNIVERSAL_SALOON_15_MILE_GBP = 49;
-export const UNIVERSAL_SALOON_32_MILE_GBP = 79;
-export const UNIVERSAL_SALOON_98_MILE_GBP = 229;
+export const UNIVERSAL_SALOON_FLOOR_MILES = 4;
+
+/** Miles / Saloon £ knots. First knot is the end of the £29 floor. */
+export const UNIVERSAL_SALOON_KNOTS: ReadonlyArray<readonly [number, number]> = [
+  [4, 29],
+  [6, 32],
+  [8, 35],
+  [10, 38],
+  [12, 41],
+  [15, 46],
+  [20, 53],
+  [25, 60],
+  [30, 67],
+  [35, 74],
+  [40, 81],
+  [50, 96],
+  [60, 115],
+  [70, 135],
+  [80, 157],
+  [90, 181],
+  [100, 210],
+];
 
 /** Statute miles from driving km (same factor as public journey distance labels). */
 export function universalDrivingMilesFromKm(distanceKm: number): number {
   return distanceKm * 0.621371;
 }
 
+function interpolateSegment(
+  miles: number,
+  startMiles: number,
+  startFareGbp: number,
+  endMiles: number,
+  endFareGbp: number,
+): number {
+  const span = endMiles - startMiles;
+  if (!(span > 0)) return endFareGbp;
+  return startFareGbp + ((endFareGbp - startFareGbp) / span) * (miles - startMiles);
+}
+
 /**
  * Piecewise-linear raw Saloon journey fare before rounding.
- * Knots: (4,29), (15,49), (32,79), (98,229).
- * 0–4 miles stay on the £29 floor; later segments interpolate between knots.
+ * 0–4 miles stay on the £29 floor; later miles interpolate between adjacent knots.
+ * Distances beyond 100 miles continue the 90–100 mile slope (no step jump).
  */
 export function rawUniversalSaloonJourneyFareGbp(roadMiles: number): number {
   const m = Math.max(0, Number(roadMiles) || 0);
-  if (m <= 4) return UNIVERSAL_SALOON_MINIMUM_GBP;
-  if (m <= 15) {
-    return (
-      UNIVERSAL_SALOON_MINIMUM_GBP +
-      ((UNIVERSAL_SALOON_15_MILE_GBP - UNIVERSAL_SALOON_MINIMUM_GBP) / 11) * (m - 4)
-    );
+  if (m <= UNIVERSAL_SALOON_FLOOR_MILES) return UNIVERSAL_SALOON_MINIMUM_GBP;
+
+  const knots = UNIVERSAL_SALOON_KNOTS;
+  for (let i = 1; i < knots.length; i++) {
+    const [startMiles, startFareGbp] = knots[i - 1]!;
+    const [endMiles, endFareGbp] = knots[i]!;
+    if (m <= endMiles) {
+      return interpolateSegment(m, startMiles, startFareGbp, endMiles, endFareGbp);
+    }
   }
-  if (m <= 32) {
-    return (
-      UNIVERSAL_SALOON_15_MILE_GBP +
-      ((UNIVERSAL_SALOON_32_MILE_GBP - UNIVERSAL_SALOON_15_MILE_GBP) / 17) * (m - 15)
-    );
-  }
-  if (m <= 98) {
-    return (
-      UNIVERSAL_SALOON_32_MILE_GBP +
-      ((UNIVERSAL_SALOON_98_MILE_GBP - UNIVERSAL_SALOON_32_MILE_GBP) / 66) * (m - 32)
-    );
-  }
-  return (
-    UNIVERSAL_SALOON_98_MILE_GBP +
-    ((UNIVERSAL_SALOON_98_MILE_GBP - UNIVERSAL_SALOON_32_MILE_GBP) / 66) * (m - 98)
-  );
+
+  const [prevMiles, prevFareGbp] = knots[knots.length - 2]!;
+  const [lastMiles, lastFareGbp] = knots[knots.length - 1]!;
+  return interpolateSegment(m, prevMiles, prevFareGbp, lastMiles, lastFareGbp);
 }
 
 /** Single consistent journey rounding: nearest £1. */
