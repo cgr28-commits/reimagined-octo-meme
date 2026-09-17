@@ -153,6 +153,7 @@ check("5. Valid coordinates outside the boundary → manual quote (out-of-area)"
   assert.equal(isStandardInstantPickup(newry), false);
   assert.equal(isOutOfAreaPickup(newry), true);
   assert.equal(needsManualQuoteApproval(newry, dub), true);
+  assert.equal(needsManualQuoteApproval(dub, newry), true);
   assert.equal(classifyPickupArea(newry).reason, "outside_geofence");
 });
 

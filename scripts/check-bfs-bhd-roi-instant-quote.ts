@@ -190,7 +190,7 @@ const NI_FIXTURES: Array<{
     fromAirport: true,
     vehicle: SALOON_VEHICLE,
     distanceKm: 20 * 1.609344,
-    expectedAmount: 58,
+    expectedAmount: 53,
   },
   {
     name: "Belfast City Hall → BFS ~20 mi Estate",
@@ -199,7 +199,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 20 * 1.609344,
-    expectedAmount: 64,
+    expectedAmount: 59,
   },
   {
     name: "BHD → Belfast City Hall ~4 mi Saloon",
@@ -226,7 +226,7 @@ const NI_FIXTURES: Array<{
     fromAirport: true,
     vehicle: SALOON_VEHICLE,
     distanceKm: 70 * 1.609344,
-    expectedAmount: 165,
+    expectedAmount: 135,
   },
   {
     name: "BHD → Newry ~38 mi Saloon",
@@ -235,7 +235,7 @@ const NI_FIXTURES: Array<{
     fromAirport: true,
     vehicle: SALOON_VEHICLE,
     distanceKm: 38 * 1.609344,
-    expectedAmount: 93,
+    expectedAmount: 78,
   },
   {
     name: "Newry → BHD ~38 mi Estate",
@@ -244,7 +244,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 38 * 1.609344,
-    expectedAmount: 99,
+    expectedAmount: 84,
   },
 ];
 

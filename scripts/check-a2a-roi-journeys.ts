@@ -161,6 +161,7 @@ check("Dublin Airport keeps instant quote (not ROI fixed-quote)", () => {
   assert.equal(detectJourneyKind(belfastHome, dub!), "address-to-airport");
   assert.equal(needsManualQuoteApproval(belfastHome, dub!), false);
   assert.equal(needsManualQuoteApproval(dub!, belfastHome), false);
+  assert.equal(needsManualQuoteApproval(dub!, newryPickup), true);
 });
 
 check("Dublin city address↔address requires personalised quote (no live £)", () => {

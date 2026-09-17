@@ -60,6 +60,7 @@ import {
 import { formatUkDate, formatUkDateTime } from "@/lib/format-datetime";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { calculateQuote, formatQuote, matchAreaFromAddress, arePublicLivePricesEnabled, getPublicUnapprovedPriceLabel } from "@/lib/quote";
+import { destinationEligibleForStandardAirportPickup } from "../../shared/airport-pickup-service-area";
 
 export type AssistantMessage = {
   role: "bot" | "user";
@@ -1614,6 +1615,21 @@ function tryBuildQuote(
         `${getPublicUnapprovedPriceLabel()} for ${airportName}. ` +
         `I can take your trip details here and we’ll confirm the fare before any payment. ` +
         `Or call ${SITE.landlineDisplay}.${capacityNote}`,
+    };
+  }
+
+  if (
+    draft.direction === "from-airport" &&
+    !destinationEligibleForStandardAirportPickup({
+      airportCode: draft.airportCode,
+      addressText: draft.address,
+    })
+  ) {
+    return {
+      enquiryOnly: true,
+      text:
+        `Automatic ${airportName} pickup quotes are for Greater Belfast destinations. ` +
+        `I won’t show an automatic fare for this address — request a fixed quote and we’ll confirm a personal price.`,
     };
   }
 

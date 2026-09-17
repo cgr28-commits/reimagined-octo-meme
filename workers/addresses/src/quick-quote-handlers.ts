@@ -217,6 +217,7 @@ async function authoritativeAmount(
     passengers: journey.passengers,
     suitcases: journey.suitcases,
     routeMetrics,
+    enforceAirportPickupServiceArea: false,
     vehicleType,
     maxPassengers: quickQuoteMaxPassengersForVehicle(journey.vehicleChoice),
   });

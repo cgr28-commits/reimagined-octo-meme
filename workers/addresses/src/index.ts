@@ -14,6 +14,7 @@ import {
 import {
   createSerializedQuoteLeadMarkerStore,
   runQuoteLeadNotification,
+  sanitizeQuoteLeadAutomaticPrice,
   type QuoteLeadDetails,
   type QuoteLeadKind,
   type QuoteLeadMarkerStore,
@@ -1191,10 +1192,11 @@ async function handleQuoteLeadRequest(
     return json({ error: "Invalid JSON" }, 400, origin);
   }
 
-  const details = parseQuoteLeadBody(body);
-  if (!details) {
+  const parsedDetails = parseQuoteLeadBody(body);
+  if (!parsedDetails) {
     return json({ error: "Missing required fields" }, 400, origin);
   }
+  const details = sanitizeQuoteLeadAutomaticPrice(parsedDetails);
 
   const fingerprint = body.fingerprint?.trim() ?? "";
   if (!fingerprint || fingerprint.length > 512) {

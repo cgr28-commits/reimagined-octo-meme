@@ -206,6 +206,7 @@ import {
   savePickupAddressLabel,
 } from "@/lib/address-place-storage";
 import { scheduleQuoteContactAlert, scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import { destinationEligibleForStandardAirportPickup } from "../../shared/airport-pickup-service-area";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import {
   applyCancelPaymentReturnToQuote,
@@ -822,10 +823,17 @@ function QuoteCard({
     isPlaceSelected(dropoffPlace) &&
     isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
   const isManualQuoteJourney =
-    isA2AFlow &&
-    isPlaceSelected(pickupPlace) &&
-    isPlaceSelected(dropoffPlace) &&
-    needsManualQuoteApproval(pickupPlace, dropoffPlace);
+    (isA2AFlow &&
+      isPlaceSelected(pickupPlace) &&
+      isPlaceSelected(dropoffPlace) &&
+      needsManualQuoteApproval(pickupPlace, dropoffPlace)) ||
+    (isAirportTrip &&
+      tripDirection === "from-airport" &&
+      dropoffAddress.trim().length > 0 &&
+      !destinationEligibleForStandardAirportPickup({
+        airportCode,
+        addressText: dropoffAddress,
+      }));
   /** Owner gate in pricing-config.json — no live £ until rules are approved. */
   const pricingConfirmationRequired = !arePublicLivePricesEnabled();
   const priceConfirmationLabel = getPublicUnapprovedPriceLabel();

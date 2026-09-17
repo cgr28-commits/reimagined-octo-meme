@@ -326,6 +326,9 @@ export async function handleQuoteCalculateRequest(
       routeMetrics,
       vehicleType: resolved.vehicleType,
       maxPassengers: resolved.maxPassengers,
+      enforceAirportPickupServiceArea: !ownerMode,
+      destinationLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+      destinationLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
     });
   }
 
