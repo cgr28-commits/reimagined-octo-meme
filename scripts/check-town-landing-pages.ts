@@ -12,6 +12,7 @@ import {
   TOWN_HUB_PAGES,
   TRANSFER_ROUTE_PAGES,
 } from "../src/lib/location-pages";
+import { LANDING_WHY_BOOK } from "../src/lib/landing-why-book";
 import { TRANSFER_ROUTE_CONTENT } from "../src/lib/transfer-routes-content";
 import { TOWN_HUB_CONTENT } from "../src/lib/town-hubs-content";
 
@@ -31,6 +32,11 @@ function assertLandingHub(hub: (typeof TOWN_HUB_PAGES)[number]) {
   assert.ok(words >= 120 && words <= 200, `${hub.slug} intro words=${words}`);
   assert.doesNotMatch(hub.intro, /Looking for a taxi from/i);
   assert.ok(hub.areas.length >= 3);
+  assert.equal(hub.whichAirport.length, 3, `${hub.slug} whichAirport`);
+  assert.deepEqual(
+    hub.whichAirport.map((item) => item.code),
+    ["BFS", "BHD", "DUB"],
+  );
 }
 
 function assertLandingRoute(route: (typeof TRANSFER_ROUTE_PAGES)[number]) {
@@ -64,7 +70,14 @@ console.log("=== Combined hubs (Batch 1 + Batch 2) ===");
   assert.equal(new Set(titles).size, titles.length);
   const intros = TOWN_HUB_PAGES.map((hub) => hub.intro);
   assert.equal(new Set(intros).size, intros.length);
-  console.log("OK  10 unique town hubs");
+  const chooserTexts = TOWN_HUB_PAGES.flatMap((hub) => hub.whichAirport.map((item) => item.text));
+  assert.equal(new Set(chooserTexts).size, chooserTexts.length);
+  const hubPage = read("src/app/locations/[slug]/page.tsx");
+  assert.match(hubPage, /Which airport from/);
+  assert.doesNotMatch(hubPage, /LANDING_WHY_BOOK/);
+  const whyBook = read("src/lib/landing-why-book.ts");
+  assert.match(whyBook, /route pages only/);
+  console.log("OK  10 unique town hubs with airport chooser");
 }
 
 console.log("\n=== Batch 1 hubs still resolve ===");
@@ -110,7 +123,22 @@ console.log("\n=== Combined landing routes ===");
   for (const route of landing) {
     assertLandingRoute(route);
   }
-  console.log("OK  30 unique route pages, no invented fares or mileages");
+
+  const priceFaqs = landing.map((route) => {
+    const faq = route.faqs?.find((item) => /how much/i.test(item.question));
+    assert.ok(faq, `${route.slug} missing price FAQ`);
+    return faq!.answer;
+  });
+  const timeFaqs = landing.map((route) => {
+    const faq = route.faqs?.find((item) => /how long/i.test(item.question));
+    assert.ok(faq, `${route.slug} missing time FAQ`);
+    return faq!.answer;
+  });
+  assert.equal(new Set(priceFaqs).size, priceFaqs.length, "price FAQ answers must be unique per route");
+  assert.equal(new Set(timeFaqs).size, timeFaqs.length, "time FAQ answers must be unique per route");
+  const source = read("src/lib/transfer-routes-content.ts");
+  assert.doesNotMatch(source, /QUOTE_PRICE|QUOTE_TIME/);
+  console.log("OK  30 unique route pages, unique FAQs, no invented fares or mileages");
 }
 
 console.log("\n=== Batch 1 legacy lookups still resolve ===");
@@ -177,6 +205,9 @@ console.log("\n=== Pages, schema, sitemap ===");
     assert.match(sitemap, new RegExp(`/transfers/${town}-to-belfast-city-airport/`));
     assert.match(sitemap, new RegExp(`/transfers/${town}-to-dublin-airport/`));
   }
+  assert.equal(LANDING_WHY_BOOK.length, 3);
+  const whyBookTitles = LANDING_WHY_BOOK.map((item) => item.title);
+  assert.equal(new Set(whyBookTitles).size, whyBookTitles.length);
   console.log("OK  canonicals, breadcrumbs, FAQ schema, sitemap, robots");
 }
 

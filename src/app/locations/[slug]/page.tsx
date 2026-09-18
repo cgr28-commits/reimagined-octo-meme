@@ -7,7 +7,6 @@ import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
-import { LANDING_WHY_BOOK } from "@/lib/landing-why-book";
 import { SITE } from "@/lib/data";
 import {
   AIRPORT_PAGES,
@@ -194,11 +193,16 @@ export default async function TownHubPage({ params }: Props) {
           </section>
 
           <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-            <h2 className="text-lg font-bold text-white">Why book with {SITE.name}?</h2>
-            <ul className="mt-4 space-y-4">
-              {LANDING_WHY_BOOK.map((item) => (
-                <li key={item.title}>
-                  <p className="text-sm font-semibold text-white">{item.title}</p>
+            <h2 className="text-lg font-bold text-white">Which airport from {page.town.name}?</h2>
+            <p className="mt-3 text-sm leading-relaxed text-white/65">
+              Open the route that matches your ticket. Each card below already selects that airport
+              in the quote box. Booking details — the live fare, flight monitoring on collections,
+              and WhatsApp — sit on the route page, not on this chooser.
+            </p>
+            <ul className="mt-5 space-y-4">
+              {page.whichAirport.map((item) => (
+                <li key={item.code}>
+                  <p className="text-sm font-semibold text-white">{item.label}</p>
                   <p className="mt-1 text-sm leading-relaxed text-white/65">{item.text}</p>
                 </li>
               ))}

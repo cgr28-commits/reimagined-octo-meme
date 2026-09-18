@@ -18,6 +18,12 @@ export type TownHubContent = {
   areas: string[];
   localNotes: string[];
   airportCodes: LandingAirportCode[];
+  /** Short chooser copy — hub purpose is “which airport?”, not the child route essay. */
+  whichAirport: Array<{
+    code: LandingAirportCode;
+    label: string;
+    text: string;
+  }>;
 };
 
 export type TransferRouteContent = {
