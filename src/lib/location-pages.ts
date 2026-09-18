@@ -3,6 +3,7 @@ import { getAirportHero } from "@/lib/airport-hero";
 import { getDestinationHero } from "@/lib/destination-hero";
 import { TOWN_HUB_CONTENT } from "@/lib/town-hubs-content";
 import { TRANSFER_ROUTE_CONTENT } from "@/lib/transfer-routes-content";
+import type { TownHubContent } from "@/lib/town-transfer-types";
 
 export type AirportPage = {
   slug: string;
@@ -61,7 +62,8 @@ export type TownHubPage = {
   airportCodes: AirportPage["code"][];
   heroBase?: string;
   heroAlt?: string;
-};
+  whichAirport: TownHubContent["whichAirport"];
+}
 
 const AIRPORT_PAGES_ALL: AirportPage[] = [
   {
@@ -295,6 +297,7 @@ export function getTownHubPages(): TownHubPage[] {
     airportCodes: hub.airportCodes.filter((code) =>
       AIRPORT_PAGES.some((airport) => airport.code === code),
     ),
+    whichAirport: hub.whichAirport,
     heroBase: getDestinationHero(hub.townSlug)?.heroBase,
     heroAlt: getDestinationHero(hub.townSlug)?.alt,
   }));
