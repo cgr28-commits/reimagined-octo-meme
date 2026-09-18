@@ -195,9 +195,9 @@ export default async function TownHubPage({ params }: Props) {
           <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <h2 className="text-lg font-bold text-white">Which airport from {page.town.name}?</h2>
             <p className="mt-3 text-sm leading-relaxed text-white/65">
-              Open the route that matches your ticket. Each card below already selects that airport
-              in the quote box. Booking details — the live fare, flight monitoring on collections,
-              and WhatsApp — sit on the route page, not on this chooser.
+              Open the route that matches your ticket. Each airport card on this page already
+              selects that airport in the quote box. Booking details — the live fare, flight
+              monitoring on collections, and WhatsApp — sit on the route page, not on this chooser.
             </p>
             <ul className="mt-5 space-y-4">
               {page.whichAirport.map((item) => (
