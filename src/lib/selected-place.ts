@@ -644,8 +644,8 @@ export function isGreaterBelfastDestination(place: SelectedPlace): boolean {
 }
 
 /**
- * BFS / BHD / DUB as pickup: the non-airport destination must be Greater Belfast
- * (existing classifier). Does not change out-of-area origin → airport rules.
+ * BFS / BHD / DUB as pickup: the non-airport destination must be a Northern
+ * Ireland address. Does not change out-of-area origin → airport rules.
  * BFS/BHD ↔ ROI stays instant via {@link isBelfastAirportRoiInstantJourney}.
  */
 export function airportPickupDestinationNeedsManualQuote(
@@ -663,7 +663,7 @@ export function airportPickupDestinationNeedsManualQuote(
   if (isBelfastAirportRoiInstantJourney(pickup, dropoff)) {
     return false;
   }
-  return !isGreaterBelfastDestination(dropoff);
+  return !isNorthernIrelandPlace(dropoff);
 }
 
 /**
@@ -671,7 +671,7 @@ export function airportPickupDestinationNeedsManualQuote(
  * - Pure Address-to-Address (no airport on either leg) — personalised quote
  * - ROI city destinations (not DUB airport), or pickups outside NI / not into Greater Belfast
  *   — except BFS/BHD ↔ ROI address (instant via existing pricing engine)
- * - BFS / BHD / DUB airport pickup to a destination outside Greater Belfast
+ * - BFS / BHD / DUB airport pickup to a destination outside Northern Ireland
  *   — Request Fixed Quote (do not reject the customer)
  *
  * Airport journeys that remain eligible keep the instant-quote path.

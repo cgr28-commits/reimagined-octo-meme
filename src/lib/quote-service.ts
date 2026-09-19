@@ -46,8 +46,8 @@ export type QuoteServiceInput = {
   maxPassengers?: number;
   /**
    * When the airport is the pickup (BFS / BHD / DUB), require the non-airport
-   * destination to be inside Greater Belfast. Owner Quick Quote may skip this
-   * so staff can still compute a guide fare. Public / payment keep the default.
+   * destination to be a Northern Ireland address. Owner Quick Quote may skip
+   * this so staff can still compute a guide fare. Public / payment keep the default.
    */
   enforceAirportPickupServiceArea?: boolean;
   destinationLat?: number | null;

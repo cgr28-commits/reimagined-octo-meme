@@ -1,7 +1,7 @@
 /**
  * BFS / BHD / DUB airport-pickup destination eligibility.
- * Instant quotes only when the non-airport end is Greater Belfast.
- * Out-of-area destinations use Request Fixed Quote — not a hard reject.
+ * Instant quotes when the non-airport end is a Northern Ireland address.
+ * Destinations outside NI still use Request Fixed Quote — not a hard reject.
  *
  * Run: npx tsx scripts/check-airport-pickup-destination-area.ts
  */
@@ -24,7 +24,9 @@ import {
   type QuoteLeadDetails,
 } from "../shared/quote-lead";
 import { calculateQuote } from "../src/lib/quote";
+import { getReturnJourneyFare } from "../src/lib/point-to-point-premium";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
+import { roundGbp } from "../shared/gbp";
 import {
   airportPickupDestinationNeedsManualQuote,
   needsManualQuoteApproval,
@@ -34,6 +36,7 @@ import {
 } from "../src/lib/selected-place";
 
 const SALOON = "Standard Saloon (1–4 passengers)" as const;
+const ESTATE = "Estate Car (1–4 passengers)" as const;
 const METRICS = { distanceKm: 150, durationMinutes: 120 };
 
 function place(
@@ -148,6 +151,17 @@ const enniskillen = place({
   locality: "Enniskillen",
 });
 
+const markethill = place({
+  placeId: "markethill",
+  formattedAddress: "1 Main Street, Markethill, Armagh BT60 1PJ, UK",
+  postalCode: "BT60 1PJ",
+  streetNumber: "1",
+  lat: 54.2968,
+  lng: -6.5186,
+  locality: "Markethill",
+  administrativeArea: "Armagh",
+});
+
 const cork = place({
   placeId: "cork",
   formattedAddress: "Patrick Street, Cork, T12 P8RP, Ireland",
@@ -228,18 +242,19 @@ async function main() {
     await check(`BHD → ${name} instant`, () => assertInstant(bhd, dest, `BHD → ${name}`));
   }
 
-  console.log("\n=== Manual both directions (out of area) ===\n");
+  console.log("\n=== FROM-airport NI destinations are instant ===\n");
 
   for (const [name, dest] of [
     ["Dungannon/BT71", dungannon],
     ["Newry", newry],
     ["Omagh", omagh],
     ["Enniskillen", enniskillen],
+    ["Markethill", markethill],
   ] as const) {
     await check(`${name} → DUB manual`, () => assertManual(dest, dub, `${name} → DUB`));
-    await check(`DUB → ${name} manual`, () => assertManual(dub, dest, `DUB → ${name}`));
-    await check(`BFS → ${name} manual`, () => assertManual(bfs, dest, `BFS → ${name}`));
-    await check(`BHD → ${name} manual`, () => assertManual(bhd, dest, `BHD → ${name}`));
+    await check(`DUB → ${name} instant`, () => assertInstant(dub, dest, `DUB → ${name}`));
+    await check(`BFS → ${name} instant`, () => assertInstant(bfs, dest, `BFS → ${name}`));
+    await check(`BHD → ${name} instant`, () => assertInstant(bhd, dest, `BHD → ${name}`));
   }
 
   await check("Out-of-area origin → BFS/BHD stays on existing instant rule", () => {
@@ -247,8 +262,11 @@ async function main() {
     assertInstant(newry, bfs, "Newry → BFS");
     assertInstant(newry, bhd, "Newry → BHD");
     assertInstant(omagh, bfs, "Omagh → BFS");
+    assertInstant(markethill, bhd, "Markethill → BHD");
+    assertInstant(markethill, bfs, "Markethill → BFS");
     assertManual(newry, dub, "Newry → DUB");
     assertManual(omagh, dub, "Omagh → DUB");
+    assertManual(markethill, dub, "Markethill → DUB");
   });
 
   await check("BFS/BHD ↔ Cork ROI corridor stays instant", () => {
@@ -269,15 +287,15 @@ async function main() {
     assert.ok(calculateQuote(belfast.formattedAddress, "LDY", SALOON, false, {}, METRICS, true));
   });
 
-  console.log("\n=== Pricing engine untouched; public service refuses auto fare ===\n");
+  console.log("\n=== Pricing engine untouched; public service now prices NI destinations ===\n");
 
   await check("calculateQuote still prices DUB → BT71 (curve unchanged)", () => {
     const priced = calculateQuote(dungannon.formattedAddress, "DUB", SALOON, false, {}, METRICS, true);
     assert.ok(priced && priced.amount > 0, "pricing engine must still compute a number");
   });
 
-  await check("Public quote service does not return a bookable DUB → BT71 fare", () => {
-    const blocked = calculateAuthoritativeWebsiteQuote({
+  await check("Public quote service returns a bookable DUB → BT71 fare", () => {
+    const allowed = calculateAuthoritativeWebsiteQuote({
       airportCode: "DUB",
       fromAirport: true,
       pickupAddress: dub.formattedAddress,
@@ -288,11 +306,31 @@ async function main() {
       destinationLat: dungannon.lat,
       destinationLng: dungannon.lng,
       destinationPostalCode: dungannon.postalCode,
+      routeMetrics: METRICS,
     });
-    assert.equal(blocked.ok, false);
-    if (!blocked.ok) {
-      assert.equal(blocked.reason, "unsupported");
-      assert.match(blocked.message, /fixed quote|Greater Belfast/i);
+    assert.equal(allowed.ok, true);
+    if (allowed.ok) {
+      assert.ok(allowed.amount > 0);
+    }
+  });
+
+  await check("Public quote service returns a bookable BHD → Markethill fare", () => {
+    const allowed = calculateAuthoritativeWebsiteQuote({
+      airportCode: "BHD",
+      fromAirport: true,
+      pickupAddress: bhd.formattedAddress,
+      dropoffAddress: markethill.formattedAddress,
+      returnJourney: false,
+      passengers: 2,
+      suitcases: 1,
+      destinationLat: markethill.lat,
+      destinationLng: markethill.lng,
+      destinationPostalCode: markethill.postalCode,
+      routeMetrics: METRICS,
+    });
+    assert.equal(allowed.ok, true);
+    if (allowed.ok) {
+      assert.ok(allowed.amount > 0);
     }
   });
 
@@ -327,19 +365,19 @@ async function main() {
 
   console.log("\n=== Quote notification cannot report an automatic £ ===\n");
 
-  await check("DUB → BT71 quote-lead is not a complete fixed-price quote", () => {
+  await check("DUB → BT71 quote-lead is a complete fixed-price quote", () => {
     const details = quoteLead({
       tripLabel: "Airport pickup",
       pickupLabel: "Dublin Airport, Co. Dublin, Ireland",
       dropoffLabel: dungannon.formattedAddress,
       airportCode: "DUB",
     });
-    assert.equal(quoteLeadAirportPickupRequiresManualApproval(details), true);
+    assert.equal(quoteLeadAirportPickupRequiresManualApproval(details), false);
     assert.equal(isClearlyOutsideApprovedAirportPickupDestination(dungannon.formattedAddress), true);
-    assert.equal(isCompleteFixedPriceQuote(details), false);
+    assert.equal(isCompleteFixedPriceQuote(details), true);
     const sanitized = sanitizeQuoteLeadAutomaticPrice(details);
-    assert.equal(sanitized.estimatedPrice, "Request fixed quote");
-    assert.equal(sanitized.totalGbp, undefined);
+    assert.equal(sanitized.estimatedPrice, "£204.00");
+    assert.equal(sanitized.totalGbp, 204);
   });
 
   await check("DUB → Belfast quote-lead still counts as a complete fixed price", () => {
@@ -364,7 +402,7 @@ async function main() {
     assert.equal(isCompleteFixedPriceQuote(details), true);
   });
 
-  await check("Owner email is not sent for DUB → Newry with a leaked £204", async () => {
+  await check("Owner email still sends for DUB → Newry", async () => {
     const sent: string[] = [];
     const result = await runQuoteLeadNotification({
       details: quoteLead({
@@ -374,6 +412,7 @@ async function main() {
         airportCode: "DUB",
         estimatedPrice: "£204.00",
         totalGbp: 204,
+        quoteTransactionId: "quote_ok_newry",
       }),
       kind: "quote",
       store: createSerializedQuoteLeadMarkerStore(),
@@ -382,9 +421,9 @@ async function main() {
         return true;
       },
     });
-    assert.equal(result.emailed, false);
-    assert.equal(result.quoteEmailed, false);
-    assert.equal(sent.length, 0);
+    assert.equal(result.quoteEmailed, true);
+    assert.equal(sent.length, 1);
+    assert.match(sent[0], /£204/);
   });
 
   await check("Owner email still sends for DUB → Belfast", async () => {
@@ -407,6 +446,23 @@ async function main() {
     assert.equal(result.quoteEmailed, true);
     assert.equal(sent.length, 1);
     assert.match(sent[0], /£204/);
+  });
+
+  console.log("\n=== Fare rules unchanged (Estate +£6, 5% return) ===\n");
+
+  await check("Estate remains exactly £6 more than Saloon on BHD → Markethill", () => {
+    const saloon = calculateQuote(markethill.formattedAddress, "BHD", SALOON, false, {}, METRICS, true);
+    const estate = calculateQuote(markethill.formattedAddress, "BHD", ESTATE, false, {}, METRICS, true);
+    assert.ok(saloon && estate);
+    assert.equal(estate.amount, saloon.amount + 6);
+    assert.equal(estate.vehicleAdjustment, 6);
+  });
+
+  await check("Return journey keeps the 5% discount on BHD → Markethill", () => {
+    const oneWay = calculateQuote(markethill.formattedAddress, "BHD", SALOON, false, {}, METRICS, true);
+    const ret = calculateQuote(markethill.formattedAddress, "BHD", SALOON, true, {}, METRICS, true);
+    assert.ok(oneWay && ret);
+    assert.equal(ret.amount, roundGbp(getReturnJourneyFare(oneWay.amount)));
   });
 
   console.log("\nAll airport-pickup destination-area checks passed.");
