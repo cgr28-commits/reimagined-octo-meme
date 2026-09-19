@@ -166,7 +166,9 @@ export default async function AirportTransferPage({ params }: Props) {
                       href={`/transfers/${route.slug}/`}
                       className="block rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
                     >
-                      {route.town.name} to {page.shortName}
+                      {route.direction === "from-airport"
+                        ? `${page.shortName} to ${route.town.name}`
+                        : `${route.town.name} to ${page.shortName}`}
                     </Link>
                   </li>
                 ))}

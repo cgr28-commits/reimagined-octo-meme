@@ -158,6 +158,14 @@ export default function LocationsPage() {
                       </Link>
                     </li>
                   ))}
+                  <li>
+                    <Link
+                      href="/transfers/dublin-airport-to-belfast/"
+                      className="block rounded-xl border border-white/10 bg-navy-light/50 px-4 py-2.5 text-sm text-white/80 transition-colors hover:border-emerald/40 hover:text-emerald"
+                    >
+                      Dublin Airport to Belfast taxi
+                    </Link>
+                  </li>
                 </ul>
               </section>
 

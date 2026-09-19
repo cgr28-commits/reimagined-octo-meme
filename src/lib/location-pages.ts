@@ -37,6 +37,7 @@ export type TransferRoutePage = {
   town: TownArea;
   airport: AirportPage;
   hubSlug: string | null;
+  direction: "to-airport" | "from-airport";
   title: string;
   h1: string;
   metaDescription: string;
@@ -318,6 +319,7 @@ function buildLegacyRoute(town: TownArea, airport: AirportPage): TransferRoutePa
     town,
     airport,
     hubSlug: TOWN_HUB_PAGES.find((hub) => hub.town.slug === town.slug)?.slug ?? null,
+    direction: "to-airport",
     title: `${town.name} to ${airport.shortName} Taxi`,
     h1: `${town.name} to ${airport.shortName} Taxi`,
     metaDescription: `Pre-book a fixed-price taxi from ${town.name} to ${airport.name}, with flight monitoring and secure online booking.`,
@@ -341,6 +343,7 @@ export function getTransferRoutePages(): TransferRoutePage[] {
       town,
       airport,
       hubSlug,
+      direction: content.direction ?? "to-airport",
       title: content.title,
       h1: content.h1,
       metaDescription: content.metaDescription,

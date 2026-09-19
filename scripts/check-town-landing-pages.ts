@@ -101,8 +101,8 @@ console.log("\n=== Batch 2 hubs resolve ===");
 console.log("\n=== Combined landing routes ===");
 {
   const landing = TRANSFER_ROUTE_PAGES.filter((route) => route.faqs?.length);
-  assert.equal(landing.length, 30);
-  assert.equal(TRANSFER_ROUTE_CONTENT.length, 30);
+  assert.equal(landing.length, 31);
+  assert.equal(TRANSFER_ROUTE_CONTENT.length, 31);
   for (const town of ALL_HUB_TOWNS) {
     const bfs = getTransferRoutePage(`${town}-to-belfast-international`);
     const bhd = getTransferRoutePage(`${town}-to-belfast-city-airport`);
@@ -138,7 +138,13 @@ console.log("\n=== Combined landing routes ===");
   assert.equal(new Set(timeFaqs).size, timeFaqs.length, "time FAQ answers must be unique per route");
   const source = read("src/lib/transfer-routes-content.ts");
   assert.doesNotMatch(source, /QUOTE_PRICE|QUOTE_TIME/);
-  console.log("OK  30 unique route pages, unique FAQs, no invented fares or mileages");
+  const inbound = getTransferRoutePage("dublin-airport-to-belfast");
+  assert.ok(inbound);
+  assert.equal(inbound.direction, "from-airport");
+  assert.equal(inbound.airport.code, "DUB");
+  assert.equal(inbound.town.slug, "belfast");
+  assert.match(inbound.h1, /Dublin Airport to Belfast Taxi/);
+  console.log("OK  31 unique route pages, unique FAQs, no invented fares or mileages");
 }
 
 console.log("\n=== Batch 1 legacy lookups still resolve ===");
@@ -184,6 +190,8 @@ console.log("\n=== Pages, schema, sitemap ===");
   assert.match(routePage, /getFaqPageJsonLd/);
   assert.match(routePage, /LandingBreadcrumbs/);
   assert.match(routePage, /initialAirportCode|airportCode=\{page\.airport\.code\}/);
+  assert.match(routePage, /direction=\{page\.direction\}/);
+  assert.match(sitemap, /\/transfers\/dublin-airport-to-belfast\//);
   assert.match(locations, /newtownabbey-airport-taxis|TOWN_HUB_PAGES/);
   assert.doesNotMatch(robots, /disallow: "\/locations\//);
   assert.doesNotMatch(robots, /disallow: "\/transfers\//);

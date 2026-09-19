@@ -31,6 +31,8 @@ export type TransferRouteContent = {
   legacySlugs?: string[];
   townSlug: string;
   airportCode: LandingAirportCode;
+  /** Quote prefill. Defaults to town → airport. */
+  direction?: "to-airport" | "from-airport";
   title: string;
   h1: string;
   metaDescription: string;
