@@ -1510,4 +1510,67 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       },
     ],
   },
+  {
+    slug: "dublin-airport-to-belfast",
+    townSlug: "belfast",
+    airportCode: "DUB",
+    direction: "from-airport",
+    title: "Dublin Airport to Belfast Taxi & Private Transfer",
+    h1: "Dublin Airport to Belfast Taxi & Private Transfer",
+    metaDescription:
+      "Book a private taxi from Dublin Airport to Belfast. Fixed-price airport transfer, flight monitoring on pickups, and secure online booking.",
+    intro:
+      "When you land at Dublin Airport and need to continue north to Belfast, My Airport Taxi NI provides a pre-arranged private transfer from arrivals to your Belfast address. This page is for passengers arriving at Dublin Airport — not the existing Belfast-to-Dublin outbound booking. Dublin Airport is already selected as the pickup in the quote box; enter the Belfast hotel, home or workplace and the existing calculator confirms the fixed price before you book. Share your flight number so we can monitor the arrival where possible, and tell us the terminal when you know it so the private-hire meeting point can be confirmed. Airport pickups include up to 60 minutes complimentary waiting from the adjusted collection time, and applicable M1 tolls are included on Dublin Airport fares. The journey from Dublin Airport to Belfast typically takes around two hours in normal traffic. Add a return on the same form if you also need Belfast back to Dublin Airport; where an instant online price is shown, the existing 5% return-journey discount applies to the combined fare. WhatsApp is available if you need to confirm luggage or the drop-off after you land.",
+    journeyInfo: `Dublin Airport to Belfast is a reserved cross-border transfer, typically around two hours in normal traffic. ${TRAFFIC}`,
+    goingToAirport:
+      "If you later need Belfast to Dublin Airport, book it as a return on this form or use the existing Belfast-to-Dublin transfer page. We collect door to door from your Belfast address and travel back to Dublin Airport. Book far enough ahead of check-in for a cross-border run. Applicable M1 tolls are included on Dublin Airport fares. Drop-off follows the Dublin Airport arrangement already used on our other Dublin pages.",
+    fromAirport:
+      "Dublin Airport to Belfast is booked as a one-way inbound or the arrival leg of a return. After you land, clear arrivals and go to the private-hire pickup point confirmed in the booking. We monitor the flight where possible when you give us the flight number, and we adjust the planned collection. Complimentary waiting on airport pickups is up to 60 minutes. Share the terminal when you know it.",
+    whyBookIntro:
+      "This inbound Dublin Airport page uses the same booked service as the rest of the site — a confirmed fare before you pay, a reserved driver, and flight monitoring when we collect you at the airport.",
+    localAreasText:
+      "We drop across Belfast including the city centre, Titanic Quarter, south Belfast, the university area and city hotels. Enter the full street or hotel name so the quote is calculated for that destination, not a generic city-centre pin.",
+    faqs: [
+      {
+        question: "How much is a taxi from Dublin Airport to Belfast?",
+        answer:
+          "The quote box on this page already has Dublin Airport selected as the pickup. Enter the Belfast hotel or street — we do not publish one Dublin Airport to Belfast fare because the drop-off pin changes the mapped destination. Applicable M1 tolls are included on Dublin Airport fares.",
+      },
+      {
+        question: "How long does Dublin Airport to Belfast take?",
+        answer:
+          "The journey from Dublin Airport to Belfast typically takes around two hours in normal traffic. The quote tool maps the time to the address you enter. Journey times are approximate and can vary depending on traffic and time of day.",
+      },
+      {
+        question: "Where do I meet the driver at Dublin Airport?",
+        answer:
+          "After you clear arrivals, go to the private-hire pickup point confirmed in your booking. Tell us the terminal when you know it so that meeting point can be confirmed.",
+      },
+      {
+        question: "What if my Dublin flight is delayed?",
+        answer:
+          "Share the flight number when you book. We monitor the flight where possible and adjust the planned Belfast collection. Airport pickups include up to 60 minutes complimentary waiting time.",
+      },
+      {
+        question: "Can I book a return from Belfast to Dublin Airport?",
+        answer:
+          "Yes. Choose Return on the quote form. Where an instant online price is shown, a 5% discount applies to the combined fare. Each leg keeps its own inclusions.",
+      },
+      {
+        question: "How do I pay for a Dublin Airport to Belfast transfer?",
+        answer:
+          "Complete the quote on this page and pay securely online where an instant fare is shown. WhatsApp is available if you need help with the booking.",
+      },
+      {
+        question: "What about luggage on this transfer?",
+        answer:
+          "Enter your suitcase count on the quote form so the booking matches the vehicle offered. Public online quotes are for 1–4 passengers.",
+      },
+      {
+        question: "Can I book this Dublin to Belfast airport transfer online?",
+        answer:
+          "Yes. The quote tool on this page is the same booking flow as the homepage, with Dublin Airport already set as the pickup.",
+      },
+    ],
+  },
 ];

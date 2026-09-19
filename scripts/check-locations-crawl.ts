@@ -54,7 +54,7 @@ console.log("=== Town hubs and landing routes exist ===");
     TOWN_HUB_PAGES.map((hub) => hub.town.slug).sort(),
     [...HUB_TOWNS].sort(),
   );
-  assert.equal(landingRoutes.length, 30);
+  assert.equal(landingRoutes.length, 31);
   for (const town of HUB_TOWNS) {
     const hub = TOWN_HUB_PAGES.find((item) => item.town.slug === town);
     assert.ok(hub, `missing hub for ${town}`);
@@ -67,7 +67,7 @@ console.log("=== Town hubs and landing routes exist ===");
     );
     assert.ok(routes.every((route) => route.slug && route.hubSlug === hub.slug));
   }
-  console.log("OK  10 town hubs and 30 BFS/BHD/DUB landing routes");
+  console.log("OK  10 town hubs and 31 BFS/BHD/DUB landing routes");
 }
 
 console.log("\n=== /locations/ links to every town hub ===");
@@ -150,9 +150,9 @@ console.log("\n=== Canonicals ===");
   const titles = landingRoutes.map((route) => route.title);
   const descriptions = landingRoutes.map((route) => route.metaDescription);
   const h1s = landingRoutes.map((route) => route.h1);
-  assert.equal(new Set(titles).size, 30);
-  assert.equal(new Set(descriptions).size, 30);
-  assert.equal(new Set(h1s).size, 30);
+  assert.equal(new Set(titles).size, 31);
+  assert.equal(new Set(descriptions).size, 31);
+  assert.equal(new Set(h1s).size, 31);
   console.log("OK  self-referencing HTTPS www canonicals and unique titles/descriptions");
 }
 
@@ -218,6 +218,7 @@ console.log("\n=== No orphan landing pages ===");
   }
   assert.match(locationsPage, /TOWN_HUB_PAGES/);
   assert.match(hubPage, /getRoutesForTown/);
+  assert.match(locationsPage, /\/transfers\/dublin-airport-to-belfast\//);
   console.log("OK  every hub and landing route is reachable from /locations/");
 }
 

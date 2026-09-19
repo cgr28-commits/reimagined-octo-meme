@@ -60,7 +60,14 @@ export default async function TransferRoutePage({ params }: Props) {
   }
 
   const isLanding = Boolean(page.faqs?.length);
+  const isFromAirport = page.direction === "from-airport";
   const hubHref = page.hubSlug ? `/locations/${page.hubSlug}/` : "/locations/";
+  const quoteHeading = isFromAirport
+    ? `${page.airport.shortName} → ${page.town.name} quote`
+    : `${page.town.name} → ${page.airport.shortName} quote`;
+  const whatsappMessage = isFromAirport
+    ? `Hi, I'd like a taxi from ${page.airport.name} to ${page.town.name}.`
+    : `Hi, I'd like a taxi from ${page.town.name} to ${page.airport.name}.`;
   const otherFromTown = TRANSFER_ROUTE_PAGES.filter(
     (route) => route.town.slug === page.town.slug && route.slug !== page.slug,
   );
@@ -74,7 +81,12 @@ export default async function TransferRoutePage({ params }: Props) {
     : [
         { name: "Home", path: "/" },
         { name: page.airport.shortName, path: `/airports/${page.airport.slug}/` },
-        { name: `${page.town.name} transfers`, path: `/transfers/${page.slug}/` },
+        {
+          name: isFromAirport
+            ? `${page.airport.shortName} to ${page.town.name}`
+            : `${page.town.name} transfers`,
+          path: `/transfers/${page.slug}/`,
+        },
       ];
   const breadcrumb = getBreadcrumbJsonLd(breadcrumbItems);
   const serviceLd = getServiceAreaJsonLd({
@@ -113,13 +125,25 @@ export default async function TransferRoutePage({ params }: Props) {
         </div>
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          {isLanding ? (
+          {isLanding && page.hubSlug ? (
             <LandingBreadcrumbs
               items={[
                 { name: "Home", href: "/" },
                 { name: "Locations", href: "/locations/" },
                 { name: page.town.name, href: hubHref },
                 { name: page.airport.shortName },
+              ]}
+            />
+          ) : isLanding ? (
+            <LandingBreadcrumbs
+              items={[
+                { name: "Home", href: "/" },
+                { name: page.airport.shortName, href: `/airports/${page.airport.slug}/` },
+                {
+                  name: isFromAirport
+                    ? `${page.airport.shortName} to ${page.town.name}`
+                    : `${page.town.name} transfers`,
+                },
               ]}
             />
           ) : (
@@ -136,14 +160,16 @@ export default async function TransferRoutePage({ params }: Props) {
 
           <header className="mt-6">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-              {page.town.name} · {page.airport.code}
+              {isFromAirport
+                ? `${page.airport.shortName} · ${page.town.name}`
+                : `${page.town.name} · ${page.airport.code}`}
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
             {isLanding ? (
               <LandingCtaRow
                 quoteLabel="Get an instant quote"
-                whatsappMessage={`Hi, I'd like a taxi from ${page.town.name} to ${page.airport.name}.`}
+                whatsappMessage={whatsappMessage}
               />
             ) : (
               <QuoteNavLink
@@ -158,9 +184,9 @@ export default async function TransferRoutePage({ params }: Props) {
 
         <LocationQuoteSection
           airportCode={page.airport.code}
-          direction="to-airport"
+          direction={page.direction}
           addressHint={page.town.addressHint}
-          heading={`${page.town.name} → ${page.airport.shortName} quote`}
+          heading={quoteHeading}
         />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
@@ -171,19 +197,39 @@ export default async function TransferRoutePage({ params }: Props) {
                 <p className="mt-4 text-sm leading-relaxed text-white/65">{page.journeyInfo}</p>
               </section>
 
-              <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-                <h2 className="text-lg font-bold text-white">
-                  Travelling from {page.town.name} to {page.airport.shortName}
-                </h2>
-                <p className="mt-4 text-sm leading-relaxed text-white/65">{page.goingToAirport}</p>
-              </section>
+              {isFromAirport ? (
+                <>
+                  <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                    <h2 className="text-lg font-bold text-white">
+                      {page.airport.shortName} to {page.town.name}
+                    </h2>
+                    <p className="mt-4 text-sm leading-relaxed text-white/65">{page.fromAirport}</p>
+                  </section>
 
-              <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-                <h2 className="text-lg font-bold text-white">
-                  {page.airport.shortName} to {page.town.name}
-                </h2>
-                <p className="mt-4 text-sm leading-relaxed text-white/65">{page.fromAirport}</p>
-              </section>
+                  <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                    <h2 className="text-lg font-bold text-white">
+                      Travelling from {page.town.name} to {page.airport.shortName}
+                    </h2>
+                    <p className="mt-4 text-sm leading-relaxed text-white/65">{page.goingToAirport}</p>
+                  </section>
+                </>
+              ) : (
+                <>
+                  <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                    <h2 className="text-lg font-bold text-white">
+                      Travelling from {page.town.name} to {page.airport.shortName}
+                    </h2>
+                    <p className="mt-4 text-sm leading-relaxed text-white/65">{page.goingToAirport}</p>
+                  </section>
+
+                  <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                    <h2 className="text-lg font-bold text-white">
+                      {page.airport.shortName} to {page.town.name}
+                    </h2>
+                    <p className="mt-4 text-sm leading-relaxed text-white/65">{page.fromAirport}</p>
+                  </section>
+                </>
+              )}
 
               <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
                 <h2 className="text-lg font-bold text-white">Why book with {SITE.name}?</h2>
@@ -242,7 +288,11 @@ export default async function TransferRoutePage({ params }: Props) {
 
           {otherFromTown.length > 0 ? (
             <section className="mt-8">
-              <h2 className="text-lg font-bold text-white">Other airports from {page.town.name}</h2>
+              <h2 className="text-lg font-bold text-white">
+                {isFromAirport
+                  ? `Other ${page.town.name} airport transfers`
+                  : `Other airports from ${page.town.name}`}
+              </h2>
               <ul className="mt-4 grid gap-2 sm:grid-cols-2">
                 {otherFromTown.map((route) => (
                   <li key={route.slug}>
@@ -250,7 +300,9 @@ export default async function TransferRoutePage({ params }: Props) {
                       href={`/transfers/${route.slug}/`}
                       className="block rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
                     >
-                      {page.town.name} to {route.airport.name}
+                      {route.direction === "from-airport"
+                        ? `${route.airport.shortName} to ${route.town.name}`
+                        : `${page.town.name} to ${route.airport.name}`}
                     </Link>
                   </li>
                 ))}
@@ -278,20 +330,37 @@ export default async function TransferRoutePage({ params }: Props) {
           ) : null}
 
           {page.slug === "belfast-to-dublin" ? (
-            <EmergeDiscoveryPromo description="Flying into Dublin for EMERGE? Pre-book your airport, hotel or return transfer for 29–30 August 2026." />
+            <>
+              <p className="mt-8 text-sm leading-relaxed text-white/65">
+                Landing at Dublin Airport and travelling to Belfast? Use{" "}
+                <Link
+                  href="/transfers/dublin-airport-to-belfast/"
+                  className="text-emerald hover:text-emerald-light"
+                >
+                  Dublin Airport to Belfast taxi
+                </Link>
+                .
+              </p>
+              <EmergeDiscoveryPromo description="Flying into Dublin for EMERGE? Pre-book your airport, hotel or return transfer for 29–30 August 2026." />
+            </>
           ) : null}
 
           {isLanding ? (
             <section className="mt-8 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
-              <h2 className="text-lg font-bold text-white">Get your {page.town.name} transfer quote</h2>
+              <h2 className="text-lg font-bold text-white">
+                {isFromAirport
+                  ? `Get your ${page.airport.shortName} to ${page.town.name} transfer quote`
+                  : `Get your ${page.town.name} transfer quote`}
+              </h2>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/75">
-                {page.airport.shortName} is already selected in the quote box. Enter your{" "}
-                {page.town.name} address to see the current fixed price, or message us on WhatsApp.
+                {isFromAirport
+                  ? `${page.airport.shortName} is already selected as the pickup. Enter your ${page.town.name} address to see the current fixed price, or message us on WhatsApp.`
+                  : `${page.airport.shortName} is already selected in the quote box. Enter your ${page.town.name} address to see the current fixed price, or message us on WhatsApp.`}
               </p>
               <div className="flex justify-center">
                 <LandingCtaRow
                   quoteLabel="Get an instant quote"
-                  whatsappMessage={`Hi, I'd like a taxi from ${page.town.name} to ${page.airport.name}.`}
+                  whatsappMessage={whatsappMessage}
                 />
               </div>
             </section>
