@@ -1,15 +1,18 @@
 /**
  * Eligibility helper for BFS / BHD / DUB airport pickups.
  *
- * Instant quotes require the non-airport destination to be inside the existing
- * Greater Belfast classifier (`shared/ldy-service-area.ts`). This file does not
- * expand that postcode / place / geofence definition.
+ * Instant quotes require the non-airport destination to be a Northern Ireland
+ * address (existing NI postcode / text / coordinate helpers). Greater Belfast
+ * remains a subset of that area; this file does not expand that classifier.
  *
  * BFS/BHD ↔ Republic of Ireland address remains an existing instant corridor.
  * LDY keeps its own Greater Belfast gate in calculateQuote / QuoteCard.
  */
 
-import { extractPostcode } from "./address-validation";
+import {
+  extractPostcode,
+  isNorthernIrelandAddressParts,
+} from "./address-validation";
 import {
   classifyGreaterBelfastServiceArea,
   greaterBelfastDistrictFromPostcode,
@@ -153,7 +156,12 @@ export function destinationEligibleForStandardAirportPickup(input: {
   ) {
     return true;
   }
-  return false;
+  return isNorthernIrelandAddressParts({
+    postcode: input.postalCode ?? undefined,
+    displayName: address || undefined,
+    lat: input.lat,
+    lng: input.lng,
+  });
 }
 
 export function detectAirportPickupCodeFromLabels(input: {
@@ -182,7 +190,7 @@ export function detectAirportPickupCodeFromLabels(input: {
 
 /**
  * Quote-lead / string-label guard. Suppresses an automatic £ only when the
- * pickup is BFS/BHD/DUB and the destination is clearly outside Greater Belfast
+ * pickup is BFS/BHD/DUB and the destination is not a Northern Ireland address
  * (and not the BFS/BHD ROI instant corridor).
  */
 export function quoteLeadAirportPickupRequiresManualApproval(input: {
