@@ -211,12 +211,16 @@ export default function QuoteProgressiveRoute({
   void _isGroupQuote;
 
   return (
-    <div className="quote-field space-y-2.5 sm:space-y-5 lg:space-y-4">
+    <div
+      className={`quote-field ${
+        presentation === "homepage" ? "space-y-2 sm:space-y-5" : "space-y-2.5 sm:space-y-5 lg:space-y-4"
+      }`}
+    >
       <div id="quote-section-journey" className="lg:min-h-0">
         <h3
           className={
             presentation === "homepage"
-              ? "text-[1.15rem] font-bold text-white sm:text-lg"
+              ? "text-[1.05rem] font-bold leading-tight text-white sm:text-lg"
               : "text-[0.9rem] font-semibold text-white sm:text-lg lg:text-base"
           }
         >
@@ -256,11 +260,11 @@ export default function QuoteProgressiveRoute({
       ) : (
         <>
           <div
-            className={`${
+            className={
               presentation === "homepage"
-                ? "grid gap-2.5"
-                : "grid gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-2.5"
-            } ${choiceGroupNeedsClass(!journeyIntent)}`}
+                ? "grid gap-2"
+                : `grid gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`
+            }
             role="group"
             aria-label="Journey type"
           >

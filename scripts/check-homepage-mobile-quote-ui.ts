@@ -41,6 +41,11 @@ assert.match(benefits, /Reserved driver/);
 assert.match(benefits, /Fixed price/);
 assert.match(benefits, /Flight monitoring/);
 assert.match(benefits, /Airport waiting included/);
+assert.match(benefits, /\["Reserved", "driver"\]/);
+assert.match(benefits, /\["Fixed", "price"\]/);
+assert.match(benefits, /\["Flight", "monitoring"\]/);
+assert.match(benefits, /\["Airport", "waiting included"\]/);
+assert.match(benefits, /md:hidden/);
 assert.match(benefits, /hero-benefit-icon/);
 assert.match(css, /\.hero-benefit-icon \{/);
 assert.match(css, /background: var\(--color-emerald\)/);
@@ -51,6 +56,11 @@ console.log("=== Journey option cards ===");
 assert.match(progressive, /presentation === "homepage"/);
 assert.match(progressive, /<JourneyOptionCard/);
 assert.match(progressive, /SELECT_CARD/);
+assert.match(progressive, /choiceGroupNeedsClass\(!journeyIntent\)/);
+assert.match(
+  progressive,
+  /presentation === "homepage"[\s\S]{0,180}grid gap-2[\s\S]{0,80}: `grid gap-2/,
+);
 assert.match(progressive, /Where are you travelling\?/);
 assert.match(journey, /aria-pressed=\{selected\}/);
 assert.match(journey, /To an Airport|id === "to-airport"/);
@@ -58,6 +68,8 @@ assert.match(journey, /journey-option-card/);
 assert.match(journey, /journey-option-chevron/);
 assert.match(css, /\.journey-option-card \{/);
 assert.match(css, /\.journey-option-card-selected \{/);
+assert.match(css, /min-height: 3\.65rem/);
+assert.match(css, /data-quote-presentation="homepage"[\s\S]*min-height: 2\.35rem/);
 assert.match(progressive, /QUOTE_JOURNEY_INTENT_OPTIONS/);
 assert.match(progressive, /onJourneyIntentChange/);
 console.log("OK  existing journey options restyled, same handlers");
