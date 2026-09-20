@@ -48,7 +48,7 @@ assert.match(benefits, /\["Airport", "waiting included"\]/);
 assert.match(benefits, /md:hidden/);
 assert.match(benefits, /hero-benefit-icon/);
 assert.match(benefits, /hero-benefit-pound/);
-assert.match(benefits, />£</);
+assert.match(benefits, /hero-benefit-pound[\s\S]{0,40}£/);
 assert.match(benefits, /fillRule="evenodd"/);
 assert.match(benefits, /<circle cx="12" cy="8"/);
 assert.match(css, /\.hero-benefit-icon \{/);
