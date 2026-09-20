@@ -70,6 +70,7 @@
     "check:owner-job-nav-links": "npx tsx scripts/check-owner-job-nav-links.ts",
     "check:public-help-fabs": "npx tsx scripts/check-public-help-fabs.ts",
     "check:homepage-hero-ctas": "npx tsx scripts/check-homepage-hero-ctas.ts",
+    "check:homepage-mobile-quote-ui": "npx tsx scripts/check-homepage-mobile-quote-ui.ts",
     "check:express-fare-display": "npx tsx scripts/check-express-fare-display.ts",
     "check:gps-session-cors": "npx tsx scripts/check-gps-session-cors.ts",
     "check:gps-ingestion": "npx tsx scripts/check-gps-ingestion.ts",

@@ -1,3 +1,4 @@
+import HeroBenefitsRow from "./HeroBenefitsRow";
 import QuoteCard from "./QuoteCard";
 import QuoteHelpContact from "./QuoteHelpContact";
 
@@ -16,11 +17,11 @@ export default function HeroSlideshow() {
         <div className="order-1 min-w-0 md:order-2 lg:order-1 lg:pt-2">
           <p className="section-eyebrow mb-2 max-w-full md:mb-5 lg:mb-6">Private taxi airport transfers</p>
 
-          <h1 className="font-display text-balance text-[1.95rem] font-semibold leading-[1.12] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
+          <h1 className="font-display text-balance text-[2.15rem] font-semibold leading-[1.12] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
             Belfast Airport Transfers
           </h1>
 
-          <p className="mt-2.5 max-w-xl text-[0.9375rem] leading-snug text-white/68 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
+          <p className="mt-3 max-w-xl text-[0.95rem] leading-snug text-white/70 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
             Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time.
           </p>
 
@@ -57,9 +58,7 @@ export default function HeroSlideshow() {
           className="order-2 min-w-0 w-full scroll-mt-20 md:order-1 md:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
-          <p className="mb-2.5 text-center text-[0.7rem] font-medium leading-snug text-white/62 sm:text-xs md:mb-3 md:text-left">
-            Reserved driver · Fixed price · Flight monitoring · Airport waiting included
-          </p>
+          <HeroBenefitsRow />
           <QuoteCard />
           <QuoteHelpContact />
         </div>

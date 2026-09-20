@@ -5662,7 +5662,25 @@ function QuoteCard({
             ? `BOOK THIS TRANSFER — ${amountLabel}`
             : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
               ? "Book Now"
-              : "Continue to travel details"}
+              : (
+                <>
+                  Continue to travel details
+                  <svg
+                    className="ml-1.5 h-4 w-4 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2.2"
+                      d="M5 12h14M13 6l6 6-6 6"
+                    />
+                  </svg>
+                </>
+              )}
       </button>
     );
   }
@@ -5885,7 +5903,7 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
+    <div ref={cardRef} className="quote-flow glass-card min-w-0 rounded-[1.35rem] p-5 sm:p-7 lg:p-6 xl:p-7">
       <div className="mb-4 sm:mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"
@@ -5893,7 +5911,7 @@ function QuoteCard({
           className={`${
             quoteStep >= 2
               ? "text-[1.05rem] font-semibold uppercase tracking-[0.14em] text-white outline-none sm:text-lg"
-              : "font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+              : "font-display text-[1.7rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
           }`}
         >
           {quoteStep >= 2 ? "COMPLETE YOUR BOOKING" : "Get a Live Quote"}
@@ -5918,7 +5936,7 @@ function QuoteCard({
           ) : (
             <>
           {/* Mobile: compact — frees space for journey choices above the fold */}
-          <p className="md:hidden text-[0.8125rem]">
+          <p className="md:hidden text-[0.875rem] text-white/68">
             Get your fixed price in three quick steps.
           </p>
           {/* Desktop: fuller explanation */}
@@ -5930,7 +5948,7 @@ function QuoteCard({
             </>
           )}
         </div>
-        <ol className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2" aria-label="Booking steps">
+        <ol className="mt-3 grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2" aria-label="Booking steps">
           {(
             [
               { step: 1 as const, label: "Journey" },

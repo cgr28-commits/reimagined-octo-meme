@@ -2,6 +2,7 @@
 
 import type { SelectedPlace } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
+import JourneyOptionCard from "@/components/JourneyOptionCard";
 import {
   CUSTOMER_AIRPORTS,
   QUOTE_JOURNEY_INTENT_OPTIONS,
@@ -209,7 +210,7 @@ export default function QuoteProgressiveRoute({
   return (
     <div className="quote-field space-y-2.5 sm:space-y-5 lg:space-y-4">
       <div id="quote-section-journey" className="lg:min-h-0">
-        <h3 className="text-[0.9rem] font-semibold text-white sm:text-lg lg:text-base">
+        <h3 className="text-[1.15rem] font-bold text-white sm:text-lg lg:text-base">
           Where are you travelling?
         </h3>
         <p className="quote-secondary mt-0.5 hidden text-xs sm:mt-1 sm:block">
@@ -246,35 +247,26 @@ export default function QuoteProgressiveRoute({
       ) : (
         <>
           <div
-            className={`grid gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
+            className={`grid gap-2.5 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
             role="group"
             aria-label="Journey type"
           >
-            {QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => {
-              const selected = journeyIntent === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onPointerDown={(event) => {
-                    // Below md: do not focus the card — iOS would scroll it into view.
-                    if (detectMobileDevice()) {
-                      event.preventDefault();
-                    }
-                  }}
-                  onClick={() => onJourneyIntentChange(option.id)}
-                  className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
-                >
-                  <span className="text-sm font-bold sm:text-base">{option.title}</span>
-                  <span
-                    className={`mt-1 text-xs leading-snug ${selected ? "text-navy/80" : "quote-secondary"}`}
-                  >
-                    {option.description}
-                  </span>
-                </button>
-              );
-            })}
+            {QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => (
+              <JourneyOptionCard
+                key={option.id}
+                id={option.id}
+                title={option.title}
+                description={option.description}
+                selected={journeyIntent === option.id}
+                onSelect={onJourneyIntentChange}
+                onPointerDown={(event) => {
+                  // Below md: do not focus the card — iOS would scroll it into view.
+                  if (detectMobileDevice()) {
+                    event.preventDefault();
+                  }
+                }}
+              />
+            ))}
           </div>
 
           {showAirportPicker && (

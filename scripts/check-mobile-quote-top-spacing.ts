@@ -69,7 +69,7 @@ assert.doesNotMatch(
 );
 
 // Quote card keeps premium mobile padding — do not shrink form controls.
-assert.match(card, /glass-card min-w-0 rounded-\[1\.05rem\] p-4|glass-card min-w-0 rounded-2xl p-4/);
+assert.match(card, /glass-card min-w-0 rounded-\[1\.35rem\] p-5|glass-card min-w-0 rounded-\[1\.05rem\] p-4|glass-card min-w-0 rounded-2xl p-4/);
 assert.match(card, /Where are you travelling\?|QuoteProgressiveRoute/);
 assert.match(card, /quote-secondary|Get a Live Quote/);
 
