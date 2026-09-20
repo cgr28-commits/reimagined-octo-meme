@@ -4,8 +4,8 @@ const BENEFITS = [
     lines: ["Reserved", "driver"],
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M12 12a4.1 4.1 0 100-8.2 4.1 4.1 0 000 8.2z" />
-        <path d="M5.2 19.6c.6-3.2 3.3-5.2 6.8-5.2s6.2 2 6.8 5.2c.1.6-.3 1.2-.9 1.2H6.1c-.6 0-1-.6-.9-1.2z" />
+        <path d="M12 12c2.3 0 4.15-1.85 4.15-4.15S14.3 3.7 12 3.7 7.85 5.55 7.85 7.85 9.7 12 12 12z" />
+        <path d="M4.4 19.35c.7-3.45 3.7-5.55 7.6-5.55s6.9 2.1 7.6 5.55c.12.58-.34 1.15-.93 1.15H5.33c-.59 0-1.05-.57-.93-1.15z" />
       </svg>
     ),
   },
@@ -13,9 +13,9 @@ const BENEFITS = [
     label: "Fixed price",
     lines: ["Fixed", "price"],
     icon: (
-      <span className="text-[1.05rem] font-bold leading-none" aria-hidden>
-        £
-      </span>
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M8.15 20.2V18.9c1.55-.18 2.38-1.05 2.55-2.4l.22-1.9H8.4v-1.55h2.7l.42-3.55c.28-2.2 1.72-3.5 4.05-3.5 1.2 0 2.25.38 3 .98l-.88 1.42c-.52-.42-1.22-.68-2-.68-1.15 0-1.85.62-2 1.88l-.4 3.45h3.45v1.55h-3.62l-.22 1.85c-.2 1.22-.78 2.08-1.82 2.55.68.1 1.42.18 2.22.18h3.15v1.5H8.15z" />
+      </svg>
     ),
   },
   {
@@ -23,7 +23,7 @@ const BENEFITS = [
     lines: ["Flight", "monitoring"],
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M21.2 11.1c.7-.2 1.3.4 1.1 1.1l-.6 2.1c-.1.4-.5.7-.9.7l-6.1.3-2.8 5.3c-.2.4-.7.5-1.1.3l-1.3-.7c-.3-.2-.4-.6-.2-.9l2.1-4.3-4.8.2-1.6 1.7c-.2.2-.4.3-.7.3H3.1c-.4 0-.7-.4-.6-.8l.6-2.2c.1-.3.3-.5.6-.6l6.7-1.8L5.8 7.2c-.3-.4 0-.9.5-.9h1.5c.2 0 .5.1.6.3l3.3 3.7 5.4-1.5c.2 0 .3 0 .5.1l3.6 2.2z" />
+        <path d="M21 15.7v-1.7l-7.4-4.6V4.4c0-.77-.62-1.4-1.4-1.4s-1.4.63-1.4 1.4v5l-7.4 4.6v1.7l7.4-2.3v4.9l-1.85 1.4V21l3.25-.95L17.25 21v-1.3l-1.85-1.4v-4.9L21 15.7z" />
       </svg>
     ),
   },
@@ -32,7 +32,7 @@ const BENEFITS = [
     lines: ["Airport", "waiting included"],
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M12 3.4a8.6 8.6 0 100 17.2 8.6 8.6 0 000-17.2zm.7 8.7-2.8 1.7a.7.7 0 01-1-.3.7.7 0 01.2-.9l2.4-1.5V7.6c0-.4.3-.7.7-.7s.7.3.7.7v4.5z" />
+        <path d="M12 2.2C6.65 2.2 2.2 6.65 2.2 12S6.65 21.8 12 21.8 21.8 17.35 21.8 12 17.35 2.2 12 2.2zm.75 10.35-3.55 2.15a.85.85 0 01-1.16-.35.85.85 0 01.28-1.14l3.05-1.85V6.9c0-.47.38-.85.85-.85s.85.38.85.85v5.65z" />
       </svg>
     ),
   },
@@ -42,20 +42,20 @@ const BENEFITS = [
 export default function HeroBenefitsRow() {
   return (
     <ul
-      className="hero-benefits-row mb-3 grid grid-cols-4 md:mb-5"
+      className="hero-benefits-row mb-2 grid grid-cols-4 md:mb-5"
       aria-label="Why book with My Airport Taxi NI"
     >
       {BENEFITS.map((benefit, index) => (
         <li
           key={benefit.label}
-          className={`flex min-w-0 flex-col items-center px-1 text-center ${
+          className={`flex min-w-0 flex-col items-center px-0.5 text-center sm:px-1 ${
             index > 0 ? "hero-benefit-divider" : ""
           }`}
         >
           <span className="hero-benefit-icon" aria-hidden>
             {benefit.icon}
           </span>
-          <span className="mt-1 min-h-[2rem] text-[0.7rem] font-semibold leading-[1.15] text-white md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:leading-tight">
+          <span className="mt-0.5 min-h-[1.7rem] text-[0.7rem] font-semibold leading-[1.15] text-white md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:leading-tight">
             <span className="md:hidden">
               {benefit.lines[0]}
               <br />

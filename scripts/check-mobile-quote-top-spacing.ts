@@ -25,9 +25,9 @@ assert.match(hero, /order-2 min-w-0 w-full[\s\S]*id="quote"|id="quote"[\s\S]*ord
 assert.match(hero, /md:order-1 md:scroll-mt-28 lg:order-2/);
 
 // Compact mobile stack: tighter gap, short supporting line, extra hero blocks hidden.
-assert.match(hero, /gap-2\.5/);
+assert.match(hero, /gap-2 /);
 assert.match(hero, /md:gap-12/);
-assert.match(hero, /section-eyebrow mb-1\.5[\s\S]*md:mb-5/);
+assert.match(hero, /section-eyebrow mb-1[\s\S]*md:mb-5/);
 assert.match(hero, /Private taxi airport transfers/);
 assert.match(
   hero,
@@ -39,7 +39,7 @@ assert.doesNotMatch(hero, /whitespace-nowrap/);
 
 // Mobile top clearance matches fixed header (~logo h-12 + py-2 ≈ 4rem) + small gap.
 // Desktop stays md:pt-28. Do not leave a large empty navy band above the quote card.
-assert.match(hero, /pt-\[4\.35rem\] md:pt-28/);
+assert.match(hero, /pt-\[4\.15rem\] md:pt-28/);
 assert.doesNotMatch(hero, /pt-36/);
 assert.doesNotMatch(hero, /pt-\[4\.75rem\]/);
 assert.doesNotMatch(hero, /pt-44/);

@@ -5914,11 +5914,11 @@ function QuoteCard({
       data-quote-presentation={presentation}
       className={
         presentation === "homepage"
-          ? "quote-flow glass-card min-w-0 rounded-[1.25rem] px-4 py-3.5 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
+          ? "quote-flow glass-card min-w-0 rounded-[1.25rem] px-3.5 py-3 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
           : "quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7"
       }
     >
-      <div className={presentation === "homepage" ? "mb-2.5 sm:mb-5 lg:mb-5" : "mb-4 sm:mb-5 lg:mb-5"}>
+      <div className={presentation === "homepage" ? "mb-2 sm:mb-5 lg:mb-5" : "mb-4 sm:mb-5 lg:mb-5"}>
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
@@ -5944,7 +5944,7 @@ function QuoteCard({
             </p>
           </div>
         ) : null}
-        <div className="mt-1 text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed">
+        <div className={`${presentation === "homepage" ? "mt-0.5" : "mt-1"} text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed`}>
           {quoteStep >= 2 ? (
             <p className="text-[0.8125rem] sm:text-sm">
               Enter your pickup time and details, then confirm. Your fare stays the same.
@@ -5965,7 +5965,7 @@ function QuoteCard({
           )}
         </div>
         <ol
-          className={`${presentation === "homepage" ? "mt-2" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
+          className={`${presentation === "homepage" ? "mt-1.5" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
           aria-label="Booking steps"
         >
           {(

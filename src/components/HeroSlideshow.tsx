@@ -5,7 +5,7 @@ import QuoteHelpContact from "./QuoteHelpContact";
 /** Server component: static H1/copy stay outside the QuoteCard client boundary. */
 export default function HeroSlideshow() {
   return (
-    <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-[4.35rem] md:pt-28">
+    <section className="relative min-h-screen max-w-full overflow-x-clip overflow-y-hidden pt-[4.15rem] md:pt-28">
       <div className="absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
         <div className="absolute inset-0 bg-gradient-to-b from-navy-light/20 via-navy to-navy-dark" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_75%_50%_at_12%_0%,rgba(12,42,82,0.5),transparent_58%)]" />
@@ -13,15 +13,15 @@ export default function HeroSlideshow() {
 
       {/* Mobile: compact service message first, then the start of the quote form.
           Tablet (md) and desktop (lg): existing quote-first / two-column layout. */}
-      <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-2.5 px-4 py-1 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:grid-cols-[minmax(0,1fr)_minmax(500px,600px)] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
+      <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-2 px-4 py-1 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:grid-cols-[minmax(0,1fr)_minmax(500px,600px)] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
         <div className="order-1 min-w-0 md:order-2 lg:order-1 lg:pt-2">
-          <p className="section-eyebrow mb-1.5 max-w-full md:mb-5 lg:mb-6">Private taxi airport transfers</p>
+          <p className="section-eyebrow mb-1 max-w-full md:mb-5 lg:mb-6">Private taxi airport transfers</p>
 
           <h1 className="font-display text-balance text-[2.15rem] font-semibold leading-[1.12] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
             Belfast Airport Transfers
           </h1>
 
-          <p className="mt-2 max-w-xl text-[0.95rem] leading-[1.4] text-white/70 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
+          <p className="mt-1.5 max-w-xl text-[0.95rem] leading-[1.38] text-white/70 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
             Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland.
           </p>
 

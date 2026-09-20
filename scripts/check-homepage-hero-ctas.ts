@@ -55,9 +55,9 @@ console.log("\n=== 4. No discontinued first-booking promo near quote CTA ===");
 console.log("\n=== 5. Mobile above-the-fold compaction ===");
 {
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(hero, /pt-\[4\.35rem\] md:pt-28/);
+  assert.match(hero, /pt-\[4\.15rem\] md:pt-28/);
   assert.match(hero, /order-1 min-w-0 md:order-2 lg:order-1/);
-  assert.match(hero, /gap-2\.5/);
+  assert.match(hero, /gap-2 /);
   assert.match(card, /Get your fixed price in three quick steps\./);
   assert.doesNotMatch(card.match(/md:hidden[\s\S]{0,200}Get your fixed price/)?.[0] ?? "", /Book and pay securely online/);
   assert.match(card, /Three quick steps — Journey, Quote, then Booking & Pay/);
