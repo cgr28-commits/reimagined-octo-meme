@@ -127,6 +127,29 @@ export function normalizePathname(pathname: string): string {
   return pathname.endsWith("/") ? pathname : `${pathname}/`;
 }
 
+/**
+ * Landing “Get a Live Quote” links use href="#quote". If that target exists on
+ * the current page, stay there so route prefills are not reset. If it does not
+ * (hub / cruise pages), fall back to the homepage calculator.
+ */
+export function resolveQuoteNavHref(
+  href: string,
+  currentPathname: string,
+  hasInPageTarget: (id: string) => boolean,
+): string {
+  const trimmed = href.trim() || "/#quote";
+  const parsed = trimmed.startsWith("#")
+    ? { pathname: normalizePathname(currentPathname), hash: trimmed.slice(1) || null }
+    : parseSiteNavHref(trimmed);
+  if (parsed.hash && hasInPageTarget(parsed.hash)) {
+    return `${normalizePathname(currentPathname)}#${parsed.hash}`;
+  }
+  if (trimmed.startsWith("#") || !trimmed.startsWith("/")) {
+    return "/#quote";
+  }
+  return trimmed;
+}
+
 export function parseSiteNavHref(href: string): ParsedSiteNavHref {
   const trimmed = href.trim() || "/";
   try {

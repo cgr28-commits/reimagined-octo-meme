@@ -8,7 +8,7 @@ import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
-import QuoteNavLink from "@/components/QuoteNavLink";
+import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { LANDING_WHY_BOOK } from "@/lib/landing-why-book";
 import { SITE } from "@/lib/data";
 import {
@@ -168,16 +168,13 @@ export default async function TransferRoutePage({ params }: Props) {
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
             {isLanding ? (
               <LandingCtaRow
-                quoteLabel="Get an instant quote"
+                quoteLabel="Get a Live Quote"
                 whatsappMessage={whatsappMessage}
               />
             ) : (
-              <QuoteNavLink
-                href="#quote"
-                className="mt-6 inline-flex min-h-11 items-center rounded-full bg-emerald px-6 py-3 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
-              >
-                Quote This Journey
-              </QuoteNavLink>
+              <div className="mt-6">
+                <LandingPageQuoteCta />
+              </div>
             )}
           </header>
         </div>
@@ -359,7 +356,7 @@ export default async function TransferRoutePage({ params }: Props) {
               </p>
               <div className="flex justify-center">
                 <LandingCtaRow
-                  quoteLabel="Get an instant quote"
+                  quoteLabel="Get a Live Quote"
                   whatsappMessage={whatsappMessage}
                 />
               </div>
