@@ -31,7 +31,7 @@ assert.match(hero, /section-eyebrow mb-2[\s\S]*md:mb-5/);
 assert.match(hero, /Private taxi airport transfers/);
 assert.match(
   hero,
-  /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
+  /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
 );
 assert.match(hero, /hidden max-w-xl[\s\S]*md:block/);
 assert.match(hero, /hidden gap-3\.5[\s\S]*md:grid/);
@@ -69,7 +69,8 @@ assert.doesNotMatch(
 );
 
 // Quote card keeps premium mobile padding — do not shrink form controls.
-assert.match(card, /glass-card min-w-0 rounded-\[1\.35rem\] p-5|glass-card min-w-0 rounded-\[1\.05rem\] p-4|glass-card min-w-0 rounded-2xl p-4/);
+assert.match(card, /rounded-\[1\.05rem\] p-4/);
+assert.match(card, /presentation === "homepage"/);
 assert.match(card, /Where are you travelling\?|QuoteProgressiveRoute/);
 assert.match(card, /quote-secondary|Get a Live Quote/);
 

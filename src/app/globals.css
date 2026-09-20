@@ -673,14 +673,13 @@ main {
 /* Homepage mobile quote UI — hero trust row + journey option cards */
 .hero-benefit-icon {
   display: flex;
-  height: 2.35rem;
-  width: 2.35rem;
+  height: 2.45rem;
+  width: 2.45rem;
   align-items: center;
   justify-content: center;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.96);
-  color: var(--color-emerald);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  border-radius: 0.7rem;
+  background: var(--color-emerald);
+  color: #ffffff;
 }
 
 .hero-benefit-icon svg {
@@ -756,26 +755,13 @@ main {
 
 @media (min-width: 640px) {
   .hero-benefit-icon {
-    height: 2.6rem;
-    width: 2.6rem;
-    border-radius: 9999px;
+    height: 2.7rem;
+    width: 2.7rem;
+    border-radius: 0.8rem;
   }
 
   .hero-benefit-icon svg {
     height: 1.35rem;
     width: 1.35rem;
-  }
-
-  .journey-option-card {
-    min-height: 6.4rem;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0.45rem;
-    padding: 0.9rem 0.95rem 1rem;
-  }
-
-  .journey-option-chevron {
-    display: none;
   }
 }

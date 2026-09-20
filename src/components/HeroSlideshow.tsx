@@ -21,8 +21,8 @@ export default function HeroSlideshow() {
             Belfast Airport Transfers
           </h1>
 
-          <p className="mt-3 max-w-xl text-[0.95rem] leading-snug text-white/70 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
-            Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time.
+          <p className="mt-3 max-w-xl text-[0.95rem] leading-[1.45] text-white/70 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
+            Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland.
           </p>
 
           <p className="mt-4 hidden max-w-xl text-sm font-medium leading-snug text-white/78 md:block sm:text-[0.95rem]">
@@ -59,7 +59,7 @@ export default function HeroSlideshow() {
           id="quote"
         >
           <HeroBenefitsRow />
-          <QuoteCard />
+          <QuoteCard presentation="homepage" />
           <QuoteHelpContact />
         </div>
       </div>

@@ -516,6 +516,11 @@ type QuoteCardProps = {
    * airport default to address-to-address.
    */
   initialJourneyIntent?: QuoteJourneyIntent;
+  /**
+   * Homepage-only presentation for the approved mobile quote UI.
+   * Landing pages omit this so their existing compact cards stay intact.
+   */
+  presentation?: "default" | "homepage";
   /** Ads page_type custom parameter (e.g. emerge_belfast). */
   pageType?: AdsQuotePageType;
   /** Cap passenger selector (EMERGE online capacity is 4). */
@@ -560,6 +565,7 @@ function QuoteCard({
   initialAddressHint = "",
   initialDropoffHint = "",
   initialJourneyIntent,
+  presentation = "default",
   pageType = "main",
   maxPassengers = MAX_ONLINE_PASSENGERS,
   returnOfferToken = "",
@@ -5903,7 +5909,15 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="quote-flow glass-card min-w-0 rounded-[1.35rem] p-5 sm:p-7 lg:p-6 xl:p-7">
+    <div
+      ref={cardRef}
+      data-quote-presentation={presentation}
+      className={
+        presentation === "homepage"
+          ? "quote-flow glass-card min-w-0 rounded-[1.35rem] p-5 sm:p-7 lg:p-6 xl:p-7"
+          : "quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7"
+      }
+    >
       <div className="mb-4 sm:mb-5 lg:mb-5">
         <h2
           data-site-nav-heading="quote"
@@ -5911,7 +5925,9 @@ function QuoteCard({
           className={`${
             quoteStep >= 2
               ? "text-[1.05rem] font-semibold uppercase tracking-[0.14em] text-white outline-none sm:text-lg"
-              : "font-display text-[1.7rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+              : presentation === "homepage"
+                ? "font-display text-[1.7rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+              : "font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
           }`}
         >
           {quoteStep >= 2 ? "COMPLETE YOUR BOOKING" : "Get a Live Quote"}
@@ -6124,6 +6140,7 @@ function QuoteCard({
               }
               showStageScrollKey={`${journeyIntent ?? ""}|${intentAirportCode}|${pickupPlace.placeId}|${dropoffPlace.placeId}`}
               journeyKindLabel={journeyKind ? journeyKindLabel(journeyKind) : undefined}
+              presentation={presentation}
             />
 
             <div

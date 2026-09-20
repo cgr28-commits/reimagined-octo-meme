@@ -27,6 +27,15 @@ assert.match(hero, /id="quote"/);
 assert.match(hero, /<QuoteCard/);
 assert.match(hero, /Belfast Airport Transfers/);
 assert.match(hero, /Private taxi airport transfers/);
+assert.match(
+  hero,
+  /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
+);
+assert.doesNotMatch(
+  hero,
+  /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
+);
+assert.match(hero, /presentation="homepage"/);
 assert.doesNotMatch(hero, /Reserved driver · Fixed price/);
 assert.match(benefits, /Reserved driver/);
 assert.match(benefits, /Fixed price/);
@@ -34,11 +43,14 @@ assert.match(benefits, /Flight monitoring/);
 assert.match(benefits, /Airport waiting included/);
 assert.match(benefits, /hero-benefit-icon/);
 assert.match(css, /\.hero-benefit-icon \{/);
+assert.match(css, /background: var\(--color-emerald\)/);
 assert.match(css, /\.hero-benefit-divider::before/);
 console.log("OK  four-column benefits replace the middot line");
 
 console.log("=== Journey option cards ===");
+assert.match(progressive, /presentation === "homepage"/);
 assert.match(progressive, /<JourneyOptionCard/);
+assert.match(progressive, /SELECT_CARD/);
 assert.match(progressive, /Where are you travelling\?/);
 assert.match(journey, /aria-pressed=\{selected\}/);
 assert.match(journey, /To an Airport|id === "to-airport"/);

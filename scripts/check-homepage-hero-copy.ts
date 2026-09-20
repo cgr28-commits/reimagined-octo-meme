@@ -41,8 +41,8 @@ assert.match(hero, /Private taxi airport transfers/);
 assert.doesNotMatch(hero, />Private airport transfers</);
 assert.match(
   hero,
-  /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
-  "hero supporting copy must explain advance-booked reserved-driver transfers",
+  /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
+  "hero supporting copy must explain pre-booked transfers across NI and Dublin",
 );
 assert.match(
   hero,
@@ -84,7 +84,7 @@ assert.match(hero, /min-w-0/);
 assert.match(hero, /overflow-x-clip/);
 
 console.log("OK  homepage H1 is Belfast Airport Transfers");
-console.log("OK  supporting copy explains advance-booked reserved-driver transfers");
+console.log("OK  supporting copy explains pre-booked transfers across NI and Dublin");
 console.log("OK  compact benefits sit by the quote panel");
 console.log("OK  Why Choose Us reserved-driver card retains travel-day updates");
 console.log("OK  header 24/7 refers to online booking only");
