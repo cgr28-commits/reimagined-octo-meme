@@ -2,6 +2,7 @@
 
 import type { SelectedPlace } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
+import JourneyOptionCard from "@/components/JourneyOptionCard";
 import {
   CUSTOMER_AIRPORTS,
   QUOTE_JOURNEY_INTENT_OPTIONS,
@@ -28,10 +29,19 @@ const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
 
 const SELECT_CARD =
   "flex min-h-[4.25rem] flex-col items-start justify-center rounded-2xl border px-3.5 py-2.5 text-left transition-all sm:min-h-[4.5rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
+const AIRPORT_SELECT_CARD =
+  "flex min-h-14 items-center rounded-2xl border px-3.5 py-2 text-left transition-all sm:min-h-[4.25rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
 const SELECT_CARD_ON =
   "quote-choice-selected border-emerald bg-emerald text-navy shadow-[0_0_0_3px_rgba(47,191,74,0.22)]";
 const SELECT_CARD_OFF =
   "quote-choice border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:bg-emerald/10";
+
+function choiceGridShellClass(hasError: boolean): string {
+  if (hasError) {
+    return "rounded-2xl border border-red-400/70 bg-red-500/[0.08] p-2 ring-1 ring-red-400/35";
+  }
+  return "rounded-2xl border border-white/14 bg-white/[0.03] p-2";
+}
 
 function ChoiceGrid({
   label,
@@ -56,22 +66,22 @@ function ChoiceGrid({
 }) {
   const cols = columns ?? options.length;
   return (
-    <div className={choiceGroupNeedsClass(needsCompletion && value == null, hasError)}>
-      <p className="form-label flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span>
+    <div className={choiceGridShellClass(hasError)}>
+      <div className="mb-2">
+        <p className="form-label mb-0">
           {label}
           {needsCompletion && value == null ? (
-            <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+            <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald/80">
               (required)
             </span>
           ) : null}
-        </span>
+        </p>
         {hint ? (
-          <span className="font-semibold normal-case tracking-normal text-[11px] text-white/70">
+          <p className="mt-1 text-[11px] font-medium leading-snug text-white/70">
             {hint}
-          </span>
+          </p>
         ) : null}
-      </p>
+      </div>
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${Math.min(cols, options.length)}, minmax(0, 1fr))` }}
@@ -146,6 +156,8 @@ export type QuoteProgressiveRouteProps = {
    * One way / Return · 5% toggle. Ordinary bookings must leave this unset.
    */
   lockReturnOfferJourney?: boolean;
+  /** Homepage stacked journey cards; landing pages keep the compact grid. */
+  presentation?: "default" | "homepage";
 };
 
 export default function QuoteProgressiveRoute({
@@ -185,6 +197,7 @@ export default function QuoteProgressiveRoute({
   showStageScrollKey: _showStageScrollKey = "",
   journeyKindLabel,
   lockReturnOfferJourney = false,
+  presentation = "default",
 }: QuoteProgressiveRouteProps) {
   void _showStageScrollKey;
   const showAirportPicker =
@@ -207,9 +220,19 @@ export default function QuoteProgressiveRoute({
   void _isGroupQuote;
 
   return (
-    <div className="quote-field space-y-2.5 sm:space-y-5 lg:space-y-4">
+    <div
+      className={`quote-field ${
+        presentation === "homepage" ? "space-y-1.5 sm:space-y-5" : "space-y-2.5 sm:space-y-5 lg:space-y-4"
+      }`}
+    >
       <div id="quote-section-journey" className="lg:min-h-0">
-        <h3 className="text-[0.9rem] font-semibold text-white sm:text-lg lg:text-base">
+        <h3
+          className={
+            presentation === "homepage"
+              ? "text-[1rem] font-bold leading-tight text-white sm:text-lg"
+              : "text-[0.9rem] font-semibold text-white sm:text-lg lg:text-base"
+          }
+        >
           Where are you travelling?
         </h3>
         <p className="quote-secondary mt-0.5 hidden text-xs sm:mt-1 sm:block">
@@ -246,35 +269,56 @@ export default function QuoteProgressiveRoute({
       ) : (
         <>
           <div
-            className={`grid gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`}
+            className={
+              presentation === "homepage"
+                ? "grid gap-1.5 sm:gap-2"
+                : `grid gap-2 sm:grid-cols-3 sm:gap-3 lg:gap-2.5 ${choiceGroupNeedsClass(!journeyIntent)}`
+            }
             role="group"
             aria-label="Journey type"
           >
-            {QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => {
-              const selected = journeyIntent === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onPointerDown={(event) => {
-                    // Below md: do not focus the card — iOS would scroll it into view.
-                    if (detectMobileDevice()) {
-                      event.preventDefault();
-                    }
-                  }}
-                  onClick={() => onJourneyIntentChange(option.id)}
-                  className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
-                >
-                  <span className="text-sm font-bold sm:text-base">{option.title}</span>
-                  <span
-                    className={`mt-1 text-xs leading-snug ${selected ? "text-navy/80" : "quote-secondary"}`}
-                  >
-                    {option.description}
-                  </span>
-                </button>
-              );
-            })}
+            {presentation === "homepage"
+              ? QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => (
+                  <JourneyOptionCard
+                    key={option.id}
+                    id={option.id}
+                    title={option.title}
+                    description={option.description}
+                    selected={journeyIntent === option.id}
+                    onSelect={onJourneyIntentChange}
+                    onPointerDown={(event) => {
+                      // Below md: do not focus the card — iOS would scroll it into view.
+                      if (detectMobileDevice()) {
+                        event.preventDefault();
+                      }
+                    }}
+                  />
+                ))
+              : QUOTE_JOURNEY_INTENT_OPTIONS.map((option) => {
+                  const selected = journeyIntent === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onPointerDown={(event) => {
+                        // Below md: do not focus the card — iOS would scroll it into view.
+                        if (detectMobileDevice()) {
+                          event.preventDefault();
+                        }
+                      }}
+                      onClick={() => onJourneyIntentChange(option.id)}
+                      className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
+                    >
+                      <span className="text-sm font-bold sm:text-base">{option.title}</span>
+                      <span
+                        className={`mt-1 text-xs leading-snug ${selected ? "text-navy/80" : "quote-secondary"}`}
+                      >
+                        {option.description}
+                      </span>
+                    </button>
+                  );
+                })}
           </div>
 
           {showAirportPicker && (
@@ -300,9 +344,9 @@ export default function QuoteProgressiveRoute({
                       type="button"
                       aria-pressed={selected}
                       onClick={() => onAirportSelect(airport.code)}
-                      className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
+                      className={`${AIRPORT_SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
                     >
-                      <span className="text-sm font-bold">{airport.title}</span>
+                      <span className="text-sm font-bold leading-snug">{airport.title}</span>
                     </button>
                   );
                 })}

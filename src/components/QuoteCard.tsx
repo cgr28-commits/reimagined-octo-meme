@@ -335,28 +335,22 @@ function TapChoiceRow({
   needsCompletion?: boolean;
 }) {
   return (
-    <div
-      className={
-        needsCompletion && value == null
-          ? "rounded-2xl border border-emerald/45 bg-emerald/[0.04] p-2 ring-1 ring-emerald/20"
-          : "rounded-2xl border border-transparent p-2"
-      }
-    >
-      <p className="form-label mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span>
+    <div className="rounded-2xl border border-white/14 bg-white/[0.03] p-2">
+      <div className="mb-2">
+        <p className="form-label mb-0">
           {label}
           {needsCompletion && value == null ? (
-            <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+            <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald/80">
               (required)
             </span>
           ) : null}
-        </span>
+        </p>
         {hint ? (
-          <span className="font-semibold normal-case tracking-normal text-[11px] text-white/70">
+          <p className="mt-1 text-[11px] font-medium leading-snug text-white/70">
             {hint}
-          </span>
+          </p>
         ) : null}
-      </p>
+      </div>
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
@@ -516,6 +510,11 @@ type QuoteCardProps = {
    * airport default to address-to-address.
    */
   initialJourneyIntent?: QuoteJourneyIntent;
+  /**
+   * Homepage-only presentation for the approved mobile quote UI.
+   * Landing pages omit this so their existing compact cards stay intact.
+   */
+  presentation?: "default" | "homepage";
   /** Ads page_type custom parameter (e.g. emerge_belfast). */
   pageType?: AdsQuotePageType;
   /** Cap passenger selector (EMERGE online capacity is 4). */
@@ -560,6 +559,7 @@ function QuoteCard({
   initialAddressHint = "",
   initialDropoffHint = "",
   initialJourneyIntent,
+  presentation = "default",
   pageType = "main",
   maxPassengers = MAX_ONLINE_PASSENGERS,
   returnOfferToken = "",
@@ -5662,7 +5662,25 @@ function QuoteCard({
             ? `BOOK THIS TRANSFER — ${amountLabel}`
             : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
               ? "Book Now"
-              : "Continue to travel details"}
+              : (
+                <>
+                  Continue to travel details
+                  <svg
+                    className="ml-1.5 h-4 w-4 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2.2"
+                      d="M5 12h14M13 6l6 6-6 6"
+                    />
+                  </svg>
+                </>
+              )}
       </button>
     );
   }
@@ -5885,14 +5903,24 @@ function QuoteCard({
   }
 
   return (
-    <div ref={cardRef} className="quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7">
-      <div className="mb-4 sm:mb-5 lg:mb-5">
+    <div
+      ref={cardRef}
+      data-quote-presentation={presentation}
+      className={
+        presentation === "homepage"
+          ? "quote-flow glass-card min-w-0 rounded-[1.25rem] px-3.5 py-3 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
+          : "quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7"
+      }
+    >
+      <div className={presentation === "homepage" ? "mb-2 sm:mb-5 lg:mb-5" : "mb-4 sm:mb-5 lg:mb-5"}>
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
           className={`${
             quoteStep >= 2
               ? "text-[1.05rem] font-semibold uppercase tracking-[0.14em] text-white outline-none sm:text-lg"
+              : presentation === "homepage"
+                ? "font-display text-[1.7rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
               : "font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
           }`}
         >
@@ -5910,7 +5938,7 @@ function QuoteCard({
             </p>
           </div>
         ) : null}
-        <div className="mt-1 text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed">
+        <div className={`${presentation === "homepage" ? "mt-0.5" : "mt-1"} text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed`}>
           {quoteStep >= 2 ? (
             <p className="text-[0.8125rem] sm:text-sm">
               Enter your pickup time and details, then confirm. Your fare stays the same.
@@ -5918,7 +5946,7 @@ function QuoteCard({
           ) : (
             <>
           {/* Mobile: compact — frees space for journey choices above the fold */}
-          <p className="md:hidden text-[0.8125rem]">
+          <p className="md:hidden text-[0.875rem] text-white/68">
             Get your fixed price in three quick steps.
           </p>
           {/* Desktop: fuller explanation */}
@@ -5930,7 +5958,10 @@ function QuoteCard({
             </>
           )}
         </div>
-        <ol className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2" aria-label="Booking steps">
+        <ol
+          className={`${presentation === "homepage" ? "mt-1.5" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
+          aria-label="Booking steps"
+        >
           {(
             [
               { step: 1 as const, label: "Journey" },
@@ -5979,7 +6010,15 @@ function QuoteCard({
         {quoteStep >= 2 ? renderBackToQuoteButton("top") : null}
       </div>
 
-      <form id="quoteForm" onSubmit={handleSubmit} className="relative space-y-3 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5">
+      <form
+        id="quoteForm"
+        onSubmit={handleSubmit}
+        className={
+          presentation === "homepage"
+            ? "relative space-y-0 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5"
+            : "relative space-y-3 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5"
+        }
+      >
         <GoogleAdsRequestQuote
           fire={Boolean(
             quoteStep === 1 && quoteAnalyticsValue && quoteTransactionId,
@@ -6019,7 +6058,11 @@ function QuoteCard({
         <div
           id="step1-journey-details"
           ref={step1JourneyRef}
-          className="scroll-mt-44 space-y-3 sm:space-y-4 md:scroll-mt-28"
+          className={
+            presentation === "homepage"
+              ? "scroll-mt-44 space-y-0 sm:space-y-4 md:scroll-mt-28"
+              : "scroll-mt-44 space-y-3 sm:space-y-4 md:scroll-mt-28"
+          }
         >
         <h2
           data-booking-nav-heading
@@ -6106,8 +6149,11 @@ function QuoteCard({
               }
               showStageScrollKey={`${journeyIntent ?? ""}|${intentAirportCode}|${pickupPlace.placeId}|${dropoffPlace.placeId}`}
               journeyKindLabel={journeyKind ? journeyKindLabel(journeyKind) : undefined}
+              presentation={presentation}
             />
 
+            {presentation === "homepage" &&
+            !(isIncompletePickupAddress || isOutOfAreaPickupJourney || isRoiJourney) ? null : (
             <div
               className={`grid transition-[grid-template-rows] duration-200 ease-out ${
                 isIncompletePickupAddress || isOutOfAreaPickupJourney || isRoiJourney
@@ -6145,12 +6191,15 @@ function QuoteCard({
                 )}
               </div>
             </div>
+            )}
 
+            {presentation === "homepage" && !(isLdyTrip && ldyServiceAreaInvalid) ? null : (
             <p className="min-h-[1.1rem] text-xs text-red-300">
               {isLdyTrip && ldyServiceAreaInvalid
                 ? "City of Derry Airport transfers are between LDY and the greater Belfast area only."
                 : "\u00a0"}
             </p>
+            )}
 
             {addressesReadyForRoute && (
               <div
@@ -6263,6 +6312,7 @@ function QuoteCard({
                 )}
               </div>
             )}
+            <div hidden>
             <input type="hidden" name="vehicle" value={quoteVehicle} />
             <input
               type="hidden"
@@ -6274,6 +6324,7 @@ function QuoteCard({
               name="suitcases"
               value={suitcases == null ? "" : String(suitcases)}
             />
+            </div>
           </>
         ) : (
           <>
@@ -6761,7 +6812,14 @@ function QuoteCard({
               className="h-px w-full scroll-mt-44 md:scroll-mt-28"
               aria-hidden="true"
             />
-            <div id="quote-step1-next" className="flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28">
+            <div
+              id="quote-step1-next"
+              className={
+                presentation === "homepage"
+                  ? "mt-[1.375rem] flex w-full scroll-mt-44 flex-col gap-2 sm:mt-0 md:scroll-mt-28"
+                  : "flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28"
+              }
+            >
               {renderStep1PrimaryActions()}
             </div>
           </>

@@ -10,6 +10,7 @@ import { WHY_CHOOSE_US } from "../src/lib/data";
 
 const root = path.resolve(import.meta.dirname, "..");
 const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
+const benefits = fs.readFileSync(path.join(root, "src/components/HeroBenefitsRow.tsx"), "utf8");
 const header = fs.readFileSync(path.join(root, "src/components/Header.tsx"), "utf8");
 const logo = fs.readFileSync(path.join(root, "src/components/Logo.tsx"), "utf8");
 const why = fs.readFileSync(path.join(root, "src/lib/data.ts"), "utf8");
@@ -40,19 +41,19 @@ assert.match(hero, /Private taxi airport transfers/);
 assert.doesNotMatch(hero, />Private airport transfers</);
 assert.match(
   hero,
-  /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
-  "hero supporting copy must explain advance-booked reserved-driver transfers",
+  /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
+  "hero supporting copy must explain pre-booked transfers across NI and Dublin",
 );
 assert.match(
   hero,
   /<h1[\s\S]*?>[\s\S]*Belfast Airport Transfers\s*<\/h1>/,
   "homepage H1 must be Belfast Airport Transfers",
 );
-assert.match(
-  hero,
-  /Reserved driver · Fixed price · Flight monitoring · Airport waiting included/,
-  "compact benefits row must sit by the quote panel",
-);
+assert.match(hero, /HeroBenefitsRow/, "compact benefits row must sit by the quote panel");
+assert.match(benefits, /Reserved driver/);
+assert.match(benefits, /Fixed price/);
+assert.match(benefits, /Flight monitoring/);
+assert.match(benefits, /Airport waiting included/);
 assert.match(hero, /A driver reserved for your journey/);
 
 assert.doesNotMatch(
@@ -83,7 +84,7 @@ assert.match(hero, /min-w-0/);
 assert.match(hero, /overflow-x-clip/);
 
 console.log("OK  homepage H1 is Belfast Airport Transfers");
-console.log("OK  supporting copy explains advance-booked reserved-driver transfers");
+console.log("OK  supporting copy explains pre-booked transfers across NI and Dublin");
 console.log("OK  compact benefits sit by the quote panel");
 console.log("OK  Why Choose Us reserved-driver card retains travel-day updates");
 console.log("OK  header 24/7 refers to online booking only");

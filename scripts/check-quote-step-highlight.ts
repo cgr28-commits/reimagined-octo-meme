@@ -73,7 +73,7 @@ assert.doesNotMatch(card, /Pay & confirm/);
 assert.doesNotMatch(card, /Airport & address/);
 assert.doesNotMatch(card, /quoteStep >= 2 \? "grid-cols-2"/);
 assert.match(css, /\.quote-step \{[\s\S]*color: rgba\(255,\s*255,\s*255,\s*0\.94\)/);
-assert.match(css, /\.quote-step \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.46\)/);
+assert.match(css, /\.quote-step \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.22\)/);
 assert.match(css, /\.quote-step-active \{[\s\S]*color: #ffffff/);
 assert.match(css, /\.quote-step-done \{[\s\S]*color: #b8f0c4/);
 assert.match(css, /\.quote-flow \.btn-secondary \{[\s\S]*border: 1px solid rgba\(255,\s*255,\s*255,\s*0\.52\)/);

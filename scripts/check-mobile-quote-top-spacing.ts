@@ -25,13 +25,13 @@ assert.match(hero, /order-2 min-w-0 w-full[\s\S]*id="quote"|id="quote"[\s\S]*ord
 assert.match(hero, /md:order-1 md:scroll-mt-28 lg:order-2/);
 
 // Compact mobile stack: tighter gap, short supporting line, extra hero blocks hidden.
-assert.match(hero, /gap-3\.5/);
+assert.match(hero, /gap-2 /);
 assert.match(hero, /md:gap-12/);
-assert.match(hero, /section-eyebrow mb-2[\s\S]*md:mb-5/);
+assert.match(hero, /section-eyebrow mb-1[\s\S]*md:mb-5/);
 assert.match(hero, /Private taxi airport transfers/);
 assert.match(
   hero,
-  /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
+  /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
 );
 assert.match(hero, /hidden max-w-xl[\s\S]*md:block/);
 assert.match(hero, /hidden gap-3\.5[\s\S]*md:grid/);
@@ -39,12 +39,11 @@ assert.doesNotMatch(hero, /whitespace-nowrap/);
 
 // Mobile top clearance matches fixed header (~logo h-12 + py-2 ≈ 4rem) + small gap.
 // Desktop stays md:pt-28. Do not leave a large empty navy band above the quote card.
-assert.match(hero, /pt-20 md:pt-28/);
+assert.match(hero, /pt-\[4\.15rem\] md:pt-28/);
 assert.doesNotMatch(hero, /pt-36/);
-assert.doesNotMatch(hero, /pt-\[4\.5rem\]/);
 assert.doesNotMatch(hero, /pt-\[4\.75rem\]/);
 assert.doesNotMatch(hero, /pt-44/);
-assert.match(hero, /py-2/);
+assert.match(hero, /py-1/);
 assert.match(hero, /md:py-16/);
 
 // Sticky #quote offset matches mobile header clearance.
@@ -69,13 +68,14 @@ assert.doesNotMatch(
 );
 
 // Quote card keeps premium mobile padding — do not shrink form controls.
-assert.match(card, /glass-card min-w-0 rounded-\[1\.05rem\] p-4|glass-card min-w-0 rounded-2xl p-4/);
+assert.match(card, /rounded-\[1\.05rem\] p-4/);
+assert.match(card, /presentation === "homepage"/);
 assert.match(card, /Where are you travelling\?|QuoteProgressiveRoute/);
 assert.match(card, /quote-secondary|Get a Live Quote/);
 
 console.log("OK  mobile hero places service message above the quote form");
 console.log("OK  tablet/desktop restore the previous column order");
-console.log("OK  mobile top padding clears fixed header without a large empty band (pt-20 / py-2)");
+console.log("OK  mobile top padding clears fixed header without a large empty band");
 console.log("OK  header CTAs reduced; Airports/Manage live in menu");
 console.log("OK  quote card mobile padding preserved");
 console.log("\nAll mobile quote top-spacing checks passed.");

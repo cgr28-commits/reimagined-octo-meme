@@ -37,7 +37,7 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
   assert.match(header, /Get a Quote/);
   assert.match(
     hero,
-    /Fixed-price private airport transfers, booked in advance with a driver reserved for your chosen pickup time\./,
+    /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
   );
   console.log("OK  header CTA + destination coverage text present");
 }
@@ -55,9 +55,9 @@ console.log("\n=== 4. No discontinued first-booking promo near quote CTA ===");
 console.log("\n=== 5. Mobile above-the-fold compaction ===");
 {
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(hero, /pt-20 md:pt-28/);
+  assert.match(hero, /pt-\[4\.15rem\] md:pt-28/);
   assert.match(hero, /order-1 min-w-0 md:order-2 lg:order-1/);
-  assert.match(hero, /gap-3\.5/);
+  assert.match(hero, /gap-2 /);
   assert.match(card, /Get your fixed price in three quick steps\./);
   assert.doesNotMatch(card.match(/md:hidden[\s\S]{0,200}Get your fixed price/)?.[0] ?? "", /Book and pay securely online/);
   assert.match(card, /Three quick steps — Journey, Quote, then Booking & Pay/);
