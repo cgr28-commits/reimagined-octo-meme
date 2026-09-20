@@ -335,28 +335,22 @@ function TapChoiceRow({
   needsCompletion?: boolean;
 }) {
   return (
-    <div
-      className={
-        needsCompletion && value == null
-          ? "rounded-2xl border border-emerald/45 bg-emerald/[0.04] p-2 ring-1 ring-emerald/20"
-          : "rounded-2xl border border-transparent p-2"
-      }
-    >
-      <p className="form-label mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span>
+    <div className="rounded-2xl border border-white/14 bg-white/[0.03] p-2">
+      <div className="mb-2">
+        <p className="form-label mb-0">
           {label}
           {needsCompletion && value == null ? (
-            <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+            <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald/80">
               (required)
             </span>
           ) : null}
-        </span>
+        </p>
         {hint ? (
-          <span className="font-semibold normal-case tracking-normal text-[11px] text-white/70">
+          <p className="mt-1 text-[11px] font-medium leading-snug text-white/70">
             {hint}
-          </span>
+          </p>
         ) : null}
-      </p>
+      </div>
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}

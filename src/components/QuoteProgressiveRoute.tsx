@@ -29,10 +29,19 @@ const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
 
 const SELECT_CARD =
   "flex min-h-[4.25rem] flex-col items-start justify-center rounded-2xl border px-3.5 py-2.5 text-left transition-all sm:min-h-[4.5rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
+const AIRPORT_SELECT_CARD =
+  "flex min-h-14 items-center rounded-2xl border px-3.5 py-2 text-left transition-all sm:min-h-[4.25rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
 const SELECT_CARD_ON =
   "quote-choice-selected border-emerald bg-emerald text-navy shadow-[0_0_0_3px_rgba(47,191,74,0.22)]";
 const SELECT_CARD_OFF =
   "quote-choice border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:bg-emerald/10";
+
+function choiceGridShellClass(hasError: boolean): string {
+  if (hasError) {
+    return "rounded-2xl border border-red-400/70 bg-red-500/[0.08] p-2 ring-1 ring-red-400/35";
+  }
+  return "rounded-2xl border border-white/14 bg-white/[0.03] p-2";
+}
 
 function ChoiceGrid({
   label,
@@ -57,22 +66,22 @@ function ChoiceGrid({
 }) {
   const cols = columns ?? options.length;
   return (
-    <div className={choiceGroupNeedsClass(needsCompletion && value == null, hasError)}>
-      <p className="form-label flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span>
+    <div className={choiceGridShellClass(hasError)}>
+      <div className="mb-2">
+        <p className="form-label mb-0">
           {label}
           {needsCompletion && value == null ? (
-            <span className="ml-1 font-normal normal-case tracking-normal text-emerald/80">
+            <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald/80">
               (required)
             </span>
           ) : null}
-        </span>
+        </p>
         {hint ? (
-          <span className="font-semibold normal-case tracking-normal text-[11px] text-white/70">
+          <p className="mt-1 text-[11px] font-medium leading-snug text-white/70">
             {hint}
-          </span>
+          </p>
         ) : null}
-      </p>
+      </div>
       <div
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${Math.min(cols, options.length)}, minmax(0, 1fr))` }}
@@ -335,9 +344,9 @@ export default function QuoteProgressiveRoute({
                       type="button"
                       aria-pressed={selected}
                       onClick={() => onAirportSelect(airport.code)}
-                      className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
+                      className={`${AIRPORT_SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
                     >
-                      <span className="text-sm font-bold">{airport.title}</span>
+                      <span className="text-sm font-bold leading-snug">{airport.title}</span>
                     </button>
                   );
                 })}

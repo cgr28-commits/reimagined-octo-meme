@@ -72,13 +72,25 @@ assert.match(journey, /To an Airport|id === "to-airport"/);
 assert.match(journey, /journey-option-card/);
 assert.match(journey, /journey-option-chevron/);
 assert.match(journey, /M2\.5 19h19v2h-19v-2z/);
-assert.match(journey, /M19\.57 5\.64/);
+assert.match(journey, /rotate\(46 12\.1 9\.7\)/);
+assert.match(journey, /M22\.07 9\.64c-\.21-\.8-1\.04-1\.28-1\.84-1\.06L14\.92 10 8 3\.57/);
+assert.doesNotMatch(journey, /M19\.57 5\.64/);
 assert.match(css, /\.journey-option-card \{/);
 assert.match(css, /\.journey-option-card-selected \{/);
 assert.match(css, /min-height: 3\.4rem/);
 assert.match(css, /data-quote-presentation="homepage"[\s\S]*min-height: 2\.2rem/);
 assert.match(progressive, /QUOTE_JOURNEY_INTENT_OPTIONS/);
 assert.match(progressive, /onJourneyIntentChange/);
+assert.match(progressive, /AIRPORT_SELECT_CARD/);
+assert.match(progressive, /min-h-14/);
+assert.match(progressive, /choiceGridShellClass/);
+assert.match(progressive, /Include all children in the passenger total\./);
+assert.match(progressive, /form-label mb-0/);
+assert.match(progressive, /mt-1 text-\[11px\] font-medium leading-snug text-white\/70/);
+assert.doesNotMatch(
+  progressive,
+  /function ChoiceGrid[\s\S]{0,400}choiceGroupNeedsClass/,
+);
 console.log("OK  existing journey options restyled, same handlers");
 
 console.log("=== Continue button + steps ===");
