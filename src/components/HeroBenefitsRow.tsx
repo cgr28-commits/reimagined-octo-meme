@@ -15,14 +15,9 @@ const BENEFITS = [
   {
     label: "Fixed price",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.8"
-          d="M15 8.5c-.6-1.3-2-2-3.6-2-2 0-3.5 1.2-3.5 2.8 0 3.7 7.2 1.6 7.2 5.4 0 1.7-1.6 3-3.8 3.1-1.7 0-3.1-.7-3.8-2M12 5v1.5M12 17.5V19"
-        />
-      </svg>
+      <span className="text-[1.1rem] font-bold leading-none" aria-hidden>
+        £
+      </span>
     ),
   },
   {
@@ -57,7 +52,7 @@ const BENEFITS = [
 export default function HeroBenefitsRow() {
   return (
     <ul
-      className="hero-benefits-row mb-4 grid grid-cols-4 md:mb-5"
+      className="hero-benefits-row mb-5 grid grid-cols-4 md:mb-6"
       aria-label="Why book with My Airport Taxi NI"
     >
       {BENEFITS.map((benefit, index) => (
