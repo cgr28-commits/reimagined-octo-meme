@@ -682,14 +682,18 @@ main {
   color: #ffffff;
 }
 
-.hero-benefit-icon svg,
-.hero-benefit-icon span {
+.hero-benefit-icon svg {
+  display: block;
   height: 1.22rem;
   width: 1.22rem;
 }
 
-.hero-benefit-icon svg {
+.hero-benefit-pound {
   display: block;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
 }
 
 .hero-benefit-divider {

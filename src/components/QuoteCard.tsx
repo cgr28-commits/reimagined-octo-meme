@@ -6016,7 +6016,15 @@ function QuoteCard({
         {quoteStep >= 2 ? renderBackToQuoteButton("top") : null}
       </div>
 
-      <form id="quoteForm" onSubmit={handleSubmit} className="relative space-y-3 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5">
+      <form
+        id="quoteForm"
+        onSubmit={handleSubmit}
+        className={
+          presentation === "homepage"
+            ? "relative space-y-0 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5"
+            : "relative space-y-3 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5"
+        }
+      >
         <GoogleAdsRequestQuote
           fire={Boolean(
             quoteStep === 1 && quoteAnalyticsValue && quoteTransactionId,
@@ -6056,7 +6064,11 @@ function QuoteCard({
         <div
           id="step1-journey-details"
           ref={step1JourneyRef}
-          className="scroll-mt-44 space-y-3 sm:space-y-4 md:scroll-mt-28"
+          className={
+            presentation === "homepage"
+              ? "scroll-mt-44 space-y-0 sm:space-y-4 md:scroll-mt-28"
+              : "scroll-mt-44 space-y-3 sm:space-y-4 md:scroll-mt-28"
+          }
         >
         <h2
           data-booking-nav-heading
@@ -6146,6 +6158,8 @@ function QuoteCard({
               presentation={presentation}
             />
 
+            {presentation === "homepage" &&
+            !(isIncompletePickupAddress || isOutOfAreaPickupJourney || isRoiJourney) ? null : (
             <div
               className={`grid transition-[grid-template-rows] duration-200 ease-out ${
                 isIncompletePickupAddress || isOutOfAreaPickupJourney || isRoiJourney
@@ -6183,12 +6197,15 @@ function QuoteCard({
                 )}
               </div>
             </div>
+            )}
 
+            {presentation === "homepage" && !(isLdyTrip && ldyServiceAreaInvalid) ? null : (
             <p className="min-h-[1.1rem] text-xs text-red-300">
               {isLdyTrip && ldyServiceAreaInvalid
                 ? "City of Derry Airport transfers are between LDY and the greater Belfast area only."
                 : "\u00a0"}
             </p>
+            )}
 
             {addressesReadyForRoute && (
               <div
@@ -6301,6 +6318,7 @@ function QuoteCard({
                 )}
               </div>
             )}
+            <div hidden>
             <input type="hidden" name="vehicle" value={quoteVehicle} />
             <input
               type="hidden"
@@ -6312,6 +6330,7 @@ function QuoteCard({
               name="suitcases"
               value={suitcases == null ? "" : String(suitcases)}
             />
+            </div>
           </>
         ) : (
           <>
@@ -6799,7 +6818,14 @@ function QuoteCard({
               className="h-px w-full scroll-mt-44 md:scroll-mt-28"
               aria-hidden="true"
             />
-            <div id="quote-step1-next" className="flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28">
+            <div
+              id="quote-step1-next"
+              className={
+                presentation === "homepage"
+                  ? "mt-[1.375rem] flex w-full scroll-mt-44 flex-col gap-2 sm:mt-0 md:scroll-mt-28"
+                  : "flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28"
+              }
+            >
               {renderStep1PrimaryActions()}
             </div>
           </>
