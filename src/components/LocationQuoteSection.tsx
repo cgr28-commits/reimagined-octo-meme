@@ -1,5 +1,6 @@
 "use client";
 
+import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import QuoteCard from "@/components/QuoteCard";
 
 type Props = {
@@ -16,7 +17,14 @@ export default function LocationQuoteSection({
   heading = "Get your fixed quote",
 }: Props) {
   return (
-    <section id="quote" className="relative scroll-mt-36 py-16 sm:py-20 md:scroll-mt-28">
+    <section
+      id="quote"
+      data-landing-quote
+      className="relative scroll-mt-36 py-16 sm:py-20 md:scroll-mt-28"
+    >
+      <span id="live-quote" className="sr-only">
+        Live quote calculator
+      </span>
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/25 to-navy" />
       <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
@@ -38,6 +46,7 @@ export default function LocationQuoteSection({
           initialAddressHint={addressHint}
         />
       </div>
+      <LandingPageStickyQuoteCta />
     </section>
   );
 }

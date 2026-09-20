@@ -11,6 +11,7 @@ import {
   findSiteNavDestination,
   normalizePathname,
   parseSiteNavHref,
+  resolveQuoteNavHref,
 } from "../src/lib/site-nav-scroll";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -80,7 +81,7 @@ check("Header / hamburger uses SiteNavLink and closes menu first", () => {
 check("Vehicles has scroll-mt fallback and data-site-nav-heading", () => {
   assert.match(vehicles, /id="vehicles"/);
   assert.match(vehicles, /scroll-mt-36/);
-  assert.match(vehicles, /xl:scroll-mt-28/);
+  assert.match(vehicles, /md:scroll-mt-28/);
   assert.match(vehicles, /navId="vehicles"/);
   assert.match(quoteCard, /data-site-nav-heading="quote"/);
   assert.match(read("src/components/AirportsSection.tsx"), /navId="airports"/);
@@ -108,6 +109,22 @@ check("parse / normalize helpers", () => {
   assert.equal(normalizePathname("/"), "/");
   assert.equal(parseSiteNavHref("/#vehicles").hash, "vehicles");
   assert.equal(parseSiteNavHref("/manage-booking/").hash, null);
+});
+
+check("Landing #quote stays on the current page when the calculator exists", () => {
+  assert.equal(
+    resolveQuoteNavHref("#quote", "/airports/belfast-international/", () => true),
+    "/airports/belfast-international/#quote",
+  );
+  assert.equal(
+    resolveQuoteNavHref("#quote", "/transfers/newtownabbey-to-dublin-airport/", () => true),
+    "/transfers/newtownabbey-to-dublin-airport/#quote",
+  );
+  assert.equal(
+    resolveQuoteNavHref("#quote", "/belfast-cruise-terminal-transfers/", () => false),
+    "/#quote",
+  );
+  assert.equal(resolveQuoteNavHref("/#quote", "/", () => true), "/#quote");
 });
 
 console.log("\nLanding positions (heading targets):");

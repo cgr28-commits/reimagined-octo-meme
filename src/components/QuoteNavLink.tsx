@@ -6,7 +6,7 @@ import {
   AIRPORT_PREFILL_KEY,
   QUOTE_DIRECTION_PREFILL_KEY,
 } from "@/lib/quote-prefill";
-import { navigateSiteNav } from "@/lib/site-nav-scroll";
+import { navigateSiteNav, resolveQuoteNavHref } from "@/lib/site-nav-scroll";
 
 type QuoteNavLinkProps = Omit<ComponentProps<typeof Link>, "href"> & {
   /** Fallback when the current page has no `#quote` section. */
@@ -50,7 +50,12 @@ export default function QuoteNavLink({
       );
     }
 
-    navigateSiteNav(href.startsWith("/") ? href : "/#quote", {
+    const targetHref = resolveQuoteNavHref(
+      href,
+      window.location.pathname,
+      (id) => Boolean(document.getElementById(id)),
+    );
+    navigateSiteNav(targetHref, {
       onBeforeNavigate: () => {
         onNavigate?.();
       },

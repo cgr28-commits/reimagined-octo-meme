@@ -48,6 +48,13 @@ html {
   touch-action: pan-y pinch-zoom;
 }
 
+@media (max-width: 767px) {
+  /* Room for the landing sticky quote CTA; homepage #quote has no data-landing-quote. */
+  main:has([data-landing-quote]) {
+    padding-bottom: 6.5rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

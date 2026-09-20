@@ -116,6 +116,7 @@
     "check:belfast-airport-island-lookup": "npx tsx scripts/check-belfast-airport-island-lookup.ts",
     "check:minimum-booking-notice": "npx tsx scripts/check-minimum-booking-notice.ts",
     "check:short-notice-period-setting": "npx tsx scripts/check-short-notice-period-setting.ts",
+    "check:landing-quote-cta": "npx tsx scripts/check-landing-quote-cta.ts",
     "check:town-landing-pages": "npx tsx scripts/check-town-landing-pages.ts",
     "check:locations-crawl": "npx tsx scripts/check-locations-crawl.ts",
     "check:cruise-terminal": "npx tsx scripts/check-cruise-terminal-page.ts",

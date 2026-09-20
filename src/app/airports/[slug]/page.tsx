@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
-import QuoteNavLink from "@/components/QuoteNavLink";
+import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
 import {
   AIRPORT_PAGES,
@@ -109,12 +109,9 @@ export default async function AirportTransferPage({ params }: Props) {
               <span className="text-white/50">{page.durationNote}</span>
             </div>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
-            <QuoteNavLink
-              href="#quote"
-              className="mt-6 inline-flex min-h-11 items-center rounded-full bg-emerald px-6 py-3 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
-            >
-              {`Get a ${page.shortName} Quote`}
-            </QuoteNavLink>
+            <div className="mt-6">
+              <LandingPageQuoteCta />
+            </div>
           </header>
 
           <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
