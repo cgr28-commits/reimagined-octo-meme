@@ -250,11 +250,15 @@ const breakdown = composeWebsiteFareBreakdown({
 assert.equal(breakdown.nightWeekendSurchargeGbp, dubNight.nightWeekendSurchargeGbp);
 assert.equal(
   breakdown.finalAmountPayableGbp,
-  roundGbp((dubNight.journeyFareGbp ?? 0) + 5),
+  roundGbp((dubNight.journeyFareGbp ?? 0) + dubFixedPickup + 5),
 );
 assert.equal(
   breakdown.nightWeekendSurchargeGbp,
   roundGbp((dubWeekday.journeyFareGbp ?? 0) * 0.1),
+);
+assert.notEqual(
+  breakdown.nightWeekendSurchargeGbp,
+  roundGbp(((dubWeekday.journeyFareGbp ?? 0) + dubFixedPickup + 5) * 0.1),
 );
 console.log(
   `OK  DUB pickup fixed £${dubFixedPickup} not in 10%; Express +£5 also excluded`,
