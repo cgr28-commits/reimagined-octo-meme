@@ -71,36 +71,33 @@ If a return-booking discount already exists in the pricing engine, show it separ
 
 Add tests for percentage discounts, fixed discounts, zero discount, excessive discounts, return discount interaction, quote-to-booking conversion and stored financial totals.
 
-## 20. PRICING — NO WEEKEND / BANK HOLIDAY SURCHARGE (ALTERNATIVE-TIME SAFE)
+## 20. PRICING — NIGHT & WEEKEND SURCHARGE (10%)
 
 **Pricing — IMPORTANT**
 
-Do not apply any weekend or Bank Holiday surcharge.
+Apply a 10% Night & Weekend Surcharge to the journey/vehicle fare only when the booked pickup (Europe/London wall clock) is:
 
-My Airport Taxi NI pricing is the same on weekdays, weekends and Bank Holidays.
+* Monday–Friday 22:00–05:59
+* All day Saturday and Sunday
 
-Offering the customer a different pickup time/date must therefore not change the fare merely because the alternative falls on a weekend or Bank Holiday.
+Do **not** surcharge airport access, Express Drop-Off, parking, waiting, tolls or other fixed fees. Estate stays exactly £6 above Saloon **before** the 10% is calculated. Keep the existing 5% return-booking discount.
 
-Preserve the customer’s existing quoted fare when offering an alternative pickup time unless another genuine journey input has changed that affects the canonical fare calculation.
+Calculate surcharge eligibility separately for each return leg from that leg’s booked pickup date/time. Do not apply the surcharge to both legs just because one qualifies.
 
-Also audit the canonical pricing configuration to ensure there is no active weekend or Bank Holiday multiplier/surcharge being applied by:
+Customer-facing label: “Night & Weekend Surcharge (10%)”.
+Explanation: “A 10% surcharge applies to journeys booked for pickup between 10pm and 6am Monday–Friday, and all day Saturday and Sunday.”
 
-* Public Live Quote
-* Personal Quote
-* Driver Quick Quote
-* alternative-time booking flow
+Bank-holiday *daytime* Monday–Friday is normal pricing unless it also falls in the night window.
 
-Do not change any other pricing rules.
-
-Example: Friday 14:00 → Saturday 15:00 must keep the same fare when only the pickup datetime changed.
+Short-notice “offer alternative time” still preserves the customer’s already-quoted amount (do not silently reprice an accepted booking just because the offered slot is a weekend/night). New quotes and date-changing amendments use the live surcharge rules.
 
 **Canonical config (current):**
 
-* `pricing-config.json` → `airportTripPremiumRate: 0`
-* `pricing-config.json` → `addressToAddressTripPremiumRate: 0`
-* `operational.weekendAndBankHoliday.premiumRate: 0`
+* `pricing-config.json` → `airportTripPremiumRate: 0.1`
+* `pricing-config.json` → `addressToAddressTripPremiumRate: 0.1`
+* `operational.weekendAndBankHoliday.premiumRate: 0` (legacy unused band)
 
-Regression: `scripts/check-airport-weekend-premium.ts` and `scripts/check-pricing-vehicle-quote-flow.ts`.
+Regression: `scripts/check-night-weekend-surcharge.ts`, `scripts/check-airport-weekend-premium.ts` and `scripts/check-pricing-vehicle-quote-flow.ts`.
 
 ## 21. OFFER ALTERNATIVE TIME (SHORT-NOTICE / UNAVAILABLE)
 

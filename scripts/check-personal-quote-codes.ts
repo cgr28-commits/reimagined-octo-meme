@@ -799,14 +799,12 @@ check("R14b. Owner one-way fare matches public calculator for identical inputs (
   });
   assert.ok(publicBankHoliday && ownerBankHoliday);
   assert.equal(ownerBankHoliday!.amount, publicBankHoliday!.amount);
-  if (PRICING_CONFIG.addressToAddressTripPremiumRate > 0) {
-    assert.notEqual(publicBankHoliday!.amount, publicWeekday!.amount);
-    assert.ok(publicBankHoliday!.premiumApplied);
-  }
+  assert.equal(publicBankHoliday!.amount, publicWeekday!.amount);
+  assert.equal(publicBankHoliday!.premiumApplied, false);
 });
 
-check("R14c. Owner airport weekend fare matches public (no weekend surcharge)", () => {
-  assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
+check("R14c. Owner airport weekend fare matches public (10% Night & Weekend Surcharge)", () => {
+  assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0.1);
   const cityHall = "Belfast City Hall, Belfast BT1 5GS";
   const vehicle = "Standard Saloon (1–4 passengers)" as const;
   const weekdaySchedule = {
@@ -824,8 +822,8 @@ check("R14c. Owner airport weekend fare matches public (no weekend surcharge)", 
   const publicWeekend = calculateQuote(cityHall, "BFS", vehicle, false, weekendSchedule, cityBfsMetrics);
   assert.ok(publicWeekday && publicWeekend);
   assert.equal(publicWeekday!.premiumApplied, false);
-  assert.equal(publicWeekend!.premiumApplied, false);
-  assert.equal(publicWeekend!.amount, publicWeekday!.amount);
+  assert.equal(publicWeekend!.premiumApplied, true);
+  assert.equal(publicWeekend!.amount, Math.round(publicWeekday!.amount * 1.1 * 100) / 100);
 
   const cityPlace = {
     ...emptySelectedPlace(),

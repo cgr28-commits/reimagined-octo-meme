@@ -117,19 +117,15 @@ console.log("OK  Live estate premium always £6 (universal); historical tiers no
     outboundDate: "2026-08-19", // Wednesday
     outboundTime: "10:00",
   }, m);
-  assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
+  assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0.1);
   assert.ok(weekday);
   assert.equal(weekday.premiumApplied, false);
   assert.ok(weekend);
-  assert.equal(weekend.premiumApplied, false);
-  assert.equal(
-    weekend.amount,
-    weekday.amount,
-    `airport weekend fare (£${weekend.amount}) must equal weekday (£${weekday.amount})`,
-  );
+  assert.equal(weekend.premiumApplied, true);
   assert.equal(weekday.amount, 44);
+  assert.equal(weekend.amount, 48.4);
   console.log(
-    `OK  Airport weekday = weekend £${weekday.amount} (no Bank Holiday / weekend surcharge)`,
+    `OK  Airport weekday £${weekday.amount}; Saturday +10% £${weekend.amount}`,
   );
 }
 

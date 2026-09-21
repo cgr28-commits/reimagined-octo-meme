@@ -296,6 +296,10 @@ export async function handleQuoteCalculateRequest(
           typeof a2a.journeyFareGbp === "number"
             ? Math.round(a2a.journeyFareGbp * 100) / 100
             : undefined,
+        nightWeekendSurchargeGbp:
+          typeof a2a.nightWeekendSurchargeGbp === "number"
+            ? Math.round(a2a.nightWeekendSurchargeGbp * 100) / 100
+            : undefined,
         airportFixedCostsGbp:
           typeof a2a.airportFixedCostsGbp === "number"
             ? Math.round(a2a.airportFixedCostsGbp * 100) / 100

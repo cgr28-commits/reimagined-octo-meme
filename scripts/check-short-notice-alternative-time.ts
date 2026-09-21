@@ -162,7 +162,7 @@ check("Offered alternative is not payable until accepted/approved", () => {
   );
 });
 
-check("Friday → Saturday alternative keeps the same quoted fare", () => {
+check("Friday → Saturday live quotes differ; alternative-time still fingerprints the offered slot", () => {
   const cityHall = "Belfast City Hall, Belfast BT1 5GS";
   const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
   const friday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
@@ -174,10 +174,11 @@ check("Friday → Saturday alternative keeps the same quoted fare", () => {
     outboundTime: "15:00",
   }, cityBfsMetrics);
   assert.ok(friday && saturday);
-  assert.equal(saturday!.amount, friday!.amount);
   assert.equal(friday!.premiumApplied, false);
-  assert.equal(saturday!.premiumApplied, false);
+  assert.equal(saturday!.premiumApplied, true);
+  assert.equal(saturday!.amount, Math.round(friday!.amount * 1.1 * 100) / 100);
 
+  // Offer-alternative-time still preserves the original quoted amount (booking flow).
   const amount = friday!.amount;
   const before = materialJourneyFingerprint({
     pickupLabel: cityHall,

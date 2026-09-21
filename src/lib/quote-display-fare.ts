@@ -9,6 +9,7 @@
 export type ServerFarePartyParts = {
   journeyFareGbp: number;
   airportFixedCostsGbp: number;
+  nightWeekendSurchargeGbp?: number;
   amountGbp: number;
   vehicleType: string;
   passengers: number;

@@ -90,6 +90,8 @@ export type QuoteResult = {
   pickupArea?: string | null;
   dropoffArea?: string | null;
   premiumApplied?: boolean;
+  /** Night & Weekend Surcharge amount already included in `journeyFareGbp` / `amount`. */
+  nightWeekendSurchargeGbp?: number;
   /** Present when the operational mileage model produced the fare. */
   operational?: {
     distanceKm: number;
@@ -592,6 +594,7 @@ export function calculatePointToPointQuote(
   });
 
   const journeyFareGbp = roundGbp(premium.total);
+  const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
 
   return {
     amount: journeyFareGbp,
@@ -603,6 +606,7 @@ export function calculatePointToPointQuote(
     pickupArea,
     dropoffArea,
     premiumApplied: premium.premiumApplied,
+    nightWeekendSurchargeGbp,
     journeyFareGbp,
     operational: {
       distanceKm: routeMetrics.distanceKm,
@@ -698,6 +702,7 @@ export function calculateQuote(
     vehicleMultiplier,
     vehicleAdjustment,
     premiumApplied: premium.premiumApplied,
+    nightWeekendSurchargeGbp: roundGbp(premium.premiumAmount),
     airportFixedCostsGbp: roundedFixed,
     journeyFareGbp: roundedJourneyFare,
     operational: {
@@ -787,7 +792,7 @@ export function calculateAirportToAirportQuote(
     dropoff,
     vehicleType,
     false,
-    { ...schedule, returnJourney: false },
+    {},
     routeMetrics,
   );
   if (!underlyingOneWay) {
@@ -825,6 +830,7 @@ export function calculateAirportToAirportQuote(
     airportFixedCostsGbp: roundedFixed,
     journeyFareGbp: roundedJourneyFare,
     premiumApplied: premium.premiumApplied,
+    nightWeekendSurchargeGbp: roundGbp(premium.premiumAmount),
   };
 }
 

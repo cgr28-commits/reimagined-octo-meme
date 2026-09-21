@@ -146,7 +146,6 @@ import QuoteResultShowcase from "@/components/QuoteResultShowcase";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
   BookWithConfidence,
-  FinalPayableBreakdown,
   FixedPriceAssurance,
   PromotionalPriceBreakdown,
   buildOpenWebsiteFareBreakdown,
@@ -1532,6 +1531,10 @@ function QuoteCard({
             typeof result.airportFixedCostsGbp === "number"
               ? Math.round(result.airportFixedCostsGbp * 100) / 100
               : 0,
+          nightWeekendSurchargeGbp:
+            typeof result.nightWeekendSurchargeGbp === "number"
+              ? Math.round(result.nightWeekendSurchargeGbp * 100) / 100
+              : 0,
           amountGbp: Math.round(result.amount * 100) / 100,
           vehicleType: requestedVehicle,
           passengers: requestedPassengers,
@@ -1767,10 +1770,15 @@ function QuoteCard({
       return {
         journeyFareGbp: currentServerFareParts.journeyFareGbp,
         airportFixedCostsGbp: fixedFromLines,
+        nightWeekendSurchargeGbp: currentServerFareParts.nightWeekendSurchargeGbp ?? 0,
       };
     }
     if (!liveQuote || typeof liveQuote.amount !== "number") {
-      return { journeyFareGbp: null as number | null, airportFixedCostsGbp: 0 };
+      return {
+        journeyFareGbp: null as number | null,
+        airportFixedCostsGbp: 0,
+        nightWeekendSurchargeGbp: 0,
+      };
     }
     const quotedFixed =
       typeof liveQuote.airportFixedCostsGbp === "number" &&
@@ -1786,7 +1794,16 @@ function QuoteCard({
       airportFeeResolution.lines.length > 0
         ? airportFeeResolution.totalAppliedGbp
         : quotedFixed;
-    return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
+    const surcharge =
+      typeof liveQuote.nightWeekendSurchargeGbp === "number" &&
+      Number.isFinite(liveQuote.nightWeekendSurchargeGbp)
+        ? Math.max(0, Math.round(liveQuote.nightWeekendSurchargeGbp * 100) / 100)
+        : 0;
+    return {
+      journeyFareGbp: journey,
+      airportFixedCostsGbp: fixed,
+      nightWeekendSurchargeGbp: surcharge,
+    };
   }, [liveQuote, airportFeeResolution, currentServerFareParts]);
 
   const openWebsiteFareBreakdown = useMemo(() => {
@@ -1800,6 +1817,7 @@ function QuoteCard({
     return buildOpenWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
+      nightWeekendSurchargeGbp: journeyFareParts.nightWeekendSurchargeGbp ?? 0,
       airportAccessChargeGbp: expressSelection.feeGbp,
       outboundAirportAccessChargeGbp: expressSelection.outboundFeeGbp,
       returnAirportAccessChargeGbp: expressSelection.returnFeeGbp,
@@ -1812,6 +1830,7 @@ function QuoteCard({
     useOpenWebsitePromoPricing,
     journeyFareParts.journeyFareGbp,
     journeyFareParts.airportFixedCostsGbp,
+    journeyFareParts.nightWeekendSurchargeGbp,
     expressSelection.feeGbp,
     expressSelection.outboundFeeGbp,
     expressSelection.returnFeeGbp,
