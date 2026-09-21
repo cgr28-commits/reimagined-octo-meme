@@ -50,7 +50,7 @@ export default function JourneyOptionCard({
       aria-pressed={selected}
       onPointerDown={onPointerDown}
       onClick={() => onSelect(id)}
-      className={`journey-option-card ${selected ? "journey-option-card-selected" : ""}`}
+      className={`journey-option-card ${selected ? "quote-choice-selected journey-option-card-selected" : ""}`}
     >
       <span className="journey-option-icon" aria-hidden>
         <JourneyIcon id={id} />

@@ -136,7 +136,7 @@ export function accessChoiceStyles(light: boolean) {
     card: "flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
     selected: light
       ? "border-emerald bg-emerald/15 text-navy"
-      : "border-emerald bg-emerald/15 text-white shadow-[0_0_0_3px_rgba(47,191,74,0.18)]",
+      : "quote-choice-selected",
     selectedFree: light
       ? "border-amber-600/50 bg-amber-500/15 text-navy"
       : "border-amber-400/55 bg-amber-500/12 text-white",
