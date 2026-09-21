@@ -745,11 +745,11 @@ main {
   outline-offset: 2px;
 }
 
-/* Keep the airport-card blue fill; green is border/glow only. */
+/* Same selected tokens as .quote-choice-selected (airport buttons). */
 .journey-option-card.quote-choice-selected,
 .journey-option-card.quote-choice-selected:hover {
   border: 2px solid var(--quote-selected-border);
-  background: var(--quote-choice-bg);
+  background: var(--quote-selected-bg);
   color: #ffffff;
   box-shadow: var(--quote-selected-glow);
 }

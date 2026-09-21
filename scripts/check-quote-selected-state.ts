@@ -69,10 +69,6 @@ assert.match(css, /\.quote-choice \{[\s\S]*?background: var\(--quote-choice-bg\)
 assert.match(css, /\.journey-option-card \{[\s\S]*?background: var\(--quote-choice-bg\)/);
 assert.match(
   css,
-  /\.journey-option-card\.quote-choice-selected(?:,\s*\.journey-option-card\.quote-choice-selected:hover)? \{[\s\S]*?background: var\(--quote-choice-bg\)/,
-);
-assert.doesNotMatch(
-  css,
   /\.journey-option-card\.quote-choice-selected(?:,\s*\.journey-option-card\.quote-choice-selected:hover)? \{[\s\S]*?background: var\(--quote-selected-bg\)/,
 );
 assert.match(
