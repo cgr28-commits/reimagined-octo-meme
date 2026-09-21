@@ -51,8 +51,8 @@ console.log("OK  one shared dark-emerald selected class, not a bright-green fill
 console.log("\n=== Primary CTAs and step indicator stay distinct ===");
 assert.match(css, /\.btn-primary \{[\s\S]*?background: var\(--color-emerald\)/);
 assert.match(css, /\.quote-step-active \{[\s\S]*?inset 0 0 0 1px rgba\(47,\s*191,\s*74,\s*0\.45\)/);
-assert.doesNotMatch(css, /\.quote-step-active \{[\s\S]*?quote-choice-selected/);
-assert.doesNotMatch(css, /\.btn-primary \{[\s\S]*?quote-choice-selected/);
+assert.doesNotMatch(css, /\.quote-step-active \{[^}]*quote-choice-selected/);
+assert.doesNotMatch(css, /\.btn-primary \{[^}]*quote-choice-selected/);
 console.log("OK  CTAs stay solid emerald; step pills keep the restrained active treatment");
 
 console.log("\n=== Quote flow controls use the shared class ===");
@@ -61,6 +61,18 @@ assert.match(progressive, /QUOTE_CHOICE_OFF/);
 assert.match(card, /QUOTE_CHOICE_ON/);
 assert.match(card, /QUOTE_CHOICE_OFF/);
 assert.match(journey, /quote-choice-selected journey-option-card-selected/);
+assert.match(
+  css,
+  /\.journey-option-card \{[\s\S]*\.journey-option-card\.quote-choice-selected(?:,\s*\.journey-option-card\.quote-choice-selected:hover)? \{[\s\S]*?border: 2px solid var\(--quote-selected-border\)/,
+);
+assert.match(
+  css,
+  /\.journey-option-card\.quote-choice-selected(?:,\s*\.journey-option-card\.quote-choice-selected:hover)? \{[\s\S]*?background: var\(--quote-selected-bg\)/,
+);
+assert.match(
+  css,
+  /\.journey-option-card\.quote-choice-selected(?:,\s*\.journey-option-card\.quote-choice-selected:hover)? \{[\s\S]*?box-shadow: var\(--quote-selected-glow\)/,
+);
 assert.match(express, /quote-choice-selected/);
 assert.match(combined, /accessChoiceStyles/);
 assert.doesNotMatch(progressive, /quote-choice-selected bg-emerald text-navy/);

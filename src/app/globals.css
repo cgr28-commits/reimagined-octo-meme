@@ -745,6 +745,15 @@ main {
   outline-offset: 2px;
 }
 
+/* Same declarations as .quote-choice-selected. Higher specificity so the
+   unselected .journey-option-card surface (navy fill, 1px border) cannot win. */
+.journey-option-card.quote-choice-selected,
+.journey-option-card.quote-choice-selected:hover {
+  border: 2px solid var(--quote-selected-border);
+  background: var(--quote-selected-bg);
+  color: #ffffff;
+  box-shadow: var(--quote-selected-glow);
+}
 
 .journey-option-icon {
   display: flex;
