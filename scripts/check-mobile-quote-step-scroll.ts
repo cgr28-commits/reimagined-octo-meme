@@ -134,10 +134,10 @@ check("Mobile Step 1 address complete does not scroll", () => {
   );
   // Desktop still has the address-complete scroll (gate then scrollQuoteStage).
   assert.match(card, /scrollQuoteStage\("journey-type-selector", \{ correctAfterMs: 0 \}\)/);
-  // One way/Return → passengers, bags → route, and validation are not gated.
+  // One way/Return → pickup date & time, then bags → route. Validation still scrolls.
   assert.match(
     card,
-    /hadA2aPartyScrollRef\.current = true;\s*return scrollQuoteStage\("passenger-luggage-section"/,
+    /hadA2aPartyScrollRef\.current = true;\s*return scrollQuoteStage\("quote-section-schedule"/,
   );
   assert.match(
     card,
@@ -243,8 +243,10 @@ check("Step 2 time Done/blur scrolls once to YOUR JOURNEY summary", () => {
     card,
     /preferFlightDetails[\s\S]*step2-flight-details[\s\S]*step2-journey-summary|step2-flight-details[\s\S]*step2JourneySummaryRef/,
   );
-  assert.match(card, /id="time"[\s\S]*onBlur=\{\(\) => \{[\s\S]*requestJourneySummaryScrollAfterTimeConfirm/);
-  assert.match(card, /id="returnTime"[\s\S]*onBlur=\{\(\) => \{[\s\S]*requestJourneySummaryScrollAfterTimeConfirm/);
+  const schedule = read("src/components/QuoteScheduleFields.tsx");
+  assert.match(schedule, /id="time"/);
+  assert.match(schedule, /id="returnTime"/);
+  assert.match(card, /onTimeBlur=\{[\s\S]*requestJourneySummaryScrollAfterTimeConfirm/);
   assert.doesNotMatch(card, /hadStep2ScheduleScrollRef/);
   assert.doesNotMatch(
     card,
@@ -262,8 +264,9 @@ check("Continue to details focuses the heading, not the Name field", () => {
 });
 
 check("Validation focuses invalid fields", () => {
+  const schedule = read("src/components/QuoteScheduleFields.tsx");
   assert.match(card, /focusFirstInvalidField/);
-  assert.match(card, /aria-invalid=\{Boolean\(tripDateError\)\}/);
+  assert.match(schedule, /aria-invalid=\{Boolean\(tripDateError\)\}/);
   assert.match(card, /role="alert"/);
 });
 

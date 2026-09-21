@@ -32,6 +32,7 @@ export type BookingNavTargetId =
   | "step2-journey-summary"
   | "step2-flight-details"
   | "quote-section-addresses"
+  | "quote-section-schedule"
   | "quote-book-now-anchor";
 
 export type QuoteStepNavTarget = 1 | 2 | 3;

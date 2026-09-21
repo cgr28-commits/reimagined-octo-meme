@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { SelectedPlace } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
 import JourneyOptionCard from "@/components/JourneyOptionCard";
@@ -146,6 +147,10 @@ export type QuoteProgressiveRouteProps = {
   showJourneyModeFields: boolean;
   /** Journey mode chosen — show passenger / suitcase controls. */
   showPartyFields: boolean;
+  /** Journey mode chosen — show pickup date & time above passengers. */
+  showScheduleFields?: boolean;
+  /** Compact date/time block owned by QuoteCard (same inputs as checkout). */
+  scheduleFields?: ReactNode;
   /** Bumped when addresses/intent change (kept for parent; scroll owned by QuoteCard). */
   showStageScrollKey?: string;
   journeyKindLabel?: string;
@@ -192,6 +197,8 @@ export default function QuoteProgressiveRoute({
   showRouteFields,
   showJourneyModeFields,
   showPartyFields,
+  showScheduleFields = false,
+  scheduleFields = null,
   showStageScrollKey: _showStageScrollKey = "",
   journeyKindLabel,
   lockReturnOfferJourney = false,
@@ -483,13 +490,17 @@ export default function QuoteProgressiveRoute({
             <div className="rounded-xl border border-emerald/20 bg-emerald/10 px-4 py-3 text-xs text-white/80">
               <p className="font-semibold text-emerald">Return journey</p>
               <p className="mt-1">
-                Outbound route will be reversed automatically — you’ll only need the return date and
-                time on the next step.
+                Outbound route will be reversed automatically. Enter both pickup times below so we
+                can price each leg correctly.
               </p>
             </div>
           )}
         </div>
       )}
+
+      {showScheduleFields && scheduleFields ? (
+        <div data-quote-schedule-slot>{scheduleFields}</div>
+      ) : null}
 
       {showPartyFields && (
         <div
@@ -543,7 +554,7 @@ export default function QuoteProgressiveRoute({
               className="rounded-xl quote-panel px-4 py-3 text-sm text-white"
               role="status"
             >
-              Select your passenger and suitcase numbers to see your fixed price.
+              Select your passenger and suitcase numbers to continue.
             </p>
           )}
 

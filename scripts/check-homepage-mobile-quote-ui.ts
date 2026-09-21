@@ -101,7 +101,8 @@ assert.match(card, /label: "Journey"/);
 assert.match(card, /label: "Quote"/);
 assert.match(card, /label: "Booking & Pay"/);
 assert.match(card, /quote-step-active/);
-assert.match(card, /mt-\[1\.375rem\]/);
+assert.match(card, /quoteResultsReady && quoteStep === 1/);
+assert.match(card, /!quoteChoicesReady \|\|\s*!isScheduleComplete/);
 assert.match(card, /presentation === "homepage"[\s\S]{0,80}space-y-0/);
 console.log("OK  step labels and continue action text unchanged");
 
