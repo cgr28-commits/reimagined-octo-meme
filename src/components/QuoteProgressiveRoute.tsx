@@ -20,7 +20,11 @@ import {
   formatSuitcaseChoice,
 } from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
-import { choiceGroupNeedsClass } from "@/lib/quote-ui-highlight";
+import {
+  choiceGroupNeedsClass,
+  QUOTE_CHOICE_OFF,
+  QUOTE_CHOICE_ON,
+} from "@/lib/quote-ui-highlight";
 import { detectMobileDevice } from "@/lib/device";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
@@ -31,10 +35,6 @@ const SELECT_CARD =
   "flex min-h-[4.25rem] flex-col items-start justify-center rounded-2xl border px-3.5 py-2.5 text-left transition-all sm:min-h-[4.5rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
 const AIRPORT_SELECT_CARD =
   "flex min-h-14 items-center rounded-2xl border px-3.5 py-2 text-left transition-all sm:min-h-[4.25rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
-const SELECT_CARD_ON =
-  "quote-choice-selected border-emerald bg-emerald text-navy shadow-[0_0_0_3px_rgba(47,191,74,0.22)]";
-const SELECT_CARD_OFF =
-  "quote-choice border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:bg-emerald/10";
 
 function choiceGridShellClass(hasError: boolean): string {
   if (hasError) {
@@ -97,9 +97,7 @@ function ChoiceGrid({
               aria-pressed={selected}
               onClick={() => onChange(option)}
               className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
-                selected
-                  ? "quote-choice-selected bg-emerald text-navy"
-                  : "quote-choice border border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:text-white"
+                selected ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
               {formatOption ? formatOption(option) : String(option)}
@@ -308,11 +306,11 @@ export default function QuoteProgressiveRoute({
                         }
                       }}
                       onClick={() => onJourneyIntentChange(option.id)}
-                      className={`${SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
+                      className={`${SELECT_CARD} ${selected ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF}`}
                     >
                       <span className="text-sm font-bold sm:text-base">{option.title}</span>
                       <span
-                        className={`mt-1 text-xs leading-snug ${selected ? "text-navy/80" : "quote-secondary"}`}
+                        className={`mt-1 text-xs leading-snug ${selected ? "text-white/70" : "quote-secondary"}`}
                       >
                         {option.description}
                       </span>
@@ -344,7 +342,7 @@ export default function QuoteProgressiveRoute({
                       type="button"
                       aria-pressed={selected}
                       onClick={() => onAirportSelect(airport.code)}
-                      className={`${AIRPORT_SELECT_CARD} ${selected ? SELECT_CARD_ON : SELECT_CARD_OFF}`}
+                      className={`${AIRPORT_SELECT_CARD} ${selected ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF}`}
                     >
                       <span className="text-sm font-bold leading-snug">{airport.title}</span>
                     </button>
@@ -449,20 +447,14 @@ export default function QuoteProgressiveRoute({
           <div
             role="group"
             aria-label="One way or return"
-            className={`grid grid-cols-2 overflow-hidden rounded-xl border bg-white/[0.08] ${
-              journeyMode == null
-                ? "border-emerald/60 ring-1 ring-emerald/30"
-                : "border-white/28"
-            }`}
+            className={`grid grid-cols-2 gap-2 ${choiceGroupNeedsClass(journeyMode == null)}`}
           >
             <button
               type="button"
               aria-pressed={journeyMode === "one-way"}
               onClick={() => onJourneyModeChange("one-way")}
-              className={`min-h-[52px] w-full px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald lg:min-h-12 ${
-                journeyMode === "one-way"
-                  ? "bg-emerald text-navy"
-                  : "bg-transparent text-white hover:bg-white/[0.07]"
+              className={`min-h-[52px] w-full rounded-xl px-3 py-3 text-sm font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald lg:min-h-12 ${
+                journeyMode === "one-way" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
               One way
@@ -471,10 +463,8 @@ export default function QuoteProgressiveRoute({
               type="button"
               aria-pressed={journeyMode === "return"}
               onClick={() => onJourneyModeChange("return")}
-              className={`min-h-[52px] w-full border-l border-white/40 px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald lg:min-h-12 ${
-                journeyMode === "return"
-                  ? "bg-emerald text-navy"
-                  : "bg-transparent text-white hover:bg-white/[0.07]"
+              className={`min-h-[52px] w-full rounded-xl px-3 py-3 text-sm font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald lg:min-h-12 ${
+                journeyMode === "return" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
               Return · 5% off

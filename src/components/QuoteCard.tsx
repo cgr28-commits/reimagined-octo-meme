@@ -37,8 +37,11 @@ import {
 } from "@/lib/quote-funnel-analytics";
 import {
   bookingTextFieldClass,
+  choiceGroupNeedsClass,
   quoteDateTimeFieldShellClass,
   quoteDateTimeInputClass,
+  QUOTE_CHOICE_OFF,
+  QUOTE_CHOICE_ON,
   type QuoteFieldHighlightState,
 } from "@/lib/quote-ui-highlight";
 import {
@@ -366,9 +369,7 @@ function TapChoiceRow({
               aria-pressed={selected}
               onClick={() => onChange(option)}
               className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
-                selected
-                  ? "quote-choice-selected bg-emerald text-navy"
-                  : "quote-choice border border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:text-white"
+                selected ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
               {formatOption ? formatOption(option) : String(option)}
@@ -5288,9 +5289,7 @@ function QuoteCard({
                           }
                         }}
                         className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
-                          selected
-                            ? "quote-choice-selected bg-emerald text-navy"
-                            : "quote-choice border border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:text-white"
+                          selected ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
                         }`}
                       >
                         {option === 0 ? "None" : String(option)}
@@ -6342,11 +6341,7 @@ function QuoteCard({
           <div
             role="group"
             aria-label="One way or return"
-            className={`grid grid-cols-2 overflow-hidden rounded-xl border bg-white/[0.06] ${
-              journeyMode == null
-                ? "border-emerald/50 ring-1 ring-emerald/25"
-                : "border-white/26"
-            }`}
+            className={`grid grid-cols-2 gap-2 ${choiceGroupNeedsClass(journeyMode == null)}`}
           >
             <button
               type="button"
@@ -6355,10 +6350,8 @@ function QuoteCard({
                 setJourneyMode("one-way");
                 setReturnDateError("");
               }}
-              className={`min-h-[52px] w-full px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald ${
-                journeyMode === "one-way"
-                  ? "bg-emerald text-navy"
-                  : "bg-transparent text-white/90 hover:bg-white/[0.08] hover:text-white"
+              className={`min-h-[52px] w-full rounded-xl px-3 py-3 text-sm font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald ${
+                journeyMode === "one-way" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
               One way
@@ -6367,10 +6360,8 @@ function QuoteCard({
               type="button"
               aria-pressed={journeyMode === "return"}
               onClick={() => setJourneyMode("return")}
-              className={`min-h-[52px] w-full border-l border-white/40 px-3 py-3 text-sm font-semibold transition-colors focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald ${
-                journeyMode === "return"
-                  ? "bg-emerald text-navy"
-                  : "bg-transparent text-white/90 hover:bg-white/[0.08] hover:text-white"
+              className={`min-h-[52px] w-full rounded-xl px-3 py-3 text-sm font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald ${
+                journeyMode === "return" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
               Return · 5% off
@@ -6404,9 +6395,7 @@ function QuoteCard({
                     aria-pressed={tripDirection === "to-airport"}
                     onClick={() => setTripDirection("to-airport")}
                     className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                      tripDirection === "to-airport"
-                        ? "quote-choice-selected bg-emerald text-navy"
-                        : "text-white/70 hover:text-white"
+                      tripDirection === "to-airport" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
                     }`}
                   >
                     To Derry Airport
@@ -6416,9 +6405,7 @@ function QuoteCard({
                     aria-pressed={tripDirection === "from-airport"}
                     onClick={() => setTripDirection("from-airport")}
                     className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                      tripDirection === "from-airport"
-                        ? "quote-choice-selected bg-emerald text-navy"
-                        : "text-white/70 hover:text-white"
+                      tripDirection === "from-airport" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
                     }`}
                   >
                     From Derry Airport
@@ -6432,9 +6419,7 @@ function QuoteCard({
                 aria-pressed={tripDirection === "to-airport"}
                 onClick={() => applyJourneyIntent("to-airport")}
                 className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                  tripDirection === "to-airport"
-                    ? "quote-choice-selected bg-emerald text-navy"
-                    : "text-white/70 hover:text-white"
+                  tripDirection === "to-airport" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
                 }`}
               >
                 To airport
@@ -6444,9 +6429,7 @@ function QuoteCard({
                 aria-pressed={tripDirection === "from-airport"}
                 onClick={() => applyJourneyIntent("from-airport")}
                 className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition-all sm:text-sm ${
-                  tripDirection === "from-airport"
-                    ? "quote-choice-selected bg-emerald text-navy"
-                    : "text-white/70 hover:text-white"
+                  tripDirection === "from-airport" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
                 }`}
               >
                 From airport

@@ -106,5 +106,5 @@ export function choiceGroupNeedsClass(needsCompletion: boolean, hasError = false
 
 export const QUOTE_CHOICE_OFF =
   "quote-choice border-white/26 bg-white/[0.07] text-white hover:border-emerald/50 hover:bg-emerald/10";
-export const QUOTE_CHOICE_ON =
-  "quote-choice-selected border-emerald bg-emerald text-navy shadow-[0_0_0_3px_rgba(47,191,74,0.22)]";
+/** Shared selected option — styles live on `.quote-choice-selected` in globals.css. */
+export const QUOTE_CHOICE_ON = "quote-choice-selected";
