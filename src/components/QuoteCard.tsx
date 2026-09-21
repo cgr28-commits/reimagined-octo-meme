@@ -6767,9 +6767,7 @@ function QuoteCard({
           </>
         ) : null}
 
-        {quoteStep >= 2 ? (
-          renderCheckoutPage()
-        ) : quoteResultsReady ? null : null}
+        {quoteStep >= 2 ? renderCheckoutPage() : null}
       </form>
       <SaveQuoteModal
         open={saveQuoteOpen}

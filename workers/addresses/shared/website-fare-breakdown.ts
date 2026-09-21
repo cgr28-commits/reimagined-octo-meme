@@ -2,11 +2,19 @@
  * Authoritative public-website fare breakdown for display + SumUp parity.
  *
  * Exact order (do not reorder):
- * 1. Journey fare (after 5% return discount when booked) + Night & Weekend
- *    Surcharge (already included in the journey figure when passed) + fixed costs
- * 2. Optional promotional savings on the pre-surcharge journey portion only
- * 3. Add currently selected airport access charge (Express)
- * 4. finalAmountPayable = transferAfterPromos + Express
+ * 1. Journey/vehicle fare per leg (Estate +£6 already in that fare)
+ * 2. Night & Weekend Surcharge on each qualifying leg
+ * 3. Combine outbound + return journey fares including those surcharges
+ * 4. 5% return-journey discount on that combined qualifying journey amount
+ * 5. Add airport/barrier/fixed costs at full value
+ * 6. Add selected Express / airport access at full value
+ * 7. finalAmountPayable = discounted journey + fixed + Express
+ *
+ * The 5% return discount therefore reduces the Night & Weekend Surcharge.
+ * It never reduces airport/barrier/Express/fixed charges.
+ *
+ * Other promotions (e.g. follow-up return-offer codes) keep their existing
+ * rule: they apply to the journey excluding the Night & Weekend Surcharge.
  *
  * Display should show Journey fare and Express separately — never fold Express
  * into an “Original booking value” that is then shown again as +Express.
@@ -121,9 +129,26 @@ export function composeWebsiteFareBreakdown(
   const nightWeekendSurchargeGbp = roundGbp(
     Math.max(0, Number(input.nightWeekendSurchargeGbp) || 0),
   );
-  const journeyBeforePromo = roundGbp(
-    Math.max(0, journeyInclusive - nightWeekendSurchargeGbp),
-  );
+  const qualifyingJourneyTotal = returnJourney
+    ? getUndiscountedReturnJourneyFareGbp(journeyInclusive)
+    : journeyInclusive;
+  const returnJourneySavingGbp = returnJourney
+    ? getReturnJourneySavingGbp(journeyInclusive)
+    : 0;
+  const journeyFareBeforeReturnDiscountGbp = returnJourney
+    ? qualifyingJourneyTotal
+    : journeyInclusive;
+  /**
+   * Follow-up return-offer codes keep the existing rule: they discount the
+   * journey excluding Night & Weekend Surcharge. Same-booking 5% return is
+   * already in `journeyInclusive` and includes the surcharge.
+   */
+  const journeyForOtherPromos = returnJourney
+    ? roundGbp(
+        Math.max(0, qualifyingJourneyTotal - nightWeekendSurchargeGbp) *
+          (1 - RETURN_JOURNEY_DISCOUNT_RATE),
+      )
+    : roundGbp(Math.max(0, journeyInclusive - nightWeekendSurchargeGbp));
   const airportFixedCostsGbp = roundGbp(
     Math.max(0, Number(input.airportFixedCostsGbp) || 0),
   );
@@ -141,23 +166,16 @@ export function composeWebsiteFareBreakdown(
     ),
   );
 
-  const returnJourneySavingGbp = returnJourney
-    ? getReturnJourneySavingGbp(journeyBeforePromo)
-    : 0;
-  const journeyFareBeforeReturnDiscountGbp = returnJourney
-    ? getUndiscountedReturnJourneyFareGbp(journeyBeforePromo)
-    : journeyBeforePromo;
-
   const bookingValueBeforePromotionsGbp = roundGbp(
-    journeyInclusive + airportFixedCostsGbp + airportAccessChargeGbp,
+    qualifyingJourneyTotal + airportFixedCostsGbp + airportAccessChargeGbp,
   );
 
   const returnOfferRate = Number(input.returnOfferDiscountRate);
   const applyReturnOffer =
     Number.isFinite(returnOfferRate) && returnOfferRate > 0 && returnOfferRate < 1;
   const returnOffer = applyReturnOffer
-    ? applyReturnOfferSaving(journeyBeforePromo, returnOfferRate)
-    : { savingGbp: 0, fareAfterGbp: journeyBeforePromo };
+    ? applyReturnOfferSaving(journeyForOtherPromos, returnOfferRate)
+    : { savingGbp: 0, fareAfterGbp: journeyForOtherPromos };
   const returnOfferSavingGbp = returnOffer.savingGbp;
 
   const journeyFareAfterPromotionsGbp = applyReturnOffer
@@ -175,7 +193,7 @@ export function composeWebsiteFareBreakdown(
 
   return {
     journeyFareBeforeReturnDiscountGbp,
-    journeyFareBeforePromotionsGbp: journeyBeforePromo,
+    journeyFareBeforePromotionsGbp: journeyForOtherPromos,
     nightWeekendSurchargeGbp,
     nightWeekendSurchargeLabel: NIGHT_WEEKEND_SURCHARGE_LABEL,
     airportFixedCostsGbp,

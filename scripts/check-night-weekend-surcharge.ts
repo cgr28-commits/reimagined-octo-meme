@@ -14,18 +14,26 @@ import {
 } from "../shared/night-weekend-surcharge";
 import { getAirportLegFixedCostGbp } from "../shared/airport-fixed-costs";
 import { calculateUniversalEstateJourneyFareGbp } from "../shared/universal-distance-pricing";
+import { RETURN_JOURNEY_DISCOUNT_RATE } from "../shared/return-journey-discount";
+import { SERVED_AIRPORTS } from "../shared/served-airports";
 import {
+  applyReturnJourneyDiscount,
   applyTripPremium,
   AIRPORT_TRIP_PREMIUM_RATE,
   isTripPremiumDateTime,
   TRIP_PREMIUM_RATE,
 } from "../src/lib/point-to-point-premium";
 import { PRICING_CONFIG } from "../src/lib/pricing-config";
-import { calculateQuote } from "../src/lib/quote";
+import {
+  calculateAirportToAirportQuote,
+  calculatePointToPointQuote,
+  calculateQuote,
+} from "../src/lib/quote";
 import { ESTATE_VEHICLE, SALOON_VEHICLE } from "../src/lib/vehicle-selection";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import { formatGbpAmount, roundGbp } from "../shared/gbp";
 
+const root = path.resolve(import.meta.dirname, "..");
 const cityHall = "Belfast City Hall, Belfast BT1 5GS";
 const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
 const SALOON = SALOON_VEHICLE;
@@ -134,7 +142,32 @@ assert.equal(dropoff.amount, pickup.amount);
 assert.equal(dropoff.airportFixedCostsGbp, 0);
 console.log("OK  BFS pickup = drop-off; no fixed costs in the 10%");
 
-console.log("\n=== Return legs independently ===");
+console.log("\n=== A–E. Weekday one-way boundaries ===");
+const wednesday2159 = quote({ outboundDate: "2026-08-19", outboundTime: "21:59" });
+const thursday0559 = quote({ outboundDate: "2026-08-20", outboundTime: "05:59" });
+const thursday0600 = quote({ outboundDate: "2026-08-20", outboundTime: "06:00" });
+assert.ok(wednesday2159 && thursday0559 && thursday0600);
+assert.equal(wednesday2159.amount, 44, "E. Weekday 21:59 — no surcharge");
+assert.equal(wednesday2159.nightWeekendSurchargeGbp, 0);
+assert.equal(thursday0559.amount, 48.4, "C. Weekday 05:59 — surcharge");
+assert.equal(thursday0559.nightWeekendSurchargeGbp, 4.4);
+assert.equal(thursday0600.amount, 44, "D. Weekday 06:00 — no surcharge");
+assert.equal(thursday0600.nightWeekendSurchargeGbp, 0);
+console.log("OK  A weekday day / B 22:00 / C 05:59 / D 06:00 / E 21:59");
+
+console.log("\n=== H–K. Return: surcharge per leg, then 5% on the combined journey ===");
+assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0.05);
+const oneQualifyingJourney = roundGbp(weekdayFare + weekdayFare * 1.1); // 92.40
+const bothQualifyingJourney = roundGbp(weekdayFare * 1.1 * 2); // 96.80
+const returnNeitherExpected = roundGbp(weekdayFare * 2 * 0.95); // 83.60
+const returnOneExpected = roundGbp(oneQualifyingJourney * 0.95); // 87.78
+const returnBothExpected = roundGbp(bothQualifyingJourney * 0.95); // 91.96
+assert.equal(returnNeitherExpected, 83.6);
+assert.equal(returnOneExpected, 87.78);
+assert.equal(returnBothExpected, 91.96);
+assert.notEqual(returnOneExpected, 88, "old order (5% then +surcharge) must not return");
+assert.notEqual(returnBothExpected, 92.4, "old order (5% then +both surcharges) must not return");
+
 const returnNeither = quote(
   {
     outboundDate: "2026-08-21",
@@ -146,9 +179,9 @@ const returnNeither = quote(
 );
 assert.ok(returnNeither);
 assert.equal(returnNeither.premiumApplied, false);
-assert.equal(returnNeither.amount, roundGbp(weekdayFare * 2 * 0.95));
+assert.equal(returnNeither.amount, returnNeitherExpected);
 assert.equal(returnNeither.amount, 83.6);
-console.log(`OK  return neither leg £${returnNeither.amount} (5% off 2×£${weekdayFare})`);
+console.log(`OK  H. return neither leg £${returnNeither.amount} (5% off 2×£${weekdayFare})`);
 
 const returnOutboundOnly = quote(
   {
@@ -161,9 +194,10 @@ const returnOutboundOnly = quote(
 );
 assert.ok(returnOutboundOnly);
 assert.equal(returnOutboundOnly.nightWeekendSurchargeGbp, roundGbp(weekdayFare * 0.1));
-assert.equal(returnOutboundOnly.amount, roundGbp(83.6 + 4.4));
-assert.equal(returnOutboundOnly.amount, 88);
-console.log(`OK  return outbound-only surcharge £${returnOutboundOnly.amount}`);
+assert.equal(returnOutboundOnly.amount, returnOneExpected);
+assert.equal(returnOutboundOnly.amount, 87.78);
+assert.notEqual(returnOutboundOnly.amount, 88);
+console.log(`OK  I. return outbound-only surcharge then 5% = £${returnOutboundOnly.amount}`);
 
 const returnReturnOnly = quote(
   {
@@ -176,9 +210,9 @@ const returnReturnOnly = quote(
 );
 assert.ok(returnReturnOnly);
 assert.equal(returnReturnOnly.nightWeekendSurchargeGbp, 4.4);
-assert.equal(returnReturnOnly.amount, 88);
+assert.equal(returnReturnOnly.amount, 87.78);
 console.log(
-  `OK  Friday 14:00 + Tuesday 23:00 = £${returnReturnOnly.amount} (surcharge on return only)`,
+  `OK  J. Friday 14:00 + Tuesday 23:00 = £${returnReturnOnly.amount} (surcharge on return, then 5%)`,
 );
 
 const returnSundayOnly = quote(
@@ -191,9 +225,9 @@ const returnSundayOnly = quote(
   { returnJourney: true },
 );
 assert.ok(returnSundayOnly);
-assert.equal(returnSundayOnly.amount, 88);
+assert.equal(returnSundayOnly.amount, 87.78);
 assert.equal(returnSundayOnly.nightWeekendSurchargeGbp, 4.4);
-console.log(`OK  Friday 14:00 + Sunday 15:00 = £${returnSundayOnly.amount}`);
+console.log(`OK  J. Friday 14:00 + Sunday 15:00 = £${returnSundayOnly.amount}`);
 
 const returnBoth = quote(
   {
@@ -206,8 +240,10 @@ const returnBoth = quote(
 );
 assert.ok(returnBoth);
 assert.equal(returnBoth.nightWeekendSurchargeGbp, 8.8);
-assert.equal(returnBoth.amount, 92.4);
-console.log(`OK  return both legs £${returnBoth.amount}`);
+assert.equal(returnBoth.amount, returnBothExpected);
+assert.equal(returnBoth.amount, 91.96);
+assert.notEqual(returnBoth.amount, 92.4);
+console.log(`OK  K. return both legs £${returnBoth.amount} (10% each, then 5% of £96.80)`);
 
 console.log("\n=== Fixed costs excluded ===");
 const dubFixedPickup = getAirportLegFixedCostGbp("DUB", true);
@@ -264,15 +300,143 @@ console.log(
   `OK  DUB pickup fixed £${dubFixedPickup} not in 10%; Express +£5 also excluded`,
 );
 
-console.log("\n=== Engine + quote-service ===");
+console.log("\n=== 15. Authoritative £100 + £10 + 5% + £6 = £110.50 (not £111) ===");
+const specEngine = applyTripPremium(
+  50,
+  {
+    outboundDate: "2026-08-22",
+    outboundTime: "10:00",
+    returnDate: "2026-08-23",
+    returnTime: "10:00",
+    returnJourney: true,
+  },
+  0.1,
+);
+assert.equal(specEngine.premiumAmount, 10);
+assert.equal(specEngine.total, 104.5);
+assert.notEqual(specEngine.total, 105);
+const specBreakdown = composeWebsiteFareBreakdown({
+  journeyFareBeforeAirportAccessGbp: specEngine.total,
+  nightWeekendSurchargeGbp: specEngine.premiumAmount,
+  airportFixedCostsGbp: 6,
+  returnJourney: true,
+});
+assert.equal(specBreakdown.originalEligibleJourneyPriceGbp, 110);
+assert.equal(specBreakdown.returnJourneySavingGbp, 5.5);
+assert.equal(specBreakdown.airportFixedCostsGbp, 6);
+assert.equal(specBreakdown.finalAmountPayableGbp, 110.5);
+assert.notEqual(specBreakdown.finalAmountPayableGbp, 111);
+const oldOrderPayable = roundGbp(applyReturnJourneyDiscount(100) + 10 + 6);
+assert.equal(oldOrderPayable, 111);
+assert.notEqual(specBreakdown.finalAmountPayableGbp, oldOrderPayable);
+console.log("OK  £100 + £10 surcharge → 5% of £110 = £5.50 → £104.50 + £6 = £110.50 (not £111)");
+
+console.log("\n=== N. Express excluded from both percentages ===");
+const specExpress = composeWebsiteFareBreakdown({
+  journeyFareBeforeAirportAccessGbp: specEngine.total,
+  nightWeekendSurchargeGbp: specEngine.premiumAmount,
+  airportFixedCostsGbp: 6,
+  airportAccessChargeGbp: 5,
+  returnJourney: true,
+});
+assert.equal(specExpress.returnJourneySavingGbp, 5.5);
+assert.equal(specExpress.airportAccessChargeGbp, 5);
+assert.equal(specExpress.finalAmountPayableGbp, 115.5);
+assert.equal(
+  specExpress.finalAmountPayableGbp,
+  roundGbp(specBreakdown.finalAmountPayableGbp + 5),
+);
+console.log("OK  Express +£5 added after 5%; surcharge/discount do not alter it");
+
+console.log("\n=== P. Airport-to-airport surcharge applied once ===");
+const bfsAirport = SERVED_AIRPORTS.find((item) => item.code === "BFS");
+const bhdAirport = SERVED_AIRPORTS.find((item) => item.code === "BHD");
+assert.ok(bfsAirport && bhdAirport);
+const a2aMetrics = { distanceKm: 17 / 0.621371, durationMinutes: 32 };
+const a2aUnderlying = calculatePointToPointQuote(
+  bfsAirport.formattedAddress,
+  bhdAirport.formattedAddress,
+  SALOON,
+  false,
+  {},
+  a2aMetrics,
+);
+const a2aWeekday = calculateAirportToAirportQuote(
+  "BFS",
+  "BHD",
+  bfsAirport.formattedAddress,
+  bhdAirport.formattedAddress,
+  SALOON,
+  false,
+  { outboundDate: "2026-08-19", outboundTime: "10:00" },
+  a2aMetrics,
+);
+const a2aSaturday = calculateAirportToAirportQuote(
+  "BFS",
+  "BHD",
+  bfsAirport.formattedAddress,
+  bhdAirport.formattedAddress,
+  SALOON,
+  false,
+  { outboundDate: "2026-08-22", outboundTime: "10:00" },
+  a2aMetrics,
+);
+assert.ok(a2aUnderlying && a2aWeekday && a2aSaturday);
+const a2aFixed = 4;
+assert.equal(a2aWeekday.nightWeekendSurchargeGbp, 0);
+assert.equal(a2aWeekday.amount, roundGbp(a2aUnderlying.amount + a2aFixed));
+assert.equal(a2aSaturday.nightWeekendSurchargeGbp, roundGbp(a2aUnderlying.amount * 0.1));
+assert.equal(
+  a2aSaturday.amount,
+  roundGbp(a2aUnderlying.amount * 1.1 + a2aFixed),
+);
+assert.notEqual(
+  a2aSaturday.amount,
+  roundGbp(a2aUnderlying.amount * 1.21 + a2aFixed),
+  "A2A must not apply the 10% twice",
+);
+const a2aReturnBoth = calculateAirportToAirportQuote(
+  "BFS",
+  "BHD",
+  bfsAirport.formattedAddress,
+  bhdAirport.formattedAddress,
+  SALOON,
+  true,
+  {
+    outboundDate: "2026-08-22",
+    outboundTime: "10:00",
+    returnDate: "2026-08-23",
+    returnTime: "10:00",
+  },
+  a2aMetrics,
+);
+assert.ok(a2aReturnBoth);
+const a2aReturnQualifying = roundGbp(a2aUnderlying.amount * 1.1 * 2);
+assert.equal(a2aReturnBoth.nightWeekendSurchargeGbp, roundGbp(a2aUnderlying.amount * 0.2));
+assert.equal(
+  a2aReturnBoth.journeyFareGbp,
+  roundGbp(a2aReturnQualifying * 0.95),
+);
+console.log(
+  `OK  P. BFS→BHD Saturday surcharge once (£${a2aSaturday.nightWeekendSurchargeGbp}); return both 5% after both 10%`,
+);
+
+console.log("\n=== Engine + Q/R Worker/server + SumUp authority ===");
 const engine = applyTripPremium(
   100,
-  { outboundDate: "2026-08-21", outboundTime: "14:00", returnDate: "2026-08-23", returnTime: "15:00", returnJourney: true },
+  {
+    outboundDate: "2026-08-21",
+    outboundTime: "14:00",
+    returnDate: "2026-08-23",
+    returnTime: "15:00",
+    returnJourney: true,
+  },
   0.1,
 );
 assert.equal(engine.returnDiscountApplied, true);
 assert.equal(engine.premiumAmount, 10);
-assert.equal(engine.total, 200);
+assert.equal(engine.total, 199.5);
+assert.notEqual(engine.total, 200);
 const live = calculateAuthoritativeWebsiteQuote({
   airportCode: "BFS",
   fromAirport: false,
@@ -291,7 +455,40 @@ if (live.ok) {
   assert.equal(live.premiumApplied, true);
   assert.equal(live.nightWeekendSurchargeGbp, 4.4);
 }
-console.log("OK  applyTripPremium per-leg; quote-service Saturday £48.40");
+const liveReturn = calculateAuthoritativeWebsiteQuote({
+  airportCode: "BFS",
+  fromAirport: false,
+  pickupAddress: cityHall,
+  dropoffAddress: "Belfast International Airport",
+  returnJourney: true,
+  outboundDate: "2026-08-21",
+  outboundTime: "23:00",
+  returnDate: "2026-08-25",
+  returnTime: "10:00",
+  passengers: 2,
+  suitcases: 1,
+  routeMetrics: cityBfsMetrics,
+});
+assert.equal(liveReturn.ok, true);
+if (liveReturn.ok) {
+  assert.equal(liveReturn.amount, returnOutboundOnly.amount);
+  assert.equal(liveReturn.nightWeekendSurchargeGbp, returnOutboundOnly.nightWeekendSurchargeGbp);
+  const checkout = composeWebsiteFareBreakdown({
+    journeyFareBeforeAirportAccessGbp: liveReturn.journeyFareGbp ?? liveReturn.amount,
+    nightWeekendSurchargeGbp: liveReturn.nightWeekendSurchargeGbp,
+    airportFixedCostsGbp: liveReturn.airportFixedCostsGbp ?? 0,
+    returnJourney: true,
+  });
+  assert.equal(checkout.finalAmountPayableGbp, liveReturn.amount);
+  assert.equal(checkout.returnJourneySavingGbp, 4.62);
+}
+const paymentSrc = fs.readFileSync(
+  path.join(root, "workers/addresses/src/index.ts"),
+  "utf8",
+);
+assert.match(paymentSrc, /const serverFinalAmountGbp = breakdown\.finalAmountPayableGbp/);
+assert.match(paymentSrc, /never use client standardWebsiteAmount for SumUp amount/);
+console.log("OK  Q/R engine, quote-service and SumUp use the same surcharge-then-5% total");
 
 console.log("\n=== Europe/London DST wall-clock ===");
 assert.equal(isTripPremiumDateTime("2026-03-29", "01:00"), true, "BST-start Sunday");
@@ -306,20 +503,35 @@ assert.match(
   NIGHT_WEEKEND_SURCHARGE_EXPLANATION,
   /10% surcharge applies to journeys booked for pickup between 10pm and 6am Monday–Friday, and all day Saturday and Sunday/,
 );
-const root = path.resolve(import.meta.dirname, "..");
 const fareTrust = fs.readFileSync(path.join(root, "src/components/QuoteFareTrust.tsx"), "utf8");
 assert.match(fareTrust, /NIGHT_WEEKEND_SURCHARGE_EXPLANATION/);
 assert.match(fareTrust, /nightWeekendSurchargeLabel/);
 const promo = fs.readFileSync(path.join(root, "shared/website-promo-pricing.ts"), "utf8");
 assert.match(promo, /Night & Weekend Surcharge \(10%\)/);
+assert.match(promo, /5% Return Booking Discount/);
+assert.doesNotMatch(promo, /excluding the Night & Weekend Surcharge/);
 const bookingMsg = fs.readFileSync(path.join(root, "src/lib/booking-message.ts"), "utf8");
 assert.match(bookingMsg, /Night & Weekend Surcharge \(10%\) applied/);
-const workerShared = fs.readFileSync(
-  path.join(root, "workers/addresses/shared/night-weekend-surcharge.ts"),
-  "utf8",
-);
-const rootShared = fs.readFileSync(path.join(root, "shared/night-weekend-surcharge.ts"), "utf8");
-assert.equal(workerShared, rootShared);
+assert.match(bookingMsg, /5% Return Booking Discount applied/);
+const fareTrustSrc = fareTrust;
+assert.match(fareTrustSrc, /5% Return Booking Discount/);
+assert.doesNotMatch(cardQuoteResultsReady(), /quoteResultsReady \? null : null/);
+const sharedNames = [
+  "night-weekend-surcharge.ts",
+  "quote-display-gate.ts",
+  "website-fare-breakdown.ts",
+  "website-promo-pricing.ts",
+  "booking-notifications.ts",
+];
+for (const name of sharedNames) {
+  const workerCopy = fs.readFileSync(path.join(root, "workers/addresses/shared", name), "utf8");
+  const rootCopy = fs.readFileSync(path.join(root, "shared", name), "utf8");
+  assert.equal(workerCopy, rootCopy, `${name} must match between root/shared and Worker`);
+}
 console.log("OK  quote / email / WhatsApp / worker-shared copy");
+
+function cardQuoteResultsReady(): string {
+  return fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
+}
 
 console.log("\nAll Night & Weekend Surcharge checks passed.");

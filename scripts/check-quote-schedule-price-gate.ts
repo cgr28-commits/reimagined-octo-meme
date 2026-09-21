@@ -204,7 +204,7 @@ check("completed return + one qualifying leg only surcharges that leg", () => {
   );
   assert.ok(neither && sundayReturn);
   assert.equal(neither.amount, 83.6);
-  assert.equal(sundayReturn.amount, 88);
+  assert.equal(sundayReturn.amount, 87.78);
   assert.equal(sundayReturn.nightWeekendSurchargeGbp, 4.4);
 });
 
