@@ -6,10 +6,11 @@ import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
+import LandingHeroMedia from "@/components/LandingHeroMedia";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
-import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { LANDING_WHY_BOOK } from "@/lib/landing-why-book";
+import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import { SITE } from "@/lib/data";
 import {
   getTransferRoutePage,
@@ -114,15 +115,11 @@ export default async function TransferRoutePage({ params }: Props) {
         />
       ) : null}
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
-        <div className="relative h-56 overflow-hidden sm:h-72">
-          <OptimizedHeroPicture
-            baseName={page.airport.heroBase}
-            alt={page.airport.heroAlt}
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/55 to-navy/25" />
-        </div>
+      <main className={LANDING_PAGE_MAIN_CLASS}>
+        <LandingHeroMedia
+          baseName={page.airport.heroBase}
+          alt={page.airport.heroAlt}
+        />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           {isLanding && page.hubSlug ? (

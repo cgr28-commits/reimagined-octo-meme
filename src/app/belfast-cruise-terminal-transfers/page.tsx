@@ -4,7 +4,9 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
+import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
+import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import {
   CRUISE_TERMINAL_BOOKING_DETAILS,
   CRUISE_TERMINAL_FAQS,
@@ -62,15 +64,7 @@ export default function BelfastCruiseTerminalTransfersPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
       />
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
-        <div className="relative h-56 overflow-hidden sm:h-72">
-          <div
-            className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy"
-            aria-hidden
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/55 to-navy/25" />
-        </div>
-
+      <main className={LANDING_PAGE_MAIN_CLASS}>
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
             items={[{ name: "Home", href: "/" }, { name: CRUISE_TERMINAL_H1 }]}
@@ -82,10 +76,7 @@ export default function BelfastCruiseTerminalTransfersPage() {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{CRUISE_TERMINAL_H1}</h1>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{CRUISE_TERMINAL_INTRO}</p>
-            <LandingCtaRow
-              quoteLabel="Get a Quote"
-              whatsappMessage={CRUISE_TERMINAL_WHATSAPP_MESSAGE}
-            />
+            <LandingCtaRow whatsappMessage={CRUISE_TERMINAL_WHATSAPP_MESSAGE} />
             <p className="mt-4 text-sm text-white/55">
               Cruise-terminal collections are confirmed by message so the meeting point can be
               agreed. The quote tool is the existing airport-transfer calculator — use it for
@@ -202,10 +193,7 @@ export default function BelfastCruiseTerminalTransfersPage() {
               cruise-terminal fares here.
             </p>
             <div className="flex justify-center">
-              <LandingCtaRow
-                quoteLabel="Get a Quote"
-                whatsappMessage={CRUISE_TERMINAL_WHATSAPP_MESSAGE}
-              />
+              <LandingCtaRow whatsappMessage={CRUISE_TERMINAL_WHATSAPP_MESSAGE} />
             </div>
             <p className="mt-4 text-sm">
               <Link href="/contact/" className="text-emerald hover:text-emerald-light">
@@ -214,6 +202,7 @@ export default function BelfastCruiseTerminalTransfersPage() {
             </p>
           </section>
         </div>
+        <LandingPageStickyQuoteCta />
       </main>
       <Footer />
     </>

@@ -5,9 +5,10 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
+import LandingHeroMedia from "@/components/LandingHeroMedia";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
-import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
 import { SITE } from "@/lib/data";
+import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import {
   AIRPORT_PAGES,
   getRoutesForTown,
@@ -88,18 +89,8 @@ export default async function TownHubPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }}
       />
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
-        <div className="relative h-56 overflow-hidden sm:h-72">
-          {page.heroBase && page.heroAlt ? (
-            <OptimizedHeroPicture baseName={page.heroBase} alt={page.heroAlt} priority />
-          ) : (
-            <div
-              className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy"
-              aria-hidden
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/55 to-navy/25" />
-        </div>
+      <main className={LANDING_PAGE_MAIN_CLASS}>
+        <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
