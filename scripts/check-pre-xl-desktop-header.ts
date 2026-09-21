@@ -68,6 +68,10 @@ assert.match(layout, /relative w-full max-w-full overflow-x-clip/);
 assert.doesNotMatch(layout, /body className="[^"]*max-w-/);
 
 // Landing pages / sections must clear the desktop header from md (not only xl)
+const landingLayout = readFileSync(join(root, "src/lib/landing-page-layout.ts"), "utf8");
+assert.match(landingLayout, /pt-20 md:pt-28/);
+assert.doesNotMatch(landingLayout, /xl:pt-28/);
+
 for (const rel of [
   "src/app/long-distance-transfers/page.tsx",
   "src/app/belfast-cruise-terminal-transfers/page.tsx",
@@ -76,7 +80,7 @@ for (const rel of [
   "src/app/airports/[slug]/page.tsx",
 ]) {
   const page = readFileSync(join(root, rel), "utf8");
-  assert.match(page, /pt-36 md:pt-28/);
+  assert.match(page, /LANDING_PAGE_MAIN_CLASS/);
   assert.doesNotMatch(page, /xl:pt-28/);
 }
 

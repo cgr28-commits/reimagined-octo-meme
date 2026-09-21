@@ -35,7 +35,14 @@ export function LandingPageStickyQuoteCta() {
 
   useEffect(() => {
     const quote = document.getElementById("quote");
-    if (!quote || typeof IntersectionObserver === "undefined") return;
+    if (!quote) {
+      setShow(true);
+      return;
+    }
+    if (typeof IntersectionObserver === "undefined") {
+      setShow(true);
+      return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -47,25 +54,28 @@ export function LandingPageStickyQuoteCta() {
     return () => observer.disconnect();
   }, []);
 
-  if (!show) return null;
-
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 z-[65] md:hidden"
-      style={{
-        bottom:
-          "calc(var(--matni-cookie-banner-offset, 0px) + max(0.75rem, env(safe-area-inset-bottom)))",
-      }}
-    >
-      <div className="pointer-events-auto mx-auto flex max-w-lg justify-center px-4">
-        <QuoteNavLink
-          href={LANDING_QUOTE_HREF}
-          className="inline-flex min-h-11 w-full max-w-sm items-center justify-center rounded-full bg-emerald px-5 py-2.5 text-sm font-bold text-navy shadow-lg shadow-navy/40"
-          aria-label="Get a Live Quote — jump to the quote calculator on this page"
+    <>
+      <span data-landing-sticky-quote hidden />
+      {show ? (
+        <div
+          className="pointer-events-none fixed inset-x-0 z-[65] md:hidden"
+          style={{
+            bottom:
+              "calc(var(--matni-cookie-banner-offset, 0px) + max(0.75rem, env(safe-area-inset-bottom)))",
+          }}
         >
-          {LANDING_QUOTE_CTA_LABEL}
-        </QuoteNavLink>
-      </div>
-    </div>
+          <div className="pointer-events-auto mx-auto flex max-w-lg justify-center px-4">
+            <QuoteNavLink
+              href={LANDING_QUOTE_HREF}
+              className="inline-flex min-h-11 w-full max-w-sm items-center justify-center rounded-full bg-emerald px-5 py-2.5 text-sm font-bold text-navy shadow-lg shadow-navy/40"
+              aria-label="Get a Live Quote — open the quote calculator"
+            >
+              {LANDING_QUOTE_CTA_LABEL}
+            </QuoteNavLink>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

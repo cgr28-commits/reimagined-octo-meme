@@ -89,6 +89,8 @@ console.log("\n=== Pricing and payment files stay out of this page ===");
   assert.doesNotMatch(page, /from "@\/lib\/quote"/);
   assert.doesNotMatch(page, /create-payment/);
   assert.doesNotMatch(page, /LocationQuoteSection/);
+  assert.match(page, /LandingPageStickyQuoteCta/);
+  assert.doesNotMatch(page, /h-56 overflow-hidden/);
   assert.match(quote, /export /);
   assert.match(payment, /export /);
   console.log("OK  cruise page does not import quote or payment engines");

@@ -3,9 +3,11 @@ import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
+import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import QuoteNavLink from "@/components/QuoteNavLink";
 import SectionHeading from "@/components/SectionHeading";
 import { AREAS, SERVICE_FLAGS, SITE } from "@/lib/data";
+import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import {
   LOCATIONS_AIRPORT_LINKS,
   LOCATIONS_HUB_H1,
@@ -45,9 +47,8 @@ export default function LocationsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
       />
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
+      <main className={LANDING_PAGE_MAIN_CLASS}>
         <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-navy-light/40 via-navy to-navy" />
           <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
             <LandingBreadcrumbs
               items={[
@@ -200,6 +201,7 @@ export default function LocationsPage() {
             </div>
           </div>
         </div>
+        <LandingPageStickyQuoteCta />
       </main>
       <Footer />
     </>

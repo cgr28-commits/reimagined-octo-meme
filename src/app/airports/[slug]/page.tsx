@@ -5,9 +5,10 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
-import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
+import LandingHeroMedia from "@/components/LandingHeroMedia";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
+import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import {
   AIRPORT_PAGES,
   getAirportPage,
@@ -79,12 +80,8 @@ export default async function AirportTransferPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }}
       />
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
-        <div className="relative h-64 overflow-hidden sm:h-80 lg:h-[22rem]">
-          <OptimizedHeroPicture baseName={page.heroBase} alt={page.heroAlt} priority />
-          <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/50 to-navy/20" />
-          <div className="absolute inset-0 bg-gradient-to-r from-navy/60 via-transparent to-navy/40" />
-        </div>
+      <main className={LANDING_PAGE_MAIN_CLASS}>
+        <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <Link

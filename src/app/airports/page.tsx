@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
+import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import { AIRPORT_PAGES } from "@/lib/location-pages";
 import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 
@@ -26,7 +28,7 @@ export default function AirportsIndexPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
       />
       <Header />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-36 md:pt-28">
+      <main className={LANDING_PAGE_MAIN_CLASS}>
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Destinations</p>
           <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Airport transfers</h1>
@@ -55,6 +57,7 @@ export default function AirportsIndexPage() {
             ))}
           </ul>
         </div>
+        <LandingPageStickyQuoteCta />
       </main>
       <Footer />
     </>

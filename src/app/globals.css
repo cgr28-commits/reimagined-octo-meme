@@ -50,7 +50,8 @@ html {
 
 @media (max-width: 767px) {
   /* Room for the landing sticky quote CTA; homepage #quote has no data-landing-quote. */
-  main:has([data-landing-quote]) {
+  main:has([data-landing-quote]),
+  main:has([data-landing-sticky-quote]) {
     padding-bottom: 6.5rem;
   }
 }
