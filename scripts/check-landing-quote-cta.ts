@@ -39,7 +39,12 @@ assert.match(cta, /z-\[65\]/);
 assert.match(cta, /IntersectionObserver/);
 assert.match(cta, /href=\{LANDING_QUOTE_HREF\}/);
 assert.match(cta, /data-landing-sticky-quote/);
-assert.match(cta, /if \(!quote\) \{\s*setShow\(true\)/);
+assert.match(cta, /LANDING_INLINE_QUOTE_CTA_ATTR = "data-landing-quote-cta"/);
+assert.match(cta, /data-landing-quote-cta/);
+assert.match(cta, /getElementById\("quote"\)/);
+assert.match(cta, /querySelectorAll\(`\[\$\{LANDING_INLINE_QUOTE_CTA_ATTR\}\]`\)/);
+assert.match(cta, /setShow\(visible\.size === 0\)/);
+assert.doesNotMatch(cta, /belfast-cruise-terminal-transfers/);
 console.log("OK  shared inline + mobile sticky CTA");
 
 console.log("=== Quote section keeps one calculator and #quote ===");
@@ -61,6 +66,10 @@ assert.match(transfers, /LandingCtaRow/);
 assert.match(transfers, /LandingPageQuoteCta/);
 assert.match(transfers, /Get a Live Quote/);
 assert.match(row, /LandingPageQuoteCta/);
+{
+  const stickySource = cta.slice(cta.indexOf("export function LandingPageStickyQuoteCta"));
+  assert.doesNotMatch(stickySource, /data-landing-quote-cta/);
+}
 assert.match(cruise, /LandingPageStickyQuoteCta/);
 assert.match(cruise, /LandingCtaRow/);
 assert.doesNotMatch(cruise, /LocationQuoteSection/);

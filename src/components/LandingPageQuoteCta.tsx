@@ -5,6 +5,7 @@ import QuoteNavLink from "@/components/QuoteNavLink";
 
 export const LANDING_QUOTE_CTA_LABEL = "Get a Live Quote";
 export const LANDING_QUOTE_HREF = "#quote";
+export const LANDING_INLINE_QUOTE_CTA_ATTR = "data-landing-quote-cta";
 
 export const landingQuoteCtaClassName =
   "inline-flex min-h-11 items-center rounded-full bg-emerald px-6 py-3 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light";
@@ -20,7 +21,11 @@ export function LandingPageQuoteCta({
   className = landingQuoteCtaClassName,
 }: InlineProps) {
   return (
-    <QuoteNavLink href={LANDING_QUOTE_HREF} className={className}>
+    <QuoteNavLink
+      href={LANDING_QUOTE_HREF}
+      className={className}
+      data-landing-quote-cta
+    >
       {label}
     </QuoteNavLink>
   );
@@ -28,29 +33,40 @@ export function LandingPageQuoteCta({
 
 /**
  * Mobile-only sticky jump to the existing `#quote` calculator.
- * Hidden on desktop and while the calculator is already on screen.
+ * Hidden on desktop, while an inline Get a Live Quote CTA is on screen,
+ * and while the local calculator is already in view.
  */
 export function LandingPageStickyQuoteCta() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const quote = document.getElementById("quote");
-    if (!quote) {
-      setShow(true);
-      return;
-    }
     if (typeof IntersectionObserver === "undefined") {
       setShow(true);
       return;
     }
 
+    const targets = [
+      document.getElementById("quote"),
+      ...document.querySelectorAll(`[${LANDING_INLINE_QUOTE_CTA_ATTR}]`),
+    ].filter((node): node is Element => Boolean(node));
+
+    if (targets.length === 0) {
+      setShow(true);
+      return;
+    }
+
+    const visible = new Set<Element>();
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        setShow(!entry?.isIntersecting);
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target);
+          else visible.delete(entry.target);
+        }
+        setShow(visible.size === 0);
       },
       { threshold: 0.12, rootMargin: "-12% 0px -8% 0px" },
     );
-    observer.observe(quote);
+    for (const target of targets) observer.observe(target);
     return () => observer.disconnect();
   }, []);
 
