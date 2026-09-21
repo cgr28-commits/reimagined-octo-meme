@@ -7,6 +7,21 @@ export const LANDING_QUOTE_CTA_LABEL = "Get a Live Quote";
 export const LANDING_QUOTE_HREF = "#quote";
 export const LANDING_INLINE_QUOTE_CTA_ATTR = "data-landing-quote-cta";
 
+export function collectLandingStickyHideTargets(
+  getElementById: (id: string) => Element | null,
+  querySelectorAll: (selector: string) => ArrayLike<Element>,
+): Element[] {
+  return [
+    getElementById("quote"),
+    ...Array.from(querySelectorAll(`[${LANDING_INLINE_QUOTE_CTA_ATTR}]`)),
+  ].filter((node): node is Element => Boolean(node));
+}
+
+/** Sticky Get a Live Quote stays hidden while any observed CTA or calculator is on screen. */
+export function shouldShowLandingStickyQuote(visibleTargetCount: number): boolean {
+  return visibleTargetCount === 0;
+}
+
 export const landingQuoteCtaClassName =
   "inline-flex min-h-11 items-center rounded-full bg-emerald px-6 py-3 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light";
 
@@ -45,10 +60,10 @@ export function LandingPageStickyQuoteCta() {
       return;
     }
 
-    const targets = [
-      document.getElementById("quote"),
-      ...document.querySelectorAll(`[${LANDING_INLINE_QUOTE_CTA_ATTR}]`),
-    ].filter((node): node is Element => Boolean(node));
+    const targets = collectLandingStickyHideTargets(
+      (id) => document.getElementById(id),
+      (selector) => document.querySelectorAll(selector),
+    );
 
     if (targets.length === 0) {
       setShow(true);
@@ -62,9 +77,10 @@ export function LandingPageStickyQuoteCta() {
           if (entry.isIntersecting) visible.add(entry.target);
           else visible.delete(entry.target);
         }
-        setShow(visible.size === 0);
+        setShow(shouldShowLandingStickyQuote(visible.size));
       },
-      { threshold: 0.12, rootMargin: "-12% 0px -8% 0px" },
+      // Any on-screen pixel of an inline CTA or #quote hides the floating duplicate.
+      { threshold: 0, rootMargin: "0px" },
     );
     for (const target of targets) observer.observe(target);
     return () => observer.disconnect();
