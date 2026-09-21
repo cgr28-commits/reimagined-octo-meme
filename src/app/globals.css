@@ -729,7 +729,7 @@ main {
   gap: 0.62rem;
   border-radius: 0.9rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(7, 28, 56, 0.55);
+  background: var(--quote-choice-bg);
   padding: 0.42rem 0.7rem;
   text-align: left;
   transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
@@ -745,12 +745,11 @@ main {
   outline-offset: 2px;
 }
 
-/* Same declarations as .quote-choice-selected. Higher specificity so the
-   unselected .journey-option-card surface (navy fill, 1px border) cannot win. */
+/* Keep the airport-card blue fill; green is border/glow only. */
 .journey-option-card.quote-choice-selected,
 .journey-option-card.quote-choice-selected:hover {
   border: 2px solid var(--quote-selected-border);
-  background: var(--quote-selected-bg);
+  background: var(--quote-choice-bg);
   color: #ffffff;
   box-shadow: var(--quote-selected-glow);
 }
