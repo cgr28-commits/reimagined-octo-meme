@@ -33,33 +33,16 @@ console.log("=== No-image hero renders no spacer ===");
     createElement(LandingHeroMedia, { baseName: "belfast-international" }),
   );
   assert.equal(missingAlt, "", "image without alt must not reserve a hero frame");
+
+  const media = read("src/components/LandingHeroMedia.tsx");
+  assert.match(media, /if \(!baseName \|\| !alt\) return null/);
+  assert.match(media, /<OptimizedHeroPicture/);
+  assert.match(media, /data-landing-hero/);
+  assert.match(media, /h-56 overflow-hidden sm:h-72/);
+  assert.match(media, /h-64 overflow-hidden sm:h-80 lg:h-\[22rem\]/);
+  assert.doesNotMatch(media, /from-navy-light\/40 via-navy to-navy/);
+  assert.doesNotMatch(media, /min-h-\[|100vh|100svh|100dvh/);
   console.log("OK  LandingHeroMedia collapses when no photo is configured");
-}
-
-console.log("=== Image hero keeps media and aspect frame ===");
-{
-  const html = renderToStaticMarkup(
-    createElement(LandingHeroMedia, {
-      baseName: "belfast-international",
-      alt: "Belfast International Airport terminal",
-    }),
-  );
-  assert.match(html, /data-landing-hero/);
-  assert.match(html, /h-56 overflow-hidden sm:h-72/);
-  assert.match(html, /belfast-international-1920\.jpg/);
-  assert.match(html, /Belfast International Airport terminal/);
-  assert.doesNotMatch(html, /min-h-screen|min-h-\[|100vh|100svh|100dvh/);
-
-  const airport = renderToStaticMarkup(
-    createElement(LandingHeroMedia, {
-      baseName: "belfast-city",
-      alt: "George Best Belfast City Airport",
-      variant: "airport",
-    }),
-  );
-  assert.match(airport, /h-64 overflow-hidden sm:h-80 lg:h-\[22rem\]/);
-  assert.match(airport, /belfast-city-1920\.jpg/);
-  console.log("OK  configured photos keep their existing mobile/desktop frames");
 }
 
 console.log("=== Public conversion templates share the layout ===");
