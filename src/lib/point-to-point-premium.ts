@@ -82,9 +82,10 @@ export function getReturnJourneyFare(oneWayFare: number): number {
  * Authoritative journey/vehicle total (before airport fixed costs / Express).
  *
  * Order (do not invert):
- * 1. One-way journey fare for each leg (Estate +£6 already in `oneWayFare`)
- * 2. +10% Night & Weekend Surcharge on each qualifying leg
- * 3. If return: 5% off the combined surcharge-inclusive journey total
+ * 1. One-way base journey fare for each leg (Estate +£6 already in `oneWayFare`)
+ * 2. If return: 5% off the combined BASE journey total only
+ * 3. +10% Night & Weekend Surcharge on each qualifying leg, from the
+ *    ORIGINAL undiscounted base fare (never from the post-5% amount)
  *
  * Airport/barrier/Express charges are added later and never enter this function.
  */
@@ -107,12 +108,10 @@ export function applyTripPremium(
     }
   }
 
-  const qualifyingJourneyTotal = schedule.returnJourney
-    ? oneWayFare * 2 + premiumAmount
-    : oneWayFare + premiumAmount;
-  const total = schedule.returnJourney
-    ? applyReturnJourneyDiscount(qualifyingJourneyTotal)
-    : qualifyingJourneyTotal;
+  const discountedBase = schedule.returnJourney
+    ? applyReturnJourneyDiscount(oneWayFare * 2)
+    : oneWayFare;
+  const total = discountedBase + premiumAmount;
 
   return {
     total,

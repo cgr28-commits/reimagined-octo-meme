@@ -2,16 +2,17 @@
  * Authoritative public-website fare breakdown for display + SumUp parity.
  *
  * Exact order (do not reorder):
- * 1. Journey/vehicle fare per leg (Estate +£6 already in that fare)
- * 2. Night & Weekend Surcharge on each qualifying leg
- * 3. Combine outbound + return journey fares including those surcharges
- * 4. 5% return-journey discount on that combined qualifying journey amount
+ * 1. Base journey/vehicle fare per leg (Estate +£6 already in that fare)
+ * 2. Combine outbound + return BASE fares
+ * 3. 5% return-journey discount on that BASE journey total only
+ * 4. Night & Weekend Surcharge on each qualifying leg, from the original
+ *    undiscounted base fare (never reduced by the 5%)
  * 5. Add airport/barrier/fixed costs at full value
  * 6. Add selected Express / airport access at full value
- * 7. finalAmountPayable = discounted journey + fixed + Express
+ * 7. finalAmountPayable = discounted base + surcharge + fixed + Express
  *
- * The 5% return discount therefore reduces the Night & Weekend Surcharge.
- * It never reduces airport/barrier/Express/fixed charges.
+ * The 5% return discount never reduces the Night & Weekend Surcharge,
+ * airport/barrier/Express, or other fixed charges.
  *
  * Other promotions (e.g. follow-up return-offer codes) keep their existing
  * rule: they apply to the journey excluding the Night & Weekend Surcharge.
@@ -59,13 +60,14 @@ export function getReturnJourneySavingGbp(
 
 export type WebsiteFareBreakdownInput = {
   /**
-   * Taxi/journey fare after same-order return discount (when booked),
-   * including any Night & Weekend Surcharge, before Express airport access.
+   * Taxi/journey fare after the 5% return discount (when booked) PLUS any
+   * Night & Weekend Surcharge already added by the pricing engine, before
+   * Express airport access. The surcharge is not discounted.
    */
   journeyFareBeforeAirportAccessGbp: number;
   /**
    * Night & Weekend Surcharge already included in
-   * `journeyFareBeforeAirportAccessGbp`. Display only — not added again.
+   * `journeyFareBeforeAirportAccessGbp`. Displayed separately — not added again.
    */
   nightWeekendSurchargeGbp?: number;
   /**
@@ -129,26 +131,25 @@ export function composeWebsiteFareBreakdown(
   const nightWeekendSurchargeGbp = roundGbp(
     Math.max(0, Number(input.nightWeekendSurchargeGbp) || 0),
   );
-  const qualifyingJourneyTotal = returnJourney
-    ? getUndiscountedReturnJourneyFareGbp(journeyInclusive)
-    : journeyInclusive;
+  /** Engine total = discounted base journey + undiscounted surcharge. */
+  const discountedBaseGbp = roundGbp(
+    Math.max(0, journeyInclusive - nightWeekendSurchargeGbp),
+  );
+  const baseJourneyBeforeReturnDiscountGbp = returnJourney
+    ? getUndiscountedReturnJourneyFareGbp(discountedBaseGbp)
+    : discountedBaseGbp;
   const returnJourneySavingGbp = returnJourney
-    ? getReturnJourneySavingGbp(journeyInclusive)
+    ? getReturnJourneySavingGbp(discountedBaseGbp)
     : 0;
   const journeyFareBeforeReturnDiscountGbp = returnJourney
-    ? qualifyingJourneyTotal
+    ? baseJourneyBeforeReturnDiscountGbp
     : journeyInclusive;
   /**
    * Follow-up return-offer codes keep the existing rule: they discount the
-   * journey excluding Night & Weekend Surcharge. Same-booking 5% return is
-   * already in `journeyInclusive` and includes the surcharge.
+   * journey excluding Night & Weekend Surcharge. Same-booking 5% is already
+   * in `discountedBaseGbp` and never includes the surcharge.
    */
-  const journeyForOtherPromos = returnJourney
-    ? roundGbp(
-        Math.max(0, qualifyingJourneyTotal - nightWeekendSurchargeGbp) *
-          (1 - RETURN_JOURNEY_DISCOUNT_RATE),
-      )
-    : roundGbp(Math.max(0, journeyInclusive - nightWeekendSurchargeGbp));
+  const journeyForOtherPromos = discountedBaseGbp;
   const airportFixedCostsGbp = roundGbp(
     Math.max(0, Number(input.airportFixedCostsGbp) || 0),
   );
@@ -167,7 +168,10 @@ export function composeWebsiteFareBreakdown(
   );
 
   const bookingValueBeforePromotionsGbp = roundGbp(
-    qualifyingJourneyTotal + airportFixedCostsGbp + airportAccessChargeGbp,
+    baseJourneyBeforeReturnDiscountGbp +
+      nightWeekendSurchargeGbp +
+      airportFixedCostsGbp +
+      airportAccessChargeGbp,
   );
 
   const returnOfferRate = Number(input.returnOfferDiscountRate);

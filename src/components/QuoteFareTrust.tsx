@@ -158,11 +158,9 @@ export function PromotionalPriceBreakdown({
     ? breakdown.originalEligibleJourneyPriceGbp
     : breakdown.journeyFareBeforePromotionsGbp;
   const journeyLabel = breakdown.returnJourney
-    ? hasSurcharge
-      ? "Return journey fares + Night & Weekend Surcharge"
-      : "Return journey fare"
+    ? "Return journey fare"
     : "Journey fare";
-  const showSurchargeLine = hasSurcharge && !breakdown.returnJourney;
+  const showSurchargeLine = hasSurcharge;
   const finalPayableGbp = breakdown.finalAmountPayableGbp;
   if (
     !alwaysShow &&
@@ -317,11 +315,7 @@ export function FinalPayableBreakdown({
       <dl className="mt-2 space-y-1.5 text-sm">
         <div className="flex justify-between gap-3 text-white/75">
           <dt>
-            {breakdown.returnJourney
-              ? breakdown.nightWeekendSurchargeGbp > 0
-                ? "Return journey fares + Night & Weekend Surcharge"
-                : "Return journey fare"
-              : "Journey fare"}
+            {breakdown.returnJourney ? "Return journey fare" : "Journey fare"}
           </dt>
           <dd className="shrink-0 tabular-nums">
             {formatGbpFare(
@@ -339,7 +333,7 @@ export function FinalPayableBreakdown({
             </dd>
           </div>
         ) : null}
-        {breakdown.nightWeekendSurchargeGbp > 0 && !breakdown.returnJourney ? (
+        {breakdown.nightWeekendSurchargeGbp > 0 ? (
           <div className="flex justify-between gap-3 text-white/75">
             <dt>{breakdown.nightWeekendSurchargeLabel}</dt>
             <dd className="shrink-0 tabular-nums">

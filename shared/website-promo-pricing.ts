@@ -87,12 +87,10 @@ export function formatCustomerPromoPricingLines(
       `Return journey saving 5%: −${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
     );
   }
-  if ((fields.nightWeekendSurchargeGbp ?? 0) > 0 && !(fields.returnJourneySavingGbp ?? 0)) {
+  if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
     lines.push(
       `Night & Weekend Surcharge (10%): ${formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0)}`,
     );
-  } else if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
-    lines.push("Includes Night & Weekend Surcharge (10%) on qualifying legs");
   }
   if (
     (fields.outboundAirportAccessChargeGbp ?? 0) > 0 ||
@@ -152,15 +150,10 @@ export function formatCustomerPromoPricingHtmlRows(
       value: `−${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
     });
   }
-  if ((fields.nightWeekendSurchargeGbp ?? 0) > 0 && !(fields.returnJourneySavingGbp ?? 0)) {
+  if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
     rows.push({
       label: "Night & Weekend Surcharge (10%)",
       value: formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0),
-    });
-  } else if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
-    rows.push({
-      label: "Night & Weekend Surcharge (10%)",
-      value: "Included in journey fare",
     });
   }
   if (

@@ -82,7 +82,7 @@ Apply a 10% Night & Weekend Surcharge to the journey/vehicle fare only when the 
 
 Do **not** surcharge airport access, Express Drop-Off, parking, waiting, tolls or other fixed fees. Estate stays exactly £6 above Saloon **before** the 10% is calculated.
 
-Keep the existing 5% return-booking discount. On a return, apply the 10% Night & Weekend Surcharge to each qualifying leg first, combine those journey fares, **then** take 5% off that combined journey amount. The 5% therefore reduces the surcharge. It never reduces airport/barrier/Express/fixed charges.
+Keep the existing 5% return-booking discount. It applies to the **base journey/vehicle fare only**. On a return, combine the two base fares, take 5% off that base total, then add the 10% Night & Weekend Surcharge for each qualifying leg from that leg’s **original undiscounted** base fare. The 5% never reduces the surcharge, airport/barrier/Express, or other fixed charges.
 
 Calculate surcharge eligibility separately for each return leg from that leg’s booked pickup date/time. Do not apply the surcharge to both legs just because one qualifies.
 

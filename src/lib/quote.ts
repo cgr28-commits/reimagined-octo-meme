@@ -786,8 +786,8 @@ export function calculateAirportToAirportQuote(
   }
 
   // Price the underlying A2A journey one-way with no schedule premium, then
-  // apply Night & Weekend + 5% return once at this top level so A2A is never
-  // surcharged twice. Airport fixed costs are added undiscounted per leg.
+  // apply 5% return (base only) and Night & Weekend once at this top level so
+  // A2A is never surcharged twice. Airport fixed costs stay undiscounted.
   const underlyingOneWay = calculatePointToPointQuote(
     pickup,
     dropoff,
