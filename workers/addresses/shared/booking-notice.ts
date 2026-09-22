@@ -137,6 +137,19 @@ export function isOwnerNoAvailabilityMessage(message?: string | null): boolean {
   return String(message || "").trim() === OWNER_NO_AVAILABILITY_MESSAGE;
 }
 
+export function parsePublicOwnerAvailability(value: unknown): PublicOwnerAvailability {
+  if (!value || typeof value !== "object") return emptyPublicOwnerAvailability();
+  const raw = value as { blocked?: unknown; state?: unknown; code?: unknown };
+  if (
+    raw.blocked === true ||
+    raw.state === "no_availability" ||
+    raw.code === OWNER_NO_AVAILABILITY_CODE
+  ) {
+    return blockedPublicOwnerAvailability();
+  }
+  return emptyPublicOwnerAvailability();
+}
+
 export type UnavailablePeriodInput = {
   id?: string;
   startLocal: string;
@@ -539,6 +552,7 @@ export function isPickupBeforeAutomaticAvailability(
         id: "legacy",
         startLocal: "1970-01-01T00:00",
         endLocal: normalized,
+        mode: "request_only",
         createdAt: new Date(0).toISOString(),
         updatedAt: new Date(0).toISOString(),
       },

@@ -552,6 +552,7 @@ export function isPickupBeforeAutomaticAvailability(
         id: "legacy",
         startLocal: "1970-01-01T00:00",
         endLocal: normalized,
+        mode: "request_only",
         createdAt: new Date(0).toISOString(),
         updatedAt: new Date(0).toISOString(),
       },
