@@ -3,10 +3,10 @@
 import {
   COMBINED_AIRPORT_ACCESS_RETURN_NOTE,
   EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
+  combinedQuoteExpressHint,
   combinedQuoteExpressTitle,
+  combinedQuoteFreeHint,
   combinedQuoteFreeTitle,
-  expressQuoteExpressHint,
-  expressQuoteFreeHint,
 } from "../../shared/express-drop-off";
 import {
   accessChoiceStyles,
@@ -73,7 +73,7 @@ export default function CombinedAirportAccessSelector({
               {combinedQuoteExpressTitle(totalFeeGbp, selected)}
             </span>
             <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
-              {expressQuoteExpressHint("drop-off")}
+              {combinedQuoteExpressHint()}
             </span>
           </span>
         </label>
@@ -95,7 +95,7 @@ export default function CombinedAirportAccessSelector({
                 {combinedQuoteFreeTitle(totalFeeGbp, !selected)}
               </span>
               <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
-                {expressQuoteFreeHint("drop-off")}
+                {combinedQuoteFreeHint()}
               </span>
             </span>
           </label>
