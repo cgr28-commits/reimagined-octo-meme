@@ -1,6 +1,6 @@
 /**
- * No weekend / Bank Holiday trip surcharge (rates at 0).
- * Return discount remains exactly 5%.
+ * Night & Weekend Surcharge (10%) — public / personal / quick-quote parity.
+ * Return discount remains exactly 5%. SumUp stays Worker-authoritative.
  * Run: npx tsx scripts/check-airport-weekend-premium.ts
  */
 
@@ -27,20 +27,20 @@ const cityHall = "Belfast City Hall, Belfast BT1 5GS";
 const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
 const root = path.resolve(import.meta.dirname, "..");
 
-assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
-assert.equal(AIRPORT_TRIP_PREMIUM_RATE, 0);
-assert.equal(PRICING_CONFIG.addressToAddressTripPremiumRate, 0);
+assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0.1);
+assert.equal(AIRPORT_TRIP_PREMIUM_RATE, 0.1);
+assert.equal(PRICING_CONFIG.addressToAddressTripPremiumRate, 0.1);
 assert.equal(PRICING_CONFIG.operational.weekendAndBankHoliday.premiumRate ?? 0, 0);
-console.log("OK  Config: airport + A2A trip premium rates are 0 (no weekend/BH surcharge)");
+console.log("OK  Config: airport + A2A Night & Weekend Surcharge 10%");
 
 const engineWeekend = applyTripPremium(
   100,
   { outboundDate: "2026-08-22", outboundTime: "10:00", returnJourney: false },
   AIRPORT_TRIP_PREMIUM_RATE,
 );
-assert.equal(engineWeekend.premiumApplied, false);
-assert.equal(engineWeekend.premiumAmount, 0);
-assert.equal(engineWeekend.total, 100);
+assert.equal(engineWeekend.premiumApplied, true);
+assert.equal(engineWeekend.premiumAmount, 10);
+assert.equal(engineWeekend.total, 110);
 const engineWeekday = applyTripPremium(
   100,
   { outboundDate: "2026-08-19", outboundTime: "10:00", returnJourney: false },
@@ -48,7 +48,7 @@ const engineWeekday = applyTripPremium(
 );
 assert.equal(engineWeekday.premiumApplied, false);
 assert.equal(engineWeekday.total, 100);
-console.log("OK  Engine: £100 weekday = £100 weekend (no surcharge)");
+console.log("OK  Engine: £100 weekday = £100; Saturday = £110");
 
 const weekday = calculateQuote(cityHall, "BFS", SALOON, false, {
   outboundDate: "2026-08-19",
@@ -70,19 +70,19 @@ const noSchedule = calculateQuote(cityHall, "BFS", SALOON, false, {}, cityBfsMet
 
 assert.ok(weekday && saturday && sunday && bankHoliday && noSchedule);
 assert.equal(weekday.premiumApplied, false);
-assert.equal(saturday.premiumApplied, false);
-assert.equal(sunday.premiumApplied, false);
+assert.equal(saturday.premiumApplied, true);
+assert.equal(sunday.premiumApplied, true);
 assert.equal(bankHoliday.premiumApplied, false);
 assert.equal(noSchedule.premiumApplied, false);
-assert.equal(saturday.amount, weekday.amount);
-assert.equal(sunday.amount, weekday.amount);
+assert.equal(weekday.amount, 44);
+assert.equal(saturday.amount, 48.4);
+assert.equal(sunday.amount, 48.4);
 assert.equal(bankHoliday.amount, weekday.amount);
 assert.equal(noSchedule.amount, weekday.amount);
 console.log(
-  `OK  1–4. BFS City Hall weekday/Sat/Sun/BH/no-date all £${weekday.amount}`,
+  `OK  1–4. BFS City Hall weekday £${weekday.amount}; Sat/Sun £${saturday.amount}; BH daytime £${bankHoliday.amount}`,
 );
 
-// Friday 14:00 → Saturday 15:00 must not change fare merely because it is Saturday.
 const fridayAfternoon = calculateQuote(cityHall, "BFS", SALOON, false, {
   outboundDate: "2026-08-21",
   outboundTime: "14:00",
@@ -93,10 +93,11 @@ const saturdayAfternoon = calculateQuote(cityHall, "BFS", SALOON, false, {
 }, cityBfsMetrics);
 assert.ok(fridayAfternoon && saturdayAfternoon);
 assert.equal(fridayAfternoon.premiumApplied, false);
-assert.equal(saturdayAfternoon.premiumApplied, false);
-assert.equal(saturdayAfternoon.amount, fridayAfternoon.amount);
+assert.equal(saturdayAfternoon.premiumApplied, true);
+assert.equal(saturdayAfternoon.amount, 48.4);
+assert.equal(fridayAfternoon.amount, 44);
 console.log(
-  `OK  Public Live Quote: Friday 14:00 = Saturday 15:00 £${fridayAfternoon.amount}`,
+  `OK  Public Live Quote: Friday 14:00 £${fridayAfternoon.amount}; Saturday 15:00 £${saturdayAfternoon.amount}`,
 );
 
 const bfsPlace: SelectedPlace = {
@@ -133,7 +134,7 @@ const ownerAirportWeekend = calculateWebsiteOneWayFare({
 });
 assert.ok(ownerAirportWeekend);
 assert.equal(ownerAirportWeekend!.amount, saturday.amount);
-assert.equal(ownerAirportWeekend!.premiumApplied, false);
+assert.equal(ownerAirportWeekend!.premiumApplied, true);
 
 const ownerAirportWeekday = calculateWebsiteOneWayFare({
   pickupAddress: cityHall,
@@ -168,11 +169,11 @@ const personalSaturday = calculateWebsiteOneWayFare({
 });
 assert.ok(personalFriday && personalSaturday);
 assert.equal(personalFriday!.premiumApplied, false);
-assert.equal(personalSaturday!.premiumApplied, false);
-assert.equal(personalSaturday!.amount, personalFriday!.amount);
+assert.equal(personalSaturday!.premiumApplied, true);
+assert.equal(personalSaturday!.amount, saturdayAfternoon.amount);
 assert.equal(personalFriday!.amount, fridayAfternoon.amount);
 console.log(
-  `OK  Personal Quote (website-fare): Friday 14:00 = Saturday 15:00 £${personalFriday!.amount}`,
+  `OK  Personal Quote (website-fare): Friday 14:00 £${personalFriday!.amount}; Saturday 15:00 £${personalSaturday!.amount}`,
 );
 
 const quickQuoteFriday = calculateAuthoritativeWebsiteQuote({
@@ -203,18 +204,18 @@ assert.equal(quickQuoteFriday.ok, true);
 assert.equal(quickQuoteSaturday.ok, true);
 if (quickQuoteFriday.ok && quickQuoteSaturday.ok) {
   assert.equal(quickQuoteFriday.premiumApplied, false);
-  assert.equal(quickQuoteSaturday.premiumApplied, false);
-  assert.equal(quickQuoteSaturday.amount, quickQuoteFriday.amount);
+  assert.equal(quickQuoteSaturday.premiumApplied, true);
+  assert.equal(quickQuoteSaturday.amount, saturdayAfternoon.amount);
   assert.equal(quickQuoteFriday.amount, fridayAfternoon.amount);
   console.log(
-    `OK  Driver Quick Quote (quote-service): Friday 14:00 = Saturday 15:00 £${quickQuoteFriday.amount}`,
+    `OK  Driver Quick Quote (quote-service): Friday 14:00 £${quickQuoteFriday.amount}; Saturday 15:00 £${quickQuoteSaturday.amount}`,
   );
 }
 
 const standardWebsiteAmount = ownerAirportWeekend!.amount;
 assert.equal(standardWebsiteAmount, saturday.amount);
 console.log(
-  `OK  5–6. Owner calculator matches public; standardWebsiteAmount £${standardWebsiteAmount}`,
+  `OK  5–6. Owner calculator matches public; Saturday standardWebsiteAmount £${standardWebsiteAmount}`,
 );
 
 const a2aMetrics = { distanceKm: 28, durationMinutes: 40 };
@@ -238,10 +239,13 @@ const a2aWeekend = calculatePointToPointQuote(
 );
 assert.ok(a2aWeekday && a2aWeekend);
 assert.equal(a2aWeekday.premiumApplied, false);
-assert.equal(a2aWeekend.premiumApplied, false);
-assert.equal(a2aWeekend.amount, a2aWeekday.amount);
+assert.equal(a2aWeekend.premiumApplied, true);
+assert.equal(
+  a2aWeekend.amount,
+  Math.round(a2aWeekday.amount * 1.1 * 100) / 100,
+);
 console.log(
-  `OK  7. A2A weekday = weekend £${a2aWeekday.amount} (no surcharge)`,
+  `OK  7. A2A weekday £${a2aWeekday.amount}; weekend £${a2aWeekend.amount} (+10%)`,
 );
 
 assert.equal(getReturnJourneyFare(100), 190);
@@ -274,26 +278,4 @@ assert.match(hero, /5% off when you book a return/);
 assert.match(hero, /Secure card booking where eligible/);
 console.log("OK  Homepage benefits include return saving");
 
-// Alternative-time booking must not introduce a weekend/BH surcharge path.
-const altTimeGuards = [
-  "src/lib/pricing-config.json",
-  "src/lib/point-to-point-premium.ts",
-  "src/lib/quote.ts",
-  "src/lib/website-fare.ts",
-  "src/lib/quote-service.ts",
-  "workers/addresses/src/quote-handlers.ts",
-];
-for (const rel of altTimeGuards) {
-  const src = fs.readFileSync(path.join(root, rel), "utf8");
-  assert.doesNotMatch(
-    src,
-    /airportTripPremiumRate"\s*:\s*[1-9]|addressToAddressTripPremiumRate"\s*:\s*[1-9]/,
-  );
-}
-assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
-assert.equal(PRICING_CONFIG.addressToAddressTripPremiumRate, 0);
-console.log(
-  "OK  Alternative-time / quote-path audit: no active weekend or Bank Holiday surcharge multiplier",
-);
-
-console.log("\nAll airport weekend premium (disabled) checks passed.");
+console.log("\nAll airport Night & Weekend Surcharge parity checks passed.");

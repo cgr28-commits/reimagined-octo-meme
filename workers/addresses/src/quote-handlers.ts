@@ -144,8 +144,9 @@ export async function handleQuoteCalculateRequest(
           : "none";
 
   // Commercial fare requires real road routing (OSRM). Haversine×1.48 must never
-  // set the price. Prefer Worker OSRM; if Workers cannot reach OSRM, accept the
-  // browser's OSRM metrics (same TripMap path) rather than inventing a fare.
+  // set the price. Worker resolve first: prefer Worker OSRM; if Workers cannot
+  // reach OSRM, accept the browser's OSRM metrics (same TripMap path) rather
+  // than inventing a fare.
   let routeMetricsSource: "worker" | "client" | "none" = "none";
   let routeMetrics = await resolveWorkerTripRouteMetrics({
     pickupAddress,
@@ -295,6 +296,10 @@ export async function handleQuoteCalculateRequest(
         journeyFareGbp:
           typeof a2a.journeyFareGbp === "number"
             ? Math.round(a2a.journeyFareGbp * 100) / 100
+            : undefined,
+        nightWeekendSurchargeGbp:
+          typeof a2a.nightWeekendSurchargeGbp === "number"
+            ? Math.round(a2a.nightWeekendSurchargeGbp * 100) / 100
             : undefined,
         airportFixedCostsGbp:
           typeof a2a.airportFixedCostsGbp === "number"

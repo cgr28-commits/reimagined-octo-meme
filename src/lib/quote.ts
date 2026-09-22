@@ -90,6 +90,8 @@ export type QuoteResult = {
   pickupArea?: string | null;
   dropoffArea?: string | null;
   premiumApplied?: boolean;
+  /** Night & Weekend Surcharge amount already included in `journeyFareGbp` / `amount`. */
+  nightWeekendSurchargeGbp?: number;
   /** Present when the operational mileage model produced the fare. */
   operational?: {
     distanceKm: number;
@@ -592,6 +594,7 @@ export function calculatePointToPointQuote(
   });
 
   const journeyFareGbp = roundGbp(premium.total);
+  const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
 
   return {
     amount: journeyFareGbp,
@@ -603,6 +606,7 @@ export function calculatePointToPointQuote(
     pickupArea,
     dropoffArea,
     premiumApplied: premium.premiumApplied,
+    nightWeekendSurchargeGbp,
     journeyFareGbp,
     operational: {
       distanceKm: routeMetrics.distanceKm,
@@ -698,6 +702,7 @@ export function calculateQuote(
     vehicleMultiplier,
     vehicleAdjustment,
     premiumApplied: premium.premiumApplied,
+    nightWeekendSurchargeGbp: roundGbp(premium.premiumAmount),
     airportFixedCostsGbp: roundedFixed,
     journeyFareGbp: roundedJourneyFare,
     operational: {
@@ -780,14 +785,15 @@ export function calculateAirportToAirportQuote(
     return null;
   }
 
-  // Always price the underlying A2A journey one-way, then apply return discount
-  // to the journey only — airport fixed costs are added undiscounted per leg.
+  // Price the underlying A2A journey one-way with no schedule premium, then
+  // apply 5% return (base only) and Night & Weekend once at this top level so
+  // A2A is never surcharged twice. Airport fixed costs stay undiscounted.
   const underlyingOneWay = calculatePointToPointQuote(
     pickup,
     dropoff,
     vehicleType,
     false,
-    { ...schedule, returnJourney: false },
+    {},
     routeMetrics,
   );
   if (!underlyingOneWay) {
@@ -825,6 +831,7 @@ export function calculateAirportToAirportQuote(
     airportFixedCostsGbp: roundedFixed,
     journeyFareGbp: roundedJourneyFare,
     premiumApplied: premium.premiumApplied,
+    nightWeekendSurchargeGbp: roundGbp(premium.premiumAmount),
   };
 }
 

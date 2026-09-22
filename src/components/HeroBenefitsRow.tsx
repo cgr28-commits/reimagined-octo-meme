@@ -1,7 +1,7 @@
 const BENEFITS = [
   {
-    label: "Reserved driver",
-    lines: ["Reserved", "driver"],
+    label: "Pre-booked driver",
+    lines: ["Pre-booked", "driver"],
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
         <circle cx="12" cy="8" r="3.7" />
@@ -59,7 +59,7 @@ export default function HeroBenefitsRow() {
           <span className="hero-benefit-icon" aria-hidden>
             {benefit.icon}
           </span>
-          <span className="mt-0.5 min-h-[1.7rem] text-[0.7rem] font-semibold leading-[1.15] text-white md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:leading-tight">
+          <span className="mt-0.5 min-h-[1.55rem] text-[0.64rem] font-medium leading-[1.15] text-white/88 md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:font-semibold md:leading-tight md:text-white">
             <span className="md:hidden">
               {benefit.lines[0]}
               <br />

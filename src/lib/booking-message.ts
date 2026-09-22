@@ -58,6 +58,7 @@ export type BookingDetails = {
   totalPromotionalSavingGbp?: number;
   airportAccessChargeGbp?: number;
   journeyFareAfterPromotionsGbp?: number;
+  nightWeekendSurchargeGbp?: number;
   finalAmountPayableGbp?: number;
   /** Number of child / booster seats requested (0–2). */
   childSeats?: number;
@@ -182,7 +183,10 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
       );
     })() +
     includesBlock +
-    (details.returnJourney && details.estimatedPrice ? "Return booking discount: 5% applied\n" : "") +
+    (details.returnJourney && details.estimatedPrice ? "5% Return Booking Discount applied\n" : "") +
+    ((details.nightWeekendSurchargeGbp ?? 0) > 0
+      ? "Night & Weekend Surcharge (10%) applied\n"
+      : "") +
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
       : "") +

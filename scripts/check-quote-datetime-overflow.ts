@@ -31,7 +31,7 @@ console.log("=== Shell owns the visible border ===");
   assert.match(shell, /overflow-hidden|overflow-hidden/);
   assert.match(shell, /min-w-0/);
   assert.match(shell, /max-w-full/);
-  assert.match(shell, /border-emerald\/50/);
+  assert.match(shell, /border-emerald\/(50|65)/);
   assert.match(shell, /ring-inset/);
 
   const inner = quoteDateTimeInputClass();
@@ -44,21 +44,23 @@ console.log("=== Shell owns the visible border ===");
   assert.doesNotMatch(inner, /\bborder border-/);
 
   // Text fields still use the bordered class helper.
-  assert.match(quoteTextFieldClass("needs"), /border-emerald\/50/);
+  assert.match(quoteTextFieldClass("needs"), /border-emerald\/(50|65)/);
   console.log("OK  date/time shell has border; inner input is borderless");
 }
 
-console.log("\n=== QuoteCard wires shell around all date/time inputs ===");
+console.log("\n=== Quote schedule fields wire shell around all date/time inputs ===");
 {
+  const schedule = read("src/components/QuoteScheduleFields.tsx");
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(card, /quoteDateTimeFieldShellClass/);
-  assert.match(card, /quoteDateTimeInputClass/);
-  const dateCount = (card.match(/type="date"/g) || []).length;
-  const timeCount = (card.match(/type="time"/g) || []).length;
+  assert.match(schedule, /quoteDateTimeFieldShellClass/);
+  assert.match(schedule, /quoteDateTimeInputClass/);
+  assert.match(card, /renderQuoteScheduleFields/);
+  const dateCount = (schedule.match(/type="date"/g) || []).length;
+  const timeCount = (schedule.match(/type="time"/g) || []).length;
   assert.equal(dateCount, 2);
   assert.equal(timeCount, 2);
-  assert.equal((card.match(/quoteDateTimeFieldShellClass\(/g) || []).length, 4);
-  assert.equal((card.match(/quoteDateTimeInputClass\(\)/g) || []).length, 4);
+  assert.equal((schedule.match(/quoteDateTimeFieldShellClass\(/g) || []).length, 4);
+  assert.equal((schedule.match(/quoteDateTimeInputClass\(\)/g) || []).length, 4);
   // No date/time input should still paint its own border via quoteTextFieldClass.
   assert.doesNotMatch(
     card,

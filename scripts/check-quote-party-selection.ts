@@ -1,6 +1,6 @@
 /**
  * Acceptance: journey mode + passenger + suitcase must be explicit (null until tapped).
- * Sequence: addresses → One way/Return → party → price → scroll to #quote-route-summary.
+ * Sequence: addresses → One way/Return → date/time → party → price → scroll to #quote-route-summary.
  * Run: npx tsx scripts/check-quote-party-selection.ts
  */
 
@@ -45,11 +45,11 @@ check("No silent One Way / 1 pax / 0 bags defaults on pricing path", () => {
   assert.doesNotMatch(card, /passengers \|\| 1/);
   assert.doesNotMatch(card, /suitcases \|\| 0/);
   assert.doesNotMatch(card, /passengers \?\? 1/);
-  assert.doesNotMatch(card, /suitcases \?\? 0/);
+  assert.doesNotMatch(card, /canShowPrice[\s\S]{0,400}suitcases \?\? 0/);
   assert.doesNotMatch(card, /journeyMode \|\| ['"]one-way['"]/);
   assert.doesNotMatch(quoteHandlers, /Math\.floor\(passengers\) \|\| 1/);
   assert.doesNotMatch(quoteHandlers, /Math\.floor\(suitcases\) \|\| 0/);
-  assert.doesNotMatch(quoteHandlers, /returnJourney: body\.returnJourney === true/);
+  assert.match(quoteHandlers, /typeof body\.returnJourney === "boolean"/);
   assert.doesNotMatch(quoteService, /passengers \|\| 1/);
   assert.doesNotMatch(quoteService, /suitcases \|\| 0/);
   assert.doesNotMatch(savedQuote, /Number\(j\.passengers\) \|\| 1/);
@@ -58,33 +58,32 @@ check("No silent One Way / 1 pax / 0 bags defaults on pricing path", () => {
 
 check("Prompts and gated price until journey mode + party selected", () => {
   assert.match(progressive, /Choose One way or Return to continue\./);
-  assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
+  assert.match(progressive, /Select your passenger and suitcase numbers to continue\./);
   assert.match(card, /quoteChoicesReady/);
   assert.match(card, /journeyMode !== null && partySelectionReady/);
-  assert.match(card, /canShowPrice = hasQuoteRoute && quoteChoicesReady/);
-  assert.match(card, /quoteChoicesReady && \(/);
+  assert.match(card, /canShowPrice =/);
+  assert.match(card, /isScheduleComplete/);
+  assert.match(card, /hasQuoteRoute &&\s*\n?\s*quoteChoicesReady &&\s*\n?\s*isScheduleComplete/);
   assert.match(progressive, /aria-pressed=\{journeyMode === "one-way"\}/);
   assert.match(progressive, /aria-pressed=\{journeyMode === "return"\}/);
   assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);
 });
 
-check("One way / Return centre divider and equal-width buttons", () => {
+check("One way / Return equal-width buttons", () => {
   assert.match(progressive, /id="journey-type-selector"/);
-  assert.match(progressive, /border-l border-white\/40/);
   assert.match(progressive, /min-h-\[52px\]/);
   assert.match(progressive, /grid grid-cols-2/);
   assert.match(progressive, /type="button"/);
   assert.match(progressive, /focus-visible:outline/);
-  assert.match(card, /border-l border-white\/40/);
 });
 
-check("Scroll sequence: journey-type → passengers → YOUR ROUTE (owned by QuoteCard)", () => {
+check("Scroll sequence: journey-type → date/time → passengers → YOUR ROUTE (owned by QuoteCard)", () => {
   // Progressive route exposes targets only — QuoteCard owns scrollQuoteStage.
   assert.doesNotMatch(progressive, /scheduleBookingNavAfterRender/);
   assert.match(progressive, /id="journey-type-selector"/);
   assert.match(progressive, /id="passenger-luggage-section"/);
   assert.match(card, /scrollQuoteStage\("journey-type-selector"/);
-  assert.match(card, /scrollQuoteStage\("passenger-luggage-section"/);
+  assert.match(card, /scrollQuoteStage\("quote-section-schedule"/);
   assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
   assert.match(card, /id="quote-route-summary"|id=\{\s*quoteChoicesReady && hasQuoteRoute && quoteStep === 1/);
   assert.match(card, /hadRouteSummaryScrollRef/);
@@ -206,13 +205,19 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
   });
   assert.equal(ret.ok, true);
   if (oneWay.ok && ret.ok) {
-    // 5% return discount applies to journey fare only; airport fixed costs are added full both legs.
+    // 5% return discount applies to journey fare only; airport fixed costs stay full both legs.
     assert.ok(ret.amount > oneWay.amount);
     assert.ok(ret.amount < oneWay.amount * 2);
-    assert.ok(
-      ret.amount > Math.round(oneWay.amount * 2 * 0.95 * 100) / 100,
-      "return total must exceed a naïve 5% on the full one-way (fees not discounted)",
-    );
+    const naiveFullDiscount = Math.round(oneWay.amount * 2 * 0.95 * 100) / 100;
+    const oneWayFixed = oneWay.airportFixedCostsGbp ?? 0;
+    if (oneWayFixed > 0) {
+      assert.ok(
+        ret.amount > naiveFullDiscount,
+        "return total must exceed a naïve 5% on the full one-way (fees not discounted)",
+      );
+    } else {
+      assert.equal(ret.amount, naiveFullDiscount);
+    }
   }
 
   // Public path (default ceiling 4) must reject >4.

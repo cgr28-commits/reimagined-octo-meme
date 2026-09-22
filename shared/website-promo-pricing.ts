@@ -19,6 +19,7 @@ export type WebsitePromoPricingFields = {
   outboundAirportAccessChargeGbp?: number;
   returnAirportAccessChargeGbp?: number;
   journeyFareAfterPromotionsGbp?: number;
+  nightWeekendSurchargeGbp?: number;
   finalAmountPayableGbp?: number;
 };
 
@@ -35,6 +36,7 @@ export function promoFieldsFromFareBreakdown(
     outboundAirportAccessChargeGbp: breakdown.outboundAirportAccessChargeGbp,
     returnAirportAccessChargeGbp: breakdown.returnAirportAccessChargeGbp,
     journeyFareAfterPromotionsGbp: breakdown.journeyFareAfterPromotionsGbp,
+    nightWeekendSurchargeGbp: breakdown.nightWeekendSurchargeGbp,
     finalAmountPayableGbp: breakdown.finalAmountPayableGbp,
   };
 }
@@ -58,6 +60,7 @@ export function parseWebsitePromoPricingFields(
     outboundAirportAccessChargeGbp: num("outboundAirportAccessChargeGbp"),
     returnAirportAccessChargeGbp: num("returnAirportAccessChargeGbp"),
     journeyFareAfterPromotionsGbp: num("journeyFareAfterPromotionsGbp"),
+    nightWeekendSurchargeGbp: num("nightWeekendSurchargeGbp"),
     finalAmountPayableGbp: num("finalAmountPayableGbp"),
   };
 }
@@ -76,12 +79,17 @@ export function formatCustomerPromoPricingLines(
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
     lines.push(
-      `Return journey saving: −${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
+      `5% Return Booking Discount: −${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
     );
   }
   if ((fields.returnOfferSavingGbp ?? 0) > 0) {
     lines.push(
       `Return journey saving 5%: −${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
+    );
+  }
+  if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
+    lines.push(
+      `Night & Weekend Surcharge (10%): ${formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0)}`,
     );
   }
   if (
@@ -132,7 +140,7 @@ export function formatCustomerPromoPricingHtmlRows(
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
     rows.push({
-      label: "Return journey saving",
+      label: "5% Return Booking Discount",
       value: `−${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
     });
   }
@@ -140,6 +148,12 @@ export function formatCustomerPromoPricingHtmlRows(
     rows.push({
       label: "Return journey saving 5%",
       value: `−${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
+    });
+  }
+  if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
+    rows.push({
+      label: "Night & Weekend Surcharge (10%)",
+      value: formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0),
     });
   }
   if (

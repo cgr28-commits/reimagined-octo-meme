@@ -217,6 +217,68 @@ console.log("\n=== Return journeys keep Estate = Saloon + £6 on the one-way far
   );
 }
 
+console.log("\n=== Date/time change drops a stale Worker fare immediately ===");
+{
+  const weekday = calculateQuote(
+    cityHall,
+    "BFS",
+    SALOON_VEHICLE,
+    false,
+    { outboundDate: "2026-08-19", outboundTime: "10:00" },
+    cityBfsMetrics,
+  );
+  const saturday = calculateQuote(
+    cityHall,
+    "BFS",
+    SALOON_VEHICLE,
+    false,
+    { outboundDate: "2026-08-22", outboundTime: "10:00" },
+    cityBfsMetrics,
+  );
+  assert.ok(weekday && saturday);
+  const weekdayFare = journeyFare(weekday);
+  const saturdayFare = journeyFare(saturday);
+  assert.equal(saturdayFare, Math.round(weekdayFare * 1.1 * 100) / 100);
+
+  const staleWeekday: ServerFarePartyParts = {
+    journeyFareGbp: weekdayFare,
+    airportFixedCostsGbp: 0,
+    nightWeekendSurchargeGbp: 0,
+    amountGbp: weekdayFare,
+    vehicleType: SALOON_VEHICLE,
+    passengers: 2,
+    suitcases: 2,
+    outboundDate: "2026-08-19",
+    outboundTime: "10:00",
+    returnJourney: false,
+  };
+  assert.equal(
+    serverFareAppliesToParty(staleWeekday, {
+      passengers: 2,
+      suitcases: 2,
+      vehicleType: SALOON_VEHICLE,
+      outboundDate: "2026-08-22",
+      outboundTime: "10:00",
+      returnJourney: false,
+    }),
+    false,
+  );
+  const displayed = resolveDisplayJourneyFareGbp({
+    liveJourneyFareGbp: saturday.journeyFareGbp ?? saturday.amount,
+    liveAmountGbp: saturday.amount,
+    serverFareParts: staleWeekday,
+    passengers: 2,
+    suitcases: 2,
+    vehicleType: SALOON_VEHICLE,
+    outboundDate: "2026-08-22",
+    outboundTime: "10:00",
+    returnJourney: false,
+  });
+  assert.equal(displayed, saturdayFare);
+  assert.notEqual(displayed, weekdayFare);
+  console.log(`OK  Saturday live fare £${saturdayFare} wins over stale weekday £${weekdayFare}`);
+}
+
 console.log("\n=== QuoteCard drops stale server fares when the vehicle changes ===");
 {
   const card = read("src/components/QuoteCard.tsx");

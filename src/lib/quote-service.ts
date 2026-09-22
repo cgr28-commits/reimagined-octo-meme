@@ -66,6 +66,8 @@ export type QuoteServiceSuccess = {
   oneWayAmount?: number;
   /** Journey fare before airport fixed costs (when the engine exposes it). */
   journeyFareGbp?: number;
+  /** Night & Weekend Surcharge already included in `journeyFareGbp`. */
+  nightWeekendSurchargeGbp?: number;
   /** Airport fixed costs included in `amount` (before Express / promos). */
   airportFixedCostsGbp?: number;
   source: "website-pricing-engine";
@@ -301,6 +303,11 @@ export function calculateAuthoritativeWebsiteQuote(
     Number.isFinite(quote.airportFixedCostsGbp)
       ? Math.round(quote.airportFixedCostsGbp * 100) / 100
       : undefined;
+  const nightWeekendSurchargeGbp =
+    typeof quote.nightWeekendSurchargeGbp === "number" &&
+    Number.isFinite(quote.nightWeekendSurchargeGbp)
+      ? Math.round(quote.nightWeekendSurchargeGbp * 100) / 100
+      : undefined;
 
   return {
     ok: true,
@@ -311,6 +318,7 @@ export function calculateAuthoritativeWebsiteQuote(
     premiumApplied: Boolean(quote.premiumApplied),
     returnJourney,
     ...(journeyFareGbp != null ? { journeyFareGbp } : {}),
+    ...(nightWeekendSurchargeGbp != null ? { nightWeekendSurchargeGbp } : {}),
     ...(airportFixedCostsGbp != null ? { airportFixedCostsGbp } : {}),
     source: "website-pricing-engine",
   };

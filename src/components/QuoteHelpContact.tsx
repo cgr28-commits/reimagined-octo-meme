@@ -9,7 +9,7 @@ import { whatsAppChatUrl } from "@/lib/contact-card";
 export default function QuoteHelpContact({ className = "" }: { className?: string }) {
   return (
     <p
-      className={`mt-3 px-1 text-center text-sm leading-relaxed quote-secondary md:mt-4 ${className}`}
+      className={`mt-2 px-1 text-center text-[0.8125rem] leading-relaxed quote-secondary md:mt-4 md:text-sm ${className}`}
     >
       <span>Need help?</span>
       {" "}

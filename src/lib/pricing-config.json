@@ -1,9 +1,9 @@
 {
   "$schemaComment": "CENTRAL PRICING CONFIG — all commercial £ values for the public quote engine. UI components must not hard-code fares. See `pricingModel` for the formula.",
   "pricingModel": {
-    "summary": "Universal road-distance journey fare (shared/universal-distance-pricing.ts) → vehicle (Estate = Saloon + £6) → optional 5% return discount → airport fixed costs → Express/access add-on in UI. Zone tables and Belfast mile floor are retired for live quotes.",
+    "summary": "Universal road-distance journey fare (shared/universal-distance-pricing.ts) → vehicle (Estate = Saloon + £6) → optional 5% return discount → Night & Weekend Surcharge (10%) on qualifying legs → airport fixed costs → Express/access add-on in UI. Zone tables and Belfast mile floor are retired for live quotes.",
     "addressToAddress": "Same universal distance curve as airport transfers. Requires valid OSRM road metrics; otherwise no fare.",
-    "airport": "Journey fare from road miles only (piecewise Saloon interpolating approved knots: 0–4→£29, 15→£46, 30→£67, 50→£96, 70→£135, 90→£181, 100→£210; nearest £1). Estate = Saloon + £6. Zone surcharges and belfastAirportDistanceFloor do not override. No weekend/Bank Holiday journey surcharge (premium rates are 0).",
+    "airport": "Journey fare from road miles only (piecewise Saloon interpolating approved knots: 0–4→£29, 15→£46, 30→£67, 50→£96, 70→£135, 90→£181, 100→£210; nearest £1). Estate = Saloon + £6. Then Night & Weekend Surcharge (10%) on the journey fare only when pickup is Mon–Fri 22:00–05:59 or all day Sat/Sun (Europe/London). Airport fixed costs and Express are never surcharged.",
     "dublinAirport": "Priced on the same universal distance curve for the road miles to/from DUB, then airportFixedCostsGbp (drop-off +£4 M1; pickup +£5 parking +£4 M1). Long-distance ~98 miles interpolates to ~£204–£205 Saloon journey before fixed costs.",
     "vehicles": "Saloon 1–4 pax AND 0–2 large cases; Estate 1–4 pax AND 3–4 cases (+£6 vs Saloon); Minibus 5–7 (builds from Estate × multiplier).",
     "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 × oneWay journey fare). Airport fixed costs and Express are added after and are never discounted.",
@@ -367,8 +367,8 @@
     "perMinuteGbp": 0.45,
     "minimumUpliftGbp": 25
   },
-  "airportTripPremiumRate": 0,
-  "addressToAddressTripPremiumRate": 0,
+  "airportTripPremiumRate": 0.1,
+  "addressToAddressTripPremiumRate": 0.1,
   "expressDropOffFeesGbp": {
     "note": "Optional customer Express Drop-Off/Pick-Up add-on on BFS/BHD airport journeys (once per booking). Not the waived automatic access fee. Keep in sync with shared/express-drop-off.ts.",
     "BFS": 5,

@@ -1048,6 +1048,13 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
             Math.round(Number(details.journeyFareAfterPromotionsGbp) * 100) / 100,
         }
       : {}),
+    ...(typeof details.nightWeekendSurchargeGbp === "number" &&
+    Number.isFinite(details.nightWeekendSurchargeGbp)
+      ? {
+          nightWeekendSurchargeGbp:
+            Math.round(Number(details.nightWeekendSurchargeGbp) * 100) / 100,
+        }
+      : {}),
     ...(typeof details.finalAmountPayableGbp === "number" &&
     Number.isFinite(details.finalAmountPayableGbp)
       ? {
@@ -2171,6 +2178,7 @@ async function handlePaymentRequest(
       amountGbp: number;
       journeyFareGbp: number;
       airportFixedCostsGbp: number;
+      nightWeekendSurchargeGbp?: number;
     } | null = null;
     const vehicleRaw = String(booking.vehicle ?? "");
     const vehicleType: VehicleType = /estate/i.test(vehicleRaw)
@@ -2217,6 +2225,10 @@ async function handlePaymentRequest(
             typeof a2aQuote.airportFixedCostsGbp === "number"
               ? Math.round(a2aQuote.airportFixedCostsGbp * 100) / 100
               : 0,
+          nightWeekendSurchargeGbp:
+            typeof a2aQuote.nightWeekendSurchargeGbp === "number"
+              ? Math.round(a2aQuote.nightWeekendSurchargeGbp * 100) / 100
+              : 0,
         };
       }
     } else {
@@ -2249,6 +2261,7 @@ async function handlePaymentRequest(
           amountGbp: requote.amount,
           journeyFareGbp,
           airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 0,
+          nightWeekendSurchargeGbp: requote.nightWeekendSurchargeGbp ?? 0,
         };
       }
     }
@@ -2319,6 +2332,7 @@ async function handlePaymentRequest(
     const breakdown = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
       airportFixedCostsGbp,
+      nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
       airportAccessChargeGbp: persisted.expressDropOffFee,
       outboundAirportAccessChargeGbp: persisted.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,

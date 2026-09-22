@@ -56,7 +56,10 @@ console.log("\n=== QuoteCard uses shared messages + red field UX ===");
   assert.match(card, /aria-invalid=\{Boolean\(customerNameError\)\}/);
   assert.match(card, /aria-invalid=\{Boolean\(mobileNumberError\)\}/);
   assert.match(card, /aria-invalid=\{Boolean\(emailAddressError\)\}/);
-  assert.match(card, /aria-invalid=\{Boolean\(tripDateError\)\}/);
+  assert.match(
+    read("src/components/QuoteScheduleFields.tsx"),
+    /aria-invalid=\{Boolean\(tripDateError\)\}/,
+  );
   assert.match(card, /disabled=\{paymentLoading \|\| submitted\}/);
   assert.doesNotMatch(
     card,

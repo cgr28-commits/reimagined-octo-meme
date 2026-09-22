@@ -8,6 +8,7 @@ import {
   formatGbpFare,
   type WebsiteFareBreakdown,
 } from "../../shared/website-fare-breakdown";
+import { NIGHT_WEEKEND_SURCHARGE_EXPLANATION } from "../../shared/night-weekend-surcharge";
 import {
   expressAirportLegendLabel,
   expressAvoidedChargeMessage,
@@ -20,6 +21,7 @@ export function buildOpenWebsiteFareBreakdown(input: {
   airportAccessChargeGbp?: number;
   outboundAirportAccessChargeGbp?: number;
   returnAirportAccessChargeGbp?: number;
+  nightWeekendSurchargeGbp?: number;
   returnJourney?: boolean;
   returnOfferDiscountRate?: number;
 }): WebsiteFareBreakdown {
@@ -29,6 +31,7 @@ export function buildOpenWebsiteFareBreakdown(input: {
     airportAccessChargeGbp: input.airportAccessChargeGbp ?? 0,
     outboundAirportAccessChargeGbp: input.outboundAirportAccessChargeGbp ?? 0,
     returnAirportAccessChargeGbp: input.returnAirportAccessChargeGbp ?? 0,
+    nightWeekendSurchargeGbp: input.nightWeekendSurchargeGbp ?? 0,
     returnJourney: Boolean(input.returnJourney),
     ...(typeof input.returnOfferDiscountRate === "number"
       ? { returnOfferDiscountRate: input.returnOfferDiscountRate }
@@ -102,7 +105,7 @@ export function PromotionalSavingsSummary({
     <div className={`mt-2.5 space-y-1.5 ${className}`}>
       {breakdown.returnJourneySavingGbp > 0 ? (
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald">
-          ✓ {breakdown.returnJourneyDiscountPercentLabel} RETURN JOURNEY SAVING — YOU SAVE{" "}
+          ✓ {breakdown.returnJourneyDiscountPercentLabel} RETURN BOOKING DISCOUNT — YOU SAVE{" "}
           {formatGbpFare(breakdown.returnJourneySavingGbp)}
         </p>
       ) : null}
@@ -149,12 +152,26 @@ export function PromotionalPriceBreakdown({
     (breakdown.outboundAirportAccessChargeGbp > 0 ||
       breakdown.returnAirportAccessChargeGbp > 0 ||
       freeAirportAccessSelected);
+  const surchargeGbp = breakdown.nightWeekendSurchargeGbp;
+  const hasSurcharge = surchargeGbp > 0;
   const journeyDisplayGbp = breakdown.returnJourney
     ? breakdown.originalEligibleJourneyPriceGbp
-    : breakdown.journeyFareDisplayGbp;
-  const journeyLabel = breakdown.returnJourney ? "Return journey fare" : "Journey fare";
+    : breakdown.journeyFareBeforePromotionsGbp;
+  const journeyLabel = breakdown.returnJourney
+    ? "Return journey fare"
+    : "Journey fare";
+  const showSurchargeLine = hasSurcharge;
   const finalPayableGbp = breakdown.finalAmountPayableGbp;
-  if (!alwaysShow && !hasPromo && !hasAccess && !freeAirportAccessSelected) return null;
+  if (
+    !alwaysShow &&
+    !hasPromo &&
+    !hasAccess &&
+    !hasSurcharge &&
+    !freeAirportAccessSelected &&
+    breakdown.airportFixedCostsGbp <= 0
+  ) {
+    return null;
+  }
 
   return (
     <div className={`mt-2 space-y-1.5 text-xs leading-snug ${className}`}>
@@ -183,9 +200,7 @@ export function PromotionalPriceBreakdown({
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
           <div className="flex justify-between gap-3">
-            <dt>
-              Return Journey Saving ({breakdown.returnJourneyDiscountPercentLabel})
-            </dt>
+            <dt>5% Return Booking Discount</dt>
             <dd className="shrink-0 text-emerald/90">
               −{formatGbpFare(breakdown.returnJourneySavingGbp)}
             </dd>
@@ -196,6 +211,22 @@ export function PromotionalPriceBreakdown({
             <dt>Return journey saving ({breakdown.returnOfferDiscountPercentLabel})</dt>
             <dd className="shrink-0 text-emerald/90">
               −{formatGbpFare(breakdown.returnOfferSavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {showSurchargeLine ? (
+          <div className="flex justify-between gap-3">
+            <dt>{breakdown.nightWeekendSurchargeLabel}</dt>
+            <dd className="shrink-0 tabular-nums text-white/80">
+              +{formatGbpFare(surchargeGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.airportFixedCostsGbp > 0 ? (
+          <div className="flex justify-between gap-3">
+            <dt>Airport / barrier charges</dt>
+            <dd className="shrink-0 tabular-nums text-white/80">
+              +{formatGbpFare(breakdown.airportFixedCostsGbp)}
             </dd>
           </div>
         ) : null}
@@ -247,6 +278,11 @@ export function PromotionalPriceBreakdown({
           </dd>
         </div>
       </dl>
+      {hasSurcharge ? (
+        <p className="text-[11px] leading-snug quote-secondary">
+          {NIGHT_WEEKEND_SURCHARGE_EXPLANATION}
+        </p>
+      ) : null}
       {freeAirportAccessSelected && !hasAccess && !showPerLegAccess ? (
         <p className="text-[11px] leading-snug text-emerald/85">
           ✓ {expressAvoidedChargeMessage(service)}
@@ -278,20 +314,38 @@ export function FinalPayableBreakdown({
       </p>
       <dl className="mt-2 space-y-1.5 text-sm">
         <div className="flex justify-between gap-3 text-white/75">
-          <dt>{breakdown.returnJourney ? "Return journey fare" : "Journey fare"}</dt>
+          <dt>
+            {breakdown.returnJourney ? "Return journey fare" : "Journey fare"}
+          </dt>
           <dd className="shrink-0 tabular-nums">
             {formatGbpFare(
               breakdown.returnJourney
                 ? breakdown.originalEligibleJourneyPriceGbp
-                : breakdown.journeyFareDisplayGbp,
+                : breakdown.journeyFareBeforePromotionsGbp,
             )}
           </dd>
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
           <div className="flex justify-between gap-3 text-emerald/90">
-            <dt>Return Journey Saving</dt>
+            <dt>5% Return Booking Discount</dt>
             <dd className="shrink-0 tabular-nums">
               −{formatGbpFare(breakdown.returnJourneySavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.nightWeekendSurchargeGbp > 0 ? (
+          <div className="flex justify-between gap-3 text-white/75">
+            <dt>{breakdown.nightWeekendSurchargeLabel}</dt>
+            <dd className="shrink-0 tabular-nums">
+              +{formatGbpFare(breakdown.nightWeekendSurchargeGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.airportFixedCostsGbp > 0 ? (
+          <div className="flex justify-between gap-3 text-white/75">
+            <dt>Airport / barrier charges</dt>
+            <dd className="shrink-0 tabular-nums">
+              +{formatGbpFare(breakdown.airportFixedCostsGbp)}
             </dd>
           </div>
         ) : null}
@@ -345,6 +399,11 @@ export function FinalPayableBreakdown({
           </dd>
         </div>
       </dl>
+      {breakdown.nightWeekendSurchargeGbp > 0 ? (
+        <p className="quote-secondary mt-2 text-[11px] leading-snug">
+          {NIGHT_WEEKEND_SURCHARGE_EXPLANATION}
+        </p>
+      ) : null}
       <FixedPriceAssurance
         className="mt-2.5"
         includesSelectedAirportAccess={

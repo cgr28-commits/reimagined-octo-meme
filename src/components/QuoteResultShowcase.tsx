@@ -16,10 +16,12 @@ type QuoteResultShowcaseProps = {
   formattedPrice: string;
   airportAccess?: ReactNode;
   bookButton: ReactNode;
+  /** Shown only when the first displayed price already includes the 10%. */
+  surchargeNote?: string | null;
 };
 
-// Presentational only: image follows the vehicle type already chosen by
-// selectVehicleForParty / quoteVehicle. No new selection rules.
+// Presentational only: image follows the vehicle type already chosen for
+// the party. No new selection rules.
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
@@ -32,6 +34,7 @@ export default function QuoteResultShowcase({
   formattedPrice,
   airportAccess,
   bookButton,
+  surchargeNote = null,
 }: QuoteResultShowcaseProps) {
   const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
   const vehicleLabel = vehicleShortLabel(vehicleType);
@@ -88,6 +91,14 @@ export default function QuoteResultShowcase({
           <p className="font-sans mt-1 text-[clamp(3.5rem,1.6rem+10vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-navy tabular-nums lg:text-[clamp(4rem,3rem+2vw,5rem)]">
             {formattedPrice}
           </p>
+          {surchargeNote ? (
+            <p
+              className="mt-2 text-xs font-semibold text-emerald-dark"
+              data-night-weekend-surcharge-badge
+            >
+              {surchargeNote}
+            </p>
+          ) : null}
           <p className="mt-2 text-sm font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
           {airportAccess ? (
             <div className="mt-3 text-left" data-quote-result-airport-access>

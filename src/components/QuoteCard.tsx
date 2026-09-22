@@ -4,6 +4,13 @@ import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, typ
 import { flushSync } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import QuoteProgressiveRoute from "@/components/QuoteProgressiveRoute";
+import QuoteScheduleFields from "@/components/QuoteScheduleFields";
+import {
+  hasEnteredQuoteSchedule,
+  QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE,
+  QUOTE_PRICE_WAIT_FOR_DETAILS,
+  QUOTE_PRICE_WAIT_FOR_SCHEDULE,
+} from "../../shared/quote-display-gate";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import MarketingOptIn from "@/components/MarketingOptIn";
 import {
@@ -38,8 +45,6 @@ import {
 import {
   bookingTextFieldClass,
   choiceGroupNeedsClass,
-  quoteDateTimeFieldShellClass,
-  quoteDateTimeInputClass,
   QUOTE_CHOICE_OFF,
   QUOTE_CHOICE_ON,
   type QuoteFieldHighlightState,
@@ -146,7 +151,6 @@ import QuoteResultShowcase from "@/components/QuoteResultShowcase";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
   BookWithConfidence,
-  FinalPayableBreakdown,
   FixedPriceAssurance,
   PromotionalPriceBreakdown,
   buildOpenWebsiteFareBreakdown,
@@ -1223,13 +1227,18 @@ function QuoteCard({
     };
   }, [returnOfferToken]);
 
+  const scheduleEntered = hasEnteredQuoteSchedule({
+    outboundDate: tripDate,
+    outboundTime: tripTime,
+    returnJourney,
+    returnDate,
+    returnTime,
+  });
   const isScheduleComplete =
-    Boolean(tripDate && tripTime) &&
+    scheduleEntered &&
     isTripDateOnOrAfterToday(tripDate) &&
     isTripDateTimeNotInPast(tripDate, tripTime) &&
-    (!returnJourney ||
-      (Boolean(returnDate && returnTime) &&
-        isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)));
+    (!returnJourney || isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime));
   const isMinimumNoticeRequest = Boolean(
     tripDate &&
       tripTime &&
@@ -1291,14 +1300,18 @@ function QuoteCard({
         ? isAirportAddressComplete
         : isAddressPairComplete);
 
-  // Fixed price only after route + deliberate journey mode, passengers AND suitcases.
+  // Fixed price only after route + journey mode + party + booked pickup schedule.
   // Public flow clamps to 1–4 / 0–4, so this stays false; kept as a hard guard.
   const exceedsOnlineCapacity =
     quoteChoicesReady &&
     effectivePassengers != null &&
     suitcases != null &&
     exceedsOnlineVehicleOptions(effectivePassengers, suitcases);
-  const canShowPrice = hasQuoteRoute && quoteChoicesReady && !exceedsOnlineCapacity;
+  const canShowPrice =
+    hasQuoteRoute &&
+    quoteChoicesReady &&
+    isScheduleComplete &&
+    !exceedsOnlineCapacity;
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
@@ -1532,10 +1545,19 @@ function QuoteCard({
             typeof result.airportFixedCostsGbp === "number"
               ? Math.round(result.airportFixedCostsGbp * 100) / 100
               : 0,
+          nightWeekendSurchargeGbp:
+            typeof result.nightWeekendSurchargeGbp === "number"
+              ? Math.round(result.nightWeekendSurchargeGbp * 100) / 100
+              : 0,
           amountGbp: Math.round(result.amount * 100) / 100,
           vehicleType: requestedVehicle,
           passengers: requestedPassengers,
           suitcases: requestedSuitcases,
+          outboundDate: tripDate.trim(),
+          outboundTime: tripTime.trim(),
+          returnJourney,
+          returnDate: returnJourney ? returnDate.trim() : "",
+          returnTime: returnJourney ? returnTime.trim() : "",
         });
         if (
           Number.isFinite(result.distanceKm) &&
@@ -1594,7 +1616,8 @@ function QuoteCard({
 
   useEffect(() => {
     serverQuoteGenRef.current += 1;
-  }, [passengers, suitcases, quoteVehicle]);
+    setServerFareParts(null);
+  }, [passengers, suitcases, quoteVehicle, tripDate, tripTime, returnDate, returnTime, returnJourney]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1752,6 +1775,11 @@ function QuoteCard({
     passengers,
     suitcases,
     vehicleType: quoteVehicle,
+    outboundDate: tripDate,
+    outboundTime: tripTime,
+    returnJourney,
+    returnDate,
+    returnTime,
   })
     ? serverFareParts
     : null;
@@ -1767,10 +1795,15 @@ function QuoteCard({
       return {
         journeyFareGbp: currentServerFareParts.journeyFareGbp,
         airportFixedCostsGbp: fixedFromLines,
+        nightWeekendSurchargeGbp: currentServerFareParts.nightWeekendSurchargeGbp ?? 0,
       };
     }
     if (!liveQuote || typeof liveQuote.amount !== "number") {
-      return { journeyFareGbp: null as number | null, airportFixedCostsGbp: 0 };
+      return {
+        journeyFareGbp: null as number | null,
+        airportFixedCostsGbp: 0,
+        nightWeekendSurchargeGbp: 0,
+      };
     }
     const quotedFixed =
       typeof liveQuote.airportFixedCostsGbp === "number" &&
@@ -1786,7 +1819,16 @@ function QuoteCard({
       airportFeeResolution.lines.length > 0
         ? airportFeeResolution.totalAppliedGbp
         : quotedFixed;
-    return { journeyFareGbp: journey, airportFixedCostsGbp: fixed };
+    const surcharge =
+      typeof liveQuote.nightWeekendSurchargeGbp === "number" &&
+      Number.isFinite(liveQuote.nightWeekendSurchargeGbp)
+        ? Math.max(0, Math.round(liveQuote.nightWeekendSurchargeGbp * 100) / 100)
+        : 0;
+    return {
+      journeyFareGbp: journey,
+      airportFixedCostsGbp: fixed,
+      nightWeekendSurchargeGbp: surcharge,
+    };
   }, [liveQuote, airportFeeResolution, currentServerFareParts]);
 
   const openWebsiteFareBreakdown = useMemo(() => {
@@ -1800,6 +1842,7 @@ function QuoteCard({
     return buildOpenWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
+      nightWeekendSurchargeGbp: journeyFareParts.nightWeekendSurchargeGbp ?? 0,
       airportAccessChargeGbp: expressSelection.feeGbp,
       outboundAirportAccessChargeGbp: expressSelection.outboundFeeGbp,
       returnAirportAccessChargeGbp: expressSelection.returnFeeGbp,
@@ -1812,6 +1855,7 @@ function QuoteCard({
     useOpenWebsitePromoPricing,
     journeyFareParts.journeyFareGbp,
     journeyFareParts.airportFixedCostsGbp,
+    journeyFareParts.nightWeekendSurchargeGbp,
     expressSelection.feeGbp,
     expressSelection.outboundFeeGbp,
     expressSelection.returnFeeGbp,
@@ -1896,6 +1940,7 @@ function QuoteCard({
   const quoteResultsReady =
     quoteChoicesReady &&
     hasQuoteRoute &&
+    isScheduleComplete &&
     Boolean(journeyDistanceLabel) &&
     Boolean(journeyDurationLabel) &&
     (Boolean(liveQuote) ||
@@ -4000,6 +4045,17 @@ function QuoteCard({
         failStep1("invalid_suitcases", "Please select 0–4 large suitcases.");
         return;
       }
+      if (!isScheduleComplete) {
+        failStep1(
+          "missing_schedule",
+          travelDetailsBlocker || QUOTE_PRICE_WAIT_FOR_SCHEDULE,
+        );
+        scrollQuoteStage("quote-section-schedule");
+        window.setTimeout(() => {
+          focusFirstInvalidField(cardRef.current ?? document);
+        }, 0);
+        return;
+      }
       if (!exceedsOnlineCapacity && !isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
         trackQuoteValidationError("price_not_ready", quoteFunnelParams({ cta: step1Cta }));
         return;
@@ -4248,7 +4304,7 @@ function QuoteCard({
     return scrollQuoteStage("journey-type-selector", { correctAfterMs: 0 });
   }, [a2aShowJourneyMode, isA2AFlow, journeyMode, quoteStep]);
 
-  // Stage 4: One way / Return selected → passenger / luggage (not bags→route yet).
+  // Stage 4: One way / Return selected → pickup date & time (then passengers).
   useEffect(() => {
     if (!isA2AFlow || quoteStep !== 1) {
       hadA2aPartyScrollRef.current = false;
@@ -4260,7 +4316,7 @@ function QuoteCard({
     }
     if (hadA2aPartyScrollRef.current) return;
     hadA2aPartyScrollRef.current = true;
-    return scrollQuoteStage("passenger-luggage-section", { correctAfterMs: 0 });
+    return scrollQuoteStage("quote-section-schedule", { correctAfterMs: 0 });
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // Stage 6: capacity incomplete → complete → YOUR ROUTE stack (once).
@@ -4275,7 +4331,7 @@ function QuoteCard({
       return;
     }
 
-    const capacityComplete = quoteChoicesReady && hasQuoteRoute;
+    const capacityComplete = quoteChoicesReady && hasQuoteRoute && isScheduleComplete;
     const becameComplete = capacityComplete && !prevPartyCompleteRef.current;
     prevPartyCompleteRef.current = capacityComplete;
 
@@ -4295,7 +4351,7 @@ function QuoteCard({
     return scrollQuoteStage(routeSummaryRef.current ?? "quote-route-summary", {
       correctAfterMs: 0,
     });
-  }, [hasQuoteRoute, quoteChoicesReady, quoteStep]);
+  }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteStep]);
 
   // Reset time→Your Journey one-shot when leaving travel-details step.
   useEffect(() => {
@@ -4844,6 +4900,14 @@ function QuoteCard({
                   liveQuote.amount,
               )}
             </p>
+            {(journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ? (
+              <p
+                className="mt-1.5 text-xs font-semibold text-emerald"
+                data-night-weekend-surcharge-badge
+              >
+                {QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE}
+              </p>
+            ) : null}
             {testChargeAmount === null && !appliedPersonalQuote ? (
               <FixedPriceAssurance
                 includesSelectedAirportAccess={expressSelection.eligible}
@@ -4921,6 +4985,56 @@ function QuoteCard({
     return fromAirport ? "Scheduled flight arrival time" : "Pickup time";
   }
 
+  function renderQuoteScheduleFields(variant: "quote" | "checkout") {
+    return (
+      <QuoteScheduleFields
+        variant={variant}
+        returnJourney={returnJourney}
+        tripDate={tripDate}
+        tripTime={tripTime}
+        returnDate={returnDate}
+        returnTime={returnTime}
+        minTripDate={minTripDate}
+        minReturnDate={minReturnDate}
+        minTripTime={minTripTime}
+        minReturnTime={minReturnTime}
+        tripDateError={tripDateError}
+        returnDateError={returnDateError}
+        outboundTimeLabel={checkoutTimeLabel("outbound")}
+        returnTimeLabel={checkoutTimeLabel("return")}
+        tripDateInputRef={tripDateInputRef}
+        tripTimeInputRef={tripTimeInputRef}
+        returnDateInputRef={returnDateInputRef}
+        returnTimeInputRef={returnTimeInputRef}
+        onTripDateChange={(value) => {
+          setTripDate(value);
+          if (value && tripTime) setTripDateError("");
+          setReturnDateError("");
+        }}
+        onTripTimeChange={(value) => {
+          setTripTime(value);
+          if (tripDate && value) setTripDateError("");
+          setReturnDateError("");
+        }}
+        onReturnDateChange={(value) => {
+          setReturnDate(value);
+          setReturnDateError("");
+        }}
+        onReturnTimeChange={(value) => {
+          setReturnTime(value);
+          setReturnDateError("");
+        }}
+        onTimeBlur={
+          variant === "checkout"
+            ? () => {
+                requestJourneySummaryScrollAfterTimeConfirm();
+              }
+            : undefined
+        }
+      />
+    );
+  }
+
   function checkoutPayableLabel(): string | null {
     if (paymentAmount == null || !Number.isFinite(paymentAmount)) return null;
     return formatQuote(paymentAmount);
@@ -4976,171 +5090,7 @@ function QuoteCard({
             Step 2 — Complete your booking
           </h2>
 
-          <section className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-white">Pickup</p>
-            <div className="grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2">
-              <div className="min-w-0 max-w-full">
-                <label htmlFor="date" className="form-label">
-                  {returnJourney ? "Outbound date" : "Date"}
-                </label>
-                <div
-                  className={quoteDateTimeFieldShellClass(
-                    fieldState({
-                      hasError: Boolean(tripDateError),
-                      complete: Boolean(tripDate.trim()),
-                      activeStep: quoteStep >= 2,
-                    }),
-                  )}
-                >
-                  <input
-                    id="date"
-                    ref={tripDateInputRef}
-                    name="date"
-                    type="date"
-                    min={minTripDate}
-                    value={tripDate}
-                    aria-invalid={Boolean(tripDateError)}
-                    aria-describedby={tripDateError ? "trip-date-error" : undefined}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setTripDate(value);
-                      if (value && tripTime) setTripDateError("");
-                      setReturnDateError("");
-                    }}
-                    onInput={(e) => {
-                      const value = (e.target as HTMLInputElement).value;
-                      setTripDate(value);
-                      if (value && tripTime) setTripDateError("");
-                      setReturnDateError("");
-                    }}
-                    className={quoteDateTimeInputClass()}
-                  />
-                </div>
-              </div>
-              <div className="min-w-0 max-w-full">
-                <label htmlFor="time" className="form-label">
-                  {checkoutTimeLabel("outbound")}
-                </label>
-                <div
-                  className={quoteDateTimeFieldShellClass(
-                    fieldState({
-                      hasError: Boolean(tripDateError),
-                      complete: Boolean(tripTime.trim()),
-                      activeStep: quoteStep >= 2,
-                    }),
-                  )}
-                >
-                  <input
-                    id="time"
-                    ref={tripTimeInputRef}
-                    name="time"
-                    type="time"
-                    min={minTripTime}
-                    value={tripTime}
-                    aria-invalid={Boolean(tripDateError)}
-                    aria-describedby={tripDateError ? "trip-date-error" : undefined}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setTripTime(value);
-                      if (tripDate && value) setTripDateError("");
-                      setReturnDateError("");
-                    }}
-                    onInput={(e) => {
-                      const value = (e.target as HTMLInputElement).value;
-                      setTripTime(value);
-                      if (tripDate && value) setTripDateError("");
-                      setReturnDateError("");
-                    }}
-                    onBlur={() => {
-                      requestJourneySummaryScrollAfterTimeConfirm();
-                    }}
-                    className={quoteDateTimeInputClass()}
-                  />
-                </div>
-              </div>
-              <p
-                id="trip-date-error"
-                role={tripDateError ? "alert" : undefined}
-                className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400"
-              >
-                {tripDateError || "\u00a0"}
-              </p>
-            </div>
-            {returnJourney ? (
-              <div className="grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2">
-                <div className="min-w-0 max-w-full">
-                  <label htmlFor="returnDate" className="form-label">
-                    Return date
-                  </label>
-                  <div
-                    className={quoteDateTimeFieldShellClass(
-                      fieldState({
-                        hasError: Boolean(returnDateError),
-                        complete: Boolean(returnDate.trim()),
-                        activeStep: quoteStep >= 2 && returnJourney,
-                      }),
-                    )}
-                  >
-                    <input
-                      id="returnDate"
-                      ref={returnDateInputRef}
-                      name="returnDate"
-                      type="date"
-                      min={minReturnDate}
-                      value={returnDate}
-                      onChange={(e) => {
-                        setReturnDate(e.target.value);
-                        setReturnDateError("");
-                      }}
-                      onInput={(e) => {
-                        setReturnDate((e.target as HTMLInputElement).value);
-                        setReturnDateError("");
-                      }}
-                      className={quoteDateTimeInputClass()}
-                    />
-                  </div>
-                </div>
-                <div className="min-w-0 max-w-full">
-                  <label htmlFor="returnTime" className="form-label">
-                    {checkoutTimeLabel("return")}
-                  </label>
-                  <div
-                    className={quoteDateTimeFieldShellClass(
-                      fieldState({
-                        hasError: Boolean(returnDateError),
-                        complete: Boolean(returnTime.trim()),
-                        activeStep: quoteStep >= 2 && returnJourney,
-                      }),
-                    )}
-                  >
-                    <input
-                      id="returnTime"
-                      ref={returnTimeInputRef}
-                      name="returnTime"
-                      type="time"
-                      min={minReturnTime}
-                      value={returnTime}
-                      onChange={(e) => {
-                        setReturnTime(e.target.value);
-                        setReturnDateError("");
-                      }}
-                      onInput={(e) => {
-                        setReturnTime((e.target as HTMLInputElement).value);
-                        setReturnDateError("");
-                      }}
-                      onBlur={() => {
-                        requestJourneySummaryScrollAfterTimeConfirm();
-                      }}
-                      className={quoteDateTimeInputClass()}
-                    />
-                  </div>
-                </div>
-                <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
-                  {returnDateError || "\u00a0"}
-                </p>
-              </div>
-            ) : null}
-          </section>
+          {renderQuoteScheduleFields("checkout")}
 
           <section
             id="step3-customer-details"
@@ -5647,6 +5597,7 @@ function QuoteCard({
         disabled={
           submitted ||
           !quoteChoicesReady ||
+          !isScheduleComplete ||
           (isEnquiryOnly ||
           isManualQuoteJourney ||
           pricingConfirmationRequired ||
@@ -5759,6 +5710,11 @@ function QuoteCard({
               : "Your fixed price"
         }
         formattedPrice={amountLabel}
+        surchargeNote={
+          (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0
+            ? QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE
+            : null
+        }
         airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />
@@ -5908,11 +5864,11 @@ function QuoteCard({
       data-quote-presentation={presentation}
       className={
         presentation === "homepage"
-          ? "quote-flow glass-card min-w-0 rounded-[1.25rem] px-3.5 py-3 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
+          ? "quote-flow glass-card min-w-0 rounded-[1.1rem] px-3 py-2.5 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
           : "quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7"
       }
     >
-      <div className={presentation === "homepage" ? "mb-2 sm:mb-5 lg:mb-5" : "mb-4 sm:mb-5 lg:mb-5"}>
+      <div className={presentation === "homepage" ? "mb-2.5 sm:mb-5 lg:mb-5" : "mb-4 sm:mb-5 lg:mb-5"}>
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
@@ -5920,7 +5876,7 @@ function QuoteCard({
             quoteStep >= 2
               ? "text-[1.05rem] font-semibold uppercase tracking-[0.14em] text-white outline-none sm:text-lg"
               : presentation === "homepage"
-                ? "font-display text-[1.7rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+                ? "font-display text-[1.55rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
               : "font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
           }`}
         >
@@ -5959,7 +5915,7 @@ function QuoteCard({
           )}
         </div>
         <ol
-          className={`${presentation === "homepage" ? "mt-1.5" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
+          className={`${presentation === "homepage" ? "mt-2" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
           aria-label="Booking steps"
         >
           {(
@@ -6137,6 +6093,17 @@ function QuoteCard({
                         ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
                         : false
               }
+              showScheduleFields={
+                journeyMode != null &&
+                (journeyIntent === "address-to-address"
+                  ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+                  : journeyIntent === "to-airport"
+                    ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+                    : journeyIntent === "from-airport"
+                      ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+                      : false)
+              }
+              scheduleFields={renderQuoteScheduleFields("quote")}
               showPartyFields={
                 journeyMode != null &&
                 (journeyIntent === "address-to-address"
@@ -6151,6 +6118,20 @@ function QuoteCard({
               journeyKindLabel={journeyKind ? journeyKindLabel(journeyKind) : undefined}
               presentation={presentation}
             />
+            {journeyMode != null && quoteStep === 1 && !quoteResultsReady ? (
+              <p
+                id="quote-price-wait"
+                className="rounded-xl quote-panel px-4 py-3 text-sm text-white"
+                role="status"
+                data-quote-price-wait
+              >
+                {!scheduleEntered
+                  ? QUOTE_PRICE_WAIT_FOR_SCHEDULE
+                  : canShowPrice && !liveQuote
+                    ? "Calculating your fixed price…"
+                    : QUOTE_PRICE_WAIT_FOR_DETAILS}
+              </p>
+            ) : null}
 
             {presentation === "homepage" &&
             !(isIncompletePickupAddress || isOutOfAreaPickupJourney || isRoiJourney) ? null : (
@@ -6265,7 +6246,7 @@ function QuoteCard({
                         {!exceedsOnlineCapacity && (
                           <div className="rounded-xl quote-panel px-3 py-3 sm:px-4 sm:py-3.5">
                             <p className="form-label mb-0">
-                              Vehicle for this journey
+                              Choose your vehicle
                             </p>
                             <p className="mt-1.5 font-display text-xl font-semibold tracking-tight text-white sm:text-[1.35rem]">
                               {vehicleShortLabel(quoteVehicle)}
@@ -6787,27 +6768,7 @@ function QuoteCard({
           </>
         ) : null}
 
-        {quoteStep >= 2 ? (
-          renderCheckoutPage()
-        ) : quoteResultsReady ? null : (
-          <>
-            <div
-              id="quote-book-now-anchor"
-              className="h-px w-full scroll-mt-44 md:scroll-mt-28"
-              aria-hidden="true"
-            />
-            <div
-              id="quote-step1-next"
-              className={
-                presentation === "homepage"
-                  ? "mt-[1.375rem] flex w-full scroll-mt-44 flex-col gap-2 sm:mt-0 md:scroll-mt-28"
-                  : "flex w-full scroll-mt-44 flex-col gap-2 md:scroll-mt-28"
-              }
-            >
-              {renderStep1PrimaryActions()}
-            </div>
-          </>
-        )}
+        {quoteStep >= 2 ? renderCheckoutPage() : null}
       </form>
       <SaveQuoteModal
         open={saveQuoteOpen}

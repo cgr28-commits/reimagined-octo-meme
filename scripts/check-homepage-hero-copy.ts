@@ -37,7 +37,7 @@ assert.doesNotMatch(
   /<h1[\s\S]*?>[\s\S]*My Airport Taxi NI/,
   "homepage H1 should no longer be the brand name",
 );
-assert.match(hero, /Private taxi airport transfers/);
+assert.match(hero, /Private taxi \| Airport transfers/);
 assert.doesNotMatch(hero, />Private airport transfers</);
 assert.match(
   hero,
@@ -50,7 +50,7 @@ assert.match(
   "homepage H1 must be Belfast Airport Transfers",
 );
 assert.match(hero, /HeroBenefitsRow/, "compact benefits row must sit by the quote panel");
-assert.match(benefits, /Reserved driver/);
+assert.match(benefits, /Pre-booked driver/);
 assert.match(benefits, /Fixed price/);
 assert.match(benefits, /Flight monitoring/);
 assert.match(benefits, /Airport waiting included/);

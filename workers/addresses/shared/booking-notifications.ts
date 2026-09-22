@@ -98,6 +98,7 @@ export type PaidBookingDetails = {
   totalPromotionalSavingGbp?: number;
   airportAccessChargeGbp?: number;
   journeyFareAfterPromotionsGbp?: number;
+  nightWeekendSurchargeGbp?: number;
   finalAmountPayableGbp?: number;
   returnOfferSavingGbp?: number;
   returnOfferOriginalPaymentReference?: string;

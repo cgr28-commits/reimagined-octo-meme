@@ -46,6 +46,7 @@ export type QuickQuoteCalculateResult =
       premiumApplied: boolean;
       returnJourney: boolean;
       journeyFareGbp?: number;
+      nightWeekendSurchargeGbp?: number;
       airportFixedCostsGbp?: number;
       distanceKm?: number;
       durationMinutes?: number;
@@ -165,6 +166,9 @@ export async function calculateServerQuote(
     returnJourney: payload.returnJourney === true,
     ...(typeof payload.journeyFareGbp === "number"
       ? { journeyFareGbp: Number(payload.journeyFareGbp) }
+      : {}),
+    ...(typeof payload.nightWeekendSurchargeGbp === "number"
+      ? { nightWeekendSurchargeGbp: Number(payload.nightWeekendSurchargeGbp) }
       : {}),
     ...(typeof payload.airportFixedCostsGbp === "number"
       ? { airportFixedCostsGbp: Number(payload.airportFixedCostsGbp) }

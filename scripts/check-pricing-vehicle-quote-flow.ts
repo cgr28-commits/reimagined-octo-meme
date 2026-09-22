@@ -1,6 +1,6 @@
 const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
 /**
- * Combined regression: no weekend surcharge, 5% return discount, vehicle rule,
+ * Combined regression: 10% Night & Weekend Surcharge, 5% return discount, vehicle rule,
  * optional quote date/time, mandatory booking date/time, homepage benefit.
  * Run: npx tsx scripts/check-pricing-vehicle-quote-flow.ts
  */
@@ -35,14 +35,14 @@ function check(name: string, fn: () => void) {
   console.log(`✓ ${name}`);
 }
 
-check("pricing rates: weekend/BH surcharge disabled; return discount exactly 5%", () => {
-  assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0);
-  assert.equal(PRICING_CONFIG.addressToAddressTripPremiumRate, 0);
+check("pricing rates: 10% Night & Weekend Surcharge; return discount exactly 5%", () => {
+  assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0.1);
+  assert.equal(PRICING_CONFIG.addressToAddressTripPremiumRate, 0.1);
   assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0.05);
   assert.equal(getReturnJourneyFare(100), 190);
 });
 
-check("weekday fare = weekend fare = Bank Holiday fare", () => {
+check("weekend / night pickup is 10% above weekday daytime; BH daytime is normal", () => {
   const cityHall = "Belfast City Hall, Belfast BT1 5GS";
   const weekday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-19",
@@ -59,14 +59,13 @@ check("weekday fare = weekend fare = Bank Holiday fare", () => {
   const noDate = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {}, cityBfsMetrics);
   assert.ok(weekday && weekend && bh && noDate);
   assert.equal(weekday.amount, 44, "14 mi City→BFS saloon = £44");
-  assert.equal(weekday.amount, weekend.amount);
+  assert.equal(weekend.amount, 48.4);
   assert.equal(weekday.amount, bh.amount);
   assert.equal(weekday.amount, noDate.amount);
   assert.equal(weekday.premiumApplied, false);
-  assert.equal(weekend.premiumApplied, false);
+  assert.equal(weekend.premiumApplied, true);
   assert.equal(bh.premiumApplied, false);
 
-  // Friday 14:00 → Saturday 15:00 (alternative pickup) must keep the same fare.
   const friday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
     outboundDate: "2026-08-21",
     outboundTime: "14:00",
@@ -76,10 +75,10 @@ check("weekday fare = weekend fare = Bank Holiday fare", () => {
     outboundTime: "15:00",
   }, cityBfsMetrics);
   assert.ok(friday && saturdayAlt);
-  assert.equal(saturdayAlt.amount, friday.amount);
   assert.equal(friday.amount, 44);
+  assert.equal(saturdayAlt.amount, 48.4);
   assert.equal(friday.premiumApplied, false);
-  assert.equal(saturdayAlt.premiumApplied, false);
+  assert.equal(saturdayAlt.premiumApplied, true);
 });
 
 check("vehicle selection matrix (suitcase-based Estate)", () => {

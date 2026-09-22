@@ -143,7 +143,7 @@ console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
     "BHD",
     SALOON_VEHICLE,
     false,
-    { outboundDate: "2026-08-29", outboundTime: "10:00" },
+    { outboundDate: "2026-08-19", outboundTime: "10:00" },
     metricsForMiles(30, 46),
     false,
   );

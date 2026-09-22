@@ -26,7 +26,7 @@ assert.match(hero, /<HeroBenefitsRow/);
 assert.match(hero, /id="quote"/);
 assert.match(hero, /<QuoteCard/);
 assert.match(hero, /Belfast Airport Transfers/);
-assert.match(hero, /Private taxi airport transfers/);
+assert.match(hero, /Private taxi \| Airport transfers/);
 assert.match(
   hero,
   /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
@@ -37,11 +37,11 @@ assert.doesNotMatch(
 );
 assert.match(hero, /presentation="homepage"/);
 assert.doesNotMatch(hero, /Reserved driver · Fixed price/);
-assert.match(benefits, /Reserved driver/);
+assert.match(benefits, /Pre-booked driver/);
 assert.match(benefits, /Fixed price/);
 assert.match(benefits, /Flight monitoring/);
 assert.match(benefits, /Airport waiting included/);
-assert.match(benefits, /\["Reserved", "driver"\]/);
+assert.match(benefits, /\["Pre-booked", "driver"\]/);
 assert.match(benefits, /\["Fixed", "price"\]/);
 assert.match(benefits, /\["Flight", "monitoring"\]/);
 assert.match(benefits, /\["Airport", "waiting included"\]/);
@@ -64,7 +64,7 @@ assert.match(progressive, /SELECT_CARD/);
 assert.match(progressive, /choiceGroupNeedsClass\(!journeyIntent\)/);
 assert.match(
   progressive,
-  /presentation === "homepage"[\s\S]{0,180}grid gap-1\.5 sm:gap-2[\s\S]{0,80}: `grid gap-2/,
+  /presentation === "homepage"[\s\S]{0,180}grid gap-2 sm:gap-2[\s\S]{0,80}: `grid gap-2/,
 );
 assert.match(progressive, /Where are you travelling\?/);
 assert.match(journey, /aria-pressed=\{selected\}/);
@@ -77,7 +77,7 @@ assert.match(journey, /M22\.07 9\.64c-\.21-\.8-1\.04-1\.28-1\.84-1\.06L14\.92 10
 assert.doesNotMatch(journey, /M19\.57 5\.64/);
 assert.match(css, /\.journey-option-card \{/);
 assert.match(css, /\.journey-option-card-selected \{/);
-assert.match(css, /min-height: 3\.4rem/);
+assert.match(css, /min-height: 3\.05rem/);
 assert.match(css, /data-quote-presentation="homepage"[\s\S]*min-height: 2\.2rem/);
 assert.match(progressive, /QUOTE_JOURNEY_INTENT_OPTIONS/);
 assert.match(progressive, /onJourneyIntentChange/);
@@ -101,7 +101,8 @@ assert.match(card, /label: "Journey"/);
 assert.match(card, /label: "Quote"/);
 assert.match(card, /label: "Booking & Pay"/);
 assert.match(card, /quote-step-active/);
-assert.match(card, /mt-\[1\.375rem\]/);
+assert.match(card, /quoteResultsReady && quoteStep === 1/);
+assert.match(card, /!quoteChoicesReady \|\|\s*!isScheduleComplete/);
 assert.match(card, /presentation === "homepage"[\s\S]{0,80}space-y-0/);
 console.log("OK  step labels and continue action text unchanged");
 

@@ -59,7 +59,7 @@ const css = read("src/app/globals.css");
 assert.match(card, /aria-current=\{active \? "step" : undefined\}/);
 assert.match(card, /quote-step-active|border-emerald bg-emerald\/15/);
 assert.match(card, /sr-only">completed/);
-assert.match(card, /quoteDateTimeFieldShellClass/);
+assert.match(read("src/components/QuoteScheduleFields.tsx"), /quoteDateTimeFieldShellClass/);
 assert.match(card, /bookingTextFieldClass/);
 assert.match(card, /needsCompletion=\{quoteStep === 1 && !isPlaceSelected/);
 assert.doesNotMatch(card, /BOOKING_INPUT_CLASS/);

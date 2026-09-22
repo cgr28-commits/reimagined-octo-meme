@@ -145,8 +145,9 @@ check("Journey mode, passengers and suitcases start unselected; results scroll o
   assert.match(card, /useState<"one-way" \| "return" \| null>\([\s\S]*?null/);
   assert.match(card, /useState<number \| null>\(null\)/);
   assert.match(progressive, /Choose One way or Return to continue\./);
-  assert.match(progressive, /Select your passenger and suitcase numbers to see your fixed price\./);
-  assert.match(card, /canShowPrice = hasQuoteRoute && quoteChoicesReady/);
+  assert.match(progressive, /Select your passenger and suitcase numbers to continue\./);
+  assert.match(card, /canShowPrice =/);
+  assert.match(card, /isScheduleComplete/);
   assert.match(card, /quote-route-summary/);
   assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
   assert.match(card, /hadRouteSummaryScrollRef/);

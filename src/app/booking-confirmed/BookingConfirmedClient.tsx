@@ -13,7 +13,7 @@ import {
 import { readPendingPayment } from "@/lib/pending-payment";
 import {
   formatCustomerPromoPricingLines,
-  type WebsitePromoPricingFields,
+  parseWebsitePromoPricingFields,
 } from "../../../shared/website-promo-pricing";
 import { formatAirportAccessOptionCustomerLines } from "../../../shared/express-drop-off";
 
@@ -57,17 +57,9 @@ export default function BookingConfirmedClient() {
     if (pending?.booking) {
       setCustomerEmail(pending.booking.customerEmail?.trim() || undefined);
       setCustomerPhone(pending.booking.mobileNumber?.trim() || undefined);
-      const promoFields: WebsitePromoPricingFields = {
-        journeyFareBeforePromotionsGbp: pending.booking.journeyFareBeforePromotionsGbp,
-        originalEligibleJourneyPriceGbp: pending.booking.originalEligibleJourneyPriceGbp,
-        returnJourneySavingGbp: pending.booking.returnJourneySavingGbp,
-        totalPromotionalSavingGbp: pending.booking.totalPromotionalSavingGbp,
-        airportAccessChargeGbp: pending.booking.airportAccessChargeGbp,
-        outboundAirportAccessChargeGbp: pending.booking.outboundAirportAccessChargeGbp,
-        returnAirportAccessChargeGbp: pending.booking.returnAirportAccessChargeGbp,
-        journeyFareAfterPromotionsGbp: pending.booking.journeyFareAfterPromotionsGbp,
-        finalAmountPayableGbp: pending.booking.finalAmountPayableGbp,
-      };
+      const promoFields = parseWebsitePromoPricingFields(
+        pending.booking as unknown as Record<string, unknown>,
+      );
       const lines = formatCustomerPromoPricingLines(promoFields).filter(
         (line) => !line.startsWith("Amount paid:"),
       );
