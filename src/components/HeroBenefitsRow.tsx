@@ -46,7 +46,7 @@ const BENEFITS = [
 export default function HeroBenefitsRow() {
   return (
     <ul
-      className="hero-benefits-row mb-2.5 grid grid-cols-4 md:mb-5"
+      className="hero-benefits-row mb-2 grid grid-cols-4 md:mb-5"
       aria-label="Why book with My Airport Taxi NI"
     >
       {BENEFITS.map((benefit, index) => (

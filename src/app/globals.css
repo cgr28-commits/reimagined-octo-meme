@@ -723,14 +723,14 @@ main {
 
 .journey-option-card {
   display: flex;
-  min-height: 3.25rem;
+  min-height: 3.05rem;
   width: 100%;
   align-items: center;
   gap: 0.58rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: var(--quote-choice-bg);
-  padding: 0.4rem 0.65rem;
+  padding: 0.32rem 0.65rem;
   text-align: left;
   transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
 }
@@ -801,7 +801,7 @@ main {
 
 @media (max-width: 767px) {
   .homepage-hero .section-eyebrow {
-    margin-bottom: 0.45rem;
+    margin-bottom: 0.32rem;
     letter-spacing: 0.14em;
   }
 

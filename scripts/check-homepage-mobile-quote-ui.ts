@@ -77,7 +77,7 @@ assert.match(journey, /M22\.07 9\.64c-\.21-\.8-1\.04-1\.28-1\.84-1\.06L14\.92 10
 assert.doesNotMatch(journey, /M19\.57 5\.64/);
 assert.match(css, /\.journey-option-card \{/);
 assert.match(css, /\.journey-option-card-selected \{/);
-assert.match(css, /min-height: 3\.25rem/);
+assert.match(css, /min-height: 3\.05rem/);
 assert.match(css, /data-quote-presentation="homepage"[\s\S]*min-height: 2\.2rem/);
 assert.match(progressive, /QUOTE_JOURNEY_INTENT_OPTIONS/);
 assert.match(progressive, /onJourneyIntentChange/);
