@@ -21,7 +21,7 @@ export default function HeroSlideshow() {
             Belfast Airport Transfers
           </h1>
 
-          <p className="mt-1.5 max-w-xl text-[0.95rem] leading-[1.38] text-white/70 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
+          <p className="mt-1.5 max-w-xl text-[0.95rem] leading-[1.38] text-white/82 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
             Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland.
           </p>
 

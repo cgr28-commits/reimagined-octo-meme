@@ -4687,6 +4687,7 @@ function QuoteCard({
       return (
         <div className="mt-3 text-left" data-express-airport-choice>
           <CombinedAirportAccessChoice
+            airportCode={expressSelection.airportCode}
             mode={mode}
             tone={tone}
             editing={expressEditingLeg != null}
