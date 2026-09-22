@@ -27,7 +27,16 @@ console.log("=== Express access visible in quote fare UI ===");
   assert.match(trust, /Not added/);
   assert.match(trust, /freeAirportAccessSelected/);
   assert.match(trust, /Amount payable/);
-  assert.match(trust, /journeyFareDisplayGbp/);
+  // Journey row must use the base fare only. journeyFareDisplayGbp includes
+  // Night & Weekend Surcharge and airport/barrier fixed costs, so using it
+  // here would double-count those lines and fold Express-adjacent extras
+  // into “Journey fare”.
+  assert.match(trust, /journeyFareBeforePromotionsGbp/);
+  assert.match(trust, /originalEligibleJourneyPriceGbp/);
+  assert.doesNotMatch(
+    trust,
+    /formatGbpFare\(\s*breakdown\.journeyFareDisplayGbp/,
+  );
   assert.match(trust, /finalAmountPayableGbp|finalPayableGbp/);
   assert.doesNotMatch(trust, /Original booking value/);
   assert.doesNotMatch(
