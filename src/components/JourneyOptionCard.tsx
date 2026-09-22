@@ -56,10 +56,10 @@ export default function JourneyOptionCard({
         <JourneyIcon id={id} />
       </span>
       <span className="min-w-0 flex-1 text-left">
-        <span className="block text-[0.92rem] font-bold leading-tight text-white sm:text-base">
+        <span className="block text-[0.9rem] font-semibold leading-tight text-white sm:text-base">
           {title}
         </span>
-        <span className="mt-px block text-[0.72rem] leading-[1.22] text-white/62 sm:mt-0.5 sm:text-[0.8rem]">
+        <span className="mt-0.5 block text-[0.72rem] leading-[1.25] text-white/64 sm:mt-0.5 sm:text-[0.8rem]">
           {description}
         </span>
       </span>

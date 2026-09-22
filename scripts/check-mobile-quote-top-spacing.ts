@@ -28,7 +28,7 @@ assert.match(hero, /md:order-1 md:scroll-mt-28 lg:order-2/);
 assert.match(hero, /gap-2 /);
 assert.match(hero, /md:gap-12/);
 assert.match(hero, /section-eyebrow mb-1[\s\S]*md:mb-5/);
-assert.match(hero, /Private taxi airport transfers/);
+assert.match(hero, /Private taxi \| Airport transfers/);
 assert.match(
   hero,
   /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
@@ -43,7 +43,7 @@ assert.match(hero, /pt-\[4\.15rem\] md:pt-28/);
 assert.doesNotMatch(hero, /pt-36/);
 assert.doesNotMatch(hero, /pt-\[4\.75rem\]/);
 assert.doesNotMatch(hero, /pt-44/);
-assert.match(hero, /py-1/);
+assert.match(hero, /py-2/);
 assert.match(hero, /md:py-16/);
 
 // Sticky #quote offset matches mobile header clearance.

@@ -5864,11 +5864,11 @@ function QuoteCard({
       data-quote-presentation={presentation}
       className={
         presentation === "homepage"
-          ? "quote-flow glass-card min-w-0 rounded-[1.25rem] px-3.5 py-3 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
+          ? "quote-flow glass-card min-w-0 rounded-[1.1rem] px-3 py-2.5 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
           : "quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7"
       }
     >
-      <div className={presentation === "homepage" ? "mb-2 sm:mb-5 lg:mb-5" : "mb-4 sm:mb-5 lg:mb-5"}>
+      <div className={presentation === "homepage" ? "mb-2.5 sm:mb-5 lg:mb-5" : "mb-4 sm:mb-5 lg:mb-5"}>
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
@@ -5876,7 +5876,7 @@ function QuoteCard({
             quoteStep >= 2
               ? "text-[1.05rem] font-semibold uppercase tracking-[0.14em] text-white outline-none sm:text-lg"
               : presentation === "homepage"
-                ? "font-display text-[1.7rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+                ? "font-display text-[1.55rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
               : "font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
           }`}
         >
@@ -5915,7 +5915,7 @@ function QuoteCard({
           )}
         </div>
         <ol
-          className={`${presentation === "homepage" ? "mt-1.5" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
+          className={`${presentation === "homepage" ? "mt-2" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
           aria-label="Booking steps"
         >
           {(
