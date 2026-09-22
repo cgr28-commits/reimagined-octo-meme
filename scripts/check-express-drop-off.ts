@@ -28,6 +28,10 @@ import {
   expressQuoteExpressHint,
   expressQuoteFreeTitle,
   expressQuoteFreeHint,
+  combinedQuoteExpressHint,
+  combinedQuoteExpressTitle,
+  combinedQuoteFreeHint,
+  combinedQuoteFreeTitle,
   canProceedWithoutExpressDropOffLegs,
   formatAirportAccessOptionCustomerLine,
   formatAirportAccessOptionCustomerLines,
@@ -377,7 +381,7 @@ check("Breakdown / customer copy wording", () => {
   assert.equal(expressQuoteExpressTitle("BHD", "drop-off", false), "Express Drop-Off — add £4");
   assert.equal(
     expressQuoteExpressHint("pick-up"),
-    "Recommended · Meet closer to the terminal",
+    "Recommended · Pick-up close to the terminal",
   );
   assert.equal(
     expressQuoteExpressHint("drop-off"),
@@ -392,8 +396,24 @@ check("Breakdown / customer copy wording", () => {
     expressQuoteFreeTitle("BHD", "drop-off", false),
     "Free Drop-Off Area — save £4",
   );
-  assert.equal(expressQuoteFreeHint("pick-up"), "Use the designated free collection area");
+  assert.equal(expressQuoteFreeHint("pick-up"), "Use the designated free pick-up area");
   assert.equal(expressQuoteFreeHint("drop-off"), "Use the designated free drop-off area");
+  assert.equal(
+    combinedQuoteExpressHint("BFS"),
+    "£5 Drop-Off + £5 Pick-Up · Both at the terminal",
+  );
+  assert.equal(
+    combinedQuoteExpressHint("BHD"),
+    "£4 Drop-Off + £4 Pick-Up · Both at the terminal",
+  );
+  assert.equal(combinedQuoteExpressTitle(10, true), "Express access — £10 included");
+  assert.equal(combinedQuoteExpressTitle(8, true), "Express access — £8 included");
+  assert.equal(combinedQuoteFreeTitle(10, false), "Free airport areas — save £10");
+  assert.equal(combinedQuoteFreeTitle(8, false), "Free airport areas — save £8");
+  assert.equal(
+    combinedQuoteFreeHint(),
+    "Free Drop-Off + Free Pick-Up areas",
+  );
   assert.equal(
     expressDropOffRemovedExplanation("drop-off"),
     EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
@@ -1298,6 +1318,10 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
   const combinedSelector = read("src/components/CombinedAirportAccessSelector.tsx");
   assert.match(combinedSelector, /Airport access option/);
   assert.match(combinedSelector, /COMBINED_AIRPORT_ACCESS_RETURN_NOTE/);
+  assert.match(combinedSelector, /combinedQuoteExpressHint\(airportCode\)/);
+  assert.match(combinedSelector, /combinedQuoteFreeHint\(\)/);
+  assert.match(card, /airportCode=\{expressSelection\.airportCode\}/);
+  assert.doesNotMatch(combinedSelector, /£5 Drop-Off|£4 Drop-Off/);
   assert.match(combinedSelector, /onRemovalAcknowledgedChange\(true\)/);
   assert.doesNotMatch(combinedSelector, /type="checkbox"/);
   const expressShared = read("shared/express-drop-off.ts");

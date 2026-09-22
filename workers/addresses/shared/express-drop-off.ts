@@ -403,7 +403,7 @@ export function expressQuoteExpressTitle(
 
 export function expressQuoteExpressHint(service: ExpressAirportService = "drop-off"): string {
   return service === "pick-up"
-    ? "Recommended · Meet closer to the terminal"
+    ? "Recommended · Pick-up close to the terminal"
     : "Recommended · Drop-off close to the terminal";
 }
 
@@ -419,7 +419,7 @@ export function expressQuoteFreeTitle(
 
 export function expressQuoteFreeHint(service: ExpressAirportService = "drop-off"): string {
   return service === "pick-up"
-    ? "Use the designated free collection area"
+    ? "Use the designated free pick-up area"
     : "Use the designated free drop-off area";
 }
 
@@ -431,6 +431,17 @@ export function combinedQuoteExpressTitle(totalFeeGbp: number, expressSelected: 
 export function combinedQuoteFreeTitle(totalFeeGbp: number, freeSelected: boolean): string {
   const fee = formatExpressDropOffGbp(totalFeeGbp);
   return freeSelected ? `Free airport areas — £0` : `Free airport areas — save ${fee}`;
+}
+
+export function combinedQuoteExpressHint(
+  airportCode: string | null | undefined,
+): string {
+  const fee = formatExpressDropOffGbp(getExpressDropOffFeeGbp(airportCode));
+  return `${fee} Drop-Off + ${fee} Pick-Up · Both at the terminal`;
+}
+
+export function combinedQuoteFreeHint(): string {
+  return "Free Drop-Off + Free Pick-Up areas";
 }
 
 export function expressAvoidedChargeMessage(

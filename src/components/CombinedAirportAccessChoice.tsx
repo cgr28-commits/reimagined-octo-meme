@@ -8,6 +8,7 @@ import {
 } from "../../shared/express-drop-off";
 
 type Props = {
+  airportCode?: string | null;
   totalFeeGbp: number;
   selected: boolean;
   removalAcknowledged: boolean;
@@ -31,6 +32,7 @@ type Props = {
  * compact summary with Change on later payment pages, for return bookings.
  */
 export default function CombinedAirportAccessChoice({
+  airportCode,
   totalFeeGbp,
   selected,
   removalAcknowledged,
@@ -72,6 +74,7 @@ export default function CombinedAirportAccessChoice({
   return (
     <div className={`min-w-0 space-y-2 ${className}`}>
       <CombinedAirportAccessSelector
+        airportCode={airportCode}
         totalFeeGbp={totalFeeGbp}
         selected={selected}
         removalAcknowledged={removalAcknowledged}
