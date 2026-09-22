@@ -433,12 +433,15 @@ export function combinedQuoteFreeTitle(totalFeeGbp: number, freeSelected: boolea
   return freeSelected ? `Free airport areas — £0` : `Free airport areas — save ${fee}`;
 }
 
-export function combinedQuoteExpressHint(): string {
-  return "Express drop-off & pick-up at the terminal";
+export function combinedQuoteExpressHint(
+  airportCode: string | null | undefined,
+): string {
+  const fee = formatExpressDropOffGbp(getExpressDropOffFeeGbp(airportCode));
+  return `${fee} Drop-Off + ${fee} Pick-Up · Both at the terminal`;
 }
 
 export function combinedQuoteFreeHint(): string {
-  return "Use the designated free drop-off & pick-up areas";
+  return "Free Drop-Off + Free Pick-Up areas";
 }
 
 export function expressAvoidedChargeMessage(

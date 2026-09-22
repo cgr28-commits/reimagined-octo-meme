@@ -14,6 +14,8 @@ import {
 } from "@/components/ExpressDropOffSelector";
 
 type Props = {
+  /** Airport used to look up the per-leg Express fee (BFS £5 / BHD £4). */
+  airportCode?: string | null;
   /** Total Express fee across both legs (e.g. two BFS legs = £5 + £5 = £10). */
   totalFeeGbp: number;
   /** True when Express is selected for both legs. */
@@ -32,6 +34,7 @@ type Props = {
  * Single always-visible "Airport access" control for a return booking.
  */
 export default function CombinedAirportAccessSelector({
+  airportCode,
   totalFeeGbp,
   selected,
   removalAcknowledged: _removalAcknowledged,
@@ -73,7 +76,7 @@ export default function CombinedAirportAccessSelector({
               {combinedQuoteExpressTitle(totalFeeGbp, selected)}
             </span>
             <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
-              {combinedQuoteExpressHint()}
+              {combinedQuoteExpressHint(airportCode)}
             </span>
           </span>
         </label>
