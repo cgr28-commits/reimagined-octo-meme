@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
+import { OwnerNoAvailabilityBlocked } from "@/components/OwnerNoAvailabilityBlocked";
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import { useCustomerSmartAvailabilityPreflight } from "@/lib/use-customer-smart-availability-preflight";
 import {
@@ -31,6 +32,7 @@ import {
 } from "../../../shared/express-drop-off";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import {
+  isOwnerNoAvailabilityMessage,
   isWithinMinimumBookingNotice,
   minimumNoticeRequestBody,
   minimumNoticeRequestHeading,
@@ -447,6 +449,7 @@ function BookQuoteInner() {
           <div>
             <label className="mb-1 block text-xs text-white/45">Pickup date</label>
             <input
+              id="book-quote-date"
               type="date"
               value={tripDate}
               onChange={(e) => setTripDate(e.target.value)}
@@ -456,6 +459,7 @@ function BookQuoteInner() {
           <div>
             <label className="mb-1 block text-xs text-white/45">Pickup time</label>
             <input
+              id="book-quote-time"
               type="time"
               value={tripTime}
               onChange={(e) => setTripTime(e.target.value)}
@@ -595,7 +599,17 @@ function BookQuoteInner() {
         />
       </div>
 
-      {isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
+      {isOwnerNoAvailabilityMessage(error) ? (
+        <OwnerNoAvailabilityBlocked
+          message={error}
+          onChooseAnotherDate={() => {
+            document.getElementById("book-quote-date")?.focus();
+          }}
+          onChooseAnotherTime={() => {
+            document.getElementById("book-quote-time")?.focus();
+          }}
+        />
+      ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
         <CustomerSmartAvailabilityBlocked
           message={error}
           onChooseAnotherTime={() => {

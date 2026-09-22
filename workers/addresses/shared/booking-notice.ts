@@ -1,6 +1,7 @@
 /**
  * Owner unavailable booking periods + service labels (Europe/London).
- * SumUp is blocked only when outbound pickup falls inside an active period.
+ * request_only: SumUp blocked on outbound pickup; booking request still allowed.
+ * no_availability: hard close. Journey-window overlap when duration is known.
  * Expired periods (now >= end) are ignored — no KV write required to expire.
  */
 
@@ -93,12 +94,57 @@ export type BookableServiceCode = "SALOON" | "ESTATE" | "MINIBUS";
 /** Europe/London wall clock `YYYY-MM-DDTHH:mm`. */
 export type LondonLocalDateTime = string;
 
+export const UNAVAILABLE_PERIOD_MODES = ["request_only", "no_availability"] as const;
+export type UnavailablePeriodMode = (typeof UNAVAILABLE_PERIOD_MODES)[number];
+
+/** Missing/legacy/invalid mode stays request-only so existing periods are not hard-closed. */
+export function normalizeUnavailablePeriodMode(value: unknown): UnavailablePeriodMode {
+  return value === "no_availability" ? "no_availability" : "request_only";
+}
+
+export const OWNER_NO_AVAILABILITY_CODE = "owner_no_availability";
+export const OWNER_NO_AVAILABILITY_MESSAGE =
+  "We’re unavailable at this time. Please choose another pickup date or time.";
+
+export type OwnerAvailabilityState = "no_availability" | "available";
+
+export type PublicOwnerAvailability = {
+  state: OwnerAvailabilityState;
+  blocked: boolean;
+  code: typeof OWNER_NO_AVAILABILITY_CODE | null;
+  customerMessage: string | null;
+};
+
+export function emptyPublicOwnerAvailability(): PublicOwnerAvailability {
+  return {
+    state: "available",
+    blocked: false,
+    code: null,
+    customerMessage: null,
+  };
+}
+
+export function blockedPublicOwnerAvailability(): PublicOwnerAvailability {
+  return {
+    state: "no_availability",
+    blocked: true,
+    code: OWNER_NO_AVAILABILITY_CODE,
+    customerMessage: OWNER_NO_AVAILABILITY_MESSAGE,
+  };
+}
+
+export function isOwnerNoAvailabilityMessage(message?: string | null): boolean {
+  return String(message || "").trim() === OWNER_NO_AVAILABILITY_MESSAGE;
+}
+
 export type UnavailablePeriodInput = {
   id?: string;
   startLocal: string;
   endLocal: string;
   /** Private Owner note — never shown to customers. */
   note?: string | null;
+  /** Missing mode = request_only. */
+  mode?: UnavailablePeriodMode | string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -108,6 +154,7 @@ export type UnavailablePeriod = {
   startLocal: LondonLocalDateTime;
   endLocal: LondonLocalDateTime;
   note?: string;
+  mode: UnavailablePeriodMode;
   createdAt: string;
   updatedAt: string;
 };
@@ -172,10 +219,12 @@ export function normalizeUnavailablePeriod(
 
   const note = String(raw.note ?? "").trim().slice(0, 280);
   const createdAt = raw.createdAt?.trim() || now.toISOString();
+  const mode = normalizeUnavailablePeriodMode(raw.mode);
   return {
     id: String(raw.id ?? "").trim() || generateUnavailablePeriodId(now),
     startLocal,
     endLocal,
+    mode,
     ...(note ? { note } : {}),
     createdAt,
     updatedAt: raw.updatedAt?.trim() || now.toISOString(),
@@ -250,6 +299,181 @@ export function findBlockingUnavailablePeriod(
     }
   }
   return null;
+}
+
+export function isRequestOnlyUnavailablePeriod(
+  period: Pick<UnavailablePeriod, "mode"> | { mode?: unknown },
+): boolean {
+  return normalizeUnavailablePeriodMode(period.mode) === "request_only";
+}
+
+export function isNoAvailabilityPeriod(
+  period: Pick<UnavailablePeriod, "mode"> | { mode?: unknown },
+): boolean {
+  return normalizeUnavailablePeriodMode(period.mode) === "no_availability";
+}
+
+/**
+ * Request-only conversion still uses outbound pickup only.
+ * Hard-close periods are excluded so they cannot become short-notice requests.
+ */
+export function findRequestOnlyBlockingPeriod(
+  tripDate: string,
+  tripTime: string,
+  periods: UnavailablePeriod[] | null | undefined,
+  now = new Date(),
+): UnavailablePeriod | null {
+  if (!periods?.length) return null;
+  return findBlockingUnavailablePeriod(
+    tripDate,
+    tripTime,
+    periods.filter((period) => isRequestOnlyUnavailablePeriod(period)),
+    now,
+  );
+}
+
+export type OwnerAvailabilityLeg = {
+  tripDate?: string | null;
+  tripTime?: string | null;
+  durationMinutes?: number | null;
+};
+
+export type OwnerAvailabilityBooking = {
+  tripDate?: string | null;
+  tripTime?: string | null;
+  returnJourney?: boolean | null;
+  returnDate?: string | null;
+  returnTime?: string | null;
+  routeDurationMinutes?: number | null;
+  journeyDuration?: string | null;
+  returnRouteDurationMinutes?: number | null;
+  returnJourneyDuration?: string | null;
+};
+
+/** Reuse an already-calculated duration. Returns null instead of inventing one. */
+export function existingJourneyDurationMinutes(
+  minutes?: number | null,
+  label?: string | null,
+): number | null {
+  if (typeof minutes === "number" && Number.isFinite(minutes) && minutes > 0) {
+    return Math.round(minutes);
+  }
+  const raw = String(label ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  const hrMin = /^(\d+)\s*hr(?:s)?(?:\s+(\d+)\s*min)?$/.exec(raw);
+  if (hrMin) {
+    const total = Number(hrMin[1]) * 60 + (hrMin[2] ? Number(hrMin[2]) : 0);
+    return total > 0 ? total : null;
+  }
+  const hoursAndMins = raw.match(/(\d+)\s*h(?:ours?)?(?:\s+(\d+)\s*m(?:in(?:utes?)?)?)?/);
+  const minsOnly = raw.match(/(\d+)\s*m(?:in(?:utes?)?)?/);
+  if (hoursAndMins && /h/.test(raw)) {
+    const total = Number(hoursAndMins[1]) * 60 + (hoursAndMins[2] ? Number(hoursAndMins[2]) : 0);
+    return total > 0 ? total : null;
+  }
+  if (minsOnly) {
+    const minutes = Number(minsOnly[1]);
+    return minutes > 0 ? minutes : null;
+  }
+  const plain = Number(raw.replace(/[^\d.]/g, ""));
+  return Number.isFinite(plain) && plain > 0 && plain < 400 ? Math.round(plain) : null;
+}
+
+export function ownerAvailabilityLegsFromBooking(
+  booking: OwnerAvailabilityBooking,
+): OwnerAvailabilityLeg[] {
+  const outboundDuration = existingJourneyDurationMinutes(
+    booking.routeDurationMinutes,
+    booking.journeyDuration,
+  );
+  const outbound: OwnerAvailabilityLeg = {
+    tripDate: booking.tripDate,
+    tripTime: booking.tripTime,
+    durationMinutes: outboundDuration,
+  };
+  const legs = [outbound];
+  if (
+    booking.returnJourney &&
+    String(booking.returnDate || "").trim() &&
+    String(booking.returnTime || "").trim()
+  ) {
+    const returnDuration = existingJourneyDurationMinutes(
+      booking.returnRouteDurationMinutes,
+      booking.returnJourneyDuration,
+    );
+    legs.push({
+      tripDate: booking.returnDate,
+      tripTime: booking.returnTime,
+      durationMinutes: returnDuration ?? outboundDuration,
+    });
+  }
+  return legs.filter((leg) => String(leg.tripDate || "").trim() && String(leg.tripTime || "").trim());
+}
+
+export function journeyWindowOverlapsUnavailablePeriod(
+  journeyStartMs: number,
+  journeyEndMs: number,
+  period: Pick<UnavailablePeriod, "startLocal" | "endLocal">,
+): boolean {
+  const start = parseLondonLocalStored(period.startLocal);
+  const end = parseLondonLocalStored(period.endLocal);
+  if (!start || !end) return false;
+  return journeyStartMs < end.getTime() && journeyEndMs > start.getTime();
+}
+
+/**
+ * Hard-close overlap. When duration is known: half-open journey window vs period.
+ * When duration is missing: safe pickup-time check (start ≤ pickup < end).
+ */
+export function legConflictsWithNoAvailability(
+  leg: OwnerAvailabilityLeg,
+  period: Pick<UnavailablePeriod, "startLocal" | "endLocal">,
+): boolean {
+  const pickup = parseLondonLocalDateTime(String(leg.tripDate || ""), String(leg.tripTime || ""));
+  if (!pickup) return false;
+  const duration = existingJourneyDurationMinutes(leg.durationMinutes, null);
+  if (duration == null) {
+    return isPickupInsideUnavailablePeriod(String(leg.tripDate || ""), String(leg.tripTime || ""), period);
+  }
+  const journeyStart = pickup.getTime();
+  const journeyEnd = journeyStart + duration * 60 * 1000;
+  return journeyWindowOverlapsUnavailablePeriod(journeyStart, journeyEnd, period);
+}
+
+export function findConflictingNoAvailabilityPeriod(
+  booking: OwnerAvailabilityBooking,
+  periods: UnavailablePeriod[] | null | undefined,
+  now = new Date(),
+): UnavailablePeriod | null {
+  if (!periods?.length) return null;
+  const legs = ownerAvailabilityLegsFromBooking(booking);
+  if (!legs.length) return null;
+  for (const period of periods) {
+    if (isUnavailablePeriodExpired(period, now)) continue;
+    if (!isNoAvailabilityPeriod(period)) continue;
+    if (legs.some((leg) => legConflictsWithNoAvailability(leg, period))) {
+      return period;
+    }
+  }
+  return null;
+}
+
+export function evaluateOwnerNoAvailability(
+  booking: OwnerAvailabilityBooking,
+  periods: UnavailablePeriod[] | null | undefined,
+  now = new Date(),
+): PublicOwnerAvailability {
+  return findConflictingNoAvailabilityPeriod(booking, periods, now)
+    ? blockedPublicOwnerAvailability()
+    : emptyPublicOwnerAvailability();
+}
+
+export class OwnerNoAvailabilityError extends Error {
+  readonly code = OWNER_NO_AVAILABILITY_CODE;
+  constructor(message = OWNER_NO_AVAILABILITY_MESSAGE) {
+    super(message);
+    this.name = "OwnerNoAvailabilityError";
+  }
 }
 
 /** Active = not yet expired (end still in the future). May start in the future. */

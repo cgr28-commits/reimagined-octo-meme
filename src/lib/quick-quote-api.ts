@@ -16,6 +16,10 @@ import {
   parsePublicCustomerAlternativeTimes,
   type CustomerPublicAlternativeTime,
 } from "../../shared/customer-smart-availability";
+import {
+  parsePublicOwnerAvailability,
+  type PublicOwnerAvailability,
+} from "../../shared/booking-notice";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -52,6 +56,7 @@ export type QuickQuoteCalculateResult =
       durationMinutes?: number;
       smartAvailability?: CustomerSmartAvailabilityQuoteSignal;
       minimumBookingNoticeHours?: number;
+      ownerAvailability?: PublicOwnerAvailability;
     }
   | { ok: false; reason?: string; message: string; error?: string };
 
@@ -187,6 +192,7 @@ export async function calculateServerQuote(
     ...(typeof payload.minimumBookingNoticeHours === "number"
       ? { minimumBookingNoticeHours: Number(payload.minimumBookingNoticeHours) }
       : {}),
+    ownerAvailability: parsePublicOwnerAvailability(payload.ownerAvailability),
   };
 }
 

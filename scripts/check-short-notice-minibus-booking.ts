@@ -234,7 +234,7 @@ check("Worker + UI wiring — unavailable periods replace hours/single-date rule
   assert.match(index, /shouldForceShortNotice/);
   assert.match(index, /createShortNoticeRequest/);
   assert.match(index, /shortNoticeToken/);
-  assert.match(handlers, /findBlockingUnavailablePeriod/);
+  assert.match(handlers, /findRequestOnlyBlockingPeriod|findBlockingUnavailablePeriod/);
   assert.match(handlers, /addUnavailablePeriod/);
   assert.match(handlers, /deleteUnavailablePeriod/);
   assert.doesNotMatch(handlers, /minimumOnlineNoticeHours/);

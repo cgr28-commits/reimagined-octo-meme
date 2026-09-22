@@ -5,12 +5,18 @@
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import {
   MINIMUM_BOOKING_NOTICE_HOURS,
+  OwnerNoAvailabilityError,
   computeShortNoticePaymentExpiryIso,
-  findBlockingUnavailablePeriod,
+  evaluateOwnerNoAvailability,
+  findConflictingNoAvailabilityPeriod,
+  findRequestOnlyBlockingPeriod,
   formatUnavailablePeriodRangeLabel,
   isWithinMinimumBookingNotice,
   listActiveUnavailablePeriods,
   materialJourneyFingerprint,
+  normalizeUnavailablePeriodMode,
+  type OwnerAvailabilityBooking,
+  type PublicOwnerAvailability,
   vehicleServiceLabel,
 } from "../shared/booking-notice";
 import {
@@ -504,7 +510,15 @@ export async function createShortNoticeRequest(options: {
 }> {
   const now = options.now ?? new Date();
   const settings = await getBookingSettings(options.store);
-  const blocking = findBlockingUnavailablePeriod(
+  const closed = findConflictingNoAvailabilityPeriod(
+    options.booking,
+    settings.unavailablePeriods,
+    now,
+  );
+  if (closed) {
+    throw new OwnerNoAvailabilityError();
+  }
+  const blocking = findRequestOnlyBlockingPeriod(
     options.booking.tripDate,
     options.booking.tripTime,
     settings.unavailablePeriods,
@@ -595,12 +609,22 @@ export async function sendShortNoticeRequestReceivedEmail(
  * Re-check Owner unavailable periods immediately before SumUp checkout.
  * Read-only — expired periods are ignored without a KV write.
  */
+export async function evaluateOwnerNoAvailabilityFromStore(
+  store: KVNamespace,
+  booking: OwnerAvailabilityBooking,
+  now = new Date(),
+): Promise<PublicOwnerAvailability> {
+  const settings = await getBookingSettings(store);
+  return evaluateOwnerNoAvailability(booking, settings.unavailablePeriods, now);
+}
+
 export async function shouldForceShortNotice(
   store: KVNamespace,
   booking: PaidBookingDetails,
   now = new Date(),
 ): Promise<{
   shortNotice: boolean;
+  noAvailability: boolean;
   gateActive: boolean;
   blockingPeriodId: string | null;
   blockingPeriodLabel: string | null;
@@ -608,7 +632,23 @@ export async function shouldForceShortNotice(
   minimumNoticeHours: number;
 }> {
   const settings = await getBookingSettings(store);
-  const blocking = findBlockingUnavailablePeriod(
+  const closed = findConflictingNoAvailabilityPeriod(
+    booking,
+    settings.unavailablePeriods,
+    now,
+  );
+  if (closed) {
+    return {
+      shortNotice: false,
+      noAvailability: true,
+      gateActive: true,
+      blockingPeriodId: closed.id,
+      blockingPeriodLabel: formatUnavailablePeriodRangeLabel(closed),
+      underMinimumNotice: false,
+      minimumNoticeHours: settings.minimumBookingNoticeHours,
+    };
+  }
+  const blocking = findRequestOnlyBlockingPeriod(
     booking.tripDate,
     booking.tripTime,
     settings.unavailablePeriods,
@@ -624,6 +664,7 @@ export async function shouldForceShortNotice(
   const activePeriods = listActiveUnavailablePeriods(settings.unavailablePeriods, now);
   return {
     shortNotice: Boolean(blocking) || underMinimumNotice,
+    noAvailability: false,
     gateActive: activePeriods.length > 0 || underMinimumNotice,
     blockingPeriodId: blocking?.id ?? null,
     blockingPeriodLabel: blocking ? formatUnavailablePeriodRangeLabel(blocking) : null,
@@ -1508,7 +1549,7 @@ export async function handleOwnerSaveBookingSettings(
   | {
       ok: true;
       settings: ReturnType<typeof bookingSettingsPublicView>;
-      period?: { id: string; startLocal: string; endLocal: string; note?: string };
+      period?: { id: string; startLocal: string; endLocal: string; note?: string; mode?: string };
     }
   | { error: string; status: number }
 > {
@@ -1546,6 +1587,7 @@ export async function handleOwnerSaveBookingSettings(
           ? `${body.endDate.trim()}T${body.endTime.trim()}`
           : "";
     const note = typeof body.note === "string" ? body.note : "";
+    const mode = normalizeUnavailablePeriodMode(body.mode);
 
     if (action === "update") {
       const id = String(body.id ?? "").trim();
@@ -1554,6 +1596,7 @@ export async function handleOwnerSaveBookingSettings(
         startLocal,
         endLocal,
         note,
+        mode,
       });
       return {
         ok: true,
@@ -1562,6 +1605,7 @@ export async function handleOwnerSaveBookingSettings(
           id: period.id,
           startLocal: period.startLocal,
           endLocal: period.endLocal,
+          mode: period.mode,
           ...(period.note ? { note: period.note } : {}),
         },
       };
@@ -1572,6 +1616,7 @@ export async function handleOwnerSaveBookingSettings(
       startLocal,
       endLocal,
       note,
+      mode,
     });
     return {
       ok: true,
@@ -1580,6 +1625,7 @@ export async function handleOwnerSaveBookingSettings(
         id: period.id,
         startLocal: period.startLocal,
         endLocal: period.endLocal,
+        mode: period.mode,
         ...(period.note ? { note: period.note } : {}),
       },
     };

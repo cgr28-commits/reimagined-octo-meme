@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { checkCustomerSmartAvailability } from "@/lib/customer-smart-availability-client";
 import {
+  OWNER_NO_AVAILABILITY_MESSAGE,
   isWithinMinimumBookingNotice,
   normalizeMinimumBookingNoticeHours,
 } from "../../shared/booking-notice";
@@ -44,7 +45,12 @@ export function useCustomerSmartAvailabilityPreflight(
       isFromAirport,
       routeDurationMinutes,
     }).then((result) => {
-        if (cancelled || !result.blocked) return;
+        if (cancelled) return;
+        if (result.ownerAvailability?.blocked) {
+          onBlocked(result.ownerAvailability.customerMessage || OWNER_NO_AVAILABILITY_MESSAGE, []);
+          return;
+        }
+        if (!result.blocked) return;
         if (
           isWithinMinimumBookingNotice(
             tripDate,
