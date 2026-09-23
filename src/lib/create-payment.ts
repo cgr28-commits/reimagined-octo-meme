@@ -17,6 +17,10 @@ import {
   customerSmartAvailabilityPreviewHeaders,
   withCustomerSmartAvailabilityPreviewUrl,
 } from "@/lib/customer-smart-availability-client";
+import {
+  OWNER_NO_AVAILABILITY_CODE,
+  OWNER_NO_AVAILABILITY_MESSAGE,
+} from "../../shared/booking-notice";
 
 export type PaymentCheckoutRequest = {
   amount: number;
@@ -151,6 +155,19 @@ export function isPaymentRouteServiceUnavailableError(
   return (
     error instanceof Error &&
     (error as PaymentRouteServiceUnavailableError).code === "route_service_unavailable"
+  );
+}
+
+export type PaymentOwnerNoAvailabilityError = Error & {
+  code: typeof OWNER_NO_AVAILABILITY_CODE;
+};
+
+export function isPaymentOwnerNoAvailabilityError(
+  error: unknown,
+): error is PaymentOwnerNoAvailabilityError {
+  return (
+    error instanceof Error &&
+    (error as PaymentOwnerNoAvailabilityError).code === OWNER_NO_AVAILABILITY_CODE
   );
 }
 
@@ -376,6 +393,20 @@ export async function createPaymentCheckout(
       reconfirm.code = "route_reconfirmation_required";
       reconfirm.endpoint = endpoint;
       throw reconfirm;
+    }
+    if (
+      (response.status === 409 || response.status === 400) &&
+      payload &&
+      typeof payload === "object" &&
+      (payload as { code?: unknown }).code === OWNER_NO_AVAILABILITY_CODE
+    ) {
+      const message =
+        typeof (payload as { error?: unknown }).error === "string"
+          ? String((payload as { error: string }).error)
+          : OWNER_NO_AVAILABILITY_MESSAGE;
+      const closed = new Error(message) as PaymentOwnerNoAvailabilityError;
+      closed.code = OWNER_NO_AVAILABILITY_CODE;
+      throw closed;
     }
     if (
       (response.status === 503 || response.status === 409 || response.status === 502) &&

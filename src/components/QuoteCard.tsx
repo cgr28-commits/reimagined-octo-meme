@@ -114,6 +114,7 @@ import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
   isPaymentFareMismatchError,
+  isPaymentOwnerNoAvailabilityError,
   isPaymentRouteReconfirmationError,
   isPaymentRouteServiceUnavailableError,
   isSumUpPaymentEnabled,
@@ -129,6 +130,7 @@ import type { CustomerPublicAlternativeTime } from "../../shared/customer-smart-
 import { QUOTE_REQUIRED_FIELD_MESSAGES } from "../../shared/quote-required-field-messages";
 import { planJourneyDirectionDependentReset } from "../../shared/quote-journey-direction";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
+import { OwnerNoAvailabilityBlocked } from "@/components/OwnerNoAvailabilityBlocked";
 import {
   ROUTE_RECONFIRMATION_MESSAGE,
   ROUTE_SERVICE_UNAVAILABLE_MESSAGE,
@@ -157,9 +159,11 @@ import {
 } from "@/components/QuoteFareTrust";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import {
+  isOwnerNoAvailabilityMessage,
   isWithinMinimumBookingNotice,
   minimumNoticeRequestBody,
   minimumNoticeRequestHeading,
+  OWNER_NO_AVAILABILITY_MESSAGE,
 } from "../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import {
@@ -663,6 +667,7 @@ function QuoteCard({
   const [passengersError, setPassengersError] = useState("");
   const [suitcasesError, setSuitcasesError] = useState("");
   const [smartAvailabilityBlocked, setSmartAvailabilityBlocked] = useState(false);
+  const [ownerNoAvailabilityBlocked, setOwnerNoAvailabilityBlocked] = useState(false);
   const [availabilityAlternatives, setAvailabilityAlternatives] = useState<
     CustomerPublicAlternativeTime[]
   >([]);
@@ -1573,13 +1578,22 @@ function QuoteCard({
         if (typeof result.minimumBookingNoticeHours === "number") {
           setMinimumBookingNoticeHours(result.minimumBookingNoticeHours);
         }
-        if (result.smartAvailability?.enforced) {
-          applyCustomerAvailabilityResult({
-            blocked: Boolean(result.smartAvailability.blocked),
-            available: result.smartAvailability.available !== false,
-            customerMessage: result.smartAvailability.customerMessage,
-            alternativeTimes: result.smartAvailability.alternativeTimes || [],
-          });
+        if (result.ownerAvailability?.blocked) {
+          setOwnerNoAvailabilityBlocked(true);
+          setSmartAvailabilityBlocked(false);
+          setAvailabilityAlternatives([]);
+          setPaymentError(OWNER_NO_AVAILABILITY_MESSAGE);
+        } else {
+          setOwnerNoAvailabilityBlocked(false);
+          setPaymentError((prev) => (isOwnerNoAvailabilityMessage(prev) ? "" : prev));
+          if (result.smartAvailability?.enforced) {
+            applyCustomerAvailabilityResult({
+              blocked: Boolean(result.smartAvailability.blocked),
+              available: result.smartAvailability.available !== false,
+              customerMessage: result.smartAvailability.customerMessage,
+              alternativeTimes: result.smartAvailability.alternativeTimes || [],
+            });
+          }
         }
         return true;
       }
@@ -1931,6 +1945,7 @@ function QuoteCard({
     isInstantPayVehicle(quoteVehicle) &&
     Boolean(liveQuote) &&
     !routeValidationBlockingPayment &&
+    !ownerNoAvailabilityBlocked &&
     (!smartAvailabilityBlocked || isMinimumNoticeRequest);
 
   /**
@@ -2317,6 +2332,19 @@ function QuoteCard({
     };
   }
 
+  function applyQuoteAvailabilityResult(result: CustomerSmartAvailabilityCheckResult): boolean {
+    if (result.ownerAvailability?.blocked) {
+      setOwnerNoAvailabilityBlocked(true);
+      setSmartAvailabilityBlocked(false);
+      setAvailabilityAlternatives([]);
+      setPaymentError(result.ownerAvailability.customerMessage || OWNER_NO_AVAILABILITY_MESSAGE);
+      return true;
+    }
+    setOwnerNoAvailabilityBlocked(false);
+    setPaymentError((prev) => (isOwnerNoAvailabilityMessage(prev) ? "" : prev));
+    return applyCustomerAvailabilityResult(result);
+  }
+
   function applyCustomerAvailabilityResult(result: CustomerSmartAvailabilityCheckResult): boolean {
     if (result.blocked && !isMinimumNoticeRequest) {
       setSmartAvailabilityBlocked(true);
@@ -2337,7 +2365,7 @@ function QuoteCard({
       return false;
     }
     const result = await checkCustomerSmartAvailability(customerAvailabilityBookingInput());
-    return applyCustomerAvailabilityResult(result);
+    return applyQuoteAvailabilityResult(result);
   }
 
   async function handleSelectAvailabilityAlternative(option: CustomerPublicAlternativeTime) {
@@ -2353,7 +2381,7 @@ function QuoteCard({
         tripDate: option.tripDate,
         tripTime: option.tripTime,
       });
-      applyCustomerAvailabilityResult(result);
+      applyQuoteAvailabilityResult(result);
     } finally {
       setSelectingAlternativeTime(null);
     }
@@ -2391,11 +2419,14 @@ function QuoteCard({
 
   useEffect(() => {
     if (!pickupLabel.trim() || !dropoffLabel.trim() || !tripDate.trim() || !tripTime.trim()) {
-      if (smartAvailabilityBlocked) {
+      if (smartAvailabilityBlocked || ownerNoAvailabilityBlocked) {
         setSmartAvailabilityBlocked(false);
+        setOwnerNoAvailabilityBlocked(false);
         setAvailabilityAlternatives([]);
         setPaymentError((prev) =>
-          isCustomerSmartAvailabilityBlockMessage(prev) ? "" : prev,
+          isCustomerSmartAvailabilityBlockMessage(prev) || isOwnerNoAvailabilityMessage(prev)
+            ? ""
+            : prev,
         );
       }
       return;
@@ -2422,7 +2453,7 @@ function QuoteCard({
           dropoffLng: typeof dropoffPlace?.lng === "number" ? dropoffPlace.lng : null,
         });
         if (cancelled) return;
-        applyCustomerAvailabilityResult(result);
+        applyQuoteAvailabilityResult(result);
       })();
     }, 280);
     return () => {
@@ -3112,6 +3143,11 @@ function QuoteCard({
     (pricedFare?.totalGbp != null ? pricedFare.totalGbp : liveQuote?.amount ?? null);
 
   async function handlePayNow() {
+    if (ownerNoAvailabilityBlocked || isOwnerNoAvailabilityMessage(paymentError)) {
+      setOwnerNoAvailabilityBlocked(true);
+      setPaymentError(OWNER_NO_AVAILABILITY_MESSAGE);
+      return;
+    }
     if (isCustomerSmartAvailabilityBlockMessage(paymentError) && !isMinimumNoticeRequest) {
       return;
     }
@@ -3396,6 +3432,14 @@ function QuoteCard({
         window.setTimeout(() => {
           focusFirstInvalidField(cardRef.current ?? document);
         }, 80);
+        return;
+      }
+      if (isPaymentOwnerNoAvailabilityError(error)) {
+        setOwnerNoAvailabilityBlocked(true);
+        setSmartAvailabilityBlocked(false);
+        setAvailabilityAlternatives([]);
+        setPaymentError(error.message || OWNER_NO_AVAILABILITY_MESSAGE);
+        setPaymentLoading(false);
         return;
       }
       if (isPaymentRouteServiceUnavailableError(error)) {
@@ -5071,7 +5115,10 @@ function QuoteCard({
         : vehicleShortLabel(quoteVehicle);
     const showChangeDropOff =
       expressSelection.eligible && expressSelection.freeAlternativeAvailable;
+    const ownerClosed =
+      ownerNoAvailabilityBlocked || isOwnerNoAvailabilityMessage(paymentError);
     const checkoutBlocked =
+      !ownerClosed &&
       !isMinimumNoticeRequest &&
       (smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError));
 
@@ -5397,7 +5444,19 @@ function QuoteCard({
 
           <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
 
-          {checkoutBlocked ? (
+          {ownerClosed ? (
+            <div id="owner-no-availability-blocked">
+              <OwnerNoAvailabilityBlocked
+                message={
+                  isOwnerNoAvailabilityMessage(paymentError)
+                    ? paymentError
+                    : OWNER_NO_AVAILABILITY_MESSAGE
+                }
+                onChooseAnotherDate={handleChooseAnotherDate}
+                onChooseAnotherTime={handleChooseAnotherTime}
+              />
+            </div>
+          ) : checkoutBlocked ? (
             <div id="customer-smart-availability-blocked">
               <CustomerSmartAvailabilityBlocked
                 message={
@@ -5564,7 +5623,7 @@ function QuoteCard({
             </button>
           ) : null}
 
-          {renderBookingErrorHelp("step3")}
+          {ownerClosed ? null : renderBookingErrorHelp("step3")}
           {renderStartNewQuoteControls("step3")}
           {saveQuotePrompt ? (
             <p className="text-center text-xs text-emerald/90" role="status">

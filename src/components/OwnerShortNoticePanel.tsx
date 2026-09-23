@@ -45,6 +45,7 @@ type PeriodDraft = {
   endDate: string;
   endTime: string;
   note: string;
+  mode: "request_only" | "no_availability";
 };
 
 const EMPTY_DRAFT: PeriodDraft = {
@@ -53,6 +54,7 @@ const EMPTY_DRAFT: PeriodDraft = {
   endDate: "",
   endTime: "08:00",
   note: "",
+  mode: "request_only",
 };
 
 function statusLabel(status: string): string {
@@ -144,6 +146,7 @@ function draftFromPeriod(period: UnavailablePeriodSummary): PeriodDraft {
     endDate: end.date,
     endTime: end.time || "00:00",
     note: period.note ?? "",
+    mode: period.mode === "no_availability" ? "no_availability" : "request_only",
   };
 }
 
@@ -312,6 +315,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
         endDate: draft.endDate,
         endTime: draft.endTime,
         note: draft.note,
+        mode: draft.mode,
       };
       const settings = editingId
         ? await updateUnavailablePeriod(ownerKey, { ...payload, id: editingId })
@@ -629,6 +633,43 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                 />
               </label>
             </div>
+            <fieldset className="mt-4 min-w-0">
+              <legend className="text-sm font-semibold text-white">Availability type</legend>
+              <div className="mt-2 space-y-3">
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-navy/40 p-3">
+                  <input
+                    type="radio"
+                    name="unavailable-period-mode"
+                    value="request_only"
+                    checked={draft.mode === "request_only"}
+                    onChange={() => setDraft((d) => ({ ...d, mode: "request_only" }))}
+                    className="mt-1 h-4 w-4 shrink-0 accent-emerald"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-white">Request only</span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-white/60">
+                      Customers cannot pay automatically, but can send a booking request.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-navy/40 p-3">
+                  <input
+                    type="radio"
+                    name="unavailable-period-mode"
+                    value="no_availability"
+                    checked={draft.mode === "no_availability"}
+                    onChange={() => setDraft((d) => ({ ...d, mode: "no_availability" }))}
+                    className="mt-1 h-4 w-4 shrink-0 accent-emerald"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-white">No availability</span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-white/60">
+                      Customers cannot book or send a request during this period.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
             <label className="mt-3 block min-w-0 text-sm text-white/70">
               Private Owner note (optional — never shown to customers)
               <input
@@ -692,6 +733,8 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       </p>
                       <p className="mt-1 text-xs uppercase tracking-wider text-white/45">
                         {expired ? "Expired · ignored for SumUp" : "Active"}
+                        {" · "}
+                        {period.mode === "no_availability" ? "No availability" : "Request only"}
                       </p>
                       {period.note ? (
                         <p className="mt-2 break-words text-xs text-white/55">Note: {period.note}</p>

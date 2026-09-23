@@ -80,6 +80,7 @@ export type UnavailablePeriodSummary = {
   startLocal: string;
   endLocal: string;
   note?: string;
+  mode?: "request_only" | "no_availability";
   createdAt: string;
   updatedAt: string;
 };
@@ -528,6 +529,7 @@ export type UnavailablePeriodWriteInput = {
   endDate: string;
   endTime: string;
   note?: string;
+  mode?: "request_only" | "no_availability";
 };
 
 export async function addUnavailablePeriod(
@@ -548,6 +550,7 @@ export async function addUnavailablePeriod(
       endDate: input.endDate,
       endTime: input.endTime,
       note: input.note ?? "",
+      mode: input.mode ?? "request_only",
     }),
   });
   const payload = await parseJson(response);
@@ -576,6 +579,7 @@ export async function updateUnavailablePeriod(
       endDate: input.endDate,
       endTime: input.endTime,
       note: input.note ?? "",
+      mode: input.mode ?? "request_only",
     }),
   });
   const payload = await parseJson(response);

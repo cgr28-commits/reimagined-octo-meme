@@ -141,8 +141,14 @@ import {
   publicShortNoticeSummary,
   resolveShortNoticeForPayment,
   resolveShortNoticeSiteOrigin,
+  evaluateOwnerNoAvailabilityFromStore,
   shouldForceShortNotice,
 } from "./short-notice-handlers";
+import {
+  OWNER_NO_AVAILABILITY_CODE,
+  OWNER_NO_AVAILABILITY_MESSAGE,
+  OwnerNoAvailabilityError,
+} from "../shared/booking-notice";
 import {
   customerSmartAvailabilityPreviewRequested,
   enforceCustomerSmartAvailabilityGate,
@@ -1650,6 +1656,37 @@ async function blockedCustomerSmartAvailabilityResponse(
   );
 }
 
+async function blockedOwnerNoAvailabilityResponse(
+  env: Env,
+  origin: string | null,
+  booking:
+    | {
+        tripDate?: string | null;
+        tripTime?: string | null;
+        returnJourney?: boolean | null;
+        returnDate?: string | null;
+        returnTime?: string | null;
+        routeDurationMinutes?: number | null;
+        journeyDuration?: string | null;
+      }
+    | null
+    | undefined,
+): Promise<Response | null> {
+  if (!booking || !env.TRACKING_STORE) return null;
+  const closed = await evaluateOwnerNoAvailabilityFromStore(env.TRACKING_STORE, booking);
+  if (!closed.blocked) return null;
+  return json(
+    {
+      error: closed.customerMessage || OWNER_NO_AVAILABILITY_MESSAGE,
+      code: OWNER_NO_AVAILABILITY_CODE,
+      available: false,
+      ownerAvailability: closed,
+    },
+    409,
+    origin,
+  );
+}
+
 async function handlePaymentRequest(
   request: Request,
   env: Env,
@@ -1719,6 +1756,8 @@ async function handlePaymentRequest(
       standardWebsiteAmount = record.standardWebsiteAmount;
     }
 
+    const shortNoticeClosed = await blockedOwnerNoAvailabilityResponse(env, origin, booking);
+    if (shortNoticeClosed) return shortNoticeClosed;
     const shortNoticeBlocked = await blockedCustomerSmartAvailabilityResponse(
       request,
       env,
@@ -1767,6 +1806,8 @@ async function handlePaymentRequest(
     booking = record.booking;
     a2aQuoteReference = record.reference;
 
+    const a2aClosed = await blockedOwnerNoAvailabilityResponse(env, origin, booking);
+    if (a2aClosed) return a2aClosed;
     const a2aBlocked = await blockedCustomerSmartAvailabilityResponse(
       request,
       env,
@@ -1965,6 +2006,8 @@ async function handlePaymentRequest(
         : booking.tripLabel || "Airport transfer",
     };
 
+    const quickQuoteClosed = await blockedOwnerNoAvailabilityResponse(env, origin, booking);
+    if (quickQuoteClosed) return quickQuoteClosed;
     const quickQuoteBlocked = await blockedCustomerSmartAvailabilityResponse(
       request,
       env,
@@ -2429,6 +2472,8 @@ async function handlePaymentRequest(
     return json({ error: "Missing redirect URL" }, 400, origin);
   }
 
+  const ownerClosed = await blockedOwnerNoAvailabilityResponse(env, origin, booking);
+  if (ownerClosed) return ownerClosed;
   const availabilityBlocked = await blockedCustomerSmartAvailabilityResponse(
     request,
     env,
@@ -2471,6 +2516,17 @@ async function handlePaymentRequest(
   // Short-notice window: save request for Owner approval — do NOT open SumUp.
   if (!shortNoticeToken && !a2aQuoteToken) {
     const notice = await shouldForceShortNotice(env.TRACKING_STORE, booking);
+    if (notice.noAvailability) {
+      return json(
+        {
+          error: OWNER_NO_AVAILABILITY_MESSAGE,
+          code: OWNER_NO_AVAILABILITY_CODE,
+          available: false,
+        },
+        409,
+        origin,
+      );
+    }
     if (notice.shortNotice) {
       try {
         const created = await createShortNoticeRequest({
@@ -2534,6 +2590,17 @@ async function handlePaymentRequest(
           origin,
         );
       } catch (error) {
+        if (error instanceof OwnerNoAvailabilityError) {
+          return json(
+            {
+              error: error.message || OWNER_NO_AVAILABILITY_MESSAGE,
+              code: OWNER_NO_AVAILABILITY_CODE,
+              available: false,
+            },
+            409,
+            origin,
+          );
+        }
         console.error("Short-notice request failed", error);
         return json(
           {

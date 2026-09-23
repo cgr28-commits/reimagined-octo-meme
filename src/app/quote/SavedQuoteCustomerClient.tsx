@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
+import { OwnerNoAvailabilityBlocked } from "@/components/OwnerNoAvailabilityBlocked";
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import { useCustomerSmartAvailabilityPreflight } from "@/lib/use-customer-smart-availability-preflight";
 import {
@@ -25,6 +26,7 @@ import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import { savedQuoteScheduleChanged } from "../../../shared/booking-amendment";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import {
+  isOwnerNoAvailabilityMessage,
   isWithinMinimumBookingNotice,
   minimumNoticeRequestBody,
   minimumNoticeRequestHeading,
@@ -449,6 +451,7 @@ function SavedQuoteInner() {
               </dt>
               <dd>
                 <input
+                  id="saved-quote-date"
                   type="date"
                   className={`${fieldClass} w-full`}
                   value={tripDate}
@@ -462,6 +465,7 @@ function SavedQuoteInner() {
               </dt>
               <dd>
                 <input
+                  id="saved-quote-time"
                   type="time"
                   className={`${fieldClass} w-full`}
                   value={tripTime}
@@ -639,7 +643,17 @@ function SavedQuoteInner() {
             error={!termsAccepted && error.includes("Terms") ? error : undefined}
           />
 
-          {isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
+          {isOwnerNoAvailabilityMessage(error) ? (
+            <OwnerNoAvailabilityBlocked
+              message={error}
+              onChooseAnotherDate={() => {
+                document.getElementById("saved-quote-date")?.focus();
+              }}
+              onChooseAnotherTime={() => {
+                document.getElementById("saved-quote-time")?.focus();
+              }}
+            />
+          ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
             <CustomerSmartAvailabilityBlocked
               message={error}
               onChooseAnotherTime={() => {

@@ -10,6 +10,11 @@ import {
   type CustomerPublicAlternativeTime,
 } from "../../shared/customer-smart-availability";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import {
+  emptyPublicOwnerAvailability,
+  parsePublicOwnerAvailability,
+  type PublicOwnerAvailability,
+} from "../../shared/booking-notice";
 
 export {
   CUSTOMER_CHOOSE_ANOTHER_TIME_LABEL,
@@ -79,10 +84,17 @@ export type CustomerSmartAvailabilityCheckResult = {
   customerMessage: string | null;
   alternativeTimes: CustomerPublicAlternativeTime[];
   minimumBookingNoticeHours?: number;
+  ownerAvailability?: PublicOwnerAvailability;
 };
 
 function failOpenAvailability(): CustomerSmartAvailabilityCheckResult {
-  return { blocked: false, available: true, customerMessage: null, alternativeTimes: [] };
+  return {
+    blocked: false,
+    available: true,
+    customerMessage: null,
+    alternativeTimes: [],
+    ownerAvailability: emptyPublicOwnerAvailability(),
+  };
 }
 
 function noticeHoursFromPayload(payload: Record<string, unknown>): number | undefined {
@@ -111,6 +123,7 @@ export async function checkCustomerSmartAvailability(
     );
     const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
     if (!payload || typeof payload !== "object") return failOpenAvailability();
+    const ownerAvailability = parsePublicOwnerAvailability(payload.ownerAvailability);
     if (payload.blocked === true) {
       const alternativeTimes = parsePublicCustomerAlternativeTimes(payload.alternativeTimes);
       const customerMessage =
@@ -123,13 +136,18 @@ export async function checkCustomerSmartAvailability(
         available: false,
         customerMessage,
         alternativeTimes,
+        ownerAvailability,
         ...(noticeHoursFromPayload(payload)
           ? { minimumBookingNoticeHours: noticeHoursFromPayload(payload) }
           : {}),
       };
     }
     const hours = noticeHoursFromPayload(payload);
-    return hours == null ? failOpenAvailability() : { ...failOpenAvailability(), minimumBookingNoticeHours: hours };
+    return {
+      ...failOpenAvailability(),
+      ownerAvailability,
+      ...(hours == null ? {} : { minimumBookingNoticeHours: hours }),
+    };
   } catch {
     return failOpenAvailability();
   }

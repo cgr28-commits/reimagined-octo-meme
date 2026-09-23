@@ -4,7 +4,9 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
+import { OwnerNoAvailabilityBlocked } from "@/components/OwnerNoAvailabilityBlocked";
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
+import { isOwnerNoAvailabilityMessage } from "../../../shared/booking-notice";
 import { useCustomerSmartAvailabilityPreflight } from "@/lib/use-customer-smart-availability-preflight";
 import {
   buildPaymentRedirectUrl,
@@ -549,6 +551,7 @@ function PersonalQuoteInner() {
           <label className="block text-sm text-white/80">
             Journey date
             <input
+              id="personal-quote-date"
               required
               type="date"
               value={tripDate}
@@ -559,6 +562,7 @@ function PersonalQuoteInner() {
           <label className="block text-sm text-white/80">
             Pickup time
             <input
+              id="personal-quote-time"
               required
               type="time"
               value={tripTime}
@@ -693,7 +697,17 @@ function PersonalQuoteInner() {
           paymentAmountLabel={paymentDisplay.paymentAmountLabel}
         />
 
-        {isCustomerSmartAvailabilityBlockMessage(error) ? (
+        {isOwnerNoAvailabilityMessage(error) ? (
+          <OwnerNoAvailabilityBlocked
+            message={error}
+            onChooseAnotherDate={() => {
+              document.getElementById("personal-quote-date")?.focus();
+            }}
+            onChooseAnotherTime={() => {
+              document.getElementById("personal-quote-time")?.focus();
+            }}
+          />
+        ) : isCustomerSmartAvailabilityBlockMessage(error) ? (
           <CustomerSmartAvailabilityBlocked
             message={error}
             onChooseAnotherTime={() => {

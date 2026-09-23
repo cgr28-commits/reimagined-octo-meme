@@ -27,7 +27,11 @@ import {
   recordQuoteShadowSafely,
 } from "./smart-ops-handlers";
 import { toPublicCustomerSmartAvailability } from "../shared/customer-smart-availability";
-import { MINIMUM_BOOKING_NOTICE_HOURS } from "../shared/booking-notice";
+import {
+  MINIMUM_BOOKING_NOTICE_HOURS,
+  emptyPublicOwnerAvailability,
+  evaluateOwnerNoAvailability,
+} from "../shared/booking-notice";
 import { getBookingSettings } from "./booking-settings-store";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
@@ -407,6 +411,17 @@ export async function handleQuoteCalculateRequest(
     }
     const settings = await getBookingSettings(env.TRACKING_STORE);
     quoteBody.minimumBookingNoticeHours = settings.minimumBookingNoticeHours;
+    quoteBody.ownerAvailability = evaluateOwnerNoAvailability(
+      {
+        tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
+        tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
+        returnJourney,
+        returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
+        returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
+        routeDurationMinutes: routeMetrics.durationMinutes,
+      },
+      settings.unavailablePeriods,
+    );
   }
 
   if (env?.TRACKING_STORE) {
@@ -490,15 +505,36 @@ export async function handleQuoteAvailabilityRequest(
     },
   });
 
-  const noticeHours = env?.TRACKING_STORE
-    ? (await getBookingSettings(env.TRACKING_STORE)).minimumBookingNoticeHours
-    : MINIMUM_BOOKING_NOTICE_HOURS;
+  const settings = env?.TRACKING_STORE
+    ? await getBookingSettings(env.TRACKING_STORE)
+    : null;
+  const noticeHours = settings?.minimumBookingNoticeHours ?? MINIMUM_BOOKING_NOTICE_HOURS;
+  const ownerAvailability = settings
+    ? evaluateOwnerNoAvailability(
+        {
+          tripDate: String(body.tripDate ?? body.outboundDate ?? ""),
+          tripTime: String(body.tripTime ?? body.outboundTime ?? ""),
+          returnJourney: body.returnJourney === true,
+          returnDate: String(body.returnDate ?? ""),
+          returnTime: String(body.returnTime ?? ""),
+          routeDurationMinutes:
+            typeof body.routeDurationMinutes === "number"
+              ? body.routeDurationMinutes
+              : typeof body.durationMinutes === "number"
+                ? body.durationMinutes
+                : null,
+          journeyDuration: body.journeyDuration == null ? null : String(body.journeyDuration),
+        },
+        settings.unavailablePeriods,
+      )
+    : emptyPublicOwnerAvailability();
 
   return json(
     {
       ok: true,
       ...toPublicCustomerSmartAvailability(availabilityGate),
       minimumBookingNoticeHours: noticeHours,
+      ownerAvailability,
     },
     200,
     origin,
