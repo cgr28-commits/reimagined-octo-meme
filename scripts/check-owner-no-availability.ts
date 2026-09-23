@@ -20,6 +20,7 @@ import {
   journeyWindowOverlapsUnavailablePeriod,
   normalizeUnavailablePeriod,
   normalizeUnavailablePeriodMode,
+  ownerUnavailablePeriodModeLabel,
   parseLondonLocalStored,
   type UnavailablePeriod,
 } from "../shared/booking-notice";
@@ -28,7 +29,11 @@ import {
   createShortNoticeRequest,
   shouldForceShortNotice,
 } from "../workers/addresses/src/short-notice-handlers";
-import { addUnavailablePeriod } from "../workers/addresses/src/booking-settings-store";
+import {
+  addUnavailablePeriod,
+  getBookingSettings,
+  updateUnavailablePeriod,
+} from "../workers/addresses/src/booking-settings-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { DEFAULT_SMART_OPS_CONFIG } from "../shared/smart-ops-config";
 
@@ -470,23 +475,25 @@ async function main() {
 
   check("Owner UI + customer copy wiring", () => {
     const panel = read("src/components/OwnerShortNoticePanel.tsx");
-    assert.match(panel, /Availability type/);
+    assert.match(panel, /Availability behaviour/);
     assert.match(panel, /Request only/);
     assert.match(panel, /No availability/);
-    assert.match(
-      panel,
-      /Customers cannot pay automatically, but can send a booking request/,
-    );
-    assert.match(
-      panel,
-      /Customers cannot book or send a request during this period/,
-    );
+    assert.match(panel, /Customer may send a booking request/);
+    assert.match(panel, /Customers cannot book this period/);
+    assert.match(panel, /ownerUnavailablePeriodModeLabel/);
+    assert.match(panel, /data-period-mode-label/);
+    assert.match(panel, /data-availability-behaviour/);
     const blocked = read("src/components/OwnerNoAvailabilityBlocked.tsx");
     assert.match(blocked, /OWNER_NO_AVAILABILITY_MESSAGE/);
     assert.doesNotMatch(blocked, /WhatsApp|wa\.me/);
     assert.match(blocked, /Choose another date/);
     const card = read("src/components/QuoteCard.tsx");
     assert.match(card, /ownerNoAvailabilityBlocked/);
+    const minNoticeDecl = card.slice(
+      card.indexOf("const isMinimumNoticeRequest"),
+      card.indexOf("const isMinimumNoticeRequest") + 420,
+    );
+    assert.match(minNoticeDecl, /!ownerNoAvailabilityBlocked/);
     assert.doesNotMatch(
       card.slice(card.indexOf("ownerClosed ?") , card.indexOf("ownerClosed ?") + 800),
       /Need a quick answer\? WhatsApp us/,
@@ -508,6 +515,137 @@ async function main() {
     const periodStart = parseLondonLocalStored(CLOSED.startLocal);
     assert.ok(start && periodStart);
     assert.equal(start.getTime() < periodStart.getTime() ? true : start.getTime() >= periodStart.getTime(), true);
+  });
+
+  await checkAsync("Live bug: 23 Sep 2026 00:30–15:30 / pickup 08:38", async () => {
+    const schoolClosed = period({
+      id: "unavail-school-run",
+      startLocal: "2026-09-23T00:30",
+      endLocal: "2026-09-23T15:30",
+      mode: "no_availability",
+    });
+    const schoolRequest = period({
+      id: "unavail-school-request",
+      startLocal: "2026-09-23T00:30",
+      endLocal: "2026-09-23T15:30",
+      mode: "request_only",
+    });
+    const pickup = sampleBooking({
+      tripDate: "2026-09-23",
+      tripTime: "08:38",
+    });
+    const liveNow = parseLondonLocalDateTime("2026-09-23", "06:41")!;
+    assert.equal(evaluateOwnerNoAvailability(pickup, [schoolClosed], liveNow).blocked, true);
+    const closedStore = memoryKv({
+      "booking:settings": {
+        unavailablePeriods: [schoolClosed],
+        minimumBookingNoticeHours: 12,
+      },
+    });
+    const closedNotice = await shouldForceShortNotice(closedStore, pickup, liveNow);
+    assert.equal(closedNotice.noAvailability, true);
+    assert.equal(closedNotice.shortNotice, false);
+    await assert.rejects(
+      () => createShortNoticeRequest({ store: closedStore, booking: pickup, amount: 46, now: liveNow }),
+      (error: unknown) => isOwnerNoAvailabilityThrown(error),
+    );
+
+    const requestStore = memoryKv({
+      "booking:settings": {
+        unavailablePeriods: [schoolRequest],
+        minimumBookingNoticeHours: 12,
+      },
+    });
+    const requestNotice = await shouldForceShortNotice(requestStore, pickup, liveNow);
+    assert.equal(requestNotice.noAvailability, false);
+    assert.equal(requestNotice.shortNotice, true);
+    const created = await createShortNoticeRequest({
+      store: requestStore,
+      booking: pickup,
+      amount: 46,
+      now: liveNow,
+    });
+    assert.equal(created.record.status, "SHORT_NOTICE_AWAITING_APPROVAL");
+  });
+
+  await checkAsync("Owner period mode persists across create / reload / edit", async () => {
+    const store = memoryKv({
+      "booking:settings": { unavailablePeriods: [], minimumBookingNoticeHours: 12 },
+    });
+    const requestCreated = await addUnavailablePeriod(store, {
+      startLocal: "2026-09-23T00:30",
+      endLocal: "2026-09-23T15:30",
+      note: "School run",
+      mode: "request_only",
+    });
+    const requestReloaded = await getBookingSettings(store);
+    const requestPeriod = requestReloaded.unavailablePeriods[0];
+    assert.ok(requestPeriod);
+    assert.equal(requestPeriod.mode, "request_only");
+    assert.equal(ownerUnavailablePeriodModeLabel(requestPeriod.mode), "REQUEST ONLY");
+    assert.equal(requestCreated.period.mode, "request_only");
+
+    const closedCreated = await addUnavailablePeriod(store, {
+      startLocal: "2026-09-24T00:30",
+      endLocal: "2026-09-24T15:30",
+      note: "School run",
+      mode: "no_availability",
+    });
+    const afterClosed = await getBookingSettings(store);
+    const closedPeriod = afterClosed.unavailablePeriods.find((entry) => entry.id === closedCreated.period.id);
+    assert.ok(closedPeriod);
+    assert.equal(closedPeriod.mode, "no_availability");
+    assert.equal(ownerUnavailablePeriodModeLabel(closedPeriod.mode), "NO AVAILABILITY");
+
+    const editedToClosed = await updateUnavailablePeriod(store, requestPeriod.id, {
+      id: requestPeriod.id,
+      startLocal: requestPeriod.startLocal,
+      endLocal: requestPeriod.endLocal,
+      note: requestPeriod.note,
+      mode: "no_availability",
+    });
+    const afterEditClosed = await getBookingSettings(store);
+    assert.equal(editedToClosed.period.mode, "no_availability");
+    assert.equal(
+      afterEditClosed.unavailablePeriods.find((entry) => entry.id === requestPeriod.id)?.mode,
+      "no_availability",
+    );
+
+    const editedBack = await updateUnavailablePeriod(store, requestPeriod.id, {
+      id: requestPeriod.id,
+      startLocal: requestPeriod.startLocal,
+      endLocal: requestPeriod.endLocal,
+      note: requestPeriod.note,
+      mode: "request_only",
+    });
+    const afterEditBack = await getBookingSettings(store);
+    assert.equal(editedBack.period.mode, "request_only");
+    assert.equal(
+      afterEditBack.unavailablePeriods.find((entry) => entry.id === requestPeriod.id)?.mode,
+      "request_only",
+    );
+
+    const legacyStore = memoryKv({
+      "booking:settings": {
+        unavailablePeriods: [
+          {
+            id: "unavail-legacy-persist",
+            startLocal: "2026-09-23T00:30",
+            endLocal: "2026-09-23T15:30",
+            note: "School run",
+            createdAt: "2026-09-01T00:00:00.000Z",
+            updatedAt: "2026-09-01T00:00:00.000Z",
+          },
+        ],
+        minimumBookingNoticeHours: 12,
+      },
+    });
+    const legacySettings = await getBookingSettings(legacyStore);
+    assert.equal(legacySettings.unavailablePeriods[0]?.mode, "request_only");
+    assert.equal(
+      ownerUnavailablePeriodModeLabel(legacySettings.unavailablePeriods[0]?.mode),
+      "REQUEST ONLY",
+    );
   });
 
   console.log("\nAll owner no-availability checks passed.");
