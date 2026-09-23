@@ -417,7 +417,8 @@ export function ownerAvailabilityLegsFromBooking(
     legs.push({
       tripDate: booking.returnDate,
       tripTime: booking.returnTime,
-      durationMinutes: returnDuration ?? outboundDuration,
+      // Never copy outbound duration. Missing return duration uses pickup-time fallback.
+      durationMinutes: returnDuration,
     });
   }
   return legs.filter((leg) => String(leg.tripDate || "").trim() && String(leg.tripTime || "").trim());

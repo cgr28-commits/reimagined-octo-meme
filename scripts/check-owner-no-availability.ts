@@ -13,6 +13,8 @@ import {
   existingJourneyDurationMinutes,
   findConflictingNoAvailabilityPeriod,
   findRequestOnlyBlockingPeriod,
+  legConflictsWithNoAvailability,
+  ownerAvailabilityLegsFromBooking,
   isNoAvailabilityPeriod,
   isRequestOnlyUnavailablePeriod,
   journeyWindowOverlapsUnavailablePeriod,
@@ -318,6 +320,100 @@ async function main() {
       routeDurationMinutes: 40,
     });
     assert.equal(evaluateOwnerNoAvailability(bothClear, [CLOSED], NOW).blocked, false);
+  });
+
+  check("13b. Missing return duration uses pickup-time fallback, never outbound duration", () => {
+    const notice = read("shared/booking-notice.ts");
+    const workerNotice = read("workers/addresses/shared/booking-notice.ts");
+    assert.doesNotMatch(notice, /returnDuration \?\? outboundDuration/);
+    assert.doesNotMatch(workerNotice, /returnDuration \?\? outboundDuration/);
+
+    const outboundDurationOnly = sampleBooking({
+      tripDate: "2026-06-15",
+      tripTime: "17:30",
+      returnJourney: true,
+      returnDate: "2026-06-16",
+      returnTime: "10:00",
+      routeDurationMinutes: 90,
+    });
+    const legs = ownerAvailabilityLegsFromBooking(outboundDurationOnly);
+    assert.equal(legs.length, 2);
+    assert.equal(legs[0]?.durationMinutes, 90);
+    assert.equal(legs[1]?.durationMinutes, null);
+    assert.equal(legConflictsWithNoAvailability(legs[0]!, CLOSED), true);
+    assert.equal(legConflictsWithNoAvailability(legs[1]!, CLOSED), false);
+    assert.equal(evaluateOwnerNoAvailability(outboundDurationOnly, [CLOSED], NOW).blocked, true);
+
+    const copiedDurationWouldOverlap = sampleBooking({
+      tripDate: "2026-06-15",
+      tripTime: "14:00",
+      returnJourney: true,
+      returnDate: "2026-06-15",
+      returnTime: "17:00",
+      routeDurationMinutes: 90,
+    });
+    const copiedLegs = ownerAvailabilityLegsFromBooking(copiedDurationWouldOverlap);
+    assert.equal(copiedLegs[0]?.durationMinutes, 90);
+    assert.equal(copiedLegs[1]?.durationMinutes, null);
+    assert.equal(legConflictsWithNoAvailability(copiedLegs[0]!, CLOSED), false);
+    assert.equal(legConflictsWithNoAvailability(copiedLegs[1]!, CLOSED), false);
+    assert.equal(
+      evaluateOwnerNoAvailability(copiedDurationWouldOverlap, [CLOSED], NOW).blocked,
+      false,
+    );
+    const inventedReturnEnd = parseLondonLocalDateTime("2026-06-15", "17:00")!;
+    assert.equal(
+      journeyWindowOverlapsUnavailablePeriod(
+        inventedReturnEnd.getTime(),
+        inventedReturnEnd.getTime() + 90 * 60 * 1000,
+        CLOSED,
+      ),
+      true,
+    );
+
+    const actualReturnDuration = sampleBooking({
+      tripDate: "2026-06-15",
+      tripTime: "14:00",
+      returnJourney: true,
+      returnDate: "2026-06-15",
+      returnTime: "17:00",
+      routeDurationMinutes: 40,
+      returnRouteDurationMinutes: 90,
+    });
+    const actualLegs = ownerAvailabilityLegsFromBooking(actualReturnDuration);
+    assert.equal(actualLegs[1]?.durationMinutes, 90);
+    assert.equal(legConflictsWithNoAvailability(actualLegs[1]!, CLOSED), true);
+    assert.equal(evaluateOwnerNoAvailability(actualReturnDuration, [CLOSED], NOW).blocked, true);
+
+    const returnPickupInside = sampleBooking({
+      tripDate: "2026-06-15",
+      tripTime: "14:00",
+      returnJourney: true,
+      returnDate: "2026-06-15",
+      returnTime: "18:30",
+      routeDurationMinutes: 40,
+    });
+    assert.equal(evaluateOwnerNoAvailability(returnPickupInside, [CLOSED], NOW).blocked, true);
+
+    const returnAtEnd = sampleBooking({
+      tripDate: "2026-06-15",
+      tripTime: "14:00",
+      returnJourney: true,
+      returnDate: "2026-06-15",
+      returnTime: "22:00",
+      routeDurationMinutes: 40,
+    });
+    assert.equal(evaluateOwnerNoAvailability(returnAtEnd, [CLOSED], NOW).blocked, false);
+
+    const returnAtStart = sampleBooking({
+      tripDate: "2026-06-15",
+      tripTime: "14:00",
+      returnJourney: true,
+      returnDate: "2026-06-15",
+      returnTime: "18:00",
+      routeDurationMinutes: 40,
+    });
+    assert.equal(evaluateOwnerNoAvailability(returnAtStart, [CLOSED], NOW).blocked, true);
   });
 
   await checkAsync("14. Existing request-only periods retain current behaviour", async () => {
