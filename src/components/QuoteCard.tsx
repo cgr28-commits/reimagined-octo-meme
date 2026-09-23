@@ -1247,6 +1247,8 @@ function QuoteCard({
   const isMinimumNoticeRequest = Boolean(
     tripDate &&
       tripTime &&
+      !ownerNoAvailabilityBlocked &&
+      !isOwnerNoAvailabilityMessage(paymentError) &&
       isWithinMinimumBookingNotice(tripDate, tripTime, undefined, minimumBookingNoticeHours),
   );
   const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(

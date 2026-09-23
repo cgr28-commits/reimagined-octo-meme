@@ -102,6 +102,13 @@ export function normalizeUnavailablePeriodMode(value: unknown): UnavailablePerio
   return value === "no_availability" ? "no_availability" : "request_only";
 }
 
+/** Owner Jobs-tab badge. Never show raw enum names. */
+export function ownerUnavailablePeriodModeLabel(mode: unknown): "REQUEST ONLY" | "NO AVAILABILITY" {
+  return normalizeUnavailablePeriodMode(mode) === "no_availability"
+    ? "NO AVAILABILITY"
+    : "REQUEST ONLY";
+}
+
 export const OWNER_NO_AVAILABILITY_CODE = "owner_no_availability";
 export const OWNER_NO_AVAILABILITY_MESSAGE =
   "We’re unavailable at this time. Please choose another pickup date or time.";
