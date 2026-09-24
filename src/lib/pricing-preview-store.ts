@@ -56,8 +56,10 @@ export function previewPartyFromQuery(): {
     return { passengers: null, suitcases: null };
   }
   const params = new URLSearchParams(window.location.search);
-  const passengers = Number(params.get("previewPax"));
-  const suitcases = Number(params.get("previewBags"));
+  const rawPassengers = params.get("previewPax");
+  const rawSuitcases = params.get("previewBags");
+  const passengers = rawPassengers == null || rawPassengers === "" ? NaN : Number(rawPassengers);
+  const suitcases = rawSuitcases == null || rawSuitcases === "" ? NaN : Number(rawSuitcases);
   return {
     passengers:
       Number.isInteger(passengers) && passengers >= 1 && passengers <= 7

@@ -259,6 +259,11 @@ check("Real customer quote has no developer/test wording", () => {
   assert.match(card, /readPreviewCustomerQuoteSeed/);
   assert.match(card, /previewMinibusQueryEnabled\(\)/);
   assert.match(card, /QuoteVehicleCategories/);
+  assert.match(card, /publicMinibusEnabled\s*\n\s*\? publicMaxPassengers\(true\)/);
+  assert.doesNotMatch(
+    card,
+    /const passengerLimit = Math.min\(\s*Math.max\(1, maxPassengers\),\s*publicMaxPassengers/,
+  );
   assert.match(categories, /MINIBUS_CUSTOMER_NAME/);
   assert.match(categories, /quote-minibus\.webp/);
   assert.match(showcase, /quote-minibus\.webp/);
@@ -305,6 +310,19 @@ check("Preview customer journey seed is isolated to preview hosts", () => {
   try {
     assert.equal(previewCustomerJourneyRequested(), true);
     assert.deepEqual(previewPartyFromQuery(), { passengers: 5, suitcases: 2 });
+    (globalThis as { window?: { location: { hostname: string; search: string } } }).window = {
+      location: {
+        hostname: "example.vercel.app",
+        search: "?previewMinibus=1&previewJourney=1",
+      },
+    };
+    assert.deepEqual(previewPartyFromQuery(), { passengers: null, suitcases: null });
+    (globalThis as { window?: { location: { hostname: string; search: string } } }).window = {
+      location: {
+        hostname: "example.vercel.app",
+        search: "?previewMinibus=1&previewJourney=1&previewPax=5&previewBags=2",
+      },
+    };
     const seed = readPreviewCustomerQuoteSeed();
     assert.ok(seed);
     assert.equal(seed?.pickup.placeId, PREVIEW_BELFAST_CITY_HALL_PLACE.placeId);

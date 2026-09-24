@@ -639,10 +639,9 @@ function QuoteCard({
   );
   const [publicPricingLoaded, setPublicPricingLoaded] = useState(false);
   const publicMinibusEnabled = publicPricing.minibus.publicEnabled === true;
-  const passengerLimit = Math.min(
-    Math.max(1, maxPassengers),
-    publicMaxPassengers(publicMinibusEnabled),
-  );
+  const passengerLimit = publicMinibusEnabled
+    ? publicMaxPassengers(true)
+    : Math.min(Math.max(1, maxPassengers), publicMaxPassengers(false));
   const suitcaseLimit = publicMaxSuitcases(publicMinibusEnabled);
 
   const previewQuoteAppliedRef = useRef(false);
@@ -968,6 +967,10 @@ function QuoteCard({
     if (passengers == null) return;
     if (passengers > passengerLimit || passengers < 1) {
       setPassengersError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+    } else {
+      setPassengersError((current) =>
+        current === PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE ? "" : current,
+      );
     }
   }, [passengerLimit, passengers]);
 
@@ -975,6 +978,10 @@ function QuoteCard({
     if (suitcases == null) return;
     if (suitcases > suitcaseLimit || suitcases < 0) {
       setSuitcasesError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+    } else {
+      setSuitcasesError((current) =>
+        current === PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE ? "" : current,
+      );
     }
   }, [suitcaseLimit, suitcases]);
 
@@ -1296,42 +1303,46 @@ function QuoteCard({
   }, [returnOfferToken]);
 
   useEffect(() => {
-    if (!publicPricingLoaded || previewQuoteAppliedRef.current) {
+    if (!publicPricingLoaded) {
       return;
     }
     const seed = readPreviewCustomerQuoteSeed();
     if (!seed) {
       return;
     }
-    previewQuoteAppliedRef.current = true;
 
-    const pickupDisplay =
-      seed.pickup.displayAddress || seed.pickup.formattedAddress || placeDisplayText(seed.pickup);
-    const dropoffDisplay =
-      seed.dropoff.displayAddress || seed.dropoff.formattedAddress || placeDisplayText(seed.dropoff);
+    if (!previewQuoteAppliedRef.current) {
+      previewQuoteAppliedRef.current = true;
 
-    setJourneyIntent("to-airport");
-    setTripDirection("to-airport");
-    setTripMode("address");
-    setIntentAirportCode("BFS");
-    setAirportCode("BFS");
-    setPickupPlace(seed.pickup);
-    setPickupAddress(pickupDisplay);
-    setPickupPlaceError("");
-    setPickupRestoredHint(false);
-    saveConfirmedPickupPlace(seed.pickup);
-    setDropoffPlace(seed.dropoff);
-    setDropoffAddress(dropoffDisplay);
-    setDropoffPlaceError("");
-    setDropoffRestoredHint(false);
-    saveConfirmedDropoffPlace(seed.dropoff);
-    setJourneyMode("one-way");
-    setTripDate(seed.tripDate);
-    setTripTime(seed.tripTime);
-    setTripDateError("");
-    setPassengersError("");
-    setSuitcasesError("");
-    setQuoteStep(1);
+      const pickupDisplay =
+        seed.pickup.displayAddress || seed.pickup.formattedAddress || placeDisplayText(seed.pickup);
+      const dropoffDisplay =
+        seed.dropoff.displayAddress || seed.dropoff.formattedAddress || placeDisplayText(seed.dropoff);
+
+      setJourneyIntent("to-airport");
+      setTripDirection("to-airport");
+      setTripMode("address");
+      setIntentAirportCode("BFS");
+      setAirportCode("BFS");
+      setPickupPlace(seed.pickup);
+      setPickupAddress(pickupDisplay);
+      setPickupPlaceError("");
+      setPickupRestoredHint(false);
+      saveConfirmedPickupPlace(seed.pickup);
+      setDropoffPlace(seed.dropoff);
+      setDropoffAddress(dropoffDisplay);
+      setDropoffPlaceError("");
+      setDropoffRestoredHint(false);
+      saveConfirmedDropoffPlace(seed.dropoff);
+      setJourneyMode("one-way");
+      setTripDate(seed.tripDate);
+      setTripTime(seed.tripTime);
+      setTripDateError("");
+      setPassengersError("");
+      setSuitcasesError("");
+      setQuoteStep(1);
+    }
+
     if (
       seed.passengers != null &&
       seed.passengers >= 1 &&
