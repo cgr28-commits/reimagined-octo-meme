@@ -15,6 +15,7 @@ import {
 } from "../../shared/booking-notice";
 import { hoursUntilPickup } from "../../shared/refund-ops";
 import { SITE } from "@/lib/data";
+import { vehicleCustomerLabel } from "../../shared/vehicle-display";
 import {
   addUnavailablePeriod,
   approveShortNoticeBooking,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/short-notice-api";
 import {
   LUGGAGE_CAPACITY_OWNER_REASON,
+  formatOwnerLargeBagsLabel,
   hasLuggageCapacityHold,
   ownerHoldReasonLabel,
 } from "../../shared/vehicle-capacity";
@@ -993,12 +995,18 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                     <dd>{booking.booking.passengers}</dd>
                   </div>
                   <div>
-                    <dt className="text-white/40">Luggage details</dt>
-                    <dd>{booking.booking.suitcases} suitcases</dd>
+                    <dt className="text-white/40">Large bags</dt>
+                    <dd>
+                      {formatOwnerLargeBagsLabel(booking.booking.suitcases, {
+                        suitcasesExact: booking.booking.suitcasesExact,
+                      })}
+                    </dd>
                   </div>
                   <div>
-                    <dt className="text-white/40">Vehicle category</dt>
-                    <dd className="font-semibold text-white">{service}</dd>
+                    <dt className="text-white/40">Vehicle</dt>
+                    <dd className="font-semibold text-white">
+                      {vehicleCustomerLabel(booking.booking.vehicle) || service}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-white/40">Flight number</dt>

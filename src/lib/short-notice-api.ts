@@ -65,6 +65,7 @@ export type ShortNoticeBookingSummary = {
     returnTime?: string;
     passengers: number;
     suitcases: number;
+    suitcasesExact?: boolean;
     vehicle: string;
     flightNumber?: string;
     returnFlightNumber?: string;
@@ -111,6 +112,7 @@ export type PublicShortNoticeSummary = {
   returnTime?: string;
   passengers: number;
   suitcases: number;
+  suitcasesExact?: boolean;
   flightNumber?: string;
   paymentExpiresAt: string | null;
   payable: boolean;

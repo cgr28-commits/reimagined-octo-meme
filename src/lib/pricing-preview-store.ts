@@ -66,7 +66,7 @@ export function previewPartyFromQuery(): {
         ? passengers
         : null,
     suitcases:
-      Number.isInteger(suitcases) && suitcases >= 0 && suitcases <= 7
+      Number.isInteger(suitcases) && suitcases >= 0 && suitcases <= 5
         ? suitcases
         : null,
   };

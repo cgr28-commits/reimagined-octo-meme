@@ -631,7 +631,7 @@ export function publicMaxPassengers(publicMinibusEnabled: boolean): number {
 }
 
 export function publicMaxSuitcases(publicMinibusEnabled: boolean): number {
-  return publicMinibusEnabled === true ? 7 : 4;
+  return publicMinibusEnabled === true ? 5 : 4;
 }
 
 export function publicMinibusAllowed(

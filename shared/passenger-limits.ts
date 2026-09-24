@@ -5,7 +5,7 @@
  *   passengers 1–4, large bags 0–4.
  *
  * When the server-authoritative “Offer 7 Seater Minibus Online” setting is ON:
- *   passengers 1–7, large bags 0–7.
+ *   passengers 1–7, large bags 0–4 plus a single 5+ option (five or more).
  *
  * MAX_PASSENGERS / MAX_SUITCASES stay at 4 so fail-closed paths never expand.
  * Owner/Driver Quick Quote may still price partner Minibus work up to
@@ -24,9 +24,11 @@ export const INSTANT_QUOTE_MAX_PASSENGERS = MAX_PASSENGERS;
 export const OWNER_QUICK_QUOTE_MAX_PASSENGERS = 7;
 
 export const MIN_SUITCASES = 0;
-/** Safe public default. Raised to 7 only when public Minibus is explicitly ON. */
+/** Safe public default. Raised to the 5+ token only when public Minibus is ON. */
 export const MAX_SUITCASES = 4;
 export const OWNER_QUICK_QUOTE_MAX_SUITCASES = 7;
+/** Public ON selector token for “5 or more” large bags. Not an exact count of 5. */
+export const PUBLIC_FIVE_PLUS_SUITCASES = 5;
 
 /** @deprecated Public 5–7 band is gated by public Minibus ON, not a separate form. */
 export const GROUP_PASSENGER_MIN = 5;
@@ -40,7 +42,7 @@ export const SUITCASE_LIMIT_ERROR =
 export const PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR =
   "We can only quote for up to 7 passengers.";
 export const PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR =
-  "We can only quote for up to 7 large suitcases.";
+  "Please select 0–4 or 5+ large bags.";
 
 export function isValidPassengerCount(value: unknown): value is number {
   const n = typeof value === "number" ? value : Number(value);
@@ -67,7 +69,7 @@ export function isValidPublicSuitcaseCount(
   publicMinibusEnabled: boolean,
 ): value is number {
   const n = typeof value === "number" ? value : Number(value);
-  const max = publicMinibusEnabled === true ? OWNER_QUICK_QUOTE_MAX_SUITCASES : MAX_SUITCASES;
+  const max = publicMinibusEnabled === true ? PUBLIC_FIVE_PLUS_SUITCASES : MAX_SUITCASES;
   return Number.isInteger(n) && n >= MIN_SUITCASES && n <= max;
 }
 
@@ -101,8 +103,10 @@ export function publicPassengerOptions(publicMinibusEnabled: boolean): number[] 
 }
 
 export function publicSuitcaseOptions(publicMinibusEnabled: boolean): number[] {
-  const max = publicMinibusEnabled === true ? OWNER_QUICK_QUOTE_MAX_SUITCASES : MAX_SUITCASES;
-  return Array.from({ length: max + 1 }, (_, index) => index);
+  if (publicMinibusEnabled === true) {
+    return [0, 1, 2, 3, 4, PUBLIC_FIVE_PLUS_SUITCASES];
+  }
+  return Array.from({ length: MAX_SUITCASES + 1 }, (_, index) => index);
 }
 
 /** Owner Quick Quote may accept up to OWNER_QUICK_QUOTE_MAX_PASSENGERS for Minibus. */

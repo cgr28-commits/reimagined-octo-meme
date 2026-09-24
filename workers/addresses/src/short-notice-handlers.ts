@@ -496,6 +496,7 @@ export function publicShortNoticeSummary(record: ShortNoticeBookingRecord) {
     returnTime: record.booking.returnTime,
     passengers: record.booking.passengers,
     suitcases: record.booking.suitcases,
+    suitcasesExact: record.booking.suitcasesExact,
     flightNumber: record.booking.flightNumber,
     paymentExpiresAt: record.paymentExpiresAt ?? null,
     payable: isShortNoticePayable(record),
@@ -542,6 +543,7 @@ export async function createShortNoticeRequest(options: {
     blockingPeriodId: blocking?.id ?? null,
     passengers: options.booking.passengers,
     suitcases: options.booking.suitcases,
+    suitcasesExact: options.booking.suitcasesExact,
   });
   if (holdReasons.length === 0) {
     throw new Error("This journey is not inside a short-notice window.");
@@ -663,6 +665,7 @@ export async function shouldForceShortNotice(
       luggageCapacity: needsLuggageCapacityConfirmation(
         booking.passengers,
         booking.suitcases,
+        { suitcasesExact: booking.suitcasesExact },
       ),
     };
   }
@@ -691,6 +694,7 @@ export async function shouldForceShortNotice(
     luggageCapacity: needsLuggageCapacityConfirmation(
       booking.passengers,
       booking.suitcases,
+      { suitcasesExact: booking.suitcasesExact },
     ),
   };
 }

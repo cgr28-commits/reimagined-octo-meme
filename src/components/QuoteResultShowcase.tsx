@@ -10,6 +10,8 @@ import {
 } from "@/lib/vehicle-selection";
 import { MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
 import {
+  formatPublicSuitcaseChoice,
+  isFivePlusLuggage,
   LUGGAGE_CAPACITY_CONFIRMATION_BODY,
   LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
 } from "../../shared/vehicle-capacity";
@@ -53,8 +55,11 @@ export default function QuoteResultShowcase({
   const vehicleImage = isMinibus ? MINIBUS_IMAGE : isEstate ? ESTATE_IMAGE : SALOON_IMAGE;
   const estateDueToLuggage = isEstate && suitcases >= 3;
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
-  const suitcaseLabel =
-    suitcases === 1 ? "1 large suitcase" : `${suitcases} large suitcases`;
+  const suitcaseLabel = isFivePlusLuggage(suitcases)
+    ? "5+ large bags"
+    : suitcases === 1
+      ? "1 large suitcase"
+      : `${formatPublicSuitcaseChoice(suitcases)} large suitcases`;
 
   return (
     <div

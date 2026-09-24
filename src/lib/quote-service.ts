@@ -8,7 +8,10 @@ import { calculatePointToPointQuote, calculateQuote, formatQuote } from "./quote
 import type { TripSchedule } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
 import { MINIBUS_VEHICLE, requiresMinibus, selectVehicleForParty } from "./vehicle-selection";
-import { needsLuggageCapacityConfirmation } from "../../shared/vehicle-capacity";
+import {
+  needsLuggageCapacityConfirmation,
+  PUBLIC_FIVE_PLUS_SUITCASES,
+} from "../../shared/vehicle-capacity";
 import type { VehicleType } from "./data";
 import {
   INSTANT_QUOTE_MAX_PASSENGERS,
@@ -47,6 +50,8 @@ export type QuoteServiceInput = {
   returnTime?: string;
   passengers: number;
   suitcases: number;
+  /** false = public 5+ (five or more). Owner Quick Quote may send an exact count. */
+  suitcasesExact?: boolean;
   routeMetrics?: TripRouteMetrics | null;
   /** Optional override — normally derived from passengers/suitcases. */
   vehicleType?: VehicleType;
@@ -396,6 +401,14 @@ export function calculateAuthoritativeWebsiteQuote(
     needsLuggageCapacityConfirmation: needsLuggageCapacityConfirmation(
       passengers,
       Math.max(0, suitcases),
+      {
+        suitcasesExact:
+          input.ownerMode === true
+            ? input.suitcasesExact
+            : publicMinibusEnabled && suitcases >= PUBLIC_FIVE_PLUS_SUITCASES
+              ? false
+              : input.suitcasesExact,
+      },
     ),
   };
 }

@@ -56,6 +56,7 @@ import {
   isVehicleRequestQuote,
   MAX_ONLINE_PASSENGERS,
   MINIBUS_VEHICLE_TYPE,
+  isFivePlusLuggage,
   needsLuggageCapacityConfirmation,
   LUGGAGE_CAPACITY_CONFIRMATION_BODY,
   LUGGAGE_CAPACITY_CONFIRMATION_CTA,
@@ -853,6 +854,7 @@ function QuoteCard({
     needsLuggageCapacityConfirmation(
       effectivePartyPassengers(passengers) ?? passengers,
       suitcases,
+      { suitcasesExact: isFivePlusLuggage(suitcases) ? false : true },
     );
   const [confirmStartNewQuote, setConfirmStartNewQuote] = useState(false);
   /** Bumped on Start a New Quote so address inputs remount with clean internal state. */
@@ -3046,6 +3048,7 @@ function QuoteCard({
         : undefined,
       passengers: effectivePassengers as number,
       suitcases: suitcases as number,
+      suitcasesExact: isFivePlusLuggage(suitcases as number) ? false : true,
       childSeats,
       childSeatNotes: childSeats > 0 ? childSeatNotes.trim() : undefined,
       vehicle: quoteVehicle,

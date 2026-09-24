@@ -87,7 +87,7 @@ export default function PreviewQuoteCapacityClient({
                 Normal 5+2 Minibus
               </Link>
               <Link className="font-semibold text-emerald underline-offset-2 hover:underline" href="/owner/pricing-preview/quote-high-load/">
-                High-load 7+7 example
+                7 passengers + 5+ bags
               </Link>
             </>
           ) : null}

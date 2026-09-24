@@ -324,7 +324,7 @@ check("public Minibus OFF hides and is enforced", () => {
   assert.equal(publicMaxPassengers(false), 4);
   assert.equal(publicMaxPassengers(true), 7);
   assert.equal(publicMaxSuitcases(false), 4);
-  assert.equal(publicMaxSuitcases(true), 7);
+  assert.equal(publicMaxSuitcases(true), 5);
 });
 
 check("8 passengers rejected; 7 accepted when public ON; MPV unavailable", () => {

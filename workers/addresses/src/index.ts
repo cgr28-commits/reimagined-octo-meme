@@ -406,7 +406,10 @@ import {
 } from "../shared/owner-pricing-config";
 import {
   LUGGAGE_CAPACITY_OWNER_REASON,
+  applyPublicFivePlusLuggage,
+  formatOwnerLargeBags,
   hasLuggageCapacityHold,
+  isFivePlusLuggage,
   needsLuggageCapacityConfirmation,
 } from "../shared/vehicle-capacity";
 import {
@@ -1002,6 +1005,11 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     passengers,
     suitcases,
+    ...(details.suitcasesExact === false
+      ? { suitcasesExact: false as const }
+      : details.suitcasesExact === true
+        ? { suitcasesExact: true as const }
+        : {}),
     childSeats: parseChildSeatsInput(details.childSeats),
     ...(parseChildSeatNotesInput(details.childSeatNotes)
       ? { childSeatNotes: parseChildSeatNotesInput(details.childSeatNotes) }
@@ -1758,6 +1766,16 @@ async function handlePaymentRequest(
     String(body.redirectUrl ?? "").trim(),
   );
   let booking = parsePaidBookingDetails(body);
+  if (booking) {
+    booking = applyPublicFivePlusLuggage(booking);
+    if (isFivePlusLuggage(booking.suitcases, { suitcasesExact: booking.suitcasesExact })) {
+      booking = {
+        ...booking,
+        suitcasesExact: false,
+        vehicle: MINIBUS_VEHICLE,
+      };
+    }
+  }
   let shortNoticeReference: string | undefined;
   let a2aQuoteReference: string | undefined;
   let personalQuoteCode: string | undefined;
@@ -2646,7 +2664,9 @@ async function handlePaymentRequest(
     const notice = await shouldForceShortNotice(env.TRACKING_STORE, booking);
     const luggageHold =
       notice.luggageCapacity === true ||
-      needsLuggageCapacityConfirmation(booking.passengers, booking.suitcases);
+      needsLuggageCapacityConfirmation(booking.passengers, booking.suitcases, {
+        suitcasesExact: booking.suitcasesExact,
+      });
     if (notice.noAvailability) {
       return json(
         {
@@ -2699,8 +2719,14 @@ async function handlePaymentRequest(
             `Status: SHORT_NOTICE_AWAITING_APPROVAL\n` +
             `Quoted price: ${amountLabel}\n` +
             `Passengers: ${booking.passengers}\n` +
-            `Large bags: ${booking.suitcases}\n` +
-            `Vehicle: ${booking.vehicle || "7 Seater Minibus"}\n` +
+            `Large bags: ${formatOwnerLargeBags(booking.suitcases, {
+              suitcasesExact: booking.suitcasesExact,
+            })}\n` +
+            `Vehicle: ${
+              String(booking.vehicle ?? "").toLowerCase().includes("minibus")
+                ? "7 Seater Minibus"
+                : booking.vehicle || "7 Seater Minibus"
+            }\n` +
             `Reason: ${
               luggageCapacity ? LUGGAGE_CAPACITY_OWNER_REASON : "Short-notice request"
             }\n` +

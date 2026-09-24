@@ -30,6 +30,8 @@ export type BookingDetails = {
   returnFlightNumber?: string;
   passengers: number;
   suitcases: number;
+  /** false = customer selected 5+ (five or more). true/omitted = exact count. */
+  suitcasesExact?: boolean;
   vehicle: string;
   estimatedPrice: string | null;
   journeyDistance?: string;

@@ -600,6 +600,7 @@ export const VEHICLE_BOOKING_GUIDANCE = [
 ] as const;
 
 export {
+  isFivePlusLuggage,
   needsLuggageCapacityConfirmation,
   LUGGAGE_CAPACITY_CONFIRMATION_BODY,
   LUGGAGE_CAPACITY_CONFIRMATION_CTA,

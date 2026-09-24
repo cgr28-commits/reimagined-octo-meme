@@ -14,7 +14,7 @@ import {
   publicSuitcaseOptions,
 } from "../../shared/passenger-limits";
 
-/** Four columns so 1–7 wraps as 1–4 / 5–7 and bags as 0–3 / 4–7 on ~390px. */
+/** Four columns so 1–7 wraps as 1–4 / 5–7 and bags as 0–3 / 4 / 5+ on ~390px. */
 export const PUBLIC_PARTY_SELECTOR_COLUMNS = 4;
 
 function choiceGridShellClass(hasError: boolean): string {

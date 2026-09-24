@@ -5,15 +5,15 @@
  * Public website (source of truth for customers):
  * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
  * - Estate Car: 1–4 passengers AND 3–4 suitcases
- * - 7 Seater Minibus: 5–7 passengers OR 5–7 large suitcases
+ * - 7 Seater Minibus: 5–7 passengers OR 5+ large bags
  *   (only bookable when Offer 7 Seater Minibus Online is ON)
  *
  * Owner/Driver Quick Quote may still select Minibus (5–7) when public Minibus is OFF.
  *
  * Passenger count of 3 or 4 does NOT by itself trigger Estate.
- * 7 passengers + 7 large bags maps to Minibus. High combined load still quotes
- * as Minibus; payment is held for luggage capacity confirmation (see
- * shared/vehicle-capacity.ts) rather than claiming exact physical fit.
+ * 5+ large bags maps to Minibus and always holds payment for luggage
+ * capacity confirmation (see shared/vehicle-capacity.ts). Do not claim an
+ * exact physical suitcase maximum on the vehicle card.
  */
 
 import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "./data";
@@ -24,6 +24,7 @@ import {
   OWNER_QUICK_QUOTE_MAX_PASSENGERS,
 } from "../../shared/passenger-limits";
 import { vehicleCustomerLabel } from "../../shared/vehicle-display";
+import { formatPublicSuitcaseChoice } from "../../shared/vehicle-capacity";
 
 export const SALOON_VEHICLE: VehicleType = "Standard Saloon (1–4 passengers)";
 export const ESTATE_VEHICLE: VehicleType = "Estate Car (1–4 passengers)";
@@ -33,7 +34,7 @@ export const MINIBUS_VEHICLE: VehicleType = MINIBUS_VEHICLE_TYPE;
 export const FIVE_PLUS_PASSENGERS = GROUP_PASSENGER_MIN;
 /** First suitcase count that requires Minibus. */
 export const FIVE_PLUS_SUITCASES = 5;
-/** Safe public luggage default. Raised to 7 only when public Minibus is ON. */
+/** Safe public luggage default. Raised to the 5+ token when public Minibus is ON. */
 export const MAX_PUBLIC_SUITCASES = 4;
 
 export { GROUP_PASSENGER_MAX, GROUP_PASSENGER_MIN, MAX_PASSENGERS, OWNER_QUICK_QUOTE_MAX_PASSENGERS };
@@ -86,5 +87,5 @@ export function formatPassengerChoice(count: number): string {
 }
 
 export function formatSuitcaseChoice(count: number): string {
-  return String(count);
+  return formatPublicSuitcaseChoice(count);
 }

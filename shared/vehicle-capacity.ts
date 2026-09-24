@@ -1,24 +1,28 @@
 /**
- * Conservative high-load luggage capacity confirmation for the 7 Seater Minibus.
+ * Luggage-capacity confirmation for the 7 Seater Minibus.
  *
- * This is a booking-safety hold, not a claim about exact physical vehicle
- * capacity. A high combined passenger + large-bag load must not go to
- * automatic payment until the owner confirms the available 7 Seater has
- * sufficient luggage space.
+ * Public selector when Offer 7 Seater Minibus Online is ON:
+ *   0  1  2  3
+ *   4  5+
  *
- * Rule:
- *   party requires a 7 Seater (passengers > 4 OR large bags > 4)
- *   AND (passengers + large bags) >= MINIBUS_HIGH_LOAD_COMBINED_THRESHOLD (12)
+ * "5+" means five or more large bags. It must never be stored or shown as an
+ * exact count of 5. The customer-facing vehicle card still says
+ * "Up to 7 passengers" and does not promise a suitcase maximum.
  *
- * Combinations that trigger (public 1–7 passengers / 0–7 large bags):
- *   5+7, 6+6, 6+7, 7+5, 7+6, 7+7
+ * Hold rule:
+ *   5+ (suitcasesExact === false OR bags >= 5)
+ *     → ALWAYS luggage-capacity confirmation
+ *     → ALWAYS 7 Seater Minibus
  *
- * Combinations that do not trigger (normal Minibus instant booking when ON):
- *   5+0–6, 6+0–5, 7+0–4, and 1–4 passengers with 5–7 bags where combined < 12
- *   (4+7=11, 3+7=10, 2+7=9, 1+7=8)
+ * Residual high-occupancy protection when bags are fewer than 5:
+ *   party requires a 7 Seater AND (passengers + bags) >= 12
  *
- * Selector limits stay 1–7 / 0–7 when Minibus is ON. This only holds payment.
+ * 7 passengers + 4 large bags = 11, so that combination does not hold.
+ * Do not invent or advertise an exact physical V-Class luggage capacity.
  */
+
+export const PUBLIC_FIVE_PLUS_SUITCASES = 5;
+export const PUBLIC_FIVE_PLUS_SUITCASE_LABEL = "5+";
 
 export const MINIBUS_HIGH_LOAD_COMBINED_THRESHOLD = 12;
 
@@ -45,14 +49,72 @@ export const LUGGAGE_CAPACITY_OWNER_REASON = "Luggage capacity confirmation";
 export const LUGGAGE_CAPACITY_RECEIVED_BODY =
   "We’ll confirm the available 7 Seater has sufficient luggage space, then email you a secure payment link if we can fulfil the journey. No payment has been taken.";
 
+export type LuggageExactnessOptions = {
+  /** false = customer selected 5+ (five or more). true/omitted = exact count. */
+  suitcasesExact?: boolean;
+};
+
+export function isFivePlusLuggage(
+  suitcases: number,
+  options?: LuggageExactnessOptions,
+): boolean {
+  if (options?.suitcasesExact === false) return true;
+  const bags = Math.floor(Number(suitcases));
+  return Number.isFinite(bags) && bags >= PUBLIC_FIVE_PLUS_SUITCASES;
+}
+
+export function formatPublicSuitcaseChoice(count: number): string {
+  const n = Math.floor(Number(count));
+  if (Number.isFinite(n) && n >= PUBLIC_FIVE_PLUS_SUITCASES) {
+    return PUBLIC_FIVE_PLUS_SUITCASE_LABEL;
+  }
+  return String(count);
+}
+
+export function formatOwnerLargeBags(
+  suitcases: number,
+  options?: LuggageExactnessOptions,
+): string {
+  if (isFivePlusLuggage(suitcases, options)) {
+    return PUBLIC_FIVE_PLUS_SUITCASE_LABEL;
+  }
+  const bags = Math.floor(Number(suitcases));
+  return Number.isFinite(bags) && bags >= 0 ? String(bags) : "0";
+}
+
+export function formatOwnerLargeBagsLabel(
+  suitcases: number,
+  options?: LuggageExactnessOptions,
+): string {
+  const value = formatOwnerLargeBags(suitcases, options);
+  return value === PUBLIC_FIVE_PLUS_SUITCASE_LABEL
+    ? "5+ large bags"
+    : `${value} large bag${value === "1" ? "" : "s"}`;
+}
+
+export function applyPublicFivePlusLuggage<
+  T extends { suitcases: number; suitcasesExact?: boolean },
+>(booking: T): T {
+  if (!isFivePlusLuggage(booking.suitcases, { suitcasesExact: booking.suitcasesExact })) {
+    return booking;
+  }
+  return {
+    ...booking,
+    suitcases: PUBLIC_FIVE_PLUS_SUITCASES,
+    suitcasesExact: false,
+  };
+}
+
 export function needsLuggageCapacityConfirmation(
   passengers: number,
   suitcases: number,
+  options?: LuggageExactnessOptions,
 ): boolean {
   const pax = Math.floor(Number(passengers));
   const bags = Math.floor(Number(suitcases));
   if (!Number.isFinite(pax) || !Number.isFinite(bags)) return false;
   if (pax < 1 || bags < 0) return false;
+  if (isFivePlusLuggage(bags, options)) return true;
   const requiresMinibus = pax > 4 || bags > 4;
   if (!requiresMinibus) return false;
   return pax + bags >= MINIBUS_HIGH_LOAD_COMBINED_THRESHOLD;
@@ -63,11 +125,16 @@ export function combinePaymentHoldReasons(options: {
   blockingPeriodId?: string | null;
   passengers: number;
   suitcases: number;
+  suitcasesExact?: boolean;
 }): PaymentHoldReason[] {
   const reasons: PaymentHoldReason[] = [];
   if (options.underMinimumNotice) reasons.push("short_notice");
   if (options.blockingPeriodId) reasons.push("unavailable_period");
-  if (needsLuggageCapacityConfirmation(options.passengers, options.suitcases)) {
+  if (
+    needsLuggageCapacityConfirmation(options.passengers, options.suitcases, {
+      suitcasesExact: options.suitcasesExact,
+    })
+  ) {
     reasons.push(LUGGAGE_CAPACITY_HOLD_REASON);
   }
   return reasons;
