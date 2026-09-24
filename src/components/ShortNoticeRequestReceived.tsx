@@ -4,6 +4,10 @@ import {
   minimumNoticeRequestBody,
   minimumNoticeRequestHeading,
 } from "../../shared/booking-notice";
+import {
+  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
+  LUGGAGE_CAPACITY_RECEIVED_BODY,
+} from "../../shared/vehicle-capacity";
 
 type ShortNoticeRequestReceivedProps = {
   reference: string;
@@ -13,6 +17,7 @@ type ShortNoticeRequestReceivedProps = {
   underMinimumNotice?: boolean;
   /** Owner-configured short-notice period applied for this request. */
   noticeHours?: number;
+  luggageCapacity?: boolean;
 };
 
 export default function ShortNoticeRequestReceived({
@@ -21,7 +26,18 @@ export default function ShortNoticeRequestReceived({
   whatsappUrl,
   underMinimumNotice = true,
   noticeHours,
+  luggageCapacity = false,
 }: ShortNoticeRequestReceivedProps) {
+  const heading = luggageCapacity
+    ? LUGGAGE_CAPACITY_CONFIRMATION_HEADING
+    : underMinimumNotice
+      ? minimumNoticeRequestHeading()
+      : "Booking request received";
+  const body = luggageCapacity
+    ? LUGGAGE_CAPACITY_RECEIVED_BODY
+    : underMinimumNotice
+      ? minimumNoticeRequestBody(noticeHours)
+      : "We just need to confirm availability for your requested pickup time before taking payment. We’ll email you once your request has been reviewed. No payment has been taken.";
   return (
     <div className="rounded-xl border border-amber-400/30 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
       <p
@@ -29,18 +45,14 @@ export default function ShortNoticeRequestReceived({
         tabIndex={-1}
         className="text-xs font-medium uppercase tracking-wider text-amber-200 outline-none"
       >
-        {underMinimumNotice
-          ? minimumNoticeRequestHeading()
-          : "Booking request received"}
+        {heading}
       </p>
       <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
         Thanks — we&apos;ve received your booking request.
       </h2>
       {amountLabel ? <p className="quote-price-figure mt-4">{amountLabel}</p> : null}
       <p className="mx-auto mt-4 max-w-md whitespace-pre-line text-sm leading-relaxed text-white/80 sm:text-base">
-        {underMinimumNotice
-          ? minimumNoticeRequestBody(noticeHours)
-          : "We just need to confirm availability for your requested pickup time before taking payment. We’ll email you once your request has been reviewed. No payment has been taken."}
+        {body}
       </p>
       <p className="mt-5 text-sm quote-secondary">
         Request reference: <span className="font-semibold text-white">{reference}</span>

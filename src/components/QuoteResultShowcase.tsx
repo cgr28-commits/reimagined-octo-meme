@@ -9,6 +9,10 @@ import {
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import { MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
+import {
+  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
+  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
+} from "../../shared/vehicle-capacity";
 
 type QuoteResultShowcaseProps = {
   vehicleType: string;
@@ -20,6 +24,8 @@ type QuoteResultShowcaseProps = {
   bookButton: ReactNode;
   /** Shown only when the first displayed price already includes the 10%. */
   surchargeNote?: string | null;
+  /** High passenger + luggage load — fare shown, payment held. */
+  capacityConfirmation?: boolean;
 };
 
 // Presentational only: image follows the vehicle type already chosen for
@@ -38,6 +44,7 @@ export default function QuoteResultShowcase({
   airportAccess,
   bookButton,
   surchargeNote = null,
+  capacityConfirmation = false,
 }: QuoteResultShowcaseProps) {
   const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
   const isMinibus =
@@ -108,6 +115,19 @@ export default function QuoteResultShowcase({
             </p>
           ) : null}
           <p className="mt-2 text-sm font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
+          {capacityConfirmation ? (
+            <div
+              className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left"
+              data-luggage-capacity-confirmation
+            >
+              <p className="text-sm font-semibold text-navy">
+                {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-navy/75">
+                {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
+              </p>
+            </div>
+          ) : null}
           {airportAccess ? (
             <div className="mt-3 text-left" data-quote-result-airport-access>
               {airportAccess}
@@ -121,8 +141,10 @@ export default function QuoteResultShowcase({
 
           <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-medium leading-snug text-navy/85">
             <Benefit icon="card">
-              Secure payment
-              <span className="block font-normal text-navy/55">powered by SumUp</span>
+              {capacityConfirmation ? "Capacity check first" : "Secure payment"}
+              <span className="block font-normal text-navy/55">
+                {capacityConfirmation ? "no payment until confirmed" : "powered by SumUp"}
+              </span>
             </Benefit>
             <Benefit icon="plane">
               Flight monitoring

@@ -103,6 +103,9 @@ export type PaymentCheckoutResult = {
   ownerAttemptEmailSent?: boolean;
   /** Server diverted to Owner approval instead of SumUp. */
   shortNotice?: boolean;
+  /** High combined passenger + luggage load held for capacity confirmation. */
+  luggageCapacity?: boolean;
+  holdReasons?: string[];
   reference?: string;
   whatsappUrl?: string;
   automaticBookingsAvailableFrom?: string | null;

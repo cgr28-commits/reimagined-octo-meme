@@ -24,6 +24,7 @@ export type ShortNoticeBookingSummary = {
   automaticBookingsAvailableFromApplied?: string | null;
   unavailablePeriodIdApplied?: string | null;
   underMinimumNotice?: boolean;
+  holdReasons?: string[];
   history?: Array<{ type: string; at: string }>;
   declineEmailSentAt?: string;
   createdAt: string;

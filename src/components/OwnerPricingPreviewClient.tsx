@@ -27,6 +27,12 @@ export default function OwnerPricingPreviewClient() {
           <Link className="font-semibold text-emerald underline-offset-2 hover:underline" href="/owner/pricing-preview/quote-on/">
             Public quote selectors — Minibus ON
           </Link>
+          <Link className="font-semibold text-emerald underline-offset-2 hover:underline" href="/owner/pricing-preview/quote-normal-minibus/">
+            Normal Minibus 5+2
+          </Link>
+          <Link className="font-semibold text-emerald underline-offset-2 hover:underline" href="/owner/pricing-preview/quote-high-load/">
+            High-load 7+7 capacity confirmation
+          </Link>
         </div>
         <div className="mt-6">
           <OwnerDashboardToolSwitcher value="pricing" onChange={() => undefined} />

@@ -405,6 +405,11 @@ import {
   publicMinibusAllowed,
 } from "../shared/owner-pricing-config";
 import {
+  LUGGAGE_CAPACITY_OWNER_REASON,
+  hasLuggageCapacityHold,
+  needsLuggageCapacityConfirmation,
+} from "../shared/vehicle-capacity";
+import {
   handleOwnerPricingRequest,
   handlePublicGetPricingConfig,
   isOwnerPricingPath,
@@ -2636,9 +2641,12 @@ async function handlePaymentRequest(
     );
   }
 
-  // Short-notice window: save request for Owner approval — do NOT open SumUp.
+  // Short-notice window or high-load luggage capacity: save request — do NOT open SumUp.
   if (!shortNoticeToken && !a2aQuoteToken) {
     const notice = await shouldForceShortNotice(env.TRACKING_STORE, booking);
+    const luggageHold =
+      notice.luggageCapacity === true ||
+      needsLuggageCapacityConfirmation(booking.passengers, booking.suitcases);
     if (notice.noAvailability) {
       return json(
         {
@@ -2650,7 +2658,7 @@ async function handlePaymentRequest(
         origin,
       );
     }
-    if (notice.shortNotice) {
+    if (notice.shortNotice || luggageHold) {
       try {
         const created = await createShortNoticeRequest({
           store: env.TRACKING_STORE,
@@ -2666,14 +2674,18 @@ async function handlePaymentRequest(
               : {}),
         });
         const amountLabel = formatPaidAmount(created.record.amount);
+        const luggageCapacity = hasLuggageCapacityHold(created.record.holdReasons) || luggageHold;
         const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
           amountLabel,
           checkoutId: created.record.reference,
-          checkoutReference: `SHORT-NOTICE · ${created.record.reference}`,
+          checkoutReference: luggageCapacity
+            ? `CAPACITY · ${created.record.reference}`
+            : `SHORT-NOTICE · ${created.record.reference}`,
         });
         const pickupRemaining = formatHoursUntilPickupLabel(booking.tripDate, booking.tripTime);
-        const ownerSubject =
-          pickupRemaining && pickupRemaining !== "pickup time has passed"
+        const ownerSubject = luggageCapacity && !notice.shortNotice
+          ? `New luggage capacity confirmation request — ${created.record.reference}`
+          : pickupRemaining && pickupRemaining !== "pickup time has passed"
             ? `New short-notice booking request — pickup in ${pickupRemaining}`
             : `New short-notice booking request — ${created.record.reference}`;
         await trySendOwnerOperationalEmail(env, {
@@ -2681,21 +2693,31 @@ async function handlePaymentRequest(
           subject: ownerSubject,
           body:
             `${attemptEmail.body}\n\n` +
-            `Action required: Short-notice request · Awaiting your decision.\n` +
+            `Action required: ${
+              luggageCapacity ? LUGGAGE_CAPACITY_OWNER_REASON : "Short-notice request"
+            } · Awaiting your decision.\n` +
             `Status: SHORT_NOTICE_AWAITING_APPROVAL\n` +
             `Quoted price: ${amountLabel}\n` +
+            `Passengers: ${booking.passengers}\n` +
+            `Large bags: ${booking.suitcases}\n` +
+            `Vehicle: ${booking.vehicle || "7 Seater Minibus"}\n` +
+            `Reason: ${
+              luggageCapacity ? LUGGAGE_CAPACITY_OWNER_REASON : "Short-notice request"
+            }\n` +
             `Pickup remaining: ${pickupRemaining ?? "—"}\n` +
             `Unavailable period: ${notice.blockingPeriodLabel ?? notice.blockingPeriodId ?? "—"}\n` +
             `Under ${notice.minimumNoticeHours}-hour notice: ${notice.underMinimumNotice ? "yes" : "no"}\n` +
             `Open the Owner Dashboard (Booking Availability) to Approve, Offer alternative time, or Decline.`,
         });
-        if (created.record.underMinimumNotice) {
+        if (created.record.underMinimumNotice || luggageCapacity) {
           await sendShortNoticeRequestReceivedEmail(env, created.record);
         }
         return json(
           {
             ok: true,
             shortNotice: true,
+            luggageCapacity,
+            holdReasons: created.record.holdReasons ?? [],
             reference: created.record.reference,
             whatsappUrl: created.whatsappUrl,
             blockingPeriodId: notice.blockingPeriodId,

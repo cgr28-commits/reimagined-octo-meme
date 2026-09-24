@@ -599,15 +599,12 @@ export const VEHICLE_BOOKING_GUIDANCE = [
   "Public website capacity is up to 4 passengers only.",
 ] as const;
 
-/** Legacy hook retained for quote form — capacity above 7 is blocked elsewhere. */
-export function needsLuggageCapacityConfirmation(
-  passengers: number,
-  suitcases: number,
-): boolean {
-  void passengers;
-  void suitcases;
-  return false;
-}
+export {
+  needsLuggageCapacityConfirmation,
+  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
+  LUGGAGE_CAPACITY_CONFIRMATION_CTA,
+  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
+} from "../../shared/vehicle-capacity";
 
 export function isVehicleEnquiryOnly(vehicleType: string): boolean {
   return (ENQUIRY_ONLY_VEHICLE_TYPES as readonly string[]).includes(vehicleType);

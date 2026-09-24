@@ -8,6 +8,7 @@ import { calculatePointToPointQuote, calculateQuote, formatQuote } from "./quote
 import type { TripSchedule } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
 import { MINIBUS_VEHICLE, requiresMinibus, selectVehicleForParty } from "./vehicle-selection";
+import { needsLuggageCapacityConfirmation } from "../../shared/vehicle-capacity";
 import type { VehicleType } from "./data";
 import {
   INSTANT_QUOTE_MAX_PASSENGERS,
@@ -86,6 +87,8 @@ export type QuoteServiceSuccess = {
   /** Airport fixed costs included in `amount` (before Express / promos). */
   airportFixedCostsGbp?: number;
   source: "website-pricing-engine";
+  /** High combined passenger + luggage load — quote shown, payment held. */
+  needsLuggageCapacityConfirmation: boolean;
 };
 
 export type QuoteServiceFailure = {
@@ -390,5 +393,9 @@ export function calculateAuthoritativeWebsiteQuote(
     ...(nightWeekendSurchargeGbp != null ? { nightWeekendSurchargeGbp } : {}),
     ...(airportFixedCostsGbp != null ? { airportFixedCostsGbp } : {}),
     source: "website-pricing-engine",
+    needsLuggageCapacityConfirmation: needsLuggageCapacityConfirmation(
+      passengers,
+      Math.max(0, suitcases),
+    ),
   };
 }

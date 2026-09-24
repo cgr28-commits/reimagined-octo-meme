@@ -4,6 +4,7 @@
  */
 
 import type { PaidBookingDetails } from "./booking-notifications";
+import type { PaymentHoldReason } from "./vehicle-capacity";
 
 export const SHORT_NOTICE_STATUSES = [
   "SHORT_NOTICE_AWAITING_APPROVAL",
@@ -79,6 +80,11 @@ export type ShortNoticeBookingRecord = {
   unavailablePeriodIdApplied?: string | null;
   /** True when the configured minimum online notice forced this request. */
   underMinimumNotice?: boolean;
+  /**
+   * Why payment was held for Owner approval.
+   * Includes luggage_capacity when the conservative 7 Seater high-load rule applies.
+   */
+  holdReasons?: PaymentHoldReason[];
   /** Append-only audit trail — never overwrites earlier events. */
   history?: ShortNoticeHistoryEvent[];
   /** Set when the customer decline/no-availability email was sent. */

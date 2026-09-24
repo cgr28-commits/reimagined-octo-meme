@@ -11,6 +11,11 @@ import {
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
 } from "./business-email";
 import { MINIMUM_BOOKING_NOTICE_HOURS } from "./booking-notice";
+import {
+  LUGGAGE_CAPACITY_RECEIVED_BODY,
+  hasLuggageCapacityHold,
+  type PaymentHoldReason,
+} from "./vehicle-capacity";
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
@@ -40,6 +45,7 @@ export type ShortNoticeRequestReceivedEmailDetails = {
   amountLabel: string;
   reference: string;
   noticeHours?: number;
+  holdReasons?: PaymentHoldReason[];
 };
 
 export function buildShortNoticeRequestReceivedEmail(
@@ -49,11 +55,15 @@ export function buildShortNoticeRequestReceivedEmail(
   const firstName = customerFirstName(details.customerName);
   const subject = "We’ve received your booking request";
   const noticeHours = details.noticeHours ?? MINIMUM_BOOKING_NOTICE_HOURS;
+  const luggageHold = hasLuggageCapacityHold(details.holdReasons);
+  const reasonParagraph = luggageHold
+    ? LUGGAGE_CAPACITY_RECEIVED_BODY
+    : `Because your requested journey is within our ${noticeHours}-hour advance booking period, we need to confirm availability before your booking can be accepted.`;
 
   const text =
     `Hi ${firstName},\n\n` +
     `Thanks for your booking request.\n\n` +
-    `Because your requested journey is within our ${noticeHours}-hour advance booking period, we need to confirm availability before your booking can be accepted.\n\n` +
+    `${reasonParagraph}\n\n` +
     `Journey\n` +
     `${details.pickupLabel} → ${details.dropoffLabel}\n` +
     `${details.tripDate} ${details.tripTime}\n` +
@@ -89,7 +99,7 @@ export function buildShortNoticeRequestReceivedEmail(
             <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
               <p style="margin:0 0 16px;">Thanks for your booking request.</p>
-              <p style="margin:0 0 16px;">Because your requested journey is within our ${noticeHours}-hour advance booking period, we need to confirm availability before your booking can be accepted.</p>
+              <p style="margin:0 0 16px;">${escapeHtml(reasonParagraph)}</p>
               <p style="margin:0 0 6px;font-weight:600;color:${NAVY};">${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>
               <p style="margin:0 0 8px;">${escapeHtml(details.tripDate)} · ${escapeHtml(details.tripTime)}</p>
               <p style="margin:0 0 8px;"><strong style="color:${NAVY};">Quoted price:</strong> ${escapeHtml(details.amountLabel)}</p>

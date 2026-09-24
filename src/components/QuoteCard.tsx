@@ -57,6 +57,9 @@ import {
   MAX_ONLINE_PASSENGERS,
   MINIBUS_VEHICLE_TYPE,
   needsLuggageCapacityConfirmation,
+  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
+  LUGGAGE_CAPACITY_CONFIRMATION_CTA,
+  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
   SERVICE_FLAGS,
   showsOnlineGuidePrice,
   SITE,
@@ -801,6 +804,7 @@ function QuoteCard({
     amountLabel?: string;
     underMinimumNotice?: boolean;
     noticeHours?: number;
+    luggageCapacity?: boolean;
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
@@ -844,7 +848,6 @@ function QuoteCard({
       effectivePartyPassengers(passengers) ?? passengers,
       suitcases,
     );
-  const [capacityConfirmed, setCapacityConfirmed] = useState(false);
   const [confirmStartNewQuote, setConfirmStartNewQuote] = useState(false);
   /** Bumped on Start a New Quote so address inputs remount with clean internal state. */
   const [formResetKey, setFormResetKey] = useState(0);
@@ -857,8 +860,6 @@ function QuoteCard({
     const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
     setVehicle((current) => (current === next ? current : next));
   }, [passengers, suitcases]);
-  const [capacityError, setCapacityError] = useState("");
-
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
   const journeyKind: JourneyKind | null = useMemo(() => {
@@ -1406,13 +1407,6 @@ function QuoteCard({
       returnTime: nextReturnTime || returnTime,
     };
   }
-
-  useEffect(() => {
-    if (!capacityNeedsConfirm) {
-      setCapacityConfirmed(false);
-      setCapacityError("");
-    }
-  }, [capacityNeedsConfirm]);
 
   const liveQuote = useMemo(() => {
     // Do not invent or show live fares until pricing rules are owner-approved.
@@ -3105,21 +3099,6 @@ function QuoteCard({
     setSaveQuotePrompt(built.message);
   }
 
-  function requireCapacityConfirmed(): boolean {
-    if (!capacityNeedsConfirm) {
-      setCapacityError("");
-      return true;
-    }
-    if (!capacityConfirmed) {
-      setCapacityError(
-        "Please confirm you understand we must check luggage capacity before we can accept this booking.",
-      );
-      return false;
-    }
-    setCapacityError("");
-    return true;
-  }
-
   function requireTermsAccepted(): boolean {
     if (!termsAccepted) {
       setTermsError(QUOTE_REQUIRED_FIELD_MESSAGES.terms);
@@ -3270,10 +3249,6 @@ function QuoteCard({
       return;
     }
 
-    if (!requireCapacityConfirmed()) {
-      return;
-    }
-
     const availabilityBlocked = await applyCustomerSmartAvailabilityCheck();
     if (availabilityBlocked) {
       return;
@@ -3420,6 +3395,8 @@ function QuoteCard({
             checkout.minimumBookingNoticeHours ??
             checkout.minimumNoticeHours ??
             minimumBookingNoticeHours,
+          luggageCapacity:
+            checkout.luggageCapacity === true || capacityNeedsConfirm,
         });
         setPaymentLoading(false);
         return;
@@ -3795,8 +3772,7 @@ function QuoteCard({
     Boolean(emailAddressError.trim()) ||
     Boolean(termsError.trim()) ||
     Boolean(goingFlightError.trim()) ||
-    Boolean(collectionFlightError.trim()) ||
-    Boolean(capacityError.trim());
+    Boolean(collectionFlightError.trim());
 
   /**
    * At most one WhatsApp + Start New Quote error cluster is mounted.
@@ -3919,9 +3895,6 @@ function QuoteCard({
       return;
     }
     notifyOwnerQuoteContactIfReady();
-    if (!requireCapacityConfirmed()) {
-      return;
-    }
 
     void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
       recordAdFraudBehaviour("booking_started", { path: delivery });
@@ -5111,7 +5084,9 @@ function QuoteCard({
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
               : isEnquiryOnly
                 ? "We’ll reply with your quote — no online payment until you confirm."
-                : canPayNowOnline
+                : capacityNeedsConfirm
+                  ? "Fixed price for your journey. This combination needs luggage capacity confirmation before payment."
+                  : canPayNowOnline
                   ? isAirportLegForInclusions
                     ? "Eligible bookings can be paid securely online with SumUp."
                     : "Fixed price for your journey. Eligible bookings can be paid securely online with SumUp."
@@ -5497,24 +5472,18 @@ function QuoteCard({
         >
           <div id="quote-step2-next" className="sr-only" />
           {capacityNeedsConfirm ? (
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-50">
-              <input
-                type="checkbox"
-                checked={capacityConfirmed}
-                onChange={(event) => {
-                  setCapacityConfirmed(event.target.checked);
-                  if (event.target.checked) setCapacityError("");
-                }}
-                className="mt-1 h-4 w-4 shrink-0 rounded border-white/30 bg-navy text-emerald focus:ring-emerald"
-              />
-              <span>
-                I understand luggage capacity may need written confirmation before this booking is
-                accepted.
-                {capacityError ? (
-                  <span className="mt-1 block text-xs text-red-200">{capacityError}</span>
-                ) : null}
-              </span>
-            </label>
+            <div
+              className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
+              role="status"
+              data-luggage-capacity-confirmation
+            >
+              <p className="text-sm font-semibold text-amber-100">
+                {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
+                {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
+              </p>
+            </div>
           ) : null}
 
           <BookingTermsConsent
@@ -5527,7 +5496,7 @@ function QuoteCard({
             mode={
               isManualQuoteJourney
                 ? "quote-request"
-                : isMinimumNoticeRequest
+                : isMinimumNoticeRequest || capacityNeedsConfirm
                   ? "booking-request"
                   : payNow
                     ? "card-payment"
@@ -5573,7 +5542,21 @@ function QuoteCard({
             </div>
           ) : payNow && liveQuote ? (
             <div className="space-y-3">
-              {isMinimumNoticeRequest && !openCheckout ? (
+              {capacityNeedsConfirm && !openCheckout ? (
+                <div
+                  className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
+                  role="status"
+                  aria-live="polite"
+                  data-luggage-capacity-confirmation
+                >
+                  <p className="text-sm font-semibold text-amber-100">
+                    {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
+                  </p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
+                    {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
+                  </p>
+                </div>
+              ) : isMinimumNoticeRequest && !openCheckout ? (
                 <div
                   className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
                   role="status"
@@ -5654,16 +5637,18 @@ function QuoteCard({
                   className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
-                    ? isMinimumNoticeRequest
+                    ? capacityNeedsConfirm || isMinimumNoticeRequest
                       ? "Submitting booking request…"
                       : "Opening secure payment…"
                     : testChargeAmount !== null
                       ? "Pay £1.00 test charge with SumUp"
-                      : isMinimumNoticeRequest
+                      : capacityNeedsConfirm
+                        ? `${LUGGAGE_CAPACITY_CONFIRMATION_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                        : isMinimumNoticeRequest
                         ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
                 </button>
-                {isMinimumNoticeRequest ? (
+                {isMinimumNoticeRequest || capacityNeedsConfirm ? (
                   <a
                     href={shortNoticeWhatsAppHref}
                     target="_blank"
@@ -5876,6 +5861,7 @@ function QuoteCard({
         }
         airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
+        capacityConfirmation={capacityNeedsConfirm}
       />
     );
   }
@@ -5922,6 +5908,7 @@ function QuoteCard({
           whatsappUrl={shortNoticeResult.whatsappUrl}
           underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
           noticeHours={shortNoticeResult.noticeHours ?? minimumBookingNoticeHours}
+          luggageCapacity={shortNoticeResult.luggageCapacity === true}
         />
         <button
           type="button"

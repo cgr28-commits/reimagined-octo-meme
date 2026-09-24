@@ -11,7 +11,9 @@
  * Owner/Driver Quick Quote may still select Minibus (5–7) when public Minibus is OFF.
  *
  * Passenger count of 3 or 4 does NOT by itself trigger Estate.
- * 7 passengers + 7 large bags maps to Minibus; physical fit is not separately validated.
+ * 7 passengers + 7 large bags maps to Minibus. High combined load still quotes
+ * as Minibus; payment is held for luggage capacity confirmation (see
+ * shared/vehicle-capacity.ts) rather than claiming exact physical fit.
  */
 
 import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "./data";

@@ -35,6 +35,11 @@ import {
   type ShortNoticeBookingSummary,
   type UnavailablePeriodSummary,
 } from "@/lib/short-notice-api";
+import {
+  LUGGAGE_CAPACITY_OWNER_REASON,
+  hasLuggageCapacityHold,
+  ownerHoldReasonLabel,
+} from "../../shared/vehicle-capacity";
 
 type OwnerShortNoticePanelProps = {
   ownerKey: string;
@@ -874,7 +879,9 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       </span>
                     </p>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200/90">
-                      Short-notice request
+                      {hasLuggageCapacityHold(booking.holdReasons)
+                        ? LUGGAGE_CAPACITY_OWNER_REASON
+                        : "Short-notice request"}
                     </p>
                     <p className="text-[11px] font-semibold tracking-wider text-white/70">
                       {ownerFacingStatusLabel(booking)}
@@ -919,7 +926,9 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       {booking.reference} · {booking.amountLabel} · {service}
                     </p>
                     <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-amber-200">
-                      Short-notice request
+                      {hasLuggageCapacityHold(booking.holdReasons)
+                        ? LUGGAGE_CAPACITY_OWNER_REASON
+                        : "Short-notice request"}
                     </p>
                     <p className="mt-0.5 text-xs uppercase tracking-wider text-amber-200/90">
                       {ownerFacingStatusLabel(booking)}
@@ -998,6 +1007,12 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                   <div>
                     <dt className="text-white/40">Quoted journey price</dt>
                     <dd className="font-semibold text-white">{booking.amountLabel}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">Reason held</dt>
+                    <dd className="font-semibold text-amber-100">
+                      {ownerHoldReasonLabel(booking.holdReasons)}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-white/40">Payment status</dt>

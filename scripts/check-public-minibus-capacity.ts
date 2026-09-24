@@ -256,10 +256,11 @@ check("Approved Minibus pricing unchanged (Estate × 1.55, penny only)", () => {
   assert.equal(fare.minibusExactGbp, 86.8);
 });
 
-check("7 passengers + 7 bags is Minibus only — no invented Request Quote rule", () => {
+check("7 passengers + 7 bags is Minibus — capacity confirmation is a separate hold", () => {
   assert.equal(selectVehicleForParty(7, 7), MINIBUS_VEHICLE);
   const data = read("src/lib/data.ts");
-  assert.match(data, /needsLuggageCapacityConfirmation[\s\S]*return false/);
+  assert.match(data, /needsLuggageCapacityConfirmation/);
+  assert.match(data, /shared\/vehicle-capacity/);
 });
 
 console.log("\nPublic Minibus capacity checks passed.");
