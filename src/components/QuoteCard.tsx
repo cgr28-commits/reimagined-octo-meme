@@ -3719,7 +3719,6 @@ function QuoteCard({
     setTestChargeAmount(null);
     setTestBookingLabel(null);
     setAppliedPersonalQuote(null);
-    setCapacityConfirmed(false);
     setConfirmStartNewQuote(false);
 
     // Re-seed landing-page airport place into storage when props provide one.
