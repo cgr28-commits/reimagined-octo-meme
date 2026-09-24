@@ -5,6 +5,13 @@ import type {
   PublicOwnerPricingConfig,
 } from "../../shared/owner-pricing-config";
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
+import {
+  isBrowserPricingPreview,
+  previewPublicPricingConfig,
+  readPreviewPricingState,
+  restorePreviewPricingState,
+  savePreviewPricingState,
+} from "@/lib/pricing-preview-store";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -36,6 +43,9 @@ export async function fetchOwnerPricing(ownerKey: string): Promise<{
   defaults: OwnerPricingSettings;
   audit: OwnerPricingAuditEntry[];
 }> {
+  if (isBrowserPricingPreview()) {
+    return readPreviewPricingState();
+  }
   return ownerFetch("/owner/pricing", ownerKey) as Promise<{
     settings: OwnerPricingSettings;
     defaults: OwnerPricingSettings;
@@ -52,6 +62,9 @@ export async function saveOwnerPricing(
   defaults: OwnerPricingSettings;
   audit: OwnerPricingAuditEntry[];
 }> {
+  if (isBrowserPricingPreview()) {
+    return savePreviewPricingState(settings, expectedVersion);
+  }
   return ownerFetch("/owner/pricing", ownerKey, {
     method: "POST",
     body: JSON.stringify({ settings, expectedVersion }),
@@ -70,6 +83,9 @@ export async function restoreOwnerPricingDefaults(
   defaults: OwnerPricingSettings;
   audit: OwnerPricingAuditEntry[];
 }> {
+  if (isBrowserPricingPreview()) {
+    return restorePreviewPricingState(expectedVersion);
+  }
   return ownerFetch("/owner/pricing", ownerKey, {
     method: "POST",
     body: JSON.stringify({ action: "restore-defaults", expectedVersion }),
@@ -81,6 +97,9 @@ export async function restoreOwnerPricingDefaults(
 }
 
 export async function fetchPublicPricingConfig(): Promise<PublicOwnerPricingConfig> {
+  if (isBrowserPricingPreview()) {
+    return previewPublicPricingConfig();
+  }
   try {
     const response = await fetch(`${WORKER_BASE}/pricing/public`, {
       headers: { Accept: "application/json" },

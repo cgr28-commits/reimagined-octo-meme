@@ -45,7 +45,13 @@ import {
   OwnerPricingConflictError,
   OwnerPricingValidationError,
 } from "../workers/addresses/src/owner-pricing-store";
+import { handleOwnerPricingRequest } from "../workers/addresses/src/owner-pricing-handlers";
 import { ownerAuthorized } from "../workers/addresses/src/driver-auth";
+import {
+  PREVIEW_PRICING_FORBIDDEN_CODE,
+  hostnameIsPricingPreview,
+  originIsPricingPreview,
+} from "../shared/pricing-preview-isolation";
 import { NIGHT_WEEKEND_SURCHARGE_RATE } from "../shared/night-weekend-surcharge";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -208,6 +214,41 @@ check("unauthorized owner writes rejected without owner key", () => {
     headers: { "X-Owner-Key": "wrong" },
   });
   assert.equal(ownerAuthorized(request, { OWNER_ACCESS_KEY: "correct-key" }), false);
+});
+
+check("preview hosts are isolated from production hostnames", () => {
+  assert.equal(hostnameIsPricingPreview("my-airport-taxi-ni-quote-git-cursor-owner-pricin-f2b558-colin15.vercel.app"), true);
+  assert.equal(hostnameIsPricingPreview("localhost"), true);
+  assert.equal(hostnameIsPricingPreview("www.myairporttaxini.co.uk"), false);
+  assert.equal(originIsPricingPreview("https://www.myairporttaxini.co.uk"), false);
+});
+
+await checkAsync("preview Origin cannot write production pricing KV", async () => {
+  const store = memoryKv({
+    "owner:pricing-settings": defaultOwnerPricingSettings(),
+  });
+  const request = new Request("https://reimagined-octo-meme.cgr28.workers.dev/owner/pricing", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Owner-Key": "correct-key",
+      Origin: "https://example.vercel.app",
+    },
+    body: JSON.stringify({
+      settings: withOverrides({ estate: { upliftGbp: 99 } }),
+      expectedVersion: 1,
+    }),
+  });
+  const response = await handleOwnerPricingRequest(
+    request,
+    { OWNER_ACCESS_KEY: "correct-key", TRACKING_STORE: store as never },
+    "https://example.vercel.app",
+  );
+  assert.equal(response.status, 403);
+  const body = (await response.json()) as { code?: string };
+  assert.equal(body.code, PREVIEW_PRICING_FORBIDDEN_CODE);
+  const stored = await store.get("owner:pricing-settings", "json");
+  assert.equal((stored as { estate?: { upliftGbp?: number } } | null)?.estate?.upliftGbp, 6);
 });
 
 console.log("\n=== 3. Vehicles / defaults unchanged ===");
@@ -507,6 +548,12 @@ check("Pricing tab, public gate, image slot, no MPV restore", () => {
   assert.match(panel, /7 Seater Minibus/);
   assert.match(panel, /Preview — unsaved settings/);
   assert.doesNotMatch(panel, /quoted \(nearest £5\)/i);
+  assert.match(panel, /PREVIEW_PRICING_BANNER/);
+  assert.match(read("shared/pricing-preview-isolation.ts"), /PREVIEW MODE/);
+  assert.match(read("src/lib/owner-pricing-api.ts"), /isBrowserPricingPreview/);
+  assert.match(read("src/app/owner/pricing-preview/page.tsx"), /OwnerPricingPreviewClient/);
+  assert.match(read("src/app/owner/pricing-preview/vehicles/page.tsx"), /PreviewVehicleCardsClient/);
+  assert.match(read("workers/addresses/src/owner-pricing-handlers.ts"), /PREVIEW_PRICING_FORBIDDEN/);
   assert.match(pricing, /roundUniversalMinibusFareGbp/);
   assert.doesNotMatch(pricing, /Math\.round\(\(estateGbp \* minibusMult\) \/ 5\) \* 5/);
   assert.doesNotMatch(

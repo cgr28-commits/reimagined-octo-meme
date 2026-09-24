@@ -2290,6 +2290,7 @@ export default function DriverPageClient({
     setIsOwnerPreviewHost(host.includes("pages.dev") || host.includes("vercel.app"));
     const tab = new URLSearchParams(window.location.search).get("tab")?.trim().toLowerCase();
     if (tab === "availability") setOwnerToolTab("availability");
+    if (tab === "pricing") setOwnerToolTab("pricing");
   }, [isOwnerPortal]);
 
   const refreshJobs = useCallback(() => {

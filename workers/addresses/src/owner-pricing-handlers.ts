@@ -3,6 +3,11 @@ import {
   defaultOwnerPricingSettings,
   toPublicOwnerPricingConfig,
 } from "../shared/owner-pricing-config";
+import {
+  PREVIEW_PRICING_FORBIDDEN_CODE,
+  PREVIEW_PRICING_FORBIDDEN_MESSAGE,
+  requestIsPricingPreview,
+} from "../shared/pricing-preview-isolation";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import {
   getOwnerPricingSettings,
@@ -64,6 +69,17 @@ export async function handleOwnerPricingRequest(
   }
   if (!ownerAuthorized(request, env)) {
     return json({ error: "Unauthorized — owner access required." }, 401, origin);
+  }
+
+  if (request.method !== "GET" && requestIsPricingPreview(request)) {
+    return json(
+      {
+        error: PREVIEW_PRICING_FORBIDDEN_MESSAGE,
+        code: PREVIEW_PRICING_FORBIDDEN_CODE,
+      },
+      403,
+      origin,
+    );
   }
 
   if (request.method === "GET") {

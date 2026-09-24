@@ -22,14 +22,80 @@ import {
   restoreOwnerPricingDefaults,
   saveOwnerPricing,
 } from "@/lib/owner-pricing-api";
+import { isBrowserPricingPreview } from "@/lib/pricing-preview-store";
+import { PREVIEW_PRICING_BANNER } from "../../shared/pricing-preview-isolation";
+import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
 
 type OwnerPricingPanelProps = {
   ownerKey: string;
 };
 
 const fieldClass =
-  "box-border mt-1 min-h-11 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-navy px-3 text-base text-white [color-scheme:dark]";
+  "box-border mt-1 min-h-12 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-navy px-3 text-base text-white [color-scheme:dark]";
+const prefixedFieldClass =
+  "box-border mt-1 min-h-12 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-navy pl-8 pr-3 text-base text-white [color-scheme:dark]";
+const percentFieldClass =
+  "box-border mt-1 min-h-12 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-navy pl-3 pr-8 text-base text-white [color-scheme:dark]";
 const labelClass = "block min-w-0 text-sm font-medium text-white/70";
+
+function MoneyField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <label className={`${labelClass} mt-3`}>
+      {label}
+      <span className="relative mt-1 block">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/55" aria-hidden>
+          £
+        </span>
+        <input
+          className={prefixedFieldClass}
+          inputMode="decimal"
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+      </span>
+    </label>
+  );
+}
+
+function PercentField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <label className={`${labelClass} mt-3`}>
+      {label}
+      <span className="relative mt-1 block">
+        <input
+          className={percentFieldClass}
+          inputMode="decimal"
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/55" aria-hidden>
+          %
+        </span>
+      </span>
+    </label>
+  );
+}
+
+function knotLabel(index: number, knots: Array<{ miles: number }>): string {
+  if (index === 0) return `Distance rate — up to ${knots[0]?.miles ?? 0} miles`;
+  return `Distance rate — ${knots[index - 1]?.miles ?? 0} to ${knots[index]?.miles ?? 0} miles`;
+}
 
 function cloneSettings(settings: OwnerPricingSettings): OwnerPricingSettings {
   return JSON.parse(JSON.stringify(settings)) as OwnerPricingSettings;
@@ -110,7 +176,12 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
     [defaults, draft],
   );
   const preview = useMemo(() => previewVehicleFaresFromSaloon(50, draft), [draft]);
-  const night10 = previewSurchargeOnBase(100, draft.night.surchargeRate);
+  const nightOnHundred = previewSurchargeOnBase(100, draft.night.surchargeRate);
+  const nightOnMinibus = previewSurchargeOnBase(preview.minibusQuotedGbp, draft.night.surchargeRate);
+  const weekendDays = draft.weekend.days.includes(6) && draft.weekend.days.includes(0)
+    ? "Saturday and Sunday, all day (Europe/London)"
+    : `Days ${draft.weekend.days.join(", ")}`;
+  const isolatedPreview = isBrowserPricingPreview();
 
   const update = <K extends keyof OwnerPricingSettings>(key: K, value: OwnerPricingSettings[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -149,29 +220,31 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
         <p className="mt-1 text-sm text-white/70">
           Customer fare settings. Manage vehicle prices, surcharges and online vehicle availability.
         </p>
+        {isolatedPreview ? (
+          <p
+            className="mt-3 rounded-xl border border-sky-300/40 bg-sky-400/10 px-3 py-3 text-sm font-semibold text-sky-100"
+            role="status"
+          >
+            {PREVIEW_PRICING_BANNER}
+          </p>
+        ) : null}
         {dirty ? (
           <p className="mt-2 rounded-xl border border-amber-300/40 bg-amber-300/10 px-3 py-2 text-sm font-semibold text-amber-100">
-            Unsaved changes — preview only until you save.
+            Unsaved changes — {isolatedPreview ? "preview only, not live pricing" : "preview only until you save"}.
           </p>
         ) : null}
       </div>
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Vehicle pricing</h3>
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-6">
           <div>
-            <p className="font-semibold text-white">Saloon</p>
-            <label className={`${labelClass} mt-3`}>
-              Minimum fare
-              <input
-                className={fieldClass}
-                inputMode="decimal"
-                value={draft.saloon.minimumFareGbp}
-                onChange={(event) =>
-                  update("saloon", { ...draft.saloon, minimumFareGbp: Number(event.target.value) })
-                }
-              />
-            </label>
+            <p className="text-lg font-semibold text-white">Saloon</p>
+            <MoneyField
+              label="Minimum fare"
+              value={draft.saloon.minimumFareGbp}
+              onChange={(minimumFareGbp) => update("saloon", { ...draft.saloon, minimumFareGbp })}
+            />
             <label className={`${labelClass} mt-3`}>
               Floor distance (miles)
               <input
@@ -183,63 +256,59 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
                 }
               />
             </label>
-            <p className="mt-3 text-xs text-white/55">Distance rate points (miles → Saloon £)</p>
-            <div className="mt-2 space-y-2">
+            <p className="mt-3 text-xs text-white/55">Current Saloon distance rates</p>
+            <div className="mt-2 space-y-3">
               {draft.saloon.knots.map((knot, index) => (
-                <div key={`${knot.miles}-${index}`} className="grid grid-cols-2 gap-2">
-                  <label className={labelClass}>
-                    Miles
-                    <input
-                      className={fieldClass}
-                      inputMode="decimal"
-                      value={knot.miles}
-                      onChange={(event) => {
-                        const knots = draft.saloon.knots.map((row, rowIndex) =>
-                          rowIndex === index ? { ...row, miles: Number(event.target.value) } : row,
-                        );
-                        update("saloon", { ...draft.saloon, knots });
-                      }}
-                    />
-                  </label>
-                  <label className={labelClass}>
-                    Fare £
-                    <input
-                      className={fieldClass}
-                      inputMode="decimal"
+                <div key={`${knot.miles}-${index}`} className="min-w-0">
+                  <p className="text-sm font-medium text-white/80">{knotLabel(index, draft.saloon.knots)}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className={labelClass}>
+                      Miles
+                      <input
+                        className={fieldClass}
+                        inputMode="decimal"
+                        value={knot.miles}
+                        onChange={(event) => {
+                          const knots = draft.saloon.knots.map((row, rowIndex) =>
+                            rowIndex === index ? { ...row, miles: Number(event.target.value) } : row,
+                          );
+                          update("saloon", { ...draft.saloon, knots });
+                        }}
+                      />
+                    </label>
+                    <MoneyField
+                      label="Fare"
                       value={knot.fareGbp}
-                      onChange={(event) => {
+                      onChange={(fareGbp) => {
                         const knots = draft.saloon.knots.map((row, rowIndex) =>
-                          rowIndex === index ? { ...row, fareGbp: Number(event.target.value) } : row,
+                          rowIndex === index ? { ...row, fareGbp } : row,
                         );
                         update("saloon", { ...draft.saloon, knots });
                       }}
                     />
-                  </label>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
           <div>
-            <p className="font-semibold text-white">Estate</p>
-            <label className={`${labelClass} mt-3`}>
-              Uplift over Saloon
-              <input
-                className={fieldClass}
-                inputMode="decimal"
-                value={draft.estate.upliftGbp}
-                onChange={(event) => update("estate", { upliftGbp: Number(event.target.value) })}
-              />
-            </label>
+            <p className="text-lg font-semibold text-white">Estate</p>
+            <MoneyField
+              label="Uplift over Saloon"
+              value={draft.estate.upliftGbp}
+              onChange={(upliftGbp) => update("estate", { upliftGbp })}
+            />
             <p className="mt-1 text-xs text-white/55">
               Example: Saloon £50.00 → Estate £{(50 + Number(draft.estate.upliftGbp || 0)).toFixed(2)}
             </p>
           </div>
 
           <div>
-            <p className="font-semibold text-white">7 Seater Minibus</p>
+            <p className="text-lg font-semibold text-white">{MINIBUS_CUSTOMER_NAME}</p>
+            <p className="mt-1 text-sm text-white/70">{MINIBUS_CUSTOMER_DESCRIPTION}</p>
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-sm text-white/70">Offer online</p>
+              <p className="text-sm text-white/80">Offer 7 Seater Minibus online</p>
               <Toggle
                 id="public-minibus-enabled"
                 label="Offer 7 Seater Minibus online"
@@ -250,7 +319,7 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
               />
             </div>
             <label className={`${labelClass} mt-3`}>
-              7 Seater Minibus multiplier
+              Pricing: Estate fare ×
               <input
                 className={fieldClass}
                 inputMode="decimal"
@@ -261,8 +330,8 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
               />
             </label>
             <p className="mt-1 text-xs text-white/55">
-              Estate fare × {draft.minibus.multiplier || "—"}. Quoted to the nearest penny only —
-              not rounded to the nearest £5.
+              Estate × {Number(draft.minibus.multiplier || 0).toFixed(2)}, nearest penny only. Not
+              rounded to the nearest £5.
             </p>
           </div>
         </div>
@@ -270,17 +339,11 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Return pricing</h3>
-        <label className={`${labelClass} mt-3`}>
-          Return Booking Discount %
-          <input
-            className={fieldClass}
-            inputMode="decimal"
-            value={Math.round(draft.returnDiscount.rate * 1000) / 10}
-            onChange={(event) =>
-              update("returnDiscount", { rate: Number(event.target.value) / 100 })
-            }
-          />
-        </label>
+        <PercentField
+          label="Return Booking Discount"
+          value={Math.round(draft.returnDiscount.rate * 1000) / 10}
+          onChange={(value) => update("returnDiscount", { rate: value / 100 })}
+        />
         <p className="mt-1 text-xs text-white/55">
           Applies only to eligible base vehicle fares. Airport, Express and other fixed charges are
           not discounted.
@@ -300,17 +363,11 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
             onChange={(enabled) => update("night", { ...draft.night, enabled })}
           />
         </div>
-        <label className={`${labelClass} mt-3`}>
-          Night surcharge %
-          <input
-            className={fieldClass}
-            inputMode="decimal"
-            value={Math.round(draft.night.surchargeRate * 1000) / 10}
-            onChange={(event) =>
-              update("night", { ...draft.night, surchargeRate: Number(event.target.value) / 100 })
-            }
-          />
-        </label>
+        <PercentField
+          label="Night surcharge"
+          value={Math.round(draft.night.surchargeRate * 1000) / 10}
+          onChange={(value) => update("night", { ...draft.night, surchargeRate: value / 100 })}
+        />
         <div className="mt-3 grid grid-cols-2 gap-2">
           <label className={labelClass}>
             Night starts
@@ -338,7 +395,8 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
           </label>
         </div>
         <p className="mt-2 text-xs text-white/55">
-          Night hours apply Monday–Friday. Current approved window is 22:00–06:00.
+          Night hours apply Monday–Friday. Current window: {formatMinutesAsTime(draft.night.startMinutes)}{" "}
+          to {formatMinutesAsTime(draft.night.endMinutes)}.
         </p>
 
         <div className="mt-4 flex items-center justify-between gap-3">
@@ -350,23 +408,17 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
             onChange={(enabled) => update("weekend", { ...draft.weekend, enabled })}
           />
         </div>
-        <label className={`${labelClass} mt-3`}>
-          Weekend surcharge %
-          <input
-            className={fieldClass}
-            inputMode="decimal"
-            value={Math.round(draft.weekend.surchargeRate * 1000) / 10}
-            onChange={(event) =>
-              update("weekend", { ...draft.weekend, surchargeRate: Number(event.target.value) / 100 })
-            }
-          />
-        </label>
+        <PercentField
+          label="Weekend surcharge"
+          value={Math.round(draft.weekend.surchargeRate * 1000) / 10}
+          onChange={(value) => update("weekend", { ...draft.weekend, surchargeRate: value / 100 })}
+        />
         <p className="mt-2 text-xs text-white/55">
-          Weekend is the whole of Saturday and Sunday (Europe/London). That is the current approved
-          rule — not hourly start/end times.
+          Qualifying weekend: {weekendDays}. Whole days, not hourly start/end times.
         </p>
         <p className="mt-3 text-sm text-white/80">{SURCHARGE_STACKING_EXPLANATION}</p>
-        <p className="mt-3 text-sm text-white/70">{BANK_HOLIDAY_BEHAVIOUR_NOTE}</p>
+        <p className="mt-4 text-sm font-semibold uppercase tracking-wider text-emerald">Bank Holidays</p>
+        <p className="mt-2 text-sm text-white/70">{BANK_HOLIDAY_BEHAVIOUR_NOTE}</p>
         <p className="mt-3 text-xs text-white/55">{nightWeekendSurchargeExplanation(draft)}</p>
       </section>
 
@@ -397,14 +449,12 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Pricing preview</h3>
         {dirty ? (
           <p className="mt-2 text-sm font-semibold text-amber-100">Preview — unsaved settings</p>
+        ) : isolatedPreview ? (
+          <p className="mt-2 text-sm text-white/60">Preview — isolated test settings, not live pricing.</p>
         ) : (
           <p className="mt-2 text-sm text-white/60">Preview uses the saved settings.</p>
         )}
-        <dl className="mt-3 space-y-1 text-sm text-white/85">
-          <div className="flex justify-between gap-3">
-            <dt>Example Saloon base</dt>
-            <dd>£50.00</dd>
-          </div>
+        <dl className="mt-3 space-y-2 text-sm text-white/85">
           <div className="flex justify-between gap-3">
             <dt>Saloon</dt>
             <dd>£{preview.saloonGbp.toFixed(2)}</dd>
@@ -417,11 +467,13 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
             <dt>7 Seater Minibus</dt>
             <dd>£{preview.minibusQuotedGbp.toFixed(2)}</dd>
           </div>
+          <div className="flex justify-between gap-3 pt-2">
+            <dt>Night {formatPercentFromRate(draft.night.surchargeRate)} on 7 Seater £{preview.minibusQuotedGbp.toFixed(2)}</dt>
+            <dd>+£{nightOnMinibus.surchargeGbp.toFixed(2)}</dd>
+          </div>
           <div className="flex justify-between gap-3">
-            <dt>Night on £100</dt>
-            <dd>
-              {formatPercentFromRate(draft.night.surchargeRate)} = +£{night10.surchargeGbp.toFixed(2)}
-            </dd>
+            <dt>Night {formatPercentFromRate(draft.night.surchargeRate)} on £100</dt>
+            <dd>+£{nightOnHundred.surchargeGbp.toFixed(2)}</dd>
           </div>
         </dl>
       </section>

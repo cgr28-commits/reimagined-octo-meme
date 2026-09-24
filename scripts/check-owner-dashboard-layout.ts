@@ -29,6 +29,7 @@ console.log("=== 1. Top tool switcher ===");
   assert.match(page, /useState<OwnerDashboardToolTab>\("jobs"\)/);
   assert.match(page, /ownerToolTab === "availability"/);
   assert.match(page, /ownerToolTab === "pricing"/);
+  assert.match(page, /tab === "pricing"/);
   assert.match(page, /OwnerPricingPanel/);
   assert.match(page, /ownerToolTab === "personal-quotes"/);
   assert.match(page, /ownerToolTab === "same-fare"/);
