@@ -214,7 +214,7 @@ console.log("\n=== QuoteCard booking-details wiring ===");
   assert.match(manage, /Child seats/);
   assert.match(manage, /childSeatNotes/);
   assert.match(card, /Include all children in the passenger total\./);
-  assert.match(read("src/components/QuoteProgressiveRoute.tsx"), /Include all children in the passenger total\./);
+  assert.match(read("src/components/PublicPartySelectors.tsx"), /Include all children in the passenger total\./);
   console.log("OK  QuoteCard state, draft, validation, payload, and summaries");
 }
 

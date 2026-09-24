@@ -130,10 +130,10 @@ check("Party fields wait for journey mode", () => {
   assert.match(progressive, /id="passenger-luggage-section"/);
 });
 
-check("Public party selector is 1–4 only; engine still maps 5+ to Minibus for owner tools", () => {
-  assert.match(progressive, /options=\{\[1, 2, 3, 4\]\}/);
+check("Public party selector follows Minibus ON/OFF; engine still maps 5+ to Minibus", () => {
+  assert.match(progressive, /PublicPartySelectors/);
+  assert.match(read("src/components/PublicPartySelectors.tsx"), /publicPassengerOptions/);
   assert.doesNotMatch(progressive, /FIVE_PLUS_PASSENGERS/);
-  assert.doesNotMatch(progressive, /options=\{\[5, 6, 7\]\}/);
   assert.equal(selectVehicleForParty(5, 0), MINIBUS_VEHICLE);
   assert.equal(selectVehicleForParty(7, 2), MINIBUS_VEHICLE);
   assert.equal(selectVehicleForParty(4, 2), "Standard Saloon (1–4 passengers)");
@@ -244,6 +244,7 @@ check("Server rejects missing journey mode / passenger / suitcase", () => {
     passengers: 6,
     suitcases: 2,
     maxPassengers: 7,
+    ownerMode: true,
     routeMetrics: cityBfsMetrics,
   });
   assert.equal(minibus.ok, true);

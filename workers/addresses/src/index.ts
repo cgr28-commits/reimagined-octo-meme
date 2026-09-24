@@ -1,7 +1,10 @@
 import {
   isValidCapacityPassengerCount,
-  isValidPassengerCount,
-  PASSENGER_LIMIT_ERROR,
+  isValidCapacitySuitcaseCount,
+  isValidPublicPassengerCount,
+  isValidPublicSuitcaseCount,
+  publicPassengerLimitMessage,
+  publicSuitcaseLimitMessage,
 } from "../shared/passenger-limits";
 import {
   getPaymentBookingBlockers,
@@ -974,7 +977,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
   if (!isValidCapacityPassengerCount(passengers)) {
     return null;
   }
-  if (!Number.isFinite(suitcases) || suitcases < 0) {
+  if (!isValidCapacitySuitcaseCount(suitcases)) {
     return null;
   }
 
@@ -1170,7 +1173,7 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
   if (!Number.isFinite(passengers) || passengers < 1 || !Number.isFinite(suitcases) || suitcases < 0) {
     return null;
   }
-  if (!isValidPassengerCount(passengers)) {
+  if (!isValidCapacityPassengerCount(passengers) || !isValidCapacitySuitcaseCount(suitcases)) {
     return null;
   }
 
@@ -1221,6 +1224,14 @@ async function handleQuoteLeadRequest(
   const parsedDetails = parseQuoteLeadBody(body);
   if (!parsedDetails) {
     return json({ error: "Missing required fields" }, 400, origin);
+  }
+  const quoteLeadPricing = await loadOwnerPricingOrDefault(env);
+  const quoteLeadMinibusOn = quoteLeadPricing.minibus.publicEnabled === true;
+  if (!isValidPublicPassengerCount(parsedDetails.passengers, quoteLeadMinibusOn)) {
+    return json({ error: publicPassengerLimitMessage(quoteLeadMinibusOn) }, 400, origin);
+  }
+  if (!isValidPublicSuitcaseCount(parsedDetails.suitcases, quoteLeadMinibusOn)) {
+    return json({ error: publicSuitcaseLimitMessage(quoteLeadMinibusOn) }, 400, origin);
   }
   const details = sanitizeQuoteLeadAutomaticPrice(parsedDetails);
 
@@ -1346,9 +1357,18 @@ async function handleBookingRequest(
   }
 
   if (body.booking) {
+    const bookingPricing = await loadOwnerPricingOrDefault(env);
+    const bookingMinibusOn = bookingPricing.minibus.publicEnabled === true;
     const passengers = Number((body.booking as { passengers?: unknown }).passengers);
-    if (!isValidPassengerCount(passengers)) {
-      return json({ error: PASSENGER_LIMIT_ERROR }, 400, origin);
+    const suitcases = Number((body.booking as { suitcases?: unknown }).suitcases);
+    if (!isValidPublicPassengerCount(passengers, bookingMinibusOn)) {
+      return json({ error: publicPassengerLimitMessage(bookingMinibusOn) }, 400, origin);
+    }
+    if (
+      (body.booking as { suitcases?: unknown }).suitcases != null &&
+      !isValidPublicSuitcaseCount(suitcases, bookingMinibusOn)
+    ) {
+      return json({ error: publicSuitcaseLimitMessage(bookingMinibusOn) }, 400, origin);
     }
   }
 
@@ -2237,6 +2257,27 @@ async function handlePaymentRequest(
       nightWeekendSurchargeGbp?: number;
     } | null = null;
     const pricing = await loadOwnerPricingOrDefault(env);
+    const requoteMinibusOn = pricing.minibus.publicEnabled === true;
+    if (!isValidPublicPassengerCount(Number(booking.passengers), requoteMinibusOn)) {
+      return json(
+        {
+          error: publicPassengerLimitMessage(requoteMinibusOn),
+          code: requoteMinibusOn ? "passenger_limit" : PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+        },
+        requoteMinibusOn ? 400 : 409,
+        origin,
+      );
+    }
+    if (!isValidPublicSuitcaseCount(Number(booking.suitcases), requoteMinibusOn)) {
+      return json(
+        {
+          error: publicSuitcaseLimitMessage(requoteMinibusOn),
+          code: requoteMinibusOn ? "luggage_limit" : PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+        },
+        requoteMinibusOn ? 400 : 409,
+        origin,
+      );
+    }
     const vehicleRaw = String(booking.vehicle ?? "");
     const vehicleType: VehicleType = /estate/i.test(vehicleRaw)
       ? ESTATE_VEHICLE
@@ -2549,10 +2590,31 @@ async function handlePaymentRequest(
   }
 
   const paymentPricing = await loadOwnerPricingOrDefault(env);
+  const paymentMinibusOn = paymentPricing.minibus.publicEnabled === true;
+  if (!quickQuoteId && !isValidPublicPassengerCount(booking.passengers, paymentMinibusOn)) {
+    return json(
+      {
+        error: publicPassengerLimitMessage(paymentMinibusOn),
+        code: paymentMinibusOn ? "passenger_limit" : PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+      },
+      paymentMinibusOn ? 400 : 409,
+      origin,
+    );
+  }
+  if (!quickQuoteId && !isValidPublicSuitcaseCount(booking.suitcases, paymentMinibusOn)) {
+    return json(
+      {
+        error: publicSuitcaseLimitMessage(paymentMinibusOn),
+        code: paymentMinibusOn ? "luggage_limit" : PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+      },
+      paymentMinibusOn ? 400 : 409,
+      origin,
+    );
+  }
   if (
     !quickQuoteId &&
     !publicMinibusAllowed(String(booking.vehicle ?? ""), {
-      publicMinibusEnabled: paymentPricing.minibus.publicEnabled === true,
+      publicMinibusEnabled: paymentMinibusOn,
       ownerMode: false,
     })
   ) {

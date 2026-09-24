@@ -21,8 +21,11 @@ export default function OwnerPricingPreviewClient() {
           <Link className="font-semibold text-emerald underline-offset-2 hover:underline" href="/owner/pricing-preview/vehicles/">
             View 7 Seater vehicle cards
           </Link>
-          <Link className="font-semibold text-emerald underline-offset-2 hover:underline" href="/?previewMinibus=1">
-            Public quote with 7 Seater shown
+          <Link className="font-semibold text-emerald underline-offset-2 hover:underline" href="/owner/pricing-preview/quote-off/">
+            Public quote selectors — Minibus OFF
+          </Link>
+          <Link className="font-semibold text-emerald underline-offset-2 hover:underline" href="/owner/pricing-preview/quote-on/">
+            Public quote selectors — Minibus ON
           </Link>
         </div>
         <div className="mt-6">

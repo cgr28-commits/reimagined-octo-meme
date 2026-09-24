@@ -4,7 +4,12 @@ import {
   resolvePaymentsApiUrl,
   resolvePaymentsConfirmApiUrl,
 } from "@/lib/worker-api";
-import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
+import {
+  isValidCapacityPassengerCount,
+  isValidCapacitySuitcaseCount,
+  PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR,
+  PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR,
+} from "../../shared/passenger-limits";
 import {
   isValidPersonalQuotePassengerCount,
   PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
@@ -274,8 +279,11 @@ export async function createPaymentCheckout(
       }
     }
 
-    if (!isValidPassengerCount(request.booking.passengers)) {
-      throw new Error(PASSENGER_LIMIT_ERROR);
+    if (!isValidCapacityPassengerCount(request.booking.passengers)) {
+      throw new Error(PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR);
+    }
+    if (!isValidCapacitySuitcaseCount(request.booking.suitcases)) {
+      throw new Error(PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR);
     }
     if (
       request.personalQuoteCode &&
@@ -476,8 +484,11 @@ export async function confirmPaidBooking(
   checkoutId: string,
   booking?: BookingDetails | null,
 ): Promise<PaymentConfirmationResult> {
-  if (booking && !isValidPassengerCount(booking.passengers)) {
-    throw new Error(PASSENGER_LIMIT_ERROR);
+  if (booking && !isValidCapacityPassengerCount(booking.passengers)) {
+    throw new Error(PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR);
+  }
+  if (booking && !isValidCapacitySuitcaseCount(booking.suitcases)) {
+    throw new Error(PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR);
   }
 
   if (!PAYMENTS_CONFIRM_API_URL) {

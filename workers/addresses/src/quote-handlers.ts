@@ -28,7 +28,12 @@ import {
   publicMaxPassengers,
   publicMinibusAllowed,
 } from "../shared/owner-pricing-config";
-import { isValidPublicPassengerCount } from "../shared/passenger-limits";
+import {
+  isValidPublicPassengerCount,
+  isValidPublicSuitcaseCount,
+  publicPassengerLimitMessage,
+  publicSuitcaseLimitMessage,
+} from "../shared/passenger-limits";
 import {
   customerSmartAvailabilityPreviewRequested,
   enforceCustomerSmartAvailabilityGate,
@@ -293,9 +298,21 @@ export async function handleQuoteCalculateRequest(
       {
         ok: false,
         reason: "passenger_limit",
-        message: publicMinibusEnabled
-          ? "We can only quote for up to 7 passengers."
-          : "We can only quote for up to 4 passengers. Please select 1–4 passengers.",
+        message: publicPassengerLimitMessage(publicMinibusEnabled),
+      },
+      422,
+      origin,
+    );
+  }
+  if (
+    !ownerMode &&
+    !isValidPublicSuitcaseCount(Math.floor(suitcases), publicMinibusEnabled)
+  ) {
+    return json(
+      {
+        ok: false,
+        reason: "luggage_limit",
+        message: publicSuitcaseLimitMessage(publicMinibusEnabled),
       },
       422,
       origin,

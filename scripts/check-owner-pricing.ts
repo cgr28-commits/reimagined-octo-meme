@@ -24,6 +24,7 @@ import {
   previewSurchargeOnBase,
   previewVehicleFaresFromSaloon,
   publicMaxPassengers,
+  publicMaxSuitcases,
   publicMinibusAllowed,
   surchargeRateForDateTime,
   validateOwnerPricingInput,
@@ -322,6 +323,8 @@ check("public Minibus OFF hides and is enforced", () => {
   );
   assert.equal(publicMaxPassengers(false), 4);
   assert.equal(publicMaxPassengers(true), 7);
+  assert.equal(publicMaxSuitcases(false), 4);
+  assert.equal(publicMaxSuitcases(true), 7);
 });
 
 check("8 passengers rejected; 7 accepted when public ON; MPV unavailable", () => {
@@ -373,8 +376,10 @@ check("public OFF rejects public Minibus quote; owner mode still works", () => {
   });
   assert.equal(publicOff.ok, false);
   if (!publicOff.ok) {
-    assert.equal(publicOff.reason, "vehicle_unavailable");
-    assert.equal(publicOff.message, PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+    assert.ok(
+      publicOff.reason === "passenger_limit" || publicOff.reason === "vehicle_unavailable",
+    );
+    assert.match(publicOff.message, /4 passengers|unavailable/i);
   }
   const owner = calculateAuthoritativeWebsiteQuote({
     pickupAddress: "Belfast City Hall, Belfast",

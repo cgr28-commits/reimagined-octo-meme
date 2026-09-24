@@ -83,10 +83,12 @@ assert.match(progressive, /QUOTE_JOURNEY_INTENT_OPTIONS/);
 assert.match(progressive, /onJourneyIntentChange/);
 assert.match(progressive, /AIRPORT_SELECT_CARD/);
 assert.match(progressive, /min-h-14/);
-assert.match(progressive, /choiceGridShellClass/);
-assert.match(progressive, /Include all children in the passenger total\./);
-assert.match(progressive, /form-label mb-0/);
-assert.match(progressive, /mt-1 text-\[11px\] font-medium leading-snug text-white\/70/);
+const partySelectors = read("src/components/PublicPartySelectors.tsx");
+assert.match(partySelectors, /choiceGridShellClass/);
+assert.match(partySelectors, /Include all children in the passenger total\./);
+assert.match(partySelectors, /form-label mb-0/);
+assert.match(partySelectors, /mt-1 text-\[11px\] font-medium leading-snug text-white\/70/);
+assert.match(progressive, /PublicPartySelectors/);
 assert.doesNotMatch(
   progressive,
   /function ChoiceGrid[\s\S]{0,400}choiceGroupNeedsClass/,

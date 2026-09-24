@@ -51,7 +51,7 @@ export const BANK_HOLIDAY_BEHAVIOUR_NOTE =
   "Daytime bank holidays are not an extra surcharge. There is no separate Bank Holiday calendar. Saturday and Sunday already qualify as Weekend. A weekday bank-holiday daytime journey is charged at the standard weekday rate unless it also falls inside Night hours.";
 
 export const MINIBUS_LUGGAGE_DECISION_NOTE =
-  "Public luggage remains 0–4 large suitcases. Historical Minibus also triggered on more than 4 cases; that 5+ suitcase capacity is not restored here. 7 Seater Minibus is offered for 5–7 passengers with the current 0–4 suitcase selector. A dedicated 7 Seater luggage rule needs an owner decision.";
+  "When public 7 Seater Minibus is ON, the public selector allows 0–7 large bags and 1–7 passengers. 5–7 passengers and 5–7 large bags require 7 Seater Minibus; Saloon/Estate keep their existing 1–4 passenger and 0–2 / 3–4 suitcase rules. 7 passengers + 7 large bags is accepted as a Minibus quote only — physical fit of every 7-seat vehicle for that combination has not been validated and is not treated as a Request Quote rule.";
 
 export type OwnerPricingSchemaVersion = typeof OWNER_PRICING_SCHEMA_VERSION;
 
@@ -627,7 +627,11 @@ export function isPublicMinibusVehicle(vehicleType: string | null | undefined): 
 }
 
 export function publicMaxPassengers(publicMinibusEnabled: boolean): number {
-  return publicMinibusEnabled ? 7 : 4;
+  return publicMinibusEnabled === true ? 7 : 4;
+}
+
+export function publicMaxSuitcases(publicMinibusEnabled: boolean): number {
+  return publicMinibusEnabled === true ? 7 : 4;
 }
 
 export function publicMinibusAllowed(

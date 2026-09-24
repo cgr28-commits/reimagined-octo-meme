@@ -70,12 +70,15 @@ import {
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import {
-  clampPassengerCount,
-  PASSENGER_LIMIT_ERROR,
+  publicPassengerLimitMessage,
+  publicPassengerOptions,
+  publicSuitcaseLimitMessage,
+  publicSuitcaseOptions,
 } from "../../shared/passenger-limits";
 import {
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
   publicMaxPassengers,
+  publicMaxSuitcases,
   type PublicOwnerPricingConfig,
 } from "../../shared/owner-pricing-config";
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
@@ -296,14 +299,16 @@ function exceedsOnlineVehicleOptions(
   passengers: number,
   suitcases: number,
   maxPassengers = MAX_ONLINE_PASSENGERS,
+  maxSuitcases = SELECTOR_MAX_SUITCASES,
 ): boolean {
-  return passengers > maxPassengers || suitcases > SELECTOR_MAX_SUITCASES;
+  return passengers > maxPassengers || suitcases > maxSuitcases;
 }
 
 function isPartySelectionComplete(
   passengers: number | null,
   suitcases: number | null,
   maxPassengers = MAX_ONLINE_PASSENGERS,
+  maxSuitcases = SELECTOR_MAX_SUITCASES,
 ): boolean {
   if (passengers == null || suitcases == null) return false;
   return (
@@ -312,7 +317,7 @@ function isPartySelectionComplete(
     passengers <= maxPassengers &&
     Number.isInteger(suitcases) &&
     suitcases >= 0 &&
-    suitcases <= SELECTOR_MAX_SUITCASES
+    suitcases <= maxSuitcases
   );
 }
 
@@ -335,6 +340,18 @@ function clampPublicSuitcases(value: unknown, fallback = 0): number {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(SELECTOR_MAX_SUITCASES, Math.max(0, Math.trunc(n)));
+}
+
+function readStoredPassengerCount(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 7) return null;
+  return n;
+}
+
+function readStoredSuitcaseCount(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(n) || n < 0 || n > 7) return null;
+  return n;
 }
 
 function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = false): VehicleType {
@@ -377,8 +394,8 @@ function TapChoiceRow({
         ) : null}
       </div>
       <div
-        className="grid gap-2"
-        style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+        className="grid grid-cols-4 gap-2"
+        style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}
         role="group"
         aria-label={label}
       >
@@ -620,6 +637,7 @@ function QuoteCard({
     Math.max(1, maxPassengers),
     publicMaxPassengers(publicMinibusEnabled),
   );
+  const suitcaseLimit = publicMaxSuitcases(publicMinibusEnabled);
 
   useEffect(() => {
     let cancelled = false;
@@ -811,7 +829,7 @@ function QuoteCard({
   const quoteVehicle = useMemo(() => {
     const pax = effectivePartyPassengers(passengers, passengerLimit);
     if (pax == null || suitcases == null) return vehicle;
-    if (publicMinibusEnabled && (chooseMinibus || pax >= 5)) {
+    if (publicMinibusEnabled && (chooseMinibus || pax >= 5 || suitcases >= 5)) {
       return MINIBUS_VEHICLE_TYPE;
     }
     return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
@@ -933,22 +951,24 @@ function QuoteCard({
           : "BFS";
 
   useEffect(() => {
-    // Public online path is 1–4 only.
-    if (passengers == null) return;
-    if (passengers > passengerLimit) {
-      setPassengers(passengerLimit);
-    }
     if (exactPassengers != null) {
       setExactPassengers(null);
     }
-  }, [passengerLimit, passengers, exactPassengers]);
+  }, [exactPassengers]);
+
+  useEffect(() => {
+    if (passengers == null) return;
+    if (passengers > passengerLimit || passengers < 1) {
+      setPassengersError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+    }
+  }, [passengerLimit, passengers]);
 
   useEffect(() => {
     if (suitcases == null) return;
-    if (suitcases > SELECTOR_MAX_SUITCASES) {
-      setSuitcases(SELECTOR_MAX_SUITCASES);
+    if (suitcases > suitcaseLimit || suitcases < 0) {
+      setSuitcasesError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
     }
-  }, [suitcases]);
+  }, [suitcaseLimit, suitcases]);
 
   useEffect(() => {
     // Legacy: soft-hide address-to-address when flag is off.
@@ -998,10 +1018,12 @@ function QuoteCard({
       if (draft.returnDate) setReturnDate(draft.returnDate);
       if (draft.returnTime) setReturnTime(draft.returnTime);
       if (typeof draft.passengers === "number" && draft.passengers > 0) {
-        setPassengers(clampPassengerCount(draft.passengers));
+        const storedPassengers = readStoredPassengerCount(draft.passengers);
+        if (storedPassengers != null) setPassengers(storedPassengers);
       }
       if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
-        setSuitcases(clampPublicSuitcases(draft.suitcases));
+        const storedSuitcases = readStoredSuitcaseCount(draft.suitcases);
+        if (storedSuitcases != null) setSuitcases(storedSuitcases);
       }
       setChildSeats(normalizeChildSeats(draft.childSeats));
       setChildSeatNotes(draft.childSeatNotes?.trim() || "");
@@ -1055,8 +1077,8 @@ function QuoteCard({
       setPickupAddress(testBooking.pickupAddress);
       setTripDate(testBooking.tripDate);
       setTripTime(testBooking.tripTime);
-      setPassengers(clampPassengerCount(testBooking.passengers));
-      setSuitcases(clampPublicSuitcases(testBooking.suitcases));
+      setPassengers(readStoredPassengerCount(testBooking.passengers) ?? testBooking.passengers);
+      setSuitcases(readStoredSuitcaseCount(testBooking.suitcases) ?? testBooking.suitcases);
       setExactPassengers(null);
       setVehicle(testBooking.vehicle);
       setGoingFlightNumber(testBooking.flightNumber);
@@ -1203,10 +1225,12 @@ function QuoteCard({
       if (draft.returnDate) setReturnDate(draft.returnDate);
       if (draft.returnTime) setReturnTime(draft.returnTime);
       if (typeof draft.passengers === "number" && draft.passengers > 0) {
-        setPassengers(clampPassengerCount(draft.passengers));
+        const storedPassengers = readStoredPassengerCount(draft.passengers);
+        if (storedPassengers != null) setPassengers(storedPassengers);
       }
       if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
-        setSuitcases(clampPublicSuitcases(draft.suitcases));
+        const storedSuitcases = readStoredSuitcaseCount(draft.suitcases);
+        if (storedSuitcases != null) setSuitcases(storedSuitcases);
       }
       setExactPassengers(null);
       if (
@@ -1286,7 +1310,12 @@ function QuoteCard({
     "Hi, I have a short-notice airport transfer request.",
   )}`;
 
-  const partySelectionReady = isPartySelectionComplete(passengers, suitcases, passengerLimit);
+  const partySelectionReady = isPartySelectionComplete(
+    passengers,
+    suitcases,
+    passengerLimit,
+    suitcaseLimit,
+  );
   const effectivePassengers = effectivePartyPassengers(passengers, passengerLimit);
   const quoteChoicesReady = journeyMode !== null && partySelectionReady;
 
@@ -1344,7 +1373,7 @@ function QuoteCard({
     quoteChoicesReady &&
     effectivePassengers != null &&
     suitcases != null &&
-    exceedsOnlineVehicleOptions(effectivePassengers, suitcases, passengerLimit);
+    exceedsOnlineVehicleOptions(effectivePassengers, suitcases, passengerLimit, suitcaseLimit);
   const canShowPrice =
     hasQuoteRoute &&
     quoteChoicesReady &&
@@ -3265,6 +3294,18 @@ function QuoteCard({
       return;
     }
 
+    if (
+      (passengers != null && (passengers > passengerLimit || passengers < 1)) ||
+      (suitcases != null && (suitcases > suitcaseLimit || suitcases < 0))
+    ) {
+      setPaymentError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+      setPassengersError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+      if (suitcases != null && suitcases > suitcaseLimit) {
+        setSuitcasesError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+      }
+      return;
+    }
+
     const bookingDetails = buildConfirmedBookingDetails();
     const blockers = getPaymentBookingBlockers(bookingDetails);
     if (blockers.length > 0) {
@@ -4126,19 +4167,26 @@ function QuoteCard({
         passengers != null &&
         (passengers > passengerLimit || passengers < 1)
       ) {
+        setPassengersError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
         failStep1(
           "invalid_passengers",
           publicMinibusEnabled
-            ? "We can only quote for up to 7 passengers."
-            : PASSENGER_LIMIT_ERROR,
+            ? publicPassengerLimitMessage(true)
+            : PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
         );
         return;
       }
       if (
         suitcases != null &&
-        (suitcases < 0 || suitcases > SELECTOR_MAX_SUITCASES)
+        (suitcases < 0 || suitcases > suitcaseLimit)
       ) {
-        failStep1("invalid_suitcases", "Please select 0–4 large suitcases.");
+        setSuitcasesError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+        failStep1(
+          "invalid_suitcases",
+          publicMinibusEnabled
+            ? publicSuitcaseLimitMessage(true)
+            : PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+        );
         return;
       }
       if (!isScheduleComplete) {
@@ -6191,6 +6239,7 @@ function QuoteCard({
               }}
               passengersError={passengersError}
               suitcasesError={suitcasesError}
+              publicMinibusEnabled={publicMinibusEnabled}
               isGroupQuote={false}
               showRouteFields={Boolean(journeyIntent)}
               showJourneyModeFields={
@@ -6724,8 +6773,12 @@ function QuoteCard({
             <TapChoiceRow
               label="Passengers"
               hint="Include all children in the passenger total."
-              options={Array.from({ length: passengerLimit }, (_, index) => index + 1)}
-              value={passengers == null ? null : Math.min(passengers, passengerLimit)}
+              options={publicPassengerOptions(publicMinibusEnabled)}
+              value={
+                passengers != null && passengers <= passengerLimit && passengers >= 1
+                  ? passengers
+                  : null
+              }
               onChange={(value) => {
                 setPassengers(value);
                 setPassengersError("");
@@ -6735,8 +6788,12 @@ function QuoteCard({
             />
             <TapChoiceRow
               label="Large suitcases (23kg)"
-              options={[0, 1, 2, 3, 4].filter((count) => count <= SELECTOR_MAX_SUITCASES)}
-              value={suitcases == null ? null : Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
+              options={publicSuitcaseOptions(publicMinibusEnabled)}
+              value={
+                suitcases != null && suitcases <= suitcaseLimit && suitcases >= 0
+                  ? suitcases
+                  : null
+              }
               onChange={(value) => {
                 setSuitcases(value);
                 setSuitcasesError("");
@@ -6771,7 +6828,7 @@ function QuoteCard({
           />
           <p className="quote-secondary text-xs leading-relaxed">
             {publicMinibusEnabled
-              ? "Up to 7 passengers. Saloon or Estate is chosen automatically for 1–4 passengers. 7 Seater Minibus is available for 5–7 passengers."
+              ? "Private airport transfers for up to 7 passengers. Saloon or Estate is chosen automatically for 1–4 passengers. 7 Seater Minibus is required for 5–7 passengers or 5–7 large bags."
               : "Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and luggage — private airport transfer for 1–4 passengers."}
           </p>
           {publicMinibusEnabled && partySelectionReady ? (

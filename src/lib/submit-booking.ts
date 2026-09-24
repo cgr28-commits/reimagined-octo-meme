@@ -4,7 +4,12 @@ import { buildBookingMessage } from "@/lib/booking-message";
 import { resolveBookingsApiUrl } from "@/lib/worker-api";
 import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
 import { trackBookingRequestSubmitted } from "@/lib/google-ads-client";
-import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
+import {
+  isValidCapacityPassengerCount,
+  isValidCapacitySuitcaseCount,
+  PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR,
+  PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR,
+} from "../../shared/passenger-limits";
 
 import type { TourEnquiryDetails } from "@/lib/tour-enquiry-message";
 
@@ -263,8 +268,14 @@ export async function submitEnquiryByEmail(
   submission: EnquirySubmission,
   options?: { allowFormSubmitFallback?: boolean },
 ): Promise<string> {
-  if (submission.booking && !isValidPassengerCount(submission.booking.passengers)) {
-    throw new Error(PASSENGER_LIMIT_ERROR);
+  if (submission.booking && !isValidCapacityPassengerCount(submission.booking.passengers)) {
+    throw new Error(PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR);
+  }
+  if (
+    submission.booking &&
+    !isValidCapacitySuitcaseCount(submission.booking.suitcases)
+  ) {
+    throw new Error(PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR);
   }
 
   const allowFormSubmitFallback = options?.allowFormSubmitFallback ?? true;

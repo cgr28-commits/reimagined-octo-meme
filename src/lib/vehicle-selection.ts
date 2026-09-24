@@ -5,11 +5,13 @@
  * Public website (source of truth for customers):
  * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
  * - Estate Car: 1–4 passengers AND 3–4 suitcases
+ * - 7 Seater Minibus: 5–7 passengers OR 5–7 large suitcases
+ *   (only bookable when Offer 7 Seater Minibus Online is ON)
  *
- * Owner/Driver Quick Quote may still select Minibus (5–7) via the owner tool —
- * that is not offered on the public Live Quote.
+ * Owner/Driver Quick Quote may still select Minibus (5–7) when public Minibus is OFF.
  *
  * Passenger count of 3 or 4 does NOT by itself trigger Estate.
+ * 7 passengers + 7 large bags maps to Minibus; physical fit is not separately validated.
  */
 
 import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "./data";
@@ -25,18 +27,18 @@ export const SALOON_VEHICLE: VehicleType = "Standard Saloon (1–4 passengers)";
 export const ESTATE_VEHICLE: VehicleType = "Estate Car (1–4 passengers)";
 export const MINIBUS_VEHICLE: VehicleType = MINIBUS_VEHICLE_TYPE;
 
-/** @deprecated Public selector no longer offers a 5–7 band. */
+/** First passenger count that requires Minibus. */
 export const FIVE_PLUS_PASSENGERS = GROUP_PASSENGER_MIN;
-/** Public suitcase selector max is 4; 5+ is not offered online. */
+/** First suitcase count that requires Minibus. */
 export const FIVE_PLUS_SUITCASES = 5;
-/** Public luggage selector options are 0–4 only. */
+/** Safe public luggage default. Raised to 7 only when public Minibus is ON. */
 export const MAX_PUBLIC_SUITCASES = 4;
 
 export { GROUP_PASSENGER_MAX, GROUP_PASSENGER_MIN, MAX_PASSENGERS, OWNER_QUICK_QUOTE_MAX_PASSENGERS };
 
 /**
- * True when the party would historically need a Minibus.
- * Public quotes reject passengers/suitcases that trigger this; Owner QQ may still use it.
+ * True when the party needs a 7 Seater Minibus.
+ * Public quotes allow this only when Offer 7 Seater Minibus Online is ON.
  */
 export function requiresMinibus(passengers: number, suitcases: number): boolean {
   return passengers > MAX_PASSENGERS || suitcases > MAX_PUBLIC_SUITCASES;
@@ -76,7 +78,7 @@ export function vehicleShortLabel(vehicleType: VehicleType | string): string {
   return String(vehicleType);
 }
 
-/** Public passenger selector label (1–4 only). */
+/** Public passenger selector label. */
 export function formatPassengerChoice(count: number): string {
   return String(count);
 }

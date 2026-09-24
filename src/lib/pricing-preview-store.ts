@@ -29,10 +29,16 @@ export function isBrowserPricingPreview(): boolean {
   );
 }
 
-export function previewMinibusQueryEnabled(): boolean {
-  if (typeof window === "undefined" || !isBrowserPricingPreview()) return false;
+export function previewMinibusQueryOverride(): boolean | null {
+  if (typeof window === "undefined" || !isBrowserPricingPreview()) return null;
   const value = new URLSearchParams(window.location.search).get("previewMinibus");
-  return value === "1" || value === "on" || value === "true";
+  if (value === "1" || value === "on" || value === "true") return true;
+  if (value === "0" || value === "off" || value === "false") return false;
+  return null;
+}
+
+export function previewMinibusQueryEnabled(): boolean {
+  return previewMinibusQueryOverride() === true;
 }
 
 function readJson<T>(key: string): T | null {
@@ -170,11 +176,10 @@ export function restorePreviewPricingState(expectedVersion: number): {
 
 export function previewPublicPricingConfig(): PublicOwnerPricingConfig {
   const config = toPublicOwnerPricingConfig(readPreviewPricingState().settings);
-  if (previewMinibusQueryEnabled()) {
-    return {
-      ...config,
-      minibus: { ...config.minibus, publicEnabled: true },
-    };
-  }
-  return config;
+  const override = previewMinibusQueryOverride();
+  if (override == null) return config;
+  return {
+    ...config,
+    minibus: { ...config.minibus, publicEnabled: override },
+  };
 }

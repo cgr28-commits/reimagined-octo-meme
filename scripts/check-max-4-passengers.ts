@@ -39,17 +39,22 @@ console.log("OK  public max 4; owner QQ minibus still 7");
 console.log("\n=== Public UI ===");
 {
   const progressive = read("src/components/QuoteProgressiveRoute.tsx");
+  const selectors = read("src/components/PublicPartySelectors.tsx");
   const card = read("src/components/QuoteCard.tsx");
   const tour = read("src/components/TourBookingForm.tsx");
-  assert.match(progressive, /options=\{\[1, 2, 3, 4\]\}/);
-  assert.match(progressive, /options=\{\[0, 1, 2, 3, 4\]\}/);
-  assert.doesNotMatch(progressive, /5–7 passengers|FIVE_PLUS_PASSENGERS|Minibus — 5–7/);
-  assert.match(card, /PASSENGER_LIMIT_ERROR/);
+  const limits = read("shared/passenger-limits.ts");
+  assert.match(progressive, /PublicPartySelectors/);
+  assert.match(selectors, /publicPassengerOptions/);
+  assert.match(selectors, /publicSuitcaseOptions/);
+  assert.match(limits, /MAX_PASSENGERS = 4/);
+  assert.match(limits, /MAX_SUITCASES = 4/);
+  assert.doesNotMatch(progressive, /Minibus — 5–7/);
+  assert.match(card, /publicPassengerLimitMessage|PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE/);
   assert.doesNotMatch(card, /Request Minibus Quote|Travelling with 5–7/);
   assert.match(tour, /Up to 4 passengers/);
   assert.match(tour, /Array\.from\(\{ length: 4 \}/);
 }
-console.log("OK  selectors and copy capped at 1–4");
+console.log("OK  selectors follow public Minibus ON/OFF; safe default remains 1–4");
 
 console.log("\n=== Marketing / legal / bot ===");
 {
@@ -73,12 +78,13 @@ console.log("\n=== Server validation wired ===");
   const submit = read("src/lib/submit-booking.ts");
   const worker = read("workers/addresses/src/index.ts");
   const quoteService = read("src/lib/quote-service.ts");
-  assert.match(createPayment, /isValidPassengerCount/);
-  assert.match(submit, /isValidPassengerCount/);
-  assert.match(worker, /isValidPassengerCount/);
-  assert.match(worker, /PASSENGER_LIMIT_ERROR/);
+  assert.match(createPayment, /isValidCapacityPassengerCount/);
+  assert.match(submit, /isValidCapacityPassengerCount/);
+  assert.match(worker, /isValidPublicPassengerCount/);
+  assert.match(worker, /isValidPublicSuitcaseCount/);
   assert.match(quoteService, /OWNER_QUICK_QUOTE_MAX_PASSENGERS/);
-  assert.match(quoteService, /PASSENGER_LIMIT_ERROR/);
+  assert.match(quoteService, /publicPassengerLimitMessage/);
+  assert.match(quoteService, /publicMaxSuitcases/);
   assert.doesNotMatch(quoteService, /speak to Colin for larger parties/);
   const amendment = read("workers/addresses/src/booking-amendment-handlers.ts");
   assert.match(amendment, /isValidPassengerCount/);
