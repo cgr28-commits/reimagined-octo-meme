@@ -225,26 +225,51 @@ check("configurable Estate uplift works", () => {
   assert.equal(estate.journeyFareGbp, saloon.journeyFareGbp + 8);
 });
 
-check("Minibus ×1.55 then nearest £5; formula preview is exact", () => {
+check("Minibus ×1.55 is penny-rounded only: £56 × 1.55 = £86.80", () => {
   const from50 = minibusBaseFareFromSaloon(50);
   assert.equal(from50.estateGbp, 56);
   assert.equal(from50.minibusExactGbp, 86.8);
-  assert.equal(from50.minibusQuotedGbp, 85);
+  assert.equal(from50.minibusQuotedGbp, 86.8);
   const priced = calculateUniversalJourneyFareGbp(0, MINIBUS_VEHICLE, {
     saloonFareGbp: 50,
     minibusMultiplier: 1.55,
     estatePremiumGbp: 6,
   });
-  assert.equal(priced.journeyFareGbp, 85);
+  assert.equal(priced.journeyFareGbp, 86.8);
+  assert.notEqual(priced.journeyFareGbp, 85);
+  assert.notEqual(priced.journeyFareGbp, Math.round((56 * 1.55) / 5) * 5);
+
+  const sixty = calculateUniversalJourneyFareGbp(0, MINIBUS_VEHICLE, {
+    saloonFareGbp: 54,
+    minibusMultiplier: 1.55,
+    estatePremiumGbp: 6,
+  });
+  assert.equal(sixty.journeyFareGbp, 93);
+
+  const seventyThree = calculateUniversalJourneyFareGbp(0, MINIBUS_VEHICLE, {
+    saloonFareGbp: 67,
+    minibusMultiplier: 1.55,
+    estatePremiumGbp: 6,
+  });
+  assert.equal(seventyThree.journeyFareGbp, 113.15);
 });
 
-check("changed Minibus multiplier works", () => {
+check("changed Minibus multiplier works without nearest-£5 rounding", () => {
   const priced = calculateUniversalJourneyFareGbp(0, MINIBUS_VEHICLE, {
+    saloonFareGbp: 50,
+    minibusMultiplier: 1.6,
+    estatePremiumGbp: 6,
+  });
+  assert.equal(priced.journeyFareGbp, 89.6);
+  assert.notEqual(priced.journeyFareGbp, 90);
+
+  const oneSixtyFive = calculateUniversalJourneyFareGbp(0, MINIBUS_VEHICLE, {
     saloonFareGbp: 50,
     minibusMultiplier: 1.65,
     estatePremiumGbp: 6,
   });
-  assert.equal(priced.journeyFareGbp, Math.round((56 * 1.65) / 5) * 5);
+  assert.equal(oneSixtyFive.journeyFareGbp, 92.4);
+  assert.notEqual(oneSixtyFive.journeyFareGbp, Math.round((56 * 1.65) / 5) * 5);
 });
 
 check("public Minibus OFF hides and is enforced", () => {
@@ -452,18 +477,19 @@ check("Saloon → Estate +£6 → Minibus ×1.55; Night from Minibus base; fixed
   const preview = previewVehicleFaresFromSaloon(50);
   assert.equal(preview.estateGbp, 56);
   assert.equal(preview.minibusExactGbp, 86.8);
+  assert.equal(preview.minibusQuotedGbp, 86.8);
   const night10 = previewSurchargeOnBase(86.8, 0.1);
   assert.equal(night10.surchargeGbp, 8.68);
   const night20 = previewSurchargeOnBase(86.8, 0.2);
   assert.equal(night20.surchargeGbp, 17.36);
-  const minibusThenNight = applyTripPremium(85, {
+  const minibusThenNight = applyTripPremium(86.8, {
     outboundDate: "2026-08-19",
     outboundTime: "23:00",
     returnJourney: false,
   });
-  assert.equal(Math.round(minibusThenNight.premiumAmount * 100) / 100, 8.5);
+  assert.equal(Math.round(minibusThenNight.premiumAmount * 100) / 100, 8.68);
   const withFixed = minibusThenNight.total + 5;
-  assert.equal(Math.round(withFixed * 100) / 100, 98.5);
+  assert.equal(Math.round(withFixed * 100) / 100, 100.48);
   assert.notEqual(5 * 1.55, 5);
 });
 
@@ -475,9 +501,18 @@ check("Pricing tab, public gate, image slot, no MPV restore", () => {
   const showcase = read("src/components/QuoteResultShowcase.tsx");
   const handlers = read("workers/addresses/src/quote-handlers.ts");
   const index = read("workers/addresses/src/index.ts");
+  const pricing = read("shared/universal-distance-pricing.ts");
+  const quoteLib = read("src/lib/quote.ts");
   assert.match(switcher, /"pricing"/);
   assert.match(panel, /7 Seater Minibus/);
   assert.match(panel, /Preview — unsaved settings/);
+  assert.doesNotMatch(panel, /quoted \(nearest £5\)/i);
+  assert.match(pricing, /roundUniversalMinibusFareGbp/);
+  assert.doesNotMatch(pricing, /Math\.round\(\(estateGbp \* minibusMult\) \/ 5\) \* 5/);
+  assert.doesNotMatch(
+    quoteLib,
+    /roundToNearestFive\(estate \* options\.minibusMultiplier\)/,
+  );
   assert.match(card, /publicMinibusEnabled/);
   assert.match(card, /7 Seater Minibus/);
   assert.match(showcase, /quote-minibus\.svg/);

@@ -261,8 +261,8 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
               />
             </label>
             <p className="mt-1 text-xs text-white/55">
-              Estate fare × {draft.minibus.multiplier || "—"}. Live quotes still round Minibus to the
-              nearest £5 (current approved engine).
+              Estate fare × {draft.minibus.multiplier || "—"}. Quoted to the nearest penny only —
+              not rounded to the nearest £5.
             </p>
           </div>
         </div>
@@ -414,11 +414,7 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
             <dd>£{preview.estateGbp.toFixed(2)}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt>7 Seater formula</dt>
-            <dd>£{preview.minibusExactGbp.toFixed(2)}</dd>
-          </div>
-          <div className="flex justify-between gap-3">
-            <dt>7 Seater quoted (nearest £5)</dt>
+            <dt>7 Seater Minibus</dt>
             <dd>£{preview.minibusQuotedGbp.toFixed(2)}</dd>
           </div>
           <div className="flex justify-between gap-3">

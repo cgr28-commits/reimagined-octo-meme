@@ -77,11 +77,8 @@ check("4–6. Existing pricing formulas produce distinct fares (no invented Mini
   const minibus = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE, false, {}, belfastBfsMetrics);
   assert.ok(saloon && estate && minibus);
   assert.ok(estate!.amount > saloon!.amount, "Estate > Saloon");
-  const expectedMin = Math.round((estate!.amount * 1.55) / 5) * 5;
-  assert.ok(
-    Math.abs(minibus!.amount - expectedMin) <= 5 || minibus!.amount >= estate!.amount,
-    `Minibus £${minibus!.amount} should track estate×1.55 (≈£${expectedMin})`,
-  );
+  const expectedMin = Math.round(estate!.amount * 1.55 * 100) / 100;
+  assert.equal(minibus!.amount, expectedMin);
 });
 
 check("25–28. One-way + return pricing works for all three services", () => {

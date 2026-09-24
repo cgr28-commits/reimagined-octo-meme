@@ -7,6 +7,7 @@ import {
 } from "../../shared/airport-fixed-costs";
 import {
   calculateUniversalJourneyFareGbp,
+  roundUniversalMinibusFareGbp,
   universalDrivingMilesFromKm,
   UNIVERSAL_ESTATE_PREMIUM_GBP,
   UNIVERSAL_SALOON_MINIMUM_GBP,
@@ -218,7 +219,7 @@ function applyAirportVehiclePricing(
     );
   }
   if (vehicleType === "Minibus (5–7 passengers)") {
-    return roundToNearestFive(estate * options.minibusMultiplier);
+    return roundUniversalMinibusFareGbp(estate * options.minibusMultiplier);
   }
   return saloon;
 }
@@ -715,7 +716,7 @@ export function calculateQuote(
     returnFixedGbp: returnFixed,
     getReturnJourneyFare: (oneWay) => getReturnJourneyFare(oneWay, engine.returnDiscountRate),
   });
-  // Journey: Saloon nearest £1 (Estate +£6). Return discount may introduce pence.
+  // Journey: Saloon nearest £1 (Estate +£6; Minibus Estate × multiplier, penny only). Return discount may introduce pence.
   // Fixed airport costs keep 50p etc. Final amount = journey + fixed, both to pence.
   const roundedJourneyFare = roundGbp(premium.total);
   const roundedFixed = roundGbp(composed.fixedTotalGbp);

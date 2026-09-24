@@ -11,8 +11,12 @@
  *   50 → £96, 60 → £115, 70 → £135, 80 → £157, 90 → £181, 100 → £210
  *
  * Estate = final rounded Saloon + £6 (never rounded separately).
+ * Minibus = Estate × multiplier, rounded to the nearest penny only
+ * (no nearest-£5 rounding).
  * Airport Express / access charges are NOT included here — add after.
  */
+
+import { roundGbp } from "./gbp";
 
 export const UNIVERSAL_ESTATE_PREMIUM_GBP = 6;
 export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
@@ -95,6 +99,11 @@ export function roundUniversalSaloonFareGbp(rawFareGbp: number): number {
   return Math.round(Number(rawFareGbp) || 0);
 }
 
+/** 7 Seater Minibus journey rounding: nearest penny only. Never nearest £5. */
+export function roundUniversalMinibusFareGbp(rawFareGbp: number): number {
+  return roundGbp(rawFareGbp);
+}
+
 export function calculateUniversalSaloonJourneyFareGbp(
   roadMiles: number,
   curve?: UniversalSaloonCurveOptions,
@@ -127,7 +136,8 @@ export function classifyUniversalVehicle(
 
 /**
  * Journey fare (taxi only) from road miles + vehicle.
- * Minibus / Executive build from Estate (= Saloon + £6) with legacy multipliers.
+ * Minibus / Executive build from Estate (= Saloon + £6).
+ * Minibus uses Estate × multiplier with penny rounding only.
  */
 export function calculateUniversalJourneyFareGbp(
   roadMiles: number,
@@ -176,7 +186,7 @@ export function calculateUniversalJourneyFareGbp(
       };
     }
     case "minibus": {
-      const raw = Math.round((estateGbp * minibusMult) / 5) * 5;
+      const raw = roundUniversalMinibusFareGbp(estateGbp * minibusMult);
       return {
         saloonGbp,
         journeyFareGbp: raw,
