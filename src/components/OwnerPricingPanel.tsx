@@ -28,6 +28,7 @@ import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../share
 
 type OwnerPricingPanelProps = {
   ownerKey: string;
+  isolated?: boolean;
 };
 
 const fieldClass =
@@ -134,12 +135,12 @@ function Toggle({
   );
 }
 
-export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) {
+export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerPricingPanelProps) {
   const [saved, setSaved] = useState<OwnerPricingSettings>(defaultOwnerPricingSettings());
   const [draft, setDraft] = useState<OwnerPricingSettings>(defaultOwnerPricingSettings());
   const [defaults, setDefaults] = useState<OwnerPricingSettings>(defaultOwnerPricingSettings());
   const [audit, setAudit] = useState<OwnerPricingAuditEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isolated);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"save" | "restore" | null>(null);
@@ -181,7 +182,7 @@ export default function OwnerPricingPanel({ ownerKey }: OwnerPricingPanelProps) 
   const weekendDays = draft.weekend.days.includes(6) && draft.weekend.days.includes(0)
     ? "Saturday and Sunday, all day (Europe/London)"
     : `Days ${draft.weekend.days.join(", ")}`;
-  const isolatedPreview = isBrowserPricingPreview();
+  const isolatedPreview = isolated || isBrowserPricingPreview();
 
   const update = <K extends keyof OwnerPricingSettings>(key: K, value: OwnerPricingSettings[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));

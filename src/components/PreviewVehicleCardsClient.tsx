@@ -45,7 +45,7 @@ export default function PreviewVehicleCardsClient() {
                 key={option.id}
                 type="button"
                 onClick={() => setSelected(option.id)}
-                className={`flex min-h-16 w-full items-center gap-3 rounded-xl border px-3 py-3 text-left ${
+                className={`flex min-h-16 w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left ${
                   isSelected ? "border-emerald bg-emerald/10 text-white" : "border-white/15 text-white/80"
                 }`}
               >
@@ -54,10 +54,10 @@ export default function PreviewVehicleCardsClient() {
                   alt=""
                   width={96}
                   height={48}
-                  className="h-12 w-24 object-contain"
+                  className="h-12 w-20 shrink-0 object-contain"
                 />
-                <span>
-                  <span className="block font-semibold">{option.title}</span>
+                <span className="min-w-0">
+                  <span className="block font-semibold leading-snug">{option.title}</span>
                   <span className="block text-xs text-white/60">{option.detail}</span>
                 </span>
               </button>

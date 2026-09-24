@@ -27,7 +27,7 @@ export default function OwnerPricingPreviewClient() {
         </div>
         <div className="mt-6">
           <OwnerDashboardToolSwitcher value="pricing" onChange={() => undefined} />
-          <OwnerPricingPanel ownerKey="preview-isolated" />
+          <OwnerPricingPanel ownerKey="preview-isolated" isolated />
         </div>
       </div>
     </main>
