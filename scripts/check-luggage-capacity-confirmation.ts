@@ -236,7 +236,7 @@ async function main() {
     assert.doesNotMatch(card, /I understand luggage capacity may need written confirmation/);
     const showcase = read("src/components/QuoteResultShowcase.tsx");
     assert.match(showcase, /capacityConfirmation/);
-    assert.match(showcase, /no payment until confirmed/);
+    assert.match(showcase, /no payment taken yet/);
   });
 
   check("Worker independently intercepts high-load before SumUp", () => {

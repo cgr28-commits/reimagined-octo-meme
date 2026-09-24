@@ -24,6 +24,7 @@ import {
 } from "@/lib/quote-ui-highlight";
 import { detectMobileDevice } from "@/lib/device";
 import PublicPartySelectors from "@/components/PublicPartySelectors";
+import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
@@ -442,6 +443,9 @@ export default function QuoteProgressiveRoute({
             passengersError={passengersError}
             suitcasesError={suitcasesError}
           />
+          {publicMinibusEnabled === true && passengers != null && suitcases != null ? (
+            <QuoteVehicleCategories passengers={passengers} suitcases={suitcases} />
+          ) : null}
 
           {(passengers == null || suitcases == null) && !passengersError && !suitcasesError && (
             <p

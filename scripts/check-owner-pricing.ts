@@ -566,7 +566,8 @@ check("Pricing tab, public gate, image slot, no MPV restore", () => {
     /roundToNearestFive\(estate \* options\.minibusMultiplier\)/,
   );
   assert.match(card, /publicMinibusEnabled/);
-  assert.match(card, /7 Seater Minibus/);
+  assert.match(read("src/components/QuoteVehicleCategories.tsx"), /MINIBUS_CUSTOMER_NAME/);
+  assert.match(read("shared/vehicle-display.ts"), /7 Seater Minibus/);
   assert.match(showcase, /quote-minibus\.webp/);
   assert.match(handlers, /PUBLIC_MINIBUS_UNAVAILABLE/);
   assert.match(index, /isOwnerPricingPath/);

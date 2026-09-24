@@ -29,7 +29,15 @@ import {
   requiresMinibus,
   selectVehicleForParty,
 } from "../src/lib/vehicle-selection";
-import { previewMinibusQueryOverride } from "../src/lib/pricing-preview-store";
+import {
+  previewCustomerJourneyRequested,
+  previewMinibusQueryOverride,
+  previewPartyFromQuery,
+} from "../src/lib/pricing-preview-store";
+import {
+  PREVIEW_BELFAST_CITY_HALL_PLACE,
+  readPreviewCustomerQuoteSeed,
+} from "../src/lib/preview-customer-quote";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -224,9 +232,12 @@ check("18. Preview ON/OFF correctly changes the selectors", () => {
   assert.match(selectors, /publicPassengerOptions/);
   assert.match(selectors, /publicSuitcaseOptions/);
   assert.match(selectors, /grid-cols-4/);
-  assert.match(selectors, /Private airport transfers for up to 7 passengers|publicPassengerCapacityCopy/);
+  assert.match(selectors, /publicPassengerCapacityCopy/);
+  const suitcaseSection = selectors.slice(selectors.indexOf('id="quote-section-suitcases"'));
+  assert.doesNotMatch(suitcaseSection, /publicPassengerCapacityCopy/);
   const preview = read("src/lib/pricing-preview-store.ts");
   assert.match(preview, /previewMinibusQueryOverride/);
+  assert.match(preview, /previewCustomerJourneyRequested/);
   assert.match(preview, /value === "0" \|\| value === "off"/);
   const offPage = read("src/app/owner/pricing-preview/quote-off/page.tsx");
   const onPage = read("src/app/owner/pricing-preview/quote-on/page.tsx");
@@ -234,8 +245,35 @@ check("18. Preview ON/OFF correctly changes the selectors", () => {
   assert.match(onPage, /publicMinibusEnabled=\{true\}/);
   const progressive = read("src/components/QuoteProgressiveRoute.tsx");
   assert.match(progressive, /PublicPartySelectors/);
+  assert.match(progressive, /QuoteVehicleCategories/);
   assert.doesNotMatch(progressive, /options=\{\[1, 2, 3, 4\]\}/);
   void previewMinibusQueryOverride;
+});
+
+check("Real customer quote has no developer/test wording", () => {
+  const card = read("src/components/QuoteCard.tsx");
+  const progressive = read("src/components/QuoteProgressiveRoute.tsx");
+  const showcase = read("src/components/QuoteResultShowcase.tsx");
+  const categories = read("src/components/QuoteVehicleCategories.tsx");
+  const seed = read("src/lib/preview-customer-quote.ts");
+  assert.match(card, /readPreviewCustomerQuoteSeed/);
+  assert.match(card, /previewMinibusQueryEnabled\(\)/);
+  assert.match(card, /QuoteVehicleCategories/);
+  assert.match(categories, /MINIBUS_CUSTOMER_NAME/);
+  assert.match(categories, /quote-minibus\.webp/);
+  assert.match(showcase, /quote-minibus\.webp/);
+  assert.match(seed, /previewCustomerJourneyRequested/);
+  assert.match(seed, /Belfast City Hall/);
+  for (const source of [card, progressive, showcase, categories]) {
+    assert.doesNotMatch(source, /Example Belfast City/);
+    assert.doesNotMatch(source, /Isolated preview only/);
+    assert.doesNotMatch(source, /Vehicle for this selection:/);
+    assert.doesNotMatch(source, /Normal Minibus booking flow/);
+  }
+  assert.doesNotMatch(
+    card,
+    /Private airport transfers for up to 7 passengers\. Saloon or Estate is chosen automatically/,
+  );
 });
 
 check("Approved Minibus pricing unchanged (Estate × 1.55, penny only)", () => {
@@ -254,6 +292,46 @@ check("Approved Minibus pricing unchanged (Estate × 1.55, penny only)", () => {
   assert.equal(fare.estateGbp, 56);
   assert.equal(fare.minibusQuotedGbp, 86.8);
   assert.equal(fare.minibusExactGbp, 86.8);
+});
+
+check("Preview customer journey seed is isolated to preview hosts", () => {
+  const previousWindow = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = {
+    location: {
+      hostname: "example.vercel.app",
+      search: "?previewMinibus=1&previewJourney=1&previewPax=5&previewBags=2",
+    },
+  };
+  try {
+    assert.equal(previewCustomerJourneyRequested(), true);
+    assert.deepEqual(previewPartyFromQuery(), { passengers: 5, suitcases: 2 });
+    const seed = readPreviewCustomerQuoteSeed();
+    assert.ok(seed);
+    assert.equal(seed?.pickup.placeId, PREVIEW_BELFAST_CITY_HALL_PLACE.placeId);
+    assert.equal(seed?.passengers, 5);
+    assert.equal(seed?.suitcases, 2);
+    assert.equal(seed?.tripTime, "10:00");
+  } finally {
+    if (previousWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = previousWindow;
+    }
+  }
+
+  (globalThis as { window?: unknown }).window = {
+    location: { hostname: "myairporttaxini.com", search: "?previewMinibus=1&previewJourney=1" },
+  };
+  try {
+    assert.equal(previewCustomerJourneyRequested(), false);
+    assert.equal(readPreviewCustomerQuoteSeed(), null);
+  } finally {
+    if (previousWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = previousWindow;
+    }
+  }
 });
 
 check("7 passengers + 7 bags is Minibus — capacity confirmation is a separate hold", () => {

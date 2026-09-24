@@ -86,7 +86,8 @@ import {
 } from "../../shared/owner-pricing-config";
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
 import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
-import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
+import { isBrowserPricingPreview, previewMinibusQueryEnabled } from "@/lib/pricing-preview-store";
+import { readPreviewCustomerQuoteSeed } from "@/lib/preview-customer-quote";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
 import { BOOKING_FLIGHT_NUMBER_HELPER, resolveJourneyInclusions } from "@/lib/journey-inclusions";
@@ -166,6 +167,7 @@ import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import CombinedAirportAccessChoice from "@/components/CombinedAirportAccessChoice";
 import QuoteResultShowcase from "@/components/QuoteResultShowcase";
+import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
   BookWithConfidence,
@@ -635,6 +637,7 @@ function QuoteCard({
   const [publicPricing, setPublicPricing] = useState<PublicOwnerPricingConfig>(() =>
     toPublicOwnerPricingConfig(defaultOwnerPricingSettings()),
   );
+  const [publicPricingLoaded, setPublicPricingLoaded] = useState(false);
   const publicMinibusEnabled = publicPricing.minibus.publicEnabled === true;
   const passengerLimit = Math.min(
     Math.max(1, maxPassengers),
@@ -642,10 +645,14 @@ function QuoteCard({
   );
   const suitcaseLimit = publicMaxSuitcases(publicMinibusEnabled);
 
+  const previewQuoteAppliedRef = useRef(false);
   useEffect(() => {
     let cancelled = false;
     void fetchPublicPricingConfig().then((config) => {
-      if (!cancelled) setPublicPricing(config);
+      if (!cancelled) {
+        setPublicPricing(config);
+        setPublicPricingLoaded(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -1288,6 +1295,59 @@ function QuoteCard({
     };
   }, [returnOfferToken]);
 
+  useEffect(() => {
+    if (!publicPricingLoaded || previewQuoteAppliedRef.current) {
+      return;
+    }
+    const seed = readPreviewCustomerQuoteSeed();
+    if (!seed) {
+      return;
+    }
+    previewQuoteAppliedRef.current = true;
+
+    const pickupDisplay =
+      seed.pickup.displayAddress || seed.pickup.formattedAddress || placeDisplayText(seed.pickup);
+    const dropoffDisplay =
+      seed.dropoff.displayAddress || seed.dropoff.formattedAddress || placeDisplayText(seed.dropoff);
+
+    setJourneyIntent("to-airport");
+    setTripDirection("to-airport");
+    setTripMode("address");
+    setIntentAirportCode("BFS");
+    setAirportCode("BFS");
+    setPickupPlace(seed.pickup);
+    setPickupAddress(pickupDisplay);
+    setPickupPlaceError("");
+    setPickupRestoredHint(false);
+    saveConfirmedPickupPlace(seed.pickup);
+    setDropoffPlace(seed.dropoff);
+    setDropoffAddress(dropoffDisplay);
+    setDropoffPlaceError("");
+    setDropoffRestoredHint(false);
+    saveConfirmedDropoffPlace(seed.dropoff);
+    setJourneyMode("one-way");
+    setTripDate(seed.tripDate);
+    setTripTime(seed.tripTime);
+    setTripDateError("");
+    setPassengersError("");
+    setSuitcasesError("");
+    setQuoteStep(1);
+    if (
+      seed.passengers != null &&
+      seed.passengers >= 1 &&
+      seed.passengers <= passengerLimit
+    ) {
+      setPassengers(seed.passengers);
+    }
+    if (
+      seed.suitcases != null &&
+      seed.suitcases >= 0 &&
+      seed.suitcases <= suitcaseLimit
+    ) {
+      setSuitcases(seed.suitcases);
+    }
+  }, [passengerLimit, publicPricingLoaded, suitcaseLimit]);
+
   const scheduleEntered = hasEnteredQuoteSchedule({
     outboundDate: tripDate,
     outboundTime: tripTime,
@@ -1561,6 +1621,10 @@ function QuoteCard({
   // Prefer Worker-authoritative fare (same resolveWorkerTripRouteMetrics + engine as SumUp)
   // so the displayed/consent amount matches checkout. Browser metrics stay for map display.
   const refreshAuthoritativeServerQuote = useCallback(async (): Promise<boolean> => {
+    if (isBrowserPricingPreview() && previewMinibusQueryEnabled()) {
+      setServerFareParts(null);
+      return false;
+    }
     if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
       setServerFareParts(null);
       return false;
@@ -6812,41 +6876,14 @@ function QuoteCard({
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
           />
-          <p className="quote-secondary text-xs leading-relaxed">
-            {publicMinibusEnabled
-              ? "Private airport transfers for up to 7 passengers. Saloon or Estate is chosen automatically for 1–4 passengers. 7 Seater Minibus is required for 5–7 passengers or 5–7 large bags."
-              : "Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and luggage — private airport transfer for 1–4 passengers."}
-          </p>
           {publicMinibusEnabled && partySelectionReady ? (
-            <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Vehicle category">
-              <button
-                type="button"
-                onClick={() => setChooseMinibus(false)}
-                className={`min-h-14 rounded-xl border px-3 py-3 text-left text-sm ${
-                  quoteVehicle !== MINIBUS_VEHICLE_TYPE
-                    ? "border-emerald bg-emerald/10 text-white"
-                    : "border-white/15 text-white/80"
-                }`}
-              >
-                <span className="block font-semibold">
-                  {vehicleShortLabel(getAutoVehicle(effectivePassengers ?? 1, suitcases ?? 0))}
-                </span>
-                <span className="block text-xs text-white/60">Selected from passengers and luggage</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setChooseMinibus(true)}
-                className={`min-h-14 rounded-xl border px-3 py-3 text-left text-sm ${
-                  quoteVehicle === MINIBUS_VEHICLE_TYPE
-                    ? "border-emerald bg-emerald/10 text-white"
-                    : "border-white/15 text-white/80"
-                }`}
-              >
-                <span className="block font-semibold">{MINIBUS_CUSTOMER_NAME}</span>
-                <span className="block text-xs text-white/60">{MINIBUS_CUSTOMER_DESCRIPTION}</span>
-              </button>
-            </div>
-          ) : null}
+            <QuoteVehicleCategories passengers={passengers} suitcases={suitcases} />
+          ) : (
+            <p className="quote-secondary text-xs leading-relaxed">
+              Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and
+              luggage — private airport transfer for 1–4 passengers.
+            </p>
+          )}
         </div>
         )}
 

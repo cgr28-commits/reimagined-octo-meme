@@ -141,9 +141,9 @@ export default function QuoteResultShowcase({
 
           <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-medium leading-snug text-navy/85">
             <Benefit icon="card">
-              {capacityConfirmation ? "Capacity check first" : "Secure payment"}
+              {capacityConfirmation ? "We'll confirm first" : "Secure payment"}
               <span className="block font-normal text-navy/55">
-                {capacityConfirmation ? "no payment until confirmed" : "powered by SumUp"}
+                {capacityConfirmation ? "no payment taken yet" : "powered by SumUp"}
               </span>
             </Benefit>
             <Benefit icon="plane">

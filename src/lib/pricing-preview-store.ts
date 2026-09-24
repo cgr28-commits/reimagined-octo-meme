@@ -41,6 +41,35 @@ export function previewMinibusQueryEnabled(): boolean {
   return previewMinibusQueryOverride() === true;
 }
 
+/** Preview-only: prefill the real homepage quote so the customer UI can be reviewed. */
+export function previewCustomerJourneyRequested(): boolean {
+  if (typeof window === "undefined" || !isBrowserPricingPreview()) return false;
+  const value = new URLSearchParams(window.location.search).get("previewJourney");
+  return value === "1" || value === "bfs" || value === "true";
+}
+
+export function previewPartyFromQuery(): {
+  passengers: number | null;
+  suitcases: number | null;
+} {
+  if (typeof window === "undefined" || !isBrowserPricingPreview()) {
+    return { passengers: null, suitcases: null };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const passengers = Number(params.get("previewPax"));
+  const suitcases = Number(params.get("previewBags"));
+  return {
+    passengers:
+      Number.isInteger(passengers) && passengers >= 1 && passengers <= 7
+        ? passengers
+        : null,
+    suitcases:
+      Number.isInteger(suitcases) && suitcases >= 0 && suitcases <= 7
+        ? suitcases
+        : null,
+  };
+}
+
 function readJson<T>(key: string): T | null {
   if (typeof window === "undefined") return null;
   try {

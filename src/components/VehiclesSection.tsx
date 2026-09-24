@@ -1,8 +1,17 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import DeviceBookingCta from "./DeviceBookingCta";
 import SectionHeading from "./SectionHeading";
+import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
+import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
 
 const VEHICLE_WIDTHS = [800, 1536] as const;
+const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
+const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
+const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 function vehicleSrcSet(ext: "avif" | "webp"): string {
   return VEHICLE_WIDTHS.map(
@@ -10,57 +19,66 @@ function vehicleSrcSet(ext: "avif" | "webp"): string {
   ).join(", ");
 }
 
+const FLEET = [
+  { id: "saloon", title: "Saloon", detail: "1–4 passengers", image: SALOON_IMAGE },
+  { id: "estate", title: "Estate", detail: "Extra luggage space", image: ESTATE_IMAGE },
+  {
+    id: "minibus",
+    title: MINIBUS_CUSTOMER_NAME,
+    detail: MINIBUS_CUSTOMER_DESCRIPTION,
+    image: MINIBUS_IMAGE,
+  },
+] as const;
+
 export default function VehiclesSection() {
+  const [minibusOn, setMinibusOn] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPublicPricingConfig().then((config) => {
+      if (!cancelled) setMinibusOn(config.minibus.publicEnabled === true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <section id="vehicles" className="relative scroll-mt-36 md:scroll-mt-28 py-20 sm:py-28 lg:py-32">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/15 to-navy" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
         <SectionHeading
           eyebrow="Your journey"
-          title="Private transfers for up to 4"
+          title={minibusOn ? "Private transfers for up to 7" : "Private transfers for up to 4"}
           navId="vehicles"
-          description="Professional private airport transfer in a Saloon or Estate — the quote tool picks the right car from your passengers and luggage."
+          description={
+            minibusOn
+              ? "Professional private airport transfer. The quote tool picks Saloon, Estate or 7 Seater Minibus from your passengers and luggage."
+              : "Professional private airport transfer in a Saloon or Estate — the quote tool picks the right car from your passengers and luggage."
+          }
         />
 
-        <div className="mt-12 grid items-center gap-10 lg:mt-16 lg:grid-cols-2 lg:gap-16">
-          <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/30">
-            <picture>
-              <source
-                type="image/avif"
-                srcSet={vehicleSrcSet("avif")}
-                sizes="(max-width: 1024px) 100vw, 50vw"
-              />
-              <source
-                type="image/webp"
-                srcSet={vehicleSrcSet("webp")}
-                sizes="(max-width: 1024px) 100vw, 50vw"
-              />
-              <img
-                src={withBasePath("/images/vehicles/flyer-vehicle.jpg")}
-                alt="Estate car with open boot and suitcases ready for an airport transfer"
-                width={1536}
-                height={1024}
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover"
-              />
-            </picture>
-            <div className="absolute inset-0 bg-gradient-to-t from-navy/50 via-transparent to-transparent" />
-          </div>
-
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-emerald/30 bg-emerald/10 px-5 py-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-                Up to 4 passengers
-              </p>
-              <p className="mt-1 text-xl font-bold text-white">Saloon &amp; Estate</p>
-              <p className="mt-2 text-sm leading-relaxed text-white/70">
-                Instant quote where eligible. Standard or estate car selected automatically from your
-                passengers and luggage. Pay securely online where an instant fare is shown.
-              </p>
+        {minibusOn ? (
+          <div className="mt-12 space-y-6 lg:mt-16">
+            <div className="grid gap-4 sm:grid-cols-3" data-public-vehicle-fleet>
+              {FLEET.map((vehicle) => (
+                <div
+                  key={vehicle.id}
+                  data-fleet-vehicle={vehicle.id}
+                  className="rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-5 text-center"
+                >
+                  <Image
+                    src={vehicle.image}
+                    alt={`${vehicle.title} airport transfer vehicle`}
+                    width={1400}
+                    height={700}
+                    className="mx-auto h-auto w-full max-w-[280px] object-contain"
+                  />
+                  <p className="mt-3 text-lg font-bold text-white">{vehicle.title}</p>
+                  <p className="mt-1 text-sm text-white/65">{vehicle.detail}</p>
+                </div>
+              ))}
             </div>
-
             <DeviceBookingCta
               whatsappMessage="Hi, I'd like a quote for an airport transfer."
               mobileLabel="Get a quote on WhatsApp"
@@ -68,7 +86,55 @@ export default function VehiclesSection() {
               className="inline-flex items-center gap-2 rounded-full bg-emerald px-6 py-3 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
             />
           </div>
-        </div>
+        ) : (
+          <div className="mt-12 grid items-center gap-10 lg:mt-16 lg:grid-cols-2 lg:gap-16">
+            <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/30">
+              <picture>
+                <source
+                  type="image/avif"
+                  srcSet={vehicleSrcSet("avif")}
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                />
+                <source
+                  type="image/webp"
+                  srcSet={vehicleSrcSet("webp")}
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                />
+                <img
+                  src={withBasePath("/images/vehicles/flyer-vehicle.jpg")}
+                  alt="Estate car with open boot and suitcases ready for an airport transfer"
+                  width={1536}
+                  height={1024}
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              </picture>
+              <div className="absolute inset-0 bg-gradient-to-t from-navy/50 via-transparent to-transparent" />
+            </div>
+
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-emerald/30 bg-emerald/10 px-5 py-5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                  Up to 4 passengers
+                </p>
+                <p className="mt-1 text-xl font-bold text-white">Saloon &amp; Estate</p>
+                <p className="mt-2 text-sm leading-relaxed text-white/70">
+                  Instant quote where eligible. Standard or estate car selected automatically from your
+                  passengers and luggage. Pay securely online where an instant fare is shown.
+                </p>
+              </div>
+
+              <DeviceBookingCta
+                whatsappMessage="Hi, I'd like a quote for an airport transfer."
+                mobileLabel="Get a quote on WhatsApp"
+                desktopLabel="Get a fixed quote"
+                className="inline-flex items-center gap-2 rounded-full bg-emerald px-6 py-3 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
