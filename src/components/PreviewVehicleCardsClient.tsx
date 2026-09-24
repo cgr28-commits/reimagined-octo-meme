@@ -4,14 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
-import QuoteResultShowcase from "@/components/QuoteResultShowcase";
-import { ESTATE_VEHICLE, MINIBUS_VEHICLE, SALOON_VEHICLE } from "@/lib/vehicle-selection";
 import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
 import { PREVIEW_PRICING_BANNER } from "../../shared/pricing-preview-isolation";
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
-const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.svg");
+const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 export default function PreviewVehicleCardsClient() {
   const [selected, setSelected] = useState<"saloon" | "estate" | "minibus">("minibus");
@@ -24,7 +22,8 @@ export default function PreviewVehicleCardsClient() {
         </p>
         <h1 className="text-2xl font-bold">Public vehicle cards</h1>
         <p className="text-sm text-white/70">
-          Preview only. 7 Seater Minibus is not turned on for live customers.
+          Preview only. These images show the vehicle category, not a specific car we own. 7 Seater
+          Minibus is not turned on for live customers.
         </p>
         <Link className="inline-block text-sm font-semibold text-emerald underline-offset-2 hover:underline" href="/owner/pricing-preview/">
           Back to Pricing tab
@@ -63,23 +62,6 @@ export default function PreviewVehicleCardsClient() {
               </button>
             );
           })}
-        </section>
-
-        <section className="rounded-2xl bg-white p-1">
-          <QuoteResultShowcase
-            vehicleType={
-              selected === "minibus" ? MINIBUS_VEHICLE : selected === "estate" ? ESTATE_VEHICLE : SALOON_VEHICLE
-            }
-            passengers={selected === "minibus" ? 6 : 2}
-            suitcases={selected === "estate" ? 4 : 1}
-            priceLabel="Fixed price"
-            formattedPrice={selected === "minibus" ? "£86.80" : selected === "estate" ? "£56.00" : "£50.00"}
-            bookButton={
-              <button type="button" className="min-h-12 w-full rounded-xl bg-emerald font-semibold text-navy">
-                Preview only
-              </button>
-            }
-          />
         </section>
       </div>
     </main>

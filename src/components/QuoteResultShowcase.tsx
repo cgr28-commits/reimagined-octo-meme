@@ -27,7 +27,7 @@ type QuoteResultShowcaseProps = {
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
-const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.svg");
+const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 export default function QuoteResultShowcase({
   vehicleType,

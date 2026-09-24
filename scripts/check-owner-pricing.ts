@@ -562,12 +562,16 @@ check("Pricing tab, public gate, image slot, no MPV restore", () => {
   );
   assert.match(card, /publicMinibusEnabled/);
   assert.match(card, /7 Seater Minibus/);
-  assert.match(showcase, /quote-minibus\.svg/);
+  assert.match(showcase, /quote-minibus\.webp/);
   assert.match(handlers, /PUBLIC_MINIBUS_UNAVAILABLE/);
   assert.match(index, /isOwnerPricingPath/);
   assert.match(index, /PUBLIC_MINIBUS_UNAVAILABLE_CODE/);
   assert.doesNotMatch(card, /MPV/);
-  assert.equal(fs.existsSync(path.join(root, "public/images/vehicles/quote-minibus.svg")), true);
+  assert.equal(fs.existsSync(path.join(root, "public/images/vehicles/quote-minibus.webp")), true);
+  assert.equal(fs.existsSync(path.join(root, "public/images/vehicles/quote-minibus.svg")), false);
+  const previewCards = read("src/components/PreviewVehicleCardsClient.tsx");
+  assert.match(previewCards, /quote-minibus\.webp/);
+  assert.doesNotMatch(previewCards, /QuoteResultShowcase/);
   assert.equal(DEFAULT_NIGHT_SURCHARGE_RATE, NIGHT_WEEKEND_SURCHARGE_RATE);
   assert.equal(DEFAULT_WEEKEND_SURCHARGE_RATE, NIGHT_WEEKEND_SURCHARGE_RATE);
   assert.equal(DEFAULT_NIGHT_START_MINUTES, 22 * 60);
