@@ -31,6 +31,21 @@ export function isValidPassengerCount(value: unknown): value is number {
   return Number.isInteger(n) && n >= MIN_PASSENGERS && n <= MAX_PASSENGERS;
 }
 
+/** Absolute vehicle capacity (1–7). Public availability is enforced separately. */
+export function isValidCapacityPassengerCount(value: unknown): value is number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(n) && n >= MIN_PASSENGERS && n <= OWNER_QUICK_QUOTE_MAX_PASSENGERS;
+}
+
+export function isValidPublicPassengerCount(
+  value: unknown,
+  publicMinibusEnabled: boolean,
+): value is number {
+  const n = typeof value === "number" ? value : Number(value);
+  const max = publicMinibusEnabled ? OWNER_QUICK_QUOTE_MAX_PASSENGERS : MAX_PASSENGERS;
+  return Number.isInteger(n) && n >= MIN_PASSENGERS && n <= max;
+}
+
 /** Owner Quick Quote may accept up to OWNER_QUICK_QUOTE_MAX_PASSENGERS for Minibus. */
 export function isValidOwnerQuickQuotePassengerCount(value: unknown): value is number {
   const n = typeof value === "number" ? value : Number(value);

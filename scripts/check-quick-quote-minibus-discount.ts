@@ -120,7 +120,7 @@ check("Return engine discount stays inside calculated fare; manual discount is s
     returnJourney: true,
     outboundDate: "2026-08-20",
     outboundTime: "10:00",
-    returnDate: "2026-08-22",
+    returnDate: "2026-08-21",
     returnTime: "18:00",
     passengers: 2,
     suitcases: 2,
@@ -129,19 +129,19 @@ check("Return engine discount stays inside calculated fare; manual discount is s
   assert.equal(ret.ok, true);
   if (!ret.ok) return;
 
-  // Return discount applies to the journey fare only; airport fixed costs (£5+£5) stay full.
-  // One-way £55 = journey £50 + £5; return = £50×1.9 + £10 = £105 (not £55×1.9 = £104.5).
-  assert.equal(oneWay.amount, 55);
-  assert.equal(ret.amount, 105);
-  assert.ok(ret.amount > getWebsiteReturnJourneyFare(oneWay.amount));
+  // Return discount applies to the journey fare only; BFS fixed costs stay £0.
+  // One-way Saloon ~14 mi = £44; return = 5% off £88 + Saturday 10% on the return leg.
+  assert.equal(oneWay.amount, 44);
+  assert.equal(ret.amount, 83.6);
+  assert.equal(ret.amount, getWebsiteReturnJourneyFare(oneWay.amount));
 
-  // Manual 10% is applied AFTER the return-discounted calculated fare — not instead of it.
-  const manual = applyQuickQuoteManualDiscount(ret.amount, "percent", 10);
+  // Manual 15% is applied AFTER the return-discounted calculated fare — not instead of it.
+  const manual = applyQuickQuoteManualDiscount(ret.amount, "percent", 15);
   assert.equal(manual.calculatedFare, ret.amount);
   assert.ok(manual.customerFare < ret.amount);
   assert.ok(manual.customerFare > 0);
-  // Must not equal a naive "10% off 2× one-way" (that would double-apply / replace return discount).
-  const naiveDouble = Math.round(oneWay.amount * 2 * 0.9 * 100) / 100;
+  // Must not equal a naive "15% off 2× one-way" (that would replace the return-discount engine).
+  const naiveDouble = Math.round(oneWay.amount * 2 * 0.85 * 100) / 100;
   assert.notEqual(manual.customerFare, naiveDouble);
 });
 
@@ -170,6 +170,7 @@ check("Minibus uses existing central multiplier (forced vehicle, low pax)", () =
     suitcases: 2,
     vehicleType: MINIBUS_VEHICLE,
     maxPassengers: 7,
+    ownerMode: true,
     routeMetrics: cityBfsMetrics,
   });
   assert.equal(saloon.ok, true);
@@ -208,6 +209,7 @@ check("Minibus allows 5–7 passengers when maxPassengers raised", () => {
     suitcases: 2,
     vehicleType: MINIBUS_VEHICLE,
     maxPassengers: 7,
+    ownerMode: true,
     routeMetrics: cityBfsMetrics,
   });
   assert.equal(allowed.ok, true);
@@ -255,7 +257,7 @@ check("Quick Quote UI wires Minibus + discount (not public Live Quote)", () => {
 
   const pay = read("workers/addresses/src/index.ts");
   assert.match(pay, /quickQuoteCalculatedAmount/);
-  assert.match(pay, /standardWebsiteAmount = expectedCalculated/);
+  assert.match(pay, /quickQuoteCheckoutStandardWebsiteAmount/);
 });
 
 check("Pricing config keeps Minibus multiplier central (no invented QQ formula)", () => {

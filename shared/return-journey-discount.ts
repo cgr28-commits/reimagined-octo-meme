@@ -22,10 +22,14 @@ export function formatReturnJourneyDiscountPercent(
   return `${pct}%`;
 }
 
-export function getWebsiteReturnJourneyFare(oneWayFare: number): number {
+export function getWebsiteReturnJourneyFare(
+  oneWayFare: number,
+  rate: number = RETURN_JOURNEY_DISCOUNT_RATE,
+): number {
   const oneWay = Math.round(Number(oneWayFare) * 100) / 100;
   if (!Number.isFinite(oneWay) || oneWay < 0) {
     return NaN;
   }
-  return Math.round(oneWay * 2 * (1 - RETURN_JOURNEY_DISCOUNT_RATE) * 100) / 100;
+  const discountRate = Number.isFinite(rate) ? rate : RETURN_JOURNEY_DISCOUNT_RATE;
+  return Math.round(oneWay * 2 * (1 - discountRate) * 100) / 100;
 }

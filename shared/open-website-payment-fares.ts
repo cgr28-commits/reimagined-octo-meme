@@ -318,7 +318,7 @@ export function buildFareMismatchPaymentError(
   const displayedLabel = `£${displayed.toFixed(displayed % 1 === 0 ? 0 : 2)}`;
   const serverLabel = `£${server.toFixed(server % 1 === 0 ? 0 : 2)}`;
   return {
-    error: `Your fare has changed from ${displayedLabel} to ${serverLabel}. Please review the updated price before continuing to payment.`,
+    error: `The price for this journey has been updated. Your fare has changed from ${displayedLabel} to ${serverLabel}. Please review the updated price before continuing to payment.`,
     code: "fare_mismatch",
     displayedAmountGbp: displayed,
     serverAmountGbp: server,

@@ -120,6 +120,19 @@ export type PaymentFareMismatchError = Error & {
   serverAmountGbp: number;
 };
 
+export type PaymentVehicleUnavailableError = Error & {
+  code: "vehicle_unavailable";
+};
+
+export function isPaymentVehicleUnavailableError(
+  error: unknown,
+): error is PaymentVehicleUnavailableError {
+  return (
+    error instanceof Error &&
+    (error as PaymentVehicleUnavailableError).code === "vehicle_unavailable"
+  );
+}
+
 export function isPaymentFareMismatchError(
   error: unknown,
 ): error is PaymentFareMismatchError {
@@ -356,6 +369,20 @@ export async function createPaymentCheckout(
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
+    if (
+      (response.status === 409 || response.status === 422) &&
+      payload &&
+      typeof payload === "object" &&
+      (payload as { code?: unknown }).code === "vehicle_unavailable"
+    ) {
+      const message =
+        typeof (payload as { error?: unknown }).error === "string"
+          ? String((payload as { error: string }).error)
+          : "7 Seater Minibus is currently unavailable for online booking. Please choose another vehicle or contact us.";
+      const unavailable = new Error(message) as PaymentVehicleUnavailableError;
+      unavailable.code = "vehicle_unavailable";
+      throw unavailable;
+    }
     if (
       response.status === 409 &&
       payload &&

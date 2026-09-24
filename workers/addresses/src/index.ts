@@ -1,4 +1,5 @@
 import {
+  isValidCapacityPassengerCount,
   isValidPassengerCount,
   PASSENGER_LIMIT_ERROR,
 } from "../shared/passenger-limits";
@@ -395,6 +396,18 @@ import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-servi
 import {
   calculateAirportToAirportQuote,
 } from "../../../src/lib/quote";
+import {
+  PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+  PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+  publicMinibusAllowed,
+} from "../shared/owner-pricing-config";
+import {
+  handleOwnerPricingRequest,
+  handlePublicGetPricingConfig,
+  isOwnerPricingPath,
+  isPublicPricingConfigPath,
+  loadOwnerPricingOrDefault,
+} from "./owner-pricing-handlers";
 import {
   resolveOpenWebsitePaymentTransferFares,
   resolvePaymentAirportContextFromAddresses,
@@ -958,7 +971,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
   }
   const passengers = Number(details.passengers);
   const suitcases = Number(details.suitcases);
-  if (!isValidPassengerCount(passengers)) {
+  if (!isValidCapacityPassengerCount(passengers)) {
     return null;
   }
   if (!Number.isFinite(suitcases) || suitcases < 0) {
@@ -2223,12 +2236,28 @@ async function handlePaymentRequest(
       airportFixedCostsGbp: number;
       nightWeekendSurchargeGbp?: number;
     } | null = null;
+    const pricing = await loadOwnerPricingOrDefault(env);
     const vehicleRaw = String(booking.vehicle ?? "");
     const vehicleType: VehicleType = /estate/i.test(vehicleRaw)
       ? ESTATE_VEHICLE
       : /minibus/i.test(vehicleRaw)
         ? MINIBUS_VEHICLE
         : SALOON_VEHICLE;
+    if (
+      !publicMinibusAllowed(vehicleType, {
+        publicMinibusEnabled: pricing.minibus.publicEnabled === true,
+        ownerMode: false,
+      })
+    ) {
+      return json(
+        {
+          error: PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+          code: PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+        },
+        409,
+        origin,
+      );
+    }
     const schedule = {
       outboundDate: booking.tripDate,
       outboundTime: booking.tripTime,
@@ -2251,6 +2280,7 @@ async function handlePaymentRequest(
         Boolean(booking.returnJourney),
         schedule,
         routeMetrics,
+        pricing,
       );
       if (a2aQuote && Number.isFinite(a2aQuote.amount) && a2aQuote.amount >= 1) {
         authoritativeQuote = {
@@ -2289,7 +2319,20 @@ async function handlePaymentRequest(
         suitcases: Number(booking.suitcases),
         routeMetrics,
         vehicleType,
+        pricing,
+        ownerMode: false,
+        maxPassengers: pricing.minibus.publicEnabled ? 7 : 4,
       });
+      if (!requote.ok && requote.reason === "vehicle_unavailable") {
+        return json(
+          {
+            error: requote.message || PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+            code: PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+          },
+          409,
+          origin,
+        );
+      }
       if (requote.ok) {
         const journeyFareGbp =
           typeof requote.journeyFareGbp === "number"
@@ -2503,6 +2546,24 @@ async function handlePaymentRequest(
   // Personal-quote payment links: hard-cap at 4 passengers (saloon/estate capacity).
   if (personalQuoteCode && !isValidPersonalQuotePassengerCount(booking.passengers)) {
     return json({ error: PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR }, 400, origin);
+  }
+
+  const paymentPricing = await loadOwnerPricingOrDefault(env);
+  if (
+    !quickQuoteId &&
+    !publicMinibusAllowed(String(booking.vehicle ?? ""), {
+      publicMinibusEnabled: paymentPricing.minibus.publicEnabled === true,
+      ownerMode: false,
+    })
+  ) {
+    return json(
+      {
+        error: PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+        code: PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+      },
+      409,
+      origin,
+    );
   }
 
   if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
@@ -3510,6 +3571,20 @@ export default {
         TRACKING_STORE: env.TRACKING_STORE,
       });
       return json(result, 200, origin);
+    }
+
+    if (isPublicPricingConfigPath(url.pathname)) {
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      }
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handlePublicGetPricingConfig(env, origin);
+    }
+
+    if (isOwnerPricingPath(url.pathname)) {
+      return handleOwnerPricingRequest(request, env, origin);
     }
 
     if (isOwnerBookingSettingsPath(url.pathname)) {

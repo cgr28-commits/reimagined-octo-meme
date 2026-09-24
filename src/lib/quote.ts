@@ -13,10 +13,16 @@ import {
 } from "../../shared/universal-distance-pricing";
 import { formatGbpAmount, roundGbp } from "../../shared/gbp";
 import {
+  ownerPricingEngineOptions,
+  type PublicOwnerPricingConfig,
+  type OwnerPricingSettings,
+} from "../../shared/owner-pricing-config";
+import {
   applyTripPremium,
   AIRPORT_TRIP_PREMIUM_RATE,
   getReturnJourneyFare,
   isTripPremiumDateTime,
+  type OwnerPricingEngineInput,
   type TripSchedule,
 } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
@@ -179,32 +185,32 @@ function applyPointToPointVehiclePricing(
   return subtotal * vehicleMultiplier + vehicleAdjustment;
 }
 
+export type QuotePricingConfig = OwnerPricingEngineInput | PublicOwnerPricingConfig | OwnerPricingSettings | null;
+
+function quoteEngineOptions(pricing?: QuotePricingConfig) {
+  const configured = pricing ? ownerPricingEngineOptions(pricing) : ownerPricingEngineOptions();
+  return {
+    ...configured,
+    minibusMultiplier:
+      configured.minibusMultiplier ?? VEHICLE_MULTIPLIERS["Minibus (5–7 passengers)"] ?? 1.55,
+    estatePremiumGbp: configured.estatePremiumGbp ?? UNIVERSAL_ESTATE_PREMIUM_GBP,
+  };
+}
+
 function applyAirportVehiclePricing(
   saloonOneWay: number,
   vehicleType: (typeof VEHICLE_TYPES)[number],
   airportCode: string,
+  pricing?: QuotePricingConfig,
 ): number {
-  // Live path: Estate = Saloon + £6. Minibus/Executive build from Estate.
-  const priced = calculateUniversalJourneyFareGbp(
-    // saloonOneWay is already the rounded Saloon journey; recover miles is unnecessary —
-    // pass through via vehicle helpers using the saloon amount directly.
-    0,
-    vehicleType,
-    {
-      executiveMinimumGbp: AIRPORT_EXECUTIVE_MINIMUM_FARE,
-      minibusMultiplier: VEHICLE_MULTIPLIERS["Minibus (5–7 passengers)"] ?? 1.55,
-      executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
-    },
-  );
+  const options = quoteEngineOptions(pricing);
   void airportCode;
-  void saloonOneWay;
-  // Recompute from the provided rounded saloon so callers stay in control of Saloon.
   const saloon = Math.round(saloonOneWay);
   if (vehicleType === "Standard Saloon (1–4 passengers)") return saloon;
   if (vehicleType === "Estate Car (1–4 passengers)") {
-    return saloon + UNIVERSAL_ESTATE_PREMIUM_GBP;
+    return saloon + options.estatePremiumGbp;
   }
-  const estate = saloon + UNIVERSAL_ESTATE_PREMIUM_GBP;
+  const estate = saloon + options.estatePremiumGbp;
   if (vehicleType === "Executive Saloon (1–4 passengers)") {
     return Math.max(
       AIRPORT_EXECUTIVE_MINIMUM_FARE,
@@ -212,9 +218,8 @@ function applyAirportVehiclePricing(
     );
   }
   if (vehicleType === "Minibus (5–7 passengers)") {
-    return roundToNearestFive(estate * (VEHICLE_MULTIPLIERS[vehicleType] ?? 1.55));
+    return roundToNearestFive(estate * options.minibusMultiplier);
   }
-  void priced;
   return saloon;
 }
 
@@ -222,11 +227,15 @@ function applyAirportVehiclePricing(
  * Estate premium for airport transfers — live quotes use a flat £6.
  * Tier table remains in config for calibration scripts only.
  */
-export function getAirportEstatePremiumGbp(airportCode: string, saloonFare: number): number {
+export function getAirportEstatePremiumGbp(
+  airportCode: string,
+  saloonFare: number,
+  pricing?: QuotePricingConfig,
+): number {
   void airportCode;
   void saloonFare;
   if (PRICING_CONFIG.universalDistancePricing?.enabled !== false) {
-    return UNIVERSAL_ESTATE_PREMIUM_GBP;
+    return quoteEngineOptions(pricing).estatePremiumGbp;
   }
   const tiers = PRICING_CONFIG.airportEstatePremiumTiers;
   const excluded = new Set(tiers?.excludeAirports ?? []);
@@ -562,6 +571,7 @@ export function calculatePointToPointQuote(
     pickup?: { address?: string | null; placeName?: string | null; lat?: number | null; lng?: number | null; postalCode?: string | null };
     dropoff?: { address?: string | null; placeName?: string | null; lat?: number | null; lng?: number | null; postalCode?: string | null };
   },
+  pricing?: QuotePricingConfig,
 ): QuoteResult | null {
   const pickup = pickupAddress.trim();
   const dropoff = dropoffAddress.trim();
@@ -578,20 +588,30 @@ export function calculatePointToPointQuote(
   }
 
   void airportCode;
+  const engine = quoteEngineOptions(pricing);
   const roadMiles = universalDrivingMilesFromKm(routeMetrics.distanceKm);
   const universal = calculateUniversalJourneyFareGbp(roadMiles, vehicleType, {
     executiveMinimumGbp: AIRPORT_EXECUTIVE_MINIMUM_FARE,
-    minibusMultiplier: VEHICLE_MULTIPLIERS["Minibus (5–7 passengers)"] ?? 1.55,
+    minibusMultiplier: engine.minibusMultiplier,
     executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
+    estatePremiumGbp: engine.estatePremiumGbp,
+    saloonMinimumGbp: engine.saloonMinimumGbp,
+    saloonFloorMiles: engine.saloonFloorMiles,
+    saloonKnots: engine.saloonKnots,
   });
   const oneWay = universal.journeyFareGbp;
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = universal.vehicleAdjustmentGbp;
 
-  const premium = applyTripPremium(oneWay, {
-    ...schedule,
-    returnJourney,
-  });
+  const premium = applyTripPremium(
+    oneWay,
+    {
+      ...schedule,
+      returnJourney,
+    },
+    undefined,
+    { pricing },
+  );
 
   const journeyFareGbp = roundGbp(premium.total);
   const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
@@ -635,6 +655,7 @@ export function calculateQuote(
   routeMetrics?: TripRouteMetrics | null,
   /** Airport → address when true; address → airport when false. */
   fromAirport = false,
+  pricing?: QuotePricingConfig,
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
   if (!trimmedAddress || !airportCode) {
@@ -655,11 +676,16 @@ export function calculateQuote(
     return null;
   }
 
+  const engine = quoteEngineOptions(pricing);
   const roadMiles = universalDrivingMilesFromKm(routeMetrics.distanceKm);
   const universal = calculateUniversalJourneyFareGbp(roadMiles, vehicleType, {
     executiveMinimumGbp: AIRPORT_EXECUTIVE_MINIMUM_FARE,
-    minibusMultiplier: VEHICLE_MULTIPLIERS["Minibus (5–7 passengers)"] ?? 1.55,
+    minibusMultiplier: engine.minibusMultiplier,
     executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
+    estatePremiumGbp: engine.estatePremiumGbp,
+    saloonMinimumGbp: engine.saloonMinimumGbp,
+    saloonFloorMiles: engine.saloonFloorMiles,
+    saloonKnots: engine.saloonKnots,
   });
   const oneWayFare = universal.journeyFareGbp;
   const matchedArea = matchAreaFromAddress(trimmedAddress);
@@ -680,13 +706,14 @@ export function calculateQuote(
     oneWayFare,
     { ...schedule, returnJourney },
     AIRPORT_TRIP_PREMIUM_RATE,
+    { pricing },
   );
   const composed = composeFareWithAirportFixedCosts({
     journeyOneWayGbp: oneWayFare,
     returnJourney,
     outboundFixedGbp: outboundFixed,
     returnFixedGbp: returnFixed,
-    getReturnJourneyFare,
+    getReturnJourneyFare: (oneWay) => getReturnJourneyFare(oneWay, engine.returnDiscountRate),
   });
   // Journey: Saloon nearest £1 (Estate +£6). Return discount may introduce pence.
   // Fixed airport costs keep 50p etc. Final amount = journey + fixed, both to pence.
@@ -757,6 +784,7 @@ export function calculateAirportToAirportQuote(
   returnJourney = false,
   schedule: TripSchedule = {},
   routeMetrics?: TripRouteMetrics | null,
+  pricing?: QuotePricingConfig,
 ): QuoteResult | null {
   const pickupCode = pickupAirportCode.trim().toUpperCase();
   const dropoffCode = dropoffAirportCode.trim().toUpperCase();
@@ -778,6 +806,7 @@ export function calculateAirportToAirportQuote(
       schedule,
       routeMetrics,
       fromAirport,
+      pricing,
     );
   }
 
@@ -788,6 +817,7 @@ export function calculateAirportToAirportQuote(
   // Price the underlying A2A journey one-way with no schedule premium, then
   // apply 5% return (base only) and Night & Weekend once at this top level so
   // A2A is never surcharged twice. Airport fixed costs stay undiscounted.
+  const engine = quoteEngineOptions(pricing);
   const underlyingOneWay = calculatePointToPointQuote(
     pickup,
     dropoff,
@@ -795,6 +825,9 @@ export function calculateAirportToAirportQuote(
     false,
     {},
     routeMetrics,
+    null,
+    undefined,
+    pricing,
   );
   if (!underlyingOneWay) {
     return null;
@@ -808,13 +841,14 @@ export function calculateAirportToAirportQuote(
     underlyingOneWay.amount,
     { ...schedule, returnJourney },
     AIRPORT_TRIP_PREMIUM_RATE,
+    { pricing },
   );
   const composed = composeFareWithAirportFixedCosts({
     journeyOneWayGbp: underlyingOneWay.amount,
     returnJourney,
     outboundFixedGbp: outboundFixed,
     returnFixedGbp: returnFixed,
-    getReturnJourneyFare,
+    getReturnJourneyFare: (oneWay) => getReturnJourneyFare(oneWay, engine.returnDiscountRate),
   });
   // Journey already nearest-£1 from universal pricing (return may add pence).
   // Keep fixed costs (incl. 50p) — amount === journey + fixed at pence precision.
@@ -846,6 +880,7 @@ export function calculateDublinCityBeyondAirportQuote(
   routeMetrics: TripRouteMetrics,
   returnJourney = false,
   schedule: TripSchedule = {},
+  pricing?: QuotePricingConfig,
 ): QuoteResult | null {
   // Full NI → Dublin city road miles on the universal curve (no zone DUB stack).
   if (!isValidRouteMetrics(routeMetrics)) {
@@ -859,6 +894,9 @@ export function calculateDublinCityBeyondAirportQuote(
     returnJourney,
     schedule,
     routeMetrics,
+    null,
+    undefined,
+    pricing,
   );
 }
 

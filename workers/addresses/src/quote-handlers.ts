@@ -21,6 +21,14 @@ import {
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
+import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
+import {
+  PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+  PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+  publicMaxPassengers,
+  publicMinibusAllowed,
+} from "../shared/owner-pricing-config";
+import { isValidPublicPassengerCount } from "../shared/passenger-limits";
 import {
   customerSmartAvailabilityPreviewRequested,
   enforceCustomerSmartAvailabilityGate,
@@ -55,6 +63,7 @@ function resolveVehicleType(
   passengers: number,
   suitcases: number,
   ownerMode: boolean,
+  publicMinibusEnabled: boolean,
 ): { vehicleType: VehicleType; vehicleChoice: QuickQuoteVehicleChoice; maxPassengers: number } {
   const choice = parseQuickQuoteVehicleChoice(
     body.vehicleChoice ?? body.vehiclePreference ?? body.vehicleType,
@@ -66,13 +75,32 @@ function resolveVehicleType(
       maxPassengers: quickQuoteMaxPassengersForVehicle("Minibus"),
     };
   }
-  // Saloon choice (or unauthenticated): still allow Estate/Minibus via party rules.
+  const requested = String(body.vehicleType ?? body.vehicleChoice ?? "");
+  if (
+    !ownerMode &&
+    publicMinibusEnabled &&
+    (choice === "Minibus" || requested.toLowerCase().includes("minibus"))
+  ) {
+    return {
+      vehicleType: MINIBUS_VEHICLE,
+      vehicleChoice: "Minibus",
+      maxPassengers: publicMaxPassengers(true),
+    };
+  }
+  const selected = selectVehicleForParty(passengers, Math.max(0, suitcases));
+  if (selected === MINIBUS_VEHICLE && !ownerMode && !publicMinibusEnabled) {
+    return {
+      vehicleType: selected,
+      vehicleChoice: "Minibus",
+      maxPassengers: publicMaxPassengers(false),
+    };
+  }
   return {
-    vehicleType: selectVehicleForParty(passengers, Math.max(0, suitcases)),
-    vehicleChoice: "Saloon",
+    vehicleType: selected,
+    vehicleChoice: selected === MINIBUS_VEHICLE ? "Minibus" : "Saloon",
     maxPassengers: ownerMode
-      ? quickQuoteMaxPassengersForVehicle("Saloon")
-      : quickQuoteMaxPassengersForVehicle("Saloon"),
+      ? quickQuoteMaxPassengersForVehicle(selected === MINIBUS_VEHICLE ? "Minibus" : "Saloon")
+      : publicMaxPassengers(publicMinibusEnabled),
   };
 }
 
@@ -255,12 +283,48 @@ export async function handleQuoteCalculateRequest(
   }
 
   const ownerMode = Boolean(env && ownerAuthorized(request, env));
+  const pricing = await loadOwnerPricingOrDefault(env);
+  const publicMinibusEnabled = pricing.minibus.publicEnabled === true;
+  if (
+    !ownerMode &&
+    !isValidPublicPassengerCount(Math.floor(passengers), publicMinibusEnabled)
+  ) {
+    return json(
+      {
+        ok: false,
+        reason: "passenger_limit",
+        message: publicMinibusEnabled
+          ? "We can only quote for up to 7 passengers."
+          : "We can only quote for up to 4 passengers. Please select 1–4 passengers.",
+      },
+      422,
+      origin,
+    );
+  }
   const resolved = resolveVehicleType(
     body,
     Math.floor(passengers),
     Math.floor(suitcases),
     ownerMode,
+    publicMinibusEnabled,
   );
+  if (
+    !publicMinibusAllowed(resolved.vehicleType, {
+      publicMinibusEnabled,
+      ownerMode,
+    })
+  ) {
+    return json(
+      {
+        ok: false,
+        reason: "vehicle_unavailable",
+        code: PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+        message: PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+      },
+      409,
+      origin,
+    );
+  }
 
   const schedule = {
     outboundDate: String(body.outboundDate ?? ""),
@@ -287,6 +351,7 @@ export async function handleQuoteCalculateRequest(
       returnJourney,
       schedule,
       routeMetrics,
+      pricing,
     );
     if (a2a && Number.isFinite(a2a.amount) && a2a.amount >= 1) {
       result = {
@@ -338,6 +403,8 @@ export async function handleQuoteCalculateRequest(
       enforceAirportPickupServiceArea: !ownerMode,
       destinationLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
       destinationLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+      pricing,
+      ownerMode,
     });
   }
 
@@ -377,7 +444,8 @@ export async function handleQuoteCalculateRequest(
   );
 
   if (!result.ok) {
-    return json({ ...result, diagnostics }, 422, origin);
+    const status = result.reason === "vehicle_unavailable" ? 409 : 422;
+    return json({ ...result, diagnostics }, status, origin);
   }
 
   const quoteBody: Record<string, unknown> = {

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 700" role="img" aria-label="7 Seater Minibus category">
+  <rect width="1400" height="700" fill="none"/>
+  <g fill="none" stroke="#0b1c33" stroke-width="14" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M220 470h920c40 0 70-24 82-62l28-88c10-32-8-62-42-70H760c-28 0-48-10-68-36l-52-68c-22-30-52-44-90-44H390c-46 0-80 22-98 62l-62 148c-12 30 4 58 36 66z"/>
+    <circle cx="430" cy="500" r="58"/>
+    <circle cx="980" cy="500" r="58"/>
+    <path d="M390 250h170l70 92H360z"/>
+    <path d="M620 250h250v92H620z"/>
+    <path d="M900 250h150l70 92H900z"/>
+  </g>
+  <g fill="#0b1c33">
+    <circle cx="430" cy="500" r="28"/>
+    <circle cx="980" cy="500" r="28"/>
+  </g>
+</svg>

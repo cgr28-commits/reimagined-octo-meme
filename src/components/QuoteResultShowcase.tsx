@@ -5,8 +5,10 @@ import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import {
   ESTATE_VEHICLE,
+  MINIBUS_VEHICLE,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
+import { MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
 
 type QuoteResultShowcaseProps = {
   vehicleType: string;
@@ -25,6 +27,7 @@ type QuoteResultShowcaseProps = {
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
+const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.svg");
 
 export default function QuoteResultShowcase({
   vehicleType,
@@ -37,7 +40,10 @@ export default function QuoteResultShowcase({
   surchargeNote = null,
 }: QuoteResultShowcaseProps) {
   const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
+  const isMinibus =
+    vehicleType === MINIBUS_VEHICLE || vehicleShortLabel(vehicleType) === MINIBUS_CUSTOMER_NAME;
   const vehicleLabel = vehicleShortLabel(vehicleType);
+  const vehicleImage = isMinibus ? MINIBUS_IMAGE : isEstate ? ESTATE_IMAGE : SALOON_IMAGE;
   const estateDueToLuggage = isEstate && suitcases >= 3;
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel =
@@ -56,11 +62,13 @@ export default function QuoteResultShowcase({
           <p className="sr-only">Vehicle for this journey</p>
           <div className="-mx-3 mt-1 w-[calc(100%+1.5rem)] max-w-none sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full lg:max-w-[460px]">
             <Image
-              src={isEstate ? ESTATE_IMAGE : SALOON_IMAGE}
+              src={vehicleImage}
               alt={
-                isEstate
-                  ? "Estate airport transfer vehicle"
-                  : "Saloon airport transfer vehicle"
+                isMinibus
+                  ? "7 Seater Minibus airport transfer vehicle"
+                  : isEstate
+                    ? "Estate airport transfer vehicle"
+                    : "Saloon airport transfer vehicle"
               }
               width={1400}
               height={700}
