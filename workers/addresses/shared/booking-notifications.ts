@@ -49,10 +49,11 @@ import {
   type CompanyVoiceAirportAccessOption,
 } from "./company-voice-journey";
 import {
+  REMAINING_BALANCE_CASH_ONLY,
   cashDueOnTheDayCopy,
   isDepositCashPaymentMethod,
 } from "./deposit-cash";
-import { formatGbpAmount } from "./gbp";
+import { formatGbpAmountExact } from "./gbp";
 
 export type PaidBookingDetails = {
   customerName: string;
@@ -178,9 +179,9 @@ function depositCashReceiptDetails(details: PaidBookingReceipt): {
       : null;
   if (totalFare == null || cashDue == null || depositPaid == null) return null;
   return {
-    totalFareLabel: formatGbpAmount(totalFare),
-    depositPaidLabel: formatGbpAmount(depositPaid),
-    cashDueLabel: formatGbpAmount(cashDue),
+    totalFareLabel: formatGbpAmountExact(totalFare),
+    depositPaidLabel: formatGbpAmountExact(depositPaid),
+    cashDueLabel: formatGbpAmountExact(cashDue),
     cashDueGbp: cashDue,
   };
 }
@@ -502,7 +503,7 @@ function buildInvoiceHtml(
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">${
                 depositCashReceiptDetails(details)
-                  ? `We've received your deposit and your airport transfer with <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong> is confirmed. The remaining balance is payable in cash to your driver on the day.`
+                  ? `We've received your deposit and your airport transfer with <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong> is confirmed. ${REMAINING_BALANCE_CASH_ONLY}`
                   : `Your card payment has been received and your airport transfer with <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong> is confirmed. Please keep this invoice for your records.`
               }</p>
               ${
@@ -530,9 +531,10 @@ function buildInvoiceHtml(
                         if (deposit) {
                           return (
                             `<strong>Booking total:</strong> ${escapeHtml(deposit.totalFareLabel)}<br />` +
-                            `<strong>Deposit paid:</strong> ${escapeHtml(deposit.depositPaidLabel)}<br />` +
+                            `<strong>Deposit paid online:</strong> ${escapeHtml(deposit.depositPaidLabel)}<br />` +
                             `<strong>Cash due on the day:</strong> ${escapeHtml(deposit.cashDueLabel)}<br />` +
-                            `<strong style="color:${NAVY};">${escapeHtml(cashDueOnTheDayCopy(deposit.cashDueGbp))}</strong><br />`
+                            `<strong style="color:${NAVY};">${escapeHtml(cashDueOnTheDayCopy(deposit.cashDueGbp))}</strong><br />` +
+                            `${escapeHtml(REMAINING_BALANCE_CASH_ONLY)}<br />`
                           );
                         }
                         const promoRows = formatCustomerPromoPricingHtmlRows(
@@ -674,7 +676,7 @@ export function buildCustomerConfirmationEmail(
     `Dear ${details.customerName},\n\n` +
     `Thank you for your booking with ${businessName}. ${
       depositCashReceiptDetails(details)
-        ? "We've received your deposit and your transfer is confirmed. The remaining balance is payable in cash to your driver on the day."
+        ? `We've received your deposit and your transfer is confirmed. ${REMAINING_BALANCE_CASH_ONLY}`
         : "Your card payment has been received and your transfer is confirmed."
     }\n\n` +
     (customerRef ? `Booking reference: ${customerRef}\n\n` : "") +
@@ -732,9 +734,10 @@ export function buildCustomerConfirmationEmail(
       if (deposit) {
         return (
           `Booking total: ${deposit.totalFareLabel}\n` +
-          `Deposit paid: ${deposit.depositPaidLabel}\n` +
+          `Deposit paid online: ${deposit.depositPaidLabel}\n` +
           `Cash due on the day: ${deposit.cashDueLabel}\n` +
-          `${cashDueOnTheDayCopy(deposit.cashDueGbp)}\n`
+          `${cashDueOnTheDayCopy(deposit.cashDueGbp)}\n` +
+          `${REMAINING_BALANCE_CASH_ONLY}\n`
         );
       }
       const promoLines = formatCustomerPromoPricingLines(details, details.amountPaid);

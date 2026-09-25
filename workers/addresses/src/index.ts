@@ -63,6 +63,7 @@ import {
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
+  CASH_AGREEMENT_REQUIRED_MESSAGE,
   PAYMENT_METHOD_DEPOSIT_CASH,
   PAYMENT_METHOD_FULL_ONLINE,
   calculateDepositCashQuote,
@@ -2599,7 +2600,7 @@ async function handlePaymentRequest(
           return json(
             {
               error:
-                "Please confirm you understand the remaining balance is payable in cash to your driver on the day.",
+                CASH_AGREEMENT_REQUIRED_MESSAGE,
               code: "cash_agreement_required",
             },
             400,

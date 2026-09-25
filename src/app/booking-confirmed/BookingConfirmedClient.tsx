@@ -16,8 +16,15 @@ import {
   parseWebsitePromoPricingFields,
 } from "../../../shared/website-promo-pricing";
 import { formatAirportAccessOptionCustomerLines } from "../../../shared/express-drop-off";
-import { cashDueOnTheDayCopy, isDepositCashPaymentMethod } from "../../../shared/deposit-cash";
-import { formatGbpAmount } from "../../../shared/gbp";
+import {
+  PAYMENT_DETAILS_HEADING,
+  REMAINING_BALANCE_CASH_ONLY,
+  bookingTotalLabel,
+  cashDueOnTheDayCopy,
+  depositPaidOnlineLabel,
+  isDepositCashPaymentMethod,
+  paymentSummaryCashDueLabel,
+} from "../../../shared/deposit-cash";
 
 type ViewStatus = "loading" | "confirmed" | "pending" | "missing" | "error";
 
@@ -38,6 +45,7 @@ export default function BookingConfirmedClient() {
   const [promoLines, setPromoLines] = useState<string[]>([]);
   const [cashDueGbp, setCashDueGbp] = useState<number | null>(null);
   const [totalFareGbp, setTotalFareGbp] = useState<number | null>(null);
+  const [depositPaidGbp, setDepositPaidGbp] = useState<number | null>(null);
 
   useEffect(() => {
     setContactsHref(saveToContactsHref());
@@ -123,9 +131,15 @@ export default function BookingConfirmedClient() {
         setTotalFareGbp(
           typeof result.result?.totalFare === "number" ? result.result.totalFare : null,
         );
+        setDepositPaidGbp(
+          typeof result.result?.onlineAmountPaid === "number"
+            ? result.result.onlineAmountPaid
+            : null,
+        );
       } else {
         setCashDueGbp(null);
         setTotalFareGbp(null);
+        setDepositPaidGbp(null);
       }
       setStatus(result.status === "confirmed" ? "confirmed" : result.status);
       if (result.status === "confirmed" && purchase) {
@@ -187,24 +201,32 @@ export default function BookingConfirmedClient() {
             </span>
           </p>
         ) : null}
-        {amountPaid ? (
-          <p className="mt-1 text-sm text-white/50">
-            {cashDueGbp != null ? "Deposit paid: " : "Amount paid: "}
-            {amountPaid}
-          </p>
-        ) : status === "confirmed" ? (
+        {amountPaid && cashDueGbp == null ? (
+          <p className="mt-1 text-sm text-white/50">Amount paid: {amountPaid}</p>
+        ) : status === "confirmed" && cashDueGbp == null ? (
           <p className="mt-1 text-sm text-white/50">
             If you requested a fixed quote, we&apos;ll email your personal price shortly.
           </p>
         ) : null}
         {status === "confirmed" && cashDueGbp != null ? (
           <div className="mt-4 rounded-2xl border border-amber-300/35 bg-amber-500/10 px-4 py-3">
-            <p className="text-sm font-semibold text-white">Cash balance due on the day</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+              {PAYMENT_DETAILS_HEADING}
+            </p>
             {totalFareGbp != null ? (
-              <p className="mt-1 text-sm text-white/75">Total fare: {formatGbpAmount(totalFareGbp)}</p>
+              <p className="mt-2 text-sm text-white/85">{bookingTotalLabel(totalFareGbp)}</p>
             ) : null}
-            <p className="mt-1 text-sm leading-relaxed text-white/85">
+            {depositPaidGbp != null ? (
+              <p className="mt-1 text-sm text-white/85">{depositPaidOnlineLabel(depositPaidGbp)}</p>
+            ) : amountPaid ? (
+              <p className="mt-1 text-sm text-white/85">Deposit paid online: {amountPaid}</p>
+            ) : null}
+            <p className="mt-1 text-sm text-white/85">{paymentSummaryCashDueLabel(cashDueGbp)}</p>
+            <p className="mt-3 text-sm font-semibold leading-relaxed text-white">
               {cashDueOnTheDayCopy(cashDueGbp)}
+            </p>
+            <p className="mt-1.5 text-sm leading-relaxed text-white/85">
+              {REMAINING_BALANCE_CASH_ONLY}
             </p>
           </div>
         ) : null}

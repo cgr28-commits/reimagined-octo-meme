@@ -16,8 +16,11 @@ import {
 } from "@/lib/pending-payment";
 import { sendPaidBookingEmailsFromBrowser } from "@/lib/send-paid-booking-email";
 import { SITE } from "@/lib/data";
-import { cashDueOnTheDayCopy, isDepositCashPaymentMethod } from "../../shared/deposit-cash";
-import { formatGbpAmount } from "../../shared/gbp";
+import {
+  cashDueOnTheDayCopy,
+  formatDepositCashGbp,
+  isDepositCashPaymentMethod,
+} from "../../shared/deposit-cash";
 
 const PAYMENT_CONFIRM_RETRY_MS = 2000;
 const PAYMENT_CONFIRM_MAX_ATTEMPTS = 5;
@@ -41,7 +44,7 @@ function buildPaymentConfirmationSummary(
     isDepositCashPaymentMethod(result.paymentMethod) && typeof result.cashBalanceDue === "number"
       ? `Deposit of ${result.amountPaid} received${
           typeof result.totalFare === "number"
-            ? ` against a ${formatGbpAmount(result.totalFare)} fare`
+            ? ` against a ${formatDepositCashGbp(result.totalFare)} fare`
             : ""
         }. ${cashDueOnTheDayCopy(result.cashBalanceDue)} `
       : `Payment of ${result.amountPaid} received. `;

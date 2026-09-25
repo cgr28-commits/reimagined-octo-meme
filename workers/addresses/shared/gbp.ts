@@ -21,3 +21,13 @@ export function formatGbpAmount(amount: number): string {
   }
   return `£${(asPence / 100).toFixed(2)}`;
 }
+
+/**
+ * Always two decimal places (£15.00, £35.10).
+ * Display-only — do not use this to change amounts sent to SumUp.
+ */
+export function formatGbpAmountExact(amount: number): string {
+  const rounded = roundGbp(amount);
+  if (!Number.isFinite(rounded)) return "£—";
+  return `£${rounded.toFixed(2)}`;
+}
