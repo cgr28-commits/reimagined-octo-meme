@@ -36,6 +36,7 @@ import {
   type ShortNoticeBookingSummary,
   type UnavailablePeriodSummary,
 } from "@/lib/short-notice-api";
+import OwnerDepositCashSettings from "@/components/OwnerDepositCashSettings";
 import {
   LUGGAGE_CAPACITY_OWNER_REASON,
   formatOwnerLargeBagsLabel,
@@ -185,6 +186,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
   const [savingSettings, setSavingSettings] = useState(false);
   const [noticeHoursDraft, setNoticeHoursDraft] = useState(String(MINIMUM_BOOKING_NOTICE_HOURS));
   const [savedNoticeHours, setSavedNoticeHours] = useState(MINIMUM_BOOKING_NOTICE_HOURS);
+  const [bookingSettings, setBookingSettings] = useState<BookingSettings | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -248,11 +250,14 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
     }));
   }
 
-  const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number }) => {
+  const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number; depositCash?: BookingSettings["depositCash"] }) => {
     setPeriods(Array.isArray(settings.unavailablePeriods) ? settings.unavailablePeriods : []);
     const hours = normalizeMinimumBookingNoticeHours(settings.minimumBookingNoticeHours);
     setSavedNoticeHours(hours);
     setNoticeHoursDraft(String(hours));
+    if ("updatedAt" in settings || "depositCash" in settings) {
+      setBookingSettings(settings as BookingSettings);
+    }
   }, []);
 
   const load = useCallback(async () => {
@@ -576,6 +581,13 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
             {message}
           </p>
         ) : null}
+
+        <OwnerDepositCashSettings
+          ownerKey={ownerKey}
+          settings={bookingSettings}
+          onSaved={applySettings}
+          fieldClass={fieldClass}
+        />
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">

@@ -50,6 +50,16 @@ export type PendingCheckoutRecord = {
   amendmentIdempotencyKey?: string;
   amendmentPreviousFare?: number;
   amendmentNewFare?: number;
+  /**
+   * Deposit + Cash snapshot. amount = SumUp charge (deposit or full).
+   * totalFare is the agreed booking fare. Never rewrite from later admin settings.
+   */
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  totalFare?: number;
+  onlineAmountPaid?: number;
+  cashBalanceDue?: number;
+  depositPercentUsed?: number;
+  depositMinimumUsed?: number;
 };
 
 export function pendingCheckoutKey(checkoutId: string): string {

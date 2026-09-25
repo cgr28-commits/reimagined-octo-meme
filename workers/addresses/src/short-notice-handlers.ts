@@ -4,6 +4,10 @@
 
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import {
+  DEFAULT_DEPOSIT_MINIMUM_GBP,
+  DEFAULT_DEPOSIT_PERCENT,
+} from "../shared/deposit-cash";
+import {
   MINIMUM_BOOKING_NOTICE_HOURS,
   OwnerNoAvailabilityError,
   computeShortNoticePaymentExpiryIso,
@@ -43,6 +47,7 @@ import {
   bookingSettingsPublicView,
   deleteUnavailablePeriod,
   getBookingSettings,
+  updateDepositCashSettings,
   updateMinimumBookingNoticeHours,
   updateUnavailablePeriod,
 } from "./booking-settings-store";
@@ -1594,6 +1599,14 @@ export async function handleOwnerSaveBookingSettings(
       return { ok: true, settings: bookingSettingsPublicView(settings) };
     }
 
+    if (action === "set-deposit-cash" || action === "set-deposit-cash-settings") {
+      const settings = await updateDepositCashSettings(
+        env.TRACKING_STORE,
+        body.depositCash ?? body,
+      );
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+
     if (action === "delete") {
       const id = String(body.id ?? "").trim();
       const settings = await deleteUnavailablePeriod(env.TRACKING_STORE, id);
@@ -1702,12 +1715,32 @@ export function isPublicBookingNoticePath(pathname: string): boolean {
 
 export async function handlePublicGetBookingNotice(env: {
   TRACKING_STORE?: KVNamespace;
-}): Promise<{ ok: true; minimumBookingNoticeHours: number }> {
+}): Promise<{
+  ok: true;
+  minimumBookingNoticeHours: number;
+  depositCash: { enabled: boolean; percent: number; minimumGbp: number };
+}> {
   if (!env.TRACKING_STORE) {
-    return { ok: true, minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS };
+    return {
+      ok: true,
+      minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
+      depositCash: {
+        enabled: false,
+        percent: DEFAULT_DEPOSIT_PERCENT,
+        minimumGbp: DEFAULT_DEPOSIT_MINIMUM_GBP,
+      },
+    };
   }
   const settings = await getBookingSettings(env.TRACKING_STORE);
-  return { ok: true, minimumBookingNoticeHours: settings.minimumBookingNoticeHours };
+  return {
+    ok: true,
+    minimumBookingNoticeHours: settings.minimumBookingNoticeHours,
+    depositCash: {
+      enabled: settings.depositCash.enabled === true,
+      percent: settings.depositCash.percent,
+      minimumGbp: settings.depositCash.minimumGbp,
+    },
+  };
 }
 
 export function isPublicShortNoticePath(pathname: string): boolean {

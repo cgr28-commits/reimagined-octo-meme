@@ -190,7 +190,7 @@ async function main() {
     assert.match(text, /pounds sterling \(GBP\)/i);
     assert.match(text, /Applicable tolls/i);
     assert.match(text, /more than 24 hours/i);
-    assert.match(text, /full refund of the fare paid/i);
+    assert.match(text, /refund of the amount actually paid/i);
     assert.equal(/administration charge of|10%|£5 .*cancel/i.test(text), false);
     assert.match(text, /up to 4 passengers|Vehicles & capacity/i);
     assert.equal(/licensed partner operators|transport partner minibus|5–7 passengers/i.test(text), false);

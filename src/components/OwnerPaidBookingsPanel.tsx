@@ -38,6 +38,8 @@ import {
   isDublinAirportCode,
 } from "../../shared/dublin-arrival-terminal";
 import { formatUkInstant } from "../../shared/uk-time";
+import { remainingCashDueGbp } from "../../shared/deposit-cash";
+import { formatGbpAmount } from "../../shared/gbp";
 import { formatAirportAccessOptionDashboardValue } from "../../shared/express-drop-off";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
@@ -47,6 +49,7 @@ import {
   fetchRefundDiagnostics,
   fetchTrackingDiagnostic,
   finalizePaidCheckoutRecovery,
+  markPaidBookingCashCollected,
   resendPaidBookingConfirmation,
   sendManualReturnOfferNow,
   sendOwnerReviewRequest,
@@ -543,6 +546,25 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
     return map;
   }, [bookingJobs]);
+  async function handleMarkCashCollected(booking: OwnerPaidBookingSummary, collected: boolean) {
+    setBusyRef(booking.paymentReference);
+    setError("");
+    setMessage("");
+    try {
+      await markPaidBookingCashCollected({ ownerKey }, booking.paymentReference, collected);
+      setMessage(
+        collected
+          ? `Marked cash collected for ${booking.customerName}.`
+          : `Cleared cash collected for ${booking.customerName}.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update cash collected");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
   async function handleResend(booking: OwnerPaidBookingSummary) {
     setBusyRef(booking.paymentReference);
     setError("");
@@ -1656,6 +1678,32 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 {` · remaining £${remainingNum.toFixed(2)}`}
               </p>
             )}
+            {booking.paymentMethod === "DEPOSIT_CASH" ? (
+              <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-100">
+                  {booking.cashCollected ? "Cash collected" : "CASH DUE"}
+                </p>
+                <p className="mt-1 text-sm text-white/85">
+                  Total fare {formatGbpAmount(booking.totalFare ?? booking.amount ?? 0)} · deposit{" "}
+                  {booking.amountPaid}
+                  {remainingCashDueGbp(booking) > 0
+                    ? ` · cash due ${formatGbpAmount(remainingCashDueGbp(booking))}`
+                    : booking.cashCollected
+                      ? " · cash collected"
+                      : ""}
+                </p>
+                <button
+                  type="button"
+                  disabled={busyRef === booking.paymentReference}
+                  onClick={() =>
+                    void handleMarkCashCollected(booking, booking.cashCollected !== true)
+                  }
+                  className="mt-2 min-h-10 rounded-lg bg-emerald px-3 py-1.5 text-xs font-bold text-navy disabled:opacity-60"
+                >
+                  {booking.cashCollected ? "Undo cash collected" : "Mark cash collected"}
+                </button>
+              </div>
+            ) : null}
           </div>
           <span
             className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${

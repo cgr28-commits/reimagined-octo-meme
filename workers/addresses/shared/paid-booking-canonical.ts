@@ -96,6 +96,14 @@ export function paidBookingRecordToReceipt(record: PaidBookingRecord): PaidBooki
     paymentReference: record.paymentReference,
     transactionCode: record.transactionCode,
     customerReference: record.customerReference,
+    ...(record.paymentMethod ? { paymentMethod: record.paymentMethod } : {}),
+    ...(typeof record.totalFare === "number" ? { totalFare: record.totalFare } : {}),
+    ...(typeof record.onlineAmountPaid === "number"
+      ? { onlineAmountPaid: record.onlineAmountPaid }
+      : {}),
+    ...(typeof record.cashBalanceDue === "number"
+      ? { cashBalanceDue: record.cashBalanceDue }
+      : {}),
   };
 }
 

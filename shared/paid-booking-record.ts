@@ -156,6 +156,23 @@ export type PaidBookingRecord = {
   childSeatNotes?: string;
   notes?: string;
   vehicle?: string;
+  /**
+   * How the customer paid. Missing = historic full online (treat as FULL_ONLINE).
+   * DEPOSIT_CASH bookings keep these figures even if admin later disables the option.
+   */
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  /** Final agreed fare after discounts and airport charges. */
+  totalFare?: number;
+  /** Card amount collected through SumUp (deposit or full fare). */
+  onlineAmountPaid?: number;
+  /** Cash still due to the driver. 0 for full online. */
+  cashBalanceDue?: number;
+  cashCollected?: boolean;
+  cashCollectedAt?: string;
+  cashCollectedBy?: string;
+  /** Snapshot of admin settings used at checkout — never recalculated later. */
+  depositPercentUsed?: number;
+  depositMinimumUsed?: number;
   journeyDistance?: string;
   journeyDuration?: string;
   isAirportTrip?: boolean;

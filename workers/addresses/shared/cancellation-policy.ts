@@ -9,7 +9,7 @@ export const CANCELLATION_POLICY_PATH = "/cancellation/";
 export const CHECKOUT_CANCELLATION_HEADING = "Cancellation policy";
 
 export const CHECKOUT_CANCELLATION_SUMMARY =
-  "Cancel more than 24 hours before your scheduled pickup for a full refund. Cancellations less than 24 hours before pickup are non-refundable.";
+  "Cancel more than 24 hours before your scheduled pickup for a refund of the amount actually paid. Cancellations less than 24 hours before pickup are non-refundable.";
 
 export const VIEW_FULL_CANCELLATION_POLICY_LABEL = "View full Cancellation Policy";
 
@@ -46,18 +46,34 @@ export const FAQ_CANCEL_ANSWER = [
 export const CANCELLATION_POLICY_PAGE_INTRO =
   "The same cancellation policy applies to airport, long-distance and cross-border transfers.";
 
+export const MORE_THAN_24H_REFUND =
+  "If we receive your cancellation more than 24 hours before the scheduled pickup time, we will issue a refund of the amount actually paid.";
+
+export const LESS_THAN_24H_NON_REFUNDABLE =
+  "If we receive your cancellation less than 24 hours before the scheduled pickup time, the booking is non-refundable.";
+
+export const DEPOSIT_CASH_POLICY_TITLE = "Deposit + Cash bookings";
+
+export const DEPOSIT_CASH_POLICY_PARAGRAPHS = [
+  "On eligible website instant quotes you may be offered Deposit + Cash. If you choose it, you pay a card deposit today to confirm the booking and pay the remaining balance in cash to your driver on the day.",
+  "The remaining cash balance is due to the driver at pickup. It is not taken by card in advance.",
+  "If you cancel more than 24 hours before pickup, we refund the amount actually paid — the card deposit. The unpaid cash balance is not charged.",
+  "If you cancel less than 24 hours before pickup, the card deposit is non-refundable. The unpaid cash balance is not charged.",
+  "A no-show is non-refundable in the same way. The unpaid cash balance is not charged.",
+] as const;
+
 export const CANCELLATION_POLICY_SECTIONS = [
   {
     title: "More than 24 hours before pickup",
-    content: [
-      "If we receive your cancellation more than 24 hours before the scheduled pickup time, we will issue a full refund of the fare paid.",
-    ],
+    content: [MORE_THAN_24H_REFUND],
   },
   {
     title: "Less than 24 hours before pickup",
-    content: [
-      "If we receive your cancellation less than 24 hours before the scheduled pickup time, the booking is non-refundable.",
-    ],
+    content: [LESS_THAN_24H_NON_REFUNDABLE],
+  },
+  {
+    title: DEPOSIT_CASH_POLICY_TITLE,
+    content: [...DEPOSIT_CASH_POLICY_PARAGRAPHS],
   },
   {
     title: "No-shows",

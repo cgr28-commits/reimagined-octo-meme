@@ -213,8 +213,8 @@ export async function retryRecentPaidBookingAdsConversions(
         env,
         paymentReference: record.paymentReference,
         amount:
-          typeof record.originalAmount === "number" && record.originalAmount > 0
-            ? record.originalAmount
+          typeof record.totalFare === "number" && record.totalFare > 0
+            ? record.totalFare
             : record.amount,
         currency: record.currency,
         attribution: record.attribution,

@@ -63,6 +63,13 @@ import {
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import {
+  PAYMENT_METHOD_DEPOSIT_CASH,
+  PAYMENT_METHOD_FULL_ONLINE,
+  calculateDepositCashQuote,
+  snapshotDepositCash,
+  type DepositCashSnapshot,
+} from "../shared/deposit-cash";
+import {
   getAirportPickupFlightNumberBlockers,
   lookupFlight,
   type TripDirection,
@@ -301,11 +308,13 @@ import {
 } from "./amendment-test-handlers";
 import {
   handleFinalizeCheckoutRequest,
+  handlePaidBookingCashCollectedRequest,
   handlePaidBookingResendRequest,
   handlePaidBookingsFinancialSummaryRequest,
   handlePaidBookingsListRequest,
   handlePendingCheckoutsListRequest,
   isFinalizeCheckoutPath,
+  isPaidBookingCashCollectedPath,
   isPaidBookingEditPath,
   isPaidBookingResendPath,
   isPaidBookingsFinancialSummaryPath,
@@ -647,6 +656,7 @@ function routePath(
   | "paid-bookings-amendment-test-seed"
   | "paid-bookings-amendment-test-list"
   | "paid-bookings-financial-summary"
+  | "paid-bookings-cash-collected"
   | "paid-bookings"
   | "paid-bookings-resend"
   | "paid-bookings-return-offer-send"
@@ -765,6 +775,10 @@ function routePath(
 
   if (isPaidBookingsFinancialSummaryPath(pathname)) {
     return "paid-bookings-financial-summary";
+  }
+
+  if (isPaidBookingCashCollectedPath(pathname)) {
+    return "paid-bookings-cash-collected";
   }
 
   if (isPaidBookingsListPath(pathname)) {
@@ -1786,6 +1800,7 @@ async function handlePaymentRequest(
   let personalQuotedAmount: number | undefined;
   const returnOfferToken = String(body.returnOfferToken ?? "").trim() || undefined;
   let returnOfferOriginalPaymentReference: string | undefined;
+  let depositSnapshot: DepositCashSnapshot | undefined;
 
   // Approved short-notice pay: amount + journey locked server-side (ignore client fare).
   if (shortNoticeToken) {
@@ -2565,6 +2580,38 @@ async function handlePaymentRequest(
         ? { returnOfferSavingGbp: breakdown.returnOfferSavingGbp }
         : {}),
     };
+
+    const specialistPayPath = Boolean(
+      shortNoticeToken ||
+        a2aQuoteToken ||
+        personalQuoteCode ||
+        quickQuoteId ||
+        savedQuoteToken,
+    );
+    if (
+      !specialistPayPath &&
+      String(body.paymentMethod ?? "").trim() === PAYMENT_METHOD_DEPOSIT_CASH
+    ) {
+      const settings = await getBookingSettings(env.TRACKING_STORE);
+      if (settings.depositCash.enabled === true) {
+        if (body.cashAgreementAccepted !== true) {
+          return json(
+            {
+              error:
+                "Please confirm you understand the remaining balance is payable in cash to your driver on the day.",
+              code: "cash_agreement_required",
+            },
+            400,
+            origin,
+          );
+        }
+        const quote = calculateDepositCashQuote(amount, settings.depositCash);
+        if (quote.eligible) {
+          depositSnapshot = snapshotDepositCash(quote);
+          amount = quote.depositGbp;
+        }
+      }
+    }
   }
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
@@ -2825,8 +2872,11 @@ async function handlePaymentRequest(
       (shortNoticeReference
         ? `Short-notice booking ${shortNoticeReference}`
         : "Airport taxi booking");
+    const depositPayDescription = depositSnapshot
+      ? `Deposit ${formatPaidAmount(depositSnapshot.onlineAmountPaid)} of ${formatPaidAmount(depositSnapshot.totalFare)} — ${payDescription}`
+      : payDescription;
     const sumUpDescription = buildSumUpCheckoutDescription(
-      payDescription,
+      depositPayDescription,
       booking,
       checkoutReference,
     );
@@ -2981,6 +3031,21 @@ async function handlePaymentRequest(
         : personalQuoteCode
           ? { personalQuotedAmount: Math.round(amount * 100) / 100 }
           : {}),
+      ...(depositSnapshot
+        ? {
+            paymentMethod: PAYMENT_METHOD_DEPOSIT_CASH,
+            totalFare: depositSnapshot.totalFare,
+            onlineAmountPaid: depositSnapshot.onlineAmountPaid,
+            cashBalanceDue: depositSnapshot.cashBalanceDue,
+            depositPercentUsed: depositSnapshot.depositPercentUsed,
+            depositMinimumUsed: depositSnapshot.depositMinimumUsed,
+          }
+        : {
+            paymentMethod: PAYMENT_METHOD_FULL_ONLINE,
+            totalFare: Math.round(amount * 100) / 100,
+            onlineAmountPaid: Math.round(amount * 100) / 100,
+            cashBalanceDue: 0,
+          }),
     });
 
     if (quickQuoteId) {
@@ -4290,6 +4355,10 @@ export default {
 
     if (route === "paid-bookings-financial-summary") {
       return handlePaidBookingsFinancialSummaryRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-cash-collected") {
+      return handlePaidBookingCashCollectedRequest(request, env, origin);
     }
 
     if (route === "paid-bookings") {

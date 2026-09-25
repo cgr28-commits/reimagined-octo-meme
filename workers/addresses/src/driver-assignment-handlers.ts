@@ -30,6 +30,8 @@ import {
   trackingStoreConfigured,
 } from "./tracking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
+import { remainingCashDueGbp } from "../shared/deposit-cash";
 
 type Env = DriverAuthEnv &
   WorkerEmailEnv & {
@@ -285,10 +287,16 @@ export async function handleDriverAssignRequest(
     await saveBookingJob(env.TRACKING_STORE, updatedBooking);
 
     acceptUrl = `${siteUrl(env).replace(/\/$/, "")}/driver-accept/?token=${encodeURIComponent(acceptToken)}`;
+    const paidRecord =
+      paidBookingStoreConfigured(env.TRACKING_STORE) && record.paymentReference
+        ? await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference)
+        : null;
+    const cashDue = paidRecord ? remainingCashDueGbp(paidRecord) : 0;
     const email = buildDriverAssignmentEmail({
       job: updatedBooking,
       acceptUrl,
       businessName: BUSINESS_NAME,
+      ...(cashDue > 0 ? { cashBalanceDue: cashDue } : {}),
     });
 
     const sendResult = await trySendEmail(env, {

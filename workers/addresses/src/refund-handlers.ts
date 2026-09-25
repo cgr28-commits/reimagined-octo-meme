@@ -2041,6 +2041,12 @@ export async function savePaidBookingRecordFromConfirm(input: {
   standardWebsiteAmount?: number;
   personalQuotedAmount?: number;
   isRefundTest?: boolean;
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  totalFare?: number;
+  onlineAmountPaid?: number;
+  cashBalanceDue?: number;
+  depositPercentUsed?: number;
+  depositMinimumUsed?: number;
 }): Promise<string | undefined> {
   if (!paidBookingStoreConfigured(input.env.TRACKING_STORE)) {
     return undefined;
@@ -2064,9 +2070,10 @@ export async function savePaidBookingRecordFromConfirm(input: {
     checkoutId: input.checkoutId,
     transactionId: input.transactionId,
     transactionCode: input.transactionCode,
-    amount: input.amount,
+    amount: input.totalFare ?? input.amount,
     currency: input.currency,
     amountPaidLabel: input.amountPaidLabel,
+    originalAmount: input.onlineAmountPaid ?? input.amount,
     amountRefunded: 0,
     customerName: input.booking.customerName,
     customerEmail: input.booking.customerEmail,
@@ -2162,6 +2169,23 @@ export async function savePaidBookingRecordFromConfirm(input: {
       : {}),
     ...(typeof input.personalQuotedAmount === "number"
       ? { personalQuotedAmount: input.personalQuotedAmount }
+      : {}),
+    ...(input.paymentMethod ? { paymentMethod: input.paymentMethod } : {}),
+    ...(typeof input.totalFare === "number" ? { totalFare: input.totalFare } : {}),
+    ...(typeof input.onlineAmountPaid === "number"
+      ? { onlineAmountPaid: input.onlineAmountPaid }
+      : {}),
+    ...(typeof input.cashBalanceDue === "number"
+      ? { cashBalanceDue: input.cashBalanceDue }
+      : {}),
+    ...(input.paymentMethod === "DEPOSIT_CASH"
+      ? { cashCollected: false }
+      : {}),
+    ...(typeof input.depositPercentUsed === "number"
+      ? { depositPercentUsed: input.depositPercentUsed }
+      : {}),
+    ...(typeof input.depositMinimumUsed === "number"
+      ? { depositMinimumUsed: input.depositMinimumUsed }
       : {}),
     ...(input.booking.returnOfferOriginalPaymentReference?.trim()
       ? {

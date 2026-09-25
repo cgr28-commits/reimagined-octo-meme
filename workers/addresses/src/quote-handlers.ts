@@ -46,6 +46,10 @@ import {
   evaluateOwnerNoAvailability,
 } from "../shared/booking-notice";
 import { getBookingSettings } from "./booking-settings-store";
+import {
+  defaultDepositCashSettings,
+  publicDepositCashOffer,
+} from "../shared/deposit-cash";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
@@ -496,6 +500,9 @@ export async function handleQuoteCalculateRequest(
     }
     const settings = await getBookingSettings(env.TRACKING_STORE);
     quoteBody.minimumBookingNoticeHours = settings.minimumBookingNoticeHours;
+    if (!ownerMode) {
+      quoteBody.depositCash = publicDepositCashOffer(result.amount, settings.depositCash);
+    }
     quoteBody.ownerAvailability = evaluateOwnerNoAvailability(
       {
         tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
@@ -507,6 +514,10 @@ export async function handleQuoteCalculateRequest(
       },
       settings.unavailablePeriods,
     );
+  }
+
+  if (!quoteBody.depositCash && !ownerMode) {
+    quoteBody.depositCash = publicDepositCashOffer(result.amount, defaultDepositCashSettings());
   }
 
   if (env?.TRACKING_STORE) {

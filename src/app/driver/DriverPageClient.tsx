@@ -45,8 +45,11 @@ import {
 } from "@/lib/tracking-api";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import { markBookingRefundedExternally, type RefundIssueResponse } from "@/lib/refund-api";
+import { remainingCashDueGbp } from "../../../shared/deposit-cash";
+import { formatGbpAmount } from "../../../shared/gbp";
 import {
   fetchOwnerPaidBooking,
+  markPaidBookingCashCollected,
   type OwnerPaidBookingSummary,
 } from "@/lib/paid-bookings-api";
 import { canMarkExternalRefund, isOperationallyCancelled } from "../../../shared/refund-ops";
@@ -895,6 +898,8 @@ function DriverJobCard({
     driverPayAmount: "",
   });
   const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [cashBusy, setCashBusy] = useState(false);
+  const [cashMessage, setCashMessage] = useState<string | null>(null);
   const [recordedRoute, setRecordedRoute] = useState<MapRoutePoint[]>([]);
   const isActive = activeToken === job.token;
   const mapMarkers = jobMapMarkers(job, { isActiveDriver: isActive, isOwner });
@@ -1469,6 +1474,59 @@ function DriverJobCard({
           {isOwner && job.amountPaidLabel && (
             <p className="mt-1 text-sm text-white/70">Paid: {job.amountPaidLabel}</p>
           )}
+          {job.paymentMethod === "DEPOSIT_CASH" &&
+          job.paymentReference &&
+          (isOwner || isAcceptedAssignment) ? (
+            <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-100">
+                {job.cashCollected ? "Cash collected" : "CASH TO COLLECT"}
+              </p>
+              <p className="mt-1 text-sm text-white/85">
+                {remainingCashDueGbp(job) > 0
+                  ? `${formatGbpAmount(remainingCashDueGbp(job))} cash due on the day`
+                  : job.cashCollected
+                    ? "Cash collected"
+                    : "No cash remaining"}
+              </p>
+              <button
+                type="button"
+                disabled={cashBusy}
+                onClick={() => {
+                  void (async () => {
+                    setCashBusy(true);
+                    setCashMessage(null);
+                    try {
+                      await markPaidBookingCashCollected(
+                        isOwner ? { ownerKey: driverKey } : { driverKey },
+                        job.paymentReference!,
+                        job.cashCollected !== true,
+                      );
+                      setCashMessage(
+                        job.cashCollected ? "Cleared cash collected." : "Marked cash collected.",
+                      );
+                      onRefreshJob?.();
+                    } catch (err) {
+                      setCashMessage(
+                        err instanceof Error ? err.message : "Could not update cash collected",
+                      );
+                    } finally {
+                      setCashBusy(false);
+                    }
+                  })();
+                }}
+                className="mt-2 min-h-10 rounded-lg bg-emerald px-3 py-1.5 text-xs font-bold text-navy disabled:opacity-60"
+              >
+                {cashBusy
+                  ? "Saving…"
+                  : job.cashCollected
+                    ? "Undo cash collected"
+                    : "Mark cash collected"}
+              </button>
+              {cashMessage ? (
+                <p className="mt-1 text-xs text-white/70">{cashMessage}</p>
+              ) : null}
+            </div>
+          ) : null}
           {isOwner && isRefunded && (job.refundAmountLabel || job.amountPaidLabel) && (
             <p className="mt-1 text-sm font-semibold text-red-200">
               Refunded: {job.refundAmountLabel ?? job.amountPaidLabel}

@@ -1,12 +1,16 @@
 import {
   CANCELLATION_POLICY_PAGE_INTRO,
   COMPANY_CANCEL_REFUND,
+  DEPOSIT_CASH_POLICY_PARAGRAPHS,
+  DEPOSIT_CASH_POLICY_TITLE,
   FLIGHT_DELAY_POLICY,
+  LESS_THAN_24H_NON_REFUNDABLE,
+  MORE_THAN_24H_REFUND,
   SPECIFIC_DATE_TRANSPORT_NOTE,
   STATUTORY_RIGHTS_NOTE,
 } from "../../shared/cancellation-policy";
 
-export const TERMS_LAST_UPDATED = "September 2026 v1";
+export const TERMS_LAST_UPDATED = "September 2026 v2";
 
 export const TERMS_SECTIONS = [
   {
@@ -106,13 +110,15 @@ export const TERMS_SECTIONS = [
     title: "Booking & Payment",
     content: [
       "For standard saloon and estate car transfers where an instant fare is shown, you may pay online by card via SumUp at the end of the website quote. Your booking is confirmed once payment is completed.",
+      "Where Deposit + Cash is offered on a website instant quote and you select it, you pay a card deposit today to confirm the booking. The remaining balance is payable in cash to your driver on the day. Deposit + Cash is not available on Personal Quotes, Quick Quotes, saved quote links, short-notice payment links, Request Only payment links, or airport-to-airport specialist payment links.",
       "For executive bookings, out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
       "Payment may be made:",
     ],
     list: [
-      "By card via SumUp on the website (standard/estate cars with an instant fare)",
+      "By card via SumUp on the website (standard/estate cars with an instant fare), either the full fare or a deposit where Deposit + Cash is offered and selected",
+      "By cash to the driver for the remaining balance on a Deposit + Cash booking",
       "By card via the SumUp payment link we email after confirming your booking",
-      "By cash to the driver (where agreed)",
+      "By cash to the driver (where otherwise agreed)",
       "By bank transfer (where agreed)",
       "By any other accepted payment method we confirm in writing",
     ],
@@ -154,15 +160,15 @@ export const TERMS_SECTIONS = [
     subsections: [
       {
         subtitle: "More than 24 hours before pickup",
-        content: [
-          "If we receive your cancellation more than 24 hours before the scheduled pickup time, we will issue a full refund of the fare paid.",
-        ],
+        content: [MORE_THAN_24H_REFUND],
       },
       {
         subtitle: "Less than 24 hours before pickup",
-        content: [
-          "If we receive your cancellation less than 24 hours before the scheduled pickup time, the booking is non-refundable.",
-        ],
+        content: [LESS_THAN_24H_NON_REFUNDABLE],
+      },
+      {
+        subtitle: DEPOSIT_CASH_POLICY_TITLE,
+        content: [...DEPOSIT_CASH_POLICY_PARAGRAPHS],
       },
       {
         subtitle: "Flight delays",

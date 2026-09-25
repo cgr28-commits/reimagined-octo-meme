@@ -14,11 +14,19 @@ import {
   type UnavailablePeriod,
   type UnavailablePeriodInput,
 } from "../shared/booking-notice";
+import {
+  defaultDepositCashSettings,
+  normalizeDepositCashSettings,
+  parseDepositCashSettingsInput,
+  type DepositCashSettings,
+} from "../shared/deposit-cash";
 
 export type BookingSettings = {
   unavailablePeriods: UnavailablePeriod[];
   /** Owner-configured short-notice / minimum advance period. Defaults to 12. */
   minimumBookingNoticeHours: number;
+  /** Deposit + Cash — disabled by default; never trust the browser for these values. */
+  depositCash: DepositCashSettings;
   updatedAt: string;
 };
 
@@ -30,6 +38,7 @@ export function defaultBookingSettings(): BookingSettings {
   return {
     unavailablePeriods: [],
     minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
+    depositCash: defaultDepositCashSettings(),
     updatedAt: new Date(0).toISOString(),
   };
 }
@@ -52,6 +61,9 @@ export function normalizeBookingSettings(
     unavailablePeriods: normalizeUnavailablePeriods(raw?.unavailablePeriods),
     minimumBookingNoticeHours: normalizeMinimumBookingNoticeHours(
       raw?.minimumBookingNoticeHours,
+    ),
+    depositCash: normalizeDepositCashSettings(
+      (raw as { depositCash?: unknown } | null | undefined)?.depositCash ?? raw,
     ),
     updatedAt: String(raw?.updatedAt ?? new Date().toISOString()),
   };
@@ -89,6 +101,7 @@ export async function saveBookingSettings(
     minimumBookingNoticeHours: normalizeMinimumBookingNoticeHours(
       settings.minimumBookingNoticeHours ?? current.minimumBookingNoticeHours,
     ),
+    depositCash: current.depositCash,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -105,6 +118,21 @@ export async function updateMinimumBookingNoticeHours(
   return putBookingSettings(store, {
     unavailablePeriods: current.unavailablePeriods,
     minimumBookingNoticeHours: parsed,
+    depositCash: current.depositCash,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updateDepositCashSettings(
+  store: KVNamespace,
+  raw: unknown,
+): Promise<BookingSettings> {
+  const parsed = parseDepositCashSettingsInput(raw);
+  const current = await getBookingSettings(store);
+  return putBookingSettings(store, {
+    unavailablePeriods: current.unavailablePeriods,
+    minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    depositCash: parsed,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -128,6 +156,7 @@ export async function addUnavailablePeriod(
   const settings = await putBookingSettings(store, {
     unavailablePeriods: [...current.unavailablePeriods, period],
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    depositCash: current.depositCash,
     updatedAt: now.toISOString(),
   });
   return { settings, period };
@@ -161,6 +190,7 @@ export async function updateUnavailablePeriod(
       entry.id === trimmedId ? period : entry,
     ),
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    depositCash: current.depositCash,
     updatedAt: now.toISOString(),
   });
   return { settings, period };
@@ -180,6 +210,7 @@ export async function deleteUnavailablePeriod(
   return putBookingSettings(store, {
     unavailablePeriods: next,
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    depositCash: current.depositCash,
     updatedAt: new Date().toISOString(),
   });
 }

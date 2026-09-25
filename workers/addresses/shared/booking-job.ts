@@ -107,6 +107,7 @@ export function buildDriverAssignmentEmail(options: {
   job: BookingJobRecord;
   acceptUrl: string;
   businessName?: string;
+  cashBalanceDue?: number;
 }): { subject: string; text: string; html: string } {
   const businessName = options.businessName ?? "My Airport Taxi NI";
   const job = options.job;
@@ -141,6 +142,9 @@ export function buildDriverAssignmentEmail(options: {
     "",
     `Your pay for this journey: ${pay}`,
     "You will be paid after each journey (usually the next day).",
+    typeof options.cashBalanceDue === "number" && options.cashBalanceDue > 0
+      ? `CASH TO COLLECT: £${options.cashBalanceDue.toFixed(2)}`
+      : null,
     "",
     "Customer contact details are shown in your driver portal after you accept this job.",
     "You do not need a login or access key — everything is in this email.",
@@ -174,6 +178,11 @@ export function buildDriverAssignmentEmail(options: {
       }
       <p style="margin:0 0 8px;"><strong>Passengers / suitcases:</strong> ${job.passengers} / ${job.suitcases}</p>
       <p style="margin:0;"><strong>Your pay for this journey:</strong> ${escapeHtml(pay)}</p>
+      ${
+        typeof options.cashBalanceDue === "number" && options.cashBalanceDue > 0
+          ? `<p style="margin:12px 0 0;font-weight:700;color:#fbbf24;">CASH TO COLLECT: £${options.cashBalanceDue.toFixed(2)}</p>`
+          : ""
+      }
     </div>
     <p style="color:#c5d0e0;font-size:14px;">You will be paid after each journey (usually the next day).</p>
     <p style="color:#c5d0e0;font-size:14px;">Customer contact details appear in your driver portal after you accept.</p>

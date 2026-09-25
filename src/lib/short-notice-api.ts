@@ -92,6 +92,11 @@ export type BookingSettings = {
   activeUnavailablePeriods?: UnavailablePeriodSummary[];
   activeCount?: number;
   minimumBookingNoticeHours?: number;
+  depositCash?: {
+    enabled: boolean;
+    percent: number;
+    minimumGbp: number;
+  };
   updatedAt: string;
 };
 
@@ -506,6 +511,33 @@ export async function updateMinimumBookingNoticeHours(
   const payload = await parseJson(response);
   if (!response.ok) {
     throw new Error(String(payload.error || "Could not save short-notice period"));
+  }
+  return payload.settings as BookingSettings;
+}
+
+export async function updateDepositCashSettings(
+  ownerKey: string,
+  settings: { enabled: boolean; percent: number; minimumGbp: number },
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      action: "set-deposit-cash",
+      depositCash: {
+        enabled: settings.enabled === true,
+        percent: settings.percent,
+        minimumGbp: settings.minimumGbp,
+      },
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not save Deposit + Cash settings"));
   }
   return payload.settings as BookingSettings;
 }
