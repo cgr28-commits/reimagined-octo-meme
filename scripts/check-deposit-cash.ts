@@ -24,6 +24,7 @@ import {
   cashSelectedBody,
   cashSelectedRemainingSentence,
   defaultDepositCashSettings,
+  depositCashAmountsMatch,
   depositPaidOnlineLabel,
   depositPayButtonLabel,
   formatDepositCashGbp,
@@ -40,7 +41,7 @@ import {
   snapshotDepositCash,
   todayPayLabel,
 } from "../shared/deposit-cash";
-import { formatGbpAmount } from "../shared/gbp";
+import { formatGbpAmount, isWholePoundGbp, roundGbp } from "../shared/gbp";
 import { buildCustomerConfirmationEmail } from "../shared/booking-notifications";
 import {
   CHECKOUT_CANCELLATION_SUMMARY,
@@ -98,6 +99,33 @@ check("minimum deposit wins on a low fare", () => {
   assert.equal(quote.depositGbp, 15);
   assert.equal(quote.cashDueGbp, 25);
 });
+
+function assertWholePoundDepositCash(
+  fare: number,
+  expectedDeposit: number,
+  expectedCash: number,
+  settings = { enabled: true, percent: 20, minimumGbp: 15 },
+) {
+  const quote = calculateDepositCashQuote(fare, settings);
+  const percentAmount = roundGbp((roundGbp(fare) * settings.percent) / 100);
+  const baseDeposit = roundGbp(Math.max(percentAmount, settings.minimumGbp));
+  assert.equal(quote.totalFare, roundGbp(fare));
+  assert.equal(quote.depositGbp, expectedDeposit);
+  assert.equal(quote.cashDueGbp, expectedCash);
+  assert.equal(roundGbp(quote.depositGbp + quote.cashDueGbp), quote.totalFare);
+  assert.equal(isWholePoundGbp(quote.cashDueGbp), true);
+  assert.ok(quote.depositGbp + 1e-9 >= baseDeposit, "deposit must not fall below the configured base");
+  assert.ok(quote.depositGbp <= quote.totalFare);
+  assert.ok(quote.cashDueGbp >= 0);
+  assert.ok(
+    depositCashAmountsMatch({
+      totalFare: quote.totalFare,
+      onlineAmountPaid: quote.depositGbp,
+      cashBalanceDue: quote.cashDueGbp,
+    }),
+  );
+  return quote;
+}
 
 check("hides Deposit + Cash when deposit covers almost the whole fare", () => {
   const quote = calculateDepositCashQuote(15.5, {
@@ -196,6 +224,8 @@ check("Deposit + Cash renders before Full Online and is preselected when eligibl
   assert.match(card, /DEPOSIT_CASH_BADGE/);
   assert.match(card, /todayPayLabel\(depositCashOffer\.depositGbp\)/);
   assert.match(card, /formatDepositCashGbp\(depositCashOffer\.cashDueGbp\)/);
+  assert.doesNotMatch(card, /calculateDepositCashQuote/);
+  assert.doesNotMatch(card, /Math\.floor\(|oddPence|cashPence/);
   assert.match(card, /CASH/);
   assert.match(card, /todayPayLabel\(depositCashOffer\.totalFare\)/);
   assert.match(card, /nothingToPayOnTheDayLabel\(\)/);
@@ -282,6 +312,7 @@ check("owner settings preserve depositCash on unrelated writes", () => {
 
 console.log("\n=== Refunds stay capped to card money ===");
 check("£20 deposit refundable; £80 cash is not card money", () => {
+  assert.equal(remainingRefundableBalance(15.1, 0), 15.1);
   assert.equal(remainingRefundableBalance(20, 0), 20);
   assert.equal(remainingCashDueGbp({
     paymentMethod: PAYMENT_METHOD_DEPOSIT_CASH,
@@ -345,32 +376,112 @@ check("Driver on Way / Arrived WhatsApp messages stay operational-only", () => {
   assert.match(companyVoice, /Driver on the way|on the way/i);
 });
 
+console.log("\n=== Whole-pound cash balance (central calculator) ===");
+const defaultOnSettings = { enabled: true, percent: 20, minimumGbp: 15 };
+
+check("£45.10 → £15.10 online / £30.00 cash", () => {
+  const quote = assertWholePoundDepositCash(45.1, 15.1, 30);
+  assert.equal(quote.eligible, true);
+  assert.equal(quote.percentUsed, 20);
+  assert.equal(quote.minimumUsed, 15);
+});
+
+check("£50.10 → £15.10 online / £35.00 cash", () => {
+  assert.equal(assertWholePoundDepositCash(50.1, 15.1, 35).eligible, true);
+});
+
+check("£63.75 → £15.75 online / £48.00 cash", () => {
+  assert.equal(assertWholePoundDepositCash(63.75, 15.75, 48).eligible, true);
+});
+
+check("£100.00 stays £20.00 / £80.00 with no pence adjustment", () => {
+  assert.equal(assertWholePoundDepositCash(100, 20, 80).eligible, true);
+});
+
+check("£190.40 → £38.40 online / £152.00 cash", () => {
+  assert.equal(assertWholePoundDepositCash(190.4, 38.4, 152).eligible, true);
+});
+
+check("£190.99 → £38.99 online / £152.00 cash", () => {
+  assert.equal(assertWholePoundDepositCash(190.99, 38.99, 152).eligible, true);
+});
+
+check("whole-pound adjustment happens after a higher configured minimum", () => {
+  const quote = assertWholePoundDepositCash(45.1, 20.1, 25, {
+    enabled: true,
+    percent: 20,
+    minimumGbp: 20,
+  });
+  assert.equal(quote.minimumUsed, 20);
+  assert.equal(quote.eligible, true);
+});
+
+check("whole-pound adjustment happens after a higher configured percent", () => {
+  const quote = assertWholePoundDepositCash(100.4, 25.4, 75, {
+    enabled: true,
+    percent: 25,
+    minimumGbp: 15,
+  });
+  assert.equal(quote.percentUsed, 25);
+  assert.equal(quote.eligible, true);
+});
+
+check("odd-pence move never changes the total fare or Full Online amount", () => {
+  const quote = calculateDepositCashQuote(45.1, defaultOnSettings);
+  assert.equal(quote.totalFare, 45.1);
+  assert.equal(fullPayButtonLabel(quote.totalFare), "Pay £45.10 & Confirm Booking");
+  assert.equal(todayPayLabel(quote.totalFare), "£45.10 today");
+});
+
+check("Worker charges the adjusted deposit and snapshots the same figures", () => {
+  const payments = read("workers/addresses/src/index.ts");
+  assert.match(payments, /const quote = calculateDepositCashQuote\(amount, settings\.depositCash\)/);
+  assert.match(payments, /depositSnapshot = snapshotDepositCash\(quote\)/);
+  assert.match(payments, /amount = quote\.depositGbp/);
+  assert.match(payments, /onlineAmountPaid: depositSnapshot\.onlineAmountPaid/);
+  assert.match(payments, /cashBalanceDue: depositSnapshot\.cashBalanceDue/);
+  assert.doesNotMatch(payments, /body\.depositGbp|body\.cashBalanceDue|body\.oddPence/);
+  const quote = calculateDepositCashQuote(45.1, defaultOnSettings);
+  const snapshot = snapshotDepositCash(quote);
+  assert.equal(snapshot.totalFare, 45.1);
+  assert.equal(snapshot.onlineAmountPaid, 15.1);
+  assert.equal(snapshot.cashBalanceDue, 30);
+  assert.equal(snapshot.depositMinimumUsed, 15);
+});
+
+check("confirmation page and email display stored amounts, not a fresh calculator", () => {
+  assert.doesNotMatch(read("src/app/booking-confirmed/BookingConfirmedClient.tsx"), /calculateDepositCashQuote/);
+  assert.doesNotMatch(read("shared/booking-notifications.ts"), /calculateDepositCashQuote/);
+  assert.doesNotMatch(read("src/components/OwnerPaidBookingsPanel.tsx"), /calculateDepositCashQuote/);
+  assert.doesNotMatch(read("src/app/driver/DriverPageClient.tsx"), /calculateDepositCashQuote/);
+});
+
 console.log("\n=== Customer UX polish (display only) ===");
 const caseASettings = { enabled: true, percent: 20, minimumGbp: 15 };
 const caseA = calculateDepositCashQuote(50.1, caseASettings);
 const caseB = calculateDepositCashQuote(100, caseASettings);
 
-check("CASE A — £50.10 shows £15.00 deposit / £35.10 cash with two decimals", () => {
+check("CASE A — £50.10 shows £15.10 deposit / £35.00 cash with two decimals", () => {
   assert.equal(caseA.eligible, true);
-  assert.equal(caseA.depositGbp, 15);
-  assert.equal(caseA.cashDueGbp, 35.1);
-  assert.equal(todayPayLabel(caseA.depositGbp), "£15.00 today");
-  assert.equal(cashOnTheDayCardLabel(caseA.cashDueGbp), "£35.10 CASH on the day");
+  assert.equal(caseA.depositGbp, 15.1);
+  assert.equal(caseA.cashDueGbp, 35);
+  assert.equal(todayPayLabel(caseA.depositGbp), "£15.10 today");
+  assert.equal(cashOnTheDayCardLabel(caseA.cashDueGbp), "£35.00 CASH on the day");
   assert.equal(paymentSummaryTotalFareLabel(caseA.totalFare), "Total fare: £50.10");
-  assert.equal(paymentSummaryPayTodayDepositLabel(caseA.depositGbp), "Pay today (deposit): £15.00");
-  assert.equal(paymentSummaryCashDueLabel(caseA.cashDueGbp), "Cash due on the day: £35.10");
-  assert.equal(depositPayButtonLabel(caseA.depositGbp), "Pay £15.00 Deposit & Confirm Booking");
+  assert.equal(paymentSummaryPayTodayDepositLabel(caseA.depositGbp), "Pay today (deposit): £15.10");
+  assert.equal(paymentSummaryCashDueLabel(caseA.cashDueGbp), "Cash due on the day: £35.00");
+  assert.equal(depositPayButtonLabel(caseA.depositGbp), "Pay £15.10 Deposit & Confirm Booking");
   assert.equal(
     cashSelectedRemainingSentence(caseA.cashDueGbp),
-    "The remaining £35.10 must be paid in cash to your driver on the day.",
+    "The remaining £35.00 must be paid in cash to your driver on the day.",
   );
   assert.equal(
     cashAgreementLabel(caseA.cashDueGbp),
-    "I understand that the remaining £35.10 must be paid in cash to my driver on the day and cannot be paid by card.",
+    "I understand that the remaining £35.00 must be paid in cash to my driver on the day and cannot be paid by card.",
   );
   assert.equal(DEPOSIT_CASH_SELECTED_HEADING, "Deposit + Cash selected");
   assert.equal(formatGbpAmount(15), "£15");
-  assert.equal(formatDepositCashGbp(15), "£15.00");
+  assert.equal(formatDepositCashGbp(15.1), "£15.10");
 });
 
 check("CASE B — £100.00 shows £20.00 deposit / £80.00 cash", () => {
@@ -468,6 +579,35 @@ check("confirmation page and email use the cash-only payment details", () => {
   assert.match(email.text, /Cash due on the day: £35\.10/);
   assert.match(email.text, /Please have £35\.10 in cash available for your driver on the day/);
   assert.match(email.text, /Card payment is not available for the remaining balance/);
+  const newBookingEmail = buildCustomerConfirmationEmail({
+    customerName: "Alex Example",
+    customerEmail: "alex@example.com",
+    mobileNumber: "07123456789",
+    tripLabel: "Ballyclare → Belfast International (BFS)",
+    pickupLabel: "249 Rashee Road, Ballyclare",
+    dropoffLabel: "Belfast International Airport (BFS)",
+    returnJourney: false,
+    tripDate: "2026-09-01",
+    tripTime: "10:00",
+    returnDate: "",
+    returnTime: "",
+    flightNumber: "EZY123",
+    passengers: 2,
+    suitcases: 2,
+    vehicle: "Estate Car (1–4 passengers)",
+    isAirportTrip: true,
+    airportCode: "BFS",
+    amountPaid: "£15.10",
+    paymentReference: "T3TESTREF",
+    checkoutReference: "matni-test-ref",
+    paymentMethod: PAYMENT_METHOD_DEPOSIT_CASH,
+    totalFare: 45.1,
+    onlineAmountPaid: 15.1,
+    cashBalanceDue: 30,
+  });
+  assert.match(newBookingEmail.text, /Booking total: £45\.10/);
+  assert.match(newBookingEmail.text, /Deposit paid online: £15\.10/);
+  assert.match(newBookingEmail.text, /Cash due on the day: £30\.00/);
   assert.doesNotMatch(email.text, /Paid in full/);
   assert.doesNotMatch(email.html, /Paid in full/);
   assert.match(email.html, /Deposit paid online/);

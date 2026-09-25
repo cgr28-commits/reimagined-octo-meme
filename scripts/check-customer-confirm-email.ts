@@ -123,6 +123,39 @@ assert.doesNotMatch(depositEmail.html, /Paid in full/);
 assert.doesNotMatch(depositEmail.text, /Paid in full/);
 console.log("OK  Deposit + Cash invoice lists deposit, cash due, and cash-only terms");
 
+const wholePoundEmail = buildCustomerConfirmationEmail({
+  customerName: "Alex Example",
+  customerEmail: "alex@example.com",
+  mobileNumber: "07123456789",
+  tripLabel: "Ballyclare → Belfast International (BFS)",
+  pickupLabel: "249 Rashee Road, Ballyclare",
+  dropoffLabel: "Belfast International Airport (BFS)",
+  returnJourney: false,
+  tripDate: "2026-09-01",
+  tripTime: "10:00",
+  returnDate: "",
+  returnTime: "",
+  flightNumber: "EZY123",
+  passengers: 2,
+  suitcases: 2,
+  vehicle: "Estate Car (1–4 passengers)",
+  isAirportTrip: true,
+  airportCode: "BFS",
+  amountPaid: "£15.10",
+  paymentReference: "T3TESTREF",
+  checkoutReference: "matni-test-ref",
+  paymentMethod: PAYMENT_METHOD_DEPOSIT_CASH,
+  totalFare: 45.1,
+  onlineAmountPaid: 15.1,
+  cashBalanceDue: 30,
+});
+assert.match(wholePoundEmail.text, /Booking total: £45\.10/);
+assert.match(wholePoundEmail.text, /Deposit paid online: £15\.10/);
+assert.match(wholePoundEmail.text, /Cash due on the day: £30\.00/);
+assert.match(wholePoundEmail.text, /Please have £30\.00 in cash available/);
+assert.doesNotMatch(read("shared/booking-notifications.ts"), /calculateDepositCashQuote/);
+console.log("OK  stored whole-pound cash snapshot is shown without recalculation");
+
 console.log("\n=== Browser fallback ===");
 const browserEmail = read("src/lib/send-paid-booking-email.ts");
 assert.match(browserEmail, /autoresponse/);

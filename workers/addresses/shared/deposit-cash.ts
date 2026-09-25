@@ -4,7 +4,14 @@
  * Changing admin settings never recalculates existing or in-progress bookings.
  */
 
-import { formatGbpAmount, formatGbpAmountExact, roundGbp } from "./gbp";
+import {
+  formatGbpAmount,
+  formatGbpAmountExact,
+  gbpToPence,
+  isWholePoundGbp,
+  penceToGbp,
+  roundGbp,
+} from "./gbp";
 
 export const PAYMENT_METHOD_FULL_ONLINE = "FULL_ONLINE" as const;
 export const PAYMENT_METHOD_DEPOSIT_CASH = "DEPOSIT_CASH" as const;
@@ -171,6 +178,10 @@ export function isDepositCashPaymentMethod(value: unknown): boolean {
 /**
  * Calculate a deposit from the FINAL fare (after return discount + airport charges).
  * cashDue + deposit always equals the exact total.
+ *
+ * After the configured percent/minimum base deposit, leftover cash pence are
+ * moved into the online deposit so cashBalanceDue is always a whole pound.
+ * The total fare is never changed. Existing bookings keep their snapshots.
  */
 export function calculateDepositCashQuote(
   finalFareGbp: number,
@@ -190,11 +201,26 @@ export function calculateDepositCashQuote(
     };
   }
   const percentAmount = roundGbp((totalFare * percentUsed) / 100);
-  let depositGbp = roundGbp(Math.max(percentAmount, minimumUsed));
-  depositGbp = roundGbp(Math.min(depositGbp, totalFare));
-  const cashDueGbp = roundGbp(totalFare - depositGbp);
+  const baseDepositGbp = roundGbp(Math.max(percentAmount, minimumUsed));
+  const totalPence = gbpToPence(totalFare);
+  let depositPence = Math.min(gbpToPence(baseDepositGbp), totalPence);
+  let cashPence = totalPence - depositPence;
+  const leftoverCashPence = cashPence > 0 ? cashPence % 100 : 0;
+  if (leftoverCashPence > 0) {
+    depositPence += leftoverCashPence;
+    cashPence -= leftoverCashPence;
+  }
+  if (depositPence > totalPence || cashPence < 0) {
+    depositPence = totalPence;
+    cashPence = 0;
+  }
+  const depositGbp = penceToGbp(depositPence);
+  const cashDueGbp = penceToGbp(cashPence);
   const eligible =
-    cashDueGbp >= 0.01 && depositGbp + 0.001 < totalFare * DEPOSIT_CASH_MAX_SHARE;
+    cashDueGbp >= 0.01 &&
+    isWholePoundGbp(cashDueGbp) &&
+    depositPence + cashPence === totalPence &&
+    depositGbp + 0.001 < totalFare * DEPOSIT_CASH_MAX_SHARE;
   return {
     eligible,
     totalFare,
