@@ -55,8 +55,8 @@ export const LESS_THAN_24H_NON_REFUNDABLE =
 export const DEPOSIT_CASH_POLICY_TITLE = "Deposit + Cash bookings";
 
 export const DEPOSIT_CASH_POLICY_PARAGRAPHS = [
-  "On eligible website instant quotes you may be offered Deposit + Cash. If you choose it, you pay a card deposit today to confirm the booking and pay the remaining balance in cash to your driver on the day.",
-  "The remaining cash balance is due to the driver at pickup. It is not taken by card in advance.",
+  "If you select Deposit + Cash, the amount charged online is a deposit towards the total fare. Your booking is confirmed once the deposit has been successfully paid. The remaining balance shown at checkout must be paid in cash to your driver on the day of travel. Card payment is not available for the remaining balance, so you must ensure that you have sufficient cash available at the time of pickup.",
+  "Deposit + Cash is offered on eligible website instant quotes only. The remaining cash balance is due to the driver at pickup and cannot be paid by card.",
   "If you cancel more than 24 hours before pickup, we refund the amount actually paid — the card deposit. The unpaid cash balance is not charged.",
   "If you cancel less than 24 hours before pickup, the card deposit is non-refundable. The unpaid cash balance is not charged.",
   "A no-show is non-refundable in the same way. The unpaid cash balance is not charged.",

@@ -162,19 +162,25 @@ import { calculateServerQuote } from "@/lib/quick-quote-api";
 import {
   PAYMENT_METHOD_DEPOSIT_CASH,
   PAYMENT_METHOD_FULL_ONLINE,
+  CASH_AGREEMENT_REQUIRED_MESSAGE,
+  CASH_SELECTED_CARD_UNAVAILABLE,
   DEPOSIT_CASH_BADGE,
   DEPOSIT_CASH_CHOOSE_HEADING,
   DEPOSIT_CASH_OPTION_LABEL,
   DEPOSIT_CASH_SELECTED_HEADING,
   DEPOSIT_CASH_SUMMARY_HEADING,
   FULL_ONLINE_OPTION_LABEL,
+  FULL_ONLINE_SUPPORTING,
   SECURE_SUMUP_LINE,
   cashAgreementLabel,
-  cashSelectedBody,
-  cashToDriverOnTheDayLabel,
+  cashSelectedRemainingSentence,
   depositPayButtonLabel,
+  formatDepositCashGbp,
   fullPayButtonLabel,
   nothingToPayOnTheDayLabel,
+  paymentSummaryCashDueLabel,
+  paymentSummaryPayTodayDepositLabel,
+  paymentSummaryTotalFareLabel,
   publicDepositCashOffer,
   todayPayLabel,
   type DepositCashSettings,
@@ -3340,9 +3346,7 @@ function QuoteCard({
       paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH &&
       !cashAgreementAccepted
     ) {
-      setPaymentError(
-        "Please confirm you understand the remaining balance is payable in cash to your driver on the day.",
-      );
+      setPaymentError(CASH_AGREEMENT_REQUIRED_MESSAGE);
       return;
     }
     notifyOwnerQuoteContactIfReady();
@@ -5678,7 +5682,7 @@ function QuoteCard({
                 : testChargeAmount !== null
                   ? "£1.00"
                   : selectedDepositCash && depositCashOffer
-                    ? `${todayPayLabel(depositCashOffer.depositGbp)} deposit`
+                    ? `${formatDepositCashGbp(depositCashOffer.depositGbp)} deposit`
                     : amountLabel ?? undefined
             }
           />
@@ -5809,8 +5813,10 @@ function QuoteCard({
                         <p className="mt-2 text-sm font-semibold text-emerald">
                           {todayPayLabel(depositCashOffer.depositGbp)}
                         </p>
-                        <p className="mt-0.5 text-xs text-white/55">
-                          {cashToDriverOnTheDayLabel(depositCashOffer.cashDueGbp)}
+                        <p className="mt-0.5 text-xs text-white/70">
+                          {formatDepositCashGbp(depositCashOffer.cashDueGbp)}{" "}
+                          <span className="font-bold tracking-wide text-white">CASH</span> on the
+                          day
                         </p>
                       </button>
                       <button
@@ -5819,7 +5825,7 @@ function QuoteCard({
                           setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE);
                           setCashAgreementAccepted(false);
                           setPaymentError((prev) =>
-                            prev.includes("remaining balance is payable in cash") ? "" : prev,
+                            prev === CASH_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
                           );
                         }}
                         className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
@@ -5833,21 +5839,25 @@ function QuoteCard({
                           {todayPayLabel(depositCashOffer.totalFare)}
                         </p>
                         <p className="mt-0.5 text-xs text-white/55">{nothingToPayOnTheDayLabel()}</p>
+                        <p className="mt-2 text-[11px] leading-snug text-white/45">
+                          {FULL_ONLINE_SUPPORTING}
+                        </p>
                       </button>
                     </div>
                     {selectedDepositCash ? (
                       <div className="space-y-3 rounded-2xl border border-amber-300/35 bg-amber-500/10 px-4 py-3">
                         <p className="text-sm font-semibold text-white">{DEPOSIT_CASH_SELECTED_HEADING}</p>
-                        <p className="text-xs leading-relaxed text-white/80">
-                          {cashSelectedBody(depositCashOffer.cashDueGbp)}
-                        </p>
+                        <div className="space-y-1.5 text-xs leading-relaxed text-white/80">
+                          <p>{cashSelectedRemainingSentence(depositCashOffer.cashDueGbp)}</p>
+                          <p>{CASH_SELECTED_CARD_UNAVAILABLE}</p>
+                        </div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
                           {DEPOSIT_CASH_SUMMARY_HEADING}
                         </p>
                         <ul className="space-y-1 text-sm text-white/85">
-                          <li>Total fare: {formatQuote(depositCashOffer.totalFare)}</li>
-                          <li>Pay today: {formatQuote(depositCashOffer.depositGbp)}</li>
-                          <li>Cash to driver: {cashToDriverOnTheDayLabel(depositCashOffer.cashDueGbp)}</li>
+                          <li>{paymentSummaryTotalFareLabel(depositCashOffer.totalFare)}</li>
+                          <li>{paymentSummaryPayTodayDepositLabel(depositCashOffer.depositGbp)}</li>
+                          <li>{paymentSummaryCashDueLabel(depositCashOffer.cashDueGbp)}</li>
                         </ul>
                         <label className="flex items-start gap-3 text-sm leading-relaxed text-white/92">
                           <input
@@ -5857,7 +5867,7 @@ function QuoteCard({
                               setCashAgreementAccepted(event.target.checked);
                               if (event.target.checked) {
                                 setPaymentError((prev) =>
-                                  prev.includes("remaining balance is payable in cash") ? "" : prev,
+                                  prev === CASH_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
                                 );
                               }
                             }}

@@ -7,23 +7,41 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  CASH_AGREEMENT_REQUIRED_MESSAGE,
+  CASH_SELECTED_CARD_UNAVAILABLE,
   DEFAULT_DEPOSIT_CASH_ENABLED,
   DEFAULT_DEPOSIT_MINIMUM_GBP,
   DEFAULT_DEPOSIT_PERCENT,
+  DEPOSIT_CASH_SELECTED_HEADING,
   PAYMENT_METHOD_DEPOSIT_CASH,
   PAYMENT_METHOD_FULL_ONLINE,
+  REMAINING_BALANCE_CASH_ONLY,
+  bookingTotalLabel,
   calculateDepositCashQuote,
   cashAgreementLabel,
   cashDueOnTheDayCopy,
+  cashOnTheDayCardLabel,
+  cashSelectedBody,
+  cashSelectedRemainingSentence,
   defaultDepositCashSettings,
+  depositPaidOnlineLabel,
   depositPayButtonLabel,
+  formatDepositCashGbp,
+  fullPayButtonLabel,
+  nothingToPayOnTheDayLabel,
   normalizeDepositCashSettings,
   paidBookingConversionValueGbp,
   parseDepositCashSettingsInput,
+  paymentSummaryCashDueLabel,
+  paymentSummaryPayTodayDepositLabel,
+  paymentSummaryTotalFareLabel,
   publicDepositCashOffer,
   remainingCashDueGbp,
   snapshotDepositCash,
+  todayPayLabel,
 } from "../shared/deposit-cash";
+import { formatGbpAmount } from "../shared/gbp";
+import { buildCustomerConfirmationEmail } from "../shared/booking-notifications";
 import {
   CHECKOUT_CANCELLATION_SUMMARY,
   DEPOSIT_CASH_POLICY_PARAGRAPHS,
@@ -177,9 +195,19 @@ check("Deposit + Cash renders before Full Online and is preselected when eligibl
   );
   assert.match(card, /DEPOSIT_CASH_BADGE/);
   assert.match(card, /todayPayLabel\(depositCashOffer\.depositGbp\)/);
-  assert.match(card, /cashToDriverOnTheDayLabel\(depositCashOffer\.cashDueGbp\)/);
+  assert.match(card, /formatDepositCashGbp\(depositCashOffer\.cashDueGbp\)/);
+  assert.match(card, /CASH/);
   assert.match(card, /todayPayLabel\(depositCashOffer\.totalFare\)/);
   assert.match(card, /nothingToPayOnTheDayLabel\(\)/);
+  assert.match(card, /FULL_ONLINE_SUPPORTING/);
+  assert.match(card, /paymentSummaryTotalFareLabel\(depositCashOffer\.totalFare\)/);
+  assert.match(card, /paymentSummaryPayTodayDepositLabel\(depositCashOffer\.depositGbp\)/);
+  assert.match(card, /paymentSummaryCashDueLabel\(depositCashOffer\.cashDueGbp\)/);
+  assert.match(card, /cashSelectedRemainingSentence\(depositCashOffer\.cashDueGbp\)/);
+  assert.match(card, /CASH_SELECTED_CARD_UNAVAILABLE/);
+  assert.match(card, /CASH_AGREEMENT_REQUIRED_MESSAGE/);
+  assert.doesNotMatch(card, /Cash payment selected/);
+  assert.doesNotMatch(card, /Our drivers don't accept cards/);
 });
 
 check("cash agreement stays unchecked and is required before pay", () => {
@@ -191,6 +219,17 @@ check("cash agreement stays unchecked and is required before pay", () => {
   );
   assert.match(card, /checked=\{cashAgreementAccepted\}/);
   assert.doesNotMatch(card, /setCashAgreementAccepted\(true\)/);
+  assert.match(card, /setPaymentError\(CASH_AGREEMENT_REQUIRED_MESSAGE\)/);
+});
+
+check("switching to Full Online drops the cash acknowledgement requirement", () => {
+  const card = read("src/components/QuoteCard.tsx");
+  const fullOnlineClick = card.indexOf("setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE)");
+  const resetAgreement = card.indexOf("setCashAgreementAccepted(false)", fullOnlineClick);
+  assert.ok(fullOnlineClick > 0, "Full Online switch missing");
+  assert.ok(resetAgreement > fullOnlineClick, "Switching to Full Online must clear the cash tick");
+  assert.match(card, /selectedDepositCash \? \(/);
+  assert.match(card, /\{cashAgreementLabel\(depositCashOffer\.cashDueGbp\)\}/);
 });
 
 check("disabled or ineligible Deposit + Cash keeps existing full-online pay behaviour", () => {
@@ -269,20 +308,34 @@ check("24-hour rule now refunds the amount actually paid", () => {
   assert.equal(CANCELLATION_POLICY_VERSION, "September 2026 v2");
   assert.equal(DEPOSIT_CASH_POLICY_TITLE, "Deposit + Cash bookings");
   assert.ok(DEPOSIT_CASH_POLICY_PARAGRAPHS.some((line) => line.includes("card deposit")));
+  assert.ok(
+    DEPOSIT_CASH_POLICY_PARAGRAPHS.some((line) =>
+      line.includes("Card payment is not available for the remaining balance"),
+    ),
+  );
   const policy = read("shared/cancellation-policy.ts");
   assert.match(policy, /DEPOSIT_CASH_POLICY_TITLE/);
   const terms = read("src/lib/terms.ts");
   assert.match(terms, /DEPOSIT_CASH_POLICY_TITLE/);
   assert.match(terms, /Deposit \+ Cash is not available on Personal Quotes/);
+  assert.match(terms, /the amount charged online is a deposit towards the total fare/);
+  assert.match(terms, /Card payment is not available for the remaining balance/);
+  assert.doesNotMatch(terms, /Our drivers don't accept cards/);
 });
 
 console.log("\n=== Confirmation reminders only; WhatsApp operational messages unchanged ===");
 check("confirmation page and email mention cash due", () => {
-  assert.match(read("src/app/booking-confirmed/BookingConfirmedClient.tsx"), /cashDueOnTheDayCopy/);
-  assert.match(read("shared/booking-notifications.ts"), /cash balance due/);
-  assert.match(cashDueOnTheDayCopy(80), /£80/);
-  assert.match(cashAgreementLabel(80), /£80 is payable in cash/);
-  assert.match(depositPayButtonLabel(20), /Pay £20 Deposit/);
+  const confirmed = read("src/app/booking-confirmed/BookingConfirmedClient.tsx");
+  assert.match(confirmed, /cashDueOnTheDayCopy/);
+  assert.match(confirmed, /PAYMENT_DETAILS_HEADING/);
+  assert.match(confirmed, /depositPaidOnlineLabel/);
+  assert.match(confirmed, /REMAINING_BALANCE_CASH_ONLY/);
+  assert.doesNotMatch(confirmed, /Our drivers don't accept cards/);
+  const email = read("shared/booking-notifications.ts");
+  assert.match(email, /cash balance due/);
+  assert.match(email, /Deposit paid online/);
+  assert.match(email, /REMAINING_BALANCE_CASH_ONLY/);
+  assert.doesNotMatch(email, /Paid in full[\s\S]{0,80}depositCashReceiptDetails/);
 });
 
 check("Driver on Way / Arrived WhatsApp messages stay operational-only", () => {
@@ -290,6 +343,158 @@ check("Driver on Way / Arrived WhatsApp messages stay operational-only", () => {
   assert.doesNotMatch(whatsapp, /deposit|cash due|cash balance|total fare/i);
   const companyVoice = read("scripts/check-company-voice-journey-messages.ts");
   assert.match(companyVoice, /Driver on the way|on the way/i);
+});
+
+console.log("\n=== Customer UX polish (display only) ===");
+const caseASettings = { enabled: true, percent: 20, minimumGbp: 15 };
+const caseA = calculateDepositCashQuote(50.1, caseASettings);
+const caseB = calculateDepositCashQuote(100, caseASettings);
+
+check("CASE A — £50.10 shows £15.00 deposit / £35.10 cash with two decimals", () => {
+  assert.equal(caseA.eligible, true);
+  assert.equal(caseA.depositGbp, 15);
+  assert.equal(caseA.cashDueGbp, 35.1);
+  assert.equal(todayPayLabel(caseA.depositGbp), "£15.00 today");
+  assert.equal(cashOnTheDayCardLabel(caseA.cashDueGbp), "£35.10 CASH on the day");
+  assert.equal(paymentSummaryTotalFareLabel(caseA.totalFare), "Total fare: £50.10");
+  assert.equal(paymentSummaryPayTodayDepositLabel(caseA.depositGbp), "Pay today (deposit): £15.00");
+  assert.equal(paymentSummaryCashDueLabel(caseA.cashDueGbp), "Cash due on the day: £35.10");
+  assert.equal(depositPayButtonLabel(caseA.depositGbp), "Pay £15.00 Deposit & Confirm Booking");
+  assert.equal(
+    cashSelectedRemainingSentence(caseA.cashDueGbp),
+    "The remaining £35.10 must be paid in cash to your driver on the day.",
+  );
+  assert.equal(
+    cashAgreementLabel(caseA.cashDueGbp),
+    "I understand that the remaining £35.10 must be paid in cash to my driver on the day and cannot be paid by card.",
+  );
+  assert.equal(DEPOSIT_CASH_SELECTED_HEADING, "Deposit + Cash selected");
+  assert.equal(formatGbpAmount(15), "£15");
+  assert.equal(formatDepositCashGbp(15), "£15.00");
+});
+
+check("CASE B — £100.00 shows £20.00 deposit / £80.00 cash", () => {
+  assert.equal(caseB.depositGbp, 20);
+  assert.equal(caseB.cashDueGbp, 80);
+  assert.equal(todayPayLabel(caseB.depositGbp), "£20.00 today");
+  assert.equal(cashOnTheDayCardLabel(caseB.cashDueGbp), "£80.00 CASH on the day");
+  assert.equal(paymentSummaryTotalFareLabel(caseB.totalFare), "Total fare: £100.00");
+  assert.equal(paymentSummaryPayTodayDepositLabel(caseB.depositGbp), "Pay today (deposit): £20.00");
+  assert.equal(paymentSummaryCashDueLabel(caseB.cashDueGbp), "Cash due on the day: £80.00");
+  assert.equal(depositPayButtonLabel(caseB.depositGbp), "Pay £20.00 Deposit & Confirm Booking");
+  assert.equal(fullPayButtonLabel(caseB.totalFare), "Pay £100.00 & Confirm Booking");
+  assert.match(cashSelectedBody(caseB.cashDueGbp), /£80\.00 must be paid in cash/);
+  assert.match(cashSelectedBody(caseB.cashDueGbp), new RegExp(CASH_SELECTED_CARD_UNAVAILABLE));
+  assert.equal(
+    cashDueOnTheDayCopy(caseB.cashDueGbp),
+    "Please have £80.00 in cash available for your driver on the day.",
+  );
+});
+
+check("CASE C — Full Online £50.10 shows today + nothing on the day", () => {
+  assert.equal(todayPayLabel(caseA.totalFare), "£50.10 today");
+  assert.equal(nothingToPayOnTheDayLabel(), "Nothing to pay on the day");
+  assert.equal(fullPayButtonLabel(caseA.totalFare), "Pay £50.10 & Confirm Booking");
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(card, /\{selectedDepositCash \? \(/);
+  assert.match(card, /FULL_ONLINE_SUPPORTING/);
+});
+
+check("CASE D — cash acknowledgement stays required and unchecked", () => {
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(card, /useState\(false\)/);
+  assert.match(card, /!cashAgreementAccepted/);
+  assert.equal(
+    CASH_AGREEMENT_REQUIRED_MESSAGE,
+    "Please confirm you understand the remaining balance must be paid in cash and cannot be paid by card.",
+  );
+});
+
+check("CASE E — Full Online does not require the cash acknowledgement", () => {
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(
+    card,
+    /showDepositCashChoice &&\s*\n\s+paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH &&\s*\n\s+!cashAgreementAccepted/,
+  );
+  assert.match(card, /setPaymentMethod\(PAYMENT_METHOD_FULL_ONLINE\);\s*\n\s+setCashAgreementAccepted\(false\)/);
+});
+
+check("CASE F — Deposit + Cash disabled keeps the existing full-online checkout", () => {
+  const offer = publicDepositCashOffer(50.1, defaultDepositCashSettings());
+  assert.equal(offer.enabled, false);
+  assert.equal(offer.eligible, false);
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(
+    card,
+    /: `Confirm booking & pay securely — \$\{amountLabel \?\? formatQuote\(liveQuote\.amount\)\}`/,
+  );
+});
+
+check("confirmation page and email use the cash-only payment details", () => {
+  assert.equal(bookingTotalLabel(50.1), "Booking total: £50.10");
+  assert.equal(depositPaidOnlineLabel(15), "Deposit paid online: £15.00");
+  assert.equal(
+    REMAINING_BALANCE_CASH_ONLY,
+    "The remaining balance must be paid in cash. Card payment is not available for the remaining balance.",
+  );
+  const email = buildCustomerConfirmationEmail({
+    customerName: "Alex Example",
+    customerEmail: "alex@example.com",
+    mobileNumber: "07123456789",
+    tripLabel: "Ballyclare → Belfast International (BFS)",
+    pickupLabel: "249 Rashee Road, Ballyclare",
+    dropoffLabel: "Belfast International Airport (BFS)",
+    returnJourney: false,
+    tripDate: "2026-09-01",
+    tripTime: "10:00",
+    returnDate: "",
+    returnTime: "",
+    flightNumber: "EZY123",
+    passengers: 2,
+    suitcases: 2,
+    vehicle: "Estate Car (1–4 passengers)",
+    isAirportTrip: true,
+    airportCode: "BFS",
+    amountPaid: "£15.00",
+    paymentReference: "T3TESTREF",
+    checkoutReference: "matni-test-ref",
+    paymentMethod: PAYMENT_METHOD_DEPOSIT_CASH,
+    totalFare: 50.1,
+    onlineAmountPaid: 15,
+    cashBalanceDue: 35.1,
+  });
+  assert.match(email.text, /Booking total: £50\.10/);
+  assert.match(email.text, /Deposit paid online: £15\.00/);
+  assert.match(email.text, /Cash due on the day: £35\.10/);
+  assert.match(email.text, /Please have £35\.10 in cash available for your driver on the day/);
+  assert.match(email.text, /Card payment is not available for the remaining balance/);
+  assert.doesNotMatch(email.text, /Paid in full/);
+  assert.doesNotMatch(email.html, /Paid in full/);
+  assert.match(email.html, /Deposit paid online/);
+  const fullOnline = buildCustomerConfirmationEmail({
+    customerName: "Alex Example",
+    customerEmail: "alex@example.com",
+    mobileNumber: "07123456789",
+    tripLabel: "Ballyclare → Belfast International (BFS)",
+    pickupLabel: "249 Rashee Road, Ballyclare",
+    dropoffLabel: "Belfast International Airport (BFS)",
+    returnJourney: false,
+    tripDate: "2026-09-01",
+    tripTime: "10:00",
+    returnDate: "",
+    returnTime: "",
+    flightNumber: "EZY123",
+    passengers: 2,
+    suitcases: 2,
+    vehicle: "Estate Car (1–4 passengers)",
+    isAirportTrip: true,
+    airportCode: "BFS",
+    amountPaid: "£50.10",
+    paymentReference: "T3TESTREF",
+    checkoutReference: "matni-test-ref",
+  });
+  assert.match(fullOnline.html, /Paid in full/);
+  assert.doesNotMatch(fullOnline.text, /Cash due on the day/);
 });
 
 console.log("\n=== Owner / driver UI ===");

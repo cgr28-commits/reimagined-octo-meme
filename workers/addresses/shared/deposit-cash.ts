@@ -4,7 +4,7 @@
  * Changing admin settings never recalculates existing or in-progress bookings.
  */
 
-import { formatGbpAmount, roundGbp } from "./gbp";
+import { formatGbpAmount, formatGbpAmountExact, roundGbp } from "./gbp";
 
 export const PAYMENT_METHOD_FULL_ONLINE = "FULL_ONLINE" as const;
 export const PAYMENT_METHOD_DEPOSIT_CASH = "DEPOSIT_CASH" as const;
@@ -55,8 +55,20 @@ export const DEPOSIT_CASH_SUPPORTING =
 export const FULL_ONLINE_OPTION_LABEL = "Pay in Full Online";
 export const FULL_ONLINE_SUPPORTING = "Secure card payment powered by SumUp.";
 export const DEPOSIT_CASH_SUMMARY_HEADING = "Payment summary";
-export const DEPOSIT_CASH_SELECTED_HEADING = "Cash payment selected";
+export const DEPOSIT_CASH_SELECTED_HEADING = "Deposit + Cash selected";
+export const PAYMENT_DETAILS_HEADING = "Payment details";
 export const SECURE_SUMUP_LINE = "Secure payment powered by SumUp";
+export const CASH_SELECTED_CARD_UNAVAILABLE =
+  "Card payment is not available for the remaining balance, so please have the cash available before your pickup.";
+export const REMAINING_BALANCE_CASH_ONLY =
+  "The remaining balance must be paid in cash. Card payment is not available for the remaining balance.";
+export const CASH_AGREEMENT_REQUIRED_MESSAGE =
+  "Please confirm you understand the remaining balance must be paid in cash and cannot be paid by card.";
+
+/** Display-only two-decimal GBP for Deposit + Cash customer copy. */
+export function formatDepositCashGbp(amount: number): string {
+  return formatGbpAmountExact(amount);
+}
 
 export function defaultDepositCashSettings(): DepositCashSettings {
   return {
@@ -238,35 +250,59 @@ export function remainingCashDueGbp(record: {
 }
 
 export function cashDueOnTheDayCopy(cashDueGbp: number): string {
-  return `Please have ${formatGbpAmount(cashDueGbp)} in cash available for your driver on the day.`;
+  return `Please have ${formatDepositCashGbp(cashDueGbp)} in cash available for your driver on the day.`;
+}
+
+export function cashSelectedRemainingSentence(cashDueGbp: number): string {
+  return `The remaining ${formatDepositCashGbp(cashDueGbp)} must be paid in cash to your driver on the day.`;
 }
 
 export function cashSelectedBody(cashDueGbp: number): string {
-  return `The remaining ${formatGbpAmount(cashDueGbp)} must be paid in cash to your driver on the day. Please ensure you have the cash available before your pickup.`;
+  return `${cashSelectedRemainingSentence(cashDueGbp)} ${CASH_SELECTED_CARD_UNAVAILABLE}`;
 }
 
 export function cashAgreementLabel(cashDueGbp: number): string {
-  return `I understand that the remaining ${formatGbpAmount(cashDueGbp)} is payable in cash to my driver on the day.`;
+  return `I understand that the remaining ${formatDepositCashGbp(cashDueGbp)} must be paid in cash to my driver on the day and cannot be paid by card.`;
 }
 
 export function depositPayButtonLabel(depositGbp: number): string {
-  return `Pay ${formatGbpAmount(depositGbp)} Deposit & Confirm Booking`;
+  return `Pay ${formatDepositCashGbp(depositGbp)} Deposit & Confirm Booking`;
 }
 
 export function fullPayButtonLabel(totalGbp: number): string {
-  return `Pay ${formatGbpAmount(totalGbp)} & Confirm Booking`;
+  return `Pay ${formatDepositCashGbp(totalGbp)} & Confirm Booking`;
 }
 
 export function nothingToPayOnTheDayLabel(): string {
   return "Nothing to pay on the day";
 }
 
-export function cashToDriverOnTheDayLabel(cashDueGbp: number): string {
-  return `${formatGbpAmount(cashDueGbp)} cash to your driver on the day`;
+export function cashOnTheDayCardLabel(cashDueGbp: number): string {
+  return `${formatDepositCashGbp(cashDueGbp)} CASH on the day`;
 }
 
 export function todayPayLabel(amountGbp: number): string {
-  return `${formatGbpAmount(amountGbp)} today`;
+  return `${formatDepositCashGbp(amountGbp)} today`;
+}
+
+export function paymentSummaryTotalFareLabel(totalGbp: number): string {
+  return `Total fare: ${formatDepositCashGbp(totalGbp)}`;
+}
+
+export function paymentSummaryPayTodayDepositLabel(depositGbp: number): string {
+  return `Pay today (deposit): ${formatDepositCashGbp(depositGbp)}`;
+}
+
+export function paymentSummaryCashDueLabel(cashDueGbp: number): string {
+  return `Cash due on the day: ${formatDepositCashGbp(cashDueGbp)}`;
+}
+
+export function bookingTotalLabel(totalGbp: number): string {
+  return `Booking total: ${formatDepositCashGbp(totalGbp)}`;
+}
+
+export function depositPaidOnlineLabel(depositGbp: number): string {
+  return `Deposit paid online: ${formatDepositCashGbp(depositGbp)}`;
 }
 
 export type PublicDepositCashOffer = {

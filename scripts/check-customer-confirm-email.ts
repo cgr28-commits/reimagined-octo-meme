@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildCustomerConfirmationEmail } from "../shared/booking-notifications";
+import { PAYMENT_METHOD_DEPOSIT_CASH } from "../shared/deposit-cash";
 
 const root = process.cwd();
 
@@ -85,6 +86,42 @@ assert.match(email.html, /bookings@myairporttaxini\.co\.uk/);
 assert.doesNotMatch(email.html, /#c9a227/);
 assert.match(email.subject, /Invoice & booking confirmed/);
 console.log("OK  invoice uses official logo, navy/emerald brand, contacts, and paid status");
+
+console.log("\n=== Deposit + Cash confirmation email ===");
+const depositEmail = buildCustomerConfirmationEmail({
+  customerName: "Alex Example",
+  customerEmail: "alex@example.com",
+  mobileNumber: "07123456789",
+  tripLabel: "Ballyclare → Belfast International (BFS)",
+  pickupLabel: "249 Rashee Road, Ballyclare",
+  dropoffLabel: "Belfast International Airport (BFS)",
+  returnJourney: false,
+  tripDate: "2026-09-01",
+  tripTime: "10:00",
+  returnDate: "",
+  returnTime: "",
+  flightNumber: "EZY123",
+  passengers: 2,
+  suitcases: 2,
+  vehicle: "Estate Car (1–4 passengers)",
+  isAirportTrip: true,
+  airportCode: "BFS",
+  amountPaid: "£15.00",
+  paymentReference: "T3TESTREF",
+  checkoutReference: "matni-test-ref",
+  paymentMethod: PAYMENT_METHOD_DEPOSIT_CASH,
+  totalFare: 50.1,
+  onlineAmountPaid: 15,
+  cashBalanceDue: 35.1,
+});
+assert.match(depositEmail.text, /Booking total: £50\.10/);
+assert.match(depositEmail.text, /Deposit paid online: £15\.00/);
+assert.match(depositEmail.text, /Cash due on the day: £35\.10/);
+assert.match(depositEmail.text, /Please have £35\.10 in cash available/);
+assert.match(depositEmail.text, /Card payment is not available for the remaining balance/);
+assert.doesNotMatch(depositEmail.html, /Paid in full/);
+assert.doesNotMatch(depositEmail.text, /Paid in full/);
+console.log("OK  Deposit + Cash invoice lists deposit, cash due, and cash-only terms");
 
 console.log("\n=== Browser fallback ===");
 const browserEmail = read("src/lib/send-paid-booking-email.ts");

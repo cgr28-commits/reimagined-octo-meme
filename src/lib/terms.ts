@@ -110,7 +110,7 @@ export const TERMS_SECTIONS = [
     title: "Booking & Payment",
     content: [
       "For standard saloon and estate car transfers where an instant fare is shown, you may pay online by card via SumUp at the end of the website quote. Your booking is confirmed once payment is completed.",
-      "Where Deposit + Cash is offered on a website instant quote and you select it, you pay a card deposit today to confirm the booking. The remaining balance is payable in cash to your driver on the day. Deposit + Cash is not available on Personal Quotes, Quick Quotes, saved quote links, short-notice payment links, Request Only payment links, or airport-to-airport specialist payment links.",
+      "If you select Deposit + Cash, the amount charged online is a deposit towards the total fare. Your booking is confirmed once the deposit has been successfully paid. The remaining balance shown at checkout must be paid in cash to your driver on the day of travel. Card payment is not available for the remaining balance, so you must ensure that you have sufficient cash available at the time of pickup. Deposit + Cash is not available on Personal Quotes, Quick Quotes, saved quote links, short-notice payment links, Request Only payment links, or airport-to-airport specialist payment links.",
       "For executive bookings, out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
       "Payment may be made:",
     ],

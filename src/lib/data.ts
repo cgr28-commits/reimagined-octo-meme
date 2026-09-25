@@ -475,7 +475,7 @@ export const FAQS = [
   {
     question: "How do I pay?",
     answer:
-      "Get your fixed price online. Eligible Saloon and Estate bookings can be confirmed securely by card via SumUp. On some website instant quotes you may also be offered Deposit + Cash: pay a card deposit to confirm, then pay the remaining balance in cash to your driver on the day. Short-notice pickups may need Owner availability confirmation before payment. Bank transfer can be arranged where agreed.",
+      "Get your fixed price online. Eligible Saloon and Estate bookings can be confirmed securely by card via SumUp. On some website instant quotes you may also be offered Deposit + Cash: pay a card deposit to confirm, then pay the remaining balance in cash to your driver on the day. Card payment is not available for the remaining balance. Short-notice pickups may need Owner availability confirmation before payment. Bank transfer can be arranged where agreed.",
   },
   {
     question: "Can I cancel my booking?",
