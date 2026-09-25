@@ -9,6 +9,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL,
+  CUSTOMER_OTHER_TIMES_HEADING,
+  CUSTOMER_SELECT_TIME_HINT,
   CUSTOMER_SMART_AVAILABILITY_CODE,
   CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE,
   CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
@@ -17,6 +19,7 @@ import {
   shouldBypassSmartAvailabilityHardBlockForShortNotice,
   customerUnavailableAtTimeMessage,
   evaluateCustomerSmartAvailability,
+  sortCustomerAlternativeTimesByCloseness,
   isCustomerSmartAvailabilityUnavailableMessage,
   isPagesPreviewOrigin,
   isProductionCustomerOrigin,
@@ -545,7 +548,7 @@ console.log("\n=== Alternative suggestions are engine-validated and preview-only
   });
   assert.equal(withAlts.blocked, true);
   assert.equal(withAlts.customerMessage, customerUnavailableAtTimeMessage("05:33"));
-  assert.equal(withAlts.customerMessage, "Unfortunately, we’re not available at 05:33.");
+  assert.equal(withAlts.customerMessage, "Your selected time of 05:33 isn't available.");
   assert.ok(withAlts.alternativeTimes.length >= 1, "unavailable 05:33 should offer nearby times");
   assert.ok(!withAlts.alternativeTimes.some((item) => item.tripTime === "05:33"));
   for (const option of withAlts.alternativeTimes) {
@@ -581,13 +584,25 @@ console.log("\n=== Alternative suggestions are engine-validated and preview-only
 
   const blockedUi = read("src/components/CustomerSmartAvailabilityBlocked.tsx");
   assert.match(blockedUi, /CUSTOMER_OTHER_TIMES_HEADING/);
+  assert.match(blockedUi, /CUSTOMER_SELECT_TIME_HINT/);
   assert.match(blockedUi, /CUSTOMER_CHOOSE_ANOTHER_TIME_LABEL/);
   assert.match(blockedUi, /CUSTOMER_CHOOSE_ANOTHER_DATE_LABEL/);
   assert.match(blockedUi, /CUSTOMER_WHATSAPP_SECONDARY_MESSAGE/);
   assert.match(blockedUi, /hasAlternatives && onChooseAnotherTime/);
   assert.match(blockedUi, /!hasAlternatives && chooseAnotherDate/);
+  assert.match(blockedUi, /sortCustomerAlternativeTimesByCloseness/);
   assert.doesNotMatch(blockedUi, /BookingErrorWhatsAppHelp/);
   assert.doesNotMatch(blockedUi, /Get Booking Help on WhatsApp/);
+  assert.equal(CUSTOMER_OTHER_TIMES_HEADING, "We can offer these nearby times:");
+  assert.equal(CUSTOMER_SELECT_TIME_HINT, "Select a time above to continue your booking.");
+  assert.equal(
+    sortCustomerAlternativeTimesByCloseness("14:15", [
+      { tripDate: "2026-09-25", tripTime: "16:15" },
+      { tripDate: "2026-09-25", tripTime: "14:00" },
+      { tripDate: "2026-09-25", tripTime: "15:15" },
+    ]).map((item) => item.tripTime).join(","),
+    "14:00,15:15,16:15",
+  );
   console.log("OK  alternatives are revalidated, public-only, and preview-gated");
 }
 
@@ -1009,6 +1024,24 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
   assert.match(quoteCard, /checkoutBlocked/);
   assert.match(quoteCard, /Confirm booking & pay securely/);
   assert.match(quoteCard, /isCustomerSmartAvailabilityBlockMessage\(paymentError\)/);
+  assert.match(quoteCard, /data-checkout-pickup-time|whenLine/);
+  const summaryIdx = quoteCard.indexOf('id="step2-journey-summary"');
+  const blockedIdx = quoteCard.indexOf('id="customer-smart-availability-blocked"');
+  const termsIdx = quoteCard.indexOf("<BookingTermsConsent");
+  const marketingIdx = quoteCard.indexOf("<MarketingOptIn");
+  assert.ok(summaryIdx > 0, "checkout summary must exist");
+  assert.ok(blockedIdx > summaryIdx, "unavailable panel must sit after the journey/price summary");
+  assert.ok(termsIdx > blockedIdx, "terms must stay below the unavailable panel");
+  assert.ok(marketingIdx > blockedIdx, "marketing consent must stay below the unavailable panel");
+
+  const bookQuote = read("src/app/book-quote/BookQuoteCustomerClient.tsx");
+  assert.ok(
+    bookQuote.indexOf('id="customer-smart-availability-blocked"') <
+      bookQuote.indexOf("Confirm your details"),
+    "book-quote unavailable panel must appear before customer details",
+  );
+  assert.match(bookQuote, /onSelectAlternative=\{applyAvailabilityAlternative\}/);
+  assert.doesNotMatch(bookQuote, /window\.location\.assign\("\/"\)/);
   assert.match(quoteCard, /planJourneyDirectionDependentReset/);
   assert.match(quoteCard, /QUOTE_REQUIRED_FIELD_MESSAGES/);
   assert.match(quoteCard, /renderBookingErrorHelp\("payment-actions"\)/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
@@ -8,6 +8,7 @@ import { OwnerNoAvailabilityBlocked } from "@/components/OwnerNoAvailabilityBloc
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import { isOwnerNoAvailabilityMessage } from "../../../shared/booking-notice";
 import { useCustomerSmartAvailabilityPreflight } from "@/lib/use-customer-smart-availability-preflight";
+import type { CustomerPublicAlternativeTime } from "../../../shared/customer-smart-availability";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -77,6 +78,9 @@ function PersonalQuoteInner() {
   const [token, setToken] = useState(() => searchParams.get("t")?.trim() ?? "");
   const [quote, setQuote] = useState<PersonalQuotePublicSummary | null>(null);
   const [error, setError] = useState("");
+  const [availabilityAlternatives, setAvailabilityAlternatives] = useState<
+    CustomerPublicAlternativeTime[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
 
@@ -219,6 +223,14 @@ function PersonalQuoteInner() {
     });
   }, [quote, returnJourney, expressSelection, expressDropOffSelected]);
 
+  const handleAvailabilityBlocked = useCallback(
+    (message: string, alternativeTimes: CustomerPublicAlternativeTime[]) => {
+      setError(message);
+      setAvailabilityAlternatives(alternativeTimes);
+    },
+    [],
+  );
+
   useCustomerSmartAvailabilityPreflight(
     quote
       ? {
@@ -233,8 +245,19 @@ function PersonalQuoteInner() {
           isFromAirport: airportMeta.isFromAirport,
         }
       : null,
-    setError,
+    handleAvailabilityBlocked,
   );
+
+  function focusPersonalQuoteTime() {
+    document.getElementById("personal-quote-time")?.focus();
+  }
+
+  function applyAvailabilityAlternative(option: CustomerPublicAlternativeTime) {
+    setTripDate(option.tripDate);
+    setTripTime(option.tripTime);
+    setError("");
+    setAvailabilityAlternatives([]);
+  }
 
   function buildBooking(): BookingDetails | null {
     if (!quote || !paymentDisplay) return null;
@@ -517,6 +540,18 @@ function PersonalQuoteInner() {
         </div>
       ) : null}
 
+      {isCustomerSmartAvailabilityBlockMessage(error) ? (
+        <div id="customer-smart-availability-blocked" className="mt-5">
+          <CustomerSmartAvailabilityBlocked
+            message={error}
+            requestedTripTime={tripTime}
+            alternativeTimes={availabilityAlternatives}
+            onSelectAlternative={applyAvailabilityAlternative}
+            onChooseAnotherTime={focusPersonalQuoteTime}
+          />
+        </div>
+      ) : null}
+
       <form onSubmit={(e) => void handlePay(e)} className="mt-6 grid gap-3">
         <label className="block text-sm text-white/80">
           Full name
@@ -707,14 +742,7 @@ function PersonalQuoteInner() {
               document.getElementById("personal-quote-time")?.focus();
             }}
           />
-        ) : isCustomerSmartAvailabilityBlockMessage(error) ? (
-          <CustomerSmartAvailabilityBlocked
-            message={error}
-            onChooseAnotherTime={() => {
-              window.location.assign("/");
-            }}
-          />
-        ) : (
+        ) : isCustomerSmartAvailabilityBlockMessage(error) ? null : (
           <>
             {error ? <p className="text-sm text-red-300">{error}</p> : null}
             <button

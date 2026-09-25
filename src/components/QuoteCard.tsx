@@ -144,7 +144,10 @@ import {
   rememberCustomerSmartAvailabilityPreview,
   type CustomerSmartAvailabilityCheckResult,
 } from "@/lib/customer-smart-availability-client";
-import type { CustomerPublicAlternativeTime } from "../../shared/customer-smart-availability";
+import {
+  formatCustomerClock,
+  type CustomerPublicAlternativeTime,
+} from "../../shared/customer-smart-availability";
 import { QUOTE_REQUIRED_FIELD_MESSAGES } from "../../shared/quote-required-field-messages";
 import { planJourneyDirectionDependentReset } from "../../shared/quote-journey-direction";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
@@ -5499,6 +5502,11 @@ function QuoteCard({
             routeLine={`${pickupLabel || "Pickup"} → ${dropoffLabel || "Destination"}`}
             detailLine={partyLine}
             totalLabel={amountLabel ? `Total ${amountLabel}` : "Total TBC"}
+            whenLine={
+              tripDate && tripTime
+                ? `${tripDate} · ${formatCustomerClock(tripTime) || tripTime}`
+                : null
+            }
             accessLine={checkoutAccessLine()}
             onEditJourney={() => navigateQuoteStep(1)}
             changeAccessLabel={expressCheckoutChangeLabel()}
@@ -5516,9 +5524,29 @@ function QuoteCard({
               : null}
           </QuoteCheckoutSummary>
           </div>
+          {checkoutBlocked ? (
+            <div
+              id="customer-smart-availability-blocked"
+              className="scroll-mt-44 md:scroll-mt-28"
+            >
+              <CustomerSmartAvailabilityBlocked
+                message={
+                  isCustomerSmartAvailabilityBlockMessage(paymentError)
+                    ? paymentError
+                    : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE
+                }
+                requestedTripTime={tripTime}
+                alternativeTimes={availabilityAlternatives}
+                onSelectAlternative={(option) => void handleSelectAvailabilityAlternative(option)}
+                onChooseAnotherTime={handleChooseAnotherTime}
+                onChooseAnotherDate={handleChooseAnotherDate}
+                selectingTime={selectingAlternativeTime}
+              />
+            </div>
+          ) : null}
         </div>
 
-        {paymentError && !(payNow && liveQuote) ? (
+        {paymentError && !(payNow && liveQuote) && !checkoutBlocked && !ownerClosed ? (
           <div className="space-y-3">
             <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
               {paymentError}
@@ -5602,22 +5630,7 @@ function QuoteCard({
                 onChooseAnotherTime={handleChooseAnotherTime}
               />
             </div>
-          ) : checkoutBlocked ? (
-            <div id="customer-smart-availability-blocked">
-              <CustomerSmartAvailabilityBlocked
-                message={
-                  isCustomerSmartAvailabilityBlockMessage(paymentError)
-                    ? paymentError
-                    : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE
-                }
-                alternativeTimes={availabilityAlternatives}
-                onSelectAlternative={(option) => void handleSelectAvailabilityAlternative(option)}
-                onChooseAnotherTime={handleChooseAnotherTime}
-                onChooseAnotherDate={handleChooseAnotherDate}
-                selectingTime={selectingAlternativeTime}
-              />
-            </div>
-          ) : payNow && liveQuote ? (
+          ) : checkoutBlocked ? null : payNow && liveQuote ? (
             <div className="space-y-3">
               {capacityNeedsConfirm && !openCheckout ? (
                 <div
