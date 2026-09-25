@@ -58,16 +58,16 @@ export default function CookieConsent() {
   return (
     <div
       ref={bannerRef}
-      className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/12 bg-navy-dark/96 p-3 shadow-[0_-8px_32px_rgba(2,8,20,0.45)] backdrop-blur-xl sm:p-4"
+      className="cookie-consent-banner fixed inset-x-0 bottom-0 z-[70] border-t border-white/12 bg-navy-dark/96 shadow-[0_-8px_32px_rgba(2,8,20,0.45)] backdrop-blur-xl"
       role="dialog"
       aria-label="Cookie consent"
     >
-      <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+      <div className="cookie-consent-inner mx-auto flex max-w-5xl flex-col sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-white">Cookies &amp; advertising measurement</p>
-          <p className="mt-1 text-xs leading-relaxed text-white/70 sm:mt-1.5 sm:text-sm">
+          <p className="cookie-consent-heading font-semibold text-white">Cookies &amp; privacy</p>
+          <p className="cookie-consent-copy text-white/70">
             <span className="sm:hidden">
-              Optional Google Ads cookies measure quotes and bookings only if you accept. See our{" "}
+              We use optional cookies to measure advertising performance. See our{" "}
             </span>
             <span className="hidden sm:inline">
               We use essential storage for booking checkout. Optional Google Ads cookies may measure
@@ -80,18 +80,18 @@ export default function CookieConsent() {
             .
           </p>
         </div>
-        <div className="flex shrink-0 flex-row gap-2 sm:flex-row">
+        <div className="cookie-consent-actions flex shrink-0 flex-row">
           <button
             type="button"
             onClick={() => choose("rejected")}
-            className="btn-secondary min-h-11 flex-1 px-4 sm:flex-none sm:px-5"
+            className="btn-secondary flex-1 sm:flex-none"
           >
             Essential only
           </button>
           <button
             type="button"
             onClick={() => choose("accepted")}
-            className="btn-primary min-h-11 flex-1 px-4 sm:flex-none sm:px-5"
+            className="btn-primary flex-1 sm:flex-none"
           >
             Accept
             <span className="hidden sm:inline">&nbsp;measurement cookies</span>

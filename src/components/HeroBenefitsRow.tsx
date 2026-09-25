@@ -59,7 +59,7 @@ export default function HeroBenefitsRow() {
           <span className="hero-benefit-icon" aria-hidden>
             {benefit.icon}
           </span>
-          <span className="hero-benefit-label mt-1 min-h-[1.7rem] text-[0.68rem] font-semibold leading-[1.22] text-white md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:leading-tight">
+          <span className="hero-benefit-label mt-1 min-h-[2.1rem] text-[0.8rem] font-semibold leading-[1.28] tracking-tight text-white md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:leading-tight md:tracking-normal">
             <span className="md:hidden">
               {benefit.lines[0]}
               <br />

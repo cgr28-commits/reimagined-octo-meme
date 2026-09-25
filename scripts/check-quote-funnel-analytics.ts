@@ -176,6 +176,14 @@ assert.match(paid, /uploadPaidBookingClickConversion/);
 const cookie = readFileSync(join(root, "src/components/CookieConsent.tsx"), "utf8");
 assert.match(cookie, /matni-cookie-banner-offset/);
 assert.match(cookie, /z-\[70\]/);
+assert.match(cookie, /Cookies &amp; privacy/);
+assert.match(cookie, /We use optional cookies to measure advertising performance\./);
+assert.match(cookie, /href="\/privacy\/"/);
+assert.match(cookie, /writeCookieConsent\(next\)/);
+assert.match(cookie, /updateGoogleConsent\(next === "accepted"\)/);
+assert.match(cookie, /choose\("rejected"\)/);
+assert.match(cookie, /choose\("accepted"\)/);
+assert.doesNotMatch(cookie, /Cookies &amp; advertising measurement/);
 
 const address = readFileSync(join(root, "src/components/AddressInput.tsx"), "utf8");
 assert.match(address, /z-\[80\]|z-\[90\]/);

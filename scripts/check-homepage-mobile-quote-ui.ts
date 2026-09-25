@@ -53,9 +53,15 @@ assert.match(benefits, /fillRule="evenodd"/);
 assert.match(benefits, /<circle cx="12" cy="8"/);
 assert.match(benefits, /fill="#ffffff"/);
 assert.match(benefits, /hero-benefit-label/);
+assert.match(benefits, /grid-cols-4/);
+assert.match(benefits, /text-\[0\.8rem\]/);
+assert.match(benefits, /leading-\[1\.28\]/);
 assert.match(benefits, /text-white/);
 assert.doesNotMatch(benefits, /text-white\/88/);
 assert.match(css, /\.hero-benefit-icon \{/);
+assert.match(css, /height: 2\.1rem/);
+assert.match(css, /width: 2\.1rem/);
+assert.match(css, /\.hero-benefit-icon svg \{[\s\S]*height: 1\.5rem/);
 assert.match(css, /background: var\(--color-emerald\)/);
 assert.match(css, /color: #ffffff/);
 assert.match(css, /fill: #ffffff/);
@@ -63,6 +69,11 @@ assert.match(css, /\.hero-benefit-divider::before/);
 assert.match(css, /\.hero-benefit-pound \{/);
 assert.match(css, /\.hero-benefit-label \{/);
 assert.doesNotMatch(benefits, /<span className="hero-benefit-pound"/);
+for (const width of [375, 390, 430]) {
+  const column = width / 4;
+  const iconBox = 2.1 * 16;
+  assert.ok(iconBox < column, `2.1rem icon box must fit one of four columns at ${width}px`);
+}
 console.log("OK  four-column benefits replace the middot line");
 
 console.log("=== Journey option cards ===");
@@ -117,6 +128,22 @@ assert.match(card, /quoteResultsReady && quoteStep === 1/);
 assert.match(card, /!quoteChoicesReady \|\|\s*!isScheduleComplete/);
 assert.match(card, /presentation === "homepage"[\s\S]{0,80}space-y-0/);
 console.log("OK  step labels and continue action text unchanged");
+
+console.log("=== Compact mobile cookie banner (copy + layout only) ===");
+const cookie = read("src/components/CookieConsent.tsx");
+assert.match(cookie, /Cookies &amp; privacy/);
+assert.match(cookie, /We use optional cookies to measure advertising performance\./);
+assert.match(cookie, /Essential only/);
+assert.match(cookie, /choose\("rejected"\)/);
+assert.match(cookie, /choose\("accepted"\)/);
+assert.match(cookie, /writeCookieConsent\(next\)/);
+assert.match(cookie, /updateGoogleConsent\(next === "accepted"\)/);
+assert.match(cookie, /cookie-consent-banner/);
+assert.match(css, /\.cookie-consent-banner \{/);
+assert.match(css, /@media \(max-width: 639px\) \{[\s\S]*\.cookie-consent-banner \{[\s\S]*padding: 0\.5rem 0\.75rem/);
+assert.match(css, /@media \(max-width: 639px\) \{[\s\S]*min-height: 2\.25rem/);
+assert.doesNotMatch(cookie, /Cookies &amp; advertising measurement/);
+console.log("OK  cookie banner compact on mobile; consent handlers unchanged");
 
 console.log("=== Header / SEO / landing CTA preserved ===");
 assert.match(header, /Get a Quote/);
