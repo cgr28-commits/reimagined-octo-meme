@@ -28,6 +28,7 @@ import {
   publicMaxPassengers,
   publicMinibusAllowed,
 } from "../shared/owner-pricing-config";
+import { needsLuggageCapacityConfirmation } from "../shared/vehicle-capacity";
 import {
   isValidPublicPassengerCount,
   isValidPublicSuitcaseCount,
@@ -396,6 +397,10 @@ export async function handleQuoteCalculateRequest(
             ? Math.round(a2a.airportFixedCostsGbp * 100) / 100
             : undefined,
         source: "website-pricing-engine",
+        needsLuggageCapacityConfirmation: needsLuggageCapacityConfirmation(
+          passengers,
+          suitcases,
+        ),
       };
     } else {
       result = {

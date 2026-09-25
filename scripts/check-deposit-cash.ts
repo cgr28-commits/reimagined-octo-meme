@@ -82,12 +82,17 @@ check("minimum deposit wins on a low fare", () => {
 });
 
 check("hides Deposit + Cash when deposit covers almost the whole fare", () => {
-  const quote = calculateDepositCashQuote(16, {
+  const quote = calculateDepositCashQuote(15.5, {
     enabled: true,
     percent: 20,
     minimumGbp: 15,
   });
   assert.equal(quote.eligible, false);
+  assert.equal(calculateDepositCashQuote(15, {
+    enabled: true,
+    percent: 20,
+    minimumGbp: 15,
+  }).eligible, false);
 });
 
 check("public offer is ineligible while admin setting is off", () => {
@@ -224,9 +229,9 @@ console.log("\n=== Confirmation reminders only; WhatsApp operational messages un
 check("confirmation page and email mention cash due", () => {
   assert.match(read("src/app/booking-confirmed/BookingConfirmedClient.tsx"), /cashDueOnTheDayCopy/);
   assert.match(read("shared/booking-notifications.ts"), /cash balance due/);
-  assert.match(cashDueOnTheDayCopy(80), /£80.00/);
-  assert.match(cashAgreementLabel(80), /£80.00 is payable in cash/);
-  assert.match(depositPayButtonLabel(20), /Pay £20.00 Deposit/);
+  assert.match(cashDueOnTheDayCopy(80), /£80/);
+  assert.match(cashAgreementLabel(80), /£80 is payable in cash/);
+  assert.match(depositPayButtonLabel(20), /Pay £20 Deposit/);
 });
 
 check("Driver on Way / Arrived WhatsApp messages stay operational-only", () => {

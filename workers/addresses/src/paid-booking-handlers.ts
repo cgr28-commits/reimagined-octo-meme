@@ -998,12 +998,12 @@ export async function handlePaidBookingCashCollectedRequest(
   const now = new Date().toISOString();
   const updated = await updatePaidBookingFields(env.TRACKING_STORE, paymentReference, {
     cashCollected: collected,
-    ...(collected
-      ? {
-          cashCollectedAt: now,
-          cashCollectedBy: session.role === "owner" ? "owner" : session.driverName || "driver",
-        }
-      : { cashCollectedAt: undefined, cashCollectedBy: undefined }),
+    cashCollectedAt: collected ? now : "",
+    cashCollectedBy: collected
+      ? session.role === "owner"
+        ? "owner"
+        : session.driverName || "driver"
+      : "",
   });
 
   return jsonResponse(

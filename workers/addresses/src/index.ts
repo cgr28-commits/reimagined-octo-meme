@@ -2590,6 +2590,7 @@ async function handlePaymentRequest(
     );
     if (
       !specialistPayPath &&
+      env.TRACKING_STORE &&
       String(body.paymentMethod ?? "").trim() === PAYMENT_METHOD_DEPOSIT_CASH
     ) {
       const settings = await getBookingSettings(env.TRACKING_STORE);
