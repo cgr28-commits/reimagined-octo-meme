@@ -396,6 +396,14 @@ export async function finalizePaidCheckout(input: {
     if (fares) bookingForSave = { ...booking, ...fares };
   }
 
+  const resolvedAttribution =
+    bookingForSave.attribution ??
+    booking.attribution ??
+    pendingForAudit?.booking?.attribution;
+  if (resolvedAttribution && !bookingForSave.attribution) {
+    bookingForSave = { ...bookingForSave, attribution: resolvedAttribution };
+  }
+
   // Allocate short MAT-#### before emails so confirmation shows the customer reference.
   const customerReference = paidBookingStoreConfigured(env.TRACKING_STORE)
     ? await savePaidBookingRecordFromConfirm({
@@ -606,7 +614,7 @@ export async function finalizePaidCheckout(input: {
     paymentReference,
     amount: checkout.amount ?? 0,
     currency: checkout.currency ?? "GBP",
-    attribution: booking.attribution,
+    attribution: resolvedAttribution,
   });
 
   return {

@@ -5,10 +5,15 @@
 
 import type { AdsAttribution } from "../shared/ads-attribution";
 import {
+  classifyPaidBookingAdsRecovery,
   isGoogleAdsClickConversionConfigured,
+  pickAdsClickIdentifier,
+  summarizePaidBookingAdsRecovery,
   uploadPaidBookingClickConversion,
   type GoogleAdsClickConversionEnv,
   type PaidBookingAdsConversionStatus,
+  type PaidBookingAdsRecoveryClassification,
+  type PaidBookingAdsUploadChannel,
 } from "../shared/google-ads-click-conversions";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
@@ -22,16 +27,24 @@ export type PaidBookingAdsConversionEnv = GoogleAdsClickConversionEnv & {
   TRACKING_STORE?: KVNamespace;
 };
 
-function shouldSkipUpload(record: PaidBookingRecord): boolean {
+const TERMINAL_SUCCESS_STATUSES = new Set<PaidBookingAdsConversionStatus>([
+  "sent",
+  "accepted",
+  "skipped_duplicate",
+]);
+
+/** Terminal unless a later retry now has a genuine click identifier. */
+export function shouldSkipPaidBookingAdsUpload(
+  record: PaidBookingRecord,
+  nextAttribution?: AdsAttribution | null,
+): boolean {
   if (record.googleAdsPaidConversionSentAt) return true;
   const status = record.googleAdsPaidConversionStatus;
-  // Terminal: uploaded, Google duplicate, or no click id to attribute.
-  // Retry when secrets were missing or a prior attempt failed.
-  return (
-    status === "sent" ||
-    status === "skipped_duplicate" ||
-    status === "skipped_no_click_id"
-  );
+  if (status && TERMINAL_SUCCESS_STATUSES.has(status)) return true;
+  if (status === "skipped_no_click_id") {
+    return !pickAdsClickIdentifier(nextAttribution ?? record.attribution);
+  }
+  return false;
 }
 
 async function persistConversionOutcome(
@@ -42,11 +55,19 @@ async function persistConversionOutcome(
     orderId: string;
     clickIdType?: "gclid" | "gbraid" | "wbraid";
     error?: string;
+    channel?: PaidBookingAdsUploadChannel;
+    requestId?: string;
   },
 ): Promise<void> {
   const record = await getPaidBookingRecord(store, paymentReference);
   if (!record) return;
-  if (shouldSkipUpload(record) && outcome.status !== "sent") return;
+  if (
+    shouldSkipPaidBookingAdsUpload(record) &&
+    outcome.status !== "sent" &&
+    outcome.status !== "accepted"
+  ) {
+    return;
+  }
 
   const next: PaidBookingRecord = {
     ...record,
@@ -55,13 +76,15 @@ async function persistConversionOutcome(
     ...(outcome.clickIdType
       ? { googleAdsPaidConversionClickIdType: outcome.clickIdType }
       : {}),
+    ...(outcome.channel ? { googleAdsPaidConversionChannel: outcome.channel } : {}),
+    ...(outcome.requestId ? { googleAdsPaidConversionRequestId: outcome.requestId } : {}),
   };
 
-  if (outcome.status === "sent" || outcome.status === "skipped_duplicate") {
+  if (TERMINAL_SUCCESS_STATUSES.has(outcome.status)) {
     next.googleAdsPaidConversionSentAt =
       record.googleAdsPaidConversionSentAt || new Date().toISOString();
     delete next.googleAdsPaidConversionLastError;
-  } else if (outcome.status === "failed") {
+  } else if (outcome.status === "failed" || outcome.status === "pending") {
     next.googleAdsPaidConversionLastError = outcome.error?.slice(0, 500);
   } else if (outcome.status === "skipped_no_click_id") {
     delete next.googleAdsPaidConversionLastError;
@@ -100,7 +123,8 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
 
   const store = input.env.TRACKING_STORE;
   const existing = await getPaidBookingRecord(store, paymentReference);
-  if (existing && shouldSkipUpload(existing)) {
+  const attribution = input.attribution ?? existing?.attribution ?? null;
+  if (existing && shouldSkipPaidBookingAdsUpload(existing, attribution)) {
     return;
   }
 
@@ -118,7 +142,6 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
     return;
   }
 
-  const attribution = input.attribution ?? existing?.attribution ?? null;
   const amount =
     Number.isFinite(input.amount) && input.amount > 0
       ? input.amount
@@ -144,17 +167,28 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
     orderId: result.orderId || paymentReference,
     clickIdType: result.clickIdType,
     error: result.error,
+    channel: result.channel,
+    requestId: result.requestId,
   });
 
   if (result.status === "failed") {
     console.error("Google Ads Paid Booking upload failed", {
       paymentReference,
+      status: result.status,
+      channel: result.channel,
+      error: result.error,
+    });
+  } else if (result.status === "pending") {
+    console.warn("Google Ads Paid Booking upload pending", {
+      paymentReference,
+      channel: result.channel,
       error: result.error,
     });
   } else {
     console.info("Google Ads Paid Booking upload", {
       paymentReference,
       status: result.status,
+      channel: result.channel,
       clickIdType: result.clickIdType,
     });
   }
@@ -168,9 +202,11 @@ export type PaidBookingAdsRetryResult = {
 };
 
 /**
- * Hourly recovery for recent uploads that failed or ran before credentials
- * were configured. Terminal statuses are never retried. The original booking
- * reference/timestamp are retained for Google order-id dedupe and attribution.
+ * Hourly recovery for recent uploads that failed, stayed pending, or ran
+ * before credentials were configured. Historical never-attempted records
+ * are not uploaded automatically. Terminal statuses are never retried.
+ * The original booking reference/timestamp are retained for Google
+ * order-id dedupe and attribution.
  */
 export async function retryRecentPaidBookingAdsConversions(
   env: PaidBookingAdsConversionEnv,
@@ -193,17 +229,20 @@ export async function retryRecentPaidBookingAdsConversions(
   const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
   for (const record of records) {
-    if (
-      record.googleAdsPaidConversionStatus !== "failed" &&
-      record.googleAdsPaidConversionStatus !== "skipped_not_configured"
-    ) {
-      continue;
-    }
     if (record.isRefundTest || record.isAmendmentTestFixture) {
       continue;
     }
     const createdAt = new Date(record.createdAt);
     if (Number.isNaN(createdAt.getTime()) || createdAt.getTime() < cutoffMs) {
+      continue;
+    }
+    const status = record.googleAdsPaidConversionStatus;
+    const retryable =
+      status === "failed" ||
+      status === "pending" ||
+      status === "skipped_not_configured" ||
+      (status === "skipped_no_click_id" && Boolean(pickAdsClickIdentifier(record.attribution)));
+    if (!retryable) {
       continue;
     }
 
@@ -231,4 +270,58 @@ export async function retryRecentPaidBookingAdsConversions(
   }
 
   return result;
+}
+
+/**
+ * Dry-run only. Classifies recent paid bookings for historical recovery.
+ * Never uploads and never changes payment dates.
+ */
+export async function classifyRecentPaidBookingAdsRecovery(
+  env: PaidBookingAdsConversionEnv,
+): Promise<{
+  scanned: number;
+  eligible: number;
+  alreadyUploaded: number;
+  ineligible: number;
+  reasons: Record<string, number>;
+  samples: Array<{
+    class: PaidBookingAdsRecoveryClassification["class"];
+    reason: string;
+    hasClickId: boolean;
+    hasPaymentTimestamp: boolean;
+  }>;
+}> {
+  if (!paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    return {
+      scanned: 0,
+      eligible: 0,
+      alreadyUploaded: 0,
+      ineligible: 0,
+      reasons: {},
+      samples: [],
+    };
+  }
+
+  const records = await listRecentPaidBookings(env.TRACKING_STORE, {
+    days: 90,
+    limit: 200,
+  });
+  const summary = summarizePaidBookingAdsRecovery(records);
+  const reasons: Record<string, number> = {};
+  for (const item of summary.classifications) {
+    reasons[item.reason] = (reasons[item.reason] ?? 0) + 1;
+  }
+  return {
+    scanned: summary.scanned,
+    eligible: summary.eligible,
+    alreadyUploaded: summary.alreadyUploaded,
+    ineligible: summary.ineligible,
+    reasons,
+    samples: summary.classifications.slice(0, 25).map((item) => ({
+      class: item.class,
+      reason: item.reason,
+      hasClickId: item.hasClickId,
+      hasPaymentTimestamp: item.hasPaymentTimestamp,
+    })),
+  };
 }

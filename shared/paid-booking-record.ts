@@ -191,6 +191,8 @@ export type PaidBookingRecord = {
   googleAdsPaidConversionSentAt?: string;
   googleAdsPaidConversionOrderId?: string;
   googleAdsPaidConversionStatus?:
+    | "pending"
+    | "accepted"
     | "sent"
     | "skipped_no_click_id"
     | "skipped_not_configured"
@@ -198,6 +200,8 @@ export type PaidBookingRecord = {
     | "failed";
   googleAdsPaidConversionLastError?: string;
   googleAdsPaidConversionClickIdType?: "gclid" | "gbraid" | "wbraid";
+  googleAdsPaidConversionChannel?: "data_manager" | "ads_api";
+  googleAdsPaidConversionRequestId?: string;
   trackingToken?: string;
   calendarEventIds: string[];
   /** Per-leg Google Calendar event ids — never cancel the other id. */

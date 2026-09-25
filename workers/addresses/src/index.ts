@@ -322,6 +322,7 @@ import {
   finalizePaidCheckout,
   resolveBookingForCheckout,
 } from "./finalize-paid-checkout";
+import { isGoogleAdsClickConversionConfigured } from "../shared/google-ads-click-conversions";
 import { retryRecentPaidBookingAdsConversions } from "./paid-booking-ads-conversion";
 import {
   getPendingCheckout,
@@ -1569,6 +1570,7 @@ async function handlePaymentStatusRequest(
       sumUpConfigured,
       pendingCheckoutStore: pendingStore,
       paidBookingStore: paidStore,
+      googleAdsPaidBookingUploadConfigured: isGoogleAdsClickConversionConfigured(env),
       webhookPath: "/payments/webhook",
       confirmPath: "/payments/confirm",
       createPath: "/payments",
@@ -4909,8 +4911,9 @@ export default {
         }),
     );
 
-    // Retry recent Google Ads Paid Booking uploads that failed or ran before
-    // credentials were configured. Terminal/no-click records remain untouched.
+    // Retry recent Paid Booking uploads that failed, stayed pending, or ran
+    // before credentials were configured. Historical never-attempted records
+    // are not uploaded automatically.
     ctx.waitUntil(
       retryRecentPaidBookingAdsConversions(env)
         .then((result) => {
