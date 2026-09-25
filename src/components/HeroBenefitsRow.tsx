@@ -3,9 +3,9 @@ const BENEFITS = [
     label: "Pre-booked driver",
     lines: ["Pre-booked", "driver"],
     icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <circle cx="12" cy="8" r="3.7" />
-        <path d="M5.1 19.2c.85-3.55 3.55-5.45 6.9-5.45s6.05 1.9 6.9 5.45c.12.5-.28.95-.8.95H5.9c-.52 0-.92-.45-.8-.95z" />
+      <svg viewBox="0 0 24 24" fill="#ffffff" aria-hidden>
+        <circle cx="12" cy="8" r="4.15" />
+        <path d="M4.55 19.4c1-4.15 3.95-6.35 7.45-6.35s6.45 2.2 7.45 6.35c.1.45-.25.85-.72.85H5.27c-.47 0-.82-.4-.72-.85z" />
       </svg>
     ),
   },
@@ -13,17 +13,17 @@ const BENEFITS = [
     label: "Fixed price",
     lines: ["Fixed", "price"],
     icon: (
-      <span className="hero-benefit-pound" aria-hidden>
-        £
-      </span>
+      <svg className="hero-benefit-pound" viewBox="0 0 24 24" fill="#ffffff" aria-hidden>
+        <path d="M13.15 3.2c1.2 0 2.28.35 3.15 1l-1.28 1.82c-.52-.38-1.15-.6-1.85-.6-1.12 0-1.82.68-1.95 1.72-.06.42 0 .82.15 1.18h5.15v2.15h-4.95c.06.5.08 1 .02 1.48h5.1v2.15h-5.2c-.22 1.12-.78 2.05-1.68 2.65H18.2v2.22H5.7v-2.02c1.18-.28 1.98-.98 2.35-2.05.2-.55.3-1.15.35-1.8H5.85v-2.15h2.5c0-.5-.03-1-.1-1.48H5.7V8.62h2.72c.04-.45.14-.88.28-1.28C9.1 4.95 10.75 3.2 13.15 3.2z" />
+      </svg>
     ),
   },
   {
     label: "Flight monitoring",
     lines: ["Flight", "monitoring"],
     icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5L21 16z" />
+      <svg viewBox="0 0 24 24" fill="#ffffff" aria-hidden>
+        <path d="M21.2 16.15v-2.2L13.15 8.9V3.2c0-1.1-.9-2-2-2s-2 .9-2 2v5.7L1.1 13.95v2.2l8.05-2.55V19.2l-2.2 1.65v1.6l3.95-1.1 3.95 1.1v-1.6L13.15 19.2v-5.6l8.05 2.55z" />
       </svg>
     ),
   },
@@ -31,12 +31,12 @@ const BENEFITS = [
     label: "Airport waiting included",
     lines: ["Airport", "waiting included"],
     icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <svg viewBox="0 0 24 24" fill="#ffffff" aria-hidden>
         <path
           fillRule="evenodd"
-          d="M12 3.25a8.75 8.75 0 100 17.5 8.75 8.75 0 000-17.5zM5.15 12a6.85 6.85 0 1113.7 0 6.85 6.85 0 01-13.7 0z"
+          d="M12 2.2a9.8 9.8 0 100 19.6 9.8 9.8 0 000-19.6zM5.55 12a6.45 6.45 0 1112.9 0 6.45 6.45 0 01-12.9 0z"
         />
-        <path d="M12.85 7.2h-1.7v5.55l3.55 2.15.9-1.48-2.75-1.66V7.2z" />
+        <path d="M13 6.55h-2v6.35l4.2 2.55 1-1.62-3.2-1.95V6.55z" />
       </svg>
     ),
   },
@@ -46,29 +46,36 @@ const BENEFITS = [
 export default function HeroBenefitsRow() {
   return (
     <ul
-      className="hero-benefits-row mb-2 grid grid-cols-4 md:mb-5"
+      className="hero-benefits-row mt-2.5 mb-[18px] grid grid-cols-4 md:mt-0 md:mb-5"
       aria-label="Why book with My Airport Taxi NI"
     >
-      {BENEFITS.map((benefit, index) => (
-        <li
-          key={benefit.label}
-          className={`flex min-w-0 flex-col items-center px-0.5 text-center sm:px-1 ${
-            index > 0 ? "hero-benefit-divider" : ""
-          }`}
-        >
-          <span className="hero-benefit-icon" aria-hidden>
-            {benefit.icon}
-          </span>
-          <span className="mt-0.5 min-h-[1.55rem] text-[0.64rem] font-medium leading-[1.15] text-white/88 md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:font-semibold md:leading-tight md:text-white">
-            <span className="md:hidden">
-              {benefit.lines[0]}
-              <br />
-              {benefit.lines[1]}
+      {BENEFITS.map((benefit, index) => {
+        const waiting = benefit.label === "Airport waiting included";
+        return (
+          <li
+            key={benefit.label}
+            className={`flex min-w-0 flex-col items-center px-0.5 text-center sm:px-1 ${
+              index > 0 ? "hero-benefit-divider" : ""
+            }${waiting ? " hero-benefit-waiting" : ""}`}
+          >
+            <span className="hero-benefit-icon" aria-hidden>
+              {benefit.icon}
             </span>
-            <span className="hidden md:inline">{benefit.label}</span>
-          </span>
-        </li>
-      ))}
+            <span
+              className={`hero-benefit-label mt-1 min-h-[2.1rem] text-[0.8rem] font-semibold leading-[1.28] tracking-tight text-white md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:leading-tight md:tracking-normal${
+                waiting ? " hero-benefit-label-waiting" : ""
+              }`}
+            >
+              <span className="md:hidden">
+                {benefit.lines[0]}
+                <br />
+                <span className="hero-benefit-line-2">{benefit.lines[1]}</span>
+              </span>
+              <span className="hidden md:inline">{benefit.label}</span>
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
