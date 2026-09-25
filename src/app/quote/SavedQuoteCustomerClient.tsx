@@ -58,6 +58,7 @@ function SavedQuoteInner() {
     amountLabel?: string;
     underMinimumNotice?: boolean;
     noticeHours?: number;
+    luggageCapacity?: boolean;
   } | null>(null);
   const [bookingMode, setBookingMode] = useState(false);
 
@@ -302,6 +303,7 @@ function SavedQuoteInner() {
             checkout.minimumBookingNoticeHours ??
             checkout.minimumNoticeHours ??
             minimumBookingNoticeHours,
+          luggageCapacity: checkout.luggageCapacity === true,
         });
         setPaying(false);
         return;
@@ -343,6 +345,7 @@ function SavedQuoteInner() {
           whatsappUrl={shortNoticeResult.whatsappUrl}
           underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
           noticeHours={shortNoticeResult.noticeHours ?? minimumBookingNoticeHours}
+          luggageCapacity={shortNoticeResult.luggageCapacity === true}
         />
       </div>
     );

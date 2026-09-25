@@ -107,14 +107,17 @@ check("return missing return date/time → no final return price", () => {
 });
 
 check("customer flow order: journey type → date/time → passengers → suitcases", () => {
+  const selectors = read("src/components/PublicPartySelectors.tsx");
   const journeyIdx = progressive.indexOf('id="journey-type-selector"');
   const scheduleIdx = progressive.indexOf("showScheduleFields && scheduleFields");
   const partyIdx = progressive.indexOf('id="passenger-luggage-section"');
-  const paxIdx = progressive.indexOf('id="quote-section-passengers"');
-  const bagsIdx = progressive.indexOf('id="quote-section-suitcases"');
+  const selectorsIdx = progressive.indexOf("<PublicPartySelectors");
+  const paxIdx = selectors.indexOf('id="quote-section-passengers"');
+  const bagsIdx = selectors.indexOf('id="quote-section-suitcases"');
   assert.ok(journeyIdx > 0 && scheduleIdx > journeyIdx);
   assert.ok(partyIdx > scheduleIdx);
-  assert.ok(paxIdx > partyIdx && bagsIdx > paxIdx);
+  assert.ok(selectorsIdx > partyIdx);
+  assert.ok(paxIdx > 0 && bagsIdx > paxIdx);
   assert.match(scheduleUi, /Pickup date & time/);
   assert.match(scheduleUi, /\(required\)/);
   assert.match(scheduleUi, /Pickup date/);

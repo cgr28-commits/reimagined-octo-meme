@@ -7,13 +7,28 @@
 import { calculatePointToPointQuote, calculateQuote, formatQuote } from "./quote";
 import type { TripSchedule } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
-import { selectVehicleForParty } from "./vehicle-selection";
+import { MINIBUS_VEHICLE, requiresMinibus, selectVehicleForParty } from "./vehicle-selection";
+import {
+  needsLuggageCapacityConfirmation,
+  PUBLIC_FIVE_PLUS_SUITCASES,
+} from "../../shared/vehicle-capacity";
 import type { VehicleType } from "./data";
 import {
   INSTANT_QUOTE_MAX_PASSENGERS,
   OWNER_QUICK_QUOTE_MAX_PASSENGERS,
-  PASSENGER_LIMIT_ERROR,
+  OWNER_QUICK_QUOTE_MAX_SUITCASES,
+  publicPassengerLimitMessage,
+  publicSuitcaseLimitMessage,
 } from "../../shared/passenger-limits";
+import {
+  PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+  isPublicMinibusVehicle,
+  publicMaxPassengers,
+  publicMaxSuitcases,
+  publicMinibusAllowed,
+  type OwnerPricingSettings,
+  type PublicOwnerPricingConfig,
+} from "../../shared/owner-pricing-config";
 import { destinationEligibleForStandardAirportPickup } from "../../shared/airport-pickup-service-area";
 
 export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
@@ -35,6 +50,8 @@ export type QuoteServiceInput = {
   returnTime?: string;
   passengers: number;
   suitcases: number;
+  /** false = public 5+ (five or more). Owner Quick Quote may send an exact count. */
+  suitcasesExact?: boolean;
   routeMetrics?: TripRouteMetrics | null;
   /** Optional override — normally derived from passengers/suitcases. */
   vehicleType?: VehicleType;
@@ -53,6 +70,10 @@ export type QuoteServiceInput = {
   destinationLat?: number | null;
   destinationLng?: number | null;
   destinationPostalCode?: string | null;
+  /** Server-resolved owner pricing. Defaults reproduce current approved prices. */
+  pricing?: OwnerPricingSettings | PublicOwnerPricingConfig | null;
+  /** Owner/Driver Quick Quote — public Minibus OFF must not block this path. */
+  ownerMode?: boolean;
 };
 
 export type QuoteServiceSuccess = {
@@ -71,16 +92,20 @@ export type QuoteServiceSuccess = {
   /** Airport fixed costs included in `amount` (before Express / promos). */
   airportFixedCostsGbp?: number;
   source: "website-pricing-engine";
+  /** High combined passenger + luggage load — quote shown, payment held. */
+  needsLuggageCapacityConfirmation: boolean;
 };
 
 export type QuoteServiceFailure = {
   ok: false;
   reason:
     | "passenger_limit"
+    | "luggage_limit"
     | "incomplete"
     | "unsupported"
     | "no_fare"
-    | "pricing_unavailable";
+    | "pricing_unavailable"
+    | "vehicle_unavailable";
   message: string;
 };
 
@@ -132,24 +157,28 @@ export function calculateAuthoritativeWebsiteQuote(
     };
   }
 
-  // Public default is 4. Owner Quick Quote may raise the ceiling up to 7 for
-  // partner Minibus pricing only — never above OWNER_QUICK_QUOTE_MAX_PASSENGERS.
+  // Public default is 4. Public 7 Seater ON raises the ceiling to 7.
+  // Owner Quick Quote may raise the ceiling up to 7 even when public Minibus is OFF.
+  const publicMinibusEnabled = input.pricing?.minibus.publicEnabled === true;
+  const defaultPublicCeiling = publicMaxPassengers(publicMinibusEnabled);
   const requestedCeiling = Math.floor(
-    Number(input.maxPassengers) || QUOTE_SERVICE_MAX_PASSENGERS,
+    Number(input.maxPassengers) || defaultPublicCeiling,
   );
-  const maxPassengers = Math.min(
-    OWNER_QUICK_QUOTE_MAX_PASSENGERS,
-    Math.max(QUOTE_SERVICE_MAX_PASSENGERS, requestedCeiling),
-  );
+  const maxPassengers = input.ownerMode === true
+    ? Math.min(
+        OWNER_QUICK_QUOTE_MAX_PASSENGERS,
+        Math.max(defaultPublicCeiling, requestedCeiling),
+      )
+    : defaultPublicCeiling;
 
   if (passengers > maxPassengers) {
     return {
       ok: false,
       reason: "passenger_limit",
       message:
-        maxPassengers > QUOTE_SERVICE_MAX_PASSENGERS
+        input.ownerMode === true && maxPassengers > QUOTE_SERVICE_MAX_PASSENGERS
           ? `Quotes are limited to ${maxPassengers} passengers.`
-          : PASSENGER_LIMIT_ERROR,
+          : publicPassengerLimitMessage(publicMinibusEnabled),
     };
   }
 
@@ -158,6 +187,21 @@ export function calculateAuthoritativeWebsiteQuote(
       ok: false,
       reason: "incomplete",
       message: "Luggage count is required.",
+    };
+  }
+
+  const maxSuitcases =
+    input.ownerMode === true
+      ? OWNER_QUICK_QUOTE_MAX_SUITCASES
+      : publicMaxSuitcases(publicMinibusEnabled);
+  if (suitcases > maxSuitcases) {
+    return {
+      ok: false,
+      reason: "luggage_limit",
+      message:
+        input.ownerMode === true
+          ? publicSuitcaseLimitMessage(true)
+          : publicSuitcaseLimitMessage(publicMinibusEnabled),
     };
   }
 
@@ -191,8 +235,37 @@ export function calculateAuthoritativeWebsiteQuote(
     };
   }
 
-  const vehicleType =
-    input.vehicleType ?? selectVehicleForParty(passengers, Math.max(0, suitcases));
+  const derivedVehicle = selectVehicleForParty(passengers, Math.max(0, suitcases));
+  const requestedVehicle = input.vehicleType;
+  let vehicleType = requestedVehicle ?? derivedVehicle;
+  if (input.ownerMode !== true) {
+    if (requiresMinibus(passengers, suitcases)) {
+      vehicleType = MINIBUS_VEHICLE;
+    } else if (requestedVehicle && isPublicMinibusVehicle(requestedVehicle) && publicMinibusEnabled) {
+      vehicleType = MINIBUS_VEHICLE;
+    } else {
+      vehicleType = derivedVehicle;
+    }
+  }
+  if (
+    !publicMinibusAllowed(vehicleType, {
+      publicMinibusEnabled,
+      ownerMode: input.ownerMode === true,
+    })
+  ) {
+    return {
+      ok: false,
+      reason: "vehicle_unavailable",
+      message: PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+    };
+  }
+  if (isPublicMinibusVehicle(vehicleType) && passengers > 7) {
+    return {
+      ok: false,
+      reason: "passenger_limit",
+      message: "We can only quote for up to 7 passengers in a 7 Seater Minibus.",
+    };
+  }
   const schedule = {
     ...buildSchedule(input),
     returnJourney,
@@ -256,6 +329,7 @@ export function calculateAuthoritativeWebsiteQuote(
       schedule,
       input.routeMetrics,
       Boolean(input.fromAirport),
+      input.pricing,
     );
   } else {
     const dropoff = (input.dropoffAddress ?? "").trim();
@@ -281,6 +355,9 @@ export function calculateAuthoritativeWebsiteQuote(
       returnJourney,
       schedule,
       input.routeMetrics,
+      null,
+      undefined,
+      input.pricing,
     );
   }
 
@@ -321,5 +398,17 @@ export function calculateAuthoritativeWebsiteQuote(
     ...(nightWeekendSurchargeGbp != null ? { nightWeekendSurchargeGbp } : {}),
     ...(airportFixedCostsGbp != null ? { airportFixedCostsGbp } : {}),
     source: "website-pricing-engine",
+    needsLuggageCapacityConfirmation: needsLuggageCapacityConfirmation(
+      passengers,
+      Math.max(0, suitcases),
+      {
+        suitcasesExact:
+          input.ownerMode === true
+            ? input.suitcasesExact
+            : publicMinibusEnabled && suitcases >= PUBLIC_FIVE_PLUS_SUITCASES
+              ? false
+              : input.suitcasesExact,
+      },
+    ),
   };
 }

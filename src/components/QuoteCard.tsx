@@ -55,7 +55,12 @@ import {
   isVehicleEnquiryOnly,
   isVehicleRequestQuote,
   MAX_ONLINE_PASSENGERS,
+  MINIBUS_VEHICLE_TYPE,
+  isFivePlusLuggage,
   needsLuggageCapacityConfirmation,
+  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
+  LUGGAGE_CAPACITY_CONFIRMATION_CTA,
+  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
   SERVICE_FLAGS,
   showsOnlineGuidePrice,
   SITE,
@@ -69,9 +74,21 @@ import {
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import {
-  clampPassengerCount,
-  PASSENGER_LIMIT_ERROR,
+  publicPassengerLimitMessage,
+  publicPassengerOptions,
+  publicSuitcaseLimitMessage,
+  publicSuitcaseOptions,
 } from "../../shared/passenger-limits";
+import {
+  PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+  publicMaxPassengers,
+  publicMaxSuitcases,
+  type PublicOwnerPricingConfig,
+} from "../../shared/owner-pricing-config";
+import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
+import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
+import { isBrowserPricingPreview, previewMinibusQueryEnabled } from "@/lib/pricing-preview-store";
+import { readPreviewCustomerQuoteSeed } from "@/lib/preview-customer-quote";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
 import { BOOKING_FLIGHT_NUMBER_HELPER, resolveJourneyInclusions } from "@/lib/journey-inclusions";
@@ -114,6 +131,7 @@ import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
   isPaymentFareMismatchError,
+  isPaymentVehicleUnavailableError,
   isPaymentOwnerNoAvailabilityError,
   isPaymentRouteReconfirmationError,
   isPaymentRouteServiceUnavailableError,
@@ -150,6 +168,7 @@ import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import CombinedAirportAccessChoice from "@/components/CombinedAirportAccessChoice";
 import QuoteResultShowcase from "@/components/QuoteResultShowcase";
+import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
   BookWithConfidence,
@@ -278,39 +297,45 @@ function fieldState(options: {
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
 
-/** Public online booking: Saloon / Estate only (1–4 passengers). */
-const SELECTOR_MAX_PASSENGERS = MAX_ONLINE_PASSENGERS;
 const SELECTOR_MAX_SUITCASES = MAX_PUBLIC_SUITCASES;
 
 type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-/** Public site never offers 5–7 / minibus online — always false after clamping. */
-function exceedsOnlineVehicleOptions(passengers: number, suitcases: number): boolean {
-  return passengers > MAX_ONLINE_PASSENGERS || suitcases > SELECTOR_MAX_SUITCASES;
+function exceedsOnlineVehicleOptions(
+  passengers: number,
+  suitcases: number,
+  maxPassengers = MAX_ONLINE_PASSENGERS,
+  maxSuitcases = SELECTOR_MAX_SUITCASES,
+): boolean {
+  return passengers > maxPassengers || suitcases > maxSuitcases;
 }
 
-/** True only when the customer has deliberately chosen both party fields (1–4 + bags). */
 function isPartySelectionComplete(
   passengers: number | null,
   suitcases: number | null,
+  maxPassengers = MAX_ONLINE_PASSENGERS,
+  maxSuitcases = SELECTOR_MAX_SUITCASES,
 ): boolean {
   if (passengers == null || suitcases == null) return false;
   return (
     Number.isInteger(passengers) &&
     passengers >= 1 &&
-    passengers <= MAX_ONLINE_PASSENGERS &&
+    passengers <= maxPassengers &&
     Number.isInteger(suitcases) &&
     suitcases >= 0 &&
-    suitcases <= SELECTOR_MAX_SUITCASES
+    suitcases <= maxSuitcases
   );
 }
 
-function effectivePartyPassengers(passengers: number | null): number | null {
+function effectivePartyPassengers(
+  passengers: number | null,
+  maxPassengers = MAX_ONLINE_PASSENGERS,
+): number | null {
   if (passengers == null) return null;
   if (
     !Number.isInteger(passengers) ||
     passengers < 1 ||
-    passengers > MAX_ONLINE_PASSENGERS
+    passengers > maxPassengers
   ) {
     return null;
   }
@@ -321,6 +346,18 @@ function clampPublicSuitcases(value: unknown, fallback = 0): number {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(SELECTOR_MAX_SUITCASES, Math.max(0, Math.trunc(n)));
+}
+
+function readStoredPassengerCount(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 7) return null;
+  return n;
+}
+
+function readStoredSuitcaseCount(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(n) || n < 0 || n > 7) return null;
+  return n;
 }
 
 function getAutoVehicle(passengers: number, suitcases: number, _a2aPrimary = false): VehicleType {
@@ -363,8 +400,8 @@ function TapChoiceRow({
         ) : null}
       </div>
       <div
-        className="grid gap-2"
-        style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+        className="grid grid-cols-4 gap-2"
+        style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}
         role="group"
         aria-label={label}
       >
@@ -598,11 +635,29 @@ function QuoteCard({
   const quoteFunnelAttemptIdRef = useRef(
     `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
   );
-  const passengerLimit = Math.min(
-    Math.max(1, maxPassengers),
-    SELECTOR_MAX_PASSENGERS,
-    MAX_ONLINE_PASSENGERS,
+  const [publicPricing, setPublicPricing] = useState<PublicOwnerPricingConfig>(() =>
+    toPublicOwnerPricingConfig(defaultOwnerPricingSettings()),
   );
+  const [publicPricingLoaded, setPublicPricingLoaded] = useState(false);
+  const publicMinibusEnabled = publicPricing.minibus.publicEnabled === true;
+  const passengerLimit = publicMinibusEnabled
+    ? publicMaxPassengers(true)
+    : Math.min(Math.max(1, maxPassengers), publicMaxPassengers(false));
+  const suitcaseLimit = publicMaxSuitcases(publicMinibusEnabled);
+
+  const previewQuoteAppliedRef = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPublicPricingConfig().then((config) => {
+      if (!cancelled) {
+        setPublicPricing(config);
+        setPublicPricingLoaded(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const isMobileDevice = useIsMobileDevice();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -716,6 +771,7 @@ function QuoteCard({
         ? nowTimeInputValue()
         : undefined;
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
+  const [chooseMinibus, setChooseMinibus] = useState(false);
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
@@ -755,6 +811,7 @@ function QuoteCard({
     amountLabel?: string;
     underMinimumNotice?: boolean;
     noticeHours?: number;
+    luggageCapacity?: boolean;
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
@@ -781,10 +838,13 @@ function QuoteCard({
   }, []);
 
   const quoteVehicle = useMemo(() => {
-    const pax = effectivePartyPassengers(passengers);
+    const pax = effectivePartyPassengers(passengers, passengerLimit);
     if (pax == null || suitcases == null) return vehicle;
+    if (publicMinibusEnabled && (chooseMinibus || pax >= 5 || suitcases >= 5)) {
+      return MINIBUS_VEHICLE_TYPE;
+    }
     return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
-  }, [passengers, suitcases, vehicle]);
+  }, [chooseMinibus, passengerLimit, passengers, publicMinibusEnabled, suitcases, vehicle]);
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
@@ -794,8 +854,8 @@ function QuoteCard({
     needsLuggageCapacityConfirmation(
       effectivePartyPassengers(passengers) ?? passengers,
       suitcases,
+      { suitcasesExact: isFivePlusLuggage(suitcases) ? false : true },
     );
-  const [capacityConfirmed, setCapacityConfirmed] = useState(false);
   const [confirmStartNewQuote, setConfirmStartNewQuote] = useState(false);
   /** Bumped on Start a New Quote so address inputs remount with clean internal state. */
   const [formResetKey, setFormResetKey] = useState(0);
@@ -808,8 +868,6 @@ function QuoteCard({
     const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
     setVehicle((current) => (current === next ? current : next));
   }, [passengers, suitcases]);
-  const [capacityError, setCapacityError] = useState("");
-
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
   const journeyKind: JourneyKind | null = useMemo(() => {
@@ -902,22 +960,32 @@ function QuoteCard({
           : "BFS";
 
   useEffect(() => {
-    // Public online path is 1–4 only.
-    if (passengers == null) return;
-    if (passengers > passengerLimit) {
-      setPassengers(passengerLimit);
-    }
     if (exactPassengers != null) {
       setExactPassengers(null);
     }
-  }, [passengerLimit, passengers, exactPassengers]);
+  }, [exactPassengers]);
+
+  useEffect(() => {
+    if (passengers == null) return;
+    if (passengers > passengerLimit || passengers < 1) {
+      setPassengersError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+    } else {
+      setPassengersError((current) =>
+        current === PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE ? "" : current,
+      );
+    }
+  }, [passengerLimit, passengers]);
 
   useEffect(() => {
     if (suitcases == null) return;
-    if (suitcases > SELECTOR_MAX_SUITCASES) {
-      setSuitcases(SELECTOR_MAX_SUITCASES);
+    if (suitcases > suitcaseLimit || suitcases < 0) {
+      setSuitcasesError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+    } else {
+      setSuitcasesError((current) =>
+        current === PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE ? "" : current,
+      );
     }
-  }, [suitcases]);
+  }, [suitcaseLimit, suitcases]);
 
   useEffect(() => {
     // Legacy: soft-hide address-to-address when flag is off.
@@ -967,10 +1035,12 @@ function QuoteCard({
       if (draft.returnDate) setReturnDate(draft.returnDate);
       if (draft.returnTime) setReturnTime(draft.returnTime);
       if (typeof draft.passengers === "number" && draft.passengers > 0) {
-        setPassengers(clampPassengerCount(draft.passengers));
+        const storedPassengers = readStoredPassengerCount(draft.passengers);
+        if (storedPassengers != null) setPassengers(storedPassengers);
       }
       if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
-        setSuitcases(clampPublicSuitcases(draft.suitcases));
+        const storedSuitcases = readStoredSuitcaseCount(draft.suitcases);
+        if (storedSuitcases != null) setSuitcases(storedSuitcases);
       }
       setChildSeats(normalizeChildSeats(draft.childSeats));
       setChildSeatNotes(draft.childSeatNotes?.trim() || "");
@@ -1024,8 +1094,8 @@ function QuoteCard({
       setPickupAddress(testBooking.pickupAddress);
       setTripDate(testBooking.tripDate);
       setTripTime(testBooking.tripTime);
-      setPassengers(clampPassengerCount(testBooking.passengers));
-      setSuitcases(clampPublicSuitcases(testBooking.suitcases));
+      setPassengers(readStoredPassengerCount(testBooking.passengers) ?? testBooking.passengers);
+      setSuitcases(readStoredSuitcaseCount(testBooking.suitcases) ?? testBooking.suitcases);
       setExactPassengers(null);
       setVehicle(testBooking.vehicle);
       setGoingFlightNumber(testBooking.flightNumber);
@@ -1172,10 +1242,12 @@ function QuoteCard({
       if (draft.returnDate) setReturnDate(draft.returnDate);
       if (draft.returnTime) setReturnTime(draft.returnTime);
       if (typeof draft.passengers === "number" && draft.passengers > 0) {
-        setPassengers(clampPassengerCount(draft.passengers));
+        const storedPassengers = readStoredPassengerCount(draft.passengers);
+        if (storedPassengers != null) setPassengers(storedPassengers);
       }
       if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
-        setSuitcases(clampPublicSuitcases(draft.suitcases));
+        const storedSuitcases = readStoredSuitcaseCount(draft.suitcases);
+        if (storedSuitcases != null) setSuitcases(storedSuitcases);
       }
       setExactPassengers(null);
       if (
@@ -1232,6 +1304,63 @@ function QuoteCard({
     };
   }, [returnOfferToken]);
 
+  useEffect(() => {
+    if (!publicPricingLoaded) {
+      return;
+    }
+    const seed = readPreviewCustomerQuoteSeed();
+    if (!seed) {
+      return;
+    }
+
+    if (!previewQuoteAppliedRef.current) {
+      previewQuoteAppliedRef.current = true;
+
+      const pickupDisplay =
+        seed.pickup.displayAddress || seed.pickup.formattedAddress || placeDisplayText(seed.pickup);
+      const dropoffDisplay =
+        seed.dropoff.displayAddress || seed.dropoff.formattedAddress || placeDisplayText(seed.dropoff);
+
+      setJourneyIntent("to-airport");
+      setTripDirection("to-airport");
+      setTripMode("address");
+      setIntentAirportCode("BFS");
+      setAirportCode("BFS");
+      setPickupPlace(seed.pickup);
+      setPickupAddress(pickupDisplay);
+      setPickupPlaceError("");
+      setPickupRestoredHint(false);
+      saveConfirmedPickupPlace(seed.pickup);
+      setDropoffPlace(seed.dropoff);
+      setDropoffAddress(dropoffDisplay);
+      setDropoffPlaceError("");
+      setDropoffRestoredHint(false);
+      saveConfirmedDropoffPlace(seed.dropoff);
+      setJourneyMode("one-way");
+      setTripDate(seed.tripDate);
+      setTripTime(seed.tripTime);
+      setTripDateError("");
+      setPassengersError("");
+      setSuitcasesError("");
+      setQuoteStep(1);
+    }
+
+    if (
+      seed.passengers != null &&
+      seed.passengers >= 1 &&
+      seed.passengers <= passengerLimit
+    ) {
+      setPassengers(seed.passengers);
+    }
+    if (
+      seed.suitcases != null &&
+      seed.suitcases >= 0 &&
+      seed.suitcases <= suitcaseLimit
+    ) {
+      setSuitcases(seed.suitcases);
+    }
+  }, [passengerLimit, publicPricingLoaded, suitcaseLimit]);
+
   const scheduleEntered = hasEnteredQuoteSchedule({
     outboundDate: tripDate,
     outboundTime: tripTime,
@@ -1255,8 +1384,13 @@ function QuoteCard({
     "Hi, I have a short-notice airport transfer request.",
   )}`;
 
-  const partySelectionReady = isPartySelectionComplete(passengers, suitcases);
-  const effectivePassengers = effectivePartyPassengers(passengers);
+  const partySelectionReady = isPartySelectionComplete(
+    passengers,
+    suitcases,
+    passengerLimit,
+    suitcaseLimit,
+  );
+  const effectivePassengers = effectivePartyPassengers(passengers, passengerLimit);
   const quoteChoicesReady = journeyMode !== null && partySelectionReady;
 
   const hasCompatibleVehicle = quoteChoicesReady && Boolean(quoteVehicle);
@@ -1313,7 +1447,7 @@ function QuoteCard({
     quoteChoicesReady &&
     effectivePassengers != null &&
     suitcases != null &&
-    exceedsOnlineVehicleOptions(effectivePassengers, suitcases);
+    exceedsOnlineVehicleOptions(effectivePassengers, suitcases, passengerLimit, suitcaseLimit);
   const canShowPrice =
     hasQuoteRoute &&
     quoteChoicesReady &&
@@ -1347,13 +1481,6 @@ function QuoteCard({
     };
   }
 
-  useEffect(() => {
-    if (!capacityNeedsConfirm) {
-      setCapacityConfirmed(false);
-      setCapacityError("");
-    }
-  }, [capacityNeedsConfirm]);
-
   const liveQuote = useMemo(() => {
     // Do not invent or show live fares until pricing rules are owner-approved.
     if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
@@ -1382,6 +1509,7 @@ function QuoteCard({
           schedule,
           routeMetrics,
           false,
+          publicPricing,
         );
       }
       if (journeyKind === "airport-to-address" && pickupAirportCode) {
@@ -1393,6 +1521,7 @@ function QuoteCard({
           schedule,
           routeMetrics,
           true,
+          publicPricing,
         );
       }
       if (
@@ -1409,6 +1538,7 @@ function QuoteCard({
           returnJourney,
           schedule,
           routeMetrics,
+          publicPricing,
         );
       }
       // Address↔address: no live public price (personalised quote). Needs route metrics
@@ -1426,6 +1556,7 @@ function QuoteCard({
           routeMetrics,
           returnJourney,
           schedule,
+          publicPricing,
         );
       }
       return calculatePointToPointQuote(
@@ -1436,6 +1567,8 @@ function QuoteCard({
         schedule,
         routeMetrics,
         null,
+        undefined,
+        publicPricing,
       );
     }
 
@@ -1448,6 +1581,7 @@ function QuoteCard({
         schedule,
         routeMetrics,
         isFromAirport,
+        publicPricing,
       );
     }
 
@@ -1467,6 +1601,7 @@ function QuoteCard({
         pickup: pickupPlace ?? undefined,
         dropoff: dropoffPlace ?? undefined,
       },
+      publicPricing,
     );
   }, [
     airportCode,
@@ -1493,11 +1628,16 @@ function QuoteCard({
     tripDate,
     tripTime,
     quoteVehicle,
+    publicPricing,
   ]);
 
   // Prefer Worker-authoritative fare (same resolveWorkerTripRouteMetrics + engine as SumUp)
   // so the displayed/consent amount matches checkout. Browser metrics stay for map display.
   const refreshAuthoritativeServerQuote = useCallback(async (): Promise<boolean> => {
+    if (isBrowserPricingPreview() && previewMinibusQueryEnabled()) {
+      setServerFareParts(null);
+      return false;
+    }
     if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
       setServerFareParts(null);
       return false;
@@ -2908,6 +3048,7 @@ function QuoteCard({
         : undefined,
       passengers: effectivePassengers as number,
       suitcases: suitcases as number,
+      suitcasesExact: isFivePlusLuggage(suitcases as number) ? false : true,
       childSeats,
       childSeatNotes: childSeats > 0 ? childSeatNotes.trim() : undefined,
       vehicle: quoteVehicle,
@@ -3034,21 +3175,6 @@ function QuoteCard({
       return;
     }
     setSaveQuotePrompt(built.message);
-  }
-
-  function requireCapacityConfirmed(): boolean {
-    if (!capacityNeedsConfirm) {
-      setCapacityError("");
-      return true;
-    }
-    if (!capacityConfirmed) {
-      setCapacityError(
-        "Please confirm you understand we must check luggage capacity before we can accept this booking.",
-      );
-      return false;
-    }
-    setCapacityError("");
-    return true;
   }
 
   function requireTermsAccepted(): boolean {
@@ -3201,10 +3327,6 @@ function QuoteCard({
       return;
     }
 
-    if (!requireCapacityConfirmed()) {
-      return;
-    }
-
     const availabilityBlocked = await applyCustomerSmartAvailabilityCheck();
     if (availabilityBlocked) {
       return;
@@ -3222,6 +3344,18 @@ function QuoteCard({
           ? "Please confirm you understand the free pick-up area before continuing without Express Pick-Up."
           : "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
       );
+      return;
+    }
+
+    if (
+      (passengers != null && (passengers > passengerLimit || passengers < 1)) ||
+      (suitcases != null && (suitcases > suitcaseLimit || suitcases < 0))
+    ) {
+      setPaymentError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+      setPassengersError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+      if (suitcases != null && suitcases > suitcaseLimit) {
+        setSuitcasesError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+      }
       return;
     }
 
@@ -3339,6 +3473,8 @@ function QuoteCard({
             checkout.minimumBookingNoticeHours ??
             checkout.minimumNoticeHours ??
             minimumBookingNoticeHours,
+          luggageCapacity:
+            checkout.luggageCapacity === true || capacityNeedsConfirm,
         });
         setPaymentLoading(false);
         return;
@@ -3399,6 +3535,11 @@ function QuoteCard({
       setPaymentLoading(false);
       return;
     } catch (error) {
+      if (isPaymentVehicleUnavailableError(error)) {
+        setPaymentError(error.message || PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+        setPaymentLoading(false);
+        return;
+      }
       if (isPaymentFareMismatchError(error)) {
         // Never approximate journey/fixed by subtracting Express — re-quote from the engine.
         const refreshed = await refreshAuthoritativeServerQuote();
@@ -3656,7 +3797,6 @@ function QuoteCard({
     setTestChargeAmount(null);
     setTestBookingLabel(null);
     setAppliedPersonalQuote(null);
-    setCapacityConfirmed(false);
     setConfirmStartNewQuote(false);
 
     // Re-seed landing-page airport place into storage when props provide one.
@@ -3709,8 +3849,7 @@ function QuoteCard({
     Boolean(emailAddressError.trim()) ||
     Boolean(termsError.trim()) ||
     Boolean(goingFlightError.trim()) ||
-    Boolean(collectionFlightError.trim()) ||
-    Boolean(capacityError.trim());
+    Boolean(collectionFlightError.trim());
 
   /**
    * At most one WhatsApp + Start New Quote error cluster is mounted.
@@ -3833,9 +3972,6 @@ function QuoteCard({
       return;
     }
     notifyOwnerQuoteContactIfReady();
-    if (!requireCapacityConfirmed()) {
-      return;
-    }
 
     void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
       recordAdFraudBehaviour("booking_started", { path: delivery });
@@ -4079,16 +4215,28 @@ function QuoteCard({
       }
       if (
         passengers != null &&
-        (passengers > MAX_ONLINE_PASSENGERS || passengers < 1)
+        (passengers > passengerLimit || passengers < 1)
       ) {
-        failStep1("invalid_passengers", PASSENGER_LIMIT_ERROR);
+        setPassengersError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+        failStep1(
+          "invalid_passengers",
+          publicMinibusEnabled
+            ? publicPassengerLimitMessage(true)
+            : PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+        );
         return;
       }
       if (
         suitcases != null &&
-        (suitcases < 0 || suitcases > SELECTOR_MAX_SUITCASES)
+        (suitcases < 0 || suitcases > suitcaseLimit)
       ) {
-        failStep1("invalid_suitcases", "Please select 0–4 large suitcases.");
+        setSuitcasesError(PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+        failStep1(
+          "invalid_suitcases",
+          publicMinibusEnabled
+            ? publicSuitcaseLimitMessage(true)
+            : PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+        );
         return;
       }
       if (!isScheduleComplete) {
@@ -5013,7 +5161,9 @@ function QuoteCard({
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
               : isEnquiryOnly
                 ? "We’ll reply with your quote — no online payment until you confirm."
-                : canPayNowOnline
+                : capacityNeedsConfirm
+                  ? "Fixed price for your journey. This combination needs luggage capacity confirmation before payment."
+                  : canPayNowOnline
                   ? isAirportLegForInclusions
                     ? "Eligible bookings can be paid securely online with SumUp."
                     : "Fixed price for your journey. Eligible bookings can be paid securely online with SumUp."
@@ -5399,24 +5549,18 @@ function QuoteCard({
         >
           <div id="quote-step2-next" className="sr-only" />
           {capacityNeedsConfirm ? (
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-50">
-              <input
-                type="checkbox"
-                checked={capacityConfirmed}
-                onChange={(event) => {
-                  setCapacityConfirmed(event.target.checked);
-                  if (event.target.checked) setCapacityError("");
-                }}
-                className="mt-1 h-4 w-4 shrink-0 rounded border-white/30 bg-navy text-emerald focus:ring-emerald"
-              />
-              <span>
-                I understand luggage capacity may need written confirmation before this booking is
-                accepted.
-                {capacityError ? (
-                  <span className="mt-1 block text-xs text-red-200">{capacityError}</span>
-                ) : null}
-              </span>
-            </label>
+            <div
+              className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
+              role="status"
+              data-luggage-capacity-confirmation
+            >
+              <p className="text-sm font-semibold text-amber-100">
+                {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
+                {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
+              </p>
+            </div>
           ) : null}
 
           <BookingTermsConsent
@@ -5429,7 +5573,7 @@ function QuoteCard({
             mode={
               isManualQuoteJourney
                 ? "quote-request"
-                : isMinimumNoticeRequest
+                : isMinimumNoticeRequest || capacityNeedsConfirm
                   ? "booking-request"
                   : payNow
                     ? "card-payment"
@@ -5475,7 +5619,21 @@ function QuoteCard({
             </div>
           ) : payNow && liveQuote ? (
             <div className="space-y-3">
-              {isMinimumNoticeRequest && !openCheckout ? (
+              {capacityNeedsConfirm && !openCheckout ? (
+                <div
+                  className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
+                  role="status"
+                  aria-live="polite"
+                  data-luggage-capacity-confirmation
+                >
+                  <p className="text-sm font-semibold text-amber-100">
+                    {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
+                  </p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
+                    {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
+                  </p>
+                </div>
+              ) : isMinimumNoticeRequest && !openCheckout ? (
                 <div
                   className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
                   role="status"
@@ -5556,16 +5714,18 @@ function QuoteCard({
                   className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
-                    ? isMinimumNoticeRequest
+                    ? capacityNeedsConfirm || isMinimumNoticeRequest
                       ? "Submitting booking request…"
                       : "Opening secure payment…"
                     : testChargeAmount !== null
                       ? "Pay £1.00 test charge with SumUp"
-                      : isMinimumNoticeRequest
+                      : capacityNeedsConfirm
+                        ? `${LUGGAGE_CAPACITY_CONFIRMATION_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                        : isMinimumNoticeRequest
                         ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
                 </button>
-                {isMinimumNoticeRequest ? (
+                {isMinimumNoticeRequest || capacityNeedsConfirm ? (
                   <a
                     href={shortNoticeWhatsAppHref}
                     target="_blank"
@@ -5778,6 +5938,7 @@ function QuoteCard({
         }
         airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
+        capacityConfirmation={capacityNeedsConfirm}
       />
     );
   }
@@ -5824,6 +5985,7 @@ function QuoteCard({
           whatsappUrl={shortNoticeResult.whatsappUrl}
           underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
           noticeHours={shortNoticeResult.noticeHours ?? minimumBookingNoticeHours}
+          luggageCapacity={shortNoticeResult.luggageCapacity === true}
         />
         <button
           type="button"
@@ -6141,6 +6303,7 @@ function QuoteCard({
               }}
               passengersError={passengersError}
               suitcasesError={suitcasesError}
+              publicMinibusEnabled={publicMinibusEnabled}
               isGroupQuote={false}
               showRouteFields={Boolean(journeyIntent)}
               showJourneyModeFields={
@@ -6674,8 +6837,12 @@ function QuoteCard({
             <TapChoiceRow
               label="Passengers"
               hint="Include all children in the passenger total."
-              options={Array.from({ length: passengerLimit }, (_, index) => index + 1)}
-              value={passengers == null ? null : Math.min(passengers, passengerLimit)}
+              options={publicPassengerOptions(publicMinibusEnabled)}
+              value={
+                passengers != null && passengers <= passengerLimit && passengers >= 1
+                  ? passengers
+                  : null
+              }
               onChange={(value) => {
                 setPassengers(value);
                 setPassengersError("");
@@ -6685,8 +6852,12 @@ function QuoteCard({
             />
             <TapChoiceRow
               label="Large suitcases (23kg)"
-              options={[0, 1, 2, 3, 4].filter((count) => count <= SELECTOR_MAX_SUITCASES)}
-              value={suitcases == null ? null : Math.min(suitcases, SELECTOR_MAX_SUITCASES)}
+              options={publicSuitcaseOptions(publicMinibusEnabled)}
+              value={
+                suitcases != null && suitcases <= suitcaseLimit && suitcases >= 0
+                  ? suitcases
+                  : null
+              }
               onChange={(value) => {
                 setSuitcases(value);
                 setSuitcasesError("");
@@ -6719,10 +6890,14 @@ function QuoteCard({
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
           />
-          <p className="quote-secondary text-xs leading-relaxed">
-            Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and
-            luggage — private airport transfer for 1–4 passengers.
-          </p>
+          {publicMinibusEnabled && partySelectionReady ? (
+            <QuoteVehicleCategories passengers={passengers} suitcases={suitcases} />
+          ) : (
+            <p className="quote-secondary text-xs leading-relaxed">
+              Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and
+              luggage — private airport transfer for 1–4 passengers.
+            </p>
+          )}
         </div>
         )}
 

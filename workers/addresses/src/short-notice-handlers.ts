@@ -32,6 +32,11 @@ import {
 import { buildShortNoticeAlternativeOfferEmail } from "../shared/short-notice-alternative-email";
 import { buildShortNoticeDeclineEmail } from "../shared/short-notice-decline-email";
 import { buildShortNoticeRequestReceivedEmail } from "../shared/short-notice-request-received-email";
+import {
+  combinePaymentHoldReasons,
+  hasLuggageCapacityHold,
+  needsLuggageCapacityConfirmation,
+} from "../shared/vehicle-capacity";
 import { parseLondonLocalDateTime } from "../shared/uk-time";
 import {
   addUnavailablePeriod,
@@ -491,6 +496,7 @@ export function publicShortNoticeSummary(record: ShortNoticeBookingRecord) {
     returnTime: record.booking.returnTime,
     passengers: record.booking.passengers,
     suitcases: record.booking.suitcases,
+    suitcasesExact: record.booking.suitcasesExact,
     flightNumber: record.booking.flightNumber,
     paymentExpiresAt: record.paymentExpiresAt ?? null,
     payable: isShortNoticePayable(record),
@@ -532,7 +538,14 @@ export async function createShortNoticeRequest(options: {
     now,
     noticeHours,
   );
-  if (!blocking && !underMinimumNotice) {
+  const holdReasons = combinePaymentHoldReasons({
+    underMinimumNotice,
+    blockingPeriodId: blocking?.id ?? null,
+    passengers: options.booking.passengers,
+    suitcases: options.booking.suitcases,
+    suitcasesExact: options.booking.suitcasesExact,
+  });
+  if (holdReasons.length === 0) {
     throw new Error("This journey is not inside a short-notice window.");
   }
 
@@ -556,6 +569,7 @@ export async function createShortNoticeRequest(options: {
     materialFingerprint: fingerprint,
     unavailablePeriodIdApplied: blocking?.id ?? null,
     underMinimumNotice,
+    holdReasons,
     ...(underMinimumNotice
       ? { minimumNoticeHoursApplied: noticeHours }
       : {}),
@@ -578,7 +592,7 @@ export async function sendShortNoticeRequestReceivedEmail(
   env: WorkerEmailEnv,
   record: ShortNoticeBookingRecord,
 ): Promise<{ sent: boolean; error?: string }> {
-  if (!record.underMinimumNotice) {
+  if (!record.underMinimumNotice && !hasLuggageCapacityHold(record.holdReasons)) {
     return { sent: false };
   }
   if (!isValidCustomerEmail(record.booking.customerEmail)) {
@@ -594,6 +608,7 @@ export async function sendShortNoticeRequestReceivedEmail(
     amountLabel: record.amountLabel,
     reference: record.reference,
     noticeHours: record.minimumNoticeHoursApplied ?? MINIMUM_BOOKING_NOTICE_HOURS,
+    holdReasons: record.holdReasons,
   });
   const result = await trySendBrandedCustomerEmail(env, {
     to: record.booking.customerEmail.trim(),
@@ -630,6 +645,7 @@ export async function shouldForceShortNotice(
   blockingPeriodLabel: string | null;
   underMinimumNotice: boolean;
   minimumNoticeHours: number;
+  luggageCapacity: boolean;
 }> {
   const settings = await getBookingSettings(store);
   const closed = findConflictingNoAvailabilityPeriod(
@@ -646,6 +662,11 @@ export async function shouldForceShortNotice(
       blockingPeriodLabel: formatUnavailablePeriodRangeLabel(closed),
       underMinimumNotice: false,
       minimumNoticeHours: settings.minimumBookingNoticeHours,
+      luggageCapacity: needsLuggageCapacityConfirmation(
+        booking.passengers,
+        booking.suitcases,
+        { suitcasesExact: booking.suitcasesExact },
+      ),
     };
   }
   const blocking = findRequestOnlyBlockingPeriod(
@@ -670,6 +691,11 @@ export async function shouldForceShortNotice(
     blockingPeriodLabel: blocking ? formatUnavailablePeriodRangeLabel(blocking) : null,
     underMinimumNotice,
     minimumNoticeHours: noticeHours,
+    luggageCapacity: needsLuggageCapacityConfirmation(
+      booking.passengers,
+      booking.suitcases,
+      { suitcasesExact: booking.suitcasesExact },
+    ),
   };
 }
 

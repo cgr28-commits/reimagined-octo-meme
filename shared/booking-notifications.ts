@@ -65,6 +65,11 @@ export type PaidBookingDetails = {
   returnFlightNumber?: string;
   passengers: number;
   suitcases: number;
+  /**
+   * false = customer selected 5+ (five or more large bags).
+   * true/omitted = the stored count is exact.
+   */
+  suitcasesExact?: boolean;
   /** Number of child / booster seats requested (0–2). */
   childSeats?: number;
   childSeatNotes?: string;

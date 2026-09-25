@@ -72,12 +72,12 @@ assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route
 assert.doesNotMatch(card, /hadStep2ScheduleScrollRef/);
 
 // Section ids remain in normal document flow.
-assert.match(progressive, /id="quote-section-passengers"/);
-assert.match(progressive, /id="quote-section-suitcases"/);
+assert.match(read("src/components/PublicPartySelectors.tsx"), /id="quote-section-passengers"/);
+assert.match(read("src/components/PublicPartySelectors.tsx"), /id="quote-section-suitcases"/);
 assert.match(progressive, /id="quote-section-journey"/);
 
 // Luggage: single 0–4|5+ row — no Exact Large Bags / duplicate 5+ controls.
-assert.match(progressive, /formatSuitcaseChoice/);
+assert.match(read("src/components/PublicPartySelectors.tsx"), /formatSuitcaseChoice/);
 assert.match(read("src/lib/vehicle-selection.ts"), /FIVE_PLUS_SUITCASES/);
 assert.doesNotMatch(progressive, /label="Exact large bags/);
 assert.doesNotMatch(progressive, /quote-section-exact-suitcases/);

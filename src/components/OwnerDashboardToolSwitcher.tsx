@@ -3,6 +3,7 @@
 export type OwnerDashboardToolTab =
   | "jobs"
   | "availability"
+  | "pricing"
   | "a2a-quotes"
   | "personal-quotes"
   | "same-fare";
@@ -15,6 +16,7 @@ type OwnerDashboardToolSwitcherProps = {
 const OPTIONS: { id: OwnerDashboardToolTab; label: string }[] = [
   { id: "jobs", label: "Jobs" },
   { id: "availability", label: "Availability" },
+  { id: "pricing", label: "Pricing" },
   { id: "a2a-quotes", label: "A2A Quotes" },
   { id: "personal-quotes", label: "Personal Quotes" },
   { id: "same-fare", label: "Same Fare Test" },

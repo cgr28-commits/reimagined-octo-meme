@@ -17,6 +17,7 @@ import OwnerDashboardToolSwitcher, {
   type OwnerDashboardToolTab,
 } from "@/components/OwnerDashboardToolSwitcher";
 import OwnerSmartAvailabilityPanel from "@/components/OwnerSmartAvailabilityPanel";
+import OwnerPricingPanel from "@/components/OwnerPricingPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   buildWhatsAppDriverDetailsLink,
@@ -2289,6 +2290,7 @@ export default function DriverPageClient({
     setIsOwnerPreviewHost(host.includes("pages.dev") || host.includes("vercel.app"));
     const tab = new URLSearchParams(window.location.search).get("tab")?.trim().toLowerCase();
     if (tab === "availability") setOwnerToolTab("availability");
+    if (tab === "pricing") setOwnerToolTab("pricing");
   }, [isOwnerPortal]);
 
   const refreshJobs = useCallback(() => {
@@ -2896,6 +2898,16 @@ export default function DriverPageClient({
                   aria-labelledby="owner-tool-tab-availability"
                 >
                   <OwnerSmartAvailabilityPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "pricing" ? (
+                <div
+                  id="owner-tool-panel-pricing"
+                  role="tabpanel"
+                  aria-labelledby="owner-tool-tab-pricing"
+                >
+                  <OwnerPricingPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 

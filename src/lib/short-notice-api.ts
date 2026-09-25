@@ -24,6 +24,7 @@ export type ShortNoticeBookingSummary = {
   automaticBookingsAvailableFromApplied?: string | null;
   unavailablePeriodIdApplied?: string | null;
   underMinimumNotice?: boolean;
+  holdReasons?: string[];
   history?: Array<{ type: string; at: string }>;
   declineEmailSentAt?: string;
   createdAt: string;
@@ -64,6 +65,7 @@ export type ShortNoticeBookingSummary = {
     returnTime?: string;
     passengers: number;
     suitcases: number;
+    suitcasesExact?: boolean;
     vehicle: string;
     flightNumber?: string;
     returnFlightNumber?: string;
@@ -110,6 +112,7 @@ export type PublicShortNoticeSummary = {
   returnTime?: string;
   passengers: number;
   suitcases: number;
+  suitcasesExact?: boolean;
   flightNumber?: string;
   paymentExpiresAt: string | null;
   payable: boolean;

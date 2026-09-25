@@ -1,6 +1,10 @@
 import {
-  isValidPassengerCount,
-  PASSENGER_LIMIT_ERROR,
+  isValidCapacityPassengerCount,
+  isValidCapacitySuitcaseCount,
+  isValidPublicPassengerCount,
+  isValidPublicSuitcaseCount,
+  publicPassengerLimitMessage,
+  publicSuitcaseLimitMessage,
 } from "../shared/passenger-limits";
 import {
   getPaymentBookingBlockers,
@@ -395,6 +399,26 @@ import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-servi
 import {
   calculateAirportToAirportQuote,
 } from "../../../src/lib/quote";
+import {
+  PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+  PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+  publicMinibusAllowed,
+} from "../shared/owner-pricing-config";
+import {
+  LUGGAGE_CAPACITY_OWNER_REASON,
+  applyPublicFivePlusLuggage,
+  formatOwnerLargeBags,
+  hasLuggageCapacityHold,
+  isFivePlusLuggage,
+  needsLuggageCapacityConfirmation,
+} from "../shared/vehicle-capacity";
+import {
+  handleOwnerPricingRequest,
+  handlePublicGetPricingConfig,
+  isOwnerPricingPath,
+  isPublicPricingConfigPath,
+  loadOwnerPricingOrDefault,
+} from "./owner-pricing-handlers";
 import {
   resolveOpenWebsitePaymentTransferFares,
   resolvePaymentAirportContextFromAddresses,
@@ -958,10 +982,10 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
   }
   const passengers = Number(details.passengers);
   const suitcases = Number(details.suitcases);
-  if (!isValidPassengerCount(passengers)) {
+  if (!isValidCapacityPassengerCount(passengers)) {
     return null;
   }
-  if (!Number.isFinite(suitcases) || suitcases < 0) {
+  if (!isValidCapacitySuitcaseCount(suitcases)) {
     return null;
   }
 
@@ -981,6 +1005,11 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     passengers,
     suitcases,
+    ...(details.suitcasesExact === false
+      ? { suitcasesExact: false as const }
+      : details.suitcasesExact === true
+        ? { suitcasesExact: true as const }
+        : {}),
     childSeats: parseChildSeatsInput(details.childSeats),
     ...(parseChildSeatNotesInput(details.childSeatNotes)
       ? { childSeatNotes: parseChildSeatNotesInput(details.childSeatNotes) }
@@ -1157,7 +1186,7 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
   if (!Number.isFinite(passengers) || passengers < 1 || !Number.isFinite(suitcases) || suitcases < 0) {
     return null;
   }
-  if (!isValidPassengerCount(passengers)) {
+  if (!isValidCapacityPassengerCount(passengers) || !isValidCapacitySuitcaseCount(suitcases)) {
     return null;
   }
 
@@ -1208,6 +1237,14 @@ async function handleQuoteLeadRequest(
   const parsedDetails = parseQuoteLeadBody(body);
   if (!parsedDetails) {
     return json({ error: "Missing required fields" }, 400, origin);
+  }
+  const quoteLeadPricing = await loadOwnerPricingOrDefault(env);
+  const quoteLeadMinibusOn = quoteLeadPricing.minibus.publicEnabled === true;
+  if (!isValidPublicPassengerCount(parsedDetails.passengers, quoteLeadMinibusOn)) {
+    return json({ error: publicPassengerLimitMessage(quoteLeadMinibusOn) }, 400, origin);
+  }
+  if (!isValidPublicSuitcaseCount(parsedDetails.suitcases, quoteLeadMinibusOn)) {
+    return json({ error: publicSuitcaseLimitMessage(quoteLeadMinibusOn) }, 400, origin);
   }
   const details = sanitizeQuoteLeadAutomaticPrice(parsedDetails);
 
@@ -1333,9 +1370,18 @@ async function handleBookingRequest(
   }
 
   if (body.booking) {
+    const bookingPricing = await loadOwnerPricingOrDefault(env);
+    const bookingMinibusOn = bookingPricing.minibus.publicEnabled === true;
     const passengers = Number((body.booking as { passengers?: unknown }).passengers);
-    if (!isValidPassengerCount(passengers)) {
-      return json({ error: PASSENGER_LIMIT_ERROR }, 400, origin);
+    const suitcases = Number((body.booking as { suitcases?: unknown }).suitcases);
+    if (!isValidPublicPassengerCount(passengers, bookingMinibusOn)) {
+      return json({ error: publicPassengerLimitMessage(bookingMinibusOn) }, 400, origin);
+    }
+    if (
+      (body.booking as { suitcases?: unknown }).suitcases != null &&
+      !isValidPublicSuitcaseCount(suitcases, bookingMinibusOn)
+    ) {
+      return json({ error: publicSuitcaseLimitMessage(bookingMinibusOn) }, 400, origin);
     }
   }
 
@@ -1720,6 +1766,16 @@ async function handlePaymentRequest(
     String(body.redirectUrl ?? "").trim(),
   );
   let booking = parsePaidBookingDetails(body);
+  if (booking) {
+    booking = applyPublicFivePlusLuggage(booking);
+    if (isFivePlusLuggage(booking.suitcases, { suitcasesExact: booking.suitcasesExact })) {
+      booking = {
+        ...booking,
+        suitcasesExact: false,
+        vehicle: MINIBUS_VEHICLE,
+      };
+    }
+  }
   let shortNoticeReference: string | undefined;
   let a2aQuoteReference: string | undefined;
   let personalQuoteCode: string | undefined;
@@ -2223,12 +2279,49 @@ async function handlePaymentRequest(
       airportFixedCostsGbp: number;
       nightWeekendSurchargeGbp?: number;
     } | null = null;
+    const pricing = await loadOwnerPricingOrDefault(env);
+    const requoteMinibusOn = pricing.minibus.publicEnabled === true;
+    if (!isValidPublicPassengerCount(Number(booking.passengers), requoteMinibusOn)) {
+      return json(
+        {
+          error: publicPassengerLimitMessage(requoteMinibusOn),
+          code: requoteMinibusOn ? "passenger_limit" : PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+        },
+        requoteMinibusOn ? 400 : 409,
+        origin,
+      );
+    }
+    if (!isValidPublicSuitcaseCount(Number(booking.suitcases), requoteMinibusOn)) {
+      return json(
+        {
+          error: publicSuitcaseLimitMessage(requoteMinibusOn),
+          code: requoteMinibusOn ? "luggage_limit" : PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+        },
+        requoteMinibusOn ? 400 : 409,
+        origin,
+      );
+    }
     const vehicleRaw = String(booking.vehicle ?? "");
     const vehicleType: VehicleType = /estate/i.test(vehicleRaw)
       ? ESTATE_VEHICLE
       : /minibus/i.test(vehicleRaw)
         ? MINIBUS_VEHICLE
         : SALOON_VEHICLE;
+    if (
+      !publicMinibusAllowed(vehicleType, {
+        publicMinibusEnabled: pricing.minibus.publicEnabled === true,
+        ownerMode: false,
+      })
+    ) {
+      return json(
+        {
+          error: PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+          code: PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+        },
+        409,
+        origin,
+      );
+    }
     const schedule = {
       outboundDate: booking.tripDate,
       outboundTime: booking.tripTime,
@@ -2251,6 +2344,7 @@ async function handlePaymentRequest(
         Boolean(booking.returnJourney),
         schedule,
         routeMetrics,
+        pricing,
       );
       if (a2aQuote && Number.isFinite(a2aQuote.amount) && a2aQuote.amount >= 1) {
         authoritativeQuote = {
@@ -2289,7 +2383,20 @@ async function handlePaymentRequest(
         suitcases: Number(booking.suitcases),
         routeMetrics,
         vehicleType,
+        pricing,
+        ownerMode: false,
+        maxPassengers: pricing.minibus.publicEnabled ? 7 : 4,
       });
+      if (!requote.ok && requote.reason === "vehicle_unavailable") {
+        return json(
+          {
+            error: requote.message || PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+            code: PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+          },
+          409,
+          origin,
+        );
+      }
       if (requote.ok) {
         const journeyFareGbp =
           typeof requote.journeyFareGbp === "number"
@@ -2505,6 +2612,45 @@ async function handlePaymentRequest(
     return json({ error: PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR }, 400, origin);
   }
 
+  const paymentPricing = await loadOwnerPricingOrDefault(env);
+  const paymentMinibusOn = paymentPricing.minibus.publicEnabled === true;
+  if (!quickQuoteId && !isValidPublicPassengerCount(booking.passengers, paymentMinibusOn)) {
+    return json(
+      {
+        error: publicPassengerLimitMessage(paymentMinibusOn),
+        code: paymentMinibusOn ? "passenger_limit" : PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+      },
+      paymentMinibusOn ? 400 : 409,
+      origin,
+    );
+  }
+  if (!quickQuoteId && !isValidPublicSuitcaseCount(booking.suitcases, paymentMinibusOn)) {
+    return json(
+      {
+        error: publicSuitcaseLimitMessage(paymentMinibusOn),
+        code: paymentMinibusOn ? "luggage_limit" : PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+      },
+      paymentMinibusOn ? 400 : 409,
+      origin,
+    );
+  }
+  if (
+    !quickQuoteId &&
+    !publicMinibusAllowed(String(booking.vehicle ?? ""), {
+      publicMinibusEnabled: paymentMinibusOn,
+      ownerMode: false,
+    })
+  ) {
+    return json(
+      {
+        error: PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+        code: PUBLIC_MINIBUS_UNAVAILABLE_CODE,
+      },
+      409,
+      origin,
+    );
+  }
+
   if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
     return json(
       { error: "Booking store is not configured — cannot start a paid checkout safely" },
@@ -2513,9 +2659,14 @@ async function handlePaymentRequest(
     );
   }
 
-  // Short-notice window: save request for Owner approval — do NOT open SumUp.
+  // Short-notice window or high-load luggage capacity: save request — do NOT open SumUp.
   if (!shortNoticeToken && !a2aQuoteToken) {
     const notice = await shouldForceShortNotice(env.TRACKING_STORE, booking);
+    const luggageHold =
+      notice.luggageCapacity === true ||
+      needsLuggageCapacityConfirmation(booking.passengers, booking.suitcases, {
+        suitcasesExact: booking.suitcasesExact,
+      });
     if (notice.noAvailability) {
       return json(
         {
@@ -2527,7 +2678,7 @@ async function handlePaymentRequest(
         origin,
       );
     }
-    if (notice.shortNotice) {
+    if (notice.shortNotice || luggageHold) {
       try {
         const created = await createShortNoticeRequest({
           store: env.TRACKING_STORE,
@@ -2543,14 +2694,18 @@ async function handlePaymentRequest(
               : {}),
         });
         const amountLabel = formatPaidAmount(created.record.amount);
+        const luggageCapacity = hasLuggageCapacityHold(created.record.holdReasons) || luggageHold;
         const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
           amountLabel,
           checkoutId: created.record.reference,
-          checkoutReference: `SHORT-NOTICE · ${created.record.reference}`,
+          checkoutReference: luggageCapacity
+            ? `CAPACITY · ${created.record.reference}`
+            : `SHORT-NOTICE · ${created.record.reference}`,
         });
         const pickupRemaining = formatHoursUntilPickupLabel(booking.tripDate, booking.tripTime);
-        const ownerSubject =
-          pickupRemaining && pickupRemaining !== "pickup time has passed"
+        const ownerSubject = luggageCapacity && !notice.shortNotice
+          ? `New luggage capacity confirmation request — ${created.record.reference}`
+          : pickupRemaining && pickupRemaining !== "pickup time has passed"
             ? `New short-notice booking request — pickup in ${pickupRemaining}`
             : `New short-notice booking request — ${created.record.reference}`;
         await trySendOwnerOperationalEmail(env, {
@@ -2558,21 +2713,37 @@ async function handlePaymentRequest(
           subject: ownerSubject,
           body:
             `${attemptEmail.body}\n\n` +
-            `Action required: Short-notice request · Awaiting your decision.\n` +
+            `Action required: ${
+              luggageCapacity ? LUGGAGE_CAPACITY_OWNER_REASON : "Short-notice request"
+            } · Awaiting your decision.\n` +
             `Status: SHORT_NOTICE_AWAITING_APPROVAL\n` +
             `Quoted price: ${amountLabel}\n` +
+            `Passengers: ${booking.passengers}\n` +
+            `Large bags: ${formatOwnerLargeBags(booking.suitcases, {
+              suitcasesExact: booking.suitcasesExact,
+            })}\n` +
+            `Vehicle: ${
+              String(booking.vehicle ?? "").toLowerCase().includes("minibus")
+                ? "7 Seater Minibus"
+                : booking.vehicle || "7 Seater Minibus"
+            }\n` +
+            `Reason: ${
+              luggageCapacity ? LUGGAGE_CAPACITY_OWNER_REASON : "Short-notice request"
+            }\n` +
             `Pickup remaining: ${pickupRemaining ?? "—"}\n` +
             `Unavailable period: ${notice.blockingPeriodLabel ?? notice.blockingPeriodId ?? "—"}\n` +
             `Under ${notice.minimumNoticeHours}-hour notice: ${notice.underMinimumNotice ? "yes" : "no"}\n` +
             `Open the Owner Dashboard (Booking Availability) to Approve, Offer alternative time, or Decline.`,
         });
-        if (created.record.underMinimumNotice) {
+        if (created.record.underMinimumNotice || luggageCapacity) {
           await sendShortNoticeRequestReceivedEmail(env, created.record);
         }
         return json(
           {
             ok: true,
             shortNotice: true,
+            luggageCapacity,
+            holdReasons: created.record.holdReasons ?? [],
             reference: created.record.reference,
             whatsappUrl: created.whatsappUrl,
             blockingPeriodId: notice.blockingPeriodId,
@@ -3510,6 +3681,20 @@ export default {
         TRACKING_STORE: env.TRACKING_STORE,
       });
       return json(result, 200, origin);
+    }
+
+    if (isPublicPricingConfigPath(url.pathname)) {
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      }
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed" }, 405, origin);
+      }
+      return handlePublicGetPricingConfig(env, origin);
+    }
+
+    if (isOwnerPricingPath(url.pathname)) {
+      return handleOwnerPricingRequest(request, env, origin);
     }
 
     if (isOwnerBookingSettingsPath(url.pathname)) {

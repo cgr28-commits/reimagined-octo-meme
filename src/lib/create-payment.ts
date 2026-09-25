@@ -4,7 +4,12 @@ import {
   resolvePaymentsApiUrl,
   resolvePaymentsConfirmApiUrl,
 } from "@/lib/worker-api";
-import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
+import {
+  isValidCapacityPassengerCount,
+  isValidCapacitySuitcaseCount,
+  PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR,
+  PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR,
+} from "../../shared/passenger-limits";
 import {
   isValidPersonalQuotePassengerCount,
   PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
@@ -98,6 +103,9 @@ export type PaymentCheckoutResult = {
   ownerAttemptEmailSent?: boolean;
   /** Server diverted to Owner approval instead of SumUp. */
   shortNotice?: boolean;
+  /** High combined passenger + luggage load held for capacity confirmation. */
+  luggageCapacity?: boolean;
+  holdReasons?: string[];
   reference?: string;
   whatsappUrl?: string;
   automaticBookingsAvailableFrom?: string | null;
@@ -119,6 +127,19 @@ export type PaymentFareMismatchError = Error & {
   displayedAmountGbp: number;
   serverAmountGbp: number;
 };
+
+export type PaymentVehicleUnavailableError = Error & {
+  code: "vehicle_unavailable";
+};
+
+export function isPaymentVehicleUnavailableError(
+  error: unknown,
+): error is PaymentVehicleUnavailableError {
+  return (
+    error instanceof Error &&
+    (error as PaymentVehicleUnavailableError).code === "vehicle_unavailable"
+  );
+}
 
 export function isPaymentFareMismatchError(
   error: unknown,
@@ -261,8 +282,11 @@ export async function createPaymentCheckout(
       }
     }
 
-    if (!isValidPassengerCount(request.booking.passengers)) {
-      throw new Error(PASSENGER_LIMIT_ERROR);
+    if (!isValidCapacityPassengerCount(request.booking.passengers)) {
+      throw new Error(PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR);
+    }
+    if (!isValidCapacitySuitcaseCount(request.booking.suitcases)) {
+      throw new Error(PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR);
     }
     if (
       request.personalQuoteCode &&
@@ -357,6 +381,20 @@ export async function createPaymentCheckout(
 
   if (!response.ok) {
     if (
+      (response.status === 409 || response.status === 422) &&
+      payload &&
+      typeof payload === "object" &&
+      (payload as { code?: unknown }).code === "vehicle_unavailable"
+    ) {
+      const message =
+        typeof (payload as { error?: unknown }).error === "string"
+          ? String((payload as { error: string }).error)
+          : "7 Seater Minibus is currently unavailable for online booking. Please choose another vehicle or contact us.";
+      const unavailable = new Error(message) as PaymentVehicleUnavailableError;
+      unavailable.code = "vehicle_unavailable";
+      throw unavailable;
+    }
+    if (
       response.status === 409 &&
       payload &&
       typeof payload === "object" &&
@@ -449,8 +487,11 @@ export async function confirmPaidBooking(
   checkoutId: string,
   booking?: BookingDetails | null,
 ): Promise<PaymentConfirmationResult> {
-  if (booking && !isValidPassengerCount(booking.passengers)) {
-    throw new Error(PASSENGER_LIMIT_ERROR);
+  if (booking && !isValidCapacityPassengerCount(booking.passengers)) {
+    throw new Error(PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR);
+  }
+  if (booking && !isValidCapacitySuitcaseCount(booking.suitcases)) {
+    throw new Error(PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR);
   }
 
   if (!PAYMENTS_CONFIRM_API_URL) {

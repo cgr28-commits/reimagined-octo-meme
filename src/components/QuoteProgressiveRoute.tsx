@@ -16,10 +16,6 @@ import {
   AIRPORT_PICKUP_WAITING_COPY,
   NON_AIRPORT_WAITING_COPY,
 } from "@/lib/journey-inclusions";
-import {
-  formatPassengerChoice,
-  formatSuitcaseChoice,
-} from "@/lib/vehicle-selection";
 import type { QuickSelectAirportCode } from "@/lib/selected-place";
 import {
   choiceGroupNeedsClass,
@@ -27,6 +23,8 @@ import {
   QUOTE_CHOICE_ON,
 } from "@/lib/quote-ui-highlight";
 import { detectMobileDevice } from "@/lib/device";
+import PublicPartySelectors from "@/components/PublicPartySelectors";
+import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
@@ -36,79 +34,6 @@ const SELECT_CARD =
   "flex min-h-[4.25rem] flex-col items-start justify-center rounded-2xl border px-3.5 py-2.5 text-left transition-all sm:min-h-[4.5rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
 const AIRPORT_SELECT_CARD =
   "flex min-h-14 items-center rounded-2xl border px-3.5 py-2 text-left transition-all sm:min-h-[4.25rem] sm:px-4 sm:py-3 lg:min-h-[3.75rem] lg:px-3.5 lg:py-2.5";
-
-function choiceGridShellClass(hasError: boolean): string {
-  if (hasError) {
-    return "rounded-2xl border border-red-400/70 bg-red-500/[0.08] p-2 ring-1 ring-red-400/35";
-  }
-  return "rounded-2xl border border-white/14 bg-white/[0.03] p-2";
-}
-
-function ChoiceGrid({
-  label,
-  hint,
-  options,
-  value,
-  onChange,
-  formatOption,
-  columns,
-  needsCompletion = false,
-  hasError = false,
-}: {
-  label: string;
-  hint?: string;
-  options: number[];
-  value: number | null;
-  onChange: (value: number) => void;
-  formatOption?: (value: number) => string;
-  columns?: number;
-  needsCompletion?: boolean;
-  hasError?: boolean;
-}) {
-  const cols = columns ?? options.length;
-  return (
-    <div className={choiceGridShellClass(hasError)}>
-      <div className="mb-2">
-        <p className="form-label mb-0">
-          {label}
-          {needsCompletion && value == null ? (
-            <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald/80">
-              (required)
-            </span>
-          ) : null}
-        </p>
-        {hint ? (
-          <p className="mt-1 text-[11px] font-medium leading-snug text-white/70">
-            {hint}
-          </p>
-        ) : null}
-      </div>
-      <div
-        className="grid gap-2"
-        style={{ gridTemplateColumns: `repeat(${Math.min(cols, options.length)}, minmax(0, 1fr))` }}
-        role="group"
-        aria-label={label}
-      >
-        {options.map((option) => {
-          const selected = value !== null && value === option;
-          return (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => onChange(option)}
-              className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
-                selected ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
-              }`}
-            >
-              {formatOption ? formatOption(option) : String(option)}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export type QuoteProgressiveRouteProps = {
   journeyIntent: QuoteJourneyIntent | null;
@@ -141,6 +66,8 @@ export type QuoteProgressiveRouteProps = {
   onSuitcasesChange: (value: number) => void;
   passengersError?: string;
   suitcasesError?: string;
+  /** Server-authoritative Offer 7 Seater Minibus Online. Fail-closed default is OFF. */
+  publicMinibusEnabled?: boolean;
   isGroupQuote: boolean;
   showRouteFields: boolean;
   /** Addresses complete — show One Way / Return (not passengers yet). */
@@ -193,6 +120,7 @@ export default function QuoteProgressiveRoute({
   onSuitcasesChange,
   passengersError = "",
   suitcasesError = "",
+  publicMinibusEnabled = false,
   isGroupQuote: _isGroupQuote,
   showRouteFields,
   showJourneyModeFields,
@@ -216,8 +144,7 @@ export default function QuoteProgressiveRoute({
   // deliberate target fires per user action.
 
   function handlePassengersChange(value: number) {
-    const next = Math.min(4, Math.max(1, value));
-    onPassengersChange(next);
+    onPassengersChange(value);
     onExactPassengersChange(null);
   }
 
@@ -507,46 +434,18 @@ export default function QuoteProgressiveRoute({
           id="passenger-luggage-section"
           className="scroll-mt-44 space-y-5 lg:space-y-4 md:scroll-mt-28"
         >
-          <div className="grid gap-5 lg:grid-cols-2 lg:items-start lg:gap-3.5">
-            <div id="quote-section-passengers" className="space-y-5 lg:space-y-3.5">
-              <ChoiceGrid
-                label="Passengers"
-                hint="Include all children in the passenger total."
-                options={[1, 2, 3, 4]}
-                value={passengers == null ? null : Math.min(4, Math.max(1, passengers))}
-                onChange={handlePassengersChange}
-                formatOption={formatPassengerChoice}
-                needsCompletion={passengers == null}
-                hasError={Boolean(passengersError)}
-              />
-              {passengersError ? (
-                <p id="quote-passengers-error" role="alert" data-field-error className="text-xs text-red-300">
-                  {passengersError}
-                </p>
-              ) : (
-                <p className="quote-secondary text-xs">
-                  Private airport transfer for 1–4 passengers.
-                </p>
-              )}
-            </div>
-
-            <div id="quote-section-suitcases" className="space-y-5 lg:space-y-3.5">
-              <ChoiceGrid
-                label="Suitcases / large bags"
-                options={[0, 1, 2, 3, 4]}
-                value={suitcases == null ? null : Math.min(4, Math.max(0, suitcases))}
-                onChange={onSuitcasesChange}
-                formatOption={formatSuitcaseChoice}
-                needsCompletion={suitcases == null}
-                hasError={Boolean(suitcasesError)}
-              />
-              {suitcasesError ? (
-                <p id="quote-suitcases-error" role="alert" data-field-error className="text-xs text-red-300">
-                  {suitcasesError}
-                </p>
-              ) : null}
-            </div>
-          </div>
+          <PublicPartySelectors
+            publicMinibusEnabled={publicMinibusEnabled === true}
+            passengers={passengers}
+            suitcases={suitcases}
+            onPassengersChange={handlePassengersChange}
+            onSuitcasesChange={onSuitcasesChange}
+            passengersError={passengersError}
+            suitcasesError={suitcasesError}
+          />
+          {publicMinibusEnabled === true && passengers != null && suitcases != null ? (
+            <QuoteVehicleCategories passengers={passengers} suitcases={suitcases} />
+          ) : null}
 
           {(passengers == null || suitcases == null) && !passengersError && !suitcasesError && (
             <p

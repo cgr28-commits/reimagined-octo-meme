@@ -62,6 +62,7 @@ function BookQuoteInner() {
     amountLabel?: string;
     underMinimumNotice?: boolean;
     noticeHours?: number;
+    luggageCapacity?: boolean;
   } | null>(null);
 
   const [customerName, setCustomerName] = useState("");
@@ -311,6 +312,7 @@ function BookQuoteInner() {
             checkout.minimumBookingNoticeHours ??
             checkout.minimumNoticeHours ??
             minimumBookingNoticeHours,
+          luggageCapacity: checkout.luggageCapacity === true,
         });
         setPaying(false);
         return;
@@ -352,6 +354,7 @@ function BookQuoteInner() {
           whatsappUrl={shortNoticeResult.whatsappUrl}
           underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
           noticeHours={shortNoticeResult.noticeHours ?? minimumBookingNoticeHours}
+          luggageCapacity={shortNoticeResult.luggageCapacity === true}
         />
       </div>
     );

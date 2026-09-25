@@ -51,10 +51,12 @@ check("City of Derry quick-select does not use Dublin toll logic", () => {
 });
 
 check("Passenger and luggage use selectable buttons", () => {
-  assert.match(progressive, /Passengers/);
-  assert.match(progressive, /Include all children in the passenger total\./);
+  const selectors = read("src/components/PublicPartySelectors.tsx");
+  assert.match(progressive, /PublicPartySelectors/);
+  assert.match(selectors, /Passengers/);
+  assert.match(selectors, /Include all children in the passenger total\./);
   assert.match(card, /Include all children in the passenger total\./);
-  assert.match(progressive, /Suitcases \/ large bags/);
+  assert.match(selectors, /Suitcases \/ large bags/);
   assert.doesNotMatch(progressive, /Child seats/);
   assert.match(progressive, /One way/);
   assert.match(progressive, /Return/);
@@ -68,15 +70,15 @@ check("Public quote tool has no child/car seat question on the fare step", () =>
   assert.match(card, /childSeatNotes/);
 });
 
-check("Public quote is 1–4 passengers only (no 5–7 / minibus path)", () => {
-  assert.match(progressive, /options=\{\[1, 2, 3, 4\]\}/);
-  assert.match(progressive, /Private airport transfer for 1–4 passengers/);
+check("Public quote passenger options follow Minibus ON/OFF (safe default 1–4)", () => {
+  assert.match(progressive, /PublicPartySelectors/);
+  const selectors = read("src/components/PublicPartySelectors.tsx");
+  assert.match(selectors, /publicPassengerCapacityCopy/);
   assert.doesNotMatch(progressive, /Travelling with 5–7 passengers\?/);
   assert.doesNotMatch(progressive, /FIVE_PLUS_PASSENGERS/);
-  assert.doesNotMatch(progressive, /options=\{\[5, 6, 7\]\}/);
   assert.doesNotMatch(progressive, /Minibus — 5–7/);
   assert.match(data, /MAX_ONLINE_PASSENGERS = 4/);
-  assert.match(card, /PASSENGER_LIMIT_ERROR/);
+  assert.match(card, /PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE/);
   assert.match(card, /canPayNowOnline/);
   assert.doesNotMatch(progressive, /10\+|up to 8|5 or more passengers/);
 });
@@ -115,8 +117,9 @@ check("Step 2 travel details section scrolls only after explicit step navigation
 });
 
 check("Progressive quote scrolls owned by QuoteCard; progressive exposes targets only", () => {
-  assert.match(progressive, /quote-section-passengers/);
-  assert.match(progressive, /quote-section-suitcases/);
+  const selectors = read("src/components/PublicPartySelectors.tsx");
+  assert.match(selectors, /quote-section-passengers/);
+  assert.match(selectors, /quote-section-suitcases/);
   assert.match(progressive, /id="journey-type-selector"/);
   assert.match(progressive, /id="passenger-luggage-section"/);
   assert.doesNotMatch(progressive, /scheduleBookingNavAfterRender/);
@@ -157,9 +160,10 @@ check("Journey mode, passengers and suitcases start unselected; results scroll o
   assert.doesNotMatch(progressive, /aria-pressed=\{!returnJourney\}/);
 });
 
-check("Suitcase selector is 0–4 only (no 5+ public option)", () => {
-  assert.match(progressive, /formatSuitcaseChoice/);
-  assert.match(progressive, /options=\{\[0, 1, 2, 3, 4\]\}/);
+check("Suitcase selector follows public Minibus ON/OFF (safe default 0–4)", () => {
+  const selectors = read("src/components/PublicPartySelectors.tsx");
+  assert.match(selectors, /formatSuitcaseChoice/);
+  assert.match(selectors, /publicSuitcaseOptions/);
   assert.doesNotMatch(progressive, /FIVE_PLUS_SUITCASES/);
   assert.doesNotMatch(progressive, /label="Exact large bags/);
   assert.doesNotMatch(progressive, /quote-section-exact-suitcases/);

@@ -8,7 +8,7 @@
     "vehicles": "Saloon 1–4 pax AND 0–2 large cases; Estate 1–4 pax AND 3–4 cases (+£6 vs Saloon); Minibus 5–7 (builds from Estate × multiplier).",
     "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 × oneWay journey fare). Airport fixed costs and Express are added after and are never discounted.",
     "airportFixedCosts": "Per-leg: BFS/BHD £0 on address↔airport; DUB drop £4 M1 / pick £5 parking +£4 M1; LDY drop £1 / pick £2.50. Express Drop-Off is a separate optional add-on (BFS £5 / BHD £4).",
-    "rounding": "Universal journey: Saloon rounded to nearest £1; Estate = that Saloon + £6 (not re-rounded). Website, email, booking and payment use the same journey amount."
+    "rounding": "Universal journey: Saloon rounded to nearest £1; Estate = that Saloon + £6 (not re-rounded). 7 Seater Minibus = Estate × multiplier, rounded to the nearest penny only (not nearest £5). Website, email, booking and payment use the same journey amount."
   },
   "pricingRulesApproved": true,
   "publicUnapprovedPriceLabel": "Price confirmation required",

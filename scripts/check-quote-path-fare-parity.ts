@@ -141,6 +141,7 @@ function compareThree(options: {
     routeMetrics: metrics,
     vehicleType: vehicle,
     maxPassengers: passengers > 4 ? 7 : undefined,
+    ownerMode: vehicle === MINIBUS_VEHICLE || passengers > 4,
   });
 
   const pickupPlace = options.fromAirport
@@ -190,6 +191,7 @@ function compareThree(options: {
     routeMetrics: null,
     vehicleType: vehicle,
     maxPassengers: passengers > 4 ? 7 : undefined,
+    ownerMode: vehicle === MINIBUS_VEHICLE || passengers > 4,
   });
   assert.equal(without.ok, false, `${options.label}: missing metrics must not silently price`);
   if (!without.ok) {

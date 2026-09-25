@@ -5,8 +5,16 @@ import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import {
   ESTATE_VEHICLE,
+  MINIBUS_VEHICLE,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
+import { MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
+import {
+  formatPublicSuitcaseChoice,
+  isFivePlusLuggage,
+  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
+  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
+} from "../../shared/vehicle-capacity";
 
 type QuoteResultShowcaseProps = {
   vehicleType: string;
@@ -18,6 +26,8 @@ type QuoteResultShowcaseProps = {
   bookButton: ReactNode;
   /** Shown only when the first displayed price already includes the 10%. */
   surchargeNote?: string | null;
+  /** High passenger + luggage load — fare shown, payment held. */
+  capacityConfirmation?: boolean;
 };
 
 // Presentational only: image follows the vehicle type already chosen for
@@ -25,6 +35,7 @@ type QuoteResultShowcaseProps = {
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
+const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 export default function QuoteResultShowcase({
   vehicleType,
@@ -35,13 +46,20 @@ export default function QuoteResultShowcase({
   airportAccess,
   bookButton,
   surchargeNote = null,
+  capacityConfirmation = false,
 }: QuoteResultShowcaseProps) {
   const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
+  const isMinibus =
+    vehicleType === MINIBUS_VEHICLE || vehicleShortLabel(vehicleType) === MINIBUS_CUSTOMER_NAME;
   const vehicleLabel = vehicleShortLabel(vehicleType);
+  const vehicleImage = isMinibus ? MINIBUS_IMAGE : isEstate ? ESTATE_IMAGE : SALOON_IMAGE;
   const estateDueToLuggage = isEstate && suitcases >= 3;
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
-  const suitcaseLabel =
-    suitcases === 1 ? "1 large suitcase" : `${suitcases} large suitcases`;
+  const suitcaseLabel = isFivePlusLuggage(suitcases)
+    ? "5+ large bags"
+    : suitcases === 1
+      ? "1 large suitcase"
+      : `${formatPublicSuitcaseChoice(suitcases)} large suitcases`;
 
   return (
     <div
@@ -56,11 +74,13 @@ export default function QuoteResultShowcase({
           <p className="sr-only">Vehicle for this journey</p>
           <div className="-mx-3 mt-1 w-[calc(100%+1.5rem)] max-w-none sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full lg:max-w-[460px]">
             <Image
-              src={isEstate ? ESTATE_IMAGE : SALOON_IMAGE}
+              src={vehicleImage}
               alt={
-                isEstate
-                  ? "Estate airport transfer vehicle"
-                  : "Saloon airport transfer vehicle"
+                isMinibus
+                  ? "7 Seater Minibus airport transfer vehicle"
+                  : isEstate
+                    ? "Estate airport transfer vehicle"
+                    : "Saloon airport transfer vehicle"
               }
               width={1400}
               height={700}
@@ -100,6 +120,19 @@ export default function QuoteResultShowcase({
             </p>
           ) : null}
           <p className="mt-2 text-sm font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
+          {capacityConfirmation ? (
+            <div
+              className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left"
+              data-luggage-capacity-confirmation
+            >
+              <p className="text-sm font-semibold text-navy">
+                {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-navy/75">
+                {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
+              </p>
+            </div>
+          ) : null}
           {airportAccess ? (
             <div className="mt-3 text-left" data-quote-result-airport-access>
               {airportAccess}
@@ -113,8 +146,10 @@ export default function QuoteResultShowcase({
 
           <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-medium leading-snug text-navy/85">
             <Benefit icon="card">
-              Secure payment
-              <span className="block font-normal text-navy/55">powered by SumUp</span>
+              {capacityConfirmation ? "We'll confirm first" : "Secure payment"}
+              <span className="block font-normal text-navy/55">
+                {capacityConfirmation ? "no payment taken yet" : "powered by SumUp"}
+              </span>
             </Benefit>
             <Benefit icon="plane">
               Flight monitoring
