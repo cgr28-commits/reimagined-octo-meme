@@ -712,6 +712,23 @@ main {
   color: #ffffff;
 }
 
+@media (max-width: 767px) {
+  .hero-benefits-row .hero-benefit-waiting {
+    padding-left: 0.22rem;
+    padding-right: 0.08rem;
+  }
+
+  .hero-benefit-label-waiting {
+    font-size: 0.72rem;
+    line-height: 1.22;
+    letter-spacing: -0.035em;
+  }
+
+  .hero-benefit-label-waiting .hero-benefit-line-2 {
+    white-space: nowrap;
+  }
+}
+
 .cookie-consent-banner {
   padding: 1rem;
 }

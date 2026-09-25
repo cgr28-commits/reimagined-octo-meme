@@ -53,6 +53,9 @@ assert.match(benefits, /fillRule="evenodd"/);
 assert.match(benefits, /<circle cx="12" cy="8"/);
 assert.match(benefits, /fill="#ffffff"/);
 assert.match(benefits, /hero-benefit-label/);
+assert.match(benefits, /hero-benefit-label-waiting/);
+assert.match(benefits, /hero-benefit-waiting/);
+assert.match(benefits, /mt-2\.5 mb-\[18px\]/);
 assert.match(benefits, /grid-cols-4/);
 assert.match(benefits, /text-\[0\.8rem\]/);
 assert.match(benefits, /leading-\[1\.28\]/);
@@ -68,6 +71,8 @@ assert.match(css, /fill: #ffffff/);
 assert.match(css, /\.hero-benefit-divider::before/);
 assert.match(css, /\.hero-benefit-pound \{/);
 assert.match(css, /\.hero-benefit-label \{/);
+assert.match(css, /\.hero-benefit-label-waiting \{/);
+assert.match(css, /\.hero-benefit-label-waiting \.hero-benefit-line-2 \{[\s\S]*white-space: nowrap/);
 assert.doesNotMatch(benefits, /<span className="hero-benefit-pound"/);
 for (const width of [375, 390, 430]) {
   const column = width / 4;

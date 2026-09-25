@@ -46,29 +46,36 @@ const BENEFITS = [
 export default function HeroBenefitsRow() {
   return (
     <ul
-      className="hero-benefits-row mb-2 grid grid-cols-4 md:mb-5"
+      className="hero-benefits-row mt-2.5 mb-[18px] grid grid-cols-4 md:mt-0 md:mb-5"
       aria-label="Why book with My Airport Taxi NI"
     >
-      {BENEFITS.map((benefit, index) => (
-        <li
-          key={benefit.label}
-          className={`flex min-w-0 flex-col items-center px-0.5 text-center sm:px-1 ${
-            index > 0 ? "hero-benefit-divider" : ""
-          }`}
-        >
-          <span className="hero-benefit-icon" aria-hidden>
-            {benefit.icon}
-          </span>
-          <span className="hero-benefit-label mt-1 min-h-[2.1rem] text-[0.8rem] font-semibold leading-[1.28] tracking-tight text-white md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:leading-tight md:tracking-normal">
-            <span className="md:hidden">
-              {benefit.lines[0]}
-              <br />
-              {benefit.lines[1]}
+      {BENEFITS.map((benefit, index) => {
+        const waiting = benefit.label === "Airport waiting included";
+        return (
+          <li
+            key={benefit.label}
+            className={`flex min-w-0 flex-col items-center px-0.5 text-center sm:px-1 ${
+              index > 0 ? "hero-benefit-divider" : ""
+            }${waiting ? " hero-benefit-waiting" : ""}`}
+          >
+            <span className="hero-benefit-icon" aria-hidden>
+              {benefit.icon}
             </span>
-            <span className="hidden md:inline">{benefit.label}</span>
-          </span>
-        </li>
-      ))}
+            <span
+              className={`hero-benefit-label mt-1 min-h-[2.1rem] text-[0.8rem] font-semibold leading-[1.28] tracking-tight text-white md:mt-1.5 md:min-h-0 md:text-[0.85rem] md:leading-tight md:tracking-normal${
+                waiting ? " hero-benefit-label-waiting" : ""
+              }`}
+            >
+              <span className="md:hidden">
+                {benefit.lines[0]}
+                <br />
+                <span className="hero-benefit-line-2">{benefit.lines[1]}</span>
+              </span>
+              <span className="hidden md:inline">{benefit.label}</span>
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
