@@ -1112,6 +1112,7 @@ export function evaluateSmartAvailability(input: {
         legacyPeriods: input.legacyPeriods,
         config: input.config,
         now: input.now,
+        requestedReason: reason,
       })
     : { alternatives: [] as SmartAlternativeTime[], skippedCrossDate: false };
 
@@ -1201,6 +1202,8 @@ export function suggestAlternativeTimes(input: {
   legacyPeriods?: UnavailablePeriod[];
   config: SmartOpsConfig;
   now?: Date;
+  /** When set, skip a second evaluation of the requested time. */
+  requestedReason?: SmartOpsReasonCode | null;
 }): { alternatives: SmartAlternativeTime[]; skippedCrossDate: boolean } {
   const maxShift = input.config.alternatives.maxShiftMinutes;
   const allowAcrossMidnight = input.config.alternatives.allowAcrossMidnight;
@@ -1249,21 +1252,11 @@ export function suggestAlternativeTimes(input: {
     }
   }
 
-  // Nearby ±maxShift is for “around this time”. A long job (e.g. Dublin) can
+  // Nearby ±maxShift is for "around this time". A long job (e.g. Dublin) can
   // occupy well past that window without closing the rest of the operating day.
   // Only continue later-same-day when the requested time lost to a booking —
   // owner rest-of-day / Request Only / unavailable blocks stay nearby-only.
-  const requestedDecision = evaluateSmartAvailability({
-    requested: input.requested,
-    occupied: input.occupied,
-    rules: input.rules,
-    exceptions: input.exceptions,
-    legacyPeriods: input.legacyPeriods,
-    config: input.config,
-    searchAlternatives: false,
-    now: input.now,
-  });
-  if (isBookingOccupancyReason(requestedDecision.reason)) {
+  if (isBookingOccupancyReason(input.requestedReason)) {
     let laterFound = found.filter((item) => item.deltaMinutes > 0).length;
     for (
       let minutes = REST_OF_DAY_STEP_MINUTES;
