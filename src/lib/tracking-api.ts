@@ -267,6 +267,10 @@ export type DriverJob = PublicTrackResponse & {
   dublinArrivalTerminal?: "T1" | "T2" | null;
   journeyLeg?: "outbound" | "return" | null;
   flight?: DriverFlight | null;
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  cashBalanceDue?: number;
+  cashCollected?: boolean;
+  cashCollectedAt?: string;
 };
 
 export type DriverJobsResponse = {

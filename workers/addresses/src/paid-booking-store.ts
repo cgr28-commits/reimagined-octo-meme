@@ -712,6 +712,9 @@ export type PaidBookingUpdateFields = Partial<
     | "journeyDistance"
     | "journeyDuration"
     | "paymentStatus"
+    | "cashCollected"
+    | "cashCollectedAt"
+    | "cashCollectedBy"
   >
 >;
 

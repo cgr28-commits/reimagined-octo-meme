@@ -511,4 +511,4 @@ export function applyProcessorAuthoritativeRefund(input: {
 }
 
 /** Cancellation policy version stored on bookings for audit (paired with TERMS_LAST_UPDATED). Not shown to customers at checkout. */
-export const CANCELLATION_POLICY_VERSION = "September 2026 v1";
+export const CANCELLATION_POLICY_VERSION = "September 2026 v2";

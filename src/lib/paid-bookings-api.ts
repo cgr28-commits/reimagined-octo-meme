@@ -107,6 +107,12 @@ export type OwnerPaidBookingSummary = Pick<
   isRefundTest?: boolean;
   /** Same-fare amendment fixture — never show in operational lists. */
   isAmendmentTestFixture?: boolean;
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  totalFare?: number;
+  onlineAmountPaid?: number;
+  cashBalanceDue?: number;
+  cashCollected?: boolean;
+  cashCollectedAt?: string;
   returnOffer?: {
     eligible: boolean;
     reason?: string;
@@ -741,4 +747,47 @@ export async function fetchOwnerFinancialSummary(
     throw new Error(String(payload.error ?? "Failed to load financial summary"));
   }
   return payload as unknown as OwnerFinancialSummaryResponse;
+}
+
+export async function markPaidBookingCashCollected(
+  access: { ownerKey?: string; driverKey?: string },
+  paymentReference: string,
+  collected = true,
+): Promise<{
+  ok: true;
+  paymentReference: string;
+  cashCollected: boolean;
+  cashCollectedAt?: string;
+  cashBalanceDue?: number;
+}> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (access.ownerKey?.trim()) {
+    headers["X-Owner-Key"] = access.ownerKey.trim();
+  } else if (access.driverKey?.trim()) {
+    headers["X-Driver-Key"] = access.driverKey.trim();
+  } else {
+    throw new Error("Owner or driver access is required");
+  }
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/cash-collected`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      paymentReference: paymentReference.trim(),
+      collected,
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error ?? "Could not update cash collected"));
+  }
+  return payload as {
+    ok: true;
+    paymentReference: string;
+    cashCollected: boolean;
+    cashCollectedAt?: string;
+    cashBalanceDue?: number;
+  };
 }

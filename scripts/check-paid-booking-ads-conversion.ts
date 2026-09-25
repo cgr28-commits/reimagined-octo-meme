@@ -193,7 +193,8 @@ async function main() {
   assert.match(helper, /days:\s*30/);
   assert.match(helper, /limit:\s*50/);
   assert.match(helper, /conversionTime:\s*createdAt/);
-  assert.match(helper, /record\.originalAmount/);
+  assert.match(helper, /record\.totalFare/);
+  assert.match(helper, /record\.amount/);
   assert.match(helper, /record\.isRefundTest \|\| record\.isAmendmentTestFixture/);
   const workerIndex = read("workers/addresses/src/index.ts");
   assert.match(workerIndex, /retryRecentPaidBookingAdsConversions\(env\)/);

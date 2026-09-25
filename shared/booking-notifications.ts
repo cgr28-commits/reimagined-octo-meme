@@ -48,6 +48,11 @@ import {
   isCompanyVoiceAirportPickup,
   type CompanyVoiceAirportAccessOption,
 } from "./company-voice-journey";
+import {
+  cashDueOnTheDayCopy,
+  isDepositCashPaymentMethod,
+} from "./deposit-cash";
+import { formatGbpAmount } from "./gbp";
 
 export type PaidBookingDetails = {
   customerName: string;
@@ -140,6 +145,10 @@ export type PaidBookingReceipt = PaidBookingDetails & {
   customerReference?: string;
   transactionCode?: string;
   checkoutReference?: string;
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  totalFare?: number;
+  onlineAmountPaid?: number;
+  cashBalanceDue?: number;
 };
 
 export type CustomerPaidBookingEmail = {
@@ -147,6 +156,34 @@ export type CustomerPaidBookingEmail = {
   text: string;
   html: string;
 };
+
+function depositCashReceiptDetails(details: PaidBookingReceipt): {
+  totalFareLabel: string;
+  depositPaidLabel: string;
+  cashDueLabel: string;
+  cashDueGbp: number;
+} | null {
+  if (!isDepositCashPaymentMethod(details.paymentMethod)) return null;
+  const totalFare =
+    typeof details.totalFare === "number" && details.totalFare > 0
+      ? details.totalFare
+      : null;
+  const cashDue =
+    typeof details.cashBalanceDue === "number" && details.cashBalanceDue > 0
+      ? details.cashBalanceDue
+      : null;
+  const depositPaid =
+    typeof details.onlineAmountPaid === "number" && details.onlineAmountPaid > 0
+      ? details.onlineAmountPaid
+      : null;
+  if (totalFare == null || cashDue == null || depositPaid == null) return null;
+  return {
+    totalFareLabel: formatGbpAmount(totalFare),
+    depositPaidLabel: formatGbpAmount(depositPaid),
+    cashDueLabel: formatGbpAmount(cashDue),
+    cashDueGbp: cashDue,
+  };
+}
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const BUSINESS_EMAIL = BUSINESS_MAILBOX;
@@ -463,7 +500,11 @@ function buildInvoiceHtml(
           </tr>
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">Your card payment has been received and your airport transfer with <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong> is confirmed. Please keep this invoice for your records.</p>
+              <p style="margin:0 0 16px;">${
+                depositCashReceiptDetails(details)
+                  ? `We've received your deposit and your airport transfer with <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong> is confirmed. The remaining balance is payable in cash to your driver on the day.`
+                  : `Your card payment has been received and your airport transfer with <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong> is confirmed. Please keep this invoice for your records.`
+              }</p>
               ${
                 customerRef
                   ? `<p style="margin:0 0 16px;font-size:15px;"><strong style="color:${NAVY};">Booking reference:</strong> ${escapeHtml(customerRef)}</p>`
@@ -477,10 +518,23 @@ function buildInvoiceHtml(
                 <tr>
                   <td style="padding:20px 24px;">
                     <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin-bottom:12px;">Payment summary</div>
-                    <div style="font-size:28px;font-weight:bold;color:${NAVY};line-height:1.2;margin-bottom:12px;">${escapeHtml(details.amountPaid)}</div>
-                    <div style="display:inline-block;background:${ACCENT};color:${NAVY};font-size:12px;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;margin-bottom:12px;">Paid in full</div>
+                    <div style="font-size:28px;font-weight:bold;color:${NAVY};line-height:1.2;margin-bottom:12px;">${escapeHtml(
+                      depositCashReceiptDetails(details)?.totalFareLabel || details.amountPaid,
+                    )}</div>
+                    <div style="display:inline-block;background:${ACCENT};color:${NAVY};font-size:12px;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;margin-bottom:12px;">${
+                      depositCashReceiptDetails(details) ? "Deposit paid" : "Paid in full"
+                    }</div>
                     <div style="font-size:14px;line-height:1.8;color:#475569;">
                       ${(() => {
+                        const deposit = depositCashReceiptDetails(details);
+                        if (deposit) {
+                          return (
+                            `<strong>Booking total:</strong> ${escapeHtml(deposit.totalFareLabel)}<br />` +
+                            `<strong>Deposit paid:</strong> ${escapeHtml(deposit.depositPaidLabel)}<br />` +
+                            `<strong>Cash due on the day:</strong> ${escapeHtml(deposit.cashDueLabel)}<br />` +
+                            `<strong style="color:${NAVY};">${escapeHtml(cashDueOnTheDayCopy(deposit.cashDueGbp))}</strong><br />`
+                          );
+                        }
                         const promoRows = formatCustomerPromoPricingHtmlRows(
                           details,
                           details.amountPaid,
@@ -496,8 +550,16 @@ function buildInvoiceHtml(
                         return "";
                       })()}
                       ${customerRef ? `<strong>Booking reference:</strong> ${escapeHtml(customerRef)}<br />` : ""}
-                      <strong>Payment method:</strong> Card (SumUp)<br />
-                      <strong>Status:</strong> Paid &amp; confirmed
+                      <strong>Payment method:</strong> ${
+                        depositCashReceiptDetails(details)
+                          ? "Deposit by card (SumUp) + cash on the day"
+                          : "Card (SumUp)"
+                      }<br />
+                      <strong>Status:</strong> ${
+                        depositCashReceiptDetails(details)
+                          ? "Booking confirmed — cash balance due"
+                          : "Paid &amp; confirmed"
+                      }
                     </div>
                   </td>
                 </tr>
@@ -610,7 +672,11 @@ export function buildCustomerConfirmationEmail(
 
   const text =
     `Dear ${details.customerName},\n\n` +
-    `Thank you for your booking with ${businessName}. Your card payment has been received and your transfer is confirmed.\n\n` +
+    `Thank you for your booking with ${businessName}. ${
+      depositCashReceiptDetails(details)
+        ? "We've received your deposit and your transfer is confirmed. The remaining balance is payable in cash to your driver on the day."
+        : "Your card payment has been received and your transfer is confirmed."
+    }\n\n` +
     (customerRef ? `Booking reference: ${customerRef}\n\n` : "") +
     `${BUSINESS_WEBSITE}\n` +
     `Phone: ${BUSINESS_PHONE_DISPLAY}\n` +
@@ -662,6 +728,15 @@ export function buildCustomerConfirmationEmail(
     `PAYMENT / INVOICE\n` +
     `${"=".repeat(40)}\n` +
     (() => {
+      const deposit = depositCashReceiptDetails(details);
+      if (deposit) {
+        return (
+          `Booking total: ${deposit.totalFareLabel}\n` +
+          `Deposit paid: ${deposit.depositPaidLabel}\n` +
+          `Cash due on the day: ${deposit.cashDueLabel}\n` +
+          `${cashDueOnTheDayCopy(deposit.cashDueGbp)}\n`
+        );
+      }
       const promoLines = formatCustomerPromoPricingLines(details, details.amountPaid);
       if (promoLines.length > 1) {
         return `${promoLines.join("\n")}\n`;
@@ -669,8 +744,16 @@ export function buildCustomerConfirmationEmail(
       return `Amount paid: ${details.amountPaid}\n`;
     })() +
     (customerRef ? `Booking reference: ${customerRef}\n` : "") +
-    `Payment method: Card (SumUp)\n` +
-    `Status: Paid & confirmed\n` +
+    `Payment method: ${
+      depositCashReceiptDetails(details)
+        ? "Deposit by card (SumUp) + cash on the day"
+        : "Card (SumUp)"
+    }\n` +
+    `Status: ${
+      depositCashReceiptDetails(details)
+        ? "Booking confirmed — cash balance due"
+        : "Paid & confirmed"
+    }\n` +
     (manageUrl
       ? `\nMANAGE YOUR BOOKING\n${"=".repeat(40)}\n` +
         `Need to change pickup, destination, date, time, or passenger details?\n` +
@@ -696,7 +779,10 @@ export function buildOwnerPaidBookingEmail(
 ): { subject: string; body: string } {
   // Customer website track links are retired; ignore any trackUrl for owner alerts too.
   void options?.trackUrl;
-  const subject = `Paid booking — ${details.customerName} — ${details.amountPaid}`;
+  const deposit = depositCashReceiptDetails(details);
+  const subject = deposit
+    ? `Paid booking — CASH DUE ${deposit.cashDueLabel} — ${details.customerName}`
+    : `Paid booking — ${details.customerName} — ${details.amountPaid}`;
 
   const body =
     `New paid booking via ${businessName} website.\n\n` +
@@ -741,14 +827,21 @@ export function buildOwnerPaidBookingEmail(
     `\n` +
     `PAYMENT\n` +
     `${"=".repeat(40)}\n` +
-    `Amount paid: ${details.amountPaid}\n` +
+    (deposit
+      ? `Payment method: DEPOSIT + CASH\n` +
+        `Booking total: ${deposit.totalFareLabel}\n` +
+        `Deposit paid: ${deposit.depositPaidLabel}\n` +
+        `CASH DUE: ${deposit.cashDueLabel}\n`
+      : `Amount paid: ${details.amountPaid}\n`) +
     (details.customerReference
       ? `Customer booking reference: ${details.customerReference.trim().toUpperCase()}\n`
       : "") +
     `Payment reference: ${details.paymentReference}\n` +
     (details.transactionCode ? `Transaction code: ${details.transactionCode}\n` : "") +
     (details.checkoutReference ? `Checkout reference: ${details.checkoutReference}\n` : "") +
-    `Status: PAID (verified via SumUp)` +
+    `Status: ${
+      deposit ? "DEPOSIT PAID (verified via SumUp) — CASH DUE ON THE DAY" : "PAID (verified via SumUp)"
+    }` +
     (details.termsAcceptedAt
       ? `\nTerms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}`
       : "") +

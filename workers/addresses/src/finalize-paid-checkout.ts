@@ -42,6 +42,11 @@ import { hashReturnOfferToken } from "../shared/return-offer";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
 import { maybeUploadPaidBookingAdsConversion } from "./paid-booking-ads-conversion";
+import {
+  PAYMENT_METHOD_DEPOSIT_CASH,
+  PAYMENT_METHOD_FULL_ONLINE,
+  paidBookingConversionValueGbp,
+} from "../shared/deposit-cash";
 import { markQuoteSessionBookedInStore, quoteSessionStoreConfigured } from "./quote-session-store";
 import { parseGbpAmount } from "../shared/quote-session";
 
@@ -123,6 +128,52 @@ function verifiedPurchase(input: {
   };
 }
 
+function depositSnapshotFromPending(pending: {
+  paymentMethod?: string;
+  totalFare?: number;
+  onlineAmountPaid?: number;
+  cashBalanceDue?: number;
+  depositPercentUsed?: number;
+  depositMinimumUsed?: number;
+  amount?: number;
+} | null): {
+  paymentMethod: "FULL_ONLINE" | "DEPOSIT_CASH";
+  totalFare: number;
+  onlineAmountPaid: number;
+  cashBalanceDue: number;
+  depositPercentUsed?: number;
+  depositMinimumUsed?: number;
+} | null {
+  if (!pending) return null;
+  const charged = Number(pending.onlineAmountPaid ?? pending.amount);
+  if (pending.paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH) {
+    const totalFare = Number(pending.totalFare);
+    const cashBalanceDue = Number(pending.cashBalanceDue);
+    if (!(totalFare > 0) || !(charged > 0)) return null;
+    return {
+      paymentMethod: PAYMENT_METHOD_DEPOSIT_CASH,
+      totalFare,
+      onlineAmountPaid: charged,
+      cashBalanceDue: Number.isFinite(cashBalanceDue) ? cashBalanceDue : Math.max(0, totalFare - charged),
+      ...(typeof pending.depositPercentUsed === "number"
+        ? { depositPercentUsed: pending.depositPercentUsed }
+        : {}),
+      ...(typeof pending.depositMinimumUsed === "number"
+        ? { depositMinimumUsed: pending.depositMinimumUsed }
+        : {}),
+    };
+  }
+  if (pending.paymentMethod === PAYMENT_METHOD_FULL_ONLINE && Number(pending.totalFare) > 0) {
+    return {
+      paymentMethod: PAYMENT_METHOD_FULL_ONLINE,
+      totalFare: Number(pending.totalFare),
+      onlineAmountPaid: charged > 0 ? charged : Number(pending.totalFare),
+      cashBalanceDue: 0,
+    };
+  }
+  return null;
+}
+
 function ownerInbox(env: FinalizeEnv): string {
   return env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk";
 }
@@ -186,7 +237,7 @@ export async function finalizePaidCheckout(input: {
           await maybeUploadPaidBookingAdsConversion({
             env,
             paymentReference: existing.paymentReference,
-            amount: existing.amount,
+            amount: paidBookingConversionValueGbp(existing),
             currency: existing.currency,
             attribution: existing.attribution ?? booking.attribution,
           });
@@ -198,6 +249,14 @@ export async function finalizePaidCheckout(input: {
           amountPaid: existing.amountPaidLabel,
           paymentReference: existing.paymentReference,
           customerReference: existing.customerReference,
+          ...(existing.paymentMethod ? { paymentMethod: existing.paymentMethod } : {}),
+          ...(typeof existing.totalFare === "number" ? { totalFare: existing.totalFare } : {}),
+          ...(typeof existing.onlineAmountPaid === "number"
+            ? { onlineAmountPaid: existing.onlineAmountPaid }
+            : {}),
+          ...(typeof existing.cashBalanceDue === "number"
+            ? { cashBalanceDue: existing.cashBalanceDue }
+            : {}),
           emailSent: true,
           customerEmailSent: true,
           ownerEmailSent: true,
@@ -207,7 +266,7 @@ export async function finalizePaidCheckout(input: {
           purchase: verifiedPurchase({
             paymentReference: existing.paymentReference,
             customerReference: existing.customerReference,
-            amount: existing.amount,
+            amount: paidBookingConversionValueGbp(existing),
             currency: existing.currency,
           }),
         };
@@ -222,7 +281,10 @@ export async function finalizePaidCheckout(input: {
         await maybeUploadPaidBookingAdsConversion({
           env,
           paymentReference: pending.paymentReference,
-          amount: pending.amount,
+          amount: paidBookingConversionValueGbp({
+            totalFare: pending.totalFare,
+            amount: pending.amount,
+          }),
           currency: "GBP",
           attribution: pending.booking?.attribution ?? booking.attribution,
         });
@@ -241,7 +303,10 @@ export async function finalizePaidCheckout(input: {
         trackingCreated: false,
         purchase: verifiedPurchase({
           paymentReference: pending.paymentReference,
-          amount: pending.amount,
+          amount: paidBookingConversionValueGbp({
+            totalFare: pending.totalFare,
+            amount: pending.amount,
+          }),
           currency: "GBP",
         }),
       };
@@ -274,6 +339,9 @@ export async function finalizePaidCheckout(input: {
   const pendingForAudit = pendingCheckoutStoreConfigured(env.TRACKING_STORE)
     ? await getPendingCheckout(env.TRACKING_STORE, checkoutId)
     : null;
+  const depositSnapshot = depositSnapshotFromPending(pendingForAudit);
+  const confirmedFareGbp =
+    depositSnapshot?.totalFare ?? checkout.amount ?? 0;
   const isRefundTest = pendingForAudit?.isRefundTest === true;
   const isAmendmentTopUp = pendingForAudit?.checkoutKind === "amendment-topup";
 
@@ -363,6 +431,14 @@ export async function finalizePaidCheckout(input: {
     paymentReference,
     transactionCode,
     checkoutReference: checkout.checkout_reference,
+    ...(depositSnapshot
+      ? {
+          paymentMethod: depositSnapshot.paymentMethod,
+          totalFare: depositSnapshot.totalFare,
+          onlineAmountPaid: depositSnapshot.onlineAmountPaid,
+          cashBalanceDue: depositSnapshot.cashBalanceDue,
+        }
+      : {}),
   };
 
   // Create live tracking jobs/links for paid bookings (customer + journey evidence).
@@ -404,10 +480,20 @@ export async function finalizePaidCheckout(input: {
         checkoutId,
         transactionId,
         transactionCode,
-        amount: checkout.amount ?? 0,
+        amount: confirmedFareGbp,
         currency: checkout.currency ?? "GBP",
         amountPaidLabel: amountPaid,
         paymentReference,
+        ...(depositSnapshot
+          ? {
+              paymentMethod: depositSnapshot.paymentMethod,
+              totalFare: depositSnapshot.totalFare,
+              onlineAmountPaid: depositSnapshot.onlineAmountPaid,
+              cashBalanceDue: depositSnapshot.cashBalanceDue,
+              depositPercentUsed: depositSnapshot.depositPercentUsed,
+              depositMinimumUsed: depositSnapshot.depositMinimumUsed,
+            }
+          : {}),
         trackingToken: tracking.token,
         calendarEventIds: calendar.eventIds ?? [],
         calendarEventIdsByLeg: calendar.calendarEventIdsByLeg,
@@ -604,7 +690,7 @@ export async function finalizePaidCheckout(input: {
   await maybeUploadPaidBookingAdsConversion({
     env,
     paymentReference,
-    amount: checkout.amount ?? 0,
+    amount: confirmedFareGbp,
     currency: checkout.currency ?? "GBP",
     attribution: booking.attribution,
   });
@@ -627,9 +713,17 @@ export async function finalizePaidCheckout(input: {
     purchase: verifiedPurchase({
       paymentReference,
       customerReference,
-      amount: checkout.amount ?? 0,
+      amount: confirmedFareGbp,
       currency: checkout.currency,
     }),
+    ...(depositSnapshot
+      ? {
+          paymentMethod: depositSnapshot.paymentMethod,
+          totalFare: depositSnapshot.totalFare,
+          onlineAmountPaid: depositSnapshot.onlineAmountPaid,
+          cashBalanceDue: depositSnapshot.cashBalanceDue,
+        }
+      : {}),
   };
 }
 

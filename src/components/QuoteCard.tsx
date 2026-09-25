@@ -160,6 +160,27 @@ import {
 } from "../../shared/route-reconfirmation";
 import { calculateServerQuote } from "@/lib/quick-quote-api";
 import {
+  PAYMENT_METHOD_DEPOSIT_CASH,
+  PAYMENT_METHOD_FULL_ONLINE,
+  DEPOSIT_CASH_BADGE,
+  DEPOSIT_CASH_CHOOSE_HEADING,
+  DEPOSIT_CASH_OPTION_LABEL,
+  DEPOSIT_CASH_SELECTED_HEADING,
+  DEPOSIT_CASH_SUMMARY_HEADING,
+  FULL_ONLINE_OPTION_LABEL,
+  SECURE_SUMUP_LINE,
+  cashAgreementLabel,
+  cashSelectedBody,
+  cashToDriverOnTheDayLabel,
+  depositPayButtonLabel,
+  fullPayButtonLabel,
+  nothingToPayOnTheDayLabel,
+  publicDepositCashOffer,
+  todayPayLabel,
+  type DepositCashSettings,
+  type PaymentMethod,
+} from "../../shared/deposit-cash";
+import {
   serverFareAppliesToParty,
   type ServerFarePartyParts,
 } from "@/lib/quote-display-fare";
@@ -817,6 +838,9 @@ function QuoteCard({
     luggageCapacity?: boolean;
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
+  const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
   const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(true);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
@@ -1722,6 +1746,15 @@ function QuoteCard({
         }
         if (typeof result.minimumBookingNoticeHours === "number") {
           setMinimumBookingNoticeHours(result.minimumBookingNoticeHours);
+        }
+        if (result.depositCash && Number.isFinite(result.depositCash.percent)) {
+          setDepositCashSettings({
+            enabled: result.depositCash.enabled === true,
+            percent: result.depositCash.percent,
+            minimumGbp: result.depositCash.minimumGbp,
+          });
+        } else {
+          setDepositCashSettings(null);
         }
         if (result.ownerAvailability?.blocked) {
           setOwnerNoAvailabilityBlocked(true);
@@ -3272,6 +3305,20 @@ function QuoteCard({
   const paymentAmount =
     testChargeAmount ??
     (pricedFare?.totalGbp != null ? pricedFare.totalGbp : liveQuote?.amount ?? null);
+  const depositCashOffer =
+    depositCashSettings?.enabled === true &&
+    !appliedPersonalQuote &&
+    testChargeAmount == null &&
+    paymentAmount != null &&
+    Number.isFinite(paymentAmount)
+      ? publicDepositCashOffer(paymentAmount, depositCashSettings)
+      : null;
+  const showDepositCashChoice =
+    depositCashOffer?.eligible === true &&
+    !isMinimumNoticeRequest &&
+    !capacityNeedsConfirm;
+  const selectedDepositCash =
+    showDepositCashChoice && paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH;
 
   async function handlePayNow() {
     if (ownerNoAvailabilityBlocked || isOwnerNoAvailabilityMessage(paymentError)) {
@@ -3286,6 +3333,16 @@ function QuoteCard({
       return;
     }
     if (!validateCheckoutRequiredFields()) {
+      return;
+    }
+    if (
+      showDepositCashChoice &&
+      paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH &&
+      !cashAgreementAccepted
+    ) {
+      setPaymentError(
+        "Please confirm you understand the remaining balance is payable in cash to your driver on the day.",
+      );
       return;
     }
     notifyOwnerQuoteContactIfReady();
@@ -3460,6 +3517,14 @@ function QuoteCard({
           ? {
               personalQuoteCode: appliedPersonalQuote.code,
               standardWebsiteAmount: liveQuote.amount,
+            }
+          : {}),
+        ...(showDepositCashChoice
+          ? {
+              paymentMethod,
+              ...(paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH && cashAgreementAccepted
+                ? { cashAgreementAccepted: true }
+                : {}),
             }
           : {}),
       });
@@ -5612,7 +5677,9 @@ function QuoteCard({
                 ? undefined
                 : testChargeAmount !== null
                   ? "£1.00"
-                  : amountLabel ?? undefined
+                  : selectedDepositCash && depositCashOffer
+                    ? `${todayPayLabel(depositCashOffer.depositGbp)} deposit`
+                    : amountLabel ?? undefined
             }
           />
 
@@ -5720,6 +5787,89 @@ function QuoteCard({
                 </div>
               ) : (
                 <>
+                {showDepositCashChoice && depositCashOffer ? (
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-white">{DEPOSIT_CASH_CHOOSE_HEADING}</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH)}
+                        className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                          paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH
+                            ? "border-emerald bg-emerald/15"
+                            : "border-white/20 bg-white/[0.03] hover:border-white/40"
+                        }`}
+                      >
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
+                          {DEPOSIT_CASH_OPTION_LABEL}
+                          <span className="rounded-full bg-emerald/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald">
+                            {DEPOSIT_CASH_BADGE}
+                          </span>
+                        </p>
+                        <p className="mt-2 text-sm font-semibold text-emerald">
+                          {todayPayLabel(depositCashOffer.depositGbp)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-white/55">
+                          {cashToDriverOnTheDayLabel(depositCashOffer.cashDueGbp)}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE);
+                          setCashAgreementAccepted(false);
+                          setPaymentError((prev) =>
+                            prev.includes("remaining balance is payable in cash") ? "" : prev,
+                          );
+                        }}
+                        className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                          paymentMethod === PAYMENT_METHOD_FULL_ONLINE
+                            ? "border-emerald bg-emerald/15"
+                            : "border-white/20 bg-white/[0.03] hover:border-white/40"
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-white">{FULL_ONLINE_OPTION_LABEL}</p>
+                        <p className="mt-2 text-sm font-semibold text-emerald">
+                          {todayPayLabel(depositCashOffer.totalFare)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-white/55">{nothingToPayOnTheDayLabel()}</p>
+                      </button>
+                    </div>
+                    {selectedDepositCash ? (
+                      <div className="space-y-3 rounded-2xl border border-amber-300/35 bg-amber-500/10 px-4 py-3">
+                        <p className="text-sm font-semibold text-white">{DEPOSIT_CASH_SELECTED_HEADING}</p>
+                        <p className="text-xs leading-relaxed text-white/80">
+                          {cashSelectedBody(depositCashOffer.cashDueGbp)}
+                        </p>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                          {DEPOSIT_CASH_SUMMARY_HEADING}
+                        </p>
+                        <ul className="space-y-1 text-sm text-white/85">
+                          <li>Total fare: {formatQuote(depositCashOffer.totalFare)}</li>
+                          <li>Pay today: {formatQuote(depositCashOffer.depositGbp)}</li>
+                          <li>Cash to driver: {cashToDriverOnTheDayLabel(depositCashOffer.cashDueGbp)}</li>
+                        </ul>
+                        <label className="flex items-start gap-3 text-sm leading-relaxed text-white/92">
+                          <input
+                            type="checkbox"
+                            checked={cashAgreementAccepted}
+                            onChange={(event) => {
+                              setCashAgreementAccepted(event.target.checked);
+                              if (event.target.checked) {
+                                setPaymentError((prev) =>
+                                  prev.includes("remaining balance is payable in cash") ? "" : prev,
+                                );
+                              }
+                            }}
+                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
+                          />
+                          <span>{cashAgreementLabel(depositCashOffer.cashDueGbp)}</span>
+                        </label>
+                      </div>
+                    ) : null}
+                    <p className="text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
@@ -5736,6 +5886,10 @@ function QuoteCard({
                         ? `${LUGGAGE_CAPACITY_CONFIRMATION_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : isMinimumNoticeRequest
                         ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                        : showDepositCashChoice && depositCashOffer
+                          ? selectedDepositCash
+                            ? depositPayButtonLabel(depositCashOffer.depositGbp)
+                            : fullPayButtonLabel(depositCashOffer.totalFare)
                         : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
                 </button>
                 {isMinimumNoticeRequest || capacityNeedsConfirm ? (

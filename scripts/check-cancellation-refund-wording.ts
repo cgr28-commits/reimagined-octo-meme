@@ -11,10 +11,12 @@ import { TERMS_LAST_UPDATED, TERMS_SECTIONS } from "../src/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../shared/refund-ops";
 import {
   CANCELLATION_POLICY_PATH,
+  CANCELLATION_POLICY_SECTIONS,
   CHECKOUT_CANCELLATION_HEADING,
   CHECKOUT_CANCELLATION_SUMMARY,
   COMPANY_CANCEL_REFUND,
   CONFIRMATION_EMAIL_CANCELLATION_POLICY,
+  DEPOSIT_CASH_POLICY_TITLE,
   FAQ_CANCEL_ANSWER,
   FLIGHT_DELAY_POLICY,
   SPECIFIC_DATE_TRANSPORT_NOTE,
@@ -46,7 +48,7 @@ console.log("=== Shared 24-hour policy ===");
 {
   assert.match(
     CHECKOUT_CANCELLATION_SUMMARY,
-    /Cancel more than 24 hours before your scheduled pickup for a full refund/,
+    /Cancel more than 24 hours before your scheduled pickup for a refund of the amount actually paid/,
   );
   assert.match(
     CHECKOUT_CANCELLATION_SUMMARY,
@@ -96,6 +98,10 @@ console.log("\n=== Dedicated Cancellation Policy page ===");
   const sitemap = read("public/sitemap.xml");
   assert.match(sitemap, /myairporttaxini\.co\.uk\/cancellation\//);
   assert.match(read("scripts/generate-sitemap.mjs"), /path: "\/cancellation\/"/);
+  assert.ok(
+    CANCELLATION_POLICY_SECTIONS.some((section) => section.title === DEPOSIT_CASH_POLICY_TITLE),
+    "Cancellation Policy page must include Deposit + Cash wording",
+  );
   console.log("OK  /cancellation/ page, footer link and sitemap");
 }
 
@@ -120,7 +126,7 @@ console.log("\n=== Terms Cancellations & Refunds ===");
   assert.match(termsText, /More than 24 hours before pickup/);
   assert.match(
     termsText,
-    /If we receive your cancellation more than 24 hours before the scheduled pickup time, we will issue a full refund of the fare paid/,
+    /If we receive your cancellation more than 24 hours before the scheduled pickup time, we will issue a refund of the amount actually paid/,
   );
   assert.match(termsText, /Less than 24 hours before pickup/);
   assert.match(
@@ -129,6 +135,8 @@ console.log("\n=== Terms Cancellations & Refunds ===");
   );
   assert.match(termsText, /Flight delays/);
   assert.match(termsText, new RegExp(FLIGHT_DELAY_POLICY.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(termsText, /Deposit \+ Cash bookings/);
+  assert.match(termsText, /refund the amount actually paid — the card deposit/);
   assert.match(termsText, /Cancellations by us/);
   assert.match(termsText, new RegExp(COMPANY_CANCEL_REFUND.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(termsText, new RegExp(STATUTORY_RIGHTS_NOTE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -188,7 +196,7 @@ console.log("\n=== Confirmation and cancellation emails ===");
   assert.match(notifications, /CANCELLATION_POLICY_PATH/);
   assert.match(
     CONFIRMATION_EMAIL_CANCELLATION_POLICY,
-    /more than 24 hours before your scheduled pickup for a full refund/,
+    /more than 24 hours before your scheduled pickup for a refund of the amount actually paid/,
   );
   assert.match(CONFIRMATION_EMAIL_CANCELLATION_POLICY, /non-refundable/);
   assert.match(UNDER_24H_CANCEL_CUSTOMER_NOTICE, /this booking is non-refundable/);
@@ -198,8 +206,8 @@ console.log("\n=== Confirmation and cancellation emails ===");
 
 console.log("\n=== Internal version tracking retained ===");
 {
-  assert.equal(TERMS_LAST_UPDATED, "September 2026 v1");
-  assert.equal(CANCELLATION_POLICY_VERSION, "September 2026 v1");
+  assert.equal(TERMS_LAST_UPDATED, "September 2026 v2");
+  assert.equal(CANCELLATION_POLICY_VERSION, "September 2026 v2");
   assert.match(read("src/components/QuoteCard.tsx"), /cancellationPolicyVersion: CANCELLATION_POLICY_VERSION/);
   assert.match(read("src/components/OwnerJourneyEvidenceClient.tsx"), /Cancellation policy version/);
   console.log("OK  booking/evidence still store and show versions internally");

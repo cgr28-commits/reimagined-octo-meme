@@ -20,6 +20,7 @@ import {
   parsePublicOwnerAvailability,
   type PublicOwnerAvailability,
 } from "../../shared/booking-notice";
+import type { PublicDepositCashOffer } from "../../shared/deposit-cash";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -57,6 +58,7 @@ export type QuickQuoteCalculateResult =
       smartAvailability?: CustomerSmartAvailabilityQuoteSignal;
       minimumBookingNoticeHours?: number;
       ownerAvailability?: PublicOwnerAvailability;
+      depositCash?: PublicDepositCashOffer;
     }
   | { ok: false; reason?: string; message: string; error?: string };
 
@@ -193,6 +195,19 @@ export async function calculateServerQuote(
       ? { minimumBookingNoticeHours: Number(payload.minimumBookingNoticeHours) }
       : {}),
     ownerAvailability: parsePublicOwnerAvailability(payload.ownerAvailability),
+    ...(payload.depositCash && typeof payload.depositCash === "object"
+      ? {
+          depositCash: {
+            enabled: (payload.depositCash as { enabled?: unknown }).enabled === true,
+            eligible: (payload.depositCash as { eligible?: unknown }).eligible === true,
+            percent: Number((payload.depositCash as { percent?: unknown }).percent),
+            minimumGbp: Number((payload.depositCash as { minimumGbp?: unknown }).minimumGbp),
+            totalFare: Number((payload.depositCash as { totalFare?: unknown }).totalFare),
+            depositGbp: Number((payload.depositCash as { depositGbp?: unknown }).depositGbp),
+            cashDueGbp: Number((payload.depositCash as { cashDueGbp?: unknown }).cashDueGbp),
+          },
+        }
+      : {}),
   };
 }
 

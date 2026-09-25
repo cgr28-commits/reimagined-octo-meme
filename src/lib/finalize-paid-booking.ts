@@ -16,6 +16,8 @@ import {
 } from "@/lib/pending-payment";
 import { sendPaidBookingEmailsFromBrowser } from "@/lib/send-paid-booking-email";
 import { SITE } from "@/lib/data";
+import { cashDueOnTheDayCopy, isDepositCashPaymentMethod } from "../../shared/deposit-cash";
+import { formatGbpAmount } from "../../shared/gbp";
 
 const PAYMENT_CONFIRM_RETRY_MS = 2000;
 const PAYMENT_CONFIRM_MAX_ATTEMPTS = 5;
@@ -35,13 +37,21 @@ function buildPaymentConfirmationSummary(
   result: PaymentConfirmationResult,
   customerEmail: string,
 ): string {
+  const depositPrefix =
+    isDepositCashPaymentMethod(result.paymentMethod) && typeof result.cashBalanceDue === "number"
+      ? `Deposit of ${result.amountPaid} received${
+          typeof result.totalFare === "number"
+            ? ` against a ${formatGbpAmount(result.totalFare)} fare`
+            : ""
+        }. ${cashDueOnTheDayCopy(result.cashBalanceDue)} `
+      : `Payment of ${result.amountPaid} received. `;
   if (result.emailSent === false) {
-    return `Payment of ${result.amountPaid} received. We could not send confirmation emails automatically — our team will confirm your booking manually. If you do not hear from us within an hour, email ${SITE.email}.`;
+    return `${depositPrefix}We could not send confirmation emails automatically — our team will confirm your booking manually. If you do not hear from us within an hour, email ${SITE.email}.`;
   }
   if (result.customerEmailSent === false) {
-    return `Payment of ${result.amountPaid} received. We notified our team but could not email your confirmation to ${customerEmail}. Contact us at ${SITE.email} if you need a copy.`;
+    return `${depositPrefix}We notified our team but could not email your confirmation to ${customerEmail}. Contact us at ${SITE.email} if you need a copy.`;
   }
-  return `Payment of ${result.amountPaid} received. Your booking is confirmed — we’ve emailed confirmation to ${customerEmail}.`;
+  return `${depositPrefix}Your booking is confirmed — we’ve emailed confirmation to ${customerEmail}.`;
 }
 
 export async function finalizePaidBookingFromUrl(

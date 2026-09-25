@@ -8,7 +8,7 @@ import {
 import { paidBookingRecordToReceipt } from "../shared/paid-booking-canonical";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { corsHeaders } from "../shared/google-places";
-import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
+import { ownerAuthorized, resolveDriverSession, type DriverAuthEnv } from "./driver-auth";
 import type { LogPaidBookingCalendarFn } from "./finalize-paid-checkout";
 import {
   getPaidBookingRecord,
@@ -414,6 +414,12 @@ export async function handlePaidBookingsListRequest(
         paymentStatus: booking.paymentStatus,
         amountPaid: booking.amountPaidLabel,
         amount: booking.amount,
+        paymentMethod: booking.paymentMethod,
+        totalFare: booking.totalFare,
+        onlineAmountPaid: booking.onlineAmountPaid,
+        cashBalanceDue: booking.cashBalanceDue,
+        cashCollected: booking.cashCollected === true,
+        cashCollectedAt: booking.cashCollectedAt,
         amountRefunded: booking.amountRefunded ?? 0,
         refundDueAmount: booking.refundDueAmount ?? 0,
         refundDueReason: booking.refundDueReason,
@@ -919,5 +925,96 @@ export function isFinalizeCheckoutPath(pathname: string): boolean {
   return (
     pathname === "/paid-bookings/finalize-checkout" ||
     pathname === "/api/paid-bookings/finalize-checkout"
+  );
+}
+
+export function isPaidBookingCashCollectedPath(pathname: string): boolean {
+  return (
+    pathname === "/paid-bookings/cash-collected" ||
+    pathname === "/api/paid-bookings/cash-collected"
+  );
+}
+
+/**
+ * Owner or assigned driver marks the cash balance collected.
+ * Does not change fare, deposit, or refund figures.
+ */
+export async function handlePaidBookingCashCollectedRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405, origin);
+  }
+  const session = resolveDriverSession(request, env);
+  if (!session.authorized) {
+    return jsonResponse({ error: "Unauthorized" }, 401, origin);
+  }
+  if (!paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    return jsonResponse({ error: "Booking store is not configured" }, 503, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const paymentReference = String(body.paymentReference ?? "").trim();
+  if (!paymentReference) {
+    return jsonResponse({ error: "Missing payment reference" }, 400, origin);
+  }
+
+  const record = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+  if (!record) {
+    return jsonResponse({ error: "Booking not found" }, 404, origin);
+  }
+  if (record.paymentMethod !== "DEPOSIT_CASH") {
+    return jsonResponse({ error: "This booking has no cash balance." }, 409, origin);
+  }
+
+  if (session.role === "driver" && session.driverName) {
+    const jobs = await findTrackingJobsByPaymentReference(
+      env.TRACKING_STORE,
+      paymentReference,
+    );
+    const assigned = jobs.some(
+      (job) =>
+        (job.assignmentStatus === "accepted" || job.assignmentStatus === "pending") &&
+        job.assignedDriverName?.trim().toLowerCase() === session.driverName?.trim().toLowerCase(),
+    );
+    if (!assigned) {
+      return jsonResponse(
+        { error: "Only the assigned driver or owner can mark cash collected." },
+        403,
+        origin,
+      );
+    }
+  }
+
+  const collected = body.collected !== false;
+  const now = new Date().toISOString();
+  const updated = await updatePaidBookingFields(env.TRACKING_STORE, paymentReference, {
+    cashCollected: collected,
+    cashCollectedAt: collected ? now : "",
+    cashCollectedBy: collected
+      ? session.role === "owner"
+        ? "owner"
+        : session.driverName || "driver"
+      : "",
+  });
+
+  return jsonResponse(
+    {
+      ok: true,
+      paymentReference,
+      cashCollected: updated?.cashCollected === true,
+      cashCollectedAt: updated?.cashCollectedAt,
+      cashBalanceDue: updated?.cashBalanceDue ?? record.cashBalanceDue,
+    },
+    200,
+    origin,
   );
 }

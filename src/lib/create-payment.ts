@@ -90,6 +90,14 @@ export type PaymentCheckoutRequest = {
   acceptedFinalAmountGbp?: number;
   /** Secure return-offer token from /book?returnOffer= — server validates and applies 5%. */
   returnOfferToken?: string;
+  /**
+   * Homepage / normal website instant quote only. Worker ignores this on
+   * Personal Quotes, Quick Quotes, saved quotes, short-notice, A2A tokens.
+   * Do not send client percent/minimum/deposit — Worker recalculates.
+   */
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  /** Required when paymentMethod is DEPOSIT_CASH. */
+  cashAgreementAccepted?: boolean;
 };
 
 export type PaymentCheckoutResult = {
@@ -226,6 +234,10 @@ export type PaymentConfirmationResult = {
     amountPaidLabel: string;
     journeyFare: number;
   };
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  totalFare?: number;
+  onlineAmountPaid?: number;
+  cashBalanceDue?: number;
 };
 
 const PAYMENTS_API_URL = resolvePaymentsApiUrl();
@@ -374,6 +386,10 @@ export async function createPaymentCheckout(
       ...(request.returnOfferToken?.trim()
         ? { returnOfferToken: request.returnOfferToken.trim() }
         : {}),
+      ...(request.paymentMethod === "DEPOSIT_CASH" || request.paymentMethod === "FULL_ONLINE"
+        ? { paymentMethod: request.paymentMethod }
+        : {}),
+      ...(request.cashAgreementAccepted === true ? { cashAgreementAccepted: true } : {}),
     }),
   });
 
