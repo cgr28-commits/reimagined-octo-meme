@@ -161,6 +161,57 @@ check("QuoteCard is the only customer payment-choice UI", () => {
   assert.doesNotMatch(read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"), /DEPOSIT_CASH/);
 });
 
+check("Deposit + Cash renders before Full Online and is preselected when eligible", () => {
+  const card = read("src/components/QuoteCard.tsx");
+  const depositCard = card.indexOf("{DEPOSIT_CASH_OPTION_LABEL}");
+  const fullCard = card.indexOf("{FULL_ONLINE_OPTION_LABEL}");
+  assert.ok(depositCard > 0, "Deposit + Cash card missing");
+  assert.ok(fullCard > 0, "Pay in Full Online card missing");
+  assert.ok(
+    depositCard < fullCard,
+    "Deposit + Cash must render before Pay in Full Online",
+  );
+  assert.match(
+    card,
+    /useState<PaymentMethod>\(PAYMENT_METHOD_DEPOSIT_CASH\)/,
+  );
+  assert.match(card, /DEPOSIT_CASH_BADGE/);
+  assert.match(card, /todayPayLabel\(depositCashOffer\.depositGbp\)/);
+  assert.match(card, /cashToDriverOnTheDayLabel\(depositCashOffer\.cashDueGbp\)/);
+  assert.match(card, /todayPayLabel\(depositCashOffer\.totalFare\)/);
+  assert.match(card, /nothingToPayOnTheDayLabel\(\)/);
+});
+
+check("cash agreement stays unchecked and is required before pay", () => {
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(card, /const \[cashAgreementAccepted, setCashAgreementAccepted\] = useState\(false\)/);
+  assert.match(
+    card,
+    /paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH &&\s*\n\s*!cashAgreementAccepted/,
+  );
+  assert.match(card, /checked=\{cashAgreementAccepted\}/);
+  assert.doesNotMatch(card, /setCashAgreementAccepted\(true\)/);
+});
+
+check("disabled or ineligible Deposit + Cash keeps existing full-online pay behaviour", () => {
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(
+    card,
+    /showDepositCashChoice && depositCashOffer\s*\n\s+\? selectedDepositCash/,
+  );
+  assert.match(
+    card,
+    /: `Confirm booking & pay securely — \$\{amountLabel \?\? formatQuote\(liveQuote\.amount\)\}`/,
+  );
+  assert.match(
+    card,
+    /\.\.\.\(showDepositCashChoice\s*\n\s+\? \{\s*\n\s+paymentMethod,/,
+  );
+  const payments = read("workers/addresses/src/index.ts");
+  assert.match(payments, /settings\.depositCash\.enabled === true/);
+  assert.match(payments, /specialistPayPath/);
+});
+
 check("quote API exposes a public offer for non-owner quotes only", () => {
   const quotes = read("workers/addresses/src/quote-handlers.ts");
   assert.match(quotes, /publicDepositCashOffer/);

@@ -167,9 +167,7 @@ import {
   DEPOSIT_CASH_OPTION_LABEL,
   DEPOSIT_CASH_SELECTED_HEADING,
   DEPOSIT_CASH_SUMMARY_HEADING,
-  DEPOSIT_CASH_SUPPORTING,
   FULL_ONLINE_OPTION_LABEL,
-  FULL_ONLINE_SUPPORTING,
   SECURE_SUMUP_LINE,
   cashAgreementLabel,
   cashSelectedBody,
@@ -841,7 +839,7 @@ function QuoteCard({
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_FULL_ONLINE);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
   const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(true);
@@ -5795,6 +5793,28 @@ function QuoteCard({
                     <div className="grid gap-3 sm:grid-cols-2">
                       <button
                         type="button"
+                        onClick={() => setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH)}
+                        className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                          paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH
+                            ? "border-emerald bg-emerald/15"
+                            : "border-white/20 bg-white/[0.03] hover:border-white/40"
+                        }`}
+                      >
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
+                          {DEPOSIT_CASH_OPTION_LABEL}
+                          <span className="rounded-full bg-emerald/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald">
+                            {DEPOSIT_CASH_BADGE}
+                          </span>
+                        </p>
+                        <p className="mt-2 text-sm font-semibold text-emerald">
+                          {todayPayLabel(depositCashOffer.depositGbp)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-white/55">
+                          {cashToDriverOnTheDayLabel(depositCashOffer.cashDueGbp)}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE);
                           setCashAgreementAccepted(false);
@@ -5809,38 +5829,10 @@ function QuoteCard({
                         }`}
                       >
                         <p className="text-sm font-semibold text-white">{FULL_ONLINE_OPTION_LABEL}</p>
-                        <p className="mt-1 text-xs leading-relaxed text-white/70">
-                          {FULL_ONLINE_SUPPORTING}
-                        </p>
                         <p className="mt-2 text-sm font-semibold text-emerald">
                           {todayPayLabel(depositCashOffer.totalFare)}
                         </p>
                         <p className="mt-0.5 text-xs text-white/55">{nothingToPayOnTheDayLabel()}</p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH)}
-                        className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
-                          paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH
-                            ? "border-emerald bg-emerald/15"
-                            : "border-white/20 bg-white/[0.03] hover:border-white/40"
-                        }`}
-                      >
-                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
-                          {DEPOSIT_CASH_OPTION_LABEL}
-                          <span className="rounded-full bg-emerald/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald">
-                            {DEPOSIT_CASH_BADGE}
-                          </span>
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-white/70">
-                          {DEPOSIT_CASH_SUPPORTING}
-                        </p>
-                        <p className="mt-2 text-sm font-semibold text-emerald">
-                          {todayPayLabel(depositCashOffer.depositGbp)}
-                        </p>
-                        <p className="mt-0.5 text-xs text-white/55">
-                          {cashToDriverOnTheDayLabel(depositCashOffer.cashDueGbp)}
-                        </p>
                       </button>
                     </div>
                     {selectedDepositCash ? (
