@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
 import { OwnerNoAvailabilityBlocked } from "@/components/OwnerNoAvailabilityBlocked";
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import { useCustomerSmartAvailabilityPreflight } from "@/lib/use-customer-smart-availability-preflight";
+import type { CustomerPublicAlternativeTime } from "../../../shared/customer-smart-availability";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -53,6 +54,9 @@ function BookQuoteInner() {
   const [id, setId] = useState(() => searchParams.get("id")?.trim() ?? "");
   const [quote, setQuote] = useState<QuickQuotePublicSummary | null>(null);
   const [error, setError] = useState("");
+  const [availabilityAlternatives, setAvailabilityAlternatives] = useState<
+    CustomerPublicAlternativeTime[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [minimumBookingNoticeHours] = useMinimumBookingNoticeHours();
@@ -134,6 +138,14 @@ function BookQuoteInner() {
 
   const journey = quote?.journey;
 
+  const handleAvailabilityBlocked = useCallback(
+    (message: string, alternativeTimes: CustomerPublicAlternativeTime[]) => {
+      setError(message);
+      setAvailabilityAlternatives(alternativeTimes);
+    },
+    [],
+  );
+
   useCustomerSmartAvailabilityPreflight(
     journey
       ? {
@@ -148,8 +160,19 @@ function BookQuoteInner() {
           isFromAirport: journey.fromAirport,
         }
       : null,
-    setError,
+    handleAvailabilityBlocked,
   );
+
+  function focusBookQuoteTime() {
+    document.getElementById("book-quote-time")?.focus();
+  }
+
+  function applyAvailabilityAlternative(option: CustomerPublicAlternativeTime) {
+    setTripDate(option.tripDate);
+    setTripTime(option.tripTime);
+    setError("");
+    setAvailabilityAlternatives([]);
+  }
 
   const expressSelection = useMemo(() => {
     if (!journey) {
@@ -501,6 +524,18 @@ function BookQuoteInner() {
         </p>
       </section>
 
+      {isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
+        <div id="customer-smart-availability-blocked">
+          <CustomerSmartAvailabilityBlocked
+            message={error}
+            requestedTripTime={tripTime}
+            alternativeTimes={availabilityAlternatives}
+            onSelectAlternative={applyAvailabilityAlternative}
+            onChooseAnotherTime={focusBookQuoteTime}
+          />
+        </div>
+      ) : null}
+
       <section className="min-w-0 space-y-3 overflow-hidden rounded-2xl border border-white/10 bg-navy-dark/70 p-4 sm:p-5">
         <p className="text-sm font-semibold text-white">Confirm your details</p>
         <div className="min-w-0">
@@ -608,18 +643,9 @@ function BookQuoteInner() {
           onChooseAnotherDate={() => {
             document.getElementById("book-quote-date")?.focus();
           }}
-          onChooseAnotherTime={() => {
-            document.getElementById("book-quote-time")?.focus();
-          }}
+          onChooseAnotherTime={focusBookQuoteTime}
         />
-      ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
-        <CustomerSmartAvailabilityBlocked
-          message={error}
-          onChooseAnotherTime={() => {
-            window.location.assign("/");
-          }}
-        />
-      ) : (
+      ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? null : (
         <>
           {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
           {isMinimumNoticeRequest ? (

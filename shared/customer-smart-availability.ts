@@ -28,7 +28,9 @@ export const CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE_LEGACY =
 
 export const CUSTOMER_SMART_AVAILABILITY_CODE = "smart_availability_unavailable";
 
-export const CUSTOMER_OTHER_TIMES_HEADING = "Other times we can offer:";
+export const CUSTOMER_OTHER_TIMES_HEADING = "We can offer these nearby times:";
+
+export const CUSTOMER_SELECT_TIME_HINT = "Select a time above to continue your booking.";
 
 export const CUSTOMER_CHOOSE_ANOTHER_TIME_LABEL = "Choose another time";
 
@@ -106,7 +108,7 @@ export function formatCustomerClock(tripTime: string): string {
 export function customerUnavailableAtTimeMessage(tripTime: string): string {
   const clock = formatCustomerClock(tripTime);
   return clock
-    ? `Unfortunately, we’re not available at ${clock}.`
+    ? `Your selected time of ${clock} isn't available.`
     : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE;
 }
 
@@ -120,7 +122,37 @@ export function isCustomerSmartAvailabilityUnavailableMessage(message?: string |
   ) {
     return true;
   }
-  return /^Unfortunately, we’re not available at \d{1,2}:\d{2}\.$/.test(text);
+  return (
+    /^Your selected time of \d{1,2}:\d{2} isn't available\.$/.test(text) ||
+    /^Unfortunately, we’re not available at \d{1,2}:\d{2}\.$/.test(text)
+  );
+}
+
+function tripTimeMinutes(tripTime: string): number | null {
+  const clock = formatCustomerClock(tripTime);
+  if (!clock) return null;
+  const [hours, minutes] = clock.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return hours * 60 + minutes;
+}
+
+/** Presentation order only — does not change which times the engine offers. */
+export function sortCustomerAlternativeTimesByCloseness(
+  requestedTime: string,
+  alternatives: CustomerPublicAlternativeTime[],
+): CustomerPublicAlternativeTime[] {
+  const requested = tripTimeMinutes(requestedTime);
+  if (requested == null) return alternatives.slice();
+  return alternatives.slice().sort((left, right) => {
+    const leftMinutes = tripTimeMinutes(left.tripTime);
+    const rightMinutes = tripTimeMinutes(right.tripTime);
+    const leftDelta =
+      leftMinutes == null ? Number.POSITIVE_INFINITY : Math.abs(leftMinutes - requested);
+    const rightDelta =
+      rightMinutes == null ? Number.POSITIVE_INFINITY : Math.abs(rightMinutes - requested);
+    if (leftDelta !== rightDelta) return leftDelta - rightDelta;
+    return (leftMinutes ?? 0) - (rightMinutes ?? 0);
+  });
 }
 
 function firstPositiveMinutes(...values: Array<number | null | undefined>): number | null {
@@ -272,7 +304,7 @@ export function confirmedCustomerAlternativeTimes(input: {
     seen.add(key);
     confirmed.push({ tripDate, tripTime });
   }
-  return confirmed.slice(0, 4);
+  return sortCustomerAlternativeTimesByCloseness(input.requested.tripTime, confirmed).slice(0, 4);
 }
 
 export type CustomerBookingAvailabilityInput = {

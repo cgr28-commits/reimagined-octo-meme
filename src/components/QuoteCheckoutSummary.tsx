@@ -6,6 +6,7 @@ type Props = {
   routeLine: string;
   detailLine: string;
   totalLabel: string;
+  whenLine?: string | null;
   accessLine?: string | null;
   onEditJourney: () => void;
   onChangeDropOff?: (() => void) | null;
@@ -21,6 +22,7 @@ export default function QuoteCheckoutSummary({
   routeLine,
   detailLine,
   totalLabel,
+  whenLine,
   accessLine,
   onEditJourney,
   onChangeDropOff,
@@ -36,6 +38,11 @@ export default function QuoteCheckoutSummary({
     >
       <p className="text-sm font-semibold leading-snug text-white">{routeLine}</p>
       <p className="mt-1 text-sm quote-secondary">{detailLine}</p>
+      {whenLine ? (
+        <p className="mt-1 text-sm font-semibold text-white" data-checkout-pickup-time>
+          Pickup time: {whenLine}
+        </p>
+      ) : null}
       <p className="mt-2 text-lg font-bold tracking-tight text-white sm:text-xl">{totalLabel}</p>
       {accessLine ? <p className="mt-1 text-xs text-white/75">{accessLine}</p> : null}
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold">

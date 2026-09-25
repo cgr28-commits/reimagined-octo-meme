@@ -1112,6 +1112,7 @@ export function evaluateSmartAvailability(input: {
         legacyPeriods: input.legacyPeriods,
         config: input.config,
         now: input.now,
+        requestedReason: reason,
       })
     : { alternatives: [] as SmartAlternativeTime[], skippedCrossDate: false };
 
@@ -1178,6 +1179,20 @@ export function findLatestSafePickup(input: {
 }
 
 const ALT_STEPS = [15, 30, 45, 60, 90] as const;
+const REST_OF_DAY_STEP_MINUTES = 15;
+const REST_OF_DAY_SCAN_MINUTES = 18 * 60;
+
+const BOOKING_OCCUPANCY_REASONS: ReadonlySet<SmartOpsReasonCode> = new Set([
+  SMART_OPS_REASON.CONFLICT_EXISTING_BOOKING,
+  SMART_OPS_REASON.CONFLICT_POSITIONING_TIME,
+  SMART_OPS_REASON.CONFLICT_MINIMUM_TURNAROUND,
+  SMART_OPS_REASON.CONFLICT_LONG_DISTANCE,
+  SMART_OPS_REASON.CONFLICT_NEXT_BOOKING,
+]);
+
+function isBookingOccupancyReason(reason: SmartOpsReasonCode | null | undefined): boolean {
+  return Boolean(reason && BOOKING_OCCUPANCY_REASONS.has(reason));
+}
 
 export function suggestAlternativeTimes(input: {
   requested: SmartRequestedJourney;
@@ -1187,43 +1202,75 @@ export function suggestAlternativeTimes(input: {
   legacyPeriods?: UnavailablePeriod[];
   config: SmartOpsConfig;
   now?: Date;
+  /** When set, skip a second evaluation of the requested time. */
+  requestedReason?: SmartOpsReasonCode | null;
 }): { alternatives: SmartAlternativeTime[]; skippedCrossDate: boolean } {
   const maxShift = input.config.alternatives.maxShiftMinutes;
   const allowAcrossMidnight = input.config.alternatives.allowAcrossMidnight;
   const nowMs = (input.now ?? new Date()).getTime();
   const found: SmartAlternativeTime[] = [];
+  const seen = new Set<string>();
   let skippedCrossDate = false;
+
+  const consider = (shifted: { tripDate: string; tripTime: string }, deltaMinutes: number) => {
+    const key = `${shifted.tripDate}T${shifted.tripTime}`;
+    if (seen.has(key)) return false;
+    const candidateMs = pickupMs(shifted.tripDate, shifted.tripTime);
+    if (candidateMs == null || candidateMs <= nowMs) return false;
+    if (shifted.tripDate !== input.requested.tripDate) {
+      if (!allowAcrossMidnight) {
+        skippedCrossDate = true;
+        return false;
+      }
+    }
+    const decision = evaluateSmartAvailability({
+      requested: { ...input.requested, ...shifted },
+      occupied: input.occupied,
+      rules: input.rules,
+      exceptions: input.exceptions,
+      legacyPeriods: input.legacyPeriods,
+      config: input.config,
+      searchAlternatives: false,
+      now: input.now,
+    });
+    if (!decision.available) return false;
+    seen.add(key);
+    found.push({
+      tripDate: shifted.tripDate,
+      tripTime: shifted.tripTime,
+      deltaMinutes,
+    });
+    return true;
+  };
 
   for (const step of ALT_STEPS) {
     if (step > maxShift) continue;
     for (const delta of [-step, step]) {
       const shifted = addMinutesToTrip(input.requested.tripDate, input.requested.tripTime, delta);
       if (!shifted) continue;
-      const candidateMs = pickupMs(shifted.tripDate, shifted.tripTime);
-      if (candidateMs == null || candidateMs <= nowMs) continue;
-      if (shifted.tripDate !== input.requested.tripDate) {
-        if (!allowAcrossMidnight) {
-          skippedCrossDate = true;
-          continue;
-        }
-      }
-      const decision = evaluateSmartAvailability({
-        requested: { ...input.requested, ...shifted },
-        occupied: input.occupied,
-        rules: input.rules,
-        exceptions: input.exceptions,
-        legacyPeriods: input.legacyPeriods,
-        config: input.config,
-        searchAlternatives: false,
-        now: input.now,
-      });
-      if (decision.available) {
-        found.push({
-          tripDate: shifted.tripDate,
-          tripTime: shifted.tripTime,
-          deltaMinutes: delta,
-        });
-      }
+      consider(shifted, delta);
+    }
+  }
+
+  // Nearby ±maxShift is for "around this time". A long job (e.g. Dublin) can
+  // occupy well past that window without closing the rest of the operating day.
+  // Only continue later-same-day when the requested time lost to a booking —
+  // owner rest-of-day / Request Only / unavailable blocks stay nearby-only.
+  if (isBookingOccupancyReason(input.requestedReason)) {
+    let laterFound = found.filter((item) => item.deltaMinutes > 0).length;
+    for (
+      let minutes = REST_OF_DAY_STEP_MINUTES;
+      minutes <= REST_OF_DAY_SCAN_MINUTES && laterFound < 4;
+      minutes += REST_OF_DAY_STEP_MINUTES
+    ) {
+      const shifted = addMinutesToTrip(
+        input.requested.tripDate,
+        input.requested.tripTime,
+        minutes,
+      );
+      if (!shifted) continue;
+      if (shifted.tripDate !== input.requested.tripDate) break;
+      if (consider(shifted, minutes)) laterFound += 1;
     }
   }
 

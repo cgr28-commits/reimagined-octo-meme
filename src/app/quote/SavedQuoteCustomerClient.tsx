@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
@@ -8,6 +8,7 @@ import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvai
 import { OwnerNoAvailabilityBlocked } from "@/components/OwnerNoAvailabilityBlocked";
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
 import { useCustomerSmartAvailabilityPreflight } from "@/lib/use-customer-smart-availability-preflight";
+import type { CustomerPublicAlternativeTime } from "../../../shared/customer-smart-availability";
 import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
@@ -47,6 +48,9 @@ function SavedQuoteInner() {
   const [token, setToken] = useState(() => searchParams.get("t")?.trim() ?? "");
   const [quote, setQuote] = useState<SavedQuotePublicSummary | null>(null);
   const [error, setError] = useState("");
+  const [availabilityAlternatives, setAvailabilityAlternatives] = useState<
+    CustomerPublicAlternativeTime[]
+  >([]);
   const [state, setState] = useState<"loading" | "ok" | "booked" | "expired" | "not_found">(
     "loading",
   );
@@ -236,6 +240,14 @@ function SavedQuoteInner() {
     effectiveAmountLabel,
   ]);
 
+  const handleAvailabilityBlocked = useCallback(
+    (message: string, alternativeTimes: CustomerPublicAlternativeTime[]) => {
+      setError(message);
+      setAvailabilityAlternatives(alternativeTimes);
+    },
+    [],
+  );
+
   useCustomerSmartAvailabilityPreflight(
     booking
       ? {
@@ -250,8 +262,19 @@ function SavedQuoteInner() {
           isFromAirport: booking.isFromAirport,
         }
       : null,
-    setError,
+    handleAvailabilityBlocked,
   );
+
+  function focusSavedQuoteTime() {
+    document.getElementById("saved-quote-time")?.focus();
+  }
+
+  function applyAvailabilityAlternative(option: CustomerPublicAlternativeTime) {
+    setTripDate(option.tripDate);
+    setTripTime(option.tripTime);
+    setError("");
+    setAvailabilityAlternatives([]);
+  }
 
   async function pay() {
     setError("");
@@ -530,6 +553,18 @@ function SavedQuoteInner() {
         ) : null}
       </div>
 
+      {isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
+        <div id="customer-smart-availability-blocked">
+          <CustomerSmartAvailabilityBlocked
+            message={error}
+            requestedTripTime={tripTime}
+            alternativeTimes={availabilityAlternatives}
+            onSelectAlternative={applyAvailabilityAlternative}
+            onChooseAnotherTime={focusSavedQuoteTime}
+          />
+        </div>
+      ) : null}
+
       {bookingMode ? (
         <form
           className="space-y-4 rounded-2xl border border-white/10 bg-navy-dark/70 p-5 sm:p-6"
@@ -656,14 +691,7 @@ function SavedQuoteInner() {
                 document.getElementById("saved-quote-time")?.focus();
               }}
             />
-          ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? (
-            <CustomerSmartAvailabilityBlocked
-              message={error}
-              onChooseAnotherTime={() => {
-                window.location.assign("/");
-              }}
-            />
-          ) : (
+          ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? null : (
             <>
               {error ? (
                 <p className="text-sm text-red-300" role="alert">
