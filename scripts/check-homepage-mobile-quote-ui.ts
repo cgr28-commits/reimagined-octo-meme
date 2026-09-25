@@ -71,6 +71,7 @@ assert.match(css, /fill: #ffffff/);
 assert.match(css, /\.hero-benefit-divider::before/);
 assert.match(css, /\.hero-benefit-pound \{/);
 assert.match(css, /\.hero-benefit-label \{/);
+assert.match(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1\.32fr\)/);
 assert.match(css, /\.hero-benefit-label-waiting \{/);
 assert.match(css, /\.hero-benefit-label-waiting \.hero-benefit-line-2 \{[\s\S]*white-space: nowrap/);
 assert.doesNotMatch(benefits, /<span className="hero-benefit-pound"/);

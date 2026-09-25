@@ -713,18 +713,23 @@ main {
 }
 
 @media (max-width: 767px) {
+  .hero-benefits-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.32fr);
+  }
+
   .hero-benefits-row .hero-benefit-waiting {
-    padding-left: 0.22rem;
-    padding-right: 0.08rem;
+    padding-left: 0.3rem;
+    padding-right: 0;
   }
 
   .hero-benefit-label-waiting {
-    font-size: 0.72rem;
-    line-height: 1.22;
-    letter-spacing: -0.035em;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
   }
 
   .hero-benefit-label-waiting .hero-benefit-line-2 {
+    display: inline-block;
     white-space: nowrap;
   }
 }
