@@ -263,6 +263,48 @@ console.log("\n=== E. Belfast → Dublin blocks later Belfast job ===");
   console.log("OK  E");
 }
 
+console.log("\n=== E2. 05:45 Dublin does not close the rest of 27 Sep ===");
+{
+  const dublin0545: SmartOccupiedJob = {
+    id: "JOB-DUB-0545-27SEP",
+    pickupLabel: "Belfast City Centre",
+    dropoffLabel: "Dublin Airport",
+    pickup: BELFAST,
+    dropoff: DUB,
+    tripDate: "2026-09-27",
+    tripTime: "05:45",
+    durationMinutes: 187,
+    airportCode: "DUB",
+    isFromAirport: false,
+  };
+  const decision = evaluateSmartAvailability({
+    requested: {
+      pickupLabel: "Belfast International Airport",
+      dropoffLabel: "Belfast City Centre",
+      pickup: BFS,
+      dropoff: BELFAST,
+      tripDate: "2026-09-27",
+      tripTime: "07:20",
+      durationMinutes: 30,
+      airportCode: "BFS",
+      isFromAirport: true,
+    },
+    occupied: [dublin0545],
+    config,
+    now: new Date("2026-09-25T12:00:00+01:00"),
+  });
+  assert.equal(decision.available, false);
+  assert.equal(decision.reason, SMART_OPS_REASON.ALTERNATIVE_TIME_FOUND);
+  assert.equal(decision.diagnostics.blockingInterval, null);
+  assert.ok(decision.alternatives.length >= 1, "later same-day times must be offered after Dublin");
+  assert.ok(
+    decision.alternatives.every((item) => item.tripDate === "2026-09-27" && item.tripTime >= "12:50"),
+    `expected later morning/afternoon slots, got ${decision.alternatives.map((item) => item.tripTime).join(",")}`,
+  );
+  assert.ok(decision.alternatives.some((item) => Math.abs(item.deltaMinutes) > 60));
+  console.log("OK  E2");
+}
+
 console.log("\n=== F. Earlier journey rejected if it blocks a later booking ===");
 {
   const later: SmartOccupiedJob = {
@@ -310,6 +352,7 @@ console.log("\n=== G. Alternative nearby times ===");
     occupied: [],
     rules: [mondayRule],
     config,
+    now: NOW,
   });
   assert.equal(decision.available, false);
   assert.ok(decision.alternatives.length >= 1);

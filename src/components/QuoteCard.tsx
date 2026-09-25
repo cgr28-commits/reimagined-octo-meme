@@ -5664,7 +5664,7 @@ function QuoteCard({
                   Your transfer is reserved for your selected pickup time.
                 </p>
               ) : null}
-              {paymentError ? (
+              {paymentError && !isCustomerSmartAvailabilityBlockMessage(paymentError) ? (
                 <div className="space-y-3">
                   <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
                     {paymentError}
