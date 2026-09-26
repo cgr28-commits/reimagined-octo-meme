@@ -16,14 +16,14 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     metaDescription:
       "Pre-book a Newtownards airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed-price transfers from the Ards. Quote your street.",
     intro:
-      "Newtownards sits at the head of Strangford Lough, and airport transfers from the town almost always leave on the A20 toward Dundonald rather than up the Bangor coast. Use this page to choose the terminal, then open that route so the quote starts on the right airport. Belfast City Airport is usually the nearer of the two Belfast terminals: the A20 runs into east Belfast and toward the Sydenham side of the city. Movilla, Scrabo and the west of Newtownards are Ards pickups, not Bangor marina jobs. Belfast International is the longer inland booking, once the A20 has brought you through Belfast and onto the M2 toward Aldergrove. Dublin Airport continues south on the A1/M1 after that city crossing, and applicable tolls are included on those fares. We also collect from Comber, Dundonald, Conlig and Donaghadee when you enter the full street. Conlig is on the A21 toward Bangor and should be spelled as Conlig, not as a Bangor seafront address. Donaghadee adds the coastal road before you reach the A20. Streets under Scrabo and around The Square need the house or hotel name, because several properties share similar BT23 postcodes.",
+      "Newtownards sits at the head of Strangford Lough, and airport transfers from the town almost always leave on the A20 toward Dundonald rather than up the Bangor coast. Use this page to choose the terminal, then open that route so the quote starts on the right airport. Belfast City Airport is usually the nearer of the two Belfast terminals: the A20 runs into east Belfast and toward the Sydenham side of the city. Movilla, Scrabo and the west of Newtownards are Ards pickups, not Bangor marina jobs. Belfast International is the longer inland booking, once the A20 has brought you through Belfast and onto the M2 toward Aldergrove. Dublin Airport continues south on the A1/M1 after that city crossing, and applicable tolls are included on those fares. We also collect from Comber, Dundonald, Conlig and Donaghadee when you enter the full street. Conlig is on the A21 toward Bangor and should be spelled as Conlig, not as a Bangor seafront address. Donaghadee joins on the A48 before you reach the A20. Streets under Scrabo and around The Square need the house or hotel name, because several properties share similar BT23 postcodes.",
     blurb:
       "Newtownards and the A20 toward Dundonald are an Ards pickup zone for both Belfast airports and for Dublin departures.",
     areas: ["Newtownards", "Scrabo", "Movilla", "Conlig", "Donaghadee", "Comber"],
     localNotes: [
       "The A20 through Dundonald is the usual start for every Newtownards airport run; the A21 to Bangor is a different road and a different pickup.",
       "Conlig should be entered as Conlig. It sits between Newtownards and Bangor and is not a Bangor marina address.",
-      "Donaghadee collections use the coastal road before joining the A20, so the street matters more than the town name alone.",
+      "Donaghadee collections use the A48 before joining the A20, so the street matters more than the town name alone.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
     relatedTownSlugs: ["dundonald", "comber", "bangor"],
@@ -31,7 +31,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
       {
         code: "BFS",
         label: "Belfast International",
-        text: "The inland Ards booking. A20 through Dundonald and Belfast, then the M2 toward Aldergrove. Scrabo and Movilla start in town; Donaghadee starts on the coast.",
+        text: "The inland Ards booking. A20 through Dundonald and Belfast, then the M2 toward Aldergrove. Scrabo and Movilla start in town; Donaghadee starts on the A48.",
       },
       {
         code: "BHD",
@@ -211,7 +211,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     metaDescription:
       "Pre-book a Moira airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed-price M1 transfers, quoted from your street online.",
     intro:
-      "Moira is the village on the M1 between Lisburn and Lurgan, and the motorway junction is why airport bookings from here feel different from a Hillsborough or Lisburn start. Choose the airport on this page before you open the quote. Belfast International is the eastbound M1 run that then crosses to the M2/M22 for Aldergrove. Belfast City Airport continues on the M1 into the Westlink and toward Sydenham, which is a city-corridor job rather than an Aldergrove one. Dublin Airport is the southbound M1/A1 booking, and it is often the long transfer people in this village ask about first, with applicable tolls included. Main Street and the A3 through the village are not the same pin as the motorway junction. Maghaberry sits north of the M1 and should be entered as Maghaberry. Aghalee is the Lough Neagh side, toward the lough rather than toward Hillsborough. Hillsborough itself is the neighbouring village to the south-east and has its own airport pages when that is the address.",
+      "Moira is the village on the M1 between Lisburn and Lurgan, and the motorway junction is why airport bookings from here feel different from a Hillsborough or Lisburn start. Choose the airport on this page before you open the quote. Belfast International is the eastbound M1 run that then crosses to the M2/M22 for Aldergrove. Belfast City Airport continues on the M1 into the Westlink and toward Sydenham, which is a city-corridor job rather than an Aldergrove one. Dublin Airport goes east on the M1 to Sprucefield, then south on the A1, and it is often the long transfer people in this village ask about first, with applicable tolls included. Main Street and the A3 through the village are not the same pin as the motorway junction. Maghaberry sits north of the M1 and should be entered as Maghaberry. Aghalee is the Lough Neagh side, toward the lough rather than toward Hillsborough. Hillsborough itself is the neighbouring village to the south-east and has its own airport pages when that is the address.",
     blurb:
       "Moira and the M1 junction are a regular pickup for Dublin Airport and for both Belfast airports.",
     areas: ["Moira", "Maghaberry", "Aghalee", "Main Street"],
@@ -231,12 +231,12 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
       {
         code: "BHD",
         label: "Belfast City Airport",
-        text: "M1 into the Westlink and on toward Sydenham. Not the westbound peel that Aldergrove uses.",
+        text: "M1 into the Westlink and on toward Sydenham. Not the M2/M22 turn used for Aldergrove.",
       },
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "Southbound on the M1/A1 from a village that is already on the motorway. Applicable M1 tolls are included.",
+        text: "East on the M1 to Sprucefield, then south on the A1, without entering Belfast. Applicable M1 tolls are included.",
       },
     ],
   },
@@ -289,7 +289,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     metaDescription:
       "Pre-book a Whiteabbey airport taxi to Belfast City, Belfast International or Dublin Airport. Fixed-price Shore Road transfers, quoted live online.",
     intro:
-      "Whiteabbey is the Shore Road district between Belfast and Greenisland, and an airport taxi from here starts on the A2, not at Sandyknowes. Use this page to pick the terminal before you quote. Belfast City Airport is usually the nearer Belfast airport, along the lough toward Sydenham, which is why Hazelbank, the hospital area and Jordanstown are booked as shore pickups. Belfast International leaves that shore road and joins the M2 toward Aldergrove — the inland run, and a different page from Glengormley. Dublin Airport is the long southbound booking after you have come into Belfast, on the A1/M1, with applicable tolls included. Jordanstown is the next stretch of the A2 toward the university and should include the building if you are being collected from the campus. Greenisland is further toward Carrickfergus and is still collected when that is the address, with Carrickfergus timing rather than a Whiteabbey village pin. Rathcoole sits inland from the shore. Enter it as Rathcoole so the quote does not assume the A2. Glengormley has its own airport pages if you are starting at Sandyknowes.",
+      "Whiteabbey is the Shore Road district between Belfast and Greenisland, and an airport taxi from here starts on the A2, not at Sandyknowes. Use this page to pick the terminal before you quote. Belfast City Airport is usually the nearer Belfast airport, along the lough toward Sydenham, which is why Hazelbank and Jordanstown are booked as shore pickups. Belfast International leaves that shore road and joins the M2 toward Aldergrove — the inland run, and a different page from Glengormley. Dublin Airport is the long southbound booking after you have come into Belfast, on the A1/M1, with applicable tolls included. Jordanstown is the next stretch of the A2 toward the university and should include the building if you are being collected from the campus. Greenisland is further toward Carrickfergus and is still collected when that is the address, as a longer shore start than a Whiteabbey village pin. Rathcoole sits inland from the shore. Enter it as Rathcoole so the quote does not assume the A2. Glengormley has its own airport pages if you are starting at Sandyknowes.",
     blurb:
       "Whiteabbey and the A2 Shore Road are a lough-side pickup zone, separate from Glengormley and Sandyknowes.",
     areas: ["Whiteabbey", "Hazelbank", "Jordanstown", "Greenisland", "Rathcoole"],
@@ -314,7 +314,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "A2 into Belfast, then the A1/M1. Applicable M1 tolls are included. Greenisland adds minutes before you leave the shore.",
+        text: "A2 into Belfast, then the A1/M1. Applicable M1 tolls are included. Greenisland is further along the A2 before Belfast.",
       },
     ],
   },

@@ -14,8 +14,8 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     metaDescription:
       "Private taxi from Newtownards to Belfast International Airport. Fixed-price Aldergrove transfer with flight monitoring and online booking today.",
     intro:
-      "Belfast International is the inland airport booking from Newtownards, used when the ticket is Aldergrove rather than the nearer City Airport. My Airport Taxi NI reserves a driver for the pickup, so a 06:00 check-in does not depend on a car being free in The Square. The quote box already has Belfast International selected. Add the street in Scrabo, Movilla, Conlig or Donaghadee and the calculator returns the fixed price for that pin. Most town departures leave on the A20 through Dundonald, cross Belfast and join the M2 toward Aldergrove. Donaghadee starts on the coast before that A20, so it is not the same mapped start as a house under Scrabo. Conlig sits on the A21 and should be entered as Conlig. Book ahead of check-in when the M2 is busy. If we collect you on the way home, share the flight number. We monitor arrivals where possible, and airport pickups include complimentary waiting. WhatsApp can confirm luggage. A return can be added on the same form.",
-    journeyInfo: `Newtownards to Belfast International usually follows the A20 through Dundonald, then the M2 toward Aldergrove. Donaghadee joins from the coast first. ${TRAFFIC}`,
+      "Belfast International is the inland airport booking from Newtownards, used when the ticket is Aldergrove rather than the nearer City Airport. My Airport Taxi NI reserves a driver for the pickup, so a 06:00 check-in does not depend on a car being free in The Square. The quote box already has Belfast International selected. Add the street in Scrabo, Movilla, Conlig or Donaghadee and the calculator returns the fixed price for that pin. Most town departures leave on the A20 through Dundonald, cross Belfast and join the M2 toward Aldergrove. Donaghadee starts on the A48 before that A20, so it is not the same mapped start as a house under Scrabo. Conlig sits on the A21 and should be entered as Conlig. Book ahead of check-in when the M2 is busy. If we collect you on the way home, share the flight number. We monitor arrivals where possible, and airport pickups include complimentary waiting. WhatsApp can confirm luggage. A return can be added on the same form.",
+    journeyInfo: `Newtownards to Belfast International usually follows the A20 through Dundonald, then the M2 toward Aldergrove. Donaghadee joins from the A48 first. ${TRAFFIC}`,
     goingToAirport:
       "We collect door to door from your Newtownards address and drive you to Belfast International. Book in advance so the pickup sits ahead of check-in. Drop-off uses the Express or free-area option shown on the quote for this airport. We do not promise a named kerb beyond that choice.",
     fromAirport:
@@ -23,12 +23,12 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     whyBookIntro:
       "This Newtownards–Aldergrove page is a reserved inland transfer, with the same fixed-price checkout and flight monitoring as our other International routes.",
     localAreasText:
-      "We collect across Newtownards, including Scrabo, Movilla and The Square, plus Conlig on the A21 and Donaghadee on the coast. Enter the full street so the quote does not start on a generic town-centre pin.",
+      "We collect across Newtownards, including Scrabo, Movilla and The Square, plus Conlig on the A21 and Donaghadee on the A48. Enter the full street so the quote does not start on a generic town-centre pin.",
     faqs: [
       {
         question: "How much is a taxi from Newtownards to Belfast International Airport?",
         answer:
-          "The quote box on this page already has Belfast International selected. Enter Scrabo, Movilla, Conlig or Donaghadee — Donaghadee starts on the coast before the A20, so we do not publish one Newtownards–Aldergrove fare.",
+          "The quote box on this page already has Belfast International selected. Enter Scrabo, Movilla, Conlig or Donaghadee — Donaghadee starts on the A48 before the A20, so we do not publish one Newtownards–Aldergrove fare.",
       },
       {
         question: "How long does Newtownards to Belfast International take?",
@@ -48,7 +48,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Do you collect from Donaghadee for Aldergrove?",
         answer:
-          "Yes. Enter the Donaghadee street. That coastal start is not the same pin as The Square in Newtownards.",
+          "Yes. Enter the Donaghadee street. That A48 start is not the same pin as The Square in Newtownards.",
       },
       {
         question: "Can I book this Newtownards transfer online?",
@@ -66,21 +66,21 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     metaDescription:
       "Taxi from Newtownards to George Best Belfast City Airport. Fixed-price A20 transfer, online booking and flight monitoring from your Ards street.",
     intro:
-      "George Best Belfast City Airport is usually the nearer Belfast terminal from Newtownards, because the A20 already points toward east Belfast and the Sydenham side of the city. This page is only that journey. Aldergrove and Dublin have their own Newtownards routes. The quote box has Belfast City Airport selected; you add the pickup and the rest of the booking. Movilla and Scrabo leave through the town onto the A20. Conlig comes in from the A21 first, so a Conlig address should not be written as Bangor. Donaghadee is the longer Ards start, along the coast before the same A20. We still reserve the car. City Airport can be a short-haul or business flight, and a last-minute rank car is a poor plan when the A20 through Dundonald is busy. Meet & greet can be requested where it is offered. Flight monitoring applies when we collect you at the airport, with complimentary waiting on that pickup. Add a return if you want both legs. The mapped time appears after the address, because the A20 does not behave the same at 07:00 and at midday.",
+      "George Best Belfast City Airport is usually the nearer Belfast terminal from Newtownards, because the A20 already points toward east Belfast and the Sydenham side of the city. This page is only that journey. Aldergrove and Dublin have their own Newtownards routes. The quote box has Belfast City Airport selected; you add the pickup and the rest of the booking. Movilla and Scrabo leave through the town onto the A20. Conlig comes in from the A21 first, so a Conlig address should not be written as Bangor. Donaghadee is the longer Ards start, on the A48 before you join the A20. We still reserve the car. City Airport can be a short-haul or business flight, and a last-minute rank car is a poor plan when the A20 through Dundonald is busy. We monitor the flight where possible when we collect you at the airport, with up to 60 minutes complimentary waiting on that pickup. Add a return if you want both legs. The mapped time appears after the address, because the A20 does not behave the same at 07:00 and at midday.",
     journeyInfo: `Newtownards to Belfast City Airport usually follows the A20 through Dundonald toward the Sydenham side of the city. ${TRAFFIC}`,
     goingToAirport:
       "Door-to-door collection from Newtownards, booked so the drop-off sits before check-in. City Airport drop-off uses the Express or free-area option shown on the quote. We do not invent an extra meeting door beyond that choice.",
     fromAirport:
-      "Book Belfast City Airport → Newtownards as a return or a one-way inbound. Flight monitoring adjusts the collection when you give us the flight number. Complimentary waiting on airport pickups is up to 60 minutes.",
+      "Book Belfast City Airport → Newtownards as a return or a one-way inbound. We monitor the flight where possible and adjust the planned collection when you give us the flight number. Complimentary waiting on airport pickups is up to 60 minutes.",
     whyBookIntro:
       "City Airport from Newtownards is the A20 booking — a reserved driver and a fixed price, not a car hailed at Sydenham.",
     localAreasText:
-      "Scrabo, Movilla and The Square leave on the A20. Conlig joins from the A21. Donaghadee adds the coastal road before Dundonald.",
+      "Scrabo, Movilla and The Square leave on the A20. Conlig joins from the A21. Donaghadee joins on the A48 before Dundonald.",
     faqs: [
       {
         question: "How much is a taxi from Newtownards to Belfast City Airport?",
         answer:
-          "Use the quote tool on this page. City Airport is already selected. Scrabo leaves on the A20; Donaghadee starts on the coast, so we do not print one Ards fare.",
+          "Use the quote tool on this page. City Airport is already selected. Scrabo leaves on the A20; Donaghadee starts on the A48, so we do not print one Ards fare.",
       },
       {
         question: "How long is Newtownards to Belfast City Airport?",
@@ -95,7 +95,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "What if my City Airport flight is late?",
         answer:
-          "We monitor the flight where possible and hold the Newtownards collection to the landing time. Airport pickups include up to 60 minutes complimentary waiting.",
+          "We monitor the flight where possible and adjust the planned Newtownards collection time. Airport pickups include up to 60 minutes complimentary waiting.",
       },
       {
         question: "Is Conlig included on this City Airport page?",
@@ -118,7 +118,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     metaDescription:
       "Pre-book a Newtownards to Dublin Airport taxi. Fixed-price cross-border transfer with flight monitoring and included tolls. Quote your street online.",
     intro:
-      "Dublin Airport from Newtownards is a full cross-border booking, not a local hop along the A20. The Ards start is still real: you leave Newtownards, come through Dundonald and Belfast, then take the A1/M1 south. Applicable M1 tolls are included on Dublin Airport fares, as they are on our other Dublin pages. The quote on this page already selects Dublin Airport. Enter the Newtownards, Conlig or Donaghadee street and you see the live fixed price for that address. Early Dublin departures are a common reason to book the night before. Tell us the terminal when you know it so the inbound meeting point can be confirmed. Flight monitoring applies to Dublin collections, with complimentary waiting on airport pickups. A return can be booked together if you want the same arrangement back to the Ards. Donaghadee and Conlig change the start of the mapped route, which is why this page does not offer a single town-centre fare. WhatsApp is available if luggage or the terminal changes after you have booked.",
+      "Dublin Airport from Newtownards is a full cross-border booking, not a local hop along the A20. The Ards start is still real: you leave Newtownards, come through Dundonald and Belfast, then take the A1/M1 south. Applicable M1 tolls are included on Dublin Airport fares, as they are on our other Dublin pages. The quote on this page already selects Dublin Airport. Enter the Newtownards, Conlig or Donaghadee street and you see the live fixed price for that address. Early Dublin departures are a common reason to book the night before. Tell us the terminal when you know it. We monitor Dublin flights where possible, with up to 60 minutes complimentary waiting on airport pickups. A return can be booked together if you want the same arrangement back to the Ards. Donaghadee and Conlig change the start of the mapped route, which is why this page does not offer a single town-centre fare. WhatsApp is available if luggage or the terminal changes after you have booked.",
     journeyInfo: `Newtownards to Dublin Airport uses the A20 into Belfast, then the A1/M1 south. It is a longer reserved diary slot than either Belfast airport. ${TRAFFIC}`,
     goingToAirport:
       "We collect at your Newtownards door and drive you to Dublin Airport. Book far enough ahead of check-in for a cross-border run. The quote tool shows the mapped time for your street. Applicable tolls are included on Dublin Airport fares.",
@@ -152,7 +152,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Are tolls extra on this Newtownards to Dublin taxi?",
         answer:
-          "Applicable road tolls are included on Dublin Airport fares. You do not add a separate toll line on this page.",
+          "Applicable M1 tolls are included in the Newtownards to Dublin fare the quote tool shows.",
       },
       {
         question: "Do you do early Dublin pickups from Newtownards?",
@@ -222,7 +222,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     metaDescription:
       "Private taxi from Dundonald to Belfast City Airport. Fixed-price transfer along the A20, with online booking and flight monitoring included.",
     intro:
-      "From Dundonald, George Best Belfast City Airport is the airport the A20 is already facing. The Upper Newtownards Road runs toward east Belfast and the Sydenham side of the city, which is why this page exists separately from the Aldergrove route. You still book it. A short-haul flight and a busy morning on the dual carriageway are a bad mix if the car is not reserved. The quote box has City Airport selected. Add Ballybeen, Tullycarnet, the hospital or a Knock address and the fixed price is for that street. Comber Road pickups should name Comber Road so they are not treated as Comber town. Gilnahirk is on the Belfast side of Dundonald and is a valid pickup when you enter it. Meet & greet can be requested where booking offers it. If you are being collected at City Airport, flight monitoring and complimentary waiting apply once the flight number is on the booking. A return to Dundonald can be added before you pay. WhatsApp remains the place to confirm a terminal or an extra bag.",
+      "From Dundonald, George Best Belfast City Airport is the airport the A20 is already facing. The Upper Newtownards Road runs toward east Belfast and the Sydenham side of the city, which is why this page exists separately from the Aldergrove route. You still book it. A short-haul flight and a busy morning on the dual carriageway are a bad mix if the car is not reserved. The quote box has City Airport selected. Add Ballybeen, Tullycarnet, the hospital or a Knock address and the fixed price is for that street. Comber Road pickups should name Comber Road so they are not treated as Comber town. Gilnahirk is on the Belfast side of Dundonald and is a valid pickup when you enter it. If you are being collected at City Airport, we monitor the flight where possible once the flight number is on the booking, with up to 60 minutes complimentary waiting. A return to Dundonald can be added before you pay. WhatsApp remains the place to confirm a terminal or an extra bag.",
     journeyInfo: `Dundonald to Belfast City Airport follows the A20 toward east Belfast and the Sydenham side of the city. ${TRAFFIC}`,
     goingToAirport:
       "Door-to-door from Dundonald to Belfast City Airport, booked before check-in. Drop-off uses the Express or free-area option the quote shows for City Airport.",
@@ -274,7 +274,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     metaDescription:
       "Book a Dundonald to Dublin Airport taxi. Fixed-price cross-border transfer with included tolls, flight monitoring and online booking from Dundonald.",
     intro:
-      "Dundonald is already on the Belfast side of Newtownards, but Dublin Airport is still a full cross-border day from this suburb. You leave the A20, cross the city and take the A1/M1 south. Applicable M1 tolls are included on the Dublin fare. The quote box on this page has Dublin Airport selected, so you only add the Dundonald street. Ballybeen and the Ulster Hospital are common early pickups for first-wave Dublin flights, and the hospital entrance should be in the address. Tullycarnet and Comber Road are not the same pin as Knock. Book the night before if the flight is an early departure. Tell us the Dublin terminal when you know it. Flight monitoring covers the collection at Dublin, with complimentary waiting on that airport pickup. A return to Dundonald can be added on the form if both legs should be reserved together. This is not the City Airport page and not the Aldergrove page — those stay on their own Dundonald routes. WhatsApp can confirm luggage before an overnight pickup.",
+      "Dundonald is already on the Belfast side of Newtownards, but Dublin Airport is still a full cross-border day from this suburb. You leave the A20, cross the city and take the A1/M1 south. Applicable M1 tolls are included on the Dublin fare. The quote box on this page has Dublin Airport selected, so you only add the Dundonald street. Ballybeen and the Ulster Hospital are common early pickups for first-wave Dublin flights, and the hospital entrance should be in the address. Tullycarnet and Comber Road are not the same pin as Knock. Book the night before if the flight is an early departure. Tell us the Dublin terminal when you know it. We monitor the Dublin flight where possible, with up to 60 minutes complimentary waiting on that airport pickup. A return to Dundonald can be added on the form if both legs should be reserved together. This is not the City Airport page and not the Aldergrove page — those stay on their own Dundonald routes. WhatsApp can confirm luggage before an overnight pickup.",
     journeyInfo: `Dundonald to Dublin Airport leaves the A20, crosses Belfast and continues on the A1/M1. It is a longer reserved slot than either Belfast airport. ${TRAFFIC}`,
     goingToAirport:
       "We collect at your Dundonald door and drive you to Dublin Airport. Allow a cross-border booking ahead of check-in. Applicable tolls are included on Dublin Airport fares. The quote tool shows the mapped time for your street.",
@@ -378,7 +378,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     metaDescription:
       "Taxi from Comber to George Best Belfast City Airport. Fixed-price A22 transfer with online booking and flight monitoring from your Comber street.",
     intro:
-      "Comber to Belfast City Airport uses the same A22 start as the Aldergrove run, then stays on the eastern side of Belfast toward Sydenham instead of turning west for the M2. That split is why the two Belfast airports are separate Comber pages. The quote box has City Airport selected. Add The Square, a Killinchy Road address, Moneyreagh or Ballygowan and the fixed price follows that pin. Moneyreagh sits toward Carryduff and should not be entered as a Carryduff roundabout pickup if the house is in Moneyreagh. We reserve the driver before travel day. Short-haul flights from City Airport still need that reservation when the A22 and Dundonald are busy. Meet & greet can be requested where it is offered on the booking. The inbound collection uses flight monitoring and complimentary waiting once the flight number is included. Add a return if both legs should be on one form. WhatsApp can confirm the street if the lane name is easy to misread.",
+      "Comber to Belfast City Airport uses the same A22 start as the Aldergrove run, then stays on the eastern side of Belfast toward Sydenham instead of turning west for the M2. That split is why the two Belfast airports are separate Comber pages. The quote box has City Airport selected. Add The Square, a Killinchy Road address, Moneyreagh or Ballygowan and the fixed price follows that pin. Moneyreagh sits toward Carryduff and should not be entered as a Carryduff roundabout pickup if the house is in Moneyreagh. We reserve the driver before travel day. Short-haul flights from City Airport still need that reservation when the A22 and Dundonald are busy. The inbound collection is monitored where possible, with up to 60 minutes complimentary waiting, once the flight number is included. Add a return if both legs should be on one form. WhatsApp can confirm the street if the lane name is easy to misread.",
     journeyInfo: `Comber to Belfast City Airport follows the A22 toward Dundonald, then east Belfast and the Sydenham side rather than the M2. ${TRAFFIC}`,
     goingToAirport:
       "Door-to-door from Comber to Belfast City Airport, booked ahead of check-in. Drop-off uses the Express or free-area option shown on the City Airport quote.",
@@ -407,7 +407,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "What if my City Airport flight is late?",
         answer:
-          "We monitor the flight where possible and hold the Comber collection to the landing time. Airport pickups include up to 60 minutes complimentary waiting.",
+          "We monitor the flight where possible and adjust the planned Comber collection time. Airport pickups include up to 60 minutes complimentary waiting.",
       },
       {
         question: "Is Killinchy included?",
@@ -430,7 +430,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     metaDescription:
       "Pre-book a Comber to Dublin Airport taxi. Fixed-price cross-border transfer from the A22, with included tolls and flight monitoring. Quote online.",
     intro:
-      "Dublin Airport from Comber is the long booking after you have left the lough. The A22 takes you toward Dundonald and Belfast, and the A1/M1 takes you south. Applicable M1 tolls are included on the Dublin fare. This is a reserved diary slot, not a local Comber hop, which is why early flights are booked the night before. The quote box already selects Dublin Airport. You enter The Square, Killinchy, Moneyreagh or Ballygowan and see the fixed price for that street. Killinchy adds the lanes south of town before the A22. Moneyreagh is the Carryduff side and should be spelled as Moneyreagh. Tell us the Dublin terminal when you know it so the inbound meeting point can be confirmed. Flight monitoring applies to the Dublin collection, with complimentary waiting on airport pickups. A return to Comber can be added on the same form. The Belfast airport pages stay separate if your ticket is City Airport or Aldergrove instead. WhatsApp can confirm a house name before an overnight start.",
+      "Dublin Airport from Comber is the long booking after you have left the lough. The A22 takes you toward Dundonald and Belfast, and the A1/M1 takes you south. Applicable M1 tolls are included on the Dublin fare. This is a reserved diary slot, not a local Comber hop, which is why early flights are booked the night before. The quote box already selects Dublin Airport. You enter The Square, Killinchy, Moneyreagh or Ballygowan and see the fixed price for that street. Killinchy adds the lanes south of town before the A22. Moneyreagh is the Carryduff side and should be spelled as Moneyreagh. Tell us the Dublin terminal when you know it. We monitor the Dublin flight where possible, with up to 60 minutes complimentary waiting on airport pickups. A return to Comber can be added on the same form. The Belfast airport pages stay separate if your ticket is City Airport or Aldergrove instead. WhatsApp can confirm a house name before an overnight start.",
     journeyInfo: `Comber to Dublin Airport uses the A22 toward Dundonald and Belfast, then the A1/M1 south. It is a longer reserved slot than either Belfast airport. ${TRAFFIC}`,
     goingToAirport:
       "We collect at your Comber door and drive you to Dublin Airport. Book far enough ahead of check-in for a cross-border run. Applicable tolls are included on Dublin Airport fares.",
@@ -464,7 +464,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Are tolls extra from Comber?",
         answer:
-          "Applicable road tolls are included on Dublin Airport fares. There is no separate toll charge added on this page.",
+          "Applicable M1 tolls are included in the Comber to Dublin fare the quote tool shows.",
       },
       {
         question: "Do you collect early from Comber for Dublin?",
