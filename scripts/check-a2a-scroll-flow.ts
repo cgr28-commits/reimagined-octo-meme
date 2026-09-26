@@ -14,6 +14,7 @@ function read(rel: string): string {
 const card = read("src/components/QuoteCard.tsx");
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");
 const helper = read("src/lib/quote-step-nav-scroll.ts");
+const schedule = read("src/components/QuoteScheduleFields.tsx");
 
 console.log("=== Central scrollQuoteStage helper ===");
 assert.match(helper, /export function scrollQuoteStage/);
@@ -38,8 +39,7 @@ console.log("OK  QuoteProgressiveRoute is scroll-target only");
 console.log("\n=== QuoteCard owns A2A stage sequence ===");
 assert.match(card, /scrollQuoteStage\("quote-section-addresses"/);
 assert.match(card, /scrollQuoteStage\("journey-type-selector"/);
-assert.match(card, /scrollQuoteStage\("passenger-luggage-section"/);
-assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
+assert.match(card, /scrollQuoteStage\("quote-section-schedule"/);
 assert.match(card, /id="step2-journey-summary"/);
 assert.match(card, /scrollJourneySummaryAfterTimeConfirm\(/);
 assert.match(card, /step2-flight-details|step2JourneySummaryRef/);
@@ -58,14 +58,14 @@ assert.match(
 assert.match(card, /hadA2aPartyScrollRef/);
 assert.match(
   card,
-  /hadA2aPartyScrollRef\.current = true;\s*return scrollQuoteStage\("passenger-luggage-section"/,
+  /hadA2aPartyScrollRef\.current = true;\s*return scrollQuoteStage\("quote-section-schedule"/,
 );
 assert.match(
   card,
   /hadLegacyJourneyModeScrollRef\.current = true;[\s\S]*?if \(detectMobileDevice\(\)\) return;\s*return scrollQuoteStage\("journey-type-selector"/,
 );
 assert.match(card, /hadRouteSummaryScrollRef/);
-assert.match(card, /pendingRouteSummaryScrollRef/);
+assert.doesNotMatch(card, /pendingRouteSummaryScrollRef/);
 assert.match(card, /hadJourneySummaryScrollRef/);
 assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
 assert.doesNotMatch(card, /preferContinueCta/);
@@ -76,38 +76,30 @@ console.log("OK  stages wired with one-shot refs (bags → YOUR ROUTE)");
 
 console.log("\n=== Time scroll only after picker Done / blur ===");
 assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
-assert.match(
-  card,
-  /id="time"[\s\S]*?onBlur=\{\(\) => \{[\s\S]*?requestJourneySummaryScrollAfterTimeConfirm\(\);/,
-);
-assert.match(
-  card,
-  /id="returnTime"[\s\S]*?onBlur=\{\(\) => \{[\s\S]*?requestJourneySummaryScrollAfterTimeConfirm\(\);/,
-);
+assert.match(card, /onTimeBlur=\{[\s\S]*?requestJourneySummaryScrollAfterTimeConfirm\(\)/);
+assert.match(schedule, /id="time"[\s\S]*?onBlur=\{onTimeBlur\}/);
+assert.match(schedule, /id="returnTime"[\s\S]*?onBlur=\{onTimeBlur\}/);
 assert.doesNotMatch(
   card,
   /useEffect\(\(\) => \{[\s\S]*if \(quoteStep !== 2\)[\s\S]*isScheduleComplete[\s\S]*\}, \[isScheduleComplete, quoteStep\]\)/,
 );
 console.log("OK  time → Your Journey uses blur, not isScheduleComplete effect");
 
-console.log("\n=== Capacity incomplete→complete → YOUR ROUTE stack ===");
-assert.match(card, /becameComplete/);
+console.log("\n=== Results ready → start of quote results, once ===");
 assert.match(card, /capacityComplete/);
 assert.match(card, /routeSummaryRef/);
+assert.match(card, /quoteResultsReady/);
 assert.match(
   card,
-  /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/,
+  /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-results-summary", \{\s*focusHeading: false/,
 );
+assert.doesNotMatch(card, /becameComplete/);
+assert.doesNotMatch(card, /hadVehicleResultAlignRef/);
 assert.doesNotMatch(
   card,
   /preferContinueCta[\s\S]*scrollQuoteStage\("quote-book-now-anchor"\)/,
 );
-// Must not wait on metric flicker before the bags→route scroll
-assert.doesNotMatch(
-  card,
-  /if \(!quoteResultsReady\) \{\s*return;\s*\}\s*hadRouteSummaryScrollRef/,
-);
-console.log("OK  bags complete lands on YOUR ROUTE stack immediately");
+console.log("OK  results scroll once to the start of the results block");
 
 console.log("\n=== No homepage airport targets in quote stage scrolls ===");
 const stageBlock = card.slice(

@@ -84,11 +84,11 @@ check("Scroll sequence: journey-type → date/time → passengers → YOUR ROUTE
   assert.match(progressive, /id="passenger-luggage-section"/);
   assert.match(card, /scrollQuoteStage\("journey-type-selector"/);
   assert.match(card, /scrollQuoteStage\("quote-section-schedule"/);
-  assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/);
+  assert.match(card, /scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-results-summary"/);
   assert.match(card, /id="quote-route-summary"|id=\{\s*quoteChoicesReady && hasQuoteRoute && quoteStep === 1/);
   assert.match(card, /hadRouteSummaryScrollRef/);
-  assert.match(card, /becameComplete/);
   assert.match(card, /quoteResultsReady/);
+  assert.doesNotMatch(card, /becameComplete/);
   assert.doesNotMatch(card, /preferContinueCta/);
   assert.doesNotMatch(card, /hadStep1ReadyScrollRef/);
   assert.doesNotMatch(card, /scheduleBookingNavAfterRender\("quote-price-summary"/);
@@ -103,7 +103,8 @@ check("Results order: instant card (vehicle/price/book) then route; overflow-anc
   assert.match(card, /showInstantQuoteResultCard/);
   assert.match(card, /BOOK THIS TRANSFER/);
   assert.match(card, /Vehicle for this journey/);
-  assert.match(card, /Your Fixed Journey Price/);
+  assert.match(card, /Your transfer price/);
+  assert.doesNotMatch(card, /Your fixed price|YOUR FIXED PRICE|Your Fixed Journey Price/);
   assert.match(card, /overflowAnchor: "none"/);
   assert.match(showcase, /ESTATE_VEHICLE/);
   assert.match(showcase, /vehicleShortLabel/);

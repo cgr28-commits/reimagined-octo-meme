@@ -3,11 +3,12 @@
 import {
   canOfferExpressFreeAlternative,
   expressAirportOptionHeading,
-  expressDropOffRemovedExplanation,
   expressQuoteExpressHint,
   expressQuoteExpressTitle,
   expressQuoteFreeHint,
   expressQuoteFreeTitle,
+  expressQuoteSelectionConfirmation,
+  getExpressDropOffFeeGbp,
   type ExpressAirportService,
   type ExpressDropOffAirportCode,
 } from "../../shared/express-drop-off";
@@ -29,6 +30,8 @@ type Props = {
   idPrefix?: string;
   /** Optional legend override, e.g. "Outbound journey – Airport drop-off". */
   heading?: string;
+  /** Current transfer total, so the confirmation line matches the price. */
+  fareTotalGbp?: number | null;
   className?: string;
   /** Light card (quote result) vs dark glass card. */
   tone?: AirportAccessTone;
@@ -48,6 +51,7 @@ export default function ExpressDropOffSelector({
   allowFreeAlternative,
   idPrefix,
   heading,
+  fareTotalGbp = null,
   className = "",
   tone = "on-dark",
 }: Props) {
@@ -58,42 +62,25 @@ export default function ExpressDropOffSelector({
       : canOfferExpressFreeAlternative({ airportCode, service });
   const light = tone === "on-light";
   const styles = accessChoiceStyles(light);
+  const legend = heading || expressAirportOptionHeading(service);
+  const feeGbp = getExpressDropOffFeeGbp(airportCode);
 
   return (
     <fieldset
-      className={`min-w-0 space-y-2 ${className}`}
-      aria-describedby={!selected && freeAvailable ? `${groupName}-note` : undefined}
+      className={`min-w-0 max-w-full space-y-2 overflow-hidden ${className}`}
+      data-express-service={service}
+      data-express-selected={selected ? "express" : "free"}
+      aria-describedby={`${groupName}-note`}
     >
       <legend className={`px-0.5 text-sm font-semibold ${styles.heading}`}>
-        {heading || expressAirportOptionHeading(service)}
+        {legend}
       </legend>
 
       <div
         role="radiogroup"
-        aria-label={`${heading || expressAirportOptionHeading(service)} options`}
+        aria-label={`${legend} options`}
         className="space-y-2"
       >
-        <label className={`${styles.card} ${selected ? styles.selected : styles.idle}`}>
-          <input
-            type="radio"
-            name={groupName}
-            checked={selected}
-            onChange={() => {
-              onSelectedChange(true);
-              onRemovalAcknowledgedChange(false);
-            }}
-            className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
-          />
-          <span className="min-w-0 leading-snug">
-            <span className="block font-semibold">
-              {expressQuoteExpressTitle(airportCode, service, selected)}
-            </span>
-            <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
-              {expressQuoteExpressHint(service)}
-            </span>
-          </span>
-        </label>
-
         {freeAvailable ? (
           <label className={`${styles.card} ${!selected ? styles.selectedFree : styles.idle}`}>
             <input
@@ -106,23 +93,47 @@ export default function ExpressDropOffSelector({
               }}
               className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
             />
-            <span className="min-w-0 leading-snug">
-              <span className="block font-semibold">
+            <span className="min-w-0 flex-1 leading-snug">
+              <span className="block break-words font-semibold">
                 {expressQuoteFreeTitle(airportCode, service, !selected)}
               </span>
-              <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
-                {expressQuoteFreeHint(service)}
+              <span className={`mt-0.5 block break-words text-xs font-normal ${styles.hint}`}>
+                {expressQuoteFreeHint(service, airportCode)}
               </span>
             </span>
           </label>
         ) : null}
+
+        <label className={`${styles.card} ${selected ? styles.selected : styles.idle}`}>
+          <input
+            type="radio"
+            name={groupName}
+            checked={selected}
+            onChange={() => {
+              onSelectedChange(true);
+              onRemovalAcknowledgedChange(false);
+            }}
+            className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
+          />
+          <span className="min-w-0 flex-1 leading-snug">
+            <span className="block break-words font-semibold">
+              {expressQuoteExpressTitle(airportCode, service, selected)}
+            </span>
+            <span className={`mt-0.5 block break-words text-xs font-normal ${styles.hint}`}>
+              {expressQuoteExpressHint(service)}
+            </span>
+          </span>
+        </label>
       </div>
 
-      {freeAvailable && !selected ? (
-        <p id={`${groupName}-note`} className={`text-xs leading-relaxed ${styles.note}`}>
-          {expressDropOffRemovedExplanation(service)}
-        </p>
-      ) : null}
+      <p id={`${groupName}-note`} className={`break-words text-xs font-medium leading-relaxed ${styles.note}`}>
+        {expressQuoteSelectionConfirmation({
+          service,
+          expressSelected: selected,
+          feeGbp,
+          totalGbp: fareTotalGbp,
+        })}
+      </p>
     </fieldset>
   );
 }
@@ -130,15 +141,15 @@ export default function ExpressDropOffSelector({
 export function accessChoiceStyles(light: boolean) {
   return {
     heading: light ? "text-navy" : "text-white",
-    hint: light ? "text-navy/55" : "quote-secondary",
-    note: light ? "text-navy/70" : "quote-secondary",
+    hint: light ? "text-[#475569]" : "quote-secondary",
+    note: light ? "text-[#334155]" : "quote-secondary",
     radio: light ? "border-navy/30 accent-emerald" : "border-white/40 accent-emerald",
-    card: "flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
+    card: "flex w-full min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
     selected: light
-      ? "border-emerald bg-emerald/15 text-navy"
+      ? "border-emerald bg-emerald/15 text-navy ring-2 ring-emerald/35"
       : "quote-choice-selected",
     selectedFree: light
-      ? "border-amber-600/50 bg-amber-500/15 text-navy"
+      ? "border-emerald bg-emerald/15 text-navy ring-2 ring-emerald/35"
       : "border-amber-400/55 bg-amber-500/12 text-white",
     idle: light
       ? "border-navy/15 text-navy/80 hover:border-navy/30"

@@ -141,13 +141,10 @@ check("Mobile Step 1 address complete does not scroll", () => {
   );
   assert.match(
     card,
-    /hadRouteSummaryScrollRef\.current = true;[\s\S]*?scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary", \{\s*focusHeading: false/,
+    /if \(!quoteResultsReady \|\| hadRouteSummaryScrollRef\.current\) \{\s*return;\s*\}[\s\S]*?hadRouteSummaryScrollRef\.current = true;[\s\S]*?scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-results-summary", \{\s*focusHeading: false,\s*correctAfterMs: 150,\s*\}\)/,
   );
-  assert.match(card, /hadVehicleResultAlignRef/);
-  assert.match(
-    card,
-    /scrollQuoteStage\(vehicle, \{\s*focusHeading: false,\s*correctAfterMs: 320,\s*\}\)/,
-  );
+  assert.doesNotMatch(card, /hadVehicleResultAlignRef/);
+  assert.doesNotMatch(card, /scrollQuoteStage\(vehicle,/);
   assert.match(
     card,
     /failStep1\("missing_journey_mode"[\s\S]*?scrollQuoteStage\("journey-type-selector"\);/,

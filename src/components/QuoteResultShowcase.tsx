@@ -100,7 +100,7 @@ export default function QuoteResultShowcase({
             </span>
           </div>
           {estateDueToLuggage ? (
-            <p className="mt-1.5 text-xs text-navy/55">Extra luggage space for your journey</p>
+            <p className="mt-1.5 text-xs text-[#475569]">Extra luggage space for your journey</p>
           ) : null}
         </div>
 
@@ -140,26 +140,26 @@ export default function QuoteResultShowcase({
           ) : null}
 
           <div className="mt-4">{bookButton}</div>
-          <p className="mt-2.5 text-[11px] leading-snug text-navy/50">
+          <p className="mt-2.5 text-[11px] leading-snug text-[#475569]">
             🔒 Secure booking · Takes around 2 minutes
           </p>
 
           <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-medium leading-snug text-navy/85">
             <Benefit icon="card">
               {capacityConfirmation ? "We'll confirm first" : "Secure payment"}
-              <span className="block font-normal text-navy/55">
+              <span className="block font-normal text-[#475569]">
                 {capacityConfirmation ? "no payment taken yet" : "powered by SumUp"}
               </span>
             </Benefit>
             <Benefit icon="plane">
               Flight monitoring
-              <span className="block font-normal text-navy/55">for airport pickups</span>
+              <span className="block font-normal text-[#475569]">for airport pickups</span>
             </Benefit>
             <Benefit>No hidden charges</Benefit>
           </ul>
         </div>
       </div>
-      <p className="mt-3 text-center text-[10px] leading-none text-navy/35 lg:mt-4">
+      <p className="mt-3 text-center text-[10px] leading-none text-[#64748b] lg:mt-4">
         Vehicle shown for illustration.
       </p>
     </div>

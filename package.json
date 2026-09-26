@@ -24,6 +24,7 @@
     "check:airport-fixed-costs": "npx tsx scripts/check-airport-fixed-costs.ts",
     "check:airport-fee-wording": "npx tsx scripts/check-airport-fee-wording.ts",
     "check:express-drop-off": "npx tsx scripts/check-express-drop-off.ts",
+    "check:quote-authoritative-fare": "npx tsx scripts/check-quote-authoritative-fare.ts",
     "check:pricing-confirmation": "npx tsx scripts/check-pricing-confirmation.ts",
     "check:pricing-vehicle-quote-flow": "npx tsx scripts/check-pricing-vehicle-quote-flow.ts",
     "check:night-weekend-surcharge": "npx tsx scripts/check-night-weekend-surcharge.ts",
