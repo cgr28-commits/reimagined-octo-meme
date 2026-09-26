@@ -19,7 +19,6 @@ const progressive = read("src/components/QuoteProgressiveRoute.tsx");
 const card = read("src/components/QuoteCard.tsx");
 const journey = read("src/components/JourneyOptionCard.tsx");
 const express = read("src/components/ExpressDropOffSelector.tsx");
-const combined = read("src/components/CombinedAirportAccessSelector.tsx");
 
 console.log("=== Shared selected-state tokens ===");
 assert.match(css, /--quote-selected-border: #3ebf55/);
@@ -76,7 +75,7 @@ assert.match(
   /\.journey-option-card\.quote-choice-selected(?:,\s*\.journey-option-card\.quote-choice-selected:hover)? \{[\s\S]*?box-shadow: var\(--quote-selected-glow\)/,
 );
 assert.match(express, /quote-choice-selected/);
-assert.match(combined, /accessChoiceStyles/);
+assert.match(express, /accessChoiceStyles/);
 assert.doesNotMatch(progressive, /quote-choice-selected bg-emerald text-navy/);
 assert.doesNotMatch(progressive, /border-emerald bg-emerald text-navy/);
 assert.doesNotMatch(card, /quote-choice-selected bg-emerald text-navy/);
@@ -85,8 +84,8 @@ console.log("OK  journey, airport, party, return, child-seat and access options 
 
 console.log("\n=== Intentionally not using the dark selected fill ===");
 assert.match(express, /border-emerald bg-emerald\/15 text-navy/);
-assert.match(express, /border-amber-400\/55 bg-amber-500\/12 text-white/);
+assert.match(express, /border-2 border-emerald bg-emerald\/10 text-navy/);
 assert.doesNotMatch(card, /name="vehicle"[\s\S]{0,80}QUOTE_CHOICE_ON/);
-console.log("OK  light-theme access cards, amber free-access, and auto vehicle stay separate");
+console.log("OK  light-theme access cards use the emerald free style, and auto vehicle stays separate");
 
 console.log("\nAll quote selected-state checks passed.");

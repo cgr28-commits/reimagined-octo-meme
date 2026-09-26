@@ -80,7 +80,7 @@ function BookQuoteInner() {
   const [returnTime, setReturnTime] = useState("");
   const [childSeatRequired, setChildSeatRequired] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(false);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
   const [expressEditing, setExpressEditing] = useState(false);
@@ -430,6 +430,7 @@ function BookQuoteInner() {
           airportCode={expressSelection.airportCode}
           service={expressSelection.service ?? "drop-off"}
           allowFreeAlternative={expressSelection.freeAlternativeAvailable}
+          fareTotalGbp={displayPricing?.totalGbp}
           selected={expressDropOffSelected}
           removalAcknowledged={expressRemovalAck}
           requireAcknowledgement={expressAckRequired}

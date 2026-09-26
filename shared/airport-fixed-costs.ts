@@ -291,6 +291,84 @@ export function getAirportLegFixedCostGbp(
   return getAirportLegFixedCosts(airportCode, fromAirport)?.totalGbp ?? 0;
 }
 
+export type RequiredAirportAccessNotice = {
+  heading: string;
+  body: string;
+};
+
+function formatConfiguredGbp(amount: number): string {
+  const rounded = Math.round(amount * 100) / 100;
+  if (!Number.isFinite(rounded)) return "£—";
+  return `£${rounded.toFixed(rounded % 1 === 0 ? 0 : 2)}`;
+}
+
+function joinCharges(charges: string[]): string {
+  if (charges.length === 0) return "";
+  if (charges.length === 1) {
+    const verb = charges[0].startsWith("M1 tolls") ? "are" : "is";
+    return `${charges[0]} ${verb} included in your transfer price.`;
+  }
+  return `${charges.slice(0, -1).join(", ")} and ${charges[charges.length - 1]} are included in your transfer price.`;
+}
+
+/**
+ * Airports with no free Express alternative. Describes the required arrangement
+ * and the existing fixed charge. Never offers a free pickup or drop-off choice.
+ */
+export function requiredAirportAccessNotice(input: {
+  airportCode?: string | null;
+  fromAirport?: boolean | null;
+}): RequiredAirportAccessNotice | null {
+  if (isAirportFeeCustomerChoiceAllowed(input.airportCode)) return null;
+  const costs = getAirportLegFixedCosts(input.airportCode, input.fromAirport === true);
+  if (!costs) return null;
+  const name = AIRPORT_DISPLAY_NAMES[costs.airportCode];
+
+  if (input.fromAirport === true) {
+    const charges: string[] = [];
+    if (costs.airportCode === "DUB" && costs.parkingAllowanceGbp > 0) {
+      charges.push(`${name} pickup/parking (${formatConfiguredGbp(costs.parkingAllowanceGbp)})`);
+    } else if (costs.pickupFeeGbp > 0) {
+      charges.push(`${name} pickup (${formatConfiguredGbp(costs.pickupFeeGbp)})`);
+    }
+    if (costs.tollAllowanceGbp > 0) {
+      charges.push(`M1 tolls (${formatConfiguredGbp(costs.tollAllowanceGbp)})`);
+    }
+    if (charges.length === 0) return null;
+    const meeting =
+      costs.airportCode === "DUB"
+        ? " You'll meet your driver at the airport's paid pick-up location."
+        : "";
+    return {
+      heading: "Airport pickup",
+      body: `${joinCharges(charges)}${meeting}`,
+    };
+  }
+
+  const charges: string[] = [];
+  if (costs.dropOffFeeGbp > 0) {
+    charges.push(`${name} drop-off (${formatConfiguredGbp(costs.dropOffFeeGbp)})`);
+  }
+  if (costs.tollAllowanceGbp > 0) {
+    charges.push(`M1 tolls (${formatConfiguredGbp(costs.tollAllowanceGbp)})`);
+  }
+  if (costs.airportCode === "DUB") {
+    const toll =
+      costs.tollAllowanceGbp > 0
+        ? ` M1 tolls (${formatConfiguredGbp(costs.tollAllowanceGbp)}) are included.`
+        : "";
+    return {
+      heading: "Airport drop-off",
+      body: `${name} drop-off is included in your transfer price.${toll}`,
+    };
+  }
+  if (charges.length === 0) return null;
+  return {
+    heading: "Airport drop-off",
+    body: joinCharges(charges),
+  };
+}
+
 /**
  * Fee line(s) for one airport end using configured fixed costs.
  * Parking/access and M1 toll are emitted as separate lines when both apply.

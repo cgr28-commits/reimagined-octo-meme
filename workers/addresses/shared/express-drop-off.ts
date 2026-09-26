@@ -218,8 +218,9 @@ function resolveLegSelected(input: {
 
 /**
  * Resolve Express Drop-Off / Pick-Up for a journey.
- * `selected` defaults to true when eligible (product default) and applies to
- * every leg that has no explicit outbound/return choice.
+ * A missing `selected` flag still resolves as Express so older quotes that
+ * omitted the boolean keep their stored price. The customer UI always sends
+ * an explicit boolean and starts on the free drop-off.
  * When no free alternative is available on a leg, that leg stays on Express.
  */
 export function resolveExpressDropOff(input: {
@@ -380,7 +381,7 @@ export function expressAirportLegendLabel(
 export function expressAirportOptionHeading(
   service: ExpressAirportService = "drop-off",
 ): string {
-  return service === "pick-up" ? "Airport pick-up option" : "Airport drop-off option";
+  return service === "pick-up" ? "Choose your pickup option" : "Choose your drop-off option";
 }
 
 /** Optional checkout link — destination is unchanged; this is airport access only. */
@@ -391,57 +392,94 @@ export function expressCheckoutChangeLabel(
   return "Change airport access";
 }
 
+/** Belfast International free drop-off — supplied product copy, not inferred. */
+export const BFS_FREE_DROP_OFF_HINT =
+  "Drop-off at the Long Stay car park, around a 5-minute walk to the terminal.";
+
+/**
+ * Used when an airport has no configured free drop-off location or walking time.
+ * Belfast City has no drop-off walk time on file (Long Stay copy is pick-up only).
+ * Dublin has no Express drop-off product.
+ */
+export const GENERIC_FREE_DROP_OFF_HINT =
+  "Drop-off at the airport's designated free drop-off area.";
+
+export const EXPRESS_TERMINAL_DROP_OFF_HINT =
+  "Drop-off close to the terminal entrance for added convenience.";
+
+export const EXPRESS_TERMINAL_PICKUP_HINT =
+  "Meet your driver at the airport's designated terminal pickup area for added convenience.";
+
+/** Belfast International free pickup — Long Stay is the configured free collection point. */
+export const BFS_FREE_PICKUP_HINT =
+  "Meet your driver at the Long Stay car park, around a 5-minute walk from the terminal.";
+
+/** Belfast City free pickup — Long Stay, with the supplied walking range. */
+export const BHD_FREE_PICKUP_HINT =
+  "Meet your driver at the Long Stay car park, approximately a 5–10 minute walk from the terminal.";
+
 export function expressQuoteExpressTitle(
   airportCode: ExpressDropOffAirportCode,
   service: ExpressAirportService,
-  expressSelected: boolean,
+  _expressSelected: boolean,
 ): string {
+  void _expressSelected;
   const fee = formatExpressDropOffGbp(EXPRESS_DROP_OFF_FEES_GBP[airportCode]);
-  const product = service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
-  return expressSelected ? `${product} — ${fee} included` : `${product} — add ${fee}`;
+  const product = service === "pick-up" ? "Express Terminal Pickup" : "Express Terminal Drop-Off";
+  return `${product} — +${fee}`;
 }
 
 export function expressQuoteExpressHint(service: ExpressAirportService = "drop-off"): string {
-  return service === "pick-up"
-    ? "Recommended · Pick-up close to the terminal"
-    : "Recommended · Drop-off close to the terminal";
+  return service === "pick-up" ? EXPRESS_TERMINAL_PICKUP_HINT : EXPRESS_TERMINAL_DROP_OFF_HINT;
 }
 
 export function expressQuoteFreeTitle(
-  airportCode: ExpressDropOffAirportCode,
+  _airportCode: ExpressDropOffAirportCode,
   service: ExpressAirportService,
-  freeSelected: boolean,
+  _freeSelected: boolean,
 ): string {
-  const fee = formatExpressDropOffGbp(EXPRESS_DROP_OFF_FEES_GBP[airportCode]);
-  const product = service === "pick-up" ? "Free Pick-Up Area" : "Free Drop-Off Area";
-  return freeSelected ? `${product} — £0` : `${product} — save ${fee}`;
+  void _airportCode;
+  void _freeSelected;
+  return service === "pick-up" ? "Free Pickup — Included" : "Free Drop-Off — Included";
 }
 
-export function expressQuoteFreeHint(service: ExpressAirportService = "drop-off"): string {
-  return service === "pick-up"
-    ? "Use the designated free pick-up area"
-    : "Use the designated free drop-off area";
-}
-
-export function combinedQuoteExpressTitle(totalFeeGbp: number, expressSelected: boolean): string {
-  const fee = formatExpressDropOffGbp(totalFeeGbp);
-  return expressSelected ? `Express access — ${fee} included` : `Express access — add ${fee}`;
-}
-
-export function combinedQuoteFreeTitle(totalFeeGbp: number, freeSelected: boolean): string {
-  const fee = formatExpressDropOffGbp(totalFeeGbp);
-  return freeSelected ? `Free airport areas — £0` : `Free airport areas — save ${fee}`;
-}
-
-export function combinedQuoteExpressHint(
-  airportCode: string | null | undefined,
+export function expressQuoteFreeHint(
+  service: ExpressAirportService = "drop-off",
+  airportCode?: string | null,
 ): string {
-  const fee = formatExpressDropOffGbp(getExpressDropOffFeeGbp(airportCode));
-  return `${fee} Drop-Off + ${fee} Pick-Up · Both at the terminal`;
+  if (service === "pick-up") {
+    const code = normaliseExpressDropOffAirport(airportCode);
+    if (code === "BFS") return BFS_FREE_PICKUP_HINT;
+    if (code === "BHD") return BHD_FREE_PICKUP_HINT;
+    return "Meet your driver at the airport's designated free pick-up area.";
+  }
+  if (normaliseExpressDropOffAirport(airportCode) === "BFS") {
+    return BFS_FREE_DROP_OFF_HINT;
+  }
+  return GENERIC_FREE_DROP_OFF_HINT;
 }
 
-export function combinedQuoteFreeHint(): string {
-  return "Free Drop-Off + Free Pick-Up areas";
+/**
+ * Confirmation under the airport-access choice. Amounts come from the current fare,
+ * never from hard-coded prices.
+ */
+export function expressDropOffSelectionConfirmation(input: {
+  selected: boolean;
+  addedFeeGbp: number;
+  fareTotalGbp: number;
+  service?: ExpressAirportService;
+}): string {
+  const total = formatExpressDropOffGbp(input.fareTotalGbp);
+  const pickup = input.service === "pick-up";
+  if (!input.selected) {
+    return pickup
+      ? `✓ Free pickup selected — your fare remains ${total}.`
+      : `✓ Free drop-off selected — your fare remains ${total}.`;
+  }
+  const fee = formatExpressDropOffGbp(input.addedFeeGbp);
+  return pickup
+    ? `✓ Express Terminal Pickup selected — ${fee} added. Your total is ${total}.`
+    : `✓ Express Terminal Drop-Off selected — ${fee} added. Your total is ${total}.`;
 }
 
 export function expressAvoidedChargeMessage(
@@ -450,47 +488,6 @@ export function expressAvoidedChargeMessage(
   return service === "pick-up"
     ? "You’ve avoided the Express Pick-Up charge"
     : "You’ve avoided the Express Drop-Off charge";
-}
-
-/**
- * Combined return-booking airport access choice (customer-facing UX).
- *
- * Internally each leg is still resolved and stored independently (see
- * `resolveExpressDropOffLegs` / `ExpressDropOffResolvedLeg`), but on a return
- * journey the customer is shown a single "Airport access" control that applies
- * the same Express/free choice to both the outbound and return legs together —
- * it reduces mobile clutter and surfaces the full £ difference in one place.
- */
-export const COMBINED_AIRPORT_ACCESS_RETURN_NOTE =
-  "For return bookings, your selection applies to both your outbound and return airport journeys.";
-
-export function combinedAirportAccessRecommendedLabel(totalFeeGbp: number): string {
-  return `Express terminal — ${formatExpressDropOffGbp(totalFeeGbp)} included`;
-}
-
-export function combinedAirportAccessRemoveLabel(totalFeeGbp: number): string {
-  return `Free drop-off area — save ${formatExpressDropOffGbp(totalFeeGbp)}`;
-}
-
-export function combinedAirportAccessConfirmRemovalLabel(): string {
-  return "I understand that the designated free airport areas will be used for both journeys.";
-}
-
-export function combinedAirportAccessBreakdownLabel(
-  selected: boolean,
-  totalFeeGbp: number,
-): string {
-  if (selected) {
-    return `Express airport access (both journeys): ${formatExpressDropOffGbp(totalFeeGbp)}`;
-  }
-  return `Free airport areas selected (both journeys) — you save ${formatExpressDropOffGbp(totalFeeGbp)}`;
-}
-
-/** True only when every leg can offer the free alternative — required to show the combined free option. */
-export function combinedFreeAlternativeAvailable(
-  legs: Pick<ExpressDropOffResolvedLeg, "freeAlternativeAvailable">[],
-): boolean {
-  return legs.length > 0 && legs.every((leg) => leg.freeAlternativeAvailable);
 }
 
 /** Explicit customer choice — never infer from final price alone. */
@@ -812,10 +809,11 @@ export function parseCustomerExpressDropOffSelected(
 }
 
 /**
- * When Express becomes newly eligible, default the customer choice to selected.
- * Do not override an explicit remove when the journey was already eligible.
+ * When Express becomes newly eligible, reset the customer choice to the free
+ * drop-off. Express is an optional upgrade and must not be added automatically.
+ * Do not override an explicit choice while the journey stays eligible.
  */
-export function shouldDefaultExpressSelectedOnNewEligibility(input: {
+export function shouldApplyFreeDropOffDefaultOnNewEligibility(input: {
   wasEligible: boolean;
   nowEligible: boolean;
 }): boolean {

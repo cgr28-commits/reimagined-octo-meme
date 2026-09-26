@@ -196,7 +196,6 @@ import {
 } from "@/lib/personal-quote-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
-import CombinedAirportAccessChoice from "@/components/CombinedAirportAccessChoice";
 import QuoteResultShowcase from "@/components/QuoteResultShowcase";
 import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
@@ -217,20 +216,21 @@ import {
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import {
   canProceedWithoutExpressDropOffLegs,
-  combinedFreeAlternativeAvailable,
   composeFareWithExpressDropOff,
-  combinedQuoteExpressTitle,
   expressCheckoutChangeLabel,
-  expressDropOffRemovedExplanation,
   expressQuoteExpressTitle,
+  expressQuoteFreeTitle,
   resolveExpressDropOff,
-  shouldDefaultExpressSelectedOnNewEligibility,
+  shouldApplyFreeDropOffDefaultOnNewEligibility,
 } from "../../shared/express-drop-off";
 import {
   RETURN_OFFER_CONFIG,
   isReturnOfferAirportJourney,
 } from "../../shared/return-offer";
-import { resolveJourneyAirportFees } from "../../shared/airport-fixed-costs";
+import {
+  requiredAirportAccessNotice,
+  resolveJourneyAirportFees,
+} from "../../shared/airport-fixed-costs";
 import { promoFieldsFromFareBreakdown } from "../../shared/website-promo-pricing";
 import {
   buildSaveQuotePayloadFromLiveQuote,
@@ -847,8 +847,8 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
-  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
-  const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(true);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(false);
+  const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(false);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [returnExpressRemovalAck, setReturnExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
@@ -1873,13 +1873,13 @@ function QuoteCard({
     }
 
     if (
-      shouldDefaultExpressSelectedOnNewEligibility({
+      shouldApplyFreeDropOffDefaultOnNewEligibility({
         wasEligible: expressWasEligibleRef.current,
         nowEligible,
       })
     ) {
-      setExpressDropOffSelected(true);
-      setReturnExpressDropOffSelected(true);
+      setExpressDropOffSelected(false);
+      setReturnExpressDropOffSelected(false);
       setExpressRemovalAck(false);
       setReturnExpressRemovalAck(false);
       setExpressAckRequired(false);
@@ -4933,88 +4933,126 @@ function QuoteCard({
     );
   }
 
+  function renderRequiredAirportAccessNote(tone: "on-dark" | "on-light") {
+    const light = tone === "on-light";
+    const directions: { key: string; fromAirport: boolean; label: string | null }[] = [
+      {
+        key: "outbound",
+        fromAirport: isFromAirport,
+        label: returnJourney ? "Outbound journey" : null,
+      },
+    ];
+    if (returnJourney) {
+      directions.push({
+        key: "return",
+        fromAirport: !isFromAirport,
+        label: "Return journey",
+      });
+    }
+    const notices = directions.flatMap((direction) => {
+      const notice = requiredAirportAccessNotice({
+        airportCode: effectiveAirportCode,
+        fromAirport: direction.fromAirport,
+      });
+      return notice ? [{ ...direction, notice }] : [];
+    });
+    if (notices.length === 0) return null;
+    return (
+      <div className="mt-3 space-y-3 text-left" data-required-airport-access>
+        {notices.map((item) => (
+          <div
+            key={item.key}
+            className={
+              light
+                ? "rounded-xl border border-navy/15 px-3 py-3"
+                : "rounded-xl quote-panel px-3 py-3"
+            }
+          >
+            {item.label ? (
+              <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+                {item.label}
+              </p>
+            ) : null}
+            <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"} ${item.label ? "mt-1" : ""}`}>
+              {item.notice.heading}
+            </p>
+            <p
+              className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
+                light ? "text-[#475569]" : "quote-secondary"
+              }`}
+            >
+              {item.notice.body}
+            </p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   function renderExpressChoiceInPriceCard(
     mode: "full" | "summary",
     tone: "on-dark" | "on-light" = "on-dark",
   ) {
-    if (!expressSelection.eligible || testChargeAmount !== null) {
-      return null;
+    if (testChargeAmount !== null) return null;
+    if (!expressSelection.eligible) {
+      return renderRequiredAirportAccessNote(tone);
     }
     const legs = expressSelection.legs.filter((leg) => leg.airportCode);
     if (legs.length === 0) return null;
+    const fareTotalGbp =
+      paymentAmount != null && Number.isFinite(paymentAmount)
+        ? paymentAmount
+        : pricedFare?.totalGbp;
+    const light = tone === "on-light";
 
-    if (legs.length > 1) {
-      // Return journey: the customer makes a single "Airport access" choice
-      // that applies to both legs together (simpler on mobile, and the £
-      // difference is visible immediately). Each leg is still resolved,
-      // priced and persisted independently underneath (see express-drop-off.ts).
-      const allSelected = legs.every((leg) => leg.selected);
-      const allowFreeAlternative = combinedFreeAlternativeAvailable(legs);
-      return (
-        <div className="mt-3 text-left" data-express-airport-choice>
-          <CombinedAirportAccessChoice
-            airportCode={expressSelection.airportCode}
-            mode={mode}
-            tone={tone}
-            editing={expressEditingLeg != null}
-            onEditingChange={(editing) =>
-              setExpressEditingLeg(editing ? "outbound" : null)
-            }
-            totalFeeGbp={expressSelection.feeIfSelectedGbp}
-            allowFreeAlternative={allowFreeAlternative}
-            selected={allSelected}
-            removalAcknowledged={expressRemovalAck && returnExpressRemovalAck}
-            requireAcknowledgement={expressAckRequired}
-            onSelectedChange={(nextSelected) => {
-              setExpressDropOffSelected(nextSelected);
-              setReturnExpressDropOffSelected(nextSelected);
-              if (nextSelected) {
-                setExpressRemovalAck(false);
-                setReturnExpressRemovalAck(false);
-              } else {
-                setExpressRemovalAck(true);
-                setReturnExpressRemovalAck(true);
-              }
-              setExpressAckRequired(false);
-            }}
-            onRemovalAcknowledgedChange={(ack) => {
-              setExpressRemovalAck(ack);
-              setReturnExpressRemovalAck(ack);
-              if (ack) setExpressAckRequired(false);
-            }}
-          />
-        </div>
-      );
-    }
-
-    const leg = legs[0]!;
     return (
-      <div className="mt-3 text-left" data-express-airport-choice>
-        <ExpressDropOffChoice
-          mode={mode}
-          tone={tone}
-          editing={expressEditingLeg === leg.leg}
-          onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
-          airportCode={leg.airportCode}
-          service={leg.service}
-          allowFreeAlternative={leg.freeAlternativeAvailable}
-          selected={expressDropOffSelected}
-          removalAcknowledged={expressRemovalAck}
-          requireAcknowledgement={expressAckRequired}
-          onSelectedChange={(nextSelected) => {
-            setExpressDropOffSelected(nextSelected);
-            if (nextSelected) {
-              setExpressRemovalAck(false);
-            } else {
-              setExpressRemovalAck(true);
-            }
-            setExpressAckRequired(false);
-          }}
-          onRemovalAcknowledgedChange={(ack) => {
-            setExpressRemovalAck(ack);
-            if (ack) setExpressAckRequired(false);
-          }}
-        />
+      <div className="mt-3 space-y-4 text-left" data-express-airport-choice>
+        {legs.map((leg) => {
+          const selected = leg.leg === "return" ? returnExpressDropOffSelected : expressDropOffSelected;
+          const removalAcknowledged =
+            leg.leg === "return" ? returnExpressRemovalAck : expressRemovalAck;
+          return (
+            <div key={leg.leg} data-express-leg={leg.leg}>
+              {legs.length > 1 ? (
+                <p className={`mb-1.5 text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+                  {leg.leg === "return" ? "Return journey" : "Outbound journey"}
+                </p>
+              ) : null}
+              <ExpressDropOffChoice
+                mode={mode}
+                tone={tone}
+                editing={expressEditingLeg === leg.leg}
+                onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
+                airportCode={leg.airportCode}
+                service={leg.service}
+                idPrefix={leg.leg}
+                allowFreeAlternative={leg.freeAlternativeAvailable}
+                fareTotalGbp={fareTotalGbp}
+                selected={selected}
+                removalAcknowledged={removalAcknowledged}
+                requireAcknowledgement={expressAckRequired}
+                onSelectedChange={(nextSelected) => {
+                  if (leg.leg === "return") {
+                    setReturnExpressDropOffSelected(nextSelected);
+                    setReturnExpressRemovalAck(!nextSelected);
+                  } else {
+                    setExpressDropOffSelected(nextSelected);
+                    setExpressRemovalAck(!nextSelected);
+                  }
+                  setExpressAckRequired(false);
+                }}
+                onRemovalAcknowledgedChange={(ack) => {
+                  if (leg.leg === "return") {
+                    setReturnExpressRemovalAck(ack);
+                  } else {
+                    setExpressRemovalAck(ack);
+                  }
+                  if (ack) setExpressAckRequired(false);
+                }}
+              />
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -5309,18 +5347,17 @@ function QuoteCard({
   }
 
   function checkoutAccessLine(): string | null {
-    if (!expressSelection.eligible) return null;
-    if (expressSelection.legs.length > 1) {
-      return expressSelection.selected && expressSelection.feeGbp > 0
-        ? combinedQuoteExpressTitle(expressSelection.feeGbp, true)
-        : "Free airport areas selected for both journeys.";
-    }
-    const service = expressSelection.service ?? "drop-off";
-    const airportCode = expressSelection.legs[0]?.airportCode ?? "BFS";
-    if (expressSelection.selected && expressSelection.feeGbp > 0) {
-      return expressQuoteExpressTitle(airportCode, service, true);
-    }
-    return expressDropOffRemovedExplanation(service);
+    if (!expressSelection.eligible || expressSelection.legs.length === 0) return null;
+    return expressSelection.legs
+      .map((leg) => {
+        const title = leg.selected
+          ? expressQuoteExpressTitle(leg.airportCode, leg.service, true)
+          : expressQuoteFreeTitle(leg.airportCode, leg.service, true);
+        return expressSelection.legs.length > 1
+          ? `${leg.leg === "return" ? "Return" : "Outbound"}: ${title}`
+          : title;
+      })
+      .join(" · ");
   }
 
   function renderCheckoutPage() {
@@ -5877,7 +5914,7 @@ function QuoteCard({
                         </label>
                       </div>
                     ) : null}
-                    <p className="text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
+                    <p className="text-xs font-medium quote-secondary">{SECURE_SUMUP_LINE}</p>
                   </div>
                 ) : null}
                 <button
@@ -6100,13 +6137,7 @@ function QuoteCard({
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
-        priceLabel={
-          appliedPersonalQuote
-            ? "Personal quoted fare"
-            : returnJourney
-              ? "Your fixed return price"
-              : "Your fixed price"
-        }
+        priceLabel={appliedPersonalQuote ? "Personal quoted fare" : "Your transfer price"}
         formattedPrice={amountLabel}
         surchargeNote={
           (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0
