@@ -70,6 +70,7 @@ import {
   formatPassengerChoice,
   formatSuitcaseChoice,
   MAX_PUBLIC_SUITCASES,
+  requiresMinibus,
   selectVehicleForParty,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
@@ -900,6 +901,7 @@ function QuoteCard({
     }
     const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
     setVehicle((current) => (current === next ? current : next));
+    setChooseMinibus(false);
   }, [passengers, suitcases]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
@@ -2160,6 +2162,7 @@ function QuoteCard({
     setPassengers(null);
     setSuitcases(null);
     setExactPassengers(null);
+    setChooseMinibus(false);
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -3835,6 +3838,7 @@ function QuoteCard({
     setReturnDate("");
     setReturnTime("");
     setVehicle(VEHICLE_TYPES[0]);
+    setChooseMinibus(false);
     setPassengers(null);
     setSuitcases(null);
     setExactPassengers(null);
@@ -6088,6 +6092,24 @@ function QuoteCard({
     effectivePassengers != null &&
     suitcases != null;
 
+  function handleQuoteVehicleChoice(next: string) {
+    const pax = effectivePartyPassengers(passengers, passengerLimit);
+    if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
+    setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
+  }
+
+  function renderQuoteVehicleChoice() {
+    if (!publicMinibusEnabled || passengers == null || suitcases == null) return null;
+    return (
+      <QuoteVehicleCategories
+        passengers={passengers}
+        suitcases={suitcases}
+        selectedVehicle={quoteVehicle}
+        onSelectVehicle={handleQuoteVehicleChoice}
+      />
+    );
+  }
+
   function renderInstantQuoteResultCard() {
     const amountLabel = formatQuote(
       testChargeAmount ??
@@ -6481,6 +6503,9 @@ function QuoteCard({
               passengersError={passengersError}
               suitcasesError={suitcasesError}
               publicMinibusEnabled={publicMinibusEnabled}
+              showVehicleCategories={!(quoteResultsReady && quoteStep === 1)}
+              selectedVehicle={quoteVehicle}
+              onSelectVehicle={handleQuoteVehicleChoice}
               isGroupQuote={false}
               showRouteFields={Boolean(journeyIntent)}
               showJourneyModeFields={
@@ -6639,6 +6664,7 @@ function QuoteCard({
 
                 {quoteResultsReady && quoteStep === 1 && (
                   <>
+                    {renderQuoteVehicleChoice()}
                     {renderBookingErrorHelp("results")}
                     {showInstantQuoteResultCard ? (
                       renderInstantQuoteResultCard()
@@ -7067,9 +7093,9 @@ function QuoteCard({
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
           />
-          {publicMinibusEnabled && partySelectionReady ? (
-            <QuoteVehicleCategories passengers={passengers} suitcases={suitcases} />
-          ) : (
+          {publicMinibusEnabled && partySelectionReady && !(quoteResultsReady && quoteStep === 1) ? (
+            renderQuoteVehicleChoice()
+          ) : publicMinibusEnabled && partySelectionReady ? null : (
             <p className="quote-secondary text-xs leading-relaxed">
               Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and
               luggage — private airport transfer for 1–4 passengers.
@@ -7084,6 +7110,7 @@ function QuoteCard({
             className="scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
             style={{ overflowAnchor: "none" }}
           >
+            {renderQuoteVehicleChoice()}
             {renderBookingErrorHelp("results")}
             {showInstantQuoteResultCard ? (
               <>
