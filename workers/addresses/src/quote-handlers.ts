@@ -312,30 +312,9 @@ export async function handleQuoteCalculateRequest(
     );
   }
 
-  // Availability and booking settings do not change the fare. Start them now so
-  // their KV reads overlap the pricing snapshot instead of following it.
-  const availabilityPromise =
-    env?.TRACKING_STORE && routeMetrics
-      ? enforceCustomerSmartAvailabilityGate({
-          store: env.TRACKING_STORE,
-          origin,
-          previewRequested: customerSmartAvailabilityPreviewRequested(request),
-          previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
-          booking: {
-            pickupLabel: pickupAddress,
-            dropoffLabel: dropoffAddress,
-            tripDate: String(body.outboundDate ?? ""),
-            tripTime: String(body.outboundTime ?? ""),
-            returnJourney,
-            returnDate: String(body.returnDate ?? ""),
-            returnTime: String(body.returnTime ?? ""),
-            vehicle: String(body.vehicleType ?? body.vehicleChoice ?? ""),
-            airportCode,
-            isFromAirport: fromAirport,
-            routeDurationMinutes: routeMetrics.durationMinutes,
-          },
-        })
-      : Promise.resolve(null);
+  // Booking settings (notice, deposit, owner blocked periods) overlap pricing.
+  // The occupied-jobs availability scan is not part of the fare. The quote page
+  // already calls /quote/availability, and payment runs the same gate again.
   const pricing = await pricingPromise;
   const pricingReadyAt = Date.now();
 
@@ -574,18 +553,13 @@ export async function handleQuoteCalculateRequest(
 
   const fareReadyAt = Date.now();
   if (env?.TRACKING_STORE) {
-    const availabilityGate = await availabilityPromise;
-    const availabilityReadyAt = Date.now();
-    if (availabilityGate?.enforce) {
-      quoteBody.smartAvailability = toPublicCustomerSmartAvailability(availabilityGate);
-    }
     const settings = await settingsPromise;
     const settingsReadyAt = Date.now();
     diagnostics.stageMs = {
       route: routeReadyAt - stageStartedAt,
       pricing: pricingReadyAt - stageStartedAt,
       fare: fareReadyAt - stageStartedAt,
-      availability: availabilityReadyAt - stageStartedAt,
+      availability: 0,
       settings: settingsReadyAt - stageStartedAt,
       total: settingsReadyAt - stageStartedAt,
     };

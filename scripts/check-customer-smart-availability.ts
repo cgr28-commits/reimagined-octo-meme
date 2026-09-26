@@ -397,13 +397,21 @@ console.log("\n=== Fail-open + refund-test skip + no alternative search ===");
   const quoteHandler = read("workers/addresses/src/quote-handlers.ts");
   assert.match(quoteHandler, /recordQuoteShadowSafely/);
   assert.match(quoteHandler, /enforceCustomerSmartAvailabilityGate/);
-  assert.match(quoteHandler, /previewWorkerEnforce: env\.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1"/);
   assert.match(quoteHandler, /previewWorkerEnforce: env\?\.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1"/);
   assert.match(quoteHandler, /return json\(quoteBody, 200, origin\)/);
+  const calculateHandler = quoteHandler.slice(
+    quoteHandler.indexOf("export async function handleQuoteCalculateRequest"),
+    quoteHandler.indexOf("POST /quote/availability"),
+  );
+  assert.doesNotMatch(
+    calculateHandler,
+    /enforceCustomerSmartAvailabilityGate/,
+    "the fare response does not wait on the occupied-jobs scan",
+  );
   assert.match(
     quoteHandler,
-    /quoteBody\.smartAvailability = toPublicCustomerSmartAvailability/,
-    "blocked quotes still return the fare; payment is the hard gate",
+    /toPublicCustomerSmartAvailability\(availabilityGate\)/,
+    "availability stays on /quote/availability; payment is the hard gate",
   );
   assert.doesNotMatch(
     quoteHandler,
@@ -1148,7 +1156,12 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
 console.log("\n=== Quote/payment behaviour is unchanged when the gate is off ===");
 {
   const quoteHandler = read("workers/addresses/src/quote-handlers.ts");
-  assert.match(quoteHandler, /if \(availabilityGate\.enforce\) \{\n      quoteBody\.smartAvailability/);
+  const calculateHandler = quoteHandler.slice(
+    quoteHandler.indexOf("export async function handleQuoteCalculateRequest"),
+    quoteHandler.indexOf("POST /quote/availability"),
+  );
+  assert.doesNotMatch(calculateHandler, /enforceCustomerSmartAvailabilityGate/);
+  assert.match(calculateHandler, /return json\(quoteBody, 200, origin\)/);
   assert.match(quoteHandler, /export async function handleQuoteAvailabilityRequest/);
   assert.doesNotMatch(quoteHandler, /return json\(\{[\s\S]*smart_availability_unavailable/);
   const paymentsIndex = read("workers/addresses/src/index.ts");
