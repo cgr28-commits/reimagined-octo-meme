@@ -1091,7 +1091,7 @@ check("payment path wires accepted charge + no approximate mismatch rebuild", ()
   );
   assert.match(
     card,
-    /isPaymentFareMismatchError\(error\)[\s\S]*refreshAuthoritativeServerQuote\(\)/,
+    /isPaymentFareMismatchError\(error\)[\s\S]*refreshAuthoritativeServerQuote\((?:true)?\)/,
   );
 });
 

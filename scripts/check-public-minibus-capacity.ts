@@ -441,7 +441,8 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
   assert.match(card, /function renderQuoteVehicleChoice/);
   assert.match(card, /setChooseMinibus\(next === MINIBUS_VEHICLE_TYPE\)/);
   assert.match(card, /chooseMinibus \|\| pax >= 5 \|\| suitcases >= 5/);
-  assert.match(card, /vehicleType: requestedVehicle/);
+  assert.match(card, /vehicleType: vehicle/);
+  assert.match(card, /quoteFareVehiclesToRequest/);
   assert.match(progressive, /<QuoteVehicleCategories/);
   assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE \|\| option\.vehicle === automatic/);
   assert.equal(card.split("renderQuoteVehicleChoice()").length, 5);

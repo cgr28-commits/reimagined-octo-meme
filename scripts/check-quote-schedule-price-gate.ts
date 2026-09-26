@@ -231,7 +231,7 @@ check("changing schedule invalidates stale Worker fare before the new quote pain
   assert.match(card, /setServerFareParts\(null\)/);
   assert.match(
     card,
-    /tripDate, tripTime, returnDate, returnTime, returnJourney/,
+    /returnDate,\s*returnJourney,\s*returnTime,[\s\S]*?tripDate,\s*tripTime,/,
   );
   assert.match(card, /outboundDate: tripDate/);
   assert.match(card, /outboundTime: tripTime/);

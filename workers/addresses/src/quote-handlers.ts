@@ -58,6 +58,23 @@ import { resolvePaymentAirportContextFromAddresses } from "../shared/open-websit
 import { calculateAirportToAirportQuote, formatQuote } from "../../../src/lib/quote";
 import { drivingMilesFromKm } from "../../../src/lib/quote";
 
+/** Repeat vehicle switches reuse the same owner pricing snapshot for a few seconds. */
+const QUOTE_PRICING_CACHE_MS = 10_000;
+let quotePricingCache: {
+  at: number;
+  value: Awaited<ReturnType<typeof loadOwnerPricingOrDefault>>;
+} | null = null;
+
+async function loadQuotePricingCached(env?: { TRACKING_STORE?: KVNamespace }) {
+  const now = Date.now();
+  if (quotePricingCache && now - quotePricingCache.at < QUOTE_PRICING_CACHE_MS) {
+    return quotePricingCache.value;
+  }
+  const value = await loadOwnerPricingOrDefault(env);
+  quotePricingCache = { at: now, value };
+  return value;
+}
+
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -186,31 +203,35 @@ export async function handleQuoteCalculateRequest(
           : "none";
 
   // Commercial fare requires real road routing (OSRM). Haversine×1.48 must never
-  // set the price. Worker resolve first: prefer Worker OSRM; if Workers cannot
-  // reach OSRM, accept the browser's OSRM metrics (same TripMap path) rather
-  // than inventing a fare.
+  // set the price. Valid browser OSRM metrics are priced immediately — TripMap
+  // already measured this route — so the quote does not wait on a second OSRM
+  // call. Worker resolve runs only when those metrics are missing. Payment
+  // still uses resolveWorkerTripRouteMetricsForPayment and never trusts this body.
+  const clientMetrics = parseClientRouteMetrics(body.routeMetrics);
+  const pricingPromise = loadQuotePricingCached(env);
   let routeMetricsSource: "worker" | "client" | "none" = "none";
-  let routeMetrics = await resolveWorkerTripRouteMetrics({
-    pickupAddress,
-    dropoffAddress,
-    pickupPlaceId,
-    dropoffPlaceId,
-    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
-    googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
-    getAddressApiKey: env?.GETADDRESS_API_KEY,
-    trustClientCoordinates: true,
-  });
+  let routeMetrics = clientMetrics;
   if (routeMetrics) {
-    routeMetricsSource = "worker";
+    routeMetricsSource = "client";
   } else {
-    routeMetrics = parseClientRouteMetrics(body.routeMetrics);
+    routeMetrics = await resolveWorkerTripRouteMetrics({
+      pickupAddress,
+      dropoffAddress,
+      pickupPlaceId,
+      dropoffPlaceId,
+      pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
+      pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
+      dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+      dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+      googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
+      getAddressApiKey: env?.GETADDRESS_API_KEY,
+      trustClientCoordinates: true,
+    });
     if (routeMetrics) {
-      routeMetricsSource = "client";
+      routeMetricsSource = "worker";
     }
   }
+  const pricing = await pricingPromise;
 
   if (!routeMetrics) {
     return json(
@@ -293,7 +314,6 @@ export async function handleQuoteCalculateRequest(
   }
 
   const ownerMode = Boolean(env && ownerAuthorized(request, env));
-  const pricing = await loadOwnerPricingOrDefault(env);
   const publicMinibusEnabled = pricing.minibus.publicEnabled === true;
   if (
     !ownerMode &&

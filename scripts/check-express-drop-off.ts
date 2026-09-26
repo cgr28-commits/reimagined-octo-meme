@@ -370,23 +370,19 @@ check("Breakdown / customer copy wording", () => {
   assert.equal(expressCheckoutChangeLabel("pick-up"), "Change airport access");
   assert.equal(expressCheckoutChangeLabel("drop-off"), "Change airport access");
   assert.equal(expressCheckoutChangeLabel("combined"), "Change airport access");
-  assert.equal(
-    expressQuoteExpressTitle("BFS", "pick-up", true),
-    "Express Terminal Pickup — +£5",
-  );
-  assert.equal(expressQuoteExpressTitle("BFS", "pick-up", false), "Express Terminal Pickup — +£5");
-  assert.equal(
-    expressQuoteExpressTitle("BHD", "drop-off", true),
-    "Express Terminal Drop-Off — +£4",
-  );
-  assert.equal(expressQuoteExpressTitle("BHD", "drop-off", false), "Express Terminal Drop-Off — +£4");
+  assert.equal(expressQuoteExpressTitle("BFS", "pick-up", true), "Express Pickup — +£5");
+  assert.equal(expressQuoteExpressTitle("BFS", "pick-up", false), "Express Pickup — +£5");
+  assert.equal(expressQuoteExpressTitle("BFS", "drop-off", false), "Express Drop-Off — +£5");
+  assert.equal(expressQuoteExpressTitle("BHD", "drop-off", true), "Express Drop-Off — +£4");
+  assert.equal(expressQuoteExpressTitle("BHD", "drop-off", false), "Express Drop-Off — +£4");
+  assert.equal(expressQuoteExpressTitle("BHD", "pick-up", false), "Express Pickup — +£4");
   assert.equal(
     expressQuoteExpressHint("pick-up"),
-    "Meet your driver at the airport's designated terminal pickup area for added convenience.",
+    "Meet your driver at the designated terminal pickup area · Minimal walking",
   );
   assert.equal(
     expressQuoteExpressHint("drop-off"),
-    "Drop-off close to the terminal entrance for added convenience.",
+    "Drop-off close to the terminal entrance · Minimal walking",
   );
   assert.doesNotMatch(expressQuoteExpressHint("pick-up"), /Recommended/);
   assert.doesNotMatch(expressQuoteExpressHint("drop-off"), /Recommended/);
@@ -395,19 +391,19 @@ check("Breakdown / customer copy wording", () => {
   assert.equal(expressQuoteFreeTitle("BHD", "drop-off", false), "Free Drop-Off — Included");
   assert.equal(
     expressQuoteFreeHint("pick-up", "BFS"),
-    "Meet your driver at the Long Stay car park, around a 5-minute walk from the terminal.",
+    "Meet at the Long Stay car park · Around a 5-minute walk from the terminal",
   );
   assert.equal(
     expressQuoteFreeHint("drop-off", "BFS"),
-    "Drop-off at the Long Stay car park, around a 5-minute walk to the terminal.",
+    "Long Stay car park · Around a 5-minute walk to the terminal",
   );
   assert.equal(
     expressQuoteFreeHint("pick-up", "BHD"),
-    "Meet your driver at the Long Stay car park, approximately a 5–10 minute walk from the terminal.",
+    "Meet at the Long Stay car park · Approximately a 5–10 minute walk from the terminal",
   );
   assert.equal(
     expressQuoteFreeHint("drop-off", "BHD"),
-    "Drop-off at the airport's designated free drop-off area.",
+    "Use the airport's designated free drop-off area",
   );
   assert.doesNotMatch(expressQuoteFreeHint("drop-off", "BHD"), /Long Stay/);
   assert.equal(
@@ -426,7 +422,7 @@ check("Breakdown / customer copy wording", () => {
       feeGbp: 5,
       totalGbp: 53,
     }),
-    "✓ Express Terminal Drop-Off selected — £5 added. Your total is £53.",
+    "✓ Express Drop-Off selected — £5 added. Your total is £53.",
   );
   assert.equal(
     expressQuoteSelectionConfirmation({
@@ -444,7 +440,7 @@ check("Breakdown / customer copy wording", () => {
       feeGbp: 4,
       totalGbp: 44,
     }),
-    "✓ Express Terminal Pickup selected — £4 added. Your total is £44.",
+    "✓ Express Pickup selected — £4 added. Your total is £44.",
   );
   assert.equal(
     combinedQuoteExpressHint("BFS"),

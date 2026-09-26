@@ -27,6 +27,7 @@ import {
   focusFirstInvalidField,
   quoteStepTargetId,
   scheduleScrollToBookNowAfterExpressAck,
+  prefersReducedMotion,
   scrollJourneySummaryAfterTimeConfirm,
   scrollQuoteStage,
   type QuoteStepNavTarget,
@@ -192,6 +193,11 @@ import {
   type ServerFarePartyParts,
 } from "@/lib/quote-display-fare";
 import { mayPaintAuthoritativeFare } from "@/lib/authoritative-quote-fare";
+import {
+  QUOTE_FARE_START_DELAY_MS,
+  quoteFareRequestKey,
+  quoteFareVehiclesToRequest,
+} from "@/lib/quote-fare-request";
 import {
   validatePersonalQuoteCode,
   type PersonalQuotePublicSummary,
@@ -646,6 +652,8 @@ function QuoteCard({
   const step1JourneyRef = useRef<HTMLDivElement>(null);
   /** Stage 6: YOUR ROUTE / results stack after bags complete. */
   const routeSummaryRef = useRef<HTMLDivElement>(null);
+  /** First pixel of the results the customer should land on. Not the price or a vehicle card. */
+  const quoteResultsStartRef = useRef<HTMLDivElement>(null);
   const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
   const step2JourneySummaryRef = useRef<HTMLDivElement>(null);
   const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
@@ -826,6 +834,13 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+  const routeMetricsRef = useRef(routeMetrics);
+  routeMetricsRef.current = routeMetrics;
+  const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
+  const quoteFareInflightRef = useRef(
+    new Map<string, Promise<Awaited<ReturnType<typeof calculateServerQuote>>>>(),
+  );
+  const quoteFareTimingRef = useRef({ inputsAt: 0, requestAt: 0 });
   /** Worker-authoritative journey/fixed split (same engine as SumUp). Prefer over browser metrics. */
   const [serverFareParts, setServerFareParts] = useState<ServerFarePartyParts | null>(null);
   /** Worker quote finished without a fare — only then may the loaded client engine paint. */
@@ -1665,7 +1680,7 @@ function QuoteCard({
 
   // Prefer Worker-authoritative fare (same resolveWorkerTripRouteMetrics + engine as SumUp)
   // so the displayed/consent amount matches checkout. Browser metrics stay for map display.
-  const refreshAuthoritativeServerQuote = useCallback(async (): Promise<boolean> => {
+  const refreshAuthoritativeServerQuote = useCallback(async (force = false): Promise<boolean> => {
     if (isBrowserPricingPreview() && previewMinibusQueryEnabled()) {
       setServerFareParts(null);
       setServerQuoteUnavailable(true);
@@ -1688,43 +1703,136 @@ function QuoteCard({
       setServerQuoteUnavailable(false);
       return false;
     }
-    const requestGen = ++serverQuoteGenRef.current;
     const requestedPassengers = passengers;
     const requestedSuitcases = suitcases;
     const requestedVehicle = quoteVehicle;
-    try {
-      const result = await calculateServerQuote({
-        pickupAddress: pickup,
-        dropoffAddress: dropoff,
-        // Omit client airportCode — Worker derives from addresses (payment parity).
-        returnJourney,
-        outboundDate: tripDate.trim(),
-        outboundTime: tripTime.trim(),
-        returnDate: returnJourney ? returnDate.trim() : undefined,
-        returnTime: returnJourney ? returnTime.trim() : undefined,
+    const fareKeyFor = (vehicle: string) =>
+      quoteFareRequestKey({
+        pickup,
+        dropoff,
         passengers,
         suitcases,
-        // Prefer Worker OSRM; if Workers cannot reach OSRM, use browser road metrics.
-        pickupLat: pickupPlace?.lat ?? undefined,
-        pickupLng: pickupPlace?.lng ?? undefined,
-        dropoffLat: dropoffPlace?.lat ?? undefined,
-        dropoffLng: dropoffPlace?.lng ?? undefined,
-        pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
-        dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
-        routeMetrics: routeMetrics ?? undefined,
-        vehicleType: requestedVehicle,
-        vehicleChoice: requestedVehicle.toLowerCase().includes("minibus") ? "Minibus" : "Saloon",
+        vehicle,
+        outboundDate: tripDate.trim(),
+        outboundTime: tripTime.trim(),
+        returnJourney,
+        returnDate,
+        returnTime,
       });
-      if (requestGen !== serverQuoteGenRef.current) {
-        return false;
+    const paxNow = effectivePartyPassengers(passengers, passengerLimit);
+    const vehiclesToPrice = quoteFareVehiclesToRequest({
+      selectedVehicle: requestedVehicle,
+      automaticVehicle:
+        paxNow == null ? requestedVehicle : getAutoVehicle(paxNow, suitcases, IS_A2A_PRIMARY),
+      minibusVehicle: MINIBUS_VEHICLE_TYPE,
+      publicMinibusEnabled,
+      requiresMinibus: paxNow != null && requiresMinibus(paxNow, suitcases),
+    });
+    const rememberFare = (vehicle: string, parts: ServerFarePartyParts) => {
+      authoritativeFareCacheRef.current.set(fareKeyFor(vehicle), parts);
+    };
+    const quoteBodyFor = (vehicle: string) => ({
+      pickupAddress: pickup,
+      dropoffAddress: dropoff,
+      // Omit client airportCode — Worker derives from addresses (payment parity).
+      returnJourney,
+      outboundDate: tripDate.trim(),
+      outboundTime: tripTime.trim(),
+      returnDate: returnJourney ? returnDate.trim() : undefined,
+      returnTime: returnJourney ? returnTime.trim() : undefined,
+      passengers,
+      suitcases,
+      pickupLat: pickupPlace?.lat ?? undefined,
+      pickupLng: pickupPlace?.lng ?? undefined,
+      dropoffLat: dropoffPlace?.lat ?? undefined,
+      dropoffLng: dropoffPlace?.lng ?? undefined,
+      pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
+      dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
+      // Browser OSRM metrics, when TripMap already has them, so the worker
+      // can price without a second route lookup.
+      routeMetrics: routeMetricsRef.current ?? undefined,
+      vehicleType: vehicle,
+      vehicleChoice: vehicle.toLowerCase().includes("minibus")
+        ? ("Minibus" as const)
+        : ("Saloon" as const),
+    });
+    const loadAlternateFares = () => {
+      for (const vehicle of vehiclesToPrice.slice(1)) {
+        const key = fareKeyFor(vehicle);
+        if (
+          authoritativeFareCacheRef.current.has(key) ||
+          quoteFareInflightRef.current.has(key)
+        ) {
+          continue;
+        }
+        const promise = calculateServerQuote(quoteBodyFor(vehicle)).then((alternate) => {
+          quoteFareInflightRef.current.delete(key);
+          if (
+            alternate.ok &&
+            Number.isFinite(alternate.amount) &&
+            typeof alternate.journeyFareGbp === "number" &&
+            Number.isFinite(alternate.journeyFareGbp)
+          ) {
+            rememberFare(vehicle, {
+              journeyFareGbp: Math.round(alternate.journeyFareGbp * 100) / 100,
+              airportFixedCostsGbp:
+                typeof alternate.airportFixedCostsGbp === "number"
+                  ? Math.round(alternate.airportFixedCostsGbp * 100) / 100
+                  : 0,
+              nightWeekendSurchargeGbp:
+                typeof alternate.nightWeekendSurchargeGbp === "number"
+                  ? Math.round(alternate.nightWeekendSurchargeGbp * 100) / 100
+                  : 0,
+              amountGbp: Math.round(alternate.amount * 100) / 100,
+              vehicleType: vehicle,
+              passengers,
+              suitcases,
+              outboundDate: tripDate.trim(),
+              outboundTime: tripTime.trim(),
+              returnJourney,
+              returnDate: returnJourney ? returnDate.trim() : "",
+              returnTime: returnJourney ? returnTime.trim() : "",
+            });
+          }
+          return alternate;
+        });
+        quoteFareInflightRef.current.set(key, promise);
       }
+    };
+    if (!force) {
+      const cached = authoritativeFareCacheRef.current.get(fareKeyFor(requestedVehicle));
+      if (cached) {
+        setServerFareParts(cached);
+        setServerQuoteUnavailable(false);
+        loadAlternateFares();
+        return true;
+      }
+    }
+    const requestGen = ++serverQuoteGenRef.current;
+    const selectedKey = fareKeyFor(requestedVehicle);
+    if (force) quoteFareInflightRef.current.delete(selectedKey);
+    try {
+      quoteFareTimingRef.current.requestAt =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      let inflight = quoteFareInflightRef.current.get(selectedKey);
+      if (!inflight) {
+        const promise = calculateServerQuote(quoteBodyFor(requestedVehicle));
+        inflight = promise.finally(() => {
+          if (quoteFareInflightRef.current.get(selectedKey) === inflight) {
+            quoteFareInflightRef.current.delete(selectedKey);
+          }
+        });
+        quoteFareInflightRef.current.set(selectedKey, inflight);
+      }
+      loadAlternateFares();
+      const result = await inflight;
       if (
         result.ok &&
         Number.isFinite(result.amount) &&
         typeof result.journeyFareGbp === "number" &&
         Number.isFinite(result.journeyFareGbp)
       ) {
-        setServerFareParts({
+        const pricedParts: ServerFarePartyParts = {
           journeyFareGbp: Math.round(result.journeyFareGbp * 100) / 100,
           airportFixedCostsGbp:
             typeof result.airportFixedCostsGbp === "number"
@@ -1743,7 +1851,19 @@ function QuoteCard({
           returnJourney,
           returnDate: returnJourney ? returnDate.trim() : "",
           returnTime: returnJourney ? returnTime.trim() : "",
-        });
+        };
+        rememberFare(requestedVehicle, pricedParts);
+        if (requestGen !== serverQuoteGenRef.current) {
+          return false;
+        }
+        if (process.env.NODE_ENV !== "production") {
+          const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+          console.info("[quote-fare] F response", {
+            ms: Math.round(now - quoteFareTimingRef.current.requestAt),
+            msFromInputs: Math.round(now - quoteFareTimingRef.current.inputsAt),
+          });
+        }
+        setServerFareParts(pricedParts);
         if (
           Number.isFinite(result.distanceKm) &&
           Number.isFinite(result.durationMinutes) &&
@@ -1787,6 +1907,7 @@ function QuoteCard({
         }
         return true;
       }
+      if (requestGen !== serverQuoteGenRef.current) return false;
       setServerFareParts(null);
       setServerQuoteUnavailable(true);
       return false;
@@ -1812,34 +1933,72 @@ function QuoteCard({
     returnDate,
     returnJourney,
     returnTime,
-    routeMetrics,
     showGuidePrice,
     suitcases,
     setMinimumBookingNoticeHours,
     tripDate,
     tripTime,
     quoteVehicle,
+    passengerLimit,
+    publicMinibusEnabled,
   ]);
 
   useEffect(() => {
     serverQuoteGenRef.current += 1;
+    if (passengers == null || suitcases == null) {
+      setServerFareParts(null);
+      setServerQuoteUnavailable(false);
+      return;
+    }
+    const cached = authoritativeFareCacheRef.current.get(
+      quoteFareRequestKey({
+        pickup: pickupAddress.trim(),
+        dropoff: dropoffAddress.trim(),
+        passengers,
+        suitcases,
+        vehicle: quoteVehicle,
+        outboundDate: tripDate.trim(),
+        outboundTime: tripTime.trim(),
+        returnJourney,
+        returnDate,
+        returnTime,
+      }),
+    );
+    if (cached) {
+      setServerFareParts(cached);
+      setServerQuoteUnavailable(false);
+      return;
+    }
     setServerFareParts(null);
     setServerQuoteUnavailable(false);
-  }, [passengers, suitcases, quoteVehicle, tripDate, tripTime, returnDate, returnTime, returnJourney]);
+  }, [
+    dropoffAddress,
+    passengers,
+    pickupAddress,
+    quoteVehicle,
+    returnDate,
+    returnJourney,
+    returnTime,
+    suitcases,
+    tripDate,
+    tripTime,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        if (cancelled) return;
-        await refreshAuthoritativeServerQuote();
-      })();
-    }, 280);
+    quoteFareTimingRef.current.inputsAt =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    void (async () => {
+      if (QUOTE_FARE_START_DELAY_MS > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, QUOTE_FARE_START_DELAY_MS));
+      }
+      if (cancelled) return;
+      await refreshAuthoritativeServerQuote();
+    })();
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
-  }, [refreshAuthoritativeServerQuote, quoteVehicle]);
+  }, [refreshAuthoritativeServerQuote]);
 
   const journeyDistanceLabel = routeMetrics
     ? formatJourneyDistance(routeMetrics.distanceKm)
@@ -1984,6 +2143,13 @@ function QuoteCard({
   });
   /** Numeric £ only. Must not gate mounting the results UI. */
   const authoritativeFareReady = mayPaintNumericFare;
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || !authoritativeFareReady) return;
+    const started = quoteFareTimingRef.current.inputsAt;
+    if (!started) return;
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    console.info("[quote-fare] G rendered", { msFromInputs: Math.round(now - started) });
+  }, [authoritativeFareReady]);
 
   const journeyFareParts = useMemo(() => {
     // Prefer Worker-authoritative split only when it belongs to this vehicle/party.
@@ -3634,7 +3800,7 @@ function QuoteCard({
       }
       if (isPaymentFareMismatchError(error)) {
         // Never approximate journey/fixed by subtracting Express — re-quote from the engine.
-        const refreshed = await refreshAuthoritativeServerQuote();
+        const refreshed = await refreshAuthoritativeServerQuote(true);
         setTermsAccepted(false);
         setTermsError("Please review the updated fare and accept the terms again.");
         setPaymentError(
@@ -4610,11 +4776,9 @@ function QuoteCard({
     return scrollQuoteStage("quote-section-schedule", { correctAfterMs: 0 });
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
-  // Initial transition into quote results only. Do not scroll when capacity
-  // completes and the route map is still showing — that landed under the header
-  // once the vehicle cards replaced it. Do not focus a heading: the only heading
-  // in this block sits below the vehicle, and iOS focus scrolling covered it.
-  // Vehicle and Express changes leave the latch set, so they do not scroll again.
+  // One results scroll, to the start anchor, as soon as the results mount.
+  // No correction pass: a second scroll was landing on the vehicle cards.
+  // Fare, vehicle, and Free/Express updates leave the latch set.
   useEffect(() => {
     if (quoteStep !== 1) {
       hadRouteSummaryScrollRef.current = false;
@@ -4632,9 +4796,11 @@ function QuoteCard({
     }
 
     hadRouteSummaryScrollRef.current = true;
-    return scrollQuoteStage(routeSummaryRef.current ?? "quote-results-summary", {
+    return scrollQuoteStage(quoteResultsStartRef.current ?? "quote-results-start", {
       focusHeading: false,
-      correctAfterMs: 150,
+      correctAfterMs: 0,
+      immediate: true,
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
     });
   }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteResultsReady, quoteStep]);
 
@@ -6735,6 +6901,13 @@ function QuoteCard({
 
                 {quoteResultsReady && quoteStep === 1 && (
                   <>
+                    <div
+                      ref={quoteResultsStartRef}
+                      id="quote-results-start"
+                      data-quote-results-start
+                      className="h-px w-full"
+                      aria-hidden="true"
+                    />
                     {renderQuoteVehicleChoice()}
                     {renderBookingErrorHelp("results")}
                     {showInstantQuoteResultCard ? (
@@ -7181,6 +7354,13 @@ function QuoteCard({
             className="scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
             style={{ overflowAnchor: "none" }}
           >
+            <div
+              ref={quoteResultsStartRef}
+              id="quote-results-start"
+              data-quote-results-start
+              className="h-px w-full"
+              aria-hidden="true"
+            />
             {renderQuoteVehicleChoice()}
             {renderBookingErrorHelp("results")}
             {showInstantQuoteResultCard ? (

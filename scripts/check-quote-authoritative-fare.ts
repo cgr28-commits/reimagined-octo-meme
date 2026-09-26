@@ -8,6 +8,16 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { mayPaintAuthoritativeFare } from "../src/lib/authoritative-quote-fare";
+import {
+  QUOTE_FARE_START_DELAY_MS,
+  quoteFareVehiclesToRequest,
+} from "../src/lib/quote-fare-request";
+import {
+  expressQuoteExpressHint,
+  expressQuoteExpressTitle,
+  expressQuoteFreeHint,
+  expressQuoteFreeTitle,
+} from "../shared/express-drop-off";
 import { NIGHT_WEEKEND_SURCHARGE_RATE } from "../shared/night-weekend-surcharge";
 import { AIRPORT_FIXED_COSTS_GBP, requiredAirportAccessNotice } from "../shared/airport-fixed-costs";
 import {
@@ -84,14 +94,51 @@ const resultsBlock = card.slice(
 assert.doesNotMatch(resultsBlock, /mayPaintNumericFare|authoritativeFareReady/);
 assert.match(card, /: "Calculating…"/);
 assert.match(showcase, /formattedPrice\.startsWith\("£"\) \? "ready" : "pending"/);
+assert.match(showcase, /min-h-\[clamp\(3\.5rem,1\.6rem\+10vw,4\.5rem\)\]/);
+assert.match(showcase, /text-\[clamp\(2\.65rem,1\.22rem\+7\.6vw,3\.4rem\)\]/);
 const scrollEffect = card.slice(
-  card.indexOf("Initial transition into quote results only"),
+  card.indexOf("One results scroll, to the start anchor"),
   card.indexOf("Reset time→Your Journey"),
 );
 assert.match(scrollEffect, /hadRouteSummaryScrollRef\.current = true/);
+assert.match(scrollEffect, /quoteResultsStartRef/);
+assert.match(scrollEffect, /correctAfterMs: 0/);
 assert.doesNotMatch(scrollEffect, /mayPaintNumericFare|authoritativeFareReady/);
-assert.match(card, /vehicleType: requestedVehicle/);
-assert.match(card, /vehicleChoice: requestedVehicle\.toLowerCase\(\)\.includes\("minibus"\) \? "Minibus" : "Saloon"/);
+assert.match(card, /QUOTE_FARE_START_DELAY_MS/);
+assert.doesNotMatch(
+  card,
+  /await refreshAuthoritativeServerQuote\(\);\s*\}\)\(\);\s*\}, 280\)/,
+);
+assert.match(card, /vehicleType: vehicle/);
+assert.match(card, /quoteFareVehiclesToRequest/);
+assert.equal(QUOTE_FARE_START_DELAY_MS, 0);
+assert.deepEqual(
+  quoteFareVehiclesToRequest({
+    selectedVehicle: "Saloon (1–4 passengers)",
+    automaticVehicle: "Saloon (1–4 passengers)",
+    minibusVehicle: "Minibus (5–7 passengers)",
+    publicMinibusEnabled: true,
+    requiresMinibus: false,
+  }),
+  ["Saloon (1–4 passengers)", "Minibus (5–7 passengers)"],
+);
+assert.equal(expressQuoteFreeTitle("BFS", "drop-off"), "Free Drop-Off — Included");
+assert.equal(expressQuoteExpressTitle("BFS", "drop-off"), "Express Drop-Off — +£5");
+assert.equal(
+  expressQuoteFreeHint("drop-off", "BFS"),
+  "Long Stay car park · Around a 5-minute walk to the terminal",
+);
+assert.equal(
+  expressQuoteExpressHint("drop-off"),
+  "Drop-off close to the terminal entrance · Minimal walking",
+);
+assert.equal(
+  expressQuoteFreeHint("pick-up", "BHD"),
+  "Meet at the Long Stay car park · Approximately a 5–10 minute walk from the terminal",
+);
+assert.equal(expressQuoteFreeHint("drop-off", "BHD"), "Use the airport's designated free drop-off area");
+assert.doesNotMatch(expressQuoteFreeHint("drop-off", "BHD"), /Long Stay|minute walk/);
+assert.equal(requiredAirportAccessNotice({ airportCode: "DUB", fromAirport: true }) == null, false);
 console.log("OK  no interim fare; results mount before the authoritative number; 10% rate unchanged");
 
 console.log("\n=== Airport fees unchanged; Dublin and Derry are not a Free/Express choice ===");

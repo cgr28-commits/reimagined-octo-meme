@@ -99,7 +99,7 @@ check("Wiring: Worker infers airport + prefers Worker metrics", () => {
   assert.match(quoteHandlers, /resolveAirportTransferIntent/);
   assert.match(quoteHandlers, /routeMetricsSource/);
   assert.match(quoteHandlers, /airportCodeSource/);
-  assert.match(quoteHandlers, /Worker resolve first/);
+  assert.match(quoteHandlers, /Valid browser OSRM metrics are priced immediately/);
   assert.match(qqHandlers, /resolveAirportTransferIntent/);
   assert.match(qqClient, /resolveAirportTransferIntent/);
 });
