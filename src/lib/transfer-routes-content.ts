@@ -1,4 +1,5 @@
 import type { TransferRouteContent } from "@/lib/town-transfer-types";
+import { TRANSFER_ROUTE_BATCH_3 } from "@/lib/transfer-routes-batch-3";
 
 const TRAFFIC =
   "Journey times are approximate and can vary depending on traffic and time of day.";
@@ -1573,4 +1574,5 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       },
     ],
   },
+  ...TRANSFER_ROUTE_BATCH_3,
 ];

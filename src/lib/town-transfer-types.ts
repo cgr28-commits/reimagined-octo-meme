@@ -18,6 +18,8 @@ export type TownHubContent = {
   areas: string[];
   localNotes: string[];
   airportCodes: LandingAirportCode[];
+  /** Other town hubs to link, by town slug. Not a keyword list. */
+  relatedTownSlugs?: string[];
   /** Short chooser copy — hub purpose is “which airport?”, not the child route essay. */
   whichAirport: Array<{
     code: LandingAirportCode;

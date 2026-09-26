@@ -13,8 +13,10 @@ import { LANDING_WHY_BOOK } from "@/lib/landing-why-book";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import { SITE } from "@/lib/data";
 import {
+  getTownHubByTownSlug,
   getTransferRoutePage,
   getTransferStaticSlugs,
+  TOWN_HUB_PAGES,
   TRANSFER_ROUTE_PAGES,
 } from "@/lib/location-pages";
 import { withBasePath } from "@/lib/paths";
@@ -307,6 +309,21 @@ export default async function TransferRoutePage({ params }: Props) {
                   <Link href={hubHref} className="text-emerald hover:text-emerald-light">
                     {page.town.name} airport taxis
                   </Link>
+                  {getTownHubByTownSlug(page.town.slug)?.relatedTownSlugs.map((townSlug) => {
+                    const related = TOWN_HUB_PAGES.find((hub) => hub.town.slug === townSlug);
+                    if (!related) return null;
+                    return (
+                      <span key={related.slug}>
+                        {" · "}
+                        <Link
+                          href={`/locations/${related.slug}/`}
+                          className="text-emerald hover:text-emerald-light"
+                        >
+                          {related.town.name}
+                        </Link>
+                      </span>
+                    );
+                  })}
                   {" · "}
                   <Link
                     href={`/airports/${page.airport.slug}/`}

@@ -80,7 +80,7 @@ console.log("\n=== Transfer route pages ===");
 console.log("\n=== Town hubs keep local imagery ===");
 {
   const airportBases = new Set(CODES.map((code) => AIRPORT_HERO[code].heroBase));
-  assert.equal(TOWN_HUB_PAGES.length, 10);
+  assert.equal(TOWN_HUB_PAGES.length, 18);
   for (const hub of TOWN_HUB_PAGES) {
     if (!hub.heroBase) continue;
     assert.ok(
@@ -88,7 +88,7 @@ console.log("\n=== Town hubs keep local imagery ===");
       `${hub.slug} should not use an airport terminal photograph`,
     );
   }
-  console.log("OK  10 town hubs were not converted to airport terminal photos");
+  console.log("OK  18 town hubs were not converted to airport terminal photos");
 }
 
 console.log("\n=== Tours left on attraction imagery ===");

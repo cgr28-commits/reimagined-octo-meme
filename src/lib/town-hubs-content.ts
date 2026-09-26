@@ -1,4 +1,5 @@
 import type { TownHubContent } from "@/lib/town-transfer-types";
+import { TOWN_HUB_BATCH_3 } from "@/lib/town-hubs-batch-3";
 
 /** Town hub landing pages — chooser pages, not copies of the three child routes. */
 export const TOWN_HUB_CONTENT: TownHubContent[] = [
@@ -29,6 +30,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Mallusk business-park collections are straightforward if you share the unit or reception entrance with the booking.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
+    relatedTownSlugs: ["glengormley", "whiteabbey"],
     whichAirport: [
       {
         code: "BFS",
@@ -67,6 +69,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Greenisland is collected with Carrickfergus-area timing, not as a Belfast city job, so the quote uses your exact street.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
+    relatedTownSlugs: ["whiteabbey"],
     whichAirport: [
       {
         code: "BFS",
@@ -143,6 +146,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "City Airport from Lisburn is timed around the Westlink peak rather than treated as a short local run.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
+    relatedTownSlugs: ["hillsborough", "moira", "carryduff"],
     whichAirport: [
       {
         code: "BFS",
@@ -181,6 +185,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Helen’s Bay and Crawfordsburn are collected with North Down timing, not as Belfast city jobs.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
+    relatedTownSlugs: ["newtownards", "comber"],
     whichAirport: [
       {
         code: "BFS",
@@ -219,6 +224,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "City Airport is close, but International and Dublin still need the full motorway allowance you see in the quote tool.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
+    relatedTownSlugs: ["dundonald"],
     whichAirport: [
       {
         code: "BFS",
@@ -389,4 +395,5 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       },
     ],
   },
+  ...TOWN_HUB_BATCH_3,
 ];
