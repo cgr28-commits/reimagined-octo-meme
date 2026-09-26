@@ -380,7 +380,7 @@ export function expressAirportLegendLabel(
 export function expressAirportOptionHeading(
   service: ExpressAirportService = "drop-off",
 ): string {
-  return service === "pick-up" ? "Airport pick-up option" : "Airport drop-off option";
+  return service === "pick-up" ? "Choose your pickup option" : "Choose your drop-off option";
 }
 
 /** Optional checkout link — destination is unchanged; this is airport access only. */
@@ -394,33 +394,84 @@ export function expressCheckoutChangeLabel(
 export function expressQuoteExpressTitle(
   airportCode: ExpressDropOffAirportCode,
   service: ExpressAirportService,
-  expressSelected: boolean,
+  _expressSelected?: boolean,
 ): string {
+  void _expressSelected;
   const fee = formatExpressDropOffGbp(EXPRESS_DROP_OFF_FEES_GBP[airportCode]);
-  const product = service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
-  return expressSelected ? `${product} — ${fee} included` : `${product} — add ${fee}`;
+  const product = service === "pick-up" ? "Express Pickup" : "Express Drop-Off";
+  return `${product} — +${fee}`;
 }
 
 export function expressQuoteExpressHint(service: ExpressAirportService = "drop-off"): string {
   return service === "pick-up"
-    ? "Recommended · Pick-up close to the terminal"
-    : "Recommended · Drop-off close to the terminal";
+    ? "Meet your driver at the designated terminal pickup area · Minimal walking"
+    : "Drop-off close to the terminal entrance · Minimal walking";
 }
 
 export function expressQuoteFreeTitle(
-  airportCode: ExpressDropOffAirportCode,
+  _airportCode: ExpressDropOffAirportCode,
   service: ExpressAirportService,
-  freeSelected: boolean,
+  _freeSelected?: boolean,
 ): string {
-  const fee = formatExpressDropOffGbp(EXPRESS_DROP_OFF_FEES_GBP[airportCode]);
-  const product = service === "pick-up" ? "Free Pick-Up Area" : "Free Drop-Off Area";
-  return freeSelected ? `${product} — £0` : `${product} — save ${fee}`;
+  void _airportCode;
+  void _freeSelected;
+  return service === "pick-up" ? "Free Pickup — Included" : "Free Drop-Off — Included";
 }
 
-export function expressQuoteFreeHint(service: ExpressAirportService = "drop-off"): string {
+/**
+ * Free-option description. Belfast City Long Stay is the free pickup point only —
+ * never describe it as the free drop-off.
+ */
+export function expressQuoteFreeHint(
+  service: ExpressAirportService = "drop-off",
+  airportCode?: string | null,
+): string {
+  const code = normaliseExpressDropOffAirport(airportCode);
+  if (code === "BFS") {
+    return service === "pick-up"
+      ? "Meet at the Long Stay car park · Around a 5-minute walk from the terminal"
+      : "Long Stay car park · Around a 5-minute walk to the terminal";
+  }
+  if (code === "BHD") {
+    return service === "pick-up"
+      ? "Meet at the Long Stay car park · Approximately a 5–10 minute walk from the terminal"
+      : "Use the airport's designated free drop-off area";
+  }
   return service === "pick-up"
-    ? "Use the designated free pick-up area"
-    : "Use the designated free drop-off area";
+    ? "Meet your driver at the designated free pickup area."
+    : "Drop-off at the designated free drop-off area.";
+}
+
+/** Confirmation under the selector. £X is the optional upgrade; £XX is the current total. */
+export function expressQuoteSelectionConfirmation(input: {
+  service: ExpressAirportService;
+  expressSelected: boolean;
+  feeGbp: number;
+  totalGbp?: number | null;
+}): string {
+  const fee = formatExpressDropOffGbp(input.feeGbp);
+  const total =
+    typeof input.totalGbp === "number" && Number.isFinite(input.totalGbp)
+      ? formatExpressDropOffGbp(input.totalGbp)
+      : null;
+  if (input.service === "pick-up") {
+    if (input.expressSelected) {
+      return total
+        ? `✓ Express Pickup selected — ${fee} added. Your total is ${total}.`
+        : `✓ Express Pickup selected — ${fee} added.`;
+    }
+    return total
+      ? `✓ Free pickup selected — your fare remains ${total}.`
+      : "✓ Free pickup selected.";
+  }
+  if (input.expressSelected) {
+    return total
+      ? `✓ Express Drop-Off selected — ${fee} added. Your total is ${total}.`
+      : `✓ Express Drop-Off selected — ${fee} added.`;
+  }
+  return total
+    ? `✓ Free drop-off selected — your fare remains ${total}.`
+    : "✓ Free drop-off selected.";
 }
 
 export function combinedQuoteExpressTitle(totalFeeGbp: number, expressSelected: boolean): string {

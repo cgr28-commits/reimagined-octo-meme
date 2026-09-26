@@ -205,12 +205,27 @@ export function restorePreviewPricingState(expectedVersion: number): {
   return persistPreviewState(restored, audit);
 }
 
+/**
+ * Fresh preview sessions have no owner pricing snapshot. Live production
+ * currently offers the customer 7-seater, so a blank preview must too.
+ * A saved preview snapshot and ?previewMinibus=0|1 still win.
+ */
+function freshPreviewOffersPublicMinibus(): boolean {
+  return readJson<OwnerPricingSettings>(SETTINGS_KEY) == null;
+}
+
 export function previewPublicPricingConfig(): PublicOwnerPricingConfig {
   const config = toPublicOwnerPricingConfig(readPreviewPricingState().settings);
   const override = previewMinibusQueryOverride();
-  if (override == null) return config;
+  const publicEnabled =
+    override != null
+      ? override
+      : freshPreviewOffersPublicMinibus()
+        ? true
+        : config.minibus.publicEnabled === true;
+  if (publicEnabled === (config.minibus.publicEnabled === true)) return config;
   return {
     ...config,
-    minibus: { ...config.minibus, publicEnabled: override },
+    minibus: { ...config.minibus, publicEnabled },
   };
 }

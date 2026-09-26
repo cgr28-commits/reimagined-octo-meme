@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import {
@@ -37,17 +37,21 @@ const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
-export default function QuoteResultShowcase({
-  vehicleType,
-  passengers,
-  suitcases,
-  priceLabel,
-  formattedPrice,
-  airportAccess,
-  bookButton,
-  surchargeNote = null,
-  capacityConfirmation = false,
-}: QuoteResultShowcaseProps) {
+const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>(
+  function QuoteResultShowcase(
+    {
+      vehicleType,
+      passengers,
+      suitcases,
+      priceLabel,
+      formattedPrice,
+      airportAccess,
+      bookButton,
+      surchargeNote = null,
+      capacityConfirmation = false,
+    },
+    ref,
+  ) {
   const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
   const isMinibus =
     vehicleType === MINIBUS_VEHICLE || vehicleShortLabel(vehicleType) === MINIBUS_CUSTOMER_NAME;
@@ -63,6 +67,9 @@ export default function QuoteResultShowcase({
 
   return (
     <div
+      ref={ref}
+      id="quote-selected-vehicle-card"
+      data-quote-selected-vehicle-card
       data-quote-result-card
       className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-4 py-5 text-navy shadow-[0_12px_32px_rgba(2,10,24,0.22)] sm:px-5 sm:py-6"
     >
@@ -100,7 +107,7 @@ export default function QuoteResultShowcase({
             </span>
           </div>
           {estateDueToLuggage ? (
-            <p className="mt-1.5 text-xs text-navy/55">Extra luggage space for your journey</p>
+            <p className="mt-1.5 text-xs text-[#475569]">Extra luggage space for your journey</p>
           ) : null}
         </div>
 
@@ -108,8 +115,19 @@ export default function QuoteResultShowcase({
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
           </p>
-          <p className="font-sans mt-1 text-[clamp(3.5rem,1.6rem+10vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-navy tabular-nums lg:text-[clamp(4rem,3rem+2vw,5rem)]">
-            {formattedPrice}
+          <p
+            data-quote-fare-status={formattedPrice.startsWith("£") ? "ready" : "pending"}
+            className="mt-1 flex min-h-[clamp(3.5rem,1.6rem+10vw,4.5rem)] items-center justify-center lg:min-h-[clamp(4rem,3rem+2vw,5rem)] lg:justify-start"
+          >
+            <span
+              className={
+                formattedPrice.startsWith("£")
+                  ? "font-sans text-[clamp(3.5rem,1.6rem+10vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-navy tabular-nums lg:text-[clamp(4rem,3rem+2vw,5rem)]"
+                  : "font-sans text-[clamp(2.65rem,1.22rem+7.6vw,3.4rem)] font-bold leading-tight tracking-[-0.03em] text-navy/55 lg:text-[clamp(3rem,2.2rem+1.4vw,3.4rem)]"
+              }
+            >
+              {formattedPrice}
+            </span>
           </p>
           {surchargeNote ? (
             <p
@@ -140,31 +158,34 @@ export default function QuoteResultShowcase({
           ) : null}
 
           <div className="mt-4">{bookButton}</div>
-          <p className="mt-2.5 text-[11px] leading-snug text-navy/50">
+          <p className="mt-2.5 text-[11px] leading-snug text-[#475569]">
             🔒 Secure booking · Takes around 2 minutes
           </p>
 
           <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-medium leading-snug text-navy/85">
             <Benefit icon="card">
               {capacityConfirmation ? "We'll confirm first" : "Secure payment"}
-              <span className="block font-normal text-navy/55">
+              <span className="block font-normal text-[#475569]">
                 {capacityConfirmation ? "no payment taken yet" : "powered by SumUp"}
               </span>
             </Benefit>
             <Benefit icon="plane">
               Flight monitoring
-              <span className="block font-normal text-navy/55">for airport pickups</span>
+              <span className="block font-normal text-[#475569]">for airport pickups</span>
             </Benefit>
             <Benefit>No hidden charges</Benefit>
           </ul>
         </div>
       </div>
-      <p className="mt-3 text-center text-[10px] leading-none text-navy/35 lg:mt-4">
+      <p className="mt-3 text-center text-[10px] leading-none text-[#64748b] lg:mt-4">
         Vehicle shown for illustration.
       </p>
     </div>
   );
-}
+  },
+);
+
+export default QuoteResultShowcase;
 
 function Benefit({
   children,

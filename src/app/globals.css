@@ -705,7 +705,17 @@ main {
 }
 
 .hero-benefit-pound {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #ffffff;
+  font-family: var(--font-sans), Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
 }
 
 .hero-benefit-label {
@@ -881,6 +891,12 @@ main {
   .hero-benefit-icon svg {
     height: 1.55rem;
     width: 1.55rem;
+  }
+
+  .hero-benefit-pound {
+    width: 1.55rem;
+    height: 1.55rem;
+    font-size: 1.7rem;
   }
 
   .journey-option-card {

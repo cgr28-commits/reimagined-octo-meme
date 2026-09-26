@@ -473,11 +473,19 @@ export default function QuoteProgressiveRoute({
           )}
 
           {journeyIntent === "from-airport" ? (
-            <div className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed">
+            <div
+              id="quote-results-lead"
+              data-quote-results-lead
+              className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed"
+            >
               <p>{AIRPORT_PICKUP_WAITING_COPY}</p>
             </div>
           ) : journeyIntent === "to-airport" ? (
-            <div className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed">
+            <div
+              id="quote-results-lead"
+              data-quote-results-lead
+              className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed"
+            >
               <p>{NON_AIRPORT_WAITING_COPY}</p>
               {returnJourney && (
                 <>
@@ -487,7 +495,11 @@ export default function QuoteProgressiveRoute({
               )}
             </div>
           ) : journeyIntent === "address-to-address" ? (
-            <div className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed">
+            <div
+              id="quote-results-lead"
+              data-quote-results-lead
+              className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed"
+            >
               <p>{NON_AIRPORT_WAITING_COPY}</p>
             </div>
           ) : null}

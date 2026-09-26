@@ -139,10 +139,26 @@ check("Mobile Step 1 address complete does not scroll", () => {
     card,
     /hadA2aPartyScrollRef\.current = true;\s*return scrollQuoteStage\("quote-section-schedule"/,
   );
-  assert.match(
-    card,
-    /hadRouteSummaryScrollRef\.current = true;[\s\S]*?scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/,
+  const resultsScroll = card.slice(
+    card.indexOf("One results scroll, as soon as the results mount."),
+    card.indexOf("Reset time→Your Journey"),
   );
+  assert.match(
+    resultsScroll,
+    /if \(detectMobileDevice\(\)\) \{\s*const selectedCard = quoteSelectedVehicleCardRef\.current;\s*if \(!selectedCard\) return;\s*hadRouteSummaryScrollRef\.current = true;\s*return scrollQuoteStage\(selectedCard, \{\s*focusHeading: false,\s*correctAfterMs: 0,\s*immediate: true,\s*clearancePx: 0,\s*behavior: "auto",/,
+  );
+  const mobileResultsScroll = resultsScroll.slice(
+    resultsScroll.indexOf("if (detectMobileDevice())"),
+    resultsScroll.indexOf("const lead"),
+  );
+  assert.doesNotMatch(mobileResultsScroll, /quote-results-lead|quote-results-start|quoteResultsStartRef/);
+  assert.match(card, /ref=\{quoteSelectedVehicleCardRef\}/);
+  assert.match(
+    fs.readFileSync(path.join(root, "src/components/QuoteResultShowcase.tsx"), "utf8"),
+    /id="quote-selected-vehicle-card"/,
+  );
+  assert.doesNotMatch(card, /hadVehicleResultAlignRef/);
+  assert.doesNotMatch(card, /scrollQuoteStage\(vehicle,/);
   assert.match(
     card,
     /failStep1\("missing_journey_mode"[\s\S]*?scrollQuoteStage\("journey-type-selector"\);/,

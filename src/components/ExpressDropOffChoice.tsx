@@ -28,6 +28,7 @@ type Props = {
   onEditingChange?: (editing: boolean) => void;
   idPrefix?: string;
   heading?: string;
+  fareTotalGbp?: number | null;
   className?: string;
   tone?: AirportAccessTone;
 };
@@ -50,6 +51,7 @@ export default function ExpressDropOffChoice({
   onEditingChange,
   idPrefix,
   heading,
+  fareTotalGbp = null,
   className = "",
   tone = "on-dark",
 }: Props) {
@@ -94,6 +96,7 @@ export default function ExpressDropOffChoice({
         allowFreeAlternative={allowFreeAlternative}
         idPrefix={idPrefix}
         heading={heading}
+        fareTotalGbp={fareTotalGbp}
         tone={tone}
       />
       {mode === "summary" && editing ? (

@@ -58,6 +58,56 @@ import { resolvePaymentAirportContextFromAddresses } from "../shared/open-websit
 import { calculateAirportToAirportQuote, formatQuote } from "../../../src/lib/quote";
 import { drivingMilesFromKm } from "../../../src/lib/quote";
 
+/** Repeat vehicle switches reuse the same owner config snapshot for a few seconds. */
+const QUOTE_CONFIG_CACHE_MS = 10_000;
+let quotePricingCache: {
+  at: number;
+  value: Awaited<ReturnType<typeof loadOwnerPricingOrDefault>>;
+} | null = null;
+let quotePricingInflight: Promise<Awaited<ReturnType<typeof loadOwnerPricingOrDefault>>> | null =
+  null;
+let quoteSettingsCache: {
+  at: number;
+  value: Awaited<ReturnType<typeof getBookingSettings>>;
+} | null = null;
+let quoteSettingsInflight: Promise<Awaited<ReturnType<typeof getBookingSettings>>> | null = null;
+
+async function loadQuotePricingCached(env?: { TRACKING_STORE?: KVNamespace }) {
+  const now = Date.now();
+  if (quotePricingCache && now - quotePricingCache.at < QUOTE_CONFIG_CACHE_MS) {
+    return quotePricingCache.value;
+  }
+  if (!quotePricingInflight) {
+    quotePricingInflight = loadOwnerPricingOrDefault(env)
+      .then((value) => {
+        quotePricingCache = { at: Date.now(), value };
+        return value;
+      })
+      .finally(() => {
+        quotePricingInflight = null;
+      });
+  }
+  return quotePricingInflight;
+}
+
+async function loadBookingSettingsCached(store: KVNamespace) {
+  const now = Date.now();
+  if (quoteSettingsCache && now - quoteSettingsCache.at < QUOTE_CONFIG_CACHE_MS) {
+    return quoteSettingsCache.value;
+  }
+  if (!quoteSettingsInflight) {
+    quoteSettingsInflight = getBookingSettings(store)
+      .then((value) => {
+        quoteSettingsCache = { at: Date.now(), value };
+        return value;
+      })
+      .finally(() => {
+        quoteSettingsInflight = null;
+      });
+  }
+  return quoteSettingsInflight;
+}
+
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -186,31 +236,39 @@ export async function handleQuoteCalculateRequest(
           : "none";
 
   // Commercial fare requires real road routing (OSRM). Haversine×1.48 must never
-  // set the price. Worker resolve first: prefer Worker OSRM; if Workers cannot
-  // reach OSRM, accept the browser's OSRM metrics (same TripMap path) rather
-  // than inventing a fare.
+  // set the price. Valid browser OSRM metrics are priced immediately — TripMap
+  // already measured this route — so the quote does not wait on a second OSRM
+  // call. Worker resolve runs only when those metrics are missing. Payment
+  // still uses resolveWorkerTripRouteMetricsForPayment and never trusts this body.
+  const clientMetrics = parseClientRouteMetrics(body.routeMetrics);
+  const stageStartedAt = Date.now();
+  const pricingPromise = loadQuotePricingCached(env);
+  const settingsPromise = env?.TRACKING_STORE
+    ? loadBookingSettingsCached(env.TRACKING_STORE)
+    : Promise.resolve(null);
   let routeMetricsSource: "worker" | "client" | "none" = "none";
-  let routeMetrics = await resolveWorkerTripRouteMetrics({
-    pickupAddress,
-    dropoffAddress,
-    pickupPlaceId,
-    dropoffPlaceId,
-    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
-    googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
-    getAddressApiKey: env?.GETADDRESS_API_KEY,
-    trustClientCoordinates: true,
-  });
+  let routeMetrics = clientMetrics;
   if (routeMetrics) {
-    routeMetricsSource = "worker";
+    routeMetricsSource = "client";
   } else {
-    routeMetrics = parseClientRouteMetrics(body.routeMetrics);
+    routeMetrics = await resolveWorkerTripRouteMetrics({
+      pickupAddress,
+      dropoffAddress,
+      pickupPlaceId,
+      dropoffPlaceId,
+      pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
+      pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
+      dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
+      dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+      googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
+      getAddressApiKey: env?.GETADDRESS_API_KEY,
+      trustClientCoordinates: true,
+    });
     if (routeMetrics) {
-      routeMetricsSource = "client";
+      routeMetricsSource = "worker";
     }
   }
+  const routeReadyAt = Date.now();
 
   if (!routeMetrics) {
     return json(
@@ -254,6 +312,12 @@ export async function handleQuoteCalculateRequest(
     );
   }
 
+  // Booking settings (notice, deposit, owner blocked periods) overlap pricing.
+  // The occupied-jobs availability scan is not part of the fare. The quote page
+  // already calls /quote/availability, and payment runs the same gate again.
+  const pricing = await pricingPromise;
+  const pricingReadyAt = Date.now();
+
   // Require explicit passenger and suitcase selections — never default to 1 / 0.
   if (body.passengers == null || body.suitcases == null) {
     return json(
@@ -293,7 +357,6 @@ export async function handleQuoteCalculateRequest(
   }
 
   const ownerMode = Boolean(env && ownerAuthorized(request, env));
-  const pricing = await loadOwnerPricingOrDefault(env);
   const publicMinibusEnabled = pricing.minibus.publicEnabled === true;
   if (
     !ownerMode &&
@@ -450,6 +513,14 @@ export async function handleQuoteCalculateRequest(
     routeDurationMinutes: Math.round(routeMetrics.durationMinutes * 10) / 10,
     distanceKm: Math.round(routeMetrics.distanceKm * 100) / 100,
     workerHost: "reimagined-octo-meme.cgr28.workers.dev",
+    stageMs: {
+      route: routeReadyAt - stageStartedAt,
+      pricing: pricingReadyAt - stageStartedAt,
+      fare: 0,
+      availability: 0,
+      settings: 0,
+      total: 0,
+    },
   };
 
   console.log(
@@ -480,45 +551,35 @@ export async function handleQuoteCalculateRequest(
     diagnostics,
   };
 
+  const fareReadyAt = Date.now();
   if (env?.TRACKING_STORE) {
-    const availabilityGate = await enforceCustomerSmartAvailabilityGate({
-      store: env.TRACKING_STORE,
-      origin,
-      previewRequested: customerSmartAvailabilityPreviewRequested(request),
-      previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
-      booking: {
-        pickupLabel: pickupAddress,
-        dropoffLabel: dropoffAddress,
-        tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
-        tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
-        returnJourney,
-        returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
-        returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
-        vehicle: resolved.vehicleType,
-        airportCode,
-        isFromAirport: fromAirport,
-        routeDurationMinutes: routeMetrics.durationMinutes,
-      },
-    });
-    if (availabilityGate.enforce) {
-      quoteBody.smartAvailability = toPublicCustomerSmartAvailability(availabilityGate);
+    const settings = await settingsPromise;
+    const settingsReadyAt = Date.now();
+    diagnostics.stageMs = {
+      route: routeReadyAt - stageStartedAt,
+      pricing: pricingReadyAt - stageStartedAt,
+      fare: fareReadyAt - stageStartedAt,
+      availability: 0,
+      settings: settingsReadyAt - stageStartedAt,
+      total: settingsReadyAt - stageStartedAt,
+    };
+    if (settings) {
+      quoteBody.minimumBookingNoticeHours = settings.minimumBookingNoticeHours;
+      if (!ownerMode) {
+        quoteBody.depositCash = publicDepositCashOffer(result.amount, settings.depositCash);
+      }
+      quoteBody.ownerAvailability = evaluateOwnerNoAvailability(
+        {
+          tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
+          tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
+          returnJourney,
+          returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
+          returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
+          routeDurationMinutes: routeMetrics.durationMinutes,
+        },
+        settings.unavailablePeriods,
+      );
     }
-    const settings = await getBookingSettings(env.TRACKING_STORE);
-    quoteBody.minimumBookingNoticeHours = settings.minimumBookingNoticeHours;
-    if (!ownerMode) {
-      quoteBody.depositCash = publicDepositCashOffer(result.amount, settings.depositCash);
-    }
-    quoteBody.ownerAvailability = evaluateOwnerNoAvailability(
-      {
-        tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
-        tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
-        returnJourney,
-        returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
-        returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
-        routeDurationMinutes: routeMetrics.durationMinutes,
-      },
-      settings.unavailablePeriods,
-    );
   }
 
   if (!quoteBody.depositCash && !ownerMode) {

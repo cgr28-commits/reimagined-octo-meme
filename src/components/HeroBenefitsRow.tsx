@@ -13,20 +13,9 @@ const BENEFITS = [
     label: "Fixed price",
     lines: ["Fixed", "price"],
     icon: (
-      <svg className="hero-benefit-pound" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <g
-          fill="none"
-          stroke="#ffffff"
-          strokeWidth={3.4}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M16.7 7.1C16.05 4.7 13.7 3.55 11.5 4.3 8.7 5.25 7.55 7.6 7.7 9.6V16.35" />
-          <path d="M5.7 11.15H15.15" />
-          <path d="M5.7 14.7H15.9" />
-          <path d="M5.75 18.45H18.05" />
-        </g>
-      </svg>
+      <span className="hero-benefit-pound" aria-hidden="true">
+        £
+      </span>
     ),
   },
   {
