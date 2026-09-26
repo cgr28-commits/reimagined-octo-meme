@@ -49,7 +49,7 @@ console.log("=== Destination mapping only includes real local photographs ===");
 console.log("\n=== Town hubs ===");
 {
   const missingSlugs = new Set(MISSING_DESTINATION_HEROES.map((item) => item.slug));
-  assert.equal(TOWN_HUB_PAGES.length, 10);
+  assert.equal(TOWN_HUB_PAGES.length, 18);
   for (const hub of TOWN_HUB_PAGES) {
     const mapped = getDestinationHero(hub.town.slug);
     if (mapped) {

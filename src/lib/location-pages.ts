@@ -63,6 +63,7 @@ export type TownHubPage = {
   airportCodes: AirportPage["code"][];
   heroBase?: string;
   heroAlt?: string;
+  relatedTownSlugs: string[];
   whichAirport: TownHubContent["whichAirport"];
 }
 
@@ -104,6 +105,14 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Ballymena",
       "Larne",
       "Newry",
+      "Newtownards",
+      "Dundonald",
+      "Comber",
+      "Carryduff",
+      "Hillsborough",
+      "Moira",
+      "Glengormley",
+      "Whiteabbey",
       "Northern Ireland",
     ],
   },
@@ -144,6 +153,14 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Ballymena",
       "Larne",
       "Newry",
+      "Newtownards",
+      "Dundonald",
+      "Comber",
+      "Carryduff",
+      "Hillsborough",
+      "Moira",
+      "Glengormley",
+      "Whiteabbey",
       "Northern Ireland",
     ],
   },
@@ -184,6 +201,14 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Ballymena",
       "Larne",
       "Newry",
+      "Newtownards",
+      "Dundonald",
+      "Comber",
+      "Carryduff",
+      "Hillsborough",
+      "Moira",
+      "Glengormley",
+      "Whiteabbey",
       "Northern Ireland",
       "Dublin Airport",
     ],
@@ -298,6 +323,7 @@ export function getTownHubPages(): TownHubPage[] {
     airportCodes: hub.airportCodes.filter((code) =>
       AIRPORT_PAGES.some((airport) => airport.code === code),
     ),
+    relatedTownSlugs: hub.relatedTownSlugs ?? [],
     whichAirport: hub.whichAirport,
     heroBase: getDestinationHero(hub.townSlug)?.heroBase,
     heroAlt: getDestinationHero(hub.townSlug)?.alt,

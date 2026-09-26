@@ -84,6 +84,14 @@ export type DestinationHeroSlug = keyof typeof DESTINATION_HERO;
 /** Town hubs that still need a genuine local photograph. */
 export const MISSING_DESTINATION_HEROES = [
   { slug: "ballymena", needed: "Seven Towers / Ballee roundabout or another recognisable Ballymena landmark" },
+  { slug: "newtownards", needed: "A recognisable Newtownards photograph, such as Scrabo Tower or the town square" },
+  { slug: "dundonald", needed: "A recognisable Dundonald photograph, such as the Moat or the A20 at the Ulster Hospital" },
+  { slug: "comber", needed: "A recognisable Comber photograph, such as The Square" },
+  { slug: "carryduff", needed: "A recognisable Carryduff photograph, such as the Saintfield Road roundabout" },
+  { slug: "hillsborough", needed: "A recognisable Hillsborough photograph, such as the fort or the village square" },
+  { slug: "moira", needed: "A recognisable Moira photograph, such as Main Street" },
+  { slug: "glengormley", needed: "A recognisable Glengormley photograph, such as Sandyknowes" },
+  { slug: "whiteabbey", needed: "A recognisable Whiteabbey photograph, such as the Shore Road at Hazelbank" },
 ] as const;
 
 export function getDestinationHero(slug: string): DestinationHeroAsset | undefined {

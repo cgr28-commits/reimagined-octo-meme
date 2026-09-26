@@ -27,6 +27,14 @@ const HUB_TOWNS = [
   "larne",
   "newry",
   "ballyclare",
+  "newtownards",
+  "dundonald",
+  "comber",
+  "carryduff",
+  "hillsborough",
+  "moira",
+  "glengormley",
+  "whiteabbey",
 ] as const;
 const LANDING_AIRPORTS = ["BFS", "BHD", "DUB"] as const;
 
@@ -49,12 +57,12 @@ const landingRoutes = TRANSFER_ROUTE_PAGES.filter((route) => route.faqs?.length)
 
 console.log("=== Town hubs and landing routes exist ===");
 {
-  assert.equal(TOWN_HUB_PAGES.length, 10);
+  assert.equal(TOWN_HUB_PAGES.length, 18);
   assert.deepEqual(
     TOWN_HUB_PAGES.map((hub) => hub.town.slug).sort(),
     [...HUB_TOWNS].sort(),
   );
-  assert.equal(landingRoutes.length, 31);
+  assert.equal(landingRoutes.length, 55);
   for (const town of HUB_TOWNS) {
     const hub = TOWN_HUB_PAGES.find((item) => item.town.slug === town);
     assert.ok(hub, `missing hub for ${town}`);
@@ -67,7 +75,7 @@ console.log("=== Town hubs and landing routes exist ===");
     );
     assert.ok(routes.every((route) => route.slug && route.hubSlug === hub.slug));
   }
-  console.log("OK  10 town hubs and 31 BFS/BHD/DUB landing routes");
+  console.log("OK  18 town hubs and 55 BFS/BHD/DUB landing routes");
 }
 
 console.log("\n=== /locations/ links to every town hub ===");
@@ -143,16 +151,16 @@ console.log("\n=== Canonicals ===");
   assert.match(routePage, /canonical: `\/transfers\/\$\{page\.slug\}\/`/);
   assert.equal(SITE.url, SITE_HOST);
   for (const hub of TOWN_HUB_PAGES) {
-    assert.equal(new Set(TOWN_HUB_PAGES.map((item) => item.title)).size, 10);
+    assert.equal(new Set(TOWN_HUB_PAGES.map((item) => item.title)).size, 18);
     assert.ok(hub.metaDescription.length > 40);
     assert.equal(hub.h1, hub.title);
   }
   const titles = landingRoutes.map((route) => route.title);
   const descriptions = landingRoutes.map((route) => route.metaDescription);
   const h1s = landingRoutes.map((route) => route.h1);
-  assert.equal(new Set(titles).size, 31);
-  assert.equal(new Set(descriptions).size, 31);
-  assert.equal(new Set(h1s).size, 31);
+  assert.equal(new Set(titles).size, 55);
+  assert.equal(new Set(descriptions).size, 55);
+  assert.equal(new Set(h1s).size, 55);
   console.log("OK  self-referencing HTTPS www canonicals and unique titles/descriptions");
 }
 

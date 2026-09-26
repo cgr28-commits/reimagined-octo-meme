@@ -355,6 +355,10 @@ export const AREAS = [
   "Comber",
   "Dundonald",
   "Hillsborough",
+  "Carryduff",
+  "Moira",
+  "Glengormley",
+  "Whiteabbey",
 ] as const;
 
 export const WHY_CHOOSE_US = [

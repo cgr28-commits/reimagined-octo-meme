@@ -164,14 +164,27 @@ export default async function TownHubPage({ params }: Props) {
           <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <h2 className="text-lg font-bold text-white">Areas around {page.town.name} we cover</h2>
             <ul className="mt-4 flex flex-wrap gap-2">
-              {page.areas.map((area) => (
-                <li
-                  key={area}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75"
-                >
-                  {area}
-                </li>
-              ))}
+              {page.areas.map((area) => {
+                const linkedHub = TOWN_HUB_PAGES.find(
+                  (hub) => hub.town.name === area && hub.slug !== page.slug,
+                );
+                const chipClass =
+                  "rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75";
+                return (
+                  <li key={area}>
+                    {linkedHub ? (
+                      <Link
+                        href={`/locations/${linkedHub.slug}/`}
+                        className={`${chipClass} transition-colors hover:border-emerald/40 hover:text-emerald`}
+                      >
+                        {area}
+                      </Link>
+                    ) : (
+                      <span className={chipClass}>{area}</span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             <ul className="mt-5 space-y-3 text-sm leading-relaxed text-white/65">
               {page.localNotes.map((note) => (
@@ -182,6 +195,31 @@ export default async function TownHubPage({ params }: Props) {
               ))}
             </ul>
           </section>
+
+          {page.relatedTownSlugs.some((townSlug) => {
+            const related = TOWN_HUB_PAGES.find((hub) => hub.town.slug === townSlug);
+            return related && related.slug !== page.slug && !page.areas.includes(related.town.name);
+          }) ? (
+            <section className="mt-8">
+              <h2 className="text-lg font-bold text-white">Nearby airport taxi pages</h2>
+              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                {page.relatedTownSlugs.map((townSlug) => {
+                  const related = TOWN_HUB_PAGES.find((hub) => hub.town.slug === townSlug);
+                  if (!related || related.slug === page.slug || page.areas.includes(related.town.name)) return null;
+                  return (
+                    <li key={related.slug}>
+                      <Link
+                        href={`/locations/${related.slug}/`}
+                        className="block rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
+                      >
+                        {related.town.name} airport taxis
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
 
           <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <h2 className="text-lg font-bold text-white">Which airport from {page.town.name}?</h2>
