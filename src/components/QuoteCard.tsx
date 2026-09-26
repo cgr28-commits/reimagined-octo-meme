@@ -831,8 +831,6 @@ function QuoteCard({
   /** Worker quote finished without a fare — only then may the loaded client engine paint. */
   const [serverQuoteUnavailable, setServerQuoteUnavailable] = useState(false);
   const serverQuoteGenRef = useRef(0);
-  /** Once a correct fare has painted, keep the results mounted while the next fare loads. */
-  const hadAuthoritativeFareRef = useRef(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
@@ -1714,6 +1712,8 @@ function QuoteCard({
         pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
         dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
         routeMetrics: routeMetrics ?? undefined,
+        vehicleType: requestedVehicle,
+        vehicleChoice: requestedVehicle.toLowerCase().includes("minibus") ? "Minibus" : "Saloon",
       });
       if (requestGen !== serverQuoteGenRef.current) {
         return false;
@@ -1982,11 +1982,8 @@ function QuoteCard({
     serverQuoteUnavailable,
     previewSkipsServer: previewSkipsServerQuote,
   });
-  if (!quoteChoicesReady || !hasQuoteRoute || !isScheduleComplete || quoteStep !== 1) {
-    hadAuthoritativeFareRef.current = false;
-  } else if (mayPaintNumericFare) {
-    hadAuthoritativeFareRef.current = true;
-  }
+  /** Numeric £ only. Must not gate mounting the results UI. */
+  const authoritativeFareReady = mayPaintNumericFare;
 
   const journeyFareParts = useMemo(() => {
     // Prefer Worker-authoritative split only when it belongs to this vehicle/party.
@@ -2143,8 +2140,9 @@ function QuoteCard({
     (!smartAvailabilityBlocked || isMinimumNoticeRequest);
 
   /**
-   * Complete results (route + vehicle + price) ready to show and scroll once.
-   * Waits for distance, time, and live fare (or request-quote paths) after all choices.
+   * Results mount as soon as the customer selections are complete.
+   * The numeric fare stays behind authoritativeFareReady and shows Calculating…
+   * until then. Distance and the worker fare must not hold this back.
    */
   const instantPriceExpected =
     canShowPrice &&
@@ -2153,18 +2151,17 @@ function QuoteCard({
     !isManualQuoteJourney &&
     !pricingConfirmationRequired &&
     !(isEnquiryOnly && !showGuidePrice);
-  const quoteResultsReady =
+  const resultsCanRender =
     quoteChoicesReady &&
     hasQuoteRoute &&
     isScheduleComplete &&
-    Boolean(journeyDistanceLabel) &&
-    Boolean(journeyDurationLabel) &&
-    (!instantPriceExpected || mayPaintNumericFare || hadAuthoritativeFareRef.current) &&
-    (Boolean(liveQuote) ||
+    (instantPriceExpected ||
+      Boolean(liveQuote) ||
       pricingConfirmationRequired ||
       isManualQuoteJourney ||
       exceedsOnlineCapacity ||
       isEnquiryOnly);
+  const quoteResultsReady = resultsCanRender;
 
   /** Customer-facing 3-step progress. Internal quoteStep 2/3 both map to Booking & Pay. */
   const quoteProgressStep = quoteStep >= 2 ? 3 : quoteResultsReady ? 2 : 1;
@@ -6156,7 +6153,7 @@ function QuoteCard({
   const showInstantQuoteResultCard =
     quoteResultsReady &&
     quoteStep === 1 &&
-    Boolean(liveQuote) &&
+    (Boolean(liveQuote) || instantPriceExpected) &&
     !isEnquiryOnly &&
     !isManualQuoteJourney &&
     !pricingConfirmationRequired &&
@@ -6188,7 +6185,7 @@ function QuoteCard({
       testChargeAmount ??
       (appliedPersonalQuote
         ? (pricedFare?.totalGbp ?? appliedPersonalQuote.agreedAmount)
-        : mayPaintNumericFare
+        : authoritativeFareReady
           ? (pricedFare?.totalGbp ?? null)
           : null);
     const amountLabel =

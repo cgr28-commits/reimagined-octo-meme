@@ -18,6 +18,7 @@ import {
 
 const root = path.resolve(import.meta.dirname, "..");
 const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
+const showcase = fs.readFileSync(path.join(root, "src/components/QuoteResultShowcase.tsx"), "utf8");
 
 console.log("=== Interim live fare must not paint ===");
 assert.equal(
@@ -73,7 +74,25 @@ assert.match(card, /mayPaintAuthoritativeFare/);
 assert.match(card, /mayPaintNumericFare && \(journeyFareParts\.nightWeekendSurchargeGbp/);
 assert.doesNotMatch(card, /journeyFareGbp \* 0\.9|amount \* 0\.9|surcharge \* 0/);
 assert.match(card, /Calculating your transfer price/);
-console.log("OK  no interim fare; 10% rate unchanged");
+assert.match(card, /const authoritativeFareReady = mayPaintNumericFare/);
+assert.match(card, /const resultsCanRender =/);
+assert.match(card, /const quoteResultsReady = resultsCanRender/);
+const resultsBlock = card.slice(
+  card.indexOf("const resultsCanRender"),
+  card.indexOf("const quoteResultsReady = resultsCanRender"),
+);
+assert.doesNotMatch(resultsBlock, /mayPaintNumericFare|authoritativeFareReady/);
+assert.match(card, /: "Calculating…"/);
+assert.match(showcase, /formattedPrice\.startsWith\("£"\) \? "ready" : "pending"/);
+const scrollEffect = card.slice(
+  card.indexOf("Initial transition into quote results only"),
+  card.indexOf("Reset time→Your Journey"),
+);
+assert.match(scrollEffect, /hadRouteSummaryScrollRef\.current = true/);
+assert.doesNotMatch(scrollEffect, /mayPaintNumericFare|authoritativeFareReady/);
+assert.match(card, /vehicleType: requestedVehicle/);
+assert.match(card, /vehicleChoice: requestedVehicle\.toLowerCase\(\)\.includes\("minibus"\) \? "Minibus" : "Saloon"/);
+console.log("OK  no interim fare; results mount before the authoritative number; 10% rate unchanged");
 
 console.log("\n=== Airport fees unchanged; Dublin and Derry are not a Free/Express choice ===");
 assert.equal(EXPRESS_DROP_OFF_FEES_GBP.BFS, 5);

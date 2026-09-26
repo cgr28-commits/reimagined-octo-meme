@@ -13,13 +13,9 @@ const BENEFITS = [
     label: "Fixed price",
     lines: ["Fixed", "price"],
     icon: (
-      <svg className="hero-benefit-pound" viewBox="0 0 24 24" aria-hidden>
-        <path
-          fill="#ffffff"
-          fillRule="evenodd"
-          d="M12.15 2.7c2.55 0 4.45 1.7 4.55 4.05.05 1.55-.7 2.65-2.35 3.4l-.55.25v1.35h3.35v2.15h-3.35v1.7h3.85v2.15H6.35v-2.15h3.15v-1.7H6.35v-2.15h2.55c.15-1.55.2-2.7.15-4.15-.1-2.15-1.55-3.7-3.7-4.15l.7-2.05c1.55.25 2.7.95 3.2 2.05.55-1.35 1.85-2.15 3.6-2.15zm-.05 2.15c-1.15 0-1.9.7-1.95 1.85-.05 1.05.15 1.85.55 2.55h2.55c.85-.45 1.3-1.05 1.25-1.9-.05-1.05-.85-1.7-1.85-1.7z"
-        />
-      </svg>
+      <span className="hero-benefit-pound" aria-hidden="true">
+        £
+      </span>
     ),
   },
   {

@@ -33,6 +33,7 @@ import {
   previewCustomerJourneyRequested,
   previewMinibusQueryOverride,
   previewPartyFromQuery,
+  previewPublicPricingConfig,
 } from "../src/lib/pricing-preview-store";
 import {
   PREVIEW_BELFAST_CITY_HALL_PLACE,
@@ -436,14 +437,52 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
 
   const card = read("src/components/QuoteCard.tsx");
   const categories = read("src/components/QuoteVehicleCategories.tsx");
+  const progressive = read("src/components/QuoteProgressiveRoute.tsx");
   assert.match(card, /function renderQuoteVehicleChoice/);
   assert.match(card, /setChooseMinibus\(next === MINIBUS_VEHICLE_TYPE\)/);
   assert.match(card, /chooseMinibus \|\| pax >= 5 \|\| suitcases >= 5/);
+  assert.match(card, /vehicleType: requestedVehicle/);
+  assert.match(progressive, /<QuoteVehicleCategories/);
+  assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE \|\| option\.vehicle === automatic/);
   assert.equal(card.split("renderQuoteVehicleChoice()").length, 5);
   assert.match(categories, /id: "minibus"/);
   assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE/);
   assert.match(categories, /data-vehicle-category=\{option\.id\}/);
   assert.doesNotMatch(read("shared/universal-distance-pricing.ts"), /Math\.round\(\(estateGbp \* minibusMult\) \/ 5\) \* 5/);
+});
+
+check("Fresh preview shows the public 7-seater; previewMinibus=0 keeps it off", () => {
+  const previousWindow = (globalThis as { window?: unknown }).window;
+  const store = new Map<string, string>();
+  (globalThis as { window?: unknown }).window = {
+    location: { hostname: "example.vercel.app", search: "" },
+    sessionStorage: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+    },
+  };
+  try {
+    assert.equal(previewPublicPricingConfig().minibus.publicEnabled, true);
+    (globalThis as { window?: { location: { hostname: string; search: string } } }).window = {
+      location: { hostname: "example.vercel.app", search: "?previewMinibus=0" },
+      sessionStorage: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          store.set(key, value);
+        },
+      },
+    };
+    assert.equal(previewPublicPricingConfig().minibus.publicEnabled, false);
+    assert.equal(defaultOwnerPricingSettings().minibus.publicEnabled, false);
+  } finally {
+    if (previousWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = previousWindow;
+    }
+  }
 });
 
 check("7 passengers + 5+ bags is Minibus — capacity confirmation is a separate hold", () => {

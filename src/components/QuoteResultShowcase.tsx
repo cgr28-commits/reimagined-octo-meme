@@ -108,7 +108,14 @@ export default function QuoteResultShowcase({
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
           </p>
-          <p className="font-sans mt-1 text-[clamp(3.5rem,1.6rem+10vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-navy tabular-nums lg:text-[clamp(4rem,3rem+2vw,5rem)]">
+          <p
+            data-quote-fare-status={formattedPrice.startsWith("£") ? "ready" : "pending"}
+            className={
+              formattedPrice.startsWith("£")
+                ? "font-sans mt-1 text-[clamp(3.5rem,1.6rem+10vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-navy tabular-nums lg:text-[clamp(4rem,3rem+2vw,5rem)]"
+                : "font-sans mt-1 text-[clamp(1.85rem,1.1rem+3.2vw,2.5rem)] font-extrabold leading-tight tracking-[-0.03em] text-navy"
+            }
+          >
             {formattedPrice}
           </p>
           {surchargeNote ? (

@@ -58,7 +58,15 @@ check("journey only / party without date → no displayed price", () => {
   assert.match(card, /hasEnteredQuoteSchedule/);
   assert.match(card, /scheduleEntered/);
   assert.match(card, /canShowPrice =\s*\n?\s*hasQuoteRoute &&\s*\n?\s*quoteChoicesReady &&\s*\n?\s*isScheduleComplete/);
-  assert.match(card, /quoteResultsReady =\s*\n?\s*quoteChoicesReady &&\s*\n?\s*hasQuoteRoute &&\s*\n?\s*isScheduleComplete/);
+  assert.match(
+    card,
+    /const resultsCanRender =\s*\n?\s*quoteChoicesReady &&\s*\n?\s*hasQuoteRoute &&\s*\n?\s*isScheduleComplete/,
+  );
+  assert.match(card, /const quoteResultsReady = resultsCanRender/);
+  assert.doesNotMatch(
+    card.slice(card.indexOf("const resultsCanRender"), card.indexOf("const quoteResultsReady")),
+    /mayPaintNumericFare|authoritativeFareReady|journeyDistanceLabel/,
+  );
   assert.match(card, /QUOTE_PRICE_WAIT_FOR_SCHEDULE/);
   assert.match(card, /data-quote-price-wait/);
   assert.doesNotMatch(card, /£0\.00/);
