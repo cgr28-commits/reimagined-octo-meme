@@ -91,7 +91,7 @@ assert.match(card, /routeSummaryRef/);
 assert.match(card, /quoteResultsReady/);
 assert.match(
   card,
-  /scrollQuoteStage\(quoteResultsStartRef\.current \?\? "quote-results-start", \{\s*focusHeading: false,\s*correctAfterMs: 0,/,
+  /scrollQuoteStage\(lead \?\? quoteResultsStartRef\.current \?\? "quote-results-start", \{\s*focusHeading: false,\s*correctAfterMs: 0,/,
 );
 assert.doesNotMatch(card, /becameComplete/);
 assert.doesNotMatch(card, /hadVehicleResultAlignRef/);

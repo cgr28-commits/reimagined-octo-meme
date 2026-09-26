@@ -84,8 +84,9 @@ check("Scroll sequence: journey-type → date/time → passengers → YOUR ROUTE
   assert.match(progressive, /id="passenger-luggage-section"/);
   assert.match(card, /scrollQuoteStage\("journey-type-selector"/);
   assert.match(card, /scrollQuoteStage\("quote-section-schedule"/);
-  assert.match(card, /scrollQuoteStage\(quoteResultsStartRef\.current \?\? "quote-results-start"/);
+  assert.match(card, /scrollQuoteStage\(lead \?\? quoteResultsStartRef\.current \?\? "quote-results-start"/);
   assert.match(card, /data-quote-results-start/);
+  assert.match(progressive, /id="quote-results-lead"/);
   assert.match(card, /correctAfterMs: 0/);
   assert.match(card, /id="quote-route-summary"|id=\{\s*quoteChoicesReady && hasQuoteRoute && quoteStep === 1/);
   assert.match(card, /hadRouteSummaryScrollRef/);

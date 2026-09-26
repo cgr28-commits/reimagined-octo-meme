@@ -97,10 +97,11 @@ assert.match(showcase, /formattedPrice\.startsWith\("£"\) \? "ready" : "pending
 assert.match(showcase, /min-h-\[clamp\(3\.5rem,1\.6rem\+10vw,4\.5rem\)\]/);
 assert.match(showcase, /text-\[clamp\(2\.65rem,1\.22rem\+7\.6vw,3\.4rem\)\]/);
 const scrollEffect = card.slice(
-  card.indexOf("One results scroll, to the start anchor"),
+  card.indexOf("One results scroll, as soon as the results mount."),
   card.indexOf("Reset time→Your Journey"),
 );
 assert.match(scrollEffect, /hadRouteSummaryScrollRef\.current = true/);
+assert.match(scrollEffect, /quote-results-lead/);
 assert.match(scrollEffect, /quoteResultsStartRef/);
 assert.match(scrollEffect, /correctAfterMs: 0/);
 assert.doesNotMatch(scrollEffect, /mayPaintNumericFare|authoritativeFareReady/);

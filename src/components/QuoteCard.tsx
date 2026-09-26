@@ -4776,9 +4776,10 @@ function QuoteCard({
     return scrollQuoteStage("quote-section-schedule", { correctAfterMs: 0 });
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
-  // One results scroll, to the start anchor, as soon as the results mount.
-  // No correction pass: a second scroll was landing on the vehicle cards.
-  // Fare, vehicle, and Free/Express updates leave the latch set.
+  // One results scroll, as soon as the results mount.
+  // Land on the note above the vehicle list so that line is not sliced under
+  // the header and the vehicle label is not the first thing on screen.
+  // No correction pass. Fare, vehicle, and Free/Express updates leave the latch set.
   useEffect(() => {
     if (quoteStep !== 1) {
       hadRouteSummaryScrollRef.current = false;
@@ -4796,7 +4797,9 @@ function QuoteCard({
     }
 
     hadRouteSummaryScrollRef.current = true;
-    return scrollQuoteStage(quoteResultsStartRef.current ?? "quote-results-start", {
+    const lead =
+      typeof document !== "undefined" ? document.getElementById("quote-results-lead") : null;
+    return scrollQuoteStage(lead ?? quoteResultsStartRef.current ?? "quote-results-start", {
       focusHeading: false,
       correctAfterMs: 0,
       immediate: true,
