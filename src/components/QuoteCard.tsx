@@ -4779,8 +4779,9 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // On mobile, land on the top of the white selected-vehicle quote card, just
-  // below the measured sticky header. No correction pass.
+  // On mobile, the top edge of the white selected-vehicle quote card sits
+  // flush under the fixed header (clearance 0). The vehicle list stays above
+  // the fold. Instant, so iOS cannot cancel a smooth scroll on that list.
   // Fare, vehicle, and Free/Express updates leave the latch set.
   useEffect(() => {
     if (quoteStep !== 1) {
@@ -4806,7 +4807,8 @@ function QuoteCard({
         focusHeading: false,
         correctAfterMs: 0,
         immediate: true,
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        clearancePx: 0,
+        behavior: "auto",
       });
     }
     hadRouteSummaryScrollRef.current = true;

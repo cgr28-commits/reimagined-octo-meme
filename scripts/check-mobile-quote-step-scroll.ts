@@ -145,7 +145,7 @@ check("Mobile Step 1 address complete does not scroll", () => {
   );
   assert.match(
     resultsScroll,
-    /if \(detectMobileDevice\(\)\) \{\s*const selectedCard = quoteSelectedVehicleCardRef\.current;\s*if \(!selectedCard\) return;\s*hadRouteSummaryScrollRef\.current = true;\s*return scrollQuoteStage\(selectedCard, \{\s*focusHeading: false,\s*correctAfterMs: 0,\s*immediate: true,/,
+    /if \(detectMobileDevice\(\)\) \{\s*const selectedCard = quoteSelectedVehicleCardRef\.current;\s*if \(!selectedCard\) return;\s*hadRouteSummaryScrollRef\.current = true;\s*return scrollQuoteStage\(selectedCard, \{\s*focusHeading: false,\s*correctAfterMs: 0,\s*immediate: true,\s*clearancePx: 0,\s*behavior: "auto",/,
   );
   const mobileResultsScroll = resultsScroll.slice(
     resultsScroll.indexOf("if (detectMobileDevice())"),
