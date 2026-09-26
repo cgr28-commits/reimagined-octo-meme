@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import {
@@ -37,17 +37,21 @@ const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
-export default function QuoteResultShowcase({
-  vehicleType,
-  passengers,
-  suitcases,
-  priceLabel,
-  formattedPrice,
-  airportAccess,
-  bookButton,
-  surchargeNote = null,
-  capacityConfirmation = false,
-}: QuoteResultShowcaseProps) {
+const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>(
+  function QuoteResultShowcase(
+    {
+      vehicleType,
+      passengers,
+      suitcases,
+      priceLabel,
+      formattedPrice,
+      airportAccess,
+      bookButton,
+      surchargeNote = null,
+      capacityConfirmation = false,
+    },
+    ref,
+  ) {
   const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
   const isMinibus =
     vehicleType === MINIBUS_VEHICLE || vehicleShortLabel(vehicleType) === MINIBUS_CUSTOMER_NAME;
@@ -63,6 +67,9 @@ export default function QuoteResultShowcase({
 
   return (
     <div
+      ref={ref}
+      id="quote-selected-vehicle-card"
+      data-quote-selected-vehicle-card
       data-quote-result-card
       className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-4 py-5 text-navy shadow-[0_12px_32px_rgba(2,10,24,0.22)] sm:px-5 sm:py-6"
     >
@@ -175,7 +182,10 @@ export default function QuoteResultShowcase({
       </p>
     </div>
   );
-}
+  },
+);
+
+export default QuoteResultShowcase;
 
 function Benefit({
   children,

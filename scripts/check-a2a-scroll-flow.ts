@@ -91,6 +91,10 @@ assert.match(card, /routeSummaryRef/);
 assert.match(card, /quoteResultsReady/);
 assert.match(
   card,
+  /if \(detectMobileDevice\(\)\) \{\s*const selectedCard = quoteSelectedVehicleCardRef\.current;[\s\S]*?scrollQuoteStage\(selectedCard, \{\s*focusHeading: false,\s*correctAfterMs: 0,/,
+);
+assert.match(
+  card,
   /scrollQuoteStage\(lead \?\? quoteResultsStartRef\.current \?\? "quote-results-start", \{\s*focusHeading: false,\s*correctAfterMs: 0,/,
 );
 assert.doesNotMatch(card, /becameComplete/);

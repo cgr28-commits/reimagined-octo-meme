@@ -654,6 +654,8 @@ function QuoteCard({
   const routeSummaryRef = useRef<HTMLDivElement>(null);
   /** First pixel of the results the customer should land on. Not the price or a vehicle card. */
   const quoteResultsStartRef = useRef<HTMLDivElement>(null);
+  /** Top edge of the white selected-vehicle quote card. Mobile results scroll lands here. */
+  const quoteSelectedVehicleCardRef = useRef<HTMLDivElement>(null);
   const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
   const step2JourneySummaryRef = useRef<HTMLDivElement>(null);
   const step3CustomerDetailsRef = useRef<HTMLDivElement>(null);
@@ -4777,9 +4779,9 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // Land on the note above the vehicle list so that line is not sliced under
-  // the header and the vehicle label is not the first thing on screen.
-  // No correction pass. Fare, vehicle, and Free/Express updates leave the latch set.
+  // On mobile, land on the top of the white selected-vehicle quote card, just
+  // below the measured sticky header. No correction pass.
+  // Fare, vehicle, and Free/Express updates leave the latch set.
   useEffect(() => {
     if (quoteStep !== 1) {
       hadRouteSummaryScrollRef.current = false;
@@ -4796,6 +4798,17 @@ function QuoteCard({
       return;
     }
 
+    if (detectMobileDevice()) {
+      const selectedCard = quoteSelectedVehicleCardRef.current;
+      if (!selectedCard) return;
+      hadRouteSummaryScrollRef.current = true;
+      return scrollQuoteStage(selectedCard, {
+        focusHeading: false,
+        correctAfterMs: 0,
+        immediate: true,
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+    }
     hadRouteSummaryScrollRef.current = true;
     const lead =
       typeof document !== "undefined" ? document.getElementById("quote-results-lead") : null;
@@ -6363,6 +6376,7 @@ function QuoteCard({
         : "Calculating…";
     return (
       <QuoteResultShowcase
+        ref={quoteSelectedVehicleCardRef}
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
