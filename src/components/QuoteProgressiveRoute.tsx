@@ -68,6 +68,10 @@ export type QuoteProgressiveRouteProps = {
   suitcasesError?: string;
   /** Server-authoritative Offer 7 Seater Minibus Online. Fail-closed default is OFF. */
   publicMinibusEnabled?: boolean;
+  /** Hide the party-step cards once the same choice is shown with the quote result. */
+  showVehicleCategories?: boolean;
+  selectedVehicle?: string | null;
+  onSelectVehicle?: (vehicle: string) => void;
   isGroupQuote: boolean;
   showRouteFields: boolean;
   /** Addresses complete — show One Way / Return (not passengers yet). */
@@ -121,6 +125,9 @@ export default function QuoteProgressiveRoute({
   passengersError = "",
   suitcasesError = "",
   publicMinibusEnabled = false,
+  showVehicleCategories = true,
+  selectedVehicle = null,
+  onSelectVehicle,
   isGroupQuote: _isGroupQuote,
   showRouteFields,
   showJourneyModeFields,
@@ -443,8 +450,16 @@ export default function QuoteProgressiveRoute({
             passengersError={passengersError}
             suitcasesError={suitcasesError}
           />
-          {publicMinibusEnabled === true && passengers != null && suitcases != null ? (
-            <QuoteVehicleCategories passengers={passengers} suitcases={suitcases} />
+          {showVehicleCategories &&
+          publicMinibusEnabled === true &&
+          passengers != null &&
+          suitcases != null ? (
+            <QuoteVehicleCategories
+              passengers={passengers}
+              suitcases={suitcases}
+              selectedVehicle={selectedVehicle}
+              onSelectVehicle={onSelectVehicle}
+            />
           ) : null}
 
           {(passengers == null || suitcases == null) && !passengersError && !suitcasesError && (

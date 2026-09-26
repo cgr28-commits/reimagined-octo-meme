@@ -360,6 +360,92 @@ check("Preview customer journey seed is isolated to preview hosts", () => {
   }
 });
 
+check("Eligible parties still show a choosable 7-seater on quote results", () => {
+  assert.equal(selectVehicleForParty(1, 0), SALOON_VEHICLE);
+  assert.equal(selectVehicleForParty(2, 1), SALOON_VEHICLE);
+  assert.equal(selectVehicleForParty(4, 2), SALOON_VEHICLE);
+  assert.equal(selectVehicleForParty(4, 4), ESTATE_VEHICLE);
+  assert.equal(selectVehicleForParty(5, 1), MINIBUS_VEHICLE);
+  assert.equal(selectVehicleForParty(2, 5), MINIBUS_VEHICLE);
+  assert.equal(requiresMinibus(2, 1), false);
+  assert.equal(requiresMinibus(5, 1), true);
+
+  const saloon = calculateAuthoritativeWebsiteQuote(
+    quoteInput({ passengers: 2, suitcases: 1, pricing: onPricing }),
+  );
+  const estate = calculateAuthoritativeWebsiteQuote(
+    quoteInput({ passengers: 2, suitcases: 4, pricing: onPricing }),
+  );
+  const chosenMinibus = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 2,
+      suitcases: 1,
+      vehicleType: MINIBUS_VEHICLE,
+      pricing: onPricing,
+    }),
+  );
+  const onePassenger = calculateAuthoritativeWebsiteQuote(
+    quoteInput({ passengers: 1, suitcases: 0, pricing: onPricing }),
+  );
+  const fourPassengers = calculateAuthoritativeWebsiteQuote(
+    quoteInput({ passengers: 4, suitcases: 1, pricing: onPricing }),
+  );
+  assert.equal(saloon.ok && saloon.vehicleType, SALOON_VEHICLE);
+  assert.equal(onePassenger.ok && onePassenger.vehicleType, SALOON_VEHICLE);
+  assert.equal(fourPassengers.ok && fourPassengers.vehicleType, SALOON_VEHICLE);
+  assert.equal(estate.ok && estate.vehicleType, ESTATE_VEHICLE);
+  assert.equal(chosenMinibus.ok && chosenMinibus.vehicleType, MINIBUS_VEHICLE);
+  if (saloon.ok && estate.ok && chosenMinibus.ok) {
+    assert.equal(estate.amount - saloon.amount, 6);
+    assert.equal(
+      chosenMinibus.amount,
+      minibusBaseFareFromSaloon(saloon.amount, onPricing).minibusQuotedGbp,
+    );
+  }
+
+  for (const overrides of [
+    { returnJourney: true },
+    { fromAirport: true, pickupAddress: "Belfast International Airport", dropoffAddress: "Belfast City Hall, Belfast" },
+    { fromAirport: false },
+  ]) {
+    const automatic = calculateAuthoritativeWebsiteQuote(
+      quoteInput({ passengers: 2, suitcases: 1, pricing: onPricing, ...overrides }),
+    );
+    const optional = calculateAuthoritativeWebsiteQuote(
+      quoteInput({
+        passengers: 2,
+        suitcases: 1,
+        vehicleType: MINIBUS_VEHICLE,
+        pricing: onPricing,
+        ...overrides,
+      }),
+    );
+    assert.equal(automatic.ok && automatic.vehicleType, SALOON_VEHICLE);
+    assert.equal(optional.ok && optional.vehicleType, MINIBUS_VEHICLE);
+  }
+
+  const forced = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 6,
+      suitcases: 1,
+      vehicleType: SALOON_VEHICLE,
+      pricing: onPricing,
+    }),
+  );
+  assert.equal(forced.ok && forced.vehicleType, MINIBUS_VEHICLE);
+
+  const card = read("src/components/QuoteCard.tsx");
+  const categories = read("src/components/QuoteVehicleCategories.tsx");
+  assert.match(card, /function renderQuoteVehicleChoice/);
+  assert.match(card, /setChooseMinibus\(next === MINIBUS_VEHICLE_TYPE\)/);
+  assert.match(card, /chooseMinibus \|\| pax >= 5 \|\| suitcases >= 5/);
+  assert.equal(card.split("renderQuoteVehicleChoice()").length, 5);
+  assert.match(categories, /id: "minibus"/);
+  assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE/);
+  assert.match(categories, /data-vehicle-category=\{option\.id\}/);
+  assert.doesNotMatch(read("shared/universal-distance-pricing.ts"), /Math\.round\(\(estateGbp \* minibusMult\) \/ 5\) \* 5/);
+});
+
 check("7 passengers + 5+ bags is Minibus — capacity confirmation is a separate hold", () => {
   assert.equal(selectVehicleForParty(7, 5), MINIBUS_VEHICLE);
   const data = read("src/lib/data.ts");
