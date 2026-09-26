@@ -58,21 +58,54 @@ import { resolvePaymentAirportContextFromAddresses } from "../shared/open-websit
 import { calculateAirportToAirportQuote, formatQuote } from "../../../src/lib/quote";
 import { drivingMilesFromKm } from "../../../src/lib/quote";
 
-/** Repeat vehicle switches reuse the same owner pricing snapshot for a few seconds. */
-const QUOTE_PRICING_CACHE_MS = 10_000;
+/** Repeat vehicle switches reuse the same owner config snapshot for a few seconds. */
+const QUOTE_CONFIG_CACHE_MS = 10_000;
 let quotePricingCache: {
   at: number;
   value: Awaited<ReturnType<typeof loadOwnerPricingOrDefault>>;
 } | null = null;
+let quotePricingInflight: Promise<Awaited<ReturnType<typeof loadOwnerPricingOrDefault>>> | null =
+  null;
+let quoteSettingsCache: {
+  at: number;
+  value: Awaited<ReturnType<typeof getBookingSettings>>;
+} | null = null;
+let quoteSettingsInflight: Promise<Awaited<ReturnType<typeof getBookingSettings>>> | null = null;
 
 async function loadQuotePricingCached(env?: { TRACKING_STORE?: KVNamespace }) {
   const now = Date.now();
-  if (quotePricingCache && now - quotePricingCache.at < QUOTE_PRICING_CACHE_MS) {
+  if (quotePricingCache && now - quotePricingCache.at < QUOTE_CONFIG_CACHE_MS) {
     return quotePricingCache.value;
   }
-  const value = await loadOwnerPricingOrDefault(env);
-  quotePricingCache = { at: now, value };
-  return value;
+  if (!quotePricingInflight) {
+    quotePricingInflight = loadOwnerPricingOrDefault(env)
+      .then((value) => {
+        quotePricingCache = { at: Date.now(), value };
+        return value;
+      })
+      .finally(() => {
+        quotePricingInflight = null;
+      });
+  }
+  return quotePricingInflight;
+}
+
+async function loadBookingSettingsCached(store: KVNamespace) {
+  const now = Date.now();
+  if (quoteSettingsCache && now - quoteSettingsCache.at < QUOTE_CONFIG_CACHE_MS) {
+    return quoteSettingsCache.value;
+  }
+  if (!quoteSettingsInflight) {
+    quoteSettingsInflight = getBookingSettings(store)
+      .then((value) => {
+        quoteSettingsCache = { at: Date.now(), value };
+        return value;
+      })
+      .finally(() => {
+        quoteSettingsInflight = null;
+      });
+  }
+  return quoteSettingsInflight;
 }
 
 function json(body: unknown, status: number, origin: string | null): Response {
@@ -208,7 +241,11 @@ export async function handleQuoteCalculateRequest(
   // call. Worker resolve runs only when those metrics are missing. Payment
   // still uses resolveWorkerTripRouteMetricsForPayment and never trusts this body.
   const clientMetrics = parseClientRouteMetrics(body.routeMetrics);
+  const stageStartedAt = Date.now();
   const pricingPromise = loadQuotePricingCached(env);
+  const settingsPromise = env?.TRACKING_STORE
+    ? loadBookingSettingsCached(env.TRACKING_STORE)
+    : Promise.resolve(null);
   let routeMetricsSource: "worker" | "client" | "none" = "none";
   let routeMetrics = clientMetrics;
   if (routeMetrics) {
@@ -231,7 +268,7 @@ export async function handleQuoteCalculateRequest(
       routeMetricsSource = "worker";
     }
   }
-  const pricing = await pricingPromise;
+  const routeReadyAt = Date.now();
 
   if (!routeMetrics) {
     return json(
@@ -274,6 +311,33 @@ export async function handleQuoteCalculateRequest(
       origin,
     );
   }
+
+  // Availability and booking settings do not change the fare. Start them now so
+  // their KV reads overlap the pricing snapshot instead of following it.
+  const availabilityPromise =
+    env?.TRACKING_STORE && routeMetrics
+      ? enforceCustomerSmartAvailabilityGate({
+          store: env.TRACKING_STORE,
+          origin,
+          previewRequested: customerSmartAvailabilityPreviewRequested(request),
+          previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
+          booking: {
+            pickupLabel: pickupAddress,
+            dropoffLabel: dropoffAddress,
+            tripDate: String(body.outboundDate ?? ""),
+            tripTime: String(body.outboundTime ?? ""),
+            returnJourney,
+            returnDate: String(body.returnDate ?? ""),
+            returnTime: String(body.returnTime ?? ""),
+            vehicle: String(body.vehicleType ?? body.vehicleChoice ?? ""),
+            airportCode,
+            isFromAirport: fromAirport,
+            routeDurationMinutes: routeMetrics.durationMinutes,
+          },
+        })
+      : Promise.resolve(null);
+  const pricing = await pricingPromise;
+  const pricingReadyAt = Date.now();
 
   // Require explicit passenger and suitcase selections — never default to 1 / 0.
   if (body.passengers == null || body.suitcases == null) {
@@ -470,6 +534,14 @@ export async function handleQuoteCalculateRequest(
     routeDurationMinutes: Math.round(routeMetrics.durationMinutes * 10) / 10,
     distanceKm: Math.round(routeMetrics.distanceKm * 100) / 100,
     workerHost: "reimagined-octo-meme.cgr28.workers.dev",
+    stageMs: {
+      route: routeReadyAt - stageStartedAt,
+      pricing: pricingReadyAt - stageStartedAt,
+      fare: 0,
+      availability: 0,
+      settings: 0,
+      total: 0,
+    },
   };
 
   console.log(
@@ -500,45 +572,40 @@ export async function handleQuoteCalculateRequest(
     diagnostics,
   };
 
+  const fareReadyAt = Date.now();
   if (env?.TRACKING_STORE) {
-    const availabilityGate = await enforceCustomerSmartAvailabilityGate({
-      store: env.TRACKING_STORE,
-      origin,
-      previewRequested: customerSmartAvailabilityPreviewRequested(request),
-      previewWorkerEnforce: env.CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE === "1",
-      booking: {
-        pickupLabel: pickupAddress,
-        dropoffLabel: dropoffAddress,
-        tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
-        tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
-        returnJourney,
-        returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
-        returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
-        vehicle: resolved.vehicleType,
-        airportCode,
-        isFromAirport: fromAirport,
-        routeDurationMinutes: routeMetrics.durationMinutes,
-      },
-    });
-    if (availabilityGate.enforce) {
+    const availabilityGate = await availabilityPromise;
+    const availabilityReadyAt = Date.now();
+    if (availabilityGate?.enforce) {
       quoteBody.smartAvailability = toPublicCustomerSmartAvailability(availabilityGate);
     }
-    const settings = await getBookingSettings(env.TRACKING_STORE);
-    quoteBody.minimumBookingNoticeHours = settings.minimumBookingNoticeHours;
-    if (!ownerMode) {
-      quoteBody.depositCash = publicDepositCashOffer(result.amount, settings.depositCash);
+    const settings = await settingsPromise;
+    const settingsReadyAt = Date.now();
+    diagnostics.stageMs = {
+      route: routeReadyAt - stageStartedAt,
+      pricing: pricingReadyAt - stageStartedAt,
+      fare: fareReadyAt - stageStartedAt,
+      availability: availabilityReadyAt - stageStartedAt,
+      settings: settingsReadyAt - stageStartedAt,
+      total: settingsReadyAt - stageStartedAt,
+    };
+    if (settings) {
+      quoteBody.minimumBookingNoticeHours = settings.minimumBookingNoticeHours;
+      if (!ownerMode) {
+        quoteBody.depositCash = publicDepositCashOffer(result.amount, settings.depositCash);
+      }
+      quoteBody.ownerAvailability = evaluateOwnerNoAvailability(
+        {
+          tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
+          tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
+          returnJourney,
+          returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
+          returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
+          routeDurationMinutes: routeMetrics.durationMinutes,
+        },
+        settings.unavailablePeriods,
+      );
     }
-    quoteBody.ownerAvailability = evaluateOwnerNoAvailability(
-      {
-        tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
-        tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
-        returnJourney,
-        returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
-        returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
-        routeDurationMinutes: routeMetrics.durationMinutes,
-      },
-      settings.unavailablePeriods,
-    );
   }
 
   if (!quoteBody.depositCash && !ownerMode) {
