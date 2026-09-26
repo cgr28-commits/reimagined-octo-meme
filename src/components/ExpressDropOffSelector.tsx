@@ -65,9 +65,10 @@ export default function ExpressDropOffSelector({
   const styles = accessChoiceStyles(light);
   const sectionHeading = heading || expressAirportOptionHeading(service);
   const showFareConfirmation =
-    service === "drop-off" && typeof fareTotalGbp === "number" && Number.isFinite(fareTotalGbp);
+    typeof fareTotalGbp === "number" && Number.isFinite(fareTotalGbp);
   const confirmation = showFareConfirmation
     ? expressDropOffSelectionConfirmation({
+        service,
         selected,
         addedFeeGbp: EXPRESS_DROP_OFF_FEES_GBP[airportCode],
         fareTotalGbp,

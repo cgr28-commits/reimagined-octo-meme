@@ -381,7 +381,7 @@ export function expressAirportLegendLabel(
 export function expressAirportOptionHeading(
   service: ExpressAirportService = "drop-off",
 ): string {
-  return service === "pick-up" ? "Airport pick-up option" : "Choose your airport drop-off";
+  return service === "pick-up" ? "Choose your airport pickup" : "Choose your airport drop-off";
 }
 
 /** Optional checkout link — destination is unchanged; this is airport access only. */
@@ -407,35 +407,40 @@ export const GENERIC_FREE_DROP_OFF_HINT =
 export const EXPRESS_TERMINAL_DROP_OFF_HINT =
   "Drop-off close to the terminal entrance for added convenience.";
 
+export const EXPRESS_TERMINAL_PICKUP_HINT =
+  "Meet your driver at the airport's designated terminal pickup area for added convenience.";
+
+/** Belfast International free pickup — Long Stay is the configured free collection point. */
+export const BFS_FREE_PICKUP_HINT =
+  "Meet your driver at the Long Stay car park, around a 5-minute walk from the terminal.";
+
+/** Belfast City free pickup — Long Stay, with the supplied walking range. */
+export const BHD_FREE_PICKUP_HINT =
+  "Meet your driver at the Long Stay car park, approximately a 5–10 minute walk from the terminal.";
+
 export function expressQuoteExpressTitle(
   airportCode: ExpressDropOffAirportCode,
   service: ExpressAirportService,
-  expressSelected: boolean,
+  _expressSelected: boolean,
 ): string {
+  void _expressSelected;
   const fee = formatExpressDropOffGbp(EXPRESS_DROP_OFF_FEES_GBP[airportCode]);
-  if (service === "drop-off") {
-    return `Express Terminal Drop-Off — +${fee}`;
-  }
-  const product = "Express Pick-Up";
-  return expressSelected ? `${product} — ${fee} included` : `${product} — add ${fee}`;
+  const product = service === "pick-up" ? "Express Terminal Pickup" : "Express Terminal Drop-Off";
+  return `${product} — +${fee}`;
 }
 
 export function expressQuoteExpressHint(service: ExpressAirportService = "drop-off"): string {
-  return service === "pick-up"
-    ? "Pick-up close to the terminal"
-    : EXPRESS_TERMINAL_DROP_OFF_HINT;
+  return service === "pick-up" ? EXPRESS_TERMINAL_PICKUP_HINT : EXPRESS_TERMINAL_DROP_OFF_HINT;
 }
 
 export function expressQuoteFreeTitle(
-  airportCode: ExpressDropOffAirportCode,
+  _airportCode: ExpressDropOffAirportCode,
   service: ExpressAirportService,
-  freeSelected: boolean,
+  _freeSelected: boolean,
 ): string {
-  if (service === "drop-off") {
-    return "Free Drop-Off — Included";
-  }
-  const fee = formatExpressDropOffGbp(EXPRESS_DROP_OFF_FEES_GBP[airportCode]);
-  return freeSelected ? "Free Pick-Up Area — £0" : `Free Pick-Up Area — save ${fee}`;
+  void _airportCode;
+  void _freeSelected;
+  return service === "pick-up" ? "Free Pickup — Included" : "Free Drop-Off — Included";
 }
 
 export function expressQuoteFreeHint(
@@ -443,7 +448,10 @@ export function expressQuoteFreeHint(
   airportCode?: string | null,
 ): string {
   if (service === "pick-up") {
-    return "Use the designated free pick-up area";
+    const code = normaliseExpressDropOffAirport(airportCode);
+    if (code === "BFS") return BFS_FREE_PICKUP_HINT;
+    if (code === "BHD") return BHD_FREE_PICKUP_HINT;
+    return "Meet your driver at the airport's designated free pick-up area.";
   }
   if (normaliseExpressDropOffAirport(airportCode) === "BFS") {
     return BFS_FREE_DROP_OFF_HINT;
@@ -478,13 +486,19 @@ export function expressDropOffSelectionConfirmation(input: {
   selected: boolean;
   addedFeeGbp: number;
   fareTotalGbp: number;
+  service?: ExpressAirportService;
 }): string {
   const total = formatExpressDropOffGbp(input.fareTotalGbp);
+  const pickup = input.service === "pick-up";
   if (!input.selected) {
-    return `✓ Free drop-off selected — your fare remains ${total}.`;
+    return pickup
+      ? `✓ Free pickup selected — your fare remains ${total}.`
+      : `✓ Free drop-off selected — your fare remains ${total}.`;
   }
   const fee = formatExpressDropOffGbp(input.addedFeeGbp);
-  return `✓ Express Terminal Drop-Off selected — ${fee} added. Your total is ${total}.`;
+  return pickup
+    ? `✓ Express Terminal Pickup selected — ${fee} added. Your total is ${total}.`
+    : `✓ Express Terminal Drop-Off selected — ${fee} added. Your total is ${total}.`;
 }
 
 export function expressAvoidedChargeMessage(
