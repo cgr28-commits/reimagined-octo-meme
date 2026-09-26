@@ -52,7 +52,7 @@ console.log("=== Checkout page is compact and sans-serif ===");
   assert.doesNotMatch(card, /history\.back\(|window\.history/);
   assert.match(card, /function checkoutAccessLine/);
   assert.match(card, /expressQuoteExpressTitle/);
-  assert.match(card, /expressDropOffRemovedExplanation/);
+  assert.match(card, /expressQuoteFreeTitle/);
   assert.match(checkout, /QuoteCheckoutSummary/);
   assert.match(summary, /Edit journey/);
   assert.match(summary, /changeAccessLabel/);

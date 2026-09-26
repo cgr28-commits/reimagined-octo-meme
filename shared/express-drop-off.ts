@@ -381,7 +381,7 @@ export function expressAirportLegendLabel(
 export function expressAirportOptionHeading(
   service: ExpressAirportService = "drop-off",
 ): string {
-  return service === "pick-up" ? "Choose your airport pickup" : "Choose your airport drop-off";
+  return service === "pick-up" ? "Choose your pickup option" : "Choose your drop-off option";
 }
 
 /** Optional checkout link — destination is unchanged; this is airport access only. */
@@ -459,27 +459,8 @@ export function expressQuoteFreeHint(
   return GENERIC_FREE_DROP_OFF_HINT;
 }
 
-export function combinedQuoteExpressTitle(totalFeeGbp: number, _expressSelected: boolean): string {
-  const fee = formatExpressDropOffGbp(totalFeeGbp);
-  return `Express Terminal Drop-Off — +${fee}`;
-}
-
-export function combinedQuoteFreeTitle(_totalFeeGbp: number, _freeSelected: boolean): string {
-  return "Free Drop-Off — Included";
-}
-
-export function combinedQuoteExpressHint(
-  _airportCode: string | null | undefined,
-): string {
-  return EXPRESS_TERMINAL_DROP_OFF_HINT;
-}
-
-export function combinedQuoteFreeHint(airportCode?: string | null): string {
-  return expressQuoteFreeHint("drop-off", airportCode);
-}
-
 /**
- * Confirmation under the drop-off choice. Amounts come from the current fare,
+ * Confirmation under the airport-access choice. Amounts come from the current fare,
  * never from hard-coded prices.
  */
 export function expressDropOffSelectionConfirmation(input: {
@@ -507,47 +488,6 @@ export function expressAvoidedChargeMessage(
   return service === "pick-up"
     ? "You’ve avoided the Express Pick-Up charge"
     : "You’ve avoided the Express Drop-Off charge";
-}
-
-/**
- * Combined return-booking airport access choice (customer-facing UX).
- *
- * Internally each leg is still resolved and stored independently (see
- * `resolveExpressDropOffLegs` / `ExpressDropOffResolvedLeg`), but on a return
- * journey the customer is shown a single "Airport access" control that applies
- * the same Express/free choice to both the outbound and return legs together —
- * it reduces mobile clutter and surfaces the full £ difference in one place.
- */
-export const COMBINED_AIRPORT_ACCESS_RETURN_NOTE =
-  "For return bookings, your selection applies to both your outbound and return airport journeys.";
-
-export function combinedAirportAccessRecommendedLabel(totalFeeGbp: number): string {
-  return `Express terminal — ${formatExpressDropOffGbp(totalFeeGbp)} included`;
-}
-
-export function combinedAirportAccessRemoveLabel(totalFeeGbp: number): string {
-  return `Free drop-off area — save ${formatExpressDropOffGbp(totalFeeGbp)}`;
-}
-
-export function combinedAirportAccessConfirmRemovalLabel(): string {
-  return "I understand that the designated free airport areas will be used for both journeys.";
-}
-
-export function combinedAirportAccessBreakdownLabel(
-  selected: boolean,
-  totalFeeGbp: number,
-): string {
-  if (selected) {
-    return `Express airport access (both journeys): ${formatExpressDropOffGbp(totalFeeGbp)}`;
-  }
-  return `Free airport areas selected (both journeys) — you save ${formatExpressDropOffGbp(totalFeeGbp)}`;
-}
-
-/** True only when every leg can offer the free alternative — required to show the combined free option. */
-export function combinedFreeAlternativeAvailable(
-  legs: Pick<ExpressDropOffResolvedLeg, "freeAlternativeAvailable">[],
-): boolean {
-  return legs.length > 0 && legs.every((leg) => leg.freeAlternativeAvailable);
 }
 
 /** Explicit customer choice — never infer from final price alone. */
