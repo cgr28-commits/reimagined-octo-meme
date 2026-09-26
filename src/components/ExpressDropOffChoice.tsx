@@ -30,6 +30,8 @@ type Props = {
   heading?: string;
   className?: string;
   tone?: AirportAccessTone;
+  /** Current calculated total, used in the selection confirmation. */
+  fareTotalGbp?: number | null;
 };
 
 /**
@@ -52,6 +54,7 @@ export default function ExpressDropOffChoice({
   heading,
   className = "",
   tone = "on-dark",
+  fareTotalGbp = null,
 }: Props) {
   if (mode === "summary" && !editing) {
     return (
@@ -95,6 +98,7 @@ export default function ExpressDropOffChoice({
         idPrefix={idPrefix}
         heading={heading}
         tone={tone}
+        fareTotalGbp={fareTotalGbp}
       />
       {mode === "summary" && editing ? (
         <button

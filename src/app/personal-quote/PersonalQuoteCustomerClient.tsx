@@ -34,7 +34,7 @@ import {
   canProceedWithoutExpressDropOff,
   expressDropOffBreakdownLabel,
   resolveExpressDropOff,
-  shouldDefaultExpressSelectedOnNewEligibility,
+  shouldApplyFreeDropOffDefaultOnNewEligibility,
 } from "../../../shared/express-drop-off";
 import { resolveAirportTransferIntent } from "../../../shared/airport-transfer-intent";
 
@@ -100,7 +100,7 @@ function PersonalQuoteInner() {
   const [flightNumber, setFlightNumber] = useState("");
   const [returnFlightNumber, setReturnFlightNumber] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(false);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
   const [expressEditing, setExpressEditing] = useState(false);
@@ -181,8 +181,8 @@ function PersonalQuoteInner() {
     [journeyIntent, quote?.expressDropOffAirport, returnJourney, expressDropOffSelected],
   );
 
-  // Airport pickup one-way stores Express as ineligible/false. Enabling return makes the
-  // return leg eligible — default to selected. Keep an explicit remove when already eligible.
+  // Express is optional. When a journey becomes newly eligible, start on the free
+  // drop-off so the charge is not added automatically.
   useEffect(() => {
     if (!quote) return;
     const nowEligible = resolveExpressDropOff({
@@ -199,12 +199,12 @@ function PersonalQuoteInner() {
     }
 
     if (
-      shouldDefaultExpressSelectedOnNewEligibility({
+      shouldApplyFreeDropOffDefaultOnNewEligibility({
         wasEligible: expressWasEligibleRef.current,
         nowEligible,
       })
     ) {
-      setExpressDropOffSelected(true);
+      setExpressDropOffSelected(false);
       setExpressRemovalAck(false);
       setExpressAckRequired(false);
     }
@@ -524,6 +524,7 @@ function PersonalQuoteInner() {
             airportCode={expressSelection.airportCode}
             service={expressSelection.service ?? "drop-off"}
             allowFreeAlternative={expressSelection.freeAlternativeAvailable}
+            fareTotalGbp={paymentDisplay?.paymentAmount}
             selected={expressDropOffSelected}
             removalAcknowledged={expressRemovalAck}
             requireAcknowledgement={expressAckRequired}

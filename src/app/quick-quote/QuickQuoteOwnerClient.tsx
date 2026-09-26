@@ -159,7 +159,7 @@ export default function QuickQuoteOwnerClient() {
   const [manualTransferFareInput, setManualTransferFareInput] = useState("");
   const [validityMode, setValidityMode] = useState<QuickQuoteValidityMode>("none");
   const [customValidityDays, setCustomValidityDays] = useState("14");
-  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(false);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
   const [bookingUrl, setBookingUrl] = useState("");
@@ -208,7 +208,7 @@ export default function QuickQuoteOwnerClient() {
 
   // Changing airport / direction / return mode clears stale Express Drop-Off choice.
   useEffect(() => {
-    setExpressDropOffSelected(true);
+    setExpressDropOffSelected(false);
     setExpressRemovalAck(false);
     setExpressAckRequired(false);
   }, [draft.airportCode, draft.fromAirport, draft.returnJourney]);
@@ -302,7 +302,7 @@ export default function QuickQuoteOwnerClient() {
   }
 
   function resetExpressDropOff() {
-    setExpressDropOffSelected(true);
+    setExpressDropOffSelected(false);
     setExpressRemovalAck(false);
     setExpressAckRequired(false);
   }
@@ -1348,6 +1348,7 @@ export default function QuickQuoteOwnerClient() {
               airportCode={expressSelection.airportCode as ExpressDropOffAirportCode}
               service={expressSelection.service ?? "drop-off"}
               allowFreeAlternative={expressSelection.freeAlternativeAvailable}
+              fareTotalGbp={pricedFare?.totalGbp}
               selected={expressDropOffSelected}
               removalAcknowledged={expressRemovalAck}
               requireAcknowledgement={expressAckRequired}

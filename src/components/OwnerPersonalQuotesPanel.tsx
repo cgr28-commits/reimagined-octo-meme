@@ -85,7 +85,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
   const [vehicle, setVehicle] = useState<VehicleType>(OWNER_PQ_VEHICLES[0] ?? VEHICLE_TYPES[0]);
   const [journeyDate, setJourneyDate] = useState("");
   const [journeyTime, setJourneyTime] = useState("10:00");
-  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(false);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
 
@@ -135,7 +135,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
   }, [agreedAmount, expressPersisted.expressDropOffFee]);
 
   useEffect(() => {
-    setExpressDropOffSelected(true);
+    setExpressDropOffSelected(false);
     setExpressRemovalAck(false);
     setExpressAckRequired(false);
   }, [journeyIntent?.airportCode, journeyIntent?.fromAirport]);
@@ -321,7 +321,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
       setFareHint("");
       setExpiresOn(defaultExpiry());
       setSingleUse(true);
-      setExpressDropOffSelected(true);
+      setExpressDropOffSelected(false);
       setExpressRemovalAck(false);
       setExpressAckRequired(false);
       await load();
@@ -607,6 +607,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
               airportCode={expressSelection.airportCode}
               service={expressSelection.service ?? "drop-off"}
               allowFreeAlternative={expressSelection.freeAlternativeAvailable}
+              fareTotalGbp={customerTotalPreview?.totalGbp}
               selected={expressDropOffSelected}
               removalAcknowledged={expressRemovalAck}
               requireAcknowledgement={expressAckRequired}

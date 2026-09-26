@@ -7,6 +7,8 @@ import {
   combinedQuoteExpressTitle,
   combinedQuoteFreeHint,
   combinedQuoteFreeTitle,
+  expressAirportOptionHeading,
+  expressDropOffSelectionConfirmation,
 } from "../../shared/express-drop-off";
 import {
   accessChoiceStyles,
@@ -28,6 +30,8 @@ type Props = {
   allowFreeAlternative?: boolean;
   className?: string;
   tone?: AirportAccessTone;
+  /** Current calculated total, used in the selection confirmation. */
+  fareTotalGbp?: number | null;
 };
 
 /**
@@ -44,43 +48,37 @@ export default function CombinedAirportAccessSelector({
   allowFreeAlternative = true,
   className = "",
   tone = "on-dark",
+  fareTotalGbp = null,
 }: Props) {
   const groupName = "combined-airport-access";
   const light = tone === "on-light";
   const styles = accessChoiceStyles(light);
+  const sectionHeading = expressAirportOptionHeading("drop-off");
+  const showFareConfirmation =
+    typeof fareTotalGbp === "number" && Number.isFinite(fareTotalGbp);
+  const confirmation = showFareConfirmation
+    ? expressDropOffSelectionConfirmation({
+        selected,
+        addedFeeGbp: totalFeeGbp,
+        fareTotalGbp,
+      })
+    : null;
 
   return (
     <fieldset
       className={`min-w-0 space-y-2 ${className}`}
-      aria-describedby={!selected && allowFreeAlternative ? `${groupName}-note` : undefined}
+      aria-describedby={
+        confirmation || (!selected && allowFreeAlternative) ? `${groupName}-note` : undefined
+      }
     >
       <legend className={`px-0.5 text-sm font-semibold ${styles.heading}`}>
-        Airport access option
+        {sectionHeading}
       </legend>
-      <p className={`px-0.5 text-xs ${styles.hint}`}>{COMBINED_AIRPORT_ACCESS_RETURN_NOTE}</p>
+      <p className={`px-0.5 text-[0.8125rem] font-medium leading-snug ${styles.hint}`}>
+        {COMBINED_AIRPORT_ACCESS_RETURN_NOTE}
+      </p>
 
-      <div role="radiogroup" aria-label="Airport access options" className="space-y-2">
-        <label className={`${styles.card} ${selected ? styles.selected : styles.idle}`}>
-          <input
-            type="radio"
-            name={groupName}
-            checked={selected}
-            onChange={() => {
-              onSelectedChange(true);
-              onRemovalAcknowledgedChange(false);
-            }}
-            className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
-          />
-          <span className="min-w-0 leading-snug">
-            <span className="block font-semibold">
-              {combinedQuoteExpressTitle(totalFeeGbp, selected)}
-            </span>
-            <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
-              {combinedQuoteExpressHint(airportCode)}
-            </span>
-          </span>
-        </label>
-
+      <div role="radiogroup" aria-label={`${sectionHeading} options`} className="space-y-3">
         {allowFreeAlternative ? (
           <label className={`${styles.card} ${!selected ? styles.selectedFree : styles.idle}`}>
             <input
@@ -91,22 +89,51 @@ export default function CombinedAirportAccessSelector({
                 onSelectedChange(false);
                 onRemovalAcknowledgedChange(true);
               }}
-              className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
+              className={`mt-1 h-5 w-5 shrink-0 ${styles.radio}`}
             />
             <span className="min-w-0 leading-snug">
-              <span className="block font-semibold">
+              <span className="block break-words font-semibold">
                 {combinedQuoteFreeTitle(totalFeeGbp, !selected)}
               </span>
-              <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
-                {combinedQuoteFreeHint()}
+              <span className={`mt-1 block break-words text-[0.8125rem] font-medium leading-snug ${styles.hint}`}>
+                {combinedQuoteFreeHint(airportCode)}
               </span>
             </span>
           </label>
         ) : null}
+
+        <label className={`${styles.card} ${selected ? styles.selected : styles.idle}`}>
+          <input
+            type="radio"
+            name={groupName}
+            checked={selected}
+            onChange={() => {
+              onSelectedChange(true);
+              onRemovalAcknowledgedChange(false);
+            }}
+            className={`mt-1 h-5 w-5 shrink-0 ${styles.radio}`}
+          />
+          <span className="min-w-0 leading-snug">
+            <span className="block break-words font-semibold">
+              {combinedQuoteExpressTitle(totalFeeGbp, selected)}
+            </span>
+            <span className={`mt-1 block break-words text-[0.8125rem] font-medium leading-snug ${styles.hint}`}>
+              {combinedQuoteExpressHint(airportCode)}
+            </span>
+          </span>
+        </label>
       </div>
 
-      {allowFreeAlternative && !selected ? (
-        <p id={`${groupName}-note`} className={`text-xs leading-relaxed ${styles.note}`}>
+      {confirmation ? (
+        <p
+          id={`${groupName}-note`}
+          className={`text-sm font-medium leading-relaxed ${styles.note}`}
+          data-express-selection-confirmation
+        >
+          {confirmation}
+        </p>
+      ) : allowFreeAlternative && !selected ? (
+        <p id={`${groupName}-note`} className={`text-sm font-medium leading-relaxed ${styles.note}`}>
           {EXPRESS_DROP_OFF_REMOVED_EXPLANATION}
         </p>
       ) : null}

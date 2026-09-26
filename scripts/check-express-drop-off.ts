@@ -41,7 +41,10 @@ import {
   parseCustomerExpressDropOffSelected,
   resolveExpressDropOff,
   resolveExpressDropOffLegs,
-  shouldDefaultExpressSelectedOnNewEligibility,
+  shouldApplyFreeDropOffDefaultOnNewEligibility,
+  expressDropOffSelectionConfirmation,
+  BFS_FREE_DROP_OFF_HINT,
+  GENERIC_FREE_DROP_OFF_HINT,
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
 import {
@@ -365,7 +368,7 @@ check("Breakdown / customer copy wording", () => {
     "Free pick-up selected. You’ll be collected from the designated free airport collection area.",
   );
   assert.equal(expressAirportOptionHeading("pick-up"), "Airport pick-up option");
-  assert.equal(expressAirportOptionHeading("drop-off"), "Airport drop-off option");
+  assert.equal(expressAirportOptionHeading("drop-off"), "Choose your airport drop-off");
   assert.equal(expressCheckoutChangeLabel("pick-up"), "Change airport access");
   assert.equal(expressCheckoutChangeLabel("drop-off"), "Change airport access");
   assert.equal(expressCheckoutChangeLabel("combined"), "Change airport access");
@@ -376,44 +379,69 @@ check("Breakdown / customer copy wording", () => {
   assert.equal(expressQuoteExpressTitle("BFS", "pick-up", false), "Express Pick-Up — add £5");
   assert.equal(
     expressQuoteExpressTitle("BHD", "drop-off", true),
-    "Express Drop-Off — £4 included",
+    "Express Terminal Drop-Off — +£4",
   );
-  assert.equal(expressQuoteExpressTitle("BHD", "drop-off", false), "Express Drop-Off — add £4");
   assert.equal(
-    expressQuoteExpressHint("pick-up"),
-    "Recommended · Pick-up close to the terminal",
+    expressQuoteExpressTitle("BFS", "drop-off", false),
+    "Express Terminal Drop-Off — +£5",
   );
+  assert.equal(expressQuoteExpressTitle("BHD", "drop-off", false), "Express Terminal Drop-Off — +£4");
+  assert.equal(expressQuoteExpressHint("pick-up"), "Pick-up close to the terminal");
   assert.equal(
     expressQuoteExpressHint("drop-off"),
-    "Recommended · Drop-off close to the terminal",
+    "Drop-off close to the terminal entrance for added convenience.",
   );
+  assert.doesNotMatch(expressQuoteExpressHint("drop-off"), /Recommended/);
   assert.equal(
     expressQuoteFreeTitle("BFS", "pick-up", false),
     "Free Pick-Up Area — save £5",
   );
   assert.equal(expressQuoteFreeTitle("BFS", "pick-up", true), "Free Pick-Up Area — £0");
-  assert.equal(
-    expressQuoteFreeTitle("BHD", "drop-off", false),
-    "Free Drop-Off Area — save £4",
-  );
+  assert.equal(expressQuoteFreeTitle("BHD", "drop-off", false), "Free Drop-Off — Included");
+  assert.equal(expressQuoteFreeTitle("BFS", "drop-off", true), "Free Drop-Off — Included");
   assert.equal(expressQuoteFreeHint("pick-up"), "Use the designated free pick-up area");
-  assert.equal(expressQuoteFreeHint("drop-off"), "Use the designated free drop-off area");
+  assert.equal(expressQuoteFreeHint("drop-off", "BFS"), BFS_FREE_DROP_OFF_HINT);
+  assert.equal(expressQuoteFreeHint("drop-off", "BHD"), GENERIC_FREE_DROP_OFF_HINT);
+  assert.equal(expressQuoteFreeHint("drop-off"), GENERIC_FREE_DROP_OFF_HINT);
+  assert.equal(
+    expressDropOffSelectionConfirmation({
+      selected: false,
+      addedFeeGbp: 5,
+      fareTotalGbp: 43,
+    }),
+    "✓ Free drop-off selected — your fare remains £43.",
+  );
+  assert.equal(
+    expressDropOffSelectionConfirmation({
+      selected: true,
+      addedFeeGbp: 5,
+      fareTotalGbp: 48,
+    }),
+    "✓ Express Terminal Drop-Off selected — £5 added. Your total is £48.",
+  );
+  assert.equal(
+    expressDropOffSelectionConfirmation({
+      selected: true,
+      addedFeeGbp: 4,
+      fareTotalGbp: 34,
+    }),
+    "✓ Express Terminal Drop-Off selected — £4 added. Your total is £34.",
+  );
   assert.equal(
     combinedQuoteExpressHint("BFS"),
-    "£5 Drop-Off + £5 Pick-Up · Both at the terminal",
+    "Drop-off close to the terminal entrance for added convenience.",
   );
   assert.equal(
     combinedQuoteExpressHint("BHD"),
-    "£4 Drop-Off + £4 Pick-Up · Both at the terminal",
+    "Drop-off close to the terminal entrance for added convenience.",
   );
-  assert.equal(combinedQuoteExpressTitle(10, true), "Express access — £10 included");
-  assert.equal(combinedQuoteExpressTitle(8, true), "Express access — £8 included");
-  assert.equal(combinedQuoteFreeTitle(10, false), "Free airport areas — save £10");
-  assert.equal(combinedQuoteFreeTitle(8, false), "Free airport areas — save £8");
-  assert.equal(
-    combinedQuoteFreeHint(),
-    "Free Drop-Off + Free Pick-Up areas",
-  );
+  assert.equal(combinedQuoteExpressTitle(10, true), "Express Terminal Drop-Off — +£10");
+  assert.equal(combinedQuoteExpressTitle(8, false), "Express Terminal Drop-Off — +£8");
+  assert.equal(combinedQuoteFreeTitle(10, false), "Free Drop-Off — Included");
+  assert.equal(combinedQuoteFreeTitle(8, true), "Free Drop-Off — Included");
+  assert.equal(combinedQuoteFreeHint(), GENERIC_FREE_DROP_OFF_HINT);
+  assert.equal(combinedQuoteFreeHint("BFS"), BFS_FREE_DROP_OFF_HINT);
+  assert.equal(combinedQuoteFreeHint("BHD"), GENERIC_FREE_DROP_OFF_HINT);
   assert.equal(
     expressDropOffRemovedExplanation("drop-off"),
     EXPRESS_DROP_OFF_REMOVED_EXPLANATION,
@@ -569,6 +597,12 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(card, /composeFareWithExpressDropOff/);
   assert.match(card, /resolveExpressDropOff/);
   assert.match(card, /expressDropOffSelected/);
+  assert.match(
+    card,
+    /const \[expressDropOffSelected, setExpressDropOffSelected\] = useState\(false\)/,
+  );
+  assert.match(card, /Your transfer price/);
+  assert.doesNotMatch(card, /setExpressDropOffSelected\(true\)/);
   assert.match(card, /renderExpressChoiceInPriceCard\(quoteStep === 1 \? "full" : "summary"\)/);
   // Browser sends transfer fare + boolean — never trusts a client fee for SumUp.
   assert.match(card, /createPaymentCheckout\(\{/);
@@ -601,7 +635,7 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(selector, /expressAirportOptionHeading/);
   assert.doesNotMatch(selector, /aria-expanded/);
   assert.match(selector, /role="radiogroup"/);
-  assert.match(selector, /min-h-11/);
+  assert.match(selector, /min-h-12/);
   assert.match(selector, /service/);
   assert.match(selector, /onRemovalAcknowledgedChange\(true\)/);
   assert.doesNotMatch(selector, /type="checkbox"/);
@@ -637,6 +671,46 @@ check("Removing Express reduces total immediately without changing transfer fare
   });
   assert.equal(bhdWith.totalGbp - bhdWithout.totalGbp, 4);
   assert.equal(bhdWithout.transferFareGbp, bhdWith.transferFareGbp);
+
+  // Repeated toggles add the airport fee once, then remove it. No stacking.
+  let selected = false;
+  for (let i = 0; i < 6; i += 1) {
+    selected = !selected;
+    const resolved = resolveExpressDropOff({
+      airportCode: "BFS",
+      fromAirport: false,
+      selected,
+    });
+    const fare = composeFareWithExpressDropOff({
+      transferFareGbp: 43,
+      expressDropOffFeeGbp: resolved.feeGbp,
+    });
+    assert.equal(resolved.feeGbp, selected ? 5 : 0);
+    assert.equal(fare.totalGbp, selected ? 48 : 43);
+    assert.equal(fare.transferFareGbp, 43);
+  }
+  const bhdToggle = resolveExpressDropOff({
+    airportCode: "BHD",
+    fromAirport: false,
+    returnJourney: true,
+    selected: true,
+  });
+  assert.equal(bhdToggle.feeGbp, 8);
+  const bhdFree = resolveExpressDropOff({
+    airportCode: "BHD",
+    fromAirport: false,
+    returnJourney: true,
+    selected: false,
+  });
+  assert.equal(bhdFree.feeGbp, 0);
+  assert.equal(
+    resolveExpressDropOff({ airportCode: "DUB", fromAirport: false, selected: true }).eligible,
+    false,
+  );
+  assert.equal(
+    resolveExpressDropOff({ airportCode: "DUB", fromAirport: false, selected: true }).feeGbp,
+    0,
+  );
   assert.equal(expressDropOffBreakdownLabel("BHD", false), "Free drop-off selected — you save £4");
 });
 
@@ -944,7 +1018,7 @@ check("BFS/BHD pickup already eligible — enabling return keeps Express selecte
   assert.equal(toExpressDropOffPersistedFields(oneWayPickup).expressDropOffSelected, true);
 
   assert.equal(
-    shouldDefaultExpressSelectedOnNewEligibility({
+    shouldApplyFreeDropOffDefaultOnNewEligibility({
       wasEligible: oneWayPickup.eligible,
       nowEligible: true,
     }),
@@ -979,15 +1053,24 @@ check("BFS/BHD pickup already eligible — enabling return keeps Express selecte
   assert.equal(display.paymentAmount, 90);
 
   assert.equal(
-    shouldDefaultExpressSelectedOnNewEligibility({
+    shouldApplyFreeDropOffDefaultOnNewEligibility({
       wasEligible: true,
       nowEligible: true,
     }),
     false,
   );
+  assert.equal(
+    shouldApplyFreeDropOffDefaultOnNewEligibility({
+      wasEligible: false,
+      nowEligible: true,
+    }),
+    true,
+  );
 
   const pqPage = read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx");
-  assert.match(pqPage, /shouldDefaultExpressSelectedOnNewEligibility/);
+  assert.match(pqPage, /shouldApplyFreeDropOffDefaultOnNewEligibility/);
+  assert.match(pqPage, /setExpressDropOffSelected\(false\)/);
+  assert.doesNotMatch(pqPage, /setExpressDropOffSelected\(true\)/);
   assert.match(pqPage, /expressWasEligibleRef/);
 });
 
@@ -1316,10 +1399,10 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
   const combinedChoice = read("src/components/CombinedAirportAccessChoice.tsx");
   assert.match(combinedChoice, /Airport access \(return\)/);
   const combinedSelector = read("src/components/CombinedAirportAccessSelector.tsx");
-  assert.match(combinedSelector, /Airport access option/);
+  assert.match(combinedSelector, /Choose your airport drop-off|expressAirportOptionHeading\("drop-off"\)/);
   assert.match(combinedSelector, /COMBINED_AIRPORT_ACCESS_RETURN_NOTE/);
   assert.match(combinedSelector, /combinedQuoteExpressHint\(airportCode\)/);
-  assert.match(combinedSelector, /combinedQuoteFreeHint\(\)/);
+  assert.match(combinedSelector, /combinedQuoteFreeHint\(airportCode\)/);
   assert.match(card, /airportCode=\{expressSelection\.airportCode\}/);
   assert.doesNotMatch(combinedSelector, /£5 Drop-Off|£4 Drop-Off/);
   assert.match(combinedSelector, /onRemovalAcknowledgedChange\(true\)/);

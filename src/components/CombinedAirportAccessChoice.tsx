@@ -25,6 +25,8 @@ type Props = {
   onEditingChange?: (editing: boolean) => void;
   className?: string;
   tone?: AirportAccessTone;
+  /** Current calculated total, used in the selection confirmation. */
+  fareTotalGbp?: number | null;
 };
 
 /**
@@ -45,6 +47,7 @@ export default function CombinedAirportAccessChoice({
   onEditingChange,
   className = "",
   tone = "on-dark",
+  fareTotalGbp = null,
 }: Props) {
   if (mode === "summary" && !editing) {
     return (
@@ -83,6 +86,7 @@ export default function CombinedAirportAccessChoice({
         requireAcknowledgement={requireAcknowledgement}
         allowFreeAlternative={allowFreeAlternative}
         tone={tone}
+        fareTotalGbp={fareTotalGbp}
       />
       {mode === "summary" && editing ? (
         <button

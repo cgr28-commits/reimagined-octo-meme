@@ -1,9 +1,11 @@
 "use client";
 
 import {
+  EXPRESS_DROP_OFF_FEES_GBP,
   canOfferExpressFreeAlternative,
   expressAirportOptionHeading,
   expressDropOffRemovedExplanation,
+  expressDropOffSelectionConfirmation,
   expressQuoteExpressHint,
   expressQuoteExpressTitle,
   expressQuoteFreeHint,
@@ -32,6 +34,8 @@ type Props = {
   className?: string;
   /** Light card (quote result) vs dark glass card. */
   tone?: AirportAccessTone;
+  /** Current calculated total, used in the selection confirmation. */
+  fareTotalGbp?: number | null;
 };
 
 /**
@@ -50,6 +54,7 @@ export default function ExpressDropOffSelector({
   heading,
   className = "",
   tone = "on-dark",
+  fareTotalGbp = null,
 }: Props) {
   const groupName = `${idPrefix ? `${idPrefix}-` : ""}express-airport-${service}-${airportCode}`;
   const freeAvailable =
@@ -58,42 +63,31 @@ export default function ExpressDropOffSelector({
       : canOfferExpressFreeAlternative({ airportCode, service });
   const light = tone === "on-light";
   const styles = accessChoiceStyles(light);
+  const sectionHeading = heading || expressAirportOptionHeading(service);
+  const showFareConfirmation =
+    service === "drop-off" && typeof fareTotalGbp === "number" && Number.isFinite(fareTotalGbp);
+  const confirmation = showFareConfirmation
+    ? expressDropOffSelectionConfirmation({
+        selected,
+        addedFeeGbp: EXPRESS_DROP_OFF_FEES_GBP[airportCode],
+        fareTotalGbp,
+      })
+    : null;
 
   return (
     <fieldset
       className={`min-w-0 space-y-2 ${className}`}
-      aria-describedby={!selected && freeAvailable ? `${groupName}-note` : undefined}
+      aria-describedby={confirmation || (!selected && freeAvailable) ? `${groupName}-note` : undefined}
     >
       <legend className={`px-0.5 text-sm font-semibold ${styles.heading}`}>
-        {heading || expressAirportOptionHeading(service)}
+        {sectionHeading}
       </legend>
 
       <div
         role="radiogroup"
-        aria-label={`${heading || expressAirportOptionHeading(service)} options`}
-        className="space-y-2"
+        aria-label={`${sectionHeading} options`}
+        className="space-y-3"
       >
-        <label className={`${styles.card} ${selected ? styles.selected : styles.idle}`}>
-          <input
-            type="radio"
-            name={groupName}
-            checked={selected}
-            onChange={() => {
-              onSelectedChange(true);
-              onRemovalAcknowledgedChange(false);
-            }}
-            className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
-          />
-          <span className="min-w-0 leading-snug">
-            <span className="block font-semibold">
-              {expressQuoteExpressTitle(airportCode, service, selected)}
-            </span>
-            <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
-              {expressQuoteExpressHint(service)}
-            </span>
-          </span>
-        </label>
-
         {freeAvailable ? (
           <label className={`${styles.card} ${!selected ? styles.selectedFree : styles.idle}`}>
             <input
@@ -104,22 +98,51 @@ export default function ExpressDropOffSelector({
                 onSelectedChange(false);
                 onRemovalAcknowledgedChange(true);
               }}
-              className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
+              className={`mt-1 h-5 w-5 shrink-0 ${styles.radio}`}
             />
             <span className="min-w-0 leading-snug">
-              <span className="block font-semibold">
+              <span className="block break-words font-semibold">
                 {expressQuoteFreeTitle(airportCode, service, !selected)}
               </span>
-              <span className={`mt-0.5 block text-xs font-normal ${styles.hint}`}>
-                {expressQuoteFreeHint(service)}
+              <span className={`mt-1 block break-words text-[0.8125rem] font-medium leading-snug ${styles.hint}`}>
+                {expressQuoteFreeHint(service, airportCode)}
               </span>
             </span>
           </label>
         ) : null}
+
+        <label className={`${styles.card} ${selected ? styles.selected : styles.idle}`}>
+          <input
+            type="radio"
+            name={groupName}
+            checked={selected}
+            onChange={() => {
+              onSelectedChange(true);
+              onRemovalAcknowledgedChange(false);
+            }}
+            className={`mt-1 h-5 w-5 shrink-0 ${styles.radio}`}
+          />
+          <span className="min-w-0 leading-snug">
+            <span className="block break-words font-semibold">
+              {expressQuoteExpressTitle(airportCode, service, selected)}
+            </span>
+            <span className={`mt-1 block break-words text-[0.8125rem] font-medium leading-snug ${styles.hint}`}>
+              {expressQuoteExpressHint(service)}
+            </span>
+          </span>
+        </label>
       </div>
 
-      {freeAvailable && !selected ? (
-        <p id={`${groupName}-note`} className={`text-xs leading-relaxed ${styles.note}`}>
+      {confirmation ? (
+        <p
+          id={`${groupName}-note`}
+          className={`text-sm font-medium leading-relaxed ${styles.note}`}
+          data-express-selection-confirmation
+        >
+          {confirmation}
+        </p>
+      ) : freeAvailable && !selected ? (
+        <p id={`${groupName}-note`} className={`text-sm font-medium leading-relaxed ${styles.note}`}>
           {expressDropOffRemovedExplanation(service)}
         </p>
       ) : null}
@@ -130,18 +153,18 @@ export default function ExpressDropOffSelector({
 export function accessChoiceStyles(light: boolean) {
   return {
     heading: light ? "text-navy" : "text-white",
-    hint: light ? "text-navy/55" : "quote-secondary",
-    note: light ? "text-navy/70" : "quote-secondary",
+    hint: light ? "text-[#475569]" : "quote-secondary",
+    note: light ? "text-navy" : "quote-secondary",
     radio: light ? "border-navy/30 accent-emerald" : "border-white/40 accent-emerald",
-    card: "flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
+    card: "flex min-h-12 cursor-pointer touch-manipulation items-start gap-3 rounded-xl border px-3 py-3 text-sm transition-colors",
     selected: light
-      ? "border-emerald bg-emerald/15 text-navy"
+      ? "border-2 border-emerald bg-emerald/15 text-navy ring-2 ring-emerald/30"
       : "quote-choice-selected",
     selectedFree: light
-      ? "border-amber-600/50 bg-amber-500/15 text-navy"
-      : "border-amber-400/55 bg-amber-500/12 text-white",
+      ? "border-2 border-emerald bg-emerald/10 text-navy ring-2 ring-emerald/25"
+      : "border-2 border-emerald/80 bg-emerald/15 text-white",
     idle: light
-      ? "border-navy/15 text-navy/80 hover:border-navy/30"
+      ? "border-navy/20 text-navy hover:border-navy/40"
       : "border-white/28 text-white hover:border-white/42",
   };
 }

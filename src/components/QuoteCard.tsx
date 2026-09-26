@@ -224,7 +224,7 @@ import {
   expressDropOffRemovedExplanation,
   expressQuoteExpressTitle,
   resolveExpressDropOff,
-  shouldDefaultExpressSelectedOnNewEligibility,
+  shouldApplyFreeDropOffDefaultOnNewEligibility,
 } from "../../shared/express-drop-off";
 import {
   RETURN_OFFER_CONFIG,
@@ -847,8 +847,8 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
-  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
-  const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(true);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(false);
+  const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(false);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [returnExpressRemovalAck, setReturnExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
@@ -1873,13 +1873,13 @@ function QuoteCard({
     }
 
     if (
-      shouldDefaultExpressSelectedOnNewEligibility({
+      shouldApplyFreeDropOffDefaultOnNewEligibility({
         wasEligible: expressWasEligibleRef.current,
         nowEligible,
       })
     ) {
-      setExpressDropOffSelected(true);
-      setReturnExpressDropOffSelected(true);
+      setExpressDropOffSelected(false);
+      setReturnExpressDropOffSelected(false);
       setExpressRemovalAck(false);
       setReturnExpressRemovalAck(false);
       setExpressAckRequired(false);
@@ -4962,6 +4962,11 @@ function QuoteCard({
             }
             totalFeeGbp={expressSelection.feeIfSelectedGbp}
             allowFreeAlternative={allowFreeAlternative}
+            fareTotalGbp={
+              paymentAmount != null && Number.isFinite(paymentAmount)
+                ? paymentAmount
+                : pricedFare?.totalGbp
+            }
             selected={allSelected}
             removalAcknowledged={expressRemovalAck && returnExpressRemovalAck}
             requireAcknowledgement={expressAckRequired}
@@ -4998,6 +5003,11 @@ function QuoteCard({
           airportCode={leg.airportCode}
           service={leg.service}
           allowFreeAlternative={leg.freeAlternativeAvailable}
+          fareTotalGbp={
+            paymentAmount != null && Number.isFinite(paymentAmount)
+              ? paymentAmount
+              : pricedFare?.totalGbp
+          }
           selected={expressDropOffSelected}
           removalAcknowledged={expressRemovalAck}
           requireAcknowledgement={expressAckRequired}
@@ -5877,7 +5887,7 @@ function QuoteCard({
                         </label>
                       </div>
                     ) : null}
-                    <p className="text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
+                    <p className="text-xs font-medium quote-secondary">{SECURE_SUMUP_LINE}</p>
                   </div>
                 ) : null}
                 <button
@@ -6100,13 +6110,7 @@ function QuoteCard({
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
-        priceLabel={
-          appliedPersonalQuote
-            ? "Personal quoted fare"
-            : returnJourney
-              ? "Your fixed return price"
-              : "Your fixed price"
-        }
+        priceLabel={appliedPersonalQuote ? "Personal quoted fare" : "Your transfer price"}
         formattedPrice={amountLabel}
         surchargeNote={
           (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0
