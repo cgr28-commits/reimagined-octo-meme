@@ -225,7 +225,6 @@ import {
   expressDropOffRemovedExplanation,
   expressQuoteExpressTitle,
   resolveExpressDropOff,
-  shouldDefaultExpressSelectedOnNewEligibility,
 } from "../../shared/express-drop-off";
 import {
   RETURN_OFFER_CONFIG,
@@ -848,8 +847,8 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
-  const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
-  const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(true);
+  const [expressDropOffSelected, setExpressDropOffSelected] = useState(false);
+  const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(false);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [returnExpressRemovalAck, setReturnExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
@@ -858,8 +857,6 @@ function QuoteCard({
   );
   /** A2A-only: fee line ids the customer independently removed. */
   const [removedAirportFeeIds, setRemovedAirportFeeIds] = useState<string[]>([]);
-  const expressEligibilityPrimedRef = useRef(false);
-  const expressWasEligibleRef = useRef(false);
   const expressRemovalAckWasCheckedRef = useRef(false);
   const [termsError, setTermsError] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
@@ -1100,11 +1097,9 @@ function QuoteCard({
       if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
       if (typeof draft.expressDropOffSelected === "boolean") {
         setExpressDropOffSelected(draft.expressDropOffSelected);
-        expressEligibilityPrimedRef.current = false;
       }
       if (typeof draft.returnExpressDropOffSelected === "boolean") {
         setReturnExpressDropOffSelected(draft.returnExpressDropOffSelected);
-        expressEligibilityPrimedRef.current = false;
       }
       if (draft.personalQuoteCode?.trim()) {
         const code = draft.personalQuoteCode.trim().toUpperCase();
@@ -1859,40 +1854,22 @@ function QuoteCard({
     ],
   );
 
-  // Recalculate Express eligibility when airport / direction / return changes.
+  // Express is opt-in. Choosing an eligible airport must not add the fee.
+  // Clear the free-area acknowledgement when the journey is no longer eligible.
   useEffect(() => {
     const nowEligible = resolveExpressDropOff({
       airportCode: effectiveAirportCode || null,
       fromAirport: isFromAirport,
       returnJourney,
-      selected: true,
+      selected: false,
     }).eligible;
 
-    if (!expressEligibilityPrimedRef.current) {
-      expressEligibilityPrimedRef.current = true;
-      expressWasEligibleRef.current = nowEligible;
-      return;
-    }
-
-    if (
-      shouldDefaultExpressSelectedOnNewEligibility({
-        wasEligible: expressWasEligibleRef.current,
-        nowEligible,
-      })
-    ) {
-      setExpressDropOffSelected(true);
-      setReturnExpressDropOffSelected(true);
-      setExpressRemovalAck(false);
-      setReturnExpressRemovalAck(false);
-      setExpressAckRequired(false);
-    }
     if (!nowEligible) {
       setExpressRemovalAck(false);
       setReturnExpressRemovalAck(false);
       setExpressAckRequired(false);
       setExpressEditingLeg(null);
     }
-    expressWasEligibleRef.current = nowEligible;
   }, [effectiveAirportCode, isFromAirport, returnJourney]);
 
   // After the free Express acknowledgement is ticked, scroll Book Now into view on mobile.
@@ -3839,6 +3816,12 @@ function QuoteCard({
     setReturnTime("");
     setVehicle(VEHICLE_TYPES[0]);
     setChooseMinibus(false);
+    setExpressDropOffSelected(false);
+    setReturnExpressDropOffSelected(false);
+    setExpressRemovalAck(false);
+    setReturnExpressRemovalAck(false);
+    setExpressAckRequired(false);
+    setExpressEditingLeg(null);
     setPassengers(null);
     setSuitcases(null);
     setExactPassengers(null);
@@ -4527,6 +4510,8 @@ function QuoteCard({
   /** Capacity incomplete→complete arms a pending Your Route scroll (once). */
   const pendingRouteSummaryScrollRef = useRef(false);
   const hadRouteSummaryScrollRef = useRef(false);
+  /** After the vehicle choice replaces YOUR ROUTE, align it once below the header. */
+  const hadVehicleResultAlignRef = useRef(false);
   /** Time picker Done/blur → flight number (when shown) or Your Journey (once per step-2 visit). */
   const hadJourneySummaryScrollRef = useRef(false);
   const hadLegacyJourneyModeScrollRef = useRef(false);
@@ -4608,6 +4593,7 @@ function QuoteCard({
     if (!capacityComplete) {
       pendingRouteSummaryScrollRef.current = false;
       hadRouteSummaryScrollRef.current = false;
+      hadVehicleResultAlignRef.current = false;
       return;
     }
 
@@ -4618,10 +4604,35 @@ function QuoteCard({
     hadRouteSummaryScrollRef.current = true;
     pendingRouteSummaryScrollRef.current = false;
     // Prefer the dedicated ref — matches the YOUR ROUTE → vehicle → quote stack.
+    // Do not focus a heading: the only heading in this block sits below the
+    // vehicle, and iOS focus scrolling was covering the vehicle cards.
     return scrollQuoteStage(routeSummaryRef.current ?? "quote-route-summary", {
+      focusHeading: false,
       correctAfterMs: 0,
     });
   }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteStep]);
+
+  // Results replace YOUR ROUTE with the vehicle choice. Re-align once so the
+  // fixed header does not cover the vehicle after that swap or the time picker closes.
+  useEffect(() => {
+    if (quoteStep !== 1) {
+      hadVehicleResultAlignRef.current = false;
+      return;
+    }
+    if (!quoteResultsReady || !hadRouteSummaryScrollRef.current) {
+      return;
+    }
+    if (hadVehicleResultAlignRef.current) return;
+    const vehicle = routeSummaryRef.current?.querySelector<HTMLElement>(
+      "[data-quote-vehicle-categories]",
+    );
+    if (!vehicle) return;
+    hadVehicleResultAlignRef.current = true;
+    return scrollQuoteStage(vehicle, {
+      focusHeading: false,
+      correctAfterMs: 320,
+    });
+  }, [quoteResultsReady, quoteStep]);
 
   // Reset time→Your Journey one-shot when leaving travel-details step.
   useEffect(() => {

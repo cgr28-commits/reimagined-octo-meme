@@ -569,6 +569,17 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(card, /composeFareWithExpressDropOff/);
   assert.match(card, /resolveExpressDropOff/);
   assert.match(card, /expressDropOffSelected/);
+  assert.match(
+    card,
+    /const \[expressDropOffSelected, setExpressDropOffSelected\] = useState\(false\)/,
+  );
+  assert.match(
+    card,
+    /const \[returnExpressDropOffSelected, setReturnExpressDropOffSelected\] = useState\(false\)/,
+  );
+  assert.doesNotMatch(card, /setExpressDropOffSelected\(true\)/);
+  assert.doesNotMatch(card, /setReturnExpressDropOffSelected\(true\)/);
+  assert.doesNotMatch(card, /shouldDefaultExpressSelectedOnNewEligibility/);
   assert.match(card, /renderExpressChoiceInPriceCard\(quoteStep === 1 \? "full" : "summary"\)/);
   // Browser sends transfer fare + boolean — never trusts a client fee for SumUp.
   assert.match(card, /createPaymentCheckout\(\{/);

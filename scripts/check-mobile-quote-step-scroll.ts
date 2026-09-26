@@ -141,7 +141,12 @@ check("Mobile Step 1 address complete does not scroll", () => {
   );
   assert.match(
     card,
-    /hadRouteSummaryScrollRef\.current = true;[\s\S]*?scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary"/,
+    /hadRouteSummaryScrollRef\.current = true;[\s\S]*?scrollQuoteStage\(routeSummaryRef\.current \?\? "quote-route-summary", \{\s*focusHeading: false/,
+  );
+  assert.match(card, /hadVehicleResultAlignRef/);
+  assert.match(
+    card,
+    /scrollQuoteStage\(vehicle, \{\s*focusHeading: false,\s*correctAfterMs: 320,\s*\}\)/,
   );
   assert.match(
     card,
