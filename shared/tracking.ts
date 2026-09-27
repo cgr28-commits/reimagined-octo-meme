@@ -130,6 +130,16 @@ export type TrackingJobRecord = {
   onTheWayNotificationSentAt?: string;
   onTheWayNotificationProvider?: "email" | "sms" | "whatsapp";
   onTheWayNotificationError?: string;
+  /**
+   * Owner answer when completing a job: the customer already tipped (yes)
+   * or should receive an optional tip link (no). Absent when a driver completes
+   * without that question. Never a fare amount.
+   */
+  tipDecision?: "yes" | "no";
+  /** Opaque public tip token. Present only when a tip request was generated. */
+  tipToken?: string;
+  /** When the completion thank-you text was first prepared. Repeats do not resend. */
+  tipWhatsappPreparedAt?: string;
 };
 
 export type DriverLocationPoint = {

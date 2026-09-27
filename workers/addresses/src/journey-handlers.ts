@@ -3,6 +3,7 @@
  * Reuses TRACKING_STORE jobs — no separate booking database.
  */
 
+import { parseCustomerTipped, type TipCompletionPayload } from "../shared/journey-tip";
 import {
   applyJourneyAction,
   allowedJourneyActions,
@@ -32,6 +33,7 @@ import {
   ownerAuthorized,
   resolveDriverSession,
 } from "./driver-auth";
+import { attachTipDecision, tipPayloadForCompletedJob } from "./journey-tip-handlers";
 import {
   createTrackingSession,
   createTrackingJobFromBooking,
@@ -412,6 +414,33 @@ export async function handleJourneyTransitionRequest(
     );
   }
 
+  // Repeating Complete job must not mint another tip link or open WhatsApp again.
+  if (action === "complete_journey" && journeyStatusOf(record) === "completed") {
+    const tip = await tipPayloadForCompletedJob(record);
+    return jsonResponse(
+      {
+        ok: true,
+        token: record.token,
+        journeyStatus: journeyStatusOf(record),
+        journeyStatusLabel: customerJourneyLabel(record),
+        allowedActions: allowedJourneyActions(journeyStatusOf(record)),
+        sharingActive: record.sharingActive,
+        trackUrl: buildPublicTrackUrl(record.token),
+        trackingStartedAt: record.trackingStartedAt,
+        arrivedPickupAt: record.arrivedPickupAt,
+        journeyStartedAt: record.journeyStartedAt,
+        arrivedDestinationAt: record.arrivedDestinationAt,
+        journeyCompletedAt: record.journeyCompletedAt,
+        trackingStoppedAt: record.trackingStoppedAt,
+        reviewRequest: buildReviewRequestSummary(record),
+        idempotent: true,
+        ...(tip ? { tip } : {}),
+      },
+      200,
+      origin,
+    );
+  }
+
   const applied = applyJourneyAction(record, action);
   if (!applied.ok) {
     return jsonResponse({ error: applied.error }, 409, origin);
@@ -424,7 +453,17 @@ export async function handleJourneyTransitionRequest(
     next.activeDriverName = next.activeDriverName ?? "Owner";
   }
 
+  let tipPayload: TipCompletionPayload | null = null;
   if (action === "complete_journey") {
+    const customerTipped = parseCustomerTipped(body.customerTipped);
+    if (customerTipped !== undefined) {
+      const attached = await attachTipDecision(env, next, customerTipped);
+      if (!attached.ok) {
+        return jsonResponse({ error: attached.error }, 503, origin);
+      }
+      next = attached.job;
+      tipPayload = attached.tip;
+    }
     next = ensureReviewRequestScheduled(
       next,
       resolveReviewRequestDelayMs(env.REVIEW_REQUEST_DELAY_MINUTES),
@@ -500,6 +539,7 @@ export async function handleJourneyTransitionRequest(
       onTheWayNotificationError: next.onTheWayNotificationError,
       arrivalChannels: channels,
       reviewRequest: buildReviewRequestSummary(next),
+      ...(tipPayload ? { tip: tipPayload } : {}),
       ...(trackingSession ? { trackingSession } : {}),
     },
     200,

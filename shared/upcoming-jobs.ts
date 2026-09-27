@@ -351,9 +351,8 @@ export function ownerPrimaryJourneyConfirmCopy(
       };
     case "complete_journey":
       return {
-        title: "Complete this journey?",
-        body: "This will move it from Active jobs to Completed jobs.",
-        confirmLabel: "Confirm completion",
+        title: "Did the customer tip?",
+        confirmLabel: "Yes",
         cancelLabel: "Cancel",
       };
   }

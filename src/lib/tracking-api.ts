@@ -22,6 +22,11 @@ import {
   isDemoTrackToken,
   sanitizeDemoJobForDriver,
 } from "@/lib/tracking-demo";
+import {
+  buildTipPageUrl,
+  optionalTipWhatsAppMessage,
+  TIPPED_IN_PERSON_MESSAGE,
+} from "../../shared/journey-tip";
 
 const DEFAULT_WORKER_BASE = "https://reimagined-octo-meme.cgr28.workers.dev";
 
@@ -488,6 +493,11 @@ export type JourneyTransitionResponse = {
   onTheWayNotificationProvider?: string;
   onTheWayNotificationError?: string;
   idempotent?: boolean;
+  tip?: {
+    decision: "yes" | "no";
+    whatsappMessage: string;
+    openWhatsApp: boolean;
+  };
   trackingSession?: { sessionToken: string; expiresAt: string };
   reviewRequest?: {
     status: "not_scheduled" | "scheduled" | "sent" | "failed";
@@ -503,12 +513,32 @@ export async function postJourneyAction(
   accessKey: string,
   token: string,
   action: JourneyAction,
-  options?: { retryArrivalNotification?: boolean; retryOnTheWayNotification?: boolean },
+  options?: {
+    retryArrivalNotification?: boolean;
+    retryOnTheWayNotification?: boolean;
+    customerTipped?: boolean;
+  },
 ): Promise<JourneyTransitionResponse> {
   if (isDemoDriverKey(accessKey) || isDemoOwnerKey(accessKey)) {
     const trackUrl = isDemoTrackToken(token)
       ? getDemoTrackResponse(token).trackUrl
       : `https://www.myairporttaxini.co.uk/track/?id=${encodeURIComponent(token)}`;
+    const demoTip =
+      action === "complete_journey" && typeof options?.customerTipped === "boolean"
+        ? options.customerTipped
+          ? {
+              decision: "yes" as const,
+              whatsappMessage: TIPPED_IN_PERSON_MESSAGE,
+              openWhatsApp: true,
+            }
+          : {
+              decision: "no" as const,
+              whatsappMessage: optionalTipWhatsAppMessage(
+                buildTipPageUrl("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+              ),
+              openWhatsApp: true,
+            }
+        : undefined;
     return {
       ok: true,
       token,
@@ -517,6 +547,7 @@ export async function postJourneyAction(
       allowedActions: [],
       sharingActive: action !== "complete_journey" && action !== "stop_tracking",
       trackUrl,
+      ...(demoTip ? { tip: demoTip } : {}),
       trackingSession:
         action === "complete_journey" || action === "stop_tracking"
           ? undefined
@@ -534,6 +565,9 @@ export async function postJourneyAction(
         action,
         ...(options?.retryArrivalNotification ? { retryArrivalNotification: true } : {}),
         ...(options?.retryOnTheWayNotification ? { retryOnTheWayNotification: true } : {}),
+        ...(typeof options?.customerTipped === "boolean"
+          ? { customerTipped: options.customerTipped }
+          : {}),
       }),
     },
   );

@@ -26,6 +26,7 @@ export default function robots(): MetadataRoute.Robots {
         "/track/demo/",
         "/test-booking/",
         "/admin/",
+        "/tip",
       ],
     },
     sitemap: `${SITE.url}/sitemap.xml`,

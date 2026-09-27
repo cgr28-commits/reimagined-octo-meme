@@ -18,6 +18,7 @@ import {
 import { getGoogleAdsConfig } from "@/lib/google-ads";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
+import { TIP_TOKEN_STRIP_SCRIPT } from "../../shared/journey-tip";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -134,6 +135,9 @@ export default function RootLayout({
   return (
     <html lang="en-GB" className={`${manrope.variable} ${cormorant.variable}`}>
       <body className="overflow-x-clip antialiased">
+        <Script id="strip-tip-token" strategy="beforeInteractive">
+          {TIP_TOKEN_STRIP_SCRIPT}
+        </Script>
         {/* TrafficGuard sitewide pageview tracking */}
         <Script id="trafficguard-init" strategy="afterInteractive">
           {`

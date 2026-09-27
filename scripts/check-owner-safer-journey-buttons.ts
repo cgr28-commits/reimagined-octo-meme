@@ -42,9 +42,9 @@ console.log("=== 1. Confirm copy + button order ===");
   assert.equal(arrived.confirmLabel, "Confirm");
 
   const complete = ownerPrimaryJourneyConfirmCopy("complete_journey");
-  assert.equal(complete.title, "Complete this journey?");
-  assert.match(complete.body || "", /Active jobs to Completed jobs/);
-  assert.equal(complete.confirmLabel, "Confirm completion");
+  assert.equal(complete.title, "Did the customer tip?");
+  assert.equal(complete.confirmLabel, "Yes");
+  assert.equal(complete.cancelLabel, "Cancel");
 
   console.log("OK  order + confirmation copy");
 }
@@ -65,7 +65,12 @@ console.log("\n=== 2. Owner panel: colours, spacing, two-stage confirm ===");
   assert.match(panel, /confirmCopy\.confirmLabel/);
   assert.match(panel, /setJourneyConfirm/);
   const sharedCopy = read("shared/upcoming-jobs.ts");
-  assert.match(sharedCopy, /confirmLabel:\s*"Confirm completion"/);
+  assert.match(sharedCopy, /title:\s*"Did the customer tip\?"/);
+  assert.match(panel, /data-owner-tip-yes/);
+  assert.match(panel, /data-owner-tip-no/);
+  assert.match(panel, /data-owner-tip-cancel/);
+  assert.match(panel, /customerTipped:\s*true/);
+  assert.match(panel, /customerTipped:\s*false/);
 
   // Primary CTA tap must open confirm — not fire handleJourneyAction directly.
   const actionBtn = panel.match(
