@@ -243,6 +243,27 @@ export function decideTipOnCompletion(
   };
 }
 
+/**
+ * One SumUp checkout_reference per payment attempt.
+ * Concurrent creates for the same attempt share it, so SumUp's duplicate
+ * response can be reused. A terminal attempt advances to the next number.
+ * The reference does not include the time, so two in-flight requests cannot
+ * each mint a distinct payable checkout.
+ */
+export function tipCheckoutReferenceForAttempt(
+  record: Pick<JourneyTipRecord, "tipToken" | "pendingCheckoutId" | "pendingCheckoutReference">,
+): string {
+  const token = record.tipToken.trim().toLowerCase();
+  if (!record.pendingCheckoutId?.trim()) {
+    return `tip-${token}-1`;
+  }
+  const current = record.pendingCheckoutReference?.trim() ?? "";
+  const match = new RegExp(`^tip-${token}-(\\d+)$`).exec(current);
+  const attempt = match ? Number(match[1]) : 0;
+  const next = Number.isInteger(attempt) && attempt >= 1 ? attempt + 1 : 2;
+  return `tip-${token}-${next}`;
+}
+
 export function tipPaymentInProgressMessage(amountGbp: number | undefined): string {
   if (typeof amountGbp === "number" && Number.isFinite(amountGbp)) {
     return `A ${formatTipGbp(amountGbp)} tip payment is already in progress. Finish that payment before choosing another amount.`;

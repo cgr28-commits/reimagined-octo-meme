@@ -23,10 +23,16 @@ import {
   TIP_TOKEN_STORAGE_KEY,
   TIP_TOKEN_STRIP_SCRIPT,
   TIPPED_IN_PERSON_MESSAGE,
+  tipCheckoutReferenceForAttempt,
   tipPaymentInProgressMessage,
   tipWhatsAppMessage,
   type JourneyTipRecord,
 } from "../shared/journey-tip";
+import { handlePublicTipRequest } from "../workers/addresses/src/journey-tip-handlers";
+import {
+  isDuplicateSumUpCheckoutError,
+  SumUpCheckoutRequestError,
+} from "../shared/sumup-checkout";
 
 const root = process.cwd();
 function read(rel: string): string {
@@ -49,6 +55,7 @@ function requestedTip(overrides: Partial<JourneyTipRecord> = {}): JourneyTipReco
   };
 }
 
+async function main() {
 console.log("=== 1. WhatsApp wording ===");
 {
   assert.equal(TIPPED_IN_PERSON_MESSAGE, YES);
@@ -271,8 +278,13 @@ console.log("\n=== 4b. One live SumUp checkout per tip token ===");
 
   const tipHandlers = read("workers/addresses/src/journey-tip-handlers.ts");
   const createAt = tipHandlers.indexOf("await createSumUpHostedCheckout");
+  const claimAt = tipHandlers.indexOf("claimTipSumUpCheckout");
   const inProgressAt = tipHandlers.indexOf('plan !== "create"');
-  assert.ok(inProgressAt > 0 && createAt > inProgressAt);
+  assert.ok(inProgressAt > 0 && claimAt > inProgressAt && createAt > inProgressAt);
+  assert.match(tipHandlers, /tipCheckoutReferenceForAttempt/);
+  assert.match(tipHandlers, /isDuplicateSumUpCheckoutError/);
+  assert.match(tipHandlers, /listSumUpCheckoutsByReference/);
+  assert.doesNotMatch(tipHandlers, /Date\.now\(\)/);
   assert.match(tipHandlers, /pendingCheckoutId !== id/);
   assert.doesNotMatch(tipHandlers, /finalizePaidCheckout|savePaidBookingRecord/);
   const client = read("src/app/tip/TipPageClient.tsx");
@@ -280,6 +292,236 @@ console.log("\n=== 4b. One live SumUp checkout per tip token ===");
   const assignAt = client.indexOf("location.assign");
   assert.ok(inProgressClient > 0 && assignAt > inProgressClient);
   console.log("OK  pending £3 blocks £10; cancelled £3 allows £10; old checkout cannot mark paid");
+}
+
+console.log("\n=== 4c. Simultaneous checkout requests share one SumUp checkout ===");
+{
+  const token = "c".repeat(32);
+  const first = requestedTip({ tipToken: token });
+  const firstRef = tipCheckoutReferenceForAttempt(first);
+  assert.equal(tipCheckoutReferenceForAttempt({ ...first }), firstRef);
+  assert.equal(firstRef, `tip-${token}-1`);
+  assert.ok(firstRef.length <= 64);
+  const terminal = requestedTip({
+    tipToken: token,
+    pendingCheckoutId: "chk_old",
+    pendingCheckoutReference: firstRef,
+    pendingAmountGbp: 3,
+    pendingPaymentUrl: "https://pay.sumup.example/old",
+  });
+  const replacementRef = tipCheckoutReferenceForAttempt(terminal);
+  assert.equal(tipCheckoutReferenceForAttempt({ ...terminal }), replacementRef);
+  assert.equal(replacementRef, `tip-${token}-2`);
+  assert.notEqual(replacementRef, firstRef);
+  const legacy = requestedTip({
+    tipToken: token,
+    pendingCheckoutId: "chk_legacy",
+    pendingCheckoutReference: `tip-${token.slice(0, 8)}-${Date.now()}`,
+  });
+  assert.equal(tipCheckoutReferenceForAttempt(legacy), tipCheckoutReferenceForAttempt({ ...legacy }));
+  assert.equal(tipCheckoutReferenceForAttempt(legacy), `tip-${token}-2`);
+  assert.equal(
+    isDuplicateSumUpCheckoutError(
+      new SumUpCheckoutRequestError(409, "duplicate", "DUPLICATED_CHECKOUT"),
+    ),
+    true,
+  );
+  assert.equal(isDuplicateSumUpCheckoutError(new Error("SumUp checkout creation failed")), false);
+
+  type StoredCheckout = {
+    id: string;
+    hosted_checkout_url: string;
+    checkout_reference: string;
+    amount: number;
+    status: string;
+  };
+  const byRef = new Map<string, StoredCheckout>();
+  const byId = new Map<string, StoredCheckout>();
+  const postRefs: string[] = [];
+  let successfulCreates = 0;
+
+  const kvValues = new Map<string, string>();
+  const store = {
+    async get(key: string, type?: "json") {
+      await Promise.resolve();
+      const raw = kvValues.get(key);
+      if (raw == null) return null;
+      return type === "json" ? JSON.parse(raw) : raw;
+    },
+    async put(key: string, value: string) {
+      await Promise.resolve();
+      kvValues.set(key, value);
+    },
+  };
+
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const href =
+      typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const url = new URL(href);
+    const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+    if (url.pathname === "/v0.1/checkouts" && method === "POST") {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        checkout_reference?: string;
+        amount?: number;
+      };
+      const ref = String(body.checkout_reference ?? "");
+      postRefs.push(ref);
+      const existing = byRef.get(ref);
+      if (existing) {
+        return new Response(
+          JSON.stringify({
+            error_code: "DUPLICATED_CHECKOUT",
+            message: "Checkout with this checkout reference and pay to email already exists",
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      successfulCreates += 1;
+      const checkout: StoredCheckout = {
+        id: `chk_new_${successfulCreates}`,
+        hosted_checkout_url: `https://pay.sumup.example/chk_new_${successfulCreates}`,
+        checkout_reference: ref,
+        amount: Number(body.amount),
+        status: "PENDING",
+      };
+      byRef.set(ref, checkout);
+      byId.set(checkout.id, checkout);
+      await Promise.resolve();
+      return new Response(JSON.stringify(checkout), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (url.pathname === "/v0.1/checkouts") {
+      const ref = url.searchParams.get("checkout_reference") ?? "";
+      const found = byRef.get(ref);
+      return new Response(JSON.stringify(found ? [found] : []), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const id = decodeURIComponent(url.pathname.split("/").pop() ?? "");
+    const found = byId.get(id);
+    return new Response(JSON.stringify(found ?? {}), {
+      status: found ? 200 : 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  function seedTip(record: JourneyTipRecord) {
+    kvValues.set(`tip:${record.tipToken}`, JSON.stringify(record));
+  }
+
+  function checkoutRequest(amountGbp: number) {
+    return new Request("https://api.example/tip/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, amountGbp }),
+    });
+  }
+
+  async function postPair(amountA: number, amountB: number) {
+    const env = {
+      TRACKING_STORE: store as never,
+      SUMUP_API_KEY: "test-key",
+      SUMUP_MERCHANT_CODE: "MTEST",
+    };
+    return Promise.all([
+      handlePublicTipRequest(checkoutRequest(amountA), env, null),
+      handlePublicTipRequest(checkoutRequest(amountB), env, null),
+    ]);
+  }
+
+  try {
+    seedTip(first);
+    const sameAmountPosts = postRefs.length;
+    const [firstA, firstB] = await postPair(5, 5);
+    const sameBodies = [await firstA.json(), await firstB.json()] as Array<{
+      paymentUrl?: string;
+      paymentInProgress?: boolean;
+    }>;
+    assert.equal(successfulCreates, 1);
+    assert.equal(postRefs.length - sameAmountPosts, 2);
+    assert.equal(new Set(postRefs).size, 1);
+    assert.equal(postRefs[0], firstRef);
+    const winnerUrl = byRef.get(firstRef)?.hosted_checkout_url;
+    assert.ok(winnerUrl);
+    for (const body of sameBodies) {
+      assert.equal(body.paymentUrl, winnerUrl);
+      assert.equal(body.paymentInProgress, undefined);
+    }
+    const storedFirst = JSON.parse(kvValues.get(`tip:${token}`) ?? "{}") as JourneyTipRecord;
+    assert.equal(storedFirst.pendingCheckoutId, byRef.get(firstRef)?.id);
+    assert.equal(storedFirst.pendingCheckoutReference, firstRef);
+    assert.equal(storedFirst.pendingAmountGbp, 5);
+
+    byRef.clear();
+    byId.clear();
+    postRefs.length = 0;
+    successfulCreates = 0;
+    seedTip(requestedTip({ tipToken: token }));
+    const [mixedA, mixedB] = await postPair(3, 10);
+    const mixedBodies = [await mixedA.json(), await mixedB.json()] as Array<{
+      paymentUrl?: string;
+      paymentInProgress?: boolean;
+      pendingAmountGbp?: number;
+    }>;
+    assert.equal(successfulCreates, 1);
+    assert.equal(postRefs.length, 2);
+    assert.equal(new Set(postRefs).size, 1);
+    const mixedWinner = byRef.get(firstRef);
+    assert.ok(mixedWinner);
+    const storedMixed = JSON.parse(kvValues.get(`tip:${token}`) ?? "{}") as JourneyTipRecord;
+    assert.equal(storedMixed.pendingCheckoutId, mixedWinner.id);
+    assert.equal(storedMixed.pendingCheckoutReference, firstRef);
+    for (const body of mixedBodies) {
+      if (body.paymentUrl) {
+        assert.equal(body.paymentUrl, mixedWinner.hosted_checkout_url);
+      } else {
+        assert.equal(body.paymentInProgress, true);
+        assert.equal(body.pendingAmountGbp, mixedWinner.amount);
+        assert.equal(body.paymentUrl, undefined);
+      }
+    }
+    assert.equal(mixedBodies.filter((body) => body.paymentUrl).length, 1);
+
+    const oldCheckout: StoredCheckout = {
+      id: "chk_old",
+      hosted_checkout_url: "https://pay.sumup.example/old",
+      checkout_reference: firstRef,
+      amount: 3,
+      status: "CANCELLED",
+    };
+    byRef.clear();
+    byId.clear();
+    postRefs.length = 0;
+    successfulCreates = 0;
+    byRef.set(firstRef, oldCheckout);
+    byId.set(oldCheckout.id, oldCheckout);
+    seedTip(terminal);
+    const [replaceA, replaceB] = await postPair(10, 10);
+    const replaceBodies = [await replaceA.json(), await replaceB.json()] as Array<{
+      paymentUrl?: string;
+    }>;
+    assert.equal(successfulCreates, 1);
+    assert.equal(postRefs.length, 2);
+    assert.deepEqual(postRefs, [replacementRef, replacementRef]);
+    const replacement = byRef.get(replacementRef);
+    assert.ok(replacement);
+    assert.notEqual(replacement.id, "chk_old");
+    for (const body of replaceBodies) {
+      assert.equal(body.paymentUrl, replacement.hosted_checkout_url);
+    }
+    const storedReplacement = JSON.parse(kvValues.get(`tip:${token}`) ?? "{}") as JourneyTipRecord;
+    assert.equal(storedReplacement.pendingCheckoutId, replacement.id);
+    assert.equal(storedReplacement.pendingCheckoutReference, replacementRef);
+    assert.equal(storedReplacement.pendingAmountGbp, 10);
+    assert.notEqual(storedReplacement.pendingPaymentUrl, oldCheckout.hosted_checkout_url);
+    console.log("OK  two first requests and two replacements each create one SumUp checkout");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 }
 
 console.log("\n=== 5. Duplicate completion ===");
@@ -430,3 +672,9 @@ console.log("\n=== 7. Tip token is stripped before sitewide tracking ===");
 }
 
 console.log("\nJourney tip checks passed.");
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

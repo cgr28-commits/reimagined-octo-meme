@@ -10,9 +10,11 @@ import {
   decideTipOnCompletion,
   generateTipToken,
   isOpaqueTipToken,
+  isTerminalUnpaidTipStatus,
   parseTipAmountGbp,
   planTipCheckout,
   publicTipState,
+  tipCheckoutReferenceForAttempt,
   tipPaymentInProgressMessage,
   TIP_LINK_INVALID_MESSAGE,
   tipWhatsAppMessage,
@@ -24,7 +26,11 @@ import {
   getSuccessfulTransactionCode,
   getSuccessfulTransactionId,
   getSumUpCheckout,
+  isDuplicateSumUpCheckoutError,
   isSumUpCheckoutPaid,
+  listSumUpCheckoutsByReference,
+  type SumUpCheckoutDetails,
+  type SumUpCheckoutRequest,
 } from "../shared/sumup-checkout";
 import type { TrackingJobRecord } from "../shared/tracking";
 import { getTrackingJob } from "./tracking-store";
@@ -365,34 +371,184 @@ async function tipCheckoutResponse(
     );
   }
 
-  const checkoutReference = `tip-${record.tipToken.slice(0, 8)}-${Date.now()}`;
-  let checkout: { checkoutId: string; paymentUrl: string; checkoutReference: string };
-  try {
-    checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
-      amount: amount.amountGbp,
-      description: "Optional driver tip",
-      checkoutReference,
-      redirectUrl: buildTipPageUrl(record.tipToken),
-      returnUrl: new URL("/payments/webhook", request.url).toString(),
-    });
-  } catch (error) {
-    console.error("Tip SumUp checkout creation failed");
-    void error;
+  const checkoutReference = tipCheckoutReferenceForAttempt(record);
+  const opened = await claimTipSumUpCheckout(apiKey, merchantCode, {
+    amount: amount.amountGbp,
+    description: "Optional driver tip",
+    checkoutReference,
+    redirectUrl: buildTipPageUrl(record.tipToken),
+    returnUrl: new URL("/payments/webhook", request.url).toString(),
+  });
+  if (opened.kind === "failed") {
     return tipJson({ error: "Could not start the tip payment. Please try again." }, 502, origin);
+  }
+
+  const nowIso = new Date().toISOString();
+  if (opened.kind === "paid") {
+    const withPending: JourneyTipRecord = {
+      ...record,
+      pendingAmountGbp: opened.amountGbp,
+      pendingCheckoutId: opened.checkoutId,
+      pendingCheckoutReference: opened.checkoutReference,
+      pendingCheckoutCreatedAt: nowIso,
+    };
+    const applied = applyConfirmedSumUpTip(withPending, opened.proof, nowIso);
+    await writeTip(env.TRACKING_STORE, applied.paidNow ? applied.record : withPending);
+    await indexTipCheckout(env.TRACKING_STORE, opened.checkoutId, record.tipToken);
+    if (applied.paidNow) {
+      return tipJson(publicTipState(applied.record), 200, origin);
+    }
+    return tipJson(
+      { error: "We couldn’t confirm this tip payment. Please contact My Airport Taxi NI." },
+      409,
+      origin,
+    );
   }
 
   const next: JourneyTipRecord = {
     ...record,
-    pendingAmountGbp: amount.amountGbp,
-    pendingCheckoutId: checkout.checkoutId,
-    pendingCheckoutReference: checkout.checkoutReference,
-    pendingPaymentUrl: checkout.paymentUrl,
-    pendingCheckoutCreatedAt: new Date().toISOString(),
+    pendingAmountGbp: opened.amountGbp,
+    pendingCheckoutId: opened.checkoutId,
+    pendingCheckoutReference: opened.checkoutReference,
+    pendingCheckoutCreatedAt: nowIso,
   };
+  if (opened.kind === "payable") next.pendingPaymentUrl = opened.paymentUrl;
+  else delete next.pendingPaymentUrl;
   await writeTip(env.TRACKING_STORE, next);
-  await indexTipCheckout(env.TRACKING_STORE, checkout.checkoutId, record.tipToken);
+  await indexTipCheckout(env.TRACKING_STORE, opened.checkoutId, record.tipToken);
 
-  return tipJson({ ok: true, state: "open", paymentUrl: checkout.paymentUrl }, 200, origin);
+  if (opened.kind === "terminal") {
+    return tipJson(
+      { error: "That tip payment is no longer available. Please choose an amount again." },
+      409,
+      origin,
+    );
+  }
+
+  if (Math.abs(opened.amountGbp - amount.amountGbp) > 0.001) {
+    return tipJson(
+      {
+        ok: true,
+        state: "open",
+        paymentInProgress: true,
+        pendingAmountGbp: opened.amountGbp,
+        message: tipPaymentInProgressMessage(opened.amountGbp),
+      },
+      200,
+      origin,
+    );
+  }
+
+  return tipJson({ ok: true, state: "open", paymentUrl: opened.paymentUrl }, 200, origin);
+}
+
+type ClaimedTipCheckout =
+  | { kind: "failed" }
+  | {
+      kind: "payable";
+      checkoutId: string;
+      paymentUrl: string;
+      checkoutReference: string;
+      amountGbp: number;
+    }
+  | {
+      kind: "terminal";
+      checkoutId: string;
+      checkoutReference: string;
+      amountGbp: number;
+    }
+  | {
+      kind: "paid";
+      checkoutId: string;
+      checkoutReference: string;
+      amountGbp: number;
+      proof: ReturnType<typeof proofFromCheckout>;
+    };
+
+/**
+ * Create the attempt's SumUp checkout, or reuse the one SumUp already has for
+ * this checkout_reference (409 DUPLICATED_CHECKOUT). Never mints a second reference.
+ */
+async function claimTipSumUpCheckout(
+  apiKey: string,
+  merchantCode: string,
+  request: SumUpCheckoutRequest,
+): Promise<ClaimedTipCheckout> {
+  try {
+    const created = await createSumUpHostedCheckout(apiKey, merchantCode, request);
+    return {
+      kind: "payable",
+      checkoutId: created.checkoutId,
+      paymentUrl: created.paymentUrl,
+      checkoutReference: request.checkoutReference,
+      amountGbp: request.amount,
+    };
+  } catch (error) {
+    if (!isDuplicateSumUpCheckoutError(error)) {
+      console.error("Tip SumUp checkout creation failed");
+      void error;
+      return { kind: "failed" };
+    }
+  }
+
+  let listed: SumUpCheckoutDetails[] = [];
+  try {
+    listed = await listSumUpCheckoutsByReference(apiKey, request.checkoutReference);
+  } catch (error) {
+    console.error("Tip SumUp duplicate checkout lookup failed");
+    void error;
+    return { kind: "failed" };
+  }
+
+  const matches = listed.filter((item) => {
+    const ref = item.checkout_reference?.trim();
+    return Boolean(item.id) && (!ref || ref === request.checkoutReference);
+  });
+  const payable = matches.find(
+    (item) =>
+      Boolean(item.hosted_checkout_url?.trim()) &&
+      !isSumUpCheckoutPaid(item) &&
+      !isTerminalUnpaidTipStatus(item.status),
+  );
+  if (payable?.id && payable.hosted_checkout_url) {
+    return {
+      kind: "payable",
+      checkoutId: payable.id,
+      paymentUrl: payable.hosted_checkout_url.trim(),
+      checkoutReference: request.checkoutReference,
+      amountGbp: listedTipAmount(payable, request.amount),
+    };
+  }
+
+  const paid = matches.find((item) => isSumUpCheckoutPaid(item));
+  if (paid?.id) {
+    return {
+      kind: "paid",
+      checkoutId: paid.id,
+      checkoutReference: request.checkoutReference,
+      amountGbp: listedTipAmount(paid, request.amount),
+      proof: proofFromCheckout(paid),
+    };
+  }
+
+  const terminal = matches.find((item) => isTerminalUnpaidTipStatus(item.status));
+  if (terminal?.id) {
+    return {
+      kind: "terminal",
+      checkoutId: terminal.id,
+      checkoutReference: request.checkoutReference,
+      amountGbp: listedTipAmount(terminal, request.amount),
+    };
+  }
+
+  return { kind: "failed" };
+}
+
+function listedTipAmount(checkout: SumUpCheckoutDetails, fallback: number): number {
+  if (typeof checkout.amount === "number" && Number.isFinite(checkout.amount) && checkout.amount > 0) {
+    return Math.round(checkout.amount * 100) / 100;
+  }
+  return fallback;
 }
 
 /**

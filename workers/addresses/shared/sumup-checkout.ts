@@ -20,7 +20,27 @@ type SumUpCheckoutResponse = {
   status?: string;
   checkout_reference?: string;
   error_message?: string;
+  error_code?: string;
+  message?: string;
 };
+
+export class SumUpCheckoutRequestError extends Error {
+  readonly status: number;
+  readonly errorCode?: string;
+
+  constructor(status: number, message: string, errorCode?: string) {
+    super(message);
+    this.name = "SumUpCheckoutRequestError";
+    this.status = status;
+    this.errorCode = errorCode;
+  }
+}
+
+/** SumUp returns 409 DUPLICATED_CHECKOUT when checkout_reference already exists. */
+export function isDuplicateSumUpCheckoutError(error: unknown): boolean {
+  if (!(error instanceof SumUpCheckoutRequestError)) return false;
+  return error.status === 409 || error.errorCode === "DUPLICATED_CHECKOUT";
+}
 
 export type SumUpCheckoutDetails = {
   id: string;
@@ -29,6 +49,7 @@ export type SumUpCheckoutDetails = {
   currency?: string;
   checkout_reference?: string;
   description?: string;
+  hosted_checkout_url?: string;
   transactions?: Array<{
     status?: string;
     transaction_code?: string;
@@ -65,10 +86,10 @@ export async function createSumUpHostedCheckout(
 
   if (!response.ok || !payload?.hosted_checkout_url || !payload.id) {
     const message =
-      payload && typeof payload === "object" && "error_message" in payload
-        ? String(payload.error_message)
+      payload && typeof payload === "object" && (payload.error_message || payload.message)
+        ? String(payload.error_message || payload.message)
         : "SumUp checkout creation failed";
-    throw new Error(message);
+    throw new SumUpCheckoutRequestError(response.status, message, payload?.error_code);
   }
 
   return {
