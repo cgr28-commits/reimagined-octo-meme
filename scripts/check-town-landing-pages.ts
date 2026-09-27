@@ -111,8 +111,8 @@ console.log("\n=== Batch 2 hubs resolve ===");
 console.log("\n=== Combined landing routes ===");
 {
   const landing = TRANSFER_ROUTE_PAGES.filter((route) => route.faqs?.length);
-  assert.equal(landing.length, 55);
-  assert.equal(TRANSFER_ROUTE_CONTENT.length, 55);
+  assert.equal(landing.length, 59);
+  assert.equal(TRANSFER_ROUTE_CONTENT.length, 59);
   for (const town of ALL_HUB_TOWNS) {
     const bfs = getTransferRoutePage(`${town}-to-belfast-international`);
     const bhd = getTransferRoutePage(`${town}-to-belfast-city-airport`);
@@ -154,7 +154,7 @@ console.log("\n=== Combined landing routes ===");
   assert.equal(inbound.airport.code, "DUB");
   assert.equal(inbound.town.slug, "belfast");
   assert.match(inbound.h1, /Dublin Airport to Belfast Taxi/);
-  console.log("OK  55 unique route pages, unique FAQs, no invented fares or mileages");
+  console.log("OK  59 unique route pages, unique FAQs, no invented fares or mileages");
 }
 
 console.log("\n=== Batch 1 legacy lookups still resolve ===");
@@ -174,6 +174,20 @@ console.log("\n=== Batch 1 legacy lookups still resolve ===");
 
 console.log("\n=== Existing catalogue URLs still resolve ===");
 {
+  for (const slug of [
+    "belfast-to-belfast-international",
+    "belfast-to-belfast-city",
+    "belfast-to-dublin-airport",
+    "belfast-to-city-of-derry",
+  ] as const) {
+    const route = getTransferRoutePage(slug);
+    assert.ok(route?.faqs && route.faqs.length >= 4, slug);
+    assert.equal(route?.slug, slug);
+    assert.equal(route?.hubSlug, null, `${slug} must not gain a Belfast location hub`);
+    assert.equal(route?.direction ?? "to-airport", "to-airport");
+  }
+  assert.equal(getTransferRoutePage("belfast-to-belfast-city-airport"), undefined);
+  assert.equal(getTransferRoutePage("belfast-to-belfast-city")?.slug, "belfast-to-belfast-city");
   assert.ok(getTransferRoutePage("belfast-to-belfast-international"));
   assert.ok(getTransferRoutePage("belfast-to-city-of-derry"));
   assert.ok(getTransferRoutePage("newtownabbey-to-city-of-derry"));

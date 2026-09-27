@@ -56,6 +56,10 @@ export default async function AirportTransferPage({ params }: Props) {
   if (!page) notFound();
 
   const relatedRoutes = TRANSFER_ROUTE_PAGES.filter((route) => route.airport.slug === page.slug);
+  const orderedRoutes = [
+    ...relatedRoutes.filter((route) => route.town.slug === "belfast"),
+    ...relatedRoutes.filter((route) => route.town.slug !== "belfast"),
+  ];
   const relatedHubs = TOWN_HUB_PAGES.filter((hub) => hub.airportCodes.includes(page.code));
   const breadcrumb = getBreadcrumbJsonLd([
     { name: "Home", path: "/" },
@@ -154,7 +158,7 @@ export default async function AirportTransferPage({ params }: Props) {
             <section className="mt-8">
               <h2 className="text-lg font-bold text-white">Popular routes to {page.shortName}</h2>
               <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                {relatedRoutes.map((route) => (
+                {orderedRoutes.map((route) => (
                   <li key={route.slug}>
                     <Link
                       href={`/transfers/${route.slug}/`}
