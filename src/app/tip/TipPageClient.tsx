@@ -9,10 +9,9 @@ import {
   TIP_LINK_INVALID_MESSAGE,
   TIP_PAGE_THANKS,
   TIP_PRESET_AMOUNTS_GBP,
+  TIP_TOKEN_STORAGE_KEY,
 } from "../../../shared/journey-tip";
 import { createTipCheckout, fetchTipStatus } from "@/lib/journey-tip-api";
-
-const TIP_TOKEN_STORAGE_KEY = "matni-tip-token";
 
 type View =
   | { kind: "loading" }
@@ -118,6 +117,13 @@ export default function TipPageClient() {
       }
       if (result.state === "paid") {
         setView({ kind: "paid", amountGbp: result.amountGbp });
+        return;
+      }
+      if (result.paymentInProgress) {
+        setAmountError(
+          result.message ||
+            "A tip payment is already in progress. Finish that payment before choosing another amount.",
+        );
         return;
       }
       if (result.paymentUrl) {

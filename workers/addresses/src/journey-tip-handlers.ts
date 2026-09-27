@@ -13,6 +13,7 @@ import {
   parseTipAmountGbp,
   planTipCheckout,
   publicTipState,
+  tipPaymentInProgressMessage,
   TIP_LINK_INVALID_MESSAGE,
   tipWhatsAppMessage,
   type JourneyTipRecord,
@@ -105,21 +106,26 @@ async function settleTipRecord(
   env: JourneyTipEnv,
   record: JourneyTipRecord,
   checkoutId: string,
-): Promise<{ record: JourneyTipRecord; paymentNotCompleted: boolean }> {
+): Promise<{
+  record: JourneyTipRecord;
+  paymentNotCompleted: boolean;
+  live: { paid: boolean; status?: string };
+}> {
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
   if (!apiKey || !env.TRACKING_STORE) {
     throw new Error("SumUp tip confirmation is not configured");
   }
   const checkout = await getSumUpCheckout(apiKey, checkoutId);
-  const applied = applyConfirmedSumUpTip(
-    record,
-    proofFromCheckout(checkout),
-    new Date().toISOString(),
-  );
+  const proof = proofFromCheckout(checkout);
+  const applied = applyConfirmedSumUpTip(record, proof, new Date().toISOString());
   if (applied.paidNow) {
     await writeTip(env.TRACKING_STORE, applied.record);
   }
-  return { record: applied.record, paymentNotCompleted: applied.paymentNotCompleted };
+  return {
+    record: applied.record,
+    paymentNotCompleted: applied.paymentNotCompleted,
+    live: { paid: proof.paid, status: checkout.status },
+  };
 }
 
 function completionPayload(job: TrackingJobRecord, openWhatsApp: boolean): TipCompletionPayload | null {
@@ -299,10 +305,12 @@ async function tipCheckoutResponse(
   let record = await readTip(env.TRACKING_STORE, token);
   if (!record) return invalidLink(origin);
 
+  let live: { paid: boolean; status?: string } | null = null;
   if (record.status !== "paid" && record.pendingCheckoutId) {
     try {
       const settled = await settleTipRecord(env, record, record.pendingCheckoutId);
       record = settled.record;
+      live = settled.live;
     } catch (error) {
       console.error("Tip checkout SumUp confirmation failed");
       void error;
@@ -320,9 +328,31 @@ async function tipCheckoutResponse(
     return tipJson(publicTipState(record), 200, origin);
   }
 
-  const plan = planTipCheckout(record, amount.amountGbp);
+  const plan = planTipCheckout(record, amount.amountGbp, live);
+  if (plan === "already_paid") {
+    return tipJson(
+      { error: "We couldn’t confirm this tip payment. Please contact My Airport Taxi NI." },
+      409,
+      origin,
+    );
+  }
   if (plan === "reuse" && record.pendingPaymentUrl) {
     return tipJson({ ok: true, state: "open", paymentUrl: record.pendingPaymentUrl }, 200, origin);
+  }
+  if (plan !== "create") {
+    return tipJson(
+      {
+        ok: true,
+        state: "open",
+        paymentInProgress: true,
+        ...(typeof record.pendingAmountGbp === "number"
+          ? { pendingAmountGbp: record.pendingAmountGbp }
+          : {}),
+        message: tipPaymentInProgressMessage(record.pendingAmountGbp),
+      },
+      200,
+      origin,
+    );
   }
 
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
@@ -390,6 +420,9 @@ export async function confirmJourneyTipWebhook(
   try {
     const record = await readTip(env.TRACKING_STORE, token);
     if (!record || record.status === "paid") return "done";
+    // A superseded checkout stays indexed so this webhook does not fall through
+    // into journey-payment finalization, but it must not mark the tip paid.
+    if (!record.pendingCheckoutId || record.pendingCheckoutId !== id) return "done";
     await settleTipRecord(env, record, id);
     return "done";
   } catch (error) {

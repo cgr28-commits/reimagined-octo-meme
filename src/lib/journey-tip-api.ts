@@ -3,7 +3,15 @@ import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 
 export type TipPageState =
   | { ok: true; state: "paid"; amountGbp: number }
-  | { ok: true; state: "open"; paymentNotCompleted?: boolean; paymentUrl?: string }
+  | {
+      ok: true;
+      state: "open";
+      paymentNotCompleted?: boolean;
+      paymentUrl?: string;
+      paymentInProgress?: boolean;
+      pendingAmountGbp?: number;
+      message?: string;
+    }
   | { ok: false; error: string };
 
 async function readTipResponse(response: Response): Promise<TipPageState> {

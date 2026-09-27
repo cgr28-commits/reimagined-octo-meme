@@ -23,6 +23,15 @@ export const TIP_PAGE_THANKS =
 
 const TIP_TOKEN_PATTERN = /^[a-f0-9]{32}$/;
 
+export const TIP_TOKEN_STORAGE_KEY = "matni-tip-token";
+
+/**
+ * Runs from the root layout as a blocking beforeInteractive script, before
+ * TrafficGuard, Google Ads, attribution, or fraud monitoring can read the URL.
+ * On /tip/ only: store a valid token, then drop the whole query string.
+ */
+export const TIP_TOKEN_STRIP_SCRIPT = `(function(){try{var path=String(location.pathname||"").replace(/\\/+$/,"")||"/";if(path!=="/tip")return;var search=String(location.search||"");if(!search)return;var params=new URLSearchParams(search);var token=String(params.get("t")||"").trim().toLowerCase();if(/^[a-f0-9]{32}$/.test(token)){try{sessionStorage.setItem(${JSON.stringify(TIP_TOKEN_STORAGE_KEY)},token);}catch(e){}}history.replaceState(history.state,"",String(location.pathname||"")+String(location.hash||""));}catch(e){}})();`;
+
 const TERMINAL_UNPAID_STATUSES = new Set([
   "FAILED",
   "EXPIRED",
@@ -30,6 +39,18 @@ const TERMINAL_UNPAID_STATUSES = new Set([
   "CANCELED",
   "DECLINED",
 ]);
+
+export function isTerminalUnpaidTipStatus(status: string | undefined): boolean {
+  return TERMINAL_UNPAID_STATUSES.has(String(status ?? "").toUpperCase());
+}
+
+/** SumUp read for the single checkout currently stored on the tip. */
+export type TipCheckoutLiveStatus = {
+  paid: boolean;
+  status?: string;
+};
+
+export type TipCheckoutPlan = "already_paid" | "reuse" | "in_progress" | "create";
 
 export type TipDecision = "yes" | "no";
 
@@ -222,20 +243,58 @@ export function decideTipOnCompletion(
   };
 }
 
+export function tipPaymentInProgressMessage(amountGbp: number | undefined): string {
+  if (typeof amountGbp === "number" && Number.isFinite(amountGbp)) {
+    return `A ${formatTipGbp(amountGbp)} tip payment is already in progress. Finish that payment before choosing another amount.`;
+  }
+  return "A tip payment is already in progress. Finish that payment before choosing another amount.";
+}
+
+/**
+ * One live SumUp checkout per tip. A different amount must not open a second
+ * checkout while the current one is still non-terminal. A replacement is
+ * allowed only after SumUp says the current checkout is terminally unpaid.
+ * Missing SumUp status fails closed and does not create another checkout.
+ */
 export function planTipCheckout(
-  record: Pick<JourneyTipRecord, "status" | "pendingCheckoutId" | "pendingPaymentUrl" | "pendingAmountGbp">,
-  amountGbp: number,
-): "already_paid" | "reuse" | "create" {
-  if (record.status === "paid") return "already_paid";
-  if (
-    record.pendingCheckoutId &&
-    record.pendingPaymentUrl &&
-    typeof record.pendingAmountGbp === "number" &&
-    Math.abs(record.pendingAmountGbp - amountGbp) < 0.001
-  ) {
-    return "reuse";
+  record: Pick<
+    JourneyTipRecord,
+    "status" | "pendingCheckoutId" | "pendingPaymentUrl" | "pendingAmountGbp"
+  >,
+  requestedAmountGbp: number,
+  live?: TipCheckoutLiveStatus | null,
+): TipCheckoutPlan {
+  if (record.status === "paid" || live?.paid) return "already_paid";
+  if (!record.pendingCheckoutId) return "create";
+  if (!live || !isTerminalUnpaidTipStatus(live.status)) {
+    if (
+      live &&
+      record.pendingPaymentUrl &&
+      typeof record.pendingAmountGbp === "number" &&
+      Math.abs(record.pendingAmountGbp - requestedAmountGbp) < 0.001
+    ) {
+      return "reuse";
+    }
+    return "in_progress";
   }
   return "create";
+}
+
+function tipCheckoutMatchesExpected(record: JourneyTipRecord, proof: SumUpTipProof): boolean {
+  const checkoutId = proof.checkoutId.trim();
+  if (!record.pendingCheckoutId || checkoutId !== record.pendingCheckoutId) return false;
+  const expectedRef = record.pendingCheckoutReference?.trim();
+  const proofRef = proof.checkoutReference?.trim();
+  if (expectedRef && proofRef && expectedRef !== proofRef) return false;
+  if (
+    typeof proof.amount === "number" &&
+    Number.isFinite(proof.amount) &&
+    typeof record.pendingAmountGbp === "number"
+  ) {
+    const amountGbp = Math.round(proof.amount * 100) / 100;
+    if (Math.abs(amountGbp - record.pendingAmountGbp) > 0.001) return false;
+  }
+  return true;
 }
 
 /**
@@ -254,17 +313,15 @@ export function applyConfirmedSumUpTip(
   }
 
   const checkoutId = proof.checkoutId.trim();
-  if (!checkoutId) {
+  if (!checkoutId || !tipCheckoutMatchesExpected(record, proof)) {
     return { record, paidNow: false, paymentNotCompleted: false };
   }
 
   if (!proof.paid) {
-    const status = String(proof.status ?? "").toUpperCase();
-    const relevant = !record.pendingCheckoutId || record.pendingCheckoutId === checkoutId;
     return {
       record,
       paidNow: false,
-      paymentNotCompleted: relevant && TERMINAL_UNPAID_STATUSES.has(status),
+      paymentNotCompleted: isTerminalUnpaidTipStatus(proof.status),
     };
   }
 

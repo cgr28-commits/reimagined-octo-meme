@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import vm from "node:vm";
 import {
   applyConfirmedSumUpTip,
   buildTipPageUrl,
@@ -19,7 +20,10 @@ import {
   publicTipState,
   TIP_LINK_INVALID_MESSAGE,
   TIP_PAGE_THANKS,
+  TIP_TOKEN_STORAGE_KEY,
+  TIP_TOKEN_STRIP_SCRIPT,
   TIPPED_IN_PERSON_MESSAGE,
+  tipPaymentInProgressMessage,
   tipWhatsAppMessage,
   type JourneyTipRecord,
 } from "../shared/journey-tip";
@@ -176,9 +180,106 @@ console.log("\n=== 4. SumUp confirmation — return visit is not payment ===");
   assert.equal(fare.amount, 42);
   assert.equal(fare.checkoutId, "original-journey-checkout");
   assert.equal(planTipCheckout(paid.record, 5), "already_paid");
-  assert.equal(planTipCheckout(open, 5), "reuse");
-  assert.equal(planTipCheckout(open, 10), "create");
   console.log("OK  unpaid/cancelled stays open; paid sticks; a second checkout cannot replace it");
+}
+
+console.log("\n=== 4b. One live SumUp checkout per tip token ===");
+{
+  const pending = requestedTip({
+    pendingCheckoutId: "chk_3",
+    pendingCheckoutReference: "tip-ref-3",
+    pendingAmountGbp: 3,
+    pendingPaymentUrl: "https://pay.sumup.example/chk_3",
+  });
+  const stillPending = { paid: false, status: "PENDING" };
+
+  assert.equal(planTipCheckout(pending, 10, stillPending), "in_progress");
+  assert.equal(planTipCheckout(pending, 3, stillPending), "reuse");
+  assert.equal(planTipCheckout(pending, 10), "in_progress");
+  for (const status of ["CANCELLED", "CANCELED", "FAILED", "DECLINED", "EXPIRED"]) {
+    assert.equal(planTipCheckout(pending, 10, { paid: false, status }), "create", status);
+  }
+
+  const replaced = {
+    ...pending,
+    pendingCheckoutId: "chk_10",
+    pendingCheckoutReference: "tip-ref-10",
+    pendingAmountGbp: 10,
+    pendingPaymentUrl: "https://pay.sumup.example/chk_10",
+  };
+  const oldPaid = applyConfirmedSumUpTip(
+    replaced,
+    {
+      paid: true,
+      checkoutId: "chk_3",
+      amount: 3,
+      status: "PAID",
+      checkoutReference: "tip-ref-3",
+    },
+    "2026-09-27T14:00:00.000Z",
+  );
+  assert.equal(oldPaid.paidNow, false);
+  assert.equal(oldPaid.record.status, "requested");
+  assert.equal(oldPaid.record.pendingCheckoutId, "chk_10");
+  assert.equal(oldPaid.record.amountGbp, undefined);
+
+  const wrongAmount = applyConfirmedSumUpTip(
+    replaced,
+    {
+      paid: true,
+      checkoutId: "chk_10",
+      amount: 3,
+      status: "PAID",
+      checkoutReference: "tip-ref-10",
+    },
+    "2026-09-27T14:01:00.000Z",
+  );
+  assert.equal(wrongAmount.paidNow, false);
+  assert.equal(wrongAmount.record.status, "requested");
+
+  const wrongRef = applyConfirmedSumUpTip(
+    replaced,
+    {
+      paid: true,
+      checkoutId: "chk_10",
+      amount: 10,
+      status: "PAID",
+      checkoutReference: "tip-ref-3",
+    },
+    "2026-09-27T14:02:00.000Z",
+  );
+  assert.equal(wrongRef.paidNow, false);
+
+  const confirmed = applyConfirmedSumUpTip(
+    replaced,
+    {
+      paid: true,
+      checkoutId: "chk_10",
+      amount: 10,
+      status: "PAID",
+      checkoutReference: "tip-ref-10",
+      transactionCode: "T-10",
+    },
+    "2026-09-27T14:03:00.000Z",
+  );
+  assert.equal(confirmed.paidNow, true);
+  assert.equal(confirmed.record.amountGbp, 10);
+  assert.equal(planTipCheckout(confirmed.record, 3, { paid: false, status: "PENDING" }), "already_paid");
+  assert.equal(planTipCheckout(confirmed.record, 10), "already_paid");
+  assert.match(tipPaymentInProgressMessage(3), /£3/);
+  assert.match(tipPaymentInProgressMessage(3), /already in progress/);
+
+  const tipHandlers = read("workers/addresses/src/journey-tip-handlers.ts");
+  const createAt = tipHandlers.indexOf("await createSumUpHostedCheckout");
+  const inProgressAt = tipHandlers.indexOf('plan !== "create"');
+  assert.ok(inProgressAt > 0 && createAt > inProgressAt);
+  assert.match(tipHandlers, /pendingCheckoutId !== id/);
+  assert.doesNotMatch(tipHandlers, /finalizePaidCheckout|savePaidBookingRecord/);
+  const client = read("src/app/tip/TipPageClient.tsx");
+  const inProgressClient = client.indexOf("paymentInProgress");
+  const assignAt = client.indexOf("location.assign");
+  assert.ok(inProgressClient > 0 && assignAt > inProgressClient);
+  console.log("OK  pending £3 blocks £10; cancelled £3 allows £10; old checkout cannot mark paid");
 }
 
 console.log("\n=== 5. Duplicate completion ===");
@@ -257,6 +358,7 @@ console.log("\n=== 6. Owner prompt, worker, and page wiring ===");
   assert.doesNotMatch(client, /dataLayer|gtag\(|GoogleAds/);
   assert.match(client, /replaceState/);
   assert.match(client, /fetchTipStatus/);
+  assert.match(client, /paymentInProgress/);
   assert.doesNotMatch(client, /state: "paid"/);
 
   const sitemap = read("scripts/generate-sitemap.mjs");
@@ -265,6 +367,66 @@ console.log("\n=== 6. Owner prompt, worker, and page wiring ===");
   assert.match(robots, /"\/tip"/);
   assert.equal(TIP_LINK_INVALID_MESSAGE, "This link is not valid.");
   console.log("OK  prompt, SumUp-only paid flag, noindex tip page, sitemap omits /tip/");
+}
+
+console.log("\n=== 7. Tip token is stripped before sitewide tracking ===");
+{
+  const layout = read("src/app/layout.tsx");
+  const stripAt = layout.indexOf('id="strip-tip-token"');
+  const trafficAt = layout.indexOf('id="trafficguard-init"');
+  const adsAt = layout.indexOf("<GoogleAdsTag");
+  assert.ok(stripAt > 0 && trafficAt > stripAt && adsAt > stripAt);
+  assert.match(layout.slice(stripAt, stripAt + 180), /beforeInteractive/);
+  assert.match(layout, /TIP_TOKEN_STRIP_SCRIPT/);
+  assert.doesNotMatch(TIP_TOKEN_STRIP_SCRIPT, /useLayoutEffect|useEffect/);
+
+  function runStrip(href: string): { search: string; stored?: string } {
+    const url = new URL(href);
+    const location = {
+      pathname: url.pathname,
+      search: url.search,
+      hash: url.hash,
+    };
+    const store = new Map<string, string>();
+    const context = {
+      location,
+      history: {
+        state: null as null,
+        replaceState(_state: null, _title: string, next: string) {
+          const parsed = new URL(next, url.origin);
+          location.pathname = parsed.pathname;
+          location.search = parsed.search;
+          location.hash = parsed.hash;
+        },
+      },
+      sessionStorage: {
+        setItem(key: string, value: string) {
+          store.set(key, value);
+        },
+      },
+      URLSearchParams,
+    };
+    vm.runInNewContext(TIP_TOKEN_STRIP_SCRIPT, context);
+    return { search: location.search, stored: store.get(TIP_TOKEN_STORAGE_KEY) };
+  }
+
+  const token = "0123456789abcdef0123456789abcdef";
+  const stripped = runStrip(`https://www.myairporttaxini.co.uk/tip/?t=${token}`);
+  assert.equal(stripped.search, "");
+  assert.equal(stripped.stored, token);
+  const withExtra = runStrip(`https://www.myairporttaxini.co.uk/tip/?t=${token}&checkout_id=abc`);
+  assert.equal(withExtra.search, "");
+  assert.equal(withExtra.stored, token);
+  const invalid = runStrip("https://www.myairporttaxini.co.uk/tip/?t=not-a-token");
+  assert.equal(invalid.search, "");
+  assert.equal(invalid.stored, undefined);
+  const homepage = runStrip(`https://www.myairporttaxini.co.uk/?t=${token}`);
+  assert.equal(homepage.search, `?t=${token}`);
+  assert.equal(homepage.stored, undefined);
+  const trailing = runStrip(`https://www.myairporttaxini.co.uk/tip/?t=${token}#paid`);
+  assert.equal(trailing.search, "");
+  assert.equal(trailing.stored, token);
+  console.log("OK  /tip/ query is removed before tracking; other pages are left alone");
 }
 
 console.log("\nJourney tip checks passed.");
