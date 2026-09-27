@@ -121,11 +121,11 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     code: "BHD",
     name: "George Best Belfast City Airport",
     shortName: "Belfast City Airport",
-    title: "Belfast City Airport Taxi Transfers",
+    title: "Belfast City Airport Taxi & Transfers",
     metaDescription:
       "Book a Belfast City Airport taxi. Fixed-price transfers from the city and nearby towns, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.",
     intro:
-      "George Best Belfast City Airport is the city airport beside the Titanic Quarter and the city centre, used mainly for short-haul and business flights. This page is the guide for City Airport taxis from the towns we cover, rather than one Belfast street. The Sydenham Bypass and the airport approach are the usual roads. Open the Belfast route below when the pickup is in the city, or choose another town for that quote.",
+      "George Best Belfast City Airport is the city airport beside the Titanic Quarter and the city centre, used mainly for short-haul and business flights. This page covers Belfast City Airport taxis and transfers from Belfast and the surrounding towns we serve. The Sydenham Bypass and the airport approach are the usual roads. Open the Belfast route below when the pickup is in the city, or choose another town for that quote.",
     highlights: [
       "Short transfer times from Belfast city centre, Holywood, and Bangor",
       "Up to 60 minutes complimentary waiting time on airport pickups",
