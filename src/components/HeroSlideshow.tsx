@@ -22,7 +22,7 @@ export default function HeroSlideshow() {
           </h1>
 
           <p className="mt-1.5 max-w-xl text-pretty text-[0.94rem] leading-[1.42] text-white/82 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
-            Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland.
+            Pre-booked private airport taxi service to and from Belfast, Dublin and airports across Northern Ireland.
           </p>
 
           <p className="mt-4 hidden max-w-xl text-sm font-medium leading-snug text-white/78 md:block sm:text-[0.95rem]">

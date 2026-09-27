@@ -29,7 +29,7 @@ assert.match(hero, /Belfast Airport Transfers/);
 assert.match(hero, /Private taxi \| Airport transfers/);
 assert.match(
   hero,
-  /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
+  /Pre-booked private airport taxi service to and from Belfast, Dublin and airports across Northern Ireland\./,
 );
 assert.doesNotMatch(
   hero,

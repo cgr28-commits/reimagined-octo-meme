@@ -41,7 +41,7 @@ console.log("=== Homepage title, description, H1 ===");
   assert.equal(HOMEPAGE_SEO_TITLE, "Belfast Airport Transfers | My Airport Taxi NI");
   assert.equal(
     HOMEPAGE_SEO_DESCRIPTION,
-    "Pre-book fixed-price Belfast airport transfers with flight monitoring, up to 60 minutes’ complimentary waiting on airport pickups, and secure online booking.",
+    "Private airport taxi service for Belfast and Northern Ireland. Pre-book fixed-price airport transfers, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.",
   );
   assert.doesNotMatch(HOMEPAGE_SEO_DESCRIPTION, /60 minutes’ waiting(?! on airport pickups)/);
   assert.match(HOMEPAGE_SEO_DESCRIPTION, /up to 60 minutes’ complimentary waiting on airport pickups/);

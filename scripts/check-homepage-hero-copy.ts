@@ -41,7 +41,7 @@ assert.match(hero, /Private taxi \| Airport transfers/);
 assert.doesNotMatch(hero, />Private airport transfers</);
 assert.match(
   hero,
-  /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
+  /Pre-booked private airport taxi service to and from Belfast, Dublin and airports across Northern Ireland\./,
   "hero supporting copy must explain pre-booked transfers across NI and Dublin",
 );
 assert.match(

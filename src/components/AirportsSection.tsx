@@ -32,7 +32,7 @@ export default function AirportsSection() {
           eyebrow="Destinations"
           title="Airports We Serve"
           navId="airports"
-          description="Transfers to Belfast International, Belfast City, City of Derry, and Dublin — with flight monitoring and complimentary waiting where it applies."
+          description="Airport transfers to Belfast International, Belfast City, City of Derry and Dublin — with flight monitoring and complimentary waiting where it applies."
         />
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4 lg:mt-16 lg:gap-7">
