@@ -229,6 +229,7 @@ console.log("\n=== Sitemap contains the crawl tree and no junk ===");
     "/admin/",
     "/track/demo/",
     "/test-booking/",
+    "/tip/",
     "/transfers/newtownabbey-to-dublin/",
     "/transfers/belfast-to-dublin/",
     "/transfers/newtownabbey-to-belfast-city/",

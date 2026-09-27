@@ -40,6 +40,7 @@ import {
 import { formatUkInstant } from "../../shared/uk-time";
 import { remainingCashDueGbp } from "../../shared/deposit-cash";
 import { formatGbpAmount } from "../../shared/gbp";
+import { whatsAppHrefForMobile } from "../../shared/journey-tip";
 import { formatAirportAccessOptionDashboardValue } from "../../shared/express-drop-off";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
@@ -764,7 +765,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   async function handleJourneyAction(
     booking: OwnerPaidBookingSummary,
     action: JourneyAction,
-    options?: { retryArrivalNotification?: boolean },
+    options?: { retryArrivalNotification?: boolean; customerTipped?: boolean },
   ) {
     setBusyRef(booking.paymentReference);
     setError("");
@@ -804,11 +805,25 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       );
 
       if (action === "complete_journey") {
-        setMessage(
-          result.reviewRequest?.dueAt
-            ? `Journey completed. Google review request scheduled for ${formatUkInstant(result.reviewRequest.dueAt)}.`
-            : "Journey completed. Review request will be scheduled automatically.",
-        );
+        const review = result.reviewRequest?.dueAt
+          ? `Journey completed. Google review request scheduled for ${formatUkInstant(result.reviewRequest.dueAt)}.`
+          : "Journey completed. Review request will be scheduled automatically.";
+        if (result.tip?.whatsappMessage && result.tip.openWhatsApp) {
+          const href = whatsAppHrefForMobile(
+            bookingCustomerMobile(booking),
+            result.tip.whatsappMessage,
+          );
+          if (href) {
+            openWhatsAppDeepLink(href);
+            setMessage(`${review} WhatsApp opened — press Send to message the customer.`);
+          } else {
+            setMessage(`${review} No customer mobile on this booking for WhatsApp.`);
+          }
+        } else if (result.idempotent && result.tip) {
+          setMessage("Journey already completed. The thank-you message was not opened again.");
+        } else {
+          setMessage(review);
+        }
         // Refresh so Upcoming / Completed split uses both legs' statuses.
         void load();
       } else if (action === "arrived_pickup") {
@@ -1067,46 +1082,94 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   {busy && confirming ? "Updating…" : item.label}
                 </button>
                 {confirming ? (
-                  <div
-                    className="rounded-xl border border-white/15 bg-navy/80 p-3"
-                    data-owner-journey-confirm={item.action}
-                    role="group"
-                    aria-label={confirmCopy.title}
-                  >
-                    <p className="text-sm font-semibold text-white">{confirmCopy.title}</p>
-                    {confirmCopy.body ? (
-                      <p className="mt-1 text-xs leading-relaxed text-white/65">
-                        {confirmCopy.body}
-                      </p>
-                    ) : null}
-                    <div className="mt-3 flex flex-col gap-2">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        data-owner-journey-confirm-yes={item.action}
-                        onClick={() => {
-                          setJourneyConfirm(null);
-                          void handleJourneyAction(booking, item.action);
-                        }}
-                        className={
-                          item.action === "complete_journey"
-                            ? "min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
-                            : "min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
-                        }
-                      >
-                        {busy ? "Updating…" : confirmCopy.confirmLabel}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        data-owner-journey-confirm-cancel={item.action}
-                        onClick={() => setJourneyConfirm(null)}
-                        className="min-h-11 w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85 disabled:opacity-60"
-                      >
-                        {confirmCopy.cancelLabel}
-                      </button>
+                  item.action === "complete_journey" ? (
+                    <div
+                      className="rounded-xl border border-white/15 bg-navy/80 p-3"
+                      data-owner-journey-confirm={item.action}
+                      data-owner-tip-prompt
+                      role="group"
+                      aria-label={confirmCopy.title}
+                    >
+                      <p className="text-sm font-semibold text-white">{confirmCopy.title}</p>
+                      <div className="mt-3 flex flex-col gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-owner-tip-yes
+                          onClick={() => {
+                            setJourneyConfirm(null);
+                            void handleJourneyAction(booking, "complete_journey", {
+                              customerTipped: true,
+                            });
+                          }}
+                          className="min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                        >
+                          {busy ? "Updating…" : "Yes"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-owner-tip-no
+                          onClick={() => {
+                            setJourneyConfirm(null);
+                            void handleJourneyAction(booking, "complete_journey", {
+                              customerTipped: false,
+                            });
+                          }}
+                          className="min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                        >
+                          {busy ? "Updating…" : "No"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-owner-tip-cancel
+                          data-owner-journey-confirm-cancel={item.action}
+                          onClick={() => setJourneyConfirm(null)}
+                          className="min-h-11 w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85 disabled:opacity-60"
+                        >
+                          {confirmCopy.cancelLabel}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div
+                      className="rounded-xl border border-white/15 bg-navy/80 p-3"
+                      data-owner-journey-confirm={item.action}
+                      role="group"
+                      aria-label={confirmCopy.title}
+                    >
+                      <p className="text-sm font-semibold text-white">{confirmCopy.title}</p>
+                      {confirmCopy.body ? (
+                        <p className="mt-1 text-xs leading-relaxed text-white/65">
+                          {confirmCopy.body}
+                        </p>
+                      ) : null}
+                      <div className="mt-3 flex flex-col gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-owner-journey-confirm-yes={item.action}
+                          onClick={() => {
+                            setJourneyConfirm(null);
+                            void handleJourneyAction(booking, item.action);
+                          }}
+                          className="min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                        >
+                          {busy ? "Updating…" : confirmCopy.confirmLabel}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-owner-journey-confirm-cancel={item.action}
+                          onClick={() => setJourneyConfirm(null)}
+                          className="min-h-11 w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85 disabled:opacity-60"
+                        >
+                          {confirmCopy.cancelLabel}
+                        </button>
+                      </div>
+                    </div>
+                  )
                 ) : null}
               </div>
             );

@@ -201,7 +201,8 @@ const pages = [
     source: "src/lib/cruise-terminal-content.ts",
   },
   // /unsubscribe/ is noindex — omit from the sitemap.
-  // /book/, /quote/, /manage-booking/, /pay/, /owner/, /driver/ omitted.
+  // /book/, /quote/, /manage-booking/, /pay/, /owner/, /driver/, /tip/ omitted.
+  // /tip/ is a transactional noindex page. Never list tokenised tip URLs.
   // EMERGE landing stays at the same URL year to year — omit from sitemap when expired (no 301).
   ...(EMERGE_CAMPAIGN_ACTIVE
     ? [{ path: emergeConfig.path, source: "src/lib/emerge-belfast-config.json" }]

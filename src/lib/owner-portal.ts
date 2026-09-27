@@ -37,6 +37,7 @@ export function shouldHidePublicSalesWidgets(pathname: string | null | undefined
     isDriverPortalPath(pathname) ||
     path === "/book-quote" ||
     path === "/quick-quote" ||
-    path === "/booking-confirmed"
+    path === "/booking-confirmed" ||
+    path === "/tip"
   );
 }

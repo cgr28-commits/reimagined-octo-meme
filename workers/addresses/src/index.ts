@@ -122,6 +122,10 @@ import {
   isJourneyTransitionPath,
 } from "./journey-handlers";
 import {
+  confirmJourneyTipWebhook,
+  handlePublicTipRequest,
+} from "./journey-tip-handlers";
+import {
   handleOwnerProfileGetRequest,
   handleOwnerProfileSaveRequest,
   isOwnerProfilePath,
@@ -3182,6 +3186,15 @@ async function handlePaymentWebhookRequest(
   }
 
   const checkoutId = extractCheckoutIdFromRequest(request, payload);
+  if (checkoutId) {
+    const tipWebhook = await confirmJourneyTipWebhook(env, checkoutId);
+    if (tipWebhook === "retry") {
+      return json({ ok: false }, 503, origin);
+    }
+    if (tipWebhook === "done") {
+      return json({ ok: true }, 200, origin);
+    }
+  }
   if (checkoutId && pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
     try {
       const booking = await resolveBookingForCheckout(env, checkoutId, null);
@@ -3461,6 +3474,17 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (
+      url.pathname === "/tip/status" ||
+      url.pathname === "/api/tip/status" ||
+      url.pathname === "/tip/checkout" ||
+      url.pathname === "/api/tip/checkout" ||
+      url.pathname === "/tip/confirm" ||
+      url.pathname === "/api/tip/confirm"
+    ) {
+      return handlePublicTipRequest(request, env, origin);
     }
 
     if (
