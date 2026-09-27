@@ -334,14 +334,22 @@ export const TOWN_HUB_PAGES = getTownHubPages();
 
 function leftoverTransferSlug(town: TownArea, airport: AirportPage): string {
   if (airport.code === "DUB" && town.slug === "belfast") {
-    return "belfast-to-dublin";
+    return "belfast-to-dublin-airport";
   }
   return `${town.slug}-to-${airport.slug}`;
+}
+
+function leftoverLegacySlugs(town: TownArea, airport: AirportPage): string[] | undefined {
+  if (airport.code === "DUB" && town.slug === "belfast") {
+    return ["belfast-to-dublin"];
+  }
+  return undefined;
 }
 
 function buildLegacyRoute(town: TownArea, airport: AirportPage): TransferRoutePage {
   return {
     slug: leftoverTransferSlug(town, airport),
+    legacySlugs: leftoverLegacySlugs(town, airport),
     town,
     airport,
     hubSlug: TOWN_HUB_PAGES.find((hub) => hub.town.slug === town.slug)?.slug ?? null,
