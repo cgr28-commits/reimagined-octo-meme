@@ -5,6 +5,7 @@ import { join } from "node:path";
 export const TRANSFER_LEGACY_REDIRECTS = [
   { fromSlug: "newtownabbey-to-belfast-city", toSlug: "newtownabbey-to-belfast-city-airport" },
   { fromSlug: "newtownabbey-to-dublin", toSlug: "newtownabbey-to-dublin-airport" },
+  { fromSlug: "belfast-to-dublin", toSlug: "belfast-to-dublin-airport" },
   { fromSlug: "lisburn-to-belfast-city", toSlug: "lisburn-to-belfast-city-airport" },
   { fromSlug: "lisburn-to-dublin", toSlug: "lisburn-to-dublin-airport" },
   { fromSlug: "bangor-to-belfast-city", toSlug: "bangor-to-belfast-city-airport" },
@@ -17,8 +18,8 @@ export function transferLegacyRedirectEntries() {
   return TRANSFER_LEGACY_REDIRECTS.flatMap(({ fromSlug, toSlug }) => {
     const destination = `/transfers/${toSlug}/`;
     return [
-      { source: `/transfers/${fromSlug}`, destination, permanent: true },
-      { source: `/transfers/${fromSlug}/`, destination, permanent: true },
+      { source: `/transfers/${fromSlug}`, destination, statusCode: 301 },
+      { source: `/transfers/${fromSlug}/`, destination, statusCode: 301 },
     ];
   });
 }
@@ -27,8 +28,9 @@ export function transferLegacyRedirectEntries() {
  * GitHub Pages static export cannot apply next.config redirects()
  * (those are disabled when GITHUB_PAGES=true and output is `export`).
  * Pages also cannot emit HTTP 301 for missing paths — it serves 404.html.
- * Write a noindex + canonical + refresh file at each legacy slug so the
- * live host stops serving an unstyled 404 at those URLs.
+ * Write a noindex file with a canonical and a meta refresh. GitHub Pages
+ * serves that file as HTTP 200 and cannot emit a 301. The script tag is
+ * omitted on purpose. Hosts that run Next.js use the 301 entries above.
  */
 export function githubPagesLegacyRedirectHtml(toSlug, siteUrl = SITE_URL) {
   const destPath = `/transfers/${toSlug}/`;
@@ -41,7 +43,6 @@ export function githubPagesLegacyRedirectHtml(toSlug, siteUrl = SITE_URL) {
   <link rel="canonical" href="${destAbs}">
   <meta name="robots" content="noindex, follow">
   <meta http-equiv="refresh" content="0;url=${destPath}">
-  <script>location.replace(${JSON.stringify(destPath)});</script>
 </head>
 <body>
   <p><a href="${destPath}">Continue to this transfer page</a></p>

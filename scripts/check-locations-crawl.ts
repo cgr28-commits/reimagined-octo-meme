@@ -210,6 +210,7 @@ console.log("\n=== Sitemap contains the crawl tree and no junk ===");
     "/track/demo/",
     "/test-booking/",
     "/transfers/newtownabbey-to-dublin/",
+    "/transfers/belfast-to-dublin/",
     "/transfers/newtownabbey-to-belfast-city/",
   ]) {
     assert.ok(!sitemapPaths.includes(blocked), `sitemap must omit ${blocked}`);

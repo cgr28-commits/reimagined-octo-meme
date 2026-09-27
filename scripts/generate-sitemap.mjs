@@ -100,7 +100,7 @@ const townHubSlugs = [
 const transferSlugs = [
   "belfast-to-belfast-international",
   "belfast-to-belfast-city",
-  "belfast-to-dublin",
+  "belfast-to-dublin-airport",
   "dublin-airport-to-belfast",
   "belfast-to-city-of-derry",
   "newtownabbey-to-belfast-international",

@@ -167,7 +167,8 @@ console.log("\n=== Batch 1 legacy lookups still resolve ===");
     "newtownabbey-to-belfast-city-airport",
   );
   assert.ok(getTransferRoutePage("belfast-to-dublin"));
-  assert.equal(getTransferRoutePage("belfast-to-dublin")?.slug, "belfast-to-dublin");
+  assert.equal(getTransferRoutePage("belfast-to-dublin")?.slug, "belfast-to-dublin-airport");
+  assert.equal(getTransferRoutePage("belfast-to-dublin-airport")?.slug, "belfast-to-dublin-airport");
   console.log("OK  Batch 1 legacy slugs still map to canonicals");
 }
 

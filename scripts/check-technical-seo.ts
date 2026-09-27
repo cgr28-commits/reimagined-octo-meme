@@ -77,7 +77,7 @@ console.log("\n=== Structured data ===");
   const service = getServiceAreaJsonLd({
     name: "Test route",
     description: "Test description",
-    path: "/transfers/belfast-to-dublin/",
+    path: "/transfers/belfast-to-dublin-airport/",
     areaServed: ["Belfast", "Dublin Airport"],
   });
   assert.equal(service["@type"], "Service");

@@ -340,7 +340,7 @@ export default async function TransferRoutePage({ params }: Props) {
             </section>
           ) : null}
 
-          {page.slug === "belfast-to-dublin" ? (
+          {page.slug === "belfast-to-dublin-airport" ? (
             <>
               <p className="mt-8 text-sm leading-relaxed text-white/65">
                 Landing at Dublin Airport and travelling to Belfast? Use{" "}

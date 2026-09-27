@@ -27,6 +27,7 @@ function read(rel: string) {
 /** Previously indexed slugs that were renamed in the first SEO batch. */
 const EXPECTED_REDIRECTS = [
   { fromSlug: "newtownabbey-to-dublin", toSlug: "newtownabbey-to-dublin-airport" },
+  { fromSlug: "belfast-to-dublin", toSlug: "belfast-to-dublin-airport" },
   { fromSlug: "lisburn-to-dublin", toSlug: "lisburn-to-dublin-airport" },
   { fromSlug: "bangor-to-dublin", toSlug: "bangor-to-dublin-airport" },
   { fromSlug: "newtownabbey-to-belfast-city", toSlug: "newtownabbey-to-belfast-city-airport" },
@@ -35,7 +36,7 @@ const EXPECTED_REDIRECTS = [
 ] as const;
 
 const CANONICAL_MUST_NOT_REDIRECT = [
-  "belfast-to-dublin",
+  "belfast-to-dublin-airport",
   "belfast-to-belfast-city",
   "belfast-to-belfast-international",
   "belfast-to-city-of-derry",
@@ -94,8 +95,10 @@ async function main() {
     assert.ok(withSlash, `missing redirect ${item.sourceTrailing}`);
     assert.equal(withoutSlash.destination, item.destination);
     assert.equal(withSlash.destination, item.destination);
-    assert.equal(withoutSlash.permanent, true);
-    assert.equal(withSlash.permanent, true);
+    assert.equal(withoutSlash.statusCode, 301);
+    assert.equal(withSlash.statusCode, 301);
+    assert.equal(withoutSlash.permanent, undefined);
+    assert.equal(withSlash.permanent, undefined);
     assert.notEqual(item.source, item.destination);
     assert.notEqual(item.sourceTrailing, item.destination);
   }
@@ -152,6 +155,7 @@ async function main() {
       assert.equal(html, expected);
       assert.match(html, /noindex, follow/);
       assert.match(html, new RegExp(`/transfers/${item.toSlug}/`));
+      assert.doesNotMatch(html, /<script/);
       assert.doesNotMatch(html, /<h1>/);
       assert.doesNotMatch(html, /_next\/static/);
     }
