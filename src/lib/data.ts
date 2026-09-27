@@ -309,7 +309,7 @@ export const ALL_AIRPORTS = [
     mapLabel: "Dublin Airport, Ireland",
     mapLocation: { lat: 53.4213, lng: -6.2701 },
     description:
-      "Comfortable cross-border transfers with experienced drivers who know every route and checkpoint.",
+      "Comfortable cross-border transfers between Belfast and Dublin Airport, with fixed quotes and applicable M1 tolls included.",
   },
   {
     code: "LDY",
