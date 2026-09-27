@@ -136,7 +136,7 @@ export const TRANSFER_ROUTE_BELFAST: TransferRouteContent[] = [
       {
         question: "How long does Belfast to Dublin Airport take?",
         answer:
-          "The airport guide describes Dublin Airport as around two hours from Belfast in normal traffic, usually via the A1 and M1. Border timing can add to that. The quote tool maps the time from your street. Journey times are approximate and can vary depending on traffic and time of day.",
+          "The airport guide describes Dublin Airport as around two hours from Belfast in normal traffic, usually via the A1 and M1. Traffic conditions along the A1/M1 corridor can add to that. The quote tool maps the time from your street. Journey times are approximate and can vary depending on traffic and time of day.",
       },
       {
         question: "Are M1 tolls included from Belfast to Dublin Airport?",
