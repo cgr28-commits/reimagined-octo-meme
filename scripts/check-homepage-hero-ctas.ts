@@ -37,7 +37,7 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
   assert.match(header, /Get a Quote/);
   assert.match(
     hero,
-    /Pre-booked private airport transfers to and from Belfast, Dublin and airports across Northern Ireland\./,
+    /Pre-booked private airport taxi service to and from Belfast, Dublin and airports across Northern Ireland\./,
   );
   console.log("OK  header CTA + destination coverage text present");
 }
