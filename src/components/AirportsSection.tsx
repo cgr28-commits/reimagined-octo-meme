@@ -1,12 +1,26 @@
 import Link from "next/link";
 import { AIRPORTS } from "@/lib/data";
-import { AIRPORT_PAGES } from "@/lib/location-pages";
+import { AIRPORT_PAGES, TRANSFER_ROUTE_PAGES } from "@/lib/location-pages";
 import AirportBookNowLink from "./AirportBookNowLink";
 import SectionHeading from "./SectionHeading";
 
 function airportPageHref(code: string): string | null {
   const page = AIRPORT_PAGES.find((item) => item.code === code);
   return page ? `/airports/${page.slug}/` : null;
+}
+
+function belfastRouteLink(code: string): { href: string; label: string } | null {
+  const route = TRANSFER_ROUTE_PAGES.find(
+    (item) =>
+      item.airport.code === code &&
+      item.town.slug === "belfast" &&
+      item.direction !== "from-airport",
+  );
+  if (!route) return null;
+  return {
+    href: `/transfers/${route.slug}/`,
+    label: `Belfast to ${route.airport.shortName}`,
+  };
 }
 
 export default function AirportsSection() {
@@ -24,6 +38,7 @@ export default function AirportsSection() {
         <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4 lg:mt-16 lg:gap-7">
           {AIRPORTS.map((airport) => {
             const href = airportPageHref(airport.code);
+            const belfastRoute = belfastRouteLink(airport.code);
             return (
               <article
                 key={airport.code}
@@ -55,6 +70,14 @@ export default function AirportsSection() {
                     airportCode={airport.code}
                     className="inline-flex items-center gap-1 text-sm font-semibold text-emerald transition-colors hover:text-emerald-light"
                   />
+                  {belfastRoute ? (
+                    <Link
+                      href={belfastRoute.href}
+                      className="text-sm font-semibold text-white/55 transition-colors hover:text-emerald"
+                    >
+                      {belfastRoute.label}
+                    </Link>
+                  ) : null}
                   {href ? (
                     <Link
                       href={href}

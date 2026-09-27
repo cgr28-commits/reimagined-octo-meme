@@ -62,7 +62,7 @@ console.log("=== Town hubs and landing routes exist ===");
     TOWN_HUB_PAGES.map((hub) => hub.town.slug).sort(),
     [...HUB_TOWNS].sort(),
   );
-  assert.equal(landingRoutes.length, 55);
+  assert.equal(landingRoutes.length, 59);
   for (const town of HUB_TOWNS) {
     const hub = TOWN_HUB_PAGES.find((item) => item.town.slug === town);
     assert.ok(hub, `missing hub for ${town}`);
@@ -75,7 +75,7 @@ console.log("=== Town hubs and landing routes exist ===");
     );
     assert.ok(routes.every((route) => route.slug && route.hubSlug === hub.slug));
   }
-  console.log("OK  18 town hubs and 55 BFS/BHD/DUB landing routes");
+  console.log("OK  18 town hubs and 59 landing routes");
 }
 
 console.log("\n=== /locations/ links to every town hub ===");
@@ -114,6 +114,26 @@ console.log("\n=== Homepage and footer can reach the locations tree ===");
   assert.match(footer, /TOWN_HUB_PAGES/);
   assert.match(footer, /href=\{`\/locations\/\$\{hub\.slug\}\/`\}/);
   assert.match(footer, /href="\/locations\/"/);
+  const airportsSection = read("src/components/AirportsSection.tsx");
+  assert.match(airportsSection, /town\.slug === "belfast"/);
+  assert.match(airportsSection, /direction !== "from-airport"/);
+  for (const slug of [
+    "belfast-to-belfast-international",
+    "belfast-to-belfast-city",
+    "belfast-to-dublin-airport",
+    "belfast-to-city-of-derry",
+  ]) {
+    const route = TRANSFER_ROUTE_PAGES.find((item) => item.slug === slug);
+    assert.ok(route, slug);
+    assert.equal(route.town.slug, "belfast");
+    assert.notEqual(route.direction, "from-airport");
+  }
+  assert.match(routePage, /href="\/transfers\/belfast-to-dublin-airport\/"/);
+  assert.match(routePage, /Belfast airport transfers/);
+  assert.doesNotMatch(routePage, /href="\/transfers\/belfast-to-dublin\/"/);
+  const airportPage = read("src/app/airports/[slug]/page.tsx");
+  assert.match(airportPage, /town\.slug === "belfast"/);
+  assert.match(airportPage, /town\.slug !== "belfast"/);
   console.log("OK  homepage nav, Areas We Cover, and footer link into the hub tree");
 }
 
@@ -158,9 +178,9 @@ console.log("\n=== Canonicals ===");
   const titles = landingRoutes.map((route) => route.title);
   const descriptions = landingRoutes.map((route) => route.metaDescription);
   const h1s = landingRoutes.map((route) => route.h1);
-  assert.equal(new Set(titles).size, 55);
-  assert.equal(new Set(descriptions).size, 55);
-  assert.equal(new Set(h1s).size, 55);
+  assert.equal(new Set(titles).size, 59);
+  assert.equal(new Set(descriptions).size, 59);
+  assert.equal(new Set(h1s).size, 59);
   console.log("OK  self-referencing HTTPS www canonicals and unique titles/descriptions");
 }
 

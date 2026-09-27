@@ -336,6 +336,20 @@ export default async function TransferRoutePage({ params }: Props) {
                     All airport transfers
                   </Link>
                 </p>
+              ) : page.town.slug === "belfast" ? (
+                <p className="mt-4 text-sm leading-relaxed text-white/50">
+                  <Link href="/" className="text-emerald hover:text-emerald-light">
+                    Belfast airport transfers
+                  </Link>{" "}
+                  are quoted from the homepage. This journey also sits on the{" "}
+                  <Link
+                    href={`/airports/${page.airport.slug}/`}
+                    className="text-emerald hover:text-emerald-light"
+                  >
+                    {page.airport.shortName} transfers
+                  </Link>{" "}
+                  guide.
+                </p>
               ) : null}
             </section>
           ) : null}
@@ -354,6 +368,19 @@ export default async function TransferRoutePage({ params }: Props) {
               </p>
               <EmergeDiscoveryPromo description="Flying into Dublin for EMERGE? Pre-book your airport, hotel or return transfer for 29–30 August 2026." />
             </>
+          ) : null}
+
+          {page.slug === "dublin-airport-to-belfast" ? (
+            <p className="mt-8 text-sm leading-relaxed text-white/65">
+              Travelling from Belfast to Dublin Airport? Use{" "}
+              <Link
+                href="/transfers/belfast-to-dublin-airport/"
+                className="text-emerald hover:text-emerald-light"
+              >
+                Belfast to Dublin Airport taxi
+              </Link>
+              .
+            </p>
           ) : null}
 
           {isLanding ? (
