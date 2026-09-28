@@ -27,6 +27,7 @@ assert.match(hero, /id="quote"/);
 assert.match(hero, /<QuoteCard/);
 assert.match(hero, /Belfast Airport Transfers/);
 assert.match(hero, /Private airport transfers • Belfast &amp; Northern Ireland/);
+assert.match(hero, /md:hidden">Private airport transfers • Northern Ireland/);
 assert.match(
   hero,
   /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,

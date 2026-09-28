@@ -38,6 +38,8 @@ assert.doesNotMatch(
   "homepage H1 should no longer be the brand name",
 );
 assert.match(hero, /Private airport transfers • Belfast &amp; Northern Ireland/);
+assert.match(hero, /md:hidden">Private airport transfers • Northern Ireland/);
+assert.match(hero, /hidden md:inline/);
 assert.doesNotMatch(
   hero,
   /section-eyebrow[\s\S]{0,240}taxi/i,
