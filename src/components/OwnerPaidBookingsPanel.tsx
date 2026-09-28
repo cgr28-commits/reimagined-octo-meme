@@ -5,6 +5,7 @@ import {
   assignedDriverDisplay,
   formatDisplayTripDate,
   isOwnerOperationalTestBooking,
+  londonYmd,
   journeyStatusLabel,
   nextUnfinishedSortKey,
   OWNER_PRIMARY_JOURNEY_BUTTON_LABELS,
@@ -16,6 +17,7 @@ import {
   expandOwnerBookingJobLegs,
   expandOwnerPaidBookingLegs,
   formatOwnerOpsMoney,
+  groupCompletedDaysByMonth,
   groupCompletedJobsByDate,
   groupFutureJobsByDate,
   selectAwaitingPaymentItems,
@@ -45,6 +47,7 @@ import { formatAirportAccessOptionDashboardValue } from "../../shared/express-dr
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import {
+  fetchOwnerPaidBooking,
   fetchOwnerPaidBookings,
   fetchOwnerPendingCheckouts,
   fetchRefundDiagnostics,
@@ -89,6 +92,9 @@ import {
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
 };
+
+const OWNER_JOBS_PAST_CAP_DAYS = 120;
+const OWNER_JOBS_PAST_PAGE_DAYS = 31;
 
 function reviewStatusLabel(
   status: OwnerReviewRequestSummary["status"] | undefined,
@@ -442,6 +448,34 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     paymentReference: string;
     action: OwnerPrimaryJourneyAction;
   } | null>(null);
+  const [jobsView, setJobsView] = useState<"upcoming" | "past">("upcoming");
+  const [pastBookings, setPastBookings] = useState<OwnerPaidBookingSummary[]>([]);
+  const [pastDaysLoaded, setPastDaysLoaded] = useState(0);
+  const [pastLoading, setPastLoading] = useState(false);
+  const [pastMonth, setPastMonth] = useState("all");
+  const [pastQuery, setPastQuery] = useState("");
+  const [pastSearchHit, setPastSearchHit] = useState<OwnerPaidBookingSummary | null>(null);
+  const [pastSearchError, setPastSearchError] = useState("");
+
+  const loadPast = useCallback(async (days: number) => {
+    const pastDays = Math.min(Math.max(days, 1), OWNER_JOBS_PAST_CAP_DAYS);
+    setPastLoading(true);
+    setError("");
+    try {
+      const next = await fetchOwnerPaidBookings(ownerKey, {
+        mode: "upcoming",
+        pastDays,
+        futureDays: 1,
+        limit: 250,
+      });
+      setPastBookings(next);
+      setPastDaysLoaded(pastDays);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load past jobs");
+    } finally {
+      setPastLoading(false);
+    }
+  }, [ownerKey]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -450,9 +484,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       const [nextBookings, nextPending, nextJobs] = await Promise.all([
         fetchOwnerPaidBookings(ownerKey, {
           mode: "upcoming",
-          pastDays: 120,
+          pastDays: 0,
           futureDays: 120,
-          limit: 400,
+          limit: 250,
         }),
         fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(
           () => [] as OwnerPendingCheckoutSummary[],
@@ -462,16 +496,30 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
       setBookings(nextBookings);
       setPending(nextPending);
       setBookingJobs(nextJobs);
+      if (pastDaysLoaded > 0) {
+        const past = await fetchOwnerPaidBookings(ownerKey, {
+          mode: "upcoming",
+          pastDays: pastDaysLoaded,
+          futureDays: 1,
+          limit: 250,
+        });
+        setPastBookings(past);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load paid bookings");
     } finally {
       setLoading(false);
     }
-  }, [ownerKey]);
+  }, [ownerKey, pastDaysLoaded]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (jobsView !== "past" || pastDaysLoaded > 0) return;
+    void loadPast(OWNER_JOBS_PAST_PAGE_DAYS);
+  }, [jobsView, pastDaysLoaded, loadPast]);
 
   const operationalBookings = useMemo(
     () => bookings.filter((booking) => !isOwnerOperationalTestBooking(booking)),
@@ -494,9 +542,22 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const todayCompleted = useMemo(() => selectTodayCompletedLegs(paidLegs), [paidLegs]);
   const futureGroups = useMemo(() => groupFutureJobsByDate(allOpsLegs), [allOpsLegs]);
   const completedHistory = useMemo(() => groupCompletedJobsByDate(paidLegs), [paidLegs]);
-  const completedHistoryOlder = useMemo(
-    () => completedHistory.filter((group) => group.label !== "Today"),
-    [completedHistory],
+  const pastOperational = useMemo(
+    () => pastBookings.filter((booking) => !isOwnerOperationalTestBooking(booking)),
+    [pastBookings],
+  );
+  const pastLegs = useMemo(
+    () => pastOperational.flatMap(expandOwnerPaidBookingLegs),
+    [pastOperational],
+  );
+  const pastHistory = useMemo(() => {
+    const today = londonYmd();
+    return groupCompletedJobsByDate(pastLegs).filter((group) => group.date < today);
+  }, [pastLegs]);
+  const pastMonths = useMemo(() => groupCompletedDaysByMonth(pastHistory), [pastHistory]);
+  const visiblePastMonths = useMemo(
+    () => (pastMonth === "all" ? pastMonths : pastMonths.filter((month) => month.key === pastMonth)),
+    [pastMonths, pastMonth],
   );
   const awaitingPaymentItems = useMemo(
     () =>
@@ -524,6 +585,24 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const [awaitingOpen, setAwaitingOpen] = useState(false);
   const [futureOpenDates, setFutureOpenDates] = useState<Record<string, boolean>>({});
   const [historyOpenDates, setHistoryOpenDates] = useState<Record<string, boolean>>({});
+  const [openPastMonths, setOpenPastMonths] = useState<Record<string, boolean>>({});
+
+  async function searchPastBooking() {
+    const ref = pastQuery.trim();
+    setPastSearchError("");
+    setPastSearchHit(null);
+    if (!ref) return;
+    try {
+      const found = await fetchOwnerPaidBooking(ownerKey, ref);
+      if (!found) {
+        setPastSearchError("No booking found for that reference.");
+        return;
+      }
+      setPastSearchHit(found);
+    } catch (err) {
+      setPastSearchError(err instanceof Error ? err.message : "Could not find that booking");
+    }
+  }
 
   function toggleDateOpen(
     setter: (value: Record<string, boolean> | ((current: Record<string, boolean>) => Record<string, boolean>)) => void,
@@ -537,8 +616,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     for (const booking of operationalBookings) {
       map.set(booking.paymentReference, booking);
     }
+    for (const booking of pastOperational) {
+      map.set(booking.paymentReference, booking);
+    }
     return map;
-  }, [operationalBookings]);
+  }, [operationalBookings, pastOperational]);
 
   const bookingJobsById = useMemo(() => {
     const map = new Map<string, BookingJobRecord>();
@@ -2010,10 +2092,34 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         </p>
       ) : null}
 
-      {loading ? (
+      <div className="mb-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Jobs">
+        {(
+          [
+            ["upcoming", "Upcoming"],
+            ["past", "Past Jobs"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={jobsView === value}
+            onClick={() => setJobsView(value)}
+            className={`min-h-12 rounded-xl px-3 text-sm font-bold ${
+              jobsView === value ? "bg-emerald text-navy" : "border border-white/15 text-white"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {loading && jobsView === "upcoming" ? (
         <p className="text-sm text-white/60">Loading jobs…</p>
       ) : (
         <div className="space-y-4">
+          {jobsView === "upcoming" ? (
+          <>
           <section aria-label="Today’s upcoming jobs">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h4 className="text-base font-bold text-white">
@@ -2162,43 +2268,121 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               </ul>
             )}
           </section>
-
-          <section className="rounded-xl border border-white/10 bg-navy/40">
+          </>
+          ) : (
+          <section className="rounded-xl border border-white/10 bg-navy/40" data-owner-past-jobs>
             <div className="px-4 py-3">
               <h4 className="text-sm font-bold text-white">Completed Jobs</h4>
               <p className="mt-1 text-xs text-white/45">
-                Grouped by the date the journey leg was completed. Older days stay collapsed.
+                Earlier completed journeys, by month. Today stays on Upcoming.
               </p>
             </div>
-            {completedHistoryOlder.length === 0 ? (
+            <div className="space-y-2 border-t border-white/10 px-4 py-3">
+              <label className="block text-sm text-white/70">
+                Month
+                <select
+                  value={pastMonth}
+                  onChange={(event) => setPastMonth(event.target.value)}
+                  className="mt-1 min-h-12 w-full rounded-xl border border-white/15 bg-navy px-3 text-base text-white"
+                >
+                  <option value="all">All loaded months</option>
+                  {pastMonths.map((month) => (
+                    <option key={month.key} value={month.key}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <form
+                className="flex flex-col gap-2 sm:flex-row"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void searchPastBooking();
+                }}
+              >
+                <label className="block min-w-0 flex-1 text-sm text-white/70">
+                  Booking reference
+                  <input
+                    value={pastQuery}
+                    onChange={(event) => setPastQuery(event.target.value)}
+                    placeholder="Search a reference"
+                    className="mt-1 min-h-12 w-full rounded-xl border border-white/15 bg-navy px-3 text-base text-white"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="min-h-12 rounded-xl bg-emerald px-4 text-sm font-bold text-navy sm:self-end"
+                >
+                  Find
+                </button>
+              </form>
+              {pastSearchError ? <p className="text-sm text-red-100">{pastSearchError}</p> : null}
+              {pastSearchHit ? (
+                <ul className="space-y-4">
+                  {renderBookingCard(pastSearchHit, { compact: true })}
+                </ul>
+              ) : null}
+            </div>
+            {pastLoading && pastMonths.length === 0 ? (
+              <p className="px-4 pb-3 text-sm text-white/55">Loading past jobs…</p>
+            ) : visiblePastMonths.length === 0 ? (
               <p className="px-4 pb-3 text-sm text-white/55">
                 No earlier completed journeys in this window.
               </p>
             ) : (
               <ul className="border-t border-white/10">
-                {completedHistoryOlder.map((group) => {
-                  const open = historyOpenDates[group.date] === true;
+                {visiblePastMonths.map((month, monthIndex) => {
+                  const monthOpen = openPastMonths[month.key] ?? monthIndex === 0;
                   return (
-                    <li key={group.date} className="border-b border-white/8 last:border-b-0">
+                    <li key={month.key} className="border-b border-white/8 last:border-b-0">
                       <button
                         type="button"
-                        onClick={() => toggleDateOpen(setHistoryOpenDates, group.date)}
-                        aria-expanded={open}
+                        onClick={() =>
+                          setOpenPastMonths((current) => ({
+                            ...current,
+                            [month.key]: !monthOpen,
+                          }))
+                        }
+                        aria-expanded={monthOpen}
                         className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
                       >
                         <span className="text-sm font-semibold text-white">
-                          {group.label} — {group.count} completed
-                          {typeof group.earnedGbp === "number"
-                            ? ` — ${formatOwnerOpsMoney(group.earnedGbp)}`
-                            : ""}
+                          {month.label} — {month.count} completed — {formatOwnerOpsMoney(month.earnedGbp)}
                         </span>
                         <span className="text-emerald" aria-hidden>
-                          {open ? "▲" : "▶"}
+                          {monthOpen ? "▲" : "▶"}
                         </span>
                       </button>
-                      {open ? (
-                        <ul className="space-y-4 px-3 pb-3">
-                          {group.items.map((leg) => renderOpsLeg(leg, { compact: true }))}
+                      {monthOpen ? (
+                        <ul>
+                          {month.days.map((group) => {
+                            const open = historyOpenDates[group.date] === true;
+                            return (
+                              <li key={group.date} className="border-t border-white/8">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleDateOpen(setHistoryOpenDates, group.date)}
+                                  aria-expanded={open}
+                                  className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                                >
+                                  <span className="text-sm text-white">
+                                    {group.label} — {group.count} completed
+                                    {typeof group.earnedGbp === "number"
+                                      ? ` — ${formatOwnerOpsMoney(group.earnedGbp)}`
+                                      : ""}
+                                  </span>
+                                  <span className="text-emerald" aria-hidden>
+                                    {open ? "▲" : "▶"}
+                                  </span>
+                                </button>
+                                {open ? (
+                                  <ul className="space-y-4 px-3 pb-3">
+                                    {group.items.map((leg) => renderOpsLeg(leg, { compact: true }))}
+                                  </ul>
+                                ) : null}
+                              </li>
+                            );
+                          })}
                         </ul>
                       ) : null}
                     </li>
@@ -2206,9 +2390,26 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                 })}
               </ul>
             )}
+            {pastDaysLoaded < OWNER_JOBS_PAST_CAP_DAYS ? (
+              <div className="px-4 pb-4">
+                <button
+                  type="button"
+                  disabled={pastLoading}
+                  onClick={() => void loadPast(pastDaysLoaded + OWNER_JOBS_PAST_PAGE_DAYS)}
+                  className="min-h-12 w-full rounded-xl border border-white/15 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {pastLoading ? "Loading…" : "Load earlier jobs"}
+                </button>
+              </div>
+            ) : (
+              <p className="px-4 pb-4 text-xs text-white/45">
+                Showing the last {OWNER_JOBS_PAST_CAP_DAYS} days. Search a booking reference for anything older.
+              </p>
+            )}
           </section>
+          )}
 
-          {refundsPending.length > 0 ? (
+          {jobsView === "upcoming" && refundsPending.length > 0 ? (
             <div className="border-t border-amber-400/20 pt-6">
               <h3 className="text-base font-bold text-amber-100">Refunds Pending</h3>
               <p className="mt-2 text-sm text-white/55">
@@ -2270,6 +2471,18 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
                   ? { ...entry, ...updated }
                   : entry,
               ),
+            );
+            setPastBookings((current) =>
+              current.map((entry) =>
+                entry.paymentReference === updated.paymentReference
+                  ? { ...entry, ...updated }
+                  : entry,
+              ),
+            );
+            setPastSearchHit((current) =>
+              current?.paymentReference === updated.paymentReference
+                ? { ...current, ...updated }
+                : current,
             );
             setEditingBooking(null);
             setOfferUpdatedConfirmationRef(updated.paymentReference);

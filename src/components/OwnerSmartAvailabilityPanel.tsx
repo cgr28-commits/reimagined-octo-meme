@@ -9,6 +9,7 @@ import {
   describeUntilEndLocal,
   resolveCurrentAvailabilityStatus,
   selectActiveUnavailableRules,
+  smartAvailabilityEffect,
   untilShortcutEndLocal,
   unavailableFormFromRule,
   validateUnavailableTimeForm,
@@ -25,6 +26,8 @@ import {
 } from "../../shared/smart-conflict";
 import { addDaysYmd, londonYmd } from "../../shared/upcoming-jobs";
 import { fetchOwnerPaidBookings } from "@/lib/paid-bookings-api";
+import { fetchBookingSettings, type BookingSettings, type UnavailablePeriodSummary } from "@/lib/short-notice-api";
+import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import {
   evaluateSmartOpsTest,
   fetchSmartOpsCalendar,
@@ -45,6 +48,7 @@ type CalendarState = {
     startLocal: string;
     endLocal: string;
     recurring: boolean;
+    status?: "unavailable" | "request_only";
   }>;
 };
 
@@ -56,6 +60,7 @@ function emptyForm(today = londonYmd()): UnavailableTimeForm {
   const date = addDaysYmd(today, 1);
   return {
     repeat: "one_off",
+    effect: "unavailable",
     date,
     endDate: date,
     startTime: "00:00",
@@ -88,6 +93,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
   const [focusDay, setFocusDay] = useState(today);
   const [calendar, setCalendar] = useState<CalendarState | null>(null);
   const [form, setForm] = useState<UnavailableTimeForm>(() => emptyForm(today));
+  const [legacyPeriods, setLegacyPeriods] = useState<UnavailablePeriodSummary[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [untilOpen, setUntilOpen] = useState(false);
@@ -112,8 +118,14 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
   }, []);
   const now = useMemo(() => new Date(nowMs), [nowMs]);
   const currentStatus = useMemo(
-    () => resolveCurrentAvailabilityStatus({ rules, exceptions: state?.exceptions, now }),
-    [rules, state?.exceptions, now],
+    () =>
+      resolveCurrentAvailabilityStatus({
+        rules,
+        exceptions: state?.exceptions,
+        legacyPeriods,
+        now,
+      }),
+    [rules, state?.exceptions, legacyPeriods, now],
   );
   const activeRules = useMemo(
     () =>
@@ -144,10 +156,18 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
     return groups;
   }, [activeRules, today]);
 
+  const onLegacySettings = useCallback((settings: BookingSettings) => {
+    setLegacyPeriods(settings.unavailablePeriods || []);
+  }, []);
+
   const load = useCallback(async () => {
-    const result = await fetchSmartOpsState(ownerKey);
+    const [result, settings] = await Promise.all([
+      fetchSmartOpsState(ownerKey),
+      fetchBookingSettings(ownerKey).catch(() => null),
+    ]);
     setState(result.state);
     setShadow(result.shadow || []);
+    setLegacyPeriods(settings?.unavailablePeriods || []);
   }, [ownerKey]);
 
   const loadCalendar = useCallback(async () => {
@@ -244,19 +264,30 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
     <section className="mb-10 w-full min-w-0 max-w-full space-y-4" data-owner-smart-ops>
       <div
         className={`rounded-2xl border p-4 sm:p-5 ${
-          currentStatus.available
-            ? "border-emerald/40 bg-emerald/10"
-            : "border-red-400/40 bg-red-500/10"
+          currentStatus.state === "request_only"
+            ? "border-amber-300/40 bg-amber-500/10"
+            : currentStatus.available
+              ? "border-emerald/40 bg-emerald/10"
+              : "border-red-400/40 bg-red-500/10"
         }`}
         data-owner-availability-status
+        data-availability-state={currentStatus.state}
       >
         <h2 className="text-lg font-bold text-white">Availability</h2>
         <p
           className={`mt-3 text-xl font-extrabold tracking-tight sm:text-2xl ${
-            currentStatus.available ? "text-emerald" : "text-red-100"
+            currentStatus.state === "request_only"
+              ? "text-amber-100"
+              : currentStatus.available
+                ? "text-emerald"
+                : "text-red-100"
           }`}
         >
-          {currentStatus.available ? "🟢 AVAILABLE NOW" : `🔴 ${currentStatus.headline}`}
+          {currentStatus.state === "request_only"
+            ? `🟠 ${currentStatus.headline}`
+            : currentStatus.available
+              ? "🟢 AVAILABLE NOW"
+              : `🔴 ${currentStatus.headline}`}
         </p>
         <p className="mt-1 text-sm text-white/70">{currentStatus.detail}</p>
         {error ? (
@@ -281,7 +312,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
               {
                 label: "Available now",
                 action: () => run("available_now"),
-                emphasize: currentStatus.available === false,
+                emphasize: currentStatus.state === "unavailable",
               },
             ] as const
           ).map((item) => (
@@ -383,7 +414,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
           className="flex min-h-12 w-full items-center justify-between gap-3 text-left"
         >
           <span className="text-sm font-bold uppercase tracking-wider text-white/70">
-            {editingId ? "Edit unavailable time" : "+ Schedule unavailable time"}
+            {editingId ? "Edit availability rule" : "+ Schedule availability"}
           </span>
           <span className="text-emerald" aria-hidden>
             {scheduleOpen || editingId ? "▲" : "▼"}
@@ -392,34 +423,63 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
         {scheduleOpen || editingId ? (
         <div className="mt-3 grid w-full min-w-0 max-w-full grid-cols-1 gap-3">
           <p className="text-sm text-white/60">
-            For planned future unavailability. Overnight needs an until date on the next day.
+            Unavailable blocks online booking. Request only lets customers send a booking that you approve.
+            Overnight needs an until date on the next day.
           </p>
-          <label className={labelClass}>
-            {form.repeat === "recurring" ? "From date" : "Start date"}
-            <input
-              type="date"
-              value={form.date}
-              onChange={(event) => {
-                const date = event.target.value;
-                setForm((prev) => ({
-                  ...prev,
-                  date,
-                  endDate: !prev.endDate || prev.endDate < date ? date : prev.endDate,
-                }));
-              }}
-              className={fieldClass}
-            />
-          </label>
+          <fieldset className="min-w-0">
+            <legend className={labelClass}>Status</legend>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["unavailable", "Unavailable"],
+                  ["request_only", "Request only"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, effect: value }))}
+                  className={`min-h-12 rounded-xl px-3 text-sm font-bold ${
+                    form.effect === value
+                      ? value === "request_only"
+                        ? "bg-amber-300 text-navy"
+                        : "bg-rose-400 text-navy"
+                      : "border border-white/15 text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
           {form.repeat === "one_off" ? (
-            <label className={labelClass}>
-              Until date
-              <input
-                type="date"
-                value={form.endDate}
-                onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
-                className={fieldClass}
-              />
-            </label>
+            <>
+              <label className={labelClass}>
+                Start date
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(event) => {
+                    const date = event.target.value;
+                    setForm((prev) => ({
+                      ...prev,
+                      date,
+                      endDate: !prev.endDate || prev.endDate < date ? date : prev.endDate,
+                    }));
+                  }}
+                  className={fieldClass}
+                />
+              </label>
+              <label className={labelClass}>
+                Until date
+                <input
+                  type="date"
+                  value={form.endDate}
+                  onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                  className={fieldClass}
+                />
+              </label>
+            </>
           ) : null}
           <div className="grid w-full min-w-0 max-w-full grid-cols-2 gap-2">
             <label className={labelClass}>
@@ -488,7 +548,14 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setForm((prev) => ({ ...prev, repeat: value }))}
+                  onClick={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      repeat: value,
+                      weekdays:
+                        value === "recurring" && prev.weekdays.length === 0 ? [1] : prev.weekdays,
+                    }))
+                  }
                   className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${
                     form.repeat === value
                       ? "bg-emerald text-navy"
@@ -503,13 +570,14 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
           {form.repeat === "recurring" ? (
             <fieldset className="min-w-0">
               <legend className={labelClass}>Days of the week</legend>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="mt-2 grid grid-cols-7 gap-1">
                 {ISO_WEEKDAYS.map((day) => {
                   const on = form.weekdays.includes(day.iso);
                   return (
                     <button
                       key={day.iso}
                       type="button"
+                      aria-pressed={on}
                       onClick={() =>
                         setForm((prev) => ({
                           ...prev,
@@ -518,11 +586,11 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                             : [...prev.weekdays, day.iso],
                         }))
                       }
-                      className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${
+                      className={`min-h-12 min-w-0 rounded-xl px-0 text-xs font-bold sm:text-sm ${
                         on ? "bg-emerald text-navy" : "border border-white/15 text-white"
                       }`}
                     >
-                      {day.label}
+                      {day.short}
                     </button>
                   );
                 })}
@@ -569,7 +637,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
       </div>
 
       <div className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Your unavailable times</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Your availability rules</h3>
         <div className="mt-3 space-y-4">
           {groupedActiveRules.map((group) => (
             <div key={group.key}>
@@ -581,9 +649,20 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                     className="flex min-h-12 w-full min-w-0 items-center gap-2 py-1.5"
                     data-unavailable-rule={rule.id}
                   >
-                    <p className="min-w-0 flex-1 break-words text-sm font-semibold text-white">
-                      {compactUnavailableRuleLabel(rule, today)}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`inline-flex rounded-lg px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
+                          smartAvailabilityEffect(rule) === "request_only"
+                            ? "bg-amber-500/20 text-amber-100"
+                            : "bg-rose-500/20 text-rose-100"
+                        }`}
+                      >
+                        {smartAvailabilityEffect(rule) === "request_only" ? "Request only" : "Unavailable"}
+                      </p>
+                      <p className="mt-1 break-words text-sm font-semibold text-white">
+                        {compactUnavailableRuleLabel(rule, today)}
+                      </p>
+                    </div>
                     <button
                       type="button"
                       disabled={busy}
@@ -611,6 +690,12 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
           ) : null}
         </div>
       </div>
+
+      <OwnerShortNoticePanel
+        ownerKey={ownerKey}
+        section="manage"
+        onSettingsChange={onLegacySettings}
+      />
 
       <div className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -659,10 +744,15 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
                     return (
                       <li
                         key={`${item.ruleId || "x"}-${item.startLocal}-${item.endLocal}`}
-                        className="rounded-lg bg-rose-500/15 px-3 py-2 text-rose-100"
+                        className={`rounded-lg px-3 py-2 ${
+                          item.status === "request_only"
+                            ? "bg-amber-500/15 text-amber-100"
+                            : "bg-rose-500/15 text-rose-100"
+                        }`}
                       >
                         <p className="break-words font-semibold">
-                          Unavailable · {item.startLocal.slice(11, 16)}–{item.endLocal.slice(11, 16)}
+                          {item.status === "request_only" ? "Request only" : "Unavailable"} ·{" "}
+                          {item.startLocal.slice(11, 16)}–{item.endLocal.slice(11, 16)}
                           {item.recurring ? " · weekly" : ""}
                         </p>
                         {rule ? (

@@ -17,6 +17,7 @@ import OwnerDashboardToolSwitcher, {
   type OwnerDashboardToolTab,
 } from "@/components/OwnerDashboardToolSwitcher";
 import OwnerSmartAvailabilityPanel from "@/components/OwnerSmartAvailabilityPanel";
+import OwnerLiveAvailabilityCard from "@/components/OwnerLiveAvailabilityCard";
 import OwnerPricingPanel from "@/components/OwnerPricingPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
@@ -3008,12 +3009,25 @@ export default function DriverPageClient({
                 }
               >
               {isOwnerView && savedKey ? (
+                <OwnerLiveAvailabilityCard
+                  ownerKey={savedKey}
+                  onOpenAvailability={() => setOwnerToolTab("availability")}
+                />
+              ) : null}
+
+              {isOwnerView && savedKey ? (
                 <OwnerFinancialSummaryPanel ownerKey={savedKey} />
               ) : null}
 
               {isOwnerView && savedKey ? <OwnerPaidBookingsPanel ownerKey={savedKey} /> : null}
 
-              {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
+              {isOwnerView && savedKey ? (
+                <OwnerShortNoticePanel
+                  ownerKey={savedKey}
+                  section="requests"
+                  onManageAvailability={() => setOwnerToolTab("availability")}
+                />
+              ) : null}
 
               {isOwnerView && savedKey ? (
                 <OwnerBookingCalendar

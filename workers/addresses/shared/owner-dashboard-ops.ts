@@ -687,6 +687,43 @@ export function earnedRevenueOnDay(allLegs: OwnerOpsLeg[], day: string): number 
   return earned;
 }
 
+export type OwnerMonthGroup<T> = {
+  key: string;
+  label: string;
+  days: OwnerDateGroup<T>[];
+  count: number;
+  earnedGbp: number;
+};
+
+/** Collapse completed-day groups into calendar months, newest month first. */
+export function groupCompletedDaysByMonth<T>(
+  days: OwnerDateGroup<T>[],
+): OwnerMonthGroup<T>[] {
+  const months = new Map<string, OwnerDateGroup<T>[]>();
+  for (const day of days) {
+    const key = String(day.date || "").slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(key)) continue;
+    const list = months.get(key) || [];
+    list.push(day);
+    months.set(key, list);
+  }
+  return [...months.entries()].map(([key, items]) => {
+    const [year, month] = key.split("-").map(Number);
+    const label = new Intl.DateTimeFormat("en-GB", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(Date.UTC(year, month - 1, 15, 12)));
+    return {
+      key,
+      label,
+      days: items,
+      count: items.reduce((sum, day) => sum + day.count, 0),
+      earnedGbp: items.reduce((sum, day) => sum + (Number(day.earnedGbp) || 0), 0),
+    };
+  });
+}
+
 export function groupCompletedJobsByDate(legs: OwnerOpsLeg[], today = ownerOpsTodayDate()): OwnerDateGroup<OwnerOpsLeg>[] {
   const groups = new Map<string, OwnerOpsLeg[]>();
   for (const leg of legs) {

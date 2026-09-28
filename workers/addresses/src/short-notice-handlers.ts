@@ -42,6 +42,8 @@ import {
   needsLuggageCapacityConfirmation,
 } from "../shared/vehicle-capacity";
 import { parseLondonLocalDateTime } from "../shared/uk-time";
+import { findRequestOnlySmartBlock } from "../shared/smart-availability";
+import { getSmartOpsState } from "./smart-ops-store";
 import {
   addUnavailablePeriod,
   bookingSettingsPublicView,
@@ -508,6 +510,21 @@ export function publicShortNoticeSummary(record: ShortNoticeBookingRecord) {
   };
 }
 
+/** Request-only smart rules share the existing approval path. Unavailable rules do not. */
+async function requestOnlySmartBlockForPickup(
+  store: KVNamespace,
+  tripDate: string,
+  tripTime: string,
+) {
+  const state = await getSmartOpsState(store);
+  return findRequestOnlySmartBlock({
+    rules: state.rules,
+    exceptions: state.exceptions,
+    tripDate,
+    tripTime,
+  });
+}
+
 export async function createShortNoticeRequest(options: {
   store: KVNamespace;
   booking: PaidBookingDetails;
@@ -535,6 +552,13 @@ export async function createShortNoticeRequest(options: {
     settings.unavailablePeriods,
     now,
   );
+  const smartBlock = blocking
+    ? null
+    : await requestOnlySmartBlockForPickup(
+        options.store,
+        options.booking.tripDate,
+        options.booking.tripTime,
+      );
 
   const noticeHours = settings.minimumBookingNoticeHours;
   const underMinimumNotice = isWithinMinimumBookingNotice(
@@ -545,7 +569,7 @@ export async function createShortNoticeRequest(options: {
   );
   const holdReasons = combinePaymentHoldReasons({
     underMinimumNotice,
-    blockingPeriodId: blocking?.id ?? null,
+    blockingPeriodId: blocking?.id ?? smartBlock?.ruleId ?? null,
     passengers: options.booking.passengers,
     suitcases: options.booking.suitcases,
     suitcasesExact: options.booking.suitcasesExact,
@@ -572,7 +596,7 @@ export async function createShortNoticeRequest(options: {
     amountLabel: formatAmountLabel(amount),
     booking: options.booking,
     materialFingerprint: fingerprint,
-    unavailablePeriodIdApplied: blocking?.id ?? null,
+    unavailablePeriodIdApplied: blocking?.id ?? smartBlock?.ruleId ?? null,
     underMinimumNotice,
     holdReasons,
     ...(underMinimumNotice
@@ -680,6 +704,9 @@ export async function shouldForceShortNotice(
     settings.unavailablePeriods,
     now,
   );
+  const smartBlock = blocking
+    ? null
+    : await requestOnlySmartBlockForPickup(store, booking.tripDate, booking.tripTime);
   const noticeHours = settings.minimumBookingNoticeHours;
   const underMinimumNotice = isWithinMinimumBookingNotice(
     booking.tripDate,
@@ -689,11 +716,15 @@ export async function shouldForceShortNotice(
   );
   const activePeriods = listActiveUnavailablePeriods(settings.unavailablePeriods, now);
   return {
-    shortNotice: Boolean(blocking) || underMinimumNotice,
+    shortNotice: Boolean(blocking) || Boolean(smartBlock) || underMinimumNotice,
     noAvailability: false,
-    gateActive: activePeriods.length > 0 || underMinimumNotice,
-    blockingPeriodId: blocking?.id ?? null,
-    blockingPeriodLabel: blocking ? formatUnavailablePeriodRangeLabel(blocking) : null,
+    gateActive: activePeriods.length > 0 || Boolean(smartBlock) || underMinimumNotice,
+    blockingPeriodId: blocking?.id ?? smartBlock?.ruleId ?? null,
+    blockingPeriodLabel: blocking
+      ? formatUnavailablePeriodRangeLabel(blocking)
+      : smartBlock
+        ? `${smartBlock.startLocal.replace("T", " ")} – ${smartBlock.endLocal.replace("T", " ")}`
+        : null,
     underMinimumNotice,
     minimumNoticeHours: noticeHours,
     luggageCapacity: needsLuggageCapacityConfirmation(

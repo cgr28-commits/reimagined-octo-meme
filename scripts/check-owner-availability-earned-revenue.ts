@@ -481,7 +481,7 @@ console.log("\n=== UI wiring ===");
   assert.match(panel, /Until…/);
   assert.match(panel, /Rest of today/);
   assert.match(panel, /Available now/);
-  assert.match(panel, /Schedule unavailable time/);
+  assert.match(panel, /Schedule availability/);
   assert.match(panel, /Until date/);
   assert.match(panel, /data-owner-until-picker/);
   assert.doesNotMatch(panel, /quick block/);
