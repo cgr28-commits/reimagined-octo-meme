@@ -10,6 +10,7 @@ import { AREAS, SERVICE_FLAGS, SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import {
   LOCATIONS_AIRPORT_LINKS,
+  LOCATIONS_BELFAST_ROUTE_LINKS,
   LOCATIONS_HUB_H1,
   LOCATIONS_HUB_INTRO,
   LOCATIONS_LONG_DISTANCE_EXAMPLES,
@@ -159,14 +160,26 @@ export default function LocationsPage() {
                       </Link>
                     </li>
                   ))}
-                  <li>
-                    <Link
-                      href="/transfers/dublin-airport-to-belfast/"
-                      className="block rounded-xl border border-white/10 bg-navy-light/50 px-4 py-2.5 text-sm text-white/80 transition-colors hover:border-emerald/40 hover:text-emerald"
-                    >
-                      Dublin Airport to Belfast taxi
-                    </Link>
-                  </li>
+                </ul>
+              </section>
+
+              <section>
+                <h2 className="text-xl font-bold text-white">Belfast airport routes</h2>
+                <p className="mt-2 text-sm leading-relaxed text-white/60">
+                  Pre-booked private transfers for these Belfast journeys. Other towns are listed
+                  above.
+                </p>
+                <ul className="mt-4 space-y-2">
+                  {LOCATIONS_BELFAST_ROUTE_LINKS.map((route) => (
+                    <li key={route.href}>
+                      <Link
+                        href={route.href}
+                        className="block min-h-11 rounded-xl border border-white/10 bg-navy-light/50 px-4 py-2.5 text-sm text-white/80 transition-colors hover:border-emerald/40 hover:text-emerald"
+                      >
+                        {route.label}
+                      </Link>
+                    </li>
+                  ))}
                 </ul>
               </section>
 

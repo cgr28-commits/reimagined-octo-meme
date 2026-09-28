@@ -36,7 +36,7 @@ const scrollJobs = read("src/lib/scroll-jobs.ts");
 
 check("Canonical destinations map covers acceptance matrix", () => {
   const expected = [
-    ["Airports", "/#airports", "Airports We Serve"],
+    ["Airports", "/airports/", "Airport transfers"],
     ["Long-Distance Transfers", "/long-distance-transfers/", "Private Long-Distance Transfers from Anywhere in Greater Belfast"],
     ["Locations", "/locations/", "Airport Taxi Locations Across Northern Ireland"],
     ["Vehicles", "/#vehicles", "Private transfers for up to 4"],

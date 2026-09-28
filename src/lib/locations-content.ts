@@ -27,6 +27,26 @@ export const LOCATIONS_AIRPORT_LINKS = [
 
 export const LOCATIONS_AIRPORT_EXAMPLES = LOCATIONS_AIRPORT_LINKS.map((item) => item.label);
 
+/** Belfast corridor routes. Not a Belfast town hub — the homepage remains that landing page. */
+export const LOCATIONS_BELFAST_ROUTE_LINKS = [
+  {
+    label: "Belfast to Belfast International Airport",
+    href: "/transfers/belfast-to-belfast-international/",
+  },
+  {
+    label: "Belfast to Belfast City Airport",
+    href: "/transfers/belfast-to-belfast-city/",
+  },
+  {
+    label: "Belfast to Dublin Airport",
+    href: "/transfers/belfast-to-dublin-airport/",
+  },
+  {
+    label: "Dublin Airport to Belfast",
+    href: "/transfers/dublin-airport-to-belfast/",
+  },
+] as const;
+
 export const LOCATIONS_LONG_DISTANCE_EXAMPLES = [
   "Belfast to Dublin city",
   "Bangor to Cork",

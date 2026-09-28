@@ -49,14 +49,6 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="/airports/"
-                  className="text-sm text-white/50 transition-colors hover:text-emerald"
-                >
-                  Airport guides
-                </Link>
-              </li>
-              <li>
-                <Link
                   href="/belfast-cruise-terminal-transfers/"
                   className="text-sm text-white/50 transition-colors hover:text-emerald"
                 >
