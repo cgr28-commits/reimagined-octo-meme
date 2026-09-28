@@ -44,16 +44,18 @@ console.log("\n=== 2. Owner Dashboard copy — no duplicate owner entry ===");
     driverPage,
     /Separate from your owner account profile\. Save each driver's contact/,
   );
-  // Operational panels first; Owner Profile + Additional Drivers render via profilePanel at bottom.
-  const shortNoticeAt = driverPage.indexOf("<OwnerShortNoticePanel");
-  const calendarAt = driverPage.indexOf("<OwnerBookingCalendar");
-  const paidBookingsAt = driverPage.indexOf("<OwnerPaidBookingsPanel");
-  const profilePanelAt = driverPage.lastIndexOf("{profilePanel");
-  assert.ok(shortNoticeAt > 0 && paidBookingsAt > shortNoticeAt, "Short-notice stays above paid bookings");
+  // Jobs is the day screen. Profile renders on More, still after the operational Jobs panel.
+  const jobsStart = driverPage.indexOf('id="owner-tool-panel-jobs"');
+  const jobsEnd = driverPage.indexOf('id="owner-tool-panel-past"');
+  const jobsSlice = driverPage.slice(jobsStart, jobsEnd);
+  assert.ok(jobsSlice.includes("<OwnerPaidBookingsPanel"));
   assert.ok(
-    calendarAt > shortNoticeAt && calendarAt < paidBookingsAt,
-    "Booking Calendar sits between Short-Notice and Upcoming Jobs",
+    jobsSlice.indexOf("<OwnerBookingCalendar") > jobsSlice.indexOf("<OwnerPaidBookingsPanel"),
+    "Booking Calendar sits under the selected-day jobs",
   );
+  assert.ok(!jobsSlice.includes("<OwnerShortNoticePanel"), "Requests stay off the Jobs screen");
+  const profilePanelAt = driverPage.lastIndexOf("{profilePanel");
+  const paidBookingsAt = driverPage.indexOf("<OwnerPaidBookingsPanel");
   assert.ok(profilePanelAt > paidBookingsAt, "Owner/driver profile panels stay below operational sections");
   assert.doesNotMatch(driverPage, /isOwnerView && profilePanel/);
   console.log("OK  Owner UI treats owner profile as default; additional drivers optional");

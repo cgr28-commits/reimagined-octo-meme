@@ -167,12 +167,14 @@ console.log("\n=== 4. View ranges + dashboard wiring ===");
   assert.equal(week[0], "2026-08-17"); // 17 Aug 2026 is Monday
 
   const page = read("src/app/driver/DriverPageClient.tsx");
-  const shortAt = page.indexOf("<OwnerShortNoticePanel");
-  const calAt = page.indexOf("<OwnerBookingCalendar");
-  const paidAt = page.indexOf("<OwnerPaidBookingsPanel");
-  const profileAt = page.lastIndexOf("{profilePanel");
-  assert.ok(shortAt > 0 && calAt > shortAt && paidAt > calAt);
-  assert.ok(profileAt > paidAt);
+  const jobsStart = page.indexOf('id="owner-tool-panel-jobs"');
+  const jobsEnd = page.indexOf('id="owner-tool-panel-past"');
+  const jobsSlice = page.slice(jobsStart, jobsEnd);
+  const paidAt = jobsSlice.indexOf("<OwnerPaidBookingsPanel");
+  const calAt = jobsSlice.indexOf("<OwnerBookingCalendar");
+  assert.ok(jobsStart > 0 && paidAt > 0 && calAt > paidAt, "day jobs then calendar on Jobs");
+  assert.match(page, /selectedDate=\{jobsDay\}/);
+  assert.match(page, /onSelectDate=/);
   assert.match(page, /owner-calendar-selected-journey/);
   assert.match(page, /DriverJobCard/);
 

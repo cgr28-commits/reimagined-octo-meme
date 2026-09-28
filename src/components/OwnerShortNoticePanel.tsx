@@ -46,6 +46,10 @@ import {
 
 type OwnerShortNoticePanelProps = {
   ownerKey: string;
+  /** manage = notice hours and saved periods. requests = the approval queue. */
+  section?: "manage" | "requests";
+  onManageAvailability?: () => void;
+  onSettingsChange?: (settings: BookingSettings) => void;
 };
 
 type PeriodDraft = {
@@ -177,7 +181,12 @@ function whatsappShareUrl(booking: ShortNoticeBookingSummary, payUrl: string): s
   return mobile ? `https://wa.me/${mobile}?text=${text}` : `https://wa.me/?text=${text}`;
 }
 
-export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePanelProps) {
+export default function OwnerShortNoticePanel({
+  ownerKey,
+  section = "requests",
+  onManageAvailability,
+  onSettingsChange,
+}: OwnerShortNoticePanelProps) {
   const [bookings, setBookings] = useState<ShortNoticeBookingSummary[]>([]);
   const [archived, setArchived] = useState<ShortNoticeBookingSummary[]>([]);
   const [periods, setPeriods] = useState<UnavailablePeriodSummary[]>([]);
@@ -251,6 +260,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
   }
 
   const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number; depositCash?: BookingSettings["depositCash"] }) => {
+    onSettingsChange?.(settings as BookingSettings);
     setPeriods(Array.isArray(settings.unavailablePeriods) ? settings.unavailablePeriods : []);
     const hours = normalizeMinimumBookingNoticeHours(settings.minimumBookingNoticeHours);
     setSavedNoticeHours(hours);
@@ -258,7 +268,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
     if ("updatedAt" in settings || "depositCash" in settings) {
       setBookingSettings(settings as BookingSettings);
     }
-  }, []);
+  }, [onSettingsChange]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -291,7 +301,9 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
 
   const sortedPeriods = useMemo(
     () =>
-      [...periods].sort((a, b) => a.startLocal.localeCompare(b.startLocal)),
+      [...periods]
+        .filter((period) => !isUnavailablePeriodExpired(period))
+        .sort((a, b) => a.startLocal.localeCompare(b.startLocal)),
     [periods],
   );
 
@@ -533,8 +545,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
   const fieldClass =
     "box-border mt-1 block min-h-11 w-full min-w-0 max-w-full rounded-xl border border-white/20 bg-navy px-3 py-2 text-base text-white outline-none focus:border-emerald [color-scheme:dark]";
 
-  return (
-    <section className="mb-8 w-full min-w-0 max-w-full rounded-2xl border border-amber-400/25 bg-navy/70 p-4 sm:p-5">
+  const manageControls = (
       <div className="w-full min-w-0 max-w-full rounded-xl border border-emerald/30 bg-emerald/10 p-3 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -581,13 +592,6 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
             {message}
           </p>
         ) : null}
-
-        <OwnerDepositCashSettings
-          ownerKey={ownerKey}
-          settings={bookingSettings}
-          onSaved={applySettings}
-          fieldClass={fieldClass}
-        />
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -756,15 +760,10 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
         ) : (
           <ul className="mt-4 w-full min-w-0 space-y-3">
             {sortedPeriods.map((period) => {
-              const expired = isUnavailablePeriodExpired(period);
               return (
                 <li
                   key={period.id}
-                  className={`w-full min-w-0 max-w-full rounded-xl border p-3 ${
-                    expired
-                      ? "border-white/10 bg-white/[0.03] opacity-70"
-                      : "border-emerald/25 bg-navy/50"
-                  }`}
+                  className="w-full min-w-0 max-w-full rounded-xl border border-emerald/25 bg-navy/50 p-3"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
@@ -784,9 +783,7 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
                       >
                         {ownerUnavailablePeriodModeLabel(period.mode)}
                       </p>
-                      <p className="mt-1 text-xs text-white/50">
-                        {expired ? "Expired · ignored for SumUp" : "Active"}
-                      </p>
+                      <p className="mt-1 text-xs text-white/50">Active</p>
                       {period.note ? (
                         <p className="mt-2 break-words text-xs text-white/55">Note: {period.note}</p>
                       ) : null}
@@ -819,7 +816,41 @@ export default function OwnerShortNoticePanel({ ownerKey }: OwnerShortNoticePane
             })}
           </ul>
         )}
+        <p className="mt-3 text-xs text-white/45">
+          Expired one-off periods stay saved and are hidden here. Weekly rules above stay until you delete them.
+        </p>
       </div>
+  );
+
+  if (section === "manage") {
+    return (
+      <section className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4">
+        {manageControls}
+      </section>
+    );
+  }
+
+  return (
+    <section className="mb-8 w-full min-w-0 max-w-full rounded-2xl border border-amber-400/25 bg-navy/70 p-4 sm:p-5">
+      <div className="rounded-xl border border-white/10 bg-navy/50 p-3">
+        <p className="text-sm font-semibold text-white">Booking availability</p>
+        <p className="mt-1 text-sm text-white/65">
+          Short-notice hours and unavailable periods are managed on the Availability tab.
+        </p>
+        <button
+          type="button"
+          onClick={() => onManageAvailability?.()}
+          className="mt-3 min-h-12 w-full rounded-xl bg-emerald px-4 text-sm font-bold text-navy"
+        >
+          Manage booking availability
+        </button>
+      </div>
+      <OwnerDepositCashSettings
+        ownerKey={ownerKey}
+        settings={bookingSettings}
+        onSaved={applySettings}
+        fieldClass={fieldClass}
+      />
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">

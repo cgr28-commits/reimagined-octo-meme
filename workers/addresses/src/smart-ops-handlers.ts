@@ -487,13 +487,25 @@ export async function handleOwnerSmartOpsCalendar(request: Request, env: SmartOp
     fromYmd: addDaysYmd(from, -1),
     toYmd: addDaysYmd(to, 1),
   });
-  const intervals = expandSmartAvailabilityIntervals({
+  const intervalWindow = {
     rules: state.rules,
     exceptions: state.exceptions,
     fromYmd: from,
     toYmd: to,
     legacyPeriods: settings.unavailablePeriods,
+  };
+  const hardIntervals = expandSmartAvailabilityIntervals({
+    ...intervalWindow,
+    include: "hard" as const,
   });
+  const requestOnlyIntervals = expandSmartAvailabilityIntervals({
+    ...intervalWindow,
+    include: "request_only" as const,
+  });
+  const intervals = [
+    ...hardIntervals.map((interval) => ({ ...interval, status: "unavailable" as const })),
+    ...requestOnlyIntervals.map((interval) => ({ ...interval, status: "request_only" as const })),
+  ];
   const bookings = occupied
     .filter((job) => job.tripDate >= from && job.tripDate <= to)
     .map((job) => ({
@@ -512,7 +524,7 @@ export async function handleOwnerSmartOpsCalendar(request: Request, env: SmartOp
       startLocal: interval.startLocal,
       endLocal: interval.endLocal,
       recurring: interval.recurring,
-      status: "unavailable" as const,
+      status: interval.status,
     })),
     opportunities: state.config.flags.shadowMode
       ? parents

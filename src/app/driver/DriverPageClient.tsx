@@ -14,9 +14,12 @@ import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
 import OwnerDashboardToolSwitcher, {
+  OwnerDashboardMoreMenu,
+  OwnerToolBackBar,
   type OwnerDashboardToolTab,
 } from "@/components/OwnerDashboardToolSwitcher";
 import OwnerSmartAvailabilityPanel from "@/components/OwnerSmartAvailabilityPanel";
+import OwnerLiveAvailabilityCard from "@/components/OwnerLiveAvailabilityCard";
 import OwnerPricingPanel from "@/components/OwnerPricingPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
@@ -2203,6 +2206,7 @@ export default function DriverPageClient({
   const [driverKey, setDriverKey] = useState("");
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
+  const [jobsDay, setJobsDay] = useState(() => todayLondonDate());
   const [isOwnerPreviewHost, setIsOwnerPreviewHost] = useState(false);
   const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(
     isOwnerPortal ? "owner" : null,
@@ -2349,6 +2353,7 @@ export default function DriverPageClient({
     const tab = new URLSearchParams(window.location.search).get("tab")?.trim().toLowerCase();
     if (tab === "availability") setOwnerToolTab("availability");
     if (tab === "pricing") setOwnerToolTab("pricing");
+    if (tab === "past" || tab === "jobs" || tab === "more") setOwnerToolTab(tab);
   }, [isOwnerPortal]);
 
   const refreshJobs = useCallback(() => {
@@ -2734,17 +2739,16 @@ export default function DriverPageClient({
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Bookings</h1>
             {isOwnerPortal && isOwnerPreviewHost ? (
               <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50">
-                Signed-in owner preview for draft PR #460. Use Availability and Owner Test Tool here.
-                Live www.myairporttaxini.co.uk is unchanged. Keep customer Smart Availability flags OFF.
+                Signed-in owner preview. Saving availability or jobs updates the live system.
               </p>
             ) : null}
             <p className="mt-3 text-white/70">
               {isOwnerView ? (
-                <>
-                  Confirm customer enquiries, mark SumUp payments (adds to calendar), then assign a
-                  driver by email with their pay for the journey. Drivers have no login — they only
-                  receive the job by email and confirm from that link.
-                </>
+                ownerToolTab === "jobs" ? (
+                  "Website booking status, today’s jobs, and the calendar."
+                ) : (
+                  "Owner tools for availability, payments, and bookings."
+                )
               ) : !savedKey ? (
                 SERVICE_FLAGS.trackingDemo ? (
                   <>
@@ -2999,26 +3003,36 @@ export default function DriverPageClient({
                 </div>
               ) : null}
 
-              {(!isOwnerView || !savedKey || ownerToolTab === "jobs") && (
+              {isOwnerView && savedKey && ownerToolTab === "jobs" ? (
               <div
                 id="owner-tool-panel-jobs"
-                role={isOwnerView && savedKey ? "tabpanel" : undefined}
-                aria-labelledby={
-                  isOwnerView && savedKey ? "owner-tool-tab-jobs" : undefined
-                }
+                role="tabpanel"
+                aria-labelledby="owner-tool-tab-jobs"
               >
-              {isOwnerView && savedKey ? (
-                <OwnerFinancialSummaryPanel ownerKey={savedKey} />
-              ) : null}
+              <OwnerLiveAvailabilityCard
+                ownerKey={savedKey}
+                onOpenAvailability={() => setOwnerToolTab("availability")}
+              />
 
-              {isOwnerView && savedKey ? <OwnerPaidBookingsPanel ownerKey={savedKey} /> : null}
+              <OwnerPaidBookingsPanel
+                ownerKey={savedKey}
+                mode="day"
+                selectedDate={jobsDay}
+                onSelectedDateChange={setJobsDay}
+              />
 
-              {isOwnerView && savedKey ? <OwnerShortNoticePanel ownerKey={savedKey} /> : null}
-
-              {isOwnerView && savedKey ? (
-                <OwnerBookingCalendar
-                  ownerKey={savedKey}
-                  onSelectJob={(job) => {
+              <OwnerBookingCalendar
+                ownerKey={savedKey}
+                selectedDate={jobsDay}
+                onSelectDate={(date) => {
+                  setJobsDay(date);
+                  window.setTimeout(() => {
+                    document
+                      .getElementById("owner-day-jobs")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 50);
+                }}
+                onSelectJob={(job) => {
                     setCalendarFocusJob(job);
                     setJobs((current) =>
                       current.some((entry) => entry.token === job.token)
@@ -3049,7 +3063,6 @@ export default function DriverPageClient({
                     }
                   }}
                 />
-              ) : null}
 
               {isOwnerView && calendarFocusJob && savedKey ? (
                 <section
@@ -3123,16 +3136,62 @@ export default function DriverPageClient({
                   />
                 </section>
               ) : null}
+              </div>
+              ) : null}
 
-              {isOwnerView && savedKey ? <OwnerBookingJobsPanel ownerKey={savedKey} /> : null}
+              {isOwnerView && savedKey && ownerToolTab === "past" ? (
+                <div id="owner-tool-panel-past" role="tabpanel" aria-labelledby="owner-tool-tab-past">
+                  <OwnerPaidBookingsPanel ownerKey={savedKey} mode="past" />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "more" ? (
+                <OwnerDashboardMoreMenu onChange={setOwnerToolTab} />
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "money" ? (
+                <div id="owner-tool-panel-money">
+                  <OwnerToolBackBar title="Money" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerFinancialSummaryPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "requests" ? (
+                <div id="owner-tool-panel-requests">
+                  <OwnerToolBackBar title="Requests" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerShortNoticePanel
+                    ownerKey={savedKey}
+                    section="requests"
+                    onManageAvailability={() => setOwnerToolTab("availability")}
+                  />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "enquiries" ? (
+                <div id="owner-tool-panel-enquiries">
+                  <OwnerToolBackBar title="Enquiries" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerBookingJobsPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "admin" ? (
+                <div id="owner-tool-panel-admin">
+                  <OwnerToolBackBar title="Job admin" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerPaidBookingsPanel ownerKey={savedKey} mode="admin" />
+                </div>
+              ) : null}
 
               {/*
-                Paid / tracking job list:
-                - Always shown for owner and drivers (journey status buttons need it)
+                Tracking job list:
+                - Drivers always see it
+                - Owners open it from More → Tracking
                 - Customer website live-tracking UI stays soft-hidden via liveDriverTracking
               */}
-              {true ? (
-              <>
+              {savedKey && (!isOwnerView || ownerToolTab === "tracking") ? (
+              <div id={isOwnerView ? "owner-tool-panel-tracking" : undefined}>
+              {isOwnerView ? (
+                <OwnerToolBackBar title="Tracking" onBack={() => setOwnerToolTab("more")} />
+              ) : null}
               {isOwnerView && !SERVICE_FLAGS.liveDriverTracking ? (
                 <div className="mb-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
@@ -3528,13 +3587,14 @@ export default function DriverPageClient({
                   ) : null}
                 </section>
               ) : null}
-              </>
-              ) : null}
               </div>
-              )}
+              ) : null}
 
-              {/* Setup/settings at the bottom — Owner Profile then Additional Drivers (owner), or driver profile. */}
-              {profilePanel ? <div className="mt-8">{profilePanel}</div> : null}
+              {/* Owner profile stays off the Jobs screen. Drivers still see their profile here. */}
+              {profilePanel && !isOwnerView ? <div className="mt-8">{profilePanel}</div> : null}
+              {ownerToolTab === "more" && profilePanel && isOwnerView ? (
+                <div className="mt-8">{profilePanel}</div>
+              ) : null}
             </>
           )}
         </div>
