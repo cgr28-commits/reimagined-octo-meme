@@ -36,7 +36,7 @@ export default function HeroSlideshow() {
             </span>
           </p>
 
-          <h1 className="font-display text-balance text-[2.15rem] font-semibold leading-[1.14] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
+          <h1 className="font-display text-balance text-[2rem] font-semibold leading-[1.14] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
             Belfast Airport Transfers
           </h1>
 
