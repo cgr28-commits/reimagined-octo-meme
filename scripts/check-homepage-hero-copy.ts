@@ -37,13 +37,23 @@ assert.doesNotMatch(
   /<h1[\s\S]*?>[\s\S]*My Airport Taxi NI/,
   "homepage H1 should no longer be the brand name",
 );
-assert.match(hero, /Private taxi \| Airport transfers/);
-assert.doesNotMatch(hero, />Private airport transfers</);
+assert.match(hero, /Private airport transfers • Belfast &amp; Northern Ireland/);
+assert.match(hero, /md:hidden">Private airport transfers • Northern Ireland/);
+assert.match(hero, /hidden md:inline/);
+assert.doesNotMatch(
+  hero,
+  /section-eyebrow[\s\S]{0,240}taxi/i,
+  "hero eyebrow must not say Taxi",
+);
 assert.match(
   hero,
-  /Pre-booked private airport taxi service to and from Belfast, Dublin and airports across Northern Ireland\./,
-  "hero supporting copy must explain pre-booked transfers across NI and Dublin",
+  /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,
+  "hero supporting copy must name Belfast International, Belfast City and Dublin Airport",
 );
+assert.match(hero, /baseName="belfast-international-homepage"/);
+assert.match(hero, /widths=\{\[960, 1280\]\}/);
+assert.doesNotMatch(hero, /baseName="belfast-international"(?!-homepage)/);
+assert.doesNotMatch(hero, /belfast-international-arrivals-2025/);
 assert.match(
   hero,
   /<h1[\s\S]*?>[\s\S]*Belfast Airport Transfers\s*<\/h1>/,
@@ -54,7 +64,7 @@ assert.match(benefits, /Pre-booked driver/);
 assert.match(benefits, /Fixed price/);
 assert.match(benefits, /Flight monitoring/);
 assert.match(benefits, /Airport waiting included/);
-assert.match(hero, /A driver reserved for your journey/);
+assert.doesNotMatch(hero, /A driver reserved for your journey/);
 
 assert.doesNotMatch(
   hero,
@@ -84,7 +94,7 @@ assert.match(hero, /min-w-0/);
 assert.match(hero, /overflow-x-clip/);
 
 console.log("OK  homepage H1 is Belfast Airport Transfers");
-console.log("OK  supporting copy explains pre-booked transfers across NI and Dublin");
+console.log("OK  eyebrow is private airport transfers; description names the three airports");
 console.log("OK  compact benefits sit by the quote panel");
 console.log("OK  Why Choose Us reserved-driver card retains travel-day updates");
 console.log("OK  header 24/7 refers to online booking only");

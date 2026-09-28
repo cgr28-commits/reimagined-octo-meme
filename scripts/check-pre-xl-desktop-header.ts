@@ -15,7 +15,7 @@ console.log("=== Pre-8d153752 desktop header restore ===");
 
 assert.match(header, /bg-gradient-to-b from-navy via-navy\/70 to-transparent/);
 assert.match(header, /hidden md:block/);
-assert.match(header, /24\/7 airport transfers across Northern Ireland/);
+assert.match(header, /Book online 24\/7 across Northern Ireland/);
 assert.match(
   header,
   /mx-auto flex max-w-7xl items-center justify-between gap-3[\s\S]*lg:grid lg:max-w-\[1400px\] lg:grid-cols-\[auto_minmax\(0,1fr\)_auto\]/,
