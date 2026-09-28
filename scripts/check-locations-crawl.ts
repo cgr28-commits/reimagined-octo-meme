@@ -13,7 +13,7 @@ import {
   TOWN_HUB_PAGES,
   TRANSFER_ROUTE_PAGES,
 } from "../src/lib/location-pages";
-import { LOCATIONS_AIRPORT_LINKS } from "../src/lib/locations-content";
+import { LOCATIONS_AIRPORT_LINKS, LOCATIONS_BELFAST_ROUTE_LINKS } from "../src/lib/locations-content";
 
 const SITE_HOST = "https://www.myairporttaxini.co.uk";
 const HUB_TOWNS = [
@@ -248,7 +248,10 @@ console.log("\n=== No orphan landing pages ===");
   }
   assert.match(locationsPage, /TOWN_HUB_PAGES/);
   assert.match(hubPage, /getRoutesForTown/);
-  assert.match(locationsPage, /\/transfers\/dublin-airport-to-belfast\//);
+  assert.match(locationsPage, /LOCATIONS_BELFAST_ROUTE_LINKS/);
+  assert.ok(
+    LOCATIONS_BELFAST_ROUTE_LINKS.some((route) => route.href === "/transfers/dublin-airport-to-belfast/"),
+  );
   console.log("OK  every hub and landing route is reachable from /locations/");
 }
 

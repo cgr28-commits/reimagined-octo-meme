@@ -73,7 +73,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     code: "BFS",
     name: "Belfast International Airport",
     shortName: "Belfast International",
-    title: "Belfast International Transfers",
+    title: "Belfast International Airport Taxi & Transfers",
     metaDescription:
       "Pre-book fixed-price Belfast International (BFS) transfers, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.",
     intro:

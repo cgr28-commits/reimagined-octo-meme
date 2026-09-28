@@ -91,7 +91,7 @@ export const SERVICE_FLAGS = {
 export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
 
 export const ALL_NAV_LINKS = [
-  { label: "Airports", href: "/#airports", service: null },
+  { label: "Airports", href: "/airports/", service: null },
   { label: "Long-Distance Transfers", href: "/long-distance-transfers/", service: "addressToAddress" as const },
   { label: "Locations", href: "/locations/", service: "addressToAddress" as const },
   { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },

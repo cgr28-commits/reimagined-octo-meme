@@ -39,10 +39,10 @@ export type SiteNavDestination = {
 export const SITE_NAV_DESTINATIONS: readonly SiteNavDestination[] = [
   {
     label: "Airports",
-    href: "/#airports",
-    hash: "airports",
-    heading: "Airports We Serve",
-    navId: "airports",
+    href: "/airports/",
+    hash: null,
+    heading: "Airport transfers",
+    navId: "airports-index",
   },
   {
     label: "Long-Distance Transfers",

@@ -60,19 +60,22 @@ assert.doesNotMatch(desktopCtas, /tel:/);
 assert.doesNotMatch(desktopCtas, /Call /);
 console.log("OK  mobile + desktop nav keep Quote / WhatsApp / Contact / Manage Booking; no Call CTA");
 
-assert.doesNotMatch(footer, /tel:/);
-assert.doesNotMatch(footer, /landlineDisplay|028 9602 2952|Business Line/);
+assert.match(footer, /tel:\$\{SITE\.landline\}/);
+assert.match(footer, /SITE\.landlineDisplay/);
+assert.match(footer, /Business line/);
+assert.doesNotMatch(footer, /Call us|Call \{SITE\.landlineDisplay\}/);
 assert.match(footer, /WhatsApp @\{SITE\.whatsappUsername\}/);
 assert.match(footer, /SITE\.email/);
-console.log("OK  footer has email + WhatsApp, no landline");
+console.log("OK  footer has email, WhatsApp, and a quiet business line");
 
-assert.doesNotMatch(contact, /tel:/);
-assert.doesNotMatch(contact, /landlineDisplay|028 9602 2952/);
+assert.match(contact, /tel:\$\{SITE\.landline\}/);
+assert.match(contact, /SITE\.landlineDisplay/);
+assert.match(contact, /Business line/);
 assert.match(contact, /Get a quote/);
 assert.match(contact, /whatsAppChatUrl\(\)/);
 assert.match(contact, /@\{SITE\.whatsappUsername\}/);
 assert.doesNotMatch(contactPage, /Call \$\{SITE\.landlineDisplay\}/);
-console.log("OK  Contact page has quote + WhatsApp, no landline CTA");
+console.log("OK  Contact page keeps quote + WhatsApp, and shows the business line");
 
 assert.doesNotMatch(quoteHelp, /tel:/);
 assert.doesNotMatch(quoteHelp, /landlineDisplay|028 9602 2952/);

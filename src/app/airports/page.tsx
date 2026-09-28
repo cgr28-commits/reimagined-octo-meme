@@ -31,7 +31,13 @@ export default function AirportsIndexPage() {
       <main className={LANDING_PAGE_MAIN_CLASS}>
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Destinations</p>
-          <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Airport transfers</h1>
+          <h1
+            className="mt-2 text-3xl font-bold text-white sm:text-4xl"
+            data-site-nav-heading="airports-index"
+            tabIndex={-1}
+          >
+            Airport transfers
+          </h1>
           <p className="mt-4 text-lg leading-relaxed text-white/65">
             Dedicated transfer pages for each airport we serve — with local tips and a quote tool
             preselected for that destination.

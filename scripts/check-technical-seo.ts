@@ -49,6 +49,26 @@ console.log("=== Homepage title, description, H1 ===");
   assert.doesNotMatch(SITE_PUBLIC_SEO_DESCRIPTION, /£\d/);
   assert.match(hero, /Belfast Airport Transfers/);
   assert.doesNotMatch(hero, /Pre-Booked 24\/7/);
+  const popular = read("src/components/PopularBelfastTransfers.tsx");
+  const belfastRoutes = read("src/lib/locations-content.ts");
+  assert.match(popular, /Popular Belfast Airport Transfers/);
+  assert.match(popular, /LOCATIONS_BELFAST_ROUTE_LINKS/);
+  for (const href of [
+    "/transfers/belfast-to-belfast-international/",
+    "/transfers/belfast-to-belfast-city/",
+    "/transfers/belfast-to-dublin-airport/",
+    "/transfers/dublin-airport-to-belfast/",
+  ]) {
+    assert.ok(belfastRoutes.includes(href), href);
+  }
+  assert.match(read("src/app/locations/page.tsx"), /LOCATIONS_BELFAST_ROUTE_LINKS/);
+  assert.match(home, /PopularBelfastTransfers/);
+  assert.doesNotMatch(read("src/lib/data.ts"), /href: "\/#airports"/);
+  assert.match(read("src/lib/data.ts"), /label: "Airports", href: "\/airports\/"/);
+  const airports = read("src/lib/location-pages.ts");
+  assert.match(airports, /title: "Belfast International Airport Taxi & Transfers"/);
+  assert.doesNotMatch(airports, /title: "Belfast International Transfers"/);
+  assert.doesNotMatch(airports, /official taxi/i);
   console.log("OK  homepage title, meta description and H1");
 }
 
