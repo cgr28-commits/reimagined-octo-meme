@@ -645,6 +645,14 @@ export function selectTodayUpcomingLegs(legs: OwnerOpsLeg[], today = ownerOpsTod
     .sort((a, b) => ownerOpsPickupKey(a).localeCompare(ownerOpsPickupKey(b)) || a.reference.localeCompare(b.reference));
 }
 
+/** Every non-cancelled leg due on one calendar day, including completed journeys. */
+export function selectJobsForDate(legs: OwnerOpsLeg[], date: string): OwnerOpsLeg[] {
+  const day = String(date || "").slice(0, 10);
+  return legs
+    .filter((leg) => !leg.cancelled && leg.scheduledDate === day)
+    .sort((a, b) => ownerOpsPickupKey(a).localeCompare(ownerOpsPickupKey(b)) || a.reference.localeCompare(b.reference));
+}
+
 export function selectTodayCompletedLegs(legs: OwnerOpsLeg[], today = ownerOpsTodayDate()): OwnerOpsLeg[] {
   return legs
     .filter((leg) => !leg.cancelled && leg.completed && ownerOpsCompletionDay(leg) === today)

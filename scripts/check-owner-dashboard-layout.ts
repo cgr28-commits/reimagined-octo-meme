@@ -54,23 +54,28 @@ console.log("=== 1. Top tool switcher ===");
   console.log("OK  Jobs default · exclusive tools · no flight panel");
 }
 
-console.log("\n=== 2. Jobs section order: Summary → Paid ops → Short notice → Calendar ===");
+console.log("\n=== 2. Jobs screen is status, selected day, and calendar ===");
 {
   const page = read("src/app/driver/DriverPageClient.tsx");
   assert.match(page, /OwnerFinancialSummaryPanel/);
-  const financialAt = page.indexOf("<OwnerFinancialSummaryPanel");
-  const paidAt = page.indexOf("<OwnerPaidBookingsPanel");
-  const shortNoticeAt = page.indexOf("<OwnerShortNoticePanel");
-  const calendarAt = page.indexOf("<OwnerBookingCalendar");
-  const bookingJobsAt = page.indexOf("<OwnerBookingJobsPanel");
-  assert.ok(
-    financialAt > 0 &&
-      paidAt > financialAt &&
-      shortNoticeAt > paidAt &&
-      calendarAt > shortNoticeAt &&
-      bookingJobsAt > calendarAt,
-    "Jobs tab order: Summary → Paid ops → Short notice → Calendar → Enquiry jobs",
-  );
+  const jobsStart = page.indexOf('id="owner-tool-panel-jobs"');
+  const jobsEnd = page.indexOf('id="owner-tool-panel-past"');
+  assert.ok(jobsStart > 0 && jobsEnd > jobsStart, "Jobs panel is before Past");
+  const jobsSlice = page.slice(jobsStart, jobsEnd);
+  assert.match(jobsSlice, /OwnerLiveAvailabilityCard/);
+  assert.match(jobsSlice, /mode="day"/);
+  assert.match(jobsSlice, /OwnerBookingCalendar/);
+  assert.match(jobsSlice, /onSelectDate=/);
+  assert.doesNotMatch(jobsSlice, /OwnerFinancialSummaryPanel/);
+  assert.doesNotMatch(jobsSlice, /OwnerShortNoticePanel/);
+  assert.doesNotMatch(jobsSlice, /OwnerBookingJobsPanel/);
+  assert.doesNotMatch(jobsSlice, /Paid jobs coming up/);
+  assert.match(page, /mode="past"/);
+  assert.match(page, /mode="admin"/);
+  assert.match(page, /ownerToolTab === "money"/);
+  assert.match(page, /ownerToolTab === "requests"/);
+  assert.match(page, /ownerToolTab === "enquiries"/);
+  assert.match(page, /ownerToolTab === "tracking"/);
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
   assert.match(panel, /Today’s Upcoming Jobs/);
@@ -90,7 +95,7 @@ console.log("\n=== 2. Jobs section order: Summary → Paid ops → Short notice 
   assert.doesNotMatch(
     panel,
     /OwnerFinancialSummaryPanel/,
-    "financial totals live at top of Jobs tab, not buried in paid panel",
+    "financial totals stay in Money, not inside the paid bookings panel",
   );
 
   const todayAt = panel.indexOf("Today’s Upcoming Jobs (");
@@ -116,9 +121,11 @@ console.log("\n=== 2. Jobs section order: Summary → Paid ops → Short notice 
   assert.match(panel, /todayCompletedOpen \? \(/);
   assert.ok(
     panel.indexOf("OwnerShortNoticePanel") < 0,
-    "short notice stays on the Jobs tab below the paid ops panel",
+    "short notice stays out of the paid bookings panel",
   );
-  console.log("OK  summary at top · upcoming first · today completed collapsed");
+  assert.match(panel, /selectJobsForDate/);
+  assert.match(panel, /No jobs scheduled for today/);
+  console.log("OK  Jobs screen is the day list · admin sections kept off it");
 }
 
 console.log("\nAll owner dashboard layout checks passed.");

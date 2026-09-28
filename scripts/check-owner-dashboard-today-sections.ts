@@ -14,6 +14,7 @@ import {
   groupFutureJobsByDate,
   persistableLegFares,
   selectAwaitingPaymentItems,
+  selectJobsForDate,
   selectTodayUpcomingLegs,
   type OwnerOpsPaidBooking,
 } from "../shared/owner-dashboard-ops";
@@ -585,6 +586,43 @@ console.log("\n=== Manual 5% return offer + deep link (A–H) ===");
   assert.match(panel, /openBookingRequest/);
   assert.match(panel, /data-open-booking-request/);
   console.log("OK  H: Open booking request expands the collapsed awaiting section");
+}
+
+console.log("\n=== Selected calendar day ===");
+{
+  const legs = [
+    paid({
+      paymentReference: "DAY-DONE",
+      tripDate: "2026-09-30",
+      tripTime: "08:30",
+      outboundJourneyStatus: "completed",
+      outboundCompletedAt: "2026-09-30T09:00:00+01:00",
+      journeyStatus: "completed",
+    }),
+    paid({
+      paymentReference: "DAY-LIVE",
+      tripDate: "2026-09-30",
+      tripTime: "13:45",
+      outboundJourneyStatus: "scheduled",
+    }),
+    paid({
+      paymentReference: "DAY-CANCEL",
+      tripDate: "2026-09-30",
+      tripTime: "09:00",
+      status: "cancelled",
+    }),
+    paid({
+      paymentReference: "DAY-OTHER",
+      tripDate: "2026-09-28",
+      tripTime: "08:00",
+    }),
+  ].flatMap((booking) => expandOwnerPaidBookingLegs(booking));
+  const day = selectJobsForDate(legs, "2026-09-30");
+  assert.deepEqual(
+    day.map((leg) => leg.reference),
+    ["DAY-DONE", "DAY-LIVE"],
+  );
+  console.log("OK  selected day includes completed jobs and skips cancelled or other dates");
 }
 
 console.log("\n=== Source contracts ===");

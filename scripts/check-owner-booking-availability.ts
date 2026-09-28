@@ -340,6 +340,7 @@ console.log("\n=== Dashboard wiring ===");
   assert.match(panel, /grid grid-cols-7/);
   assert.match(panel, /section="manage"/);
   assert.match(jobs, /Past Jobs/);
+  assert.match(jobs, /selectJobsForDate/);
   assert.match(jobs, /pastDays: 0/);
   assert.match(jobs, /groupCompletedDaysByMonth/);
   assert.match(jobs, /Load earlier jobs/);

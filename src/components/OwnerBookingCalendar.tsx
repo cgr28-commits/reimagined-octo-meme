@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchOwnerPaidBookings,
   type OwnerPaidBookingSummary,
@@ -33,6 +33,10 @@ import {
 
 type OwnerBookingCalendarProps = {
   ownerKey: string;
+  /** Selected operational day. The parent job list filters to this date. */
+  selectedDate?: string;
+  /** Called when the owner picks a calendar day, including Today. */
+  onSelectDate?: (date: string) => void;
   /** Called when a leg with a tracking token is selected — parent opens existing controls. */
   onSelectJob?: (job: DriverJob, entry: OwnerCalendarEntry) => void;
   /** Called for synthetic legs without a token — parent can focus paid booking by ref. */
@@ -131,19 +135,31 @@ function EntryCard({
 
 export default function OwnerBookingCalendar({
   ownerKey,
+  selectedDate,
+  onSelectDate,
   onSelectJob,
   onSelectPaymentRef,
 }: OwnerBookingCalendarProps) {
   const narrow = useIsNarrow();
   const today = londonYmd();
   const [view, setView] = useState<CalendarViewMode>(defaultOwnerCalendarView());
-  const [anchor, setAnchor] = useState(today);
+  const [anchor, setAnchor] = useState(() =>
+    selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ? selectedDate : today,
+  );
+  const lastSelectedRef = useRef(selectedDate);
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileDefaultApplied, setMobileDefaultApplied] = useState(false);
+
+  useEffect(() => {
+    if (!selectedDate || !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) return;
+    if (lastSelectedRef.current === selectedDate) return;
+    lastSelectedRef.current = selectedDate;
+    setAnchor(selectedDate);
+  }, [selectedDate]);
 
   useEffect(() => {
     if (mobileDefaultApplied) return;
@@ -198,9 +214,16 @@ export default function OwnerBookingCalendar({
     return map;
   }, [jobs]);
 
+  const commitDate = (date: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    lastSelectedRef.current = date;
+    setAnchor(date);
+    onSelectDate?.(date);
+  };
+
   const selectEntry = (entry: OwnerCalendarEntry) => {
     setSelectedId(entry.id);
-    setAnchor(entry.tripDate);
+    commitDate(entry.tripDate);
     if (entry.token) {
       const job = jobByToken.get(entry.token);
       if (job) {
@@ -214,18 +237,18 @@ export default function OwnerBookingCalendar({
   };
 
   const goToday = () => {
-    setAnchor(today);
+    commitDate(today);
     if (narrow) setView("day");
   };
 
   const goPrev = () => {
-    if (view === "day") setAnchor(addDaysYmd(anchor, -1));
+    if (view === "day") commitDate(addDaysYmd(anchor, -1));
     else if (view === "week") setAnchor(addDaysYmd(anchor, -7));
     else setAnchor(shiftMonth(anchor, -1));
   };
 
   const goNext = () => {
-    if (view === "day") setAnchor(addDaysYmd(anchor, 1));
+    if (view === "day") commitDate(addDaysYmd(anchor, 1));
     else if (view === "week") setAnchor(addDaysYmd(anchor, 7));
     else setAnchor(shiftMonth(anchor, 1));
   };
@@ -248,8 +271,8 @@ export default function OwnerBookingCalendar({
           </p>
           <h2 className="mt-1 text-xl font-bold text-white">Booking Calendar</h2>
           <p className="mt-2 max-w-2xl break-words text-sm text-white/65">
-            Confirmed and paid journeys from website booking data — one entry per outbound or
-            return leg. Tap a booking to open journey controls below.
+            Tap a day to show only that day’s jobs. Day and Week views still open an individual
+            journey.
           </p>
         </div>
         <button
@@ -311,7 +334,7 @@ export default function OwnerBookingCalendar({
               onChange={(event) => {
                 const next = event.target.value;
                 if (/^\d{4}-\d{2}-\d{2}$/.test(next)) {
-                  setAnchor(next);
+                  commitDate(next);
                   if (narrow) setView("day");
                 }
               }}
@@ -357,7 +380,7 @@ export default function OwnerBookingCalendar({
                 <button
                   type="button"
                   onClick={() => {
-                    setAnchor(date);
+                    commitDate(date);
                     setView("day");
                   }}
                   className={`mb-2 flex w-full items-center justify-between text-left ${
@@ -401,20 +424,20 @@ export default function OwnerBookingCalendar({
             {monthGridDates(anchor).map((date) => {
               const dayList = entriesForDate(entries, date);
               const inMonth = date.slice(0, 7) === anchor.slice(0, 7);
+              const chosen = date === (selectedDate || anchor);
               return (
                 <button
                   key={date}
                   type="button"
-                  onClick={() => {
-                    setAnchor(date);
-                    setView("day");
-                  }}
+                  onClick={() => commitDate(date)}
                   className={`min-h-[4.25rem] rounded-lg border p-1 text-left transition-colors sm:min-h-[5rem] ${
-                    isToday(date)
-                      ? "border-emerald/50 bg-emerald/10"
-                      : selectedId && dayList.some((e) => e.id === selectedId)
-                        ? "border-sky-400/40 bg-sky-500/10"
-                        : "border-white/10 bg-white/[0.02] hover:border-white/25"
+                    chosen
+                      ? "border-emerald bg-emerald/15"
+                      : isToday(date)
+                        ? "border-emerald/40 bg-emerald/5"
+                        : selectedId && dayList.some((e) => e.id === selectedId)
+                          ? "border-sky-400/40 bg-sky-500/10"
+                          : "border-white/10 bg-white/[0.02] hover:border-white/25"
                   } ${inMonth ? "" : "opacity-40"}`}
                 >
                   <span
@@ -444,7 +467,7 @@ export default function OwnerBookingCalendar({
             })}
           </div>
           <p className="mt-3 text-xs text-white/45">
-            Tap a day for the full list and journey controls. Colours match journey status.
+            Tap a day to list that day’s jobs above. Colours match journey status.
           </p>
         </div>
       )}

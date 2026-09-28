@@ -21,6 +21,7 @@ import {
   groupCompletedJobsByDate,
   groupFutureJobsByDate,
   selectAwaitingPaymentItems,
+  selectJobsForDate,
   selectTodayCompletedLegs,
   selectTodayUpcomingLegs,
   type OwnerJourneyLeg,
@@ -89,9 +90,30 @@ import {
   OwnerWazeAddressLink,
 } from "@/components/OwnerJobNavActions";
 
+export type OwnerPaidBookingsMode = "day" | "past" | "admin";
+
 type OwnerPaidBookingsPanelProps = {
   ownerKey: string;
+  mode?: OwnerPaidBookingsMode;
+  /** London calendar day (YYYY-MM-DD). Day mode defaults to today. */
+  selectedDate?: string;
+  onSelectedDateChange?: (date: string) => void;
 };
+
+function ymdDayDelta(from: string, to: string): number {
+  const start = Date.parse(`${from}T12:00:00Z`);
+  const end = Date.parse(`${to}T12:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
+  return Math.round((end - start) / 86_400_000);
+}
+
+function formatJobsDayTitle(date: string): string {
+  const parsed = new Date(`${date}T12:00:00Z`);
+  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(parsed);
+  const day = new Intl.DateTimeFormat("en-GB", { day: "numeric", timeZone: "UTC" }).format(parsed);
+  const month = new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(parsed);
+  return `${weekday} ${day} ${month}`;
+}
 
 const OWNER_JOBS_PAST_CAP_DAYS = 120;
 const OWNER_JOBS_PAST_PAGE_DAYS = 31;
@@ -423,7 +445,12 @@ function TrackingDiagnosticView({ report }: { report: TrackingDiagnosticReport }
   );
 }
 
-export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPanelProps) {
+export default function OwnerPaidBookingsPanel({
+  ownerKey,
+  mode = "day",
+  selectedDate,
+  onSelectedDateChange,
+}: OwnerPaidBookingsPanelProps) {
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
   const [pending, setPending] = useState<OwnerPendingCheckoutSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -448,7 +475,6 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     paymentReference: string;
     action: OwnerPrimaryJourneyAction;
   } | null>(null);
-  const [jobsView, setJobsView] = useState<"upcoming" | "past">("upcoming");
   const [pastBookings, setPastBookings] = useState<OwnerPaidBookingSummary[]>([]);
   const [pastDaysLoaded, setPastDaysLoaded] = useState(0);
   const [pastLoading, setPastLoading] = useState(false);
@@ -477,20 +503,39 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     }
   }, [ownerKey]);
 
+  const todayYmd = londonYmd();
+  const activeDate =
+    selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ? selectedDate : todayYmd;
+
   const load = useCallback(async () => {
+    if (mode === "past") return;
     setLoading(true);
     setError("");
     try {
+      const today = londonYmd();
+      const range =
+        mode === "admin"
+          ? { pastDays: 0, futureDays: 120 }
+          : activeDate < today
+            ? {
+                pastDays: Math.min(OWNER_JOBS_PAST_CAP_DAYS, ymdDayDelta(activeDate, today)),
+                futureDays: 1,
+              }
+            : activeDate > today
+              ? { pastDays: 0, futureDays: Math.min(180, Math.max(1, ymdDayDelta(today, activeDate))) }
+              : { pastDays: 0, futureDays: 1 };
       const [nextBookings, nextPending, nextJobs] = await Promise.all([
         fetchOwnerPaidBookings(ownerKey, {
           mode: "upcoming",
-          pastDays: 0,
-          futureDays: 120,
+          pastDays: range.pastDays,
+          futureDays: range.futureDays,
           limit: 250,
         }),
-        fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(
-          () => [] as OwnerPendingCheckoutSummary[],
-        ),
+        mode === "admin"
+          ? fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(
+              () => [] as OwnerPendingCheckoutSummary[],
+            )
+          : Promise.resolve([] as OwnerPendingCheckoutSummary[]),
         fetchOwnerBookingJobs(ownerKey).catch(() => [] as BookingJobRecord[]),
       ]);
       setBookings(nextBookings);
@@ -510,16 +555,17 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
     } finally {
       setLoading(false);
     }
-  }, [ownerKey, pastDaysLoaded]);
+  }, [ownerKey, pastDaysLoaded, mode, activeDate]);
 
   useEffect(() => {
+    if (mode === "past") return;
     void load();
-  }, [load]);
+  }, [load, mode]);
 
   useEffect(() => {
-    if (jobsView !== "past" || pastDaysLoaded > 0) return;
+    if (mode !== "past" || pastDaysLoaded > 0) return;
     void loadPast(OWNER_JOBS_PAST_PAGE_DAYS);
-  }, [jobsView, pastDaysLoaded, loadPast]);
+  }, [mode, pastDaysLoaded, loadPast]);
 
   const operationalBookings = useMemo(
     () => bookings.filter((booking) => !isOwnerOperationalTestBooking(booking)),
@@ -537,6 +583,10 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const allOpsLegs = useMemo(
     () => [...paidLegs, ...bookingJobLegs],
     [paidLegs, bookingJobLegs],
+  );
+  const dayLegs = useMemo(
+    () => selectJobsForDate(allOpsLegs, activeDate),
+    [allOpsLegs, activeDate],
   );
   const todayUpcoming = useMemo(() => selectTodayUpcomingLegs(allOpsLegs), [allOpsLegs]);
   const todayCompleted = useMemo(() => selectTodayCompletedLegs(paidLegs), [paidLegs]);
@@ -2079,8 +2129,11 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
   const todayCompletedEarnedGbp =
     completedHistory.find((group) => group.label === "Today")?.earnedGbp || 0;
 
+  const dayTitle = formatJobsDayTitle(activeDate);
+  const showingToday = activeDate === todayYmd;
+
   return (
-    <section className="mb-10">
+    <section className={mode === "day" ? "mb-6" : "mb-10"}>
       {error ? (
         <p className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {error}
@@ -2092,33 +2145,60 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
         </p>
       ) : null}
 
-      <div className="mb-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Jobs">
-        {(
-          [
-            ["upcoming", "Upcoming"],
-            ["past", "Past Jobs"],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={jobsView === value}
-            onClick={() => setJobsView(value)}
-            className={`min-h-12 rounded-xl px-3 text-sm font-bold ${
-              jobsView === value ? "bg-emerald text-navy" : "border border-white/15 text-white"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {mode === "day" ? (
+        <section id="owner-day-jobs" aria-label="Jobs for the selected day" className="scroll-mt-24">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              {showingToday ? (
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald">Today</p>
+              ) : null}
+              <h2 className={`text-xl font-bold text-white ${showingToday ? "mt-1" : "uppercase"}`}>
+                {dayTitle}
+              </h2>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => onSelectedDateChange?.(todayYmd)}
+                className={`min-h-11 rounded-xl px-3 text-sm font-bold ${
+                  showingToday
+                    ? "border border-white/15 text-white/70"
+                    : "bg-emerald text-navy"
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="min-h-11 rounded-xl border border-white/15 px-3 text-sm font-semibold text-white"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+          {loading ? (
+            <p className="mt-3 text-sm text-white/60">Loading jobs…</p>
+          ) : dayLegs.length === 0 ? (
+            <p className="mt-3 text-sm text-white/60">
+              {showingToday ? "No jobs scheduled for today." : "No jobs scheduled for this day."}
+              {activeDate < todayYmd && ymdDayDelta(activeDate, todayYmd) > OWNER_JOBS_PAST_CAP_DAYS
+                ? " Open Past Jobs and search the booking reference for anything older than 120 days."
+                : ""}
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-3">
+              {dayLegs.map((leg) => renderOpsLeg(leg, { compact: false }))}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
-      {loading && jobsView === "upcoming" ? (
+      {mode === "admin" && loading ? (
         <p className="text-sm text-white/60">Loading jobs…</p>
-      ) : (
+      ) : mode === "admin" || mode === "past" ? (
         <div className="space-y-4">
-          {jobsView === "upcoming" ? (
+          {mode === "admin" ? (
           <>
           <section aria-label="Today’s upcoming jobs">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2269,12 +2349,13 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             )}
           </section>
           </>
-          ) : (
+          ) : mode === "past" ? (
           <section className="rounded-xl border border-white/10 bg-navy/40" data-owner-past-jobs>
             <div className="px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Past Jobs</p>
               <h4 className="text-sm font-bold text-white">Completed Jobs</h4>
               <p className="mt-1 text-xs text-white/45">
-                Earlier completed journeys, by month. Today stays on Upcoming.
+                Earlier completed journeys, by month. Today’s jobs stay on Jobs.
               </p>
             </div>
             <div className="space-y-2 border-t border-white/10 px-4 py-3">
@@ -2407,9 +2488,9 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
               </p>
             )}
           </section>
-          )}
+          ) : null}
 
-          {jobsView === "upcoming" && refundsPending.length > 0 ? (
+          {mode === "admin" && refundsPending.length > 0 ? (
             <div className="border-t border-amber-400/20 pt-6">
               <h3 className="text-base font-bold text-amber-100">Refunds Pending</h3>
               <p className="mt-2 text-sm text-white/55">
@@ -2424,7 +2505,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             </div>
           ) : null}
 
-          {needsFinalize.length > 0 ? (
+          {mode === "admin" && needsFinalize.length > 0 ? (
             <div className="rounded-xl border border-amber-400/35 bg-amber-500/10 p-4">
               <p className="text-sm text-white/85">
                 {needsFinalize.length} SumUp PAID checkout
@@ -2456,7 +2537,7 @@ export default function OwnerPaidBookingsPanel({ ownerKey }: OwnerPaidBookingsPa
             </div>
           ) : null}
         </div>
-      )}
+      ) : null}
 
       {editingBooking ? (
         <OwnerEditBookingModal
