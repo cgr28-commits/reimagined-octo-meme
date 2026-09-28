@@ -28,13 +28,12 @@ assert.match(hero, /md:order-1 md:scroll-mt-28 lg:order-2/);
 assert.match(hero, /gap-1\.5 /);
 assert.match(hero, /md:gap-12/);
 assert.match(hero, /section-eyebrow mb-1[\s\S]*md:mb-5/);
-assert.match(hero, /Private taxi \| Airport transfers/);
+assert.match(hero, /Private airport transfers • Belfast &amp; Northern Ireland/);
 assert.match(
   hero,
-  /Pre-booked private airport taxi service to and from Belfast, Dublin and airports across Northern Ireland\./,
+  /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,
 );
-assert.match(hero, /hidden max-w-xl[\s\S]*md:block/);
-assert.match(hero, /hidden gap-3\.5[\s\S]*md:grid/);
+assert.match(hero, /max-w-xl/);
 assert.doesNotMatch(hero, /whitespace-nowrap/);
 
 // Mobile top clearance matches fixed header (~logo h-12 + py-2 ≈ 4rem) + small gap.

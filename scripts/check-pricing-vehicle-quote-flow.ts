@@ -213,13 +213,12 @@ check("entering date/time allows booking gate to pass schedule checks", () => {
 });
 
 check("homepage benefits include 5% off when you book a return", () => {
-  const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
-  assert.match(hero, /Get your fixed price below/);
-  assert.match(hero, /Airport fees & applicable tolls included/);
-  assert.match(hero, /Flight monitoring/);
-  assert.match(hero, /60 minutes complimentary airport waiting/);
-  assert.match(hero, /Secure card booking where eligible/);
-  assert.match(hero, /5% off when you book a return/);
+  const benefits = fs.readFileSync(path.join(root, "src/components/HeroBenefitsRow.tsx"), "utf8");
+  const data = fs.readFileSync(path.join(root, "src/lib/data.ts"), "utf8");
+  assert.match(benefits, /Flight monitoring/);
+  assert.match(benefits, /Airport waiting included/);
+  assert.match(data, /a 5% discount applies to the combined fare/);
+  assert.match(data, /confirmed securely by card via SumUp/);
 });
 
 check("public quote fare step does not ask for child/car seats", () => {

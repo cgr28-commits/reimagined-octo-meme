@@ -26,8 +26,12 @@ console.log("=== 1. Redundant hero buttons removed ===");
 
 console.log("\n=== 2. Benefits sit under heading without competing CTAs ===");
 {
-  assert.match(hero, /Instant fixed prices online/);
-  assert.match(hero, /Flight monitoring on airport pickups/);
+  const benefits = read("src/components/HeroBenefitsRow.tsx");
+  assert.match(hero, /HeroBenefitsRow/);
+  assert.match(benefits, /Pre-booked driver/);
+  assert.match(benefits, /Fixed price/);
+  assert.match(benefits, /Flight monitoring/);
+  assert.match(benefits, /Airport waiting included/);
   assert.doesNotMatch(hero, /<DeviceBookingCta/);
   console.log("OK  benefits list under heading; quote panel is the primary CTA");
 }
@@ -37,7 +41,7 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
   assert.match(header, /Get a Quote/);
   assert.match(
     hero,
-    /Pre-booked private airport taxi service to and from Belfast, Dublin and airports across Northern Ireland\./,
+    /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,
   );
   console.log("OK  header CTA + destination coverage text present");
 }
@@ -45,7 +49,10 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
 console.log("\n=== 4. No discontinued first-booking promo near quote CTA ===");
 {
   const css = read("src/app/globals.css");
-  assert.match(hero, /Fixed fares\. Reliable airport transfers\. No surprises\./);
+  assert.match(
+    hero,
+    /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,
+  );
   assert.doesNotMatch(hero, /FirstBookingOfferStrip|FirstBookingOfferBadge/);
   assert.doesNotMatch(hero, /first-booking|firstBooking|£5 booking offer/i);
   assert.doesNotMatch(css, /first-booking-offer-enter/);
@@ -55,9 +62,9 @@ console.log("\n=== 4. No discontinued first-booking promo near quote CTA ===");
 console.log("\n=== 5. Mobile above-the-fold compaction ===");
 {
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(hero, /pt-\[4\.15rem\] md:pt-28/);
+  assert.match(hero, /pt-16 md:pt-28/);
   assert.match(hero, /order-1 min-w-0 md:order-2 lg:order-1/);
-  assert.match(hero, /gap-2 /);
+  assert.match(hero, /gap-1\.5 /);
   assert.match(card, /Get your fixed price in three quick steps\./);
   assert.doesNotMatch(card.match(/md:hidden[\s\S]{0,200}Get your fixed price/)?.[0] ?? "", /Book and pay securely online/);
   assert.match(card, /Three quick steps — Journey, Quote, then Booking & Pay/);

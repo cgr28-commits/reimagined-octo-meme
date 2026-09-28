@@ -83,7 +83,10 @@ console.log("=== Public conversion templates share the layout ===");
   const hero = read("src/components/HeroSlideshow.tsx");
   assert.doesNotMatch(homepage, /LANDING_PAGE_MAIN_CLASS|LandingHeroMedia|LandingPageStickyQuoteCta/);
   assert.doesNotMatch(hero, /LANDING_PAGE_MAIN_CLASS|LandingHeroMedia|data-landing-hero/);
-  assert.match(hero, /pt-\[4\.15rem\] md:pt-28/);
+  assert.match(hero, /pt-16 md:pt-28/);
+  const picture = read("src/components/OptimizedHeroPicture.tsx");
+  assert.match(picture, /DEFAULT_WIDTHS = \[960, 1920\]/);
+  assert.match(picture, /widths = DEFAULT_WIDTHS/);
   console.log("OK  conversion landings share the shell; homepage hero stays separate");
 }
 

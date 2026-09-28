@@ -273,9 +273,9 @@ assert.match(payment, /never use client standardWebsiteAmount for SumUp amount/)
 assert.match(payment, /amount = resolved\.amount/);
 console.log("OK  10. SumUp remains Worker/KV-authoritative");
 
-const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
-assert.match(hero, /5% off when you book a return/);
-assert.match(hero, /Secure card booking where eligible/);
-console.log("OK  Homepage benefits include return saving");
+const data = fs.readFileSync(path.join(root, "src/lib/data.ts"), "utf8");
+assert.match(data, /a 5% discount applies to the combined fare/);
+assert.match(data, /confirmed securely by card via SumUp/);
+console.log("OK  Homepage FAQ still states the 5% return discount and card payment");
 
 console.log("\nAll airport Night & Weekend Surcharge parity checks passed.");
