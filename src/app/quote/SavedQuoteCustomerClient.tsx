@@ -26,11 +26,12 @@ import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import { savedQuoteScheduleChanged } from "../../../shared/booking-amendment";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
+import ShortNoticeCheckoutNotice, {
+  ShortNoticePaymentFollowUp,
+} from "@/components/ShortNoticeCheckoutNotice";
 import {
   isOwnerNoAvailabilityMessage,
   isWithinMinimumBookingNotice,
-  minimumNoticeRequestBody,
-  minimumNoticeRequestHeading,
 } from "../../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import { SITE } from "@/lib/data";
@@ -673,6 +674,10 @@ function SavedQuoteInner() {
             </div>
           )}
 
+          {isMinimumNoticeRequest && !isOwnerNoAvailabilityMessage(error) ? (
+            <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
+          ) : null}
+
           <BookingTermsConsent
             accepted={termsAccepted}
             onAcceptedChange={setTermsAccepted}
@@ -692,24 +697,14 @@ function SavedQuoteInner() {
               }}
             />
           ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? null : (
-            <>
+            <div className="space-y-2 sm:space-y-3">
               {error ? (
                 <p className="text-sm text-red-300" role="alert">
                   {error}
                 </p>
               ) : null}
               {isMinimumNoticeRequest ? (
-                <div
-                  className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
-                  role="status"
-                >
-                  <p className="text-sm font-semibold text-amber-100">
-                    {minimumNoticeRequestHeading()}
-                  </p>
-                  <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-amber-50/90">
-                    {minimumNoticeRequestBody(minimumBookingNoticeHours)}
-                  </p>
-                </div>
+                <ShortNoticePaymentFollowUp />
               ) : (
                 <p className="text-xs leading-relaxed text-white/70">
                   Your transfer is reserved for your selected pickup time.
@@ -738,13 +733,11 @@ function SavedQuoteInner() {
                   Need a quick answer? WhatsApp us
                 </a>
               ) : null}
-            </>
+            </div>
           )}
-          <p className="text-center text-xs text-white/45">
-            {isMinimumNoticeRequest
-              ? "No payment will be taken until we confirm availability."
-              : "Secure card payment powered by SumUp."}
-          </p>
+          {isMinimumNoticeRequest ? null : (
+            <p className="text-center text-xs text-white/45">Secure card payment powered by SumUp.</p>
+          )}
         </form>
       ) : null}
     </div>

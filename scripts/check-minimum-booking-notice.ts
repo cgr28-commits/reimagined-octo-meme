@@ -302,7 +302,8 @@ check("Smart Availability rest-of-day does not hard-block under-12h checkout", (
   assert.match(card, /!smartAvailabilityBlocked \|\| isMinimumNoticeRequest/);
   assert.match(card, /Request Short-Notice Booking/);
   assert.match(card, /Need a quick answer\? WhatsApp us/);
-  assert.match(card, /minimumNoticeRequestHeading/);
+  assert.match(card, /ShortNoticeCheckoutNotice/);
+  assert.match(read("src/components/ShortNoticeCheckoutNotice.tsx"), /minimumNoticeRequestHeading/);
   assert.match(index, /isWithinMinimumBookingNotice\(/);
   assert.match(index, /settings\.minimumBookingNoticeHours/);
   assert.match(preflight, /isWithinMinimumBookingNotice\(/);

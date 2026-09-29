@@ -214,11 +214,12 @@ import {
   buildOpenWebsiteFareBreakdown,
 } from "@/components/QuoteFareTrust";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
+import ShortNoticeCheckoutNotice, {
+  ShortNoticePaymentFollowUp,
+} from "@/components/ShortNoticeCheckoutNotice";
 import {
   isOwnerNoAvailabilityMessage,
   isWithinMinimumBookingNotice,
-  minimumNoticeRequestBody,
-  minimumNoticeRequestHeading,
   OWNER_NO_AVAILABILITY_MESSAGE,
 } from "../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
@@ -5897,7 +5898,7 @@ function QuoteCard({
         <div
           id="step3-payment-actions"
           ref={step3PaymentActionsRef}
-          className="scroll-mt-44 space-y-3 md:scroll-mt-28"
+          className="scroll-mt-44 space-y-2 md:scroll-mt-28 sm:space-y-3"
         >
           <div id="quote-step2-next" className="sr-only" />
           {capacityNeedsConfirm ? (
@@ -5913,6 +5914,15 @@ function QuoteCard({
                 {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
               </p>
             </div>
+          ) : null}
+
+          {payNow &&
+          liveQuote &&
+          isMinimumNoticeRequest &&
+          !openCheckout &&
+          !ownerClosed &&
+          !checkoutBlocked ? (
+            <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
           ) : null}
 
           <BookingTermsConsent
@@ -5957,7 +5967,7 @@ function QuoteCard({
               />
             </div>
           ) : checkoutBlocked ? null : payNow && liveQuote ? (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {capacityNeedsConfirm && !openCheckout ? (
                 <div
                   className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
@@ -5970,19 +5980,6 @@ function QuoteCard({
                   </p>
                   <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
                     {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
-                  </p>
-                </div>
-              ) : isMinimumNoticeRequest && !openCheckout ? (
-                <div
-                  className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <p className="text-sm font-semibold text-amber-100">
-                    {minimumNoticeRequestHeading()}
-                  </p>
-                  <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-amber-50/90">
-                    {minimumNoticeRequestBody(minimumBookingNoticeHours)}
                   </p>
                 </div>
               ) : !isMinimumNoticeRequest && !openCheckout ? (
@@ -6135,6 +6132,7 @@ function QuoteCard({
                     <p className="text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
                   </div>
                 ) : null}
+                {isMinimumNoticeRequest && !openCheckout ? <ShortNoticePaymentFollowUp /> : null}
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}

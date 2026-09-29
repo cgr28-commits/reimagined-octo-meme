@@ -61,19 +61,18 @@ console.log("=== Shared 24-hour policy ===");
   console.log("OK  shared policy is the simple 24-hour rule");
 }
 
-console.log("\n=== Checkout cancellation summary + consent ===");
+console.log("\n=== Checkout consent links to the policy, without the summary box ===");
 {
   const consent = read("src/components/BookingTermsConsent.tsx");
-  assert.match(consent, /CHECKOUT_CANCELLATION_HEADING/);
-  assert.match(consent, /CHECKOUT_CANCELLATION_SUMMARY/);
-  assert.match(consent, /VIEW_FULL_CANCELLATION_POLICY_LABEL/);
+  assert.doesNotMatch(consent, /CHECKOUT_CANCELLATION_HEADING/);
+  assert.doesNotMatch(consent, /CHECKOUT_CANCELLATION_SUMMARY/);
+  assert.doesNotMatch(consent, /VIEW_FULL_CANCELLATION_POLICY_LABEL/);
   assert.match(consent, /CANCELLATION_POLICY_PATH/);
-  assert.match(
-    consent,
-    /including the[\s\S]*cancellation policy[\s\S]*above, and authorise payment of \{fareLabel\}/,
-  );
-  assert.match(consent, /My booking is confirmed once payment is[\s\S]*completed/);
-  assert.match(consent, /paymentAmountLabel\?\.trim\(\) \|\| "the displayed fare"/);
+  assert.match(consent, /href="\/terms\/"/);
+  assert.match(consent, /href="\/privacy\/"/);
+  assert.match(consent, /Cancellation Policy/);
+  assert.match(consent, /I agree to the/);
+  assert.doesNotMatch(consent, /proof of agreement/);
   assert.doesNotMatch(consent, /£40/);
   assert.doesNotMatch(consent, /Terms version:/);
   assert.doesNotMatch(consent, /Cancellation policy version:/);
@@ -82,7 +81,10 @@ console.log("\n=== Checkout cancellation summary + consent ===");
   assert.doesNotMatch(consent, /No-shows: A booking will only be treated as a no-show/);
   assert.doesNotMatch(consent, /reasonable loss/);
   assertNoContradictoryCancellationCopy("checkout consent", consent);
-  console.log("OK  compact checkout summary + Cancellation Policy link + payment agreement");
+  const page = read("src/app/cancellation/page.tsx");
+  assert.match(page, /CHECKOUT_CANCELLATION_HEADING/);
+  assert.match(page, /CHECKOUT_CANCELLATION_SUMMARY/);
+  console.log("OK  checkout links Terms, Cancellation Policy and Privacy; summary stays on /cancellation/");
 }
 
 console.log("\n=== Dedicated Cancellation Policy page ===");

@@ -32,11 +32,12 @@ import {
   resolveExpressDropOff,
 } from "../../../shared/express-drop-off";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
+import ShortNoticeCheckoutNotice, {
+  ShortNoticePaymentFollowUp,
+} from "@/components/ShortNoticeCheckoutNotice";
 import {
   isOwnerNoAvailabilityMessage,
   isWithinMinimumBookingNotice,
-  minimumNoticeRequestBody,
-  minimumNoticeRequestHeading,
 } from "../../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import { SITE } from "@/lib/data";
@@ -623,7 +624,10 @@ function BookQuoteInner() {
         </label>
       </section>
 
-      <div className="min-w-0">
+      <div className="min-w-0 space-y-2 sm:space-y-3">
+        {isMinimumNoticeRequest && !isOwnerNoAvailabilityMessage(error) ? (
+          <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
+        ) : null}
         <BookingTermsConsent
           accepted={termsAccepted}
           onAcceptedChange={setTermsAccepted}
@@ -646,20 +650,10 @@ function BookQuoteInner() {
           onChooseAnotherTime={focusBookQuoteTime}
         />
       ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? null : (
-        <>
+        <div className="space-y-2 sm:space-y-3">
           {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
           {isMinimumNoticeRequest ? (
-            <div
-              className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
-              role="status"
-            >
-              <p className="text-sm font-semibold text-amber-100">
-                {minimumNoticeRequestHeading()}
-              </p>
-              <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-amber-50/90">
-                {minimumNoticeRequestBody(minimumBookingNoticeHours)}
-              </p>
-            </div>
+            <ShortNoticePaymentFollowUp />
           ) : (
             <p className="text-xs leading-relaxed text-white/70">
               Your transfer is reserved for your selected pickup time.
@@ -697,13 +691,13 @@ function BookQuoteInner() {
               Need a quick answer? WhatsApp us
             </a>
           ) : null}
-        </>
+        </div>
       )}
-      <p className="break-words px-1 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-white/45">
-        {isMinimumNoticeRequest
-          ? "No payment will be taken until we confirm availability."
-          : "You will complete payment on SumUp’s secure hosted checkout. Card details are never entered on this site."}
-      </p>
+      {isMinimumNoticeRequest ? null : (
+        <p className="break-words px-1 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-white/45">
+          You will complete payment on SumUp’s secure hosted checkout. Card details are never entered on this site.
+        </p>
+      )}
     </div>
   );
 }

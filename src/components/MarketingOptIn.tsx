@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 type MarketingOptInProps = {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
@@ -7,25 +5,15 @@ type MarketingOptInProps = {
 
 export default function MarketingOptIn({ checked, onCheckedChange }: MarketingOptInProps) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl quote-panel px-4 py-3 text-left">
+    <label className="flex min-h-11 cursor-pointer items-start gap-3 px-1 py-1 text-left sm:px-0">
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onCheckedChange(event.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/40 bg-navy-dark text-emerald focus:ring-emerald/30"
+        className="mt-0.5 h-5 w-5 shrink-0 rounded border-white/40 bg-navy-dark text-emerald focus:ring-emerald/30"
       />
-      <span className="text-sm leading-relaxed quote-secondary">
-        Keep me updated with occasional offers, travel tips and news from My Airport Taxi NI. You
-        can unsubscribe at any time via our{" "}
-        <Link
-          href="/unsubscribe/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium text-emerald underline decoration-emerald/40 underline-offset-2 hover:text-emerald-light"
-        >
-          unsubscribe page
-        </Link>{" "}
-        or by emailing us. Optional — not required to complete your booking.
+      <span className="text-xs leading-snug quote-secondary sm:text-sm">
+        Send me occasional offers and travel updates (optional)
       </span>
     </label>
   );
