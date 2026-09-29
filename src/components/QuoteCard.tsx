@@ -422,9 +422,9 @@ function TapChoiceRow({
   needsCompletion?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-white/14 bg-white/[0.03] p-2">
+    <div className="flex h-full flex-col rounded-2xl border border-white/14 bg-white/[0.03] p-2">
       <div className="mb-2">
-        <p className="form-label mb-0">
+        <p className="form-label mb-0 lg:min-h-9">
           {label}
           {needsCompletion && value == null ? (
             <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald/80">
@@ -432,11 +432,15 @@ function TapChoiceRow({
             </span>
           ) : null}
         </p>
-        {hint ? (
-          <p className="mt-1 text-[11px] font-medium leading-snug text-white/70">
-            {hint}
-          </p>
-        ) : null}
+        <p
+          className={
+            hint
+              ? "mt-1 text-[11px] font-medium leading-snug text-white/70 lg:min-h-8"
+              : "mt-1 hidden text-[11px] font-medium leading-snug text-white/70 lg:block lg:min-h-8 lg:invisible"
+          }
+        >
+          {hint || "Include all children in the passenger total."}
+        </p>
       </div>
       <div
         className="grid grid-cols-4 gap-2"
@@ -2349,7 +2353,7 @@ function QuoteCard({
       isEnquiryOnly);
   const quoteResultsReady = resultsCanRender;
 
-  /** Customer-facing 3-step progress. Internal quoteStep 2/3 both map to Booking & Pay. */
+  /** Customer-facing stages: 1 journey details, 2 your quote, 3 complete your booking. */
   const quoteProgressStep = quoteStep >= 2 ? 3 : quoteResultsReady ? 2 : 1;
 
   const addressesReadyForRoute = isA2AFlow
@@ -5639,7 +5643,7 @@ function QuoteCard({
             tabIndex={-1}
             className="sr-only"
           >
-            Step 2 — Complete your booking
+            Step 3 — Complete your booking
           </h2>
 
           {renderQuoteScheduleFields("checkout")}
@@ -6464,6 +6468,7 @@ function QuoteCard({
           shortNoticeResultRef.current = node;
         }}
         id="quote-availability-confirmation"
+        data-quote-presentation={presentation}
         className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8"
       >
         <ShortNoticeRequestReceived
@@ -6500,6 +6505,7 @@ function QuoteCard({
           bookingResultRef.current = node;
         }}
         id="bookingRequestResult"
+        data-quote-presentation={presentation}
         className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8 md:scroll-mt-28"
       >
         <div className="rounded-xl quote-panel px-5 py-8 text-center sm:px-8 sm:py-10">
@@ -6618,8 +6624,8 @@ function QuoteCard({
           {/* Desktop: fuller explanation */}
           <p className="hidden md:block">
             {pricingConfirmationRequired
-              ? "Three quick steps — Journey, Quote, then Booking & Pay. We’ll confirm your fare before any payment."
-              : "Three quick steps — Journey, Quote, then Booking & Pay. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
+              ? "Three quick steps — Journey details, Your quote, then Complete your booking. We’ll confirm your fare before any payment."
+              : "Three quick steps — Journey details, Your quote, then Complete your booking. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
           </p>
             </>
           )}
@@ -6630,9 +6636,9 @@ function QuoteCard({
         >
           {(
             [
-              { step: 1 as const, label: "Journey" },
-              { step: 2 as const, label: "Quote" },
-              { step: 3 as const, label: "Booking & Pay" },
+              { step: 1 as const, label: "Journey details" },
+              { step: 2 as const, label: "Your quote" },
+              { step: 3 as const, label: "Complete your booking" },
             ]
           ).map((item) => {
             const active = quoteProgressStep === item.step;
@@ -6954,6 +6960,7 @@ function QuoteCard({
 
                 {quoteResultsReady && quoteStep === 1 && (
                   <>
+                    <h2 className="sr-only">Step 2 — Your quote</h2>
                     <div
                       ref={quoteResultsStartRef}
                       id="quote-results-start"
@@ -7333,7 +7340,7 @@ function QuoteCard({
           id="passenger-luggage-section"
           className="space-y-4 rounded-xl quote-panel px-4 py-4 lg:space-y-3.5 lg:px-4 lg:py-3.5"
         >
-          <div className="grid gap-4 lg:grid-cols-2 lg:gap-3.5">
+          <div className="grid items-stretch gap-4 lg:grid-cols-2 lg:items-stretch lg:gap-3.5">
             <TapChoiceRow
               label="Passengers"
               hint="Include all children in the passenger total."
@@ -7407,6 +7414,7 @@ function QuoteCard({
             className="scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
             style={{ overflowAnchor: "none" }}
           >
+            <h2 className="sr-only">Step 2 — Your quote</h2>
             <div
               ref={quoteResultsStartRef}
               id="quote-results-start"

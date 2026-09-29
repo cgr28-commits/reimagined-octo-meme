@@ -10,7 +10,7 @@ export default function PopularBelfastTransfers() {
       className="relative scroll-mt-36 py-16 sm:py-20 md:scroll-mt-28 lg:py-24"
     >
       <div className="absolute inset-0 bg-navy-dark" />
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 desktop-shell lg:max-w-[1400px] lg:px-10 xl:px-12">
         <SectionHeading
           eyebrow="From Belfast"
           title="Popular Belfast Airport Transfers"

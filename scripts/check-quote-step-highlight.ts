@@ -63,9 +63,13 @@ assert.match(read("src/components/QuoteScheduleFields.tsx"), /quoteDateTimeField
 assert.match(card, /bookingTextFieldClass/);
 assert.match(card, /needsCompletion=\{quoteStep === 1 && !isPlaceSelected/);
 assert.doesNotMatch(card, /BOOKING_INPUT_CLASS/);
-assert.match(card, /label: "Journey"/);
-assert.match(card, /label: "Quote"/);
-assert.match(card, /label: "Booking & Pay"/);
+assert.match(card, /label: "Journey details"/);
+assert.match(card, /label: "Your quote"/);
+assert.match(card, /label: "Complete your booking"/);
+assert.match(card, /Step 1 — Journey details/);
+assert.match(card, /Step 2 — Your quote/);
+assert.match(card, /Step 3 — Complete your booking/);
+assert.doesNotMatch(card, /Step 2 — Complete your booking/);
 assert.match(card, /grid-cols-3/);
 assert.match(card, /quoteProgressStep/);
 assert.doesNotMatch(card, /Price & travel/);
@@ -95,10 +99,11 @@ console.log("OK  Places needs placeId; z-index intact; address field contrast li
 
 console.log("\n=== Progressive route ===");
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");
+const partySelectors = read("src/components/PublicPartySelectors.tsx");
 assert.match(progressive, /choiceGroupNeedsClass\(!journeyIntent\)/);
 assert.match(progressive, /needsCompletion=\{!pickupConfirmedPlace/);
 assert.match(progressive, /needsCompletion=\{!dropoffConfirmedPlace/);
-assert.match(progressive, /needsCompletion=\{passengers == null\}/);
+assert.match(partySelectors, /needsCompletion=\{passengers == null\}/);
 console.log("OK  progressive required groups highlighted");
 
 console.log("\n=== Funnel / Ads / consent untouched ===");

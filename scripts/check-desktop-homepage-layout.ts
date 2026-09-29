@@ -16,9 +16,11 @@ function read(rel: string): string {
 console.log("=== Desktop homepage layout (lg+) ===");
 
 const hero = read("src/components/HeroSlideshow.tsx");
-assert.match(hero, /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(500px,600px\)\]/);
 assert.match(hero, /lg:max-w-\[1400px\]/);
+assert.match(hero, /desktop-shell/);
+assert.match(hero, /homepage-hero-layout/);
 assert.match(hero, /lg:items-start/);
+assert.doesNotMatch(hero, /minmax\(500px,600px\)/);
 assert.match(hero, /md:order-2 lg:order-1/);
 assert.match(hero, /md:order-1 md:scroll-mt-28 lg:order-2/);
 assert.doesNotMatch(hero, /lg:max-w-md/);
@@ -57,7 +59,28 @@ console.log("OK  progressive route desktop airport + party grids");
 
 const airports = read("src/components/AirportsSection.tsx");
 assert.match(airports, /lg:max-w-\[1400px\]/);
+assert.match(airports, /desktop-shell/);
 assert.match(airports, /lg:py-32/);
 console.log("OK  homepage sections use wider desktop shell");
+
+const css = read("src/app/globals.css");
+assert.match(css, /@media \(min-width: 1536px\) \{\s*\.desktop-shell \{\s*max-width: 1600px;/);
+assert.match(css, /@media \(min-width: 1024px\) \{\s*\.homepage-hero-layout \{/);
+assert.match(css, /minmax\(0, min\(100%, 46rem\)\)/);
+assert.match(css, /minmax\(0, min\(100%, 50rem\)\)/);
+assert.match(css, /minmax\(0, min\(100%, 54rem\)\)/);
+assert.doesNotMatch(css, /data-quote-layout="expanded"/);
+assert.doesNotMatch(quote, /homepageQuoteExpanded/);
+assert.doesNotMatch(css, /transform:\s*scale/);
+console.log("OK  homepage quote stays centred from the first step; 1536px shell is 1600px");
+
+const party = read("src/components/PublicPartySelectors.tsx");
+assert.match(party, /lg:items-stretch/);
+assert.match(party, /flex h-full flex-col/);
+assert.match(party, /lg:min-h-9/);
+assert.match(party, /order-3 flex h-full/);
+assert.match(party, /lg:order-2/);
+assert.doesNotMatch(party, /lg:items-start/);
+console.log("OK  passenger and luggage panels stretch to one desktop row");
 
 console.log("\nAll desktop homepage layout checks passed.");

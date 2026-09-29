@@ -6,7 +6,7 @@ export default function FlightStatusSection() {
   return (
     <section id="flight-status" className="relative scroll-mt-36 md:scroll-mt-28 py-20 sm:py-28 lg:py-32">
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-dark/50 to-navy" />
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 desktop-shell lg:max-w-[1400px] lg:px-10 xl:px-12">
         <SectionHeading
           eyebrow="Plan Your Pickup"
           title="Check Your Flight"

@@ -29,9 +29,11 @@ const submitCheckout = slice(card, "async function submitCheckoutForm()", "funct
 console.log("=== Checkout page is compact and sans-serif ===");
 {
   assert.match(card, /COMPLETE YOUR BOOKING/);
-  assert.match(card, /label: "Journey"/);
-  assert.match(card, /label: "Quote"/);
-  assert.match(card, /label: "Booking & Pay"/);
+  assert.match(card, /label: "Journey details"/);
+  assert.match(card, /label: "Your quote"/);
+  assert.match(card, /label: "Complete your booking"/);
+  assert.match(card, /Step 3 — Complete your booking/);
+  assert.doesNotMatch(card, /Step 2 — Complete your booking/);
   assert.match(card, /grid-cols-3/);
   assert.doesNotMatch(card, /quoteStep >= 2 \? "grid-cols-2"/);
   assert.match(checkout, /Pickup/);

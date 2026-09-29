@@ -11,7 +11,7 @@ export default function AreasSection() {
         <div className="h-full w-full bg-[radial-gradient(ellipse_at_center,_var(--color-emerald)_0%,_transparent_70%)]" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 desktop-shell lg:max-w-[1400px] lg:px-10 xl:px-12">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20 xl:gap-24">
           <div>
             <SectionHeading

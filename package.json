@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:addresses": "npm --prefix workers/addresses run dev",
-    "build": "node scripts/generate-sitemap.mjs && next build",
+    "build": "node scripts/generate-sitemap.mjs && rm -f .next/cache/.tsbuildinfo && next build",
     "sync:worker-shared": "node scripts/sync-worker-shared.mjs",
     "setup:worker": "node scripts/setup-worker.mjs",
     "set:driver-key": "node scripts/set-driver-access-key.mjs",

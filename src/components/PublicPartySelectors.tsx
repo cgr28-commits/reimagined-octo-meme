@@ -18,10 +18,11 @@ import {
 export const PUBLIC_PARTY_SELECTOR_COLUMNS = 4;
 
 function choiceGridShellClass(hasError: boolean): string {
+  const layout = "flex h-full flex-col";
   if (hasError) {
-    return "rounded-2xl border border-red-400/70 bg-red-500/[0.08] p-2 ring-1 ring-red-400/35";
+    return `${layout} rounded-2xl border border-red-400/70 bg-red-500/[0.08] p-2 ring-1 ring-red-400/35`;
   }
-  return "rounded-2xl border border-white/14 bg-white/[0.03] p-2";
+  return `${layout} rounded-2xl border border-white/14 bg-white/[0.03] p-2`;
 }
 
 export function PartyChoiceGrid({
@@ -49,7 +50,7 @@ export function PartyChoiceGrid({
   return (
     <div className={choiceGridShellClass(hasError)}>
       <div className="mb-2">
-        <p className="form-label mb-0">
+        <p className="form-label mb-0 lg:min-h-9">
           {label}
           {needsCompletion && value == null ? (
             <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald/80">
@@ -57,11 +58,15 @@ export function PartyChoiceGrid({
             </span>
           ) : null}
         </p>
-        {hint ? (
-          <p className="mt-1 text-[11px] font-medium leading-snug text-white/70">
-            {hint}
-          </p>
-        ) : null}
+        <p
+          className={
+            hint
+              ? "mt-1 text-[11px] font-medium leading-snug text-white/70 lg:min-h-8"
+              : "mt-1 hidden text-[11px] font-medium leading-snug text-white/70 lg:block lg:min-h-8 lg:invisible"
+          }
+        >
+          {hint || "Include all children in the passenger total."}
+        </p>
       </div>
       <div
         className="grid grid-cols-4 gap-2"
@@ -117,8 +122,8 @@ export default function PublicPartySelectors({
     suitcases != null && suitcaseOptions.includes(suitcases) ? suitcases : null;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2 lg:items-start lg:gap-3.5">
-      <div id="quote-section-passengers" className="space-y-5 lg:space-y-3.5">
+    <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-2 lg:items-stretch lg:gap-3.5">
+      <div id="quote-section-passengers" className="order-1 flex h-full min-w-0 flex-col">
         <PartyChoiceGrid
           label="Passengers"
           hint="Include all children in the passenger total."
@@ -130,17 +135,19 @@ export default function PublicPartySelectors({
           hasError={Boolean(passengersError)}
         />
         {passengersError ? (
-          <p id="quote-passengers-error" role="alert" data-field-error className="text-xs text-red-300">
+          <p id="quote-passengers-error" role="alert" data-field-error className="mt-2 text-xs text-red-300">
             {passengersError}
           </p>
-        ) : (
-          <p className="quote-secondary text-xs">
-            {publicPassengerCapacityCopy(publicMinibusEnabled === true)}
-          </p>
-        )}
+        ) : null}
       </div>
 
-      <div id="quote-section-suitcases" className="space-y-5 lg:space-y-3.5">
+      {!passengersError ? (
+        <p className="quote-secondary order-2 text-xs lg:order-3 lg:col-span-2">
+          {publicPassengerCapacityCopy(publicMinibusEnabled === true)}
+        </p>
+      ) : null}
+
+      <div id="quote-section-suitcases" className="order-3 flex h-full min-w-0 flex-col lg:order-2">
         <PartyChoiceGrid
           label="Suitcases / large bags"
           options={suitcaseOptions}
@@ -151,7 +158,7 @@ export default function PublicPartySelectors({
           hasError={Boolean(suitcasesError)}
         />
         {suitcasesError ? (
-          <p id="quote-suitcases-error" role="alert" data-field-error className="text-xs text-red-300">
+          <p id="quote-suitcases-error" role="alert" data-field-error className="mt-2 text-xs text-red-300">
             {suitcasesError}
           </p>
         ) : null}
