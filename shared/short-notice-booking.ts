@@ -4,6 +4,11 @@
  */
 
 import type { PaidBookingDetails } from "./booking-notifications";
+import {
+  normalizeShortNoticeConfirmationWindowHours,
+  SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+} from "./booking-notice";
+import { formatLondonClockTime } from "./uk-time";
 import type { PaymentHoldReason } from "./vehicle-capacity";
 
 export const SHORT_NOTICE_STATUSES = [
@@ -28,6 +33,7 @@ export const SHORT_NOTICE_HISTORY_EVENT_TYPES = [
   "payment_link_created",
   "payment_completed",
   "booking_confirmed",
+  "request_expired",
 ] as const;
 
 export type ShortNoticeHistoryEventType = (typeof SHORT_NOTICE_HISTORY_EVENT_TYPES)[number];
@@ -80,6 +86,25 @@ export type ShortNoticeBookingRecord = {
   unavailablePeriodIdApplied?: string | null;
   /** True when the configured minimum online notice forced this request. */
   underMinimumNotice?: boolean;
+  /** Lead time in force when this under-notice request was created. */
+  minimumShortNoticeLeadHoursApplied?: number;
+  /**
+   * Confirmation window (whole hours) in force when this request was created.
+   * Customer wording and the expiry email use this, not the live dashboard setting.
+   */
+  shortNoticeConfirmationWindowHours?: number;
+  /**
+   * shortNoticeRequestedAt plus the confirmation window, in elapsed time.
+   * Only set for under-notice requests.
+   * Authoritative response deadline — later setting changes do not rewrite it.
+   */
+  shortNoticeRequestedAt?: string;
+  shortNoticeExpiresAt?: string;
+  /** Why SHORT_NOTICE_EXPIRED was set. Response-window expiry is not a decline. */
+  expiryReason?: "response_window" | "payment_window";
+  responseExpiredAt?: string;
+  /** Set after the one customer expiry email is sent. */
+  responseExpiryEmailSentAt?: string;
   /**
    * Why payment was held for Owner approval.
    * Includes luggage_capacity when the conservative 7 Seater high-load rule applies.
@@ -179,6 +204,77 @@ export function shortNoticeArchivedIndexKey(): string {
 /** Best-effort exclusive claim for concurrent owner approve vs decline. */
 export function shortNoticeDecisionKey(reference: string): string {
   return `short-notice:decision:${reference.trim()}`;
+}
+
+/** Claim so two expiry passes cannot both email the customer. */
+export function shortNoticeExpiryEmailKey(reference: string): string {
+  return `short-notice:expiry-email:${reference.trim()}`;
+}
+
+/** One actual elapsed hour. Multiplied by the stored confirmation window. Not UK wall-clock arithmetic. */
+export const SHORT_NOTICE_RESPONSE_WINDOW_MS = 60 * 60 * 1000;
+
+export const SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE =
+  "This short-notice request has expired and can no longer be accepted.";
+
+export const SHORT_NOTICE_RESPONSE_EXPIRED_CUSTOMER_MESSAGE =
+  "This booking request has expired. No payment has been taken and your journey has not been booked.";
+
+export function shortNoticeResponseExpiresAtIso(
+  requestedAt: string | Date,
+  windowHours: number = SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+): string {
+  const hours = normalizeShortNoticeConfirmationWindowHours(windowHours);
+  const requested = requestedAt instanceof Date ? requestedAt : new Date(requestedAt);
+  const start = Number.isNaN(requested.getTime()) ? Date.now() : requested.getTime();
+  return new Date(start + hours * SHORT_NOTICE_RESPONSE_WINDOW_MS).toISOString();
+}
+
+/** Remaining time until the stored deadline. Uses shortNoticeExpiresAt, not the live setting. */
+export function formatShortNoticeRemainingLabel(expiresAt: string, now = new Date()): string | null {
+  const deadline = new Date(expiresAt).getTime();
+  if (Number.isNaN(deadline)) return null;
+  const remainingMs = deadline - now.getTime();
+  if (remainingMs <= 0) return "0 minutes remaining";
+  const totalMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) {
+    return minutes === 1 ? "1 minute remaining" : `${minutes} minutes remaining`;
+  }
+  if (minutes === 0) {
+    return hours === 1 ? "1 hour remaining" : `${hours} hours remaining`;
+  }
+  const hourLabel = hours === 1 ? "1 hour" : `${hours} hours`;
+  const minuteLabel = minutes === 1 ? "1 minute" : `${minutes} minutes`;
+  return `${hourLabel} ${minuteLabel} remaining`;
+}
+
+export function formatShortNoticeDeadlineLine(expiresAt: string, now = new Date()): string {
+  const remaining = formatShortNoticeRemainingLabel(expiresAt, now);
+  const respondBy = formatLondonClockTime(expiresAt);
+  if (!remaining) return respondBy ? `Respond by ${respondBy}` : "";
+  return respondBy ? `${remaining} · Respond by ${respondBy}` : remaining;
+}
+
+export function isShortNoticeResponseExpiredRecord(
+  record: Pick<ShortNoticeBookingRecord, "status" | "expiryReason">,
+): boolean {
+  return record.status === "SHORT_NOTICE_EXPIRED" && record.expiryReason === "response_window";
+}
+
+export function isShortNoticeResponseWindowDue(
+  record: Pick<
+    ShortNoticeBookingRecord,
+    "status" | "underMinimumNotice" | "shortNoticeExpiresAt"
+  >,
+  now = new Date(),
+): boolean {
+  if (record.status !== "SHORT_NOTICE_AWAITING_APPROVAL") return false;
+  if (!record.underMinimumNotice || !record.shortNoticeExpiresAt) return false;
+  const deadline = new Date(record.shortNoticeExpiresAt).getTime();
+  if (Number.isNaN(deadline)) return false;
+  return now.getTime() >= deadline;
 }
 
 /** Still in an actionable workflow status (before paid / terminal decline). */

@@ -3,16 +3,28 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MINIMUM_BOOKING_NOTICE_HOURS,
+  MINIMUM_SHORT_NOTICE_LEAD_HOURS,
   MAX_MINIMUM_BOOKING_NOTICE_HOURS,
+  MAX_MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+  MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   MIN_MINIMUM_BOOKING_NOTICE_HOURS,
+  MIN_MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+  MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+  SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   formatHoursUntilPickupLabel,
   formatUnavailablePeriodRangeLabel,
   isUnavailablePeriodExpired,
   normalizeMinimumBookingNoticeHours,
+  normalizeMinimumShortNoticeLeadHours,
+  normalizeShortNoticeConfirmationWindowHours,
   ownerUnavailablePeriodModeLabel,
   parseMinimumBookingNoticeHoursInput,
+  parseMinimumShortNoticeLeadHoursInput,
+  parseShortNoticeConfirmationWindowHoursInput,
   vehicleServiceLabel,
 } from "../../shared/booking-notice";
+import { formatShortNoticeDeadlineLine, formatShortNoticeRemainingLabel } from "../../shared/short-notice-booking";
+import { formatLondonClockTime } from "../../shared/uk-time";
 import { hoursUntilPickup } from "../../shared/refund-ops";
 import { SITE } from "@/lib/data";
 import { vehicleCustomerLabel } from "../../shared/vehicle-display";
@@ -30,6 +42,8 @@ import {
   resendShortNoticePaymentEmail,
   restoreShortNoticeToDashboard,
   updateMinimumBookingNoticeHours,
+  updateMinimumShortNoticeLeadHours,
+  updateShortNoticeConfirmationWindowHours,
   updateUnavailablePeriod,
   withdrawAlternativeShortNoticeOffer,
   type BookingSettings,
@@ -70,7 +84,10 @@ const EMPTY_DRAFT: PeriodDraft = {
   mode: "request_only",
 };
 
-function statusLabel(status: string): string {
+function statusLabel(
+  status: string,
+  booking?: { expiryReason?: string },
+): string {
   switch (status) {
     case "SHORT_NOTICE_AWAITING_APPROVAL":
       return "Short-notice request · Awaiting your decision";
@@ -85,17 +102,71 @@ function statusLabel(status: string): string {
     case "SHORT_NOTICE_PAID":
       return "Customer paid · Confirmed";
     case "SHORT_NOTICE_EXPIRED":
-      return "Payment expired";
+      return booking?.expiryReason === "response_window"
+        ? "Expired — not confirmed"
+        : "Payment expired";
     default:
       return status;
   }
+}
+
+function shortNoticeResponseCountdown(
+  booking: ShortNoticeBookingSummary,
+  nowMs: number,
+): { remainingLabel: string; respondBy: string; expired: boolean; urgent: boolean } | null {
+  if (!booking.underMinimumNotice || !booking.shortNoticeExpiresAt) return null;
+  if (
+    booking.status !== "SHORT_NOTICE_AWAITING_APPROVAL" &&
+    booking.expiryReason !== "response_window"
+  ) {
+    return null;
+  }
+  const deadline = new Date(booking.shortNoticeExpiresAt).getTime();
+  if (Number.isNaN(deadline)) return null;
+  const respondBy = formatLondonClockTime(booking.shortNoticeExpiresAt);
+  if (booking.expiryReason === "response_window" || booking.status === "SHORT_NOTICE_EXPIRED" || nowMs >= deadline) {
+    return { remainingLabel: "Expired — not confirmed", respondBy, expired: true, urgent: true };
+  }
+  const remainingLabel = formatShortNoticeRemainingLabel(
+    booking.shortNoticeExpiresAt,
+    new Date(nowMs),
+  );
+  if (!remainingLabel) return null;
+  const minutes = Math.max(1, Math.ceil((deadline - nowMs) / 60000));
+  return {
+    remainingLabel,
+    respondBy,
+    expired: false,
+    urgent: minutes <= 15,
+  };
+}
+
+function ShortNoticeDeadlineLine({
+  booking,
+  nowMs,
+}: {
+  booking: ShortNoticeBookingSummary;
+  nowMs: number;
+}) {
+  const countdown = shortNoticeResponseCountdown(booking, nowMs);
+  if (!countdown) return null;
+  return (
+    <p
+      className={`text-xs font-semibold ${countdown.urgent ? "text-amber-200" : "text-white/80"}`}
+      data-short-notice-deadline
+    >
+      {countdown.expired
+        ? "Expired — not confirmed"
+        : formatShortNoticeDeadlineLine(booking.shortNoticeExpiresAt ?? "", new Date(nowMs))}
+    </p>
+  );
 }
 
 function ownerFacingStatusLabel(booking: ShortNoticeBookingSummary, now = new Date()): string {
   if (booking.status === "SHORT_NOTICE_APPROVED") {
     return paymentStatusLabel(booking, now);
   }
-  return statusLabel(booking.status);
+  return statusLabel(booking.status, booking);
 }
 
 function paymentStatusLabel(booking: ShortNoticeBookingSummary, now = new Date()): string {
@@ -110,7 +181,9 @@ function paymentStatusLabel(booking: ShortNoticeBookingSummary, now = new Date()
   }
   const remainingHours = hoursUntilPickup(booking.booking.tripDate, booking.booking.tripTime, now);
   if (remainingHours != null && remainingHours < 0) return "Pickup time has passed";
-  if (booking.status === "SHORT_NOTICE_EXPIRED") return "Payment expired";
+  if (booking.status === "SHORT_NOTICE_EXPIRED") {
+    return booking.expiryReason === "response_window" ? "Expired — not confirmed" : "Payment expired";
+  }
   if (booking.status === "SHORT_NOTICE_APPROVED") {
     if (
       booking.paymentExpiresAt &&
@@ -195,6 +268,15 @@ export default function OwnerShortNoticePanel({
   const [savingSettings, setSavingSettings] = useState(false);
   const [noticeHoursDraft, setNoticeHoursDraft] = useState(String(MINIMUM_BOOKING_NOTICE_HOURS));
   const [savedNoticeHours, setSavedNoticeHours] = useState(MINIMUM_BOOKING_NOTICE_HOURS);
+  const [leadHoursDraft, setLeadHoursDraft] = useState(String(MINIMUM_SHORT_NOTICE_LEAD_HOURS));
+  const [savedLeadHours, setSavedLeadHours] = useState(MINIMUM_SHORT_NOTICE_LEAD_HOURS);
+  const [confirmationWindowDraft, setConfirmationWindowDraft] = useState(
+    String(SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS),
+  );
+  const [savedConfirmationWindowHours, setSavedConfirmationWindowHours] = useState(
+    SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+  );
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [bookingSettings, setBookingSettings] = useState<BookingSettings | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -259,12 +341,20 @@ export default function OwnerShortNoticePanel({
     }));
   }
 
-  const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number; depositCash?: BookingSettings["depositCash"] }) => {
+  const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number; minimumShortNoticeLeadHours?: number; shortNoticeConfirmationWindowHours?: number; depositCash?: BookingSettings["depositCash"] }) => {
     onSettingsChange?.(settings as BookingSettings);
     setPeriods(Array.isArray(settings.unavailablePeriods) ? settings.unavailablePeriods : []);
     const hours = normalizeMinimumBookingNoticeHours(settings.minimumBookingNoticeHours);
+    const lead = normalizeMinimumShortNoticeLeadHours(settings.minimumShortNoticeLeadHours);
+    const confirmationWindow = normalizeShortNoticeConfirmationWindowHours(
+      settings.shortNoticeConfirmationWindowHours,
+    );
     setSavedNoticeHours(hours);
     setNoticeHoursDraft(String(hours));
+    setSavedLeadHours(lead);
+    setLeadHoursDraft(String(lead));
+    setSavedConfirmationWindowHours(confirmationWindow);
+    setConfirmationWindowDraft(String(confirmationWindow));
     if ("updatedAt" in settings || "depositCash" in settings) {
       setBookingSettings(settings as BookingSettings);
     }
@@ -299,6 +389,11 @@ export default function OwnerShortNoticePanel({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const sortedPeriods = useMemo(
     () =>
       [...periods]
@@ -321,6 +416,51 @@ export default function OwnerShortNoticePanel({
       setMessage(`Short-notice period saved: ${parsed} hours.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save short-notice period");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function handleSaveLeadHours() {
+    setSavingSettings(true);
+    setError("");
+    setMessage("");
+    try {
+      const parsed = parseMinimumShortNoticeLeadHoursInput(leadHoursDraft);
+      if (parsed == null) {
+        throw new Error("Enter a whole number of hours between 1 and 47.");
+      }
+      if (parsed >= savedNoticeHours) {
+        throw new Error(
+          `Minimum short-notice lead time must be lower than the short-notice period (${savedNoticeHours} hours).`,
+        );
+      }
+      const settings = await updateMinimumShortNoticeLeadHours(ownerKey, parsed);
+      applySettings(settings);
+      setMessage(`Minimum short-notice lead time saved: ${parsed} hours.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save minimum short-notice lead time");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function handleSaveConfirmationWindow() {
+    setSavingSettings(true);
+    setError("");
+    setMessage("");
+    try {
+      const parsed = parseShortNoticeConfirmationWindowHoursInput(confirmationWindowDraft);
+      if (parsed == null) {
+        throw new Error("Enter a whole number of hours between 1 and 4.");
+      }
+      const settings = await updateShortNoticeConfirmationWindowHours(ownerKey, parsed);
+      applySettings(settings);
+      setMessage(
+        `Short-notice confirmation window saved: ${parsed} ${parsed === 1 ? "hour" : "hours"}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save short-notice confirmation window");
     } finally {
       setSavingSettings(false);
     }
@@ -592,6 +732,90 @@ export default function OwnerShortNoticePanel({
             {message}
           </p>
         ) : null}
+
+        <div className="mt-6 border-t border-white/10 pt-4">
+          <h3 className="text-lg font-bold text-white">Minimum short-notice lead time</h3>
+          <p className="mt-1 break-words text-sm text-white/65">
+            Customers cannot request a pickup sooner than this. Anything from this lead time up to
+            the short-notice period is a short-notice request.
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="block min-w-0 text-sm text-white/70">
+              Hours
+              <input
+                type="number"
+                inputMode="numeric"
+                min={MIN_MINIMUM_SHORT_NOTICE_LEAD_HOURS}
+                max={MAX_MINIMUM_SHORT_NOTICE_LEAD_HOURS}
+                step={1}
+                value={leadHoursDraft}
+                onChange={(event) => setLeadHoursDraft(event.target.value)}
+                className={`${fieldClass} sm:w-32`}
+                aria-describedby="short-notice-lead-help"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={savingSettings}
+              onClick={() => void handleSaveLeadHours()}
+              className="min-h-11 w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60 sm:w-auto"
+            >
+              {savingSettings ? "Saving…" : "Save lead time"}
+            </button>
+          </div>
+          <p id="short-notice-lead-help" className="mt-2 break-words text-xs text-white/45">
+            Current value: {savedLeadHours} hours. Must be a whole number lower than the{" "}
+            {savedNoticeHours}-hour short-notice period. Under {savedLeadHours} hours cannot be
+            requested.
+          </p>
+          {message.startsWith("Minimum short-notice lead time saved") ? (
+            <p className="mt-2 text-sm text-emerald" role="status">
+              {message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="mt-6 border-t border-white/10 pt-4">
+          <h3 className="text-lg font-bold text-white">Short-notice confirmation window</h3>
+          <p id="short-notice-confirmation-window-help" className="mt-1 break-words text-sm text-white/65">
+            How long you have to confirm availability before an unanswered short-notice request automatically expires.
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="block min-w-0 text-sm text-white/70">
+              Hours
+              <input
+                type="number"
+                inputMode="numeric"
+                min={MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS}
+                max={MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS}
+                step={1}
+                value={confirmationWindowDraft}
+                onChange={(event) => setConfirmationWindowDraft(event.target.value)}
+                className={`${fieldClass} sm:w-32`}
+                aria-describedby="short-notice-confirmation-window-help"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={savingSettings}
+              onClick={() => void handleSaveConfirmationWindow()}
+              className="min-h-11 w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60 sm:w-auto"
+            >
+              {savingSettings ? "Saving…" : "Save confirmation window"}
+            </button>
+          </div>
+          <p className="mt-2 break-words text-xs text-white/45">
+            Current value: {savedConfirmationWindowHours}{" "}
+            {savedConfirmationWindowHours === 1 ? "hour" : "hours"}. Allowed range{" "}
+            {MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS}–{MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS}{" "}
+            hours. Changing this does not move deadlines already stored on pending requests.
+          </p>
+          {message.startsWith("Short-notice confirmation window saved") ? (
+            <p className="mt-2 text-sm text-emerald" role="status">
+              {message}
+            </p>
+          ) : null}
+        </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -931,6 +1155,7 @@ export default function OwnerShortNoticePanel({
                     <p className="text-[11px] font-semibold tracking-wider text-white/70">
                       {ownerFacingStatusLabel(booking)}
                     </p>
+                    <ShortNoticeDeadlineLine booking={booking} nowMs={nowMs} />
                     {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
                       <>
                         <p className="text-sm text-white/70">
@@ -978,6 +1203,7 @@ export default function OwnerShortNoticePanel({
                     <p className="mt-0.5 text-xs uppercase tracking-wider text-amber-200/90">
                       {ownerFacingStatusLabel(booking)}
                     </p>
+                    <ShortNoticeDeadlineLine booking={booking} nowMs={nowMs} />
                   </div>
                   <button
                     type="button"
@@ -1071,7 +1297,7 @@ export default function OwnerShortNoticePanel({
                   </div>
                   <div>
                     <dt className="text-white/40">Request / booking status</dt>
-                    <dd>{statusLabel(booking.status)}</dd>
+                    <dd>{statusLabel(booking.status, booking)}</dd>
                   </div>
                   <div>
                     <dt className="text-white/40">Return</dt>
@@ -1122,7 +1348,12 @@ export default function OwnerShortNoticePanel({
                   </div>
                 ) : null}
 
-                {booking.status === "SHORT_NOTICE_AWAITING_APPROVAL" ? (
+                {booking.status === "SHORT_NOTICE_AWAITING_APPROVAL" &&
+                shortNoticeResponseCountdown(booking, nowMs)?.expired ? (
+                  <p className="mt-4 text-sm font-semibold text-amber-100" role="status">
+                    Expired — not confirmed. This request can no longer be accepted.
+                  </p>
+                ) : booking.status === "SHORT_NOTICE_AWAITING_APPROVAL" ? (
                   <div className="mt-4 space-y-3">
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -1676,7 +1907,7 @@ export default function OwnerShortNoticePanel({
                           </span>
                         </p>
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
-                          {statusLabel(booking.status)}
+                          {statusLabel(booking.status, booking)}
                           {booking.removedFromDashboardAt ? " · REMOVED" : ""}
                         </p>
                         <p className="text-sm text-white/70">
@@ -1704,7 +1935,7 @@ export default function OwnerShortNoticePanel({
                               {booking.reference} · {booking.amountLabel}
                             </p>
                             <p className="mt-1 text-xs uppercase tracking-wider text-white/50">
-                              {statusLabel(booking.status)}
+                              {statusLabel(booking.status, booking)}
                               {booking.removedFromDashboardAt ? " · Removed from dashboard" : ""}
                             </p>
                           </div>

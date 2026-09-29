@@ -9,12 +9,16 @@ import {
 } from "../shared/deposit-cash";
 import {
   MINIMUM_BOOKING_NOTICE_HOURS,
+  MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+  SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   OwnerNoAvailabilityError,
+  PickupTooSoonError,
   computeShortNoticePaymentExpiryIso,
   evaluateOwnerNoAvailability,
   findConflictingNoAvailabilityPeriod,
   findRequestOnlyBlockingPeriod,
   formatUnavailablePeriodRangeLabel,
+  isBelowMinimumShortNoticeLead,
   isWithinMinimumBookingNotice,
   listActiveUnavailablePeriods,
   materialJourneyFingerprint,
@@ -26,7 +30,13 @@ import {
 import {
   appendShortNoticeHistory,
   isShortNoticePayable,
+  isShortNoticeResponseExpiredRecord,
+  isShortNoticeResponseWindowDue,
   sanitizeCustomerResponseNote,
+  SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE,
+  SHORT_NOTICE_RESPONSE_EXPIRED_CUSTOMER_MESSAGE,
+  shortNoticeExpiryEmailKey,
+  shortNoticeResponseExpiresAtIso,
   type ShortNoticeBookingRecord,
 } from "../shared/short-notice-booking";
 import {
@@ -35,6 +45,7 @@ import {
 } from "../shared/short-notice-payment-email";
 import { buildShortNoticeAlternativeOfferEmail } from "../shared/short-notice-alternative-email";
 import { buildShortNoticeDeclineEmail } from "../shared/short-notice-decline-email";
+import { buildShortNoticeExpiryEmail } from "../shared/short-notice-expiry-email";
 import { buildShortNoticeRequestReceivedEmail } from "../shared/short-notice-request-received-email";
 import {
   combinePaymentHoldReasons,
@@ -51,6 +62,8 @@ import {
   getBookingSettings,
   updateDepositCashSettings,
   updateMinimumBookingNoticeHours,
+  updateMinimumShortNoticeLeadHours,
+  updateShortNoticeConfirmationWindowHours,
   updateUnavailablePeriod,
 } from "./booking-settings-store";
 import {
@@ -306,6 +319,9 @@ function decisionInFlightError(existingAction?: ShortNoticeDecisionAction): {
   error: string;
   status: number;
 } {
+  if (existingAction === "expire") {
+    return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
+  }
   if (existingAction === "approve") {
     return { error: "This request is already being approved. Refresh and try again.", status: 409 };
   }
@@ -313,6 +329,174 @@ function decisionInFlightError(existingAction?: ShortNoticeDecisionAction): {
     return { error: "This request is already being declined. Refresh and try again.", status: 409 };
   }
   return { error: "This request is already being processed. Refresh and try again.", status: 409 };
+}
+
+async function sendResponseExpiryEmail(
+  env: WorkerEmailEnv,
+  record: ShortNoticeBookingRecord,
+): Promise<{ sent: boolean; error?: string }> {
+  if (!isValidCustomerEmail(record.booking.customerEmail)) {
+    return { sent: false, error: "Customer email is missing or invalid." };
+  }
+  const email = buildShortNoticeExpiryEmail({
+    customerName: record.booking.customerName,
+    customerEmail: record.booking.customerEmail.trim(),
+    confirmationWindowHours: record.shortNoticeConfirmationWindowHours,
+  });
+  const result = await trySendBrandedCustomerEmail(env, {
+    to: record.booking.customerEmail.trim(),
+    toName: record.booking.customerName,
+    subject: email.subject,
+    body: email.text,
+    htmlBody: email.html,
+  });
+  return { sent: result.sent, error: result.error };
+}
+
+/**
+ * Send the customer expiry email at most once.
+ * A KV claim is taken before send and released only if sending fails.
+ */
+async function sendResponseExpiryEmailOnce(
+  env: WorkerEmailEnv & { TRACKING_STORE: KVNamespace },
+  record: ShortNoticeBookingRecord,
+): Promise<{ record: ShortNoticeBookingRecord; sent: boolean }> {
+  if (!isShortNoticeResponseExpiredRecord(record) || record.responseExpiryEmailSentAt) {
+    return { record, sent: false };
+  }
+  const store = env.TRACKING_STORE;
+  const key = shortNoticeExpiryEmailKey(record.reference);
+  const existingClaim = await store.get(key);
+  if (existingClaim) {
+    const latest = (await getShortNoticeByReference(store, record.reference)) ?? record;
+    return { record: latest, sent: false };
+  }
+  const token = crypto.randomUUID();
+  await store.put(key, token, { expirationTtl: 60 * 60 * 24 * 45 });
+  const verified = await store.get(key);
+  if (verified !== token) {
+    const latest = (await getShortNoticeByReference(store, record.reference)) ?? record;
+    return { record: latest, sent: false };
+  }
+  const latest = (await getShortNoticeByReference(store, record.reference)) ?? record;
+  if (!isShortNoticeResponseExpiredRecord(latest) || latest.responseExpiryEmailSentAt) {
+    return { record: latest, sent: false };
+  }
+  const send = await sendResponseExpiryEmail(env, latest);
+  if (!send.sent) {
+    await store.delete(key);
+    return { record: latest, sent: false };
+  }
+  const stamped: ShortNoticeBookingRecord = {
+    ...latest,
+    responseExpiryEmailSentAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  await saveShortNoticeBooking(store, stamped);
+  return { record: stamped, sent: true };
+}
+
+/**
+ * Move an unanswered under-notice request to expired when its deadline has passed.
+ * Approved, paid, declined, and alternative-offered requests are left alone.
+ * Repeated calls do not send a second email.
+ */
+export async function expireShortNoticeResponseIfDue(
+  env: WorkerEmailEnv & { TRACKING_STORE: KVNamespace },
+  record: ShortNoticeBookingRecord,
+  now = new Date(),
+): Promise<{ record: ShortNoticeBookingRecord; blocked: boolean; emailed: boolean }> {
+  const store = env.TRACKING_STORE;
+  if (isShortNoticeResponseExpiredRecord(record)) {
+    const emailed = await sendResponseExpiryEmailOnce(env, record);
+    return { record: emailed.record, blocked: true, emailed: emailed.sent };
+  }
+  if (!isShortNoticeResponseWindowDue(record, now)) {
+    return { record, blocked: false, emailed: false };
+  }
+
+  const claim = await claimShortNoticeDecision(store, record.reference, "expire");
+  if (!claim.ok) {
+    const latest = (await getShortNoticeByReference(store, record.reference)) ?? record;
+    if (isShortNoticeResponseExpiredRecord(latest)) {
+      const emailed = await sendResponseExpiryEmailOnce(env, latest);
+      return { record: emailed.record, blocked: true, emailed: emailed.sent };
+    }
+    return { record: latest, blocked: false, emailed: false };
+  }
+  if (claim.alreadyClaimed) {
+    const latest = (await getShortNoticeByReference(store, record.reference)) ?? record;
+    if (isShortNoticeResponseExpiredRecord(latest)) {
+      const emailed = await sendResponseExpiryEmailOnce(env, latest);
+      return { record: emailed.record, blocked: true, emailed: emailed.sent };
+    }
+    if (!isShortNoticeResponseWindowDue(latest, now)) {
+      return { record: latest, blocked: false, emailed: false };
+    }
+  }
+
+  const latest = (await getShortNoticeByReference(store, record.reference)) ?? record;
+  if (!isShortNoticeResponseWindowDue(latest, now)) {
+    return {
+      record: latest,
+      blocked: isShortNoticeResponseExpiredRecord(latest),
+      emailed: false,
+    };
+  }
+
+  const nowIso = now.toISOString();
+  const expired: ShortNoticeBookingRecord = {
+    ...latest,
+    status: "SHORT_NOTICE_EXPIRED",
+    expiryReason: "response_window",
+    responseExpiredAt: nowIso,
+    history: appendShortNoticeHistory(latest.history, "request_expired", nowIso),
+    updatedAt: nowIso,
+  };
+  await saveShortNoticeBooking(store, expired);
+  const stored = (await getShortNoticeByReference(store, expired.reference)) ?? expired;
+  if (!isShortNoticeResponseExpiredRecord(stored)) {
+    return { record: stored, blocked: false, emailed: false };
+  }
+  const emailed = await sendResponseExpiryEmailOnce(env, stored);
+  return { record: emailed.record, blocked: true, emailed: emailed.sent };
+}
+
+export async function processExpiredShortNoticeResponseWindows(
+  env: WorkerEmailEnv & { TRACKING_STORE?: KVNamespace },
+  now = new Date(),
+): Promise<{ expired: number; emailed: number; errors: number }> {
+  if (!env.TRACKING_STORE) return { expired: 0, emailed: 0, errors: 0 };
+  const scoped = { ...env, TRACKING_STORE: env.TRACKING_STORE };
+  const open = await listOpenShortNoticeBookings(scoped.TRACKING_STORE);
+  let expired = 0;
+  let emailed = 0;
+  let errors = 0;
+  for (const record of open) {
+    if (!isShortNoticeResponseWindowDue(record, now) && !isShortNoticeResponseExpiredRecord(record)) {
+      continue;
+    }
+    try {
+      const result = await expireShortNoticeResponseIfDue(scoped, record, now);
+      if (result.blocked && result.record.expiryReason === "response_window") expired += 1;
+      if (result.emailed) emailed += 1;
+    } catch (error) {
+      errors += 1;
+      console.error("Short-notice response expiry failed", record.reference, error);
+    }
+  }
+  const archived = await listArchivedShortNoticeBookings(scoped.TRACKING_STORE);
+  for (const record of archived) {
+    if (!isShortNoticeResponseExpiredRecord(record) || record.responseExpiryEmailSentAt) continue;
+    try {
+      const result = await expireShortNoticeResponseIfDue(scoped, record, now);
+      if (result.emailed) emailed += 1;
+    } catch (error) {
+      errors += 1;
+      console.error("Short-notice expiry email retry failed", record.reference, error);
+    }
+  }
+  return { expired, emailed, errors };
 }
 
 async function claimOpenDecisionOrConflict(
@@ -352,6 +536,9 @@ async function approveShortNoticeRecord(
     }
   | { error: string; status: number }
 > {
+  if (isShortNoticeResponseExpiredRecord(existing) || isShortNoticeResponseWindowDue(existing, now)) {
+    return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
+  }
   if (
     existing.status === "SHORT_NOTICE_DECLINED" ||
     existing.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED"
@@ -393,6 +580,7 @@ async function approveShortNoticeRecord(
       booking,
       materialFingerprint,
       status: "SHORT_NOTICE_EXPIRED",
+      expiryReason: "payment_window",
       updatedAt: approvedAt,
       paymentExpiresAt,
     };
@@ -426,6 +614,13 @@ async function approveShortNoticeRecord(
   const payUrl = buildShortNoticePayUrl(siteOrigin, record.paymentToken);
 
   const latestBeforeSave = await getShortNoticeByReference(env.TRACKING_STORE, record.reference);
+  if (
+    latestBeforeSave &&
+    (isShortNoticeResponseExpiredRecord(latestBeforeSave) ||
+      isShortNoticeResponseWindowDue(latestBeforeSave, now))
+  ) {
+    return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
+  }
   if (
     latestBeforeSave?.status === "SHORT_NOTICE_DECLINED" ||
     latestBeforeSave?.status === "SHORT_NOTICE_ALTERNATIVE_DECLINED"
@@ -546,6 +741,17 @@ export async function createShortNoticeRequest(options: {
   if (closed) {
     throw new OwnerNoAvailabilityError();
   }
+  const leadHours = settings.minimumShortNoticeLeadHours;
+  if (
+    isBelowMinimumShortNoticeLead(
+      options.booking.tripDate,
+      options.booking.tripTime,
+      now,
+      leadHours,
+    )
+  ) {
+    throw new PickupTooSoonError(leadHours);
+  }
   const blocking = findRequestOnlyBlockingPeriod(
     options.booking.tripDate,
     options.booking.tripTime,
@@ -586,6 +792,10 @@ export async function createShortNoticeRequest(options: {
     amount,
   });
   const createdAt = now.toISOString();
+  const confirmationWindowHours = settings.shortNoticeConfirmationWindowHours;
+  const shortNoticeExpiresAt = underMinimumNotice
+    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours)
+    : undefined;
 
   const record: ShortNoticeBookingRecord = {
     reference,
@@ -600,7 +810,13 @@ export async function createShortNoticeRequest(options: {
     underMinimumNotice,
     holdReasons,
     ...(underMinimumNotice
-      ? { minimumNoticeHoursApplied: noticeHours }
+      ? {
+          minimumNoticeHoursApplied: noticeHours,
+          minimumShortNoticeLeadHoursApplied: leadHours,
+          shortNoticeConfirmationWindowHours: confirmationWindowHours,
+          shortNoticeRequestedAt: createdAt,
+          shortNoticeExpiresAt,
+        }
       : {}),
     history: appendShortNoticeHistory(undefined, "request_submitted", createdAt),
     createdAt,
@@ -674,6 +890,8 @@ export async function shouldForceShortNotice(
   blockingPeriodLabel: string | null;
   underMinimumNotice: boolean;
   minimumNoticeHours: number;
+  minimumShortNoticeLeadHours: number;
+  tooSoon: boolean;
   luggageCapacity: boolean;
 }> {
   const settings = await getBookingSettings(store);
@@ -681,6 +899,13 @@ export async function shouldForceShortNotice(
     booking,
     settings.unavailablePeriods,
     now,
+  );
+  const leadHours = settings.minimumShortNoticeLeadHours;
+  const tooSoon = isBelowMinimumShortNoticeLead(
+    booking.tripDate,
+    booking.tripTime,
+    now,
+    leadHours,
   );
   if (closed) {
     return {
@@ -691,6 +916,8 @@ export async function shouldForceShortNotice(
       blockingPeriodLabel: formatUnavailablePeriodRangeLabel(closed),
       underMinimumNotice: false,
       minimumNoticeHours: settings.minimumBookingNoticeHours,
+      minimumShortNoticeLeadHours: leadHours,
+      tooSoon,
       luggageCapacity: needsLuggageCapacityConfirmation(
         booking.passengers,
         booking.suitcases,
@@ -727,6 +954,8 @@ export async function shouldForceShortNotice(
         : null,
     underMinimumNotice,
     minimumNoticeHours: noticeHours,
+    minimumShortNoticeLeadHours: leadHours,
+    tooSoon,
     luggageCapacity: needsLuggageCapacityConfirmation(
       booking.passengers,
       booking.suitcases,
@@ -742,6 +971,7 @@ export async function handleOwnerListShortNotice(
   if (!ownerAuthorized(request, env)) {
     return { error: "Unauthorized — owner access required.", status: 401 };
   }
+  await processExpiredShortNoticeResponseWindows(env);
   const bookings = await listOpenShortNoticeBookings(env.TRACKING_STORE);
   return { ok: true, bookings };
 }
@@ -861,8 +1091,13 @@ export async function handleOwnerApproveShortNotice(
   const reference = String(body.reference ?? "").trim();
   if (!reference) return { error: "Missing booking reference.", status: 400 };
 
-  const existing = await getShortNoticeByReference(env.TRACKING_STORE, reference);
-  if (!existing) return { error: "Short-notice booking not found.", status: 404 };
+  const loaded = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+  if (!loaded) return { error: "Short-notice booking not found.", status: 404 };
+  const expiry = await expireShortNoticeResponseIfDue(env, loaded, new Date());
+  if (expiry.blocked) {
+    return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
+  }
+  const existing = expiry.record;
   if (existing.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED") {
     return {
       error: "An alternative time is already offered — withdraw it first, or wait for the customer to accept.",
@@ -886,6 +1121,9 @@ export async function handleOwnerApproveShortNotice(
     if (existing.status === "SHORT_NOTICE_PAID") {
       return { error: "This booking is already paid.", status: 409 };
     }
+    if (isShortNoticeResponseExpiredRecord(existing)) {
+      return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
+    }
     return { error: "Booking cannot be approved in its current status.", status: 409 };
   }
 
@@ -905,6 +1143,9 @@ export async function handleOwnerApproveShortNotice(
     }
     if (latest?.status === "SHORT_NOTICE_DECLINED") {
       return { error: "This request was declined and cannot be approved.", status: 409 };
+    }
+    if (latest && isShortNoticeResponseExpiredRecord(latest)) {
+      return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
     }
     return decisionInFlightError("approve");
   }
@@ -940,8 +1181,13 @@ export async function handleOwnerOfferAlternativeTime(
   const schedule = parseOfferSchedule(body);
   if ("error" in schedule) return { error: schedule.error, status: 400 };
 
-  const existing = await getShortNoticeByReference(env.TRACKING_STORE, reference);
-  if (!existing) return { error: "Short-notice booking not found.", status: 404 };
+  const loaded = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+  if (!loaded) return { error: "Short-notice booking not found.", status: 404 };
+  const expiry = await expireShortNoticeResponseIfDue(env, loaded, new Date());
+  if (expiry.blocked) {
+    return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
+  }
+  const existing = expiry.record;
   if (existing.status === "SHORT_NOTICE_PAID") {
     return { error: "Booking is already paid.", status: 409 };
   }
@@ -1446,8 +1692,13 @@ export async function handleOwnerDeclineShortNotice(
   }
   const reference = String(body.reference ?? "").trim();
   if (!reference) return { error: "Missing booking reference.", status: 400 };
-  const existing = await getShortNoticeByReference(env.TRACKING_STORE, reference);
-  if (!existing) return { error: "Short-notice booking not found.", status: 404 };
+  const loaded = await getShortNoticeByReference(env.TRACKING_STORE, reference);
+  if (!loaded) return { error: "Short-notice booking not found.", status: 404 };
+  const expiry = await expireShortNoticeResponseIfDue(env, loaded, new Date());
+  if (expiry.blocked) {
+    return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
+  }
+  const existing = expiry.record;
   if (existing.status === "SHORT_NOTICE_PAID") {
     return { error: "Already paid — cannot decline.", status: 409 };
   }
@@ -1512,9 +1763,28 @@ export async function resolveShortNoticeForPayment(
   store: KVNamespace,
   token: string,
   now = new Date(),
+  env?: WorkerEmailEnv,
 ): Promise<{ ok: true; record: ShortNoticeBookingRecord } | { error: string; status: number }> {
-  const record = await getShortNoticeByToken(store, token);
+  let record = await getShortNoticeByToken(store, token);
   if (!record) return { error: "Payment link not found.", status: 404 };
+
+  if (isShortNoticeResponseWindowDue(record, now) || isShortNoticeResponseExpiredRecord(record)) {
+    if (env) {
+      const expiry = await expireShortNoticeResponseIfDue(
+        { ...env, TRACKING_STORE: store },
+        record,
+        now,
+      );
+      record = expiry.record;
+    }
+    if (
+      isShortNoticeResponseExpiredRecord(record) ||
+      isShortNoticeResponseWindowDue(record, now) ||
+      record.status !== "SHORT_NOTICE_APPROVED"
+    ) {
+      return { error: SHORT_NOTICE_RESPONSE_EXPIRED_CUSTOMER_MESSAGE, status: 409 };
+    }
+  }
 
   if (record.status === "SHORT_NOTICE_DECLINED") {
     return { error: "This booking request was declined.", status: 409 };
@@ -1539,6 +1809,7 @@ export async function resolveShortNoticeForPayment(
       const expired: ShortNoticeBookingRecord = {
         ...record,
         status: "SHORT_NOTICE_EXPIRED",
+        expiryReason: record.expiryReason ?? "payment_window",
         updatedAt: now.toISOString(),
       };
       await saveShortNoticeBooking(store, expired);
@@ -1568,6 +1839,10 @@ export async function markShortNoticePaid(
 ): Promise<ShortNoticeBookingRecord | null> {
   const record = await getShortNoticeByToken(store, token);
   if (!record) return null;
+  if (record.status === "SHORT_NOTICE_PAID") return record;
+  if (record.status !== "SHORT_NOTICE_APPROVED") return null;
+  if (isShortNoticeResponseExpiredRecord(record)) return null;
+  if (!isShortNoticePayable(record)) return null;
   const nowIso = new Date().toISOString();
   const paid: ShortNoticeBookingRecord = {
     ...record,
@@ -1626,6 +1901,28 @@ export async function handleOwnerSaveBookingSettings(
       const settings = await updateMinimumBookingNoticeHours(
         env.TRACKING_STORE,
         body.minimumBookingNoticeHours ?? body.hours,
+      );
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+
+    if (
+      action === "set-lead-hours" ||
+      action === "set-minimum-short-notice-lead-hours"
+    ) {
+      const settings = await updateMinimumShortNoticeLeadHours(
+        env.TRACKING_STORE,
+        body.minimumShortNoticeLeadHours ?? body.hours,
+      );
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+
+    if (
+      action === "set-confirmation-window" ||
+      action === "set-short-notice-confirmation-window"
+    ) {
+      const settings = await updateShortNoticeConfirmationWindowHours(
+        env.TRACKING_STORE,
+        body.shortNoticeConfirmationWindowHours ?? body.hours,
       );
       return { ok: true, settings: bookingSettingsPublicView(settings) };
     }
@@ -1749,12 +2046,16 @@ export async function handlePublicGetBookingNotice(env: {
 }): Promise<{
   ok: true;
   minimumBookingNoticeHours: number;
+  minimumShortNoticeLeadHours: number;
+  shortNoticeConfirmationWindowHours: number;
   depositCash: { enabled: boolean; percent: number; minimumGbp: number };
 }> {
   if (!env.TRACKING_STORE) {
     return {
       ok: true,
       minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
+      minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+      shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
       depositCash: {
         enabled: false,
         percent: DEFAULT_DEPOSIT_PERCENT,
@@ -1766,6 +2067,8 @@ export async function handlePublicGetBookingNotice(env: {
   return {
     ok: true,
     minimumBookingNoticeHours: settings.minimumBookingNoticeHours,
+    minimumShortNoticeLeadHours: settings.minimumShortNoticeLeadHours,
+    shortNoticeConfirmationWindowHours: settings.shortNoticeConfirmationWindowHours,
     depositCash: {
       enabled: settings.depositCash.enabled === true,
       percent: settings.depositCash.percent,

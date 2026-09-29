@@ -15,6 +15,7 @@ import {
 } from "../shared/booking-notice";
 import { parseLondonLocalDateTime } from "../shared/uk-time";
 import { buildShortNoticeRequestReceivedEmail } from "../shared/short-notice-request-received-email";
+import { shortNoticeCheckoutSummary } from "../src/components/ShortNoticeCheckoutNotice";
 import {
   decideCustomerSmartAvailabilityGate,
   shouldBypassSmartAvailabilityHardBlockForShortNotice,
@@ -176,6 +177,9 @@ async function main() {
   check("Customer wording displays 6 hours", () => {
     assert.match(minimumNoticeRequestBody(6), /6-hour advance booking period/);
     assert.doesNotMatch(minimumNoticeRequestBody(6), /12-hour advance booking period/);
+    assert.match(shortNoticeCheckoutSummary(6), /6-hour booking period/);
+    assert.match(shortNoticeCheckoutSummary(12), /12-hour booking period/);
+    assert.doesNotMatch(shortNoticeCheckoutSummary(6), /12-hour/);
     const email = buildShortNoticeRequestReceivedEmail({
       customerName: "Jill Example",
       customerEmail: "jill@example.com",
@@ -332,9 +336,10 @@ async function main() {
     assert.match(store, /minimumBookingNoticeHours/);
     assert.match(handlers, /set-notice-hours/);
     assert.match(handlers, /handlePublicGetBookingNotice/);
-    assert.match(card, /minimumNoticeRequestBody\(minimumBookingNoticeHours\)/);
-    assert.match(saved, /minimumNoticeRequestBody\(minimumBookingNoticeHours\)/);
-    assert.match(bookQuote, /minimumNoticeRequestBody\(minimumBookingNoticeHours\)/);
+    assert.match(card, /noticeHours=\{minimumBookingNoticeHours\}/);
+    assert.match(saved, /noticeHours=\{minimumBookingNoticeHours\}/);
+    assert.match(bookQuote, /noticeHours=\{minimumBookingNoticeHours\}/);
+    assert.match(read("src/components/ShortNoticeCheckoutNotice.tsx"), /shortNoticeCheckoutSummary/);
     assert.match(received, /minimumNoticeRequestBody\(noticeHours\)/);
     assert.match(gate, /noticeHours/);
     assert.match(ops, /noticeHours: settings\.minimumBookingNoticeHours/);

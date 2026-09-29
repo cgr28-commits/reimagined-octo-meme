@@ -26,7 +26,7 @@ import {
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
 import { finalizeAmendmentTopUpCheckout, type FinalizeAmendmentTopUpResult } from "./amendment-topup";
-import { markShortNoticePaid } from "./short-notice-handlers";
+import { markShortNoticePaid, resolveShortNoticeForPayment } from "./short-notice-handlers";
 import { markA2aQuotePaid } from "./a2a-quote-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
@@ -370,6 +370,30 @@ export async function finalizePaidCheckout(input: {
       amendmentBooking: topUp.booking,
       error: topUp.ok ? undefined : topUp.error,
     };
+  }
+
+  if (pendingForAudit?.shortNoticeToken && env.TRACKING_STORE) {
+    const resolved = await resolveShortNoticeForPayment(
+      env.TRACKING_STORE,
+      pendingForAudit.shortNoticeToken,
+      new Date(),
+      env,
+    );
+    if ("error" in resolved) {
+      return {
+        ok: false,
+        paid: false,
+        amountPaid,
+        paymentReference,
+        emailSent: false,
+        customerEmailSent: false,
+        ownerEmailSent: false,
+        calendarLogged: false,
+        calendarEvents: 0,
+        trackingCreated: false,
+        error: resolved.error,
+      };
+    }
   }
 
   // Owner-only £1 live SumUp refund smoke test — no journey, calendar, or customer emails.

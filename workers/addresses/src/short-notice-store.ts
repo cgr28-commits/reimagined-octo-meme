@@ -6,6 +6,7 @@ import type { ShortNoticeBookingRecord } from "../shared/short-notice-booking";
 import {
   isShortNoticeActiveOnDashboard,
   isShortNoticeArchivedRecord,
+  SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE,
   shortNoticeAcceptTokenKey,
   shortNoticeArchivedIndexKey,
   shortNoticeDecisionKey,
@@ -139,7 +140,7 @@ export function generatePaymentToken(): string {
   return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export type ShortNoticeDecisionAction = "approve" | "decline";
+export type ShortNoticeDecisionAction = "approve" | "decline" | "expire";
 
 export type ShortNoticeDecisionClaim =
   | { ok: true; alreadyClaimed: false }
@@ -151,6 +152,14 @@ type DecisionLockRecord = {
   action: ShortNoticeDecisionAction;
   at: string;
 };
+
+function decisionConflictMessage(action: ShortNoticeDecisionAction): string {
+  if (action === "expire") return SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE;
+  if (action === "approve") {
+    return "This request is already being approved. Refresh and try again.";
+  }
+  return "This request is already being declined. Refresh and try again.";
+}
 
 /**
  * Best-effort exclusive claim for owner approve/decline (and customer
@@ -174,7 +183,7 @@ export async function claimShortNoticeDecision(
       if (existing.action && existing.action !== action) {
         return {
           ok: false,
-          error: `This request is already being ${existing.action === "approve" ? "approved" : "declined"}. Refresh and try again.`,
+          error: decisionConflictMessage(existing.action),
           existingAction: existing.action,
         };
       }
@@ -208,7 +217,7 @@ export async function claimShortNoticeDecision(
     }
     return {
       ok: false,
-      error: `This request is already being ${verified.action === "approve" ? "approved" : "declined"}. Refresh and try again.`,
+      error: decisionConflictMessage(verified.action),
       existingAction: verified.action,
     };
   } catch {

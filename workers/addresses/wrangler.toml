@@ -74,8 +74,10 @@ RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS = "24"
 # London hour (0–23). The current day's quote report is sent at 19:30 London time.
 DAILY_QUOTE_REPORT_LONDON_HOUR = "19"
 
+# */5 expires unanswered short-notice requests only (gated in scheduled()).
+# 30 * * * * keeps the existing hourly jobs, including the 19:30 London quote report.
 [triggers]
-crons = ["30 * * * *"]
+crons = ["*/5 * * * *", "30 * * * *"]
 
 # Isolated Worker for Pages preview only. Same booking KV so Owner Availability
 # jobs are visible. No cron, no production traffic, no production flag changes.
