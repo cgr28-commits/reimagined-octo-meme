@@ -34,7 +34,6 @@ import {
   isWithinMinimumBookingNotice,
 } from "../../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
-import { SITE } from "@/lib/data";
 
 const fieldClass =
   "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
@@ -150,10 +149,6 @@ function SavedQuoteInner() {
       tripTime &&
       isWithinMinimumBookingNotice(tripDate, tripTime, undefined, minimumBookingNoticeHours),
   );
-  const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
-    "Hi, I have a short-notice airport transfer request.",
-  )}`;
-
   useEffect(() => {
     if (!quote || state !== "ok") return;
     const changed = savedQuoteScheduleChanged(quote.journey, { tripDate, tripTime });
@@ -723,16 +718,6 @@ function SavedQuoteInner() {
                     ? `Request Short-Notice Booking — ${effectiveAmountLabel}`
                     : "Confirm Booking & Pay Securely"}
               </button>
-              {isMinimumNoticeRequest ? (
-                <a
-                  href={shortNoticeWhatsAppHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-center text-sm font-semibold text-white/75 underline-offset-2 hover:text-white hover:underline"
-                >
-                  Need a quick answer? WhatsApp us
-                </a>
-              ) : null}
             </div>
           )}
           {isMinimumNoticeRequest ? null : (

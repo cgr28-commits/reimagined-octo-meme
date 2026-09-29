@@ -9,8 +9,13 @@ export function shortNoticeCheckoutSummary(noticeHours: number): string {
   return `This journey is within our ${hours}-hour booking period. We’ll confirm availability before taking payment.`;
 }
 
-export const SHORT_NOTICE_PAYMENT_FOLLOW_UP =
-  "If available, we’ll email you a secure payment link. Please allow up to 1 hour for confirmation. Your booking is confirmed once payment is received.";
+const SHORT_NOTICE_PAYMENT_LINES = [
+  "If available, we’ll email you a secure payment link.",
+  "Please allow up to 1 hour for confirmation.",
+  "Your booking is confirmed once payment is received.",
+] as const;
+
+export const SHORT_NOTICE_PAYMENT_FOLLOW_UP = SHORT_NOTICE_PAYMENT_LINES.join(" ");
 
 export default function ShortNoticeCheckoutNotice({ noticeHours }: { noticeHours: number }) {
   return (
@@ -31,8 +36,10 @@ export default function ShortNoticeCheckoutNotice({ noticeHours }: { noticeHours
 
 export function ShortNoticePaymentFollowUp() {
   return (
-    <p className="text-xs leading-snug quote-secondary sm:text-sm sm:leading-relaxed">
-      {SHORT_NOTICE_PAYMENT_FOLLOW_UP}
-    </p>
+    <div className="space-y-0.5 text-xs leading-snug quote-secondary sm:space-y-1 sm:text-sm sm:leading-relaxed">
+      <p>{SHORT_NOTICE_PAYMENT_LINES[0]}</p>
+      <p className="font-semibold">{SHORT_NOTICE_PAYMENT_LINES[1]}</p>
+      <p>{SHORT_NOTICE_PAYMENT_LINES[2]}</p>
+    </div>
   );
 }

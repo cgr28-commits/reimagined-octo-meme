@@ -6155,7 +6155,7 @@ function QuoteCard({
                             : fullPayButtonLabel(depositCashOffer.totalFare)
                         : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
                 </button>
-                {isMinimumNoticeRequest || capacityNeedsConfirm ? (
+                {capacityNeedsConfirm && !isMinimumNoticeRequest ? (
                   <a
                     href={shortNoticeWhatsAppHref}
                     target="_blank"
