@@ -27,8 +27,8 @@ export default function HeroSlideshow() {
 
       {/* Mobile: compact service message first, then the start of the quote form.
           Tablet (md): quote first, then the heading.
-          Desktop (lg+): heading beside the quote. Later quote steps centre a wider form. */}
-      <div className="homepage-hero-layout desktop-shell relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-1.5 px-4 py-1.5 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:grid-cols-[minmax(0,1fr)_minmax(500px,600px)] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:grid-cols-[minmax(0,1fr)_minmax(540px,680px)] xl:gap-16 xl:px-12 xl:py-16 2xl:grid-cols-[minmax(0,1fr)_minmax(600px,760px)]">
+          Desktop (lg+): heading and benefits above a centred quote form. */}
+      <div className="homepage-hero-layout desktop-shell relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-1.5 px-4 py-1.5 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
         <div className="homepage-hero-copy order-1 min-w-0 md:order-2 lg:order-1 lg:pt-2">
           <p className="section-eyebrow mb-3 max-w-full md:mb-6 lg:mb-7">
             <span className="md:hidden">Private airport transfers • Northern Ireland</span>

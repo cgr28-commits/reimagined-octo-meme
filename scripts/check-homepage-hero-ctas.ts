@@ -67,7 +67,7 @@ console.log("\n=== 5. Mobile above-the-fold compaction ===");
   assert.match(hero, /gap-1\.5 /);
   assert.match(card, /Get your fixed price in three quick steps\./);
   assert.doesNotMatch(card.match(/md:hidden[\s\S]{0,200}Get your fixed price/)?.[0] ?? "", /Book and pay securely online/);
-  assert.match(card, /Three quick steps — Journey, Quote, then Booking & Pay/);
+  assert.match(card, /Three quick steps — Journey details, Your quote, then Complete your booking/);
   console.log("OK  mobile service message sits above quote; quote intro stays compacted");
 }
 
