@@ -15,7 +15,7 @@ export default function EmergePromoCard() {
 
   return (
     <section className="relative py-12 sm:py-16 lg:py-20" aria-label="EMERGE Belfast transfers">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:max-w-[1400px] lg:px-10 xl:px-12">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 desktop-shell lg:max-w-[1400px] lg:px-10 xl:px-12">
         <div className="emerge-page overflow-hidden rounded-3xl border border-emerald/25 bg-gradient-to-br from-navy-light/80 via-navy to-navy-dark p-6 shadow-xl shadow-black/30 sm:p-8 lg:p-10">
           <div className="emerge-hero-beams emerge-promo-beams" aria-hidden="true" />
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between lg:gap-8">

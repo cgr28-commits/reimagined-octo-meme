@@ -485,6 +485,44 @@ main {
   }
 }
 
+/* 1536px+: about 14% wider than the 1400px desktop shell, still centred. */
+@media (min-width: 1536px) {
+  .desktop-shell {
+    max-width: 1600px;
+  }
+}
+
+/*
+ * Later homepage quote steps (date, party, results, booking) leave the short
+ * heading column mostly empty. Centre the active form and give it more width.
+ * Mobile and tablet stay on the existing single-column order.
+ */
+@media (min-width: 1024px) {
+  .homepage-hero-layout:has(.quote-flow[data-quote-layout="expanded"]) {
+    grid-template-columns: minmax(0, min(100%, 46rem));
+    justify-content: center;
+    row-gap: 1.25rem;
+    padding-top: 1.75rem;
+    padding-bottom: 2.5rem;
+  }
+
+  .homepage-hero-layout:has(.quote-flow[data-quote-layout="expanded"]) .homepage-hero-copy {
+    padding-top: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .homepage-hero-layout:has(.quote-flow[data-quote-layout="expanded"]) {
+    grid-template-columns: minmax(0, min(100%, 50rem));
+  }
+}
+
+@media (min-width: 1536px) {
+  .homepage-hero-layout:has(.quote-flow[data-quote-layout="expanded"]) {
+    grid-template-columns: minmax(0, min(100%, 54rem));
+  }
+}
+
 .homepage-hero .quote-flow[data-quote-presentation="homepage"].glass-card {
   background: rgba(8, 24, 48, 0.92);
   border-color: rgba(255, 255, 255, 0.16);

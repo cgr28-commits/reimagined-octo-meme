@@ -6456,6 +6456,19 @@ function QuoteCard({
     );
   }
 
+  const homepageRouteReadyForDetails =
+    journeyMode != null &&
+    (journeyIntent === "address-to-address"
+      ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+      : journeyIntent === "to-airport"
+        ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+        : journeyIntent === "from-airport"
+          ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+          : false);
+  const homepageQuoteExpanded =
+    presentation === "homepage" &&
+    (quoteStep >= 2 || quoteResultsReady || homepageRouteReadyForDetails);
+
   if (shortNoticeResult) {
     return (
       <div
@@ -6464,6 +6477,8 @@ function QuoteCard({
           shortNoticeResultRef.current = node;
         }}
         id="quote-availability-confirmation"
+        data-quote-presentation={presentation}
+        data-quote-layout={presentation === "homepage" ? "expanded" : undefined}
         className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8"
       >
         <ShortNoticeRequestReceived
@@ -6500,6 +6515,8 @@ function QuoteCard({
           bookingResultRef.current = node;
         }}
         id="bookingRequestResult"
+        data-quote-presentation={presentation}
+        data-quote-layout={presentation === "homepage" ? "expanded" : undefined}
         className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8 md:scroll-mt-28"
       >
         <div className="rounded-xl quote-panel px-5 py-8 text-center sm:px-8 sm:py-10">
@@ -6572,6 +6589,7 @@ function QuoteCard({
     <div
       ref={cardRef}
       data-quote-presentation={presentation}
+      data-quote-layout={homepageQuoteExpanded ? "expanded" : undefined}
       className={
         presentation === "homepage"
           ? "quote-flow glass-card min-w-0 rounded-[1.1rem] px-3 py-2.5 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
