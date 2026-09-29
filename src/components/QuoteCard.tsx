@@ -855,8 +855,12 @@ function QuoteCard({
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
   const [paymentPopupBlocked, setPaymentPopupBlocked] = useState(false);
-  const [minimumBookingNoticeHours, setMinimumBookingNoticeHours, minimumShortNoticeLeadHours] =
-    useMinimumBookingNoticeHours();
+  const [
+    minimumBookingNoticeHours,
+    setMinimumBookingNoticeHours,
+    minimumShortNoticeLeadHours,
+    shortNoticeConfirmationWindowHours,
+  ] = useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
@@ -6162,7 +6166,9 @@ function QuoteCard({
                     <p className="text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
                   </div>
                 ) : null}
-                {isMinimumNoticeRequest && !openCheckout ? <ShortNoticePaymentFollowUp /> : null}
+                {isMinimumNoticeRequest && !openCheckout ? (
+                  <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}

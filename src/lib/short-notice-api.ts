@@ -4,6 +4,8 @@ import {
   MINIMUM_SHORT_NOTICE_LEAD_HOURS,
   normalizeMinimumBookingNoticeHours,
   normalizeMinimumShortNoticeLeadHours,
+  normalizeShortNoticeConfirmationWindowHours,
+  SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
 } from "../../shared/booking-notice";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
@@ -99,6 +101,7 @@ export type BookingSettings = {
   activeCount?: number;
   minimumBookingNoticeHours?: number;
   minimumShortNoticeLeadHours?: number;
+  shortNoticeConfirmationWindowHours?: number;
   depositCash?: {
     enabled: boolean;
     percent: number;
@@ -488,6 +491,7 @@ export async function declineShortNoticeBooking(
 export async function fetchPublicBookingNotice(): Promise<{
   minimumBookingNoticeHours: number;
   minimumShortNoticeLeadHours: number;
+  shortNoticeConfirmationWindowHours: number;
 }> {
   try {
     const response = await fetch(`${WORKER_BASE}/booking-notice`, {
@@ -499,6 +503,7 @@ export async function fetchPublicBookingNotice(): Promise<{
       return {
         minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
         minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+        shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
       };
     }
     return {
@@ -508,11 +513,15 @@ export async function fetchPublicBookingNotice(): Promise<{
       minimumShortNoticeLeadHours: normalizeMinimumShortNoticeLeadHours(
         payload.minimumShortNoticeLeadHours,
       ),
+      shortNoticeConfirmationWindowHours: normalizeShortNoticeConfirmationWindowHours(
+        payload.shortNoticeConfirmationWindowHours,
+      ),
     };
   } catch {
     return {
       minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
       minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+      shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
     };
   }
 }
@@ -520,6 +529,29 @@ export async function fetchPublicBookingNotice(): Promise<{
 export async function fetchPublicMinimumBookingNoticeHours(): Promise<number> {
   const notice = await fetchPublicBookingNotice();
   return notice.minimumBookingNoticeHours;
+}
+
+export async function updateShortNoticeConfirmationWindowHours(
+  ownerKey: string,
+  hours: number,
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      action: "set-confirmation-window",
+      shortNoticeConfirmationWindowHours: hours,
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not save short-notice confirmation window"));
+  }
+  return payload.settings as BookingSettings;
 }
 
 export async function updateMinimumShortNoticeLeadHours(

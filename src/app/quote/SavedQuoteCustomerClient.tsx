@@ -57,7 +57,7 @@ function SavedQuoteInner() {
     "loading",
   );
   const [paying, setPaying] = useState(false);
-  const [minimumBookingNoticeHours, , minimumShortNoticeLeadHours] =
+  const [minimumBookingNoticeHours, , minimumShortNoticeLeadHours, shortNoticeConfirmationWindowHours] =
     useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
@@ -722,7 +722,7 @@ function SavedQuoteInner() {
                 </p>
               ) : null}
               {isMinimumNoticeRequest ? (
-                <ShortNoticePaymentFollowUp />
+                <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
               ) : (
                 <p className="text-xs leading-relaxed text-white/70">
                   Your transfer is reserved for your selected pickup time.

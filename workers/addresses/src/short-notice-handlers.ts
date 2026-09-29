@@ -10,6 +10,7 @@ import {
 import {
   MINIMUM_BOOKING_NOTICE_HOURS,
   MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+  SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   OwnerNoAvailabilityError,
   PickupTooSoonError,
   computeShortNoticePaymentExpiryIso,
@@ -62,6 +63,7 @@ import {
   updateDepositCashSettings,
   updateMinimumBookingNoticeHours,
   updateMinimumShortNoticeLeadHours,
+  updateShortNoticeConfirmationWindowHours,
   updateUnavailablePeriod,
 } from "./booking-settings-store";
 import {
@@ -339,6 +341,7 @@ async function sendResponseExpiryEmail(
   const email = buildShortNoticeExpiryEmail({
     customerName: record.booking.customerName,
     customerEmail: record.booking.customerEmail.trim(),
+    confirmationWindowHours: record.shortNoticeConfirmationWindowHours,
   });
   const result = await trySendBrandedCustomerEmail(env, {
     to: record.booking.customerEmail.trim(),
@@ -789,8 +792,9 @@ export async function createShortNoticeRequest(options: {
     amount,
   });
   const createdAt = now.toISOString();
+  const confirmationWindowHours = settings.shortNoticeConfirmationWindowHours;
   const shortNoticeExpiresAt = underMinimumNotice
-    ? shortNoticeResponseExpiresAtIso(createdAt)
+    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours)
     : undefined;
 
   const record: ShortNoticeBookingRecord = {
@@ -809,6 +813,7 @@ export async function createShortNoticeRequest(options: {
       ? {
           minimumNoticeHoursApplied: noticeHours,
           minimumShortNoticeLeadHoursApplied: leadHours,
+          shortNoticeConfirmationWindowHours: confirmationWindowHours,
           shortNoticeRequestedAt: createdAt,
           shortNoticeExpiresAt,
         }
@@ -1911,6 +1916,17 @@ export async function handleOwnerSaveBookingSettings(
       return { ok: true, settings: bookingSettingsPublicView(settings) };
     }
 
+    if (
+      action === "set-confirmation-window" ||
+      action === "set-short-notice-confirmation-window"
+    ) {
+      const settings = await updateShortNoticeConfirmationWindowHours(
+        env.TRACKING_STORE,
+        body.shortNoticeConfirmationWindowHours ?? body.hours,
+      );
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+
     if (action === "set-deposit-cash" || action === "set-deposit-cash-settings") {
       const settings = await updateDepositCashSettings(
         env.TRACKING_STORE,
@@ -2031,6 +2047,7 @@ export async function handlePublicGetBookingNotice(env: {
   ok: true;
   minimumBookingNoticeHours: number;
   minimumShortNoticeLeadHours: number;
+  shortNoticeConfirmationWindowHours: number;
   depositCash: { enabled: boolean; percent: number; minimumGbp: number };
 }> {
   if (!env.TRACKING_STORE) {
@@ -2038,6 +2055,7 @@ export async function handlePublicGetBookingNotice(env: {
       ok: true,
       minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
       minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+      shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
       depositCash: {
         enabled: false,
         percent: DEFAULT_DEPOSIT_PERCENT,
@@ -2050,6 +2068,7 @@ export async function handlePublicGetBookingNotice(env: {
     ok: true,
     minimumBookingNoticeHours: settings.minimumBookingNoticeHours,
     minimumShortNoticeLeadHours: settings.minimumShortNoticeLeadHours,
+    shortNoticeConfirmationWindowHours: settings.shortNoticeConfirmationWindowHours,
     depositCash: {
       enabled: settings.depositCash.enabled === true,
       percent: settings.depositCash.percent,

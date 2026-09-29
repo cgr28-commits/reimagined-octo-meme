@@ -95,6 +95,56 @@ export function leadTimeHoursLabel(leadHours: number): string {
   return hours === 1 ? "1 hour" : `${hours} hours`;
 }
 
+/**
+ * How long the owner has to confirm a short-notice request after it is submitted.
+ * Separate from the short-notice period and the minimum lead time.
+ * Default 1 hour. Whole hours 1–4.
+ * The value used at request creation is stored on that request.
+ */
+export const SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS = 1;
+export const MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS = 1;
+export const MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS = 4;
+
+export function parseShortNoticeConfirmationWindowHoursInput(value: unknown): number | null {
+  if (typeof value === "boolean" || value == null) return null;
+  const raw =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.trim())
+        : NaN;
+  if (!Number.isFinite(raw)) return null;
+  const rounded = Math.round(raw);
+  if (Math.abs(raw - rounded) > 1e-9) return null;
+  if (
+    rounded < MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS ||
+    rounded > MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS
+  ) {
+    return null;
+  }
+  return rounded;
+}
+
+/** Missing/legacy/invalid values fall back to 1 hour. */
+export function normalizeShortNoticeConfirmationWindowHours(value: unknown): number {
+  return (
+    parseShortNoticeConfirmationWindowHoursInput(value) ?? SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS
+  );
+}
+
+export function confirmationWindowHoursLabel(windowHours: unknown): string {
+  const hours = normalizeShortNoticeConfirmationWindowHours(windowHours);
+  return hours === 1 ? "1 hour" : `${hours} hours`;
+}
+
+export function shortNoticeConfirmWithinLine(windowHours: unknown): string {
+  return `We’ll confirm availability within ${confirmationWindowHoursLabel(windowHours)}.`;
+}
+
+export function shortNoticeExpiryReasonLine(windowHours: unknown): string {
+  return `As we weren’t able to confirm availability within ${confirmationWindowHoursLabel(windowHours)}, your booking request has now expired.`;
+}
+
 export function tooSoonRequestHeading(): string {
   return "Need a taxi right now?";
 }

@@ -61,7 +61,7 @@ function BookQuoteInner() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [minimumBookingNoticeHours, , minimumShortNoticeLeadHours] =
+  const [minimumBookingNoticeHours, , minimumShortNoticeLeadHours, shortNoticeConfirmationWindowHours] =
     useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
@@ -671,7 +671,7 @@ function BookQuoteInner() {
         <div className="space-y-2 sm:space-y-3">
           {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
           {isMinimumNoticeRequest ? (
-            <ShortNoticePaymentFollowUp />
+            <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
           ) : (
             <p className="text-xs leading-relaxed text-white/70">
               Your transfer is reserved for your selected pickup time.

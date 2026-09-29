@@ -1,6 +1,6 @@
 /**
  * Customer email when a short-notice request expires unanswered.
- * Not a decline — the one-hour response window elapsed and nothing was booked.
+ * Not a decline — the response window stored on that request elapsed and nothing was booked.
  */
 
 import {
@@ -10,6 +10,7 @@ import {
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
 } from "./business-email";
+import { shortNoticeExpiryReasonLine } from "./booking-notice";
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
@@ -32,6 +33,8 @@ function customerFirstName(fullName: string): string {
 export type ShortNoticeExpiryEmailDetails = {
   customerName: string;
   customerEmail: string;
+  /** Window stored on the request. Missing legacy records use the 1-hour default. */
+  confirmationWindowHours?: number;
 };
 
 export function buildShortNoticeExpiryEmail(
@@ -41,8 +44,7 @@ export function buildShortNoticeExpiryEmail(
   const firstName = customerFirstName(details.customerName);
   const subject = `Your ${businessName} booking request has expired`;
   const intro = "We’re sorry, we couldn’t confirm your journey in time.";
-  const reason =
-    "As we weren’t able to confirm availability within 1 hour, your booking request has now expired.";
+  const reason = shortNoticeExpiryReasonLine(details.confirmationWindowHours);
   const noneTaken = "No payment has been taken and your journey has not been booked.";
   const next =
     "If you still require transport, you can return to My Airport Taxi NI and check availability for another pickup time.";

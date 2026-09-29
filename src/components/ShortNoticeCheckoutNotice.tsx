@@ -4,6 +4,8 @@ import {
   minimumNoticeRequestHeading,
   normalizeMinimumBookingNoticeHours,
   normalizeMinimumShortNoticeLeadHours,
+  SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+  shortNoticeConfirmWithinLine,
   tooSoonRequestHeading,
 } from "../../shared/booking-notice";
 
@@ -13,14 +15,18 @@ export function shortNoticeCheckoutSummary(noticeHours: number): string {
   return `This journey is within our ${hours}-hour booking period. We’ll confirm availability before taking payment.`;
 }
 
-const SHORT_NOTICE_PAYMENT_LINES = [
-  "If available, we’ll email you a secure payment link.",
-  "We’ll confirm availability within 1 hour.",
-  "If we’re unable to confirm within that time, your request will automatically expire.",
-  "Your booking is confirmed once payment is received.",
-] as const;
+export function shortNoticePaymentFollowUpLines(
+  windowHours: unknown = SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+): readonly [string, string, string, string] {
+  return [
+    "If available, we’ll email you a secure payment link.",
+    shortNoticeConfirmWithinLine(windowHours),
+    "If we’re unable to confirm within that time, your request will automatically expire.",
+    "Your booking is confirmed once payment is received.",
+  ];
+}
 
-export const SHORT_NOTICE_PAYMENT_FOLLOW_UP = SHORT_NOTICE_PAYMENT_LINES.join(" ");
+export const SHORT_NOTICE_PAYMENT_FOLLOW_UP = shortNoticePaymentFollowUpLines().join(" ");
 
 export default function ShortNoticeCheckoutNotice({ noticeHours }: { noticeHours: number }) {
   return (
@@ -39,13 +45,18 @@ export default function ShortNoticeCheckoutNotice({ noticeHours }: { noticeHours
   );
 }
 
-export function ShortNoticePaymentFollowUp() {
+export function ShortNoticePaymentFollowUp({
+  windowHours = SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+}: {
+  windowHours?: number;
+}) {
+  const lines = shortNoticePaymentFollowUpLines(windowHours);
   return (
     <div className="space-y-0.5 text-xs leading-snug quote-secondary sm:space-y-1 sm:text-sm sm:leading-relaxed">
-      <p>{SHORT_NOTICE_PAYMENT_LINES[0]}</p>
-      <p className="font-semibold">{SHORT_NOTICE_PAYMENT_LINES[1]}</p>
-      <p>{SHORT_NOTICE_PAYMENT_LINES[2]}</p>
-      <p>{SHORT_NOTICE_PAYMENT_LINES[3]}</p>
+      <p>{lines[0]}</p>
+      <p className="font-semibold">{lines[1]}</p>
+      <p>{lines[2]}</p>
+      <p>{lines[3]}</p>
     </div>
   );
 }

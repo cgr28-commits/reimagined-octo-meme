@@ -6,18 +6,24 @@ import {
   MINIMUM_SHORT_NOTICE_LEAD_HOURS,
   MAX_MINIMUM_BOOKING_NOTICE_HOURS,
   MAX_MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+  MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   MIN_MINIMUM_BOOKING_NOTICE_HOURS,
   MIN_MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+  MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+  SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   formatHoursUntilPickupLabel,
   formatUnavailablePeriodRangeLabel,
   isUnavailablePeriodExpired,
   normalizeMinimumBookingNoticeHours,
   normalizeMinimumShortNoticeLeadHours,
+  normalizeShortNoticeConfirmationWindowHours,
   ownerUnavailablePeriodModeLabel,
   parseMinimumBookingNoticeHoursInput,
   parseMinimumShortNoticeLeadHoursInput,
+  parseShortNoticeConfirmationWindowHoursInput,
   vehicleServiceLabel,
 } from "../../shared/booking-notice";
+import { formatShortNoticeDeadlineLine, formatShortNoticeRemainingLabel } from "../../shared/short-notice-booking";
 import { formatLondonClockTime } from "../../shared/uk-time";
 import { hoursUntilPickup } from "../../shared/refund-ops";
 import { SITE } from "@/lib/data";
@@ -37,6 +43,7 @@ import {
   restoreShortNoticeToDashboard,
   updateMinimumBookingNoticeHours,
   updateMinimumShortNoticeLeadHours,
+  updateShortNoticeConfirmationWindowHours,
   updateUnavailablePeriod,
   withdrawAlternativeShortNoticeOffer,
   type BookingSettings,
@@ -120,9 +127,14 @@ function shortNoticeResponseCountdown(
   if (booking.expiryReason === "response_window" || booking.status === "SHORT_NOTICE_EXPIRED" || nowMs >= deadline) {
     return { remainingLabel: "Expired — not confirmed", respondBy, expired: true, urgent: true };
   }
+  const remainingLabel = formatShortNoticeRemainingLabel(
+    booking.shortNoticeExpiresAt,
+    new Date(nowMs),
+  );
+  if (!remainingLabel) return null;
   const minutes = Math.max(1, Math.ceil((deadline - nowMs) / 60000));
   return {
-    remainingLabel: minutes === 1 ? "1 minute remaining" : `${minutes} minutes remaining`,
+    remainingLabel,
     respondBy,
     expired: false,
     urgent: minutes <= 15,
@@ -143,8 +155,9 @@ function ShortNoticeDeadlineLine({
       className={`text-xs font-semibold ${countdown.urgent ? "text-amber-200" : "text-white/80"}`}
       data-short-notice-deadline
     >
-      Short notice · {countdown.remainingLabel}
-      {countdown.respondBy ? ` · Respond by ${countdown.respondBy}` : ""}
+      {countdown.expired
+        ? "Expired — not confirmed"
+        : formatShortNoticeDeadlineLine(booking.shortNoticeExpiresAt ?? "", new Date(nowMs))}
     </p>
   );
 }
@@ -257,6 +270,12 @@ export default function OwnerShortNoticePanel({
   const [savedNoticeHours, setSavedNoticeHours] = useState(MINIMUM_BOOKING_NOTICE_HOURS);
   const [leadHoursDraft, setLeadHoursDraft] = useState(String(MINIMUM_SHORT_NOTICE_LEAD_HOURS));
   const [savedLeadHours, setSavedLeadHours] = useState(MINIMUM_SHORT_NOTICE_LEAD_HOURS);
+  const [confirmationWindowDraft, setConfirmationWindowDraft] = useState(
+    String(SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS),
+  );
+  const [savedConfirmationWindowHours, setSavedConfirmationWindowHours] = useState(
+    SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+  );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [bookingSettings, setBookingSettings] = useState<BookingSettings | null>(null);
   const [error, setError] = useState("");
@@ -322,15 +341,20 @@ export default function OwnerShortNoticePanel({
     }));
   }
 
-  const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number; minimumShortNoticeLeadHours?: number; depositCash?: BookingSettings["depositCash"] }) => {
+  const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number; minimumShortNoticeLeadHours?: number; shortNoticeConfirmationWindowHours?: number; depositCash?: BookingSettings["depositCash"] }) => {
     onSettingsChange?.(settings as BookingSettings);
     setPeriods(Array.isArray(settings.unavailablePeriods) ? settings.unavailablePeriods : []);
     const hours = normalizeMinimumBookingNoticeHours(settings.minimumBookingNoticeHours);
     const lead = normalizeMinimumShortNoticeLeadHours(settings.minimumShortNoticeLeadHours);
+    const confirmationWindow = normalizeShortNoticeConfirmationWindowHours(
+      settings.shortNoticeConfirmationWindowHours,
+    );
     setSavedNoticeHours(hours);
     setNoticeHoursDraft(String(hours));
     setSavedLeadHours(lead);
     setLeadHoursDraft(String(lead));
+    setSavedConfirmationWindowHours(confirmationWindow);
+    setConfirmationWindowDraft(String(confirmationWindow));
     if ("updatedAt" in settings || "depositCash" in settings) {
       setBookingSettings(settings as BookingSettings);
     }
@@ -416,6 +440,27 @@ export default function OwnerShortNoticePanel({
       setMessage(`Minimum short-notice lead time saved: ${parsed} hours.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save minimum short-notice lead time");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function handleSaveConfirmationWindow() {
+    setSavingSettings(true);
+    setError("");
+    setMessage("");
+    try {
+      const parsed = parseShortNoticeConfirmationWindowHoursInput(confirmationWindowDraft);
+      if (parsed == null) {
+        throw new Error("Enter a whole number of hours between 1 and 4.");
+      }
+      const settings = await updateShortNoticeConfirmationWindowHours(ownerKey, parsed);
+      applySettings(settings);
+      setMessage(
+        `Short-notice confirmation window saved: ${parsed} ${parsed === 1 ? "hour" : "hours"}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save short-notice confirmation window");
     } finally {
       setSavingSettings(false);
     }
@@ -724,6 +769,48 @@ export default function OwnerShortNoticePanel({
             requested.
           </p>
           {message.startsWith("Minimum short-notice lead time saved") ? (
+            <p className="mt-2 text-sm text-emerald" role="status">
+              {message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="mt-6 border-t border-white/10 pt-4">
+          <h3 className="text-lg font-bold text-white">Short-notice confirmation window</h3>
+          <p id="short-notice-confirmation-window-help" className="mt-1 break-words text-sm text-white/65">
+            How long you have to confirm availability before an unanswered short-notice request automatically expires.
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="block min-w-0 text-sm text-white/70">
+              Hours
+              <input
+                type="number"
+                inputMode="numeric"
+                min={MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS}
+                max={MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS}
+                step={1}
+                value={confirmationWindowDraft}
+                onChange={(event) => setConfirmationWindowDraft(event.target.value)}
+                className={`${fieldClass} sm:w-32`}
+                aria-describedby="short-notice-confirmation-window-help"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={savingSettings}
+              onClick={() => void handleSaveConfirmationWindow()}
+              className="min-h-11 w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60 sm:w-auto"
+            >
+              {savingSettings ? "Saving…" : "Save confirmation window"}
+            </button>
+          </div>
+          <p className="mt-2 break-words text-xs text-white/45">
+            Current value: {savedConfirmationWindowHours}{" "}
+            {savedConfirmationWindowHours === 1 ? "hour" : "hours"}. Allowed range{" "}
+            {MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS}–{MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS}{" "}
+            hours. Changing this does not move deadlines already stored on pending requests.
+          </p>
+          {message.startsWith("Short-notice confirmation window saved") ? (
             <p className="mt-2 text-sm text-emerald" role="status">
               {message}
             </p>

@@ -1,5 +1,6 @@
 /**
- * Minimum short-notice lead time (default 2h) and the 1-hour response expiry.
+ * Minimum short-notice lead time (default 2h), configurable confirmation window,
+ * and response-window expiry.
  * Run: npx tsx scripts/check-short-notice-lead-expiry.ts
  */
 
@@ -7,13 +8,20 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "path";
 import {
+  MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   MINIMUM_BOOKING_NOTICE_HOURS,
   MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+  MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+  SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   classifyPickupLeadWindow,
   clampShortNoticeLeadHours,
+  confirmationWindowHoursLabel,
   isBelowMinimumShortNoticeLead,
   isWithinMinimumBookingNotice,
   parseMinimumShortNoticeLeadHoursInput,
+  parseShortNoticeConfirmationWindowHoursInput,
+  shortNoticeConfirmWithinLine,
+  shortNoticeExpiryReasonLine,
   tooSoonRequestBody,
   tooSoonRequestHeading,
 } from "../shared/booking-notice";
@@ -27,7 +35,9 @@ import {
   SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE,
   SHORT_NOTICE_RESPONSE_EXPIRED_CUSTOMER_MESSAGE,
   SHORT_NOTICE_RESPONSE_WINDOW_MS,
+  formatShortNoticeDeadlineLine,
   isShortNoticePayable,
+  isShortNoticeResponseWindowDue,
   shortNoticeResponseExpiresAtIso,
 } from "../shared/short-notice-booking";
 import {
@@ -40,11 +50,20 @@ import {
   shouldForceShortNotice,
 } from "../workers/addresses/src/short-notice-handlers";
 import {
+  getBookingSettings,
   normalizeBookingSettings,
   updateMinimumBookingNoticeHours,
   updateMinimumShortNoticeLeadHours,
+  updateShortNoticeConfirmationWindowHours,
 } from "../workers/addresses/src/booking-settings-store";
 import { getShortNoticeByReference, saveShortNoticeBooking } from "../workers/addresses/src/short-notice-store";
+import { shortNoticePaymentFollowUpLines } from "../src/components/ShortNoticeCheckoutNotice";
+import {
+  HOURLY_SCHEDULED_CRON,
+  SHORT_NOTICE_EXPIRY_CRON,
+  shouldRunHourlyScheduledJobs,
+  shouldRunShortNoticeExpiryCron,
+} from "../workers/addresses/src/scheduled-cron";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import type { ShortNoticeBookingRecord } from "../shared/short-notice-booking";
 
@@ -131,10 +150,12 @@ function emailEnv(store: KVNamespace) {
 async function main() {
   const originalFetch = globalThis.fetch;
   let emailSends = 0;
-  globalThis.fetch = async (input: RequestInfo | URL) => {
+  let lastEmailBody = "";
+  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes("api.resend.com")) {
       emailSends += 1;
+      lastEmailBody = typeof init?.body === "string" ? init.body : "";
       return new Response(JSON.stringify({ id: `email_${emailSends}` }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -156,6 +177,10 @@ async function main() {
       const settings = normalizeBookingSettings({ unavailablePeriods: [] });
       assert.equal(settings.minimumBookingNoticeHours, 12);
       assert.equal(settings.minimumShortNoticeLeadHours, 2);
+      assert.equal(settings.shortNoticeConfirmationWindowHours, 1);
+      assert.equal(SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS, 1);
+      assert.equal(MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS, 1);
+      assert.equal(MAX_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS, 4);
     });
 
     check("Windows: under 2h blocked, exactly 2h short notice, exactly 12h normal", () => {
@@ -285,6 +310,8 @@ async function main() {
       assert.equal(first.record.expiryReason, "response_window");
       assert.equal(first.emailed, true);
       assert.equal(emailSends, 1);
+      assert.match(lastEmailBody, /within 1 hour/);
+      assert.doesNotMatch(lastEmailBody, /within 2 hours/);
       assert.ok(first.record.responseExpiryEmailSentAt);
       assert.equal(
         first.record.history?.filter((event) => event.type === "request_expired").length,
@@ -382,9 +409,27 @@ async function main() {
       assert.match(card, /const \[marketingOptIn, setMarketingOptIn\] = useState\(false\)/);
       assert.match(card, /TooSoonCheckoutNotice/);
       const followUp = read("src/components/ShortNoticeCheckoutNotice.tsx");
-      assert.match(followUp, /We’ll confirm availability within 1 hour/);
+      assert.match(followUp, /shortNoticeConfirmWithinLine/);
       assert.match(followUp, /your request will automatically expire/);
+      assert.doesNotMatch(followUp, /within 1 hour/);
       assert.doesNotMatch(followUp, /Please allow up to 1 hour for confirmation/);
+      assert.equal(confirmationWindowHoursLabel(1), "1 hour");
+      assert.equal(confirmationWindowHoursLabel(2), "2 hours");
+      assert.equal(
+        shortNoticeConfirmWithinLine(1),
+        "We’ll confirm availability within 1 hour.",
+      );
+      assert.equal(
+        shortNoticeConfirmWithinLine(2),
+        "We’ll confirm availability within 2 hours.",
+      );
+      assert.equal(shortNoticePaymentFollowUpLines(1)[1], shortNoticeConfirmWithinLine(1));
+      assert.equal(shortNoticePaymentFollowUpLines(2)[1], shortNoticeConfirmWithinLine(2));
+      assert.match(shortNoticePaymentFollowUpLines(2)[2], /automatically expire/);
+      assert.equal(
+        shortNoticeExpiryReasonLine(2),
+        "As we weren’t able to confirm availability within 2 hours, your booking request has now expired.",
+      );
 
       assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0.05);
       assert.equal(getWebsiteReturnJourneyFare(40), 76);
@@ -405,7 +450,188 @@ async function main() {
       assert.match(read("src/app/book-quote/BookQuoteCustomerClient.tsx"), /TooSoonCheckoutNotice/);
       assert.match(read("src/app/quote/SavedQuoteCustomerClient.tsx"), /TooSoonCheckoutNotice/);
       assert.match(read("src/components/OwnerShortNoticePanel.tsx"), /Minimum short-notice lead time/);
+      assert.match(read("src/components/OwnerShortNoticePanel.tsx"), /Short-notice confirmation window/);
+      assert.match(
+        read("src/components/OwnerShortNoticePanel.tsx"),
+        /How long you have to confirm availability before an unanswered short-notice request automatically expires\./,
+      );
       assert.match(read("src/components/OwnerShortNoticePanel.tsx"), /Expired — not confirmed/);
+      assert.match(read("src/components/OwnerShortNoticePanel.tsx"), /formatShortNoticeDeadlineLine/);
+    });
+
+    await checkAsync("Confirmation window defaults to 1 hour and accepts 2, not 0, 5, or 1.5", async () => {
+      const store = memoryKv({ "booking:settings": { unavailablePeriods: [] } });
+      const initial = await getBookingSettings(store);
+      assert.equal(initial.shortNoticeConfirmationWindowHours, 1);
+      assert.equal(parseShortNoticeConfirmationWindowHoursInput(0), null);
+      assert.equal(parseShortNoticeConfirmationWindowHoursInput(5), null);
+      assert.equal(parseShortNoticeConfirmationWindowHoursInput(1.5), null);
+      assert.equal(parseShortNoticeConfirmationWindowHoursInput("2"), 2);
+      await assert.rejects(() => updateShortNoticeConfirmationWindowHours(store, 0));
+      await assert.rejects(() => updateShortNoticeConfirmationWindowHours(store, 5));
+      await assert.rejects(() => updateShortNoticeConfirmationWindowHours(store, 1.5));
+      const saved = await updateShortNoticeConfirmationWindowHours(store, 2);
+      assert.equal(saved.shortNoticeConfirmationWindowHours, 2);
+      assert.equal(saved.minimumBookingNoticeHours, 12);
+      assert.equal(saved.minimumShortNoticeLeadHours, 2);
+    });
+
+    await checkAsync("1-hour and 2-hour requests store the matching expiry, and later setting changes do not move it", async () => {
+      const store = memoryKv({ "booking:settings": { unavailablePeriods: [] } });
+      const now = new Date("2026-06-15T09:00:00.000Z");
+      const first = await createShortNoticeRequest({
+        store,
+        booking: sampleBooking(),
+        amount: 48,
+        now,
+      });
+      assert.equal(first.record.shortNoticeConfirmationWindowHours, 1);
+      assert.equal(first.record.shortNoticeRequestedAt, now.toISOString());
+      assert.equal(
+        new Date(first.record.shortNoticeExpiresAt!).getTime() - now.getTime(),
+        SHORT_NOTICE_RESPONSE_WINDOW_MS,
+      );
+      assert.equal(formatLondonClockTime(now), "10:00");
+      assert.equal(formatLondonClockTime(first.record.shortNoticeExpiresAt!), "11:00");
+
+      await updateShortNoticeConfirmationWindowHours(store, 2);
+      const unchanged = await getShortNoticeByReference(store, first.record.reference);
+      assert.equal(unchanged?.shortNoticeExpiresAt, first.record.shortNoticeExpiresAt);
+      assert.equal(unchanged?.shortNoticeConfirmationWindowHours, 1);
+      const settings = await getBookingSettings(store);
+      assert.equal(settings.shortNoticeConfirmationWindowHours, 2);
+
+      const later = new Date(now.getTime() + 60 * 1000);
+      const second = await createShortNoticeRequest({
+        store,
+        booking: sampleBooking({ tripTime: "15:00" }),
+        amount: 52,
+        now: later,
+      });
+      assert.equal(second.record.shortNoticeConfirmationWindowHours, 2);
+      assert.equal(
+        new Date(second.record.shortNoticeExpiresAt!).getTime() - later.getTime(),
+        2 * SHORT_NOTICE_RESPONSE_WINDOW_MS,
+      );
+      assert.equal(formatLondonClockTime(later), "10:01");
+      assert.equal(formatLondonClockTime(second.record.shortNoticeExpiresAt!), "12:01");
+    });
+
+    check("Owner countdown uses the stored expiry, including BST and GMT", () => {
+      const requested = new Date("2026-06-15T09:00:00.000Z");
+      const oneHour = shortNoticeResponseExpiresAtIso(requested, 1);
+      const fiftySeven = new Date(new Date(oneHour).getTime() - 57 * 60 * 1000);
+      assert.equal(
+        formatShortNoticeDeadlineLine(oneHour, fiftySeven),
+        "57 minutes remaining · Respond by 11:00",
+      );
+      const twoHours = shortNoticeResponseExpiresAtIso(requested, 2);
+      assert.equal(formatLondonClockTime(twoHours), "12:00");
+      const hourFortyTwo = new Date(new Date(twoHours).getTime() - (60 + 42) * 60 * 1000);
+      assert.equal(
+        formatShortNoticeDeadlineLine(twoHours, hourFortyTwo),
+        "1 hour 42 minutes remaining · Respond by 12:00",
+      );
+      const winter = new Date("2026-01-15T10:00:00.000Z");
+      const winterExpiry = shortNoticeResponseExpiresAtIso(winter, 2);
+      assert.equal(formatLondonClockTime(winter), "10:00");
+      assert.equal(formatLondonClockTime(winterExpiry), "12:00");
+      const spring = new Date("2026-03-29T00:30:00.000Z");
+      const springExpiry = shortNoticeResponseExpiresAtIso(spring, 2);
+      assert.equal(
+        new Date(springExpiry).getTime() - spring.getTime(),
+        2 * SHORT_NOTICE_RESPONSE_WINDOW_MS,
+      );
+      assert.equal(formatLondonClockTime(springExpiry), "03:30");
+    });
+
+    await checkAsync("A 2-hour request emails that window once and is not expired early", async () => {
+      const store = memoryKv({ "booking:settings": { unavailablePeriods: [] } });
+      await updateShortNoticeConfirmationWindowHours(store, 2);
+      const now = pickupOffsetNow("2026-06-15", "14:00", 4);
+      const created = await createShortNoticeRequest({
+        store,
+        booking: sampleBooking({ customerEmail: "two@example.com" }),
+        amount: 61,
+        now,
+      });
+      const deadline = new Date(created.record.shortNoticeExpiresAt!);
+      const early = new Date(deadline.getTime() - 1);
+      assert.equal(isShortNoticeResponseWindowDue(created.record, early), false);
+      assert.equal(isShortNoticeResponseWindowDue(created.record, deadline), true);
+      emailSends = 0;
+      lastEmailBody = "";
+      const tooEarly = await expireShortNoticeResponseIfDue(emailEnv(store), created.record, early);
+      assert.equal(tooEarly.blocked, false);
+      assert.equal(tooEarly.record.status, "SHORT_NOTICE_AWAITING_APPROVAL");
+      assert.equal(emailSends, 0);
+      const due = await expireShortNoticeResponseIfDue(emailEnv(store), created.record, deadline);
+      assert.equal(due.record.status, "SHORT_NOTICE_EXPIRED");
+      assert.equal(due.emailed, true);
+      assert.equal(emailSends, 1);
+      assert.match(lastEmailBody, /within 2 hours/);
+      assert.doesNotMatch(lastEmailBody, /within 1 hour/);
+      const again = await processExpiredShortNoticeResponseWindows(emailEnv(store), deadline);
+      assert.equal(again.emailed, 0);
+      assert.equal(emailSends, 1);
+    });
+
+    await checkAsync("Short-notice period and lead time stay independently configurable", async () => {
+      const store = memoryKv({ "booking:settings": { unavailablePeriods: [] } });
+      await updateShortNoticeConfirmationWindowHours(store, 3);
+      const period = await updateMinimumBookingNoticeHours(store, 10);
+      assert.equal(period.minimumBookingNoticeHours, 10);
+      assert.equal(period.minimumShortNoticeLeadHours, 2);
+      assert.equal(period.shortNoticeConfirmationWindowHours, 3);
+      const lead = await updateMinimumShortNoticeLeadHours(store, 4);
+      assert.equal(lead.minimumShortNoticeLeadHours, 4);
+      assert.equal(lead.minimumBookingNoticeHours, 10);
+      assert.equal(lead.shortNoticeConfirmationWindowHours, 3);
+      const date = "2026-06-15";
+      const time = "14:00";
+      assert.equal(
+        classifyPickupLeadWindow(date, time, pickupOffsetNow(date, time, 1.5), 10, 4),
+        "too_soon",
+      );
+      assert.equal(
+        classifyPickupLeadWindow(date, time, pickupOffsetNow(date, time, 4), 10, 4),
+        "short_notice",
+      );
+      assert.equal(
+        classifyPickupLeadWindow(date, time, pickupOffsetNow(date, time, 9.9), 10, 4),
+        "short_notice",
+      );
+      assert.equal(
+        classifyPickupLeadWindow(date, time, pickupOffsetNow(date, time, 10), 10, 4),
+        "normal",
+      );
+      const eight = await updateMinimumBookingNoticeHours(store, 8);
+      assert.equal(eight.minimumBookingNoticeHours, 8);
+      assert.equal(eight.minimumShortNoticeLeadHours, 4);
+      assert.equal(eight.shortNoticeConfirmationWindowHours, 3);
+    });
+
+    check("Short-notice expiry runs about every 5 minutes and hourly jobs stay hourly", () => {
+      assert.equal(SHORT_NOTICE_EXPIRY_CRON, "*/5 * * * *");
+      assert.equal(HOURLY_SCHEDULED_CRON, "30 * * * *");
+      assert.equal(shouldRunShortNoticeExpiryCron(SHORT_NOTICE_EXPIRY_CRON), true);
+      assert.equal(shouldRunHourlyScheduledJobs(SHORT_NOTICE_EXPIRY_CRON), false);
+      assert.equal(shouldRunShortNoticeExpiryCron(HOURLY_SCHEDULED_CRON), true);
+      assert.equal(shouldRunHourlyScheduledJobs(HOURLY_SCHEDULED_CRON), true);
+      assert.equal(shouldRunShortNoticeExpiryCron(undefined), true);
+      assert.equal(shouldRunHourlyScheduledJobs(undefined), true);
+      assert.equal(shouldRunShortNoticeExpiryCron("0 19 * * *"), false);
+      const wrangler = read("workers/addresses/wrangler.toml");
+      assert.match(wrangler, /crons = \["\*\/5 \* \* \* \*", "30 \* \* \* \*"\]/);
+      assert.match(wrangler, /DAILY_QUOTE_REPORT_LONDON_HOUR = "19"/);
+      assert.doesNotMatch(wrangler, /\[env\.preview\.triggers\]/);
+      const index = read("workers/addresses/src/index.ts");
+      const scheduled = index.slice(index.indexOf("async scheduled"));
+      const expiryAt = scheduled.indexOf("processExpiredShortNoticeResponseWindows");
+      const hourlyGate = scheduled.indexOf("if (!shouldRunHourlyScheduledJobs(cron)) return;");
+      const reportAt = scheduled.indexOf("processDailyQuoteReport");
+      assert.ok(expiryAt > 0 && hourlyGate > expiryAt && reportAt > hourlyGate);
+      assert.match(scheduled, /shouldRunShortNoticeExpiryCron\(cron\)/);
     });
   } finally {
     globalThis.fetch = originalFetch;

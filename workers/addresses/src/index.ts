@@ -162,6 +162,10 @@ import {
   shouldForceShortNotice,
 } from "./short-notice-handlers";
 import {
+  shouldRunHourlyScheduledJobs,
+  shouldRunShortNoticeExpiryCron,
+} from "./scheduled-cron";
+import {
   OWNER_NO_AVAILABILITY_CODE,
   OWNER_NO_AVAILABILITY_MESSAGE,
   OwnerNoAvailabilityError,
@@ -4976,8 +4980,9 @@ export default {
     }
   },
 
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    if (env.TRACKING_STORE) {
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    const cron = event.cron;
+    if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {
       ctx.waitUntil(
         processExpiredShortNoticeResponseWindows(env)
           .then((result) => {
@@ -4990,6 +4995,8 @@ export default {
           }),
       );
     }
+
+    if (!shouldRunHourlyScheduledJobs(cron)) return;
 
     ctx.waitUntil(
       processDueReviewRequests(env).then((result) => {
