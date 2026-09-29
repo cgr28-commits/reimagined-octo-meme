@@ -559,13 +559,18 @@ async function main() {
     const requestNotice = await shouldForceShortNotice(requestStore, pickup, liveNow);
     assert.equal(requestNotice.noAvailability, false);
     assert.equal(requestNotice.shortNotice, true);
-    const created = await createShortNoticeRequest({
-      store: requestStore,
-      booking: pickup,
-      amount: 46,
-      now: liveNow,
-    });
-    assert.equal(created.record.status, "SHORT_NOTICE_AWAITING_APPROVAL");
+    assert.equal(requestNotice.tooSoon, true);
+    await assert.rejects(
+      () =>
+        createShortNoticeRequest({
+          store: requestStore,
+          booking: pickup,
+          amount: 46,
+          now: liveNow,
+        }),
+      (error: unknown) =>
+        error instanceof Error && error.name === "PickupTooSoonError",
+    );
   });
 
   await checkAsync("Owner period mode persists across create / reload / edit", async () => {

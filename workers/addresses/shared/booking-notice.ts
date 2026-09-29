@@ -45,6 +45,78 @@ export function normalizeMinimumBookingNoticeHours(value: unknown): number {
   return parseMinimumBookingNoticeHoursInput(value) ?? MINIMUM_BOOKING_NOTICE_HOURS;
 }
 
+/**
+ * Minimum elapsed hours before a customer may submit a short-notice request.
+ * Under this, the journey is too soon to request. Default 2.
+ * Must stay strictly below the configurable short-notice period.
+ */
+export const MINIMUM_SHORT_NOTICE_LEAD_HOURS = 2;
+export const MIN_MINIMUM_SHORT_NOTICE_LEAD_HOURS = 1;
+export const MAX_MINIMUM_SHORT_NOTICE_LEAD_HOURS = 47;
+
+export const TOO_SOON_BOOKING_CODE = "pickup_too_soon";
+export const CHOOSE_ANOTHER_PICKUP_TIME_LABEL = "Choose another pickup time";
+
+export function parseMinimumShortNoticeLeadHoursInput(value: unknown): number | null {
+  if (typeof value === "boolean" || value == null) return null;
+  const raw =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.trim())
+        : NaN;
+  if (!Number.isFinite(raw)) return null;
+  const rounded = Math.round(raw);
+  if (Math.abs(raw - rounded) > 1e-9) return null;
+  if (
+    rounded < MIN_MINIMUM_SHORT_NOTICE_LEAD_HOURS ||
+    rounded > MAX_MINIMUM_SHORT_NOTICE_LEAD_HOURS
+  ) {
+    return null;
+  }
+  return rounded;
+}
+
+/** Missing/legacy/invalid values fall back to 2 hours. */
+export function normalizeMinimumShortNoticeLeadHours(value: unknown): number {
+  return parseMinimumShortNoticeLeadHoursInput(value) ?? MINIMUM_SHORT_NOTICE_LEAD_HOURS;
+}
+
+/** Lead time is always strictly below the normal notice period. */
+export function clampShortNoticeLeadHours(lead: unknown, notice: unknown): number {
+  const noticeHours = normalizeMinimumBookingNoticeHours(notice);
+  const leadHours = normalizeMinimumShortNoticeLeadHours(lead);
+  if (leadHours < noticeHours) return leadHours;
+  return Math.max(MIN_MINIMUM_SHORT_NOTICE_LEAD_HOURS, noticeHours - 1);
+}
+
+export function leadTimeHoursLabel(leadHours: number): string {
+  const hours = normalizeMinimumShortNoticeLeadHours(leadHours);
+  return hours === 1 ? "1 hour" : `${hours} hours`;
+}
+
+export function tooSoonRequestHeading(): string {
+  return "Need a taxi right now?";
+}
+
+export function tooSoonRequestBody(leadHours = MINIMUM_SHORT_NOTICE_LEAD_HOURS): string {
+  return (
+    `My Airport Taxi NI specialises in pre-booked airport transfers, so we’re unable to guarantee immediate pickups.\n\n` +
+    `Please choose a pickup time at least ${leadTimeHoursLabel(leadHours)} from now.`
+  );
+}
+
+export class PickupTooSoonError extends Error {
+  readonly code = TOO_SOON_BOOKING_CODE;
+  readonly leadHours: number;
+  constructor(leadHours = MINIMUM_SHORT_NOTICE_LEAD_HOURS) {
+    const hours = normalizeMinimumShortNoticeLeadHours(leadHours);
+    super(tooSoonRequestBody(hours));
+    this.leadHours = hours;
+    this.name = "PickupTooSoonError";
+  }
+}
+
 export type ShortNoticeTriggerReason = "unavailable_period" | "under_minimum_notice";
 
 /** True when pickup is strictly under the configured notice window (11h59m yes; 12h00 no). */
@@ -57,6 +129,42 @@ export function isWithinMinimumBookingNotice(
   const hours = hoursUntilPickup(tripDate, tripTime, now);
   if (hours == null) return false;
   return hours < normalizeMinimumBookingNoticeHours(noticeHours);
+}
+
+export type PickupLeadWindow = "too_soon" | "short_notice" | "normal" | "unknown";
+
+/**
+ * 0–&lt;lead: too soon to request.
+ * lead–&lt;notice: short-notice request.
+ * notice and above: normal booking.
+ * Exactly the lead time is short notice. Exactly the notice period is normal.
+ */
+export function classifyPickupLeadWindow(
+  tripDate: string,
+  tripTime: string,
+  now = new Date(),
+  noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
+  leadHours = MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+): PickupLeadWindow {
+  const hours = hoursUntilPickup(tripDate, tripTime, now);
+  if (hours == null) return "unknown";
+  const notice = normalizeMinimumBookingNoticeHours(noticeHours);
+  const lead = clampShortNoticeLeadHours(leadHours, notice);
+  if (hours < lead) return "too_soon";
+  if (hours < notice) return "short_notice";
+  return "normal";
+}
+
+/** True when pickup is strictly under the minimum short-notice lead time. */
+export function isBelowMinimumShortNoticeLead(
+  tripDate: string,
+  tripTime: string,
+  now = new Date(),
+  leadHours = MINIMUM_SHORT_NOTICE_LEAD_HOURS,
+): boolean {
+  const hours = hoursUntilPickup(tripDate, tripTime, now);
+  if (hours == null) return false;
+  return hours < normalizeMinimumShortNoticeLeadHours(leadHours);
 }
 
 export function formatHoursUntilPickupLabel(

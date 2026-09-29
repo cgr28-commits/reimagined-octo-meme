@@ -34,10 +34,12 @@ import {
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import ShortNoticeCheckoutNotice, {
   ShortNoticePaymentFollowUp,
+  TooSoonCheckoutNotice,
 } from "@/components/ShortNoticeCheckoutNotice";
 import {
+  classifyPickupLeadWindow,
   isOwnerNoAvailabilityMessage,
-  isWithinMinimumBookingNotice,
+  tooSoonRequestBody,
 } from "../../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 
@@ -59,7 +61,8 @@ function BookQuoteInner() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [minimumBookingNoticeHours] = useMinimumBookingNoticeHours();
+  const [minimumBookingNoticeHours, , minimumShortNoticeLeadHours] =
+    useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
@@ -198,11 +201,18 @@ function BookQuoteInner() {
       expressDropOffFeeGbp: expressSelection.feeGbp,
     });
   }, [quote, journey, expressSelection.feeGbp]);
-  const isMinimumNoticeRequest = Boolean(
-    tripDate &&
-      tripTime &&
-      isWithinMinimumBookingNotice(tripDate, tripTime, undefined, minimumBookingNoticeHours),
-  );
+  const pickupLeadWindow =
+    tripDate && tripTime
+      ? classifyPickupLeadWindow(
+          tripDate,
+          tripTime,
+          new Date(),
+          minimumBookingNoticeHours,
+          minimumShortNoticeLeadHours,
+        )
+      : "unknown";
+  const isTooSoonPickup = pickupLeadWindow === "too_soon";
+  const isMinimumNoticeRequest = pickupLeadWindow === "short_notice";
   const booking = useMemo((): BookingDetails | null => {
     if (!quote || !journey || !displayPricing) return null;
     return {
@@ -259,6 +269,11 @@ function BookQuoteInner() {
 
   async function pay() {
     setError("");
+    if (isTooSoonPickup) {
+      setError(tooSoonRequestBody(minimumShortNoticeLeadHours));
+      focusBookQuoteTime();
+      return;
+    }
     if (!quote || !booking || !displayPricing) return;
     if (!isSumUpPaymentEnabled()) {
       setError("Secure payment is not available right now. Please contact My Airport Taxi NI.");
@@ -620,9 +635,16 @@ function BookQuoteInner() {
       </section>
 
       <div className="min-w-0 space-y-2 sm:space-y-3">
+        {isTooSoonPickup && !isOwnerNoAvailabilityMessage(error) ? (
+          <TooSoonCheckoutNotice
+            leadHours={minimumShortNoticeLeadHours}
+            onChooseAnotherTime={focusBookQuoteTime}
+          />
+        ) : null}
         {isMinimumNoticeRequest && !isOwnerNoAvailabilityMessage(error) ? (
           <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
         ) : null}
+        {isTooSoonPickup ? null : (
         <BookingTermsConsent
           accepted={termsAccepted}
           onAcceptedChange={setTermsAccepted}
@@ -634,6 +656,7 @@ function BookQuoteInner() {
           }
           error={!termsAccepted && error.includes("Terms") ? error : undefined}
         />
+        )}
       </div>
 
       {isOwnerNoAvailabilityMessage(error) ? (
@@ -644,7 +667,7 @@ function BookQuoteInner() {
           }}
           onChooseAnotherTime={focusBookQuoteTime}
         />
-      ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? null : (
+      ) : isTooSoonPickup ? null : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? null : (
         <div className="space-y-2 sm:space-y-3">
           {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
           {isMinimumNoticeRequest ? (

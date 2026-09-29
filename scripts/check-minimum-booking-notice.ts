@@ -323,7 +323,7 @@ check("Quote / owner / payment wiring keeps fare visible and delays SumUp", () =
 
   assert.match(card, /Request Short-Notice Booking/);
   assert.match(card, /Your transfer is reserved for your selected pickup time/);
-  assert.match(card, /isWithinMinimumBookingNotice/);
+  assert.match(card, /classifyPickupLeadWindow/);
   assert.match(index, /shouldForceShortNotice/);
   assert.match(index, /createShortNoticeRequest/);
   assert.match(index, /sendShortNoticeRequestReceivedEmail/);

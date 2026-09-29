@@ -28,10 +28,12 @@ import { savedQuoteScheduleChanged } from "../../../shared/booking-amendment";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import ShortNoticeCheckoutNotice, {
   ShortNoticePaymentFollowUp,
+  TooSoonCheckoutNotice,
 } from "@/components/ShortNoticeCheckoutNotice";
 import {
+  classifyPickupLeadWindow,
   isOwnerNoAvailabilityMessage,
-  isWithinMinimumBookingNotice,
+  tooSoonRequestBody,
 } from "../../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 
@@ -55,7 +57,8 @@ function SavedQuoteInner() {
     "loading",
   );
   const [paying, setPaying] = useState(false);
-  const [minimumBookingNoticeHours] = useMinimumBookingNoticeHours();
+  const [minimumBookingNoticeHours, , minimumShortNoticeLeadHours] =
+    useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
@@ -144,11 +147,18 @@ function SavedQuoteInner() {
 
   const effectiveAmount = displayAmount ?? quote?.amount ?? 0;
   const effectiveAmountLabel = displayAmountLabel || quote?.amountLabel || "";
-  const isMinimumNoticeRequest = Boolean(
-    tripDate &&
-      tripTime &&
-      isWithinMinimumBookingNotice(tripDate, tripTime, undefined, minimumBookingNoticeHours),
-  );
+  const pickupLeadWindow =
+    tripDate && tripTime
+      ? classifyPickupLeadWindow(
+          tripDate,
+          tripTime,
+          new Date(),
+          minimumBookingNoticeHours,
+          minimumShortNoticeLeadHours,
+        )
+      : "unknown";
+  const isTooSoonPickup = pickupLeadWindow === "too_soon";
+  const isMinimumNoticeRequest = pickupLeadWindow === "short_notice";
   useEffect(() => {
     if (!quote || state !== "ok") return;
     const changed = savedQuoteScheduleChanged(quote.journey, { tripDate, tripTime });
@@ -274,6 +284,11 @@ function SavedQuoteInner() {
 
   async function pay() {
     setError("");
+    if (isTooSoonPickup) {
+      setError(tooSoonRequestBody(minimumShortNoticeLeadHours));
+      focusSavedQuoteTime();
+      return;
+    }
     if (!quote || !booking || state !== "ok") return;
     if (!isSumUpPaymentEnabled()) {
       setError("Secure payment is not available right now. Please contact My Airport Taxi NI.");
@@ -669,10 +684,17 @@ function SavedQuoteInner() {
             </div>
           )}
 
+          {isTooSoonPickup && !isOwnerNoAvailabilityMessage(error) ? (
+            <TooSoonCheckoutNotice
+              leadHours={minimumShortNoticeLeadHours}
+              onChooseAnotherTime={focusSavedQuoteTime}
+            />
+          ) : null}
           {isMinimumNoticeRequest && !isOwnerNoAvailabilityMessage(error) ? (
             <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
           ) : null}
 
+          {isTooSoonPickup ? null : (
           <BookingTermsConsent
             accepted={termsAccepted}
             onAcceptedChange={setTermsAccepted}
@@ -680,6 +702,7 @@ function SavedQuoteInner() {
             paymentAmountLabel={effectiveAmountLabel}
             error={!termsAccepted && error.includes("Terms") ? error : undefined}
           />
+          )}
 
           {isOwnerNoAvailabilityMessage(error) ? (
             <OwnerNoAvailabilityBlocked
@@ -691,7 +714,7 @@ function SavedQuoteInner() {
                 document.getElementById("saved-quote-time")?.focus();
               }}
             />
-          ) : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? null : (
+          ) : isTooSoonPickup ? null : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? null : (
             <div className="space-y-2 sm:space-y-3">
               {error ? (
                 <p className="text-sm text-red-300" role="alert">

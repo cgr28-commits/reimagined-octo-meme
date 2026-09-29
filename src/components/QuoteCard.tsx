@@ -216,11 +216,13 @@ import {
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import ShortNoticeCheckoutNotice, {
   ShortNoticePaymentFollowUp,
+  TooSoonCheckoutNotice,
 } from "@/components/ShortNoticeCheckoutNotice";
 import {
+  classifyPickupLeadWindow,
   isOwnerNoAvailabilityMessage,
-  isWithinMinimumBookingNotice,
   OWNER_NO_AVAILABILITY_MESSAGE,
+  tooSoonRequestBody,
 } from "../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import {
@@ -853,7 +855,7 @@ function QuoteCard({
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
   const [paymentPopupBlocked, setPaymentPopupBlocked] = useState(false);
-  const [minimumBookingNoticeHours, setMinimumBookingNoticeHours] =
+  const [minimumBookingNoticeHours, setMinimumBookingNoticeHours, minimumShortNoticeLeadHours] =
     useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
@@ -1423,13 +1425,24 @@ function QuoteCard({
     isTripDateOnOrAfterToday(tripDate) &&
     isTripDateTimeNotInPast(tripDate, tripTime) &&
     (!returnJourney || isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime));
-  const isMinimumNoticeRequest = Boolean(
-    tripDate &&
-      tripTime &&
-      !ownerNoAvailabilityBlocked &&
-      !isOwnerNoAvailabilityMessage(paymentError) &&
-      isWithinMinimumBookingNotice(tripDate, tripTime, undefined, minimumBookingNoticeHours),
-  );
+  const pickupLeadWindow =
+    tripDate && tripTime
+      ? classifyPickupLeadWindow(
+          tripDate,
+          tripTime,
+          new Date(),
+          minimumBookingNoticeHours,
+          minimumShortNoticeLeadHours,
+        )
+      : "unknown";
+  const isTooSoonPickup =
+    pickupLeadWindow === "too_soon" &&
+    !ownerNoAvailabilityBlocked &&
+    !isOwnerNoAvailabilityMessage(paymentError);
+  const isMinimumNoticeRequest =
+    pickupLeadWindow === "short_notice" &&
+    !ownerNoAvailabilityBlocked &&
+    !isOwnerNoAvailabilityMessage(paymentError);
   const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
     "Hi, I have a short-notice airport transfer request.",
   )}`;
@@ -3516,6 +3529,11 @@ function QuoteCard({
     showDepositCashChoice && paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH;
 
   async function handlePayNow() {
+    if (isTooSoonPickup) {
+      setPaymentError(tooSoonRequestBody(minimumShortNoticeLeadHours));
+      handleChooseAnotherTime();
+      return;
+    }
     if (ownerNoAvailabilityBlocked || isOwnerNoAvailabilityMessage(paymentError)) {
       setOwnerNoAvailabilityBlocked(true);
       setPaymentError(OWNER_NO_AVAILABILITY_MESSAGE);
@@ -5601,6 +5619,9 @@ function QuoteCard({
       !ownerClosed &&
       !isMinimumNoticeRequest &&
       (smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError));
+    const isTooSoonCheckout = Boolean(
+      payNow && liveQuote && isTooSoonPickup && !ownerClosed && !checkoutBlocked,
+    );
 
     return (
       <>
@@ -5901,7 +5922,7 @@ function QuoteCard({
           className="scroll-mt-44 space-y-2 md:scroll-mt-28 sm:space-y-3"
         >
           <div id="quote-step2-next" className="sr-only" />
-          {capacityNeedsConfirm ? (
+          {capacityNeedsConfirm && !isTooSoonCheckout ? (
             <div
               className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
               role="status"
@@ -5925,6 +5946,7 @@ function QuoteCard({
             <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
           ) : null}
 
+          {isTooSoonCheckout ? null : (
           <BookingTermsConsent
             accepted={termsAccepted}
             onAcceptedChange={(checked) => {
@@ -5951,8 +5973,11 @@ function QuoteCard({
                     : amountLabel ?? undefined
             }
           />
+          )}
 
+          {isTooSoonCheckout ? null : (
           <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
+          )}
 
           {ownerClosed ? (
             <div id="owner-no-availability-blocked">
@@ -5966,7 +5991,12 @@ function QuoteCard({
                 onChooseAnotherTime={handleChooseAnotherTime}
               />
             </div>
-          ) : checkoutBlocked ? null : payNow && liveQuote ? (
+          ) : checkoutBlocked ? null : isTooSoonCheckout ? (
+            <TooSoonCheckoutNotice
+              leadHours={minimumShortNoticeLeadHours}
+              onChooseAnotherTime={handleChooseAnotherTime}
+            />
+          ) : payNow && liveQuote ? (
             <div className="space-y-2 sm:space-y-3">
               {capacityNeedsConfirm && !openCheckout ? (
                 <div

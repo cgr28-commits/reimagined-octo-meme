@@ -155,6 +155,7 @@ import {
   markShortNoticePaid,
   publicAlternativeOfferSummary,
   publicShortNoticeSummary,
+  processExpiredShortNoticeResponseWindows,
   resolveShortNoticeForPayment,
   resolveShortNoticeSiteOrigin,
   evaluateOwnerNoAvailabilityFromStore,
@@ -164,7 +165,10 @@ import {
   OWNER_NO_AVAILABILITY_CODE,
   OWNER_NO_AVAILABILITY_MESSAGE,
   OwnerNoAvailabilityError,
+  TOO_SOON_BOOKING_CODE,
+  tooSoonRequestBody,
 } from "../shared/booking-notice";
+import { formatLondonClockTime } from "../shared/uk-time";
 import {
   customerSmartAvailabilityPreviewRequested,
   enforceCustomerSmartAvailabilityGate,
@@ -1816,7 +1820,12 @@ async function handlePaymentRequest(
         origin,
       );
     }
-    const resolved = await resolveShortNoticeForPayment(env.TRACKING_STORE, shortNoticeToken);
+    const resolved = await resolveShortNoticeForPayment(
+      env.TRACKING_STORE,
+      shortNoticeToken,
+      new Date(),
+      env,
+    );
     if ("error" in resolved) {
       return json({ error: resolved.error }, resolved.status, origin);
     }
@@ -2731,6 +2740,17 @@ async function handlePaymentRequest(
         origin,
       );
     }
+    if (notice.tooSoon) {
+      return json(
+        {
+          error: tooSoonRequestBody(notice.minimumShortNoticeLeadHours),
+          code: TOO_SOON_BOOKING_CODE,
+          minimumShortNoticeLeadHours: notice.minimumShortNoticeLeadHours,
+        },
+        409,
+        origin,
+      );
+    }
     if (notice.shortNotice || luggageHold) {
       try {
         const created = await createShortNoticeRequest({
@@ -2756,19 +2776,32 @@ async function handlePaymentRequest(
             : `SHORT-NOTICE · ${created.record.reference}`,
         });
         const pickupRemaining = formatHoursUntilPickupLabel(booking.tripDate, booking.tripTime);
-        const ownerSubject = luggageCapacity && !notice.shortNotice
-          ? `New luggage capacity confirmation request — ${created.record.reference}`
-          : pickupRemaining && pickupRemaining !== "pickup time has passed"
-            ? `New short-notice booking request — pickup in ${pickupRemaining}`
-            : `New short-notice booking request — ${created.record.reference}`;
+        const respondBy = created.record.shortNoticeExpiresAt
+          ? formatLondonClockTime(created.record.shortNoticeExpiresAt)
+          : "";
+        const shortNoticeUrgency =
+          created.record.underMinimumNotice && respondBy
+            ? `SHORT-NOTICE BOOKING REQUEST\nRespond by ${respondBy}\n\n`
+            : "";
+        const ownerSubject =
+          luggageCapacity && !notice.shortNotice
+            ? `New luggage capacity confirmation request — ${created.record.reference}`
+            : created.record.underMinimumNotice && respondBy
+              ? `SHORT-NOTICE BOOKING REQUEST — respond by ${respondBy}`
+              : pickupRemaining && pickupRemaining !== "pickup time has passed"
+                ? `New short-notice booking request — pickup in ${pickupRemaining}`
+                : `New short-notice booking request — ${created.record.reference}`;
         await trySendOwnerOperationalEmail(env, {
           to: ownerInbox(env),
           subject: ownerSubject,
           body:
-            `${attemptEmail.body}\n\n` +
+            `${shortNoticeUrgency}${attemptEmail.body}\n\n` +
             `Action required: ${
-              luggageCapacity ? LUGGAGE_CAPACITY_OWNER_REASON : "Short-notice request"
+              luggageCapacity && !created.record.underMinimumNotice
+                ? LUGGAGE_CAPACITY_OWNER_REASON
+                : "SHORT-NOTICE BOOKING REQUEST"
             } · Awaiting your decision.\n` +
+            (respondBy ? `Respond by ${respondBy}\n` : "") +
             `Status: SHORT_NOTICE_AWAITING_APPROVAL\n` +
             `Quoted price: ${amountLabel}\n` +
             `Passengers: ${booking.passengers}\n` +
@@ -4944,6 +4977,20 @@ export default {
   },
 
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (env.TRACKING_STORE) {
+      ctx.waitUntil(
+        processExpiredShortNoticeResponseWindows(env)
+          .then((result) => {
+            if (result.expired > 0 || result.emailed > 0 || result.errors > 0) {
+              console.log("Short-notice response expiry cron", JSON.stringify(result));
+            }
+          })
+          .catch((error) => {
+            console.error("Short-notice response expiry cron failed", error);
+          }),
+      );
+    }
+
     ctx.waitUntil(
       processDueReviewRequests(env).then((result) => {
         if (result.sent > 0 || result.errors > 0) {

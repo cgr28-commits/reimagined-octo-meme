@@ -122,6 +122,7 @@
     "check:belfast-airport-island-lookup": "npx tsx scripts/check-belfast-airport-island-lookup.ts",
     "check:minimum-booking-notice": "npx tsx scripts/check-minimum-booking-notice.ts",
     "check:short-notice-period-setting": "npx tsx scripts/check-short-notice-period-setting.ts",
+    "check:short-notice-lead-expiry": "npx tsx scripts/check-short-notice-lead-expiry.ts",
     "check:owner-no-availability": "npx tsx scripts/check-owner-no-availability.ts",
     "check:owner-pricing": "npx tsx scripts/check-owner-pricing.ts && npx tsx scripts/check-public-minibus-capacity.ts && npx tsx scripts/check-luggage-capacity-confirmation.ts",
     "check:public-minibus-capacity": "npx tsx scripts/check-public-minibus-capacity.ts",

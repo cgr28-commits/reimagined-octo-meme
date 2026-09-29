@@ -276,6 +276,18 @@ export function formatUkSubmissionTime(date = new Date()): string {
   return `${formatted} (${UK_LOCAL_TIME_LABEL})`;
 }
 
+/** UK wall-clock time only, e.g. 06:15. Uses Europe/London so BST/GMT stay correct. */
+export function formatLondonClockTime(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+}
+
 /** Today’s calendar date in Europe/London as YYYY-MM-DD. */
 export function todayLondonDate(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
