@@ -23,6 +23,8 @@ import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { applyProfitabilityProtection } from "./profitability";
+import { signQuoteReceipt } from "./quote-receipt";
+import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
 import {
   PUBLIC_MINIBUS_UNAVAILABLE_CODE,
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
@@ -52,7 +54,10 @@ import {
   defaultDepositCashSettings,
   publicDepositCashOffer,
 } from "../shared/deposit-cash";
-import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
+import {
+  resolveWorkerTripRouteMetrics,
+  resolveWorkerTripRouteMetricsForPayment,
+} from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 import { resolvePaymentAirportContextFromAddresses } from "../shared/open-website-payment-fares";
@@ -175,6 +180,7 @@ export async function handleQuoteCalculateRequest(
     GETADDRESS_API_KEY?: string;
     TRACKING_STORE?: KVNamespace;
     CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
+    QUOTE_RECEIPT_SECRET?: string;
   },
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
@@ -237,19 +243,37 @@ export async function handleQuoteCalculateRequest(
           : "none";
 
   // Commercial fare requires real road routing (OSRM). Haversine×1.48 must never
-  // set the price. Valid browser OSRM metrics are priced immediately — TripMap
-  // already measured this route — so the quote does not wait on a second OSRM
-  // call. Worker resolve runs only when those metrics are missing. Payment
-  // still uses resolveWorkerTripRouteMetricsForPayment and never trusts this body.
+  // set the price. While profitability protection is off, valid browser OSRM
+  // metrics are priced immediately. While it is on, the Worker resolves place
+  // IDs itself — the same inputs payment would use — and signs that fare.
   const clientMetrics = parseClientRouteMetrics(body.routeMetrics);
   const stageStartedAt = Date.now();
   const pricingPromise = loadQuotePricingCached(env);
   const settingsPromise = env?.TRACKING_STORE
     ? loadBookingSettingsCached(env.TRACKING_STORE)
     : Promise.resolve(null);
+  const pricingForRoute = await pricingPromise;
+  const protectionActive = isProfitabilityProtectionActive(pricingForRoute.profitability);
   let routeMetricsSource: "worker" | "client" | "none" = "none";
-  let routeMetrics = clientMetrics;
-  if (routeMetrics) {
+  let routeMetrics = protectionActive ? null : clientMetrics;
+  let serverPickup: { lat: number; lng: number } | null = null;
+  let serverDropoff: { lat: number; lng: number } | null = null;
+  if (protectionActive) {
+    const outcome = await resolveWorkerTripRouteMetricsForPayment({
+      pickupAddress,
+      dropoffAddress,
+      pickupPlaceId,
+      dropoffPlaceId,
+      googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
+      getAddressApiKey: env?.GETADDRESS_API_KEY,
+    });
+    if (outcome.ok) {
+      routeMetrics = outcome.metrics;
+      routeMetricsSource = "worker";
+      serverPickup = outcome.pickup ?? null;
+      serverDropoff = outcome.dropoff ?? null;
+    }
+  } else if (routeMetrics) {
     routeMetricsSource = "client";
   } else {
     routeMetrics = await resolveWorkerTripRouteMetrics({
@@ -503,12 +527,14 @@ export async function handleQuoteCalculateRequest(
       pricing,
       vehicleType: result.vehicleType,
       routeMetrics,
-      pickup:
-        Number.isFinite(pickupLat) && Number.isFinite(pickupLng)
+      pickup: protectionActive
+        ? serverPickup
+        : Number.isFinite(pickupLat) && Number.isFinite(pickupLng)
           ? { lat: pickupLat, lng: pickupLng }
           : null,
-      dropoff:
-        Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng)
+      dropoff: protectionActive
+        ? serverDropoff
+        : Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng)
           ? { lat: dropoffLat, lng: dropoffLng }
           : null,
       returnJourney,
@@ -586,6 +612,47 @@ export async function handleQuoteCalculateRequest(
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,
   };
+
+  if (protectionActive && result.ok) {
+    const secret = env?.QUOTE_RECEIPT_SECRET?.trim() ?? "";
+    if (!secret) {
+      console.warn("[quote-receipt] refresh reason=secret_missing");
+      return json(
+        {
+          ok: false,
+          reason: "quote_refresh_required",
+          message: "Quote amount is out of date. Please refresh your quote and try again.",
+        },
+        503,
+        origin,
+      );
+    }
+    quoteBody.quoteReceipt = await signQuoteReceipt(
+      {
+        pricingVersion: pricingForRoute.version,
+        pickupPlaceId: pickupPlaceId ?? "",
+        dropoffPlaceId: dropoffPlaceId ?? "",
+        pickupAddress,
+        dropoffAddress,
+        vehicleType: result.vehicleType,
+        passengers,
+        suitcases,
+        outboundDate: schedule.outboundDate,
+        outboundTime: schedule.outboundTime,
+        returnJourney,
+        returnDate: schedule.returnDate ?? "",
+        returnTime: schedule.returnTime ?? "",
+        journeyFareGbp: result.journeyFareGbp ?? result.amount,
+        airportFixedCostsGbp: result.airportFixedCostsGbp ?? 0,
+        nightWeekendSurchargeGbp: result.nightWeekendSurchargeGbp ?? 0,
+        transferAmountGbp: result.amount,
+        distanceKm: routeMetrics.distanceKm,
+        durationMinutes: routeMetrics.durationMinutes,
+      },
+      secret,
+      Date.now(),
+    );
+  }
 
   const fareReadyAt = Date.now();
   if (env?.TRACKING_STORE) {

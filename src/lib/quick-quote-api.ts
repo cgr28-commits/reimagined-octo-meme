@@ -53,6 +53,8 @@ export type QuickQuoteCalculateResult =
       journeyFareGbp?: number;
       nightWeekendSurchargeGbp?: number;
       airportFixedCostsGbp?: number;
+      /** Opaque Worker receipt. Present only while profitability protection is active. */
+      quoteReceipt?: string;
       distanceKm?: number;
       durationMinutes?: number;
       smartAvailability?: CustomerSmartAvailabilityQuoteSignal;
@@ -179,6 +181,11 @@ export async function calculateServerQuote(
       : {}),
     ...(typeof payload.airportFixedCostsGbp === "number"
       ? { airportFixedCostsGbp: Number(payload.airportFixedCostsGbp) }
+      : {}),
+    ...(typeof payload.quoteReceipt === "string" &&
+    payload.quoteReceipt.startsWith("v1.") &&
+    payload.quoteReceipt.length < 4000
+      ? { quoteReceipt: payload.quoteReceipt }
       : {}),
     ...(payload.diagnostics &&
     typeof payload.diagnostics === "object" &&
