@@ -254,7 +254,7 @@ check("Worker + UI wiring for offer / accept / decline / collapse", () => {
   assert.match(panel, /Change offered time/);
   assert.match(panel, /Withdraw offer/);
   assert.match(panel, /Awaiting your decision|Alternative time offered/);
-  assert.match(panel, /Awaiting payment/);
+  assert.match(panel, /AWAITING PAYMENT/);
   assert.match(panel, /View \/ Manage ▼/);
   assert.match(panel, /View \/ Manage ▲/);
   assert.match(panel, /data-owner-sn-card="collapsed"/);

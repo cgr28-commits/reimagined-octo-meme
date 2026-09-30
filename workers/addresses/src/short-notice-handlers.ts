@@ -14,6 +14,7 @@ import {
   OwnerNoAvailabilityError,
   PickupTooSoonError,
   computeShortNoticePaymentExpiryIso,
+  customerPaymentLinkExpiredMessage,
   evaluateOwnerNoAvailability,
   findConflictingNoAvailabilityPeriod,
   findRequestOnlyBlockingPeriod,
@@ -63,6 +64,7 @@ import {
   updateDepositCashSettings,
   updateMinimumBookingNoticeHours,
   updateMinimumShortNoticeLeadHours,
+  updateCustomerPaymentWindowMinutes,
   updateShortNoticeConfirmationWindowHours,
   updateUnavailablePeriod,
 } from "./booking-settings-store";
@@ -244,6 +246,7 @@ async function sendPaymentLinkEmail(
     amountLabel: formatAmountLabel(record.approvedAmount ?? record.amount),
     reference: record.reference,
     payUrl,
+    paymentExpiresAt: record.paymentExpiresAt,
   });
   const result = await trySendBrandedCustomerEmail(env, {
     to: record.booking.customerEmail.trim(),
@@ -567,12 +570,20 @@ async function approveShortNoticeRecord(
     };
   }
 
-  const paymentExpiresAt = computeShortNoticePaymentExpiryIso({
-    tripDate: booking.tripDate,
-    tripTime: booking.tripTime,
-    approvedAtIso: approvedAt,
-    now,
-  });
+  const paymentSettings = await getBookingSettings(env.TRACKING_STORE);
+  const keepApprovedDeadline =
+    existing.status === "SHORT_NOTICE_APPROVED" &&
+    Boolean(existing.paymentExpiresAt) &&
+    !extras.booking;
+  const paymentExpiresAt = keepApprovedDeadline
+    ? existing.paymentExpiresAt!
+    : computeShortNoticePaymentExpiryIso({
+        tripDate: booking.tripDate,
+        tripTime: booking.tripTime,
+        approvedAtIso: approvedAt,
+        now,
+        customerPaymentWindowMinutes: paymentSettings.customerPaymentWindowMinutes,
+      });
   if (new Date(paymentExpiresAt).getTime() <= now.getTime()) {
     const expired: ShortNoticeBookingRecord = {
       ...existing,
@@ -701,6 +712,7 @@ export function publicShortNoticeSummary(record: ShortNoticeBookingRecord) {
     suitcasesExact: record.booking.suitcasesExact,
     flightNumber: record.booking.flightNumber,
     paymentExpiresAt: record.paymentExpiresAt ?? null,
+    expiryReason: record.expiryReason ?? null,
     payable: isShortNoticePayable(record),
   };
 }
@@ -1814,7 +1826,7 @@ export async function resolveShortNoticeForPayment(
       };
       await saveShortNoticeBooking(store, expired);
     }
-    return { error: "This payment link has expired.", status: 409 };
+    return { error: customerPaymentLinkExpiredMessage(), status: 409 };
   }
 
   const fingerprint = materialJourneyFingerprint({
@@ -1923,6 +1935,17 @@ export async function handleOwnerSaveBookingSettings(
       const settings = await updateShortNoticeConfirmationWindowHours(
         env.TRACKING_STORE,
         body.shortNoticeConfirmationWindowHours ?? body.hours,
+      );
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+
+    if (
+      action === "set-customer-payment-window" ||
+      action === "set-customer-payment-window-minutes"
+    ) {
+      const settings = await updateCustomerPaymentWindowMinutes(
+        env.TRACKING_STORE,
+        body.customerPaymentWindowMinutes ?? body.minutes,
       );
       return { ok: true, settings: bookingSettingsPublicView(settings) };
     }

@@ -137,6 +137,74 @@ export function confirmationWindowHoursLabel(windowHours: unknown): string {
   return hours === 1 ? "1 hour" : `${hours} hours`;
 }
 
+/**
+ * How long the customer has to pay after Owner approval.
+ * Stored in minutes. Separate from the owner's confirmation window.
+ * Missing or invalid saved values fall back to 60 minutes. They do not
+ * rewrite other Availability settings and they do not move a deadline
+ * already stored on an approved booking.
+ */
+export const CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT = 60;
+export const CUSTOMER_PAYMENT_WINDOW_FLOOR_MINUTES = 15;
+export const CUSTOMER_PAYMENT_WINDOW_OPTIONS_MINUTES = [15, 30, 45, 60, 90, 120, 180, 240] as const;
+
+export type CustomerPaymentWindowMinutes = (typeof CUSTOMER_PAYMENT_WINDOW_OPTIONS_MINUTES)[number];
+
+export function parseCustomerPaymentWindowMinutes(value: unknown): CustomerPaymentWindowMinutes | null {
+  if (typeof value === "boolean" || value == null) return null;
+  const raw =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.trim())
+        : NaN;
+  if (!Number.isFinite(raw)) return null;
+  const rounded = Math.round(raw);
+  if (Math.abs(raw - rounded) > 1e-9) return null;
+  if (
+    !CUSTOMER_PAYMENT_WINDOW_OPTIONS_MINUTES.includes(rounded as CustomerPaymentWindowMinutes)
+  ) {
+    return null;
+  }
+  return rounded as CustomerPaymentWindowMinutes;
+}
+
+/** Missing, legacy, or invalid values fall back to 60 minutes. */
+export function normalizeCustomerPaymentWindowMinutes(value: unknown): CustomerPaymentWindowMinutes {
+  return parseCustomerPaymentWindowMinutes(value) ?? CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT;
+}
+
+export function customerPaymentWindowOptionLabel(minutes: number): string {
+  switch (minutes) {
+    case 15:
+      return "15 minutes";
+    case 30:
+      return "30 minutes";
+    case 45:
+      return "45 minutes";
+    case 60:
+      return "60 minutes";
+    case 90:
+      return "90 minutes";
+    case 120:
+      return "2 hours";
+    case 180:
+      return "3 hours";
+    case 240:
+      return "4 hours";
+    default:
+      return `${minutes} minutes`;
+  }
+}
+
+export const CUSTOMER_PAYMENT_LINK_EXPIRED_HEADING = "This payment link has expired.";
+export const CUSTOMER_PAYMENT_LINK_EXPIRED_BODY =
+  "Your journey was temporarily reserved but payment was not completed in time. Please submit a new booking request if you still require the journey.";
+
+export function customerPaymentLinkExpiredMessage(): string {
+  return `${CUSTOMER_PAYMENT_LINK_EXPIRED_HEADING}\n\n${CUSTOMER_PAYMENT_LINK_EXPIRED_BODY}`;
+}
+
 export function shortNoticeConfirmWithinLine(windowHours: unknown): string {
   return `We’ll confirm availability within ${confirmationWindowHoursLabel(windowHours)}.`;
 }
@@ -766,36 +834,41 @@ export function materialJourneyFingerprint(input: {
 
 /**
  * Payment-link expiry after Owner approval.
- * Never payable after scheduled London pickup.
- * Also expires 4 hours after approval (whichever is sooner).
- * Floor: at least 15 minutes after approval when pickup is still ahead.
+ * The deadline is the earlier of approval + the configured customer payment
+ * window, and the scheduled London pickup. It is never after pickup.
+ *
+ * The 15-minute floor only applies when pickup is still ahead and the
+ * calculated expiry would otherwise be shorter than 15 minutes. It cannot
+ * extend past pickup, and it cannot extend past the configured window.
+ * Every allowed window is already at least 15 minutes, so the floor does
+ * not lengthen an owner-chosen window. When pickup is sooner than 15
+ * minutes, the link expires at pickup.
  */
 export function computeShortNoticePaymentExpiryIso(options: {
   tripDate: string;
   tripTime: string;
   approvedAtIso: string;
   now?: Date;
+  /** Minutes in force at approval. Omitted values use the 60-minute default. */
+  customerPaymentWindowMinutes?: number;
 }): string {
   const now = options.now ?? new Date();
   const approvedAt = new Date(options.approvedAtIso);
+  const approvedMs = Number.isNaN(approvedAt.getTime()) ? now.getTime() : approvedAt.getTime();
+  const windowMinutes = normalizeCustomerPaymentWindowMinutes(options.customerPaymentWindowMinutes);
   const pickup = parseLondonLocalDateTime(options.tripDate, options.tripTime);
-  const fourHoursAfterApproval = new Date(
-    (Number.isNaN(approvedAt.getTime()) ? now.getTime() : approvedAt.getTime()) + 4 * 60 * 60 * 1000,
-  );
-  const fifteenMinutesAfterApproval = new Date(
-    (Number.isNaN(approvedAt.getTime()) ? now.getTime() : approvedAt.getTime()) + 15 * 60 * 1000,
-  );
+  const windowEndMs = approvedMs + windowMinutes * 60 * 1000;
+  const floorEndMs = approvedMs + CUSTOMER_PAYMENT_WINDOW_FLOOR_MINUTES * 60 * 1000;
 
-  let expires = fourHoursAfterApproval;
-  if (pickup && pickup.getTime() < expires.getTime()) {
-    expires = pickup;
+  let expiresMs = windowEndMs;
+  if (pickup && pickup.getTime() < expiresMs) {
+    expiresMs = pickup.getTime();
   }
-  if (expires.getTime() < fifteenMinutesAfterApproval.getTime() && pickup && pickup.getTime() > now.getTime()) {
-    expires =
-      pickup.getTime() < fifteenMinutesAfterApproval.getTime() ? pickup : fifteenMinutesAfterApproval;
+  if (expiresMs < floorEndMs && pickup && pickup.getTime() > now.getTime()) {
+    expiresMs = Math.min(floorEndMs, pickup.getTime(), windowEndMs);
   }
-  if (pickup && expires.getTime() > pickup.getTime()) {
-    expires = pickup;
+  if (pickup && expiresMs > pickup.getTime()) {
+    expiresMs = pickup.getTime();
   }
-  return expires.toISOString();
+  return new Date(expiresMs).toISOString();
 }

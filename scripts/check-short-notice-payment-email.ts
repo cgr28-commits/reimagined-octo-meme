@@ -80,7 +80,22 @@ check("Email builder: subject, customer, reference, amount, secure pay URL", () 
     amountLabel: "£65.00",
     reference: "MATNI-SN-TEST01",
     payUrl: PAY_URL,
+    paymentExpiresAt: "2026-01-15T23:45:00.000Z",
   });
+  assert.match(email.text, /Your journey is available and has been reserved for you/);
+  assert.match(
+    email.text,
+    /Please complete payment by 23:45 on Thursday 15 January 2026 to confirm your booking/,
+  );
+  assert.match(
+    email.text,
+    /If payment is not completed by this time, the reservation will expire automatically/,
+  );
+  assert.match(email.html, /Please complete payment by/);
+  assert.match(email.html, /23:45/);
+  assert.match(email.html, /Thursday 15 January 2026/);
+  assert.doesNotMatch(email.text, /paymentExpiresAt/);
+  assert.doesNotMatch(email.html, /paymentExpiresAt/);
   assert.equal(
     email.subject,
     "Your My Airport Taxi NI booking request has been accepted",
