@@ -1,0 +1,114 @@
+name: Activate approved vehicle MPG
+
+# Saves vehicle MPG 47 on the existing owner pricing document.
+# Does not change the Saloon curve, Estate, night, weekend, or return discount.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/activate-approved-mpg.yml"
+
+jobs:
+  save-mpg:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Save MPG 47 only
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
+        run: |
+          node <<'NODE'
+          const key = (process.env.OWNER_ACCESS_KEY || "").trim() || (process.env.DRIVER_ACCESS_KEY || "").trim();
+          if (!key) {
+            console.error("Owner key is not available");
+            process.exit(1);
+          }
+          const base = "https://reimagined-octo-meme.cgr28.workers.dev/owner/pricing";
+          const headers = {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Origin: "https://www.myairporttaxini.co.uk",
+            "X-Owner-Key": key,
+          };
+          const stable = (settings) => JSON.stringify({
+            saloon: settings.saloon,
+            estate: settings.estate,
+            minibus: settings.minibus,
+            returnDiscount: settings.returnDiscount,
+            night: settings.night,
+            weekend: settings.weekend,
+            profitability: {
+              ...settings.profitability,
+              vehicleMpg: null,
+            },
+          });
+          const currentRes = await fetch(base, { headers });
+          const current = await currentRes.json();
+          if (!currentRes.ok || !current.settings) {
+            console.error("Could not read owner pricing", currentRes.status);
+            process.exit(1);
+          }
+          const before = current.settings;
+          const mpg = before.profitability ? before.profitability.vehicleMpg : null;
+          if (mpg === 47) {
+            console.log("MPG already 47. No write.");
+            console.log(JSON.stringify({
+              version: before.version,
+              mpg: 47,
+              minimum: before.profitability.minimumSaloonOneWayGbp,
+              estate: before.estate.upliftGbp,
+              night: before.night.enabled,
+              weekend: before.weekend.enabled,
+              returnDiscount: before.returnDiscount.rate,
+            }));
+            process.exit(0);
+          }
+          if (mpg != null) {
+            console.error("Refusing to replace existing MPG");
+            process.exit(1);
+          }
+          const next = structuredClone(before);
+          next.profitability.vehicleMpg = 47;
+          if (stable(before) !== stable(next)) {
+            console.error("Refusing save because a non-MPG field would change");
+            process.exit(1);
+          }
+          const saveRes = await fetch(base, {
+            method: "PUT",
+            headers,
+            body: JSON.stringify({ expectedVersion: before.version, settings: next }),
+          });
+          const saved = await saveRes.json();
+          if (!saveRes.ok || !saved.settings) {
+            console.error("Save failed", saveRes.status, saved.error || saved.code || "");
+            process.exit(1);
+          }
+          const after = saved.settings;
+          if (after.profitability.vehicleMpg !== 47) {
+            console.error("Saved MPG was not 47");
+            process.exit(1);
+          }
+          if (stable(before) !== stable(after)) {
+            console.error("A non-MPG setting changed during save");
+            process.exit(1);
+          }
+          const active = after.profitability.vehicleMpg === 47;
+          console.log(JSON.stringify({
+            version: after.version,
+            previousVersion: before.version,
+            mpg: after.profitability.vehicleMpg,
+            minimum: after.profitability.minimumSaloonOneWayGbp,
+            diesel: after.profitability.dieselPricePerLitreGbp,
+            wear: after.profitability.wearAllowancePerMileGbp,
+            target: after.profitability.targetHourlyEarningsGbp,
+            estate: after.estate.upliftGbp,
+            night: after.night.enabled,
+            weekend: after.weekend.enabled,
+            returnDiscount: after.returnDiscount.rate,
+            protectionActive: active,
+            status: active
+              ? "PROFITABILITY PROTECTION ACTIVE"
+              : "PROFITABILITY PROTECTION NOT ACTIVE — VEHICLE MPG REQUIRED",
+          }));
+          NODE
