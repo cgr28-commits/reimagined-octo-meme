@@ -16,6 +16,7 @@ import {
 import { ownerPricingEngineOptions } from "../shared/owner-pricing-config";
 import type { OwnerPricingSettings } from "../shared/owner-pricing-config";
 import {
+  DEFAULT_MINIMUM_SALOON_ONE_WAY_GBP,
   fuelCostPerMileGbp,
   isProfitabilityProtectionActive,
   type ProfitabilitySettings,
@@ -387,7 +388,7 @@ export async function buildOwnerProfitabilityReport(input: {
     saloonFloorMiles: input.pricing.saloon.floorMiles,
     saloonKnots: input.pricing.saloon.knots.map((knot) => [knot.miles, knot.fareGbp] as const),
   }).journeyFareGbp;
-  const minimum = settings?.minimumSaloonOneWayGbp ?? 39;
+  const minimum = settings?.minimumSaloonOneWayGbp ?? DEFAULT_MINIMUM_SALOON_ONE_WAY_GBP;
   const expressFeeGbp = roundGbp(input.expressFeeGbp);
   const baseReport = (
     outbound: ProfitabilityLegReport,

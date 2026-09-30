@@ -7,9 +7,16 @@
  */
 
 export const DEFAULT_TARGET_HOURLY_EARNINGS_GBP = 40;
-export const DEFAULT_MINIMUM_SALOON_ONE_WAY_GBP = 39;
+/** All-distance protected Saloon minimum. Separate from the £29 / 0–4 mile curve floor. */
+export const DEFAULT_MINIMUM_SALOON_ONE_WAY_GBP = 38;
 export const DEFAULT_DIESEL_PRICE_PER_LITRE_GBP = 2;
 export const DEFAULT_WEAR_ALLOWANCE_PER_MILE_GBP = 0.1;
+/**
+ * Approved production MPG from the vehicle's 30-day average.
+ * Not applied while saved MPG is blank. Saving this value is what activates
+ * protection, and that save must wait for explicit deployment approval.
+ */
+export const APPROVED_PRODUCTION_VEHICLE_MPG = 47;
 /** UK gallon → litres. Fuel per mile = (diesel £/L × this) / MPG. */
 export const UK_GALLON_LITRES = 4.54609;
 
@@ -34,6 +41,14 @@ export function defaultProfitabilitySettings(): ProfitabilitySettings {
     dieselPricePerLitreGbp: DEFAULT_DIESEL_PRICE_PER_LITRE_GBP,
     vehicleMpg: null,
     wearAllowancePerMileGbp: DEFAULT_WEAR_ALLOWANCE_PER_MILE_GBP,
+  };
+}
+
+/** Approved production preset. Callers must not write this to KV until deployment is approved. */
+export function approvedProductionProfitabilitySettings(): ProfitabilitySettings {
+  return {
+    ...defaultProfitabilitySettings(),
+    vehicleMpg: APPROVED_PRODUCTION_VEHICLE_MPG,
   };
 }
 
