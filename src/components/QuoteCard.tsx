@@ -1727,14 +1727,14 @@ function QuoteCard({
       setServerQuoteUnavailable(false);
       return false;
     }
-    const requestedPassengers = passengers;
+    const requestedPassengers = effectivePassengers ?? passengers;
     const requestedSuitcases = suitcases;
     const requestedVehicle = quoteVehicle;
     const fareKeyFor = (vehicle: string) =>
       quoteFareRequestKey({
         pickup,
         dropoff,
-        passengers,
+        passengers: requestedPassengers,
         suitcases,
         vehicle,
         outboundDate: tripDate.trim(),
@@ -1764,7 +1764,7 @@ function QuoteCard({
       outboundTime: tripTime.trim(),
       returnDate: returnJourney ? returnDate.trim() : undefined,
       returnTime: returnJourney ? returnTime.trim() : undefined,
-      passengers,
+      passengers: requestedPassengers,
       suitcases,
       pickupLat: pickupPlace?.lat ?? undefined,
       pickupLng: pickupPlace?.lng ?? undefined,
@@ -1809,8 +1809,9 @@ function QuoteCard({
                   : 0,
               amountGbp: Math.round(alternate.amount * 100) / 100,
               vehicleType: vehicle,
-              passengers,
+              passengers: requestedPassengers,
               suitcases,
+              ...(alternate.quoteReceipt ? { quoteReceipt: alternate.quoteReceipt } : {}),
               outboundDate: tripDate.trim(),
               outboundTime: tripTime.trim(),
               returnJourney,
@@ -1870,6 +1871,7 @@ function QuoteCard({
           vehicleType: requestedVehicle,
           passengers: requestedPassengers,
           suitcases: requestedSuitcases,
+          ...(result.quoteReceipt ? { quoteReceipt: result.quoteReceipt } : {}),
           outboundDate: tripDate.trim(),
           outboundTime: tripTime.trim(),
           returnJourney,
@@ -1950,9 +1952,12 @@ function QuoteCard({
     isManualQuoteJourney,
     journeyMode,
     passengers,
+    effectivePassengers,
     pickupAddress,
     pickupPlace?.lat,
     pickupPlace?.lng,
+    pickupPlace?.placeId,
+    dropoffPlace?.placeId,
     pricingConfirmationRequired,
     returnDate,
     returnJourney,
@@ -1978,7 +1983,7 @@ function QuoteCard({
       quoteFareRequestKey({
         pickup: pickupAddress.trim(),
         dropoff: dropoffAddress.trim(),
-        passengers,
+        passengers: effectivePassengers ?? passengers,
         suitcases,
         vehicle: quoteVehicle,
         outboundDate: tripDate.trim(),
@@ -1998,6 +2003,7 @@ function QuoteCard({
   }, [
     dropoffAddress,
     passengers,
+    effectivePassengers,
     pickupAddress,
     quoteVehicle,
     returnDate,
@@ -3723,6 +3729,9 @@ function QuoteCard({
                 ? removedAirportFeeIds
                 : [],
               acceptedFinalAmountGbp: paymentAmount ?? undefined,
+              ...(currentServerFareParts?.quoteReceipt
+                ? { quoteReceipt: currentServerFareParts.quoteReceipt }
+                : {}),
               ...(returnOfferToken &&
               !returnJourney &&
               isReturnOfferAirportJourney(pickupAddress, dropoffAddress)
@@ -3731,6 +3740,9 @@ function QuoteCard({
             }
           : {
               acceptedFinalAmountGbp: paymentAmount ?? undefined,
+              ...(currentServerFareParts?.quoteReceipt
+                ? { quoteReceipt: currentServerFareParts.quoteReceipt }
+                : {}),
             }),
         ...(appliedPersonalQuote && testChargeAmount === null
           ? {

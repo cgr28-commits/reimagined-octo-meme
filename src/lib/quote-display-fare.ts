@@ -22,6 +22,8 @@ export type ServerFarePartyParts = {
   vehicleType: string;
   passengers: number;
   suitcases: number;
+  /** Opaque Worker signature. Absent while profitability protection is off. */
+  quoteReceipt?: string;
 } & ServerFareScheduleParts;
 
 function sameScheduleField(left?: string | null, right?: string | null): boolean {

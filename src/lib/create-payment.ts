@@ -88,6 +88,11 @@ export type PaymentCheckoutRequest = {
    * Worker compares this to its authoritative final — mismatch → 409, never silent replace.
    */
   acceptedFinalAmountGbp?: number;
+  /**
+   * Opaque Worker quote receipt. Sent back unchanged.
+   * The Worker verifies it. The browser cannot price from it.
+   */
+  quoteReceipt?: string;
   /** Secure return-offer token from /book?returnOffer= — server validates and applies 5%. */
   returnOfferToken?: string;
   /**
@@ -382,6 +387,9 @@ export async function createPaymentCheckout(
             acceptedFinalAmountGbp:
               Math.round(Number(request.acceptedFinalAmountGbp) * 100) / 100,
           }
+        : {}),
+      ...(typeof request.quoteReceipt === "string" && request.quoteReceipt.startsWith("v1.")
+        ? { quoteReceipt: request.quoteReceipt }
         : {}),
       ...(request.returnOfferToken?.trim()
         ? { returnOfferToken: request.returnOfferToken.trim() }

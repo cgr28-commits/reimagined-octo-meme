@@ -442,6 +442,17 @@ import {
   loadOwnerPricingOrDefault,
 } from "./owner-pricing-handlers";
 import {
+  handleOwnerProfitabilityTestRequest,
+  isOwnerProfitabilityTestPath,
+} from "./profitability-handlers";
+import { applyProfitabilityProtection } from "./profitability";
+import {
+  QUOTE_RECEIPT_REFRESH_MESSAGE,
+  decideQuoteReceiptPayment,
+  type QuoteReceiptClaims,
+} from "./quote-receipt";
+import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
+import {
   resolveOpenWebsitePaymentTransferFares,
   resolvePaymentAirportContextFromAddresses,
   checkoutAmountsMatch,
@@ -510,6 +521,8 @@ type Env = {
   GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
   /** Salt for irreversible Ad Fraud visitor/IP hashes (Worker secret). */
   AD_FRAUD_HASH_SALT?: string;
+  /** HMAC secret for open-website quote receipts. Worker-only. Never sent to the browser. */
+  QUOTE_RECEIPT_SECRET?: string;
   SITE_ORIGIN?: string;
   RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
   RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
@@ -2263,7 +2276,62 @@ async function handlePaymentRequest(
     const paymentDropoffLabel = String(booking.dropoffLabel ?? "");
     const paymentPickupPlaceId = String(body.pickupPlaceId ?? "").trim();
     const paymentDropoffPlaceId = String(body.dropoffPlaceId ?? "").trim();
-    const routeOutcome = await resolveRouteOutcomeWithRetry(() =>
+    const receiptPricing = await loadOwnerPricingOrDefault(env);
+    const receiptVehicleRaw = String(booking.vehicle ?? "");
+    const receiptVehicleType: VehicleType = /estate/i.test(receiptVehicleRaw)
+      ? ESTATE_VEHICLE
+      : /minibus/i.test(receiptVehicleRaw)
+        ? MINIBUS_VEHICLE
+        : SALOON_VEHICLE;
+    let receiptClaims: QuoteReceiptClaims | null = null;
+    if (isProfitabilityProtectionActive(receiptPricing.profitability)) {
+      const decision = await decideQuoteReceiptPayment({
+        protectionActive: true,
+        secret: env.QUOTE_RECEIPT_SECRET,
+        token: body.quoteReceipt,
+        nowMs: Date.now(),
+        expected: {
+          pricingVersion: receiptPricing.version,
+          pickupPlaceId: paymentPickupPlaceId,
+          dropoffPlaceId: paymentDropoffPlaceId,
+          pickupAddress: paymentPickupLabel,
+          dropoffAddress: paymentDropoffLabel,
+          vehicleType: receiptVehicleType,
+          passengers: Number(booking.passengers),
+          suitcases: Number(booking.suitcases),
+          outboundDate: String(booking.tripDate ?? ""),
+          outboundTime: String(booking.tripTime ?? ""),
+          returnJourney: Boolean(booking.returnJourney),
+          returnDate: String(booking.returnDate ?? ""),
+          returnTime: String(booking.returnTime ?? ""),
+        },
+      });
+      if (decision.action !== "accept") {
+        console.warn(
+          `[quote-receipt] refresh reason=${decision.action === "refresh" ? decision.reason : "refresh"}`,
+        );
+        return json(
+          {
+            error: QUOTE_RECEIPT_REFRESH_MESSAGE,
+            code: "quote_refresh_required",
+          },
+          409,
+          origin,
+        );
+      }
+      receiptClaims = decision.claims;
+    }
+    const routeOutcome = receiptClaims
+      ? {
+          ok: true as const,
+          metrics: {
+            distanceKm: receiptClaims.distanceKm,
+            durationMinutes: receiptClaims.durationMinutes,
+          },
+          pickup: undefined,
+          dropoff: undefined,
+        }
+      : await resolveRouteOutcomeWithRetry(() =>
       resolveWorkerTripRouteMetricsForPayment({
         pickupAddress: paymentPickupLabel,
         dropoffAddress: paymentDropoffLabel,
@@ -2363,7 +2431,14 @@ async function handlePaymentRequest(
       returnJourney: Boolean(booking.returnJourney),
     };
 
-    if (
+    if (receiptClaims) {
+      authoritativeQuote = {
+        amountGbp: receiptClaims.transferAmountGbp,
+        journeyFareGbp: receiptClaims.journeyFareGbp,
+        airportFixedCostsGbp: receiptClaims.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: receiptClaims.nightWeekendSurchargeGbp,
+      };
+    } else if (
       airportContext.isAirportToAirport &&
       airportContext.pickupAirportCode &&
       airportContext.dropoffAirportCode
@@ -2458,6 +2533,32 @@ async function handlePaymentRequest(
         409,
         origin,
       );
+    }
+
+    const protectedFare = receiptClaims
+      ? null
+      : await applyProfitabilityProtection({
+      pricing,
+      vehicleType,
+      routeMetrics,
+      pickup: routeOutcome.pickup ?? null,
+      dropoff: routeOutcome.dropoff ?? null,
+      returnJourney: Boolean(booking.returnJourney),
+      schedule,
+      existing: {
+        amountGbp: authoritativeQuote.amountGbp,
+        journeyFareGbp: authoritativeQuote.journeyFareGbp,
+        airportFixedCostsGbp: authoritativeQuote.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
+      },
+    });
+    if (protectedFare?.applied) {
+      authoritativeQuote = {
+        amountGbp: protectedFare.amountGbp,
+        journeyFareGbp: protectedFare.journeyFareGbp,
+        airportFixedCostsGbp: protectedFare.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: protectedFare.nightWeekendSurchargeGbp,
+      };
     }
 
     const transferResolution = resolveOpenWebsitePaymentTransferFares({
@@ -3823,6 +3924,10 @@ export default {
 
     if (isOwnerPricingPath(url.pathname)) {
       return handleOwnerPricingRequest(request, env, origin);
+    }
+
+    if (isOwnerProfitabilityTestPath(url.pathname)) {
+      return handleOwnerProfitabilityTestRequest(request, env, origin);
     }
 
     if (isOwnerBookingSettingsPath(url.pathname)) {

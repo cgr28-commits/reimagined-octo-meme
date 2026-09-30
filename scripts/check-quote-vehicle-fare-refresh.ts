@@ -52,7 +52,7 @@ function staleSaloonParts(saloonFare: number): ServerFarePartyParts {
 
 console.log("=== Estate premium stays £6 in the pricing engine ===");
 {
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 6);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
   assert.equal(selectVehicleForParty(2, 2), SALOON_VEHICLE);
   assert.equal(selectVehicleForParty(2, 3), ESTATE_VEHICLE);
   console.log("OK  2p/2 bags = Saloon; 2p/3 bags = Estate; premium £6");
@@ -65,7 +65,7 @@ console.log("\n=== BFS: luggage Saloon → Estate changes fare immediately by £
   assert.ok(saloon && estate);
   const saloonFare = journeyFare(saloon);
   const estateFare = journeyFare(estate);
-  assert.equal(estateFare, saloonFare + 6, "BFS Estate journey = Saloon + £6");
+  assert.equal(estateFare, saloonFare + UNIVERSAL_ESTATE_PREMIUM_GBP, "BFS Estate journey = Saloon + £6");
 
   const afterLuggageChange = resolveDisplayJourneyFareGbp({
     liveJourneyFareGbp: estate.journeyFareGbp ?? estate.amount,
@@ -77,7 +77,7 @@ console.log("\n=== BFS: luggage Saloon → Estate changes fare immediately by £
   });
   assert.equal(afterLuggageChange, estateFare);
   assert.notEqual(afterLuggageChange, saloonFare);
-  assert.equal(afterLuggageChange! - saloonFare, 6);
+  assert.equal(afterLuggageChange! - saloonFare, UNIVERSAL_ESTATE_PREMIUM_GBP);
 
   const backToSaloon = resolveDisplayJourneyFareGbp({
     liveJourneyFareGbp: saloon.journeyFareGbp ?? saloon.amount,
@@ -120,7 +120,7 @@ console.log("\n=== BFS: luggage Saloon → Estate changes fare immediately by £
     assert.match(authoritativeEstate.vehicleType, /Estate/i);
     const sFare = authoritativeSaloon.journeyFareGbp ?? authoritativeSaloon.amount;
     const eFare = authoritativeEstate.journeyFareGbp ?? authoritativeEstate.amount;
-    assert.equal(eFare - sFare, 6);
+    assert.equal(eFare - sFare, UNIVERSAL_ESTATE_PREMIUM_GBP);
   }
   console.log(`OK  BFS Saloon £${saloonFare} → Estate £${estateFare}`);
 }
@@ -130,7 +130,7 @@ console.log("\n=== BHD: same luggage switch is immediately +£6 ===");
   const saloon = calculateQuote(cityHall, "BHD", SALOON_VEHICLE, false, {}, cityBhdMetrics);
   const estate = calculateQuote(cityHall, "BHD", ESTATE_VEHICLE, false, {}, cityBhdMetrics);
   assert.ok(saloon && estate);
-  assert.equal(journeyFare(estate), journeyFare(saloon) + 6);
+  assert.equal(journeyFare(estate), journeyFare(saloon) + UNIVERSAL_ESTATE_PREMIUM_GBP);
 
   const displayed = resolveDisplayJourneyFareGbp({
     liveJourneyFareGbp: estate.journeyFareGbp ?? estate.amount,
@@ -161,8 +161,8 @@ console.log("\n=== Express £5 / £4 stay separate from the vehicle fare ===");
   });
   assert.equal(saloonExpress.expressDropOffFeeGbp, 5);
   assert.equal(estateExpress.expressDropOffFeeGbp, 5);
-  assert.equal(estateExpress.transferFareGbp, saloonExpress.transferFareGbp + 6);
-  assert.equal(estateExpress.totalGbp, saloonExpress.totalGbp + 6);
+  assert.equal(estateExpress.transferFareGbp, saloonExpress.transferFareGbp + UNIVERSAL_ESTATE_PREMIUM_GBP);
+  assert.equal(estateExpress.totalGbp, saloonExpress.totalGbp + UNIVERSAL_ESTATE_PREMIUM_GBP);
 
   const saloonFree = composeFareWithExpressDropOff({
     transferFareGbp: saloonJourney,
@@ -174,7 +174,7 @@ console.log("\n=== Express £5 / £4 stay separate from the vehicle fare ===");
   });
   assert.equal(saloonFree.totalGbp, saloonJourney);
   assert.equal(estateFree.totalGbp, estateJourney);
-  assert.equal(estateFree.totalGbp, saloonFree.totalGbp + 6);
+  assert.equal(estateFree.totalGbp, saloonFree.totalGbp + UNIVERSAL_ESTATE_PREMIUM_GBP);
 
   const bhdSaloon = calculateQuote(cityHall, "BHD", SALOON_VEHICLE, false, {}, cityBhdMetrics)!;
   const bhdEstate = calculateQuote(cityHall, "BHD", ESTATE_VEHICLE, false, {}, cityBhdMetrics)!;
@@ -187,7 +187,7 @@ console.log("\n=== Express £5 / £4 stay separate from the vehicle fare ===");
     expressDropOffFeeGbp: EXPRESS_DROP_OFF_FEES_GBP.BHD,
   });
   assert.equal(bhdSaloonExpress.expressDropOffFeeGbp, 4);
-  assert.equal(bhdEstateExpress.totalGbp, bhdSaloonExpress.totalGbp + 6);
+  assert.equal(bhdEstateExpress.totalGbp, bhdSaloonExpress.totalGbp + UNIVERSAL_ESTATE_PREMIUM_GBP);
   console.log("OK  BFS +£5 / BHD +£4 stay on top of the vehicle journey fare");
 }
 
@@ -198,7 +198,7 @@ console.log("\n=== Return journeys keep Estate = Saloon + £6 on the one-way far
   const returnSaloon = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, true, {}, cityBfsMetrics);
   const returnEstate = calculateQuote(cityHall, "BFS", ESTATE_VEHICLE, true, {}, cityBfsMetrics);
   assert.ok(oneWaySaloon && oneWayEstate && returnSaloon && returnEstate);
-  assert.equal(journeyFare(oneWayEstate), journeyFare(oneWaySaloon) + 6);
+  assert.equal(journeyFare(oneWayEstate), journeyFare(oneWaySaloon) + UNIVERSAL_ESTATE_PREMIUM_GBP);
   assert.ok(journeyFare(returnEstate) > journeyFare(returnSaloon));
   const displayed = resolveDisplayJourneyFareGbp({
     liveJourneyFareGbp: returnEstate.journeyFareGbp ?? returnEstate.amount,

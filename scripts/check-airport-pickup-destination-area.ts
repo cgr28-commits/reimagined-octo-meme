@@ -454,8 +454,8 @@ async function main() {
     const saloon = calculateQuote(markethill.formattedAddress, "BHD", SALOON, false, {}, METRICS, true);
     const estate = calculateQuote(markethill.formattedAddress, "BHD", ESTATE, false, {}, METRICS, true);
     assert.ok(saloon && estate);
-    assert.equal(estate.amount, saloon.amount + 6);
-    assert.equal(estate.vehicleAdjustment, 6);
+    assert.equal(estate.amount, saloon.amount + 10);
+    assert.equal(estate.vehicleAdjustment, 10);
   });
 
   await check("Return journey keeps the 5% discount on BHD → Markethill", () => {

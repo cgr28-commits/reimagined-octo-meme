@@ -5,6 +5,7 @@ import type {
   PublicOwnerPricingConfig,
 } from "../../shared/owner-pricing-config";
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
+import type { OwnerProfitabilityReport } from "@/lib/owner-profitability-report";
 import {
   isBrowserPricingPreview,
   previewPublicPricingConfig,
@@ -94,6 +95,30 @@ export async function restoreOwnerPricingDefaults(
     defaults: OwnerPricingSettings;
     audit: OwnerPricingAuditEntry[];
   }>;
+}
+
+export async function previewOwnerProfitability(
+  ownerKey: string,
+  input: {
+    pickupAddress: string;
+    dropoffAddress: string;
+    pickupLat: number;
+    pickupLng: number;
+    dropoffLat: number;
+    dropoffLng: number;
+    outboundDate: string;
+    outboundTime: string;
+    returnJourney: boolean;
+    returnDate: string;
+    returnTime: string;
+    vehicleType: string;
+    expressSelected: boolean;
+  },
+): Promise<{ report: OwnerProfitabilityReport }> {
+  return ownerFetch("/owner/profitability-test", ownerKey, {
+    method: "POST",
+    body: JSON.stringify(input),
+  }) as Promise<{ report: OwnerProfitabilityReport }>;
 }
 
 export async function fetchPublicPricingConfig(): Promise<PublicOwnerPricingConfig> {

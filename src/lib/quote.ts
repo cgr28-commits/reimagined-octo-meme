@@ -225,7 +225,7 @@ function applyAirportVehiclePricing(
 }
 
 /**
- * Estate premium for airport transfers — live quotes use a flat £6.
+ * Estate premium for airport transfers — live quotes use a flat £10.
  * Tier table remains in config for calibration scripts only.
  */
 export function getAirportEstatePremiumGbp(
@@ -716,7 +716,7 @@ export function calculateQuote(
     returnFixedGbp: returnFixed,
     getReturnJourneyFare: (oneWay) => getReturnJourneyFare(oneWay, engine.returnDiscountRate),
   });
-  // Journey: Saloon nearest £1 (Estate +£6; Minibus Estate × multiplier, penny only). Return discount may introduce pence.
+  // Journey: Saloon nearest £1 (Estate + uplift; Minibus Estate × multiplier, penny only). Return discount may introduce pence.
   // Fixed airport costs keep 50p etc. Final amount = journey + fixed, both to pence.
   const roundedJourneyFare = roundGbp(premium.total);
   const roundedFixed = roundGbp(composed.fixedTotalGbp);
