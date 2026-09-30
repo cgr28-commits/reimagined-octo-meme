@@ -150,11 +150,15 @@ export function savePreviewPricingState(
     error.errors = validated.errors;
     throw error;
   }
+  const rawProfitability = (input as unknown as { profitability?: unknown }).profitability;
+  const profitability =
+    rawProfitability && typeof rawProfitability === "object" ? rawProfitability : undefined;
   const next: OwnerPricingSettings = {
     ...validated.settings,
+    ...(profitability ? { profitability } : {}),
     version: current.settings.version + 1,
     updatedAt: new Date().toISOString(),
-  };
+  } as OwnerPricingSettings;
   const changes = diffOwnerPricingSettings(current.settings, next);
   const audit =
     changes.length > 0

@@ -114,7 +114,7 @@ export function getReturnJourneyFare(
  * Authoritative journey/vehicle total (before airport fixed costs / Express).
  *
  * Order (do not invert):
- * 1. One-way base journey fare for each leg (Estate +£6 already in `oneWayFare`)
+ * 1. One-way base journey fare for each leg (Estate uplift already in `oneWayFare`)
  * 2. If return: 5% off the combined BASE journey total only
  * 3. +10% Night & Weekend Surcharge on each qualifying leg, from the
  *    ORIGINAL undiscounted base fare (never from the post-5% amount)
@@ -124,6 +124,12 @@ export function getReturnJourneyFare(
 export type ApplyTripPremiumOptions = {
   pricing?: OwnerPricingEngineInput | null;
   returnDiscountRate?: number;
+  /**
+   * Return-leg one-way fare when it differs from the outbound fare.
+   * Omitted means both legs use `oneWayFare`, which keeps the existing
+   * `oneWay × 2` return calculation.
+   */
+  returnOneWayFare?: number;
 };
 
 export function applyTripPremium(
@@ -162,17 +168,23 @@ export function applyTripPremium(
     });
   };
 
+  const outboundFare = oneWayFare;
+  const returnFare =
+    options?.returnOneWayFare != null && Number.isFinite(options.returnOneWayFare)
+      ? options.returnOneWayFare
+      : oneWayFare;
+
   let premiumAmount = 0;
   if (schedule.outboundDate && schedule.outboundTime) {
-    premiumAmount += oneWayFare * rateFor(schedule.outboundDate, schedule.outboundTime);
+    premiumAmount += outboundFare * rateFor(schedule.outboundDate, schedule.outboundTime);
   }
   if (schedule.returnJourney && schedule.returnDate && schedule.returnTime) {
-    premiumAmount += oneWayFare * rateFor(schedule.returnDate, schedule.returnTime);
+    premiumAmount += returnFare * rateFor(schedule.returnDate, schedule.returnTime);
   }
 
   const discountedBase = schedule.returnJourney
-    ? applyReturnJourneyDiscount(oneWayFare * 2, returnRate)
-    : oneWayFare;
+    ? applyReturnJourneyDiscount(outboundFare + returnFare, returnRate)
+    : outboundFare;
   const total = discountedBase + premiumAmount;
 
   return {

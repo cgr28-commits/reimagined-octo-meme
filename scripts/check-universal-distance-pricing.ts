@@ -52,7 +52,7 @@ console.log("=== Floor + approved knots ===");
     const estate = calculateUniversalEstateJourneyFareGbp(saloon);
     assert.equal(saloon, target, `${miles} mi Saloon`);
     assert.equal(estate, target + UNIVERSAL_ESTATE_PREMIUM_GBP, `${miles} mi Estate`);
-    assert.equal(estate - saloon, 6);
+    assert.equal(estate - saloon, UNIVERSAL_ESTATE_PREMIUM_GBP);
   }
   const raw98 = rawUniversalSaloonJourneyFareGbp(98);
   const saloon98 = calculateUniversalSaloonJourneyFareGbp(98);
@@ -102,7 +102,7 @@ console.log("\n=== Full knot table (Estate − Saloon = £6) ===");
   const table = buildUniversalFareTable([0, 2, ...miles]);
   console.log("Miles | Saloon | Estate | Δ");
   for (const row of table) {
-    assert.equal(row.estate - row.saloon, 6, `${row.miles} mi delta`);
+    assert.equal(row.estate - row.saloon, UNIVERSAL_ESTATE_PREMIUM_GBP, `${row.miles} mi delta`);
     console.log(
       `${String(row.miles).padStart(5)} | ${String(row.saloon).padStart(6)} | ${String(row.estate).padStart(6)} | ${row.estate - row.saloon}`,
     );
@@ -135,8 +135,8 @@ console.log("\n=== calculateQuote uses universal miles (no zone/floor) ===");
     metricsForMiles(4, 12),
     false,
   );
-  assert.equal(shortEstate!.amount, 35);
-  assert.equal(shortEstate!.amount - short!.amount, 6);
+  assert.equal(shortEstate!.amount, 29 + UNIVERSAL_ESTATE_PREMIUM_GBP);
+  assert.equal(shortEstate!.amount - short!.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
 
   const mid = calculateQuote(
     "Galgorm Manor Hotel, Ballymena BT42 1EA",
@@ -236,7 +236,7 @@ console.log("\n=== Representative examples ===");
           ? ` (+£${saloon!.airportFixedCostsGbp} fixed → amount £${saloon!.amount})`
           : ""),
     );
-    assert.equal(estate!.journeyFareGbp! - saloon!.journeyFareGbp!, 6);
+    assert.equal(estate!.journeyFareGbp! - saloon!.journeyFareGbp!, UNIVERSAL_ESTATE_PREMIUM_GBP);
   }
 }
 
@@ -253,7 +253,7 @@ console.log("\n=== Raw formula continuity ===");
   assert.ok(Math.abs(midShort - 30.5) < 0.01, `4–6 midpoint should be £30.50, got ${midShort}`);
   const mid = calculateUniversalJourneyFareGbp(25, "Estate Car (1–4 passengers)");
   assert.equal(mid.saloonGbp, 60);
-  assert.equal(mid.journeyFareGbp - mid.saloonGbp, 6);
+  assert.equal(mid.journeyFareGbp - mid.saloonGbp, UNIVERSAL_ESTATE_PREMIUM_GBP);
 }
 
 console.log("\nAll universal distance pricing checks passed.");

@@ -10,7 +10,7 @@
  *   20 → £53, 25 → £60, 30 → £67, 35 → £74, 40 → £81
  *   50 → £96, 60 → £115, 70 → £135, 80 → £157, 90 → £181, 100 → £210
  *
- * Estate = final rounded Saloon + £6 (never rounded separately).
+ * Estate = final rounded Saloon + £10 (never rounded separately).
  * Minibus = Estate × multiplier, rounded to the nearest penny only
  * (no nearest-£5 rounding).
  * Airport Express / access charges are NOT included here — add after.
@@ -18,7 +18,7 @@
 
 import { roundGbp } from "./gbp";
 
-export const UNIVERSAL_ESTATE_PREMIUM_GBP = 6;
+export const UNIVERSAL_ESTATE_PREMIUM_GBP = 10;
 export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
 export const UNIVERSAL_SALOON_FLOOR_MILES = 4;
 
@@ -113,7 +113,7 @@ export function calculateUniversalSaloonJourneyFareGbp(
 
 /**
  * Estate journey fare from an already-rounded Saloon fare.
- * Always exactly + uplift (default £6) — do not re-round.
+ * Always exactly + uplift (default £10) — do not re-round.
  */
 export function calculateUniversalEstateJourneyFareGbp(
   roundedSaloonFareGbp: number,
@@ -136,7 +136,7 @@ export function classifyUniversalVehicle(
 
 /**
  * Journey fare (taxi only) from road miles + vehicle.
- * Minibus / Executive build from Estate (= Saloon + £6).
+ * Minibus / Executive build from Estate (= Saloon + £10).
  * Minibus uses Estate × multiplier with penny rounding only.
  */
 export function calculateUniversalJourneyFareGbp(

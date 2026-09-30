@@ -25,6 +25,26 @@ import {
 import { isBrowserPricingPreview } from "@/lib/pricing-preview-store";
 import { PREVIEW_PRICING_BANNER } from "../../shared/pricing-preview-isolation";
 import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
+import {
+  diffProfitabilitySettings,
+  fuelCostPerMileGbp,
+  isProfitabilityProtectionActive,
+  normalizeProfitabilitySettings,
+  validateProfitabilitySettings,
+  type ProfitabilitySettings,
+} from "@/lib/owner-profitability-settings";
+import OwnerProfitabilityTester from "@/components/OwnerProfitabilityTester";
+
+type PricingDraft = OwnerPricingSettings & { profitability: ProfitabilitySettings };
+
+function asDraft(
+  settings: OwnerPricingSettings & { profitability?: ProfitabilitySettings | null },
+): PricingDraft {
+  return {
+    ...settings,
+    profitability: normalizeProfitabilitySettings(settings.profitability),
+  };
+}
 
 type OwnerPricingPanelProps = {
   ownerKey: string;
@@ -136,9 +156,9 @@ function Toggle({
 }
 
 export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerPricingPanelProps) {
-  const [saved, setSaved] = useState<OwnerPricingSettings>(defaultOwnerPricingSettings());
-  const [draft, setDraft] = useState<OwnerPricingSettings>(defaultOwnerPricingSettings());
-  const [defaults, setDefaults] = useState<OwnerPricingSettings>(defaultOwnerPricingSettings());
+  const [saved, setSaved] = useState<PricingDraft>(asDraft(defaultOwnerPricingSettings()));
+  const [draft, setDraft] = useState<PricingDraft>(asDraft(defaultOwnerPricingSettings()));
+  const [defaults, setDefaults] = useState<PricingDraft>(asDraft(defaultOwnerPricingSettings()));
   const [audit, setAudit] = useState<OwnerPricingAuditEntry[]>([]);
   const [loading, setLoading] = useState(!isolated);
   const [saving, setSaving] = useState(false);
@@ -150,9 +170,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     setError(null);
     try {
       const result = await fetchOwnerPricing(ownerKey);
-      setSaved(result.settings);
-      setDraft(cloneSettings(result.settings));
-      setDefaults(result.defaults);
+      setSaved(asDraft(result.settings));
+      setDraft(asDraft(result.settings));
+      setDefaults(asDraft(result.defaults));
       setAudit(result.audit);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load pricing settings.");
@@ -166,16 +186,32 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   }, [load]);
 
   const dirty = useMemo(() => !settingsEqual(saved, draft), [saved, draft]);
-  const validation = useMemo(() => validateOwnerPricingInput(draft), [draft]);
-  const changes = useMemo(() => diffOwnerPricingSettings(saved, draft), [saved, draft]);
-  const restoreChanges = useMemo(
-    () =>
-      diffOwnerPricingSettings(draft, {
-        ...defaults,
-        minibus: { ...defaults.minibus, publicEnabled: draft.minibus.publicEnabled },
-      }),
-    [defaults, draft],
+  const validation = useMemo(() => {
+    const base = validateOwnerPricingInput(draft);
+    const profit = validateProfitabilitySettings(draft.profitability);
+    if (base.ok && profit.ok) return { ok: true as const, errors: [] };
+    return {
+      ok: false as const,
+      errors: [...(base.ok ? [] : base.errors), ...(profit.ok ? [] : profit.errors)],
+    };
+  }, [draft]);
+  const changes = useMemo(
+    () => [
+      ...diffOwnerPricingSettings(saved, draft),
+      ...diffProfitabilitySettings(saved.profitability, draft.profitability),
+    ],
+    [saved, draft],
   );
+  const restoreChanges = useMemo(() => {
+    const restored = {
+      ...defaults,
+      minibus: { ...defaults.minibus, publicEnabled: draft.minibus.publicEnabled },
+    };
+    return [
+      ...diffOwnerPricingSettings(draft, restored),
+      ...diffProfitabilitySettings(draft.profitability, restored.profitability),
+    ];
+  }, [defaults, draft]);
   const preview = useMemo(() => previewVehicleFaresFromSaloon(50, draft), [draft]);
   const nightOnHundred = previewSurchargeOnBase(100, draft.night.surchargeRate);
   const nightOnMinibus = previewSurchargeOnBase(preview.minibusQuotedGbp, draft.night.surchargeRate);
@@ -184,7 +220,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     : `Days ${draft.weekend.days.join(", ")}`;
   const isolatedPreview = isolated || isBrowserPricingPreview();
 
-  const update = <K extends keyof OwnerPricingSettings>(key: K, value: OwnerPricingSettings[K]) => {
+  const update = <K extends keyof PricingDraft>(key: K, value: PricingDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
@@ -196,9 +232,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         mode === "restore"
           ? await restoreOwnerPricingDefaults(ownerKey, saved.version)
           : await saveOwnerPricing(ownerKey, draft, saved.version);
-      setSaved(result.settings);
-      setDraft(cloneSettings(result.settings));
-      setDefaults(result.defaults);
+      setSaved(asDraft(result.settings));
+      setDraft(asDraft(result.settings));
+      setDefaults(asDraft(result.defaults));
       setAudit(result.audit);
       setConfirm(null);
     } catch (err) {
@@ -302,6 +338,82 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             />
             <p className="mt-1 text-xs text-white/55">
               Example: Saloon £50.00 → Estate £{(50 + Number(draft.estate.upliftGbp || 0)).toFixed(2)}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-lg font-semibold text-white">Profitability protection</p>
+            <p
+              className={`mt-2 rounded-xl px-3 py-2 text-sm font-semibold ${
+                isProfitabilityProtectionActive(draft.profitability)
+                  ? "bg-emerald/20 text-emerald"
+                  : "bg-amber-300/10 text-amber-100"
+              }`}
+            >
+              {isProfitabilityProtectionActive(draft.profitability)
+                ? "PROFITABILITY PROTECTION ACTIVE"
+                : "PROFITABILITY PROTECTION NOT ACTIVE — VEHICLE MPG REQUIRED"}
+            </p>
+            <p className="mt-2 text-xs text-white/55">
+              The £{draft.saloon.minimumFareGbp.toFixed(2)} Saloon curve floor above stays as it is.
+              The minimum here is a separate all-distance Saloon protection and applies only after a
+              vehicle MPG is saved.
+            </p>
+            <MoneyField
+              label="Target earnings after direct costs (£/hour)"
+              value={draft.profitability.targetHourlyEarningsGbp}
+              onChange={(targetHourlyEarningsGbp) =>
+                update("profitability", { ...draft.profitability, targetHourlyEarningsGbp })
+              }
+            />
+            <MoneyField
+              label="Minimum Saloon one-way fare"
+              value={draft.profitability.minimumSaloonOneWayGbp}
+              onChange={(minimumSaloonOneWayGbp) =>
+                update("profitability", { ...draft.profitability, minimumSaloonOneWayGbp })
+              }
+            />
+            <MoneyField
+              label="Diesel price (£/litre)"
+              value={draft.profitability.dieselPricePerLitreGbp}
+              onChange={(dieselPricePerLitreGbp) =>
+                update("profitability", { ...draft.profitability, dieselPricePerLitreGbp })
+              }
+            />
+            <label className={`${labelClass} mt-3`}>
+              Vehicle MPG
+              <input
+                className={fieldClass}
+                inputMode="decimal"
+                placeholder="Not set"
+                value={draft.profitability.vehicleMpg ?? ""}
+                onChange={(event) => {
+                  const raw = event.target.value.trim();
+                  update("profitability", {
+                    ...draft.profitability,
+                    vehicleMpg: raw === "" ? null : Number(raw),
+                  });
+                }}
+              />
+            </label>
+            <MoneyField
+              label="Vehicle wear and maintenance (£/mile)"
+              value={draft.profitability.wearAllowancePerMileGbp}
+              onChange={(wearAllowancePerMileGbp) =>
+                update("profitability", { ...draft.profitability, wearAllowancePerMileGbp })
+              }
+            />
+            <p className="mt-3 text-sm text-white/80">
+              Fuel cost per mile{" "}
+              <span className="font-semibold text-white">
+                {(() => {
+                  const fuel = fuelCostPerMileGbp(
+                    draft.profitability.dieselPricePerLitreGbp,
+                    draft.profitability.vehicleMpg,
+                  );
+                  return fuel == null ? "Set vehicle MPG to calculate" : `£${fuel.toFixed(4)}`;
+                })()}
+              </span>
             </p>
           </div>
 
@@ -479,6 +591,8 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         </dl>
       </section>
 
+      <OwnerProfitabilityTester ownerKey={ownerKey} isolated={isolatedPreview} />
+
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Change history</h3>
         {audit.length === 0 ? (
@@ -526,7 +640,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <button
           type="button"
           disabled={!dirty || saving}
-          onClick={() => setDraft(cloneSettings(saved))}
+          onClick={() => setDraft(asDraft(cloneSettings(saved)))}
           className="min-h-12 rounded-xl border border-white/20 px-4 text-sm font-semibold text-white disabled:opacity-40"
         >
           Discard Changes

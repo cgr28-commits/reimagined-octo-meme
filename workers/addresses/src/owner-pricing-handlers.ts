@@ -1,8 +1,5 @@
 import { corsHeaders } from "../shared/google-places";
-import {
-  defaultOwnerPricingSettings,
-  toPublicOwnerPricingConfig,
-} from "../shared/owner-pricing-config";
+import { toPublicOwnerPricingConfig } from "../shared/owner-pricing-config";
 import {
   PREVIEW_PRICING_FORBIDDEN_CODE,
   PREVIEW_PRICING_FORBIDDEN_MESSAGE,
@@ -12,6 +9,7 @@ import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import {
   getOwnerPricingSettings,
   listOwnerPricingAudit,
+  ownerPricingDefaults,
   OwnerPricingConflictError,
   OwnerPricingValidationError,
   saveOwnerPricingSettings,
@@ -43,7 +41,7 @@ export async function loadOwnerPricingOrDefault(env?: {
   TRACKING_STORE?: KVNamespace;
 }) {
   if (!env?.TRACKING_STORE) {
-    return defaultOwnerPricingSettings();
+    return ownerPricingDefaults();
   }
   return getOwnerPricingSettings(env.TRACKING_STORE);
 }
@@ -89,7 +87,7 @@ export async function handleOwnerPricingRequest(
       {
         ok: true,
         settings,
-        defaults: defaultOwnerPricingSettings(),
+        defaults: ownerPricingDefaults(),
         audit,
       },
       200,
@@ -118,7 +116,7 @@ export async function handleOwnerPricingRequest(
       {
         ok: true,
         settings: result.settings,
-        defaults: defaultOwnerPricingSettings(),
+        defaults: ownerPricingDefaults(),
         audit: result.audit,
       },
       200,

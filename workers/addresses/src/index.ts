@@ -442,6 +442,11 @@ import {
   loadOwnerPricingOrDefault,
 } from "./owner-pricing-handlers";
 import {
+  handleOwnerProfitabilityTestRequest,
+  isOwnerProfitabilityTestPath,
+} from "./profitability-handlers";
+import { applyProfitabilityProtection } from "./profitability";
+import {
   resolveOpenWebsitePaymentTransferFares,
   resolvePaymentAirportContextFromAddresses,
   checkoutAmountsMatch,
@@ -2460,6 +2465,30 @@ async function handlePaymentRequest(
       );
     }
 
+    const protectedFare = await applyProfitabilityProtection({
+      pricing,
+      vehicleType,
+      routeMetrics,
+      pickup: routeOutcome.pickup ?? null,
+      dropoff: routeOutcome.dropoff ?? null,
+      returnJourney: Boolean(booking.returnJourney),
+      schedule,
+      existing: {
+        amountGbp: authoritativeQuote.amountGbp,
+        journeyFareGbp: authoritativeQuote.journeyFareGbp,
+        airportFixedCostsGbp: authoritativeQuote.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
+      },
+    });
+    if (protectedFare.applied) {
+      authoritativeQuote = {
+        amountGbp: protectedFare.amountGbp,
+        journeyFareGbp: protectedFare.journeyFareGbp,
+        airportFixedCostsGbp: protectedFare.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: protectedFare.nightWeekendSurchargeGbp,
+      };
+    }
+
     const transferResolution = resolveOpenWebsitePaymentTransferFares({
       clientTransferAmountGbp: transferPrePromo,
       claimedJourneyFareGbp: Number.isFinite(claimedJourney) ? claimedJourney : null,
@@ -3823,6 +3852,10 @@ export default {
 
     if (isOwnerPricingPath(url.pathname)) {
       return handleOwnerPricingRequest(request, env, origin);
+    }
+
+    if (isOwnerProfitabilityTestPath(url.pathname)) {
+      return handleOwnerProfitabilityTestRequest(request, env, origin);
     }
 
     if (isOwnerBookingSettingsPath(url.pathname)) {

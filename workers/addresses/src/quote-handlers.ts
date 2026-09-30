@@ -22,6 +22,7 @@ import {
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
+import { applyProfitabilityProtection } from "./profitability";
 import {
   PUBLIC_MINIBUS_UNAVAILABLE_CODE,
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
@@ -495,6 +496,41 @@ export async function handleQuoteCalculateRequest(
       pricing,
       ownerMode,
     });
+  }
+
+  if (result.ok) {
+    const protectedFare = await applyProfitabilityProtection({
+      pricing,
+      vehicleType: result.vehicleType,
+      routeMetrics,
+      pickup:
+        Number.isFinite(pickupLat) && Number.isFinite(pickupLng)
+          ? { lat: pickupLat, lng: pickupLng }
+          : null,
+      dropoff:
+        Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng)
+          ? { lat: dropoffLat, lng: dropoffLng }
+          : null,
+      returnJourney,
+      schedule,
+      existing: {
+        amountGbp: result.amount,
+        journeyFareGbp: result.journeyFareGbp ?? result.amount,
+        airportFixedCostsGbp: result.airportFixedCostsGbp ?? 0,
+        nightWeekendSurchargeGbp: result.nightWeekendSurchargeGbp ?? 0,
+      },
+    });
+    if (protectedFare.applied) {
+      result = {
+        ...result,
+        amount: protectedFare.amountGbp,
+        amountLabel: formatQuote(protectedFare.amountGbp),
+        journeyFareGbp: protectedFare.journeyFareGbp,
+        airportFixedCostsGbp: protectedFare.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: protectedFare.nightWeekendSurchargeGbp,
+        premiumApplied: protectedFare.nightWeekendSurchargeGbp > 0,
+      };
+    }
   }
 
   const miles = Math.round(drivingMilesFromKm(routeMetrics.distanceKm) * 10) / 10;
