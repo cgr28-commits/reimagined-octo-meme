@@ -84,13 +84,14 @@ async function submitViaWorker(submission: EnquirySubmission): Promise<WorkerSub
     bookingReference?: string;
     emailSent?: boolean;
     bookingSaved?: boolean;
+    deduplicated?: boolean;
     error?: string;
   } | null;
 
   if (payload?.ok) {
     const bookingReference = readBookingReference(payload);
     const bookingSaved = payload.bookingSaved === true;
-    if (booking && bookingSaved && bookingReference) {
+    if (booking && bookingSaved && bookingReference && payload.deduplicated !== true) {
       trackBookingRequestSubmitted({
         bookingReference,
         transactionId: bookingReference,
@@ -336,7 +337,7 @@ export async function submitBookingByEmail(details: BookingDetails): Promise<str
     {
       customerName: details.customerName,
       message: buildBookingMessage(details),
-      subject: `New booking — ${details.customerName}`,
+      subject: `New request — ${details.customerName}`,
       booking: details,
     },
     // Prefer browser FormSubmit when the worker IP is rate-limited.
@@ -349,7 +350,7 @@ export async function submitMobileWhatsAppBooking(details: BookingDetails): Prom
   const submission: EnquirySubmission = {
     customerName: details.customerName,
     message: buildBookingMessage(details),
-    subject: `New booking — ${details.customerName}`,
+    subject: `New request — ${details.customerName}`,
     booking: details,
     sendEmail: false,
   };

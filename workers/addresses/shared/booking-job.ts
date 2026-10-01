@@ -40,6 +40,11 @@ export type BookingJobRecord = {
   isAirportTrip: boolean;
   airportCode?: string;
   isFromAirport?: boolean;
+  /** Present when the quote form had a Google place id. Not required to accept a request. */
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
+  /** Stable quote session id used to return the same MATNI reference on a repeat submit. */
+  quoteTransactionId?: string;
   message?: string;
   /** Consented campaign attribution, visible only in the owner booking record. */
   attribution?: AdsAttribution;

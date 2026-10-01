@@ -181,6 +181,15 @@ export async function createBookingJobFromSubmission(
   if (typeof b.isFromAirport === "boolean") {
     job.isFromAirport = b.isFromAirport;
   }
+  if (typeof b.pickupPlaceId === "string" && b.pickupPlaceId.trim()) {
+    job.pickupPlaceId = b.pickupPlaceId.trim();
+  }
+  if (typeof b.dropoffPlaceId === "string" && b.dropoffPlaceId.trim()) {
+    job.dropoffPlaceId = b.dropoffPlaceId.trim();
+  }
+  if (typeof b.quoteTransactionId === "string" && b.quoteTransactionId.trim()) {
+    job.quoteTransactionId = b.quoteTransactionId.trim();
+  }
 
   await saveBookingJob(store, job);
   return job;

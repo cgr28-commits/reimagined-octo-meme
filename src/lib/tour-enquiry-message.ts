@@ -25,8 +25,8 @@ export function buildTourEnquiryMessage(
   const reference = bookingReference ?? details.bookingReference;
 
   return (
-    `Hi, I would like to book the following day trip. A payment link will follow shortly.\n\n` +
-    (reference ? `Booking reference: ${reference}\n` : "") +
+    `Hi, I would like to request the following day trip. It is not confirmed until payment instructions are sent.\n\n` +
+    (reference ? `Request reference: ${reference}\n` : "") +
     `Name: ${details.customerName}\n` +
     (details.customerEmail ? `Email: ${details.customerEmail}\n` : "") +
     (details.mobileNumber ? `Mobile: ${details.mobileNumber}\n` : "") +

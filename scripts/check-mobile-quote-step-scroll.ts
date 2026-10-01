@@ -241,7 +241,7 @@ check("Quote/booking submission confirmation scrolls into view", () => {
     /useEffect\(\(\) => \{[\s\S]*if \(!bookingSent \|\| !pendingBookingResultScrollRef\.current\)[\s\S]*\}, \[bookingSent\]\)/,
   );
   assert.match(card, /data-booking-nav-heading/);
-  assert.match(card, /Quote request received/);
+  assert.match(card, /UNPAID_REQUEST_RECEIVED_HEADING/);
 });
 
 check("Step 2 time Done/blur scrolls once to YOUR JOURNEY summary", () => {

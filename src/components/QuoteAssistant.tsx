@@ -600,7 +600,7 @@ export default function QuoteAssistant() {
             draftRef.current = nextDraft;
             setQuickReplies(["Start a chat quote", "Save to contacts"]);
           } else {
-            setQuickReplies(["Confirm booking", "Another quote"]);
+            setQuickReplies(["Send request", "Another quote"]);
           }
         }
 

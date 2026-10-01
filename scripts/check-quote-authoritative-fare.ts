@@ -7,7 +7,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { mayPaintAuthoritativeFare } from "../src/lib/authoritative-quote-fare";
+import {
+  AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE,
+  mayPaintAuthoritativeFare,
+} from "../src/lib/authoritative-quote-fare";
 import {
   QUOTE_FARE_START_DELAY_MS,
   quoteFareVehiclesToRequest,
@@ -58,7 +61,8 @@ assert.equal(
     serverQuoteUnavailable: true,
     previewSkipsServer: false,
   }),
-  true,
+  false,
+  "a failed worker quote must not paint the public curve",
 );
 assert.equal(
   mayPaintAuthoritativeFare({
@@ -81,6 +85,15 @@ assert.equal(
 );
 assert.equal(NIGHT_WEEKEND_SURCHARGE_RATE, 0.1);
 assert.match(card, /mayPaintAuthoritativeFare/);
+assert.match(card, /authoritativeQuoteFailed/);
+assert.match(card, /AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE/);
+assert.equal(
+  AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE,
+  "We couldn’t load your price. Please try again.",
+);
+assert.match(showcase, /data-quote-fare-status="unavailable"/);
+assert.match(showcase, /data-quote-price-retry/);
+assert.match(showcase, /AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE/);
 assert.match(card, /mayPaintNumericFare && \(journeyFareParts\.nightWeekendSurchargeGbp/);
 assert.doesNotMatch(card, /journeyFareGbp \* 0\.9|amount \* 0\.9|surcharge \* 0/);
 assert.match(card, /Calculating your transfer price/);

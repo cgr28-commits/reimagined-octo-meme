@@ -76,6 +76,9 @@ export type BookingDetails = {
   attribution?: AdsAttribution;
   /** Quote session id — matches the daily owner quote report, not shown to customers. */
   quoteTransactionId?: string;
+  /** Optional. Requests stay valid when a flow does not collect a Google place id. */
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
 };
 
 export function isValidMobileNumber(value: string): boolean {
@@ -132,7 +135,7 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
       : `\n${inclusions.summary}\n`;
 
   return (
-    (reference ? `Booking reference: ${reference}\n` : "") +
+    (reference ? `Request reference: ${reference}\n` : "") +
     `Name: ${details.customerName}\n` +
     (details.customerEmail ? `Email: ${details.customerEmail}\n` : "") +
     (details.mobileNumber ? `Mobile: ${details.mobileNumber}\n` : "") +
@@ -201,7 +204,7 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
 }
 
 export function buildBookingMessage(details: BookingDetails, bookingReference?: string): string {
-  return `Hi, I would like to book the following.\n\n` + buildTripDetailsBlock(details, bookingReference);
+  return `Hi, I would like to request the following.\n\n` + buildTripDetailsBlock(details, bookingReference);
 }
 
 /** Executive / enquiry-only booking — no online price; ask the team to quote and confirm. */

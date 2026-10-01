@@ -1151,9 +1151,9 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
     case "confirmBooking":
       return {
         reply:
-          `Please confirm these booking details:\n\n${bookingSummary(draft)}\n\nReply “Confirm booking” to send your request.`,
+          `Please check these request details:\n\n${bookingSummary(draft)}\n\nReply “Send request” to send it. It is not confirmed until we email you.`,
         draft,
-        quickReplies: ["Confirm booking", "Change details"],
+        quickReplies: ["Send request", "Change details"],
       };
   }
 }
@@ -1165,9 +1165,9 @@ async function continueBookingPrompt(
   const field = nextBookingField(draft);
   if (!field) {
     return {
-      reply: prefix || "Your booking details look complete.",
+      reply: prefix || "Your request details look complete.",
       draft,
-      quickReplies: ["Confirm booking"],
+      quickReplies: ["Send request"],
     };
   }
   const prompt = promptForField(field, draft);
@@ -1552,13 +1552,13 @@ async function handleBookingTurn(
     }
     if (!confirmsBooking(text)) {
       return {
-        reply: 'Reply “Confirm booking” to send your request, or “Change details” to edit something.',
+        reply: 'Reply “Send request” to send it, or “Change details” to edit something. It is not confirmed until we email you.',
         draft: nextDraft,
-        quickReplies: ["Confirm booking", "Change details"],
+        quickReplies: ["Send request", "Change details"],
       };
     }
     return {
-      reply: "Sending your booking request now…",
+      reply: "Sending your request now…",
       draft: nextDraft,
       submitBooking: true,
       quickReplies: [],
