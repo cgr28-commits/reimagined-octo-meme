@@ -346,6 +346,82 @@ function leftoverLegacySlugs(town: TownArea, airport: AirportPage): string[] | u
   return undefined;
 }
 
+function cityOfDerryRouteFaqs(town: TownArea): Array<{ question: string; answer: string }> | undefined {
+  if (town.slug === "newtownabbey") {
+    return [
+      {
+        question: "How much is a taxi from Newtownabbey to City of Derry Airport?",
+        answer:
+          "The quote box on this page already has City of Derry Airport selected. Enter the Newtownabbey street — Glengormley, Jordanstown, Mallusk or another local address. The quote is a fixed price for that start. It is an inter-city fare to Eglinton, not the shorter Newtownabbey to Aldergrove run and not a local Derry price, and we do not publish one figure for every Newtownabbey pickup.",
+      },
+      {
+        question: "How long does Newtownabbey to City of Derry Airport take?",
+        answer:
+          "This is a longer inter-city transfer from the north side of Belfast to City of Derry Airport at Eglinton. Most Newtownabbey pickups join the M2 at Sandyknowes and then continue toward the north-west, rather than ending at Aldergrove. We do not publish a single duration. The quote tool maps the time from the address you enter. Journey times are approximate and can vary depending on traffic and time of day.",
+      },
+      {
+        question: "Can I book a return from City of Derry Airport to Newtownabbey?",
+        answer:
+          "Yes. Choose Return on the quote form, or book the inbound collection on its own. Share the flight number so we can monitor the arrival at Eglinton where possible. Airport pickups include up to 60 minutes complimentary waiting. Where an instant online price is shown, a 5% discount applies to the combined fare.",
+      },
+      {
+        question: "Is a Newtownabbey to City of Derry Airport taxi a local Derry hop?",
+        answer:
+          "No. The pickup on this page should be a Newtownabbey address in the greater Belfast area. We do not run short local hops from Derry city centre to the terminal.",
+      },
+    ];
+  }
+  if (town.slug === "lisburn") {
+    return [
+      {
+        question: "How much is a taxi from Lisburn to City of Derry Airport?",
+        answer:
+          "The quote box already has City of Derry Airport selected. Enter the Lisburn, Sprucefield, Lambeg or Hillsborough street. The quote is a fixed price for that start. This is an inter-city fare to Eglinton, not the Lisburn to Belfast International fare that leaves on the M1, and we do not publish one figure for every south-west Belfast pickup.",
+      },
+      {
+        question: "How long does Lisburn to City of Derry Airport take?",
+        answer:
+          "Lisburn sits at the south-west of Greater Belfast, so the car has to cross toward the north-west to reach City of Derry Airport at Eglinton. That is a different journey from Lisburn to Belfast International, which usually starts on the M1 toward Aldergrove. We do not publish a single duration. The quote tool maps the time from the address you enter. Journey times are approximate and can vary depending on traffic and time of day.",
+      },
+      {
+        question: "Can I book a return from City of Derry Airport to Lisburn?",
+        answer:
+          "Yes. Choose Return on the quote form, or book the inbound on its own back to Lisburn, Sprucefield or Hillsborough. Share the flight number so we can monitor the Eglinton arrival where possible. Airport pickups include up to 60 minutes complimentary waiting. Where an instant online price is shown, a 5% discount applies to the combined fare.",
+      },
+      {
+        question: "Do you collect in Derry city for this Lisburn page?",
+        answer:
+          "No. This page is for a greater Belfast pickup — Lisburn, Hillsborough, Sprucefield, Lambeg, Hilden or Dunmurry — going to City of Derry Airport, or the return from the airport to that area. It is not a local taxi from Derry city centre to the terminal.",
+      },
+    ];
+  }
+  if (town.slug === "bangor") {
+    return [
+      {
+        question: "How much is a taxi from Bangor to City of Derry Airport?",
+        answer:
+          "The quote box already has City of Derry Airport selected. Enter the Bangor, Ballyholme, Helen’s Bay or Crawfordsburn address. The quote is a fixed price for that North Down start. It is not the short Belfast City Airport hop along the A2, and it is not a local Derry price. We do not publish one figure for every coastal pickup.",
+      },
+      {
+        question: "How long does Bangor to City of Derry Airport take?",
+        answer:
+          "Bangor pickups start on the North Down coast. Belfast City Airport is the shorter A2 hop toward Holywood. Belfast International is already a longer reserved run, using the A2 into Belfast and then the motorway. City of Derry Airport is a further inter-city journey to Eglinton, so book it as a full trip, especially for an early departure. We do not publish a single duration. The quote tool maps the time from the address you enter. Journey times are approximate and can vary depending on traffic and time of day.",
+      },
+      {
+        question: "Can I book a return from City of Derry Airport to Bangor?",
+        answer:
+          "Yes. Choose Return on the quote form, or book the inbound collection on its own to Bangor or the North Down address. Share the flight number so we can monitor the arrival at Eglinton where possible. Airport pickups include up to 60 minutes complimentary waiting. Where an instant online price is shown, a 5% discount applies to the combined fare.",
+      },
+      {
+        question: "Is Bangor to City of Derry Airport the same as the City Airport run?",
+        answer:
+          "No. Belfast City Airport from Bangor is the shorter coastal hop. This page is the longer inter-city transfer to City of Derry Airport at Eglinton. The pickup should be a Bangor or North Down address, not a Derry city-centre hop to the terminal.",
+      },
+    ];
+  }
+  return undefined;
+}
+
 function buildLegacyRoute(town: TownArea, airport: AirportPage): TransferRoutePage {
   return {
     slug: leftoverTransferSlug(town, airport),
@@ -359,6 +435,7 @@ function buildLegacyRoute(town: TownArea, airport: AirportPage): TransferRoutePa
     metaDescription: `Pre-book a fixed-price taxi from ${town.name} to ${airport.name}, with flight monitoring and secure online booking.`,
     intro: `${town.blurb} This page is for ${town.name} ↔ ${airport.shortName} transfers — get a live quote with the airport already selected.`,
     journeyNotes: buildRouteNotes(town, airport),
+    faqs: airport.code === "LDY" ? cityOfDerryRouteFaqs(town) : undefined,
   };
 }
 
@@ -488,7 +565,9 @@ export function getTransferStaticSlugs(): string[] {
 }
 
 export function getRoutesForTown(townSlug: string): TransferRoutePage[] {
-  return TRANSFER_ROUTE_PAGES.filter((route) => route.town.slug === townSlug && route.faqs);
+  return TRANSFER_ROUTE_PAGES.filter(
+    (route) => route.town.slug === townSlug && route.faqs?.length && route.journeyInfo,
+  );
 }
 
 export function getCanonicalTransferSlugs(): string[] {

@@ -122,5 +122,12 @@ if (!DAY_TRIPS_ENABLED) {
   removeGeneratedPath("tours");
 }
 
+// Keep in sync with SERVICE_FLAGS.trackingDemo in src/lib/data.ts.
+// Removes only out/track/demo (and its child demo routes). out/track/index.html stays.
+const TRACKING_DEMO_ENABLED = false;
+if (!TRACKING_DEMO_ENABLED) {
+  removeGeneratedPath("track/demo");
+}
+
 writeGitHubPagesLegacyRedirects(root);
 console.log("Wrote GitHub Pages legacy transfer redirect HTML");

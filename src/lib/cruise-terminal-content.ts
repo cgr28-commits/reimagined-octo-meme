@@ -4,7 +4,7 @@ export const CRUISE_TERMINAL_PATH = "/belfast-cruise-terminal-transfers/";
 
 export const CRUISE_TERMINAL_H1 = "Belfast Cruise Terminal Transfers";
 
-export const CRUISE_TERMINAL_SEO_TITLE = "Belfast Cruise Terminal Transfers | Cruise Port Taxi";
+export const CRUISE_TERMINAL_SEO_TITLE = "Belfast Cruise Terminal Transfers";
 
 export const CRUISE_TERMINAL_SEO_DESCRIPTION =
   "Pre-book a private Belfast cruise transfer between Belfast Cruise Terminal, airports, hotels and onward destinations. Saloon or Estate for up to 4 passengers.";

@@ -3,13 +3,12 @@ import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
-import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import { AIRPORT_PAGES } from "@/lib/location-pages";
 import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
-  title: `Airport Transfers | ${SITE.name}`,
+  title: "Airport Taxi & Transfers | Belfast, Dublin & Derry",
   description:
     "Fixed-price transfers to Belfast International, Belfast City, Dublin and City of Derry airports, with flight monitoring and licensed drivers.",
   alternates: { canonical: "/airports/" },

@@ -41,7 +41,11 @@ console.log("=== Homepage title, description, H1 ===");
   assert.equal(HOMEPAGE_SEO_TITLE, "Belfast Airport Transfers | My Airport Taxi NI");
   assert.equal(
     HOMEPAGE_SEO_DESCRIPTION,
-    "Private airport taxi service for Belfast and Northern Ireland. Pre-book fixed-price airport transfers, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.",
+    "Belfast and Northern Ireland airport transfers at a fixed price, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.",
+  );
+  assert.ok(
+    HOMEPAGE_SEO_DESCRIPTION.length >= 150 && HOMEPAGE_SEO_DESCRIPTION.length <= 160,
+    `homepage description length ${HOMEPAGE_SEO_DESCRIPTION.length}`,
   );
   assert.doesNotMatch(HOMEPAGE_SEO_DESCRIPTION, /60 minutes’ waiting(?! on airport pickups)/);
   assert.match(HOMEPAGE_SEO_DESCRIPTION, /up to 60 minutes’ complimentary waiting on airport pickups/);
@@ -158,7 +162,10 @@ console.log("\n=== Expired event / 404 ===");
   assert.match(notFound, /index:\s*false/);
   assert.match(notFound, /follow:\s*true/);
   assert.doesNotMatch(notFound, /index:\s*true/);
-  console.log("OK  hidden EMERGE uses notFound + Pages prune · 404 is noindex,follow only");
+  assert.match(pagesFix, /TRACKING_DEMO_ENABLED = false/);
+  assert.match(pagesFix, /removeGeneratedPath\("track\/demo"\)/);
+  assert.doesNotMatch(pagesFix, /removeGeneratedPath\("track"\)/);
+  console.log("OK  hidden EMERGE and disabled tracking demo are pruned · 404 is noindex,follow only");
 }
 
 console.log("\n=== Homepage hero is a server component ===");

@@ -25,7 +25,7 @@ import { notFound } from "next/navigation";
 export const metadata: Metadata = {
   title: `${LOCATIONS_HUB_H1} | ${SITE.name}`,
   description:
-    "Find airport taxi pages for towns across Northern Ireland, plus long-distance destinations we cover. Pre-book transfers to Belfast International, Belfast City, Dublin and City of Derry Airport.",
+    "Find private airport taxi and transfer pages for towns across Northern Ireland. Routes include Belfast International, Belfast City and Dublin Airport.",
   alternates: {
     canonical: "/locations/",
   },

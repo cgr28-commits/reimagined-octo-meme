@@ -53,7 +53,9 @@ const sitemap = read("public/sitemap.xml");
 const sitemapLocs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
 const sitemapPaths = sitemapLocs.map((loc) => loc.replace(SITE_HOST, "") || "/");
 
-const landingRoutes = TRANSFER_ROUTE_PAGES.filter((route) => route.faqs?.length);
+const landingRoutes = TRANSFER_ROUTE_PAGES.filter(
+  (route) => route.faqs?.length && route.journeyInfo,
+);
 
 console.log("=== Town hubs and landing routes exist ===");
 {

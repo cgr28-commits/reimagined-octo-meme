@@ -3,7 +3,7 @@
 export const LONG_DISTANCE_PAGE_TITLE =
   "Private Long-Distance Transfers from Anywhere in Greater Belfast";
 
-export const LONG_DISTANCE_SEO_TITLE = "Long-Distance Transfers";
+export const LONG_DISTANCE_SEO_TITLE = "Greater Belfast Long-Distance Transfers";
 
 export const LONG_DISTANCE_SEO_DESCRIPTION =
   "Pre-book door-to-door private transfers from Greater Belfast across Ireland, including airport pickups from BFS, BHD, LDY and Dublin. Book securely online.";
