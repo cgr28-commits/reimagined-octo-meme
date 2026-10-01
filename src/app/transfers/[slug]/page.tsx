@@ -24,6 +24,26 @@ import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/l
 
 type Props = { params: Promise<{ slug: string }> };
 
+/**
+ * These document titles are already a full route query. The brand suffix is
+ * what pushed them past a sensible length, so metadata omits it. H1 stays page.h1.
+ */
+const TRANSFER_TITLES_WITHOUT_BRAND_SUFFIX = new Set([
+  "ballyclare-to-belfast-international",
+  "carrickfergus-to-belfast-international",
+  "dublin-airport-to-belfast",
+  "glengormley-to-belfast-international",
+  "hillsborough-to-belfast-international",
+  "newtownabbey-to-belfast-international",
+  "newtownards-to-belfast-international",
+  "whiteabbey-to-belfast-international",
+]);
+
+function transferDocumentTitle(page: { slug: string; title: string }) {
+  if (TRANSFER_TITLES_WITHOUT_BRAND_SUFFIX.has(page.slug)) return page.title;
+  return `${page.title} | ${SITE.name}`;
+}
+
 export function generateStaticParams() {
   return getTransferStaticSlugs().map((slug) => ({ slug }));
 }
@@ -34,12 +54,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!page) {
     return { title: `Airport Transfer | ${SITE.name}` };
   }
+  const documentTitle = transferDocumentTitle(page);
   return {
-    title: `${page.title} | ${SITE.name}`,
+    title: documentTitle,
     description: page.metaDescription,
     alternates: { canonical: `/transfers/${page.slug}/` },
     openGraph: {
-      title: `${page.title} | ${SITE.name}`,
+      title: documentTitle,
       description: page.metaDescription,
       url: `/transfers/${page.slug}/`,
       images: [
@@ -62,7 +83,7 @@ export default async function TransferRoutePage({ params }: Props) {
     permanentRedirect(`/transfers/${page.slug}/`);
   }
 
-  const isLanding = Boolean(page.faqs?.length);
+  const isLanding = Boolean(page.journeyInfo);
   const isFromAirport = page.direction === "from-airport";
   const hubHref = page.hubSlug ? `/locations/${page.hubSlug}/` : "/locations/";
   const quoteHeading = isFromAirport
@@ -250,20 +271,6 @@ export default async function TransferRoutePage({ params }: Props) {
                   <p className="mt-4 text-sm leading-relaxed text-white/65">{page.localAreasText}</p>
                 </section>
               ) : null}
-
-              {page.faqs ? (
-                <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-                  <h2 className="text-lg font-bold text-white">Frequently asked questions</h2>
-                  <dl className="mt-4 space-y-5">
-                    {page.faqs.map((faq) => (
-                      <div key={faq.question}>
-                        <dt className="text-sm font-semibold text-white">{faq.question}</dt>
-                        <dd className="mt-1.5 text-sm leading-relaxed text-white/65">{faq.answer}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-              ) : null}
             </>
           ) : (
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
@@ -281,6 +288,20 @@ export default async function TransferRoutePage({ params }: Props) {
               </p>
             </section>
           )}
+
+          {page.faqs?.length ? (
+            <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <h2 className="text-lg font-bold text-white">Frequently asked questions</h2>
+              <dl className="mt-4 space-y-5">
+                {page.faqs.map((faq) => (
+                  <div key={faq.question}>
+                    <dt className="text-sm font-semibold text-white">{faq.question}</dt>
+                    <dd className="mt-1.5 text-sm leading-relaxed text-white/65">{faq.answer}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
 
           {otherFromTown.length > 0 ? (
             <section className="mt-8">

@@ -29,7 +29,7 @@ export const HOMEPAGE_SEO_TITLE = "Belfast Airport Transfers | My Airport Taxi N
 
 /** Homepage meta description — waiting applies to airport pickups only. */
 export const HOMEPAGE_SEO_DESCRIPTION =
-  "Private airport taxi service for Belfast and Northern Ireland. Pre-book fixed-price airport transfers, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.";
+  "Belfast and Northern Ireland airport transfers at a fixed price, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.";
 
 /**
  * Temporary public holding page. When enabled and before `until`, the site shows

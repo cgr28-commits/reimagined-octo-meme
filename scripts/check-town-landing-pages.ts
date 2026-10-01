@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   getCanonicalTransferSlugs,
+  getRoutesForTown,
   getTownHubPage,
   getTransferRoutePage,
   TOWN_HUB_PAGES,
@@ -110,7 +111,7 @@ console.log("\n=== Batch 2 hubs resolve ===");
 
 console.log("\n=== Combined landing routes ===");
 {
-  const landing = TRANSFER_ROUTE_PAGES.filter((route) => route.faqs?.length);
+  const landing = TRANSFER_ROUTE_PAGES.filter((route) => route.faqs?.length && route.journeyInfo);
   assert.equal(landing.length, 59);
   assert.equal(TRANSFER_ROUTE_CONTENT.length, 59);
   for (const town of ALL_HUB_TOWNS) {
@@ -196,6 +197,42 @@ console.log("\n=== Existing catalogue URLs still resolve ===");
   assert.equal(getTransferRoutePage("holywood-to-city-of-derry"), undefined);
   assert.equal(getTransferRoutePage("antrim-to-city-of-derry"), undefined);
   console.log("OK  leftover Belfast/LDY routes kept · no extra LDY pages for Batch 2");
+}
+
+console.log("\n=== City of Derry route FAQs ===");
+{
+  const ldyFaqs = [
+    "newtownabbey-to-city-of-derry",
+    "lisburn-to-city-of-derry",
+    "bangor-to-city-of-derry",
+  ].map((slug) => {
+    const route = getTransferRoutePage(slug);
+    assert.ok(route, slug);
+    assert.equal(route.airport.code, "LDY");
+    assert.ok(!route.journeyInfo, `${slug} stays off the town-hub landing essay`);
+    assert.ok((route.faqs?.length ?? 0) >= 4, slug);
+    assert.ok(route.faqs?.every((faq) => !/£\d/.test(faq.answer)));
+    assert.ok(route.faqs?.every((faq) => !/\b\d+\s*(miles|km|minutes|hours)\b/i.test(faq.answer) || /60 minutes complimentary waiting/.test(faq.answer)));
+    assert.ok(route.faqs?.some((faq) => /quote tool|quote box/i.test(faq.answer)));
+    assert.equal(getRoutesForTown(route.town.slug).some((item) => item.slug === slug), false);
+    return route;
+  });
+  const priceFaqs = ldyFaqs.map((route) => {
+    const faq = route.faqs?.find((item) => /how much/i.test(item.question));
+    assert.ok(faq, `${route.slug} missing price FAQ`);
+    return faq.answer;
+  });
+  const timeFaqs = ldyFaqs.map((route) => {
+    const faq = route.faqs?.find((item) => /how long/i.test(item.question));
+    assert.ok(faq, `${route.slug} missing time FAQ`);
+    return faq.answer;
+  });
+  assert.equal(new Set(priceFaqs).size, priceFaqs.length);
+  assert.equal(new Set(timeFaqs).size, timeFaqs.length);
+  const routePage = read("src/app/transfers/[slug]/page.tsx");
+  assert.match(routePage, /getFaqPageJsonLd\(page\.faqs\)/);
+  assert.match(routePage, /page\.faqs\.map/);
+  console.log("OK  three City of Derry routes have unique FAQs and stay off town hubs");
 }
 
 console.log("\n=== Pages, schema, sitemap ===");

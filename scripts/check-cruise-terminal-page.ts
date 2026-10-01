@@ -34,8 +34,9 @@ console.log("=== Cruise page metadata and indexability ===");
 {
   assert.equal(CRUISE_TERMINAL_PATH, "/belfast-cruise-terminal-transfers/");
   assert.equal(CRUISE_TERMINAL_H1, "Belfast Cruise Terminal Transfers");
-  assert.match(CRUISE_TERMINAL_SEO_TITLE, /Belfast Cruise Terminal Transfers/);
-  assert.match(CRUISE_TERMINAL_SEO_TITLE, /Cruise Port Taxi/);
+  assert.equal(CRUISE_TERMINAL_SEO_TITLE, "Belfast Cruise Terminal Transfers");
+  assert.equal(CRUISE_TERMINAL_SEO_TITLE, CRUISE_TERMINAL_H1);
+  assert.match(content, /cruise port taxi/i);
   assert.ok(CRUISE_TERMINAL_SEO_DESCRIPTION.length > 80);
   assert.ok(CRUISE_TERMINAL_SEO_DESCRIPTION.length < 180);
   assert.match(page, /canonical: CRUISE_TERMINAL_PATH/);
