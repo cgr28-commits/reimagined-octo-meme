@@ -233,11 +233,8 @@ assert.match(
 );
 assert.match(quoteCard, /isManualQuoteJourney\s*\?\s*"quote-request"/);
 assert.match(quoteCard, /"Submit Quote Request"/);
-assert.match(quoteCard, /"Quote request received"/);
-assert.match(
-  quoteCard,
-  /We’ve received your journey details\. We’ll review your request and send you your personalised price\. No payment has been taken\./,
-);
+assert.match(quoteCard, /UNPAID_REQUEST_RECEIVED_HEADING/);
+assert.match(quoteCard, /UNPAID_REQUEST_RECEIVED_BODY/);
 assert.match(quoteCard, /pendingBookingResultScrollRef/);
 assert.match(quoteCard, /scrollQuoteStage\(bookingResultRef\.current \?\? "bookingRequestResult"/);
 assert.match(quoteCard, /hadJourneySummaryScrollRef/);

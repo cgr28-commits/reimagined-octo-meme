@@ -192,7 +192,14 @@ import {
   serverFareAppliesToParty,
   type ServerFarePartyParts,
 } from "@/lib/quote-display-fare";
-import { mayPaintAuthoritativeFare } from "@/lib/authoritative-quote-fare";
+import {
+  AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE,
+  mayPaintAuthoritativeFare,
+} from "@/lib/authoritative-quote-fare";
+import {
+  UNPAID_REQUEST_RECEIVED_BODY,
+  UNPAID_REQUEST_RECEIVED_HEADING,
+} from "@/lib/unpaid-request-copy";
 import {
   QUOTE_FARE_START_DELAY_MS,
   quoteFareRequestKey,
@@ -1820,6 +1827,9 @@ function QuoteCard({
             });
           }
           return alternate;
+        }).catch(() => {
+          quoteFareInflightRef.current.delete(key);
+          return { ok: false as const, message: "Could not calculate fare" };
         });
         quoteFareInflightRef.current.set(key, promise);
       }
@@ -1850,6 +1860,7 @@ function QuoteCard({
         quoteFareInflightRef.current.set(selectedKey, inflight);
       }
       loadAlternateFares();
+      setServerQuoteUnavailable(false);
       const result = await inflight;
       if (
         result.ok &&
@@ -2347,6 +2358,11 @@ function QuoteCard({
     !isManualQuoteJourney &&
     !pricingConfirmationRequired &&
     !(isEnquiryOnly && !showGuidePrice);
+  const authoritativeQuoteFailed =
+    instantPriceExpected &&
+    serverQuoteUnavailable &&
+    !previewSkipsServerQuote &&
+    currentServerFareParts == null;
   const resultsCanRender =
     quoteChoicesReady &&
     hasQuoteRoute &&
@@ -3317,6 +3333,8 @@ function QuoteCard({
       ...(dropoffAirportCode ? { dropoffAirportCode } : {}),
       ...(isAirportToAirportJourney ? { isAirportToAirport: true } : {}),
       quoteTransactionId: quoteTransactionId || undefined,
+      pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
+      dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
       expressDropOffSelected: expressSelection.eligible ? expressSelection.selected : false,
       expressDropOffFee: expressSelection.feeGbp,
       expressDropOffAirport: expressSelection.airportCode,
@@ -4348,11 +4366,7 @@ function QuoteCard({
     } catch (error) {
       console.error("Booking submission failed", error);
       setSubmitError(
-        isManualQuoteJourney
-          ? `We couldn't submit your quote request. Please try again or contact ${SITE.email} with your trip details.`
-          : delivery === "email" || !isMobile
-            ? `We couldn't send your ${isEnquiryOnly ? "enquiry" : "booking"} by email. Please try WhatsApp or contact ${SITE.email} with your trip details.`
-            : `We couldn't log your ${isEnquiryOnly ? "enquiry" : "booking"}. Please try email instead or contact ${SITE.email}.`,
+        `We couldn't send your request. Please try again or contact ${SITE.email} with your trip details.`,
       );
       setSubmitted(false);
       return;
@@ -4931,8 +4945,8 @@ function QuoteCard({
     : showsRequestQuoteFlow
     ? "Sending quote request…"
     : isEnquiryOnly
-      ? "Sending enquiry…"
-      : "Sending booking…";
+      ? "Sending request…"
+      : "Sending request…";
 
   const confirmButtonLabel = isManualQuoteJourney
     ? "Submit Quote Request"
@@ -4943,10 +4957,8 @@ function QuoteCard({
         ? `Request quote · ${formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}`
         : "Request a Quote"
     : isEnquiryOnly
-      ? "Send enquiry"
-      : liveQuote
-        ? `Confirm & book for ${formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}`
-        : "Confirm & book";
+      ? "Send request"
+      : "Send request";
 
   const whatsAppConfirmLabel = showsRequestQuoteFlow
     ? pricingConfirmationRequired || isManualQuoteJourney
@@ -4954,11 +4966,7 @@ function QuoteCard({
       : liveQuote
         ? `Request quote via WhatsApp — ${formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}`
         : "Chat on WhatsApp"
-    : isEnquiryOnly
-      ? "Send enquiry via WhatsApp"
-      : liveQuote
-        ? `Send via WhatsApp — ${formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)}`
-        : "Confirm & send via WhatsApp";
+    : "Send request via WhatsApp";
 
   const quoteHint = pricingConfirmationRequired
     ? hasQuoteRoute
@@ -5343,6 +5351,21 @@ function QuoteCard({
     );
   }
 
+  function renderAuthoritativeQuoteRetry() {
+    return (
+      <button
+        type="button"
+        data-quote-price-retry
+        onClick={() => {
+          void refreshAuthoritativeServerQuote(true);
+        }}
+        className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-white/25 px-4 py-2 text-sm font-semibold text-white hover:border-white/50"
+      >
+        Try again
+      </button>
+    );
+  }
+
   function renderQuotePriceSummaryBody() {
     return (
       <>
@@ -5380,11 +5403,18 @@ function QuoteCard({
                 ? "Guide return price · request a quote"
                 : "Guide price · request a quote"}
             </p>
+            {authoritativeQuoteFailed ? (
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-white" data-quote-fare-status="unavailable">
+                {AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE}
+              </p>
+            ) : (
             <p className="quote-price-figure mt-2">
               {mayPaintNumericFare
-                ? formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)
-                : "Calculating…"}
+                  ? formatQuote(pricedFare?.totalGbp ?? liveQuote.amount)
+                  : "Calculating…"}
             </p>
+            )}
+            {authoritativeQuoteFailed ? renderAuthoritativeQuoteRetry() : null}
             {renderExpressChoiceInPriceCard(quoteStep === 1 ? "full" : "summary")}
             <p className="mt-3 text-sm text-white/75">
               Vehicle: {vehicleShortLabel(quoteVehicle)}
@@ -5440,16 +5470,23 @@ function QuoteCard({
                   ? "Personal quoted fare"
                   : "Your transfer price"}
             </p>
+            {authoritativeQuoteFailed ? (
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-white" data-quote-fare-status="unavailable">
+                {AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE}
+              </p>
+            ) : (
             <p className="quote-price-figure mt-2">
               {testChargeAmount != null || appliedPersonalQuote || mayPaintNumericFare
-                ? formatQuote(
-                    testChargeAmount ??
-                      pricedFare?.totalGbp ??
-                      appliedPersonalQuote?.agreedAmount ??
-                      liveQuote.amount,
-                  )
-                : "Calculating…"}
+                  ? formatQuote(
+                      testChargeAmount ??
+                        pricedFare?.totalGbp ??
+                        appliedPersonalQuote?.agreedAmount ??
+                        liveQuote.amount,
+                    )
+                  : "Calculating…"}
             </p>
+            )}
+            {authoritativeQuoteFailed ? renderAuthoritativeQuoteRetry() : null}
             {mayPaintNumericFare && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ? (
               <p
                 className="mt-1.5 text-xs font-semibold text-emerald"
@@ -6236,11 +6273,7 @@ function QuoteCard({
                 onClick={() => void confirmBooking("email")}
                 className="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {submitted
-                  ? submitInProgressLabel
-                  : isEnquiryOnly
-                    ? "Send enquiry via email"
-                    : "Send booking via email"}
+                {submitted ? submitInProgressLabel : "Send request by email"}
               </button>
             </div>
           ) : (
@@ -6313,7 +6346,9 @@ function QuoteCard({
       >
         {submitted
           ? submitInProgressLabel
-          : instantPriceExpected && !mayPaintNumericFare
+          : authoritativeQuoteFailed
+            ? "Price unavailable"
+            : instantPriceExpected && !mayPaintNumericFare
             ? "Calculating your transfer price…"
             : showTransferCta
             ? `BOOK THIS TRANSFER — ${amountLabel}`
@@ -6423,9 +6458,11 @@ function QuoteCard({
           ? (pricedFare?.totalGbp ?? null)
           : null);
     const amountLabel =
-      authoritativeTotal != null && Number.isFinite(authoritativeTotal)
-        ? formatQuote(authoritativeTotal)
-        : "Calculating…";
+      authoritativeQuoteFailed
+        ? AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE
+        : authoritativeTotal != null && Number.isFinite(authoritativeTotal)
+          ? formatQuote(authoritativeTotal)
+          : "Calculating…";
     return (
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
@@ -6433,7 +6470,11 @@ function QuoteCard({
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
         priceLabel={appliedPersonalQuote ? "Personal quoted fare" : "Your transfer price"}
-        formattedPrice={amountLabel}
+        formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
+        priceUnavailable={authoritativeQuoteFailed}
+        onRetryPrice={() => {
+          void refreshAuthoritativeServerQuote(true);
+        }}
         surchargeNote={
           mayPaintNumericFare && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0
             ? QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE
@@ -6526,13 +6567,7 @@ function QuoteCard({
             tabIndex={-1}
             className="text-xs font-medium uppercase tracking-wider text-emerald outline-none"
           >
-            {isManualQuoteJourney
-              ? "Quote request received"
-              : showsRequestQuoteFlow || exceedsOnlineCapacity
-              ? "Quote request submitted"
-              : isEnquiryOnly
-                ? "Enquiry submitted"
-                : "Booking submitted"}
+            {UNPAID_REQUEST_RECEIVED_HEADING}
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             Thank you
@@ -6543,33 +6578,22 @@ function QuoteCard({
             </p>
           ) : null}
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-            {isManualQuoteJourney
-              ? "We’ve received your journey details. We’ll review your request and send you your personalised price. No payment has been taken."
-              : showsRequestQuoteFlow || exceedsOnlineCapacity
-              ? isOutOfAreaPickupJourney
-                ? "We’ve received your out-of-area pickup request. We’ll review it manually, confirm availability, and send your personal fixed quote shortly. No payment is taken until the fare is confirmed."
-                : isRoiJourney
-                  ? "We’ve received your Republic of Ireland long-distance transfer request. We’ll confirm your fixed price and send your personal quote shortly."
-                  : "We’ve received your quote request. We’ll confirm availability and send your personal quote shortly."
-              : isEnquiryOnly
-                ? "We’ve received your enquiry. We’ll confirm availability and send your personal quote shortly. When you’re ready to book, we’ll send a SumUp payment link — your trip is confirmed after payment."
-                : "We’ve received your booking request. If you paid online with SumUp, your booking is confirmed. Otherwise we’ll confirm the job and email a SumUp payment link — your trip is confirmed after payment."}
+            {UNPAID_REQUEST_RECEIVED_BODY}
           </p>
-          {(bookingReference || quoteTransactionId) && (
+          {bookingReference ? (
             <p className="mt-4 text-sm quote-secondary">
-              Reference: {bookingReference || quoteTransactionId}
+              Request reference: {bookingReference}
+            </p>
+          ) : null}
+          {bookingDelivery === "whatsapp" && (
+            <p className="mx-auto mt-4 max-w-md text-sm quote-secondary">
+              Your request message should open in WhatsApp. If it didn&apos;t, open WhatsApp and
+              message @{SITE.whatsappUsername}.
             </p>
           )}
-          {!isManualQuoteJourney && bookingDelivery === "whatsapp" && (
+          {bookingDelivery === "email" && (
             <p className="mx-auto mt-4 max-w-md text-sm quote-secondary">
-              Your {isEnquiryOnly ? "enquiry" : "booking"} message should open in WhatsApp. If it
-              didn&apos;t, open WhatsApp and message @{SITE.whatsappUsername}.
-            </p>
-          )}
-          {!isManualQuoteJourney && bookingDelivery === "email" && (
-            <p className="mx-auto mt-4 max-w-md text-sm quote-secondary">
-              Your {isEnquiryOnly ? "enquiry" : "booking"} has been sent by email. We&apos;ll
-              confirm at {customerEmail.trim()}.
+              We&apos;ve emailed your request. We&apos;ll reply at {customerEmail.trim()}.
             </p>
           )}
           <button
@@ -6859,7 +6883,9 @@ function QuoteCard({
               >
                 {!scheduleEntered
                   ? QUOTE_PRICE_WAIT_FOR_SCHEDULE
-                  : canShowPrice && instantPriceExpected && !mayPaintNumericFare
+                  : authoritativeQuoteFailed
+                    ? AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE
+                    : canShowPrice && instantPriceExpected && !mayPaintNumericFare
                     ? "Calculating your transfer price…"
                     : canShowPrice && !liveQuote
                       ? "Calculating your fixed price…"

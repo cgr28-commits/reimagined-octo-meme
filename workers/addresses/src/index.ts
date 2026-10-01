@@ -25,6 +25,11 @@ import {
 } from "../shared/quote-lead";
 import { isQuoteTransactionId, parseGbpAmount } from "../shared/quote-session";
 import {
+  bookingRequestQuoteTxnKey,
+  existingRequestReferenceForQuote,
+  validateUnpaidBookingRequest,
+} from "../shared/booking-request-validation";
+import {
   corsHeaders,
   geocodeAddress,
   isPlacesQuotaError,
@@ -53,7 +58,6 @@ import {
 } from "../shared/ideal-postcodes";
 import {
   formatBookingReference,
-  prependBookingReference,
   STARTING_BOOKING_REF,
 } from "../shared/booking-reference";
 import {
@@ -870,15 +874,15 @@ async function sendBookingEmail(
 ): Promise<void> {
   const toEmail = ownerInbox(env);
   const referencedBody = bookingReference
-    ? prependBookingReference(message, bookingReference)
+    ? `Request reference: ${bookingReference}\n\n${message}`
     : message;
   const attributionLines = formatAdsAttributionForOwner(attribution);
   const body = attributionLines.length > 0
     ? `${referencedBody}\n\nATTRIBUTION\n${"=".repeat(40)}\n${attributionLines.join("\n")}`
     : referencedBody;
   const subject = bookingReference
-    ? `New booking ${bookingReference} — ${customerName}`
-    : `New booking — ${customerName}`;
+    ? `New request ${bookingReference} — ${customerName}`
+    : `New request — ${customerName}`;
 
   await sendEmail(env, {
     to: toEmail,
@@ -1405,23 +1409,47 @@ async function handleBookingRequest(
   const message = body.message?.trim() ?? "";
   const shouldSendEmail = body.sendEmail !== false;
 
-  if (!customerName || !message) {
-    return json({ error: "Missing required fields" }, 400, origin);
+  const bookingPricing = body.booking ? await loadOwnerPricingOrDefault(env) : null;
+  const requestValidation = validateUnpaidBookingRequest({
+    customerName,
+    message,
+    booking: (body.booking as unknown as Record<string, unknown> | undefined) ?? null,
+    tour: (body.tour as unknown as Record<string, unknown> | undefined) ?? null,
+    publicMinibusEnabled: bookingPricing?.minibus.publicEnabled === true,
+  });
+  if (!requestValidation.ok) {
+    return json({ error: requestValidation.error }, 400, origin);
   }
 
-  if (body.booking) {
-    const bookingPricing = await loadOwnerPricingOrDefault(env);
-    const bookingMinibusOn = bookingPricing.minibus.publicEnabled === true;
-    const passengers = Number((body.booking as { passengers?: unknown }).passengers);
-    const suitcases = Number((body.booking as { suitcases?: unknown }).suitcases);
-    if (!isValidPublicPassengerCount(passengers, bookingMinibusOn)) {
-      return json({ error: publicPassengerLimitMessage(bookingMinibusOn) }, 400, origin);
-    }
-    if (
-      (body.booking as { suitcases?: unknown }).suitcases != null &&
-      !isValidPublicSuitcaseCount(suitcases, bookingMinibusOn)
-    ) {
-      return json({ error: publicSuitcaseLimitMessage(bookingMinibusOn) }, 400, origin);
+  const quoteTxnForDuplicate = String(
+    (body.booking as { quoteTransactionId?: unknown } | undefined)?.quoteTransactionId ?? "",
+  ).trim();
+  if (
+    body.booking &&
+    isQuoteTransactionId(quoteTxnForDuplicate) &&
+    bookingJobStoreConfigured(env.TRACKING_STORE)
+  ) {
+    const storedReference = await env.TRACKING_STORE.get(
+      bookingRequestQuoteTxnKey(quoteTxnForDuplicate),
+    );
+    const existingReference = existingRequestReferenceForQuote({
+      quoteTransactionId: quoteTxnForDuplicate,
+      storedReference,
+    });
+    if (existingReference) {
+      return json(
+        {
+          ok: true,
+          bookingReference: existingReference,
+          bookingSaved: true,
+          emailSent: true,
+          deduplicated: true,
+          calendarLogged: false,
+          calendarEvents: 0,
+        },
+        200,
+        origin,
+      );
     }
   }
 
@@ -1460,6 +1488,31 @@ async function handleBookingRequest(
       bookingSaved = Boolean(job?.id);
     } catch (error) {
       console.error("Failed to create booking job", error);
+    }
+  }
+
+  if (body.booking && bookingJobStoreConfigured(env.TRACKING_STORE) && !bookingSaved) {
+    return json(
+      { error: "We couldn’t save your request. Please try again." },
+      502,
+      origin,
+    );
+  }
+
+  if (
+    bookingSaved &&
+    bookingReference &&
+    isQuoteTransactionId(quoteTxnForDuplicate) &&
+    bookingJobStoreConfigured(env.TRACKING_STORE)
+  ) {
+    try {
+      await env.TRACKING_STORE.put(
+        bookingRequestQuoteTxnKey(quoteTxnForDuplicate),
+        bookingReference,
+        { expirationTtl: 60 * 60 * 24 * 90 },
+      );
+    } catch (error) {
+      console.error("Failed to store request duplicate key", error);
     }
   }
 

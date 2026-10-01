@@ -7,6 +7,10 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { isValidEmailAddress, isValidMobileNumber } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { SITE } from "@/lib/data";
+import {
+  UNPAID_REQUEST_RECEIVED_BODY,
+  UNPAID_REQUEST_RECEIVED_HEADING,
+} from "@/lib/unpaid-request-copy";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import {
   openWhatsAppBookingMessage,
@@ -80,7 +84,7 @@ export default function TourBookingForm({
 
   const defaultDescription = usesWhatsApp
     ? "Fill in your details, review them, then send via WhatsApp or email."
-    : "Fill in your details, review them, then confirm your day trip booking.";
+    : "Fill in your details, review them, then send your day trip request.";
 
   function validateEmail(required: boolean): boolean {
     if (!required && !customerEmail.trim()) {
@@ -89,7 +93,7 @@ export default function TourBookingForm({
     }
 
     if (!customerEmail.trim()) {
-      setEmailAddressError("Please enter your email address so we can confirm your booking.");
+      setEmailAddressError("Please enter your email address so we can reply about your request.");
       return false;
     }
     if (!isValidEmailAddress(customerEmail)) {
@@ -187,7 +191,7 @@ export default function TourBookingForm({
       const submission = {
         customerName: details.customerName,
         message: buildTourEnquiryMessage(details),
-        subject: `New day trip booking — ${details.customerName}`,
+        subject: `New day trip request — ${details.customerName}`,
         tour: details,
       };
       if (!isMobile || delivery === "email") {
@@ -199,9 +203,7 @@ export default function TourBookingForm({
     } catch (error) {
       console.error("Tour enquiry submission failed", error);
       setSubmitError(
-        delivery === "email" || !isMobile
-          ? `We couldn't send your booking by email. Please try WhatsApp or contact ${SITE.email}.`
-          : `We couldn't log your booking. Please try email instead or contact ${SITE.email}.`,
+        `We couldn't send your request. Please try again or contact ${SITE.email}.`,
       );
       setSubmitted(false);
       return;
@@ -251,11 +253,11 @@ export default function TourBookingForm({
     }
   }
 
-  const submitInProgressLabel = "Sending booking…";
+  const submitInProgressLabel = "Sending request…";
 
-  const confirmLabel = "Confirm & book";
-  const whatsAppConfirmLabel = "Confirm & send via WhatsApp";
-  const reviewLabel = usesWhatsApp ? "Review booking" : "Review booking";
+  const confirmLabel = "Send request";
+  const whatsAppConfirmLabel = "Send request via WhatsApp";
+  const reviewLabel = "Review request";
 
   return (
     <div
@@ -340,8 +342,8 @@ export default function TourBookingForm({
           />
           <p className="mt-1.5 text-xs text-white/40">
             {usesWhatsApp
-              ? "Required if you send your booking by email."
-              : "So we can email your booking confirmation."}
+              ? "Required if you send your request by email."
+              : "So we can email you about this request."}
           </p>
           {emailAddressError && (
             <p className="mt-1.5 text-xs text-red-300">{emailAddressError}</p>
@@ -465,22 +467,20 @@ export default function TourBookingForm({
 
         {enquirySent && (
           <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4 text-sm text-white">
-            <p className="font-semibold">
-              Booking sent{bookingReference ? ` — reference ${bookingReference}` : ""}
-            </p>
-            <p className="mt-2 text-white/80">
-              You will be sent a payment link shortly via text. Your booking is not confirmed until
-              full payment is made.
-            </p>
+            <p className="font-semibold">{UNPAID_REQUEST_RECEIVED_HEADING}</p>
+            <p className="mt-2 text-white/80">{UNPAID_REQUEST_RECEIVED_BODY}</p>
+            {bookingReference ? (
+              <p className="mt-2 text-white/80">Request reference: {bookingReference}</p>
+            ) : null}
             {enquiryDelivery === "whatsapp" && (
               <p className="mt-2 text-white/60">
-                Your day trip enquiry should open in WhatsApp. If it didn&apos;t, tap the green chat
+                Your request message should open in WhatsApp. If it didn&apos;t, tap the green chat
                 button at the bottom of the screen.
               </p>
             )}
             {enquiryDelivery === "email" && customerEmail.trim() && (
               <p className="mt-2 text-white/60">
-                Your booking has been sent by email. We&apos;ll confirm at {customerEmail.trim()}.
+                We&apos;ve emailed your request. We&apos;ll reply at {customerEmail.trim()}.
               </p>
             )}
           </div>
@@ -501,7 +501,7 @@ export default function TourBookingForm({
                 mode="booking-request"
               />
               <MarketingOptIn checked={marketingOptIn} onCheckedChange={setMarketingOptIn} />
-              <p className="text-xs text-white/55">Choose how to send your booking:</p>
+              <p className="text-xs text-white/55">Choose how to send your request:</p>
               <button
                 type="button"
                 onClick={() => {
@@ -533,7 +533,7 @@ export default function TourBookingForm({
                 onClick={() => void confirmEnquiry("email")}
                 className="w-full rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition-all hover:border-emerald/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {submitted ? submitInProgressLabel : "Send booking via email"}
+                {submitted ? submitInProgressLabel : "Send request by email"}
               </button>
               <p className="text-xs leading-relaxed text-white/45">
                 No WhatsApp? Email works too

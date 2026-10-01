@@ -21,6 +21,10 @@ import { parseAmountValue } from "@/lib/finalize-paid-booking";
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
+import {
+  UNPAID_REQUEST_RECEIVED_BODY,
+  UNPAID_REQUEST_RECEIVED_HEADING,
+} from "@/lib/unpaid-request-copy";
 import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
 
 const WEB3FORMS_ACCESS_KEY =
@@ -271,22 +275,22 @@ export async function submitAssistantBooking(draft: QuoteDraft): Promise<{
       });
     }
 
+    const received = reference
+      ? `${UNPAID_REQUEST_RECEIVED_HEADING}. ${UNPAID_REQUEST_RECEIVED_BODY} Request reference: ${reference}.`
+      : `${UNPAID_REQUEST_RECEIVED_HEADING}. ${UNPAID_REQUEST_RECEIVED_BODY}`;
+
     if (mobile) {
       return {
         ok: true,
         bookingReference: reference || undefined,
-        message: reference
-          ? `Thanks — your ${enquiryOnly ? "enquiry" : "booking"} ${reference} is logged. WhatsApp should open so you can send us the details.`
-          : `Thanks — your ${enquiryOnly ? "enquiry" : "booking"} is logged. WhatsApp should open so you can send us the details.`,
+        message: `${received} WhatsApp should open so you can send us the details.`,
       };
     }
 
     return {
       ok: true,
       bookingReference: reference || undefined,
-      message: reference
-        ? `Thanks — your ${enquiryOnly ? "enquiry" : "booking request"} ${reference} has been sent. We’ll confirm by email${enquiryOnly ? "" : " and send a SumUp payment link once the job is confirmed"}.`
-        : `Thanks — your ${enquiryOnly ? "enquiry" : "booking request"} has been sent. We’ll confirm by email${enquiryOnly ? "" : " and send a SumUp payment link once the job is confirmed"}.`,
+      message: received,
     };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Booking could not be sent.";

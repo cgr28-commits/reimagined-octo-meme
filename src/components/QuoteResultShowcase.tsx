@@ -15,6 +15,7 @@ import {
   LUGGAGE_CAPACITY_CONFIRMATION_BODY,
   LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
 } from "../../shared/vehicle-capacity";
+import { AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE } from "@/lib/authoritative-quote-fare";
 
 type QuoteResultShowcaseProps = {
   vehicleType: string;
@@ -28,6 +29,9 @@ type QuoteResultShowcaseProps = {
   surchargeNote?: string | null;
   /** High passenger + luggage load — fare shown, payment held. */
   capacityConfirmation?: boolean;
+  /** Worker quote failed. Do not show a fallback fare in the price slot. */
+  priceUnavailable?: boolean;
+  onRetryPrice?: () => void;
 };
 
 // Presentational only: image follows the vehicle type already chosen for
@@ -49,6 +53,8 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       bookButton,
       surchargeNote = null,
       capacityConfirmation = false,
+      priceUnavailable = false,
+      onRetryPrice,
     },
     ref,
   ) {
@@ -115,6 +121,23 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
           </p>
+          {priceUnavailable ? (
+            <div className="mt-2" data-quote-fare-status="unavailable">
+              <p className="text-sm font-semibold leading-relaxed text-navy">
+                {AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE}
+              </p>
+              {onRetryPrice ? (
+                <button
+                  type="button"
+                  onClick={onRetryPrice}
+                  data-quote-price-retry
+                  className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-navy/20 px-4 py-2 text-sm font-semibold text-navy hover:border-navy/40"
+                >
+                  Try again
+                </button>
+              ) : null}
+            </div>
+          ) : (
           <p
             data-quote-fare-status={formattedPrice.startsWith("£") ? "ready" : "pending"}
             className="mt-1 flex min-h-[clamp(3.5rem,1.6rem+10vw,4.5rem)] items-center justify-center lg:min-h-[clamp(4rem,3rem+2vw,5rem)] lg:justify-start"
@@ -129,6 +152,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
               {formattedPrice}
             </span>
           </p>
+          )}
           {surchargeNote ? (
             <p
               className="mt-2 text-xs font-semibold text-emerald-dark"
@@ -137,7 +161,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
               {surchargeNote}
             </p>
           ) : null}
-          <p className="mt-2 text-sm font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
+          {priceUnavailable ? null : (
+            <p className="mt-2 text-sm font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
+          )}
           {capacityConfirmation ? (
             <div
               className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left"
