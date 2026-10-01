@@ -26,7 +26,7 @@ import {
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
 import { finalizeAmendmentTopUpCheckout, type FinalizeAmendmentTopUpResult } from "./amendment-topup";
-import { markShortNoticePaid, resolveShortNoticeForPayment } from "./short-notice-handlers";
+import { gateShortNoticePaidCheckout, markShortNoticePaid } from "./short-notice-handlers";
 import { markA2aQuotePaid } from "./a2a-quote-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
@@ -373,13 +373,16 @@ export async function finalizePaidCheckout(input: {
   }
 
   if (pendingForAudit?.shortNoticeToken && env.TRACKING_STORE) {
-    const resolved = await resolveShortNoticeForPayment(
-      env.TRACKING_STORE,
-      pendingForAudit.shortNoticeToken,
-      new Date(),
-      env,
-    );
-    if ("error" in resolved) {
+    const gated = await gateShortNoticePaidCheckout(env.TRACKING_STORE, {
+      token: pendingForAudit.shortNoticeToken,
+      checkoutId,
+      sumUpAmount: Number(checkout.amount),
+      currency: checkout.currency,
+      sumUpCheckoutCreatedAt: checkout.date ?? null,
+      pendingCreatedAt: pendingForAudit.createdAt,
+      now: new Date(),
+    });
+    if (!gated.ok) {
       return {
         ok: false,
         paid: false,
@@ -391,7 +394,7 @@ export async function finalizePaidCheckout(input: {
         calendarLogged: false,
         calendarEvents: 0,
         trackingCreated: false,
-        error: resolved.error,
+        error: gated.error,
       };
     }
   }
@@ -651,6 +654,10 @@ export async function finalizePaidCheckout(input: {
         pending.shortNoticeToken,
         paymentReference,
         checkoutId,
+        {
+          legacyCheckoutRecordedAt: pending.createdAt,
+          sumUpCheckoutCreatedAt: checkout.date ?? null,
+        },
       );
     }
     if (pending?.a2aQuoteToken) {

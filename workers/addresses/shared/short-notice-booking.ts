@@ -128,6 +128,17 @@ export type ShortNoticeBookingRecord = {
   checkoutId?: string;
   checkoutReference?: string;
   paymentUrl?: string;
+  /**
+   * Server time immediately after the payment window still allowed a new
+   * checkout, and before the SumUp create call. Fixed for that checkout.
+   * Later Availability changes do not move it.
+   */
+  checkoutStartedAt?: string;
+  /**
+   * SumUp Checkout.date from the create response (ISO). GET /v0.1/checkouts
+   * returns the same creation timestamp. Not the payment-completion time.
+   */
+  sumUpCheckoutCreatedAt?: string;
   /** Set when paid — same paymentReference as the saved PaidBookingRecord. */
   paymentReference?: string;
   paidAt?: string;
@@ -308,4 +319,73 @@ export function isShortNoticePayable(record: ShortNoticeBookingRecord, now = new
   const expires = new Date(record.paymentExpiresAt);
   if (Number.isNaN(expires.getTime()) || expires.getTime() <= now.getTime()) return false;
   return true;
+}
+
+/**
+ * SumUp's create call can return shortly after we pass the start gate.
+ * Used only to recognise that already-created checkout. It does not extend
+ * the deadline for starting a new one.
+ */
+export const SHORT_NOTICE_CHECKOUT_CREATE_LAG_MS = 2 * 60 * 1000;
+
+function parseIsoMs(value: string | null | undefined): number | null {
+  if (!value?.trim()) return null;
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? null : ms;
+}
+
+/**
+ * Whether a SumUp checkout that our server already created for this booking
+ * may still be confirmed. paymentExpiresAt blocks a new checkout. A checkout
+ * admitted before that deadline may complete afterwards.
+ *
+ * SumUp Checkout.date is the provider creation time, not the time the
+ * customer finished paying. A date a few seconds after the deadline is
+ * accepted only when our own checkoutStartedAt (or a legacy pending
+ * createdAt) shows we opened that same checkout before the deadline.
+ */
+export function shortNoticeVerifiedCheckoutDecision(input: {
+  paymentExpiresAt?: string | null;
+  now: Date;
+  storedCheckoutId?: string | null;
+  presentedCheckoutId: string;
+  checkoutStartedAt?: string | null;
+  legacyCheckoutRecordedAt?: string | null;
+  sumUpCheckoutCreatedAt?: string | null;
+}):
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "missing_checkout" | "checkout_mismatch" | "after_deadline" | "sumup_date_not_in_window";
+    } {
+  const presented = input.presentedCheckoutId.trim();
+  const stored = input.storedCheckoutId?.trim() ?? "";
+  if (!presented || !stored) return { ok: false, reason: "missing_checkout" };
+  if (presented !== stored) return { ok: false, reason: "checkout_mismatch" };
+
+  const expiresMs = parseIsoMs(input.paymentExpiresAt);
+  if (expiresMs == null) return { ok: false, reason: "after_deadline" };
+
+  const startedMs = parseIsoMs(input.checkoutStartedAt);
+  const legacyMs = startedMs == null ? parseIsoMs(input.legacyCheckoutRecordedAt) : null;
+  const anchorMs = startedMs ?? legacyMs;
+  const anchorLag = startedMs == null && legacyMs != null ? SHORT_NOTICE_CHECKOUT_CREATE_LAG_MS : 0;
+  const withinDeadline = input.now.getTime() <= expiresMs;
+
+  if (!withinDeadline) {
+    if (anchorMs == null || anchorMs > expiresMs + anchorLag) {
+      return { ok: false, reason: "after_deadline" };
+    }
+  }
+
+  const sumUpMs = parseIsoMs(input.sumUpCheckoutCreatedAt);
+  if (sumUpMs != null) {
+    const earliest = (anchorMs ?? expiresMs) - SHORT_NOTICE_CHECKOUT_CREATE_LAG_MS;
+    const latest = Math.max(expiresMs, anchorMs ?? expiresMs) + SHORT_NOTICE_CHECKOUT_CREATE_LAG_MS;
+    if (sumUpMs < earliest || sumUpMs > latest) {
+      return { ok: false, reason: "sumup_date_not_in_window" };
+    }
+  }
+
+  return { ok: true };
 }

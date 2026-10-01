@@ -1817,6 +1817,8 @@ async function handlePaymentRequest(
     }
   }
   let shortNoticeReference: string | undefined;
+  /** Set only after the payment window still allows a new short-notice checkout. */
+  let shortNoticeCheckoutAdmittedAt: string | undefined;
   let a2aQuoteReference: string | undefined;
   let personalQuoteCode: string | undefined;
   let quickQuoteId: string | undefined;
@@ -1847,6 +1849,7 @@ async function handlePaymentRequest(
       return json({ error: resolved.error }, resolved.status, origin);
     }
     const record = resolved.record;
+    shortNoticeCheckoutAdmittedAt = new Date().toISOString();
     amount = Math.round((record.approvedAmount ?? record.amount) * 100) / 100;
     booking = record.booking;
     shortNoticeReference = record.reference;
@@ -3159,6 +3162,9 @@ async function handlePaymentRequest(
       amount: Math.round(amount * 100) / 100,
       booking,
       createdAt: new Date().toISOString(),
+      ...(shortNoticeCheckoutAdmittedAt
+        ? { checkoutStartedAt: shortNoticeCheckoutAdmittedAt }
+        : {}),
       ...(shortNoticeToken
         ? { shortNoticeToken, shortNoticeReference }
         : {}),
@@ -3208,6 +3214,8 @@ async function handlePaymentRequest(
           checkoutId: checkout.checkoutId,
           checkoutReference: checkout.checkoutReference,
           paymentUrl: checkout.paymentUrl,
+          checkoutStartedAt: shortNoticeCheckoutAdmittedAt ?? sn.checkoutStartedAt,
+          ...(checkout.createdAt ? { sumUpCheckoutCreatedAt: checkout.createdAt } : {}),
           updatedAt: new Date().toISOString(),
         });
       }

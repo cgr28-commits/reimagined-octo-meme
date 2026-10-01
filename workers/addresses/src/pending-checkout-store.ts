@@ -6,6 +6,11 @@ export type PendingCheckoutRecord = {
   amount: number;
   booking: PaidBookingDetails;
   createdAt: string;
+  /**
+   * Short-notice only: server time when the payment window still allowed
+   * this checkout, captured before the SumUp create call.
+   */
+  checkoutStartedAt?: string;
   /** Set when owner/customer emails have been sent for this checkout. */
   finalizedAt?: string;
   paymentReference?: string;

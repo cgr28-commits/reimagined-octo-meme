@@ -444,7 +444,10 @@ async function main() {
       assert.match(index, /SHORT-NOTICE BOOKING REQUEST/);
       assert.match(index, /Respond by/);
       assert.match(index, /processExpiredShortNoticeResponseWindows/);
-      assert.match(finalize, /resolveShortNoticeForPayment/);
+      assert.match(finalize, /gateShortNoticePaidCheckout/);
+      assert.ok(
+        finalize.indexOf("isSumUpCheckoutPaid") < finalize.indexOf("gateShortNoticePaidCheckout"),
+      );
       assert.match(handlers, /shortNoticeExpiresAt/);
       assert.match(handlers, /responseExpiryEmailSentAt/);
       assert.match(read("src/app/book-quote/BookQuoteCustomerClient.tsx"), /TooSoonCheckoutNotice/);
