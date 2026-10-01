@@ -276,6 +276,48 @@ export function formatUkSubmissionTime(date = new Date()): string {
   return `${formatted} (${UK_LOCAL_TIME_LABEL})`;
 }
 
+/** Customer-facing payment deadline in Europe/London. BST and GMT follow the date. */
+export function formatCustomerPaymentDeadline(
+  value: string | Date,
+): { time: string; date: string } | null {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+  const dateLabel = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+    .format(date)
+    .replace(",", "");
+  return { time, date: dateLabel };
+}
+
+/** Whole minutes left until an instant. Display only — the server deadline decides payment. */
+export function formatPaymentTimeRemaining(expiresAt: string | Date, now = new Date()): string {
+  const deadline = expiresAt instanceof Date ? expiresAt.getTime() : new Date(expiresAt).getTime();
+  if (Number.isNaN(deadline)) return "0 minutes";
+  const remainingMs = deadline - now.getTime();
+  if (remainingMs <= 0) return "0 minutes";
+  const totalMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+  if (totalMinutes < 60) {
+    return totalMinutes === 1 ? "1 minute" : `${totalMinutes} minutes`;
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const hourLabel = hours === 1 ? "1 hour" : `${hours} hours`;
+  if (minutes === 0) return hourLabel;
+  const minuteLabel = minutes === 1 ? "1 minute" : `${minutes} minutes`;
+  return `${hourLabel} ${minuteLabel}`;
+}
+
 /** UK wall-clock time only, e.g. 06:15. Uses Europe/London so BST/GMT stay correct. */
 export function formatLondonClockTime(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);

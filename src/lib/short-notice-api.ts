@@ -102,6 +102,7 @@ export type BookingSettings = {
   minimumBookingNoticeHours?: number;
   minimumShortNoticeLeadHours?: number;
   shortNoticeConfirmationWindowHours?: number;
+  customerPaymentWindowMinutes?: number;
   depositCash?: {
     enabled: boolean;
     percent: number;
@@ -130,6 +131,7 @@ export type PublicShortNoticeSummary = {
   suitcasesExact?: boolean;
   flightNumber?: string;
   paymentExpiresAt: string | null;
+  expiryReason?: "response_window" | "payment_window" | null;
   payable: boolean;
 };
 
@@ -529,6 +531,29 @@ export async function fetchPublicBookingNotice(): Promise<{
 export async function fetchPublicMinimumBookingNoticeHours(): Promise<number> {
   const notice = await fetchPublicBookingNotice();
   return notice.minimumBookingNoticeHours;
+}
+
+export async function updateCustomerPaymentWindowMinutes(
+  ownerKey: string,
+  minutes: number,
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      action: "set-customer-payment-window",
+      customerPaymentWindowMinutes: minutes,
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not save customer payment window"));
+  }
+  return payload.settings as BookingSettings;
 }
 
 export async function updateShortNoticeConfirmationWindowHours(

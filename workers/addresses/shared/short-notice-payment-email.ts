@@ -10,6 +10,7 @@ import {
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
 } from "./business-email";
+import { formatCustomerPaymentDeadline } from "./uk-time";
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
@@ -39,6 +40,8 @@ export type ShortNoticePaymentLinkEmailDetails = {
   amountLabel: string;
   reference: string;
   payUrl: string;
+  /** Server deadline. Shown in Europe/London. Omitted only if the instant is missing. */
+  paymentExpiresAt?: string | null;
 };
 
 export function isValidCustomerEmail(value: string | null | undefined): boolean {
@@ -53,6 +56,21 @@ export function buildShortNoticePaymentLinkEmail(
   const firstName = customerFirstName(details.customerName);
   const subject = `Your ${businessName} booking request has been accepted`;
   const payUrl = details.payUrl.trim();
+  const deadline = details.paymentExpiresAt
+    ? formatCustomerPaymentDeadline(details.paymentExpiresAt)
+    : null;
+  const reservedText = deadline
+    ? `Your journey is available and has been reserved for you.\n\n` +
+      `Please complete payment by ${deadline.time} on ${deadline.date} to confirm your booking.\n\n` +
+      `If payment is not completed by this time, the reservation will expire automatically.\n\n`
+    : `Your journey is available and has been reserved for you.\n\n` +
+      `Please complete payment to confirm your booking. If payment is not completed in time, the reservation will expire automatically.\n\n`;
+  const reservedHtml = deadline
+    ? `<p style="margin:0 0 16px;">Your journey is available and has been reserved for you.</p>
+              <p style="margin:0 0 16px;">Please complete payment by <strong style="color:${NAVY};">${escapeHtml(deadline.time)}</strong> on <strong style="color:${NAVY};">${escapeHtml(deadline.date)}</strong> to confirm your booking.</p>
+              <p style="margin:0 0 16px;">If payment is not completed by this time, the reservation will expire automatically.</p>`
+    : `<p style="margin:0 0 16px;">Your journey is available and has been reserved for you.</p>
+              <p style="margin:0 0 16px;">Please complete payment to confirm your booking. If payment is not completed in time, the reservation will expire automatically.</p>`;
 
   const text =
     `Hi ${firstName},\n\n` +
@@ -62,7 +80,8 @@ export function buildShortNoticePaymentLinkEmail(
     `${details.pickupLabel} → ${details.dropoffLabel}\n` +
     `${details.tripDate} ${details.tripTime}\n` +
     `Request reference: ${details.reference}\n\n` +
-    `To confirm your booking, please complete payment using the secure link below.\n` +
+    reservedText +
+    `Complete payment using the secure link below.\n` +
     `${payUrl}\n\n` +
     `Your booking will be confirmed once payment has been successfully completed.\n\n` +
     `Thank you for choosing ${businessName}.\n\n` +
@@ -99,7 +118,8 @@ export function buildShortNoticePaymentLinkEmail(
               <p style="margin:0 0 6px;font-weight:600;color:${NAVY};">${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>
               <p style="margin:0 0 16px;">${escapeHtml(details.tripDate)} · ${escapeHtml(details.tripTime)}</p>
               <p style="margin:0 0 20px;"><strong style="color:${NAVY};">Request reference:</strong> ${escapeHtml(details.reference)}</p>
-              <p style="margin:0 0 8px;">To confirm your booking, please complete payment using the secure button below.</p>
+              ${reservedHtml}
+              <p style="margin:0 0 8px;">Complete payment using the secure button below.</p>
             </td>
           </tr>
           <tr>

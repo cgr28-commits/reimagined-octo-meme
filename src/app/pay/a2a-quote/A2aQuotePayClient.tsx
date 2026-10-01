@@ -12,6 +12,7 @@ import {
 import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-payment";
 import { fetchPublicA2aQuote, type PublicA2aQuoteSummary } from "@/lib/a2a-quote-api";
 import { A2A_QUOTE_EXPIRED_CUSTOMER_MESSAGE } from "../../../../shared/a2a-personalised-quote";
+import CustomerPaymentDeadline from "@/components/CustomerPaymentDeadline";
 
 function readTokenFromLocation(): string {
   if (typeof window === "undefined") return "";
@@ -266,6 +267,10 @@ function A2aQuotePayInner() {
         </div>
       ) : error ? (
         <p className="mt-4 text-sm text-red-300">{error}</p>
+      ) : null}
+
+      {summary.payable && summary.quoteExpiresAt ? (
+        <CustomerPaymentDeadline expiresAt={summary.quoteExpiresAt} />
       ) : null}
 
       {summary.payable && !isCustomerSmartAvailabilityBlockMessage(error) ? (

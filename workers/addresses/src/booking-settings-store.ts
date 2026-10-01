@@ -10,12 +10,15 @@ import {
   MINIMUM_BOOKING_NOTICE_HOURS,
   MINIMUM_SHORT_NOTICE_LEAD_HOURS,
   normalizeMinimumBookingNoticeHours,
+  normalizeCustomerPaymentWindowMinutes,
   normalizeShortNoticeConfirmationWindowHours,
   normalizeUnavailablePeriod,
   normalizeUnavailablePeriods,
   parseMinimumBookingNoticeHoursInput,
   parseMinimumShortNoticeLeadHoursInput,
+  parseCustomerPaymentWindowMinutes,
   parseShortNoticeConfirmationWindowHoursInput,
+  CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT,
   SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   type UnavailablePeriod,
   type UnavailablePeriodInput,
@@ -35,6 +38,11 @@ export type BookingSettings = {
   minimumShortNoticeLeadHours: number;
   /** How long the owner has to confirm a short-notice request. Defaults to 1. Whole hours 1–4. */
   shortNoticeConfirmationWindowHours: number;
+  /**
+   * How long the customer has to pay after approval. Whole minutes from the
+   * allowed list. Defaults to 60 when the saved document has no field.
+   */
+  customerPaymentWindowMinutes: number;
   /** Deposit + Cash — disabled by default; never trust the browser for these values. */
   depositCash: DepositCashSettings;
   updatedAt: string;
@@ -50,6 +58,7 @@ export function defaultBookingSettings(): BookingSettings {
     minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
     minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
     shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+    customerPaymentWindowMinutes: CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT,
     depositCash: defaultDepositCashSettings(),
     updatedAt: new Date(0).toISOString(),
   };
@@ -81,6 +90,9 @@ export function normalizeBookingSettings(
     ),
     shortNoticeConfirmationWindowHours: normalizeShortNoticeConfirmationWindowHours(
       raw?.shortNoticeConfirmationWindowHours,
+    ),
+    customerPaymentWindowMinutes: normalizeCustomerPaymentWindowMinutes(
+      raw?.customerPaymentWindowMinutes,
     ),
     depositCash: normalizeDepositCashSettings(
       (raw as { depositCash?: unknown } | null | undefined)?.depositCash ?? raw,
@@ -128,6 +140,9 @@ export async function saveBookingSettings(
     shortNoticeConfirmationWindowHours: normalizeShortNoticeConfirmationWindowHours(
       settings.shortNoticeConfirmationWindowHours ?? current.shortNoticeConfirmationWindowHours,
     ),
+    customerPaymentWindowMinutes: normalizeCustomerPaymentWindowMinutes(
+      settings.customerPaymentWindowMinutes ?? current.customerPaymentWindowMinutes,
+    ),
     depositCash: current.depositCash,
     updatedAt: new Date().toISOString(),
   });
@@ -152,6 +167,7 @@ export async function updateMinimumBookingNoticeHours(
     minimumBookingNoticeHours: parsed,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
+    customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
     updatedAt: new Date().toISOString(),
   });
@@ -178,6 +194,7 @@ export async function updateMinimumShortNoticeLeadHours(
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
     minimumShortNoticeLeadHours: parsed,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
+    customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
     updatedAt: new Date().toISOString(),
   });
@@ -194,6 +211,7 @@ export async function updateDepositCashSettings(
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
+    customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: parsed,
     updatedAt: new Date().toISOString(),
   });
@@ -215,6 +233,29 @@ export async function updateShortNoticeConfirmationWindowHours(
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: parsed,
+    customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
+    depositCash: current.depositCash,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updateCustomerPaymentWindowMinutes(
+  store: KVNamespace,
+  minutes: unknown,
+): Promise<BookingSettings> {
+  const parsed = parseCustomerPaymentWindowMinutes(minutes);
+  if (parsed == null) {
+    throw new Error(
+      "Customer payment window must be 15, 30, 45, 60, 90, 120, 180, or 240 minutes.",
+    );
+  }
+  const current = await getBookingSettings(store);
+  return putBookingSettings(store, {
+    unavailablePeriods: current.unavailablePeriods,
+    minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
+    shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
+    customerPaymentWindowMinutes: parsed,
     depositCash: current.depositCash,
     updatedAt: new Date().toISOString(),
   });
@@ -241,6 +282,7 @@ export async function addUnavailablePeriod(
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
+    customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
     updatedAt: now.toISOString(),
   });
@@ -277,6 +319,7 @@ export async function updateUnavailablePeriod(
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
+    customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
     updatedAt: now.toISOString(),
   });
@@ -299,6 +342,7 @@ export async function deleteUnavailablePeriod(
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
+    customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
     updatedAt: new Date().toISOString(),
   });

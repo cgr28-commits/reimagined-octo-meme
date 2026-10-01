@@ -10,7 +10,21 @@ import {
   isSumUpPaymentEnabled,
 } from "@/lib/create-payment";
 import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-payment";
+import CustomerPaymentDeadline from "@/components/CustomerPaymentDeadline";
+import {
+  CUSTOMER_PAYMENT_LINK_EXPIRED_BODY,
+  CUSTOMER_PAYMENT_LINK_EXPIRED_HEADING,
+} from "../../../../shared/booking-notice";
 import { fetchPublicShortNotice, type PublicShortNoticeSummary } from "@/lib/short-notice-api";
+
+function paymentWindowClosed(summary: PublicShortNoticeSummary): boolean {
+  if (summary.payable) return false;
+  if (summary.expiryReason === "response_window") return false;
+  if (summary.status === "SHORT_NOTICE_EXPIRED") return true;
+  if (summary.status !== "SHORT_NOTICE_APPROVED" || !summary.paymentExpiresAt) return false;
+  const deadline = new Date(summary.paymentExpiresAt).getTime();
+  return !Number.isNaN(deadline) && deadline <= Date.now();
+}
 
 function readTokenFromLocation(): string {
   if (typeof window === "undefined") return "";
@@ -173,6 +187,8 @@ function ShortNoticePayInner() {
         </div>
       </dl>
 
+      {summary.payable ? <CustomerPaymentDeadline expiresAt={summary.paymentExpiresAt} /> : null}
+
       {isCustomerSmartAvailabilityBlockMessage(error) ? (
         <div className="mt-4">
           <CustomerSmartAvailabilityBlocked
@@ -183,7 +199,7 @@ function ShortNoticePayInner() {
           />
         </div>
       ) : error ? (
-        <p className="mt-4 text-sm text-red-300">{error}</p>
+        <p className="mt-4 whitespace-pre-line text-sm text-red-300">{error}</p>
       ) : null}
 
       {summary.payable && !isCustomerSmartAvailabilityBlockMessage(error) ? (
@@ -196,15 +212,26 @@ function ShortNoticePayInner() {
           {paying ? "Opening secure payment…" : "Pay Securely"}
         </button>
       ) : !isCustomerSmartAvailabilityBlockMessage(error) && !summary.payable ? (
-        <p className="mt-6 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          {summary.status === "SHORT_NOTICE_AWAITING_APPROVAL"
-            ? "This booking is still awaiting Owner approval."
-            : summary.status === "SHORT_NOTICE_DECLINED"
-              ? "This booking request was declined and cannot be paid."
-              : summary.status === "SHORT_NOTICE_PAID"
-                ? "This booking is already paid."
-                : "This payment link is no longer payable."}
-        </p>
+        <div className="mt-6 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          {paymentWindowClosed(summary) ? (
+            <>
+              <p className="font-semibold">{CUSTOMER_PAYMENT_LINK_EXPIRED_HEADING}</p>
+              <p className="mt-2">{CUSTOMER_PAYMENT_LINK_EXPIRED_BODY}</p>
+            </>
+          ) : (
+            <p>
+              {summary.status === "SHORT_NOTICE_AWAITING_APPROVAL"
+                ? "This booking is still awaiting Owner approval."
+                : summary.status === "SHORT_NOTICE_DECLINED"
+                  ? "This booking request was declined and cannot be paid."
+                  : summary.status === "SHORT_NOTICE_PAID"
+                    ? "This booking is already paid."
+                    : summary.expiryReason === "response_window"
+                      ? "This booking request has expired. No payment has been taken and your journey has not been booked."
+                      : "This payment link is no longer payable."}
+            </p>
+          )}
+        </div>
       ) : null}
     </div>
   );

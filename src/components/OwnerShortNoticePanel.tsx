@@ -10,21 +10,30 @@ import {
   MIN_MINIMUM_BOOKING_NOTICE_HOURS,
   MIN_MINIMUM_SHORT_NOTICE_LEAD_HOURS,
   MIN_SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+  CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT,
+  CUSTOMER_PAYMENT_WINDOW_OPTIONS_MINUTES,
   SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   formatHoursUntilPickupLabel,
   formatUnavailablePeriodRangeLabel,
   isUnavailablePeriodExpired,
   normalizeMinimumBookingNoticeHours,
   normalizeMinimumShortNoticeLeadHours,
+  customerPaymentWindowOptionLabel,
+  normalizeCustomerPaymentWindowMinutes,
   normalizeShortNoticeConfirmationWindowHours,
   ownerUnavailablePeriodModeLabel,
   parseMinimumBookingNoticeHoursInput,
   parseMinimumShortNoticeLeadHoursInput,
+  parseCustomerPaymentWindowMinutes,
   parseShortNoticeConfirmationWindowHoursInput,
   vehicleServiceLabel,
 } from "../../shared/booking-notice";
 import { formatShortNoticeDeadlineLine, formatShortNoticeRemainingLabel } from "../../shared/short-notice-booking";
-import { formatLondonClockTime } from "../../shared/uk-time";
+import {
+  formatCustomerPaymentDeadline,
+  formatLondonClockTime,
+  formatPaymentTimeRemaining,
+} from "../../shared/uk-time";
 import { hoursUntilPickup } from "../../shared/refund-ops";
 import { SITE } from "@/lib/data";
 import { vehicleCustomerLabel } from "../../shared/vehicle-display";
@@ -43,6 +52,7 @@ import {
   restoreShortNoticeToDashboard,
   updateMinimumBookingNoticeHours,
   updateMinimumShortNoticeLeadHours,
+  updateCustomerPaymentWindowMinutes,
   updateShortNoticeConfirmationWindowHours,
   updateUnavailablePeriod,
   withdrawAlternativeShortNoticeOffer,
@@ -94,7 +104,7 @@ function statusLabel(
     case "SHORT_NOTICE_ALTERNATIVE_OFFERED":
       return "Alternative time offered · Awaiting customer response";
     case "SHORT_NOTICE_APPROVED":
-      return "Awaiting payment";
+      return "AWAITING PAYMENT";
     case "SHORT_NOTICE_DECLINED":
       return "Declined";
     case "SHORT_NOTICE_ALTERNATIVE_DECLINED":
@@ -104,7 +114,7 @@ function statusLabel(
     case "SHORT_NOTICE_EXPIRED":
       return booking?.expiryReason === "response_window"
         ? "Expired — not confirmed"
-        : "Payment expired";
+        : "PAYMENT EXPIRED";
     default:
       return status;
   }
@@ -139,6 +149,36 @@ function shortNoticeResponseCountdown(
     expired: false,
     urgent: minutes <= 15,
   };
+}
+
+function paymentWindowExpired(booking: ShortNoticeBookingSummary, nowMs: number): boolean {
+  if (booking.expiryReason === "response_window") return false;
+  if (booking.status === "SHORT_NOTICE_EXPIRED") return true;
+  if (booking.status !== "SHORT_NOTICE_APPROVED" || !booking.paymentExpiresAt) return false;
+  const deadline = new Date(booking.paymentExpiresAt).getTime();
+  return !Number.isNaN(deadline) && nowMs >= deadline;
+}
+
+function OwnerPaymentDueLine({
+  booking,
+  nowMs,
+}: {
+  booking: ShortNoticeBookingSummary;
+  nowMs: number;
+}) {
+  if (booking.status !== "SHORT_NOTICE_APPROVED" && booking.status !== "SHORT_NOTICE_EXPIRED") {
+    return null;
+  }
+  if (booking.expiryReason === "response_window" || paymentWindowExpired(booking, nowMs)) return null;
+  if (booking.status !== "SHORT_NOTICE_APPROVED" || !booking.paymentExpiresAt) return null;
+  const deadline = formatCustomerPaymentDeadline(booking.paymentExpiresAt);
+  if (!deadline) return null;
+  return (
+    <div className="text-xs text-white/80" data-owner-payment-due>
+      <p>Payment due by: {deadline.time}</p>
+      <p>Time remaining: {formatPaymentTimeRemaining(booking.paymentExpiresAt, new Date(nowMs))}</p>
+    </div>
+  );
 }
 
 function ShortNoticeDeadlineLine({
@@ -182,7 +222,7 @@ function paymentStatusLabel(booking: ShortNoticeBookingSummary, now = new Date()
   const remainingHours = hoursUntilPickup(booking.booking.tripDate, booking.booking.tripTime, now);
   if (remainingHours != null && remainingHours < 0) return "Pickup time has passed";
   if (booking.status === "SHORT_NOTICE_EXPIRED") {
-    return booking.expiryReason === "response_window" ? "Expired — not confirmed" : "Payment expired";
+    return booking.expiryReason === "response_window" ? "Expired — not confirmed" : "PAYMENT EXPIRED";
   }
   if (booking.status === "SHORT_NOTICE_APPROVED") {
     if (
@@ -190,9 +230,9 @@ function paymentStatusLabel(booking: ShortNoticeBookingSummary, now = new Date()
       !Number.isNaN(new Date(booking.paymentExpiresAt).getTime()) &&
       new Date(booking.paymentExpiresAt).getTime() <= now.getTime()
     ) {
-      return "Payment expired";
+      return "PAYMENT EXPIRED";
     }
-    return "Awaiting payment";
+    return "AWAITING PAYMENT";
   }
   return "—";
 }
@@ -247,8 +287,14 @@ function securePayUrlForBooking(booking: ShortNoticeBookingSummary): string {
 }
 
 function whatsappShareUrl(booking: ShortNoticeBookingSummary, payUrl: string): string {
+  const deadline = booking.paymentExpiresAt
+    ? formatCustomerPaymentDeadline(booking.paymentExpiresAt)
+    : null;
+  const due = deadline
+    ? ` Please complete payment by ${deadline.time} on ${deadline.date}.`
+    : "";
   const text = encodeURIComponent(
-    `Hi ${booking.booking.customerName}, your short-notice booking ${booking.reference} is approved. Please pay securely here: ${payUrl}`,
+    `Hi ${booking.booking.customerName}, your journey is reserved pending payment.${due} Pay securely here: ${payUrl}`,
   );
   const mobile = booking.booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44");
   return mobile ? `https://wa.me/${mobile}?text=${text}` : `https://wa.me/?text=${text}`;
@@ -275,6 +321,12 @@ export default function OwnerShortNoticePanel({
   );
   const [savedConfirmationWindowHours, setSavedConfirmationWindowHours] = useState(
     SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+  );
+  const [paymentWindowDraft, setPaymentWindowDraft] = useState(
+    String(CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT),
+  );
+  const [savedPaymentWindowMinutes, setSavedPaymentWindowMinutes] = useState(
+    CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT,
   );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [bookingSettings, setBookingSettings] = useState<BookingSettings | null>(null);
@@ -341,7 +393,7 @@ export default function OwnerShortNoticePanel({
     }));
   }
 
-  const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number; minimumShortNoticeLeadHours?: number; shortNoticeConfirmationWindowHours?: number; depositCash?: BookingSettings["depositCash"] }) => {
+  const applySettings = useCallback((settings: BookingSettings | { unavailablePeriods?: UnavailablePeriodSummary[]; minimumBookingNoticeHours?: number; minimumShortNoticeLeadHours?: number; shortNoticeConfirmationWindowHours?: number; customerPaymentWindowMinutes?: number; depositCash?: BookingSettings["depositCash"] }) => {
     onSettingsChange?.(settings as BookingSettings);
     setPeriods(Array.isArray(settings.unavailablePeriods) ? settings.unavailablePeriods : []);
     const hours = normalizeMinimumBookingNoticeHours(settings.minimumBookingNoticeHours);
@@ -355,6 +407,11 @@ export default function OwnerShortNoticePanel({
     setLeadHoursDraft(String(lead));
     setSavedConfirmationWindowHours(confirmationWindow);
     setConfirmationWindowDraft(String(confirmationWindow));
+    const paymentWindow = normalizeCustomerPaymentWindowMinutes(
+      settings.customerPaymentWindowMinutes,
+    );
+    setSavedPaymentWindowMinutes(paymentWindow);
+    setPaymentWindowDraft(String(paymentWindow));
     if ("updatedAt" in settings || "depositCash" in settings) {
       setBookingSettings(settings as BookingSettings);
     }
@@ -461,6 +518,27 @@ export default function OwnerShortNoticePanel({
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save short-notice confirmation window");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function handleSaveCustomerPaymentWindow() {
+    setSavingSettings(true);
+    setError("");
+    setMessage("");
+    try {
+      const parsed = parseCustomerPaymentWindowMinutes(paymentWindowDraft);
+      if (parsed == null) {
+        throw new Error("Choose 15, 30, 45, or 60 minutes, or 90 minutes, 2, 3, or 4 hours.");
+      }
+      const settings = await updateCustomerPaymentWindowMinutes(ownerKey, parsed);
+      applySettings(settings);
+      setMessage(
+        `Customer payment window saved: ${customerPaymentWindowOptionLabel(parsed)}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save customer payment window");
     } finally {
       setSavingSettings(false);
     }
@@ -817,6 +895,51 @@ export default function OwnerShortNoticePanel({
           ) : null}
         </div>
 
+        <div className="mt-6 border-t border-white/10 pt-4">
+          <h3 className="text-lg font-bold text-white">Customer payment window after approval</h3>
+          <p id="customer-payment-window-help" className="mt-1 break-words text-sm text-white/65">
+            How long a customer has to complete payment after you approve their booking. If payment
+            is not completed within this time, the payment link expires and the booking is not
+            confirmed.
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="block min-w-0 text-sm text-white/70">
+              Window
+              <select
+                value={paymentWindowDraft}
+                onChange={(event) => setPaymentWindowDraft(event.target.value)}
+                className={`${fieldClass} sm:w-48`}
+                aria-describedby="customer-payment-window-help"
+                data-customer-payment-window
+              >
+                {CUSTOMER_PAYMENT_WINDOW_OPTIONS_MINUTES.map((minutes) => (
+                  <option key={minutes} value={minutes}>
+                    {customerPaymentWindowOptionLabel(minutes)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={savingSettings}
+              onClick={() => void handleSaveCustomerPaymentWindow()}
+              className="min-h-11 w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy disabled:opacity-60 sm:w-auto"
+            >
+              {savingSettings ? "Saving…" : "Save payment window"}
+            </button>
+          </div>
+          <p className="mt-2 break-words text-xs text-white/45">
+            Current value: {customerPaymentWindowOptionLabel(savedPaymentWindowMinutes)}. Changing
+            this does not move the deadline already stored on an approved booking. A link is never
+            payable after the scheduled pickup time.
+          </p>
+          {message.startsWith("Customer payment window saved") ? (
+            <p className="mt-2 text-sm text-emerald" role="status">
+              {message}
+            </p>
+          ) : null}
+        </div>
+
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-bold text-white">Unavailable periods</h3>
@@ -1156,6 +1279,7 @@ export default function OwnerShortNoticePanel({
                       {ownerFacingStatusLabel(booking)}
                     </p>
                     <ShortNoticeDeadlineLine booking={booking} nowMs={nowMs} />
+                    <OwnerPaymentDueLine booking={booking} nowMs={nowMs} />
                     {booking.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED" ? (
                       <>
                         <p className="text-sm text-white/70">
@@ -1204,6 +1328,7 @@ export default function OwnerShortNoticePanel({
                       {ownerFacingStatusLabel(booking)}
                     </p>
                     <ShortNoticeDeadlineLine booking={booking} nowMs={nowMs} />
+                    <OwnerPaymentDueLine booking={booking} nowMs={nowMs} />
                   </div>
                   <button
                     type="button"

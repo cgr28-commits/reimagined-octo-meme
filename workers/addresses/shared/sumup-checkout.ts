@@ -12,6 +12,8 @@ export type SumUpCheckoutResult = {
   checkoutId: string;
   paymentUrl: string;
   checkoutReference: string;
+  /** SumUp Checkout.date — when SumUp created the checkout. */
+  createdAt?: string;
 };
 
 type SumUpCheckoutResponse = {
@@ -19,6 +21,8 @@ type SumUpCheckoutResponse = {
   hosted_checkout_url?: string;
   status?: string;
   checkout_reference?: string;
+  /** Provider creation timestamp (ISO). */
+  date?: string;
   error_message?: string;
   error_code?: string;
   message?: string;
@@ -50,10 +54,16 @@ export type SumUpCheckoutDetails = {
   checkout_reference?: string;
   description?: string;
   hosted_checkout_url?: string;
+  /**
+   * When SumUp created this checkout. Authoritative provider timestamp from
+   * GET /v0.1/checkouts/{id}. This is not the time the customer paid.
+   */
+  date?: string;
   transactions?: Array<{
     status?: string;
     transaction_code?: string;
     id?: string;
+    timestamp?: string;
   }>;
 };
 
@@ -96,6 +106,7 @@ export async function createSumUpHostedCheckout(
     checkoutId: payload.id,
     paymentUrl: payload.hosted_checkout_url,
     checkoutReference: request.checkoutReference,
+    ...(payload.date?.trim() ? { createdAt: payload.date.trim() } : {}),
   };
 }
 
