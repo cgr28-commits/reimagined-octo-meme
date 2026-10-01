@@ -8,7 +8,7 @@ import { AIRPORT_PAGES } from "@/lib/location-pages";
 import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
-  title: "Airport Pages | Belfast International & City, Dublin & Derry",
+  title: "Airport Taxi & Transfers | Belfast, Dublin & Derry",
   description:
     "Fixed-price transfers to Belfast International, Belfast City, Dublin and City of Derry airports, with flight monitoring and licensed drivers.",
   alternates: { canonical: "/airports/" },
