@@ -23,6 +23,12 @@ import { isQuoteTransactionId } from "./quote-session";
 
 const KNOWN_AIRPORT_CODES = new Set(["BFS", "BHD", "DUB", "LDY"]);
 
+/** Paid SumUp gate wording. Unpaid requests must not show this sentence. */
+const PAID_FLOW_TERMS_ERROR = "Terms must be accepted before payment.";
+
+const UNPAID_REQUEST_TERMS_ERROR =
+  "Please accept the Terms & Conditions before sending your request.";
+
 const REQUEST_VEHICLE_TYPES = new Set([
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
@@ -112,7 +118,7 @@ function validateStructuredBookingRequest(
     termsAcceptedAt: stringField(booking.termsAcceptedAt),
   });
   if (blockers.length > 0) {
-    return { ok: false, error: blockers[0] };
+    return { ok: false, error: unpaidCustomerError(blockers[0]) };
   }
 
   if (!isValidPublicPassengerCount(booking.passengers, options.publicMinibusEnabled)) {
@@ -193,7 +199,7 @@ function validateTourRequest(
   }
 
   if (!stringField(tour.termsAcceptedAt)) {
-    return { ok: false, error: "Terms must be accepted before sending a request." };
+    return { ok: false, error: UNPAID_REQUEST_TERMS_ERROR };
   }
 
   return { ok: true };
@@ -259,6 +265,11 @@ function scheduleErrorForBooking(booking: Record<string, unknown>, now: Date): s
   }
 
   return null;
+}
+
+function unpaidCustomerError(message: string): string {
+  if (message === PAID_FLOW_TERMS_ERROR) return UNPAID_REQUEST_TERMS_ERROR;
+  return message;
 }
 
 function stringField(value: unknown): string {

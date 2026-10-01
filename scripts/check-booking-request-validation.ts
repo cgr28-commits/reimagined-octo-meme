@@ -150,6 +150,26 @@ console.log("\n=== Tour request ===");
     now,
   });
   assert.equal(namedOnly.ok, true, "a message without a booking payload is still accepted");
+  const tourMissingTerms = validateUnpaidBookingRequest({
+    customerName: "Taylor Tour",
+    message: "Day trip request",
+    tour: {
+      customerName: "Taylor Tour",
+      mobileNumber: "07700900111",
+      pickupLocation: "Belfast city centre",
+      travelDate: "2026-07-01",
+      groupSize: 3,
+      termsAcceptedAt: "",
+    },
+    now,
+  });
+  assert.equal(tourMissingTerms.ok, false);
+  if (!tourMissingTerms.ok) {
+    assert.equal(
+      tourMissingTerms.error,
+      "Please accept the Terms & Conditions before sending your request.",
+    );
+  }
   console.log("OK  tour request accepted without flight, place id, or vehicle");
 }
 
@@ -261,6 +281,14 @@ console.log("\n=== Reject incomplete structured requests ===");
     now,
   });
   assert.equal(missingConsent.ok, false);
+  if (!missingConsent.ok) {
+    assert.equal(
+      missingConsent.error,
+      "Please accept the Terms & Conditions before sending your request.",
+    );
+  }
+  const paidGate = fs.readFileSync(path.join(root, "shared/paid-booking-gate.ts"), "utf8");
+  assert.match(paidGate, /Terms must be accepted before payment\./);
 
   console.log("OK  contact, capacity, dates, airport, flight, vehicle, and consent are enforced");
 }
