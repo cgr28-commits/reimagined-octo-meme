@@ -17,7 +17,7 @@ import {
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import { getAirportPickupFlightNumberBlockers } from "../../shared/flight-lookup";
 import { resolvePaymentAirportContextFromAddresses } from "../../shared/open-website-payment-fares";
-import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
+import { bookingWithConsentedAdsAttribution } from "@/lib/ads-attribution";
 import {
   customerSmartAvailabilityPreviewHeaders,
   withCustomerSmartAvailabilityPreviewUrl,
@@ -313,9 +313,8 @@ export async function createPaymentCheckout(
     }
   }
 
-  const attribution = readConsentedAdsAttribution();
   const booking = request.booking
-    ? { ...request.booking, ...(attribution ? { attribution } : {}) }
+    ? bookingWithConsentedAdsAttribution(request.booking)
     : undefined;
 
   void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {

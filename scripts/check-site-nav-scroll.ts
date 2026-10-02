@@ -94,7 +94,8 @@ check("SiteHashScroll handles pending cross-page + hashchange + popstate", () =>
   assert.match(siteHash, /popstate/);
   assert.match(siteHash, /scrollRestoration/);
   assert.match(siteNav, /writePendingSiteNav/);
-  assert.match(siteNav, /location\.assign\(parsed\.pathname\)/);
+  assert.match(siteNav, /adsClickIdSearchForNavigation\(window\.location\.search\)/);
+  assert.match(siteNav, /location\.assign\(/);
 });
 
 check("Competing quote scrolls are cancelled for menu navigation", () => {

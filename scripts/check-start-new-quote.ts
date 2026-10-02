@@ -88,6 +88,7 @@ store["matni-owner-key"] = "secret-owner";
 for (const key of ABANDONED_QUOTE_STORAGE_KEYS.session) {
   session[key] = "stale";
 }
+session["matni-ads-attribution-v1"] = JSON.stringify({ gclid: "TEST-GCLID-KEEP-514b" });
 session["matni-open-checkout-v1"] = JSON.stringify({
   paymentUrl: "https://example.test/pay",
   checkoutId: "chk_abandoned",
@@ -106,6 +107,11 @@ for (const key of ABANDONED_QUOTE_STORAGE_KEYS.session) {
 }
 assert.equal(store["matni-payment-confirmed-paid123"], "1", "confirmed payment marker preserved");
 assert.equal(store["matni-cookie-consent-v1"], "accepted", "cookie consent preserved");
+assert.equal(
+  session["matni-ads-attribution-v1"],
+  JSON.stringify({ gclid: "TEST-GCLID-KEEP-514b" }),
+  "consented click id survives Start a New Quote",
+);
 assert.equal(store["matni-owner-key"], "secret-owner", "owner key preserved");
 console.log("OK  abandoned quote storage cleared; confirmed/auth/consent preserved");
 
@@ -125,6 +131,14 @@ let replaced = "";
 };
 clearAbandonedQuoteUrlParams();
 assert.equal(replaced, "/#quote");
-console.log("OK  payment return params stripped; #quote kept");
+loc.href =
+  "https://www.myairporttaxini.co.uk/?payment=return&gclid=TEST-GCLID-KEEP-514b&wbraid=TEST-WBRAID-KEEP-514b#quote";
+loc.search = "?payment=return&gclid=TEST-GCLID-KEEP-514b&wbraid=TEST-WBRAID-KEEP-514b";
+clearAbandonedQuoteUrlParams();
+assert.equal(
+  replaced,
+  "/?gclid=TEST-GCLID-KEEP-514b&wbraid=TEST-WBRAID-KEEP-514b#quote",
+);
+console.log("OK  payment return params stripped; click IDs and #quote kept");
 
 console.log("\nAll Start a New Quote checks passed.");
