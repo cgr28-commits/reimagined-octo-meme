@@ -700,20 +700,12 @@ export async function handlePaidBookingResendRequest(
   const bookingsInbox =
     env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk";
 
-  const ownerCopyResult = await trySendBrandedCustomerEmail(env, {
-    to: bookingsInbox,
-    toName: "Bookings",
-    subject: `[Bookings copy] ${customerEmail.subject}`,
-    body: customerEmail.text,
-    htmlBody: customerEmail.html,
-  });
-
   const ownerEmailResult = await trySendOwnerOperationalEmail(env, {
     to: bookingsInbox,
     subject: `[Resent] ${ownerEmail.subject}`,
     body: `${ownerEmail.body}\n\n(This is a manual resend of the paid booking confirmation.)`,
   });
-  const ownerNotifySent = ownerCopyResult.sent || ownerEmailResult.sent;
+  const ownerNotifySent = ownerEmailResult.sent;
 
   return jsonResponse(
     {
@@ -726,11 +718,9 @@ export async function handlePaidBookingResendRequest(
       customerEmailProvider: customerEmailResult.provider,
       customerEmailError: customerEmailResult.error,
       ownerEmailSent: ownerNotifySent,
-      ownerEmailProvider: ownerCopyResult.provider || ownerEmailResult.provider,
-      ownerEmailError: ownerNotifySent
-        ? undefined
-        : ownerCopyResult.error || ownerEmailResult.error,
-      bookingsCopySent: ownerCopyResult.sent,
+      ownerEmailProvider: ownerEmailResult.provider,
+      ownerEmailError: ownerNotifySent ? undefined : ownerEmailResult.error,
+      bookingsCopySent: Boolean(customerEmailResult.ownerBcc),
       tripLabel: record.tripLabel,
       amountPaid: record.amountPaidLabel,
       createdAt: record.createdAt,

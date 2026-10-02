@@ -40,11 +40,7 @@ import {
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
-import {
-  DEFAULT_BOOKING_EMAIL,
-  trySendResendOnlyCustomerEmail,
-  type WorkerEmailEnv,
-} from "./worker-email";
+import { trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 import {
   formatJourneyDistance,
   formatJourneyDuration,
@@ -412,20 +408,6 @@ async function sendA2aPaymentEmail(
     body: email.text,
     htmlBody: email.html,
   });
-  if (result.sent) {
-    // Owner/business copy of exactly what the customer received.
-    const ownerTo =
-      env.BOOKING_NOTIFICATION_EMAIL?.trim() ||
-      env.BOOKING_TO_EMAIL?.trim() ||
-      DEFAULT_BOOKING_EMAIL;
-    void trySendResendOnlyCustomerEmail(env, {
-      to: ownerTo,
-      toName: "Bookings",
-      subject: `[Bookings copy] ${email.subject}`,
-      body: email.text,
-      htmlBody: email.html,
-    }).catch(() => undefined);
-  }
   return {
     sent: result.sent,
     error: result.error,

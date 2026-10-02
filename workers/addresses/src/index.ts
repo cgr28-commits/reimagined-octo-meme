@@ -236,6 +236,7 @@ import {
   processDueReviewRequests,
 } from "./review-request-handlers";
 import { processDueTrackingAvailableReminders } from "./tracking-reminder-handlers";
+import { processDueAirportPickupReminders } from "./airport-pickup-reminder-handlers";
 import {
   handleCreateSavedQuote,
   handleGetSavedQuote,
@@ -494,6 +495,9 @@ type Env = {
   IDEAL_POSTCODES_API_KEY?: string;
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
+  BOOKING_NOTIFICATION_EMAIL?: string;
+  /** Optional override for the hidden customer-email copy. Falls back to the bookings mailbox. */
+  OWNER_EMAIL_COPY_ADDRESS?: string;
   WEB3FORMS_ACCESS_KEY?: string;
   RESEND_API_KEY?: string;
   SUMUP_API_KEY?: string;
@@ -5177,6 +5181,16 @@ export default {
       processDueTrackingAvailableReminders(env).then((result) => {
         if (result.sent > 0 || result.errors > 0) {
           console.log("Tracking available reminder cron", JSON.stringify(result));
+        }
+      }),
+    );
+
+    // About 4 hours before a booked airport collection (once per leg).
+    // Very early pickups move out of 22:00–07:00 London.
+    ctx.waitUntil(
+      processDueAirportPickupReminders(env).then((result) => {
+        if (result.sent > 0 || result.errors > 0) {
+          console.log("Airport pickup reminder cron", JSON.stringify(result));
         }
       }),
     );

@@ -98,6 +98,7 @@ async function sendDriverProfileEmail(
     subject: email.subject,
     body: email.text,
     htmlBody: email.html,
+    ownerCopy: false,
   });
 }
 

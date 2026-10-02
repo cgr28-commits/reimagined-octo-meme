@@ -1,3 +1,11 @@
+import {
+  customerTransactionBcc,
+  isDeterministicResendBccRejection,
+  resendCustomerPayload,
+  resendRejectionFromBody,
+  type ResendRejection,
+} from "../shared/owner-email-copy";
+
 type EmailBinding = {
   send(message: {
     to: string;
@@ -13,6 +21,8 @@ export type WorkerEmailEnv = {
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
   BOOKING_NOTIFICATION_EMAIL?: string;
+  /** Optional override for the hidden owner copy. Invalid values are ignored. */
+  OWNER_EMAIL_COPY_ADDRESS?: string;
   WEB3FORMS_ACCESS_KEY?: string;
   RESEND_API_KEY?: string;
   EMAIL?: EmailBinding;
@@ -37,6 +47,12 @@ export type EmailPayload = {
    * booking confirmation (activation / spam / silent drop).
    */
   customerDelivery?: boolean;
+  /**
+   * Hidden BCC of this same message to the business mailbox.
+   * On for customer booking and journey emails. Set false for driver-only
+   * mail that still uses the branded HTML sender.
+   */
+  ownerCopy?: boolean;
 };
 
 export type EmailSendResult = {
@@ -45,17 +61,46 @@ export type EmailSendResult = {
   provider?: string;
   /** Resend message id when provider is resend and the API accepted the send. */
   resendId?: string;
+  /** True when the accepted send included a hidden owner BCC. */
+  ownerBcc?: boolean;
 };
 
 const DEFAULT_BOOKING_EMAIL = "bookings@myairporttaxini.co.uk";
 const BUSINESS_NAME = "My Airport Taxi NI";
 const WORKER_PUBLIC_HOST = "reimagined-octo-meme.cgr28.workers.dev";
 
+function ownerCopyRequested(options: EmailPayload): boolean {
+  return Boolean(options.customerDelivery) && options.ownerCopy !== false;
+}
+
+function ownerBccFor(env: WorkerEmailEnv, options: EmailPayload): string | null {
+  if (!ownerCopyRequested(options)) return null;
+  return customerTransactionBcc(env, options.to).bcc;
+}
+
+function warnIfOwnerCopyUnavailable(env: WorkerEmailEnv, options: EmailPayload): void {
+  if (!ownerCopyRequested(options)) return;
+  const copy = customerTransactionBcc(env, options.to);
+  if (copy.warning) console.warn(copy.warning);
+}
+
+function warnIfOwnerCopyUnsupported(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+  providerLabel: string,
+): void {
+  if (!ownerBccFor(env, options)) return;
+  console.warn(
+    `Owner BCC is not supported by ${providerLabel} — the customer email was still sent`,
+  );
+}
+
 async function sendViaCloudflareEmail(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
   if (!env.EMAIL) {
     throw new Error("Cloudflare Email Service is not configured");
   }
 
+  warnIfOwnerCopyUnsupported(env, options, "Cloudflare Email");
   const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
 
   await env.EMAIL.send({
@@ -71,6 +116,7 @@ async function sendViaCloudflareEmail(env: WorkerEmailEnv, options: EmailPayload
 async function sendViaResend(
   env: WorkerEmailEnv,
   options: EmailPayload,
+  bcc: string | null,
 ): Promise<string | undefined> {
   const apiKey = env.RESEND_API_KEY?.trim() ?? "";
   if (!apiKey) {
@@ -87,14 +133,17 @@ async function sendViaResend(
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({
-      from: `${BUSINESS_NAME} <${fromEmail}>`,
-      to: [options.to],
-      subject: options.subject,
-      text: options.body,
-      ...(html ? { html } : {}),
-      reply_to: fromEmail,
-    }),
+    body: JSON.stringify(
+      resendCustomerPayload({
+        from: `${BUSINESS_NAME} <${fromEmail}>`,
+        to: options.to,
+        subject: options.subject,
+        text: options.body,
+        ...(html ? { html } : {}),
+        replyTo: fromEmail,
+        bcc,
+      }),
+    ),
   });
 
   const payload = (await response.json().catch(() => null)) as
@@ -102,14 +151,52 @@ async function sendViaResend(
     | null;
 
   if (!response.ok) {
-    const detail =
-      payload && typeof payload === "object"
-        ? String(payload.message ?? payload.name ?? response.status)
-        : String(response.status);
-    throw new Error(`Resend request failed: ${detail}`);
+    throw new ResendRequestError(resendRejectionFromBody(response.status, payload));
   }
 
   return typeof payload?.id === "string" && payload.id.trim() ? payload.id.trim() : undefined;
+}
+
+/** Completed Resend HTTP error. Transport failures stay ordinary exceptions. */
+class ResendRequestError extends Error {
+  readonly rejection: ResendRejection;
+
+  constructor(rejection: ResendRejection) {
+    const detail = rejection.parsed
+      ? `${rejection.name}: ${rejection.message}`
+      : `HTTP ${rejection.status}`;
+    super(`Resend request failed: ${detail}`);
+    this.name = "ResendRequestError";
+    this.rejection = rejection;
+  }
+}
+
+function canRetryCustomerSendWithoutBcc(bcc: string | null, error: unknown): boolean {
+  if (!bcc) return false;
+  if (!(error instanceof ResendRequestError)) return false;
+  return isDeterministicResendBccRejection(error.rejection);
+}
+
+/**
+ * One customer send. A second send without BCC happens only when Resend
+ * returned a field validation error that names `bcc` and did not accept the email.
+ */
+async function sendResendAllowingBccRejection(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+  bcc: string | null,
+): Promise<{ resendId?: string; ownerBcc: boolean }> {
+  try {
+    const resendId = await sendViaResend(env, options, bcc);
+    return { resendId, ownerBcc: Boolean(bcc) };
+  } catch (error) {
+    if (!canRetryCustomerSendWithoutBcc(bcc, error)) throw error;
+    console.warn(
+      "Resend rejected the BCC field and did not accept the email — sending the customer email without BCC",
+    );
+    const resendId = await sendViaResend(env, options, null);
+    return { resendId, ownerBcc: false };
+  }
 }
 
 async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
@@ -118,6 +205,7 @@ async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Pro
     throw new Error("Web3Forms is not configured");
   }
 
+  warnIfOwnerCopyUnsupported(env, options, "Web3Forms");
   const ownerEmail =
     env.BOOKING_NOTIFICATION_EMAIL?.trim() ||
     env.BOOKING_TO_EMAIL?.trim() ||
@@ -180,8 +268,13 @@ async function sendViaFormSubmit(options: EmailPayload): Promise<void> {
   }
 }
 
-async function sendViaMailChannels(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
+async function sendViaMailChannels(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+  attempt?: { ownerBcc: boolean },
+): Promise<void> {
   const fromEmail = env.BOOKING_FROM_EMAIL?.trim() || DEFAULT_BOOKING_EMAIL;
+  const bcc = ownerBccFor(env, options);
 
   const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
     method: "POST",
@@ -193,6 +286,7 @@ async function sendViaMailChannels(env: WorkerEmailEnv, options: EmailPayload): 
       personalizations: [
         {
           to: [{ email: options.to, name: options.toName ?? options.to }],
+          ...(bcc ? { bcc: [{ email: bcc }] } : {}),
         },
       ],
       from: {
@@ -214,11 +308,22 @@ async function sendViaMailChannels(env: WorkerEmailEnv, options: EmailPayload): 
   if (!response.ok) {
     throw new Error("MailChannels request failed");
   }
+  if (attempt && bcc) attempt.ownerBcc = true;
+}
+
+async function sendCustomerResend(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+  attempt: { ownerBcc: boolean },
+): Promise<void> {
+  const sent = await sendResendAllowingBccRejection(env, options, ownerBccFor(env, options));
+  attempt.ownerBcc = sent.ownerBcc;
 }
 
 function buildProviderChain(
   env: WorkerEmailEnv,
   options: EmailPayload,
+  attempt: { ownerBcc: boolean },
 ): Array<{ label: string; run: () => Promise<void> }> {
   const providers: Array<{ label: string; run: () => Promise<void> }> = [];
   const wantsHtml = Boolean(options.htmlBody?.trim());
@@ -236,7 +341,7 @@ function buildProviderChain(
       providers.push({
         label: "resend",
         run: async () => {
-          await sendViaResend(env, options);
+          await sendCustomerResend(env, options, attempt);
         },
       });
     }
@@ -251,7 +356,7 @@ function buildProviderChain(
     } else if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
       providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
     }
-    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options, attempt) });
     return providers;
   }
 
@@ -260,7 +365,7 @@ function buildProviderChain(
       providers.push({
         label: "resend",
         run: async () => {
-          await sendViaResend(env, options);
+          await sendViaResend(env, options, null);
         },
       });
     }
@@ -270,7 +375,7 @@ function buildProviderChain(
     if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
       providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
     }
-    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+    providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options, attempt) });
     return providers;
   }
 
@@ -285,14 +390,14 @@ function buildProviderChain(
     providers.push({
       label: "resend",
       run: async () => {
-        await sendViaResend(env, options);
+        await sendViaResend(env, options, null);
       },
     });
   }
   if (env.WEB3FORMS_ACCESS_KEY?.trim()) {
     providers.push({ label: "web3forms", run: () => sendViaWeb3Forms(env, options) });
   }
-  providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options) });
+  providers.push({ label: "mailchannels", run: () => sendViaMailChannels(env, options, attempt) });
 
   return providers;
 }
@@ -301,13 +406,19 @@ export async function trySendEmail(
   env: WorkerEmailEnv,
   options: EmailPayload,
 ): Promise<EmailSendResult> {
-  const providers = buildProviderChain(env, options);
+  const resendAttempt = { ownerBcc: false };
+  warnIfOwnerCopyUnavailable(env, options);
+  const providers = buildProviderChain(env, options, resendAttempt);
   let lastError: unknown = null;
 
   for (const provider of providers) {
     try {
       await provider.run();
-      return { sent: true, provider: provider.label };
+      return {
+        sent: true,
+        provider: provider.label,
+        ...(resendAttempt.ownerBcc ? { ownerBcc: true } : {}),
+      };
     } catch (error) {
       lastError = error;
       console.error(`Email via ${provider.label} failed`, error);
@@ -358,12 +469,15 @@ export async function trySendResendOnlyEmail(
     return { sent: false, error: "Resend is not configured (RESEND_API_KEY)" };
   }
 
+  warnIfOwnerCopyUnavailable(env, options);
+
   try {
-    const resendId = await sendViaResend(env, options);
+    const sent = await sendResendAllowingBccRejection(env, options, ownerBccFor(env, options));
     return {
       sent: true,
       provider: "resend",
-      ...(resendId ? { resendId } : {}),
+      ...(sent.resendId ? { resendId: sent.resendId } : {}),
+      ...(sent.ownerBcc ? { ownerBcc: true } : {}),
     };
   } catch (error) {
     console.error("Resend-only email failed", error);

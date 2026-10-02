@@ -140,6 +140,15 @@ export type TrackingJobRecord = {
   tipToken?: string;
   /** When the completion thank-you text was first prepared. Repeats do not resend. */
   tipWhatsappPreparedAt?: string;
+  /**
+   * Journey-day airport collection information email (one send per leg).
+   * Set only after the provider accepts the message. Absent means not sent.
+   */
+  airportCollectionInfoSentAt?: string;
+  /** Earlier name for the same per-leg send. Still treated as already sent. */
+  airportPickupReminderSentAt?: string;
+  airportPickupReminderFailedAt?: string;
+  airportPickupReminderLastError?: string;
 };
 
 export type DriverLocationPoint = {
