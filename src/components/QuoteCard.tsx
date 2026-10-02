@@ -211,7 +211,9 @@ import {
 } from "@/lib/personal-quote-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
-import QuoteResultShowcase from "@/components/QuoteResultShowcase";
+import QuoteResultShowcase, {
+  preloadQuoteResultVehicleImages,
+} from "@/components/QuoteResultShowcase";
 import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
@@ -662,6 +664,7 @@ function QuoteCard({
   initialPickupPlace = null,
   initialDropoffPlace = null,
 }: QuoteCardProps) {
+  preloadQuoteResultVehicleImages();
   const cardRef = useRef<HTMLDivElement>(null);
   const step1JourneyRef = useRef<HTMLDivElement>(null);
   /** Stage 6: YOUR ROUTE / results stack after bags complete. */
