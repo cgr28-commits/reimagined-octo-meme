@@ -59,6 +59,12 @@ export type SumUpCheckoutDetails = {
    * GET /v0.1/checkouts/{id}. This is not the time the customer paid.
    */
   date?: string;
+  /**
+   * SumUp sometimes returns the paid transaction on the checkout itself
+   * before `transactions` is populated.
+   */
+  transaction_id?: string;
+  transaction_code?: string;
   transactions?: Array<{
     status?: string;
     transaction_code?: string;
@@ -140,13 +146,297 @@ export function isSumUpCheckoutPaid(checkout: SumUpCheckoutDetails): boolean {
   return checkout.transactions?.some((transaction) => transaction.status === "SUCCESSFUL") ?? false;
 }
 
+function trimSumUpId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+export type CheckoutTransactionIds = {
+  transactionId?: string;
+  transactionCode?: string;
+  /** Where on this checkout payload the values were read from. */
+  source: "checkout_transactions" | "checkout_fields";
+};
+
+/**
+ * Authoritative transaction identifiers already present on a checkout payload.
+ * A SUCCESSFUL `transactions[]` entry wins. When SumUp has marked the checkout
+ * PAID but that array is empty, top-level `transaction_id` / `transaction_code`
+ * are the same resource's fields — not a guessed id.
+ */
+export function successfulTransactionFromCheckout(
+  checkout: SumUpCheckoutDetails,
+): CheckoutTransactionIds | null {
+  const successful = checkout.transactions?.find(
+    (transaction) => transaction.status === "SUCCESSFUL",
+  );
+  const listId = trimSumUpId(successful?.id);
+  const listCode = trimSumUpId(successful?.transaction_code);
+  const paid = checkout.status === "PAID";
+  const fieldId = paid ? trimSumUpId(checkout.transaction_id) : undefined;
+  const fieldCode = paid ? trimSumUpId(checkout.transaction_code) : undefined;
+  const transactionId = listId || fieldId;
+  const transactionCode = listCode || fieldCode;
+  if (!transactionId && !transactionCode) return null;
+  return {
+    transactionId,
+    transactionCode,
+    source: listId || listCode ? "checkout_transactions" : "checkout_fields",
+  };
+}
+
 export function getSuccessfulTransactionCode(checkout: SumUpCheckoutDetails): string | undefined {
-  return checkout.transactions?.find((transaction) => transaction.status === "SUCCESSFUL")
-    ?.transaction_code;
+  return successfulTransactionFromCheckout(checkout)?.transactionCode;
 }
 
 export function getSuccessfulTransactionId(checkout: SumUpCheckoutDetails): string | undefined {
-  return checkout.transactions?.find((transaction) => transaction.status === "SUCCESSFUL")?.id;
+  return successfulTransactionFromCheckout(checkout)?.transactionId;
+}
+
+export type SumUpTransactionResolveSource =
+  | "checkout_transactions"
+  | "checkout_fields"
+  | "checkout_refetch"
+  | "checkout_reference"
+  | "transaction_details"
+  | "unresolved";
+
+export type ResolvedSumUpTransaction = {
+  checkout: SumUpCheckoutDetails;
+  transactionId?: string;
+  transactionCode?: string;
+  source: SumUpTransactionResolveSource;
+};
+
+function logSumUpTransaction(
+  event: string,
+  detail: Record<string, string | number | boolean | undefined>,
+): void {
+  const safe: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(detail)) {
+    if (value !== undefined) safe[key] = value;
+  }
+  console.log(`[sumup-transaction] ${event}`, safe);
+}
+
+function checkoutCarryingTransaction(
+  checkout: SumUpCheckoutDetails,
+  found: { transactionId?: string; transactionCode?: string } | null,
+): SumUpCheckoutDetails {
+  if (!found?.transactionId && !found?.transactionCode) return checkout;
+  return {
+    ...checkout,
+    ...(found.transactionId ? { transaction_id: found.transactionId } : {}),
+    ...(found.transactionCode ? { transaction_code: found.transactionCode } : {}),
+  };
+}
+
+function mergeTransactionIds(
+  current: CheckoutTransactionIds | null,
+  next: CheckoutTransactionIds | null,
+): CheckoutTransactionIds | null {
+  if (!next) return current;
+  if (!current) return next;
+  return {
+    transactionId: current.transactionId || next.transactionId,
+    transactionCode: current.transactionCode || next.transactionCode,
+    source: current.transactionId ? current.source : next.source,
+  };
+}
+
+/** Accept a retrieve-transaction result only when it matches the code we asked for. */
+async function lookupSuccessfulTransactionByCode(
+  apiKey: string,
+  merchantCode: string | undefined,
+  transactionCode: string,
+): Promise<{ transactionId: string; transactionCode: string } | null> {
+  const code = transactionCode.trim();
+  if (!code) return null;
+  const details = await getSumUpTransactionDetails(apiKey, code, merchantCode);
+  const returnedCode = details?.transaction_code?.trim() ?? "";
+  const transactionId = details?.id?.trim() ?? "";
+  // Retrieve-by-code must echo that code and a distinct transaction id.
+  // getSumUpTransactionDetails falls back to the query string when the body
+  // has no id — that is not an authoritative SumUp transaction id.
+  if (returnedCode !== code || !transactionId || transactionId === code) return null;
+  const status = String(details?.status ?? "").trim().toUpperCase();
+  if (status && status !== "SUCCESSFUL" && status !== "REFUNDED" && status !== "PAID") {
+    return null;
+  }
+  return { transactionId, transactionCode: returnedCode };
+}
+
+/**
+ * Resolve the SumUp transaction for a checkout that is already PAID.
+ * Reads `transactions[]` first, then the checkout's own transaction fields,
+ * then read-only GETs (re-fetch checkout, checkout-reference list, retrieve
+ * transaction by a code SumUp already returned).
+ *
+ * Does not create a checkout, charge, or refund. Does not search transaction
+ * history by checkout reference — that endpoint matches `transaction_code`
+ * and can return an unrelated first row.
+ */
+export async function resolveAuthoritativeSumUpTransaction(input: {
+  apiKey: string;
+  merchantCode?: string;
+  checkout: SumUpCheckoutDetails;
+  paymentReference?: string;
+}): Promise<ResolvedSumUpTransaction> {
+  const original = input.checkout;
+  const checkoutId = original.id?.trim() ?? "";
+  const paymentReference =
+    input.paymentReference?.trim() || original.checkout_reference?.trim() || undefined;
+
+  if (!isSumUpCheckoutPaid(original)) {
+    return { checkout: original, source: "unresolved" };
+  }
+
+  const initial = successfulTransactionFromCheckout(original);
+  if (initial?.transactionId) {
+    return {
+      checkout: checkoutCarryingTransaction(original, initial),
+      transactionId: initial.transactionId,
+      transactionCode: initial.transactionCode,
+      source: initial.source,
+    };
+  }
+
+  logSumUpTransaction("paid checkout missing transaction id", {
+    checkoutId,
+    checkoutReference: original.checkout_reference,
+    paymentReference,
+    status: original.status,
+    transactionCount: original.transactions?.length ?? 0,
+    hasTransactionCode: Boolean(initial?.transactionCode),
+  });
+
+  let best = original;
+  let found = initial;
+  const apiKey = input.apiKey.trim();
+
+  if (apiKey && checkoutId) {
+    logSumUpTransaction("transaction reconcile attempt", {
+      checkoutId,
+      checkoutReference: original.checkout_reference,
+      paymentReference,
+      source: "checkout_refetch",
+    });
+    try {
+      const refreshed = await getSumUpCheckout(apiKey, checkoutId);
+      if (refreshed.id?.trim() === checkoutId && isSumUpCheckoutPaid(refreshed)) {
+        best = refreshed;
+        const fromRefresh = successfulTransactionFromCheckout(refreshed);
+        found = mergeTransactionIds(found, fromRefresh);
+        if (found?.transactionId && fromRefresh?.transactionId) {
+          logSumUpTransaction("transaction reconcile success", {
+            checkoutId,
+            checkoutReference: refreshed.checkout_reference,
+            paymentReference,
+            source: "checkout_refetch",
+            transactionId: found.transactionId,
+            hasTransactionCode: Boolean(found.transactionCode),
+          });
+          return {
+            checkout: checkoutCarryingTransaction(best, found),
+            transactionId: found.transactionId,
+            transactionCode: found.transactionCode,
+            source: "checkout_refetch",
+          };
+        }
+      }
+    } catch {
+      logSumUpTransaction("transaction reconcile failed", {
+        checkoutId,
+        checkoutReference: original.checkout_reference,
+        paymentReference,
+        source: "checkout_refetch",
+      });
+    }
+  }
+
+  const reference = best.checkout_reference?.trim() || original.checkout_reference?.trim() || "";
+  if (apiKey && reference && !found?.transactionId) {
+    logSumUpTransaction("transaction reconcile attempt", {
+      checkoutId,
+      checkoutReference: reference,
+      paymentReference,
+      source: "checkout_reference",
+    });
+    const listed = await listSumUpCheckoutsByReference(apiKey, reference);
+    const match = listed.find((item) => item.id?.trim() === checkoutId);
+    if (match && isSumUpCheckoutPaid(match)) {
+      best = match;
+      const fromList = successfulTransactionFromCheckout(match);
+      found = mergeTransactionIds(found, fromList);
+      if (found?.transactionId && fromList?.transactionId) {
+        logSumUpTransaction("transaction reconcile success", {
+          checkoutId,
+          checkoutReference: reference,
+          paymentReference,
+          source: "checkout_reference",
+          transactionId: found.transactionId,
+          hasTransactionCode: Boolean(found.transactionCode),
+        });
+        return {
+          checkout: checkoutCarryingTransaction(best, found),
+          transactionId: found.transactionId,
+          transactionCode: found.transactionCode,
+          source: "checkout_reference",
+        };
+      }
+    }
+  }
+
+  const code = found?.transactionCode?.trim() ?? "";
+  if (apiKey && code && !found?.transactionId) {
+    logSumUpTransaction("transaction reconcile attempt", {
+      checkoutId,
+      checkoutReference: reference || original.checkout_reference,
+      paymentReference,
+      source: "transaction_details",
+    });
+    const lookedUp = await lookupSuccessfulTransactionByCode(
+      apiKey,
+      input.merchantCode,
+      code,
+    );
+    if (lookedUp) {
+      found = {
+        transactionId: lookedUp.transactionId,
+        transactionCode: lookedUp.transactionCode,
+        source: "checkout_fields",
+      };
+      logSumUpTransaction("transaction reconcile success", {
+        checkoutId,
+        checkoutReference: reference || original.checkout_reference,
+        paymentReference,
+        source: "transaction_details",
+        transactionId: lookedUp.transactionId,
+        hasTransactionCode: true,
+      });
+      return {
+        checkout: checkoutCarryingTransaction(best, found),
+        transactionId: lookedUp.transactionId,
+        transactionCode: lookedUp.transactionCode,
+        source: "transaction_details",
+      };
+    }
+  }
+
+  logSumUpTransaction("transaction reconcile unresolved", {
+    checkoutId,
+    checkoutReference: reference || original.checkout_reference,
+    paymentReference,
+    hasTransactionCode: Boolean(found?.transactionCode),
+  });
+
+  return {
+    checkout: checkoutCarryingTransaction(best, found),
+    transactionId: found?.transactionId,
+    transactionCode: found?.transactionCode,
+    source: "unresolved",
+  };
 }
 
 export type SumUpRefundResult = {
