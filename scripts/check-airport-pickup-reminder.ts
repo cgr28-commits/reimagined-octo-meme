@@ -9,6 +9,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  AIRPORT_COLLECTION_EMAIL_SUBJECT,
+  airportCollectionSendAt,
+  airportPickupReminderGreeting,
   airportPickupReminderUsesCompanyVoice,
   buildAirportPickupReminderDirections,
   buildAirportPickupReminderMessage,
@@ -69,10 +72,10 @@ function assertWhatsAppEmail(input: AirportPickupReminderInput, airportName: str
   assert.equal(decision.eligible, true);
   if (!decision.eligible) return;
   const { html, message, whatsAppHref, whatsAppDraft } = decision;
-  assert.match(message, /Once you have reached the pickup location and are ready to be collected, please contact us\./);
-  assert.match(message, /Message us on WhatsApp:/);
+  assert.match(message, /Once you have reached your pickup location and are ready to be collected, please contact us:/);
+  assert.match(message, /MESSAGE US ON WHATSAPP/);
   assert.match(message, /Or call our Business Line:/);
-  assert.match(html, />Message us on WhatsApp</);
+  assert.match(html, />MESSAGE US ON WHATSAPP</);
   assert.equal(html.includes(`href="${whatsAppHref}"`), true);
   assert.match(html, /If the button does not open, use this link:/);
   assert.match(html, new RegExp(`href="tel:${BUSINESS_PHONE_TEL.replace("+", "\\+")}"`));
@@ -100,10 +103,15 @@ function assertWhatsAppEmail(input: AirportPickupReminderInput, airportName: str
 
 console.log("=== Belfast International Express ===");
 {
-  const message = messageOf(dueCollection());
+  const decision = evaluateAirportPickupReminder(dueCollection(), NOW);
+  assert.equal(decision.eligible, true);
+  assert.ok(decision.eligible);
+  assert.equal(decision.subject, AIRPORT_COLLECTION_EMAIL_SUBJECT);
+  const message = decision.message;
   assert.match(message, /Hi Sarah,/);
   assert.match(message, /Belfast International Airport/);
-  assert.match(message, /16:30/);
+  assert.match(message, /4:30 PM/);
+  assert.match(message, /Express Pickup/);
   assert.match(message, /Express Pick-Up/);
   assert.doesNotMatch(message, /Long Stay/i);
   assert.doesNotMatch(message, /10 minutes/i);
@@ -120,7 +128,8 @@ console.log("=== Belfast International Free ===");
   );
   assert.match(message, /Long Stay Car Park Free Pick-Up Location/);
   assert.match(message, /maximum stay of 10 minutes/i);
-  assert.match(message, /Flight: EI123/);
+  assert.match(message, /Free Pickup/);
+  assert.doesNotMatch(message, /Collection option: Express/);
   assert.doesNotMatch(message, /Express/i);
   assertCompanyReminder(message);
   assertWhatsAppEmail(
@@ -186,7 +195,8 @@ console.log("=== Dublin terminals ===");
   );
   assert.match(terminal1, /paid Pick-Up Location at Terminal 1/);
   assert.match(terminal1, /Dublin Airport/);
-  assert.match(terminal1, /Flight: EI164/);
+  assert.match(terminal1, /Collection option: Paid pickup/);
+  assert.doesNotMatch(terminal1, /Flight:/);
   assert.doesNotMatch(terminal1, /Long Stay|Free Pick-Up|Free Pickup/i);
   assertCompanyReminder(terminal1);
   assertWhatsAppEmail(
@@ -209,6 +219,7 @@ console.log("=== Dublin terminals ===");
     }),
   );
   assert.match(terminal2, /paid Pick-Up Location at Terminal 2/);
+  assert.match(terminal2, /Collection option: Paid pickup/);
   assert.doesNotMatch(terminal2, /Terminal 1/);
   assert.doesNotMatch(terminal2, /Long Stay|Free Pick-Up/i);
   assertCompanyReminder(terminal2);
@@ -285,8 +296,24 @@ console.log("=== Eligibility ===");
     null,
   );
 
-  const tooEarly = evaluateAirportPickupReminder(dueCollection({ tripTime: "19:30" }), NOW);
+  const tooEarly = evaluateAirportPickupReminder(dueCollection({ tripTime: "20:00" }), NOW);
   assert.equal(tooEarly.reason, "too_early");
+
+  const eveningDue = evaluateAirportPickupReminder(dueCollection({ tripTime: "18:00" }), NOW);
+  assert.equal(eveningDue.eligible, true);
+  if (eveningDue.eligible) {
+    assert.equal(eveningDue.subject, AIRPORT_COLLECTION_EMAIL_SUBJECT);
+    assert.match(eveningDue.message, /Pickup time: 6:00 PM/);
+    assert.doesNotMatch(eveningDue.message, /bookings@|Rinkel/i);
+    assert.doesNotMatch(eveningDue.html, /bookings@|Rinkel/i);
+    assert.equal(eveningDue.html.includes("cc:"), false);
+  }
+
+  const beforeFourHours = evaluateAirportPickupReminder(
+    dueCollection({ tripTime: "18:00" }),
+    new Date("2026-10-02T12:30:00.000Z"),
+  );
+  assert.equal(beforeFourHours.reason, "too_early");
 
   const passed = evaluateAirportPickupReminder(dueCollection({ tripTime: "13:00" }), NOW);
   assert.equal(passed.reason, "pickup_passed");
@@ -295,16 +322,66 @@ console.log("=== Eligibility ===");
     dueCollection({ tripDate: "2026-10-03", tripTime: "01:00" }),
     NOW,
   );
-  assert.equal(tomorrow.reason, "not_today");
+  assert.equal(tomorrow.reason, "too_early");
 
-  const nightBefore = evaluateAirportPickupReminder(dueCollection({ tripTime: "01:00" }), new Date("2026-10-01T21:00:00.000Z"));
-  assert.equal(nightBefore.reason, "not_today");
+  const nightBefore = evaluateAirportPickupReminder(
+    dueCollection({ tripTime: "01:00" }),
+    new Date("2026-10-01T21:00:00.000Z"),
+  );
+  assert.equal(nightBefore.eligible, true);
 
   const earlySameDay = evaluateAirportPickupReminder(
     dueCollection({ tripTime: "01:00" }),
     new Date("2026-10-01T23:30:00.000Z"),
   );
   assert.equal(earlySameDay.eligible, true);
+
+  const overnight = evaluateAirportPickupReminder(
+    dueCollection({ tripTime: "06:00" }),
+    new Date("2026-10-01T01:00:00.000Z"),
+  );
+  assert.equal(overnight.reason, "too_early");
+
+  const previousEvening = evaluateAirportPickupReminder(
+    dueCollection({ tripTime: "06:00" }),
+    new Date("2026-10-01T19:00:00.000Z"),
+  );
+  assert.equal(previousEvening.eligible, true);
+
+  const beforeMorning = evaluateAirportPickupReminder(
+    dueCollection({ tripTime: "09:00" }),
+    new Date("2026-10-02T05:30:00.000Z"),
+  );
+  assert.equal(beforeMorning.reason, "too_early");
+
+  const morningWindow = evaluateAirportPickupReminder(
+    dueCollection({ tripTime: "09:00" }),
+    new Date("2026-10-02T06:00:00.000Z"),
+  );
+  assert.equal(morningWindow.eligible, true);
+
+  const pickupMovedLater = evaluateAirportPickupReminder(
+    dueCollection({ tripTime: "20:00" }),
+    new Date("2026-10-02T13:30:00.000Z"),
+  );
+  assert.equal(pickupMovedLater.reason, "too_early");
+  const pickupMovedDue = evaluateAirportPickupReminder(
+    dueCollection({ tripTime: "18:00" }),
+    new Date("2026-10-02T13:30:00.000Z"),
+  );
+  assert.equal(pickupMovedDue.eligible, true);
+  if (pickupMovedDue.eligible) assert.match(pickupMovedDue.message, /6:00 PM/);
+
+  const optionExpress = messageOf(
+    dueCollection({ outboundAirportAccessOption: "express", tripTime: "18:00" }),
+  );
+  assert.match(optionExpress, /Express Pick-Up/);
+  assert.doesNotMatch(optionExpress, /Long Stay/i);
+  const optionFree = messageOf(
+    dueCollection({ outboundAirportAccessOption: "free", tripTime: "18:00" }),
+  );
+  assert.match(optionFree, /Long Stay Car Park Free Pick-Up Location/);
+  assert.doesNotMatch(optionFree, /Express/i);
 
   const sent = evaluateAirportPickupReminder(
     dueCollection({ reminderSentAt: "2026-10-02T13:30:00.000Z" }),
@@ -349,7 +426,7 @@ console.log("=== Return leg is independent ===");
   );
   assert.match(returnCollection, /Long Stay Car Park Free Pick-Up Location/);
   assert.doesNotMatch(returnCollection, /Express/i);
-  assert.match(returnCollection, /Flight: EZY123/);
+  assert.doesNotMatch(returnCollection, /Flight:/);
   assertCompanyReminder(returnCollection);
 
   const cancelledReturn = evaluateAirportPickupReminder(
@@ -389,6 +466,14 @@ console.log("=== Missing first name ===");
   }
   const spaced = messageOf(dueCollection({ customerName: "  Sarah   Johnson  " }));
   assert.match(spaced, /^Hi Sarah,/);
+  const single = dueCollection({ customerName: "Sarah" });
+  assert.equal(airportPickupReminderGreeting(single.customerName), "Hi Sarah,");
+  const singleMessage = messageOf(single);
+  assert.match(singleMessage, /^Hi Sarah,/);
+  assert.equal(single.customerName, "Sarah");
+  const full = dueCollection();
+  evaluateAirportPickupReminder(full, NOW);
+  assert.equal(full.customerName, "Sarah Johnson");
   console.log("OK  greeting falls back without an empty name");
 }
 
@@ -398,11 +483,29 @@ console.log("=== Wiring ===");
   const handler = read("workers/addresses/src/airport-pickup-reminder-handlers.ts");
   assert.match(cron, /processDueAirportPickupReminders\(env\)/);
   assert.match(handler, /trySendResendOnlyCustomerEmail/);
+  assert.match(handler, /listUpcomingTrackingJobs\(env\.TRACKING_STORE, 1\)/);
+  assert.match(handler, /paid\?\.returnTime/);
+  assert.match(handler, /paid\?\.tripTime/);
+  assert.match(handler, /airportCollectionInfoSentAt/);
   assert.match(handler, /airportPickupReminderSentAt/);
   assert.doesNotMatch(handler, /twilio|sms:|wa\.me/i);
   assert.doesNotMatch(read("shared/airport-pickup-reminder.ts"), /twilio/i);
   const directions = buildAirportPickupReminderDirections(dueCollection({ outboundAirportAccessOption: "free" }));
   assert.match(directions ?? "", /Long Stay Car Park Free Pick-Up Location/);
+  const dublinDraft = evaluateAirportPickupReminder(
+    dueCollection({
+      pickupLabel: "Dublin Airport",
+      airportCode: "DUB",
+      dublinArrivalTerminal: "T1",
+    }),
+    NOW,
+  );
+  assert.equal(dublinDraft.eligible, true);
+  if (dublinDraft.eligible) {
+    assert.match(dublinDraft.whatsAppDraft, /Dublin Airport, Terminal 1/);
+  }
+  const sendAt = airportCollectionSendAt(new Date("2026-10-02T17:00:00.000Z"));
+  assert.equal(sendAt?.toISOString(), "2026-10-02T13:00:00.000Z");
   console.log("OK  hourly email cron, no SMS provider, existing pickup copy");
 }
 

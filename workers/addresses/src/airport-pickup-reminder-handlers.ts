@@ -11,7 +11,7 @@ import {
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import type { TrackingJobRecord } from "../shared/tracking";
 import { getPaidBookingRecord } from "./paid-booking-store";
-import { listTrackingJobsForDate, saveTrackingJob, trackingStoreConfigured } from "./tracking-store";
+import { listUpcomingTrackingJobs, saveTrackingJob, trackingStoreConfigured } from "./tracking-store";
 import { trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
@@ -26,36 +26,42 @@ export type AirportPickupReminderRunResult = {
   errors: number;
 };
 
-function londonToday(now: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
-}
-
 export function airportPickupReminderInput(
   job: TrackingJobRecord,
   paid: PaidBookingRecord | null,
 ): AirportPickupReminderInput {
   const leg = job.journeyLeg === "return" ? "return" : "outbound";
+  // Build from the paid booking at send time so a changed pickup, airport,
+  // or return leg is used. The tracking job is only the fallback.
+  const schedule =
+    leg === "return"
+      ? {
+          tripDate: paid?.returnDate?.trim() || job.tripDate,
+          tripTime: paid?.returnTime?.trim() || job.tripTime,
+          pickupLabel: paid?.dropoffLabel?.trim() || job.pickupLabel,
+          dropoffLabel: paid?.pickupLabel?.trim() || job.dropoffLabel,
+        }
+      : {
+          tripDate: paid?.tripDate?.trim() || job.tripDate,
+          tripTime: paid?.tripTime?.trim() || job.tripTime,
+          pickupLabel: paid?.pickupLabel?.trim() || job.pickupLabel,
+          dropoffLabel: paid?.dropoffLabel?.trim() || job.dropoffLabel,
+        };
+  const isFromAirport =
+    typeof paid?.isFromAirport === "boolean"
+      ? leg === "return"
+        ? !paid.isFromAirport
+        : paid.isFromAirport
+      : job.isFromAirport;
   return {
-    customerName: job.customerName || paid?.customerName,
-    customerEmail: job.customerEmail || paid?.customerEmail,
-    pickupLabel: job.pickupLabel,
-    dropoffLabel: job.dropoffLabel,
-    tripDate: job.tripDate,
-    tripTime: job.tripTime,
+    customerName: paid?.customerName || job.customerName,
+    customerEmail: paid?.customerEmail || job.customerEmail,
+    pickupLabel: schedule.pickupLabel,
+    dropoffLabel: schedule.dropoffLabel,
+    tripDate: schedule.tripDate,
+    tripTime: schedule.tripTime,
     journeyLeg: leg,
-    isFromAirport:
-      typeof job.isFromAirport === "boolean"
-        ? job.isFromAirport
-        : leg === "return"
-          ? typeof paid?.isFromAirport === "boolean"
-            ? !paid.isFromAirport
-            : undefined
-          : paid?.isFromAirport,
+    isFromAirport,
     airportCode: job.airportCode || paid?.airportCode,
     flightNumber: job.flightNumber,
     airportAccessOption: paid?.airportAccessOption,
@@ -71,7 +77,7 @@ export function airportPickupReminderInput(
     expressDropOffAirport: paid?.expressDropOffAirport,
     dublinArrivalTerminal: paid?.dublinArrivalTerminal,
     returnDublinArrivalTerminal: paid?.returnDublinArrivalTerminal,
-    reminderSentAt: job.airportPickupReminderSentAt,
+    reminderSentAt: job.airportCollectionInfoSentAt || job.airportPickupReminderSentAt,
     refundedAt: job.refundedAt,
     operationalStatus: paid?.operationalStatus,
     bookingStatus: paid?.status,
@@ -101,7 +107,7 @@ export async function processDueAirportPickupReminders(
     return result;
   }
 
-  const jobs = await listTrackingJobsForDate(env.TRACKING_STORE, londonToday(now));
+  const jobs = await listUpcomingTrackingJobs(env.TRACKING_STORE, 1);
   result.scanned = jobs.length;
 
   for (const job of jobs) {
@@ -126,7 +132,7 @@ async function maybeSendAirportPickupReminder(
   job: TrackingJobRecord,
   now: Date,
 ): Promise<"not_eligible" | "eligible_skipped" | "sent" | "eligible_error"> {
-  if (job.airportPickupReminderSentAt?.trim()) {
+  if (job.airportCollectionInfoSentAt?.trim() || job.airportPickupReminderSentAt?.trim()) {
     return "not_eligible";
   }
 
@@ -157,7 +163,7 @@ async function maybeSendAirportPickupReminder(
     return "eligible_error";
   }
 
-  job.airportPickupReminderSentAt = new Date().toISOString();
+  job.airportCollectionInfoSentAt = new Date().toISOString();
   delete job.airportPickupReminderFailedAt;
   delete job.airportPickupReminderLastError;
   await saveTrackingJob(env.TRACKING_STORE!, job);

@@ -27,26 +27,39 @@ import {
   resolveAirportAccessOption,
 } from "./express-drop-off";
 import { getServedAirport, matchServedAirportCode } from "./served-airports";
-import { formatUkTime, parseLondonLocalDateTime, UK_TIME_ZONE } from "./uk-time";
+import { parseLondonLocalDateTime, UK_TIME_ZONE } from "./uk-time";
 
-/** Send once the pickup is within this lead, and only on the London travel day. */
-export const AIRPORT_PICKUP_REMINDER_LEAD_MS = 3 * 60 * 60 * 1000;
+/** About four hours before the booked airport pickup. Not the flight arrival time. */
+export const AIRPORT_COLLECTION_LEAD_MS = 4 * 60 * 60 * 1000;
+
+/** Kept so older checks can see the collection lead. */
+export const AIRPORT_PICKUP_REMINDER_LEAD_MS = AIRPORT_COLLECTION_LEAD_MS;
+
+export const AIRPORT_COLLECTION_EMAIL_SUBJECT =
+  "Important information about your airport collection";
+
+/** Do not send between 22:00 and 07:00 London. */
+const QUIET_HOUR_START = 22;
+const QUIET_HOUR_END = 7;
 
 const REMINDER_AIRPORTS = ["BFS", "BHD", "DUB"] as const;
 type ReminderAirportCode = (typeof REMINDER_AIRPORTS)[number];
 
-const SAFE_LIMITED_WAITING_COPY =
-  "Airport pickup areas have limited waiting time, so please don't ask your driver to enter the pickup area until you are ready to be collected.";
-
-const VERIFIED_TEN_MINUTE_COPY =
-  "The airport pickup area has a maximum stay of 10 minutes, so please contact us once you are at the pickup location and ready to be collected.";
-
 const CONTACT_INTRO =
-  "Once you have reached the pickup location and are ready to be collected, please contact us.";
+  "Once you have reached your pickup location and are ready to be collected, please contact us:";
+
+const READY_COPY =
+  "Airport pickup areas have limited waiting time, so please contact us once you have reached the pickup location and are ready to be collected.";
 
 const BUSINESS_LINE_LABEL = "Or call our Business Line:";
 
-const MEET_COPY = "Your driver will then meet you at the pickup location.";
+const INTRO_COPY =
+  "Your airport collection with My Airport Taxi NI is coming up today.";
+
+const READ_COPY =
+  "Please read the information below carefully, as it explains where you need to go after arriving at the airport and how to let us know when you're ready to be collected.";
+
+const MEET_COPY = "Your driver will then meet you at the designated pickup location.";
 
 export type AirportPickupReminderLeg = "outbound" | "return";
 
@@ -138,7 +151,14 @@ export function airportPickupWhatsAppDraft(input: AirportPickupReminderInput): s
   const reference = normalizeCustomerBookingReference(input.customerReference);
   const who = first ? `Hi, this is ${first}.` : "Hi.";
   const booking = reference ? `booking ${reference}` : `my ${BUSINESS_NAME} booking`;
-  return `${who} I have arrived at ${airportName} and I'm now at the pickup location for ${booking}.`;
+  const terminal = airport === "DUB" ? dublinTerminalForLeg(input) : null;
+  const place =
+    terminal === "T1"
+      ? `${airportName}, Terminal 1`
+      : terminal === "T2"
+        ? `${airportName}, Terminal 2`
+        : airportName;
+  return `${who} I have arrived at ${place} and I'm now at the pickup location for ${booking}.`;
 }
 
 export function airportPickupWhatsAppHref(input: AirportPickupReminderInput): string | null {
@@ -155,6 +175,57 @@ export function londonCalendarDate(instant: Date): string {
     month: "2-digit",
     day: "2-digit",
   }).format(instant);
+}
+
+function londonMinutes(instant: Date): number | null {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const hour = Number(parts.find((part) => part.type === "hour")?.value);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return hour * 60 + minute;
+}
+
+export function formatCollectionClock(time: string): string {
+  const match = time.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return "";
+  const hour24 = Number(match[1]);
+  if (hour24 > 23) return "";
+  const suffix = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+  return `${hour12}:${match[2]} ${suffix}`;
+}
+
+function isQuietLondonHour(hour: number): boolean {
+  return hour >= QUIET_HOUR_START || hour < QUIET_HOUR_END;
+}
+
+/**
+ * When the collection email should become due.
+ * Four hours before the booked pickup, moved out of 22:00–07:00 London.
+ */
+export function airportCollectionSendAt(pickupAt: Date): Date | null {
+  if (Number.isNaN(pickupAt.getTime())) return null;
+  const target = new Date(pickupAt.getTime() - AIRPORT_COLLECTION_LEAD_MS);
+  const targetMinutes = londonMinutes(target);
+  const pickupMinutes = londonMinutes(pickupAt);
+  if (targetMinutes == null || pickupMinutes == null || !isQuietLondonHour(Math.floor(targetMinutes / 60))) {
+    return target;
+  }
+
+  const pickupDate = londonCalendarDate(pickupAt);
+  if (pickupMinutes > QUIET_HOUR_END * 60) {
+    const morning = parseLondonLocalDateTime(pickupDate, "07:00");
+    if (morning && morning.getTime() < pickupAt.getTime()) return morning;
+  }
+
+  const midday = parseLondonLocalDateTime(pickupDate, "12:00");
+  if (!midday) return target;
+  return new Date(midday.getTime() - 16 * 60 * 60 * 1000);
 }
 
 function reminderLeg(input: AirportPickupReminderInput): AirportPickupReminderLeg {
@@ -255,13 +326,15 @@ function directionsStateVerifiedTenMinuteStay(directions: string): boolean {
   return /maximum stay of 10 minutes/i.test(directions);
 }
 
-function flightLine(flightNumber: string | null | undefined): string | null {
-  const flight = String(flightNumber ?? "")
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "");
-  if (!/^[A-Z0-9]{2,8}$/.test(flight)) return null;
-  return `Flight: ${flight}`;
+function collectionOptionLabel(
+  airport: ReminderAirportCode,
+  input: AirportPickupReminderInput,
+): string | null {
+  if (airport === "DUB") return "Paid pickup";
+  const access = resolveReminderAirportAccess(input, airport);
+  if (access === "express") return "Express Pickup";
+  if (access === "free") return "Free Pickup";
+  return null;
 }
 
 /** Canonical customer text. Null when this booking must not receive collection directions. */
@@ -274,34 +347,34 @@ export function buildAirportPickupReminderMessage(
   if (!airport || !directions) return null;
 
   const airportName = getServedAirport(airport)?.name ?? airport;
-  const pickupTime = formatUkTime(String(input.tripTime ?? "").trim());
+  const pickupTime = formatCollectionClock(String(input.tripTime ?? "").trim());
+  const option = collectionOptionLabel(airport, input);
   const whatsAppHref = airportPickupWhatsAppHref(input);
   const lines = [
     airportPickupReminderGreeting(input.customerName),
     "",
-    `Just a reminder about your airport transfer with ${BUSINESS_NAME} today.`,
+    INTRO_COPY,
     "",
-    `Your pickup today is from ${airportName}.`,
-    ...(pickupTime ? [`Your collection is booked for ${pickupTime}.`] : []),
-    ...(flightLine(input.flightNumber) ? [flightLine(input.flightNumber)!] : []),
+    READ_COPY,
     "",
+    "YOUR COLLECTION",
+    `Airport: ${airportName}`,
+    ...(pickupTime ? [`Pickup time: ${pickupTime}`] : []),
+    ...(option ? [`Collection option: ${option}`] : []),
+    "",
+    "WHERE TO GO",
     directions,
     "",
-    MEET_COPY,
+    "WHEN YOU ARE READY",
+    READY_COPY,
   ];
-
-  if (directionsStateVerifiedTenMinuteStay(directions)) {
-    lines.push("", VERIFIED_TEN_MINUTE_COPY);
-  } else {
-    lines.push("", SAFE_LIMITED_WAITING_COPY);
-  }
 
   if (whatsAppHref) {
     lines.push(
       "",
       CONTACT_INTRO,
       "",
-      "Message us on WhatsApp:",
+      "MESSAGE US ON WHATSAPP",
       whatsAppHref,
       "",
       BUSINESS_LINE_LABEL,
@@ -309,7 +382,7 @@ export function buildAirportPickupReminderMessage(
     );
   }
 
-  lines.push("", "We look forward to welcoming you.", "", BUSINESS_NAME);
+  lines.push("", MEET_COPY, "", "We look forward to welcoming you.", "", BUSINESS_NAME);
   return lines.join("\n");
 }
 
@@ -351,12 +424,13 @@ export function evaluateAirportPickupReminder(
   const tripDate = String(input.tripDate ?? "").trim();
   const tripTime = String(input.tripTime ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || !tripTime) return skip("missing_pickup_time");
-  if (tripDate !== londonCalendarDate(now)) return skip("not_today");
 
   const pickupAt = parseLondonLocalDateTime(tripDate, tripTime);
   if (!pickupAt) return skip("missing_pickup_time");
+  const sendAt = airportCollectionSendAt(pickupAt);
+  if (!sendAt) return skip("missing_pickup_time");
   if (now.getTime() >= pickupAt.getTime()) return skip("pickup_passed");
-  if (now.getTime() < pickupAt.getTime() - AIRPORT_PICKUP_REMINDER_LEAD_MS) return skip("too_early");
+  if (now.getTime() < sendAt.getTime()) return skip("too_early");
   if (!input.customerEmail?.trim()) return skip("missing_email");
 
   const message = buildAirportPickupReminderMessage(input);
@@ -364,8 +438,7 @@ export function evaluateAirportPickupReminder(
   const whatsAppHref = airportPickupWhatsAppHref(input);
   if (!message || !whatsAppDraft || !whatsAppHref) return skip("unresolved_pickup");
 
-  const airportName = getServedAirport(reminderAirport(input) ?? "")?.name ?? "the airport";
-  const subject = `Airport pickup reminder — ${airportName}`;
+  const subject = AIRPORT_COLLECTION_EMAIL_SUBJECT;
   return {
     eligible: true,
     reason: "due",
@@ -389,7 +462,7 @@ function escapeHtml(value: string): string {
 function whatsAppButtonBlock(href: string): string {
   const safeHref = escapeHtml(href);
   return `<div style="margin:8px 0 20px;text-align:center;">
-<a href="${safeHref}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-size:18px;font-weight:bold;line-height:1.2;padding:16px 28px;border-radius:8px;">Message us on WhatsApp</a>
+<a href="${safeHref}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-size:18px;font-weight:bold;line-height:1.2;padding:16px 28px;border-radius:8px;">MESSAGE US ON WHATSAPP</a>
 <p style="margin:12px 0 0;font-size:13px;line-height:1.5;color:#64748b;text-align:left;">If the button does not open, use this link:<br /><a href="${safeHref}" style="color:#071c38;word-break:break-all;">${safeHref}</a></p>
 </div>`;
 }
@@ -400,8 +473,11 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string): 
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
     .map((paragraph) => {
-      if (paragraph.startsWith("Message us on WhatsApp:")) {
+      if (paragraph.startsWith("MESSAGE US ON WHATSAPP")) {
         return whatsAppButtonBlock(whatsAppHref);
+      }
+      if (paragraph === "YOUR COLLECTION" || paragraph === "WHERE TO GO" || paragraph === "WHEN YOU ARE READY") {
+        return `<p style="margin:18px 0 8px;font-size:13px;letter-spacing:0.08em;font-weight:bold;color:#071c38;">${escapeHtml(paragraph)}</p>`;
       }
       let safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
       if (paragraph.includes(BUSINESS_PHONE_DISPLAY)) {
@@ -417,13 +493,13 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string): 
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Airport pickup reminder</title></head>
+<title>Important information about your airport collection</title></head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;"><tr><td align="center">
 <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
 <tr><td style="background:#071c38;padding:28px 32px;text-align:center;">
 <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#2fbf4a;font-weight:bold;">${escapeHtml(BUSINESS_NAME)}</div>
-<div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Airport pickup reminder</div>
+<div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
 </td></tr>
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}</td></tr>
 </table></td></tr></table>

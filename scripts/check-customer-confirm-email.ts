@@ -45,12 +45,13 @@ const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
 assert.match(finalize, /trySendBrandedCustomerEmail/);
 assert.match(finalize, /trySendOwnerOperationalEmail/);
 assert.match(finalize, /buildCustomerConfirmationEmail/);
-assert.match(finalize, /\[Bookings copy\]/);
+assert.doesNotMatch(finalize, /\[Bookings copy\]/);
+assert.equal(finalize.match(/await trySendBrandedCustomerEmail/g)?.length, 1);
 assert.doesNotMatch(
   finalize,
   /ownerEmailResult = await trySendEmail\(/,
 );
-console.log("OK  paid finalize uses branded customer + bookings@ invoice copy + owner alert");
+console.log("OK  paid finalize sends one customer confirmation; owner copy is BCC plus the short alert");
 
 console.log("\n=== Invoice branding ===");
 const email = buildCustomerConfirmationEmail({

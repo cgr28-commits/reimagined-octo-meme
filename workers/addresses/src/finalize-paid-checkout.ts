@@ -591,21 +591,14 @@ export async function finalizePaidCheckout(input: {
     htmlBody: customerEmail.html,
   });
 
-  // Full invoice copy to bookings@ (HTML), plus the short owner alert.
-  const ownerCopyResult = await trySendBrandedCustomerEmail(env, {
-    to: ownerInbox(env),
-    toName: "Bookings",
-    subject: `[Bookings copy] ${customerEmail.subject}`,
-    body: customerEmail.text,
-    htmlBody: customerEmail.html,
-  });
-
+  // Hidden BCC of this same customer email is applied inside the customer send.
+  // This separate message is the short operational alert, not a second invoice.
   const ownerEmailResult = await trySendOwnerOperationalEmail(env, {
     to: ownerInbox(env),
     subject: ownerEmail.subject,
     body: ownerEmail.body,
   });
-  const ownerNotifySent = ownerCopyResult.sent || ownerEmailResult.sent;
+  const ownerNotifySent = ownerEmailResult.sent;
 
   try {
     const txn = booking.quoteTransactionId?.trim() || "";
@@ -712,8 +705,8 @@ export async function finalizePaidCheckout(input: {
 
   if (!ownerNotifySent) {
     emailWarnings.push(
-      ownerEmailResult.error || ownerCopyResult.error
-        ? `Owner notification email failed: ${ownerEmailResult.error || ownerCopyResult.error}`
+      ownerEmailResult.error
+        ? `Owner notification email failed: ${ownerEmailResult.error}`
         : "Owner notification email failed",
     );
   }

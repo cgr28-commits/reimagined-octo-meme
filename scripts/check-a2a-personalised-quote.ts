@@ -298,7 +298,7 @@ console.log("\n=== Owner A2A quote queue + honest payment email ===");
   assert.match(email, /Accept Changes &amp; Pay Securely|Accept Changes & Pay Securely/);
   assert.match(email, /unable to offer your journey exactly as originally requested/);
   assert.match(email, /Your requested journey has been approved/);
-  assert.match(handlers, /\[Bookings copy\]/);
+  assert.doesNotMatch(handlers, /\[Bookings copy\]/);
   assert.match(handlers, /originalBooking/);
   assert.match(handlers, /isCounterOffer/);
   const pay = read("src/app/pay/a2a-quote/A2aQuotePayClient.tsx");
@@ -308,7 +308,7 @@ console.log("\n=== Owner A2A quote queue + honest payment email ===");
   const shared = read("shared/a2a-personalised-quote.ts");
   assert.match(shared, /listA2aJourneyChanges/);
   assert.match(shared, /isA2aCounterOffer/);
-  console.log("OK  Counter-offer email/pay + edit journey + queue + bookings copy");
+  console.log("OK  Counter-offer email/pay + edit journey + queue; owner copy is BCC");
 }
 
 console.log("\nAll A2A personalised quote checks passed.");
