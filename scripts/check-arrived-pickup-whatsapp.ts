@@ -92,7 +92,8 @@ console.log("\n=== 3. Mobile → wa.me + active leg pickup ===");
 console.log("\n=== 4. Owner panel wires existing arrived_pickup + WhatsApp ===");
 {
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /buildArrivedPickupWhatsAppLink/);
+  assert.match(panel, /buildArrivedPickupWhatsAppMessage/);
+  assert.match(panel, /buildCustomerWhatsAppHref|CustomerMessageChannelChooser/);
   assert.match(panel, /airportAccessOption: booking\.airportAccessOption/);
   assert.match(panel, /activeLegPickupLabel/);
   assert.doesNotMatch(panel, /resolveArrivalVehicleForBooking/);
@@ -109,7 +110,11 @@ console.log("\n=== 4. Owner panel wires existing arrived_pickup + WhatsApp ===")
     shared,
     /return \["start_tracking", "arrived_pickup", "complete_journey"\]/,
   );
-  assert.match(panel, /Open WhatsApp arrival message/);
+  assert.match(panel, /Send arrival message/);
+  const chooser = read("src/components/CustomerMessageChannelChooser.tsx");
+  assert.match(chooser, /data-customer-message-whatsapp/);
+  assert.match(chooser, /data-customer-message-sms/);
+  assert.match(chooser, /data-customer-message-cancel/);
   assert.doesNotMatch(panel, /WHATSAPP_BUSINESS_API_TOKEN/);
   console.log("OK  Extends existing arrival action; click-to-chat only");
 }

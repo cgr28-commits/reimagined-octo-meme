@@ -211,7 +211,7 @@ const driverOnTheWayCall = driver.slice(
 assert.doesNotMatch(driverOnTheWayCall, /driverFirstName:|vehicleColour:|partialRegistration:/);
 
 const owner = read("src/components/OwnerPaidBookingsPanel.tsx");
-assert.match(owner, /openOnTheWayWhatsAppForBooking/);
+assert.match(owner, /onTheWayCustomerMessage\(booking\)/);
 assert.match(owner, /customerName: booking\.customerName/);
 assert.match(owner, /bookedPickupTime: activeLegPickupTime\(booking\)/);
 assert.doesNotMatch(owner, /driverFirstName: booking\.assignedDriverName/);

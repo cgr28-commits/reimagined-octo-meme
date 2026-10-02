@@ -101,9 +101,10 @@ console.log("\n=== 2. Owner panel: colours, spacing, two-stage confirm ===");
   assert.match(controls, /bg-amber-300/);
   assert.match(controls, /bg-emerald/);
 
-  // Customer notification wiring preserved.
-  assert.match(panel, /openOnTheWayWhatsAppForBooking/);
-  assert.match(panel, /openArrivalWhatsAppForBooking/);
+  // Customer notification still offers the on-the-way and arrival messages.
+  assert.match(panel, /onTheWayCustomerMessage\(booking\)/);
+  assert.match(panel, /arrivalCustomerMessage\(booking\)/);
+  assert.match(panel, /CustomerMessageChannelChooser/);
 
   const shared = read("shared/upcoming-jobs.ts");
   const workerShared = read("workers/addresses/shared/upcoming-jobs.ts");

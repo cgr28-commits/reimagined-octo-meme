@@ -434,7 +434,7 @@ check("Owner and driver portals call the shared builders with booking fields onl
   const driver = read("src/app/driver/DriverPageClient.tsx");
   const handlers = read("workers/addresses/src/journey-handlers.ts");
 
-  assert.match(owner, /buildDriverOnTheWayWhatsAppLink/);
+  assert.match(owner, /buildDriverOnTheWayWhatsAppMessage/);
   assert.match(owner, /customerName: booking\.customerName/);
   assert.match(owner, /bookedPickupTime: activeLegPickupTime\(booking\)/);
   assert.match(owner, /airportAccessOption: booking\.airportAccessOption/);

@@ -115,8 +115,13 @@ export function buildTipPageUrl(token: string): string {
   return `${TIP_PUBLIC_ORIGIN}/tip/?t=${encodeURIComponent(token)}`;
 }
 
-export function optionalTipWhatsAppMessage(tipUrl: string): string {
+/** Canonical optional-tip wording. WhatsApp and SMS both use this string. */
+export function optionalTipMessage(tipUrl: string): string {
   return `Thank you for travelling with My Airport Taxi NI. We hope you had a comfortable journey. If you’d like to leave an optional tip, you can do so securely here: ${tipUrl}`;
+}
+
+export function optionalTipWhatsAppMessage(tipUrl: string): string {
+  return optionalTipMessage(tipUrl);
 }
 
 export function tipWhatsAppMessage(decision: StoredTipDecision): string | null {
@@ -124,7 +129,7 @@ export function tipWhatsAppMessage(decision: StoredTipDecision): string | null {
     return TIPPED_IN_PERSON_MESSAGE;
   }
   if (decision.tipDecision === "no" && decision.tipToken && isOpaqueTipToken(decision.tipToken)) {
-    return optionalTipWhatsAppMessage(buildTipPageUrl(decision.tipToken));
+    return optionalTipMessage(buildTipPageUrl(decision.tipToken));
   }
   return null;
 }
