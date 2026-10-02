@@ -113,6 +113,26 @@ function PercentField({
   );
 }
 
+/** Digits and at most one decimal point, including a trailing "." while typing. */
+function isMultiplierTyping(value: string): boolean {
+  return value === "" || /^\d*\.?\d*$/.test(value);
+}
+
+/** A finished positive multiplier. "1." is still being typed and is not a number yet. */
+function completePositiveMultiplier(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
+function withMinibusMultiplierText(draft: PricingDraft, text: string): PricingDraft {
+  const parsed = completePositiveMultiplier(text);
+  if (parsed == null || parsed === draft.minibus.multiplier) return draft;
+  return { ...draft, minibus: { ...draft.minibus, multiplier: parsed } };
+}
+
 function knotLabel(index: number, knots: Array<{ miles: number }>): string {
   if (index === 0) return `Distance rate — up to ${knots[0]?.miles ?? 0} miles`;
   return `Distance rate — ${knots[index - 1]?.miles ?? 0} to ${knots[index]?.miles ?? 0} miles`;
@@ -164,14 +184,19 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"save" | "restore" | null>(null);
+  const [multiplierText, setMultiplierText] = useState(() =>
+    String(defaultOwnerPricingSettings().minibus.multiplier),
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const result = await fetchOwnerPricing(ownerKey);
-      setSaved(asDraft(result.settings));
-      setDraft(asDraft(result.settings));
+      const loaded = asDraft(result.settings);
+      setSaved(loaded);
+      setDraft(loaded);
+      setMultiplierText(String(loaded.minibus.multiplier));
       setDefaults(asDraft(result.defaults));
       setAudit(result.audit);
     } catch (err) {
@@ -185,22 +210,26 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     void load();
   }, [load]);
 
-  const dirty = useMemo(() => !settingsEqual(saved, draft), [saved, draft]);
+  const editingDraft = useMemo(
+    () => withMinibusMultiplierText(draft, multiplierText),
+    [draft, multiplierText],
+  );
+  const dirty = useMemo(() => !settingsEqual(saved, editingDraft), [saved, editingDraft]);
   const validation = useMemo(() => {
-    const base = validateOwnerPricingInput(draft);
-    const profit = validateProfitabilitySettings(draft.profitability);
+    const base = validateOwnerPricingInput(editingDraft);
+    const profit = validateProfitabilitySettings(editingDraft.profitability);
     if (base.ok && profit.ok) return { ok: true as const, errors: [] };
     return {
       ok: false as const,
       errors: [...(base.ok ? [] : base.errors), ...(profit.ok ? [] : profit.errors)],
     };
-  }, [draft]);
+  }, [editingDraft]);
   const changes = useMemo(
     () => [
-      ...diffOwnerPricingSettings(saved, draft),
-      ...diffProfitabilitySettings(saved.profitability, draft.profitability),
+      ...diffOwnerPricingSettings(saved, editingDraft),
+      ...diffProfitabilitySettings(saved.profitability, editingDraft.profitability),
     ],
-    [saved, draft],
+    [saved, editingDraft],
   );
   const restoreChanges = useMemo(() => {
     const restored = {
@@ -212,7 +241,10 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
       ...diffProfitabilitySettings(draft.profitability, restored.profitability),
     ];
   }, [defaults, draft]);
-  const preview = useMemo(() => previewVehicleFaresFromSaloon(50, draft), [draft]);
+  const preview = useMemo(
+    () => previewVehicleFaresFromSaloon(50, editingDraft),
+    [editingDraft],
+  );
   const nightOnHundred = previewSurchargeOnBase(100, draft.night.surchargeRate);
   const nightOnMinibus = previewSurchargeOnBase(preview.minibusQuotedGbp, draft.night.surchargeRate);
   const weekendDays = draft.weekend.days.includes(6) && draft.weekend.days.includes(0)
@@ -228,12 +260,15 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     setSaving(true);
     setError(null);
     try {
+      const toSave = withMinibusMultiplierText(draft, multiplierText);
       const result =
         mode === "restore"
           ? await restoreOwnerPricingDefaults(ownerKey, saved.version)
-          : await saveOwnerPricing(ownerKey, draft, saved.version);
-      setSaved(asDraft(result.settings));
-      setDraft(asDraft(result.settings));
+          : await saveOwnerPricing(ownerKey, toSave, saved.version);
+      const stored = asDraft(result.settings);
+      setSaved(stored);
+      setDraft(stored);
+      setMultiplierText(String(stored.minibus.multiplier));
       setDefaults(asDraft(result.defaults));
       setAudit(result.audit);
       setConfirm(null);
@@ -435,15 +470,32 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
               Pricing: Estate fare ×
               <input
                 className={fieldClass}
+                type="text"
                 inputMode="decimal"
-                value={draft.minibus.multiplier}
-                onChange={(event) =>
-                  update("minibus", { ...draft.minibus, multiplier: Number(event.target.value) })
-                }
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="done"
+                value={multiplierText}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (isMultiplierTyping(next)) setMultiplierText(next);
+                }}
+                onBlur={() => {
+                  const parsed = completePositiveMultiplier(multiplierText);
+                  if (parsed == null) {
+                    setMultiplierText(String(draft.minibus.multiplier));
+                    return;
+                  }
+                  if (parsed !== draft.minibus.multiplier) {
+                    update("minibus", { ...draft.minibus, multiplier: parsed });
+                  }
+                  setMultiplierText(String(parsed));
+                }}
               />
             </label>
             <p className="mt-1 text-xs text-white/55">
-              Estate × {Number(draft.minibus.multiplier || 0).toFixed(2)}, nearest penny only. Not
+              Estate × {editingDraft.minibus.multiplier.toFixed(2)}, nearest penny only. Not
               rounded to the nearest £5.
             </p>
           </div>
@@ -640,7 +692,10 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <button
           type="button"
           disabled={!dirty || saving}
-          onClick={() => setDraft(asDraft(cloneSettings(saved)))}
+          onClick={() => {
+            setDraft(asDraft(cloneSettings(saved)));
+            setMultiplierText(String(saved.minibus.multiplier));
+          }}
           className="min-h-12 rounded-xl border border-white/20 px-4 text-sm font-semibold text-white disabled:opacity-40"
         >
           Discard Changes
