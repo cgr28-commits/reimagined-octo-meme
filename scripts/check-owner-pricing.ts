@@ -551,6 +551,10 @@ check("Pricing tab, public gate, image slot, no MPV restore", () => {
   const quoteLib = read("src/lib/quote.ts");
   assert.match(switcher, /"pricing"/);
   assert.match(panel, /7 Seater Minibus/);
+  assert.match(panel, /inputMode="decimal"/);
+  assert.match(panel, /multiplierText/);
+  assert.match(panel, /isMultiplierTyping/);
+  assert.doesNotMatch(panel, /multiplier: Number\(event\.target\.value\)/);
   assert.match(panel, /Preview — unsaved settings/);
   assert.doesNotMatch(panel, /quoted \(nearest £5\)/i);
   assert.match(panel, /PREVIEW_PRICING_BANNER/);
