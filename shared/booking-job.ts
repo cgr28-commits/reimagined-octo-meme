@@ -1,6 +1,6 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
-import type { AdsAttribution } from "./ads-attribution";
+import type { AdsAttribution, AdsMeasurementRecord } from "./ads-attribution";
 
 function formatJobDateDmy(date: string): string {
   if (!date) return "";
@@ -48,6 +48,8 @@ export type BookingJobRecord = {
   message?: string;
   /** Consented campaign attribution, visible only in the owner booking record. */
   attribution?: AdsAttribution;
+  /** Consent state and attribution outcome. Never contains a click ID. */
+  adsMeasurement?: AdsMeasurementRecord;
   amountPaidLabel?: string;
   paymentReference?: string;
   paidAt?: string;

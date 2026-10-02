@@ -19,6 +19,7 @@ import { getGoogleAdsConfig } from "@/lib/google-ads";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 import { TIP_TOKEN_STRIP_SCRIPT } from "../../shared/journey-tip";
+import { ADS_CLICK_ID_EARLY_SCRIPT } from "@/lib/ads-click-id-early-script";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -163,7 +164,7 @@ export default function RootLayout({
           />
         </noscript>
         <Script id="matni-landing-click-id" strategy="beforeInteractive">
-          {`try{if(!window.__matniLandingSearch&&typeof window.location.search==="string"&&window.location.search.length>1){window.__matniLandingSearch=window.location.search}}catch(e){}`}
+          {ADS_CLICK_ID_EARLY_SCRIPT}
         </Script>
         {googleAdsConfig.tagEnabled ? (
           <Script id="google-consent-default" strategy="beforeInteractive">

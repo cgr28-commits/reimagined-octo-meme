@@ -12,8 +12,10 @@ import {
   parseChildSeatsInput,
 } from "../shared/paid-booking-gate";
 import {
+  applyAdsMeasurementToBooking,
   formatAdsAttributionForOwner,
   sanitizeAdsAttribution,
+  sanitizeAdsMeasurement,
 } from "../shared/ads-attribution";
 import {
   createSerializedQuoteLeadMarkerStore,
@@ -1159,7 +1161,16 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     marketingOptIn: details.marketingOptIn === true ? true : undefined,
     marketingOptInAt: String(details.marketingOptInAt ?? "").trim() || undefined,
     marketingConsentVersion: String(details.marketingConsentVersion ?? "").trim() || undefined,
-    attribution: sanitizeAdsAttribution(details.attribution),
+    ...(() => {
+      const measured = applyAdsMeasurementToBooking({
+        attribution: sanitizeAdsAttribution(details.attribution),
+        adsMeasurement: sanitizeAdsMeasurement(details.adsMeasurement),
+      });
+      return {
+        ...(measured.attribution ? { attribution: measured.attribution } : {}),
+        ...(measured.adsMeasurement ? { adsMeasurement: measured.adsMeasurement } : {}),
+      };
+    })(),
   };
 
   // Hard gate — incomplete bookings must never open SumUp.

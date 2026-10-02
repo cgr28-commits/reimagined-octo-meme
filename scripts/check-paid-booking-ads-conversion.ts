@@ -253,9 +253,13 @@ async function main() {
   );
   assert.equal(
     ownerGoogleAdsPaidConversionLabel("skipped_no_click_id", false),
+    "Reason unknown",
+  );
+  assert.equal(ownerGoogleAdsPaidConversionLabel(undefined, false), "Reason unknown");
+  assert.equal(
+    ownerGoogleAdsPaidConversionLabel("skipped_no_click_id", false, "no_click_id"),
     "No captured click ID",
   );
-  assert.equal(ownerGoogleAdsPaidConversionLabel(undefined, false), "No captured click ID");
   assert.equal(ownerGoogleAdsPaidConversionLabel(undefined, true), "Not recorded");
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
   assert.match(panel, /data-owner-google-ads-status/);
@@ -263,7 +267,7 @@ async function main() {
   const handlers = read("workers/addresses/src/paid-booking-handlers.ts");
   assert.match(handlers, /redactGoogleAdsOwnerError/);
   assert.doesNotMatch(handlers, /googleAdsPaidConversionLastError:\s*booking\.googleAdsPaidConversionLastError/);
-  console.log("OK  More options shows sent, failed, missing configuration, or no click ID");
+  console.log("OK  More options shows sent, failed, missing configuration, a recorded reason, or Reason unknown");
 
   console.log("\nAll Paid Booking Ads conversion checks passed.");
 }
