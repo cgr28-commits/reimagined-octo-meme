@@ -111,6 +111,7 @@
     "check:refund-leg-cancel": "npx tsx scripts/check-refund-leg-cancel.ts",
     "check:cancellation-refund-wording": "npx tsx scripts/check-cancellation-refund-wording.ts",
     "check:sumup-refund-reconcile": "npx tsx scripts/check-sumup-refund-reconcile.ts",
+    "check:sumup-transaction-metadata": "npx tsx scripts/check-sumup-transaction-metadata.ts",
     "check:refund-prod-readiness": "npx tsx scripts/check-refund-prod-readiness.ts",
     "check:refund-test-one-pound": "npx tsx scripts/check-refund-test-one-pound.ts",
     "check:refund-workflow-ui": "npx tsx scripts/check-refund-workflow-ui.ts",

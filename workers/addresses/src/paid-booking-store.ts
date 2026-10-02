@@ -783,3 +783,52 @@ export async function updatePaidBookingFields(
   await savePaidBookingRecord(store, updated, { previousTripDate });
   return updated;
 }
+
+/**
+ * Write SumUp transaction id/code only where the stored value is blank.
+ * Does not change fare, payment reference, status, or any other field.
+ */
+export async function fillMissingPaidBookingTransactionMetadata(
+  store: KVNamespace,
+  paymentReference: string,
+  incoming: { transactionId?: string; transactionCode?: string },
+): Promise<{
+  record: PaidBookingRecord;
+  filled: Array<"transactionId" | "transactionCode">;
+} | null> {
+  const record = await getPaidBookingRecord(store, paymentReference);
+  if (!record) return null;
+
+  const filled: Array<"transactionId" | "transactionCode"> = [];
+  const next: PaidBookingRecord = { ...record };
+
+  for (const field of ["transactionId", "transactionCode"] as const) {
+    const current = record[field]?.trim() ?? "";
+    const value = incoming[field]?.trim() ?? "";
+    if (current || !value) continue;
+    next[field] = value;
+    filled.push(field);
+  }
+
+  if (filled.length === 0) {
+    return { record, filled };
+  }
+
+  const changedAt = new Date().toISOString();
+  await savePaidBookingRecord(store, {
+    ...next,
+    editHistory: [
+      ...(record.editHistory ?? []),
+      ...filled.map((field) => ({
+        changedAt,
+        field,
+        previousValue: "",
+        newValue: next[field] ?? "",
+        changedBy: "System" as const,
+      })),
+    ],
+  });
+
+  const saved = await getPaidBookingRecord(store, paymentReference);
+  return { record: saved ?? next, filled };
+}

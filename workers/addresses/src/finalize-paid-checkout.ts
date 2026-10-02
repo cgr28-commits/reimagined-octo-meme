@@ -6,11 +6,11 @@ import {
 } from "../shared/booking-notifications";
 import {
   getSumUpCheckout,
-  getSuccessfulTransactionCode,
-  getSuccessfulTransactionId,
   isSumUpCheckoutPaid,
+  resolveAuthoritativeSumUpTransaction,
   type SumUpCheckoutDetails,
 } from "../shared/sumup-checkout";
+import { reconcilePaidBookingSumUpTransaction } from "./reconcile-sumup-transaction";
 import { createTrackingJobForPaidBooking } from "./tracking-handlers";
 import { savePaidBookingRecordFromConfirm } from "./refund-handlers";
 import {
@@ -54,6 +54,7 @@ const BUSINESS_NAME = "My Airport Taxi NI";
 
 type FinalizeEnv = {
   SUMUP_API_KEY?: string;
+  SUMUP_MERCHANT_CODE?: string;
   RESEND_API_KEY?: string;
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
@@ -233,6 +234,21 @@ export async function finalizePaidCheckout(input: {
     } else {
       const existing = await getPaidBookingRecordByCheckoutId(env.TRACKING_STORE, checkoutId);
       if (existing) {
+        if (!existing.transactionId?.trim() || !existing.transactionCode?.trim()) {
+          try {
+            await reconcilePaidBookingSumUpTransaction({
+              apiKey,
+              merchantCode: env.SUMUP_MERCHANT_CODE,
+              store: env.TRACKING_STORE,
+              record: existing,
+            });
+          } catch {
+            console.error("[sumup-transaction] finalize backfill failed", {
+              checkoutId,
+              paymentReference: existing.paymentReference,
+            });
+          }
+        }
         if (!existing.isRefundTest) {
           await maybeUploadPaidBookingAdsConversion({
             env,
@@ -313,7 +329,7 @@ export async function finalizePaidCheckout(input: {
     }
   }
 
-  const checkout = input.checkout ?? (await getSumUpCheckout(apiKey, checkoutId));
+  let checkout = input.checkout ?? (await getSumUpCheckout(apiKey, checkoutId));
 
   if (!isSumUpCheckoutPaid(checkout)) {
     return {
@@ -331,9 +347,17 @@ export async function finalizePaidCheckout(input: {
     };
   }
 
+  const resolvedTransaction = await resolveAuthoritativeSumUpTransaction({
+    apiKey,
+    merchantCode: env.SUMUP_MERCHANT_CODE,
+    checkout,
+    paymentReference: checkout.checkout_reference,
+  });
+  checkout = resolvedTransaction.checkout;
+
   const amountPaid = formatPaidAmount(checkout.amount ?? 0, checkout.currency ?? "GBP");
-  const transactionCode = getSuccessfulTransactionCode(checkout);
-  const transactionId = getSuccessfulTransactionId(checkout);
+  const transactionCode = resolvedTransaction.transactionCode;
+  const transactionId = resolvedTransaction.transactionId;
   const paymentReference = transactionCode ?? checkout.checkout_reference ?? checkout.id;
 
   const pendingForAudit = pendingCheckoutStoreConfigured(env.TRACKING_STORE)

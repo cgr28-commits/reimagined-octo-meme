@@ -349,6 +349,10 @@ import {
   finalizePaidCheckout,
   resolveBookingForCheckout,
 } from "./finalize-paid-checkout";
+import {
+  handleReconcileSumUpTransactionsRequest,
+  isReconcileSumUpTransactionsPath,
+} from "./reconcile-sumup-transaction";
 import { retryRecentPaidBookingAdsConversions } from "./paid-booking-ads-conversion";
 import {
   getPendingCheckout,
@@ -699,6 +703,7 @@ function routePath(
   | "paid-bookings-review-request"
   | "paid-bookings-pending"
   | "paid-bookings-finalize"
+  | "paid-bookings-reconcile-transactions"
   | "booking-jobs"
   | "booking-jobs-mark-paid"
   | "booking-jobs-assign-driver"
@@ -801,6 +806,10 @@ function routePath(
 
   if (isFinalizeCheckoutPath(pathname)) {
     return "paid-bookings-finalize";
+  }
+
+  if (isReconcileSumUpTransactionsPath(pathname)) {
+    return "paid-bookings-reconcile-transactions";
   }
 
   if (isPendingCheckoutsListPath(pathname)) {
@@ -4613,6 +4622,10 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
       return handleFinalizeCheckoutRequest(request, env, origin, logPaidBookingCalendar);
+    }
+
+    if (route === "paid-bookings-reconcile-transactions") {
+      return handleReconcileSumUpTransactionsRequest(request, env, origin);
     }
 
     if (route === "paid-bookings-resend") {
