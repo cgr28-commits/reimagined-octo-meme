@@ -18,6 +18,7 @@ import {
   uploadPaidBookingClickConversion,
 } from "../shared/google-ads-click-conversions";
 import { DEFAULT_GOOGLE_ADS_ID } from "../src/lib/google-ads";
+import { ownerGoogleAdsPaidConversionLabel } from "../src/lib/google-ads-owner-status";
 
 function read(path: string): string {
   return readFileSync(join(process.cwd(), path), "utf8");
@@ -241,6 +242,28 @@ async function main() {
     /Google Ads API credentials are incomplete — existing Cloudflare Worker secrets are left unchanged/,
   );
   console.log("OK  browser Paid Booking is live; Worker upload remains a separate fallback");
+
+  console.log("=== Owner dashboard status labels ===");
+  assert.equal(ownerGoogleAdsPaidConversionLabel("sent", true), "Sent");
+  assert.equal(ownerGoogleAdsPaidConversionLabel("skipped_duplicate", true), "Sent");
+  assert.equal(ownerGoogleAdsPaidConversionLabel("failed", true), "Failed");
+  assert.equal(
+    ownerGoogleAdsPaidConversionLabel("skipped_not_configured", true),
+    "Missing configuration",
+  );
+  assert.equal(
+    ownerGoogleAdsPaidConversionLabel("skipped_no_click_id", false),
+    "No captured click ID",
+  );
+  assert.equal(ownerGoogleAdsPaidConversionLabel(undefined, false), "No captured click ID");
+  assert.equal(ownerGoogleAdsPaidConversionLabel(undefined, true), "Not recorded");
+  const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
+  assert.match(panel, /data-owner-google-ads-status/);
+  assert.match(panel, /Paid booking conversion:/);
+  const handlers = read("workers/addresses/src/paid-booking-handlers.ts");
+  assert.match(handlers, /redactGoogleAdsOwnerError/);
+  assert.doesNotMatch(handlers, /googleAdsPaidConversionLastError:\s*booking\.googleAdsPaidConversionLastError/);
+  console.log("OK  More options shows sent, failed, missing configuration, or no click ID");
 
   console.log("\nAll Paid Booking Ads conversion checks passed.");
 }

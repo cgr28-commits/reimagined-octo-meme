@@ -113,6 +113,17 @@ export type OwnerPaidBookingSummary = Pick<
   cashBalanceDue?: number;
   cashCollected?: boolean;
   cashCollectedAt?: string;
+  /** Stored server upload outcome. Raw click IDs are never sent to the dashboard. */
+  googleAdsPaidConversionStatus?:
+    | "sent"
+    | "skipped_no_click_id"
+    | "skipped_not_configured"
+    | "skipped_duplicate"
+    | "failed";
+  googleAdsPaidConversionSentAt?: string;
+  googleAdsPaidConversionClickIdType?: "gclid" | "gbraid" | "wbraid";
+  googleAdsPaidConversionLastError?: string;
+  googleAdsClickIdCaptured?: boolean;
   returnOffer?: {
     eligible: boolean;
     reason?: string;

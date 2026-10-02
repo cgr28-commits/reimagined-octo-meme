@@ -65,6 +65,7 @@ import {
   type RefundDiagnosticsReport,
   type TrackingDiagnosticReport,
 } from "@/lib/paid-bookings-api";
+import { ownerGoogleAdsPaidConversionLabel } from "@/lib/google-ads-owner-status";
 import { fetchOwnerBookingJobs } from "@/lib/booking-jobs-api";
 import type { BookingJobRecord } from "../../shared/booking-job";
 import type { RefundIssueResponse } from "@/lib/refund-api";
@@ -1460,6 +1461,31 @@ export default function OwnerPaidBookingsPanel({
           More options ▼
         </summary>
         <div className="space-y-3 border-t border-white/10 px-3 py-3">
+          <div data-owner-google-ads-status>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+              Google Ads
+            </p>
+            <p className="text-sm text-white/70">
+              Paid booking conversion:{" "}
+              <span className="font-semibold text-white">
+                {ownerGoogleAdsPaidConversionLabel(
+                  booking.googleAdsPaidConversionStatus,
+                  booking.googleAdsClickIdCaptured === true,
+                )}
+              </span>
+            </p>
+            {booking.googleAdsPaidConversionClickIdType ? (
+              <p className="mt-1 text-xs text-white/55">
+                Click ID captured: {booking.googleAdsPaidConversionClickIdType}
+              </p>
+            ) : null}
+            {booking.googleAdsPaidConversionStatus === "failed" &&
+            booking.googleAdsPaidConversionLastError ? (
+              <p className="mt-1 break-words text-xs text-red-200/80">
+                {booking.googleAdsPaidConversionLastError}
+              </p>
+            ) : null}
+          </div>
           {(booking.customerEmail || booking.mobileNumber || booking.arrivedPickupAt) && (
             <div>
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">

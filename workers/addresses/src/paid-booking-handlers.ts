@@ -7,6 +7,7 @@ import {
 } from "../shared/booking-notifications";
 import { paidBookingRecordToReceipt } from "../shared/paid-booking-canonical";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
+import { pickAdsClickIdentifier } from "../shared/google-ads-click-conversions";
 import { corsHeaders } from "../shared/google-places";
 import { ownerAuthorized, resolveDriverSession, type DriverAuthEnv } from "./driver-auth";
 import type { LogPaidBookingCalendarFn } from "./finalize-paid-checkout";
@@ -158,6 +159,35 @@ function recordToDetails(record: PaidBookingRecord): PaidBookingDetails {
 
 function recordToReceipt(record: PaidBookingRecord): PaidBookingReceipt {
   return paidBookingRecordToReceipt(record);
+}
+
+/** Owner dashboard may show the upload error, never the raw click identifier. */
+function redactGoogleAdsOwnerError(
+  error: string | undefined,
+  attribution: PaidBookingRecord["attribution"],
+): string | undefined {
+  if (!error?.trim()) return undefined;
+  let text = error.trim();
+  for (const id of [attribution?.gclid, attribution?.wbraid, attribution?.gbraid]) {
+    if (id && id.length >= 6) text = text.split(id).join("[click id]");
+  }
+  return text.slice(0, 500);
+}
+
+function googleAdsOwnerStatusFields(booking: PaidBookingRecord) {
+  const click = pickAdsClickIdentifier(booking.attribution);
+  const clickIdType = booking.googleAdsPaidConversionClickIdType ?? click?.type;
+  const lastError =
+    booking.googleAdsPaidConversionStatus === "failed"
+      ? redactGoogleAdsOwnerError(booking.googleAdsPaidConversionLastError, booking.attribution)
+      : undefined;
+  return {
+    googleAdsPaidConversionStatus: booking.googleAdsPaidConversionStatus,
+    googleAdsPaidConversionSentAt: booking.googleAdsPaidConversionSentAt,
+    googleAdsPaidConversionClickIdType: clickIdType,
+    googleAdsClickIdCaptured: Boolean(click || booking.googleAdsPaidConversionClickIdType),
+    ...(lastError ? { googleAdsPaidConversionLastError: lastError } : {}),
+  };
 }
 
 export async function handlePaidBookingsListRequest(
@@ -406,6 +436,7 @@ export async function handlePaidBookingsListRequest(
       }
 
       return {
+        ...googleAdsOwnerStatusFields(booking),
         paymentReference: booking.paymentReference,
         checkoutId: booking.checkoutId,
         createdAt: booking.createdAt,
