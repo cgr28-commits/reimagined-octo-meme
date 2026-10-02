@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, type ReactNode } from "react";
+import { preload } from "react-dom";
 import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import {
@@ -40,6 +41,20 @@ type QuoteResultShowcaseProps = {
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
+
+/** Saloon, Estate, and 7-seater art used on the result card. */
+const QUOTE_RESULT_VEHICLE_IMAGES = [SALOON_IMAGE, ESTATE_IMAGE, MINIBUS_IMAGE] as const;
+
+/**
+ * Start these downloads with the quote form, before a price exists.
+ * Low priority so they do not compete with the page's hero image.
+ * The result photo then comes from cache.
+ */
+export function preloadQuoteResultVehicleImages() {
+  for (const href of QUOTE_RESULT_VEHICLE_IMAGES) {
+    preload(href, { as: "image", fetchPriority: "low" });
+  }
+}
 
 const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>(
   function QuoteResultShowcase(
@@ -99,7 +114,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
               height={700}
               className="mx-auto h-auto w-full object-contain"
               sizes="(max-width: 640px) 96vw, 460px"
-              priority={false}
+              priority
             />
           </div>
           <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-medium text-navy/80 min-[390px]:flex-nowrap lg:justify-start">
