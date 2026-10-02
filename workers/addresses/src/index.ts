@@ -236,6 +236,7 @@ import {
   processDueReviewRequests,
 } from "./review-request-handlers";
 import { processDueTrackingAvailableReminders } from "./tracking-reminder-handlers";
+import { processDueAirportPickupReminders } from "./airport-pickup-reminder-handlers";
 import {
   handleCreateSavedQuote,
   handleGetSavedQuote,
@@ -5177,6 +5178,15 @@ export default {
       processDueTrackingAvailableReminders(env).then((result) => {
         if (result.sent > 0 || result.errors > 0) {
           console.log("Tracking available reminder cron", JSON.stringify(result));
+        }
+      }),
+    );
+
+    // Travel-day email for customers collected from an airport (once per leg).
+    ctx.waitUntil(
+      processDueAirportPickupReminders(env).then((result) => {
+        if (result.sent > 0 || result.errors > 0) {
+          console.log("Airport pickup reminder cron", JSON.stringify(result));
         }
       }),
     );
