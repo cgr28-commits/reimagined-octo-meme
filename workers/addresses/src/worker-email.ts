@@ -1,6 +1,9 @@
 import {
   customerTransactionBcc,
+  isDeterministicResendBccRejection,
   resendCustomerPayload,
+  resendRejectionFromBody,
+  type ResendRejection,
 } from "../shared/owner-email-copy";
 
 type EmailBinding = {
@@ -148,14 +151,52 @@ async function sendViaResend(
     | null;
 
   if (!response.ok) {
-    const detail =
-      payload && typeof payload === "object"
-        ? String(payload.message ?? payload.name ?? response.status)
-        : String(response.status);
-    throw new Error(`Resend request failed: ${detail}`);
+    throw new ResendRequestError(resendRejectionFromBody(response.status, payload));
   }
 
   return typeof payload?.id === "string" && payload.id.trim() ? payload.id.trim() : undefined;
+}
+
+/** Completed Resend HTTP error. Transport failures stay ordinary exceptions. */
+class ResendRequestError extends Error {
+  readonly rejection: ResendRejection;
+
+  constructor(rejection: ResendRejection) {
+    const detail = rejection.parsed
+      ? `${rejection.name}: ${rejection.message}`
+      : `HTTP ${rejection.status}`;
+    super(`Resend request failed: ${detail}`);
+    this.name = "ResendRequestError";
+    this.rejection = rejection;
+  }
+}
+
+function canRetryCustomerSendWithoutBcc(bcc: string | null, error: unknown): boolean {
+  if (!bcc) return false;
+  if (!(error instanceof ResendRequestError)) return false;
+  return isDeterministicResendBccRejection(error.rejection);
+}
+
+/**
+ * One customer send. A second send without BCC happens only when Resend
+ * returned a field validation error that names `bcc` and did not accept the email.
+ */
+async function sendResendAllowingBccRejection(
+  env: WorkerEmailEnv,
+  options: EmailPayload,
+  bcc: string | null,
+): Promise<{ resendId?: string; ownerBcc: boolean }> {
+  try {
+    const resendId = await sendViaResend(env, options, bcc);
+    return { resendId, ownerBcc: Boolean(bcc) };
+  } catch (error) {
+    if (!canRetryCustomerSendWithoutBcc(bcc, error)) throw error;
+    console.warn(
+      "Resend rejected the BCC field and did not accept the email — sending the customer email without BCC",
+    );
+    const resendId = await sendViaResend(env, options, null);
+    return { resendId, ownerBcc: false };
+  }
 }
 
 async function sendViaWeb3Forms(env: WorkerEmailEnv, options: EmailPayload): Promise<void> {
@@ -275,16 +316,8 @@ async function sendCustomerResend(
   options: EmailPayload,
   attempt: { ownerBcc: boolean },
 ): Promise<void> {
-  const bcc = ownerBccFor(env, options);
-  try {
-    await sendViaResend(env, options, bcc);
-    attempt.ownerBcc = Boolean(bcc);
-  } catch (error) {
-    if (!bcc) throw error;
-    console.warn("Owner BCC was not accepted — sending the customer email without BCC");
-    attempt.ownerBcc = false;
-    await sendViaResend(env, options, null);
-  }
+  const sent = await sendResendAllowingBccRejection(env, options, ownerBccFor(env, options));
+  attempt.ownerBcc = sent.ownerBcc;
 }
 
 function buildProviderChain(
@@ -439,22 +472,12 @@ export async function trySendResendOnlyEmail(
   warnIfOwnerCopyUnavailable(env, options);
 
   try {
-    const bcc = ownerBccFor(env, options);
-    let resendId: string | undefined;
-    let ownerBcc = false;
-    try {
-      resendId = await sendViaResend(env, options, bcc);
-      ownerBcc = Boolean(bcc);
-    } catch (error) {
-      if (!bcc) throw error;
-      console.warn("Owner BCC was not accepted — sending the customer email without BCC");
-      resendId = await sendViaResend(env, options, null);
-    }
+    const sent = await sendResendAllowingBccRejection(env, options, ownerBccFor(env, options));
     return {
       sent: true,
       provider: "resend",
-      ...(resendId ? { resendId } : {}),
-      ...(ownerBcc ? { ownerBcc: true } : {}),
+      ...(sent.resendId ? { resendId: sent.resendId } : {}),
+      ...(sent.ownerBcc ? { ownerBcc: true } : {}),
     };
   } catch (error) {
     console.error("Resend-only email failed", error);

@@ -11,9 +11,12 @@ import { join } from "node:path";
 import { BUSINESS_MAILBOX } from "../shared/business-email";
 import {
   customerTransactionBcc,
+  isDeterministicResendBccRejection,
   resendCustomerPayload,
+  resendRejectionFromBody,
   resolveOwnerEmailCopyAddress,
 } from "../shared/owner-email-copy";
+import { trySendResendOnlyEmail, type WorkerEmailEnv } from "../workers/addresses/src/worker-email";
 import {
   buildAirportPickupReminderMessage,
   evaluateAirportPickupReminder,
@@ -148,7 +151,11 @@ console.log("=== Customer sends opt in; internal sends do not ===");
   const email = read("workers/addresses/src/worker-email.ts");
   assert.match(email, /customerDelivery: true/);
   assert.match(email, /ownerCopy !== false/);
-  assert.match(email, /Owner BCC was not accepted — sending the customer email without BCC/);
+  assert.match(
+    email,
+    /Resend rejected the BCC field and did not accept the email — sending the customer email without BCC/,
+  );
+  assert.equal(email.match(/sendResendAllowingBccRejection\(/g)?.length, 3);
   assert.match(email, /trySendBrandedCustomerEmail/);
   assert.match(email, /trySendResendOnlyCustomerEmail/);
   assert.match(email, /trySendOwnerOperationalEmail/);
@@ -214,4 +221,238 @@ console.log("=== Customer sends opt in; internal sends do not ===");
   console.log("OK  customer paths use the transactional sender; internal mail does not");
 }
 
-console.log("\nAll owner email BCC checks passed.");
+console.log("=== Resend BCC retry is only a proven field rejection ===");
+{
+  const bccMessage = "Invalid `bcc` field. The email address needs to follow the email@example.com format.";
+  assert.equal(
+    isDeterministicResendBccRejection(
+      resendRejectionFromBody(400, { name: "validation_error", message: bccMessage }),
+    ),
+    true,
+  );
+  assert.equal(
+    isDeterministicResendBccRejection(
+      resendRejectionFromBody(422, { name: "validation_error", message: "Invalid `bcc` field." }),
+    ),
+    true,
+  );
+  assert.equal(
+    isDeterministicResendBccRejection(
+      resendRejectionFromBody(400, { name: "validation_error", message: "Invalid bcc field." }),
+    ),
+    true,
+  );
+  assert.equal(
+    isDeterministicResendBccRejection(
+      resendRejectionFromBody(500, { name: "validation_error", message: bccMessage }),
+    ),
+    false,
+  );
+  assert.equal(
+    isDeterministicResendBccRejection(
+      resendRejectionFromBody(429, { name: "rate_limit_exceeded", message: "Too many requests." }),
+    ),
+    false,
+  );
+  assert.equal(
+    isDeterministicResendBccRejection(
+      resendRejectionFromBody(400, {
+        name: "validation_error",
+        message: "Invalid `to` field. The email address needs to follow the email@example.com format.",
+      }),
+    ),
+    false,
+  );
+  assert.equal(
+    isDeterministicResendBccRejection(
+      resendRejectionFromBody(400, {
+        name: "validation_error",
+        message: "An error was found with one or more fields in the request.",
+      }),
+    ),
+    false,
+  );
+  assert.equal(
+    isDeterministicResendBccRejection(
+      resendRejectionFromBody(403, {
+        name: "validation_error",
+        message: "You can only send testing emails to your own email address.",
+      }),
+    ),
+    false,
+  );
+  assert.equal(isDeterministicResendBccRejection(resendRejectionFromBody(422, null)), false);
+  assert.equal(isDeterministicResendBccRejection(resendRejectionFromBody(400, "Invalid `bcc` field.")), false);
+  console.log("OK  only a parsed 400/422 validation error that names the BCC field can retry");
+}
+
+console.log("=== Resend customer send does not duplicate on an ambiguous failure ===");
+void checkResendCustomerSend().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+
+async function checkResendCustomerSend(): Promise<void> {
+  const env: WorkerEmailEnv = {
+    RESEND_API_KEY: "re_test_not_a_real_key",
+    BOOKING_FROM_EMAIL: "bookings@myairporttaxini.co.uk",
+  };
+  const customer = {
+    to: "sarah@example.com",
+    toName: "Sarah Johnson",
+    subject: "Important information about your airport collection",
+    body: "Hi Sarah,",
+    htmlBody: "<p>Hi Sarah,</p>",
+    customerDelivery: true as const,
+  };
+
+  type SentPayload = {
+    to?: string[];
+    bcc?: string[];
+    cc?: string[];
+    subject?: string;
+    text?: string;
+    html?: string;
+  };
+
+  const originalFetch = globalThis.fetch;
+  async function capture(
+    respond: (call: number, payload: SentPayload) => Response | Promise<Response>,
+  ): Promise<{ calls: SentPayload[] }> {
+    const calls: SentPayload[] = [];
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const payload = JSON.parse(String(init?.body ?? "{}")) as SentPayload;
+      calls.push(payload);
+      return respond(calls.length, payload);
+    }) as typeof fetch;
+    return { calls };
+  }
+
+  function json(status: number, body: unknown): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  function assertSoleRecipient(payload: SentPayload) {
+    assert.deepEqual(payload.to, ["sarah@example.com"]);
+    assert.equal("cc" in payload, false);
+    assert.equal(JSON.stringify(payload.to).includes(BUSINESS_MAILBOX), false);
+  }
+
+  try {
+    {
+      const seen = await capture(async () => json(200, { id: "email_bcc_ok" }));
+      const result = await trySendResendOnlyEmail(env, customer);
+      assert.equal(result.sent, true);
+      assert.equal(result.ownerBcc, true);
+      assert.equal(result.resendId, "email_bcc_ok");
+      assert.equal(seen.calls.length, 1);
+      assert.deepEqual(seen.calls[0].bcc, [BUSINESS_MAILBOX]);
+      assertSoleRecipient(seen.calls[0]);
+      console.log("OK  successful BCC send is one request");
+    }
+
+    {
+      const seen = await capture(async (call) => {
+        if (call === 1) {
+          return json(400, {
+            name: "validation_error",
+            message: "Invalid `bcc` field. The email address needs to follow the email@example.com format.",
+          });
+        }
+        return json(200, { id: "email_without_bcc" });
+      });
+      const result = await trySendResendOnlyEmail(env, customer);
+      assert.equal(result.sent, true);
+      assert.equal(result.ownerBcc, undefined);
+      assert.equal(result.resendId, "email_without_bcc");
+      assert.equal(seen.calls.length, 2);
+      assert.deepEqual(seen.calls[0].bcc, [BUSINESS_MAILBOX]);
+      assert.equal("bcc" in seen.calls[1], false);
+      assert.equal(seen.calls[0].subject, seen.calls[1].subject);
+      assert.equal(seen.calls[0].text, seen.calls[1].text);
+      assert.equal(seen.calls[0].html, seen.calls[1].html);
+      assertSoleRecipient(seen.calls[0]);
+      assertSoleRecipient(seen.calls[1]);
+      console.log("OK  deterministic BCC rejection retries once without BCC");
+    }
+
+    {
+      const seen = await capture(async () => {
+        throw new TypeError("network down");
+      });
+      const result = await trySendResendOnlyEmail(env, customer);
+      assert.equal(result.sent, false);
+      assert.equal(seen.calls.length, 1);
+      assertSoleRecipient(seen.calls[0]);
+      console.log("OK  network failure does not send a second customer email");
+    }
+
+    {
+      const seen = await capture(async () => {
+        throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+      });
+      const result = await trySendResendOnlyEmail(env, customer);
+      assert.equal(result.sent, false);
+      assert.equal(seen.calls.length, 1);
+      console.log("OK  timeout does not send a second customer email");
+    }
+
+    {
+      const seen = await capture(async () =>
+        json(500, { name: "application_error", message: "An unexpected error occurred." }),
+      );
+      const result = await trySendResendOnlyEmail(env, customer);
+      assert.equal(result.sent, false);
+      assert.equal(seen.calls.length, 1);
+      assertSoleRecipient(seen.calls[0]);
+      console.log("OK  Resend 5xx does not send a second customer email");
+    }
+
+    {
+      const seen = await capture(async () =>
+        json(500, { name: "validation_error", message: "Invalid `bcc` field." }),
+      );
+      const result = await trySendResendOnlyEmail(env, customer);
+      assert.equal(result.sent, false);
+      assert.equal(seen.calls.length, 1);
+      console.log("OK  a 5xx that mentions BCC is still not retried");
+    }
+
+    {
+      const seen = await capture(async () =>
+        json(429, { name: "rate_limit_exceeded", message: "Too many requests." }),
+      );
+      const result = await trySendResendOnlyEmail(env, customer);
+      assert.equal(result.sent, false);
+      assert.equal(seen.calls.length, 1);
+      assertSoleRecipient(seen.calls[0]);
+      console.log("OK  Resend 429 does not send a second customer email");
+    }
+
+    {
+      const seen = await capture(async () => new Response("upstream reset", { status: 502 }));
+      const result = await trySendResendOnlyEmail(env, customer);
+      assert.equal(result.sent, false);
+      assert.equal(seen.calls.length, 1);
+      console.log("OK  a non-JSON provider error does not send a second customer email");
+    }
+
+    {
+      const seen = await capture(async () => json(200, { id: "email_no_bcc" }));
+      const result = await trySendResendOnlyEmail(env, { ...customer, ownerCopy: false });
+      assert.equal(result.sent, true);
+      assert.equal(result.ownerBcc, undefined);
+      assert.equal(seen.calls.length, 1);
+      assert.equal("bcc" in seen.calls[0], false);
+      assertSoleRecipient(seen.calls[0]);
+      console.log("OK  a customer email with no owner copy is one request");
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  console.log("\nAll owner email BCC checks passed.");
+}
