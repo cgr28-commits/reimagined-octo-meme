@@ -162,6 +162,9 @@ export default function RootLayout({
             alt=""
           />
         </noscript>
+        <Script id="matni-landing-click-id" strategy="beforeInteractive">
+          {`try{if(!window.__matniLandingSearch&&typeof window.location.search==="string"&&window.location.search.length>1){window.__matniLandingSearch=window.location.search}}catch(e){}`}
+        </Script>
         {googleAdsConfig.tagEnabled ? (
           <Script id="google-consent-default" strategy="beforeInteractive">
             {`

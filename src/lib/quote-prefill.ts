@@ -1,3 +1,4 @@
+import { adsClickIdSearchForNavigation } from "@/lib/ads-attribution";
 import { scheduleSiteNavHeadingScroll, setLocationHashQuietly, normalizePathname } from "@/lib/site-nav-scroll";
 
 export const AIRPORT_PREFILL_KEY = "my-airport-taxi-ni-prefill-airport";
@@ -92,7 +93,7 @@ export function scrollToQuoteForm() {
       });
       return;
     }
-    window.location.assign("/#quote");
+    window.location.assign(`/${adsClickIdSearchForNavigation(window.location.search)}#quote`);
     return;
   }
 

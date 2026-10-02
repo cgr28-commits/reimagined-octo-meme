@@ -4,6 +4,7 @@
  * destination headings ~16px below it — never relies on native hash scroll alone.
  */
 
+import { adsClickIdSearchForNavigation } from "@/lib/ads-attribution";
 import {
   cancelCompetingScrollJobs,
   getScrollJobGeneration,
@@ -433,7 +434,9 @@ export function navigateSiteNav(
     href: parsed.href,
   });
 
-  window.location.assign(parsed.pathname);
+  window.location.assign(
+    `${parsed.pathname}${adsClickIdSearchForNavigation(window.location.search)}`,
+  );
 }
 
 /** Whether this href should use the shared site-nav scroll handler. */

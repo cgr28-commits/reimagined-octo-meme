@@ -2,7 +2,7 @@ import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import { buildBookingMessage } from "@/lib/booking-message";
 import { resolveBookingsApiUrl } from "@/lib/worker-api";
-import { readConsentedAdsAttribution } from "@/lib/ads-attribution";
+import { bookingWithConsentedAdsAttribution } from "@/lib/ads-attribution";
 import { trackBookingRequestSubmitted } from "@/lib/google-ads-client";
 import {
   isValidCapacityPassengerCount,
@@ -60,9 +60,8 @@ function parseBookingValue(label: string | null | undefined): number | undefined
 }
 
 async function submitViaWorker(submission: EnquirySubmission): Promise<WorkerSubmitResult> {
-  const attribution = readConsentedAdsAttribution();
   const booking = submission.booking
-    ? { ...submission.booking, ...(attribution ? { attribution } : {}) }
+    ? bookingWithConsentedAdsAttribution(submission.booking)
     : undefined;
   const response = await fetch(BOOKINGS_API_URL, {
     method: "POST",
