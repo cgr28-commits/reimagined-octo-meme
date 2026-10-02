@@ -15,7 +15,7 @@ import {
   evaluateAirportPickupReminder,
   type AirportPickupReminderInput,
 } from "../shared/airport-pickup-reminder";
-import { BUSINESS_PHONE_DISPLAY } from "../shared/business-email";
+import { BUSINESS_PHONE_DISPLAY, BUSINESS_PHONE_TEL, BUSINESS_WHATSAPP_DIGITS } from "../shared/business-email";
 
 const root = process.cwd();
 const NOW = new Date("2026-10-02T13:00:00.000Z");
@@ -42,6 +42,7 @@ function dueCollection(
     bookingStatus: "confirmed",
     operationalStatus: "confirmed",
     assignedDriverMobile: DRIVER_MOBILE,
+    customerReference: "mat-4827",
     ...overrides,
   };
 }
@@ -59,8 +60,42 @@ function assertCompanyReminder(message: string) {
   assert.equal(message.includes(DRIVER_MOBILE), false);
   assert.equal(message.includes("07700 900999"), false);
   assert.equal(airportPickupReminderUsesCompanyVoice(message), true);
-  assert.doesNotMatch(message, /\bI['’]m\b|\bcall me\b|\bmy car\b|\bundefined\b|\bnull\b/i);
+  assert.doesNotMatch(message.replace(/https:\/\/wa\.me\/\S+/g, " "), /\bI['’]m\b|\bcall me\b|\bmy car\b|\bundefined\b|\bnull\b/i);
   assert.equal(message.includes("https://checkout.sumup.com"), false);
+}
+
+function assertWhatsAppEmail(input: AirportPickupReminderInput, airportName: string) {
+  const decision = evaluateAirportPickupReminder(input, NOW);
+  assert.equal(decision.eligible, true);
+  if (!decision.eligible) return;
+  const { html, message, whatsAppHref, whatsAppDraft } = decision;
+  assert.match(message, /Once you have reached the pickup location and are ready to be collected, please contact us\./);
+  assert.match(message, /Message us on WhatsApp:/);
+  assert.match(message, /Or call our Business Line:/);
+  assert.match(html, />Message us on WhatsApp</);
+  assert.equal(html.includes(`href="${whatsAppHref}"`), true);
+  assert.match(html, /If the button does not open, use this link:/);
+  assert.match(html, new RegExp(`href="tel:${BUSINESS_PHONE_TEL.replace("+", "\\+")}"`));
+  assert.match(html, /028 9602 2952/);
+  assert.equal(html.includes(DRIVER_MOBILE), false);
+  assert.equal(whatsAppDraft.includes(DRIVER_MOBILE), false);
+  assert.equal(whatsAppDraft.includes("sarah@example.com"), false);
+  assert.match(whatsAppDraft, /^Hi, this is Sarah\. I have arrived at /);
+  assert.match(whatsAppDraft, new RegExp(airportName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(whatsAppDraft, /booking MAT-4827/);
+  assert.doesNotMatch(whatsAppDraft, /undefined|null/);
+  const parsed = new URL(whatsAppHref);
+  assert.equal(parsed.hostname, "wa.me");
+  assert.equal(parsed.pathname, `/${BUSINESS_WHATSAPP_DIGITS}`);
+  assert.equal(parsed.searchParams.get("text"), whatsAppDraft);
+  assert.equal(whatsAppHref.includes(" "), false);
+  assert.equal(
+    whatsAppHref,
+    `https://wa.me/${BUSINESS_WHATSAPP_DIGITS}?text=${encodeURIComponent(whatsAppDraft).replace(/'/g, "%27")}`,
+  );
+  assert.match(whatsAppHref, /I%27m/);
+  assert.doesNotMatch(whatsAppHref, /send=1|autosend|graph\.facebook|messages/i);
+  assertCompanyReminder(message);
 }
 
 console.log("=== Belfast International Express ===");
@@ -74,6 +109,7 @@ console.log("=== Belfast International Express ===");
   assert.doesNotMatch(message, /10 minutes/i);
   assert.match(message, /limited waiting time/i);
   assertCompanyReminder(message);
+  assertWhatsAppEmail(dueCollection(), "Belfast International Airport");
   console.log("OK  Express directions, no Long Stay, no unverified 10-minute claim");
 }
 
@@ -87,6 +123,10 @@ console.log("=== Belfast International Free ===");
   assert.match(message, /Flight: EI123/);
   assert.doesNotMatch(message, /Express/i);
   assertCompanyReminder(message);
+  assertWhatsAppEmail(
+    dueCollection({ outboundAirportAccessOption: "free", flightNumber: "EI 123" }),
+    "Belfast International Airport",
+  );
   console.log("OK  Free Long Stay directions, no Express");
 }
 
@@ -103,6 +143,14 @@ console.log("=== Belfast City Express and Free ===");
   assert.match(express, /Express Pick-Up/);
   assert.doesNotMatch(express, /Long Stay/i);
   assertCompanyReminder(express);
+  assertWhatsAppEmail(
+    dueCollection({
+      pickupLabel: "George Best Belfast City Airport",
+      airportCode: "BHD",
+      outboundAirportAccessOption: "express",
+    }),
+    "George Best Belfast City Airport",
+  );
 
   const free = messageOf(
     dueCollection({
@@ -114,6 +162,14 @@ console.log("=== Belfast City Express and Free ===");
   assert.match(free, /Long Stay Car Park Free Pick-Up Location/);
   assert.doesNotMatch(free, /Express/i);
   assertCompanyReminder(free);
+  assertWhatsAppEmail(
+    dueCollection({
+      pickupLabel: "George Best Belfast City Airport",
+      airportCode: "BHD",
+      outboundAirportAccessOption: "free",
+    }),
+    "George Best Belfast City Airport",
+  );
   console.log("OK  Belfast City keeps Express and Free apart");
 }
 
@@ -133,6 +189,16 @@ console.log("=== Dublin terminals ===");
   assert.match(terminal1, /Flight: EI164/);
   assert.doesNotMatch(terminal1, /Long Stay|Free Pick-Up|Free Pickup/i);
   assertCompanyReminder(terminal1);
+  assertWhatsAppEmail(
+    dueCollection({
+      pickupLabel: "Dublin Airport",
+      airportCode: "DUB",
+      outboundAirportAccessOption: "free",
+      dublinArrivalTerminal: "T1",
+      flightNumber: "EI164",
+    }),
+    "Dublin Airport",
+  );
 
   const terminal2 = messageOf(
     dueCollection({
@@ -146,6 +212,15 @@ console.log("=== Dublin terminals ===");
   assert.doesNotMatch(terminal2, /Terminal 1/);
   assert.doesNotMatch(terminal2, /Long Stay|Free Pick-Up/i);
   assertCompanyReminder(terminal2);
+  assertWhatsAppEmail(
+    dueCollection({
+      pickupLabel: "Dublin Airport",
+      airportCode: "DUB",
+      dublinArrivalTerminal: "T2",
+      outboundAirportAccessOption: null,
+    }),
+    "Dublin Airport",
+  );
 
   const unknown = buildAirportPickupReminderMessage(
     dueCollection({
@@ -294,10 +369,23 @@ console.log("=== Return leg is independent ===");
 console.log("=== Missing first name ===");
 {
   for (const customerName of ["", "   ", null, undefined, "undefined", "null"]) {
-    const message = messageOf(dueCollection({ customerName }));
-    assert.match(message, /^Hi,/);
-    assert.doesNotMatch(message, /Hi undefined|Hi null|Hi there/i);
-    assertCompanyReminder(message);
+    const decision = evaluateAirportPickupReminder(dueCollection({ customerName }), NOW);
+    assert.equal(decision.eligible, true);
+    if (!decision.eligible) continue;
+    assert.match(decision.message, /^Hi,/);
+    assert.doesNotMatch(decision.message, /Hi undefined|Hi null|Hi there/i);
+    assert.match(decision.whatsAppDraft, /^Hi\. I have arrived at /);
+    assert.doesNotMatch(decision.whatsAppDraft, /this is undefined|this is null|this is ,/i);
+    assertCompanyReminder(decision.message);
+  }
+  const withoutReference = evaluateAirportPickupReminder(
+    dueCollection({ customerReference: null }),
+    NOW,
+  );
+  assert.equal(withoutReference.eligible, true);
+  if (withoutReference.eligible) {
+    assert.match(withoutReference.whatsAppDraft, /for my My Airport Taxi NI booking\./);
+    assert.doesNotMatch(withoutReference.whatsAppDraft, /booking undefined|booking null/);
   }
   const spaced = messageOf(dueCollection({ customerName: "  Sarah   Johnson  " }));
   assert.match(spaced, /^Hi Sarah,/);

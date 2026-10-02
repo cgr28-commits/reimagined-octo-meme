@@ -81,6 +81,7 @@ export function airportPickupReminderInput(
     journeyStatus: job.journeyStatus,
     isRefundTest: paid?.isRefundTest,
     assignedDriverMobile: job.assignedDriverMobile,
+    customerReference: paid?.customerReference,
   };
 }
 

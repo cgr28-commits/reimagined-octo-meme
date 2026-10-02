@@ -14,7 +14,13 @@ import {
   FORBIDDEN_PERSONAL_VOICE_PATTERNS,
   type CompanyVoiceAirportAccessOption,
 } from "./company-voice-journey";
-import { BUSINESS_NAME, BUSINESS_PHONE_DISPLAY, businessWhatsAppChatUrl } from "./business-email";
+import {
+  BUSINESS_NAME,
+  BUSINESS_PHONE_DISPLAY,
+  BUSINESS_PHONE_TEL,
+  businessWhatsAppChatUrl,
+} from "./business-email";
+import { normalizeCustomerBookingReference } from "./customer-booking-reference";
 import { parseDublinArrivalTerminal } from "./dublin-arrival-terminal";
 import {
   EXPRESS_FREE_PICKUP_CONFIGURED,
@@ -35,7 +41,10 @@ const SAFE_LIMITED_WAITING_COPY =
 const VERIFIED_TEN_MINUTE_COPY =
   "The airport pickup area has a maximum stay of 10 minutes, so please contact us once you are at the pickup location and ready to be collected.";
 
-const CONTACT_COPY = `Once you have reached the pickup location and are ready to be collected, please contact us via WhatsApp or call our Business Line on ${BUSINESS_PHONE_DISPLAY}.`;
+const CONTACT_INTRO =
+  "Once you have reached the pickup location and are ready to be collected, please contact us.";
+
+const BUSINESS_LINE_LABEL = "Or call our Business Line:";
 
 const MEET_COPY = "Your driver will then meet you at the pickup location.";
 
@@ -73,6 +82,8 @@ export type AirportPickupReminderInput = {
   isRefundTest?: boolean | null;
   /** Ignored. Tests pass a driver mobile to prove it is never copied into the message. */
   assignedDriverMobile?: string | null;
+  /** Short customer reference (MAT-####). Payment and checkout ids are not used. */
+  customerReference?: string | null;
 };
 
 export type AirportPickupReminderSkipReason =
@@ -97,13 +108,44 @@ export type AirportPickupReminderDecision =
       subject: string;
       text: string;
       html: string;
+      /** wa.me link. Opens WhatsApp with the text filled in. It does not send. */
+      whatsAppHref: string;
+      whatsAppDraft: string;
     };
 
-export function airportPickupReminderGreeting(fullName: string | null | undefined): string {
-  if (typeof fullName !== "string") return "Hi,";
+function reminderFirstName(fullName: string | null | undefined): string {
+  if (typeof fullName !== "string") return "";
   const first = fullName.trim().split(/\s+/).filter(Boolean)[0] ?? "";
-  if (!first || /^undefined$/i.test(first) || /^null$/i.test(first)) return "Hi,";
-  return `Hi ${first},`;
+  if (!first || /^undefined$/i.test(first) || /^null$/i.test(first)) return "";
+  return first;
+}
+
+export function airportPickupReminderGreeting(fullName: string | null | undefined): string {
+  const first = reminderFirstName(fullName);
+  return first ? `Hi ${first},` : "Hi,";
+}
+
+/**
+ * Words the customer can send after they reach the pickup point.
+ * wa.me only prefills this. Nothing is sent until the customer presses Send.
+ */
+export function airportPickupWhatsAppDraft(input: AirportPickupReminderInput): string | null {
+  void input.assignedDriverMobile;
+  const airport = reminderAirport(input);
+  if (!airport) return null;
+  const airportName = getServedAirport(airport)?.name ?? airport;
+  const first = reminderFirstName(input.customerName);
+  const reference = normalizeCustomerBookingReference(input.customerReference);
+  const who = first ? `Hi, this is ${first}.` : "Hi.";
+  const booking = reference ? `booking ${reference}` : `my ${BUSINESS_NAME} booking`;
+  return `${who} I have arrived at ${airportName} and I'm now at the pickup location for ${booking}.`;
+}
+
+export function airportPickupWhatsAppHref(input: AirportPickupReminderInput): string | null {
+  const draft = airportPickupWhatsAppDraft(input);
+  if (!draft) return null;
+  // encodeURIComponent leaves apostrophes raw. Encode them so the prefilled text survives email clients.
+  return businessWhatsAppChatUrl(draft).replace(/'/g, "%27");
 }
 
 export function londonCalendarDate(instant: Date): string {
@@ -233,6 +275,7 @@ export function buildAirportPickupReminderMessage(
 
   const airportName = getServedAirport(airport)?.name ?? airport;
   const pickupTime = formatUkTime(String(input.tripTime ?? "").trim());
+  const whatsAppHref = airportPickupWhatsAppHref(input);
   const lines = [
     airportPickupReminderGreeting(input.customerName),
     "",
@@ -244,8 +287,6 @@ export function buildAirportPickupReminderMessage(
     "",
     directions,
     "",
-    CONTACT_COPY,
-    "",
     MEET_COPY,
   ];
 
@@ -253,6 +294,19 @@ export function buildAirportPickupReminderMessage(
     lines.push("", VERIFIED_TEN_MINUTE_COPY);
   } else {
     lines.push("", SAFE_LIMITED_WAITING_COPY);
+  }
+
+  if (whatsAppHref) {
+    lines.push(
+      "",
+      CONTACT_INTRO,
+      "",
+      "Message us on WhatsApp:",
+      whatsAppHref,
+      "",
+      BUSINESS_LINE_LABEL,
+      BUSINESS_PHONE_DISPLAY,
+    );
   }
 
   lines.push("", "We look forward to welcoming you.", "", BUSINESS_NAME);
@@ -306,7 +360,9 @@ export function evaluateAirportPickupReminder(
   if (!input.customerEmail?.trim()) return skip("missing_email");
 
   const message = buildAirportPickupReminderMessage(input);
-  if (!message) return skip("unresolved_pickup");
+  const whatsAppDraft = airportPickupWhatsAppDraft(input);
+  const whatsAppHref = airportPickupWhatsAppHref(input);
+  if (!message || !whatsAppDraft || !whatsAppHref) return skip("unresolved_pickup");
 
   const airportName = getServedAirport(reminderAirport(input) ?? "")?.name ?? "the airport";
   const subject = `Airport pickup reminder — ${airportName}`;
@@ -316,7 +372,9 @@ export function evaluateAirportPickupReminder(
     message,
     subject,
     text: message,
-    html: buildAirportPickupReminderHtml(message),
+    html: buildAirportPickupReminderHtml(message, whatsAppHref),
+    whatsAppHref,
+    whatsAppDraft,
   };
 }
 
@@ -328,26 +386,28 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function buildAirportPickupReminderHtml(message: string): string {
-  const whatsAppHref = businessWhatsAppChatUrl(
-    "Hi, I have reached the airport pickup location and I am ready to be collected.",
-  );
+function whatsAppButtonBlock(href: string): string {
+  const safeHref = escapeHtml(href);
+  return `<div style="margin:8px 0 20px;text-align:center;">
+<a href="${safeHref}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-size:18px;font-weight:bold;line-height:1.2;padding:16px 28px;border-radius:8px;">Message us on WhatsApp</a>
+<p style="margin:12px 0 0;font-size:13px;line-height:1.5;color:#64748b;text-align:left;">If the button does not open, use this link:<br /><a href="${safeHref}" style="color:#071c38;word-break:break-all;">${safeHref}</a></p>
+</div>`;
+}
+
+function buildAirportPickupReminderHtml(message: string, whatsAppHref: string): string {
   const paragraphs = message
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
     .map((paragraph) => {
-      let safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
-      if (paragraph.includes("WhatsApp")) {
-        safe = safe.replace(
-          "WhatsApp",
-          `<a href="${escapeHtml(whatsAppHref)}" style="color:#071c38;font-weight:bold;">WhatsApp</a>`,
-        );
+      if (paragraph.startsWith("Message us on WhatsApp:")) {
+        return whatsAppButtonBlock(whatsAppHref);
       }
+      let safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
       if (paragraph.includes(BUSINESS_PHONE_DISPLAY)) {
         safe = safe.replace(
           BUSINESS_PHONE_DISPLAY,
-          `<a href="tel:+442896022952" style="color:#071c38;font-weight:bold;">${BUSINESS_PHONE_DISPLAY}</a>`,
+          `<a href="tel:${BUSINESS_PHONE_TEL}" style="color:#071c38;font-weight:bold;">${BUSINESS_PHONE_DISPLAY}</a>`,
         );
       }
       return `<p style="margin:0 0 16px;">${safe}</p>`;
@@ -371,9 +431,10 @@ function buildAirportPickupReminderHtml(message: string): string {
 }
 
 export function airportPickupReminderUsesCompanyVoice(message: string): boolean {
-  if (FORBIDDEN_PERSONAL_VOICE_PATTERNS.some((pattern) => pattern.test(message))) return false;
-  if (/\bI['’]m\b|\bcall me\b|\bmy car\b|\bI['’]m waiting\b|\bI\b/i.test(message)) return false;
-  return /\byour driver\b/i.test(message) && /\bwe\b/i.test(message) && message.includes(BUSINESS_NAME);
+  const prose = message.replace(/https:\/\/wa\.me\/\S+/g, " ");
+  if (FORBIDDEN_PERSONAL_VOICE_PATTERNS.some((pattern) => pattern.test(prose))) return false;
+  if (/\bI['’]m\b|\bcall me\b|\bmy car\b|\bI['’]m waiting\b|\bI\b/i.test(prose)) return false;
+  return /\byour driver\b/i.test(prose) && /\bwe\b/i.test(prose) && prose.includes(BUSINESS_NAME);
 }
 
 export function airportPickupReminderStatesUnverifiedTenMinutes(
