@@ -5,7 +5,11 @@ import {
   type BookingJobRecord,
 } from "../shared/booking-job";
 import { corsHeaders } from "../shared/google-places";
-import { sanitizeAdsAttribution } from "../shared/ads-attribution";
+import {
+  applyAdsMeasurementToBooking,
+  sanitizeAdsAttribution,
+  sanitizeAdsMeasurement,
+} from "../shared/ads-attribution";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { logBookingsToGoogleCalendar } from "./google-calendar";
 import {
@@ -159,7 +163,16 @@ export async function createBookingJobFromSubmission(
         : null,
     isAirportTrip: b.isAirportTrip === true,
     message: options.message?.trim() || undefined,
-    attribution: sanitizeAdsAttribution(b.attribution),
+    ...(() => {
+      const measured = applyAdsMeasurementToBooking({
+        attribution: sanitizeAdsAttribution(b.attribution),
+        adsMeasurement: sanitizeAdsMeasurement(b.adsMeasurement),
+      });
+      return {
+        ...(measured.attribution ? { attribution: measured.attribution } : {}),
+        ...(measured.adsMeasurement ? { adsMeasurement: measured.adsMeasurement } : {}),
+      };
+    })(),
     driverAssignmentStatus: "unassigned",
   };
 

@@ -124,6 +124,13 @@ export type OwnerPaidBookingSummary = Pick<
   googleAdsPaidConversionClickIdType?: "gclid" | "gbraid" | "wbraid";
   googleAdsPaidConversionLastError?: string;
   googleAdsClickIdCaptured?: boolean;
+  /** Recorded on new bookings. Absent means the reason was not stored. */
+  adsAttributionOutcome?:
+    | "click_id_captured"
+    | "consent_rejected"
+    | "consent_unanswered"
+    | "no_click_id";
+  adsMeasurementConsent?: "accepted" | "rejected" | "unanswered";
   returnOffer?: {
     eligible: boolean;
     reason?: string;

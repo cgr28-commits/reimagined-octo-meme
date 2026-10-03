@@ -4,6 +4,7 @@ import {
   ADS_ATTRIBUTION_KEYS,
   sanitizeAdsAttribution,
   type AdsAttribution,
+  type AdsMeasurementRecord,
 } from "../../shared/ads-attribution";
 import { hasMarketingCookieConsent, readCookieConsent } from "@/lib/cookie-consent";
 
@@ -18,6 +19,12 @@ type LandingWindow = Window & { __matniLandingSearch?: string };
 
 /** In-memory landing click IDs. Not storage, and cleared when consent is rejected. */
 let pendingLanding: AdsAttributionParams = {};
+/** True once this document has seen a click ID. Survives a later reject. Not the ID itself. */
+let clickIdObserved = false;
+
+function noteClickIdObserved(value: AdsAttributionParams): void {
+  if (value.gclid || value.wbraid || value.gbraid) clickIdObserved = true;
+}
 
 function readSearchParams(search: string): AdsAttributionParams {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
@@ -90,12 +97,14 @@ export function rememberLandingAdsAttribution(search?: string): AdsAttributionPa
     readSearchParams(landingSearchMarkedOnWindow()),
     readSearchParams(fromArg),
   );
+  noteClickIdObserved(pendingLanding);
   return pendingLanding;
 }
 
 /** A new document drops this naturally. Tests use it to simulate a later visit. */
 export function dropInMemoryAdsAttribution(): void {
   pendingLanding = {};
+  clickIdObserved = false;
 }
 
 /**
@@ -223,21 +232,56 @@ export function clearStoredAdsAttribution(): void {
 export function readConsentedAdsAttribution(): AdsAttributionParams | undefined {
   if (typeof window === "undefined" || !hasMarketingCookieConsent()) return undefined;
   const merged = consentedAttribution();
+  noteClickIdObserved(merged);
   return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function hasClickId(value: AdsAttributionParams | undefined): boolean {
+  return Boolean(value?.gclid || value?.wbraid || value?.gbraid);
+}
+
+/** Consent and whether a click ID was seen. The ID itself is omitted unless consent was accepted. */
+export function readAdsMeasurement(): AdsMeasurementRecord | undefined {
+  if (typeof window === "undefined") return undefined;
+  const consent = readCookieConsent();
+  const visible = mergeAttribution(
+    consent === "accepted" ? readCookieAttribution() : undefined,
+    consent === "accepted" ? readStoredAdsAttribution() : undefined,
+    pendingLanding,
+    readSearchParams(landingSearchMarkedOnWindow()),
+    readSearchParams(window.location.search),
+  );
+  noteClickIdObserved(visible);
+  if (consent === "rejected") {
+    return { consent: "rejected", outcome: "consent_rejected", clickIdObserved };
+  }
+  if (consent !== "accepted") {
+    return { consent: "unanswered", outcome: "consent_unanswered", clickIdObserved };
+  }
+  const stored = consentedAttribution();
+  noteClickIdObserved(stored);
+  return {
+    consent: "accepted",
+    outcome: hasClickId(stored) ? "click_id_captured" : "no_click_id",
+    clickIdObserved: clickIdObserved || hasClickId(stored),
+  };
 }
 
 /**
  * Attach the consented click ID, or remove one that was captured before a reject.
+ * Always records the consent state so a missing click ID can be explained later.
  */
-export function bookingWithConsentedAdsAttribution<T extends { attribution?: AdsAttribution }>(
-  booking: T,
-): T {
-  const attribution = readConsentedAdsAttribution();
-  if (!attribution) {
-    if (!Object.prototype.hasOwnProperty.call(booking, "attribution")) return booking;
-    const next = { ...booking };
-    delete next.attribution;
-    return next;
-  }
-  return { ...booking, attribution };
+export function bookingWithConsentedAdsAttribution<
+  T extends { attribution?: AdsAttribution },
+>(booking: T): T & { adsMeasurement?: AdsMeasurementRecord } {
+  if (typeof window === "undefined") return booking;
+  const adsMeasurement = readAdsMeasurement();
+  const attribution = adsMeasurement?.consent === "accepted" ? readConsentedAdsAttribution() : undefined;
+  const next: T & { adsMeasurement?: AdsMeasurementRecord } = {
+    ...booking,
+    ...(adsMeasurement ? { adsMeasurement } : {}),
+  };
+  if (attribution) return { ...next, attribution };
+  delete next.attribution;
+  return next;
 }

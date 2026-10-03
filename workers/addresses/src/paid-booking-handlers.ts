@@ -186,6 +186,12 @@ function googleAdsOwnerStatusFields(booking: PaidBookingRecord) {
     googleAdsPaidConversionSentAt: booking.googleAdsPaidConversionSentAt,
     googleAdsPaidConversionClickIdType: clickIdType,
     googleAdsClickIdCaptured: Boolean(click || booking.googleAdsPaidConversionClickIdType),
+    ...(booking.adsMeasurement?.outcome
+      ? { adsAttributionOutcome: booking.adsMeasurement.outcome }
+      : {}),
+    ...(booking.adsMeasurement?.consent
+      ? { adsMeasurementConsent: booking.adsMeasurement.consent }
+      : {}),
     ...(lastError ? { googleAdsPaidConversionLastError: lastError } : {}),
   };
 }

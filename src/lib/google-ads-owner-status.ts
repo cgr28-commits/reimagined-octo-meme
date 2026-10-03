@@ -8,15 +8,24 @@ export type OwnerGoogleAdsPaidConversionLabel =
   | "Failed"
   | "Missing configuration"
   | "No captured click ID"
-  | "Not recorded";
+  | "Not recorded"
+  | "Consent rejected"
+  | "Consent not answered"
+  | "Reason unknown";
 
 export function ownerGoogleAdsPaidConversionLabel(
   status: string | null | undefined,
   clickIdCaptured: boolean,
+  attributionOutcome?: string | null,
 ): OwnerGoogleAdsPaidConversionLabel {
   if (status === "sent" || status === "skipped_duplicate") return "Sent";
   if (status === "failed") return "Failed";
   if (status === "skipped_not_configured") return "Missing configuration";
-  if (status === "skipped_no_click_id" || !clickIdCaptured) return "No captured click ID";
-  return "Not recorded";
+  if (attributionOutcome === "consent_rejected") return "Consent rejected";
+  if (attributionOutcome === "consent_unanswered") return "Consent not answered";
+  if (attributionOutcome === "no_click_id") return "No captured click ID";
+  if (attributionOutcome === "click_id_captured" && clickIdCaptured) return "Not recorded";
+  if (!attributionOutcome && !clickIdCaptured) return "Reason unknown";
+  if (clickIdCaptured) return "Not recorded";
+  return "Reason unknown";
 }
