@@ -155,8 +155,11 @@ console.log("\n=== 4. Arrival + updated confirmation emails (no send) ===");
   const arrival = buildDriverArrivedPickupEmail({ customerName: "Alex Customer" });
   assert.match(arrival.subject, /arrived/i);
   assert.match(arrival.text, /Alex/);
-  assert.match(arrival.text, /arrived at your pickup location/i);
-  assert.match(arrival.text, /Your driver is now at your pickup location/);
+  assert.match(
+    arrival.text,
+    /Hi Alex, your driver has arrived at your pickup location and is ready when you are\./,
+  );
+  assert.doesNotMatch(arrival.text, /Your driver is now at your pickup location/);
   assert.doesNotMatch(arrival.text, /My Airport Taxi NI driver/);
   assert.match(
     arrival.text,

@@ -34,7 +34,11 @@ import {
   buildArrivedPickupWhatsAppMessage,
   buildDriverOnTheWayWhatsAppLink,
   isAirportPickupLabel,
+  toWhatsAppDigits,
 } from "../../shared/arrival-whatsapp";
+import { buildGoogleReviewRequestWhatsAppMessage } from "../../shared/booking-notifications";
+import { googleReviewRequestChannels } from "../../shared/google-review-channels";
+import { isUsableMailbox } from "../../shared/owner-email-copy";
 import {
   activeLegDublinArrivalTerminal,
   dublinArrivalTerminalLabel,
@@ -135,6 +139,14 @@ function reviewStatusLabel(
   }
 }
 
+function reviewOwnerCopyLabel(ownerBccSent: boolean | undefined): string | null {
+  if (ownerBccSent === true) return "Owner copy included";
+  if (ownerBccSent === false) {
+    return "Customer email was sent. Owner BCC copy was not sent.";
+  }
+  return null;
+}
+
 function formatArrivedPickupHhMm(iso?: string): string {
   if (!iso?.trim()) return "";
   const date = new Date(iso);
@@ -214,6 +226,18 @@ function openArrivalWhatsAppForBooking(
     expressDropOffAirport: booking.expressDropOffAirport,
     expressDropOffFee: booking.expressDropOffFee,
     dublinArrivalTerminal: activeLegDublinArrivalTerminal(booking),
+  });
+  openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
+  return "opened";
+}
+
+function openReviewWhatsAppForBooking(
+  booking: OwnerPaidBookingSummary,
+): "opened" | "no_mobile" {
+  const mobile = bookingCustomerMobile(booking);
+  if (!toWhatsAppDigits(mobile)) return "no_mobile";
+  const message = buildGoogleReviewRequestWhatsAppMessage({
+    customerName: booking.customerName,
   });
   openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
   return "opened";
@@ -831,11 +855,14 @@ export default function OwnerPaidBookingsPanel({
         : result.provider === "resend"
           ? " via Resend"
           : "";
-      setMessage(
-        forceResend
-          ? `Review request resent to ${to}${viaResend}.`
-          : `Review request sent to ${to}${viaResend}.`,
-      );
+      const action = forceResend ? "resent" : "sent";
+      const ownerCopy =
+        result.ownerBccSent === true
+          ? " Owner copy included."
+          : result.ownerBccSent === false
+            ? " Customer email was sent. Owner BCC copy was not sent."
+            : "";
+      setMessage(`Email review request ${action} to ${to}${viaResend}.${ownerCopy}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send review request");
     } finally {
@@ -1607,37 +1634,62 @@ export default function OwnerPaidBookingsPanel({
             >
               {busyRef === booking.paymentReference ? "Sending…" : "Resend Confirmation"}
             </button>
-            {isCompleted || booking.reviewRequest ? (
-              booking.reviewRequest?.status === "sent" ? (
-                <button
-                  type="button"
-                  disabled={busyRef === booking.paymentReference}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        "A review request was already sent. Send another copy to the customer?",
-                      )
-                    ) {
-                      void handleReviewRequest(booking, true);
-                    }
-                  }}
-                  className="min-h-11 w-full rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 disabled:opacity-60"
-                >
-                  Resend review request
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={busyRef === booking.paymentReference}
-                  onClick={() => void handleReviewRequest(booking, false)}
-                  className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald disabled:opacity-60"
-                >
-                  {booking.reviewRequest?.status === "failed"
-                    ? "Retry review request"
-                    : "Send review request"}
-                </button>
-              )
-            ) : null}
+            {isCompleted || booking.reviewRequest
+              ? googleReviewRequestChannels({
+                  hasUsableEmail: isUsableMailbox(booking.customerEmail),
+                  hasUsableMobile: Boolean(toWhatsAppDigits(bookingCustomerMobile(booking))),
+                }).map((channel) =>
+                  channel === "email" ? (
+                    booking.reviewRequest?.status === "sent" ? (
+                      <button
+                        key="email-review"
+                        type="button"
+                        disabled={busyRef === booking.paymentReference}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "A review request was already sent. Send another copy to the customer?",
+                            )
+                          ) {
+                            void handleReviewRequest(booking, true);
+                          }
+                        }}
+                        className="min-h-11 w-full rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 disabled:opacity-60"
+                      >
+                        Resend Email Review Request
+                      </button>
+                    ) : (
+                      <button
+                        key="email-review"
+                        type="button"
+                        disabled={busyRef === booking.paymentReference}
+                        onClick={() => void handleReviewRequest(booking, false)}
+                        className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald disabled:opacity-60"
+                      >
+                        {booking.reviewRequest?.status === "failed"
+                          ? "Retry Email Review Request"
+                          : "Email Review Request"}
+                      </button>
+                    )
+                  ) : channel === "whatsapp" ? (
+                    <button
+                      key="whatsapp-review"
+                      type="button"
+                      onClick={() => {
+                        const outcome = openReviewWhatsAppForBooking(booking);
+                        setMessage(
+                          outcome === "opened"
+                            ? "WhatsApp review request opened — press Send to message the customer."
+                            : "No usable customer mobile on this booking for WhatsApp.",
+                        );
+                      }}
+                      className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-semibold text-emerald"
+                    >
+                      WhatsApp Review Request
+                    </button>
+                  ) : null,
+                )
+              : null}
             {showEvidence ? (
               <a
                 href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
@@ -1801,6 +1853,12 @@ export default function OwnerPaidBookingsPanel({
                     booking.reviewRequest?.status,
                     booking.reviewRequest?.dueAt,
                   )}
+                  {booking.reviewRequest?.status === "sent" &&
+                  reviewOwnerCopyLabel(booking.reviewRequest.ownerBccSent) ? (
+                    <span className="mt-1 block text-white/70">
+                      {reviewOwnerCopyLabel(booking.reviewRequest.ownerBccSent)}
+                    </span>
+                  ) : null}
                 </dd>
               </div>
             ) : null}

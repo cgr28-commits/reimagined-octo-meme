@@ -132,6 +132,11 @@ const arrival = buildDriverArrivedPickupEmail({
   driverMobile: "07700 900123",
 });
 assert.match(arrival.subject, /Your driver has arrived/);
+assert.match(
+  arrival.text,
+  /Hi Alex, your driver has arrived at your pickup location and is ready when you are\./,
+);
+assert.doesNotMatch(arrival.text, /Your driver is now at your pickup location/);
 assert.doesNotMatch(arrival.subject, /Driver on the way/);
 assertJourneyStatusContactFooter(arrival, "arrival email");
 console.log("OK  arrival email separate; landline removed; WhatsApp chat link added");

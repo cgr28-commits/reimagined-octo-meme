@@ -6,10 +6,17 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildArrivedPickupWhatsAppLink } from "../shared/arrival-whatsapp";
 import {
   buildGoogleReviewRequestEmail,
+  buildGoogleReviewRequestWhatsAppMessage,
   customerFirstName,
 } from "../shared/booking-notifications";
+import {
+  GOOGLE_REVIEW_SMS_CHANNEL_ENABLED,
+  googleReviewRequestChannels,
+} from "../shared/google-review-channels";
+import { isUsableMailbox } from "../shared/owner-email-copy";
 import {
   DEFAULT_GOOGLE_REVIEW_URL,
   resolveGoogleReviewUrl,
@@ -229,8 +236,8 @@ console.log("\n=== 9–10. Manual send / already-sent protection (source) ===");
   assert.match(handlers, /handleReviewRequestSendRequest/);
   assert.match(handlers, /forceResend/);
   assert.match(handlers, /alreadySent/);
-  assert.match(handlers, /A Google review request was already sent/);
-  assert.match(handlers, /Resend review request/);
+  assert.match(handlers, /A Google review email was already sent/);
+  assert.match(handlers, /Resend Email Review Request/);
   assert.match(handlers, /trySendResendOnlyCustomerEmail/);
   assert.match(handlers, /resolveReviewRequestRecipient/);
   assert.match(handlers, /getPaidBookingRecord/);
@@ -248,8 +255,12 @@ console.log("\n=== 9–10. Manual send / already-sent protection (source) ===");
   assert.match(api, /resendId/);
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /Send review request/);
-  assert.match(panel, /Resend review request/);
+  assert.match(panel, /Email Review Request/);
+  assert.match(panel, /Resend Email Review Request/);
+  assert.match(panel, /WhatsApp Review Request/);
+  assert.match(panel, /buildGoogleReviewRequestWhatsAppMessage/);
+  assert.match(panel, /openReviewWhatsAppForBooking/);
+  assert.doesNotMatch(panel, /SMS Review Request/);
   assert.match(panel, /sendOwnerReviewRequest/);
   assert.match(panel, /Review request/);
   assert.match(panel, /Complete job|complete_journey/);
@@ -310,6 +321,71 @@ console.log("\n=== Architecture wiring ===");
   assert.match(links, /g\.page\/r\/CbzkRdTv-0hNEBM\/review/);
   assert.doesNotMatch(read("src/components/OwnerPaidBookingsPanel.tsx"), /g\.page\/r\/CbzkRdTv/);
   console.log("OK  cron + complete trigger + central URL config");
+}
+
+console.log("\n=== Email and WhatsApp review channels share one message ===");
+{
+  assert.equal(GOOGLE_REVIEW_SMS_CHANNEL_ENABLED, false);
+  assert.equal(isUsableMailbox("alex@example.com"), true);
+  assert.equal(isUsableMailbox("  "), false);
+  assert.equal(isUsableMailbox("not-an-email"), false);
+  assert.deepEqual(
+    googleReviewRequestChannels({ hasUsableEmail: false, hasUsableMobile: false }),
+    [],
+  );
+  assert.deepEqual(
+    googleReviewRequestChannels({ hasUsableEmail: true, hasUsableMobile: false }),
+    ["email"],
+  );
+  assert.deepEqual(
+    googleReviewRequestChannels({ hasUsableEmail: false, hasUsableMobile: true }),
+    ["whatsapp"],
+  );
+  assert.deepEqual(
+    googleReviewRequestChannels({ hasUsableEmail: true, hasUsableMobile: true }),
+    ["email", "whatsapp"],
+  );
+
+  const email = buildGoogleReviewRequestEmail(
+    { customerName: "Alex Example" },
+    DEFAULT_GOOGLE_REVIEW_URL,
+  );
+  const whatsapp = buildGoogleReviewRequestWhatsAppMessage({ customerName: "Alex Example" });
+  assert.equal(whatsapp, email.text);
+  assert.match(whatsapp, /g\.page\/r\/CbzkRdTv-0hNEBM\/review/);
+
+  const link = buildArrivedPickupWhatsAppLink("07700900123", whatsapp);
+  assert.match(link, /^https:\/\/wa\.me\/447700900123\?text=/);
+  assert.match(decodeURIComponent(link), /Leave a Google Review:/);
+  assert.doesNotMatch(link, /api\.whatsapp|graph\.facebook/i);
+
+  const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
+  assert.match(panel, /hasUsableEmail: isUsableMailbox\(booking\.customerEmail\)/);
+  const reviewWhatsApp = panel.slice(
+    panel.indexOf("function openReviewWhatsAppForBooking"),
+    panel.indexOf("function openOnTheWayWhatsAppForBooking"),
+  );
+  assert.match(reviewWhatsApp, /buildGoogleReviewRequestWhatsAppMessage/);
+  assert.match(reviewWhatsApp, /buildArrivedPickupWhatsAppLink/);
+  assert.doesNotMatch(reviewWhatsApp, /sendOwnerReviewRequest/);
+  assert.match(panel, />\s*WhatsApp\s*</);
+  assert.doesNotMatch(panel, /SMS Review Request/);
+
+  const ownerCopy = panel.slice(
+    panel.indexOf("function reviewOwnerCopyLabel"),
+    panel.indexOf("function formatArrivedPickupHhMm"),
+  );
+  assert.match(ownerCopy, /Customer email was sent\. Owner BCC copy was not sent\./);
+  assert.match(ownerCopy, /Owner copy included/);
+  assert.doesNotMatch(ownerCopy, /@/);
+
+  const handlers = read("workers/addresses/src/review-request-handlers.ts");
+  assert.match(handlers, /Review request customer email was sent\. Owner BCC copy was not sent\./);
+  assert.match(handlers, /reviewRequestOwnerBccSent/);
+  assert.match(handlers, /customerEmailSent: true/);
+  assert.match(handlers, /ownerBccSent: sendResult\.ownerBccSent === true/);
+  assert.match(handlers, /trySendResendOnlyCustomerEmail/);
+  console.log("OK  email + manual WhatsApp review; SMS hidden; BCC outcome is explicit");
 }
 
 console.log("\nAll review request checks passed.");
