@@ -16,6 +16,7 @@ import {
   GOOGLE_REVIEW_SMS_CHANNEL_ENABLED,
   googleReviewRequestChannels,
 } from "../shared/google-review-channels";
+import { isUsableMailbox } from "../shared/owner-email-copy";
 import {
   DEFAULT_GOOGLE_REVIEW_URL,
   resolveGoogleReviewUrl,
@@ -325,8 +326,25 @@ console.log("\n=== Architecture wiring ===");
 console.log("\n=== Email and WhatsApp review channels share one message ===");
 {
   assert.equal(GOOGLE_REVIEW_SMS_CHANNEL_ENABLED, false);
-  assert.deepEqual(googleReviewRequestChannels({ hasUsableMobile: false }), ["email"]);
-  assert.deepEqual(googleReviewRequestChannels({ hasUsableMobile: true }), ["email", "whatsapp"]);
+  assert.equal(isUsableMailbox("alex@example.com"), true);
+  assert.equal(isUsableMailbox("  "), false);
+  assert.equal(isUsableMailbox("not-an-email"), false);
+  assert.deepEqual(
+    googleReviewRequestChannels({ hasUsableEmail: false, hasUsableMobile: false }),
+    [],
+  );
+  assert.deepEqual(
+    googleReviewRequestChannels({ hasUsableEmail: true, hasUsableMobile: false }),
+    ["email"],
+  );
+  assert.deepEqual(
+    googleReviewRequestChannels({ hasUsableEmail: false, hasUsableMobile: true }),
+    ["whatsapp"],
+  );
+  assert.deepEqual(
+    googleReviewRequestChannels({ hasUsableEmail: true, hasUsableMobile: true }),
+    ["email", "whatsapp"],
+  );
 
   const email = buildGoogleReviewRequestEmail(
     { customerName: "Alex Example" },
@@ -342,6 +360,7 @@ console.log("\n=== Email and WhatsApp review channels share one message ===");
   assert.doesNotMatch(link, /api\.whatsapp|graph\.facebook/i);
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
+  assert.match(panel, /hasUsableEmail: isUsableMailbox\(booking\.customerEmail\)/);
   const reviewWhatsApp = panel.slice(
     panel.indexOf("function openReviewWhatsAppForBooking"),
     panel.indexOf("function openOnTheWayWhatsAppForBooking"),

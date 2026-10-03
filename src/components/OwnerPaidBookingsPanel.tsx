@@ -38,6 +38,7 @@ import {
 } from "../../shared/arrival-whatsapp";
 import { buildGoogleReviewRequestWhatsAppMessage } from "../../shared/booking-notifications";
 import { googleReviewRequestChannels } from "../../shared/google-review-channels";
+import { isUsableMailbox } from "../../shared/owner-email-copy";
 import {
   activeLegDublinArrivalTerminal,
   dublinArrivalTerminalLabel,
@@ -1635,6 +1636,7 @@ export default function OwnerPaidBookingsPanel({
             </button>
             {isCompleted || booking.reviewRequest
               ? googleReviewRequestChannels({
+                  hasUsableEmail: isUsableMailbox(booking.customerEmail),
                   hasUsableMobile: Boolean(toWhatsAppDigits(bookingCustomerMobile(booking))),
                 }).map((channel) =>
                   channel === "email" ? (

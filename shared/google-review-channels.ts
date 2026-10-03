@@ -10,9 +10,11 @@ export type GoogleReviewRequestChannel = "email" | "whatsapp" | "sms";
 export const GOOGLE_REVIEW_SMS_CHANNEL_ENABLED = false;
 
 export function googleReviewRequestChannels(options: {
+  hasUsableEmail: boolean;
   hasUsableMobile: boolean;
 }): GoogleReviewRequestChannel[] {
-  const channels: GoogleReviewRequestChannel[] = ["email"];
+  const channels: GoogleReviewRequestChannel[] = [];
+  if (options.hasUsableEmail) channels.push("email");
   if (options.hasUsableMobile) channels.push("whatsapp");
   if (GOOGLE_REVIEW_SMS_CHANNEL_ENABLED && options.hasUsableMobile) {
     channels.push("sms");
