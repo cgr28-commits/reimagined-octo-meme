@@ -10,6 +10,7 @@ import {
   businessWhatsAppPublicPageUrl,
 } from "./business-email";
 import { contactVCardPublicUrl } from "./business-links";
+import { bookingConfirmationThankYouHeading } from "./customer-first-name";
 import { vehicleServiceLabel } from "./booking-notice";
 import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL } from "./uk-time";
 import {
@@ -467,7 +468,7 @@ function buildInvoiceHtml(
     details.customerReference?.trim().toUpperCase() ||
     details.checkoutReference?.trim() ||
     "";
-  const customerName = escapeHtml(details.customerName);
+  const thankYouHeading = escapeHtml(bookingConfirmationThankYouHeading(details.customerName));
   const rowsHtml = invoiceRows(details)
     .map(
       (row) =>
@@ -491,7 +492,7 @@ function buildInvoiceHtml(
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Invoice &amp; booking confirmation</div>
-              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Thank you, ${customerName}</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">${thankYouHeading}</div>
               ${
                 customerRef
                   ? `<div style="margin-top:14px;display:inline-block;background:rgba(16,185,129,0.15);border:1px solid ${ACCENT};border-radius:10px;padding:10px 16px;font-size:15px;color:#ffffff;"><span style="color:${ACCENT};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;">Booking reference</span><br /><span style="font-size:22px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(customerRef)}</span></div>`

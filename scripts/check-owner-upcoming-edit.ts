@@ -238,7 +238,7 @@ console.log("\n=== 7. Owner panel UI contracts ===");
   assert.match(panel, /selectTodayUpcomingLegs|groupFutureJobsByDate/);
   assert.match(panel, /OWNER_PRIMARY_JOURNEY_BUTTON_LABELS|Driver arrived/);
   assert.match(panel, /arrived_pickup/);
-  assert.match(panel, /buildArrivedPickupWhatsAppLink|wa\.me/);
+  assert.match(panel, /CustomerMessageChannelChooser/);
   assert.match(panel, /Complete job|complete_journey/);
   assert.match(panel, /status === "arrived_pickup"|journeyStatus === "arrived_pickup"/);
   assert.match(panel, /ownerUpcomingPrimaryJourneyActions/);

@@ -30,11 +30,11 @@ import {
 import {
   activeLegPickupLabel,
   activeLegPickupTime,
-  buildArrivedPickupWhatsAppLink,
   buildArrivedPickupWhatsAppMessage,
-  buildDriverOnTheWayWhatsAppLink,
+  buildDriverOnTheWayWhatsAppMessage,
   isAirportPickupLabel,
 } from "../../shared/arrival-whatsapp";
+import { googleReviewCustomerMessage } from "../../shared/customer-message-channel";
 import {
   activeLegDublinArrivalTerminal,
   dublinArrivalTerminalLabel,
@@ -43,7 +43,9 @@ import {
 import { formatUkInstant } from "../../shared/uk-time";
 import { remainingCashDueGbp } from "../../shared/deposit-cash";
 import { formatGbpAmount } from "../../shared/gbp";
-import { whatsAppHrefForMobile } from "../../shared/journey-tip";
+import CustomerMessageChannelChooser, {
+  type CustomerMessageOffer,
+} from "@/components/CustomerMessageChannelChooser";
 import { formatAirportAccessOptionDashboardValue } from "../../shared/express-drop-off";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
@@ -186,26 +188,14 @@ function paymentStatusLabel(booking: OwnerPaidBookingSummary): string {
   }
 }
 
-function openWhatsAppDeepLink(href: string) {
-  const opened = window.open(href, "_blank", "noopener,noreferrer");
-  if (!opened) {
-    window.location.assign(href);
-  }
-}
-
 /** Prefer booking mobile; tolerate legacy empty/whitespace. */
 function bookingCustomerMobile(booking: OwnerPaidBookingSummary): string {
   return booking.mobileNumber?.trim() || "";
 }
 
-function openArrivalWhatsAppForBooking(
-  booking: OwnerPaidBookingSummary,
-): "opened" | "no_mobile" {
-  const mobile = bookingCustomerMobile(booking);
-  if (!mobile) return "no_mobile";
-
+function arrivalCustomerMessage(booking: OwnerPaidBookingSummary): string {
   const pickupLabel = activeLegPickupLabel(booking);
-  const message = buildArrivedPickupWhatsAppMessage({
+  return buildArrivedPickupWhatsAppMessage({
     isAirportPickup: isAirportPickupLabel(pickupLabel),
     pickupLabel,
     airportCode: booking.airportCode ?? booking.expressDropOffAirport,
@@ -215,22 +205,13 @@ function openArrivalWhatsAppForBooking(
     expressDropOffFee: booking.expressDropOffFee,
     dublinArrivalTerminal: activeLegDublinArrivalTerminal(booking),
   });
-  openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
-  return "opened";
 }
 
-function openOnTheWayWhatsAppForBooking(
-  booking: OwnerPaidBookingSummary,
-): "opened" | "no_mobile" {
-  const mobile = bookingCustomerMobile(booking);
-  if (!mobile) return "no_mobile";
-  openWhatsAppDeepLink(
-    buildDriverOnTheWayWhatsAppLink(mobile, {
-      customerName: booking.customerName,
-      bookedPickupTime: activeLegPickupTime(booking),
-    }),
-  );
-  return "opened";
+function onTheWayCustomerMessage(booking: OwnerPaidBookingSummary): string {
+  return buildDriverOnTheWayWhatsAppMessage({
+    customerName: booking.customerName,
+    bookedPickupTime: activeLegPickupTime(booking),
+  });
 }
 
 function sortByTripDateTime(a: OwnerPaidBookingSummary, b: OwnerPaidBookingSummary): number {
@@ -476,6 +457,9 @@ export default function OwnerPaidBookingsPanel({
     paymentReference: string;
     action: OwnerPrimaryJourneyAction;
   } | null>(null);
+  const [customerMessageOffer, setCustomerMessageOffer] = useState<CustomerMessageOffer | null>(
+    null,
+  );
   const [pastBookings, setPastBookings] = useState<OwnerPaidBookingSummary[]>([]);
   const [pastDaysLoaded, setPastDaysLoaded] = useState(0);
   const [pastLoading, setPastLoading] = useState(false);
@@ -942,16 +926,15 @@ export default function OwnerPaidBookingsPanel({
           ? `Journey completed. Google review request scheduled for ${formatUkInstant(result.reviewRequest.dueAt)}.`
           : "Journey completed. Review request will be scheduled automatically.";
         if (result.tip?.whatsappMessage && result.tip.openWhatsApp) {
-          const href = whatsAppHrefForMobile(
-            bookingCustomerMobile(booking),
-            result.tip.whatsappMessage,
+          setCustomerMessageOffer({
+            key: `${booking.paymentReference}:tip`,
+            title: "Thank-you message",
+            message: result.tip.whatsappMessage,
+            mobile: bookingCustomerMobile(booking),
+          });
+          setMessage(
+            `${review} Choose WhatsApp or Text Message. Nothing is sent until you pick one.`,
           );
-          if (href) {
-            openWhatsAppDeepLink(href);
-            setMessage(`${review} WhatsApp opened — press Send to message the customer.`);
-          } else {
-            setMessage(`${review} No customer mobile on this booking for WhatsApp.`);
-          }
         } else if (result.idempotent && result.tip) {
           setMessage("Journey already completed. The thank-you message was not opened again.");
         } else {
@@ -969,20 +952,17 @@ export default function OwnerPaidBookingsPanel({
                 ? " Arrival email not configured."
                 : "";
 
-        const mobile = bookingCustomerMobile(booking);
-        const openWhatsApp = !options?.retryArrivalNotification && Boolean(mobile);
-        if (openWhatsApp) {
-          openArrivalWhatsAppForBooking(booking);
+        if (!options?.retryArrivalNotification) {
+          setCustomerMessageOffer({
+            key: `${booking.paymentReference}:arrived`,
+            title: "Driver arrived",
+            message: arrivalCustomerMessage(booking),
+            mobile: bookingCustomerMobile(booking),
+          });
           setMessage(
             result.idempotent
-              ? `Already arrived at pickup${result.arrivedPickupAt ? ` (${formatArrivedPickupHhMm(result.arrivedPickupAt)})` : ""}.${notify} WhatsApp opened — press Send to message the customer.`
-              : `Arrived at pickup recorded.${notify} WhatsApp opened — press Send to message the customer.`,
-          );
-        } else if (!mobile && !options?.retryArrivalNotification) {
-          setMessage(
-            result.idempotent
-              ? `Already arrived at pickup.${notify} No customer mobile on this booking for WhatsApp.`
-              : `Arrived at pickup recorded.${notify} No customer mobile on this booking for WhatsApp.`,
+              ? `Already arrived at pickup${result.arrivedPickupAt ? ` (${formatArrivedPickupHhMm(result.arrivedPickupAt)})` : ""}.${notify} Choose WhatsApp or Text Message.`
+              : `Arrived at pickup recorded.${notify} Choose WhatsApp or Text Message.`,
           );
         } else {
           setMessage(
@@ -1004,19 +984,16 @@ export default function OwnerPaidBookingsPanel({
               : result.onTheWayNotificationStatus === "not_configured"
                 ? " On-the-way email not configured."
                 : "";
-        const wa = openOnTheWayWhatsAppForBooking(booking);
+        setCustomerMessageOffer({
+          key: `${booking.paymentReference}:on-the-way`,
+          title: "Driver on the way",
+          message: onTheWayCustomerMessage(booking),
+          mobile: bookingCustomerMobile(booking),
+        });
         setMessage(
           result.idempotent
-            ? `Already marked Driver on the way.${notify}${
-                wa === "opened"
-                  ? " WhatsApp opened — press Send (live location stays manual in WhatsApp)."
-                  : " No customer mobile on this booking for WhatsApp."
-              }`
-            : `Driver on the way recorded.${notify}${
-                wa === "opened"
-                  ? " WhatsApp opened — press Send (live location stays manual in WhatsApp)."
-                  : " No customer mobile on this booking for WhatsApp."
-              }`,
+            ? `Already marked Driver on the way.${notify} Choose WhatsApp or Text Message. Live location stays manual.`
+            : `Driver on the way recorded.${notify} Choose WhatsApp or Text Message. Live location stays manual.`,
         );
       } else if (options?.retryArrivalNotification) {
         setMessage(
@@ -1538,30 +1515,52 @@ export default function OwnerPaidBookingsPanel({
             {booking.journeyStatus === "arrived_pickup" && !isCompleted && !isClosed ? (
               <button
                 type="button"
+                data-send-arrival-message
                 disabled={busyRef === booking.paymentReference}
                 onClick={() => {
-                  void (async () => {
-                    setBusyRef(booking.paymentReference);
-                    setError("");
-                    try {
-                      const outcome = openArrivalWhatsAppForBooking(booking);
-                      setMessage(
-                        outcome === "opened"
-                          ? "WhatsApp arrival message opened — press Send to message the customer."
-                          : "No customer mobile on this booking for WhatsApp.",
-                      );
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : "Could not open WhatsApp");
-                    } finally {
-                      setBusyRef("");
-                    }
-                  })();
+                  setError("");
+                  setCustomerMessageOffer({
+                    key: `${booking.paymentReference}:arrived-manual`,
+                    title: "Driver arrived",
+                    message: arrivalCustomerMessage(booking),
+                    mobile: bookingCustomerMobile(booking),
+                  });
                 }}
                 className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/15 px-4 py-2.5 text-sm font-bold text-emerald disabled:opacity-60"
               >
-                Open WhatsApp arrival message
+                Send arrival message
               </button>
             ) : null}
+            {googleReviewCustomerMessage(booking.customerName) ? (
+              <button
+                type="button"
+                data-request-google-review
+                disabled={busyRef === booking.paymentReference}
+                onClick={() => {
+                  const message = googleReviewCustomerMessage(booking.customerName);
+                  if (!message) return;
+                  setError("");
+                  setCustomerMessageOffer({
+                    key: `${booking.paymentReference}:review`,
+                    title: "Request Google review",
+                    message,
+                    mobile: bookingCustomerMobile(booking),
+                  });
+                }}
+                className="min-h-11 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                Request Google review
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                data-request-google-review-unconfigured
+                className="min-h-11 w-full rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white/40"
+              >
+                Request Google review (link not configured)
+              </button>
+            )}
             {canEdit ? (
               <button
                 type="button"
@@ -2160,6 +2159,20 @@ export default function OwnerPaidBookingsPanel({
 
   return (
     <section className={mode === "day" ? "mb-6" : "mb-10"}>
+      {customerMessageOffer ? (
+        <CustomerMessageChannelChooser
+          offer={customerMessageOffer}
+          onClose={() => setCustomerMessageOffer(null)}
+          onOpened={(channel) => {
+            setCustomerMessageOffer(null);
+            setMessage(
+              channel === "whatsapp"
+                ? "WhatsApp opened — press Send to message the customer."
+                : "Text Message opened — press Send to message the customer.",
+            );
+          }}
+        />
+      ) : null}
       {error ? (
         <p className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {error}

@@ -206,8 +206,8 @@ console.log("\n=== 3. Owner panel UI contracts ===");
   assert.doesNotMatch(panel, /postDriverLocation/);
 
   // Customer email / WhatsApp notifications remain wired for journey CTAs.
-  assert.match(panel, /openOnTheWayWhatsAppForBooking/);
-  assert.match(panel, /openArrivalWhatsAppForBooking/);
+  assert.match(panel, /onTheWayCustomerMessage\(booking\)/);
+  assert.match(panel, /arrivalCustomerMessage\(booking\)/);
   assert.match(panel, /action === "start_tracking"/);
   assert.match(panel, /action === "arrived_pickup"/);
   assert.match(panel, /onTheWayNotificationStatus|Customer emailed \(Driver on the way\)/);
