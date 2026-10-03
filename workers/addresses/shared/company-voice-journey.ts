@@ -166,7 +166,7 @@ export function buildArrivedCompanyVoiceEmailBody(
       AIRPORT_PICKUP_COPY.generic;
     return `Hi ${first}, ${instruction}`;
   }
-  return `Hi ${first}, your driver has arrived at your pickup location. ${AIRPORT_PICKUP_COPY.street}`;
+  return `Hi ${first}, your driver has arrived at your pickup location and is ready when you are.`;
 }
 
 /** Phrases that must never appear in customer email / WhatsApp from journey buttons. */

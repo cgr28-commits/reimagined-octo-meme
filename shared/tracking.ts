@@ -66,6 +66,12 @@ export type TrackingJobRecord = {
   reviewRequestFailedAt?: string;
   /** Last review-request send error (Resend/provider) — does not affect journey completion */
   reviewRequestLastError?: string;
+  /**
+   * Whether the last successful review email included the hidden owner BCC.
+   * False means the customer email was accepted and the owner copy was not.
+   * Absent on older sends, where the outcome was not recorded.
+   */
+  reviewRequestOwnerBccSent?: boolean;
   customerSharingActive?: boolean;
   customerLat?: number;
   customerLng?: number;

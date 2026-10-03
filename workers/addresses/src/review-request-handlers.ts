@@ -45,6 +45,8 @@ export type ReviewRequestSummary = {
   sentAt?: string;
   failedAt?: string;
   lastError?: string;
+  /** Present after a successful review email. False means the owner copy was not included. */
+  ownerBccSent?: boolean;
 };
 
 type ReviewEmailSendResult = {
@@ -54,6 +56,8 @@ type ReviewEmailSendResult = {
   resendId?: string;
   customerEmail?: string;
   customerName?: string;
+  customerEmailSent?: boolean;
+  ownerBccSent?: boolean;
 };
 
 function jsonResponse(body: unknown, status: number, origin: string | null) {
@@ -78,6 +82,9 @@ export function buildReviewRequestSummary(job: TrackingJobRecord): ReviewRequest
     ...(job.reviewRequestSentAt ? { sentAt: job.reviewRequestSentAt } : {}),
     ...(job.reviewRequestFailedAt ? { failedAt: job.reviewRequestFailedAt } : {}),
     ...(job.reviewRequestLastError ? { lastError: job.reviewRequestLastError } : {}),
+    ...(typeof job.reviewRequestOwnerBccSent === "boolean"
+      ? { ownerBccSent: job.reviewRequestOwnerBccSent }
+      : {}),
   };
 }
 
@@ -183,11 +190,29 @@ async function sendReviewRequestEmail(
   if (!sendResult.sent || sendResult.provider !== "resend") {
     return {
       sent: false,
+      customerEmailSent: false,
+      ownerBccSent: false,
       error: sendResult.error || "Review request email failed via Resend",
       provider: sendResult.provider,
       customerEmail,
       customerName: recipient.name,
     };
+  }
+
+  const ownerBccSent = sendResult.ownerBcc === true;
+  const logDetail = {
+    paymentReference: job.paymentReference ?? null,
+    resendId: sendResult.resendId ?? null,
+    customerEmailSent: true,
+    ownerBccSent,
+  };
+  if (ownerBccSent) {
+    console.info("Review request email accepted with owner BCC", logDetail);
+  } else {
+    console.warn(
+      "Review request customer email was sent. Owner BCC copy was not sent.",
+      logDetail,
+    );
   }
 
   return {
@@ -196,6 +221,8 @@ async function sendReviewRequestEmail(
     ...(sendResult.resendId ? { resendId: sendResult.resendId } : {}),
     customerEmail,
     customerName: recipient.name,
+    customerEmailSent: true,
+    ownerBccSent,
   };
 }
 
@@ -293,6 +320,7 @@ async function maybeProcessReviewRequest(
   }
 
   current.reviewRequestSentAt = new Date().toISOString();
+  current.reviewRequestOwnerBccSent = sendResult.ownerBccSent === true;
   delete current.reviewRequestFailedAt;
   delete current.reviewRequestLastError;
   await saveTrackingJob(env.TRACKING_STORE!, current);
@@ -363,7 +391,7 @@ export async function handleReviewRequestSendRequest(
         ok: false,
         alreadySent: true,
         error:
-          "A Google review request was already sent for this journey. Use Resend review request if you intentionally want another copy.",
+          "A Google review email was already sent for this journey. Use Resend Email Review Request if you intentionally want another email copy.",
         reviewRequest: buildReviewRequestSummary(job),
       },
       409,
@@ -417,6 +445,7 @@ export async function handleReviewRequestSendRequest(
   }
 
   current.reviewRequestSentAt = new Date().toISOString();
+  current.reviewRequestOwnerBccSent = sendResult.ownerBccSent === true;
   delete current.reviewRequestFailedAt;
   delete current.reviewRequestLastError;
   await saveTrackingJob(env.TRACKING_STORE, current);
@@ -428,6 +457,8 @@ export async function handleReviewRequestSendRequest(
       provider: "resend",
       ...(sendResult.resendId ? { resendId: sendResult.resendId } : {}),
       customerEmail: sendResult.customerEmail ?? current.customerEmail,
+      customerEmailSent: true,
+      ownerBccSent: sendResult.ownerBccSent === true,
       emailSource: recipient.source,
       reviewRequest: buildReviewRequestSummary(current),
     },

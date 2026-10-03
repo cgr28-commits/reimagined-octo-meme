@@ -21,6 +21,8 @@ import {
   FORBIDDEN_PERSONAL_VOICE_PATTERNS,
   buildAirportPickupInstruction,
   buildArrivedAirportCompanyVoiceMessage,
+  buildArrivedCompanyVoiceEmailBody,
+  buildArrivedStreetCompanyVoiceMessage,
   buildOnTheWayCompanyVoiceMessage,
   type CompanyVoiceJourneyBooking,
 } from "../shared/company-voice-journey";
@@ -426,6 +428,43 @@ check("Active-leg pickup time swaps on return like the pickup label", () => {
       nextUnfinishedLegTime: "08:00",
     }),
     "08:00",
+  );
+});
+
+check("Street arrival email is one sentence and stays identical for every operator", () => {
+  const sentence =
+    "Hi Alex, your driver has arrived at your pickup location and is ready when you are.";
+  assert.equal(
+    buildArrivedCompanyVoiceEmailBody({
+      customerName: "Alex Customer",
+      pickupLabel: "12 High Street, Ballyclare",
+      isAirportPickup: false,
+    }),
+    sentence,
+  );
+  const owner = buildDriverArrivedPickupEmail({
+    customerName: "Alex Customer",
+    pickupLabel: "12 High Street, Ballyclare",
+    driverFirstName: "Colin",
+    driverMobile: "07700900111",
+  });
+  const assigned = buildDriverArrivedPickupEmail({
+    customerName: "Alex Customer",
+    pickupLabel: "12 High Street, Ballyclare",
+    driverFirstName: "Sam",
+    driverMobile: "07700900222",
+    vehicleColour: "Black",
+    partialRegistration: "AB12",
+  });
+  assert.equal(owner.subject, assigned.subject);
+  assert.equal(owner.text, assigned.text);
+  assert.equal(owner.html, assigned.html);
+  assert.match(owner.text, new RegExp(sentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(owner.text, /Your driver is now at your pickup location/);
+  assert.match(owner.subject, /Your driver has arrived — My Airport Taxi NI/);
+  assert.match(
+    buildArrivedStreetCompanyVoiceMessage(),
+    /Your driver is now at your pickup location and ready when you are\./,
   );
 });
 

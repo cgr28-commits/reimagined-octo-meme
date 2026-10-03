@@ -10,6 +10,8 @@ export type OwnerReviewRequestSummary = {
   sentAt?: string;
   failedAt?: string;
   lastError?: string;
+  /** False means the customer review email was accepted without the owner copy. */
+  ownerBccSent?: boolean;
 };
 
 export type OwnerPaidBookingSummary = Pick<
@@ -324,6 +326,9 @@ export type SendReviewRequestResult = {
   alreadySent?: boolean;
   resent?: boolean;
   customerEmail?: string;
+  customerEmailSent?: boolean;
+  /** False when Resend accepted the customer email without the owner BCC. */
+  ownerBccSent?: boolean;
   /** Only "resend" counts as a trustworthy review delivery. */
   provider?: string;
   resendId?: string;
@@ -374,10 +379,14 @@ export async function sendOwnerReviewRequest(
   }
 
   const ok = payload.ok === true && provider === "resend";
+  const ownerBccSent =
+    payload.ownerBccSent === true ? true : payload.ownerBccSent === false ? false : undefined;
   return {
     ok,
     resent: payload.resent === true,
     customerEmail: typeof payload.customerEmail === "string" ? payload.customerEmail : undefined,
+    customerEmailSent: payload.customerEmailSent === true,
+    ...(ownerBccSent === undefined ? {} : { ownerBccSent }),
     provider,
     resendId,
     emailSource,

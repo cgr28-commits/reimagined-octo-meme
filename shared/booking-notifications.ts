@@ -9,7 +9,7 @@ import {
   businessWhatsAppChatUrl,
   businessWhatsAppPublicPageUrl,
 } from "./business-email";
-import { contactVCardPublicUrl } from "./business-links";
+import { contactVCardPublicUrl, resolveGoogleReviewUrl } from "./business-links";
 import { vehicleServiceLabel } from "./booking-notice";
 import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL } from "./uk-time";
 import {
@@ -1798,6 +1798,18 @@ export function buildGoogleReviewRequestEmail(
   const html = buildGoogleReviewRequestHtml(details, reviewUrl, businessName);
 
   return { subject, text, html };
+}
+
+/**
+ * WhatsApp prefill for the same Google review request.
+ * Uses the email text so the wording and review link cannot drift.
+ */
+export function buildGoogleReviewRequestWhatsAppMessage(
+  details: GoogleReviewRequestDetails,
+  reviewUrl?: string,
+): string {
+  const url = (reviewUrl?.trim() || resolveGoogleReviewUrl() || "").trim();
+  return buildGoogleReviewRequestEmail(details, url).text;
 }
 
 export type ArrivalNotificationDetails = {
