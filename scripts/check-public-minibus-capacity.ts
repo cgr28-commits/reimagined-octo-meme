@@ -186,7 +186,7 @@ check("14. 8 large bags => rejected", () => {
 check("15. Existing 1–4 passenger Saloon/Estate behaviour unchanged", () => {
   assert.equal(selectVehicleForParty(1, 0), SALOON_VEHICLE);
   assert.equal(selectVehicleForParty(4, 2), SALOON_VEHICLE);
-  assert.equal(selectVehicleForParty(2, 3), ESTATE_VEHICLE);
+  assert.equal(selectVehicleForParty(2, 3), SALOON_VEHICLE);
   assert.equal(selectVehicleForParty(4, 4), ESTATE_VEHICLE);
   assert.equal(requiresMinibus(4, 4), false);
   const saloon = calculateAuthoritativeWebsiteQuote(

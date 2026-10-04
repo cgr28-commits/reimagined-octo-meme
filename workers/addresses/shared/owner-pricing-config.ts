@@ -52,7 +52,7 @@ export const BANK_HOLIDAY_BEHAVIOUR_NOTE =
   "Daytime bank holidays are not an extra surcharge. There is no separate Bank Holiday calendar. Saturday and Sunday already qualify as Weekend. A weekday bank-holiday daytime journey is charged at the standard weekday rate unless it also falls inside Night hours.";
 
 export const MINIBUS_LUGGAGE_DECISION_NOTE =
-  "When public 7 Seater Minibus is ON, the public selector allows 0–7 large bags and 1–7 passengers. 5–7 passengers and 5–7 large bags require 7 Seater Minibus; Saloon/Estate keep their existing 1–4 passenger and 0–2 / 3–4 suitcase rules. 7 passengers + 7 large bags is accepted as a Minibus quote only — physical fit of every 7-seat vehicle for that combination has not been validated and is not treated as a Request Quote rule.";
+  "When public 7 Seater Minibus is ON, the public selector allows 0–7 large bags and 1–7 passengers. 5–7 passengers and 5–7 large bags require 7 Seater Minibus; Saloon keeps 1–4 passengers and 0–3 large suitcases; Estate keeps 1–4 passengers and 0–4 large suitcases. 7 passengers + 7 large bags is accepted as a Minibus quote only — physical fit of every 7-seat vehicle for that combination has not been validated and is not treated as a Request Quote rule.";
 
 export type OwnerPricingSchemaVersion = typeof OWNER_PRICING_SCHEMA_VERSION;
 

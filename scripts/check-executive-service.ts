@@ -10,11 +10,14 @@ import {
   DEFAULT_EXECUTIVE_UPLIFT_GBP,
   EXECUTIVE_MAX_SUITCASES,
   EXECUTIVE_VEHICLE_TYPE,
+  SALOON_MAX_SUITCASES,
+  estateCapacityAllows,
   executiveAvailableForParty,
   executivePreferenceFields,
   formatExecutivePreferenceLines,
   isPremiumExecutiveVehicle,
   publicVehicleEligibilityMessage,
+  saloonCapacityAllows,
 } from "../shared/executive-service";
 import { defaultOwnerPricingSettings, normalizeOwnerPricingSettings } from "../shared/owner-pricing-config";
 import { getReturnJourneyFare } from "../src/lib/point-to-point-premium";
@@ -85,6 +88,19 @@ assert.equal(executiveAvailableForParty(4, 0), false);
 assert.equal(executiveAvailableForParty(4, 3), false);
 assert.equal(executiveAvailableForParty(3, 5), false);
 assert.equal(EXECUTIVE_MAX_SUITCASES, 3);
+assert.equal(SALOON_MAX_SUITCASES, 3);
+assert.equal(saloonCapacityAllows(2, 1), true);
+assert.equal(saloonCapacityAllows(2, 2), true);
+assert.equal(saloonCapacityAllows(4, 3), true);
+assert.equal(saloonCapacityAllows(2, 4), false);
+assert.equal(saloonCapacityAllows(4, 4), false);
+assert.equal(estateCapacityAllows(4, 4), true);
+assert.equal(estateCapacityAllows(2, 3), true);
+assert.equal(publicVehicleEligibilityMessage(SALOON, 2, 1), null);
+assert.equal(publicVehicleEligibilityMessage(SALOON, 2, 2), null);
+assert.equal(publicVehicleEligibilityMessage(SALOON, 4, 3), null);
+assert.equal(publicVehicleEligibilityMessage(SALOON, 2, 4), "Saloon is not suitable for your luggage.");
+assert.equal(publicVehicleEligibilityMessage(ESTATE, 2, 4), null);
 assert.equal(publicVehicleEligibilityMessage(EXECUTIVE_VEHICLE_TYPE, 2, 3), null);
 assert.equal(
   publicVehicleEligibilityMessage(EXECUTIVE_VEHICLE_TYPE, 2, 4),
@@ -195,7 +211,37 @@ const luggageSaloon = calculateAuthoritativeWebsiteQuote({
   vehicleType: SALOON,
   returnJourney: false,
 });
-assert.equal(luggageSaloon.ok, false);
+assert.equal(luggageSaloon.ok, true);
+
+const oneSuitcaseSaloon = calculateAuthoritativeWebsiteQuote({
+  ...quoteBase,
+  passengers: 2,
+  suitcases: 1,
+  vehicleType: SALOON,
+  returnJourney: false,
+});
+assert.equal(oneSuitcaseSaloon.ok, true);
+
+const twoSuitcaseSaloon = calculateAuthoritativeWebsiteQuote({
+  ...quoteBase,
+  passengers: 2,
+  suitcases: 2,
+  vehicleType: SALOON,
+  returnJourney: false,
+});
+assert.equal(twoSuitcaseSaloon.ok, true);
+
+const fourSuitcaseSaloon = calculateAuthoritativeWebsiteQuote({
+  ...quoteBase,
+  passengers: 2,
+  suitcases: 4,
+  vehicleType: SALOON,
+  returnJourney: false,
+});
+assert.equal(fourSuitcaseSaloon.ok, false);
+if (!fourSuitcaseSaloon.ok) {
+  assert.equal(fourSuitcaseSaloon.reason, "vehicle_unsuitable");
+}
 
 const luggageExecutive = calculateAuthoritativeWebsiteQuote({
   ...quoteBase,
@@ -232,6 +278,18 @@ const voluntaryEstate = calculateAuthoritativeWebsiteQuote({
   returnJourney: false,
 });
 assert.equal(voluntaryEstate.ok, true);
+
+const fourSuitcaseEstate = calculateAuthoritativeWebsiteQuote({
+  ...quoteBase,
+  passengers: 2,
+  suitcases: 4,
+  vehicleType: ESTATE,
+  returnJourney: false,
+});
+assert.equal(fourSuitcaseEstate.ok, true);
+if (fourSuitcaseEstate.ok) {
+  assert.equal(fourSuitcaseEstate.vehicleType, ESTATE);
+}
 if (voluntaryEstate.ok && saloonQuote.ok) {
   assert.equal(voluntaryEstate.vehicleType, ESTATE);
   assert.equal(
@@ -264,9 +322,9 @@ const categories = fs.readFileSync(
   path.join(import.meta.dirname, "../src/components/QuoteVehicleCategories.tsx"),
   "utf8",
 );
-assert.match(categories, /Great value, comfortable travel/);
-assert.match(categories, /Extra luggage space and versatility/);
-assert.match(categories, /Extra comfort for your journey/);
+assert.match(categories, /Modern, comfortable private airport travel/);
+assert.match(categories, /Additional space and luggage capacity/);
+assert.match(categories, /Enhanced comfort and premium extras/);
 assert.match(categories, /Recommended for extra space/);
 assert.match(categories, /Extra luggage space/);
 assert.match(categories, /More room for larger bags/);
@@ -298,6 +356,7 @@ const executiveSource = fs.readFileSync(
 assert.match(executiveSource, /Maximum 3 passengers/);
 assert.match(executiveSource, /Maximum 3 large suitcases/);
 assert.match(executiveSource, /EXECUTIVE_MAX_SUITCASES = 3/);
+assert.match(executiveSource, /SALOON_MAX_SUITCASES = 3/);
 assert.match(categories, /md:grid-cols-3/);
 assert.match(categories, /data-vehicle-expanded=/);
 assert.match(categories, /aria-pressed=\{isSelected\}/);
@@ -310,7 +369,15 @@ assert.match(categories, /quote-minibus\.webp/);
 assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE \|\| option\.vehicle === automatic/);
 assert.doesNotMatch(categories, /\+£6/);
 assert.doesNotMatch(categories, /\+£20/);
-assert.doesNotMatch(categories, /Toyota|Corolla/);
+assert.doesNotMatch(categories, /Toyota|Corolla|Camry/);
+const paymentSource = fs.readFileSync(
+  path.join(import.meta.dirname, "../workers/addresses/src/index.ts"),
+  "utf8",
+);
+assert.match(
+  paymentSource,
+  /publicVehicleEligibilityMessage\(vehicleRaw, partyPassengers, partySuitcases\)/,
+);
 const artwork = fs.readFileSync(path.join(import.meta.dirname, "../src/lib/vehicle-artwork.ts"), "utf8");
 assert.match(artwork, /quote-standard-saloon\.webp/);
 assert.equal(

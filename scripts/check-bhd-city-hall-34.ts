@@ -54,7 +54,8 @@ console.log("OK  null metrics refuse fare");
 
 console.log("\n=== Vehicle selection unchanged ===");
 assert.equal(selectVehicleForParty(2, 2), SALOON);
-assert.equal(selectVehicleForParty(2, 3), ESTATE);
+assert.equal(selectVehicleForParty(2, 3), SALOON);
+assert.equal(selectVehicleForParty(2, 4), ESTATE);
 assert.equal(
   calculateUniversalEstateJourneyFareGbp(calculateUniversalSaloonJourneyFareGbp(4)),
   35,

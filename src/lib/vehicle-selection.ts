@@ -3,8 +3,8 @@
  * Monetary rates live in pricing-config.json and are not defined here.
  *
  * Public website capacity (customers choose among the options this allows):
- * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
- * - Estate Car: suitable for 1–4 passengers and 0–4 suitcases; 3–4 suitcases
+ * - Standard Saloon: 1–4 passengers AND 0–3 suitcases
+ * - Estate Car: suitable for 1–4 passengers and 0–4 suitcases; 4 suitcases
  *   make Estate the lowest-priced suitable option
  * - Executive: 1–3 passengers AND 0–3 large suitcases (service upgrade).
  *   Four large suitcases are not Executive. Never assigned automatically.
@@ -21,8 +21,10 @@
 
 import {
   EXECUTIVE_VEHICLE_TYPE,
+  estateCapacityAllows,
   isLegacyExecutiveSaloon,
   isPremiumExecutiveVehicle,
+  saloonCapacityAllows,
 } from "../../shared/executive-service";
 import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "./data";
 import {
@@ -67,8 +69,12 @@ export function selectVehicleForParty(
   if (requiresMinibus(passengers, suitcases)) {
     return MINIBUS_VEHICLE;
   }
-  // Estate only when luggage needs it — not merely because passengers are 3–4.
-  if (passengers >= 1 && passengers <= 4 && suitcases >= 3 && suitcases <= 4) {
+  // Saloon is the default whenever it fits, including 3 large suitcases.
+  // Estate is the default only when Saloon cannot take the luggage.
+  if (saloonCapacityAllows(passengers, suitcases)) {
+    return SALOON_VEHICLE;
+  }
+  if (estateCapacityAllows(passengers, suitcases)) {
     return ESTATE_VEHICLE;
   }
   return SALOON_VEHICLE;

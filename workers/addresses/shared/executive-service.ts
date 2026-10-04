@@ -15,7 +15,8 @@ export const EXECUTIVE_MAX_PASSENGERS = 3;
 /** Up to 3 large suitcases. Four or more is not Executive. */
 export const EXECUTIVE_MAX_SUITCASES = 3;
 export const SALOON_MAX_PASSENGERS = 4;
-export const SALOON_MAX_SUITCASES = 2;
+/** Up to 3 large suitcases. Four large suitcases are not a Saloon booking. */
+export const SALOON_MAX_SUITCASES = 3;
 export const ESTATE_MAX_PASSENGERS = 4;
 export const ESTATE_MAX_SUITCASES = 4;
 
@@ -57,7 +58,7 @@ export function isLegacyExecutiveSaloon(vehicle: string | null | undefined): boo
   return /executive/i.test(value) && /saloon/i.test(value);
 }
 
-/** Saloon: 1–4 passengers and 0–2 large suitcases. */
+/** Saloon: 1–4 passengers and 0–3 large suitcases. */
 export function saloonCapacityAllows(passengers: number, suitcases: number): boolean {
   return (
     wholeInRange(passengers, 1, SALOON_MAX_PASSENGERS) &&
@@ -76,9 +77,9 @@ export function estateCapacityAllows(passengers: number, suitcases: number): boo
   );
 }
 
-/** True when 3–4 large suitcases make Estate the appropriate option. */
+/** True when Estate fits and Saloon does not, currently 4 large suitcases. */
 export function estateRecommendedForLuggage(passengers: number, suitcases: number): boolean {
-  return estateCapacityAllows(passengers, suitcases) && suitcases >= 3;
+  return estateCapacityAllows(passengers, suitcases) && !saloonCapacityAllows(passengers, suitcases);
 }
 
 /**

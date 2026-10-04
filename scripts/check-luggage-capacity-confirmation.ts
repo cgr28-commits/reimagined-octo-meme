@@ -357,7 +357,7 @@ async function main() {
   check("16. Existing Saloon/Estate behaviour remains unchanged", () => {
     assert.equal(selectVehicleForParty(1, 0), SALOON_VEHICLE);
     assert.equal(selectVehicleForParty(4, 2), SALOON_VEHICLE);
-    assert.equal(selectVehicleForParty(2, 3), ESTATE_VEHICLE);
+    assert.equal(selectVehicleForParty(2, 3), SALOON_VEHICLE);
     assert.equal(selectVehicleForParty(4, 4), ESTATE_VEHICLE);
     assert.equal(needsLuggageCapacityConfirmation(4, 4), false);
     const saloon = calculateAuthoritativeWebsiteQuote(

@@ -408,7 +408,8 @@ assert.equal(
 assert.equal(selectVehicleForParty(2, 1), S);
 assert.equal(selectVehicleForParty(3, 0), S);
 assert.equal(selectVehicleForParty(3, 2), S);
-assert.equal(selectVehicleForParty(1, 3), E);
+assert.equal(selectVehicleForParty(1, 3), S);
+assert.equal(selectVehicleForParty(1, 4), E);
 
 // Return discount once on journey; airport fixed costs undiscounted both legs
 {
