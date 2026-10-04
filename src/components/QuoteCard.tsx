@@ -5324,34 +5324,45 @@ function QuoteCard({
     const legs = expressSelection.legs.filter((leg) => leg.airportCode);
     if (legs.length === 0) return null;
     return (
-      <div className="mt-3 space-y-3 text-left" data-executive-airport-access-included>
-        {legs.map((leg) => (
+      <div className="space-y-2 text-left" data-executive-airport-access-included>
+        {legs.map((leg) => {
+          const title =
+            leg.service === "pick-up"
+              ? "Express airport pickup included"
+              : "Express airport drop-off included";
+          const detail =
+            leg.service === "pick-up"
+              ? `${expressQuoteExpressHint("pick-up")} Airport access is included in your fare.`
+              : "Express terminal drop-off is included in your fare.";
+          return (
           <div key={leg.leg} data-executive-access-leg={leg.leg} data-express-service={leg.service}>
             {legs.length > 1 ? (
               <p className={`mb-1 text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
                 {leg.leg === "return" ? "Return journey" : "Outbound journey"}
               </p>
             ) : null}
+            <p className={`text-sm font-semibold md:hidden ${light ? "text-navy" : "text-white"}`}>
+              ✈ {title}
+            </p>
             <div
-              className={`rounded-xl border px-3 py-2.5 ${
-                light ? "border-navy/15 bg-navy/[0.03]" : "border-white/20"
+              className={`hidden rounded-xl border px-3 py-2.5 md:block ${
+                light ? "border-navy/10 bg-[#f7f9fc]" : "border-white/20"
               }`}
             >
               <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
-                {leg.service === "pick-up" ? "Airport pickup" : "Airport drop-off"}
+                {title}
               </p>
               <p
                 className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
                   light ? "text-[#475569]" : "text-white/80"
                 }`}
               >
-                {leg.service === "pick-up"
-                  ? `${expressQuoteExpressHint("pick-up")} Airport access is included in your fare.`
-                  : "Express terminal drop-off is included in your fare."}
+                {detail}
               </p>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     );
   }

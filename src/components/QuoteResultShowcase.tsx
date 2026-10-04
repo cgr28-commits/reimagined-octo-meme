@@ -73,7 +73,8 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       data-quote-price-section
       className="min-w-0 bg-transparent text-navy"
     >
-      <div className="min-w-0 text-center lg:text-left">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-8">
+        <div className="min-w-0 text-center lg:w-[42%] lg:text-left">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
           </p>
@@ -96,12 +97,12 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           ) : (
           <p
             data-quote-fare-status={formattedPrice.startsWith("£") ? "ready" : "pending"}
-            className="mt-1 flex min-h-[clamp(3.5rem,1.6rem+10vw,4.5rem)] items-center justify-center lg:min-h-[clamp(4rem,3rem+2vw,5rem)] lg:justify-start"
+            className="mt-0.5 flex min-h-12 items-center justify-center lg:mt-1 lg:min-h-[clamp(3.5rem,1.6rem+10vw,4.5rem)] lg:justify-start"
           >
             <span
               className={
                 formattedPrice.startsWith("£")
-                  ? "font-sans text-[clamp(3.5rem,1.6rem+10vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-navy tabular-nums lg:text-[clamp(4rem,3rem+2vw,5rem)]"
+                  ? "font-sans text-[2.6rem] font-extrabold leading-none tracking-[-0.04em] text-navy tabular-nums lg:text-[clamp(3.5rem,1.6rem+10vw,4.5rem)] lg:leading-[0.95]"
                   : "font-sans text-[clamp(2.65rem,1.22rem+7.6vw,3.4rem)] font-bold leading-tight tracking-[-0.03em] text-navy/55 lg:text-[clamp(3rem,2.2rem+1.4vw,3.4rem)]"
               }
             >
@@ -133,31 +134,32 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
               </p>
             </div>
           ) : null}
+        </div>
           {airportAccess ? (
-            <div className="mt-3 text-left" data-quote-result-airport-access>
+            <div className="min-w-0 flex-1 text-left lg:pt-1" data-quote-result-airport-access>
               {airportAccess}
             </div>
           ) : null}
+      </div>
 
-          <div className="mt-4">{bookButton}</div>
-          <p className="mt-2.5 text-[11px] leading-snug text-[#475569]">
+          <div className="mt-3 lg:mt-4">{bookButton}</div>
+          <p className="mt-2 hidden text-[11px] leading-snug text-[#475569] md:block">
             🔒 Secure booking · Takes around 2 minutes
           </p>
 
-          <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-medium leading-snug text-navy/85">
+          <ul className="mt-2 grid grid-cols-3 gap-1 text-center text-[10px] font-medium leading-tight text-navy/85 md:mt-3 md:gap-2 md:text-xs md:leading-snug">
             <Benefit icon="card">
               {capacityConfirmation ? "We'll confirm first" : "Secure payment"}
-              <span className="block font-normal text-[#475569]">
+              <span className="hidden font-normal text-[#475569] md:block">
                 {capacityConfirmation ? "no payment taken yet" : "powered by SumUp"}
               </span>
             </Benefit>
             <Benefit icon="plane">
               Flight monitoring
-              <span className="block font-normal text-[#475569]">for airport pickups</span>
+              <span className="hidden font-normal text-[#475569] md:block">for airport pickups</span>
             </Benefit>
             <Benefit>No hidden charges</Benefit>
           </ul>
-      </div>
     </div>
   );
   },
