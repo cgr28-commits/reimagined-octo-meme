@@ -216,11 +216,13 @@ export default function QuoteVehicleCategories({
     const headerPrice = uplift ?? fareLabel;
     const selectLabel = isSelected
       ? "Selected"
-      : option.id === "estate"
-        ? "Upgrade to Estate"
-        : option.id === "executive"
-          ? "Upgrade to Executive"
-          : `Select ${option.title}`;
+      : !selectable
+        ? unavailable
+        : option.id === "estate"
+          ? "Upgrade to Estate"
+          : option.id === "executive"
+            ? "Upgrade to Executive"
+            : `Select ${option.title}`;
     const shell = `min-w-0 rounded-xl border ${
       isSelected
         ? "border-emerald bg-emerald/15 text-white ring-2 ring-emerald/70"
@@ -267,23 +269,27 @@ export default function QuoteVehicleCategories({
               </span>
             ) : null}
           </span>
-          <span
-            className={`mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] leading-snug text-white/65 ${
-              stackOnDesktop ? "md:hidden" : ""
-            }`}
-          >
-            <CapacityBits option={option} />
-          </span>
-          <span
-            className={`mt-1 inline-flex items-center gap-1 text-sm font-semibold text-white ${
-              stackOnDesktop ? "md:hidden" : ""
-            }`}
-          >
-            {isSelected ? <span aria-hidden>✓</span> : <span aria-hidden>○</span>}
-            <span>{selectLabel}</span>
-          </span>
+          {option.id !== "minibus" && !(isSelected && stackOnDesktop) ? (
+            <span
+              className={`mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] leading-snug text-white/65 ${
+                stackOnDesktop ? "md:hidden" : ""
+              }`}
+            >
+              <CapacityBits option={option} />
+            </span>
+          ) : null}
+          {selectLabel ? (
+            <span
+              className={`mt-1 inline-flex items-center gap-1 text-sm font-semibold text-white ${
+                stackOnDesktop ? "md:hidden" : ""
+              }`}
+            >
+              {isSelected ? <span aria-hidden>✓</span> : selectable ? <span aria-hidden>○</span> : null}
+              <span>{selectLabel}</span>
+            </span>
+          ) : null}
         </span>
-        <Chevron expanded={isSelected} hideOnDesktop={stackOnDesktop} />
+        {selectable ? <Chevron expanded={isSelected} /> : null}
       </span>
     );
     const details = (
@@ -316,7 +322,9 @@ export default function QuoteVehicleCategories({
           {uplift ? (
             <>
               <span className="block text-sm font-semibold text-white">
-                {option.id === "estate" ? "Upgrade to Estate" : "Upgrade to Executive"} {uplift}
+                {selectable
+                  ? `${option.id === "estate" ? "Upgrade to Estate" : "Upgrade to Executive"} ${uplift}`
+                  : uplift}
               </span>
               {fareLabel ? (
                 <span className="mt-0.5 block text-sm font-bold tabular-nums text-white">{fareLabel} total</span>
@@ -326,16 +334,15 @@ export default function QuoteVehicleCategories({
             <span className="block text-lg font-bold tabular-nums text-white">{fareLabel ?? "…"}</span>
           )}
         </span>
-        <span
-          className={`mt-1 min-h-11 items-center justify-center gap-1 text-sm font-semibold text-white ${
-            stackOnDesktop ? "hidden md:inline-flex" : "hidden"
-          }`}
-        >
-          {isSelected ? <span aria-hidden>✓</span> : <span aria-hidden>○</span>}
-          <span>{selectLabel}</span>
-        </span>
-        {unavailable ? (
-          <span className="block text-[11px] font-medium leading-snug text-white/70">{unavailable}</span>
+        {selectLabel ? (
+          <span
+            className={`mt-1 min-h-11 items-center justify-center gap-1 text-sm font-semibold text-white ${
+              stackOnDesktop ? "hidden md:inline-flex" : "hidden"
+            }`}
+          >
+            {isSelected ? <span aria-hidden>✓</span> : selectable ? <span aria-hidden>○</span> : null}
+            <span>{selectLabel}</span>
+          </span>
         ) : null}
       </span>
     );
@@ -462,7 +469,7 @@ function CapacityLines({ option }: { option: Category }) {
       </>
     );
   }
-  return <span className="block">{option.detail}</span>;
+  return null;
 }
 
 function VehicleArt({
@@ -487,7 +494,6 @@ function VehicleArt({
         aria-label={alt}
         data-vehicle-image={pending ? "pending" : "missing"}
       >
-        <SaloonPlaceholder />
       </span>
     );
   }
@@ -502,23 +508,12 @@ function VehicleArt({
   );
 }
 
-function SaloonPlaceholder() {
-  return (
-    <svg viewBox="0 0 120 48" className="h-8 w-16 text-white/80" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M18 30c0-6 6-8 14-10l10-8h28l12 8c10 2 16 6 16 12v4H18v-6zm8 8a6 6 0 1 0 0.01 0zm52 0a6 6 0 1 0 0.01 0z"
-      />
-    </svg>
-  );
-}
-
-function Chevron({ expanded, hideOnDesktop }: { expanded: boolean; hideOnDesktop: boolean }) {
+function Chevron({ expanded }: { expanded: boolean }) {
   return (
     <span
-      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center text-white/70 ${
-        hideOnDesktop ? "md:hidden" : ""
-      } ${expanded ? "rotate-180" : ""}`}
+      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center text-white/70 md:hidden ${
+        expanded ? "rotate-180" : ""
+      }`}
       aria-hidden
     >
       <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
