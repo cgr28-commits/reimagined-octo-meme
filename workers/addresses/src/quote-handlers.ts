@@ -13,7 +13,10 @@ import {
   quickQuoteMaxPassengersForVehicle,
   type QuickQuoteVehicleChoice,
 } from "../shared/quick-quote";
-import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
+import {
+  calculateAuthoritativeWebsiteQuote,
+  executiveAirportAccessCustomerTotals,
+} from "../../../src/lib/quote-service";
 import type { QuoteServiceAirportCode } from "../../../src/lib/quote-service";
 import {
   ESTATE_VEHICLE,
@@ -595,6 +598,25 @@ export async function handleQuoteCalculateRequest(
         premiumApplied: protectedFare.nightWeekendSurchargeGbp > 0,
       };
     }
+    const includedAccess = executiveAirportAccessCustomerTotals({
+      vehicleType: result.vehicleType,
+      amount: result.amount,
+      journeyFareGbp: result.journeyFareGbp,
+      airportFixedCostsGbp: result.airportFixedCostsGbp,
+      isAirportToAirport,
+      pickupAirportCode: addressAirport.ok ? addressAirport.context.pickupAirportCode : null,
+      dropoffAirportCode: addressAirport.ok ? addressAirport.context.dropoffAirportCode : null,
+      airportCode,
+      fromAirport,
+      returnJourney,
+    });
+    result = {
+      ...result,
+      amount: includedAccess.amount,
+      amountLabel: formatQuote(includedAccess.amount),
+      journeyFareGbp: includedAccess.journeyFareGbp,
+      airportFixedCostsGbp: includedAccess.airportFixedCostsGbp,
+    };
   }
 
   const miles = Math.round(drivingMilesFromKm(routeMetrics.distanceKm) * 10) / 10;

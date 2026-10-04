@@ -8,7 +8,10 @@
  *
  * Free drop-off alternative is always offered.
  * Free pick-up alternative only when a free collection point is configured.
+ * Premium Executive includes these charges in the upgrade — they are not added again.
  */
+
+import { isPremiumExecutiveVehicle } from "./executive-service";
 
 export type ExpressDropOffAirportCode = "BFS" | "BHD";
 
@@ -36,6 +39,22 @@ export const EXPRESS_FREE_PICKUP_CONFIGURED: Record<ExpressDropOffAirportCode, b
 
 export const EXPRESS_DROP_OFF_PASSED_ON_NOTE =
   "Airport-imposed Express access charges are passed on at cost with no markup.";
+
+/**
+ * True when the passed-on-at-cost note should appear.
+ * Executive stores Express as selected with an explicit £0 because the charge is already in the fare.
+ */
+export function expressAccessChargeAddedOnTop(
+  fee: number | null | undefined,
+  selected?: boolean | null,
+): boolean {
+  return !(
+    selected === true &&
+    typeof fee === "number" &&
+    Number.isFinite(fee) &&
+    fee <= 0
+  );
+}
 
 export const EXPRESS_DROP_OFF_REMOVED_EXPLANATION =
   "Free drop-off selected. You’ll be dropped at the designated free airport drop-off area.";
@@ -183,6 +202,12 @@ export type ExpressDropOffResolvedLeg = ExpressDropOffLeg & {
 export type ExpressDropOffSelection = {
   /** Whether the option UI applies for this journey. */
   eligible: boolean;
+  /**
+   * Premium Executive absorbs BFS/BHD access inside the upgrade.
+   * The service stays Express, but the fee is not added on top and
+   * the Free vs Express choice is not shown.
+   */
+  includedInVehicleFare: boolean;
   /** Airport the optional charge relates to. */
   airportCode: ExpressDropOffAirportCode | null;
   /** drop-off vs pick-up copy for the primary/outbound selector. */
@@ -273,6 +298,7 @@ export function resolveExpressDropOff(input: {
     eligible,
     airportCode,
     service,
+    includedInVehicleFare: false,
     freeAlternativeAvailable,
     feeIfSelectedGbp,
     selected,
@@ -281,6 +307,41 @@ export function resolveExpressDropOff(input: {
     returnSelected,
     outboundFeeGbp,
     returnFeeGbp,
+    legs,
+  };
+}
+
+/**
+ * Premium Executive includes airport access in the upgrade.
+ * Drop-off is the Express terminal. Pickup keeps the terminal meeting point.
+ * The catalogue fee is not added on top for either leg.
+ * Saloon and Estate selections are unchanged.
+ */
+export function applyExecutiveIncludedAirportAccess(
+  selection: ExpressDropOffSelection,
+  vehicleType: string | null | undefined,
+): ExpressDropOffSelection {
+  if (!isPremiumExecutiveVehicle(String(vehicleType ?? "")) || !selection.eligible) {
+    return selection;
+  }
+  const legs = selection.legs.map((leg) => ({
+    ...leg,
+    selected: true,
+    chargedFeeGbp: 0,
+    freeAlternativeAvailable: false,
+  }));
+  const outbound = legs.find((leg) => leg.leg === "outbound");
+  const ret = legs.find((leg) => leg.leg === "return");
+  return {
+    ...selection,
+    includedInVehicleFare: true,
+    freeAlternativeAvailable: false,
+    selected: true,
+    feeGbp: 0,
+    outboundSelected: Boolean(outbound),
+    returnSelected: Boolean(ret),
+    outboundFeeGbp: 0,
+    returnFeeGbp: 0,
     legs,
   };
 }
@@ -629,6 +690,9 @@ export function formatAirportAccessOptionCustomerLine(input: {
     input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
   const product = service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
   if (option === "express") {
+    if (typeof input.expressDropOffFee === "number" && input.expressDropOffFee <= 0) {
+      return `Airport access option: ${product} — included`;
+    }
     const fee =
       typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0
         ? roundGbp(input.expressDropOffFee)
@@ -649,6 +713,9 @@ function formatAirportAccessLegCustomerValue(input: {
 }): string {
   const product = input.service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
   if (input.option === "express") {
+    if (typeof input.feeGbp === "number" && input.feeGbp <= 0) {
+      return `${product} — included`;
+    }
     const fee =
       typeof input.feeGbp === "number" && input.feeGbp > 0
         ? roundGbp(input.feeGbp)
@@ -687,7 +754,8 @@ export function formatAirportAccessOptionCustomerLines(input: {
     const one = formatAirportAccessOptionCustomerLine({
       ...input,
       service: selection.service,
-      expressDropOffFee: selection.feeGbp,
+      expressDropOffFee:
+        typeof input.expressDropOffFee === "number" ? input.expressDropOffFee : selection.feeGbp,
     });
     return one ? [one] : [];
   }
@@ -696,11 +764,14 @@ export function formatAirportAccessOptionCustomerLines(input: {
       leg.leg === "return"
         ? input.returnAirportAccessChargeGbp
         : input.outboundAirportAccessChargeGbp;
+    const includedTotal =
+      typeof input.expressDropOffFee === "number" && input.expressDropOffFee <= 0;
     const value = formatAirportAccessLegCustomerValue({
       option: leg.selected ? "express" : "free",
       airportCode: leg.airportCode,
       service: leg.service,
-      feeGbp: typeof charged === "number" ? charged : leg.chargedFeeGbp,
+      feeGbp:
+        typeof charged === "number" ? charged : includedTotal ? 0 : leg.chargedFeeGbp,
     });
     const prefix = leg.leg === "outbound" ? "Outbound" : "Return";
     return `${prefix} airport access: ${value}`;
@@ -731,7 +802,8 @@ export function formatAirportAccessOptionOwnerLines(input: {
     const one = formatAirportAccessOptionOwnerLine({
       ...input,
       service: selection.service,
-      expressDropOffFee: selection.feeGbp,
+      expressDropOffFee:
+        typeof input.expressDropOffFee === "number" ? input.expressDropOffFee : selection.feeGbp,
     });
     return one ? [one] : [];
   }
@@ -740,8 +812,13 @@ export function formatAirportAccessOptionOwnerLines(input: {
       leg.leg === "return"
         ? input.returnAirportAccessChargeGbp
         : input.outboundAirportAccessChargeGbp;
+    const includedTotal =
+      typeof input.expressDropOffFee === "number" && input.expressDropOffFee <= 0;
     const prefix = leg.leg === "outbound" ? "OUTBOUND" : "RETURN";
     if (leg.selected) {
+      if ((typeof charged === "number" && charged <= 0) || (charged == null && includedTotal)) {
+        return `${prefix} AIRPORT ACCESS: EXPRESS — INCLUDED`;
+      }
       const fee =
         typeof charged === "number" && charged > 0
           ? roundGbp(charged)
@@ -773,6 +850,9 @@ export function formatAirportAccessOptionOwnerLine(input: {
   const service =
     input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
   if (option === "express") {
+    if (typeof input.expressDropOffFee === "number" && input.expressDropOffFee <= 0) {
+      return "AIRPORT ACCESS: EXPRESS — INCLUDED";
+    }
     const fee =
       typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0
         ? roundGbp(input.expressDropOffFee)
@@ -804,6 +884,9 @@ export function formatAirportAccessOptionDashboardValue(input: {
   const service =
     input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
   if (option === "express") {
+    if (typeof input.expressDropOffFee === "number" && input.expressDropOffFee <= 0) {
+      return "Express — included";
+    }
     const fee =
       typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0
         ? roundGbp(input.expressDropOffFee)
@@ -899,6 +982,10 @@ export function formatExpressDropOffSummaryLine(input: {
       ? roundGbp(input.expressDropOffFee)
       : null;
   if (selected) {
+    if (storedFee === 0) {
+      const label = service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
+      return `${EXPRESS_DROP_OFF_AIRPORT_NAMES[airport]} ${label}: included`;
+    }
     const fee = storedFee != null && storedFee > 0 ? storedFee : EXPRESS_DROP_OFF_FEES_GBP[airport];
     if (fee <= 0) return null;
     return expressDropOffBreakdownLabel(airport, true, service, fee);

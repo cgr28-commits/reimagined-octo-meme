@@ -10,6 +10,7 @@ import { formatMarketingOptInLine } from "../../shared/marketing";
 import type { AdsAttribution } from "../../shared/ads-attribution";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  expressAccessChargeAddedOnTop,
   formatAirportAccessOptionCustomerLines,
   formatExpressDropOffSummaryLine,
 } from "../../shared/express-drop-off";
@@ -188,7 +189,9 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
       return (
         (accessLines.length > 0 ? `${accessLines.join("\n")}\n` : "") +
         (expressLine && !accessLines.includes(expressLine) ? `${expressLine}\n` : "") +
-        `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
+        (expressAccessChargeAddedOnTop(details.expressDropOffFee, details.expressDropOffSelected)
+          ? `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
+          : "")
       );
     })() +
     includesBlock +

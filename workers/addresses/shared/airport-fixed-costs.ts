@@ -9,7 +9,12 @@
  * - DUB / LDY: NEVER removable
  * - BFS / BHD: removable only where a legitimate free-area alternative applies
  *   (A2A historical access surcharge lines; Express Drop-Off stays separate)
+ *
+ * Premium Executive absorbs pickup/drop-off access inside the upgrade.
+ * M1 tolls stay separate and are still added.
  */
+
+import { isPremiumExecutiveVehicle } from "./executive-service";
 
 export type AirportFixedCostCode = "BFS" | "BHD" | "DUB" | "LDY";
 
@@ -631,6 +636,55 @@ export function resolveJourneyAirportFees(input: {
     totalOriginalGbp,
     totalAppliedGbp,
   };
+}
+
+/**
+ * Fixed airport amount actually added to this vehicle's total.
+ * Executive keeps tolls and absorbs pickup, drop-off and parking access.
+ */
+export function chargedAirportFixedCostGbp(input: {
+  vehicleType?: string | null;
+  quotedFixedGbp: number;
+  isAirportToAirport: boolean;
+  pickupAirportCode?: string | null;
+  dropoffAirportCode?: string | null;
+  airportCode?: string | null;
+  fromAirport?: boolean;
+  returnJourney?: boolean;
+}): number {
+  const quoted = roundGbp(Math.max(0, Number(input.quotedFixedGbp) || 0));
+  if (!isPremiumExecutiveVehicle(String(input.vehicleType ?? ""))) return quoted;
+  const resolution = resolveJourneyAirportFees({
+    isAirportToAirport: input.isAirportToAirport,
+    pickupAirportCode: input.pickupAirportCode,
+    dropoffAirportCode: input.dropoffAirportCode,
+    airportCode: input.airportCode,
+    fromAirport: input.fromAirport,
+    returnJourney: input.returnJourney,
+    removedFeeIds: [],
+  });
+  if (resolution.lines.length === 0) return 0;
+  return customerAirportFixedCostsForVehicle(resolution.lines, input.vehicleType);
+}
+
+/**
+ * Customer airport-fixed total.
+ * Saloon and Estate pay every applied line.
+ * Executive pays tolls only — pickup, drop-off and parking access stay inside the upgrade.
+ */
+export function customerAirportFixedCostsForVehicle(
+  lines: readonly Pick<AirportFeeLine, "direction" | "appliedAmountGbp">[],
+  vehicleType: string | null | undefined,
+): number {
+  const applied = roundGbp(
+    lines.reduce((sum, line) => sum + (Number(line.appliedAmountGbp) || 0), 0),
+  );
+  if (!isPremiumExecutiveVehicle(String(vehicleType ?? ""))) return applied;
+  return roundGbp(
+    lines
+      .filter((line) => line.direction === "toll")
+      .reduce((sum, line) => sum + (Number(line.appliedAmountGbp) || 0), 0),
+  );
 }
 
 /**

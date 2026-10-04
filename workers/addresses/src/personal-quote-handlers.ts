@@ -15,6 +15,7 @@ import {
   type PersonalQuoteRecord,
 } from "../shared/personal-quote";
 import {
+  applyExecutiveIncludedAirportAccess,
   resolveExpressDropOff,
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
@@ -272,6 +273,8 @@ export async function resolvePersonalQuoteForPayment(
     returnJourney?: boolean;
     /** Customer Express choice only — fee is re-derived server-side. */
     expressDropOffSelected?: boolean | null;
+    /** When Executive, airport access is included and not added again. */
+    vehicleType?: string | null;
   },
 ): Promise<
   | {
@@ -320,12 +323,15 @@ export async function resolvePersonalQuoteForPayment(
     inferred?.fromAirport ??
     (typeof stored.fromAirport === "boolean" ? stored.fromAirport : false);
 
-  const expressSelection = resolveExpressDropOff({
-    airportCode,
-    fromAirport,
-    returnJourney: Boolean(options?.returnJourney),
-    selected: options?.expressDropOffSelected,
-  });
+  const expressSelection = applyExecutiveIncludedAirportAccess(
+    resolveExpressDropOff({
+      airportCode,
+      fromAirport,
+      returnJourney: Boolean(options?.returnJourney),
+      selected: options?.expressDropOffSelected,
+    }),
+    options?.vehicleType,
+  );
   const expressFields = toExpressDropOffPersistedFields(expressSelection);
 
   const oneWayAgreedAmount = Math.round(stored.agreedAmount * 100) / 100;

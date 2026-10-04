@@ -1,7 +1,8 @@
 /**
  * Public Executive service — a comfort upgrade, not a larger vehicle.
  * The journey fare is the Saloon fare plus the dashboard Executive upgrade
- * (default £20). Airport and Express charges stay outside that uplift.
+ * (default £20). Applicable airport access and Express charges are included
+ * in that upgrade and must not be added again on top.
  * The enquiry-only Executive Saloon is unchanged.
  *
  * Luggage: Executive takes up to 3 large suitcases. Four large suitcases

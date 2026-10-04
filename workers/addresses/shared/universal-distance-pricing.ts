@@ -144,7 +144,9 @@ export function classifyUniversalVehicle(
  * Journey fare (taxi only) from road miles + vehicle.
  * Estate is Saloon + the estate upgrade. Public Executive is Saloon + the
  * executive upgrade. Legacy Executive Saloon keeps its enquiry formula.
- * Minibus uses Estate × multiplier. Airport charges are not part of either upgrade.
+ * Minibus uses Estate × multiplier.
+ * This figure is the journey fare only. Executive airport access and Express
+ * charges are absorbed when the customer total is composed, not added here.
  */
 export function calculateUniversalJourneyFareGbp(
   roadMiles: number,

@@ -20,6 +20,7 @@ import {
 } from "./journey-inclusions";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
+  expressAccessChargeAddedOnTop,
   formatAirportAccessOptionCustomerLines,
   formatAirportAccessOptionOwnerLines,
   formatExpressDropOffSummaryLine,
@@ -736,7 +737,9 @@ export function buildCustomerConfirmationEmail(
       return (
         `${accessLines.join("\n")}\n` +
         (breakdown && !accessLines.includes(breakdown) ? `${breakdown}\n` : "") +
-        `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n\n`
+        (expressAccessChargeAddedOnTop(details.expressDropOffFee, details.expressDropOffSelected)
+          ? `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n\n`
+          : "\n")
       );
     })() +
     `PAYMENT / INVOICE\n` +
@@ -836,7 +839,9 @@ export function buildOwnerPaidBookingEmail(
       return (
         `\n${ownerAccess.join("\n")}\n` +
         (detail.length > 0 ? `${detail.join("\n")}\n` : "") +
-        `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
+        (expressAccessChargeAddedOnTop(details.expressDropOffFee, details.expressDropOffSelected)
+          ? `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
+          : "")
       );
     })() +
     `\n` +

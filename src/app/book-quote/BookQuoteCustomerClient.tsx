@@ -26,6 +26,7 @@ import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import { formatQuickQuoteAmount } from "../../../shared/quick-quote";
 import {
+  applyExecutiveIncludedAirportAccess,
   canProceedWithoutExpressDropOff,
   composeFareWithExpressDropOff,
   expressDropOffBreakdownLabel,
@@ -181,12 +182,15 @@ function BookQuoteInner() {
     if (!journey) {
       return resolveExpressDropOff({ selected: expressDropOffSelected });
     }
-    return resolveExpressDropOff({
-      airportCode: journey.airportCode,
-      fromAirport: journey.fromAirport,
-      returnJourney: journey.returnJourney,
-      selected: expressDropOffSelected,
-    });
+    return applyExecutiveIncludedAirportAccess(
+      resolveExpressDropOff({
+        airportCode: journey.airportCode,
+        fromAirport: journey.fromAirport,
+        returnJourney: journey.returnJourney,
+        selected: expressDropOffSelected,
+      }),
+      journey.vehicleType,
+    );
   }, [journey, expressDropOffSelected]);
 
   const displayPricing = useMemo(() => {
@@ -413,7 +417,13 @@ function BookQuoteInner() {
             ? formatQuickQuoteAmount(displayPricing.totalGbp)
             : quote.quotedAmountLabel}
         </p>
-        {expressSelection.eligible && expressSelection.airportCode ? (
+        {expressSelection.includedInVehicleFare ? (
+          <p className="mt-3 text-left text-sm text-white/80">
+            {expressSelection.service === "pick-up"
+              ? "Airport pickup included. Meet your driver at the designated terminal pickup area."
+              : "Express terminal drop-off included."}
+          </p>
+        ) : expressSelection.eligible && expressSelection.airportCode ? (
           <div className="mt-3 space-y-1 text-left text-sm text-white/80">
             <p>
               {expressDropOffBreakdownLabel(
@@ -433,7 +443,9 @@ function BookQuoteInner() {
         </p>
       </section>
 
-      {expressSelection.eligible && expressSelection.airportCode ? (
+      {expressSelection.eligible &&
+      expressSelection.airportCode &&
+      !expressSelection.includedInVehicleFare ? (
         <ExpressDropOffChoice
           mode="summary"
           editing={expressEditing}

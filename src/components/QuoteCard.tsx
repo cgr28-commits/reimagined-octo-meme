@@ -246,9 +246,11 @@ import {
 } from "../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import {
+  applyExecutiveIncludedAirportAccess,
   canProceedWithoutExpressDropOffLegs,
   composeFareWithExpressDropOff,
   expressCheckoutChangeLabel,
+  expressQuoteExpressHint,
   expressQuoteSelectionConfirmation,
   resolveExpressDropOff,
 } from "../../shared/express-drop-off";
@@ -257,6 +259,7 @@ import {
   isReturnOfferAirportJourney,
 } from "../../shared/return-offer";
 import {
+  customerAirportFixedCostsForVehicle,
   requiredAirportAccessNotice,
   resolveJourneyAirportFees,
 } from "../../shared/airport-fixed-costs";
@@ -2113,17 +2116,21 @@ function QuoteCard({
 
   const expressSelection = useMemo(
     () =>
-      resolveExpressDropOff({
-        airportCode: effectiveAirportCode || null,
-        fromAirport: isFromAirport,
-        returnJourney,
-        selected: expressDropOffSelected,
-        outboundSelected: expressDropOffSelected,
-        returnSelected: returnExpressDropOffSelected,
-      }),
+      applyExecutiveIncludedAirportAccess(
+        resolveExpressDropOff({
+          airportCode: effectiveAirportCode || null,
+          fromAirport: isFromAirport,
+          returnJourney,
+          selected: expressDropOffSelected,
+          outboundSelected: expressDropOffSelected,
+          returnSelected: returnExpressDropOffSelected,
+        }),
+        quoteVehicle,
+      ),
     [
       effectiveAirportCode,
       isFromAirport,
+      quoteVehicle,
       returnJourney,
       expressDropOffSelected,
       returnExpressDropOffSelected,
@@ -2261,7 +2268,7 @@ function QuoteCard({
     if (currentServerFareParts) {
       const fixedFromLines =
         airportFeeResolution.lines.length > 0
-          ? airportFeeResolution.totalAppliedGbp
+          ? customerAirportFixedCostsForVehicle(airportFeeResolution.lines, quoteVehicle)
           : currentServerFareParts.airportFixedCostsGbp;
       return {
         journeyFareGbp: currentServerFareParts.journeyFareGbp,
@@ -2290,7 +2297,7 @@ function QuoteCard({
     // Prefer authoritative fee-line total (honours A2A removals; mandatory otherwise).
     const fixed =
       airportFeeResolution.lines.length > 0
-        ? airportFeeResolution.totalAppliedGbp
+        ? customerAirportFixedCostsForVehicle(airportFeeResolution.lines, quoteVehicle)
         : quotedFixed;
     const surcharge =
       typeof liveQuote.nightWeekendSurchargeGbp === "number" &&
@@ -2302,7 +2309,7 @@ function QuoteCard({
       airportFixedCostsGbp: fixed,
       nightWeekendSurchargeGbp: surcharge,
     };
-  }, [liveQuote, airportFeeResolution, currentServerFareParts, mayPaintNumericFare]);
+  }, [liveQuote, airportFeeResolution, currentServerFareParts, mayPaintNumericFare, quoteVehicle]);
 
   const openWebsiteFareBreakdown = useMemo(() => {
     if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
@@ -5312,11 +5319,51 @@ function QuoteCard({
     );
   }
 
+  function renderExecutiveIncludedAirportAccess(tone: "on-dark" | "on-light") {
+    const light = tone === "on-light";
+    const legs = expressSelection.legs.filter((leg) => leg.airportCode);
+    if (legs.length === 0) return null;
+    return (
+      <div className="mt-3 space-y-3 text-left" data-executive-airport-access-included>
+        {legs.map((leg) => (
+          <div key={leg.leg} data-executive-access-leg={leg.leg} data-express-service={leg.service}>
+            {legs.length > 1 ? (
+              <p className={`mb-1 text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+                {leg.leg === "return" ? "Return journey" : "Outbound journey"}
+              </p>
+            ) : null}
+            <div
+              className={`rounded-xl border px-3 py-2.5 ${
+                light ? "border-navy/15 bg-navy/[0.03]" : "border-white/20"
+              }`}
+            >
+              <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+                {leg.service === "pick-up" ? "Airport pickup" : "Airport drop-off"}
+              </p>
+              <p
+                className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
+                  light ? "text-[#475569]" : "text-white/80"
+                }`}
+              >
+                {leg.service === "pick-up"
+                  ? `${expressQuoteExpressHint("pick-up")} Airport access is included in your Executive fare.`
+                  : "Express terminal drop-off is included in your Executive fare."}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   function renderExpressChoiceInPriceCard(
     mode: "full" | "summary",
     tone: "on-dark" | "on-light" = "on-dark",
   ) {
     if (testChargeAmount !== null) return null;
+    if (expressSelection.includedInVehicleFare) {
+      return renderExecutiveIncludedAirportAccess(tone);
+    }
     if (!expressSelection.eligible) {
       return renderRequiredAirportAccessNotes(tone);
     }
@@ -5704,6 +5751,15 @@ function QuoteCard({
   }
 
   function checkoutAccessLine(): string | null {
+    if (expressSelection.includedInVehicleFare) {
+      return expressSelection.legs
+        .map((leg) =>
+          leg.service === "pick-up"
+            ? "Airport pickup included. Meet your driver at the designated terminal pickup area."
+            : "Express terminal drop-off included.",
+        )
+        .join(" ");
+    }
     if (!expressSelection.eligible) {
       const airport = effectiveAirportCode || null;
       if (!airport) return null;

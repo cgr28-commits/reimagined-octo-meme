@@ -2,6 +2,7 @@ import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "./data";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import { isPremiumExecutiveVehicle } from "../../shared/executive-service";
 import {
+  chargedAirportFixedCostGbp,
   composeFareWithAirportFixedCosts,
   getAirportLegFixedCostGbp,
   getAirportToAirportFixedCostGbp,
@@ -734,7 +735,14 @@ export function calculateQuote(
   // Journey: Saloon nearest £1 (Estate + uplift; Minibus Estate × multiplier, penny only). Return discount may introduce pence.
   // Fixed airport costs keep 50p etc. Final amount = journey + fixed, both to pence.
   const roundedJourneyFare = roundGbp(premium.total);
-  const roundedFixed = roundGbp(composed.fixedTotalGbp);
+  const roundedFixed = chargedAirportFixedCostGbp({
+    vehicleType,
+    quotedFixedGbp: composed.fixedTotalGbp,
+    isAirportToAirport: false,
+    airportCode,
+    fromAirport,
+    returnJourney,
+  });
   const amount = roundGbp(roundedJourneyFare + roundedFixed);
 
   return {
@@ -869,7 +877,14 @@ export function calculateAirportToAirportQuote(
   // Journey already nearest-£1 from universal pricing (return may add pence).
   // Keep fixed costs (incl. 50p) — amount === journey + fixed at pence precision.
   const roundedJourneyFare = roundGbp(premium.total);
-  const roundedFixed = roundGbp(composed.fixedTotalGbp);
+  const roundedFixed = chargedAirportFixedCostGbp({
+    vehicleType,
+    quotedFixedGbp: composed.fixedTotalGbp,
+    isAirportToAirport: true,
+    pickupAirportCode: pickupCode,
+    dropoffAirportCode: dropoffCode,
+    returnJourney,
+  });
   const amount = roundGbp(roundedJourneyFare + roundedFixed);
 
   return {
