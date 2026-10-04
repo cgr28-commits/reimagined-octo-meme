@@ -156,6 +156,9 @@ export type PaidBookingRecord = {
   childSeatNotes?: string;
   notes?: string;
   vehicle?: string;
+  /** Executive cabin preference. Absent on Saloon and Estate bookings. */
+  quietJourney?: boolean;
+  climatePreference?: "no_preference" | "cooler" | "warmer";
   /**
    * How the customer paid. Missing = historic full online (treat as FULL_ONLINE).
    * DEPOSIT_CASH bookings keep these figures even if admin later disables the option.

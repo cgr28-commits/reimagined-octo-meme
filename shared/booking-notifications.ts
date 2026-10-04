@@ -11,6 +11,7 @@ import {
 } from "./business-email";
 import { contactVCardPublicUrl, resolveGoogleReviewUrl } from "./business-links";
 import { vehicleServiceLabel } from "./booking-notice";
+import { formatExecutivePreferenceLines } from "./executive-service";
 import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL } from "./uk-time";
 import {
   formatEmailFareIncludesBlock,
@@ -80,6 +81,9 @@ export type PaidBookingDetails = {
   childSeats?: number;
   childSeatNotes?: string;
   vehicle: string;
+  /** Executive only. Omitted for Saloon and Estate. */
+  quietJourney?: boolean;
+  climatePreference?: "no_preference" | "cooler" | "warmer";
   journeyDistance?: string;
   journeyDuration?: string;
   isAirportTrip: boolean;
@@ -276,6 +280,7 @@ function formatTripScheduleLines(details: PaidBookingDetails): string[] {
   lines.push(
     `Service: ${vehicleServiceLabel(details.vehicle)}`,
     `Vehicle: ${details.vehicle}`,
+    ...formatExecutivePreferenceLines(details),
   );
 
   // Owner/ops: keep distance when present. Customer-facing uses duration only.
@@ -322,6 +327,7 @@ function formatCustomerTripScheduleLines(details: PaidBookingDetails): string[] 
   lines.push(
     `Service: ${vehicleServiceLabel(details.vehicle)}`,
     `Vehicle: ${details.vehicle}`,
+    ...formatExecutivePreferenceLines(details),
   );
 
   if (details.journeyDuration) {
@@ -420,6 +426,12 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     { label: "Service", value: vehicleServiceLabel(details.vehicle) },
     { label: "Vehicle", value: details.vehicle },
   );
+  for (const line of formatExecutivePreferenceLines(details)) {
+    const splitAt = line.indexOf(": ");
+    if (splitAt > 0) {
+      rows.push({ label: line.slice(0, splitAt), value: line.slice(splitAt + 2) });
+    }
+  }
 
   // Customer invoice: show estimated time only — distance stays internal/ops.
   if (details.journeyDuration) {

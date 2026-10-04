@@ -124,6 +124,37 @@ console.log("\n=== Manual and ROI requests ===");
     now,
   });
   assert.equal(executive.ok, true);
+  const premiumExecutive = validateUnpaidBookingRequest({
+    customerName: "Riley Manual",
+    message: "Executive booking",
+    booking: structuredBooking({
+      vehicle: "Executive (up to 3 passengers)",
+      passengers: 3,
+      isFromAirport: false,
+      tripLabel: "Airport drop-off",
+      flightNumber: "",
+    }),
+    publicMinibusEnabled: false,
+    now,
+  });
+  assert.equal(premiumExecutive.ok, true);
+  const tooMany = validateUnpaidBookingRequest({
+    customerName: "Riley Manual",
+    message: "Executive booking",
+    booking: structuredBooking({
+      vehicle: "Executive (up to 3 passengers)",
+      passengers: 4,
+      isFromAirport: false,
+      tripLabel: "Airport drop-off",
+      flightNumber: "",
+    }),
+    publicMinibusEnabled: false,
+    now,
+  });
+  assert.equal(tooMany.ok, false);
+  if (!tooMany.ok) {
+    assert.equal(tooMany.error, "Executive is available for up to 3 passengers.");
+  }
   console.log("OK  ROI and executive enquiry requests stay accepted");
 }
 

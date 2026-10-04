@@ -62,16 +62,16 @@ assert.equal(PRICING_CONFIG.otsReferenceModel.undercutMaxGbp, 10);
 console.log("OK  Airport OTS calibration £3–£5; A2A reference undercut still £8–£10");
 
 // Live estate premium is always £6 when universal enabled (tiers retired)
-assert.equal(getAirportEstatePremiumGbp("BFS", 34), 10);
-assert.equal(getAirportEstatePremiumGbp("BFS", 45), 10);
-assert.equal(getAirportEstatePremiumGbp("BFS", 46), 10);
-assert.equal(getAirportEstatePremiumGbp("BFS", 139), 10);
-assert.equal(getAirportEstatePremiumGbp("BFS", 140), 10);
-assert.equal(getAirportEstatePremiumGbp("BHD", 45), 10);
-assert.equal(getAirportEstatePremiumGbp("BHD", 140), 10);
-assert.equal(getAirportEstatePremiumGbp("DUB", 34), 10);
-assert.equal(getAirportEstatePremiumGbp("DUB", 45), 10);
-assert.equal(getAirportEstatePremiumGbp("DUB", 140), 10);
+assert.equal(getAirportEstatePremiumGbp("BFS", 34), 6);
+assert.equal(getAirportEstatePremiumGbp("BFS", 45), 6);
+assert.equal(getAirportEstatePremiumGbp("BFS", 46), 6);
+assert.equal(getAirportEstatePremiumGbp("BFS", 139), 6);
+assert.equal(getAirportEstatePremiumGbp("BFS", 140), 6);
+assert.equal(getAirportEstatePremiumGbp("BHD", 45), 6);
+assert.equal(getAirportEstatePremiumGbp("BHD", 140), 6);
+assert.equal(getAirportEstatePremiumGbp("DUB", 34), 6);
+assert.equal(getAirportEstatePremiumGbp("DUB", 45), 6);
+assert.equal(getAirportEstatePremiumGbp("DUB", 140), 6);
 console.log("OK  Live estate premium always £6 (universal); historical tiers not applied");
 
 // BHD city ~4 mi → £29 / estate £35
@@ -81,7 +81,7 @@ console.log("OK  Live estate premium always £6 (universal); historical tiers no
   assert.ok(bhdCity);
   assert.equal(bhdCity.amount, 29, "BHD city saloon ~4 mi → £29");
   const bhdCityEstate = calculateQuote(cityHall, "BHD", ESTATE, false, {}, m);
-  assert.equal(bhdCityEstate?.amount, 39, "BHD city estate = 29+10");
+  assert.equal(bhdCityEstate?.amount, 35, "BHD city estate = 29+6");
   console.log(`OK  BHD City Hall saloon £${bhdCity.amount} / estate £${bhdCityEstate?.amount}`);
 }
 

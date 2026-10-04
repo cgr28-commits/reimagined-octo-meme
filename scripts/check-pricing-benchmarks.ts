@@ -273,7 +273,8 @@ assert.equal(selectVehicleForParty(2, 2), SALOON);
 assert.equal(selectVehicleForParty(3, 0), SALOON);
 assert.equal(selectVehicleForParty(3, 2), SALOON);
 assert.equal(selectVehicleForParty(4, 2), SALOON);
-assert.equal(selectVehicleForParty(1, 3), ESTATE);
+assert.equal(selectVehicleForParty(1, 3), SALOON);
+assert.equal(selectVehicleForParty(1, 4), ESTATE);
 assert.equal(selectVehicleForParty(5, 1), MINIBUS_VEHICLE);
 assert.equal(requiresMinibus(2, 5), true);
 

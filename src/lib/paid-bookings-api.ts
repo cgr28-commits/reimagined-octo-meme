@@ -78,6 +78,8 @@ export type OwnerPaidBookingSummary = Pick<
   childSeatNotes?: string;
   notes?: string;
   vehicle?: string;
+  quietJourney?: boolean;
+  climatePreference?: "no_preference" | "cooler" | "warmer";
   assignedDriverName?: string;
   assignedDriverLabel?: string;
   assignmentStatus?: string;

@@ -153,7 +153,7 @@ console.log("\n=== Saloon vs Estate exactly £6 before fixed costs ===");
   for (const m of [4, 15, 32, 50, 98]) {
     const saloon = calculateQuote("Addr", "BHD", S, false, {}, miles(m), false)!;
     const estate = calculateQuote("Addr", "BHD", E, false, {}, miles(m), false)!;
-    assert.equal(estate.journeyFareGbp! - saloon.journeyFareGbp!, 10);
+    assert.equal(estate.journeyFareGbp! - saloon.journeyFareGbp!, 6);
     assert.equal(
       estate.journeyFareGbp,
       calculateUniversalEstateJourneyFareGbp(saloon.journeyFareGbp!),

@@ -133,14 +133,7 @@ export async function fetchPublicPricingConfig(): Promise<PublicOwnerPricingConf
     if (!response.ok || !body || typeof body !== "object" || !(body as { config?: unknown }).config) {
       return toPublicOwnerPricingConfig(defaultOwnerPricingSettings());
     }
-    const config = (body as { config: PublicOwnerPricingConfig }).config;
-    return {
-      ...config,
-      minibus: {
-        ...config.minibus,
-        publicEnabled: config.minibus?.publicEnabled === true,
-      },
-    };
+    return toPublicOwnerPricingConfig((body as { config?: unknown }).config);
   } catch {
     return toPublicOwnerPricingConfig(defaultOwnerPricingSettings());
   }

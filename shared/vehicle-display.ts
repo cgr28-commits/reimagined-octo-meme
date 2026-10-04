@@ -15,6 +15,7 @@ export function isMinibusVehicleType(vehicleType: string | null | undefined): bo
 export function vehicleCustomerLabel(vehicleType: string | null | undefined): string {
   const value = String(vehicleType ?? "");
   if (isMinibusVehicleType(value)) return MINIBUS_CUSTOMER_NAME;
+  if (/executive/i.test(value) && !/saloon/i.test(value)) return "Executive";
   if (value.includes("Estate")) return "Estate";
   if (value.includes("Executive")) return "Executive";
   if (value.includes("Saloon")) return "Saloon";
@@ -24,6 +25,7 @@ export function vehicleCustomerLabel(vehicleType: string | null | undefined): st
 export function vehicleCustomerFullName(vehicleType: string | null | undefined): string {
   const value = String(vehicleType ?? "");
   if (isMinibusVehicleType(value)) return MINIBUS_CUSTOMER_NAME;
+  if (/executive/i.test(value) && !/saloon/i.test(value)) return "Executive";
   if (value.includes("Estate")) return "Estate Car";
   if (value.includes("Executive")) return "Executive Saloon";
   if (value.includes("Saloon")) return "Saloon";

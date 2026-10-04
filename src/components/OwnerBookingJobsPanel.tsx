@@ -6,6 +6,7 @@ import {
   type BookingJobRecord,
 } from "../../shared/booking-job";
 import { formatUkInstant } from "../../shared/uk-time";
+import { formatExecutivePreferenceLines } from "../../shared/executive-service";
 import {
   assignBookingJobDriver,
   fetchOwnerBookingJobs,
@@ -315,6 +316,11 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                     <p className="mt-1 text-sm text-white/65">
                       {job.tripDate} · pick up {job.tripTime} · {job.vehicle}
                     </p>
+                    {formatExecutivePreferenceLines(job).length > 0 ? (
+                      <p className="mt-1 text-xs text-white/70">
+                        {formatExecutivePreferenceLines(job).join(" · ")}
+                      </p>
+                    ) : null}
                     <p className="mt-2 text-xs text-white/45">Ref {job.id}</p>
                   </div>
                   <span

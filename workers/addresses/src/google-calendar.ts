@@ -1,4 +1,5 @@
 import type { AdsAttribution } from "../shared/ads-attribution";
+import { formatExecutivePreferenceLines } from "../shared/executive-service";
 
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -27,6 +28,8 @@ export type TransferBookingEvent = {
   childSeats?: number;
   childSeatNotes?: string;
   vehicle?: string;
+  quietJourney?: boolean;
+  climatePreference?: "no_preference" | "cooler" | "warmer";
   estimatedPrice?: string | null;
   isAirportTrip?: boolean;
   amountPaid?: string;
@@ -277,6 +280,7 @@ function buildTransferDescription(booking: TransferBookingEvent, message?: strin
         }`
       : "",
     booking.vehicle ? `Vehicle: ${booking.vehicle}` : "",
+    ...formatExecutivePreferenceLines(booking),
     booking.estimatedPrice ? `Your fixed journey price: ${booking.estimatedPrice}` : "",
     booking.paid && booking.amountPaid ? `Amount paid: ${booking.amountPaid}` : "",
     booking.paid && booking.paymentReference
