@@ -203,32 +203,31 @@ export default function QuoteVehicleCategories({
       executiveBlockedByPassengers,
     });
     const badge =
-      option.id === "estate" && luggageRecommendsEstate
-        ? "Recommended for your luggage"
-        : option.id === "estate" && estateOk && saloonOk
-          ? "More comfort"
-          : option.id === "executive" && executiveOk
-            ? "Premium"
-            : null;
+      option.id === "minibus"
+        ? "Group travel"
+        : option.id === "estate" && luggageRecommendsEstate
+          ? "Recommended for your luggage"
+          : option.id === "estate" && estateOk && saloonOk
+            ? "More comfort"
+            : option.id === "executive" && executiveOk
+              ? "Premium"
+              : null;
+    const badgeKind =
+      option.id === "executive" ? "premium" : option.id === "minibus" ? "group" : "comfort";
     const uplift =
       option.id === "estate" ? estateUplift : option.id === "executive" ? executiveUplift : null;
     const fareLabel = formatFare(fareFor(option));
-    const headerPrice = uplift ?? fareLabel;
     const selectLabel = isSelected
       ? "Selected"
       : !selectable
         ? unavailable
-        : option.id === "estate"
-          ? "Upgrade to Estate"
-          : option.id === "executive"
-            ? "Upgrade to Executive"
-            : `Select ${option.title}`;
-    const shell = `min-w-0 rounded-xl border ${
+        : `Select ${option.title}`;
+    const shell = `min-w-0 rounded-xl border-2 text-navy shadow-[0_8px_18px_rgba(7,28,56,0.08)] ${
       isSelected
-        ? "border-emerald bg-emerald/15 text-white ring-2 ring-emerald/70"
+        ? "border-emerald bg-[#f4fbf6]"
         : selectable
-          ? "border-white/15 bg-white/[0.04] text-white/90"
-          : "border-white/10 bg-white/[0.02] text-white/40"
+          ? "border-[#e4eaf2] bg-white"
+          : "border-[#e4eaf2] bg-[#f7f8fa]"
     }`;
     const stackOnDesktop = layout === "grid";
     const summary = (
@@ -245,33 +244,29 @@ export default function QuoteVehicleCategories({
         />
         <span className="min-w-0 flex-1">
           <span
-            className={`flex items-start justify-between gap-2 ${
+            className={`flex min-w-0 flex-wrap items-start justify-between gap-x-2 gap-y-1 ${
               stackOnDesktop ? "md:flex-col md:items-center" : ""
             }`}
           >
             <span className="min-w-0">
-              {badge ? (
-                <span className="mb-1 inline-flex max-w-full rounded-full border border-emerald/40 bg-emerald/15 px-2 py-0.5 text-[10px] font-semibold uppercase leading-tight tracking-wide text-emerald">
-                  {badge}
-                </span>
-              ) : null}
-              <span className="block text-base font-semibold leading-tight text-white">{option.title}</span>
-              <span className={`mt-0.5 block text-xs leading-snug text-white/70 ${stackOnDesktop ? "md:hidden" : ""}`}>
+              {badge ? <VehicleBadge label={badge} kind={badgeKind} /> : null}
+              <span className="block text-base font-semibold leading-tight text-navy">{option.title}</span>
+              <span className={`mt-0.5 block text-xs leading-snug text-navy/70 ${stackOnDesktop ? "md:hidden" : ""}`}>
                 {option.short}
               </span>
               {stackOnDesktop ? (
-                <span className="mt-0.5 hidden text-xs leading-snug text-white/70 md:block">{option.detail}</span>
+                <span className="mt-0.5 hidden text-xs leading-snug text-navy/70 md:block">{option.detail}</span>
               ) : null}
             </span>
-            {headerPrice ? (
-              <span className={`shrink-0 text-base font-bold tabular-nums text-white ${stackOnDesktop ? "md:hidden" : ""}`}>
-                {headerPrice}
-              </span>
-            ) : null}
+            <PriceStack
+              uplift={uplift}
+              fareLabel={fareLabel}
+              className={stackOnDesktop ? "md:hidden" : ""}
+            />
           </span>
           {option.id !== "minibus" && !(isSelected && stackOnDesktop) ? (
             <span
-              className={`mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] leading-snug text-white/65 ${
+              className={`mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] leading-snug text-navy/80 ${
                 stackOnDesktop ? "md:hidden" : ""
               }`}
             >
@@ -280,7 +275,7 @@ export default function QuoteVehicleCategories({
           ) : null}
           {selectLabel ? (
             <span
-              className={`mt-1 inline-flex items-center gap-1 text-sm font-semibold text-white ${
+              className={`mt-1 inline-flex items-center gap-1 text-sm font-semibold text-navy ${
                 stackOnDesktop ? "md:hidden" : ""
               }`}
             >
@@ -294,12 +289,12 @@ export default function QuoteVehicleCategories({
     );
     const details = (
       <span
-        className={`mt-2 block space-y-1 text-left text-xs leading-snug text-white/80 ${
+        className={`mt-1.5 block space-y-0.5 text-left text-xs leading-snug text-navy/80 ${
           stackOnDesktop ? "md:text-center" : ""
         } ${isSelected ? "" : stackOnDesktop ? "hidden md:block" : "hidden"}`}
       >
         <CapacityLines option={option} />
-        <span className="block text-white/75">{option.benefit}</span>
+        <span className="block text-navy/75">{option.benefit}</span>
         {isSelected && option.id === "estate" ? (
           <span className="mt-1 block space-y-0.5 md:hidden">
             {ESTATE_CARD_BENEFITS.map((benefit) => (
@@ -318,25 +313,12 @@ export default function QuoteVehicleCategories({
             ))}
           </span>
         ) : null}
-        <span className="block pt-1">
-          {uplift ? (
-            <>
-              <span className="block text-sm font-semibold text-white">
-                {selectable
-                  ? `${option.id === "estate" ? "Upgrade to Estate" : "Upgrade to Executive"} ${uplift}`
-                  : uplift}
-              </span>
-              {fareLabel ? (
-                <span className="mt-0.5 block text-sm font-bold tabular-nums text-white">{fareLabel} total</span>
-              ) : null}
-            </>
-          ) : (
-            <span className="block text-lg font-bold tabular-nums text-white">{fareLabel ?? "…"}</span>
-          )}
+        <span className={stackOnDesktop ? "hidden pt-1 md:block" : "hidden"}>
+          <PriceStack uplift={uplift} fareLabel={fareLabel} stacked />
         </span>
         {selectLabel ? (
           <span
-            className={`mt-1 min-h-11 items-center justify-center gap-1 text-sm font-semibold text-white ${
+            className={`mt-1 min-h-11 items-center justify-center gap-1 text-sm font-semibold text-navy ${
               stackOnDesktop ? "hidden md:inline-flex" : "hidden"
             }`}
           >
@@ -346,7 +328,7 @@ export default function QuoteVehicleCategories({
         ) : null}
       </span>
     );
-    const controlClass = "flex w-full min-w-0 flex-col px-3 py-3 text-left md:px-3 md:py-3";
+    const controlClass = "flex w-full min-w-0 flex-col px-3 py-2.5 text-left";
     return (
       <div
         key={option.id}
@@ -472,6 +454,53 @@ function CapacityLines({ option }: { option: Category }) {
   return null;
 }
 
+function VehicleBadge({ label, kind }: { label: string; kind: "comfort" | "premium" | "group" }) {
+  const className =
+    kind === "premium"
+      ? "border border-emerald/80 bg-navy text-white"
+      : kind === "group"
+        ? "border border-navy/15 bg-navy/[0.05] text-navy"
+        : "border border-emerald/40 bg-emerald/10 text-navy";
+  return (
+    <span
+      className={`mb-1 inline-flex max-w-full whitespace-normal rounded-full px-2 py-0.5 text-center text-[10px] font-semibold uppercase leading-tight tracking-wide ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function PriceStack({
+  uplift,
+  fareLabel,
+  className = "",
+  stacked = false,
+}: {
+  uplift: string | null;
+  fareLabel: string | null;
+  className?: string;
+  stacked?: boolean;
+}) {
+  return (
+    <span
+      className={`shrink-0 whitespace-nowrap tabular-nums text-navy ${
+        stacked ? "block text-center" : "text-right"
+      } ${className}`}
+    >
+      {uplift ? (
+        <>
+          <span className="block text-sm font-bold leading-tight">{uplift}</span>
+          {fareLabel ? (
+            <span className="mt-0.5 block text-xs font-semibold leading-tight">{fareLabel} total</span>
+          ) : null}
+        </>
+      ) : (
+        <span className="block text-base font-bold leading-tight">{fareLabel ?? "…"}</span>
+      )}
+    </span>
+  );
+}
+
 function VehicleArt({
   src,
   alt,
@@ -484,17 +513,18 @@ function VehicleArt({
   compact?: boolean;
 }) {
   const frame = compact
-    ? "h-14 w-24 shrink-0"
-    : "h-14 w-24 shrink-0 md:h-16 md:w-full";
+    ? "h-12 w-[4.75rem] shrink-0 bg-white"
+    : pending
+      ? "mx-auto h-8 w-16 shrink-0 bg-transparent md:h-8 md:w-20"
+      : "h-12 w-[4.75rem] shrink-0 bg-white md:h-16 md:w-full";
   if (!src) {
     return (
       <span
-        className={`flex items-center justify-center rounded-lg bg-white/[0.06] ${frame}`}
+        className={`flex items-center justify-center rounded-md ${frame}`}
         role="img"
         aria-label={alt}
         data-vehicle-image={pending ? "pending" : "missing"}
-      >
-      </span>
+      />
     );
   }
   return (
@@ -503,7 +533,7 @@ function VehicleArt({
       alt={alt}
       width={1400}
       height={700}
-      className={`object-contain ${frame}`}
+      className={`rounded-md object-contain ${frame}`}
     />
   );
 }
@@ -511,7 +541,7 @@ function VehicleArt({
 function Chevron({ expanded }: { expanded: boolean }) {
   return (
     <span
-      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center text-white/70 md:hidden ${
+      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center text-navy/55 md:hidden ${
         expanded ? "rotate-180" : ""
       }`}
       aria-hidden
@@ -535,8 +565,8 @@ function ExecutivePreferences({
   onClimatePreferenceChange?: (value: ClimatePreference) => void;
 }) {
   return (
-    <div className="space-y-3 border-t border-white/10 px-3 py-3">
-      <label className="flex min-h-11 items-start gap-3 text-sm text-white">
+    <div className="space-y-3 border-t border-navy/10 px-3 py-3">
+      <label className="flex min-h-11 items-start gap-3 text-sm text-navy">
         <input
           type="checkbox"
           className="mt-1 h-5 w-5 shrink-0 accent-emerald"
@@ -545,13 +575,13 @@ function ExecutivePreferences({
         />
         <span>
           <span className="block font-semibold">Quiet Journey</span>
-          <span className="block text-xs leading-relaxed text-white/65">
+          <span className="block text-xs leading-relaxed text-navy/70">
             Prefer a peaceful journey with minimal conversation.
           </span>
         </span>
       </label>
       <fieldset className="space-y-2">
-        <legend className="text-sm font-semibold text-white">Climate preference</legend>
+        <legend className="text-sm font-semibold text-navy">Climate preference</legend>
         <div className="grid grid-cols-3 gap-2">
           {(
             [
@@ -567,11 +597,11 @@ function ExecutivePreferences({
                 type="button"
                 aria-pressed={pressed}
                 onClick={() => onClimatePreferenceChange?.(value)}
-                className={`min-h-11 rounded-xl border px-2 text-xs font-semibold ${
-                  pressed
-                    ? "border-emerald bg-emerald/15 text-white"
-                    : "border-white/15 text-white/75"
-                }`}
+                    className={`min-h-11 rounded-xl border px-2 text-xs font-semibold text-navy ${
+                      pressed
+                        ? "border-emerald bg-emerald/10"
+                        : "border-navy/15 bg-white"
+                    }`}
               >
                 {label}
               </button>

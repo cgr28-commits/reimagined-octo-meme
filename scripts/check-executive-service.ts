@@ -265,8 +265,9 @@ const categories = fs.readFileSync(
   "utf8",
 );
 assert.match(categories, /More comfort & extra space/);
-assert.match(categories, /Upgrade to Estate/);
-assert.match(categories, /Upgrade to Executive/);
+assert.match(categories, /Select \$\{option\.title\}/);
+assert.doesNotMatch(categories, /Upgrade to Estate/);
+assert.doesNotMatch(categories, /Upgrade to Executive/);
 assert.match(categories, /Recommended for your luggage/);
 assert.match(categories, /More comfort/);
 assert.match(categories, /Premium travel experience/);
