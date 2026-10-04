@@ -406,11 +406,13 @@ import {
   resolveQuickQuoteCheckoutAmount,
 } from "../shared/quick-quote";
 import {
+  applyExecutiveIncludedAirportAccess,
   composeFareWithExpressDropOff,
   parseCustomerExpressDropOffSelected,
   resolveExpressDropOff,
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
+import { customerAirportFixedCostsForVehicle } from "../shared/airport-fixed-costs";
 import {
   formatHoursUntilPickupLabel,
   isWithinMinimumBookingNotice,
@@ -2038,6 +2040,7 @@ async function handlePaymentRequest(
       {
         returnJourney: Boolean(booking?.returnJourney),
         expressDropOffSelected: customerExpressSelected,
+        vehicleType: booking?.vehicle,
       },
     );
     if (!resolved.ok) {
@@ -2675,7 +2678,10 @@ async function handlePaymentRequest(
       return json({ error: transferResolution.error }, 409, origin);
     }
     const journeyFareGbp = transferResolution.journeyFareGbp;
-    const airportFixedCostsGbp = transferResolution.airportFixedCostsGbp;
+    const airportFixedCostsGbp = customerAirportFixedCostsForVehicle(
+      transferResolution.feeResolution.lines,
+      vehicleType,
+    );
 
     const customerExpressSelected = parseCustomerExpressDropOffSelected(
       body.expressDropOffSelected ?? booking.expressDropOffSelected,
@@ -2689,14 +2695,17 @@ async function handlePaymentRequest(
       body.returnExpressDropOffSelected ?? booking.returnExpressDropOffSelected,
       customerExpressSelected,
     );
-    const express = resolveExpressDropOff({
-      airportCode: airportContext.airportCode,
-      fromAirport: airportContext.fromAirport,
-      returnJourney: booking.returnJourney,
-      selected: customerExpressSelected,
-      outboundSelected: outboundExpressSelected,
-      returnSelected: returnExpressSelected,
-    });
+    const express = applyExecutiveIncludedAirportAccess(
+      resolveExpressDropOff({
+        airportCode: airportContext.airportCode,
+        fromAirport: airportContext.fromAirport,
+        returnJourney: booking.returnJourney,
+        selected: customerExpressSelected,
+        outboundSelected: outboundExpressSelected,
+        returnSelected: returnExpressSelected,
+      }),
+      vehicleType,
+    );
     const persisted = toExpressDropOffPersistedFields(express);
 
     let returnOfferDiscountRate = 0;

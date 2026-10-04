@@ -143,7 +143,10 @@ check("vehicle cards / Book Now stay hidden until complete quote", () => {
   assert.match(card, /disabled=\{\s*submitted \|\|\s*!quoteChoicesReady \|\|\s*!isScheduleComplete/);
   assert.match(card, /failStep1\(\s*"missing_schedule"/);
   assert.match(card, /scrollQuoteStage\("quote-section-schedule"\)/);
-  assert.match(card, /Choose your vehicle/);
+  assert.match(
+    read("src/components/QuoteVehicleCategories.tsx"),
+    /Choose your vehicle/,
+  );
   assert.doesNotMatch(card, /From £/);
 });
 

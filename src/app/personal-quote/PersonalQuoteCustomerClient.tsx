@@ -31,6 +31,7 @@ import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import { formatReturnJourneyDiscountPercent } from "../../../shared/return-journey-discount";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import {
+  applyExecutiveIncludedAirportAccess,
   canProceedWithoutExpressDropOff,
   expressDropOffBreakdownLabel,
   resolveExpressDropOff,
@@ -172,13 +173,16 @@ function PersonalQuoteInner() {
 
   const expressSelection = useMemo(
     () =>
-      resolveExpressDropOff({
-        airportCode: journeyIntent?.airportCode ?? quote?.expressDropOffAirport ?? null,
-        fromAirport: journeyIntent?.fromAirport ?? false,
-        returnJourney,
-        selected: expressDropOffSelected,
-      }),
-    [journeyIntent, quote?.expressDropOffAirport, returnJourney, expressDropOffSelected],
+      applyExecutiveIncludedAirportAccess(
+        resolveExpressDropOff({
+          airportCode: journeyIntent?.airportCode ?? quote?.expressDropOffAirport ?? null,
+          fromAirport: journeyIntent?.fromAirport ?? false,
+          returnJourney,
+          selected: expressDropOffSelected,
+        }),
+        vehicle,
+      ),
+    [journeyIntent, quote?.expressDropOffAirport, returnJourney, expressDropOffSelected, vehicle],
   );
 
   // Airport pickup one-way stores Express as ineligible/false. Enabling return makes the
@@ -217,7 +221,7 @@ function PersonalQuoteInner() {
       agreedAmount: quote.agreedAmount,
       standardWebsiteAmount: quote.standardWebsiteAmount,
       returnJourney,
-      expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
+      expressDropOffSelected: expressSelection.eligible ? expressSelection.selected : false,
       expressDropOffFee: expressSelection.feeGbp,
       expressDropOffAirport: expressSelection.airportCode,
     });
@@ -292,7 +296,7 @@ function PersonalQuoteInner() {
       ...(typeof airportMeta.isFromAirport === "boolean"
         ? { isFromAirport: airportMeta.isFromAirport }
         : {}),
-      expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
+      expressDropOffSelected: expressSelection.eligible ? expressSelection.selected : false,
       expressDropOffFee: expressSelection.feeGbp,
       expressDropOffAirport: expressSelection.airportCode,
       termsAcceptedAt: new Date().toISOString(),
@@ -358,7 +362,7 @@ function PersonalQuoteInner() {
         booking,
         personalQuoteCode: quote.code,
         expressDropOffSelected: expressSelection.eligible
-          ? expressDropOffSelected
+          ? expressSelection.selected
           : false,
         ...(typeof quote.standardWebsiteAmount === "number"
           ? { standardWebsiteAmount: quote.standardWebsiteAmount }
@@ -497,7 +501,13 @@ function PersonalQuoteInner() {
           </p>
         )}
 
-        {expressSelection.eligible && expressSelection.airportCode ? (
+        {expressSelection.includedInVehicleFare ? (
+          <p className="mt-3 border-t border-white/10 pt-3 text-left text-sm text-white/75">
+            {expressSelection.service === "pick-up"
+              ? "Airport pickup included. Meet your driver at the designated terminal pickup area."
+              : "Express terminal drop-off included."}
+          </p>
+        ) : expressSelection.eligible && expressSelection.airportCode ? (
           <div className="mt-3 space-y-1 border-t border-white/10 pt-3 text-left text-sm text-white/75">
             <p>
               {expressDropOffBreakdownLabel(
@@ -515,7 +525,9 @@ function PersonalQuoteInner() {
         </p>
       </div>
 
-      {expressSelection.eligible && expressSelection.airportCode ? (
+      {expressSelection.eligible &&
+      expressSelection.airportCode &&
+      !expressSelection.includedInVehicleFare ? (
         <div className="mt-5">
           <ExpressDropOffChoice
             mode="summary"

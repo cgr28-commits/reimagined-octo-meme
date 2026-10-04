@@ -12,6 +12,7 @@ import {
   OWNER_QUICK_QUOTE_MAX_PASSENGERS,
 } from "./passenger-limits";
 import {
+  applyExecutiveIncludedAirportAccess,
   composeFareWithExpressDropOff,
   resolveExpressDropOff,
   toExpressDropOffPersistedFields,
@@ -505,12 +506,15 @@ export function resolveQuickQuoteCheckoutAmount(
   persisted: ExpressDropOffPersistedFields;
 } {
   const transferFareGbp = quickQuoteTransferFareGbp(record);
-  const express = resolveExpressDropOff({
-    airportCode: record.journey.airportCode,
-    fromAirport: record.journey.fromAirport,
-    returnJourney: record.journey.returnJourney,
-    selected: expressDropOffSelected,
-  });
+  const express = applyExecutiveIncludedAirportAccess(
+    resolveExpressDropOff({
+      airportCode: record.journey.airportCode,
+      fromAirport: record.journey.fromAirport,
+      returnJourney: record.journey.returnJourney,
+      selected: expressDropOffSelected,
+    }),
+    record.journey.vehicleType,
+  );
   const composed = composeFareWithExpressDropOff({
     transferFareGbp,
     expressDropOffFeeGbp: express.feeGbp,

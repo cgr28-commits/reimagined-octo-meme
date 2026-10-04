@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import { formatQuote } from "@/lib/quote";
@@ -38,7 +38,9 @@ const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 const EXECUTIVE_INCLUDED = [
-  "Premium vehicle",
+  "Higher-spec vehicle",
+  "Airport pickup & drop-off charges included",
+  "Express terminal drop-off included when applicable",
   "Complimentary bottled water",
   "Phone charging available",
   "Quiet Journey option",
@@ -119,6 +121,7 @@ export default function QuoteVehicleCategories({
   climatePreference = "no_preference",
   onQuietJourneyChange,
   onClimatePreferenceChange,
+  booking = null,
 }: {
   passengers: number | null;
   suitcases: number | null;
@@ -136,6 +139,8 @@ export default function QuoteVehicleCategories({
   climatePreference?: ClimatePreference;
   onQuietJourneyChange?: (value: boolean) => void;
   onClimatePreferenceChange?: (value: ClimatePreference) => void;
+  /** Price and booking, rendered in this same white container. */
+  booking?: ReactNode;
 }) {
   const automatic =
     passengers != null && suitcases != null
@@ -198,7 +203,7 @@ export default function QuoteVehicleCategories({
       option.id === "estate" ? estateUplift : option.id === "executive" ? executiveUplift : null;
     const fareLabel = formatFare(fareFor(option));
     const selectLabel = isSelected ? "Selected" : !selectable ? unavailable : `Select ${option.title}`;
-    const shell = `flex min-w-0 flex-col overflow-hidden rounded-xl border-2 text-navy shadow-[0_8px_18px_rgba(7,28,56,0.08)] md:h-full ${
+    const shell = `flex min-w-0 flex-col overflow-hidden rounded-xl border-2 text-navy shadow-[0_8px_18px_rgba(7,28,56,0.08)] ${
       isSelected
         ? "border-emerald bg-[#f4fbf6]"
         : selectable
@@ -212,12 +217,7 @@ export default function QuoteVehicleCategories({
             <EstateBanner visible={showEstateBanner} />
           </span>
         ) : null}
-        {showEstateBanner || option.id === "minibus" ? (
-          <span className="block px-2.5 pt-2 md:hidden">
-            {showEstateBanner ? <RecommendedPill /> : <GroupBadge />}
-          </span>
-        ) : null}
-        <span className="flex items-center gap-2 px-2.5 pt-2.5 md:hidden">
+        <span className="flex items-center gap-2 px-2 py-1.5 md:hidden">
           {selectable || isSelected ? (
             <RadioMark selected={isSelected} />
           ) : (
@@ -230,31 +230,25 @@ export default function QuoteVehicleCategories({
             variant="mobile"
           />
           <span className="min-w-0 flex-1">
-            {option.id === "executive" && executiveOk ? (
-              <span className="mb-1 block">
-                <PremiumBadge />
+            <span className="flex items-start justify-between gap-2">
+              <span className="flex min-w-0 flex-wrap items-center gap-1">
+                <span className="text-sm font-semibold leading-tight text-navy">{option.title}</span>
+                {option.id === "executive" && executiveOk ? <PremiumBadge /> : null}
+                {option.id === "minibus" ? <GroupBadge compact /> : null}
+              </span>
+              <MobilePrice uplift={uplift} fareLabel={fareLabel} />
+            </span>
+            {showEstateBanner ? (
+              <span className="mt-0.5 block">
+                <RecommendedPill compact />
               </span>
             ) : null}
-            <span className="flex flex-wrap items-start justify-between gap-x-2 gap-y-0.5">
-              <span className="min-w-0 text-sm font-semibold leading-tight text-navy">{option.title}</span>
-              <MobilePrice uplift={uplift} fareLabel={fareLabel} />
-              <span className="basis-full text-xs leading-snug text-navy/70">{option.short}</span>
-            </span>
+            <span className="mt-0.5 block truncate text-[11px] leading-snug text-navy/70">{mobileLine(option.id)}</span>
+            {unavailable ? (
+              <span className="mt-0.5 block text-[11px] font-semibold leading-snug text-navy">{unavailable}</span>
+            ) : null}
           </span>
         </span>
-        <span
-          className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 pb-2.5 text-[11px] leading-none text-navy md:hidden"
-        >
-          <MobileFacts option={option} />
-          {isSelected ? (
-            <span className="inline-flex items-center gap-1 font-semibold text-navy">
-              <span aria-hidden>✓</span> Selected
-            </span>
-          ) : null}
-          {unavailable ? <span className="basis-full pt-0.5 text-xs font-semibold leading-snug text-navy">{unavailable}</span> : null}
-          {selectable ? <Chevron expanded={isSelected} /> : null}
-        </span>
-        {isSelected ? <MobileBenefits optionId={option.id} /> : null}
         {layout === "grid" ? (
           <span className="hidden min-h-0 flex-1 flex-col px-2.5 pb-2.5 md:flex">
             <VehicleArt
@@ -342,25 +336,14 @@ export default function QuoteVehicleCategories({
             {summary}
           </div>
         )}
-        {isSelected && option.id === "executive" && executiveOk ? (
-          <div className="md:hidden">
-            <ExecutivePreferences
-              layout="inline"
-              quietJourney={quietJourney}
-              climatePreference={climatePreference}
-              onQuietJourneyChange={onQuietJourneyChange}
-              onClimatePreferenceChange={onClimatePreferenceChange}
-            />
-          </div>
-        ) : null}
       </div>
     );
   }
 
   return (
-    <div className="min-w-0 max-w-full overflow-x-hidden rounded-2xl bg-white px-3 py-3.5 text-navy shadow-[0_10px_24px_rgba(7,28,56,0.12)] md:px-4 md:py-5" data-quote-vehicle-categories>
-      <h2 className="text-xl font-semibold leading-tight text-navy md:text-2xl">Choose your vehicle</h2>
-      <p className="mt-1 text-sm leading-snug text-navy/70">
+    <div className="min-w-0 max-w-full overflow-x-hidden rounded-2xl bg-white px-2.5 py-2.5 text-navy shadow-[0_10px_24px_rgba(7,28,56,0.12)] md:px-4 md:py-5" data-quote-vehicle-categories>
+      <h2 className="text-lg font-semibold leading-tight text-navy md:text-2xl">Choose your vehicle</h2>
+      <p className="mt-1 hidden text-sm leading-snug text-navy/70 md:block">
         All vehicles are modern, comfortable and fully licensed for airport transfers.
       </p>
       {lockedToMinibus ? (
@@ -381,7 +364,7 @@ export default function QuoteVehicleCategories({
       ) : (
         <>
           <div
-            className="mt-3 grid grid-cols-1 items-start gap-2.5 md:mt-4 md:grid-cols-3 md:items-stretch md:gap-3"
+            className="mt-2 grid grid-cols-1 items-start gap-1.5 md:mt-4 md:grid-cols-3 md:items-start md:gap-3"
             role="list"
             aria-label="Vehicle for this journey"
             data-standard-vehicle-choice
@@ -389,33 +372,44 @@ export default function QuoteVehicleCategories({
             {ownerOptions.map((option) => renderOption(option, "grid"))}
           </div>
           {selected === EXECUTIVE_VEHICLE && executiveOk ? (
-            <div className="mt-3 hidden md:block">
-              <ExecutivePreferences
-                layout="panel"
-                quietJourney={quietJourney}
-                climatePreference={climatePreference}
-                onQuietJourneyChange={onQuietJourneyChange}
-                onClimatePreferenceChange={onClimatePreferenceChange}
-              />
-            </div>
+            <>
+              <div className="mt-3 hidden rounded-xl border border-[#d7eee0] bg-[#f4fbf6] px-3 py-3 md:block" data-executive-desktop-extras data-executive-includes>
+                <p className="text-sm font-semibold text-navy">Executive includes</p>
+                <ExecutiveIncludedList />
+              </div>
+              <ExecutiveMobileDetails />
+            </>
+          ) : null}
+          {!saloonOk && estateOk ? (
+            <p className="mt-2 text-xs leading-relaxed text-navy/75" data-saloon-unavailable>
+              Saloon is not suitable for your luggage. Estate is selected because it has the extra space.
+            </p>
+          ) : null}
+          {executiveBlockedByPassengers ? (
+            <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-unavailable>
+              {EXECUTIVE_PASSENGER_LIMIT_MESSAGE}
+            </p>
+          ) : null}
+          {executiveBlockedByLuggage ? (
+            <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-luggage-unavailable>
+              {EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE}
+            </p>
           ) : null}
           <ChoiceGuidance />
         </>
       )}
-      {!saloonOk && estateOk && !lockedToMinibus ? (
-        <p className="mt-2 text-xs leading-relaxed text-navy/75" data-saloon-unavailable>
-          Saloon is not suitable for your luggage. Estate is selected because it has the extra space.
-        </p>
-      ) : null}
-      {!lockedToMinibus && executiveBlockedByPassengers ? (
-        <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-unavailable>
-          {EXECUTIVE_PASSENGER_LIMIT_MESSAGE}
-        </p>
-      ) : null}
-      {!lockedToMinibus && executiveBlockedByLuggage ? (
-        <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-luggage-unavailable>
-          {EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE}
-        </p>
+      {booking ? (
+        <div className="mt-3 border-t border-[#e4eaf2] pt-3 md:mt-4 md:pt-4" data-quote-booking-section>
+          {booking}
+          {selected === EXECUTIVE_VEHICLE && executiveOk ? (
+            <ExecutivePersonalise
+              quietJourney={quietJourney}
+              climatePreference={climatePreference}
+              onQuietJourneyChange={onQuietJourneyChange}
+              onClimatePreferenceChange={onClimatePreferenceChange}
+            />
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -448,81 +442,114 @@ function DesktopFacts({ option }: { option: Category }) {
       <>
         <Fact icon={<PersonIcon />}>Up to {EXECUTIVE_MAX_PASSENGERS} passengers</Fact>
         <Fact icon={<CaseIcon />}>Up to {EXECUTIVE_MAX_SUITCASES} large suitcases</Fact>
-        <Fact icon={<CheckIcon />}>Premium vehicle</Fact>
+        <Fact icon={<CheckIcon />}>Higher-spec vehicle</Fact>
         <Fact icon={<CheckIcon />}>Premium comfort</Fact>
-        <Fact icon={<CheckIcon />}>Quiet Journey option</Fact>
       </>
     );
   }
   return null;
 }
 
-function MobileFacts({ option }: { option: Category }) {
-  if (option.id === "saloon") {
-    return (
-      <>
-        <Chip icon={<PersonIcon />} sr="Passengers">Up to {SALOON_MAX_PASSENGERS}</Chip>
-        <Chip icon={<CaseIcon />} sr="Large suitcases">Up to {SALOON_MAX_SUITCASES}</Chip>
-        <Chip icon={<CheckIcon />} sr="">Comfortable</Chip>
-      </>
-    );
-  }
-  if (option.id === "estate") {
-    return (
-      <>
-        <Chip icon={<PersonIcon />} sr="Passengers">Up to {ESTATE_MAX_PASSENGERS}</Chip>
-        <Chip icon={<CaseIcon />} sr="Large suitcases">Up to {ESTATE_MAX_SUITCASES}</Chip>
-        <Chip icon={<CheckIcon />} sr="">Extra luggage</Chip>
-      </>
-    );
-  }
-  if (option.id === "executive") {
-    return (
-      <>
-        <Chip icon={<PersonIcon />} sr="Passengers">Up to {EXECUTIVE_MAX_PASSENGERS}</Chip>
-        <Chip icon={<CaseIcon />} sr="Large suitcases">Up to {EXECUTIVE_MAX_SUITCASES}</Chip>
-        <Chip icon={<SparkIcon />} sr="">Premium</Chip>
-      </>
-    );
-  }
-  return (
-    <Chip icon={<PersonIcon />} sr="">
-      {MINIBUS_CUSTOMER_DESCRIPTION}
-    </Chip>
-  );
-}
-
-function MobileBenefits({ optionId }: { optionId: Category["id"] }) {
-  const lines =
-    optionId === "saloon"
-      ? ["Comfortable and efficient", "Spacious, comfortable interior"]
-      : optionId === "estate"
-        ? ["Extra luggage space", "More room for larger bags", "Flexible luggage capacity"]
-        : [];
-  if (lines.length === 0) return null;
-  return (
-    <span className="block space-y-0.5 px-2.5 pb-2.5 text-xs leading-snug text-navy/80 md:hidden">
-      {lines.map((line) => (
-        <span key={line} className="block">
-          ✓ {line}
-        </span>
-      ))}
-    </span>
-  );
-}
-
 function ChoiceGuidance() {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="mt-2.5 flex gap-2.5 rounded-xl border border-[#e4eaf2] bg-[#f7f9fc] px-3 py-2.5 text-navy">
-      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-navy/20 text-[11px] font-bold text-navy" aria-hidden>
-        i
-      </span>
-      <p className="min-w-0 text-sm leading-snug">
-        <span className="font-semibold">Not sure which to choose?</span>{" "}
-        <span className="text-navy/75">
-          All options provide a spacious, comfortable private airport transfer. Choose Estate for extra luggage capacity, or Executive for a premium travel experience.
+    <>
+      <div className="mt-2.5 hidden gap-2.5 rounded-xl border border-[#e4eaf2] bg-[#f7f9fc] px-3 py-2.5 text-navy md:flex">
+        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-navy/20 text-[11px] font-bold text-navy" aria-hidden>
+          i
         </span>
-      </p>
+        <p className="min-w-0 text-sm leading-snug">
+          <span className="font-semibold">Not sure which to choose?</span>{" "}
+          <span className="text-navy/75">
+            All options provide a spacious, comfortable private airport transfer. Choose Estate for extra luggage capacity, or Executive for a premium travel experience.
+          </span>
+        </p>
+      </div>
+      <div className="mt-2 md:hidden">
+        <button
+          type="button"
+          className="flex min-h-9 w-full items-center justify-between gap-2 text-left text-xs font-semibold text-navy"
+          aria-expanded={open}
+          data-vehicle-guidance-toggle
+          onClick={() => setOpen((current) => !current)}
+        >
+          <span>ⓘ Not sure which vehicle to choose?</span>
+          <span aria-hidden>{open ? "▾" : "›"}</span>
+        </button>
+        {open ? (
+          <p className="pb-1 text-xs leading-snug text-navy/75">
+            All options provide a spacious, comfortable private airport transfer. Choose Estate for extra luggage capacity, or Executive for a premium travel experience.
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function mobileLine(id: Category["id"]): string {
+  if (id === "saloon") return `Up to ${SALOON_MAX_PASSENGERS} · Up to ${SALOON_MAX_SUITCASES} · Comfortable`;
+  if (id === "estate") return `Up to ${ESTATE_MAX_PASSENGERS} · Up to ${ESTATE_MAX_SUITCASES} · Extra luggage`;
+  if (id === "executive") return `Up to ${EXECUTIVE_MAX_PASSENGERS} · Up to ${EXECUTIVE_MAX_SUITCASES} · Premium`;
+  return MINIBUS_CUSTOMER_DESCRIPTION;
+}
+
+function ExecutiveMobileDetails() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-1.5 md:hidden" data-executive-mobile-details>
+      <button
+        type="button"
+        className="flex min-h-9 w-full items-center justify-between gap-2 text-left text-[11px] font-semibold leading-tight text-navy"
+        aria-expanded={open}
+        data-executive-details-toggle
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="min-w-0">✓ Airport charges + premium extras included</span>
+        <span className="shrink-0 font-semibold text-emerald-dark">{open ? "Hide" : "View details ›"}</span>
+      </button>
+      {open ? (
+        <div className="mb-1 rounded-xl border border-[#d7eee0] bg-[#f4fbf6] px-3 py-2" data-executive-includes>
+          <ExecutiveIncludedList />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExecutivePersonalise({
+  quietJourney,
+  climatePreference,
+  onQuietJourneyChange,
+  onClimatePreferenceChange,
+}: {
+  quietJourney: boolean;
+  climatePreference: ClimatePreference;
+  onQuietJourneyChange?: (value: boolean) => void;
+  onClimatePreferenceChange?: (value: ClimatePreference) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3 border-t border-[#e4eaf2] pt-2" data-executive-personalise>
+      <button
+        type="button"
+        className="flex min-h-10 w-full items-center justify-between gap-2 text-left text-sm font-semibold text-navy"
+        aria-expanded={open}
+        data-executive-personalise-toggle
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>Personalise your Executive journey (optional)</span>
+        <span aria-hidden>{open ? "▾" : "›"}</span>
+      </button>
+      {open ? (
+        <div className="pt-1">
+          <ExecutivePreferenceControls
+            quietJourney={quietJourney}
+            climatePreference={climatePreference}
+            onQuietJourneyChange={onQuietJourneyChange}
+            onClimatePreferenceChange={onClimatePreferenceChange}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -533,18 +560,6 @@ function Fact({ icon, children }: { icon: ReactNode; children: ReactNode }) {
       <span className="mt-0.5 shrink-0 text-navy/65" aria-hidden>
         {icon}
       </span>
-      <span>{children}</span>
-    </span>
-  );
-}
-
-function Chip({ icon, sr, children }: { icon: ReactNode; sr: string; children: ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap">
-      <span className="text-navy/65" aria-hidden>
-        {icon}
-      </span>
-      {sr ? <span className="sr-only">{sr}: </span> : null}
       <span>{children}</span>
     </span>
   );
@@ -572,18 +587,18 @@ function PremiumBadge() {
   );
 }
 
-function RecommendedPill() {
+function RecommendedPill({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="mb-1 inline-flex max-w-full items-center gap-1 rounded-full bg-[#0e7a36] px-2 py-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-white">
-      <StarIcon />
-      <span className="min-w-0 text-left">Extra luggage space</span>
+    <span className={`${compact ? "px-1.5 py-0.5 text-[9px] tracking-wide" : "mb-1 px-2 py-1 text-[10px] tracking-wide"} inline-flex w-max max-w-full items-center gap-1 whitespace-nowrap rounded-full bg-[#0e7a36] font-bold uppercase leading-tight text-white`}>
+      <StarIcon compact={compact} />
+      <span>Extra luggage space</span>
     </span>
   );
 }
 
-function GroupBadge() {
+function GroupBadge({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="mb-1 inline-flex rounded-full border border-navy/15 bg-navy/[0.05] px-2 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wide text-navy">
+    <span className={`${compact ? "" : "mb-1"} inline-flex rounded-full border border-navy/15 bg-navy/[0.05] px-2 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wide text-navy`}>
       Group travel
     </span>
   );
@@ -648,7 +663,7 @@ function VehicleArt({
       ? "aspect-[2/1] w-full"
       : variant === "row"
         ? "h-16 w-36 shrink-0"
-        : "h-16 w-[38%] min-w-[5.25rem] max-w-[8.75rem] shrink-0";
+        : "h-11 w-16 shrink-0";
   if (!src) {
     return (
       <span
@@ -684,21 +699,6 @@ function RadioMark({ selected }: { selected: boolean }) {
   );
 }
 
-function Chevron({ expanded }: { expanded: boolean }) {
-  return (
-    <span
-      className={`ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center text-navy/55 ${
-        expanded ? "rotate-180" : ""
-      }`}
-      aria-hidden
-    >
-      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M5 8l5 5 5-5" />
-      </svg>
-    </span>
-  );
-}
-
 function PersonIcon() {
   return (
     <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -725,17 +725,9 @@ function CheckIcon() {
   );
 }
 
-function SparkIcon() {
+function StarIcon({ compact = false }: { compact?: boolean }) {
   return (
-    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
-      <path d="M10 2.5l1.4 4.3L15.8 8l-4.4 1.3L10 13.6 8.6 9.3 4.2 8l4.4-1.2L10 2.5z" />
-    </svg>
-  );
-}
-
-function StarIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-3 w-3" fill="currentColor" aria-hidden>
+    <svg viewBox="0 0 20 20" className={compact ? "h-2.5 w-2.5 shrink-0" : "h-3 w-3 shrink-0"} fill="currentColor" aria-hidden>
       <path d="M10 2.2l1.8 3.8 4.2.6-3 3 .7 4.2L10 11.8 6.3 13.8l.7-4.2-3-3 4.2-.6L10 2.2z" />
     </svg>
   );
@@ -811,65 +803,6 @@ function ExecutivePreferenceControls({
         </div>
       </fieldset>
     </>
-  );
-}
-
-function ExecutivePreferences({
-  layout,
-  quietJourney,
-  climatePreference,
-  onQuietJourneyChange,
-  onClimatePreferenceChange,
-}: {
-  layout: "inline" | "panel";
-  quietJourney: boolean;
-  climatePreference: ClimatePreference;
-  onQuietJourneyChange?: (value: boolean) => void;
-  onClimatePreferenceChange?: (value: ClimatePreference) => void;
-}) {
-  const controls = (
-    <ExecutivePreferenceControls
-      quietJourney={quietJourney}
-      climatePreference={climatePreference}
-      onQuietJourneyChange={onQuietJourneyChange}
-      onClimatePreferenceChange={onClimatePreferenceChange}
-    />
-  );
-  if (layout === "panel") {
-    return (
-      <section
-        className="rounded-xl border border-emerald bg-[#f4fbf6] px-4 py-4 text-navy"
-        data-executive-panel
-        aria-label="Your Executive experience"
-      >
-        <h3 className="text-base font-semibold leading-tight text-navy">Your Executive experience</h3>
-        <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(16rem,22rem)] lg:items-start">
-          <div>
-            <p className="text-sm font-semibold text-navy">Included:</p>
-            <ul className="mt-1.5 grid gap-x-6 gap-y-1 text-sm leading-snug text-navy sm:grid-cols-2 lg:grid-cols-1">
-              {EXECUTIVE_INCLUDED.map((item) => (
-                <li key={item} className="flex items-start gap-2">
-                  <span className="mt-0.5 shrink-0 text-navy/65" aria-hidden>
-                    <CheckIcon />
-                  </span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="space-y-3">{controls}</div>
-        </div>
-      </section>
-    );
-  }
-  return (
-    <div className="space-y-3 border-t border-navy/10 px-3 py-3" data-executive-includes>
-      <div>
-        <p className="text-sm font-semibold text-navy">Executive includes</p>
-        <ExecutiveIncludedList />
-      </div>
-      {controls}
-    </div>
   );
 }
 

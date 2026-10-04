@@ -603,8 +603,9 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.ok(accessIdx > 0 && bookIdx > accessIdx, "airport access must render before Book");
   assert.match(
     card,
-    /Your transfer price[\s\S]*?quote-price-figure[\s\S]*?FixedPriceAssurance[\s\S]*?renderExpressChoiceInPriceCard[\s\S]*?Vehicle:/,
+    /Your transfer price[\s\S]*?quote-price-figure[\s\S]*?FixedPriceAssurance[\s\S]*?renderExpressChoiceInPriceCard/,
   );
+  assert.doesNotMatch(card, /Vehicle: \{vehicleShortLabel/);
   assert.doesNotMatch(card, /Your fixed price|Your Fixed Journey Price|YOUR FIXED PRICE/);
   assert.match(card, /data-express-airport-choice/);
   assert.match(card, /renderExpressChoiceInPriceCard/);

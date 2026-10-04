@@ -1,6 +1,7 @@
 /**
  * Executive is Saloon + the dashboard upgrade (default £20), capped at 3 passengers
- * and 3 large suitcases. Estate default is +£6. Airport charges stay separate.
+ * and 3 large suitcases. Estate default is +£6.
+ * Airport access and Express charges are included in the Executive upgrade.
  */
 import assert from "node:assert/strict";
 import { calculateUniversalJourneyFareGbp } from "../shared/universal-distance-pricing";
@@ -20,7 +21,22 @@ import {
   saloonCapacityAllows,
 } from "../shared/executive-service";
 import { defaultOwnerPricingSettings, normalizeOwnerPricingSettings, ownerPricingEngineOptions } from "../shared/owner-pricing-config";
-import { EXPRESS_DROP_OFF_FEES_GBP, composeFareWithExpressDropOff } from "../shared/express-drop-off";
+import {
+  EXPRESS_DROP_OFF_FEES_GBP,
+  applyExecutiveIncludedAirportAccess,
+  composeFareWithExpressDropOff,
+  expressAccessChargeAddedOnTop,
+  formatAirportAccessOptionCustomerLine,
+  formatAirportAccessOptionCustomerLines,
+  formatAirportAccessOptionOwnerLine,
+  formatAirportAccessOptionOwnerLines,
+  resolveExpressDropOff,
+} from "../shared/express-drop-off";
+import {
+  customerAirportFixedCostsForVehicle,
+  resolveJourneyAirportFees,
+} from "../shared/airport-fixed-costs";
+import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { getReturnJourneyFare } from "../src/lib/point-to-point-premium";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "../shared/return-journey-discount";
@@ -383,16 +399,205 @@ if (upgradedSaloon.ok && upgradedEstate.ok && upgradedExecutive.ok) {
     transferFareGbp: estateFare,
     expressDropOffFeeGbp: EXPRESS_DROP_OFF_FEES_GBP.BFS,
   });
+  const executiveDropOff = applyExecutiveIncludedAirportAccess(
+    resolveExpressDropOff({ airportCode: "BFS", fromAirport: false, selected: false }),
+    EXECUTIVE_VEHICLE_TYPE,
+  );
   const executiveExpress = composeFareWithExpressDropOff({
     transferFareGbp: executiveFare,
-    expressDropOffFeeGbp: EXPRESS_DROP_OFF_FEES_GBP.BFS,
+    expressDropOffFeeGbp: executiveDropOff.feeGbp,
   });
   assert.equal(saloonExpress.expressDropOffFeeGbp, 5);
   assert.equal(estateExpress.expressDropOffFeeGbp, 5);
-  assert.equal(executiveExpress.expressDropOffFeeGbp, 5);
-  assert.equal(estateExpress.totalGbp, saloonExpress.totalGbp + 8);
-  assert.equal(executiveExpress.totalGbp, saloonExpress.totalGbp + 25);
+  assert.equal(executiveDropOff.includedInVehicleFare, true);
+  assert.equal(executiveDropOff.feeGbp, 0);
+  assert.equal(executiveDropOff.selected, true);
+  assert.equal(executiveDropOff.freeAlternativeAvailable, false);
+  assert.equal(executiveDropOff.legs[0]?.service, "drop-off");
+  assert.equal(executiveExpress.expressDropOffFeeGbp, 0);
+  assert.equal(estateExpress.totalGbp, saloonFare + 8 + 5);
+  assert.equal(executiveExpress.totalGbp, executiveFare);
+  assert.equal(executiveExpress.totalGbp, saloonFare + 25);
+  assert.notEqual(executiveExpress.totalGbp, saloonFare + 25 + 5);
 }
+
+const pickupIncluded = applyExecutiveIncludedAirportAccess(
+  resolveExpressDropOff({ airportCode: "BFS", fromAirport: true, selected: false }),
+  EXECUTIVE_VEHICLE_TYPE,
+);
+assert.equal(pickupIncluded.legs[0]?.service, "pick-up");
+assert.equal(pickupIncluded.selected, true);
+assert.equal(pickupIncluded.feeGbp, 0);
+assert.equal(pickupIncluded.freeAlternativeAvailable, false);
+assert.equal(
+  formatAirportAccessOptionCustomerLine({
+    expressDropOffSelected: true,
+    expressDropOffFee: 0,
+    expressDropOffAirport: "BFS",
+    fromAirport: true,
+  }),
+  "Airport access option: Express Pick-Up — included",
+);
+assert.equal(
+  formatAirportAccessOptionOwnerLine({
+    expressDropOffSelected: true,
+    expressDropOffFee: 0,
+    expressDropOffAirport: "BFS",
+    fromAirport: false,
+  }),
+  "AIRPORT ACCESS: EXPRESS — INCLUDED",
+);
+assert.deepEqual(
+  formatAirportAccessOptionCustomerLines({
+    expressDropOffSelected: true,
+    expressDropOffFee: 0,
+    expressDropOffAirport: "BFS",
+    fromAirport: true,
+  }),
+  ["Airport access option: Express Pick-Up — included"],
+);
+assert.deepEqual(
+  formatAirportAccessOptionOwnerLines({
+    expressDropOffSelected: true,
+    expressDropOffFee: 0,
+    expressDropOffAirport: "BHD",
+    fromAirport: false,
+    returnJourney: true,
+    outboundExpressDropOffSelected: true,
+    returnExpressDropOffSelected: true,
+  }),
+  [
+    "OUTBOUND AIRPORT ACCESS: EXPRESS — INCLUDED",
+    "RETURN AIRPORT ACCESS: EXPRESS — INCLUDED",
+  ],
+);
+assert.equal(expressAccessChargeAddedOnTop(0, true), false);
+assert.equal(expressAccessChargeAddedOnTop(0, false), true);
+assert.equal(expressAccessChargeAddedOnTop(5, true), true);
+assert.equal(
+  formatAirportAccessOptionCustomerLines({
+    expressDropOffSelected: true,
+    expressDropOffFee: 5,
+    expressDropOffAirport: "BFS",
+    fromAirport: false,
+  })[0],
+  "Airport access option: Express Drop-Off — £5",
+);
+
+const saloonChoice = applyExecutiveIncludedAirportAccess(
+  resolveExpressDropOff({ airportCode: "BFS", fromAirport: false, selected: false }),
+  SALOON,
+);
+assert.equal(saloonChoice.includedInVehicleFare, false);
+assert.equal(saloonChoice.feeGbp, 0);
+assert.equal(saloonChoice.selected, false);
+assert.equal(saloonChoice.freeAlternativeAvailable, true);
+
+const returnIncluded = applyExecutiveIncludedAirportAccess(
+  resolveExpressDropOff({
+    airportCode: "BHD",
+    fromAirport: false,
+    returnJourney: true,
+    selected: false,
+  }),
+  EXECUTIVE_VEHICLE_TYPE,
+);
+assert.equal(returnIncluded.legs.length, 2);
+assert.equal(returnIncluded.feeGbp, 0);
+assert.equal(returnIncluded.outboundFeeGbp, 0);
+assert.equal(returnIncluded.returnFeeGbp, 0);
+assert.ok(returnIncluded.legs.every((leg) => leg.selected && leg.chargedFeeGbp === 0));
+if (executiveQuote.ok && executiveReturn.ok) {
+  const returnTotal = composeFareWithExpressDropOff({
+    transferFareGbp: executiveReturn.journeyFareGbp ?? executiveReturn.amount,
+    expressDropOffFeeGbp: returnIncluded.feeGbp,
+  });
+  const undiscounted = (executiveQuote.journeyFareGbp ?? executiveQuote.amount) * 2;
+  assert.ok(
+    Math.abs(
+      returnTotal.totalGbp - undiscounted * (1 - RETURN_JOURNEY_DISCOUNT_RATE),
+    ) < 0.02,
+  );
+  assert.equal(returnTotal.expressDropOffFeeGbp, 0);
+  assert.notEqual(returnTotal.totalGbp, returnTotal.transferFareGbp + EXPRESS_DROP_OFF_FEES_GBP.BHD * 2);
+}
+
+const exampleSaloonFare = 45;
+const exampleUpgrade = 20;
+const exampleExecutiveTotal = exampleSaloonFare + exampleUpgrade;
+const exampleBreakdown = composeWebsiteFareBreakdown({
+  journeyFareBeforeAirportAccessGbp: exampleExecutiveTotal,
+  airportFixedCostsGbp: 0,
+  nightWeekendSurchargeGbp: 0,
+  airportAccessChargeGbp: 0,
+  returnJourney: false,
+});
+assert.equal(exampleBreakdown.finalAmountPayableGbp, 65);
+assert.notEqual(exampleBreakdown.finalAmountPayableGbp, 70);
+
+const dubPickupLines = resolveJourneyAirportFees({
+  isAirportToAirport: false,
+  airportCode: "DUB",
+  fromAirport: true,
+  returnJourney: false,
+}).lines;
+assert.equal(customerAirportFixedCostsForVehicle(dubPickupLines, SALOON), 9);
+assert.equal(customerAirportFixedCostsForVehicle(dubPickupLines, EXECUTIVE_VEHICLE_TYPE), 4);
+const dubExecutive = calculateAuthoritativeWebsiteQuote({
+  pickupAddress: "Dublin Airport",
+  dropoffAddress: "Belfast City Hall, Belfast BT1 5GS",
+  airportCode: "DUB",
+  fromAirport: true,
+  passengers: 2,
+  suitcases: 1,
+  routeMetrics: metrics,
+  outboundDate: "2026-12-01",
+  outboundTime: "10:00",
+  returnJourney: false,
+  vehicleType: EXECUTIVE_VEHICLE_TYPE,
+});
+const dubSaloon = calculateAuthoritativeWebsiteQuote({
+  pickupAddress: "Dublin Airport",
+  dropoffAddress: "Belfast City Hall, Belfast BT1 5GS",
+  airportCode: "DUB",
+  fromAirport: true,
+  passengers: 2,
+  suitcases: 1,
+  routeMetrics: metrics,
+  outboundDate: "2026-12-01",
+  outboundTime: "10:00",
+  returnJourney: false,
+  vehicleType: SALOON,
+});
+assert.equal(dubExecutive.ok && dubSaloon.ok, true);
+if (dubExecutive.ok && dubSaloon.ok) {
+  assert.equal(dubSaloon.airportFixedCostsGbp, 9);
+  assert.equal(dubExecutive.airportFixedCostsGbp, 4);
+  assert.equal(
+    dubExecutive.amount,
+    (dubExecutive.journeyFareGbp ?? 0) + 4,
+  );
+  assert.equal(
+    dubExecutive.amount,
+    (dubSaloon.journeyFareGbp ?? 0) + 20 + 4,
+  );
+  assert.notEqual(dubExecutive.amount, (dubSaloon.journeyFareGbp ?? 0) + 20 + 9);
+}
+
+const paymentSourceEarly = fs.readFileSync(
+  path.join(import.meta.dirname, "../workers/addresses/src/index.ts"),
+  "utf8",
+);
+assert.match(paymentSourceEarly, /applyExecutiveIncludedAirportAccess\(/);
+assert.match(paymentSourceEarly, /customerAirportFixedCostsForVehicle\(/);
+assert.match(
+  fs.readFileSync(path.join(import.meta.dirname, "../src/components/QuoteCard.tsx"), "utf8"),
+  /data-executive-airport-access-included/,
+);
+assert.match(
+  fs.readFileSync(path.join(import.meta.dirname, "../src/components/QuoteCard.tsx"), "utf8"),
+  /includedInVehicleFare/,
+);
 
 const categories = fs.readFileSync(
   path.join(import.meta.dirname, "../src/components/QuoteVehicleCategories.tsx"),
@@ -405,22 +610,28 @@ assert.match(categories, /Premium travel experience/);
 assert.match(categories, /Extra luggage space/);
 assert.match(categories, /More room for larger bags/);
 assert.match(categories, /Flexible luggage capacity/);
-assert.match(categories, /Premium vehicle/);
-assert.doesNotMatch(categories, /Higher-spec vehicle/);
+assert.match(categories, /Higher-spec vehicle/);
+assert.match(categories, /Airport pickup & drop-off charges included/);
+assert.match(categories, /Express terminal drop-off included when applicable/);
+assert.doesNotMatch(categories, /Premium vehicle/);
 assert.match(categories, /Executive includes/);
-assert.match(categories, /Your Executive experience/);
-assert.match(categories, /Included:/);
-assert.match(categories, /data-executive-panel/);
 assert.match(categories, /data-executive-includes/);
-assert.match(categories, /layout="inline"/);
-assert.match(categories, /layout="panel"/);
-assert.match(categories, /className="md:hidden"/);
-assert.match(categories, /className="mt-3 hidden md:block"/);
-assert.match(categories, /md:items-stretch/);
-assert.match(categories, /md:h-full/);
-assert.equal(categories.match(/quietJourney=\{quietJourney\}/g)?.length, 3);
-assert.equal(categories.match(/climatePreference=\{climatePreference\}/g)?.length, 3);
-assert.match(categories, /layout="panel"[\s\S]{0,500}<ChoiceGuidance \/>/);
+assert.match(categories, /Quiet Journey/);
+assert.match(categories, /No preference/);
+assert.match(categories, /Cooler/);
+assert.match(categories, /Warmer/);
+assert.match(categories, /md:grid-cols-3/);
+assert.match(categories, /md:items-start/);
+assert.equal(categories.match(/quietJourney=\{quietJourney\}/g)?.length, 2);
+assert.equal(categories.match(/climatePreference=\{climatePreference\}/g)?.length, 2);
+assert.match(categories, /data-executive-desktop-extras/);
+assert.match(categories, /data-executive-mobile-details/);
+assert.match(categories, /View details ›/);
+assert.match(categories, /Airport charges \+ premium extras included/);
+assert.match(categories, /Personalise your Executive journey \(optional\)/);
+assert.match(categories, /Not sure which vehicle to choose\?/);
+assert.match(categories, /md:hidden/);
+assert.match(categories, /data-quote-booking-section/);
 assert.match(categories, /Complimentary bottled water/);
 assert.match(categories, /Phone charging available/);
 assert.match(categories, /Quiet Journey option/);

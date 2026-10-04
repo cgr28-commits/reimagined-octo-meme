@@ -280,7 +280,7 @@ async function main() {
     assert.match(card, /data-luggage-capacity-confirmation/);
     const showcase = read("src/components/QuoteResultShowcase.tsx");
     assert.match(showcase, /capacityConfirmation/);
-    assert.match(showcase, /5\+ large bags/);
+    assert.match(read("shared/vehicle-capacity.ts"), /5\+ large bags/);
   });
 
   check("12. SumUp cannot be created before capacity approval", () => {

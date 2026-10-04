@@ -44,6 +44,7 @@ import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 import {
+  applyExecutiveIncludedAirportAccess,
   composeFareWithExpressDropOff,
   resolveExpressDropOff,
   toExpressDropOffPersistedFields,
@@ -331,12 +332,15 @@ export async function handleOwnerCreateQuickQuote(
     );
   }
 
-  const expressSelection = resolveExpressDropOff({
-    airportCode: journey.airportCode,
-    fromAirport: journey.fromAirport,
-    returnJourney: journey.returnJourney,
-    selected: body.expressDropOffSelected !== false,
-  });
+  const expressSelection = applyExecutiveIncludedAirportAccess(
+    resolveExpressDropOff({
+      airportCode: journey.airportCode,
+      fromAirport: journey.fromAirport,
+      returnJourney: journey.returnJourney,
+      selected: body.expressDropOffSelected !== false,
+    }),
+    vehicleTypeLabel,
+  );
   const expressFields = toExpressDropOffPersistedFields(expressSelection);
   const composed = composeFareWithExpressDropOff({
     transferFareGbp: discounted.customerFare,

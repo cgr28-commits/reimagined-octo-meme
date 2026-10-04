@@ -41,6 +41,10 @@ import {
   type PublicOwnerPricingConfig,
 } from "../../shared/owner-pricing-config";
 import { destinationEligibleForStandardAirportPickup } from "../../shared/airport-pickup-service-area";
+import {
+  customerAirportFixedCostsForVehicle,
+  resolveJourneyAirportFees,
+} from "../../shared/airport-fixed-costs";
 
 export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
 
@@ -122,6 +126,54 @@ export type QuoteServiceFailure = {
 };
 
 export type QuoteServiceResult = QuoteServiceSuccess | QuoteServiceFailure;
+
+/**
+ * Executive customer total keeps the journey fare and tolls.
+ * Pickup, drop-off and parking access are inside the upgrade.
+ */
+export function executiveAirportAccessCustomerTotals(input: {
+  vehicleType: string;
+  amount: number;
+  journeyFareGbp?: number;
+  airportFixedCostsGbp?: number;
+  isAirportToAirport?: boolean;
+  pickupAirportCode?: string | null;
+  dropoffAirportCode?: string | null;
+  airportCode?: string | null;
+  fromAirport?: boolean;
+  returnJourney?: boolean;
+}): { amount: number; airportFixedCostsGbp: number | undefined; journeyFareGbp: number | undefined } {
+  const quotedFixed = input.airportFixedCostsGbp ?? 0;
+  const journey =
+    typeof input.journeyFareGbp === "number" && Number.isFinite(input.journeyFareGbp)
+      ? Math.round(input.journeyFareGbp * 100) / 100
+      : Math.round((input.amount - quotedFixed) * 100) / 100;
+  if (!isPremiumExecutiveVehicle(input.vehicleType)) {
+    return {
+      amount: Math.round(input.amount * 100) / 100,
+      airportFixedCostsGbp: input.airportFixedCostsGbp,
+      journeyFareGbp: input.journeyFareGbp,
+    };
+  }
+  const lines = resolveJourneyAirportFees({
+    isAirportToAirport: Boolean(input.isAirportToAirport),
+    pickupAirportCode: input.pickupAirportCode,
+    dropoffAirportCode: input.dropoffAirportCode,
+    airportCode: input.airportCode,
+    fromAirport: input.fromAirport,
+    returnJourney: input.returnJourney,
+    removedFeeIds: [],
+  }).lines;
+  const customerFixed =
+    lines.length > 0
+      ? customerAirportFixedCostsForVehicle(lines, input.vehicleType)
+      : 0;
+  return {
+    amount: Math.round((journey + customerFixed) * 100) / 100,
+    airportFixedCostsGbp: customerFixed,
+    journeyFareGbp: journey,
+  };
+}
 
 function buildSchedule(input: QuoteServiceInput): TripSchedule {
   return {
@@ -405,16 +457,27 @@ export function calculateAuthoritativeWebsiteQuote(
     };
   }
 
-  const amount = Math.round(quote.amount * 100) / 100;
+  const quotedAmount = Math.round(quote.amount * 100) / 100;
   const journeyFareGbp =
     typeof quote.journeyFareGbp === "number" && Number.isFinite(quote.journeyFareGbp)
       ? Math.round(quote.journeyFareGbp * 100) / 100
       : undefined;
-  const airportFixedCostsGbp =
+  const quotedFixedCostsGbp =
     typeof quote.airportFixedCostsGbp === "number" &&
     Number.isFinite(quote.airportFixedCostsGbp)
       ? Math.round(quote.airportFixedCostsGbp * 100) / 100
       : undefined;
+  const includedAccess = executiveAirportAccessCustomerTotals({
+    vehicleType,
+    amount: quotedAmount,
+    journeyFareGbp,
+    airportFixedCostsGbp: quotedFixedCostsGbp,
+    airportCode,
+    fromAirport: Boolean(input.fromAirport),
+    returnJourney,
+  });
+  const amount = includedAccess.amount;
+  const airportFixedCostsGbp = includedAccess.airportFixedCostsGbp;
   const nightWeekendSurchargeGbp =
     typeof quote.nightWeekendSurchargeGbp === "number" &&
     Number.isFinite(quote.nightWeekendSurchargeGbp)
