@@ -65,32 +65,6 @@ export function getHeaderBottomPx(): number {
   return 0;
 }
 
-/** CSS variable: sticky header height + the quote-card clearance. */
-export const STICKY_HEADER_OFFSET_VAR = "--matni-sticky-header-offset";
-/** CSS variable: layout viewport hidden behind mobile browser chrome. */
-export const VISUAL_BOTTOM_INSET_VAR = "--matni-visual-bottom-inset";
-
-/**
- * Pixels of the layout viewport covered by the browser toolbar.
- * iPhone Safari changes this as the chrome shows and hides.
- */
-export function measureVisualBottomInsetPx(): number {
-  if (typeof window === "undefined") return 0;
-  const viewport = window.visualViewport;
-  if (!viewport) return 0;
-  return Math.max(0, Math.round(window.innerHeight - (viewport.height + viewport.offsetTop)));
-}
-
-/** Keep scroll-margin and bottom clearance in step with the live header and chrome. */
-export function syncQuoteResultScrollOffsets(): void {
-  if (typeof document === "undefined") return;
-  const style = document.documentElement?.style;
-  if (!style || typeof style.setProperty !== "function") return;
-  const offset = getHeaderBottomPx() + HEADER_CLEARANCE_PX;
-  style.setProperty(STICKY_HEADER_OFFSET_VAR, `${offset}px`);
-  style.setProperty(VISUAL_BOTTOM_INSET_VAR, `${measureVisualBottomInsetPx()}px`);
-}
-
 /** Legacy offset helper — header height + clearance. */
 export function getFixedHeaderOffsetPx(): number {
   if (typeof document === "undefined") return 144;
@@ -159,7 +133,6 @@ export function scrollBookingTargetIntoView(
   const element = resolveBookingNavElement(target);
   if (!element || typeof window === "undefined") return;
 
-  syncQuoteResultScrollOffsets();
   const clearancePx = options?.clearancePx ?? HEADER_CLEARANCE_PX;
   const nextTop = computeScrollTopBelowHeader(element, clearancePx);
   const distance = Math.abs(window.scrollY - nextTop);
@@ -246,90 +219,6 @@ export function scheduleBookingNavAfterRender(
   const cancel = () => {
     cancelled = true;
     if (raf1) window.cancelAnimationFrame(raf1);
-    if (raf2) window.cancelAnimationFrame(raf2);
-    if (correctionTimer) window.clearTimeout(correctionTimer);
-  };
-  return trackScrollJob(cancel);
-}
-
-/** Top of the cookie bar, or the visible viewport, whichever is higher. */
-export function bottomScrollObstacleTopPx(): number {
-  if (typeof window === "undefined") return 0;
-  const viewport = window.visualViewport;
-  const visibleBottom = viewport
-    ? viewport.offsetTop + viewport.height
-    : window.innerHeight;
-  const cookie = document.querySelector(".cookie-consent-banner");
-  const cookieTop =
-    cookie instanceof HTMLElement ? cookie.getBoundingClientRect().top : visibleBottom;
-  return Math.min(visibleBottom, cookieTop);
-}
-
-/**
- * Mobile quote-result landing.
- * The vehicle card sits just below the sticky header. If that leaves the
- * booking button sliced by the cookie bar or browser chrome, nudge down only
- * while the vehicle heading still stays fully visible.
- */
-export function computeMobileQuoteResultScrollTop(card: HTMLElement): number {
-  syncQuoteResultScrollOffsets();
-  const nextTop = computeScrollTopBelowHeader(card, HEADER_CLEARANCE_PX);
-  const button = card.querySelector<HTMLElement>("#quote-book-now-button");
-  const heading = card.querySelector<HTMLElement>("[data-quote-vehicle-heading]");
-  if (!button || !heading || typeof window === "undefined") return nextTop;
-
-  const delta = nextTop - window.scrollY;
-  const buttonRect = button.getBoundingClientRect();
-  const headingRect = heading.getBoundingClientRect();
-  const limit = bottomScrollObstacleTopPx() - 16;
-  const buttonTop = buttonRect.top - delta;
-  const buttonBottom = buttonRect.bottom - delta;
-  const slicedByBottomChrome = buttonTop < limit && buttonBottom > limit;
-  if (!slicedByBottomChrome) return nextTop;
-
-  const spare =
-    headingRect.top - delta - (getHeaderBottomPx() + 8);
-  if (spare <= 0) return nextTop;
-  return Math.round(nextTop + Math.min(buttonBottom - limit, spare));
-}
-
-/**
- * After luggage selection: smooth-scroll the quote card under the sticky header.
- * Does not target the price or the booking button.
- */
-export function scrollMobileQuoteResultIntoView(card: HTMLElement): () => void {
-  if (typeof window === "undefined") return () => {};
-  cancelCompetingScrollJobs();
-  if (document.activeElement instanceof HTMLElement) {
-    document.activeElement.blur();
-  }
-
-  const generation = getScrollJobGeneration();
-  let cancelled = false;
-  let raf2 = 0;
-  let correctionTimer = 0;
-
-  const apply = (behavior: ScrollBehavior) => {
-    if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
-    const top = computeMobileQuoteResultScrollTop(card);
-    const distance = Math.abs(window.scrollY - top);
-    if (distance <= RESULTS_CORRECTION_TOLERANCE_PX) return;
-    window.scrollTo({ top, behavior });
-  };
-
-  const behavior: ScrollBehavior = prefersReducedMotion() ? "auto" : "smooth";
-  const raf1 = window.requestAnimationFrame(() => {
-    raf2 = window.requestAnimationFrame(() => {
-      apply(behavior);
-      correctionTimer = window.setTimeout(() => {
-        apply("auto");
-      }, 640);
-    });
-  });
-
-  const cancel = () => {
-    cancelled = true;
-    window.cancelAnimationFrame(raf1);
     if (raf2) window.cancelAnimationFrame(raf2);
     if (correctionTimer) window.clearTimeout(correctionTimer);
   };

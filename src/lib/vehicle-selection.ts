@@ -65,50 +65,6 @@ export function selectVehicleForParty(
   return SALOON_VEHICLE;
 }
 
-/**
- * Estate can carry a Saloon party (1–4 passengers, 0–4 large bags).
- * It cannot replace a 7 Seater Minibus.
- */
-export function partyFitsEstate(passengers: number, suitcases: number): boolean {
-  const pax = Math.floor(Number(passengers));
-  const bags = Math.floor(Number(suitcases));
-  if (!Number.isFinite(pax) || !Number.isFinite(bags)) return false;
-  if (pax < 1 || pax > 4 || bags < 0 || bags > MAX_PUBLIC_SUITCASES) return false;
-  return !requiresMinibus(pax, bags);
-}
-
-/** True only when the automatic vehicle is a Saloon the customer may upgrade. */
-export function voluntaryEstateUpgradeAllowed(passengers: number, suitcases: number): boolean {
-  return (
-    selectVehicleForParty(passengers, suitcases) === SALOON_VEHICLE &&
-    partyFitsEstate(passengers, suitcases)
-  );
-}
-
-/**
- * Public vehicle for a quote or payment.
- * Minibus rules stay first. A requested Estate is kept when the party fits an
- * Estate. A party that already needs an Estate or a Minibus is never downgraded.
- */
-export function resolvePublicQuotedVehicle(
-  passengers: number,
-  suitcases: number,
-  requestedVehicle: string | null | undefined,
-  options?: { publicMinibusEnabled?: boolean },
-): VehicleType {
-  const pax = Math.floor(Number(passengers));
-  const bags = Math.max(0, Math.floor(Number(suitcases)) || 0);
-  if (requiresMinibus(pax, bags)) return MINIBUS_VEHICLE;
-  const requested = String(requestedVehicle ?? "");
-  if (options?.publicMinibusEnabled === true && requested.toLowerCase().includes("minibus")) {
-    return MINIBUS_VEHICLE;
-  }
-  if (partyFitsEstate(pax, bags) && requested.includes("Estate")) {
-    return ESTATE_VEHICLE;
-  }
-  return selectVehicleForParty(pax, bags);
-}
-
 export function vehicleShortLabel(vehicleType: VehicleType | string): string {
   if (vehicleType === ESTATE_VEHICLE || vehicleType === VEHICLE_TYPES[1]) {
     return "Estate";

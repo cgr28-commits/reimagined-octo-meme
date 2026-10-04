@@ -29,9 +29,7 @@ import {
   scheduleScrollToBookNowAfterExpressAck,
   prefersReducedMotion,
   scrollJourneySummaryAfterTimeConfirm,
-  scrollMobileQuoteResultIntoView,
   scrollQuoteStage,
-  syncQuoteResultScrollOffsets,
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
 import {
@@ -70,15 +68,12 @@ import {
   VEHICLE_TYPES,
 } from "@/lib/data";
 import {
-  ESTATE_VEHICLE,
   formatPassengerChoice,
   formatSuitcaseChoice,
   MAX_PUBLIC_SUITCASES,
   requiresMinibus,
-  SALOON_VEHICLE,
   selectVehicleForParty,
   vehicleShortLabel,
-  voluntaryEstateUpgradeAllowed,
 } from "@/lib/vehicle-selection";
 import {
   publicPassengerLimitMessage,
@@ -217,7 +212,6 @@ import {
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import QuoteResultShowcase, {
-  EstateUpgradeCard,
   preloadQuoteResultVehicleImages,
 } from "@/components/QuoteResultShowcase";
 import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
@@ -835,7 +829,6 @@ function QuoteCard({
         : undefined;
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [chooseMinibus, setChooseMinibus] = useState(false);
-  const [chooseEstate, setChooseEstate] = useState(false);
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
@@ -921,11 +914,8 @@ function QuoteCard({
     if (publicMinibusEnabled && (chooseMinibus || pax >= 5 || suitcases >= 5)) {
       return MINIBUS_VEHICLE_TYPE;
     }
-    if (chooseEstate && voluntaryEstateUpgradeAllowed(pax, suitcases)) {
-      return ESTATE_VEHICLE;
-    }
     return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
-  }, [chooseEstate, chooseMinibus, passengerLimit, passengers, publicMinibusEnabled, suitcases, vehicle]);
+  }, [chooseMinibus, passengerLimit, passengers, publicMinibusEnabled, suitcases, vehicle]);
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
@@ -949,7 +939,6 @@ function QuoteCard({
     const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
     setVehicle((current) => (current === next ? current : next));
     setChooseMinibus(false);
-    setChooseEstate(false);
   }, [passengers, suitcases]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
@@ -1770,7 +1759,6 @@ function QuoteCard({
       automaticVehicle:
         paxNow == null ? requestedVehicle : getAutoVehicle(paxNow, suitcases, IS_A2A_PRIMARY),
       minibusVehicle: MINIBUS_VEHICLE_TYPE,
-      estateVehicle: ESTATE_VEHICLE,
       publicMinibusEnabled,
       requiresMinibus: paxNow != null && requiresMinibus(paxNow, suitcases),
     });
@@ -2403,7 +2391,6 @@ function QuoteCard({
     setSuitcases(null);
     setExactPassengers(null);
     setChooseMinibus(false);
-    setChooseEstate(false);
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -4097,7 +4084,6 @@ function QuoteCard({
     setReturnTime("");
     setVehicle(VEHICLE_TYPES[0]);
     setChooseMinibus(false);
-    setChooseEstate(false);
     setExpressDropOffSelected(false);
     setReturnExpressDropOffSelected(false);
     setExpressRemovalAck(false);
@@ -4849,10 +4835,10 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // Mobile lands on the quote card, just below the measured sticky header,
-  // so the vehicle heading stays fully visible. It does not jump to the
-  // price or the Book This Transfer button. Fare, vehicle, and Free/Express
-  // updates leave the latch set.
+  // On mobile, the top edge of the white selected-vehicle quote card sits
+  // flush under the fixed header (clearance 0). The vehicle list stays above
+  // the fold. Instant, so iOS cannot cancel a smooth scroll on that list.
+  // Fare, vehicle, and Free/Express updates leave the latch set.
   useEffect(() => {
     if (quoteStep !== 1) {
       hadRouteSummaryScrollRef.current = false;
@@ -4873,8 +4859,13 @@ function QuoteCard({
       const selectedCard = quoteSelectedVehicleCardRef.current;
       if (!selectedCard) return;
       hadRouteSummaryScrollRef.current = true;
-      syncQuoteResultScrollOffsets();
-      return scrollMobileQuoteResultIntoView(selectedCard);
+      return scrollQuoteStage(selectedCard, {
+        focusHeading: false,
+        correctAfterMs: 0,
+        immediate: true,
+        clearancePx: 0,
+        behavior: "auto",
+      });
     }
     hadRouteSummaryScrollRef.current = true;
     const lead =
@@ -4886,22 +4877,6 @@ function QuoteCard({
       behavior: prefersReducedMotion() ? "auto" : "smooth",
     });
   }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteResultsReady, quoteStep]);
-
-  // While the quote result is on screen, keep header and browser-chrome
-  // offsets current so the heading and booking button stay clear of them.
-  useEffect(() => {
-    if (quoteStep !== 1 || !quoteResultsReady || !detectMobileDevice()) return;
-    syncQuoteResultScrollOffsets();
-    const onChange = () => syncQuoteResultScrollOffsets();
-    window.addEventListener("resize", onChange);
-    window.visualViewport?.addEventListener("resize", onChange);
-    window.visualViewport?.addEventListener("scroll", onChange);
-    return () => {
-      window.removeEventListener("resize", onChange);
-      window.visualViewport?.removeEventListener("resize", onChange);
-      window.visualViewport?.removeEventListener("scroll", onChange);
-    };
-  }, [quoteResultsReady, quoteStep]);
 
   // Reset time→Your Journey one-shot when leaving travel-details step.
   useEffect(() => {
@@ -6463,28 +6438,6 @@ function QuoteCard({
     const pax = effectivePartyPassengers(passengers, passengerLimit);
     if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
-    if (next !== ESTATE_VEHICLE) setChooseEstate(false);
-  }
-
-  function renderEstateUpgrade() {
-    const pax = effectivePartyPassengers(passengers, passengerLimit);
-    if (pax == null || suitcases == null || !voluntaryEstateUpgradeAllowed(pax, suitcases)) {
-      return null;
-    }
-    if (quoteVehicle === MINIBUS_VEHICLE_TYPE) return null;
-    const selected = chooseEstate && quoteVehicle === ESTATE_VEHICLE;
-    if (!selected && quoteVehicle !== SALOON_VEHICLE) return null;
-    return (
-      <EstateUpgradeCard
-        upliftGbp={publicPricing.estate.upliftGbp}
-        selected={selected}
-        onUpgrade={() => {
-          setChooseMinibus(false);
-          setChooseEstate(true);
-        }}
-        onSwitchToSaloon={() => setChooseEstate(false)}
-      />
-    );
   }
 
   function renderQuoteVehicleChoice() {
@@ -6533,7 +6486,6 @@ function QuoteCard({
         airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
         capacityConfirmation={capacityNeedsConfirm}
-        estateUpgrade={renderEstateUpgrade()}
       />
     );
   }
