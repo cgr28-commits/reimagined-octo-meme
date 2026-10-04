@@ -7,7 +7,7 @@
 import { calculatePointToPointQuote, calculateQuote, formatQuote } from "./quote";
 import type { TripSchedule } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
-import { resolvePublicQuotedVehicle, selectVehicleForParty } from "./vehicle-selection";
+import { MINIBUS_VEHICLE, requiresMinibus, selectVehicleForParty } from "./vehicle-selection";
 import {
   needsLuggageCapacityConfirmation,
   PUBLIC_FIVE_PLUS_SUITCASES,
@@ -239,9 +239,13 @@ export function calculateAuthoritativeWebsiteQuote(
   const requestedVehicle = input.vehicleType;
   let vehicleType = requestedVehicle ?? derivedVehicle;
   if (input.ownerMode !== true) {
-    vehicleType = resolvePublicQuotedVehicle(passengers, suitcases, requestedVehicle, {
-      publicMinibusEnabled,
-    });
+    if (requiresMinibus(passengers, suitcases)) {
+      vehicleType = MINIBUS_VEHICLE;
+    } else if (requestedVehicle && isPublicMinibusVehicle(requestedVehicle) && publicMinibusEnabled) {
+      vehicleType = MINIBUS_VEHICLE;
+    } else {
+      vehicleType = derivedVehicle;
+    }
   }
   if (
     !publicMinibusAllowed(vehicleType, {

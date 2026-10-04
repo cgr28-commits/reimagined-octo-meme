@@ -115,7 +115,7 @@ const scrollEffect = card.slice(
 );
 assert.match(scrollEffect, /hadRouteSummaryScrollRef\.current = true/);
 assert.match(scrollEffect, /detectMobileDevice\(\)/);
-assert.match(scrollEffect, /scrollMobileQuoteResultIntoView\(selectedCard\)/);
+assert.match(scrollEffect, /scrollQuoteStage\(selectedCard/);
 assert.match(scrollEffect, /quoteSelectedVehicleCardRef/);
 assert.match(showcase, /id="quote-selected-vehicle-card"/);
 assert.match(scrollEffect, /correctAfterMs: 0/);
