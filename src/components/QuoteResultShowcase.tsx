@@ -73,8 +73,8 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       data-quote-price-section
       className="min-w-0 bg-transparent text-navy"
     >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-8">
-        <div className="min-w-0 text-center lg:w-[42%] lg:text-left">
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4">
+        <div className="min-w-0 text-center lg:shrink-0 lg:text-left">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
           </p>
@@ -136,13 +136,12 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           ) : null}
         </div>
           {airportAccess ? (
-            <div className="min-w-0 flex-1 text-left lg:pt-1" data-quote-result-airport-access>
+            <div className="min-w-0 flex-1 text-left" data-quote-result-airport-access>
               {airportAccess}
             </div>
           ) : null}
+          <div className="min-w-0 lg:w-[16.5rem] lg:shrink-0">{bookButton}</div>
       </div>
-
-          <div className="mt-3 lg:mt-4">{bookButton}</div>
           <p className="mt-2 hidden text-[11px] leading-snug text-[#475569] md:block">
             🔒 Secure booking · Takes around 2 minutes
           </p>

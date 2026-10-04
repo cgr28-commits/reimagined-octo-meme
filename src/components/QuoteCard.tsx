@@ -5345,20 +5345,22 @@ function QuoteCard({
               ✈ {title}
             </p>
             <div
-              className={`hidden rounded-xl border px-3 py-2.5 md:block ${
-                light ? "border-navy/10 bg-[#f7f9fc]" : "border-white/20"
+              className={`hidden rounded-xl border px-3 py-2 md:block ${
+                light ? "border-[#d7eee0] bg-[#f4fbf6]" : "border-white/20"
               }`}
             >
-              <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+              <p className={`text-sm font-semibold leading-snug ${light ? "text-navy" : "text-white"}`}>
                 {title}
               </p>
-              <p
-                className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
-                  light ? "text-[#475569]" : "text-white/80"
-                }`}
-              >
-                {detail}
-              </p>
+              {leg.service === "pick-up" ? (
+                <p
+                  className={`mt-0.5 break-words text-xs font-medium leading-snug ${
+                    light ? "text-[#475569]" : "text-white/80"
+                  }`}
+                >
+                  {detail}
+                </p>
+              ) : null}
             </div>
           </div>
           );
@@ -5387,7 +5389,7 @@ function QuoteCard({
         : pricedFare?.totalGbp;
 
     return (
-      <div className="mt-3 space-y-4 text-left" data-express-airport-choice>
+      <div className={light ? "space-y-3 text-left" : "mt-3 space-y-4 text-left"} data-express-airport-choice>
         {legs.map((leg) => {
           const selected =
             leg.leg === "return" ? returnExpressDropOffSelected : expressDropOffSelected;

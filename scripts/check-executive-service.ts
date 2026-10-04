@@ -627,7 +627,9 @@ assert.equal(categories.match(/climatePreference=\{climatePreference\}/g)?.lengt
 assert.match(categories, /data-executive-desktop-extras/);
 assert.match(categories, /data-executive-mobile-details/);
 assert.match(categories, /View details ›/);
-assert.match(categories, /Airport charges \+ premium extras included/);
+assert.match(categories, /Airport pickup & drop-off charges \+ premium extras included/);
+assert.match(categories, /grid-flow-col/);
+assert.match(categories, /grid-rows-4/);
 assert.match(categories, /Personalise your Executive journey \(optional\)/);
 assert.match(categories, /Not sure which vehicle to choose\?/);
 assert.match(categories, /md:hidden/);

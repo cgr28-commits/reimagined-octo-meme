@@ -48,6 +48,18 @@ const EXECUTIVE_INCLUDED = [
   "Premium comfort",
 ] as const;
 
+/** Column order for the desktop band: left column, then right column. */
+const EXECUTIVE_INCLUDED_COLUMNS = [
+  "Higher-spec vehicle",
+  "Airport pickup & drop-off charges included",
+  "Express terminal drop-off included when applicable",
+  "Premium comfort",
+  "Complimentary bottled water",
+  "Phone charging available",
+  "Quiet Journey option",
+  "Climate preference",
+] as const;
+
 export type QuoteVehicleFares = {
   saloon: number | null;
   estate: number | null;
@@ -239,11 +251,11 @@ export default function QuoteVehicleCategories({
               <MobilePrice uplift={uplift} fareLabel={fareLabel} />
             </span>
             {showEstateBanner ? (
-              <span className="mt-0.5 block">
+              <span className="mt-0.5 flex">
                 <RecommendedPill compact />
               </span>
             ) : null}
-            <span className="mt-0.5 block truncate text-[11px] leading-snug text-navy/70">{mobileLine(option.id)}</span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-navy/70">{mobileLine(option.id)}</span>
             {unavailable ? (
               <span className="mt-0.5 block text-[11px] font-semibold leading-snug text-navy">{unavailable}</span>
             ) : null}
@@ -373,9 +385,9 @@ export default function QuoteVehicleCategories({
           </div>
           {selected === EXECUTIVE_VEHICLE && executiveOk ? (
             <>
-              <div className="mt-3 hidden rounded-xl border border-[#d7eee0] bg-[#f4fbf6] px-3 py-3 md:block" data-executive-desktop-extras data-executive-includes>
+              <div className="mt-3 hidden rounded-xl border border-[#d7eee0] bg-[#f4fbf6] px-3 py-2.5 md:block" data-executive-desktop-extras data-executive-includes>
                 <p className="text-sm font-semibold text-navy">Executive includes</p>
-                <ExecutiveIncludedList />
+                <ExecutiveIncludedList columns />
               </div>
               <ExecutiveMobileDetails />
             </>
@@ -489,7 +501,7 @@ function ChoiceGuidance() {
 function mobileLine(id: Category["id"]): string {
   if (id === "saloon") return `Up to ${SALOON_MAX_PASSENGERS} · Up to ${SALOON_MAX_SUITCASES} · Comfortable`;
   if (id === "estate") return `Up to ${ESTATE_MAX_PASSENGERS} · Up to ${ESTATE_MAX_SUITCASES} · Extra luggage`;
-  if (id === "executive") return `Up to ${EXECUTIVE_MAX_PASSENGERS} · Up to ${EXECUTIVE_MAX_SUITCASES} · Premium`;
+  if (id === "executive") return `Up to ${EXECUTIVE_MAX_PASSENGERS} · Up to ${EXECUTIVE_MAX_SUITCASES} · Premium travel experience`;
   return MINIBUS_CUSTOMER_DESCRIPTION;
 }
 
@@ -499,12 +511,12 @@ function ExecutiveMobileDetails() {
     <div className="mt-1.5 md:hidden" data-executive-mobile-details>
       <button
         type="button"
-        className="flex min-h-9 w-full items-center justify-between gap-2 text-left text-[11px] font-semibold leading-tight text-navy"
+        className="flex min-h-9 w-full items-start justify-between gap-2 py-1 text-left text-[11px] font-semibold leading-snug text-navy"
         aria-expanded={open}
         data-executive-details-toggle
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="min-w-0">✓ Airport charges + premium extras included</span>
+        <span className="min-w-0">✓ Airport pickup & drop-off charges + premium extras included</span>
         <span className="shrink-0 font-semibold text-emerald-dark">{open ? "Hide" : "View details ›"}</span>
       </button>
       {open ? (
@@ -589,9 +601,9 @@ function PremiumBadge() {
 
 function RecommendedPill({ compact = false }: { compact?: boolean }) {
   return (
-    <span className={`${compact ? "px-1.5 py-0.5 text-[9px] tracking-wide" : "mb-1 px-2 py-1 text-[10px] tracking-wide"} inline-flex w-max max-w-full items-center gap-1 whitespace-nowrap rounded-full bg-[#0e7a36] font-bold uppercase leading-tight text-white`}>
-      <StarIcon compact={compact} />
-      <span>Extra luggage space</span>
+    <span className={`${compact ? "px-1.5 py-0.5 text-[9px]" : "mb-1 gap-1 px-2 py-1 text-[10px]"} inline-flex w-max max-w-full shrink-0 items-center whitespace-nowrap rounded-full bg-[#0e7a36] font-bold uppercase leading-none tracking-wide text-white`}>
+      {compact ? null : <StarIcon />}
+      Extra luggage space
     </span>
   );
 }
@@ -733,12 +745,19 @@ function StarIcon({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function ExecutiveIncludedList() {
+function ExecutiveIncludedList({ columns = false }: { columns?: boolean }) {
+  const items = columns ? EXECUTIVE_INCLUDED_COLUMNS : EXECUTIVE_INCLUDED;
   return (
-    <ul className="mt-1.5 space-y-1 text-sm leading-snug text-navy">
-      {EXECUTIVE_INCLUDED.map((item) => (
-        <li key={item} className="flex items-start gap-2">
-          <span className="mt-0.5 shrink-0 text-navy/65" aria-hidden>
+    <ul
+      className={
+        columns
+          ? "mt-2 grid grid-flow-col grid-cols-2 grid-rows-4 gap-x-6 gap-y-1.5 text-sm leading-snug text-navy"
+          : "mt-1.5 space-y-1 text-sm leading-snug text-navy"
+      }
+    >
+      {items.map((item) => (
+        <li key={item} className="flex items-start gap-1.5">
+          <span className="mt-0.5 shrink-0 text-emerald-dark" aria-hidden>
             <CheckIcon />
           </span>
           <span>{item}</span>
