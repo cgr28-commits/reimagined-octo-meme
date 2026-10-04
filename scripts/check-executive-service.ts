@@ -19,7 +19,8 @@ import {
   publicVehicleEligibilityMessage,
   saloonCapacityAllows,
 } from "../shared/executive-service";
-import { defaultOwnerPricingSettings, normalizeOwnerPricingSettings } from "../shared/owner-pricing-config";
+import { defaultOwnerPricingSettings, normalizeOwnerPricingSettings, ownerPricingEngineOptions } from "../shared/owner-pricing-config";
+import { EXPRESS_DROP_OFF_FEES_GBP, composeFareWithExpressDropOff } from "../shared/express-drop-off";
 import { getReturnJourneyFare } from "../src/lib/point-to-point-premium";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "../shared/return-journey-discount";
@@ -318,6 +319,81 @@ if (pricedExecutive.ok && saloonQuote.ok) {
   assert.equal(pricedExecutive.airportFixedCostsGbp ?? 0, saloonQuote.airportFixedCostsGbp ?? 0);
 }
 
+const ownerUpgrades = normalizeOwnerPricingSettings({
+  ...defaultOwnerPricingSettings(),
+  estate: { upliftGbp: 8 },
+  executive: { upliftGbp: 25 },
+});
+const upgradeEngine = ownerPricingEngineOptions(ownerUpgrades);
+assert.equal(upgradeEngine.estatePremiumGbp, 8);
+assert.equal(upgradeEngine.executivePremiumGbp, 25);
+const exampleSaloon = calculateUniversalJourneyFareGbp(0, SALOON, {
+  ...upgradeEngine,
+  saloonFareGbp: 47,
+});
+const exampleEstate = calculateUniversalJourneyFareGbp(0, ESTATE, {
+  ...upgradeEngine,
+  saloonFareGbp: 47,
+});
+const exampleExecutive = calculateUniversalJourneyFareGbp(0, EXECUTIVE_VEHICLE_TYPE, {
+  ...upgradeEngine,
+  saloonFareGbp: 47,
+});
+assert.equal(exampleSaloon.journeyFareGbp, 47);
+assert.equal(exampleEstate.journeyFareGbp, 55);
+assert.equal(exampleExecutive.journeyFareGbp, 72);
+assert.equal(exampleEstate.vehicleAdjustmentGbp, 8);
+assert.equal(exampleExecutive.vehicleAdjustmentGbp, 25);
+
+const upgradedSaloon = calculateAuthoritativeWebsiteQuote({
+  ...quoteBase,
+  passengers: 2,
+  vehicleType: SALOON,
+  returnJourney: false,
+  pricing: ownerUpgrades,
+});
+const upgradedEstate = calculateAuthoritativeWebsiteQuote({
+  ...quoteBase,
+  passengers: 2,
+  vehicleType: ESTATE,
+  returnJourney: false,
+  pricing: ownerUpgrades,
+});
+const upgradedExecutive = calculateAuthoritativeWebsiteQuote({
+  ...quoteBase,
+  passengers: 2,
+  vehicleType: EXECUTIVE_VEHICLE_TYPE,
+  returnJourney: false,
+  pricing: ownerUpgrades,
+});
+assert.equal(upgradedSaloon.ok && upgradedEstate.ok && upgradedExecutive.ok, true);
+if (upgradedSaloon.ok && upgradedEstate.ok && upgradedExecutive.ok) {
+  const saloonFare = upgradedSaloon.journeyFareGbp ?? upgradedSaloon.amount;
+  const estateFare = upgradedEstate.journeyFareGbp ?? upgradedEstate.amount;
+  const executiveFare = upgradedExecutive.journeyFareGbp ?? upgradedExecutive.amount;
+  assert.equal(estateFare, saloonFare + 8);
+  assert.equal(executiveFare, saloonFare + 25);
+  assert.equal(upgradedEstate.airportFixedCostsGbp ?? 0, upgradedSaloon.airportFixedCostsGbp ?? 0);
+  assert.equal(upgradedExecutive.airportFixedCostsGbp ?? 0, upgradedSaloon.airportFixedCostsGbp ?? 0);
+  const saloonExpress = composeFareWithExpressDropOff({
+    transferFareGbp: saloonFare,
+    expressDropOffFeeGbp: EXPRESS_DROP_OFF_FEES_GBP.BFS,
+  });
+  const estateExpress = composeFareWithExpressDropOff({
+    transferFareGbp: estateFare,
+    expressDropOffFeeGbp: EXPRESS_DROP_OFF_FEES_GBP.BFS,
+  });
+  const executiveExpress = composeFareWithExpressDropOff({
+    transferFareGbp: executiveFare,
+    expressDropOffFeeGbp: EXPRESS_DROP_OFF_FEES_GBP.BFS,
+  });
+  assert.equal(saloonExpress.expressDropOffFeeGbp, 5);
+  assert.equal(estateExpress.expressDropOffFeeGbp, 5);
+  assert.equal(executiveExpress.expressDropOffFeeGbp, 5);
+  assert.equal(estateExpress.totalGbp, saloonExpress.totalGbp + 8);
+  assert.equal(executiveExpress.totalGbp, saloonExpress.totalGbp + 25);
+}
+
 const categories = fs.readFileSync(
   path.join(import.meta.dirname, "../src/components/QuoteVehicleCategories.tsx"),
   "utf8",
@@ -401,6 +477,15 @@ assert.match(
   paymentSource,
   /publicVehicleEligibilityMessage\(vehicleRaw, partyPassengers, partySuitcases\)/,
 );
+assert.match(paymentSource, /calculateAuthoritativeWebsiteQuote\(\{[\s\S]*?\n\s*pricing,/);
+const pricingCopy = fs.readFileSync(
+  path.join(import.meta.dirname, "../src/lib/pricing-config.json"),
+  "utf8",
+);
+assert.doesNotMatch(pricingCopy, /Saloon \+ £10/);
+assert.doesNotMatch(pricingCopy, /\+£6 vs Saloon/);
+assert.match(pricingCopy, /Owner Pricing Estate upgrade/);
+assert.match(pricingCopy, /Owner Pricing Executive upgrade/);
 const artwork = fs.readFileSync(path.join(import.meta.dirname, "../src/lib/vehicle-artwork.ts"), "utf8");
 assert.match(artwork, /quote-standard-saloon\.webp/);
 assert.equal(
