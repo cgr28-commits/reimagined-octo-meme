@@ -231,6 +231,11 @@ export default function QuoteVehicleCategories({
             variant="mobile"
           />
           <span className="min-w-0 flex-1">
+            {option.id === "executive" && executiveOk ? (
+              <span className="mb-1 block">
+                <PremiumBadge />
+              </span>
+            ) : null}
             <span className="flex flex-wrap items-start justify-between gap-x-2 gap-y-0.5">
               <span className="min-w-0 text-sm font-semibold leading-tight text-navy">{option.title}</span>
               <MobilePrice uplift={uplift} fareLabel={fareLabel} />
@@ -248,8 +253,9 @@ export default function QuoteVehicleCategories({
             </span>
           ) : null}
           {unavailable ? <span className="basis-full pt-0.5 text-xs font-semibold leading-snug text-navy">{unavailable}</span> : null}
-          {selectable ? <Chevron /> : null}
+          {selectable ? <Chevron expanded={isSelected} /> : null}
         </span>
+        {isSelected ? <MobileBenefits optionId={option.id} /> : null}
         {layout === "grid" ? (
           <span className="hidden min-h-0 flex-1 flex-col px-2.5 pb-2.5 md:flex">
             <VehicleArt
@@ -258,9 +264,12 @@ export default function QuoteVehicleCategories({
               pending={option.id === "saloon" && !option.image}
               variant="desktop"
             />
-            <span className="mt-2 block text-lg font-semibold leading-tight text-navy">{option.title}</span>
+            <span className="mt-2 flex min-h-6 items-center justify-center">
+              {option.id === "executive" && executiveOk ? <PremiumBadge /> : null}
+            </span>
+            <span className="mt-1 block text-lg font-semibold leading-tight text-navy">{option.title}</span>
             <span className="mt-1 block min-h-10 text-sm leading-snug text-navy/70">{option.detail}</span>
-            <span className="mt-3 block space-y-2 text-sm leading-snug text-navy">
+            <span className="mt-3 block min-h-[11.5rem] space-y-2 text-sm leading-snug text-navy">
               <DesktopFacts option={option} />
             </span>
             <span
@@ -352,30 +361,45 @@ export default function QuoteVehicleCategories({
       <p className="mt-1 text-sm leading-snug text-navy/70">
         All vehicles are modern, comfortable and fully licensed for airport transfers.
       </p>
-      <div
-        className="mt-3 grid grid-cols-1 items-start gap-2.5 md:mt-4 md:grid-cols-3 md:items-start md:gap-3"
-        role="list"
-        aria-label="Vehicle for this journey"
-      >
-        {ownerOptions.map((option) => renderOption(option, "grid"))}
-      </div>
-      {!lockedToMinibus ? <ChoiceGuidance /> : null}
-      {minibusOption ? (
-        <div className="mt-2.5" role="list" aria-label="Group travel">
-          {renderOption(minibusOption, "row")}
+      {lockedToMinibus ? (
+        <div className="mt-3" data-minibus-required>
+          <p className="text-sm leading-snug text-navy/75">
+            This party needs a 7 Seater Minibus. Saloon, Estate and Executive are not used for this number of passengers or suitcases.
+          </p>
+          {includeMinibus && minibusOption ? (
+            <div className="mt-2.5" role="list" aria-label="7 Seater Minibus">
+              {renderOption(minibusOption, "row")}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm font-semibold text-navy">
+              A 7 Seater Minibus is not offered online for this journey.
+            </p>
+          )}
         </div>
-      ) : null}
+      ) : (
+        <>
+          <div
+            className="mt-3 grid grid-cols-1 items-start gap-2.5 md:mt-4 md:grid-cols-3 md:items-start md:gap-3"
+            role="list"
+            aria-label="Vehicle for this journey"
+            data-standard-vehicle-choice
+          >
+            {ownerOptions.map((option) => renderOption(option, "grid"))}
+          </div>
+          <ChoiceGuidance />
+        </>
+      )}
       {!saloonOk && estateOk && !lockedToMinibus ? (
         <p className="mt-2 text-xs leading-relaxed text-navy/75" data-saloon-unavailable>
           Saloon is not suitable for your luggage. Estate is selected because it has the extra space.
         </p>
       ) : null}
-      {executiveBlockedByPassengers ? (
+      {!lockedToMinibus && executiveBlockedByPassengers ? (
         <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-unavailable>
           {EXECUTIVE_PASSENGER_LIMIT_MESSAGE}
         </p>
       ) : null}
-      {executiveBlockedByLuggage ? (
+      {!lockedToMinibus && executiveBlockedByLuggage ? (
         <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-luggage-unavailable>
           {EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE}
         </p>
@@ -400,7 +424,9 @@ function DesktopFacts({ option }: { option: Category }) {
       <>
         <Fact icon={<PersonIcon />}>Up to {ESTATE_MAX_PASSENGERS} passengers</Fact>
         <Fact icon={<CaseIcon />}>Up to {ESTATE_MAX_SUITCASES} large suitcases</Fact>
-        <Fact icon={<CheckIcon />}>Extra legroom and luggage space</Fact>
+        <Fact icon={<CheckIcon />}>Extra legroom</Fact>
+        <Fact icon={<CheckIcon />}>Extra luggage space</Fact>
+        <Fact icon={<CheckIcon />}>More relaxed journey</Fact>
         <Fact icon={<CheckIcon />}>Ideal for families and extra comfort</Fact>
       </>
     );
@@ -453,6 +479,27 @@ function MobileFacts({ option }: { option: Category }) {
   );
 }
 
+function MobileBenefits({ optionId }: { optionId: Category["id"] }) {
+  const lines =
+    optionId === "saloon"
+      ? ["Ideal for most airport journeys"]
+      : optionId === "estate"
+        ? ["Extra legroom", "Extra luggage space", "More relaxed journey", "Ideal for families and extra comfort"]
+        : optionId === "executive"
+          ? [...EXECUTIVE_CARD_BENEFITS]
+          : [];
+  if (lines.length === 0) return null;
+  return (
+    <span className="block space-y-0.5 px-2.5 pb-2.5 text-xs leading-snug text-navy/80 md:hidden">
+      {lines.map((line) => (
+        <span key={line} className="block">
+          ✓ {line}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function ChoiceGuidance() {
   return (
     <div className="mt-2.5 flex gap-2.5 rounded-xl border border-[#e4eaf2] bg-[#f7f9fc] px-3 py-2.5 text-navy">
@@ -502,6 +549,14 @@ function EstateBanner({ visible }: { visible: boolean }) {
     >
       <StarIcon />
       Recommended for extra space
+    </span>
+  );
+}
+
+function PremiumBadge() {
+  return (
+    <span className="inline-flex items-center rounded-full border border-emerald bg-navy px-2 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wide text-white">
+      Premium
     </span>
   );
 }
@@ -618,9 +673,14 @@ function RadioMark({ selected }: { selected: boolean }) {
   );
 }
 
-function Chevron() {
+function Chevron({ expanded }: { expanded: boolean }) {
   return (
-    <span className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center text-navy/55" aria-hidden>
+    <span
+      className={`ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center text-navy/55 ${
+        expanded ? "rotate-180" : ""
+      }`}
+      aria-hidden
+    >
       <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M5 8l5 5 5-5" />
       </svg>
