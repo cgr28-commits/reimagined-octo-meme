@@ -264,14 +264,17 @@ const categories = fs.readFileSync(
   path.join(import.meta.dirname, "../src/components/QuoteVehicleCategories.tsx"),
   "utf8",
 );
-assert.match(categories, /More comfort & extra space/);
+assert.match(categories, /Great value, comfortable travel/);
+assert.match(categories, /More comfort and extra legroom/);
+assert.match(categories, /Extra comfort and a premium experience/);
+assert.match(categories, /Recommended for extra space/);
+assert.match(categories, /Ideal for families and extra comfort/);
 assert.match(categories, /Select \$\{option\.title\}/);
 assert.doesNotMatch(categories, /Upgrade to Estate/);
 assert.doesNotMatch(categories, /Upgrade to Executive/);
-assert.match(categories, /Recommended for your luggage/);
-assert.match(categories, /More comfort/);
 assert.match(categories, /Premium travel experience/);
-assert.match(categories, /"Premium"/);
+assert.match(categories, /Not sure which to choose/);
+assert.match(categories, /Up to \{EXECUTIVE_MAX_SUITCASES\} large suitcases/);
 assert.match(categories, /EXECUTIVE_PASSENGER_LIMIT_SHORT/);
 assert.match(categories, /EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE/);
 const executiveSource = fs.readFileSync(

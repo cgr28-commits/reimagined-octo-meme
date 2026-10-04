@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import { formatQuote } from "@/lib/quote";
@@ -26,7 +27,6 @@ import {
   SALOON_MAX_PASSENGERS,
   SALOON_MAX_SUITCASES,
   estateCapacityAllows,
-  estateRecommendedForLuggage,
   executiveAvailableForParty,
   saloonCapacityAllows,
   type ClimatePreference,
@@ -47,8 +47,6 @@ const EXECUTIVE_CARD_BENEFITS = [
   "Premium comfort",
 ] as const;
 
-const ESTATE_CARD_BENEFITS = ["Extra legroom", "Extra luggage space", "More relaxed journey"] as const;
-
 export type QuoteVehicleFares = {
   saloon: number | null;
   estate: number | null;
@@ -61,9 +59,8 @@ const CATEGORIES = [
     id: "saloon",
     vehicle: SALOON_VEHICLE,
     title: "Saloon",
-    short: "Standard travel",
-    detail: "Standard travel",
-    benefit: "Comfortable & efficient",
+    short: "Great value, comfortable travel",
+    detail: "Great value, comfortable travel",
     image: STANDARD_SALOON_IMAGE,
     imageAlt: "Saloon airport transfer",
   },
@@ -71,9 +68,8 @@ const CATEGORIES = [
     id: "estate",
     vehicle: ESTATE_VEHICLE,
     title: "Estate",
-    short: "More comfort & extra space",
-    detail: "More comfort & extra space",
-    benefit: "Extra legroom",
+    short: "More comfort and extra legroom",
+    detail: "More comfort and extra legroom",
     image: ESTATE_IMAGE,
     imageAlt: "Estate airport transfer",
   },
@@ -81,9 +77,8 @@ const CATEGORIES = [
     id: "executive",
     vehicle: EXECUTIVE_VEHICLE,
     title: "Executive",
-    short: "Premium travel",
-    detail: "Premium travel experience",
-    benefit: "Premium comfort",
+    short: "Premium travel experience",
+    detail: "Extra comfort and a premium experience",
     image: EXECUTIVE_IMAGE,
     imageAlt: "Executive airport transfer",
   },
@@ -93,7 +88,6 @@ const CATEGORIES = [
     title: MINIBUS_CUSTOMER_NAME,
     short: MINIBUS_CUSTOMER_DESCRIPTION,
     detail: MINIBUS_CUSTOMER_DESCRIPTION,
-    benefit: "Room for the whole party",
     image: MINIBUS_IMAGE,
     imageAlt: "7 Seater Minibus airport transfer",
   },
@@ -157,8 +151,6 @@ export default function QuoteVehicleCategories({
     passengers != null && suitcases != null && estateCapacityAllows(passengers, suitcases);
   const executiveOk =
     passengers != null && suitcases != null && executiveAvailableForParty(passengers, suitcases);
-  const luggageRecommendsEstate =
-    passengers != null && suitcases != null && estateRecommendedForLuggage(passengers, suitcases);
   const executiveBlockedByPassengers =
     passengers != null && passengers > EXECUTIVE_MAX_PASSENGERS && !lockedToMinibus;
   const executiveBlockedByLuggage =
@@ -202,140 +194,131 @@ export default function QuoteVehicleCategories({
       executiveOk,
       executiveBlockedByPassengers,
     });
-    const badge =
-      option.id === "minibus"
-        ? "Group travel"
-        : option.id === "estate" && luggageRecommendsEstate
-          ? "Recommended for your luggage"
-          : option.id === "estate" && estateOk && saloonOk
-            ? "More comfort"
-            : option.id === "executive" && executiveOk
-              ? "Premium"
-              : null;
-    const badgeKind =
-      option.id === "executive" ? "premium" : option.id === "minibus" ? "group" : "comfort";
+    const showEstateBanner = option.id === "estate" && selectable;
     const uplift =
       option.id === "estate" ? estateUplift : option.id === "executive" ? executiveUplift : null;
     const fareLabel = formatFare(fareFor(option));
-    const selectLabel = isSelected
-      ? "Selected"
-      : !selectable
-        ? unavailable
-        : `Select ${option.title}`;
-    const shell = `min-w-0 rounded-xl border-2 text-navy shadow-[0_8px_18px_rgba(7,28,56,0.08)] ${
+    const selectLabel = isSelected ? "Selected" : !selectable ? unavailable : `Select ${option.title}`;
+    const shell = `flex h-full min-w-0 flex-col overflow-hidden rounded-xl border-2 text-navy shadow-[0_8px_18px_rgba(7,28,56,0.08)] ${
       isSelected
         ? "border-emerald bg-[#f4fbf6]"
         : selectable
           ? "border-[#e4eaf2] bg-white"
           : "border-[#e4eaf2] bg-[#f7f8fa]"
     }`;
-    const stackOnDesktop = layout === "grid";
     const summary = (
-      <span
-        className={`flex min-w-0 items-center gap-3 ${
-          stackOnDesktop ? "md:flex-col md:items-stretch md:gap-2 md:text-center" : ""
-        }`}
-      >
-        <VehicleArt
-          src={option.image}
-          alt={option.imageAlt}
-          pending={option.id === "saloon" && !option.image}
-          compact={layout === "row"}
-        />
-        <span className="min-w-0 flex-1">
-          <span
-            className={`flex min-w-0 flex-wrap items-start justify-between gap-x-2 gap-y-1 ${
-              stackOnDesktop ? "md:flex-col md:items-center" : ""
-            }`}
-          >
-            <span className="min-w-0">
-              {badge ? <VehicleBadge label={badge} kind={badgeKind} /> : null}
-              <span className="block text-base font-semibold leading-tight text-navy">{option.title}</span>
-              <span className={`mt-0.5 block text-xs leading-snug text-navy/70 ${stackOnDesktop ? "md:hidden" : ""}`}>
-                {option.short}
-              </span>
-              {stackOnDesktop ? (
-                <span className="mt-0.5 hidden text-xs leading-snug text-navy/70 md:block">{option.detail}</span>
-              ) : null}
+      <>
+        {layout === "grid" ? (
+          <span className="hidden w-full md:block">
+            <EstateBanner visible={showEstateBanner} />
+          </span>
+        ) : null}
+        {showEstateBanner || option.id === "minibus" ? (
+          <span className="block px-2.5 pt-2 md:hidden">
+            {showEstateBanner ? <RecommendedPill /> : <GroupBadge />}
+          </span>
+        ) : null}
+        <span className="flex items-center gap-2 px-2.5 pt-2.5 md:hidden">
+          {selectable || isSelected ? (
+            <RadioMark selected={isSelected} />
+          ) : (
+            <span className="h-5 w-5 shrink-0" aria-hidden />
+          )}
+          <VehicleArt
+            src={option.image}
+            alt={option.imageAlt}
+            pending={option.id === "saloon" && !option.image}
+            variant="mobile"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-start justify-between gap-x-2 gap-y-0.5">
+              <span className="min-w-0 text-sm font-semibold leading-tight text-navy">{option.title}</span>
+              <MobilePrice uplift={uplift} fareLabel={fareLabel} />
+              <span className="basis-full text-xs leading-snug text-navy/70">{option.short}</span>
             </span>
-            <PriceStack
-              uplift={uplift}
-              fareLabel={fareLabel}
-              className={stackOnDesktop ? "md:hidden" : ""}
+          </span>
+        </span>
+        <span
+          className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 pb-2.5 text-[11px] leading-none text-navy md:hidden"
+        >
+          <MobileFacts option={option} />
+          {isSelected ? (
+            <span className="inline-flex items-center gap-1 font-semibold text-navy">
+              <span aria-hidden>✓</span> Selected
+            </span>
+          ) : null}
+          {unavailable ? <span className="basis-full pt-0.5 text-xs font-semibold leading-snug text-navy">{unavailable}</span> : null}
+          {selectable ? <Chevron /> : null}
+        </span>
+        {layout === "grid" ? (
+          <span className="hidden min-h-0 flex-1 flex-col px-2.5 pb-2.5 md:flex">
+            <VehicleArt
+              src={option.image}
+              alt={option.imageAlt}
+              pending={option.id === "saloon" && !option.image}
+              variant="desktop"
             />
-          </span>
-          {option.id !== "minibus" && !(isSelected && stackOnDesktop) ? (
+            <span className="mt-2 block text-lg font-semibold leading-tight text-navy">{option.title}</span>
+            <span className="mt-1 block min-h-10 text-sm leading-snug text-navy/70">{option.detail}</span>
+            <span className="mt-3 block space-y-2 text-sm leading-snug text-navy">
+              <DesktopFacts option={option} />
+            </span>
             <span
-              className={`mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] leading-snug text-navy/80 ${
-                stackOnDesktop ? "md:hidden" : ""
+              className={`mt-auto flex min-h-11 items-center gap-1.5 rounded-full px-2.5 ${
+                isSelected ? "bg-emerald text-navy" : "text-navy"
               }`}
             >
-              <CapacityBits option={option} />
+              {isSelected ? (
+                <span aria-hidden className="text-base font-bold leading-none">
+                  ✓
+                </span>
+              ) : selectable ? (
+                <RadioMark selected={false} />
+              ) : null}
+              <span className="min-w-0 text-[13px] font-semibold leading-tight">{selectLabel ?? "Unavailable"}</span>
+              <DesktopPrice uplift={uplift} fareLabel={fareLabel} inverted={isSelected} />
             </span>
-          ) : null}
-          {selectLabel ? (
+          </span>
+        ) : (
+          <span className="hidden items-center gap-4 px-3 py-3 md:flex">
+            <VehicleArt
+              src={option.image}
+              alt={option.imageAlt}
+              pending={false}
+              variant="row"
+            />
+            <span className="min-w-0 flex-1">
+              <GroupBadge />
+              <span className="mt-1 block text-lg font-semibold leading-tight text-navy">{option.title}</span>
+              <span className="mt-0.5 block text-sm text-navy/70">{option.detail}</span>
+            </span>
             <span
-              className={`mt-1 inline-flex items-center gap-1 text-sm font-semibold text-navy ${
-                stackOnDesktop ? "md:hidden" : ""
+              className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 ${
+                isSelected ? "bg-emerald text-navy" : "text-navy"
               }`}
             >
-              {isSelected ? <span aria-hidden>✓</span> : selectable ? <span aria-hidden>○</span> : null}
-              <span>{selectLabel}</span>
+              {isSelected ? (
+                <span aria-hidden className="font-bold">
+                  ✓
+                </span>
+              ) : (
+                <RadioMark selected={false} />
+              )}
+              <span className="text-sm font-semibold">{selectLabel}</span>
+              <DesktopPrice uplift={null} fareLabel={fareLabel} inverted={isSelected} />
             </span>
-          ) : null}
-        </span>
-        {selectable ? <Chevron expanded={isSelected} /> : null}
-      </span>
+          </span>
+        )}
+      </>
     );
-    const details = (
-      <span
-        className={`mt-1.5 block space-y-0.5 text-left text-xs leading-snug text-navy/80 ${
-          stackOnDesktop ? "md:text-center" : ""
-        } ${isSelected ? "" : stackOnDesktop ? "hidden md:block" : "hidden"}`}
-      >
-        <CapacityLines option={option} />
-        <span className="block text-navy/75">{option.benefit}</span>
-        {isSelected && option.id === "estate" ? (
-          <span className="mt-1 block space-y-0.5 md:hidden">
-            {ESTATE_CARD_BENEFITS.map((benefit) => (
-              <span key={benefit} className="block">
-                ✓ {benefit}
-              </span>
-            ))}
-          </span>
-        ) : null}
-        {isSelected && option.id === "executive" ? (
-          <span className="mt-1 block space-y-0.5 md:hidden">
-            {EXECUTIVE_CARD_BENEFITS.map((benefit) => (
-              <span key={benefit} className="block">
-                ✓ {benefit}
-              </span>
-            ))}
-          </span>
-        ) : null}
-        <span className={stackOnDesktop ? "hidden pt-1 md:block" : "hidden"}>
-          <PriceStack uplift={uplift} fareLabel={fareLabel} stacked />
-        </span>
-        {selectLabel ? (
-          <span
-            className={`mt-1 min-h-11 items-center justify-center gap-1 text-sm font-semibold text-navy ${
-              stackOnDesktop ? "hidden md:inline-flex" : "hidden"
-            }`}
-          >
-            {isSelected ? <span aria-hidden>✓</span> : selectable ? <span aria-hidden>○</span> : null}
-            <span>{selectLabel}</span>
-          </span>
-        ) : null}
-      </span>
-    );
-    const controlClass = "flex w-full min-w-0 flex-col px-3 py-2.5 text-left";
+    const controlClass = "flex h-full min-w-0 flex-col text-left";
     return (
       <div
         key={option.id}
         role="listitem"
         data-vehicle-category={option.id}
         data-vehicle-expanded={isSelected ? "true" : "false"}
-        className={`${shell} ${layout === "row" ? "md:col-span-3" : ""}`}
+        className={shell}
       >
         {selectable ? (
           <button
@@ -345,12 +328,10 @@ export default function QuoteVehicleCategories({
             className={`${controlClass} cursor-pointer`}
           >
             {summary}
-            {details}
           </button>
         ) : (
           <div className={controlClass} aria-disabled="true">
             {summary}
-            {details}
           </div>
         )}
         {isSelected && option.id === "executive" && executiveOk ? (
@@ -366,28 +347,36 @@ export default function QuoteVehicleCategories({
   }
 
   return (
-    <div className="min-w-0 max-w-full space-y-2 overflow-x-hidden" data-quote-vehicle-categories>
-      <p className="form-label mb-0">Choose your vehicle</p>
+    <div className="min-w-0 max-w-full overflow-x-hidden rounded-2xl bg-white px-3 py-3.5 text-navy shadow-[0_10px_24px_rgba(7,28,56,0.12)] md:px-4 md:py-5" data-quote-vehicle-categories>
+      <h2 className="text-xl font-semibold leading-tight text-navy md:text-2xl">Choose your vehicle</h2>
+      <p className="mt-1 text-sm leading-snug text-navy/70">
+        All vehicles are modern, comfortable and fully licensed for airport transfers.
+      </p>
       <div
-        className="grid grid-cols-1 gap-2 md:grid-cols-3 md:items-start"
+        className="mt-3 grid grid-cols-1 items-start gap-2.5 md:mt-4 md:grid-cols-3 md:items-start md:gap-3"
         role="list"
         aria-label="Vehicle for this journey"
       >
         {ownerOptions.map((option) => renderOption(option, "grid"))}
-        {minibusOption ? renderOption(minibusOption, "row") : null}
       </div>
+      {!lockedToMinibus ? <ChoiceGuidance /> : null}
+      {minibusOption ? (
+        <div className="mt-2.5" role="list" aria-label="Group travel">
+          {renderOption(minibusOption, "row")}
+        </div>
+      ) : null}
       {!saloonOk && estateOk && !lockedToMinibus ? (
-        <p className="text-xs leading-relaxed text-white/75" data-saloon-unavailable>
+        <p className="mt-2 text-xs leading-relaxed text-navy/75" data-saloon-unavailable>
           Saloon is not suitable for your luggage. Estate is selected because it has the extra space.
         </p>
       ) : null}
       {executiveBlockedByPassengers ? (
-        <p className="text-xs leading-relaxed text-white/70" data-executive-unavailable>
+        <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-unavailable>
           {EXECUTIVE_PASSENGER_LIMIT_MESSAGE}
         </p>
       ) : null}
       {executiveBlockedByLuggage ? (
-        <p className="text-xs leading-relaxed text-white/70" data-executive-luggage-unavailable>
+        <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-luggage-unavailable>
           {EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE}
         </p>
       ) : null}
@@ -395,107 +384,183 @@ export default function QuoteVehicleCategories({
   );
 }
 
-function CapacityBits({ option }: { option: Category }) {
+function DesktopFacts({ option }: { option: Category }) {
   if (option.id === "saloon") {
     return (
       <>
-        <span>Up to {SALOON_MAX_PASSENGERS} passengers</span>
-        <span aria-hidden>·</span>
-        <span>Up to {SALOON_MAX_SUITCASES} large suitcases</span>
+        <Fact icon={<PersonIcon />}>Up to {SALOON_MAX_PASSENGERS} passengers</Fact>
+        <Fact icon={<CaseIcon />}>Up to {SALOON_MAX_SUITCASES} large suitcases</Fact>
+        <Fact icon={<CheckIcon />}>Comfortable and efficient</Fact>
+        <Fact icon={<CheckIcon />}>Ideal for most airport journeys</Fact>
       </>
     );
   }
   if (option.id === "estate") {
     return (
       <>
-        <span>Up to {ESTATE_MAX_PASSENGERS} passengers</span>
-        <span aria-hidden>·</span>
-        <span>Up to {ESTATE_MAX_SUITCASES} large suitcases</span>
+        <Fact icon={<PersonIcon />}>Up to {ESTATE_MAX_PASSENGERS} passengers</Fact>
+        <Fact icon={<CaseIcon />}>Up to {ESTATE_MAX_SUITCASES} large suitcases</Fact>
+        <Fact icon={<CheckIcon />}>Extra legroom and luggage space</Fact>
+        <Fact icon={<CheckIcon />}>Ideal for families and extra comfort</Fact>
       </>
     );
   }
   if (option.id === "executive") {
     return (
       <>
-        <span>Up to {EXECUTIVE_MAX_PASSENGERS} passengers</span>
-        <span aria-hidden>·</span>
-        <span>Up to {EXECUTIVE_MAX_SUITCASES} large suitcases</span>
-      </>
-    );
-  }
-  return <span>{option.short}</span>;
-}
-
-function CapacityLines({ option }: { option: Category }) {
-  if (option.id === "saloon") {
-    return (
-      <>
-        <span className="block">Up to {SALOON_MAX_PASSENGERS} passengers</span>
-        <span className="block">Up to {SALOON_MAX_SUITCASES} large suitcases</span>
-      </>
-    );
-  }
-  if (option.id === "estate") {
-    return (
-      <>
-        <span className="block">Up to {ESTATE_MAX_PASSENGERS} passengers</span>
-        <span className="block">Extra luggage space</span>
-      </>
-    );
-  }
-  if (option.id === "executive") {
-    return (
-      <>
-        <span className="block">Up to {EXECUTIVE_MAX_PASSENGERS} passengers</span>
-        <span className="block">Up to {EXECUTIVE_MAX_SUITCASES} large suitcases</span>
+        <Fact icon={<PersonIcon />}>Up to {EXECUTIVE_MAX_PASSENGERS} passengers</Fact>
+        <Fact icon={<CaseIcon />}>Up to {EXECUTIVE_MAX_SUITCASES} large suitcases</Fact>
+        <Fact icon={<SparkIcon />}>Premium comfort</Fact>
+        <Fact icon={<CheckIcon />}>Quiet Journey available</Fact>
       </>
     );
   }
   return null;
 }
 
-function VehicleBadge({ label, kind }: { label: string; kind: "comfort" | "premium" | "group" }) {
-  const className =
-    kind === "premium"
-      ? "border border-emerald/80 bg-navy text-white"
-      : kind === "group"
-        ? "border border-navy/15 bg-navy/[0.05] text-navy"
-        : "border border-emerald/40 bg-emerald/10 text-navy";
+function MobileFacts({ option }: { option: Category }) {
+  if (option.id === "saloon") {
+    return (
+      <>
+        <Chip icon={<PersonIcon />} sr="Passengers">Up to {SALOON_MAX_PASSENGERS}</Chip>
+        <Chip icon={<CaseIcon />} sr="Large suitcases">Up to {SALOON_MAX_SUITCASES}</Chip>
+        <Chip icon={<CheckIcon />} sr="">Comfortable</Chip>
+      </>
+    );
+  }
+  if (option.id === "estate") {
+    return (
+      <>
+        <Chip icon={<PersonIcon />} sr="Passengers">Up to {ESTATE_MAX_PASSENGERS}</Chip>
+        <Chip icon={<CaseIcon />} sr="Large suitcases">Up to {ESTATE_MAX_SUITCASES}</Chip>
+        <Chip icon={<CheckIcon />} sr="">Extra space</Chip>
+      </>
+    );
+  }
+  if (option.id === "executive") {
+    return (
+      <>
+        <Chip icon={<PersonIcon />} sr="Passengers">Up to {EXECUTIVE_MAX_PASSENGERS}</Chip>
+        <Chip icon={<CaseIcon />} sr="Large suitcases">Up to {EXECUTIVE_MAX_SUITCASES}</Chip>
+        <Chip icon={<SparkIcon />} sr="">Premium</Chip>
+      </>
+    );
+  }
   return (
-    <span
-      className={`mb-1 inline-flex max-w-full whitespace-normal rounded-full px-2 py-0.5 text-center text-[10px] font-semibold uppercase leading-tight tracking-wide ${className}`}
-    >
-      {label}
+    <Chip icon={<PersonIcon />} sr="">
+      {MINIBUS_CUSTOMER_DESCRIPTION}
+    </Chip>
+  );
+}
+
+function ChoiceGuidance() {
+  return (
+    <div className="mt-2.5 flex gap-2.5 rounded-xl border border-[#e4eaf2] bg-[#f7f9fc] px-3 py-2.5 text-navy">
+      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-navy/20 text-[11px] font-bold text-navy" aria-hidden>
+        i
+      </span>
+      <p className="min-w-0 text-sm leading-snug">
+        <span className="font-semibold">Not sure which to choose?</span>{" "}
+        <span className="text-navy/75">
+          Estate adds extra comfort, legroom and luggage space. Executive is the premium travel experience.
+        </span>
+      </p>
+    </div>
+  );
+}
+
+function Fact({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <span className="flex items-start gap-2">
+      <span className="mt-0.5 shrink-0 text-navy/65" aria-hidden>
+        {icon}
+      </span>
+      <span>{children}</span>
     </span>
   );
 }
 
-function PriceStack({
-  uplift,
-  fareLabel,
-  className = "",
-  stacked = false,
-}: {
-  uplift: string | null;
-  fareLabel: string | null;
-  className?: string;
-  stacked?: boolean;
-}) {
+function Chip({ icon, sr, children }: { icon: ReactNode; sr: string; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      <span className="text-navy/65" aria-hidden>
+        {icon}
+      </span>
+      {sr ? <span className="sr-only">{sr}: </span> : null}
+      <span>{children}</span>
+    </span>
+  );
+}
+
+function EstateBanner({ visible }: { visible: boolean }) {
   return (
     <span
-      className={`shrink-0 whitespace-nowrap tabular-nums text-navy ${
-        stacked ? "block text-center" : "text-right"
-      } ${className}`}
+      className={`flex min-h-9 w-full items-center justify-center gap-1 px-2 py-1.5 text-center text-[10px] font-bold uppercase leading-tight tracking-wide ${
+        visible ? "bg-[#0e7a36] text-white" : "invisible"
+      }`}
+      aria-hidden={visible ? undefined : true}
     >
+      <StarIcon />
+      Recommended for extra space
+    </span>
+  );
+}
+
+function RecommendedPill() {
+  return (
+    <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-[#0e7a36] px-2 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wide text-white">
+      <StarIcon />
+      Recommended
+    </span>
+  );
+}
+
+function GroupBadge() {
+  return (
+    <span className="mb-1 inline-flex rounded-full border border-navy/15 bg-navy/[0.05] px-2 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wide text-navy">
+      Group travel
+    </span>
+  );
+}
+
+function MobilePrice({ uplift, fareLabel }: { uplift: string | null; fareLabel: string | null }) {
+  return (
+    <span className="shrink-0 text-right tabular-nums text-navy">
       {uplift ? (
         <>
-          <span className="block text-sm font-bold leading-tight">{uplift}</span>
+          <span className="block text-sm font-bold leading-tight whitespace-nowrap">{uplift}</span>
           {fareLabel ? (
-            <span className="mt-0.5 block text-xs font-semibold leading-tight">{fareLabel} total</span>
+            <span className="mt-0.5 block text-[11px] font-semibold leading-tight whitespace-nowrap text-navy/75">
+              ({fareLabel} total)
+            </span>
           ) : null}
         </>
       ) : (
-        <span className="block text-base font-bold leading-tight">{fareLabel ?? "…"}</span>
+        <span className="block text-sm font-bold leading-tight whitespace-nowrap">{fareLabel ?? "…"}</span>
+      )}
+    </span>
+  );
+}
+
+function DesktopPrice({
+  uplift,
+  fareLabel,
+  inverted,
+}: {
+  uplift: string | null;
+  fareLabel: string | null;
+  inverted?: boolean;
+}) {
+  const totalClass = inverted ? "text-navy/80" : "text-navy/70";
+  return (
+    <span className="ml-auto shrink-0 text-right tabular-nums whitespace-nowrap">
+      {uplift ? (
+        <>
+          <span className="block text-sm font-bold leading-tight">{uplift}</span>
+          {fareLabel ? <span className={`block text-[11px] font-semibold leading-tight ${totalClass}`}>{fareLabel} total</span> : null}
+        </>
+      ) : (
+        <span className="block text-sm font-bold leading-tight">{fareLabel ?? "…"}</span>
       )}
     </span>
   );
@@ -505,24 +570,26 @@ function VehicleArt({
   src,
   alt,
   pending,
-  compact,
+  variant,
 }: {
   src: string | null;
   alt: string;
   pending?: boolean;
-  compact?: boolean;
+  variant: "mobile" | "desktop" | "row";
 }) {
-  const frame = compact
-    ? "h-12 w-[4.75rem] shrink-0 bg-white"
-    : pending
-      ? "mx-auto h-8 w-16 shrink-0 bg-transparent md:h-8 md:w-20"
-      : "h-12 w-[4.75rem] shrink-0 bg-white md:h-16 md:w-full";
+  const frame =
+    variant === "desktop"
+      ? "aspect-[2/1] w-full"
+      : variant === "row"
+        ? "h-16 w-36 shrink-0"
+        : "h-16 w-[38%] min-w-[5.25rem] max-w-[8.75rem] shrink-0";
   if (!src) {
     return (
       <span
-        className={`flex items-center justify-center rounded-md ${frame}`}
-        role="img"
-        aria-label={alt}
+        className={`block rounded-md border border-[#d5deea] bg-[#eef3f8] ${frame}`}
+        role={alt ? "img" : undefined}
+        aria-label={alt || undefined}
+        aria-hidden={alt ? undefined : true}
         data-vehicle-image={pending ? "pending" : "missing"}
       />
     );
@@ -533,23 +600,73 @@ function VehicleArt({
       alt={alt}
       width={1400}
       height={700}
-      className={`rounded-md object-contain ${frame}`}
+      className={`rounded-md bg-white object-contain ${frame}`}
     />
   );
 }
 
-function Chevron({ expanded }: { expanded: boolean }) {
+function RadioMark({ selected }: { selected: boolean }) {
   return (
     <span
-      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center text-navy/55 md:hidden ${
-        expanded ? "rotate-180" : ""
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+        selected ? "border-emerald bg-emerald" : "border-navy/30 bg-white"
       }`}
       aria-hidden
     >
+      {selected ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
+    </span>
+  );
+}
+
+function Chevron() {
+  return (
+    <span className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center text-navy/55" aria-hidden>
       <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M5 8l5 5 5-5" />
       </svg>
     </span>
+  );
+}
+
+function PersonIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="10" cy="6.5" r="2.2" />
+      <path d="M4.8 16.2c.7-2.5 2.6-3.8 5.2-3.8s4.5 1.3 5.2 3.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CaseIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="3.5" y="6.5" width="13" height="9" rx="1.4" />
+      <path d="M8 6.5V5.2A1.2 1.2 0 0 1 9.2 4h1.6A1.2 1.2 0 0 1 12 5.2v1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4.5 10.5l3.2 3.2 7.3-7.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SparkIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
+      <path d="M10 2.5l1.4 4.3L15.8 8l-4.4 1.3L10 13.6 8.6 9.3 4.2 8l4.4-1.2L10 2.5z" />
+    </svg>
+  );
+}
+
+function StarIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-3 w-3" fill="currentColor" aria-hidden>
+      <path d="M10 2.2l1.8 3.8 4.2.6-3 3 .7 4.2L10 11.8 6.3 13.8l.7-4.2-3-3 4.2-.6L10 2.2z" />
+    </svg>
   );
 }
 
@@ -597,11 +714,9 @@ function ExecutivePreferences({
                 type="button"
                 aria-pressed={pressed}
                 onClick={() => onClimatePreferenceChange?.(value)}
-                    className={`min-h-11 rounded-xl border px-2 text-xs font-semibold text-navy ${
-                      pressed
-                        ? "border-emerald bg-emerald/10"
-                        : "border-navy/15 bg-white"
-                    }`}
+                className={`min-h-11 rounded-xl border px-2 text-xs font-semibold text-navy ${
+                  pressed ? "border-emerald bg-emerald/10" : "border-navy/15 bg-white"
+                }`}
               >
                 {label}
               </button>
