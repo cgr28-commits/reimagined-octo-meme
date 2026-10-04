@@ -593,7 +593,7 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   // Instant result: both airport-access options sit on the quote card above Book.
   // No accordion is required to discover Free. Checkout reuses the same selection.
   assert.doesNotMatch(card, /function renderExpressCollapsible/);
-  assert.match(card, /airportAccess=\{renderExpressChoiceInPriceCard\("full", "on-dark"\)\}/);
+  assert.match(card, /airportAccess=\{renderExpressChoiceInPriceCard\("full", "on-light"\)\}/);
   assert.match(card, /renderExpressChoiceInPriceCard\("full"\)/);
   const showcase = read("src/components/QuoteResultShowcase.tsx");
   assert.match(showcase, /airportAccess/);

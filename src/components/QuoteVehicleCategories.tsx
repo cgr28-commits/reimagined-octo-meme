@@ -121,6 +121,7 @@ export default function QuoteVehicleCategories({
   climatePreference = "no_preference",
   onQuietJourneyChange,
   onClimatePreferenceChange,
+  booking = null,
 }: {
   passengers: number | null;
   suitcases: number | null;
@@ -138,6 +139,8 @@ export default function QuoteVehicleCategories({
   climatePreference?: ClimatePreference;
   onQuietJourneyChange?: (value: boolean) => void;
   onClimatePreferenceChange?: (value: ClimatePreference) => void;
+  /** Price and booking, rendered in this same white container. */
+  booking?: ReactNode;
 }) {
   const automatic =
     passengers != null && suitcases != null
@@ -346,6 +349,7 @@ export default function QuoteVehicleCategories({
         )}
         {isSelected && option.id === "executive" && executiveOk ? (
           <ExecutivePreferences
+            variant="inline"
             quietJourney={quietJourney}
             climatePreference={climatePreference}
             onQuietJourneyChange={onQuietJourneyChange}
@@ -387,23 +391,39 @@ export default function QuoteVehicleCategories({
           >
             {ownerOptions.map((option) => renderOption(option, "grid"))}
           </div>
+          {selected === EXECUTIVE_VEHICLE && executiveOk ? (
+            <div className="mt-3 hidden md:block" data-executive-desktop-extras>
+              <ExecutivePreferences
+                variant="band"
+                quietJourney={quietJourney}
+                climatePreference={climatePreference}
+                onQuietJourneyChange={onQuietJourneyChange}
+                onClimatePreferenceChange={onClimatePreferenceChange}
+              />
+            </div>
+          ) : null}
+          {!saloonOk && estateOk ? (
+            <p className="mt-2 text-xs leading-relaxed text-navy/75" data-saloon-unavailable>
+              Saloon is not suitable for your luggage. Estate is selected because it has the extra space.
+            </p>
+          ) : null}
+          {executiveBlockedByPassengers ? (
+            <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-unavailable>
+              {EXECUTIVE_PASSENGER_LIMIT_MESSAGE}
+            </p>
+          ) : null}
+          {executiveBlockedByLuggage ? (
+            <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-luggage-unavailable>
+              {EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE}
+            </p>
+          ) : null}
           <ChoiceGuidance />
         </>
       )}
-      {!saloonOk && estateOk && !lockedToMinibus ? (
-        <p className="mt-2 text-xs leading-relaxed text-navy/75" data-saloon-unavailable>
-          Saloon is not suitable for your luggage. Estate is selected because it has the extra space.
-        </p>
-      ) : null}
-      {!lockedToMinibus && executiveBlockedByPassengers ? (
-        <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-unavailable>
-          {EXECUTIVE_PASSENGER_LIMIT_MESSAGE}
-        </p>
-      ) : null}
-      {!lockedToMinibus && executiveBlockedByLuggage ? (
-        <p className="mt-2 text-xs leading-relaxed text-navy/75" data-executive-luggage-unavailable>
-          {EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE}
-        </p>
+      {booking ? (
+        <div className="mt-4 border-t border-[#e4eaf2] pt-4" data-quote-booking-section>
+          {booking}
+        </div>
       ) : null}
     </div>
   );
@@ -803,18 +823,27 @@ function ExecutivePreferenceControls({
 }
 
 function ExecutivePreferences({
+  variant,
   quietJourney,
   climatePreference,
   onQuietJourneyChange,
   onClimatePreferenceChange,
 }: {
+  variant: "inline" | "band";
   quietJourney: boolean;
   climatePreference: ClimatePreference;
   onQuietJourneyChange?: (value: boolean) => void;
   onClimatePreferenceChange?: (value: ClimatePreference) => void;
 }) {
   return (
-    <div className="space-y-3 border-t border-navy/10 px-3 py-3" data-executive-includes>
+    <div
+      className={
+        variant === "band"
+          ? "space-y-3 rounded-xl border border-[#d7eee0] bg-[#f4fbf6] px-3 py-3"
+          : "space-y-3 border-t border-navy/10 px-3 py-3 md:hidden"
+      }
+      data-executive-includes
+    >
       <div>
         <p className="text-sm font-semibold text-navy">Executive includes</p>
         <ExecutiveIncludedList />

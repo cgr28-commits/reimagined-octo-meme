@@ -6649,6 +6649,9 @@ function QuoteCard({
         climatePreference={climatePreference}
         onQuietJourneyChange={setQuietJourney}
         onClimatePreferenceChange={setClimatePreference}
+        booking={
+          showInstantQuoteResultCard ? renderInstantQuoteResultCard() : null
+        }
       />
     );
   }
@@ -6680,7 +6683,7 @@ function QuoteCard({
             ? QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE
             : null
         }
-        airportAccess={renderExpressChoiceInPriceCard("full", "on-dark")}
+        airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
         capacityConfirmation={capacityNeedsConfirm}
       />
@@ -7216,9 +7219,7 @@ function QuoteCard({
                     <div ref={quoteSelectedVehicleCardRef} className="space-y-3">
                     {renderQuoteVehicleChoice()}
                     {renderBookingErrorHelp("results")}
-                    {showInstantQuoteResultCard ? (
-                      renderInstantQuoteResultCard()
-                    ) : (
+                    {showInstantQuoteResultCard ? null : (
                       <>
                         <div
                           id="quote-price-summary"
@@ -7659,7 +7660,6 @@ function QuoteCard({
             {renderBookingErrorHelp("results")}
             {showInstantQuoteResultCard ? (
               <>
-                {renderInstantQuoteResultCard()}
                 {renderQuoteResultFollowOn(
                   <TripMap
                     id="quote-route-summary"
