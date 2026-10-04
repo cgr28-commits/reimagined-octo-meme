@@ -26,6 +26,7 @@ import {
   normalizeUnavailablePeriodMode,
   type OwnerAvailabilityBooking,
   type PublicOwnerAvailability,
+  type UnavailablePeriod,
   vehicleServiceLabel,
 } from "../shared/booking-notice";
 import {
@@ -56,6 +57,12 @@ import {
   needsLuggageCapacityConfirmation,
 } from "../shared/vehicle-capacity";
 import { parseLondonLocalDateTime } from "../shared/uk-time";
+import {
+  availabilityResourceForVehicle,
+  filterUnavailablePeriodsForResource,
+  MINIBUS_NOTICE_BODY,
+  MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE,
+} from "../shared/availability-resource";
 import { findRequestOnlySmartBlock } from "../shared/smart-availability";
 import { getSmartOpsState } from "./smart-ops-store";
 import {
@@ -63,8 +70,10 @@ import {
   bookingSettingsPublicView,
   deleteUnavailablePeriod,
   getBookingSettings,
+  type BookingSettings,
   updateDepositCashSettings,
   updateMinimumBookingNoticeHours,
+  updateMinibusMinimumBookingNoticeHours,
   updateMinimumShortNoticeLeadHours,
   updateCustomerPaymentWindowMinutes,
   updateShortNoticeConfirmationWindowHours,
@@ -719,6 +728,87 @@ export function publicShortNoticeSummary(record: ShortNoticeBookingRecord) {
   };
 }
 
+async function createMinibusNoticeRequest(
+  options: {
+    store: KVNamespace;
+    booking: PaidBookingDetails;
+    amount: number;
+    personalQuoteCode?: string;
+    standardWebsiteAmount?: number;
+  },
+  settings: BookingSettings,
+  periods: UnavailablePeriod[],
+  now: Date,
+): Promise<{ record: ShortNoticeBookingRecord; whatsappUrl: string }> {
+  const noticeHours = settings.minibusMinimumBookingNoticeHours;
+  const underMinimumNotice = isWithinMinimumBookingNotice(
+    options.booking.tripDate,
+    options.booking.tripTime,
+    now,
+    noticeHours,
+  );
+  const blocking = findRequestOnlyBlockingPeriod(
+    options.booking.tripDate,
+    options.booking.tripTime,
+    periods,
+    now,
+  );
+  const holdReasons = combinePaymentHoldReasons({
+    underMinimumNotice,
+    blockingPeriodId: blocking?.id ?? null,
+    passengers: options.booking.passengers,
+    suitcases: options.booking.suitcases,
+    suitcasesExact: options.booking.suitcasesExact,
+  });
+  if (holdReasons.length === 0) {
+    throw new Error("This 7-Seater journey is outside the confirmation period.");
+  }
+
+  const amount = Math.round(options.amount * 100) / 100;
+  const reference = generateShortNoticeReference(now);
+  const paymentToken = generatePaymentToken();
+  const fingerprint = materialJourneyFingerprint({
+    ...options.booking,
+    amount,
+  });
+  const createdAt = now.toISOString();
+  const confirmationWindowHours = settings.shortNoticeConfirmationWindowHours;
+  const shortNoticeExpiresAt = underMinimumNotice
+    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours)
+    : undefined;
+  const record: ShortNoticeBookingRecord = {
+    reference,
+    paymentToken,
+    status: "SHORT_NOTICE_AWAITING_APPROVAL",
+    amount,
+    currency: "GBP",
+    amountLabel: formatAmountLabel(amount),
+    booking: options.booking,
+    materialFingerprint: fingerprint,
+    unavailablePeriodIdApplied: blocking?.id ?? null,
+    underMinimumNotice,
+    minibusNotice: true,
+    holdReasons,
+    ...(underMinimumNotice
+      ? {
+          minimumNoticeHoursApplied: noticeHours,
+          shortNoticeConfirmationWindowHours: confirmationWindowHours,
+          shortNoticeRequestedAt: createdAt,
+          shortNoticeExpiresAt,
+        }
+      : {}),
+    history: appendShortNoticeHistory(undefined, "request_submitted", createdAt),
+    createdAt,
+    updatedAt: createdAt,
+    ...(options.personalQuoteCode ? { personalQuoteCode: options.personalQuoteCode } : {}),
+    ...(typeof options.standardWebsiteAmount === "number"
+      ? { standardWebsiteAmount: options.standardWebsiteAmount }
+      : {}),
+  };
+  await saveShortNoticeBooking(options.store, record);
+  return { record, whatsappUrl: buildCustomerWhatsAppUrl(reference) };
+}
+
 /** Request-only smart rules share the existing approval path. Unavailable rules do not. */
 async function requestOnlySmartBlockForPickup(
   store: KVNamespace,
@@ -747,13 +837,16 @@ export async function createShortNoticeRequest(options: {
 }> {
   const now = options.now ?? new Date();
   const settings = await getBookingSettings(options.store);
-  const closed = findConflictingNoAvailabilityPeriod(
-    options.booking,
-    settings.unavailablePeriods,
-    now,
-  );
+  const resource = availabilityResourceForVehicle(options.booking.vehicle);
+  const periods = filterUnavailablePeriodsForResource(settings.unavailablePeriods, resource);
+  const closed = findConflictingNoAvailabilityPeriod(options.booking, periods, now);
   if (closed) {
-    throw new OwnerNoAvailabilityError();
+    throw new OwnerNoAvailabilityError(
+      resource === "minibus" ? MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE : undefined,
+    );
+  }
+  if (resource === "minibus") {
+    return createMinibusNoticeRequest(options, settings, periods, now);
   }
   const leadHours = settings.minimumShortNoticeLeadHours;
   if (
@@ -769,7 +862,7 @@ export async function createShortNoticeRequest(options: {
   const blocking = findRequestOnlyBlockingPeriod(
     options.booking.tripDate,
     options.booking.tripTime,
-    settings.unavailablePeriods,
+    periods,
     now,
   );
   const smartBlock = blocking
@@ -868,6 +961,7 @@ export async function sendShortNoticeRequestReceivedEmail(
     reference: record.reference,
     noticeHours: record.minimumNoticeHoursApplied ?? MINIMUM_BOOKING_NOTICE_HOURS,
     holdReasons: record.holdReasons,
+    minibusNotice: record.minibusNotice === true,
   });
   const result = await trySendBrandedCustomerEmail(env, {
     to: record.booking.customerEmail.trim(),
@@ -889,7 +983,13 @@ export async function evaluateOwnerNoAvailabilityFromStore(
   now = new Date(),
 ): Promise<PublicOwnerAvailability> {
   const settings = await getBookingSettings(store);
-  return evaluateOwnerNoAvailability(booking, settings.unavailablePeriods, now);
+  const resource = availabilityResourceForVehicle(booking.vehicle);
+  const periods = filterUnavailablePeriodsForResource(settings.unavailablePeriods, resource);
+  const result = evaluateOwnerNoAvailability(booking, periods, now);
+  if (result.blocked && resource === "minibus") {
+    return { ...result, customerMessage: MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE };
+  }
+  return result;
 }
 
 export async function shouldForceShortNotice(
@@ -907,13 +1007,62 @@ export async function shouldForceShortNotice(
   minimumShortNoticeLeadHours: number;
   tooSoon: boolean;
   luggageCapacity: boolean;
+  /** Separate 7-Seater notice. Owner short-notice hours are not used. */
+  minibusNotice: boolean;
 }> {
   const settings = await getBookingSettings(store);
-  const closed = findConflictingNoAvailabilityPeriod(
-    booking,
-    settings.unavailablePeriods,
-    now,
+  const resource = availabilityResourceForVehicle(booking.vehicle);
+  const periods = filterUnavailablePeriodsForResource(settings.unavailablePeriods, resource);
+  const luggageCapacity = needsLuggageCapacityConfirmation(
+    booking.passengers,
+    booking.suitcases,
+    { suitcasesExact: booking.suitcasesExact },
   );
+  if (resource === "minibus") {
+    const noticeHours = settings.minibusMinimumBookingNoticeHours;
+    const closed = findConflictingNoAvailabilityPeriod(booking, periods, now);
+    const underMinibusNotice = isWithinMinimumBookingNotice(
+      booking.tripDate,
+      booking.tripTime,
+      now,
+      noticeHours,
+    );
+    if (closed) {
+      return {
+        shortNotice: false,
+        noAvailability: true,
+        gateActive: true,
+        blockingPeriodId: closed.id,
+        blockingPeriodLabel: formatUnavailablePeriodRangeLabel(closed),
+        underMinimumNotice: false,
+        minimumNoticeHours: noticeHours,
+        minimumShortNoticeLeadHours: settings.minimumShortNoticeLeadHours,
+        tooSoon: false,
+        luggageCapacity,
+        minibusNotice: true,
+      };
+    }
+    const blocking = findRequestOnlyBlockingPeriod(
+      booking.tripDate,
+      booking.tripTime,
+      periods,
+      now,
+    );
+    return {
+      shortNotice: Boolean(blocking) || underMinibusNotice,
+      noAvailability: false,
+      gateActive: Boolean(blocking) || underMinibusNotice,
+      blockingPeriodId: blocking?.id ?? null,
+      blockingPeriodLabel: blocking ? formatUnavailablePeriodRangeLabel(blocking) : null,
+      underMinimumNotice: underMinibusNotice,
+      minimumNoticeHours: noticeHours,
+      minimumShortNoticeLeadHours: settings.minimumShortNoticeLeadHours,
+      tooSoon: false,
+      luggageCapacity,
+      minibusNotice: true,
+    };
+  }
+  const closed = findConflictingNoAvailabilityPeriod(booking, periods, now);
   const leadHours = settings.minimumShortNoticeLeadHours;
   const tooSoon = isBelowMinimumShortNoticeLead(
     booking.tripDate,
@@ -932,17 +1081,14 @@ export async function shouldForceShortNotice(
       minimumNoticeHours: settings.minimumBookingNoticeHours,
       minimumShortNoticeLeadHours: leadHours,
       tooSoon,
-      luggageCapacity: needsLuggageCapacityConfirmation(
-        booking.passengers,
-        booking.suitcases,
-        { suitcasesExact: booking.suitcasesExact },
-      ),
+      luggageCapacity,
+      minibusNotice: false,
     };
   }
   const blocking = findRequestOnlyBlockingPeriod(
     booking.tripDate,
     booking.tripTime,
-    settings.unavailablePeriods,
+    periods,
     now,
   );
   const smartBlock = blocking
@@ -955,7 +1101,7 @@ export async function shouldForceShortNotice(
     now,
     noticeHours,
   );
-  const activePeriods = listActiveUnavailablePeriods(settings.unavailablePeriods, now);
+  const activePeriods = listActiveUnavailablePeriods(periods, now);
   return {
     shortNotice: Boolean(blocking) || Boolean(smartBlock) || underMinimumNotice,
     noAvailability: false,
@@ -970,11 +1116,8 @@ export async function shouldForceShortNotice(
     minimumNoticeHours: noticeHours,
     minimumShortNoticeLeadHours: leadHours,
     tooSoon,
-    luggageCapacity: needsLuggageCapacityConfirmation(
-      booking.passengers,
-      booking.suitcases,
-      { suitcasesExact: booking.suitcasesExact },
-    ),
+    luggageCapacity,
+    minibusNotice: false,
   };
 }
 
@@ -2017,6 +2160,17 @@ export async function handleOwnerSaveBookingSettings(
     }
 
     if (
+      action === "set-minibus-notice-hours" ||
+      action === "set-minibus-minimum-booking-notice-hours"
+    ) {
+      const settings = await updateMinibusMinimumBookingNoticeHours(
+        env.TRACKING_STORE,
+        body.minibusMinimumBookingNoticeHours ?? body.hours,
+      );
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+
+    if (
       action === "set-lead-hours" ||
       action === "set-minimum-short-notice-lead-hours"
     ) {
@@ -2077,6 +2231,7 @@ export async function handleOwnerSaveBookingSettings(
           : "";
     const note = typeof body.note === "string" ? body.note : "";
     const mode = normalizeUnavailablePeriodMode(body.mode);
+    const resource = body.resource === "minibus" ? "minibus" : undefined;
 
     if (action === "update") {
       const id = String(body.id ?? "").trim();
@@ -2086,6 +2241,7 @@ export async function handleOwnerSaveBookingSettings(
         endLocal,
         note,
         mode,
+        resource,
       });
       return {
         ok: true,
@@ -2106,6 +2262,7 @@ export async function handleOwnerSaveBookingSettings(
       endLocal,
       note,
       mode,
+      resource,
     });
     return {
       ok: true,
@@ -2168,6 +2325,7 @@ export async function handlePublicGetBookingNotice(env: {
 }): Promise<{
   ok: true;
   minimumBookingNoticeHours: number;
+  minibusMinimumBookingNoticeHours: number;
   minimumShortNoticeLeadHours: number;
   shortNoticeConfirmationWindowHours: number;
   depositCash: { enabled: boolean; percent: number; minimumGbp: number };
@@ -2176,6 +2334,7 @@ export async function handlePublicGetBookingNotice(env: {
     return {
       ok: true,
       minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
+      minibusMinimumBookingNoticeHours: 24,
       minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
       shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
       depositCash: {
@@ -2189,6 +2348,7 @@ export async function handlePublicGetBookingNotice(env: {
   return {
     ok: true,
     minimumBookingNoticeHours: settings.minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: settings.minibusMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours: settings.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: settings.shortNoticeConfirmationWindowHours,
     depositCash: {

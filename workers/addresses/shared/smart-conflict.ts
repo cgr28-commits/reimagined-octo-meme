@@ -19,6 +19,11 @@ import {
   type SmartBlockedInterval,
 } from "./smart-availability";
 import type { UnavailablePeriod } from "./booking-notice";
+import {
+  availabilityResourceForVehicle,
+  filterOccupiedJobsForResource,
+  filterUnavailablePeriodsForResource,
+} from "./availability-resource";
 import { addDaysYmd, londonYmd } from "./upcoming-jobs";
 
 export type SmartCoords = { lat: number; lng: number };
@@ -42,6 +47,10 @@ export type SmartOccupiedJob = {
   routeDistanceKm?: number;
   knownTravelMinutes?: number;
   leg?: "outbound" | "return";
+  /** Stored vehicle label. Missing is owner-operated, never guessed as Minibus. */
+  vehicle?: string | null;
+  /** Set when the job is built. Missing falls back to the vehicle label. */
+  resource?: "owner" | "minibus";
 };
 
 export type SmartRequestedJourney = {
@@ -841,14 +850,19 @@ export function evaluateSmartAvailability(input: {
     return empty;
   }
 
+  const resource = availabilityResourceForVehicle(input.requested.vehicle);
+  const occupiedForResource = filterOccupiedJobsForResource(input.occupied, resource);
+  const periodsForResource = filterUnavailablePeriodsForResource(input.legacyPeriods, resource);
+  const rulesForResource = resource === "minibus" ? [] : input.rules;
+  const exceptionsForResource = resource === "minibus" ? [] : input.exceptions;
   const fromYmd = addDaysYmd(input.requested.tripDate, -1);
   const toYmd = addDaysYmd(input.requested.tripDate, 1);
   const intervals = expandSmartAvailabilityIntervals({
-    rules: input.rules || [],
-    exceptions: input.exceptions,
+    rules: rulesForResource || [],
+    exceptions: exceptionsForResource,
     fromYmd,
     toYmd,
-    legacyPeriods: input.legacyPeriods,
+    legacyPeriods: periodsForResource,
   });
   const pickupBlocked = findBlockingSmartInterval(
     input.requested.tripDate,
@@ -872,7 +886,7 @@ export function evaluateSmartAvailability(input: {
       }
     : null;
 
-  const activeJobs = input.occupied.filter((job) => !isCancelledJob(job));
+  const activeJobs = occupiedForResource.filter((job) => !isCancelledJob(job));
   const timedJobs = activeJobs
     .map((job) => ({ job, ms: pickupMs(job.tripDate, job.tripTime) }))
     .filter((item): item is { job: SmartOccupiedJob; ms: number } => item.ms != null)
@@ -1106,10 +1120,10 @@ export function evaluateSmartAvailability(input: {
   const suggestion = !available && input.searchAlternatives !== false
     ? suggestAlternativeTimes({
         requested: input.requested,
-        occupied: input.occupied,
-        rules: input.rules,
-        exceptions: input.exceptions,
-        legacyPeriods: input.legacyPeriods,
+        occupied: occupiedForResource,
+        rules: rulesForResource,
+        exceptions: exceptionsForResource,
+        legacyPeriods: periodsForResource,
         config: input.config,
         now: input.now,
         requestedReason: reason,
@@ -1332,6 +1346,7 @@ export type PaidBookingLikeForJobs = {
   dropoffLng?: number | null;
   airportCode?: string | null;
   isFromAirport?: boolean | null;
+  vehicle?: string | null;
   operationalStatus?: string;
   paymentStatus?: string;
   status?: string;
@@ -1402,6 +1417,8 @@ export function occupiedJobsFromPaidBooking(
     paymentStatus: booking.paymentStatus,
     routeDurationMinutes: booking.routeDurationMinutes || undefined,
     routeDistanceKm: booking.routeDistanceKm || undefined,
+    vehicle: booking.vehicle || null,
+    resource: availabilityResourceForVehicle(booking.vehicle),
     leg: "outbound",
   };
 

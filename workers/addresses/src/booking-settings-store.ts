@@ -10,6 +10,8 @@ import {
   MINIMUM_BOOKING_NOTICE_HOURS,
   MINIMUM_SHORT_NOTICE_LEAD_HOURS,
   normalizeMinimumBookingNoticeHours,
+  normalizeMinibusMinimumBookingNoticeHours,
+  parseMinibusMinimumBookingNoticeHoursInput,
   normalizeCustomerPaymentWindowMinutes,
   normalizeShortNoticeConfirmationWindowHours,
   normalizeUnavailablePeriod,
@@ -34,6 +36,11 @@ export type BookingSettings = {
   unavailablePeriods: UnavailablePeriod[];
   /** Owner-configured short-notice / minimum advance period. Defaults to 12. */
   minimumBookingNoticeHours: number;
+  /**
+   * 7-Seater minimum booking notice. Independent of minimumBookingNoticeHours.
+   * Missing saved values fall back to 24.
+   */
+  minibusMinimumBookingNoticeHours: number;
   /** Minimum lead time before a short-notice request can be submitted. Defaults to 2. */
   minimumShortNoticeLeadHours: number;
   /** How long the owner has to confirm a short-notice request. Defaults to 1. Whole hours 1–4. */
@@ -56,6 +63,7 @@ export function defaultBookingSettings(): BookingSettings {
   return {
     unavailablePeriods: [],
     minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
+    minibusMinimumBookingNoticeHours: normalizeMinibusMinimumBookingNoticeHours(undefined),
     minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
     shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
     customerPaymentWindowMinutes: CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT,
@@ -84,6 +92,9 @@ export function normalizeBookingSettings(
   return {
     unavailablePeriods: normalizeUnavailablePeriods(raw?.unavailablePeriods),
     minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: normalizeMinibusMinimumBookingNoticeHours(
+      raw?.minibusMinimumBookingNoticeHours,
+    ),
     minimumShortNoticeLeadHours: clampShortNoticeLeadHours(
       raw?.minimumShortNoticeLeadHours,
       minimumBookingNoticeHours,
@@ -133,6 +144,7 @@ export async function saveBookingSettings(
     minimumBookingNoticeHours: normalizeMinimumBookingNoticeHours(
       settings.minimumBookingNoticeHours ?? current.minimumBookingNoticeHours,
     ),
+    minibusMinimumBookingNoticeHours: current.minibusMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours: clampShortNoticeLeadHours(
       settings.minimumShortNoticeLeadHours ?? current.minimumShortNoticeLeadHours,
       settings.minimumBookingNoticeHours ?? current.minimumBookingNoticeHours,
@@ -165,6 +177,30 @@ export async function updateMinimumBookingNoticeHours(
   return putBookingSettings(store, {
     unavailablePeriods: current.unavailablePeriods,
     minimumBookingNoticeHours: parsed,
+    minibusMinimumBookingNoticeHours: current.minibusMinimumBookingNoticeHours,
+    minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
+    shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
+    customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
+    depositCash: current.depositCash,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updateMinibusMinimumBookingNoticeHours(
+  store: KVNamespace,
+  hours: unknown,
+): Promise<BookingSettings> {
+  const parsed = parseMinibusMinimumBookingNoticeHoursInput(hours);
+  if (parsed == null) {
+    throw new Error(
+      "7-Seater minimum booking notice must be a whole number of hours between 1 and 72.",
+    );
+  }
+  const current = await getBookingSettings(store);
+  return putBookingSettings(store, {
+    unavailablePeriods: current.unavailablePeriods,
+    minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: parsed,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
@@ -192,6 +228,7 @@ export async function updateMinimumShortNoticeLeadHours(
   return putBookingSettings(store, {
     unavailablePeriods: current.unavailablePeriods,
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: current.minibusMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours: parsed,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
@@ -209,6 +246,7 @@ export async function updateDepositCashSettings(
   return putBookingSettings(store, {
     unavailablePeriods: current.unavailablePeriods,
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: current.minibusMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
@@ -231,6 +269,7 @@ export async function updateShortNoticeConfirmationWindowHours(
   return putBookingSettings(store, {
     unavailablePeriods: current.unavailablePeriods,
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: current.minibusMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: parsed,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
@@ -253,6 +292,7 @@ export async function updateCustomerPaymentWindowMinutes(
   return putBookingSettings(store, {
     unavailablePeriods: current.unavailablePeriods,
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: current.minibusMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: parsed,
@@ -280,6 +320,7 @@ export async function addUnavailablePeriod(
   const settings = await putBookingSettings(store, {
     unavailablePeriods: [...current.unavailablePeriods, period],
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: current.minibusMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
@@ -317,6 +358,7 @@ export async function updateUnavailablePeriod(
       entry.id === trimmedId ? period : entry,
     ),
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: current.minibusMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
@@ -340,6 +382,7 @@ export async function deleteUnavailablePeriod(
   return putBookingSettings(store, {
     unavailablePeriods: next,
     minimumBookingNoticeHours: current.minimumBookingNoticeHours,
+    minibusMinimumBookingNoticeHours: current.minibusMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours: current.minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,

@@ -1,8 +1,10 @@
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import {
+  DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
   MINIMUM_BOOKING_NOTICE_HOURS,
   MINIMUM_SHORT_NOTICE_LEAD_HOURS,
   normalizeMinimumBookingNoticeHours,
+  normalizeMinibusMinimumBookingNoticeHours,
   normalizeMinimumShortNoticeLeadHours,
   normalizeShortNoticeConfirmationWindowHours,
   SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
@@ -91,6 +93,8 @@ export type UnavailablePeriodSummary = {
   endLocal: string;
   note?: string;
   mode?: "request_only" | "no_availability";
+  /** Only "minibus" is the subcontract resource. Missing stays on the owner diary. */
+  resource?: "minibus";
   createdAt: string;
   updatedAt: string;
 };
@@ -100,6 +104,7 @@ export type BookingSettings = {
   activeUnavailablePeriods?: UnavailablePeriodSummary[];
   activeCount?: number;
   minimumBookingNoticeHours?: number;
+  minibusMinimumBookingNoticeHours?: number;
   minimumShortNoticeLeadHours?: number;
   shortNoticeConfirmationWindowHours?: number;
   customerPaymentWindowMinutes?: number;
@@ -492,6 +497,7 @@ export async function declineShortNoticeBooking(
 
 export async function fetchPublicBookingNotice(): Promise<{
   minimumBookingNoticeHours: number;
+  minibusMinimumBookingNoticeHours: number;
   minimumShortNoticeLeadHours: number;
   shortNoticeConfirmationWindowHours: number;
 }> {
@@ -504,6 +510,7 @@ export async function fetchPublicBookingNotice(): Promise<{
     if (!response.ok) {
       return {
         minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
+        minibusMinimumBookingNoticeHours: DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
         minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
         shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
       };
@@ -511,6 +518,9 @@ export async function fetchPublicBookingNotice(): Promise<{
     return {
       minimumBookingNoticeHours: normalizeMinimumBookingNoticeHours(
         payload.minimumBookingNoticeHours,
+      ),
+      minibusMinimumBookingNoticeHours: normalizeMinibusMinimumBookingNoticeHours(
+        payload.minibusMinimumBookingNoticeHours,
       ),
       minimumShortNoticeLeadHours: normalizeMinimumShortNoticeLeadHours(
         payload.minimumShortNoticeLeadHours,
@@ -522,6 +532,7 @@ export async function fetchPublicBookingNotice(): Promise<{
   } catch {
     return {
       minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
+      minibusMinimumBookingNoticeHours: DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
       minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
       shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
     };
@@ -602,6 +613,29 @@ export async function updateMinimumShortNoticeLeadHours(
   return payload.settings as BookingSettings;
 }
 
+export async function updateMinibusMinimumBookingNoticeHours(
+  ownerKey: string,
+  hours: number,
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      action: "set-minibus-notice-hours",
+      minibusMinimumBookingNoticeHours: hours,
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not save 7-Seater minimum booking notice"));
+  }
+  return payload.settings as BookingSettings;
+}
+
 export async function updateMinimumBookingNoticeHours(
   ownerKey: string,
   hours: number,
@@ -675,6 +709,7 @@ export type UnavailablePeriodWriteInput = {
   endTime: string;
   note?: string;
   mode?: "request_only" | "no_availability";
+  resource?: "minibus";
 };
 
 export async function addUnavailablePeriod(
@@ -696,6 +731,7 @@ export async function addUnavailablePeriod(
       endTime: input.endTime,
       note: input.note ?? "",
       mode: input.mode ?? "request_only",
+      ...(input.resource === "minibus" ? { resource: "minibus" } : {}),
     }),
   });
   const payload = await parseJson(response);
@@ -725,6 +761,7 @@ export async function updateUnavailablePeriod(
       endTime: input.endTime,
       note: input.note ?? "",
       mode: input.mode ?? "request_only",
+      ...(input.resource === "minibus" ? { resource: "minibus" } : {}),
     }),
   });
   const payload = await parseJson(response);

@@ -235,12 +235,19 @@ import {
 } from "@/components/QuoteFareTrust";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import ShortNoticeCheckoutNotice, {
+  MinibusNoticeCheckoutNotice,
   ShortNoticePaymentFollowUp,
   TooSoonCheckoutNotice,
 } from "@/components/ShortNoticeCheckoutNotice";
 import {
+  MINIBUS_NOTICE_CTA,
+  MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE,
+} from "../../shared/availability-resource";
+import { isPublicMinibusVehicle } from "../../shared/owner-pricing-config";
+import {
   classifyPickupLeadWindow,
   isOwnerNoAvailabilityMessage,
+  isWithinMinimumBookingNotice,
   OWNER_NO_AVAILABILITY_MESSAGE,
   tooSoonRequestBody,
 } from "../../shared/booking-notice";
@@ -662,6 +669,13 @@ function resolveLandingJourneyIntent(params: {
   return null;
 }
 
+function isClosedAvailabilityError(message?: string | null): boolean {
+  return (
+    isOwnerNoAvailabilityMessage(message) ||
+    String(message || "").trim() === MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE
+  );
+}
+
 function QuoteCard({
   initialAirportCode = "",
   initialDirection = "to-airport",
@@ -896,6 +910,7 @@ function QuoteCard({
     setMinimumBookingNoticeHours,
     minimumShortNoticeLeadHours,
     shortNoticeConfirmationWindowHours,
+    minibusMinimumBookingNoticeHours,
   ] = useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
@@ -904,6 +919,7 @@ function QuoteCard({
     underMinimumNotice?: boolean;
     noticeHours?: number;
     luggageCapacity?: boolean;
+    minibusNotice?: boolean;
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
@@ -1497,14 +1513,34 @@ function QuoteCard({
           minimumShortNoticeLeadHours,
         )
       : "unknown";
+  const isMinibusQuote = isPublicMinibusVehicle(quoteVehicle);
+  const minibusInsideNotice =
+    isMinibusQuote &&
+    Boolean(tripDate && tripTime) &&
+    isWithinMinimumBookingNotice(
+      tripDate,
+      tripTime,
+      new Date(),
+      minibusMinimumBookingNoticeHours,
+    );
+  const closedAvailabilityMessage = isClosedAvailabilityError(paymentError);
   const isTooSoonPickup =
+    !isMinibusQuote &&
     pickupLeadWindow === "too_soon" &&
     !ownerNoAvailabilityBlocked &&
-    !isOwnerNoAvailabilityMessage(paymentError);
+    !closedAvailabilityMessage;
   const isMinimumNoticeRequest =
+    !isMinibusQuote &&
     pickupLeadWindow === "short_notice" &&
     !ownerNoAvailabilityBlocked &&
-    !isOwnerNoAvailabilityMessage(paymentError);
+    !closedAvailabilityMessage;
+  const isMinibusNoticeRequest =
+    minibusInsideNotice &&
+    !ownerNoAvailabilityBlocked &&
+    !closedAvailabilityMessage &&
+    !smartAvailabilityBlocked &&
+    !isCustomerSmartAvailabilityBlockMessage(paymentError);
+  const isAvailabilityRequest = isMinimumNoticeRequest || isMinibusNoticeRequest;
   const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
     "Hi, I have a short-notice airport transfer request.",
   )}`;
@@ -1979,7 +2015,7 @@ function QuoteCard({
           setPaymentError(OWNER_NO_AVAILABILITY_MESSAGE);
         } else {
           setOwnerNoAvailabilityBlocked(false);
-          setPaymentError((prev) => (isOwnerNoAvailabilityMessage(prev) ? "" : prev));
+          setPaymentError((prev) => (isClosedAvailabilityError(prev) ? "" : prev));
           if (result.smartAvailability?.enforced) {
             applyCustomerAvailabilityResult({
               blocked: Boolean(result.smartAvailability.blocked),
@@ -2803,7 +2839,7 @@ function QuoteCard({
       return true;
     }
     setOwnerNoAvailabilityBlocked(false);
-    setPaymentError((prev) => (isOwnerNoAvailabilityMessage(prev) ? "" : prev));
+    setPaymentError((prev) => (isClosedAvailabilityError(prev) ? "" : prev));
     return applyCustomerAvailabilityResult(result);
   }
 
@@ -2886,7 +2922,7 @@ function QuoteCard({
         setOwnerNoAvailabilityBlocked(false);
         setAvailabilityAlternatives([]);
         setPaymentError((prev) =>
-          isCustomerSmartAvailabilityBlockMessage(prev) || isOwnerNoAvailabilityMessage(prev)
+          isCustomerSmartAvailabilityBlockMessage(prev) || isClosedAvailabilityError(prev)
             ? ""
             : prev,
         );
@@ -3608,7 +3644,7 @@ function QuoteCard({
       : null;
   const showDepositCashChoice =
     depositCashOffer?.eligible === true &&
-    !isMinimumNoticeRequest &&
+    !isAvailabilityRequest &&
     !capacityNeedsConfirm;
   const selectedDepositCash =
     showDepositCashChoice && paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH;
@@ -3619,7 +3655,7 @@ function QuoteCard({
       handleChooseAnotherTime();
       return;
     }
-    if (ownerNoAvailabilityBlocked || isOwnerNoAvailabilityMessage(paymentError)) {
+    if (ownerNoAvailabilityBlocked || closedAvailabilityMessage) {
       setOwnerNoAvailabilityBlocked(true);
       setPaymentError(OWNER_NO_AVAILABILITY_MESSAGE);
       return;
@@ -3838,13 +3874,18 @@ function QuoteCard({
           whatsappUrl: checkout.whatsappUrl,
           amountLabel: checkout.amountLabel ?? amountLabel,
           underMinimumNotice:
-            checkout.underMinimumNotice === true || isMinimumNoticeRequest,
+            checkout.underMinimumNotice === true || isAvailabilityRequest,
           noticeHours:
-            checkout.minimumBookingNoticeHours ??
-            checkout.minimumNoticeHours ??
-            minimumBookingNoticeHours,
+            checkout.minibusNotice || isMinibusNoticeRequest
+              ? checkout.minimumBookingNoticeHours ??
+                checkout.minimumNoticeHours ??
+                minibusMinimumBookingNoticeHours
+              : checkout.minimumBookingNoticeHours ??
+                checkout.minimumNoticeHours ??
+                minimumBookingNoticeHours,
           luggageCapacity:
             checkout.luggageCapacity === true || capacityNeedsConfirm,
+          minibusNotice: checkout.minibusNotice === true || isMinibusNoticeRequest,
         });
         setPaymentLoading(false);
         return;
@@ -5729,7 +5770,7 @@ function QuoteCard({
     const showChangeDropOff =
       expressSelection.eligible && expressSelection.freeAlternativeAvailable;
     const ownerClosed =
-      ownerNoAvailabilityBlocked || isOwnerNoAvailabilityMessage(paymentError);
+      ownerNoAvailabilityBlocked || closedAvailabilityMessage;
     const checkoutBlocked =
       !ownerClosed &&
       !isMinimumNoticeRequest &&
@@ -6054,6 +6095,15 @@ function QuoteCard({
 
           {payNow &&
           liveQuote &&
+          isMinibusNoticeRequest &&
+          !openCheckout &&
+          !ownerClosed &&
+          !checkoutBlocked ? (
+            <MinibusNoticeCheckoutNotice />
+          ) : null}
+
+          {payNow &&
+          liveQuote &&
           isMinimumNoticeRequest &&
           !openCheckout &&
           !ownerClosed &&
@@ -6072,7 +6122,7 @@ function QuoteCard({
             mode={
               isManualQuoteJourney
                 ? "quote-request"
-                : isMinimumNoticeRequest || capacityNeedsConfirm
+                : isAvailabilityRequest || capacityNeedsConfirm
                   ? "booking-request"
                   : payNow
                     ? "card-payment"
@@ -6098,7 +6148,7 @@ function QuoteCard({
             <div id="owner-no-availability-blocked">
               <OwnerNoAvailabilityBlocked
                 message={
-                  isOwnerNoAvailabilityMessage(paymentError)
+                  isClosedAvailabilityError(paymentError)
                     ? paymentError
                     : OWNER_NO_AVAILABILITY_MESSAGE
                 }
@@ -6127,7 +6177,7 @@ function QuoteCard({
                     {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
                   </p>
                 </div>
-              ) : !isMinimumNoticeRequest && !openCheckout ? (
+              ) : !isAvailabilityRequest && !openCheckout ? (
                 <p className="text-xs leading-relaxed text-white/70">
                   Your transfer is reserved for your selected pickup time.
                 </p>
@@ -6277,7 +6327,7 @@ function QuoteCard({
                     <p className="text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
                   </div>
                 ) : null}
-                {isMinimumNoticeRequest && !openCheckout ? (
+                {isAvailabilityRequest && !openCheckout ? (
                   <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
                 ) : null}
                 <button
@@ -6287,13 +6337,15 @@ function QuoteCard({
                   className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
-                    ? capacityNeedsConfirm || isMinimumNoticeRequest
+                    ? capacityNeedsConfirm || isAvailabilityRequest
                       ? "Submitting booking request…"
                       : "Opening secure payment…"
                     : testChargeAmount !== null
                       ? "Pay £1.00 test charge with SumUp"
                       : capacityNeedsConfirm
                         ? `${LUGGAGE_CAPACITY_CONFIRMATION_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                        : isMinibusNoticeRequest
+                        ? `${MINIBUS_NOTICE_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : isMinimumNoticeRequest
                         ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : showDepositCashChoice && depositCashOffer
@@ -6302,7 +6354,7 @@ function QuoteCard({
                             : fullPayButtonLabel(depositCashOffer.totalFare)
                         : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
                 </button>
-                {capacityNeedsConfirm && !isMinimumNoticeRequest ? (
+                {capacityNeedsConfirm && !isAvailabilityRequest ? (
                   <a
                     href={shortNoticeWhatsAppHref}
                     target="_blank"
@@ -6628,8 +6680,13 @@ function QuoteCard({
           amountLabel={shortNoticeResult.amountLabel}
           whatsappUrl={shortNoticeResult.whatsappUrl}
           underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
-          noticeHours={shortNoticeResult.noticeHours ?? minimumBookingNoticeHours}
+          noticeHours={
+            shortNoticeResult.minibusNotice
+              ? shortNoticeResult.noticeHours ?? minibusMinimumBookingNoticeHours
+              : shortNoticeResult.noticeHours ?? minimumBookingNoticeHours
+          }
           luggageCapacity={shortNoticeResult.luggageCapacity === true}
+          minibusNotice={shortNoticeResult.minibusNotice === true}
         />
         <button
           type="button"

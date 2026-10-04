@@ -126,7 +126,9 @@ export type PaymentCheckoutResult = {
   blockingPeriodId?: string | null;
   blockingPeriodLabel?: string | null;
   underMinimumNotice?: boolean;
-  /** Owner-configured short-notice period applied by the Worker. */
+  /** 7-Seater notice request. Payment stays closed until the owner approves it. */
+  minibusNotice?: boolean;
+  /** Notice period applied by the Worker for this request. */
   minimumBookingNoticeHours?: number;
   minimumNoticeHours?: number;
   amount?: number;

@@ -415,6 +415,10 @@ import {
   formatHoursUntilPickupLabel,
   isWithinMinimumBookingNotice,
 } from "../shared/booking-notice";
+import {
+  availabilityResourceForVehicle,
+  MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE,
+} from "../shared/availability-resource";
 import { getBookingSettings } from "./booking-settings-store";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import {
@@ -1794,18 +1798,21 @@ async function blockedCustomerSmartAvailabilityResponse(
     booking,
   });
   if (!availabilityGate.blocked) return null;
-  const settings = await getBookingSettings(env.TRACKING_STORE);
-  if (
-    booking.tripDate &&
-    booking.tripTime &&
-    isWithinMinimumBookingNotice(
-      String(booking.tripDate),
-      String(booking.tripTime),
-      undefined,
-      settings.minimumBookingNoticeHours,
-    )
-  ) {
-    return null;
+  // Minibus conflicts stay hard blocks, including inside the 7-Seater notice window.
+  if (availabilityResourceForVehicle(booking.vehicle) !== "minibus") {
+    const settings = await getBookingSettings(env.TRACKING_STORE);
+    if (
+      booking.tripDate &&
+      booking.tripTime &&
+      isWithinMinimumBookingNotice(
+        String(booking.tripDate),
+        String(booking.tripTime),
+        undefined,
+        settings.minimumBookingNoticeHours,
+      )
+    ) {
+      return null;
+    }
   }
   return json(
     {
@@ -1831,6 +1838,7 @@ async function blockedOwnerNoAvailabilityResponse(
         returnTime?: string | null;
         routeDurationMinutes?: number | null;
         journeyDuration?: string | null;
+        vehicle?: string | null;
       }
     | null
     | undefined,
@@ -2936,7 +2944,9 @@ async function handlePaymentRequest(
     if (notice.noAvailability) {
       return json(
         {
-          error: OWNER_NO_AVAILABILITY_MESSAGE,
+          error: notice.minibusNotice
+            ? MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE
+            : OWNER_NO_AVAILABILITY_MESSAGE,
           code: OWNER_NO_AVAILABILITY_CODE,
           available: false,
         },
@@ -2972,12 +2982,15 @@ async function handlePaymentRequest(
         });
         const amountLabel = formatPaidAmount(created.record.amount);
         const luggageCapacity = hasLuggageCapacityHold(created.record.holdReasons) || luggageHold;
+        const minibusRequest = notice.minibusNotice === true && !luggageCapacity;
         const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
           amountLabel,
           checkoutId: created.record.reference,
           checkoutReference: luggageCapacity
             ? `CAPACITY · ${created.record.reference}`
-            : `SHORT-NOTICE · ${created.record.reference}`,
+            : minibusRequest
+              ? `7-SEATER · ${created.record.reference}`
+              : `SHORT-NOTICE · ${created.record.reference}`,
         });
         const pickupRemaining = formatHoursUntilPickupLabel(booking.tripDate, booking.tripTime);
         const respondBy = created.record.shortNoticeExpiresAt
@@ -2987,8 +3000,9 @@ async function handlePaymentRequest(
           created.record.underMinimumNotice && respondBy
             ? `SHORT-NOTICE BOOKING REQUEST\nRespond by ${respondBy}\n\n`
             : "";
-        const ownerSubject =
-          luggageCapacity && !notice.shortNotice
+        const ownerSubject = minibusRequest
+          ? `7-Seater availability request — ${created.record.reference}`
+          : luggageCapacity && !notice.shortNotice
             ? `New luggage capacity confirmation request — ${created.record.reference}`
             : created.record.underMinimumNotice && respondBy
               ? `SHORT-NOTICE BOOKING REQUEST — respond by ${respondBy}`
@@ -3003,7 +3017,9 @@ async function handlePaymentRequest(
             `Action required: ${
               luggageCapacity && !created.record.underMinimumNotice
                 ? LUGGAGE_CAPACITY_OWNER_REASON
-                : "SHORT-NOTICE BOOKING REQUEST"
+                : minibusRequest
+                  ? "7-SEATER AVAILABILITY REQUEST"
+                  : "SHORT-NOTICE BOOKING REQUEST"
             } · Awaiting your decision.\n` +
             (respondBy ? `Respond by ${respondBy}\n` : "") +
             `Status: SHORT_NOTICE_AWAITING_APPROVAL\n` +
@@ -3018,7 +3034,11 @@ async function handlePaymentRequest(
                 : booking.vehicle || "7 Seater Minibus"
             }\n` +
             `Reason: ${
-              luggageCapacity ? LUGGAGE_CAPACITY_OWNER_REASON : "Short-notice request"
+              luggageCapacity
+                ? LUGGAGE_CAPACITY_OWNER_REASON
+                : minibusRequest
+                  ? "7-Seater availability confirmation required"
+                  : "Short-notice request"
             }\n` +
             `Pickup remaining: ${pickupRemaining ?? "—"}\n` +
             `Unavailable period: ${notice.blockingPeriodLabel ?? notice.blockingPeriodId ?? "—"}\n` +
@@ -3039,6 +3059,7 @@ async function handlePaymentRequest(
             blockingPeriodId: notice.blockingPeriodId,
             blockingPeriodLabel: notice.blockingPeriodLabel,
             underMinimumNotice: Boolean(notice.underMinimumNotice),
+            minibusNotice: notice.minibusNotice === true,
             minimumBookingNoticeHours:
               created.record.minimumNoticeHoursApplied ?? notice.minimumNoticeHours,
             minimumNoticeHours:
