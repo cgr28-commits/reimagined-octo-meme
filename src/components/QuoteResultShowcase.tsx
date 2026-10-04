@@ -18,6 +18,7 @@ import {
   LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
 } from "../../shared/vehicle-capacity";
 import { AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE } from "@/lib/authoritative-quote-fare";
+import { STANDARD_SALOON_IMAGE } from "@/lib/vehicle-artwork";
 
 type QuoteResultShowcaseProps = {
   vehicleType: string;
@@ -38,13 +39,20 @@ type QuoteResultShowcaseProps = {
 
 // Presentational only: image follows the vehicle type already chosen for
 // the party. No new selection rules.
+// Executive uses the previous Saloon file. Standard Saloon uses
+// STANDARD_SALOON_IMAGE once quote-standard-saloon.webp is added.
 
-const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
+const EXECUTIVE_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
-/** Saloon, Estate, and 7-seater art used on the result card. */
-const QUOTE_RESULT_VEHICLE_IMAGES = [SALOON_IMAGE, ESTATE_IMAGE, MINIBUS_IMAGE] as const;
+/** Estate, Executive, and 7-seater art used on the result card. */
+const QUOTE_RESULT_VEHICLE_IMAGES = [
+  EXECUTIVE_IMAGE,
+  ESTATE_IMAGE,
+  MINIBUS_IMAGE,
+  ...(STANDARD_SALOON_IMAGE ? [STANDARD_SALOON_IMAGE] : []),
+] as const;
 
 /**
  * Start these downloads with the quote form, before a price exists.
@@ -84,8 +92,8 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
     : isEstate
       ? ESTATE_IMAGE
       : isExecutive
-        ? SALOON_IMAGE
-        : null;
+        ? EXECUTIVE_IMAGE
+        : STANDARD_SALOON_IMAGE;
   const estateDueToLuggage = isEstate && suitcases >= 3;
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
@@ -122,7 +130,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
                     ? "7 Seater Minibus airport transfer vehicle"
                     : isExecutive
                       ? "Executive airport transfer"
-                      : "Estate airport transfer vehicle"
+                      : isEstate
+                        ? "Estate airport transfer vehicle"
+                        : "Saloon airport transfer"
                 }
                 width={1400}
                 height={700}

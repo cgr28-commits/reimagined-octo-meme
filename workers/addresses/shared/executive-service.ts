@@ -4,18 +4,16 @@
  * (default £20). Airport and Express charges stay outside that uplift.
  * The enquiry-only Executive Saloon is unchanged.
  *
- * Luggage: vehicle-capacity and the Saloon/Estate rules do not define an
- * Executive hold. Executive is not given a larger hold because it costs more.
- * EXECUTIVE_MAX_SUITCASES matches the existing Saloon band (0–2 large
- * suitcases). 3–4 large suitcases stay on Estate.
+ * Luggage: Executive takes up to 3 large suitcases. Four large suitcases
+ * are not an Executive booking. Estate remains available for 0–4.
  */
 
 export const DEFAULT_EXECUTIVE_UPLIFT_GBP = 20;
 /** Missing-config fallback. Customer quotes use the dashboard upgrade. */
 export const EXECUTIVE_PREMIUM_GBP = DEFAULT_EXECUTIVE_UPLIFT_GBP;
 export const EXECUTIVE_MAX_PASSENGERS = 3;
-/** Same large-suitcase band as Saloon. Not derived from the upgrade price. */
-export const EXECUTIVE_MAX_SUITCASES = 2;
+/** Up to 3 large suitcases. Four or more is not Executive. */
+export const EXECUTIVE_MAX_SUITCASES = 3;
 export const SALOON_MAX_PASSENGERS = 4;
 export const SALOON_MAX_SUITCASES = 2;
 export const ESTATE_MAX_PASSENGERS = 4;
@@ -27,7 +25,8 @@ export const LEGACY_EXECUTIVE_SALOON_TYPE = "Executive Saloon (1–4 passengers)
 export const EXECUTIVE_PASSENGER_LIMIT_MESSAGE =
   "Executive is available for up to 3 passengers.";
 export const EXECUTIVE_PASSENGER_LIMIT_SHORT = "Maximum 3 passengers";
-export const EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE = "Not suitable for your luggage";
+export const EXECUTIVE_LUGGAGE_LIMIT_SHORT = "Maximum 3 large suitcases";
+export const EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE = "Maximum 3 large suitcases";
 export const SALOON_LUGGAGE_UNAVAILABLE_MESSAGE = "Not suitable for your luggage";
 
 export const EXECUTIVE_BENEFITS = [
@@ -83,7 +82,7 @@ export function estateRecommendedForLuggage(passengers: number, suitcases: numbe
 }
 
 /**
- * Executive: 1–3 passengers and the Saloon suitcase band (0–2).
+ * Executive: 1–3 passengers and 0–3 large suitcases.
  * 5+ passengers or 5+ bags stay on the existing Minibus rule.
  */
 export function executiveAvailableForParty(passengers: number, suitcases: number): boolean {
@@ -110,7 +109,7 @@ export function publicVehicleEligibilityMessage(
       return EXECUTIVE_PASSENGER_LIMIT_MESSAGE;
     }
     if (!wholeInRange(suitcases, 0, EXECUTIVE_MAX_SUITCASES)) {
-      return "Executive is not suitable for your luggage.";
+      return "Executive is available for up to 3 large suitcases.";
     }
     return null;
   }

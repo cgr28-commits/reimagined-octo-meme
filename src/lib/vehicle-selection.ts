@@ -6,8 +6,8 @@
  * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
  * - Estate Car: suitable for 1–4 passengers and 0–4 suitcases; 3–4 suitcases
  *   make Estate the lowest-priced suitable option
- * - Executive: 1–3 passengers AND 0–2 suitcases (service upgrade, same luggage
- *   band as Saloon). Never assigned automatically.
+ * - Executive: 1–3 passengers AND 0–3 large suitcases (service upgrade).
+ *   Four large suitcases are not Executive. Never assigned automatically.
  * - 7 Seater Minibus: 5–7 passengers OR 5+ large bags
  *   (only bookable when Offer 7 Seater Minibus Online is ON)
  *

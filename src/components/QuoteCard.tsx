@@ -884,6 +884,8 @@ function QuoteCard({
   const quoteFareTimingRef = useRef({ inputsAt: 0, requestAt: 0 });
   /** Worker-authoritative journey/fixed split (same engine as SumUp). Prefer over browser metrics. */
   const [serverFareParts, setServerFareParts] = useState<ServerFarePartyParts | null>(null);
+  /** Bumps when a non-selected vehicle fare lands in the authoritative cache. */
+  const [farePreviewStamp, setFarePreviewStamp] = useState(0);
   /** Worker quote finished without a fare — only then may the loaded client engine paint. */
   const [serverQuoteUnavailable, setServerQuoteUnavailable] = useState(false);
   const serverQuoteGenRef = useRef(0);
@@ -1606,7 +1608,7 @@ function QuoteCard({
     };
   }
 
-  const liveQuote = useMemo(() => {
+  const quoteForVehicle = useCallback((vehicleType: VehicleType) => {
     // Do not invent or show live fares until pricing rules are owner-approved.
     if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
       return null;
@@ -1629,7 +1631,7 @@ function QuoteCard({
         return calculateQuote(
           pickupAddress,
           dropoffAirportCode,
-          quoteVehicle,
+          vehicleType,
           returnJourney,
           schedule,
           routeMetrics,
@@ -1641,7 +1643,7 @@ function QuoteCard({
         return calculateQuote(
           dropoffAddress,
           pickupAirportCode,
-          quoteVehicle,
+          vehicleType,
           returnJourney,
           schedule,
           routeMetrics,
@@ -1659,7 +1661,7 @@ function QuoteCard({
           dropoffAirportCode,
           pickupAddress,
           dropoffAddress,
-          quoteVehicle,
+          vehicleType,
           returnJourney,
           schedule,
           routeMetrics,
@@ -1677,7 +1679,7 @@ function QuoteCard({
           : dropoffAddress;
         return calculateDublinCityBeyondAirportQuote(
           niAddress,
-          quoteVehicle,
+          vehicleType,
           routeMetrics,
           returnJourney,
           schedule,
@@ -1687,7 +1689,7 @@ function QuoteCard({
       return calculatePointToPointQuote(
         pickupAddress,
         dropoffAddress,
-        quoteVehicle,
+        vehicleType,
         returnJourney,
         schedule,
         routeMetrics,
@@ -1701,7 +1703,7 @@ function QuoteCard({
       return calculateQuote(
         quoteAddress,
         airportCode,
-        quoteVehicle,
+        vehicleType,
         returnJourney,
         schedule,
         routeMetrics,
@@ -1717,7 +1719,7 @@ function QuoteCard({
     return calculatePointToPointQuote(
       pickupAddress,
       dropoffAddress,
-      quoteVehicle,
+      vehicleType,
       returnJourney,
       schedule,
       routeMetrics,
@@ -1752,9 +1754,13 @@ function QuoteCard({
     routeMetrics,
     tripDate,
     tripTime,
-    quoteVehicle,
     publicPricing,
   ]);
+
+  const liveQuote = useMemo(
+    () => quoteForVehicle(quoteVehicle),
+    [quoteForVehicle, quoteVehicle],
+  );
 
   // Prefer Worker-authoritative fare (same resolveWorkerTripRouteMetrics + engine as SumUp)
   // so the displayed/consent amount matches checkout. Browser metrics stay for map display.
@@ -1806,8 +1812,18 @@ function QuoteCard({
       publicMinibusEnabled,
       requiresMinibus: paxNow != null && requiresMinibus(paxNow, suitcases),
     });
+    const ownerChoices =
+      paxNow != null && !requiresMinibus(paxNow, suitcases)
+        ? [
+            saloonCapacityAllows(paxNow, suitcases) ? SALOON_VEHICLE : "",
+            estateCapacityAllows(paxNow, suitcases) ? ESTATE_VEHICLE : "",
+            executiveAvailableForParty(paxNow, suitcases) ? EXECUTIVE_VEHICLE : "",
+          ].filter((vehicle): vehicle is string => Boolean(vehicle))
+        : [];
+    const vehiclesToWarm = [...new Set([...vehiclesToPrice, ...ownerChoices])];
     const rememberFare = (vehicle: string, parts: ServerFarePartyParts) => {
       authoritativeFareCacheRef.current.set(fareKeyFor(vehicle), parts);
+      setFarePreviewStamp((stamp) => stamp + 1);
     };
     const quoteBodyFor = (vehicle: string) => ({
       pickupAddress: pickup,
@@ -1835,7 +1851,7 @@ function QuoteCard({
         : ("Saloon" as const),
     });
     const loadAlternateFares = () => {
-      for (const vehicle of vehiclesToPrice.slice(1)) {
+      for (const vehicle of vehiclesToWarm.filter((vehicle) => vehicle !== requestedVehicle)) {
         const key = fareKeyFor(vehicle);
         if (
           authoritativeFareCacheRef.current.has(key) ||
@@ -6528,6 +6544,46 @@ function QuoteCard({
     );
   }
 
+  function vehicleFareFor(vehicleType: VehicleType): number | null {
+    if (!mayPaintNumericFare || passengers == null || suitcases == null) return null;
+    void farePreviewStamp;
+    const partyPassengers = effectivePassengers ?? passengers;
+    if (
+      vehicleType === quoteVehicle &&
+      currentServerFareParts &&
+      Number.isFinite(currentServerFareParts.amountGbp)
+    ) {
+      return currentServerFareParts.amountGbp;
+    }
+    const cached = authoritativeFareCacheRef.current.get(
+      quoteFareRequestKey({
+        pickup: pickupAddress.trim(),
+        dropoff: dropoffAddress.trim(),
+        passengers: partyPassengers,
+        suitcases,
+        vehicle: vehicleType,
+        outboundDate: tripDate.trim(),
+        outboundTime: tripTime.trim(),
+        returnJourney,
+        returnDate,
+        returnTime,
+      }),
+    );
+    if (cached && Number.isFinite(cached.amountGbp)) return cached.amountGbp;
+    const quote = quoteForVehicle(vehicleType);
+    if (quote && typeof quote.amount === "number" && Number.isFinite(quote.amount)) {
+      return quote.amount;
+    }
+    return null;
+  }
+
+  const vehicleFares = {
+    saloon: vehicleFareFor(SALOON_VEHICLE),
+    estate: vehicleFareFor(ESTATE_VEHICLE),
+    executive: vehicleFareFor(EXECUTIVE_VEHICLE),
+    minibus: vehicleFareFor(MINIBUS_VEHICLE_TYPE),
+  };
+
   function renderQuoteVehicleChoice() {
     if (passengers == null || suitcases == null) return null;
     return (
@@ -6538,6 +6594,7 @@ function QuoteCard({
         onSelectVehicle={handleQuoteVehicleChoice}
         estateUpliftGbp={publicPricing.estate.upliftGbp}
         executiveUpliftGbp={publicPricing.executive.upliftGbp}
+        vehicleFares={vehicleFares}
         airportPickup={journeyIntent === "from-airport" || (isAirportTrip && isFromAirport)}
         includeMinibus={publicMinibusEnabled}
         quietJourney={quietJourney}
@@ -6937,6 +6994,7 @@ function QuoteCard({
               onSelectVehicle={handleQuoteVehicleChoice}
               estateUpliftGbp={publicPricing.estate.upliftGbp}
               executiveUpliftGbp={publicPricing.executive.upliftGbp}
+              vehicleFares={vehicleFares}
               quietJourney={quietJourney}
               climatePreference={climatePreference}
               onQuietJourneyChange={setQuietJourney}

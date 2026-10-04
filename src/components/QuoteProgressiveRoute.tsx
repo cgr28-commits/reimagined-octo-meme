@@ -24,7 +24,7 @@ import {
 } from "@/lib/quote-ui-highlight";
 import { detectMobileDevice } from "@/lib/device";
 import PublicPartySelectors from "@/components/PublicPartySelectors";
-import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
+import QuoteVehicleCategories, { type QuoteVehicleFares } from "@/components/QuoteVehicleCategories";
 import type { ClimatePreference } from "../../shared/executive-service";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
@@ -75,6 +75,7 @@ export type QuoteProgressiveRouteProps = {
   onSelectVehicle?: (vehicle: string) => void;
   estateUpliftGbp?: number;
   executiveUpliftGbp?: number;
+  vehicleFares?: QuoteVehicleFares | null;
   quietJourney?: boolean;
   climatePreference?: ClimatePreference;
   onQuietJourneyChange?: (value: boolean) => void;
@@ -137,6 +138,7 @@ export default function QuoteProgressiveRoute({
   onSelectVehicle,
   estateUpliftGbp,
   executiveUpliftGbp,
+  vehicleFares = null,
   quietJourney = false,
   climatePreference = "no_preference",
   onQuietJourneyChange,
@@ -471,6 +473,7 @@ export default function QuoteProgressiveRoute({
               onSelectVehicle={onSelectVehicle}
               estateUpliftGbp={estateUpliftGbp}
               executiveUpliftGbp={executiveUpliftGbp}
+              vehicleFares={vehicleFares}
               airportPickup={journeyIntent === "from-airport"}
               includeMinibus={publicMinibusEnabled === true}
               quietJourney={quietJourney}

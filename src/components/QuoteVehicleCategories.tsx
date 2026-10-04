@@ -2,6 +2,9 @@
 
 import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
+import { formatQuote } from "@/lib/quote";
+import { STANDARD_SALOON_IMAGE } from "@/lib/vehicle-artwork";
+// Standard Saloon art is public/images/vehicles/quote-standard-saloon.webp once added.
 import {
   ESTATE_VEHICLE,
   EXECUTIVE_VEHICLE,
@@ -12,13 +15,16 @@ import {
 } from "@/lib/vehicle-selection";
 import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
 import {
-  EXECUTIVE_AIRPORT_PICKUP_BENEFIT,
-  EXECUTIVE_BENEFITS,
+  ESTATE_MAX_PASSENGERS,
+  ESTATE_MAX_SUITCASES,
   EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE,
   EXECUTIVE_MAX_PASSENGERS,
+  EXECUTIVE_MAX_SUITCASES,
   EXECUTIVE_PASSENGER_LIMIT_MESSAGE,
   EXECUTIVE_PASSENGER_LIMIT_SHORT,
   SALOON_LUGGAGE_UNAVAILABLE_MESSAGE,
+  SALOON_MAX_PASSENGERS,
+  SALOON_MAX_SUITCASES,
   estateCapacityAllows,
   estateRecommendedForLuggage,
   executiveAvailableForParty,
@@ -31,42 +37,80 @@ const EXECUTIVE_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
+const EXECUTIVE_CARD_BENEFITS = [
+  "Complimentary bottled water",
+  "Phone charging available",
+  "Quiet Journey option",
+  "Climate preference",
+  "Flight monitoring where applicable",
+  "Luggage assistance",
+  "Premium comfort",
+] as const;
+
+const ESTATE_CARD_BENEFITS = ["Extra legroom", "Extra luggage space", "More relaxed journey"] as const;
+
+export type QuoteVehicleFares = {
+  saloon: number | null;
+  estate: number | null;
+  executive: number | null;
+  minibus: number | null;
+};
+
 const CATEGORIES = [
   {
     id: "saloon",
     vehicle: SALOON_VEHICLE,
     title: "Saloon",
-    detail: "Standard Travel",
-    image: null,
+    short: "Standard travel",
+    detail: "Standard travel",
+    benefit: "Comfortable & efficient",
+    image: STANDARD_SALOON_IMAGE,
+    imageAlt: "Saloon airport transfer",
   },
   {
     id: "estate",
     vehicle: ESTATE_VEHICLE,
     title: "Estate",
-    detail: "Extra Luggage Space",
+    short: "More comfort & extra space",
+    detail: "More comfort & extra space",
+    benefit: "Extra legroom",
     image: ESTATE_IMAGE,
+    imageAlt: "Estate airport transfer",
   },
   {
     id: "executive",
     vehicle: EXECUTIVE_VEHICLE,
     title: "Executive",
-    detail: "Premium Travel",
+    short: "Premium travel",
+    detail: "Premium travel experience",
+    benefit: "Premium comfort",
     image: EXECUTIVE_IMAGE,
+    imageAlt: "Executive airport transfer",
   },
   {
     id: "minibus",
     vehicle: MINIBUS_VEHICLE,
     title: MINIBUS_CUSTOMER_NAME,
+    short: MINIBUS_CUSTOMER_DESCRIPTION,
     detail: MINIBUS_CUSTOMER_DESCRIPTION,
+    benefit: "Room for the whole party",
     image: MINIBUS_IMAGE,
+    imageAlt: "7 Seater Minibus airport transfer",
   },
 ] as const;
+
+type Category = (typeof CATEGORIES)[number];
 
 function formatUplift(amount: number): string {
   const value = Math.round(Number(amount) * 100) / 100;
   if (!Number.isFinite(value)) return "+£0";
   const text = Number.isInteger(value) ? String(value) : value.toFixed(2);
   return `+£${text}`;
+}
+
+function formatFare(amount: number | null | undefined): string | null {
+  if (typeof amount !== "number" || !Number.isFinite(amount)) return null;
+  return formatQuote(amount);
 }
 
 export default function QuoteVehicleCategories({
@@ -76,7 +120,7 @@ export default function QuoteVehicleCategories({
   onSelectVehicle,
   estateUpliftGbp = 6,
   executiveUpliftGbp = 20,
-  airportPickup = false,
+  vehicleFares = null,
   includeMinibus = true,
   quietJourney = false,
   climatePreference = "no_preference",
@@ -87,10 +131,12 @@ export default function QuoteVehicleCategories({
   suitcases: number | null;
   /** Booked vehicle, including an optional 7-seater the customer has chosen. */
   selectedVehicle?: string | null;
-  onSelectVehicle?: (vehicle: (typeof CATEGORIES)[number]["vehicle"]) => void;
+  onSelectVehicle?: (vehicle: Category["vehicle"]) => void;
   estateUpliftGbp?: number;
   executiveUpliftGbp?: number;
-  /** Flight monitoring is advertised only for airport pickups. */
+  /** Authoritative totals for the current route. Null until a fare may be shown. */
+  vehicleFares?: QuoteVehicleFares | null;
+  /** Existing call sites pass this. Flight monitoring is worded “where applicable”. */
   airportPickup?: boolean;
   includeMinibus?: boolean;
   quietJourney?: boolean;
@@ -115,111 +161,231 @@ export default function QuoteVehicleCategories({
     passengers != null && suitcases != null && estateRecommendedForLuggage(passengers, suitcases);
   const executiveBlockedByPassengers =
     passengers != null && passengers > EXECUTIVE_MAX_PASSENGERS && !lockedToMinibus;
+  const executiveBlockedByLuggage =
+    passengers != null &&
+    suitcases != null &&
+    suitcases > EXECUTIVE_MAX_SUITCASES &&
+    !lockedToMinibus &&
+    !executiveBlockedByPassengers;
   const visible = CATEGORIES.filter((option) => option.id !== "minibus" || includeMinibus);
-  const showExecutivePreferences = selected === EXECUTIVE_VEHICLE && executiveOk;
+  const ownerOptions = visible.filter((option) => option.id !== "minibus");
+  const minibusOption = visible.find((option) => option.id === "minibus") ?? null;
+  const estateUplift = formatUplift(estateUpliftGbp);
+  const executiveUplift = formatUplift(executiveUpliftGbp);
 
-  return (
-    <div className="min-w-0 space-y-2 overflow-x-hidden" data-quote-vehicle-categories>
-      <p className="form-label mb-0">Choose your vehicle</p>
-      <div className="grid grid-cols-3 gap-2" role="list" aria-label="Vehicle for this journey">
-        {visible.map((option) => {
-          const isSelected = selected === option.vehicle;
-          const selectable =
-            Boolean(onSelectVehicle) &&
-            automatic != null &&
-            (lockedToMinibus
-              ? option.vehicle === MINIBUS_VEHICLE
-              : option.vehicle === MINIBUS_VEHICLE || option.vehicle === automatic ||
-                (option.id === "saloon" && saloonOk) ||
-                (option.id === "estate" && estateOk) ||
-                (option.id === "executive" && executiveOk));
-          const unavailable = unavailableReason(option.id, {
-            selectable,
-            lockedToMinibus,
-            saloonOk,
-            estateOk,
-            executiveOk,
-            executiveBlockedByPassengers,
-          });
-          const badge =
-            option.id === "saloon" && saloonOk
-              ? "Best Value"
-              : option.id === "estate" && luggageRecommendsEstate
-                ? "Recommended for Luggage"
-                : option.id === "executive" && executiveOk
-                  ? "Premium"
-                  : null;
-          const className = `flex min-h-28 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2.5 text-center ${
-            isSelected
-              ? "border-emerald bg-emerald/15 text-white ring-2 ring-emerald/70"
-              : selectable
-                ? "border-white/15 text-white/80"
-                : "cursor-not-allowed border-white/10 bg-white/[0.02] text-white/35"
-          }`;
-          const uplift =
-            option.id === "estate"
-              ? formatUplift(estateUpliftGbp)
-              : option.id === "executive"
-                ? formatUplift(executiveUpliftGbp)
-                : null;
-          const body = (
-            <>
+  function optionIsSelectable(option: Category): boolean {
+    return (
+      Boolean(onSelectVehicle) &&
+      automatic != null &&
+      (lockedToMinibus
+        ? option.vehicle === MINIBUS_VEHICLE
+        : option.vehicle === MINIBUS_VEHICLE || option.vehicle === automatic ||
+          (option.id === "saloon" && saloonOk) ||
+          (option.id === "estate" && estateOk) ||
+          (option.id === "executive" && executiveOk))
+    );
+  }
+
+  function fareFor(option: Category): number | null {
+    if (!vehicleFares) return null;
+    return vehicleFares[option.id];
+  }
+
+  function renderOption(option: Category, layout: "grid" | "row") {
+    const isSelected = selected === option.vehicle;
+    const selectable = optionIsSelectable(option);
+    const unavailable = unavailableReason(option.id, {
+      selectable,
+      lockedToMinibus,
+      saloonOk,
+      estateOk,
+      executiveOk,
+      executiveBlockedByPassengers,
+    });
+    const badge =
+      option.id === "estate" && luggageRecommendsEstate
+        ? "Recommended for your luggage"
+        : option.id === "estate" && estateOk && saloonOk
+          ? "More comfort"
+          : option.id === "executive" && executiveOk
+            ? "Premium"
+            : null;
+    const uplift =
+      option.id === "estate" ? estateUplift : option.id === "executive" ? executiveUplift : null;
+    const fareLabel = formatFare(fareFor(option));
+    const headerPrice = uplift ?? fareLabel;
+    const selectLabel = isSelected
+      ? "Selected"
+      : option.id === "estate"
+        ? "Upgrade to Estate"
+        : option.id === "executive"
+          ? "Upgrade to Executive"
+          : `Select ${option.title}`;
+    const shell = `min-w-0 rounded-xl border ${
+      isSelected
+        ? "border-emerald bg-emerald/15 text-white ring-2 ring-emerald/70"
+        : selectable
+          ? "border-white/15 bg-white/[0.04] text-white/90"
+          : "border-white/10 bg-white/[0.02] text-white/40"
+    }`;
+    const stackOnDesktop = layout === "grid";
+    const summary = (
+      <span
+        className={`flex min-w-0 items-center gap-3 ${
+          stackOnDesktop ? "md:flex-col md:items-stretch md:gap-2 md:text-center" : ""
+        }`}
+      >
+        <VehicleArt
+          src={option.image}
+          alt={option.imageAlt}
+          pending={option.id === "saloon" && !option.image}
+          compact={layout === "row"}
+        />
+        <span className="min-w-0 flex-1">
+          <span
+            className={`flex items-start justify-between gap-2 ${
+              stackOnDesktop ? "md:flex-col md:items-center" : ""
+            }`}
+          >
+            <span className="min-w-0">
               {badge ? (
-                <span className="max-w-full rounded-full border border-emerald/40 bg-emerald/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-tight tracking-wide text-emerald">
+                <span className="mb-1 inline-flex max-w-full rounded-full border border-emerald/40 bg-emerald/15 px-2 py-0.5 text-[10px] font-semibold uppercase leading-tight tracking-wide text-emerald">
                   {badge}
                 </span>
-              ) : (
-                <span className="h-4" aria-hidden />
-              )}
-              {option.image ? (
-                <Image
-                  src={option.image}
-                  alt=""
-                  width={1400}
-                  height={700}
-                  className="h-9 w-full max-w-[5.5rem] shrink-0 object-contain"
-                />
               ) : null}
-              <span className="min-w-0">
-                <span className="block break-words text-sm font-semibold leading-snug">{option.title}</span>
-                <span className="block break-words text-[11px] leading-snug text-white/60">{option.detail}</span>
-                {uplift ? (
-                  <span className="mt-0.5 block text-xs font-semibold text-white">{uplift}</span>
-                ) : option.id === "saloon" ? (
-                  <span className="mt-0.5 block text-[11px] font-semibold text-white/70">Included</span>
-                ) : null}
-                {unavailable ? (
-                  <span className="mt-1 block break-words text-[10px] font-medium leading-snug text-white/55">
-                    {unavailable}
-                  </span>
-                ) : null}
+              <span className="block text-base font-semibold leading-tight text-white">{option.title}</span>
+              <span className={`mt-0.5 block text-xs leading-snug text-white/70 ${stackOnDesktop ? "md:hidden" : ""}`}>
+                {option.short}
               </span>
+              {stackOnDesktop ? (
+                <span className="mt-0.5 hidden text-xs leading-snug text-white/70 md:block">{option.detail}</span>
+              ) : null}
+            </span>
+            {headerPrice ? (
+              <span className={`shrink-0 text-base font-bold tabular-nums text-white ${stackOnDesktop ? "md:hidden" : ""}`}>
+                {headerPrice}
+              </span>
+            ) : null}
+          </span>
+          <span
+            className={`mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] leading-snug text-white/65 ${
+              stackOnDesktop ? "md:hidden" : ""
+            }`}
+          >
+            <CapacityBits option={option} />
+          </span>
+          <span
+            className={`mt-1 inline-flex items-center gap-1 text-sm font-semibold text-white ${
+              stackOnDesktop ? "md:hidden" : ""
+            }`}
+          >
+            {isSelected ? <span aria-hidden>✓</span> : <span aria-hidden>○</span>}
+            <span>{selectLabel}</span>
+          </span>
+        </span>
+        <Chevron expanded={isSelected} hideOnDesktop={stackOnDesktop} />
+      </span>
+    );
+    const details = (
+      <span
+        className={`mt-2 block space-y-1 text-left text-xs leading-snug text-white/80 ${
+          stackOnDesktop ? "md:text-center" : ""
+        } ${isSelected ? "" : stackOnDesktop ? "hidden md:block" : "hidden"}`}
+      >
+        <CapacityLines option={option} />
+        <span className="block text-white/75">{option.benefit}</span>
+        {isSelected && option.id === "estate" ? (
+          <span className="mt-1 block space-y-0.5 md:hidden">
+            {ESTATE_CARD_BENEFITS.map((benefit) => (
+              <span key={benefit} className="block">
+                ✓ {benefit}
+              </span>
+            ))}
+          </span>
+        ) : null}
+        {isSelected && option.id === "executive" ? (
+          <span className="mt-1 block space-y-0.5 md:hidden">
+            {EXECUTIVE_CARD_BENEFITS.map((benefit) => (
+              <span key={benefit} className="block">
+                ✓ {benefit}
+              </span>
+            ))}
+          </span>
+        ) : null}
+        <span className="block pt-1">
+          {uplift ? (
+            <>
+              <span className="block text-sm font-semibold text-white">
+                {option.id === "estate" ? "Upgrade to Estate" : "Upgrade to Executive"} {uplift}
+              </span>
+              {fareLabel ? (
+                <span className="mt-0.5 block text-sm font-bold tabular-nums text-white">{fareLabel} total</span>
+              ) : null}
             </>
-          );
-          return (
-            <div key={option.id} role="listitem" className="min-w-0">
-              {selectable ? (
-                <button
-                  type="button"
-                  data-vehicle-category={option.id}
-                  aria-pressed={isSelected}
-                  onClick={() => onSelectVehicle?.(option.vehicle)}
-                  className={`${className} cursor-pointer`}
-                >
-                  {body}
-                </button>
-              ) : (
-                <div
-                  data-vehicle-category={option.id}
-                  className={className}
-                  aria-disabled="true"
-                >
-                  {body}
-                </div>
-              )}
-            </div>
-          );
-        })}
+          ) : (
+            <span className="block text-lg font-bold tabular-nums text-white">{fareLabel ?? "…"}</span>
+          )}
+        </span>
+        <span
+          className={`mt-1 min-h-11 items-center justify-center gap-1 text-sm font-semibold text-white ${
+            stackOnDesktop ? "hidden md:inline-flex" : "hidden"
+          }`}
+        >
+          {isSelected ? <span aria-hidden>✓</span> : <span aria-hidden>○</span>}
+          <span>{selectLabel}</span>
+        </span>
+        {unavailable ? (
+          <span className="block text-[11px] font-medium leading-snug text-white/70">{unavailable}</span>
+        ) : null}
+      </span>
+    );
+    const controlClass = "flex w-full min-w-0 flex-col px-3 py-3 text-left md:px-3 md:py-3";
+    return (
+      <div
+        key={option.id}
+        role="listitem"
+        data-vehicle-category={option.id}
+        data-vehicle-expanded={isSelected ? "true" : "false"}
+        className={`${shell} ${layout === "row" ? "md:col-span-3" : ""}`}
+      >
+        {selectable ? (
+          <button
+            type="button"
+            aria-pressed={isSelected}
+            onClick={() => onSelectVehicle?.(option.vehicle)}
+            className={`${controlClass} cursor-pointer`}
+          >
+            {summary}
+            {details}
+          </button>
+        ) : (
+          <div className={controlClass} aria-disabled="true">
+            {summary}
+            {details}
+          </div>
+        )}
+        {isSelected && option.id === "executive" && executiveOk ? (
+          <ExecutivePreferences
+            quietJourney={quietJourney}
+            climatePreference={climatePreference}
+            onQuietJourneyChange={onQuietJourneyChange}
+            onClimatePreferenceChange={onClimatePreferenceChange}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0 max-w-full space-y-2 overflow-x-hidden" data-quote-vehicle-categories>
+      <p className="form-label mb-0">Choose your vehicle</p>
+      <div
+        className="grid grid-cols-1 gap-2 md:grid-cols-3 md:items-start"
+        role="list"
+        aria-label="Vehicle for this journey"
+      >
+        {ownerOptions.map((option) => renderOption(option, "grid"))}
+        {minibusOption ? renderOption(minibusOption, "row") : null}
       </div>
       {!saloonOk && estateOk && !lockedToMinibus ? (
         <p className="text-xs leading-relaxed text-white/75" data-saloon-unavailable>
@@ -231,65 +397,193 @@ export default function QuoteVehicleCategories({
           {EXECUTIVE_PASSENGER_LIMIT_MESSAGE}
         </p>
       ) : null}
-      {showExecutivePreferences ? (
-        <div className="space-y-3 rounded-xl border border-white/12 bg-white/[0.03] px-3 py-3">
-          <details className="group">
-            <summary className="cursor-pointer list-none text-sm font-semibold text-white [&::-webkit-details-marker]:hidden">
-              <span className="inline-flex min-h-11 items-center">What&apos;s included?</span>
-            </summary>
-            <ul className="space-y-1 pb-1 text-xs leading-relaxed text-white/75">
-              <li>Up to 3 passengers</li>
-              {EXECUTIVE_BENEFITS.map((benefit) => (
-                <li key={benefit}>✓ {benefit}</li>
-              ))}
-              {airportPickup ? <li>✓ {EXECUTIVE_AIRPORT_PICKUP_BENEFIT}</li> : null}
-            </ul>
-          </details>
-          <label className="flex min-h-11 items-start gap-3 text-sm text-white">
-            <input
-              type="checkbox"
-              className="mt-1 h-5 w-5 shrink-0 accent-emerald"
-              checked={quietJourney}
-              onChange={(event) => onQuietJourneyChange?.(event.target.checked)}
-            />
-            <span>
-              <span className="block font-semibold">Quiet Journey</span>
-              <span className="block text-xs leading-relaxed text-white/65">
-                Prefer a peaceful journey with minimal conversation.
-              </span>
-            </span>
-          </label>
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold text-white">Climate preference</legend>
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  ["no_preference", "No preference"],
-                  ["cooler", "Cooler"],
-                  ["warmer", "Warmer"],
-                ] as const
-              ).map(([value, label]) => {
-                const pressed = climatePreference === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={pressed}
-                    onClick={() => onClimatePreferenceChange?.(value)}
-                    className={`min-h-11 rounded-xl border px-2 text-xs font-semibold ${
-                      pressed
-                        ? "border-emerald bg-emerald/15 text-white"
-                        : "border-white/15 text-white/75"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
-        </div>
+      {executiveBlockedByLuggage ? (
+        <p className="text-xs leading-relaxed text-white/70" data-executive-luggage-unavailable>
+          {EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE}
+        </p>
       ) : null}
+    </div>
+  );
+}
+
+function CapacityBits({ option }: { option: Category }) {
+  if (option.id === "saloon") {
+    return (
+      <>
+        <span>Up to {SALOON_MAX_PASSENGERS} passengers</span>
+        <span aria-hidden>·</span>
+        <span>Up to {SALOON_MAX_SUITCASES} large suitcases</span>
+      </>
+    );
+  }
+  if (option.id === "estate") {
+    return (
+      <>
+        <span>Up to {ESTATE_MAX_PASSENGERS} passengers</span>
+        <span aria-hidden>·</span>
+        <span>Up to {ESTATE_MAX_SUITCASES} large suitcases</span>
+      </>
+    );
+  }
+  if (option.id === "executive") {
+    return (
+      <>
+        <span>Up to {EXECUTIVE_MAX_PASSENGERS} passengers</span>
+        <span aria-hidden>·</span>
+        <span>Up to {EXECUTIVE_MAX_SUITCASES} large suitcases</span>
+      </>
+    );
+  }
+  return <span>{option.short}</span>;
+}
+
+function CapacityLines({ option }: { option: Category }) {
+  if (option.id === "saloon") {
+    return (
+      <>
+        <span className="block">Up to {SALOON_MAX_PASSENGERS} passengers</span>
+        <span className="block">Up to {SALOON_MAX_SUITCASES} large suitcases</span>
+      </>
+    );
+  }
+  if (option.id === "estate") {
+    return (
+      <>
+        <span className="block">Up to {ESTATE_MAX_PASSENGERS} passengers</span>
+        <span className="block">Extra luggage space</span>
+      </>
+    );
+  }
+  if (option.id === "executive") {
+    return (
+      <>
+        <span className="block">Up to {EXECUTIVE_MAX_PASSENGERS} passengers</span>
+        <span className="block">Up to {EXECUTIVE_MAX_SUITCASES} large suitcases</span>
+      </>
+    );
+  }
+  return <span className="block">{option.detail}</span>;
+}
+
+function VehicleArt({
+  src,
+  alt,
+  pending,
+  compact,
+}: {
+  src: string | null;
+  alt: string;
+  pending?: boolean;
+  compact?: boolean;
+}) {
+  const frame = compact
+    ? "h-14 w-24 shrink-0"
+    : "h-14 w-24 shrink-0 md:h-16 md:w-full";
+  if (!src) {
+    return (
+      <span
+        className={`flex items-center justify-center rounded-lg bg-white/[0.06] ${frame}`}
+        role="img"
+        aria-label={alt}
+        data-vehicle-image={pending ? "pending" : "missing"}
+      >
+        <SaloonPlaceholder />
+      </span>
+    );
+  }
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={1400}
+      height={700}
+      className={`object-contain ${frame}`}
+    />
+  );
+}
+
+function SaloonPlaceholder() {
+  return (
+    <svg viewBox="0 0 120 48" className="h-8 w-16 text-white/80" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M18 30c0-6 6-8 14-10l10-8h28l12 8c10 2 16 6 16 12v4H18v-6zm8 8a6 6 0 1 0 0.01 0zm52 0a6 6 0 1 0 0.01 0z"
+      />
+    </svg>
+  );
+}
+
+function Chevron({ expanded, hideOnDesktop }: { expanded: boolean; hideOnDesktop: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center text-white/70 ${
+        hideOnDesktop ? "md:hidden" : ""
+      } ${expanded ? "rotate-180" : ""}`}
+      aria-hidden
+    >
+      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M5 8l5 5 5-5" />
+      </svg>
+    </span>
+  );
+}
+
+function ExecutivePreferences({
+  quietJourney,
+  climatePreference,
+  onQuietJourneyChange,
+  onClimatePreferenceChange,
+}: {
+  quietJourney: boolean;
+  climatePreference: ClimatePreference;
+  onQuietJourneyChange?: (value: boolean) => void;
+  onClimatePreferenceChange?: (value: ClimatePreference) => void;
+}) {
+  return (
+    <div className="space-y-3 border-t border-white/10 px-3 py-3">
+      <label className="flex min-h-11 items-start gap-3 text-sm text-white">
+        <input
+          type="checkbox"
+          className="mt-1 h-5 w-5 shrink-0 accent-emerald"
+          checked={quietJourney}
+          onChange={(event) => onQuietJourneyChange?.(event.target.checked)}
+        />
+        <span>
+          <span className="block font-semibold">Quiet Journey</span>
+          <span className="block text-xs leading-relaxed text-white/65">
+            Prefer a peaceful journey with minimal conversation.
+          </span>
+        </span>
+      </label>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-semibold text-white">Climate preference</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              ["no_preference", "No preference"],
+              ["cooler", "Cooler"],
+              ["warmer", "Warmer"],
+            ] as const
+          ).map(([value, label]) => {
+            const pressed = climatePreference === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={pressed}
+                onClick={() => onClimatePreferenceChange?.(value)}
+                className={`min-h-11 rounded-xl border px-2 text-xs font-semibold ${
+                  pressed
+                    ? "border-emerald bg-emerald/15 text-white"
+                    : "border-white/15 text-white/75"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
     </div>
   );
 }
