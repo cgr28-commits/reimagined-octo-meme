@@ -86,6 +86,8 @@ export type ShortNoticeBookingRecord = {
   unavailablePeriodIdApplied?: string | null;
   /** True when the configured minimum online notice forced this request. */
   underMinimumNotice?: boolean;
+  /** True when the separate 7-Seater notice period forced this request. */
+  minibusNotice?: boolean;
   /** Lead time in force when this under-notice request was created. */
   minimumShortNoticeLeadHoursApplied?: number;
   /**

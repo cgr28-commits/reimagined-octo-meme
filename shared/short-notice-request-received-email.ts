@@ -11,6 +11,7 @@ import {
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
 } from "./business-email";
 import { MINIMUM_BOOKING_NOTICE_HOURS } from "./booking-notice";
+import { MINIBUS_NOTICE_BODY, MINIBUS_NOTICE_HEADING } from "./availability-resource";
 import {
   LUGGAGE_CAPACITY_RECEIVED_BODY,
   hasLuggageCapacityHold,
@@ -46,6 +47,7 @@ export type ShortNoticeRequestReceivedEmailDetails = {
   reference: string;
   noticeHours?: number;
   holdReasons?: PaymentHoldReason[];
+  minibusNotice?: boolean;
 };
 
 export function buildShortNoticeRequestReceivedEmail(
@@ -53,12 +55,16 @@ export function buildShortNoticeRequestReceivedEmail(
   businessName = "My Airport Taxi NI",
 ): { subject: string; text: string; html: string } {
   const firstName = customerFirstName(details.customerName);
-  const subject = "We’ve received your booking request";
+  const subject = details.minibusNotice
+    ? MINIBUS_NOTICE_HEADING
+    : "We’ve received your booking request";
   const noticeHours = details.noticeHours ?? MINIMUM_BOOKING_NOTICE_HOURS;
   const luggageHold = hasLuggageCapacityHold(details.holdReasons);
   const reasonParagraph = luggageHold
     ? LUGGAGE_CAPACITY_RECEIVED_BODY
-    : `Because your requested journey is within our ${noticeHours}-hour advance booking period, we need to confirm availability before your booking can be accepted.`;
+    : details.minibusNotice
+      ? MINIBUS_NOTICE_BODY
+      : `Because your requested journey is within our ${noticeHours}-hour advance booking period, we need to confirm availability before your booking can be accepted.`;
 
   const text =
     `Hi ${firstName},\n\n` +

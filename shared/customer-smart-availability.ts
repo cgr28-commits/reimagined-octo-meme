@@ -19,6 +19,10 @@ import {
   MINIMUM_BOOKING_NOTICE_HOURS,
   type UnavailablePeriod,
 } from "./booking-notice";
+import {
+  availabilityResourceForVehicle,
+  MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE,
+} from "./availability-resource";
 
 export const CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE =
   "Unfortunately, we’re not available at that time.";
@@ -463,7 +467,9 @@ export function decideCustomerSmartAvailabilityGate(input: {
       decision: null,
     });
   }
+  const resource = availabilityResourceForVehicle(input.booking.vehicle);
   if (
+    resource !== "minibus" &&
     shouldBypassSmartAvailabilityHardBlockForShortNotice(
       input.booking,
       input.now,
@@ -529,15 +535,18 @@ export function decideCustomerSmartAvailabilityGate(input: {
         });
       }
       const searchedAlternatives = input.offerAlternatives === true;
+      const minibusBlocked = resource === "minibus";
       return {
         enforce: true,
         available: false,
         blocked: true,
-        customerMessage: alternativeTimes.length
-          ? customerUnavailableAtTimeMessage(requested.tripTime)
-          : searchedAlternatives
-            ? CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE
-            : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
+        customerMessage: minibusBlocked
+          ? MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE
+          : alternativeTimes.length
+            ? customerUnavailableAtTimeMessage(requested.tripTime)
+            : searchedAlternatives
+              ? CUSTOMER_SMART_AVAILABILITY_NO_TIMES_LEFT_MESSAGE
+              : CUSTOMER_SMART_AVAILABILITY_UNAVAILABLE_MESSAGE,
         reason: suggestion.reason,
         decision: suggestion,
         alternativeTimes,
