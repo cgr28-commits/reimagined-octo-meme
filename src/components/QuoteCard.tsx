@@ -685,7 +685,7 @@ function QuoteCard({
   const routeSummaryRef = useRef<HTMLDivElement>(null);
   /** First pixel of the results the customer should land on. Not the price or a vehicle card. */
   const quoteResultsStartRef = useRef<HTMLDivElement>(null);
-  /** Top edge of the white selected-vehicle quote card. Mobile results scroll lands here. */
+  /** Top of Choose your vehicle. Mobile results scroll lands here. */
   const quoteSelectedVehicleCardRef = useRef<HTMLDivElement>(null);
   const step2TravelDetailsRef = useRef<HTMLDivElement>(null);
   const step2JourneySummaryRef = useRef<HTMLDivElement>(null);
@@ -5346,8 +5346,8 @@ function QuoteCard({
                 }`}
               >
                 {leg.service === "pick-up"
-                  ? `${expressQuoteExpressHint("pick-up")} Airport access is included in your Executive fare.`
-                  : "Express terminal drop-off is included in your Executive fare."}
+                  ? `${expressQuoteExpressHint("pick-up")} Airport access is included in your fare.`
+                  : "Express terminal drop-off is included in your fare."}
               </p>
             </div>
           </div>
@@ -5454,7 +5454,9 @@ function QuoteCard({
             breakdown={openWebsiteFareBreakdown}
             service={expressSelection.service ?? "drop-off"}
             freeAirportAccessSelected={
-              expressSelection.eligible && expressSelection.feeGbp === 0
+              expressSelection.eligible &&
+              expressSelection.feeGbp === 0 &&
+              !expressSelection.includedInVehicleFare
             }
           />
           {renderAirportFeeLines()}
@@ -5535,13 +5537,6 @@ function QuoteCard({
             )}
             {authoritativeQuoteFailed ? renderAuthoritativeQuoteRetry() : null}
             {renderExpressChoiceInPriceCard(quoteStep === 1 ? "full" : "summary")}
-            <p className="mt-3 text-sm text-white/75">
-              Vehicle: {vehicleShortLabel(quoteVehicle)}
-              <span className="mx-2 text-white/35">·</span>
-              Passengers: {formatPassengerChoice(effectivePassengers as number)}
-              <span className="mx-2 text-white/35">·</span>
-              Large suitcases: {formatSuitcaseChoice(suitcases as number)}
-            </p>
             {renderExecutivePreferenceSummary()}
             <PriceInclusionBlock
               isAirportTrip={isAirportLegForInclusions}
@@ -5556,7 +5551,9 @@ function QuoteCard({
                 breakdown={openWebsiteFareBreakdown}
                 service={expressSelection.service ?? "drop-off"}
                 freeAirportAccessSelected={
-                  expressSelection.eligible && expressSelection.feeGbp === 0
+                  expressSelection.eligible &&
+                  expressSelection.feeGbp === 0 &&
+                  !expressSelection.includedInVehicleFare
                 }
               />
             ) : returnJourney ? (
@@ -5625,7 +5622,9 @@ function QuoteCard({
                 breakdown={openWebsiteFareBreakdown}
                 service={expressSelection.service ?? "drop-off"}
                 freeAirportAccessSelected={
-                  expressSelection.eligible && expressSelection.feeGbp === 0
+                  expressSelection.eligible &&
+                  expressSelection.feeGbp === 0 &&
+                  !expressSelection.includedInVehicleFare
                 }
               />
             ) : null}
@@ -5639,13 +5638,6 @@ function QuoteCard({
                 </span>
               </p>
             ) : null}
-            <p className="mt-3 text-sm text-white/75">
-              Vehicle: {vehicleShortLabel(quoteVehicle)}
-              <span className="mx-2 text-white/35">·</span>
-              Passengers: {formatPassengerChoice(effectivePassengers as number)}
-              <span className="mx-2 text-white/35">·</span>
-              Large suitcases: {formatSuitcaseChoice(suitcases as number)}
-            </p>
             {renderExecutivePreferenceSummary()}
             {testChargeAmount !== null && (
               <p className="quote-secondary mt-2 text-xs">
@@ -6688,7 +6680,7 @@ function QuoteCard({
             ? QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE
             : null
         }
-        airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
+        airportAccess={renderExpressChoiceInPriceCard("full", "on-dark")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
         capacityConfirmation={capacityNeedsConfirm}
       />
