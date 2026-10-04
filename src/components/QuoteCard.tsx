@@ -68,12 +68,15 @@ import {
   VEHICLE_TYPES,
 } from "@/lib/data";
 import {
+  ESTATE_VEHICLE,
   formatPassengerChoice,
   formatSuitcaseChoice,
   MAX_PUBLIC_SUITCASES,
   requiresMinibus,
+  SALOON_VEHICLE,
   selectVehicleForParty,
   vehicleShortLabel,
+  voluntaryEstateUpgradeAllowed,
 } from "@/lib/vehicle-selection";
 import {
   publicPassengerLimitMessage,
@@ -212,6 +215,7 @@ import {
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import QuoteResultShowcase, {
+  EstateUpgradeCard,
   preloadQuoteResultVehicleImages,
 } from "@/components/QuoteResultShowcase";
 import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
@@ -829,6 +833,7 @@ function QuoteCard({
         : undefined;
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [chooseMinibus, setChooseMinibus] = useState(false);
+  const [chooseEstate, setChooseEstate] = useState(false);
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
@@ -914,8 +919,11 @@ function QuoteCard({
     if (publicMinibusEnabled && (chooseMinibus || pax >= 5 || suitcases >= 5)) {
       return MINIBUS_VEHICLE_TYPE;
     }
+    if (chooseEstate && voluntaryEstateUpgradeAllowed(pax, suitcases)) {
+      return ESTATE_VEHICLE;
+    }
     return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
-  }, [chooseMinibus, passengerLimit, passengers, publicMinibusEnabled, suitcases, vehicle]);
+  }, [chooseEstate, chooseMinibus, passengerLimit, passengers, publicMinibusEnabled, suitcases, vehicle]);
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
@@ -939,6 +947,7 @@ function QuoteCard({
     const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
     setVehicle((current) => (current === next ? current : next));
     setChooseMinibus(false);
+    setChooseEstate(false);
   }, [passengers, suitcases]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
@@ -1759,6 +1768,7 @@ function QuoteCard({
       automaticVehicle:
         paxNow == null ? requestedVehicle : getAutoVehicle(paxNow, suitcases, IS_A2A_PRIMARY),
       minibusVehicle: MINIBUS_VEHICLE_TYPE,
+      estateVehicle: ESTATE_VEHICLE,
       publicMinibusEnabled,
       requiresMinibus: paxNow != null && requiresMinibus(paxNow, suitcases),
     });
@@ -2391,6 +2401,7 @@ function QuoteCard({
     setSuitcases(null);
     setExactPassengers(null);
     setChooseMinibus(false);
+    setChooseEstate(false);
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -4084,6 +4095,7 @@ function QuoteCard({
     setReturnTime("");
     setVehicle(VEHICLE_TYPES[0]);
     setChooseMinibus(false);
+    setChooseEstate(false);
     setExpressDropOffSelected(false);
     setReturnExpressDropOffSelected(false);
     setExpressRemovalAck(false);
@@ -6438,6 +6450,28 @@ function QuoteCard({
     const pax = effectivePartyPassengers(passengers, passengerLimit);
     if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
+    if (next !== ESTATE_VEHICLE) setChooseEstate(false);
+  }
+
+  function renderEstateUpgrade() {
+    const pax = effectivePartyPassengers(passengers, passengerLimit);
+    if (pax == null || suitcases == null || !voluntaryEstateUpgradeAllowed(pax, suitcases)) {
+      return null;
+    }
+    if (quoteVehicle === MINIBUS_VEHICLE_TYPE) return null;
+    const selected = chooseEstate && quoteVehicle === ESTATE_VEHICLE;
+    if (!selected && quoteVehicle !== SALOON_VEHICLE) return null;
+    return (
+      <EstateUpgradeCard
+        upliftGbp={publicPricing.estate.upliftGbp}
+        selected={selected}
+        onUpgrade={() => {
+          setChooseMinibus(false);
+          setChooseEstate(true);
+        }}
+        onSwitchToSaloon={() => setChooseEstate(false)}
+      />
+    );
   }
 
   function renderQuoteVehicleChoice() {
@@ -6486,6 +6520,7 @@ function QuoteCard({
         airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
         capacityConfirmation={capacityNeedsConfirm}
+        estateUpgrade={renderEstateUpgrade()}
       />
     );
   }

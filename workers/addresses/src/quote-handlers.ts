@@ -16,7 +16,9 @@ import {
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import type { QuoteServiceAirportCode } from "../../../src/lib/quote-service";
 import {
+  ESTATE_VEHICLE,
   MINIBUS_VEHICLE,
+  partyFitsEstate,
   selectVehicleForParty,
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
@@ -151,6 +153,13 @@ function resolveVehicleType(
       vehicleType: MINIBUS_VEHICLE,
       vehicleChoice: "Minibus",
       maxPassengers: publicMaxPassengers(true),
+    };
+  }
+  if (!ownerMode && partyFitsEstate(passengers, suitcases) && requested.includes("Estate")) {
+    return {
+      vehicleType: ESTATE_VEHICLE,
+      vehicleChoice: "Saloon",
+      maxPassengers: publicMaxPassengers(publicMinibusEnabled),
     };
   }
   const selected = selectVehicleForParty(passengers, Math.max(0, suitcases));

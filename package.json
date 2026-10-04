@@ -128,6 +128,7 @@
     "check:short-notice-lead-expiry": "npx tsx scripts/check-short-notice-lead-expiry.ts",
     "check:owner-no-availability": "npx tsx scripts/check-owner-no-availability.ts",
     "check:owner-pricing": "npx tsx scripts/check-owner-pricing.ts && npx tsx scripts/check-public-minibus-capacity.ts && npx tsx scripts/check-luggage-capacity-confirmation.ts",
+    "check:estate-upgrade": "npx tsx scripts/check-estate-upgrade.ts",
     "check:public-minibus-capacity": "npx tsx scripts/check-public-minibus-capacity.ts",
     "check:luggage-capacity": "npx tsx scripts/check-luggage-capacity-confirmation.ts",
     "check:landing-quote-cta": "npx tsx scripts/check-landing-quote-cta.ts",
