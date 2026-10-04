@@ -40,7 +40,7 @@ type QuoteResultShowcaseProps = {
 // Presentational only: image follows the vehicle type already chosen for
 // the party. No new selection rules.
 // Executive uses the previous Saloon file. Standard Saloon uses
-// STANDARD_SALOON_IMAGE once quote-standard-saloon.webp is added.
+// quote-standard-saloon.webp via STANDARD_SALOON_IMAGE.
 
 const EXECUTIVE_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");

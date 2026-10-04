@@ -5,7 +5,7 @@ import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import { formatQuote } from "@/lib/quote";
 import { STANDARD_SALOON_IMAGE } from "@/lib/vehicle-artwork";
-// Standard Saloon art is public/images/vehicles/quote-standard-saloon.webp once added.
+// Standard Saloon art: public/images/vehicles/quote-standard-saloon.webp
 import {
   ESTATE_VEHICLE,
   EXECUTIVE_VEHICLE,
@@ -38,13 +38,9 @@ const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 const EXECUTIVE_CARD_BENEFITS = [
-  "Complimentary bottled water",
-  "Phone charging available",
-  "Quiet Journey option",
-  "Climate preference",
-  "Flight monitoring where applicable",
-  "Luggage assistance",
-  "Premium comfort",
+  "Higher-spec vehicle",
+  "Extra comfort",
+  "Quiet Journey available",
 ] as const;
 
 export type QuoteVehicleFares = {
@@ -68,8 +64,8 @@ const CATEGORIES = [
     id: "estate",
     vehicle: ESTATE_VEHICLE,
     title: "Estate",
-    short: "More comfort and extra legroom",
-    detail: "More comfort and extra legroom",
+    short: "Extra luggage space and versatility",
+    detail: "Extra luggage space and versatility",
     image: ESTATE_IMAGE,
     imageAlt: "Estate airport transfer",
   },
@@ -77,8 +73,8 @@ const CATEGORIES = [
     id: "executive",
     vehicle: EXECUTIVE_VEHICLE,
     title: "Executive",
-    short: "Premium travel experience",
-    detail: "Extra comfort and a premium experience",
+    short: "Extra comfort for your journey",
+    detail: "Extra comfort for your journey",
     image: EXECUTIVE_IMAGE,
     imageAlt: "Executive airport transfer",
   },
@@ -424,10 +420,9 @@ function DesktopFacts({ option }: { option: Category }) {
       <>
         <Fact icon={<PersonIcon />}>Up to {ESTATE_MAX_PASSENGERS} passengers</Fact>
         <Fact icon={<CaseIcon />}>Up to {ESTATE_MAX_SUITCASES} large suitcases</Fact>
-        <Fact icon={<CheckIcon />}>Extra legroom</Fact>
         <Fact icon={<CheckIcon />}>Extra luggage space</Fact>
-        <Fact icon={<CheckIcon />}>More relaxed journey</Fact>
-        <Fact icon={<CheckIcon />}>Ideal for families and extra comfort</Fact>
+        <Fact icon={<CheckIcon />}>More room for larger bags</Fact>
+        <Fact icon={<CheckIcon />}>Ideal for families and extra luggage</Fact>
       </>
     );
   }
@@ -436,7 +431,8 @@ function DesktopFacts({ option }: { option: Category }) {
       <>
         <Fact icon={<PersonIcon />}>Up to {EXECUTIVE_MAX_PASSENGERS} passengers</Fact>
         <Fact icon={<CaseIcon />}>Up to {EXECUTIVE_MAX_SUITCASES} large suitcases</Fact>
-        <Fact icon={<SparkIcon />}>Premium comfort</Fact>
+        <Fact icon={<CheckIcon />}>Higher-spec vehicle</Fact>
+        <Fact icon={<CheckIcon />}>Extra comfort</Fact>
         <Fact icon={<CheckIcon />}>Quiet Journey available</Fact>
       </>
     );
@@ -482,9 +478,9 @@ function MobileFacts({ option }: { option: Category }) {
 function MobileBenefits({ optionId }: { optionId: Category["id"] }) {
   const lines =
     optionId === "saloon"
-      ? ["Ideal for most airport journeys"]
+      ? ["Comfortable and efficient", "Ideal for most airport journeys"]
       : optionId === "estate"
-        ? ["Extra legroom", "Extra luggage space", "More relaxed journey", "Ideal for families and extra comfort"]
+        ? ["Extra luggage space", "More room for larger bags", "Ideal for families and extra luggage"]
         : optionId === "executive"
           ? [...EXECUTIVE_CARD_BENEFITS]
           : [];
@@ -509,7 +505,7 @@ function ChoiceGuidance() {
       <p className="min-w-0 text-sm leading-snug">
         <span className="font-semibold">Not sure which to choose?</span>{" "}
         <span className="text-navy/75">
-          Estate adds extra comfort, legroom and luggage space. Executive is the premium travel experience.
+          Estate gives you extra luggage space, while Executive offers a higher-spec vehicle and extra comfort.
         </span>
       </p>
     </div>
@@ -563,9 +559,9 @@ function PremiumBadge() {
 
 function RecommendedPill() {
   return (
-    <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-[#0e7a36] px-2 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wide text-white">
+    <span className="mb-1 inline-flex max-w-full items-center gap-1 rounded-full bg-[#0e7a36] px-2 py-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-white">
       <StarIcon />
-      Recommended
+      <span className="min-w-0 text-left">Recommended for extra space</span>
     </span>
   );
 }

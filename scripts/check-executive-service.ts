@@ -265,14 +265,19 @@ const categories = fs.readFileSync(
   "utf8",
 );
 assert.match(categories, /Great value, comfortable travel/);
-assert.match(categories, /More comfort and extra legroom/);
-assert.match(categories, /Extra comfort and a premium experience/);
+assert.match(categories, /Extra luggage space and versatility/);
+assert.match(categories, /Extra comfort for your journey/);
 assert.match(categories, /Recommended for extra space/);
-assert.match(categories, /Extra legroom/);
 assert.match(categories, /Extra luggage space/);
-assert.match(categories, /More relaxed journey/);
-assert.match(categories, /Ideal for families and extra comfort/);
-assert.match(categories, /Complimentary bottled water/);
+assert.match(categories, /More room for larger bags/);
+assert.match(categories, /Ideal for families and extra luggage/);
+assert.match(categories, /Higher-spec vehicle/);
+assert.match(categories, /Comfortable and efficient/);
+assert.doesNotMatch(categories, /Extra legroom/);
+assert.doesNotMatch(categories, /More relaxed journey/);
+assert.doesNotMatch(categories, /Complimentary bottled water/);
+assert.doesNotMatch(categories, /Premium comfort/);
+assert.doesNotMatch(categories, /Premium travel experience/);
 assert.match(categories, /lockedToMinibus \?/);
 assert.match(categories, /includeMinibus && minibusOption/);
 assert.match(categories, /data-minibus-required/);
@@ -281,8 +286,8 @@ assert.doesNotMatch(categories, /7-Seater|7 Seater Minibus is an upgrade/);
 assert.match(categories, /Select \$\{option\.title\}/);
 assert.doesNotMatch(categories, /Upgrade to Estate/);
 assert.doesNotMatch(categories, /Upgrade to Executive/);
-assert.match(categories, /Premium travel experience/);
 assert.match(categories, /Not sure which to choose/);
+assert.match(categories, /Estate gives you extra luggage space, while Executive offers a higher-spec vehicle and extra comfort/);
 assert.match(categories, /Up to \{EXECUTIVE_MAX_SUITCASES\} large suitcases/);
 assert.match(categories, /EXECUTIVE_PASSENGER_LIMIT_SHORT/);
 assert.match(categories, /EXECUTIVE_LUGGAGE_UNAVAILABLE_MESSAGE/);
@@ -306,6 +311,12 @@ assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE \|\| option\.vehic
 assert.doesNotMatch(categories, /\+£6/);
 assert.doesNotMatch(categories, /\+£20/);
 assert.doesNotMatch(categories, /Toyota|Corolla/);
-assert.equal(fs.readFileSync(path.join(import.meta.dirname, "../src/lib/vehicle-artwork.ts"), "utf8").includes("STANDARD_SALOON_IMAGE: string | null = null"), true);
+const artwork = fs.readFileSync(path.join(import.meta.dirname, "../src/lib/vehicle-artwork.ts"), "utf8");
+assert.match(artwork, /quote-standard-saloon\.webp/);
+assert.equal(
+  fs.existsSync(path.join(import.meta.dirname, "../public/images/vehicles/quote-standard-saloon.webp")),
+  true,
+);
+assert.doesNotMatch(artwork, /STANDARD_SALOON_IMAGE: string \| null = null;/);
 
 console.log("executive service checks passed");
