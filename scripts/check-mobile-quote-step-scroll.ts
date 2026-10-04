@@ -145,14 +145,31 @@ check("Mobile Step 1 address complete does not scroll", () => {
   );
   assert.match(
     resultsScroll,
-    /if \(detectMobileDevice\(\)\) \{\s*const selectedCard = quoteSelectedVehicleCardRef\.current;\s*if \(!selectedCard\) return;\s*hadRouteSummaryScrollRef\.current = true;\s*return scrollQuoteStage\(selectedCard, \{\s*focusHeading: false,\s*correctAfterMs: 0,\s*immediate: true,\s*clearancePx: 0,\s*behavior: "auto",/,
+    /if \(detectMobileDevice\(\)\) \{\s*const selectedCard = quoteSelectedVehicleCardRef\.current;\s*if \(!selectedCard\) return;\s*hadRouteSummaryScrollRef\.current = true;\s*syncQuoteResultScrollOffsets\(\);\s*return scrollMobileQuoteResultIntoView\(selectedCard\);/,
   );
   const mobileResultsScroll = resultsScroll.slice(
     resultsScroll.indexOf("if (detectMobileDevice())"),
     resultsScroll.indexOf("const lead"),
   );
   assert.doesNotMatch(mobileResultsScroll, /quote-results-lead|quote-results-start|quoteResultsStartRef/);
+  assert.doesNotMatch(mobileResultsScroll, /clearancePx:\s*0|quote-book-now-anchor|behavior:\s*"auto"/);
+  assert.match(
+    fs.readFileSync(path.join(root, "src/lib/quote-step-nav-scroll.ts"), "utf8"),
+    /function computeMobileQuoteResultScrollTop/,
+  );
+  assert.match(
+    fs.readFileSync(path.join(root, "src/lib/quote-step-nav-scroll.ts"), "utf8"),
+    /HEADER_CLEARANCE_PX/,
+  );
   assert.match(card, /ref=\{quoteSelectedVehicleCardRef\}/);
+  assert.match(
+    fs.readFileSync(path.join(root, "src/app/globals.css"), "utf8"),
+    /#quote-selected-vehicle-card \{\s*scroll-margin-top: var\(--matni-sticky-header-offset/,
+  );
+  assert.match(
+    fs.readFileSync(path.join(root, "src/app/globals.css"), "utf8"),
+    /#quote-book-now-button \{\s*scroll-margin-bottom:/,
+  );
   assert.match(
     fs.readFileSync(path.join(root, "src/components/QuoteResultShowcase.tsx"), "utf8"),
     /id="quote-selected-vehicle-card"/,

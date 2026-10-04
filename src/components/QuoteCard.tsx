@@ -29,7 +29,9 @@ import {
   scheduleScrollToBookNowAfterExpressAck,
   prefersReducedMotion,
   scrollJourneySummaryAfterTimeConfirm,
+  scrollMobileQuoteResultIntoView,
   scrollQuoteStage,
+  syncQuoteResultScrollOffsets,
   type QuoteStepNavTarget,
 } from "@/lib/quote-step-nav-scroll";
 import {
@@ -4847,10 +4849,10 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // On mobile, the top edge of the white selected-vehicle quote card sits
-  // flush under the fixed header (clearance 0). The vehicle list stays above
-  // the fold. Instant, so iOS cannot cancel a smooth scroll on that list.
-  // Fare, vehicle, and Free/Express updates leave the latch set.
+  // Mobile lands on the quote card, just below the measured sticky header,
+  // so the vehicle heading stays fully visible. It does not jump to the
+  // price or the Book This Transfer button. Fare, vehicle, and Free/Express
+  // updates leave the latch set.
   useEffect(() => {
     if (quoteStep !== 1) {
       hadRouteSummaryScrollRef.current = false;
@@ -4871,13 +4873,8 @@ function QuoteCard({
       const selectedCard = quoteSelectedVehicleCardRef.current;
       if (!selectedCard) return;
       hadRouteSummaryScrollRef.current = true;
-      return scrollQuoteStage(selectedCard, {
-        focusHeading: false,
-        correctAfterMs: 0,
-        immediate: true,
-        clearancePx: 0,
-        behavior: "auto",
-      });
+      syncQuoteResultScrollOffsets();
+      return scrollMobileQuoteResultIntoView(selectedCard);
     }
     hadRouteSummaryScrollRef.current = true;
     const lead =
@@ -4889,6 +4886,22 @@ function QuoteCard({
       behavior: prefersReducedMotion() ? "auto" : "smooth",
     });
   }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteResultsReady, quoteStep]);
+
+  // While the quote result is on screen, keep header and browser-chrome
+  // offsets current so the heading and booking button stay clear of them.
+  useEffect(() => {
+    if (quoteStep !== 1 || !quoteResultsReady || !detectMobileDevice()) return;
+    syncQuoteResultScrollOffsets();
+    const onChange = () => syncQuoteResultScrollOffsets();
+    window.addEventListener("resize", onChange);
+    window.visualViewport?.addEventListener("resize", onChange);
+    window.visualViewport?.addEventListener("scroll", onChange);
+    return () => {
+      window.removeEventListener("resize", onChange);
+      window.visualViewport?.removeEventListener("resize", onChange);
+      window.visualViewport?.removeEventListener("scroll", onChange);
+    };
+  }, [quoteResultsReady, quoteStep]);
 
   // Reset time→Your Journey one-shot when leaving travel-details step.
   useEffect(() => {

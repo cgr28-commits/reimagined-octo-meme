@@ -55,6 +55,29 @@ html {
   main:has([data-landing-sticky-quote]) {
     padding-bottom: 6.5rem;
   }
+
+  /*
+   * Quote result: keep the vehicle heading below the live sticky header,
+   * and let the booking button scroll clear of the cookie bar, Safari chrome,
+   * and the home-indicator safe area. The button itself is not sticky.
+   */
+  #quote-selected-vehicle-card {
+    scroll-margin-top: var(--matni-sticky-header-offset, 5.75rem);
+  }
+
+  #quote-results-summary {
+    padding-bottom: calc(
+      var(--matni-cookie-banner-offset, 0px) + var(--matni-visual-bottom-inset, 0px) +
+        max(1.5rem, env(safe-area-inset-bottom, 0px))
+    );
+  }
+
+  #quote-book-now-button {
+    scroll-margin-bottom: calc(
+      var(--matni-cookie-banner-offset, 0px) + var(--matni-visual-bottom-inset, 0px) +
+        max(1.25rem, env(safe-area-inset-bottom, 0px))
+    );
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

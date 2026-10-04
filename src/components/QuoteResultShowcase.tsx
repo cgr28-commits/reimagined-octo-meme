@@ -100,7 +100,11 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
     >
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-6">
         <div className="min-w-0 text-center lg:text-left">
-          <p className="font-sans text-[1.65rem] font-bold leading-none tracking-[-0.02em] text-navy sm:text-[1.85rem]">
+          <p
+            id="quote-vehicle-heading"
+            data-quote-vehicle-heading
+            className="font-sans text-[1.65rem] font-bold leading-none tracking-[-0.02em] text-navy sm:text-[1.85rem]"
+          >
             {vehicleLabel}
           </p>
           <p className="sr-only">Vehicle for this journey</p>
@@ -249,18 +253,20 @@ export function EstateUpgradeCard({
   if (selected) {
     return (
       <div
-        className="rounded-xl border border-[#c5d7ea] bg-[#f3f7fb] px-3 py-2.5"
+        className="flex items-center justify-between gap-3 rounded-xl border border-[#c5d7ea] bg-[#f3f7fb] px-3 py-2"
         data-estate-upgrade
         data-estate-upgrade-selected
       >
-        <p className="text-sm font-semibold text-navy">✓ Estate upgrade selected</p>
-        <p className="mt-0.5 text-xs leading-snug text-navy/75">
-          More luggage capacity & extra comfort
-        </p>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold leading-tight text-navy">✓ Estate upgrade selected</p>
+          <p className="mt-0.5 text-xs leading-snug text-navy/75">
+            More luggage capacity & extra comfort
+          </p>
+        </div>
         <button
           type="button"
           onClick={onSwitchToSaloon}
-          className="mt-1.5 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-dark underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald"
+          className="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold text-emerald-dark underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald"
         >
           Switch back to Saloon
         </button>
@@ -270,51 +276,53 @@ export function EstateUpgradeCard({
 
   return (
     <div
-      className="rounded-xl border border-[#c5d7ea] bg-[#f3f7fb] px-3 py-2.5"
+      className="rounded-xl border border-[#c5d7ea] bg-[#f3f7fb] px-3.5 py-3.5"
       data-estate-upgrade
       data-estate-uplift={upliftGbp}
     >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-tight text-navy">Need more space?</p>
-          <p className="mt-1 text-xs leading-snug text-navy/80">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1 pt-0.5">
+          <p className="text-base font-bold leading-tight text-navy">Need more space?</p>
+          <p className="mt-1.5 text-[13px] leading-snug text-navy/80">
             Upgrade to an Estate for more luggage capacity and extra comfort.
           </p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <p className="flex items-start gap-1.5 text-[11px] leading-tight text-navy">
-              <SuitcaseIcon />
-              <span>
-                <span className="block font-semibold">Bigger boot</span>
-                <span className="text-navy/70">for more luggage</span>
-              </span>
-            </p>
-            <p className="flex items-start gap-1.5 text-[11px] leading-tight text-navy">
-              <ComfortIcon />
-              <span>
-                <span className="block font-semibold">More space</span>
-                <span className="text-navy/70">& extra comfort</span>
-              </span>
-            </p>
-          </div>
         </div>
-        <div className="flex w-[6.75rem] shrink-0 flex-col items-stretch gap-1.5">
-          <Image
-            src={ESTATE_IMAGE}
-            alt=""
-            width={160}
-            height={80}
-            className="h-12 w-full object-contain"
-          />
-          <button
-            type="button"
-            onClick={onUpgrade}
-            aria-label={`Upgrade to an Estate for ${upliftLabel} more`}
-            className="inline-flex min-h-11 w-full flex-col items-center justify-center rounded-lg border-2 border-emerald bg-white px-1 py-1 text-center text-[10px] font-bold uppercase leading-tight tracking-wide text-emerald-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald"
-          >
-            Upgrade to Estate
-            <span className="mt-0.5 text-[12px] font-extrabold tracking-normal">+ {upliftLabel}</span>
-          </button>
-        </div>
+        <Image
+          src={ESTATE_IMAGE}
+          alt=""
+          width={320}
+          height={160}
+          className="h-20 w-[8.5rem] shrink-0 object-contain object-right"
+        />
+      </div>
+      <div className="mt-3.5 grid grid-cols-2 gap-x-3">
+        <p className="flex items-start gap-1.5 text-[13px] leading-snug text-navy">
+          <span className="mt-0.5 inline-flex shrink-0">
+            <SuitcaseIcon />
+          </span>
+          <span>
+            <span className="block font-semibold">Bigger boot</span>
+            <span className="block text-navy/70">for more luggage</span>
+          </span>
+        </p>
+        <p className="flex items-start gap-1.5 text-[13px] leading-snug text-navy">
+          <ComfortIcon />
+          <span>
+            <span className="block font-semibold">More space</span>
+            <span className="block text-navy/70">& extra comfort</span>
+          </span>
+        </p>
+      </div>
+      <div className="mt-3.5 flex justify-end">
+        <button
+          type="button"
+          onClick={onUpgrade}
+          aria-label={`Upgrade to an Estate for ${upliftLabel} more`}
+          className="inline-flex h-14 min-w-[9.25rem] flex-col items-center justify-center rounded-lg border-2 border-emerald bg-white px-3 text-center text-[11px] font-bold uppercase leading-tight tracking-wide text-emerald-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald"
+        >
+          Upgrade to Estate
+          <span className="mt-0.5 text-sm font-extrabold tracking-normal">+ {upliftLabel}</span>
+        </button>
       </div>
     </div>
   );
