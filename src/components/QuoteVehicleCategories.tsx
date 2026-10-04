@@ -38,7 +38,7 @@ const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 const EXECUTIVE_INCLUDED = [
-  "Higher-spec vehicle",
+  "Premium vehicle",
   "Complimentary bottled water",
   "Phone charging available",
   "Quiet Journey option",
@@ -448,7 +448,7 @@ function DesktopFacts({ option }: { option: Category }) {
       <>
         <Fact icon={<PersonIcon />}>Up to {EXECUTIVE_MAX_PASSENGERS} passengers</Fact>
         <Fact icon={<CaseIcon />}>Up to {EXECUTIVE_MAX_SUITCASES} large suitcases</Fact>
-        <Fact icon={<CheckIcon />}>Higher-spec vehicle</Fact>
+        <Fact icon={<CheckIcon />}>Premium vehicle</Fact>
         <Fact icon={<CheckIcon />}>Premium comfort</Fact>
         <Fact icon={<CheckIcon />}>Quiet Journey option</Fact>
       </>
