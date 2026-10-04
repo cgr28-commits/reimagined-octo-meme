@@ -54,7 +54,7 @@ export default function VehiclesSection() {
           description={
             minibusOn
               ? "Professional private airport transfer. The quote tool picks Saloon, Estate or 7 Seater Minibus from your passengers and luggage."
-              : "Choose Saloon, Estate for extra luggage, or Executive for premium airport travel."
+              : "Professional private airport transfer in a Saloon or Estate — the quote tool picks the right car from your passengers and luggage."
           }
         />
 
@@ -119,11 +119,10 @@ export default function VehiclesSection() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
                   Up to 4 passengers
                 </p>
-                <p className="mt-1 text-xl font-bold text-white">Saloon, Estate &amp; Executive</p>
+                <p className="mt-1 text-xl font-bold text-white">Saloon &amp; Estate</p>
                 <p className="mt-2 text-sm leading-relaxed text-white/70">
-                  Saloon is standard travel. Estate adds luggage space. Executive is a premium
-                  upgrade for up to 3 passengers, including complimentary bottled water and phone
-                  charging. Pay securely online where an instant fare is shown.
+                  Instant quote where eligible. Standard or estate car selected automatically from your
+                  passengers and luggage. Pay securely online where an instant fare is shown.
                 </p>
               </div>
 

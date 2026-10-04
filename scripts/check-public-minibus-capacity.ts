@@ -186,7 +186,7 @@ check("14. 8 large bags => rejected", () => {
 check("15. Existing 1–4 passenger Saloon/Estate behaviour unchanged", () => {
   assert.equal(selectVehicleForParty(1, 0), SALOON_VEHICLE);
   assert.equal(selectVehicleForParty(4, 2), SALOON_VEHICLE);
-  assert.equal(selectVehicleForParty(2, 3), SALOON_VEHICLE);
+  assert.equal(selectVehicleForParty(2, 3), ESTATE_VEHICLE);
   assert.equal(selectVehicleForParty(4, 4), ESTATE_VEHICLE);
   assert.equal(requiresMinibus(4, 4), false);
   const saloon = calculateAuthoritativeWebsiteQuote(
@@ -303,9 +303,9 @@ check("Approved Minibus pricing unchanged (Estate × 1.55, penny only)", () => {
     assert.equal(result.vehicleType, MINIBUS_VEHICLE);
   }
   const fare = minibusBaseFareFromSaloon(50, onPricing);
-  assert.equal(fare.estateGbp, 56);
-  assert.equal(fare.minibusQuotedGbp, 86.8);
-  assert.equal(fare.minibusExactGbp, 86.8);
+  assert.equal(fare.estateGbp, 60);
+  assert.equal(fare.minibusQuotedGbp, 93);
+  assert.equal(fare.minibusExactGbp, 93);
 });
 
 check("Preview customer journey seed is isolated to preview hosts", () => {
@@ -397,7 +397,7 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
   assert.equal(estate.ok && estate.vehicleType, ESTATE_VEHICLE);
   assert.equal(chosenMinibus.ok && chosenMinibus.vehicleType, MINIBUS_VEHICLE);
   if (saloon.ok && estate.ok && chosenMinibus.ok) {
-    assert.equal(estate.amount - saloon.amount, 6);
+    assert.equal(estate.amount - saloon.amount, 10);
     assert.equal(
       chosenMinibus.amount,
       minibusBaseFareFromSaloon(saloon.amount, onPricing).minibusQuotedGbp,

@@ -3,8 +3,8 @@
  * Run: npx tsx scripts/check-vehicle-selection.ts
  *
  * Rule:
- * - Saloon: 1–4 passengers AND 0–3 suitcases
- * - Estate: the default when Saloon cannot take the luggage (4 suitcases)
+ * - Saloon: 1–4 passengers AND 0–2 suitcases
+ * - Estate: 1–4 passengers AND 3–4 suitcases
  * - Minibus: 5–7 passengers (or >4 suitcases for capacity)
  */
 
@@ -30,30 +30,29 @@ function expectVehicle(
   console.log(`OK  ${note}: ${passengers}p / ${suitcases}c → ${vehicleShortLabel(actual)}`);
 }
 
-console.log("=== Saloon (1–4 passengers AND 0–3 cases) ===");
+console.log("=== Saloon (1–4 passengers AND 0–2 cases) ===");
 expectVehicle(1, 0, SALOON_VEHICLE, "1p/0c");
 expectVehicle(1, 2, SALOON_VEHICLE, "1p/2c");
-expectVehicle(1, 3, SALOON_VEHICLE, "1p/3c");
 expectVehicle(2, 0, SALOON_VEHICLE, "2p/0c");
-expectVehicle(2, 2, SALOON_VEHICLE, "2p/2c");
-expectVehicle(2, 3, SALOON_VEHICLE, "2p/3c");
+expectVehicle(2, 2, SALOON_VEHICLE, "2p/2c boundary");
 expectVehicle(3, 0, SALOON_VEHICLE, "3p/0c — pax alone must NOT force Estate");
 expectVehicle(3, 1, SALOON_VEHICLE, "3p/1c");
 expectVehicle(3, 2, SALOON_VEHICLE, "3p/2c");
-expectVehicle(3, 3, SALOON_VEHICLE, "3p/3c");
 expectVehicle(4, 0, SALOON_VEHICLE, "4p/0c");
 expectVehicle(4, 2, SALOON_VEHICLE, "4p/2c");
-expectVehicle(4, 3, SALOON_VEHICLE, "4p/3c");
 
-console.log("\n=== Estate when Saloon cannot take the luggage ===");
+console.log("\n=== Estate (1–4 pax AND 3–4 cases) ===");
+expectVehicle(1, 3, ESTATE_VEHICLE, "1p/3c");
 expectVehicle(2, 4, ESTATE_VEHICLE, "2p/4c");
+expectVehicle(3, 3, ESTATE_VEHICLE, "3p/3c");
 expectVehicle(4, 4, ESTATE_VEHICLE, "4p/4c");
+expectVehicle(2, 3, ESTATE_VEHICLE, "2p/3c luggage threshold");
 
 console.log("\n=== Threshold flips ===");
-expectVehicle(4, 3, SALOON_VEHICLE, "still saloon at 4p/3c");
-expectVehicle(4, 4, ESTATE_VEHICLE, "estate at 4p/4c");
-expectVehicle(2, 3, SALOON_VEHICLE, "still saloon at 3 cases");
-expectVehicle(2, 4, ESTATE_VEHICLE, "estate at 4 cases");
+expectVehicle(4, 2, SALOON_VEHICLE, "still saloon at 4p/2c");
+expectVehicle(4, 3, ESTATE_VEHICLE, "estate at 4p/3c");
+expectVehicle(2, 2, SALOON_VEHICLE, "still saloon at 2 cases");
+expectVehicle(2, 3, ESTATE_VEHICLE, "estate at 3 cases");
 expectVehicle(4, 4, ESTATE_VEHICLE, "still estate at 4p/4c");
 expectVehicle(5, 1, MINIBUS_VEHICLE, "minibus at 5p");
 expectVehicle(4, 4, ESTATE_VEHICLE, "still estate at 4 cases");

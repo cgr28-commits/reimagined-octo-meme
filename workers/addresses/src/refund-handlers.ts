@@ -2097,14 +2097,6 @@ export async function savePaidBookingRecordFromConfirm(input: {
         }
       : {}),
     vehicle: input.booking.vehicle,
-    ...(typeof input.booking.quietJourney === "boolean"
-      ? { quietJourney: input.booking.quietJourney }
-      : {}),
-    ...(input.booking.climatePreference === "no_preference" ||
-    input.booking.climatePreference === "cooler" ||
-    input.booking.climatePreference === "warmer"
-      ? { climatePreference: input.booking.climatePreference }
-      : {}),
     journeyDistance: input.booking.journeyDistance,
     journeyDuration: input.booking.journeyDuration,
     ...(Number.isFinite(Number(input.booking.pickupLat))

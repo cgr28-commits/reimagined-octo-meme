@@ -10,7 +10,6 @@ import {
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import { MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
-import { isPremiumExecutiveVehicle } from "../../shared/executive-service";
 import {
   formatPublicSuitcaseChoice,
   isFivePlusLuggage,
@@ -18,7 +17,7 @@ import {
   LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
 } from "../../shared/vehicle-capacity";
 import { AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE } from "@/lib/authoritative-quote-fare";
-import { STANDARD_SALOON_IMAGE } from "@/lib/vehicle-artwork";
+import { formatGbpAmount } from "../../shared/gbp";
 
 type QuoteResultShowcaseProps = {
   vehicleType: string;
@@ -35,24 +34,19 @@ type QuoteResultShowcaseProps = {
   /** Worker quote failed. Do not show a fallback fare in the price slot. */
   priceUnavailable?: boolean;
   onRetryPrice?: () => void;
+  /** Voluntary Saloon → Estate offer. Omitted when Estate or Minibus is already required. */
+  estateUpgrade?: ReactNode;
 };
 
 // Presentational only: image follows the vehicle type already chosen for
 // the party. No new selection rules.
-// Executive uses the previous Saloon file. Standard Saloon uses
-// quote-standard-saloon.webp via STANDARD_SALOON_IMAGE.
 
-const EXECUTIVE_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
+const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
-/** Estate, Executive, and 7-seater art used on the result card. */
-const QUOTE_RESULT_VEHICLE_IMAGES = [
-  EXECUTIVE_IMAGE,
-  ESTATE_IMAGE,
-  MINIBUS_IMAGE,
-  ...(STANDARD_SALOON_IMAGE ? [STANDARD_SALOON_IMAGE] : []),
-] as const;
+/** Saloon, Estate, and 7-seater art used on the result card. */
+const QUOTE_RESULT_VEHICLE_IMAGES = [SALOON_IMAGE, ESTATE_IMAGE, MINIBUS_IMAGE] as const;
 
 /**
  * Start these downloads with the quote form, before a price exists.
@@ -79,21 +73,15 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       capacityConfirmation = false,
       priceUnavailable = false,
       onRetryPrice,
+      estateUpgrade = null,
     },
     ref,
   ) {
-  const isExecutive = isPremiumExecutiveVehicle(vehicleType);
-  const isEstate = !isExecutive && (vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate");
+  const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
   const isMinibus =
     vehicleType === MINIBUS_VEHICLE || vehicleShortLabel(vehicleType) === MINIBUS_CUSTOMER_NAME;
   const vehicleLabel = vehicleShortLabel(vehicleType);
-  const vehicleImage = isMinibus
-    ? MINIBUS_IMAGE
-    : isEstate
-      ? ESTATE_IMAGE
-      : isExecutive
-        ? EXECUTIVE_IMAGE
-        : STANDARD_SALOON_IMAGE;
+  const vehicleImage = isMinibus ? MINIBUS_IMAGE : isEstate ? ESTATE_IMAGE : SALOON_IMAGE;
   const estateDueToLuggage = isEstate && suitcases >= 3;
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
@@ -112,37 +100,30 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
     >
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-6">
         <div className="min-w-0 text-center lg:text-left">
-          <p className="font-sans text-[1.65rem] font-bold leading-none tracking-[-0.02em] text-navy sm:text-[1.85rem]">
+          <p
+            id="quote-vehicle-heading"
+            data-quote-vehicle-heading
+            className="font-sans text-[1.65rem] font-bold leading-none tracking-[-0.02em] text-navy sm:text-[1.85rem]"
+          >
             {vehicleLabel}
           </p>
-          {isExecutive ? (
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-dark">
-              Premium
-            </p>
-          ) : null}
           <p className="sr-only">Vehicle for this journey</p>
           <div className="-mx-3 mt-1 w-[calc(100%+1.5rem)] max-w-none sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full lg:max-w-[460px]">
-            {vehicleImage ? (
-              <Image
-                src={vehicleImage}
-                alt={
-                  isMinibus
-                    ? "7 Seater Minibus airport transfer vehicle"
-                    : isExecutive
-                      ? "Executive airport transfer"
-                      : isEstate
-                        ? "Estate airport transfer vehicle"
-                        : "Saloon airport transfer"
-                }
-                width={1400}
-                height={700}
-                className="mx-auto h-auto w-full object-contain"
-                sizes="(max-width: 640px) 96vw, 460px"
-                priority
-              />
-            ) : (
-              <p className="px-4 py-6 text-sm font-semibold text-navy/70">Standard Travel</p>
-            )}
+            <Image
+              src={vehicleImage}
+              alt={
+                isMinibus
+                  ? "7 Seater Minibus airport transfer vehicle"
+                  : isEstate
+                    ? "Estate airport transfer vehicle"
+                    : "Saloon airport transfer vehicle"
+              }
+              width={1400}
+              height={700}
+              className="mx-auto h-auto w-full object-contain"
+              sizes="(max-width: 640px) 96vw, 460px"
+              priority
+            />
           </div>
           <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-medium text-navy/80 min-[390px]:flex-nowrap lg:justify-start">
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
@@ -160,6 +141,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         </div>
 
         <div className="mt-4 min-w-0 text-center lg:mt-0 lg:text-left">
+          {estateUpgrade ? <div className="mb-3 text-left">{estateUpgrade}</div> : null}
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
           </p>
@@ -254,6 +236,116 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
 );
 
 export default QuoteResultShowcase;
+
+export function EstateUpgradeCard({
+  upliftGbp,
+  selected,
+  onUpgrade,
+  onSwitchToSaloon,
+}: {
+  /** Dashboard Estate uplift. Display only — the fare engine applies the same figure. */
+  upliftGbp: number;
+  selected: boolean;
+  onUpgrade: () => void;
+  onSwitchToSaloon: () => void;
+}) {
+  const upliftLabel = formatGbpAmount(upliftGbp);
+  if (selected) {
+    return (
+      <div
+        className="flex items-center justify-between gap-3 rounded-xl border border-[#c5d7ea] bg-[#f3f7fb] px-3 py-2"
+        data-estate-upgrade
+        data-estate-upgrade-selected
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-semibold leading-tight text-navy">✓ Estate upgrade selected</p>
+          <p className="mt-0.5 text-xs leading-snug text-navy/75">
+            More luggage capacity & extra comfort
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onSwitchToSaloon}
+          className="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold text-emerald-dark underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald"
+        >
+          Switch back to Saloon
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="rounded-xl border border-[#c5d7ea] bg-[#f3f7fb] px-3.5 py-3.5"
+      data-estate-upgrade
+      data-estate-uplift={upliftGbp}
+    >
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1 pt-0.5">
+          <p className="text-base font-bold leading-tight text-navy">Need more space?</p>
+          <p className="mt-1.5 text-[13px] leading-snug text-navy/80">
+            Upgrade to an Estate for more luggage capacity and extra comfort.
+          </p>
+        </div>
+        <Image
+          src={ESTATE_IMAGE}
+          alt=""
+          width={320}
+          height={160}
+          className="h-20 w-[8.5rem] shrink-0 object-contain object-right"
+        />
+      </div>
+      <div className="mt-3.5 grid grid-cols-2 gap-x-3">
+        <p className="flex items-start gap-1.5 text-[13px] leading-snug text-navy">
+          <span className="mt-0.5 inline-flex shrink-0">
+            <SuitcaseIcon />
+          </span>
+          <span>
+            <span className="block font-semibold">Bigger boot</span>
+            <span className="block text-navy/70">for more luggage</span>
+          </span>
+        </p>
+        <p className="flex items-start gap-1.5 text-[13px] leading-snug text-navy">
+          <ComfortIcon />
+          <span>
+            <span className="block font-semibold">More space</span>
+            <span className="block text-navy/70">& extra comfort</span>
+          </span>
+        </p>
+      </div>
+      <div className="mt-3.5 flex justify-end">
+        <button
+          type="button"
+          onClick={onUpgrade}
+          aria-label={`Upgrade to an Estate for ${upliftLabel} more`}
+          className="inline-flex h-14 min-w-[9.25rem] flex-col items-center justify-center rounded-lg border-2 border-emerald bg-white px-3 text-center text-[11px] font-bold uppercase leading-tight tracking-wide text-emerald-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald"
+        >
+          Upgrade to Estate
+          <span className="mt-0.5 text-sm font-extrabold tracking-normal">+ {upliftLabel}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ComfortIcon() {
+  return (
+    <svg className="mt-0.5 h-4 w-4 shrink-0 text-navy/70" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6.5 14.5V11a2.5 2.5 0 0 1 2.5-2.5h6A2.5 2.5 0 0 1 17.5 11v3.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <path
+        d="M5 14.5h14a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17v-1a1.5 1.5 0 0 1 1.5-1.5Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path d="M7 18.5V20M17 18.5V20" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function Benefit({
   children,

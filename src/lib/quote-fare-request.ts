@@ -44,11 +44,27 @@ export function quoteFareVehiclesToRequest(input: {
   minibusVehicle: string;
   publicMinibusEnabled: boolean;
   requiresMinibus: boolean;
+  /** When set, warm the Saloon/Estate pair so an upgrade does not wait on a second request. */
+  estateVehicle?: string;
 }): string[] {
   const selected = input.selectedVehicle;
-  if (!input.publicMinibusEnabled || input.requiresMinibus) return [selected];
-  const alternate =
-    selected === input.minibusVehicle ? input.automaticVehicle : input.minibusVehicle;
-  if (!alternate || alternate === selected) return [selected];
-  return [selected, alternate];
+  const vehicles = [selected];
+  if (input.publicMinibusEnabled && !input.requiresMinibus) {
+    const alternate =
+      selected === input.minibusVehicle ? input.automaticVehicle : input.minibusVehicle;
+    if (alternate && alternate !== selected && !vehicles.includes(alternate)) {
+      vehicles.push(alternate);
+    }
+  }
+  const estate = input.estateVehicle;
+  if (
+    estate &&
+    !input.requiresMinibus &&
+    input.automaticVehicle !== estate &&
+    (selected === input.automaticVehicle || selected === estate)
+  ) {
+    const other = selected === estate ? input.automaticVehicle : estate;
+    if (other && !vehicles.includes(other)) vehicles.push(other);
+  }
+  return vehicles;
 }

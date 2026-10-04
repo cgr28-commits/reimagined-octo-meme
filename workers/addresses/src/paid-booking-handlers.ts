@@ -526,12 +526,6 @@ export async function handlePaidBookingsListRequest(
         childSeatNotes,
         notes,
         vehicle,
-        ...(typeof booking.quietJourney === "boolean" ? { quietJourney: booking.quietJourney } : {}),
-        ...(booking.climatePreference === "no_preference" ||
-        booking.climatePreference === "cooler" ||
-        booking.climatePreference === "warmer"
-          ? { climatePreference: booking.climatePreference }
-          : {}),
         trackingToken,
         sharingActive,
         journeyStatus,

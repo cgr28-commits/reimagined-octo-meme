@@ -9,7 +9,6 @@
  * Public 7 Seater Minibus defaults OFF and must never fail open.
  */
 
-import { DEFAULT_EXECUTIVE_UPLIFT_GBP } from "./executive-service";
 import {
   UNIVERSAL_ESTATE_PREMIUM_GBP,
   UNIVERSAL_SALOON_FLOOR_MILES,
@@ -52,7 +51,7 @@ export const BANK_HOLIDAY_BEHAVIOUR_NOTE =
   "Daytime bank holidays are not an extra surcharge. There is no separate Bank Holiday calendar. Saturday and Sunday already qualify as Weekend. A weekday bank-holiday daytime journey is charged at the standard weekday rate unless it also falls inside Night hours.";
 
 export const MINIBUS_LUGGAGE_DECISION_NOTE =
-  "When public 7 Seater Minibus is ON, the public selector allows 0–7 large bags and 1–7 passengers. 5–7 passengers and 5–7 large bags require 7 Seater Minibus; Saloon keeps 1–4 passengers and 0–3 large suitcases; Estate keeps 1–4 passengers and 0–4 large suitcases. 7 passengers + 7 large bags is accepted as a Minibus quote only — physical fit of every 7-seat vehicle for that combination has not been validated and is not treated as a Request Quote rule.";
+  "When public 7 Seater Minibus is ON, the public selector allows 0–7 large bags and 1–7 passengers. 5–7 passengers and 5–7 large bags require 7 Seater Minibus; Saloon/Estate keep their existing 1–4 passenger and 0–2 / 3–4 suitcase rules. 7 passengers + 7 large bags is accepted as a Minibus quote only — physical fit of every 7-seat vehicle for that combination has not been validated and is not treated as a Request Quote rule.";
 
 export type OwnerPricingSchemaVersion = typeof OWNER_PRICING_SCHEMA_VERSION;
 
@@ -71,9 +70,6 @@ export type OwnerPricingSettings = {
     knots: SaloonKnot[];
   };
   estate: {
-    upliftGbp: number;
-  };
-  executive: {
     upliftGbp: number;
   };
   minibus: {
@@ -130,7 +126,6 @@ export type PublicOwnerPricingConfig = {
   updatedAt: string;
   saloon: OwnerPricingSettings["saloon"];
   estate: OwnerPricingSettings["estate"];
-  executive: OwnerPricingSettings["executive"];
   minibus: {
     publicEnabled: boolean;
     multiplier: number;
@@ -197,9 +192,6 @@ export function defaultOwnerPricingSettings(
     estate: {
       upliftGbp: DEFAULT_ESTATE_UPLIFT_GBP,
     },
-    executive: {
-      upliftGbp: DEFAULT_EXECUTIVE_UPLIFT_GBP,
-    },
     minibus: {
       publicEnabled: DEFAULT_PUBLIC_MINIBUS_ENABLED,
       multiplier: DEFAULT_MINIBUS_MULTIPLIER,
@@ -228,10 +220,6 @@ export function defaultOwnerPricingSettings(
 
 function reject(errors: OwnerPricingValidationError[], field: string, message: string) {
   errors.push({ field, message });
-}
-
-function roundUpgrade(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 function readRate(value: unknown, field: string, errors: OwnerPricingValidationError[]): number | null {
@@ -266,7 +254,6 @@ export function validateOwnerPricingInput(
 
   const saloonRaw = (input.saloon ?? {}) as Record<string, unknown>;
   const estateRaw = (input.estate ?? {}) as Record<string, unknown>;
-  const executiveRaw = (input.executive ?? {}) as Record<string, unknown>;
   const minibusRaw = (input.minibus ?? {}) as Record<string, unknown>;
   const returnRaw = (input.returnDiscount ?? {}) as Record<string, unknown>;
   const nightRaw = (input.night ?? {}) as Record<string, unknown>;
@@ -322,20 +309,6 @@ export function validateOwnerPricingInput(
   const estateUplift = readRate(estateRaw.upliftGbp, "estate.upliftGbp", errors);
   if (estateUplift != null && (estateUplift < 0 || estateUplift > 40)) {
     reject(errors, "estate.upliftGbp", "Estate uplift must be between £0.00 and £40.00.");
-  }
-
-  // Older saved settings have no Executive upgrade. Missing means the default,
-  // so a saved Saloon curve is not discarded just because this field is new.
-  let executiveUplift: number | null = defaults.executive.upliftGbp;
-  if (executiveRaw.upliftGbp != null && executiveRaw.upliftGbp !== "") {
-    executiveUplift = readRate(executiveRaw.upliftGbp, "executive.upliftGbp", errors);
-    if (executiveUplift != null && (executiveUplift < 0 || executiveUplift > 80)) {
-      reject(
-        errors,
-        "executive.upliftGbp",
-        "Executive upgrade must be between £0.00 and £80.00.",
-      );
-    }
   }
 
   if (minibusRaw.publicEnabled != null && typeof minibusRaw.publicEnabled !== "boolean") {
@@ -415,10 +388,7 @@ export function validateOwnerPricingInput(
         knots: knots.length >= 2 ? knots : defaults.saloon.knots,
       },
       estate: {
-        upliftGbp: roundUpgrade(estateUplift ?? defaults.estate.upliftGbp),
-      },
-      executive: {
-        upliftGbp: roundUpgrade(executiveUplift ?? defaults.executive.upliftGbp),
+        upliftGbp: estateUplift ?? defaults.estate.upliftGbp,
       },
       minibus: {
         publicEnabled: minibusRaw.publicEnabled === true,
@@ -478,22 +448,22 @@ export function normalizeOwnerPricingSettings(raw: unknown): OwnerPricingSetting
   };
 }
 
-export function toPublicOwnerPricingConfig(settings: unknown): PublicOwnerPricingConfig {
-  const resolved = normalizeOwnerPricingSettings(settings);
+export function toPublicOwnerPricingConfig(
+  settings: OwnerPricingSettings,
+): PublicOwnerPricingConfig {
   return {
-    schemaVersion: resolved.schemaVersion,
-    version: resolved.version,
-    updatedAt: resolved.updatedAt,
-    saloon: resolved.saloon,
-    estate: resolved.estate,
-    executive: resolved.executive,
+    schemaVersion: settings.schemaVersion,
+    version: settings.version,
+    updatedAt: settings.updatedAt,
+    saloon: settings.saloon,
+    estate: settings.estate,
     minibus: {
-      publicEnabled: resolved.minibus.publicEnabled === true,
-      multiplier: resolved.minibus.multiplier,
+      publicEnabled: settings.minibus.publicEnabled === true,
+      multiplier: settings.minibus.multiplier,
     },
-    returnDiscount: resolved.returnDiscount,
-    night: resolved.night,
-    weekend: resolved.weekend,
+    returnDiscount: settings.returnDiscount,
+    night: settings.night,
+    weekend: settings.weekend,
     surchargeStacking: SURCHARGE_STACKING_RULE,
   };
 }
@@ -502,7 +472,6 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
   const resolved = settings ? normalizeOwnerPricingSettings(settings) : defaultOwnerPricingSettings();
   return {
     estatePremiumGbp: resolved.estate.upliftGbp,
-    executivePremiumGbp: resolved.executive.upliftGbp,
     minibusMultiplier: resolved.minibus.multiplier,
     saloonMinimumGbp: resolved.saloon.minimumFareGbp,
     saloonFloorMiles: resolved.saloon.floorMiles,
@@ -535,8 +504,6 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return settings.saloon.knots.map((knot) => `${knot.miles}mi £${knot.fareGbp}`).join(", ");
     case "estate.upliftGbp":
       return `£${settings.estate.upliftGbp.toFixed(2)}`;
-    case "executive.upliftGbp":
-      return `£${settings.executive.upliftGbp.toFixed(2)}`;
     case "minibus.publicEnabled":
       return settings.minibus.publicEnabled ? "ON" : "OFF";
     case "minibus.multiplier":
@@ -569,7 +536,6 @@ const DIFF_PATHS = [
   "saloon.floorMiles",
   "saloon.knots",
   "estate.upliftGbp",
-  "executive.upliftGbp",
   "minibus.publicEnabled",
   "minibus.multiplier",
   "returnDiscount.rate",
@@ -586,8 +552,7 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "saloon.minimumFareGbp": "Saloon minimum fare",
   "saloon.floorMiles": "Saloon floor distance",
   "saloon.knots": "Saloon distance rates",
-  "estate.upliftGbp": "Estate upgrade",
-  "executive.upliftGbp": "Executive upgrade",
+  "estate.upliftGbp": "Estate uplift",
   "minibus.publicEnabled": "7 Seater Minibus offer online",
   "minibus.multiplier": "7 Seater Minibus multiplier",
   "returnDiscount.rate": "Return Booking Discount",
@@ -644,8 +609,6 @@ export function previewVehicleFaresFromSaloon(
     minibusExactGbp: minibus.minibusExactGbp,
     minibusQuotedGbp: minibus.minibusQuotedGbp,
     estateUpliftGbp: options.estatePremiumGbp,
-    executiveGbp: Math.round((Number(saloonGbp) + options.executivePremiumGbp) * 100) / 100,
-    executiveUpliftGbp: options.executivePremiumGbp,
     minibusMultiplier: options.minibusMultiplier,
   };
 }

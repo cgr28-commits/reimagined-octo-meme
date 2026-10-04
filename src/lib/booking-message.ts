@@ -13,7 +13,6 @@ import {
   formatAirportAccessOptionCustomerLines,
   formatExpressDropOffSummaryLine,
 } from "../../shared/express-drop-off";
-import { formatExecutivePreferenceLines } from "../../shared/executive-service";
 
 export type BookingDetails = {
   customerName: string;
@@ -34,8 +33,6 @@ export type BookingDetails = {
   /** false = customer selected 5+ (five or more). true/omitted = exact count. */
   suitcasesExact?: boolean;
   vehicle: string;
-  quietJourney?: boolean;
-  climatePreference?: "no_preference" | "cooler" | "warmer";
   estimatedPrice: string | null;
   journeyDistance?: string;
   journeyDuration?: string;
@@ -164,7 +161,6 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
       return childSeatsLine ? `${childSeatsLine}\n` : "";
     })() +
     `Vehicle: ${details.vehicle}\n` +
-    formatExecutivePreferenceLines(details).map((line) => `${line}\n`).join("") +
     (details.estimatedPrice ? `Your fixed journey price: ${details.estimatedPrice}\n` : "") +
     (() => {
       const accessLines = formatAirportAccessOptionCustomerLines({

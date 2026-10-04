@@ -357,7 +357,7 @@ async function main() {
   check("16. Existing Saloon/Estate behaviour remains unchanged", () => {
     assert.equal(selectVehicleForParty(1, 0), SALOON_VEHICLE);
     assert.equal(selectVehicleForParty(4, 2), SALOON_VEHICLE);
-    assert.equal(selectVehicleForParty(2, 3), SALOON_VEHICLE);
+    assert.equal(selectVehicleForParty(2, 3), ESTATE_VEHICLE);
     assert.equal(selectVehicleForParty(4, 4), ESTATE_VEHICLE);
     assert.equal(needsLuggageCapacityConfirmation(4, 4), false);
     const saloon = calculateAuthoritativeWebsiteQuote(
@@ -380,9 +380,9 @@ async function main() {
 
   check("17. Minibus pricing remains unchanged", () => {
     const fare = minibusBaseFareFromSaloon(50, onPricing);
-    assert.equal(fare.estateGbp, 56);
-    assert.equal(fare.minibusQuotedGbp, 86.8);
-    assert.equal(fare.minibusExactGbp, 86.8);
+    assert.equal(fare.estateGbp, 60);
+    assert.equal(fare.minibusQuotedGbp, 93);
+    assert.equal(fare.minibusExactGbp, 93);
     const hold = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 7, suitcases: 5, pricing: onPricing }),
     );

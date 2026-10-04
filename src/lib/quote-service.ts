@@ -7,18 +7,7 @@
 import { calculatePointToPointQuote, calculateQuote, formatQuote } from "./quote";
 import type { TripSchedule } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
-import {
-  ESTATE_VEHICLE,
-  EXECUTIVE_VEHICLE,
-  MINIBUS_VEHICLE,
-  SALOON_VEHICLE,
-  requiresMinibus,
-  selectVehicleForParty,
-} from "./vehicle-selection";
-import {
-  isPremiumExecutiveVehicle,
-  publicVehicleEligibilityMessage,
-} from "../../shared/executive-service";
+import { resolvePublicQuotedVehicle, selectVehicleForParty } from "./vehicle-selection";
 import {
   needsLuggageCapacityConfirmation,
   PUBLIC_FIVE_PLUS_SUITCASES,
@@ -116,8 +105,7 @@ export type QuoteServiceFailure = {
     | "unsupported"
     | "no_fare"
     | "pricing_unavailable"
-    | "vehicle_unavailable"
-    | "vehicle_unsuitable";
+    | "vehicle_unavailable";
   message: string;
 };
 
@@ -251,36 +239,9 @@ export function calculateAuthoritativeWebsiteQuote(
   const requestedVehicle = input.vehicleType;
   let vehicleType = requestedVehicle ?? derivedVehicle;
   if (input.ownerMode !== true) {
-    const bags = Math.max(0, suitcases);
-    if (requiresMinibus(passengers, suitcases)) {
-      vehicleType = MINIBUS_VEHICLE;
-    } else if (requestedVehicle && isPublicMinibusVehicle(requestedVehicle) && publicMinibusEnabled) {
-      vehicleType = MINIBUS_VEHICLE;
-    } else if (requestedVehicle && isPremiumExecutiveVehicle(requestedVehicle)) {
-      const message = publicVehicleEligibilityMessage(requestedVehicle, passengers, bags);
-      if (message) {
-        return { ok: false, reason: "vehicle_unsuitable", message };
-      }
-      vehicleType = EXECUTIVE_VEHICLE;
-    } else if (requestedVehicle && /estate/i.test(requestedVehicle) && !/executive/i.test(requestedVehicle)) {
-      const message = publicVehicleEligibilityMessage(ESTATE_VEHICLE, passengers, bags);
-      if (message) {
-        return { ok: false, reason: "vehicle_unsuitable", message };
-      }
-      vehicleType = ESTATE_VEHICLE;
-    } else if (
-      requestedVehicle &&
-      /saloon/i.test(requestedVehicle) &&
-      !/executive/i.test(requestedVehicle)
-    ) {
-      const message = publicVehicleEligibilityMessage(SALOON_VEHICLE, passengers, bags);
-      if (message) {
-        return { ok: false, reason: "vehicle_unsuitable", message };
-      }
-      vehicleType = SALOON_VEHICLE;
-    } else {
-      vehicleType = derivedVehicle;
-    }
+    vehicleType = resolvePublicQuotedVehicle(passengers, suitcases, requestedVehicle, {
+      publicMinibusEnabled,
+    });
   }
   if (
     !publicMinibusAllowed(vehicleType, {

@@ -163,7 +163,6 @@ export function formatReportGbp(amount: number | null): string {
 }
 
 export function vehicleReportLabel(vehicle: string): string {
-  if (/executive/i.test(vehicle) && !/saloon/i.test(vehicle)) return "Executive";
   if (/estate/i.test(vehicle)) return "Estate";
   if (/saloon/i.test(vehicle)) return "Saloon";
   if (/minibus/i.test(vehicle)) return "Minibus";
