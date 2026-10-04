@@ -10,7 +10,6 @@ import {
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import { MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
-import { isPremiumExecutiveVehicle } from "../../shared/executive-service";
 import {
   formatPublicSuitcaseChoice,
   isFivePlusLuggage,
@@ -18,7 +17,6 @@ import {
   LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
 } from "../../shared/vehicle-capacity";
 import { AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE } from "@/lib/authoritative-quote-fare";
-import { STANDARD_SALOON_IMAGE } from "@/lib/vehicle-artwork";
 
 type QuoteResultShowcaseProps = {
   vehicleType: string;
@@ -39,20 +37,13 @@ type QuoteResultShowcaseProps = {
 
 // Presentational only: image follows the vehicle type already chosen for
 // the party. No new selection rules.
-// Executive uses the previous Saloon file. Standard Saloon uses
-// quote-standard-saloon.webp via STANDARD_SALOON_IMAGE.
 
-const EXECUTIVE_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
+const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
-/** Estate, Executive, and 7-seater art used on the result card. */
-const QUOTE_RESULT_VEHICLE_IMAGES = [
-  EXECUTIVE_IMAGE,
-  ESTATE_IMAGE,
-  MINIBUS_IMAGE,
-  ...(STANDARD_SALOON_IMAGE ? [STANDARD_SALOON_IMAGE] : []),
-] as const;
+/** Saloon, Estate, and 7-seater art used on the result card. */
+const QUOTE_RESULT_VEHICLE_IMAGES = [SALOON_IMAGE, ESTATE_IMAGE, MINIBUS_IMAGE] as const;
 
 /**
  * Start these downloads with the quote form, before a price exists.
@@ -82,18 +73,11 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
     },
     ref,
   ) {
-  const isExecutive = isPremiumExecutiveVehicle(vehicleType);
-  const isEstate = !isExecutive && (vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate");
+  const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
   const isMinibus =
     vehicleType === MINIBUS_VEHICLE || vehicleShortLabel(vehicleType) === MINIBUS_CUSTOMER_NAME;
   const vehicleLabel = vehicleShortLabel(vehicleType);
-  const vehicleImage = isMinibus
-    ? MINIBUS_IMAGE
-    : isEstate
-      ? ESTATE_IMAGE
-      : isExecutive
-        ? EXECUTIVE_IMAGE
-        : STANDARD_SALOON_IMAGE;
+  const vehicleImage = isMinibus ? MINIBUS_IMAGE : isEstate ? ESTATE_IMAGE : SALOON_IMAGE;
   const estateDueToLuggage = isEstate && suitcases >= 3;
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
@@ -115,34 +99,23 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           <p className="font-sans text-[1.65rem] font-bold leading-none tracking-[-0.02em] text-navy sm:text-[1.85rem]">
             {vehicleLabel}
           </p>
-          {isExecutive ? (
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-dark">
-              Premium
-            </p>
-          ) : null}
           <p className="sr-only">Vehicle for this journey</p>
           <div className="-mx-3 mt-1 w-[calc(100%+1.5rem)] max-w-none sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full lg:max-w-[460px]">
-            {vehicleImage ? (
-              <Image
-                src={vehicleImage}
-                alt={
-                  isMinibus
-                    ? "7 Seater Minibus airport transfer vehicle"
-                    : isExecutive
-                      ? "Executive airport transfer"
-                      : isEstate
-                        ? "Estate airport transfer vehicle"
-                        : "Saloon airport transfer"
-                }
-                width={1400}
-                height={700}
-                className="mx-auto h-auto w-full object-contain"
-                sizes="(max-width: 640px) 96vw, 460px"
-                priority
-              />
-            ) : (
-              <p className="px-4 py-6 text-sm font-semibold text-navy/70">Standard Travel</p>
-            )}
+            <Image
+              src={vehicleImage}
+              alt={
+                isMinibus
+                  ? "7 Seater Minibus airport transfer vehicle"
+                  : isEstate
+                    ? "Estate airport transfer vehicle"
+                    : "Saloon airport transfer vehicle"
+              }
+              width={1400}
+              height={700}
+              className="mx-auto h-auto w-full object-contain"
+              sizes="(max-width: 640px) 96vw, 460px"
+              priority
+            />
           </div>
           <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-medium text-navy/80 min-[390px]:flex-nowrap lg:justify-start">
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">

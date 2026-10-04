@@ -127,7 +127,7 @@ const estateNight = quote(
 );
 assert.ok(estateDay && estateNight);
 assert.equal(estateDay.amount, calculateUniversalEstateJourneyFareGbp(weekdayFare));
-assert.equal(estateDay.amount, weekdayFare + 6);
+assert.equal(estateDay.amount, weekdayFare + 10);
 assert.equal(estateNight.amount, roundGbp(estateDay.amount * 1.1));
 assert.equal(roundGbp(estateNight.amount - estateDay.amount), roundGbp(estateDay.amount * 0.1));
 console.log(

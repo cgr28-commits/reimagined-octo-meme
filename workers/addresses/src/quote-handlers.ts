@@ -16,14 +16,9 @@ import {
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import type { QuoteServiceAirportCode } from "../../../src/lib/quote-service";
 import {
-  ESTATE_VEHICLE,
-  EXECUTIVE_VEHICLE,
   MINIBUS_VEHICLE,
-  SALOON_VEHICLE,
-  requiresMinibus,
   selectVehicleForParty,
 } from "../../../src/lib/vehicle-selection";
-import { isPremiumExecutiveVehicle } from "../shared/executive-service";
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
@@ -147,39 +142,6 @@ function resolveVehicleType(
     };
   }
   const requested = String(body.vehicleType ?? body.vehicleChoice ?? "");
-  if (!ownerMode && isPremiumExecutiveVehicle(requested)) {
-    return {
-      vehicleType: EXECUTIVE_VEHICLE,
-      vehicleChoice: "Saloon",
-      maxPassengers: publicMaxPassengers(publicMinibusEnabled),
-    };
-  }
-  if (
-    !ownerMode &&
-    /saloon/i.test(requested) &&
-    !/estate/i.test(requested) &&
-    !/executive/i.test(requested) &&
-    !/minibus/i.test(requested) &&
-    !requiresMinibus(passengers, Math.max(0, suitcases))
-  ) {
-    return {
-      vehicleType: SALOON_VEHICLE,
-      vehicleChoice: "Saloon",
-      maxPassengers: publicMaxPassengers(publicMinibusEnabled),
-    };
-  }
-  if (
-    !ownerMode &&
-    /estate/i.test(requested) &&
-    !isPremiumExecutiveVehicle(requested) &&
-    !requiresMinibus(passengers, Math.max(0, suitcases))
-  ) {
-    return {
-      vehicleType: ESTATE_VEHICLE,
-      vehicleChoice: "Saloon",
-      maxPassengers: publicMaxPassengers(publicMinibusEnabled),
-    };
-  }
   if (
     !ownerMode &&
     publicMinibusEnabled &&
@@ -641,8 +603,7 @@ export async function handleQuoteCalculateRequest(
   );
 
   if (!result.ok) {
-    const status =
-      result.reason === "vehicle_unavailable" ? 409 : result.reason === "vehicle_unsuitable" ? 400 : 422;
+    const status = result.reason === "vehicle_unavailable" ? 409 : 422;
     return json({ ...result, diagnostics }, status, origin);
   }
 

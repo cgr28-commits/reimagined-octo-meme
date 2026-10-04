@@ -1,5 +1,4 @@
 import { FAQ_CANCEL_ANSWER } from "../../shared/cancellation-policy";
-import { EXECUTIVE_VEHICLE_TYPE } from "../../shared/executive-service";
 import { AIRPORT_HERO } from "./airport-hero";
 import { withBasePath } from "./paths";
 
@@ -568,7 +567,6 @@ export const VEHICLE_FLEET = [
 export const VEHICLE_TYPES = [
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
-  EXECUTIVE_VEHICLE_TYPE,
   "Executive Saloon (1–4 passengers)",
   "Minibus (5–7 passengers)",
 ] as const;
@@ -588,11 +586,10 @@ export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
 /** @deprecated Public site no longer offers Minibus quote-request — kept empty. */
 export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [];
 
-/** Saloon, Estate, and Executive for public pay; Minibus kept for owner tools and the optional public offer. */
+/** Saloon/Estate for public pay; Minibus kept for owner short-notice / Quick Quote only. */
 export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
-  EXECUTIVE_VEHICLE_TYPE,
   MINIBUS_VEHICLE_TYPE,
 ];
 

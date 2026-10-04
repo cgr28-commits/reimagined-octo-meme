@@ -41,8 +41,8 @@ console.log(`OK  BHD ↔ City Hall saloon £${city.amount} at ~${CITY_MILES} mi`
 
 const estateCity = bhd(cityHall, ESTATE);
 assert.ok(estateCity);
-assert.equal(estateCity.amount, 35);
-assert.equal(estateCity.vehicleAdjustment, 6);
+assert.equal(estateCity.amount, 39);
+assert.equal(estateCity.vehicleAdjustment, 10);
 console.log(`OK  City Hall estate £${estateCity.amount} (Saloon + £6)`);
 
 console.log("\n=== No metrics → no zone fallback ===");
@@ -54,11 +54,10 @@ console.log("OK  null metrics refuse fare");
 
 console.log("\n=== Vehicle selection unchanged ===");
 assert.equal(selectVehicleForParty(2, 2), SALOON);
-assert.equal(selectVehicleForParty(2, 3), SALOON);
-assert.equal(selectVehicleForParty(2, 4), ESTATE);
+assert.equal(selectVehicleForParty(2, 3), ESTATE);
 assert.equal(
   calculateUniversalEstateJourneyFareGbp(calculateUniversalSaloonJourneyFareGbp(4)),
-  35,
+  39,
 );
 
 console.log("\nAll BHD city-centre universal checks passed.");

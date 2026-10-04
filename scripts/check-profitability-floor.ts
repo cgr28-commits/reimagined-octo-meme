@@ -107,7 +107,7 @@ console.log("=== Fuel formula and inactive MPG ===");
   assert.ok(approvedPerMile != null);
   assert.ok(Math.abs(approvedPerMile - (2 * UK_GALLON_LITRES) / 47) < 1e-12);
   assert.ok(Math.abs(approvedPerMile - 0.19345063829787235) < 1e-12);
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 6);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
 }
 
 console.log("=== Floor = time target + fuel + wear ===");
@@ -233,11 +233,11 @@ console.log("=== Failsafe keeps the existing fare ===");
   assert.equal(broken.amountGbp, 65);
 }
 
-console.log("=== Estate +£6 then return discount once ===");
+console.log("=== Estate +£10 then return discount once ===");
 {
   const outboundEstate = 41 + UNIVERSAL_ESTATE_PREMIUM_GBP;
   const returnEstate = 41 + UNIVERSAL_ESTATE_PREMIUM_GBP;
-  assert.equal(outboundEstate, 47);
+  assert.equal(outboundEstate, 51);
   const premium = applyTripPremium(
     outboundEstate,
     {
@@ -250,7 +250,7 @@ console.log("=== Estate +£6 then return discount once ===");
     undefined,
     { returnDiscountRate: 0.05, returnOneWayFare: returnEstate },
   );
-  assert.equal(Math.round(premium.total * 100) / 100, 89.3);
+  assert.equal(Math.round(premium.total * 100) / 100, 96.9);
   assert.equal(premium.premiumAmount, 0);
   const twice = Math.round(premium.total * 0.95 * 100) / 100;
   assert.notEqual(Math.round(premium.total * 100) / 100, twice);

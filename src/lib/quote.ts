@@ -1,6 +1,5 @@
 import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "./data";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
-import { isPremiumExecutiveVehicle } from "../../shared/executive-service";
 import {
   composeFareWithAirportFixedCosts,
   getAirportLegFixedCostGbp,
@@ -196,7 +195,6 @@ function quoteEngineOptions(pricing?: QuotePricingConfig) {
     minibusMultiplier:
       configured.minibusMultiplier ?? VEHICLE_MULTIPLIERS["Minibus (5–7 passengers)"] ?? 1.55,
     estatePremiumGbp: configured.estatePremiumGbp ?? UNIVERSAL_ESTATE_PREMIUM_GBP,
-    executivePremiumGbp: configured.executivePremiumGbp,
   };
 }
 
@@ -213,9 +211,6 @@ function applyAirportVehiclePricing(
   if (vehicleType === "Estate Car (1–4 passengers)") {
     return saloon + options.estatePremiumGbp;
   }
-  if (isPremiumExecutiveVehicle(vehicleType)) {
-    return saloon + options.executivePremiumGbp;
-  }
   const estate = saloon + options.estatePremiumGbp;
   if (vehicleType === "Executive Saloon (1–4 passengers)") {
     return Math.max(
@@ -230,7 +225,7 @@ function applyAirportVehiclePricing(
 }
 
 /**
- * Estate premium for airport transfers — live quotes use the dashboard Estate upgrade.
+ * Estate premium for airport transfers — live quotes use a flat £10.
  * Tier table remains in config for calibration scripts only.
  */
 export function getAirportEstatePremiumGbp(
@@ -263,7 +258,6 @@ function getAirportVehiclePricingMeta(
   vehicleType: (typeof VEHICLE_TYPES)[number],
   saloonFareForMeta = 0,
   airportCode = "BFS",
-  pricing?: QuotePricingConfig,
 ): { vehicleMultiplier: number; vehicleAdjustment: number } {
   if (vehicleType === "Standard Saloon (1–4 passengers)") {
     return { vehicleMultiplier: 1, vehicleAdjustment: 0 };
@@ -272,12 +266,6 @@ function getAirportVehiclePricingMeta(
     return {
       vehicleMultiplier: 1,
       vehicleAdjustment: getAirportEstatePremiumGbp(airportCode, saloonFareForMeta),
-    };
-  }
-  if (isPremiumExecutiveVehicle(vehicleType)) {
-    return {
-      vehicleMultiplier: 1,
-      vehicleAdjustment: quoteEngineOptions(pricing).executivePremiumGbp,
     };
   }
 
@@ -608,7 +596,6 @@ export function calculatePointToPointQuote(
     minibusMultiplier: engine.minibusMultiplier,
     executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
     estatePremiumGbp: engine.estatePremiumGbp,
-    executivePremiumGbp: engine.executivePremiumGbp,
     saloonMinimumGbp: engine.saloonMinimumGbp,
     saloonFloorMiles: engine.saloonFloorMiles,
     saloonKnots: engine.saloonKnots,
@@ -697,7 +684,6 @@ export function calculateQuote(
     minibusMultiplier: engine.minibusMultiplier,
     executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
     estatePremiumGbp: engine.estatePremiumGbp,
-    executivePremiumGbp: engine.executivePremiumGbp,
     saloonMinimumGbp: engine.saloonMinimumGbp,
     saloonFloorMiles: engine.saloonFloorMiles,
     saloonKnots: engine.saloonKnots,
@@ -708,7 +694,6 @@ export function calculateQuote(
     vehicleType,
     universal.saloonGbp,
     airportCode,
-    pricing,
   );
 
   // Direction-aware fixed costs only (DUB/LDY). BFS/BHD address↔airport = £0.

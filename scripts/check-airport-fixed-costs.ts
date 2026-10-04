@@ -72,8 +72,8 @@ check("Estate = Saloon + £6 on BHD", () => {
   const saloon = calculateQuote(CITY, "BHD", S, false, {}, M4, false)!;
   const estate = calculateQuote(CITY, "BHD", E, false, {}, M4, false)!;
   assert.equal(saloon.amount, 29);
-  assert.equal(estate.amount, 35);
-  assert.equal(estate.amount - saloon.amount, 6);
+  assert.equal(estate.amount, 39);
+  assert.equal(estate.amount - saloon.amount, 10);
   assert.equal(
     estate.amount,
     calculateUniversalEstateJourneyFareGbp(saloon.amount),

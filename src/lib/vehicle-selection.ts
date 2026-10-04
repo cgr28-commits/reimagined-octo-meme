@@ -2,12 +2,9 @@
  * Passenger / luggage → vehicle classification for the public quote form.
  * Monetary rates live in pricing-config.json and are not defined here.
  *
- * Public website capacity (customers choose among the options this allows):
- * - Standard Saloon: 1–4 passengers AND 0–3 suitcases
- * - Estate Car: suitable for 1–4 passengers and 0–4 suitcases; 4 suitcases
- *   make Estate the lowest-priced suitable option
- * - Executive: 1–3 passengers AND 0–3 large suitcases (service upgrade).
- *   Four large suitcases are not Executive. Never assigned automatically.
+ * Public website (source of truth for customers):
+ * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
+ * - Estate Car: 1–4 passengers AND 3–4 suitcases
  * - 7 Seater Minibus: 5–7 passengers OR 5+ large bags
  *   (only bookable when Offer 7 Seater Minibus Online is ON)
  *
@@ -19,13 +16,6 @@
  * exact physical suitcase maximum on the vehicle card.
  */
 
-import {
-  EXECUTIVE_VEHICLE_TYPE,
-  estateCapacityAllows,
-  isLegacyExecutiveSaloon,
-  isPremiumExecutiveVehicle,
-  saloonCapacityAllows,
-} from "../../shared/executive-service";
 import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "./data";
 import {
   GROUP_PASSENGER_MAX,
@@ -38,7 +28,6 @@ import { formatPublicSuitcaseChoice } from "../../shared/vehicle-capacity";
 
 export const SALOON_VEHICLE: VehicleType = "Standard Saloon (1–4 passengers)";
 export const ESTATE_VEHICLE: VehicleType = "Estate Car (1–4 passengers)";
-export const EXECUTIVE_VEHICLE: VehicleType = EXECUTIVE_VEHICLE_TYPE;
 export const MINIBUS_VEHICLE: VehicleType = MINIBUS_VEHICLE_TYPE;
 
 /** First passenger count that requires Minibus. */
@@ -59,8 +48,8 @@ export function requiresMinibus(passengers: number, suitcases: number): boolean 
 }
 
 /**
- * Lowest-priced suitable vehicle. Saloon when it fits, otherwise Estate, otherwise
- * Minibus. Executive is never assigned here — the customer chooses it.
+ * Shared vehicle-selection rule used by public quote, Quick Quote, Personal Quote,
+ * owner tools, and the quote assistant.
  */
 export function selectVehicleForParty(
   passengers: number,
@@ -69,12 +58,8 @@ export function selectVehicleForParty(
   if (requiresMinibus(passengers, suitcases)) {
     return MINIBUS_VEHICLE;
   }
-  // Saloon is the default whenever it fits, including 3 large suitcases.
-  // Estate is the default only when Saloon cannot take the luggage.
-  if (saloonCapacityAllows(passengers, suitcases)) {
-    return SALOON_VEHICLE;
-  }
-  if (estateCapacityAllows(passengers, suitcases)) {
+  // Estate only when luggage needs it — not merely because passengers are 3–4.
+  if (passengers >= 1 && passengers <= 4 && suitcases >= 3 && suitcases <= 4) {
     return ESTATE_VEHICLE;
   }
   return SALOON_VEHICLE;
@@ -90,19 +75,10 @@ export function vehicleShortLabel(vehicleType: VehicleType | string): string {
   if (vehicleType === MINIBUS_VEHICLE || vehicleType === MINIBUS_VEHICLE_TYPE) {
     return vehicleCustomerLabel(MINIBUS_VEHICLE_TYPE);
   }
-  if (isPremiumExecutiveVehicle(vehicleType) || isLegacyExecutiveSaloon(vehicleType)) {
+  if (String(vehicleType).includes("Executive")) {
     return "Executive";
   }
   return String(vehicleType);
-}
-
-/** Map a stored vehicle string onto a known type. Executive is checked before Saloon. */
-export function resolvePublicBookingVehicle(raw: string): VehicleType {
-  if (isPremiumExecutiveVehicle(raw)) return EXECUTIVE_VEHICLE;
-  if (/estate/i.test(raw)) return ESTATE_VEHICLE;
-  if (/minibus/i.test(raw)) return MINIBUS_VEHICLE;
-  if (isLegacyExecutiveSaloon(raw)) return "Executive Saloon (1–4 passengers)";
-  return SALOON_VEHICLE;
 }
 
 /** Public passenger selector label. */

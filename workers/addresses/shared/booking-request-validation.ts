@@ -19,10 +19,6 @@ import {
   publicPassengerLimitMessage,
   publicSuitcaseLimitMessage,
 } from "./passenger-limits";
-import {
-  EXECUTIVE_VEHICLE_TYPE,
-  publicVehicleEligibilityMessage,
-} from "./executive-service";
 import { isQuoteTransactionId } from "./quote-session";
 
 const KNOWN_AIRPORT_CODES = new Set(["BFS", "BHD", "DUB", "LDY"]);
@@ -36,7 +32,6 @@ const UNPAID_REQUEST_TERMS_ERROR =
 const REQUEST_VEHICLE_TYPES = new Set([
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
-  EXECUTIVE_VEHICLE_TYPE,
   "Executive Saloon (1–4 passengers)",
   "Minibus (5–7 passengers)",
 ]);
@@ -139,14 +134,6 @@ function validateStructuredBookingRequest(
   const vehicle = stringField(booking.vehicle);
   if (!REQUEST_VEHICLE_TYPES.has(vehicle)) {
     return { ok: false, error: "Vehicle is not available for this request." };
-  }
-  const eligibilityError = publicVehicleEligibilityMessage(
-    vehicle,
-    Number(booking.passengers),
-    Number(booking.suitcases ?? 0),
-  );
-  if (eligibilityError) {
-    return { ok: false, error: eligibilityError };
   }
   if (
     !publicMinibusAllowed(vehicle, {

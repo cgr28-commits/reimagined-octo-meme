@@ -476,15 +476,11 @@ import {
   resolveWorkerTripRouteMetricsForPayment,
 } from "./resolve-route-metrics";
 import {
+  ESTATE_VEHICLE,
   MINIBUS_VEHICLE,
-  requiresMinibus,
-  resolvePublicBookingVehicle,
+  SALOON_VEHICLE,
   selectVehicleForParty,
 } from "../../../src/lib/vehicle-selection";
-import {
-  executivePreferenceFields,
-  publicVehicleEligibilityMessage,
-} from "../shared/executive-service";
 import type { VehicleType } from "../../../src/lib/data";
 
 type EmailBinding = {
@@ -1000,8 +996,6 @@ async function logPaidBookingCalendar(
         childSeats: booking.childSeats,
         childSeatNotes: booking.childSeatNotes,
         vehicle: booking.vehicle,
-        quietJourney: booking.quietJourney,
-        climatePreference: booking.climatePreference,
         estimatedPrice: amountPaid,
         isAirportTrip: booking.isAirportTrip,
         amountPaid,
@@ -1078,11 +1072,6 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
       ? { childSeatNotes: parseChildSeatNotesInput(details.childSeatNotes) }
       : {}),
     vehicle: String(details.vehicle ?? "").trim(),
-    ...executivePreferenceFields({
-      vehicle: String(details.vehicle ?? ""),
-      quietJourney: details.quietJourney,
-      climatePreference: details.climatePreference,
-    }),
     journeyDistance: String(details.journeyDistance ?? "").trim() || undefined,
     journeyDuration: String(details.journeyDuration ?? "").trim() || undefined,
     isAirportTrip: Boolean(details.isAirportTrip),
@@ -2358,7 +2347,11 @@ async function handlePaymentRequest(
     const paymentDropoffPlaceId = String(body.dropoffPlaceId ?? "").trim();
     const receiptPricing = await loadOwnerPricingOrDefault(env);
     const receiptVehicleRaw = String(booking.vehicle ?? "");
-    const receiptVehicleType: VehicleType = resolvePublicBookingVehicle(receiptVehicleRaw);
+    const receiptVehicleType: VehicleType = /estate/i.test(receiptVehicleRaw)
+      ? ESTATE_VEHICLE
+      : /minibus/i.test(receiptVehicleRaw)
+        ? MINIBUS_VEHICLE
+        : SALOON_VEHICLE;
     let receiptClaims: QuoteReceiptClaims | null = null;
     if (isProfitabilityProtectionActive(receiptPricing.profitability)) {
       const decision = await decideQuoteReceiptPayment({
@@ -2479,23 +2472,11 @@ async function handlePaymentRequest(
       );
     }
     const vehicleRaw = String(booking.vehicle ?? "");
-    const vehicleType: VehicleType = resolvePublicBookingVehicle(vehicleRaw);
-    const partyPassengers = Number(booking.passengers);
-    const partySuitcases = Number(booking.suitcases);
-    const eligibilityError =
-      requiresMinibus(partyPassengers, partySuitcases)
-        ? null
-        : publicVehicleEligibilityMessage(vehicleRaw, partyPassengers, partySuitcases);
-    if (eligibilityError) {
-      return json(
-        {
-          error: eligibilityError,
-          code: "vehicle_unsuitable",
-        },
-        400,
-        origin,
-      );
-    }
+    const vehicleType: VehicleType = /estate/i.test(vehicleRaw)
+      ? ESTATE_VEHICLE
+      : /minibus/i.test(vehicleRaw)
+        ? MINIBUS_VEHICLE
+        : SALOON_VEHICLE;
     if (
       !publicMinibusAllowed(vehicleType, {
         publicMinibusEnabled: pricing.minibus.publicEnabled === true,
@@ -2593,18 +2574,7 @@ async function handlePaymentRequest(
           origin,
         );
       }
-      if (!requote.ok && requote.reason === "vehicle_unsuitable") {
-        return json(
-          {
-            error: requote.message,
-            code: "vehicle_unsuitable",
-          },
-          400,
-          origin,
-        );
-      }
       if (requote.ok) {
-        booking.vehicle = requote.vehicleType;
         const journeyFareGbp =
           typeof requote.journeyFareGbp === "number"
             ? requote.journeyFareGbp

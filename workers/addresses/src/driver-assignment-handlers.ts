@@ -293,14 +293,7 @@ export async function handleDriverAssignRequest(
         : null;
     const cashDue = paidRecord ? remainingCashDueGbp(paidRecord) : 0;
     const email = buildDriverAssignmentEmail({
-      job: {
-        ...updatedBooking,
-        ...(paidRecord?.vehicle ? { vehicle: paidRecord.vehicle } : {}),
-        ...(typeof paidRecord?.quietJourney === "boolean"
-          ? { quietJourney: paidRecord.quietJourney }
-          : {}),
-        ...(paidRecord?.climatePreference ? { climatePreference: paidRecord.climatePreference } : {}),
-      },
+      job: updatedBooking,
       acceptUrl,
       businessName: BUSINESS_NAME,
       ...(cashDue > 0 ? { cashBalanceDue: cashDue } : {}),

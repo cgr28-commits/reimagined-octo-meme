@@ -6,7 +6,6 @@ import {
 } from "../shared/booking-job";
 import { corsHeaders } from "../shared/google-places";
 import { sanitizeAdsAttribution } from "../shared/ads-attribution";
-import { executivePreferenceFields } from "../shared/executive-service";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { logBookingsToGoogleCalendar } from "./google-calendar";
 import {
@@ -154,11 +153,6 @@ export async function createBookingJobFromSubmission(
     passengers: Number(b.passengers ?? 1) || 1,
     suitcases: Number(b.suitcases ?? 0) || 0,
     vehicle: String(b.vehicle ?? "").trim(),
-    ...executivePreferenceFields({
-      vehicle: String(b.vehicle ?? ""),
-      quietJourney: b.quietJourney,
-      climatePreference: b.climatePreference,
-    }),
     quotedPrice:
       typeof b.estimatedPrice === "string" || b.estimatedPrice === null
         ? (b.estimatedPrice as string | null)
