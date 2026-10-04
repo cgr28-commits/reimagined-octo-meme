@@ -39,7 +39,7 @@ const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 const EXECUTIVE_INCLUDED = [
   "Higher-spec vehicle",
-  "Airport access charges included",
+  "Airport pickup & drop-off charges included",
   "Express terminal drop-off included when applicable",
   "Complimentary bottled water",
   "Phone charging available",
@@ -200,7 +200,7 @@ export default function QuoteVehicleCategories({
       option.id === "estate" ? estateUplift : option.id === "executive" ? executiveUplift : null;
     const fareLabel = formatFare(fareFor(option));
     const selectLabel = isSelected ? "Selected" : !selectable ? unavailable : `Select ${option.title}`;
-    const shell = `flex min-w-0 flex-col overflow-hidden rounded-xl border-2 text-navy shadow-[0_8px_18px_rgba(7,28,56,0.08)] md:h-full ${
+    const shell = `flex min-w-0 flex-col overflow-hidden rounded-xl border-2 text-navy shadow-[0_8px_18px_rgba(7,28,56,0.08)] ${
       isSelected
         ? "border-emerald bg-[#f4fbf6]"
         : selectable
@@ -345,15 +345,12 @@ export default function QuoteVehicleCategories({
           </div>
         )}
         {isSelected && option.id === "executive" && executiveOk ? (
-          <div className="md:hidden">
-            <ExecutivePreferences
-              layout="inline"
-              quietJourney={quietJourney}
-              climatePreference={climatePreference}
-              onQuietJourneyChange={onQuietJourneyChange}
-              onClimatePreferenceChange={onClimatePreferenceChange}
-            />
-          </div>
+          <ExecutivePreferences
+            quietJourney={quietJourney}
+            climatePreference={climatePreference}
+            onQuietJourneyChange={onQuietJourneyChange}
+            onClimatePreferenceChange={onClimatePreferenceChange}
+          />
         ) : null}
       </div>
     );
@@ -383,24 +380,13 @@ export default function QuoteVehicleCategories({
       ) : (
         <>
           <div
-            className="mt-3 grid grid-cols-1 items-start gap-2.5 md:mt-4 md:grid-cols-3 md:items-stretch md:gap-3"
+            className="mt-3 grid grid-cols-1 items-start gap-2.5 md:mt-4 md:grid-cols-3 md:items-start md:gap-3"
             role="list"
             aria-label="Vehicle for this journey"
             data-standard-vehicle-choice
           >
             {ownerOptions.map((option) => renderOption(option, "grid"))}
           </div>
-          {selected === EXECUTIVE_VEHICLE && executiveOk ? (
-            <div className="mt-3 hidden md:block">
-              <ExecutivePreferences
-                layout="panel"
-                quietJourney={quietJourney}
-                climatePreference={climatePreference}
-                onQuietJourneyChange={onQuietJourneyChange}
-                onClimatePreferenceChange={onClimatePreferenceChange}
-              />
-            </div>
-          ) : null}
           <ChoiceGuidance />
         </>
       )}
@@ -817,60 +803,28 @@ function ExecutivePreferenceControls({
 }
 
 function ExecutivePreferences({
-  layout,
   quietJourney,
   climatePreference,
   onQuietJourneyChange,
   onClimatePreferenceChange,
 }: {
-  layout: "inline" | "panel";
   quietJourney: boolean;
   climatePreference: ClimatePreference;
   onQuietJourneyChange?: (value: boolean) => void;
   onClimatePreferenceChange?: (value: ClimatePreference) => void;
 }) {
-  const controls = (
-    <ExecutivePreferenceControls
-      quietJourney={quietJourney}
-      climatePreference={climatePreference}
-      onQuietJourneyChange={onQuietJourneyChange}
-      onClimatePreferenceChange={onClimatePreferenceChange}
-    />
-  );
-  if (layout === "panel") {
-    return (
-      <section
-        className="rounded-xl border border-emerald bg-[#f4fbf6] px-4 py-4 text-navy"
-        data-executive-panel
-        aria-label="Your Executive experience"
-      >
-        <h3 className="text-base font-semibold leading-tight text-navy">Your Executive experience</h3>
-        <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(16rem,22rem)] lg:items-start">
-          <div>
-            <p className="text-sm font-semibold text-navy">Included:</p>
-            <ul className="mt-1.5 grid gap-x-6 gap-y-1 text-sm leading-snug text-navy sm:grid-cols-2 lg:grid-cols-1">
-              {EXECUTIVE_INCLUDED.map((item) => (
-                <li key={item} className="flex items-start gap-2">
-                  <span className="mt-0.5 shrink-0 text-navy/65" aria-hidden>
-                    <CheckIcon />
-                  </span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="space-y-3">{controls}</div>
-        </div>
-      </section>
-    );
-  }
   return (
     <div className="space-y-3 border-t border-navy/10 px-3 py-3" data-executive-includes>
       <div>
         <p className="text-sm font-semibold text-navy">Executive includes</p>
         <ExecutiveIncludedList />
       </div>
-      {controls}
+      <ExecutivePreferenceControls
+        quietJourney={quietJourney}
+        climatePreference={climatePreference}
+        onQuietJourneyChange={onQuietJourneyChange}
+        onClimatePreferenceChange={onClimatePreferenceChange}
+      />
     </div>
   );
 }

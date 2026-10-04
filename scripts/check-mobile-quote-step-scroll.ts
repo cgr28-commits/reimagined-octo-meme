@@ -189,7 +189,10 @@ check("Fleet / Saloon / Estate public capacity is up to 4", () => {
   assert.match(vehicles, /Private transfers for up to 4/);
   assert.match(vehicles, /Up to 4 passengers/);
   assert.doesNotMatch(vehicles, /Minibus — 5–7 passengers/);
-  assert.match(card, /Vehicle for this journey/);
+  assert.match(
+    fs.readFileSync(path.join(root, "src/components/QuoteVehicleCategories.tsx"), "utf8"),
+    /Vehicle for this journey/,
+  );
   assert.match(card, /vehicleShortLabel/);
 });
 

@@ -4911,9 +4911,9 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // On mobile, the top edge of the white selected-vehicle quote card sits
-  // flush under the fixed header (clearance 0). The vehicle list stays above
-  // the fold. Instant, so iOS cannot cancel a smooth scroll on that list.
+  // On mobile, the Choose your vehicle section sits flush under the fixed
+  // header (clearance 0), with the transfer price directly beneath it.
+  // Instant, so iOS cannot cancel a smooth scroll on that list.
   // Fare, vehicle, and Free/Express updates leave the latch set.
   useEffect(() => {
     if (quoteStep !== 1) {
@@ -6677,10 +6677,6 @@ function QuoteCard({
           : "Calculating…";
     return (
       <QuoteResultShowcase
-        ref={quoteSelectedVehicleCardRef}
-        vehicleType={quoteVehicle}
-        passengers={effectivePassengers as number}
-        suitcases={suitcases as number}
         priceLabel={appliedPersonalQuote ? "Personal quoted fare" : "Your transfer price"}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUnavailable={authoritativeQuoteFailed}
@@ -7225,22 +7221,13 @@ function QuoteCard({
                       className="h-px w-full"
                       aria-hidden="true"
                     />
+                    <div ref={quoteSelectedVehicleCardRef} className="space-y-3">
                     {renderQuoteVehicleChoice()}
                     {renderBookingErrorHelp("results")}
                     {showInstantQuoteResultCard ? (
                       renderInstantQuoteResultCard()
                     ) : (
                       <>
-                        {!exceedsOnlineCapacity && (
-                          <div className="rounded-xl quote-panel px-3 py-3 sm:px-4 sm:py-3.5">
-                            <p className="form-label mb-0">
-                              Choose your vehicle
-                            </p>
-                            <p className="mt-1.5 font-display text-xl font-semibold tracking-tight text-white sm:text-[1.35rem]">
-                              {vehicleShortLabel(quoteVehicle)}
-                            </p>
-                          </div>
-                        )}
                         <div
                           id="quote-price-summary"
                           className="quote-price-panel"
@@ -7277,6 +7264,7 @@ function QuoteCard({
                           />,
                         )
                       : null}
+                    </div>
                   </>
                 )}
               </div>
@@ -7674,6 +7662,7 @@ function QuoteCard({
               className="h-px w-full"
               aria-hidden="true"
             />
+            <div ref={quoteSelectedVehicleCardRef} className="space-y-3">
             {renderQuoteVehicleChoice()}
             {renderBookingErrorHelp("results")}
             {showInstantQuoteResultCard ? (
@@ -7710,16 +7699,6 @@ function QuoteCard({
               </>
             ) : (
               <>
-                {!exceedsOnlineCapacity && (
-                  <div className="rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2.5 sm:px-4 sm:py-3">
-                    <p className="text-xs font-medium uppercase tracking-wider text-emerald">
-                      Vehicle for this journey
-                    </p>
-                    <p className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
-                      {vehicleShortLabel(quoteVehicle)}
-                    </p>
-                  </div>
-                )}
                 <div
                   id="quote-price-summary"
                   className="quote-price-panel"
@@ -7766,6 +7745,7 @@ function QuoteCard({
                 </div>
               </>
             )}
+            </div>
           </div>
         )}
         </div>
