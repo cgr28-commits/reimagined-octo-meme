@@ -68,13 +68,24 @@ import {
   VEHICLE_TYPES,
 } from "@/lib/data";
 import {
+  ESTATE_VEHICLE,
+  EXECUTIVE_VEHICLE,
   formatPassengerChoice,
   formatSuitcaseChoice,
   MAX_PUBLIC_SUITCASES,
   requiresMinibus,
+  SALOON_VEHICLE,
   selectVehicleForParty,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
+import {
+  estateCapacityAllows,
+  executiveAvailableForParty,
+  saloonCapacityAllows,
+  formatExecutivePreferenceLines,
+  isPremiumExecutiveVehicle,
+  type ClimatePreference,
+} from "../../shared/executive-service";
 import {
   publicPassengerLimitMessage,
   publicPassengerOptions,
@@ -705,12 +716,18 @@ function QuoteCard({
   const previewQuoteAppliedRef = useRef(false);
   useEffect(() => {
     let cancelled = false;
-    void fetchPublicPricingConfig().then((config) => {
-      if (!cancelled) {
-        setPublicPricing(config);
-        setPublicPricingLoaded(true);
-      }
-    });
+    void fetchPublicPricingConfig()
+      .then((config) => {
+        if (!cancelled) {
+          setPublicPricing(config);
+          setPublicPricingLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPublicPricingLoaded(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -829,6 +846,11 @@ function QuoteCard({
         : undefined;
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [chooseMinibus, setChooseMinibus] = useState(false);
+  const [serviceChoice, setServiceChoice] = useState<
+    "auto" | "saloon" | "estate" | "executive" | "minibus"
+  >("auto");
+  const [quietJourney, setQuietJourney] = useState(false);
+  const [climatePreference, setClimatePreference] = useState<ClimatePreference>("no_preference");
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
@@ -914,8 +936,25 @@ function QuoteCard({
     if (publicMinibusEnabled && (chooseMinibus || pax >= 5 || suitcases >= 5)) {
       return MINIBUS_VEHICLE_TYPE;
     }
+    if (serviceChoice === "executive" && executiveAvailableForParty(pax, suitcases)) {
+      return EXECUTIVE_VEHICLE;
+    }
+    if (serviceChoice === "estate" && estateCapacityAllows(pax, suitcases) && !requiresMinibus(pax, suitcases)) {
+      return ESTATE_VEHICLE;
+    }
+    if (serviceChoice === "saloon" && saloonCapacityAllows(pax, suitcases) && !requiresMinibus(pax, suitcases)) {
+      return SALOON_VEHICLE;
+    }
     return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
-  }, [chooseMinibus, passengerLimit, passengers, publicMinibusEnabled, suitcases, vehicle]);
+  }, [
+    chooseMinibus,
+    passengerLimit,
+    passengers,
+    publicMinibusEnabled,
+    serviceChoice,
+    suitcases,
+    vehicle,
+  ]);
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
@@ -939,6 +978,13 @@ function QuoteCard({
     const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
     setVehicle((current) => (current === next ? current : next));
     setChooseMinibus(false);
+    setServiceChoice((current) => {
+      if (current === "minibus" || requiresMinibus(pax, suitcases)) return "auto";
+      if (current === "executive" && !executiveAvailableForParty(pax, suitcases)) return "auto";
+      if (current === "estate" && !estateCapacityAllows(pax, suitcases)) return "auto";
+      if (current === "saloon" && !saloonCapacityAllows(pax, suitcases)) return "auto";
+      return current;
+    });
   }, [passengers, suitcases]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
@@ -1379,9 +1425,7 @@ function QuoteCard({
       return;
     }
     const seed = readPreviewCustomerQuoteSeed();
-    if (!seed) {
-      return;
-    }
+    if (!seed) return;
 
     if (!previewQuoteAppliedRef.current) {
       previewQuoteAppliedRef.current = true;
@@ -2391,6 +2435,9 @@ function QuoteCard({
     setSuitcases(null);
     setExactPassengers(null);
     setChooseMinibus(false);
+    setServiceChoice("auto");
+    setQuietJourney(false);
+    setClimatePreference("no_preference");
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -3325,6 +3372,9 @@ function QuoteCard({
       childSeats,
       childSeatNotes: childSeats > 0 ? childSeatNotes.trim() : undefined,
       vehicle: quoteVehicle,
+      ...(isPremiumExecutiveVehicle(quoteVehicle)
+        ? { quietJourney, climatePreference }
+        : {}),
       estimatedPrice,
       journeyDistance: journeyDistanceLabel || undefined,
       journeyDuration: journeyDurationLabel || undefined,
@@ -4084,6 +4134,9 @@ function QuoteCard({
     setReturnTime("");
     setVehicle(VEHICLE_TYPES[0]);
     setChooseMinibus(false);
+    setServiceChoice("auto");
+    setQuietJourney(false);
+    setClimatePreference("no_preference");
     setExpressDropOffSelected(false);
     setReturnExpressDropOffSelected(false);
     setExpressRemovalAck(false);
@@ -5426,6 +5479,7 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Large suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
+            {renderExecutivePreferenceSummary()}
             <PriceInclusionBlock
               isAirportTrip={isAirportLegForInclusions}
               isFromAirport={isFromAirport}
@@ -5529,6 +5583,7 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Large suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
+            {renderExecutivePreferenceSummary()}
             {testChargeAmount !== null && (
               <p className="quote-secondary mt-2 text-xs">
                 Route price would be {formatQuote(liveQuote.amount)} — not charged in test mode.
@@ -6436,18 +6491,59 @@ function QuoteCard({
 
   function handleQuoteVehicleChoice(next: string) {
     const pax = effectivePartyPassengers(passengers, passengerLimit);
-    if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
+    if (pax == null || suitcases == null) return;
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
+    if (requiresMinibus(pax, suitcases)) {
+      setServiceChoice(next === MINIBUS_VEHICLE_TYPE ? "minibus" : "auto");
+      return;
+    }
+    if (next === EXECUTIVE_VEHICLE && executiveAvailableForParty(pax, suitcases)) {
+      setServiceChoice("executive");
+      return;
+    }
+    if (next === ESTATE_VEHICLE) {
+      setServiceChoice("estate");
+      return;
+    }
+    if (next === SALOON_VEHICLE && saloonCapacityAllows(pax, suitcases)) {
+      setServiceChoice("saloon");
+      return;
+    }
+    if (next === MINIBUS_VEHICLE_TYPE && publicMinibusEnabled) {
+      setServiceChoice("minibus");
+    }
+  }
+
+  function renderExecutivePreferenceSummary() {
+    const lines = formatExecutivePreferenceLines({
+      vehicle: quoteVehicle,
+      quietJourney,
+      climatePreference,
+    });
+    if (lines.length === 0) return null;
+    return (
+      <p className="mt-1 text-xs leading-relaxed text-white/65">
+        {lines.join(" · ")}
+      </p>
+    );
   }
 
   function renderQuoteVehicleChoice() {
-    if (!publicMinibusEnabled || passengers == null || suitcases == null) return null;
+    if (passengers == null || suitcases == null) return null;
     return (
       <QuoteVehicleCategories
         passengers={passengers}
         suitcases={suitcases}
         selectedVehicle={quoteVehicle}
         onSelectVehicle={handleQuoteVehicleChoice}
+        estateUpliftGbp={publicPricing.estate.upliftGbp}
+        executiveUpliftGbp={publicPricing.executive.upliftGbp}
+        airportPickup={journeyIntent === "from-airport" || (isAirportTrip && isFromAirport)}
+        includeMinibus={publicMinibusEnabled}
+        quietJourney={quietJourney}
+        climatePreference={climatePreference}
+        onQuietJourneyChange={setQuietJourney}
+        onClimatePreferenceChange={setClimatePreference}
       />
     );
   }
@@ -6839,6 +6935,12 @@ function QuoteCard({
               showVehicleCategories={!(quoteResultsReady && quoteStep === 1)}
               selectedVehicle={quoteVehicle}
               onSelectVehicle={handleQuoteVehicleChoice}
+              estateUpliftGbp={publicPricing.estate.upliftGbp}
+              executiveUpliftGbp={publicPricing.executive.upliftGbp}
+              quietJourney={quietJourney}
+              climatePreference={climatePreference}
+              onQuietJourneyChange={setQuietJourney}
+              onClimatePreferenceChange={setClimatePreference}
               isGroupQuote={false}
               showRouteFields={Boolean(journeyIntent)}
               showJourneyModeFields={
@@ -7438,14 +7540,9 @@ function QuoteCard({
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
           />
-          {publicMinibusEnabled && partySelectionReady && !(quoteResultsReady && quoteStep === 1) ? (
+          {partySelectionReady && !(quoteResultsReady && quoteStep === 1) ? (
             renderQuoteVehicleChoice()
-          ) : publicMinibusEnabled && partySelectionReady ? null : (
-            <p className="quote-secondary text-xs leading-relaxed">
-              Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and
-              luggage — private airport transfer for 1–4 passengers.
-            </p>
-          )}
+          ) : null}
         </div>
         )}
 

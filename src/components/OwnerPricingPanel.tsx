@@ -365,14 +365,25 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           </div>
 
           <div>
-            <p className="text-lg font-semibold text-white">Estate</p>
+            <p className="text-lg font-semibold text-white">Vehicle Upgrades</p>
+            <p className="mt-1 text-xs text-white/55">
+              Added to the Saloon fare for each journey. Airport and Express charges stay separate.
+            </p>
             <MoneyField
-              label="Uplift over Saloon"
+              label="Estate upgrade"
               value={draft.estate.upliftGbp}
               onChange={(upliftGbp) => update("estate", { upliftGbp })}
             />
             <p className="mt-1 text-xs text-white/55">
               Example: Saloon £50.00 → Estate £{(50 + Number(draft.estate.upliftGbp || 0)).toFixed(2)}
+            </p>
+            <MoneyField
+              label="Executive upgrade"
+              value={draft.executive.upliftGbp}
+              onChange={(upliftGbp) => update("executive", { upliftGbp })}
+            />
+            <p className="mt-1 text-xs text-white/55">
+              Example: Saloon £50.00 → Executive £{(50 + Number(draft.executive.upliftGbp || 0)).toFixed(2)}
             </p>
           </div>
 

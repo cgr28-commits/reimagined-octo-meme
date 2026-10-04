@@ -315,7 +315,7 @@ export function minimumNoticeRequestBody(
   );
 }
 
-export type BookableServiceCode = "SALOON" | "ESTATE" | "MINIBUS";
+export type BookableServiceCode = "SALOON" | "ESTATE" | "EXECUTIVE" | "MINIBUS";
 
 /** Europe/London wall clock `YYYY-MM-DDTHH:mm`. */
 export type LondonLocalDateTime = string;
@@ -410,6 +410,7 @@ export function vehicleServiceCode(vehicle?: string | null): BookableServiceCode
   const v = String(vehicle ?? "").trim().toLowerCase();
   if (!v) return "OTHER";
   if (v.includes("minibus")) return "MINIBUS";
+  if (v.includes("executive") && !v.includes("saloon")) return "EXECUTIVE";
   if (v.includes("estate")) return "ESTATE";
   if (v.includes("saloon") || v.includes("standard")) return "SALOON";
   return "OTHER";

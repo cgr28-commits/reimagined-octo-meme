@@ -25,6 +25,7 @@ import {
 import { detectMobileDevice } from "@/lib/device";
 import PublicPartySelectors from "@/components/PublicPartySelectors";
 import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
+import type { ClimatePreference } from "../../shared/executive-service";
 
 const SELECTABLE_AIRPORTS = CUSTOMER_AIRPORTS.filter(
   (airport) => SERVICE_FLAGS.belfastCityAirport || airport.code !== "BHD",
@@ -72,6 +73,12 @@ export type QuoteProgressiveRouteProps = {
   showVehicleCategories?: boolean;
   selectedVehicle?: string | null;
   onSelectVehicle?: (vehicle: string) => void;
+  estateUpliftGbp?: number;
+  executiveUpliftGbp?: number;
+  quietJourney?: boolean;
+  climatePreference?: ClimatePreference;
+  onQuietJourneyChange?: (value: boolean) => void;
+  onClimatePreferenceChange?: (value: ClimatePreference) => void;
   isGroupQuote: boolean;
   showRouteFields: boolean;
   /** Addresses complete — show One Way / Return (not passengers yet). */
@@ -128,6 +135,12 @@ export default function QuoteProgressiveRoute({
   showVehicleCategories = true,
   selectedVehicle = null,
   onSelectVehicle,
+  estateUpliftGbp,
+  executiveUpliftGbp,
+  quietJourney = false,
+  climatePreference = "no_preference",
+  onQuietJourneyChange,
+  onClimatePreferenceChange,
   isGroupQuote: _isGroupQuote,
   showRouteFields,
   showJourneyModeFields,
@@ -450,15 +463,20 @@ export default function QuoteProgressiveRoute({
             passengersError={passengersError}
             suitcasesError={suitcasesError}
           />
-          {showVehicleCategories &&
-          publicMinibusEnabled === true &&
-          passengers != null &&
-          suitcases != null ? (
+          {showVehicleCategories && passengers != null && suitcases != null ? (
             <QuoteVehicleCategories
               passengers={passengers}
               suitcases={suitcases}
               selectedVehicle={selectedVehicle}
               onSelectVehicle={onSelectVehicle}
+              estateUpliftGbp={estateUpliftGbp}
+              executiveUpliftGbp={executiveUpliftGbp}
+              airportPickup={journeyIntent === "from-airport"}
+              includeMinibus={publicMinibusEnabled === true}
+              quietJourney={quietJourney}
+              climatePreference={climatePreference}
+              onQuietJourneyChange={onQuietJourneyChange}
+              onClimatePreferenceChange={onClimatePreferenceChange}
             />
           ) : null}
 

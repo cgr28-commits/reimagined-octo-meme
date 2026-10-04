@@ -735,7 +735,7 @@ function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYP
 
 function matchExplicitVehicle(text: string): (typeof VEHICLE_TYPES)[number] | undefined {
   const lower = text.toLowerCase();
-  if (/\bexecutive\b/.test(lower)) return "Executive Saloon (1–4 passengers)";
+  if (/\bexecutive\b/.test(lower)) return "Executive (up to 3 passengers)";
   if (/\bestate\b/.test(lower)) return "Estate Car (1–4 passengers)";
   if (/\bsaloon\b/.test(lower)) return "Standard Saloon (1–4 passengers)";
   return undefined;

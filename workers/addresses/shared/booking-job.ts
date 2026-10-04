@@ -1,6 +1,7 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
 import type { AdsAttribution } from "./ads-attribution";
+import { formatExecutivePreferenceLines } from "./executive-service";
 
 function formatJobDateDmy(date: string): string {
   if (!date) return "";
@@ -36,6 +37,8 @@ export type BookingJobRecord = {
   passengers: number;
   suitcases: number;
   vehicle: string;
+  quietJourney?: boolean;
+  climatePreference?: "no_preference" | "cooler" | "warmer";
   quotedPrice?: string | null;
   isAirportTrip: boolean;
   airportCode?: string;
@@ -142,6 +145,7 @@ export function buildDriverAssignmentEmail(options: {
     `Passengers: ${job.passengers}`,
     `Suitcases: ${job.suitcases}`,
     `Vehicle type booked: ${job.vehicle}`,
+    ...formatExecutivePreferenceLines(job),
     vehicleLine ? `Your vehicle on this job: ${vehicleLine}` : null,
     job.driverMobile?.trim() ? `Your mobile on file: ${job.driverMobile.trim()}` : null,
     "",
@@ -182,6 +186,13 @@ export function buildDriverAssignmentEmail(options: {
           : ""
       }
       <p style="margin:0 0 8px;"><strong>Passengers / suitcases:</strong> ${job.passengers} / ${job.suitcases}</p>
+      <p style="margin:0 0 8px;"><strong>Vehicle type booked:</strong> ${escapeHtml(job.vehicle)}</p>
+      ${formatExecutivePreferenceLines(job)
+        .map(
+          (line) =>
+            `<p style="margin:0 0 8px;">${escapeHtml(line)}</p>`,
+        )
+        .join("")}
       <p style="margin:0;"><strong>Your pay for this journey:</strong> ${escapeHtml(pay)}</p>
       ${
         typeof options.cashBalanceDue === "number" && options.cashBalanceDue > 0

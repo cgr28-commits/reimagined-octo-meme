@@ -10,15 +10,21 @@
  *   20 → £53, 25 → £60, 30 → £67, 35 → £74, 40 → £81
  *   50 → £96, 60 → £115, 70 → £135, 80 → £157, 90 → £181, 100 → £210
  *
- * Estate = final rounded Saloon + £10 (never rounded separately).
+ * Estate = final rounded Saloon + the Estate upgrade (default £6, never rounded separately).
+ * Executive = final rounded Saloon + the Executive upgrade (default £20).
  * Minibus = Estate × multiplier, rounded to the nearest penny only
  * (no nearest-£5 rounding).
  * Airport Express / access charges are NOT included here — add after.
  */
 
 import { roundGbp } from "./gbp";
+import {
+  DEFAULT_EXECUTIVE_UPLIFT_GBP,
+  isPremiumExecutiveVehicle,
+} from "./executive-service";
 
-export const UNIVERSAL_ESTATE_PREMIUM_GBP = 10;
+/** Approved Estate upgrade when pricing settings are missing. Dashboard can override. */
+export const UNIVERSAL_ESTATE_PREMIUM_GBP = 6;
 export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
 export const UNIVERSAL_SALOON_FLOOR_MILES = 4;
 
@@ -113,7 +119,7 @@ export function calculateUniversalSaloonJourneyFareGbp(
 
 /**
  * Estate journey fare from an already-rounded Saloon fare.
- * Always exactly + uplift (default £10) — do not re-round.
+ * Always exactly + uplift (default £6) — do not re-round.
  */
 export function calculateUniversalEstateJourneyFareGbp(
   roundedSaloonFareGbp: number,
@@ -136,8 +142,9 @@ export function classifyUniversalVehicle(
 
 /**
  * Journey fare (taxi only) from road miles + vehicle.
- * Minibus / Executive build from Estate (= Saloon + £10).
- * Minibus uses Estate × multiplier with penny rounding only.
+ * Estate is Saloon + the estate upgrade. Public Executive is Saloon + the
+ * executive upgrade. Legacy Executive Saloon keeps its enquiry formula.
+ * Minibus uses Estate × multiplier. Airport charges are not part of either upgrade.
  */
 export function calculateUniversalJourneyFareGbp(
   roadMiles: number,
@@ -147,6 +154,8 @@ export function calculateUniversalJourneyFareGbp(
     minibusMultiplier?: number;
     executiveMultiplier?: number;
     estatePremiumGbp?: number;
+    /** Dashboard Executive upgrade. Missing config uses £20. */
+    executivePremiumGbp?: number;
     saloonFareGbp?: number;
     saloonMinimumGbp?: number;
     saloonFloorMiles?: number;
@@ -154,6 +163,7 @@ export function calculateUniversalJourneyFareGbp(
   },
 ): { saloonGbp: number; journeyFareGbp: number; vehicleAdjustmentGbp: number } {
   const estatePremiumGbp = options?.estatePremiumGbp ?? UNIVERSAL_ESTATE_PREMIUM_GBP;
+  const executivePremiumGbp = options?.executivePremiumGbp ?? DEFAULT_EXECUTIVE_UPLIFT_GBP;
   const saloonGbp =
     options?.saloonFareGbp != null
       ? roundUniversalSaloonFareGbp(options.saloonFareGbp)
@@ -178,6 +188,15 @@ export function calculateUniversalJourneyFareGbp(
         vehicleAdjustmentGbp: estatePremiumGbp,
       };
     case "executive": {
+      if (isPremiumExecutiveVehicle(vehicleType)) {
+        const uplift = Number(executivePremiumGbp);
+        const executiveUplift = Number.isFinite(uplift) ? uplift : DEFAULT_EXECUTIVE_UPLIFT_GBP;
+        return {
+          saloonGbp,
+          journeyFareGbp: saloonGbp + executiveUplift,
+          vehicleAdjustmentGbp: executiveUplift,
+        };
+      }
       const raw = Math.max(execMin, Math.round((estateGbp * execMult) / 5) * 5);
       return {
         saloonGbp,

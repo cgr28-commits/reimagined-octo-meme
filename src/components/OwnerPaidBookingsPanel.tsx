@@ -49,6 +49,7 @@ import { remainingCashDueGbp } from "../../shared/deposit-cash";
 import { formatGbpAmount } from "../../shared/gbp";
 import { whatsAppHrefForMobile } from "../../shared/journey-tip";
 import { formatAirportAccessOptionDashboardValue } from "../../shared/express-drop-off";
+import { formatExecutivePreferenceLines } from "../../shared/executive-service";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import {
@@ -1456,13 +1457,21 @@ export default function OwnerPaidBookingsPanel({
     const vehicleLabel = booking.vehicle
       ? booking.vehicle.toLowerCase().includes("minibus")
         ? "MINIBUS"
-        : booking.vehicle.toLowerCase().includes("estate")
-          ? "ESTATE"
-          : booking.vehicle.toLowerCase().includes("saloon") ||
-              booking.vehicle.toLowerCase().includes("standard")
-            ? "SALOON"
-            : booking.vehicle
+        : booking.vehicle.toLowerCase().includes("executive") &&
+            !booking.vehicle.toLowerCase().includes("saloon")
+          ? "EXECUTIVE"
+          : booking.vehicle.toLowerCase().includes("estate")
+            ? "ESTATE"
+            : booking.vehicle.toLowerCase().includes("saloon") ||
+                booking.vehicle.toLowerCase().includes("standard")
+              ? "SALOON"
+              : booking.vehicle
       : null;
+    const executivePreferenceLines = formatExecutivePreferenceLines({
+      vehicle: booking.vehicle,
+      quietJourney: booking.quietJourney,
+      climatePreference: booking.climatePreference,
+    });
     const airportAccessLabel = formatAirportAccessOptionDashboardValue({
       expressDropOffSelected: booking.expressDropOffSelected,
       expressDropOffFee: booking.expressDropOffFee,
@@ -2050,6 +2059,17 @@ export default function OwnerPaidBookingsPanel({
               <dd className="font-semibold text-white">{vehicleLabel}</dd>
             </div>
           ) : null}
+          {executivePreferenceLines.map((line) => {
+            const splitAt = line.indexOf(": ");
+            const label = splitAt > 0 ? line.slice(0, splitAt) : line;
+            const value = splitAt > 0 ? line.slice(splitAt + 2) : "";
+            return (
+              <div key={label}>
+                <dt className="text-[11px] text-white/40">{label}</dt>
+                <dd className="font-semibold text-white">{value}</dd>
+              </div>
+            );
+          })}
           {flightLabel ? (
             <div>
               <dt className="text-[11px] text-white/40">Flight</dt>

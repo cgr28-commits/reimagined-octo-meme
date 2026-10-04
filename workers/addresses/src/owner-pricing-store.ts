@@ -52,13 +52,8 @@ function attachProfitability(
   settings: OwnerPricingSettings,
 ): StoredOwnerPricingSettings {
   const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  let next = settings;
-  const storedUplift = (source.estate as { upliftGbp?: unknown } | undefined)?.upliftGbp;
-  if (source.profitability == null && Number(storedUplift) === 6) {
-    next = { ...settings, estate: { upliftGbp: defaultOwnerPricingSettings().estate.upliftGbp } };
-  }
   return {
-    ...next,
+    ...settings,
     profitability: normalizeProfitabilitySettings(source.profitability),
   };
 }
