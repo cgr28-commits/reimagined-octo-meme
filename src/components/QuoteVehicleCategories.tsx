@@ -37,10 +37,13 @@ const EXECUTIVE_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
-const EXECUTIVE_CARD_BENEFITS = [
+const EXECUTIVE_INCLUDED = [
   "Higher-spec vehicle",
-  "Extra comfort",
-  "Quiet Journey available",
+  "Complimentary bottled water",
+  "Phone charging available",
+  "Quiet Journey option",
+  "Climate preference",
+  "Premium comfort",
 ] as const;
 
 export type QuoteVehicleFares = {
@@ -55,8 +58,8 @@ const CATEGORIES = [
     id: "saloon",
     vehicle: SALOON_VEHICLE,
     title: "Saloon",
-    short: "Modern, comfortable private airport travel",
-    detail: "Modern, comfortable private airport travel",
+    short: "Spacious, comfortable private airport travel",
+    detail: "Spacious, comfortable private airport travel",
     image: STANDARD_SALOON_IMAGE,
     imageAlt: "Saloon airport transfer",
   },
@@ -64,8 +67,8 @@ const CATEGORIES = [
     id: "estate",
     vehicle: ESTATE_VEHICLE,
     title: "Estate",
-    short: "Additional space and luggage capacity",
-    detail: "Additional space and luggage capacity",
+    short: "Extra luggage capacity & versatility",
+    detail: "Extra luggage capacity & versatility",
     image: ESTATE_IMAGE,
     imageAlt: "Estate airport transfer",
   },
@@ -73,8 +76,8 @@ const CATEGORIES = [
     id: "executive",
     vehicle: EXECUTIVE_VEHICLE,
     title: "Executive",
-    short: "Enhanced comfort and premium extras",
-    detail: "Enhanced comfort and premium extras",
+    short: "Premium travel experience",
+    detail: "Premium travel experience",
     image: EXECUTIVE_IMAGE,
     imageAlt: "Executive airport transfer",
   },
@@ -195,7 +198,7 @@ export default function QuoteVehicleCategories({
       option.id === "estate" ? estateUplift : option.id === "executive" ? executiveUplift : null;
     const fareLabel = formatFare(fareFor(option));
     const selectLabel = isSelected ? "Selected" : !selectable ? unavailable : `Select ${option.title}`;
-    const shell = `flex h-full min-w-0 flex-col overflow-hidden rounded-xl border-2 text-navy shadow-[0_8px_18px_rgba(7,28,56,0.08)] ${
+    const shell = `flex min-w-0 flex-col overflow-hidden rounded-xl border-2 text-navy shadow-[0_8px_18px_rgba(7,28,56,0.08)] ${
       isSelected
         ? "border-emerald bg-[#f4fbf6]"
         : selectable
@@ -411,7 +414,7 @@ function DesktopFacts({ option }: { option: Category }) {
         <Fact icon={<PersonIcon />}>Up to {SALOON_MAX_PASSENGERS} passengers</Fact>
         <Fact icon={<CaseIcon />}>Up to {SALOON_MAX_SUITCASES} large suitcases</Fact>
         <Fact icon={<CheckIcon />}>Comfortable and efficient</Fact>
-        <Fact icon={<CheckIcon />}>Ideal for most airport journeys</Fact>
+        <Fact icon={<CheckIcon />}>Spacious, comfortable interior</Fact>
       </>
     );
   }
@@ -422,7 +425,7 @@ function DesktopFacts({ option }: { option: Category }) {
         <Fact icon={<CaseIcon />}>Up to {ESTATE_MAX_SUITCASES} large suitcases</Fact>
         <Fact icon={<CheckIcon />}>Extra luggage space</Fact>
         <Fact icon={<CheckIcon />}>More room for larger bags</Fact>
-        <Fact icon={<CheckIcon />}>Ideal for families and extra luggage</Fact>
+        <Fact icon={<CheckIcon />}>Flexible luggage capacity</Fact>
       </>
     );
   }
@@ -432,8 +435,8 @@ function DesktopFacts({ option }: { option: Category }) {
         <Fact icon={<PersonIcon />}>Up to {EXECUTIVE_MAX_PASSENGERS} passengers</Fact>
         <Fact icon={<CaseIcon />}>Up to {EXECUTIVE_MAX_SUITCASES} large suitcases</Fact>
         <Fact icon={<CheckIcon />}>Higher-spec vehicle</Fact>
-        <Fact icon={<CheckIcon />}>Extra comfort</Fact>
-        <Fact icon={<CheckIcon />}>Quiet Journey available</Fact>
+        <Fact icon={<CheckIcon />}>Premium comfort</Fact>
+        <Fact icon={<CheckIcon />}>Quiet Journey option</Fact>
       </>
     );
   }
@@ -455,7 +458,7 @@ function MobileFacts({ option }: { option: Category }) {
       <>
         <Chip icon={<PersonIcon />} sr="Passengers">Up to {ESTATE_MAX_PASSENGERS}</Chip>
         <Chip icon={<CaseIcon />} sr="Large suitcases">Up to {ESTATE_MAX_SUITCASES}</Chip>
-        <Chip icon={<CheckIcon />} sr="">Extra space</Chip>
+        <Chip icon={<CheckIcon />} sr="">Extra luggage</Chip>
       </>
     );
   }
@@ -478,12 +481,10 @@ function MobileFacts({ option }: { option: Category }) {
 function MobileBenefits({ optionId }: { optionId: Category["id"] }) {
   const lines =
     optionId === "saloon"
-      ? ["Comfortable and efficient", "Ideal for most airport journeys"]
+      ? ["Comfortable and efficient", "Spacious, comfortable interior"]
       : optionId === "estate"
-        ? ["Extra luggage space", "More room for larger bags", "Ideal for families and extra luggage"]
-        : optionId === "executive"
-          ? [...EXECUTIVE_CARD_BENEFITS]
-          : [];
+        ? ["Extra luggage space", "More room for larger bags", "Flexible luggage capacity"]
+        : [];
   if (lines.length === 0) return null;
   return (
     <span className="block space-y-0.5 px-2.5 pb-2.5 text-xs leading-snug text-navy/80 md:hidden">
@@ -505,7 +506,7 @@ function ChoiceGuidance() {
       <p className="min-w-0 text-sm leading-snug">
         <span className="font-semibold">Not sure which to choose?</span>{" "}
         <span className="text-navy/75">
-          Estate gives you extra luggage space, while Executive offers a higher-spec vehicle and extra comfort.
+          All options provide a spacious, comfortable private airport transfer. Choose Estate for extra luggage capacity, or Executive for a premium travel experience.
         </span>
       </p>
     </div>
@@ -544,7 +545,7 @@ function EstateBanner({ visible }: { visible: boolean }) {
       aria-hidden={visible ? undefined : true}
     >
       <StarIcon />
-      Recommended for extra space
+      Extra luggage space
     </span>
   );
 }
@@ -561,7 +562,7 @@ function RecommendedPill() {
   return (
     <span className="mb-1 inline-flex max-w-full items-center gap-1 rounded-full bg-[#0e7a36] px-2 py-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-white">
       <StarIcon />
-      <span className="min-w-0 text-left">Recommended for extra space</span>
+      <span className="min-w-0 text-left">Extra luggage space</span>
     </span>
   );
 }
@@ -738,7 +739,20 @@ function ExecutivePreferences({
   onClimatePreferenceChange?: (value: ClimatePreference) => void;
 }) {
   return (
-    <div className="space-y-3 border-t border-navy/10 px-3 py-3">
+    <div className="space-y-3 border-t border-navy/10 px-3 py-3" data-executive-includes>
+      <div>
+        <p className="text-sm font-semibold text-navy">Executive includes</p>
+        <ul className="mt-1.5 space-y-1 text-sm leading-snug text-navy">
+          {EXECUTIVE_INCLUDED.map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <span className="mt-0.5 shrink-0 text-navy/65" aria-hidden>
+                <CheckIcon />
+              </span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
       <label className="flex min-h-11 items-start gap-3 text-sm text-navy">
         <input
           type="checkbox"
