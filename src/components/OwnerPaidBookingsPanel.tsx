@@ -2779,7 +2779,7 @@ export default function OwnerPaidBookingsPanel({
                 aria-modal="true"
                 aria-labelledby="reopen-job-title"
               >
-                <div className="w-full max-w-md rounded-2xl border border-amber-400/40 bg-navy p-5 shadow-2xl">
+                <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-400/40 bg-navy p-5 shadow-2xl">
                   <h3 id="reopen-job-title" className="text-lg font-bold text-white">
                     Reopen this job?
                   </h3>

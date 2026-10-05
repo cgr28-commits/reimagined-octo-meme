@@ -8,7 +8,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { paidBookingRefKey } from "../shared/paid-booking-record";
+import { tipRecordHasPaymentEvidence, type JourneyTipRecord } from "../shared/journey-tip";
 import {
+  applyJourneyAction,
   completionTimestampsMatch,
   ownerReopenStatusLabel,
   proposedStatusBeforeCompletion,
@@ -276,7 +278,12 @@ async function main() {
       tipToken: "a".repeat(32),
       tipWhatsappPreparedAt: COMPLETED_AT,
     });
-    const cancelled = reopenCompletedJourney(pending);
+    const keptByDefault = reopenCompletedJourney(pending);
+    assert.equal(keptByDefault.job.tipDecision, "no");
+    assert.equal(keptByDefault.job.tipToken, pending.tipToken);
+    assert.equal(keptByDefault.unpaidTipTokenToDelete, null);
+
+    const cancelled = reopenCompletedJourney(pending, { preserveTipMetadata: false });
     assert.equal(cancelled.reviewOutcome, "cancelled");
     assert.equal(cancelled.reviewMessage, "Pending review request cancelled");
     assert.equal(cancelled.job.reviewRequestScheduledAt, undefined);
@@ -299,11 +306,13 @@ async function main() {
 
     const paidTip = reopenCompletedJourney(
       job({ tipDecision: "no", tipToken: "b".repeat(32), tipWhatsappPreparedAt: COMPLETED_AT }),
-      { preservePaidTip: true },
     );
     assert.equal(paidTip.job.tipDecision, "no");
     assert.equal(paidTip.job.tipToken, "b".repeat(32));
     assert.equal(paidTip.unpaidTipTokenToDelete, null);
+    assert.equal(tipRecordHasPaymentEvidence({ status: "paid", tipToken: "b".repeat(32), trackingJobToken: "x", requestedAt: COMPLETED_AT }), true);
+    assert.equal(tipRecordHasPaymentEvidence({ status: "requested", tipToken: "b".repeat(32), trackingJobToken: "x", requestedAt: COMPLETED_AT, pendingCheckoutId: "chk_1" }), true);
+    assert.equal(tipRecordHasPaymentEvidence({ status: "requested", tipToken: "b".repeat(32), trackingJobToken: "x", requestedAt: COMPLETED_AT }), false);
 
     const again = reopenCompletedJourney(cancelled.job);
     assert.equal(again.changed, false);
@@ -364,9 +373,9 @@ async function main() {
 
     const paidAfter = await getPaidBookingRecord(memory.store, "IDLE1");
     assert.ok(paidAfter);
-    assertMoneyUnchanged(primaryPaid, paidAfter!);
-    assertBookingUnchanged(primaryPaid, paidAfter!);
-    assert.equal(paidAfter!.outboundCompletedAt, undefined);
+    const expectedPaid = { ...primaryPaid };
+    delete expectedPaid.outboundCompletedAt;
+    assert.deepEqual(paidAfter, expectedPaid);
     assert.equal(memory.data.get(paidBookingRefKey("OTHER1")), otherBefore);
     assert.equal(memory.data.get("track:job:other-token"), otherJobBefore);
 
@@ -512,6 +521,211 @@ async function main() {
     console.log("OK  stages, review outcomes, unpaid tip removed, paid tip kept");
   }
 
+  console.log("\n=== 4b. Money is never cleared; only this completion's tip answer ===");
+  {
+    const paidTipRecord: JourneyTipRecord = {
+      tipToken: "e".repeat(32),
+      trackingJobToken: "money-token",
+      paymentReference: "MONEY1",
+      requestedAt: COMPLETED_AT,
+      status: "paid",
+      amountGbp: 5,
+      paidAt: "2026-10-05T04:10:00.000Z",
+      checkoutId: "tip-checkout-1",
+      transactionCode: "TIPCODE1",
+      transactionId: "tip-txn-1",
+    };
+    const moneyJob = job({
+      token: "money-token",
+      paymentReference: "MONEY1",
+      tipDecision: "no",
+      tipToken: paidTipRecord.tipToken,
+      tipWhatsappPreparedAt: COMPLETED_AT,
+    });
+    const moneyPaid = paid({
+      paymentReference: "MONEY1",
+      checkoutId: "booking-checkout-1",
+      transactionId: "booking-txn-1",
+      transactionCode: "TAAA6PZMBA7",
+      amount: 67,
+      amountPaidLabel: "£67.00",
+      amountRefunded: 10,
+      refundDueAmount: 0,
+      originalAmount: 67,
+      additionalPayments: [
+        {
+          checkoutId: "topup-1",
+          transactionCode: "TOPUP1",
+          amount: 5,
+          currency: "GBP",
+          paidAt: "2026-10-03T10:00:00.000Z",
+        },
+      ],
+      refundHistory: [
+        {
+          at: "2026-10-04T10:00:00.000Z",
+          amount: 10,
+          currency: "GBP",
+          kind: "partial",
+          transactionCode: "REFUND1",
+        },
+      ],
+    });
+    const memory = await seed(moneyJob, moneyPaid);
+    const tipKey = `tip:${paidTipRecord.tipToken}`;
+    const tipCheckoutKey = `tip-checkout:${paidTipRecord.checkoutId}`;
+    memory.data.set(tipKey, JSON.stringify(paidTipRecord));
+    memory.data.set(tipCheckoutKey, paidTipRecord.tipToken);
+    const paidBefore = memory.data.get(paidBookingRefKey("MONEY1"));
+    await call(memory.store, {
+      key: OWNER,
+      body: { paymentReference: "MONEY1", trackingToken: "money-token" },
+    });
+    const stored = await getTrackingJob(memory.store, "money-token");
+    assert.equal(stored?.journeyStatus, "idle");
+    assert.equal(stored?.tipDecision, "no");
+    assert.equal(stored?.tipToken, paidTipRecord.tipToken);
+    assert.equal(memory.data.get(tipKey), JSON.stringify(paidTipRecord));
+    assert.equal(memory.data.get(tipCheckoutKey), paidTipRecord.tipToken);
+    const paidAfter = await getPaidBookingRecord(memory.store, "MONEY1");
+    const expected = { ...moneyPaid };
+    delete expected.outboundCompletedAt;
+    assert.deepEqual(paidAfter, expected);
+    assert.equal(paidAfter?.amount, 67);
+    assert.equal(paidAfter?.amountRefunded, 10);
+    assert.equal(paidAfter?.transactionCode, "TAAA6PZMBA7");
+    assert.deepEqual(paidAfter?.additionalPayments, moneyPaid.additionalPayments);
+    assert.deepEqual(paidAfter?.refundHistory, moneyPaid.refundHistory);
+    assert.notEqual(memory.data.get(paidBookingRefKey("MONEY1")), paidBefore);
+
+    const pendingRecord: JourneyTipRecord = {
+      tipToken: "f".repeat(32),
+      trackingJobToken: "pending-token",
+      paymentReference: "PEND1",
+      requestedAt: COMPLETED_AT,
+      status: "requested",
+      pendingCheckoutId: "chk_pending",
+      pendingAmountGbp: 10,
+      pendingCheckoutReference: "tip-pending-1",
+    };
+    const pendingMemory = await seed(
+      job({
+        token: "pending-token",
+        paymentReference: "PEND1",
+        tipDecision: "no",
+        tipToken: pendingRecord.tipToken,
+        tipWhatsappPreparedAt: COMPLETED_AT,
+      }),
+      paid({ paymentReference: "PEND1", checkoutId: "checkout-pend" }),
+    );
+    const pendingKey = `tip:${pendingRecord.tipToken}`;
+    pendingMemory.data.set(pendingKey, JSON.stringify(pendingRecord));
+    await call(pendingMemory.store, {
+      key: OWNER,
+      body: { paymentReference: "PEND1", trackingToken: "pending-token" },
+    });
+    const pendingJob = await getTrackingJob(pendingMemory.store, "pending-token");
+    assert.equal(pendingJob?.tipToken, pendingRecord.tipToken);
+    assert.equal(pendingMemory.data.get(pendingKey), JSON.stringify(pendingRecord));
+
+    const olderMemory = await seed(
+      job({
+        token: "older-token",
+        paymentReference: "OLDER1",
+        tipDecision: "yes",
+        tipWhatsappPreparedAt: "2026-09-01T12:00:00.000Z",
+      }),
+      paid({ paymentReference: "OLDER1", checkoutId: "checkout-older" }),
+    );
+    await call(olderMemory.store, {
+      key: OWNER,
+      body: { paymentReference: "OLDER1", trackingToken: "older-token" },
+    });
+    const olderJob = await getTrackingJob(olderMemory.store, "older-token");
+    assert.equal(olderJob?.journeyStatus, "idle");
+    assert.equal(olderJob?.tipDecision, "yes");
+    assert.equal(olderJob?.tipWhatsappPreparedAt, "2026-09-01T12:00:00.000Z");
+
+    const missingMemory = await seed(
+      job({
+        token: "missing-token",
+        paymentReference: "MISS1",
+        tipDecision: "no",
+        tipToken: "9".repeat(32),
+        tipWhatsappPreparedAt: COMPLETED_AT,
+      }),
+      paid({ paymentReference: "MISS1", checkoutId: "checkout-miss" }),
+    );
+    await call(missingMemory.store, {
+      key: OWNER,
+      body: { paymentReference: "MISS1", trackingToken: "missing-token" },
+    });
+    const missingJob = await getTrackingJob(missingMemory.store, "missing-token");
+    assert.equal(missingJob?.tipToken, "9".repeat(32));
+    assert.equal(missingJob?.tipDecision, "no");
+
+    const yesMemory = await seed(
+      job({
+        token: "yes-token",
+        paymentReference: "YES1",
+        tipDecision: "yes",
+        tipWhatsappPreparedAt: COMPLETED_AT,
+      }),
+      paid({ paymentReference: "YES1", checkoutId: "checkout-yes" }),
+    );
+    await call(yesMemory.store, {
+      key: OWNER,
+      body: { paymentReference: "YES1", trackingToken: "yes-token" },
+    });
+    const yesJob = await getTrackingJob(yesMemory.store, "yes-token");
+    assert.equal(yesJob?.journeyStatus, "idle");
+    assert.equal(yesJob?.tipDecision, undefined);
+    assert.equal(yesJob?.tipWhatsappPreparedAt, undefined);
+
+    let progressed = job({
+      token: "flow-token",
+      paymentReference: "FLOW1",
+      journeyStatus: "idle",
+      journeyCompletedAt: undefined,
+      trackingStoppedAt: undefined,
+      sharingActive: false,
+    });
+    const steps = [
+      ["start_tracking", "2026-10-05T02:00:00.000Z"],
+      ["arrived_pickup", "2026-10-05T02:20:00.000Z"],
+      ["start_journey", "2026-10-05T02:40:00.000Z"],
+      ["complete_journey", COMPLETED_AT],
+    ] as const;
+    for (const [action, at] of steps) {
+      const applied = applyJourneyAction(progressed, action, at);
+      assert.equal(applied.ok, true);
+      if (applied.ok) progressed = applied.job;
+    }
+    assert.equal(progressed.journeyStatus, "completed");
+    assert.equal(progressed.trackingStartedAt, "2026-10-05T02:00:00.000Z");
+    assert.equal(progressed.arrivedPickupAt, "2026-10-05T02:20:00.000Z");
+    assert.equal(progressed.journeyStartedAt, "2026-10-05T02:40:00.000Z");
+    const flowMemory = await seed(
+      progressed,
+      paid({ paymentReference: "FLOW1", checkoutId: "checkout-flow", amount: 41, amountPaidLabel: "£41.00" }),
+    );
+    const flowResult = await call(flowMemory.store, {
+      key: OWNER,
+      body: { paymentReference: "FLOW1", trackingToken: "flow-token" },
+    });
+    assert.equal(flowResult.payload.restoredStatus, "en_route");
+    assert.equal(flowResult.payload.restoredStatusLabel, "Journey started");
+    const flowJob = await getTrackingJob(flowMemory.store, "flow-token");
+    assert.equal(flowJob?.trackingStartedAt, "2026-10-05T02:00:00.000Z");
+    assert.equal(flowJob?.arrivedPickupAt, "2026-10-05T02:20:00.000Z");
+    assert.equal(flowJob?.journeyStartedAt, "2026-10-05T02:40:00.000Z");
+    assert.equal(flowJob?.journeyCompletedAt, undefined);
+    const flowPaid = await getPaidBookingRecord(flowMemory.store, "FLOW1");
+    assert.equal(flowPaid?.amount, 41);
+    assert.equal(flowPaid?.amountPaidLabel, "£41.00");
+    console.log("OK  paid and in-progress tips stay; only this completion's answer is cleared");
+  }
+
   console.log("\n=== 5. Auth, wrong booking, and repeated safety ===");
   {
     const primary = job({ token: "auth-token", paymentReference: "AUTH1" });
@@ -624,12 +838,20 @@ async function main() {
     assert.match(panel, /data-owner-reopen-job/);
     assert.match(panel, /↩ Reopen job/);
     assert.match(panel, /data-owner-reopen-modal/);
+    assert.match(panel, /items-end justify-center/);
+    assert.match(panel, /sm:items-center/);
+    assert.match(panel, /max-h-\[90vh\]/);
+    assert.match(panel, /overflow-y-auto/);
+    assert.match(controls, /data-owner-complete-warning/);
+    assert.match(controls, /min-h-11 w-full/);
+    assert.match(controls, /flex flex-col gap-2/);
     assert.match(panel, /Reopen this job\?/);
     assert.match(panel, /Payment and booking details will not be changed/);
     assert.match(panel, /data-owner-reopen-confirm/);
     assert.match(panel, /Reopen Job/);
     assert.match(panel, /Pending review request cancelled|reviewMessage/);
     const handler = read("workers/addresses/src/reopen-job-handlers.ts");
+    assert.doesNotMatch(handler, /amountRefunded|paymentStatus|transactionId|additionalPayments|SUMUP/);
     assert.match(handler, /ownerAuthorized/);
     assert.doesNotMatch(handler, /driverAuthorized/);
     assert.match(read("workers/addresses/src/index.ts"), /paid-bookings-reopen-job/);

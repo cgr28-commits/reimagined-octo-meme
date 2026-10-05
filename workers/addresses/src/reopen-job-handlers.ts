@@ -159,9 +159,9 @@ export async function handleReopenJobRequest(
     );
   }
 
-  const tip = await completionTipPreservation(store, job.tipToken);
+  const tip = await completionTipPreservation(store, job);
   const reopened = reopenCompletedJourney(job, {
-    preservePaidTip: tip.preservePaidTip,
+    preserveTipMetadata: tip.preserveTipMetadata,
   });
   if (!reopened.changed) {
     return jsonResponse(
@@ -181,8 +181,8 @@ export async function handleReopenJobRequest(
     );
   }
 
-  if (reopened.unpaidTipTokenToDelete) {
-    await deleteUnpaidTipRequest(store, reopened.unpaidTipTokenToDelete);
+  if (!tip.preserveTipMetadata && tip.unpaidTokenToDelete) {
+    await deleteUnpaidTipRequest(store, tip.unpaidTokenToDelete);
   }
 
   await saveTrackingJob(store, reopened.job);

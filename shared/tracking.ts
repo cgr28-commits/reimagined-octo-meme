@@ -375,10 +375,12 @@ const REOPEN_ACTIVE_SHARING = new Set<JourneyStatus>([
 /**
  * Undo a Complete job. Restores the last recorded stage and removes only
  * completion-generated fields. A second call is a no-op.
+ * Tip metadata is kept unless the caller has proved it is non-financial
+ * and belongs to this completion (`preserveTipMetadata: false`).
  */
 export function reopenCompletedJourney(
   job: TrackingJobRecord,
-  options?: { nowIso?: string; preservePaidTip?: boolean },
+  options?: { nowIso?: string; preserveTipMetadata?: boolean },
 ): ReopenCompletedJourneyResult {
   const current = journeyStatusOf(job);
   if (current !== "completed") {
@@ -412,7 +414,8 @@ export function reopenCompletedJourney(
   }
 
   let unpaidTipTokenToDelete: string | null = null;
-  if (!options?.preservePaidTip) {
+  const clearTipMetadata = options?.preserveTipMetadata === false;
+  if (clearTipMetadata) {
     const tipToken = next.tipToken?.trim();
     if (tipToken) unpaidTipTokenToDelete = tipToken;
     delete next.tipDecision;
