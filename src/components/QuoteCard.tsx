@@ -4873,6 +4873,9 @@ function QuoteCard({
   }, [a2aShowJourneyMode, isA2AFlow, journeyMode, quoteStep]);
 
   // Stage 4: One way / Return selected → pickup date & time (then passengers).
+  // Same 720ms glide as the quote reveal and Book This Transfer.
+  // This effect runs after the selection render, so a Return choice has already
+  // laid out the return note and return date/time before the glide measures.
   useEffect(() => {
     if (!isA2AFlow || quoteStep !== 1) {
       hadA2aPartyScrollRef.current = false;
@@ -4884,7 +4887,7 @@ function QuoteCard({
     }
     if (hadA2aPartyScrollRef.current) return;
     hadA2aPartyScrollRef.current = true;
-    return scrollQuoteStage("quote-section-schedule", { correctAfterMs: 0 });
+    return scheduleBookTransferGlide("quote-section-schedule");
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
@@ -4951,7 +4954,8 @@ function QuoteCard({
     }
     if (hadLegacyPartyScrollRef.current) return;
     hadLegacyPartyScrollRef.current = true;
-    return scrollQuoteStage("passenger-luggage-section", { correctAfterMs: 0 });
+    // Same post-render 720ms glide. Return fields are already in this commit.
+    return scheduleBookTransferGlide("passenger-luggage-section");
   }, [hasQuoteRoute, isA2AFlow, journeyMode, quoteStep]);
 
   /**

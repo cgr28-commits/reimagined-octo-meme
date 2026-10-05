@@ -58,7 +58,7 @@ assert.match(
 assert.match(card, /hadA2aPartyScrollRef/);
 assert.match(
   card,
-  /hadA2aPartyScrollRef\.current = true;\s*return scrollQuoteStage\("quote-section-schedule"/,
+  /hadA2aPartyScrollRef\.current = true;\s*return scheduleBookTransferGlide\("quote-section-schedule"\)/,
 );
 assert.match(
   card,
