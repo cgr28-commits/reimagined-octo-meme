@@ -4815,7 +4815,6 @@ function QuoteCard({
   /** One scroll when results first become visible. Vehicle/Express changes must not re-arm it. */
   const hadRouteSummaryScrollRef = useRef(false);
   const quoteRevealScrollCancelRef = useRef<(() => void) | null>(null);
-  const [quoteResultReveal, setQuoteResultReveal] = useState(false);
   /** Time picker Done/blur → flight number (when shown) or Your Journey (once per step-2 visit). */
   const hadJourneySummaryScrollRef = useRef(false);
   const hadLegacyJourneyModeScrollRef = useRef(false);
@@ -4878,8 +4877,9 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // Pause so the luggage selection can register, then ease the price and
-  // Book Now into view. Fare, vehicle, and Free/Express updates leave the latch set.
+  // Pause so the luggage selection can register, then glide until the vehicle
+  // heading sits below the header. The quote itself does not animate.
+  // Fare, vehicle, and Free/Express updates leave the latch set.
   // The timer is not cleared on ordinary re-renders, so a fare update cannot cancel it.
   useEffect(() => {
     const capacityComplete = quoteChoicesReady && hasQuoteRoute && isScheduleComplete;
@@ -4900,9 +4900,6 @@ function QuoteCard({
       onRetry: () => {
         hadRouteSummaryScrollRef.current = false;
         quoteRevealScrollCancelRef.current = null;
-      },
-      onReveal: () => {
-        setQuoteResultReveal(true);
       },
     });
   }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteResultsReady, quoteStep]);
@@ -6516,7 +6513,6 @@ function QuoteCard({
     return (
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
-        entering={quoteResultReveal}
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}

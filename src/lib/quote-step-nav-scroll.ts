@@ -8,7 +8,6 @@
  * - #quote-route-summary
  */
 
-import { detectMobileDevice } from "@/lib/device";
 import {
   cancelCompetingScrollJobs,
   getScrollJobGeneration,
@@ -475,9 +474,7 @@ export function schedulePreciseResultsScroll(
 export const QUOTE_REVEAL_PAUSE_MS = 350;
 /** Controlled glide. Native smooth scroll is too fast and is not used. */
 export const QUOTE_REVEAL_SCROLL_MS = 720;
-/** Restrained fade/raise on the new quote card. */
-export const QUOTE_REVEAL_MOTION_MS = 420;
-/** Space kept between the sticky header and the price, and below Book Now. */
+/** Space between the sticky header and the vehicle heading. */
 export const QUOTE_REVEAL_BREATHING_PX = 28;
 const REVEAL_EDGE_TOLERANCE_PX = 8;
 
@@ -486,15 +483,9 @@ export type QuoteRevealMetrics = {
   /** Visual viewport height at the moment the glide starts. */
   viewportHeight: number;
   headerBottom: number;
-  cardTop: number;
-  cardBottom: number;
-  priceTop: number;
-  bookBottom: number;
-  layout: "mobile" | "desktop";
+  /** Vehicle heading (Saloon, Estate, or 7-Seater) in visual-viewport coordinates. */
+  headingTop: number;
   clearancePx?: number;
-  bottomPad?: number;
-  /** Home-indicator inset. Added below Book Now, not double-counted in the header. */
-  safeAreaBottom?: number;
   /** Largest scroll offset the document can actually reach. */
   maxScroll?: number;
 };
@@ -507,45 +498,16 @@ export function quoteRevealEaseInOut(t: number): number {
 
 /**
  * Resting scroll offset for the first quote reveal.
- * Frames the rendered price and Book Now with breathing room.
- * Does not pin the top of the vehicle image when that would push Book Now down.
- * Returns null when both are already comfortably on screen.
+ * Places the rendered vehicle heading just below the sticky header.
+ * Returns null when that heading is already there.
  */
 export function computeQuoteRevealScrollTop(metrics: QuoteRevealMetrics): number | null {
   const breathing = metrics.clearancePx ?? QUOTE_REVEAL_BREATHING_PX;
-  const bottomBreathing = metrics.bottomPad ?? QUOTE_REVEAL_BREATHING_PX;
-  const safeAreaBottom = metrics.safeAreaBottom ?? 0;
-  const usableTop = metrics.headerBottom + breathing;
-  const usableBottom = metrics.viewportHeight - bottomBreathing - safeAreaBottom;
-  const available = usableBottom - usableTop;
-  const cluster = metrics.bookBottom - metrics.priceTop;
-
-  const comfortablyVisible =
-    metrics.priceTop >= usableTop - REVEAL_EDGE_TOLERANCE_PX &&
-    metrics.bookBottom <= usableBottom + REVEAL_EDGE_TOLERANCE_PX;
-  if (comfortablyVisible) return null;
-
-  let delta: number;
-  if (cluster <= available) {
-    const idealPriceTop = usableTop + (available - cluster) / 2;
-    delta = metrics.priceTop - idealPriceTop;
-  } else {
-    delta = metrics.bookBottom - usableBottom;
-  }
-
+  const idealHeadingTop = metrics.headerBottom + breathing;
+  const delta = metrics.headingTop - idealHeadingTop;
   const maxScroll = metrics.maxScroll ?? Number.POSITIVE_INFINITY;
   const nextTop = Math.min(maxScroll, Math.max(0, Math.round(metrics.scrollY + delta)));
   return Math.abs(nextTop - metrics.scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
-}
-
-function readSafeAreaBottom(): number {
-  const probe = document.createElement("div");
-  probe.style.cssText =
-    "position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom);visibility:hidden;pointer-events:none;";
-  document.body.appendChild(probe);
-  const value = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
-  probe.remove();
-  return Math.max(0, Math.round(value));
 }
 
 /**
@@ -563,21 +525,16 @@ function readVisualViewport(): { height: number; offsetTop: number } {
 }
 
 /**
- * One measurement of the quote that is actually on screen.
+ * One measurement of the vehicle heading that is actually on screen.
  * Uses the visual viewport, not window.innerHeight plus a toolbar offset.
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const card = document.getElementById("quote-selected-vehicle-card");
   if (!(card instanceof HTMLElement) || card.getClientRects().length === 0) return null;
-  const price = card.querySelector<HTMLElement>("[data-quote-result-price]");
-  const book = card.querySelector<HTMLElement>("#quote-book-now-button");
-  if (!price || !book || price.getClientRects().length === 0 || book.getClientRects().length === 0) {
-    return null;
-  }
+  const heading = card.querySelector<HTMLElement>("[data-quote-result-heading]");
+  if (!heading || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
-  const cardRect = card.getBoundingClientRect();
-  const priceRect = price.getBoundingClientRect();
-  const bookRect = book.getBoundingClientRect();
+  const headingRect = heading.getBoundingClientRect();
   const layoutClientHeight = document.documentElement.clientHeight || visual.height;
   const maxScroll = Math.max(
     0,
@@ -587,27 +544,22 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
     scrollY: window.scrollY,
     viewportHeight: visual.height,
     headerBottom: Math.round(getHeaderBottomPx() - visual.offsetTop),
-    cardTop: cardRect.top - visual.offsetTop,
-    cardBottom: cardRect.bottom - visual.offsetTop,
-    priceTop: priceRect.top - visual.offsetTop,
-    bookBottom: bookRect.bottom - visual.offsetTop,
-    safeAreaBottom: readSafeAreaBottom(),
+    headingTop: headingRect.top - visual.offsetTop,
     maxScroll,
-    layout: detectMobileDevice() ? "mobile" : "desktop",
   };
 }
 
 /**
  * First completed quote only.
- * Waits so the luggage choice can register, measures the settled quote once,
- * then glides there. Does not use native smooth scrolling, and does not
+ * Waits so the luggage choice can register, measures the settled heading once,
+ * then glides until it sits below the header. The quote card does not animate.
+ * Does not use native smooth scrolling, and does not
  * correct the position with a second jump. A touch, swipe, wheel, or scroll
  * key cancels the glide immediately.
  */
 export function scheduleQuoteRevealScroll(handlers: {
   onConsume: () => void;
   onRetry: () => void;
-  onReveal: () => void;
 }): () => void {
   if (typeof window === "undefined") {
     return () => {};
@@ -716,7 +668,6 @@ export function scheduleQuoteRevealScroll(handlers: {
       stopListening();
       return;
     }
-    handlers.onReveal();
     consume();
     const nextTop = computeQuoteRevealScrollTop(metrics);
     if (nextTop == null) {

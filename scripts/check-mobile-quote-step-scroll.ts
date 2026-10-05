@@ -151,15 +151,13 @@ check("Mobile Step 1 address complete does not scroll", () => {
   const showcase = fs.readFileSync(path.join(root, "src/components/QuoteResultShowcase.tsx"), "utf8");
   assert.match(showcase, /id="quote-selected-vehicle-card"/);
   assert.match(showcase, /data-quote-result-price/);
-  assert.match(showcase, /quote-result-reveal/);
+  assert.match(showcase, /data-quote-result-heading/);
+  assert.doesNotMatch(showcase, /quote-result-reveal/);
   assert.match(helper, /QUOTE_REVEAL_PAUSE_MS = 350/);
   assert.match(helper, /addEventListener\("wheel"/);
   assert.match(helper, /addEventListener\("touchmove"/);
   assert.match(helper, /prefersReducedMotion\(\) \? "auto" : "smooth"/);
-  assert.match(
-    read("src/app/globals.css"),
-    /@media \(prefers-reduced-motion: reduce\) \{\s*\.quote-result-reveal \{\s*animation: none;/,
-  );
+  assert.doesNotMatch(read("src/app/globals.css"), /quote-result-reveal/);
   assert.doesNotMatch(card, /hadVehicleResultAlignRef/);
   assert.doesNotMatch(card, /scrollQuoteStage\(vehicle,/);
   assert.match(
