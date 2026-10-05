@@ -45,10 +45,16 @@ import {
 } from "./smart-ops-handlers";
 import { toPublicCustomerSmartAvailability } from "../shared/customer-smart-availability";
 import {
+  DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
   MINIMUM_BOOKING_NOTICE_HOURS,
   emptyPublicOwnerAvailability,
   evaluateOwnerNoAvailability,
 } from "../shared/booking-notice";
+import {
+  availabilityResourceForVehicle,
+  filterUnavailablePeriodsForResource,
+  MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE,
+} from "../shared/availability-resource";
 import { getBookingSettings } from "./booking-settings-store";
 import {
   defaultDepositCashSettings,
@@ -668,10 +674,12 @@ export async function handleQuoteCalculateRequest(
     };
     if (settings) {
       quoteBody.minimumBookingNoticeHours = settings.minimumBookingNoticeHours;
+      quoteBody.minibusMinimumBookingNoticeHours = settings.minibusMinimumBookingNoticeHours;
       if (!ownerMode) {
         quoteBody.depositCash = publicDepositCashOffer(result.amount, settings.depositCash);
       }
-      quoteBody.ownerAvailability = evaluateOwnerNoAvailability(
+      const quoteResource = availabilityResourceForVehicle(resolved.vehicleType);
+      const quoteAvailability = evaluateOwnerNoAvailability(
         {
           tripDate: String(body.outboundDate ?? schedule.outboundDate ?? ""),
           tripTime: String(body.outboundTime ?? schedule.outboundTime ?? ""),
@@ -679,9 +687,14 @@ export async function handleQuoteCalculateRequest(
           returnDate: String(body.returnDate ?? schedule.returnDate ?? ""),
           returnTime: String(body.returnTime ?? schedule.returnTime ?? ""),
           routeDurationMinutes: routeMetrics.durationMinutes,
+          vehicle: resolved.vehicleType,
         },
-        settings.unavailablePeriods,
+        filterUnavailablePeriodsForResource(settings.unavailablePeriods, quoteResource),
       );
+      quoteBody.ownerAvailability =
+        quoteAvailability.blocked && quoteResource === "minibus"
+          ? { ...quoteAvailability, customerMessage: MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE }
+          : quoteAvailability;
     }
   }
 
@@ -774,6 +787,10 @@ export async function handleQuoteAvailabilityRequest(
     ? await getBookingSettings(env.TRACKING_STORE)
     : null;
   const noticeHours = settings?.minimumBookingNoticeHours ?? MINIMUM_BOOKING_NOTICE_HOURS;
+  const minibusNoticeHours =
+    settings?.minibusMinimumBookingNoticeHours ?? DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS;
+  const requestedVehicle = body.vehicle == null ? null : String(body.vehicle);
+  const quoteResource = availabilityResourceForVehicle(requestedVehicle);
   const ownerAvailability = settings
     ? evaluateOwnerNoAvailability(
         {
@@ -789,17 +806,23 @@ export async function handleQuoteAvailabilityRequest(
                 ? body.durationMinutes
                 : null,
           journeyDuration: body.journeyDuration == null ? null : String(body.journeyDuration),
+          vehicle: requestedVehicle,
         },
-        settings.unavailablePeriods,
+        filterUnavailablePeriodsForResource(settings.unavailablePeriods, quoteResource),
       )
     : emptyPublicOwnerAvailability();
+  const publicOwnerAvailability =
+    ownerAvailability.blocked && quoteResource === "minibus"
+      ? { ...ownerAvailability, customerMessage: MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE }
+      : ownerAvailability;
 
   return json(
     {
       ok: true,
       ...toPublicCustomerSmartAvailability(availabilityGate),
       minimumBookingNoticeHours: noticeHours,
-      ownerAvailability,
+      minibusMinimumBookingNoticeHours: minibusNoticeHours,
+      ownerAvailability: publicOwnerAvailability,
     },
     200,
     origin,

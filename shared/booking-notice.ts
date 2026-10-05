@@ -19,6 +19,14 @@ export const MINIMUM_BOOKING_NOTICE_HOURS = 12;
 export const MIN_MINIMUM_BOOKING_NOTICE_HOURS = 1;
 export const MAX_MINIMUM_BOOKING_NOTICE_HOURS = 48;
 
+/**
+ * 7-Seater notice is independent of the owner-operated short-notice period.
+ * Missing or invalid saved values fall back to 24. Whole hours 1–72.
+ */
+export const DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS = 24;
+export const MIN_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS = 1;
+export const MAX_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS = 72;
+
 /** Accept a whole number of hours in 1–48. Invalid owner input must be rejected, not silently defaulted. */
 export function parseMinimumBookingNoticeHoursInput(value: unknown): number | null {
   if (typeof value === "boolean" || value == null) return null;
@@ -43,6 +51,47 @@ export function parseMinimumBookingNoticeHoursInput(value: unknown): number | nu
 /** Missing/legacy/invalid values fall back to 12 hours. */
 export function normalizeMinimumBookingNoticeHours(value: unknown): number {
   return parseMinimumBookingNoticeHoursInput(value) ?? MINIMUM_BOOKING_NOTICE_HOURS;
+}
+
+/** Accept a whole number of hours in 1–72. Invalid owner input is rejected. */
+export function parseMinibusMinimumBookingNoticeHoursInput(value: unknown): number | null {
+  if (typeof value === "boolean" || value == null) return null;
+  const raw =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.trim())
+        : NaN;
+  if (!Number.isFinite(raw)) return null;
+  const rounded = Math.round(raw);
+  if (Math.abs(raw - rounded) > 1e-9) return null;
+  if (
+    rounded < MIN_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS ||
+    rounded > MAX_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS
+  ) {
+    return null;
+  }
+  return rounded;
+}
+
+/** Missing/legacy/invalid values fall back to 24 hours. Never uses the owner short-notice period. */
+export function normalizeMinibusMinimumBookingNoticeHours(value: unknown): number {
+  return (
+    parseMinibusMinimumBookingNoticeHoursInput(value) ??
+    DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS
+  );
+}
+
+/**
+ * Compare against a saved notice period.
+ * Owner values stay 1–48. 7-Seater values may be 49–72 and must not fall back to 12.
+ */
+export function configuredNoticeHours(noticeHours: number): number {
+  return (
+    parseMinimumBookingNoticeHoursInput(noticeHours) ??
+    parseMinibusMinimumBookingNoticeHoursInput(noticeHours) ??
+    MINIMUM_BOOKING_NOTICE_HOURS
+  );
 }
 
 /**
@@ -246,7 +295,7 @@ export function isWithinMinimumBookingNotice(
 ): boolean {
   const hours = hoursUntilPickup(tripDate, tripTime, now);
   if (hours == null) return false;
-  return hours < normalizeMinimumBookingNoticeHours(noticeHours);
+  return hours < configuredNoticeHours(noticeHours);
 }
 
 export type PickupLeadWindow = "too_soon" | "short_notice" | "normal" | "unknown";
@@ -266,7 +315,7 @@ export function classifyPickupLeadWindow(
 ): PickupLeadWindow {
   const hours = hoursUntilPickup(tripDate, tripTime, now);
   if (hours == null) return "unknown";
-  const notice = normalizeMinimumBookingNoticeHours(noticeHours);
+  const notice = configuredNoticeHours(noticeHours);
   const lead = clampShortNoticeLeadHours(leadHours, notice);
   if (hours < lead) return "too_soon";
   if (hours < notice) return "short_notice";
@@ -391,6 +440,11 @@ export type UnavailablePeriodInput = {
   note?: string | null;
   /** Missing mode = request_only. */
   mode?: UnavailablePeriodMode | string | null;
+  /**
+   * Missing or anything other than "minibus" stays on the owner-operated diary.
+   * Existing periods have no field and must not start blocking the 7-Seater.
+   */
+  resource?: "owner" | "minibus" | string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -401,6 +455,8 @@ export type UnavailablePeriod = {
   endLocal: LondonLocalDateTime;
   note?: string;
   mode: UnavailablePeriodMode;
+  /** Omitted for owner-operated blocks. "minibus" applies only to the 7-Seater. */
+  resource?: "minibus";
   createdAt: string;
   updatedAt: string;
 };
@@ -466,11 +522,13 @@ export function normalizeUnavailablePeriod(
   const note = String(raw.note ?? "").trim().slice(0, 280);
   const createdAt = raw.createdAt?.trim() || now.toISOString();
   const mode = normalizeUnavailablePeriodMode(raw.mode);
+  const resource = raw.resource === "minibus" ? "minibus" : undefined;
   return {
     id: String(raw.id ?? "").trim() || generateUnavailablePeriodId(now),
     startLocal,
     endLocal,
     mode,
+    ...(resource ? { resource } : {}),
     ...(note ? { note } : {}),
     createdAt,
     updatedAt: raw.updatedAt?.trim() || now.toISOString(),
@@ -594,6 +652,7 @@ export type OwnerAvailabilityBooking = {
   journeyDuration?: string | null;
   returnRouteDurationMinutes?: number | null;
   returnJourneyDuration?: string | null;
+  vehicle?: string | null;
 };
 
 /** Reuse an already-calculated duration. Returns null instead of inventing one. */

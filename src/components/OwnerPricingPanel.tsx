@@ -26,6 +26,19 @@ import { isBrowserPricingPreview } from "@/lib/pricing-preview-store";
 import { PREVIEW_PRICING_BANNER } from "../../shared/pricing-preview-isolation";
 import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
 import {
+  DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
+  MAX_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
+  MIN_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
+  parseMinibusMinimumBookingNoticeHoursInput,
+} from "../../shared/booking-notice";
+import {
+  addUnavailablePeriod,
+  deleteUnavailablePeriod,
+  fetchBookingSettings,
+  updateMinibusMinimumBookingNoticeHours,
+  type UnavailablePeriodSummary,
+} from "@/lib/short-notice-api";
+import {
   diffProfitabilitySettings,
   fuelCostPerMileGbp,
   isProfitabilityProtectionActive,
@@ -187,6 +200,22 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   const [multiplierText, setMultiplierText] = useState(() =>
     String(defaultOwnerPricingSettings().minibus.multiplier),
   );
+  const [minibusNoticeDraft, setMinibusNoticeDraft] = useState(
+    String(DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS),
+  );
+  const [minibusNoticeSaved, setMinibusNoticeSaved] = useState(
+    DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
+  );
+  const [minibusBlocks, setMinibusBlocks] = useState<UnavailablePeriodSummary[]>([]);
+  const [minibusNoticeSaving, setMinibusNoticeSaving] = useState(false);
+  const [minibusNoticeMessage, setMinibusNoticeMessage] = useState("");
+  const [minibusNoticeError, setMinibusNoticeError] = useState("");
+  const [minibusBlock, setMinibusBlock] = useState({
+    startDate: "",
+    startTime: "",
+    endDate: "",
+    endTime: "",
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -209,6 +238,112 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   useEffect(() => {
     void load();
   }, [load]);
+
+  const applyMinibusAvailability = useCallback((periods: UnavailablePeriodSummary[], hours: number) => {
+    setMinibusNoticeSaved(hours);
+    setMinibusNoticeDraft(String(hours));
+    setMinibusBlocks(periods.filter((period) => period.resource === "minibus"));
+  }, []);
+
+  useEffect(() => {
+    if (isolated || !ownerKey) return;
+    let cancelled = false;
+    void fetchBookingSettings(ownerKey)
+      .then((settings) => {
+        if (cancelled) return;
+        applyMinibusAvailability(
+          settings.unavailablePeriods ?? [],
+          settings.minibusMinimumBookingNoticeHours ?? DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setMinibusNoticeError("Could not load 7-Seater availability settings.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyMinibusAvailability, isolated, ownerKey]);
+
+  async function saveMinibusNoticeHours() {
+    setMinibusNoticeSaving(true);
+    setMinibusNoticeMessage("");
+    setMinibusNoticeError("");
+    try {
+      const parsed = parseMinibusMinimumBookingNoticeHoursInput(minibusNoticeDraft);
+      if (parsed == null) {
+        throw new Error(
+          `Enter a whole number of hours between ${MIN_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS} and ${MAX_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS}.`,
+        );
+      }
+      if (isolatedPreview) {
+        setMinibusNoticeSaved(parsed);
+        setMinibusNoticeMessage("Preview only — 7-Seater notice was not saved to live settings.");
+        return;
+      }
+      const settings = await updateMinibusMinimumBookingNoticeHours(ownerKey, parsed);
+      applyMinibusAvailability(
+        settings.unavailablePeriods ?? [],
+        settings.minibusMinimumBookingNoticeHours ?? parsed,
+      );
+      setMinibusNoticeMessage(`7-Seater minimum booking notice saved: ${parsed} hours.`);
+    } catch (err) {
+      setMinibusNoticeError(
+        err instanceof Error ? err.message : "Could not save 7-Seater minimum booking notice",
+      );
+    } finally {
+      setMinibusNoticeSaving(false);
+    }
+  }
+
+  async function saveMinibusBlock() {
+    setMinibusNoticeSaving(true);
+    setMinibusNoticeMessage("");
+    setMinibusNoticeError("");
+    try {
+      if (!minibusBlock.startDate || !minibusBlock.startTime || !minibusBlock.endDate || !minibusBlock.endTime) {
+        throw new Error("Choose a start and end date and time for the 7-Seater block.");
+      }
+      if (isolatedPreview) {
+        setMinibusNoticeMessage("Preview only — 7-Seater block was not saved.");
+        return;
+      }
+      const settings = await addUnavailablePeriod(ownerKey, {
+        ...minibusBlock,
+        mode: "no_availability",
+        resource: "minibus",
+        note: "7-Seater unavailable",
+      });
+      applyMinibusAvailability(
+        settings.unavailablePeriods ?? [],
+        settings.minibusMinimumBookingNoticeHours ?? minibusNoticeSaved,
+      );
+      setMinibusBlock({ startDate: "", startTime: "", endDate: "", endTime: "" });
+      setMinibusNoticeMessage("7-Seater blocked for that period. Saloon, Estate and Executive stay available.");
+    } catch (err) {
+      setMinibusNoticeError(err instanceof Error ? err.message : "Could not block the 7-Seater");
+    } finally {
+      setMinibusNoticeSaving(false);
+    }
+  }
+
+  async function removeMinibusBlock(id: string) {
+    setMinibusNoticeSaving(true);
+    setMinibusNoticeMessage("");
+    setMinibusNoticeError("");
+    try {
+      if (isolatedPreview) return;
+      const settings = await deleteUnavailablePeriod(ownerKey, id);
+      applyMinibusAvailability(
+        settings.unavailablePeriods ?? [],
+        settings.minibusMinimumBookingNoticeHours ?? minibusNoticeSaved,
+      );
+      setMinibusNoticeMessage("7-Seater block removed.");
+    } catch (err) {
+      setMinibusNoticeError(err instanceof Error ? err.message : "Could not remove the 7-Seater block");
+    } finally {
+      setMinibusNoticeSaving(false);
+    }
+  }
 
   const editingDraft = useMemo(
     () => withMinibusMultiplierText(draft, multiplierText),
@@ -498,6 +633,127 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
               Estate × {editingDraft.minibus.multiplier.toFixed(2)}, nearest penny only. Not
               rounded to the nearest £5.
             </p>
+            <div className="mt-4 rounded-xl border border-white/10 bg-navy/40 p-3" data-minibus-notice-setting>
+              <label className={labelClass} htmlFor="minibus-minimum-booking-notice">
+                7-Seater minimum booking notice
+                <input
+                  id="minibus-minimum-booking-notice"
+                  className={fieldClass}
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS}
+                  max={MAX_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS}
+                  step={1}
+                  value={minibusNoticeDraft}
+                  onChange={(event) => setMinibusNoticeDraft(event.target.value)}
+                  aria-describedby="minibus-notice-help"
+                />
+              </label>
+              <p id="minibus-notice-help" className="mt-1 text-xs text-white/55">
+                Bookings inside this period require confirmation before payment. This is separate
+                from the Saloon, Estate and Executive short-notice period. Current value:{" "}
+                {minibusNoticeSaved} hours.
+              </p>
+              <button
+                type="button"
+                disabled={minibusNoticeSaving}
+                onClick={() => void saveMinibusNoticeHours()}
+                className="mt-3 min-h-11 rounded-xl bg-emerald px-4 py-2 text-sm font-bold text-navy disabled:opacity-60"
+              >
+                {minibusNoticeSaving ? "Saving…" : "Save 7-Seater notice"}
+              </button>
+              <div className="mt-4 border-t border-white/10 pt-3">
+                <p className="text-sm font-medium text-white">Block 7-Seater only</p>
+                <p className="mt-1 text-xs text-white/55">
+                  Makes the 7-Seater unavailable for these times. Saloon, Estate and Executive stay
+                  on the normal diary.
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label className={labelClass}>
+                    From date
+                    <input
+                      className={fieldClass}
+                      type="date"
+                      value={minibusBlock.startDate}
+                      onChange={(event) =>
+                        setMinibusBlock((current) => ({ ...current, startDate: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className={labelClass}>
+                    From time
+                    <input
+                      className={fieldClass}
+                      type="time"
+                      value={minibusBlock.startTime}
+                      onChange={(event) =>
+                        setMinibusBlock((current) => ({ ...current, startTime: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className={labelClass}>
+                    Until date
+                    <input
+                      className={fieldClass}
+                      type="date"
+                      value={minibusBlock.endDate}
+                      onChange={(event) =>
+                        setMinibusBlock((current) => ({ ...current, endDate: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className={labelClass}>
+                    Until time
+                    <input
+                      className={fieldClass}
+                      type="time"
+                      value={minibusBlock.endTime}
+                      onChange={(event) =>
+                        setMinibusBlock((current) => ({ ...current, endTime: event.target.value }))
+                      }
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  disabled={minibusNoticeSaving}
+                  onClick={() => void saveMinibusBlock()}
+                  className="mt-3 min-h-11 rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  Block 7-Seater
+                </button>
+                {minibusBlocks.length > 0 ? (
+                  <ul className="mt-3 space-y-2 text-sm text-white/80">
+                    {minibusBlocks.map((period) => (
+                      <li key={period.id} className="flex items-center justify-between gap-2">
+                        <span>
+                          {period.startLocal.replace("T", " ")} – {period.endLocal.replace("T", " ")}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-amber-200 underline-offset-2 hover:underline"
+                          onClick={() => void removeMinibusBlock(period.id)}
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-white/45">No 7-Seater blocks saved.</p>
+                )}
+              </div>
+              {minibusNoticeMessage ? (
+                <p className="mt-2 text-sm text-emerald" role="status">
+                  {minibusNoticeMessage}
+                </p>
+              ) : null}
+              {minibusNoticeError ? (
+                <p className="mt-2 text-sm text-red-200" role="alert">
+                  {minibusNoticeError}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
       </section>
