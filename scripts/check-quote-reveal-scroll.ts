@@ -8,14 +8,15 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   computeQuoteRevealScrollTop,
-  HEADER_CLEARANCE_PX,
+  quoteRevealEaseInOut,
+  QUOTE_REVEAL_BREATHING_PX,
   QUOTE_REVEAL_MOTION_MS,
   QUOTE_REVEAL_PAUSE_MS,
+  QUOTE_REVEAL_SCROLL_MS,
   type QuoteRevealMetrics,
 } from "../src/lib/quote-step-nav-scroll";
 
 const root = path.resolve(import.meta.dirname, "..");
-const BOTTOM_PAD = 16;
 
 function check(label: string, fn: () => void) {
   try {
@@ -31,12 +32,12 @@ function metrics(overrides: QuoteRevealMetrics): QuoteRevealMetrics {
   return overrides;
 }
 
-function headerLine(headerBottom: number): number {
-  return headerBottom + HEADER_CLEARANCE_PX;
+function usableTop(headerBottom: number): number {
+  return headerBottom + QUOTE_REVEAL_BREATHING_PX;
 }
 
-function visibleBottom(viewportHeight: number): number {
-  return viewportHeight - BOTTOM_PAD;
+function usableBottom(viewportHeight: number, safeAreaBottom = 0): number {
+  return viewportHeight - QUOTE_REVEAL_BREATHING_PX - safeAreaBottom;
 }
 
 function place(frame: QuoteRevealMetrics, nextTop: number) {
@@ -48,9 +49,30 @@ function place(frame: QuoteRevealMetrics, nextTop: number) {
   };
 }
 
-check("Pause and motion stay in the requested range", () => {
-  assert.equal(QUOTE_REVEAL_PAUSE_MS, 350);
+check("Pause, glide, and fade stay in the requested range", () => {
+  assert.ok(QUOTE_REVEAL_PAUSE_MS >= 300 && QUOTE_REVEAL_PAUSE_MS <= 350);
+  assert.ok(QUOTE_REVEAL_SCROLL_MS >= 650 && QUOTE_REVEAL_SCROLL_MS <= 800);
   assert.ok(QUOTE_REVEAL_MOTION_MS >= 300 && QUOTE_REVEAL_MOTION_MS <= 500);
+  assert.equal(quoteRevealEaseInOut(0), 0);
+  assert.equal(quoteRevealEaseInOut(1), 1);
+  assert.ok(Math.abs(quoteRevealEaseInOut(0.5) - 0.5) < 0.001);
+  assert.ok(quoteRevealEaseInOut(0.25) < 0.25, "ease-in starts slower than linear");
+  const scrollLib = fs.readFileSync(path.join(root, "src/lib/quote-step-nav-scroll.ts"), "utf8");
+  const reveal = scrollLib.slice(
+    scrollLib.indexOf("function readSafeAreaBottom"),
+    scrollLib.indexOf("export function quoteStepTargetId"),
+  );
+  assert.match(reveal, /requestAnimationFrame/);
+  assert.match(reveal, /scrollBehavior = "auto"/);
+  assert.match(reveal, /QUOTE_REVEAL_SCROLL_MS/);
+  assert.match(reveal, /safe-area-inset-bottom/);
+  assert.match(reveal, /visualViewport/);
+  assert.match(reveal, /offsetTop/);
+  assert.doesNotMatch(reveal, /visual\.height \+/);
+  assert.doesNotMatch(reveal, /viewport\.height \+/);
+  assert.match(reveal, /touchstart/);
+  assert.match(reveal, /haltMotion\(\)/);
+  assert.doesNotMatch(reveal, /behavior:\s*"smooth"/);
   const css = fs.readFileSync(path.join(root, "src/app/globals.css"), "utf8");
   assert.match(css, /animation: quote-result-reveal 420ms ease-out both/);
   assert.match(css, /translateY\(10px\)/);
@@ -83,11 +105,14 @@ for (const phone of phones) {
     const nextTop = computeQuoteRevealScrollTop(frame);
     assert.ok(nextTop != null, "quote below the fold must scroll");
     const landed = place(frame, nextTop);
-    const line = headerLine(phone.headerBottom);
-    const bottom = visibleBottom(phone.viewportHeight);
-    assert.ok(landed.priceTop >= line - 1, "price stays below the sticky header");
-    assert.ok(landed.bookBottom <= bottom + 1, "Book Now stays above the bottom edge");
-    assert.ok(landed.cardTop < line, "does not pin the vehicle image to the header");
+    const top = usableTop(phone.headerBottom);
+    const bottom = usableBottom(phone.viewportHeight);
+    assert.ok(landed.priceTop >= top - 1, "price sits below the sticky header with room");
+    assert.ok(landed.bookBottom <= bottom + 1, "Book Now sits above the bottom edge with room");
+    const above = landed.priceTop - top;
+    const below = bottom - landed.bookBottom;
+    assert.ok(Math.abs(above - below) <= 2, "breathing room above the price and below Book Now matches");
+    assert.ok(landed.cardTop < landed.priceTop, "does not rest on the vehicle image");
   });
 }
 
@@ -105,10 +130,28 @@ check("Short 320x480 phone keeps Book Now when price and button cannot both fit"
   const nextTop = computeQuoteRevealScrollTop(frame);
   assert.ok(nextTop != null);
   const landed = place(frame, nextTop);
-  const bottom = visibleBottom(frame.viewportHeight);
-  const priceAligned = Math.round(frame.scrollY + frame.priceTop - headerLine(frame.headerBottom));
-  assert.ok(nextTop > priceAligned, "scrolls further than the price so Book Now can fit");
-  assert.ok(Math.abs(landed.bookBottom - bottom) <= 1, "Book Now sits on the bottom edge");
+  const bottom = usableBottom(frame.viewportHeight);
+  assert.ok(landed.priceTop < usableTop(frame.headerBottom), "price may sit under the header when both cannot fit");
+  assert.ok(Math.abs(landed.bookBottom - bottom) <= 1, "Book Now keeps its breathing room at the bottom");
+});
+
+check("Safe-area inset keeps Book Now above the home indicator", () => {
+  const frame = metrics({
+    scrollY: 500,
+    viewportHeight: 700,
+    headerBottom: 72,
+    cardTop: 640,
+    cardBottom: 1200,
+    priceTop: 860,
+    bookBottom: 1100,
+    safeAreaBottom: 34,
+    layout: "mobile",
+  });
+  const nextTop = computeQuoteRevealScrollTop(frame);
+  assert.ok(nextTop != null);
+  const landed = place(frame, nextTop);
+  assert.ok(landed.bookBottom <= usableBottom(frame.viewportHeight, 34) + 1);
+  assert.ok(landed.priceTop >= usableTop(frame.headerBottom) - 1);
 });
 
 check("Mobile does not use card-top alignment when that hides Book Now", () => {
@@ -124,11 +167,11 @@ check("Mobile does not use card-top alignment when that hides Book Now", () => {
   });
   const nextTop = computeQuoteRevealScrollTop(frame);
   assert.ok(nextTop != null);
-  const cardAligned = Math.max(0, Math.round(frame.cardTop - headerLine(frame.headerBottom)));
+  const cardAligned = Math.max(0, Math.round(frame.scrollY + frame.cardTop - usableTop(frame.headerBottom)));
   assert.notEqual(nextTop, cardAligned);
   const landed = place(frame, nextTop);
-  assert.ok(landed.bookBottom <= visibleBottom(frame.viewportHeight) + 1);
-  assert.ok(landed.priceTop >= headerLine(frame.headerBottom) - 1);
+  assert.ok(landed.bookBottom <= usableBottom(frame.viewportHeight) + 1);
+  assert.ok(landed.priceTop >= usableTop(frame.headerBottom) - 1);
 });
 
 check("Mobile leaves the page still when price and Book Now are already visible", () => {
@@ -145,7 +188,7 @@ check("Mobile leaves the page still when price and Book Now are already visible"
   assert.equal(computeQuoteRevealScrollTop(frame), null);
 });
 
-check("Desktop smooth-lands the whole card under the header", () => {
+check("Desktop glides the price and Book Now into the open area", () => {
   const frame = metrics({
     scrollY: 600,
     viewportHeight: 800,
@@ -159,8 +202,11 @@ check("Desktop smooth-lands the whole card under the header", () => {
   const nextTop = computeQuoteRevealScrollTop(frame);
   assert.ok(nextTop != null);
   const landed = place(frame, nextTop);
-  assert.ok(Math.abs(landed.cardTop - headerLine(frame.headerBottom)) <= 1);
-  assert.ok(landed.bookBottom <= visibleBottom(frame.viewportHeight));
+  const top = usableTop(frame.headerBottom);
+  const bottom = usableBottom(frame.viewportHeight);
+  assert.ok(landed.priceTop >= top - 1);
+  assert.ok(landed.bookBottom <= bottom + 1);
+  assert.ok(Math.abs(landed.priceTop - top - (bottom - landed.bookBottom)) <= 2);
 });
 
 check("Desktop does not move a card that is already in view", () => {
@@ -191,9 +237,9 @@ check("Tall desktop card falls back to price and Book Now", () => {
   const nextTop = computeQuoteRevealScrollTop(frame);
   assert.ok(nextTop != null);
   const landed = place(frame, nextTop);
-  assert.ok(landed.priceTop >= headerLine(frame.headerBottom) - 1);
-  assert.ok(landed.bookBottom <= visibleBottom(frame.viewportHeight) + 1);
-  assert.ok(landed.cardTop < headerLine(frame.headerBottom));
+  assert.ok(landed.priceTop >= usableTop(frame.headerBottom) - 1);
+  assert.ok(landed.bookBottom <= usableBottom(frame.viewportHeight) + 1);
+  assert.ok(landed.cardTop < usableTop(frame.headerBottom));
 });
 
 console.log("OK  quote reveal scroll");

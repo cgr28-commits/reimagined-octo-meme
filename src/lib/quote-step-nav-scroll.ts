@@ -473,13 +473,17 @@ export function schedulePreciseResultsScroll(
 
 /** Pause after the last luggage choice so the selection can register. */
 export const QUOTE_REVEAL_PAUSE_MS = 350;
+/** Controlled glide. Native smooth scroll is too fast and is not used. */
+export const QUOTE_REVEAL_SCROLL_MS = 720;
 /** Restrained fade/raise on the new quote card. */
 export const QUOTE_REVEAL_MOTION_MS = 420;
+/** Space kept between the sticky header and the price, and below Book Now. */
+export const QUOTE_REVEAL_BREATHING_PX = 28;
 const REVEAL_EDGE_TOLERANCE_PX = 8;
-const REVEAL_BOTTOM_PAD_PX = 16;
 
 export type QuoteRevealMetrics = {
   scrollY: number;
+  /** Visual viewport height at the moment the glide starts. */
   viewportHeight: number;
   headerBottom: number;
   cardTop: number;
@@ -489,69 +493,79 @@ export type QuoteRevealMetrics = {
   layout: "mobile" | "desktop";
   clearancePx?: number;
   bottomPad?: number;
+  /** Home-indicator inset. Added below Book Now, not double-counted in the header. */
+  safeAreaBottom?: number;
+  /** Largest scroll offset the document can actually reach. */
+  maxScroll?: number;
 };
 
+/** Gentle ease-in-out. Slow at the start and the end. */
+export function quoteRevealEaseInOut(t: number): number {
+  const clamped = Math.min(1, Math.max(0, t));
+  return clamped < 0.5 ? 4 * clamped * clamped * clamped : 1 - ((-2 * clamped + 2) ** 3) / 2;
+}
+
 /**
- * Where to land the first quote reveal.
- * Mobile keeps the price and Book Now on screen together when the height allows,
- * instead of pinning the top of the vehicle card. Desktop brings the whole card
- * in under the sticky header when it fits.
- * Returns null when that target is already comfortably in view.
+ * Resting scroll offset for the first quote reveal.
+ * Frames the rendered price and Book Now with breathing room.
+ * Does not pin the top of the vehicle image when that would push Book Now down.
+ * Returns null when both are already comfortably on screen.
  */
 export function computeQuoteRevealScrollTop(metrics: QuoteRevealMetrics): number | null {
-  const clearance = metrics.clearancePx ?? HEADER_CLEARANCE_PX;
-  const bottomPad = metrics.bottomPad ?? REVEAL_BOTTOM_PAD_PX;
-  const headerLine = metrics.headerBottom + clearance;
-  const visibleBottom = metrics.viewportHeight - bottomPad;
-  const availableHeight = visibleBottom - headerLine;
-  const scrollY = metrics.scrollY;
+  const breathing = metrics.clearancePx ?? QUOTE_REVEAL_BREATHING_PX;
+  const bottomBreathing = metrics.bottomPad ?? QUOTE_REVEAL_BREATHING_PX;
+  const safeAreaBottom = metrics.safeAreaBottom ?? 0;
+  const usableTop = metrics.headerBottom + breathing;
+  const usableBottom = metrics.viewportHeight - bottomBreathing - safeAreaBottom;
+  const available = usableBottom - usableTop;
+  const cluster = metrics.bookBottom - metrics.priceTop;
 
-  const fits = (top: number, bottom: number) =>
-    top >= headerLine - REVEAL_EDGE_TOLERANCE_PX &&
-    bottom <= visibleBottom + REVEAL_EDGE_TOLERANCE_PX;
+  const comfortablyVisible =
+    metrics.priceTop >= usableTop - REVEAL_EDGE_TOLERANCE_PX &&
+    metrics.bookBottom <= usableBottom + REVEAL_EDGE_TOLERANCE_PX;
+  if (comfortablyVisible) return null;
 
-  if (metrics.layout === "desktop" && fits(metrics.cardTop, metrics.cardBottom)) {
-    return null;
-  }
-  if (metrics.layout === "mobile" && fits(metrics.priceTop, metrics.bookBottom)) {
-    return null;
-  }
-
-  if (metrics.layout === "desktop") {
-    const cardTopDoc = scrollY + metrics.cardTop;
-    const cardHeight = metrics.cardBottom - metrics.cardTop;
-    if (cardHeight <= availableHeight + REVEAL_EDGE_TOLERANCE_PX) {
-      const nextTop = Math.max(0, Math.round(cardTopDoc - headerLine));
-      return Math.abs(nextTop - scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
-    }
+  let delta: number;
+  if (cluster <= available) {
+    const idealPriceTop = usableTop + (available - cluster) / 2;
+    delta = metrics.priceTop - idealPriceTop;
+  } else {
+    delta = metrics.bookBottom - usableBottom;
   }
 
-  const priceTopDoc = scrollY + metrics.priceTop;
-  const bookBottomDoc = scrollY + metrics.bookBottom;
-  const clusterHeight = bookBottomDoc - priceTopDoc;
-  let nextTop = Math.round(priceTopDoc - headerLine);
-  const bookViewportBottom = bookBottomDoc - nextTop;
-  if (bookViewportBottom > visibleBottom) {
-    nextTop += Math.round(bookViewportBottom - visibleBottom);
-  }
-  if (clusterHeight <= availableHeight + REVEAL_EDGE_TOLERANCE_PX) {
-    const priceViewport = priceTopDoc - nextTop;
-    if (priceViewport < headerLine) {
-      nextTop = Math.round(priceTopDoc - headerLine);
-    }
-  }
-  nextTop = Math.max(0, nextTop);
-  return Math.abs(nextTop - scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
+  const maxScroll = metrics.maxScroll ?? Number.POSITIVE_INFINITY;
+  const nextTop = Math.min(maxScroll, Math.max(0, Math.round(metrics.scrollY + delta)));
+  return Math.abs(nextTop - metrics.scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
 }
 
-function quoteRevealViewportHeight(): number {
-  const viewport = window.visualViewport;
-  if (viewport && viewport.height > 0) {
-    return Math.round(viewport.height + (viewport.offsetTop || 0));
-  }
-  return window.innerHeight;
+function readSafeAreaBottom(): number {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom);visibility:hidden;pointer-events:none;";
+  document.body.appendChild(probe);
+  const value = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+  probe.remove();
+  return Math.max(0, Math.round(value));
 }
 
+/**
+ * Visible viewport at this instant.
+ * Height is the visual viewport only. offsetTop is subtracted from element
+ * positions so the address bar is not treated as extra visible space.
+ */
+function readVisualViewport(): { height: number; offsetTop: number } {
+  const visual = window.visualViewport;
+  if (visual && visual.height > 0) {
+    const offsetTop = Number.isFinite(visual.offsetTop) ? visual.offsetTop : 0;
+    return { height: Math.round(visual.height), offsetTop };
+  }
+  return { height: window.innerHeight, offsetTop: 0 };
+}
+
+/**
+ * One measurement of the quote that is actually on screen.
+ * Uses the visual viewport, not window.innerHeight plus a toolbar offset.
+ */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const card = document.getElementById("quote-selected-vehicle-card");
   if (!(card instanceof HTMLElement) || card.getClientRects().length === 0) return null;
@@ -560,24 +574,35 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
   if (!price || !book || price.getClientRects().length === 0 || book.getClientRects().length === 0) {
     return null;
   }
+  const visual = readVisualViewport();
   const cardRect = card.getBoundingClientRect();
   const priceRect = price.getBoundingClientRect();
   const bookRect = book.getBoundingClientRect();
+  const layoutClientHeight = document.documentElement.clientHeight || visual.height;
+  const maxScroll = Math.max(
+    0,
+    Math.round(document.documentElement.scrollHeight - Math.min(visual.height, layoutClientHeight)),
+  );
   return {
     scrollY: window.scrollY,
-    viewportHeight: quoteRevealViewportHeight(),
-    headerBottom: getHeaderBottomPx(),
-    cardTop: cardRect.top,
-    cardBottom: cardRect.bottom,
-    priceTop: priceRect.top,
-    bookBottom: bookRect.bottom,
+    viewportHeight: visual.height,
+    headerBottom: Math.round(getHeaderBottomPx() - visual.offsetTop),
+    cardTop: cardRect.top - visual.offsetTop,
+    cardBottom: cardRect.bottom - visual.offsetTop,
+    priceTop: priceRect.top - visual.offsetTop,
+    bookBottom: bookRect.bottom - visual.offsetTop,
+    safeAreaBottom: readSafeAreaBottom(),
+    maxScroll,
     layout: detectMobileDevice() ? "mobile" : "desktop",
   };
 }
 
 /**
- * First completed quote only: pause, then smooth-scroll the price and Book Now
- * into view. Wheel, touch, or keyboard scrolling cancels it and is not corrected.
+ * First completed quote only.
+ * Waits so the luggage choice can register, measures the settled quote once,
+ * then glides there. Does not use native smooth scrolling, and does not
+ * correct the position with a second jump. A touch, swipe, wheel, or scroll
+ * key cancels the glide immediately.
  */
 export function scheduleQuoteRevealScroll(handlers: {
   onConsume: () => void;
@@ -591,7 +616,9 @@ export function scheduleQuoteRevealScroll(handlers: {
   let stopped = false;
   let consumed = false;
   let userInterrupted = false;
-  let listenTimer = 0;
+  let timer = 0;
+  let frame = 0;
+  let restoreMotion = () => {};
 
   const consume = () => {
     if (consumed) return;
@@ -599,14 +626,18 @@ export function scheduleQuoteRevealScroll(handlers: {
     handlers.onConsume();
   };
 
-  const haltSmoothScroll = () => {
-    window.scrollTo({ top: window.scrollY, behavior: "auto" });
+  const haltMotion = () => {
+    if (frame) window.cancelAnimationFrame(frame);
+    frame = 0;
+    restoreMotion();
+    restoreMotion = () => {};
   };
 
   const onUserMove = () => {
     if (stopped || userInterrupted) return;
     userInterrupted = true;
-    haltSmoothScroll();
+    haltMotion();
+    stopListening();
     consume();
   };
 
@@ -619,21 +650,63 @@ export function scheduleQuoteRevealScroll(handlers: {
     onUserMove();
   };
 
+  const stopListening = () => {
+    window.removeEventListener("wheel", onUserMove);
+    window.removeEventListener("touchstart", onUserMove);
+    window.removeEventListener("touchmove", onUserMove);
+    window.removeEventListener("keydown", onKey);
+  };
+
   window.addEventListener("wheel", onUserMove, { passive: true });
+  window.addEventListener("touchstart", onUserMove, { passive: true });
   window.addEventListener("touchmove", onUserMove, { passive: true });
   window.addEventListener("keydown", onKey);
 
-  const stopListening = () => {
-    window.removeEventListener("wheel", onUserMove);
-    window.removeEventListener("touchmove", onUserMove);
-    window.removeEventListener("keydown", onKey);
-    if (listenTimer) window.clearTimeout(listenTimer);
+  const glideTo = (target: number) => {
+    const root = document.documentElement;
+    const previousBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    const startY = window.scrollY;
+    const change = target - startY;
+    restoreMotion = () => {
+      root.style.scrollBehavior = previousBehavior;
+    };
+
+    if (prefersReducedMotion() || Math.abs(change) <= REVEAL_EDGE_TOLERANCE_PX) {
+      if (Math.abs(change) > 1) window.scrollTo(0, target);
+      haltMotion();
+      stopListening();
+      return;
+    }
+
+    const started = performance.now();
+    const tick = (now: number) => {
+      if (stopped || userInterrupted) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
+      const y = progress >= 1 ? target : Math.round(startY + change * quoteRevealEaseInOut(progress));
+      window.scrollTo(0, y);
+      if (stopped || userInterrupted) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(tick);
+      } else {
+        haltMotion();
+        stopListening();
+      }
+    };
+    frame = window.requestAnimationFrame(tick);
   };
 
-  const timer = window.setTimeout(() => {
-    if (stopped) return;
-    if (userInterrupted) {
-      consume();
+  const begin = () => {
+    if (stopped || userInterrupted) {
+      if (userInterrupted) consume();
       stopListening();
       return;
     }
@@ -646,18 +719,28 @@ export function scheduleQuoteRevealScroll(handlers: {
     handlers.onReveal();
     consume();
     const nextTop = computeQuoteRevealScrollTop(metrics);
-    if (nextTop != null) {
-      window.scrollTo({
-        top: nextTop,
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
-      });
+    if (nextTop == null) {
+      stopListening();
+      return;
     }
-    listenTimer = window.setTimeout(stopListening, prefersReducedMotion() ? 0 : 700);
+    glideTo(nextTop);
+  };
+
+  timer = window.setTimeout(() => {
+    if (stopped || userInterrupted) {
+      if (userInterrupted) consume();
+      stopListening();
+      return;
+    }
+    frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(begin);
+    });
   }, QUOTE_REVEAL_PAUSE_MS);
 
   const cancel = () => {
     stopped = true;
     window.clearTimeout(timer);
+    haltMotion();
     stopListening();
     if (!consumed) handlers.onRetry();
   };
