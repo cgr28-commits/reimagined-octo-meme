@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  MINIBUS_NOTICE_BODY,
+  MINIBUS_NOTICE_HEADING,
+} from "../../shared/availability-resource";
+import {
   minimumNoticeRequestBody,
   minimumNoticeRequestHeading,
 } from "../../shared/booking-notice";
@@ -18,6 +22,8 @@ type ShortNoticeRequestReceivedProps = {
   /** Owner-configured short-notice period applied for this request. */
   noticeHours?: number;
   luggageCapacity?: boolean;
+  /** 7-Seater notice request. Separate from the owner short-notice period. */
+  minibusNotice?: boolean;
 };
 
 export default function ShortNoticeRequestReceived({
@@ -27,17 +33,22 @@ export default function ShortNoticeRequestReceived({
   underMinimumNotice = true,
   noticeHours,
   luggageCapacity = false,
+  minibusNotice = false,
 }: ShortNoticeRequestReceivedProps) {
   const heading = luggageCapacity
     ? LUGGAGE_CAPACITY_CONFIRMATION_HEADING
-    : underMinimumNotice
-      ? minimumNoticeRequestHeading()
-      : "Booking request received";
+    : minibusNotice
+      ? MINIBUS_NOTICE_HEADING
+      : underMinimumNotice
+        ? minimumNoticeRequestHeading()
+        : "Booking request received";
   const body = luggageCapacity
     ? LUGGAGE_CAPACITY_RECEIVED_BODY
-    : underMinimumNotice
-      ? minimumNoticeRequestBody(noticeHours)
-      : "We just need to confirm availability for your requested pickup time before taking payment. We’ll email you once your request has been reviewed. No payment has been taken.";
+    : minibusNotice
+      ? MINIBUS_NOTICE_BODY
+      : underMinimumNotice
+        ? minimumNoticeRequestBody(noticeHours)
+        : "We just need to confirm availability for your requested pickup time before taking payment. We’ll email you once your request has been reviewed. No payment has been taken.";
   return (
     <div className="rounded-xl border border-amber-400/30 bg-navy-dark/50 px-5 py-8 text-center sm:px-8 sm:py-10">
       <p

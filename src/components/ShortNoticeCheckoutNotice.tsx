@@ -1,4 +1,8 @@
 import {
+  MINIBUS_NOTICE_BODY,
+  MINIBUS_NOTICE_HEADING,
+} from "../../shared/availability-resource";
+import {
   CHOOSE_ANOTHER_PICKUP_TIME_LABEL,
   leadTimeHoursLabel,
   minimumNoticeRequestHeading,
@@ -27,6 +31,20 @@ export function shortNoticePaymentFollowUpLines(
 }
 
 export const SHORT_NOTICE_PAYMENT_FOLLOW_UP = shortNoticePaymentFollowUpLines().join(" ");
+
+export function MinibusNoticeCheckoutNotice() {
+  return (
+    <div
+      className="rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-2 text-left sm:rounded-xl sm:px-3.5 sm:py-2.5"
+      role="status"
+      aria-live="polite"
+      data-minibus-notice-checkout
+    >
+      <p className="text-sm font-semibold leading-snug text-amber-100">{MINIBUS_NOTICE_HEADING}</p>
+      <p className="mt-0.5 text-xs leading-snug text-amber-50/90 sm:text-sm">{MINIBUS_NOTICE_BODY}</p>
+    </div>
+  );
+}
 
 export default function ShortNoticeCheckoutNotice({ noticeHours }: { noticeHours: number }) {
   return (

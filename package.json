@@ -139,7 +139,8 @@
     "check:transfer-legacy-redirects": "npx tsx scripts/check-transfer-legacy-redirects.ts",
     "check:airport-hero-images": "npx tsx scripts/check-airport-hero-images.ts",
     "check:destination-hero-images": "npx tsx scripts/check-destination-hero-images.ts",
-    "check:deposit-cash": "npx tsx scripts/check-deposit-cash.ts"
+    "check:deposit-cash": "npx tsx scripts/check-deposit-cash.ts",
+    "check:minibus-availability": "npx tsx scripts/check-minibus-availability.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

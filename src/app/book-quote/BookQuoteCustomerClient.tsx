@@ -33,12 +33,16 @@ import {
 } from "../../../shared/express-drop-off";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import ShortNoticeCheckoutNotice, {
+  MinibusNoticeCheckoutNotice,
   ShortNoticePaymentFollowUp,
   TooSoonCheckoutNotice,
 } from "@/components/ShortNoticeCheckoutNotice";
+import { MINIBUS_NOTICE_CTA } from "../../../shared/availability-resource";
+import { isPublicMinibusVehicle } from "../../../shared/owner-pricing-config";
 import {
   classifyPickupLeadWindow,
   isOwnerNoAvailabilityMessage,
+  isWithinMinimumBookingNotice,
   tooSoonRequestBody,
 } from "../../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
@@ -61,8 +65,13 @@ function BookQuoteInner() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [minimumBookingNoticeHours, , minimumShortNoticeLeadHours, shortNoticeConfirmationWindowHours] =
-    useMinimumBookingNoticeHours();
+  const [
+    minimumBookingNoticeHours,
+    ,
+    minimumShortNoticeLeadHours,
+    shortNoticeConfirmationWindowHours,
+    minibusMinimumBookingNoticeHours,
+  ] = useMinimumBookingNoticeHours();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
@@ -70,6 +79,7 @@ function BookQuoteInner() {
     underMinimumNotice?: boolean;
     noticeHours?: number;
     luggageCapacity?: boolean;
+    minibusNotice?: boolean;
   } | null>(null);
 
   const [customerName, setCustomerName] = useState("");
@@ -211,8 +221,21 @@ function BookQuoteInner() {
           minimumShortNoticeLeadHours,
         )
       : "unknown";
-  const isTooSoonPickup = pickupLeadWindow === "too_soon";
-  const isMinimumNoticeRequest = pickupLeadWindow === "short_notice";
+  const isMinibusQuote = isPublicMinibusVehicle(journey?.vehicleType);
+  const isTooSoonPickup = !isMinibusQuote && pickupLeadWindow === "too_soon";
+  const isMinimumNoticeRequest = !isMinibusQuote && pickupLeadWindow === "short_notice";
+  const isMinibusNoticeRequest =
+    isMinibusQuote &&
+    Boolean(tripDate && tripTime) &&
+    isWithinMinimumBookingNotice(
+      tripDate,
+      tripTime,
+      new Date(),
+      minibusMinimumBookingNoticeHours,
+    ) &&
+    !isCustomerSmartAvailabilityBlockMessage(error) &&
+    !isOwnerNoAvailabilityMessage(error);
+  const isAvailabilityRequest = isMinimumNoticeRequest || isMinibusNoticeRequest;
   const booking = useMemo((): BookingDetails | null => {
     if (!quote || !journey || !displayPricing) return null;
     return {
@@ -341,11 +364,16 @@ function BookQuoteInner() {
             (displayPricing
               ? formatQuickQuoteAmount(displayPricing.totalGbp)
               : quote.quotedAmountLabel),
-          underMinimumNotice: checkout.underMinimumNotice === true || isMinimumNoticeRequest,
+          underMinimumNotice: checkout.underMinimumNotice === true || isAvailabilityRequest,
           noticeHours:
-            checkout.minimumBookingNoticeHours ??
-            checkout.minimumNoticeHours ??
-            minimumBookingNoticeHours,
+            checkout.minibusNotice || isMinibusNoticeRequest
+              ? checkout.minimumBookingNoticeHours ??
+                checkout.minimumNoticeHours ??
+                minibusMinimumBookingNoticeHours
+              : checkout.minimumBookingNoticeHours ??
+                checkout.minimumNoticeHours ??
+                minimumBookingNoticeHours,
+          minibusNotice: checkout.minibusNotice === true || isMinibusNoticeRequest,
           luggageCapacity: checkout.luggageCapacity === true,
         });
         setPaying(false);
@@ -387,8 +415,13 @@ function BookQuoteInner() {
           amountLabel={shortNoticeResult.amountLabel}
           whatsappUrl={shortNoticeResult.whatsappUrl}
           underMinimumNotice={shortNoticeResult.underMinimumNotice !== false}
-          noticeHours={shortNoticeResult.noticeHours ?? minimumBookingNoticeHours}
+          noticeHours={
+            shortNoticeResult.minibusNotice
+              ? shortNoticeResult.noticeHours ?? minibusMinimumBookingNoticeHours
+              : shortNoticeResult.noticeHours ?? minimumBookingNoticeHours
+          }
           luggageCapacity={shortNoticeResult.luggageCapacity === true}
+          minibusNotice={shortNoticeResult.minibusNotice === true}
         />
       </div>
     );
@@ -641,6 +674,9 @@ function BookQuoteInner() {
             onChooseAnotherTime={focusBookQuoteTime}
           />
         ) : null}
+        {isMinibusNoticeRequest && !isOwnerNoAvailabilityMessage(error) ? (
+          <MinibusNoticeCheckoutNotice />
+        ) : null}
         {isMinimumNoticeRequest && !isOwnerNoAvailabilityMessage(error) ? (
           <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
         ) : null}
@@ -648,7 +684,7 @@ function BookQuoteInner() {
         <BookingTermsConsent
           accepted={termsAccepted}
           onAcceptedChange={setTermsAccepted}
-          mode={isMinimumNoticeRequest ? "booking-request" : "card-payment"}
+          mode={isAvailabilityRequest ? "booking-request" : "card-payment"}
           paymentAmountLabel={
             displayPricing
               ? formatQuickQuoteAmount(displayPricing.totalGbp)
@@ -670,7 +706,7 @@ function BookQuoteInner() {
       ) : isTooSoonPickup ? null : isCustomerSmartAvailabilityBlockMessage(error) && !isMinimumNoticeRequest ? null : (
         <div className="space-y-2 sm:space-y-3">
           {error ? <p className="break-words text-sm text-red-300">{error}</p> : null}
-          {isMinimumNoticeRequest ? (
+          {isAvailabilityRequest ? (
             <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
           ) : (
             <p className="text-xs leading-relaxed text-white/70">
@@ -684,10 +720,16 @@ function BookQuoteInner() {
             className="min-h-12 w-full max-w-full break-words rounded-xl bg-emerald px-4 py-3 text-base font-semibold leading-snug text-navy disabled:opacity-50"
           >
             {paying
-              ? isMinimumNoticeRequest
+              ? isAvailabilityRequest
                 ? "Submitting booking request…"
                 : "Starting secure payment…"
-              : isMinimumNoticeRequest
+              : isMinibusNoticeRequest
+                ? `${MINIBUS_NOTICE_CTA} — ${
+                    displayPricing
+                      ? formatQuickQuoteAmount(displayPricing.totalGbp)
+                      : quote.quotedAmountLabel
+                  }`
+                : isMinimumNoticeRequest
                 ? `Request Short-Notice Booking — ${
                     displayPricing
                       ? formatQuickQuoteAmount(displayPricing.totalGbp)
@@ -701,7 +743,7 @@ function BookQuoteInner() {
           </button>
         </div>
       )}
-      {isMinimumNoticeRequest ? null : (
+      {isAvailabilityRequest ? null : (
         <p className="break-words px-1 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-white/45">
           You will complete payment on SumUp’s secure hosted checkout. Card details are never entered on this site.
         </p>
