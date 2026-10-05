@@ -560,8 +560,6 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
 export function scheduleQuoteRevealScroll(handlers: {
   onConsume: () => void;
   onRetry: () => void;
-  /** Fires once when the quote has settled. Not fired if the customer takes over. */
-  onSettled?: () => void;
 }): () => void {
   if (typeof window === "undefined") {
     return () => {};
@@ -569,7 +567,6 @@ export function scheduleQuoteRevealScroll(handlers: {
 
   let stopped = false;
   let consumed = false;
-  let settled = false;
   let userInterrupted = false;
   let timer = 0;
   let frame = 0;
@@ -579,12 +576,6 @@ export function scheduleQuoteRevealScroll(handlers: {
     if (consumed) return;
     consumed = true;
     handlers.onConsume();
-  };
-
-  const settle = () => {
-    if (settled || stopped || userInterrupted) return;
-    settled = true;
-    handlers.onSettled?.();
   };
 
   const haltMotion = () => {
@@ -637,7 +628,6 @@ export function scheduleQuoteRevealScroll(handlers: {
       if (Math.abs(change) > 1) window.scrollTo(0, target);
       haltMotion();
       stopListening();
-      settle();
       return;
     }
 
@@ -661,7 +651,6 @@ export function scheduleQuoteRevealScroll(handlers: {
       } else {
         haltMotion();
         stopListening();
-        settle();
       }
     };
     frame = window.requestAnimationFrame(tick);
@@ -677,14 +666,12 @@ export function scheduleQuoteRevealScroll(handlers: {
     if (!metrics) {
       consume();
       stopListening();
-      settle();
       return;
     }
     consume();
     const nextTop = computeQuoteRevealScrollTop(metrics);
     if (nextTop == null) {
       stopListening();
-      settle();
       return;
     }
     glideTo(nextTop);
@@ -707,6 +694,177 @@ export function scheduleQuoteRevealScroll(handlers: {
     haltMotion();
     stopListening();
     if (!consumed) handlers.onRetry();
+  };
+  return trackScrollJob(cancel);
+}
+
+/** Breathing room under the sticky header for the Your details heading. */
+export const BOOK_TRANSFER_CLEARANCE_PX = 20;
+
+export type BookTransferMetrics = {
+  scrollY: number;
+  headerBottom: number;
+  headingTop: number;
+  clearancePx?: number;
+  maxScroll?: number;
+};
+
+/**
+ * Resting offset for Book This Transfer.
+ * Puts the Your details heading just below the sticky header.
+ */
+export function computeBookTransferScrollTop(metrics: BookTransferMetrics): number | null {
+  const clearance = metrics.clearancePx ?? BOOK_TRANSFER_CLEARANCE_PX;
+  const idealHeadingTop = metrics.headerBottom + clearance;
+  const delta = metrics.headingTop - idealHeadingTop;
+  const maxScroll = metrics.maxScroll ?? Number.POSITIVE_INFINITY;
+  const nextTop = Math.min(maxScroll, Math.max(0, Math.round(metrics.scrollY + delta)));
+  return Math.abs(nextTop - metrics.scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
+}
+
+function measureBookTransferHeading(element: HTMLElement): BookTransferMetrics {
+  const marked = element.matches("[data-booking-nav-heading]")
+    ? element
+    : element.querySelector<HTMLElement>("[data-booking-nav-heading]");
+  const anchor = marked && marked.getClientRects().length > 0 ? marked : element;
+  const visual = readVisualViewport();
+  const layoutClientHeight = document.documentElement.clientHeight || visual.height;
+  return {
+    scrollY: window.scrollY,
+    headerBottom: Math.round(getHeaderBottomPx() - visual.offsetTop),
+    headingTop: anchor.getBoundingClientRect().top - visual.offsetTop,
+    maxScroll: Math.max(
+      0,
+      Math.round(document.documentElement.scrollHeight - Math.min(visual.height, layoutClientHeight)),
+    ),
+  };
+}
+
+/**
+ * Book This Transfer → Your details.
+ * Same 720ms ease-in-out as the quote reveal. One measurement, no second jump.
+ * A touch, swipe, wheel, or scroll key releases the page immediately.
+ */
+export function scheduleBookTransferGlide(
+  target: BookingNavTargetId | HTMLElement | string | null | undefined,
+): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  cancelCompetingScrollJobs();
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+
+  let stopped = false;
+  let userInterrupted = false;
+  let frame = 0;
+  let restoreMotion = () => {};
+
+  const haltMotion = () => {
+    if (frame) window.cancelAnimationFrame(frame);
+    frame = 0;
+    restoreMotion();
+    restoreMotion = () => {};
+  };
+
+  const onUserMove = () => {
+    if (stopped || userInterrupted) return;
+    userInterrupted = true;
+    haltMotion();
+    stopListening();
+  };
+
+  const onKey = (event: KeyboardEvent) => {
+    if (!["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) {
+      return;
+    }
+    const eventTarget = event.target;
+    if (eventTarget instanceof HTMLElement && eventTarget.closest("input, textarea, select")) return;
+    onUserMove();
+  };
+
+  const stopListening = () => {
+    window.removeEventListener("wheel", onUserMove);
+    window.removeEventListener("touchstart", onUserMove);
+    window.removeEventListener("touchmove", onUserMove);
+    window.removeEventListener("keydown", onKey);
+  };
+
+  window.addEventListener("wheel", onUserMove, { passive: true });
+  window.addEventListener("touchstart", onUserMove, { passive: true });
+  window.addEventListener("touchmove", onUserMove, { passive: true });
+  window.addEventListener("keydown", onKey);
+
+  const glideTo = (nextTop: number) => {
+    const root = document.documentElement;
+    const previousBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    const startY = window.scrollY;
+    const change = nextTop - startY;
+    restoreMotion = () => {
+      root.style.scrollBehavior = previousBehavior;
+    };
+
+    if (prefersReducedMotion() || Math.abs(change) <= REVEAL_EDGE_TOLERANCE_PX) {
+      if (Math.abs(change) > 1) window.scrollTo(0, nextTop);
+      haltMotion();
+      stopListening();
+      return;
+    }
+
+    const started = performance.now();
+    const tick = (now: number) => {
+      if (stopped || userInterrupted) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
+      const y = progress >= 1 ? nextTop : Math.round(startY + change * quoteRevealEaseInOut(progress));
+      window.scrollTo(0, y);
+      if (stopped || userInterrupted) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(tick);
+      } else {
+        haltMotion();
+        stopListening();
+      }
+    };
+    frame = window.requestAnimationFrame(tick);
+  };
+
+  const begin = () => {
+    if (stopped || userInterrupted) {
+      stopListening();
+      return;
+    }
+    const element = resolveBookingNavElement(target);
+    if (!element || element.getClientRects().length === 0) {
+      stopListening();
+      return;
+    }
+    const nextTop = computeBookTransferScrollTop(measureBookTransferHeading(element));
+    if (nextTop == null) {
+      stopListening();
+      return;
+    }
+    glideTo(nextTop);
+  };
+
+  frame = window.requestAnimationFrame(() => {
+    frame = window.requestAnimationFrame(begin);
+  });
+
+  const cancel = () => {
+    stopped = true;
+    haltMotion();
+    stopListening();
   };
   return trackScrollJob(cancel);
 }

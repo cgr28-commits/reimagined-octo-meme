@@ -77,8 +77,8 @@ console.log("OK  stages wired with one-shot refs (bags → YOUR ROUTE)");
 console.log("\n=== Time scroll only after picker Done / blur ===");
 assert.match(card, /requestJourneySummaryScrollAfterTimeConfirm/);
 assert.match(card, /onTimeBlur=\{[\s\S]*?requestJourneySummaryScrollAfterTimeConfirm\(\)/);
-assert.match(schedule, /id="time"[\s\S]*?onTimeBlur\?\.\(\)/);
-assert.match(schedule, /id="returnTime"[\s\S]*?onTimeBlur\?\.\(\)/);
+assert.match(schedule, /id="time"[\s\S]*?onBlur=\{onTimeBlur\}/);
+assert.match(schedule, /id="returnTime"[\s\S]*?onBlur=\{onTimeBlur\}/);
 assert.doesNotMatch(
   card,
   /useEffect\(\(\) => \{[\s\S]*if \(quoteStep !== 2\)[\s\S]*isScheduleComplete[\s\S]*\}, \[isScheduleComplete, quoteStep\]\)/,

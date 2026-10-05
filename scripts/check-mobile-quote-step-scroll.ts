@@ -59,6 +59,11 @@ check("Explicit step CTAs set pending nav scroll then change step", () => {
     card,
     /scrollQuoteStage\(step3CustomerDetailsRef\.current \?\? "step3-customer-details"/,
   );
+  assert.match(card, /bookTransferGlideRef\.current = true;\s*pendingQuoteStepNavScrollRef\.current = 2;/);
+  assert.match(
+    card,
+    /scheduleBookTransferGlide\(\s*step3CustomerDetailsRef\.current \?\? "step3-customer-details"/,
+  );
   assert.match(card, /immediate:\s*true/);
   assert.doesNotMatch(
     card,

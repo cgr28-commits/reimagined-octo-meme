@@ -23,11 +23,11 @@ import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
-import { tickSelectionHaptic } from "@/lib/selection-haptic";
 import {
   focusFirstInvalidField,
   quoteStepTargetId,
   scheduleScrollToBookNowAfterExpressAck,
+  scheduleBookTransferGlide,
   scheduleQuoteRevealScroll,
   scrollJourneySummaryAfterTimeConfirm,
   scrollQuoteStage,
@@ -700,6 +700,8 @@ function QuoteCard({
   const pendingBookingResultScrollRef = useRef(false);
   /** Set only by explicit Book Now / Continue / Back — never by quote re-renders. */
   const pendingQuoteStepNavScrollRef = useRef<QuoteStepNavTarget | null>(null);
+  /** Book This Transfer only. Other step changes keep the existing scroll. */
+  const bookTransferGlideRef = useRef(false);
   /** Ignore a second tap while availability + step-3 commit are in flight. */
   const continueToDetailsInFlightRef = useRef(false);
   const [continueToDetailsBusy, setContinueToDetailsBusy] = useState(false);
@@ -2617,7 +2619,6 @@ function QuoteCard({
       document.activeElement.blur();
     }
     if (intent !== journeyIntent) {
-      requestSelectionHaptic();
       const plan = planJourneyDirectionDependentReset({
         previousIntent: journeyIntent,
         nextIntent: intent,
@@ -2703,7 +2704,6 @@ function QuoteCard({
       return;
     }
     if (code !== intentAirportCode) {
-      requestSelectionHaptic();
       clearDownstreamQuoteChoices();
     }
     setIntentAirportCode(code);
@@ -4642,6 +4642,7 @@ function QuoteCard({
       if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
+      bookTransferGlideRef.current = true;
       pendingQuoteStepNavScrollRef.current = 2;
       setQuoteStep(2);
       return;
@@ -4757,6 +4758,13 @@ function QuoteCard({
       return;
     }
     pendingQuoteStepNavScrollRef.current = null;
+    const glideToDetails = bookTransferGlideRef.current;
+    bookTransferGlideRef.current = false;
+    if (glideToDetails && target === 2) {
+      return scheduleBookTransferGlide(
+        step3CustomerDetailsRef.current ?? "step3-customer-details",
+      );
+    }
     const element =
       target === 1
         ? step1JourneyRef.current
@@ -4818,10 +4826,6 @@ function QuoteCard({
   /** One scroll when results first become visible. Vehicle/Express changes must not re-arm it. */
   const hadRouteSummaryScrollRef = useRef(false);
   const quoteRevealScrollCancelRef = useRef<(() => void) | null>(null);
-  const selectionHapticPendingRef = useRef(false);
-  const revealHapticOwnsRef = useRef(false);
-  const scheduleHapticKeysRef = useRef<Record<string, string>>({});
-  const [selectionHapticNonce, setSelectionHapticNonce] = useState(0);
   /** Time picker Done/blur → flight number (when shown) or Your Journey (once per step-2 visit). */
   const hadJourneySummaryScrollRef = useRef(false);
   const hadLegacyJourneyModeScrollRef = useRef(false);
@@ -4892,7 +4896,6 @@ function QuoteCard({
     const capacityComplete = quoteChoicesReady && hasQuoteRoute && isScheduleComplete;
     if (quoteStep !== 1 || !capacityComplete) {
       hadRouteSummaryScrollRef.current = false;
-      revealHapticOwnsRef.current = false;
       quoteRevealScrollCancelRef.current?.();
       quoteRevealScrollCancelRef.current = null;
       return;
@@ -4903,54 +4906,21 @@ function QuoteCard({
     }
 
     hadRouteSummaryScrollRef.current = true;
-    revealHapticOwnsRef.current = true;
     quoteRevealScrollCancelRef.current = scheduleQuoteRevealScroll({
       onConsume: () => {},
       onRetry: () => {
-        revealHapticOwnsRef.current = false;
         hadRouteSummaryScrollRef.current = false;
         quoteRevealScrollCancelRef.current = null;
-      },
-      onSettled: () => {
-        revealHapticOwnsRef.current = false;
-        tickSelectionHaptic();
       },
     });
   }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteResultsReady, quoteStep]);
 
-  // A selection tick waits one render. If that same action starts the quote
-  // glide, the glide owns the single tick and this one is dropped.
-  useEffect(() => {
-    if (!selectionHapticPendingRef.current) return;
-    if (revealHapticOwnsRef.current) {
-      selectionHapticPendingRef.current = false;
-      return;
-    }
-    selectionHapticPendingRef.current = false;
-    tickSelectionHaptic();
-  }, [selectionHapticNonce]);
-
   useEffect(() => {
     return () => {
-      revealHapticOwnsRef.current = false;
       quoteRevealScrollCancelRef.current?.();
       quoteRevealScrollCancelRef.current = null;
     };
   }, []);
-
-  function requestSelectionHaptic() {
-    selectionHapticPendingRef.current = true;
-    setSelectionHapticNonce((nonce) => nonce + 1);
-  }
-
-  function commitQuoteScheduleHaptic(field: string, value: string) {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    const key = `${field}:${trimmed}`;
-    if (scheduleHapticKeysRef.current[field] === key) return;
-    scheduleHapticKeysRef.current[field] = key;
-    requestSelectionHaptic();
-  }
 
   // Reset time→Your Journey one-shot when leaving travel-details step.
   useEffect(() => {
@@ -5697,7 +5667,6 @@ function QuoteCard({
               }
             : undefined
         }
-        onScheduleCommit={variant === "quote" ? commitQuoteScheduleHaptic : undefined}
       />
     );
   }
@@ -6523,10 +6492,7 @@ function QuoteCard({
   function handleQuoteVehicleChoice(next: string) {
     const pax = effectivePartyPassengers(passengers, passengerLimit);
     if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
-    const choosingMinibus = next === MINIBUS_VEHICLE_TYPE;
-    if (choosingMinibus === chooseMinibus) return;
-    requestSelectionHaptic();
-    setChooseMinibus(choosingMinibus);
+    setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
   }
 
   function renderQuoteVehicleChoice() {
@@ -6909,7 +6875,6 @@ function QuoteCard({
                   return;
                 }
                 markQuoteFunnelStarted();
-                if (value !== journeyMode) requestSelectionHaptic();
                 setJourneyMode(value);
                 if (value === "one-way") setReturnDateError("");
               }}
@@ -6917,7 +6882,6 @@ function QuoteCard({
               passengers={passengers}
               onPassengersChange={(value) => {
                 markQuoteFunnelStarted();
-                if (value !== passengers) requestSelectionHaptic();
                 setPassengers(value);
                 setPassengersError("");
               }}
@@ -6926,7 +6890,6 @@ function QuoteCard({
               suitcases={suitcases}
               onSuitcasesChange={(value) => {
                 markQuoteFunnelStarted();
-                if (value !== suitcases) requestSelectionHaptic();
                 setSuitcases(value);
                 setSuitcasesError("");
               }}
@@ -7198,7 +7161,6 @@ function QuoteCard({
               type="button"
               aria-pressed={journeyMode === "one-way"}
               onClick={() => {
-                if (journeyMode !== "one-way") requestSelectionHaptic();
                 setJourneyMode("one-way");
                 setReturnDateError("");
               }}
@@ -7211,10 +7173,7 @@ function QuoteCard({
             <button
               type="button"
               aria-pressed={journeyMode === "return"}
-              onClick={() => {
-                if (journeyMode !== "return") requestSelectionHaptic();
-                setJourneyMode("return");
-              }}
+              onClick={() => setJourneyMode("return")}
               className={`min-h-[52px] w-full rounded-xl px-3 py-3 text-sm font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald ${
                 journeyMode === "return" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
@@ -7493,7 +7452,6 @@ function QuoteCard({
                   : null
               }
               onChange={(value) => {
-                if (value !== passengers) requestSelectionHaptic();
                 setPassengers(value);
                 setPassengersError("");
               }}
@@ -7509,7 +7467,6 @@ function QuoteCard({
                   : null
               }
               onChange={(value) => {
-                if (value !== suitcases) requestSelectionHaptic();
                 setSuitcases(value);
                 setSuitcasesError("");
               }}

@@ -8,6 +8,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  BOOK_TRANSFER_CLEARANCE_PX,
+  computeBookTransferScrollTop,
   computeQuoteRevealScrollTop,
   quoteRevealEaseInOut,
   QUOTE_REVEAL_BREATHING_PX,
@@ -126,6 +128,41 @@ check("Desktop uses the same heading stop", () => {
   const nextTop = computeQuoteRevealScrollTop(frame);
   assert.ok(nextTop != null);
   assert.ok(Math.abs(landedHeading(frame, nextTop) - idealHeading(80)) <= 1);
+});
+
+check("Book This Transfer uses the same glide and stops on Your details", () => {
+  assert.ok(BOOK_TRANSFER_CLEARANCE_PX >= 16 && BOOK_TRANSFER_CLEARANCE_PX <= 24);
+  const frame = {
+    scrollY: 500,
+    headerBottom: 72,
+    headingTop: 860,
+  };
+  const nextTop = computeBookTransferScrollTop(frame);
+  assert.ok(nextTop != null);
+  const landed = frame.headingTop + (frame.scrollY - nextTop);
+  assert.ok(Math.abs(landed - (frame.headerBottom + BOOK_TRANSFER_CLEARANCE_PX)) <= 1);
+  assert.equal(
+    computeBookTransferScrollTop({
+      scrollY: 200,
+      headerBottom: 72,
+      headingTop: 72 + BOOK_TRANSFER_CLEARANCE_PX,
+    }),
+    null,
+  );
+  const scrollLib = fs.readFileSync(path.join(root, "src/lib/quote-step-nav-scroll.ts"), "utf8");
+  const glide = scrollLib.slice(
+    scrollLib.indexOf("export function scheduleBookTransferGlide"),
+    scrollLib.indexOf("export function quoteStepTargetId"),
+  );
+  assert.match(glide, /QUOTE_REVEAL_SCROLL_MS/);
+  assert.match(glide, /quoteRevealEaseInOut/);
+  assert.match(glide, /scrollBehavior = "auto"/);
+  assert.match(glide, /touchstart/);
+  assert.doesNotMatch(glide, /correctAfterMs|behavior:\s*"smooth"|vibrate|quote-result-reveal/);
+  const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
+  assert.match(card, /bookTransferGlideRef\.current = true/);
+  assert.match(card, /scheduleBookTransferGlide\(\s*step3CustomerDetailsRef\.current \?\? "step3-customer-details"/);
+  assert.doesNotMatch(card, /navigator\.vibrate|tickSelectionHaptic|requestSelectionHaptic/);
 });
 
 check("The glide cannot scroll past the document", () => {
