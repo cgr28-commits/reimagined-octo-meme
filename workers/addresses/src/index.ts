@@ -235,6 +235,7 @@ import {
   isReviewRequestSendPath,
   processDueReviewRequests,
 } from "./review-request-handlers";
+import { handleReopenJobRequest, isReopenJobPath } from "./reopen-job-handlers";
 import { processDueTrackingAvailableReminders } from "./tracking-reminder-handlers";
 import { processDueAirportPickupReminders } from "./airport-pickup-reminder-handlers";
 import {
@@ -701,6 +702,7 @@ function routePath(
   | "paid-bookings-edit"
   | "paid-bookings-updated-confirmation"
   | "paid-bookings-review-request"
+  | "paid-bookings-reopen-job"
   | "paid-bookings-pending"
   | "paid-bookings-finalize"
   | "paid-bookings-reconcile-transactions"
@@ -802,6 +804,10 @@ function routePath(
 
   if (isReviewRequestSendPath(pathname)) {
     return "paid-bookings-review-request";
+  }
+
+  if (isReopenJobPath(pathname)) {
+    return "paid-bookings-reopen-job";
   }
 
   if (isFinalizeCheckoutPath(pathname)) {
@@ -4668,6 +4674,10 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
       return handleReviewRequestSendRequest(request, env, origin);
+    }
+
+    if (route === "paid-bookings-reopen-job") {
+      return handleReopenJobRequest(request, env, origin);
     }
 
     if (route === "booking-jobs") {

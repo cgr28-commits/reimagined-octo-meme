@@ -75,6 +75,36 @@ async function writeTip(store: KVNamespace, record: JourneyTipRecord): Promise<v
   });
 }
 
+/**
+ * A paid tip is money already taken and must survive Reopen job.
+ * An unpaid completion request can be removed with the accidental completion.
+ */
+export async function completionTipPreservation(
+  store: KVNamespace,
+  tipToken: string | undefined,
+): Promise<{ preservePaidTip: boolean; unpaidToken: string | null }> {
+  const token = tipToken?.trim().toLowerCase() ?? "";
+  if (!token || !isOpaqueTipToken(token)) {
+    return { preservePaidTip: false, unpaidToken: null };
+  }
+  const record = await readTip(store, token);
+  if (record?.status === "paid") {
+    return { preservePaidTip: true, unpaidToken: null };
+  }
+  return { preservePaidTip: false, unpaidToken: token };
+}
+
+export async function deleteUnpaidTipRequest(
+  store: KVNamespace,
+  tipToken: string,
+): Promise<void> {
+  const token = tipToken.trim().toLowerCase();
+  if (!isOpaqueTipToken(token)) return;
+  const record = await readTip(store, token);
+  if (!record || record.status === "paid") return;
+  await store.delete(`${TIP_PREFIX}${token}`);
+}
+
 async function indexTipCheckout(
   store: KVNamespace,
   checkoutId: string,

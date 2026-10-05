@@ -14,6 +14,18 @@ export type OwnerReviewRequestSummary = {
   ownerBccSent?: boolean;
 };
 
+export type OwnerJourneyLegSnapshot = {
+  token?: string;
+  journeyStatus?: string;
+  trackingStartedAt?: string;
+  arrivedPickupAt?: string;
+  journeyStartedAt?: string;
+  arrivedDestinationAt?: string;
+  journeyCompletedAt?: string;
+  trackingStoppedAt?: string;
+  reviewRequest?: OwnerReviewRequestSummary;
+};
+
 export type OwnerPaidBookingSummary = Pick<
   PaidBookingRecord,
   | "paymentReference"
@@ -83,6 +95,12 @@ export type OwnerPaidBookingSummary = Pick<
   assignmentStatus?: string;
   primaryDriverDefault?: boolean;
   arrivedPickupAt?: string;
+  trackingStartedAt?: string;
+  journeyStartedAt?: string;
+  arrivedDestinationAt?: string;
+  trackingStoppedAt?: string;
+  outboundLeg?: OwnerJourneyLegSnapshot;
+  returnLeg?: OwnerJourneyLegSnapshot;
   arrivalNotificationStatus?: "sent" | "failed" | "not_configured" | "skipped" | string;
   arrivalNotificationSentAt?: string;
   arrivalNotificationProvider?: "email" | "sms" | "whatsapp" | string;
@@ -399,6 +417,67 @@ export async function sendOwnerReviewRequest(
               : "Review request was not accepted by Resend",
         }),
     reviewRequest,
+  };
+}
+
+export type ReopenOwnerJobResult = {
+  ok: boolean;
+  idempotent: boolean;
+  paymentReference: string;
+  trackingToken?: string;
+  journeyStatus?: string;
+  restoredStatus: string;
+  restoredStatusLabel: string;
+  originalCompletionTimestamp?: string | null;
+  reviewRequestOutcome?: "cancelled" | "already_sent" | "none";
+  reviewMessage?: string | null;
+  reviewRequest?: OwnerReviewRequestSummary;
+};
+
+/** Owner-only operational undo for an accidental Complete job. */
+export async function reopenOwnerJob(
+  ownerKey: string,
+  options: { paymentReference: string; trackingToken?: string },
+): Promise<ReopenOwnerJobResult> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/reopen-job`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({
+      paymentReference: options.paymentReference,
+      ...(options.trackingToken ? { trackingToken: options.trackingToken } : {}),
+    }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok || payload.ok !== true) {
+    throw new Error(String(payload.error ?? "Could not reopen this job"));
+  }
+  return {
+    ok: true,
+    idempotent: payload.idempotent === true,
+    paymentReference: String(payload.paymentReference ?? options.paymentReference),
+    trackingToken: typeof payload.trackingToken === "string" ? payload.trackingToken : undefined,
+    journeyStatus: typeof payload.journeyStatus === "string" ? payload.journeyStatus : undefined,
+    restoredStatus: String(payload.restoredStatus ?? ""),
+    restoredStatusLabel: String(payload.restoredStatusLabel ?? payload.restoredStatus ?? ""),
+    originalCompletionTimestamp:
+      typeof payload.originalCompletionTimestamp === "string"
+        ? payload.originalCompletionTimestamp
+        : null,
+    reviewRequestOutcome:
+      payload.reviewRequestOutcome === "cancelled" ||
+      payload.reviewRequestOutcome === "already_sent" ||
+      payload.reviewRequestOutcome === "none"
+        ? payload.reviewRequestOutcome
+        : "none",
+    reviewMessage: typeof payload.reviewMessage === "string" ? payload.reviewMessage : null,
+    reviewRequest:
+      payload.reviewRequest && typeof payload.reviewRequest === "object"
+        ? (payload.reviewRequest as OwnerReviewRequestSummary)
+        : undefined,
   };
 }
 
