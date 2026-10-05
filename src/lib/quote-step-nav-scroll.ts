@@ -741,8 +741,9 @@ function measureBookTransferHeading(element: HTMLElement): BookTransferMetrics {
 }
 
 /**
- * Book This Transfer → Your details.
- * Same 720ms ease-in-out as the quote reveal. One measurement, no second jump.
+ * Controlled 720ms ease-in-out glide shared by the quote form.
+ * Book This Transfer → Your details, and One way / Return → the next section.
+ * Same easing as the quote reveal. One measurement, no second jump.
  * A touch, swipe, wheel, or scroll key releases the page immediately.
  */
 export function scheduleBookTransferGlide(

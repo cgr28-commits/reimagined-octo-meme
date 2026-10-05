@@ -165,6 +165,39 @@ check("Book This Transfer uses the same glide and stops on Your details", () => 
   assert.doesNotMatch(card, /navigator\.vibrate|tickSelectionHaptic|requestSelectionHaptic/);
 });
 
+check("One way / Return uses the same glide and stops on the next section", () => {
+  const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
+  const stage4 = card.slice(
+    card.indexOf("Stage 4: One way / Return"),
+    card.indexOf("One results scroll, as soon as the results mount."),
+  );
+  assert.match(stage4, /return scheduleBookTransferGlide\("quote-section-schedule"\)/);
+  assert.doesNotMatch(stage4, /scrollQuoteStage|correctAfterMs|vibrate|quote-result-reveal/);
+  const legacy = card.slice(
+    card.indexOf("Legacy (non-A2A) form"),
+    card.indexOf("Stage 10→11"),
+  );
+  assert.match(legacy, /return scheduleBookTransferGlide\("passenger-luggage-section"\)/);
+  assert.match(legacy, /return scrollQuoteStage\("journey-type-selector", \{ correctAfterMs: 0 \}\)/);
+  const reveal = card.slice(
+    card.indexOf("One results scroll, as soon as the results mount."),
+    card.indexOf("Reset time→Your Journey"),
+  );
+  assert.match(reveal, /scheduleQuoteRevealScroll\(\{/);
+  assert.doesNotMatch(reveal, /scheduleBookTransferGlide/);
+  const modeChange = card.slice(card.indexOf("onJourneyModeChange="), card.indexOf("onJourneyModeChange=") + 500);
+  assert.doesNotMatch(modeChange, /scheduleBookTransferGlide|scrollQuoteStage/);
+  const schedule = fs.readFileSync(path.join(root, "src/components/QuoteScheduleFields.tsx"), "utf8");
+  assert.match(schedule, /data-booking-nav-heading/);
+  assert.match(schedule, /returnJourney \? \(/);
+  assert.match(schedule, /id="returnDate"/);
+  assert.match(schedule, /id="returnTime"/);
+  assert.equal(QUOTE_REVEAL_PAUSE_MS, 350);
+  assert.equal(QUOTE_REVEAL_SCROLL_MS, 720);
+  assert.equal(QUOTE_REVEAL_BREATHING_PX, 28);
+  assert.equal(BOOK_TRANSFER_CLEARANCE_PX, 20);
+});
+
 check("The glide cannot scroll past the document", () => {
   const frame: QuoteRevealMetrics = {
     scrollY: 1000,

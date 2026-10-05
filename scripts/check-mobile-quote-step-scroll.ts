@@ -139,10 +139,14 @@ check("Mobile Step 1 address complete does not scroll", () => {
   );
   // Desktop still has the address-complete scroll (gate then scrollQuoteStage).
   assert.match(card, /scrollQuoteStage\("journey-type-selector", \{ correctAfterMs: 0 \}\)/);
-  // One way/Return → pickup date & time, then bags → route. Validation still scrolls.
+  // One way/Return → pickup date & time uses the shared 720ms glide. Validation still scrolls.
   assert.match(
     card,
-    /hadA2aPartyScrollRef\.current = true;\s*return scrollQuoteStage\("quote-section-schedule"/,
+    /hadA2aPartyScrollRef\.current = true;\s*return scheduleBookTransferGlide\("quote-section-schedule"\)/,
+  );
+  assert.match(
+    card,
+    /hadLegacyPartyScrollRef\.current = true;[\s\S]*?return scheduleBookTransferGlide\("passenger-luggage-section"\)/,
   );
   const resultsScroll = card.slice(
     card.indexOf("One results scroll, as soon as the results mount."),
