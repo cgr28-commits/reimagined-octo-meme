@@ -560,6 +560,8 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
 export function scheduleQuoteRevealScroll(handlers: {
   onConsume: () => void;
   onRetry: () => void;
+  /** Fires once when the quote has settled. Not fired if the customer takes over. */
+  onSettled?: () => void;
 }): () => void {
   if (typeof window === "undefined") {
     return () => {};
@@ -567,6 +569,7 @@ export function scheduleQuoteRevealScroll(handlers: {
 
   let stopped = false;
   let consumed = false;
+  let settled = false;
   let userInterrupted = false;
   let timer = 0;
   let frame = 0;
@@ -576,6 +579,12 @@ export function scheduleQuoteRevealScroll(handlers: {
     if (consumed) return;
     consumed = true;
     handlers.onConsume();
+  };
+
+  const settle = () => {
+    if (settled || stopped || userInterrupted) return;
+    settled = true;
+    handlers.onSettled?.();
   };
 
   const haltMotion = () => {
@@ -628,6 +637,7 @@ export function scheduleQuoteRevealScroll(handlers: {
       if (Math.abs(change) > 1) window.scrollTo(0, target);
       haltMotion();
       stopListening();
+      settle();
       return;
     }
 
@@ -651,6 +661,7 @@ export function scheduleQuoteRevealScroll(handlers: {
       } else {
         haltMotion();
         stopListening();
+        settle();
       }
     };
     frame = window.requestAnimationFrame(tick);
@@ -666,12 +677,14 @@ export function scheduleQuoteRevealScroll(handlers: {
     if (!metrics) {
       consume();
       stopListening();
+      settle();
       return;
     }
     consume();
     const nextTop = computeQuoteRevealScrollTop(metrics);
     if (nextTop == null) {
       stopListening();
+      settle();
       return;
     }
     glideTo(nextTop);

@@ -44,6 +44,11 @@ export type QuoteScheduleFieldsProps = {
   onReturnDateChange: (value: string) => void;
   onReturnTimeChange: (value: string) => void;
   onTimeBlur?: () => void;
+  /** Quote flow only. Fires when a date or time field is left with a value. */
+  onScheduleCommit?: (
+    field: "tripDate" | "tripTime" | "returnDate" | "returnTime",
+    value: string,
+  ) => void;
 };
 
 export default function QuoteScheduleFields({
@@ -70,6 +75,7 @@ export default function QuoteScheduleFields({
   onReturnDateChange,
   onReturnTimeChange,
   onTimeBlur,
+  onScheduleCommit,
 }: QuoteScheduleFieldsProps) {
   const isQuote = variant === "quote";
   const dateIncomplete = !tripDate.trim();
@@ -123,6 +129,7 @@ export default function QuoteScheduleFields({
               required
               onChange={(e) => onTripDateChange(e.target.value)}
               onInput={(e) => onTripDateChange((e.target as HTMLInputElement).value)}
+              onBlur={(e) => onScheduleCommit?.("tripDate", e.currentTarget.value)}
               className={quoteDateTimeInputClass()}
             />
           </div>
@@ -151,7 +158,10 @@ export default function QuoteScheduleFields({
               required
               onChange={(e) => onTripTimeChange(e.target.value)}
               onInput={(e) => onTripTimeChange((e.target as HTMLInputElement).value)}
-              onBlur={onTimeBlur}
+              onBlur={(e) => {
+                onTimeBlur?.();
+                onScheduleCommit?.("tripTime", e.currentTarget.value);
+              }}
               className={quoteDateTimeInputClass()}
             />
           </div>
@@ -189,6 +199,7 @@ export default function QuoteScheduleFields({
                 required
                 onChange={(e) => onReturnDateChange(e.target.value)}
                 onInput={(e) => onReturnDateChange((e.target as HTMLInputElement).value)}
+                onBlur={(e) => onScheduleCommit?.("returnDate", e.currentTarget.value)}
                 className={quoteDateTimeInputClass()}
               />
             </div>
@@ -215,7 +226,10 @@ export default function QuoteScheduleFields({
                 required
                 onChange={(e) => onReturnTimeChange(e.target.value)}
                 onInput={(e) => onReturnTimeChange((e.target as HTMLInputElement).value)}
-                onBlur={onTimeBlur}
+                onBlur={(e) => {
+                  onTimeBlur?.();
+                  onScheduleCommit?.("returnTime", e.currentTarget.value);
+                }}
                 className={quoteDateTimeInputClass()}
               />
             </div>
