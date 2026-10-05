@@ -96,7 +96,10 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
     >
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-6">
         <div className="min-w-0 text-center lg:text-left">
-          <p className="font-sans text-[1.65rem] font-bold leading-none tracking-[-0.02em] text-navy sm:text-[1.85rem]">
+          <p
+            data-quote-result-heading
+            className="font-sans text-[1.65rem] font-bold leading-none tracking-[-0.02em] text-navy sm:text-[1.85rem]"
+          >
             {vehicleLabel}
           </p>
           <p className="sr-only">Vehicle for this journey</p>
@@ -133,6 +136,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         </div>
 
         <div className="mt-4 min-w-0 text-center lg:mt-0 lg:text-left">
+          <div data-quote-result-price>
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
           </p>
@@ -168,6 +172,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             </span>
           </p>
           )}
+          </div>
           {surchargeNote ? (
             <p
               className="mt-2 text-xs font-semibold text-emerald-dark"

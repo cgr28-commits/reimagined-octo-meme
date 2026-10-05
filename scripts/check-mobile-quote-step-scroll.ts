@@ -59,6 +59,11 @@ check("Explicit step CTAs set pending nav scroll then change step", () => {
     card,
     /scrollQuoteStage\(step3CustomerDetailsRef\.current \?\? "step3-customer-details"/,
   );
+  assert.match(card, /bookTransferGlideRef\.current = true;\s*pendingQuoteStepNavScrollRef\.current = 2;/);
+  assert.match(
+    card,
+    /scheduleBookTransferGlide\(\s*step3CustomerDetailsRef\.current \?\? "step3-customer-details"/,
+  );
   assert.match(card, /immediate:\s*true/);
   assert.doesNotMatch(
     card,
@@ -143,20 +148,21 @@ check("Mobile Step 1 address complete does not scroll", () => {
     card.indexOf("One results scroll, as soon as the results mount."),
     card.indexOf("Reset time→Your Journey"),
   );
-  assert.match(
-    resultsScroll,
-    /if \(detectMobileDevice\(\)\) \{\s*const selectedCard = quoteSelectedVehicleCardRef\.current;\s*if \(!selectedCard\) return;\s*hadRouteSummaryScrollRef\.current = true;\s*return scrollQuoteStage\(selectedCard, \{\s*focusHeading: false,\s*correctAfterMs: 0,\s*immediate: true,\s*clearancePx: 0,\s*behavior: "auto",/,
-  );
-  const mobileResultsScroll = resultsScroll.slice(
-    resultsScroll.indexOf("if (detectMobileDevice())"),
-    resultsScroll.indexOf("const lead"),
-  );
-  assert.doesNotMatch(mobileResultsScroll, /quote-results-lead|quote-results-start|quoteResultsStartRef/);
+  assert.match(resultsScroll, /scheduleQuoteRevealScroll\(\{/);
+  assert.match(resultsScroll, /hadRouteSummaryScrollRef\.current = true/);
+  assert.doesNotMatch(resultsScroll, /immediate:\s*true|behavior:\s*"auto"|clearancePx:\s*0/);
+  assert.doesNotMatch(resultsScroll, /quote-results-lead|quote-results-start|quoteResultsStartRef/);
   assert.match(card, /ref=\{quoteSelectedVehicleCardRef\}/);
-  assert.match(
-    fs.readFileSync(path.join(root, "src/components/QuoteResultShowcase.tsx"), "utf8"),
-    /id="quote-selected-vehicle-card"/,
-  );
+  const showcase = fs.readFileSync(path.join(root, "src/components/QuoteResultShowcase.tsx"), "utf8");
+  assert.match(showcase, /id="quote-selected-vehicle-card"/);
+  assert.match(showcase, /data-quote-result-price/);
+  assert.match(showcase, /data-quote-result-heading/);
+  assert.doesNotMatch(showcase, /quote-result-reveal/);
+  assert.match(helper, /QUOTE_REVEAL_PAUSE_MS = 350/);
+  assert.match(helper, /addEventListener\("wheel"/);
+  assert.match(helper, /addEventListener\("touchmove"/);
+  assert.match(helper, /prefersReducedMotion\(\) \? "auto" : "smooth"/);
+  assert.doesNotMatch(read("src/app/globals.css"), /quote-result-reveal/);
   assert.doesNotMatch(card, /hadVehicleResultAlignRef/);
   assert.doesNotMatch(card, /scrollQuoteStage\(vehicle,/);
   assert.match(

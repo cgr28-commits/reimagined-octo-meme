@@ -470,6 +470,405 @@ export function schedulePreciseResultsScroll(
   return trackScrollJob(cancel);
 }
 
+/** Pause after the last luggage choice so the selection can register. */
+export const QUOTE_REVEAL_PAUSE_MS = 350;
+/** Controlled glide. Native smooth scroll is too fast and is not used. */
+export const QUOTE_REVEAL_SCROLL_MS = 720;
+/** Space between the sticky header and the vehicle heading. */
+export const QUOTE_REVEAL_BREATHING_PX = 28;
+const REVEAL_EDGE_TOLERANCE_PX = 8;
+
+export type QuoteRevealMetrics = {
+  scrollY: number;
+  /** Visual viewport height at the moment the glide starts. */
+  viewportHeight: number;
+  headerBottom: number;
+  /** Vehicle heading (Saloon, Estate, or 7-Seater) in visual-viewport coordinates. */
+  headingTop: number;
+  clearancePx?: number;
+  /** Largest scroll offset the document can actually reach. */
+  maxScroll?: number;
+};
+
+/** Gentle ease-in-out. Slow at the start and the end. */
+export function quoteRevealEaseInOut(t: number): number {
+  const clamped = Math.min(1, Math.max(0, t));
+  return clamped < 0.5 ? 4 * clamped * clamped * clamped : 1 - ((-2 * clamped + 2) ** 3) / 2;
+}
+
+/**
+ * Resting scroll offset for the first quote reveal.
+ * Places the rendered vehicle heading just below the sticky header.
+ * Returns null when that heading is already there.
+ */
+export function computeQuoteRevealScrollTop(metrics: QuoteRevealMetrics): number | null {
+  const breathing = metrics.clearancePx ?? QUOTE_REVEAL_BREATHING_PX;
+  const idealHeadingTop = metrics.headerBottom + breathing;
+  const delta = metrics.headingTop - idealHeadingTop;
+  const maxScroll = metrics.maxScroll ?? Number.POSITIVE_INFINITY;
+  const nextTop = Math.min(maxScroll, Math.max(0, Math.round(metrics.scrollY + delta)));
+  return Math.abs(nextTop - metrics.scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
+}
+
+/**
+ * Visible viewport at this instant.
+ * Height is the visual viewport only. offsetTop is subtracted from element
+ * positions so the address bar is not treated as extra visible space.
+ */
+function readVisualViewport(): { height: number; offsetTop: number } {
+  const visual = window.visualViewport;
+  if (visual && visual.height > 0) {
+    const offsetTop = Number.isFinite(visual.offsetTop) ? visual.offsetTop : 0;
+    return { height: Math.round(visual.height), offsetTop };
+  }
+  return { height: window.innerHeight, offsetTop: 0 };
+}
+
+/**
+ * One measurement of the vehicle heading that is actually on screen.
+ * Uses the visual viewport, not window.innerHeight plus a toolbar offset.
+ */
+function measureQuoteReveal(): QuoteRevealMetrics | null {
+  const card = document.getElementById("quote-selected-vehicle-card");
+  if (!(card instanceof HTMLElement) || card.getClientRects().length === 0) return null;
+  const heading = card.querySelector<HTMLElement>("[data-quote-result-heading]");
+  if (!heading || heading.getClientRects().length === 0) return null;
+  const visual = readVisualViewport();
+  const headingRect = heading.getBoundingClientRect();
+  const layoutClientHeight = document.documentElement.clientHeight || visual.height;
+  const maxScroll = Math.max(
+    0,
+    Math.round(document.documentElement.scrollHeight - Math.min(visual.height, layoutClientHeight)),
+  );
+  return {
+    scrollY: window.scrollY,
+    viewportHeight: visual.height,
+    headerBottom: Math.round(getHeaderBottomPx() - visual.offsetTop),
+    headingTop: headingRect.top - visual.offsetTop,
+    maxScroll,
+  };
+}
+
+/**
+ * First completed quote only.
+ * Waits so the luggage choice can register, measures the settled heading once,
+ * then glides until it sits below the header. The quote card does not animate.
+ * Does not use native smooth scrolling, and does not
+ * correct the position with a second jump. A touch, swipe, wheel, or scroll
+ * key cancels the glide immediately.
+ */
+export function scheduleQuoteRevealScroll(handlers: {
+  onConsume: () => void;
+  onRetry: () => void;
+}): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  let stopped = false;
+  let consumed = false;
+  let userInterrupted = false;
+  let timer = 0;
+  let frame = 0;
+  let restoreMotion = () => {};
+
+  const consume = () => {
+    if (consumed) return;
+    consumed = true;
+    handlers.onConsume();
+  };
+
+  const haltMotion = () => {
+    if (frame) window.cancelAnimationFrame(frame);
+    frame = 0;
+    restoreMotion();
+    restoreMotion = () => {};
+  };
+
+  const onUserMove = () => {
+    if (stopped || userInterrupted) return;
+    userInterrupted = true;
+    haltMotion();
+    stopListening();
+    consume();
+  };
+
+  const onKey = (event: KeyboardEvent) => {
+    if (!["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) {
+      return;
+    }
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest("input, textarea, select")) return;
+    onUserMove();
+  };
+
+  const stopListening = () => {
+    window.removeEventListener("wheel", onUserMove);
+    window.removeEventListener("touchstart", onUserMove);
+    window.removeEventListener("touchmove", onUserMove);
+    window.removeEventListener("keydown", onKey);
+  };
+
+  window.addEventListener("wheel", onUserMove, { passive: true });
+  window.addEventListener("touchstart", onUserMove, { passive: true });
+  window.addEventListener("touchmove", onUserMove, { passive: true });
+  window.addEventListener("keydown", onKey);
+
+  const glideTo = (target: number) => {
+    const root = document.documentElement;
+    const previousBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    const startY = window.scrollY;
+    const change = target - startY;
+    restoreMotion = () => {
+      root.style.scrollBehavior = previousBehavior;
+    };
+
+    if (prefersReducedMotion() || Math.abs(change) <= REVEAL_EDGE_TOLERANCE_PX) {
+      if (Math.abs(change) > 1) window.scrollTo(0, target);
+      haltMotion();
+      stopListening();
+      return;
+    }
+
+    const started = performance.now();
+    const tick = (now: number) => {
+      if (stopped || userInterrupted) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
+      const y = progress >= 1 ? target : Math.round(startY + change * quoteRevealEaseInOut(progress));
+      window.scrollTo(0, y);
+      if (stopped || userInterrupted) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(tick);
+      } else {
+        haltMotion();
+        stopListening();
+      }
+    };
+    frame = window.requestAnimationFrame(tick);
+  };
+
+  const begin = () => {
+    if (stopped || userInterrupted) {
+      if (userInterrupted) consume();
+      stopListening();
+      return;
+    }
+    const metrics = measureQuoteReveal();
+    if (!metrics) {
+      consume();
+      stopListening();
+      return;
+    }
+    consume();
+    const nextTop = computeQuoteRevealScrollTop(metrics);
+    if (nextTop == null) {
+      stopListening();
+      return;
+    }
+    glideTo(nextTop);
+  };
+
+  timer = window.setTimeout(() => {
+    if (stopped || userInterrupted) {
+      if (userInterrupted) consume();
+      stopListening();
+      return;
+    }
+    frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(begin);
+    });
+  }, QUOTE_REVEAL_PAUSE_MS);
+
+  const cancel = () => {
+    stopped = true;
+    window.clearTimeout(timer);
+    haltMotion();
+    stopListening();
+    if (!consumed) handlers.onRetry();
+  };
+  return trackScrollJob(cancel);
+}
+
+/** Breathing room under the sticky header for the Your details heading. */
+export const BOOK_TRANSFER_CLEARANCE_PX = 20;
+
+export type BookTransferMetrics = {
+  scrollY: number;
+  headerBottom: number;
+  headingTop: number;
+  clearancePx?: number;
+  maxScroll?: number;
+};
+
+/**
+ * Resting offset for Book This Transfer.
+ * Puts the Your details heading just below the sticky header.
+ */
+export function computeBookTransferScrollTop(metrics: BookTransferMetrics): number | null {
+  const clearance = metrics.clearancePx ?? BOOK_TRANSFER_CLEARANCE_PX;
+  const idealHeadingTop = metrics.headerBottom + clearance;
+  const delta = metrics.headingTop - idealHeadingTop;
+  const maxScroll = metrics.maxScroll ?? Number.POSITIVE_INFINITY;
+  const nextTop = Math.min(maxScroll, Math.max(0, Math.round(metrics.scrollY + delta)));
+  return Math.abs(nextTop - metrics.scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
+}
+
+function measureBookTransferHeading(element: HTMLElement): BookTransferMetrics {
+  const marked = element.matches("[data-booking-nav-heading]")
+    ? element
+    : element.querySelector<HTMLElement>("[data-booking-nav-heading]");
+  const anchor = marked && marked.getClientRects().length > 0 ? marked : element;
+  const visual = readVisualViewport();
+  const layoutClientHeight = document.documentElement.clientHeight || visual.height;
+  return {
+    scrollY: window.scrollY,
+    headerBottom: Math.round(getHeaderBottomPx() - visual.offsetTop),
+    headingTop: anchor.getBoundingClientRect().top - visual.offsetTop,
+    maxScroll: Math.max(
+      0,
+      Math.round(document.documentElement.scrollHeight - Math.min(visual.height, layoutClientHeight)),
+    ),
+  };
+}
+
+/**
+ * Book This Transfer → Your details.
+ * Same 720ms ease-in-out as the quote reveal. One measurement, no second jump.
+ * A touch, swipe, wheel, or scroll key releases the page immediately.
+ */
+export function scheduleBookTransferGlide(
+  target: BookingNavTargetId | HTMLElement | string | null | undefined,
+): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  cancelCompetingScrollJobs();
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+
+  let stopped = false;
+  let userInterrupted = false;
+  let frame = 0;
+  let restoreMotion = () => {};
+
+  const haltMotion = () => {
+    if (frame) window.cancelAnimationFrame(frame);
+    frame = 0;
+    restoreMotion();
+    restoreMotion = () => {};
+  };
+
+  const onUserMove = () => {
+    if (stopped || userInterrupted) return;
+    userInterrupted = true;
+    haltMotion();
+    stopListening();
+  };
+
+  const onKey = (event: KeyboardEvent) => {
+    if (!["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) {
+      return;
+    }
+    const eventTarget = event.target;
+    if (eventTarget instanceof HTMLElement && eventTarget.closest("input, textarea, select")) return;
+    onUserMove();
+  };
+
+  const stopListening = () => {
+    window.removeEventListener("wheel", onUserMove);
+    window.removeEventListener("touchstart", onUserMove);
+    window.removeEventListener("touchmove", onUserMove);
+    window.removeEventListener("keydown", onKey);
+  };
+
+  window.addEventListener("wheel", onUserMove, { passive: true });
+  window.addEventListener("touchstart", onUserMove, { passive: true });
+  window.addEventListener("touchmove", onUserMove, { passive: true });
+  window.addEventListener("keydown", onKey);
+
+  const glideTo = (nextTop: number) => {
+    const root = document.documentElement;
+    const previousBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    const startY = window.scrollY;
+    const change = nextTop - startY;
+    restoreMotion = () => {
+      root.style.scrollBehavior = previousBehavior;
+    };
+
+    if (prefersReducedMotion() || Math.abs(change) <= REVEAL_EDGE_TOLERANCE_PX) {
+      if (Math.abs(change) > 1) window.scrollTo(0, nextTop);
+      haltMotion();
+      stopListening();
+      return;
+    }
+
+    const started = performance.now();
+    const tick = (now: number) => {
+      if (stopped || userInterrupted) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
+      const y = progress >= 1 ? nextTop : Math.round(startY + change * quoteRevealEaseInOut(progress));
+      window.scrollTo(0, y);
+      if (stopped || userInterrupted) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(tick);
+      } else {
+        haltMotion();
+        stopListening();
+      }
+    };
+    frame = window.requestAnimationFrame(tick);
+  };
+
+  const begin = () => {
+    if (stopped || userInterrupted) {
+      stopListening();
+      return;
+    }
+    const element = resolveBookingNavElement(target);
+    if (!element || element.getClientRects().length === 0) {
+      stopListening();
+      return;
+    }
+    const nextTop = computeBookTransferScrollTop(measureBookTransferHeading(element));
+    if (nextTop == null) {
+      stopListening();
+      return;
+    }
+    glideTo(nextTop);
+  };
+
+  frame = window.requestAnimationFrame(() => {
+    frame = window.requestAnimationFrame(begin);
+  });
+
+  const cancel = () => {
+    stopped = true;
+    haltMotion();
+    stopListening();
+  };
+  return trackScrollJob(cancel);
+}
+
 /** Map quote step number → stable section id. */
 export function quoteStepTargetId(step: QuoteStepNavTarget): BookingNavTargetId {
   if (step === 2) return "step2-travel-details";

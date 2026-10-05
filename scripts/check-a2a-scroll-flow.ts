@@ -89,13 +89,15 @@ console.log("\n=== Results ready → start of quote results, once ===");
 assert.match(card, /capacityComplete/);
 assert.match(card, /routeSummaryRef/);
 assert.match(card, /quoteResultsReady/);
-assert.match(
-  card,
-  /if \(detectMobileDevice\(\)\) \{\s*const selectedCard = quoteSelectedVehicleCardRef\.current;[\s\S]*?scrollQuoteStage\(selectedCard, \{\s*focusHeading: false,\s*correctAfterMs: 0,\s*immediate: true,\s*clearancePx: 0,\s*behavior: "auto",/,
-);
-assert.match(
-  card,
-  /scrollQuoteStage\(lead \?\? quoteResultsStartRef\.current \?\? "quote-results-start", \{\s*focusHeading: false,\s*correctAfterMs: 0,/,
+assert.match(card, /scheduleQuoteRevealScroll\(\{/);
+assert.match(helper, /QUOTE_REVEAL_PAUSE_MS = 350/);
+assert.match(helper, /computeQuoteRevealScrollTop/);
+assert.doesNotMatch(
+  card.slice(
+    card.indexOf("One results scroll, as soon as the results mount."),
+    card.indexOf("Reset time→Your Journey"),
+  ),
+  /immediate:\s*true|behavior:\s*"auto"|clearancePx:\s*0/,
 );
 assert.doesNotMatch(card, /becameComplete/);
 assert.doesNotMatch(card, /hadVehicleResultAlignRef/);

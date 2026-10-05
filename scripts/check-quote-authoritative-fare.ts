@@ -114,11 +114,10 @@ const scrollEffect = card.slice(
   card.indexOf("Reset time→Your Journey"),
 );
 assert.match(scrollEffect, /hadRouteSummaryScrollRef\.current = true/);
-assert.match(scrollEffect, /detectMobileDevice\(\)/);
-assert.match(scrollEffect, /scrollQuoteStage\(selectedCard/);
-assert.match(scrollEffect, /quoteSelectedVehicleCardRef/);
+assert.match(scrollEffect, /scheduleQuoteRevealScroll/);
+assert.doesNotMatch(scrollEffect, /immediate:\s*true/);
 assert.match(showcase, /id="quote-selected-vehicle-card"/);
-assert.match(scrollEffect, /correctAfterMs: 0/);
+assert.match(showcase, /data-quote-result-price/);
 assert.doesNotMatch(scrollEffect, /mayPaintNumericFare|authoritativeFareReady/);
 assert.match(card, /QUOTE_FARE_START_DELAY_MS/);
 assert.doesNotMatch(

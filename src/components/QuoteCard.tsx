@@ -27,7 +27,8 @@ import {
   focusFirstInvalidField,
   quoteStepTargetId,
   scheduleScrollToBookNowAfterExpressAck,
-  prefersReducedMotion,
+  scheduleBookTransferGlide,
+  scheduleQuoteRevealScroll,
   scrollJourneySummaryAfterTimeConfirm,
   scrollQuoteStage,
   type QuoteStepNavTarget,
@@ -699,6 +700,8 @@ function QuoteCard({
   const pendingBookingResultScrollRef = useRef(false);
   /** Set only by explicit Book Now / Continue / Back — never by quote re-renders. */
   const pendingQuoteStepNavScrollRef = useRef<QuoteStepNavTarget | null>(null);
+  /** Book This Transfer only. Other step changes keep the existing scroll. */
+  const bookTransferGlideRef = useRef(false);
   /** Ignore a second tap while availability + step-3 commit are in flight. */
   const continueToDetailsInFlightRef = useRef(false);
   const [continueToDetailsBusy, setContinueToDetailsBusy] = useState(false);
@@ -4639,6 +4642,7 @@ function QuoteCard({
       if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
+      bookTransferGlideRef.current = true;
       pendingQuoteStepNavScrollRef.current = 2;
       setQuoteStep(2);
       return;
@@ -4754,6 +4758,13 @@ function QuoteCard({
       return;
     }
     pendingQuoteStepNavScrollRef.current = null;
+    const glideToDetails = bookTransferGlideRef.current;
+    bookTransferGlideRef.current = false;
+    if (glideToDetails && target === 2) {
+      return scheduleBookTransferGlide(
+        step3CustomerDetailsRef.current ?? "step3-customer-details",
+      );
+    }
     const element =
       target === 1
         ? step1JourneyRef.current
@@ -4814,6 +4825,7 @@ function QuoteCard({
   const hadA2aPartyScrollRef = useRef(false);
   /** One scroll when results first become visible. Vehicle/Express changes must not re-arm it. */
   const hadRouteSummaryScrollRef = useRef(false);
+  const quoteRevealScrollCancelRef = useRef<(() => void) | null>(null);
   /** Time picker Done/blur → flight number (when shown) or Your Journey (once per step-2 visit). */
   const hadJourneySummaryScrollRef = useRef(false);
   const hadLegacyJourneyModeScrollRef = useRef(false);
@@ -4876,19 +4888,16 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // On mobile, the top edge of the white selected-vehicle quote card sits
-  // flush under the fixed header (clearance 0). The vehicle list stays above
-  // the fold. Instant, so iOS cannot cancel a smooth scroll on that list.
+  // Pause so the luggage selection can register, then glide until the vehicle
+  // heading sits below the header. The quote itself does not animate.
   // Fare, vehicle, and Free/Express updates leave the latch set.
+  // The timer is not cleared on ordinary re-renders, so a fare update cannot cancel it.
   useEffect(() => {
-    if (quoteStep !== 1) {
-      hadRouteSummaryScrollRef.current = false;
-      return;
-    }
-
     const capacityComplete = quoteChoicesReady && hasQuoteRoute && isScheduleComplete;
-    if (!capacityComplete) {
+    if (quoteStep !== 1 || !capacityComplete) {
       hadRouteSummaryScrollRef.current = false;
+      quoteRevealScrollCancelRef.current?.();
+      quoteRevealScrollCancelRef.current = null;
       return;
     }
 
@@ -4896,28 +4905,22 @@ function QuoteCard({
       return;
     }
 
-    if (detectMobileDevice()) {
-      const selectedCard = quoteSelectedVehicleCardRef.current;
-      if (!selectedCard) return;
-      hadRouteSummaryScrollRef.current = true;
-      return scrollQuoteStage(selectedCard, {
-        focusHeading: false,
-        correctAfterMs: 0,
-        immediate: true,
-        clearancePx: 0,
-        behavior: "auto",
-      });
-    }
     hadRouteSummaryScrollRef.current = true;
-    const lead =
-      typeof document !== "undefined" ? document.getElementById("quote-results-lead") : null;
-    return scrollQuoteStage(lead ?? quoteResultsStartRef.current ?? "quote-results-start", {
-      focusHeading: false,
-      correctAfterMs: 0,
-      immediate: true,
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    quoteRevealScrollCancelRef.current = scheduleQuoteRevealScroll({
+      onConsume: () => {},
+      onRetry: () => {
+        hadRouteSummaryScrollRef.current = false;
+        quoteRevealScrollCancelRef.current = null;
+      },
     });
   }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteResultsReady, quoteStep]);
+
+  useEffect(() => {
+    return () => {
+      quoteRevealScrollCancelRef.current?.();
+      quoteRevealScrollCancelRef.current = null;
+    };
+  }, []);
 
   // Reset time→Your Journey one-shot when leaving travel-details step.
   useEffect(() => {
