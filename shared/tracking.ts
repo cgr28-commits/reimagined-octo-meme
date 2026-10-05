@@ -373,6 +373,61 @@ const REOPEN_ACTIVE_SHARING = new Set<JourneyStatus>([
 ]);
 
 /**
+ * A Google review email may be sent only for a journey that is still Completed
+ * and has not been cancelled. Already-sent mail is reported separately so the
+ * sent audit is left untouched.
+ */
+export type ReviewRequestSendRefusal = "already_sent" | "cancelled" | "not_completed";
+
+export function reviewRequestSendRefusal(
+  job: Pick<
+    TrackingJobRecord,
+    "journeyStatus" | "journeyCompletedAt" | "refundedAt" | "reviewRequestSentAt"
+  >,
+): ReviewRequestSendRefusal | null {
+  if (job.refundedAt?.trim()) return "cancelled";
+  if (journeyStatusOf(job) !== "completed" || !job.journeyCompletedAt?.trim()) {
+    return "not_completed";
+  }
+  if (job.reviewRequestSentAt?.trim()) return "already_sent";
+  return null;
+}
+
+/** True when an unsent review schedule, due time, or failure is still stored. */
+export function hasUnsentReviewRequest(
+  job: Pick<
+    TrackingJobRecord,
+    | "reviewRequestSentAt"
+    | "reviewRequestScheduledAt"
+    | "reviewRequestDueAt"
+    | "reviewRequestFailedAt"
+    | "reviewRequestLastError"
+  >,
+): boolean {
+  if (job.reviewRequestSentAt?.trim()) return false;
+  return Boolean(
+    job.reviewRequestScheduledAt?.trim() ||
+      job.reviewRequestDueAt?.trim() ||
+      job.reviewRequestFailedAt?.trim() ||
+      job.reviewRequestLastError?.trim(),
+  );
+}
+
+/**
+ * Remove a pending review email. An email that has already been sent is kept,
+ * including its sent timestamp and owner-copy audit.
+ */
+export function clearUnsentReviewRequest(job: TrackingJobRecord): TrackingJobRecord {
+  if (!hasUnsentReviewRequest(job)) return job;
+  const next: TrackingJobRecord = { ...job };
+  delete next.reviewRequestScheduledAt;
+  delete next.reviewRequestDueAt;
+  delete next.reviewRequestFailedAt;
+  delete next.reviewRequestLastError;
+  return next;
+}
+
+/**
  * Undo a Complete job. Restores the last recorded stage and removes only
  * completion-generated fields. A second call is a no-op.
  * Tip metadata is kept unless the caller has proved it is non-financial
@@ -432,11 +487,8 @@ export function reopenCompletedJourney(
     job.reviewRequestFailedAt?.trim()
   ) {
     reviewOutcome = "cancelled";
-    delete next.reviewRequestScheduledAt;
-    delete next.reviewRequestDueAt;
-    delete next.reviewRequestFailedAt;
-    delete next.reviewRequestLastError;
   }
+  const reviewed = clearUnsentReviewRequest(next);
 
   const audit: JourneyReopenAuditEntry = {
     reopenedAt: nowIso,
@@ -447,7 +499,7 @@ export function reopenCompletedJourney(
     originalCompletionTimestamp: completedAt,
     reviewRequest: reviewOutcome,
   };
-  next.reopenHistory = [...(job.reopenHistory ?? []), audit];
+  reviewed.reopenHistory = [...(job.reopenHistory ?? []), audit];
 
   const reviewMessage =
     reviewOutcome === "cancelled"
@@ -458,7 +510,7 @@ export function reopenCompletedJourney(
 
   return {
     changed: true,
-    job: next,
+    job: reviewed,
     restoredStatus,
     restoredStatusLabel: ownerReopenStatusLabel(restoredStatus),
     reviewOutcome,
@@ -657,15 +709,17 @@ export function getReviewRequestStatus(
 }
 
 /**
- * Idempotently schedule a review request when a journey is marked completed.
- * Does nothing if already scheduled/sent, or if the journey is not completed.
+ * Idempotently schedule a review request after a genuine Complete Job.
+ * Does nothing if already scheduled or sent, if the journey is not completed,
+ * or if the tracking job has been cancelled (`refundedAt`).
  */
 export function ensureReviewRequestScheduled(
   job: TrackingJobRecord,
   delayMs: number = REVIEW_REQUEST_DELAY_MS,
   nowIso = new Date().toISOString(),
 ): TrackingJobRecord {
-  if (journeyStatusOf(job) !== "completed") {
+  const refusal = reviewRequestSendRefusal(job);
+  if (refusal === "cancelled" || refusal === "not_completed") {
     return job;
   }
   if (job.reviewRequestSentAt?.trim()) {
@@ -717,13 +771,7 @@ export function isReviewRequestDue(
   delayMs: number = REVIEW_REQUEST_DELAY_MS,
   now = Date.now(),
 ): boolean {
-  if (job.reviewRequestSentAt?.trim()) {
-    return false;
-  }
-  if (job.refundedAt?.trim()) {
-    return false;
-  }
-  if (journeyStatusOf(job) !== "completed") {
+  if (reviewRequestSendRefusal(job)) {
     return false;
   }
   const dueAt = getReviewRequestDueAt(job, delayMs);

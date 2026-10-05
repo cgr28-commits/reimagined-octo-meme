@@ -1,5 +1,6 @@
 import {
   buildPickupDateTimeLocal,
+  clearUnsentReviewRequest,
   generateTrackingSessionToken,
   generateTrackingToken,
   shouldStoreGpsPoint,
@@ -690,7 +691,7 @@ export async function markTrackingJobRefunded(
   if (options?.onlyThisJob) {
     const refundedAt = new Date().toISOString();
     const closeJourney = options.closeJourney === true;
-    const updated: TrackingJobRecord = {
+    const updated = clearUnsentReviewRequest({
       ...record,
       sharingActive: false,
       customerSharingActive: false,
@@ -703,7 +704,7 @@ export async function markTrackingJobRefunded(
             trackingStoppedAt: record.trackingStoppedAt?.trim() || refundedAt,
           }
         : {}),
-    };
+    });
     await saveTrackingJob(store, updated);
     return true;
   }
@@ -729,7 +730,7 @@ export async function markTrackingJobRefunded(
   const refundedAt = new Date().toISOString();
   const closeJourney = options?.closeJourney === true;
   for (const job of toMark) {
-    const updated: TrackingJobRecord = {
+    const updated = clearUnsentReviewRequest({
       ...job,
       sharingActive: false,
       customerSharingActive: false,
@@ -742,7 +743,7 @@ export async function markTrackingJobRefunded(
             trackingStoppedAt: job.trackingStoppedAt?.trim() || refundedAt,
           }
         : {}),
-    };
+    });
     await saveTrackingJob(store, updated);
     marked = true;
   }

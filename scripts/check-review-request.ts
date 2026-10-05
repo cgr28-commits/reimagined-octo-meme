@@ -21,16 +21,25 @@ import {
   DEFAULT_GOOGLE_REVIEW_URL,
   resolveGoogleReviewUrl,
 } from "../shared/business-links";
+import { paidBookingRefKey } from "../shared/paid-booking-record";
 import {
   applyJourneyAction,
+  clearUnsentReviewRequest,
   ensureReviewRequestScheduled,
   generateTrackingToken,
   getReviewRequestStatus,
   isReviewRequestDue,
+  reopenCompletedJourney,
   REVIEW_REQUEST_DELAY_MS,
   resolveReviewRequestDelayMs,
+  reviewRequestSendRefusal,
   type TrackingJobRecord,
 } from "../shared/tracking";
+import {
+  paidBookingCancelsReviewRequest,
+  reloadReviewRequestEligibility,
+} from "../workers/addresses/src/review-request-handlers";
+import { getTrackingJob, markTrackingJobRefunded, saveTrackingJob } from "../workers/addresses/src/tracking-store";
 
 const root = process.cwd();
 
@@ -117,11 +126,13 @@ console.log("\n=== 3. Cancelled / refunded booking does not send ===");
       refundedAt: "2026-08-17T12:30:00.000Z",
     }),
   );
+  assert.equal(cancelled.reviewRequestScheduledAt, undefined);
+  assert.equal(cancelled.reviewRequestDueAt, undefined);
   assert.equal(
     isReviewRequestDue(cancelled, REVIEW_REQUEST_DELAY_MS, Date.parse("2026-08-17T15:00:00.000Z")),
     false,
   );
-  console.log("OK  refunded completed jobs are not due");
+  console.log("OK  refunded completed jobs are not scheduled or due");
 }
 
 console.log("\n=== 4. Review request sends ~2 hours after completion ===");
@@ -388,4 +399,177 @@ console.log("\n=== Email and WhatsApp review channels share one message ===");
   console.log("OK  email + manual WhatsApp review; SMS hidden; BCC outcome is explicit");
 }
 
-console.log("\nAll review request checks passed.");
+function memoryKv() {
+  const data = new Map<string, string>();
+  const store = {
+    async get(key: string, type?: string) {
+      const raw = data.get(key);
+      if (raw == null) return null;
+      if (type === "json") return JSON.parse(raw) as unknown;
+      return raw;
+    },
+    async put(key: string, value: string) {
+      data.set(key, value);
+    },
+    async delete(key: string) {
+      data.delete(key);
+    },
+  };
+  return store as unknown as KVNamespace;
+}
+
+const COMPLETED_AT = "2026-08-17T12:00:00.000Z";
+const DUE_AT = "2026-08-17T14:00:00.000Z";
+
+function pendingReview(overrides: Partial<TrackingJobRecord> = {}): TrackingJobRecord {
+  return baseJob({
+    token: "review-job",
+    journeyStatus: "completed",
+    journeyCompletedAt: COMPLETED_AT,
+    reviewRequestScheduledAt: COMPLETED_AT,
+    reviewRequestDueAt: DUE_AT,
+    paymentReference: "REVIEW-PAY",
+    ...overrides,
+  });
+}
+
+console.log("\n=== 13. Cancelled journeys never qualify for a review email ===");
+void (async () => {
+  const booked = baseJob({
+    journeyStatus: "idle",
+    refundedAt: "2026-08-17T11:00:00.000Z",
+  });
+  assert.equal(ensureReviewRequestScheduled(booked).reviewRequestScheduledAt, undefined);
+  assert.equal(reviewRequestSendRefusal(booked), "cancelled");
+
+  const started = baseJob({
+    journeyStatus: "en_route",
+    journeyStartedAt: "2026-08-17T11:30:00.000Z",
+    refundedAt: "2026-08-17T11:40:00.000Z",
+  });
+  assert.equal(ensureReviewRequestScheduled(started).reviewRequestScheduledAt, undefined);
+  assert.equal(reviewRequestSendRefusal(started), "cancelled");
+
+  const completed = ensureReviewRequestScheduled(
+    baseJob({
+      journeyStatus: "completed",
+      journeyCompletedAt: COMPLETED_AT,
+    }),
+    REVIEW_REQUEST_DELAY_MS,
+    COMPLETED_AT,
+  );
+  assert.equal(getReviewRequestStatus(completed), "scheduled");
+  assert.equal(reviewRequestSendRefusal(completed), null);
+
+  const store = memoryKv();
+  const scheduled = pendingReview();
+  await saveTrackingJob(store, scheduled, { indexPaymentReference: false });
+  await store.put(
+    paidBookingRefKey("REVIEW-PAY"),
+    JSON.stringify({
+      paymentReference: "REVIEW-PAY",
+      operationalStatus: "cancelled",
+      status: "cancelled",
+      cancelledAt: "2026-08-17T13:00:00.000Z",
+    }),
+  );
+  const beforeSend = await reloadReviewRequestEligibility(store, scheduled.token);
+  assert.equal(beforeSend.action, "skip");
+  assert.equal(beforeSend.reason, "cancelled");
+  const cleared = await getTrackingJob(store, scheduled.token);
+  assert.equal(cleared?.reviewRequestScheduledAt, undefined);
+  assert.equal(cleared?.reviewRequestDueAt, undefined);
+  assert.equal(cleared?.reviewRequestSentAt, undefined);
+  assert.equal(cleared?.journeyCompletedAt, COMPLETED_AT);
+  assert.equal(cleared?.paymentReference, "REVIEW-PAY");
+
+  const sentThenCancelled = pendingReview({
+    token: "sent-then-cancelled",
+    reviewRequestSentAt: "2026-08-17T14:05:00.000Z",
+    reviewRequestOwnerBccSent: true,
+    refundedAt: "2026-08-17T15:00:00.000Z",
+  });
+  await saveTrackingJob(store, sentThenCancelled, { indexPaymentReference: false });
+  const second = await reloadReviewRequestEligibility(store, sentThenCancelled.token, {
+    allowAlreadySent: true,
+  });
+  assert.equal(second.action, "skip");
+  assert.equal(second.reason, "cancelled");
+  const kept = await getTrackingJob(store, sentThenCancelled.token);
+  assert.equal(kept?.reviewRequestSentAt, sentThenCancelled.reviewRequestSentAt);
+  assert.equal(kept?.reviewRequestOwnerBccSent, true);
+  assert.equal(kept?.reviewRequestScheduledAt, COMPLETED_AT);
+
+  const reopened = reopenCompletedJourney(pendingReview({ token: "reopened", paymentReference: "OTHER" }));
+  assert.equal(reopened.reviewOutcome, "cancelled");
+  assert.equal(reopened.job.reviewRequestDueAt, undefined);
+  assert.notEqual(reopened.job.journeyStatus, "completed");
+  assert.equal(reviewRequestSendRefusal(reopened.job), "not_completed");
+
+  const stuck = pendingReview({
+    token: "stuck-cancelled",
+    refundedAt: "2026-08-17T13:30:00.000Z",
+  });
+  await saveTrackingJob(store, stuck, { indexPaymentReference: false });
+  const refused = await reloadReviewRequestEligibility(store, stuck.token);
+  assert.equal(refused.action, "skip");
+  assert.equal(refused.reason, "cancelled");
+  assert.equal((await getTrackingJob(store, stuck.token))?.reviewRequestDueAt, undefined);
+
+  const genuine = pendingReview({ token: "genuine", paymentReference: "STILL-CONFIRMED" });
+  await saveTrackingJob(store, genuine, { indexPaymentReference: false });
+  await store.put(
+    paidBookingRefKey("STILL-CONFIRMED"),
+    JSON.stringify({
+      paymentReference: "STILL-CONFIRMED",
+      operationalStatus: "confirmed",
+      status: "confirmed",
+    }),
+  );
+  const firstSend = await reloadReviewRequestEligibility(store, genuine.token);
+  assert.equal(firstSend.action, "send");
+  const markedSent: TrackingJobRecord = {
+    ...genuine,
+    reviewRequestSentAt: "2026-08-17T14:05:00.000Z",
+  };
+  await saveTrackingJob(store, markedSent, { indexPaymentReference: false });
+  const duplicate = await reloadReviewRequestEligibility(store, genuine.token);
+  assert.equal(duplicate.action, "skip");
+  assert.equal(duplicate.reason, "already_sent");
+
+  assert.equal(
+    paidBookingCancelsReviewRequest(
+      { operationalStatus: "confirmed", status: "confirmed", returnCancelledAt: "2026-08-17T13:00:00.000Z" },
+      "outbound",
+    ),
+    false,
+  );
+  assert.equal(
+    paidBookingCancelsReviewRequest(
+      { operationalStatus: "confirmed", status: "confirmed", returnCancelledAt: "2026-08-17T13:00:00.000Z" },
+      "return",
+    ),
+    true,
+  );
+
+  const closedOnCancel = pendingReview({ token: "closed-on-cancel" });
+  await saveTrackingJob(store, closedOnCancel, { indexPaymentReference: false });
+  const marked = await markTrackingJobRefunded(store, closedOnCancel.token, "Cancelled", {
+    closeJourney: true,
+  });
+  assert.equal(marked, true);
+  const afterCancel = await getTrackingJob(store, closedOnCancel.token);
+  assert.equal(afterCancel?.journeyStatus, "completed");
+  assert.ok(afterCancel?.refundedAt);
+  assert.equal(afterCancel?.reviewRequestScheduledAt, undefined);
+  assert.equal(afterCancel?.reviewRequestDueAt, undefined);
+  assert.equal(afterCancel?.journeyCompletedAt, COMPLETED_AT);
+  assert.equal(ensureReviewRequestScheduled(afterCancel!).reviewRequestDueAt, undefined);
+  assert.equal(clearUnsentReviewRequest(afterCancel!).reviewRequestSentAt, undefined);
+
+  console.log("OK  cancelled, reopened, and leftover pending reviews cannot send; one genuine completion can");
+  console.log("\nAll review request checks passed.");
+})().catch((error: unknown) => {
+  console.error(error);
+  process.exit(1);
+});
