@@ -27,7 +27,7 @@ import {
   focusFirstInvalidField,
   quoteStepTargetId,
   scheduleScrollToBookNowAfterExpressAck,
-  prefersReducedMotion,
+  scheduleQuoteRevealScroll,
   scrollJourneySummaryAfterTimeConfirm,
   scrollQuoteStage,
   type QuoteStepNavTarget,
@@ -4814,6 +4814,8 @@ function QuoteCard({
   const hadA2aPartyScrollRef = useRef(false);
   /** One scroll when results first become visible. Vehicle/Express changes must not re-arm it. */
   const hadRouteSummaryScrollRef = useRef(false);
+  const quoteRevealScrollCancelRef = useRef<(() => void) | null>(null);
+  const [quoteResultReveal, setQuoteResultReveal] = useState(false);
   /** Time picker Done/blur → flight number (when shown) or Your Journey (once per step-2 visit). */
   const hadJourneySummaryScrollRef = useRef(false);
   const hadLegacyJourneyModeScrollRef = useRef(false);
@@ -4876,19 +4878,15 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // On mobile, the top edge of the white selected-vehicle quote card sits
-  // flush under the fixed header (clearance 0). The vehicle list stays above
-  // the fold. Instant, so iOS cannot cancel a smooth scroll on that list.
-  // Fare, vehicle, and Free/Express updates leave the latch set.
+  // Pause so the luggage selection can register, then ease the price and
+  // Book Now into view. Fare, vehicle, and Free/Express updates leave the latch set.
+  // The timer is not cleared on ordinary re-renders, so a fare update cannot cancel it.
   useEffect(() => {
-    if (quoteStep !== 1) {
-      hadRouteSummaryScrollRef.current = false;
-      return;
-    }
-
     const capacityComplete = quoteChoicesReady && hasQuoteRoute && isScheduleComplete;
-    if (!capacityComplete) {
+    if (quoteStep !== 1 || !capacityComplete) {
       hadRouteSummaryScrollRef.current = false;
+      quoteRevealScrollCancelRef.current?.();
+      quoteRevealScrollCancelRef.current = null;
       return;
     }
 
@@ -4896,28 +4894,25 @@ function QuoteCard({
       return;
     }
 
-    if (detectMobileDevice()) {
-      const selectedCard = quoteSelectedVehicleCardRef.current;
-      if (!selectedCard) return;
-      hadRouteSummaryScrollRef.current = true;
-      return scrollQuoteStage(selectedCard, {
-        focusHeading: false,
-        correctAfterMs: 0,
-        immediate: true,
-        clearancePx: 0,
-        behavior: "auto",
-      });
-    }
     hadRouteSummaryScrollRef.current = true;
-    const lead =
-      typeof document !== "undefined" ? document.getElementById("quote-results-lead") : null;
-    return scrollQuoteStage(lead ?? quoteResultsStartRef.current ?? "quote-results-start", {
-      focusHeading: false,
-      correctAfterMs: 0,
-      immediate: true,
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    quoteRevealScrollCancelRef.current = scheduleQuoteRevealScroll({
+      onConsume: () => {},
+      onRetry: () => {
+        hadRouteSummaryScrollRef.current = false;
+        quoteRevealScrollCancelRef.current = null;
+      },
+      onReveal: () => {
+        setQuoteResultReveal(true);
+      },
     });
   }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteResultsReady, quoteStep]);
+
+  useEffect(() => {
+    return () => {
+      quoteRevealScrollCancelRef.current?.();
+      quoteRevealScrollCancelRef.current = null;
+    };
+  }, []);
 
   // Reset time→Your Journey one-shot when leaving travel-details step.
   useEffect(() => {
@@ -6521,6 +6516,7 @@ function QuoteCard({
     return (
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
+        entering={quoteResultReveal}
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}

@@ -33,6 +33,8 @@ type QuoteResultShowcaseProps = {
   /** Worker quote failed. Do not show a fallback fare in the price slot. */
   priceUnavailable?: boolean;
   onRetryPrice?: () => void;
+  /** First time this quote appears. Subtle fade/raise; reduced motion disables it. */
+  entering?: boolean;
 };
 
 // Presentational only: image follows the vehicle type already chosen for
@@ -70,6 +72,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       capacityConfirmation = false,
       priceUnavailable = false,
       onRetryPrice,
+      entering = false,
     },
     ref,
   ) {
@@ -92,7 +95,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       id="quote-selected-vehicle-card"
       data-quote-selected-vehicle-card
       data-quote-result-card
-      className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-4 py-5 text-navy shadow-[0_12px_32px_rgba(2,10,24,0.22)] sm:px-5 sm:py-6"
+      className={`quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-4 py-5 text-navy shadow-[0_12px_32px_rgba(2,10,24,0.22)] sm:px-5 sm:py-6${entering ? " quote-result-reveal" : ""}`}
     >
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-6">
         <div className="min-w-0 text-center lg:text-left">
@@ -133,6 +136,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         </div>
 
         <div className="mt-4 min-w-0 text-center lg:mt-0 lg:text-left">
+          <div data-quote-result-price>
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
           </p>
@@ -168,6 +172,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             </span>
           </p>
           )}
+          </div>
           {surchargeNote ? (
             <p
               className="mt-2 text-xs font-semibold text-emerald-dark"

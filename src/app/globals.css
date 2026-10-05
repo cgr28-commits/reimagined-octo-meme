@@ -349,6 +349,27 @@ main {
   color: var(--quote-secondary-ink);
 }
 
+@keyframes quote-result-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.quote-result-reveal {
+  animation: quote-result-reveal 420ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quote-result-reveal {
+    animation: none;
+  }
+}
+
 @keyframes contact-fade-up {
   from {
     opacity: 0;

@@ -8,6 +8,7 @@
  * - #quote-route-summary
  */
 
+import { detectMobileDevice } from "@/lib/device";
 import {
   cancelCompetingScrollJobs,
   getScrollJobGeneration,
@@ -466,6 +467,199 @@ export function schedulePreciseResultsScroll(
     window.cancelAnimationFrame(raf1);
     if (raf2) window.cancelAnimationFrame(raf2);
     if (correctionTimer) window.clearTimeout(correctionTimer);
+  };
+  return trackScrollJob(cancel);
+}
+
+/** Pause after the last luggage choice so the selection can register. */
+export const QUOTE_REVEAL_PAUSE_MS = 350;
+/** Restrained fade/raise on the new quote card. */
+export const QUOTE_REVEAL_MOTION_MS = 420;
+const REVEAL_EDGE_TOLERANCE_PX = 8;
+const REVEAL_BOTTOM_PAD_PX = 16;
+
+export type QuoteRevealMetrics = {
+  scrollY: number;
+  viewportHeight: number;
+  headerBottom: number;
+  cardTop: number;
+  cardBottom: number;
+  priceTop: number;
+  bookBottom: number;
+  layout: "mobile" | "desktop";
+  clearancePx?: number;
+  bottomPad?: number;
+};
+
+/**
+ * Where to land the first quote reveal.
+ * Mobile keeps the price and Book Now on screen together when the height allows,
+ * instead of pinning the top of the vehicle card. Desktop brings the whole card
+ * in under the sticky header when it fits.
+ * Returns null when that target is already comfortably in view.
+ */
+export function computeQuoteRevealScrollTop(metrics: QuoteRevealMetrics): number | null {
+  const clearance = metrics.clearancePx ?? HEADER_CLEARANCE_PX;
+  const bottomPad = metrics.bottomPad ?? REVEAL_BOTTOM_PAD_PX;
+  const headerLine = metrics.headerBottom + clearance;
+  const visibleBottom = metrics.viewportHeight - bottomPad;
+  const availableHeight = visibleBottom - headerLine;
+  const scrollY = metrics.scrollY;
+
+  const fits = (top: number, bottom: number) =>
+    top >= headerLine - REVEAL_EDGE_TOLERANCE_PX &&
+    bottom <= visibleBottom + REVEAL_EDGE_TOLERANCE_PX;
+
+  if (metrics.layout === "desktop" && fits(metrics.cardTop, metrics.cardBottom)) {
+    return null;
+  }
+  if (metrics.layout === "mobile" && fits(metrics.priceTop, metrics.bookBottom)) {
+    return null;
+  }
+
+  if (metrics.layout === "desktop") {
+    const cardTopDoc = scrollY + metrics.cardTop;
+    const cardHeight = metrics.cardBottom - metrics.cardTop;
+    if (cardHeight <= availableHeight + REVEAL_EDGE_TOLERANCE_PX) {
+      const nextTop = Math.max(0, Math.round(cardTopDoc - headerLine));
+      return Math.abs(nextTop - scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
+    }
+  }
+
+  const priceTopDoc = scrollY + metrics.priceTop;
+  const bookBottomDoc = scrollY + metrics.bookBottom;
+  const clusterHeight = bookBottomDoc - priceTopDoc;
+  let nextTop = Math.round(priceTopDoc - headerLine);
+  const bookViewportBottom = bookBottomDoc - nextTop;
+  if (bookViewportBottom > visibleBottom) {
+    nextTop += Math.round(bookViewportBottom - visibleBottom);
+  }
+  if (clusterHeight <= availableHeight + REVEAL_EDGE_TOLERANCE_PX) {
+    const priceViewport = priceTopDoc - nextTop;
+    if (priceViewport < headerLine) {
+      nextTop = Math.round(priceTopDoc - headerLine);
+    }
+  }
+  nextTop = Math.max(0, nextTop);
+  return Math.abs(nextTop - scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
+}
+
+function quoteRevealViewportHeight(): number {
+  const viewport = window.visualViewport;
+  if (viewport && viewport.height > 0) {
+    return Math.round(viewport.height + (viewport.offsetTop || 0));
+  }
+  return window.innerHeight;
+}
+
+function measureQuoteReveal(): QuoteRevealMetrics | null {
+  const card = document.getElementById("quote-selected-vehicle-card");
+  if (!(card instanceof HTMLElement) || card.getClientRects().length === 0) return null;
+  const price = card.querySelector<HTMLElement>("[data-quote-result-price]");
+  const book = card.querySelector<HTMLElement>("#quote-book-now-button");
+  if (!price || !book || price.getClientRects().length === 0 || book.getClientRects().length === 0) {
+    return null;
+  }
+  const cardRect = card.getBoundingClientRect();
+  const priceRect = price.getBoundingClientRect();
+  const bookRect = book.getBoundingClientRect();
+  return {
+    scrollY: window.scrollY,
+    viewportHeight: quoteRevealViewportHeight(),
+    headerBottom: getHeaderBottomPx(),
+    cardTop: cardRect.top,
+    cardBottom: cardRect.bottom,
+    priceTop: priceRect.top,
+    bookBottom: bookRect.bottom,
+    layout: detectMobileDevice() ? "mobile" : "desktop",
+  };
+}
+
+/**
+ * First completed quote only: pause, then smooth-scroll the price and Book Now
+ * into view. Wheel, touch, or keyboard scrolling cancels it and is not corrected.
+ */
+export function scheduleQuoteRevealScroll(handlers: {
+  onConsume: () => void;
+  onRetry: () => void;
+  onReveal: () => void;
+}): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  let stopped = false;
+  let consumed = false;
+  let userInterrupted = false;
+  let listenTimer = 0;
+
+  const consume = () => {
+    if (consumed) return;
+    consumed = true;
+    handlers.onConsume();
+  };
+
+  const haltSmoothScroll = () => {
+    window.scrollTo({ top: window.scrollY, behavior: "auto" });
+  };
+
+  const onUserMove = () => {
+    if (stopped || userInterrupted) return;
+    userInterrupted = true;
+    haltSmoothScroll();
+    consume();
+  };
+
+  const onKey = (event: KeyboardEvent) => {
+    if (!["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) {
+      return;
+    }
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest("input, textarea, select")) return;
+    onUserMove();
+  };
+
+  window.addEventListener("wheel", onUserMove, { passive: true });
+  window.addEventListener("touchmove", onUserMove, { passive: true });
+  window.addEventListener("keydown", onKey);
+
+  const stopListening = () => {
+    window.removeEventListener("wheel", onUserMove);
+    window.removeEventListener("touchmove", onUserMove);
+    window.removeEventListener("keydown", onKey);
+    if (listenTimer) window.clearTimeout(listenTimer);
+  };
+
+  const timer = window.setTimeout(() => {
+    if (stopped) return;
+    if (userInterrupted) {
+      consume();
+      stopListening();
+      return;
+    }
+    const metrics = measureQuoteReveal();
+    if (!metrics) {
+      consume();
+      stopListening();
+      return;
+    }
+    handlers.onReveal();
+    consume();
+    const nextTop = computeQuoteRevealScrollTop(metrics);
+    if (nextTop != null) {
+      window.scrollTo({
+        top: nextTop,
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+    }
+    listenTimer = window.setTimeout(stopListening, prefersReducedMotion() ? 0 : 700);
+  }, QUOTE_REVEAL_PAUSE_MS);
+
+  const cancel = () => {
+    stopped = true;
+    window.clearTimeout(timer);
+    stopListening();
+    if (!consumed) handlers.onRetry();
   };
   return trackScrollJob(cancel);
 }
