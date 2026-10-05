@@ -16,6 +16,7 @@ import {
   publicTipState,
   tipCheckoutReferenceForAttempt,
   tipPaymentInProgressMessage,
+  tipRecordHasPaymentEvidence,
   TIP_LINK_INVALID_MESSAGE,
   tipWhatsAppMessage,
   type JourneyTipRecord,
@@ -32,7 +33,7 @@ import {
   type SumUpCheckoutDetails,
   type SumUpCheckoutRequest,
 } from "../shared/sumup-checkout";
-import type { TrackingJobRecord } from "../shared/tracking";
+import { completionTimestampsMatch, type TrackingJobRecord } from "../shared/tracking";
 import { getTrackingJob } from "./tracking-store";
 
 const TIP_PREFIX = "tip:";
@@ -73,6 +74,49 @@ async function writeTip(store: KVNamespace, record: JourneyTipRecord): Promise<v
   await store.put(`${TIP_PREFIX}${record.tipToken}`, JSON.stringify(record), {
     expirationTtl: TIP_TTL_SECONDS,
   });
+}
+
+/**
+ * Clear a tip answer only when it was written by this completion and holds no money.
+ * A paid tip, a SumUp checkout, or a record we cannot read is left untouched.
+ */
+export async function completionTipPreservation(
+  store: KVNamespace,
+  job: Pick<TrackingJobRecord, "tipDecision" | "tipToken" | "tipWhatsappPreparedAt" | "journeyCompletedAt">,
+): Promise<{ preserveTipMetadata: boolean; unpaidTokenToDelete: string | null }> {
+  const hasAnswer = job.tipDecision === "yes" || job.tipDecision === "no" || Boolean(job.tipToken?.trim());
+  if (!hasAnswer) {
+    return { preserveTipMetadata: true, unpaidTokenToDelete: null };
+  }
+  const completedAt = job.journeyCompletedAt?.trim() ?? "";
+  const preparedAt = job.tipWhatsappPreparedAt?.trim() ?? "";
+  if (!completedAt || !preparedAt || !completionTimestampsMatch(preparedAt, completedAt)) {
+    return { preserveTipMetadata: true, unpaidTokenToDelete: null };
+  }
+
+  const token = job.tipToken?.trim().toLowerCase() ?? "";
+  if (!token) {
+    return { preserveTipMetadata: false, unpaidTokenToDelete: null };
+  }
+  if (!isOpaqueTipToken(token)) {
+    return { preserveTipMetadata: true, unpaidTokenToDelete: null };
+  }
+  const record = await readTip(store, token);
+  if (!record || tipRecordHasPaymentEvidence(record)) {
+    return { preserveTipMetadata: true, unpaidTokenToDelete: null };
+  }
+  return { preserveTipMetadata: false, unpaidTokenToDelete: token };
+}
+
+export async function deleteUnpaidTipRequest(
+  store: KVNamespace,
+  tipToken: string,
+): Promise<void> {
+  const token = tipToken.trim().toLowerCase();
+  if (!isOpaqueTipToken(token)) return;
+  const record = await readTip(store, token);
+  if (!record || tipRecordHasPaymentEvidence(record)) return;
+  await store.delete(`${TIP_PREFIX}${token}`);
 }
 
 async function indexTipCheckout(

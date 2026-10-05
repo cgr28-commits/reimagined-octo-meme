@@ -147,6 +147,11 @@ export type TrackingJobRecord = {
   /** When the completion thank-you text was first prepared. Repeats do not resend. */
   tipWhatsappPreparedAt?: string;
   /**
+   * Append-only owner audit when an accidental completion is reopened.
+   * Separate from paid-booking edit history.
+   */
+  reopenHistory?: JourneyReopenAuditEntry[];
+  /**
    * Journey-day airport collection information email (one send per leg).
    * Set only after the provider accepts the message. Absent means not sent.
    */
@@ -280,6 +285,188 @@ export function applyJourneyAction(
   }
 
   return { ok: true, job: next };
+}
+
+/** Owner-facing label for the status a reopened job returns to. */
+export function ownerReopenStatusLabel(status: JourneyStatus): string {
+  switch (status) {
+    case "idle":
+      return "Booked / Not started";
+    case "tracking":
+      return "Driver on the way";
+    case "arrived_pickup":
+      return "Arrived";
+    case "en_route":
+      return "Journey started";
+    case "arrived_destination":
+      return "Arrived at destination";
+    case "completed":
+      return "Completed";
+    case "stopped":
+      return "Tracking stopped";
+  }
+}
+
+/**
+ * Most advanced legitimate journey stage recorded before Complete job.
+ * Uses existing status values. Completion itself is not a stage to restore.
+ */
+export function proposedStatusBeforeCompletion(
+  job: Pick<
+    TrackingJobRecord,
+    "arrivedDestinationAt" | "journeyStartedAt" | "arrivedPickupAt" | "trackingStartedAt"
+  >,
+): Exclude<JourneyStatus, "completed" | "stopped"> {
+  if (job.arrivedDestinationAt?.trim()) return "arrived_destination";
+  if (job.journeyStartedAt?.trim()) return "en_route";
+  if (job.arrivedPickupAt?.trim()) return "arrived_pickup";
+  if (job.trackingStartedAt?.trim()) return "tracking";
+  return "idle";
+}
+
+/** Complete job writes tracking-stopped and leg timestamps at the same instant. */
+export const COMPLETION_CLOCK_TOLERANCE_MS = 2000;
+
+export function completionTimestampsMatch(
+  left: string | undefined,
+  right: string | undefined,
+): boolean {
+  const a = left?.trim();
+  const b = right?.trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const aMs = Date.parse(a);
+  const bMs = Date.parse(b);
+  if (!Number.isFinite(aMs) || !Number.isFinite(bMs)) return false;
+  return Math.abs(aMs - bMs) <= COMPLETION_CLOCK_TOLERANCE_MS;
+}
+
+export type JourneyReopenReviewOutcome = "cancelled" | "already_sent" | "none";
+
+export type JourneyReopenAuditEntry = {
+  reopenedAt: string;
+  reopenedBy: "owner";
+  summary: "Job reopened by owner";
+  previousStatus: "completed";
+  restoredStatus: JourneyStatus;
+  originalCompletionTimestamp: string;
+  reviewRequest: JourneyReopenReviewOutcome;
+};
+
+export type ReopenCompletedJourneyResult = {
+  changed: boolean;
+  job: TrackingJobRecord;
+  restoredStatus: JourneyStatus;
+  restoredStatusLabel: string;
+  reviewOutcome: JourneyReopenReviewOutcome;
+  reviewMessage: string | null;
+  audit: JourneyReopenAuditEntry | null;
+  unpaidTipTokenToDelete: string | null;
+  completionTimestamp: string | null;
+};
+
+const REOPEN_ACTIVE_SHARING = new Set<JourneyStatus>([
+  "tracking",
+  "arrived_pickup",
+  "en_route",
+  "arrived_destination",
+]);
+
+/**
+ * Undo a Complete job. Restores the last recorded stage and removes only
+ * completion-generated fields. A second call is a no-op.
+ * Tip metadata is kept unless the caller has proved it is non-financial
+ * and belongs to this completion (`preserveTipMetadata: false`).
+ */
+export function reopenCompletedJourney(
+  job: TrackingJobRecord,
+  options?: { nowIso?: string; preserveTipMetadata?: boolean },
+): ReopenCompletedJourneyResult {
+  const current = journeyStatusOf(job);
+  if (current !== "completed") {
+    return {
+      changed: false,
+      job,
+      restoredStatus: current,
+      restoredStatusLabel: ownerReopenStatusLabel(current),
+      reviewOutcome: "none",
+      reviewMessage: null,
+      audit: null,
+      unpaidTipTokenToDelete: null,
+      completionTimestamp: null,
+    };
+  }
+
+  const nowIso = options?.nowIso?.trim() || new Date().toISOString();
+  const completedAt = job.journeyCompletedAt?.trim() || "";
+  const restoredStatus = proposedStatusBeforeCompletion(job);
+  const next: TrackingJobRecord = { ...job, journeyStatus: restoredStatus };
+  delete next.journeyCompletedAt;
+
+  const stoppedAt = job.trackingStoppedAt?.trim();
+  const stopIsCompletionOnly =
+    !stoppedAt || (Boolean(completedAt) && completionTimestampsMatch(stoppedAt, completedAt));
+  if (stopIsCompletionOnly) {
+    delete next.trackingStoppedAt;
+    next.sharingActive = REOPEN_ACTIVE_SHARING.has(restoredStatus);
+  } else {
+    next.sharingActive = false;
+  }
+
+  let unpaidTipTokenToDelete: string | null = null;
+  const clearTipMetadata = options?.preserveTipMetadata === false;
+  if (clearTipMetadata) {
+    const tipToken = next.tipToken?.trim();
+    if (tipToken) unpaidTipTokenToDelete = tipToken;
+    delete next.tipDecision;
+    delete next.tipToken;
+    delete next.tipWhatsappPreparedAt;
+  }
+
+  let reviewOutcome: JourneyReopenReviewOutcome = "none";
+  if (job.reviewRequestSentAt?.trim()) {
+    reviewOutcome = "already_sent";
+  } else if (
+    job.reviewRequestScheduledAt?.trim() ||
+    job.reviewRequestDueAt?.trim() ||
+    job.reviewRequestFailedAt?.trim()
+  ) {
+    reviewOutcome = "cancelled";
+    delete next.reviewRequestScheduledAt;
+    delete next.reviewRequestDueAt;
+    delete next.reviewRequestFailedAt;
+    delete next.reviewRequestLastError;
+  }
+
+  const audit: JourneyReopenAuditEntry = {
+    reopenedAt: nowIso,
+    reopenedBy: "owner",
+    summary: "Job reopened by owner",
+    previousStatus: "completed",
+    restoredStatus,
+    originalCompletionTimestamp: completedAt,
+    reviewRequest: reviewOutcome,
+  };
+  next.reopenHistory = [...(job.reopenHistory ?? []), audit];
+
+  const reviewMessage =
+    reviewOutcome === "cancelled"
+      ? "Pending review request cancelled"
+      : reviewOutcome === "already_sent"
+        ? "Review request had already been sent"
+        : null;
+
+  return {
+    changed: true,
+    job: next,
+    restoredStatus,
+    restoredStatusLabel: ownerReopenStatusLabel(restoredStatus),
+    reviewOutcome,
+    reviewMessage,
+    audit,
+    unpaidTipTokenToDelete,
+    completionTimestamp: completedAt || null,
+  };
 }
 
 export function normalizeDriverName(name: string): string {

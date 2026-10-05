@@ -66,6 +66,7 @@
     "check:owner-dashboard-job-cleanup": "npx tsx scripts/check-owner-dashboard-job-cleanup.ts",
     "check:owner-daily-driver-layout": "npx tsx scripts/check-owner-daily-driver-layout.ts",
     "check:owner-safer-journey-buttons": "npx tsx scripts/check-owner-safer-journey-buttons.ts",
+    "check:reopen-job": "npx tsx scripts/check-reopen-job.ts",
     "check:owner-dashboard-layout": "npx tsx scripts/check-owner-dashboard-layout.ts",
     "check:owner-dashboard-today-sections": "npx tsx scripts/check-owner-dashboard-today-sections.ts",
     "check:owner-availability-earned-revenue": "npx tsx scripts/check-owner-availability-earned-revenue.ts",

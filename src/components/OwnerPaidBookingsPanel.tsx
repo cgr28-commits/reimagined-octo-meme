@@ -48,6 +48,11 @@ import { formatUkInstant } from "../../shared/uk-time";
 import { remainingCashDueGbp } from "../../shared/deposit-cash";
 import { formatGbpAmount } from "../../shared/gbp";
 import { whatsAppHrefForMobile } from "../../shared/journey-tip";
+import {
+  ownerReopenStatusLabel,
+  proposedStatusBeforeCompletion,
+  type JourneyStatus,
+} from "../../shared/tracking";
 import { formatAirportAccessOptionDashboardValue } from "../../shared/express-drop-off";
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
@@ -61,6 +66,7 @@ import {
   markPaidBookingCashCollected,
   resendPaidBookingConfirmation,
   sendManualReturnOfferNow,
+  reopenOwnerJob,
   sendOwnerReviewRequest,
   sendUpdatedBookingConfirmation,
   type OwnerPaidBookingSummary,
@@ -470,6 +476,32 @@ function TrackingDiagnosticView({ report }: { report: TrackingDiagnosticReport }
   );
 }
 
+function displayedLegMilestones(
+  booking: OwnerPaidBookingSummary,
+  leg: OwnerJourneyLeg,
+) {
+  const snapshot = leg === "return" ? booking.returnLeg : booking.outboundLeg;
+  if (snapshot) {
+    return {
+      token: snapshot.token || "",
+      trackingStartedAt: snapshot.trackingStartedAt,
+      arrivedPickupAt: snapshot.arrivedPickupAt,
+      journeyStartedAt: snapshot.journeyStartedAt,
+      arrivedDestinationAt: snapshot.arrivedDestinationAt,
+    };
+  }
+  if (leg === "return") {
+    return { token: booking.returnTrackingToken || "" };
+  }
+  return {
+    token: booking.outboundTrackingToken || booking.trackingToken || "",
+    trackingStartedAt: booking.trackingStartedAt,
+    arrivedPickupAt: booking.arrivedPickupAt,
+    journeyStartedAt: booking.journeyStartedAt,
+    arrivedDestinationAt: booking.arrivedDestinationAt,
+  };
+}
+
 export default function OwnerPaidBookingsPanel({
   ownerKey,
   mode = "day",
@@ -499,6 +531,12 @@ export default function OwnerPaidBookingsPanel({
   const [journeyConfirm, setJourneyConfirm] = useState<{
     paymentReference: string;
     action: OwnerPrimaryJourneyAction;
+    completeStage?: "warn" | "tip";
+  } | null>(null);
+  const [reopenConfirm, setReopenConfirm] = useState<{
+    paymentReference: string;
+    trackingToken: string;
+    displayLeg: OwnerJourneyLeg;
   } | null>(null);
   const [pastBookings, setPastBookings] = useState<OwnerPaidBookingSummary[]>([]);
   const [pastDaysLoaded, setPastDaysLoaded] = useState(0);
@@ -1063,6 +1101,30 @@ export default function OwnerPaidBookingsPanel({
     }
   }
 
+  async function handleReopenJob(booking: OwnerPaidBookingSummary, trackingToken: string) {
+    setBusyRef(booking.paymentReference);
+    setError("");
+    setMessage("");
+    try {
+      const result = await reopenOwnerJob(ownerKey, {
+        paymentReference: booking.paymentReference,
+        trackingToken: trackingToken || undefined,
+      });
+      const review = result.reviewMessage ? ` ${result.reviewMessage}.` : "";
+      setMessage(
+        result.idempotent
+          ? `This job is already open.${review}`
+          : `Job reopened by owner. Restored to ${result.restoredStatusLabel}.${review}`,
+      );
+      setReopenConfirm(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reopen this job");
+    } finally {
+      setBusyRef("");
+    }
+  }
+
   async function handleCancelRefundSuccess(
     result: RefundIssueResponse,
     booking: OwnerPaidBookingSummary,
@@ -1234,6 +1296,9 @@ export default function OwnerPaidBookingsPanel({
                         : {
                             paymentReference: booking.paymentReference,
                             action: item.action,
+                            ...(item.action === "complete_journey"
+                              ? { completeStage: "warn" as const }
+                              : {}),
                           },
                     );
                   }}
@@ -1242,7 +1307,47 @@ export default function OwnerPaidBookingsPanel({
                   {busy && confirming ? "Updating…" : item.label}
                 </button>
                 {confirming ? (
-                  item.action === "complete_journey" ? (
+                  item.action === "complete_journey" &&
+                  journeyConfirm?.completeStage !== "tip" ? (
+                    <div
+                      className="rounded-xl border border-white/15 bg-navy/80 p-3"
+                      data-owner-complete-warning
+                      role="group"
+                      aria-label="Complete this job?"
+                    >
+                      <p className="text-sm font-semibold text-white">Complete this job?</p>
+                      <p className="mt-1 text-xs leading-relaxed text-white/65">
+                        This marks the journey as completed and may schedule the customer&apos;s
+                        review request.
+                      </p>
+                      <div className="mt-3 flex flex-col gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-owner-complete-warning-cancel
+                          onClick={() => setJourneyConfirm(null)}
+                          className="min-h-11 w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/85 disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          data-owner-complete-warning-confirm
+                          onClick={() =>
+                            setJourneyConfirm((current) =>
+                              current?.paymentReference === booking.paymentReference
+                                ? { ...current, completeStage: "tip" }
+                                : current,
+                            )
+                          }
+                          className="min-h-11 w-full rounded-xl border border-white/25 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+                        >
+                          Complete Job
+                        </button>
+                      </div>
+                    </div>
+                  ) : item.action === "complete_journey" ? (
                     <div
                       className="rounded-xl border border-white/15 bg-navy/80 p-3"
                       data-owner-journey-confirm={item.action}
@@ -1690,6 +1795,26 @@ export default function OwnerPaidBookingsPanel({
                   ) : null,
                 )
               : null}
+            {isCompleted && !isClosed ? (
+              <div className="border-t border-amber-400/25 pt-3" data-owner-reopen-section>
+                <button
+                  type="button"
+                  data-owner-reopen-job
+                  disabled={busyRef === booking.paymentReference}
+                  onClick={() => {
+                    const milestones = displayedLegMilestones(booking, displayLeg);
+                    setReopenConfirm({
+                      paymentReference: booking.paymentReference,
+                      trackingToken: milestones.token,
+                      displayLeg,
+                    });
+                  }}
+                  className="min-h-11 w-full rounded-xl border border-amber-400/40 bg-transparent px-4 py-2.5 text-left text-sm font-semibold text-amber-100 disabled:opacity-60"
+                >
+                  ↩ Reopen job
+                </button>
+              </div>
+            ) : null}
             {showEvidence ? (
               <a
                 href={`/owner/journey-evidence/?ref=${encodeURIComponent(booking.paymentReference)}`}
@@ -2622,6 +2747,101 @@ export default function OwnerPaidBookingsPanel({
           ) : null}
         </div>
       ) : null}
+
+      {reopenConfirm
+        ? (() => {
+            const booking =
+              bookings.find((entry) => entry.paymentReference === reopenConfirm.paymentReference) ??
+              pastBookings.find(
+                (entry) => entry.paymentReference === reopenConfirm.paymentReference,
+              ) ??
+              (pastSearchHit?.paymentReference === reopenConfirm.paymentReference
+                ? pastSearchHit
+                : null);
+            if (!booking) return null;
+            const milestones = displayedLegMilestones(booking, reopenConfirm.displayLeg);
+            const restored = proposedStatusBeforeCompletion(milestones);
+            const restoredLabel = ownerReopenStatusLabel(restored as JourneyStatus);
+            const pickupDate =
+              reopenConfirm.displayLeg === "return"
+                ? booking.returnDate || booking.tripDate
+                : booking.tripDate;
+            const pickupTime =
+              reopenConfirm.displayLeg === "return"
+                ? booking.returnTime || booking.tripTime
+                : booking.tripTime;
+            const busy = busyRef === booking.paymentReference;
+            return (
+              <div
+                className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
+                data-owner-reopen-modal
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="reopen-job-title"
+              >
+                <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-400/40 bg-navy p-5 shadow-2xl">
+                  <h3 id="reopen-job-title" className="text-lg font-bold text-white">
+                    Reopen this job?
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/75">
+                    This will return the journey to its state before it was marked Completed.
+                    Payment and booking details will not be changed.
+                  </p>
+                  <dl className="mt-4 space-y-2 text-sm text-white/80">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-white/45">Customer</dt>
+                      <dd className="text-right font-semibold text-white">{booking.customerName}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-white/45">Booking reference</dt>
+                      <dd className="text-right font-semibold text-white">
+                        {booking.paymentReference}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-white/45">Pickup</dt>
+                      <dd className="text-right font-semibold text-white">
+                        {formatDisplayTripDate(pickupDate)}
+                        {pickupTime ? ` · ${pickupTime}` : ""}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-white/45">Current status</dt>
+                      <dd className="text-right font-semibold text-white">Completed</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-white/45">Restored status</dt>
+                      <dd className="text-right font-semibold text-amber-100" data-owner-reopen-restored>
+                        {restoredLabel}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-5 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      data-owner-reopen-cancel
+                      disabled={busy}
+                      autoFocus
+                      onClick={() => setReopenConfirm(null)}
+                      className="min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-navy disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      data-owner-reopen-confirm
+                      disabled={busy}
+                      onClick={() => void handleReopenJob(booking, milestones.token)}
+                      className="min-h-12 w-full rounded-xl border border-amber-300/70 bg-transparent px-4 py-3 text-sm font-bold text-amber-100 disabled:opacity-60"
+                    >
+                      {busy ? "Reopening…" : "Reopen Job"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()
+        : null}
 
       {editingBooking ? (
         <OwnerEditBookingModal

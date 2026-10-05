@@ -83,6 +83,29 @@ export type JourneyTipRecord = {
   pendingCheckoutCreatedAt?: string;
 };
 
+/**
+ * True when a tip record holds money: a paid tip, a SumUp transaction,
+ * or a checkout that has already been opened. Reopen job must leave these alone.
+ */
+export function tipRecordHasPaymentEvidence(
+  record: Partial<JourneyTipRecord> | null | undefined,
+): boolean {
+  if (!record) return false;
+  if (record.status === "paid") return true;
+  if (record.paidAt?.trim()) return true;
+  if (typeof record.amountGbp === "number" && Number.isFinite(record.amountGbp)) return true;
+  if (record.checkoutId?.trim()) return true;
+  if (record.checkoutReference?.trim()) return true;
+  if (record.transactionCode?.trim()) return true;
+  if (record.transactionId?.trim()) return true;
+  if (record.pendingCheckoutId?.trim()) return true;
+  if (record.pendingCheckoutReference?.trim()) return true;
+  if (typeof record.pendingAmountGbp === "number" && Number.isFinite(record.pendingAmountGbp)) {
+    return true;
+  }
+  return false;
+}
+
 export type TipCompletionPayload = {
   decision: TipDecision;
   whatsappMessage: string;

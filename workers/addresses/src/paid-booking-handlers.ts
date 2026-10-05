@@ -71,6 +71,21 @@ type Env = DriverAuthEnv &
 
 const BUSINESS_NAME = "My Airport Taxi NI";
 
+function ownerJourneyLegSnapshot(job: TrackingJobRecord | null | undefined) {
+  if (!job?.token) return undefined;
+  return {
+    token: job.token,
+    journeyStatus: journeyStatusOf(job),
+    trackingStartedAt: job.trackingStartedAt,
+    arrivedPickupAt: job.arrivedPickupAt,
+    journeyStartedAt: job.journeyStartedAt,
+    arrivedDestinationAt: job.arrivedDestinationAt,
+    journeyCompletedAt: job.journeyCompletedAt,
+    trackingStoppedAt: job.trackingStoppedAt,
+    reviewRequest: buildReviewRequestSummary(job),
+  };
+}
+
 function londonYmdNow(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/London",
@@ -537,6 +552,12 @@ export async function handlePaidBookingsListRequest(
         assignedDriverLabel: resolveAssignedDriverLabel(assignedDriverName),
         primaryDriverDefault: !assignedDriverName?.trim(),
         arrivedPickupAt,
+        trackingStartedAt: job?.trackingStartedAt,
+        journeyStartedAt: job?.journeyStartedAt,
+        arrivedDestinationAt: job?.arrivedDestinationAt,
+        trackingStoppedAt: job?.trackingStoppedAt,
+        outboundLeg: ownerJourneyLegSnapshot(outboundJob),
+        returnLeg: ownerJourneyLegSnapshot(returnJob),
         arrivalNotificationStatus,
         arrivalNotificationSentAt,
         arrivalNotificationProvider,

@@ -69,12 +69,20 @@ console.log("\n=== 2. Owner panel: colours, spacing, two-stage confirm ===");
   assert.match(panel, /data-owner-tip-yes/);
   assert.match(panel, /data-owner-tip-no/);
   assert.match(panel, /data-owner-tip-cancel/);
+  assert.match(panel, /data-owner-complete-warning/);
+  assert.match(panel, /Complete this job\?/);
+  assert.match(panel, /may schedule the customer/);
+  assert.match(panel, /Complete Job/);
+  const warningConfirm = panel.match(/data-owner-complete-warning-confirm[\s\S]{0,420}/);
+  assert.ok(warningConfirm, "complete warning confirm present");
+  assert.match(warningConfirm![0]!, /completeStage:\s*"tip"/);
+  assert.doesNotMatch(warningConfirm![0]!, /handleJourneyAction/);
   assert.match(panel, /customerTipped:\s*true/);
   assert.match(panel, /customerTipped:\s*false/);
 
   // Primary CTA tap must open confirm — not fire handleJourneyAction directly.
   const actionBtn = panel.match(
-    /data-owner-journey-action=\{item\.action\}[\s\S]{0,400}?onClick=\{\(\) => \{([\s\S]{0,500}?)\}\}/,
+    /data-owner-journey-action=\{item\.action\}[\s\S]{0,500}?onClick=\{\(\) => \{([\s\S]{0,900}?)\}\}/,
   );
   assert.ok(actionBtn, "primary action button onClick present");
   assert.match(actionBtn![1]!, /setJourneyConfirm/);
