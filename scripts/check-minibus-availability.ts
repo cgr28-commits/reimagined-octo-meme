@@ -70,14 +70,19 @@ function memoryKv() {
   } as unknown as KVNamespace;
 }
 
-function job(vehicle: string | null | undefined, tripTime: string, id: string): SmartOccupiedJob {
+function job(
+  vehicle: string | null | undefined,
+  tripTime: string,
+  id: string,
+  routeDurationMinutes = 120,
+): SmartOccupiedJob {
   const [built] = occupiedJobsFromPaidBooking({
     id,
     pickupLabel: "Belfast City Centre",
     dropoffLabel: "Belfast International Airport",
     tripDate: DAY,
     tripTime,
-    routeDurationMinutes: 120,
+    routeDurationMinutes,
     pickupLat: PICKUP.lat,
     pickupLng: PICKUP.lng,
     dropoffLat: DROPOFF.lat,
@@ -390,6 +395,119 @@ async function main() {
   assert.match(panel, /Bookings inside this period require confirmation before payment/);
   assert.match(panel, /Offer 7 Seater Minibus online/);
   assert.match(panel, /resource: "minibus"/);
+
+  const morning = new Date("2026-10-05T06:00:00+01:00");
+  function withSearch(
+    occupied: SmartOccupiedJob[],
+    vehicle: string,
+    tripTime = "10:00",
+  ) {
+    return evaluateSmartAvailability({
+      requested: requested(vehicle, tripTime),
+      occupied,
+      config: DEFAULT_SMART_OPS_CONFIG,
+      searchAlternatives: true,
+      now: morning,
+    });
+  }
+  function preflightGate(vehicle: string, occupied: SmartOccupiedJob[]) {
+    return decideCustomerSmartAvailabilityGate({
+      enforce: true,
+      booking: {
+        pickupLabel: "Belfast City Centre",
+        dropoffLabel: "Belfast International Airport",
+        tripDate: DAY,
+        tripTime: "10:00",
+        vehicle,
+        routeDurationMinutes: 60,
+        pickupLat: PICKUP.lat,
+        pickupLng: PICKUP.lng,
+        dropoffLat: DROPOFF.lat,
+        dropoffLng: DROPOFF.lng,
+      },
+      occupied,
+      config: DEFAULT_SMART_OPS_CONFIG,
+      offerAlternatives: true,
+      now: morning,
+      noticeHours: 12,
+    });
+  }
+  const saloonAt10 = job(SALOON, "10:00", "preflight-saloon");
+  const estateAt10 = job(ESTATE, "10:00", "preflight-estate");
+  const minibusAt10 = job(MINIBUS, "10:00", "preflight-minibus");
+  for (const label of ["saved-quote", "book-quote", "personal-quote"]) {
+    const open = preflightGate(MINIBUS, [saloonAt10, estateAt10]);
+    assert.equal(open.blocked, false, `${label} Minibus stays available against a Saloon/Estate diary`);
+    assert.equal(open.alternativeTimes.length, 0, `${label} does not suggest a Minibus alternative`);
+    const blocked = preflightGate(MINIBUS, [minibusAt10]);
+    assert.equal(blocked.blocked, true, `${label} Minibus is still blocked by another Minibus`);
+    assert.ok(blocked.alternativeTimes.length > 0, `${label} Minibus clash still offers alternatives`);
+  }
+  const shortMinibus = job(MINIBUS, "10:00", "alt-minibus", 20);
+  const saloonOnSlot = job(SALOON, "11:15", "alt-saloon", 180);
+  const estateOnSlot = job(ESTATE, "11:30", "alt-estate", 180);
+  const minibusOnlyAlts = withSearch([shortMinibus], MINIBUS);
+  const minibusWithOwner = withSearch([shortMinibus, saloonOnSlot, estateOnSlot], MINIBUS);
+  assert.equal(minibusOnlyAlts.available, false);
+  assert.ok(minibusOnlyAlts.alternatives.length > 0);
+  assert.deepEqual(
+    minibusWithOwner.alternatives.map((item) => item.tripTime),
+    minibusOnlyAlts.alternatives.map((item) => item.tripTime),
+    "Minibus alternatives ignore Saloon and Estate bookings",
+  );
+  const shortSaloon = job(SALOON, "10:00", "alt-owner", 20);
+  const minibusOnSlot = job(MINIBUS, "11:15", "alt-mini-slot", 180);
+  const saloonOnlyAlts = withSearch([shortSaloon], SALOON);
+  const saloonWithMinibus = withSearch([shortSaloon, minibusOnSlot], SALOON);
+  const estateOnlyAlts = withSearch([job(ESTATE, "10:00", "alt-estate-clash", 20)], ESTATE);
+  const estateWithMinibus = withSearch(
+    [job(ESTATE, "10:00", "alt-estate-clash-2", 20), minibusOnSlot],
+    ESTATE,
+  );
+  assert.deepEqual(
+    saloonWithMinibus.alternatives.map((item) => item.tripTime),
+    saloonOnlyAlts.alternatives.map((item) => item.tripTime),
+    "Saloon alternatives ignore Minibus bookings",
+  );
+  assert.deepEqual(
+    estateWithMinibus.alternatives.map((item) => item.tripTime),
+    estateOnlyAlts.alternatives.map((item) => item.tripTime),
+    "Estate alternatives ignore Minibus bookings",
+  );
+  assert.equal(
+    decision([job(SALOON, "10:00", "owner-still")], SALOON, "10:00").available,
+    false,
+    "A Saloon booking still blocks another Saloon",
+  );
+  assert.equal(
+    decision([job(ESTATE, "10:00", "estate-still")], ESTATE, "10:00").available,
+    false,
+    "An Estate booking still blocks another Estate",
+  );
+  assert.equal(availabilityResourceForVehicle(""), "owner");
+  assert.equal(availabilityResourceForVehicle(undefined), "owner");
+
+  function preflightCall(source: string): string {
+    const start = source.indexOf("useCustomerSmartAvailabilityPreflight(");
+    assert.ok(start >= 0);
+    return source.slice(start, start + 800);
+  }
+  const hook = read("src/lib/use-customer-smart-availability-preflight.ts");
+  const saved = preflightCall(read("src/app/quote/SavedQuoteCustomerClient.tsx"));
+  const book = preflightCall(read("src/app/book-quote/BookQuoteCustomerClient.tsx"));
+  const personal = preflightCall(read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx"));
+  assert.match(hook, /vehicle,/);
+  assert.doesNotMatch(hook, /Minibus \(5–7 passengers\)/);
+  assert.match(saved, /vehicle:\s*journey\?\.vehicle \?\? ""/);
+  assert.doesNotMatch(saved, /Standard Saloon \(1–4 passengers\)/);
+  assert.match(book, /vehicle:\s*journey\.vehicleType/);
+  assert.doesNotMatch(book, /Standard Saloon \(1–4 passengers\)/);
+  assert.match(personal, /\n\s*vehicle,/);
+  assert.match(
+    read("src/app/personal-quote/PersonalQuoteCustomerClient.tsx"),
+    /!v\.toLowerCase\(\)\.includes\("minibus"\)/,
+  );
+  assert.match(quoteCard, /vehicle:\s*quoteVehicle/);
 
   console.log("OK  minibus availability resource separation");
 }

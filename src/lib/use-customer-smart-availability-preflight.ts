@@ -27,6 +27,7 @@ export function useCustomerSmartAvailabilityPreflight(
   const airportCode = booking?.airportCode ?? "";
   const isFromAirport = booking?.isFromAirport === true;
   const routeDurationMinutes = booking?.routeDurationMinutes ?? null;
+  const vehicle = booking?.vehicle ?? "";
 
   useEffect(() => {
     if (!pickup.trim() || !dropoff.trim() || !tripDate.trim() || !tripTime.trim()) {
@@ -41,6 +42,7 @@ export function useCustomerSmartAvailabilityPreflight(
       returnJourney,
       returnDate,
       returnTime,
+      vehicle,
       airportCode,
       isFromAirport,
       routeDurationMinutes,
@@ -81,5 +83,6 @@ export function useCustomerSmartAvailabilityPreflight(
     routeDurationMinutes,
     tripDate,
     tripTime,
+    vehicle,
   ]);
 }

@@ -287,6 +287,7 @@ function SavedQuoteInner() {
           returnJourney: booking.returnJourney,
           returnDate: booking.returnDate,
           returnTime: booking.returnTime,
+          vehicle: journey?.vehicle ?? "",
           airportCode: booking.airportCode,
           isFromAirport: booking.isFromAirport,
         }
