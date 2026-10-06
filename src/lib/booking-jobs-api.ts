@@ -199,7 +199,7 @@ export async function lookupDriverAcceptJob(token: string): Promise<{
 export async function confirmDriverAcceptJob(
   token: string,
   action: "accept" | "decline" = "accept",
-): Promise<void> {
+): Promise<{ portalUrl?: string }> {
   const base = workerBaseUrl();
   if (!base) {
     throw new Error("Bookings API is not configured");
@@ -217,4 +217,6 @@ export async function confirmDriverAcceptJob(
   if (!response.ok) {
     throw new Error(String(payload.error ?? "Could not confirm job"));
   }
+  const portalUrl = typeof payload.portalUrl === "string" ? payload.portalUrl : undefined;
+  return portalUrl ? { portalUrl } : {};
 }

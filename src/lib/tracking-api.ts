@@ -51,17 +51,46 @@ function resolveWorkerBaseUrl(): string {
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
+export function isDriverPortalSessionToken(value: string | null | undefined): boolean {
+  return (value ?? "").trim().startsWith("dps_");
+}
+
 function driverQueryKey(url: URL, driverKey: string): void {
-  url.searchParams.set("key", driverKey.trim());
+  const trimmed = driverKey.trim();
+  if (!trimmed || isDriverPortalSessionToken(trimmed)) {
+    return;
+  }
+  url.searchParams.set("key", trimmed);
+}
+
+function driverAuthHeaders(driverKey: string): Record<string, string> {
+  const trimmed = driverKey.trim();
+  if (isDriverPortalSessionToken(trimmed)) {
+    return { "X-Driver-Session": trimmed };
+  }
+  if (!trimmed) return {};
+  return { "X-Driver-Key": trimmed };
+}
+
+function driverGetHeaders(driverKey: string): HeadersInit {
+  return {
+    Accept: "application/json",
+    ...driverAuthHeaders(driverKey),
+  };
 }
 
 function driverPostHeaders(driverKey: string): HeadersInit {
-  const trimmed = driverKey.trim();
   return {
     Accept: "application/json",
     "Content-Type": "application/json",
-    "X-Driver-Key": trimmed,
+    ...driverAuthHeaders(driverKey),
   };
+}
+
+function driverKeyedUrl(path: string, access: string): string {
+  const url = new URL(path, WORKER_BASE);
+  driverQueryKey(url, access);
+  return url.toString();
 }
 
 export type DriverStatusResponse = {
@@ -75,6 +104,28 @@ export type DriverStatusResponse = {
   worker: string;
   error?: string;
 };
+
+export async function exchangeDriverPortalAccess(accessToken: string): Promise<{
+  sessionToken: string;
+  driverName?: string;
+  expiresAt?: string;
+}> {
+  const response = await fetch(`${WORKER_BASE}/driver/portal/exchange`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ access: accessToken.trim() }),
+  });
+  const payload = await parseJsonResponse<{
+    ok: true;
+    sessionToken: string;
+    driverName?: string;
+    expiresAt?: string;
+  }>(response);
+  return payload;
+}
 
 export async function fetchDriverStatus(driverKey: string): Promise<DriverStatusResponse> {
   if (isDemoDriverKey(driverKey)) {
@@ -90,7 +141,7 @@ export async function fetchDriverStatus(driverKey: string): Promise<DriverStatus
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: driverGetHeaders(driverKey),
     cache: "no-store",
   });
 
@@ -276,6 +327,12 @@ export type DriverJob = PublicTrackResponse & {
   cashBalanceDue?: number;
   cashCollected?: boolean;
   cashCollectedAt?: string;
+  passengers?: number;
+  suitcases?: number;
+  bookedVehicle?: string;
+  notes?: string;
+  childSeats?: number;
+  childSeatNotes?: string;
 };
 
 export type DriverJobsResponse = {
@@ -383,7 +440,7 @@ export async function fetchDriverJobs(
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: driverGetHeaders(driverKey),
     cache: "no-store",
   });
 
@@ -457,13 +514,9 @@ export async function setDriverSharing(
     return { ok: true, trackUrl };
   }
 
-  const response = await fetch(`${WORKER_BASE}/driver/sharing?key=${encodeURIComponent(driverKey)}`, {
+  const response = await fetch(driverKeyedUrl("/driver/sharing", driverKey), {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Driver-Key": driverKey,
-    },
+    headers: driverPostHeaders(driverKey),
     body: JSON.stringify({ token, active }),
   });
 
@@ -556,7 +609,7 @@ export async function postJourneyAction(
   }
 
   const response = await fetch(
-    `${WORKER_BASE}/driver/journey?key=${encodeURIComponent(accessKey.trim())}`,
+    driverKeyedUrl("/driver/journey", accessKey),
     {
       method: "POST",
       headers: driverPostHeaders(accessKey),
@@ -588,7 +641,7 @@ export async function fetchJourneySession(
   }
 
   const response = await fetch(
-    `${WORKER_BASE}/driver/journey/session?key=${encodeURIComponent(accessKey.trim())}`,
+    driverKeyedUrl("/driver/journey/session", accessKey),
     {
       method: "POST",
       headers: driverPostHeaders(accessKey),
@@ -1081,6 +1134,7 @@ export type AssignDriverDetails = {
   driverCarColour?: string;
   driverReg?: string;
   driverPayAmount?: string;
+  driverProfileKey?: string;
 };
 
 export async function assignJobToDriver(
@@ -1130,6 +1184,7 @@ export async function assignJobToDriver(
       driverCarColour: details.driverCarColour?.trim() || undefined,
       driverReg: details.driverReg?.trim() || undefined,
       driverPayAmount: details.driverPayAmount?.trim() || undefined,
+      driverProfileKey: details.driverProfileKey?.trim() || undefined,
     }),
   });
 
@@ -1207,7 +1262,7 @@ export async function respondToJobAssignment(
   }
 
   const response = await fetch(
-    `${WORKER_BASE}/driver/assignment?key=${encodeURIComponent(driverKey.trim())}`,
+    driverKeyedUrl("/driver/assignment", driverKey),
     {
       method: "POST",
       headers: driverPostHeaders(driverKey),
@@ -1278,16 +1333,14 @@ export async function postDriverLocation(
   const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",
-    // Always send the dashboard key so Worker can fall back if the short-lived
-    // session token is missing/expired. Session header is preferred when valid.
-    "X-Driver-Key": driverKey,
+    ...driverAuthHeaders(driverKey),
   };
   const sessionToken = extras?.sessionToken?.trim();
   if (sessionToken) {
     headers["X-Tracking-Session"] = sessionToken;
   }
 
-  const url = `${WORKER_BASE}/driver/location?key=${encodeURIComponent(driverKey)}`;
+  const url = driverKeyedUrl("/driver/location", driverKey);
 
   const response = await fetch(url, {
     method: "POST",

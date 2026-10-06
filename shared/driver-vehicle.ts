@@ -80,7 +80,7 @@ export function buildDriverProfileConfirmationEmail(
     (profile.mobile?.trim() ? `Mobile: ${profile.mobile.trim()}\n` : "") +
     `Vehicle: ${profile.colour.trim()} ${profile.make.trim()} ${profile.model.trim()}\n` +
     `Registration: ${profile.registration.trim().toUpperCase()}\n\n` +
-    `You do not need a login or access key. When you are assigned a job, we will email you the trip details and your pay for that journey.\n\n` +
+    `You do not need a password. When you are assigned a job, we email you a private link to accept it and open My Jobs. That page shows only your journeys.\n\n` +
     `${businessName}`;
 
   const html = `<!DOCTYPE html>
@@ -104,7 +104,7 @@ export function buildDriverProfileConfirmationEmail(
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Your driver profile for ${escapeHtml(businessName)} has been saved with the details below.</p>
-              <p style="margin:0 0 16px;">You do not need a login or access key. When you are assigned a job, we will email you the trip details and your pay for that journey.</p>
+              <p style="margin:0 0 16px;">You do not need a password. When you are assigned a job, we email you a private link to accept it and open My Jobs. That page shows only your journeys.</p>
             </td>
           </tr>
           <tr>
@@ -132,6 +132,63 @@ export function buildDriverProfileConfirmationEmail(
 </html>`;
 
   return { subject, text, html };
+}
+
+export type SavedProfileAssignmentDecision =
+  | { ok: true; profile: DriverVehicleProfile }
+  | { ok: false; error: string };
+
+/** Fields taken from the saved profile, not from the assignment request body. */
+export function assignmentIdentityFromProfile(profile: DriverVehicleProfile): {
+  driverFirstName: string;
+  driverEmail: string;
+  driverMobile: string;
+  driverCarMake: string;
+  driverCarModel: string;
+  driverCarColour: string;
+  driverReg: string;
+  driverProfileKey: string;
+} {
+  return {
+    driverFirstName: profile.displayName.trim(),
+    driverEmail: profile.email.trim().toLowerCase(),
+    driverMobile: profile.mobile?.trim() || "",
+    driverCarMake: profile.make.trim(),
+    driverCarModel: profile.model.trim(),
+    driverCarColour: profile.colour.trim(),
+    driverReg: profile.registration.trim().toUpperCase(),
+    driverProfileKey: profile.profileKey,
+  };
+}
+
+/**
+ * A supplied profile key must belong to the same person as the supplied email.
+ * A mismatch does not return a profile, so no My Jobs link can be minted for it.
+ */
+export function savedProfileAssignmentDecision(input: {
+  requestedProfileKey: string;
+  loadedProfile: DriverVehicleProfile | null;
+  suppliedEmail: string;
+}): SavedProfileAssignmentDecision {
+  const requested = input.requestedProfileKey.trim();
+  const profile = input.loadedProfile;
+  if (!requested || !profile || profile.profileKey !== requested || !driverProfileComplete(profile)) {
+    return {
+      ok: false,
+      error:
+        "That saved driver profile could not be used for this assignment. No My Jobs link was created.",
+    };
+  }
+  const supplied = input.suppliedEmail.trim().toLowerCase();
+  const profileEmail = profile.email.trim().toLowerCase();
+  if (!supplied || supplied !== profileEmail) {
+    return {
+      ok: false,
+      error:
+        "That email does not belong to the selected driver profile. No My Jobs link was created.",
+    };
+  }
+  return { ok: true, profile };
 }
 
 /** Customer-facing vehicle card — partial registration only; never includes driver mobile. */

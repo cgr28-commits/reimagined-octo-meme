@@ -67,6 +67,24 @@ async function rememberProfileKey(store: KVNamespace, profileKey: string): Promi
   await writeProfileIndex(store, [...existing, key]);
 }
 
+export async function findSavedDriverProfileByEmail(
+  store: KVNamespace,
+  email: string,
+): Promise<DriverVehicleProfile | null> {
+  const wanted = email.trim().toLowerCase();
+  if (!wanted || !wanted.includes("@")) {
+    return null;
+  }
+  const keys = await readProfileIndex(store);
+  for (const key of keys) {
+    const profile = await getDriverVehicleProfile(store, key);
+    if (profile?.email?.trim().toLowerCase() === wanted) {
+      return profile;
+    }
+  }
+  return null;
+}
+
 export async function getDriverVehicleProfile(
   store: KVNamespace,
   profileNameOrKey: string,

@@ -206,6 +206,15 @@ export async function enrichDriverJob(
       assignedDriverCarColour,
       assignedDriverReg,
       driverPayAmount,
+      passengers: paidRecord?.passengers ?? bookingJob?.passengers,
+      suitcases: paidRecord?.suitcases ?? bookingJob?.suitcases,
+      bookedVehicle: paidRecord?.vehicle || bookingJob?.vehicle || undefined,
+      notes:
+        [paidRecord?.notes, paidRecord?.childSeatNotes, bookingJob?.message]
+          .map((part) => part?.trim())
+          .filter(Boolean)
+          .join("\n") || undefined,
+      childSeats: paidRecord?.childSeats,
       paymentMethod: paidRecord?.paymentMethod,
       cashBalanceDue: paidRecord?.cashBalanceDue,
       cashCollected: paidRecord?.cashCollected === true,

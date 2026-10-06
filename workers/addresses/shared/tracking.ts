@@ -106,7 +106,17 @@ export type TrackingJobRecord = {
   assignedDriverCarModel?: string;
   assignedDriverCarColour?: string;
   assignedDriverReg?: string;
-  /** Owner-entered amount paid to the driver for this journey (not the customer fare). */
+  /**
+   * Saved driver profile this job is assigned to.
+   * Portal sessions must match this key. A request body cannot substitute another key.
+   */
+  assignedDriverProfileKey?: string;
+  /**
+   * Owner-entered amount paid to the driver for this journey (not the customer fare).
+   * Free text today (for example "£45"). A later ledger will store driverPayAmountPence
+   * plus payment status, paid date, method, and provider reference. Do not pay this
+   * through SumUp.
+   */
   driverPayAmount?: string;
   /** Count of GPS points retained for audit (owner only in API responses) */
   driverLocationPointCount?: number;

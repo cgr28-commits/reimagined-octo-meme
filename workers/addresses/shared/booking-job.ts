@@ -60,7 +60,13 @@ export type BookingJobRecord = {
   driverCarModel?: string;
   driverCarColour?: string;
   driverReg?: string;
-  /** Manual amount the owner will pay the driver after the journey (never the customer fare). */
+  /** Saved DriverVehicleProfile this assignment belongs to. */
+  driverProfileKey?: string;
+  /**
+   * Manual amount the owner will pay the driver after the journey (never the customer fare).
+   * Free text today. Later store driverPayAmountPence (integer pence) with payment status,
+   * paid date, method, and provider reference. Not a SumUp payout.
+   */
   driverPayAmount?: string;
   driverAssignmentStatus?: DriverAssignmentStatus;
   driverAcceptToken?: string;
@@ -113,6 +119,8 @@ export function buildDriverAssignmentEmail(options: {
   acceptUrl: string;
   businessName?: string;
   cashBalanceDue?: number;
+  /** Single-use My Jobs link for this saved driver. */
+  portalUrl?: string;
 }): { subject: string; text: string; html: string } {
   const businessName = options.businessName ?? "My Airport Taxi NI";
   const job = options.job;
@@ -151,8 +159,9 @@ export function buildDriverAssignmentEmail(options: {
       ? `CASH TO COLLECT: £${options.cashBalanceDue.toFixed(2)}`
       : null,
     "",
-    "Customer contact details are shown in your driver portal after you accept this job.",
-    "You do not need a login or access key — everything is in this email.",
+    "Customer contact details are shown in My Jobs after you accept this job.",
+    "Open My Jobs with the private link below. It works only for you and only shows jobs assigned to you.",
+    options.portalUrl ? `My Jobs: ${options.portalUrl}` : null,
     "Please confirm you accept this job:",
     options.acceptUrl,
     "",
@@ -190,8 +199,13 @@ export function buildDriverAssignmentEmail(options: {
       }
     </div>
     <p style="color:#c5d0e0;font-size:14px;">You will be paid after each journey (usually the next day).</p>
-    <p style="color:#c5d0e0;font-size:14px;">Customer contact details appear in your driver portal after you accept.</p>
-    <p style="color:#c5d0e0;font-size:14px;">You do not need a login or access key — everything is in this email.</p>
+    <p style="color:#c5d0e0;font-size:14px;">Customer contact details appear in My Jobs after you accept.</p>
+    <p style="color:#c5d0e0;font-size:14px;">Open My Jobs with your private link. It works only for you and only shows jobs assigned to you.</p>
+    ${
+      options.portalUrl
+        ? `<p style="margin:0 0 12px;"><a href="${escapeHtml(options.portalUrl)}" style="color:#2fbf4a;font-weight:700;">Open My Jobs</a></p>`
+        : ""
+    }
     <p style="margin:28px 0;">
       <a href="${escapeHtml(options.acceptUrl)}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px;">
         Confirm I accept this job

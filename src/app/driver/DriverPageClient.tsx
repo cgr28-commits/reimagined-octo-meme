@@ -23,6 +23,13 @@ import OwnerLiveAvailabilityCard from "@/components/OwnerLiveAvailabilityCard";
 import OwnerPricingPanel from "@/components/OwnerPricingPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
+  customerTelHref,
+  customerWhatsAppHref,
+  DRIVER_PORTAL_SESSION_STORAGE_KEY,
+  googleMapsNavigateUrl,
+  sequentialDriverJourneyActions,
+} from "../../../shared/driver-portal-access";
+import {
   buildWhatsAppDriverDetailsLink,
   fetchDriverJobs,
   postDriverLocation,
@@ -38,6 +45,8 @@ import {
   respondToJobAssignment,
   fetchDriverRoster,
   fetchDriverLocationHistory,
+  exchangeDriverPortalAccess,
+  isDriverPortalSessionToken,
   fetchDriverVehicleProfiles,
   fetchDriverVehicle,
   saveDriverVehicle,
@@ -947,16 +956,19 @@ function DriverJobCard({
     (isOwner || isAcceptedAssignment) &&
     journeyStatus !== "completed";
   const allowedActions: JourneyAction[] = (() => {
+    if (!isOwner) {
+      return sequentialDriverJourneyActions(journeyStatus);
+    }
     const raw =
       job.allowedJourneyActions ??
       (journeyStatus === "idle" || journeyStatus === "stopped"
-        ? (["start_tracking", "arrived_pickup"] as JourneyAction[])
+        ? (["start_tracking", "arrived_pickup", "complete_journey"] as JourneyAction[])
         : journeyStatus === "tracking"
-          ? (["start_tracking", "arrived_pickup"] as JourneyAction[])
+          ? (["arrived_pickup", "complete_journey"] as JourneyAction[])
           : journeyStatus === "arrived_pickup"
-            ? (["complete_journey"] as JourneyAction[])
+            ? (["start_journey", "complete_journey"] as JourneyAction[])
             : journeyStatus === "en_route"
-              ? (["arrived_destination"] as JourneyAction[])
+              ? (["arrived_destination", "complete_journey"] as JourneyAction[])
               : journeyStatus === "arrived_destination"
                 ? (["complete_journey"] as JourneyAction[])
                 : []);
@@ -1248,6 +1260,7 @@ function DriverJobCard({
         driverCarColour: assignForm.driverCarColour,
         driverReg: assignForm.driverReg,
         driverPayAmount,
+        driverProfileKey: assignProfileKey,
       });
       onAssignmentUpdated({
         ...result.job,
@@ -1467,19 +1480,53 @@ function DriverJobCard({
             </p>
           ) : null}
           {!isOwner && job.driverPayAmount && (
-            <p className="mt-2 text-base font-bold text-emerald">
-              Your pay for this journey: {job.driverPayAmount}
+            <p className="mt-2 text-base font-bold text-emerald">Your pay: {job.driverPayAmount}</p>
+          )}
+          {!isOwner && (job.passengers != null || job.suitcases != null) && (
+            <p className="mt-2 text-sm text-white/70">
+              Passengers: {job.passengers ?? "—"} · Suitcases: {job.suitcases ?? "—"}
             </p>
           )}
+          {!isOwner && job.bookedVehicle ? (
+            <p className="mt-1 text-sm text-white/70">Vehicle booked: {job.bookedVehicle}</p>
+          ) : null}
+          {!isOwner && job.childSeats ? (
+            <p className="mt-1 text-sm text-white/70">Child seats: {job.childSeats}</p>
+          ) : null}
+          {!isOwner && job.notes ? (
+            <p className="mt-1 text-sm text-white/70">Notes: {job.notes}</p>
+          ) : null}
+          {!isOwner && (job.pickupLabel || job.dropoffLabel) ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {job.pickupLabel ? (
+                <a
+                  href={googleMapsNavigateUrl(job.pickupLabel)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-white"
+                >
+                  Navigate to pickup
+                </a>
+              ) : null}
+              {job.dropoffLabel ? (
+                <a
+                  href={googleMapsNavigateUrl(job.dropoffLabel)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-white"
+                >
+                  Navigate to destination
+                </a>
+              ) : null}
+            </div>
+          ) : null}
           {isOwner && job.driverPayAmount && (
             <p className="mt-1 text-sm text-white/70">Driver pay: {job.driverPayAmount}</p>
           )}
           {isOwner && job.amountPaidLabel && (
             <p className="mt-1 text-sm text-white/70">Paid: {job.amountPaidLabel}</p>
           )}
-          {job.paymentMethod === "DEPOSIT_CASH" &&
-          job.paymentReference &&
-          (isOwner || isAcceptedAssignment) ? (
+          {job.paymentMethod === "DEPOSIT_CASH" ? (
             <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-amber-100">
                 {job.cashCollected ? "Cash collected" : "CASH TO COLLECT"}
@@ -1491,40 +1538,42 @@ function DriverJobCard({
                     ? "Cash collected"
                     : "No cash remaining"}
               </p>
-              <button
-                type="button"
-                disabled={cashBusy}
-                onClick={() => {
-                  void (async () => {
-                    setCashBusy(true);
-                    setCashMessage(null);
-                    try {
-                      await markPaidBookingCashCollected(
-                        isOwner ? { ownerKey: driverKey } : { driverKey },
-                        job.paymentReference!,
-                        job.cashCollected !== true,
-                      );
-                      setCashMessage(
-                        job.cashCollected ? "Cleared cash collected." : "Marked cash collected.",
-                      );
-                      onRefreshJob?.();
-                    } catch (err) {
-                      setCashMessage(
-                        err instanceof Error ? err.message : "Could not update cash collected",
-                      );
-                    } finally {
-                      setCashBusy(false);
-                    }
-                  })();
-                }}
-                className="mt-2 min-h-10 rounded-lg bg-emerald px-3 py-1.5 text-xs font-bold text-navy disabled:opacity-60"
-              >
-                {cashBusy
-                  ? "Saving…"
-                  : job.cashCollected
-                    ? "Undo cash collected"
-                    : "Mark cash collected"}
-              </button>
+              {isOwner && job.paymentReference ? (
+                <button
+                  type="button"
+                  disabled={cashBusy}
+                  onClick={() => {
+                    void (async () => {
+                      setCashBusy(true);
+                      setCashMessage(null);
+                      try {
+                        await markPaidBookingCashCollected(
+                          { ownerKey: driverKey },
+                          job.paymentReference!,
+                          job.cashCollected !== true,
+                        );
+                        setCashMessage(
+                          job.cashCollected ? "Cleared cash collected." : "Marked cash collected.",
+                        );
+                        onRefreshJob?.();
+                      } catch (err) {
+                        setCashMessage(
+                          err instanceof Error ? err.message : "Could not update cash collected",
+                        );
+                      } finally {
+                        setCashBusy(false);
+                      }
+                    })();
+                  }}
+                  className="mt-2 min-h-10 rounded-lg bg-emerald px-3 py-1.5 text-xs font-bold text-navy disabled:opacity-60"
+                >
+                  {cashBusy
+                    ? "Saving…"
+                    : job.cashCollected
+                      ? "Undo cash collected"
+                      : "Mark cash collected"}
+                </button>
+              ) : null}
               {cashMessage ? (
                 <p className="mt-1 text-xs text-white/70">{cashMessage}</p>
               ) : null}
@@ -1759,14 +1808,28 @@ function DriverJobCard({
           </>
         )}
 
+        {!isOwner && isAcceptedAssignment && job.customerMobile ? (
+          <>
+            <a
+              href={customerTelHref(job.customerMobile)}
+              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              Call customer
+            </a>
+            <a
+              href={customerWhatsAppHref(job.customerMobile)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              WhatsApp customer
+            </a>
+          </>
+        ) : null}
+
         {canOperateJourney && (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            {(journeyStatus === "arrived_pickup"
-              ? allowedActions.filter(
-                  (action) => action === "complete_journey" || action === "stop_tracking",
-                )
-              : allowedActions
-            ).map((action) => {
+            {allowedActions.map((action) => {
               const isArrivedCta = action === "arrived_pickup";
               const primary =
                 action === "start_tracking" ||
@@ -2332,10 +2395,12 @@ export default function DriverPageClient({
       } catch (err) {
         const message = err instanceof Error ? err.message : "Could not load jobs";
         setError(
-          message.toLowerCase().includes("unauthorized") ||
-            message.toLowerCase().includes("did not match")
-            ? "Your driver key was not accepted. Sign out and re-enter the exact DRIVER_ACCESS_KEY from Cloudflare → Workers → reimagined-octo-meme → Secrets."
-            : message,
+          isDriverPortalSessionToken(key)
+            ? "This My Jobs link has expired. Open the latest link in your assignment email."
+            : message.toLowerCase().includes("unauthorized") ||
+                message.toLowerCase().includes("did not match")
+              ? "Your driver key was not accepted. Sign out and re-enter the exact DRIVER_ACCESS_KEY from Cloudflare → Workers → reimagined-octo-meme → Secrets."
+              : message,
         );
         setJobs([]);
         setPendingJobs([]);
@@ -2567,6 +2632,34 @@ export default function DriverPageClient({
       return;
     }
 
+    const access = new URLSearchParams(window.location.search).get("access")?.trim() ?? "";
+    if (access.startsWith("dpl_")) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("access");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      setLoading(true);
+      void exchangeDriverPortalAccess(access)
+        .then((session) => {
+          window.localStorage.setItem(DRIVER_PORTAL_SESSION_STORAGE_KEY, session.sessionToken);
+          setSessionRole("driver");
+          setDriverName(session.driverName ?? null);
+          setSavedKey(session.sessionToken);
+        })
+        .catch((err) => {
+          window.localStorage.removeItem(DRIVER_PORTAL_SESSION_STORAGE_KEY);
+          setError(err instanceof Error ? err.message : "This My Jobs link could not be opened");
+          setLoading(false);
+        });
+      return;
+    }
+
+    const portalSession = window.localStorage.getItem(DRIVER_PORTAL_SESSION_STORAGE_KEY)?.trim() ?? "";
+    if (isDriverPortalSessionToken(portalSession)) {
+      setSessionRole("driver");
+      setSavedKey(portalSession);
+      return;
+    }
+
     if (stored && stored !== DEMO_OWNER_KEY) {
       if (stored === DEMO_DRIVER_KEY) {
         setSessionRole("driver");
@@ -2710,7 +2803,7 @@ export default function DriverPageClient({
           defaultCollapsed
         />
       </>
-    ) : (
+    ) : isDriverPortalSessionToken(savedKey) ? null : (
       <DriverProfilePanel
         accessKey={savedKey}
         isOwner={false}
@@ -2724,7 +2817,7 @@ export default function DriverPageClient({
     <>
       <OwnerPortalHeader
         variant={isOwnerPortal ? "owner" : "driver"}
-        title={isOwnerPortal ? "Owner Dashboard" : "Driver"}
+        title={isOwnerPortal ? "Owner Dashboard" : "My Jobs"}
       />
       <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
         <div className={`mx-auto w-full min-w-0 px-4 sm:px-6 lg:px-8 ${isOwnerPortal ? "max-w-5xl" : "max-w-3xl"}`}>
@@ -2736,7 +2829,9 @@ export default function DriverPageClient({
                   ? "Driver login"
                   : "Driver dashboard"}
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Bookings</h1>
+            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">
+              {isOwnerPortal ? "Bookings" : "My Jobs"}
+            </h1>
             {isOwnerPortal && isOwnerPreviewHost ? (
               <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50">
                 Signed-in owner preview. Saving availability or jobs updates the live system.
@@ -2759,7 +2854,10 @@ export default function DriverPageClient({
                     .
                   </>
                 ) : (
-                  <>Enter your driver access key to open today&apos;s jobs and live tracking.</>
+                  <>
+                    Open the My Jobs link in your assignment email. After you accept, this page
+                    shows only your journeys, your pay, and the customer&apos;s mobile.
+                  </>
                 )
               ) : (
                 <>
@@ -2822,10 +2920,10 @@ export default function DriverPageClient({
               ) : null}
 
               <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-                {isOwnerPortal ? "Sign in" : "Access key"}
+                {isOwnerPortal ? "Sign in" : "Company driver"}
               </p>
               <h2 className="mt-1 text-xl font-bold text-white">
-                {isOwnerPortal ? "Enter your owner access key" : "Enter your access key"}
+                {isOwnerPortal ? "Enter your owner access key" : "Or use the company driver key"}
               </h2>
               <label htmlFor="owner-access-key" className="mt-5 block text-sm font-medium text-white/70">
                 {isOwnerPortal
@@ -2930,6 +3028,7 @@ export default function DriverPageClient({
                   type="button"
                   onClick={() => {
                     window.sessionStorage.removeItem(keyStorage);
+                    window.localStorage.removeItem(DRIVER_PORTAL_SESSION_STORAGE_KEY);
                     setSavedKey(null);
                     setJobs([]);
                     setPendingJobs([]);

@@ -25,14 +25,11 @@ import {
   customerFirstName,
 } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
+import { authorizeDriverJobAction, sequentialDriverJourneyActions } from "../shared/driver-portal-access";
 import {
-  assertDriverCanOperateJob,
-} from "./driver-assignment-utils";
-import {
-  driverAuthorized,
   ownerAuthorized,
-  resolveDriverSession,
 } from "./driver-auth";
+import { resolveAuthorizedSession } from "./driver-portal-session";
 import { attachTipDecision, tipPayloadForCompletedJob } from "./journey-tip-handlers";
 import {
   createTrackingSession,
@@ -277,15 +274,16 @@ export async function handleJourneyTransitionRequest(
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
-  if (!driverAuthorized(request, env)) {
-    return jsonResponse({ error: "Unauthorized" }, 401, origin);
-  }
-
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
     return jsonResponse({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const session = await resolveAuthorizedSession(request, env);
+  if (!session.authorized) {
+    return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
   const token = String(body.token ?? "").trim();
@@ -299,10 +297,22 @@ export async function handleJourneyTransitionRequest(
     return jsonResponse({ error: "Job not found" }, 404, origin);
   }
 
-  const session = resolveDriverSession(request, env);
-  const operateError = assertDriverCanOperateJob(record, session);
+  const operateError = authorizeDriverJobAction(session, record, body, "operate");
   if (operateError) {
     return jsonResponse({ error: operateError }, 409, origin);
+  }
+
+  const currentStatus = journeyStatusOf(record);
+  const driverMayRepeat =
+    (action === "arrived_pickup" && currentStatus === "arrived_pickup") ||
+    (action === "start_tracking" &&
+      (currentStatus === "tracking" || (currentStatus === "idle" && Boolean(record.sharingActive))));
+  if (
+    session.role === "driver" &&
+    !sequentialDriverJourneyActions(currentStatus).includes(action) &&
+    !driverMayRepeat
+  ) {
+    return jsonResponse({ error: "That update is not available for this journey yet" }, 409, origin);
   }
 
   const forceRetryArrival = Boolean(body.retryArrivalNotification);
@@ -555,15 +565,16 @@ export async function handleJourneySessionRequest(
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
-  if (!driverAuthorized(request, env)) {
-    return jsonResponse({ error: "Unauthorized" }, 401, origin);
-  }
-
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
     return jsonResponse({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const session = await resolveAuthorizedSession(request, env);
+  if (!session.authorized) {
+    return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
   const token = String(body.token ?? "").trim();
@@ -576,8 +587,7 @@ export async function handleJourneySessionRequest(
     return jsonResponse({ error: "Job not found" }, 404, origin);
   }
 
-  const session = resolveDriverSession(request, env);
-  const operateError = assertDriverCanOperateJob(record, session);
+  const operateError = authorizeDriverJobAction(session, record, body, "operate");
   if (operateError) {
     return jsonResponse({ error: operateError }, 409, origin);
   }

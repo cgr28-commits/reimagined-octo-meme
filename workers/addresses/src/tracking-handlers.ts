@@ -40,16 +40,16 @@ import {
   assertDriverCanOperateJob,
 } from "./driver-assignment-utils";
 import { jobAssignmentStatus } from "../shared/tracking";
+import { buildSanitizedDriverJobView } from "../shared/driver-portal-access";
 import {
-  driverAuthorized,
   driverAuthStatus,
   isDriverAuthConfigured,
   listConfiguredDrivers,
   ownerAuthorized,
-  resolveDriverSession,
   sanitizeDriverJobForRole,
   type DashboardRole,
 } from "./driver-auth";
+import { resolveAuthorizedSession } from "./driver-portal-session";
 import { type WorkerEmailEnv } from "./worker-email";
 import { resolveCustomerVisibleVehicle } from "./driver-vehicle-store";
 import { toCustomerVehicleDetails } from "../shared/driver-vehicle";
@@ -472,19 +472,19 @@ export async function handleDriverJobsRequest(
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
 
-  if (!driverAuthorized(request, env)) {
+  const session = await resolveAuthorizedSession(request, env);
+  if (!session.authorized) {
     return jsonResponse(
       {
         error:
-          "Unauthorized — check your access key. Sign out and enter the key from Cloudflare (OWNER_ACCESS_KEY or DRIVER_ACCESS_KEY).",
+          "Unauthorized — open My Jobs from your assignment email, or check your access key.",
       },
       401,
       origin,
     );
   }
 
-  const session = resolveDriverSession(request, env);
-  const role: DashboardRole = session.authorized ? session.role : "driver";
+  const role: DashboardRole = session.role;
 
   const url = new URL(request.url);
   const scope = url.searchParams.get("scope")?.trim().toLowerCase() ?? "date";
@@ -586,41 +586,69 @@ export async function handleDriverJobsRequest(
       }
 
       const refundAmountLabel = paidRecord?.refundAmountLabel ?? job.refundAmountLabel;
+      const bookingJob =
+        role === "driver" && env.TRACKING_STORE
+          ? (job.paymentReference
+              ? await getBookingJob(env.TRACKING_STORE, job.paymentReference)
+              : null) ?? (await getBookingJob(env.TRACKING_STORE, job.token))
+          : null;
 
-      return sanitizeDriverJobForRole(
-        {
-          ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
-          token: job.token,
-          customerMobile: job.customerMobile,
-          paymentReference: job.paymentReference,
-          amountPaidLabel,
-          bookingStatus,
-          refundAmountLabel,
-          activeDriverName: job.activeDriverName,
-          assignedDriverName: job.assignedDriverName,
-          assignmentStatus: jobAssignmentStatus(job),
-          assignedAt: job.assignedAt,
-          acceptedAt: job.acceptedAt,
-          declinedAt: job.declinedAt,
-          driverLocationPointCount: job.driverLocationPointCount,
-          driverLocationRecordedFrom: job.driverLocationRecordedFrom,
-          driverLocationRecordedTo: job.driverLocationRecordedTo,
-          journeyStatus: journeyStatusOf(job),
-          journeyStatusLabel: customerJourneyLabel(job),
-          allowedJourneyActions: allowedJourneyActions(journeyStatusOf(job)),
-          trackingStartedAt: job.trackingStartedAt,
-          arrivedPickupAt: job.arrivedPickupAt,
-          journeyStartedAt: job.journeyStartedAt,
-          arrivedDestinationAt: job.arrivedDestinationAt,
-          journeyCompletedAt: job.journeyCompletedAt,
-          isAirportPickup: isAirportPickupJob(job),
-          flightNumber: job.flightNumber ?? null,
-          airportCode: job.airportCode ?? null,
-          journeyLeg: job.journeyLeg ?? null,
-          flight,
-        },
-        role,
-      );
+      const rawJob = {
+        ...publicTrackPayload(job, origin, { includeCustomerLocation: true }),
+        token: job.token,
+        customerMobile: job.customerMobile,
+        paymentReference: job.paymentReference,
+        amountPaidLabel,
+        bookingStatus,
+        refundAmountLabel,
+        activeDriverName: job.activeDriverName,
+        assignedDriverName: job.assignedDriverName,
+        assignmentStatus: jobAssignmentStatus(job),
+        assignedAt: job.assignedAt,
+        acceptedAt: job.acceptedAt,
+        declinedAt: job.declinedAt,
+        driverLocationPointCount: job.driverLocationPointCount,
+        driverLocationRecordedFrom: job.driverLocationRecordedFrom,
+        driverLocationRecordedTo: job.driverLocationRecordedTo,
+        journeyStatus: journeyStatusOf(job),
+        journeyStatusLabel: customerJourneyLabel(job),
+        allowedJourneyActions: allowedJourneyActions(journeyStatusOf(job)),
+        trackingStartedAt: job.trackingStartedAt,
+        arrivedPickupAt: job.arrivedPickupAt,
+        journeyStartedAt: job.journeyStartedAt,
+        arrivedDestinationAt: job.arrivedDestinationAt,
+        journeyCompletedAt: job.journeyCompletedAt,
+        isAirportPickup: isAirportPickupJob(job),
+        flightNumber: job.flightNumber ?? paidRecord?.flightNumber ?? null,
+        airportCode: job.airportCode ?? paidRecord?.airportCode ?? null,
+        journeyLeg: job.journeyLeg ?? null,
+        flight,
+      };
+
+      if (role === "driver") {
+        return buildSanitizedDriverJobView(
+          rawJob,
+          {
+            customerReference: paidRecord?.customerReference,
+            driverPayAmount: job.driverPayAmount || bookingJob?.driverPayAmount,
+            passengers: paidRecord?.passengers ?? bookingJob?.passengers,
+            suitcases: paidRecord?.suitcases ?? bookingJob?.suitcases,
+            bookedVehicle: paidRecord?.vehicle || bookingJob?.vehicle,
+            notes: paidRecord?.notes || bookingJob?.message,
+            childSeatNotes: paidRecord?.childSeatNotes,
+            childSeats: paidRecord?.childSeats,
+            paymentMethod: paidRecord?.paymentMethod,
+            cashBalanceDue: paidRecord?.cashBalanceDue,
+            cashCollected: paidRecord?.cashCollected === true,
+            cashCollectedAt: paidRecord?.cashCollectedAt,
+            airportAccessOption: paidRecord?.airportAccessOption ?? null,
+            dublinArrivalTerminal: paidRecord?.dublinArrivalTerminal ?? null,
+          },
+          { accepted: jobAssignmentStatus(job) === "accepted" },
+        );
+      }
+
+      return sanitizeDriverJobForRole(rawJob, role);
     }),
   );
 
@@ -644,7 +672,7 @@ export async function handleDriverStatusRequest(
   origin: string | null,
 ): Promise<Response> {
   const authConfigured = isDriverAuthConfigured(env);
-  const session = resolveDriverSession(request, env);
+  const session = await resolveAuthorizedSession(request, env);
   const authorized = session.authorized;
   const keys = driverAuthStatus(env);
 
@@ -688,7 +716,8 @@ export async function handleDriverSharingRequest(
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
 
-  if (!driverAuthorized(request, env)) {
+  const session = await resolveAuthorizedSession(request, env);
+  if (!session.authorized) {
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
 
@@ -716,7 +745,6 @@ export async function handleDriverSharingRequest(
     return cancelled;
   }
 
-  const session = resolveDriverSession(request, env);
   const operateError = assertDriverCanOperateJob(record, session);
   if (operateError && Boolean(active)) {
     return jsonResponse({ error: operateError }, 409, origin);
@@ -806,33 +834,29 @@ export async function handleDriverLocationRequest(
     const trackingSession = await getTrackingSession(env.TRACKING_STORE, sessionHeader);
     if (trackingSession && trackingSession.jobToken === token) {
       driverName = trackingSession.driverName ?? driverName;
-    } else if (driverAuthorized(request, env)) {
-      // Fall back to owner/driver key if the short-lived session expired.
-      const session = resolveDriverSession(request, env);
+    } else {
+      const session = await resolveAuthorizedSession(request, env);
+      if (!session.authorized) {
+        return jsonResponse({ error: "Invalid or expired tracking session" }, 401, origin);
+      }
       const operateError = assertDriverCanOperateJob(record, session);
       if (operateError) {
         return jsonResponse({ error: operateError }, 409, origin);
       }
       driverName =
-        session.authorized && session.role === "driver"
-          ? session.driverName
-          : record.activeDriverName;
-    } else {
-      return jsonResponse({ error: "Invalid or expired tracking session" }, 401, origin);
+        session.role === "driver" ? session.driverName : record.activeDriverName;
     }
   } else {
-    if (!driverAuthorized(request, env)) {
+    const session = await resolveAuthorizedSession(request, env);
+    if (!session.authorized) {
       return jsonResponse({ error: "Unauthorized" }, 401, origin);
     }
-    const session = resolveDriverSession(request, env);
     const operateError = assertDriverCanOperateJob(record, session);
     if (operateError) {
       return jsonResponse({ error: operateError }, 409, origin);
     }
     driverName =
-      session.authorized && session.role === "driver"
-        ? session.driverName
-        : record.activeDriverName;
+      session.role === "driver" ? session.driverName : record.activeDriverName;
   }
 
   if (!record.sharingActive) {
