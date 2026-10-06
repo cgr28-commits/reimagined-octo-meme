@@ -3,7 +3,8 @@ import {
   COMPANY_CANCEL_REFUND,
   DEPOSIT_CASH_POLICY_PARAGRAPHS,
   DEPOSIT_CASH_POLICY_TITLE,
-  FLIGHT_DELAY_POLICY,
+  SIGNIFICANT_FLIGHT_DELAY_LIMIT,
+  SIGNIFICANT_FLIGHT_DELAY_POLICY,
   LESS_THAN_24H_NON_REFUNDABLE,
   MORE_THAN_24H_REFUND,
   SPECIFIC_DATE_TRANSPORT_NOTE,
@@ -145,11 +146,11 @@ export const TERMS_SECTIONS = [
     ],
   },
   {
-    title: "Flight Delays",
+    title: "Significant flight delays",
     content: [
-      "We monitor flight arrivals where a valid flight number has been provided.",
-      "If your flight is delayed or arrives early, we will adjust the planned collection time where reasonably possible.",
-      "Airport pickups include 60 minutes complimentary waiting time — this is not unlimited free waiting.",
+      SIGNIFICANT_FLIGHT_DELAY_POLICY,
+      SIGNIFICANT_FLIGHT_DELAY_LIMIT,
+      "Airport pickups include up to 60 minutes complimentary waiting time from the actual flight landing time.",
       "If no flight number is supplied, we cannot guarantee delayed collection without additional charges.",
     ],
   },
@@ -171,8 +172,8 @@ export const TERMS_SECTIONS = [
         content: [...DEPOSIT_CASH_POLICY_PARAGRAPHS],
       },
       {
-        subtitle: "Flight delays",
-        content: [FLIGHT_DELAY_POLICY],
+        subtitle: "Significant flight delays",
+        content: [SIGNIFICANT_FLIGHT_DELAY_POLICY, SIGNIFICANT_FLIGHT_DELAY_LIMIT],
       },
       {
         subtitle: "Cancellations by us",

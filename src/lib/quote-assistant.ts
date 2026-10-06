@@ -285,7 +285,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Flight delays and waiting time",
       body:
-        "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time. Airport drop-offs include the applicable airport drop-off fee where charged. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport pickups include pickup/parking (£5) and M1 tolls; Dublin drop-off fee is £0 with M1 tolls still included. City of Derry Airport pickup is £2.50 and drop-off is £1.",
+        "Where a valid flight number has been provided, we monitor the flight and make reasonable efforts to adjust the collection time. Airport pickups include up to 60 minutes complimentary waiting from the actual landing time. If a significant delay means we cannot provide the booked transfer, we cancel that journey and refund in full the amount paid for it. This will not be treated as a customer cancellation or no-show. Flight monitoring does not guarantee every delay, and complimentary waiting is not unlimited. Airport drop-offs include the applicable airport drop-off fee where charged. Non-airport pickups include 10 minutes complimentary waiting. Dublin Airport pickups include pickup/parking (£5) and M1 tolls; Dublin drop-off fee is £0 with M1 tolls still included. City of Derry Airport pickup is £2.50 and drop-off is £1.",
     },
     {
       title: "Cash and payment options",

@@ -22,8 +22,24 @@ export const SPECIFIC_DATE_TRANSPORT_NOTE =
 export const COMPANY_CANCEL_REFUND =
   "If My Airport Taxi NI cancels a confirmed booking and cannot provide the journey, you will receive a full refund.";
 
-export const FLIGHT_DELAY_POLICY =
-  "Where a correct flight number has been provided, a flight delay will not normally be treated as a cancellation or no-show. We will adjust the planned collection time in accordance with the waiting-time policy.";
+export const SIGNIFICANT_FLIGHT_DELAY_POLICY =
+  "Where a valid flight number has been provided, we will monitor your flight and make reasonable efforts to accommodate a revised arrival time. If your flight is significantly delayed and, because of the revised arrival time, we are ultimately unable to provide your booked transfer, we will cancel that journey and refund in full any amount you have paid for it. This will not be treated as a customer cancellation or no-show.";
+
+export const SIGNIFICANT_FLIGHT_DELAY_LIMIT =
+  "Flight monitoring does not guarantee that we can accommodate every delay, and our complimentary waiting period is not unlimited.";
+
+/** Kept for existing imports. This is the significant-delay refund paragraph, not a customer-cancellation rule. */
+export const FLIGHT_DELAY_POLICY = SIGNIFICANT_FLIGHT_DELAY_POLICY;
+
+export const AIRPORT_WAITING_FROM_LANDING =
+  "Airport pickups include up to 60 minutes complimentary waiting time from the actual flight landing time, where a valid flight number has been provided.";
+
+/** Shorter customer-facing answer. The full legal paragraphs stay on Terms and the Cancellation Policy. */
+export const FLIGHT_MONITORING_FAQ_ANSWER =
+  "Where a valid flight number has been provided, we monitor your flight and make reasonable efforts to adjust the collection time for an early or delayed arrival. Airport pickups include up to 60 minutes complimentary waiting from the actual landing time. If a significant delay means we cannot provide your booked transfer, we cancel that journey and refund in full the amount paid for it. This will not be treated as a customer cancellation or no-show.";
+
+export const FLIGHT_MONITORING_SHORT =
+  "Where a valid flight number has been provided, we monitor your flight and make reasonable efforts to adjust the collection time. Airport pickups include 60 minutes complimentary waiting from the actual landing time.";
 
 export const CONFIRMATION_EMAIL_CANCELLATION_POLICY = [
   CHECKOUT_CANCELLATION_SUMMARY,
@@ -38,6 +54,7 @@ export const FAQ_CANCEL_ANSWER = [
   CHECKOUT_CANCELLATION_SUMMARY,
   "A no-show after the complimentary waiting period and reasonable contact attempts is also non-refundable.",
   COMPANY_CANCEL_REFUND,
+  "If a significant flight delay means we cannot provide your booked transfer, we cancel that journey and refund in full the amount paid for it. This will not be treated as a customer cancellation or no-show.",
   STATUTORY_RIGHTS_NOTE,
   SPECIFIC_DATE_TRANSPORT_NOTE,
   "Full details are in our Cancellation Policy and Terms & Conditions.",
@@ -84,10 +101,11 @@ export const CANCELLATION_POLICY_SECTIONS = [
     ],
   },
   {
-    title: "Flight delays and waiting time",
+    title: "Significant flight delays",
     content: [
-      FLIGHT_DELAY_POLICY,
-      "Airport pickups include 60 minutes complimentary waiting time where a valid flight number has been provided. This is not unlimited free waiting.",
+      SIGNIFICANT_FLIGHT_DELAY_POLICY,
+      SIGNIFICANT_FLIGHT_DELAY_LIMIT,
+      AIRPORT_WAITING_FROM_LANDING,
       "Non-airport pickups include 10 minutes complimentary waiting time.",
     ],
   },

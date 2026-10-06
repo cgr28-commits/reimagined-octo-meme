@@ -1,3 +1,4 @@
+import { FLIGHT_MONITORING_SHORT } from "../../shared/cancellation-policy";
 import { ALL_AIRPORTS, SERVICE_FLAGS } from "@/lib/data";
 import { getAirportHero } from "@/lib/airport-hero";
 import { getDestinationHero } from "@/lib/destination-hero";
@@ -77,7 +78,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     metaDescription:
       "Pre-book fixed-price Belfast International (BFS) transfers, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.",
     intro:
-      "Belfast International (Aldergrove) is Northern Ireland’s main long-haul and holiday airport. We provide door-to-door private transfers across Greater Belfast and beyond. We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time.",
+      `Belfast International (Aldergrove) is Northern Ireland’s main long-haul and holiday airport. We provide door-to-door private transfers across Greater Belfast and beyond. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
       "Fixed online prices for 1–4 passengers",
       "Up to 60 minutes complimentary waiting time on airport pickups",
@@ -173,7 +174,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     metaDescription:
       "Pre-book fixed-price transfers from Northern Ireland to Dublin Airport (DUB), with flight monitoring, included tolls and secure online booking.",
     intro:
-      "Dublin Airport is a major gateway for Northern Ireland travellers. We run comfortable cross-border transfers with drivers who know the A1/M1 corridor, border timing, and terminal pickup arrangements. We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals.",
+      `Dublin Airport is a major gateway for Northern Ireland travellers. We run comfortable cross-border transfers with drivers who know the A1/M1 corridor, border timing, and terminal pickup arrangements. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
       "Fixed prices for NI ↔ Dublin Airport journeys",
       "Applicable tolls included on Dublin Airport fares",
