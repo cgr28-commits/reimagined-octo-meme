@@ -111,6 +111,97 @@ check("New assignments store pence, derive the label, and start as pending", () 
   assert.equal(assigned.record.driverPayPaidAt, undefined);
 });
 
+check("A legacy single-leg amount still shows to the driver, and a shared return amount does not", () => {
+  for (const legacy of ["£45", "45", "45.00"]) {
+    const shown = driverPayShownForLeg({
+      job: { driverPayAmount: legacy },
+      linkedJourneyCount: 1,
+    });
+    assert.equal(shown, "£45.00", legacy);
+    const view = buildSanitizedDriverJobView(
+      {
+        driverPayAmount: legacy,
+        amountPaidLabel: "£120.00",
+        quotedPrice: 120,
+        paymentReference: "SUMUP",
+        customerEmail: "customer@example.com",
+        sumupCheckoutId: "chk_secret",
+      },
+      { driverPayAmount: shown },
+      { accepted: true },
+    );
+    assert.equal(view.driverPayAmount, "£45.00", legacy);
+    for (const forbidden of [
+      "amountPaidLabel",
+      "quotedPrice",
+      "paymentReference",
+      "customerEmail",
+      "sumupCheckoutId",
+      "driverPayAmountPence",
+    ]) {
+      assert.equal(forbidden in view, false, forbidden);
+    }
+  }
+
+  const withoutBooking = driverPayShownForLeg({
+    job: { driverPayAmount: "£45" },
+    linkedJourneyCount: 1,
+  });
+  assert.equal(withoutBooking, "£45.00");
+
+  const outboundLegacy = driverPayShownForLeg({
+    job: { driverPayAmount: "£45" },
+    bookingPayAmount: "£45",
+    linkedJourneyCount: 2,
+    journeyLeg: "outbound",
+    pairedToken: "leg-ret",
+  });
+  const returnLegacy = driverPayShownForLeg({
+    job: { driverPayAmount: "£45" },
+    bookingPayAmount: "£45",
+    linkedJourneyCount: 2,
+    journeyLeg: "return",
+    pairedToken: "leg-out",
+  });
+  assert.equal(outboundLegacy, undefined);
+  assert.equal(returnLegacy, undefined);
+
+  const assigned = applyDriverPayAssignment(
+    {},
+    { amountInput: "55.50", driverName: "Ben Driver", profileKey: "ben", nowIso: NOW },
+  );
+  assert.equal(assigned.ok, true);
+  if (!assigned.ok) return;
+  assert.equal(
+    driverPayShownForLeg({
+      job: assigned.record,
+      bookingPayAmount: "£45",
+      linkedJourneyCount: 1,
+    }),
+    "£55.50",
+  );
+  assert.equal(
+    driverPayShownForLeg({
+      job: assigned.record,
+      bookingPayAmount: "£45",
+      linkedJourneyCount: 2,
+      journeyLeg: "return",
+      pairedToken: "leg-out",
+    }),
+    "£55.50",
+  );
+  assert.notEqual(
+    driverPayShownForLeg({
+      job: { driverPayAmount: "£45" },
+      bookingPayAmount: "£55.50",
+      linkedJourneyCount: 2,
+      journeyLeg: "outbound",
+      pairedToken: "leg-ret",
+    }),
+    "£55.50",
+  );
+});
+
 check("Legacy driverPayAmount is parsed on the next write and cannot diverge from pence", () => {
   const aligned = alignDriverPayAmount({ driverPayAmount: "£45" });
   assert.equal(aligned.driverPayAmountPence, 4500);

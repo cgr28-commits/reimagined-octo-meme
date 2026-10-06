@@ -638,6 +638,17 @@ export function legMayUseBookingPayFallback(input: {
   return true;
 }
 
+/**
+ * A pre-ledger assignment may store only driverPayAmount text. Show the
+ * normalized label from that text. This does not write pence; the next real
+ * save still migrates the record.
+ */
+function normalizedLegacyDriverPayAmount(record: DriverPayLedgerState): string | undefined {
+  const parsed = parseDriverPayToPence(record.driverPayAmount ?? "");
+  if (!parsed.ok) return undefined;
+  return formatDriverPayFromPence(parsed.pence);
+}
+
 export function driverPayShownForLeg(input: {
   job: DriverPayLedgerState;
   bookingPayAmount?: string;
@@ -648,16 +659,15 @@ export function driverPayShownForLeg(input: {
   if (legHasOwnDriverPayLedger(input.job)) {
     return driverPayAmountLabel(input.job);
   }
-  if (
-    !legMayUseBookingPayFallback({
-      hasOwnLedgerAmount: false,
-      linkedJourneyCount: input.linkedJourneyCount,
-      journeyLeg: input.journeyLeg,
-      pairedToken: input.pairedToken,
-    })
-  ) {
-    return undefined;
-  }
+  const singleJourney = legMayUseBookingPayFallback({
+    hasOwnLedgerAmount: false,
+    linkedJourneyCount: input.linkedJourneyCount,
+    journeyLeg: input.journeyLeg,
+    pairedToken: input.pairedToken,
+  });
+  if (!singleJourney) return undefined;
+  const legacy = normalizedLegacyDriverPayAmount(input.job);
+  if (legacy) return legacy;
   const booking = input.bookingPayAmount?.trim();
   return booking || undefined;
 }
