@@ -76,6 +76,15 @@ export async function getBookingJob(
   return job && typeof job === "object" ? job : null;
 }
 
+export async function deleteDriverAcceptToken(
+  store: KVNamespace,
+  token: string | undefined | null,
+): Promise<void> {
+  const trimmed = token?.trim() ?? "";
+  if (!trimmed) return;
+  await store.delete(driverAcceptKey(trimmed));
+}
+
 export async function getBookingJobByAcceptToken(
   store: KVNamespace,
   token: string,

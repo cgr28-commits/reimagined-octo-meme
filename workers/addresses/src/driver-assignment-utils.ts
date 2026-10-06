@@ -1,73 +1,37 @@
-import {
-  driverCanOperateJob,
-  jobAssignmentStatus,
-  jobVisibleToDriver,
-  type TrackingJobRecord,
-} from "../shared/tracking";
-import { resolveDriverSession } from "./driver-auth";
+import { authorizeDriverJobAction, jobVisibleToPortalDriver } from "../shared/driver-portal-access";
+import type { TrackingJobRecord } from "../shared/tracking";
+import type { DriverSession } from "./driver-auth";
 
 export function filterJobsForSession(
   jobs: TrackingJobRecord[],
-  session: ReturnType<typeof resolveDriverSession>,
+  session: DriverSession,
 ): TrackingJobRecord[] {
   if (!session.authorized || session.role === "owner") {
     return jobs;
   }
 
-  if (!session.driverName) {
+  if (!session.driverName && !session.profileKey) {
     return [];
   }
 
-  return jobs.filter((job) => jobVisibleToDriver(job, session.driverName!));
+  return jobs.filter((job) =>
+    jobVisibleToPortalDriver(job, {
+      driverName: session.driverName,
+      profileKey: session.profileKey,
+    }),
+  );
 }
 
 export function assertDriverCanOperateJob(
   record: TrackingJobRecord,
-  session: ReturnType<typeof resolveDriverSession>,
+  session: DriverSession,
 ): string | null {
-  if (!session.authorized) {
-    return "Unauthorized";
-  }
-
-  if (session.role === "owner") {
-    return null;
-  }
-
-  if (!session.driverName) {
-    return "Driver identity is not configured";
-  }
-
-  if (!driverCanOperateJob(record, session.driverName)) {
-    const status = jobAssignmentStatus(record);
-    if (status === "pending") {
-      return "Accept this job on your dashboard before starting live tracking";
-    }
-
-    return "This job is not assigned to you";
-  }
-
-  return null;
+  return authorizeDriverJobAction(session, record, null, "operate");
 }
 
 export function assertDriverCanViewJob(
   record: TrackingJobRecord,
-  session: ReturnType<typeof resolveDriverSession>,
+  session: DriverSession,
 ): string | null {
-  if (!session.authorized) {
-    return "Unauthorized";
-  }
-
-  if (session.role === "owner") {
-    return null;
-  }
-
-  if (!session.driverName) {
-    return "Driver identity is not configured";
-  }
-
-  if (!jobVisibleToDriver(record, session.driverName)) {
-    return "This job is not assigned to you";
-  }
-
-  return null;
+  return authorizeDriverJobAction(session, record, null, "view");
 }

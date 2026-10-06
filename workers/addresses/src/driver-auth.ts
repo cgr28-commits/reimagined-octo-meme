@@ -21,7 +21,13 @@ export type DashboardRole = "owner" | "driver";
 
 export type DriverSession =
   | { authorized: false }
-  | { authorized: true; role: DashboardRole; driverName?: string };
+  | {
+      authorized: true;
+      role: DashboardRole;
+      driverName?: string;
+      /** Set for a saved-driver portal session. Absent for the shared driver key. */
+      profileKey?: string;
+    };
 
 function normalizeKey(value: string): string {
   return value.replace(/^\uFEFF/, "").trim();
@@ -106,6 +112,10 @@ export function driverAuthorized(request: Request, env: DriverAuthEnv): boolean 
 }
 
 export function ownerAuthorized(request: Request, env: DriverAuthEnv): boolean {
+  // A presented driver-portal session must not fall through to the owner key.
+  if (request.headers.get("X-Driver-Session")?.trim()) {
+    return false;
+  }
   const session = resolveDriverSession(request, env);
   if (session.authorized && session.role === "owner") {
     return true;

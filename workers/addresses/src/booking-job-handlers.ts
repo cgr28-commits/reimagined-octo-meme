@@ -4,18 +4,23 @@ import {
   type BookingJobKind,
   type BookingJobRecord,
 } from "../shared/booking-job";
+import { driverPortalMagicLink } from "../shared/driver-portal-access";
+import { driverProfileComplete } from "../shared/driver-vehicle";
 import { corsHeaders } from "../shared/google-places";
 import { sanitizeAdsAttribution } from "../shared/ads-attribution";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { logBookingsToGoogleCalendar } from "./google-calendar";
 import {
   bookingJobStoreConfigured,
+  deleteDriverAcceptToken,
   generateDriverAcceptToken,
   getBookingJob,
   getBookingJobByAcceptToken,
   listBookingJobsForDateRange,
   saveBookingJob,
 } from "./booking-job-store";
+import { createDriverPortalLink } from "./driver-portal-session";
+import { findSavedDriverProfileByEmail, getDriverVehicleProfile } from "./driver-vehicle-store";
 import {
   createTrackingJobFromBooking,
   findTrackingJobsByPaymentReference,
@@ -48,10 +53,27 @@ async function syncTrackingAssignmentFromBooking(
       delete tracking.assignedAt;
       delete tracking.acceptedAt;
       delete tracking.declinedAt;
+      delete tracking.assignedDriverProfileKey;
+      delete tracking.assignedDriverMobile;
+      delete tracking.assignedDriverEmail;
+      delete tracking.assignedDriverCarMake;
+      delete tracking.assignedDriverCarModel;
+      delete tracking.assignedDriverCarColour;
+      delete tracking.assignedDriverReg;
+      delete tracking.driverPayAmount;
     } else {
       tracking.assignedDriverName = job.driverFirstName?.trim() || tracking.assignedDriverName;
       tracking.assignmentStatus = status;
       tracking.assignedAt = job.assignedAt || tracking.assignedAt || new Date().toISOString();
+      if (job.driverProfileKey?.trim()) tracking.assignedDriverProfileKey = job.driverProfileKey.trim();
+      else delete tracking.assignedDriverProfileKey;
+      if (job.driverMobile?.trim()) tracking.assignedDriverMobile = job.driverMobile.trim();
+      if (job.driverEmail?.trim()) tracking.assignedDriverEmail = job.driverEmail.trim();
+      if (job.driverCarMake?.trim()) tracking.assignedDriverCarMake = job.driverCarMake.trim();
+      if (job.driverCarModel?.trim()) tracking.assignedDriverCarModel = job.driverCarModel.trim();
+      if (job.driverCarColour?.trim()) tracking.assignedDriverCarColour = job.driverCarColour.trim();
+      if (job.driverReg?.trim()) tracking.assignedDriverReg = job.driverReg.trim();
+      if (job.driverPayAmount?.trim()) tracking.driverPayAmount = job.driverPayAmount.trim();
       if (status === "accepted") {
         tracking.acceptedAt = job.driverAcceptedAt || new Date().toISOString();
         delete tracking.declinedAt;
@@ -379,6 +401,7 @@ export async function handleBookingJobAssignDriverRequest(
   const driverCarColour = String(body.driverCarColour ?? "").trim();
   const driverReg = String(body.driverReg ?? "").trim().toUpperCase();
   const driverPayAmount = String(body.driverPayAmount ?? "").trim();
+  const requestedProfileKey = String(body.driverProfileKey ?? body.profileKey ?? "").trim();
 
   if (!id || !driverFirstName || !driverEmail || !driverPayAmount) {
     return jsonResponse(
@@ -410,6 +433,17 @@ export async function handleBookingJobAssignDriverRequest(
   }
 
   const acceptToken = generateDriverAcceptToken();
+  if (job.driverAcceptToken && job.driverAcceptToken !== acceptToken) {
+    await deleteDriverAcceptToken(env.TRACKING_STORE, job.driverAcceptToken);
+  }
+  const profileByKey = requestedProfileKey
+    ? await getDriverVehicleProfile(env.TRACKING_STORE, requestedProfileKey)
+    : null;
+  const profile =
+    profileByKey && driverProfileComplete(profileByKey)
+      ? profileByKey
+      : await findSavedDriverProfileByEmail(env.TRACKING_STORE, driverEmail);
+  const savedProfile = profile && driverProfileComplete(profile) ? profile : null;
   const updated: BookingJobRecord = {
     ...job,
     driverFirstName,
@@ -420,6 +454,7 @@ export async function handleBookingJobAssignDriverRequest(
     driverCarColour: driverCarColour || undefined,
     driverReg: driverReg || undefined,
     driverPayAmount,
+    driverProfileKey: savedProfile?.profileKey,
     driverAssignmentStatus: "pending",
     driverAcceptToken: acceptToken,
     assignedAt: new Date().toISOString(),
@@ -431,10 +466,19 @@ export async function handleBookingJobAssignDriverRequest(
   await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);
 
   const acceptUrl = `${siteUrl(env).replace(/\/$/, "")}/driver-accept/?token=${encodeURIComponent(acceptToken)}`;
+  let portalUrl: string | undefined;
+  if (savedProfile) {
+    const accessToken = await createDriverPortalLink(env.TRACKING_STORE, {
+      profileKey: savedProfile.profileKey,
+      driverName: savedProfile.displayName || driverFirstName,
+    });
+    portalUrl = driverPortalMagicLink(siteUrl(env), accessToken);
+  }
   const email = buildDriverAssignmentEmail({
     job: updated,
     acceptUrl,
     businessName: BUSINESS_NAME,
+    ...(portalUrl ? { portalUrl } : {}),
   });
 
   const sendResult = await trySendEmail(env, {
@@ -558,12 +602,32 @@ export async function handleDriverAcceptConfirmRequest(
     return jsonResponse({ error: "Job not found or link expired" }, 404, origin);
   }
 
+  const profile = job.driverProfileKey
+    ? await getDriverVehicleProfile(env.TRACKING_STORE, job.driverProfileKey)
+    : job.driverEmail
+      ? await findSavedDriverProfileByEmail(env.TRACKING_STORE, job.driverEmail)
+      : null;
+  const savedProfile = profile && driverProfileComplete(profile) ? profile : null;
+  let portalUrl: string | undefined;
+  if (savedProfile && action !== "decline") {
+    const accessToken = await createDriverPortalLink(env.TRACKING_STORE, {
+      profileKey: savedProfile.profileKey,
+      driverName: savedProfile.displayName || job.driverFirstName || "Driver",
+    });
+    portalUrl = driverPortalMagicLink(siteUrl(env), accessToken);
+  }
+
   if (job.driverAssignmentStatus === "accepted") {
-    return jsonResponse({ ok: true, job, alreadyAccepted: true }, 200, origin);
+    return jsonResponse(
+      { ok: true, job, alreadyAccepted: true, ...(portalUrl ? { portalUrl } : {}) },
+      200,
+      origin,
+    );
   }
 
   const updated: BookingJobRecord = {
     ...job,
+    driverProfileKey: savedProfile?.profileKey || job.driverProfileKey,
     driverAssignmentStatus: action === "decline" ? "declined" : "accepted",
     driverAcceptedAt: action === "decline" ? undefined : new Date().toISOString(),
     driverDeclinedAt: action === "decline" ? new Date().toISOString() : undefined,
@@ -571,5 +635,9 @@ export async function handleDriverAcceptConfirmRequest(
   await saveBookingJob(env.TRACKING_STORE, updated);
   await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);
 
-  return jsonResponse({ ok: true, job: updated }, 200, origin);
+  return jsonResponse(
+    { ok: true, job: updated, ...(portalUrl ? { portalUrl } : {}) },
+    200,
+    origin,
+  );
 }

@@ -13,6 +13,7 @@ export default function DriverAcceptClient() {
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [done, setDone] = useState(false);
+  const [portalUrl, setPortalUrl] = useState("");
 
   useEffect(() => {
     const value = new URLSearchParams(window.location.search).get("token")?.trim() || "";
@@ -24,10 +25,12 @@ export default function DriverAcceptClient() {
     }
 
     void lookupDriverAcceptJob(value)
-      .then((next) => {
+      .then(async (next) => {
         setJob(next);
         if (next.driverAssignmentStatus === "accepted") {
           setDone(true);
+          const result = await confirmDriverAcceptJob(value, "accept");
+          if (result.portalUrl) setPortalUrl(result.portalUrl);
         }
       })
       .catch((err) => {
@@ -41,7 +44,8 @@ export default function DriverAcceptClient() {
     setConfirming(true);
     setError("");
     try {
-      await confirmDriverAcceptJob(token, "accept");
+      const result = await confirmDriverAcceptJob(token, "accept");
+      if (result.portalUrl) setPortalUrl(result.portalUrl);
       setDone(true);
       setJob((prev) => (prev ? { ...prev, driverAssignmentStatus: "accepted" } : prev));
     } catch (err) {
@@ -93,9 +97,23 @@ export default function DriverAcceptClient() {
             </div>
 
             {done ? (
-              <p className="rounded-xl border border-emerald/35 bg-emerald/10 px-4 py-3 font-semibold text-emerald">
-                Thanks — this job is confirmed on the owner dashboard.
-              </p>
+              <div className="space-y-3">
+                <p className="rounded-xl border border-emerald/35 bg-emerald/10 px-4 py-3 font-semibold text-emerald">
+                  Thanks — this job is confirmed. Open My Jobs to see the customer’s mobile and update the journey.
+                </p>
+                {portalUrl ? (
+                  <a
+                    href={portalUrl}
+                    className="block w-full rounded-xl bg-emerald px-4 py-3 text-center text-sm font-bold text-navy"
+                  >
+                    Open My Jobs
+                  </a>
+                ) : (
+                  <p className="text-sm text-white/60">
+                    Use the My Jobs link in your assignment email if this page does not open it.
+                  </p>
+                )}
+              </div>
             ) : (
               <button
                 type="button"

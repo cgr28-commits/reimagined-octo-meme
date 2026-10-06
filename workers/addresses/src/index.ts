@@ -283,6 +283,7 @@ import {
   handleDriverAssignmentResponseRequest,
   handleDriverRosterRequest,
 } from "./driver-assignment-handlers";
+import { handleDriverPortalExchangeRequest } from "./driver-portal-handlers";
 import {
   handleDriverVehicleGetRequest,
   handleDriverVehicleProfilesRequest,
@@ -583,9 +584,27 @@ function json(body: unknown, status: number, origin: string | null): Response {
 
 function parseDriverRoute(
   pathname: string,
-): "jobs" | "sharing" | "location" | "location-history" | "bookings-update" | "status" | "assign" | "deassign" | "assignment-response" | "roster" | "vehicle" | "vehicle-profiles" | null {
+):
+  | "jobs"
+  | "sharing"
+  | "location"
+  | "location-history"
+  | "bookings-update"
+  | "status"
+  | "assign"
+  | "deassign"
+  | "assignment-response"
+  | "roster"
+  | "vehicle"
+  | "vehicle-profiles"
+  | "portal-exchange"
+  | null {
   if (pathname === "/driver/jobs" || pathname === "/api/driver/jobs") {
     return "jobs";
+  }
+
+  if (pathname === "/driver/portal/exchange" || pathname === "/api/driver/portal/exchange") {
+    return "portal-exchange";
   }
 
   if (pathname === "/driver/status" || pathname === "/api/driver/status") {
@@ -3920,6 +3939,10 @@ export default {
     }
 
     const driverRoute = parseDriverRoute(url.pathname);
+    if (driverRoute === "portal-exchange" && request.method === "POST") {
+      return handleDriverPortalExchangeRequest(request, env, origin);
+    }
+
     if (driverRoute === "jobs" && request.method === "GET") {
       return handleDriverJobsRequest(request, env, origin);
     }

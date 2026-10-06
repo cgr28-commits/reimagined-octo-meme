@@ -2,8 +2,9 @@ import {
   buildDriverAssignmentEmail,
   type BookingJobRecord,
 } from "../shared/booking-job";
+import { authorizeDriverJobAction, driverPortalMagicLink } from "../shared/driver-portal-access";
+import { driverProfileComplete, type DriverVehicleProfile } from "../shared/driver-vehicle";
 import {
-  driverNamesMatch,
   jobAssignmentStatus,
   type JobAssignmentStatus,
   type TrackingJobRecord,
@@ -13,12 +14,14 @@ import {
   isConfiguredDriver,
   listConfiguredDrivers,
   ownerAuthorized,
-  resolveDriverSession,
   type DashboardRole,
   type DriverAuthEnv,
 } from "./driver-auth";
+import { createDriverPortalLink, resolveAuthorizedSession } from "./driver-portal-session";
+import { findSavedDriverProfileByEmail, getDriverVehicleProfile } from "./driver-vehicle-store";
 import { corsHeaders } from "../shared/google-places";
 import {
+  deleteDriverAcceptToken,
   generateDriverAcceptToken,
   getBookingJob,
   saveBookingJob,
@@ -77,8 +80,62 @@ function clearJobAssignment(record: TrackingJobRecord): void {
   delete record.assignedDriverCarModel;
   delete record.assignedDriverCarColour;
   delete record.assignedDriverReg;
+  delete record.assignedDriverProfileKey;
   delete record.driverPayAmount;
   stopDriverSharing(record);
+}
+
+async function resolveAssignmentProfile(
+  store: KVNamespace,
+  profileKey: string,
+  email: string,
+): Promise<DriverVehicleProfile | null> {
+  if (profileKey) {
+    const byKey = await getDriverVehicleProfile(store, profileKey);
+    if (byKey && driverProfileComplete(byKey)) {
+      return byKey;
+    }
+  }
+  if (email) {
+    const byEmail = await findSavedDriverProfileByEmail(store, email);
+    if (byEmail && driverProfileComplete(byEmail)) {
+      return byEmail;
+    }
+  }
+  return null;
+}
+
+async function clearLinkedBookingAssignment(
+  store: KVNamespace,
+  record: TrackingJobRecord,
+): Promise<void> {
+  const ids = [record.paymentReference?.trim(), `track-${record.token}`].filter(
+    (id): id is string => Boolean(id),
+  );
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const job = await getBookingJob(store, id);
+    if (!job) continue;
+    await deleteDriverAcceptToken(store, job.driverAcceptToken);
+    await saveBookingJob(store, {
+      ...job,
+      driverAssignmentStatus: "unassigned",
+      driverAcceptToken: undefined,
+      driverProfileKey: undefined,
+      driverFirstName: undefined,
+      driverEmail: undefined,
+      driverMobile: undefined,
+      driverCarMake: undefined,
+      driverCarModel: undefined,
+      driverCarColour: undefined,
+      driverReg: undefined,
+      driverPayAmount: undefined,
+      driverAcceptedAt: undefined,
+      driverDeclinedAt: undefined,
+    });
+  }
 }
 
 function assignmentFields(record: TrackingJobRecord) {
@@ -170,6 +227,7 @@ export async function handleDriverAssignRequest(
   const driverCarColour = String(body.driverCarColour ?? "").trim();
   const driverReg = String(body.driverReg ?? "").trim().toUpperCase();
   const driverPayAmount = String(body.driverPayAmount ?? "").trim();
+  const requestedProfileKey = String(body.driverProfileKey ?? body.profileKey ?? "").trim();
   const emailAssign = Boolean(driverEmail || driverPayAmount);
 
   if (!token || !driverFirstName) {
@@ -235,6 +293,13 @@ export async function handleDriverAssignRequest(
   else delete record.assignedDriverReg;
   if (driverPayAmount) record.driverPayAmount = driverPayAmount;
   else delete record.driverPayAmount;
+  const assignedProfile = await resolveAssignmentProfile(
+    env.TRACKING_STORE,
+    requestedProfileKey,
+    driverEmail,
+  );
+  if (assignedProfile) record.assignedDriverProfileKey = assignedProfile.profileKey;
+  else delete record.assignedDriverProfileKey;
   stopDriverSharing(record);
 
   await saveTrackingJob(env.TRACKING_STORE, record);
@@ -267,6 +332,9 @@ export async function handleDriverAssignRequest(
     }
 
     const acceptToken = generateDriverAcceptToken();
+    if (bookingJob.driverAcceptToken && bookingJob.driverAcceptToken !== acceptToken) {
+      await deleteDriverAcceptToken(env.TRACKING_STORE, bookingJob.driverAcceptToken);
+    }
     const updatedBooking: BookingJobRecord = {
       ...bookingJob,
       driverFirstName,
@@ -277,6 +345,7 @@ export async function handleDriverAssignRequest(
       driverCarColour: driverCarColour || undefined,
       driverReg: driverReg || undefined,
       driverPayAmount,
+      driverProfileKey: assignedProfile?.profileKey,
       driverAssignmentStatus: "pending",
       driverAcceptToken: acceptToken,
       assignedAt: now,
@@ -287,6 +356,14 @@ export async function handleDriverAssignRequest(
     await saveBookingJob(env.TRACKING_STORE, updatedBooking);
 
     acceptUrl = `${siteUrl(env).replace(/\/$/, "")}/driver-accept/?token=${encodeURIComponent(acceptToken)}`;
+    let portalUrl: string | undefined;
+    if (assignedProfile) {
+      const accessToken = await createDriverPortalLink(env.TRACKING_STORE, {
+        profileKey: assignedProfile.profileKey,
+        driverName: assignedProfile.displayName || driverFirstName,
+      });
+      portalUrl = driverPortalMagicLink(siteUrl(env), accessToken);
+    }
     const paidRecord =
       paidBookingStoreConfigured(env.TRACKING_STORE) && record.paymentReference
         ? await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference)
@@ -297,6 +374,7 @@ export async function handleDriverAssignRequest(
       acceptUrl,
       businessName: BUSINESS_NAME,
       ...(cashDue > 0 ? { cashBalanceDue: cashDue } : {}),
+      ...(portalUrl ? { portalUrl } : {}),
     });
 
     const sendResult = await trySendEmail(env, {
@@ -398,6 +476,7 @@ export async function handleDriverDeassignRequest(
     return jsonResponse({ error: "This job is not assigned to a driver" }, 409, origin);
   }
 
+  await clearLinkedBookingAssignment(env.TRACKING_STORE, record);
   clearJobAssignment(record);
   await saveTrackingJob(env.TRACKING_STORE, record);
 
@@ -423,8 +502,8 @@ export async function handleDriverAssignmentResponseRequest(
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
 
-  const session = resolveDriverSession(request, env);
-  if (!session.authorized || session.role !== "driver" || !session.driverName) {
+  const session = await resolveAuthorizedSession(request, env);
+  if (!session.authorized || session.role !== "driver" || (!session.driverName && !session.profileKey)) {
     return jsonResponse({ error: "Unauthorized — driver access required" }, 401, origin);
   }
 
@@ -455,8 +534,9 @@ export async function handleDriverAssignmentResponseRequest(
     return jsonResponse({ error: "This job is not awaiting your response" }, 409, origin);
   }
 
-  if (!driverNamesMatch(record.assignedDriverName, session.driverName)) {
-    return jsonResponse({ error: "This job is not assigned to you" }, 403, origin);
+  const accessError = authorizeDriverJobAction(session, record, body, "view");
+  if (accessError) {
+    return jsonResponse({ error: accessError }, 403, origin);
   }
 
   const now = new Date().toISOString();

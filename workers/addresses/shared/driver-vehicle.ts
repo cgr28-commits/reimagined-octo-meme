@@ -80,7 +80,7 @@ export function buildDriverProfileConfirmationEmail(
     (profile.mobile?.trim() ? `Mobile: ${profile.mobile.trim()}\n` : "") +
     `Vehicle: ${profile.colour.trim()} ${profile.make.trim()} ${profile.model.trim()}\n` +
     `Registration: ${profile.registration.trim().toUpperCase()}\n\n` +
-    `You do not need a login or access key. When you are assigned a job, we will email you the trip details and your pay for that journey.\n\n` +
+    `You do not need a password. When you are assigned a job, we email you a private link to accept it and open My Jobs. That page shows only your journeys.\n\n` +
     `${businessName}`;
 
   const html = `<!DOCTYPE html>
@@ -104,7 +104,7 @@ export function buildDriverProfileConfirmationEmail(
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Your driver profile for ${escapeHtml(businessName)} has been saved with the details below.</p>
-              <p style="margin:0 0 16px;">You do not need a login or access key. When you are assigned a job, we will email you the trip details and your pay for that journey.</p>
+              <p style="margin:0 0 16px;">You do not need a password. When you are assigned a job, we email you a private link to accept it and open My Jobs. That page shows only your journeys.</p>
             </td>
           </tr>
           <tr>
