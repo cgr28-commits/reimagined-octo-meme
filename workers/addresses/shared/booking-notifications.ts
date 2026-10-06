@@ -11,7 +11,7 @@ import {
 } from "./business-email";
 import { contactVCardPublicUrl, resolveGoogleReviewUrl } from "./business-links";
 import { vehicleServiceLabel } from "./booking-notice";
-import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL } from "./uk-time";
+import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL, UK_TIME_ZONE } from "./uk-time";
 import {
   formatEmailFareIncludesBlock,
   formatEmailFareIncludesHtml,
@@ -39,7 +39,6 @@ import {
 import {
   CANCELLATION_POLICY_PATH,
   CONFIRMATION_EMAIL_CANCELLATION_POLICY,
-  UNDER_24H_CANCEL_CUSTOMER_NOTICE,
 } from "./cancellation-policy";
 import {
   AIRPORT_PICKUP_HEADING,
@@ -1437,6 +1436,122 @@ function buildCustomerRefundDetailsBlock(details: CancellationEmailDetails): {
   return { text, html };
 }
 
+const CUSTOMER_CANCELLATION_OPENING = "Your booking has been successfully cancelled.";
+
+const NON_REFUNDABLE_WITHIN_24H_PAYMENT =
+  "As the cancellation was made within 24 hours of your scheduled pickup time, the fare is non-refundable under our cancellation policy.";
+
+const CUSTOMER_STATUTORY_RIGHTS_LINE = "Your statutory rights are not affected.";
+
+/** Customer cancellation emails only. Stored pickup date/time stay UK wall-clock. */
+function formatCustomerFacingCancellationWhen(tripDate: string, tripTime: string): string {
+  const iso = String(tripDate || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const clock = String(tripTime || "").trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!iso || !clock) return formatTripDateTime(tripDate, tripTime);
+  const formattedDate = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]), 12)));
+  const hours = Number(clock[1]);
+  const minutes = clock[2];
+  const suffix = hours >= 12 ? "pm" : "am";
+  const hour12 = hours % 12 || 12;
+  return `${formattedDate} · ${hour12}:${minutes}${suffix}`;
+}
+
+function customerCancellationClosing(businessName: string): string {
+  return `Thank you for choosing ${businessName}. We hope we can welcome you on another journey in the future.`;
+}
+
+function buildCustomerCancellationConfirmation(input: {
+  details: CancellationEmailDetails;
+  businessName: string;
+  paymentParagraphs: string[];
+  statutoryRights: boolean;
+}): { text: string; html: string } {
+  const { details, businessName } = input;
+  const when = formatCustomerFacingCancellationWhen(details.tripDate, details.tripTime);
+  const ref = details.paymentReference;
+  const closing = customerCancellationClosing(businessName);
+  const route = [details.pickupLabel, details.dropoffLabel].filter(Boolean).join(" → ");
+  const paymentText = input.paymentParagraphs.join("\n\n");
+  const text =
+    `Hi ${details.customerName},\n\n` +
+    `${CUSTOMER_CANCELLATION_OPENING}\n\n` +
+    `${details.tripLabel}\n` +
+    (when ? `${when}\n` : "") +
+    (route ? `${route}\n` : "") +
+    `\nBooking reference\n${ref}\n\n` +
+    `About your payment\n\n${paymentText}\n\n` +
+    (input.statutoryRights ? `${CUSTOMER_STATUTORY_RIGHTS_LINE}\n\n` : "") +
+    `${closing}\n\n` +
+    `${businessName}\n${BUSINESS_WEBSITE}`;
+
+  const paymentHtml = input.paymentParagraphs
+    .map(
+      (paragraph) =>
+        `<p style="margin:0 0 12px;font-size:16px;line-height:1.5;color:#334155;">${escapeHtml(paragraph)}</p>`,
+    )
+    .join("");
+  const statutoryHtml = input.statutoryRights
+    ? `<p style="margin:4px 0 0;font-size:12px;line-height:1.45;color:#64748b;">${escapeHtml(CUSTOMER_STATUTORY_RIGHTS_LINE)}</p>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
+<title>Cancellation confirmed — ${escapeHtml(businessName)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;">
+<tr><td style="background:${NAVY};padding:28px 24px 26px;text-align:center;">
+<img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="64" style="display:block;margin:0 auto;height:64px;width:auto;max-width:100%;border:0;" />
+<div style="margin-top:18px;font-size:12px;line-height:1.3;letter-spacing:0.14em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Cancellation confirmed</div>
+<div style="margin-top:8px;font-size:26px;line-height:1.25;color:#ffffff;font-weight:bold;">Booking cancelled</div>
+<div style="margin-top:10px;font-size:13px;line-height:1.4;color:#c9d4e0;">Booking reference: ${escapeHtml(ref)}</div>
+</td></tr>
+<tr><td style="padding:28px 22px 8px;font-size:16px;line-height:1.5;color:#334155;">
+<p style="margin:0 0 18px;">Hi ${escapeHtml(details.customerName)},</p>
+<p style="margin:0 0 18px;">${escapeHtml(CUSTOMER_CANCELLATION_OPENING)}</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+<tr><td style="padding:18px 18px 16px;">
+<div style="font-size:17px;line-height:1.35;font-weight:bold;color:${NAVY};">${escapeHtml(details.tripLabel)}</div>
+${when ? `<div style="margin-top:6px;font-size:16px;line-height:1.45;color:#334155;">${escapeHtml(when)}</div>` : ""}
+${route ? `<div style="margin-top:8px;font-size:14px;line-height:1.45;color:#64748b;">${escapeHtml(route)}</div>` : ""}
+<div style="margin-top:16px;font-size:12px;line-height:1.3;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">Booking reference</div>
+<div style="margin-top:3px;font-size:15px;line-height:1.4;color:${NAVY};">${escapeHtml(ref)}</div>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 8px;background:#f7f8fa;border:1px solid #e6ebf0;border-radius:12px;">
+<tr><td style="padding:18px 18px 16px;">
+<div style="margin:0 0 10px;font-size:15px;line-height:1.35;font-weight:bold;color:${NAVY};">About your payment</div>
+${paymentHtml}
+${statutoryHtml}
+</td></tr>
+</table>
+</td></tr>
+<tr><td style="padding:8px 22px 28px;font-size:16px;line-height:1.5;color:#334155;">
+<p style="margin:0;">${escapeHtml(closing)}</p>
+</td></tr>
+<tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 22px;font-size:13px;line-height:1.5;color:#64748b;">
+<strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
+<a href="${BUSINESS_WEBSITE}" style="color:${NAVY};text-decoration:none;">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+
+  return { text, html };
+}
+
 /**
  * Choose the correct customer + owner email for a refund/cancellation outcome.
  * Never returns a customer “refund completed” template when refundAmountValue is 0
@@ -1521,31 +1636,14 @@ export function buildCustomerCancellationEmails(
   // Cancel within 24h, no refund
   if (details.cancelBooking && details.refundAmountValue <= 0 && details.within24h) {
     const subject = `Booking Cancellation Confirmed – ${ref}`;
-    const text =
-      `Hi ${details.customerName},\n\n` +
-      `Your booking ${ref} has been cancelled.\n\n` +
-      `Customer: ${details.customerName}\n` +
-      `Booking reference: ${ref}\n` +
-      `Trip: ${details.tripLabel}\n` +
-      (when ? `When: ${when}\n` : "") +
-      `Pickup: ${details.pickupLabel}\n` +
-      `Drop-off: ${details.dropoffLabel}\n\n` +
-      `${UNDER_24H_CANCEL_CUSTOMER_NOTICE}\n\n` +
-      `If you believe a refund is appropriate in your circumstances, please contact us.\n\n` +
-      `Your statutory rights are not affected.\n\n` +
-      `${businessName}\n${BUSINESS_WEBSITE}`;
-    const html = buildSimpleBrandedEmailHtml({
-      title: "Cancellation confirmed",
-      headline: `Booking cancelled — ${escapeHtml(ref)}`,
-      bodyHtml:
-        `<p>Your booking has been cancelled.</p>` +
-        `<p>${escapeHtml(details.tripLabel)}${when ? `<br/>${escapeHtml(when)}` : ""}</p>` +
-        `<p>${UNDER_24H_CANCEL_CUSTOMER_NOTICE}</p>` +
-        `<p>Your statutory rights are not affected. Contact us if you believe a refund is appropriate.</p>`,
+    const confirmation = buildCustomerCancellationConfirmation({
+      details,
       businessName,
+      statutoryRights: true,
+      paymentParagraphs: [NON_REFUNDABLE_WITHIN_24H_PAYMENT],
     });
     return {
-      customer: { subject, text, html },
+      customer: { subject, text: confirmation.text, html: confirmation.html },
       owner: buildOwnerCancellationEmail(
         details,
         `Cancellation (<24h, no refund) — ${details.customerName} — ${ref}`,
@@ -1562,28 +1660,18 @@ export function buildCustomerCancellationEmails(
     (details.remainingPaid.replace(/[^\d.]/g, "") === "0" ||
       details.originalAmountValue - details.refundAmountValue < 0.01)
   ) {
-    const { intentText, intentHtml, refundType } = buildCustomerRefundIntentCopy(details);
-    const detailsBlock = buildCustomerRefundDetailsBlock(details);
     const subject = `Cancellation & Refund – ${ref}`;
-    const text =
-      `Hi ${details.customerName},\n\n` +
-      `${intentText}\n\n` +
-      `Your cancellation was received at least 24 hours before pickup.\n\n` +
-      `${detailsBlock.text}\n` +
-      `We'd be glad to welcome you again — book anytime at ${BUSINESS_WEBSITE}.\n\n` +
-      `${businessName}\n${BUSINESS_WEBSITE}`;
-    const html = buildSimpleBrandedEmailHtml({
-      title: refundType,
-      headline: `Booking cancelled — full refund`,
-      bodyHtml:
-        intentHtml +
-        `<p>Your cancellation was received at least 24 hours before pickup.</p>` +
-        detailsBlock.html +
-        `<p>We'd love to welcome you again soon.</p>`,
+    const confirmation = buildCustomerCancellationConfirmation({
+      details,
       businessName,
+      statutoryRights: false,
+      paymentParagraphs: [
+        `A refund of ${details.refundAmount} has been issued to your original payment method. ${REFUND_FUNDS_TIMING}`,
+        "Your cancellation was received at least 24 hours before pickup.",
+      ],
     });
     return {
-      customer: { subject, text, html },
+      customer: { subject, text: confirmation.text, html: confirmation.html },
       owner: buildOwnerCancellationEmail(
         details,
         `Cancellation & refund — ${details.customerName} — ${details.refundAmount}`,

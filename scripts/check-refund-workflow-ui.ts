@@ -264,7 +264,7 @@ console.log("=== Customer email wording ===");
     within24h: false,
   });
   assert.ok(cancelled.customer);
-  assert.match(cancelled.customer!.text, /booking has been cancelled/i);
+  assert.match(cancelled.customer!.text, /booking has been successfully cancelled/i);
   assert.match(cancelled.customer!.text, /refund of £1\.00/i);
   assert.ok(cancelled.customer!.text.includes(REFUND_FUNDS_TIMING));
   assert.doesNotMatch(cancelled.customer!.text, /remains booked as scheduled/);
