@@ -17,6 +17,7 @@ import {
 } from "../shared/driver-vehicle";
 import {
   applyDriverPayAssignment,
+  bookingLevelDriverAssignDecision,
   driverPayBlocksReassignment,
   mutateDriverPayFields,
   oweDriverPayOnCompletion,
@@ -46,6 +47,7 @@ import {
   isTrackingJobCancelled,
   saveTrackingJob,
 } from "./tracking-store";
+import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
 async function trackingJobsForBooking(
@@ -155,6 +157,7 @@ async function syncTrackingAssignmentFromBooking(
     }
 
     await saveTrackingJob(store, tracking);
+    await syncDurableDriverPayFromTracking(store, tracking);
   }
   return { ok: true };
 }
@@ -494,6 +497,10 @@ export async function handleBookingJobAssignDriverRequest(
   }
 
   const linkedBeforeAssign = await trackingJobsForBooking(env.TRACKING_STORE, job);
+  const bookingAssignDecision = bookingLevelDriverAssignDecision(linkedBeforeAssign.length);
+  if (!bookingAssignDecision.ok) {
+    return jsonResponse({ error: bookingAssignDecision.error }, 409, origin);
+  }
   for (const tracking of linkedBeforeAssign) {
     const blocked = driverPayBlocksReassignment(tracking);
     if (blocked) {

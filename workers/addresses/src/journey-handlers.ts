@@ -26,6 +26,7 @@ import {
 } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
 import { oweDriverPayOnCompletion, mutateDriverPayFields } from "../shared/driver-pay-ledger";
+import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { authorizeDriverJobAction, sequentialDriverJourneyActions } from "../shared/driver-portal-access";
 import {
   ownerAuthorized,
@@ -436,6 +437,7 @@ export async function handleJourneyTransitionRequest(
       mutateDriverPayFields(record, owed.job);
       await saveTrackingJob(env.TRACKING_STORE, record);
     }
+    await syncDurableDriverPayFromTracking(env.TRACKING_STORE, record);
     const tip = await tipPayloadForCompletedJob(record);
     return jsonResponse(
       {
@@ -523,6 +525,9 @@ export async function handleJourneyTransitionRequest(
   }
 
   await saveTrackingJob(env.TRACKING_STORE, next);
+  if (action === "complete_journey") {
+    await syncDurableDriverPayFromTracking(env.TRACKING_STORE, next);
+  }
 
   let trackingSession: { sessionToken: string; expiresAt: string } | undefined;
   if (next.sharingActive) {

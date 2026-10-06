@@ -7,21 +7,21 @@ import { corsHeaders } from "../shared/google-places";
 import {
   correctDriverPayToUnpaid,
   driverPayAmountLabel,
+  durableRecordToSummaryJob,
   mutateDriverPayFields,
   recordDriverAsPaid,
   summariseDriverPay,
   type DriverPayPeriod,
-  type DriverPaySummaryJob,
 } from "../shared/driver-pay-ledger";
 import { journeyStatusOf, type TrackingJobRecord } from "../shared/tracking";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { enrichDriverJob } from "./driver-booking-handlers";
+import { listDurableDriverPay } from "./driver-pay-store";
+import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import {
   getTrackingJob,
   isTrackingJobCancelled,
-  listTrackingJobsForRecentDays,
-  listUpcomingTrackingJobs,
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
@@ -72,13 +72,6 @@ async function journeyCancelled(store: KVNamespace, job: TrackingJobRecord): Pro
   return paid?.status === "cancelled" || paid?.status === "refunded";
 }
 
-async function customerReference(store: KVNamespace, job: TrackingJobRecord): Promise<string | undefined> {
-  const paymentReference = job.paymentReference?.trim();
-  if (!paymentReference || !paidBookingStoreConfigured(store)) return undefined;
-  const paid = await getPaidBookingRecord(store, paymentReference);
-  return paid?.customerReference?.trim() || undefined;
-}
-
 export async function handleOwnerDriverPaymentsSummaryRequest(
   request: Request,
   env: Env,
@@ -96,39 +89,8 @@ export async function handleOwnerDriverPaymentsSummaryRequest(
 
   const period = parsePeriod(new URL(request.url).searchParams.get("period")?.trim() || "month");
   const store = env.TRACKING_STORE;
-  const [recent, upcoming] = await Promise.all([
-    listTrackingJobsForRecentDays(store, 370),
-    listUpcomingTrackingJobs(store, 120),
-  ]);
-  const byToken = new Map<string, TrackingJobRecord>();
-  for (const job of [...recent, ...upcoming]) {
-    byToken.set(job.token, job);
-  }
-
-  const jobs: DriverPaySummaryJob[] = [];
-  for (const job of byToken.values()) {
-    const cancelled = await journeyCancelled(store, job);
-    const reference = await customerReference(store, job);
-    jobs.push({
-      token: job.token,
-      tripDate: job.tripDate,
-      pickupLabel: job.pickupLabel,
-      dropoffLabel: job.dropoffLabel,
-      journeyStatus: journeyStatusOf(job),
-      refundedAt: job.refundedAt,
-      assignedDriverName: job.assignedDriverName,
-      journeyLeg: job.journeyLeg,
-      cancelled,
-      bookingReference: reference,
-      driverPayAmount: job.driverPayAmount,
-      driverPayAmountPence: job.driverPayAmountPence,
-      driverPayStatus: job.driverPayStatus,
-      driverPayPaidAt: job.driverPayPaidAt,
-      driverPayDriverName: job.driverPayDriverName,
-    });
-  }
-
-  const summary = summariseDriverPay(jobs, period);
+  const records = await listDurableDriverPay(store);
+  const summary = summariseDriverPay(records.map(durableRecordToSummaryJob), period);
   return jsonResponse({ ok: true, ...summary }, 200, origin);
 }
 
@@ -189,6 +151,7 @@ export async function handleRecordDriverPaidRequest(
     mutateDriverPayFields(record, result.record);
     await saveTrackingJob(store, record);
   }
+  await syncDurableDriverPayFromTracking(store, record);
 
   const job = await enrichDriverJob(record, env, origin, "owner");
   return jsonResponse({ ok: true, idempotent: result.idempotent, job }, 200, origin);
@@ -231,6 +194,7 @@ export async function handleCorrectDriverPaidRequest(
   }
   mutateDriverPayFields(record, result.record);
   await saveTrackingJob(store, record);
+  await syncDurableDriverPayFromTracking(store, record);
   const job = await enrichDriverJob(record, env, origin, "owner");
   return jsonResponse(
     {

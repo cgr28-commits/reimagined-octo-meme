@@ -10,17 +10,31 @@ import path from "node:path";
 import {
   alignDriverPayAmount,
   applyDriverPayAssignment,
+  bookingLevelDriverAssignDecision,
   clearDriverPayForDeassignment,
   correctDriverPayToUnpaid,
+  DRIVER_PAY_LEDGER_TTL_SECONDS,
+  driverPayJourneyKey,
+  driverPayShownForLeg,
+  durableRecordToSummaryJob,
   formatDriverPayPaidAt,
+  legMayUseBookingPayFallback,
+  MULTI_LEG_BOOKING_ASSIGN_ERROR,
   oweDriverPayOnCompletion,
   parseDriverPayToPence,
   recordDriverAsPaid,
   reopenDriverPayObligation,
   summariseDriverPay,
+  toDurableDriverPayRecord,
   type DriverPayLedgerState,
 } from "../shared/driver-pay-ledger";
 import { buildSanitizedDriverJobView } from "../shared/driver-portal-access";
+import {
+  getDurableDriverPay,
+  listDurableDriverPay,
+  persistTrackingDriverPay,
+  upsertDriverPayLedger,
+} from "../workers/addresses/src/driver-pay-store";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -462,6 +476,40 @@ check("Ledger handlers are owner-only and do not call SumUp or a payout provider
   const bookingAssign = read("workers/addresses/src/booking-job-handlers.ts");
   assert.match(bookingAssign, /resetSingleJourneyPay/);
   assert.match(bookingAssign, /jobs.length === 1/);
+  const bookingAssignFn = bookingAssign.slice(
+    bookingAssign.indexOf("export async function handleBookingJobAssignDriverRequest"),
+  );
+  const rejectAt = bookingAssignFn.indexOf("bookingLevelDriverAssignDecision");
+  assert.ok(rejectAt >= 0);
+  assert.ok(rejectAt < bookingAssignFn.indexOf("deleteDriverAcceptToken"));
+  assert.ok(rejectAt < bookingAssignFn.indexOf("saveBookingJob"));
+  assert.ok(rejectAt < bookingAssignFn.indexOf("syncTrackingAssignmentFromBooking"));
+  assert.ok(rejectAt < bookingAssignFn.indexOf("trySendEmail"));
+  assert.match(bookingAssignFn, /MULTI_LEG_BOOKING_ASSIGN_ERROR|bookingLevelDriverAssignDecision/);
+  const summaryStart = handlers.indexOf("export async function handleOwnerDriverPaymentsSummaryRequest");
+  const summaryFn = handlers.slice(summaryStart, handlers.indexOf("async function readPayBody"));
+  assert.match(summaryFn, /listDurableDriverPay/);
+  assert.doesNotMatch(summaryFn, /listTrackingJobsForRecentDays|listUpcomingTrackingJobs|track:day:/);
+  const trackingStore = read("workers/addresses/src/tracking-store.ts");
+  assert.match(trackingStore, /TRACKING_JOB_TTL_SECONDS = 60 \* 60 \* 24 \* 45/);
+  assert.ok(DRIVER_PAY_LEDGER_TTL_SECONDS > 370 * 24 * 60 * 60);
+  assert.ok(DRIVER_PAY_LEDGER_TTL_SECONDS > 45 * 24 * 60 * 60);
+  const assignFn = assign.slice(
+    assign.indexOf("export async function handleDriverAssignRequest"),
+    assign.indexOf("export async function handleDriverDeassignRequest"),
+  );
+  assert.ok(assignFn.indexOf("saveTrackingJob") < assignFn.indexOf("syncDurableDriverPayFromTracking"));
+  assert.ok(deassignFn.indexOf("saveTrackingJob") < deassignFn.indexOf("syncDurableDriverPayFromTracking"));
+  assert.match(journey, /syncDurableDriverPayFromTracking/);
+  assert.match(reopen, /syncDurableDriverPayFromTracking/);
+  assert.match(handlers, /syncDurableDriverPayFromTracking/);
+  assert.match(bookingAssign, /syncDurableDriverPayFromTracking/);
+  const jobsList = read("workers/addresses/src/tracking-handlers.ts");
+  const enrich = read("workers/addresses/src/driver-booking-handlers.ts");
+  assert.match(jobsList, /driverPayAmountVisibleForJob/);
+  assert.match(enrich, /driverPayAmountVisibleForJob/);
+  assert.doesNotMatch(jobsList, /driverPayAmountLabel\(job\) \|\|/);
+  assert.doesNotMatch(enrich, /driverPayAmountLabel\(job\) \|\|/);
   const ui = read("src/components/DriverPayPanel.tsx");
   assert.match(ui, /Record driver as paid/);
   assert.match(ui, /This records a payment you have already made/);
@@ -470,7 +518,229 @@ check("Ledger handlers are owner-only and do not call SumUp or a payout provider
   assert.doesNotMatch(ui, /Pay Driver/);
 });
 
-if (process.exitCode) {
-  process.exit(process.exitCode);
+function memoryKv() {
+  const rows = new Map<string, { value: string; ttl?: number }>();
+  return {
+    rows,
+    async get(key: string) {
+      const row = rows.get(key);
+      if (!row) return null;
+      return JSON.parse(row.value) as unknown;
+    },
+    async put(key: string, value: string, options?: { expirationTtl?: number }) {
+      rows.set(key, { value, ttl: options?.expirationTtl });
+    },
+    async delete(key: string) {
+      rows.delete(key);
+    },
+  };
 }
-console.log("\nAll driver payment ledger checks passed.");
+
+async function checkAsync(label: string, run: () => Promise<void>) {
+  try {
+    await run();
+    console.log(`OK  ${label}`);
+  } catch (error) {
+    console.error(`FAIL  ${label}`);
+    console.error(error);
+    process.exitCode = 1;
+  }
+}
+
+void (async () => {
+  await checkAsync("Durable ledger outlives the tracking job and stays in the year report", async () => {
+    const kv = memoryKv();
+    const store = kv as unknown as Parameters<typeof upsertDriverPayLedger>[0];
+    const paid = toDurableDriverPayRecord({
+      token: "tok-paid",
+      tripDate: "2026-01-15",
+      pickupLabel: "Home",
+      dropoffLabel: "Belfast International",
+      journeyLeg: "outbound",
+      bookingReference: "MAT-100",
+      driverPayAmountPence: 4500,
+      driverPayStatus: "paid",
+      driverPayPaidAt: "2026-01-20T12:00:00.000Z",
+      driverPayMethod: "bank_transfer",
+      driverPayProviderReference: "BANK-100",
+      driverPayStatusUpdatedAt: "2026-01-20T12:00:00.000Z",
+      driverPayDriverProfileKey: "ann",
+      driverPayDriverName: "Ann Driver",
+      customerEmail: "customer@example.com",
+      customerMobile: "07700900123",
+      sumupCheckoutId: "chk_secret",
+      quotedPrice: 90,
+      margin: 12,
+      refunds: [{ id: "refund-1" }],
+      paymentReference: "SUMUP-PAY-REF",
+    });
+    assert.ok(paid);
+    const savedKeys = Object.keys(paid);
+    for (const forbidden of [
+      "customerEmail",
+      "customerMobile",
+      "sumupCheckoutId",
+      "quotedPrice",
+      "margin",
+      "refunds",
+    ]) {
+      assert.equal(savedKeys.includes(forbidden), false, forbidden);
+    }
+    assert.doesNotMatch(JSON.stringify(paid), /customer@example.com|07700900123|chk_secret|SUMUP-PAY-REF/);
+    assert.equal(paid.paymentReference, "BANK-100");
+    assert.equal(paid.bookingReference, "MAT-100");
+    await upsertDriverPayLedger(store, paid);
+    const journeyRow = kv.rows.get(driverPayJourneyKey("tok-paid"));
+    assert.equal(journeyRow?.ttl, DRIVER_PAY_LEDGER_TTL_SECONDS);
+    kv.rows.set("track:job:tok-paid", { value: "{}", ttl: 60 * 60 * 24 * 45 });
+    kv.rows.delete("track:job:tok-paid");
+    kv.rows.delete("track:day:2026-01-15");
+    const listed = await listDurableDriverPay(store);
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0]?.trackingToken, "tok-paid");
+    assert.equal(listed[0]?.driverPayAmountPence, 4500);
+    const year = summariseDriverPay(
+      listed.map(durableRecordToSummaryJob),
+      "year",
+      new Date("2026-10-06T12:00:00.000Z"),
+    );
+    assert.equal(year.paidPence, 4500);
+    const loaded = await getDurableDriverPay(store, "tok-paid");
+    assert.equal(loaded?.status, "paid");
+    assert.equal(loaded?.paymentMethod, "bank_transfer");
+  });
+
+  await checkAsync("Single-leg enquiry pay is kept, and a two-leg booking cannot share one amount", async () => {
+    assert.deepEqual(bookingLevelDriverAssignDecision(0), { ok: true });
+    assert.deepEqual(bookingLevelDriverAssignDecision(1), { ok: true });
+    const rejected = bookingLevelDriverAssignDecision(2);
+    assert.equal(rejected.ok, false);
+    if (!rejected.ok) assert.equal(rejected.error, MULTI_LEG_BOOKING_ASSIGN_ERROR);
+
+    const single = applyDriverPayAssignment(
+      {},
+      { amountInput: "45", driverName: "Ann Driver", profileKey: "ann", nowIso: NOW },
+    );
+    assert.equal(single.ok, true);
+    if (!single.ok) return;
+    assert.equal(
+      driverPayShownForLeg({
+        job: single.record,
+        bookingPayAmount: "£45.00",
+        linkedJourneyCount: 1,
+      }),
+      "£45.00",
+    );
+    assert.equal(
+      legMayUseBookingPayFallback({ hasOwnLedgerAmount: false, linkedJourneyCount: 1 }),
+      true,
+    );
+    assert.equal(
+      driverPayShownForLeg({
+        job: {},
+        bookingPayAmount: "£45.00",
+        linkedJourneyCount: 1,
+      }),
+      "£45.00",
+    );
+
+    const outbound = applyDriverPayAssignment(
+      {},
+      { amountInput: "40", driverName: "Ann Driver", profileKey: "ann", nowIso: NOW },
+    );
+    const inbound = applyDriverPayAssignment(
+      {},
+      { amountInput: "55.50", driverName: "Ben Driver", profileKey: "ben", nowIso: NOW },
+    );
+    assert.equal(outbound.ok, true);
+    assert.equal(inbound.ok, true);
+    if (!outbound.ok || !inbound.ok) return;
+    const kv = memoryKv();
+    const store = kv as unknown as Parameters<typeof persistTrackingDriverPay>[0];
+    await persistTrackingDriverPay(store, {
+      token: "leg-out",
+      tripDate: "2026-10-06",
+      pickupLabel: "Home",
+      dropoffLabel: "BFS",
+      journeyLeg: "outbound",
+      bookingReference: "MAT-200",
+      ...outbound.record,
+    });
+    await persistTrackingDriverPay(store, {
+      token: "leg-ret",
+      tripDate: "2026-10-10",
+      pickupLabel: "BFS",
+      dropoffLabel: "Home",
+      journeyLeg: "return",
+      bookingReference: "MAT-200",
+      ...inbound.record,
+    });
+    const outRecord = await getDurableDriverPay(store, "leg-out");
+    const retRecord = await getDurableDriverPay(store, "leg-ret");
+    assert.equal(outRecord?.driverPayAmountPence, 4000);
+    assert.equal(retRecord?.driverPayAmountPence, 5550);
+    assert.equal(outRecord?.driverProfileKey, "ann");
+    assert.equal(retRecord?.driverProfileKey, "ben");
+    assert.notEqual(outRecord?.driverPayAmountPence, retRecord?.driverPayAmountPence);
+
+    const outboundShown = driverPayShownForLeg({
+      job: outbound.record,
+      bookingPayAmount: "£55.50",
+      linkedJourneyCount: 2,
+      journeyLeg: "outbound",
+      pairedToken: "leg-ret",
+    });
+    const returnShown = driverPayShownForLeg({
+      job: inbound.record,
+      bookingPayAmount: "£40.00",
+      linkedJourneyCount: 2,
+      journeyLeg: "return",
+      pairedToken: "leg-out",
+    });
+    const bareOutbound = driverPayShownForLeg({
+      job: {},
+      bookingPayAmount: "£55.50",
+      linkedJourneyCount: 2,
+      journeyLeg: "outbound",
+      pairedToken: "leg-ret",
+    });
+    const bareReturn = driverPayShownForLeg({
+      job: {},
+      bookingPayAmount: "£40.00",
+      linkedJourneyCount: 2,
+      journeyLeg: "return",
+      pairedToken: "leg-out",
+    });
+    assert.equal(outboundShown, "£40.00");
+    assert.equal(returnShown, "£55.50");
+    assert.equal(bareOutbound, undefined);
+    assert.equal(bareReturn, undefined);
+    assert.equal(
+      legMayUseBookingPayFallback({
+        hasOwnLedgerAmount: false,
+        linkedJourneyCount: 2,
+        journeyLeg: "outbound",
+        pairedToken: "leg-ret",
+      }),
+      false,
+    );
+    const outboundView = buildSanitizedDriverJobView(
+      {},
+      { driverPayAmount: outboundShown, driverPayStatus: "pending" },
+      { accepted: true },
+    );
+    const returnView = buildSanitizedDriverJobView(
+      {},
+      { driverPayAmount: returnShown, driverPayStatus: "pending" },
+      { accepted: true },
+    );
+    assert.equal(outboundView.driverPayAmount, "£40.00");
+    assert.equal(returnView.driverPayAmount, "£55.50");
+    assert.notEqual(outboundView.driverPayAmount, returnView.driverPayAmount);
+  });
+
+  if (process.exitCode) {
+    process.exit(process.exitCode);
+  }
+  console.log("\nAll driver payment ledger checks passed.");
+})();

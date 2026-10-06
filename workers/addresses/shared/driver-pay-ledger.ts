@@ -34,6 +34,31 @@ export const PAID_REASSIGN_ERROR =
 export const PAID_DEASSIGN_ERROR =
   "This journey already has a recorded driver payment. Deassignment cannot remove it.";
 
+/**
+ * Accounting retention. Longer than the 45-day tracking job and longer than
+ * the 370-day Money reporting window, so Year totals survive tracking expiry.
+ * Tracking jobs themselves stay short-lived.
+ */
+export const DRIVER_PAY_LEDGER_TTL_SECONDS = 60 * 60 * 24 * 800;
+export const DRIVER_PAY_JOURNEY_KEY_PREFIX = "driver-pay:journey:";
+export const DRIVER_PAY_INDEX_KEY = "driver-pay:index";
+
+export const MULTI_LEG_BOOKING_ASSIGN_ERROR =
+  "This booking has separate outbound and return journeys. Assign each journey individually from Jobs so each leg has its own driver and pay amount.";
+
+export function driverPayJourneyKey(trackingToken: string): string {
+  return `${DRIVER_PAY_JOURNEY_KEY_PREFIX}${trackingToken.trim()}`;
+}
+
+export function bookingLevelDriverAssignDecision(
+  linkedJourneyCount: number,
+): { ok: true } | { ok: false; error: string } {
+  if (linkedJourneyCount > 1) {
+    return { ok: false, error: MULTI_LEG_BOOKING_ASSIGN_ERROR };
+  }
+  return { ok: true };
+}
+
 const PAY_FIELD_KEYS = [
   "driverPayAmount",
   "driverPayAmountPence",
@@ -550,5 +575,199 @@ export function summariseDriverPay(
     periodFrom: bounds.fromDay,
     periodTo: bounds.toDay,
     outstanding,
+  };
+}
+
+/**
+ * Durable accounting record for one journey. This is the only copy that must
+ * outlive the tracking job. It deliberately has no customer contact details,
+ * customer fare, margin, refund, or payment-provider identifiers.
+ */
+export type DurableDriverPayRecord = {
+  trackingToken: string;
+  bookingReference?: string;
+  journeyLeg?: "outbound" | "return";
+  tripDate: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  driverProfileKey?: string;
+  driverName?: string;
+  driverPayAmountPence: number;
+  status: DriverPayStatus;
+  paidAt?: string;
+  paymentMethod?: DriverPayMethod;
+  paymentReference?: string;
+  statusUpdatedAt?: string;
+};
+
+const DURABLE_DRIVER_PAY_KEYS = [
+  "trackingToken",
+  "bookingReference",
+  "journeyLeg",
+  "tripDate",
+  "pickupLabel",
+  "dropoffLabel",
+  "driverProfileKey",
+  "driverName",
+  "driverPayAmountPence",
+  "status",
+  "paidAt",
+  "paymentMethod",
+  "paymentReference",
+  "statusUpdatedAt",
+] as const;
+
+export function legHasOwnDriverPayLedger(record: DriverPayLedgerState): boolean {
+  return Boolean(record.driverPayStatus) || isPositiveIntegerPence(record.driverPayAmountPence);
+}
+
+/**
+ * A booking-level amount may fill in a single enquiry journey that has no
+ * ledger of its own. It must never be shown on a return booking's other leg.
+ */
+export function legMayUseBookingPayFallback(input: {
+  hasOwnLedgerAmount: boolean;
+  linkedJourneyCount: number;
+  journeyLeg?: "outbound" | "return";
+  pairedToken?: string;
+}): boolean {
+  if (input.hasOwnLedgerAmount) return false;
+  if (input.linkedJourneyCount > 1) return false;
+  if (input.pairedToken?.trim()) return false;
+  if (input.journeyLeg === "return") return false;
+  return true;
+}
+
+export function driverPayShownForLeg(input: {
+  job: DriverPayLedgerState;
+  bookingPayAmount?: string;
+  linkedJourneyCount: number;
+  journeyLeg?: "outbound" | "return";
+  pairedToken?: string;
+}): string | undefined {
+  if (legHasOwnDriverPayLedger(input.job)) {
+    return driverPayAmountLabel(input.job);
+  }
+  if (
+    !legMayUseBookingPayFallback({
+      hasOwnLedgerAmount: false,
+      linkedJourneyCount: input.linkedJourneyCount,
+      journeyLeg: input.journeyLeg,
+      pairedToken: input.pairedToken,
+    })
+  ) {
+    return undefined;
+  }
+  const booking = input.bookingPayAmount?.trim();
+  return booking || undefined;
+}
+
+export function toDurableDriverPayRecord(
+  source: DriverPayLedgerState & {
+    token: string;
+    tripDate: string;
+    pickupLabel: string;
+    dropoffLabel: string;
+    journeyLeg?: "outbound" | "return";
+    bookingReference?: string;
+  },
+): DurableDriverPayRecord | null {
+  const token = source.token.trim();
+  const pence = isPositiveIntegerPence(source.driverPayAmountPence)
+    ? source.driverPayAmountPence
+    : undefined;
+  const status = source.driverPayStatus;
+  if (!token || !pence || !status || !DRIVER_PAY_STATUSES.includes(status)) return null;
+  const record: DurableDriverPayRecord = {
+    trackingToken: token,
+    tripDate: source.tripDate,
+    pickupLabel: source.pickupLabel,
+    dropoffLabel: source.dropoffLabel,
+    driverPayAmountPence: pence,
+    status,
+  };
+  const bookingReference = source.bookingReference?.trim();
+  if (bookingReference) record.bookingReference = bookingReference;
+  if (source.journeyLeg === "outbound" || source.journeyLeg === "return") {
+    record.journeyLeg = source.journeyLeg;
+  }
+  const driverProfileKey = source.driverPayDriverProfileKey?.trim();
+  if (driverProfileKey) record.driverProfileKey = driverProfileKey;
+  const driverName = source.driverPayDriverName?.trim();
+  if (driverName) record.driverName = driverName;
+  const paidAt = source.driverPayPaidAt?.trim();
+  if (paidAt) record.paidAt = paidAt;
+  if (source.driverPayMethod) record.paymentMethod = source.driverPayMethod;
+  const paymentReference = source.driverPayProviderReference?.trim();
+  if (paymentReference) record.paymentReference = paymentReference;
+  const statusUpdatedAt = source.driverPayStatusUpdatedAt?.trim();
+  if (statusUpdatedAt) record.statusUpdatedAt = statusUpdatedAt;
+  return record;
+}
+
+export function sanitizeDurableDriverPayRecord(value: unknown): DurableDriverPayRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  const status = source.status;
+  if (typeof status !== "string" || !DRIVER_PAY_STATUSES.includes(status as DriverPayStatus)) {
+    return null;
+  }
+  const built = toDurableDriverPayRecord({
+    token: typeof source.trackingToken === "string" ? source.trackingToken : "",
+    tripDate: typeof source.tripDate === "string" ? source.tripDate : "",
+    pickupLabel: typeof source.pickupLabel === "string" ? source.pickupLabel : "",
+    dropoffLabel: typeof source.dropoffLabel === "string" ? source.dropoffLabel : "",
+    journeyLeg:
+      source.journeyLeg === "outbound" || source.journeyLeg === "return" ? source.journeyLeg : undefined,
+    bookingReference: typeof source.bookingReference === "string" ? source.bookingReference : undefined,
+    driverPayAmountPence:
+      typeof source.driverPayAmountPence === "number" ? source.driverPayAmountPence : undefined,
+    driverPayStatus: status as DriverPayStatus,
+    driverPayPaidAt: typeof source.paidAt === "string" ? source.paidAt : undefined,
+    driverPayMethod:
+      source.paymentMethod === "bank_transfer" ||
+      source.paymentMethod === "cash" ||
+      source.paymentMethod === "other"
+        ? source.paymentMethod
+        : undefined,
+    driverPayProviderReference:
+      typeof source.paymentReference === "string" ? source.paymentReference : undefined,
+    driverPayStatusUpdatedAt:
+      typeof source.statusUpdatedAt === "string" ? source.statusUpdatedAt : undefined,
+    driverPayDriverProfileKey:
+      typeof source.driverProfileKey === "string" ? source.driverProfileKey : undefined,
+    driverPayDriverName: typeof source.driverName === "string" ? source.driverName : undefined,
+  });
+  if (!built) return null;
+  const sanitized = {} as DurableDriverPayRecord;
+  const record = built as unknown as Record<string, unknown>;
+  const target = sanitized as unknown as Record<string, unknown>;
+  for (const key of DURABLE_DRIVER_PAY_KEYS) {
+    if (record[key] !== undefined) target[key] = record[key];
+  }
+  return sanitized;
+}
+
+/** Pending work is not yet owed. Unpaid and paid rows report as completed obligations. */
+export function durableRecordToSummaryJob(record: DurableDriverPayRecord): DriverPaySummaryJob {
+  const owed = record.status === "unpaid" || record.status === "paid" || record.status === "processing" || record.status === "failed";
+  return {
+    token: record.trackingToken,
+    tripDate: record.tripDate,
+    pickupLabel: record.pickupLabel,
+    dropoffLabel: record.dropoffLabel,
+    journeyStatus: owed ? "completed" : "pending",
+    journeyLeg: record.journeyLeg,
+    bookingReference: record.bookingReference,
+    assignedDriverName: record.driverName,
+    driverPayAmountPence: record.driverPayAmountPence,
+    driverPayAmount: formatDriverPayFromPence(record.driverPayAmountPence),
+    driverPayStatus: record.status,
+    driverPayPaidAt: record.paidAt,
+    driverPayMethod: record.paymentMethod,
+    driverPayProviderReference: record.paymentReference,
+    driverPayStatusUpdatedAt: record.statusUpdatedAt,
+    driverPayDriverProfileKey: record.driverProfileKey,
+    driverPayDriverName: record.driverName,
   };
 }

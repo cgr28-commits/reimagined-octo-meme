@@ -4,6 +4,7 @@
  */
 
 import { mutateDriverPayFields, reopenDriverPayObligation } from "../shared/driver-pay-ledger";
+import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { corsHeaders } from "../shared/google-places";
 import {
   completionTimestampsMatch,
@@ -190,6 +191,7 @@ export async function handleReopenJobRequest(
   const jobToSave = pay.changed ? pay.job : reopened.job;
   if (pay.changed) mutateDriverPayFields(jobToSave, pay.job);
   await saveTrackingJob(store, jobToSave);
+  await syncDurableDriverPayFromTracking(store, jobToSave);
 
   const paid = await getPaidBookingRecord(store, paymentReference);
   if (paid && reopened.completionTimestamp) {

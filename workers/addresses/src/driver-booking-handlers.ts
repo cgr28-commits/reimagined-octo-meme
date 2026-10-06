@@ -1,7 +1,7 @@
 import { buildPickupDateTimeLocal } from "../shared/tracking";
 import type { TrackingJobRecord } from "../shared/tracking";
 import { isAirportPickupJob } from "../shared/tracking";
-import { driverPayAmountLabel } from "../shared/driver-pay-ledger";
+import { driverPayAmountVisibleForJob } from "./driver-pay-sync";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
 import {
   chooseDublinArrivalTerminal,
@@ -175,8 +175,11 @@ export async function enrichDriverJob(
     job.assignedDriverCarColour?.trim() || bookingJob?.driverCarColour?.trim() || undefined;
   const assignedDriverReg =
     job.assignedDriverReg?.trim() || bookingJob?.driverReg?.trim() || undefined;
-  const driverPayAmount =
-    driverPayAmountLabel(job) || bookingJob?.driverPayAmount?.trim() || undefined;
+  const driverPayAmount = await driverPayAmountVisibleForJob(
+    env.TRACKING_STORE,
+    job,
+    bookingJob?.driverPayAmount,
+  );
 
   const assignmentStatus =
     job.assignmentStatus ?? bookingJob?.driverAssignmentStatus ?? "unassigned";

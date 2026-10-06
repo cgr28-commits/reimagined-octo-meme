@@ -47,6 +47,7 @@ import {
   trackingStoreConfigured,
 } from "./tracking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import { remainingCashDueGbp } from "../shared/deposit-cash";
 
@@ -370,6 +371,7 @@ export async function handleDriverAssignRequest(
   stopDriverSharing(record);
 
   await saveTrackingJob(env.TRACKING_STORE, record);
+  await syncDurableDriverPayFromTracking(env.TRACKING_STORE, record);
 
   let emailed = false;
   let acceptUrl: string | undefined;
@@ -552,6 +554,7 @@ export async function handleDriverDeassignRequest(
   await clearLinkedBookingAssignment(env.TRACKING_STORE, record);
   clearJobAssignment(record);
   await saveTrackingJob(env.TRACKING_STORE, record);
+  await syncDurableDriverPayFromTracking(env.TRACKING_STORE, record);
 
   const job = await enrichDriverJob(record, env, origin, "owner");
 
