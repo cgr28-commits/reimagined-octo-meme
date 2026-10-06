@@ -14,6 +14,8 @@ import {
 } from "../shared/driver-job-sanitize";
 import {
   authorizeDriverJobAction,
+  buildDriverAcceptConfirmResponse,
+  buildDriverAcceptLookupResponse,
   buildSanitizedDriverJobView,
   createPortalToken,
   FUTURE_DRIVER_PAY_LEDGER_FIELDS,
@@ -22,6 +24,11 @@ import {
   PORTAL_LINK_PREFIX,
   sequentialDriverJourneyActions,
 } from "../shared/driver-portal-access";
+import {
+  assignmentIdentityFromProfile,
+  savedProfileAssignmentDecision,
+  type DriverVehicleProfile,
+} from "../shared/driver-vehicle";
 import { filterJobsForSession } from "../workers/addresses/src/driver-assignment-utils";
 import type { TrackingJobRecord } from "../shared/tracking";
 
@@ -333,6 +340,159 @@ check("Portal session does not fall through to a shared key, and reassignment re
   assert.match(api, /function driverGetHeaders/);
   const onTheWay = read("shared/company-voice-journey.ts");
   assert.match(onTheWay, /your driver is now on the way to your pickup location/);
+});
+
+const FORBIDDEN_ACCEPT_KEYS = [
+  "customerEmail",
+  "quotedPrice",
+  "amountPaidLabel",
+  "paymentReference",
+  "attribution",
+  "driverAcceptToken",
+  "sumupCheckoutId",
+  "job",
+];
+
+const poisonedAcceptJob = {
+  id: "job-secret",
+  customerName: "Alex Customer",
+  customerEmail: "alex-secret@example.com",
+  customerMobile: "07700900999",
+  pickupLabel: "City Hall, Belfast",
+  dropoffLabel: "Belfast International Airport",
+  tripDate: "2026-10-20",
+  tripTime: "10:30",
+  driverFirstName: "Ann",
+  driverPayAmount: "£45",
+  driverAssignmentStatus: "accepted",
+  vehicle: "Saloon",
+  driverCarMake: "Skoda",
+  driverCarModel: "Superb",
+  driverReg: "ABC1234",
+  quotedPrice: "£240.00",
+  amountPaidLabel: "£240.00",
+  paymentReference: "SUMUP-SECRET-REF",
+  attribution: { gclid: "gclid-secret-value" },
+  driverAcceptToken: "accept-token-secret",
+  sumupCheckoutId: "chk_secret",
+};
+
+check("Driver accept confirmation returns no raw booking or payment fields", () => {
+  const confirmed = buildDriverAcceptConfirmResponse({
+    assignmentStatus: "accepted",
+    portalUrl: "https://www.myairporttaxini.co.uk/driver/?access=dpl_example",
+  });
+  const already = buildDriverAcceptConfirmResponse({
+    assignmentStatus: poisonedAcceptJob.driverAssignmentStatus,
+    alreadyAccepted: true,
+    portalUrl: "https://www.myairporttaxini.co.uk/driver/?access=dpl_example",
+  });
+  const declined = buildDriverAcceptConfirmResponse({
+    assignmentStatus: "declined",
+  });
+  for (const body of [confirmed, already, declined]) {
+    const encoded = JSON.stringify(body);
+    assert.equal(body.ok, true);
+    assert.equal("job" in body, false);
+    for (const key of FORBIDDEN_ACCEPT_KEYS) {
+      assert.equal(key in body, false, key);
+    }
+    assert.doesNotMatch(encoded, /alex-secret@example.com/);
+    assert.doesNotMatch(encoded, /SUMUP-SECRET-REF/);
+    assert.doesNotMatch(encoded, /gclid-secret-value/);
+    assert.doesNotMatch(encoded, /accept-token-secret/);
+    assert.doesNotMatch(encoded, /chk_secret/);
+    assert.doesNotMatch(encoded, /£240/);
+    assert.doesNotMatch(encoded, /quotedPrice|amountPaidLabel|paymentReference|customerEmail|attribution|driverAcceptToken/);
+  }
+  assert.equal(confirmed.assignmentStatus, "accepted");
+  assert.equal(confirmed.portalUrl?.includes("/driver/?access="), true);
+  assert.equal(already.alreadyAccepted, true);
+  assert.equal(declined.portalUrl, undefined);
+
+  const lookup = buildDriverAcceptLookupResponse(poisonedAcceptJob);
+  const lookupJson = JSON.stringify({ ok: true, job: lookup });
+  assert.equal(lookup.customerName, "Alex Customer");
+  assert.equal(lookup.driverPayAmount, "£45");
+  assert.equal("customerEmail" in lookup, false);
+  assert.equal("quotedPrice" in lookup, false);
+  assert.equal("amountPaidLabel" in lookup, false);
+  assert.equal("paymentReference" in lookup, false);
+  assert.equal("attribution" in lookup, false);
+  assert.equal("driverAcceptToken" in lookup, false);
+  assert.doesNotMatch(lookupJson, /alex-secret@example.com|SUMUP-SECRET-REF|gclid-secret-value|accept-token-secret|chk_secret|£240/);
+
+  const handlers = read("workers/addresses/src/booking-job-handlers.ts");
+  const confirmStart = handlers.indexOf("export async function handleDriverAcceptConfirmRequest");
+  const confirmEnd = handlers.indexOf("\nexport async function ", confirmStart + 10);
+  const confirm = handlers.slice(confirmStart, confirmEnd === -1 ? undefined : confirmEnd);
+  assert.match(confirm, /buildDriverAcceptConfirmResponse/);
+  assert.doesNotMatch(confirm, /ok:\s*true,\s*job|job:\s*updated|job,\s*alreadyAccepted/);
+  const lookupStart = handlers.indexOf("export async function handleDriverAcceptLookupRequest");
+  const lookupFn = handlers.slice(lookupStart, confirmStart);
+  assert.match(lookupFn, /buildDriverAcceptLookupResponse/);
+});
+
+check("A profile key and a different email cannot issue a My Jobs link", () => {
+  const profileA: DriverVehicleProfile = {
+    profileKey: "driver-a",
+    displayName: "Ann Driver",
+    email: "ann@example.com",
+    mobile: "07700900111",
+    make: "Skoda",
+    model: "Superb",
+    colour: "Black",
+    registration: "abc 1234",
+    updatedAt: "2026-10-06T00:00:00.000Z",
+  };
+  const mismatch = savedProfileAssignmentDecision({
+    requestedProfileKey: "driver-a",
+    loadedProfile: profileA,
+    suppliedEmail: "bob@example.com",
+  });
+  assert.equal(mismatch.ok, false);
+  if (!mismatch.ok) {
+    assert.match(mismatch.error, /No My Jobs link was created/);
+    assert.equal("profile" in mismatch, false);
+  }
+  const missing = savedProfileAssignmentDecision({
+    requestedProfileKey: "driver-a",
+    loadedProfile: null,
+    suppliedEmail: "ann@example.com",
+  });
+  assert.equal(missing.ok, false);
+
+  const matched = savedProfileAssignmentDecision({
+    requestedProfileKey: "driver-a",
+    loadedProfile: profileA,
+    suppliedEmail: " Ann@Example.com ",
+  });
+  assert.equal(matched.ok, true);
+  if (matched.ok) {
+    const identity = assignmentIdentityFromProfile(matched.profile);
+    assert.equal(identity.driverEmail, "ann@example.com");
+    assert.equal(identity.driverProfileKey, "driver-a");
+    assert.equal(identity.driverMobile, "07700900111");
+    assert.equal(identity.driverReg, "ABC 1234");
+    assert.notEqual(identity.driverEmail, "bob@example.com");
+  }
+
+  const bookingAssign = read("workers/addresses/src/booking-job-handlers.ts");
+  const assignStart = bookingAssign.indexOf("export async function handleBookingJobAssignDriverRequest");
+  const assignFn = bookingAssign.slice(assignStart, bookingAssign.indexOf("export async function handleDriverAcceptLookupRequest"));
+  const decisionAt = assignFn.indexOf("savedProfileAssignmentDecision");
+  const linkAt = assignFn.indexOf("createDriverPortalLink");
+  assert.ok(decisionAt >= 0 && linkAt > decisionAt);
+  assert.match(assignFn, /if \(!decision\.ok\)/);
+
+  const trackingAssign = read("workers/addresses/src/driver-assignment-handlers.ts");
+  const trackStart = trackingAssign.indexOf("export async function handleDriverAssignRequest");
+  const trackFn = trackingAssign.slice(trackStart);
+  const trackDecision = trackFn.indexOf("resolveSavedAssignmentProfile");
+  const trackLink = trackFn.indexOf("createDriverPortalLink");
+  assert.ok(trackDecision >= 0 && trackLink > trackDecision);
+  assert.match(trackFn, /if \(!resolvedProfile\.ok\)/);
+  assert.match(trackingAssign, /savedProfileAssignmentDecision/);
 });
 
 console.log("\nAll assigned-driver portal access checks passed.");

@@ -4,8 +4,17 @@ import {
   type BookingJobKind,
   type BookingJobRecord,
 } from "../shared/booking-job";
-import { driverPortalMagicLink } from "../shared/driver-portal-access";
-import { driverProfileComplete } from "../shared/driver-vehicle";
+import {
+  buildDriverAcceptConfirmResponse,
+  buildDriverAcceptLookupResponse,
+  driverPortalMagicLink,
+} from "../shared/driver-portal-access";
+import {
+  assignmentIdentityFromProfile,
+  driverProfileComplete,
+  savedProfileAssignmentDecision,
+  type DriverVehicleProfile,
+} from "../shared/driver-vehicle";
 import { corsHeaders } from "../shared/google-places";
 import { sanitizeAdsAttribution } from "../shared/ads-attribution";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
@@ -432,29 +441,39 @@ export async function handleBookingJobAssignDriverRequest(
     );
   }
 
+  let savedProfile: DriverVehicleProfile | null = null;
+  if (requestedProfileKey) {
+    const loaded = await getDriverVehicleProfile(env.TRACKING_STORE, requestedProfileKey);
+    const decision = savedProfileAssignmentDecision({
+      requestedProfileKey,
+      loadedProfile: loaded,
+      suppliedEmail: driverEmail,
+    });
+    if (!decision.ok) {
+      return jsonResponse({ error: decision.error }, 400, origin);
+    }
+    savedProfile = decision.profile;
+  } else {
+    const byEmail = await findSavedDriverProfileByEmail(env.TRACKING_STORE, driverEmail);
+    savedProfile = byEmail && driverProfileComplete(byEmail) ? byEmail : null;
+  }
+  const identity = savedProfile ? assignmentIdentityFromProfile(savedProfile) : null;
+
   const acceptToken = generateDriverAcceptToken();
   if (job.driverAcceptToken && job.driverAcceptToken !== acceptToken) {
     await deleteDriverAcceptToken(env.TRACKING_STORE, job.driverAcceptToken);
   }
-  const profileByKey = requestedProfileKey
-    ? await getDriverVehicleProfile(env.TRACKING_STORE, requestedProfileKey)
-    : null;
-  const profile =
-    profileByKey && driverProfileComplete(profileByKey)
-      ? profileByKey
-      : await findSavedDriverProfileByEmail(env.TRACKING_STORE, driverEmail);
-  const savedProfile = profile && driverProfileComplete(profile) ? profile : null;
   const updated: BookingJobRecord = {
     ...job,
-    driverFirstName,
-    driverEmail,
-    driverMobile,
-    driverCarMake: driverCarMake || undefined,
-    driverCarModel: driverCarModel || undefined,
-    driverCarColour: driverCarColour || undefined,
-    driverReg: driverReg || undefined,
+    driverFirstName: identity?.driverFirstName || driverFirstName,
+    driverEmail: identity?.driverEmail || driverEmail,
+    driverMobile: identity?.driverMobile || driverMobile,
+    driverCarMake: identity?.driverCarMake || driverCarMake || undefined,
+    driverCarModel: identity?.driverCarModel || driverCarModel || undefined,
+    driverCarColour: identity?.driverCarColour || driverCarColour || undefined,
+    driverReg: identity?.driverReg || driverReg || undefined,
     driverPayAmount,
-    driverProfileKey: savedProfile?.profileKey,
+    driverProfileKey: identity?.driverProfileKey,
     driverAssignmentStatus: "pending",
     driverAcceptToken: acceptToken,
     assignedAt: new Date().toISOString(),
@@ -470,7 +489,7 @@ export async function handleBookingJobAssignDriverRequest(
   if (savedProfile) {
     const accessToken = await createDriverPortalLink(env.TRACKING_STORE, {
       profileKey: savedProfile.profileKey,
-      driverName: savedProfile.displayName || driverFirstName,
+      driverName: identity?.driverFirstName || savedProfile.displayName || driverFirstName,
     });
     portalUrl = driverPortalMagicLink(siteUrl(env), accessToken);
   }
@@ -482,8 +501,8 @@ export async function handleBookingJobAssignDriverRequest(
   });
 
   const sendResult = await trySendEmail(env, {
-    to: driverEmail,
-    toName: driverFirstName,
+    to: identity?.driverEmail || driverEmail,
+    toName: identity?.driverFirstName || driverFirstName,
     subject: email.subject,
     body: email.text,
     htmlBody: email.html,
@@ -509,7 +528,7 @@ export async function handleBookingJobAssignDriverRequest(
     toName: BUSINESS_NAME,
     subject: `[Driver assignment copy] ${email.subject}`,
     body:
-      `This is a copy of the assignment email sent to ${driverFirstName} <${driverEmail}>.\n\n` +
+      `This is a copy of the assignment email sent to ${identity?.driverFirstName || driverFirstName} <${identity?.driverEmail || driverEmail}>.\n\n` +
       email.text,
     htmlBody: email.html,
     requireHtml: true,
@@ -554,21 +573,7 @@ export async function handleDriverAcceptLookupRequest(
   return jsonResponse(
     {
       ok: true,
-      job: {
-        id: job.id,
-        customerName: job.customerName,
-        pickupLabel: job.pickupLabel,
-        dropoffLabel: job.dropoffLabel,
-        tripDate: job.tripDate,
-        tripTime: job.tripTime,
-        driverFirstName: job.driverFirstName,
-        driverPayAmount: job.driverPayAmount,
-        driverAssignmentStatus: job.driverAssignmentStatus ?? "unassigned",
-        vehicle: job.vehicle,
-        driverCarMake: job.driverCarMake,
-        driverCarModel: job.driverCarModel,
-        driverReg: job.driverReg,
-      },
+      job: buildDriverAcceptLookupResponse(job),
     },
     200,
     origin,
@@ -619,7 +624,11 @@ export async function handleDriverAcceptConfirmRequest(
 
   if (job.driverAssignmentStatus === "accepted") {
     return jsonResponse(
-      { ok: true, job, alreadyAccepted: true, ...(portalUrl ? { portalUrl } : {}) },
+      buildDriverAcceptConfirmResponse({
+        assignmentStatus: job.driverAssignmentStatus,
+        alreadyAccepted: true,
+        portalUrl,
+      }),
       200,
       origin,
     );
@@ -636,7 +645,10 @@ export async function handleDriverAcceptConfirmRequest(
   await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);
 
   return jsonResponse(
-    { ok: true, job: updated, ...(portalUrl ? { portalUrl } : {}) },
+    buildDriverAcceptConfirmResponse({
+      assignmentStatus: updated.driverAssignmentStatus || "accepted",
+      portalUrl: action === "decline" ? undefined : portalUrl,
+    }),
     200,
     origin,
   );

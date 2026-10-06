@@ -258,3 +258,79 @@ export function buildSanitizedDriverJobView(
   }
   return sanitizeJobForDriver(merged, { includeCustomerMobile: options.accepted });
 }
+
+/** Driver accept lookup. Anything else on the booking record stays on the server. */
+export function buildDriverAcceptLookupResponse(job: {
+  id: string;
+  customerName: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  tripDate: string;
+  tripTime: string;
+  driverFirstName?: string;
+  driverPayAmount?: string;
+  driverAssignmentStatus?: string;
+  vehicle: string;
+  driverCarMake?: string;
+  driverCarModel?: string;
+  driverReg?: string;
+}): {
+  id: string;
+  customerName: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  tripDate: string;
+  tripTime: string;
+  driverFirstName?: string;
+  driverPayAmount?: string;
+  driverAssignmentStatus: string;
+  vehicle: string;
+  driverCarMake?: string;
+  driverCarModel?: string;
+  driverReg?: string;
+} {
+  return {
+    id: job.id,
+    customerName: job.customerName,
+    pickupLabel: job.pickupLabel,
+    dropoffLabel: job.dropoffLabel,
+    tripDate: job.tripDate,
+    tripTime: job.tripTime,
+    driverFirstName: job.driverFirstName,
+    driverPayAmount: job.driverPayAmount,
+    driverAssignmentStatus: job.driverAssignmentStatus ?? "unassigned",
+    vehicle: job.vehicle,
+    driverCarMake: job.driverCarMake,
+    driverCarModel: job.driverCarModel,
+    driverReg: job.driverReg,
+  };
+}
+
+/**
+ * Driver accept confirmation. Only the fields the accept page needs.
+ * Never include the booking record.
+ */
+export function buildDriverAcceptConfirmResponse(input: {
+  assignmentStatus: string;
+  alreadyAccepted?: boolean;
+  portalUrl?: string;
+}): {
+  ok: true;
+  assignmentStatus: string;
+  alreadyAccepted?: true;
+  portalUrl?: string;
+} {
+  const body: {
+    ok: true;
+    assignmentStatus: string;
+    alreadyAccepted?: true;
+    portalUrl?: string;
+  } = {
+    ok: true,
+    assignmentStatus: input.assignmentStatus,
+  };
+  if (input.alreadyAccepted) body.alreadyAccepted = true;
+  const portalUrl = input.portalUrl?.trim();
+  if (portalUrl) body.portalUrl = portalUrl;
+  return body;
+}

@@ -3,7 +3,12 @@ import {
   type BookingJobRecord,
 } from "../shared/booking-job";
 import { authorizeDriverJobAction, driverPortalMagicLink } from "../shared/driver-portal-access";
-import { driverProfileComplete, type DriverVehicleProfile } from "../shared/driver-vehicle";
+import {
+  assignmentIdentityFromProfile,
+  driverProfileComplete,
+  savedProfileAssignmentDecision,
+  type DriverVehicleProfile,
+} from "../shared/driver-vehicle";
 import {
   jobAssignmentStatus,
   type JobAssignmentStatus,
@@ -85,24 +90,31 @@ function clearJobAssignment(record: TrackingJobRecord): void {
   stopDriverSharing(record);
 }
 
-async function resolveAssignmentProfile(
+async function resolveSavedAssignmentProfile(
   store: KVNamespace,
   profileKey: string,
   email: string,
-): Promise<DriverVehicleProfile | null> {
+): Promise<
+  | { ok: true; profile: DriverVehicleProfile | null }
+  | { ok: false; error: string }
+> {
   if (profileKey) {
-    const byKey = await getDriverVehicleProfile(store, profileKey);
-    if (byKey && driverProfileComplete(byKey)) {
-      return byKey;
-    }
+    const loaded = await getDriverVehicleProfile(store, profileKey);
+    const decision = savedProfileAssignmentDecision({
+      requestedProfileKey: profileKey,
+      loadedProfile: loaded,
+      suppliedEmail: email,
+    });
+    if (!decision.ok) return decision;
+    return { ok: true, profile: decision.profile };
   }
   if (email) {
     const byEmail = await findSavedDriverProfileByEmail(store, email);
     if (byEmail && driverProfileComplete(byEmail)) {
-      return byEmail;
+      return { ok: true, profile: byEmail };
     }
   }
-  return null;
+  return { ok: true, profile: null };
 }
 
 async function clearLinkedBookingAssignment(
@@ -272,32 +284,44 @@ export async function handleDriverAssignRequest(
     return jsonResponse({ error: "This booking has been cancelled" }, 409, origin);
   }
 
+  const resolvedProfile = await resolveSavedAssignmentProfile(
+    env.TRACKING_STORE,
+    requestedProfileKey,
+    driverEmail,
+  );
+  if (!resolvedProfile.ok) {
+    return jsonResponse({ error: resolvedProfile.error }, 400, origin);
+  }
+  const assignedProfile = resolvedProfile.profile;
+  const identity = assignedProfile ? assignmentIdentityFromProfile(assignedProfile) : null;
+
   const now = new Date().toISOString();
-  record.assignedDriverName = driverFirstName;
+  record.assignedDriverName = identity?.driverFirstName || driverFirstName;
   record.assignmentStatus = "pending";
   record.assignedAt = now;
   delete record.acceptedAt;
   delete record.declinedAt;
   // Snapshot operational driver details onto the tracking job (immutable for this journey).
-  if (driverMobile) record.assignedDriverMobile = driverMobile;
+  const assignedMobile = identity?.driverMobile || driverMobile;
+  const assignedEmail = identity?.driverEmail || driverEmail;
+  const assignedMake = identity?.driverCarMake || driverCarMake;
+  const assignedModel = identity?.driverCarModel || driverCarModel;
+  const assignedColour = identity?.driverCarColour || driverCarColour;
+  const assignedReg = identity?.driverReg || driverReg;
+  if (assignedMobile) record.assignedDriverMobile = assignedMobile;
   else delete record.assignedDriverMobile;
-  if (driverEmail) record.assignedDriverEmail = driverEmail;
+  if (assignedEmail) record.assignedDriverEmail = assignedEmail;
   else delete record.assignedDriverEmail;
-  if (driverCarMake) record.assignedDriverCarMake = driverCarMake;
+  if (assignedMake) record.assignedDriverCarMake = assignedMake;
   else delete record.assignedDriverCarMake;
-  if (driverCarModel) record.assignedDriverCarModel = driverCarModel;
+  if (assignedModel) record.assignedDriverCarModel = assignedModel;
   else delete record.assignedDriverCarModel;
-  if (driverCarColour) record.assignedDriverCarColour = driverCarColour;
+  if (assignedColour) record.assignedDriverCarColour = assignedColour;
   else delete record.assignedDriverCarColour;
-  if (driverReg) record.assignedDriverReg = driverReg;
+  if (assignedReg) record.assignedDriverReg = assignedReg;
   else delete record.assignedDriverReg;
   if (driverPayAmount) record.driverPayAmount = driverPayAmount;
   else delete record.driverPayAmount;
-  const assignedProfile = await resolveAssignmentProfile(
-    env.TRACKING_STORE,
-    requestedProfileKey,
-    driverEmail,
-  );
   if (assignedProfile) record.assignedDriverProfileKey = assignedProfile.profileKey;
   else delete record.assignedDriverProfileKey;
   stopDriverSharing(record);
@@ -337,13 +361,13 @@ export async function handleDriverAssignRequest(
     }
     const updatedBooking: BookingJobRecord = {
       ...bookingJob,
-      driverFirstName,
-      driverEmail,
-      driverMobile: driverMobile || undefined,
-      driverCarMake: driverCarMake || undefined,
-      driverCarModel: driverCarModel || undefined,
-      driverCarColour: driverCarColour || undefined,
-      driverReg: driverReg || undefined,
+      driverFirstName: identity?.driverFirstName || driverFirstName,
+      driverEmail: identity?.driverEmail || driverEmail,
+      driverMobile: identity?.driverMobile || driverMobile || undefined,
+      driverCarMake: identity?.driverCarMake || driverCarMake || undefined,
+      driverCarModel: identity?.driverCarModel || driverCarModel || undefined,
+      driverCarColour: identity?.driverCarColour || driverCarColour || undefined,
+      driverReg: identity?.driverReg || driverReg || undefined,
       driverPayAmount,
       driverProfileKey: assignedProfile?.profileKey,
       driverAssignmentStatus: "pending",
@@ -360,7 +384,7 @@ export async function handleDriverAssignRequest(
     if (assignedProfile) {
       const accessToken = await createDriverPortalLink(env.TRACKING_STORE, {
         profileKey: assignedProfile.profileKey,
-        driverName: assignedProfile.displayName || driverFirstName,
+        driverName: identity?.driverFirstName || assignedProfile.displayName || driverFirstName,
       });
       portalUrl = driverPortalMagicLink(siteUrl(env), accessToken);
     }
@@ -378,8 +402,8 @@ export async function handleDriverAssignRequest(
     });
 
     const sendResult = await trySendEmail(env, {
-      to: driverEmail,
-      toName: driverFirstName,
+      to: identity?.driverEmail || driverEmail,
+      toName: identity?.driverFirstName || driverFirstName,
       subject: email.subject,
       body: email.text,
       htmlBody: email.html,
@@ -397,7 +421,7 @@ export async function handleDriverAssignRequest(
         toName: BUSINESS_NAME,
         subject: `[Driver assignment copy] ${email.subject}`,
         body:
-          `This is a copy of the assignment email sent to ${driverFirstName} <${driverEmail}>.\n\n` +
+          `This is a copy of the assignment email sent to ${identity?.driverFirstName || driverFirstName} <${identity?.driverEmail || driverEmail}>.\n\n` +
           email.text,
         htmlBody: email.html,
         requireHtml: true,
