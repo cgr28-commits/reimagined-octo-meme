@@ -16,6 +16,7 @@ import {
   authorizeDriverJobAction,
   buildDriverAcceptConfirmResponse,
   buildDriverAcceptLookupResponse,
+  completeDriverAcceptConfirmation,
   buildSanitizedDriverJobView,
   createPortalToken,
   FUTURE_DRIVER_PAY_LEDGER_FIELDS,
@@ -426,8 +427,14 @@ check("Driver accept confirmation returns no raw booking or payment fields", () 
   const confirmStart = handlers.indexOf("export async function handleDriverAcceptConfirmRequest");
   const confirmEnd = handlers.indexOf("\nexport async function ", confirmStart + 10);
   const confirm = handlers.slice(confirmStart, confirmEnd === -1 ? undefined : confirmEnd);
-  assert.match(confirm, /buildDriverAcceptConfirmResponse/);
+  assert.match(confirm, /completeDriverAcceptConfirmation/);
+  assert.doesNotMatch(confirm, /action \?\? ["']accept["']/);
   assert.doesNotMatch(confirm, /ok:\s*true,\s*job|job:\s*updated|job,\s*alreadyAccepted/);
+  const flow = read("shared/driver-portal-access.ts");
+  const flowFn = flow.slice(flow.indexOf("export async function completeDriverAcceptConfirmation"));
+  const alreadyAcceptedAt = flowFn.indexOf('job.driverAssignmentStatus === "accepted"');
+  const issueAt = flowFn.indexOf("await input.issuePortalAccess");
+  assert.ok(alreadyAcceptedAt >= 0 && issueAt > alreadyAcceptedAt);
   const lookupStart = handlers.indexOf("export async function handleDriverAcceptLookupRequest");
   const lookupFn = handlers.slice(lookupStart, confirmStart);
   assert.match(lookupFn, /buildDriverAcceptLookupResponse/);
@@ -495,4 +502,150 @@ check("A profile key and a different email cannot issue a My Jobs link", () => {
   assert.match(trackingAssign, /savedProfileAssignmentDecision/);
 });
 
-console.log("\nAll assigned-driver portal access checks passed.");
+type StoredAcceptJob = {
+  id: string;
+  driverAssignmentStatus?: string;
+  driverAcceptToken?: string;
+  driverAcceptedAt?: string;
+  driverDeclinedAt?: string;
+};
+
+function acceptTokenStore(initial: StoredAcceptJob) {
+  const records = new Map<string, StoredAcceptJob>([[initial.id, { ...initial }]]);
+  const tokens = new Map<string, string>();
+  if (initial.driverAcceptToken) tokens.set(initial.driverAcceptToken, initial.id);
+  let portalMints = 0;
+  return {
+    get portalMints() {
+      return portalMints;
+    },
+    loadByToken: async (token: string) => {
+      const id = tokens.get(token);
+      const job = id ? records.get(id) : undefined;
+      return job ? { ...job } : null;
+    },
+    saveJob: async (job: StoredAcceptJob) => {
+      records.set(job.id, { ...job });
+      if (job.driverAcceptToken?.trim()) {
+        tokens.set(job.driverAcceptToken.trim(), job.id);
+      }
+    },
+    deleteAcceptToken: async (token: string) => {
+      tokens.delete(token);
+    },
+    issuePortalAccess: async (job: StoredAcceptJob) => {
+      portalMints += 1;
+      return { portalUrl: `https://www.myairporttaxini.co.uk/driver/?access=dpl_once_${portalMints}`, job };
+    },
+    saved(id: string) {
+      return records.get(id);
+    },
+  };
+}
+
+void (async () => {
+  const label = "Accepting a job returns one portal link and then the accept token is dead";
+  try {
+    const token = "accept-once";
+    const store = acceptTokenStore({
+      id: "job-1",
+      driverAssignmentStatus: "pending",
+      driverAcceptToken: token,
+    });
+    const first = await completeDriverAcceptConfirmation({
+      action: "accept",
+      token,
+      loadByToken: store.loadByToken,
+      saveJob: store.saveJob,
+      deleteAcceptToken: store.deleteAcceptToken,
+      issuePortalAccess: store.issuePortalAccess,
+    });
+    assert.equal(first.ok, true);
+    if (first.ok) {
+      assert.equal(first.body.assignmentStatus, "accepted");
+      assert.equal(first.body.portalUrl, "https://www.myairporttaxini.co.uk/driver/?access=dpl_once_1");
+      assert.equal("job" in first.body, false);
+    }
+    assert.equal(store.portalMints, 1);
+    assert.equal(store.saved("job-1")?.driverAcceptToken, undefined);
+    assert.equal(store.saved("job-1")?.driverAssignmentStatus, "accepted");
+    assert.equal(await store.loadByToken(token), null);
+
+    const second = await completeDriverAcceptConfirmation({
+      action: "accept",
+      token,
+      loadByToken: store.loadByToken,
+      saveJob: store.saveJob,
+      deleteAcceptToken: store.deleteAcceptToken,
+      issuePortalAccess: store.issuePortalAccess,
+    });
+    assert.equal(second.ok, false);
+    if (!second.ok) assert.equal(second.status, 404);
+    assert.equal(store.portalMints, 1);
+
+    const legacy = acceptTokenStore({
+      id: "job-legacy",
+      driverAssignmentStatus: "accepted",
+      driverAcceptToken: "still-indexed",
+    });
+    const reuse = await completeDriverAcceptConfirmation({
+      action: "accept",
+      token: "still-indexed",
+      loadByToken: legacy.loadByToken,
+      saveJob: legacy.saveJob,
+      deleteAcceptToken: legacy.deleteAcceptToken,
+      issuePortalAccess: legacy.issuePortalAccess,
+    });
+    assert.equal(reuse.ok, false);
+    if (!reuse.ok) assert.equal(reuse.status, 409);
+    assert.equal(legacy.portalMints, 0);
+    assert.equal(await legacy.loadByToken("still-indexed"), null);
+    assert.equal(legacy.saved("job-legacy")?.driverAcceptToken, undefined);
+
+    const declined = acceptTokenStore({
+      id: "job-no",
+      driverAssignmentStatus: "pending",
+      driverAcceptToken: "decline-token",
+    });
+    const decline = await completeDriverAcceptConfirmation({
+      action: "decline",
+      token: "decline-token",
+      loadByToken: declined.loadByToken,
+      saveJob: declined.saveJob,
+      deleteAcceptToken: declined.deleteAcceptToken,
+      issuePortalAccess: declined.issuePortalAccess,
+    });
+    assert.equal(decline.ok, true);
+    if (decline.ok) {
+      assert.equal(decline.body.assignmentStatus, "declined");
+      assert.equal(decline.body.portalUrl, undefined);
+    }
+    assert.equal(declined.portalMints, 0);
+
+    const invalid = acceptTokenStore({
+      id: "job-bad",
+      driverAssignmentStatus: "pending",
+      driverAcceptToken: "bad-token",
+    });
+    for (const action of ["", "approve", "accepted"]) {
+      const rejected = await completeDriverAcceptConfirmation({
+        action,
+        token: "bad-token",
+        loadByToken: invalid.loadByToken,
+        saveJob: invalid.saveJob,
+        deleteAcceptToken: invalid.deleteAcceptToken,
+        issuePortalAccess: invalid.issuePortalAccess,
+      });
+      assert.equal(rejected.ok, false, action);
+      if (!rejected.ok) assert.equal(rejected.status, 400);
+    }
+    assert.equal(invalid.portalMints, 0);
+    assert.equal((await invalid.loadByToken("bad-token"))?.driverAssignmentStatus, "pending");
+    console.log(`OK  ${label}`);
+    console.log("\nAll assigned-driver portal access checks passed.");
+  } catch (error) {
+    console.error(`FAIL  ${label}`);
+    console.error(error);
+    process.exit(1);
+  }
+})();

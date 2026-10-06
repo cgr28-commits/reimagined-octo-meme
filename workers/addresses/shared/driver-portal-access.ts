@@ -334,3 +334,87 @@ export function buildDriverAcceptConfirmResponse(input: {
   if (portalUrl) body.portalUrl = portalUrl;
   return body;
 }
+
+type DriverAcceptJobState = {
+  driverAssignmentStatus?: string;
+  driverAcceptToken?: string;
+  driverAcceptedAt?: string;
+  driverDeclinedAt?: string;
+};
+
+/**
+ * One successful accept may return a My Jobs link, then the accept token is burned.
+ * The same token must not mint another portal login. Decline never mints one.
+ * Only the actions "accept" and "decline" are valid.
+ */
+export async function completeDriverAcceptConfirmation<TJob extends DriverAcceptJobState>(input: {
+  action: string;
+  token: string;
+  loadByToken: (token: string) => Promise<TJob | null>;
+  saveJob: (job: TJob) => Promise<void>;
+  deleteAcceptToken: (token: string) => Promise<void>;
+  issuePortalAccess: (job: TJob) => Promise<{ portalUrl?: string; job?: TJob }>;
+  now?: () => string;
+}): Promise<
+  | { ok: true; status: 200; body: ReturnType<typeof buildDriverAcceptConfirmResponse> }
+  | { ok: false; status: number; error: string }
+> {
+  const action = input.action.trim().toLowerCase();
+  const token = input.token.trim();
+  if (!token) {
+    return { ok: false, status: 400, error: "Missing token" };
+  }
+  if (action !== "accept" && action !== "decline") {
+    return { ok: false, status: 400, error: "Action must be accept or decline." };
+  }
+
+  const job = await input.loadByToken(token);
+  if (!job) {
+    return { ok: false, status: 404, error: "Job not found or link expired" };
+  }
+
+  const now = (input.now ?? (() => new Date().toISOString()))();
+
+  if (action === "decline") {
+    await input.saveJob({
+      ...job,
+      driverAssignmentStatus: "declined",
+      driverAcceptedAt: undefined,
+      driverDeclinedAt: now,
+    });
+    return {
+      ok: true,
+      status: 200,
+      body: buildDriverAcceptConfirmResponse({ assignmentStatus: "declined" }),
+    };
+  }
+
+  if (job.driverAssignmentStatus === "accepted") {
+    await input.deleteAcceptToken(token);
+    await input.saveJob({ ...job, driverAcceptToken: undefined });
+    return {
+      ok: false,
+      status: 409,
+      error: "This job has already been accepted. Open the My Jobs link from your assignment email.",
+    };
+  }
+
+  const issued = await input.issuePortalAccess(job);
+  const acceptedJob = issued.job ?? job;
+  await input.deleteAcceptToken(token);
+  await input.saveJob({
+    ...acceptedJob,
+    driverAssignmentStatus: "accepted",
+    driverAcceptedAt: now,
+    driverDeclinedAt: undefined,
+    driverAcceptToken: undefined,
+  });
+  return {
+    ok: true,
+    status: 200,
+    body: buildDriverAcceptConfirmResponse({
+      assignmentStatus: "accepted",
+      portalUrl: issued.portalUrl,
+    }),
+  };
+}

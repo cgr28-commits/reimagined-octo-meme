@@ -5,8 +5,8 @@ import {
   type BookingJobRecord,
 } from "../shared/booking-job";
 import {
-  buildDriverAcceptConfirmResponse,
   buildDriverAcceptLookupResponse,
+  completeDriverAcceptConfirmation,
   driverPortalMagicLink,
 } from "../shared/driver-portal-access";
 import {
@@ -585,7 +585,8 @@ export async function handleDriverAcceptConfirmRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
-  if (!bookingJobStoreConfigured(env.TRACKING_STORE)) {
+  const store = env.TRACKING_STORE;
+  if (!bookingJobStoreConfigured(store)) {
     return jsonResponse({ error: "Booking store is not configured" }, 503, origin);
   }
 
@@ -597,59 +598,39 @@ export async function handleDriverAcceptConfirmRequest(
   }
 
   const token = String(body.token ?? "").trim();
-  const action = String(body.action ?? "accept").trim().toLowerCase();
-  if (!token) {
-    return jsonResponse({ error: "Missing token" }, 400, origin);
+  const action = String(body.action ?? "").trim().toLowerCase();
+  const result = await completeDriverAcceptConfirmation({
+    action,
+    token,
+    loadByToken: (acceptToken) => getBookingJobByAcceptToken(store, acceptToken),
+    saveJob: async (job) => {
+      await saveBookingJob(store, job);
+      await syncTrackingAssignmentFromBooking(store, job);
+    },
+    deleteAcceptToken: (acceptToken) => deleteDriverAcceptToken(store, acceptToken),
+    issuePortalAccess: async (job) => {
+      const profile = job.driverProfileKey
+        ? await getDriverVehicleProfile(store, job.driverProfileKey)
+        : job.driverEmail
+          ? await findSavedDriverProfileByEmail(store, job.driverEmail)
+          : null;
+      const savedProfile = profile && driverProfileComplete(profile) ? profile : null;
+      if (!savedProfile) {
+        return { job };
+      }
+      const accessToken = await createDriverPortalLink(store, {
+        profileKey: savedProfile.profileKey,
+        driverName: savedProfile.displayName || job.driverFirstName || "Driver",
+      });
+      return {
+        portalUrl: driverPortalMagicLink(siteUrl(env), accessToken),
+        job: { ...job, driverProfileKey: savedProfile.profileKey },
+      };
+    },
+  });
+
+  if (!result.ok) {
+    return jsonResponse({ error: result.error }, result.status, origin);
   }
-
-  const job = await getBookingJobByAcceptToken(env.TRACKING_STORE, token);
-  if (!job) {
-    return jsonResponse({ error: "Job not found or link expired" }, 404, origin);
-  }
-
-  const profile = job.driverProfileKey
-    ? await getDriverVehicleProfile(env.TRACKING_STORE, job.driverProfileKey)
-    : job.driverEmail
-      ? await findSavedDriverProfileByEmail(env.TRACKING_STORE, job.driverEmail)
-      : null;
-  const savedProfile = profile && driverProfileComplete(profile) ? profile : null;
-  let portalUrl: string | undefined;
-  if (savedProfile && action !== "decline") {
-    const accessToken = await createDriverPortalLink(env.TRACKING_STORE, {
-      profileKey: savedProfile.profileKey,
-      driverName: savedProfile.displayName || job.driverFirstName || "Driver",
-    });
-    portalUrl = driverPortalMagicLink(siteUrl(env), accessToken);
-  }
-
-  if (job.driverAssignmentStatus === "accepted") {
-    return jsonResponse(
-      buildDriverAcceptConfirmResponse({
-        assignmentStatus: job.driverAssignmentStatus,
-        alreadyAccepted: true,
-        portalUrl,
-      }),
-      200,
-      origin,
-    );
-  }
-
-  const updated: BookingJobRecord = {
-    ...job,
-    driverProfileKey: savedProfile?.profileKey || job.driverProfileKey,
-    driverAssignmentStatus: action === "decline" ? "declined" : "accepted",
-    driverAcceptedAt: action === "decline" ? undefined : new Date().toISOString(),
-    driverDeclinedAt: action === "decline" ? new Date().toISOString() : undefined,
-  };
-  await saveBookingJob(env.TRACKING_STORE, updated);
-  await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);
-
-  return jsonResponse(
-    buildDriverAcceptConfirmResponse({
-      assignmentStatus: updated.driverAssignmentStatus || "accepted",
-      portalUrl: action === "decline" ? undefined : portalUrl,
-    }),
-    200,
-    origin,
-  );
+  return jsonResponse(result.body, result.status, origin);
 }
