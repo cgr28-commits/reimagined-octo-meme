@@ -241,6 +241,7 @@ function PersonalQuoteInner() {
           returnJourney,
           returnDate,
           returnTime,
+          vehicle,
           airportCode: quote.expressDropOffAirport ?? airportMeta.airportCode,
           isFromAirport: airportMeta.isFromAirport,
         }

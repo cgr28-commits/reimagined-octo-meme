@@ -169,6 +169,7 @@ function BookQuoteInner() {
           returnJourney: Boolean(journey.returnJourney),
           returnDate,
           returnTime,
+          vehicle: journey.vehicleType,
           airportCode: journey.airportCode,
           isFromAirport: journey.fromAirport,
         }
