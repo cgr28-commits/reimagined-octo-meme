@@ -432,9 +432,17 @@ check("Driver accept confirmation returns no raw booking or payment fields", () 
   assert.doesNotMatch(confirm, /ok:\s*true,\s*job|job:\s*updated|job,\s*alreadyAccepted/);
   const flow = read("shared/driver-portal-access.ts");
   const flowFn = flow.slice(flow.indexOf("export async function completeDriverAcceptConfirmation"));
+  const declineAt = flowFn.indexOf('if (action === "decline")');
+  const alreadyDeclinedAt = flowFn.indexOf('job.driverAssignmentStatus === "declined"');
   const alreadyAcceptedAt = flowFn.indexOf('job.driverAssignmentStatus === "accepted"');
   const issueAt = flowFn.indexOf("await input.issuePortalAccess");
-  assert.ok(alreadyAcceptedAt >= 0 && issueAt > alreadyAcceptedAt);
+  const declineFn = flowFn.slice(declineAt, alreadyDeclinedAt);
+  assert.match(declineFn, /deleteAcceptToken/);
+  assert.match(declineFn, /driverAssignmentStatus:\s*"declined"/);
+  assert.match(declineFn, /driverAcceptToken:\s*undefined/);
+  assert.doesNotMatch(declineFn, /issuePortalAccess/);
+  assert.ok(declineAt >= 0 && alreadyDeclinedAt > declineAt && alreadyAcceptedAt > alreadyDeclinedAt && issueAt > alreadyAcceptedAt);
+  assert.match(confirm, /syncTrackingAssignmentFromBooking/);
   const lookupStart = handlers.indexOf("export async function handleDriverAcceptLookupRequest");
   const lookupFn = handlers.slice(lookupStart, confirmStart);
   assert.match(lookupFn, /buildDriverAcceptLookupResponse/);
@@ -621,6 +629,43 @@ void (async () => {
       assert.equal(decline.body.portalUrl, undefined);
     }
     assert.equal(declined.portalMints, 0);
+    assert.equal(declined.saved("job-no")?.driverAssignmentStatus, "declined");
+    assert.equal(declined.saved("job-no")?.driverAcceptToken, undefined);
+    assert.ok(declined.saved("job-no")?.driverDeclinedAt);
+    assert.equal(await declined.loadByToken("decline-token"), null);
+
+    const afterDecline = await completeDriverAcceptConfirmation({
+      action: "accept",
+      token: "decline-token",
+      loadByToken: declined.loadByToken,
+      saveJob: declined.saveJob,
+      deleteAcceptToken: declined.deleteAcceptToken,
+      issuePortalAccess: declined.issuePortalAccess,
+    });
+    assert.equal(afterDecline.ok, false);
+    if (!afterDecline.ok) assert.equal(afterDecline.status, 404);
+    assert.equal(declined.portalMints, 0);
+    assert.equal(declined.saved("job-no")?.driverAssignmentStatus, "declined");
+
+    const leftoverDecline = acceptTokenStore({
+      id: "job-already-no",
+      driverAssignmentStatus: "declined",
+      driverAcceptToken: "old-decline-token",
+    });
+    const leftoverAccept = await completeDriverAcceptConfirmation({
+      action: "accept",
+      token: "old-decline-token",
+      loadByToken: leftoverDecline.loadByToken,
+      saveJob: leftoverDecline.saveJob,
+      deleteAcceptToken: leftoverDecline.deleteAcceptToken,
+      issuePortalAccess: leftoverDecline.issuePortalAccess,
+    });
+    assert.equal(leftoverAccept.ok, false);
+    if (!leftoverAccept.ok) assert.equal(leftoverAccept.status, 404);
+    assert.equal(leftoverDecline.portalMints, 0);
+    assert.equal(await leftoverDecline.loadByToken("old-decline-token"), null);
+    assert.equal(leftoverDecline.saved("job-already-no")?.driverAcceptToken, undefined);
+    assert.equal(leftoverDecline.saved("job-already-no")?.driverAssignmentStatus, "declined");
 
     const invalid = acceptTokenStore({
       id: "job-bad",

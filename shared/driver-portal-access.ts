@@ -376,17 +376,25 @@ export async function completeDriverAcceptConfirmation<TJob extends DriverAccept
   const now = (input.now ?? (() => new Date().toISOString()))();
 
   if (action === "decline") {
+    await input.deleteAcceptToken(token);
     await input.saveJob({
       ...job,
       driverAssignmentStatus: "declined",
       driverAcceptedAt: undefined,
       driverDeclinedAt: now,
+      driverAcceptToken: undefined,
     });
     return {
       ok: true,
       status: 200,
       body: buildDriverAcceptConfirmResponse({ assignmentStatus: "declined" }),
     };
+  }
+
+  if (job.driverAssignmentStatus === "declined") {
+    await input.deleteAcceptToken(token);
+    await input.saveJob({ ...job, driverAcceptToken: undefined });
+    return { ok: false, status: 404, error: "Job not found or link expired" };
   }
 
   if (job.driverAssignmentStatus === "accepted") {
