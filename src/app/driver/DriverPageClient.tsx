@@ -374,6 +374,30 @@ function assignmentBadgeClass(status: DriverJob["assignmentStatus"]): string {
   }
 }
 
+function savedDriverLine(profile: {
+  displayName: string;
+  colour: string;
+  make: string;
+  model: string;
+  registration: string;
+}): string {
+  return `Saved · ${profile.displayName.trim()} · ${profile.colour.trim()} ${profile.make.trim()} ${profile.model.trim()} · ${profile.registration.trim()}`;
+}
+
+function driverProfileEmailNotice(result: {
+  emailSent?: boolean;
+  emailWarning?: string;
+  profile: { email: string };
+}): string | null {
+  if (result.emailSent) {
+    return `Confirmation emailed to ${result.profile.email}.`;
+  }
+  if (result.emailWarning) {
+    return `Saved on the server, but the confirmation email could not be sent: ${result.emailWarning}`;
+  }
+  return null;
+}
+
 function DriverProfilePanel({
   accessKey,
   isOwner,
@@ -401,12 +425,24 @@ function DriverProfilePanel({
     colour: "",
     registration: "",
   });
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    displayName: "",
+    email: "",
+    mobile: "",
+    make: "",
+    model: "",
+    colour: "",
+    registration: "",
+  });
   const [profileComplete, setProfileComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [emailNotice, setEmailNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const justSavedKey = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -476,7 +512,11 @@ function DriverProfilePanel({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setMessage(null);
+    if (justSavedKey.current !== selectedProfile) {
+      justSavedKey.current = null;
+      setMessage(null);
+      setEmailNotice(null);
+    }
 
     void fetchDriverVehicle(accessKey, selectedProfile)
       .then((profile) => {
@@ -503,6 +543,7 @@ function DriverProfilePanel({
           const complete = Boolean(
             profile.displayName?.trim() &&
               profile.email?.trim() &&
+              profile.mobile?.trim() &&
               profile.make?.trim() &&
               profile.model?.trim() &&
               profile.colour?.trim() &&
@@ -584,6 +625,7 @@ function DriverProfilePanel({
         colour: result.profile.colour,
         registration: result.profile.registration,
       });
+      justSavedKey.current = result.profile.profileKey;
       setSelectedProfile(result.profile.profileKey);
       setProfileComplete(true);
       setSavedAt(result.profile.updatedAt ?? new Date().toISOString());
@@ -598,15 +640,9 @@ function DriverProfilePanel({
         return next;
       });
 
-      setMessage(
-        result.emailSent
-          ? isOwner
-            ? `Saved. Confirmation emailed to ${result.profile.email}.`
-            : `Saved. Confirmation emailed to ${result.profile.email}.`
-          : result.emailWarning
-            ? `Saved on the server, but the confirmation email could not be sent: ${result.emailWarning}`
-            : "Saved.",
-      );
+      const savedLine = savedDriverLine(result.profile);
+      setMessage(savedLine);
+      setEmailNotice(driverProfileEmailNotice(result));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save driver profile");
       setProfileComplete(false);
@@ -615,7 +651,102 @@ function DriverProfilePanel({
     }
   };
 
-  const showSetupPrompt = !loading && !profileComplete && Boolean(selectedProfile);
+  const openAddDriver = () => {
+    setCreating(true);
+    setCreateForm({
+      displayName: "",
+      email: "",
+      mobile: "",
+      make: "",
+      model: "",
+      colour: "",
+      registration: "",
+    });
+    setError(null);
+    setMessage(null);
+    setEmailNotice(null);
+  };
+
+  const cancelAddDriver = () => {
+    setCreating(false);
+    setError(null);
+  };
+
+  const saveNewDriver = async () => {
+    const displayName = createForm.displayName.trim();
+    const email = createForm.email.trim();
+    const mobile = createForm.mobile.trim();
+    const make = createForm.make.trim();
+    const model = createForm.model.trim();
+    const colour = createForm.colour.trim();
+    const registration = createForm.registration.trim();
+
+    if (!displayName || !email || !mobile || !make || !model || !colour || !registration) {
+      setError("Name, email, mobile, make, model, colour, and registration are all required");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("A valid driver email address is required");
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+    setEmailNotice(null);
+
+    try {
+      const result = await saveDriverVehicle(accessKey, {
+        createNew: true,
+        displayName,
+        email,
+        mobile,
+        make,
+        model,
+        colour,
+        registration,
+      });
+
+      if (!result.profile?.profileKey || result.profile.profileKey === "owner") {
+        throw new Error("Save did not return a new driver profile");
+      }
+
+      const savedForm = {
+        displayName: result.profile.displayName,
+        email: result.profile.email,
+        mobile: result.profile.mobile ?? "",
+        make: result.profile.make,
+        model: result.profile.model,
+        colour: result.profile.colour,
+        registration: result.profile.registration,
+      };
+      setForm(savedForm);
+      justSavedKey.current = result.profile.profileKey;
+      setSelectedProfile(result.profile.profileKey);
+      setProfileComplete(true);
+      setSavedAt(result.profile.updatedAt ?? new Date().toISOString());
+      setCollapsed(true);
+      setCreating(false);
+      setProfiles((current) => {
+        const next = current.filter((entry) => entry.profileKey !== result.profile.profileKey);
+        next.unshift({
+          profileKey: result.profile.profileKey,
+          displayName: result.profile.displayName,
+          complete: true,
+        });
+        return next;
+      });
+      setMessage(savedDriverLine(result.profile));
+      setEmailNotice(driverProfileEmailNotice(result));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save driver profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const showSetupPrompt = !loading && !profileComplete && Boolean(selectedProfile) && !creating;
   // Owner managing additional drivers can collapse when complete — do not force the editor open.
   // When there are no additional drivers, keep the default-driver notice visible (no empty form).
   const ownerUsingDefaultDriver = isOwner && !selectedProfile;
@@ -623,10 +754,10 @@ function DriverProfilePanel({
     ? profiles.filter((entry) => !entry.complete)
     : [];
   const showEditor =
-    !ownerUsingDefaultDriver && (!collapsed || showSetupPrompt);
+    !creating && !ownerUsingDefaultDriver && (!collapsed || showSetupPrompt);
 
   return (
-    <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+    <section className="mb-8 min-w-0 overflow-x-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-bold text-white">
@@ -660,11 +791,14 @@ function DriverProfilePanel({
               ))}
             </div>
           ) : null}
-          {profileComplete && collapsed && selectedProfile ? (
+          {profileComplete && collapsed && selectedProfile && !creating ? (
             <p className="mt-3 text-sm text-emerald">
-              Saved · {form.displayName} · {form.make} {form.model} ({form.colour}) ·{" "}
+              Saved · {form.displayName} · {form.colour} {form.make} {form.model} ·{" "}
               {form.registration}
             </p>
+          ) : null}
+          {emailNotice && !creating ? (
+            <p className="mt-2 text-sm text-white/70">{emailNotice}</p>
           ) : null}
           {showSetupPrompt ? (
             <p className="mt-3 text-sm text-amber-100">
@@ -675,6 +809,15 @@ function DriverProfilePanel({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {isOwner && !creating ? (
+            <button
+              type="button"
+              onClick={openAddDriver}
+              className="rounded-xl bg-emerald px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90"
+            >
+              + Add driver
+            </button>
+          ) : null}
           {isOwner && selectedProfile ? (
             <button
               type="button"
@@ -722,9 +865,84 @@ function DriverProfilePanel({
         </div>
       </div>
 
+      {creating ? (
+        <form
+          className="mt-5 min-w-0"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveNewDriver();
+          }}
+        >
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+            {(
+              [
+                ["displayName", "Driver name", "text", "e.g. John Smith"],
+                ["email", "Email", "email", "driver@example.com"],
+                ["mobile", "Mobile", "tel", "e.g. 07700 900123"],
+                ["make", "Vehicle make", "text", "e.g. Skoda"],
+                ["model", "Vehicle model", "text", "e.g. Superb"],
+                ["colour", "Vehicle colour", "text", "e.g. Black"],
+              ] as const
+            ).map(([key, label, type, placeholder]) => (
+              <label key={key} className="block min-w-0 text-sm text-white/70">
+                {label}
+                <input
+                  type={type}
+                  value={createForm[key]}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({ ...current, [key]: event.target.value }))
+                  }
+                  className="mt-2 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-navy px-4 py-3 text-white outline-none focus:border-emerald"
+                  placeholder={placeholder}
+                  autoComplete="off"
+                />
+              </label>
+            ))}
+            <label className="block min-w-0 text-sm text-white/70">
+              Registration
+              <input
+                type="text"
+                value={createForm.registration}
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    registration: event.target.value.toUpperCase(),
+                  }))
+                }
+                className="mt-2 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-navy px-4 py-3 uppercase text-white outline-none focus:border-emerald"
+                placeholder="e.g. AB12 CDE"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-xl bg-emerald px-5 py-3 text-sm font-semibold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save driver"}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={cancelAddDriver}
+              className="rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </div>
+          {error ? (
+            <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              {error}
+            </p>
+          ) : null}
+        </form>
+      ) : null}
+
       {showEditor && (
         <>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="mt-5 grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block text-sm text-white/70">
               Name
               <input

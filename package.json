@@ -84,6 +84,7 @@
     "check:gps-session-cors": "npx tsx scripts/check-gps-session-cors.ts",
     "check:gps-ingestion": "npx tsx scripts/check-gps-ingestion.ts",
     "check:driver-profile-persist": "npx tsx scripts/check-driver-profile-persist.ts",
+    "check:add-driver": "npx tsx scripts/check-add-driver.ts",
     "check:owner-profile-persist": "npx tsx scripts/check-owner-profile-persist.ts",
     "check:quick-quote": "npx tsx scripts/check-quick-quote.ts",
     "check:quick-quote-roi-manual": "npx tsx scripts/check-quick-quote-roi-manual-price.ts",

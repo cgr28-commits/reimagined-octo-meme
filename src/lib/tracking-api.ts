@@ -1048,6 +1048,7 @@ export async function saveDriverVehicle(
   accessKey: string,
   input: {
     profile?: string;
+    createNew?: boolean;
     displayName?: string;
     email: string;
     mobile?: string;
@@ -1058,16 +1059,21 @@ export async function saveDriverVehicle(
   },
 ): Promise<{ profile: DriverVehicleProfile; emailSent?: boolean; emailWarning?: string }> {
   if (isDemoOwnerKey(accessKey)) {
+    const createdKey = input.createNew
+      ? (input.displayName ?? "").trim().toLowerCase().replace(/\s+/g, "-")
+      : input.profile;
+    const demoProfile = getDemoOwnerVehicle(createdKey);
     return {
       profile: {
-        ...getDemoOwnerVehicle(input.profile),
+        ...demoProfile,
+        profileKey: input.createNew ? createdKey || demoProfile.profileKey : demoProfile.profileKey,
         email: input.email,
         mobile: input.mobile,
         make: input.make,
         model: input.model,
         colour: input.colour,
         registration: input.registration,
-        displayName: input.displayName ?? getDemoOwnerVehicle(input.profile).displayName,
+        displayName: input.displayName ?? demoProfile.displayName,
       },
       emailSent: false,
       emailWarning: "Demo mode — no email sent.",

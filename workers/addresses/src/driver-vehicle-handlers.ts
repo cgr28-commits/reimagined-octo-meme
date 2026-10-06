@@ -7,11 +7,13 @@ import {
 import {
   driverAuthorized,
   listConfiguredDrivers,
+  ownerAuthorized,
   resolveDriverSession,
   type DriverAuthEnv,
 } from "./driver-auth";
 import { corsHeaders } from "../shared/google-places";
 import {
+  findSavedDriverProfileByEmail,
   getDriverVehicleProfile,
   listOwnerVehicleProfileOptions,
   normalizeVehicleProfileKey,
@@ -39,6 +41,32 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+const REQUIRED_DRIVER_FIELDS_ERROR =
+  "Name, email, mobile, make, model, colour, and registration are all required";
+const DRIVER_NAME_EXISTS_ERROR =
+  "A driver with that name already exists. Edit the existing driver instead.";
+const DRIVER_EMAIL_IN_USE_ERROR = "That email address is already used by another driver.";
+const OWNER_PROFILE_NAME_ERROR =
+  "The Owner profile is separate. Choose a different driver name.";
+
+async function emailUsedByAnotherDriver(
+  store: KVNamespace,
+  email: string,
+  profileKey: string,
+): Promise<boolean> {
+  const match = await findSavedDriverProfileByEmail(store, email);
+  if (match && match.profileKey !== profileKey) {
+    return true;
+  }
+
+  if (profileKey === OWNER_VEHICLE_PROFILE_KEY) {
+    return false;
+  }
+
+  const ownerProfile = await getDriverVehicleProfile(store, OWNER_VEHICLE_PROFILE_KEY);
+  return ownerProfile?.email?.trim().toLowerCase() === email.trim().toLowerCase();
 }
 
 async function ownerCanAccessProfileKey(
@@ -212,12 +240,6 @@ export async function handleDriverVehicleSaveRequest(
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
 
-  if (!driverAuthorized(request, env)) {
-    return jsonResponse({ error: "Unauthorized" }, 401, origin);
-  }
-
-  const session = resolveDriverSession(request, env);
-
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -225,28 +247,16 @@ export async function handleDriverVehicleSaveRequest(
     return jsonResponse({ error: "Invalid JSON" }, 400, origin);
   }
 
-  const requested =
-    String(body.profile ?? body.profileKey ?? "").trim() ||
-    String(body.displayName ?? body.name ?? "").trim() ||
-    undefined;
-
-  const profileKey = resolveRequestedProfileKey(env, session, requested);
-
-  if (!profileKey || !session.authorized) {
-    return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
-  }
-
-  if (session.role === "owner") {
-    const rosterHit = listConfiguredDrivers(env).some(
-      (name) => normalizeVehicleProfileKey(name) === profileKey,
-    );
-    const existing = await getDriverVehicleProfile(env.TRACKING_STORE, profileKey);
-    if (!rosterHit && profileKey !== OWNER_VEHICLE_PROFILE_KEY && !existing) {
-      // Owner may create a new named profile (upsert) — allowed; falls through.
+  const createNew = body.createNew === true;
+  if (createNew) {
+    if (!ownerAuthorized(request, env)) {
+      return jsonResponse({ error: "Unauthorized — owner access required" }, 401, origin);
     }
-  } else if (normalizeVehicleProfileKey(session.driverName ?? "") !== profileKey) {
-    return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
+  } else if (!driverAuthorized(request, env)) {
+    return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
+
+  const session = resolveDriverSession(request, env);
 
   const displayName = String(body.displayName ?? body.name ?? "").trim();
   const email = String(body.email ?? "").trim();
@@ -255,6 +265,47 @@ export async function handleDriverVehicleSaveRequest(
   const model = String(body.model ?? "").trim();
   const colour = String(body.colour ?? "").trim();
   const registration = String(body.registration ?? "").trim();
+
+  let profileKey: string;
+
+  if (createNew) {
+    // Ignore any client-supplied profile key. The new key comes only from the name.
+    profileKey = normalizeVehicleProfileKey(displayName);
+    if (!profileKey) {
+      return jsonResponse({ error: REQUIRED_DRIVER_FIELDS_ERROR }, 400, origin);
+    }
+    if (profileKey === OWNER_VEHICLE_PROFILE_KEY) {
+      return jsonResponse({ error: OWNER_PROFILE_NAME_ERROR }, 400, origin);
+    }
+
+    const existing = await getDriverVehicleProfile(env.TRACKING_STORE, profileKey);
+    if (existing) {
+      return jsonResponse({ error: DRIVER_NAME_EXISTS_ERROR }, 409, origin);
+    }
+  } else {
+    // Editing keeps the stable profile key. A display-name change must not mint a second profile.
+    const requested = String(body.profile ?? body.profileKey ?? "").trim() || undefined;
+    const resolved = resolveRequestedProfileKey(
+      env,
+      session,
+      requested || displayName || undefined,
+    );
+
+    if (!resolved || !session.authorized) {
+      return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
+    }
+
+    profileKey = resolved;
+
+    // Owner edits keep this stable key, including a roster slot that is not saved yet.
+    // A driver may only update their own profile.
+    if (
+      session.role !== "owner" &&
+      normalizeVehicleProfileKey(session.driverName ?? "") !== profileKey
+    ) {
+      return jsonResponse({ error: "Unauthorized for this driver profile" }, 403, origin);
+    }
+  }
 
   const resolvedDisplayName =
     displayName ||
@@ -268,12 +319,12 @@ export async function handleDriverVehicleSaveRequest(
     return jsonResponse({ error: "A valid driver email address is required" }, 400, origin);
   }
 
-  if (!make || !model || !colour || !registration) {
-    return jsonResponse(
-      { error: "Name, email, make, model, colour, and registration are all required" },
-      400,
-      origin,
-    );
+  if (!resolvedDisplayName || !mobile || !make || !model || !colour || !registration) {
+    return jsonResponse({ error: REQUIRED_DRIVER_FIELDS_ERROR }, 400, origin);
+  }
+
+  if (await emailUsedByAnotherDriver(env.TRACKING_STORE, email, profileKey)) {
+    return jsonResponse({ error: DRIVER_EMAIL_IN_USE_ERROR }, 409, origin);
   }
 
   let saved: DriverVehicleProfile;
@@ -282,7 +333,7 @@ export async function handleDriverVehicleSaveRequest(
       profileKey,
       displayName: resolvedDisplayName,
       email,
-      mobile: mobile || undefined,
+      mobile,
       make,
       model,
       colour,
