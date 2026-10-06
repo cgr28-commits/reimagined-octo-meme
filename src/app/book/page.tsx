@@ -3,7 +3,8 @@ import ReturnOfferBookClient from "./ReturnOfferBookClient";
 
 export const metadata: Metadata = {
   title: "Book your return | My Airport Taxi NI",
-  description: "Book your return airport transfer with a 5% return journey saving.",
+  description:
+    "Book the return as its own transfer. The 5% return discount applies only when both journeys are booked together.",
   robots: { index: false, follow: false },
 };
 
@@ -19,10 +20,11 @@ export default function BookReturnOfferPage() {
           My Airport Taxi NI
         </p>
         <h1 className="mt-2 break-words font-display text-3xl text-white">
-          Your 5% Return Journey Offer
+          Book your return journey
         </h1>
         <p className="mt-2 text-sm text-white/70">
-          Your 5% saving has been applied automatically.
+          This is a separate booking at the normal fare. The 5% return discount applies only
+          when both journeys are booked together.
         </p>
       </div>
       <div className="mx-auto w-full min-w-0 max-w-lg">

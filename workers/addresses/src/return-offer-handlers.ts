@@ -5,6 +5,7 @@
 import { corsHeaders, resolvePlaceFromAddressLabel } from "../shared/google-places";
 import { BUSINESS_WEBSITE } from "../shared/business-email";
 import {
+  RETURN_FOLLOW_UP_OFFER_ENABLED,
   RETURN_OFFER_CONFIG,
   airportDisplayName,
   buildReturnOfferAdminSummary,
@@ -152,6 +153,7 @@ async function deliverClaimedReturnOfferEmail(input: {
   config: ReturnType<typeof resolveReturnOfferConfig>;
   planner: "scheduled" | "manual";
 }): Promise<"sent" | "skipped" | "error"> {
+  if (!RETURN_FOLLOW_UP_OFFER_ENABLED) return "skipped";
   const store = input.env.TRACKING_STORE;
   const claim = await tryClaimReturnOfferSend(store, input.booking.paymentReference);
   if (!claim.ok) {
@@ -223,6 +225,9 @@ async function deliverClaimedReturnOfferEmail(input: {
 export async function processDueReturnOffers(
   env: ReturnOfferEnv,
 ): Promise<{ scanned: number; scheduled: number; sent: number; skipped: number; errors: number }> {
+  if (!RETURN_FOLLOW_UP_OFFER_ENABLED) {
+    return { scanned: 0, scheduled: 0, sent: 0, skipped: 0, errors: 0 };
+  }
   const result = { scanned: 0, scheduled: 0, sent: 0, skipped: 0, errors: 0 };
   const store = env.TRACKING_STORE;
   const config = resolveReturnOfferConfig(env);
@@ -301,6 +306,9 @@ export async function resolveReturnOfferForPayment(
   | { ok: true; record: ReturnOfferRecord; discountRate: number }
   | { ok: false; reason: string }
 > {
+  if (!RETURN_FOLLOW_UP_OFFER_ENABLED) {
+    return { ok: false, reason: "follow_up_offer_disabled" };
+  }
   const normalized = normalizeReturnOfferToken(token);
   if (!normalized || normalized.length < 32) {
     return { ok: false, reason: "invalid_token" };
@@ -452,6 +460,18 @@ export async function handleManualReturnOfferSend(
     return jsonResponse(
       { error: "Unauthorized — use OWNER_ACCESS_KEY to send a return offer." },
       401,
+      origin,
+    );
+  }
+  if (!RETURN_FOLLOW_UP_OFFER_ENABLED) {
+    return jsonResponse(
+      {
+        ok: false,
+        error:
+          "Follow-up return offers are no longer sent. The 5% return discount applies only when both journeys are booked together.",
+        reason: "follow_up_offer_disabled",
+      },
+      410,
       origin,
     );
   }

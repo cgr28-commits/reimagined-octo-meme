@@ -250,6 +250,7 @@ import {
   resolveExpressDropOff,
 } from "../../shared/express-drop-off";
 import {
+  RETURN_FOLLOW_UP_OFFER_ENABLED,
   RETURN_OFFER_CONFIG,
   isReturnOfferAirportJourney,
 } from "../../shared/return-offer";
@@ -2288,6 +2289,7 @@ function QuoteCard({
       return null;
     }
     const applyReturnOffer =
+      RETURN_FOLLOW_UP_OFFER_ENABLED &&
       Boolean(returnOfferToken) &&
       !returnJourney &&
       isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
@@ -6701,7 +6703,7 @@ function QuoteCard({
         >
           {quoteStep >= 2 ? "COMPLETE YOUR BOOKING" : "Get a Live Quote"}
         </h2>
-        {returnOfferToken ? (
+        {RETURN_FOLLOW_UP_OFFER_ENABLED && returnOfferToken ? (
           <div className="mt-3 rounded-xl border border-emerald/30 bg-emerald/[0.08] px-3.5 py-3">
             <p className="text-sm font-semibold text-emerald">Your 5% Return Journey Offer</p>
             <p className="mt-1 text-sm font-semibold text-white">
