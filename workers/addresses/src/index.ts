@@ -427,6 +427,7 @@ import {
   handleManualReturnOfferSend,
   isManualReturnOfferSendPath,
   isReturnOfferLookupPath,
+  processDueReturnOffers,
   resolveReturnOfferForPayment,
 } from "./return-offer-handlers";
 import { promoFieldsFromFareBreakdown } from "../shared/website-promo-pricing";
@@ -5241,6 +5242,13 @@ export default {
     // Saved Quote follow-ups: ~24h reminder, ~day-5 final reminder, expire open quotes.
     // Re-checks status before every send; idempotent via sent-at timestamps.
     if (env.TRACKING_STORE) {
+      ctx.waitUntil(
+        processDueReturnOffers({ ...env, TRACKING_STORE: env.TRACKING_STORE }).then((result) => {
+          if (result.sent > 0 || result.errors > 0 || result.scheduled > 0) {
+            console.log("Return journey offer cron", JSON.stringify(result));
+          }
+        }),
+      );
       ctx.waitUntil(
         processSavedQuoteReminders({ ...env, TRACKING_STORE: env.TRACKING_STORE }).then((result) => {
           if (

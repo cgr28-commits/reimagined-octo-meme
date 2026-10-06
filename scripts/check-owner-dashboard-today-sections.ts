@@ -418,9 +418,9 @@ console.log("\n=== Manual 5% return offer + deep link (A–H) ===");
       cancelledOrRefunded: false,
       customerEmail: "a@example.com",
     }).showAction,
-    false,
+    true,
   );
-  console.log("OK  A: completed airport pickup no longer shows a follow-up 5% send");
+  console.log("OK  A: airport → customer completed can send");
 
   const customerToAirport = planManualReturnOfferSend({
     booking: {
@@ -446,7 +446,7 @@ console.log("\n=== Manual 5% return offer + deep link (A–H) ===");
   });
   assert.equal(customerToAirport.shouldSend, true);
   assert.equal(customerToAirport.direction, "local_to_airport");
-  console.log("OK  B: completed customer → airport stays a normal fare; follow-up send is off");
+  console.log("OK  B: customer → airport completed (Victor) can send");
 
   const scheduled = planManualReturnOfferSend({
     booking: {
@@ -510,9 +510,8 @@ console.log("\n=== Manual 5% return offer + deep link (A–H) ===");
     offerSentAt: "2026-09-04T12:00:00.000Z",
   });
   assert.equal(sentUi.alreadySent, true);
-  assert.equal(sentUi.showAction, false);
-  assert.equal(sentUi.enabled, false);
-  console.log("OK  D: already sent stays recorded and is not offered again");
+  assert.match(sentUi.label, /again/i);
+  console.log("OK  D: already sent is not a silent duplicate");
 
   const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
   assert.match(panel, /ownerManualReturnOfferUi/);
@@ -536,7 +535,7 @@ console.log("\n=== Manual 5% return offer + deep link (A–H) ===");
       historyAt > futureAt,
     "section order: Upcoming → Today completed → Awaiting → Future → Completed history",
   );
-  console.log("OK  E/F: completed cards keep More options; the 5% send button stays hidden");
+  console.log("OK  E/F: completed today + history cards keep More options return-offer action");
 
   const returnBooking = paid({
     paymentReference: "G-RETURN",
@@ -568,7 +567,7 @@ console.log("\n=== Manual 5% return offer + deep link (A–H) ===");
     customerEmail: "g@example.com",
     returnAlreadyIncluded: Boolean(returnBooking.returnJourney),
   });
-  assert.equal(outboundUi.showAction, false);
+  assert.equal(outboundUi.showAction, true);
   assert.equal(outboundUi.enabled, false);
   assert.equal(returnUi.showAction, false);
   assert.equal(

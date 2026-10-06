@@ -1,7 +1,6 @@
 /**
- * Return Journey Offer — previously 5% off a separate one-way booked later.
- * That follow-up is switched off. The 5% that remains is only the same-checkout
- * return discount in return-journey-discount.ts, when both legs are booked together.
+ * Return Journey Offer — 5% off a separate one-way return after a paid
+ * one-way airport transfer. Not the existing same-order return-journey 5%.
  */
 
 import rawConfig from "./return-offer-config.json";
@@ -54,12 +53,6 @@ export const RETURN_OFFER_CONFIG: ReturnOfferConfig = {
   ),
   offerExpiryDays: asPositiveNumber(raw.offerExpiryDays, 30),
 };
-
-/**
- * Follow-up emails and later separate bookings no longer receive 5% off.
- * Keep this false. The same-checkout Return booking discount is unchanged.
- */
-export const RETURN_FOLLOW_UP_OFFER_ENABLED = false;
 
 export function resolveReturnOfferConfig(
   env?: {
@@ -745,7 +738,6 @@ export function shouldApplyReturnOfferDiscount(input: {
   dropoffLabel: string;
   returnJourney?: boolean;
 }): boolean {
-  if (!RETURN_FOLLOW_UP_OFFER_ENABLED) return false;
   if (!input.tokenValid) return false;
   if (input.returnJourney) return false;
   return isReturnOfferAirportJourney(input.pickupLabel, input.dropoffLabel);
@@ -994,15 +986,6 @@ export function ownerManualReturnOfferUi(input: {
     Boolean(input.offerSentAt?.trim());
   const email = String(input.customerEmail ?? "").trim();
   const missingEmail = !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  if (!RETURN_FOLLOW_UP_OFFER_ENABLED) {
-    return {
-      showAction: false,
-      alreadySent,
-      missingEmail,
-      enabled: false,
-      label: "Send 5% Return Offer Now",
-    };
-  }
   const showAction = Boolean(input.displayedLegCompleted) && !input.cancelledOrRefunded;
 
   if (!showAction) {

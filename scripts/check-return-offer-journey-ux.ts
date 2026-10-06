@@ -123,16 +123,14 @@ check("7. Ordinary booking still shows the One way / Return toggle", () => {
   assert.match(progressive, /lockReturnOfferJourney = false/);
 });
 
-check("8. Follow-up return page does not claim a 5% saving", () => {
+check("8. Return Offer clearly shows that 5% is already applied", () => {
   const card = read("src/components/QuoteCard.tsx");
   const book = read("src/app/book/page.tsx");
-  assert.match(card, /RETURN_FOLLOW_UP_OFFER_ENABLED && returnOfferToken/);
   assert.match(card, /Your 5% Return Journey Offer/);
   assert.match(card, /Your 5% saving has been applied automatically/);
   assert.match(card, /no extra\s+discount option to choose/);
-  assert.match(book, /both journeys are booked together/);
-  assert.doesNotMatch(book, /Your 5% saving has been applied automatically/);
-  assert.doesNotMatch(book, /Your 5% Return Journey Offer/);
+  assert.match(book, /Your 5% Return Journey Offer/);
+  assert.match(book, /Your 5% saving has been applied automatically/);
 });
 
 check("9. Quote route, visible route and payment payload all use the same airport", () => {
