@@ -8,15 +8,19 @@ import {
   correctDriverPayToUnpaid,
   driverPayAmountLabel,
   durableRecordToSummaryJob,
+  formatDriverPayFromPence,
   mutateDriverPayFields,
   recordDriverAsPaid,
   summariseDriverPay,
+  toDurableDriverPayRecord,
+  type DriverPayLedgerState,
   type DriverPayPeriod,
+  type DurableDriverPayRecord,
 } from "../shared/driver-pay-ledger";
 import { journeyStatusOf, type TrackingJobRecord } from "../shared/tracking";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { enrichDriverJob } from "./driver-booking-handlers";
-import { listDurableDriverPay } from "./driver-pay-store";
+import { getDurableDriverPay, listDurableDriverPay, upsertDriverPayLedger } from "./driver-pay-store";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import {
@@ -94,6 +98,43 @@ export async function handleOwnerDriverPaymentsSummaryRequest(
   return jsonResponse({ ok: true, ...summary }, 200, origin);
 }
 
+function ledgerFromDurable(record: DurableDriverPayRecord): DriverPayLedgerState {
+  return {
+    driverPayAmount: formatDriverPayFromPence(record.driverPayAmountPence),
+    driverPayAmountPence: record.driverPayAmountPence,
+    driverPayStatus: record.status,
+    driverPayPaidAt: record.paidAt,
+    driverPayMethod: record.paymentMethod,
+    driverPayProviderReference: record.paymentReference,
+    driverPayStatusUpdatedAt: record.statusUpdatedAt,
+    driverPayDriverProfileKey: record.driverProfileKey,
+    driverPayDriverName: record.driverName,
+  };
+}
+
+function applyLedgerToDurable(
+  existing: DurableDriverPayRecord,
+  ledger: DriverPayLedgerState,
+): DurableDriverPayRecord | null {
+  return toDurableDriverPayRecord({
+    token: existing.trackingToken,
+    tripDate: existing.tripDate,
+    pickupLabel: existing.pickupLabel,
+    dropoffLabel: existing.dropoffLabel,
+    journeyLeg: existing.journeyLeg,
+    bookingReference: existing.bookingReference,
+    driverPayAmount: ledger.driverPayAmount,
+    driverPayAmountPence: ledger.driverPayAmountPence,
+    driverPayStatus: ledger.driverPayStatus,
+    driverPayPaidAt: ledger.driverPayPaidAt,
+    driverPayMethod: ledger.driverPayMethod,
+    driverPayProviderReference: ledger.driverPayProviderReference,
+    driverPayStatusUpdatedAt: ledger.driverPayStatusUpdatedAt,
+    driverPayDriverProfileKey: ledger.driverPayDriverProfileKey ?? existing.driverProfileKey,
+    driverPayDriverName: ledger.driverPayDriverName ?? existing.driverName,
+  });
+}
+
 async function readPayBody(
   request: Request,
   origin: string | null,
@@ -131,30 +172,50 @@ export async function handleRecordDriverPaidRequest(
   }
 
   const store = env.TRACKING_STORE;
-  const record = await getTrackingJob(store, token);
-  if (!record) {
-    return jsonResponse({ error: "Job not found" }, 404, origin);
+  const nowIso = new Date().toISOString();
+  const tracking = await getTrackingJob(store, token);
+  if (tracking) {
+    const result = recordDriverAsPaid(tracking, {
+      method,
+      reference,
+      nowIso,
+      journeyCompleted: journeyStatusOf(tracking) === "completed",
+      cancelled: await journeyCancelled(store, tracking),
+    });
+    if (!result.ok) {
+      return jsonResponse({ error: result.error }, result.status, origin);
+    }
+    if (!result.idempotent) {
+      mutateDriverPayFields(tracking, result.record);
+      await saveTrackingJob(store, tracking);
+    }
+    await syncDurableDriverPayFromTracking(store, tracking);
+    const job = await enrichDriverJob(tracking, env, origin, "owner");
+    return jsonResponse({ ok: true, idempotent: result.idempotent, job }, 200, origin);
   }
 
-  const nowIso = new Date().toISOString();
-  const result = recordDriverAsPaid(record, {
+  const durable = await getDurableDriverPay(store, token);
+  if (!durable) {
+    return jsonResponse({ error: "Job not found" }, 404, origin);
+  }
+  const settled = recordDriverAsPaid(ledgerFromDurable(durable), {
     method,
     reference,
     nowIso,
-    journeyCompleted: journeyStatusOf(record) === "completed",
-    cancelled: await journeyCancelled(store, record),
+    journeyCompleted: durable.status === "unpaid" || durable.status === "paid",
+    cancelled: false,
   });
-  if (!result.ok) {
-    return jsonResponse({ error: result.error }, result.status, origin);
+  if (!settled.ok) {
+    return jsonResponse({ error: settled.error }, settled.status, origin);
   }
-  if (!result.idempotent) {
-    mutateDriverPayFields(record, result.record);
-    await saveTrackingJob(store, record);
+  if (!settled.idempotent) {
+    const next = applyLedgerToDurable(durable, settled.record);
+    if (!next) {
+      return jsonResponse({ error: "This journey has no driver pay amount to record." }, 409, origin);
+    }
+    await upsertDriverPayLedger(store, next);
   }
-  await syncDurableDriverPayFromTracking(store, record);
-
-  const job = await enrichDriverJob(record, env, origin, "owner");
-  return jsonResponse({ ok: true, idempotent: result.idempotent, job }, 200, origin);
+  return jsonResponse({ ok: true, idempotent: settled.idempotent }, 200, origin);
 }
 
 export async function handleCorrectDriverPaidRequest(
@@ -180,27 +241,51 @@ export async function handleCorrectDriverPaidRequest(
   }
 
   const store = env.TRACKING_STORE;
-  const record = await getTrackingJob(store, token);
-  if (!record) {
-    return jsonResponse({ error: "Job not found" }, 404, origin);
+  const nowIso = new Date().toISOString();
+  const tracking = await getTrackingJob(store, token);
+  if (tracking) {
+    const result = correctDriverPayToUnpaid(tracking, {
+      nowIso,
+      journeyCompleted: journeyStatusOf(tracking) === "completed",
+    });
+    if (!result.ok) {
+      return jsonResponse({ error: result.error }, result.status, origin);
+    }
+    mutateDriverPayFields(tracking, result.record);
+    await saveTrackingJob(store, tracking);
+    await syncDurableDriverPayFromTracking(store, tracking);
+    const job = await enrichDriverJob(tracking, env, origin, "owner");
+    return jsonResponse(
+      {
+        ok: true,
+        job,
+        driverPayAmount: driverPayAmountLabel(tracking),
+      },
+      200,
+      origin,
+    );
   }
 
-  const result = correctDriverPayToUnpaid(record, {
-    nowIso: new Date().toISOString(),
-    journeyCompleted: journeyStatusOf(record) === "completed",
-  });
-  if (!result.ok) {
-    return jsonResponse({ error: result.error }, result.status, origin);
+  const durable = await getDurableDriverPay(store, token);
+  if (!durable) {
+    return jsonResponse({ error: "Job not found" }, 404, origin);
   }
-  mutateDriverPayFields(record, result.record);
-  await saveTrackingJob(store, record);
-  await syncDurableDriverPayFromTracking(store, record);
-  const job = await enrichDriverJob(record, env, origin, "owner");
+  const corrected = correctDriverPayToUnpaid(ledgerFromDurable(durable), {
+    nowIso,
+    journeyCompleted: true,
+  });
+  if (!corrected.ok) {
+    return jsonResponse({ error: corrected.error }, corrected.status, origin);
+  }
+  const next = applyLedgerToDurable(durable, corrected.record);
+  if (!next) {
+    return jsonResponse({ error: "This journey has no driver pay amount to record." }, 409, origin);
+  }
+  await upsertDriverPayLedger(store, next);
   return jsonResponse(
     {
       ok: true,
-      job,
-      driverPayAmount: driverPayAmountLabel(record),
+      driverPayAmount: formatDriverPayFromPence(next.driverPayAmountPence),
     },
     200,
     origin,

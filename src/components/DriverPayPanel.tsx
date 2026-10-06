@@ -47,7 +47,7 @@ export default function DriverPayPanel({ job, isOwner, ownerKey, onUpdated }: Dr
         method,
         reference,
       });
-      onUpdated(result.job);
+      if (result.job) onUpdated(result.job);
       setRecordOpen(false);
       setReference("");
     } catch (err) {

@@ -60,7 +60,7 @@ export async function fetchOwnerDriverPayments(
 export async function recordDriverAsPaid(
   ownerKey: string,
   input: { token: string; method: "bank_transfer" | "cash" | "other"; reference?: string },
-): Promise<{ job: DriverJob; idempotent: boolean }> {
+): Promise<{ job?: DriverJob; idempotent: boolean }> {
   const response = await fetch(`${WORKER_BASE}/owner/driver-payments/record`, {
     method: "POST",
     headers: {
@@ -75,7 +75,10 @@ export async function recordDriverAsPaid(
     }),
   });
   const payload = await parseJson(response);
-  return { job: payload.job as DriverJob, idempotent: Boolean(payload.idempotent) };
+  return {
+    job: payload.job ? (payload.job as DriverJob) : undefined,
+    idempotent: Boolean(payload.idempotent),
+  };
 }
 
 export async function correctDriverPayToUnpaid(

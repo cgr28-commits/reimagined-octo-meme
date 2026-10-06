@@ -35,6 +35,11 @@ import {
   persistTrackingDriverPay,
   upsertDriverPayLedger,
 } from "../workers/addresses/src/driver-pay-store";
+import {
+  handleCorrectDriverPaidRequest,
+  handleOwnerDriverPaymentsSummaryRequest,
+  handleRecordDriverPaidRequest,
+} from "../workers/addresses/src/driver-pay-handlers";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -516,6 +521,16 @@ check("Ledger handlers are owner-only and do not call SumUp or a payout provider
   assert.match(ui, /Mark as unpaid/);
   assert.match(ui, /does not reverse or recover a real payment/);
   assert.doesNotMatch(ui, /Pay Driver/);
+  const money = read("src/components/OwnerDriverPaymentsPanel.tsx");
+  assert.match(money, /Record driver as paid/);
+  assert.match(money, /This records a payment you have already made/);
+  assert.doesNotMatch(money, /Pay Driver/);
+  assert.match(recordFn, /getDurableDriverPay/);
+  assert.ok(recordFn.indexOf("getTrackingJob") < recordFn.indexOf("getDurableDriverPay"));
+  const correctStart = handlers.indexOf("export async function handleCorrectDriverPaidRequest");
+  const correctFn = handlers.slice(correctStart);
+  assert.match(correctFn, /getDurableDriverPay/);
+  assert.ok(correctFn.indexOf("getTrackingJob") < correctFn.indexOf("getDurableDriverPay"));
 });
 
 function memoryKv() {
@@ -737,6 +752,182 @@ void (async () => {
     assert.equal(outboundView.driverPayAmount, "£40.00");
     assert.equal(returnView.driverPayAmount, "£55.50");
     assert.notEqual(outboundView.driverPayAmount, returnView.driverPayAmount);
+  });
+
+  await checkAsync("An expired tracking job can still be recorded paid from the durable ledger", async () => {
+    const kv = memoryKv();
+    const store = kv as unknown as Parameters<typeof upsertDriverPayLedger>[0];
+    const unpaid = toDurableDriverPayRecord({
+      token: "old-unpaid",
+      tripDate: "2026-06-01",
+      pickupLabel: "Home",
+      dropoffLabel: "BFS",
+      journeyLeg: "outbound",
+      bookingReference: "MAT-OLD",
+      driverPayAmountPence: 4500,
+      driverPayStatus: "unpaid",
+      driverPayStatusUpdatedAt: "2026-06-01T18:00:00.000Z",
+      driverPayDriverProfileKey: "ann",
+      driverPayDriverName: "Ann Driver",
+    });
+    assert.ok(unpaid);
+    await upsertDriverPayLedger(store, unpaid);
+    kv.rows.delete("track:job:old-unpaid");
+
+    const env = {
+      OWNER_ACCESS_KEY: "owner-secret",
+      DRIVER_ACCESS_KEY: "driver-secret",
+      TRACKING_STORE: store,
+    };
+
+    function post(path: string, body: Record<string, unknown>, headers: Record<string, string>) {
+      return new Request(`https://worker.test${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify(body),
+      });
+    }
+
+    const denied = await handleRecordDriverPaidRequest(
+      post(
+        "/owner/driver-payments/record",
+        { token: "old-unpaid", method: "cash" },
+        { "X-Driver-Key": "driver-secret" },
+      ),
+      env,
+      null,
+    );
+    assert.equal(denied.status, 401);
+    assert.equal((await getDurableDriverPay(store, "old-unpaid"))?.status, "unpaid");
+
+    const sessionDenied = await handleRecordDriverPaidRequest(
+      post(
+        "/owner/driver-payments/record",
+        { token: "old-unpaid", method: "cash" },
+        { "X-Owner-Key": "owner-secret", "X-Driver-Session": "driver-session" },
+      ),
+      env,
+      null,
+    );
+    assert.equal(sessionDenied.status, 401);
+
+    const recorded = await handleRecordDriverPaidRequest(
+      post(
+        "/owner/driver-payments/record",
+        {
+          token: "old-unpaid",
+          method: "bank_transfer",
+          reference: "BANK-44",
+          driverPayAmount: "£1.00",
+          driverPayAmountPence: 100,
+          driverPayStatus: "paid",
+          driverName: "Hacker",
+          profileKey: "hacker",
+        },
+        { "X-Owner-Key": "owner-secret" },
+      ),
+      env,
+      null,
+    );
+    assert.equal(recorded.status, 200);
+    const paidBody = (await recorded.json()) as { ok?: boolean; idempotent?: boolean };
+    assert.equal(paidBody.ok, true);
+    assert.equal(paidBody.idempotent, false);
+    const paid = await getDurableDriverPay(store, "old-unpaid");
+    assert.equal(paid?.status, "paid");
+    assert.equal(paid?.paymentMethod, "bank_transfer");
+    assert.equal(paid?.paymentReference, "BANK-44");
+    assert.equal(paid?.driverPayAmountPence, 4500);
+    assert.equal(paid?.driverName, "Ann Driver");
+    assert.equal(paid?.driverProfileKey, "ann");
+    assert.ok(paid?.paidAt);
+    assert.ok(paid?.statusUpdatedAt);
+    const firstPaidAt = paid?.paidAt;
+    const firstUpdated = paid?.statusUpdatedAt;
+
+    const summaryResponse = await handleOwnerDriverPaymentsSummaryRequest(
+      new Request("https://worker.test/owner/driver-payments?period=year", {
+        headers: { "X-Owner-Key": "owner-secret" },
+      }),
+      env,
+      null,
+    );
+    assert.equal(summaryResponse.status, 200);
+    const summary = (await summaryResponse.json()) as {
+      outstandingPence: number;
+      paidPence: number;
+      outstanding: { token: string }[];
+    };
+    assert.equal(summary.outstandingPence, 0);
+    assert.equal(summary.paidPence, 4500);
+    assert.deepEqual(
+      summary.outstanding.map((item) => item.token),
+      [],
+    );
+
+    const again = await handleRecordDriverPaidRequest(
+      post(
+        "/owner/driver-payments/record",
+        { token: "old-unpaid", method: "cash", reference: "CHANGED" },
+        { "X-Owner-Key": "owner-secret" },
+      ),
+      env,
+      null,
+    );
+    const againBody = (await again.json()) as { idempotent?: boolean };
+    assert.equal(again.status, 200);
+    assert.equal(againBody.idempotent, true);
+    const stillPaid = await getDurableDriverPay(store, "old-unpaid");
+    assert.equal(stillPaid?.paidAt, firstPaidAt);
+    assert.equal(stillPaid?.statusUpdatedAt, firstUpdated);
+    assert.equal(stillPaid?.paymentMethod, "bank_transfer");
+    assert.equal(stillPaid?.paymentReference, "BANK-44");
+    assert.equal(stillPaid?.driverPayAmountPence, 4500);
+
+    const driverCorrect = await handleCorrectDriverPaidRequest(
+      post("/owner/driver-payments/correct", { token: "old-unpaid" }, { "X-Driver-Key": "driver-secret" }),
+      env,
+      null,
+    );
+    assert.equal(driverCorrect.status, 401);
+    assert.equal((await getDurableDriverPay(store, "old-unpaid"))?.status, "paid");
+
+    const corrected = await handleCorrectDriverPaidRequest(
+      post(
+        "/owner/driver-payments/correct",
+        { token: "old-unpaid", driverPayStatus: "pending", driverPayAmountPence: 100 },
+        { "X-Owner-Key": "owner-secret" },
+      ),
+      env,
+      null,
+    );
+    assert.equal(corrected.status, 200);
+    const unpaidAgain = await getDurableDriverPay(store, "old-unpaid");
+    assert.equal(unpaidAgain?.status, "unpaid");
+    assert.equal(unpaidAgain?.paidAt, undefined);
+    assert.equal(unpaidAgain?.paymentMethod, undefined);
+    assert.equal(unpaidAgain?.paymentReference, undefined);
+    assert.equal(unpaidAgain?.driverPayAmountPence, 4500);
+    assert.equal(unpaidAgain?.driverName, "Ann Driver");
+
+    const after = await handleOwnerDriverPaymentsSummaryRequest(
+      new Request("https://worker.test/owner/driver-payments?period=year", {
+        headers: { "X-Owner-Key": "owner-secret" },
+      }),
+      env,
+      null,
+    );
+    const afterBody = (await after.json()) as {
+      outstandingPence: number;
+      paidPence: number;
+      outstanding: { token: string }[];
+    };
+    assert.equal(afterBody.outstandingPence, 4500);
+    assert.equal(afterBody.paidPence, 0);
+    assert.deepEqual(
+      afterBody.outstanding.map((item) => item.token),
+      ["old-unpaid"],
+    );
   });
 
   if (process.exitCode) {
