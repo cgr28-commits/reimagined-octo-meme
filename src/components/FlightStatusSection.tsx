@@ -1,3 +1,4 @@
+import { FLIGHT_MONITORING_SHORT } from "../../shared/cancellation-policy";
 import { FLIGHT_AIRPORTS } from "@/lib/data";
 import AirportBookNowLink from "./AirportBookNowLink";
 import SectionHeading from "./SectionHeading";
@@ -81,8 +82,7 @@ export default function FlightStatusSection() {
         </div>
 
         <p className="mt-10 text-center text-sm text-white/40">
-          We monitor your flight where possible and adjust the planned collection time for early or
-          delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time.
+          {FLIGHT_MONITORING_SHORT}
         </p>
       </div>
     </section>

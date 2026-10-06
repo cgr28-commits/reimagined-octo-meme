@@ -1,4 +1,8 @@
-import { FAQ_CANCEL_ANSWER } from "../../shared/cancellation-policy";
+import {
+  FAQ_CANCEL_ANSWER,
+  FLIGHT_MONITORING_FAQ_ANSWER,
+  FLIGHT_MONITORING_SHORT,
+} from "../../shared/cancellation-policy";
 import { AIRPORT_HERO } from "./airport-hero";
 import { withBasePath } from "./paths";
 
@@ -364,8 +368,7 @@ export const AREAS = [
 export const WHY_CHOOSE_US = [
   {
     title: "Live flight monitoring",
-    description:
-      "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include 60 minutes complimentary waiting time.",
+    description: FLIGHT_MONITORING_SHORT,
   },
   {
     title: "A driver reserved for your journey",
@@ -453,8 +456,7 @@ export const FAQS = [
   },
   {
     question: "Do you monitor flights?",
-    answer:
-      "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time. Waiting beyond that may be charged.",
+    answer: FLIGHT_MONITORING_FAQ_ANSWER,
   },
   {
     question: "Is meet & greet available?",

@@ -18,7 +18,11 @@ import {
   CONFIRMATION_EMAIL_CANCELLATION_POLICY,
   DEPOSIT_CASH_POLICY_TITLE,
   FAQ_CANCEL_ANSWER,
+  AIRPORT_WAITING_FROM_LANDING,
   FLIGHT_DELAY_POLICY,
+  FLIGHT_MONITORING_FAQ_ANSWER,
+  SIGNIFICANT_FLIGHT_DELAY_LIMIT,
+  SIGNIFICANT_FLIGHT_DELAY_POLICY,
   SPECIFIC_DATE_TRANSPORT_NOTE,
   STATUTORY_RIGHTS_NOTE,
   UNDER_24H_CANCEL_CUSTOMER_NOTICE,
@@ -135,8 +139,12 @@ console.log("\n=== Terms Cancellations & Refunds ===");
     termsText,
     /If we receive your cancellation less than 24 hours before the scheduled pickup time, the booking is non-refundable/,
   );
-  assert.match(termsText, /Flight delays/);
-  assert.match(termsText, new RegExp(FLIGHT_DELAY_POLICY.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(termsText, /Significant flight delays/);
+  assert.match(termsText, new RegExp(SIGNIFICANT_FLIGHT_DELAY_POLICY.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(termsText, new RegExp(SIGNIFICANT_FLIGHT_DELAY_LIMIT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(termsText, /will not be treated as a customer cancellation or no-show/);
+  assert.doesNotMatch(termsText, /will not normally be treated/);
+  assert.equal(FLIGHT_DELAY_POLICY, SIGNIFICANT_FLIGHT_DELAY_POLICY);
   assert.match(termsText, /Deposit \+ Cash bookings/);
   assert.match(termsText, /refund the amount actually paid — the card deposit/);
   assert.match(termsText, /Cancellations by us/);
@@ -186,7 +194,30 @@ console.log("\n=== FAQ aligned ===");
   assert.match(cancelFaq!.answer, /non-refundable/);
   assert.match(cancelFaq!.answer, /statutory/);
   assert.match(cancelFaq!.answer, /cooling-off/);
+  assert.match(cancelFaq!.answer, /will not be treated as a customer cancellation or no-show/);
+  assert.match(cancelFaq!.answer, /more than 24 hours before your scheduled pickup for a refund of the amount actually paid/);
+  assert.match(cancelFaq!.answer, /Cancellations less than 24 hours before pickup are non-refundable/);
   assertNoContradictoryCancellationCopy("FAQ", cancelFaq!.answer);
+  const flightFaq = FAQS.find((f) => f.question === "Do you monitor flights?");
+  assert.ok(flightFaq);
+  assert.equal(flightFaq!.answer, FLIGHT_MONITORING_FAQ_ANSWER);
+  assert.match(flightFaq!.answer, /60 minutes complimentary waiting from the actual landing time/);
+  assert.match(flightFaq!.answer, /will not be treated as a customer cancellation or no-show/);
+  assert.match(flightFaq!.answer, /refund in full the amount paid for it/);
+  assert.doesNotMatch(flightFaq!.answer, /unlimited waiting/i);
+  const delaySection = CANCELLATION_POLICY_SECTIONS.find((section) => section.title === "Significant flight delays");
+  assert.ok(delaySection);
+  assert.equal(delaySection!.content[0], SIGNIFICANT_FLIGHT_DELAY_POLICY);
+  assert.equal(delaySection!.content[1], SIGNIFICANT_FLIGHT_DELAY_LIMIT);
+  assert.equal(delaySection!.content[2], AIRPORT_WAITING_FROM_LANDING);
+  assert.match(AIRPORT_WAITING_FROM_LANDING, /60 minutes complimentary waiting time from the actual flight landing time/);
+  const flightSection = TERMS_SECTIONS.find((section) => section.title === "Significant flight delays") as {
+    content?: readonly string[];
+  };
+  assert.ok(flightSection);
+  assert.equal(flightSection.content?.[0], SIGNIFICANT_FLIGHT_DELAY_POLICY);
+  assert.equal(flightSection.content?.[1], SIGNIFICANT_FLIGHT_DELAY_LIMIT);
+  assert.match(flightSection.content?.[2] ?? "", /60 minutes complimentary waiting time from the actual flight landing time/);
   console.log("OK  FAQ cancellation answer aligned");
 }
 

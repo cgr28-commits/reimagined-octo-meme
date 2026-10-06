@@ -393,7 +393,7 @@ export const AIRPORT_PICKUP_WAITING_COPY =
   "Airport pickups include up to 60 minutes complimentary waiting time, giving you time to clear passport control, collect your luggage and make your way to the agreed pickup point.";
 
 export const AIRPORT_FLIGHT_MONITORING_COPY =
-  "We monitor your flight where possible and adjust the planned collection time for early or delayed arrivals. Airport pickups include up to 60 minutes complimentary waiting time.";
+  "Where a valid flight number has been provided, we monitor your flight and make reasonable efforts to adjust the collection time. Airport pickups include 60 minutes complimentary waiting from the actual landing time.";
 
 /** Shown next to the flight-number field at booking/checkout (not during Get a Quote). */
 export const BOOKING_FLIGHT_NUMBER_HELPER =
