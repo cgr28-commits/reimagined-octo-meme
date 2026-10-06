@@ -1441,9 +1441,6 @@ const CUSTOMER_CANCELLATION_OPENING = "Your booking has been successfully cancel
 const NON_REFUNDABLE_WITHIN_24H_PAYMENT =
   "As the cancellation was made within 24 hours of your scheduled pickup time, the fare is non-refundable under our cancellation policy.";
 
-const NON_REFUNDABLE_EXCEPTIONAL_REVIEW =
-  "We understand that plans can sometimes change unexpectedly. If there are exceptional circumstances you’d like us to consider, please get in touch and we’ll be happy to review your request.";
-
 const CUSTOMER_STATUTORY_RIGHTS_LINE = "Your statutory rights are not affected.";
 
 /** Customer cancellation emails only. Stored pickup date/time stay UK wall-clock. */
@@ -1643,7 +1640,7 @@ export function buildCustomerCancellationEmails(
       details,
       businessName,
       statutoryRights: true,
-      paymentParagraphs: [NON_REFUNDABLE_WITHIN_24H_PAYMENT, NON_REFUNDABLE_EXCEPTIONAL_REVIEW],
+      paymentParagraphs: [NON_REFUNDABLE_WITHIN_24H_PAYMENT],
     });
     return {
       customer: { subject, text: confirmation.text, html: confirmation.html },

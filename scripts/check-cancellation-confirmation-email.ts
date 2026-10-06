@@ -14,8 +14,6 @@ import {
 
 const NON_REFUNDABLE =
   "As the cancellation was made within 24 hours of your scheduled pickup time, the fare is non-refundable under our cancellation policy.";
-const REVIEW =
-  "We understand that plans can sometimes change unexpectedly. If there are exceptional circumstances you’d like us to consider, please get in touch and we’ll be happy to review your request.";
 const CLOSING =
   "Thank you for choosing My Airport Taxi NI. We hope we can welcome you on another journey in the future.";
 const OPENING = "Your booking has been successfully cancelled.";
@@ -81,7 +79,12 @@ assert.ok(lateText.includes(NON_REFUNDABLE));
 assert.ok(lateHtml.includes(NON_REFUNDABLE));
 assert.match(lateHtml, /About your payment/);
 assert.match(lateText, /About your payment/);
-assert.ok(lateText.includes(REVIEW));
+assert.doesNotMatch(lateText, /exceptional circumstances/i);
+assert.doesNotMatch(lateHtml, /exceptional circumstances/i);
+assert.doesNotMatch(lateText, /review your request/i);
+assert.doesNotMatch(lateHtml, /review your request/i);
+assert.doesNotMatch(lateText, /get in touch/i);
+assert.doesNotMatch(lateHtml, /get in touch/i);
 assert.doesNotMatch(lateText, /we will refund/i);
 assert.doesNotMatch(lateText, /refund has been issued/i);
 assert.doesNotMatch(lateText, /A refund of/);
@@ -123,6 +126,8 @@ assert.match(
   /details\.cancelBooking &&\s*details\.refundAmountValue > 0 &&\s*!details\.within24h/,
 );
 assert.doesNotMatch(source, /TAAA6RTCVM2/);
+assert.doesNotMatch(source, /exceptional circumstances/i);
+assert.doesNotMatch(source, /review your request/i);
 
 const previewDir = process.env.CANCELLATION_EMAIL_PREVIEW_DIR;
 if (previewDir) {
