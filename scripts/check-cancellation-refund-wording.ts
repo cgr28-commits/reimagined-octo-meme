@@ -194,8 +194,11 @@ console.log("\n=== Confirmation and cancellation emails ===");
 {
   const notifications = read("shared/booking-notifications.ts");
   assert.match(notifications, /CONFIRMATION_EMAIL_CANCELLATION_POLICY/);
-  assert.match(notifications, /UNDER_24H_CANCEL_CUSTOMER_NOTICE/);
   assert.match(notifications, /CANCELLATION_POLICY_PATH/);
+  assert.match(
+    notifications,
+    /As the cancellation was made within 24 hours of your scheduled pickup time, the fare is non-refundable under our cancellation policy\./,
+  );
   assert.match(
     CONFIRMATION_EMAIL_CANCELLATION_POLICY,
     /more than 24 hours before your scheduled pickup for a refund of the amount actually paid/,
