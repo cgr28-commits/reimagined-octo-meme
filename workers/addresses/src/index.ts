@@ -236,6 +236,14 @@ import {
   processDueReviewRequests,
 } from "./review-request-handlers";
 import { handleReopenJobRequest, isReopenJobPath } from "./reopen-job-handlers";
+import {
+  handleCorrectDriverPaidRequest,
+  handleOwnerDriverPaymentsSummaryRequest,
+  handleRecordDriverPaidRequest,
+  isOwnerDriverPaymentsCorrectPath,
+  isOwnerDriverPaymentsPath,
+  isOwnerDriverPaymentsRecordPath,
+} from "./driver-pay-handlers";
 import { processDueTrackingAvailableReminders } from "./tracking-reminder-handlers";
 import { processDueAirportPickupReminders } from "./airport-pickup-reminder-handlers";
 import {
@@ -718,6 +726,9 @@ function routePath(
   | "paid-bookings-amendment-test-seed"
   | "paid-bookings-amendment-test-list"
   | "paid-bookings-financial-summary"
+  | "owner-driver-payments"
+  | "owner-driver-payments-record"
+  | "owner-driver-payments-correct"
   | "paid-bookings-cash-collected"
   | "paid-bookings"
   | "paid-bookings-resend"
@@ -847,6 +858,18 @@ function routePath(
 
   if (isPaidBookingsFinancialSummaryPath(pathname)) {
     return "paid-bookings-financial-summary";
+  }
+
+  if (isOwnerDriverPaymentsRecordPath(pathname)) {
+    return "owner-driver-payments-record";
+  }
+
+  if (isOwnerDriverPaymentsCorrectPath(pathname)) {
+    return "owner-driver-payments-correct";
+  }
+
+  if (isOwnerDriverPaymentsPath(pathname)) {
+    return "owner-driver-payments";
   }
 
   if (isPaidBookingCashCollectedPath(pathname)) {
@@ -4647,6 +4670,18 @@ export default {
 
     if (route === "paid-bookings-financial-summary") {
       return handlePaidBookingsFinancialSummaryRequest(request, env, origin);
+    }
+
+    if (route === "owner-driver-payments") {
+      return handleOwnerDriverPaymentsSummaryRequest(request, env, origin);
+    }
+
+    if (route === "owner-driver-payments-record") {
+      return handleRecordDriverPaidRequest(request, env, origin);
+    }
+
+    if (route === "owner-driver-payments-correct") {
+      return handleCorrectDriverPaidRequest(request, env, origin);
     }
 
     if (route === "paid-bookings-cash-collected") {

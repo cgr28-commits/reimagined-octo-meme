@@ -25,6 +25,7 @@ import {
   customerFirstName,
 } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
+import { oweDriverPayOnCompletion, mutateDriverPayFields } from "../shared/driver-pay-ledger";
 import { authorizeDriverJobAction, sequentialDriverJourneyActions } from "../shared/driver-portal-access";
 import {
   ownerAuthorized,
@@ -38,6 +39,7 @@ import {
   getDriverLocationHistory,
   getTrackingJob,
   gpsHistoryTtlSeconds,
+  isTrackingJobCancelled,
   saveTrackingJob,
   TRACKING_JOB_TTL_SECONDS,
   trackingStoreConfigured,
@@ -426,6 +428,14 @@ export async function handleJourneyTransitionRequest(
 
   // Repeating Complete job must not mint another tip link or open WhatsApp again.
   if (action === "complete_journey" && journeyStatusOf(record) === "completed") {
+    const owed = oweDriverPayOnCompletion(record, {
+      nowIso: new Date().toISOString(),
+      cancelled: isTrackingJobCancelled(record),
+    });
+    if (owed.changed) {
+      mutateDriverPayFields(record, owed.job);
+      await saveTrackingJob(env.TRACKING_STORE, record);
+    }
     const tip = await tipPayloadForCompletedJob(record);
     return jsonResponse(
       {
@@ -478,6 +488,14 @@ export async function handleJourneyTransitionRequest(
       next,
       resolveReviewRequestDelayMs(env.REVIEW_REQUEST_DELAY_MINUTES),
     );
+    const owed = oweDriverPayOnCompletion(next, {
+      nowIso: next.journeyCompletedAt?.trim() || new Date().toISOString(),
+      cancelled: isTrackingJobCancelled(next),
+    });
+    if (owed.changed) {
+      next = { ...next, ...owed.job };
+      mutateDriverPayFields(next, owed.job);
+    }
     const paymentReference = next.paymentReference?.trim();
     const completedAt = next.journeyCompletedAt?.trim() || new Date().toISOString();
     if (paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {

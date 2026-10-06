@@ -3,6 +3,7 @@
  * Restores journey stage. Does not change payment, fare, or booking details.
  */
 
+import { mutateDriverPayFields, reopenDriverPayObligation } from "../shared/driver-pay-ledger";
 import { corsHeaders } from "../shared/google-places";
 import {
   completionTimestampsMatch,
@@ -185,7 +186,10 @@ export async function handleReopenJobRequest(
     await deleteUnpaidTipRequest(store, tip.unpaidTokenToDelete);
   }
 
-  await saveTrackingJob(store, reopened.job);
+  const pay = reopenDriverPayObligation(reopened.job, new Date().toISOString());
+  const jobToSave = pay.changed ? pay.job : reopened.job;
+  if (pay.changed) mutateDriverPayFields(jobToSave, pay.job);
+  await saveTrackingJob(store, jobToSave);
 
   const paid = await getPaidBookingRecord(store, paymentReference);
   if (paid && reopened.completionTimestamp) {

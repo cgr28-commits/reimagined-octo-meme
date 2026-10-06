@@ -7,16 +7,8 @@
  *
  * This module does not pay drivers. SumUp stays on customer charges and refunds.
  *
- * Later ledger migration (not implemented):
- * `driverPayAmount` is free text such as "£45" on the tracking job and booking job.
- * KV has no fixed schema, so the follow-up can add these fields on the same records:
- * - driverPayAmountPence: integer pence (source of truth, not a formatted string)
- * - driverPayStatus: "unpaid" | "paid" | "failed"
- * - driverPayPaidAt: ISO timestamp
- * - driverPayMethod: bank-payment provider id
- * - driverPayProviderReference: provider payment id
- * Backfill pence by parsing the existing text once, then stop treating the text as
- * the amount. Do not send driver pay through SumUp refunds or SumUp payouts.
+ * Driver pay amounts and statuses are recorded by shared/driver-pay-ledger.ts.
+ * Do not send driver pay through SumUp refunds or SumUp payouts.
  */
 
 import type { JourneyAction, JourneyStatus } from "./tracking";
@@ -30,7 +22,7 @@ export const PORTAL_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 export const DRIVER_PORTAL_COOKIE = "matni_driver_session";
 export const DRIVER_PORTAL_SESSION_STORAGE_KEY = "matni-driver-portal-session";
 
-/** Documented only. Do not write these fields until the payment ledger is built. */
+/** Owner ledger fields. Driver responses may show status and paid date, not these internals. */
 export const FUTURE_DRIVER_PAY_LEDGER_FIELDS = [
   "driverPayAmountPence",
   "driverPayStatus",
@@ -219,6 +211,8 @@ export type DriverPortalJobExtras = {
   cashCollectedAt?: string;
   airportAccessOption?: string | null;
   dublinArrivalTerminal?: string | null;
+  driverPayStatus?: string;
+  driverPayPaidAt?: string;
 };
 
 /**
@@ -251,6 +245,15 @@ export function buildSanitizedDriverJobView(
     airportAccessOption: extras.airportAccessOption ?? undefined,
     dublinArrivalTerminal: extras.dublinArrivalTerminal ?? undefined,
   };
+  const payStatus = extras.driverPayStatus?.trim();
+  const paidAt = extras.driverPayPaidAt?.trim();
+  if (payStatus) merged.driverPayStatus = payStatus;
+  if (paidAt) merged.driverPayPaidAt = paidAt;
+  delete merged.driverPayAmountPence;
+  delete merged.driverPayMethod;
+  delete merged.driverPayProviderReference;
+  delete merged.driverPayStatusUpdatedAt;
+  delete merged.driverPayDriverProfileKey;
   if (customerReference) {
     merged.bookingReference = customerReference;
   } else {

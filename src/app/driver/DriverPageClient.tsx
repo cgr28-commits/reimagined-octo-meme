@@ -13,6 +13,8 @@ import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
+import OwnerDriverPaymentsPanel from "@/components/OwnerDriverPaymentsPanel";
+import DriverPayPanel from "@/components/DriverPayPanel";
 import OwnerDashboardToolSwitcher, {
   OwnerDashboardMoreMenu,
   OwnerToolBackBar,
@@ -1479,9 +1481,9 @@ function DriverJobCard({
               Customer mobile is shown after you accept this job.
             </p>
           ) : null}
-          {!isOwner && job.driverPayAmount && (
-            <p className="mt-2 text-base font-bold text-emerald">Your pay: {job.driverPayAmount}</p>
-          )}
+          {!isOwner ? (
+            <DriverPayPanel job={job} isOwner={false} ownerKey={driverKey} onUpdated={onUpdated} />
+          ) : null}
           {!isOwner && (job.passengers != null || job.suitcases != null) && (
             <p className="mt-2 text-sm text-white/70">
               Passengers: {job.passengers ?? "—"} · Suitcases: {job.suitcases ?? "—"}
@@ -1520,9 +1522,9 @@ function DriverJobCard({
               ) : null}
             </div>
           ) : null}
-          {isOwner && job.driverPayAmount && (
-            <p className="mt-1 text-sm text-white/70">Driver pay: {job.driverPayAmount}</p>
-          )}
+          {isOwner ? (
+            <DriverPayPanel job={job} isOwner ownerKey={driverKey} onUpdated={onUpdated} />
+          ) : null}
           {isOwner && job.amountPaidLabel && (
             <p className="mt-1 text-sm text-white/70">Paid: {job.amountPaidLabel}</p>
           )}
@@ -1763,7 +1765,7 @@ function DriverJobCard({
               onChange={(event) =>
                 setAssignForm((prev) => ({ ...prev, driverPayAmount: event.target.value }))
               }
-              placeholder="e.g. £80"
+              placeholder="45 or 45.50"
               className="mt-1 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-emerald"
             />
           </label>
@@ -3252,6 +3254,7 @@ export default function DriverPageClient({
                 <div id="owner-tool-panel-money">
                   <OwnerToolBackBar title="Money" onBack={() => setOwnerToolTab("more")} />
                   <OwnerFinancialSummaryPanel ownerKey={savedKey} />
+                  <OwnerDriverPaymentsPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 

@@ -63,11 +63,13 @@ export type BookingJobRecord = {
   /** Saved DriverVehicleProfile this assignment belongs to. */
   driverProfileKey?: string;
   /**
-   * Manual amount the owner will pay the driver after the journey (never the customer fare).
-   * Free text today. Later store driverPayAmountPence (integer pence) with payment status,
-   * paid date, method, and provider reference. Not a SumUp payout.
+   * Display label for the agreed driver pay on this assignment email.
+   * Derived from driverPayAmountPence for new assignments. The tracking journey
+   * remains the payment record. Not a SumUp payout.
    */
   driverPayAmount?: string;
+  /** Integer pence agreed for this assignment. Payment status lives on the tracking journey. */
+  driverPayAmountPence?: number;
   driverAssignmentStatus?: DriverAssignmentStatus;
   driverAcceptToken?: string;
   assignedAt?: string;

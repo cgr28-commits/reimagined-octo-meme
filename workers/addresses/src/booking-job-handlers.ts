@@ -15,6 +15,15 @@ import {
   savedProfileAssignmentDecision,
   type DriverVehicleProfile,
 } from "../shared/driver-vehicle";
+import {
+  applyDriverPayAssignment,
+  driverPayBlocksReassignment,
+  mutateDriverPayFields,
+  oweDriverPayOnCompletion,
+  formatDriverPayFromPence,
+  parseDriverPayToPence,
+} from "../shared/driver-pay-ledger";
+import { journeyStatusOf, type TrackingJobRecord } from "../shared/tracking";
 import { corsHeaders } from "../shared/google-places";
 import { sanitizeAdsAttribution } from "../shared/ads-attribution";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
@@ -34,14 +43,15 @@ import {
   createTrackingJobFromBooking,
   findTrackingJobsByPaymentReference,
   getTrackingJob,
+  isTrackingJobCancelled,
   saveTrackingJob,
 } from "./tracking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 
-async function syncTrackingAssignmentFromBooking(
+async function trackingJobsForBooking(
   store: KVNamespace,
   job: BookingJobRecord,
-): Promise<void> {
+): Promise<TrackingJobRecord[]> {
   const paymentRef = job.paymentReference?.trim() || job.id;
   const tracked = await findTrackingJobsByPaymentReference(store, paymentRef);
   const byId = await findTrackingJobsByPaymentReference(store, job.id);
@@ -50,11 +60,34 @@ async function syncTrackingAssignmentFromBooking(
   if (legacy && !jobs.some((entry) => entry.token === legacy.token)) {
     jobs.push(legacy);
   }
+  const seen = new Set<string>();
+  return jobs.filter((entry) => {
+    if (seen.has(entry.token)) return false;
+    seen.add(entry.token);
+    return true;
+  });
+}
+
+async function syncTrackingAssignmentFromBooking(
+  store: KVNamespace,
+  job: BookingJobRecord,
+  options?: { resetPay?: boolean },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const jobs = await trackingJobsForBooking(store, job);
   if (jobs.length === 0) {
-    return;
+    return { ok: true };
   }
 
   const status = job.driverAssignmentStatus ?? "unassigned";
+  const resetSingleJourneyPay = Boolean(options?.resetPay && jobs.length === 1);
+  if (options?.resetPay || status === "unassigned") {
+    for (const tracking of jobs) {
+      const blocked = driverPayBlocksReassignment(tracking);
+      if (blocked) return { ok: false, error: blocked };
+    }
+  }
+
+  const nowIso = job.assignedAt || new Date().toISOString();
   for (const tracking of jobs) {
     if (status === "unassigned") {
       delete tracking.assignedDriverName;
@@ -70,10 +103,18 @@ async function syncTrackingAssignmentFromBooking(
       delete tracking.assignedDriverCarColour;
       delete tracking.assignedDriverReg;
       delete tracking.driverPayAmount;
+      delete tracking.driverPayAmountPence;
+      delete tracking.driverPayStatus;
+      delete tracking.driverPayPaidAt;
+      delete tracking.driverPayMethod;
+      delete tracking.driverPayProviderReference;
+      delete tracking.driverPayStatusUpdatedAt;
+      delete tracking.driverPayDriverProfileKey;
+      delete tracking.driverPayDriverName;
     } else {
       tracking.assignedDriverName = job.driverFirstName?.trim() || tracking.assignedDriverName;
       tracking.assignmentStatus = status;
-      tracking.assignedAt = job.assignedAt || tracking.assignedAt || new Date().toISOString();
+      tracking.assignedAt = job.assignedAt || tracking.assignedAt || nowIso;
       if (job.driverProfileKey?.trim()) tracking.assignedDriverProfileKey = job.driverProfileKey.trim();
       else delete tracking.assignedDriverProfileKey;
       if (job.driverMobile?.trim()) tracking.assignedDriverMobile = job.driverMobile.trim();
@@ -82,7 +123,20 @@ async function syncTrackingAssignmentFromBooking(
       if (job.driverCarModel?.trim()) tracking.assignedDriverCarModel = job.driverCarModel.trim();
       if (job.driverCarColour?.trim()) tracking.assignedDriverCarColour = job.driverCarColour.trim();
       if (job.driverReg?.trim()) tracking.assignedDriverReg = job.driverReg.trim();
-      if (job.driverPayAmount?.trim()) tracking.driverPayAmount = job.driverPayAmount.trim();
+      if (resetSingleJourneyPay && job.driverPayAmount?.trim()) {
+        const applied = applyDriverPayAssignment(tracking, {
+          amountInput: job.driverPayAmount,
+          driverName: job.driverFirstName?.trim() || tracking.assignedDriverName || "Driver",
+          profileKey: job.driverProfileKey,
+          nowIso,
+        });
+        if (!applied.ok) return applied;
+        mutateDriverPayFields(tracking, applied.record);
+        if (journeyStatusOf(tracking) === "completed" && !isTrackingJobCancelled(tracking)) {
+          const owed = oweDriverPayOnCompletion(tracking, { nowIso, cancelled: false });
+          if (owed.changed) mutateDriverPayFields(tracking, owed.job);
+        }
+      }
       if (status === "accepted") {
         tracking.acceptedAt = job.driverAcceptedAt || new Date().toISOString();
         delete tracking.declinedAt;
@@ -102,6 +156,7 @@ async function syncTrackingAssignmentFromBooking(
 
     await saveTrackingJob(store, tracking);
   }
+  return { ok: true };
 }
 
 type Env = DriverAuthEnv &
@@ -411,6 +466,7 @@ export async function handleBookingJobAssignDriverRequest(
   const driverReg = String(body.driverReg ?? "").trim().toUpperCase();
   const driverPayAmount = String(body.driverPayAmount ?? "").trim();
   const requestedProfileKey = String(body.driverProfileKey ?? body.profileKey ?? "").trim();
+  const parsedPay = parseDriverPayToPence(driverPayAmount);
 
   if (!id || !driverFirstName || !driverEmail || !driverPayAmount) {
     return jsonResponse(
@@ -418,6 +474,10 @@ export async function handleBookingJobAssignDriverRequest(
       400,
       origin,
     );
+  }
+
+  if (!parsedPay.ok) {
+    return jsonResponse({ error: parsedPay.error }, 400, origin);
   }
 
   if (!driverEmail.includes("@")) {
@@ -431,6 +491,14 @@ export async function handleBookingJobAssignDriverRequest(
   const job = await getBookingJob(env.TRACKING_STORE, id);
   if (!job) {
     return jsonResponse({ error: "Booking not found" }, 404, origin);
+  }
+
+  const linkedBeforeAssign = await trackingJobsForBooking(env.TRACKING_STORE, job);
+  for (const tracking of linkedBeforeAssign) {
+    const blocked = driverPayBlocksReassignment(tracking);
+    if (blocked) {
+      return jsonResponse({ error: blocked }, 409, origin);
+    }
   }
 
   if (job.status !== "paid") {
@@ -472,7 +540,8 @@ export async function handleBookingJobAssignDriverRequest(
     driverCarModel: identity?.driverCarModel || driverCarModel || undefined,
     driverCarColour: identity?.driverCarColour || driverCarColour || undefined,
     driverReg: identity?.driverReg || driverReg || undefined,
-    driverPayAmount,
+    driverPayAmount: formatDriverPayFromPence(parsedPay.pence),
+    driverPayAmountPence: parsedPay.pence,
     driverProfileKey: identity?.driverProfileKey,
     driverAssignmentStatus: "pending",
     driverAcceptToken: acceptToken,
@@ -482,7 +551,10 @@ export async function handleBookingJobAssignDriverRequest(
   };
 
   await saveBookingJob(env.TRACKING_STORE, updated);
-  await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated);
+  const synced = await syncTrackingAssignmentFromBooking(env.TRACKING_STORE, updated, { resetPay: true });
+  if (!synced.ok) {
+    return jsonResponse({ error: synced.error }, 409, origin);
+  }
 
   const acceptUrl = `${siteUrl(env).replace(/\/$/, "")}/driver-accept/?token=${encodeURIComponent(acceptToken)}`;
   let portalUrl: string | undefined;

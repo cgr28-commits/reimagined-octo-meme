@@ -10,6 +10,7 @@ import {
   shouldStoreGpsPoint,
   type TrackingJobRecord,
 } from "../shared/tracking";
+import { driverPayAmountLabel } from "../shared/driver-pay-ledger";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
 import {
   createTrackingJobFromBooking,
@@ -630,7 +631,10 @@ export async function handleDriverJobsRequest(
           rawJob,
           {
             customerReference: paidRecord?.customerReference,
-            driverPayAmount: job.driverPayAmount || bookingJob?.driverPayAmount,
+            driverPayAmount:
+              driverPayAmountLabel(job) || bookingJob?.driverPayAmount?.trim() || undefined,
+            driverPayStatus: job.driverPayStatus,
+            driverPayPaidAt: job.driverPayStatus === "paid" ? job.driverPayPaidAt : undefined,
             passengers: paidRecord?.passengers ?? bookingJob?.passengers,
             suitcases: paidRecord?.suitcases ?? bookingJob?.suitcases,
             bookedVehicle: paidRecord?.vehicle || bookingJob?.vehicle,
@@ -648,7 +652,20 @@ export async function handleDriverJobsRequest(
         );
       }
 
-      return sanitizeDriverJobForRole(rawJob, role);
+      return sanitizeDriverJobForRole(
+        {
+          ...rawJob,
+          driverPayAmount: driverPayAmountLabel(job),
+          driverPayAmountPence: job.driverPayAmountPence,
+          driverPayStatus: job.driverPayStatus,
+          driverPayPaidAt: job.driverPayPaidAt,
+          driverPayMethod: job.driverPayMethod,
+          driverPayProviderReference: job.driverPayProviderReference,
+          driverPayDriverName: job.driverPayDriverName,
+          driverPayDriverProfileKey: job.driverPayDriverProfileKey,
+        },
+        role,
+      );
     }),
   );
 
