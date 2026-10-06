@@ -55,6 +55,7 @@
     "check:technical-seo": "npx tsx scripts/check-technical-seo.ts",
     "check:journey-tracking": "npx tsx scripts/check-journey-tracking.ts",
     "check:driver-portal-permissions": "npx tsx scripts/check-driver-portal-permissions.ts",
+    "check:driver-pay-ledger": "npx tsx scripts/check-driver-pay-ledger.ts",
     "check:review-request": "npx tsx scripts/check-review-request.ts",
     "check:airport-pickup-reminder": "npx tsx scripts/check-airport-pickup-reminder.ts",
     "check:owner-email-bcc": "npx tsx scripts/check-owner-email-bcc.ts",

@@ -300,6 +300,11 @@ export type DriverJob = PublicTrackResponse & {
   assignedDriverCarColour?: string;
   assignedDriverReg?: string;
   driverPayAmount?: string;
+  driverPayAmountPence?: number;
+  driverPayStatus?: "pending" | "unpaid" | "processing" | "paid" | "failed";
+  driverPayPaidAt?: string;
+  driverPayMethod?: "bank_transfer" | "cash" | "other";
+  driverPayProviderReference?: string;
   bookingReference?: string;
   assignmentStatus?: JobAssignmentStatus;
   assignedAt?: string;

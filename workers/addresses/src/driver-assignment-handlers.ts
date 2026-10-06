@@ -10,7 +10,16 @@ import {
   type DriverVehicleProfile,
 } from "../shared/driver-vehicle";
 import {
+  applyDriverPayAssignment,
+  clearDriverPayForDeassignment,
+  driverPayBlocksDeassignment,
+  driverPayBlocksReassignment,
+  mutateDriverPayFields,
+  oweDriverPayOnCompletion,
+} from "../shared/driver-pay-ledger";
+import {
   jobAssignmentStatus,
+  journeyStatusOf,
   type JobAssignmentStatus,
   type TrackingJobRecord,
 } from "../shared/tracking";
@@ -38,6 +47,7 @@ import {
   trackingStoreConfigured,
 } from "./tracking-store";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import { remainingCashDueGbp } from "../shared/deposit-cash";
 
@@ -87,6 +97,14 @@ function clearJobAssignment(record: TrackingJobRecord): void {
   delete record.assignedDriverReg;
   delete record.assignedDriverProfileKey;
   delete record.driverPayAmount;
+  delete record.driverPayAmountPence;
+  delete record.driverPayStatus;
+  delete record.driverPayPaidAt;
+  delete record.driverPayMethod;
+  delete record.driverPayProviderReference;
+  delete record.driverPayStatusUpdatedAt;
+  delete record.driverPayDriverProfileKey;
+  delete record.driverPayDriverName;
   stopDriverSharing(record);
 }
 
@@ -144,6 +162,7 @@ async function clearLinkedBookingAssignment(
       driverCarColour: undefined,
       driverReg: undefined,
       driverPayAmount: undefined,
+      driverPayAmountPence: undefined,
       driverAcceptedAt: undefined,
       driverDeclinedAt: undefined,
     });
@@ -284,6 +303,11 @@ export async function handleDriverAssignRequest(
     return jsonResponse({ error: "This booking has been cancelled" }, 409, origin);
   }
 
+  const paidBlock = driverPayBlocksReassignment(record);
+  if (paidBlock) {
+    return jsonResponse({ error: paidBlock }, 409, origin);
+  }
+
   const resolvedProfile = await resolveSavedAssignmentProfile(
     env.TRACKING_STORE,
     requestedProfileKey,
@@ -320,13 +344,34 @@ export async function handleDriverAssignRequest(
   else delete record.assignedDriverCarColour;
   if (assignedReg) record.assignedDriverReg = assignedReg;
   else delete record.assignedDriverReg;
-  if (driverPayAmount) record.driverPayAmount = driverPayAmount;
-  else delete record.driverPayAmount;
+  if (driverPayAmount) {
+    const applied = applyDriverPayAssignment(record, {
+      amountInput: driverPayAmount,
+      driverName: identity?.driverFirstName || driverFirstName,
+      profileKey: assignedProfile?.profileKey,
+      nowIso: now,
+    });
+    if (!applied.ok) {
+      return jsonResponse({ error: applied.error }, 400, origin);
+    }
+    mutateDriverPayFields(record, applied.record);
+    if (journeyStatusOf(record) === "completed") {
+      const owed = oweDriverPayOnCompletion(record, { nowIso: now, cancelled: false });
+      if (owed.changed) mutateDriverPayFields(record, owed.job);
+    }
+  } else {
+    const cleared = clearDriverPayForDeassignment(record);
+    if (!cleared.ok) {
+      return jsonResponse({ error: cleared.error }, 409, origin);
+    }
+    mutateDriverPayFields(record, cleared.record);
+  }
   if (assignedProfile) record.assignedDriverProfileKey = assignedProfile.profileKey;
   else delete record.assignedDriverProfileKey;
   stopDriverSharing(record);
 
   await saveTrackingJob(env.TRACKING_STORE, record);
+  await syncDurableDriverPayFromTracking(env.TRACKING_STORE, record);
 
   let emailed = false;
   let acceptUrl: string | undefined;
@@ -368,7 +413,8 @@ export async function handleDriverAssignRequest(
       driverCarModel: identity?.driverCarModel || driverCarModel || undefined,
       driverCarColour: identity?.driverCarColour || driverCarColour || undefined,
       driverReg: identity?.driverReg || driverReg || undefined,
-      driverPayAmount,
+      driverPayAmount: record.driverPayAmount,
+      driverPayAmountPence: record.driverPayAmountPence,
       driverProfileKey: assignedProfile?.profileKey,
       driverAssignmentStatus: "pending",
       driverAcceptToken: acceptToken,
@@ -496,6 +542,11 @@ export async function handleDriverDeassignRequest(
     return jsonResponse({ error: "This booking has been cancelled" }, 409, origin);
   }
 
+  const paidDeassignBlock = driverPayBlocksDeassignment(record);
+  if (paidDeassignBlock) {
+    return jsonResponse({ error: paidDeassignBlock }, 409, origin);
+  }
+
   if (jobAssignmentStatus(record) === "unassigned") {
     return jsonResponse({ error: "This job is not assigned to a driver" }, 409, origin);
   }
@@ -503,6 +554,7 @@ export async function handleDriverDeassignRequest(
   await clearLinkedBookingAssignment(env.TRACKING_STORE, record);
   clearJobAssignment(record);
   await saveTrackingJob(env.TRACKING_STORE, record);
+  await syncDurableDriverPayFromTracking(env.TRACKING_STORE, record);
 
   const job = await enrichDriverJob(record, env, origin, "owner");
 

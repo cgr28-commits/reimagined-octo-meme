@@ -112,12 +112,24 @@ export type TrackingJobRecord = {
    */
   assignedDriverProfileKey?: string;
   /**
-   * Owner-entered amount paid to the driver for this journey (not the customer fare).
-   * Free text today (for example "£45"). A later ledger will store driverPayAmountPence
-   * plus payment status, paid date, method, and provider reference. Do not pay this
-   * through SumUp.
+   * Owner-entered amount for this journey (not the customer fare).
+   * New records store driverPayAmountPence and derive this label from those pence.
+   * Legacy records may contain only text such as "£45" until the next write.
+   * Do not pay this through SumUp.
    */
   driverPayAmount?: string;
+  /** Integer pence. Source of truth for new driver-pay amounts. */
+  driverPayAmountPence?: number;
+  /** pending until the journey is completed, then unpaid, then paid when the owner records it. */
+  driverPayStatus?: "pending" | "unpaid" | "processing" | "paid" | "failed";
+  driverPayPaidAt?: string;
+  driverPayMethod?: "bank_transfer" | "cash" | "other";
+  /** Owner accounting reference. Not a bank-provider payment id in this ledger. */
+  driverPayProviderReference?: string;
+  driverPayStatusUpdatedAt?: string;
+  /** Snapshot of who the obligation belongs to. Independent of later profile edits. */
+  driverPayDriverProfileKey?: string;
+  driverPayDriverName?: string;
   /** Count of GPS points retained for audit (owner only in API responses) */
   driverLocationPointCount?: number;
   driverLocationRecordedFrom?: string;

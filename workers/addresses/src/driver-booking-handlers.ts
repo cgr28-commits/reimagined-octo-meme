@@ -1,6 +1,7 @@
 import { buildPickupDateTimeLocal } from "../shared/tracking";
 import type { TrackingJobRecord } from "../shared/tracking";
 import { isAirportPickupJob } from "../shared/tracking";
+import { driverPayAmountVisibleForJob } from "./driver-pay-sync";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
 import {
   chooseDublinArrivalTerminal,
@@ -174,8 +175,11 @@ export async function enrichDriverJob(
     job.assignedDriverCarColour?.trim() || bookingJob?.driverCarColour?.trim() || undefined;
   const assignedDriverReg =
     job.assignedDriverReg?.trim() || bookingJob?.driverReg?.trim() || undefined;
-  const driverPayAmount =
-    job.driverPayAmount?.trim() || bookingJob?.driverPayAmount?.trim() || undefined;
+  const driverPayAmount = await driverPayAmountVisibleForJob(
+    env.TRACKING_STORE,
+    job,
+    bookingJob?.driverPayAmount,
+  );
 
   const assignmentStatus =
     job.assignmentStatus ?? bookingJob?.driverAssignmentStatus ?? "unassigned";
@@ -206,6 +210,12 @@ export async function enrichDriverJob(
       assignedDriverCarColour,
       assignedDriverReg,
       driverPayAmount,
+      driverPayAmountPence: role === "owner" ? job.driverPayAmountPence : undefined,
+      driverPayStatus: job.driverPayStatus,
+      driverPayPaidAt: job.driverPayStatus === "paid" ? job.driverPayPaidAt : undefined,
+      driverPayMethod: role === "owner" ? job.driverPayMethod : undefined,
+      driverPayProviderReference: role === "owner" ? job.driverPayProviderReference : undefined,
+      driverPayDriverName: role === "owner" ? job.driverPayDriverName : undefined,
       passengers: paidRecord?.passengers ?? bookingJob?.passengers,
       suitcases: paidRecord?.suitcases ?? bookingJob?.suitcases,
       bookedVehicle: paidRecord?.vehicle || bookingJob?.vehicle || undefined,
