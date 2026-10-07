@@ -188,11 +188,11 @@ assert.equal(parseCustomerExpressDropOffSelected(false), false);
 assert.equal(parseCustomerExpressDropOffSelected(true), true);
 assert.match(
   card,
-  /const \[outboundAccessChoice, setOutboundAccessChoice\] = useState<AirportAccessChoice>\("free"\)/,
+  /const \[outboundAccessChoice, setOutboundAccessChoice\] = useState<AirportAccessChoice>\("express"\)/,
 );
 assert.match(
   card,
-  /const \[returnAccessChoice, setReturnAccessChoice\] = useState<AirportAccessChoice>\("free"\)/,
+  /const \[returnAccessChoice, setReturnAccessChoice\] = useState<AirportAccessChoice>\("express"\)/,
 );
 const both = resolveExpressDropOff({
   airportCode: "BFS",

@@ -422,10 +422,7 @@ import {
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
-import {
-  parseAirportAccessChoice,
-  quoteAirportAccessCharges,
-} from "../shared/meet-greet";
+import { quoteAirportAccessCharges } from "../shared/meet-greet";
 import {
   formatHoursUntilPickupLabel,
   isWithinMinimumBookingNotice,
@@ -2714,31 +2711,17 @@ async function handlePaymentRequest(
     const journeyFareGbp = transferResolution.journeyFareGbp;
     const airportFixedCostsGbp = transferResolution.airportFixedCostsGbp;
 
-    const customerExpressSelected = parseCustomerExpressDropOffSelected(
-      body.expressDropOffSelected ?? booking.expressDropOffSelected,
-      true,
-    );
-    const outboundExpressSelected = parseCustomerExpressDropOffSelected(
-      body.outboundExpressDropOffSelected ?? booking.outboundExpressDropOffSelected,
-      customerExpressSelected,
-    );
-    const returnExpressSelected = parseCustomerExpressDropOffSelected(
-      body.returnExpressDropOffSelected ?? booking.returnExpressDropOffSelected,
-      customerExpressSelected,
-    );
+    // Public quotes always include the configured terminal charge. A client "free"
+    // or Meet & Greet choice cannot remove it.
     const express = resolveExpressDropOff({
       airportCode: airportContext.airportCode,
       fromAirport: airportContext.fromAirport,
       returnJourney: booking.returnJourney,
-      selected: customerExpressSelected,
-      outboundSelected: outboundExpressSelected,
-      returnSelected: returnExpressSelected,
+      selected: true,
+      outboundSelected: true,
+      returnSelected: true,
     });
     const expressPersisted = toExpressDropOffPersistedFields(express);
-    const bodyAccess = body as {
-      outboundAirportAccessOption?: unknown;
-      returnAirportAccessOption?: unknown;
-    };
     const quotedAccess = quoteAirportAccessCharges({
       expressLegs: express.legs,
       airportCode: airportContext.airportCode,
@@ -2747,14 +2730,8 @@ async function handlePaymentRequest(
       isAirportToAirport: airportContext.isAirportToAirport,
       pickupAirportCode: airportContext.pickupAirportCode,
       dropoffAirportCode: airportContext.dropoffAirportCode,
-      outboundChoice: parseAirportAccessChoice(
-        bodyAccess.outboundAirportAccessOption ?? booking.outboundAirportAccessOption,
-        outboundExpressSelected,
-      ),
-      returnChoice: parseAirportAccessChoice(
-        bodyAccess.returnAirportAccessOption ?? booking.returnAirportAccessOption,
-        returnExpressSelected,
-      ),
+      outboundChoice: "express",
+      returnChoice: "express",
       fees: pricing.meetGreet,
       meetGreetIncluded: isExecutiveVehicle(vehicleType),
     });

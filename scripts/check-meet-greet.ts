@@ -1,6 +1,5 @@
 /**
- * Meet & Greet is a fixed pickup-leg access charge.
- * It is not added to Express, not surcharged, and not charged on both return directions.
+ * Terminal access is mandatory. Meet & Greet is not a public paid extra.
  * Run: npx tsx scripts/check-meet-greet.ts
  */
 
@@ -11,7 +10,7 @@ import {
   formatAirportAccessOptionDashboardValue,
   formatAirportAccessOptionOwnerLines,
 } from "../shared/express-drop-off";
-import { roundGbp } from "../shared/gbp";
+import { roundCustomerPayableGbp, roundGbp } from "../shared/gbp";
 import { NIGHT_WEEKEND_SURCHARGE_RATE } from "../shared/night-weekend-surcharge";
 import {
   MEET_GREET_DESCRIPTION,
@@ -98,21 +97,21 @@ assert.equal(defaults.bhdGbp, 15);
 assert.equal(defaults.dubGbp, 25);
 
 const bfsPickup = access({ airportCode: "BFS", fromAirport: true, outbound: "meet-greet", express: true });
-assert.equal(bfsPickup.meetGreetFeeGbp, 15);
-assert.equal(bfsPickup.expressDropOffFee, 0);
-assert.equal(bfsPickup.airportAccessChargeGbp, 15);
-assert.equal(bfsPickup.outboundAirportAccessOption, "meet-greet");
+assert.equal(bfsPickup.meetGreetFeeGbp, 0);
+assert.equal(bfsPickup.expressDropOffFee, 5);
+assert.equal(bfsPickup.airportAccessChargeGbp, 5);
+assert.equal(bfsPickup.outboundAirportAccessOption, "express");
 
-const bhdPickup = access({ airportCode: "BHD", fromAirport: true, outbound: "meet-greet" });
-assert.equal(bhdPickup.meetGreetFeeGbp, 15);
-assert.equal(bhdPickup.airportAccessChargeGbp, 15);
+const bhdPickup = access({ airportCode: "BHD", fromAirport: true, outbound: "free" });
+assert.equal(bhdPickup.meetGreetFeeGbp, 0);
+assert.equal(bhdPickup.airportAccessChargeGbp, 4);
 
 const dubPickup = access({ airportCode: "DUB", fromAirport: true, outbound: "meet-greet" });
 assert.equal(dubPickup.expressDropOffFee, 0);
-assert.equal(dubPickup.meetGreetFeeGbp, 25);
-assert.equal(dubPickup.airportAccessChargeGbp, 25);
+assert.equal(dubPickup.meetGreetFeeGbp, 0);
+assert.equal(dubPickup.airportAccessChargeGbp, 0);
 
-const expressInstead = access({ airportCode: "BFS", fromAirport: true, outbound: "express", express: true });
+const expressInstead = access({ airportCode: "BFS", fromAirport: true, outbound: "express", express: false });
 assert.equal(expressInstead.expressDropOffFee, 5);
 assert.equal(expressInstead.meetGreetFeeGbp, 0);
 assert.equal(expressInstead.airportAccessChargeGbp, 5);
@@ -121,7 +120,7 @@ const dropOffIgnoresMeetGreet = access({
   airportCode: "BFS",
   fromAirport: false,
   outbound: "meet-greet",
-  express: true,
+  express: false,
 });
 assert.equal(dropOffIgnoresMeetGreet.meetGreetFeeGbp, 0);
 assert.equal(dropOffIgnoresMeetGreet.expressDropOffFee, 5);
@@ -131,16 +130,16 @@ const toAirportReturn = access({
   airportCode: "BHD",
   fromAirport: false,
   returnJourney: true,
-  outbound: "meet-greet",
+  outbound: "free",
   returnChoice: "meet-greet",
-  express: true,
+  express: false,
 });
 assert.equal(toAirportReturn.outboundAirportAccessChargeGbp, 4);
-assert.equal(toAirportReturn.returnAirportAccessChargeGbp, 15);
-assert.equal(toAirportReturn.meetGreetFeeGbp, 15);
-assert.equal(toAirportReturn.airportAccessChargeGbp, 19);
-assert.equal(toAirportReturn.returnAirportAccessOption, "meet-greet");
-assert.notEqual(toAirportReturn.outboundAirportAccessOption, "meet-greet");
+assert.equal(toAirportReturn.returnAirportAccessChargeGbp, 4);
+assert.equal(toAirportReturn.meetGreetFeeGbp, 0);
+assert.equal(toAirportReturn.airportAccessChargeGbp, 8);
+assert.notEqual(toAirportReturn.returnAirportAccessOption, "meet-greet");
+assert.equal(toAirportReturn.outboundAirportAccessOption, "express");
 
 const fromAirportReturn = access({
   airportCode: "DUB",
@@ -149,10 +148,10 @@ const fromAirportReturn = access({
   outbound: "meet-greet",
   returnChoice: "meet-greet",
 });
-assert.equal(fromAirportReturn.outboundAirportAccessChargeGbp, 25);
+assert.equal(fromAirportReturn.outboundAirportAccessChargeGbp, 0);
 assert.equal(fromAirportReturn.returnAirportAccessChargeGbp, 0);
-assert.equal(fromAirportReturn.meetGreetFeeGbp, 25);
-assert.equal(fromAirportReturn.airportAccessOption, "meet-greet");
+assert.equal(fromAirportReturn.meetGreetFeeGbp, 0);
+assert.notEqual(fromAirportReturn.airportAccessOption, "meet-greet");
 
 assert.equal(NIGHT_WEEKEND_SURCHARGE_RATE, 0.1);
 
@@ -163,7 +162,7 @@ for (const vehicleFare of [SALOON, ESTATE, MINIBUS]) {
   ] as const) {
     const priced = customerTotal({ vehicleFare, rate, accessGbp: fee, fixedGbp: fee === 25 ? 9 : 0 });
     const surcharge = roundGbp(vehicleFare * rate);
-    const expected = roundGbp(vehicleFare + surcharge + (fee === 25 ? 9 : 0) + fee);
+    const expected = roundCustomerPayableGbp(vehicleFare + surcharge + (fee === 25 ? 9 : 0) + fee);
     assert.equal(priced.nightWeekendSurchargeGbp, surcharge, `${label} ${vehicleFare} surcharge`);
     assert.equal(priced.finalAmountPayableGbp, expected, `${label} ${vehicleFare} total`);
     const surchargedFee = wrongSurchargedTotal(vehicleFare, rate, fee, fee === 25 ? 9 : 0);
@@ -184,10 +183,10 @@ const returnPriced = customerTotal({
   accessGbp: toAirportReturn.airportAccessChargeGbp,
   returnJourney: true,
 });
-assert.equal(toAirportReturn.meetGreetFeeGbp, 15);
+assert.equal(toAirportReturn.meetGreetFeeGbp, 0);
 assert.equal(
   returnPriced.finalAmountPayableGbp,
-  roundGbp(returnFare + toAirportReturn.airportAccessChargeGbp),
+  roundCustomerPayableGbp(returnFare + toAirportReturn.airportAccessChargeGbp),
 );
 assert.notEqual(
   returnPriced.finalAmountPayableGbp,
@@ -256,7 +255,8 @@ if (saved.ok) {
     outbound: "meet-greet",
     fees: saved.settings.meetGreet,
   });
-  assert.equal(priced.meetGreetFeeGbp, 30);
+  assert.equal(priced.meetGreetFeeGbp, 0);
+  assert.equal(priced.airportAccessChargeGbp, 0);
   const total = customerTotal({
     vehicleFare: SALOON,
     rate: NIGHT_WEEKEND_SURCHARGE_RATE,
@@ -264,7 +264,7 @@ if (saved.ok) {
   });
   assert.equal(
     total.finalAmountPayableGbp,
-    roundGbp(SALOON + roundGbp(SALOON * NIGHT_WEEKEND_SURCHARGE_RATE) + 30),
+    roundCustomerPayableGbp(SALOON + roundGbp(SALOON * NIGHT_WEEKEND_SURCHARGE_RATE)),
   );
 }
 

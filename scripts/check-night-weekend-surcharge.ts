@@ -31,7 +31,7 @@ import {
 } from "../src/lib/quote";
 import { ESTATE_VEHICLE, SALOON_VEHICLE } from "../src/lib/vehicle-selection";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
-import { formatGbpAmount, roundGbp } from "../shared/gbp";
+import { formatGbpAmount, roundCustomerPayableGbp, roundGbp } from "../shared/gbp";
 
 const root = path.resolve(import.meta.dirname, "..");
 const cityHall = "Belfast City Hall, Belfast BT1 5GS";
@@ -284,7 +284,7 @@ const breakdown = composeWebsiteFareBreakdown({
 assert.equal(breakdown.nightWeekendSurchargeGbp, dubNight.nightWeekendSurchargeGbp);
 assert.equal(
   breakdown.finalAmountPayableGbp,
-  roundGbp((dubNight.journeyFareGbp ?? 0) + dubFixedPickup + 5),
+  roundCustomerPayableGbp((dubNight.journeyFareGbp ?? 0) + dubFixedPickup + 5),
 );
 assert.equal(
   breakdown.nightWeekendSurchargeGbp,
@@ -384,7 +384,7 @@ const a2aSaturday = calculateAirportToAirportQuote(
   a2aMetrics,
 );
 assert.ok(a2aUnderlying && a2aWeekday && a2aSaturday);
-const a2aFixed = 4;
+const a2aFixed = 9;
 assert.equal(a2aWeekday.nightWeekendSurchargeGbp, 0);
 assert.equal(a2aWeekday.amount, roundGbp(a2aUnderlying.amount + a2aFixed));
 assert.equal(a2aSaturday.nightWeekendSurchargeGbp, roundGbp(a2aUnderlying.amount * 0.1));
@@ -486,7 +486,10 @@ if (liveReturn.ok) {
     airportFixedCostsGbp: liveReturn.airportFixedCostsGbp ?? 0,
     returnJourney: true,
   });
-  assert.equal(checkout.finalAmountPayableGbp, liveReturn.amount);
+  assert.equal(
+    checkout.finalAmountPayableGbp,
+    roundCustomerPayableGbp(liveReturn.amount),
+  );
   assert.equal(checkout.returnJourneySavingGbp, 4.4);
   assert.equal(checkout.originalEligibleJourneyPriceGbp, 88);
 }

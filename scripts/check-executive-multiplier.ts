@@ -46,9 +46,9 @@ assert.equal(isVehicleEnquiryOnly(EXECUTIVE), false);
 assert.equal(isInstantPayVehicle(EXECUTIVE), true);
 assert.equal(canonicalVehicleType("Executive Saloon (1–4 passengers)"), EXECUTIVE);
 assert.equal(vehicleShortLabel(EXECUTIVE), EXECUTIVE_CUSTOMER_NAME);
-assert.equal(EXECUTIVE_CUSTOMER_NAME, "Executive — Mercedes-Benz C-Class or similar");
+assert.equal(EXECUTIVE_CUSTOMER_NAME, "Business Class");
+assert.doesNotMatch(EXECUTIVE_CUSTOMER_NAME, /Mercedes|Lexus|Audi|C-Class/i);
 assert.equal(EXECUTIVE_CUSTOMER_DESCRIPTION, "Premium executive vehicle");
-assert.match(EXECUTIVE_CUSTOMER_NAME, /or similar/);
 assert.equal(canonicalVehicleType("estate car"), "Estate Car (1–4 passengers)");
 assert.notEqual(canonicalVehicleType(EXECUTIVE), SALOON);
 assert.match(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /Meet & Greet/);
@@ -158,9 +158,10 @@ const included = quoteAirportAccessCharges({
   outboundChoice: "express",
   meetGreetIncluded: true,
 });
-assert.equal(included.airportAccessChargeGbp, 0);
-assert.equal(included.outboundAirportAccessOption, "meet-greet");
-assert.equal(included.expressDropOffFee, 0);
+assert.equal(included.airportAccessChargeGbp, 5);
+assert.equal(included.airportAccessOption, "meet-greet");
+assert.equal(included.meetGreetFeeGbp, 0);
+assert.equal(included.expressDropOffFee, 5);
 
 const charged = quoteAirportAccessCharges({
   expressLegs: express.legs,
@@ -168,7 +169,8 @@ const charged = quoteAirportAccessCharges({
   fromAirport: true,
   outboundChoice: "meet-greet",
 });
-assert.equal(charged.airportAccessChargeGbp, 15);
+assert.equal(charged.airportAccessChargeGbp, 5);
+assert.equal(charged.meetGreetFeeGbp, 0);
 
 const routeReturn = { distanceKm: 22, durationMinutes: 30 };
 const returnSchedule = {
@@ -313,7 +315,8 @@ const api = readFileSync("src/lib/short-notice-api.ts", "utf8");
 assert.match(api, /input\.resource === "executive"/);
 const quoteCard = readFileSync("src/components/QuoteCard.tsx", "utf8");
 assert.match(quoteCard, /data-executive-included/);
-assert.match(quoteCard, /EXECUTIVE_AIRPORT_PICKUP_INCLUDED/);
+assert.match(quoteCard, /BUSINESS_CLASS_AIRPORT_PICKUP_INCLUDED/);
+assert.match(quoteCard, /Included in your Business Class price/);
 assert.match(quoteCard, /setChooseExecutive\(next === EXECUTIVE_VEHICLE\)/);
 const categories = readFileSync("src/components/QuoteVehicleCategories.tsx", "utf8");
 assert.match(categories, /EXECUTIVE_CUSTOMER_NAME/);
@@ -321,7 +324,8 @@ assert.match(categories, /EXECUTIVE_CUSTOMER_DESCRIPTION/);
 assert.match(categories, /image: SALOON_IMAGE/);
 assert.doesNotMatch(categories, /quote-executive/);
 const terms = readFileSync("src/lib/terms.ts", "utf8");
-assert.match(terms, /Mercedes-Benz C-Class or similar/);
+assert.match(terms, /Business Class/);
+assert.doesNotMatch(terms, /Mercedes|Lexus|Audi|C-Class/i);
 assert.doesNotMatch(terms, /Executive saloon transfers are available on enquiry/);
 const confirmation = buildCustomerConfirmationEmail({
   customerName: "Alex",
@@ -340,10 +344,12 @@ const confirmation = buildCustomerConfirmationEmail({
   isAirportTrip: true,
   isFromAirport: false,
 } as never);
-assert.match(confirmation.text, /Executive — Mercedes-Benz C-Class or similar/);
+assert.match(confirmation.text, /Business Class/);
+assert.match(confirmation.text, /Premium executive vehicle/);
+assert.doesNotMatch(confirmation.text, /Mercedes|Lexus|Audi|C-Class/i);
 assert.match(confirmation.text, /Premium executive vehicle/);
 assert.doesNotMatch(confirmation.text, /Service: SALOON/);
-assert.match(confirmation.html, /Executive — Mercedes-Benz C-Class or similar/);
+assert.match(confirmation.html, /Business Class/);
 const handlers = readFileSync("workers/addresses/src/quote-handlers.ts", "utf8");
 const payment = readFileSync("workers/addresses/src/index.ts", "utf8");
 assert.doesNotMatch(handlers, /body\.executiveMultiplier/);

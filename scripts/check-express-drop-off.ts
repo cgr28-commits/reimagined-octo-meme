@@ -600,7 +600,7 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(showcase, /data-quote-result-airport-access/);
   const accessIdx = showcase.indexOf("data-quote-result-airport-access");
   const bookIdx = showcase.indexOf("{bookButton}");
-  assert.ok(accessIdx > 0 && bookIdx > accessIdx, "airport access must render before Book");
+  assert.ok(bookIdx > 0 && accessIdx > bookIdx, "Book must render before airport access");
   assert.match(
     card,
     /Your transfer price[\s\S]*?quote-price-figure[\s\S]*?FixedPriceAssurance[\s\S]*?renderExpressChoiceInPriceCard[\s\S]*?Vehicle:/,
@@ -616,16 +616,15 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(card, /expressDropOffSelected/);
   assert.match(
     card,
-    /const \[outboundAccessChoice, setOutboundAccessChoice\] = useState<AirportAccessChoice>\("free"\)/,
+    /const \[outboundAccessChoice, setOutboundAccessChoice\] = useState<AirportAccessChoice>\("express"\)/,
   );
   assert.match(
     card,
-    /const \[returnAccessChoice, setReturnAccessChoice\] = useState<AirportAccessChoice>\("free"\)/,
+    /const \[returnAccessChoice, setReturnAccessChoice\] = useState<AirportAccessChoice>\("express"\)/,
   );
   assert.match(card, /const expressDropOffSelected = outboundAccessChoice === "express"/);
-  assert.doesNotMatch(card, /useState<AirportAccessChoice>\("express"\)/);
-  assert.doesNotMatch(card, /setOutboundAccessChoice\("express"\)/);
-  assert.doesNotMatch(card, /setReturnAccessChoice\("express"\)/);
+  assert.match(card, /terminalAccessIncluded/);
+  assert.doesNotMatch(card, /Add Meet & Greet/);
   assert.doesNotMatch(card, /shouldDefaultExpressSelectedOnNewEligibility/);
   assert.match(card, /renderExpressChoiceInPriceCard\(quoteStep === 1 \? "full" : "summary"\)/);
   // Browser sends transfer fare + boolean — never trusts a client fee for SumUp.
@@ -1369,10 +1368,8 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
   assert.match(card, /returnExpressDropOffSelected/);
   assert.doesNotMatch(card, /<CombinedAirportAccessChoice/);
   assert.match(card, /data-express-leg=\{leg\.leg\}/);
-  assert.match(
-    card,
-    /leg\.leg === "return" \? returnAccessChoice : outboundAccessChoice/,
-  );
+  assert.match(card, /accessChoice="express"/);
+  assert.match(card, /terminalAccessIncluded/);
   assert.match(card, /canProceedWithoutExpressDropOffLegs/);
   assert.match(card, /outboundExpressDropOffSelected/);
   assert.match(card, /returnAirportAccessChargeGbp/);

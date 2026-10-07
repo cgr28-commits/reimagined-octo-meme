@@ -142,8 +142,8 @@ console.log("\n=== A2A with pence (BFS↔BHD destination surcharge) ===");
     miles(17),
   )!;
   assert.equal(a2a.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(17));
-  assert.equal(a2a.airportFixedCostsGbp, 4);
-  assert.equal(a2a.amount, roundGbp(a2a.journeyFareGbp! + 4));
+  assert.equal(a2a.airportFixedCostsGbp, 9);
+  assert.equal(a2a.amount, roundGbp(a2a.journeyFareGbp! + 9));
   assertAmountParts(a2a, "A2A");
   console.log(`OK  A2A amount £${a2a.amount}`);
 }
@@ -170,18 +170,19 @@ console.log("\n=== Quote / breakdown / SumUp charge agree to the penny ===");
     airportFixedCostsGbp: q.airportFixedCostsGbp!,
     airportAccessChargeGbp: 0,
   });
-  assert.equal(breakdown.finalAmountPayableGbp, q.amount);
-  const charge = resolveSumUpChargeAmountGbp(q.amount, q.amount);
-  assert.equal(charge, q.amount);
+  assert.equal(q.amount, 148.5);
+  assert.equal(breakdown.finalAmountPayableGbp, 149);
+  const charge = resolveSumUpChargeAmountGbp(breakdown.finalAmountPayableGbp, breakdown.finalAmountPayableGbp);
+  assert.equal(charge, 149);
   assert.equal(checkoutAmountsMatch(q.amount, q.amount), true);
   // Mock SumUp payload amount (GBP) — no live API call
   const mockSumUpCheckout = {
     amount: charge!,
     currency: "GBP",
-    description: `My Airport Taxi NI ${formatQuote(q.amount)}`,
+    description: `My Airport Taxi NI ${formatQuote(breakdown.finalAmountPayableGbp)}`,
   };
-  assert.equal(mockSumUpCheckout.amount, q.amount);
-  assert.equal(mockSumUpCheckout.amount, 148.5);
+  assert.equal(mockSumUpCheckout.amount, breakdown.finalAmountPayableGbp);
+  assert.equal(mockSumUpCheckout.amount, 149);
   console.log(`OK  mocked SumUp amount = ${mockSumUpCheckout.amount} GBP (${formatQuote(q.amount)})`);
 }
 

@@ -84,16 +84,16 @@ console.log("\n=== Matrix ===\n");
   const underlying = calculatePointToPointQuote(BFS_ADDR, BHD_ADDR, S, false, {}, M17)!;
   const q = calculateAirportToAirportQuote("BFS", "BHD", BFS_ADDR, BHD_ADDR, S, false, {}, M17)!;
   assert.notEqual(q.amount, 69, "must not use Antrim→BHD zone path");
-  assert.equal(q.amount, underlying.amount + 4);
+  assert.equal(q.amount, underlying.amount + 9);
   rows.push({
     id: 1,
     label: "BFS → BHD (airport↔airport)",
     miles: milesOf(M17),
     underlying: underlying.amount,
     areaRule: "none (airports identified; A2A underlying — universal distance)",
-    accessFees: "collection BFS waived; retain BHD destination £4",
+    accessFees: "BFS pickup £5 + BHD drop-off £4",
     other: "no zone surcharge / no airport minimum re-apply",
-    rounding: `${underlying.amount}+4 → ${q.amount}`,
+    rounding: `${underlying.amount}+9 → ${q.amount}`,
     final: q.amount,
   });
 }
@@ -102,7 +102,7 @@ console.log("\n=== Matrix ===\n");
 {
   const underlying = calculatePointToPointQuote(BHD_ADDR, BFS_ADDR, S, false, {}, M17)!;
   const q = calculateAirportToAirportQuote("BHD", "BFS", BHD_ADDR, BFS_ADDR, S, false, {}, M17)!;
-  assert.equal(q.amount, underlying.amount + 5);
+  assert.equal(q.amount, underlying.amount + 9);
   assert.notEqual(q.amount, 69);
   rows.push({
     id: 2,
@@ -110,9 +110,9 @@ console.log("\n=== Matrix ===\n");
     miles: milesOf(M17),
     underlying: underlying.amount,
     areaRule: "none (A2A underlying — universal distance)",
-    accessFees: "collection BHD waived; retain BFS destination £5",
-    other: "collection-only waiver (not symmetric £ amounts)",
-    rounding: `${underlying.amount}+5 → ${q.amount}`,
+    accessFees: "BHD pickup £4 + BFS drop-off £5",
+    other: "both airport ends included",
+    rounding: `${underlying.amount}+9 → ${q.amount}`,
     final: q.amount,
   });
 }
@@ -268,19 +268,19 @@ console.log("\n=== Matrix ===\n");
   const intended = calculateQuote(BHD_ADDR, "DUB", S, false, {}, DUB_METRICS, false)!;
   const journey = universalJourney(DUB_METRICS);
   assert.equal(buggyA2a.amount, journey);
-  assert.equal(q.amount, intended.amount);
-  assert.equal(q.amount, 227);
+  assert.equal(q.amount, intended.amount + 4);
+  assert.equal(q.amount, 231);
   assert.equal(intended.amount, 227);
-  assert.equal(q.amount, buggyA2a.amount + DUB_DROP_FIXED);
+  assert.equal(q.amount, buggyA2a.amount + 4 + DUB_DROP_FIXED);
   rows.push({
     id: 10,
     label: "BHD → DUB (airport↔airport)",
     miles: Math.round(drivingMilesFromKm(DUB_METRICS.distanceKm) * 10) / 10,
     underlying: journey,
     areaRule: "DUB path (universal journey) — A2A underlying equals journey",
-    accessFees: "DUB drop-off path (+£4 M1); NI access fees not stacked",
-    other: `underlying £${buggyA2a.amount}; airport = underlying + £4`,
-    rounding: "£227",
+    accessFees: "BHD pickup £4 + DUB M1 £4",
+    other: `underlying £${buggyA2a.amount}; airport = underlying + £8`,
+    rounding: "£231",
     final: q.amount,
   });
 }
@@ -298,9 +298,9 @@ console.log("\n=== Matrix ===\n");
     DUB_METRICS,
   )!;
   const intended = calculateQuote(BFS_ADDR, "DUB", S, false, {}, DUB_METRICS, false)!;
-  assert.equal(q.amount, intended.amount);
-  assert.equal(q.amount, 227);
-  console.log(`OK  BFS→DUB airport↔airport £${q.amount} (matches DUB path £${intended.amount})`);
+  assert.equal(q.amount, intended.amount + 5);
+  assert.equal(q.amount, 232);
+  console.log(`OK  BFS→DUB airport↔airport £${q.amount} (DUB path £${intended.amount} + BFS pickup £5)`);
 }
 
 for (const r of rows) {
@@ -312,11 +312,11 @@ for (const r of rows) {
   );
 }
 
-assert.equal(rows[0].final, rows[0].underlying + 4);
-assert.equal(rows[1].final, rows[1].underlying + 5);
+assert.equal(rows[0].final, rows[0].underlying + 9);
+assert.equal(rows[1].final, rows[1].underlying + 9);
 assert.ok(rows[0].final < 69);
 console.log(
-  `\nBFS→BHD price: £${rows[0].final} (A2A + destination £4)`,
+  `\nBFS→BHD price: £${rows[0].final} (A2A + both ends £9)`,
 );
 console.log("Dublin: BHD→DUB £248 (universal journey £244 + M1 £4; underlying matches journey).");
 console.log("\nAll airport↔airport access-fee matrix checks passed.");

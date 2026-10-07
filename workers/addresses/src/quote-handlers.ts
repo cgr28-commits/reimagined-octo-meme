@@ -16,10 +16,8 @@ import {
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import type { QuoteServiceAirportCode } from "../../../src/lib/quote-service";
 import {
-  EXECUTIVE_VEHICLE,
   MINIBUS_VEHICLE,
-  requiresMinibus,
-  selectVehicleForParty,
+  resolvePublicVehicleChoice,
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
@@ -139,51 +137,39 @@ function resolveVehicleType(
   suitcases: number,
   ownerMode: boolean,
   publicMinibusEnabled: boolean,
-): { vehicleType: VehicleType; vehicleChoice: QuickQuoteVehicleChoice; maxPassengers: number } {
+  publicExecutiveEnabled: boolean,
+):
+  | { ok: true; vehicleType: VehicleType; vehicleChoice: QuickQuoteVehicleChoice; maxPassengers: number }
+  | { ok: false; message: string } {
   const choice = parseQuickQuoteVehicleChoice(
     body.vehicleChoice ?? body.vehiclePreference ?? body.vehicleType,
   );
   if (ownerMode && choice === "Minibus") {
     return {
+      ok: true,
       vehicleType: MINIBUS_VEHICLE,
       vehicleChoice: "Minibus",
       maxPassengers: quickQuoteMaxPassengersForVehicle("Minibus"),
     };
   }
   const requested = String(body.vehicleType ?? body.vehicleChoice ?? "");
-  if (
-    !ownerMode &&
-    publicMinibusEnabled &&
-    (choice === "Minibus" || requested.toLowerCase().includes("minibus"))
-  ) {
-    return {
-      vehicleType: MINIBUS_VEHICLE,
-      vehicleChoice: "Minibus",
-      maxPassengers: publicMaxPassengers(true),
-    };
-  }
-  const selected = selectVehicleForParty(passengers, Math.max(0, suitcases));
-  if (selected === MINIBUS_VEHICLE && !ownerMode && !publicMinibusEnabled) {
-    return {
-      vehicleType: selected,
-      vehicleChoice: "Minibus",
-      maxPassengers: publicMaxPassengers(false),
-    };
-  }
-  if (/executive/i.test(requested) && !requiresMinibus(passengers, Math.max(0, suitcases))) {
-    return {
-      vehicleType: EXECUTIVE_VEHICLE,
-      vehicleChoice: "Saloon",
-      maxPassengers: ownerMode
-        ? quickQuoteMaxPassengersForVehicle("Saloon")
-        : publicMaxPassengers(publicMinibusEnabled),
-    };
-  }
+  const resolved = resolvePublicVehicleChoice({
+    requested,
+    passengers,
+    suitcases,
+    publicMinibusEnabled,
+    publicExecutiveEnabled,
+    ownerMode,
+  });
+  if (!resolved.ok) return resolved;
+  const vehicleChoice: QuickQuoteVehicleChoice =
+    resolved.vehicleType === MINIBUS_VEHICLE ? "Minibus" : "Saloon";
   return {
-    vehicleType: selected,
-    vehicleChoice: selected === MINIBUS_VEHICLE ? "Minibus" : "Saloon",
+    ok: true,
+    vehicleType: resolved.vehicleType,
+    vehicleChoice,
     maxPassengers: ownerMode
-      ? quickQuoteMaxPassengersForVehicle(selected === MINIBUS_VEHICLE ? "Minibus" : "Saloon")
+      ? quickQuoteMaxPassengersForVehicle(vehicleChoice)
       : publicMaxPassengers(publicMinibusEnabled),
   };
 }
@@ -429,13 +415,26 @@ export async function handleQuoteCalculateRequest(
       origin,
     );
   }
+  const publicExecutiveEnabled = pricing.executive?.publicEnabled !== false;
   const resolved = resolveVehicleType(
     body,
     Math.floor(passengers),
     Math.floor(suitcases),
     ownerMode,
     publicMinibusEnabled,
+    publicExecutiveEnabled,
   );
+  if (!resolved.ok) {
+    return json(
+      {
+        ok: false,
+        reason: "vehicle_unavailable",
+        message: resolved.message,
+      },
+      409,
+      origin,
+    );
+  }
   if (
     !publicMinibusAllowed(resolved.vehicleType, {
       publicMinibusEnabled,

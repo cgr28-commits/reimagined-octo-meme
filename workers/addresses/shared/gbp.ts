@@ -8,6 +8,17 @@ export function roundGbp(amount: number): number {
   return Math.round((Number(amount) || 0) * 100) / 100;
 }
 
+/**
+ * Final customer payable, nearest whole pound, half away from zero.
+ * £448.49 → £448, £448.50 → £449, £448.51 → £449, £400.00 → £400.
+ * Apply once, after every fare component and airport charge is included.
+ */
+export function roundCustomerPayableGbp(amount: number): number {
+  const pennies = Math.round((Number(amount) || 0) * 100);
+  if (!Number.isFinite(pennies)) return 0;
+  return Math.round(pennies / 100);
+}
+
 /** Convert a GBP amount to integer pennies after penny rounding. */
 export function gbpToPence(amount: number): number {
   return Math.round(roundGbp(amount) * 100);

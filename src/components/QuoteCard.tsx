@@ -69,12 +69,15 @@ import {
   VEHICLE_TYPES,
 } from "@/lib/data";
 import {
+  ESTATE_VEHICLE,
   EXECUTIVE_VEHICLE,
   formatPassengerChoice,
   formatSuitcaseChoice,
   MAX_PUBLIC_SUITCASES,
   requiresMinibus,
   selectVehicleForParty,
+  suitableVehicleTypesForParty,
+  vehicleFitsParty,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import {
@@ -252,13 +255,14 @@ import {
 } from "../../shared/express-drop-off";
 import {
   listAirportPickupLegs,
-  meetGreetFeeGbp,
   quoteAirportAccessCharges,
   type AirportAccessChoice,
   type AirportPickupLegRef,
 } from "../../shared/meet-greet";
 import {
-  EXECUTIVE_AIRPORT_PICKUP_INCLUDED,
+  AIRPORT_ACCESS_INCLUDED_BODY,
+  AIRPORT_ACCESS_INCLUDED_HEADING,
+  BUSINESS_CLASS_AIRPORT_PICKUP_INCLUDED,
   isExecutiveVehicle,
 } from "../../shared/executive-vehicle";
 import {
@@ -860,6 +864,7 @@ function QuoteCard({
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [chooseMinibus, setChooseMinibus] = useState(false);
   const [chooseExecutive, setChooseExecutive] = useState(false);
+  const [chooseEstate, setChooseEstate] = useState(false);
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
@@ -920,8 +925,8 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
-  const [outboundAccessChoice, setOutboundAccessChoice] = useState<AirportAccessChoice>("free");
-  const [returnAccessChoice, setReturnAccessChoice] = useState<AirportAccessChoice>("free");
+  const [outboundAccessChoice, setOutboundAccessChoice] = useState<AirportAccessChoice>("express");
+  const [returnAccessChoice, setReturnAccessChoice] = useState<AirportAccessChoice>("express");
   const expressDropOffSelected = outboundAccessChoice === "express";
   const returnExpressDropOffSelected = returnAccessChoice === "express";
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
@@ -949,11 +954,19 @@ function QuoteCard({
     if (publicMinibusEnabled && (chooseMinibus || pax >= 5 || suitcases >= 5)) {
       return MINIBUS_VEHICLE_TYPE;
     }
-    if (publicExecutiveEnabled && chooseExecutive && pax <= 4 && suitcases <= 4) {
+    if (
+      publicExecutiveEnabled &&
+      chooseExecutive &&
+      vehicleFitsParty(EXECUTIVE_VEHICLE, pax, suitcases)
+    ) {
       return EXECUTIVE_VEHICLE;
+    }
+    if (chooseEstate && vehicleFitsParty(ESTATE_VEHICLE, pax, suitcases)) {
+      return ESTATE_VEHICLE;
     }
     return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
   }, [
+    chooseEstate,
     chooseExecutive,
     chooseMinibus,
     passengerLimit,
@@ -986,7 +999,8 @@ function QuoteCard({
     const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
     setVehicle((current) => (current === next ? current : next));
     setChooseMinibus(false);
-    if (requiresMinibus(pax, suitcases)) setChooseExecutive(false);
+    if (!vehicleFitsParty(EXECUTIVE_VEHICLE, pax, suitcases)) setChooseExecutive(false);
+    if (!vehicleFitsParty(ESTATE_VEHICLE, pax, suitcases)) setChooseEstate(false);
   }, [passengers, suitcases]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
@@ -1186,20 +1200,18 @@ function QuoteCard({
       if (
         draft.outboundAirportAccessChoice === "express" ||
         draft.outboundAirportAccessChoice === "free" ||
-        draft.outboundAirportAccessChoice === "meet-greet"
+        draft.outboundAirportAccessChoice === "meet-greet" ||
+        typeof draft.expressDropOffSelected === "boolean"
       ) {
-        setOutboundAccessChoice(draft.outboundAirportAccessChoice);
-      } else if (typeof draft.expressDropOffSelected === "boolean") {
-        setOutboundAccessChoice(draft.expressDropOffSelected ? "express" : "free");
+        setOutboundAccessChoice("express");
       }
       if (
         draft.returnAirportAccessChoice === "express" ||
         draft.returnAirportAccessChoice === "free" ||
-        draft.returnAirportAccessChoice === "meet-greet"
+        draft.returnAirportAccessChoice === "meet-greet" ||
+        typeof draft.returnExpressDropOffSelected === "boolean"
       ) {
-        setReturnAccessChoice(draft.returnAirportAccessChoice);
-      } else if (typeof draft.returnExpressDropOffSelected === "boolean") {
-        setReturnAccessChoice(draft.returnExpressDropOffSelected ? "express" : "free");
+        setReturnAccessChoice("express");
       }
       if (draft.personalQuoteCode?.trim()) {
         const code = draft.personalQuoteCode.trim().toUpperCase();
@@ -1841,6 +1853,13 @@ function QuoteCard({
       minibusVehicle: MINIBUS_VEHICLE_TYPE,
       publicMinibusEnabled,
       requiresMinibus: paxNow != null && requiresMinibus(paxNow, suitcases),
+      suitableVehicles:
+        paxNow == null
+          ? [requestedVehicle]
+          : suitableVehicleTypesForParty(paxNow, suitcases, {
+              publicMinibusEnabled,
+              publicExecutiveEnabled,
+            }),
     });
     const rememberFare = (vehicle: string, parts: ServerFarePartyParts) => {
       authoritativeFareCacheRef.current.set(fareKeyFor(vehicle), parts);
@@ -2063,6 +2082,7 @@ function QuoteCard({
     tripTime,
     quoteVehicle,
     passengerLimit,
+    publicExecutiveEnabled,
     publicMinibusEnabled,
   ]);
 
@@ -2137,17 +2157,12 @@ function QuoteCard({
         airportCode: effectiveAirportCode || null,
         fromAirport: isFromAirport,
         returnJourney,
-        selected: expressDropOffSelected,
-        outboundSelected: expressDropOffSelected,
-        returnSelected: returnExpressDropOffSelected,
+        // Configured terminal access is mandatory. A free choice cannot remove it.
+        selected: true,
+        outboundSelected: true,
+        returnSelected: true,
       }),
-    [
-      effectiveAirportCode,
-      isFromAirport,
-      returnJourney,
-      expressDropOffSelected,
-      returnExpressDropOffSelected,
-    ],
+    [effectiveAirportCode, isFromAirport, returnJourney],
   );
 
   // Express is opt-in. Choosing an eligible airport must not add the fee.
@@ -2425,13 +2440,16 @@ function QuoteCard({
     }
     return composeFareWithExpressDropOff({
       transferFareGbp,
-      expressDropOffFeeGbp: expressSelection.feeGbp,
+      expressDropOffFeeGbp: expressSelection.eligible
+        ? expressSelection.feeIfSelectedGbp
+        : 0,
     });
   }, [
     openWebsiteFareBreakdown,
     transferFareGbp,
     testChargeAmount,
-    expressSelection.feeGbp,
+    expressSelection.feeIfSelectedGbp,
+    expressSelection.eligible,
   ]);
 
   /** Pay online at quote time — saloon/estate when SumUp enabled. */
@@ -2502,6 +2520,7 @@ function QuoteCard({
     setExactPassengers(null);
     setChooseMinibus(false);
     setChooseExecutive(false);
+    setChooseEstate(false);
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -3634,7 +3653,7 @@ function QuoteCard({
   }
 
   function buildPaymentDescription(): string {
-    const vehicleLabel = quoteVehicle.split(" (")[0];
+    const vehicleLabel = vehicleShortLabel(quoteVehicle);
     const tripSummary = isAirportTrip || pickupAirportCode || dropoffAirportCode
       ? `${isFromAirport ? "Pickup from" : "Transfer to"} ${airportName} (${effectiveAirportCode})`
       : "Address-to-address transfer";
@@ -4189,8 +4208,9 @@ function QuoteCard({
     setVehicle(VEHICLE_TYPES[0]);
     setChooseMinibus(false);
     setChooseExecutive(false);
-    setOutboundAccessChoice("free");
-    setReturnAccessChoice("free");
+    setChooseEstate(false);
+    setOutboundAccessChoice("express");
+    setReturnAccessChoice("express");
     setExpressRemovalAck(false);
     setReturnExpressRemovalAck(false);
     setExpressAckRequired(false);
@@ -5353,50 +5373,19 @@ function QuoteCard({
   }
 
   function renderMeetGreetOnlyChoice(
-    mode: "full" | "summary",
+    _mode: "full" | "summary",
     tone: "on-dark" | "on-light",
-    legs: AirportPickupLegRef[],
+    _legs: AirportPickupLegRef[],
   ) {
     const light = tone === "on-light";
-    const fareTotalGbp =
-      paymentAmount != null && Number.isFinite(paymentAmount)
-        ? paymentAmount
-        : pricedFare?.totalGbp;
     return (
-      <div className="mt-3 space-y-4 text-left" data-meet-greet-airport-choice>
-        {legs.map((leg) => {
-          const choice = leg.leg === "return" ? returnAccessChoice : outboundAccessChoice;
-          return (
-            <div key={leg.leg} data-express-leg={leg.leg}>
-              {legs.length > 1 ? (
-                <p className={`mb-1.5 text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
-                  {leg.leg === "return" ? "Return journey" : "Outbound journey"}
-                </p>
-              ) : null}
-              <ExpressDropOffChoice
-                mode={mode}
-                tone={tone}
-                editing={expressEditingLeg === leg.leg}
-                onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
-                airportCode="DUB"
-                service="pick-up"
-                idPrefix={leg.leg}
-                fareTotalGbp={fareTotalGbp}
-                selected={false}
-                removalAcknowledged
-                meetGreetFeeGbp={meetGreetFeeGbp("DUB", publicPricing.meetGreet)}
-                accessChoice={choice === "express" ? "free" : choice}
-                onAccessChoiceChange={(next) => {
-                  const safe = next === "meet-greet" ? "meet-greet" : "free";
-                  if (leg.leg === "return") setReturnAccessChoice(safe);
-                  else setOutboundAccessChoice(safe);
-                }}
-                onSelectedChange={() => undefined}
-                onRemovalAcknowledgedChange={() => undefined}
-              />
-            </div>
-          );
-        })}
+      <div className="mt-3 text-left" data-airport-access-included>
+        <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+          {AIRPORT_ACCESS_INCLUDED_HEADING}
+        </p>
+        <p className={`mt-1 text-xs leading-snug ${light ? "text-[#475569]" : "text-white/75"}`}>
+          {AIRPORT_ACCESS_INCLUDED_BODY}
+        </p>
       </div>
     );
   }
@@ -5411,14 +5400,14 @@ function QuoteCard({
         data-executive-included
       >
         <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
-          Included in your Executive price
+          Included in your Business Class price
         </p>
         <p
           className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
             light ? "text-[#475569]" : "text-white/80"
           }`}
         >
-          {EXECUTIVE_AIRPORT_PICKUP_INCLUDED}
+          {BUSINESS_CLASS_AIRPORT_PICKUP_INCLUDED}
         </p>
       </div>
     );
@@ -5472,12 +5461,9 @@ function QuoteCard({
     const expressChoices = (
       <div className="mt-3 space-y-4 text-left" data-express-airport-choice>
         {legs.map((leg) => {
-          const choice = leg.leg === "return" ? returnAccessChoice : outboundAccessChoice;
-          const selected = choice === "express";
+          const selected = true;
           const removalAcknowledged =
             leg.leg === "return" ? returnExpressRemovalAck : expressRemovalAck;
-          const meetGreetOnPickup =
-            leg.service === "pick-up" ? meetGreetFeeGbp(leg.airportCode, publicPricing.meetGreet) : null;
           return (
             <div key={leg.leg} data-express-leg={leg.leg}>
               {legs.length > 1 ? (
@@ -5488,6 +5474,7 @@ function QuoteCard({
               <ExpressDropOffChoice
                 mode={mode}
                 tone={tone}
+                terminalAccessIncluded
                 editing={expressEditingLeg === leg.leg}
                 onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
                 airportCode={leg.airportCode}
@@ -5495,14 +5482,12 @@ function QuoteCard({
                 idPrefix={leg.leg}
                 allowFreeAlternative={leg.freeAlternativeAvailable}
                 fareTotalGbp={fareTotalGbp}
-                selected={selected}
+                selected
                 removalAcknowledged={removalAcknowledged}
                 requireAcknowledgement={expressAckRequired}
-                meetGreetFeeGbp={meetGreetOnPickup}
-                accessChoice={leg.service === "pick-up" ? choice : selected ? "express" : "free"}
+                accessChoice="express"
                 onAccessChoiceChange={(next) => {
-                  const safe =
-                    leg.service === "pick-up" ? next : next === "express" ? "express" : "free";
+                  const safe = next === "express" ? "express" : "express";
                   if (leg.leg === "return") {
                     setReturnAccessChoice(safe);
                     setReturnExpressRemovalAck(safe !== "express");
@@ -6683,10 +6668,11 @@ function QuoteCard({
     if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
     setChooseExecutive(next === EXECUTIVE_VEHICLE);
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
+    setChooseEstate(next === ESTATE_VEHICLE);
   }
 
   function renderQuoteVehicleChoice() {
-    if ((!publicMinibusEnabled && !publicExecutiveEnabled) || passengers == null || suitcases == null) {
+    if (passengers == null || suitcases == null) {
       return null;
     }
     return (

@@ -203,6 +203,13 @@ function roundGbp(amount: number): number {
   return Math.round(Number(amount) * 100) / 100;
 }
 
+/** Nearest whole pound after the full fare, including airport access. */
+function roundCustomerPayableGbp(amount: number): number {
+  const pennies = Math.round(roundGbp(amount) * 100);
+  if (!Number.isFinite(pennies)) return 0;
+  return Math.round(pennies / 100);
+}
+
 export function parseJourneyDistanceKmLabel(label?: string | null): number | null {
   const raw = String(label ?? "").trim();
   const match = /^([\d.]+)\s*miles$/i.exec(raw);
@@ -289,8 +296,8 @@ export function checkoutAmountsMatch(
 }
 
 /**
- * When validation passes, SumUp must charge the exact customer-accepted amount
- * (not the server figure that was only used as a security check).
+ * When validation passes, SumUp charges the authoritative whole-pound server
+ * total. The browser cannot substitute a penny variant.
  * Returns null when outside tolerance — caller must 409 / not create checkout.
  */
 export function resolveSumUpChargeAmountGbp(
@@ -301,7 +308,7 @@ export function resolveSumUpChargeAmountGbp(
   if (!checkoutAmountsMatch(acceptedFinalAmountGbp, serverFinalAmountGbp, toleranceGbp)) {
     return null;
   }
-  return roundGbp(acceptedFinalAmountGbp);
+  return roundCustomerPayableGbp(serverFinalAmountGbp);
 }
 
 export function buildFareMismatchPaymentError(

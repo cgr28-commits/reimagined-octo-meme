@@ -188,7 +188,7 @@ check("LDY → Dublin A2A: LDY £2.50 + DUB toll £4; no DUB drop fee; none remo
   assert.ok(fees.lines.every((l) => !l.removable));
 });
 
-check("DUB → BFS A2A: DUB fees mandatory; BFS destination may be removable", () => {
+check("DUB → BFS A2A: DUB fees and BFS drop-off are both mandatory", () => {
   const fees = resolveJourneyAirportFees({
     isAirportToAirport: true,
     pickupAirportCode: "DUB",
@@ -203,13 +203,13 @@ check("DUB → BFS A2A: DUB fees mandatory; BFS destination may be removable", (
   assert.equal(dubPickup.appliedAmountGbp, 5);
   assert.equal(dubToll.removable, false);
   assert.equal(dubToll.appliedAmountGbp, 4);
-  assert.equal(bfsLine.removable, true);
-  assert.equal(bfsLine.removed, true);
-  assert.equal(bfsLine.appliedAmountGbp, 0);
-  assert.equal(fees.totalAppliedGbp, 9);
+  assert.equal(bfsLine.removable, false);
+  assert.equal(bfsLine.removed, false);
+  assert.equal(bfsLine.appliedAmountGbp, 5);
+  assert.equal(fees.totalAppliedGbp, 14);
 });
 
-check("BFS → DUB A2A: BFS may be removable; DUB drop £0 + toll mandatory", () => {
+check("BFS → DUB A2A: BFS pickup and DUB toll are both mandatory", () => {
   const fees = resolveJourneyAirportFees({
     isAirportToAirport: true,
     pickupAirportCode: "BFS",
@@ -218,23 +218,25 @@ check("BFS → DUB A2A: BFS may be removable; DUB drop £0 + toll mandatory", ()
   });
   const bfsLine = fees.lines.find((l) => l.airportCode === "BFS")!;
   const toll = fees.lines.find((l) => l.direction === "toll")!;
-  assert.equal(bfsLine.removable, true);
-  assert.equal(bfsLine.removed, true);
+  assert.equal(bfsLine.removable, false);
+  assert.equal(bfsLine.removed, false);
+  assert.equal(bfsLine.appliedAmountGbp, 5);
   assert.equal(toll.removable, false);
   assert.equal(toll.removed, false);
-  assert.equal(fees.totalAppliedGbp, 4);
+  assert.equal(fees.totalAppliedGbp, 9);
 });
 
-check("BHD → LDY A2A: BHD removable; LDY £1 mandatory", () => {
+check("BHD → LDY A2A: BHD pickup and LDY drop-off are both mandatory", () => {
   const fees = resolveJourneyAirportFees({
     isAirportToAirport: true,
     pickupAirportCode: "BHD",
     dropoffAirportCode: "LDY",
     removedFeeIds: ["outbound:BHD:pickup", "outbound:LDY:drop-off"],
   });
-  assert.equal(fees.lines.find((l) => l.airportCode === "BHD")?.removed, true);
+  assert.equal(fees.lines.find((l) => l.airportCode === "BHD")?.removed, false);
+  assert.equal(fees.lines.find((l) => l.airportCode === "BHD")?.appliedAmountGbp, 4);
   assert.equal(fees.lines.find((l) => l.airportCode === "LDY")?.removed, false);
-  assert.equal(fees.totalAppliedGbp, 1);
+  assert.equal(fees.totalAppliedGbp, 5);
 });
 
 check("Estate Dublin = Saloon + £6; toll + parking compose correctly", () => {

@@ -10,6 +10,10 @@ import {
   type ExpressDropOffAirportCode,
 } from "../../shared/express-drop-off";
 import {
+  AIRPORT_ACCESS_INCLUDED_BODY,
+  AIRPORT_ACCESS_INCLUDED_HEADING,
+} from "../../shared/executive-vehicle";
+import {
   MEET_GREET_DESCRIPTION,
   formatMeetGreetGbp,
   type AirportAccessChoice,
@@ -37,6 +41,8 @@ type Props = {
   idPrefix?: string;
   heading?: string;
   fareTotalGbp?: number | null;
+  /** Terminal access is in the fare. Hide free/express and Meet & Greet choices. */
+  terminalAccessIncluded?: boolean;
   className?: string;
   tone?: AirportAccessTone;
 };
@@ -63,9 +69,24 @@ export default function ExpressDropOffChoice({
   idPrefix,
   heading,
   fareTotalGbp = null,
+  terminalAccessIncluded = false,
   className = "",
   tone = "on-dark",
 }: Props) {
+  if (terminalAccessIncluded) {
+    const light = tone === "on-light";
+    return (
+      <div className={`min-w-0 ${className}`} data-airport-access-included>
+        <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+          {AIRPORT_ACCESS_INCLUDED_HEADING}
+        </p>
+        <p className={`mt-1 text-xs leading-snug ${light ? "text-[#475569]" : "text-white/75"}`}>
+          {AIRPORT_ACCESS_INCLUDED_BODY}
+        </p>
+      </div>
+    );
+  }
+
   if (mode === "summary" && !editing) {
     return (
       <div
@@ -117,6 +138,7 @@ export default function ExpressDropOffChoice({
         idPrefix={idPrefix}
         heading={heading}
         fareTotalGbp={fareTotalGbp}
+        terminalAccessIncluded={terminalAccessIncluded}
         tone={tone}
       />
       {mode === "summary" && editing ? (

@@ -191,7 +191,7 @@ export function composeWebsiteFareBreakdown(
   const totalPromotionalSavingGbp = roundGbp(
     returnJourneySavingGbp + returnOfferSavingGbp,
   );
-  const finalAmountPayableGbp = roundGbp(
+  const finalAmountPayableGbp = roundCustomerPayableGbp(
     transferFareAfterPromotionsGbp + airportAccessChargeGbp,
   );
 
@@ -221,7 +221,7 @@ export function composeWebsiteFareBreakdown(
   };
 }
 
-import { formatGbpAmount } from "./gbp";
+import { formatGbpAmount, roundCustomerPayableGbp } from "./gbp";
 
 /** Same display rules as formatQuote / formatGbpAmount (whole £241; pence £179.50). */
 export function formatGbpFare(amount: number): string {

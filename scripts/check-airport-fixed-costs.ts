@@ -91,7 +91,7 @@ check("Dublin: universal journey + fixed costs", () => {
   assert.equal(pick.amount, 213);
 });
 
-check("A2A BFS↔BHD keeps destination-end historical surcharge", () => {
+check("A2A BFS↔BHD includes terminal access at both ends", () => {
   const bfsBhd = calculateAirportToAirportQuote(
     "BFS",
     "BHD",
@@ -103,8 +103,8 @@ check("A2A BFS↔BHD keeps destination-end historical surcharge", () => {
     M17,
   )!;
   assert.equal(bfsBhd.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(17));
-  assert.equal(bfsBhd.airportFixedCostsGbp, 4);
-  assert.equal(bfsBhd.amount, bfsBhd.journeyFareGbp! + 4);
+  assert.equal(bfsBhd.airportFixedCostsGbp, 9);
+  assert.equal(bfsBhd.amount, bfsBhd.journeyFareGbp! + 9);
 });
 
 check("Null metrics refuse fare", () => {

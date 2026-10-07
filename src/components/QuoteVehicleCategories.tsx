@@ -7,14 +7,17 @@ import {
   EXECUTIVE_VEHICLE,
   MINIBUS_VEHICLE,
   SALOON_VEHICLE,
-  requiresMinibus,
-  selectVehicleForParty,
+  suitableVehicleTypesForParty,
 } from "@/lib/vehicle-selection";
 import {
+  ESTATE_CUSTOMER_DESCRIPTION,
+  ESTATE_CUSTOMER_NAME,
   EXECUTIVE_CUSTOMER_DESCRIPTION,
   EXECUTIVE_CUSTOMER_NAME,
   MINIBUS_CUSTOMER_DESCRIPTION,
   MINIBUS_CUSTOMER_NAME,
+  SALOON_CUSTOMER_DESCRIPTION,
+  SALOON_CUSTOMER_NAME,
 } from "../../shared/vehicle-display";
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
@@ -25,15 +28,15 @@ const CATEGORIES = [
   {
     id: "saloon",
     vehicle: SALOON_VEHICLE,
-    title: "Saloon",
-    detail: "1–4 passengers",
+    title: SALOON_CUSTOMER_NAME,
+    detail: SALOON_CUSTOMER_DESCRIPTION,
     image: SALOON_IMAGE,
   },
   {
     id: "estate",
     vehicle: ESTATE_VEHICLE,
-    title: "Estate",
-    detail: "Extra luggage space",
+    title: ESTATE_CUSTOMER_NAME,
+    detail: ESTATE_CUSTOMER_DESCRIPTION,
     image: ESTATE_IMAGE,
   },
   {
@@ -41,7 +44,7 @@ const CATEGORIES = [
     vehicle: EXECUTIVE_VEHICLE,
     title: EXECUTIVE_CUSTOMER_NAME,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
-    // No dedicated licensed Executive photo is in the repo. Keep the Saloon image for now.
+    // No unbadged Business Class photo is in the repo yet. Keep the saloon image.
     image: SALOON_IMAGE,
   },
   {
@@ -63,80 +66,69 @@ export default function QuoteVehicleCategories({
 }: {
   passengers: number | null;
   suitcases: number | null;
-  /** Booked vehicle, including an optional 7-seater or Executive the customer has chosen. */
+  /** Booked vehicle, including an upgrade the customer has chosen. */
   selectedVehicle?: string | null;
   onSelectVehicle?: (vehicle: (typeof CATEGORIES)[number]["vehicle"]) => void;
   publicMinibusEnabled?: boolean;
   publicExecutiveEnabled?: boolean;
 }) {
-  const automatic =
+  const suitable =
     passengers != null && suitcases != null
-      ? selectVehicleForParty(passengers, suitcases)
-      : null;
-  const selected = selectedVehicle ?? automatic;
-  const lockedToMinibus =
-    passengers != null && suitcases != null && requiresMinibus(passengers, suitcases);
-  const options = CATEGORIES.filter((option) => {
-    if (option.id === "minibus" && !publicMinibusEnabled) return false;
-    if (option.id === "executive" && !publicExecutiveEnabled) return false;
-    return true;
-  });
+      ? suitableVehicleTypesForParty(passengers, suitcases, {
+          publicMinibusEnabled,
+          publicExecutiveEnabled,
+        })
+      : [];
+  const options = CATEGORIES.filter((option) =>
+    suitable.some((vehicle) => vehicle === option.vehicle),
+  );
+  if (options.length === 0) return null;
 
   return (
-    <div className="space-y-2" data-quote-vehicle-categories>
+    <div className="space-y-1.5" data-quote-vehicle-categories>
       <p className="form-label mb-0">Vehicle</p>
       <div
-        className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+        className="grid grid-cols-1 gap-1.5"
         role="list"
         aria-label="Vehicle for this journey"
       >
         {options.map((option) => {
-          const isSelected = selected === option.vehicle;
-          const selectable =
-            Boolean(onSelectVehicle) &&
-            automatic != null &&
-            (lockedToMinibus
-              ? option.vehicle === MINIBUS_VEHICLE
-              : option.vehicle === MINIBUS_VEHICLE ||
-                option.vehicle === EXECUTIVE_VEHICLE ||
-                option.vehicle === automatic);
-          const className = `flex min-h-16 w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left sm:flex-col sm:items-center sm:text-center ${
-            isSelected
-              ? "border-emerald bg-emerald/10 text-white"
-              : "border-white/15 text-white/75"
-          }`;
-          const body = (
-            <>
-              <Image
-                src={option.image}
-                alt=""
-                width={96}
-                height={48}
-                className="h-12 w-20 shrink-0 object-contain sm:h-14 sm:w-24"
-              />
-              <span className="min-w-0">
-                <span className="block break-words font-semibold leading-snug">{option.title}</span>
-                <span className="block break-words text-xs text-white/60">{option.detail}</span>
-              </span>
-            </>
-          );
+          const isSelected = selectedVehicle === option.vehicle;
           return (
             <div key={option.id} role="listitem" className="min-w-0">
-              {selectable ? (
-                <button
-                  type="button"
-                  data-vehicle-category={option.id}
-                  aria-pressed={isSelected}
-                  onClick={() => onSelectVehicle?.(option.vehicle)}
-                  className={`${className} cursor-pointer`}
-                >
-                  {body}
-                </button>
-              ) : (
-                <div data-vehicle-category={option.id} className={className}>
-                  {body}
-                </div>
-              )}
+              <button
+                type="button"
+                data-vehicle-category={option.id}
+                aria-pressed={isSelected}
+                onClick={() => onSelectVehicle?.(option.vehicle)}
+                className={`flex min-h-12 w-full min-w-0 items-center gap-2.5 rounded-xl border bg-white px-2.5 py-1.5 text-left text-navy shadow-sm ${
+                  isSelected
+                    ? "border-emerald ring-2 ring-emerald/40"
+                    : "border-navy/15"
+                }`}
+              >
+                <Image
+                  src={option.image}
+                  alt=""
+                  width={88}
+                  height={44}
+                  className="h-9 w-14 shrink-0 object-contain"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold leading-tight text-navy">
+                    {option.title}
+                  </span>
+                  <span className="block text-xs leading-tight text-navy/60">{option.detail}</span>
+                </span>
+                {isSelected ? (
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald text-[11px] font-bold text-white"
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                ) : null}
+              </button>
             </div>
           );
         })}

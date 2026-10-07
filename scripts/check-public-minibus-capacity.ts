@@ -444,11 +444,11 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
   assert.match(card, /vehicleType: vehicle/);
   assert.match(card, /quoteFareVehiclesToRequest/);
   assert.match(progressive, /<QuoteVehicleCategories/);
-  assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE \|\|/);
-  assert.match(categories, /option\.vehicle === automatic/);
+  assert.match(categories, /suitableVehicleTypesForParty/);
+  assert.match(categories, /bg-white/);
   assert.equal(card.split("renderQuoteVehicleChoice()").length, 5);
   assert.match(categories, /id: "minibus"/);
-  assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE/);
+  assert.match(categories, /vehicle: MINIBUS_VEHICLE/);
   assert.match(categories, /data-vehicle-category=\{option\.id\}/);
   assert.doesNotMatch(read("shared/universal-distance-pricing.ts"), /Math\.round\(\(estateGbp \* minibusMult\) \/ 5\) \* 5/);
 });
