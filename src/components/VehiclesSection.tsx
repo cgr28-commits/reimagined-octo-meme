@@ -11,6 +11,7 @@ import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../share
 const VEHICLE_WIDTHS = [800, 1536] as const;
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
+const BUSINESS_CLASS_IMAGE = withBasePath("/images/vehicles/quote-business-class.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 function vehicleSrcSet(ext: "avif" | "webp"): string {
@@ -26,7 +27,7 @@ const FLEET = [
     id: "executive",
     title: "Business Class",
     detail: "Premium executive vehicle",
-    image: SALOON_IMAGE,
+    image: BUSINESS_CLASS_IMAGE,
   },
   {
     id: "minibus",

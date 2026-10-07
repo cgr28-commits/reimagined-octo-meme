@@ -41,10 +41,16 @@ type QuoteResultShowcaseProps = {
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
+const BUSINESS_CLASS_IMAGE = withBasePath("/images/vehicles/quote-business-class.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
-/** Saloon, Estate, and 7-seater art used on the result card. */
-const QUOTE_RESULT_VEHICLE_IMAGES = [SALOON_IMAGE, ESTATE_IMAGE, MINIBUS_IMAGE] as const;
+/** Vehicle art used on the result card. */
+const QUOTE_RESULT_VEHICLE_IMAGES = [
+  SALOON_IMAGE,
+  ESTATE_IMAGE,
+  BUSINESS_CLASS_IMAGE,
+  MINIBUS_IMAGE,
+] as const;
 
 /**
  * Start these downloads with the quote form, before a price exists.
@@ -85,7 +91,13 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
     !isMinibus &&
     (vehicleType === ESTATE_VEHICLE || String(vehicleType).toLowerCase().includes("estate"));
   const vehicleLabel = vehicleShortLabel(vehicleType);
-  const vehicleImage = isMinibus ? MINIBUS_IMAGE : isEstate ? ESTATE_IMAGE : SALOON_IMAGE;
+  const vehicleImage = isMinibus
+    ? MINIBUS_IMAGE
+    : isEstate
+      ? ESTATE_IMAGE
+      : isExecutive
+        ? BUSINESS_CLASS_IMAGE
+        : SALOON_IMAGE;
   const supporting = vehicleCustomerDescription(vehicleType);
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)

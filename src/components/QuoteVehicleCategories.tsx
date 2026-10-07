@@ -22,6 +22,7 @@ import {
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
+const BUSINESS_CLASS_IMAGE = withBasePath("/images/vehicles/quote-business-class.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 const CATEGORIES = [
@@ -44,8 +45,7 @@ const CATEGORIES = [
     vehicle: EXECUTIVE_VEHICLE,
     title: EXECUTIVE_CUSTOMER_NAME,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
-    // No unbadged Business Class photo is in the repo yet. Keep the saloon image.
-    image: SALOON_IMAGE,
+    image: BUSINESS_CLASS_IMAGE,
   },
   {
     id: "minibus",
