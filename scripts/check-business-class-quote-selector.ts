@@ -291,7 +291,19 @@ assert.match(card, /Updating price…/);
 assert.match(card, /Express Pickup Included/);
 assert.match(card, /Express Drop-Off Included/);
 assert.doesNotMatch(card, /Free Pick-Up|Free Drop-Off|Free airport areas/);
-assert.match(read("src/components/vehicle-quote-art.tsx"), /h-11 w-full max-w-\[9\.75rem\]/);
+assert.match(read("src/components/vehicle-quote-art.tsx"), /h-\[3\.3rem\] w-full max-w-\[11\.5rem\]/);
+assert.match(read("src/app/globals.css"), /quote-result-card \.btn-primary[\s\S]*color: #ffffff/);
+assert.match(read("src/components/QuoteHelpContact.tsx"), /text-\[#25D366\]/);
+assert.match(read("src/components/QuoteCard.tsx"), /View journey map/);
+assert.match(read("src/components/QuoteCard.tsx"), /Hide route/);
+assert.match(read("src/components/QuoteJourneyMap.tsx"), /data-quote-route-map/);
+assert.doesNotMatch(
+  read("src/components/QuoteCard.tsx").slice(
+    read("src/components/QuoteCard.tsx").indexOf("data-quote-view-route"),
+    read("src/components/QuoteCard.tsx").indexOf("data-quote-view-route") + 500,
+  ),
+  /target="_blank"/,
+);
 assert.match(read("src/components/quote-result-action.tsx"), /bg-navy-light/);
 assert.match(read("src/components/QuoteCard.tsx"), /QUOTE_RESULT_ACTION_CLASS/);
 assert.match(read("src/components/QuoteHelpContact.tsx"), /QUOTE_RESULT_ACTION_CLASS/);

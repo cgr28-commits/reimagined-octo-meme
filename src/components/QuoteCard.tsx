@@ -23,6 +23,7 @@ import {
   QUOTE_RESULT_ACTION_CLASS,
   QuoteResultActionIcon,
 } from "@/components/quote-result-action";
+import QuoteJourneyMap, { type QuoteMapPoint } from "@/components/QuoteJourneyMap";
 import { buildBookingMessage, buildEnquiryBookingMessage, isValidEmailAddress, isValidMobileNumber, normalizeChildSeats, type BookingDetails } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
@@ -130,6 +131,7 @@ import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
   formatJourneyDistance,
   formatJourneyDuration,
+  formatRouteCardJourneyTime,
   type TripRouteMetrics,
 } from "@/lib/trip-route";
 import {
@@ -925,6 +927,7 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+  const [journeyMapOpen, setJourneyMapOpen] = useState(false);
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
   const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
@@ -4404,6 +4407,7 @@ function QuoteCard({
     setQuoteTransactionId("");
     setBookingDelivery(null);
     setQuoteStep(1);
+    setJourneyMapOpen(false);
     setCustomerName("");
     setCustomerMobile("");
     setCustomerEmail("");
@@ -6978,6 +6982,30 @@ function QuoteCard({
     );
   }
 
+  function quoteJourneyEndpoints(): { origin: QuoteMapPoint; destination: QuoteMapPoint } | null {
+    const placePoint = (place: { lat: number | null; lng: number | null }, label: string) => {
+      if (typeof place.lat !== "number" || typeof place.lng !== "number") return null;
+      return { lat: place.lat, lng: place.lng, label };
+    };
+    const airport = AIRPORTS.find((item) => item.code === airportCode) ?? null;
+    if (!isA2AFlow && isAirportTrip && airport) {
+      const airportPoint = {
+        lat: airport.mapLocation.lat,
+        lng: airport.mapLocation.lng,
+        label: airport.name,
+      };
+      if (isFromAirport) {
+        const destination = placePoint(dropoffPlace, dropoffAddress.trim() || "Drop-off");
+        return destination ? { origin: airportPoint, destination } : null;
+      }
+      const origin = placePoint(pickupPlace, pickupAddress.trim() || "Pickup");
+      return origin ? { origin, destination: airportPoint } : null;
+    }
+    const origin = placePoint(pickupPlace, pickupAddress.trim() || "Pickup");
+    const destination = placePoint(dropoffPlace, dropoffAddress.trim() || "Drop-off");
+    return origin && destination ? { origin, destination } : null;
+  }
+
   function quoteDirectionsHref(): string | null {
     const airportLabel = AIRPORTS.find((item) => item.code === airportCode)?.mapLabel ?? "";
     let origin = pickupAddress.trim();
@@ -6997,6 +7025,10 @@ function QuoteCard({
 
   function renderQuoteResultFollowOn(routeMap: ReactNode) {
     const mapsHref = quoteDirectionsHref();
+    const journey = quoteJourneyEndpoints();
+    const routeTimeLabel = routeMetrics
+      ? formatRouteCardJourneyTime(routeMetrics.durationMinutes)
+      : "";
     return (
       <>
         {routeMap}
@@ -7008,17 +7040,22 @@ function QuoteCard({
         <div id="quote-step1-next" className="space-y-1.5" data-quote-result-actions>
           <div className="grid grid-cols-2 gap-1.5">
             {mapsHref ? (
-              <a
-                href={mapsHref}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
                 data-quote-view-route
+                aria-expanded={journeyMapOpen}
+                aria-controls="quote-journey-map"
+                onClick={() => setJourneyMapOpen((open) => !open)}
                 className={QUOTE_RESULT_ACTION_CLASS}
               >
                 <QuoteResultActionIcon name="route" />
-                <span className="text-[0.8125rem] font-bold leading-tight">View route</span>
-                <span className="text-[0.7rem] font-medium leading-tight text-white/75">Google Maps</span>
-              </a>
+                <span className="text-[0.8125rem] font-bold leading-tight">
+                  {journeyMapOpen ? "Hide route" : "View route"}
+                </span>
+                <span className="text-[0.7rem] font-medium leading-tight text-white/75">
+                  View journey map
+                </span>
+              </button>
             ) : null}
             <button
               type="button"
@@ -7032,6 +7069,14 @@ function QuoteCard({
             {renderStartNewQuoteControls("results")}
             <QuoteHelpContact variant="card" className="!mt-0" />
           </div>
+          {journeyMapOpen ? (
+            <QuoteJourneyMap
+              origin={journey?.origin ?? null}
+              destination={journey?.destination ?? null}
+              durationLabel={routeTimeLabel}
+              fallbackHref={mapsHref}
+            />
+          ) : null}
           {renderBookingErrorHelp("step1-actions")}
           {saveQuotePrompt ? (
             <p className="text-center text-xs text-emerald/90" role="status">

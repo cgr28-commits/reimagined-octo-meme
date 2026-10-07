@@ -26,7 +26,7 @@ export default function QuoteHelpContact({
         data-quote-help-card
         className={`quote-help-contact ${QUOTE_RESULT_ACTION_CLASS} ${className}`}
       >
-        <QuoteResultActionIcon name="whatsapp" />
+        <QuoteResultActionIcon name="whatsapp" className="h-[1.15rem] w-[1.15rem] text-[#25D366]" />
         <span className="text-[0.8125rem] font-bold leading-tight">Need help?</span>
         <span className="text-[0.7rem] font-medium leading-tight text-white/75">WhatsApp us</span>
       </a>

@@ -207,6 +207,12 @@ main {
   line-height: 1.15;
   letter-spacing: -0.01em;
   box-shadow: none;
+  color: #ffffff;
+  text-shadow: 0 1px 0 rgba(4, 16, 32, 0.28);
+}
+
+.quote-flow .quote-result-card .btn-primary:disabled {
+  color: #ffffff;
 }
 
 .homepage-hero-quote:has([data-quote-results="ready"]) > .quote-help-contact {

@@ -7,10 +7,11 @@ export const QUOTE_RESULT_ACTION_CLASS =
 
 export function QuoteResultActionIcon({
   name,
+  className = "h-[1.15rem] w-[1.15rem] text-white",
 }: {
   name: "route" | "save" | "restart" | "whatsapp";
+  className?: string;
 }) {
-  const className = "h-[1.15rem] w-[1.15rem] text-white";
   if (name === "route") {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
