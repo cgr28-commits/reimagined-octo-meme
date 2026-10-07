@@ -929,7 +929,13 @@ function QuoteCard({
   routeMetricsRef.current = routeMetrics;
   const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
   const quoteFareInflightRef = useRef(
-    new Map<string, Promise<Awaited<ReturnType<typeof calculateServerQuote>>>>(),
+    new Map<
+      string,
+      {
+        promise: Promise<Awaited<ReturnType<typeof calculateServerQuote>>>;
+        signal?: AbortSignal;
+      }
+    >(),
   );
   const quoteFareTimingRef = useRef({ inputsAt: 0, requestAt: 0 });
   /** Worker-authoritative journey/fixed split (same engine as SumUp). Prefer over browser metrics. */
@@ -938,6 +944,9 @@ function QuoteCard({
   const [serverQuoteUnavailable, setServerQuoteUnavailable] = useState(false);
   const serverQuoteGenRef = useRef(0);
   const quoteVehicleRef = useRef("");
+  const quoteFareAbortRef = useRef<AbortController | null>(null);
+  /** Stops a vehicle_unavailable response from retrying the same unsuitable choice. */
+  const unsuitableFareRecoveryRef = useRef("");
   /** Last authoritative £ so a vehicle change does not blank the price slot. */
   const stableFareLabelRef = useRef<string | null>(null);
   /** Route identity that already has a displayed fare. Vehicle switches reuse it. */
@@ -1003,12 +1012,15 @@ function QuoteCard({
   const partySelectionKey =
     passengers == null || suitcases == null ? "" : `${passengers}:${suitcases}`;
   if (trackedPartyKey !== partySelectionKey) {
+    unsuitableFareRecoveryRef.current = "";
     setTrackedPartyKey(partySelectionKey);
     setManualVehicle(null);
   }
 
   const quoteVehicle = useMemo(() => {
-    const pax = effectivePartyPassengers(passengers, passengerLimit);
+    const pax =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers != null && passengers >= 1 ? passengers : null);
     if (pax == null || suitcases == null) return vehicle;
     const enabled = enabledVehicleTypesForQuote({
       publicMinibusEnabled,
@@ -1054,7 +1066,9 @@ function QuoteCard({
   const [formResetKey, setFormResetKey] = useState(0);
 
   useEffect(() => {
-    const pax = effectivePartyPassengers(passengers);
+    const pax =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers != null && passengers >= 1 ? passengers : null);
     if (pax == null || suitcases == null) return;
     const manualStillSuitable =
       manualVehicle != null &&
@@ -1078,6 +1092,7 @@ function QuoteCard({
     setVehicle(next);
   }, [
     manualVehicle,
+    passengerLimit,
     passengers,
     publicExecutiveEnabled,
     publicMinibusEnabled,
@@ -1888,7 +1903,10 @@ function QuoteCard({
 
   // Prefer Worker-authoritative fare (same resolveWorkerTripRouteMetrics + engine as SumUp)
   // so the displayed/consent amount matches checkout. Browser metrics stay for map display.
-  const refreshAuthoritativeServerQuote = useCallback(async (force = false): Promise<boolean> => {
+  const refreshAuthoritativeServerQuote = useCallback(async (
+    force = false,
+    signal?: AbortSignal,
+  ): Promise<boolean> => {
     if (isBrowserPricingPreview() && previewMinibusQueryEnabled()) {
       setServerFareParts(null);
       setServerQuoteUnavailable(true);
@@ -1927,7 +1945,35 @@ function QuoteCard({
         returnDate,
         returnTime,
       });
-    const paxNow = effectivePartyPassengers(passengers, passengerLimit);
+    const paxNow =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers >= 1 ? passengers : null);
+    if (paxNow != null && !vehicleFitsParty(requestedVehicle, paxNow, suitcases)) {
+      const suitable = keepOrSmallestSuitableVehicle({
+        current: requestedVehicle,
+        passengers: paxNow,
+        suitcases,
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      });
+      const recoveryKey = `${paxNow}:${suitcases}:${suitable}`;
+      if (suitable !== requestedVehicle && unsuitableFareRecoveryRef.current !== recoveryKey) {
+        unsuitableFareRecoveryRef.current = recoveryKey;
+        setManualVehicle(null);
+        setChooseExecutive(suitable === EXECUTIVE_VEHICLE);
+        setChooseMinibus(suitable === MINIBUS_VEHICLE_TYPE);
+        setChooseEstate(suitable === ESTATE_VEHICLE);
+        setVehicle(suitable);
+        setServerQuoteUnavailable(false);
+        setVehicleFareUpdating(true);
+        return false;
+      }
+      if (suitable !== requestedVehicle) {
+        setVehicleFareUpdating(false);
+        setServerQuoteUnavailable(true);
+        return false;
+      }
+    }
     const vehiclesToPrice = quoteFareVehiclesToRequest({
       selectedVehicle: requestedVehicle,
       automaticVehicle:
@@ -1974,14 +2020,17 @@ function QuoteCard({
     const loadAlternateFares = () => {
       for (const vehicle of vehiclesToPrice.slice(1)) {
         const key = fareKeyFor(vehicle);
+        const existing = quoteFareInflightRef.current.get(key);
         if (
           authoritativeFareCacheRef.current.has(key) ||
-          quoteFareInflightRef.current.has(key)
+          (existing != null && existing.signal?.aborted !== true)
         ) {
           continue;
         }
-        const promise = calculateServerQuote(quoteBodyFor(vehicle)).then((alternate) => {
-          quoteFareInflightRef.current.delete(key);
+        const promise = calculateServerQuote(quoteBodyFor(vehicle), undefined, signal).then((alternate) => {
+          if (quoteFareInflightRef.current.get(key)?.promise === promise) {
+            quoteFareInflightRef.current.delete(key);
+          }
           if (
             alternate.ok &&
             Number.isFinite(alternate.amount) &&
@@ -2012,10 +2061,12 @@ function QuoteCard({
           }
           return alternate;
         }).catch(() => {
-          quoteFareInflightRef.current.delete(key);
+          if (quoteFareInflightRef.current.get(key)?.promise === promise) {
+            quoteFareInflightRef.current.delete(key);
+          }
           return { ok: false as const, message: "Could not calculate fare" };
         });
-        quoteFareInflightRef.current.set(key, promise);
+        quoteFareInflightRef.current.set(key, { promise, signal });
       }
     };
     if (!force) {
@@ -2046,18 +2097,23 @@ function QuoteCard({
       quoteFareTimingRef.current.requestAt =
         typeof performance !== "undefined" ? performance.now() : Date.now();
       let inflight = quoteFareInflightRef.current.get(selectedKey);
+      if (inflight?.signal?.aborted) {
+        quoteFareInflightRef.current.delete(selectedKey);
+        inflight = undefined;
+      }
       if (!inflight) {
-        const promise = calculateServerQuote(quoteBodyFor(requestedVehicle));
-        inflight = promise.finally(() => {
-          if (quoteFareInflightRef.current.get(selectedKey) === inflight) {
+        const promise = calculateServerQuote(quoteBodyFor(requestedVehicle), undefined, signal);
+        const tracked = promise.finally(() => {
+          if (quoteFareInflightRef.current.get(selectedKey)?.promise === tracked) {
             quoteFareInflightRef.current.delete(selectedKey);
           }
         });
+        inflight = { promise: tracked, signal };
         quoteFareInflightRef.current.set(selectedKey, inflight);
       }
       loadAlternateFares();
       setServerQuoteUnavailable(false);
-      const result = await inflight;
+      const result = await inflight.promise;
       if (
         result.ok &&
         Number.isFinite(result.amount) &&
@@ -2087,6 +2143,7 @@ function QuoteCard({
         };
         rememberFare(requestedVehicle, pricedParts);
         if (
+          signal?.aborted ||
           requestGen !== serverQuoteGenRef.current ||
           requestedVehicle !== quoteVehicleRef.current
         ) {
@@ -2164,17 +2221,48 @@ function QuoteCard({
         return true;
       }
       if (
+        signal?.aborted ||
         requestGen !== serverQuoteGenRef.current ||
         requestedVehicle !== quoteVehicleRef.current
       ) {
         return false;
       }
+      if (!result.ok && result.reason === "vehicle_unavailable" && paxNow != null) {
+        const ranked = suitableVehicleTypesForParty(paxNow, suitcases, {
+          publicMinibusEnabled,
+          publicExecutiveEnabled,
+        }).filter((candidate) => candidate !== requestedVehicle);
+        const suitable =
+          ranked[0] ??
+          keepOrSmallestSuitableVehicle({
+            current: requestedVehicle,
+            passengers: paxNow,
+            suitcases,
+            publicMinibusEnabled,
+            publicExecutiveEnabled,
+          });
+        const recoveryKey = `${paxNow}:${suitcases}:${requestedVehicle}->${suitable}`;
+        if (suitable !== requestedVehicle && unsuitableFareRecoveryRef.current !== recoveryKey) {
+          unsuitableFareRecoveryRef.current = recoveryKey;
+          setManualVehicle(null);
+          setChooseExecutive(suitable === EXECUTIVE_VEHICLE);
+          setChooseMinibus(suitable === MINIBUS_VEHICLE_TYPE);
+          setChooseEstate(suitable === ESTATE_VEHICLE);
+          setVehicle(suitable);
+          setServerQuoteUnavailable(false);
+          setVehicleFareUpdating(true);
+          return false;
+        }
+      }
       setServerFareParts(null);
       setVehicleFareUpdating(false);
       setServerQuoteUnavailable(true);
       return false;
-    } catch {
+    } catch (error) {
+      const fetchAborted = error instanceof Error && error.name === "AbortError";
       if (
+        fetchAborted ||
+        signal?.aborted ||
         requestGen !== serverQuoteGenRef.current ||
         requestedVehicle !== quoteVehicleRef.current
       ) {
@@ -2263,8 +2351,9 @@ function QuoteCard({
       setServerQuoteUnavailable(false);
       return;
     }
+    const hadDisplayedFare = displayedRouteKeyRef.current != null;
     displayedRouteKeyRef.current = null;
-    setVehicleFareUpdating(false);
+    setVehicleFareUpdating(hadDisplayedFare);
     setServerFareParts(null);
     setServerQuoteUnavailable(false);
   }, [
@@ -2308,6 +2397,9 @@ function QuoteCard({
     // Invalidate any in-flight response before this request starts, including
     // a cache hit that does not bump the generation itself.
     serverQuoteGenRef.current += 1;
+    quoteFareAbortRef.current?.abort();
+    const controller = new AbortController();
+    quoteFareAbortRef.current = controller;
     let cancelled = false;
     quoteFareTimingRef.current.inputsAt =
       typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -2315,11 +2407,12 @@ function QuoteCard({
       if (QUOTE_FARE_START_DELAY_MS > 0) {
         await new Promise((resolve) => window.setTimeout(resolve, QUOTE_FARE_START_DELAY_MS));
       }
-      if (cancelled) return;
-      await refreshAuthoritativeServerQuoteRef.current();
+      if (cancelled || controller.signal.aborted) return;
+      await refreshAuthoritativeServerQuoteRef.current(false, controller.signal);
     })();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [quoteRequestKey]);
 
@@ -6834,7 +6927,9 @@ function QuoteCard({
     suitcases != null;
 
   function handleQuoteVehicleChoice(next: string) {
-    const pax = effectivePartyPassengers(passengers, passengerLimit);
+    const pax =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers != null && passengers >= 1 ? passengers : null);
     if (pax == null || suitcases == null) return;
     const chosen = canonicalVehicleType(next);
     if (

@@ -109,6 +109,7 @@ check("unsuitable vehicles stay visible and cannot be selected or priced", () =>
   assert.match(categories, /VEHICLE_NOT_SUITABLE_CARD_MESSAGE/);
   assert.match(read("src/lib/vehicle-selection.ts"), /Not suitable for this passenger\/luggage selection/);
   assert.match(categories, /disabled:opacity-100/);
+  assert.match(categories, /disabled:pointer-events-none/);
   assert.doesNotMatch(categories, /opacity-40|opacity-50|Recommended|recommended/i);
   assert.doesNotMatch(categories, /Not suitable for your passenger\/luggage selection/);
 
@@ -219,6 +220,22 @@ check("larger suitable vehicles stay selectable and a still-valid choice is not 
   assert.doesNotMatch(partyDeps, /chooseEstate|chooseExecutive|chooseMinibus/);
   assert.match(card, /setTrackedPartyKey\(partySelectionKey\)/);
   assert.match(card, /setManualVehicle\(null\)/);
+  assert.match(card, /unsuitableFareRecoveryRef/);
+  assert.match(card, /quoteFareAbortRef/);
+  assert.match(card, /controller\.abort\(\)/);
+  assert.match(card, /hadDisplayedFare/);
+  assert.match(card, /result\.reason === "vehicle_unavailable"/);
+  const unavailableRecovery = card.slice(
+    card.indexOf('result.reason === "vehicle_unavailable"'),
+    card.indexOf(
+      "setServerFareParts(null);",
+      card.indexOf('result.reason === "vehicle_unavailable"'),
+    ),
+  );
+  assert.match(unavailableRecovery, /setServerQuoteUnavailable\(false\)/);
+  assert.match(unavailableRecovery, /setVehicleFareUpdating\(true\)/);
+  assert.doesNotMatch(unavailableRecovery, /setServerFareParts\(null\)/);
+  assert.match(partyDeps, /passengerLimit/);
 });
 
 check("automatic selection prices the selected vehicle and payment uses that uplift", () => {

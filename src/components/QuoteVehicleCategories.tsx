@@ -127,7 +127,7 @@ export default function QuoteVehicleCategories({
                   if (!fits) return;
                   onSelectVehicle?.(option.vehicle);
                 }}
-                className={`flex h-[5.65rem] w-full flex-col justify-center gap-0.5 overflow-hidden rounded-xl border-2 bg-white px-2 py-1 text-left text-navy shadow-sm disabled:cursor-not-allowed disabled:opacity-100 ${
+                className={`flex h-[5.65rem] w-full flex-col justify-center gap-0.5 overflow-hidden rounded-xl border-2 bg-white px-2 py-1 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
                   isSelected
                     ? "border-[var(--quote-selected-border)]"
                     : "border-navy/20"

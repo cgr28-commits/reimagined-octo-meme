@@ -140,6 +140,17 @@ assert.deepEqual(
   }),
   ["Saloon (1–4 passengers)", "Minibus (5–7 passengers)"],
 );
+assert.deepEqual(
+  quoteFareVehiclesToRequest({
+    selectedVehicle: "Saloon (1–4 passengers)",
+    automaticVehicle: "Estate Car (1–4 passengers)",
+    minibusVehicle: "Minibus (5–7 passengers)",
+    publicMinibusEnabled: true,
+    requiresMinibus: false,
+    suitableVehicles: ["Estate Car (1–4 passengers)", "Minibus (5–7 passengers)"],
+  }),
+  ["Estate Car (1–4 passengers)", "Minibus (5–7 passengers)"],
+);
 assert.equal(expressQuoteFreeTitle("BFS", "drop-off"), "Free Drop-Off — Included");
 assert.equal(expressQuoteExpressTitle("BFS", "drop-off"), "Express Drop-Off — +£5");
 assert.equal(
