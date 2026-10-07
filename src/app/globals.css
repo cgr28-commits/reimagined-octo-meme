@@ -196,6 +196,19 @@ main {
   color: #062033;
 }
 
+.quote-result-card .btn-primary {
+  min-height: 2.5rem;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  font-size: 0.8125rem;
+  line-height: 1.15;
+  box-shadow: none;
+}
+
+.homepage-hero-quote:has([data-quote-results="ready"]) > .quote-help-contact {
+  display: none;
+}
+
 .btn-secondary {
   display: inline-flex;
   align-items: center;

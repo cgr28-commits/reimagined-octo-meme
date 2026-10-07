@@ -112,8 +112,8 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         ? BUSINESS_CLASS_IMAGE
         : SALOON_IMAGE;
   const supporting = vehicleCustomerDescription(vehicleType);
-  const capacityLine = isMinibus ? null : "1–4 passengers";
-  const detailLine = isEstate || isExecutive || isMinibus ? supporting : null;
+  const capacityLine = isMinibus ? "Up to 7 passengers" : "1–4 passengers";
+  const detailLine = isEstate || isExecutive ? supporting : "\u00a0";
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
     ? "5+ large bags"
@@ -127,24 +127,20 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       id="quote-selected-vehicle-card"
       data-quote-selected-vehicle-card
       data-quote-result-card
-      className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-3 py-2 text-navy shadow-[0_8px_22px_rgba(2,10,24,0.16)] sm:px-4 sm:py-3"
+      className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-2.5 py-1.5 text-navy shadow-[0_4px_14px_rgba(2,10,24,0.12)] sm:px-3 sm:py-2"
       style={{ overflowAnchor: "none" }}
     >
       <div className="min-w-0 text-center">
         <p
           data-quote-result-heading
-          className="font-sans text-base font-bold leading-none tracking-[-0.02em] text-navy"
+          className="font-sans text-sm font-bold leading-tight tracking-[-0.02em] text-navy"
         >
           {vehicleLabel}
         </p>
         <p className="sr-only">Vehicle for this journey</p>
-        {capacityLine ? (
-          <p className="mt-0.5 text-xs font-semibold leading-snug text-navy">{capacityLine}</p>
-        ) : null}
-        {detailLine ? (
-          <p className="mt-0.5 text-xs font-medium leading-snug text-navy">{detailLine}</p>
-        ) : null}
-        <div className="mt-1">
+        <p className="text-[11px] font-semibold leading-tight text-navy">{capacityLine}</p>
+        <p className="text-[11px] font-medium leading-tight text-navy">{detailLine}</p>
+        <div className="mt-0.5">
           <VehicleQuoteArt
             vehicle={art}
             src={vehicleImage}
@@ -160,7 +156,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             size="result"
           />
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-xs font-semibold text-navy min-[390px]:flex-nowrap">
+        <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-0 text-[11px] font-semibold leading-tight text-navy min-[390px]:flex-nowrap">
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
             <PassengerIcon />
             {passengerLabel}
@@ -172,7 +168,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         </div>
       </div>
 
-      <div className="mt-1.5 min-w-0 text-center">
+      <div className="mt-1 min-w-0 text-center">
         <div data-quote-result-price>
           <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-navy">
             {priceLabel}
@@ -198,13 +194,13 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
               data-quote-fare-status={
                 priceUpdating ? "updating" : formattedPrice.startsWith("£") ? "ready" : "pending"
               }
-              className="mt-0.5 flex min-h-9 items-center justify-center"
+              className="mt-0.5 flex min-h-8 items-center justify-center"
             >
               <span
                 className={
                   !formattedPrice.startsWith("£")
                     ? "font-sans text-sm font-semibold leading-tight text-navy"
-                    : "font-sans text-[clamp(1.65rem,0.9rem+3.4vw,2.1rem)] font-extrabold leading-none tracking-[-0.04em] text-navy tabular-nums"
+                    : "font-sans text-[clamp(1.45rem,0.7rem+3vw,1.85rem)] font-extrabold leading-none tracking-[-0.04em] text-navy tabular-nums"
                 }
               >
                 {formattedPrice}
@@ -220,9 +216,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {surchargeNote}
           </p>
         ) : null}
-        <div className="mt-1">{bookButton}</div>
+        <div className="mt-0.5">{bookButton}</div>
         {priceUnavailable ? null : (
-          <p className="mt-1 text-xs font-semibold text-[#147a2a]">✓ Fixed price. No surprises.</p>
+          <p className="mt-0.5 text-[11px] font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
         )}
         {businessClassInclusions}
         {capacityConfirmation ? (
@@ -237,17 +233,17 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           </div>
         ) : null}
         {airportAccess ? (
-          <div className="mt-1.5 text-left" data-quote-result-airport-access>
+          <div className="mt-1 text-left" data-quote-result-airport-access>
             {airportAccess}
           </div>
         ) : null}
-        <p className="mt-1.5 text-[11px] font-medium leading-snug text-navy">
+        <p className="mt-1 text-[11px] font-medium leading-tight text-navy">
           Secure booking · Secure payment powered by SumUp
         </p>
-        <p className="text-[11px] font-medium leading-snug text-navy">
+        <p className="text-[11px] font-medium leading-tight text-navy">
           Flight monitoring for airport pickups · No hidden charges
         </p>
-        <p className="mt-0.5 text-[11px] font-medium leading-snug text-navy">
+        <p className="text-[11px] font-medium leading-tight text-navy">
           Vehicle shown for illustration.
         </p>
       </div>

@@ -18,6 +18,7 @@ import {
   StartNewQuoteControls,
 } from "@/components/QuoteBookingHelpControls";
 import TripMap from "@/components/TripMap";
+import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { buildBookingMessage, buildEnquiryBookingMessage, isValidEmailAddress, isValidMobileNumber, normalizeChildSeats, type BookingDetails } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
@@ -696,6 +697,19 @@ function isClosedAvailabilityError(message?: string | null): boolean {
     isOwnerNoAvailabilityMessage(message) ||
     String(message || "").trim() === MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE
   );
+}
+
+/** Owner lead copy for a public quote. Access is included; there is no free alternative. */
+function websiteAirportAccessLeadLabel(selection: {
+  eligible: boolean;
+  legs: readonly unknown[];
+  service?: string | null;
+}): string | undefined {
+  if (!selection.eligible) return undefined;
+  if (selection.legs.length > 1) {
+    return "Express Pickup Included · Express Drop-Off Included";
+  }
+  return selection.service === "pick-up" ? "Express Pickup Included" : "Express Drop-Off Included";
 }
 
 function QuoteCard({
@@ -3330,19 +3344,7 @@ function QuoteCard({
       quoteTransactionId,
       airportCode: effectiveAirportCode || undefined,
       journeyFareGbp: journeyFareParts.journeyFareGbp ?? undefined,
-      airportAccessOption: expressSelection.eligible
-        ? expressSelection.legs.length > 1
-          ? expressSelection.selected
-            ? "Express access"
-            : "Free airport areas"
-          : expressSelection.selected
-            ? expressSelection.service === "pick-up"
-              ? "Express Pick-Up"
-              : "Express Drop-Off"
-            : expressSelection.service === "pick-up"
-              ? "Free Pick-Up"
-              : "Free Drop-Off"
-        : undefined,
+      airportAccessOption: websiteAirportAccessLeadLabel(expressSelection),
       airportAccessFeeGbp: expressSelection.feeGbp,
       totalGbp: pricedFare?.totalGbp ?? liveQuote.amount,
       source: "website",
@@ -3746,19 +3748,7 @@ function QuoteCard({
       isAirportTrip,
       quoteTransactionId,
       airportCode: effectiveAirportCode || undefined,
-      airportAccessOption: expressSelection.eligible
-        ? expressSelection.legs.length > 1
-          ? expressSelection.selected
-            ? "Express access"
-            : "Free airport areas"
-          : expressSelection.selected
-            ? expressSelection.service === "pick-up"
-              ? "Express Pick-Up"
-              : "Express Drop-Off"
-            : expressSelection.service === "pick-up"
-              ? "Free Pick-Up"
-              : "Free Drop-Off"
-        : undefined,
+      airportAccessOption: websiteAirportAccessLeadLabel(expressSelection),
       totalGbp: pricedFare?.totalGbp ?? liveQuote.amount,
       source: "website",
       customerName,
@@ -5547,7 +5537,7 @@ function QuoteCard({
       : BUSINESS_CLASS_DROPOFF_INCLUSIONS;
     return (
       <div
-        className="mt-2 rounded-xl border border-navy/10 bg-navy/[0.03] px-3 py-2 text-left"
+        className="mt-1 rounded-lg border border-navy/10 bg-navy/[0.03] px-2 py-1 text-left"
         data-business-class-inclusions
         data-business-class-pickup={hasPickup ? "true" : "false"}
       >
@@ -6748,7 +6738,7 @@ function QuoteCard({
     );
   }
 
-  function renderStep1SaveQuote() {
+  function renderStep1SaveQuote(compact = false) {
     if (
       !(
         liveQuote &&
@@ -6765,7 +6755,11 @@ function QuoteCard({
       <button
         type="button"
         onClick={handleSaveQuoteClick}
-        className="btn-secondary w-full"
+        className={
+          compact
+            ? "inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-white/45 bg-white/5 px-3 text-sm font-semibold text-white"
+            : "btn-secondary w-full"
+        }
       >
         Save Quote
       </button>
@@ -6885,10 +6879,11 @@ function QuoteCard({
           aria-hidden="true"
         />
         <div id="quote-step1-next" className="space-y-1">
-          {renderStep1SaveQuote()}
+          {renderStep1SaveQuote(true)}
           {liveQuote || hasQuoteRoute || passengers != null || suitcases != null
             ? renderStartNewQuoteControls("results")
             : null}
+          <QuoteHelpContact className="!mt-0" />
           {renderBookingErrorHelp("step1-actions")}
           {saveQuotePrompt ? (
             <p className="text-center text-xs text-emerald/90" role="status">
@@ -7006,6 +7001,7 @@ function QuoteCard({
     <div
       ref={cardRef}
       data-quote-presentation={presentation}
+      data-quote-results={quoteResultsReady && quoteStep === 1 ? "ready" : undefined}
       className={
         presentation === "homepage"
           ? "quote-flow glass-card min-w-0 rounded-[1.1rem] px-3 py-2.5 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
@@ -7345,7 +7341,7 @@ function QuoteCard({
                 }
                 className={
                   quoteChoicesReady && hasQuoteRoute && quoteStep === 1
-                    ? "scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
+                    ? "scroll-mt-44 space-y-1.5 outline-none md:scroll-mt-28"
                     : undefined
                 }
                 style={
@@ -7830,7 +7826,7 @@ function QuoteCard({
         {!isA2AFlow && quoteResultsReady && quoteStep === 1 && (
           <div
             id="quote-results-summary"
-            className="scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
+            className="scroll-mt-44 space-y-1.5 outline-none md:scroll-mt-28"
             style={{ overflowAnchor: "none" }}
           >
             <h2 className="sr-only">Step 2 — Your quote</h2>
