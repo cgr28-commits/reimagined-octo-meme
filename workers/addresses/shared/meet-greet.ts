@@ -194,6 +194,8 @@ export function quoteAirportAccessCharges(input: {
   outboundChoice?: AirportAccessChoice | null;
   returnChoice?: AirportAccessChoice | null;
   fees?: MeetGreetFeesGbp | null;
+  /** Executive airport pickup: Meet & Greet is part of the fare, not an extra charge. */
+  meetGreetIncluded?: boolean;
 }): QuotedAirportAccess {
   const outboundChoice = input.outboundChoice ?? "free";
   const returnChoice = input.returnChoice ?? "free";
@@ -206,6 +208,18 @@ export function quoteAirportAccessCharges(input: {
     const pickup =
       expressLeg.service === "pick-up" &&
       pickupLegs.some((leg) => leg.leg === expressLeg.leg);
+    if (pickup && input.meetGreetIncluded) {
+      legs.push({
+        leg: expressLeg.leg,
+        service: "pick-up",
+        airportCode: expressLeg.airportCode,
+        option: "meet-greet",
+        expressFeeGbp: 0,
+        meetGreetFeeGbp: 0,
+        chargeGbp: 0,
+      });
+      continue;
+    }
     if (pickup && choice === "meet-greet") {
       const fee = meetGreetFeeGbp(expressLeg.airportCode, input.fees);
       legs.push({
@@ -234,6 +248,18 @@ export function quoteAirportAccessCharges(input: {
   for (const pickup of pickupLegs) {
     if (legs.some((leg) => leg.leg === pickup.leg && leg.service === "pick-up")) continue;
     const choice = pickup.leg === "return" ? returnChoice : outboundChoice;
+    if (input.meetGreetIncluded) {
+      legs.push({
+        leg: pickup.leg,
+        service: "pick-up",
+        airportCode: pickup.airportCode,
+        option: "meet-greet",
+        expressFeeGbp: 0,
+        meetGreetFeeGbp: 0,
+        chargeGbp: 0,
+      });
+      continue;
+    }
     if (choice !== "meet-greet") {
       legs.push({
         leg: pickup.leg,
@@ -313,10 +339,16 @@ export function quoteAirportAccessCharges(input: {
 }
 
 export function meetGreetCustomerValue(feeGbp: number): string {
+  if (roundGbp(feeGbp) <= 0) {
+    return `Meet & Greet — included. ${MEET_GREET_DESCRIPTION}`;
+  }
   return `Meet & Greet — ${formatMeetGreetGbp(feeGbp)}. ${MEET_GREET_DESCRIPTION}`;
 }
 
 export function meetGreetOwnerValue(feeGbp: number): string {
+  if (roundGbp(feeGbp) <= 0) {
+    return "MEET & GREET — INCLUDED — DRIVER ENTERS TERMINAL";
+  }
   return `MEET & GREET — ${formatMeetGreetGbp(feeGbp)} — DRIVER ENTERS TERMINAL`;
 }
 

@@ -1,9 +1,11 @@
 import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "./data";
+import { isExecutiveVehicle } from "../../shared/executive-vehicle";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
   composeFareWithAirportFixedCosts,
   getAirportLegFixedCostGbp,
   getAirportToAirportFixedCostGbp,
+  resolveAirportToAirportFeeLines,
 } from "../../shared/airport-fixed-costs";
 import {
   calculateUniversalJourneyFareGbp,
@@ -56,7 +58,6 @@ const POINT_TO_POINT_VEHICLE_ADJUSTMENTS = PRICING_CONFIG.pointToPointVehicleAdj
   number
 >;
 const AIRPORT_ESTATE_PREMIUM = PRICING_CONFIG.airportEstatePremiumGbp;
-const AIRPORT_EXECUTIVE_MINIMUM_FARE = PRICING_CONFIG.airportExecutiveMinimumFareGbp;
 const AIRPORT_MINIMUM_FARE = PRICING_CONFIG.airportMinimumFaresGbp;
 const POINT_TO_POINT_BASE = PRICING_CONFIG.pointToPointBaseGbp;
 const POINT_TO_POINT_AREA_RATES = PRICING_CONFIG.pointToPointAreaRatesGbp as Partial<
@@ -211,13 +212,14 @@ function applyAirportVehiclePricing(
   if (vehicleType === "Estate Car (1–4 passengers)") {
     return saloon + options.estatePremiumGbp;
   }
-  const estate = saloon + options.estatePremiumGbp;
   if (vehicleType === "Executive Saloon (1–4 passengers)") {
-    return Math.max(
-      AIRPORT_EXECUTIVE_MINIMUM_FARE,
-      roundToNearestFive(estate * (VEHICLE_MULTIPLIERS[vehicleType] ?? 1.2)),
-    );
+    return calculateUniversalJourneyFareGbp(0, vehicleType, {
+      saloonFareGbp: saloon,
+      executiveMultiplier: options.executiveMultiplier,
+      estatePremiumGbp: options.estatePremiumGbp,
+    }).journeyFareGbp;
   }
+  const estate = saloon + options.estatePremiumGbp;
   if (vehicleType === "Minibus (5–7 passengers)") {
     return roundUniversalMinibusFareGbp(estate * options.minibusMultiplier);
   }
@@ -592,9 +594,8 @@ export function calculatePointToPointQuote(
   const engine = quoteEngineOptions(pricing);
   const roadMiles = universalDrivingMilesFromKm(routeMetrics.distanceKm);
   const universal = calculateUniversalJourneyFareGbp(roadMiles, vehicleType, {
-    executiveMinimumGbp: AIRPORT_EXECUTIVE_MINIMUM_FARE,
     minibusMultiplier: engine.minibusMultiplier,
-    executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
+    executiveMultiplier: engine.executiveMultiplier,
     estatePremiumGbp: engine.estatePremiumGbp,
     saloonMinimumGbp: engine.saloonMinimumGbp,
     saloonFloorMiles: engine.saloonFloorMiles,
@@ -680,9 +681,8 @@ export function calculateQuote(
   const engine = quoteEngineOptions(pricing);
   const roadMiles = universalDrivingMilesFromKm(routeMetrics.distanceKm);
   const universal = calculateUniversalJourneyFareGbp(roadMiles, vehicleType, {
-    executiveMinimumGbp: AIRPORT_EXECUTIVE_MINIMUM_FARE,
     minibusMultiplier: engine.minibusMultiplier,
-    executiveMultiplier: VEHICLE_MULTIPLIERS["Executive Saloon (1–4 passengers)"] ?? 1.2,
+    executiveMultiplier: engine.executiveMultiplier,
     estatePremiumGbp: engine.estatePremiumGbp,
     saloonMinimumGbp: engine.saloonMinimumGbp,
     saloonFloorMiles: engine.saloonFloorMiles,
@@ -698,9 +698,14 @@ export function calculateQuote(
 
   // Direction-aware fixed costs only (DUB/LDY). BFS/BHD address↔airport = £0.
   // No legacy embed/strip — journey fare is pure distance.
-  const outboundFixed = getAirportLegFixedCostGbp(airportCode, fromAirport);
+  const pickupAccessIncluded = isExecutiveVehicle(vehicleType);
+  const outboundFixed = getAirportLegFixedCostGbp(airportCode, fromAirport, {
+    pickupAccessIncluded: pickupAccessIncluded && fromAirport,
+  });
   const returnFixed = returnJourney
-    ? getAirportLegFixedCostGbp(airportCode, !fromAirport)
+    ? getAirportLegFixedCostGbp(airportCode, !fromAirport, {
+        pickupAccessIncluded: pickupAccessIncluded && !fromAirport,
+      })
     : 0;
 
   const premium = applyTripPremium(
@@ -834,10 +839,19 @@ export function calculateAirportToAirportQuote(
     return null;
   }
 
-  const outboundFixed = getAirportToAirportFixedCostGbp(pickupCode, dropoffCode);
-  const returnFixed = returnJourney
-    ? getAirportToAirportFixedCostGbp(dropoffCode, pickupCode)
-    : 0;
+  const a2aFixed = (pickupAirport: string, dropoffAirport: string) => {
+    if (!isExecutiveVehicle(vehicleType)) {
+      return getAirportToAirportFixedCostGbp(pickupAirport, dropoffAirport);
+    }
+    return resolveAirportToAirportFeeLines({
+      pickupAirportCode: pickupAirport,
+      dropoffAirportCode: dropoffAirport,
+    })
+      .filter((line) => line.direction !== "pickup")
+      .reduce((sum, line) => sum + line.appliedAmountGbp, 0);
+  };
+  const outboundFixed = a2aFixed(pickupCode, dropoffCode);
+  const returnFixed = returnJourney ? a2aFixed(dropoffCode, pickupCode) : 0;
   const premium = applyTripPremium(
     underlyingOneWay.amount,
     { ...schedule, returnJourney },

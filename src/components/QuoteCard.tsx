@@ -256,6 +256,7 @@ import {
   type AirportAccessChoice,
   type AirportPickupLegRef,
 } from "../../shared/meet-greet";
+import { isExecutiveVehicle } from "../../shared/executive-vehicle";
 import {
   RETURN_OFFER_CONFIG,
   isReturnOfferAirportJourney,
@@ -2190,6 +2191,7 @@ function QuoteCard({
         outboundChoice: outboundAccessChoice,
         returnChoice: returnAccessChoice,
         fees: publicPricing.meetGreet,
+        meetGreetIncluded: isExecutiveVehicle(quoteVehicle),
       }),
     [
       expressSelection.legs,
@@ -2202,6 +2204,7 @@ function QuoteCard({
       outboundAccessChoice,
       returnAccessChoice,
       publicPricing.meetGreet,
+      quoteVehicle,
     ],
   );
 

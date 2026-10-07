@@ -163,7 +163,7 @@ function booking(vehicle: string, tripDate: string, tripTime: string): PaidBooki
 }
 
 async function main() {
-  assert.equal(availabilityResourceForVehicle(EXECUTIVE), "owner");
+  assert.equal(availabilityResourceForVehicle(EXECUTIVE), "executive");
   assert.equal(availabilityResourceForVehicle(SALOON), "owner");
   assert.equal(availabilityResourceForVehicle(ESTATE), "owner");
   assert.equal(availabilityResourceForVehicle(MINIBUS), "minibus");
@@ -180,7 +180,7 @@ async function main() {
   const saloonJob = job(SALOON, "10:00", "saloon-1");
   const minibusJob = job(MINIBUS, "10:00", "mini-1");
   const untagged = job(undefined, "10:00", "legacy-1");
-  assert.equal(executiveJob.resource, "owner");
+  assert.equal(executiveJob.resource, "executive");
   assert.equal(minibusJob.resource, "minibus");
   assert.equal(untagged.resource, "owner");
 
@@ -210,13 +210,28 @@ async function main() {
   assert.equal(minibusConflict.available, false, "D. 7-Seater must conflict with another 7-Seater");
   assert.equal(
     decision([executiveJob], SALOON, "11:00").available,
+    true,
+    "An Executive booking must not block Saloon",
+  );
+  assert.equal(
+    decision([saloonJob], EXECUTIVE, "11:00").available,
+    true,
+    "A Saloon booking must not block Executive",
+  );
+  assert.equal(
+    decision([executiveJob], EXECUTIVE, "11:00").available,
     false,
-    "Owner Saloon still conflicts with an owner Executive booking",
+    "Executive must conflict with another Executive booking",
+  );
+  assert.equal(
+    decision([untagged], SALOON, "11:00").available,
+    false,
+    "A booking with no vehicle stays on the owner diary",
   );
   assert.equal(
     decision([untagged], EXECUTIVE, "11:00").available,
-    false,
-    "A booking with no vehicle stays on the owner diary",
+    true,
+    "An untagged owner booking must not block Executive",
   );
   assert.equal(
     decision([untagged], MINIBUS, "11:00").available,
@@ -236,8 +251,13 @@ async function main() {
   );
   assert.equal(
     decision(fullDay, EXECUTIVE, "11:00").available,
-    false,
-    "L. The owner diary still blocks another owner vehicle",
+    true,
+    "L. A finished Executive job and the Saloon/Estate diary do not block a later Executive pickup",
+  );
+  assert.equal(
+    decision([job(SALOON, "08:00", "saloon-only"), job(ESTATE, "16:00", "estate-only")], EXECUTIVE, "11:00").available,
+    true,
+    "L. Saloon and Estate do not block Executive",
   );
   assert.equal(
     filterOccupiedJobsForResource([...fullDay, minibusJob], "minibus").length,

@@ -50,7 +50,7 @@ export type SmartOccupiedJob = {
   /** Stored vehicle label. Missing is owner-operated, never guessed as Minibus. */
   vehicle?: string | null;
   /** Set when the job is built. Missing falls back to the vehicle label. */
-  resource?: "owner" | "minibus";
+  resource?: "owner" | "minibus" | "executive";
 };
 
 export type SmartRequestedJourney = {
@@ -853,8 +853,8 @@ export function evaluateSmartAvailability(input: {
   const resource = availabilityResourceForVehicle(input.requested.vehicle);
   const occupiedForResource = filterOccupiedJobsForResource(input.occupied, resource);
   const periodsForResource = filterUnavailablePeriodsForResource(input.legacyPeriods, resource);
-  const rulesForResource = resource === "minibus" ? [] : input.rules;
-  const exceptionsForResource = resource === "minibus" ? [] : input.exceptions;
+  const rulesForResource = resource === "owner" ? input.rules : [];
+  const exceptionsForResource = resource === "owner" ? input.exceptions : [];
   const fromYmd = addDaysYmd(input.requested.tripDate, -1);
   const toYmd = addDaysYmd(input.requested.tripDate, 1);
   const intervals = expandSmartAvailabilityIntervals({

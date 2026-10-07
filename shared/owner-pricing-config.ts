@@ -21,12 +21,14 @@ import {
 } from "./universal-distance-pricing";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "./return-journey-discount";
 import { NIGHT_WEEKEND_SURCHARGE_RATE } from "./night-weekend-surcharge";
+import { DEFAULT_EXECUTIVE_MULTIPLIER } from "./executive-vehicle";
 import { defaultMeetGreetFees, type MeetGreetFeesGbp } from "./meet-greet";
 
 export const OWNER_PRICING_SCHEMA_VERSION = 1 as const;
 
 export const DEFAULT_ESTATE_UPLIFT_GBP = UNIVERSAL_ESTATE_PREMIUM_GBP;
 export const DEFAULT_MINIBUS_MULTIPLIER = 1.55;
+export { DEFAULT_EXECUTIVE_MULTIPLIER };
 export const DEFAULT_RETURN_DISCOUNT_RATE = RETURN_JOURNEY_DISCOUNT_RATE;
 export const DEFAULT_NIGHT_SURCHARGE_RATE = NIGHT_WEEKEND_SURCHARGE_RATE;
 export const DEFAULT_WEEKEND_SURCHARGE_RATE = NIGHT_WEEKEND_SURCHARGE_RATE;
@@ -75,6 +77,10 @@ export type OwnerPricingSettings = {
   };
   minibus: {
     publicEnabled: boolean;
+    multiplier: number;
+  };
+  /** Executive fare = Saloon journey fare × this multiplier. Missing values use 1.50. */
+  executive: {
     multiplier: number;
   };
   returnDiscount: {
@@ -131,6 +137,9 @@ export type PublicOwnerPricingConfig = {
   estate: OwnerPricingSettings["estate"];
   minibus: {
     publicEnabled: boolean;
+    multiplier: number;
+  };
+  executive: {
     multiplier: number;
   };
   returnDiscount: OwnerPricingSettings["returnDiscount"];
@@ -200,6 +209,9 @@ export function defaultOwnerPricingSettings(
       publicEnabled: DEFAULT_PUBLIC_MINIBUS_ENABLED,
       multiplier: DEFAULT_MINIBUS_MULTIPLIER,
     },
+    executive: {
+      multiplier: DEFAULT_EXECUTIVE_MULTIPLIER,
+    },
     returnDiscount: {
       rate: DEFAULT_RETURN_DISCOUNT_RATE,
     },
@@ -260,6 +272,8 @@ export function validateOwnerPricingInput(
   const saloonRaw = (input.saloon ?? {}) as Record<string, unknown>;
   const estateRaw = (input.estate ?? {}) as Record<string, unknown>;
   const minibusRaw = (input.minibus ?? {}) as Record<string, unknown>;
+  const executiveExplicit = input.executive != null && typeof input.executive === "object";
+  const executiveRaw = (executiveExplicit ? input.executive : {}) as Record<string, unknown>;
   const returnRaw = (input.returnDiscount ?? {}) as Record<string, unknown>;
   const nightRaw = (input.night ?? {}) as Record<string, unknown>;
   const weekendRaw = (input.weekend ?? {}) as Record<string, unknown>;
@@ -332,6 +346,22 @@ export function validateOwnerPricingInput(
         "minibus.multiplier",
         "7 Seater multiplier must be between 1.00 and 3.00. Invalid values are rejected, not adjusted.",
       );
+    }
+  }
+
+  let executiveMultiplier = DEFAULT_EXECUTIVE_MULTIPLIER;
+  if (executiveExplicit) {
+    const parsed = readRate(executiveRaw.multiplier, "executive.multiplier", errors);
+    if (parsed != null) {
+      if (parsed < 1 || parsed > 3) {
+        reject(
+          errors,
+          "executive.multiplier",
+          "Executive multiplier must be between 1.00 and 3.00. Invalid values are rejected, not adjusted.",
+        );
+      } else {
+        executiveMultiplier = Math.round(parsed * 100) / 100;
+      }
     }
   }
 
@@ -423,6 +453,9 @@ export function validateOwnerPricingInput(
         publicEnabled: minibusRaw.publicEnabled === true,
         multiplier: minibusMultiplier ?? defaults.minibus.multiplier,
       },
+      executive: {
+        multiplier: executiveMultiplier,
+      },
       returnDiscount: {
         rate: returnRate ?? defaults.returnDiscount.rate,
       },
@@ -491,6 +524,9 @@ export function toPublicOwnerPricingConfig(
       publicEnabled: settings.minibus.publicEnabled === true,
       multiplier: settings.minibus.multiplier,
     },
+    executive: {
+      multiplier: settings.executive.multiplier,
+    },
     returnDiscount: settings.returnDiscount,
     night: settings.night,
     weekend: settings.weekend,
@@ -504,6 +540,7 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
   return {
     estatePremiumGbp: resolved.estate.upliftGbp,
     minibusMultiplier: resolved.minibus.multiplier,
+    executiveMultiplier: resolved.executive.multiplier,
     saloonMinimumGbp: resolved.saloon.minimumFareGbp,
     saloonFloorMiles: resolved.saloon.floorMiles,
     saloonKnots: resolved.saloon.knots.map((knot) => [knot.miles, knot.fareGbp] as const),
@@ -539,6 +576,8 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return settings.minibus.publicEnabled ? "ON" : "OFF";
     case "minibus.multiplier":
       return String(settings.minibus.multiplier);
+    case "executive.multiplier":
+      return String(settings.executive.multiplier);
     case "returnDiscount.rate":
       return formatPercentFromRate(settings.returnDiscount.rate);
     case "night.enabled":
@@ -575,6 +614,7 @@ const DIFF_PATHS = [
   "estate.upliftGbp",
   "minibus.publicEnabled",
   "minibus.multiplier",
+  "executive.multiplier",
   "returnDiscount.rate",
   "night.enabled",
   "night.surchargeRate",
@@ -595,6 +635,7 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "estate.upliftGbp": "Estate uplift",
   "minibus.publicEnabled": "7 Seater Minibus offer online",
   "minibus.multiplier": "7 Seater Minibus multiplier",
+  "executive.multiplier": "Executive multiplier",
   "returnDiscount.rate": "Return Booking Discount",
   "night.enabled": "Night pricing",
   "night.surchargeRate": "Night surcharge",
@@ -653,6 +694,12 @@ export function previewVehicleFaresFromSaloon(
     minibusQuotedGbp: minibus.minibusQuotedGbp,
     estateUpliftGbp: options.estatePremiumGbp,
     minibusMultiplier: options.minibusMultiplier,
+    executiveMultiplier: options.executiveMultiplier,
+    executiveGbp: calculateUniversalJourneyFareGbp(0, "Executive Saloon (1–4 passengers)", {
+      saloonFareGbp: saloonGbp,
+      executiveMultiplier: options.executiveMultiplier,
+      estatePremiumGbp: options.estatePremiumGbp,
+    }).journeyFareGbp,
   };
 }
 

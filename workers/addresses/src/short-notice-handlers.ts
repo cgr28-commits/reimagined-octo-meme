@@ -2231,7 +2231,8 @@ export async function handleOwnerSaveBookingSettings(
           : "";
     const note = typeof body.note === "string" ? body.note : "";
     const mode = normalizeUnavailablePeriodMode(body.mode);
-    const resource = body.resource === "minibus" ? "minibus" : undefined;
+    const resource =
+      body.resource === "minibus" ? "minibus" : body.resource === "executive" ? "executive" : undefined;
 
     if (action === "update") {
       const id = String(body.id ?? "").trim();

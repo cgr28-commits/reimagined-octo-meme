@@ -421,6 +421,7 @@ import {
   resolveExpressDropOff,
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
+import { isExecutiveVehicle } from "../shared/executive-vehicle";
 import {
   parseAirportAccessChoice,
   quoteAirportAccessCharges,
@@ -2764,6 +2765,7 @@ async function handlePaymentRequest(
         returnExpressSelected,
       ),
       fees: pricing.meetGreet,
+      meetGreetIncluded: isExecutiveVehicle(booking.vehicle),
     });
     const persisted = {
       ...expressPersisted,

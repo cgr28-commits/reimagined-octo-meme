@@ -93,8 +93,8 @@ export type UnavailablePeriodSummary = {
   endLocal: string;
   note?: string;
   mode?: "request_only" | "no_availability";
-  /** Only "minibus" is the subcontract resource. Missing stays on the owner diary. */
-  resource?: "minibus";
+  /** Missing stays on the owner diary. "minibus" and "executive" are separate diaries. */
+  resource?: "minibus" | "executive";
   createdAt: string;
   updatedAt: string;
 };
@@ -709,7 +709,7 @@ export type UnavailablePeriodWriteInput = {
   endTime: string;
   note?: string;
   mode?: "request_only" | "no_availability";
-  resource?: "minibus";
+  resource?: "minibus" | "executive";
 };
 
 export async function addUnavailablePeriod(
@@ -731,7 +731,9 @@ export async function addUnavailablePeriod(
       endTime: input.endTime,
       note: input.note ?? "",
       mode: input.mode ?? "request_only",
-      ...(input.resource === "minibus" ? { resource: "minibus" } : {}),
+      ...(input.resource === "minibus" || input.resource === "executive"
+        ? { resource: input.resource }
+        : {}),
     }),
   });
   const payload = await parseJson(response);
@@ -761,7 +763,9 @@ export async function updateUnavailablePeriod(
       endTime: input.endTime,
       note: input.note ?? "",
       mode: input.mode ?? "request_only",
-      ...(input.resource === "minibus" ? { resource: "minibus" } : {}),
+      ...(input.resource === "minibus" || input.resource === "executive"
+        ? { resource: input.resource }
+        : {}),
     }),
   });
   const payload = await parseJson(response);

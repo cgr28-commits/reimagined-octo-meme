@@ -1,13 +1,14 @@
 /**
  * Two booking resources share the Smart Availability engine.
- * Owner-operated vehicles (Saloon, Estate, Executive, and any unrecognised type)
- * stay on the existing diary. The 7-Seater is a separate subcontract resource.
+ * Saloon and Estate stay on the owner diary. Executive and the 7-Seater
+ * each have their own diary. An unrecognised vehicle stays on the owner diary.
  * A booking is Minibus only when its vehicle string is a recognised Minibus type.
  */
 
+import { isExecutiveVehicle } from "./executive-vehicle";
 import { isPublicMinibusVehicle } from "./owner-pricing-config";
 
-export type AvailabilityResource = "owner" | "minibus";
+export type AvailabilityResource = "owner" | "minibus" | "executive";
 
 export const MINIBUS_NOTICE_HEADING = "7-Seater availability confirmation required";
 
@@ -22,16 +23,18 @@ export const MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE =
 export function availabilityResourceForVehicle(
   vehicle: string | null | undefined,
 ): AvailabilityResource {
-  return isPublicMinibusVehicle(vehicle) ? "minibus" : "owner";
+  if (isPublicMinibusVehicle(vehicle)) return "minibus";
+  if (isExecutiveVehicle(vehicle)) return "executive";
+  return "owner";
 }
 
 export function occupiedJobResource(job: {
   resource?: string | null;
   vehicle?: string | null;
 }): AvailabilityResource {
-  if (job.resource === "minibus") return "minibus";
-  if (job.resource === "owner") return "owner";
-  return availabilityResourceForVehicle(job.vehicle);
+  if (isExecutiveVehicle(job.vehicle) || job.resource === "executive") return "executive";
+  if (isPublicMinibusVehicle(job.vehicle) || job.resource === "minibus") return "minibus";
+  return "owner";
 }
 
 export function filterOccupiedJobsForResource<
@@ -43,7 +46,9 @@ export function filterOccupiedJobsForResource<
 export function unavailablePeriodResource(period: {
   resource?: string | null;
 }): AvailabilityResource {
-  return period.resource === "minibus" ? "minibus" : "owner";
+  if (period.resource === "minibus") return "minibus";
+  if (period.resource === "executive") return "executive";
+  return "owner";
 }
 
 export function filterUnavailablePeriodsForResource<

@@ -441,10 +441,11 @@ export type UnavailablePeriodInput = {
   /** Missing mode = request_only. */
   mode?: UnavailablePeriodMode | string | null;
   /**
-   * Missing or anything other than "minibus" stays on the owner-operated diary.
-   * Existing periods have no field and must not start blocking the 7-Seater.
+   * Missing, or anything other than "minibus" or "executive", stays on the
+   * owner-operated diary. Existing periods have no field and must not start
+   * blocking the 7-Seater or Executive.
    */
-  resource?: "owner" | "minibus" | string | null;
+  resource?: "owner" | "minibus" | "executive" | string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -455,8 +456,8 @@ export type UnavailablePeriod = {
   endLocal: LondonLocalDateTime;
   note?: string;
   mode: UnavailablePeriodMode;
-  /** Omitted for owner-operated blocks. "minibus" applies only to the 7-Seater. */
-  resource?: "minibus";
+  /** Omitted for owner-operated blocks. "minibus" and "executive" are separate diaries. */
+  resource?: "minibus" | "executive";
   createdAt: string;
   updatedAt: string;
 };
@@ -522,7 +523,8 @@ export function normalizeUnavailablePeriod(
   const note = String(raw.note ?? "").trim().slice(0, 280);
   const createdAt = raw.createdAt?.trim() || now.toISOString();
   const mode = normalizeUnavailablePeriodMode(raw.mode);
-  const resource = raw.resource === "minibus" ? "minibus" : undefined;
+  const resource =
+    raw.resource === "minibus" ? "minibus" : raw.resource === "executive" ? "executive" : undefined;
   return {
     id: String(raw.id ?? "").trim() || generateUnavailablePeriodId(now),
     startLocal,
