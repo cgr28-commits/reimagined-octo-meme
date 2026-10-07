@@ -134,17 +134,32 @@ jobs:
           ADDRESSES_API_URL="${BOOKINGS_API_URL%/bookings}/addresses"
           echo "Preview build → Worker API $BOOKINGS_API_URL"
           echo "Dispatch note: ${{ inputs.note }}"
-          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
-          NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
-          NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL" \
-          NEXT_PUBLIC_ADDRESSES_API_URL="$ADDRESSES_API_URL" \
-          NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="$WEB3FORMS_ACCESS_KEY" \
-          NEXT_PUBLIC_GOOGLE_ADS_ID="$GOOGLE_ADS_ID" \
-          NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL="$GOOGLE_ADS_QUOTE_CONVERSION_LABEL" \
-          NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL" \
-          NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL="$GOOGLE_ADS_PURCHASE_CONVERSION_LABEL" \
-          NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_CONVERSION_LABEL" \
-          GITHUB_PAGES=true npm run build
+          # Google Fonts sometimes returns an extensionless /l/font URL.
+          # next/font then throws "Cannot read properties of null (reading '1')".
+          # A clean rebuild usually gets the normal .woff2 CSS.
+          attempt=1
+          until \
+            NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
+            NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
+            NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL" \
+            NEXT_PUBLIC_ADDRESSES_API_URL="$ADDRESSES_API_URL" \
+            NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="$WEB3FORMS_ACCESS_KEY" \
+            NEXT_PUBLIC_GOOGLE_ADS_ID="$GOOGLE_ADS_ID" \
+            NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL="$GOOGLE_ADS_QUOTE_CONVERSION_LABEL" \
+            NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL" \
+            NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL="$GOOGLE_ADS_PURCHASE_CONVERSION_LABEL" \
+            NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_CONVERSION_LABEL" \
+            GITHUB_PAGES=true npm run build
+          do
+            if [ "$attempt" -ge 3 ]; then
+              echo "::error::Preview build failed after ${attempt} attempts."
+              exit 1
+            fi
+            echo "::warning::Preview build failed (attempt ${attempt}). Retrying after a clean .next directory."
+            attempt=$((attempt + 1))
+            rm -rf .next
+            sleep 8
+          done
           node scripts/fix-github-pages-paths.mjs
 
       - name: Deploy to Cloudflare Pages preview project
