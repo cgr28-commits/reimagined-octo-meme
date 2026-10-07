@@ -4,12 +4,18 @@ import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import {
   ESTATE_VEHICLE,
+  EXECUTIVE_VEHICLE,
   MINIBUS_VEHICLE,
   SALOON_VEHICLE,
   requiresMinibus,
   selectVehicleForParty,
 } from "@/lib/vehicle-selection";
-import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
+import {
+  EXECUTIVE_CUSTOMER_DESCRIPTION,
+  EXECUTIVE_CUSTOMER_NAME,
+  MINIBUS_CUSTOMER_DESCRIPTION,
+  MINIBUS_CUSTOMER_NAME,
+} from "../../shared/vehicle-display";
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
@@ -31,6 +37,14 @@ const CATEGORIES = [
     image: ESTATE_IMAGE,
   },
   {
+    id: "executive",
+    vehicle: EXECUTIVE_VEHICLE,
+    title: EXECUTIVE_CUSTOMER_NAME,
+    detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
+    // No dedicated licensed Executive photo is in the repo. Keep the Saloon image for now.
+    image: SALOON_IMAGE,
+  },
+  {
     id: "minibus",
     vehicle: MINIBUS_VEHICLE,
     title: MINIBUS_CUSTOMER_NAME,
@@ -44,12 +58,16 @@ export default function QuoteVehicleCategories({
   suitcases,
   selectedVehicle = null,
   onSelectVehicle,
+  publicMinibusEnabled = true,
+  publicExecutiveEnabled = true,
 }: {
   passengers: number | null;
   suitcases: number | null;
-  /** Booked vehicle, including an optional 7-seater the customer has chosen. */
+  /** Booked vehicle, including an optional 7-seater or Executive the customer has chosen. */
   selectedVehicle?: string | null;
   onSelectVehicle?: (vehicle: (typeof CATEGORIES)[number]["vehicle"]) => void;
+  publicMinibusEnabled?: boolean;
+  publicExecutiveEnabled?: boolean;
 }) {
   const automatic =
     passengers != null && suitcases != null
@@ -58,23 +76,30 @@ export default function QuoteVehicleCategories({
   const selected = selectedVehicle ?? automatic;
   const lockedToMinibus =
     passengers != null && suitcases != null && requiresMinibus(passengers, suitcases);
+  const options = CATEGORIES.filter((option) => {
+    if (option.id === "minibus" && !publicMinibusEnabled) return false;
+    if (option.id === "executive" && !publicExecutiveEnabled) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-2" data-quote-vehicle-categories>
       <p className="form-label mb-0">Vehicle</p>
       <div
-        className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+        className="grid grid-cols-1 gap-2 sm:grid-cols-2"
         role="list"
         aria-label="Vehicle for this journey"
       >
-        {CATEGORIES.map((option) => {
+        {options.map((option) => {
           const isSelected = selected === option.vehicle;
           const selectable =
             Boolean(onSelectVehicle) &&
             automatic != null &&
             (lockedToMinibus
               ? option.vehicle === MINIBUS_VEHICLE
-              : option.vehicle === MINIBUS_VEHICLE || option.vehicle === automatic);
+              : option.vehicle === MINIBUS_VEHICLE ||
+                option.vehicle === EXECUTIVE_VEHICLE ||
+                option.vehicle === automatic);
           const className = `flex min-h-16 w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left sm:flex-col sm:items-center sm:text-center ${
             isSelected
               ? "border-emerald bg-emerald/10 text-white"

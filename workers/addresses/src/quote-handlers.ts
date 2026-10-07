@@ -16,7 +16,9 @@ import {
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import type { QuoteServiceAirportCode } from "../../../src/lib/quote-service";
 import {
+  EXECUTIVE_VEHICLE,
   MINIBUS_VEHICLE,
+  requiresMinibus,
   selectVehicleForParty,
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
@@ -52,6 +54,7 @@ import {
 } from "../shared/booking-notice";
 import {
   availabilityResourceForVehicle,
+  EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE,
   filterUnavailablePeriodsForResource,
   MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE,
 } from "../shared/availability-resource";
@@ -165,6 +168,15 @@ function resolveVehicleType(
       vehicleType: selected,
       vehicleChoice: "Minibus",
       maxPassengers: publicMaxPassengers(false),
+    };
+  }
+  if (/executive/i.test(requested) && !requiresMinibus(passengers, Math.max(0, suitcases))) {
+    return {
+      vehicleType: EXECUTIVE_VEHICLE,
+      vehicleChoice: "Saloon",
+      maxPassengers: ownerMode
+        ? quickQuoteMaxPassengersForVehicle("Saloon")
+        : publicMaxPassengers(publicMinibusEnabled),
     };
   }
   return {
@@ -694,7 +706,9 @@ export async function handleQuoteCalculateRequest(
       quoteBody.ownerAvailability =
         quoteAvailability.blocked && quoteResource === "minibus"
           ? { ...quoteAvailability, customerMessage: MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE }
-          : quoteAvailability;
+          : quoteAvailability.blocked && quoteResource === "executive"
+            ? { ...quoteAvailability, customerMessage: EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE }
+            : quoteAvailability;
     }
   }
 
@@ -814,7 +828,9 @@ export async function handleQuoteAvailabilityRequest(
   const publicOwnerAvailability =
     ownerAvailability.blocked && quoteResource === "minibus"
       ? { ...ownerAvailability, customerMessage: MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE }
-      : ownerAvailability;
+      : ownerAvailability.blocked && quoteResource === "executive"
+        ? { ...ownerAvailability, customerMessage: EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE }
+        : ownerAvailability;
 
   return json(
     {

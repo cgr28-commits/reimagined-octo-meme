@@ -454,7 +454,12 @@ export default function OwnerShortNoticePanel({
   const sortedPeriods = useMemo(
     () =>
       [...periods]
-        .filter((period) => period.resource !== "minibus" && !isUnavailablePeriodExpired(period))
+        .filter(
+          (period) =>
+            period.resource !== "minibus" &&
+            period.resource !== "executive" &&
+            !isUnavailablePeriodExpired(period),
+        )
         .sort((a, b) => a.startLocal.localeCompare(b.startLocal)),
     [periods],
   );
@@ -773,7 +778,7 @@ export default function OwnerShortNoticePanel({
             <h2 className="mt-1 text-lg font-bold text-white">Short-notice period</h2>
             <p className="mt-1 break-words text-sm text-white/65">
               Bookings inside this period require owner approval before payment. This applies to
-              Saloon, Estate and Executive. The 7-Seater has its own notice setting.
+              Saloon and Estate. Executive and the 7-Seater each have their own availability.
             </p>
           </div>
         </div>

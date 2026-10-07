@@ -11,6 +11,7 @@ import {
 } from "./business-email";
 import { contactVCardPublicUrl, resolveGoogleReviewUrl } from "./business-links";
 import { vehicleServiceLabel } from "./booking-notice";
+import { customerFacingVehicleName, EXECUTIVE_CUSTOMER_DESCRIPTION } from "./vehicle-display";
 import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL, UK_TIME_ZONE } from "./uk-time";
 import {
   formatEmailFareIncludesBlock,
@@ -233,6 +234,13 @@ function formatDisplayTime(time: string): string {
   return formatUkTime(time);
 }
 
+function customerServiceLabel(vehicle?: string | null): string {
+  if (String(vehicle ?? "").toLowerCase().includes("executive")) {
+    return customerFacingVehicleName(vehicle);
+  }
+  return vehicleServiceLabel(vehicle);
+}
+
 function formatChildSeatsLine(details: Pick<PaidBookingDetails, "childSeats" | "childSeatNotes">): string {
   const seats = Number(details.childSeats);
   if (!Number.isFinite(seats) || seats <= 0) return "";
@@ -319,8 +327,12 @@ function formatCustomerTripScheduleLines(details: PaidBookingDetails): string[] 
   const childSeatsLine = formatChildSeatsLine(details);
   if (childSeatsLine) lines.push(childSeatsLine);
   lines.push(
-    `Service: ${vehicleServiceLabel(details.vehicle)}`,
-    `Vehicle: ${details.vehicle}`,
+    `Service: ${customerServiceLabel(details.vehicle)}`,
+    `Vehicle: ${
+      String(details.vehicle ?? "").toLowerCase().includes("executive")
+        ? EXECUTIVE_CUSTOMER_DESCRIPTION
+        : details.vehicle
+    }`,
   );
 
   if (details.journeyDuration) {
@@ -423,8 +435,13 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     });
   }
   rows.push(
-    { label: "Service", value: vehicleServiceLabel(details.vehicle) },
-    { label: "Vehicle", value: details.vehicle },
+    { label: "Service", value: customerServiceLabel(details.vehicle) },
+    {
+      label: "Vehicle",
+      value: String(details.vehicle ?? "").toLowerCase().includes("executive")
+        ? EXECUTIVE_CUSTOMER_DESCRIPTION
+        : details.vehicle,
+    },
   );
 
   // Customer invoice: show estimated time only — distance stays internal/ops.

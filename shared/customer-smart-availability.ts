@@ -21,6 +21,7 @@ import {
 } from "./booking-notice";
 import {
   availabilityResourceForVehicle,
+  EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE,
   MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE,
 } from "./availability-resource";
 
@@ -470,6 +471,7 @@ export function decideCustomerSmartAvailabilityGate(input: {
   const resource = availabilityResourceForVehicle(input.booking.vehicle);
   if (
     resource !== "minibus" &&
+    resource !== "executive" &&
     shouldBypassSmartAvailabilityHardBlockForShortNotice(
       input.booking,
       input.now,
@@ -536,12 +538,15 @@ export function decideCustomerSmartAvailabilityGate(input: {
       }
       const searchedAlternatives = input.offerAlternatives === true;
       const minibusBlocked = resource === "minibus";
+      const executiveBlocked = resource === "executive";
       return {
         enforce: true,
         available: false,
         blocked: true,
         customerMessage: minibusBlocked
           ? MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE
+          : executiveBlocked
+            ? EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE
           : alternativeTimes.length
             ? customerUnavailableAtTimeMessage(requested.tripTime)
             : searchedAlternatives

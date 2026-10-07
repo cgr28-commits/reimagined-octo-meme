@@ -54,7 +54,7 @@ export const TERMS_SECTIONS = [
       "Pickups from elsewhere in Northern Ireland to a Greater Belfast destination receive a live online quote where route pricing is available. Other out-of-area pickups (for example outside Northern Ireland, or NI pickups to destinations outside Greater Belfast) require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
     ],
     footer:
-      "All journeys are subject to vehicle availability. My Airport Taxi NI provides private airport transfers for up to 4 passengers in Saloon or Estate cars (executive on enquiry). We do not offer online bookings for more than 4 passengers.",
+      "All journeys are subject to vehicle availability. My Airport Taxi NI provides private airport transfers for up to 4 passengers in Saloon, Estate or Executive cars. Executive is a premium executive vehicle, Mercedes-Benz C-Class or similar, and can be booked and paid online when Executive availability permits. We do not offer online bookings for more than 4 passengers.",
   },
   {
     title: "Cross-border & Republic of Ireland journeys",
@@ -70,7 +70,7 @@ export const TERMS_SECTIONS = [
     title: "Vehicles & capacity",
     content: [
       "Saloon and estate car transfers for up to 4 passengers are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
-      "Online quotes and bookings are limited to 1–4 passengers. Executive saloon transfers are available on enquiry.",
+      "Online quotes and bookings are limited to 1–4 passengers. Executive is a premium executive vehicle, Mercedes-Benz C-Class or similar, and can be booked and paid online when Executive availability permits.",
       "We remain your point of contact for booking, payment (where applicable), and customer service.",
     ],
   },
@@ -110,13 +110,13 @@ export const TERMS_SECTIONS = [
   {
     title: "Booking & Payment",
     content: [
-      "For standard saloon and estate car transfers where an instant fare is shown, you may pay online by card via SumUp at the end of the website quote. Your booking is confirmed once payment is completed.",
+      "For Saloon, Estate and Executive transfers where an instant fare is shown, you may pay online by card via SumUp at the end of the website quote. Your booking is confirmed once payment is completed.",
       "If you select Deposit + Cash, the amount charged online is a deposit towards the total fare. Your booking is confirmed once the deposit has been successfully paid. The remaining balance shown at checkout must be paid in cash to your driver on the day of travel. Card payment is not available for the remaining balance, so you must ensure that you have sufficient cash available at the time of pickup. Deposit + Cash is not available on Personal Quotes, Quick Quotes, saved quote links, short-notice payment links, Request Only payment links, or airport-to-airport specialist payment links.",
-      "For executive bookings, out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
+      "For out-of-area pickup requests, and Republic of Ireland city destinations that require a fixed quote, the process is: request a quote or booking, wait for us to confirm the fare and job, then pay via the SumUp payment link we email. Your booking is confirmed after payment is received.",
       "Payment may be made:",
     ],
     list: [
-      "By card via SumUp on the website (standard/estate cars with an instant fare), either the full fare or a deposit where Deposit + Cash is offered and selected",
+      "By card via SumUp on the website (Saloon, Estate or Executive with an instant fare), either the full fare or a deposit where Deposit + Cash is offered and selected",
       "By cash to the driver for the remaining balance on a Deposit + Cash booking",
       "By card via the SumUp payment link we email after confirming your booking",
       "By cash to the driver (where otherwise agreed)",

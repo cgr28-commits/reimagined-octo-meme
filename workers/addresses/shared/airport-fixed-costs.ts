@@ -287,8 +287,14 @@ export function getAirportLegFixedCosts(
 export function getAirportLegFixedCostGbp(
   airportCode: string | null | undefined,
   fromAirport: boolean,
+  options?: { pickupAccessIncluded?: boolean },
 ): number {
-  return getAirportLegFixedCosts(airportCode, fromAirport)?.totalGbp ?? 0;
+  const costs = getAirportLegFixedCosts(airportCode, fromAirport);
+  if (!costs) return 0;
+  if (options?.pickupAccessIncluded && fromAirport) {
+    return costs.tollAllowanceGbp;
+  }
+  return costs.totalGbp;
 }
 
 export type RequiredAirportAccessNotice = {

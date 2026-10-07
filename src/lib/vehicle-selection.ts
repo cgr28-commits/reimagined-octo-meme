@@ -23,12 +23,22 @@ import {
   MAX_PASSENGERS,
   OWNER_QUICK_QUOTE_MAX_PASSENGERS,
 } from "../../shared/passenger-limits";
-import { vehicleCustomerLabel } from "../../shared/vehicle-display";
+import { EXECUTIVE_CUSTOMER_NAME, vehicleCustomerLabel } from "../../shared/vehicle-display";
 import { formatPublicSuitcaseChoice } from "../../shared/vehicle-capacity";
 
 export const SALOON_VEHICLE: VehicleType = "Standard Saloon (1–4 passengers)";
 export const ESTATE_VEHICLE: VehicleType = "Estate Car (1–4 passengers)";
+export const EXECUTIVE_VEHICLE: VehicleType = "Executive Saloon (1–4 passengers)";
 export const MINIBUS_VEHICLE: VehicleType = MINIBUS_VEHICLE_TYPE;
+
+/** Map a customer or stored vehicle string onto the canonical bookable type. */
+export function canonicalVehicleType(raw: string | null | undefined): VehicleType {
+  const value = String(raw ?? "");
+  if (/executive/i.test(value)) return EXECUTIVE_VEHICLE;
+  if (/minibus/i.test(value)) return MINIBUS_VEHICLE;
+  if (/estate/i.test(value)) return ESTATE_VEHICLE;
+  return SALOON_VEHICLE;
+}
 
 /** First passenger count that requires Minibus. */
 export const FIVE_PLUS_PASSENGERS = GROUP_PASSENGER_MIN;
@@ -75,8 +85,8 @@ export function vehicleShortLabel(vehicleType: VehicleType | string): string {
   if (vehicleType === MINIBUS_VEHICLE || vehicleType === MINIBUS_VEHICLE_TYPE) {
     return vehicleCustomerLabel(MINIBUS_VEHICLE_TYPE);
   }
-  if (String(vehicleType).includes("Executive")) {
-    return "Executive";
+  if (String(vehicleType).toLowerCase().includes("executive")) {
+    return EXECUTIVE_CUSTOMER_NAME;
   }
   return String(vehicleType);
 }

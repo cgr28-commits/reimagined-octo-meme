@@ -202,6 +202,7 @@ function vehicleFareFromProtectedSaloon(
     saloonFareGbp: protectedSaloonGbp,
     estatePremiumGbp: options.estatePremiumGbp,
     minibusMultiplier: options.minibusMultiplier,
+    executiveMultiplier: options.executiveMultiplier,
   }).journeyFareGbp;
 }
 
@@ -384,6 +385,7 @@ export async function buildOwnerProfitabilityReport(input: {
   const existingVehicle = calculateUniversalJourneyFareGbp(roadMiles, input.vehicleType, {
     estatePremiumGbp: ownerPricingEngineOptions(input.pricing).estatePremiumGbp,
     minibusMultiplier: ownerPricingEngineOptions(input.pricing).minibusMultiplier,
+    executiveMultiplier: ownerPricingEngineOptions(input.pricing).executiveMultiplier,
     saloonMinimumGbp: input.pricing.saloon.minimumFareGbp,
     saloonFloorMiles: input.pricing.saloon.floorMiles,
     saloonKnots: input.pricing.saloon.knots.map((knot) => [knot.miles, knot.fareGbp] as const),

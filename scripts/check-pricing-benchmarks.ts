@@ -60,7 +60,7 @@ const ROUTES = [
     oldS: 55,
     oldE: 65,
     targetS: 44,
-    targetE: 54,
+    targetE: 50,
   },
   {
     name: "City Hall → Dublin Airport",
@@ -71,9 +71,9 @@ const ROUTES = [
     metrics: metricsForMiles(98, 115),
     oldS: 230,
     oldE: 240,
-    // Journey £204 + DUB drop £4; estate journey £214 + £4
+    // Journey £204 + DUB drop £4; estate journey £210 + £4
     targetS: 208,
-    targetE: 218,
+    targetE: 214,
   },
   {
     name: "City Hall → Newry",
@@ -185,11 +185,11 @@ function exact(actual: number, target: number, label: string) {
 }
 
 exact(rows[0].newS, 30, "City Hall → BHD S");
-exact(rows[0].newE, 40, "City Hall → BHD E");
+exact(rows[0].newE, 36, "City Hall → BHD E");
 exact(rows[1].newS, 44, "City Hall → BFS S");
-exact(rows[1].newE, 54, "City Hall → BFS E");
+exact(rows[1].newE, 50, "City Hall → BFS E");
 exact(rows[2].newS, 208, "City Hall → DUB S");
-exact(rows[2].newE, 218, "City Hall → DUB E");
+exact(rows[2].newE, 214, "City Hall → DUB E");
 exact(rows[3].newS, rows[3].targetS, "Newry S");
 exact(rows[3].newE, rows[3].targetE, "Newry E");
 exact(rows[4].newS, rows[4].targetS, "Derry S");

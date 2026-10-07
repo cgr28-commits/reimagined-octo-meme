@@ -10,15 +10,16 @@
  *   20 → £53, 25 → £60, 30 → £67, 35 → £74, 40 → £81
  *   50 → £96, 60 → £115, 70 → £135, 80 → £157, 90 → £181, 100 → £210
  *
- * Estate = final rounded Saloon + £10 (never rounded separately).
+ * Estate = final rounded Saloon + £6 (never rounded separately).
  * Minibus = Estate × multiplier, rounded to the nearest penny only
  * (no nearest-£5 rounding).
  * Airport Express / access charges are NOT included here — add after.
  */
 
+import { DEFAULT_EXECUTIVE_MULTIPLIER } from "./executive-vehicle";
 import { roundGbp } from "./gbp";
 
-export const UNIVERSAL_ESTATE_PREMIUM_GBP = 10;
+export const UNIVERSAL_ESTATE_PREMIUM_GBP = 6;
 export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
 export const UNIVERSAL_SALOON_FLOOR_MILES = 4;
 
@@ -104,6 +105,11 @@ export function roundUniversalMinibusFareGbp(rawFareGbp: number): number {
   return roundGbp(rawFareGbp);
 }
 
+/** Executive journey rounding: nearest penny only. Never nearest £5. */
+export function roundUniversalExecutiveFareGbp(rawFareGbp: number): number {
+  return roundGbp(rawFareGbp);
+}
+
 export function calculateUniversalSaloonJourneyFareGbp(
   roadMiles: number,
   curve?: UniversalSaloonCurveOptions,
@@ -113,7 +119,7 @@ export function calculateUniversalSaloonJourneyFareGbp(
 
 /**
  * Estate journey fare from an already-rounded Saloon fare.
- * Always exactly + uplift (default £10) — do not re-round.
+ * Always exactly + uplift (default £6) — do not re-round.
  */
 export function calculateUniversalEstateJourneyFareGbp(
   roundedSaloonFareGbp: number,
@@ -136,13 +142,15 @@ export function classifyUniversalVehicle(
 
 /**
  * Journey fare (taxi only) from road miles + vehicle.
- * Minibus / Executive build from Estate (= Saloon + £10).
- * Minibus uses Estate × multiplier with penny rounding only.
+ * Estate is the rounded Saloon fare plus its uplift.
+ * Minibus is Estate × multiplier, nearest penny.
+ * Executive is the Saloon journey fare × multiplier, nearest penny.
  */
 export function calculateUniversalJourneyFareGbp(
   roadMiles: number,
   vehicleType: string,
   options?: {
+    /** Retired. The Executive fare no longer uses a fixed minimum. */
     executiveMinimumGbp?: number;
     minibusMultiplier?: number;
     executiveMultiplier?: number;
@@ -165,8 +173,8 @@ export function calculateUniversalJourneyFareGbp(
   const kind = classifyUniversalVehicle(vehicleType);
   const estateGbp = calculateUniversalEstateJourneyFareGbp(saloonGbp, estatePremiumGbp);
   const minibusMult = options?.minibusMultiplier ?? 1.55;
-  const execMult = options?.executiveMultiplier ?? 1.2;
-  const execMin = options?.executiveMinimumGbp ?? 105;
+  const execMult = options?.executiveMultiplier ?? DEFAULT_EXECUTIVE_MULTIPLIER;
+  void options?.executiveMinimumGbp;
 
   switch (kind) {
     case "saloon":
@@ -178,7 +186,7 @@ export function calculateUniversalJourneyFareGbp(
         vehicleAdjustmentGbp: estatePremiumGbp,
       };
     case "executive": {
-      const raw = Math.max(execMin, Math.round((estateGbp * execMult) / 5) * 5);
+      const raw = roundUniversalExecutiveFareGbp(saloonGbp * execMult);
       return {
         saloonGbp,
         journeyFareGbp: raw,

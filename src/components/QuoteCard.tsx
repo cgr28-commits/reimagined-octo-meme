@@ -69,6 +69,7 @@ import {
   VEHICLE_TYPES,
 } from "@/lib/data";
 import {
+  EXECUTIVE_VEHICLE,
   formatPassengerChoice,
   formatSuitcaseChoice,
   MAX_PUBLIC_SUITCASES,
@@ -256,6 +257,10 @@ import {
   type AirportAccessChoice,
   type AirportPickupLegRef,
 } from "../../shared/meet-greet";
+import {
+  EXECUTIVE_AIRPORT_PICKUP_INCLUDED,
+  isExecutiveVehicle,
+} from "../../shared/executive-vehicle";
 import {
   RETURN_OFFER_CONFIG,
   isReturnOfferAirportJourney,
@@ -721,6 +726,7 @@ function QuoteCard({
   );
   const [publicPricingLoaded, setPublicPricingLoaded] = useState(false);
   const publicMinibusEnabled = publicPricing.minibus.publicEnabled === true;
+  const publicExecutiveEnabled = publicPricing.executive?.publicEnabled !== false;
   const passengerLimit = publicMinibusEnabled
     ? publicMaxPassengers(true)
     : Math.min(Math.max(1, maxPassengers), publicMaxPassengers(false));
@@ -853,6 +859,7 @@ function QuoteCard({
         : undefined;
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [chooseMinibus, setChooseMinibus] = useState(false);
+  const [chooseExecutive, setChooseExecutive] = useState(false);
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
@@ -942,8 +949,20 @@ function QuoteCard({
     if (publicMinibusEnabled && (chooseMinibus || pax >= 5 || suitcases >= 5)) {
       return MINIBUS_VEHICLE_TYPE;
     }
+    if (publicExecutiveEnabled && chooseExecutive && pax <= 4 && suitcases <= 4) {
+      return EXECUTIVE_VEHICLE;
+    }
     return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
-  }, [chooseMinibus, passengerLimit, passengers, publicMinibusEnabled, suitcases, vehicle]);
+  }, [
+    chooseExecutive,
+    chooseMinibus,
+    passengerLimit,
+    passengers,
+    publicExecutiveEnabled,
+    publicMinibusEnabled,
+    suitcases,
+    vehicle,
+  ]);
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
@@ -967,6 +986,7 @@ function QuoteCard({
     const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
     setVehicle((current) => (current === next ? current : next));
     setChooseMinibus(false);
+    if (requiresMinibus(pax, suitcases)) setChooseExecutive(false);
   }, [passengers, suitcases]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
@@ -2190,6 +2210,7 @@ function QuoteCard({
         outboundChoice: outboundAccessChoice,
         returnChoice: returnAccessChoice,
         fees: publicPricing.meetGreet,
+        meetGreetIncluded: isExecutiveVehicle(quoteVehicle),
       }),
     [
       expressSelection.legs,
@@ -2202,6 +2223,7 @@ function QuoteCard({
       outboundAccessChoice,
       returnAccessChoice,
       publicPricing.meetGreet,
+      quoteVehicle,
     ],
   );
 
@@ -2479,6 +2501,7 @@ function QuoteCard({
     setSuitcases(null);
     setExactPassengers(null);
     setChooseMinibus(false);
+    setChooseExecutive(false);
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -4165,6 +4188,7 @@ function QuoteCard({
     setReturnTime("");
     setVehicle(VEHICLE_TYPES[0]);
     setChooseMinibus(false);
+    setChooseExecutive(false);
     setOutboundAccessChoice("free");
     setReturnAccessChoice("free");
     setExpressRemovalAck(false);
@@ -5377,11 +5401,45 @@ function QuoteCard({
     );
   }
 
+  function renderExecutivePickupIncluded(tone: "on-dark" | "on-light") {
+    const light = tone === "on-light";
+    return (
+      <div
+        className={`mt-3 rounded-xl border px-3 py-2.5 text-left ${
+          light ? "border-navy/15 bg-navy/[0.03]" : "border-emerald/30 bg-emerald/10"
+        }`}
+        data-executive-included
+      >
+        <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+          Included in your Executive price
+        </p>
+        <p
+          className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
+            light ? "text-[#475569]" : "text-white/80"
+          }`}
+        >
+          {EXECUTIVE_AIRPORT_PICKUP_INCLUDED}
+        </p>
+      </div>
+    );
+  }
+
   function renderExpressChoiceInPriceCard(
     mode: "full" | "summary",
     tone: "on-dark" | "on-light" = "on-dark",
   ) {
     if (testChargeAmount !== null) return null;
+    const executivePickup = isExecutiveVehicle(quoteVehicle);
+    const pickupLegs = listAirportPickupLegs({
+      airportCode: effectiveAirportCode || null,
+      fromAirport: isFromAirport,
+      returnJourney,
+      isAirportToAirport: isAirportToAirportJourney,
+      pickupAirportCode,
+      dropoffAirportCode,
+    });
+    const executiveIncluded =
+      executivePickup && pickupLegs.length > 0 ? renderExecutivePickupIncluded(tone) : null;
     const dublinPickups = listAirportPickupLegs({
       airportCode: effectiveAirportCode || null,
       fromAirport: isFromAirport,
@@ -5397,11 +5455,14 @@ function QuoteCard({
         ),
     );
     if (!expressSelection.eligible) {
+      if (executiveIncluded) return executiveIncluded;
       if (uncoveredDublin.length === 0) return renderRequiredAirportAccessNotes(tone);
       return renderMeetGreetOnlyChoice(mode, tone, uncoveredDublin);
     }
-    const legs = expressSelection.legs.filter((leg) => leg.airportCode);
-    if (legs.length === 0) return null;
+    const legs = expressSelection.legs.filter(
+      (leg) => leg.airportCode && !(executivePickup && leg.service === "pick-up"),
+    );
+    if (legs.length === 0) return executiveIncluded;
     const light = tone === "on-light";
     const fareTotalGbp =
       paymentAmount != null && Number.isFinite(paymentAmount)
@@ -5468,7 +5529,14 @@ function QuoteCard({
         })}
       </div>
     );
-    if (uncoveredDublin.length === 0) return expressChoices;
+    if (uncoveredDublin.length === 0 || executivePickup) {
+      return (
+        <>
+          {executiveIncluded}
+          {expressChoices}
+        </>
+      );
+    }
     return (
       <>
         {expressChoices}
@@ -6613,17 +6681,22 @@ function QuoteCard({
   function handleQuoteVehicleChoice(next: string) {
     const pax = effectivePartyPassengers(passengers, passengerLimit);
     if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
+    setChooseExecutive(next === EXECUTIVE_VEHICLE);
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
   }
 
   function renderQuoteVehicleChoice() {
-    if (!publicMinibusEnabled || passengers == null || suitcases == null) return null;
+    if ((!publicMinibusEnabled && !publicExecutiveEnabled) || passengers == null || suitcases == null) {
+      return null;
+    }
     return (
       <QuoteVehicleCategories
         passengers={passengers}
         suitcases={suitcases}
         selectedVehicle={quoteVehicle}
         onSelectVehicle={handleQuoteVehicleChoice}
+        publicMinibusEnabled={publicMinibusEnabled}
+        publicExecutiveEnabled={publicExecutiveEnabled}
       />
     );
   }
@@ -7017,6 +7090,7 @@ function QuoteCard({
               passengersError={passengersError}
               suitcasesError={suitcasesError}
               publicMinibusEnabled={publicMinibusEnabled}
+              publicExecutiveEnabled={publicExecutiveEnabled}
               showVehicleCategories={!(quoteResultsReady && quoteStep === 1)}
               selectedVehicle={quoteVehicle}
               onSelectVehicle={handleQuoteVehicleChoice}

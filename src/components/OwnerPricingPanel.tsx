@@ -56,6 +56,11 @@ function asDraft(
   return {
     ...settings,
     profitability: normalizeProfitabilitySettings(settings.profitability),
+    executive: {
+      multiplier:
+        settings.executive?.multiplier ?? defaultOwnerPricingSettings().executive.multiplier,
+      publicEnabled: settings.executive?.publicEnabled !== false,
+    },
   };
 }
 
@@ -146,6 +151,13 @@ function withMinibusMultiplierText(draft: PricingDraft, text: string): PricingDr
   return { ...draft, minibus: { ...draft.minibus, multiplier: parsed } };
 }
 
+function withExecutiveMultiplierText(draft: PricingDraft, text: string): PricingDraft {
+  const parsed = completePositiveMultiplier(text);
+  const current = draft.executive?.multiplier;
+  if (parsed == null || parsed === current) return draft;
+  return { ...draft, executive: { ...draft.executive, multiplier: parsed } };
+}
+
 function knotLabel(index: number, knots: Array<{ miles: number }>): string {
   if (index === 0) return `Distance rate — up to ${knots[0]?.miles ?? 0} miles`;
   return `Distance rate — ${knots[index - 1]?.miles ?? 0} to ${knots[index]?.miles ?? 0} miles`;
@@ -200,6 +212,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   const [multiplierText, setMultiplierText] = useState(() =>
     String(defaultOwnerPricingSettings().minibus.multiplier),
   );
+  const [executiveMultiplierText, setExecutiveMultiplierText] = useState(() =>
+    String(defaultOwnerPricingSettings().executive.multiplier),
+  );
   const [minibusNoticeDraft, setMinibusNoticeDraft] = useState(
     String(DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS),
   );
@@ -216,6 +231,16 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     endDate: "",
     endTime: "",
   });
+  const [executiveBlocks, setExecutiveBlocks] = useState<UnavailablePeriodSummary[]>([]);
+  const [executiveBlockSaving, setExecutiveBlockSaving] = useState(false);
+  const [executiveBlockMessage, setExecutiveBlockMessage] = useState("");
+  const [executiveBlockError, setExecutiveBlockError] = useState("");
+  const [executiveBlock, setExecutiveBlock] = useState({
+    startDate: "",
+    startTime: "",
+    endDate: "",
+    endTime: "",
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -226,6 +251,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
       setSaved(loaded);
       setDraft(loaded);
       setMultiplierText(String(loaded.minibus.multiplier));
+      setExecutiveMultiplierText(String(loaded.executive.multiplier));
       setDefaults(asDraft(result.defaults));
       setAudit(result.audit);
     } catch (err) {
@@ -243,6 +269,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     setMinibusNoticeSaved(hours);
     setMinibusNoticeDraft(String(hours));
     setMinibusBlocks(periods.filter((period) => period.resource === "minibus"));
+    setExecutiveBlocks(periods.filter((period) => period.resource === "executive"));
   }, []);
 
   useEffect(() => {
@@ -318,7 +345,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         settings.minibusMinimumBookingNoticeHours ?? minibusNoticeSaved,
       );
       setMinibusBlock({ startDate: "", startTime: "", endDate: "", endTime: "" });
-      setMinibusNoticeMessage("7-Seater blocked for that period. Saloon, Estate and Executive stay available.");
+      setMinibusNoticeMessage("7-Seater blocked for that period. Saloon and Estate stay available. Executive keeps its own diary.");
     } catch (err) {
       setMinibusNoticeError(err instanceof Error ? err.message : "Could not block the 7-Seater");
     } finally {
@@ -345,9 +372,61 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     }
   }
 
+  async function saveExecutiveBlock() {
+    setExecutiveBlockSaving(true);
+    setExecutiveBlockMessage("");
+    setExecutiveBlockError("");
+    try {
+      if (!executiveBlock.startDate || !executiveBlock.startTime || !executiveBlock.endDate || !executiveBlock.endTime) {
+        throw new Error("Choose a start and end date and time for the Executive block.");
+      }
+      if (isolatedPreview) {
+        setExecutiveBlockMessage("Preview only — Executive block was not saved.");
+        return;
+      }
+      const settings = await addUnavailablePeriod(ownerKey, {
+        ...executiveBlock,
+        mode: "no_availability",
+        resource: "executive",
+        note: "Executive unavailable",
+      });
+      applyMinibusAvailability(
+        settings.unavailablePeriods ?? [],
+        settings.minibusMinimumBookingNoticeHours ?? minibusNoticeSaved,
+      );
+      setExecutiveBlock({ startDate: "", startTime: "", endDate: "", endTime: "" });
+      setExecutiveBlockMessage(
+        "Executive blocked for that period. Saloon, Estate and the 7-Seater stay on their own diaries.",
+      );
+    } catch (err) {
+      setExecutiveBlockError(err instanceof Error ? err.message : "Could not block Executive");
+    } finally {
+      setExecutiveBlockSaving(false);
+    }
+  }
+
+  async function removeExecutiveBlock(id: string) {
+    setExecutiveBlockSaving(true);
+    setExecutiveBlockMessage("");
+    setExecutiveBlockError("");
+    try {
+      if (isolatedPreview) return;
+      const settings = await deleteUnavailablePeriod(ownerKey, id);
+      applyMinibusAvailability(
+        settings.unavailablePeriods ?? [],
+        settings.minibusMinimumBookingNoticeHours ?? minibusNoticeSaved,
+      );
+      setExecutiveBlockMessage("Executive block removed.");
+    } catch (err) {
+      setExecutiveBlockError(err instanceof Error ? err.message : "Could not remove the Executive block");
+    } finally {
+      setExecutiveBlockSaving(false);
+    }
+  }
+
   const editingDraft = useMemo(
-    () => withMinibusMultiplierText(draft, multiplierText),
-    [draft, multiplierText],
+    () => withExecutiveMultiplierText(withMinibusMultiplierText(draft, multiplierText), executiveMultiplierText),
+    [draft, multiplierText, executiveMultiplierText],
   );
   const dirty = useMemo(() => !settingsEqual(saved, editingDraft), [saved, editingDraft]);
   const validation = useMemo(() => {
@@ -395,7 +474,10 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     setSaving(true);
     setError(null);
     try {
-      const toSave = withMinibusMultiplierText(draft, multiplierText);
+      const toSave = withExecutiveMultiplierText(
+        withMinibusMultiplierText(draft, multiplierText),
+        executiveMultiplierText,
+      );
       const result =
         mode === "restore"
           ? await restoreOwnerPricingDefaults(ownerKey, saved.version)
@@ -404,6 +486,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
       setSaved(stored);
       setDraft(stored);
       setMultiplierText(String(stored.minibus.multiplier));
+      setExecutiveMultiplierText(String(stored.executive.multiplier));
       setDefaults(asDraft(result.defaults));
       setAudit(result.audit);
       setConfirm(null);
@@ -651,7 +734,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
               </label>
               <p id="minibus-notice-help" className="mt-1 text-xs text-white/55">
                 Bookings inside this period require confirmation before payment. This is separate
-                from the Saloon, Estate and Executive short-notice period. Current value:{" "}
+                from the Saloon and Estate short-notice period. Executive has its own availability. Current value:{" "}
                 {minibusNoticeSaved} hours.
               </p>
               <button
@@ -665,8 +748,8 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
               <div className="mt-4 border-t border-white/10 pt-3">
                 <p className="text-sm font-medium text-white">Block 7-Seater only</p>
                 <p className="mt-1 text-xs text-white/55">
-                  Makes the 7-Seater unavailable for these times. Saloon, Estate and Executive stay
-                  on the normal diary.
+                  Makes the 7-Seater unavailable for these times. Saloon and Estate stay on the normal
+                  diary. Executive availability is separate.
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <label className={labelClass}>
@@ -843,6 +926,150 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <p className="mt-3 text-xs text-white/55">{nightWeekendSurchargeExplanation(draft)}</p>
       </section>
 
+      <section className="rounded-2xl border border-white/10 bg-navy/50 p-4" data-executive-multiplier>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Executive</h3>
+        <p className="mt-2 text-sm text-white/70">
+          Executive fare = Saloon journey fare × multiplier, nearest penny. Change 1.40, 1.50, 1.75
+          or 2.00 here without a code change. When Executive is on and available, customers can
+          select it and pay online. Airport Executive pickups include Meet &amp; Greet, a
+          personalised name board, luggage assistance, barrier and parking, bottled water and phone
+          charging. Executive availability is separate from Saloon, Estate and the 7-Seater.
+        </p>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-white/80">Offer Executive online</p>
+          <Toggle
+            id="public-executive-enabled"
+            label="Offer Executive online"
+            checked={draft.executive.publicEnabled !== false}
+            onChange={(publicEnabled) =>
+              update("executive", { ...draft.executive, publicEnabled })
+            }
+          />
+        </div>
+        <label className={`${labelClass} mt-3`}>
+          Pricing: Saloon fare ×
+          <input
+            className={fieldClass}
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
+            value={executiveMultiplierText}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (isMultiplierTyping(next)) setExecutiveMultiplierText(next);
+            }}
+            onBlur={() => {
+              const parsed = completePositiveMultiplier(executiveMultiplierText);
+              if (parsed == null) {
+                setExecutiveMultiplierText(String(draft.executive.multiplier));
+                return;
+              }
+              if (parsed !== draft.executive.multiplier) {
+                update("executive", { ...draft.executive, multiplier: parsed });
+              }
+              setExecutiveMultiplierText(String(parsed));
+            }}
+          />
+        </label>
+        <p className="mt-1 text-xs text-white/55">
+          Saloon × {editingDraft.executive.multiplier.toFixed(2)}. A £{preview.saloonGbp} Saloon fare
+          is £{preview.executiveGbp.toFixed(2)} Executive before Night and Weekend.
+        </p>
+        <div className="mt-4 border-t border-white/10 pt-3" data-executive-availability>
+          <p className="text-sm font-medium text-white">Block Executive only</p>
+          <p className="mt-1 text-xs text-white/55">
+            Makes Executive unavailable for these times. Saloon, Estate and the 7-Seater stay available.
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className={labelClass}>
+              From date
+              <input
+                className={fieldClass}
+                type="date"
+                value={executiveBlock.startDate}
+                onChange={(event) =>
+                  setExecutiveBlock((current) => ({ ...current, startDate: event.target.value }))
+                }
+              />
+            </label>
+            <label className={labelClass}>
+              From time
+              <input
+                className={fieldClass}
+                type="time"
+                value={executiveBlock.startTime}
+                onChange={(event) =>
+                  setExecutiveBlock((current) => ({ ...current, startTime: event.target.value }))
+                }
+              />
+            </label>
+            <label className={labelClass}>
+              Until date
+              <input
+                className={fieldClass}
+                type="date"
+                value={executiveBlock.endDate}
+                onChange={(event) =>
+                  setExecutiveBlock((current) => ({ ...current, endDate: event.target.value }))
+                }
+              />
+            </label>
+            <label className={labelClass}>
+              Until time
+              <input
+                className={fieldClass}
+                type="time"
+                value={executiveBlock.endTime}
+                onChange={(event) =>
+                  setExecutiveBlock((current) => ({ ...current, endTime: event.target.value }))
+                }
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            disabled={executiveBlockSaving}
+            onClick={() => void saveExecutiveBlock()}
+            className="mt-3 min-h-11 rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            Block Executive
+          </button>
+          {executiveBlocks.length > 0 ? (
+            <ul className="mt-3 space-y-2 text-sm text-white/80">
+              {executiveBlocks.map((period) => (
+                <li key={period.id} className="flex items-center justify-between gap-2">
+                  <span>
+                    {period.startLocal.replace("T", " ")} – {period.endLocal.replace("T", " ")}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-amber-200 underline-offset-2 hover:underline"
+                    onClick={() => void removeExecutiveBlock(period.id)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs text-white/45">No Executive blocks saved.</p>
+          )}
+          {executiveBlockMessage ? (
+            <p className="mt-2 text-sm text-emerald" role="status">
+              {executiveBlockMessage}
+            </p>
+          ) : null}
+          {executiveBlockError ? (
+            <p className="mt-2 text-sm text-red-200" role="alert">
+              {executiveBlockError}
+            </p>
+          ) : null}
+        </div>
+      </section>
+
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
           Airport / fixed charges
@@ -968,6 +1195,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           onClick={() => {
             setDraft(asDraft(cloneSettings(saved)));
             setMultiplierText(String(saved.minibus.multiplier));
+            setExecutiveMultiplierText(String(saved.executive.multiplier));
           }}
           className="min-h-12 rounded-xl border border-white/20 px-4 text-sm font-semibold text-white disabled:opacity-40"
         >

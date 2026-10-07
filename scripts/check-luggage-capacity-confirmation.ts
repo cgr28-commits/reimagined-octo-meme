@@ -380,9 +380,9 @@ async function main() {
 
   check("17. Minibus pricing remains unchanged", () => {
     const fare = minibusBaseFareFromSaloon(50, onPricing);
-    assert.equal(fare.estateGbp, 60);
-    assert.equal(fare.minibusQuotedGbp, 93);
-    assert.equal(fare.minibusExactGbp, 93);
+    assert.equal(fare.estateGbp, 56);
+    assert.equal(fare.minibusQuotedGbp, 86.8);
+    assert.equal(fare.minibusExactGbp, 86.8);
     const hold = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 7, suitcases: 5, pricing: onPricing }),
     );
