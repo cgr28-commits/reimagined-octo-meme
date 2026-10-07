@@ -14,6 +14,7 @@ import {
   resolveAirportAccessOption,
   type AirportAccessOption,
 } from "./express-drop-off";
+import { MEET_GREET_DESCRIPTION } from "./meet-greet";
 import { matchServedAirportCode } from "./served-airports";
 import { formatUkTime } from "./uk-time";
 
@@ -24,6 +25,7 @@ export type CompanyVoiceAirportAccessOption = AirportAccessOption;
 export const AIRPORT_PICKUP_HEADING = "✈️ Airport Pick-Up";
 
 export const AIRPORT_PICKUP_COPY = {
+  meetGreet: MEET_GREET_DESCRIPTION,
   express: "Please make your way to Express Pick-Up.",
   bfsBhdFree:
     "Please make your way to the Long Stay Car Park Free Pick-Up Location. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Free Pick-Up Location.",
@@ -74,7 +76,11 @@ export function resolveCompanyVoiceAirportCode(
 export function resolveCompanyVoiceAirportAccessOption(
   booking: CompanyVoiceJourneyBooking,
 ): CompanyVoiceAirportAccessOption | null {
-  if (booking.airportAccessOption === "express" || booking.airportAccessOption === "free") {
+  if (
+    booking.airportAccessOption === "express" ||
+    booking.airportAccessOption === "free" ||
+    booking.airportAccessOption === "meet-greet"
+  ) {
     return booking.airportAccessOption;
   }
   return resolveAirportAccessOption({
@@ -105,6 +111,8 @@ export function buildAirportPickupInstruction(
 
   const airportCode = resolveCompanyVoiceAirportCode(booking);
   const access = resolveCompanyVoiceAirportAccessOption(booking);
+
+  if (access === "meet-greet") return AIRPORT_PICKUP_COPY.meetGreet;
 
   if (airportCode === "BFS" || airportCode === "BHD") {
     if (access === "free") return AIRPORT_PICKUP_COPY.bfsBhdFree;

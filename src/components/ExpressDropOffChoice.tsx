@@ -9,14 +9,22 @@ import {
   type ExpressAirportService,
   type ExpressDropOffAirportCode,
 } from "../../shared/express-drop-off";
+import {
+  MEET_GREET_DESCRIPTION,
+  formatMeetGreetGbp,
+  type AirportAccessChoice,
+} from "../../shared/meet-greet";
 
 type Props = {
-  airportCode: ExpressDropOffAirportCode;
+  airportCode: ExpressDropOffAirportCode | "DUB";
   service?: ExpressAirportService;
   selected: boolean;
   removalAcknowledged: boolean;
   onSelectedChange: (selected: boolean) => void;
   onRemovalAcknowledgedChange: (acknowledged: boolean) => void;
+  meetGreetFeeGbp?: number | null;
+  accessChoice?: AirportAccessChoice;
+  onAccessChoiceChange?: (choice: AirportAccessChoice) => void;
   requireAcknowledgement?: boolean;
   allowFreeAlternative?: boolean;
   /**
@@ -44,6 +52,9 @@ export default function ExpressDropOffChoice({
   removalAcknowledged,
   onSelectedChange,
   onRemovalAcknowledgedChange,
+  meetGreetFeeGbp = null,
+  accessChoice,
+  onAccessChoiceChange,
   requireAcknowledgement = false,
   allowFreeAlternative,
   mode = "full",
@@ -66,7 +77,13 @@ export default function ExpressDropOffChoice({
               {heading ||
                 (service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off")}
             </p>
-            <p>{expressDropOffBreakdownLabel(airportCode, selected, service)}</p>
+            <p>
+              {accessChoice === "meet-greet" && typeof meetGreetFeeGbp === "number"
+                ? `Meet & Greet — ${formatMeetGreetGbp(meetGreetFeeGbp)}. ${MEET_GREET_DESCRIPTION}`
+                : airportCode === "DUB"
+                  ? "Standard pickup"
+                  : expressDropOffBreakdownLabel(airportCode, selected, service)}
+            </p>
             <p className="text-xs quote-secondary">{EXPRESS_DROP_OFF_PASSED_ON_NOTE}</p>
           </div>
           {allowFreeAlternative !== false ? (
@@ -92,6 +109,9 @@ export default function ExpressDropOffChoice({
         removalAcknowledged={removalAcknowledged}
         onSelectedChange={onSelectedChange}
         onRemovalAcknowledgedChange={onRemovalAcknowledgedChange}
+        meetGreetFeeGbp={meetGreetFeeGbp}
+        accessChoice={accessChoice}
+        onAccessChoiceChange={onAccessChoiceChange}
         requireAcknowledgement={requireAcknowledgement}
         allowFreeAlternative={allowFreeAlternative}
         idPrefix={idPrefix}

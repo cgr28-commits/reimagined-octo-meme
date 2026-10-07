@@ -21,6 +21,7 @@ import {
 } from "./universal-distance-pricing";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "./return-journey-discount";
 import { NIGHT_WEEKEND_SURCHARGE_RATE } from "./night-weekend-surcharge";
+import { defaultMeetGreetFees, type MeetGreetFeesGbp } from "./meet-greet";
 
 export const OWNER_PRICING_SCHEMA_VERSION = 1 as const;
 
@@ -90,6 +91,8 @@ export type OwnerPricingSettings = {
     surchargeRate: number;
     days: number[];
   };
+  /** Fixed Meet & Greet pickup fees. Missing stored values use the approved defaults. */
+  meetGreet: MeetGreetFeesGbp;
   bankHoliday: {
     sharesWeekendSurcharge: true;
     daytimeExtraSurcharge: false;
@@ -133,6 +136,7 @@ export type PublicOwnerPricingConfig = {
   returnDiscount: OwnerPricingSettings["returnDiscount"];
   night: OwnerPricingSettings["night"];
   weekend: OwnerPricingSettings["weekend"];
+  meetGreet: OwnerPricingSettings["meetGreet"];
   surchargeStacking: typeof SURCHARGE_STACKING_RULE;
 };
 
@@ -210,6 +214,7 @@ export function defaultOwnerPricingSettings(
       surchargeRate: DEFAULT_WEEKEND_SURCHARGE_RATE,
       days: [...DEFAULT_WEEKEND_DAYS],
     },
+    meetGreet: defaultMeetGreetFees(),
     bankHoliday: {
       sharesWeekendSurcharge: true,
       daytimeExtraSurcharge: false,
@@ -258,6 +263,8 @@ export function validateOwnerPricingInput(
   const returnRaw = (input.returnDiscount ?? {}) as Record<string, unknown>;
   const nightRaw = (input.night ?? {}) as Record<string, unknown>;
   const weekendRaw = (input.weekend ?? {}) as Record<string, unknown>;
+  const meetGreetExplicit = input.meetGreet != null && typeof input.meetGreet === "object";
+  const meetGreetRaw = (meetGreetExplicit ? input.meetGreet : {}) as Record<string, unknown>;
 
   const minimumFareGbp = readRate(saloonRaw.minimumFareGbp, "saloon.minimumFareGbp", errors);
   if (minimumFareGbp != null && (minimumFareGbp < 1 || minimumFareGbp > 250)) {
@@ -371,6 +378,28 @@ export function validateOwnerPricingInput(
     reject(errors, "weekend.days", "Select at least one Weekend day.");
   }
 
+  let meetGreet = defaultMeetGreetFees();
+  if (meetGreetExplicit) {
+    const bfsGbp = readRate(meetGreetRaw.bfsGbp, "meetGreet.bfsGbp", errors);
+    const bhdGbp = readRate(meetGreetRaw.bhdGbp, "meetGreet.bhdGbp", errors);
+    const dubGbp = readRate(meetGreetRaw.dubGbp, "meetGreet.dubGbp", errors);
+    const within = (amount: number | null, field: string) => {
+      if (amount != null && (amount < 0 || amount > 100)) {
+        reject(errors, field, "Meet & Greet fee must be between £0.00 and £100.00.");
+      }
+    };
+    within(bfsGbp, "meetGreet.bfsGbp");
+    within(bhdGbp, "meetGreet.bhdGbp");
+    within(dubGbp, "meetGreet.dubGbp");
+    if (bfsGbp != null && bhdGbp != null && dubGbp != null) {
+      meetGreet = {
+        bfsGbp: Math.round(bfsGbp * 100) / 100,
+        bhdGbp: Math.round(bhdGbp * 100) / 100,
+        dubGbp: Math.round(dubGbp * 100) / 100,
+      };
+    }
+  }
+
   if (errors.length > 0) {
     return { ok: false, errors };
   }
@@ -408,6 +437,7 @@ export function validateOwnerPricingInput(
         surchargeRate: weekendRate ?? defaults.weekend.surchargeRate,
         days: weekendDays,
       },
+      meetGreet,
       bankHoliday: {
         sharesWeekendSurcharge: true,
         daytimeExtraSurcharge: false,
@@ -464,6 +494,7 @@ export function toPublicOwnerPricingConfig(
     returnDiscount: settings.returnDiscount,
     night: settings.night,
     weekend: settings.weekend,
+    meetGreet: settings.meetGreet,
     surchargeStacking: SURCHARGE_STACKING_RULE,
   };
 }
@@ -526,6 +557,12 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return settings.weekend.days
         .map((day) => ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day] ?? String(day))
         .join(", ");
+    case "meetGreet.bfsGbp":
+      return `£${settings.meetGreet.bfsGbp.toFixed(2)}`;
+    case "meetGreet.bhdGbp":
+      return `£${settings.meetGreet.bhdGbp.toFixed(2)}`;
+    case "meetGreet.dubGbp":
+      return `£${settings.meetGreet.dubGbp.toFixed(2)}`;
     default:
       return "";
   }
@@ -546,6 +583,9 @@ const DIFF_PATHS = [
   "weekend.enabled",
   "weekend.surchargeRate",
   "weekend.days",
+  "meetGreet.bfsGbp",
+  "meetGreet.bhdGbp",
+  "meetGreet.dubGbp",
 ] as const;
 
 const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
@@ -563,6 +603,9 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "weekend.enabled": "Weekend pricing",
   "weekend.surchargeRate": "Weekend surcharge",
   "weekend.days": "Weekend days",
+  "meetGreet.bfsGbp": "Meet & Greet Belfast International",
+  "meetGreet.bhdGbp": "Meet & Greet Belfast City",
+  "meetGreet.dubGbp": "Meet & Greet Dublin Airport",
 };
 
 export function diffOwnerPricingSettings(

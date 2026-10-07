@@ -616,26 +616,28 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(card, /expressDropOffSelected/);
   assert.match(
     card,
-    /const \[expressDropOffSelected, setExpressDropOffSelected\] = useState\(false\)/,
+    /const \[outboundAccessChoice, setOutboundAccessChoice\] = useState<AirportAccessChoice>\("free"\)/,
   );
   assert.match(
     card,
-    /const \[returnExpressDropOffSelected, setReturnExpressDropOffSelected\] = useState\(false\)/,
+    /const \[returnAccessChoice, setReturnAccessChoice\] = useState<AirportAccessChoice>\("free"\)/,
   );
-  assert.doesNotMatch(card, /setExpressDropOffSelected\(true\)/);
-  assert.doesNotMatch(card, /setReturnExpressDropOffSelected\(true\)/);
+  assert.match(card, /const expressDropOffSelected = outboundAccessChoice === "express"/);
+  assert.doesNotMatch(card, /useState<AirportAccessChoice>\("express"\)/);
+  assert.doesNotMatch(card, /setOutboundAccessChoice\("express"\)/);
+  assert.doesNotMatch(card, /setReturnAccessChoice\("express"\)/);
   assert.doesNotMatch(card, /shouldDefaultExpressSelectedOnNewEligibility/);
   assert.match(card, /renderExpressChoiceInPriceCard\(quoteStep === 1 \? "full" : "summary"\)/);
   // Browser sends transfer fare + boolean — never trusts a client fee for SumUp.
   assert.match(card, /createPaymentCheckout\(\{/);
   assert.match(card, /journeyFareGbp/);
-  assert.match(card, /airportAccessChargeGbp: expressSelection\.feeGbp/);
+  assert.match(card, /airportAccessChargeGbp: airportAccessQuote\.airportAccessChargeGbp/);
   assert.doesNotMatch(card, /claimFirstBookingOffer/);
   assert.doesNotMatch(card, /claimFirstBookingForCheckout/);
   assert.doesNotMatch(card, /FirstBookingOfferAdvert/);
   assert.doesNotMatch(card, /checkFirstBookingOfferEligibility/);
   assert.doesNotMatch(card, /advertiseFirstBookingOffer/);
-  assert.match(card, /expressDropOffSelected: expressSelection\.eligible/);
+  assert.match(card, /expressDropOffSelected: airportAccessQuote\.expressDropOffSelected/);
   assert.match(card, /canProceedWithoutExpressDropOff/);
   // Persist selection across steps / drafts / Book Now + Save Quote.
   assert.match(card, /expressDropOffSelected:/);
@@ -663,7 +665,7 @@ check("QuoteCard shows Express under initial price; payment uses summary + Chang
   assert.match(selector, /role="radiogroup"/);
   assert.match(selector, /min-h-11/);
   assert.match(selector, /service/);
-  assert.match(selector, /onRemovalAcknowledgedChange\(true\)/);
+  assert.match(selector, /onRemovalAcknowledgedChange\(next !== "express"\)/);
   assert.doesNotMatch(selector, /type="checkbox"/);
 });
 
@@ -1369,7 +1371,7 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
   assert.match(card, /data-express-leg=\{leg\.leg\}/);
   assert.match(
     card,
-    /leg\.leg === "return" \? returnExpressDropOffSelected : expressDropOffSelected/,
+    /leg\.leg === "return" \? returnAccessChoice : outboundAccessChoice/,
   );
   assert.match(card, /canProceedWithoutExpressDropOffLegs/);
   assert.match(card, /outboundExpressDropOffSelected/);

@@ -44,6 +44,8 @@ export type BookingFormDraft = {
   /** Customer Express Drop-Off choice — restored across SumUp tab switches. */
   expressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
+  outboundAirportAccessChoice?: "express" | "free" | "meet-greet";
+  returnAirportAccessChoice?: "express" | "free" | "meet-greet";
   savedAt?: string;
 };
 

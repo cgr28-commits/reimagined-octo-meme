@@ -12,16 +12,25 @@ import {
   type ExpressAirportService,
   type ExpressDropOffAirportCode,
 } from "../../shared/express-drop-off";
+import {
+  MEET_GREET_DESCRIPTION,
+  formatMeetGreetGbp,
+  type AirportAccessChoice,
+} from "../../shared/meet-greet";
 
 export type AirportAccessTone = "on-dark" | "on-light";
 
 type Props = {
-  airportCode: ExpressDropOffAirportCode;
+  airportCode: ExpressDropOffAirportCode | "DUB";
   service?: ExpressAirportService;
   selected: boolean;
   removalAcknowledged: boolean;
   onSelectedChange: (selected: boolean) => void;
   onRemovalAcknowledgedChange: (acknowledged: boolean) => void;
+  /** Pickup-only third choice. Omit on drop-off. */
+  meetGreetFeeGbp?: number | null;
+  accessChoice?: AirportAccessChoice;
+  onAccessChoiceChange?: (choice: AirportAccessChoice) => void;
   /** When true, block continuing without acknowledgement (visual emphasis). */
   requireAcknowledgement?: boolean;
   /** Override free-alternative gate (defaults from shared config + service). */
@@ -47,6 +56,9 @@ export default function ExpressDropOffSelector({
   removalAcknowledged: _removalAcknowledged,
   onSelectedChange,
   onRemovalAcknowledgedChange,
+  meetGreetFeeGbp = null,
+  accessChoice,
+  onAccessChoiceChange,
   requireAcknowledgement: _requireAcknowledgement = false,
   allowFreeAlternative,
   idPrefix,
@@ -63,13 +75,25 @@ export default function ExpressDropOffSelector({
   const light = tone === "on-light";
   const styles = accessChoiceStyles(light);
   const legend = heading || expressAirportOptionHeading(service);
-  const feeGbp = getExpressDropOffFeeGbp(airportCode);
+  const feeGbp = airportCode === "DUB" ? 0 : getExpressDropOffFeeGbp(airportCode);
+  const meetGreetFee =
+    service === "pick-up" && typeof meetGreetFeeGbp === "number" && meetGreetFeeGbp > 0
+      ? meetGreetFeeGbp
+      : 0;
+  const showMeetGreet = meetGreetFee > 0;
+  const choice: AirportAccessChoice =
+    accessChoice ?? (selected ? "express" : "free");
+  const choose = (next: AirportAccessChoice) => {
+    onAccessChoiceChange?.(next);
+    onSelectedChange(next === "express");
+    onRemovalAcknowledgedChange(next !== "express");
+  };
 
   return (
     <fieldset
       className={`min-w-0 max-w-full space-y-2 overflow-hidden ${className}`}
       data-express-service={service}
-      data-express-selected={selected ? "express" : "free"}
+      data-express-selected={choice}
       aria-describedby={`${groupName}-note`}
     >
       <legend className={`px-0.5 text-sm font-semibold ${styles.heading}`}>
@@ -81,58 +105,82 @@ export default function ExpressDropOffSelector({
         aria-label={`${legend} options`}
         className="space-y-2"
       >
-        {freeAvailable ? (
-          <label className={`${styles.card} ${!selected ? styles.selectedFree : styles.idle}`}>
+        {freeAvailable || airportCode === "DUB" ? (
+          <label className={`${styles.card} ${choice === "free" ? styles.selectedFree : styles.idle}`}>
             <input
               type="radio"
               name={groupName}
-              checked={!selected}
-              onChange={() => {
-                onSelectedChange(false);
-                onRemovalAcknowledgedChange(true);
-              }}
+              checked={choice === "free"}
+              onChange={() => choose("free")}
               className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
             />
             <span className="min-w-0 flex-1 leading-snug">
               <span className="block break-words font-semibold">
-                {expressQuoteFreeTitle(airportCode, service, !selected)}
+                {airportCode === "DUB"
+                  ? "Standard pickup"
+                  : expressQuoteFreeTitle(airportCode, service, choice === "free")}
               </span>
               <span className={`mt-0.5 block break-words text-xs font-normal ${styles.hint}`}>
-                {expressQuoteFreeHint(service, airportCode)}
+                {airportCode === "DUB"
+                  ? "Meet at the airport’s paid pickup point."
+                  : expressQuoteFreeHint(service, airportCode)}
               </span>
             </span>
           </label>
         ) : null}
 
-        <label className={`${styles.card} ${selected ? styles.selected : styles.idle}`}>
-          <input
-            type="radio"
-            name={groupName}
-            checked={selected}
-            onChange={() => {
-              onSelectedChange(true);
-              onRemovalAcknowledgedChange(false);
-            }}
-            className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
-          />
-          <span className="min-w-0 flex-1 leading-snug">
-            <span className="block break-words font-semibold">
-              {expressQuoteExpressTitle(airportCode, service, selected)}
+        {airportCode !== "DUB" ? (
+          <label className={`${styles.card} ${choice === "express" ? styles.selected : styles.idle}`}>
+            <input
+              type="radio"
+              name={groupName}
+              checked={choice === "express"}
+              onChange={() => choose("express")}
+              className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
+            />
+            <span className="min-w-0 flex-1 leading-snug">
+              <span className="block break-words font-semibold">
+                {expressQuoteExpressTitle(airportCode, service, choice === "express")}
+              </span>
+              <span className={`mt-0.5 block break-words text-xs font-normal ${styles.hint}`}>
+                {expressQuoteExpressHint(service)}
+              </span>
             </span>
-            <span className={`mt-0.5 block break-words text-xs font-normal ${styles.hint}`}>
-              {expressQuoteExpressHint(service)}
+          </label>
+        ) : null}
+
+        {showMeetGreet ? (
+          <label className={`${styles.card} ${choice === "meet-greet" ? styles.selected : styles.idle}`}>
+            <input
+              type="radio"
+              name={groupName}
+              checked={choice === "meet-greet"}
+              onChange={() => choose("meet-greet")}
+              className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
+            />
+            <span className="min-w-0 flex-1 leading-snug">
+              <span className="block break-words font-semibold">
+                {`Meet & Greet — ${formatMeetGreetGbp(meetGreetFee)}`}
+              </span>
+              <span className={`mt-0.5 block break-words text-xs font-normal ${styles.hint}`}>
+                {MEET_GREET_DESCRIPTION}
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+        ) : null}
       </div>
 
       <p id={`${groupName}-note`} className={`break-words text-xs font-medium leading-relaxed ${styles.note}`}>
-        {expressQuoteSelectionConfirmation({
-          service,
-          expressSelected: selected,
-          feeGbp,
-          totalGbp: fareTotalGbp,
-        })}
+        {choice === "meet-greet"
+          ? `✓ Meet & Greet selected — ${formatMeetGreetGbp(meetGreetFee)} added. Your driver meets you inside arrivals.`
+          : airportCode === "DUB"
+            ? "✓ Standard pickup selected."
+            : expressQuoteSelectionConfirmation({
+                service,
+                expressSelected: choice === "express",
+                feeGbp,
+                totalGbp: fareTotalGbp,
+              })}
       </p>
     </fieldset>
   );

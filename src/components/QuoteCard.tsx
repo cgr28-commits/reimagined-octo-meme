@@ -250,6 +250,13 @@ import {
   resolveExpressDropOff,
 } from "../../shared/express-drop-off";
 import {
+  listAirportPickupLegs,
+  meetGreetFeeGbp,
+  quoteAirportAccessCharges,
+  type AirportAccessChoice,
+  type AirportPickupLegRef,
+} from "../../shared/meet-greet";
+import {
   RETURN_OFFER_CONFIG,
   isReturnOfferAirportJourney,
 } from "../../shared/return-offer";
@@ -906,8 +913,10 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
-  const [expressDropOffSelected, setExpressDropOffSelected] = useState(false);
-  const [returnExpressDropOffSelected, setReturnExpressDropOffSelected] = useState(false);
+  const [outboundAccessChoice, setOutboundAccessChoice] = useState<AirportAccessChoice>("free");
+  const [returnAccessChoice, setReturnAccessChoice] = useState<AirportAccessChoice>("free");
+  const expressDropOffSelected = outboundAccessChoice === "express";
+  const returnExpressDropOffSelected = returnAccessChoice === "express";
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [returnExpressRemovalAck, setReturnExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
@@ -1154,11 +1163,23 @@ function QuoteCard({
       }
       if (typeof draft.termsAccepted === "boolean") setTermsAccepted(draft.termsAccepted);
       if (typeof draft.marketingOptIn === "boolean") setMarketingOptIn(draft.marketingOptIn);
-      if (typeof draft.expressDropOffSelected === "boolean") {
-        setExpressDropOffSelected(draft.expressDropOffSelected);
+      if (
+        draft.outboundAirportAccessChoice === "express" ||
+        draft.outboundAirportAccessChoice === "free" ||
+        draft.outboundAirportAccessChoice === "meet-greet"
+      ) {
+        setOutboundAccessChoice(draft.outboundAirportAccessChoice);
+      } else if (typeof draft.expressDropOffSelected === "boolean") {
+        setOutboundAccessChoice(draft.expressDropOffSelected ? "express" : "free");
       }
-      if (typeof draft.returnExpressDropOffSelected === "boolean") {
-        setReturnExpressDropOffSelected(draft.returnExpressDropOffSelected);
+      if (
+        draft.returnAirportAccessChoice === "express" ||
+        draft.returnAirportAccessChoice === "free" ||
+        draft.returnAirportAccessChoice === "meet-greet"
+      ) {
+        setReturnAccessChoice(draft.returnAirportAccessChoice);
+      } else if (typeof draft.returnExpressDropOffSelected === "boolean") {
+        setReturnAccessChoice(draft.returnExpressDropOffSelected ? "express" : "free");
       }
       if (draft.personalQuoteCode?.trim()) {
         const code = draft.personalQuoteCode.trim().toUpperCase();
@@ -2156,6 +2177,34 @@ function QuoteCard({
 
   const isAirportToAirportJourney = journeyKind === "airport-to-airport";
 
+  const airportAccessQuote = useMemo(
+    () =>
+      quoteAirportAccessCharges({
+        expressLegs: expressSelection.legs,
+        airportCode: effectiveAirportCode || null,
+        fromAirport: isFromAirport,
+        returnJourney,
+        isAirportToAirport: isAirportToAirportJourney,
+        pickupAirportCode,
+        dropoffAirportCode,
+        outboundChoice: outboundAccessChoice,
+        returnChoice: returnAccessChoice,
+        fees: publicPricing.meetGreet,
+      }),
+    [
+      expressSelection.legs,
+      effectiveAirportCode,
+      isFromAirport,
+      returnJourney,
+      isAirportToAirportJourney,
+      pickupAirportCode,
+      dropoffAirportCode,
+      outboundAccessChoice,
+      returnAccessChoice,
+      publicPricing.meetGreet,
+    ],
+  );
+
   const airportFeeResolution = useMemo(() => {
     if (isAirportToAirportJourney && pickupAirportCode && dropoffAirportCode) {
       return resolveJourneyAirportFees({
@@ -2295,9 +2344,9 @@ function QuoteCard({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       nightWeekendSurchargeGbp: journeyFareParts.nightWeekendSurchargeGbp ?? 0,
-      airportAccessChargeGbp: expressSelection.feeGbp,
-      outboundAirportAccessChargeGbp: expressSelection.outboundFeeGbp,
-      returnAirportAccessChargeGbp: expressSelection.returnFeeGbp,
+      airportAccessChargeGbp: airportAccessQuote.airportAccessChargeGbp,
+      outboundAirportAccessChargeGbp: airportAccessQuote.outboundAirportAccessChargeGbp,
+      returnAirportAccessChargeGbp: airportAccessQuote.returnAirportAccessChargeGbp,
       returnJourney,
       ...(applyReturnOffer
         ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
@@ -2308,9 +2357,9 @@ function QuoteCard({
     journeyFareParts.journeyFareGbp,
     journeyFareParts.airportFixedCostsGbp,
     journeyFareParts.nightWeekendSurchargeGbp,
-    expressSelection.feeGbp,
-    expressSelection.outboundFeeGbp,
-    expressSelection.returnFeeGbp,
+    airportAccessQuote.airportAccessChargeGbp,
+    airportAccessQuote.outboundAirportAccessChargeGbp,
+    airportAccessQuote.returnAirportAccessChargeGbp,
     returnJourney,
     returnOfferToken,
     pickupAddress,
@@ -3377,27 +3426,20 @@ function QuoteCard({
       quoteTransactionId: quoteTransactionId || undefined,
       pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
       dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
-      expressDropOffSelected: expressSelection.eligible ? expressSelection.selected : false,
-      expressDropOffFee: expressSelection.feeGbp,
-      expressDropOffAirport: expressSelection.airportCode,
-      outboundExpressDropOffSelected: expressSelection.legs.some((leg) => leg.leg === "outbound")
-        ? expressSelection.outboundSelected
+      expressDropOffSelected: airportAccessQuote.expressDropOffSelected,
+      expressDropOffFee: airportAccessQuote.expressDropOffFee,
+      expressDropOffAirport: airportAccessQuote.expressDropOffAirport,
+      airportAccessOption: airportAccessQuote.airportAccessOption ?? undefined,
+      outboundExpressDropOffSelected: airportAccessQuote.outboundAirportAccessOption
+        ? airportAccessQuote.outboundExpressDropOffSelected
         : undefined,
-      returnExpressDropOffSelected: expressSelection.legs.some((leg) => leg.leg === "return")
-        ? expressSelection.returnSelected
+      returnExpressDropOffSelected: airportAccessQuote.returnAirportAccessOption
+        ? airportAccessQuote.returnExpressDropOffSelected
         : undefined,
-      outboundAirportAccessOption: expressSelection.legs.some((leg) => leg.leg === "outbound")
-        ? expressSelection.outboundSelected
-          ? "express"
-          : "free"
-        : undefined,
-      returnAirportAccessOption: expressSelection.legs.some((leg) => leg.leg === "return")
-        ? expressSelection.returnSelected
-          ? "express"
-          : "free"
-        : undefined,
-      outboundAirportAccessChargeGbp: expressSelection.outboundFeeGbp,
-      returnAirportAccessChargeGbp: expressSelection.returnFeeGbp,
+      outboundAirportAccessOption: airportAccessQuote.outboundAirportAccessOption ?? undefined,
+      returnAirportAccessOption: airportAccessQuote.returnAirportAccessOption ?? undefined,
+      outboundAirportAccessChargeGbp: airportAccessQuote.outboundAirportAccessChargeGbp,
+      returnAirportAccessChargeGbp: airportAccessQuote.returnAirportAccessChargeGbp,
       ...(openWebsiteFareBreakdown
         ? promoFieldsFromFareBreakdown(openWebsiteFareBreakdown)
         : {}),
@@ -3749,12 +3791,10 @@ function QuoteCard({
       termsAccepted,
       marketingOptIn,
       personalQuoteCode: appliedPersonalQuote?.code,
-      expressDropOffSelected: expressSelection.eligible
-        ? expressSelection.outboundSelected
-        : false,
-      returnExpressDropOffSelected: expressSelection.eligible
-        ? expressSelection.returnSelected
-        : false,
+      expressDropOffSelected: outboundAccessChoice === "express",
+      returnExpressDropOffSelected: returnAccessChoice === "express",
+      outboundAirportAccessChoice: outboundAccessChoice,
+      returnAirportAccessChoice: returnAccessChoice,
     });
 
     try {
@@ -3771,16 +3811,13 @@ function QuoteCard({
         booking: bookingDetails,
         pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
         dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
-        expressDropOffSelected: expressSelection.eligible
-          ? expressSelection.outboundSelected
-          : false,
-        outboundExpressDropOffSelected: expressSelection.eligible
-          ? expressSelection.outboundSelected
-          : false,
-        returnExpressDropOffSelected:
-          expressSelection.eligible && expressSelection.legs.some((leg) => leg.leg === "return")
-            ? expressSelection.returnSelected
-            : undefined,
+        expressDropOffSelected: airportAccessQuote.outboundExpressDropOffSelected,
+        outboundExpressDropOffSelected: airportAccessQuote.outboundExpressDropOffSelected,
+        returnExpressDropOffSelected: airportAccessQuote.returnAirportAccessOption
+          ? airportAccessQuote.returnExpressDropOffSelected
+          : undefined,
+        outboundAirportAccessOption: airportAccessQuote.outboundAirportAccessOption ?? undefined,
+        returnAirportAccessOption: airportAccessQuote.returnAirportAccessOption ?? undefined,
         ...(useOpenWebsitePromoPricing && journeyFareParts.journeyFareGbp != null
           ? {
               journeyFareGbp: journeyFareParts.journeyFareGbp,
@@ -4128,8 +4165,8 @@ function QuoteCard({
     setReturnTime("");
     setVehicle(VEHICLE_TYPES[0]);
     setChooseMinibus(false);
-    setExpressDropOffSelected(false);
-    setReturnExpressDropOffSelected(false);
+    setOutboundAccessChoice("free");
+    setReturnAccessChoice("free");
     setExpressRemovalAck(false);
     setReturnExpressRemovalAck(false);
     setExpressAckRequired(false);
@@ -5291,13 +5328,77 @@ function QuoteCard({
     );
   }
 
+  function renderMeetGreetOnlyChoice(
+    mode: "full" | "summary",
+    tone: "on-dark" | "on-light",
+    legs: AirportPickupLegRef[],
+  ) {
+    const light = tone === "on-light";
+    const fareTotalGbp =
+      paymentAmount != null && Number.isFinite(paymentAmount)
+        ? paymentAmount
+        : pricedFare?.totalGbp;
+    return (
+      <div className="mt-3 space-y-4 text-left" data-meet-greet-airport-choice>
+        {legs.map((leg) => {
+          const choice = leg.leg === "return" ? returnAccessChoice : outboundAccessChoice;
+          return (
+            <div key={leg.leg} data-express-leg={leg.leg}>
+              {legs.length > 1 ? (
+                <p className={`mb-1.5 text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+                  {leg.leg === "return" ? "Return journey" : "Outbound journey"}
+                </p>
+              ) : null}
+              <ExpressDropOffChoice
+                mode={mode}
+                tone={tone}
+                editing={expressEditingLeg === leg.leg}
+                onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
+                airportCode="DUB"
+                service="pick-up"
+                idPrefix={leg.leg}
+                fareTotalGbp={fareTotalGbp}
+                selected={false}
+                removalAcknowledged
+                meetGreetFeeGbp={meetGreetFeeGbp("DUB", publicPricing.meetGreet)}
+                accessChoice={choice === "express" ? "free" : choice}
+                onAccessChoiceChange={(next) => {
+                  const safe = next === "meet-greet" ? "meet-greet" : "free";
+                  if (leg.leg === "return") setReturnAccessChoice(safe);
+                  else setOutboundAccessChoice(safe);
+                }}
+                onSelectedChange={() => undefined}
+                onRemovalAcknowledgedChange={() => undefined}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   function renderExpressChoiceInPriceCard(
     mode: "full" | "summary",
     tone: "on-dark" | "on-light" = "on-dark",
   ) {
     if (testChargeAmount !== null) return null;
+    const dublinPickups = listAirportPickupLegs({
+      airportCode: effectiveAirportCode || null,
+      fromAirport: isFromAirport,
+      returnJourney,
+      isAirportToAirport: isAirportToAirportJourney,
+      pickupAirportCode,
+      dropoffAirportCode,
+    }).filter((leg) => leg.airportCode === "DUB");
+    const uncoveredDublin = dublinPickups.filter(
+      (leg) =>
+        !expressSelection.legs.some(
+          (expressLeg) => expressLeg.leg === leg.leg && expressLeg.service === "pick-up",
+        ),
+    );
     if (!expressSelection.eligible) {
-      return renderRequiredAirportAccessNotes(tone);
+      if (uncoveredDublin.length === 0) return renderRequiredAirportAccessNotes(tone);
+      return renderMeetGreetOnlyChoice(mode, tone, uncoveredDublin);
     }
     const legs = expressSelection.legs.filter((leg) => leg.airportCode);
     if (legs.length === 0) return null;
@@ -5307,13 +5408,15 @@ function QuoteCard({
         ? paymentAmount
         : pricedFare?.totalGbp;
 
-    return (
+    const expressChoices = (
       <div className="mt-3 space-y-4 text-left" data-express-airport-choice>
         {legs.map((leg) => {
-          const selected =
-            leg.leg === "return" ? returnExpressDropOffSelected : expressDropOffSelected;
+          const choice = leg.leg === "return" ? returnAccessChoice : outboundAccessChoice;
+          const selected = choice === "express";
           const removalAcknowledged =
             leg.leg === "return" ? returnExpressRemovalAck : expressRemovalAck;
+          const meetGreetOnPickup =
+            leg.service === "pick-up" ? meetGreetFeeGbp(leg.airportCode, publicPricing.meetGreet) : null;
           return (
             <div key={leg.leg} data-express-leg={leg.leg}>
               {legs.length > 1 ? (
@@ -5334,14 +5437,21 @@ function QuoteCard({
                 selected={selected}
                 removalAcknowledged={removalAcknowledged}
                 requireAcknowledgement={expressAckRequired}
-                onSelectedChange={(nextSelected) => {
+                meetGreetFeeGbp={meetGreetOnPickup}
+                accessChoice={leg.service === "pick-up" ? choice : selected ? "express" : "free"}
+                onAccessChoiceChange={(next) => {
+                  const safe =
+                    leg.service === "pick-up" ? next : next === "express" ? "express" : "free";
                   if (leg.leg === "return") {
-                    setReturnExpressDropOffSelected(nextSelected);
-                    setReturnExpressRemovalAck(!nextSelected);
+                    setReturnAccessChoice(safe);
+                    setReturnExpressRemovalAck(safe !== "express");
                   } else {
-                    setExpressDropOffSelected(nextSelected);
-                    setExpressRemovalAck(!nextSelected);
+                    setOutboundAccessChoice(safe);
+                    setExpressRemovalAck(safe !== "express");
                   }
+                  setExpressAckRequired(false);
+                }}
+                onSelectedChange={() => {
                   setExpressAckRequired(false);
                 }}
                 onRemovalAcknowledgedChange={(ack) => {
@@ -5357,6 +5467,13 @@ function QuoteCard({
           );
         })}
       </div>
+    );
+    if (uncoveredDublin.length === 0) return expressChoices;
+    return (
+      <>
+        {expressChoices}
+        {renderMeetGreetOnlyChoice(mode, tone, uncoveredDublin)}
+      </>
     );
   }
 
@@ -5386,7 +5503,7 @@ function QuoteCard({
             breakdown={openWebsiteFareBreakdown}
             service={expressSelection.service ?? "drop-off"}
             freeAirportAccessSelected={
-              expressSelection.eligible && expressSelection.feeGbp === 0
+              expressSelection.eligible && airportAccessQuote.airportAccessChargeGbp === 0
             }
           />
           {renderAirportFeeLines()}
