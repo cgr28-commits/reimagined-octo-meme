@@ -87,10 +87,17 @@ export default function BookingConfirmedClient() {
         expressDropOffFee: pending.booking.expressDropOffFee,
         expressDropOffAirport:
           pending.booking.expressDropOffAirport ?? pending.booking.airportCode,
+        airportCode: pending.booking.airportCode,
         fromAirport: pending.booking.isFromAirport,
         returnJourney: pending.booking.returnJourney,
+        isAirportToAirport: pending.booking.isAirportToAirport,
+        pickupAirportCode: pending.booking.pickupAirportCode,
+        dropoffAirportCode: pending.booking.dropoffAirportCode,
         outboundExpressDropOffSelected: pending.booking.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: pending.booking.returnExpressDropOffSelected,
+        outboundAirportAccessOption: pending.booking.outboundAirportAccessOption,
+        returnAirportAccessOption: pending.booking.returnAirportAccessOption,
+        airportAccessOption: pending.booking.airportAccessOption,
         outboundAirportAccessChargeGbp: pending.booking.outboundAirportAccessChargeGbp,
         returnAirportAccessChargeGbp: pending.booking.returnAirportAccessChargeGbp,
       });

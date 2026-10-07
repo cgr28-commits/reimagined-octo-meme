@@ -848,9 +848,26 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           Airport / fixed charges
         </h3>
         <p className="mt-2 text-xs text-white/55">
-          Display only in this release. These values are already configuration-driven and can be
-          made editable in a later PR.
+          Fixed airport charges below stay display-only. Meet &amp; Greet pickup fees can be changed
+          here and apply to new quotes.
         </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <MoneyField
+            label="Meet & Greet — Belfast International"
+            value={draft.meetGreet.bfsGbp}
+            onChange={(bfsGbp) => update("meetGreet", { ...draft.meetGreet, bfsGbp })}
+          />
+          <MoneyField
+            label="Meet & Greet — Belfast City"
+            value={draft.meetGreet.bhdGbp}
+            onChange={(bhdGbp) => update("meetGreet", { ...draft.meetGreet, bhdGbp })}
+          />
+          <MoneyField
+            label="Meet & Greet — Dublin Airport"
+            value={draft.meetGreet.dubGbp}
+            onChange={(dubGbp) => update("meetGreet", { ...draft.meetGreet, dubGbp })}
+          />
+        </div>
         <ul className="mt-3 space-y-2 text-sm text-white/80">
           {(["BFS", "BHD", "DUB", "LDY"] as const).map((code) => {
             const row = AIRPORT_FIXED_COSTS_GBP[code];

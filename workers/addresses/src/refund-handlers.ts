@@ -2136,19 +2136,53 @@ export async function savePaidBookingRecordFromConfirm(input: {
       : input.booking.expressDropOffAirport === null
         ? { expressDropOffAirport: null }
         : {}),
+    ...(input.booking.outboundAirportAccessOption === "express" ||
+    input.booking.outboundAirportAccessOption === "free" ||
+    input.booking.outboundAirportAccessOption === "meet-greet"
+      ? { outboundAirportAccessOption: input.booking.outboundAirportAccessOption }
+      : {}),
+    ...(input.booking.returnAirportAccessOption === "express" ||
+    input.booking.returnAirportAccessOption === "free" ||
+    input.booking.returnAirportAccessOption === "meet-greet"
+      ? { returnAirportAccessOption: input.booking.returnAirportAccessOption }
+      : {}),
+    ...(typeof input.booking.outboundAirportAccessChargeGbp === "number" &&
+    Number.isFinite(input.booking.outboundAirportAccessChargeGbp)
+      ? {
+          outboundAirportAccessChargeGbp:
+            Math.round(Number(input.booking.outboundAirportAccessChargeGbp) * 100) / 100,
+        }
+      : {}),
+    ...(typeof input.booking.returnAirportAccessChargeGbp === "number" &&
+    Number.isFinite(input.booking.returnAirportAccessChargeGbp)
+      ? {
+          returnAirportAccessChargeGbp:
+            Math.round(Number(input.booking.returnAirportAccessChargeGbp) * 100) / 100,
+        }
+      : {}),
     ...(input.booking.expressDropOffAirport === "BFS" ||
     input.booking.expressDropOffAirport === "BHD" ||
+    input.booking.airportAccessOption === "meet-greet" ||
+    input.booking.outboundAirportAccessOption === "meet-greet" ||
+    input.booking.returnAirportAccessOption === "meet-greet" ||
     typeof input.booking.expressDropOffSelected === "boolean"
       ? {
           airportAccessOption:
-            input.booking.expressDropOffSelected === true
-              ? "express"
-              : input.booking.expressDropOffSelected === false
-                ? "free"
-                : typeof input.booking.expressDropOffFee === "number" &&
-                    input.booking.expressDropOffFee > 0
+            input.booking.airportAccessOption === "meet-greet" ||
+            input.booking.outboundAirportAccessOption === "meet-greet" ||
+            input.booking.returnAirportAccessOption === "meet-greet"
+              ? "meet-greet"
+              : input.booking.airportAccessOption === "express" ||
+                  input.booking.airportAccessOption === "free"
+                ? input.booking.airportAccessOption
+                : input.booking.expressDropOffSelected === true
                   ? "express"
-                  : null,
+                  : input.booking.expressDropOffSelected === false
+                    ? "free"
+                    : typeof input.booking.expressDropOffFee === "number" &&
+                        input.booking.expressDropOffFee > 0
+                      ? "express"
+                      : null,
         }
       : {}),
     termsAcceptedAt: input.booking.termsAcceptedAt,

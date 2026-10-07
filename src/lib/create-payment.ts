@@ -62,6 +62,8 @@ export type PaymentCheckoutRequest = {
   expressDropOffSelected?: boolean;
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
+  outboundAirportAccessOption?: "express" | "free" | "meet-greet";
+  returnAirportAccessOption?: "express" | "free" | "meet-greet";
   /**
    * Journey fare before airport access.
    * Used with the authoritative website fare composer on open-website checkout.
@@ -352,6 +354,12 @@ export async function createPaymentCheckout(
         : {}),
       ...(typeof request.returnExpressDropOffSelected === "boolean"
         ? { returnExpressDropOffSelected: request.returnExpressDropOffSelected }
+        : {}),
+      ...(request.outboundAirportAccessOption
+        ? { outboundAirportAccessOption: request.outboundAirportAccessOption }
+        : {}),
+      ...(request.returnAirportAccessOption
+        ? { returnAirportAccessOption: request.returnAirportAccessOption }
         : {}),
       ...(typeof request.journeyFareGbp === "number"
         ? { journeyFareGbp: request.journeyFareGbp }

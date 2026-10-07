@@ -92,12 +92,12 @@ export type PaidBookingDetails = {
   expressDropOffSelected?: boolean;
   expressDropOffFee?: number;
   expressDropOffAirport?: "BFS" | "BHD" | null;
-  /** Explicit access choice stored with the booking ("express" | "free"). */
-  airportAccessOption?: "express" | "free" | null;
+  /** Explicit access choice stored with the booking ("express" | "free" | "meet-greet"). */
+  airportAccessOption?: "express" | "free" | "meet-greet" | null;
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
-  outboundAirportAccessOption?: "express" | "free" | null;
-  returnAirportAccessOption?: "express" | "free" | null;
+  outboundAirportAccessOption?: "express" | "free" | "meet-greet" | null;
+  returnAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   outboundAirportAccessChargeGbp?: number;
   returnAirportAccessChargeGbp?: number;
   dublinArrivalTerminal?: "T1" | "T2" | null;
@@ -383,10 +383,17 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     expressDropOffSelected: details.expressDropOffSelected,
     expressDropOffFee: details.expressDropOffFee,
     expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+    airportCode: details.airportCode,
     fromAirport: details.isFromAirport,
     returnJourney: details.returnJourney,
+    isAirportToAirport: details.isAirportToAirport,
+    pickupAirportCode: details.pickupAirportCode,
+    dropoffAirportCode: details.dropoffAirportCode,
     outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
     returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+    outboundAirportAccessOption: details.outboundAirportAccessOption,
+    returnAirportAccessOption: details.returnAirportAccessOption,
+    airportAccessOption: details.airportAccessOption,
     outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
     returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
   });
@@ -706,10 +713,17 @@ export function buildCustomerConfirmationEmail(
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        airportCode: details.airportCode,
         fromAirport: details.isFromAirport,
         returnJourney: details.returnJourney,
+        isAirportToAirport: details.isAirportToAirport,
+        pickupAirportCode: details.pickupAirportCode,
+        dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        outboundAirportAccessOption: details.outboundAirportAccessOption,
+        returnAirportAccessOption: details.returnAirportAccessOption,
+        airportAccessOption: details.airportAccessOption,
         outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
         returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
       });
@@ -801,10 +815,17 @@ export function buildOwnerPaidBookingEmail(
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        airportCode: details.airportCode,
         fromAirport: details.isFromAirport,
         returnJourney: details.returnJourney,
+        isAirportToAirport: details.isAirportToAirport,
+        pickupAirportCode: details.pickupAirportCode,
+        dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        outboundAirportAccessOption: details.outboundAirportAccessOption,
+        returnAirportAccessOption: details.returnAirportAccessOption,
+        airportAccessOption: details.airportAccessOption,
         outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
         returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
       });
@@ -813,10 +834,17 @@ export function buildOwnerPaidBookingEmail(
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        airportCode: details.airportCode,
         fromAirport: details.isFromAirport,
         returnJourney: details.returnJourney,
+        isAirportToAirport: details.isAirportToAirport,
+        pickupAirportCode: details.pickupAirportCode,
+        dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        outboundAirportAccessOption: details.outboundAirportAccessOption,
+        returnAirportAccessOption: details.returnAirportAccessOption,
+        airportAccessOption: details.airportAccessOption,
         outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
         returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
       });

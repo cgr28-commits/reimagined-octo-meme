@@ -140,7 +140,7 @@ export function buildArrivedPickupWhatsAppMessage(options: {
   customerName?: string;
   pickupLabel?: string;
   airportCode?: string | null;
-  airportAccessOption?: "express" | "free" | null;
+  airportAccessOption?: "express" | "free" | "meet-greet" | null;
   expressDropOffSelected?: boolean | null;
   expressDropOffAirport?: string | null;
   expressDropOffFee?: number | null;

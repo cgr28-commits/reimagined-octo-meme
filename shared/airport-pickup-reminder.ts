@@ -248,12 +248,13 @@ export function resolveReminderAirportAccess(
   input: AirportPickupReminderInput,
   airport: ReminderAirportCode,
 ): CompanyVoiceAirportAccessOption | null {
-  if (airport === "DUB") return null;
-  if (!EXPRESS_FREE_PICKUP_CONFIGURED[airport]) return null;
-
   const leg = reminderLeg(input);
   const legOption =
     leg === "return" ? input.returnAirportAccessOption : input.outboundAirportAccessOption;
+  if (legOption === "meet-greet") return "meet-greet";
+  if (airport === "DUB") return null;
+  if (!EXPRESS_FREE_PICKUP_CONFIGURED[airport]) return null;
+
   if (legOption === "express" || legOption === "free") return legOption;
 
   const legSelected =
@@ -262,7 +263,11 @@ export function resolveReminderAirportAccess(
 
   if (leg === "return") return null;
 
-  if (input.airportAccessOption === "express" || input.airportAccessOption === "free") {
+  if (
+    input.airportAccessOption === "express" ||
+    input.airportAccessOption === "free" ||
+    input.airportAccessOption === "meet-greet"
+  ) {
     return input.airportAccessOption;
   }
 
@@ -291,6 +296,18 @@ export function buildAirportPickupReminderDirections(
   const airport = reminderAirport(input);
   if (!airport) return null;
 
+  const access = resolveReminderAirportAccess(input, airport);
+  if (access === "meet-greet") {
+    return adaptDirections(
+      buildAirportPickupInstruction({
+        isAirportPickup: true,
+        airportCode: airport,
+        pickupLabel: input.pickupLabel ?? getServedAirport(airport)?.name,
+        airportAccessOption: "meet-greet",
+      }),
+    );
+  }
+
   if (airport === "DUB") {
     const instruction = buildAirportPickupInstruction({
       isAirportPickup: true,
@@ -301,7 +318,6 @@ export function buildAirportPickupReminderDirections(
     return adaptDirections(instruction);
   }
 
-  const access = resolveReminderAirportAccess(input, airport);
   if (access !== "express" && access !== "free") return null;
 
   const instruction = buildAirportPickupInstruction({
@@ -330,8 +346,9 @@ function collectionOptionLabel(
   airport: ReminderAirportCode,
   input: AirportPickupReminderInput,
 ): string | null {
-  if (airport === "DUB") return "Paid pickup";
   const access = resolveReminderAirportAccess(input, airport);
+  if (access === "meet-greet") return "Meet & Greet";
+  if (airport === "DUB") return "Paid pickup";
   if (access === "express") return "Express Pickup";
   if (access === "free") return "Free Pickup";
   return null;

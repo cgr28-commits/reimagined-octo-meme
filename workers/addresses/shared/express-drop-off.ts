@@ -1,3 +1,11 @@
+import {
+  listAirportPickupLegs,
+  meetGreetCustomerValue,
+  meetGreetDashboardValue,
+  meetGreetFeeGbp,
+  meetGreetOwnerValue,
+} from "./meet-greet";
+
 /**
  * Optional airport Express Drop-Off / Pick-Up add-on (customer-facing).
  *
@@ -545,7 +553,7 @@ export function combinedFreeAlternativeAvailable(
 }
 
 /** Explicit customer choice — never infer from final price alone. */
-export type AirportAccessOption = "express" | "free";
+export type AirportAccessOption = "express" | "free" | "meet-greet";
 
 /** Structured fields for quotes / bookings / emails. */
 export type ExpressDropOffPersistedFields = {
@@ -620,7 +628,15 @@ export function formatAirportAccessOptionCustomerLine(input: {
   expressDropOffAirport?: string | null;
   fromAirport?: boolean | null;
   service?: ExpressAirportService | null;
+  airportAccessOption?: AirportAccessOption | null;
 }): string | null {
+  if (input.airportAccessOption === "meet-greet") {
+    const fee =
+      typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0
+        ? roundGbp(input.expressDropOffFee)
+        : 0;
+    return `Airport access option: ${meetGreetCustomerValue(fee)}`;
+  }
   const option = resolveAirportAccessOption(input);
   if (!option) return null;
   const airport = normaliseExpressDropOffAirport(input.expressDropOffAirport);
@@ -643,16 +659,29 @@ export function formatAirportAccessOptionCustomerLine(input: {
 
 function formatAirportAccessLegCustomerValue(input: {
   option: AirportAccessOption;
-  airportCode: ExpressDropOffAirportCode;
+  airportCode: ExpressDropOffAirportCode | string;
   service: ExpressAirportService;
   feeGbp?: number;
 }): string {
+  if (input.option === "meet-greet") {
+    const fee =
+      typeof input.feeGbp === "number" && input.feeGbp > 0
+        ? roundGbp(input.feeGbp)
+        : meetGreetFeeGbp(input.airportCode);
+    return meetGreetCustomerValue(fee);
+  }
   const product = input.service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
+  const airport = normaliseExpressDropOffAirport(input.airportCode);
+  if (!airport) {
+    return input.service === "pick-up"
+      ? "Free designated pick-up area — short walk from terminal"
+      : "Free designated drop-off area — short walk to terminal";
+  }
   if (input.option === "express") {
     const fee =
       typeof input.feeGbp === "number" && input.feeGbp > 0
         ? roundGbp(input.feeGbp)
-        : EXPRESS_DROP_OFF_FEES_GBP[input.airportCode];
+        : EXPRESS_DROP_OFF_FEES_GBP[airport];
     return `${product} — ${formatExpressDropOffGbp(fee)}`;
   }
   return input.service === "pick-up"
@@ -660,98 +689,161 @@ function formatAirportAccessLegCustomerValue(input: {
     : "Free designated drop-off area — short walk to terminal";
 }
 
-/**
- * Customer confirmation lines. Return bookings get one line per applicable leg.
- */
-export function formatAirportAccessOptionCustomerLines(input: {
+type StoredAccessLineInput = {
   expressDropOffSelected?: boolean | null;
   expressDropOffFee?: number | null;
   expressDropOffAirport?: string | null;
+  airportCode?: string | null;
   fromAirport?: boolean | null;
   returnJourney?: boolean | null;
+  isAirportToAirport?: boolean | null;
+  pickupAirportCode?: string | null;
+  dropoffAirportCode?: string | null;
   outboundExpressDropOffSelected?: boolean | null;
   returnExpressDropOffSelected?: boolean | null;
+  outboundAirportAccessOption?: AirportAccessOption | null;
+  returnAirportAccessOption?: AirportAccessOption | null;
   outboundAirportAccessChargeGbp?: number | null;
   returnAirportAccessChargeGbp?: number | null;
-}): string[] {
+  airportAccessOption?: AirportAccessOption | null;
+};
+
+type StoredAccessRow = {
+  leg: "outbound" | "return";
+  service: ExpressAirportService;
+  airportCode: string;
+  option: AirportAccessOption;
+  feeGbp: number;
+};
+
+function storedAccessRows(input: StoredAccessLineInput): StoredAccessRow[] {
   const selection = resolveExpressDropOff({
-    airportCode: input.expressDropOffAirport,
+    airportCode: input.expressDropOffAirport ?? input.airportCode,
     fromAirport: input.fromAirport,
     returnJourney: input.returnJourney,
     selected: input.expressDropOffSelected,
     outboundSelected: input.outboundExpressDropOffSelected,
     returnSelected: input.returnExpressDropOffSelected,
   });
-  if (!selection.eligible) return [];
-  if (selection.legs.length <= 1) {
-    const one = formatAirportAccessOptionCustomerLine({
-      ...input,
-      service: selection.service,
-      expressDropOffFee: selection.feeGbp,
-    });
-    return one ? [one] : [];
-  }
-  return selection.legs.map((leg) => {
+  const rows: StoredAccessRow[] = selection.legs.map((leg) => {
+    const explicit =
+      leg.leg === "return" ? input.returnAirportAccessOption : input.outboundAirportAccessOption;
     const charged =
       leg.leg === "return"
         ? input.returnAirportAccessChargeGbp
         : input.outboundAirportAccessChargeGbp;
-    const value = formatAirportAccessLegCustomerValue({
-      option: leg.selected ? "express" : "free",
-      airportCode: leg.airportCode,
+    const option: AirportAccessOption =
+      explicit === "meet-greet" && leg.service === "pick-up"
+        ? "meet-greet"
+        : explicit === "express" || explicit === "free"
+          ? explicit
+          : leg.selected
+            ? "express"
+            : "free";
+    const feeGbp =
+      option === "meet-greet"
+        ? typeof charged === "number" && charged > 0
+          ? roundGbp(charged)
+          : meetGreetFeeGbp(leg.airportCode)
+        : option === "express"
+          ? typeof charged === "number" && charged > 0
+            ? roundGbp(charged)
+            : leg.feeIfSelectedGbp
+          : 0;
+    return {
+      leg: leg.leg,
       service: leg.service,
-      feeGbp: typeof charged === "number" ? charged : leg.chargedFeeGbp,
+      airportCode: leg.airportCode,
+      option,
+      feeGbp,
+    };
+  });
+
+  const pickupLegs = listAirportPickupLegs({
+    airportCode: input.airportCode ?? input.expressDropOffAirport,
+    fromAirport: input.fromAirport,
+    returnJourney: input.returnJourney,
+    isAirportToAirport: input.isAirportToAirport,
+    pickupAirportCode: input.pickupAirportCode,
+    dropoffAirportCode: input.dropoffAirportCode,
+  });
+  for (const pickup of pickupLegs) {
+    if (rows.some((row) => row.leg === pickup.leg && row.service === "pick-up")) continue;
+    const explicit =
+      pickup.leg === "return" ? input.returnAirportAccessOption : input.outboundAirportAccessOption;
+    const fallback =
+      pickup.leg === "outbound" && input.airportAccessOption === "meet-greet"
+        ? "meet-greet"
+        : null;
+    if (explicit !== "meet-greet" && fallback !== "meet-greet") continue;
+    const charged =
+      pickup.leg === "return"
+        ? input.returnAirportAccessChargeGbp
+        : input.outboundAirportAccessChargeGbp;
+    rows.push({
+      leg: pickup.leg,
+      service: "pick-up",
+      airportCode: pickup.airportCode,
+      option: "meet-greet",
+      feeGbp:
+        typeof charged === "number" && charged > 0
+          ? roundGbp(charged)
+          : meetGreetFeeGbp(pickup.airportCode),
     });
-    const prefix = leg.leg === "outbound" ? "Outbound" : "Return";
+  }
+  return rows;
+}
+
+/**
+ * Customer confirmation lines. Return bookings get one line per applicable leg.
+ */
+export function formatAirportAccessOptionCustomerLines(input: StoredAccessLineInput): string[] {
+  const rows = storedAccessRows(input);
+  if (rows.length === 0) return [];
+  if (rows.length === 1) {
+    const row = rows[0]!;
+    if (row.option === "meet-greet") {
+      return [`Airport access option: ${meetGreetCustomerValue(row.feeGbp)}`];
+    }
+    const one = formatAirportAccessOptionCustomerLine({
+      ...input,
+      service: row.service,
+      expressDropOffSelected: row.option === "express",
+      expressDropOffFee: row.option === "express" ? row.feeGbp : 0,
+      expressDropOffAirport: normaliseExpressDropOffAirport(row.airportCode),
+      airportAccessOption: row.option,
+    });
+    return one ? [one] : [];
+  }
+  return rows.map((row) => {
+    const value = formatAirportAccessLegCustomerValue({
+      option: row.option,
+      airportCode: row.airportCode,
+      service: row.service,
+      feeGbp: row.feeGbp,
+    });
+    const prefix = row.leg === "outbound" ? "Outbound" : "Return";
     return `${prefix} airport access: ${value}`;
   });
 }
 
-export function formatAirportAccessOptionOwnerLines(input: {
-  expressDropOffSelected?: boolean | null;
-  expressDropOffFee?: number | null;
-  expressDropOffAirport?: string | null;
-  fromAirport?: boolean | null;
-  returnJourney?: boolean | null;
-  outboundExpressDropOffSelected?: boolean | null;
-  returnExpressDropOffSelected?: boolean | null;
-  outboundAirportAccessChargeGbp?: number | null;
-  returnAirportAccessChargeGbp?: number | null;
-}): string[] {
-  const selection = resolveExpressDropOff({
-    airportCode: input.expressDropOffAirport,
-    fromAirport: input.fromAirport,
-    returnJourney: input.returnJourney,
-    selected: input.expressDropOffSelected,
-    outboundSelected: input.outboundExpressDropOffSelected,
-    returnSelected: input.returnExpressDropOffSelected,
-  });
-  if (!selection.eligible) return [];
-  if (selection.legs.length <= 1) {
-    const one = formatAirportAccessOptionOwnerLine({
-      ...input,
-      service: selection.service,
-      expressDropOffFee: selection.feeGbp,
-    });
-    return one ? [one] : [];
+function formatStoredAccessOwnerValue(row: StoredAccessRow, prefixed: boolean): string {
+  const prefix = prefixed ? (row.leg === "outbound" ? "OUTBOUND " : "RETURN ") : "";
+  if (row.option === "meet-greet") {
+    return `${prefix}AIRPORT ACCESS: ${meetGreetOwnerValue(row.feeGbp)}`;
   }
-  return selection.legs.map((leg) => {
-    const charged =
-      leg.leg === "return"
-        ? input.returnAirportAccessChargeGbp
-        : input.outboundAirportAccessChargeGbp;
-    const prefix = leg.leg === "outbound" ? "OUTBOUND" : "RETURN";
-    if (leg.selected) {
-      const fee =
-        typeof charged === "number" && charged > 0
-          ? roundGbp(charged)
-          : EXPRESS_DROP_OFF_FEES_GBP[leg.airportCode];
-      return `${prefix} AIRPORT ACCESS: EXPRESS — ${formatExpressDropOffGbp(fee)} PAID`;
-    }
-    return leg.service === "pick-up"
-      ? `${prefix} AIRPORT ACCESS: FREE PICK-UP AREA`
-      : `${prefix} AIRPORT ACCESS: FREE DROP-OFF AREA`;
-  });
+  if (row.option === "express") {
+    return `${prefix}AIRPORT ACCESS: EXPRESS — ${formatExpressDropOffGbp(row.feeGbp)} PAID`;
+  }
+  return row.service === "pick-up"
+    ? `${prefix}AIRPORT ACCESS: FREE PICK-UP AREA`
+    : `${prefix}AIRPORT ACCESS: FREE DROP-OFF AREA`;
+}
+
+export function formatAirportAccessOptionOwnerLines(input: StoredAccessLineInput): string[] {
+  const rows = storedAccessRows(input);
+  if (rows.length === 0) return [];
+  return rows.map((row) => formatStoredAccessOwnerValue(row, rows.length > 1));
 }
 
 /**
@@ -765,7 +857,15 @@ export function formatAirportAccessOptionOwnerLine(input: {
   expressDropOffAirport?: string | null;
   fromAirport?: boolean | null;
   service?: ExpressAirportService | null;
+  airportAccessOption?: AirportAccessOption | null;
 }): string | null {
+  if (input.airportAccessOption === "meet-greet") {
+    const fee =
+      typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0
+        ? roundGbp(input.expressDropOffFee)
+        : meetGreetFeeGbp(input.expressDropOffAirport);
+    return `AIRPORT ACCESS: ${meetGreetOwnerValue(fee)}`;
+  }
   const option = resolveAirportAccessOption(input);
   if (!option) return null;
   const airport = normaliseExpressDropOffAirport(input.expressDropOffAirport);
@@ -790,13 +890,26 @@ export function formatAirportAccessOptionOwnerLine(input: {
  * Example: "Express — £5 paid"
  * Example: "Free drop-off area"
  */
-export function formatAirportAccessOptionDashboardValue(input: {
-  expressDropOffSelected?: boolean | null;
-  expressDropOffFee?: number | null;
-  expressDropOffAirport?: string | null;
-  fromAirport?: boolean | null;
+export function formatAirportAccessOptionDashboardValue(input: StoredAccessLineInput & {
   service?: ExpressAirportService | null;
 }): string | null {
+  const rows = storedAccessRows(input);
+  if (rows.some((row) => row.option === "meet-greet")) {
+    return rows
+      .map((row) => {
+        const label = row.option === "meet-greet"
+          ? meetGreetDashboardValue(row.feeGbp)
+          : row.option === "express"
+            ? `Express — ${formatExpressDropOffGbp(row.feeGbp)} paid`
+            : row.service === "pick-up"
+              ? "Free pick-up area"
+              : "Free drop-off area";
+        return rows.length > 1
+          ? `${row.leg === "outbound" ? "Outbound" : "Return"}: ${label}`
+          : label;
+      })
+      .join(" · ");
+  }
   const option = resolveAirportAccessOption(input);
   if (!option) return null;
   const airport = normaliseExpressDropOffAirport(input.expressDropOffAirport);

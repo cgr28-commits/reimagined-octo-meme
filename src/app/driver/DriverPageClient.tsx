@@ -1700,6 +1700,12 @@ function DriverJobCard({
               {job.airportCode ? ` · ${job.airportCode}` : ""}
             </p>
           )}
+          {job.airportAccessOption === "meet-greet" ? (
+            <p className="mt-2 text-sm font-semibold text-amber-100" data-driver-meet-greet>
+              Meet &amp; Greet — enter the terminal arrivals area with a personalised name board
+              and assist with luggage.
+            </p>
+          ) : null}
           {(isOwner || isAcceptedAssignment) && job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
           )}

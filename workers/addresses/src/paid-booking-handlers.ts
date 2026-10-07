@@ -515,9 +515,22 @@ export async function handlePaidBookingsListRequest(
           Number.isFinite(booking.returnAirportAccessChargeGbp)
             ? booking.returnAirportAccessChargeGbp
             : undefined,
+        outboundAirportAccessOption:
+          booking.outboundAirportAccessOption === "express" ||
+          booking.outboundAirportAccessOption === "free" ||
+          booking.outboundAirportAccessOption === "meet-greet"
+            ? booking.outboundAirportAccessOption
+            : undefined,
+        returnAirportAccessOption:
+          booking.returnAirportAccessOption === "express" ||
+          booking.returnAirportAccessOption === "free" ||
+          booking.returnAirportAccessOption === "meet-greet"
+            ? booking.returnAirportAccessOption
+            : undefined,
         airportAccessOption:
           booking.airportAccessOption === "express" ||
-          booking.airportAccessOption === "free"
+          booking.airportAccessOption === "free" ||
+          booking.airportAccessOption === "meet-greet"
             ? booking.airportAccessOption
             : undefined,
         dublinArrivalTerminal:

@@ -50,8 +50,9 @@ export type BookingDetails = {
   expressDropOffAirport?: "BFS" | "BHD" | null;
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
-  outboundAirportAccessOption?: "express" | "free";
-  returnAirportAccessOption?: "express" | "free";
+  airportAccessOption?: "express" | "free" | "meet-greet";
+  outboundAirportAccessOption?: "express" | "free" | "meet-greet";
+  returnAirportAccessOption?: "express" | "free" | "meet-greet";
   outboundAirportAccessChargeGbp?: number;
   returnAirportAccessChargeGbp?: number;
   journeyFareBeforePromotionsGbp?: number;
@@ -167,10 +168,17 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
         expressDropOffSelected: details.expressDropOffSelected,
         expressDropOffFee: details.expressDropOffFee,
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
+        airportCode: details.airportCode,
         fromAirport: details.isFromAirport,
         returnJourney: details.returnJourney,
+        isAirportToAirport: details.isAirportToAirport,
+        pickupAirportCode: details.pickupAirportCode,
+        dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        outboundAirportAccessOption: details.outboundAirportAccessOption,
+        returnAirportAccessOption: details.returnAirportAccessOption,
+        airportAccessOption: details.airportAccessOption,
         outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
         returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,
       });

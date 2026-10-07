@@ -422,6 +422,10 @@ import {
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
 import {
+  parseAirportAccessChoice,
+  quoteAirportAccessCharges,
+} from "../shared/meet-greet";
+import {
   formatHoursUntilPickupLabel,
   isWithinMinimumBookingNotice,
 } from "../shared/booking-notice";
@@ -1150,6 +1154,21 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
       : details.expressDropOffAirport === null
         ? { expressDropOffAirport: null }
         : {}),
+    ...(details.outboundAirportAccessOption === "express" ||
+    details.outboundAirportAccessOption === "free" ||
+    details.outboundAirportAccessOption === "meet-greet"
+      ? { outboundAirportAccessOption: details.outboundAirportAccessOption }
+      : {}),
+    ...(details.returnAirportAccessOption === "express" ||
+    details.returnAirportAccessOption === "free" ||
+    details.returnAirportAccessOption === "meet-greet"
+      ? { returnAirportAccessOption: details.returnAirportAccessOption }
+      : {}),
+    ...(details.airportAccessOption === "express" ||
+    details.airportAccessOption === "free" ||
+    details.airportAccessOption === "meet-greet"
+      ? { airportAccessOption: details.airportAccessOption }
+      : {}),
     ...(typeof details.journeyFareBeforePromotionsGbp === "number" &&
     Number.isFinite(details.journeyFareBeforePromotionsGbp)
       ? {
@@ -2723,7 +2742,41 @@ async function handlePaymentRequest(
       outboundSelected: outboundExpressSelected,
       returnSelected: returnExpressSelected,
     });
-    const persisted = toExpressDropOffPersistedFields(express);
+    const expressPersisted = toExpressDropOffPersistedFields(express);
+    const bodyAccess = body as {
+      outboundAirportAccessOption?: unknown;
+      returnAirportAccessOption?: unknown;
+    };
+    const quotedAccess = quoteAirportAccessCharges({
+      expressLegs: express.legs,
+      airportCode: airportContext.airportCode,
+      fromAirport: airportContext.fromAirport,
+      returnJourney: booking.returnJourney,
+      isAirportToAirport: airportContext.isAirportToAirport,
+      pickupAirportCode: airportContext.pickupAirportCode,
+      dropoffAirportCode: airportContext.dropoffAirportCode,
+      outboundChoice: parseAirportAccessChoice(
+        bodyAccess.outboundAirportAccessOption ?? booking.outboundAirportAccessOption,
+        outboundExpressSelected,
+      ),
+      returnChoice: parseAirportAccessChoice(
+        bodyAccess.returnAirportAccessOption ?? booking.returnAirportAccessOption,
+        returnExpressSelected,
+      ),
+      fees: pricing.meetGreet,
+    });
+    const persisted = {
+      ...expressPersisted,
+      expressDropOffSelected: quotedAccess.expressDropOffSelected,
+      expressDropOffFee: quotedAccess.expressDropOffFee,
+      expressDropOffAirport: quotedAccess.expressDropOffAirport,
+      outboundExpressDropOffSelected: quotedAccess.outboundExpressDropOffSelected,
+      returnExpressDropOffSelected: quotedAccess.returnExpressDropOffSelected,
+      outboundAirportAccessOption: quotedAccess.outboundAirportAccessOption,
+      returnAirportAccessOption: quotedAccess.returnAirportAccessOption,
+      outboundAirportAccessChargeGbp: quotedAccess.outboundAirportAccessChargeGbp,
+      returnAirportAccessChargeGbp: quotedAccess.returnAirportAccessChargeGbp,
+    };
 
     let returnOfferDiscountRate = 0;
     if (returnOfferToken && env.TRACKING_STORE) {
@@ -2742,7 +2795,7 @@ async function handlePaymentRequest(
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
       airportFixedCostsGbp,
       nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
-      airportAccessChargeGbp: persisted.expressDropOffFee,
+      airportAccessChargeGbp: quotedAccess.airportAccessChargeGbp,
       outboundAirportAccessChargeGbp: persisted.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       returnJourney: Boolean(booking.returnJourney),
@@ -2812,6 +2865,7 @@ async function handlePaymentRequest(
       returnExpressDropOffSelected: persisted.returnExpressDropOffSelected,
       outboundAirportAccessOption: persisted.outboundAirportAccessOption,
       returnAirportAccessOption: persisted.returnAirportAccessOption,
+      airportAccessOption: quotedAccess.airportAccessOption,
       outboundAirportAccessChargeGbp: persisted.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       ...promoFieldsFromFareBreakdown(breakdown),

@@ -1583,7 +1583,14 @@ export default function OwnerPaidBookingsPanel({
       expressDropOffSelected: booking.expressDropOffSelected,
       expressDropOffFee: booking.expressDropOffFee,
       expressDropOffAirport: booking.expressDropOffAirport ?? booking.airportCode,
+      airportCode: booking.airportCode,
       fromAirport: booking.isFromAirport,
+      returnJourney: booking.returnJourney,
+      outboundAirportAccessOption: booking.outboundAirportAccessOption,
+      returnAirportAccessOption: booking.returnAirportAccessOption,
+      airportAccessOption: booking.airportAccessOption,
+      outboundAirportAccessChargeGbp: booking.outboundAirportAccessChargeGbp,
+      returnAirportAccessChargeGbp: booking.returnAirportAccessChargeGbp,
     });
     const displayedNav = resolveOwnerDisplayedLegNav({
       displayedLeg: displayLeg,

@@ -77,7 +77,9 @@ export type OwnerPaidBookingSummary = Pick<
   expressDropOffSelected?: boolean;
   expressDropOffFee?: number;
   expressDropOffAirport?: "BFS" | "BHD" | null;
-  airportAccessOption?: "express" | "free" | null;
+  airportAccessOption?: "express" | "free" | "meet-greet" | null;
+  outboundAirportAccessOption?: "express" | "free" | "meet-greet" | null;
+  returnAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   outboundAirportAccessChargeGbp?: number;
   returnAirportAccessChargeGbp?: number;
   dublinArrivalTerminal?: "T1" | "T2" | null;

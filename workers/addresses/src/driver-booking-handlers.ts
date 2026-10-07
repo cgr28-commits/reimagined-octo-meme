@@ -235,7 +235,12 @@ export async function enrichDriverJob(
       isAirportPickup: isAirportPickupJob(job),
       flightNumber: job.flightNumber ?? null,
       airportCode: job.airportCode ?? paidRecord?.airportCode ?? null,
-      airportAccessOption: paidRecord?.airportAccessOption ?? null,
+      airportAccessOption:
+        (job.journeyLeg === "return"
+          ? paidRecord?.returnAirportAccessOption
+          : paidRecord?.outboundAirportAccessOption) ??
+        paidRecord?.airportAccessOption ??
+        null,
       dublinArrivalTerminal: await persistDublinTerminalFromVerifiedFlight(
         env,
         job,

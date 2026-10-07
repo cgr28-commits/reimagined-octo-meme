@@ -52,6 +52,7 @@ export function paidBookingRecordToDetails(record: PaidBookingRecord): PaidBooki
       : {}),
     ...(record.airportAccessOption === "express" ||
     record.airportAccessOption === "free" ||
+    record.airportAccessOption === "meet-greet" ||
     record.airportAccessOption === null
       ? { airportAccessOption: record.airportAccessOption }
       : {}),
@@ -63,11 +64,13 @@ export function paidBookingRecordToDetails(record: PaidBookingRecord): PaidBooki
       : {}),
     ...(record.outboundAirportAccessOption === "express" ||
     record.outboundAirportAccessOption === "free" ||
+    record.outboundAirportAccessOption === "meet-greet" ||
     record.outboundAirportAccessOption === null
       ? { outboundAirportAccessOption: record.outboundAirportAccessOption }
       : {}),
     ...(record.returnAirportAccessOption === "express" ||
     record.returnAirportAccessOption === "free" ||
+    record.returnAirportAccessOption === "meet-greet" ||
     record.returnAirportAccessOption === null
       ? { returnAirportAccessOption: record.returnAirportAccessOption }
       : {}),
