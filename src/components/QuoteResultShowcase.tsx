@@ -122,7 +122,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       id="quote-selected-vehicle-card"
       data-quote-selected-vehicle-card
       data-quote-result-card
-      className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-3.5 py-3 text-navy shadow-[0_8px_22px_rgba(2,10,24,0.16)] sm:px-4 sm:py-3.5"
+      className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-3 py-2 text-navy shadow-[0_8px_22px_rgba(2,10,24,0.16)] sm:px-3.5 sm:py-2.5"
       style={{ overflowAnchor: "none" }}
     >
       <div className="min-w-0 text-center">
@@ -137,7 +137,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         {detailLine.trim() ? (
           <p className="text-[0.78rem] font-medium leading-tight text-navy">{detailLine}</p>
         ) : null}
-        <div className="mt-1">
+        <div className="mt-0.5">
           <VehicleQuoteArt
             vehicle={art}
             src={vehicleImage}
@@ -153,7 +153,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             size="result"
           />
         </div>
-        <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-0.5 text-[0.84rem] font-semibold leading-tight text-navy min-[390px]:flex-nowrap">
+        <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-0.5 text-[0.84rem] font-semibold leading-tight text-navy min-[390px]:flex-nowrap">
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
             <PassengerIcon />
             {passengerLabel}

@@ -106,7 +106,7 @@ export default function QuoteVehicleCategories({
   if (options.length === 0) return null;
 
   return (
-    <div className="scroll-mt-20 space-y-2" data-quote-vehicle-categories>
+    <div className="scroll-mt-20 space-y-1.5" data-quote-vehicle-categories>
       <p
         className="form-label mb-0 scroll-mt-20"
         data-quote-vehicle-options-heading
@@ -114,7 +114,7 @@ export default function QuoteVehicleCategories({
         Vehicle options
       </p>
       <div
-        className="grid grid-cols-1 gap-2"
+        className="grid grid-cols-1 gap-1.5"
         role="list"
         aria-label="Vehicle options for this journey"
       >
@@ -134,7 +134,7 @@ export default function QuoteVehicleCategories({
                   if (!fits) return;
                   onSelectVehicle?.(option.vehicle);
                 }}
-                className={`flex min-h-[7.75rem] w-full flex-col justify-center gap-1 overflow-hidden rounded-2xl border-2 bg-white px-3 py-2.5 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
+                className={`flex w-full flex-col gap-1 overflow-hidden rounded-2xl border-2 bg-white px-2.5 py-1.5 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
                   isSelected
                     ? "border-[var(--quote-selected-border)] shadow-[0_0_0_1px_var(--quote-selected-border)]"
                     : "border-navy/15"

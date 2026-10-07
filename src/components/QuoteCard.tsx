@@ -19,6 +19,10 @@ import {
 } from "@/components/QuoteBookingHelpControls";
 import TripMap from "@/components/TripMap";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
+import {
+  QUOTE_RESULT_ACTION_CLASS,
+  QuoteResultActionIcon,
+} from "@/components/quote-result-action";
 import { buildBookingMessage, buildEnquiryBookingMessage, isValidEmailAddress, isValidMobileNumber, normalizeChildSeats, type BookingDetails } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
@@ -6993,8 +6997,6 @@ function QuoteCard({
 
   function renderQuoteResultFollowOn(routeMap: ReactNode) {
     const mapsHref = quoteDirectionsHref();
-    const actionCardClass =
-      "flex min-h-[4.25rem] w-full flex-col items-center justify-center rounded-2xl border border-white/80 bg-white px-2 py-2 text-center text-navy shadow-sm";
     return (
       <>
         {routeMap}
@@ -7003,27 +7005,29 @@ function QuoteCard({
           className="h-px w-full scroll-mt-44 md:scroll-mt-28"
           aria-hidden="true"
         />
-        <div id="quote-step1-next" className="space-y-2" data-quote-result-actions>
-          <div className="grid grid-cols-2 gap-2">
+        <div id="quote-step1-next" className="space-y-1.5" data-quote-result-actions>
+          <div className="grid grid-cols-2 gap-1.5">
             {mapsHref ? (
               <a
                 href={mapsHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 data-quote-view-route
-                className={actionCardClass}
+                className={QUOTE_RESULT_ACTION_CLASS}
               >
-                <span className="text-sm font-bold leading-tight">View route</span>
-                <span className="mt-0.5 text-xs font-medium leading-tight">Google Maps</span>
+                <QuoteResultActionIcon name="route" />
+                <span className="text-[0.8125rem] font-bold leading-tight">View route</span>
+                <span className="text-[0.7rem] font-medium leading-tight text-white/75">Google Maps</span>
               </a>
             ) : null}
             <button
               type="button"
               onClick={handleSaveQuoteClick}
               data-quote-save
-              className={actionCardClass}
+              className={QUOTE_RESULT_ACTION_CLASS}
             >
-              <span className="text-sm font-bold leading-tight">Save Quote</span>
+              <QuoteResultActionIcon name="save" />
+              <span className="text-[0.8125rem] font-bold leading-tight">Save Quote</span>
             </button>
             {renderStartNewQuoteControls("results")}
             <QuoteHelpContact variant="card" className="!mt-0" />

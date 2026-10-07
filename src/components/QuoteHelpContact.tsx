@@ -1,6 +1,10 @@
 "use client";
 
 import { whatsAppChatUrl } from "@/lib/contact-card";
+import {
+  QUOTE_RESULT_ACTION_CLASS,
+  QuoteResultActionIcon,
+} from "@/components/quote-result-action";
 
 /**
  * Compact secondary contact line under the quote CTA.
@@ -20,10 +24,11 @@ export default function QuoteHelpContact({
         target="_blank"
         rel="noopener noreferrer"
         data-quote-help-card
-        className={`quote-help-contact flex min-h-[4.25rem] flex-col items-center justify-center rounded-2xl border border-white/80 bg-white px-2 py-2 text-center text-navy shadow-sm ${className}`}
+        className={`quote-help-contact ${QUOTE_RESULT_ACTION_CLASS} ${className}`}
       >
-        <span className="text-sm font-bold leading-tight">Need help?</span>
-        <span className="mt-0.5 text-xs font-medium leading-tight">WhatsApp us</span>
+        <QuoteResultActionIcon name="whatsapp" />
+        <span className="text-[0.8125rem] font-bold leading-tight">Need help?</span>
+        <span className="text-[0.7rem] font-medium leading-tight text-white/75">WhatsApp us</span>
       </a>
     );
   }

@@ -5,6 +5,10 @@ import {
   BOOKING_HELP_WHATSAPP_MESSAGE,
   bookingHelpWhatsAppUrl,
 } from "@/lib/booking-help-whatsapp";
+import {
+  QUOTE_RESULT_ACTION_CLASS,
+  QuoteResultActionIcon,
+} from "@/components/quote-result-action";
 
 type WhatsAppHelpProps = {
   onWhatsAppClick?: () => void;
@@ -125,9 +129,10 @@ export function StartNewQuoteControls({
         <button
           type="button"
           onClick={onRequestStart}
-          className="flex min-h-[4.25rem] w-full flex-col items-center justify-center rounded-2xl border border-white/80 bg-white px-2 py-2 text-center text-sm font-bold leading-tight text-navy shadow-sm"
+          className={QUOTE_RESULT_ACTION_CLASS}
         >
-          Start over
+          <QuoteResultActionIcon name="restart" />
+          <span className="text-[0.8125rem] font-bold leading-tight">Start over</span>
         </button>
       </div>
     );
