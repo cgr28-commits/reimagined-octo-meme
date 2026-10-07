@@ -7,7 +7,6 @@ import {
 import {
   driverAuthorized,
   listConfiguredDrivers,
-  ownerAuthorized,
   resolveDriverSession,
   type DriverAuthEnv,
 } from "./driver-auth";
@@ -247,16 +246,22 @@ export async function handleDriverVehicleSaveRequest(
     return jsonResponse({ error: "Invalid JSON" }, 400, origin);
   }
 
+  const session = resolveDriverSession(request, env);
   const createNew = body.createNew === true;
   if (createNew) {
-    if (!ownerAuthorized(request, env)) {
+    // Real owner session only. DRIVER_ACCESS_KEY is not an owner session
+    // when OWNER_ACCESS_KEY is absent.
+    // A presented driver portal session is not an owner session.
+    if (
+      request.headers.get("X-Driver-Session")?.trim() ||
+      !session.authorized ||
+      session.role !== "owner"
+    ) {
       return jsonResponse({ error: "Unauthorized — owner access required" }, 401, origin);
     }
-  } else if (!driverAuthorized(request, env)) {
+  } else if (!session.authorized) {
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
-
-  const session = resolveDriverSession(request, env);
 
   const displayName = String(body.displayName ?? body.name ?? "").trim();
   const email = String(body.email ?? "").trim();

@@ -271,48 +271,74 @@ void (async () => {
   assert.equal(editedStored?.displayName, "John Smyth");
   assert.equal(editedStored?.profileKey, "john-smith");
 
-  console.log("\n=== 7. A driver or non-owner cannot use createNew ===");
+  console.log("\n=== 7. Only a real owner session can use createNew ===");
   const beforeUnauthorised = keysOf(data);
+  const indexBefore = data.get("driver:vehicle-index");
   const johnBeforeSession = data.get("driver:vehicle:john-smith");
+  const ownerBeforeSession = data.get("driver:vehicle:owner");
+  const blockedDriver = {
+    createNew: true,
+    displayName: "New Driver",
+    email: "new.driver@example.com",
+    mobile: "07700 900444",
+    make: "VW",
+    model: "Passat",
+    colour: "Black",
+    registration: "ND1 NEW",
+  };
   const asDriver = await handleDriverVehicleSaveRequest(
-    post(
-      {
-        createNew: true,
-        displayName: "New Driver",
-        email: "new.driver@example.com",
-        mobile: "07700 900444",
-        make: "VW",
-        model: "Passat",
-        colour: "Black",
-        registration: "ND1 NEW",
-      },
-      { "X-Driver-Key": "driver-secret" },
-    ),
+    post(blockedDriver, { "X-Driver-Key": "driver-secret" }),
     env,
     null,
   );
   assert.equal(asDriver.status, 401);
 
-  const asSession = await handleDriverVehicleSaveRequest(
+  const asPortal = await handleDriverVehicleSaveRequest(
     post(
       {
-        createNew: true,
+        ...blockedDriver,
         displayName: "Session Driver",
         email: "session.driver@example.com",
-        mobile: "07700 900555",
-        make: "VW",
-        model: "Golf",
-        colour: "Red",
         registration: "SD1 NEW",
       },
-      { "X-Owner-Key": "owner-secret", "X-Driver-Session": "portal-session" },
+      { "X-Driver-Session": "dps_portal_session" },
     ),
     env,
     null,
   );
-  assert.equal(asSession.status, 401);
+  assert.equal(asPortal.status, 401);
+
+  const asPortalWithOwnerKey = await handleDriverVehicleSaveRequest(
+    post(
+      {
+        ...blockedDriver,
+        displayName: "Session Driver",
+        email: "session.driver@example.com",
+        registration: "SD1 NEW",
+      },
+      { "X-Owner-Key": "owner-secret", "X-Driver-Session": "dps_portal_session" },
+    ),
+    env,
+    null,
+  );
+  assert.equal(asPortalWithOwnerKey.status, 401);
+
+  const driverOnlyEnv = {
+    DRIVER_ACCESS_KEY: "driver-secret",
+    DRIVER_NAME: "Pat Driver",
+    DRIVER_ROSTER: "Pat Driver",
+    TRACKING_STORE: store,
+  } as Parameters<typeof handleDriverVehicleSaveRequest>[1];
+  const sharedKeyRequest = post(blockedDriver, { "X-Driver-Key": "driver-secret" });
+  const sharedKeyDenied = await handleDriverVehicleSaveRequest(sharedKeyRequest, driverOnlyEnv, null);
+  assert.equal(sharedKeyDenied.status, 401);
+
   assert.deepEqual(keysOf(data), beforeUnauthorised);
+  assert.equal(data.get("driver:vehicle-index"), indexBefore);
   assert.equal(data.get("driver:vehicle:john-smith"), johnBeforeSession);
+  assert.equal(data.get("driver:vehicle:owner"), ownerBeforeSession);
+  assert.equal(data.has("driver:vehicle:new-driver"), false);
+  assert.equal(data.has("driver:vehicle:session-driver"), false);
 
   console.log("\n=== 8. The new driver is a complete assignable profile ===");
   const assignable = await getDriverVehicleProfile(store as never, "John Smith");
@@ -353,7 +379,15 @@ void (async () => {
   assert.match(page, /Additional drivers \(optional\)/);
   assert.match(api, /createNew\?: boolean/);
   assert.match(handler, /createNew === true/);
-  assert.match(handler, /ownerAuthorized/);
+  const saveHandler = handler.slice(handler.indexOf("export async function handleDriverVehicleSaveRequest"));
+  const createGate = saveHandler.slice(
+    saveHandler.indexOf("const session = resolveDriverSession(request, env);"),
+    saveHandler.indexOf("const displayName = String"),
+  );
+  assert.match(createGate, /resolveDriverSession\(request, env\)/);
+  assert.match(createGate, /session\.authorized/);
+  assert.match(createGate, /session\.role !== "owner"/);
+  assert.doesNotMatch(createGate, /ownerAuthorized/);
   assert.match(handler, /A driver with that name already exists/);
   assert.match(handler, /That email address is already used by another driver/);
   assert.match(handler, /Name, email, mobile, make, model, colour, and registration are all required/);
