@@ -16,9 +16,9 @@
  * Owner mode still maps an explicit Saloon onto Minibus when the party needs one.
  *
  * Passenger count of 3 or 4 does NOT by itself trigger Estate.
- * 5+ large bags maps to Minibus and always holds payment for luggage
- * capacity confirmation (see shared/vehicle-capacity.ts). Do not claim an
- * exact physical suitcase maximum on the vehicle card.
+ * 5+ large bags maps to Minibus. The public selector (0–4, or 5+ when the
+ * 7 Seater is offered) is the luggage maximum and does not hold payment.
+ * Do not claim an exact physical suitcase maximum on the vehicle card.
  */
 
 import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "./data";

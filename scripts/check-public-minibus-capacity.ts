@@ -173,7 +173,7 @@ check("11–13. 5+ large bags cannot be Saloon/Estate; 6 and 7 are not public op
   assert.equal(automatic.ok, true);
   if (automatic.ok) {
     assert.equal(automatic.vehicleType, MINIBUS_VEHICLE);
-    assert.equal(automatic.needsLuggageCapacityConfirmation, true);
+    assert.equal(automatic.needsLuggageCapacityConfirmation, false);
   }
   const explicitEstate = calculateAuthoritativeWebsiteQuote(
     quoteInput({
@@ -527,12 +527,18 @@ check("Fresh preview shows the public 7-seater; previewMinibus=0 keeps it off", 
   }
 });
 
-check("7 passengers + 5+ bags is Minibus — capacity confirmation is a separate hold", () => {
+check("7 passengers + 5+ bags is Minibus and does not require confirmation", () => {
   assert.equal(selectVehicleForParty(7, 5), MINIBUS_VEHICLE);
   const data = read("src/lib/data.ts");
   assert.match(data, /needsLuggageCapacityConfirmation/);
   assert.match(data, /isFivePlusLuggage/);
   assert.match(data, /shared\/vehicle-capacity/);
+  assert.equal(
+    calculateAuthoritativeWebsiteQuote(
+      quoteInput({ passengers: 7, suitcases: 5, pricing: onPricing }),
+    ).ok,
+    true,
+  );
 });
 
 console.log("\nPublic Minibus capacity checks passed.");

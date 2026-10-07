@@ -109,7 +109,7 @@ export type ShortNoticeBookingRecord = {
   responseExpiryEmailSentAt?: string;
   /**
    * Why payment was held for Owner approval.
-   * Includes luggage_capacity when the conservative 7 Seater high-load rule applies.
+   * Older records may include luggage_capacity. New bookings do not add it.
    */
   holdReasons?: PaymentHoldReason[];
   /** Append-only audit trail — never overwrites earlier events. */

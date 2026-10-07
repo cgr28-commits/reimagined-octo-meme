@@ -458,7 +458,6 @@ import {
   formatOwnerLargeBags,
   hasLuggageCapacityHold,
   isFivePlusLuggage,
-  needsLuggageCapacityConfirmation,
 } from "../shared/vehicle-capacity";
 import {
   handleOwnerPricingRequest,
@@ -2983,14 +2982,9 @@ async function handlePaymentRequest(
     );
   }
 
-  // Short-notice window or high-load luggage capacity: save request — do NOT open SumUp.
+  // Short-notice window: save request — do NOT open SumUp. Luggage quantity does not hold payment.
   if (!shortNoticeToken && !a2aQuoteToken) {
     const notice = await shouldForceShortNotice(env.TRACKING_STORE, booking);
-    const luggageHold =
-      notice.luggageCapacity === true ||
-      needsLuggageCapacityConfirmation(booking.passengers, booking.suitcases, {
-        suitcasesExact: booking.suitcasesExact,
-      });
     if (notice.noAvailability) {
       return json(
         {
@@ -3017,7 +3011,7 @@ async function handlePaymentRequest(
         origin,
       );
     }
-    if (notice.shortNotice || luggageHold) {
+    if (notice.shortNotice) {
       try {
         const created = await createShortNoticeRequest({
           store: env.TRACKING_STORE,
@@ -3033,7 +3027,7 @@ async function handlePaymentRequest(
               : {}),
         });
         const amountLabel = formatPaidAmount(created.record.amount);
-        const luggageCapacity = hasLuggageCapacityHold(created.record.holdReasons) || luggageHold;
+        const luggageCapacity = hasLuggageCapacityHold(created.record.holdReasons);
         const minibusRequest = notice.minibusNotice === true && !luggageCapacity;
         const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
           amountLabel,

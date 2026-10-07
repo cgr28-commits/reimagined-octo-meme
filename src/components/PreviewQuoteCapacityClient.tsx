@@ -9,12 +9,6 @@ import {
   defaultOwnerPricingSettings,
   minibusBaseFareFromSaloon,
 } from "../../shared/owner-pricing-config";
-import {
-  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
-  LUGGAGE_CAPACITY_CONFIRMATION_CTA,
-  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
-  needsLuggageCapacityConfirmation,
-} from "../../shared/vehicle-capacity";
 import { requiresMinibus, selectVehicleForParty, vehicleShortLabel } from "@/lib/vehicle-selection";
 
 export default function PreviewQuoteCapacityClient({
@@ -36,12 +30,6 @@ export default function PreviewQuoteCapacityClient({
     if (passengers == null || suitcases == null) return null;
     return selectVehicleForParty(passengers, suitcases);
   }, [passengers, suitcases]);
-
-  const capacityHold =
-    enabled &&
-    passengers != null &&
-    suitcases != null &&
-    needsLuggageCapacityConfirmation(passengers, suitcases);
 
   const exampleFare = useMemo(() => {
     if (!enabled || passengers == null || suitcases == null) return null;
@@ -129,32 +117,9 @@ export default function PreviewQuoteCapacityClient({
               </p>
             </div>
           ) : null}
-          {capacityHold ? (
-            <div
-              className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-4"
-              data-luggage-capacity-confirmation
-            >
-              <p className="text-sm font-semibold text-amber-100">
-                {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
-              </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
-                {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
-              </p>
-              <button
-                type="button"
-                className="btn-primary mt-4 w-full"
-                data-preview-capacity-cta
-              >
-                {LUGGAGE_CAPACITY_CONFIRMATION_CTA}
-                {exampleFare ? ` — £${exampleFare.minibusQuotedGbp.toFixed(2)}` : ""}
-              </button>
-              <p className="mt-2 text-xs text-white/60">
-                Preview only. This does not create a SumUp checkout or a live booking.
-              </p>
-            </div>
-          ) : enabled && vehicle && requiresMinibus(passengers ?? 0, suitcases ?? 0) ? (
-            <p className="mt-4 text-sm text-emerald">
-              Normal Minibus booking flow — this load can use instant quote / payment when live.
+          {enabled && vehicle && requiresMinibus(passengers ?? 0, suitcases ?? 0) ? (
+            <p className="mt-4 text-sm text-emerald" data-preview-minibus-bookable>
+              This 7 Seater load can use instant quote and payment when live. Luggage is recorded as selected.
             </p>
           ) : null}
         </section>

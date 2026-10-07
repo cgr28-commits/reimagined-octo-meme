@@ -61,10 +61,6 @@ import {
   MAX_ONLINE_PASSENGERS,
   MINIBUS_VEHICLE_TYPE,
   isFivePlusLuggage,
-  needsLuggageCapacityConfirmation,
-  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
-  LUGGAGE_CAPACITY_CONFIRMATION_CTA,
-  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
   SERVICE_FLAGS,
   showsOnlineGuidePrice,
   SITE,
@@ -1056,14 +1052,6 @@ function QuoteCard({
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
-  const capacityNeedsConfirm =
-    passengers != null &&
-    suitcases != null &&
-    needsLuggageCapacityConfirmation(
-      effectivePartyPassengers(passengers) ?? passengers,
-      suitcases,
-      { suitcasesExact: isFivePlusLuggage(suitcases) ? false : true },
-    );
   const [confirmStartNewQuote, setConfirmStartNewQuote] = useState(false);
   /** Bumped on Start a New Quote so address inputs remount with clean internal state. */
   const [formResetKey, setFormResetKey] = useState(0);
@@ -1653,9 +1641,6 @@ function QuoteCard({
     !smartAvailabilityBlocked &&
     !isCustomerSmartAvailabilityBlockMessage(paymentError);
   const isAvailabilityRequest = isMinimumNoticeRequest || isMinibusNoticeRequest;
-  const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
-    "Hi, I have a short-notice airport transfer request.",
-  )}`;
 
   const partySelectionReady = isPartySelectionComplete(
     passengers,
@@ -3952,8 +3937,7 @@ function QuoteCard({
       : null;
   const showDepositCashChoice =
     depositCashOffer?.eligible === true &&
-    !isAvailabilityRequest &&
-    !capacityNeedsConfirm;
+    !isAvailabilityRequest;
   const selectedDepositCash =
     showDepositCashChoice && paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH;
 
@@ -4186,8 +4170,7 @@ function QuoteCard({
               : checkout.minimumBookingNoticeHours ??
                 checkout.minimumNoticeHours ??
                 minimumBookingNoticeHours,
-          luggageCapacity:
-            checkout.luggageCapacity === true || capacityNeedsConfirm,
+          luggageCapacity: checkout.luggageCapacity === true,
           minibusNotice: checkout.minibusNotice === true || isMinibusNoticeRequest,
         });
         setPaymentLoading(false);
@@ -6052,11 +6035,9 @@ function QuoteCard({
             ? "We’ll confirm your price before any payment is taken."
             : showsRequestQuoteFlow
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
-              : isEnquiryOnly
+                : isEnquiryOnly
                 ? "We’ll reply with your quote — no online payment until you confirm."
-                : capacityNeedsConfirm
-                  ? "Fixed price for your journey. This combination needs luggage capacity confirmation before payment."
-                  : canPayNowOnline
+                : canPayNowOnline
                   ? isAirportLegForInclusions
                     ? "Eligible bookings can be paid securely online with SumUp."
                     : "Fixed price for your journey. Eligible bookings can be paid securely online with SumUp."
@@ -6479,20 +6460,6 @@ function QuoteCard({
           className="scroll-mt-44 space-y-2 md:scroll-mt-28 sm:space-y-3"
         >
           <div id="quote-step2-next" className="sr-only" />
-          {capacityNeedsConfirm && !isTooSoonCheckout ? (
-            <div
-              className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
-              role="status"
-              data-luggage-capacity-confirmation
-            >
-              <p className="text-sm font-semibold text-amber-100">
-                {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
-              </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
-                {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
-              </p>
-            </div>
-          ) : null}
 
           {payNow &&
           liveQuote &&
@@ -6523,7 +6490,7 @@ function QuoteCard({
             mode={
               isManualQuoteJourney
                 ? "quote-request"
-                : isAvailabilityRequest || capacityNeedsConfirm
+                : isAvailabilityRequest
                   ? "booking-request"
                   : payNow
                     ? "card-payment"
@@ -6564,21 +6531,7 @@ function QuoteCard({
             />
           ) : payNow && liveQuote ? (
             <div className="space-y-2 sm:space-y-3">
-              {capacityNeedsConfirm && !openCheckout ? (
-                <div
-                  className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
-                  role="status"
-                  aria-live="polite"
-                  data-luggage-capacity-confirmation
-                >
-                  <p className="text-sm font-semibold text-amber-100">
-                    {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
-                  </p>
-                  <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
-                    {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
-                  </p>
-                </div>
-              ) : !isAvailabilityRequest && !openCheckout ? (
+              {!isAvailabilityRequest && !openCheckout ? (
                 <p className="text-xs leading-relaxed text-white/70">
                   Your transfer is reserved for your selected pickup time.
                 </p>
@@ -6738,33 +6691,21 @@ function QuoteCard({
                   className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
-                    ? capacityNeedsConfirm || isAvailabilityRequest
+                    ? isAvailabilityRequest
                       ? "Submitting booking request…"
                       : "Opening secure payment…"
                     : testChargeAmount !== null
                       ? "Pay £1.00 test charge with SumUp"
-                      : capacityNeedsConfirm
-                        ? `${LUGGAGE_CAPACITY_CONFIRMATION_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
-                        : isMinibusNoticeRequest
+                      : isMinibusNoticeRequest
                         ? `${MINIBUS_NOTICE_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : isMinimumNoticeRequest
-                        ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
-                        : showDepositCashChoice && depositCashOffer
-                          ? selectedDepositCash
-                            ? depositPayButtonLabel(depositCashOffer.depositGbp)
-                            : fullPayButtonLabel(depositCashOffer.totalFare)
-                        : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
+                          ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                          : showDepositCashChoice && depositCashOffer
+                            ? selectedDepositCash
+                              ? depositPayButtonLabel(depositCashOffer.depositGbp)
+                              : fullPayButtonLabel(depositCashOffer.totalFare)
+                            : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
                 </button>
-                {capacityNeedsConfirm && !isAvailabilityRequest ? (
-                  <a
-                    href={shortNoticeWhatsAppHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full text-center text-sm font-semibold text-white/75 underline-offset-2 hover:text-white hover:underline"
-                  >
-                    Need a quick answer? WhatsApp us
-                  </a>
-                ) : null}
                 </>
               )}
             </div>
@@ -7029,7 +6970,6 @@ function QuoteCard({
         }
         airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
-        capacityConfirmation={capacityNeedsConfirm}
       />
     );
   }

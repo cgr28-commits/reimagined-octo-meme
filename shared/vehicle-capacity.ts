@@ -1,24 +1,19 @@
 /**
- * Luggage-capacity confirmation for the 7 Seater Minibus.
+ * Public luggage quantities for the quote and booking.
  *
  * Public selector when Offer 7 Seater Minibus Online is ON:
  *   0  1  2  3
  *   4  5+
  *
  * "5+" means five or more large bags. It must never be stored or shown as an
- * exact count of 5. The customer-facing vehicle card still says
- * "Up to 7 passengers" and does not promise a suitcase maximum.
+ * exact count of 5. That selector is the public luggage maximum: counts above
+ * the 5+ token are rejected. When the 7 Seater is off, the maximum is 4.
+ * Saloon, Estate and Business Class suitability is separate and unchanged.
  *
- * Hold rule:
- *   5+ (suitcasesExact === false OR bags >= 5)
- *     → ALWAYS luggage-capacity confirmation
- *     → ALWAYS 7 Seater Minibus
- *
- * Residual high-occupancy protection when bags are fewer than 5:
- *   party requires a 7 Seater AND (passengers + bags) >= 12
- *
- * 7 passengers + 4 large bags = 11, so that combination does not hold.
- * Do not invent or advertise an exact physical V-Class luggage capacity.
+ * Luggage quantity does not hold payment. A 7 Seater within the 7-passenger
+ * maximum and this luggage selector can be booked and paid. Historical
+ * requests that already stored luggage_capacity still show that reason.
+ * Do not invent or advertise an exact physical luggage capacity.
  */
 
 export const PUBLIC_FIVE_PLUS_SUITCASES = 5;
@@ -105,19 +100,13 @@ export function applyPublicFivePlusLuggage<
   };
 }
 
+/** Luggage quantity never blocks booking or payment. The public selector is the limit. */
 export function needsLuggageCapacityConfirmation(
-  passengers: number,
-  suitcases: number,
-  options?: LuggageExactnessOptions,
+  _passengers: number,
+  _suitcases: number,
+  _options?: LuggageExactnessOptions,
 ): boolean {
-  const pax = Math.floor(Number(passengers));
-  const bags = Math.floor(Number(suitcases));
-  if (!Number.isFinite(pax) || !Number.isFinite(bags)) return false;
-  if (pax < 1 || bags < 0) return false;
-  if (isFivePlusLuggage(bags, options)) return true;
-  const requiresMinibus = pax > 4 || bags > 4;
-  if (!requiresMinibus) return false;
-  return pax + bags >= MINIBUS_HIGH_LOAD_COMBINED_THRESHOLD;
+  return false;
 }
 
 export function combinePaymentHoldReasons(options: {

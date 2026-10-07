@@ -14,8 +14,6 @@ import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-a
 import {
   formatPublicSuitcaseChoice,
   isFivePlusLuggage,
-  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
-  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
 } from "../../shared/vehicle-capacity";
 import { AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE } from "@/lib/authoritative-quote-fare";
 
@@ -33,8 +31,6 @@ type QuoteResultShowcaseProps = {
   priceUpdating?: boolean;
   /** Shown only when the first displayed price already includes the 10%. */
   surchargeNote?: string | null;
-  /** High passenger + luggage load — fare shown, payment held. */
-  capacityConfirmation?: boolean;
   /** Worker quote failed. Do not show a fallback fare in the price slot. */
   priceUnavailable?: boolean;
   onRetryPrice?: () => void;
@@ -80,7 +76,6 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       businessClassInclusions = null,
       priceUpdating = false,
       surchargeNote = null,
-      capacityConfirmation = false,
       priceUnavailable = false,
       onRetryPrice,
     },
@@ -221,17 +216,6 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           <p className="mt-0.5 text-[11px] font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
         )}
         {businessClassInclusions}
-        {capacityConfirmation ? (
-          <div
-            className="mt-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-left"
-            data-luggage-capacity-confirmation
-          >
-            <p className="text-sm font-semibold text-navy">{LUGGAGE_CAPACITY_CONFIRMATION_HEADING}</p>
-            <p className="mt-1 text-sm font-medium leading-snug text-navy">
-              {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
-            </p>
-          </div>
-        ) : null}
         {airportAccess ? (
           <div className="mt-1 text-left" data-quote-result-airport-access>
             {airportAccess}
