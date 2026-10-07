@@ -107,7 +107,7 @@ const resultsBlock = card.slice(
 assert.doesNotMatch(resultsBlock, /mayPaintNumericFare|authoritativeFareReady/);
 assert.match(card, /: "Calculating…"/);
 assert.match(showcase, /formattedPrice\.startsWith\("£"\) \? "ready" : "pending"/);
-assert.match(showcase, /text-\[clamp\(1\.65rem,0\.9rem\+3\.4vw,2\.1rem\)\]/);
+assert.match(showcase, /text-\[clamp\(1\.45rem,0\.7rem\+3vw,1\.85rem\)\]/);
 assert.match(card, /quoteRequestKey/);
 assert.match(card, /refreshAuthoritativeServerQuoteRef\.current/);
 assert.doesNotMatch(card, /\}, \[refreshAuthoritativeServerQuote\]\);/);
