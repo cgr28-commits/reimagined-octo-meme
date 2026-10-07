@@ -1360,18 +1360,24 @@ function DriverJobCard({
       onUpdated(nextJob);
 
       // WhatsApp click-to-chat after recording arrival (manual Send). Keep Resend/email as-is.
+      // Voice follows the authenticated session: portal drivers use first person; the owner stays company voice.
+      const whatsappRole = isDriverPortalSessionToken(driverKey) ? "driver" : "owner";
       if (action === "arrived_pickup") {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
           // Return-leg jobs already store the leg's pickup on pickupLabel.
-          const message = buildArrivedPickupWhatsAppMessage({
-            isAirportPickup:
-              Boolean(job.isAirportPickup) || isAirportPickupLabel(job.pickupLabel || ""),
-            pickupLabel: job.pickupLabel,
-            airportCode: job.airportCode,
-            airportAccessOption: job.airportAccessOption,
-            dublinArrivalTerminal: job.dublinArrivalTerminal,
-          });
+          const message =
+            result.customerWhatsAppMessage?.trim() ||
+            buildArrivedPickupWhatsAppMessage({
+              customerName: job.customerName,
+              isAirportPickup:
+                Boolean(job.isAirportPickup) || isAirportPickupLabel(job.pickupLabel || ""),
+              pickupLabel: job.pickupLabel,
+              airportCode: job.airportCode,
+              airportAccessOption: job.airportAccessOption,
+              dublinArrivalTerminal: job.dublinArrivalTerminal,
+              authenticatedRole: whatsappRole,
+            });
           const href = buildArrivedPickupWhatsAppLink(mobile, message);
           const opened = window.open(href, "_blank", "noopener,noreferrer");
           if (!opened) {
@@ -1384,10 +1390,13 @@ function DriverJobCard({
       if (action === "start_tracking") {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
-          const href = buildDriverOnTheWayWhatsAppLink(mobile, {
-            customerName: job.customerName,
-            bookedPickupTime: job.tripTime,
-          });
+          const href = result.customerWhatsAppMessage?.trim()
+            ? buildArrivedPickupWhatsAppLink(mobile, result.customerWhatsAppMessage.trim())
+            : buildDriverOnTheWayWhatsAppLink(mobile, {
+                customerName: job.customerName,
+                bookedPickupTime: job.tripTime,
+                authenticatedRole: whatsappRole,
+              });
           const opened = window.open(href, "_blank", "noopener,noreferrer");
           if (!opened) {
             window.location.assign(href);

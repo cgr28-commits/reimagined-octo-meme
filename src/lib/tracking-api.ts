@@ -565,6 +565,8 @@ export type JourneyTransitionResponse = {
     failedAt?: string;
     lastError?: string;
   };
+  /** Manual WhatsApp text chosen from the authenticated session. Absent for Complete journey. */
+  customerWhatsAppMessage?: string;
 };
 
 export async function postJourneyAction(
