@@ -4,6 +4,7 @@
  */
 
 import assert from "node:assert/strict";
+import { ceilCustomerFareToWholePoundGbp } from "../shared/gbp";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -823,7 +824,10 @@ check("R14c. Owner airport weekend fare matches public (10% Night & Weekend Surc
   assert.ok(publicWeekday && publicWeekend);
   assert.equal(publicWeekday!.premiumApplied, false);
   assert.equal(publicWeekend!.premiumApplied, true);
-  assert.equal(publicWeekend!.amount, Math.round(publicWeekday!.amount * 1.1 * 100) / 100);
+  assert.equal(
+    publicWeekend!.amount,
+    ceilCustomerFareToWholePoundGbp(Math.round(publicWeekday!.amount * 1.1 * 100) / 100),
+  );
 
   const cityPlace = {
     ...emptySelectedPlace(),

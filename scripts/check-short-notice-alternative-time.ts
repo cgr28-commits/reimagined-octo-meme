@@ -23,6 +23,7 @@ import {
   resolveShortNoticeSiteOrigin,
   shouldAutoSendPaymentLinkEmail,
 } from "../workers/addresses/src/short-notice-handlers";
+import { ceilCustomerFareToWholePoundGbp } from "../shared/gbp";
 import { calculateQuote } from "../src/lib/quote";
 import { SALOON_VEHICLE } from "../src/lib/vehicle-selection";
 
@@ -176,7 +177,10 @@ check("Friday → Saturday live quotes differ; alternative-time still fingerprin
   assert.ok(friday && saturday);
   assert.equal(friday!.premiumApplied, false);
   assert.equal(saturday!.premiumApplied, true);
-  assert.equal(saturday!.amount, Math.round(friday!.amount * 1.1 * 100) / 100);
+  assert.equal(
+    saturday!.amount,
+    ceilCustomerFareToWholePoundGbp(Math.round(friday!.amount * 1.1 * 100) / 100),
+  );
 
   // Offer-alternative-time still preserves the original quoted amount (booking flow).
   const amount = friday!.amount;

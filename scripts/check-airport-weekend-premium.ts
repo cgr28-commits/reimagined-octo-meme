@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { ceilCustomerFareToWholePoundGbp } from "../shared/gbp";
 import { getWebsiteReturnJourneyFare } from "../shared/return-journey-discount";
 import { resolvePersonalQuoteCheckoutAmount } from "../shared/personal-quote";
 import {
@@ -242,7 +243,7 @@ assert.equal(a2aWeekday.premiumApplied, false);
 assert.equal(a2aWeekend.premiumApplied, true);
 assert.equal(
   a2aWeekend.amount,
-  Math.round(a2aWeekday.amount * 1.1 * 100) / 100,
+  ceilCustomerFareToWholePoundGbp(Math.round(a2aWeekday.amount * 1.1 * 100) / 100),
 );
 console.log(
   `OK  7. A2A weekday £${a2aWeekday.amount}; weekend £${a2aWeekend.amount} (+10%)`,
@@ -256,7 +257,7 @@ assert.equal(
     standardWebsiteAmount,
     returnJourney: true,
   }),
-  getWebsiteReturnJourneyFare(standardWebsiteAmount),
+  ceilCustomerFareToWholePoundGbp(getWebsiteReturnJourneyFare(standardWebsiteAmount)),
 );
 assert.equal(
   resolvePersonalQuoteCheckoutAmount({

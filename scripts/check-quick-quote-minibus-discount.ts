@@ -72,8 +72,8 @@ check("Percentage discount (10% of £65)", () => {
   const result = applyQuickQuoteManualDiscount(65, "percent", 10);
   assert.equal(result.calculatedFare, 65);
   assert.equal(result.discountAmount, 6.5);
-  assert.equal(result.customerFare, 58.5);
-  assert.equal(formatQuickQuoteAmount(result.customerFare), "£58.50");
+  assert.equal(result.customerFare, 59);
+  assert.equal(formatQuickQuoteAmount(result.customerFare), "£59");
 });
 
 check("Fixed discount (£10 off £65)", () => {
@@ -130,10 +130,11 @@ check("Return engine discount stays inside calculated fare; manual discount is s
   if (!ret.ok) return;
 
   // Return discount applies to the journey fare only; BFS fixed costs stay £0.
-  // One-way Saloon ~14 mi = £44; return = 5% off £88 + Saturday 10% on the return leg.
+  // One-way Saloon ~14 mi = £44. Both legs are daytime, so the return is 5% off £88
+  // (£83.60) and the customer total rounds up to £84.
   assert.equal(oneWay.amount, 44);
+  assert.equal(ret.journeyFareGbp, getWebsiteReturnJourneyFare(oneWay.amount));
   assert.equal(ret.amount, 84);
-  assert.equal(ret.amount, getWebsiteReturnJourneyFare(oneWay.amount));
 
   // Manual 15% is applied AFTER the return-discounted calculated fare — not instead of it.
   const manual = applyQuickQuoteManualDiscount(ret.amount, "percent", 15);
@@ -229,7 +230,7 @@ check("Stored financial totals keep calculated vs customer fare distinct", () =>
     discountAmount: discounted.discountAmount,
   };
   assert.equal(quickQuoteCalculatedAmount(record), 65);
-  assert.equal(record.quotedAmount, 58.5);
+  assert.equal(record.quotedAmount, 59);
   assert.equal(record.discountAmount, 6.5);
   // Legacy records without calculatedAmount fall back to quotedAmount
   assert.equal(quickQuoteCalculatedAmount({ quotedAmount: 55 }), 55);

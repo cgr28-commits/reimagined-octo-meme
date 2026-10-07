@@ -261,7 +261,7 @@ async function run() {
   await check("13. Customer changes time/date — offer remains valid", () => {
     const access = evaluateReturnOfferAccess({
       status: "SENT",
-      expiresAt: "2026-10-01T00:00:00.000Z",
+      expiresAt: "2027-10-01T00:00:00.000Z",
     } as ReturnOfferRecord);
     assert.equal(access.ok, true);
     assert.equal(
