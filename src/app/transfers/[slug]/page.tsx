@@ -207,6 +207,29 @@ export default async function TransferRoutePage({ params }: Props) {
         />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+            <h2 className="text-lg font-bold text-white">Vehicles, luggage and airport access</h2>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Saloon, Estate and Business Class carry up to 4 passengers. For larger groups,
+              choose a 7 Seater Minibus when available. Enter all passengers and suitcases
+              before choosing your vehicle; the quote shows the options and fixed fare.
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              {page.airport.code === "BFS" || page.airport.code === "BHD"
+                ? "Express Pickup or Express Drop-Off and the applicable airport access charge are included in the fixed fare."
+                : page.airport.code === "DUB"
+                  ? "Applicable M1 tolls are included. Dublin Airport collections also include the pickup and parking allowance shown in your quote. Share your terminal and flight number for the collection."
+                  : "Applicable airport pickup or drop-off charges are included in your fixed fare."}
+              {" "}Airport pickups include up to 60 minutes complimentary waiting. Business Class
+              airport pickups include Meet &amp; Greet with a name board and luggage assistance.
+              Saloon, Estate and 7 Seater pickups use the agreed airport pickup point.
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              For an early-morning departure from {page.town.name}, book ahead and allow time
+              for the journey and your airline’s check-in requirements. Your fare is confirmed
+              before payment, with any applicable time-of-day charges included in the quote.
+            </p>
+          </section>
           {isLanding ? (
             <>
               <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">

@@ -39,7 +39,7 @@ check("Canonical destinations map covers acceptance matrix", () => {
     ["Airports", "/airports/", "Airport transfers"],
     ["Long-Distance Transfers", "/long-distance-transfers/", "Private Long-Distance Transfers from Anywhere in Greater Belfast"],
     ["Locations", "/locations/", "Airport Taxi Locations Across Northern Ireland"],
-    ["Vehicles", "/#vehicles", "Private transfers for up to 4"],
+    ["Vehicles", "/#vehicles", "Vehicles for your airport transfer"],
     ["Check Flights", "/#flight-status", "Check Your Flight"],
     ["Areas We Cover", "/#areas", "Areas We Cover"],
     ["Why Us", "/#why-us", "Why Choose Us"],

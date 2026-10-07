@@ -80,9 +80,10 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     intro:
       `Belfast International (Aldergrove) is Northern Ireland’s main long-haul and holiday airport. We provide door-to-door private transfers across Greater Belfast and beyond. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
-      "Fixed online prices for 1–4 passengers",
+      "Fixed online prices for cars and 7 Seater Minibus when available",
       "Up to 60 minutes complimentary waiting time on airport pickups",
-      "Meet & greet can be requested during booking where available",
+      "Applicable airport access charges included in your fixed fare",
+      "Business Class airport pickups include Meet & Greet with a name board",
       "Book online 24/7, including early-morning and late-night transfers",
     ],
     localTips: [
@@ -130,7 +131,8 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     highlights: [
       "Short transfer times from Belfast city centre, Holywood, and Bangor",
       "Up to 60 minutes complimentary waiting time on airport pickups",
-      "Meet & greet can be requested during booking where available",
+      "Applicable airport access charges included in your fixed fare",
+      "Business Class airport pickups include Meet & Greet with a name board",
       "Licensed private hire with clear fixed pricing",
     ],
     localTips: [
@@ -179,6 +181,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Fixed prices for NI ↔ Dublin Airport journeys",
       "Applicable tolls included on Dublin Airport fares",
       "Up to 60 minutes complimentary waiting time on airport pickups",
+      "Applicable airport access charges included in your fixed fare",
       "Return bookings available with a 5% discount online",
     ],
     localTips: [
@@ -228,7 +231,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Belfast-area ↔ Derry Airport focus (Bangor, Belfast, Lisburn and surrounds)",
       "Flight monitoring with up to 60 minutes complimentary waiting on airport pickups",
       "Guide pricing shown online with confirmation before payment",
-      "Meet & greet can be requested during booking where available",
+      "Business Class airport pickups include Meet & Greet with a name board",
     ],
     localTips: [
       "Pickup must be in the greater Belfast area for journeys to LDY — enter a Bangor, Belfast, or Lisburn-area address in the quote tool.",
@@ -281,7 +284,7 @@ function buildRouteNotes(town: TownArea, airport: AirportPage): string[] {
     return [
       `${town.name} to Belfast City Airport is a shorter coastal/city run — ideal for short-haul and business flights.`,
       "We recommend confirming your terminal and departure time when you book.",
-      "Meet & greet can be requested during booking where available if you are arriving and need help with luggage.",
+      "Business Class airport pickups include Meet & Greet and luggage assistance.",
     ];
   }
   if (airport.code === "DUB") {

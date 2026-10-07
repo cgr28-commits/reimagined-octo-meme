@@ -7,7 +7,7 @@ export const CRUISE_TERMINAL_H1 = "Belfast Cruise Terminal Transfers";
 export const CRUISE_TERMINAL_SEO_TITLE = "Belfast Cruise Terminal Transfers";
 
 export const CRUISE_TERMINAL_SEO_DESCRIPTION =
-  "Pre-book a private Belfast cruise transfer between Belfast Cruise Terminal, airports, hotels and onward destinations. Saloon or Estate for up to 4 passengers.";
+  "Pre-book a private Belfast cruise transfer between Belfast Cruise Terminal, airports, hotels and onward destinations. Cars for up to 4 passengers; ask about a 7-seater.";
 
 export const CRUISE_TERMINAL_INTRO =
   "My Airport Taxi NI provides pre-booked private transfers for passengers arriving at or departing from Belfast Cruise Terminal. If you need a Belfast cruise port taxi after you leave the ship, or a morning collection from a hotel to the cruise port, we reserve a Saloon or Estate for your party rather than leaving you to find a car at the harbour.";
@@ -76,7 +76,7 @@ export const CRUISE_TERMINAL_NOTES = [
   },
   {
     title: "Vehicle and passengers",
-    body: "The online service is for up to 4 passengers, in a Saloon or Estate, subject to luggage capacity. Suitcases from a week at sea often decide the car before the passenger count does.",
+    body: "Saloon and Estate carry up to 4 passengers, subject to luggage capacity. For larger groups, enquire about a 7 Seater Minibus. Suitcases from a week at sea often decide the car before the passenger count does.",
   },
   {
     title: "How to book",
@@ -98,7 +98,7 @@ export const CRUISE_TERMINAL_FAQS = [
   {
     question: "How many passengers can travel?",
     answer:
-      "The online service is for up to 4 passengers, subject to luggage, in a Saloon or Estate. We do not operate a people carrier, minibus or coach for this service.",
+      "Saloon and Estate carry up to 4 passengers, subject to luggage capacity. Enquire about 7 Seater Minibus availability for larger groups; cruise-terminal pickups are confirmed by enquiry.",
   },
   {
     question: "Can I book a Belfast Cruise Terminal transfer to the airport?",

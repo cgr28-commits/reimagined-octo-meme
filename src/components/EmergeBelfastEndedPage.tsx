@@ -32,7 +32,7 @@ export default function EmergeBelfastEndedPage() {
           </p>
           <p className="mt-4 text-base leading-relaxed text-white/65">
             Need an airport, hotel or local transfer instead? Get a fixed quote through our usual
-            booking flow — still for up to 4 passengers online.
+            booking flow — choose from the vehicles available for your passengers and luggage.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link

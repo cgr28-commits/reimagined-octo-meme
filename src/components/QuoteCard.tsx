@@ -7923,7 +7923,7 @@ function QuoteCard({
           ) : publicMinibusEnabled && partySelectionReady ? null : (
             <p className="quote-secondary text-xs leading-relaxed">
               Up to 4 passengers. Saloon or Estate is chosen automatically from your party size and
-              luggage — private airport transfer for 1–4 passengers.
+              luggage — cars for up to 4 passengers or a 7 Seater Minibus when available.
             </p>
           )}
         </div>

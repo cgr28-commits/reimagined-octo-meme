@@ -245,7 +245,7 @@ export const ALL_HERO_SLIDES = [
     airportCode: "LDY",
     title: "City of Derry Airport Transfers",
     subtitle:
-      "Transfers between City of Derry Airport (LDY) and the greater Belfast area — departures from Bangor and Belfast, or meet & greet at LDY arrivals.",
+      "Transfers between City of Derry Airport (LDY) and the greater Belfast area — departures from Bangor and Belfast, or airport collections at LDY arrivals.",
     image: airportHeroSlideImage("LDY"),
     alt: AIRPORT_HERO.LDY.alt,
     imageClass:
@@ -255,7 +255,7 @@ export const ALL_HERO_SLIDES = [
     airportCode: "LDY",
     title: "City of Derry Airport Transfers",
     subtitle:
-      "Transfers between City of Derry Airport (LDY) and the greater Belfast area — departures from Bangor and Belfast, or meet & greet at LDY arrivals.",
+      "Transfers between City of Derry Airport (LDY) and the greater Belfast area — departures from Bangor and Belfast, or airport collections at LDY arrivals.",
     image: airportHeroSlideImage("LDY"),
     alt: AIRPORT_HERO.LDY.alt,
     imageClass:
@@ -324,7 +324,7 @@ export const ALL_AIRPORTS = [
     mapLabel: "City of Derry Airport, Airport Road, Eglinton, UK",
     mapLocation: { lat: 55.0428, lng: -7.1611 },
     description:
-      "Transfers between City of Derry Airport and the greater Belfast area — departures from Bangor, Belfast, Lisburn and surrounds, or meet & greet at LDY arrivals heading east.",
+      "Transfers between City of Derry Airport and the greater Belfast area — departures from Bangor, Belfast, Lisburn and surrounds, or airport collections at LDY arrivals heading east.",
   },
 ] as const;
 
@@ -376,9 +376,9 @@ export const WHY_CHOOSE_US = [
       "Your confirmed transfer has a driver and pickup time allocated in advance, with travel-day updates provided where applicable. On travel day we email you when your driver is on the way, and they may share their live location via WhatsApp when appropriate.",
   },
   {
-    title: "Meet & greet available",
+    title: "Business Class Meet & Greet",
     description:
-      "Meet & greet can be requested during booking where available — we can meet you in the arrivals hall with a name board. Share your flight number when you book.",
+      "Business Class airport pickups include Meet & Greet in arrivals with a name board and luggage assistance. Saloon, Estate and 7 Seater pickups use the agreed airport pickup point. Share your flight number when you book.",
   },
   {
     title: "60 minutes airport waiting",
@@ -396,9 +396,9 @@ export const WHY_CHOOSE_US = [
       "Request a transfer online any time — including early mornings, late nights, bank holidays and Christmas. Bookings are confirmed in advance for your chosen pickup time.",
   },
   {
-    title: "Private transfers for 1–4 passengers",
+    title: "Cars and 7-seater airport transfers",
     description:
-      "Professional private airport transfer for up to 4 passengers. Get an instant Saloon or Estate quote online where eligible — clear fixed prices, no vehicle shopping list.",
+      "Choose Saloon, Estate, Business Class or a 7 Seater Minibus when available. Cars carry up to 4 passengers and the minibus up to 7; enter your luggage for a suitable vehicle recommendation and a fixed quote.",
   },
 ] as const;
 
@@ -447,7 +447,7 @@ export const FAQS = [
   {
     question: "Are airport fees included?",
     answer:
-      "Yes where they apply — they are part of your fixed fare, not optional extras. Dublin Airport pickup/parking (£5) is included on airport pickups together with M1 tolls where they apply; Dublin Airport drop-off fee is £0 (M1 tolls still apply). City of Derry Airport pickup (£2.50) and drop-off (£1) are included where they apply. Belfast International and Belfast City use the Express / free-area choice where offered. You only see the inclusions that match your direction of travel.",
+      "Yes where they apply — they are part of your fixed fare, not optional extras. Dublin Airport pickup/parking (£5) is included on airport pickups together with M1 tolls where they apply; Dublin Airport drop-off fee is £0 (M1 tolls still apply). City of Derry Airport pickup (£2.50) and drop-off (£1) are included where they apply. Belfast International and Belfast City include Express Pickup or Express Drop-Off and the applicable access charge in the fixed fare. You only see the inclusions that match your direction of travel.",
   },
   {
     question: "How much airport waiting time is included?",
@@ -461,12 +461,12 @@ export const FAQS = [
   {
     question: "Is meet & greet available?",
     answer:
-      "Yes. Meet & greet can be requested during booking where available — we can meet you in the arrivals hall with a name board. Share your flight number when you book so we can plan the collection.",
+      "Meet & Greet with a name board and luggage assistance is included with Business Class airport pickups. It is not an optional extra for Saloon, Estate or 7 Seater bookings. Share your flight number so we can plan the collection.",
   },
   {
     question: "How many passengers can I book for?",
     answer:
-      "My Airport Taxi NI provides private airport transfers for up to 4 passengers. Select 1–4 passengers on the quote form for an instant Saloon or Estate fare where eligible.",
+      "Cars carry up to 4 passengers. A 7 Seater Minibus carries up to 7 when available. Enter your passenger and suitcase numbers; the quote recommends a vehicle and shows the options available for your booking.",
   },
   {
     question: "Are tolls included?",
@@ -496,7 +496,7 @@ export const FAQS = [
   {
     question: "What is included in the price?",
     answer:
-      "Your fixed price depends on the journey. Airport pickups: 60 minutes complimentary waiting, plus Dublin Airport pickup/parking (£5) and M1 tolls where they apply, or City of Derry Airport pickup (£2.50) where charged. Airport drop-offs: City of Derry Airport drop-off (£1) where charged; Dublin Airport drop-off fee is £0 (M1 tolls still apply). Belfast International and Belfast City use Express / free-area options where offered. Address-to-address: fixed price for your journey with 10 minutes complimentary waiting at non-airport pickups.",
+      "Your fixed price depends on the journey. Airport pickups: 60 minutes complimentary waiting, plus Dublin Airport pickup/parking (£5) and M1 tolls where they apply, or City of Derry Airport pickup (£2.50) where charged. Airport drop-offs: City of Derry Airport drop-off (£1) where charged; Dublin Airport drop-off fee is £0 (M1 tolls still apply). Belfast International and Belfast City include Express Pickup or Express Drop-Off and the applicable access charge in the fixed fare. Address-to-address: fixed price for your journey with 10 minutes complimentary waiting at non-airport pickups.",
   },
   {
     question: "Do you cover City of Derry Airport?",
@@ -602,7 +602,7 @@ export const MINIBUS_PARTNER_NOTE =
 /** Short guidance kept for ops/docs — not shown in the public quote UI. */
 export const VEHICLE_BOOKING_GUIDANCE = [
   "1–4 passengers: Saloon or Estate instant quote where eligible. Pay online by card to confirm.",
-  "Public website capacity is up to 4 passengers only.",
+  "Cars carry up to 4 passengers; the 7 Seater Minibus carries up to 7 when enabled and available.",
 ] as const;
 
 export {

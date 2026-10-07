@@ -37,10 +37,10 @@ if (SHALLOW_GIT) {
 }
 
 /** Real git commit date for a source file. Never invents a build-time lastmod. */
-function gitLastModifiedDate(relPath) {
+function gitLastModifiedDate(relPaths) {
   if (SHALLOW_GIT) return null;
   try {
-    const iso = execFileSync("git", ["log", "-1", "--format=%cI", "--", relPath], {
+    const iso = execFileSync("git", ["log", "-1", "--format=%cI", "--", ...relPaths], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
@@ -213,9 +213,26 @@ const pages = [
     : []),
 ];
 
+// Track content dependencies as well as the route wrapper. Dates come from commits,
+// not build time; content changes in shared FAQs must refresh affected pages too.
+function pageContentSources(page) {
+  const sharedContent = ["src/lib/data.ts", "shared/cancellation-policy.ts"];
+  if (page.path === "/") return [page.source, ...sharedContent,
+    "src/components/VehiclesSection.tsx", "src/components/PopularBelfastTransfers.tsx"];
+  if (page.path.startsWith("/transfers/")) return [page.source, ...sharedContent,
+    "src/app/transfers/[slug]/page.tsx", "src/lib/transfer-routes-content.ts",
+    "src/lib/transfer-routes-belfast.ts", "src/lib/transfer-routes-batch-3.ts",
+    "src/lib/transfer-routes-batch-3b.ts"];
+  if (page.path.startsWith("/airports/")) return [page.source, ...sharedContent,
+    "src/app/airports/[slug]/page.tsx"];
+  if (page.path.startsWith("/locations/") && page.path !== "/locations/")
+    return [page.source, ...sharedContent, "src/app/locations/[slug]/page.tsx"];
+  return [page.source];
+}
+
 const urls = pages
   .map((page) => {
-    const lastmod = gitLastModifiedDate(page.source);
+    const lastmod = gitLastModifiedDate(pageContentSources(page));
     return `  <url>
     <loc>${SITE_URL}${page.path}</loc>${lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : ""}
   </url>`;

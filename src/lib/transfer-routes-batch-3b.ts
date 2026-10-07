@@ -16,7 +16,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "Carryduff to Belfast International is a south-Belfast start, not a Shore Road job and not a Lisburn M1 pickup. You leave on the A24 Saintfield Road or from the roundabout, come through the south of the city, and join the motorway west toward Aldergrove. My Airport Taxi NI reserves that car from the address you enter. The quote box already has Belfast International selected. Cairnshill, Knockbracken, Four Winds and Newtownbreda are the Belfast side of this suburb and are not the same pin as the roundabout. Saintfield, further down the A24, should be written as Saintfield if that is the house. Moneyreagh sits toward Comber and should say so. Book ahead of check-in, particularly when south Belfast is slow before you even reach the motorway. The return from Aldergrove is monitored where possible when the flight number is on the booking, and airport pickups include complimentary waiting. A return can be added on the form. WhatsApp can confirm a house name off the Saintfield Road.",
     journeyInfo: `Carryduff to Belfast International leaves on the Saintfield Road, through south Belfast, then the motorway west toward Aldergrove. ${TRAFFIC}`,
     goingToAirport:
-      "We collect door to door in Carryduff and drive you to Belfast International. Book so the pickup sits ahead of check-in. Drop-off uses the Express or free-area option shown for this airport.",
+      "We collect door to door in Carryduff and drive you to Belfast International. Book so the pickup sits ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast International → Carryduff is the return or a one-way inbound. Share the flight number so we can monitor the landing. Airport pickups include up to 60 minutes complimentary waiting time.",
     whyBookIntro:
@@ -68,7 +68,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "From Carryduff, George Best Belfast City Airport is an eastbound run across the city to Sydenham, not the coastal A2 hop that Holywood and Bangor use. The start is still the A24 Saintfield Road or the streets around the roundabout. Four Winds and Newtownbreda sit closer to that city crossing than Saintfield does, which is why the address changes the quote. The quote box has City Airport selected. Add Cairnshill, Knockbracken or Moneyreagh and the fixed price is for that street. Moneyreagh should not be typed as Comber. We reserve the driver because a short-haul flight still has to get through south and east Belfast first. If we collect you at City Airport, add the flight number. We monitor it where possible, with up to 60 minutes complimentary waiting. A return to Carryduff can be included before you pay. This page is not the Aldergrove route and not the Dublin route. WhatsApp can confirm which side of the roundabout the house is on.",
     journeyInfo: `Carryduff to Belfast City Airport runs from the Saintfield Road across the city toward Sydenham, not along the Holywood A2. ${TRAFFIC}`,
     goingToAirport:
-      "Door-to-door from Carryduff to Belfast City Airport, booked ahead of check-in. Drop-off uses the Express or free-area option the quote shows for City Airport.",
+      "Door-to-door from Carryduff to Belfast City Airport, booked ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast City Airport → Carryduff is a return or a one-way inbound. We monitor the flight where possible. Complimentary waiting on airport pickups is up to 60 minutes.",
     whyBookIntro:
@@ -172,7 +172,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "Hillsborough to Belfast International is an A1 then M1 booking, and it is not a Lisburn city-centre fare with the village name pasted on. The bypass and the village streets are different starts. If you are staying off the A1, near the fort or the castle grounds, include the house or hotel name. Culcavy, on the Lisburn side, and Annahilt, to the south, should be written as those places. The usual line goes north toward Sprucefield, then the M1 and the M2/M22 toward Aldergrove. The quote box already has Belfast International selected, so the fixed price follows the pin you enter. Book ahead of check-in. A busy spell at Sprucefield can slow the first part of the run even when the village itself is quiet. The return is monitored where possible when you share the flight number, and airport pickups include complimentary waiting. Add a return on the form if both legs should be reserved. WhatsApp can confirm a hotel name that shares a postcode with neighbouring houses. Moira has its own page if you are starting there.",
     journeyInfo: `Hillsborough to Belfast International usually uses the A1 toward Sprucefield, then the M1 and M2/M22. A village street is not the bypass. ${TRAFFIC}`,
     goingToAirport:
-      "We collect door to door in Hillsborough and drive you to Belfast International. Book so the pickup sits ahead of check-in. Drop-off uses the Express or free-area option shown for this airport.",
+      "We collect door to door in Hillsborough and drive you to Belfast International. Book so the pickup sits ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast International → Hillsborough is the return or a one-way inbound. Share the flight number so we can monitor the landing. Airport pickups include up to 60 minutes complimentary waiting time.",
     whyBookIntro:
@@ -224,7 +224,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "Hillsborough to Belfast City Airport stays on the city corridor: A1 toward Lisburn, the M1, the Westlink and the Sydenham side of Belfast. It does not peel off for Aldergrove, which is why that airport has its own Hillsborough page. The quote box has City Airport selected. A bypass pickup and a house in the village are different mapped starts, so include the hotel or house name if you are off the A1. Culcavy joins from the Lisburn side. Annahilt joins from the south. Neither should be typed as Lisburn. We reserve the driver because the Westlink, not the village, is where this run can lose time. The inbound leg is monitored where possible, with up to 60 minutes complimentary waiting, when the flight number is included. A return to Hillsborough can be added before you pay. WhatsApp can confirm which entrance a hotel uses if the grounds have more than one.",
     journeyInfo: `Hillsborough to Belfast City Airport follows the A1 and M1 into the Westlink and on toward Sydenham, not the Aldergrove peel. ${TRAFFIC}`,
     goingToAirport:
-      "Door-to-door from Hillsborough to Belfast City Airport, booked ahead of check-in. Drop-off uses the Express or free-area option shown on the City Airport quote.",
+      "Door-to-door from Hillsborough to Belfast City Airport, booked ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast City Airport → Hillsborough is a return or a one-way inbound. We monitor the flight where possible. Complimentary waiting on airport pickups is up to 60 minutes.",
     whyBookIntro:
@@ -328,7 +328,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "Moira to Belfast International leaves east on the M1 from the village junction, then uses the M2/M22 toward Aldergrove. Main Street and the A3 through the village are not the same start as the motorway itself, so the quote needs the real address. Maghaberry sits north of the M1 and should be entered as Maghaberry. Aghalee is the Lough Neagh side and is not a Hillsborough pickup. The quote box already has Belfast International selected. My Airport Taxi NI reserves the driver for that pin, including early holiday flights when the M1 is the first road you meet. Book ahead of check-in. The return from Aldergrove is monitored where possible when you share the flight number, and airport pickups include complimentary waiting. A return can be added on the form. Hillsborough has its own airport pages if the stay is in that village rather than Moira. WhatsApp can confirm a lane in Aghalee if the house name is the only clear landmark.",
     journeyInfo: `Moira to Belfast International runs east on the M1, then the M2/M22. Maghaberry joins from the north of the motorway. ${TRAFFIC}`,
     goingToAirport:
-      "We collect door to door in Moira and drive you to Belfast International. Book so the pickup sits ahead of check-in. Drop-off uses the Express or free-area option shown for this airport.",
+      "We collect door to door in Moira and drive you to Belfast International. Book so the pickup sits ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast International → Moira is the return or a one-way inbound. Share the flight number so we can monitor the landing. Airport pickups include up to 60 minutes complimentary waiting time.",
     whyBookIntro:
@@ -380,7 +380,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "Moira to Belfast City Airport stays on the M1 into the Westlink and on toward Sydenham. It does not take the Aldergrove turn, so this page is not the International route. The quote box has City Airport selected. Main Street is a village pickup. The junction is the motorway start. Maghaberry, north of the M1, and Aghalee, toward Lough Neagh, should be named or the pin will be wrong. We reserve the driver because the slow part of this journey is usually the city end, not Moira itself. The inbound collection is monitored where possible, with up to 60 minutes complimentary waiting, once the flight number is on the booking. A return to Moira can be added before you pay. WhatsApp can confirm whether the pickup is the village or the Maghaberry side of the motorway.",
     journeyInfo: `Moira to Belfast City Airport follows the M1 into the Westlink and toward Sydenham, not the M2/M22 peel for Aldergrove. ${TRAFFIC}`,
     goingToAirport:
-      "Door-to-door from Moira to Belfast City Airport, booked ahead of check-in. Drop-off uses the Express or free-area option the quote shows for City Airport.",
+      "Door-to-door from Moira to Belfast City Airport, booked ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast City Airport → Moira is a return or a one-way inbound. We monitor the flight where possible. Complimentary waiting on airport pickups is up to 60 minutes.",
     whyBookIntro:
@@ -484,7 +484,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "Glengormley to Belfast International is the Sandyknowes start: onto the M2 and out toward Aldergrove, which is why this page is not a generic Newtownabbey write-up. Hightown Road climbs away from the roundabout and needs the house number. Mallusk is the industrial side of the junction and needs the unit or reception. Carnmoney and Rathcoole are neighbouring districts and should be named. The quote box already has Belfast International selected, and the fixed price follows that pin. My Airport Taxi NI reserves the driver so an early Aldergrove check-in is not left to a car at the shopping streets. Book ahead of check-in. The return is monitored where possible when you share the flight number, and airport pickups include complimentary waiting. A return can be added on the form. Whiteabbey is the Shore Road and has its own pages if that is the pickup. WhatsApp can confirm a Mallusk unit before travel day.",
     journeyInfo: `Glengormley to Belfast International joins the M2 at Sandyknowes and continues toward Aldergrove. Hightown and Mallusk are different sides of that junction. ${TRAFFIC}`,
     goingToAirport:
-      "We collect door to door in Glengormley and drive you to Belfast International. Book so the pickup sits ahead of check-in. Drop-off uses the Express or free-area option shown for this airport.",
+      "We collect door to door in Glengormley and drive you to Belfast International. Book so the pickup sits ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast International → Glengormley is the return or a one-way inbound. Share the flight number so we can monitor the landing. Airport pickups include up to 60 minutes complimentary waiting time.",
     whyBookIntro:
@@ -536,7 +536,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "Glengormley to Belfast City Airport leaves the Sandyknowes junction toward the city and Sydenham. It is not the Whiteabbey Shore Road run, even though both places sit in the wider Newtownabbey area. The quote box has City Airport selected. Hightown, Carnmoney, Mallusk and Rathcoole change the start, so the street has to be the one you are leaving from. A Mallusk unit should name the reception. We reserve the driver because this is still a booked airport transfer, not a short hop from the lough. The inbound collection is monitored where possible, with up to 60 minutes complimentary waiting, when the flight number is included. A return to Glengormley can be added before you pay. If your pickup is actually on the Shore Road at Whiteabbey or Jordanstown, use that page instead of this one. WhatsApp can confirm which side of Sandyknowes the house is on.",
     journeyInfo: `Glengormley to Belfast City Airport leaves Sandyknowes toward the city and Sydenham, not along the Whiteabbey Shore Road. ${TRAFFIC}`,
     goingToAirport:
-      "Door-to-door from Glengormley to Belfast City Airport, booked ahead of check-in. Drop-off uses the Express or free-area option the quote shows for City Airport.",
+      "Door-to-door from Glengormley to Belfast City Airport, booked ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast City Airport → Glengormley is a return or a one-way inbound. We monitor the flight where possible. Complimentary waiting on airport pickups is up to 60 minutes.",
     whyBookIntro:
@@ -640,7 +640,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "Whiteabbey to Belfast International leaves the A2 Shore Road and joins the M2 toward Aldergrove. It is not the Sandyknowes start used from Glengormley, which is why the two places have separate pages. Hazelbank is a shore address and should include the building. Jordanstown, toward the university, needs the building name if the pickup is on campus. Greenisland is further along the A2 toward Carrickfergus and should say Greenisland. Rathcoole is inland and should not be typed as the Shore Road. The quote box already has Belfast International selected. My Airport Taxi NI reserves the driver for that pin. Book ahead of check-in. The return is monitored where possible when you share the flight number, and airport pickups include complimentary waiting. A return can be added on the form. WhatsApp can confirm a Jordanstown building before travel day.",
     journeyInfo: `Whiteabbey to Belfast International leaves the A2 and joins the M2 toward Aldergrove. Greenisland adds the shore road before that join. ${TRAFFIC}`,
     goingToAirport:
-      "We collect door to door in Whiteabbey and drive you to Belfast International. Book so the pickup sits ahead of check-in. Drop-off uses the Express or free-area option shown for this airport.",
+      "We collect door to door in Whiteabbey and drive you to Belfast International. Book so the pickup sits ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast International → Whiteabbey is the return or a one-way inbound. Share the flight number so we can monitor the landing. Airport pickups include up to 60 minutes complimentary waiting time.",
     whyBookIntro:
@@ -692,7 +692,7 @@ export const TRANSFER_ROUTE_BATCH_3B: TransferRouteContent[] = [
       "From Whiteabbey, George Best Belfast City Airport is usually the nearer Belfast terminal, because the A2 already runs along the lough toward Sydenham. Hazelbank is a shore pickup and needs the house or building. Jordanstown sits on the same A2 and should name the campus building when that is the collection. Greenisland is closer to Carrickfergus and sits further along the A2 before Belfast. Rathcoole is inland from the lough and should be entered as Rathcoole. The quote box has City Airport selected. We still reserve the car, because a short Shore Road run can queue. The inbound leg is monitored where possible, with up to 60 minutes complimentary waiting, when the flight number is included. A return to Whiteabbey can be added before you pay. Glengormley’s City Airport page is the one to use if you are starting at Sandyknowes. WhatsApp can confirm which building on the A2 is the pickup.",
     journeyInfo: `Whiteabbey to Belfast City Airport follows the A2 along the lough toward Sydenham. Jordanstown and Greenisland sit further along that shore. ${TRAFFIC}`,
     goingToAirport:
-      "Door-to-door from Whiteabbey to Belfast City Airport, booked ahead of check-in. Drop-off uses the Express or free-area option the quote shows for City Airport.",
+      "Door-to-door from Whiteabbey to Belfast City Airport, booked ahead of check-in. Express Drop-Off and the applicable airport access charge are included in your fixed fare.",
     fromAirport:
       "Belfast City Airport → Whiteabbey is a return or a one-way inbound. We monitor the flight where possible. Complimentary waiting on airport pickups is up to 60 minutes.",
     whyBookIntro:

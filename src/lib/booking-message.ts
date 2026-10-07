@@ -233,8 +233,8 @@ export function buildEnquiryBookingMessage(
 }
 
 /**
- * Legacy group/minibus quote helper — public site is 1–4 only.
- * Kept for callers; messaging states the capacity limit rather than advertising 5–7.
+ * Legacy group/minibus capacity enquiry helper.
+ * Kept for callers; group availability must be confirmed.
  */
 export function buildGroupQuoteRequestMessage(
   details: BookingDetails,
@@ -246,7 +246,7 @@ export function buildGroupQuoteRequestMessage(
     : "Non-airport pickup waiting policy: up to 10 minutes complimentary waiting time from the agreed pickup time.";
 
   return (
-    `CAPACITY ENQUIRY (PUBLIC SITE MAX 4 PASSENGERS)\n` +
+    `CAPACITY ENQUIRY\n` +
     `${"=".repeat(36)}\n` +
     (reference ? `Reference: ${reference}\n` : "") +
     `Passengers: ${details.passengers}\n` +
@@ -269,14 +269,14 @@ export function buildGroupQuoteRequestMessage(
     `Mobile: ${details.mobileNumber}\n` +
     `Email: ${details.customerEmail}\n` +
     `\n${waitingNote}\n` +
-    `Note: Public website quotes and bookings are for up to 4 passengers (Saloon / Estate) only.\n` +
+    `Note: Cars carry up to 4 passengers; a 7 Seater Minibus carries up to 7 when available. Larger groups need availability confirmation.\n` +
     `Submitted: ${formatUkSubmissionTime()}\n` +
     `\n--- Customer copy ---\n` +
     `Enquiry Received\n\n` +
     `Dear ${details.customerName},\n\n` +
     `Thank you — we’ve received your enquiry (${details.passengers} passengers).\n` +
-    `My Airport Taxi NI provides private airport transfers for up to 4 passengers. ` +
-    `If your party is larger than 4, please contact us and we can advise on options.\n\n` +
+    `My Airport Taxi NI offers cars for up to 4 passengers and a 7 Seater Minibus when available. ` +
+    `We will confirm the options for your passenger and luggage numbers.\n\n` +
     `Pickup: ${details.pickupLabel}\n` +
     `Destination: ${details.dropoffLabel}\n` +
     `Passengers: ${details.passengers}\n` +

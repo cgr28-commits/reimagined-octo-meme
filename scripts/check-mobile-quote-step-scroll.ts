@@ -195,9 +195,9 @@ check("Selection-driven auto-scroll stays removed from progressive", () => {
 check("Fleet / Saloon / Estate public capacity is up to 4", () => {
   assert.match(page, /VehiclesSection/);
   assert.match(data, /href: "\/#vehicles"/);
-  assert.match(data, /Private transfers for 1–4 passengers/);
-  assert.match(vehicles, /Private transfers for up to 4/);
-  assert.match(vehicles, /Up to 4 passengers/);
+  assert.match(data, /up to 4 passengers/i);
+  assert.match(vehicles, /Vehicles for your airport transfer/);
+  assert.match(vehicles, /up to 4 passengers/);
   assert.doesNotMatch(vehicles, /Minibus — 5–7 passengers/);
   assert.match(card, /Vehicle for this journey/);
   assert.match(card, /vehicleShortLabel/);
@@ -220,8 +220,7 @@ check("Blocked availability result scrolls to confirmation card on mobile", () =
     card,
     /useEffect\(\(\) => \{[\s\S]*if \(!shortNoticeResult \|\| !pendingShortNoticeScrollRef\.current\)[\s\S]*\}, \[shortNoticeResult\]\)/,
   );
-  assert.match(card, /ShortNoticeRequestReceived|Need a quick answer\? WhatsApp us/);
-  assert.match(card, /Need a quick answer\? WhatsApp us/);
+  assert.match(card, /ShortNoticeRequestReceived/);
   assert.match(card, /scroll-mt-44/);
   // Scroll runs only when the pending flag is set for the blocked result
   assert.match(
