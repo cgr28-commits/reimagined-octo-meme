@@ -221,6 +221,7 @@ check("larger suitable vehicles stay selectable and a still-valid choice is not 
   assert.match(card, /setTrackedPartyKey\(partySelectionKey\)/);
   assert.match(card, /setManualVehicle\(null\)/);
   assert.match(card, /unsuitableFareRecoveryRef/);
+  assert.match(card, /rejectedVehicleKeysRef/);
   assert.match(card, /quoteFareAbortRef/);
   assert.match(card, /controller\.abort\(\)/);
   assert.match(card, /hadDisplayedFare/);

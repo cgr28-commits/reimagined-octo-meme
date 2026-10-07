@@ -947,6 +947,8 @@ function QuoteCard({
   const quoteFareAbortRef = useRef<AbortController | null>(null);
   /** Stops a vehicle_unavailable response from retrying the same unsuitable choice. */
   const unsuitableFareRecoveryRef = useRef("");
+  /** Vehicles the server has already rejected for the current party. */
+  const rejectedVehicleKeysRef = useRef(new Set<string>());
   /** Last authoritative £ so a vehicle change does not blank the price slot. */
   const stableFareLabelRef = useRef<string | null>(null);
   /** Route identity that already has a displayed fare. Vehicle switches reuse it. */
@@ -1013,6 +1015,7 @@ function QuoteCard({
     passengers == null || suitcases == null ? "" : `${passengers}:${suitcases}`;
   if (trackedPartyKey !== partySelectionKey) {
     unsuitableFareRecoveryRef.current = "";
+    rejectedVehicleKeysRef.current.clear();
     setTrackedPartyKey(partySelectionKey);
     setManualVehicle(null);
   }
@@ -1974,6 +1977,26 @@ function QuoteCard({
         return false;
       }
     }
+    const rejectionKey = (vehicle: string) => `${paxNow}:${suitcases}:${vehicle}`;
+    if (paxNow != null && rejectedVehicleKeysRef.current.has(rejectionKey(requestedVehicle))) {
+      const next = suitableVehicleTypesForParty(paxNow, suitcases, {
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      }).find((candidate) => !rejectedVehicleKeysRef.current.has(rejectionKey(candidate)));
+      if (next && next !== requestedVehicle) {
+        setManualVehicle(null);
+        setChooseExecutive(next === EXECUTIVE_VEHICLE);
+        setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
+        setChooseEstate(next === ESTATE_VEHICLE);
+        setVehicle(next);
+        setServerQuoteUnavailable(false);
+        setVehicleFareUpdating(true);
+        return false;
+      }
+      setVehicleFareUpdating(false);
+      setServerQuoteUnavailable(true);
+      return false;
+    }
     const vehiclesToPrice = quoteFareVehiclesToRequest({
       selectedVehicle: requestedVehicle,
       automaticVehicle:
@@ -2027,7 +2050,7 @@ function QuoteCard({
         ) {
           continue;
         }
-        const promise = calculateServerQuote(quoteBodyFor(vehicle), undefined, signal).then((alternate) => {
+        const promise = calculateServerQuote(quoteBodyFor(vehicle)).then((alternate) => {
           if (quoteFareInflightRef.current.get(key)?.promise === promise) {
             quoteFareInflightRef.current.delete(key);
           }
@@ -2066,7 +2089,7 @@ function QuoteCard({
           }
           return { ok: false as const, message: "Could not calculate fare" };
         });
-        quoteFareInflightRef.current.set(key, { promise, signal });
+        quoteFareInflightRef.current.set(key, { promise });
       }
     };
     if (!force) {
@@ -2189,6 +2212,7 @@ function QuoteCard({
           });
         }
         setServerQuoteUnavailable(false);
+        unsuitableFareRecoveryRef.current = "";
         if (typeof result.minimumBookingNoticeHours === "number") {
           setMinimumBookingNoticeHours(result.minimumBookingNoticeHours);
         }
@@ -2228,29 +2252,27 @@ function QuoteCard({
         return false;
       }
       if (!result.ok && result.reason === "vehicle_unavailable" && paxNow != null) {
-        const ranked = suitableVehicleTypesForParty(paxNow, suitcases, {
+        rejectedVehicleKeysRef.current.add(rejectionKey(requestedVehicle));
+        const suitable = suitableVehicleTypesForParty(paxNow, suitcases, {
           publicMinibusEnabled,
           publicExecutiveEnabled,
-        }).filter((candidate) => candidate !== requestedVehicle);
-        const suitable =
-          ranked[0] ??
-          keepOrSmallestSuitableVehicle({
-            current: requestedVehicle,
-            passengers: paxNow,
-            suitcases,
-            publicMinibusEnabled,
-            publicExecutiveEnabled,
-          });
-        const recoveryKey = `${paxNow}:${suitcases}:${requestedVehicle}->${suitable}`;
-        if (suitable !== requestedVehicle && unsuitableFareRecoveryRef.current !== recoveryKey) {
+        }).find((candidate) => !rejectedVehicleKeysRef.current.has(rejectionKey(candidate)));
+        const recoveryKey = `${paxNow}:${suitcases}:${requestedVehicle}->${suitable ?? ""}`;
+        if (suitable && suitable !== requestedVehicle && unsuitableFareRecoveryRef.current !== recoveryKey) {
           unsuitableFareRecoveryRef.current = recoveryKey;
+          const cached = authoritativeFareCacheRef.current.get(fareKeyFor(suitable));
           setManualVehicle(null);
           setChooseExecutive(suitable === EXECUTIVE_VEHICLE);
           setChooseMinibus(suitable === MINIBUS_VEHICLE_TYPE);
           setChooseEstate(suitable === ESTATE_VEHICLE);
           setVehicle(suitable);
           setServerQuoteUnavailable(false);
-          setVehicleFareUpdating(true);
+          if (cached && cached.vehicleType === suitable) {
+            setServerFareParts(cached);
+            setVehicleFareUpdating(false);
+          } else {
+            setVehicleFareUpdating(true);
+          }
           return false;
         }
       }
@@ -2353,7 +2375,7 @@ function QuoteCard({
     }
     const hadDisplayedFare = displayedRouteKeyRef.current != null;
     displayedRouteKeyRef.current = null;
-    setVehicleFareUpdating(hadDisplayedFare);
+    setVehicleFareUpdating(hadDisplayedFare || unsuitableFareRecoveryRef.current !== "");
     setServerFareParts(null);
     setServerQuoteUnavailable(false);
   }, [
