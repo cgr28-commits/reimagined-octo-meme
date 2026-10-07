@@ -2,13 +2,18 @@
  * Passenger / luggage → vehicle classification for the public quote form.
  * Monetary rates live in pricing-config.json and are not defined here.
  *
- * Public website (source of truth for customers):
+ * Automatic starting vehicle (guidance, not a restriction):
  * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
  * - Estate Car: 1–4 passengers AND 3–4 suitcases
  * - 7 Seater Minibus: 5–7 passengers OR 5+ large bags
- *   (only bookable when Offer 7 Seater Minibus Online is ON)
+ *   (offered online only when Offer 7 Seater Minibus Online is ON)
+ *
+ * An explicit customer choice of any enabled category is priced as requested.
+ * Capacity does not hide, disable, or reject that choice. The automatic
+ * vehicle is used only when the request does not name one.
  *
  * Owner/Driver Quick Quote may still select Minibus (5–7) when public Minibus is OFF.
+ * Owner mode still maps an explicit Saloon onto Minibus when the party needs one.
  *
  * Passenger count of 3 or 4 does NOT by itself trigger Estate.
  * 5+ large bags maps to Minibus and always holds payment for luggage
@@ -52,13 +57,6 @@ export const ESTATE_MAX_LARGE_SUITCASES = 4;
 
 export const BUSINESS_CLASS_UNAVAILABLE_ONLINE_MESSAGE =
   "Business Class is not available to book online.";
-
-export const VEHICLE_UNSUITABLE_MESSAGE =
-  "That vehicle cannot accommodate this passenger and luggage combination. Please choose a suitable vehicle.";
-
-/** Shown on a visible but unselectable vehicle card. */
-export const VEHICLE_NOT_SUITABLE_CARD_MESSAGE =
-  "Not suitable for your passenger/luggage selection";
 
 /**
  * Physical fit only. Saloon and Business Class: 1–4 passengers and 0–2 large suitcases.
@@ -157,10 +155,6 @@ export function resolvePublicVehicleChoice(input: {
     return { ok: true, vehicleType: selectVehicleForParty(pax, bags) };
   }
 
-  if (requiresMinibus(pax, bags)) {
-    return { ok: true, vehicleType: MINIBUS_VEHICLE };
-  }
-
   if (!requested) {
     return { ok: true, vehicleType: selectVehicleForParty(pax, bags) };
   }
@@ -169,9 +163,6 @@ export function resolvePublicVehicleChoice(input: {
     if (!publicExecutiveEnabled) {
       return { ok: false, message: BUSINESS_CLASS_UNAVAILABLE_ONLINE_MESSAGE };
     }
-    if (!vehicleFitsParty(EXECUTIVE_VEHICLE, pax, bags)) {
-      return { ok: false, message: VEHICLE_UNSUITABLE_MESSAGE };
-    }
     return { ok: true, vehicleType: EXECUTIVE_VEHICLE };
   }
 
@@ -179,23 +170,14 @@ export function resolvePublicVehicleChoice(input: {
     if (!publicMinibusEnabled) {
       return { ok: false, message: "7 Seater Minibus is not available to book online." };
     }
-    if (!vehicleFitsParty(MINIBUS_VEHICLE, pax, bags)) {
-      return { ok: false, message: VEHICLE_UNSUITABLE_MESSAGE };
-    }
     return { ok: true, vehicleType: MINIBUS_VEHICLE };
   }
 
   if (/estate/i.test(requested)) {
-    if (!vehicleFitsParty(ESTATE_VEHICLE, pax, bags)) {
-      return { ok: false, message: VEHICLE_UNSUITABLE_MESSAGE };
-    }
     return { ok: true, vehicleType: ESTATE_VEHICLE };
   }
 
   if (/saloon/i.test(requested)) {
-    if (!vehicleFitsParty(SALOON_VEHICLE, pax, bags)) {
-      return { ok: false, message: VEHICLE_UNSUITABLE_MESSAGE };
-    }
     return { ok: true, vehicleType: SALOON_VEHICLE };
   }
 

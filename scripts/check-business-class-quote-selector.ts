@@ -119,11 +119,19 @@ if (saloon.ok && estate.ok && business.ok) {
   assert.ok((business.journeyFareGbp ?? business.amount) > saloonFare);
 }
 
-const unsuitableSaloon = quote(SALOON_VEHICLE, 4);
-const unsuitableBusiness = quote(EXECUTIVE_VEHICLE, 4);
-assert.equal(unsuitableSaloon.ok, false);
-assert.equal(unsuitableBusiness.ok, false);
-if (!unsuitableBusiness.ok) assert.equal(unsuitableBusiness.reason, "vehicle_unavailable");
+const explicitSaloon = quote(SALOON_VEHICLE, 4);
+const explicitBusiness = quote(EXECUTIVE_VEHICLE, 4);
+const explicitEstate = quote(ESTATE_VEHICLE, 4);
+assert.equal(explicitSaloon.ok && explicitSaloon.vehicleType, SALOON_VEHICLE);
+assert.equal(explicitBusiness.ok && explicitBusiness.vehicleType, EXECUTIVE_VEHICLE);
+assert.equal(explicitEstate.ok && explicitEstate.vehicleType, ESTATE_VEHICLE);
+if (explicitSaloon.ok && explicitEstate.ok) {
+  assert.equal(
+    (explicitEstate.journeyFareGbp ?? explicitEstate.amount) -
+      (explicitSaloon.journeyFareGbp ?? explicitSaloon.amount),
+    UNIVERSAL_ESTATE_PREMIUM_GBP,
+  );
+}
 
 const directSaloon = calculateQuote(
   "Belfast City Hall",
@@ -231,9 +239,9 @@ assert.match(categories, /border-2/);
 assert.match(categories, /font-bold leading-tight text-navy/);
 assert.match(categories, /font-semibold leading-tight text-navy/);
 assert.match(categories, /font-medium leading-tight text-navy/);
-assert.match(categories, /h-\[5\.85rem\]/);
-assert.match(categories, /Not suitable for your passenger\/luggage selection|VEHICLE_NOT_SUITABLE_CARD_MESSAGE/);
-assert.match(categories, /data-vehicle-suitable/);
+assert.match(categories, /h-\[4\.75rem\]/);
+assert.doesNotMatch(categories, /disabled=\{|aria-disabled|data-vehicle-suitable/);
+assert.doesNotMatch(categories, /Not suitable for your passenger\/luggage selection|VEHICLE_NOT_SUITABLE_CARD_MESSAGE/);
 assert.match(categories, /enabledVehicleTypesForQuote/);
 assert.doesNotMatch(categories, /Recommended/);
 assert.match(categories, /bg-\[#147a2a\]/);
@@ -252,7 +260,8 @@ assert.match(categories, /Business Class|EXECUTIVE_CUSTOMER_NAME/);
 assert.match(categories, /quote-business-class\.webp/);
 assert.match(read("src/components/QuoteResultShowcase.tsx"), /quote-business-class\.webp/);
 assert.match(read("src/components/VehiclesSection.tsx"), /quote-business-class\.webp/);
-assert.match(categories, /suitableVehicleTypesForParty/);
+assert.match(card, /suitableVehicleTypesForParty/);
+assert.match(card, /setManualVehicle\(chosen\)/);
 assert.doesNotMatch(categories, /Mercedes|Lexus|Audi|C-Class/);
 assert.ok(showcase.indexOf("{bookButton}") < showcase.indexOf("data-quote-result-airport-access"));
 assert.match(card, /setChooseExecutive\(next === EXECUTIVE_VEHICLE\)/);

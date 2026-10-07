@@ -203,11 +203,19 @@ async function main() {
         passengers: 4,
         suitcases: 5,
         pricing: onPricing,
-        vehicleType: SALOON_VEHICLE,
       }),
     );
     assert.equal(quoted.ok, true);
     if (quoted.ok) assert.equal(quoted.vehicleType, MINIBUS_VEHICLE);
+    const explicitSaloon = calculateAuthoritativeWebsiteQuote(
+      quoteInput({
+        passengers: 4,
+        suitcases: 5,
+        pricing: onPricing,
+        vehicleType: SALOON_VEHICLE,
+      }),
+    );
+    assert.equal(explicitSaloon.ok && explicitSaloon.vehicleType, SALOON_VEHICLE);
   });
 
   check("7. 5+ always requires luggage-capacity confirmation", () => {

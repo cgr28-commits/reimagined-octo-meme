@@ -75,13 +75,13 @@ import {
   EXECUTIVE_VEHICLE,
   formatPassengerChoice,
   formatSuitcaseChoice,
+  canonicalVehicleType,
+  enabledVehicleTypesForQuote,
   keepOrSmallestSuitableVehicle,
   MAX_PUBLIC_SUITCASES,
   requiresMinibus,
-  SALOON_VEHICLE,
   selectVehicleForParty,
   suitableVehicleTypesForParty,
-  vehicleFitsParty,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import {
@@ -897,6 +897,9 @@ function QuoteCard({
   const [chooseMinibus, setChooseMinibus] = useState(false);
   const [chooseExecutive, setChooseExecutive] = useState(false);
   const [chooseEstate, setChooseEstate] = useState(false);
+  /** Explicit tap. Cleared only when passengers or suitcases change. */
+  const [manualVehicle, setManualVehicle] = useState<VehicleType | null>(null);
+  const [trackedPartyKey, setTrackedPartyKey] = useState("");
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
@@ -996,27 +999,30 @@ function QuoteCard({
     });
   }, []);
 
+  const partySelectionKey =
+    passengers == null || suitcases == null ? "" : `${passengers}:${suitcases}`;
+  if (trackedPartyKey !== partySelectionKey) {
+    setTrackedPartyKey(partySelectionKey);
+    setManualVehicle(null);
+  }
+
   const quoteVehicle = useMemo(() => {
     const pax = effectivePartyPassengers(passengers, passengerLimit);
     if (pax == null || suitcases == null) return vehicle;
-    if (publicMinibusEnabled && (chooseMinibus || pax >= 5 || suitcases >= 5)) {
-      return MINIBUS_VEHICLE_TYPE;
-    }
-    if (
-      publicExecutiveEnabled &&
-      chooseExecutive &&
-      vehicleFitsParty(EXECUTIVE_VEHICLE, pax, suitcases)
-    ) {
-      return EXECUTIVE_VEHICLE;
-    }
-    if (chooseEstate && vehicleFitsParty(ESTATE_VEHICLE, pax, suitcases)) {
-      return ESTATE_VEHICLE;
-    }
-    return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
+    const enabled = enabledVehicleTypesForQuote({
+      publicMinibusEnabled,
+      publicExecutiveEnabled,
+    });
+    if (manualVehicle && enabled.includes(manualVehicle)) return manualVehicle;
+    return keepOrSmallestSuitableVehicle({
+      current: vehicle,
+      passengers: pax,
+      suitcases,
+      publicMinibusEnabled,
+      publicExecutiveEnabled,
+    });
   }, [
-    chooseEstate,
-    chooseExecutive,
-    chooseMinibus,
+    manualVehicle,
     passengerLimit,
     passengers,
     publicExecutiveEnabled,
@@ -1042,36 +1048,27 @@ function QuoteCard({
 
   useEffect(() => {
     const pax = effectivePartyPassengers(passengers);
-    if (pax == null || suitcases == null) {
-      return;
-    }
-    const explicit = chooseMinibus
-      ? MINIBUS_VEHICLE_TYPE
-      : chooseExecutive
-        ? EXECUTIVE_VEHICLE
-        : chooseEstate
-          ? ESTATE_VEHICLE
-          : SALOON_VEHICLE;
+    if (pax == null || suitcases == null) return;
+    if (manualVehicle) return;
     const next = keepOrSmallestSuitableVehicle({
-      current: explicit,
+      current: vehicle,
       passengers: pax,
       suitcases,
       publicMinibusEnabled,
       publicExecutiveEnabled,
     });
-    if (next === explicit) return;
     setChooseExecutive(next === EXECUTIVE_VEHICLE);
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
     setChooseEstate(next === ESTATE_VEHICLE);
+    if (next === vehicle) return;
     setVehicle(next);
   }, [
-    chooseEstate,
-    chooseExecutive,
-    chooseMinibus,
+    manualVehicle,
     passengers,
     publicExecutiveEnabled,
     publicMinibusEnabled,
     suitcases,
+    vehicle,
   ]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
@@ -2689,6 +2686,7 @@ function QuoteCard({
     setChooseMinibus(false);
     setChooseExecutive(false);
     setChooseEstate(false);
+    setManualVehicle(null);
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -4353,6 +4351,7 @@ function QuoteCard({
     setChooseMinibus(false);
     setChooseExecutive(false);
     setChooseEstate(false);
+    setManualVehicle(null);
     setOutboundAccessChoice("express");
     setReturnAccessChoice("express");
     setExpressRemovalAck(false);
@@ -6822,12 +6821,21 @@ function QuoteCard({
 
   function handleQuoteVehicleChoice(next: string) {
     const pax = effectivePartyPassengers(passengers, passengerLimit);
-    if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
-    if (!vehicleFitsParty(next, pax, suitcases)) return;
+    if (pax == null || suitcases == null) return;
+    const chosen = canonicalVehicleType(next);
+    if (
+      !enabledVehicleTypesForQuote({
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      }).includes(chosen)
+    ) {
+      return;
+    }
+    setManualVehicle(chosen);
     setChooseExecutive(next === EXECUTIVE_VEHICLE);
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
     setChooseEstate(next === ESTATE_VEHICLE);
-    setVehicle(next as VehicleType);
+    setVehicle(chosen);
   }
 
   function renderQuoteVehicleChoice() {

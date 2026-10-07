@@ -122,7 +122,7 @@ check("6. Minibus ON => luggage options 0–4 and 5+", () => {
   assert.equal(isValidPublicSuitcaseCount(7, true), false);
 });
 
-check("7–9. 5/6/7 passengers => Minibus", () => {
+check("7–9. 5/6/7 passengers => Minibus unless the customer named another vehicle", () => {
   for (const pax of [5, 6, 7]) {
     assert.equal(requiresMinibus(pax, 2), true);
     assert.equal(selectVehicleForParty(pax, 2), MINIBUS_VEHICLE);
@@ -131,7 +131,6 @@ check("7–9. 5/6/7 passengers => Minibus", () => {
         passengers: pax,
         suitcases: 2,
         pricing: onPricing,
-        vehicleType: SALOON_VEHICLE,
       }),
     );
     assert.equal(result.ok, true);
@@ -139,6 +138,15 @@ check("7–9. 5/6/7 passengers => Minibus", () => {
       assert.equal(result.vehicleType, MINIBUS_VEHICLE);
     }
   }
+  const explicitSaloon = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 6,
+      suitcases: 2,
+      pricing: onPricing,
+      vehicleType: SALOON_VEHICLE,
+    }),
+  );
+  assert.equal(explicitSaloon.ok && explicitSaloon.vehicleType, SALOON_VEHICLE);
 });
 
 check("10. 8 passengers => rejected", () => {
@@ -154,7 +162,19 @@ check("11–13. 5+ large bags cannot be Saloon/Estate; 6 and 7 are not public op
   assert.notEqual(selectVehicleForParty(2, 5), SALOON_VEHICLE);
   assert.notEqual(selectVehicleForParty(2, 5), ESTATE_VEHICLE);
   assert.equal(selectVehicleForParty(2, 5), MINIBUS_VEHICLE);
-  const result = calculateAuthoritativeWebsiteQuote(
+  const automatic = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 2,
+      suitcases: 5,
+      pricing: onPricing,
+    }),
+  );
+  assert.equal(automatic.ok, true);
+  if (automatic.ok) {
+    assert.equal(automatic.vehicleType, MINIBUS_VEHICLE);
+    assert.equal(automatic.needsLuggageCapacityConfirmation, true);
+  }
+  const explicitEstate = calculateAuthoritativeWebsiteQuote(
     quoteInput({
       passengers: 2,
       suitcases: 5,
@@ -162,11 +182,7 @@ check("11–13. 5+ large bags cannot be Saloon/Estate; 6 and 7 are not public op
       vehicleType: ESTATE_VEHICLE,
     }),
   );
-  assert.equal(result.ok, true);
-  if (result.ok) {
-    assert.equal(result.vehicleType, MINIBUS_VEHICLE);
-    assert.equal(result.needsLuggageCapacityConfirmation, true);
-  }
+  assert.equal(explicitEstate.ok && explicitEstate.vehicleType, ESTATE_VEHICLE);
   for (const bags of [6, 7]) {
     const rejected = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 2, suitcases: bags, pricing: onPricing }),
@@ -426,7 +442,7 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
     assert.equal(optional.ok && optional.vehicleType, MINIBUS_VEHICLE);
   }
 
-  const forced = calculateAuthoritativeWebsiteQuote(
+  const explicitSaloon = calculateAuthoritativeWebsiteQuote(
     quoteInput({
       passengers: 6,
       suitcases: 1,
@@ -434,18 +450,38 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
       pricing: onPricing,
     }),
   );
-  assert.equal(forced.ok && forced.vehicleType, MINIBUS_VEHICLE);
+  assert.equal(explicitSaloon.ok && explicitSaloon.vehicleType, SALOON_VEHICLE);
+  const automaticMinibus = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 6,
+      suitcases: 1,
+      pricing: onPricing,
+    }),
+  );
+  assert.equal(automaticMinibus.ok && automaticMinibus.vehicleType, MINIBUS_VEHICLE);
+  const ownerRemap = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 6,
+      suitcases: 1,
+      vehicleType: SALOON_VEHICLE,
+      pricing: onPricing,
+      ownerMode: true,
+      maxPassengers: 7,
+    }),
+  );
+  assert.equal(ownerRemap.ok && ownerRemap.vehicleType, MINIBUS_VEHICLE);
 
   const card = read("src/components/QuoteCard.tsx");
   const categories = read("src/components/QuoteVehicleCategories.tsx");
   const progressive = read("src/components/QuoteProgressiveRoute.tsx");
   assert.match(card, /function renderQuoteVehicleChoice/);
   assert.match(card, /setChooseMinibus\(next === MINIBUS_VEHICLE_TYPE\)/);
-  assert.match(card, /chooseMinibus \|\| pax >= 5 \|\| suitcases >= 5/);
+  assert.doesNotMatch(card, /chooseMinibus \|\| pax >= 5 \|\| suitcases >= 5/);
   assert.match(card, /vehicleType: vehicle/);
   assert.match(card, /quoteFareVehiclesToRequest/);
   assert.match(progressive, /<QuoteVehicleCategories/);
-  assert.match(categories, /suitableVehicleTypesForParty/);
+  assert.doesNotMatch(categories, /suitableVehicleTypesForParty/);
+  assert.doesNotMatch(categories, /disabled=\{/);
   assert.match(categories, /bg-white/);
   assert.equal(card.split("renderQuoteVehicleChoice()").length, 5);
   assert.match(categories, /id: "minibus"/);
