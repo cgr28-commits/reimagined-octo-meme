@@ -11,6 +11,7 @@ import {
 } from "@/lib/vehicle-selection";
 import { vehicleCustomerDescription } from "../../shared/vehicle-display";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
+import { QuoteCrownIcon, QuoteSuitcaseIcon } from "@/components/quote-vehicle-line-icons";
 import {
   formatPublicSuitcaseChoice,
   isFivePlusLuggage,
@@ -135,7 +136,14 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         <p className="sr-only">Vehicle for this journey</p>
         <p className="mt-0.5 text-[0.84rem] font-semibold leading-tight text-navy">{capacityLine}</p>
         {detailLine.trim() ? (
-          <p className="text-[0.78rem] font-medium leading-tight text-navy">{detailLine}</p>
+          <p className="flex items-center justify-center gap-1 text-[0.78rem] font-medium leading-tight text-navy">
+            {isExecutive ? (
+              <QuoteCrownIcon className="h-3.5 w-3.5" />
+            ) : (
+              <QuoteSuitcaseIcon className="h-3.5 w-3.5" />
+            )}
+            {detailLine}
+          </p>
         ) : null}
         <div className="mt-0.5">
           <VehicleQuoteArt
@@ -159,7 +167,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {passengerLabel}
           </span>
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
-            <SuitcaseIcon />
+            <QuoteSuitcaseIcon className="h-4 w-4" />
             {suitcaseLabel}
           </span>
         </div>
@@ -249,19 +257,3 @@ function PassengerIcon() {
   );
 }
 
-function SuitcaseIcon() {
-  return (
-    <svg className="h-4 w-4 text-navy" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M7.5 8.5h9A1.5 1.5 0 0 1 18 10v8.5A1.5 1.5 0 0 1 16.5 20h-9A1.5 1.5 0 0 1 6 18.5V10A1.5 1.5 0 0 1 7.5 8.5Z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="M9.5 8.5V6.75A1.25 1.25 0 0 1 10.75 5.5h2.5A1.25 1.25 0 0 1 14.5 6.75V8.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-    </svg>
-  );
-}

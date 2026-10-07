@@ -21,6 +21,7 @@ import {
   SALOON_CUSTOMER_NAME,
 } from "../../shared/vehicle-display";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
+import { QuoteCrownIcon, QuoteSuitcaseIcon } from "@/components/quote-vehicle-line-icons";
 
 /** Shown under the passenger line on Saloon and Business Class, including when disabled. */
 const SALOON_LUGGAGE_CAPACITY = "2 large suitcases + 2 hand luggage";
@@ -37,7 +38,9 @@ const CATEGORIES = [
     title: SALOON_CUSTOMER_NAME,
     capacity: SALOON_CUSTOMER_DESCRIPTION,
     luggage: SALOON_LUGGAGE_CAPACITY,
+    luggageIcon: "suitcase" as const,
     detail: null,
+    detailIcon: null,
     image: SALOON_IMAGE,
     art: "saloon" as VehicleArtId,
   },
@@ -47,7 +50,9 @@ const CATEGORIES = [
     title: ESTATE_CUSTOMER_NAME,
     capacity: "1–4 passengers",
     luggage: null,
+    luggageIcon: null,
     detail: ESTATE_CUSTOMER_DESCRIPTION,
+    detailIcon: "suitcase" as const,
     image: ESTATE_IMAGE,
     art: "estate" as VehicleArtId,
   },
@@ -57,7 +62,9 @@ const CATEGORIES = [
     title: EXECUTIVE_CUSTOMER_NAME,
     capacity: "1–4 passengers",
     luggage: SALOON_LUGGAGE_CAPACITY,
+    luggageIcon: "suitcase" as const,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
+    detailIcon: "crown" as const,
     image: BUSINESS_CLASS_IMAGE,
     art: "executive" as VehicleArtId,
   },
@@ -67,11 +74,19 @@ const CATEGORIES = [
     title: MINIBUS_CUSTOMER_NAME,
     capacity: null,
     luggage: null,
+    luggageIcon: null,
     detail: MINIBUS_CUSTOMER_DESCRIPTION,
+    detailIcon: null,
     image: MINIBUS_IMAGE,
     art: "minibus" as VehicleArtId,
   },
 ] as const;
+
+function VehicleLineIcon({ name }: { name: "suitcase" | "crown" | null }) {
+  if (name === "suitcase") return <QuoteSuitcaseIcon className="mt-px h-3.5 w-3.5" />;
+  if (name === "crown") return <QuoteCrownIcon className="mt-px h-3.5 w-3.5" />;
+  return null;
+}
 
 export default function QuoteVehicleCategories({
   passengers,
@@ -157,13 +172,15 @@ export default function QuoteVehicleCategories({
                       </span>
                     ) : null}
                     {option.luggage ? (
-                      <span className="mt-0.5 block text-[0.78rem] font-semibold leading-tight text-navy">
-                        {option.luggage}
+                      <span className="mt-0.5 flex items-start gap-1 text-[0.78rem] font-semibold leading-tight text-navy">
+                        <VehicleLineIcon name={option.luggageIcon} />
+                        <span>{option.luggage}</span>
                       </span>
                     ) : null}
                     {option.detail ? (
-                      <span className="mt-0.5 block text-[0.78rem] font-medium leading-tight text-navy">
-                        {option.detail}
+                      <span className="mt-0.5 flex items-start gap-1 text-[0.78rem] font-medium leading-tight text-navy">
+                        <VehicleLineIcon name={option.detailIcon} />
+                        <span>{option.detail}</span>
                       </span>
                     ) : option.luggage ? null : (
                       <span className="block text-[0.78rem] leading-tight text-transparent" aria-hidden>
