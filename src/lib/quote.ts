@@ -12,7 +12,7 @@ import {
   UNIVERSAL_ESTATE_PREMIUM_GBP,
   UNIVERSAL_SALOON_MINIMUM_GBP,
 } from "../../shared/universal-distance-pricing";
-import { formatGbpAmount, roundGbp } from "../../shared/gbp";
+import { ceilCustomerFareToWholePoundGbp, formatGbpAmount, roundGbp } from "../../shared/gbp";
 import {
   ownerPricingEngineOptions,
   type PublicOwnerPricingConfig,
@@ -616,9 +616,10 @@ export function calculatePointToPointQuote(
 
   const journeyFareGbp = roundGbp(premium.total);
   const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
+  const amount = ceilCustomerFareToWholePoundGbp(journeyFareGbp);
 
   return {
-    amount: journeyFareGbp,
+    amount,
     area: dropoffArea ?? pickupArea,
     areaSurcharge: Math.round(roadMiles * 10) / 10,
     airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
@@ -716,11 +717,11 @@ export function calculateQuote(
     returnFixedGbp: returnFixed,
     getReturnJourneyFare: (oneWay) => getReturnJourneyFare(oneWay, engine.returnDiscountRate),
   });
-  // Journey: Saloon nearest £1 (Estate + uplift; Minibus Estate × multiplier, penny only). Return discount may introduce pence.
-  // Fixed airport costs keep 50p etc. Final amount = journey + fixed, both to pence.
+  // Journey stays at penny precision (Saloon nearest £1, Estate + uplift, Minibus penny).
+  // Fixed airport costs keep 50p. One ceiling is applied to the customer total only.
   const roundedJourneyFare = roundGbp(premium.total);
   const roundedFixed = roundGbp(composed.fixedTotalGbp);
-  const amount = roundGbp(roundedJourneyFare + roundedFixed);
+  const amount = ceilCustomerFareToWholePoundGbp(roundedJourneyFare + roundedFixed);
 
   return {
     amount,
@@ -838,24 +839,27 @@ export function calculateAirportToAirportQuote(
   const returnFixed = returnJourney
     ? getAirportToAirportFixedCostGbp(dropoffCode, pickupCode)
     : 0;
+  const oneWayBase =
+    typeof underlyingOneWay.journeyFareGbp === "number"
+      ? underlyingOneWay.journeyFareGbp
+      : underlyingOneWay.amount;
   const premium = applyTripPremium(
-    underlyingOneWay.amount,
+    oneWayBase,
     { ...schedule, returnJourney },
     AIRPORT_TRIP_PREMIUM_RATE,
     { pricing },
   );
   const composed = composeFareWithAirportFixedCosts({
-    journeyOneWayGbp: underlyingOneWay.amount,
+    journeyOneWayGbp: oneWayBase,
     returnJourney,
     outboundFixedGbp: outboundFixed,
     returnFixedGbp: returnFixed,
     getReturnJourneyFare: (oneWay) => getReturnJourneyFare(oneWay, engine.returnDiscountRate),
   });
-  // Journey already nearest-£1 from universal pricing (return may add pence).
-  // Keep fixed costs (incl. 50p) — amount === journey + fixed at pence precision.
+  // Surcharge the precise one-way fare, then ceiling the customer total once.
   const roundedJourneyFare = roundGbp(premium.total);
   const roundedFixed = roundGbp(composed.fixedTotalGbp);
-  const amount = roundGbp(roundedJourneyFare + roundedFixed);
+  const amount = ceilCustomerFareToWholePoundGbp(roundedJourneyFare + roundedFixed);
 
   return {
     ...underlyingOneWay,

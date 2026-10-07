@@ -128,9 +128,12 @@ check("missing config → Saloon / Estate / Minibus / Return / Night / Weekend /
   assert.equal(DEFAULT_MINIBUS_MULTIPLIER, 1.55);
   assert.equal(normalized.returnDiscount.rate, 0.05);
   assert.equal(DEFAULT_RETURN_DISCOUNT_RATE, RETURN_JOURNEY_DISCOUNT_RATE);
-  assert.equal(normalized.night.surchargeRate, 0.1);
+  assert.equal(normalized.evening.surchargeRate, 0.1);
+  assert.equal(normalized.evening.startMinutes, 20 * 60);
+  assert.equal(normalized.evening.endMinutes, 23 * 60);
+  assert.equal(normalized.night.surchargeRate, 0.2);
   assert.equal(normalized.weekend.surchargeRate, 0.1);
-  assert.equal(normalized.night.startMinutes, 22 * 60);
+  assert.equal(normalized.night.startMinutes, 23 * 60);
   assert.equal(normalized.night.endMinutes, 6 * 60);
   assert.deepEqual(normalized.weekend.days, [0, 6]);
   assert.equal(normalized.minibus.publicEnabled, false);
@@ -447,7 +450,7 @@ check("return 5% / 10% / 0% and Night/Weekend 10% / 20% / 0%", () => {
     returnDate: "2026-08-20",
     returnTime: "10:00",
   });
-  assert.equal(Math.round(oneNight.total * 100) / 100, 88);
+  assert.equal(Math.round(oneNight.total * 100) / 100, 92.4);
 
   const both = applyTripPremium(44, {
     outboundDate: "2026-08-22",
@@ -486,8 +489,10 @@ check("return 5% / 10% / 0% and Night/Weekend 10% / 20% / 0%", () => {
 check("Night / Weekend boundaries and highest-applicable stacking", () => {
   assert.equal(isTripPremiumDateTime("2026-08-24", "05:59"), true);
   assert.equal(isTripPremiumDateTime("2026-08-24", "06:00"), false);
-  assert.equal(isTripPremiumDateTime("2026-08-19", "21:59"), false);
-  assert.equal(isTripPremiumDateTime("2026-08-19", "22:00"), true);
+  assert.equal(isTripPremiumDateTime("2026-08-19", "19:59"), false);
+  assert.equal(isTripPremiumDateTime("2026-08-19", "20:00"), true);
+  assert.equal(isTripPremiumDateTime("2026-08-19", "22:59"), true);
+  assert.equal(isTripPremiumDateTime("2026-08-19", "23:00"), true);
   assert.equal(isTripPremiumDateTime("2026-08-22", "00:00"), true);
   assert.equal(isTripPremiumDateTime("2026-08-23", "23:59"), true);
   assert.equal(isTripPremiumDateTime("2026-08-24", "00:00"), true);
@@ -533,9 +538,9 @@ check("Saloon → Estate +£6 → Minibus ×1.55; Night from Minibus base; fixed
     outboundTime: "23:00",
     returnJourney: false,
   });
-  assert.equal(Math.round(minibusThenNight.premiumAmount * 100) / 100, 9.3);
+  assert.equal(Math.round(minibusThenNight.premiumAmount * 100) / 100, 18.6);
   const withFixed = minibusThenNight.total + 5;
-  assert.equal(Math.round(withFixed * 100) / 100, 107.3);
+  assert.equal(Math.round(withFixed * 100) / 100, 116.6);
   assert.notEqual(5 * 1.55, 5);
 });
 
@@ -582,9 +587,10 @@ check("Pricing tab, public gate, image slot, no MPV restore", () => {
   const previewCards = read("src/components/PreviewVehicleCardsClient.tsx");
   assert.match(previewCards, /quote-minibus\.webp/);
   assert.doesNotMatch(previewCards, /QuoteResultShowcase/);
-  assert.equal(DEFAULT_NIGHT_SURCHARGE_RATE, NIGHT_WEEKEND_SURCHARGE_RATE);
+  assert.equal(DEFAULT_NIGHT_SURCHARGE_RATE, 0.2);
+  assert.notEqual(DEFAULT_NIGHT_SURCHARGE_RATE, NIGHT_WEEKEND_SURCHARGE_RATE);
   assert.equal(DEFAULT_WEEKEND_SURCHARGE_RATE, NIGHT_WEEKEND_SURCHARGE_RATE);
-  assert.equal(DEFAULT_NIGHT_START_MINUTES, 22 * 60);
+  assert.equal(DEFAULT_NIGHT_START_MINUTES, 23 * 60);
   assert.equal(DEFAULT_NIGHT_END_MINUTES, 6 * 60);
 });
 

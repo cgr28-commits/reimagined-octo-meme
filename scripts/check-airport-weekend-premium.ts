@@ -75,8 +75,8 @@ assert.equal(sunday.premiumApplied, true);
 assert.equal(bankHoliday.premiumApplied, false);
 assert.equal(noSchedule.premiumApplied, false);
 assert.equal(weekday.amount, 44);
-assert.equal(saturday.amount, 48.4);
-assert.equal(sunday.amount, 48.4);
+assert.equal(saturday.amount, 49);
+assert.equal(sunday.amount, 49);
 assert.equal(bankHoliday.amount, weekday.amount);
 assert.equal(noSchedule.amount, weekday.amount);
 console.log(
@@ -94,7 +94,7 @@ const saturdayAfternoon = calculateQuote(cityHall, "BFS", SALOON, false, {
 assert.ok(fridayAfternoon && saturdayAfternoon);
 assert.equal(fridayAfternoon.premiumApplied, false);
 assert.equal(saturdayAfternoon.premiumApplied, true);
-assert.equal(saturdayAfternoon.amount, 48.4);
+assert.equal(saturdayAfternoon.amount, 49);
 assert.equal(fridayAfternoon.amount, 44);
 console.log(
   `OK  Public Live Quote: Friday 14:00 £${fridayAfternoon.amount}; Saturday 15:00 £${saturdayAfternoon.amount}`,

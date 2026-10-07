@@ -1,14 +1,14 @@
 {
   "$schemaComment": "CENTRAL PRICING CONFIG — all commercial £ values for the public quote engine. UI components must not hard-code fares. See `pricingModel` for the formula.",
   "pricingModel": {
-    "summary": "Universal road-distance journey fare (shared/universal-distance-pricing.ts) → vehicle (Estate = Saloon + £10) → optional 5% return discount → Night & Weekend Surcharge (10%) on qualifying legs → airport fixed costs → Express/access add-on in UI. Zone tables and Belfast mile floor are retired for live quotes.",
+    "summary": "Universal road-distance journey fare (shared/universal-distance-pricing.ts) → vehicle (Estate = Saloon + £10) → optional 5% return discount → Evening, Night or Weekend surcharge on qualifying legs → airport fixed costs → Express/access add-on in UI. The final customer price is then rounded up to the next whole pound. Zone tables and Belfast mile floor are retired for live quotes.",
     "addressToAddress": "Same universal distance curve as airport transfers. Requires valid OSRM road metrics; otherwise no fare.",
-    "airport": "Journey fare from road miles only (piecewise Saloon interpolating approved knots: 0–4→£29, 15→£46, 30→£67, 50→£96, 70→£135, 90→£181, 100→£210; nearest £1). Estate = Saloon + £10. Then Night & Weekend Surcharge (10%) on the journey fare only when pickup is Mon–Fri 22:00–05:59 or all day Sat/Sun (Europe/London). Airport fixed costs and Express are never surcharged.",
+    "airport": "Journey fare from road miles only (piecewise Saloon interpolating approved knots: 0–4→£29, 15→£46, 30→£67, 50→£96, 70→£135, 90→£181, 100→£210; nearest £1). Estate = Saloon + £10. Then Evening (default Mon–Fri 20:00–23:00, 10%), Night (default Mon–Fri 23:00–06:00, 20%) or Weekend surcharge on the journey fare only. Airport fixed costs and Express are never surcharged. The customer total is rounded up to the next whole pound once, at the end.",
     "dublinAirport": "Priced on the same universal distance curve for the road miles to/from DUB, then airportFixedCostsGbp (drop-off +£4 M1; pickup +£5 parking +£4 M1). Long-distance ~98 miles interpolates to ~£204–£205 Saloon journey before fixed costs.",
     "vehicles": "Saloon 1–4 pax AND 0–2 large cases; Estate 1–4 pax AND 3–4 cases (+£6 vs Saloon); Minibus 5–7 (builds from Estate × multiplier).",
     "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 × oneWay journey fare). Airport fixed costs and Express are added after and are never discounted.",
     "airportFixedCosts": "Per-leg: BFS/BHD £0 on address↔airport; DUB drop £4 M1 / pick £5 parking +£4 M1; LDY drop £1 / pick £2.50. Express Drop-Off is a separate optional add-on (BFS £5 / BHD £4).",
-    "rounding": "Universal journey: Saloon rounded to nearest £1; Estate = that Saloon + £6 (not re-rounded). 7 Seater Minibus = Estate × multiplier, rounded to the nearest penny only (not nearest £5). Website, email, booking and payment use the same journey amount."
+    "rounding": "Universal journey: Saloon rounded to nearest £1; Estate = that Saloon + uplift (not re-rounded). 7 Seater Minibus = Estate × multiplier, rounded to the nearest penny only (not nearest £5). After surcharges, airport charges and other adjustments, the final customer price is ceiling-rounded to the next whole pound. Website, email, booking and payment use that same final amount."
   },
   "pricingRulesApproved": true,
   "publicUnapprovedPriceLabel": "Price confirmation required",

@@ -16,6 +16,7 @@ import {
   calculateUniversalSaloonJourneyFareGbp,
   calculateUniversalEstateJourneyFareGbp,
 } from "../shared/universal-distance-pricing";
+import { ceilCustomerFareToWholePoundGbp } from "../shared/gbp";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import {
   checkoutAmountsMatch,
@@ -39,7 +40,7 @@ function assertAmountParts(
 ) {
   const journey = roundGbp(q.journeyFareGbp ?? 0);
   const fixed = roundGbp(q.airportFixedCostsGbp ?? 0);
-  assert.equal(roundGbp(q.amount), roundGbp(journey + fixed), label);
+  assert.equal(q.amount, ceilCustomerFareToWholePoundGbp(journey + fixed), label);
 }
 
 console.log("=== formatQuote ===");
@@ -66,9 +67,9 @@ console.log("\n=== LDY pickup £2.50 fixed (not rounded away) ===");
   assert.equal(q.airportFixedCostsGbp, 2.5);
   assert.equal(q.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(75)); // £146
   assert.equal(q.journeyFareGbp, 146);
-  assert.equal(q.amount, roundGbp(146 + 2.5)); // £148.50 — not Math.round → £149
+  assert.equal(q.amount, ceilCustomerFareToWholePoundGbp(146 + 2.5)); // £148.50 → £149
   assertAmountParts(q, "LDY pickup parts");
-  assert.equal(formatQuote(q.amount), "£148.50");
+  assert.equal(formatQuote(q.amount), "£149");
   console.log(
     `OK  LDY pickup journey £${q.journeyFareGbp} + £2.50 = £${q.amount} (${formatQuote(q.amount)})`,
   );
@@ -90,7 +91,7 @@ console.log("\n=== LDY return: fixed both directions, journey discounted ===");
   // Pickup outbound £2.50 + drop-off return £1 = £3.50
   assert.equal(ret.airportFixedCostsGbp, 3.5);
   assert.equal(ret.journeyFareGbp, expectedJourney);
-  assert.equal(ret.amount, roundGbp(expectedJourney + 3.5));
+  assert.equal(ret.amount, ceilCustomerFareToWholePoundGbp(expectedJourney + 3.5));
   assertAmountParts(ret, "LDY return parts");
   console.log(
     `OK  LDY return journey £${ret.journeyFareGbp} + fixed £${ret.airportFixedCostsGbp} = £${ret.amount}`,
@@ -124,9 +125,9 @@ console.log("\n=== Dublin return: 5% discount produces pence ===");
   assert.equal(expectedJourney, 387.6);
   assert.equal(ret.journeyFareGbp, 387.6);
   assert.equal(ret.airportFixedCostsGbp, 13);
-  assert.equal(ret.amount, 400.6);
+  assert.equal(ret.amount, 401);
   assertAmountParts(ret, "DUB return");
-  console.log(`OK  DUB return journey £387.6 + £13 fixed = £400.6`);
+  console.log(`OK  DUB return journey £387.6 + £13 fixed = £401`);
 }
 
 console.log("\n=== A2A with pence (BFS↔BHD destination surcharge) ===");
@@ -143,7 +144,7 @@ console.log("\n=== A2A with pence (BFS↔BHD destination surcharge) ===");
   )!;
   assert.equal(a2a.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(17));
   assert.equal(a2a.airportFixedCostsGbp, 4);
-  assert.equal(a2a.amount, roundGbp(a2a.journeyFareGbp! + 4));
+  assert.equal(a2a.amount, ceilCustomerFareToWholePoundGbp(a2a.journeyFareGbp! + 4));
   assertAmountParts(a2a, "A2A");
   console.log(`OK  A2A amount £${a2a.amount}`);
 }
@@ -181,7 +182,7 @@ console.log("\n=== Quote / breakdown / SumUp charge agree to the penny ===");
     description: `My Airport Taxi NI ${formatQuote(q.amount)}`,
   };
   assert.equal(mockSumUpCheckout.amount, q.amount);
-  assert.equal(mockSumUpCheckout.amount, 148.5);
+  assert.equal(mockSumUpCheckout.amount, 149);
   console.log(`OK  mocked SumUp amount = ${mockSumUpCheckout.amount} GBP (${formatQuote(q.amount)})`);
 }
 

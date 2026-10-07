@@ -6,6 +6,7 @@
 import {
   defaultOwnerPricingSettings,
   diffOwnerPricingSettings,
+  normalizeOwnerPricingSettings,
   toPublicOwnerPricingConfig,
   validateOwnerPricingInput,
   type OwnerPricingAuditEntry,
@@ -97,7 +98,8 @@ export function readPreviewPricingState(): {
   const stored = readJson<OwnerPricingSettings>(SETTINGS_KEY);
   const audit = readJson<OwnerPricingAuditEntry[]>(AUDIT_KEY);
   return {
-    settings: stored && typeof stored === "object" ? stored : defaults,
+    settings:
+      stored && typeof stored === "object" ? normalizeOwnerPricingSettings(stored) : defaults,
     defaults,
     audit: Array.isArray(audit) ? audit.slice(0, MAX_AUDIT) : [],
   };

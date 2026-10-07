@@ -13,6 +13,7 @@ import {
   formatAirportAccessOptionCustomerLines,
   formatExpressDropOffSummaryLine,
 } from "../../shared/express-drop-off";
+import { NIGHT_WEEKEND_SURCHARGE_LABEL } from "../../shared/night-weekend-surcharge";
 
 export type BookingDetails = {
   customerName: string;
@@ -190,7 +191,7 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
     includesBlock +
     (details.returnJourney && details.estimatedPrice ? "5% Return Booking Discount applied\n" : "") +
     ((details.nightWeekendSurchargeGbp ?? 0) > 0
-      ? "Night & Weekend Surcharge (10%) applied\n"
+      ? `${NIGHT_WEEKEND_SURCHARGE_LABEL} applied\n`
       : "") +
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`

@@ -380,6 +380,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     () => previewVehicleFaresFromSaloon(50, editingDraft),
     [editingDraft],
   );
+  const eveningOnHundred = previewSurchargeOnBase(100, draft.evening.surchargeRate);
   const nightOnHundred = previewSurchargeOnBase(100, draft.night.surchargeRate);
   const nightOnMinibus = previewSurchargeOnBase(preview.minibusQuotedGbp, draft.night.surchargeRate);
   const weekendDays = draft.weekend.days.includes(6) && draft.weekend.days.includes(0)
@@ -773,9 +774,56 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
-          Night / Weekend / Bank Holiday
+          Evening / Night / Weekend / Bank Holiday
         </h3>
         <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-white/70">Evening pricing enabled</p>
+          <Toggle
+            id="evening-enabled"
+            label="Evening pricing enabled"
+            checked={draft.evening.enabled}
+            onChange={(enabled) => update("evening", { ...draft.evening, enabled })}
+          />
+        </div>
+        <PercentField
+          label="Evening surcharge"
+          value={Math.round(draft.evening.surchargeRate * 1000) / 10}
+          onChange={(value) => update("evening", { ...draft.evening, surchargeRate: value / 100 })}
+        />
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className={labelClass}>
+            Evening starts
+            <input
+              className={fieldClass}
+              type="time"
+              value={formatMinutesAsTime(draft.evening.startMinutes)}
+              onChange={(event) => {
+                const [hours, minutes] = event.target.value.split(":").map(Number);
+                update("evening", { ...draft.evening, startMinutes: hours * 60 + minutes });
+              }}
+            />
+          </label>
+          <label className={labelClass}>
+            Evening ends
+            <input
+              className={fieldClass}
+              type="time"
+              value={formatMinutesAsTime(draft.evening.endMinutes)}
+              onChange={(event) => {
+                const [hours, minutes] = event.target.value.split(":").map(Number);
+                update("evening", { ...draft.evening, endMinutes: hours * 60 + minutes });
+              }}
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-white/55">
+          Evening hours apply Monday–Friday. Current window:{" "}
+          {formatMinutesAsTime(draft.evening.startMinutes)} to{" "}
+          {formatMinutesAsTime(draft.evening.endMinutes)}. The end time is the first minute of
+          Night, not Evening.
+        </p>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
           <p className="text-sm text-white/70">Night pricing enabled</p>
           <Toggle
             id="night-enabled"
@@ -838,6 +886,10 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           Qualifying weekend: {weekendDays}. Whole days, not hourly start/end times.
         </p>
         <p className="mt-3 text-sm text-white/80">{SURCHARGE_STACKING_EXPLANATION}</p>
+        <p className="mt-2 text-xs text-white/55">
+          Customer prices are rounded up to the next whole pound after the full calculation,
+          including vehicle uplift, these surcharges and airport charges.
+        </p>
         <p className="mt-4 text-sm font-semibold uppercase tracking-wider text-emerald">Bank Holidays</p>
         <p className="mt-2 text-sm text-white/70">{BANK_HOLIDAY_BEHAVIOUR_NOTE}</p>
         <p className="mt-3 text-xs text-white/55">{nightWeekendSurchargeExplanation(draft)}</p>
@@ -889,6 +941,10 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             <dd>£{preview.minibusQuotedGbp.toFixed(2)}</dd>
           </div>
           <div className="flex justify-between gap-3 pt-2">
+            <dt>Evening {formatPercentFromRate(draft.evening.surchargeRate)} on £100</dt>
+            <dd>+£{eveningOnHundred.surchargeGbp.toFixed(2)}</dd>
+          </div>
+          <div className="flex justify-between gap-3">
             <dt>Night {formatPercentFromRate(draft.night.surchargeRate)} on 7 Seater £{preview.minibusQuotedGbp.toFixed(2)}</dt>
             <dd>+£{nightOnMinibus.surchargeGbp.toFixed(2)}</dd>
           </div>

@@ -1,7 +1,6 @@
 import { londonWeekday, wallClockMinutes } from "../../shared/uk-time";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "../../shared/return-journey-discount";
 import {
-  defaultPremiumWindowRules,
   ownerPricingEngineOptions,
   surchargeRateForDateTime,
   type PublicOwnerPricingConfig,
@@ -18,15 +17,16 @@ export {
 export type OwnerPricingEngineInput = OwnerPricingSettings | PublicOwnerPricingConfig;
 
 /**
- * Night & Weekend Surcharge (10%) on the journey/vehicle fare only.
- * Window: Mon–Fri 22:00–05:59, and all day Saturday/Sunday (Europe/London).
+ * Evening, Night and Weekend surcharges on the journey/vehicle fare only.
+ * Defaults: Mon–Fri Evening 20:00–23:00 at 10%, Night 23:00–06:00 at 20%,
+ * and all day Saturday/Sunday at the configured Weekend rate (Europe/London).
  */
 export const TRIP_PREMIUM_RATE = PRICING_CONFIG.addressToAddressTripPremiumRate;
 
 /** Public + Personal Quote return discount — from shared/return-journey-discount-rate.json (exactly 5%). */
 export { RETURN_JOURNEY_DISCOUNT_RATE };
 
-/** Airport transfers: same 10% Night & Weekend Surcharge as address-to-address. */
+/** Airport transfers use the same Evening, Night and Weekend bands as address-to-address. */
 export const AIRPORT_TRIP_PREMIUM_RATE = PRICING_CONFIG.airportTripPremiumRate;
 
 /** @deprecated Use TRIP_PREMIUM_RATE */
@@ -55,8 +55,8 @@ function parseLocalDateTime(date: string, time: string): { day: number; minutes:
 }
 
 /**
- * Night & Weekend window in Europe/London wall-clock time:
- * Sat/Sun 00:00–23:59; Mon–Fri 22:00–05:59. Daytime bank holidays are not extra.
+ * Premium window in Europe/London wall-clock time.
+ * Weekend days, plus weekday Evening and Night. Daytime bank holidays are not extra.
  */
 export function isTripPremiumDateTime(
   date: string,
@@ -68,23 +68,25 @@ export function isTripPremiumDateTime(
     return false;
   }
 
-  const options = pricing ? ownerPricingEngineOptions(pricing) : null;
-  const rules = options
-    ? {
-        nightEnabled: options.nightEnabled,
-        nightStartMinutes: options.nightStartMinutes,
-        nightEndMinutes: options.nightEndMinutes,
-        weekendEnabled: options.weekendEnabled,
-        weekendDays: options.weekendDays,
-      }
-    : defaultPremiumWindowRules();
+  const options = ownerPricingEngineOptions(pricing ?? null);
+  const rules = {
+    eveningEnabled: options.eveningEnabled,
+    eveningStartMinutes: options.eveningStartMinutes,
+    eveningEndMinutes: options.eveningEndMinutes,
+    nightEnabled: options.nightEnabled,
+    nightStartMinutes: options.nightStartMinutes,
+    nightEndMinutes: options.nightEndMinutes,
+    weekendEnabled: options.weekendEnabled,
+    weekendDays: options.weekendDays,
+  };
 
   return (
     surchargeRateForDateTime({
       day: parsed.day,
       minutes: parsed.minutes,
-      nightRate: options?.nightRate ?? TRIP_PREMIUM_RATE,
-      weekendRate: options?.weekendRate ?? TRIP_PREMIUM_RATE,
+      eveningRate: options.eveningRate,
+      nightRate: options.nightRate,
+      weekendRate: options.weekendRate,
       rules,
     }) > 0
   );
@@ -116,8 +118,10 @@ export function getReturnJourneyFare(
  * Order (do not invert):
  * 1. One-way base journey fare for each leg (Estate uplift already in `oneWayFare`)
  * 2. If return: 5% off the combined BASE journey total only
- * 3. +10% Night & Weekend Surcharge on each qualifying leg, from the
- *    ORIGINAL undiscounted base fare (never from the post-5% amount)
+ * 3. Evening, Night or Weekend surcharge on each qualifying leg, from the
+ *    ORIGINAL undiscounted base fare (never from the post-5% amount).
+ *    Evening and Night are mutually exclusive. Weekend uses the higher rate
+ *    when it overlaps one of those bands.
  *
  * Airport/barrier/Express charges are added later and never enter this function.
  */
@@ -138,22 +142,25 @@ export function applyTripPremium(
   premiumRate: number = TRIP_PREMIUM_RATE,
   options?: ApplyTripPremiumOptions,
 ): { total: number; premiumApplied: boolean; premiumAmount: number; returnDiscountApplied: boolean } {
-  const pricingOptions = options?.pricing ? ownerPricingEngineOptions(options.pricing) : null;
+  const pricingOptions = ownerPricingEngineOptions(options?.pricing ?? null);
   const returnRate =
     options?.returnDiscountRate ??
-    pricingOptions?.returnDiscountRate ??
+    pricingOptions.returnDiscountRate ??
     RETURN_JOURNEY_DISCOUNT_RATE;
-  const nightRate = pricingOptions?.nightRate ?? premiumRate;
-  const weekendRate = pricingOptions?.weekendRate ?? premiumRate;
-  const rules = pricingOptions
-    ? {
-        nightEnabled: pricingOptions.nightEnabled,
-        nightStartMinutes: pricingOptions.nightStartMinutes,
-        nightEndMinutes: pricingOptions.nightEndMinutes,
-        weekendEnabled: pricingOptions.weekendEnabled,
-        weekendDays: pricingOptions.weekendDays,
-      }
-    : defaultPremiumWindowRules();
+  const eveningRate = pricingOptions.eveningRate;
+  const nightRate = pricingOptions.nightRate;
+  const weekendRate = pricingOptions.weekendRate;
+  const rules = {
+    eveningEnabled: pricingOptions.eveningEnabled,
+    eveningStartMinutes: pricingOptions.eveningStartMinutes,
+    eveningEndMinutes: pricingOptions.eveningEndMinutes,
+    nightEnabled: pricingOptions.nightEnabled,
+    nightStartMinutes: pricingOptions.nightStartMinutes,
+    nightEndMinutes: pricingOptions.nightEndMinutes,
+    weekendEnabled: pricingOptions.weekendEnabled,
+    weekendDays: pricingOptions.weekendDays,
+  };
+  void premiumRate;
 
   const rateFor = (date?: string, time?: string): number => {
     if (!date || !time) return 0;
@@ -162,6 +169,7 @@ export function applyTripPremium(
     return surchargeRateForDateTime({
       day: parsed.day,
       minutes: parsed.minutes,
+      eveningRate,
       nightRate,
       weekendRate,
       rules,

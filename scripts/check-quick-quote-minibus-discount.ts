@@ -132,7 +132,7 @@ check("Return engine discount stays inside calculated fare; manual discount is s
   // Return discount applies to the journey fare only; BFS fixed costs stay £0.
   // One-way Saloon ~14 mi = £44; return = 5% off £88 + Saturday 10% on the return leg.
   assert.equal(oneWay.amount, 44);
-  assert.equal(ret.amount, 83.6);
+  assert.equal(ret.amount, 84);
   assert.equal(ret.amount, getWebsiteReturnJourneyFare(oneWay.amount));
 
   // Manual 15% is applied AFTER the return-discounted calculated fare — not instead of it.

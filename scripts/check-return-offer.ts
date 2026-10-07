@@ -290,7 +290,7 @@ async function run() {
     assert.equal(before.returnOfferSavingGbp, 3);
     assert.equal(before.finalAmountPayableGbp, 62);
     assert.equal(after.returnOfferSavingGbp, 3.6);
-    assert.equal(after.finalAmountPayableGbp, 73.4);
+    assert.equal(after.finalAmountPayableGbp, 74);
     assert.equal(after.airportAccessChargeGbp, 5);
   });
 
@@ -692,7 +692,7 @@ async function run() {
     assert.notEqual(breakdown.returnOfferSavingGbp, originalPaid * 0.05);
     assert.equal(breakdown.airportFixedCostsGbp, 9);
     assert.equal(breakdown.airportAccessChargeGbp, 5);
-    assert.equal(breakdown.finalAmountPayableGbp, 72.9);
+    assert.equal(breakdown.finalAmountPayableGbp, 73);
   });
 
   await check("Owner dashboard wires confirmed manual send without changing hourly cron", () => {

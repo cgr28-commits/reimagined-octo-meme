@@ -123,7 +123,7 @@ console.log("OK  Live estate premium always £6 (universal); historical tiers no
   assert.ok(weekend);
   assert.equal(weekend.premiumApplied, true);
   assert.equal(weekday.amount, 44);
-  assert.equal(weekend.amount, 48.4);
+  assert.equal(weekend.amount, 49);
   console.log(
     `OK  Airport weekday £${weekday.amount}; Saturday +10% £${weekend.amount}`,
   );

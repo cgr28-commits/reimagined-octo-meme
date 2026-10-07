@@ -14,7 +14,8 @@ import {
   QUOTE_PRICE_WAIT_FOR_DETAILS,
   QUOTE_PRICE_WAIT_FOR_SCHEDULE,
 } from "../shared/quote-display-gate";
-import { calculateQuote, roundGbp } from "../src/lib/quote";
+import { ceilCustomerFareToWholePoundGbp, roundGbp } from "../shared/gbp";
+import { calculateQuote } from "../src/lib/quote";
 import { SALOON_VEHICLE } from "../src/lib/vehicle-selection";
 import { isTripPremiumDateTime } from "../src/lib/point-to-point-premium";
 
@@ -160,28 +161,34 @@ check("complete weekday daytime quote includes no surcharge", () => {
   assert.equal(weekday.nightWeekendSurchargeGbp, 0);
 });
 
-check("weekday 21:59 normal; 22:00 / 05:59 include 10% in first price; 06:00 normal", () => {
-  const cases: Array<[string, string, boolean]> = [
-    ["2026-08-19", "21:59", false],
-    ["2026-08-19", "22:00", true],
-    ["2026-08-19", "05:59", true],
-    ["2026-08-19", "06:00", false],
-    ["2026-08-22", "12:00", true],
-    ["2026-08-23", "12:00", true],
+check("weekday Evening/Night boundaries and weekend surcharge are in the first price", () => {
+  const cases: Array<[string, string, number]> = [
+    ["2026-08-19", "19:59", 0],
+    ["2026-08-19", "20:00", 0.1],
+    ["2026-08-19", "22:59", 0.1],
+    ["2026-08-19", "23:00", 0.2],
+    ["2026-08-19", "05:59", 0.2],
+    ["2026-08-19", "06:00", 0],
+    ["2026-08-22", "12:00", 0.1],
+    ["2026-08-23", "12:00", 0.1],
   ];
-  for (const [date, time, expectPremium] of cases) {
-    assert.equal(isTripPremiumDateTime(date, time), expectPremium, `${date} ${time}`);
+  for (const [date, time, rate] of cases) {
+    assert.equal(isTripPremiumDateTime(date, time), rate > 0, `${date} ${time}`);
     const quote = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {
       outboundDate: date,
       outboundTime: time,
     }, cityBfsMetrics);
     assert.ok(quote);
-    if (expectPremium) {
-      assert.equal(quote.amount, roundGbp(weekdayFare * 1.1));
-      assert.equal(quote.nightWeekendSurchargeGbp, 4.4);
+    if (rate > 0) {
+      assert.equal(quote.nightWeekendSurchargeGbp, roundGbp(weekdayFare * rate), `${date} ${time}`);
+      assert.equal(
+        quote.amount,
+        ceilCustomerFareToWholePoundGbp(weekdayFare * (1 + rate)),
+        `${date} ${time}`,
+      );
     } else {
-      assert.equal(quote.amount, weekdayFare);
-      assert.equal(quote.nightWeekendSurchargeGbp, 0);
+      assert.equal(quote.amount, weekdayFare, `${date} ${time}`);
+      assert.equal(quote.nightWeekendSurchargeGbp, 0, `${date} ${time}`);
     }
   }
 });
@@ -214,13 +221,13 @@ check("completed return + one qualifying leg only surcharges that leg", () => {
     cityBfsMetrics,
   );
   assert.ok(neither && sundayReturn);
-  assert.equal(neither.amount, 83.6);
+  assert.equal(neither.amount, 84);
   assert.equal(sundayReturn.amount, 88);
   assert.equal(sundayReturn.nightWeekendSurchargeGbp, 4.4);
 });
 
 check("first displayed price already includes surcharge copy", () => {
-  assert.equal(QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE, "Includes 10% Night & Weekend Surcharge");
+  assert.equal(QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE, "Includes Evening, Night or Weekend surcharge");
   assert.match(card, /QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE/);
   assert.match(card, /data-night-weekend-surcharge-badge/);
   assert.match(showcase, /surchargeNote/);

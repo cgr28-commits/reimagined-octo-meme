@@ -5,6 +5,7 @@
 
 import type { WebsiteFareBreakdown } from "./website-fare-breakdown";
 import { formatGbpFare } from "./website-fare-breakdown";
+import { NIGHT_WEEKEND_SURCHARGE_LABEL } from "./night-weekend-surcharge";
 
 export type WebsitePromoPricingFields = {
   /** Journey fare after return discount, before Express. */
@@ -89,7 +90,7 @@ export function formatCustomerPromoPricingLines(
   }
   if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
     lines.push(
-      `Night & Weekend Surcharge (10%): ${formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0)}`,
+      `${NIGHT_WEEKEND_SURCHARGE_LABEL}: ${formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0)}`,
     );
   }
   if (
@@ -152,7 +153,7 @@ export function formatCustomerPromoPricingHtmlRows(
   }
   if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
     rows.push({
-      label: "Night & Weekend Surcharge (10%)",
+      label: NIGHT_WEEKEND_SURCHARGE_LABEL,
       value: formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0),
     });
   }
