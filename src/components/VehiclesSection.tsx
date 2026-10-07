@@ -6,11 +6,16 @@ import { withBasePath } from "@/lib/paths";
 import DeviceBookingCta from "./DeviceBookingCta";
 import SectionHeading from "./SectionHeading";
 import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
-import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
+import {
+  ESTATE_CUSTOMER_DESCRIPTION,
+  MINIBUS_CUSTOMER_DESCRIPTION,
+  MINIBUS_CUSTOMER_NAME,
+} from "../../shared/vehicle-display";
 
 const VEHICLE_WIDTHS = [800, 1536] as const;
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
+const BUSINESS_CLASS_IMAGE = withBasePath("/images/vehicles/quote-business-class.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
 function vehicleSrcSet(ext: "avif" | "webp"): string {
@@ -21,7 +26,13 @@ function vehicleSrcSet(ext: "avif" | "webp"): string {
 
 const FLEET = [
   { id: "saloon", title: "Saloon", detail: "1–4 passengers", image: SALOON_IMAGE },
-  { id: "estate", title: "Estate", detail: "Extra luggage space", image: ESTATE_IMAGE },
+  { id: "estate", title: "Estate or similar larger vehicle", detail: ESTATE_CUSTOMER_DESCRIPTION, image: ESTATE_IMAGE },
+  {
+    id: "executive",
+    title: "Business Class",
+    detail: "Premium executive vehicle",
+    image: BUSINESS_CLASS_IMAGE,
+  },
   {
     id: "minibus",
     title: MINIBUS_CUSTOMER_NAME,
@@ -53,14 +64,14 @@ export default function VehiclesSection() {
           navId="vehicles"
           description={
             minibusOn
-              ? "Professional private airport transfer. The quote tool picks Saloon, Estate or 7 Seater Minibus from your passengers and luggage. You can also choose Executive — Mercedes-Benz C-Class or similar, a premium executive vehicle."
-              : "Professional private airport transfer in a Saloon or Estate. Choose Executive — Mercedes-Benz C-Class or similar, a premium executive vehicle — and pay online when it is available."
+              ? "Professional private airport transfer. Choose a Saloon, Estate or similar larger vehicle, Business Class, or 7 Seater Minibus when it suits your passengers and luggage."
+              : "Professional private airport transfer in a Saloon or Estate or similar larger vehicle. Choose Business Class, a premium executive vehicle, and pay online when it is available."
           }
         />
 
         {minibusOn ? (
           <div className="mt-12 space-y-6 lg:mt-16">
-            <div className="grid gap-4 sm:grid-cols-3" data-public-vehicle-fleet>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-public-vehicle-fleet>
               {FLEET.map((vehicle) => (
                 <div
                   key={vehicle.id}
@@ -119,13 +130,13 @@ export default function VehiclesSection() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
                   Up to 4 passengers
                 </p>
-                <p className="mt-1 text-xl font-bold text-white">Saloon, Estate &amp; Executive</p>
+                <p className="mt-1 text-xl font-bold text-white">Saloon, Estate &amp; Business Class</p>
                 <p className="mt-2 text-sm leading-relaxed text-white/70">
-                  Instant quote where eligible. Saloon or Estate is selected from your passengers and
-                  luggage. Executive — Mercedes-Benz C-Class or similar is a premium executive
-                  vehicle you can select and pay for online when it is available. Airport
-                  Executive pickups include Meet &amp; Greet, a name board, luggage assistance, barrier
-                  and parking, bottled water and phone charging.
+                  Instant quote where eligible. You choose among the vehicles that suit your
+                  passengers and luggage. Business Class is a premium executive vehicle you can
+                  select and pay for online when it is available. Airport pickups in Business Class
+                  include Meet &amp; Greet, a name board, luggage assistance, barrier and parking,
+                  bottled water and phone charging.
                 </p>
               </div>
 

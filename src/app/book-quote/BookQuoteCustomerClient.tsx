@@ -128,7 +128,7 @@ function BookQuoteInner() {
         setTripTime(loaded.journey.outboundTime?.trim() || "");
         setReturnDate(loaded.journey.returnDate?.trim() || "");
         setReturnTime(loaded.journey.returnTime?.trim() || "");
-        setExpressDropOffSelected(loaded.journey.expressDropOffSelected !== false);
+        setExpressDropOffSelected(true);
         setExpressRemovalAck(false);
         setExpressAckRequired(false);
         setExpressEditing(false);
@@ -196,7 +196,7 @@ function BookQuoteInner() {
       airportCode: journey.airportCode,
       fromAirport: journey.fromAirport,
       returnJourney: journey.returnJourney,
-      selected: expressDropOffSelected,
+      selected: true,
     });
   }, [journey, expressDropOffSelected]);
 
@@ -470,12 +470,13 @@ function BookQuoteInner() {
       {expressSelection.eligible && expressSelection.airportCode ? (
         <ExpressDropOffChoice
           mode="summary"
+          terminalAccessIncluded
           editing={expressEditing}
           onEditingChange={setExpressEditing}
           airportCode={expressSelection.airportCode}
           service={expressSelection.service ?? "drop-off"}
-          allowFreeAlternative={expressSelection.freeAlternativeAvailable}
-          selected={expressDropOffSelected}
+          allowFreeAlternative={false}
+          selected
           removalAcknowledged={expressRemovalAck}
           requireAcknowledgement={expressAckRequired}
           onSelectedChange={(selected) => {

@@ -50,7 +50,8 @@ check("Pause and glide stay in range, and the quote card does not animate", () =
     scrollLib.indexOf("function readVisualViewport"),
     scrollLib.indexOf("export function quoteStepTargetId"),
   );
-  assert.match(reveal, /data-quote-result-heading/);
+  assert.match(reveal, /data-quote-vehicle-options-heading/);
+  assert.doesNotMatch(reveal, /data-quote-result-heading/);
   assert.match(reveal, /requestAnimationFrame/);
   assert.match(reveal, /scrollBehavior = "auto"/);
   assert.match(reveal, /QUOTE_REVEAL_SCROLL_MS/);
@@ -62,6 +63,15 @@ check("Pause and glide stay in range, and the quote card does not animate", () =
   assert.match(reveal, /haltMotion\(\)/);
   assert.doesNotMatch(reveal, /behavior:\s*"smooth"/);
   assert.doesNotMatch(reveal, /onReveal/);
+  const revealFn = scrollLib.slice(
+    scrollLib.indexOf("export function scheduleQuoteRevealScroll"),
+    scrollLib.indexOf("export function scheduleBookTransferGlide"),
+  );
+  assert.match(revealFn, /quoteRevealEaseInOut/);
+  assert.match(revealFn, /prefersReducedMotion\(\)/);
+  assert.match(revealFn, /progress >= 1 \? target/);
+  assert.match(revealFn, /QUOTE_REVEAL_SCROLL_MS/);
+  assert.doesNotMatch(revealFn, /behavior:\s*"smooth"/);
   const css = fs.readFileSync(path.join(root, "src/app/globals.css"), "utf8");
   assert.doesNotMatch(css, /quote-result-reveal/);
   const showcase = fs.readFileSync(path.join(root, "src/components/QuoteResultShowcase.tsx"), "utf8");
@@ -69,6 +79,11 @@ check("Pause and glide stay in range, and the quote card does not animate", () =
   assert.doesNotMatch(showcase, /quote-result-reveal|entering/);
   const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
   assert.doesNotMatch(card, /quoteResultReveal|quote-result-reveal/);
+  const cardReveal = card.slice(
+    card.indexOf("One results scroll, as soon as the results mount."),
+    card.indexOf("Reset time→Your Journey"),
+  );
+  assert.doesNotMatch(cardReveal, /chooseEstate|chooseExecutive|chooseMinibus/);
 });
 
 const phones = [
@@ -194,7 +209,7 @@ check("One way / Return uses the same glide and stops on the next section", () =
   assert.match(schedule, /id="returnTime"/);
   assert.equal(QUOTE_REVEAL_PAUSE_MS, 350);
   assert.equal(QUOTE_REVEAL_SCROLL_MS, 720);
-  assert.equal(QUOTE_REVEAL_BREATHING_PX, 28);
+  assert.equal(QUOTE_REVEAL_BREATHING_PX, 12);
   assert.equal(BOOK_TRANSFER_CLEARANCE_PX, 20);
 });
 

@@ -21,6 +21,7 @@ import {
   publicMaxPassengers,
   publicMaxSuitcases,
 } from "../shared/owner-pricing-config";
+import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import {
   ESTATE_VEHICLE,
@@ -121,7 +122,7 @@ check("6. Minibus ON => luggage options 0–4 and 5+", () => {
   assert.equal(isValidPublicSuitcaseCount(7, true), false);
 });
 
-check("7–9. 5/6/7 passengers => Minibus", () => {
+check("7–9. 5/6/7 passengers => Minibus, and an unfit Saloon is rejected", () => {
   for (const pax of [5, 6, 7]) {
     assert.equal(requiresMinibus(pax, 2), true);
     assert.equal(selectVehicleForParty(pax, 2), MINIBUS_VEHICLE);
@@ -130,7 +131,6 @@ check("7–9. 5/6/7 passengers => Minibus", () => {
         passengers: pax,
         suitcases: 2,
         pricing: onPricing,
-        vehicleType: SALOON_VEHICLE,
       }),
     );
     assert.equal(result.ok, true);
@@ -138,6 +138,16 @@ check("7–9. 5/6/7 passengers => Minibus", () => {
       assert.equal(result.vehicleType, MINIBUS_VEHICLE);
     }
   }
+  const explicitSaloon = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 6,
+      suitcases: 2,
+      pricing: onPricing,
+      vehicleType: SALOON_VEHICLE,
+    }),
+  );
+  assert.equal(explicitSaloon.ok, false);
+  if (!explicitSaloon.ok) assert.equal(explicitSaloon.reason, "vehicle_unavailable");
 });
 
 check("10. 8 passengers => rejected", () => {
@@ -153,7 +163,19 @@ check("11–13. 5+ large bags cannot be Saloon/Estate; 6 and 7 are not public op
   assert.notEqual(selectVehicleForParty(2, 5), SALOON_VEHICLE);
   assert.notEqual(selectVehicleForParty(2, 5), ESTATE_VEHICLE);
   assert.equal(selectVehicleForParty(2, 5), MINIBUS_VEHICLE);
-  const result = calculateAuthoritativeWebsiteQuote(
+  const automatic = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 2,
+      suitcases: 5,
+      pricing: onPricing,
+    }),
+  );
+  assert.equal(automatic.ok, true);
+  if (automatic.ok) {
+    assert.equal(automatic.vehicleType, MINIBUS_VEHICLE);
+    assert.equal(automatic.needsLuggageCapacityConfirmation, false);
+  }
+  const explicitEstate = calculateAuthoritativeWebsiteQuote(
     quoteInput({
       passengers: 2,
       suitcases: 5,
@@ -161,11 +183,8 @@ check("11–13. 5+ large bags cannot be Saloon/Estate; 6 and 7 are not public op
       vehicleType: ESTATE_VEHICLE,
     }),
   );
-  assert.equal(result.ok, true);
-  if (result.ok) {
-    assert.equal(result.vehicleType, MINIBUS_VEHICLE);
-    assert.equal(result.needsLuggageCapacityConfirmation, true);
-  }
+  assert.equal(explicitEstate.ok, false);
+  if (!explicitEstate.ok) assert.equal(explicitEstate.reason, "vehicle_unavailable");
   for (const bags of [6, 7]) {
     const rejected = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 2, suitcases: bags, pricing: onPricing }),
@@ -303,9 +322,9 @@ check("Approved Minibus pricing unchanged (Estate × 1.55, penny only)", () => {
     assert.equal(result.vehicleType, MINIBUS_VEHICLE);
   }
   const fare = minibusBaseFareFromSaloon(50, onPricing);
-  assert.equal(fare.estateGbp, 56);
-  assert.equal(fare.minibusQuotedGbp, 86.8);
-  assert.equal(fare.minibusExactGbp, 86.8);
+  assert.equal(fare.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
+  assert.equal(fare.minibusQuotedGbp, 93);
+  assert.equal(fare.minibusExactGbp, 93);
 });
 
 check("Preview customer journey seed is isolated to preview hosts", () => {
@@ -397,7 +416,7 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
   assert.equal(estate.ok && estate.vehicleType, ESTATE_VEHICLE);
   assert.equal(chosenMinibus.ok && chosenMinibus.vehicleType, MINIBUS_VEHICLE);
   if (saloon.ok && estate.ok && chosenMinibus.ok) {
-    assert.equal(estate.amount - saloon.amount, 6);
+    assert.equal(estate.amount - saloon.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
     assert.equal(
       chosenMinibus.amount,
       minibusBaseFareFromSaloon(saloon.amount, onPricing).minibusQuotedGbp,
@@ -425,7 +444,7 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
     assert.equal(optional.ok && optional.vehicleType, MINIBUS_VEHICLE);
   }
 
-  const forced = calculateAuthoritativeWebsiteQuote(
+  const explicitSaloon = calculateAuthoritativeWebsiteQuote(
     quoteInput({
       passengers: 6,
       suitcases: 1,
@@ -433,22 +452,43 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
       pricing: onPricing,
     }),
   );
-  assert.equal(forced.ok && forced.vehicleType, MINIBUS_VEHICLE);
+  assert.equal(explicitSaloon.ok, false);
+  if (!explicitSaloon.ok) assert.equal(explicitSaloon.reason, "vehicle_unavailable");
+  const automaticMinibus = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 6,
+      suitcases: 1,
+      pricing: onPricing,
+    }),
+  );
+  assert.equal(automaticMinibus.ok && automaticMinibus.vehicleType, MINIBUS_VEHICLE);
+  const ownerRemap = calculateAuthoritativeWebsiteQuote(
+    quoteInput({
+      passengers: 6,
+      suitcases: 1,
+      vehicleType: SALOON_VEHICLE,
+      pricing: onPricing,
+      ownerMode: true,
+      maxPassengers: 7,
+    }),
+  );
+  assert.equal(ownerRemap.ok && ownerRemap.vehicleType, MINIBUS_VEHICLE);
 
   const card = read("src/components/QuoteCard.tsx");
   const categories = read("src/components/QuoteVehicleCategories.tsx");
   const progressive = read("src/components/QuoteProgressiveRoute.tsx");
   assert.match(card, /function renderQuoteVehicleChoice/);
   assert.match(card, /setChooseMinibus\(next === MINIBUS_VEHICLE_TYPE\)/);
-  assert.match(card, /chooseMinibus \|\| pax >= 5 \|\| suitcases >= 5/);
+  assert.doesNotMatch(card, /chooseMinibus \|\| pax >= 5 \|\| suitcases >= 5/);
   assert.match(card, /vehicleType: vehicle/);
   assert.match(card, /quoteFareVehiclesToRequest/);
   assert.match(progressive, /<QuoteVehicleCategories/);
-  assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE \|\|/);
-  assert.match(categories, /option\.vehicle === automatic/);
+  assert.match(categories, /suitableVehicleTypesForParty/);
+  assert.match(categories, /disabled=\{!fits\}/);
+  assert.match(categories, /bg-white/);
   assert.equal(card.split("renderQuoteVehicleChoice()").length, 5);
   assert.match(categories, /id: "minibus"/);
-  assert.match(categories, /option\.vehicle === MINIBUS_VEHICLE/);
+  assert.match(categories, /vehicle: MINIBUS_VEHICLE/);
   assert.match(categories, /data-vehicle-category=\{option\.id\}/);
   assert.doesNotMatch(read("shared/universal-distance-pricing.ts"), /Math\.round\(\(estateGbp \* minibusMult\) \/ 5\) \* 5/);
 });
@@ -487,12 +527,18 @@ check("Fresh preview shows the public 7-seater; previewMinibus=0 keeps it off", 
   }
 });
 
-check("7 passengers + 5+ bags is Minibus — capacity confirmation is a separate hold", () => {
+check("7 passengers + 5+ bags is Minibus and does not require confirmation", () => {
   assert.equal(selectVehicleForParty(7, 5), MINIBUS_VEHICLE);
   const data = read("src/lib/data.ts");
   assert.match(data, /needsLuggageCapacityConfirmation/);
   assert.match(data, /isFivePlusLuggage/);
   assert.match(data, /shared\/vehicle-capacity/);
+  assert.equal(
+    calculateAuthoritativeWebsiteQuote(
+      quoteInput({ passengers: 7, suitcases: 5, pricing: onPricing }),
+    ).ok,
+    true,
+  );
 });
 
 console.log("\nPublic Minibus capacity checks passed.");

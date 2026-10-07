@@ -1,14 +1,14 @@
 {
   "$schemaComment": "CENTRAL PRICING CONFIG — all commercial £ values for the public quote engine. UI components must not hard-code fares. See `pricingModel` for the formula.",
   "pricingModel": {
-    "summary": "Universal road-distance journey fare (shared/universal-distance-pricing.ts) → vehicle (Estate = Saloon + £6) → optional 5% return discount → Night & Weekend Surcharge (10%) on qualifying legs → airport fixed costs → Express/access add-on in UI. Zone tables and Belfast mile floor are retired for live quotes.",
+    "summary": "Universal road-distance journey fare (shared/universal-distance-pricing.ts) → vehicle (Estate = Saloon + owner uplift, code default £10) → optional 5% return discount → Night & Weekend Surcharge (10%) on qualifying legs → airport fixed costs → Express/access add-on in UI. Zone tables and Belfast mile floor are retired for live quotes.",
     "addressToAddress": "Same universal distance curve as airport transfers. Requires valid OSRM road metrics; otherwise no fare.",
-    "airport": "Journey fare from road miles only (piecewise Saloon interpolating approved knots: 0–4→£29, 15→£46, 30→£67, 50→£96, 70→£135, 90→£181, 100→£210; nearest £1). Estate = Saloon + £6. Then Night & Weekend Surcharge (10%) on the journey fare only when pickup is Mon–Fri 22:00–05:59 or all day Sat/Sun (Europe/London). Airport fixed costs and Express are never surcharged.",
+    "airport": "Journey fare from road miles only (piecewise Saloon interpolating approved knots: 0–4→£29, 15→£46, 30→£67, 50→£96, 70→£135, 90→£181, 100→£210; nearest £1). Estate = Saloon + the owner uplift (code default £10), applied before final whole-pound rounding. Then Night & Weekend Surcharge (10%) on the journey fare only when pickup is Mon–Fri 22:00–05:59 or all day Sat/Sun (Europe/London). Airport fixed costs and Express are never surcharged.",
     "dublinAirport": "Priced on the same universal distance curve for the road miles to/from DUB, then airportFixedCostsGbp (drop-off +£4 M1; pickup +£5 parking +£4 M1). Long-distance ~98 miles interpolates to ~£204–£205 Saloon journey before fixed costs.",
-    "vehicles": "Saloon 1–4 pax AND 0–2 large cases; Estate 1–4 pax AND 3–4 cases (+£6 vs Saloon); Minibus 5–7 (builds from Estate × multiplier).",
+    "vehicles": "Saloon 1–4 pax AND 0–2 large cases; Estate 1–4 pax AND 3–4 cases (owner Estate uplift, default £10 vs Saloon); Minibus 5–7 (builds from Estate × multiplier).",
     "returnDiscount": "returnJourneyDiscountRate (exactly 5%) applied once to (2 × oneWay journey fare). Airport fixed costs and Express are added after and are never discounted.",
     "airportFixedCosts": "Per-leg: BFS/BHD £0 on address↔airport; DUB drop £4 M1 / pick £5 parking +£4 M1; LDY drop £1 / pick £2.50. Express Drop-Off is a separate optional add-on (BFS £5 / BHD £4).",
-    "rounding": "Universal journey: Saloon rounded to nearest £1; Estate = that Saloon + £6 (not re-rounded). 7 Seater Minibus = Estate × multiplier, rounded to the nearest penny only (not nearest £5). Website, email, booking and payment use the same journey amount."
+    "rounding": "Universal journey: Saloon rounded to nearest £1; Estate = that Saloon + the configured uplift (default £10, not re-rounded). 7 Seater Minibus = Estate × multiplier, rounded to the nearest penny only (not nearest £5). Website, email, booking and payment use the same journey amount."
   },
   "pricingRulesApproved": true,
   "publicUnapprovedPriceLabel": "Price confirmation required",
@@ -85,7 +85,7 @@
   "airportEstatePremiumGbp": 8,
   "airportEstatePremiumTiers": {
     "enabled": false,
-    "note": "RETIRED for live quotes. Estate is always rounded Saloon + the owner uplift (code default £6) via universalDistancePricing. Historical tiers retained for calibration scripts only.",
+    "note": "RETIRED for live quotes. Estate is always rounded Saloon + the owner uplift (code default £10) via universalDistancePricing. Historical tiers retained for calibration scripts only.",
     "shortMaxSaloonFareGbp": 45,
     "shortPremiumGbp": 5,
     "midPremiumGbp": 8,
@@ -385,7 +385,7 @@
   },
   "universalDistancePricing": {
     "enabled": true,
-    "note": "Live airport and address↔address journey fares use road miles only. Piecewise Saloon interpolates approved knots (0–4→£29, 6→£32 … 90→£181, 100→£210). Segments interpolate between neighbouring knots — no flat band jumps. Round Saloon to nearest £1. Live Estate is the owner uplift, code default £6 above Saloon. This estatePremiumGbp field is unused by live quotes. Zone surcharges and Belfast floor do not override. Express/access added after journey fare.",
+    "note": "Live airport and address↔address journey fares use road miles only. Piecewise Saloon interpolates approved knots (0–4→£29, 6→£32 … 90→£181, 100→£210). Segments interpolate between neighbouring knots — no flat band jumps. Round Saloon to nearest £1. Live Estate is the owner uplift, code default £10 above Saloon. This estatePremiumGbp field is unused by live quotes. Zone surcharges and Belfast floor do not override. Express/access added after journey fare.",
     "estatePremiumGbp": 10,
     "saloonMinimumGbp": 29,
     "roundToNearestGbp": 1

@@ -1,14 +1,11 @@
 /**
- * Public 5+ luggage selector + capacity confirmation.
+ * Public 5+ luggage selector. Luggage quantity is stored and does not hold payment.
  * Run: npx tsx scripts/check-luggage-capacity-confirmation.ts
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
-  LUGGAGE_CAPACITY_CONFIRMATION_CTA,
-  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
   LUGGAGE_CAPACITY_OWNER_REASON,
   MINIBUS_HIGH_LOAD_COMBINED_THRESHOLD,
   PUBLIC_FIVE_PLUS_SUITCASE_LABEL,
@@ -34,6 +31,7 @@ import {
   publicMaxPassengers,
   publicMaxSuitcases,
 } from "../shared/owner-pricing-config";
+import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import {
   ESTATE_VEHICLE,
@@ -202,64 +200,75 @@ async function main() {
         passengers: 4,
         suitcases: 5,
         pricing: onPricing,
-        vehicleType: SALOON_VEHICLE,
       }),
     );
     assert.equal(quoted.ok, true);
     if (quoted.ok) assert.equal(quoted.vehicleType, MINIBUS_VEHICLE);
+    const explicitSaloon = calculateAuthoritativeWebsiteQuote(
+      quoteInput({
+        passengers: 4,
+        suitcases: 5,
+        pricing: onPricing,
+        vehicleType: SALOON_VEHICLE,
+      }),
+    );
+    assert.equal(explicitSaloon.ok, false);
+    if (!explicitSaloon.ok) assert.equal(explicitSaloon.reason, "vehicle_unavailable");
   });
 
-  check("7. 5+ always requires luggage-capacity confirmation", () => {
+  check("7. 5+ does not require luggage-capacity confirmation", () => {
     assert.equal(isFivePlusLuggage(5), true);
     assert.equal(isFivePlusLuggage(4, { suitcasesExact: false }), true);
     assert.equal(isFivePlusLuggage(4), false);
     for (const [pax, bags] of fivePlusHoldCombos) {
       assert.equal(
         needsLuggageCapacityConfirmation(pax, bags, { suitcasesExact: false }),
-        true,
-        `${pax}+5+ should hold`,
+        false,
+        `${pax}+5+ must not hold payment`,
       );
     }
-    assert.equal(needsLuggageCapacityConfirmation(1, 5), true);
-    assert.equal(needsLuggageCapacityConfirmation(2, 5), true);
+    assert.equal(needsLuggageCapacityConfirmation(1, 5), false);
+    assert.equal(needsLuggageCapacityConfirmation(2, 5), false);
+    assert.equal(needsLuggageCapacityConfirmation(6, 3), false);
+    assert.equal(needsLuggageCapacityConfirmation(6, 5, { suitcasesExact: false }), false);
   });
 
-  check("8. 4 passengers + 5+ bags requires confirmation", () => {
-    assert.equal(needsLuggageCapacityConfirmation(4, 5, { suitcasesExact: false }), true);
+  check("8. 4 passengers + 5+ bags books a 7 Seater without confirmation", () => {
+    assert.equal(needsLuggageCapacityConfirmation(4, 5, { suitcasesExact: false }), false);
     const quoted = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 4, suitcases: 5, pricing: onPricing }),
     );
     assert.equal(quoted.ok, true);
     if (quoted.ok) {
       assert.equal(quoted.vehicleType, MINIBUS_VEHICLE);
-      assert.equal(quoted.needsLuggageCapacityConfirmation, true);
+      assert.equal(quoted.needsLuggageCapacityConfirmation, false);
     }
   });
 
-  check("9. 5 passengers + 5+ bags requires confirmation", () => {
-    assert.equal(needsLuggageCapacityConfirmation(5, 5, { suitcasesExact: false }), true);
+  check("9. 5 passengers + 5+ bags does not require confirmation", () => {
+    assert.equal(needsLuggageCapacityConfirmation(5, 5, { suitcasesExact: false }), false);
     const quoted = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 5, suitcases: 5, pricing: onPricing }),
     );
     assert.equal(quoted.ok, true);
     if (quoted.ok) {
-      assert.equal(quoted.needsLuggageCapacityConfirmation, true);
+      assert.equal(quoted.needsLuggageCapacityConfirmation, false);
     }
   });
 
-  check("10. 7 passengers + 5+ bags requires confirmation", () => {
-    assert.equal(needsLuggageCapacityConfirmation(7, 5, { suitcasesExact: false }), true);
+  check("10. 7 passengers + 5+ bags does not require confirmation", () => {
+    assert.equal(needsLuggageCapacityConfirmation(7, 5, { suitcasesExact: false }), false);
     const quoted = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 7, suitcases: 5, pricing: onPricing }),
     );
     assert.equal(quoted.ok, true);
     if (quoted.ok) {
       assert.equal(quoted.vehicleType, MINIBUS_VEHICLE);
-      assert.equal(quoted.needsLuggageCapacityConfirmation, true);
+      assert.equal(quoted.needsLuggageCapacityConfirmation, false);
     }
   });
 
-  check("11. Fare remains visible and unchanged by the hold", () => {
+  check("11. Fare stays visible and the quote result has no confirmation warning", () => {
     const hold = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 7, suitcases: 5, pricing: onPricing }),
     );
@@ -271,35 +280,38 @@ async function main() {
     if (hold.ok && normal.ok) {
       assert.equal(hold.amount, normal.amount);
       assert.match(hold.amountLabel, /£/);
-      assert.equal(hold.needsLuggageCapacityConfirmation, true);
+      assert.equal(hold.needsLuggageCapacityConfirmation, false);
       assert.equal(normal.needsLuggageCapacityConfirmation, false);
     }
     const card = read("src/components/QuoteCard.tsx");
-    assert.match(card, /capacityNeedsConfirm/);
-    assert.match(card, /LUGGAGE_CAPACITY_CONFIRMATION_CTA/);
-    assert.match(card, /data-luggage-capacity-confirmation/);
+    assert.doesNotMatch(card, /capacityNeedsConfirm/);
+    assert.doesNotMatch(card, /data-luggage-capacity-confirmation/);
+    assert.doesNotMatch(card, /Luggage capacity confirmation required/);
+    assert.match(card, /BOOK THIS TRANSFER/);
     const showcase = read("src/components/QuoteResultShowcase.tsx");
-    assert.match(showcase, /capacityConfirmation/);
+    assert.doesNotMatch(showcase, /capacityConfirmation/);
+    assert.doesNotMatch(showcase, /data-luggage-capacity-confirmation/);
     assert.match(showcase, /5\+ large bags/);
   });
 
-  check("12. SumUp cannot be created before capacity approval", () => {
+  check("12. Luggage quantity does not block SumUp", () => {
     const card = read("src/components/QuoteCard.tsx");
-    assert.match(card, /LUGGAGE_CAPACITY_CONFIRMATION_CTA/);
+    assert.doesNotMatch(card, /Request Capacity Confirmation/);
     assert.match(card, /Confirm booking & pay securely/);
     const index = read("workers/addresses/src/index.ts");
     assert.match(index, /applyPublicFivePlusLuggage/);
-    assert.match(index, /notice\.shortNotice \|\| luggageHold/);
+    assert.match(index, /isValidPublicPassengerCount/);
+    assert.match(index, /isValidPublicSuitcaseCount/);
+    assert.doesNotMatch(index, /notice\.shortNotice \|\| luggageHold/);
+    assert.doesNotMatch(index, /needsLuggageCapacityConfirmation\(/);
+    assert.match(index, /if \(notice\.shortNotice\)/);
     assert.match(index, /createShortNoticeRequest/);
-    const holdAt = index.indexOf("notice.shortNotice || luggageHold");
-    const sumupAfter = index.indexOf("createSumUpHostedCheckout", holdAt);
-    assert.ok(holdAt > 0);
-    assert.ok(sumupAfter > holdAt);
+    assert.match(index, /createSumUpHostedCheckout/);
   });
 
-  check("13. Worker independently enforces capacity confirmation", () => {
+  check("13. Worker stores 5+ luggage without a confirmation hold", () => {
     const index = read("workers/addresses/src/index.ts");
-    assert.match(index, /needsLuggageCapacityConfirmation\(booking\.passengers/);
+    assert.doesNotMatch(index, /needsLuggageCapacityConfirmation\(booking\.passengers/);
     assert.match(index, /suitcasesExact: booking\.suitcasesExact/);
     assert.match(index, /applyPublicFivePlusLuggage/);
     assert.match(index, /MINIBUS_VEHICLE/);
@@ -315,7 +327,7 @@ async function main() {
     assert.equal(tampered.suitcasesExact, false);
     assert.equal(needsLuggageCapacityConfirmation(4, tampered.suitcases, {
       suitcasesExact: tampered.suitcasesExact,
-    }), true);
+    }), false);
   });
 
   check("14. Owner Dashboard records luggage as 5+, not exactly 5", () => {
@@ -380,9 +392,9 @@ async function main() {
 
   check("17. Minibus pricing remains unchanged", () => {
     const fare = minibusBaseFareFromSaloon(50, onPricing);
-    assert.equal(fare.estateGbp, 56);
-    assert.equal(fare.minibusQuotedGbp, 86.8);
-    assert.equal(fare.minibusExactGbp, 86.8);
+    assert.equal(fare.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
+    assert.equal(fare.minibusQuotedGbp, 93);
+    assert.equal(fare.minibusExactGbp, 93);
     const hold = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 7, suitcases: 5, pricing: onPricing }),
     );
@@ -410,23 +422,19 @@ async function main() {
     assert.equal(missing.ok, false);
   });
 
-  check("Customer wording is confirmation, not rejection", () => {
-    assert.equal(LUGGAGE_CAPACITY_CONFIRMATION_HEADING, "Luggage capacity confirmation required");
-    assert.equal(
-      LUGGAGE_CAPACITY_CONFIRMATION_BODY,
-      "With this number of passengers and large bags, we need to confirm the available 7 Seater has sufficient luggage space before you book.",
-    );
-    assert.equal(LUGGAGE_CAPACITY_CONFIRMATION_CTA, "Request Capacity Confirmation");
+  check("Customer quote does not ask for luggage confirmation", () => {
     assert.equal(LUGGAGE_CAPACITY_OWNER_REASON, "Luggage capacity confirmation");
     const card = read("src/components/QuoteCard.tsx");
-    assert.match(card, /LUGGAGE_CAPACITY_CONFIRMATION_HEADING/);
+    assert.doesNotMatch(card, /LUGGAGE_CAPACITY_CONFIRMATION_HEADING/);
     assert.doesNotMatch(card, /booking rejected/i);
     assert.doesNotMatch(card, /vehicle cannot carry this/i);
     const showcase = read("src/components/QuoteResultShowcase.tsx");
     assert.match(showcase, /quote-minibus\.webp/);
+    const panel = read("src/components/OwnerShortNoticePanel.tsx");
+    assert.match(panel, /LUGGAGE_CAPACITY_OWNER_REASON/);
   });
 
-  await checkAsync("Outside short-notice window, 7 + 5+ still creates an owner hold", async () => {
+  await checkAsync("Outside short-notice window, 7 + 5+ does not create a luggage hold", async () => {
     const store = memoryKv({ "booking:settings": { unavailablePeriods: [] } });
     const now = pickupOffsetNow("2026-06-15", "14:00", 48);
     const booking = sampleBooking({
@@ -436,19 +444,46 @@ async function main() {
     });
     const notice = await shouldForceShortNotice(store, booking, now);
     assert.equal(notice.shortNotice, false);
-    assert.equal(notice.luggageCapacity, true);
+    assert.equal(notice.luggageCapacity, false);
+    assert.equal(booking.suitcases, 5);
+    assert.equal(booking.suitcasesExact, false);
+    assert.equal(
+      formatOwnerLargeBags(booking.suitcases, { suitcasesExact: booking.suitcasesExact }),
+      "5+",
+    );
+    await assert.rejects(
+      () =>
+        createShortNoticeRequest({
+          store,
+          booking,
+          amount: 86.8,
+          now,
+        }),
+      /outside the confirmation period/,
+    );
+  });
+
+  await checkAsync("Inside the 7 Seater notice window, 5+ bags still requests confirmation for notice only", async () => {
+    const store = memoryKv({ "booking:settings": { unavailablePeriods: [] } });
+    const now = pickupOffsetNow("2026-06-15", "14:00", 12);
+    const booking = sampleBooking({
+      passengers: 4,
+      suitcases: 5,
+      suitcasesExact: false,
+    });
+    const notice = await shouldForceShortNotice(store, booking, now);
+    assert.equal(notice.shortNotice, true);
+    assert.equal(notice.luggageCapacity, false);
     const created = await createShortNoticeRequest({
       store,
       booking,
-      amount: 86.8,
+      amount: 110,
       now,
     });
     assert.equal(created.record.status, "SHORT_NOTICE_AWAITING_APPROVAL");
-    assert.equal(created.record.amount, 86.8);
-    assert.equal(created.record.amountLabel, "£86.80");
-    assert.deepEqual(created.record.holdReasons, ["luggage_capacity"]);
-    assert.equal(created.record.booking.suitcasesExact, false);
+    assert.deepEqual(created.record.holdReasons, ["short_notice"]);
     assert.equal(created.record.booking.suitcases, 5);
+    assert.equal(created.record.booking.suitcasesExact, false);
     assert.equal(
       formatOwnerLargeBags(created.record.booking.suitcases, {
         suitcasesExact: created.record.booking.suitcasesExact,
@@ -475,11 +510,11 @@ async function main() {
           amount: 86.8,
           now,
         }),
-      /not inside a short-notice window/,
+      /outside the confirmation period/,
     );
   });
 
-  check("Hold reasons combine short-notice and 5+ luggage capacity", () => {
+  check("Hold reasons keep short-notice and omit luggage capacity", () => {
     assert.deepEqual(
       combinePaymentHoldReasons({
         underMinimumNotice: true,
@@ -488,7 +523,26 @@ async function main() {
         suitcases: 5,
         suitcasesExact: false,
       }),
-      ["short_notice", "luggage_capacity"],
+      ["short_notice"],
+    );
+    assert.deepEqual(
+      combinePaymentHoldReasons({
+        underMinimumNotice: true,
+        blockingPeriodId: null,
+        passengers: 6,
+        suitcases: 4,
+      }),
+      ["short_notice"],
+    );
+    assert.deepEqual(
+      combinePaymentHoldReasons({
+        underMinimumNotice: false,
+        blockingPeriodId: null,
+        passengers: 4,
+        suitcases: 5,
+        suitcasesExact: false,
+      }),
+      [],
     );
     assert.deepEqual(
       combinePaymentHoldReasons({
@@ -501,7 +555,7 @@ async function main() {
     );
   });
 
-  check("Preview pages cover normal Minibus and 7 + 5+", () => {
+  check("Preview pages cover normal Minibus and 7 + 5+ without a confirmation block", () => {
     const high = read("src/app/owner/pricing-preview/quote-high-load/page.tsx");
     const normal = read("src/app/owner/pricing-preview/quote-normal-minibus/page.tsx");
     const preview = read("src/components/PreviewQuoteCapacityClient.tsx");
@@ -509,8 +563,8 @@ async function main() {
     assert.match(high, /initialSuitcases=\{5\}/);
     assert.match(normal, /initialPassengers=\{5\}/);
     assert.match(normal, /initialSuitcases=\{2\}/);
-    assert.match(preview, /data-luggage-capacity-confirmation/);
-    assert.match(preview, /does not create a SumUp checkout/);
+    assert.doesNotMatch(preview, /data-luggage-capacity-confirmation/);
+    assert.match(preview, /data-preview-minibus-bookable/);
   });
 
   console.log("\nLuggage 5+ capacity confirmation checks passed.");

@@ -18,11 +18,13 @@ import {
   StartNewQuoteControls,
 } from "@/components/QuoteBookingHelpControls";
 import TripMap from "@/components/TripMap";
+import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { buildBookingMessage, buildEnquiryBookingMessage, isValidEmailAddress, isValidMobileNumber, normalizeChildSeats, type BookingDetails } from "@/lib/booking-message";
 import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
+import { cancelCompetingScrollJobs } from "@/lib/scroll-jobs";
 import {
   focusFirstInvalidField,
   quoteStepTargetId,
@@ -59,22 +61,24 @@ import {
   MAX_ONLINE_PASSENGERS,
   MINIBUS_VEHICLE_TYPE,
   isFivePlusLuggage,
-  needsLuggageCapacityConfirmation,
-  LUGGAGE_CAPACITY_CONFIRMATION_BODY,
-  LUGGAGE_CAPACITY_CONFIRMATION_CTA,
-  LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
   SERVICE_FLAGS,
   showsOnlineGuidePrice,
   SITE,
   VEHICLE_TYPES,
 } from "@/lib/data";
 import {
+  ESTATE_VEHICLE,
   EXECUTIVE_VEHICLE,
   formatPassengerChoice,
   formatSuitcaseChoice,
+  canonicalVehicleType,
+  enabledVehicleTypesForQuote,
+  keepOrSmallestSuitableVehicle,
   MAX_PUBLIC_SUITCASES,
   requiresMinibus,
   selectVehicleForParty,
+  suitableVehicleTypesForParty,
+  vehicleFitsParty,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import {
@@ -252,13 +256,13 @@ import {
 } from "../../shared/express-drop-off";
 import {
   listAirportPickupLegs,
-  meetGreetFeeGbp,
   quoteAirportAccessCharges,
   type AirportAccessChoice,
   type AirportPickupLegRef,
 } from "../../shared/meet-greet";
 import {
-  EXECUTIVE_AIRPORT_PICKUP_INCLUDED,
+  AIRPORT_ACCESS_INCLUDED_BODY,
+  AIRPORT_ACCESS_INCLUDED_HEADING,
   isExecutiveVehicle,
 } from "../../shared/executive-vehicle";
 import {
@@ -364,6 +368,22 @@ function fieldState(options: {
 }
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
+
+const BUSINESS_CLASS_PICKUP_INCLUSIONS = [
+  "Meet & Greet inside arrivals",
+  "Personalised name board",
+  "Luggage assistance",
+  "Complimentary bottled water",
+  "Phone charging",
+  "Airport terminal access included",
+] as const;
+
+const BUSINESS_CLASS_DROPOFF_INCLUSIONS = [
+  "Luggage assistance",
+  "Complimentary bottled water",
+  "Phone charging",
+  "Airport terminal access included",
+] as const;
 
 const SELECTOR_MAX_SUITCASES = MAX_PUBLIC_SUITCASES;
 
@@ -678,6 +698,19 @@ function isClosedAvailabilityError(message?: string | null): boolean {
   );
 }
 
+/** Owner lead copy for a public quote. Access is included; there is no free alternative. */
+function websiteAirportAccessLeadLabel(selection: {
+  eligible: boolean;
+  legs: readonly unknown[];
+  service?: string | null;
+}): string | undefined {
+  if (!selection.eligible) return undefined;
+  if (selection.legs.length > 1) {
+    return "Express Pickup Included · Express Drop-Off Included";
+  }
+  return selection.service === "pick-up" ? "Express Pickup Included" : "Express Drop-Off Included";
+}
+
 function QuoteCard({
   initialAirportCode = "",
   initialDirection = "to-airport",
@@ -860,6 +893,10 @@ function QuoteCard({
   const [vehicle, setVehicle] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [chooseMinibus, setChooseMinibus] = useState(false);
   const [chooseExecutive, setChooseExecutive] = useState(false);
+  const [chooseEstate, setChooseEstate] = useState(false);
+  /** Explicit tap. Cleared only when passengers or suitcases change. */
+  const [manualVehicle, setManualVehicle] = useState<VehicleType | null>(null);
+  const [trackedPartyKey, setTrackedPartyKey] = useState("");
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
@@ -888,7 +925,13 @@ function QuoteCard({
   routeMetricsRef.current = routeMetrics;
   const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
   const quoteFareInflightRef = useRef(
-    new Map<string, Promise<Awaited<ReturnType<typeof calculateServerQuote>>>>(),
+    new Map<
+      string,
+      {
+        promise: Promise<Awaited<ReturnType<typeof calculateServerQuote>>>;
+        signal?: AbortSignal;
+      }
+    >(),
   );
   const quoteFareTimingRef = useRef({ inputsAt: 0, requestAt: 0 });
   /** Worker-authoritative journey/fixed split (same engine as SumUp). Prefer over browser metrics. */
@@ -896,6 +939,17 @@ function QuoteCard({
   /** Worker quote finished without a fare — only then may the loaded client engine paint. */
   const [serverQuoteUnavailable, setServerQuoteUnavailable] = useState(false);
   const serverQuoteGenRef = useRef(0);
+  const quoteVehicleRef = useRef("");
+  const quoteFareAbortRef = useRef<AbortController | null>(null);
+  /** Stops a vehicle_unavailable response from retrying the same unsuitable choice. */
+  const unsuitableFareRecoveryRef = useRef("");
+  /** Vehicles the server has already rejected for the current party. */
+  const rejectedVehicleKeysRef = useRef(new Set<string>());
+  /** Last authoritative £ so a vehicle change does not blank the price slot. */
+  const stableFareLabelRef = useRef<string | null>(null);
+  /** Route identity that already has a displayed fare. Vehicle switches reuse it. */
+  const displayedRouteKeyRef = useRef<string | null>(null);
+  const [vehicleFareUpdating, setVehicleFareUpdating] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
@@ -920,8 +974,8 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
-  const [outboundAccessChoice, setOutboundAccessChoice] = useState<AirportAccessChoice>("free");
-  const [returnAccessChoice, setReturnAccessChoice] = useState<AirportAccessChoice>("free");
+  const [outboundAccessChoice, setOutboundAccessChoice] = useState<AirportAccessChoice>("express");
+  const [returnAccessChoice, setReturnAccessChoice] = useState<AirportAccessChoice>("express");
   const expressDropOffSelected = outboundAccessChoice === "express";
   const returnExpressDropOffSelected = returnAccessChoice === "express";
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
@@ -940,22 +994,53 @@ function QuoteCard({
   const [appliedPersonalQuote, setAppliedPersonalQuote] =
     useState<PersonalQuotePublicSummary | null>(null);
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
-    setRouteMetrics(metrics);
+    setRouteMetrics((current) => {
+      if (metrics == null) return current == null ? current : null;
+      if (
+        current &&
+        current.distanceKm === metrics.distanceKm &&
+        current.durationMinutes === metrics.durationMinutes
+      ) {
+        return current;
+      }
+      return metrics;
+    });
   }, []);
 
+  const partySelectionKey =
+    passengers == null || suitcases == null ? "" : `${passengers}:${suitcases}`;
+  if (trackedPartyKey !== partySelectionKey) {
+    unsuitableFareRecoveryRef.current = "";
+    rejectedVehicleKeysRef.current.clear();
+    setTrackedPartyKey(partySelectionKey);
+    setManualVehicle(null);
+  }
+
   const quoteVehicle = useMemo(() => {
-    const pax = effectivePartyPassengers(passengers, passengerLimit);
+    const pax =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers != null && passengers >= 1 ? passengers : null);
     if (pax == null || suitcases == null) return vehicle;
-    if (publicMinibusEnabled && (chooseMinibus || pax >= 5 || suitcases >= 5)) {
-      return MINIBUS_VEHICLE_TYPE;
+    const enabled = enabledVehicleTypesForQuote({
+      publicMinibusEnabled,
+      publicExecutiveEnabled,
+    });
+    if (
+      manualVehicle &&
+      enabled.includes(manualVehicle) &&
+      vehicleFitsParty(manualVehicle, pax, suitcases)
+    ) {
+      return manualVehicle;
     }
-    if (publicExecutiveEnabled && chooseExecutive && pax <= 4 && suitcases <= 4) {
-      return EXECUTIVE_VEHICLE;
-    }
-    return getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
+    return keepOrSmallestSuitableVehicle({
+      current: vehicle,
+      passengers: pax,
+      suitcases,
+      publicMinibusEnabled,
+      publicExecutiveEnabled,
+    });
   }, [
-    chooseExecutive,
-    chooseMinibus,
+    manualVehicle,
     passengerLimit,
     passengers,
     publicExecutiveEnabled,
@@ -963,31 +1048,48 @@ function QuoteCard({
     suitcases,
     vehicle,
   ]);
+  quoteVehicleRef.current = quoteVehicle;
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
-  const capacityNeedsConfirm =
-    passengers != null &&
-    suitcases != null &&
-    needsLuggageCapacityConfirmation(
-      effectivePartyPassengers(passengers) ?? passengers,
-      suitcases,
-      { suitcasesExact: isFivePlusLuggage(suitcases) ? false : true },
-    );
   const [confirmStartNewQuote, setConfirmStartNewQuote] = useState(false);
   /** Bumped on Start a New Quote so address inputs remount with clean internal state. */
   const [formResetKey, setFormResetKey] = useState(0);
 
   useEffect(() => {
-    const pax = effectivePartyPassengers(passengers);
-    if (pax == null || suitcases == null) {
-      return;
-    }
-    const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
-    setVehicle((current) => (current === next ? current : next));
-    setChooseMinibus(false);
-    if (requiresMinibus(pax, suitcases)) setChooseExecutive(false);
-  }, [passengers, suitcases]);
+    const pax =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers != null && passengers >= 1 ? passengers : null);
+    if (pax == null || suitcases == null) return;
+    const manualStillSuitable =
+      manualVehicle != null &&
+      enabledVehicleTypesForQuote({
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      }).includes(manualVehicle) &&
+      vehicleFitsParty(manualVehicle, pax, suitcases);
+    if (manualStillSuitable) return;
+    const next = keepOrSmallestSuitableVehicle({
+      current: vehicle,
+      passengers: pax,
+      suitcases,
+      publicMinibusEnabled,
+      publicExecutiveEnabled,
+    });
+    setChooseExecutive(next === EXECUTIVE_VEHICLE);
+    setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
+    setChooseEstate(next === ESTATE_VEHICLE);
+    if (next === vehicle) return;
+    setVehicle(next);
+  }, [
+    manualVehicle,
+    passengerLimit,
+    passengers,
+    publicExecutiveEnabled,
+    publicMinibusEnabled,
+    suitcases,
+    vehicle,
+  ]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
   const journeyKind: JourneyKind | null = useMemo(() => {
@@ -1186,20 +1288,18 @@ function QuoteCard({
       if (
         draft.outboundAirportAccessChoice === "express" ||
         draft.outboundAirportAccessChoice === "free" ||
-        draft.outboundAirportAccessChoice === "meet-greet"
+        draft.outboundAirportAccessChoice === "meet-greet" ||
+        typeof draft.expressDropOffSelected === "boolean"
       ) {
-        setOutboundAccessChoice(draft.outboundAirportAccessChoice);
-      } else if (typeof draft.expressDropOffSelected === "boolean") {
-        setOutboundAccessChoice(draft.expressDropOffSelected ? "express" : "free");
+        setOutboundAccessChoice("express");
       }
       if (
         draft.returnAirportAccessChoice === "express" ||
         draft.returnAirportAccessChoice === "free" ||
-        draft.returnAirportAccessChoice === "meet-greet"
+        draft.returnAirportAccessChoice === "meet-greet" ||
+        typeof draft.returnExpressDropOffSelected === "boolean"
       ) {
-        setReturnAccessChoice(draft.returnAirportAccessChoice);
-      } else if (typeof draft.returnExpressDropOffSelected === "boolean") {
-        setReturnAccessChoice(draft.returnExpressDropOffSelected ? "express" : "free");
+        setReturnAccessChoice("express");
       }
       if (draft.personalQuoteCode?.trim()) {
         const code = draft.personalQuoteCode.trim().toUpperCase();
@@ -1541,9 +1641,6 @@ function QuoteCard({
     !smartAvailabilityBlocked &&
     !isCustomerSmartAvailabilityBlockMessage(paymentError);
   const isAvailabilityRequest = isMinimumNoticeRequest || isMinibusNoticeRequest;
-  const shortNoticeWhatsAppHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
-    "Hi, I have a short-notice airport transfer request.",
-  )}`;
 
   const partySelectionReady = isPartySelectionComplete(
     passengers,
@@ -1794,7 +1891,10 @@ function QuoteCard({
 
   // Prefer Worker-authoritative fare (same resolveWorkerTripRouteMetrics + engine as SumUp)
   // so the displayed/consent amount matches checkout. Browser metrics stay for map display.
-  const refreshAuthoritativeServerQuote = useCallback(async (force = false): Promise<boolean> => {
+  const refreshAuthoritativeServerQuote = useCallback(async (
+    force = false,
+    signal?: AbortSignal,
+  ): Promise<boolean> => {
     if (isBrowserPricingPreview() && previewMinibusQueryEnabled()) {
       setServerFareParts(null);
       setServerQuoteUnavailable(true);
@@ -1833,7 +1933,55 @@ function QuoteCard({
         returnDate,
         returnTime,
       });
-    const paxNow = effectivePartyPassengers(passengers, passengerLimit);
+    const paxNow =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers >= 1 ? passengers : null);
+    if (paxNow != null && !vehicleFitsParty(requestedVehicle, paxNow, suitcases)) {
+      const suitable = keepOrSmallestSuitableVehicle({
+        current: requestedVehicle,
+        passengers: paxNow,
+        suitcases,
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      });
+      const recoveryKey = `${paxNow}:${suitcases}:${suitable}`;
+      if (suitable !== requestedVehicle && unsuitableFareRecoveryRef.current !== recoveryKey) {
+        unsuitableFareRecoveryRef.current = recoveryKey;
+        setManualVehicle(null);
+        setChooseExecutive(suitable === EXECUTIVE_VEHICLE);
+        setChooseMinibus(suitable === MINIBUS_VEHICLE_TYPE);
+        setChooseEstate(suitable === ESTATE_VEHICLE);
+        setVehicle(suitable);
+        setServerQuoteUnavailable(false);
+        setVehicleFareUpdating(true);
+        return false;
+      }
+      if (suitable !== requestedVehicle) {
+        setVehicleFareUpdating(false);
+        setServerQuoteUnavailable(true);
+        return false;
+      }
+    }
+    const rejectionKey = (vehicle: string) => `${paxNow}:${suitcases}:${vehicle}`;
+    if (paxNow != null && rejectedVehicleKeysRef.current.has(rejectionKey(requestedVehicle))) {
+      const next = suitableVehicleTypesForParty(paxNow, suitcases, {
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      }).find((candidate) => !rejectedVehicleKeysRef.current.has(rejectionKey(candidate)));
+      if (next && next !== requestedVehicle) {
+        setManualVehicle(null);
+        setChooseExecutive(next === EXECUTIVE_VEHICLE);
+        setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
+        setChooseEstate(next === ESTATE_VEHICLE);
+        setVehicle(next);
+        setServerQuoteUnavailable(false);
+        setVehicleFareUpdating(true);
+        return false;
+      }
+      setVehicleFareUpdating(false);
+      setServerQuoteUnavailable(true);
+      return false;
+    }
     const vehiclesToPrice = quoteFareVehiclesToRequest({
       selectedVehicle: requestedVehicle,
       automaticVehicle:
@@ -1841,6 +1989,13 @@ function QuoteCard({
       minibusVehicle: MINIBUS_VEHICLE_TYPE,
       publicMinibusEnabled,
       requiresMinibus: paxNow != null && requiresMinibus(paxNow, suitcases),
+      suitableVehicles:
+        paxNow == null
+          ? [requestedVehicle]
+          : suitableVehicleTypesForParty(paxNow, suitcases, {
+              publicMinibusEnabled,
+              publicExecutiveEnabled,
+            }),
     });
     const rememberFare = (vehicle: string, parts: ServerFarePartyParts) => {
       authoritativeFareCacheRef.current.set(fareKeyFor(vehicle), parts);
@@ -1873,14 +2028,17 @@ function QuoteCard({
     const loadAlternateFares = () => {
       for (const vehicle of vehiclesToPrice.slice(1)) {
         const key = fareKeyFor(vehicle);
+        const existing = quoteFareInflightRef.current.get(key);
         if (
           authoritativeFareCacheRef.current.has(key) ||
-          quoteFareInflightRef.current.has(key)
+          (existing != null && existing.signal?.aborted !== true)
         ) {
           continue;
         }
         const promise = calculateServerQuote(quoteBodyFor(vehicle)).then((alternate) => {
-          quoteFareInflightRef.current.delete(key);
+          if (quoteFareInflightRef.current.get(key)?.promise === promise) {
+            quoteFareInflightRef.current.delete(key);
+          }
           if (
             alternate.ok &&
             Number.isFinite(alternate.amount) &&
@@ -1911,17 +2069,31 @@ function QuoteCard({
           }
           return alternate;
         }).catch(() => {
-          quoteFareInflightRef.current.delete(key);
+          if (quoteFareInflightRef.current.get(key)?.promise === promise) {
+            quoteFareInflightRef.current.delete(key);
+          }
           return { ok: false as const, message: "Could not calculate fare" };
         });
-        quoteFareInflightRef.current.set(key, promise);
+        quoteFareInflightRef.current.set(key, { promise });
       }
     };
     if (!force) {
       const cached = authoritativeFareCacheRef.current.get(fareKeyFor(requestedVehicle));
-      if (cached) {
+      if (cached && requestedVehicle === quoteVehicleRef.current) {
         setServerFareParts(cached);
         setServerQuoteUnavailable(false);
+        setVehicleFareUpdating(false);
+        displayedRouteKeyRef.current = [
+          pickup,
+          dropoff,
+          String(requestedPassengers),
+          String(requestedSuitcases),
+          tripDate.trim(),
+          tripTime.trim(),
+          returnJourney ? "1" : "0",
+          returnDate.trim(),
+          returnTime.trim(),
+        ].join("|");
         loadAlternateFares();
         return true;
       }
@@ -1933,18 +2105,23 @@ function QuoteCard({
       quoteFareTimingRef.current.requestAt =
         typeof performance !== "undefined" ? performance.now() : Date.now();
       let inflight = quoteFareInflightRef.current.get(selectedKey);
+      if (inflight?.signal?.aborted) {
+        quoteFareInflightRef.current.delete(selectedKey);
+        inflight = undefined;
+      }
       if (!inflight) {
-        const promise = calculateServerQuote(quoteBodyFor(requestedVehicle));
-        inflight = promise.finally(() => {
-          if (quoteFareInflightRef.current.get(selectedKey) === inflight) {
+        const promise = calculateServerQuote(quoteBodyFor(requestedVehicle), undefined, signal);
+        const tracked = promise.finally(() => {
+          if (quoteFareInflightRef.current.get(selectedKey)?.promise === tracked) {
             quoteFareInflightRef.current.delete(selectedKey);
           }
         });
+        inflight = { promise: tracked, signal };
         quoteFareInflightRef.current.set(selectedKey, inflight);
       }
       loadAlternateFares();
       setServerQuoteUnavailable(false);
-      const result = await inflight;
+      const result = await inflight.promise;
       if (
         result.ok &&
         Number.isFinite(result.amount) &&
@@ -1973,7 +2150,11 @@ function QuoteCard({
           returnTime: returnJourney ? returnTime.trim() : "",
         };
         rememberFare(requestedVehicle, pricedParts);
-        if (requestGen !== serverQuoteGenRef.current) {
+        if (
+          signal?.aborted ||
+          requestGen !== serverQuoteGenRef.current ||
+          requestedVehicle !== quoteVehicleRef.current
+        ) {
           return false;
         }
         if (process.env.NODE_ENV !== "production") {
@@ -1984,18 +2165,39 @@ function QuoteCard({
           });
         }
         setServerFareParts(pricedParts);
+        setVehicleFareUpdating(false);
+        displayedRouteKeyRef.current = [
+          pickup,
+          dropoff,
+          String(requestedPassengers),
+          String(requestedSuitcases),
+          tripDate.trim(),
+          tripTime.trim(),
+          returnJourney ? "1" : "0",
+          returnDate.trim(),
+          returnTime.trim(),
+        ].join("|");
         if (
           Number.isFinite(result.distanceKm) &&
           Number.isFinite(result.durationMinutes) &&
           (result.distanceKm ?? 0) > 0 &&
           (result.durationMinutes ?? 0) > 0
         ) {
-          setRouteMetrics({
-            distanceKm: result.distanceKm!,
-            durationMinutes: result.durationMinutes!,
+          setRouteMetrics((current) => {
+            const distanceKm = result.distanceKm!;
+            const durationMinutes = result.durationMinutes!;
+            if (
+              current &&
+              current.distanceKm === distanceKm &&
+              current.durationMinutes === durationMinutes
+            ) {
+              return current;
+            }
+            return { distanceKm, durationMinutes };
           });
         }
         setServerQuoteUnavailable(false);
+        unsuitableFareRecoveryRef.current = "";
         if (typeof result.minimumBookingNoticeHours === "number") {
           setMinimumBookingNoticeHours(result.minimumBookingNoticeHours);
         }
@@ -2027,13 +2229,54 @@ function QuoteCard({
         }
         return true;
       }
-      if (requestGen !== serverQuoteGenRef.current) return false;
+      if (
+        signal?.aborted ||
+        requestGen !== serverQuoteGenRef.current ||
+        requestedVehicle !== quoteVehicleRef.current
+      ) {
+        return false;
+      }
+      if (!result.ok && result.reason === "vehicle_unavailable" && paxNow != null) {
+        rejectedVehicleKeysRef.current.add(rejectionKey(requestedVehicle));
+        const suitable = suitableVehicleTypesForParty(paxNow, suitcases, {
+          publicMinibusEnabled,
+          publicExecutiveEnabled,
+        }).find((candidate) => !rejectedVehicleKeysRef.current.has(rejectionKey(candidate)));
+        const recoveryKey = `${paxNow}:${suitcases}:${requestedVehicle}->${suitable ?? ""}`;
+        if (suitable && suitable !== requestedVehicle && unsuitableFareRecoveryRef.current !== recoveryKey) {
+          unsuitableFareRecoveryRef.current = recoveryKey;
+          const cached = authoritativeFareCacheRef.current.get(fareKeyFor(suitable));
+          setManualVehicle(null);
+          setChooseExecutive(suitable === EXECUTIVE_VEHICLE);
+          setChooseMinibus(suitable === MINIBUS_VEHICLE_TYPE);
+          setChooseEstate(suitable === ESTATE_VEHICLE);
+          setVehicle(suitable);
+          setServerQuoteUnavailable(false);
+          if (cached && cached.vehicleType === suitable) {
+            setServerFareParts(cached);
+            setVehicleFareUpdating(false);
+          } else {
+            setVehicleFareUpdating(true);
+          }
+          return false;
+        }
+      }
       setServerFareParts(null);
+      setVehicleFareUpdating(false);
       setServerQuoteUnavailable(true);
       return false;
-    } catch {
-      if (requestGen !== serverQuoteGenRef.current) return false;
+    } catch (error) {
+      const fetchAborted = error instanceof Error && error.name === "AbortError";
+      if (
+        fetchAborted ||
+        signal?.aborted ||
+        requestGen !== serverQuoteGenRef.current ||
+        requestedVehicle !== quoteVehicleRef.current
+      ) {
+        return false;
+      }
       setServerFareParts(null);
+      setVehicleFareUpdating(false);
       setServerQuoteUnavailable(true);
       return false;
     }
@@ -2063,14 +2306,30 @@ function QuoteCard({
     tripTime,
     quoteVehicle,
     passengerLimit,
+    publicExecutiveEnabled,
     publicMinibusEnabled,
   ]);
+  const refreshAuthoritativeServerQuoteRef = useRef(refreshAuthoritativeServerQuote);
+  refreshAuthoritativeServerQuoteRef.current = refreshAuthoritativeServerQuote;
 
   useEffect(() => {
-    serverQuoteGenRef.current += 1;
+    quoteVehicleRef.current = quoteVehicle;
+    const routeKey = [
+      pickupAddress.trim(),
+      dropoffAddress.trim(),
+      String(effectivePassengers ?? passengers ?? ""),
+      String(suitcases ?? ""),
+      tripDate.trim(),
+      tripTime.trim(),
+      returnJourney ? "1" : "0",
+      returnDate.trim(),
+      returnTime.trim(),
+    ].join("|");
     if (passengers == null || suitcases == null) {
       setServerFareParts(null);
       setServerQuoteUnavailable(false);
+      setVehicleFareUpdating(false);
+      displayedRouteKeyRef.current = null;
       return;
     }
     const cached = authoritativeFareCacheRef.current.get(
@@ -2090,8 +2349,18 @@ function QuoteCard({
     if (cached) {
       setServerFareParts(cached);
       setServerQuoteUnavailable(false);
+      setVehicleFareUpdating(false);
+      displayedRouteKeyRef.current = routeKey;
       return;
     }
+    if (displayedRouteKeyRef.current === routeKey) {
+      setVehicleFareUpdating(true);
+      setServerQuoteUnavailable(false);
+      return;
+    }
+    const hadDisplayedFare = displayedRouteKeyRef.current != null;
+    displayedRouteKeyRef.current = null;
+    setVehicleFareUpdating(hadDisplayedFare || unsuitableFareRecoveryRef.current !== "");
     setServerFareParts(null);
     setServerQuoteUnavailable(false);
   }, [
@@ -2108,7 +2377,36 @@ function QuoteCard({
     tripTime,
   ]);
 
+  const quoteRequestKey = [
+    canShowPrice ? "1" : "0",
+    isManualQuoteJourney ? "1" : "0",
+    pricingConfirmationRequired ? "1" : "0",
+    isEnquiryOnly && !showGuidePrice ? "enquiry" : "price",
+    pickupAddress.trim(),
+    dropoffAddress.trim(),
+    String(effectivePassengers ?? passengers ?? ""),
+    String(suitcases ?? ""),
+    quoteVehicle,
+    tripDate.trim(),
+    tripTime.trim(),
+    returnJourney ? "1" : "0",
+    returnDate.trim(),
+    returnTime.trim(),
+    journeyMode ?? "",
+    String(passengerLimit),
+    publicExecutiveEnabled ? "1" : "0",
+    publicMinibusEnabled ? "1" : "0",
+    pickupPlace?.placeId ?? "",
+    dropoffPlace?.placeId ?? "",
+  ].join("|");
+
   useEffect(() => {
+    // Invalidate any in-flight response before this request starts, including
+    // a cache hit that does not bump the generation itself.
+    serverQuoteGenRef.current += 1;
+    quoteFareAbortRef.current?.abort();
+    const controller = new AbortController();
+    quoteFareAbortRef.current = controller;
     let cancelled = false;
     quoteFareTimingRef.current.inputsAt =
       typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -2116,13 +2414,14 @@ function QuoteCard({
       if (QUOTE_FARE_START_DELAY_MS > 0) {
         await new Promise((resolve) => window.setTimeout(resolve, QUOTE_FARE_START_DELAY_MS));
       }
-      if (cancelled) return;
-      await refreshAuthoritativeServerQuote();
+      if (cancelled || controller.signal.aborted) return;
+      await refreshAuthoritativeServerQuoteRef.current(false, controller.signal);
     })();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [refreshAuthoritativeServerQuote]);
+  }, [quoteRequestKey]);
 
   const journeyDistanceLabel = routeMetrics
     ? formatJourneyDistance(routeMetrics.distanceKm)
@@ -2137,17 +2436,12 @@ function QuoteCard({
         airportCode: effectiveAirportCode || null,
         fromAirport: isFromAirport,
         returnJourney,
-        selected: expressDropOffSelected,
-        outboundSelected: expressDropOffSelected,
-        returnSelected: returnExpressDropOffSelected,
+        // Configured terminal access is mandatory. A free choice cannot remove it.
+        selected: true,
+        outboundSelected: true,
+        returnSelected: true,
       }),
-    [
-      effectiveAirportCode,
-      isFromAirport,
-      returnJourney,
-      expressDropOffSelected,
-      returnExpressDropOffSelected,
-    ],
+    [effectiveAirportCode, isFromAirport, returnJourney],
   );
 
   // Express is opt-in. Choosing an eligible airport must not add the fee.
@@ -2425,13 +2719,16 @@ function QuoteCard({
     }
     return composeFareWithExpressDropOff({
       transferFareGbp,
-      expressDropOffFeeGbp: expressSelection.feeGbp,
+      expressDropOffFeeGbp: expressSelection.eligible
+        ? expressSelection.feeIfSelectedGbp
+        : 0,
     });
   }, [
     openWebsiteFareBreakdown,
     transferFareGbp,
     testChargeAmount,
-    expressSelection.feeGbp,
+    expressSelection.feeIfSelectedGbp,
+    expressSelection.eligible,
   ]);
 
   /** Pay online at quote time — saloon/estate when SumUp enabled. */
@@ -2502,6 +2799,8 @@ function QuoteCard({
     setExactPassengers(null);
     setChooseMinibus(false);
     setChooseExecutive(false);
+    setChooseEstate(false);
+    setManualVehicle(null);
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -3181,19 +3480,7 @@ function QuoteCard({
       quoteTransactionId,
       airportCode: effectiveAirportCode || undefined,
       journeyFareGbp: journeyFareParts.journeyFareGbp ?? undefined,
-      airportAccessOption: expressSelection.eligible
-        ? expressSelection.legs.length > 1
-          ? expressSelection.selected
-            ? "Express access"
-            : "Free airport areas"
-          : expressSelection.selected
-            ? expressSelection.service === "pick-up"
-              ? "Express Pick-Up"
-              : "Express Drop-Off"
-            : expressSelection.service === "pick-up"
-              ? "Free Pick-Up"
-              : "Free Drop-Off"
-        : undefined,
+      airportAccessOption: websiteAirportAccessLeadLabel(expressSelection),
       airportAccessFeeGbp: expressSelection.feeGbp,
       totalGbp: pricedFare?.totalGbp ?? liveQuote.amount,
       source: "website",
@@ -3597,19 +3884,7 @@ function QuoteCard({
       isAirportTrip,
       quoteTransactionId,
       airportCode: effectiveAirportCode || undefined,
-      airportAccessOption: expressSelection.eligible
-        ? expressSelection.legs.length > 1
-          ? expressSelection.selected
-            ? "Express access"
-            : "Free airport areas"
-          : expressSelection.selected
-            ? expressSelection.service === "pick-up"
-              ? "Express Pick-Up"
-              : "Express Drop-Off"
-            : expressSelection.service === "pick-up"
-              ? "Free Pick-Up"
-              : "Free Drop-Off"
-        : undefined,
+      airportAccessOption: websiteAirportAccessLeadLabel(expressSelection),
       totalGbp: pricedFare?.totalGbp ?? liveQuote.amount,
       source: "website",
       customerName,
@@ -3634,7 +3909,7 @@ function QuoteCard({
   }
 
   function buildPaymentDescription(): string {
-    const vehicleLabel = quoteVehicle.split(" (")[0];
+    const vehicleLabel = vehicleShortLabel(quoteVehicle);
     const tripSummary = isAirportTrip || pickupAirportCode || dropoffAirportCode
       ? `${isFromAirport ? "Pickup from" : "Transfer to"} ${airportName} (${effectiveAirportCode})`
       : "Address-to-address transfer";
@@ -3662,8 +3937,7 @@ function QuoteCard({
       : null;
   const showDepositCashChoice =
     depositCashOffer?.eligible === true &&
-    !isAvailabilityRequest &&
-    !capacityNeedsConfirm;
+    !isAvailabilityRequest;
   const selectedDepositCash =
     showDepositCashChoice && paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH;
 
@@ -3896,8 +4170,7 @@ function QuoteCard({
               : checkout.minimumBookingNoticeHours ??
                 checkout.minimumNoticeHours ??
                 minimumBookingNoticeHours,
-          luggageCapacity:
-            checkout.luggageCapacity === true || capacityNeedsConfirm,
+          luggageCapacity: checkout.luggageCapacity === true,
           minibusNotice: checkout.minibusNotice === true || isMinibusNoticeRequest,
         });
         setPaymentLoading(false);
@@ -4189,8 +4462,10 @@ function QuoteCard({
     setVehicle(VEHICLE_TYPES[0]);
     setChooseMinibus(false);
     setChooseExecutive(false);
-    setOutboundAccessChoice("free");
-    setReturnAccessChoice("free");
+    setChooseEstate(false);
+    setManualVehicle(null);
+    setOutboundAccessChoice("express");
+    setReturnAccessChoice("express");
     setExpressRemovalAck(false);
     setReturnExpressRemovalAck(false);
     setExpressAckRequired(false);
@@ -4952,23 +5227,29 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // Pause so the luggage selection can register, then glide until the vehicle
-  // heading sits below the header. The quote itself does not animate.
-  // Fare, vehicle, and Free/Express updates leave the latch set.
-  // The timer is not cleared on ordinary re-renders, so a fare update cannot cancel it.
+  // Stops with Vehicle options under the sticky header. Fare, vehicle,
+  // availability, and price updates must not scroll again. A capacity flicker
+  // must not reset the latch — that was restarting the scroll and juddering.
   useEffect(() => {
-    const capacityComplete = quoteChoicesReady && hasQuoteRoute && isScheduleComplete;
-    if (quoteStep !== 1 || !capacityComplete) {
+    if (quoteStep !== 1 || !hasQuoteRoute) {
       hadRouteSummaryScrollRef.current = false;
       quoteRevealScrollCancelRef.current?.();
       quoteRevealScrollCancelRef.current = null;
       return;
     }
 
-    if (!quoteResultsReady || hadRouteSummaryScrollRef.current) {
+    if (
+      !quoteResultsReady ||
+      !quoteChoicesReady ||
+      !isScheduleComplete ||
+      hadRouteSummaryScrollRef.current
+    ) {
       return;
     }
 
+    // Stop the earlier date/time glide before this scroll, then latch.
+    // Cancelling first matters: its retry must not clear the latch we set next.
+    cancelCompetingScrollJobs();
     hadRouteSummaryScrollRef.current = true;
     quoteRevealScrollCancelRef.current = scheduleQuoteRevealScroll({
       onConsume: () => {},
@@ -5340,7 +5621,7 @@ function QuoteCard({
               </p>
               <p
                 className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
-                  light ? "text-[#475569]" : "text-white/80"
+                  light ? "text-navy" : "text-white/80"
                 }`}
               >
                 {item.notice!.body}
@@ -5353,73 +5634,59 @@ function QuoteCard({
   }
 
   function renderMeetGreetOnlyChoice(
-    mode: "full" | "summary",
+    _mode: "full" | "summary",
     tone: "on-dark" | "on-light",
-    legs: AirportPickupLegRef[],
+    _legs: AirportPickupLegRef[],
   ) {
+    if (isExecutiveVehicle(quoteVehicle) && isFromAirport) return null;
     const light = tone === "on-light";
-    const fareTotalGbp =
-      paymentAmount != null && Number.isFinite(paymentAmount)
-        ? paymentAmount
-        : pricedFare?.totalGbp;
     return (
-      <div className="mt-3 space-y-4 text-left" data-meet-greet-airport-choice>
-        {legs.map((leg) => {
-          const choice = leg.leg === "return" ? returnAccessChoice : outboundAccessChoice;
-          return (
-            <div key={leg.leg} data-express-leg={leg.leg}>
-              {legs.length > 1 ? (
-                <p className={`mb-1.5 text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
-                  {leg.leg === "return" ? "Return journey" : "Outbound journey"}
-                </p>
-              ) : null}
-              <ExpressDropOffChoice
-                mode={mode}
-                tone={tone}
-                editing={expressEditingLeg === leg.leg}
-                onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
-                airportCode="DUB"
-                service="pick-up"
-                idPrefix={leg.leg}
-                fareTotalGbp={fareTotalGbp}
-                selected={false}
-                removalAcknowledged
-                meetGreetFeeGbp={meetGreetFeeGbp("DUB", publicPricing.meetGreet)}
-                accessChoice={choice === "express" ? "free" : choice}
-                onAccessChoiceChange={(next) => {
-                  const safe = next === "meet-greet" ? "meet-greet" : "free";
-                  if (leg.leg === "return") setReturnAccessChoice(safe);
-                  else setOutboundAccessChoice(safe);
-                }}
-                onSelectedChange={() => undefined}
-                onRemovalAcknowledgedChange={() => undefined}
-              />
-            </div>
-          );
-        })}
+      <div className="mt-1 text-left" data-airport-access-included>
+        <p className={`text-xs font-bold ${light ? "text-navy" : "text-white"}`}>
+          {AIRPORT_ACCESS_INCLUDED_HEADING}
+        </p>
+        <p className={`mt-0.5 text-[11px] font-medium leading-snug ${light ? "text-navy" : "text-white"}`}>
+          {AIRPORT_ACCESS_INCLUDED_BODY}
+        </p>
       </div>
     );
   }
 
-  function renderExecutivePickupIncluded(tone: "on-dark" | "on-light") {
-    const light = tone === "on-light";
+  function renderBusinessClassInclusions() {
+    if (!isExecutiveVehicle(quoteVehicle)) return null;
+    const pickupLegs = listAirportPickupLegs({
+      airportCode: effectiveAirportCode || null,
+      fromAirport: isFromAirport,
+      returnJourney,
+      isAirportToAirport: isAirportToAirportJourney,
+      pickupAirportCode,
+      dropoffAirportCode,
+    });
+    const hasPickup = pickupLegs.length > 0;
+    const airportDropOff =
+      !hasPickup &&
+      (isAirportTrip || isAirportToAirportJourney || Boolean(effectiveAirportCode));
+    if (!hasPickup && !airportDropOff) return null;
+    const items = hasPickup
+      ? BUSINESS_CLASS_PICKUP_INCLUSIONS
+      : BUSINESS_CLASS_DROPOFF_INCLUSIONS;
     return (
       <div
-        className={`mt-3 rounded-xl border px-3 py-2.5 text-left ${
-          light ? "border-navy/15 bg-navy/[0.03]" : "border-emerald/30 bg-emerald/10"
-        }`}
-        data-executive-included
+        className="mt-1 rounded-lg border border-navy/10 bg-navy/[0.03] px-2 py-1 text-left"
+        data-business-class-inclusions
+        data-business-class-pickup={hasPickup ? "true" : "false"}
       >
-        <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
-          Included in your Executive price
-        </p>
-        <p
-          className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
-            light ? "text-[#475569]" : "text-white/80"
-          }`}
-        >
-          {EXECUTIVE_AIRPORT_PICKUP_INCLUDED}
-        </p>
+        <p className="text-xs font-bold text-navy">Included with Business Class</p>
+        <ul className="mt-1 grid grid-cols-1 gap-y-0.5 min-[390px]:grid-cols-2 min-[390px]:gap-x-3">
+          {items.map((item) => (
+            <li key={item} className="text-[11px] font-medium leading-snug text-navy">
+              <span className="text-[#147a2a]" aria-hidden>
+                ✓{" "}
+              </span>
+              {item}
+            </li>
+          ))}
+        </ul>
       </div>
     );
   }
@@ -5430,16 +5697,6 @@ function QuoteCard({
   ) {
     if (testChargeAmount !== null) return null;
     const executivePickup = isExecutiveVehicle(quoteVehicle);
-    const pickupLegs = listAirportPickupLegs({
-      airportCode: effectiveAirportCode || null,
-      fromAirport: isFromAirport,
-      returnJourney,
-      isAirportToAirport: isAirportToAirportJourney,
-      pickupAirportCode,
-      dropoffAirportCode,
-    });
-    const executiveIncluded =
-      executivePickup && pickupLegs.length > 0 ? renderExecutivePickupIncluded(tone) : null;
     const dublinPickups = listAirportPickupLegs({
       airportCode: effectiveAirportCode || null,
       fromAirport: isFromAirport,
@@ -5455,14 +5712,13 @@ function QuoteCard({
         ),
     );
     if (!expressSelection.eligible) {
-      if (executiveIncluded) return executiveIncluded;
       if (uncoveredDublin.length === 0) return renderRequiredAirportAccessNotes(tone);
       return renderMeetGreetOnlyChoice(mode, tone, uncoveredDublin);
     }
     const legs = expressSelection.legs.filter(
       (leg) => leg.airportCode && !(executivePickup && leg.service === "pick-up"),
     );
-    if (legs.length === 0) return executiveIncluded;
+    if (legs.length === 0) return renderMeetGreetOnlyChoice(mode, tone, []);
     const light = tone === "on-light";
     const fareTotalGbp =
       paymentAmount != null && Number.isFinite(paymentAmount)
@@ -5470,14 +5726,11 @@ function QuoteCard({
         : pricedFare?.totalGbp;
 
     const expressChoices = (
-      <div className="mt-3 space-y-4 text-left" data-express-airport-choice>
+      <div className="mt-1 space-y-1 text-left" data-express-airport-choice>
         {legs.map((leg) => {
-          const choice = leg.leg === "return" ? returnAccessChoice : outboundAccessChoice;
-          const selected = choice === "express";
+          const selected = true;
           const removalAcknowledged =
             leg.leg === "return" ? returnExpressRemovalAck : expressRemovalAck;
-          const meetGreetOnPickup =
-            leg.service === "pick-up" ? meetGreetFeeGbp(leg.airportCode, publicPricing.meetGreet) : null;
           return (
             <div key={leg.leg} data-express-leg={leg.leg}>
               {legs.length > 1 ? (
@@ -5488,6 +5741,7 @@ function QuoteCard({
               <ExpressDropOffChoice
                 mode={mode}
                 tone={tone}
+                terminalAccessIncluded
                 editing={expressEditingLeg === leg.leg}
                 onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
                 airportCode={leg.airportCode}
@@ -5495,14 +5749,12 @@ function QuoteCard({
                 idPrefix={leg.leg}
                 allowFreeAlternative={leg.freeAlternativeAvailable}
                 fareTotalGbp={fareTotalGbp}
-                selected={selected}
+                selected
                 removalAcknowledged={removalAcknowledged}
                 requireAcknowledgement={expressAckRequired}
-                meetGreetFeeGbp={meetGreetOnPickup}
-                accessChoice={leg.service === "pick-up" ? choice : selected ? "express" : "free"}
+                accessChoice="express"
                 onAccessChoiceChange={(next) => {
-                  const safe =
-                    leg.service === "pick-up" ? next : next === "express" ? "express" : "free";
+                  const safe = next === "express" ? "express" : "express";
                   if (leg.leg === "return") {
                     setReturnAccessChoice(safe);
                     setReturnExpressRemovalAck(safe !== "express");
@@ -5530,12 +5782,7 @@ function QuoteCard({
       </div>
     );
     if (uncoveredDublin.length === 0 || executivePickup) {
-      return (
-        <>
-          {executiveIncluded}
-          {expressChoices}
-        </>
-      );
+      return expressChoices;
     }
     return (
       <>
@@ -5788,11 +6035,9 @@ function QuoteCard({
             ? "We’ll confirm your price before any payment is taken."
             : showsRequestQuoteFlow
               ? "Request a quote — we’ll confirm availability before the booking is accepted. No online payment until confirmed."
-              : isEnquiryOnly
+                : isEnquiryOnly
                 ? "We’ll reply with your quote — no online payment until you confirm."
-                : capacityNeedsConfirm
-                  ? "Fixed price for your journey. This combination needs luggage capacity confirmation before payment."
-                  : canPayNowOnline
+                : canPayNowOnline
                   ? isAirportLegForInclusions
                     ? "Eligible bookings can be paid securely online with SumUp."
                     : "Fixed price for your journey. Eligible bookings can be paid securely online with SumUp."
@@ -6215,20 +6460,6 @@ function QuoteCard({
           className="scroll-mt-44 space-y-2 md:scroll-mt-28 sm:space-y-3"
         >
           <div id="quote-step2-next" className="sr-only" />
-          {capacityNeedsConfirm && !isTooSoonCheckout ? (
-            <div
-              className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
-              role="status"
-              data-luggage-capacity-confirmation
-            >
-              <p className="text-sm font-semibold text-amber-100">
-                {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
-              </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
-                {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
-              </p>
-            </div>
-          ) : null}
 
           {payNow &&
           liveQuote &&
@@ -6259,7 +6490,7 @@ function QuoteCard({
             mode={
               isManualQuoteJourney
                 ? "quote-request"
-                : isAvailabilityRequest || capacityNeedsConfirm
+                : isAvailabilityRequest
                   ? "booking-request"
                   : payNow
                     ? "card-payment"
@@ -6300,21 +6531,7 @@ function QuoteCard({
             />
           ) : payNow && liveQuote ? (
             <div className="space-y-2 sm:space-y-3">
-              {capacityNeedsConfirm && !openCheckout ? (
-                <div
-                  className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left"
-                  role="status"
-                  aria-live="polite"
-                  data-luggage-capacity-confirmation
-                >
-                  <p className="text-sm font-semibold text-amber-100">
-                    {LUGGAGE_CAPACITY_CONFIRMATION_HEADING}
-                  </p>
-                  <p className="mt-1.5 text-sm leading-relaxed text-amber-50/90">
-                    {LUGGAGE_CAPACITY_CONFIRMATION_BODY}
-                  </p>
-                </div>
-              ) : !isAvailabilityRequest && !openCheckout ? (
+              {!isAvailabilityRequest && !openCheckout ? (
                 <p className="text-xs leading-relaxed text-white/70">
                   Your transfer is reserved for your selected pickup time.
                 </p>
@@ -6474,33 +6691,21 @@ function QuoteCard({
                   className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
-                    ? capacityNeedsConfirm || isAvailabilityRequest
+                    ? isAvailabilityRequest
                       ? "Submitting booking request…"
                       : "Opening secure payment…"
                     : testChargeAmount !== null
                       ? "Pay £1.00 test charge with SumUp"
-                      : capacityNeedsConfirm
-                        ? `${LUGGAGE_CAPACITY_CONFIRMATION_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
-                        : isMinibusNoticeRequest
+                      : isMinibusNoticeRequest
                         ? `${MINIBUS_NOTICE_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : isMinimumNoticeRequest
-                        ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
-                        : showDepositCashChoice && depositCashOffer
-                          ? selectedDepositCash
-                            ? depositPayButtonLabel(depositCashOffer.depositGbp)
-                            : fullPayButtonLabel(depositCashOffer.totalFare)
-                        : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
+                          ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                          : showDepositCashChoice && depositCashOffer
+                            ? selectedDepositCash
+                              ? depositPayButtonLabel(depositCashOffer.depositGbp)
+                              : fullPayButtonLabel(depositCashOffer.totalFare)
+                            : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
                 </button>
-                {capacityNeedsConfirm && !isAvailabilityRequest ? (
-                  <a
-                    href={shortNoticeWhatsAppHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full text-center text-sm font-semibold text-white/75 underline-offset-2 hover:text-white hover:underline"
-                  >
-                    Need a quick answer? WhatsApp us
-                  </a>
-                ) : null}
                 </>
               )}
             </div>
@@ -6595,6 +6800,8 @@ function QuoteCard({
           ? submitInProgressLabel
           : authoritativeQuoteFailed
             ? "Price unavailable"
+            : vehicleFareUpdating && instantPriceExpected && !mayPaintNumericFare
+            ? "Updating price…"
             : instantPriceExpected && !mayPaintNumericFare
             ? "Calculating your transfer price…"
             : showTransferCta
@@ -6624,7 +6831,7 @@ function QuoteCard({
     );
   }
 
-  function renderStep1SaveQuote() {
+  function renderStep1SaveQuote(compact = false) {
     if (
       !(
         liveQuote &&
@@ -6641,7 +6848,11 @@ function QuoteCard({
       <button
         type="button"
         onClick={handleSaveQuoteClick}
-        className="btn-secondary w-full"
+        className={
+          compact
+            ? "inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-white/45 bg-white/5 px-3 text-sm font-semibold text-white"
+            : "btn-secondary w-full"
+        }
       >
         Save Quote
       </button>
@@ -6679,14 +6890,29 @@ function QuoteCard({
     suitcases != null;
 
   function handleQuoteVehicleChoice(next: string) {
-    const pax = effectivePartyPassengers(passengers, passengerLimit);
-    if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
+    const pax =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers != null && passengers >= 1 ? passengers : null);
+    if (pax == null || suitcases == null) return;
+    const chosen = canonicalVehicleType(next);
+    if (
+      !enabledVehicleTypesForQuote({
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      }).includes(chosen) ||
+      !vehicleFitsParty(chosen, pax, suitcases)
+    ) {
+      return;
+    }
+    setManualVehicle(chosen);
     setChooseExecutive(next === EXECUTIVE_VEHICLE);
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
+    setChooseEstate(next === ESTATE_VEHICLE);
+    setVehicle(chosen);
   }
 
   function renderQuoteVehicleChoice() {
-    if ((!publicMinibusEnabled && !publicExecutiveEnabled) || passengers == null || suitcases == null) {
+    if (passengers == null || suitcases == null) {
       return null;
     }
     return (
@@ -6709,11 +6935,19 @@ function QuoteCard({
         : authoritativeFareReady
           ? (pricedFare?.totalGbp ?? null)
           : null);
-    const amountLabel =
-      authoritativeQuoteFailed
-        ? AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE
-        : authoritativeTotal != null && Number.isFinite(authoritativeTotal)
-          ? formatQuote(authoritativeTotal)
+    const priceUpdating =
+      vehicleFareUpdating && !authoritativeQuoteFailed && authoritativeTotal == null;
+    const liveLabel =
+      authoritativeTotal != null && Number.isFinite(authoritativeTotal)
+        ? formatQuote(authoritativeTotal)
+        : null;
+    if (liveLabel) stableFareLabelRef.current = liveLabel;
+    const amountLabel = authoritativeQuoteFailed
+      ? AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE
+      : liveLabel
+        ? liveLabel
+        : priceUpdating && stableFareLabelRef.current
+          ? stableFareLabelRef.current
           : "Calculating…";
     return (
       <QuoteResultShowcase
@@ -6723,6 +6957,8 @@ function QuoteCard({
         suitcases={suitcases as number}
         priceLabel={appliedPersonalQuote ? "Personal quoted fare" : "Your transfer price"}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
+        priceUpdating={priceUpdating}
+        businessClassInclusions={renderBusinessClassInclusions()}
         priceUnavailable={authoritativeQuoteFailed}
         onRetryPrice={() => {
           void refreshAuthoritativeServerQuote(true);
@@ -6734,7 +6970,6 @@ function QuoteCard({
         }
         airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
-        capacityConfirmation={capacityNeedsConfirm}
       />
     );
   }
@@ -6749,11 +6984,12 @@ function QuoteCard({
           className="h-px w-full scroll-mt-44 md:scroll-mt-28"
           aria-hidden="true"
         />
-        <div id="quote-step1-next" className="space-y-2">
-          {renderStep1SaveQuote()}
+        <div id="quote-step1-next" className="space-y-1">
+          {renderStep1SaveQuote(true)}
           {liveQuote || hasQuoteRoute || passengers != null || suitcases != null
             ? renderStartNewQuoteControls("results")
             : null}
+          <QuoteHelpContact className="!mt-0" />
           {renderBookingErrorHelp("step1-actions")}
           {saveQuotePrompt ? (
             <p className="text-center text-xs text-emerald/90" role="status">
@@ -6871,6 +7107,7 @@ function QuoteCard({
     <div
       ref={cardRef}
       data-quote-presentation={presentation}
+      data-quote-results={quoteResultsReady && quoteStep === 1 ? "ready" : undefined}
       className={
         presentation === "homepage"
           ? "quote-flow glass-card min-w-0 rounded-[1.1rem] px-3 py-2.5 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
@@ -7210,7 +7447,7 @@ function QuoteCard({
                 }
                 className={
                   quoteChoicesReady && hasQuoteRoute && quoteStep === 1
-                    ? "scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
+                    ? "scroll-mt-44 space-y-1.5 outline-none md:scroll-mt-28"
                     : undefined
                 }
                 style={
@@ -7219,41 +7456,6 @@ function QuoteCard({
                     : undefined
                 }
               >
-                {/*
-                  Show YOUR ROUTE as soon as bags/capacity are complete so Stage 6
-                  can scroll here immediately (do not wait for metrics). Prefetch
-                  stays sr-only while the customer is still on passengers/bags.
-                */}
-                {!(quoteResultsReady && quoteStep === 1) ? (
-                <div
-                  className={
-                    quoteChoicesReady && hasQuoteRoute && quoteStep === 1
-                      ? undefined
-                      : "sr-only"
-                  }
-                  aria-hidden={
-                    !(quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
-                  }
-                >
-                  <TripMap
-                    id={
-                      quoteChoicesReady && hasQuoteRoute && quoteStep === 1
-                        ? "quote-route-summary"
-                        : undefined
-                    }
-                    tripMode="address"
-                    originAddress={pickupAddress}
-                    destinationAddress={dropoffAddress}
-                    originLat={pickupPlace.lat}
-                    originLng={pickupPlace.lng}
-                    destinationLat={dropoffPlace.lat}
-                    destinationLng={dropoffPlace.lng}
-                    onRouteMetrics={handleRouteMetrics}
-                    variant="summary"
-                  />
-                </div>
-                ) : null}
-
                 {quoteResultsReady && quoteStep === 1 && (
                   <>
                     <h2 className="sr-only">Step 2 — Your quote</h2>
@@ -7300,24 +7502,47 @@ function QuoteCard({
                         </div>
                       </>
                     )}
-                    {showInstantQuoteResultCard
-                      ? renderQuoteResultFollowOn(
-                          <TripMap
-                            id="quote-route-summary"
-                            tripMode="address"
-                            originAddress={pickupAddress}
-                            destinationAddress={dropoffAddress}
-                            originLat={pickupPlace.lat}
-                            originLng={pickupPlace.lng}
-                            destinationLat={dropoffPlace.lat}
-                            destinationLng={dropoffPlace.lng}
-                            onRouteMetrics={handleRouteMetrics}
-                            variant="summary"
-                          />,
-                        )
-                      : null}
                   </>
                 )}
+                {/*
+                  One map instance for this address pair. It stays mounted when
+                  the result card appears so the route is not requested again.
+                */}
+                <div
+                  key="quote-route-map"
+                  className={
+                    (quoteResultsReady && quoteStep === 1) ||
+                    (quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
+                      ? undefined
+                      : "sr-only"
+                  }
+                  aria-hidden={
+                    !(
+                      (quoteResultsReady && quoteStep === 1) ||
+                      (quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
+                    )
+                  }
+                >
+                  <TripMap
+                    id={
+                      quoteChoicesReady && hasQuoteRoute && quoteStep === 1
+                        ? "quote-route-summary"
+                        : undefined
+                    }
+                    tripMode="address"
+                    originAddress={pickupAddress}
+                    destinationAddress={dropoffAddress}
+                    originLat={pickupPlace.lat}
+                    originLng={pickupPlace.lng}
+                    destinationLat={dropoffPlace.lat}
+                    destinationLng={dropoffPlace.lng}
+                    onRouteMetrics={handleRouteMetrics}
+                    variant="summary"
+                  />
+                </div>
+                {quoteResultsReady && quoteStep === 1 && showInstantQuoteResultCard
+                  ? renderQuoteResultFollowOn(null)
+                  : null}
               </div>
             )}
             <div hidden>
@@ -7707,7 +7932,7 @@ function QuoteCard({
         {!isA2AFlow && quoteResultsReady && quoteStep === 1 && (
           <div
             id="quote-results-summary"
-            className="scroll-mt-44 space-y-3 outline-none md:scroll-mt-28"
+            className="scroll-mt-44 space-y-1.5 outline-none md:scroll-mt-28"
             style={{ overflowAnchor: "none" }}
           >
             <h2 className="sr-only">Step 2 — Your quote</h2>

@@ -436,7 +436,7 @@ function buildConfiguredFeeLines(input: {
 
 /**
  * BFS/BHD A2A historical access surcharge as one fee line.
- * Removable only when a legitimate free-area alternative applies (BFS/BHD).
+ * Included in the fixed fare. Customers cannot opt out.
  */
 function buildNiAccessFeeLine(input: {
   leg: AirportFeeLeg;
@@ -478,12 +478,20 @@ export function resolveAirportToAirportFeeLines(input: {
   const lines: AirportFeeLine[] = [];
 
   if (isNiAccessAirport(pickupCode) && isNiAccessAirport(dropoffCode)) {
-    // Collection surcharge waived; destination drop-off surcharge retained.
+    // Both airport ends are part of the fixed fare. Customers cannot opt out.
+    const pickup = buildNiAccessFeeLine({
+      leg,
+      airportCode: pickupCode,
+      direction: "pickup",
+      customerChoiceAllowed: false,
+      removedFeeIds,
+    });
+    if (pickup) lines.push(pickup);
     const dest = buildNiAccessFeeLine({
       leg,
       airportCode: dropoffCode,
       direction: "drop-off",
-      customerChoiceAllowed: true,
+      customerChoiceAllowed: false,
       removedFeeIds,
     });
     if (dest) lines.push(dest);
@@ -495,7 +503,7 @@ export function resolveAirportToAirportFeeLines(input: {
       leg,
       airportCode: pickupCode,
       direction: "pickup",
-      customerChoiceAllowed: true,
+      customerChoiceAllowed: false,
       removedFeeIds,
     });
     if (pickup) lines.push(pickup);
@@ -516,7 +524,7 @@ export function resolveAirportToAirportFeeLines(input: {
       leg,
       airportCode: dropoffCode,
       direction: "drop-off",
-      customerChoiceAllowed: true,
+      customerChoiceAllowed: false,
       removedFeeIds,
     });
     if (drop) lines.push(drop);
@@ -552,8 +560,8 @@ export function getAirportToAirportFixedCostGbp(
  * Resolve all airport fee lines for a journey.
  *
  * Removals are airport-specific:
- * - DUB / LDY: never removable (client removedFeeIds ignored)
- * - BFS / BHD: removable only on A2A when a free-area alternative applies
+ * - Terminal access is included in the fixed fare and is not a customer opt-out.
+ * - DUB / LDY / BFS / BHD: client removedFeeIds are ignored for required access.
  */
 export function resolveJourneyAirportFees(input: {
   /** Both ends identified as airports. */

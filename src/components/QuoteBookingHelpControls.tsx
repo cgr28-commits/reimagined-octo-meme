@@ -107,12 +107,11 @@ export function StartNewQuoteControls({
 
   if (appearance === "quiet") {
     return (
-      <div className="space-y-1 text-center" data-start-new-quote-controls>
-        <p className="text-xs text-white/75">Need a quote for a different journey?</p>
+      <div className="text-center" data-start-new-quote-controls>
         <button
           type="button"
           onClick={onRequestStart}
-          className="text-sm font-medium text-white/80 underline decoration-white/45 underline-offset-2 hover:text-white hover:decoration-white/70"
+          className="inline-flex min-h-10 items-center justify-center px-3 text-sm font-semibold text-white underline decoration-white/55 underline-offset-2 hover:decoration-white"
         >
           Start over
         </button>

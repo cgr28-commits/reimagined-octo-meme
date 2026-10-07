@@ -508,7 +508,7 @@ console.log("\n=== K. Smart Return never below minimum ===");
   console.log("OK  K");
 }
 
-console.log("\n=== L. Estate remains £6 above Saloon ===");
+console.log("\n=== L. Estate remains the configured uplift above Saloon ===");
 {
   const saloon = evaluateSmartReturn({
     request: {
@@ -542,11 +542,11 @@ console.log("\n=== L. Estate remains £6 above Saloon ===");
     now: NOW,
     forceEnabled: true,
   });
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 6);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
   if (saloon.smartJourneyFareGbp != null && estate.smartJourneyFareGbp != null) {
-    assert.equal(estate.smartJourneyFareGbp - saloon.smartJourneyFareGbp, 6);
+    assert.equal(estate.smartJourneyFareGbp - saloon.smartJourneyFareGbp, UNIVERSAL_ESTATE_PREMIUM_GBP);
   }
-  assert.equal(estate.normalJourneyFareGbp - saloon.normalJourneyFareGbp, 6);
+  assert.equal(estate.normalJourneyFareGbp - saloon.normalJourneyFareGbp, UNIVERSAL_ESTATE_PREMIUM_GBP);
   console.log("OK  L");
 }
 

@@ -956,36 +956,27 @@ check("6. DUB → LDY A2A: all mandatory DUB/LDY charges apply from labels", () 
   assert.equal(resolved.airportContext.isAirportToAirport, true);
 });
 
-check("7. BFS/BHD free-area choice still works on A2A", () => {
+check("7. BFS/BHD terminal access cannot be removed on A2A", () => {
   const ctx = resolvePaymentAirportContextFromAddresses(BFS_AIRPORT_LABEL, BHD_AIRPORT_LABEL);
   assert.equal(ctx.ok, true);
   if (!ctx.ok) return;
   assert.equal(ctx.context.isAirportToAirport, true);
   assert.equal(ctx.context.pickupAirportCode, "BFS");
   assert.equal(ctx.context.dropoffAirportCode, "BHD");
-  // BFS↔BHD: collection waived; destination BHD surcharge removable.
   const withRemoval = resolveJourneyAirportFees({
     isAirportToAirport: true,
     pickupAirportCode: ctx.context.pickupAirportCode,
     dropoffAirportCode: ctx.context.dropoffAirportCode,
-    removedFeeIds: ["outbound:BHD:drop-off"],
+    removedFeeIds: ["outbound:BHD:drop-off", "outbound:BFS:pickup"],
   });
   const bhd = withRemoval.lines.find((l) => l.airportCode === "BHD");
-  assert.ok(bhd);
-  assert.equal(bhd!.removable, true);
-  assert.equal(bhd!.removed, true);
-  assert.equal(bhd!.appliedAmountGbp, 0);
-
-  const withoutRemoval = resolveJourneyAirportFees({
-    isAirportToAirport: true,
-    pickupAirportCode: ctx.context.pickupAirportCode,
-    dropoffAirportCode: ctx.context.dropoffAirportCode,
-  });
-  const bhdKept = withoutRemoval.lines.find((l) => l.airportCode === "BHD");
-  assert.ok(bhdKept);
-  assert.equal(bhdKept!.removable, true);
-  assert.equal(bhdKept!.removed, false);
-  assert.ok((bhdKept!.appliedAmountGbp ?? 0) > 0);
+  const bfs = withRemoval.lines.find((l) => l.airportCode === "BFS");
+  assert.ok(bhd && bfs);
+  assert.equal(bhd!.removable, false);
+  assert.equal(bhd!.removed, false);
+  assert.equal(bhd!.appliedAmountGbp, 4);
+  assert.equal(bfs!.appliedAmountGbp, 5);
+  assert.equal(withRemoval.totalAppliedGbp, 9);
 
   const resolved = resolveOpenWebsitePaymentTransferFares({
     clientTransferAmountGbp: 50,
@@ -1001,14 +992,14 @@ check("7. BFS/BHD free-area choice still works on A2A", () => {
     },
     airportContext: ctx.context,
     authoritativeQuote: {
-      amountGbp: 50,
+      amountGbp: 59,
       journeyFareGbp: 50,
-      airportFixedCostsGbp: 0,
+      airportFixedCostsGbp: 9,
     },
   });
   assert.equal(resolved.ok, true);
   if (!resolved.ok) return;
-  assert.equal(resolved.airportFixedCostsGbp, 0);
+  assert.equal(resolved.airportFixedCostsGbp, 9);
 });
 
 check("ambiguous same-airport both ends rejected", () => {

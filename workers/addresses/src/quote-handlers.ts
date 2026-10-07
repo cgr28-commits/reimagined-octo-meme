@@ -16,10 +16,8 @@ import {
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import type { QuoteServiceAirportCode } from "../../../src/lib/quote-service";
 import {
-  EXECUTIVE_VEHICLE,
   MINIBUS_VEHICLE,
-  requiresMinibus,
-  selectVehicleForParty,
+  resolvePublicVehicleChoice,
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
@@ -139,53 +137,106 @@ function resolveVehicleType(
   suitcases: number,
   ownerMode: boolean,
   publicMinibusEnabled: boolean,
-): { vehicleType: VehicleType; vehicleChoice: QuickQuoteVehicleChoice; maxPassengers: number } {
+  publicExecutiveEnabled: boolean,
+):
+  | { ok: true; vehicleType: VehicleType; vehicleChoice: QuickQuoteVehicleChoice; maxPassengers: number }
+  | { ok: false; message: string } {
   const choice = parseQuickQuoteVehicleChoice(
     body.vehicleChoice ?? body.vehiclePreference ?? body.vehicleType,
   );
   if (ownerMode && choice === "Minibus") {
     return {
+      ok: true,
       vehicleType: MINIBUS_VEHICLE,
       vehicleChoice: "Minibus",
       maxPassengers: quickQuoteMaxPassengersForVehicle("Minibus"),
     };
   }
   const requested = String(body.vehicleType ?? body.vehicleChoice ?? "");
-  if (
-    !ownerMode &&
-    publicMinibusEnabled &&
-    (choice === "Minibus" || requested.toLowerCase().includes("minibus"))
-  ) {
-    return {
-      vehicleType: MINIBUS_VEHICLE,
-      vehicleChoice: "Minibus",
-      maxPassengers: publicMaxPassengers(true),
-    };
-  }
-  const selected = selectVehicleForParty(passengers, Math.max(0, suitcases));
-  if (selected === MINIBUS_VEHICLE && !ownerMode && !publicMinibusEnabled) {
-    return {
-      vehicleType: selected,
-      vehicleChoice: "Minibus",
-      maxPassengers: publicMaxPassengers(false),
-    };
-  }
-  if (/executive/i.test(requested) && !requiresMinibus(passengers, Math.max(0, suitcases))) {
-    return {
-      vehicleType: EXECUTIVE_VEHICLE,
-      vehicleChoice: "Saloon",
-      maxPassengers: ownerMode
-        ? quickQuoteMaxPassengersForVehicle("Saloon")
-        : publicMaxPassengers(publicMinibusEnabled),
-    };
-  }
+  const resolved = resolvePublicVehicleChoice({
+    requested,
+    passengers,
+    suitcases,
+    publicMinibusEnabled,
+    publicExecutiveEnabled,
+    ownerMode,
+  });
+  if (!resolved.ok) return resolved;
+  const vehicleChoice: QuickQuoteVehicleChoice =
+    resolved.vehicleType === MINIBUS_VEHICLE ? "Minibus" : "Saloon";
   return {
-    vehicleType: selected,
-    vehicleChoice: selected === MINIBUS_VEHICLE ? "Minibus" : "Saloon",
+    ok: true,
+    vehicleType: resolved.vehicleType,
+    vehicleChoice,
     maxPassengers: ownerMode
-      ? quickQuoteMaxPassengersForVehicle(selected === MINIBUS_VEHICLE ? "Minibus" : "Saloon")
+      ? quickQuoteMaxPassengersForVehicle(vehicleChoice)
       : publicMaxPassengers(publicMinibusEnabled),
   };
+}
+
+type CachedQuoteRoute = {
+  metrics: { distanceKm: number; durationMinutes: number };
+  pickup: { lat: number; lng: number } | null;
+  dropoff: { lat: number; lng: number } | null;
+  storedAt: number;
+};
+
+/** Same addresses, another vehicle: reuse the worker route instead of calling OSRM again. */
+const QUOTE_ROUTE_REUSE_MS = 10 * 60 * 1000;
+const quoteRouteCache = new Map<string, CachedQuoteRoute>();
+const quoteRouteInflight = new Map<string, Promise<CachedQuoteRoute | null>>();
+
+function quoteRouteReuseKey(input: {
+  pickupAddress: string;
+  dropoffAddress: string;
+  pickupPlaceId: string | null;
+  dropoffPlaceId: string | null;
+}): string {
+  const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+  return [
+    norm(input.pickupAddress),
+    norm(input.dropoffAddress),
+    input.pickupPlaceId?.trim() ?? "",
+    input.dropoffPlaceId?.trim() ?? "",
+  ].join("\n");
+}
+
+async function resolveProtectedQuoteRoute(input: {
+  pickupAddress: string;
+  dropoffAddress: string;
+  pickupPlaceId: string | null;
+  dropoffPlaceId: string | null;
+  googlePlacesApiKey?: string;
+  getAddressApiKey?: string;
+}): Promise<CachedQuoteRoute | null> {
+  const key = quoteRouteReuseKey(input);
+  const cached = quoteRouteCache.get(key);
+  if (cached && Date.now() - cached.storedAt < QUOTE_ROUTE_REUSE_MS) return cached;
+  const existing = quoteRouteInflight.get(key);
+  if (existing) return existing;
+  const promise = (async () => {
+    const outcome = await resolveWorkerTripRouteMetricsForPayment({
+      pickupAddress: input.pickupAddress,
+      dropoffAddress: input.dropoffAddress,
+      pickupPlaceId: input.pickupPlaceId,
+      dropoffPlaceId: input.dropoffPlaceId,
+      googlePlacesApiKey: input.googlePlacesApiKey,
+      getAddressApiKey: input.getAddressApiKey,
+    });
+    if (!outcome.ok) return null;
+    const resolved: CachedQuoteRoute = {
+      metrics: outcome.metrics,
+      pickup: outcome.pickup ?? null,
+      dropoff: outcome.dropoff ?? null,
+      storedAt: Date.now(),
+    };
+    quoteRouteCache.set(key, resolved);
+    return resolved;
+  })().finally(() => {
+    if (quoteRouteInflight.get(key) === promise) quoteRouteInflight.delete(key);
+  });
+  quoteRouteInflight.set(key, promise);
+  return promise;
 }
 
 export async function handleQuoteCalculateRequest(
@@ -276,8 +327,19 @@ export async function handleQuoteCalculateRequest(
   let routeMetrics = protectionActive ? null : clientMetrics;
   let serverPickup: { lat: number; lng: number } | null = null;
   let serverDropoff: { lat: number; lng: number } | null = null;
+  let routeReused = false;
   if (protectionActive) {
-    const outcome = await resolveWorkerTripRouteMetricsForPayment({
+    const routeKey = quoteRouteReuseKey({
+      pickupAddress,
+      dropoffAddress,
+      pickupPlaceId,
+      dropoffPlaceId,
+    });
+    const cachedBefore = quoteRouteCache.get(routeKey);
+    routeReused =
+      quoteRouteInflight.has(routeKey) ||
+      (cachedBefore != null && Date.now() - cachedBefore.storedAt < QUOTE_ROUTE_REUSE_MS);
+    const resolved = await resolveProtectedQuoteRoute({
       pickupAddress,
       dropoffAddress,
       pickupPlaceId,
@@ -285,11 +347,11 @@ export async function handleQuoteCalculateRequest(
       googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
       getAddressApiKey: env?.GETADDRESS_API_KEY,
     });
-    if (outcome.ok) {
-      routeMetrics = outcome.metrics;
+    if (resolved) {
+      routeMetrics = resolved.metrics;
       routeMetricsSource = "worker";
-      serverPickup = outcome.pickup ?? null;
-      serverDropoff = outcome.dropoff ?? null;
+      serverPickup = resolved.pickup;
+      serverDropoff = resolved.dropoff;
     }
   } else if (routeMetrics) {
     routeMetricsSource = "client";
@@ -429,13 +491,26 @@ export async function handleQuoteCalculateRequest(
       origin,
     );
   }
+  const publicExecutiveEnabled = pricing.executive?.publicEnabled !== false;
   const resolved = resolveVehicleType(
     body,
     Math.floor(passengers),
     Math.floor(suitcases),
     ownerMode,
     publicMinibusEnabled,
+    publicExecutiveEnabled,
   );
+  if (!resolved.ok) {
+    return json(
+      {
+        ok: false,
+        reason: "vehicle_unavailable",
+        message: resolved.message,
+      },
+      409,
+      origin,
+    );
+  }
   if (
     !publicMinibusAllowed(resolved.vehicleType, {
       publicMinibusEnabled,
@@ -589,6 +664,7 @@ export async function handleQuoteCalculateRequest(
     fromAirport,
     airportCodeSource,
     routeMetricsSource,
+    routeReused,
     routeMiles: miles,
     routeDurationMinutes: Math.round(routeMetrics.durationMinutes * 10) / 10,
     distanceKm: Math.round(routeMetrics.distanceKm * 100) / 100,
@@ -612,6 +688,7 @@ export async function handleQuoteCalculateRequest(
       fromAirport,
       airportCodeSource,
       routeMetricsSource,
+      routeReused,
       returnJourney,
       ownerMode,
       vehicleChoice: resolved.vehicleChoice,
@@ -634,18 +711,11 @@ export async function handleQuoteCalculateRequest(
   if (protectionActive && result.ok) {
     const secret = env?.QUOTE_RECEIPT_SECRET?.trim() ?? "";
     if (!secret) {
-      console.warn("[quote-receipt] refresh reason=secret_missing");
-      return json(
-        {
-          ok: false,
-          reason: "quote_refresh_required",
-          message: "Quote amount is out of date. Please refresh your quote and try again.",
-        },
-        503,
-        origin,
-      );
-    }
-    quoteBody.quoteReceipt = await signQuoteReceipt(
+      // The fare is already calculated. A missing HMAC key must not hide it.
+      // Payment re-quotes on the server when no receipt can be signed.
+      console.warn("[quote-receipt] secret_missing; returning the calculated fare without a receipt");
+    } else {
+      quoteBody.quoteReceipt = await signQuoteReceipt(
       {
         pricingVersion: pricingForRoute.version,
         pickupPlaceId: pickupPlaceId ?? "",
@@ -667,9 +737,10 @@ export async function handleQuoteCalculateRequest(
         distanceKm: routeMetrics.distanceKm,
         durationMinutes: routeMetrics.durationMinutes,
       },
-      secret,
-      Date.now(),
-    );
+        secret,
+        Date.now(),
+      );
+    }
   }
 
   const fareReadyAt = Date.now();

@@ -253,7 +253,7 @@ export default function TripMap({
     return (
       <div
         id={id}
-        className="scroll-mt-44 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 md:scroll-mt-28"
+        className="scroll-mt-24 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1 md:scroll-mt-28"
         style={{ overflowAnchor: "none" }}
       >
         <p
@@ -271,11 +271,9 @@ export default function TripMap({
           >
             <span>{showMap ? "Hide route" : "View route"}</span>
             {timeLabel ? (
-              <span className="mt-0.5 block text-xs font-normal quote-secondary">
-                {timeLabel}
-              </span>
+              <span className="ml-2 text-xs font-medium text-white/90">{timeLabel}</span>
             ) : (
-              <span className="mt-0.5 block text-xs font-normal quote-secondary">
+              <span className="ml-2 text-xs font-medium text-white/80">
                 {originPoint && destinationPoint
                   ? "Calculating journey time…"
                   : mapError || "View route on map"}

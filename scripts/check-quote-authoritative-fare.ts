@@ -107,8 +107,11 @@ const resultsBlock = card.slice(
 assert.doesNotMatch(resultsBlock, /mayPaintNumericFare|authoritativeFareReady/);
 assert.match(card, /: "Calculating…"/);
 assert.match(showcase, /formattedPrice\.startsWith\("£"\) \? "ready" : "pending"/);
-assert.match(showcase, /min-h-\[clamp\(3\.5rem,1\.6rem\+10vw,4\.5rem\)\]/);
-assert.match(showcase, /text-\[clamp\(2\.65rem,1\.22rem\+7\.6vw,3\.4rem\)\]/);
+assert.match(showcase, /text-\[clamp\(1\.45rem,0\.7rem\+3vw,1\.85rem\)\]/);
+assert.match(card, /quoteRequestKey/);
+assert.match(card, /refreshAuthoritativeServerQuoteRef\.current/);
+assert.doesNotMatch(card, /\}, \[refreshAuthoritativeServerQuote\]\);/);
+assert.match(showcase, /priceUpdating \? "updating"/);
 const scrollEffect = card.slice(
   card.indexOf("One results scroll, as soon as the results mount."),
   card.indexOf("Reset time→Your Journey"),
@@ -136,6 +139,17 @@ assert.deepEqual(
     requiresMinibus: false,
   }),
   ["Saloon (1–4 passengers)", "Minibus (5–7 passengers)"],
+);
+assert.deepEqual(
+  quoteFareVehiclesToRequest({
+    selectedVehicle: "Saloon (1–4 passengers)",
+    automaticVehicle: "Estate Car (1–4 passengers)",
+    minibusVehicle: "Minibus (5–7 passengers)",
+    publicMinibusEnabled: true,
+    requiresMinibus: false,
+    suitableVehicles: ["Estate Car (1–4 passengers)", "Minibus (5–7 passengers)"],
+  }),
+  ["Estate Car (1–4 passengers)", "Minibus (5–7 passengers)"],
 );
 assert.equal(expressQuoteFreeTitle("BFS", "drop-off"), "Free Drop-Off — Included");
 assert.equal(expressQuoteExpressTitle("BFS", "drop-off"), "Express Drop-Off — +£5");
@@ -188,11 +202,11 @@ assert.equal(parseCustomerExpressDropOffSelected(false), false);
 assert.equal(parseCustomerExpressDropOffSelected(true), true);
 assert.match(
   card,
-  /const \[outboundAccessChoice, setOutboundAccessChoice\] = useState<AirportAccessChoice>\("free"\)/,
+  /const \[outboundAccessChoice, setOutboundAccessChoice\] = useState<AirportAccessChoice>\("express"\)/,
 );
 assert.match(
   card,
-  /const \[returnAccessChoice, setReturnAccessChoice\] = useState<AirportAccessChoice>\("free"\)/,
+  /const \[returnAccessChoice, setReturnAccessChoice\] = useState<AirportAccessChoice>\("express"\)/,
 );
 const both = resolveExpressDropOff({
   airportCode: "BFS",

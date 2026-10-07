@@ -107,7 +107,7 @@ console.log("=== Fuel formula and inactive MPG ===");
   assert.ok(approvedPerMile != null);
   assert.ok(Math.abs(approvedPerMile - (2 * UK_GALLON_LITRES) / 47) < 1e-12);
   assert.ok(Math.abs(approvedPerMile - 0.19345063829787235) < 1e-12);
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 6);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
 }
 
 console.log("=== Floor = time target + fuel + wear ===");

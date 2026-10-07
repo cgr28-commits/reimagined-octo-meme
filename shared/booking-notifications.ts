@@ -11,7 +11,7 @@ import {
 } from "./business-email";
 import { contactVCardPublicUrl, resolveGoogleReviewUrl } from "./business-links";
 import { vehicleServiceLabel } from "./booking-notice";
-import { customerFacingVehicleName, EXECUTIVE_CUSTOMER_DESCRIPTION } from "./vehicle-display";
+import { customerFacingVehicleName, vehicleCustomerDescription } from "./vehicle-display";
 import { formatUkDate, formatUkTime, UK_LOCAL_TIME_LABEL, UK_TIME_ZONE } from "./uk-time";
 import {
   formatEmailFareIncludesBlock,
@@ -235,10 +235,8 @@ function formatDisplayTime(time: string): string {
 }
 
 function customerServiceLabel(vehicle?: string | null): string {
-  if (String(vehicle ?? "").toLowerCase().includes("executive")) {
-    return customerFacingVehicleName(vehicle);
-  }
-  return vehicleServiceLabel(vehicle);
+  const name = customerFacingVehicleName(vehicle);
+  return name || vehicleServiceLabel(vehicle);
 }
 
 function formatChildSeatsLine(details: Pick<PaidBookingDetails, "childSeats" | "childSeatNotes">): string {
@@ -328,11 +326,7 @@ function formatCustomerTripScheduleLines(details: PaidBookingDetails): string[] 
   if (childSeatsLine) lines.push(childSeatsLine);
   lines.push(
     `Service: ${customerServiceLabel(details.vehicle)}`,
-    `Vehicle: ${
-      String(details.vehicle ?? "").toLowerCase().includes("executive")
-        ? EXECUTIVE_CUSTOMER_DESCRIPTION
-        : details.vehicle
-    }`,
+    `Vehicle: ${vehicleCustomerDescription(details.vehicle) || details.vehicle}`,
   );
 
   if (details.journeyDuration) {
@@ -438,9 +432,7 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     { label: "Service", value: customerServiceLabel(details.vehicle) },
     {
       label: "Vehicle",
-      value: String(details.vehicle ?? "").toLowerCase().includes("executive")
-        ? EXECUTIVE_CUSTOMER_DESCRIPTION
-        : details.vehicle,
+      value: vehicleCustomerDescription(details.vehicle) || String(details.vehicle ?? ""),
     },
   );
 
@@ -751,9 +743,14 @@ export function buildCustomerConfirmationEmail(
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
         fromAirport: details.isFromAirport,
       });
+      const meetGreetShown = accessLines.some((line) => line.includes("Meet & Greet"));
       return (
         `${accessLines.join("\n")}\n` +
-        (breakdown && !accessLines.includes(breakdown) ? `${breakdown}\n` : "") +
+        (breakdown &&
+        !meetGreetShown &&
+        !accessLines.some((line) => line.includes(breakdown))
+          ? `${breakdown}\n`
+          : "") +
         `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n\n`
       );
     })() +

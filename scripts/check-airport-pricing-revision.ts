@@ -1,7 +1,7 @@
 /**
  * Airport pricing revision checks (PR #435 universal distance live behaviour).
  * Config may retain historical BHD £34 / BFS £45 / estate tiers — those are
- * RETIRED for live quotes. Live path: road miles → Saloon curve; Estate +£6.
+ * RETIRED for live quotes. Live path: road miles → Saloon curve; Estate + owner uplift.
  *
  * Run: npx tsx scripts/check-airport-pricing-revision.ts
  */
@@ -25,6 +25,7 @@ import {
 import {
   calculateUniversalEstateJourneyFareGbp,
   calculateUniversalSaloonJourneyFareGbp,
+  UNIVERSAL_ESTATE_PREMIUM_GBP,
 } from "../shared/universal-distance-pricing";
 
 const SALOON = SALOON_VEHICLE;
@@ -42,7 +43,7 @@ function metricsForMiles(miles: number, durationMinutes = 40) {
 assert.equal(PRICING_CONFIG.universalDistancePricing?.enabled, true);
 assert.equal(PRICING_CONFIG.universalDistancePricing?.estatePremiumGbp, 10);
 assert.equal(PRICING_CONFIG.belfastAirportDistanceFloor?.enabled, false);
-console.log("OK  universalDistancePricing enabled; estatePremiumGbp £6; Belfast floor disabled");
+console.log("OK  universalDistancePricing enabled; unused estatePremiumGbp field £10; Belfast floor disabled");
 
 // Historical config numbers retained (not used for live quotes)
 assert.equal(PRICING_CONFIG.airportBasePricesGbp.BHD, 34);
@@ -62,17 +63,18 @@ assert.equal(PRICING_CONFIG.otsReferenceModel.undercutMaxGbp, 10);
 console.log("OK  Airport OTS calibration £3–£5; A2A reference undercut still £8–£10");
 
 // Live estate premium is always £6 when universal enabled (tiers retired)
-assert.equal(getAirportEstatePremiumGbp("BFS", 34), 6);
-assert.equal(getAirportEstatePremiumGbp("BFS", 45), 6);
-assert.equal(getAirportEstatePremiumGbp("BFS", 46), 6);
-assert.equal(getAirportEstatePremiumGbp("BFS", 139), 6);
-assert.equal(getAirportEstatePremiumGbp("BFS", 140), 6);
-assert.equal(getAirportEstatePremiumGbp("BHD", 45), 6);
-assert.equal(getAirportEstatePremiumGbp("BHD", 140), 6);
-assert.equal(getAirportEstatePremiumGbp("DUB", 34), 6);
-assert.equal(getAirportEstatePremiumGbp("DUB", 45), 6);
-assert.equal(getAirportEstatePremiumGbp("DUB", 140), 6);
-console.log("OK  Live estate premium always £6 (universal); historical tiers not applied");
+assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
+assert.equal(getAirportEstatePremiumGbp("BFS", 34), UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(getAirportEstatePremiumGbp("BFS", 45), UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(getAirportEstatePremiumGbp("BFS", 46), UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(getAirportEstatePremiumGbp("BFS", 139), UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(getAirportEstatePremiumGbp("BFS", 140), UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(getAirportEstatePremiumGbp("BHD", 45), UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(getAirportEstatePremiumGbp("BHD", 140), UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(getAirportEstatePremiumGbp("DUB", 34), UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(getAirportEstatePremiumGbp("DUB", 45), UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(getAirportEstatePremiumGbp("DUB", 140), UNIVERSAL_ESTATE_PREMIUM_GBP);
+console.log("OK  Live estate premium uses the configured uplift (default £10)");
 
 // BHD city ~4 mi → £29 / estate £35
 {
@@ -81,7 +83,7 @@ console.log("OK  Live estate premium always £6 (universal); historical tiers no
   assert.ok(bhdCity);
   assert.equal(bhdCity.amount, 29, "BHD city saloon ~4 mi → £29");
   const bhdCityEstate = calculateQuote(cityHall, "BHD", ESTATE, false, {}, m);
-  assert.equal(bhdCityEstate?.amount, 35, "BHD city estate = 29+6");
+  assert.equal(bhdCityEstate?.amount, 29 + UNIVERSAL_ESTATE_PREMIUM_GBP, "BHD city estate = Saloon + configured uplift");
   console.log(`OK  BHD City Hall saloon £${bhdCity.amount} / estate £${bhdCityEstate?.amount}`);
 }
 

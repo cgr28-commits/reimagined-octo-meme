@@ -43,9 +43,9 @@ assert.equal(calculateQuote(CITY, "BFS", S, false, {}, M4, false)!.amount, 29);
 assert.equal(calculateQuote(CITY, "BHD", S, false, {}, M4, false)!.amount, 29);
 assert.equal(calculateQuote(CITY, "BFS", S, false, {}, null, false), null);
 
-// A2A: collection-only waiver of historical surcharge (destination keeps fee)
-assert.equal(getAirportToAirportFixedCostGbp("BFS", "BHD"), 4);
-assert.equal(getAirportToAirportFixedCostGbp("BHD", "BFS"), 5);
+// A2A includes the configured terminal charge at both airport ends.
+assert.equal(getAirportToAirportFixedCostGbp("BFS", "BHD"), 9);
+assert.equal(getAirportToAirportFixedCostGbp("BHD", "BFS"), 9);
 const underlying = calculatePointToPointQuote(
   bfs.formattedAddress,
   bhd.formattedAddress,
@@ -76,10 +76,10 @@ const bhdBfs = calculateAirportToAirportQuote(
   M17,
 )!;
 assert.equal(bfsBhd.journeyFareGbp, underlying.amount);
-assert.equal(bfsBhd.airportFixedCostsGbp, 4);
-assert.equal(bhdBfs.airportFixedCostsGbp, 5);
-assert.equal(bfsBhd.amount, underlying.amount + 4);
-assert.equal(bhdBfs.amount, underlying.amount + 5);
+assert.equal(bfsBhd.airportFixedCostsGbp, 9);
+assert.equal(bhdBfs.airportFixedCostsGbp, 9);
+assert.equal(bfsBhd.amount, underlying.amount + 9);
+assert.equal(bhdBfs.amount, underlying.amount + 9);
 
 // Dublin: ~98 mi → interpolated Saloon journey + fixed
 const dubDrop = calculateQuote(CITY, "DUB", S, false, {}, M98, false)!;

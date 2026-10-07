@@ -114,6 +114,7 @@ export async function calculateServerQuote(
       vehicleChoice?: QuickQuoteVehicleChoice;
     },
   ownerKey?: string,
+  signal?: AbortSignal,
 ): Promise<QuickQuoteCalculateResult> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -130,6 +131,7 @@ export async function calculateServerQuote(
       headers,
       body: JSON.stringify(journey),
       cache: "no-store",
+      signal,
     },
   );
   const payload = await parseJson(response);

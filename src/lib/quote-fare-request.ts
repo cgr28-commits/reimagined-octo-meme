@@ -44,7 +44,20 @@ export function quoteFareVehiclesToRequest(input: {
   minibusVehicle: string;
   publicMinibusEnabled: boolean;
   requiresMinibus: boolean;
+  /** Every suitable category. When set, each one is priced from the server. */
+  suitableVehicles?: readonly string[];
 }): string[] {
+  if (input.suitableVehicles && input.suitableVehicles.length > 0) {
+    const allowed = new Set(input.suitableVehicles);
+    const selected = allowed.has(input.selectedVehicle)
+      ? input.selectedVehicle
+      : input.suitableVehicles[0];
+    const unique: string[] = [];
+    for (const vehicle of [selected, ...input.suitableVehicles]) {
+      if (vehicle && allowed.has(vehicle) && !unique.includes(vehicle)) unique.push(vehicle);
+    }
+    return unique;
+  }
   const selected = input.selectedVehicle;
   if (!input.publicMinibusEnabled || input.requiresMinibus) return [selected];
   const alternate =

@@ -20,6 +20,7 @@ import {
   calculateUniversalEstateJourneyFareGbp,
   calculateUniversalSaloonJourneyFareGbp,
   universalDrivingMilesFromKm,
+  UNIVERSAL_ESTATE_PREMIUM_GBP,
 } from "../shared/universal-distance-pricing";
 
 const S = SALOON_VEHICLE;
@@ -89,7 +90,7 @@ add(
   const expectedS = calculateUniversalSaloonJourneyFareGbp(4.5);
   const expectedE = calculateUniversalEstateJourneyFareGbp(expectedS);
   assert.equal(expectedS, 30);
-  assert.equal(expectedE, 36);
+  assert.equal(expectedE, expectedS + UNIVERSAL_ESTATE_PREMIUM_GBP);
   const s = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", S, false, {}, m)?.amount;
   const e = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BHD", E, false, {}, m)?.amount;
   assert.equal(s, expectedS);
@@ -106,7 +107,7 @@ add(
   add("Lisburn → BHD", "airport", 12, s, e);
   assert.ok((s ?? 0) >= city, "Lisburn→BHD must be at least City Hall→BHD");
   assert.equal(s, calculateUniversalSaloonJourneyFareGbp(12));
-  assert.equal((e ?? 0) - (s ?? 0), 6);
+  assert.equal((e ?? 0) - (s ?? 0), UNIVERSAL_ESTATE_PREMIUM_GBP);
 }
 
 // 4 BFS city (14 mi → S£44 E£50)
@@ -115,7 +116,7 @@ add(
   const expectedS = calculateUniversalSaloonJourneyFareGbp(14);
   const expectedE = calculateUniversalEstateJourneyFareGbp(expectedS);
   assert.equal(expectedS, 44);
-  assert.equal(expectedE, 50);
+  assert.equal(expectedE, expectedS + UNIVERSAL_ESTATE_PREMIUM_GBP);
   const s = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, false, {}, m)?.amount;
   const e = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", E, false, {}, m)?.amount;
   assert.equal(s, expectedS);
@@ -148,7 +149,7 @@ add(
   const e = calculateQuote("Glengormley, Newtownabbey BT36 7QU", "DUB", E, false, {}, m)?.amount;
   assert.equal(s, journey + 4);
   assert.equal(e, calculateUniversalEstateJourneyFareGbp(journey) + 4);
-  assert.equal((e ?? 0) - (s ?? 0), 6);
+  assert.equal((e ?? 0) - (s ?? 0), UNIVERSAL_ESTATE_PREMIUM_GBP);
   add("Newtownabbey → DUB", "airport", 100, s, e);
 }
 
@@ -160,8 +161,8 @@ add(
   const s = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "DUB", S, false, {}, m)?.amount;
   const e = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "DUB", E, false, {}, m)?.amount;
   assert.equal(s, 208);
-  assert.equal(e, 214);
-  assert.equal((e ?? 0) - (s ?? 0), 6);
+  assert.equal(e, 208 + UNIVERSAL_ESTATE_PREMIUM_GBP);
+  assert.equal((e ?? 0) - (s ?? 0), UNIVERSAL_ESTATE_PREMIUM_GBP);
   add("City Hall → DUB", "airport", 98, s, e, "universal £208/£214");
 }
 
@@ -272,7 +273,7 @@ add(
   const s = calculateQuote("1 Guildhall Square, Derry BT48 6BJ", "BFS", S, false, {}, metrics)?.amount;
   const e = calculateQuote("1 Guildhall Square, Derry BT48 6BJ", "BFS", E, false, {}, metrics)?.amount;
   assert.equal(s, expectedS);
-  assert.equal((e ?? 0) - (s ?? 0), 6);
+  assert.equal((e ?? 0) - (s ?? 0), UNIVERSAL_ESTATE_PREMIUM_GBP);
   add("BFS → Derry", "airport", Math.round(miles), s, e);
 }
 
@@ -311,7 +312,7 @@ add(
   const s = calculateQuote("10 East Bridge Street, Enniskillen, BT74 7AB", "BFS", S, false, {}, metrics)?.amount;
   const e = calculateQuote("10 East Bridge Street, Enniskillen, BT74 7AB", "BFS", E, false, {}, metrics)?.amount;
   assert.equal(s, expectedS);
-  assert.equal((e ?? 0) - (s ?? 0), 6);
+  assert.equal((e ?? 0) - (s ?? 0), UNIVERSAL_ESTATE_PREMIUM_GBP);
   add("BFS → Enniskillen", "airport", Math.round(miles), s, e, "universal distance");
 }
 
@@ -367,7 +368,7 @@ add(
   const s = calculateQuote("Europa Hotel, Great Victoria Street, Belfast BT2 7BA", "BFS", S, false, {}, m)?.amount;
   const e = calculateQuote("Europa Hotel, Great Victoria Street, Belfast BT2 7BA", "BFS", E, false, {}, m)?.amount;
   assert.equal(s, 44);
-  assert.equal(e, 50);
+  assert.equal(e, 44 + UNIVERSAL_ESTATE_PREMIUM_GBP);
   add("Europa Hotel → BFS", "airport", 14, s, e);
 }
 

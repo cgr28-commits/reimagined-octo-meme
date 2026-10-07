@@ -236,7 +236,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes cover 1–4 passengers only (Saloon or Estate). My Airport Taxi NI provides private airport transfers for up to 4 passengers.",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes show Saloon, Estate or similar larger vehicle, Business Class, and 7 Seater Minibus only when that vehicle suits your passengers and luggage. Airport access required for the journey is included in the fixed price. My Airport Taxi NI provides private airport transfers for up to 4 passengers, or up to 7 when a 7 Seater is offered.",
     },
     {
       title: "Quote tool flow",
@@ -262,7 +262,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Passenger capacity",
       body:
-        "My Airport Taxi NI provides private airport transfers for up to 4 passengers. Online quotes and bookings are for 1–4 passengers in a Saloon or Estate car. We do not offer public online quotes for larger groups.",
+        "My Airport Taxi NI provides private airport transfers. Online quotes offer Saloon, Estate or similar larger vehicle, and Business Class for 1–4 passengers, and a 7 Seater Minibus when it is offered and the party fits. Unsuitable vehicles are not shown.",
     },
     {
       title: "Operator and business details",
@@ -735,7 +735,9 @@ function pickVehicle(passengers: number, suitcases: number): (typeof VEHICLE_TYP
 
 function matchExplicitVehicle(text: string): (typeof VEHICLE_TYPES)[number] | undefined {
   const lower = text.toLowerCase();
-  if (/\bexecutive\b/.test(lower)) return "Executive Saloon (1–4 passengers)";
+  if (/\bbusiness class\b/.test(lower) || /\bexecutive\b/.test(lower)) {
+    return "Executive Saloon (1–4 passengers)";
+  }
   if (/\bestate\b/.test(lower)) return "Estate Car (1–4 passengers)";
   if (/\bsaloon\b/.test(lower)) return "Standard Saloon (1–4 passengers)";
   return undefined;
@@ -1674,9 +1676,7 @@ function tryBuildQuote(
 
   const directionLabel =
     draft.direction === "from-airport" ? `from ${airportName}` : `to ${airportName}`;
-  const vehicleLabel = /executive/i.test(vehicle)
-    ? vehicleShortLabel(vehicle)
-    : vehicle.split(" (")[0];
+  const vehicleLabel = vehicleShortLabel(vehicle);
   const waitingNote = resolveJourneyInclusions({
     isAirportTrip: true,
     isFromAirport: draft.direction === "from-airport",

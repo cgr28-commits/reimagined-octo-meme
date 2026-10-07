@@ -18,7 +18,11 @@ import {
   type SelectedPlace,
 } from "../src/lib/selected-place";
 import { calculateQuote } from "../src/lib/quote";
-import { calculateUniversalJourneyFareGbp, universalDrivingMilesFromKm } from "../shared/universal-distance-pricing";
+import {
+  calculateUniversalJourneyFareGbp,
+  universalDrivingMilesFromKm,
+  UNIVERSAL_ESTATE_PREMIUM_GBP,
+} from "../shared/universal-distance-pricing";
 import { composeFareWithExpressDropOff, resolveExpressDropOff } from "../shared/express-drop-off";
 import { getPaymentBookingBlockers } from "../shared/paid-booking-gate";
 import { SALOON_VEHICLE, ESTATE_VEHICLE } from "../src/lib/vehicle-selection";
@@ -199,7 +203,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 20 * 1.609344,
-    expectedAmount: 59,
+    expectedAmount: 63,
   },
   {
     name: "BHD → Belfast City Hall ~4 mi Saloon",
@@ -217,7 +221,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 4 * 1.609344,
-    expectedAmount: 35,
+    expectedAmount: 39,
   },
   {
     name: "BFS → Derry ~70 mi Saloon weekday",
@@ -244,7 +248,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 38 * 1.609344,
-    expectedAmount: 84,
+    expectedAmount: 88,
   },
 ];
 
@@ -264,12 +268,12 @@ for (const fixture of NI_FIXTURES) {
   });
 }
 
-check("Estate remains +£6 vs Saloon on same miles (existing relationship)", () => {
+check("Estate remains the configured uplift vs Saloon on same miles", () => {
   const miles = 25;
   const km = miles / 0.621371;
   const s = calculateQuote(belfastCityHall.formattedAddress, "BFS", SALOON_VEHICLE, false, {}, metrics(km), false)!;
   const e = calculateQuote(belfastCityHall.formattedAddress, "BFS", ESTATE_VEHICLE, false, {}, metrics(km), false)!;
-  assert.equal(e.amount - s.amount, 6);
+  assert.equal(e.amount - s.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
 });
 
 check("Express Drop-Off remains a separate add-on (not folded into formula)", () => {
@@ -346,7 +350,7 @@ check("Saloon/Estate relationship holds on ROI distance", () => {
   const km = 200;
   const s = calculateQuote(roiPlaces.cork.formattedAddress, "BFS", SALOON_VEHICLE, false, {}, metrics(km), true)!;
   const e = calculateQuote(roiPlaces.cork.formattedAddress, "BFS", ESTATE_VEHICLE, false, {}, metrics(km), true)!;
-  assert.equal(e.amount - s.amount, 6);
+  assert.equal(e.amount - s.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
 });
 
 console.log("\n=== Still blocked (must not accidentally unlock) ===\n");

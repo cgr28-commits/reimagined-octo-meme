@@ -18,6 +18,7 @@ import { SERVED_AIRPORTS } from "../shared/served-airports";
 import {
   calculateUniversalSaloonJourneyFareGbp,
   calculateUniversalEstateJourneyFareGbp,
+  UNIVERSAL_ESTATE_PREMIUM_GBP,
 } from "../shared/universal-distance-pricing";
 
 const S = SALOON_VEHICLE;
@@ -68,12 +69,13 @@ check("BFS/BHD address↔airport: journey only (no fixed add-on)", () => {
   assert.equal(bhdCity.airportFixedCostsGbp, 0);
 });
 
-check("Estate = Saloon + £6 on BHD", () => {
+check("Estate = Saloon + configured uplift on BHD", () => {
   const saloon = calculateQuote(CITY, "BHD", S, false, {}, M4, false)!;
   const estate = calculateQuote(CITY, "BHD", E, false, {}, M4, false)!;
   assert.equal(saloon.amount, 29);
-  assert.equal(estate.amount, 35);
-  assert.equal(estate.amount - saloon.amount, 6);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
+  assert.equal(estate.amount, 29 + UNIVERSAL_ESTATE_PREMIUM_GBP);
+  assert.equal(estate.amount - saloon.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
   assert.equal(
     estate.amount,
     calculateUniversalEstateJourneyFareGbp(saloon.amount),
@@ -91,7 +93,7 @@ check("Dublin: universal journey + fixed costs", () => {
   assert.equal(pick.amount, 213);
 });
 
-check("A2A BFS↔BHD keeps destination-end historical surcharge", () => {
+check("A2A BFS↔BHD includes terminal access at both ends", () => {
   const bfsBhd = calculateAirportToAirportQuote(
     "BFS",
     "BHD",
@@ -103,8 +105,8 @@ check("A2A BFS↔BHD keeps destination-end historical surcharge", () => {
     M17,
   )!;
   assert.equal(bfsBhd.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(17));
-  assert.equal(bfsBhd.airportFixedCostsGbp, 4);
-  assert.equal(bfsBhd.amount, bfsBhd.journeyFareGbp! + 4);
+  assert.equal(bfsBhd.airportFixedCostsGbp, 9);
+  assert.equal(bfsBhd.amount, bfsBhd.journeyFareGbp! + 9);
 });
 
 check("Null metrics refuse fare", () => {

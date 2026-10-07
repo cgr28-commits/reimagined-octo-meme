@@ -32,6 +32,7 @@ import {
   type ReturnOfferRecord,
 } from "../shared/return-offer";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
 import { buildReturnOfferEmail } from "../shared/return-offer-emails";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -261,7 +262,7 @@ async function run() {
   await check("13. Customer changes time/date — offer remains valid", () => {
     const access = evaluateReturnOfferAccess({
       status: "SENT",
-      expiresAt: "2026-10-01T00:00:00.000Z",
+      expiresAt: "2027-10-01T00:00:00.000Z",
     } as ReturnOfferRecord);
     assert.equal(access.ok, true);
     assert.equal(
@@ -290,7 +291,7 @@ async function run() {
     assert.equal(before.returnOfferSavingGbp, 3);
     assert.equal(before.finalAmountPayableGbp, 62);
     assert.equal(after.returnOfferSavingGbp, 3.6);
-    assert.equal(after.finalAmountPayableGbp, 73.4);
+    assert.equal(after.finalAmountPayableGbp, 73);
     assert.equal(after.airportAccessChargeGbp, 5);
   });
 
@@ -390,12 +391,15 @@ async function run() {
     assert.equal(breakdown.finalAmountPayableGbp, 70);
   });
 
-  await check("Estate +£6 remains in the fare engine before the 5%", () => {
-    const saloon = applyReturnOfferSaving(40);
-    const estate = applyReturnOfferSaving(46);
+  await check("Configured Estate uplift remains in the fare before the 5%", () => {
+    const saloonFare = 40;
+    const estateFare = saloonFare + UNIVERSAL_ESTATE_PREMIUM_GBP;
+    const saloon = applyReturnOfferSaving(saloonFare);
+    const estate = applyReturnOfferSaving(estateFare);
+    assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
     assert.equal(saloon.savingGbp, 2);
-    assert.equal(estate.savingGbp, 2.3);
-    assert.equal(46 - 40, 6);
+    assert.equal(estate.savingGbp, 2.5);
+    assert.equal(estateFare - saloonFare, UNIVERSAL_ESTATE_PREMIUM_GBP);
   });
 
   await check("Direction detection for BHD, DUB, LDY", () => {
@@ -692,7 +696,7 @@ async function run() {
     assert.notEqual(breakdown.returnOfferSavingGbp, originalPaid * 0.05);
     assert.equal(breakdown.airportFixedCostsGbp, 9);
     assert.equal(breakdown.airportAccessChargeGbp, 5);
-    assert.equal(breakdown.finalAmountPayableGbp, 72.9);
+    assert.equal(breakdown.finalAmountPayableGbp, 73);
   });
 
   await check("Owner dashboard wires confirmed manual send without changing hourly cron", () => {

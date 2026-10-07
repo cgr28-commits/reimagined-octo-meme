@@ -1,11 +1,11 @@
 /**
- * Optional Meet & Greet airport pickup.
+ * Airport access charges.
  *
- * An alternative to Express Pick-Up on the same pickup leg — never an extra
- * on top of Express, and never charged on a drop-off leg.
- * Belfast International and Belfast City default to £15. Dublin defaults to £25.
- * Owner pricing can replace those amounts. Percent surcharges do not apply;
- * the fee is a fixed airport-access charge added after the vehicle fare.
+ * Belfast International and Belfast City terminal pickup/drop-off charges are
+ * mandatory. A free or Meet & Greet choice cannot remove them.
+ * Meet & Greet is not a public paid extra. Business Class airport pickups
+ * include the service and still pay the configured terminal charge once.
+ * Owner pricing can still store Meet & Greet amounts; the public fare does not add them.
  */
 
 export const MEET_GREET_OPTION = "meet-greet" as const;
@@ -142,7 +142,20 @@ export type ExpressLegChargeSnapshot = {
   airportCode: string;
   selected: boolean;
   chargedFeeGbp: number;
+  /** Catalogue terminal-access fee for this leg. Charged even when selected is false. */
+  feeGbp?: number;
+  /** Same catalogue fee under the resolved-leg name. */
+  feeIfSelectedGbp?: number;
 };
+
+/** Configured terminal charge for a leg. Selection and Meet & Greet cannot remove it. */
+export function mandatoryTerminalFeeGbp(leg: ExpressLegChargeSnapshot): number {
+  const catalogue = roundGbp(Math.max(0, Number(leg.feeGbp) || 0));
+  if (catalogue > 0) return catalogue;
+  const ifSelected = roundGbp(Math.max(0, Number(leg.feeIfSelectedGbp) || 0));
+  if (ifSelected > 0) return ifSelected;
+  return roundGbp(Math.max(0, Number(leg.chargedFeeGbp) || 0));
+}
 
 export type QuotedAirportAccessLeg = {
   leg: "outbound" | "return";
@@ -179,9 +192,11 @@ function expressAirportCode(code: string | null | undefined): "BFS" | "BHD" | nu
 }
 
 /**
- * Express fee and Meet & Greet fee for the same leg are mutually exclusive.
- * Meet & Greet on a drop-off is ignored. Dublin has no Express fee here;
- * its parking and toll stay in the separate fixed-cost total.
+ * Public airport-access total.
+ * BFS/BHD terminal charges are added from the configured fee on every applicable
+ * leg. `selected: false`, choice "free", and choice "meet-greet" do not remove them.
+ * Airport-to-airport access stays in the fixed-cost total and is not added again.
+ * Business Class (`meetGreetIncluded`) does not add a Meet & Greet fee on top.
  */
 export function quoteAirportAccessCharges(input: {
   expressLegs?: ExpressLegChargeSnapshot[] | null;
@@ -197,90 +212,56 @@ export function quoteAirportAccessCharges(input: {
   /** Executive airport pickup: Meet & Greet is part of the fare, not an extra charge. */
   meetGreetIncluded?: boolean;
 }): QuotedAirportAccess {
-  const outboundChoice = input.outboundChoice ?? "free";
-  const returnChoice = input.returnChoice ?? "free";
+  // Customer free / Meet & Greet choices are ignored. The configured terminal fee applies.
   const expressLegs = input.expressLegs ?? [];
   const pickupLegs = listAirportPickupLegs(input);
   const legs: QuotedAirportAccessLeg[] = [];
 
   for (const expressLeg of expressLegs) {
-    const choice = expressLeg.leg === "return" ? returnChoice : outboundChoice;
     const pickup =
       expressLeg.service === "pick-up" &&
       pickupLegs.some((leg) => leg.leg === expressLeg.leg);
-    if (pickup && input.meetGreetIncluded) {
+    if (input.isAirportToAirport) {
+      // Both airport ends are already in the fixed fare. Do not add Express again.
       legs.push({
         leg: expressLeg.leg,
-        service: "pick-up",
+        service: expressLeg.service,
         airportCode: expressLeg.airportCode,
-        option: "meet-greet",
+        option: pickup && input.meetGreetIncluded ? "meet-greet" : "express",
         expressFeeGbp: 0,
         meetGreetFeeGbp: 0,
         chargeGbp: 0,
       });
       continue;
     }
-    if (pickup && choice === "meet-greet") {
-      const fee = meetGreetFeeGbp(expressLeg.airportCode, input.fees);
-      legs.push({
-        leg: expressLeg.leg,
-        service: "pick-up",
-        airportCode: expressLeg.airportCode,
-        option: "meet-greet",
-        expressFeeGbp: 0,
-        meetGreetFeeGbp: fee,
-        chargeGbp: fee,
-      });
-      continue;
-    }
-    const expressFee = expressLeg.selected ? roundGbp(Math.max(0, expressLeg.chargedFeeGbp)) : 0;
+    const terminalFee = mandatoryTerminalFeeGbp(expressLeg);
     legs.push({
       leg: expressLeg.leg,
       service: expressLeg.service,
       airportCode: expressLeg.airportCode,
-      option: expressFee > 0 ? "express" : "free",
-      expressFeeGbp: expressFee,
+      option:
+        pickup && input.meetGreetIncluded && terminalFee <= 0
+          ? "meet-greet"
+          : terminalFee > 0
+            ? "express"
+            : "free",
+      expressFeeGbp: terminalFee,
       meetGreetFeeGbp: 0,
-      chargeGbp: expressFee,
+      chargeGbp: terminalFee,
     });
   }
 
   for (const pickup of pickupLegs) {
     if (legs.some((leg) => leg.leg === pickup.leg && leg.service === "pick-up")) continue;
-    const choice = pickup.leg === "return" ? returnChoice : outboundChoice;
-    if (input.meetGreetIncluded) {
-      legs.push({
-        leg: pickup.leg,
-        service: "pick-up",
-        airportCode: pickup.airportCode,
-        option: "meet-greet",
-        expressFeeGbp: 0,
-        meetGreetFeeGbp: 0,
-        chargeGbp: 0,
-      });
-      continue;
-    }
-    if (choice !== "meet-greet") {
-      legs.push({
-        leg: pickup.leg,
-        service: "pick-up",
-        airportCode: pickup.airportCode,
-        option: "free",
-        expressFeeGbp: 0,
-        meetGreetFeeGbp: 0,
-        chargeGbp: 0,
-      });
-      continue;
-    }
-    const fee = meetGreetFeeGbp(pickup.airportCode, input.fees);
+    // Dublin parking and toll stay in fixed costs. Meet & Greet is not sold on top.
     legs.push({
       leg: pickup.leg,
       service: "pick-up",
       airportCode: pickup.airportCode,
-      option: "meet-greet",
+      option: input.meetGreetIncluded ? "meet-greet" : "free",
       expressFeeGbp: 0,
-      meetGreetFeeGbp: fee,
-      chargeGbp: fee,
+      meetGreetFeeGbp: 0,
+      chargeGbp: 0,
     });
   }
 
@@ -334,7 +315,8 @@ export function quoteAirportAccessCharges(input: {
     outboundExpressDropOffSelected: outbound?.option === "express",
     returnExpressDropOffSelected: ret?.option === "express",
     meetGreetFeeGbp: meetGreetTotalGbp,
-    airportAccessOption: pickupOption,
+    airportAccessOption:
+      input.meetGreetIncluded && pickupLegs.length > 0 ? "meet-greet" : pickupOption,
   };
 }
 

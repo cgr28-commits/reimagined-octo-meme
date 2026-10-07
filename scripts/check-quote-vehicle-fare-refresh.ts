@@ -50,22 +50,22 @@ function staleSaloonParts(saloonFare: number): ServerFarePartyParts {
   };
 }
 
-console.log("=== Estate premium stays £6 in the pricing engine ===");
+console.log("=== Estate premium stays the configured uplift in the pricing engine ===");
 {
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 6);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
   assert.equal(selectVehicleForParty(2, 2), SALOON_VEHICLE);
   assert.equal(selectVehicleForParty(2, 3), ESTATE_VEHICLE);
-  console.log("OK  2p/2 bags = Saloon; 2p/3 bags = Estate; premium £6");
+  console.log("OK  2p/2 bags = Saloon; 2p/3 bags = Estate; premium uses the configured uplift");
 }
 
-console.log("\n=== BFS: luggage Saloon → Estate changes fare immediately by £6 ===");
+console.log("\n=== BFS: luggage Saloon → Estate changes fare immediately by the uplift ===");
 {
   const saloon = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {}, cityBfsMetrics);
   const estate = calculateQuote(cityHall, "BFS", ESTATE_VEHICLE, false, {}, cityBfsMetrics);
   assert.ok(saloon && estate);
   const saloonFare = journeyFare(saloon);
   const estateFare = journeyFare(estate);
-  assert.equal(estateFare, saloonFare + UNIVERSAL_ESTATE_PREMIUM_GBP, "BFS Estate journey = Saloon + £6");
+  assert.equal(estateFare, saloonFare + UNIVERSAL_ESTATE_PREMIUM_GBP, "BFS Estate journey = Saloon + configured uplift");
 
   const afterLuggageChange = resolveDisplayJourneyFareGbp({
     liveJourneyFareGbp: estate.journeyFareGbp ?? estate.amount,
@@ -125,7 +125,7 @@ console.log("\n=== BFS: luggage Saloon → Estate changes fare immediately by £
   console.log(`OK  BFS Saloon £${saloonFare} → Estate £${estateFare}`);
 }
 
-console.log("\n=== BHD: same luggage switch is immediately +£6 ===");
+console.log("\n=== BHD: same luggage switch is immediately the configured uplift ===");
 {
   const saloon = calculateQuote(cityHall, "BHD", SALOON_VEHICLE, false, {}, cityBhdMetrics);
   const estate = calculateQuote(cityHall, "BHD", ESTATE_VEHICLE, false, {}, cityBhdMetrics);
@@ -191,7 +191,7 @@ console.log("\n=== Express £5 / £4 stay separate from the vehicle fare ===");
   console.log("OK  BFS +£5 / BHD +£4 stay on top of the vehicle journey fare");
 }
 
-console.log("\n=== Return journeys keep Estate = Saloon + £6 on the one-way fare ===");
+console.log("\n=== Return journeys keep Estate = Saloon + configured uplift on the one-way fare ===");
 {
   const oneWaySaloon = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {}, cityBfsMetrics);
   const oneWayEstate = calculateQuote(cityHall, "BFS", ESTATE_VEHICLE, false, {}, cityBfsMetrics);

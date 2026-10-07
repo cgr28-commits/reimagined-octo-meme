@@ -422,10 +422,7 @@ import {
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
-import {
-  parseAirportAccessChoice,
-  quoteAirportAccessCharges,
-} from "../shared/meet-greet";
+import { quoteAirportAccessCharges } from "../shared/meet-greet";
 import {
   formatHoursUntilPickupLabel,
   isWithinMinimumBookingNotice,
@@ -461,7 +458,6 @@ import {
   formatOwnerLargeBags,
   hasLuggageCapacityHold,
   isFivePlusLuggage,
-  needsLuggageCapacityConfirmation,
 } from "../shared/vehicle-capacity";
 import {
   handleOwnerPricingRequest,
@@ -2426,9 +2422,15 @@ async function handlePaymentRequest(
     const receiptVehicleType: VehicleType = canonicalVehicleType(booking.vehicle);
     let receiptClaims: QuoteReceiptClaims | null = null;
     if (isProfitabilityProtectionActive(receiptPricing.profitability)) {
-      const decision = await decideQuoteReceiptPayment({
+      const receiptSecret = env.QUOTE_RECEIPT_SECRET?.trim() ?? "";
+      if (!receiptSecret) {
+        console.warn("[quote-receipt] secret_missing; payment will re-quote on the server");
+      }
+      const decision = !receiptSecret
+        ? null
+        : await decideQuoteReceiptPayment({
         protectionActive: true,
-        secret: env.QUOTE_RECEIPT_SECRET,
+        secret: receiptSecret,
         token: body.quoteReceipt,
         nowMs: Date.now(),
         expected: {
@@ -2447,7 +2449,7 @@ async function handlePaymentRequest(
           returnTime: String(booking.returnTime ?? ""),
         },
       });
-      if (decision.action !== "accept") {
+      if (decision && decision.action !== "accept") {
         console.warn(
           `[quote-receipt] refresh reason=${decision.action === "refresh" ? decision.reason : "refresh"}`,
         );
@@ -2460,7 +2462,9 @@ async function handlePaymentRequest(
           origin,
         );
       }
-      receiptClaims = decision.claims;
+      if (decision && decision.action === "accept") {
+        receiptClaims = decision.claims;
+      }
     }
     const routeOutcome = receiptClaims
       ? {
@@ -2714,31 +2718,17 @@ async function handlePaymentRequest(
     const journeyFareGbp = transferResolution.journeyFareGbp;
     const airportFixedCostsGbp = transferResolution.airportFixedCostsGbp;
 
-    const customerExpressSelected = parseCustomerExpressDropOffSelected(
-      body.expressDropOffSelected ?? booking.expressDropOffSelected,
-      true,
-    );
-    const outboundExpressSelected = parseCustomerExpressDropOffSelected(
-      body.outboundExpressDropOffSelected ?? booking.outboundExpressDropOffSelected,
-      customerExpressSelected,
-    );
-    const returnExpressSelected = parseCustomerExpressDropOffSelected(
-      body.returnExpressDropOffSelected ?? booking.returnExpressDropOffSelected,
-      customerExpressSelected,
-    );
+    // Public quotes always include the configured terminal charge. A client "free"
+    // or Meet & Greet choice cannot remove it.
     const express = resolveExpressDropOff({
       airportCode: airportContext.airportCode,
       fromAirport: airportContext.fromAirport,
       returnJourney: booking.returnJourney,
-      selected: customerExpressSelected,
-      outboundSelected: outboundExpressSelected,
-      returnSelected: returnExpressSelected,
+      selected: true,
+      outboundSelected: true,
+      returnSelected: true,
     });
     const expressPersisted = toExpressDropOffPersistedFields(express);
-    const bodyAccess = body as {
-      outboundAirportAccessOption?: unknown;
-      returnAirportAccessOption?: unknown;
-    };
     const quotedAccess = quoteAirportAccessCharges({
       expressLegs: express.legs,
       airportCode: airportContext.airportCode,
@@ -2747,14 +2737,8 @@ async function handlePaymentRequest(
       isAirportToAirport: airportContext.isAirportToAirport,
       pickupAirportCode: airportContext.pickupAirportCode,
       dropoffAirportCode: airportContext.dropoffAirportCode,
-      outboundChoice: parseAirportAccessChoice(
-        bodyAccess.outboundAirportAccessOption ?? booking.outboundAirportAccessOption,
-        outboundExpressSelected,
-      ),
-      returnChoice: parseAirportAccessChoice(
-        bodyAccess.returnAirportAccessOption ?? booking.returnAirportAccessOption,
-        returnExpressSelected,
-      ),
+      outboundChoice: "express",
+      returnChoice: "express",
       fees: pricing.meetGreet,
       meetGreetIncluded: isExecutiveVehicle(vehicleType),
     });
@@ -2998,14 +2982,9 @@ async function handlePaymentRequest(
     );
   }
 
-  // Short-notice window or high-load luggage capacity: save request — do NOT open SumUp.
+  // Short-notice window: save request — do NOT open SumUp. Luggage quantity does not hold payment.
   if (!shortNoticeToken && !a2aQuoteToken) {
     const notice = await shouldForceShortNotice(env.TRACKING_STORE, booking);
-    const luggageHold =
-      notice.luggageCapacity === true ||
-      needsLuggageCapacityConfirmation(booking.passengers, booking.suitcases, {
-        suitcasesExact: booking.suitcasesExact,
-      });
     if (notice.noAvailability) {
       return json(
         {
@@ -3032,7 +3011,7 @@ async function handlePaymentRequest(
         origin,
       );
     }
-    if (notice.shortNotice || luggageHold) {
+    if (notice.shortNotice) {
       try {
         const created = await createShortNoticeRequest({
           store: env.TRACKING_STORE,
@@ -3048,7 +3027,7 @@ async function handlePaymentRequest(
               : {}),
         });
         const amountLabel = formatPaidAmount(created.record.amount);
-        const luggageCapacity = hasLuggageCapacityHold(created.record.holdReasons) || luggageHold;
+        const luggageCapacity = hasLuggageCapacityHold(created.record.holdReasons);
         const minibusRequest = notice.minibusNotice === true && !luggageCapacity;
         const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
           amountLabel,

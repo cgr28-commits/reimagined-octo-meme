@@ -164,7 +164,7 @@ check("11. Existing 5% fare calculation remains unchanged", () => {
   });
   assert.equal(breakdown.returnOfferSavingGbp, 3.1);
   assert.equal(breakdown.journeyFareBeforePromotionsGbp, 62);
-  assert.equal(breakdown.finalAmountPayableGbp, 72.9);
+  assert.equal(breakdown.finalAmountPayableGbp, 73);
 });
 
 check("12. Airport/Express charges remain undiscounted", () => {

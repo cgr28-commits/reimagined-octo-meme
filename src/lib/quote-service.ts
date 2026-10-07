@@ -7,12 +7,7 @@
 import { calculatePointToPointQuote, calculateQuote, formatQuote } from "./quote";
 import type { TripSchedule } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
-import {
-  EXECUTIVE_VEHICLE,
-  MINIBUS_VEHICLE,
-  requiresMinibus,
-  selectVehicleForParty,
-} from "./vehicle-selection";
+import { resolvePublicVehicleChoice } from "./vehicle-selection";
 import {
   needsLuggageCapacityConfirmation,
   PUBLIC_FIVE_PLUS_SUITCASES,
@@ -36,7 +31,6 @@ import {
   type PublicOwnerPricingConfig,
 } from "../../shared/owner-pricing-config";
 import { destinationEligibleForStandardAirportPickup } from "../../shared/airport-pickup-service-area";
-import { isExecutiveVehicle } from "../../shared/executive-vehicle";
 
 export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
 
@@ -245,30 +239,22 @@ export function calculateAuthoritativeWebsiteQuote(
     };
   }
 
-  const derivedVehicle = selectVehicleForParty(passengers, Math.max(0, suitcases));
-  const requestedVehicle = input.vehicleType;
-  let vehicleType = requestedVehicle ?? derivedVehicle;
-  const requestedExecutive = isExecutiveVehicle(requestedVehicle);
-  if (input.ownerMode !== true) {
-    if (requiresMinibus(passengers, suitcases)) {
-      vehicleType = MINIBUS_VEHICLE;
-    } else if (requestedVehicle && isPublicMinibusVehicle(requestedVehicle) && publicMinibusEnabled) {
-      vehicleType = MINIBUS_VEHICLE;
-    } else if (requestedExecutive) {
-      if (!publicExecutiveEnabled) {
-        return {
-          ok: false,
-          reason: "vehicle_unavailable",
-          message: "Executive is not available to book online.",
-        };
-      }
-      vehicleType = EXECUTIVE_VEHICLE;
-    } else {
-      vehicleType = derivedVehicle;
-    }
-  } else if (requestedExecutive) {
-    vehicleType = EXECUTIVE_VEHICLE;
+  const choice = resolvePublicVehicleChoice({
+    requested: input.vehicleType,
+    passengers,
+    suitcases,
+    publicMinibusEnabled,
+    publicExecutiveEnabled,
+    ownerMode: input.ownerMode === true,
+  });
+  if (!choice.ok) {
+    return {
+      ok: false,
+      reason: "vehicle_unavailable",
+      message: choice.message,
+    };
   }
+  const vehicleType = choice.vehicleType;
   if (
     !publicMinibusAllowed(vehicleType, {
       publicMinibusEnabled,

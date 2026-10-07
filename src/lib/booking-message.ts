@@ -189,9 +189,14 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
         fromAirport: details.isFromAirport,
       });
       if (accessLines.length === 0 && !expressLine) return "";
+      const meetGreetShown = accessLines.some((line) => line.includes("Meet & Greet"));
       return (
         (accessLines.length > 0 ? `${accessLines.join("\n")}\n` : "") +
-        (expressLine && !accessLines.includes(expressLine) ? `${expressLine}\n` : "") +
+        (expressLine &&
+        !meetGreetShown &&
+        !accessLines.some((line) => line.includes(expressLine))
+          ? `${expressLine}\n`
+          : "") +
         `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n`
       );
     })() +

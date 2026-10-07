@@ -86,7 +86,7 @@ assert.doesNotMatch(
 console.log("OK  time → Your Journey uses blur, not isScheduleComplete effect");
 
 console.log("\n=== Results ready → start of quote results, once ===");
-assert.match(card, /capacityComplete/);
+assert.match(card, /cancelCompetingScrollJobs\(\)/);
 assert.match(card, /routeSummaryRef/);
 assert.match(card, /quoteResultsReady/);
 assert.match(card, /scheduleQuoteRevealScroll\(\{/);

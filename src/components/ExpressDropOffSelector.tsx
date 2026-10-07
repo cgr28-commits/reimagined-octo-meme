@@ -13,10 +13,10 @@ import {
   type ExpressDropOffAirportCode,
 } from "../../shared/express-drop-off";
 import {
-  MEET_GREET_DESCRIPTION,
-  formatMeetGreetGbp,
-  type AirportAccessChoice,
-} from "../../shared/meet-greet";
+  AIRPORT_ACCESS_INCLUDED_BODY,
+  AIRPORT_ACCESS_INCLUDED_HEADING,
+} from "../../shared/executive-vehicle";
+import { type AirportAccessChoice } from "../../shared/meet-greet";
 
 export type AirportAccessTone = "on-dark" | "on-light";
 
@@ -41,6 +41,8 @@ type Props = {
   heading?: string;
   /** Current transfer total, so the confirmation line matches the price. */
   fareTotalGbp?: number | null;
+  /** Terminal access is already in the fare. No free/express or Meet & Greet choice. */
+  terminalAccessIncluded?: boolean;
   className?: string;
   /** Light card (quote result) vs dark glass card. */
   tone?: AirportAccessTone;
@@ -56,7 +58,7 @@ export default function ExpressDropOffSelector({
   removalAcknowledged: _removalAcknowledged,
   onSelectedChange,
   onRemovalAcknowledgedChange,
-  meetGreetFeeGbp = null,
+  meetGreetFeeGbp: _meetGreetFeeGbp = null,
   accessChoice,
   onAccessChoiceChange,
   requireAcknowledgement: _requireAcknowledgement = false,
@@ -66,6 +68,7 @@ export default function ExpressDropOffSelector({
   fareTotalGbp = null,
   className = "",
   tone = "on-dark",
+  terminalAccessIncluded = false,
 }: Props) {
   const groupName = `${idPrefix ? `${idPrefix}-` : ""}express-airport-${service}-${airportCode}`;
   const freeAvailable =
@@ -76,18 +79,27 @@ export default function ExpressDropOffSelector({
   const styles = accessChoiceStyles(light);
   const legend = heading || expressAirportOptionHeading(service);
   const feeGbp = airportCode === "DUB" ? 0 : getExpressDropOffFeeGbp(airportCode);
-  const meetGreetFee =
-    service === "pick-up" && typeof meetGreetFeeGbp === "number" && meetGreetFeeGbp > 0
-      ? meetGreetFeeGbp
-      : 0;
-  const showMeetGreet = meetGreetFee > 0;
   const choice: AirportAccessChoice =
-    accessChoice ?? (selected ? "express" : "free");
+    accessChoice === "meet-greet" ? "express" : (accessChoice ?? (selected ? "express" : "free"));
   const choose = (next: AirportAccessChoice) => {
     onAccessChoiceChange?.(next);
     onSelectedChange(next === "express");
     onRemovalAcknowledgedChange(next !== "express");
   };
+
+  if (terminalAccessIncluded) {
+    return (
+      <div
+        className={`min-w-0 max-w-full ${className}`}
+        data-airport-access-included
+        data-express-service={service}
+        data-express-selected="express"
+      >
+        <p className={`text-sm font-semibold ${styles.heading}`}>{AIRPORT_ACCESS_INCLUDED_HEADING}</p>
+        <p className={`mt-1 text-xs leading-snug ${styles.hint}`}>{AIRPORT_ACCESS_INCLUDED_BODY}</p>
+      </div>
+    );
+  }
 
   return (
     <fieldset
@@ -149,31 +161,10 @@ export default function ExpressDropOffSelector({
           </label>
         ) : null}
 
-        {showMeetGreet ? (
-          <label className={`${styles.card} ${choice === "meet-greet" ? styles.selected : styles.idle}`}>
-            <input
-              type="radio"
-              name={groupName}
-              checked={choice === "meet-greet"}
-              onChange={() => choose("meet-greet")}
-              className={`mt-0.5 h-4 w-4 shrink-0 ${styles.radio}`}
-            />
-            <span className="min-w-0 flex-1 leading-snug">
-              <span className="block break-words font-semibold">
-                {`Meet & Greet — ${formatMeetGreetGbp(meetGreetFee)}`}
-              </span>
-              <span className={`mt-0.5 block break-words text-xs font-normal ${styles.hint}`}>
-                {MEET_GREET_DESCRIPTION}
-              </span>
-            </span>
-          </label>
-        ) : null}
       </div>
 
       <p id={`${groupName}-note`} className={`break-words text-xs font-medium leading-relaxed ${styles.note}`}>
-        {choice === "meet-greet"
-          ? `✓ Meet & Greet selected — ${formatMeetGreetGbp(meetGreetFee)} added. Your driver meets you inside arrivals.`
-          : airportCode === "DUB"
+        {airportCode === "DUB"
             ? "✓ Standard pickup selected."
             : expressQuoteSelectionConfirmation({
                 service,
