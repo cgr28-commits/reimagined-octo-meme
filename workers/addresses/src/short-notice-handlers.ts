@@ -60,6 +60,7 @@ import { parseLondonLocalDateTime } from "../shared/uk-time";
 import {
   availabilityResourceForVehicle,
   filterUnavailablePeriodsForResource,
+  EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE,
   MINIBUS_NOTICE_BODY,
   MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE,
 } from "../shared/availability-resource";
@@ -842,7 +843,11 @@ export async function createShortNoticeRequest(options: {
   const closed = findConflictingNoAvailabilityPeriod(options.booking, periods, now);
   if (closed) {
     throw new OwnerNoAvailabilityError(
-      resource === "minibus" ? MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE : undefined,
+      resource === "minibus"
+        ? MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE
+        : resource === "executive"
+          ? EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE
+          : undefined,
     );
   }
   if (resource === "minibus") {
@@ -989,6 +994,9 @@ export async function evaluateOwnerNoAvailabilityFromStore(
   if (result.blocked && resource === "minibus") {
     return { ...result, customerMessage: MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE };
   }
+  if (result.blocked && resource === "executive") {
+    return { ...result, customerMessage: EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE };
+  }
   return result;
 }
 
@@ -1060,6 +1068,26 @@ export async function shouldForceShortNotice(
       tooSoon: false,
       luggageCapacity,
       minibusNotice: true,
+    };
+  }
+  if (resource === "executive") {
+    const closed = findConflictingNoAvailabilityPeriod(booking, periods, now);
+    const blocking = closed
+      ? null
+      : findRequestOnlyBlockingPeriod(booking.tripDate, booking.tripTime, periods, now);
+    const unavailable = closed ?? blocking;
+    return {
+      shortNotice: false,
+      noAvailability: Boolean(unavailable),
+      gateActive: Boolean(unavailable),
+      blockingPeriodId: unavailable?.id ?? null,
+      blockingPeriodLabel: unavailable ? formatUnavailablePeriodRangeLabel(unavailable) : null,
+      underMinimumNotice: false,
+      minimumNoticeHours: settings.minimumBookingNoticeHours,
+      minimumShortNoticeLeadHours: settings.minimumShortNoticeLeadHours,
+      tooSoon: false,
+      luggageCapacity,
+      minibusNotice: false,
     };
   }
   const closed = findConflictingNoAvailabilityPeriod(booking, periods, now);

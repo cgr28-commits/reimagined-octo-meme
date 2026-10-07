@@ -432,6 +432,7 @@ import {
 } from "../shared/booking-notice";
 import {
   availabilityResourceForVehicle,
+  EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE,
   MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE,
 } from "../shared/availability-resource";
 import { getBookingSettings } from "./booking-settings-store";
@@ -495,9 +496,8 @@ import {
   resolveWorkerTripRouteMetricsForPayment,
 } from "./resolve-route-metrics";
 import {
-  ESTATE_VEHICLE,
+  canonicalVehicleType,
   MINIBUS_VEHICLE,
-  SALOON_VEHICLE,
   selectVehicleForParty,
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
@@ -1856,7 +1856,8 @@ async function blockedCustomerSmartAvailabilityResponse(
   });
   if (!availabilityGate.blocked) return null;
   // Minibus conflicts stay hard blocks, including inside the 7-Seater notice window.
-  if (availabilityResourceForVehicle(booking.vehicle) !== "minibus") {
+  const availabilityResource = availabilityResourceForVehicle(booking.vehicle);
+  if (availabilityResource !== "minibus" && availabilityResource !== "executive") {
     const settings = await getBookingSettings(env.TRACKING_STORE);
     if (
       booking.tripDate &&
@@ -2422,12 +2423,7 @@ async function handlePaymentRequest(
     const paymentPickupPlaceId = String(body.pickupPlaceId ?? "").trim();
     const paymentDropoffPlaceId = String(body.dropoffPlaceId ?? "").trim();
     const receiptPricing = await loadOwnerPricingOrDefault(env);
-    const receiptVehicleRaw = String(booking.vehicle ?? "");
-    const receiptVehicleType: VehicleType = /estate/i.test(receiptVehicleRaw)
-      ? ESTATE_VEHICLE
-      : /minibus/i.test(receiptVehicleRaw)
-        ? MINIBUS_VEHICLE
-        : SALOON_VEHICLE;
+    const receiptVehicleType: VehicleType = canonicalVehicleType(booking.vehicle);
     let receiptClaims: QuoteReceiptClaims | null = null;
     if (isProfitabilityProtectionActive(receiptPricing.profitability)) {
       const decision = await decideQuoteReceiptPayment({
@@ -2547,12 +2543,7 @@ async function handlePaymentRequest(
         origin,
       );
     }
-    const vehicleRaw = String(booking.vehicle ?? "");
-    const vehicleType: VehicleType = /estate/i.test(vehicleRaw)
-      ? ESTATE_VEHICLE
-      : /minibus/i.test(vehicleRaw)
-        ? MINIBUS_VEHICLE
-        : SALOON_VEHICLE;
+    const vehicleType: VehicleType = canonicalVehicleType(booking.vehicle);
     if (
       !publicMinibusAllowed(vehicleType, {
         publicMinibusEnabled: pricing.minibus.publicEnabled === true,
@@ -2765,7 +2756,7 @@ async function handlePaymentRequest(
         returnExpressSelected,
       ),
       fees: pricing.meetGreet,
-      meetGreetIncluded: isExecutiveVehicle(booking.vehicle),
+      meetGreetIncluded: isExecutiveVehicle(vehicleType),
     });
     const persisted = {
       ...expressPersisted,
@@ -3020,7 +3011,9 @@ async function handlePaymentRequest(
         {
           error: notice.minibusNotice
             ? MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE
-            : OWNER_NO_AVAILABILITY_MESSAGE,
+            : availabilityResourceForVehicle(booking.vehicle) === "executive"
+              ? EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE
+              : OWNER_NO_AVAILABILITY_MESSAGE,
           code: OWNER_NO_AVAILABILITY_CODE,
           available: false,
         },

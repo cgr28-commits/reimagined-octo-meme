@@ -20,6 +20,9 @@ export const MINIBUS_NOTICE_CTA = "Request 7-Seater Availability";
 export const MINIBUS_RESOURCE_UNAVAILABLE_MESSAGE =
   "The 7-Seater is not available at that time.";
 
+export const EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE =
+  "Executive is not available at that time.";
+
 export function availabilityResourceForVehicle(
   vehicle: string | null | undefined,
 ): AvailabilityResource {

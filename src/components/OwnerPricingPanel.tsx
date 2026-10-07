@@ -56,7 +56,11 @@ function asDraft(
   return {
     ...settings,
     profitability: normalizeProfitabilitySettings(settings.profitability),
-    executive: settings.executive ?? defaultOwnerPricingSettings().executive,
+    executive: {
+      multiplier:
+        settings.executive?.multiplier ?? defaultOwnerPricingSettings().executive.multiplier,
+      publicEnabled: settings.executive?.publicEnabled !== false,
+    },
   };
 }
 
@@ -151,7 +155,7 @@ function withExecutiveMultiplierText(draft: PricingDraft, text: string): Pricing
   const parsed = completePositiveMultiplier(text);
   const current = draft.executive?.multiplier;
   if (parsed == null || parsed === current) return draft;
-  return { ...draft, executive: { multiplier: parsed } };
+  return { ...draft, executive: { ...draft.executive, multiplier: parsed } };
 }
 
 function knotLabel(index: number, knots: Array<{ miles: number }>): string {
@@ -926,10 +930,22 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Executive</h3>
         <p className="mt-2 text-sm text-white/70">
           Executive fare = Saloon journey fare × multiplier, nearest penny. Change 1.40, 1.50, 1.75
-          or 2.00 here without a code change. Airport Executive pickups include Meet &amp; Greet, a
+          or 2.00 here without a code change. When Executive is on and available, customers can
+          select it and pay online. Airport Executive pickups include Meet &amp; Greet, a
           personalised name board, luggage assistance, barrier and parking, bottled water and phone
           charging. Executive availability is separate from Saloon, Estate and the 7-Seater.
         </p>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-white/80">Offer Executive online</p>
+          <Toggle
+            id="public-executive-enabled"
+            label="Offer Executive online"
+            checked={draft.executive.publicEnabled !== false}
+            onChange={(publicEnabled) =>
+              update("executive", { ...draft.executive, publicEnabled })
+            }
+          />
+        </div>
         <label className={`${labelClass} mt-3`}>
           Pricing: Saloon fare ×
           <input
@@ -952,7 +968,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
                 return;
               }
               if (parsed !== draft.executive.multiplier) {
-                update("executive", { multiplier: parsed });
+                update("executive", { ...draft.executive, multiplier: parsed });
               }
               setExecutiveMultiplierText(String(parsed));
             }}

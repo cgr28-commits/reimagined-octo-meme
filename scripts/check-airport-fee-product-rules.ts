@@ -245,17 +245,17 @@ check("Estate Dublin = Saloon + £6; toll + parking compose correctly", () => {
     estateDrop.journeyFareGbp,
     calculateUniversalEstateJourneyFareGbp(204),
   ); // 210
-  assert.equal(estateDrop.journeyFareGbp! - saloonDrop.journeyFareGbp!, 10);
+  assert.equal(estateDrop.journeyFareGbp! - saloonDrop.journeyFareGbp!, 6);
   assert.equal(saloonDrop.airportFixedCostsGbp, 4);
   assert.equal(estateDrop.airportFixedCostsGbp, 4);
   assert.equal(saloonDrop.amount, 208);
-  assert.equal(estateDrop.amount, 218);
+  assert.equal(estateDrop.amount, 214);
   const saloonPick = calculateQuote(CITY, "DUB", S, false, {}, DUB_M98, true)!;
   const estatePick = calculateQuote(CITY, "DUB", E, false, {}, DUB_M98, true)!;
   assert.equal(saloonPick.airportFixedCostsGbp, 9);
   assert.equal(estatePick.airportFixedCostsGbp, 9);
   assert.equal(saloonPick.amount, 213);
-  assert.equal(estatePick.amount, 223);
+  assert.equal(estatePick.amount, 219);
 });
 
 check("Labels", () => {

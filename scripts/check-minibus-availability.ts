@@ -276,7 +276,13 @@ async function main() {
   assert.equal(
     ownerBypass.blocked,
     false,
-    "Owner short-notice bypass still applies to Saloon, Estate and Executive",
+    "Owner short-notice bypass still applies to Saloon when an Executive job exists",
+  );
+  const executiveInsideNotice = customerGate([nearExecutive], EXECUTIVE, "15:00", now, "2026-10-04");
+  assert.equal(
+    executiveInsideNotice.blocked,
+    true,
+    "Executive conflict stays blocked inside the owner notice window",
   );
 
   const store = memoryKv();
@@ -347,6 +353,14 @@ async function main() {
   );
   assert.equal(ownerNear.minibusNotice, false);
   assert.equal(ownerNear.minimumNoticeHours, 36);
+  const executiveNear = await shouldForceShortNotice(
+    store,
+    booking(EXECUTIVE, "2026-10-05", "02:00"),
+    now,
+  );
+  assert.equal(executiveNear.shortNotice, false, "Executive does not use the owner short-notice queue");
+  assert.equal(executiveNear.noAvailability, false);
+  assert.equal(executiveNear.minibusNotice, false);
   assert.equal(ownerNear.shortNotice, true);
 
   assert.equal(

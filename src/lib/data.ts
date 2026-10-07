@@ -559,8 +559,9 @@ export const VEHICLE_FLEET = [
   {
     name: "Executive Saloon",
     capacity: "1–4 passengers",
-    description: "Premium comfort for business travel — enquire to book and we’ll confirm availability and price.",
-    enquiryOnly: true,
+    description:
+      "Premium comfort for business travel. Book and pay online when Executive is available.",
+    enquiryOnly: false,
     requestQuote: false,
     partnerOperated: false,
   },
@@ -581,17 +582,16 @@ export const MINIBUS_VEHICLE_TYPE: VehicleType = "Minibus (5–7 passengers)";
 export const MAX_ONLINE_PASSENGERS = 4;
 
 /** Vehicles that cannot be instantly confirmed — enquiry / request-a-quote flow. */
-export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [
-  "Executive Saloon (1–4 passengers)",
-];
+export const ENQUIRY_ONLY_VEHICLE_TYPES: readonly VehicleType[] = [];
 
 /** @deprecated Public site no longer offers Minibus quote-request — kept empty. */
 export const REQUEST_QUOTE_VEHICLE_TYPES: readonly VehicleType[] = [];
 
-/** Saloon/Estate for public pay; Minibus kept for owner short-notice / Quick Quote only. */
+/** Saloon, Estate and Executive can be paid online. Minibus is kept for owner short-notice and Quick Quote as well. */
 export const INSTANT_PAY_VEHICLE_TYPES: readonly VehicleType[] = [
   "Standard Saloon (1–4 passengers)",
   "Estate Car (1–4 passengers)",
+  "Executive Saloon (1–4 passengers)",
   MINIBUS_VEHICLE_TYPE,
 ];
 
@@ -625,7 +625,7 @@ export function isInstantPayVehicle(vehicleType: string): boolean {
   return (INSTANT_PAY_VEHICLE_TYPES as readonly string[]).includes(vehicleType);
 }
 
-/** Request-quote vehicles may show an indicative online price; Executive does not. */
+/** Request-quote vehicles may show an indicative online price. Executive shows a fixed fare. */
 export function showsOnlineGuidePrice(vehicleType: string): boolean {
   return isVehicleRequestQuote(vehicleType);
 }

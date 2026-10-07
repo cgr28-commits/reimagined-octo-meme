@@ -188,8 +188,8 @@ function money(amount: number): string {
 }
 
 function estatePrice(outboundProtected: number, returnProtected: number | null, airportFixed: number, returnJourney: boolean, pricing: OwnerPricingSettings): number {
-  const outbound = calculateUniversalEstateJourneyFareGbp(outboundProtected, 10);
-  const returning = returnProtected == null ? null : calculateUniversalEstateJourneyFareGbp(returnProtected, 10);
+  const outbound = calculateUniversalEstateJourneyFareGbp(outboundProtected, pricing.estate.upliftGbp);
+  const returning = returnProtected == null ? null : calculateUniversalEstateJourneyFareGbp(returnProtected, pricing.estate.upliftGbp);
   const premium = applyTripPremium(
     outbound,
     {
@@ -217,7 +217,7 @@ async function main() {
 
   console.log("APPROVED PRESET TEST — not saved, not deployed");
   console.log(`MPG ${profitability.vehicleMpg} · minimum £${profitability.minimumSaloonOneWayGbp} · diesel £${profitability.dieselPricePerLitreGbp} · wear £${profitability.wearAllowancePerMileGbp} · target £${profitability.targetHourlyEarningsGbp}/hour`);
-  console.log(`Live curve version ${pricing.version}. Night ${pricing.night.enabled}. Weekend ${pricing.weekend.enabled}. Estate code uplift £10.`);
+  console.log(`Live curve version ${pricing.version}. Night ${pricing.night.enabled}. Weekend ${pricing.weekend.enabled}. Estate code uplift £6.`);
 
   for (const item of CASES) {
     const live = await liveQuote(item);

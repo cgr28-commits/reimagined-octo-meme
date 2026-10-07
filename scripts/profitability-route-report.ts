@@ -169,7 +169,7 @@ async function main() {
   ];
 
   console.log("Profitability protection: NOT ACTIVE (vehicle MPG blank).");
-  console.log("Saloon fares use the live saved curve. Estate code default is now +£10; live saved uplift is unchanged until deploy.");
+  console.log("Saloon fares use the live saved curve. Estate code default is +£6; a saved owner uplift is unchanged until the owner edits it.");
   for (const item of cases) {
     await reportOne({ ...item, pricing });
   }

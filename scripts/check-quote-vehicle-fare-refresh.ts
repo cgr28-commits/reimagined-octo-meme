@@ -52,7 +52,7 @@ function staleSaloonParts(saloonFare: number): ServerFarePartyParts {
 
 console.log("=== Estate premium stays £6 in the pricing engine ===");
 {
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 6);
   assert.equal(selectVehicleForParty(2, 2), SALOON_VEHICLE);
   assert.equal(selectVehicleForParty(2, 3), ESTATE_VEHICLE);
   console.log("OK  2p/2 bags = Saloon; 2p/3 bags = Estate; premium £6");

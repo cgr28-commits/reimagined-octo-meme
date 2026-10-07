@@ -227,7 +227,7 @@ function applyAirportVehiclePricing(
 }
 
 /**
- * Estate premium for airport transfers — live quotes use a flat £10.
+ * Estate premium for airport transfers — live quotes use a flat £6.
  * Tier table remains in config for calibration scripts only.
  */
 export function getAirportEstatePremiumGbp(

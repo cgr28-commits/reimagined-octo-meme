@@ -199,7 +199,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 20 * 1.609344,
-    expectedAmount: 63,
+    expectedAmount: 59,
   },
   {
     name: "BHD → Belfast City Hall ~4 mi Saloon",
@@ -217,7 +217,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 4 * 1.609344,
-    expectedAmount: 39,
+    expectedAmount: 35,
   },
   {
     name: "BFS → Derry ~70 mi Saloon weekday",
@@ -244,7 +244,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 38 * 1.609344,
-    expectedAmount: 88,
+    expectedAmount: 84,
   },
 ];
 
@@ -269,7 +269,7 @@ check("Estate remains +£6 vs Saloon on same miles (existing relationship)", () 
   const km = miles / 0.621371;
   const s = calculateQuote(belfastCityHall.formattedAddress, "BFS", SALOON_VEHICLE, false, {}, metrics(km), false)!;
   const e = calculateQuote(belfastCityHall.formattedAddress, "BFS", ESTATE_VEHICLE, false, {}, metrics(km), false)!;
-  assert.equal(e.amount - s.amount, 10);
+  assert.equal(e.amount - s.amount, 6);
 });
 
 check("Express Drop-Off remains a separate add-on (not folded into formula)", () => {
@@ -346,7 +346,7 @@ check("Saloon/Estate relationship holds on ROI distance", () => {
   const km = 200;
   const s = calculateQuote(roiPlaces.cork.formattedAddress, "BFS", SALOON_VEHICLE, false, {}, metrics(km), true)!;
   const e = calculateQuote(roiPlaces.cork.formattedAddress, "BFS", ESTATE_VEHICLE, false, {}, metrics(km), true)!;
-  assert.equal(e.amount - s.amount, 10);
+  assert.equal(e.amount - s.amount, 6);
 });
 
 console.log("\n=== Still blocked (must not accidentally unlock) ===\n");
