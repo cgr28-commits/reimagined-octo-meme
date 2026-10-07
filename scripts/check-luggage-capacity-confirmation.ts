@@ -215,7 +215,8 @@ async function main() {
         vehicleType: SALOON_VEHICLE,
       }),
     );
-    assert.equal(explicitSaloon.ok && explicitSaloon.vehicleType, SALOON_VEHICLE);
+    assert.equal(explicitSaloon.ok, false);
+    if (!explicitSaloon.ok) assert.equal(explicitSaloon.reason, "vehicle_unavailable");
   });
 
   check("7. 5+ always requires luggage-capacity confirmation", () => {

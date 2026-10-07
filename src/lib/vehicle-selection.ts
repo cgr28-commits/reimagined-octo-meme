@@ -8,9 +8,9 @@
  * - 7 Seater Minibus: 5–7 passengers OR 5+ large bags
  *   (offered online only when Offer 7 Seater Minibus Online is ON)
  *
- * An explicit customer choice of any enabled category is priced as requested.
- * Capacity does not hide, disable, or reject that choice. The automatic
- * vehicle is used only when the request does not name one.
+ * Every enabled category stays visible. A category that cannot take the
+ * party is disabled and is not priced. The automatic vehicle is used when
+ * the request does not name one, and again when the named one does not fit.
  *
  * Owner/Driver Quick Quote may still select Minibus (5–7) when public Minibus is OFF.
  * Owner mode still maps an explicit Saloon onto Minibus when the party needs one.
@@ -57,6 +57,10 @@ export const ESTATE_MAX_LARGE_SUITCASES = 4;
 
 export const BUSINESS_CLASS_UNAVAILABLE_ONLINE_MESSAGE =
   "Business Class is not available to book online.";
+
+/** Shown on a visible card the party cannot use, and returned if that card is forced. */
+export const VEHICLE_NOT_SUITABLE_CARD_MESSAGE =
+  "Not suitable for this passenger/luggage selection";
 
 /**
  * Physical fit only. Saloon and Business Class: 1–4 passengers and 0–2 large suitcases.
@@ -159,29 +163,30 @@ export function resolvePublicVehicleChoice(input: {
     return { ok: true, vehicleType: selectVehicleForParty(pax, bags) };
   }
 
+  let vehicle: VehicleType | null = null;
   if (isExecutiveVehicle(requested)) {
     if (!publicExecutiveEnabled) {
       return { ok: false, message: BUSINESS_CLASS_UNAVAILABLE_ONLINE_MESSAGE };
     }
-    return { ok: true, vehicleType: EXECUTIVE_VEHICLE };
-  }
-
-  if (/minibus/i.test(requested)) {
+    vehicle = EXECUTIVE_VEHICLE;
+  } else if (/minibus/i.test(requested)) {
     if (!publicMinibusEnabled) {
       return { ok: false, message: "7 Seater Minibus is not available to book online." };
     }
-    return { ok: true, vehicleType: MINIBUS_VEHICLE };
+    vehicle = MINIBUS_VEHICLE;
+  } else if (/estate/i.test(requested)) {
+    vehicle = ESTATE_VEHICLE;
+  } else if (/saloon/i.test(requested)) {
+    vehicle = SALOON_VEHICLE;
   }
 
-  if (/estate/i.test(requested)) {
-    return { ok: true, vehicleType: ESTATE_VEHICLE };
+  if (!vehicle) {
+    return { ok: true, vehicleType: selectVehicleForParty(pax, bags) };
   }
-
-  if (/saloon/i.test(requested)) {
-    return { ok: true, vehicleType: SALOON_VEHICLE };
+  if (!vehicleFitsParty(vehicle, pax, bags)) {
+    return { ok: false, message: VEHICLE_NOT_SUITABLE_CARD_MESSAGE };
   }
-
-  return { ok: true, vehicleType: selectVehicleForParty(pax, bags) };
+  return { ok: true, vehicleType: vehicle };
 }
 
 /** First passenger count that requires Minibus. */

@@ -122,13 +122,15 @@ if (saloon.ok && estate.ok && business.ok) {
 const explicitSaloon = quote(SALOON_VEHICLE, 4);
 const explicitBusiness = quote(EXECUTIVE_VEHICLE, 4);
 const explicitEstate = quote(ESTATE_VEHICLE, 4);
-assert.equal(explicitSaloon.ok && explicitSaloon.vehicleType, SALOON_VEHICLE);
-assert.equal(explicitBusiness.ok && explicitBusiness.vehicleType, EXECUTIVE_VEHICLE);
+assert.equal(explicitSaloon.ok, false);
+assert.equal(explicitBusiness.ok, false);
+if (!explicitSaloon.ok) assert.equal(explicitSaloon.reason, "vehicle_unavailable");
+if (!explicitBusiness.ok) assert.equal(explicitBusiness.reason, "vehicle_unavailable");
 assert.equal(explicitEstate.ok && explicitEstate.vehicleType, ESTATE_VEHICLE);
-if (explicitSaloon.ok && explicitEstate.ok) {
+if (saloon.ok && explicitEstate.ok) {
   assert.equal(
     (explicitEstate.journeyFareGbp ?? explicitEstate.amount) -
-      (explicitSaloon.journeyFareGbp ?? explicitSaloon.amount),
+      (saloon.journeyFareGbp ?? saloon.amount),
     UNIVERSAL_ESTATE_PREMIUM_GBP,
   );
 }
@@ -239,9 +241,13 @@ assert.match(categories, /border-2/);
 assert.match(categories, /font-bold leading-tight text-navy/);
 assert.match(categories, /font-semibold leading-tight text-navy/);
 assert.match(categories, /font-medium leading-tight text-navy/);
-assert.match(categories, /h-\[4\.75rem\]/);
-assert.doesNotMatch(categories, /disabled=\{|aria-disabled|data-vehicle-suitable/);
-assert.doesNotMatch(categories, /Not suitable for your passenger\/luggage selection|VEHICLE_NOT_SUITABLE_CARD_MESSAGE/);
+assert.match(categories, /h-\[5\.65rem\]/);
+assert.match(categories, /disabled=\{!fits\}/);
+assert.match(categories, /aria-disabled/);
+assert.match(categories, /data-vehicle-suitable/);
+assert.match(categories, /VEHICLE_NOT_SUITABLE_CARD_MESSAGE/);
+assert.match(categories, /disabled:opacity-100/);
+assert.doesNotMatch(categories, /opacity-40|opacity-50/);
 assert.match(categories, /enabledVehicleTypesForQuote/);
 assert.doesNotMatch(categories, /Recommended/);
 assert.match(categories, /bg-\[#147a2a\]/);

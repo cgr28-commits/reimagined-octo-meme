@@ -6,7 +6,9 @@ import {
   EXECUTIVE_VEHICLE,
   MINIBUS_VEHICLE,
   SALOON_VEHICLE,
+  VEHICLE_NOT_SUITABLE_CARD_MESSAGE,
   enabledVehicleTypesForQuote,
+  suitableVehicleTypesForParty,
 } from "@/lib/vehicle-selection";
 import {
   ESTATE_CUSTOMER_DESCRIPTION,
@@ -65,15 +67,16 @@ const CATEGORIES = [
 ] as const;
 
 export default function QuoteVehicleCategories({
+  passengers,
+  suitcases,
   selectedVehicle = null,
   onSelectVehicle,
   publicMinibusEnabled = true,
   publicExecutiveEnabled = true,
 }: {
-  /** Kept for callers. Party size chooses the automatic vehicle elsewhere; it does not disable these cards. */
   passengers: number | null;
   suitcases: number | null;
-  /** Booked vehicle, including an upgrade the customer has chosen. */
+  /** Booked vehicle. Only a category that fits this party can be selected. */
   selectedVehicle?: string | null;
   onSelectVehicle?: (vehicle: (typeof CATEGORIES)[number]["vehicle"]) => void;
   publicMinibusEnabled?: boolean;
@@ -83,6 +86,13 @@ export default function QuoteVehicleCategories({
     publicMinibusEnabled,
     publicExecutiveEnabled,
   });
+  const suitable =
+    passengers != null && suitcases != null
+      ? suitableVehicleTypesForParty(passengers, suitcases, {
+          publicMinibusEnabled,
+          publicExecutiveEnabled,
+        })
+      : enabled;
   const options = CATEGORIES.filter((option) =>
     enabled.some((vehicle) => vehicle === option.vehicle),
   );
@@ -102,55 +112,72 @@ export default function QuoteVehicleCategories({
         aria-label="Vehicle options for this journey"
       >
         {options.map((option) => {
-          const isSelected = selectedVehicle === option.vehicle;
+          const fits = suitable.some((vehicle) => vehicle === option.vehicle);
+          const isSelected = fits && selectedVehicle === option.vehicle;
           return (
             <div key={option.id} role="listitem" className="min-w-0">
               <button
                 type="button"
                 data-vehicle-category={option.id}
+                data-vehicle-suitable={fits ? "true" : "false"}
                 aria-pressed={isSelected}
-                onClick={() => onSelectVehicle?.(option.vehicle)}
-                className={`grid h-[4.75rem] w-full grid-cols-[5.75rem_minmax(0,1fr)_1.25rem] items-center gap-x-1.5 overflow-hidden rounded-xl border-2 bg-white px-2 text-left text-navy shadow-sm ${
+                aria-disabled={!fits}
+                disabled={!fits}
+                onClick={() => {
+                  if (!fits) return;
+                  onSelectVehicle?.(option.vehicle);
+                }}
+                className={`flex h-[5.65rem] w-full flex-col justify-center gap-0.5 overflow-hidden rounded-xl border-2 bg-white px-2 py-1 text-left text-navy shadow-sm disabled:cursor-not-allowed disabled:opacity-100 ${
                   isSelected
                     ? "border-[var(--quote-selected-border)]"
                     : "border-navy/20"
                 }`}
               >
-                <VehicleQuoteArt
-                  vehicle={option.art}
-                  src={option.image}
-                  alt=""
-                  size="option"
-                />
-                <span className="min-w-0">
-                  <span className="block text-[0.78rem] font-bold leading-tight text-navy tracking-[-0.02em]">
-                    {option.title}
-                  </span>
-                  {option.capacity ? (
-                    <span className="block text-[0.72rem] font-semibold leading-tight text-navy">
-                      {option.capacity}
+                <span className="grid grid-cols-[5.75rem_minmax(0,1fr)_1.25rem] items-center gap-x-1.5">
+                  <VehicleQuoteArt
+                    vehicle={option.art}
+                    src={option.image}
+                    alt=""
+                    size="option"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-[0.78rem] font-bold leading-tight text-navy tracking-[-0.02em]">
+                      {option.title}
                     </span>
-                  ) : null}
-                  {option.detail ? (
-                    <span className="block text-[0.72rem] font-medium leading-tight text-navy">
-                      {option.detail}
+                    {option.capacity ? (
+                      <span className="block text-[0.72rem] font-semibold leading-tight text-navy">
+                        {option.capacity}
+                      </span>
+                    ) : null}
+                    {option.detail ? (
+                      <span className="block text-[0.72rem] font-medium leading-tight text-navy">
+                        {option.detail}
+                      </span>
+                    ) : (
+                      <span className="block text-[0.72rem] leading-tight text-transparent" aria-hidden>
+                        {"\u00a0"}
+                      </span>
+                    )}
+                  </span>
+                  {isSelected ? (
+                    <span
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#147a2a] text-[11px] font-bold text-white"
+                      aria-hidden
+                    >
+                      ✓
                     </span>
                   ) : (
-                    <span className="block text-[0.72rem] leading-tight text-transparent" aria-hidden>
-                      {"\u00a0"}
-                    </span>
+                    <span className="h-5 w-5 shrink-0" aria-hidden />
                   )}
                 </span>
-                {isSelected ? (
-                  <span
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#147a2a] text-[11px] font-bold text-white"
-                    aria-hidden
-                  >
-                    ✓
-                  </span>
-                ) : (
-                  <span className="h-5 w-5 shrink-0" aria-hidden />
-                )}
+                <span
+                  className={`block truncate text-[0.62rem] font-semibold leading-tight ${
+                    fits ? "invisible" : "text-navy"
+                  }`}
+                  aria-hidden={fits}
+                >
+                  {VEHICLE_NOT_SUITABLE_CARD_MESSAGE}
+                </span>
               </button>
             </div>
           );

@@ -122,7 +122,7 @@ check("6. Minibus ON => luggage options 0–4 and 5+", () => {
   assert.equal(isValidPublicSuitcaseCount(7, true), false);
 });
 
-check("7–9. 5/6/7 passengers => Minibus unless the customer named another vehicle", () => {
+check("7–9. 5/6/7 passengers => Minibus, and an unfit Saloon is rejected", () => {
   for (const pax of [5, 6, 7]) {
     assert.equal(requiresMinibus(pax, 2), true);
     assert.equal(selectVehicleForParty(pax, 2), MINIBUS_VEHICLE);
@@ -146,7 +146,8 @@ check("7–9. 5/6/7 passengers => Minibus unless the customer named another vehi
       vehicleType: SALOON_VEHICLE,
     }),
   );
-  assert.equal(explicitSaloon.ok && explicitSaloon.vehicleType, SALOON_VEHICLE);
+  assert.equal(explicitSaloon.ok, false);
+  if (!explicitSaloon.ok) assert.equal(explicitSaloon.reason, "vehicle_unavailable");
 });
 
 check("10. 8 passengers => rejected", () => {
@@ -182,7 +183,8 @@ check("11–13. 5+ large bags cannot be Saloon/Estate; 6 and 7 are not public op
       vehicleType: ESTATE_VEHICLE,
     }),
   );
-  assert.equal(explicitEstate.ok && explicitEstate.vehicleType, ESTATE_VEHICLE);
+  assert.equal(explicitEstate.ok, false);
+  if (!explicitEstate.ok) assert.equal(explicitEstate.reason, "vehicle_unavailable");
   for (const bags of [6, 7]) {
     const rejected = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 2, suitcases: bags, pricing: onPricing }),
@@ -450,7 +452,8 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
       pricing: onPricing,
     }),
   );
-  assert.equal(explicitSaloon.ok && explicitSaloon.vehicleType, SALOON_VEHICLE);
+  assert.equal(explicitSaloon.ok, false);
+  if (!explicitSaloon.ok) assert.equal(explicitSaloon.reason, "vehicle_unavailable");
   const automaticMinibus = calculateAuthoritativeWebsiteQuote(
     quoteInput({
       passengers: 6,
@@ -480,8 +483,8 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
   assert.match(card, /vehicleType: vehicle/);
   assert.match(card, /quoteFareVehiclesToRequest/);
   assert.match(progressive, /<QuoteVehicleCategories/);
-  assert.doesNotMatch(categories, /suitableVehicleTypesForParty/);
-  assert.doesNotMatch(categories, /disabled=\{/);
+  assert.match(categories, /suitableVehicleTypesForParty/);
+  assert.match(categories, /disabled=\{!fits\}/);
   assert.match(categories, /bg-white/);
   assert.equal(card.split("renderQuoteVehicleChoice()").length, 5);
   assert.match(categories, /id: "minibus"/);

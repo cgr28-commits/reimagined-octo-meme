@@ -1,8 +1,8 @@
 /**
  * Passenger and luggage counts choose the automatic starting vehicle.
- * Every enabled category stays customer-selectable. An explicit choice is
- * priced as requested until the party size changes. Estate uplift defaults
- * to £10 and stays owner-configurable.
+ * Every enabled category stays visible. A category that cannot take the
+ * party is disabled and the server rejects it. A suitable manual choice
+ * stays until the party changes. Estate uplift defaults to £10.
  *
  * Run: npx tsx scripts/check-vehicle-suitability-estate-uplift.ts
  */
@@ -81,25 +81,36 @@ check("default Estate uplift is £10 and is the single code default", () => {
   assert.doesNotMatch(read("src/lib/quote.ts"), /estatePremiumGbp:\s*6|\?\?\s*6/);
 });
 
-check("every enabled vehicle stays selectable, including one that is not the automatic choice", () => {
+check("unsuitable vehicles stay visible and cannot be selected or priced", () => {
   const enabled = enabledVehicleTypesForQuote(quoteFlags);
   assert.deepEqual(enabled, [SALOON_VEHICLE, ESTATE_VEHICLE, EXECUTIVE_VEHICLE, MINIBUS_VEHICLE]);
-  const suitable = suitableVehicleTypesForParty(2, 4, quoteFlags);
+  const fourBags = suitableVehicleTypesForParty(2, 4, quoteFlags);
   assert.equal(vehicleFitsParty(SALOON_VEHICLE, 2, 4), false);
   assert.equal(vehicleFitsParty(EXECUTIVE_VEHICLE, 2, 4), false);
   assert.equal(vehicleFitsParty(ESTATE_VEHICLE, 2, 4), true);
   assert.equal(vehicleFitsParty(MINIBUS_VEHICLE, 2, 4), true);
   assert.ok(enabled.includes(SALOON_VEHICLE));
   assert.ok(enabled.includes(EXECUTIVE_VEHICLE));
-  assert.equal(suitable.includes(SALOON_VEHICLE), false);
-  assert.equal(suitable.includes(EXECUTIVE_VEHICLE), false);
+  assert.equal(fourBags.includes(SALOON_VEHICLE), false);
+  assert.equal(fourBags.includes(EXECUTIVE_VEHICLE), false);
+  const sixPassengers = suitableVehicleTypesForParty(6, 2, quoteFlags);
+  assert.deepEqual(sixPassengers, [MINIBUS_VEHICLE]);
+  assert.equal(vehicleFitsParty(SALOON_VEHICLE, 6, 2), false);
+  assert.equal(vehicleFitsParty(ESTATE_VEHICLE, 6, 2), false);
+  assert.equal(vehicleFitsParty(EXECUTIVE_VEHICLE, 6, 2), false);
 
   const categories = read("src/components/QuoteVehicleCategories.tsx");
   assert.match(categories, /enabledVehicleTypesForQuote/);
-  assert.match(categories, /h-\[4\.75rem\]/);
-  assert.doesNotMatch(categories, /disabled=\{|aria-disabled|data-vehicle-suitable/);
-  assert.doesNotMatch(categories, /Not suitable for your passenger\/luggage selection/);
+  assert.match(categories, /suitableVehicleTypesForParty/);
+  assert.match(categories, /h-\[5\.65rem\]/);
+  assert.match(categories, /disabled=\{!fits\}/);
+  assert.match(categories, /aria-disabled=\{!fits\}/);
+  assert.match(categories, /data-vehicle-suitable=/);
+  assert.match(categories, /VEHICLE_NOT_SUITABLE_CARD_MESSAGE/);
+  assert.match(read("src/lib/vehicle-selection.ts"), /Not suitable for this passenger\/luggage selection/);
+  assert.match(categories, /disabled:opacity-100/);
   assert.doesNotMatch(categories, /opacity-40|opacity-50|Recommended|recommended/i);
+  assert.doesNotMatch(categories, /Not suitable for your passenger\/luggage selection/);
 
   const saloon = calculateAuthoritativeWebsiteQuote(
     quoteInput({ passengers: 2, suitcases: 4, vehicleType: SALOON_VEHICLE }),
@@ -107,14 +118,24 @@ check("every enabled vehicle stays selectable, including one that is not the aut
   const executive = calculateAuthoritativeWebsiteQuote(
     quoteInput({ passengers: 2, suitcases: 4, vehicleType: EXECUTIVE_VEHICLE }),
   );
+  const groupSaloon = calculateAuthoritativeWebsiteQuote(
+    quoteInput({ passengers: 6, suitcases: 2, vehicleType: SALOON_VEHICLE }),
+  );
   const estate = calculateAuthoritativeWebsiteQuote(
     quoteInput({ passengers: 2, suitcases: 4, vehicleType: ESTATE_VEHICLE }),
   );
-  assert.equal(saloon.ok && saloon.vehicleType, SALOON_VEHICLE);
-  assert.equal(executive.ok && executive.vehicleType, EXECUTIVE_VEHICLE);
+  const fittingSaloon = calculateAuthoritativeWebsiteQuote(
+    quoteInput({ passengers: 2, suitcases: 1, vehicleType: SALOON_VEHICLE }),
+  );
+  assert.equal(saloon.ok, false);
+  assert.equal(executive.ok, false);
+  assert.equal(groupSaloon.ok, false);
+  if (!saloon.ok) assert.equal(saloon.reason, "vehicle_unavailable");
+  if (!executive.ok) assert.equal(executive.reason, "vehicle_unavailable");
+  if (!groupSaloon.ok) assert.equal(groupSaloon.reason, "vehicle_unavailable");
   assert.equal(estate.ok && estate.vehicleType, ESTATE_VEHICLE);
-  if (saloon.ok && estate.ok) {
-    assert.equal(estate.journeyFareGbp! - saloon.journeyFareGbp!, UNIVERSAL_ESTATE_PREMIUM_GBP);
+  if (fittingSaloon.ok && estate.ok) {
+    assert.equal(estate.journeyFareGbp! - fittingSaloon.journeyFareGbp!, UNIVERSAL_ESTATE_PREMIUM_GBP);
   }
 });
 
@@ -180,7 +201,7 @@ check("larger suitable vehicles stay selectable and a still-valid choice is not 
 
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /keepOrSmallestSuitableVehicle/);
-  assert.match(card, /if \(manualVehicle\) return/);
+  assert.match(card, /if \(manualStillSuitable\) return/);
   assert.match(card, /setManualVehicle\(chosen\)/);
   assert.match(card, /setVehicle\(chosen\)/);
   assert.match(card, /vehicle: quoteVehicle/);
@@ -188,9 +209,10 @@ check("larger suitable vehicles stay selectable and a still-valid choice is not 
     card.indexOf("function handleQuoteVehicleChoice"),
     card.indexOf("function renderQuoteVehicleChoice"),
   );
-  assert.doesNotMatch(choice, /vehicleFitsParty|requiresMinibus/);
+  assert.match(choice, /vehicleFitsParty/);
+  assert.doesNotMatch(choice, /requiresMinibus/);
   const partyEffect = card.slice(
-    card.indexOf("if (manualVehicle) return;"),
+    card.indexOf("if (manualStillSuitable) return;"),
     card.indexOf("const isA2AFlow"),
   );
   const partyDeps = partyEffect.slice(partyEffect.lastIndexOf("}, ["));

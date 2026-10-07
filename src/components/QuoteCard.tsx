@@ -82,6 +82,7 @@ import {
   requiresMinibus,
   selectVehicleForParty,
   suitableVehicleTypesForParty,
+  vehicleFitsParty,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
 import {
@@ -1013,7 +1014,13 @@ function QuoteCard({
       publicMinibusEnabled,
       publicExecutiveEnabled,
     });
-    if (manualVehicle && enabled.includes(manualVehicle)) return manualVehicle;
+    if (
+      manualVehicle &&
+      enabled.includes(manualVehicle) &&
+      vehicleFitsParty(manualVehicle, pax, suitcases)
+    ) {
+      return manualVehicle;
+    }
     return keepOrSmallestSuitableVehicle({
       current: vehicle,
       passengers: pax,
@@ -1049,7 +1056,14 @@ function QuoteCard({
   useEffect(() => {
     const pax = effectivePartyPassengers(passengers);
     if (pax == null || suitcases == null) return;
-    if (manualVehicle) return;
+    const manualStillSuitable =
+      manualVehicle != null &&
+      enabledVehicleTypesForQuote({
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      }).includes(manualVehicle) &&
+      vehicleFitsParty(manualVehicle, pax, suitcases);
+    if (manualStillSuitable) return;
     const next = keepOrSmallestSuitableVehicle({
       current: vehicle,
       passengers: pax,
@@ -6827,7 +6841,8 @@ function QuoteCard({
       !enabledVehicleTypesForQuote({
         publicMinibusEnabled,
         publicExecutiveEnabled,
-      }).includes(chosen)
+      }).includes(chosen) ||
+      !vehicleFitsParty(chosen, pax, suitcases)
     ) {
       return;
     }
