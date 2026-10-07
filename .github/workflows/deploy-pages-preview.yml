@@ -26,6 +26,7 @@ name: Deploy Pages Preview
       - cursor/quote-details-scroll-immediate-514b
       - cursor/sa-choose-another-date-514b
       - cursor/inclusive-airport-quote-514b
+      - cursor/quote-result-mockup-514b
 
 concurrency:
   group: pages-preview

@@ -102,7 +102,7 @@ check("unsuitable vehicles stay visible and cannot be selected or priced", () =>
   const categories = read("src/components/QuoteVehicleCategories.tsx");
   assert.match(categories, /enabledVehicleTypesForQuote/);
   assert.match(categories, /suitableVehicleTypesForParty/);
-  assert.match(categories, /h-\[6\.35rem\]/);
+  assert.match(categories, /min-h-\[7\.75rem\]/);
   assert.match(categories, /2 large suitcases \+ 2 hand luggage/);
   assert.match(categories, /disabled=\{!fits\}/);
   assert.match(categories, /aria-disabled=\{!fits\}/);
@@ -333,8 +333,8 @@ check("configured Estate uplift is applied before final whole-pound rounding", (
 });
 
 check("the vehicle-options scroll runs once, eased, and keeps its stop", () => {
-  assert.equal(QUOTE_REVEAL_SCROLL_MS, 720);
-  assert.ok(QUOTE_REVEAL_SCROLL_MS >= 600 && QUOTE_REVEAL_SCROLL_MS <= 800);
+  assert.equal(QUOTE_REVEAL_SCROLL_MS, 1100);
+  assert.ok(QUOTE_REVEAL_SCROLL_MS >= 1000 && QUOTE_REVEAL_SCROLL_MS <= 1200);
   assert.equal(QUOTE_REVEAL_BREATHING_PX, 12);
   const scroll = read("src/lib/quote-step-nav-scroll.ts");
   const revealFn = scroll.slice(

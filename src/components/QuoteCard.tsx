@@ -4666,7 +4666,7 @@ function QuoteCard({
         onRequestStart={requestStartNewQuote}
         onCancelConfirm={() => setConfirmStartNewQuote(false)}
         onConfirmStart={performStartNewQuote}
-        appearance={placement === "results" ? "quiet" : "default"}
+        appearance={placement === "results" ? "card" : "default"}
       />
     );
   }
@@ -5672,14 +5672,14 @@ function QuoteCard({
       : BUSINESS_CLASS_DROPOFF_INCLUSIONS;
     return (
       <div
-        className="mt-1 rounded-lg border border-navy/10 bg-navy/[0.03] px-2 py-1 text-left"
+        className="mt-2 rounded-xl border border-navy/10 bg-navy/[0.03] px-3 py-2 text-left"
         data-business-class-inclusions
         data-business-class-pickup={hasPickup ? "true" : "false"}
       >
-        <p className="text-xs font-bold text-navy">Included with Business Class</p>
-        <ul className="mt-1 grid grid-cols-1 gap-y-0.5 min-[390px]:grid-cols-2 min-[390px]:gap-x-3">
+        <p className="text-sm font-bold text-navy">Included with Business Class</p>
+        <ul className="mt-1.5 grid grid-cols-1 gap-y-1 min-[390px]:grid-cols-2 min-[390px]:gap-x-3">
           {items.map((item) => (
-            <li key={item} className="text-[11px] font-medium leading-snug text-navy">
+            <li key={item} className="text-xs font-medium leading-snug text-navy">
               <span className="text-[#147a2a]" aria-hidden>
                 ✓{" "}
               </span>
@@ -6974,22 +6974,60 @@ function QuoteCard({
     );
   }
 
+  function quoteDirectionsHref(): string | null {
+    const airportLabel = AIRPORTS.find((item) => item.code === airportCode)?.mapLabel ?? "";
+    let origin = pickupAddress.trim();
+    let destination = dropoffAddress.trim();
+    if (!isA2AFlow && isAirportTrip) {
+      if (isFromAirport) {
+        origin = airportLabel;
+        destination = dropoffAddress.trim();
+      } else {
+        origin = pickupAddress.trim();
+        destination = airportLabel;
+      }
+    }
+    if (origin.length < 8 || destination.length < 8) return null;
+    return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+  }
+
   function renderQuoteResultFollowOn(routeMap: ReactNode) {
+    const mapsHref = quoteDirectionsHref();
+    const actionCardClass =
+      "flex min-h-[4.25rem] w-full flex-col items-center justify-center rounded-2xl border border-white/80 bg-white px-2 py-2 text-center text-navy shadow-sm";
     return (
       <>
-        {renderPriceBreakdownCollapsible()}
         {routeMap}
         <div
           id="quote-book-now-anchor"
           className="h-px w-full scroll-mt-44 md:scroll-mt-28"
           aria-hidden="true"
         />
-        <div id="quote-step1-next" className="space-y-1">
-          {renderStep1SaveQuote(true)}
-          {liveQuote || hasQuoteRoute || passengers != null || suitcases != null
-            ? renderStartNewQuoteControls("results")
-            : null}
-          <QuoteHelpContact className="!mt-0" />
+        <div id="quote-step1-next" className="space-y-2" data-quote-result-actions>
+          <div className="grid grid-cols-2 gap-2">
+            {mapsHref ? (
+              <a
+                href={mapsHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-quote-view-route
+                className={actionCardClass}
+              >
+                <span className="text-sm font-bold leading-tight">View route</span>
+                <span className="mt-0.5 text-xs font-medium leading-tight">Google Maps</span>
+              </a>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleSaveQuoteClick}
+              data-quote-save
+              className={actionCardClass}
+            >
+              <span className="text-sm font-bold leading-tight">Save Quote</span>
+            </button>
+            {renderStartNewQuoteControls("results")}
+            <QuoteHelpContact variant="card" className="!mt-0" />
+          </div>
           {renderBookingErrorHelp("step1-actions")}
           {saveQuotePrompt ? (
             <p className="text-center text-xs text-emerald/90" role="status">
@@ -6997,6 +7035,15 @@ function QuoteCard({
             </p>
           ) : null}
         </div>
+        <div
+          className="px-1 text-center text-[11px] font-medium leading-snug text-white/80"
+          data-quote-result-trust
+        >
+          <p>Secure booking · Secure payment powered by SumUp</p>
+          <p>Flight monitoring for airport pickups · No hidden charges</p>
+          <p>Vehicle shown for illustration.</p>
+        </div>
+        {renderPriceBreakdownCollapsible()}
       </>
     );
   }
@@ -7537,7 +7584,7 @@ function QuoteCard({
                     destinationLat={dropoffPlace.lat}
                     destinationLng={dropoffPlace.lng}
                     onRouteMetrics={handleRouteMetrics}
-                    variant="summary"
+                    variant={showInstantQuoteResultCard ? "metrics" : "summary"}
                   />
                 </div>
                 {quoteResultsReady && quoteStep === 1 && showInstantQuoteResultCard
@@ -7973,7 +8020,7 @@ function QuoteCard({
                     destinationLat={dropoffPlace.lat}
                     destinationLng={dropoffPlace.lng}
                     onRouteMetrics={handleRouteMetrics}
-                    variant="summary"
+                    variant="metrics"
                   />,
                 )}
               </>

@@ -134,13 +134,13 @@ export default function QuoteVehicleCategories({
                   if (!fits) return;
                   onSelectVehicle?.(option.vehicle);
                 }}
-                className={`flex h-[6.35rem] w-full flex-col justify-center gap-0.5 overflow-hidden rounded-xl border-2 bg-white px-2 py-1 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
+                className={`flex min-h-[7.75rem] w-full flex-col justify-center gap-1 overflow-hidden rounded-2xl border-2 bg-white px-3 py-2.5 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
                   isSelected
-                    ? "border-[var(--quote-selected-border)]"
-                    : "border-navy/20"
+                    ? "border-[var(--quote-selected-border)] shadow-[0_0_0_1px_var(--quote-selected-border)]"
+                    : "border-navy/15"
                 }`}
               >
-                <span className="grid grid-cols-[5.75rem_minmax(0,1fr)_1.25rem] items-center gap-x-1.5">
+                <span className="grid grid-cols-[6.4rem_minmax(0,1fr)_1.5rem] items-center gap-x-2.5">
                   <VehicleQuoteArt
                     vehicle={option.art}
                     src={option.image}
@@ -148,42 +148,45 @@ export default function QuoteVehicleCategories({
                     size="option"
                   />
                   <span className="min-w-0">
-                    <span className="block text-[0.78rem] font-bold leading-tight text-navy tracking-[-0.02em]">
+                    <span className="block text-[0.95rem] font-bold leading-tight text-navy tracking-[-0.02em]">
                       {option.title}
                     </span>
                     {option.capacity ? (
-                      <span className="block text-[0.72rem] font-semibold leading-tight text-navy">
+                      <span className="mt-0.5 block text-[0.84rem] font-semibold leading-tight text-navy">
                         {option.capacity}
                       </span>
                     ) : null}
                     {option.luggage ? (
-                      <span className="block text-[0.68rem] font-semibold leading-tight text-navy">
+                      <span className="mt-0.5 block text-[0.78rem] font-semibold leading-tight text-navy">
                         {option.luggage}
                       </span>
                     ) : null}
                     {option.detail ? (
-                      <span className="block text-[0.72rem] font-medium leading-tight text-navy">
+                      <span className="mt-0.5 block text-[0.78rem] font-medium leading-tight text-navy">
                         {option.detail}
                       </span>
                     ) : option.luggage ? null : (
-                      <span className="block text-[0.72rem] leading-tight text-transparent" aria-hidden>
+                      <span className="block text-[0.78rem] leading-tight text-transparent" aria-hidden>
                         {"\u00a0"}
                       </span>
                     )}
                   </span>
                   {isSelected ? (
                     <span
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#147a2a] text-[11px] font-bold text-white"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#147a2a] text-[13px] font-bold text-white"
                       aria-hidden
                     >
                       ✓
                     </span>
                   ) : (
-                    <span className="h-5 w-5 shrink-0" aria-hidden />
+                    <span
+                      className="h-6 w-6 shrink-0 rounded-full border-2 border-navy/30"
+                      aria-hidden
+                    />
                   )}
                 </span>
                 <span
-                  className={`block truncate text-[0.62rem] font-semibold leading-tight ${
+                  className={`block text-[0.72rem] font-semibold leading-tight ${
                     fits ? "invisible" : "text-navy"
                   }`}
                   aria-hidden={fits}

@@ -139,7 +139,7 @@ check("Mobile Step 1 address complete does not scroll", () => {
   );
   // Desktop still has the address-complete scroll (gate then scrollQuoteStage).
   assert.match(card, /scrollQuoteStage\("journey-type-selector", \{ correctAfterMs: 0 \}\)/);
-  // One way/Return → pickup date & time uses the shared 720ms glide. Validation still scrolls.
+  // One way/Return → pickup date & time uses the shared quote-reveal glide. Validation still scrolls.
   assert.match(
     card,
     /hadA2aPartyScrollRef\.current = true;\s*return scheduleBookTransferGlide\("quote-section-schedule"\)/,

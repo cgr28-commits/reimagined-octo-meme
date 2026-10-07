@@ -480,7 +480,7 @@ export default function QuoteProgressiveRoute({
             <div
               id="quote-results-lead"
               data-quote-results-lead
-              className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed"
+              className="rounded-xl border border-white/20 bg-white/[0.04] px-3.5 py-2.5 text-[0.8125rem] leading-snug text-white/85"
             >
               <p>{AIRPORT_PICKUP_WAITING_COPY}</p>
             </div>
@@ -488,7 +488,7 @@ export default function QuoteProgressiveRoute({
             <div
               id="quote-results-lead"
               data-quote-results-lead
-              className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed"
+              className="rounded-xl border border-white/20 bg-white/[0.04] px-3.5 py-2.5 text-[0.8125rem] leading-snug text-white/85"
             >
               <p>{NON_AIRPORT_WAITING_COPY}</p>
               {returnJourney && (
@@ -502,7 +502,7 @@ export default function QuoteProgressiveRoute({
             <div
               id="quote-results-lead"
               data-quote-results-lead
-              className="rounded-xl quote-panel px-4 py-3 quote-secondary text-xs leading-relaxed"
+              className="rounded-xl border border-white/20 bg-white/[0.04] px-3.5 py-2.5 text-[0.8125rem] leading-snug text-white/85"
             >
               <p>{NON_AIRPORT_WAITING_COPY}</p>
             </div>

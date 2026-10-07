@@ -40,7 +40,7 @@ function landedHeading(frame: QuoteRevealMetrics, nextTop: number): number {
 
 check("Pause and glide stay in range, and the quote card does not animate", () => {
   assert.ok(QUOTE_REVEAL_PAUSE_MS >= 300 && QUOTE_REVEAL_PAUSE_MS <= 350);
-  assert.ok(QUOTE_REVEAL_SCROLL_MS >= 650 && QUOTE_REVEAL_SCROLL_MS <= 800);
+  assert.ok(QUOTE_REVEAL_SCROLL_MS >= 1000 && QUOTE_REVEAL_SCROLL_MS <= 1200);
   assert.equal(quoteRevealEaseInOut(0), 0);
   assert.equal(quoteRevealEaseInOut(1), 1);
   assert.ok(Math.abs(quoteRevealEaseInOut(0.5) - 0.5) < 0.001);
@@ -208,7 +208,7 @@ check("One way / Return uses the same glide and stops on the next section", () =
   assert.match(schedule, /id="returnDate"/);
   assert.match(schedule, /id="returnTime"/);
   assert.equal(QUOTE_REVEAL_PAUSE_MS, 350);
-  assert.equal(QUOTE_REVEAL_SCROLL_MS, 720);
+  assert.equal(QUOTE_REVEAL_SCROLL_MS, 1100);
   assert.equal(QUOTE_REVEAL_BREATHING_PX, 12);
   assert.equal(BOOK_TRANSFER_CLEARANCE_PX, 20);
 });

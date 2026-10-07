@@ -32,7 +32,7 @@ type TripMapProps = {
   tripDirection?: AirportTripDirection;
   onRouteMetrics?: (metrics: TripRouteMetrics | null) => void;
   /** Compact distance/time line with optional map expand (default for quote form). */
-  variant?: "full" | "summary";
+  variant?: "full" | "summary" | "metrics";
   /** Optional DOM id for the summary card (e.g. quote-route-summary). */
   id?: string;
   /** Prefer selected-place coordinates over re-geocoding the visible address string. */
@@ -244,6 +244,10 @@ export default function TripMap({
 
   if (!links || trimmedOrigin.length < 8 || trimmedDestination.length < 8) {
     return null;
+  }
+
+  if (variant === "metrics") {
+    return <div id={id} className="sr-only" data-quote-route-metrics />;
   }
 
   if (variant === "summary") {

@@ -48,8 +48,8 @@ type StartNewQuoteControlsProps = {
   /** Stable ids for tests; defaults to React useId() so they stay unique per instance. */
   titleId?: string;
   descId?: string;
-  /** Quiet text-link style for below the quote-result card. */
-  appearance?: "default" | "quiet";
+  /** Quiet text-link, or a white action card under the quote result. */
+  appearance?: "default" | "quiet" | "card";
 };
 
 /**
@@ -101,6 +101,34 @@ export function StartNewQuoteControls({
             Start New Quote
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (appearance === "card") {
+    if (confirmOpen) {
+      return (
+        <div className="col-span-2" data-start-new-quote-controls>
+          <StartNewQuoteControls
+            confirmOpen
+            onRequestStart={onRequestStart}
+            onCancelConfirm={onCancelConfirm}
+            onConfirmStart={onConfirmStart}
+            titleId={titleId}
+            descId={descId}
+          />
+        </div>
+      );
+    }
+    return (
+      <div data-start-new-quote-controls>
+        <button
+          type="button"
+          onClick={onRequestStart}
+          className="flex min-h-[4.25rem] w-full flex-col items-center justify-center rounded-2xl border border-white/80 bg-white px-2 py-2 text-center text-sm font-bold leading-tight text-navy shadow-sm"
+        >
+          Start over
+        </button>
       </div>
     );
   }
