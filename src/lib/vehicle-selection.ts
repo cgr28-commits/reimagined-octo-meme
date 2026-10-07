@@ -23,7 +23,7 @@ import {
   MAX_PASSENGERS,
   OWNER_QUICK_QUOTE_MAX_PASSENGERS,
 } from "../../shared/passenger-limits";
-import { vehicleCustomerLabel } from "../../shared/vehicle-display";
+import { EXECUTIVE_CUSTOMER_NAME, vehicleCustomerLabel } from "../../shared/vehicle-display";
 import { formatPublicSuitcaseChoice } from "../../shared/vehicle-capacity";
 
 export const SALOON_VEHICLE: VehicleType = "Standard Saloon (1–4 passengers)";
@@ -85,8 +85,8 @@ export function vehicleShortLabel(vehicleType: VehicleType | string): string {
   if (vehicleType === MINIBUS_VEHICLE || vehicleType === MINIBUS_VEHICLE_TYPE) {
     return vehicleCustomerLabel(MINIBUS_VEHICLE_TYPE);
   }
-  if (String(vehicleType).includes("Executive")) {
-    return "Executive";
+  if (String(vehicleType).toLowerCase().includes("executive")) {
+    return EXECUTIVE_CUSTOMER_NAME;
   }
   return String(vehicleType);
 }

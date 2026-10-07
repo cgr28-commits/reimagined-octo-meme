@@ -53,8 +53,8 @@ export default function VehiclesSection() {
           navId="vehicles"
           description={
             minibusOn
-              ? "Professional private airport transfer. The quote tool picks Saloon, Estate or 7 Seater Minibus from your passengers and luggage."
-              : "Professional private airport transfer in a Saloon or Estate. Choose Executive and pay online when Executive is available."
+              ? "Professional private airport transfer. The quote tool picks Saloon, Estate or 7 Seater Minibus from your passengers and luggage. You can also choose Executive — Mercedes-Benz C-Class or similar, a premium executive vehicle."
+              : "Professional private airport transfer in a Saloon or Estate. Choose Executive — Mercedes-Benz C-Class or similar, a premium executive vehicle — and pay online when it is available."
           }
         />
 
@@ -122,7 +122,8 @@ export default function VehiclesSection() {
                 <p className="mt-1 text-xl font-bold text-white">Saloon, Estate &amp; Executive</p>
                 <p className="mt-2 text-sm leading-relaxed text-white/70">
                   Instant quote where eligible. Saloon or Estate is selected from your passengers and
-                  luggage. Executive can be selected and paid online when it is available. Airport
+                  luggage. Executive — Mercedes-Benz C-Class or similar is a premium executive
+                  vehicle you can select and pay for online when it is available. Airport
                   Executive pickups include Meet &amp; Greet, a name board, luggage assistance, barrier
                   and parking, bottled water and phone charging.
                 </p>

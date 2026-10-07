@@ -10,7 +10,12 @@ import {
   requiresMinibus,
   selectVehicleForParty,
 } from "@/lib/vehicle-selection";
-import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
+import {
+  EXECUTIVE_CUSTOMER_DESCRIPTION,
+  EXECUTIVE_CUSTOMER_NAME,
+  MINIBUS_CUSTOMER_DESCRIPTION,
+  MINIBUS_CUSTOMER_NAME,
+} from "../../shared/vehicle-display";
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
@@ -34,8 +39,9 @@ const CATEGORIES = [
   {
     id: "executive",
     vehicle: EXECUTIVE_VEHICLE,
-    title: "Executive",
-    detail: "Fixed price when available",
+    title: EXECUTIVE_CUSTOMER_NAME,
+    detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
+    // No dedicated licensed Executive photo is in the repo. Keep the Saloon image for now.
     image: SALOON_IMAGE,
   },
   {

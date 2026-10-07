@@ -557,10 +557,10 @@ export const VEHICLE_FLEET = [
     partnerOperated: false,
   },
   {
-    name: "Executive Saloon",
+    name: "Executive — Mercedes-Benz C-Class or similar",
     capacity: "1–4 passengers",
     description:
-      "Premium comfort for business travel. Book and pay online when Executive is available.",
+      "Premium executive vehicle. Mercedes-Benz C-Class or similar — the category of car, not a guaranteed registration. Book and pay online when Executive is available.",
     enquiryOnly: false,
     requestQuote: false,
     partnerOperated: false,

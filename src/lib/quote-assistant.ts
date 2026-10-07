@@ -16,7 +16,7 @@ import {
   isVehicleRequestQuote,
   showsOnlineGuidePrice,
 } from "@/lib/data";
-import { selectVehicleForParty } from "@/lib/vehicle-selection";
+import { selectVehicleForParty, vehicleShortLabel } from "@/lib/vehicle-selection";
 import { isValidPassengerCount, PASSENGER_LIMIT_ERROR } from "../../shared/passenger-limits";
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
@@ -1674,7 +1674,9 @@ function tryBuildQuote(
 
   const directionLabel =
     draft.direction === "from-airport" ? `from ${airportName}` : `to ${airportName}`;
-  const vehicleLabel = vehicle.split(" (")[0];
+  const vehicleLabel = /executive/i.test(vehicle)
+    ? vehicleShortLabel(vehicle)
+    : vehicle.split(" (")[0];
   const waitingNote = resolveJourneyInclusions({
     isAirportTrip: true,
     isFromAirport: draft.direction === "from-airport",

@@ -54,7 +54,7 @@ export const TERMS_SECTIONS = [
       "Pickups from elsewhere in Northern Ireland to a Greater Belfast destination receive a live online quote where route pricing is available. Other out-of-area pickups (for example outside Northern Ireland, or NI pickups to destinations outside Greater Belfast) require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
     ],
     footer:
-      "All journeys are subject to vehicle availability. My Airport Taxi NI provides private airport transfers for up to 4 passengers in Saloon, Estate or Executive cars. Executive can be booked and paid online when Executive availability permits. We do not offer online bookings for more than 4 passengers.",
+      "All journeys are subject to vehicle availability. My Airport Taxi NI provides private airport transfers for up to 4 passengers in Saloon, Estate or Executive cars. Executive is a premium executive vehicle, Mercedes-Benz C-Class or similar, and can be booked and paid online when Executive availability permits. We do not offer online bookings for more than 4 passengers.",
   },
   {
     title: "Cross-border & Republic of Ireland journeys",
@@ -70,7 +70,7 @@ export const TERMS_SECTIONS = [
     title: "Vehicles & capacity",
     content: [
       "Saloon and estate car transfers for up to 4 passengers are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
-      "Online quotes and bookings are limited to 1–4 passengers. Executive saloon transfers are available on enquiry.",
+      "Online quotes and bookings are limited to 1–4 passengers. Executive is a premium executive vehicle, Mercedes-Benz C-Class or similar, and can be booked and paid online when Executive availability permits.",
       "We remain your point of contact for booking, payment (where applicable), and customer service.",
     ],
   },

@@ -6,10 +6,14 @@ import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 import {
   ESTATE_VEHICLE,
+  EXECUTIVE_VEHICLE,
   MINIBUS_VEHICLE,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
-import { MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
+import {
+  EXECUTIVE_CUSTOMER_DESCRIPTION,
+  MINIBUS_CUSTOMER_NAME,
+} from "../../shared/vehicle-display";
 import {
   formatPublicSuitcaseChoice,
   isFivePlusLuggage,
@@ -76,6 +80,8 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
   const isEstate = vehicleType === ESTATE_VEHICLE || vehicleShortLabel(vehicleType) === "Estate";
   const isMinibus =
     vehicleType === MINIBUS_VEHICLE || vehicleShortLabel(vehicleType) === MINIBUS_CUSTOMER_NAME;
+  const isExecutive =
+    vehicleType === EXECUTIVE_VEHICLE || String(vehicleType).toLowerCase().includes("executive");
   const vehicleLabel = vehicleShortLabel(vehicleType);
   const vehicleImage = isMinibus ? MINIBUS_IMAGE : isEstate ? ESTATE_IMAGE : SALOON_IMAGE;
   const estateDueToLuggage = isEstate && suitcases >= 3;
@@ -111,7 +117,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
                   ? "7 Seater Minibus airport transfer vehicle"
                   : isEstate
                     ? "Estate airport transfer vehicle"
-                    : "Saloon airport transfer vehicle"
+                    : isExecutive
+                      ? "Premium executive vehicle"
+                      : "Saloon airport transfer vehicle"
               }
               width={1400}
               height={700}
@@ -132,6 +140,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           </div>
           {estateDueToLuggage ? (
             <p className="mt-1.5 text-xs text-[#475569]">Extra luggage space for your journey</p>
+          ) : null}
+          {isExecutive ? (
+            <p className="mt-1.5 text-xs text-[#475569]">{EXECUTIVE_CUSTOMER_DESCRIPTION}</p>
           ) : null}
         </div>
 

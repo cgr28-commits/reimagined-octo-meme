@@ -24,13 +24,18 @@ import {
   calculateUniversalJourneyFareGbp,
 } from "../shared/universal-distance-pricing";
 import { EXECUTIVE_RESOURCE_UNAVAILABLE_MESSAGE } from "../shared/availability-resource";
+import {
+  EXECUTIVE_CUSTOMER_DESCRIPTION,
+  EXECUTIVE_CUSTOMER_NAME,
+} from "../shared/vehicle-display";
 import { decideCustomerSmartAvailabilityGate } from "../shared/customer-smart-availability";
 import { evaluateSmartAvailability, occupiedJobsFromPaidBooking } from "../shared/smart-conflict";
 import { DEFAULT_SMART_OPS_CONFIG } from "../shared/smart-ops-config";
 import { isInstantPayVehicle, isVehicleEnquiryOnly } from "../src/lib/data";
 import { calculateQuote } from "../src/lib/quote";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
-import { canonicalVehicleType } from "../src/lib/vehicle-selection";
+import { buildCustomerConfirmationEmail } from "../shared/booking-notifications";
+import { canonicalVehicleType, vehicleShortLabel } from "../src/lib/vehicle-selection";
 
 const EXECUTIVE = "Executive Saloon (1–4 passengers)";
 const SALOON = "Standard Saloon (1–4 passengers)";
@@ -40,6 +45,10 @@ assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 6);
 assert.equal(isVehicleEnquiryOnly(EXECUTIVE), false);
 assert.equal(isInstantPayVehicle(EXECUTIVE), true);
 assert.equal(canonicalVehicleType("Executive Saloon (1–4 passengers)"), EXECUTIVE);
+assert.equal(vehicleShortLabel(EXECUTIVE), EXECUTIVE_CUSTOMER_NAME);
+assert.equal(EXECUTIVE_CUSTOMER_NAME, "Executive — Mercedes-Benz C-Class or similar");
+assert.equal(EXECUTIVE_CUSTOMER_DESCRIPTION, "Premium executive vehicle");
+assert.match(EXECUTIVE_CUSTOMER_NAME, /or similar/);
 assert.equal(canonicalVehicleType("estate car"), "Estate Car (1–4 passengers)");
 assert.notEqual(canonicalVehicleType(EXECUTIVE), SALOON);
 assert.match(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /Meet & Greet/);
@@ -306,6 +315,35 @@ const quoteCard = readFileSync("src/components/QuoteCard.tsx", "utf8");
 assert.match(quoteCard, /data-executive-included/);
 assert.match(quoteCard, /EXECUTIVE_AIRPORT_PICKUP_INCLUDED/);
 assert.match(quoteCard, /setChooseExecutive\(next === EXECUTIVE_VEHICLE\)/);
+const categories = readFileSync("src/components/QuoteVehicleCategories.tsx", "utf8");
+assert.match(categories, /EXECUTIVE_CUSTOMER_NAME/);
+assert.match(categories, /EXECUTIVE_CUSTOMER_DESCRIPTION/);
+assert.match(categories, /image: SALOON_IMAGE/);
+assert.doesNotMatch(categories, /quote-executive/);
+const terms = readFileSync("src/lib/terms.ts", "utf8");
+assert.match(terms, /Mercedes-Benz C-Class or similar/);
+assert.doesNotMatch(terms, /Executive saloon transfers are available on enquiry/);
+const confirmation = buildCustomerConfirmationEmail({
+  customerName: "Alex",
+  customerEmail: "alex@example.com",
+  mobileNumber: "07700900000",
+  tripLabel: "Belfast to Belfast International",
+  pickupLabel: "Belfast",
+  dropoffLabel: "Belfast International Airport",
+  returnJourney: false,
+  tripDate: "2026-10-20",
+  tripTime: "10:00",
+  passengers: 2,
+  suitcases: 1,
+  vehicle: EXECUTIVE,
+  amountPaid: "£66.00",
+  isAirportTrip: true,
+  isFromAirport: false,
+} as never);
+assert.match(confirmation.text, /Executive — Mercedes-Benz C-Class or similar/);
+assert.match(confirmation.text, /Premium executive vehicle/);
+assert.doesNotMatch(confirmation.text, /Service: SALOON/);
+assert.match(confirmation.html, /Executive — Mercedes-Benz C-Class or similar/);
 const handlers = readFileSync("workers/addresses/src/quote-handlers.ts", "utf8");
 const payment = readFileSync("workers/addresses/src/index.ts", "utf8");
 assert.doesNotMatch(handlers, /body\.executiveMultiplier/);
