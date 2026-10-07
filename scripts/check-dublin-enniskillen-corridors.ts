@@ -8,6 +8,7 @@ import {
   calculateUniversalEstateJourneyFareGbp,
   calculateUniversalSaloonJourneyFareGbp,
   universalDrivingMilesFromKm,
+  UNIVERSAL_ESTATE_PREMIUM_GBP,
 } from "../shared/universal-distance-pricing";
 import {
   calculateDublinCityBeyondAirportQuote,
@@ -132,7 +133,7 @@ assert.equal(toDubS.journeyFareGbp, expectedDubJourney);
 assert.equal(toDubS.airportFixedCostsGbp, DUB_DROP_FIXED);
 assert.equal(toDubS.amount, expectedDubDropS);
 assert.equal(toDubE.amount, expectedDubDropE);
-assert.equal(toDubE.amount - toDubS.amount, 6);
+assert.equal(toDubE.amount - toDubS.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
 console.log(`OK  City Hall → DUB  S £${toDubS.amount} / E £${toDubE.amount}`);
 
 const fromDubS = calculateQuote(hall, "DUB", SALOON, false, {}, CITY_DUB_METRICS, true);
@@ -142,7 +143,7 @@ assert.equal(fromDubS.journeyFareGbp, expectedDubJourney);
 assert.equal(fromDubS.airportFixedCostsGbp, DUB_PICK_FIXED);
 assert.equal(fromDubS.amount, expectedDubPickS);
 assert.equal(fromDubE.amount, expectedDubPickE);
-assert.equal(fromDubE.amount - fromDubS.amount, 6);
+assert.equal(fromDubE.amount - fromDubS.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
 console.log(`OK  DUB → City Hall  S £${fromDubS.amount} / E £${fromDubE.amount}`);
 
 console.log("\n=== Belfast City Centre → Dublin City Centre (must exceed DUB) ===");
@@ -161,7 +162,7 @@ assert.ok(
   cityE.amount > toDubE.amount,
   `Dublin city estate £${cityE.amount} must be > DUB drop-off £${toDubE.amount}`,
 );
-assert.equal(cityE.amount - cityS.amount, 6);
+assert.equal(cityE.amount - cityS.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
 console.log(
   `OK  City Hall → Dublin city centre  S £${cityS.amount} / E £${cityE.amount} (DUB drop-off £${toDubS.amount}/£${toDubE.amount})`,
 );
@@ -172,7 +173,7 @@ assert.ok(hotelS && hotelS.amount > toDubS.amount);
 assert.notEqual(hotelS.amount, toDubS.amount, "Dublin hotel must not receive the DUB airport fare");
 console.log(`OK  City Hall → Dublin hotel  S £${hotelS.amount} (not DUB airport fare)`);
 
-console.log("\n=== BFS → Enniskillen (universal distance, Estate = Saloon + £6) ===");
+console.log("\n=== BFS → Enniskillen (universal distance, Estate = Saloon + configured uplift) ===");
 assert.equal(calculateQuote(enni, "BFS", SALOON), null);
 const expectedEnniS = calculateUniversalSaloonJourneyFareGbp(ENNI_BFS_MILES);
 const expectedEnniE = calculateUniversalEstateJourneyFareGbp(expectedEnniS);
@@ -181,7 +182,7 @@ const bfsEnniE = calculateQuote(enni, "BFS", ESTATE, false, {}, ENNI_BFS_METRICS
 assert.ok(bfsEnniS && bfsEnniE);
 assert.equal(bfsEnniS.amount, expectedEnniS);
 assert.equal(bfsEnniE.amount, expectedEnniE);
-assert.equal(bfsEnniE.amount - bfsEnniS.amount, 6);
+assert.equal(bfsEnniE.amount - bfsEnniS.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
 console.log(
   `OK  BFS → Enniskillen/SWAH  S £${bfsEnniS.amount} / E £${bfsEnniE.amount} (universal ${ENNI_BFS_MILES} mi)`,
 );

@@ -21,6 +21,7 @@ import {
   publicMaxPassengers,
   publicMaxSuitcases,
 } from "../shared/owner-pricing-config";
+import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import {
   ESTATE_VEHICLE,
@@ -303,9 +304,9 @@ check("Approved Minibus pricing unchanged (Estate × 1.55, penny only)", () => {
     assert.equal(result.vehicleType, MINIBUS_VEHICLE);
   }
   const fare = minibusBaseFareFromSaloon(50, onPricing);
-  assert.equal(fare.estateGbp, 56);
-  assert.equal(fare.minibusQuotedGbp, 86.8);
-  assert.equal(fare.minibusExactGbp, 86.8);
+  assert.equal(fare.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
+  assert.equal(fare.minibusQuotedGbp, 93);
+  assert.equal(fare.minibusExactGbp, 93);
 });
 
 check("Preview customer journey seed is isolated to preview hosts", () => {
@@ -397,7 +398,7 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
   assert.equal(estate.ok && estate.vehicleType, ESTATE_VEHICLE);
   assert.equal(chosenMinibus.ok && chosenMinibus.vehicleType, MINIBUS_VEHICLE);
   if (saloon.ok && estate.ok && chosenMinibus.ok) {
-    assert.equal(estate.amount - saloon.amount, 6);
+    assert.equal(estate.amount - saloon.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
     assert.equal(
       chosenMinibus.amount,
       minibusBaseFareFromSaloon(saloon.amount, onPricing).minibusQuotedGbp,

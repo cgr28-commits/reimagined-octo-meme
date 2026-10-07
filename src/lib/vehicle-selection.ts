@@ -56,6 +56,10 @@ export const BUSINESS_CLASS_UNAVAILABLE_ONLINE_MESSAGE =
 export const VEHICLE_UNSUITABLE_MESSAGE =
   "That vehicle cannot accommodate this passenger and luggage combination. Please choose a suitable vehicle.";
 
+/** Shown on a visible but unselectable vehicle card. */
+export const VEHICLE_NOT_SUITABLE_CARD_MESSAGE =
+  "Not suitable for your passenger/luggage selection";
+
 /**
  * Physical fit only. Saloon and Business Class: 1–4 passengers and 0–2 large suitcases.
  * Estate: 1–4 passengers and up to 4 large suitcases. Minibus: up to 7 passengers.
@@ -73,6 +77,39 @@ export function vehicleFitsParty(
   if (pax > MAX_PASSENGERS || bags > ESTATE_MAX_LARGE_SUITCASES) return false;
   if (canonical === ESTATE_VEHICLE) return true;
   return bags <= SALOON_MAX_LARGE_SUITCASES;
+}
+
+/** Every publicly enabled category, including ones that cannot take this party. */
+export function enabledVehicleTypesForQuote(options?: {
+  publicMinibusEnabled?: boolean;
+  publicExecutiveEnabled?: boolean;
+}): VehicleType[] {
+  const publicMinibusEnabled = options?.publicMinibusEnabled === true;
+  const publicExecutiveEnabled = options?.publicExecutiveEnabled !== false;
+  const vehicles: VehicleType[] = [SALOON_VEHICLE, ESTATE_VEHICLE];
+  if (publicExecutiveEnabled) vehicles.push(EXECUTIVE_VEHICLE);
+  if (publicMinibusEnabled) vehicles.push(MINIBUS_VEHICLE);
+  return vehicles;
+}
+
+/**
+ * Keep the current vehicle when it still fits. Otherwise the smallest vehicle
+ * that fits this party, using the same rules as selectVehicleForParty.
+ * Business Class is an upgrade, not the automatic choice.
+ */
+export function keepOrSmallestSuitableVehicle(input: {
+  current?: string | null;
+  passengers: number;
+  suitcases: number;
+  publicMinibusEnabled?: boolean;
+  publicExecutiveEnabled?: boolean;
+}): VehicleType {
+  const current = canonicalVehicleType(input.current);
+  const enabled = enabledVehicleTypesForQuote(input).includes(current);
+  if (enabled && vehicleFitsParty(current, input.passengers, input.suitcases)) {
+    return current;
+  }
+  return selectVehicleForParty(input.passengers, input.suitcases);
 }
 
 export function suitableVehicleTypesForParty(

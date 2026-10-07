@@ -122,8 +122,8 @@ function withOverrides(
 console.log("=== 1. Missing config uses approved defaults ===");
 check("missing config → Saloon / Estate / Minibus / Return / Night / Weekend / public OFF", () => {
   const normalized = normalizeOwnerPricingSettings(null);
-  assert.equal(normalized.estate.upliftGbp, 6);
-  assert.equal(DEFAULT_ESTATE_UPLIFT_GBP, 6);
+  assert.equal(normalized.estate.upliftGbp, 10);
+  assert.equal(DEFAULT_ESTATE_UPLIFT_GBP, 10);
   assert.equal(normalized.minibus.multiplier, 1.55);
   assert.equal(DEFAULT_MINIBUS_MULTIPLIER, 1.55);
   assert.equal(normalized.returnDiscount.rate, 0.05);
@@ -146,7 +146,7 @@ check("corrupt config falls back and never enables public Minibus", () => {
   });
   assert.equal(normalized.minibus.publicEnabled, false);
   assert.equal(normalized.minibus.multiplier, 1.55);
-  assert.equal(normalized.estate.upliftGbp, 6);
+  assert.equal(normalized.estate.upliftGbp, 10);
 });
 
 check("invalid values are rejected, not clamped", () => {
@@ -249,7 +249,7 @@ await checkAsync("preview Origin cannot write production pricing KV", async () =
   const body = (await response.json()) as { code?: string };
   assert.equal(body.code, PREVIEW_PRICING_FORBIDDEN_CODE);
   const stored = await store.get("owner:pricing-settings", "json");
-  assert.equal((stored as { estate?: { upliftGbp?: number } } | null)?.estate?.upliftGbp, 6);
+  assert.equal((stored as { estate?: { upliftGbp?: number } } | null)?.estate?.upliftGbp, 10);
 });
 
 console.log("\n=== 3. Vehicles / defaults unchanged ===");
@@ -267,11 +267,11 @@ check("configurable Estate uplift works", () => {
   assert.equal(estate.journeyFareGbp, saloon.journeyFareGbp + 8);
 });
 
-check("Minibus ×1.55 is penny-rounded only: £56 × 1.55 = £86.80", () => {
+check("Minibus ×1.55 is penny-rounded only: default Estate uplift then nearest penny", () => {
   const from50 = minibusBaseFareFromSaloon(50);
-  assert.equal(from50.estateGbp, 56);
-  assert.equal(from50.minibusExactGbp, 86.8);
-  assert.equal(from50.minibusQuotedGbp, 86.8);
+  assert.equal(from50.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
+  assert.equal(from50.minibusExactGbp, 93);
+  assert.equal(from50.minibusQuotedGbp, 93);
   const priced = calculateUniversalJourneyFareGbp(0, MINIBUS_VEHICLE, {
     saloonFareGbp: 50,
     minibusMultiplier: 1.55,
@@ -521,9 +521,10 @@ check("£100 − 5% + 10% + £6 fixed = £111, not £110.50", () => {
 console.log("\n=== 5. Minibus order and fixed charges ===");
 check("Saloon → Estate +£6 → Minibus ×1.55; Night from Minibus base; fixed not multiplied", () => {
   const preview = previewVehicleFaresFromSaloon(50);
-  assert.equal(preview.estateGbp, 56);
-  assert.equal(preview.minibusExactGbp, 86.8);
-  assert.equal(preview.minibusQuotedGbp, 86.8);
+  assert.equal(preview.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
+  assert.equal(preview.estateUpliftGbp, 10);
+  assert.equal(preview.minibusExactGbp, 93);
+  assert.equal(preview.minibusQuotedGbp, 93);
   const night10 = previewSurchargeOnBase(86.8, 0.1);
   assert.equal(night10.surchargeGbp, 8.68);
   const night20 = previewSurchargeOnBase(86.8, 0.2);

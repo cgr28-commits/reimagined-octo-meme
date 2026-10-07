@@ -551,9 +551,10 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
 /**
  * First completed quote only.
  * Waits so the luggage choice can register, then scrolls once so Vehicle
- * options sits under the sticky header. One scrollTo — not a per-frame glide,
- * which judders and can finish past the heading if the page shifts mid-animation.
- * A touch, swipe, wheel, or scroll key during the pause cancels it.
+ * options sits under the sticky header. One ease-in-out glide of
+ * QUOTE_REVEAL_SCROLL_MS, measured once so it cannot overshoot the heading.
+ * Reduced motion jumps to the same stop. A touch, swipe, wheel, or scroll key
+ * cancels it. Fare updates do not start another scroll.
  */
 export function scheduleQuoteRevealScroll(handlers: {
   onConsume: () => void;
@@ -618,9 +619,35 @@ export function scheduleQuoteRevealScroll(handlers: {
     const root = document.documentElement;
     const previousBehavior = root.style.scrollBehavior;
     root.style.scrollBehavior = "auto";
-    window.scrollTo(0, target);
-    root.style.scrollBehavior = previousBehavior;
-    stopListening();
+    const startY = window.scrollY;
+    const change = target - startY;
+    restoreMotion = () => {
+      root.style.scrollBehavior = previousBehavior;
+    };
+    if (prefersReducedMotion() || Math.abs(change) <= REVEAL_EDGE_TOLERANCE_PX) {
+      if (Math.abs(change) > 1) window.scrollTo(0, target);
+      haltMotion();
+      stopListening();
+      return;
+    }
+    const started = performance.now();
+    const tick = (now: number) => {
+      if (stopped || userInterrupted) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
+      const y = progress >= 1 ? target : Math.round(startY + change * quoteRevealEaseInOut(progress));
+      window.scrollTo(0, y);
+      if (progress >= 1) {
+        haltMotion();
+        stopListening();
+        return;
+      }
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
   };
 
   const begin = () => {

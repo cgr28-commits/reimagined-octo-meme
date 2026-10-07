@@ -13,7 +13,10 @@ import {
   NIGHT_WEEKEND_SURCHARGE_RATE,
 } from "../shared/night-weekend-surcharge";
 import { getAirportLegFixedCostGbp } from "../shared/airport-fixed-costs";
-import { calculateUniversalEstateJourneyFareGbp } from "../shared/universal-distance-pricing";
+import {
+  calculateUniversalEstateJourneyFareGbp,
+  UNIVERSAL_ESTATE_PREMIUM_GBP,
+} from "../shared/universal-distance-pricing";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "../shared/return-journey-discount";
 import { SERVED_AIRPORTS } from "../shared/served-airports";
 import {
@@ -127,11 +130,11 @@ const estateNight = quote(
 );
 assert.ok(estateDay && estateNight);
 assert.equal(estateDay.amount, calculateUniversalEstateJourneyFareGbp(weekdayFare));
-assert.equal(estateDay.amount, weekdayFare + 6);
+assert.equal(estateDay.amount, weekdayFare + UNIVERSAL_ESTATE_PREMIUM_GBP);
 assert.equal(estateNight.amount, roundGbp(estateDay.amount * 1.1));
 assert.equal(roundGbp(estateNight.amount - estateDay.amount), roundGbp(estateDay.amount * 0.1));
 console.log(
-  `OK  Estate £${estateDay.amount} = Saloon £${weekdayFare} + £6 before surcharge; night £${estateNight.amount}`,
+  `OK  Estate £${estateDay.amount} = Saloon £${weekdayFare} + £${UNIVERSAL_ESTATE_PREMIUM_GBP} before surcharge; night £${estateNight.amount}`,
 );
 
 console.log("\n=== Airport pickup vs drop-off (BFS, no fixed costs) ===");

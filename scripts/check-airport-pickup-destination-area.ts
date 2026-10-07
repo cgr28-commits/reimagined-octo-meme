@@ -27,6 +27,7 @@ import { calculateQuote } from "../src/lib/quote";
 import { getReturnJourneyFare } from "../src/lib/point-to-point-premium";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import { roundGbp } from "../shared/gbp";
+import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
 import {
   airportPickupDestinationNeedsManualQuote,
   needsManualQuoteApproval,
@@ -448,14 +449,15 @@ async function main() {
     assert.match(sent[0], /£204/);
   });
 
-  console.log("\n=== Fare rules unchanged (Estate +£6, 5% return) ===\n");
+  console.log("\n=== Fare rules unchanged (Estate configured uplift, 5% return) ===\n");
 
-  await check("Estate remains exactly £6 more than Saloon on BHD → Markethill", () => {
+  await check("Estate remains the configured uplift more than Saloon on BHD → Markethill", () => {
     const saloon = calculateQuote(markethill.formattedAddress, "BHD", SALOON, false, {}, METRICS, true);
     const estate = calculateQuote(markethill.formattedAddress, "BHD", ESTATE, false, {}, METRICS, true);
     assert.ok(saloon && estate);
-    assert.equal(estate.amount, saloon.amount + 6);
-    assert.equal(estate.vehicleAdjustment, 6);
+    assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
+    assert.equal(estate.amount, saloon.amount + UNIVERSAL_ESTATE_PREMIUM_GBP);
+    assert.equal(estate.vehicleAdjustment, UNIVERSAL_ESTATE_PREMIUM_GBP);
   });
 
   await check("Return journey keeps the 5% discount on BHD → Markethill", () => {

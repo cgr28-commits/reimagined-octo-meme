@@ -24,6 +24,7 @@ import { SERVED_AIRPORTS } from "../shared/served-airports";
 import {
   calculateUniversalSaloonJourneyFareGbp,
   calculateUniversalEstateJourneyFareGbp,
+  UNIVERSAL_ESTATE_PREMIUM_GBP,
 } from "../shared/universal-distance-pricing";
 import { roundGbp } from "../shared/gbp";
 
@@ -239,25 +240,25 @@ check("BHD → LDY A2A: BHD pickup and LDY drop-off are both mandatory", () => {
   assert.equal(fees.totalAppliedGbp, 5);
 });
 
-check("Estate Dublin = Saloon + £6; toll + parking compose correctly", () => {
+check("Estate Dublin = Saloon + configured uplift; toll + parking compose correctly", () => {
   const saloonDrop = calculateQuote(CITY, "DUB", S, false, {}, DUB_M98, false)!;
   const estateDrop = calculateQuote(CITY, "DUB", E, false, {}, DUB_M98, false)!;
   assert.equal(saloonDrop.journeyFareGbp, 204);
   assert.equal(
     estateDrop.journeyFareGbp,
     calculateUniversalEstateJourneyFareGbp(204),
-  ); // 210
-  assert.equal(estateDrop.journeyFareGbp! - saloonDrop.journeyFareGbp!, 6);
+  );
+  assert.equal(estateDrop.journeyFareGbp! - saloonDrop.journeyFareGbp!, UNIVERSAL_ESTATE_PREMIUM_GBP);
   assert.equal(saloonDrop.airportFixedCostsGbp, 4);
   assert.equal(estateDrop.airportFixedCostsGbp, 4);
   assert.equal(saloonDrop.amount, 208);
-  assert.equal(estateDrop.amount, 214);
+  assert.equal(estateDrop.amount, saloonDrop.amount + UNIVERSAL_ESTATE_PREMIUM_GBP);
   const saloonPick = calculateQuote(CITY, "DUB", S, false, {}, DUB_M98, true)!;
   const estatePick = calculateQuote(CITY, "DUB", E, false, {}, DUB_M98, true)!;
   assert.equal(saloonPick.airportFixedCostsGbp, 9);
   assert.equal(estatePick.airportFixedCostsGbp, 9);
   assert.equal(saloonPick.amount, 213);
-  assert.equal(estatePick.amount, 219);
+  assert.equal(estatePick.amount, saloonPick.amount + UNIVERSAL_ESTATE_PREMIUM_GBP);
 });
 
 check("Labels", () => {

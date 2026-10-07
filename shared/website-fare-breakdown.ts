@@ -2,7 +2,7 @@
  * Authoritative public-website fare breakdown for display + SumUp parity.
  *
  * Exact order (do not reorder):
- * 1. Base journey/vehicle fare per leg (Estate +£6 already in that fare)
+ * 1. Base journey/vehicle fare per leg (configured Estate uplift already in that fare)
  * 2. Combine outbound + return BASE fares
  * 3. 5% return-journey discount on that BASE journey total only
  * 4. Night & Weekend Surcharge on each qualifying leg, from the original

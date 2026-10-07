@@ -7,6 +7,7 @@ import { calculateQuote, matchAreaFromAddress } from "../src/lib/quote";
 import {
   calculateUniversalSaloonJourneyFareGbp,
   calculateUniversalEstateJourneyFareGbp,
+  UNIVERSAL_ESTATE_PREMIUM_GBP,
 } from "../shared/universal-distance-pricing";
 import {
   ESTATE_VEHICLE,
@@ -41,9 +42,9 @@ console.log(`OK  BHD ↔ City Hall saloon £${city.amount} at ~${CITY_MILES} mi`
 
 const estateCity = bhd(cityHall, ESTATE);
 assert.ok(estateCity);
-assert.equal(estateCity.amount, 35);
-assert.equal(estateCity.vehicleAdjustment, 6);
-console.log(`OK  City Hall estate £${estateCity.amount} (Saloon + £6)`);
+assert.equal(estateCity.amount, city.amount + UNIVERSAL_ESTATE_PREMIUM_GBP);
+assert.equal(estateCity.vehicleAdjustment, UNIVERSAL_ESTATE_PREMIUM_GBP);
+console.log(`OK  City Hall estate £${estateCity.amount} (Saloon + configured uplift)`);
 
 console.log("\n=== No metrics → no zone fallback ===");
 assert.equal(
@@ -57,7 +58,7 @@ assert.equal(selectVehicleForParty(2, 2), SALOON);
 assert.equal(selectVehicleForParty(2, 3), ESTATE);
 assert.equal(
   calculateUniversalEstateJourneyFareGbp(calculateUniversalSaloonJourneyFareGbp(4)),
-  35,
+  calculateUniversalSaloonJourneyFareGbp(4) + UNIVERSAL_ESTATE_PREMIUM_GBP,
 );
 
 console.log("\nAll BHD city-centre universal checks passed.");

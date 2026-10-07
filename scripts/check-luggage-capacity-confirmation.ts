@@ -34,6 +34,7 @@ import {
   publicMaxPassengers,
   publicMaxSuitcases,
 } from "../shared/owner-pricing-config";
+import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
 import {
   ESTATE_VEHICLE,
@@ -380,9 +381,9 @@ async function main() {
 
   check("17. Minibus pricing remains unchanged", () => {
     const fare = minibusBaseFareFromSaloon(50, onPricing);
-    assert.equal(fare.estateGbp, 56);
-    assert.equal(fare.minibusQuotedGbp, 86.8);
-    assert.equal(fare.minibusExactGbp, 86.8);
+    assert.equal(fare.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
+    assert.equal(fare.minibusQuotedGbp, 93);
+    assert.equal(fare.minibusExactGbp, 93);
     const hold = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 7, suitcases: 5, pricing: onPricing }),
     );

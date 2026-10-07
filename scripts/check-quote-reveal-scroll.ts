@@ -63,6 +63,15 @@ check("Pause and glide stay in range, and the quote card does not animate", () =
   assert.match(reveal, /haltMotion\(\)/);
   assert.doesNotMatch(reveal, /behavior:\s*"smooth"/);
   assert.doesNotMatch(reveal, /onReveal/);
+  const revealFn = scrollLib.slice(
+    scrollLib.indexOf("export function scheduleQuoteRevealScroll"),
+    scrollLib.indexOf("export function scheduleBookTransferGlide"),
+  );
+  assert.match(revealFn, /quoteRevealEaseInOut/);
+  assert.match(revealFn, /prefersReducedMotion\(\)/);
+  assert.match(revealFn, /progress >= 1 \? target/);
+  assert.match(revealFn, /QUOTE_REVEAL_SCROLL_MS/);
+  assert.doesNotMatch(revealFn, /behavior:\s*"smooth"/);
   const css = fs.readFileSync(path.join(root, "src/app/globals.css"), "utf8");
   assert.doesNotMatch(css, /quote-result-reveal/);
   const showcase = fs.readFileSync(path.join(root, "src/components/QuoteResultShowcase.tsx"), "utf8");
@@ -70,6 +79,11 @@ check("Pause and glide stay in range, and the quote card does not animate", () =
   assert.doesNotMatch(showcase, /quote-result-reveal|entering/);
   const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
   assert.doesNotMatch(card, /quoteResultReveal|quote-result-reveal/);
+  const cardReveal = card.slice(
+    card.indexOf("One results scroll, as soon as the results mount."),
+    card.indexOf("Reset time→Your Journey"),
+  );
+  assert.doesNotMatch(cardReveal, /chooseEstate|chooseExecutive|chooseMinibus/);
 });
 
 const phones = [

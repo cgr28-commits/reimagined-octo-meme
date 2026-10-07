@@ -75,8 +75,10 @@ import {
   EXECUTIVE_VEHICLE,
   formatPassengerChoice,
   formatSuitcaseChoice,
+  keepOrSmallestSuitableVehicle,
   MAX_PUBLIC_SUITCASES,
   requiresMinibus,
+  SALOON_VEHICLE,
   selectVehicleForParty,
   suitableVehicleTypesForParty,
   vehicleFitsParty,
@@ -1043,12 +1045,34 @@ function QuoteCard({
     if (pax == null || suitcases == null) {
       return;
     }
-    const next = getAutoVehicle(pax, suitcases, IS_A2A_PRIMARY);
-    setVehicle((current) => (current === next ? current : next));
-    setChooseMinibus(false);
-    if (!vehicleFitsParty(EXECUTIVE_VEHICLE, pax, suitcases)) setChooseExecutive(false);
-    if (!vehicleFitsParty(ESTATE_VEHICLE, pax, suitcases)) setChooseEstate(false);
-  }, [passengers, suitcases]);
+    const explicit = chooseMinibus
+      ? MINIBUS_VEHICLE_TYPE
+      : chooseExecutive
+        ? EXECUTIVE_VEHICLE
+        : chooseEstate
+          ? ESTATE_VEHICLE
+          : SALOON_VEHICLE;
+    const next = keepOrSmallestSuitableVehicle({
+      current: explicit,
+      passengers: pax,
+      suitcases,
+      publicMinibusEnabled,
+      publicExecutiveEnabled,
+    });
+    if (next === explicit) return;
+    setChooseExecutive(next === EXECUTIVE_VEHICLE);
+    setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
+    setChooseEstate(next === ESTATE_VEHICLE);
+    setVehicle(next);
+  }, [
+    chooseEstate,
+    chooseExecutive,
+    chooseMinibus,
+    passengers,
+    publicExecutiveEnabled,
+    publicMinibusEnabled,
+    suitcases,
+  ]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
   const journeyKind: JourneyKind | null = useMemo(() => {
@@ -6799,9 +6823,11 @@ function QuoteCard({
   function handleQuoteVehicleChoice(next: string) {
     const pax = effectivePartyPassengers(passengers, passengerLimit);
     if (pax == null || suitcases == null || requiresMinibus(pax, suitcases)) return;
+    if (!vehicleFitsParty(next, pax, suitcases)) return;
     setChooseExecutive(next === EXECUTIVE_VEHICLE);
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
     setChooseEstate(next === ESTATE_VEHICLE);
+    setVehicle(next as VehicleType);
   }
 
   function renderQuoteVehicleChoice() {

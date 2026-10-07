@@ -32,6 +32,7 @@ import {
   type ReturnOfferRecord,
 } from "../shared/return-offer";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
 import { buildReturnOfferEmail } from "../shared/return-offer-emails";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -390,12 +391,15 @@ async function run() {
     assert.equal(breakdown.finalAmountPayableGbp, 70);
   });
 
-  await check("Estate +£6 remains in the fare engine before the 5%", () => {
-    const saloon = applyReturnOfferSaving(40);
-    const estate = applyReturnOfferSaving(46);
+  await check("Configured Estate uplift remains in the fare before the 5%", () => {
+    const saloonFare = 40;
+    const estateFare = saloonFare + UNIVERSAL_ESTATE_PREMIUM_GBP;
+    const saloon = applyReturnOfferSaving(saloonFare);
+    const estate = applyReturnOfferSaving(estateFare);
+    assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
     assert.equal(saloon.savingGbp, 2);
-    assert.equal(estate.savingGbp, 2.3);
-    assert.equal(46 - 40, 6);
+    assert.equal(estate.savingGbp, 2.5);
+    assert.equal(estateFare - saloonFare, UNIVERSAL_ESTATE_PREMIUM_GBP);
   });
 
   await check("Direction detection for BHD, DUB, LDY", () => {

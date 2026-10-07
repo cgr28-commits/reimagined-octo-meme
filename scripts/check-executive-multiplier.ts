@@ -41,7 +41,7 @@ const EXECUTIVE = "Executive Saloon (1–4 passengers)";
 const SALOON = "Standard Saloon (1–4 passengers)";
 
 assert.equal(DEFAULT_EXECUTIVE_MULTIPLIER, 1.5);
-assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 6);
+assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
 assert.equal(isVehicleEnquiryOnly(EXECUTIVE), false);
 assert.equal(isInstantPayVehicle(EXECUTIVE), true);
 assert.equal(canonicalVehicleType("Executive Saloon (1–4 passengers)"), EXECUTIVE);
@@ -79,7 +79,7 @@ assert.ok(minimumRetired.journeyFareGbp < 105);
 const saloon = calculateUniversalJourneyFareGbp(14, SALOON);
 const estate = calculateUniversalJourneyFareGbp(14, "Estate Car (1–4 passengers)");
 const minibus = calculateUniversalJourneyFareGbp(14, "Minibus (5–7 passengers)");
-assert.equal(estate.journeyFareGbp, saloon.journeyFareGbp + 6);
+assert.equal(estate.journeyFareGbp, saloon.journeyFareGbp + UNIVERSAL_ESTATE_PREMIUM_GBP);
 assert.equal(minibus.journeyFareGbp, roundGbp(estate.journeyFareGbp * 1.55));
 
 const stored = defaultOwnerPricingSettings() as unknown as Record<string, unknown>;

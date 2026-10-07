@@ -6,7 +6,10 @@ import {
   EXECUTIVE_VEHICLE,
   MINIBUS_VEHICLE,
   SALOON_VEHICLE,
+  enabledVehicleTypesForQuote,
   suitableVehicleTypesForParty,
+  VEHICLE_NOT_SUITABLE_CARD_MESSAGE,
+  vehicleFitsParty,
 } from "@/lib/vehicle-selection";
 import {
   ESTATE_CUSTOMER_DESCRIPTION,
@@ -80,6 +83,10 @@ export default function QuoteVehicleCategories({
   publicMinibusEnabled?: boolean;
   publicExecutiveEnabled?: boolean;
 }) {
+  const enabled = enabledVehicleTypesForQuote({
+    publicMinibusEnabled,
+    publicExecutiveEnabled,
+  });
   const suitable =
     passengers != null && suitcases != null
       ? suitableVehicleTypesForParty(passengers, suitcases, {
@@ -88,7 +95,7 @@ export default function QuoteVehicleCategories({
         })
       : [];
   const options = CATEGORIES.filter((option) =>
-    suitable.some((vehicle) => vehicle === option.vehicle),
+    enabled.some((vehicle) => vehicle === option.vehicle),
   );
   if (options.length === 0) return null;
 
@@ -106,15 +113,26 @@ export default function QuoteVehicleCategories({
         aria-label="Vehicle options for this journey"
       >
         {options.map((option) => {
-          const isSelected = selectedVehicle === option.vehicle;
+          const fits =
+            passengers != null &&
+            suitcases != null &&
+            suitable.some((vehicle) => vehicle === option.vehicle) &&
+            vehicleFitsParty(option.vehicle, passengers, suitcases);
+          const isSelected = fits && selectedVehicle === option.vehicle;
           return (
             <div key={option.id} role="listitem" className="min-w-0">
               <button
                 type="button"
                 data-vehicle-category={option.id}
+                data-vehicle-suitable={fits ? "true" : "false"}
                 aria-pressed={isSelected}
-                onClick={() => onSelectVehicle?.(option.vehicle)}
-                className={`grid h-[4.75rem] w-full grid-cols-[5.75rem_minmax(0,1fr)_1.25rem] items-center gap-x-1.5 rounded-xl border-2 bg-white px-2 text-left text-navy shadow-sm ${
+                aria-disabled={!fits}
+                disabled={!fits}
+                onClick={() => {
+                  if (!fits) return;
+                  onSelectVehicle?.(option.vehicle);
+                }}
+                className={`grid h-[5.85rem] w-full grid-cols-[5.75rem_minmax(0,1fr)_1.25rem] items-center gap-x-1.5 overflow-hidden rounded-xl border-2 bg-white px-2 text-left text-navy shadow-sm disabled:cursor-not-allowed disabled:text-navy disabled:opacity-100 ${
                   isSelected
                     ? "border-[var(--quote-selected-border)]"
                     : "border-navy/20"
@@ -139,7 +157,19 @@ export default function QuoteVehicleCategories({
                     <span className="block text-[0.72rem] font-medium leading-tight text-navy">
                       {option.detail}
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="block text-[0.72rem] leading-tight text-transparent" aria-hidden>
+                      {"\u00a0"}
+                    </span>
+                  )}
+                  <span
+                    className={`block text-[0.65rem] font-semibold leading-tight ${
+                      fits ? "text-transparent" : "text-navy"
+                    }`}
+                    aria-hidden={fits}
+                  >
+                    {VEHICLE_NOT_SUITABLE_CARD_MESSAGE}
+                  </span>
                 </span>
                 {isSelected ? (
                   <span
