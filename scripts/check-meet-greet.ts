@@ -11,7 +11,8 @@ import {
   formatAirportAccessOptionDashboardValue,
   formatAirportAccessOptionOwnerLines,
 } from "../shared/express-drop-off";
-import { ceilCustomerFareToWholePoundGbp, roundGbp } from "../shared/gbp";
+import { roundGbp } from "../shared/gbp";
+import { NIGHT_WEEKEND_SURCHARGE_RATE } from "../shared/night-weekend-surcharge";
 import {
   MEET_GREET_DESCRIPTION,
   MEET_GREET_DRIVER_NOTE,
@@ -88,7 +89,7 @@ function customerTotal(input: {
 }
 
 function wrongSurchargedTotal(vehicleFare: number, rate: number, accessGbp: number, fixedGbp = 0) {
-  return ceilCustomerFareToWholePoundGbp((vehicleFare + accessGbp + fixedGbp) * (1 + rate));
+  return roundGbp((vehicleFare + accessGbp + fixedGbp) * (1 + rate));
 }
 
 const defaults = defaultMeetGreetFees();
@@ -153,17 +154,16 @@ assert.equal(fromAirportReturn.returnAirportAccessChargeGbp, 0);
 assert.equal(fromAirportReturn.meetGreetFeeGbp, 25);
 assert.equal(fromAirportReturn.airportAccessOption, "meet-greet");
 
+assert.equal(NIGHT_WEEKEND_SURCHARGE_RATE, 0.1);
+
 for (const vehicleFare of [SALOON, ESTATE, MINIBUS]) {
   for (const [label, rate, fee] of [
-    ["evening", 0.1, 15],
-    ["night", 0.2, 15],
-    ["weekend-day", 0.1, 15],
-    ["weekend-night", 0.3, 15],
-    ["dublin-evening", 0.1, 25],
+    ["night-weekend", NIGHT_WEEKEND_SURCHARGE_RATE, 15],
+    ["dublin-night-weekend", NIGHT_WEEKEND_SURCHARGE_RATE, 25],
   ] as const) {
     const priced = customerTotal({ vehicleFare, rate, accessGbp: fee, fixedGbp: fee === 25 ? 9 : 0 });
     const surcharge = roundGbp(vehicleFare * rate);
-    const expected = ceilCustomerFareToWholePoundGbp(vehicleFare + surcharge + (fee === 25 ? 9 : 0) + fee);
+    const expected = roundGbp(vehicleFare + surcharge + (fee === 25 ? 9 : 0) + fee);
     assert.equal(priced.nightWeekendSurchargeGbp, surcharge, `${label} ${vehicleFare} surcharge`);
     assert.equal(priced.finalAmountPayableGbp, expected, `${label} ${vehicleFare} total`);
     const surchargedFee = wrongSurchargedTotal(vehicleFare, rate, fee, fee === 25 ? 9 : 0);
@@ -187,11 +187,11 @@ const returnPriced = customerTotal({
 assert.equal(toAirportReturn.meetGreetFeeGbp, 15);
 assert.equal(
   returnPriced.finalAmountPayableGbp,
-  ceilCustomerFareToWholePoundGbp(returnFare + toAirportReturn.airportAccessChargeGbp),
+  roundGbp(returnFare + toAirportReturn.airportAccessChargeGbp),
 );
 assert.notEqual(
   returnPriced.finalAmountPayableGbp,
-  ceilCustomerFareToWholePoundGbp(returnFare + 15 + 15),
+  roundGbp(returnFare + 15 + 15),
 );
 
 const lines = formatAirportAccessOptionCustomerLines({
@@ -257,8 +257,15 @@ if (saved.ok) {
     fees: saved.settings.meetGreet,
   });
   assert.equal(priced.meetGreetFeeGbp, 30);
-  const total = customerTotal({ vehicleFare: SALOON, rate: 0.2, accessGbp: priced.airportAccessChargeGbp });
-  assert.equal(total.finalAmountPayableGbp, ceilCustomerFareToWholePoundGbp(SALOON + roundGbp(SALOON * 0.2) + 30));
+  const total = customerTotal({
+    vehicleFare: SALOON,
+    rate: NIGHT_WEEKEND_SURCHARGE_RATE,
+    accessGbp: priced.airportAccessChargeGbp,
+  });
+  assert.equal(
+    total.finalAmountPayableGbp,
+    roundGbp(SALOON + roundGbp(SALOON * NIGHT_WEEKEND_SURCHARGE_RATE) + 30),
+  );
 }
 
 const rejected = validateOwnerPricingInput({
