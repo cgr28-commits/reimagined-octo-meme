@@ -85,12 +85,12 @@ export default function QuoteVehicleCategories({
   if (options.length === 0) return null;
 
   return (
-    <div className="space-y-1.5" data-quote-vehicle-categories>
-      <p className="form-label mb-0">Vehicle</p>
+    <div className="space-y-2" data-quote-vehicle-categories>
+      <p className="form-label mb-0">Vehicle options</p>
       <div
-        className="grid grid-cols-1 gap-1.5"
+        className="grid grid-cols-1 gap-2"
         role="list"
-        aria-label="Vehicle for this journey"
+        aria-label="Vehicle options for this journey"
       >
         {options.map((option) => {
           const isSelected = selectedVehicle === option.vehicle;
@@ -101,7 +101,7 @@ export default function QuoteVehicleCategories({
                 data-vehicle-category={option.id}
                 aria-pressed={isSelected}
                 onClick={() => onSelectVehicle?.(option.vehicle)}
-                className={`flex min-h-12 w-full min-w-0 items-center gap-2.5 rounded-xl border bg-white px-2.5 py-1.5 text-left text-navy shadow-sm ${
+                className={`flex min-h-[4.5rem] w-full min-w-0 items-center gap-3 rounded-xl border bg-white px-3 py-2 text-left text-navy shadow-sm ${
                   isSelected
                     ? "border-emerald ring-2 ring-emerald/40"
                     : "border-navy/15"
@@ -110,15 +110,17 @@ export default function QuoteVehicleCategories({
                 <Image
                   src={option.image}
                   alt=""
-                  width={88}
-                  height={44}
-                  className="h-9 w-14 shrink-0 object-contain"
+                  width={160}
+                  height={80}
+                  className="h-14 w-[6.5rem] shrink-0 object-contain"
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-tight text-navy">
+                  <span className="block text-[0.95rem] font-semibold leading-tight text-navy">
                     {option.title}
                   </span>
-                  <span className="block text-xs leading-tight text-navy/60">{option.detail}</span>
+                  <span className="mt-0.5 block text-[0.8125rem] leading-snug text-navy/70">
+                    {option.detail}
+                  </span>
                 </span>
                 {isSelected ? (
                   <span

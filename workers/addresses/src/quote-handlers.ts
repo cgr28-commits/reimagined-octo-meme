@@ -174,6 +174,71 @@ function resolveVehicleType(
   };
 }
 
+type CachedQuoteRoute = {
+  metrics: { distanceKm: number; durationMinutes: number };
+  pickup: { lat: number; lng: number } | null;
+  dropoff: { lat: number; lng: number } | null;
+  storedAt: number;
+};
+
+/** Same addresses, another vehicle: reuse the worker route instead of calling OSRM again. */
+const QUOTE_ROUTE_REUSE_MS = 10 * 60 * 1000;
+const quoteRouteCache = new Map<string, CachedQuoteRoute>();
+const quoteRouteInflight = new Map<string, Promise<CachedQuoteRoute | null>>();
+
+function quoteRouteReuseKey(input: {
+  pickupAddress: string;
+  dropoffAddress: string;
+  pickupPlaceId: string | null;
+  dropoffPlaceId: string | null;
+}): string {
+  const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+  return [
+    norm(input.pickupAddress),
+    norm(input.dropoffAddress),
+    input.pickupPlaceId?.trim() ?? "",
+    input.dropoffPlaceId?.trim() ?? "",
+  ].join("\n");
+}
+
+async function resolveProtectedQuoteRoute(input: {
+  pickupAddress: string;
+  dropoffAddress: string;
+  pickupPlaceId: string | null;
+  dropoffPlaceId: string | null;
+  googlePlacesApiKey?: string;
+  getAddressApiKey?: string;
+}): Promise<CachedQuoteRoute | null> {
+  const key = quoteRouteReuseKey(input);
+  const cached = quoteRouteCache.get(key);
+  if (cached && Date.now() - cached.storedAt < QUOTE_ROUTE_REUSE_MS) return cached;
+  const existing = quoteRouteInflight.get(key);
+  if (existing) return existing;
+  const promise = (async () => {
+    const outcome = await resolveWorkerTripRouteMetricsForPayment({
+      pickupAddress: input.pickupAddress,
+      dropoffAddress: input.dropoffAddress,
+      pickupPlaceId: input.pickupPlaceId,
+      dropoffPlaceId: input.dropoffPlaceId,
+      googlePlacesApiKey: input.googlePlacesApiKey,
+      getAddressApiKey: input.getAddressApiKey,
+    });
+    if (!outcome.ok) return null;
+    const resolved: CachedQuoteRoute = {
+      metrics: outcome.metrics,
+      pickup: outcome.pickup ?? null,
+      dropoff: outcome.dropoff ?? null,
+      storedAt: Date.now(),
+    };
+    quoteRouteCache.set(key, resolved);
+    return resolved;
+  })().finally(() => {
+    if (quoteRouteInflight.get(key) === promise) quoteRouteInflight.delete(key);
+  });
+  quoteRouteInflight.set(key, promise);
+  return promise;
+}
+
 export async function handleQuoteCalculateRequest(
   request: Request,
   origin: string | null,
@@ -262,8 +327,19 @@ export async function handleQuoteCalculateRequest(
   let routeMetrics = protectionActive ? null : clientMetrics;
   let serverPickup: { lat: number; lng: number } | null = null;
   let serverDropoff: { lat: number; lng: number } | null = null;
+  let routeReused = false;
   if (protectionActive) {
-    const outcome = await resolveWorkerTripRouteMetricsForPayment({
+    const routeKey = quoteRouteReuseKey({
+      pickupAddress,
+      dropoffAddress,
+      pickupPlaceId,
+      dropoffPlaceId,
+    });
+    const cachedBefore = quoteRouteCache.get(routeKey);
+    routeReused =
+      quoteRouteInflight.has(routeKey) ||
+      (cachedBefore != null && Date.now() - cachedBefore.storedAt < QUOTE_ROUTE_REUSE_MS);
+    const resolved = await resolveProtectedQuoteRoute({
       pickupAddress,
       dropoffAddress,
       pickupPlaceId,
@@ -271,11 +347,11 @@ export async function handleQuoteCalculateRequest(
       googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
       getAddressApiKey: env?.GETADDRESS_API_KEY,
     });
-    if (outcome.ok) {
-      routeMetrics = outcome.metrics;
+    if (resolved) {
+      routeMetrics = resolved.metrics;
       routeMetricsSource = "worker";
-      serverPickup = outcome.pickup ?? null;
-      serverDropoff = outcome.dropoff ?? null;
+      serverPickup = resolved.pickup;
+      serverDropoff = resolved.dropoff;
     }
   } else if (routeMetrics) {
     routeMetricsSource = "client";
@@ -588,6 +664,7 @@ export async function handleQuoteCalculateRequest(
     fromAirport,
     airportCodeSource,
     routeMetricsSource,
+    routeReused,
     routeMiles: miles,
     routeDurationMinutes: Math.round(routeMetrics.durationMinutes * 10) / 10,
     distanceKm: Math.round(routeMetrics.distanceKm * 100) / 100,
@@ -611,6 +688,7 @@ export async function handleQuoteCalculateRequest(
       fromAirport,
       airportCodeSource,
       routeMetricsSource,
+      routeReused,
       returnJourney,
       ownerMode,
       vehicleChoice: resolved.vehicleChoice,

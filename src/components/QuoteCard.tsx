@@ -262,7 +262,6 @@ import {
 import {
   AIRPORT_ACCESS_INCLUDED_BODY,
   AIRPORT_ACCESS_INCLUDED_HEADING,
-  BUSINESS_CLASS_AIRPORT_PICKUP_INCLUDED,
   isExecutiveVehicle,
 } from "../../shared/executive-vehicle";
 import {
@@ -368,6 +367,22 @@ function fieldState(options: {
 }
 
 const ESTATE = "Estate Car (1–4 passengers)" as const;
+
+const BUSINESS_CLASS_PICKUP_INCLUSIONS = [
+  "Meet & Greet inside arrivals",
+  "Personalised name board",
+  "Luggage assistance",
+  "Complimentary bottled water",
+  "Phone charging",
+  "Airport terminal access included",
+] as const;
+
+const BUSINESS_CLASS_DROPOFF_INCLUSIONS = [
+  "Luggage assistance",
+  "Complimentary bottled water",
+  "Phone charging",
+  "Airport terminal access included",
+] as const;
 
 const SELECTOR_MAX_SUITCASES = MAX_PUBLIC_SUITCASES;
 
@@ -901,6 +916,10 @@ function QuoteCard({
   /** Worker quote finished without a fare — only then may the loaded client engine paint. */
   const [serverQuoteUnavailable, setServerQuoteUnavailable] = useState(false);
   const serverQuoteGenRef = useRef(0);
+  const quoteVehicleRef = useRef("");
+  /** Route identity that already has a displayed fare. Vehicle switches reuse it. */
+  const displayedRouteKeyRef = useRef<string | null>(null);
+  const [vehicleFareUpdating, setVehicleFareUpdating] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
@@ -976,6 +995,7 @@ function QuoteCard({
     suitcases,
     vehicle,
   ]);
+  quoteVehicleRef.current = quoteVehicle;
   const isEnquiryOnly = isVehicleEnquiryOnly(quoteVehicle);
   const isRequestQuote = isVehicleRequestQuote(quoteVehicle);
   const showGuidePrice = showsOnlineGuidePrice(quoteVehicle);
@@ -1938,9 +1958,21 @@ function QuoteCard({
     };
     if (!force) {
       const cached = authoritativeFareCacheRef.current.get(fareKeyFor(requestedVehicle));
-      if (cached) {
+      if (cached && requestedVehicle === quoteVehicleRef.current) {
         setServerFareParts(cached);
         setServerQuoteUnavailable(false);
+        setVehicleFareUpdating(false);
+        displayedRouteKeyRef.current = [
+          pickup,
+          dropoff,
+          String(requestedPassengers),
+          String(requestedSuitcases),
+          tripDate.trim(),
+          tripTime.trim(),
+          returnJourney ? "1" : "0",
+          returnDate.trim(),
+          returnTime.trim(),
+        ].join("|");
         loadAlternateFares();
         return true;
       }
@@ -1992,7 +2024,10 @@ function QuoteCard({
           returnTime: returnJourney ? returnTime.trim() : "",
         };
         rememberFare(requestedVehicle, pricedParts);
-        if (requestGen !== serverQuoteGenRef.current) {
+        if (
+          requestGen !== serverQuoteGenRef.current ||
+          requestedVehicle !== quoteVehicleRef.current
+        ) {
           return false;
         }
         if (process.env.NODE_ENV !== "production") {
@@ -2003,6 +2038,18 @@ function QuoteCard({
           });
         }
         setServerFareParts(pricedParts);
+        setVehicleFareUpdating(false);
+        displayedRouteKeyRef.current = [
+          pickup,
+          dropoff,
+          String(requestedPassengers),
+          String(requestedSuitcases),
+          tripDate.trim(),
+          tripTime.trim(),
+          returnJourney ? "1" : "0",
+          returnDate.trim(),
+          returnTime.trim(),
+        ].join("|");
         if (
           Number.isFinite(result.distanceKm) &&
           Number.isFinite(result.durationMinutes) &&
@@ -2046,13 +2093,25 @@ function QuoteCard({
         }
         return true;
       }
-      if (requestGen !== serverQuoteGenRef.current) return false;
+      if (
+        requestGen !== serverQuoteGenRef.current ||
+        requestedVehicle !== quoteVehicleRef.current
+      ) {
+        return false;
+      }
       setServerFareParts(null);
+      setVehicleFareUpdating(false);
       setServerQuoteUnavailable(true);
       return false;
     } catch {
-      if (requestGen !== serverQuoteGenRef.current) return false;
+      if (
+        requestGen !== serverQuoteGenRef.current ||
+        requestedVehicle !== quoteVehicleRef.current
+      ) {
+        return false;
+      }
       setServerFareParts(null);
+      setVehicleFareUpdating(false);
       setServerQuoteUnavailable(true);
       return false;
     }
@@ -2087,10 +2146,24 @@ function QuoteCard({
   ]);
 
   useEffect(() => {
+    quoteVehicleRef.current = quoteVehicle;
     serverQuoteGenRef.current += 1;
+    const routeKey = [
+      pickupAddress.trim(),
+      dropoffAddress.trim(),
+      String(effectivePassengers ?? passengers ?? ""),
+      String(suitcases ?? ""),
+      tripDate.trim(),
+      tripTime.trim(),
+      returnJourney ? "1" : "0",
+      returnDate.trim(),
+      returnTime.trim(),
+    ].join("|");
     if (passengers == null || suitcases == null) {
       setServerFareParts(null);
       setServerQuoteUnavailable(false);
+      setVehicleFareUpdating(false);
+      displayedRouteKeyRef.current = null;
       return;
     }
     const cached = authoritativeFareCacheRef.current.get(
@@ -2110,8 +2183,17 @@ function QuoteCard({
     if (cached) {
       setServerFareParts(cached);
       setServerQuoteUnavailable(false);
+      setVehicleFareUpdating(false);
+      displayedRouteKeyRef.current = routeKey;
       return;
     }
+    if (displayedRouteKeyRef.current === routeKey) {
+      setVehicleFareUpdating(true);
+      setServerQuoteUnavailable(false);
+      return;
+    }
+    displayedRouteKeyRef.current = null;
+    setVehicleFareUpdating(false);
     setServerFareParts(null);
     setServerQuoteUnavailable(false);
   }, [
@@ -5390,25 +5472,41 @@ function QuoteCard({
     );
   }
 
-  function renderExecutivePickupIncluded(tone: "on-dark" | "on-light") {
-    const light = tone === "on-light";
+  function renderBusinessClassInclusions() {
+    if (!isExecutiveVehicle(quoteVehicle)) return null;
+    const pickupLegs = listAirportPickupLegs({
+      airportCode: effectiveAirportCode || null,
+      fromAirport: isFromAirport,
+      returnJourney,
+      isAirportToAirport: isAirportToAirportJourney,
+      pickupAirportCode,
+      dropoffAirportCode,
+    });
+    const hasPickup = pickupLegs.length > 0;
+    const airportDropOff =
+      !hasPickup &&
+      (isAirportTrip || isAirportToAirportJourney || Boolean(effectiveAirportCode));
+    if (!hasPickup && !airportDropOff) return null;
+    const items = hasPickup
+      ? BUSINESS_CLASS_PICKUP_INCLUSIONS
+      : BUSINESS_CLASS_DROPOFF_INCLUSIONS;
     return (
       <div
-        className={`mt-3 rounded-xl border px-3 py-2.5 text-left ${
-          light ? "border-navy/15 bg-navy/[0.03]" : "border-emerald/30 bg-emerald/10"
-        }`}
-        data-executive-included
+        className="mt-2 rounded-xl border border-navy/10 bg-navy/[0.03] px-3 py-2 text-left"
+        data-business-class-inclusions
+        data-business-class-pickup={hasPickup ? "true" : "false"}
       >
-        <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
-          Included in your Business Class price
-        </p>
-        <p
-          className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
-            light ? "text-[#475569]" : "text-white/80"
-          }`}
-        >
-          {BUSINESS_CLASS_AIRPORT_PICKUP_INCLUDED}
-        </p>
+        <p className="text-xs font-semibold text-navy">Included with Business Class</p>
+        <ul className="mt-1 grid grid-cols-1 gap-y-0.5 min-[390px]:grid-cols-2 min-[390px]:gap-x-3">
+          {items.map((item) => (
+            <li key={item} className="text-[11px] leading-snug text-navy/80">
+              <span className="text-emerald-dark" aria-hidden>
+                ✓{" "}
+              </span>
+              {item}
+            </li>
+          ))}
+        </ul>
       </div>
     );
   }
@@ -5419,16 +5517,6 @@ function QuoteCard({
   ) {
     if (testChargeAmount !== null) return null;
     const executivePickup = isExecutiveVehicle(quoteVehicle);
-    const pickupLegs = listAirportPickupLegs({
-      airportCode: effectiveAirportCode || null,
-      fromAirport: isFromAirport,
-      returnJourney,
-      isAirportToAirport: isAirportToAirportJourney,
-      pickupAirportCode,
-      dropoffAirportCode,
-    });
-    const executiveIncluded =
-      executivePickup && pickupLegs.length > 0 ? renderExecutivePickupIncluded(tone) : null;
     const dublinPickups = listAirportPickupLegs({
       airportCode: effectiveAirportCode || null,
       fromAirport: isFromAirport,
@@ -5444,14 +5532,13 @@ function QuoteCard({
         ),
     );
     if (!expressSelection.eligible) {
-      if (executiveIncluded) return executiveIncluded;
       if (uncoveredDublin.length === 0) return renderRequiredAirportAccessNotes(tone);
       return renderMeetGreetOnlyChoice(mode, tone, uncoveredDublin);
     }
     const legs = expressSelection.legs.filter(
       (leg) => leg.airportCode && !(executivePickup && leg.service === "pick-up"),
     );
-    if (legs.length === 0) return executiveIncluded;
+    if (legs.length === 0) return renderMeetGreetOnlyChoice(mode, tone, []);
     const light = tone === "on-light";
     const fareTotalGbp =
       paymentAmount != null && Number.isFinite(paymentAmount)
@@ -5515,12 +5602,7 @@ function QuoteCard({
       </div>
     );
     if (uncoveredDublin.length === 0 || executivePickup) {
-      return (
-        <>
-          {executiveIncluded}
-          {expressChoices}
-        </>
-      );
+      return expressChoices;
     }
     return (
       <>
@@ -6580,6 +6662,8 @@ function QuoteCard({
           ? submitInProgressLabel
           : authoritativeQuoteFailed
             ? "Price unavailable"
+            : vehicleFareUpdating && instantPriceExpected && !mayPaintNumericFare
+            ? "Updating price…"
             : instantPriceExpected && !mayPaintNumericFare
             ? "Calculating your transfer price…"
             : showTransferCta
@@ -6695,12 +6779,16 @@ function QuoteCard({
         : authoritativeFareReady
           ? (pricedFare?.totalGbp ?? null)
           : null);
+    const priceUpdating =
+      vehicleFareUpdating && !authoritativeQuoteFailed && authoritativeTotal == null;
     const amountLabel =
       authoritativeQuoteFailed
         ? AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE
         : authoritativeTotal != null && Number.isFinite(authoritativeTotal)
           ? formatQuote(authoritativeTotal)
-          : "Calculating…";
+          : priceUpdating
+            ? "Updating price…"
+            : "Calculating…";
     return (
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
@@ -6709,6 +6797,8 @@ function QuoteCard({
         suitcases={suitcases as number}
         priceLabel={appliedPersonalQuote ? "Personal quoted fare" : "Your transfer price"}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
+        priceUpdating={priceUpdating}
+        businessClassInclusions={renderBusinessClassInclusions()}
         priceUnavailable={authoritativeQuoteFailed}
         onRetryPrice={() => {
           void refreshAuthoritativeServerQuote(true);

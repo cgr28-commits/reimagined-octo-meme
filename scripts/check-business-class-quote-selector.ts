@@ -24,6 +24,7 @@ import {
   vehicleFitsParty,
 } from "../src/lib/vehicle-selection";
 import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
+import { ESTATE_CUSTOMER_DESCRIPTION } from "../shared/vehicle-display";
 
 const root = process.cwd();
 function read(rel: string): string {
@@ -218,7 +219,12 @@ assert.equal(a2aAccess.expressDropOffFee, 0);
 const categories = read("src/components/QuoteVehicleCategories.tsx");
 const showcase = read("src/components/QuoteResultShowcase.tsx");
 const card = read("src/components/QuoteCard.tsx");
+assert.equal(ESTATE_CUSTOMER_DESCRIPTION, "Extra luggage space and comfort");
+assert.equal(vehicleFitsParty(EXECUTIVE_VEHICLE, 4, 2), true);
+assert.equal(vehicleFitsParty(EXECUTIVE_VEHICLE, 4, 4), false);
 assert.match(categories, /bg-white/);
+assert.match(categories, /Vehicle options/);
+assert.doesNotMatch(categories, /Recommended/);
 assert.match(categories, /Business Class|EXECUTIVE_CUSTOMER_NAME/);
 assert.match(categories, /quote-business-class\.webp/);
 assert.match(read("src/components/QuoteResultShowcase.tsx"), /quote-business-class\.webp/);
@@ -229,7 +235,15 @@ assert.ok(showcase.indexOf("{bookButton}") < showcase.indexOf("data-quote-result
 assert.match(card, /setChooseExecutive\(next === EXECUTIVE_VEHICLE\)/);
 assert.match(card, /setChooseMinibus\(next === MINIBUS_VEHICLE_TYPE\)/);
 assert.match(card, /terminalAccessIncluded/);
-assert.match(card, /Included in your Business Class price/);
+assert.match(card, /Included with Business Class/);
+assert.match(card, /Meet & Greet inside arrivals/);
+assert.match(card, /Updating price…/);
+assert.match(card, /quoteVehicleRef/);
+const dropoffStart = card.indexOf("BUSINESS_CLASS_DROPOFF_INCLUSIONS");
+const dropoffInclusions = card.slice(dropoffStart, dropoffStart + 320);
+assert.doesNotMatch(dropoffInclusions, /Meet & Greet/);
+assert.match(read("workers/addresses/src/quote-handlers.ts"), /quoteRouteInflight/);
+assert.match(read("workers/addresses/src/index.ts"), /Never trust body\.routeMetrics/);
 assert.doesNotMatch(read("src/lib/terms.ts"), /Mercedes|Lexus|Audi|C-Class/);
 assert.doesNotMatch(read("src/lib/data.ts"), /Mercedes-Benz C-Class/);
 assert.doesNotMatch(read("src/components/ExpressDropOffSelector.tsx"), /Add Meet & Greet/);

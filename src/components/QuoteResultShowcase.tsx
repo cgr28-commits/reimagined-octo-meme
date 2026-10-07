@@ -27,6 +27,10 @@ type QuoteResultShowcaseProps = {
   formattedPrice: string;
   airportAccess?: ReactNode;
   bookButton: ReactNode;
+  /** Compact Business Class inclusions, directly under the book button. */
+  businessClassInclusions?: ReactNode;
+  /** Vehicle changed; keep the card and wait for the new authoritative price. */
+  priceUpdating?: boolean;
   /** Shown only when the first displayed price already includes the 10%. */
   surchargeNote?: string | null;
   /** High passenger + luggage load — fare shown, payment held. */
@@ -73,6 +77,8 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       formattedPrice,
       airportAccess,
       bookButton,
+      businessClassInclusions = null,
+      priceUpdating = false,
       surchargeNote = null,
       capacityConfirmation = false,
       priceUnavailable = false,
@@ -112,19 +118,19 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       id="quote-selected-vehicle-card"
       data-quote-selected-vehicle-card
       data-quote-result-card
-      className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-3 py-3 text-navy shadow-[0_12px_32px_rgba(2,10,24,0.22)] sm:px-5 sm:py-6"
+      className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-3 py-2.5 text-navy shadow-[0_12px_32px_rgba(2,10,24,0.22)] sm:px-5 sm:py-5"
     >
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-6">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-5">
         <div className="min-w-0 text-center lg:text-left">
           <p
             data-quote-result-heading
-            className="font-sans text-[1.35rem] font-bold leading-none tracking-[-0.02em] text-navy sm:text-[1.85rem]"
+            className="font-sans text-lg font-bold leading-none tracking-[-0.02em] text-navy sm:text-2xl"
           >
             {vehicleLabel}
           </p>
           <p className="sr-only">Vehicle for this journey</p>
-          <p className="mt-1 text-xs text-[#475569]">{supporting}</p>
-          <div className="mx-auto mt-1 w-full max-w-[280px] sm:max-w-none lg:mx-0 lg:max-w-[460px]">
+          <p className="mt-0.5 text-xs text-[#475569]">{supporting}</p>
+          <div className="mx-auto mt-0.5 w-full max-w-[240px] sm:max-w-[320px] lg:mx-0 lg:max-w-[380px]">
             <Image
               src={vehicleImage}
               alt={
@@ -138,12 +144,12 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
               }
               width={1400}
               height={700}
-              className="mx-auto h-auto max-h-28 w-full object-contain sm:max-h-none"
-              sizes="(max-width: 640px) 70vw, 460px"
+              className="mx-auto h-auto max-h-[4.75rem] w-full object-contain sm:max-h-36 lg:max-h-44"
+              sizes="(max-width: 640px) 60vw, 380px"
               priority
             />
           </div>
-          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-medium text-navy/80 min-[390px]:flex-nowrap lg:justify-start">
+          <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-xs font-medium text-navy/80 min-[390px]:flex-nowrap lg:justify-start">
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
               <PassengerIcon />
               {passengerLabel}
@@ -155,7 +161,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           </div>
         </div>
 
-        <div className="mt-4 min-w-0 text-center lg:mt-0 lg:text-left">
+        <div className="mt-2 min-w-0 text-center lg:mt-0 lg:text-left">
           <div data-quote-result-price>
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-dark">
             {priceLabel}
@@ -178,14 +184,16 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             </div>
           ) : (
           <p
-            data-quote-fare-status={formattedPrice.startsWith("£") ? "ready" : "pending"}
-            className="mt-1 flex min-h-[clamp(3.5rem,1.6rem+10vw,4.5rem)] items-center justify-center lg:min-h-[clamp(4rem,3rem+2vw,5rem)] lg:justify-start"
+            data-quote-fare-status={
+              priceUpdating ? "updating" : formattedPrice.startsWith("£") ? "ready" : "pending"
+            }
+            className="mt-0.5 flex min-h-9 items-center justify-center lg:justify-start"
           >
             <span
               className={
-                formattedPrice.startsWith("£")
-                  ? "font-sans text-[clamp(3.5rem,1.6rem+10vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-navy tabular-nums lg:text-[clamp(4rem,3rem+2vw,5rem)]"
-                  : "font-sans text-[clamp(2.65rem,1.22rem+7.6vw,3.4rem)] font-bold leading-tight tracking-[-0.03em] text-navy/55 lg:text-[clamp(3rem,2.2rem+1.4vw,3.4rem)]"
+                priceUpdating || !formattedPrice.startsWith("£")
+                  ? "font-sans text-sm font-semibold leading-tight text-navy/70"
+                  : "font-sans text-[clamp(1.85rem,1rem+4.2vw,2.35rem)] font-extrabold leading-none tracking-[-0.04em] text-navy tabular-nums"
               }
             >
               {formattedPrice}
@@ -195,20 +203,17 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           </div>
           {surchargeNote ? (
             <p
-              className="mt-2 text-xs font-semibold text-emerald-dark"
+              className="mt-1 text-xs font-semibold text-emerald-dark"
               data-night-weekend-surcharge-badge
             >
               {surchargeNote}
             </p>
           ) : null}
+          <div className="mt-2">{bookButton}</div>
           {priceUnavailable ? null : (
-            <p className="mt-1.5 text-sm font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
+            <p className="mt-1.5 text-xs font-semibold text-emerald-dark">✓ Fixed price. No surprises.</p>
           )}
-
-          <div className="mt-3">{bookButton}</div>
-          <p className="mt-2 text-[11px] leading-snug text-[#475569]">
-            🔒 Secure booking · Takes around 2 minutes
-          </p>
+          {businessClassInclusions}
           {capacityConfirmation ? (
             <div
               className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left"
@@ -223,12 +228,15 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             </div>
           ) : null}
           {airportAccess ? (
-            <div className="mt-3 text-left" data-quote-result-airport-access>
+            <div className="mt-2 text-left" data-quote-result-airport-access>
               {airportAccess}
             </div>
           ) : null}
+          <p className="mt-2 text-[11px] leading-snug text-[#475569]">
+            🔒 Secure booking · Takes around 2 minutes
+          </p>
 
-          <ul className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-medium leading-snug text-navy/85">
+          <ul className="mt-2 grid grid-cols-3 gap-2 text-center text-xs font-medium leading-snug text-navy/85">
             <Benefit icon="card">
               {capacityConfirmation ? "We'll confirm first" : "Secure payment"}
               <span className="block font-normal text-[#475569]">

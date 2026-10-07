@@ -6,7 +6,11 @@ import { withBasePath } from "@/lib/paths";
 import DeviceBookingCta from "./DeviceBookingCta";
 import SectionHeading from "./SectionHeading";
 import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
-import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
+import {
+  ESTATE_CUSTOMER_DESCRIPTION,
+  MINIBUS_CUSTOMER_DESCRIPTION,
+  MINIBUS_CUSTOMER_NAME,
+} from "../../shared/vehicle-display";
 
 const VEHICLE_WIDTHS = [800, 1536] as const;
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
@@ -22,7 +26,7 @@ function vehicleSrcSet(ext: "avif" | "webp"): string {
 
 const FLEET = [
   { id: "saloon", title: "Saloon", detail: "1–4 passengers", image: SALOON_IMAGE },
-  { id: "estate", title: "Estate or similar larger vehicle", detail: "Extra luggage space", image: ESTATE_IMAGE },
+  { id: "estate", title: "Estate or similar larger vehicle", detail: ESTATE_CUSTOMER_DESCRIPTION, image: ESTATE_IMAGE },
   {
     id: "executive",
     title: "Business Class",

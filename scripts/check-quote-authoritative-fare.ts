@@ -107,8 +107,8 @@ const resultsBlock = card.slice(
 assert.doesNotMatch(resultsBlock, /mayPaintNumericFare|authoritativeFareReady/);
 assert.match(card, /: "Calculating…"/);
 assert.match(showcase, /formattedPrice\.startsWith\("£"\) \? "ready" : "pending"/);
-assert.match(showcase, /min-h-\[clamp\(3\.5rem,1\.6rem\+10vw,4\.5rem\)\]/);
-assert.match(showcase, /text-\[clamp\(2\.65rem,1\.22rem\+7\.6vw,3\.4rem\)\]/);
+assert.match(showcase, /text-\[clamp\(1\.85rem,1rem\+4\.2vw,2\.35rem\)\]/);
+assert.match(showcase, /priceUpdating \? "updating"/);
 const scrollEffect = card.slice(
   card.indexOf("One results scroll, as soon as the results mount."),
   card.indexOf("Reset time→Your Journey"),
