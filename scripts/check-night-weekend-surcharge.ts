@@ -31,7 +31,7 @@ import {
 } from "../src/lib/quote";
 import { ESTATE_VEHICLE, SALOON_VEHICLE } from "../src/lib/vehicle-selection";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
-import { formatGbpAmount, roundGbp } from "../shared/gbp";
+import { ceilCustomerFareToWholePoundGbp, formatGbpAmount, roundGbp } from "../shared/gbp";
 
 const root = path.resolve(import.meta.dirname, "..");
 const cityHall = "Belfast City Hall, Belfast BT1 5GS";
@@ -71,8 +71,12 @@ console.log("\n=== Window boundaries (Europe/London) ===");
 const windows: Array<[string, string, boolean, string]> = [
   ["2026-08-24", "05:59", true, "Monday 05:59"],
   ["2026-08-24", "06:00", false, "Monday 06:00"],
-  ["2026-08-19", "21:59", false, "Wednesday 21:59"],
+  ["2026-08-19", "19:59", false, "Wednesday 19:59"],
+  ["2026-08-19", "20:00", true, "Wednesday 20:00"],
+  ["2026-08-19", "21:59", true, "Wednesday 21:59"],
   ["2026-08-19", "22:00", true, "Wednesday 22:00"],
+  ["2026-08-19", "22:59", true, "Wednesday 22:59"],
+  ["2026-08-19", "23:00", true, "Wednesday 23:00"],
   ["2026-08-19", "23:59", true, "Wednesday 23:59"],
   ["2026-08-22", "00:00", true, "Saturday 00:00"],
   ["2026-08-22", "12:00", true, "Saturday 12:00"],
@@ -102,17 +106,18 @@ const night = quote({ outboundDate: "2026-08-19", outboundTime: "22:00" });
 assert.ok(night);
 assert.equal(night.premiumApplied, true);
 assert.equal(night.nightWeekendSurchargeGbp, roundGbp(weekdayFare * 0.1));
-assert.equal(night.amount, roundGbp(weekdayFare * 1.1));
-assert.equal(night.amount, 48.4);
+assert.equal(night.journeyFareGbp, roundGbp(weekdayFare * 1.1));
+assert.equal(night.amount, ceilCustomerFareToWholePoundGbp(weekdayFare * 1.1));
+assert.equal(night.amount, 49);
 console.log(
-  `OK  weekday night Saloon £${formatGbpAmount(night.amount)} (base £${weekdayFare} + 10%)`,
+  `OK  weekday 22:00 Evening Saloon £${formatGbpAmount(night.amount)} (base £${weekdayFare} + 10%, then whole pound)`,
 );
 
 const saturday = quote({ outboundDate: "2026-08-22", outboundTime: "12:00" });
 const sunday = quote({ outboundDate: "2026-08-23", outboundTime: "12:00" });
 assert.ok(saturday && sunday);
-assert.equal(saturday.amount, 48.4);
-assert.equal(sunday.amount, 48.4);
+assert.equal(saturday.amount, 49);
+assert.equal(sunday.amount, 49);
 console.log(
   `OK  Saturday £${formatGbpAmount(saturday.amount)}; Sunday £${formatGbpAmount(sunday.amount)}`,
 );
@@ -128,8 +133,9 @@ const estateNight = quote(
 assert.ok(estateDay && estateNight);
 assert.equal(estateDay.amount, calculateUniversalEstateJourneyFareGbp(weekdayFare));
 assert.equal(estateDay.amount, weekdayFare + 10);
-assert.equal(estateNight.amount, roundGbp(estateDay.amount * 1.1));
-assert.equal(roundGbp(estateNight.amount - estateDay.amount), roundGbp(estateDay.amount * 0.1));
+assert.equal(estateNight.journeyFareGbp, roundGbp(estateDay.amount * 1.1));
+assert.equal(estateNight.nightWeekendSurchargeGbp, roundGbp(estateDay.amount * 0.1));
+assert.equal(estateNight.amount, ceilCustomerFareToWholePoundGbp(estateDay.amount * 1.1));
 console.log(
   `OK  Estate £${estateDay.amount} = Saloon £${weekdayFare} + £6 before surcharge; night £${estateNight.amount}`,
 );
@@ -147,22 +153,29 @@ const wednesday2159 = quote({ outboundDate: "2026-08-19", outboundTime: "21:59" 
 const thursday0559 = quote({ outboundDate: "2026-08-20", outboundTime: "05:59" });
 const thursday0600 = quote({ outboundDate: "2026-08-20", outboundTime: "06:00" });
 assert.ok(wednesday2159 && thursday0559 && thursday0600);
-assert.equal(wednesday2159.amount, 44, "E. Weekday 21:59 — no surcharge");
-assert.equal(wednesday2159.nightWeekendSurchargeGbp, 0);
-assert.equal(thursday0559.amount, 48.4, "C. Weekday 05:59 — surcharge");
-assert.equal(thursday0559.nightWeekendSurchargeGbp, 4.4);
+assert.equal(wednesday2159.amount, 49, "E. Weekday 21:59 — Evening 10%");
+assert.equal(wednesday2159.nightWeekendSurchargeGbp, 4.4);
+assert.equal(thursday0559.amount, 53, "C. Weekday 05:59 — Night 20%");
+assert.equal(thursday0559.nightWeekendSurchargeGbp, 8.8);
 assert.equal(thursday0600.amount, 44, "D. Weekday 06:00 — no surcharge");
 assert.equal(thursday0600.nightWeekendSurchargeGbp, 0);
 console.log("OK  A weekday day / B 22:00 / C 05:59 / D 06:00 / E 21:59");
 
 console.log("\n=== H–K. Return: 5% on BASE fares, then +10% of original base per qualifying leg ===");
 assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0.05);
-const returnNeitherExpected = roundGbp(weekdayFare * 2 * 0.95); // 83.60
-const returnOneExpected = roundGbp(returnNeitherExpected + weekdayFare * 0.1); // 88.00
-const returnBothExpected = roundGbp(returnNeitherExpected + weekdayFare * 0.2); // 92.40
-assert.equal(returnNeitherExpected, 83.6);
-assert.equal(returnOneExpected, 88);
-assert.equal(returnBothExpected, 92.4);
+const returnNeitherPrecise = roundGbp(weekdayFare * 2 * 0.95); // 83.60
+const returnNightOnePrecise = roundGbp(returnNeitherPrecise + weekdayFare * 0.2); // 23:00 Night 20%
+const returnWeekendOnePrecise = roundGbp(returnNeitherPrecise + weekdayFare * 0.1); // 88.00
+const returnBothPrecise = roundGbp(returnNeitherPrecise + weekdayFare * 0.2); // 92.40
+const returnNeitherExpected = ceilCustomerFareToWholePoundGbp(returnNeitherPrecise);
+const returnOneExpected = ceilCustomerFareToWholePoundGbp(returnNightOnePrecise);
+const returnBothExpected = ceilCustomerFareToWholePoundGbp(returnBothPrecise);
+assert.equal(returnNeitherPrecise, 83.6);
+assert.equal(returnNeitherExpected, 84);
+assert.equal(returnWeekendOnePrecise, 88);
+assert.equal(returnOneExpected, 93);
+assert.equal(returnBothPrecise, 92.4);
+assert.equal(returnBothExpected, 93);
 assert.notEqual(returnOneExpected, 87.78, "5% must not include the Night & Weekend Surcharge");
 assert.notEqual(returnBothExpected, 91.96, "5% must not include both surcharges");
 
@@ -177,8 +190,9 @@ const returnNeither = quote(
 );
 assert.ok(returnNeither);
 assert.equal(returnNeither.premiumApplied, false);
+assert.equal(returnNeither.journeyFareGbp, returnNeitherPrecise);
 assert.equal(returnNeither.amount, returnNeitherExpected);
-assert.equal(returnNeither.amount, 83.6);
+assert.equal(returnNeither.amount, 84);
 console.log(`OK  H. return neither leg £${returnNeither.amount} (5% off 2×£${weekdayFare})`);
 
 const returnOutboundOnly = quote(
@@ -191,9 +205,10 @@ const returnOutboundOnly = quote(
   { returnJourney: true },
 );
 assert.ok(returnOutboundOnly);
-assert.equal(returnOutboundOnly.nightWeekendSurchargeGbp, roundGbp(weekdayFare * 0.1));
+assert.equal(returnOutboundOnly.nightWeekendSurchargeGbp, roundGbp(weekdayFare * 0.2));
+assert.equal(returnOutboundOnly.journeyFareGbp, returnNightOnePrecise);
 assert.equal(returnOutboundOnly.amount, returnOneExpected);
-assert.equal(returnOutboundOnly.amount, 88);
+assert.equal(returnOutboundOnly.amount, 93);
 assert.notEqual(returnOutboundOnly.amount, 87.78);
 console.log(`OK  I. return outbound-only: 5% of £88 then +£4.40 = £${returnOutboundOnly.amount}`);
 
@@ -207,8 +222,8 @@ const returnReturnOnly = quote(
   { returnJourney: true },
 );
 assert.ok(returnReturnOnly);
-assert.equal(returnReturnOnly.nightWeekendSurchargeGbp, 4.4);
-assert.equal(returnReturnOnly.amount, 88);
+assert.equal(returnReturnOnly.nightWeekendSurchargeGbp, 8.8);
+assert.equal(returnReturnOnly.amount, 93);
 console.log(
   `OK  J. Friday 14:00 + Tuesday 23:00 = £${returnReturnOnly.amount} (5% of base, then +£4.40)`,
 );
@@ -238,8 +253,9 @@ const returnBoth = quote(
 );
 assert.ok(returnBoth);
 assert.equal(returnBoth.nightWeekendSurchargeGbp, 8.8);
+assert.equal(returnBoth.journeyFareGbp, returnBothPrecise);
 assert.equal(returnBoth.amount, returnBothExpected);
-assert.equal(returnBoth.amount, 92.4);
+assert.equal(returnBoth.amount, 93);
 assert.notEqual(returnBoth.amount, 91.96);
 console.log(`OK  K. return both legs £${returnBoth.amount} (5% of £88 then +£8.80)`);
 
@@ -273,7 +289,7 @@ assert.equal(
 );
 assert.equal(
   dubNight.amount,
-  roundGbp((dubWeekday.journeyFareGbp ?? 0) * 1.1 + dubFixedPickup),
+  ceilCustomerFareToWholePoundGbp((dubWeekday.journeyFareGbp ?? 0) * 1.1 + dubFixedPickup),
 );
 const breakdown = composeWebsiteFareBreakdown({
   journeyFareBeforeAirportAccessGbp: dubNight.journeyFareGbp ?? 0,
@@ -284,7 +300,7 @@ const breakdown = composeWebsiteFareBreakdown({
 assert.equal(breakdown.nightWeekendSurchargeGbp, dubNight.nightWeekendSurchargeGbp);
 assert.equal(
   breakdown.finalAmountPayableGbp,
-  roundGbp((dubNight.journeyFareGbp ?? 0) + dubFixedPickup + 5),
+  ceilCustomerFareToWholePoundGbp((dubNight.journeyFareGbp ?? 0) + dubFixedPickup + 5),
 );
 assert.equal(
   breakdown.nightWeekendSurchargeGbp,
@@ -386,11 +402,14 @@ const a2aSaturday = calculateAirportToAirportQuote(
 assert.ok(a2aUnderlying && a2aWeekday && a2aSaturday);
 const a2aFixed = 4;
 assert.equal(a2aWeekday.nightWeekendSurchargeGbp, 0);
-assert.equal(a2aWeekday.amount, roundGbp(a2aUnderlying.amount + a2aFixed));
-assert.equal(a2aSaturday.nightWeekendSurchargeGbp, roundGbp(a2aUnderlying.amount * 0.1));
+assert.equal(
+  a2aWeekday.amount,
+  ceilCustomerFareToWholePoundGbp((a2aUnderlying.journeyFareGbp ?? 0) + a2aFixed),
+);
+assert.equal(a2aSaturday.nightWeekendSurchargeGbp, roundGbp((a2aUnderlying.journeyFareGbp ?? 0) * 0.1));
 assert.equal(
   a2aSaturday.amount,
-  roundGbp(a2aUnderlying.amount * 1.1 + a2aFixed),
+  ceilCustomerFareToWholePoundGbp(a2aUnderlying.journeyFareGbp! * 1.1 + a2aFixed),
 );
 assert.notEqual(
   a2aSaturday.amount,
@@ -458,7 +477,7 @@ const live = calculateAuthoritativeWebsiteQuote({
 });
 assert.equal(live.ok, true);
 if (live.ok) {
-  assert.equal(live.amount, 48.4);
+  assert.equal(live.amount, 49);
   assert.equal(live.premiumApplied, true);
   assert.equal(live.nightWeekendSurchargeGbp, 4.4);
 }
@@ -506,19 +525,19 @@ assert.equal(isTripPremiumDateTime("2026-10-25", "01:00"), true, "GMT-start Sund
 console.log("OK  DST Sundays + Monday night window use wall-clock Europe/London");
 
 console.log("\n=== Customer-facing copy ===");
-assert.equal(NIGHT_WEEKEND_SURCHARGE_LABEL, "Night & Weekend Surcharge (10%)");
-assert.match(
-  NIGHT_WEEKEND_SURCHARGE_EXPLANATION,
-  /10% surcharge applies to journeys booked for pickup between 10pm and 6am Monday–Friday, and all day Saturday and Sunday/,
-);
+assert.equal(NIGHT_WEEKEND_SURCHARGE_LABEL, "Evening, Night & Weekend surcharge");
+assert.match(NIGHT_WEEKEND_SURCHARGE_EXPLANATION, /10% Evening surcharge/);
+assert.match(NIGHT_WEEKEND_SURCHARGE_EXPLANATION, /20% Night surcharge/);
+assert.match(NIGHT_WEEKEND_SURCHARGE_EXPLANATION, /10% Weekend surcharge/);
+assert.match(NIGHT_WEEKEND_SURCHARGE_EXPLANATION, /never both added/);
 const fareTrust = fs.readFileSync(path.join(root, "src/components/QuoteFareTrust.tsx"), "utf8");
 assert.match(fareTrust, /NIGHT_WEEKEND_SURCHARGE_EXPLANATION/);
 assert.match(fareTrust, /nightWeekendSurchargeLabel/);
 const promo = fs.readFileSync(path.join(root, "shared/website-promo-pricing.ts"), "utf8");
-assert.match(promo, /Night & Weekend Surcharge \(10%\)/);
+assert.match(promo, /NIGHT_WEEKEND_SURCHARGE_LABEL/);
 assert.match(promo, /5% Return Booking Discount/);
 const bookingMsg = fs.readFileSync(path.join(root, "src/lib/booking-message.ts"), "utf8");
-assert.match(bookingMsg, /Night & Weekend Surcharge \(10%\) applied/);
+assert.match(bookingMsg, /NIGHT_WEEKEND_SURCHARGE_LABEL/);
 assert.match(bookingMsg, /5% Return Booking Discount applied/);
 const fareTrustSrc = fareTrust;
 assert.match(fareTrustSrc, /5% Return Booking Discount/);

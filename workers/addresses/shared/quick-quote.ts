@@ -7,6 +7,7 @@
  * - Optional discretionary discount AFTER the canonical fare is calculated
  */
 
+import { ceilCustomerFareToWholePoundGbp } from "./gbp";
 import {
   INSTANT_QUOTE_MAX_PASSENGERS,
   OWNER_QUICK_QUOTE_MAX_PASSENGERS,
@@ -277,7 +278,8 @@ export function applyQuickQuoteManualDiscount(
 
   // Never exceed the calculated fare (no negative customer price).
   discountAmount = Math.min(discountAmount, calculated);
-  const customerFare = roundQuickQuoteGbp(Math.max(0, calculated - discountAmount));
+  const preciseCustomerFare = roundQuickQuoteGbp(Math.max(0, calculated - discountAmount));
+  const customerFare = ceilCustomerFareToWholePoundGbp(preciseCustomerFare);
 
   if (type === "none" || discountAmount <= 0) {
     return {

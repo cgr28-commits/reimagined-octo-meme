@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { ceilCustomerFareToWholePoundGbp } from "../shared/gbp";
 import { getWebsiteReturnJourneyFare } from "../shared/return-journey-discount";
 import { resolvePersonalQuoteCheckoutAmount } from "../shared/personal-quote";
 import {
@@ -75,8 +76,8 @@ assert.equal(sunday.premiumApplied, true);
 assert.equal(bankHoliday.premiumApplied, false);
 assert.equal(noSchedule.premiumApplied, false);
 assert.equal(weekday.amount, 44);
-assert.equal(saturday.amount, 48.4);
-assert.equal(sunday.amount, 48.4);
+assert.equal(saturday.amount, 49);
+assert.equal(sunday.amount, 49);
 assert.equal(bankHoliday.amount, weekday.amount);
 assert.equal(noSchedule.amount, weekday.amount);
 console.log(
@@ -94,7 +95,7 @@ const saturdayAfternoon = calculateQuote(cityHall, "BFS", SALOON, false, {
 assert.ok(fridayAfternoon && saturdayAfternoon);
 assert.equal(fridayAfternoon.premiumApplied, false);
 assert.equal(saturdayAfternoon.premiumApplied, true);
-assert.equal(saturdayAfternoon.amount, 48.4);
+assert.equal(saturdayAfternoon.amount, 49);
 assert.equal(fridayAfternoon.amount, 44);
 console.log(
   `OK  Public Live Quote: Friday 14:00 £${fridayAfternoon.amount}; Saturday 15:00 £${saturdayAfternoon.amount}`,
@@ -242,7 +243,7 @@ assert.equal(a2aWeekday.premiumApplied, false);
 assert.equal(a2aWeekend.premiumApplied, true);
 assert.equal(
   a2aWeekend.amount,
-  Math.round(a2aWeekday.amount * 1.1 * 100) / 100,
+  ceilCustomerFareToWholePoundGbp(Math.round(a2aWeekday.amount * 1.1 * 100) / 100),
 );
 console.log(
   `OK  7. A2A weekday £${a2aWeekday.amount}; weekend £${a2aWeekend.amount} (+10%)`,
@@ -256,7 +257,7 @@ assert.equal(
     standardWebsiteAmount,
     returnJourney: true,
   }),
-  getWebsiteReturnJourneyFare(standardWebsiteAmount),
+  ceilCustomerFareToWholePoundGbp(getWebsiteReturnJourneyFare(standardWebsiteAmount)),
 );
 assert.equal(
   resolvePersonalQuoteCheckoutAmount({

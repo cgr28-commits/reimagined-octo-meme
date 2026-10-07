@@ -416,7 +416,7 @@ assert.equal(selectVehicleForParty(1, 3), E);
   const oneWay = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, false, {}, m)?.amount ?? 0;
   const ret = calculateQuote("Belfast City Hall, Belfast BT1 5GS", "BFS", S, true, {}, m)?.amount ?? 0;
   assert.equal(oneWay, 44);
-  assert.equal(ret, 83.6, "BFS return: journey £44×1.9 → £83.60; fixed £0");
+  assert.equal(ret, 84, "BFS return: journey £44×1.9 → £83.60, then whole-pound ceiling; fixed £0");
   assert.ok(ret < oneWay * 2);
 }
 

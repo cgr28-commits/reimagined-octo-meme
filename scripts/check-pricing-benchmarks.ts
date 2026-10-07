@@ -265,8 +265,8 @@ assert.equal(
   assert.equal(oneWay?.amount, 44);
   const ret = calculateQuote(hall, "BFS", SALOON, true, {}, m);
   assert.equal(roundGbp(getReturnJourneyFare(44)), 83.6);
-  // Journey £44 × 1.9 = £83.60; fixed costs £0
-  assert.equal(ret?.amount, 83.6, "BFS return: 5% on journey only; no fixed-cost add-on");
+  // Journey £44 × 1.9 = £83.60; fixed costs £0; customer total rounds up to £84.
+  assert.equal(ret?.amount, 84, "BFS return: 5% on journey only; no fixed-cost add-on; whole pound");
 }
 
 assert.equal(selectVehicleForParty(2, 2), SALOON);

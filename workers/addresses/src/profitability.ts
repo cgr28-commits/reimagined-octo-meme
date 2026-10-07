@@ -7,7 +7,7 @@
  * coordinates, dead-head legs, or the operating base.
  */
 
-import { roundGbp } from "../shared/gbp";
+import { ceilCustomerFareToWholePoundGbp, roundGbp } from "../shared/gbp";
 import {
   calculateUniversalJourneyFareGbp,
   calculateUniversalSaloonJourneyFareGbp,
@@ -312,7 +312,9 @@ export async function applyProfitabilityProtection(input: {
     );
     const journeyFareGbp = roundGbp(premium.total);
     const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
-    const amountGbp = roundGbp(journeyFareGbp + existing.airportFixedCostsGbp);
+    const amountGbp = ceilCustomerFareToWholePoundGbp(
+      journeyFareGbp + existing.airportFixedCostsGbp,
+    );
     if (amountGbp + 0.001 < existing.amountGbp) {
       logFallback("below_existing_fare");
       return { ...existing, fallbackReason: "below_existing_fare" };
@@ -403,7 +405,9 @@ export async function buildOwnerProfitabilityReport(input: {
     expressFeeGbp,
     existingCustomerFareGbp: roundGbp(input.existing.amountGbp),
     journeyFareGbp: roundGbp(input.existing.journeyFareGbp),
-    finalCustomerPriceGbp: roundGbp(input.existing.amountGbp + expressFeeGbp),
+    finalCustomerPriceGbp: ceilCustomerFareToWholePoundGbp(
+      input.existing.amountGbp + expressFeeGbp,
+    ),
     directCostsGbp: null,
     estimatedRemainingAfterDirectCostsGbp: null,
     estimatedEarningsPerHourGbp: null,
@@ -533,7 +537,9 @@ export async function buildOwnerProfitabilityReport(input: {
     expressFeeGbp,
     existingCustomerFareGbp: roundGbp(input.existing.amountGbp),
     journeyFareGbp: protectedQuote.journeyFareGbp,
-    finalCustomerPriceGbp: roundGbp(protectedQuote.amountGbp + expressFeeGbp),
+    finalCustomerPriceGbp: ceilCustomerFareToWholePoundGbp(
+      protectedQuote.amountGbp + expressFeeGbp,
+    ),
     directCostsGbp,
     estimatedRemainingAfterDirectCostsGbp: remaining,
     estimatedEarningsPerHourGbp: perHour,

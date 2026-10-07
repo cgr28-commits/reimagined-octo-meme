@@ -406,7 +406,8 @@ check("5% return discount still applies on canonical DUB journey", () => {
   assert.equal(ret.airportFixedCostsGbp, 13); // £4 + £5 + £4
   assert.equal(DUB_JOURNEY, 223);
   assert.equal(ret.journeyFareGbp, 423.7);
-  assert.equal(ret.amount, 436.7);
+  // £423.70 journey + £13 fixed = £436.70, then the final customer ceiling.
+  assert.equal(ret.amount, 437);
 });
 
 // --- Route-metric tampering: client distance/duration must never cut SumUp ---

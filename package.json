@@ -28,6 +28,7 @@
     "check:pricing-confirmation": "npx tsx scripts/check-pricing-confirmation.ts",
     "check:pricing-vehicle-quote-flow": "npx tsx scripts/check-pricing-vehicle-quote-flow.ts",
     "check:night-weekend-surcharge": "npx tsx scripts/check-night-weekend-surcharge.ts",
+    "check:whole-pound-customer-fare": "npx tsx scripts/check-whole-pound-customer-fare.ts",
     "check:quote-schedule-price-gate": "npx tsx scripts/check-quote-schedule-price-gate.ts",
     "check:airport-weekend-premium": "npx tsx scripts/check-airport-weekend-premium.ts",
     "check:quote-lead-email": "npx tsx scripts/check-quote-lead-email.ts",

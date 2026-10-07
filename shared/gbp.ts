@@ -24,6 +24,19 @@ export function isWholePoundGbp(amount: number): boolean {
 }
 
 /**
+ * Final customer-facing fare only. Ceiling to the next whole pound after the
+ * complete calculation. Exact pounds stay put (£43.00 → £43). £42.01 → £43.
+ * Penny-normalize first so floating-point noise does not lift an exact pound.
+ */
+export function ceilCustomerFareToWholePoundGbp(amount: number): number {
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  const pence = gbpToPence(amount);
+  if (pence <= 0) return 0;
+  if (pence % 100 === 0) return pence / 100;
+  return Math.ceil(pence / 100);
+}
+
+/**
  * Customer-facing currency label.
  * Whole pounds → £241; pence → always two digits (£179.50, never £179.5).
  */

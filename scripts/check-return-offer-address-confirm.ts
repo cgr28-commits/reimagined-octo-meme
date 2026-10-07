@@ -191,7 +191,7 @@ check("6. Existing 5% fare calculation is unchanged", () => {
   });
     assert.equal(breakdown.returnOfferSavingGbp, 3.1);
     assert.equal(breakdown.journeyFareBeforePromotionsGbp, 62);
-    assert.equal(breakdown.finalAmountPayableGbp, 72.9);
+    assert.equal(breakdown.finalAmountPayableGbp, 73);
   assert.equal(breakdown.airportFixedCostsGbp, 9);
   assert.equal(breakdown.airportAccessChargeGbp, 5);
 });

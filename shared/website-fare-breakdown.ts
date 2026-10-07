@@ -9,7 +9,8 @@
  *    undiscounted base fare (never reduced by the 5%)
  * 5. Add airport/barrier/fixed costs at full value
  * 6. Add selected Express / airport access at full value
- * 7. finalAmountPayable = discounted base + surcharge + fixed + Express
+ * 7. finalAmountPayable = discounted base + surcharge + fixed + Express,
+ *    then rounded UP to the next whole pound
  *
  * The 5% return discount never reduces the Night & Weekend Surcharge,
  * airport/barrier/Express, or other fixed charges.
@@ -32,6 +33,7 @@ import {
   applyReturnOfferSaving,
   formatReturnOfferPercent,
 } from "./return-offer";
+import { ceilCustomerFareToWholePoundGbp } from "./gbp";
 
 function roundGbp(amount: number): number {
   return Math.round(Number(amount) * 100) / 100;
@@ -191,7 +193,7 @@ export function composeWebsiteFareBreakdown(
   const totalPromotionalSavingGbp = roundGbp(
     returnJourneySavingGbp + returnOfferSavingGbp,
   );
-  const finalAmountPayableGbp = roundGbp(
+  const finalAmountPayableGbp = ceilCustomerFareToWholePoundGbp(
     transferFareAfterPromotionsGbp + airportAccessChargeGbp,
   );
 

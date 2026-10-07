@@ -4,6 +4,7 @@
  */
 
 import { composeFareWithExpressDropOff } from "./express-drop-off";
+import { ceilCustomerFareToWholePoundGbp } from "./gbp";
 import { getWebsiteReturnJourneyFare } from "./return-journey-discount";
 
 export type PersonalQuoteRecord = {
@@ -156,10 +157,15 @@ export function resolvePersonalQuoteCheckoutAmount(input: {
   const expressDropOffFeeGbp = roundGbp(
     Math.max(0, Number(input.expressDropOffFee) || 0),
   );
-  return composeFareWithExpressDropOff({
+  const totalGbp = composeFareWithExpressDropOff({
     transferFareGbp: transferTotal,
     expressDropOffFeeGbp,
   }).totalGbp;
+  // A stored one-way agreed amount is the owner's price, including any pennies
+  // they typed. A return total is calculated from that amount, so ceiling it
+  // once after the return discount and Express fee.
+  if (!input.returnJourney) return totalGbp;
+  return ceilCustomerFareToWholePoundGbp(totalGbp);
 }
 
 export type PersonalQuotePaymentDisplay = {
