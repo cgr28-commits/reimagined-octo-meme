@@ -344,6 +344,12 @@ main {
   color: #d7e0ec;
 }
 
+/* A price or image change must not drag the page away from Vehicle options. */
+#quote-results-summary,
+#quote-results-summary * {
+  overflow-anchor: none;
+}
+
 /* Quote / booking secondary body copy — secondary to headings, still readable on iPhone */
 .quote-secondary {
   color: var(--quote-secondary-ink);

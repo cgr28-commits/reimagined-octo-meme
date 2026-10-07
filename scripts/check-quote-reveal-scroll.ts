@@ -50,7 +50,8 @@ check("Pause and glide stay in range, and the quote card does not animate", () =
     scrollLib.indexOf("function readVisualViewport"),
     scrollLib.indexOf("export function quoteStepTargetId"),
   );
-  assert.match(reveal, /data-quote-result-heading/);
+  assert.match(reveal, /data-quote-vehicle-options-heading/);
+  assert.doesNotMatch(reveal, /data-quote-result-heading/);
   assert.match(reveal, /requestAnimationFrame/);
   assert.match(reveal, /scrollBehavior = "auto"/);
   assert.match(reveal, /QUOTE_REVEAL_SCROLL_MS/);
@@ -194,7 +195,7 @@ check("One way / Return uses the same glide and stops on the next section", () =
   assert.match(schedule, /id="returnTime"/);
   assert.equal(QUOTE_REVEAL_PAUSE_MS, 350);
   assert.equal(QUOTE_REVEAL_SCROLL_MS, 720);
-  assert.equal(QUOTE_REVEAL_BREATHING_PX, 28);
+  assert.equal(QUOTE_REVEAL_BREATHING_PX, 12);
   assert.equal(BOOK_TRANSFER_CLEARANCE_PX, 20);
 });
 

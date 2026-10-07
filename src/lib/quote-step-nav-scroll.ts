@@ -474,8 +474,8 @@ export function schedulePreciseResultsScroll(
 export const QUOTE_REVEAL_PAUSE_MS = 350;
 /** Controlled glide. Native smooth scroll is too fast and is not used. */
 export const QUOTE_REVEAL_SCROLL_MS = 720;
-/** Space between the sticky header and the vehicle heading. */
-export const QUOTE_REVEAL_BREATHING_PX = 28;
+/** Space between the sticky header and the Vehicle options heading. */
+export const QUOTE_REVEAL_BREATHING_PX = 12;
 const REVEAL_EDGE_TOLERANCE_PX = 8;
 
 export type QuoteRevealMetrics = {
@@ -525,21 +525,13 @@ function readVisualViewport(): { height: number; offsetTop: number } {
 }
 
 /**
- * One measurement of the vehicle heading that is actually on screen.
- * Uses the visual viewport, not window.innerHeight plus a toolbar offset.
+ * One measurement of the Vehicle options heading.
+ * Never falls back to the selected-vehicle price card. That card sits below
+ * the options, so scrolling to it hides Vehicle options above the header.
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
-  const card = document.getElementById("quote-selected-vehicle-card");
-  if (!(card instanceof HTMLElement) || card.getClientRects().length === 0) return null;
-  const optionsHeading = document.querySelector<HTMLElement>(
-    "[data-quote-vehicle-options-heading]",
-  );
-  const resultHeading = card.querySelector<HTMLElement>("[data-quote-result-heading]");
-  const heading =
-    optionsHeading && optionsHeading.getClientRects().length > 0
-      ? optionsHeading
-      : resultHeading;
-  if (!heading || heading.getClientRects().length === 0) return null;
+  const heading = document.querySelector<HTMLElement>("[data-quote-vehicle-options-heading]");
+  if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
   const headingRect = heading.getBoundingClientRect();
   const layoutClientHeight = document.documentElement.clientHeight || visual.height;
@@ -558,11 +550,10 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
 
 /**
  * First completed quote only.
- * Waits so the luggage choice can register, measures the settled heading once,
- * then glides until it sits below the header. The quote card does not animate.
- * Does not use native smooth scrolling, and does not
- * correct the position with a second jump. A touch, swipe, wheel, or scroll
- * key cancels the glide immediately.
+ * Waits so the luggage choice can register, then scrolls once so Vehicle
+ * options sits under the sticky header. One scrollTo — not a per-frame glide,
+ * which judders and can finish past the heading if the page shifts mid-animation.
+ * A touch, swipe, wheel, or scroll key during the pause cancels it.
  */
 export function scheduleQuoteRevealScroll(handlers: {
   onConsume: () => void;
@@ -621,46 +612,15 @@ export function scheduleQuoteRevealScroll(handlers: {
   window.addEventListener("touchmove", onUserMove, { passive: true });
   window.addEventListener("keydown", onKey);
 
-  const glideTo = (target: number) => {
+  let attempts = 0;
+
+  const scrollOnce = (target: number) => {
     const root = document.documentElement;
     const previousBehavior = root.style.scrollBehavior;
     root.style.scrollBehavior = "auto";
-    const startY = window.scrollY;
-    const change = target - startY;
-    restoreMotion = () => {
-      root.style.scrollBehavior = previousBehavior;
-    };
-
-    if (prefersReducedMotion() || Math.abs(change) <= REVEAL_EDGE_TOLERANCE_PX) {
-      if (Math.abs(change) > 1) window.scrollTo(0, target);
-      haltMotion();
-      stopListening();
-      return;
-    }
-
-    const started = performance.now();
-    const tick = (now: number) => {
-      if (stopped || userInterrupted) {
-        haltMotion();
-        stopListening();
-        return;
-      }
-      const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
-      const y = progress >= 1 ? target : Math.round(startY + change * quoteRevealEaseInOut(progress));
-      window.scrollTo(0, y);
-      if (stopped || userInterrupted) {
-        haltMotion();
-        stopListening();
-        return;
-      }
-      if (progress < 1) {
-        frame = window.requestAnimationFrame(tick);
-      } else {
-        haltMotion();
-        stopListening();
-      }
-    };
-    frame = window.requestAnimationFrame(tick);
+    window.scrollTo(0, target);
+    root.style.scrollBehavior = previousBehavior;
+    stopListening();
   };
 
   const begin = () => {
@@ -671,6 +631,12 @@ export function scheduleQuoteRevealScroll(handlers: {
     }
     const metrics = measureQuoteReveal();
     if (!metrics) {
+      // Vehicle options is not laid out yet. Do not scroll to the price card.
+      if (attempts < 8) {
+        attempts += 1;
+        timer = window.setTimeout(begin, 50);
+        return;
+      }
       consume();
       stopListening();
       return;
@@ -681,7 +647,7 @@ export function scheduleQuoteRevealScroll(handlers: {
       stopListening();
       return;
     }
-    glideTo(nextTop);
+    scrollOnce(nextTop);
   };
 
   timer = window.setTimeout(() => {

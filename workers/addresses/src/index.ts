@@ -2423,9 +2423,15 @@ async function handlePaymentRequest(
     const receiptVehicleType: VehicleType = canonicalVehicleType(booking.vehicle);
     let receiptClaims: QuoteReceiptClaims | null = null;
     if (isProfitabilityProtectionActive(receiptPricing.profitability)) {
-      const decision = await decideQuoteReceiptPayment({
+      const receiptSecret = env.QUOTE_RECEIPT_SECRET?.trim() ?? "";
+      if (!receiptSecret) {
+        console.warn("[quote-receipt] secret_missing; payment will re-quote on the server");
+      }
+      const decision = !receiptSecret
+        ? null
+        : await decideQuoteReceiptPayment({
         protectionActive: true,
-        secret: env.QUOTE_RECEIPT_SECRET,
+        secret: receiptSecret,
         token: body.quoteReceipt,
         nowMs: Date.now(),
         expected: {
@@ -2444,7 +2450,7 @@ async function handlePaymentRequest(
           returnTime: String(booking.returnTime ?? ""),
         },
       });
-      if (decision.action !== "accept") {
+      if (decision && decision.action !== "accept") {
         console.warn(
           `[quote-receipt] refresh reason=${decision.action === "refresh" ? decision.reason : "refresh"}`,
         );
@@ -2457,7 +2463,9 @@ async function handlePaymentRequest(
           origin,
         );
       }
-      receiptClaims = decision.claims;
+      if (decision && decision.action === "accept") {
+        receiptClaims = decision.claims;
+      }
     }
     const routeOutcome = receiptClaims
       ? {

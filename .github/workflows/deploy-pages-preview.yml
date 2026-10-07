@@ -88,6 +88,18 @@ jobs:
           else
             echo "::warning::SumUp secrets missing on preview Worker — AVAILABLE Pay now may not open checkout."
           fi
+          # Profitability protection signs the displayed fare. The preview Worker
+          # does not inherit production secrets, so create its own key once.
+          has_receipt_secret() {
+            printf '%s' "$1" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const rows=JSON.parse(s); if(!Array.isArray(rows)) process.exit(2); process.exit(rows.some(r=>r&&r.name==="QUOTE_RECEIPT_SECRET")?0:1)})'
+          }
+          receipt_list="$(npx wrangler secret list --env preview)"
+          if has_receipt_secret "$receipt_list"; then
+            echo "QUOTE_RECEIPT_SECRET already present on the preview Worker."
+          else
+            openssl rand -base64 32 | tr -d '\n' | npx wrangler secret put QUOTE_RECEIPT_SECRET --env preview
+            echo "QUOTE_RECEIPT_SECRET created on the preview Worker."
+          fi
           npx wrangler deploy --env preview
           echo "url=$PREVIEW_WORKER" >> "$GITHUB_OUTPUT"
           echo "::notice::Preview Worker (not production traffic): $PREVIEW_WORKER"

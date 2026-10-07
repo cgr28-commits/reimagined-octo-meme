@@ -23,6 +23,7 @@ import { buildMarketingOptInFields, recordMarketingOptIn } from "@/lib/marketing
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
 import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
+import { cancelCompetingScrollJobs } from "@/lib/scroll-jobs";
 import {
   focusFirstInvalidField,
   quoteStepTargetId,
@@ -5101,23 +5102,29 @@ function QuoteCard({
   }, [a2aShowParty, isA2AFlow, quoteStep]);
 
   // One results scroll, as soon as the results mount.
-  // Pause so the luggage selection can register, then glide until the vehicle
-  // heading sits below the header. The quote itself does not animate.
-  // Fare, vehicle, and Free/Express updates leave the latch set.
-  // The timer is not cleared on ordinary re-renders, so a fare update cannot cancel it.
+  // Stops with Vehicle options under the sticky header. Fare, vehicle,
+  // availability, and price updates must not scroll again. A capacity flicker
+  // must not reset the latch — that was restarting the scroll and juddering.
   useEffect(() => {
-    const capacityComplete = quoteChoicesReady && hasQuoteRoute && isScheduleComplete;
-    if (quoteStep !== 1 || !capacityComplete) {
+    if (quoteStep !== 1 || !hasQuoteRoute) {
       hadRouteSummaryScrollRef.current = false;
       quoteRevealScrollCancelRef.current?.();
       quoteRevealScrollCancelRef.current = null;
       return;
     }
 
-    if (!quoteResultsReady || hadRouteSummaryScrollRef.current) {
+    if (
+      !quoteResultsReady ||
+      !quoteChoicesReady ||
+      !isScheduleComplete ||
+      hadRouteSummaryScrollRef.current
+    ) {
       return;
     }
 
+    // Stop the earlier date/time glide before this scroll, then latch.
+    // Cancelling first matters: its retry must not clear the latch we set next.
+    cancelCompetingScrollJobs();
     hadRouteSummaryScrollRef.current = true;
     quoteRevealScrollCancelRef.current = scheduleQuoteRevealScroll({
       onConsume: () => {},

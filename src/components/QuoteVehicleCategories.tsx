@@ -93,9 +93,9 @@ export default function QuoteVehicleCategories({
   if (options.length === 0) return null;
 
   return (
-    <div className="scroll-mt-24 space-y-2" data-quote-vehicle-categories>
+    <div className="scroll-mt-20 space-y-2" data-quote-vehicle-categories>
       <p
-        className="form-label mb-0 scroll-mt-24"
+        className="form-label mb-0 scroll-mt-20"
         data-quote-vehicle-options-heading
       >
         Vehicle options

@@ -711,18 +711,11 @@ export async function handleQuoteCalculateRequest(
   if (protectionActive && result.ok) {
     const secret = env?.QUOTE_RECEIPT_SECRET?.trim() ?? "";
     if (!secret) {
-      console.warn("[quote-receipt] refresh reason=secret_missing");
-      return json(
-        {
-          ok: false,
-          reason: "quote_refresh_required",
-          message: "Quote amount is out of date. Please refresh your quote and try again.",
-        },
-        503,
-        origin,
-      );
-    }
-    quoteBody.quoteReceipt = await signQuoteReceipt(
+      // The fare is already calculated. A missing HMAC key must not hide it.
+      // Payment re-quotes on the server when no receipt can be signed.
+      console.warn("[quote-receipt] secret_missing; returning the calculated fare without a receipt");
+    } else {
+      quoteBody.quoteReceipt = await signQuoteReceipt(
       {
         pricingVersion: pricingForRoute.version,
         pickupPlaceId: pickupPlaceId ?? "",
@@ -744,9 +737,10 @@ export async function handleQuoteCalculateRequest(
         distanceKm: routeMetrics.distanceKm,
         durationMinutes: routeMetrics.durationMinutes,
       },
-      secret,
-      Date.now(),
-    );
+        secret,
+        Date.now(),
+      );
+    }
   }
 
   const fareReadyAt = Date.now();
