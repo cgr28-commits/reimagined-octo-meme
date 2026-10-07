@@ -774,7 +774,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
-          Evening / Night / Weekend / Bank Holiday
+          Night / Weekend / Bank Holiday
         </h3>
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="text-sm text-white/70">Evening pricing enabled</p>

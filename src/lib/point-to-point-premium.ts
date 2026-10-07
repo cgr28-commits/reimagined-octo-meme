@@ -120,8 +120,8 @@ export function getReturnJourneyFare(
  * 2. If return: 5% off the combined BASE journey total only
  * 3. Evening, Night or Weekend surcharge on each qualifying leg, from the
  *    ORIGINAL undiscounted base fare (never from the post-5% amount).
- *    Evening and Night are mutually exclusive. Weekend uses the higher rate
- *    when it overlaps one of those bands.
+ *    Evening and Night are mutually exclusive. When Weekend overlaps one of
+ *    those bands, both percentages are of this original base and are added.
  *
  * Airport/barrier/Express charges are added later and never enter this function.
  */

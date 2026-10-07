@@ -54,9 +54,9 @@ export const PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE =
 export const PRICE_CHANGED_CODE = "fare_mismatch";
 export const PRICE_CHANGED_MESSAGE = "The price for this journey has been updated.";
 
-export const SURCHARGE_STACKING_RULE = "highest_applicable" as const;
+export const SURCHARGE_STACKING_RULE = "sum_on_vehicle_fare" as const;
 export const SURCHARGE_STACKING_EXPLANATION =
-  "Evening and Night use separate time bands and are never both added to the same pickup. When Weekend also applies, the highest applicable surcharge is used — Evening, Night and Weekend are not added together.";
+  "Evening and Night use separate time bands and are never both added to the same pickup. When Weekend also applies, the Weekend percentage and the Evening or Night percentage are each calculated from the vehicle fare and added together. One surcharge is not applied on top of the other, and neither percentage is added to airport access charges.";
 
 export const BANK_HOLIDAY_BEHAVIOUR_NOTE =
   "Daytime bank holidays are not an extra surcharge. There is no separate Bank Holiday calendar. Saturday and Sunday already qualify as Weekend. A weekday bank-holiday daytime journey is charged at the standard weekday rate unless it also falls inside Evening or Night hours.";
@@ -869,12 +869,15 @@ export function surchargeRateForDateTime(input: {
 }): number {
   const rules = input.rules ?? defaultPremiumWindowRules();
   const band = premiumBandForMinutes(input.minutes, rules);
-  const rates: number[] = [];
-  if (isWeekendDay(input.day, rules)) rates.push(input.weekendRate);
-  if (band === "night") rates.push(input.nightRate);
-  if (band === "evening") rates.push(input.eveningRate ?? DEFAULT_EVENING_SURCHARGE_RATE);
-  if (rates.length === 0) return 0;
-  return Math.max(...rates);
+  // Each qualifying percentage is of the underlying vehicle fare. The caller
+  // multiplies that fare once by this combined rate, so Weekend is added to
+  // Evening or Night rather than compounded on top of it. Evening and Night
+  // cannot both be in `band`.
+  let rate = 0;
+  if (isWeekendDay(input.day, rules)) rate += input.weekendRate;
+  if (band === "night") rate += input.nightRate;
+  else if (band === "evening") rate += input.eveningRate ?? DEFAULT_EVENING_SURCHARGE_RATE;
+  return Math.round(rate * 1e6) / 1e6;
 }
 
 export function nightWeekendSurchargeLabel(settings?: OwnerPricingSettings | PublicOwnerPricingConfig | null): string {
@@ -913,7 +916,7 @@ export function nightWeekendSurchargeExplanation(
     parts.push(`A ${weekendPct} Weekend surcharge applies all day ${weekendDays}.`);
   }
   parts.push(
-    "Evening and Night are never both added. When a weekend pickup is also in Evening or Night, the higher surcharge is used.",
+    "Evening and Night are never both added. When a weekend pickup is also in Evening or Night, both percentages are calculated from the vehicle fare and added together.",
   );
   return parts.join(" ");
 }

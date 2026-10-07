@@ -5,7 +5,7 @@
  */
 
 import assert from "node:assert/strict";
-import { ceilCustomerFareToWholePoundGbp } from "../shared/gbp";
+import { ceilCustomerFareToWholePoundGbp, roundGbp } from "../shared/gbp";
 import {
   DEFAULT_EVENING_END_MINUTES,
   DEFAULT_EVENING_START_MINUTES,
@@ -100,16 +100,45 @@ assert.equal(premiumBandForMinutes(23 * 60, windowRules), "night");
 assert.notEqual(rateAt(3, "22:00"), 0.1 + 0.2);
 console.log("OK  19:59 day, 20:00/22:59 evening, 23:00/05:59 night, 06:00 day");
 
-console.log("\n=== Weekend keeps its own rate and does not stack both bands ===");
+console.log("\n=== Weekend adds to Evening or Night from the vehicle fare ===");
 assert.equal(rateAt(6, "12:00"), 0.1);
-assert.equal(rateAt(6, "20:00"), 0.1);
-assert.equal(rateAt(6, "22:59"), 0.1);
-assert.equal(rateAt(6, "23:00"), 0.2);
-assert.equal(rateAt(0, "05:59"), 0.2);
+assert.equal(rateAt(6, "20:00"), 0.2);
+assert.equal(rateAt(6, "22:59"), 0.2);
+assert.equal(rateAt(6, "23:00"), 0.3);
+assert.equal(rateAt(0, "05:59"), 0.3);
 assert.equal(rateAt(0, "10:00"), 0.1);
-assert.notEqual(rateAt(6, "21:00"), 0.2, "Saturday evening must not add Evening and Weekend");
-assert.notEqual(rateAt(6, "23:30"), 0.3, "Saturday night must not add Night and Weekend");
-console.log("OK  Saturday daytime/evening 10%, Saturday night 20% (higher of Weekend and Night)");
+assert.equal(rateAt(6, "21:00"), 0.2);
+assert.equal(rateAt(6, "23:30"), 0.3);
+assert.notEqual(rateAt(6, "23:30"), 1.1 * 1.2 - 1, "Weekend must not compound on Night");
+assert.notEqual(rateAt(3, "22:00"), 0.1 + 0.2, "Weekday evening is not also night");
+console.log("OK  Saturday daytime 10%; Saturday evening 20%; Saturday night 30% of the vehicle fare");
+
+const saturdayNight = quoteAt("2026-08-22", "23:00", SALOON_VEHICLE);
+assert.ok(saturdayNight);
+assert.equal(saturdayNight.nightWeekendSurchargeGbp, roundGbp(44 * 0.3));
+assert.equal(saturdayNight.journeyFareGbp, roundGbp(44 + 44 * 0.3));
+assert.equal(saturdayNight.amount, ceilCustomerFareToWholePoundGbp(44 * 1.3));
+const dubMetrics = { distanceKm: 98 / 0.621371, durationMinutes: 120 };
+const dubDay = calculateQuote(cityHall, "DUB", SALOON_VEHICLE, false, {
+  outboundDate: "2026-08-19",
+  outboundTime: "10:00",
+}, dubMetrics, true);
+const dubSaturdayNight = calculateQuote(cityHall, "DUB", SALOON_VEHICLE, false, {
+  outboundDate: "2026-08-22",
+  outboundTime: "23:00",
+}, dubMetrics, true);
+assert.ok(dubDay && dubSaturdayNight);
+assert.equal(dubDay.airportFixedCostsGbp, 9);
+assert.equal(dubSaturdayNight.airportFixedCostsGbp, 9);
+assert.equal(
+  dubSaturdayNight.nightWeekendSurchargeGbp,
+  roundGbp((dubDay.journeyFareGbp ?? 0) * 0.3),
+);
+assert.equal(
+  dubSaturdayNight.amount,
+  ceilCustomerFareToWholePoundGbp((dubSaturdayNight.journeyFareGbp ?? 0) + 9),
+);
+console.log("OK  Weekend + Night is 30% of the vehicle fare; Dublin access stays £9");
 
 console.log("\n=== Live quotes: Saloon, Estate, 7-seater ===");
 const saloonDay = quoteAt("2026-08-19", "10:00", SALOON_VEHICLE);

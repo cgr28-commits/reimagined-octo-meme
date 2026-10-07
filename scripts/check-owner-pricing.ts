@@ -486,7 +486,7 @@ check("return 5% / 10% / 0% and Night/Weekend 10% / 20% / 0%", () => {
   assert.equal(night0.total, 44);
 });
 
-check("Night / Weekend boundaries and highest-applicable stacking", () => {
+check("Night / Weekend boundaries; Weekend adds to Night from the vehicle fare", () => {
   assert.equal(isTripPremiumDateTime("2026-08-24", "05:59"), true);
   assert.equal(isTripPremiumDateTime("2026-08-24", "06:00"), false);
   assert.equal(isTripPremiumDateTime("2026-08-19", "19:59"), false);
@@ -503,7 +503,7 @@ check("Night / Weekend boundaries and highest-applicable stacking", () => {
     weekendRate: 0.1,
     rules: ownerPricingEngineOptions(),
   });
-  assert.equal(overlap, 0.2);
+  assert.equal(overlap, 0.3);
 });
 
 check("£100 − 5% + 10% + £6 fixed = £111, not £110.50", () => {
