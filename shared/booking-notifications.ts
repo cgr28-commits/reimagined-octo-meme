@@ -743,9 +743,14 @@ export function buildCustomerConfirmationEmail(
         expressDropOffAirport: details.expressDropOffAirport ?? details.airportCode,
         fromAirport: details.isFromAirport,
       });
+      const meetGreetShown = accessLines.some((line) => line.includes("Meet & Greet"));
       return (
         `${accessLines.join("\n")}\n` +
-        (breakdown && !accessLines.includes(breakdown) ? `${breakdown}\n` : "") +
+        (breakdown &&
+        !meetGreetShown &&
+        !accessLines.some((line) => line.includes(breakdown))
+          ? `${breakdown}\n`
+          : "") +
         `${EXPRESS_DROP_OFF_PASSED_ON_NOTE}\n\n`
       );
     })() +

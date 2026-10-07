@@ -107,7 +107,10 @@ const resultsBlock = card.slice(
 assert.doesNotMatch(resultsBlock, /mayPaintNumericFare|authoritativeFareReady/);
 assert.match(card, /: "Calculating…"/);
 assert.match(showcase, /formattedPrice\.startsWith\("£"\) \? "ready" : "pending"/);
-assert.match(showcase, /text-\[clamp\(1\.85rem,1rem\+4\.2vw,2\.35rem\)\]/);
+assert.match(showcase, /text-\[clamp\(1\.65rem,0\.9rem\+3\.4vw,2\.1rem\)\]/);
+assert.match(card, /quoteRequestKey/);
+assert.match(card, /refreshAuthoritativeServerQuoteRef\.current/);
+assert.doesNotMatch(card, /\}, \[refreshAuthoritativeServerQuote\]\);/);
 assert.match(showcase, /priceUpdating \? "updating"/);
 const scrollEffect = card.slice(
   card.indexOf("One results scroll, as soon as the results mount."),

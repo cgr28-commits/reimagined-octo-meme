@@ -917,6 +917,8 @@ function QuoteCard({
   const [serverQuoteUnavailable, setServerQuoteUnavailable] = useState(false);
   const serverQuoteGenRef = useRef(0);
   const quoteVehicleRef = useRef("");
+  /** Last authoritative £ so a vehicle change does not blank the price slot. */
+  const stableFareLabelRef = useRef<string | null>(null);
   /** Route identity that already has a displayed fare. Vehicle switches reuse it. */
   const displayedRouteKeyRef = useRef<string | null>(null);
   const [vehicleFareUpdating, setVehicleFareUpdating] = useState(false);
@@ -964,7 +966,17 @@ function QuoteCard({
   const [appliedPersonalQuote, setAppliedPersonalQuote] =
     useState<PersonalQuotePublicSummary | null>(null);
   const handleRouteMetrics = useCallback((metrics: TripRouteMetrics | null) => {
-    setRouteMetrics(metrics);
+    setRouteMetrics((current) => {
+      if (metrics == null) return current == null ? current : null;
+      if (
+        current &&
+        current.distanceKm === metrics.distanceKm &&
+        current.durationMinutes === metrics.durationMinutes
+      ) {
+        return current;
+      }
+      return metrics;
+    });
   }, []);
 
   const quoteVehicle = useMemo(() => {
@@ -2056,9 +2068,17 @@ function QuoteCard({
           (result.distanceKm ?? 0) > 0 &&
           (result.durationMinutes ?? 0) > 0
         ) {
-          setRouteMetrics({
-            distanceKm: result.distanceKm!,
-            durationMinutes: result.durationMinutes!,
+          setRouteMetrics((current) => {
+            const distanceKm = result.distanceKm!;
+            const durationMinutes = result.durationMinutes!;
+            if (
+              current &&
+              current.distanceKm === distanceKm &&
+              current.durationMinutes === durationMinutes
+            ) {
+              return current;
+            }
+            return { distanceKm, durationMinutes };
           });
         }
         setServerQuoteUnavailable(false);
@@ -2144,10 +2164,11 @@ function QuoteCard({
     publicExecutiveEnabled,
     publicMinibusEnabled,
   ]);
+  const refreshAuthoritativeServerQuoteRef = useRef(refreshAuthoritativeServerQuote);
+  refreshAuthoritativeServerQuoteRef.current = refreshAuthoritativeServerQuote;
 
   useEffect(() => {
     quoteVehicleRef.current = quoteVehicle;
-    serverQuoteGenRef.current += 1;
     const routeKey = [
       pickupAddress.trim(),
       dropoffAddress.trim(),
@@ -2210,7 +2231,33 @@ function QuoteCard({
     tripTime,
   ]);
 
+  const quoteRequestKey = [
+    canShowPrice ? "1" : "0",
+    isManualQuoteJourney ? "1" : "0",
+    pricingConfirmationRequired ? "1" : "0",
+    isEnquiryOnly && !showGuidePrice ? "enquiry" : "price",
+    pickupAddress.trim(),
+    dropoffAddress.trim(),
+    String(effectivePassengers ?? passengers ?? ""),
+    String(suitcases ?? ""),
+    quoteVehicle,
+    tripDate.trim(),
+    tripTime.trim(),
+    returnJourney ? "1" : "0",
+    returnDate.trim(),
+    returnTime.trim(),
+    journeyMode ?? "",
+    String(passengerLimit),
+    publicExecutiveEnabled ? "1" : "0",
+    publicMinibusEnabled ? "1" : "0",
+    pickupPlace?.placeId ?? "",
+    dropoffPlace?.placeId ?? "",
+  ].join("|");
+
   useEffect(() => {
+    // Invalidate any in-flight response before this request starts, including
+    // a cache hit that does not bump the generation itself.
+    serverQuoteGenRef.current += 1;
     let cancelled = false;
     quoteFareTimingRef.current.inputsAt =
       typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -2219,12 +2266,12 @@ function QuoteCard({
         await new Promise((resolve) => window.setTimeout(resolve, QUOTE_FARE_START_DELAY_MS));
       }
       if (cancelled) return;
-      await refreshAuthoritativeServerQuote();
+      await refreshAuthoritativeServerQuoteRef.current();
     })();
     return () => {
       cancelled = true;
     };
-  }, [refreshAuthoritativeServerQuote]);
+  }, [quoteRequestKey]);
 
   const journeyDistanceLabel = routeMetrics
     ? formatJourneyDistance(routeMetrics.distanceKm)
@@ -5442,7 +5489,7 @@ function QuoteCard({
               </p>
               <p
                 className={`mt-1 break-words text-[0.8125rem] font-medium leading-snug ${
-                  light ? "text-[#475569]" : "text-white/80"
+                  light ? "text-navy" : "text-white/80"
                 }`}
               >
                 {item.notice!.body}
@@ -5459,13 +5506,14 @@ function QuoteCard({
     tone: "on-dark" | "on-light",
     _legs: AirportPickupLegRef[],
   ) {
+    if (isExecutiveVehicle(quoteVehicle) && isFromAirport) return null;
     const light = tone === "on-light";
     return (
-      <div className="mt-3 text-left" data-airport-access-included>
-        <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
+      <div className="mt-1 text-left" data-airport-access-included>
+        <p className={`text-xs font-bold ${light ? "text-navy" : "text-white"}`}>
           {AIRPORT_ACCESS_INCLUDED_HEADING}
         </p>
-        <p className={`mt-1 text-xs leading-snug ${light ? "text-[#475569]" : "text-white/75"}`}>
+        <p className={`mt-0.5 text-[11px] font-medium leading-snug ${light ? "text-navy" : "text-white"}`}>
           {AIRPORT_ACCESS_INCLUDED_BODY}
         </p>
       </div>
@@ -5496,11 +5544,11 @@ function QuoteCard({
         data-business-class-inclusions
         data-business-class-pickup={hasPickup ? "true" : "false"}
       >
-        <p className="text-xs font-semibold text-navy">Included with Business Class</p>
+        <p className="text-xs font-bold text-navy">Included with Business Class</p>
         <ul className="mt-1 grid grid-cols-1 gap-y-0.5 min-[390px]:grid-cols-2 min-[390px]:gap-x-3">
           {items.map((item) => (
-            <li key={item} className="text-[11px] leading-snug text-navy/80">
-              <span className="text-emerald-dark" aria-hidden>
+            <li key={item} className="text-[11px] font-medium leading-snug text-navy">
+              <span className="text-[#147a2a]" aria-hidden>
                 ✓{" "}
               </span>
               {item}
@@ -5546,7 +5594,7 @@ function QuoteCard({
         : pricedFare?.totalGbp;
 
     const expressChoices = (
-      <div className="mt-3 space-y-4 text-left" data-express-airport-choice>
+      <div className="mt-1 space-y-1 text-left" data-express-airport-choice>
         {legs.map((leg) => {
           const selected = true;
           const removalAcknowledged =
@@ -6781,14 +6829,18 @@ function QuoteCard({
           : null);
     const priceUpdating =
       vehicleFareUpdating && !authoritativeQuoteFailed && authoritativeTotal == null;
-    const amountLabel =
-      authoritativeQuoteFailed
-        ? AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE
-        : authoritativeTotal != null && Number.isFinite(authoritativeTotal)
-          ? formatQuote(authoritativeTotal)
-          : priceUpdating
-            ? "Updating price…"
-            : "Calculating…";
+    const liveLabel =
+      authoritativeTotal != null && Number.isFinite(authoritativeTotal)
+        ? formatQuote(authoritativeTotal)
+        : null;
+    if (liveLabel) stableFareLabelRef.current = liveLabel;
+    const amountLabel = authoritativeQuoteFailed
+      ? AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE
+      : liveLabel
+        ? liveLabel
+        : priceUpdating && stableFareLabelRef.current
+          ? stableFareLabelRef.current
+          : "Calculating…";
     return (
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
@@ -6825,7 +6877,7 @@ function QuoteCard({
           className="h-px w-full scroll-mt-44 md:scroll-mt-28"
           aria-hidden="true"
         />
-        <div id="quote-step1-next" className="space-y-2">
+        <div id="quote-step1-next" className="space-y-1">
           {renderStep1SaveQuote()}
           {liveQuote || hasQuoteRoute || passengers != null || suitcases != null
             ? renderStartNewQuoteControls("results")
@@ -7295,41 +7347,6 @@ function QuoteCard({
                     : undefined
                 }
               >
-                {/*
-                  Show YOUR ROUTE as soon as bags/capacity are complete so Stage 6
-                  can scroll here immediately (do not wait for metrics). Prefetch
-                  stays sr-only while the customer is still on passengers/bags.
-                */}
-                {!(quoteResultsReady && quoteStep === 1) ? (
-                <div
-                  className={
-                    quoteChoicesReady && hasQuoteRoute && quoteStep === 1
-                      ? undefined
-                      : "sr-only"
-                  }
-                  aria-hidden={
-                    !(quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
-                  }
-                >
-                  <TripMap
-                    id={
-                      quoteChoicesReady && hasQuoteRoute && quoteStep === 1
-                        ? "quote-route-summary"
-                        : undefined
-                    }
-                    tripMode="address"
-                    originAddress={pickupAddress}
-                    destinationAddress={dropoffAddress}
-                    originLat={pickupPlace.lat}
-                    originLng={pickupPlace.lng}
-                    destinationLat={dropoffPlace.lat}
-                    destinationLng={dropoffPlace.lng}
-                    onRouteMetrics={handleRouteMetrics}
-                    variant="summary"
-                  />
-                </div>
-                ) : null}
-
                 {quoteResultsReady && quoteStep === 1 && (
                   <>
                     <h2 className="sr-only">Step 2 — Your quote</h2>
@@ -7376,24 +7393,47 @@ function QuoteCard({
                         </div>
                       </>
                     )}
-                    {showInstantQuoteResultCard
-                      ? renderQuoteResultFollowOn(
-                          <TripMap
-                            id="quote-route-summary"
-                            tripMode="address"
-                            originAddress={pickupAddress}
-                            destinationAddress={dropoffAddress}
-                            originLat={pickupPlace.lat}
-                            originLng={pickupPlace.lng}
-                            destinationLat={dropoffPlace.lat}
-                            destinationLng={dropoffPlace.lng}
-                            onRouteMetrics={handleRouteMetrics}
-                            variant="summary"
-                          />,
-                        )
-                      : null}
                   </>
                 )}
+                {/*
+                  One map instance for this address pair. It stays mounted when
+                  the result card appears so the route is not requested again.
+                */}
+                <div
+                  key="quote-route-map"
+                  className={
+                    (quoteResultsReady && quoteStep === 1) ||
+                    (quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
+                      ? undefined
+                      : "sr-only"
+                  }
+                  aria-hidden={
+                    !(
+                      (quoteResultsReady && quoteStep === 1) ||
+                      (quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
+                    )
+                  }
+                >
+                  <TripMap
+                    id={
+                      quoteChoicesReady && hasQuoteRoute && quoteStep === 1
+                        ? "quote-route-summary"
+                        : undefined
+                    }
+                    tripMode="address"
+                    originAddress={pickupAddress}
+                    destinationAddress={dropoffAddress}
+                    originLat={pickupPlace.lat}
+                    originLng={pickupPlace.lng}
+                    destinationLat={dropoffPlace.lat}
+                    destinationLng={dropoffPlace.lng}
+                    onRouteMetrics={handleRouteMetrics}
+                    variant="summary"
+                  />
+                </div>
+                {quoteResultsReady && quoteStep === 1 && showInstantQuoteResultCard
+                  ? renderQuoteResultFollowOn(null)
+                  : null}
               </div>
             )}
             <div hidden>

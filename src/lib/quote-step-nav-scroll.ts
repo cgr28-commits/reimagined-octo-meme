@@ -531,7 +531,14 @@ function readVisualViewport(): { height: number; offsetTop: number } {
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const card = document.getElementById("quote-selected-vehicle-card");
   if (!(card instanceof HTMLElement) || card.getClientRects().length === 0) return null;
-  const heading = card.querySelector<HTMLElement>("[data-quote-result-heading]");
+  const optionsHeading = document.querySelector<HTMLElement>(
+    "[data-quote-vehicle-options-heading]",
+  );
+  const resultHeading = card.querySelector<HTMLElement>("[data-quote-result-heading]");
+  const heading =
+    optionsHeading && optionsHeading.getClientRects().length > 0
+      ? optionsHeading
+      : resultHeading;
   if (!heading || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
   const headingRect = heading.getBoundingClientRect();

@@ -9,10 +9,7 @@ import {
   type ExpressAirportService,
   type ExpressDropOffAirportCode,
 } from "../../shared/express-drop-off";
-import {
-  AIRPORT_ACCESS_INCLUDED_BODY,
-  AIRPORT_ACCESS_INCLUDED_HEADING,
-} from "../../shared/executive-vehicle";
+import { includedAirportAccessCopy } from "../../shared/executive-vehicle";
 import {
   MEET_GREET_DESCRIPTION,
   formatMeetGreetGbp,
@@ -75,13 +72,12 @@ export default function ExpressDropOffChoice({
 }: Props) {
   if (terminalAccessIncluded) {
     const light = tone === "on-light";
+    const copy = includedAirportAccessCopy(service);
     return (
-      <div className={`min-w-0 ${className}`} data-airport-access-included>
-        <p className={`text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
-          {AIRPORT_ACCESS_INCLUDED_HEADING}
-        </p>
-        <p className={`mt-1 text-xs leading-snug ${light ? "text-[#475569]" : "text-white/75"}`}>
-          {AIRPORT_ACCESS_INCLUDED_BODY}
+      <div className={`min-w-0 ${className}`} data-airport-access-included data-airport-access-service={service}>
+        <p className={`text-xs font-bold ${light ? "text-navy" : "text-white"}`}>{copy.heading}</p>
+        <p className={`mt-0.5 text-[11px] font-medium leading-snug ${light ? "text-navy" : "text-white"}`}>
+          {copy.body}
         </p>
       </div>
     );

@@ -349,7 +349,7 @@ function collectionOptionLabel(
   const access = resolveReminderAirportAccess(input, airport);
   if (access === "meet-greet") return "Meet & Greet";
   if (airport === "DUB") return "Paid pickup";
-  if (access === "express") return "Express Pickup";
+  if (access === "express") return "Express Pickup Included";
   if (access === "free") return "Free Pickup";
   return null;
 }

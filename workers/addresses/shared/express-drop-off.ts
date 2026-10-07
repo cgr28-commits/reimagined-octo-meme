@@ -1,3 +1,4 @@
+import { includedAirportAccessCopy } from "./executive-vehicle";
 import {
   listAirportPickupLegs,
   meetGreetCustomerValue,
@@ -643,18 +644,9 @@ export function formatAirportAccessOptionCustomerLine(input: {
   if (!airport) return null;
   const service =
     input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
-  const product = service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
-  if (option === "express") {
-    const fee =
-      typeof input.expressDropOffFee === "number" && input.expressDropOffFee > 0
-        ? roundGbp(input.expressDropOffFee)
-        : EXPRESS_DROP_OFF_FEES_GBP[airport];
-    return `Airport access option: ${product} — ${formatExpressDropOffGbp(fee)}`;
-  }
-  if (service === "pick-up") {
-    return "Airport access option: Free designated pick-up area — short walk from terminal";
-  }
-  return "Airport access option: Free designated drop-off area — short walk to terminal";
+  void airport;
+  void option;
+  return `Airport access: ${includedAirportAccessCopy(service).heading}`;
 }
 
 function formatAirportAccessLegCustomerValue(input: {
@@ -670,23 +662,9 @@ function formatAirportAccessLegCustomerValue(input: {
         : meetGreetFeeGbp(input.airportCode);
     return meetGreetCustomerValue(fee);
   }
-  const product = input.service === "pick-up" ? "Express Pick-Up" : "Express Drop-Off";
-  const airport = normaliseExpressDropOffAirport(input.airportCode);
-  if (!airport) {
-    return input.service === "pick-up"
-      ? "Free designated pick-up area — short walk from terminal"
-      : "Free designated drop-off area — short walk to terminal";
-  }
-  if (input.option === "express") {
-    const fee =
-      typeof input.feeGbp === "number" && input.feeGbp > 0
-        ? roundGbp(input.feeGbp)
-        : EXPRESS_DROP_OFF_FEES_GBP[airport];
-    return `${product} — ${formatExpressDropOffGbp(fee)}`;
-  }
-  return input.service === "pick-up"
-    ? "Free designated pick-up area — short walk from terminal"
-    : "Free designated drop-off area — short walk to terminal";
+  void input.option;
+  void input.feeGbp;
+  return includedAirportAccessCopy(input.service).heading;
 }
 
 type StoredAccessLineInput = {
@@ -1006,18 +984,7 @@ export function formatExpressDropOffSummaryLine(input: {
   }
   const service =
     input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
-  const selected = input.expressDropOffSelected !== false;
-  const storedFee =
-    typeof input.expressDropOffFee === "number" && Number.isFinite(input.expressDropOffFee)
-      ? roundGbp(input.expressDropOffFee)
-      : null;
-  if (selected) {
-    const fee = storedFee != null && storedFee > 0 ? storedFee : EXPRESS_DROP_OFF_FEES_GBP[airport];
-    if (fee <= 0) return null;
-    return expressDropOffBreakdownLabel(airport, true, service, fee);
-  }
-  // Declined Express — show the airport fee that was removed (not the stored £0).
-  const removedFee =
-    storedFee != null && storedFee > 0 ? storedFee : EXPRESS_DROP_OFF_FEES_GBP[airport];
-  return expressDropOffBreakdownLabel(airport, false, service, removedFee);
+  void input.expressDropOffFee;
+  void input.expressDropOffSelected;
+  return includedAirportAccessCopy(service).heading;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
   MINIMUM_BOOKING_NOTICE_HOURS,
@@ -41,11 +41,9 @@ export function useMinimumBookingNoticeHours(): [
     };
   }, []);
 
-  return [
-    hours,
-    (value) => setHours(normalizeMinimumBookingNoticeHours(value)),
-    leadHours,
-    confirmationWindowHours,
-    minibusNoticeHours,
-  ];
+  const setNoticeHours = useCallback((value: number) => {
+    setHours(normalizeMinimumBookingNoticeHours(value));
+  }, []);
+
+  return [hours, setNoticeHours, leadHours, confirmationWindowHours, minibusNoticeHours];
 }
