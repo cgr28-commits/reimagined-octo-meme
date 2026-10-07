@@ -185,14 +185,11 @@ export default function QuoteVehicleCategories({
                     />
                   )}
                 </span>
-                <span
-                  className={`block text-[0.72rem] font-semibold leading-tight ${
-                    fits ? "invisible" : "text-navy"
-                  }`}
-                  aria-hidden={fits}
-                >
-                  {VEHICLE_NOT_SUITABLE_CARD_MESSAGE}
-                </span>
+                {fits ? null : (
+                  <span className="block text-[0.72rem] font-semibold leading-tight text-navy">
+                    {VEHICLE_NOT_SUITABLE_CARD_MESSAGE}
+                  </span>
+                )}
               </button>
             </div>
           );

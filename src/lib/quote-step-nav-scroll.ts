@@ -531,9 +531,14 @@ function readVisualViewport(): { height: number; offsetTop: number } {
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const heading = document.querySelector<HTMLElement>("[data-quote-vehicle-options-heading]");
-  if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
+  const waitingNote = document.querySelector<HTMLElement>("[data-quote-results-lead]");
+  const target =
+    waitingNote instanceof HTMLElement && waitingNote.getClientRects().length > 0
+      ? waitingNote
+      : heading;
+  if (!(target instanceof HTMLElement) || target.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
-  const headingRect = heading.getBoundingClientRect();
+  const headingRect = target.getBoundingClientRect();
   const layoutClientHeight = document.documentElement.clientHeight || visual.height;
   const maxScroll = Math.max(
     0,
