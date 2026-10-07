@@ -218,21 +218,26 @@ function bookingCustomerMobile(booking: OwnerPaidBookingSummary): string {
 
 function openArrivalWhatsAppForBooking(
   booking: OwnerPaidBookingSummary,
+  serverMessage?: string,
 ): "opened" | "no_mobile" {
   const mobile = bookingCustomerMobile(booking);
   if (!mobile) return "no_mobile";
 
   const pickupLabel = activeLegPickupLabel(booking);
-  const message = buildArrivedPickupWhatsAppMessage({
-    isAirportPickup: isAirportPickupLabel(pickupLabel),
-    pickupLabel,
-    airportCode: booking.airportCode ?? booking.expressDropOffAirport,
-    airportAccessOption: booking.airportAccessOption,
-    expressDropOffSelected: booking.expressDropOffSelected,
-    expressDropOffAirport: booking.expressDropOffAirport,
-    expressDropOffFee: booking.expressDropOffFee,
-    dublinArrivalTerminal: activeLegDublinArrivalTerminal(booking),
-  });
+  const message =
+    serverMessage?.trim() ||
+    buildArrivedPickupWhatsAppMessage({
+      customerName: booking.customerName,
+      isAirportPickup: isAirportPickupLabel(pickupLabel),
+      pickupLabel,
+      airportCode: booking.airportCode ?? booking.expressDropOffAirport,
+      airportAccessOption: booking.airportAccessOption,
+      expressDropOffSelected: booking.expressDropOffSelected,
+      expressDropOffAirport: booking.expressDropOffAirport,
+      expressDropOffFee: booking.expressDropOffFee,
+      dublinArrivalTerminal: activeLegDublinArrivalTerminal(booking),
+      authenticatedRole: "owner",
+    });
   openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
   return "opened";
 }
@@ -251,13 +256,19 @@ function openReviewWhatsAppForBooking(
 
 function openOnTheWayWhatsAppForBooking(
   booking: OwnerPaidBookingSummary,
+  serverMessage?: string,
 ): "opened" | "no_mobile" {
   const mobile = bookingCustomerMobile(booking);
   if (!mobile) return "no_mobile";
+  if (serverMessage?.trim()) {
+    openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, serverMessage.trim()));
+    return "opened";
+  }
   openWhatsAppDeepLink(
     buildDriverOnTheWayWhatsAppLink(mobile, {
       customerName: booking.customerName,
       bookedPickupTime: activeLegPickupTime(booking),
+      authenticatedRole: "owner",
     }),
   );
   return "opened";
@@ -1037,7 +1048,7 @@ export default function OwnerPaidBookingsPanel({
         const mobile = bookingCustomerMobile(booking);
         const openWhatsApp = !options?.retryArrivalNotification && Boolean(mobile);
         if (openWhatsApp) {
-          openArrivalWhatsAppForBooking(booking);
+          openArrivalWhatsAppForBooking(booking, result.customerWhatsAppMessage);
           setMessage(
             result.idempotent
               ? `Already arrived at pickup${result.arrivedPickupAt ? ` (${formatArrivedPickupHhMm(result.arrivedPickupAt)})` : ""}.${notify} WhatsApp opened — press Send to message the customer.`
@@ -1069,7 +1080,7 @@ export default function OwnerPaidBookingsPanel({
               : result.onTheWayNotificationStatus === "not_configured"
                 ? " On-the-way email not configured."
                 : "";
-        const wa = openOnTheWayWhatsAppForBooking(booking);
+        const wa = openOnTheWayWhatsAppForBooking(booking, result.customerWhatsAppMessage);
         setMessage(
           result.idempotent
             ? `Already marked Driver on the way.${notify}${

@@ -30,7 +30,14 @@ import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { authorizeDriverJobAction, sequentialDriverJourneyActions } from "../shared/driver-portal-access";
 import {
   ownerAuthorized,
+  type DriverSession,
 } from "./driver-auth";
+import {
+  buildArrivedPickupWhatsAppMessage,
+  buildDriverOnTheWayWhatsAppMessage,
+  isAirportPickupLabel,
+  resolveManualWhatsAppVoice,
+} from "../shared/arrival-whatsapp";
 import { resolveAuthorizedSession } from "./driver-portal-session";
 import { attachTipDecision, tipPayloadForCompletedJob } from "./journey-tip-handlers";
 import {
@@ -245,6 +252,51 @@ export async function sendOnTheWayNotificationIfNeeded(
   return next;
 }
 
+/**
+ * Manual WhatsApp text for the phone. Voice comes from the authenticated
+ * session only — request fields are not read.
+ */
+async function manualCustomerWhatsAppMessage(
+  env: Env,
+  job: TrackingJobRecord,
+  action: JourneyAction,
+  session: DriverSession,
+): Promise<string | undefined> {
+  if (!session.authorized) return undefined;
+  if (action !== "start_tracking" && action !== "arrived_pickup") return undefined;
+
+  const paidBooking =
+    job.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)
+      ? await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference)
+      : null;
+  const voice = resolveManualWhatsAppVoice({
+    role: session.role,
+    profileKey: session.profileKey,
+  });
+  const airportCode = job.airportCode ?? paidBooking?.airportCode ?? null;
+
+  if (action === "start_tracking") {
+    return buildDriverOnTheWayWhatsAppMessage({
+      customerName: job.customerName,
+      bookedPickupTime: job.tripTime,
+      authenticatedRole: voice,
+    });
+  }
+
+  return buildArrivedPickupWhatsAppMessage({
+    customerName: job.customerName,
+    isAirportPickup: isAirportPickupJob(job) || isAirportPickupLabel(job.pickupLabel || ""),
+    pickupLabel: job.pickupLabel,
+    airportCode,
+    airportAccessOption: paidBooking?.airportAccessOption,
+    expressDropOffSelected: paidBooking?.expressDropOffSelected,
+    expressDropOffAirport: paidBooking?.expressDropOffAirport,
+    expressDropOffFee: paidBooking?.expressDropOffFee,
+    dublinArrivalTerminal: await resolveDublinArrivalTerminalForJob(job, env),
+    authenticatedRole: voice,
+  });
+}
+
 function jsonResponse(body: unknown, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), {
     status,
@@ -337,6 +389,7 @@ export async function handleJourneyTransitionRequest(
       await saveTrackingJob(env.TRACKING_STORE, next);
     }
     const channels = arrivalChannelReport(env);
+    const customerWhatsAppMessage = await manualCustomerWhatsAppMessage(env, next, action, session);
     return jsonResponse(
       {
         ok: true,
@@ -363,6 +416,7 @@ export async function handleJourneyTransitionRequest(
         arrivalChannels: channels,
         reviewRequest: buildReviewRequestSummary(next),
         idempotent: true,
+        ...(customerWhatsAppMessage ? { customerWhatsAppMessage } : {}),
       },
       200,
       origin,
@@ -394,6 +448,7 @@ export async function handleJourneyTransitionRequest(
       };
     }
     const channels = arrivalChannelReport(env);
+    const customerWhatsAppMessage = await manualCustomerWhatsAppMessage(env, next, action, session);
     return jsonResponse(
       {
         ok: true,
@@ -421,6 +476,7 @@ export async function handleJourneyTransitionRequest(
         reviewRequest: buildReviewRequestSummary(next),
         idempotent: true,
         ...(trackingSession ? { trackingSession } : {}),
+        ...(customerWhatsAppMessage ? { customerWhatsAppMessage } : {}),
       },
       200,
       origin,
@@ -546,6 +602,7 @@ export async function handleJourneyTransitionRequest(
   }
 
   const channels = arrivalChannelReport(env);
+  const customerWhatsAppMessage = await manualCustomerWhatsAppMessage(env, next, action, session);
 
   return jsonResponse(
     {
@@ -574,6 +631,7 @@ export async function handleJourneyTransitionRequest(
       reviewRequest: buildReviewRequestSummary(next),
       ...(tipPayload ? { tip: tipPayload } : {}),
       ...(trackingSession ? { trackingSession } : {}),
+      ...(customerWhatsAppMessage ? { customerWhatsAppMessage } : {}),
     },
     200,
     origin,

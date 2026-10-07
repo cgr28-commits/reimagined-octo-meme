@@ -169,6 +169,53 @@ export function buildArrivedCompanyVoiceEmailBody(
   return `Hi ${first}, your driver has arrived at your pickup location and is ready when you are.`;
 }
 
+/**
+ * Manual WhatsApp only, for a secure saved-driver portal session.
+ * Emails stay on the company-voice builders above.
+ */
+export function buildOnTheWayDriverVoiceMessage(
+  booking: Pick<CompanyVoiceJourneyBooking, "customerName" | "bookedPickupTime">,
+): string {
+  const first = companyVoiceCustomerFirstName(booking.customerName ?? "");
+  const time = formatBookedPickupTime(booking.bookedPickupTime ?? "");
+  const timeClause = time ? ` for your booked pickup time of ${time}` : "";
+  return `Hi ${first}, I'm your driver for your ${COMPANY_VOICE_BUSINESS_NAME} booking. I'm on my way to your pickup location${timeClause}. I may share my location with you here on WhatsApp.`;
+}
+
+function toDriverVoiceAirportInstruction(instruction: string): string {
+  if (instruction === AIRPORT_PICKUP_COPY.express) {
+    return "Please make your way to Express Pick-Up and I'll meet you there.";
+  }
+  return instruction.replace(
+    "Please let us know when you're there so your driver can head over to meet you.",
+    "Let me know when you're there and I'll head over to meet you.",
+  );
+}
+
+export function buildArrivedStreetDriverVoiceMessage(customerName?: string): string {
+  const first = companyVoiceCustomerFirstName(customerName ?? "");
+  return `Hi ${first}, I've arrived at your pickup location and I'm ready when you are.`;
+}
+
+export function buildArrivedAirportDriverVoiceMessage(
+  booking: CompanyVoiceJourneyBooking,
+): string {
+  const first = companyVoiceCustomerFirstName(booking.customerName ?? "");
+  const instruction = toDriverVoiceAirportInstruction(
+    buildAirportPickupInstruction({ ...booking, isAirportPickup: true }) ||
+      AIRPORT_PICKUP_COPY.generic,
+  );
+  return `Hi ${first}, I've arrived. ${instruction}`;
+}
+
+export function buildArrivedDriverVoiceWhatsAppMessage(
+  booking: CompanyVoiceJourneyBooking & { isAirportPickup: boolean; customerName?: string },
+): string {
+  return booking.isAirportPickup
+    ? buildArrivedAirportDriverVoiceMessage(booking)
+    : buildArrivedStreetDriverVoiceMessage(booking.customerName);
+}
+
 /** Phrases that must never appear in customer email / WhatsApp from journey buttons. */
 export const FORBIDDEN_PERSONAL_VOICE_PATTERNS: RegExp[] = [
   /\bI['’]m your driver\b/i,
