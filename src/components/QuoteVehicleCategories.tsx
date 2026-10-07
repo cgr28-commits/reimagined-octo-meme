@@ -22,6 +22,9 @@ import {
 } from "../../shared/vehicle-display";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
 
+/** Shown under the passenger line on Saloon and Business Class, including when disabled. */
+const SALOON_LUGGAGE_CAPACITY = "2 large suitcases + 2 hand luggage";
+
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const BUSINESS_CLASS_IMAGE = withBasePath("/images/vehicles/quote-business-class.webp");
@@ -33,6 +36,7 @@ const CATEGORIES = [
     vehicle: SALOON_VEHICLE,
     title: SALOON_CUSTOMER_NAME,
     capacity: SALOON_CUSTOMER_DESCRIPTION,
+    luggage: SALOON_LUGGAGE_CAPACITY,
     detail: null,
     image: SALOON_IMAGE,
     art: "saloon" as VehicleArtId,
@@ -42,6 +46,7 @@ const CATEGORIES = [
     vehicle: ESTATE_VEHICLE,
     title: ESTATE_CUSTOMER_NAME,
     capacity: "1–4 passengers",
+    luggage: null,
     detail: ESTATE_CUSTOMER_DESCRIPTION,
     image: ESTATE_IMAGE,
     art: "estate" as VehicleArtId,
@@ -51,6 +56,7 @@ const CATEGORIES = [
     vehicle: EXECUTIVE_VEHICLE,
     title: EXECUTIVE_CUSTOMER_NAME,
     capacity: "1–4 passengers",
+    luggage: SALOON_LUGGAGE_CAPACITY,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
     image: BUSINESS_CLASS_IMAGE,
     art: "executive" as VehicleArtId,
@@ -60,6 +66,7 @@ const CATEGORIES = [
     vehicle: MINIBUS_VEHICLE,
     title: MINIBUS_CUSTOMER_NAME,
     capacity: null,
+    luggage: null,
     detail: MINIBUS_CUSTOMER_DESCRIPTION,
     image: MINIBUS_IMAGE,
     art: "minibus" as VehicleArtId,
@@ -127,7 +134,7 @@ export default function QuoteVehicleCategories({
                   if (!fits) return;
                   onSelectVehicle?.(option.vehicle);
                 }}
-                className={`flex h-[5.65rem] w-full flex-col justify-center gap-0.5 overflow-hidden rounded-xl border-2 bg-white px-2 py-1 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
+                className={`flex h-[6.35rem] w-full flex-col justify-center gap-0.5 overflow-hidden rounded-xl border-2 bg-white px-2 py-1 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
                   isSelected
                     ? "border-[var(--quote-selected-border)]"
                     : "border-navy/20"
@@ -149,11 +156,16 @@ export default function QuoteVehicleCategories({
                         {option.capacity}
                       </span>
                     ) : null}
+                    {option.luggage ? (
+                      <span className="block text-[0.68rem] font-semibold leading-tight text-navy">
+                        {option.luggage}
+                      </span>
+                    ) : null}
                     {option.detail ? (
                       <span className="block text-[0.72rem] font-medium leading-tight text-navy">
                         {option.detail}
                       </span>
-                    ) : (
+                    ) : option.luggage ? null : (
                       <span className="block text-[0.72rem] leading-tight text-transparent" aria-hidden>
                         {"\u00a0"}
                       </span>
