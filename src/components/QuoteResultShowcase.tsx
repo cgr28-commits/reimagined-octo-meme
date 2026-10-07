@@ -133,14 +133,14 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       <div className="min-w-0 text-center">
         <p
           data-quote-result-heading
-          className="font-sans text-sm font-bold leading-tight tracking-[-0.02em] text-navy"
+          className="font-sans text-sm font-bold leading-none tracking-[-0.02em] text-navy"
         >
           {vehicleLabel}
         </p>
         <p className="sr-only">Vehicle for this journey</p>
-        <p className="text-[11px] font-semibold leading-tight text-navy">{capacityLine}</p>
-        <p className="text-[11px] font-medium leading-tight text-navy">{detailLine}</p>
-        <div className="mt-0.5">
+        <p className="text-[11px] font-semibold leading-none text-navy">{capacityLine}</p>
+        <p className="text-[11px] font-medium leading-none text-navy">{detailLine}</p>
+        <div className="mt-0">
           <VehicleQuoteArt
             vehicle={art}
             src={vehicleImage}
@@ -156,12 +156,12 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             size="result"
           />
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-0 text-[11px] font-semibold leading-tight text-navy min-[390px]:flex-nowrap">
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+        <div className="mt-0 flex flex-wrap items-center justify-center gap-x-3 gap-y-0 text-[11px] font-semibold leading-none text-navy min-[390px]:flex-nowrap">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">
             <PassengerIcon />
             {passengerLabel}
           </span>
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">
             <SuitcaseIcon />
             {suitcaseLabel}
           </span>
@@ -256,7 +256,7 @@ export default QuoteResultShowcase;
 
 function PassengerIcon() {
   return (
-    <svg className="h-4 w-4 text-navy" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg className="h-3.5 w-3.5 text-navy" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="M12 12a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z"
         stroke="currentColor"
@@ -274,7 +274,7 @@ function PassengerIcon() {
 
 function SuitcaseIcon() {
   return (
-    <svg className="h-4 w-4 text-navy" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg className="h-3.5 w-3.5 text-navy" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="M7.5 8.5h9A1.5 1.5 0 0 1 18 10v8.5A1.5 1.5 0 0 1 16.5 20h-9A1.5 1.5 0 0 1 6 18.5V10A1.5 1.5 0 0 1 7.5 8.5Z"
         stroke="currentColor"

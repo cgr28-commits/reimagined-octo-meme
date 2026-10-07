@@ -114,7 +114,7 @@ export default function QuoteVehicleCategories({
                 data-vehicle-category={option.id}
                 aria-pressed={isSelected}
                 onClick={() => onSelectVehicle?.(option.vehicle)}
-                className={`flex min-h-[4.75rem] w-full min-w-0 items-center gap-3 rounded-xl border-2 bg-white px-3 py-2 text-left text-navy shadow-sm ${
+                className={`grid h-[4.75rem] w-full grid-cols-[5.75rem_minmax(0,1fr)_1.25rem] items-center gap-x-1.5 rounded-xl border-2 bg-white px-2 text-left text-navy shadow-sm ${
                   isSelected
                     ? "border-[var(--quote-selected-border)]"
                     : "border-navy/20"
@@ -126,17 +126,17 @@ export default function QuoteVehicleCategories({
                   alt=""
                   size="option"
                 />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[0.95rem] font-bold leading-tight text-navy">
+                <span className="min-w-0">
+                  <span className="block text-[0.78rem] font-bold leading-tight text-navy tracking-[-0.02em]">
                     {option.title}
                   </span>
                   {option.capacity ? (
-                    <span className="mt-0.5 block text-[0.8125rem] font-semibold leading-snug text-navy">
+                    <span className="block text-[0.72rem] font-semibold leading-tight text-navy">
                       {option.capacity}
                     </span>
                   ) : null}
                   {option.detail ? (
-                    <span className="mt-0.5 block text-[0.8125rem] font-medium leading-snug text-navy">
+                    <span className="block text-[0.72rem] font-medium leading-tight text-navy">
                       {option.detail}
                     </span>
                   ) : null}

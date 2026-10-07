@@ -29,8 +29,8 @@ export function VehicleQuoteArt({
 }) {
   const frame =
     size === "option"
-      ? "relative h-16 w-[7.5rem] shrink-0"
-      : "relative mx-auto h-10 w-full max-w-[8.75rem]";
+      ? "relative h-12 w-[5.75rem] shrink-0"
+      : "relative mx-auto h-8 w-full max-w-[7.25rem]";
   return (
     <span
       className={`${frame} flex items-center justify-center overflow-hidden`}
