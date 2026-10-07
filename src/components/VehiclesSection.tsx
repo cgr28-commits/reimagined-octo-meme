@@ -60,12 +60,12 @@ export default function VehiclesSection() {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 desktop-shell lg:max-w-[1400px] lg:px-10 xl:px-12">
         <SectionHeading
           eyebrow="Your journey"
-          title={minibusOn ? "Private transfers for up to 7" : "Private transfers for up to 4"}
+          title="Vehicles for your airport transfer"
           navId="vehicles"
           description={
             minibusOn
               ? "Professional private airport transfer. Choose a Saloon, Estate or similar larger vehicle, Business Class, or 7 Seater Minibus when it suits your passengers and luggage."
-              : "Professional private airport transfer in a Saloon or Estate or similar larger vehicle. Choose Business Class, a premium executive vehicle, and pay online when it is available."
+              : "Saloon and Estate airport transfers for up to 4 passengers, plus Business Class and a 7 Seater Minibus when available. Enter your passengers and luggage to see the vehicles offered for your journey."
           }
         />
 

@@ -236,7 +236,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes show Saloon, Estate or similar larger vehicle, Business Class, and 7 Seater Minibus only when that vehicle suits your passengers and luggage. Airport access required for the journey is included in the fixed price. My Airport Taxi NI provides private airport transfers for up to 4 passengers, or up to 7 when a 7 Seater is offered.",
+        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes show Saloon, Estate or similar larger vehicle, Business Class, and 7 Seater Minibus when enabled and available; the form recommends a suitable vehicle from your passengers and luggage. Airport access required for the journey is included in the fixed price. My Airport Taxi NI provides private airport transfers for up to 4 passengers, or up to 7 when a 7 Seater is offered.",
     },
     {
       title: "Quote tool flow",
@@ -245,7 +245,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     },
     {
       title: "Airports we cover",
-      body: `We cover ${AIRPORTS.map((a) => `${a.name} (${a.code}): ${a.description} ${a.distance}, ${a.duration}`).join(" ")} Airport pickups include the applicable airport pickup fee (Dublin Airport pickup/parking £5 plus M1 tolls, or City of Derry Airport pickup £2.50) and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable airport drop-off fee where charged (City of Derry Airport £1; Dublin Airport drop-off fee £0 with M1 tolls). Belfast International and Belfast City offer Express / free-area choice where configured. Address-to-address journeys are a fixed price for your route.`,
+      body: `We cover ${AIRPORTS.map((a) => `${a.name} (${a.code}): ${a.description} ${a.distance}, ${a.duration}`).join(" ")} Airport pickups include the applicable airport pickup fee (Dublin Airport pickup/parking £5 plus M1 tolls, or City of Derry Airport pickup £2.50) and 60 minutes complimentary waiting after landing. Airport drop-offs include the applicable airport drop-off fee where charged (City of Derry Airport £1; Dublin Airport drop-off fee £0 with M1 tolls). Belfast International and Belfast City include Express Pickup or Express Drop-Off and the applicable airport access charge in the fixed fare. Address-to-address journeys are a fixed price for your route.`,
     },
     {
       title: "Areas we cover",
@@ -262,7 +262,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Passenger capacity",
       body:
-        "My Airport Taxi NI provides private airport transfers. Online quotes offer Saloon, Estate or similar larger vehicle, and Business Class for 1–4 passengers, and a 7 Seater Minibus when it is offered and the party fits. Unsuitable vehicles are not shown.",
+        "My Airport Taxi NI provides private airport transfers. Online quotes offer Saloon, Estate or similar larger vehicle, and Business Class for 1–4 passengers, and a 7 Seater Minibus when it is offered and the party fits. All enabled vehicle categories stay visible. A vehicle that cannot take the passengers and luggage is shown but cannot be selected. Enter your passengers and luggage for a suitable recommendation.",
     },
     {
       title: "Operator and business details",
@@ -280,7 +280,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Meet and greet",
       body:
-        "Meet & greet can be requested during booking where available — we can meet you in the arrivals hall with a name board. Ask for meet and greet when you book and share your flight number so we can plan the collection.",
+        "Business Class airport pickups include Meet & Greet in arrivals with a name board and luggage assistance. It is not an optional extra for Saloon, Estate or 7 Seater bookings. Share your flight number so we can plan the collection.",
     },
     {
       title: "Flight delays and waiting time",

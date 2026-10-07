@@ -156,8 +156,8 @@ async function main() {
     const text = FAQS.map((f) => `${f.question} ${f.answer}`).join("\n");
     assert.match(text, /How many passengers can I book for\?/i);
     assert.match(text, /up to 4 passengers/i);
-    assert.match(text, /1–4 passengers/i);
-    assert.equal(/5–7 passengers|tailored minibus quote|minibus/i.test(text), false);
+    assert.match(text, /7 Seater Minibus/i);
+    assert.equal(/5–7 passengers|tailored minibus quote/i.test(text), false);
     assert.match(text, /more than 24 hours/i);
     assert.equal(/5\+|5 or more|5–8|up to 8|larger groups can still|8 passengers|8\+/i.test(text), false);
   });
