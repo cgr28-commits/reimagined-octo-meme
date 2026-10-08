@@ -1,19 +1,25 @@
 /**
- * Two-hour journey reminder.
+ * Three-hour journey reminder.
  *
  * The previous airport email was sent about four hours before an airport
  * collection only, shifted out of the overnight quiet period, and always used
  * the company WhatsApp number. Driver mobiles were intentionally omitted.
  *
- * This reminder is due at the booked pickup minus two hours in UK local time
- * (Europe/London, including daylight saving). Each leg is separate. The email
- * does not contain a driver's mobile, a tel: link, or a wa.me link. Those open
- * from a booking-specific page that reads the live assignment on every visit.
- * Accepted driver contact details are not included in earlier booking emails.
+ * This reminder is due at the booked pickup minus three hours in UK local time
+ * (Europe/London, including daylight saving). Each leg is separate. Personal
+ * driver details stay on the live contact page and unlock two hours before
+ * pickup. The email may include the company WhatsApp and business telephone.
+ * It must not include an external driver's mobile, tel: link, or wa.me link.
  * The message does not promise that the provider will deliver at that exact minute.
  */
 
-import { BUSINESS_NAME, businessWhatsAppChatUrl } from "./business-email";
+import {
+  BUSINESS_NAME,
+  BUSINESS_PHONE_DISPLAY,
+  BUSINESS_PHONE_TEL,
+  BUSINESS_WHATSAPP_DIGITS,
+  businessWhatsAppChatUrl,
+} from "./business-email";
 import { AIRPORT_PICKUP_COPY } from "./company-voice-journey";
 import { parseDublinArrivalTerminal } from "./dublin-arrival-terminal";
 import {
@@ -28,7 +34,11 @@ import { MEET_GREET_DESCRIPTION } from "./meet-greet";
 import { getServedAirport, matchServedAirportCode } from "./served-airports";
 import { formatUkDate, parseLondonLocalDateTime } from "./uk-time";
 
-export const JOURNEY_REMINDER_LEAD_MS = 2 * 60 * 60 * 1000;
+export const JOURNEY_REMINDER_LEAD_MS = 3 * 60 * 60 * 1000;
+/** Personal driver name and mobile unlock on the live page at this lead. */
+export const DRIVER_CONTACT_REVEAL_LEAD_MS = 2 * 60 * 60 * 1000;
+export const DRIVER_CONTACT_UNLOCK_MESSAGE =
+  "Your driver’s contact details will be available 2 hours before your scheduled pickup.";
 export const JOURNEY_REMINDER_CLAIM_MS = 30 * 60 * 1000;
 
 export const JOURNEY_REMINDER_SUBJECT = "Your journey reminder — My Airport Taxi NI";
@@ -38,10 +48,13 @@ export const JOURNEY_REMINDER_LANDING_HEADING =
   "IMPORTANT — PLEASE CONTACT YOUR DRIVER WHEN YOU LAND";
 
 export const JOURNEY_REMINDER_LANDING_BODY =
-  "Once your flight has landed, please switch on your mobile phone and contact your driver using the WhatsApp or Call button below.\n" +
-  "This lets your driver know you’ve arrived and helps us coordinate your collection from the airport’s designated Express Pick-Up area.\n" +
-  "Once you’ve collected your luggage and are ready to make your way to Express Pick-Up, please update your driver so they can arrange to meet you.\n" +
-  "If you experience any delays at passport control or baggage reclaim, please keep your driver informed.";
+  "Once your flight has landed, please switch on your mobile phone and contact your driver using the contact buttons provided.\n" +
+  "This helps us coordinate your airport collection.\n" +
+  "Once you’ve collected your luggage and are ready for collection, please update your driver.\n" +
+  "If you’re delayed at passport control or baggage reclaim, please keep your driver informed.";
+
+export const JOURNEY_REMINDER_LANDING_BEFORE_UNLOCK =
+  "If you land before your driver’s contact details are available, please contact My Airport Taxi NI using the company WhatsApp and Call Us buttons.";
 
 const REMINDER_AIRPORTS = ["BFS", "BHD", "DUB"] as const;
 type ReminderAirportCode = (typeof REMINDER_AIRPORTS)[number];
@@ -286,6 +299,16 @@ export function journeyReminderSendAt(pickupAt: Date): Date | null {
   return new Date(pickupAt.getTime() - JOURNEY_REMINDER_LEAD_MS);
 }
 
+export function driverContactRevealAt(pickupAt: Date): Date | null {
+  if (Number.isNaN(pickupAt.getTime())) return null;
+  return new Date(pickupAt.getTime() - DRIVER_CONTACT_REVEAL_LEAD_MS);
+}
+
+export function driverContactDetailsUnlocked(pickupAt: Date, now: Date): boolean {
+  const revealAt = driverContactRevealAt(pickupAt);
+  return Boolean(revealAt) && now.getTime() >= revealAt!.getTime();
+}
+
 export function journeyReminderWhatsAppDraft(
   input: JourneyReminderInput,
   contact: JourneyReminderContact,
@@ -438,39 +461,13 @@ function landingBody(input: JourneyReminderInput): string {
       : null);
   if (usesMeetAndGreet(input, airport)) {
     return (
-      "Once your flight has landed, please switch on your mobile phone and contact your driver using the WhatsApp or Call button below.\n" +
-      "This lets your driver know you’ve arrived. Your driver will meet you at the agreed arrivals meeting point with our Meet & Greet service. Please stay there rather than walking to Express Pick-Up.\n" +
-      "If you experience any delays at passport control or baggage reclaim, please keep your driver informed."
+      "Once your flight has landed, please switch on your mobile phone and contact your driver using the contact buttons provided.\n" +
+      "This helps us coordinate your airport collection. Your driver will meet you at the agreed arrivals meeting point with our Meet & Greet service. Please stay there rather than walking to Express Pick-Up.\n" +
+      "Once you’ve collected your luggage and are ready for collection, please update your driver.\n" +
+      "If you’re delayed at passport control or baggage reclaim, please keep your driver informed."
     );
   }
-  const access = accessForLeg(input, airport);
-  let area = "the airport’s designated Express Pick-Up area";
-  let ready = "Express Pick-Up";
-  if (access === "free" && (airport === "BFS" || airport === "BHD")) {
-    area = "the Long Stay Car Park Free Pick-Up Location";
-    ready = "the Long Stay Car Park Free Pick-Up Location";
-  } else if (airport === "DUB") {
-    const terminal = parseDublinArrivalTerminal(
-      reminderLeg(input) === "return" ? input.returnDublinArrivalTerminal : input.dublinArrivalTerminal,
-    );
-    const named =
-      terminal === "T1"
-        ? "the paid Pick-Up Location at Terminal 1"
-        : terminal === "T2"
-          ? "the paid Pick-Up Location at Terminal 2"
-          : "the agreed paid Pick-Up Location";
-    area = named;
-    ready = named.replace(/^the /, "");
-  }
-  if (area === "the airport’s designated Express Pick-Up area" && ready === "Express Pick-Up") {
-    return JOURNEY_REMINDER_LANDING_BODY;
-  }
-  return (
-    "Once your flight has landed, please switch on your mobile phone and contact your driver using the WhatsApp or Call button below.\n" +
-    `This lets your driver know you’ve arrived and helps us coordinate your collection from ${area}.\n` +
-    `Once you’ve collected your luggage and are ready to make your way to ${ready}, please update your driver so they can arrange to meet you.\n` +
-    "If you experience any delays at passport control or baggage reclaim, please keep your driver informed."
-  );
+  return JOURNEY_REMINDER_LANDING_BODY;
 }
 
 function greeting(input: JourneyReminderInput): string {
@@ -524,20 +521,41 @@ export function buildJourneyReminderMessage(
       ? contact.kind === "driver"
         ? "Updated Driver Details\n\nYour driver for this journey has changed. Use the buttons below to see the current contact details."
         : "Updated contact details\n\nPlease use the buttons below for this journey. A previous driver’s details are no longer the ones to use."
-      : `Your ${BUSINESS_NAME} pickup is coming up. The time below is the booked pickup time. This note is prepared about two hours beforehand; if it reaches you a little later, please use that booked time.`,
+      : `Your ${BUSINESS_NAME} pickup is coming up. The time below is the booked pickup time. This note is prepared about three hours beforehand; if it reaches you a little later, please use that booked time.`,
     "",
     ...journeyDetailLines(input),
     "",
-    "Use the buttons below to message or call. They open a secure page for this booking and show the contact details assigned right now.",
+    DRIVER_CONTACT_UNLOCK_MESSAGE,
+    "The Message Your Driver and Call Your Driver buttons open a secure page for this booking. From 2 hours before pickup they show the driver assigned at that moment. You do not need another email.",
   ];
   if (instructions) {
     lines.push("", collection ? "AIRPORT COLLECTION" : "AIRPORT DROP-OFF", instructions);
   }
   if (collection) {
-    lines.push("", JOURNEY_REMINDER_LANDING_HEADING, landingBody(input));
+    lines.push("", JOURNEY_REMINDER_LANDING_HEADING, "", landingBody(input), "", JOURNEY_REMINDER_LANDING_BEFORE_UNLOCK);
   }
   const page = journeyReminderContactPageHref(input.driverContactUrl, "message").replace(/[?&]intent=message$/, "");
-  lines.push("", "Message Your Driver", "Call Your Driver", "", page, "", "We look forward to welcoming you.", "", BUSINESS_NAME);
+  const companyContact: JourneyReminderContact = { kind: "company" };
+  const companyWhatsApp = journeyReminderWhatsAppHref(journeyReminderWhatsAppDraft(input, companyContact), companyContact);
+  lines.push(
+    "",
+    "Message Your Driver",
+    "Call Your Driver",
+    "",
+    page,
+    "",
+    `You can contact ${BUSINESS_NAME} now on WhatsApp or ${BUSINESS_PHONE_DISPLAY}.`,
+    "",
+    "Message Us on WhatsApp",
+    "Call Us",
+    "",
+    companyWhatsApp,
+    `tel:${BUSINESS_PHONE_TEL}`,
+    "",
+    "We look forward to welcoming you.",
+    "",
+    BUSINESS_NAME,
+  );
   return lines.join("\n");
 }
 
@@ -565,16 +583,29 @@ export function buildJourneyReminderHtml(
 ): string {
   const messageHref = journeyReminderContactPageHref(input.driverContactUrl, "message");
   const callHref = journeyReminderContactPageHref(input.driverContactUrl, "call");
+  const companyContact: JourneyReminderContact = { kind: "company" };
+  const companyWhatsApp = journeyReminderWhatsAppHref(
+    journeyReminderWhatsAppDraft(input, companyContact),
+    companyContact,
+  );
+  const companyTel = `tel:${BUSINESS_PHONE_TEL}`;
   const paragraphs = message
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
     .map((paragraph) => {
       if (paragraph.startsWith("https://") && paragraph.includes("/driver-contact")) return "";
+      if (paragraph.startsWith("https://wa.me/") || paragraph.startsWith("tel:")) return "";
       if (paragraph.startsWith("Message Your Driver")) {
         return (
           button(messageHref, "Message Your Driver", "#25D366", "#ffffff") +
           button(callHref, "Call Your Driver", "#071c38", "#ffffff")
+        );
+      }
+      if (paragraph.startsWith("Message Us on WhatsApp")) {
+        return (
+          button(companyWhatsApp, "Message Us on WhatsApp", "#25D366", "#ffffff") +
+          button(companyTel, "Call Us", "#071c38", "#ffffff")
         );
       }
       if (
@@ -587,7 +618,13 @@ export function buildJourneyReminderHtml(
         const landing = paragraph === JOURNEY_REMINDER_LANDING_HEADING;
         return `<p style="margin:20px 0 8px;font-size:${landing ? "16px" : "13px"};letter-spacing:${landing ? "0" : "0.06em"};font-weight:bold;color:${landing ? "#9a3412" : "#071c38"};">${escapeHtml(paragraph)}</p>`;
       }
-      const safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
+      let safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
+      if (paragraph.includes(BUSINESS_PHONE_DISPLAY)) {
+        safe = safe.replace(
+          BUSINESS_PHONE_DISPLAY,
+          `<a href="tel:${BUSINESS_PHONE_TEL}" style="color:#071c38;font-weight:bold;">${BUSINESS_PHONE_DISPLAY}</a>`,
+        );
+      }
       const landingBody = paragraph.startsWith("Once your flight has landed");
       const style = landingBody
         ? "margin:0 0 16px;padding:14px 16px;background:#fff7ed;border-left:4px solid #c2410c;border-radius:8px;"
@@ -688,14 +725,17 @@ export function evaluateJourneyReminder(
   };
 }
 
-/** Last-moment guard so a reminder cannot leave with a direct driver shortcut. */
+/** Last-moment guard. Company WhatsApp and the business telephone are allowed. */
 export function journeyReminderEmailExposesDirectContact(
   text: string,
   html: string,
   contact: JourneyReminderContact,
 ): boolean {
   const bundle = `${text}\n${html}`;
-  if (/wa\.me/i.test(bundle) || /tel:/i.test(bundle)) return true;
+  const waPaths = [...bundle.matchAll(/wa\.me\/(\d+)/gi)].map((match) => match[1]);
+  if (waPaths.some((digits) => digits !== BUSINESS_WHATSAPP_DIGITS)) return true;
+  const tels = [...bundle.matchAll(/tel:(\+\d+)/gi)].map((match) => match[1]);
+  if (tels.some((tel) => tel !== BUSINESS_PHONE_TEL)) return true;
   if (contact.kind !== "driver") return false;
   return (
     bundle.includes(contact.mobileDisplay) ||

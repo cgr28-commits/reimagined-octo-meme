@@ -1,6 +1,7 @@
 /**
- * Hourly 2-hour journey reminder for every confirmed leg.
+ * Hourly journey reminder, three hours before each confirmed leg.
  * Resend email only. Customer buttons open the live driver-contact page.
+ * Personal driver details on that page unlock two hours before pickup.
  */
 
 import {
@@ -13,6 +14,7 @@ import {
 import { buildDriverContactPageUrl } from "../shared/driver-contact-link";
 import {
   beginJourneyReminderClaim,
+  DRIVER_CONTACT_REVEAL_LEAD_MS,
   evaluateJourneyReminder,
   journeyReminderEmailExposesDirectContact,
   journeyReminderFirstName,
@@ -89,7 +91,7 @@ export async function processDueAirportPickupReminders(
   return result;
 }
 
-/** Send immediately when a new booking is already inside the two-hour window. */
+/** Send immediately when a new booking is already inside the three-hour window. */
 export async function processJourneyRemindersForPayment(
   env: Env,
   paymentReference: string,
@@ -292,6 +294,11 @@ async function maybeSendAcceptedDriverNotice(env: Env, job: TrackingJobRecord, n
   const store = env.TRACKING_STORE;
   const recipient = driverJourneyNoticeRecipient(job);
   if (!recipient.allow) return;
+
+  const earlyPaymentReference = job.paymentReference?.trim() ?? "";
+  const paidForWindow = earlyPaymentReference ? await getPaidBookingRecord(store, earlyPaymentReference) : null;
+  const pickupAt = journeyReminderPickupAt(airportPickupReminderInput(job, paidForWindow));
+  if (!pickupAt || now.getTime() < pickupAt.getTime() - DRIVER_CONTACT_REVEAL_LEAD_MS) return;
 
   const claim = beginJourneyReminderClaim(
     { claimId: job.journeyDriverNoticeClaimId, claimedAt: job.journeyDriverNoticeClaimedAt },

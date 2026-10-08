@@ -1,5 +1,5 @@
 /**
- * Compatibility exports for the two-hour journey reminder.
+ * Compatibility exports for the three-hour journey reminder.
  * New callers should use shared/journey-reminder.ts.
  */
 

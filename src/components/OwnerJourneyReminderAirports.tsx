@@ -63,7 +63,7 @@ export default function OwnerJourneyReminderAirports({ ownerKey }: { ownerKey: s
     <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900">
       <h2 className="text-lg font-semibold text-slate-950">Airport reminder instructions</h2>
       <p className="mt-1 text-sm leading-6 text-slate-600">
-        These notes appear in the customer email about two hours before pickup. They do not change airport access charges.
+        These notes appear in the customer email about three hours before pickup. They do not change airport access charges.
       </p>
       {loading ? <p className="mt-4 text-sm text-slate-600">Loading instructions…</p> : null}
       <div className="mt-4 grid gap-4">

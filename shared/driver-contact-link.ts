@@ -9,13 +9,14 @@
 
 import { BUSINESS_NAME, BUSINESS_PHONE_DISPLAY, BUSINESS_PHONE_TEL } from "./business-email";
 import {
+  DRIVER_CONTACT_UNLOCK_MESSAGE,
+  driverContactDetailsUnlocked,
   isJourneyReminderCancelled,
   isOwnerDriverName,
   journeyReminderPickupAt,
   journeyReminderWhatsAppDraft,
   journeyReminderWhatsAppHref,
   resolveJourneyReminderContact,
-  JOURNEY_REMINDER_LEAD_MS,
   type JourneyReminderContact,
   type JourneyReminderInput,
 } from "./journey-reminder";
@@ -211,7 +212,6 @@ export function evaluateDriverContactVisit(
     };
   }
 
-  const revealAt = pickupAt.getTime() - JOURNEY_REMINDER_LEAD_MS;
   const hideAt = pickupAt.getTime() + DRIVER_CONTACT_AFTER_PICKUP_MS;
   if (nowMs >= hideAt) {
     return closed(
@@ -232,7 +232,7 @@ export function evaluateDriverContactVisit(
   }
 
   const contact = resolveJourneyReminderContact(input);
-  const tooEarly = nowMs < revealAt;
+  const tooEarly = !driverContactDetailsUnlocked(pickupAt, now);
   if (contact.kind === "driver" && !tooEarly) {
     const draft = journeyReminderWhatsAppDraft(input, contact);
     return {
@@ -260,12 +260,14 @@ export function evaluateDriverContactVisit(
     };
   }
 
-  if (tooEarly) {
+  const assignmentStatus = String(input.assignmentStatus ?? "").trim().toLowerCase();
+  const waitingForAnExternalDriver = contact.kind === "driver" || assignmentStatus !== "accepted";
+  if (tooEarly && waitingForAnExternalDriver) {
     return {
       ok: true,
       view: "too_early",
-      heading: "Driver details open two hours before pickup",
-      message: `Your driver’s contact details open two hours before pickup. Until then, message or call ${BUSINESS_NAME}.`,
+      heading: DRIVER_CONTACT_UNLOCK_MESSAGE,
+      message: `${DRIVER_CONTACT_UNLOCK_MESSAGE} Until then, message or call ${BUSINESS_NAME} on WhatsApp or ${BUSINESS_PHONE_DISPLAY}. Reopen or refresh this page to check again. It does not update on its own.`,
       company: companyTarget(input),
     };
   }

@@ -125,7 +125,7 @@ console.log("=== Collection email does not reveal the owner inbox ===");
       customerReference: "MAT-4827",
       driverContactUrl: "https://www.myairporttaxini.co.uk/driver-contact/?token=abcdabcdabcdabcdabcdabcdabcdabcd",
     },
-    new Date("2026-10-02T15:00:00.000Z"),
+    new Date("2026-10-02T14:00:00.000Z"),
   );
   assert.equal(decision.eligible, true);
   if (decision.eligible) {
@@ -133,9 +133,11 @@ console.log("=== Collection email does not reveal the owner inbox ===");
     assert.equal(decision.text.includes(BUSINESS_MAILBOX), false);
     assert.equal(decision.html.includes(BUSINESS_MAILBOX), false);
     assert.equal(decision.html.includes("Rinkel"), false);
-    assert.equal(/wa\.me|tel:/i.test(decision.html), false);
+    assert.match(decision.html, /tel:\+442896022952/);
+    assert.match(decision.html, />Message Us on WhatsApp</);
     assert.match(decision.html, />Message Your Driver</);
     assert.match(decision.html, /\/driver-contact\//);
+    assert.equal(decision.html.includes("wa.me/447700900111"), false);
   }
   const message = buildAirportPickupReminderMessage({
     customerName: "Sarah Johnson",

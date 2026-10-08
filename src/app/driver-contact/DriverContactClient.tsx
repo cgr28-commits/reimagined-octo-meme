@@ -124,13 +124,19 @@ export default function DriverContactClient() {
                 </div>
               ) : null}
               {token ? (
-                <button
-                  type="button"
-                  onClick={() => void load(token)}
-                  className="text-sm font-semibold text-[#071c38] underline"
-                >
-                  Check again
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => void load(token)}
+                    className="text-sm font-semibold text-[#071c38] underline"
+                  >
+                    Check again
+                  </button>
+                  <p className="text-sm leading-relaxed text-[#64748b]">
+                    Reopen or refresh this page to see the latest contact details. It does not update on its own
+                    while you leave it open.
+                  </p>
+                </div>
               ) : null}
             </div>
           ) : null}
