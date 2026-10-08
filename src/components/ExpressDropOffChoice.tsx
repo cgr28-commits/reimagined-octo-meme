@@ -75,8 +75,8 @@ export default function ExpressDropOffChoice({
     const copy = includedAirportAccessCopy(service);
     return (
       <div className={`min-w-0 ${className}`} data-airport-access-included data-airport-access-service={service}>
-        <p className={`text-xs font-bold ${light ? "text-navy" : "text-white"}`}>{copy.heading}</p>
-        <p className={`mt-0.5 text-[11px] font-medium leading-snug ${light ? "text-navy" : "text-white"}`}>
+        <p className={`text-sm font-bold ${light ? "text-navy" : "text-white"}`}>{copy.heading}</p>
+        <p className={`mt-0.5 text-xs font-medium leading-snug ${light ? "text-navy" : "text-white"}`}>
           {copy.body}
         </p>
       </div>

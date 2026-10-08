@@ -42,8 +42,8 @@ export function VehicleQuoteArt({
 }) {
   const frame =
     size === "option"
-      ? "relative h-12 w-[5.75rem] shrink-0"
-      : "relative mx-auto h-8 w-full max-w-[7.25rem]";
+      ? "relative -ml-1 h-[3.35rem] w-[3.1rem] shrink-0"
+      : "relative mx-auto h-[3.3rem] w-full max-w-[11.5rem]";
   return (
     <span
       className={`${frame} flex items-center justify-center overflow-hidden`}
@@ -60,7 +60,7 @@ export function VehicleQuoteArt({
             ? `absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain object-center ${OPTION_ART_BOX[vehicle]}`
             : `h-full w-full object-contain object-center ${VEHICLE_ART_SCALE[vehicle]}`
         }
-        sizes={size === "option" ? "184px" : "168px"}
+        sizes={size === "option" ? "184px" : "184px"}
         priority={size === "result"}
       />
     </span>

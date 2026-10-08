@@ -11,6 +11,7 @@ import {
 } from "@/lib/vehicle-selection";
 import { vehicleCustomerDescription } from "../../shared/vehicle-display";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
+import { QuoteCrownIcon, QuoteSuitcaseIcon } from "@/components/quote-vehicle-line-icons";
 import {
   formatPublicSuitcaseChoice,
   isFivePlusLuggage,
@@ -122,20 +123,29 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       id="quote-selected-vehicle-card"
       data-quote-selected-vehicle-card
       data-quote-result-card
-      className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-2.5 py-1.5 text-navy shadow-[0_4px_14px_rgba(2,10,24,0.12)] sm:px-3 sm:py-2"
+      className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-3 py-2 text-navy shadow-[0_8px_22px_rgba(2,10,24,0.16)] sm:px-3.5 sm:py-2.5"
       style={{ overflowAnchor: "none" }}
     >
       <div className="min-w-0 text-center">
         <p
           data-quote-result-heading
-          className="font-sans text-sm font-bold leading-none tracking-[-0.02em] text-navy"
+          className="font-sans text-base font-bold leading-tight tracking-[-0.02em] text-navy"
         >
           {vehicleLabel}
         </p>
         <p className="sr-only">Vehicle for this journey</p>
-        <p className="text-[11px] font-semibold leading-none text-navy">{capacityLine}</p>
-        <p className="text-[11px] font-medium leading-none text-navy">{detailLine}</p>
-        <div className="mt-0">
+        <p className="mt-0.5 text-[0.84rem] font-semibold leading-tight text-navy">{capacityLine}</p>
+        {detailLine.trim() ? (
+          <p className="flex items-center justify-center gap-1 text-[0.78rem] font-medium leading-tight text-navy">
+            {isExecutive ? (
+              <QuoteCrownIcon className="h-3.5 w-3.5" />
+            ) : (
+              <QuoteSuitcaseIcon className="h-3.5 w-3.5" />
+            )}
+            {detailLine}
+          </p>
+        ) : null}
+        <div className="mt-0.5">
           <VehicleQuoteArt
             vehicle={art}
             src={vehicleImage}
@@ -151,13 +161,13 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             size="result"
           />
         </div>
-        <div className="mt-0 flex flex-wrap items-center justify-center gap-x-3 gap-y-0 text-[11px] font-semibold leading-none text-navy min-[390px]:flex-nowrap">
+        <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-0.5 text-[0.84rem] font-semibold leading-tight text-navy min-[390px]:flex-nowrap">
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
             <PassengerIcon />
             {passengerLabel}
           </span>
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
-            <SuitcaseIcon />
+            <QuoteSuitcaseIcon className="h-4 w-4" />
             {suitcaseLabel}
           </span>
         </div>
@@ -165,7 +175,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
 
       <div className="mt-1 min-w-0 text-center">
         <div data-quote-result-price>
-          <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-navy">
+          <p className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-navy">
             {priceLabel}
           </p>
           {priceUnavailable ? (
@@ -195,7 +205,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
                 className={
                   !formattedPrice.startsWith("£")
                     ? "font-sans text-sm font-semibold leading-tight text-navy"
-                    : "font-sans text-[clamp(1.45rem,0.7rem+3vw,1.85rem)] font-extrabold leading-none tracking-[-0.04em] text-navy tabular-nums"
+                    : "font-sans text-[clamp(1.85rem,1rem+3.4vw,2.35rem)] font-extrabold leading-none tracking-[-0.04em] text-navy tabular-nums"
                 }
               >
                 {formattedPrice}
@@ -213,23 +223,14 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         ) : null}
         <div className="mt-0.5">{bookButton}</div>
         {priceUnavailable ? null : (
-          <p className="mt-0.5 text-[11px] font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
+          <p className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
         )}
         {businessClassInclusions}
         {airportAccess ? (
-          <div className="mt-1 text-left" data-quote-result-airport-access>
+          <div className="mt-2 text-left" data-quote-result-airport-access>
             {airportAccess}
           </div>
         ) : null}
-        <p className="mt-1 text-[11px] font-medium leading-tight text-navy">
-          Secure booking · Secure payment powered by SumUp
-        </p>
-        <p className="text-[11px] font-medium leading-tight text-navy">
-          Flight monitoring for airport pickups · No hidden charges
-        </p>
-        <p className="text-[11px] font-medium leading-tight text-navy">
-          Vehicle shown for illustration.
-        </p>
       </div>
     </div>
   );
@@ -240,7 +241,7 @@ export default QuoteResultShowcase;
 
 function PassengerIcon() {
   return (
-    <svg className="h-3.5 w-3.5 text-navy" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg className="h-4 w-4 text-navy" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="M12 12a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z"
         stroke="currentColor"
@@ -256,19 +257,3 @@ function PassengerIcon() {
   );
 }
 
-function SuitcaseIcon() {
-  return (
-    <svg className="h-3.5 w-3.5 text-navy" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M7.5 8.5h9A1.5 1.5 0 0 1 18 10v8.5A1.5 1.5 0 0 1 16.5 20h-9A1.5 1.5 0 0 1 6 18.5V10A1.5 1.5 0 0 1 7.5 8.5Z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="M9.5 8.5V6.75A1.25 1.25 0 0 1 10.75 5.5h2.5A1.25 1.25 0 0 1 14.5 6.75V8.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-    </svg>
-  );
-}

@@ -21,6 +21,7 @@ import {
   SALOON_CUSTOMER_NAME,
 } from "../../shared/vehicle-display";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
+import { QuoteCrownIcon, QuoteSuitcaseIcon } from "@/components/quote-vehicle-line-icons";
 
 /** Shown under the passenger line on Saloon and Business Class, including when disabled. */
 const SALOON_LUGGAGE_CAPACITY = "2 large suitcases + 2 hand luggage";
@@ -37,7 +38,9 @@ const CATEGORIES = [
     title: SALOON_CUSTOMER_NAME,
     capacity: SALOON_CUSTOMER_DESCRIPTION,
     luggage: SALOON_LUGGAGE_CAPACITY,
+    luggageIcon: "suitcase" as const,
     detail: null,
+    detailIcon: null,
     image: SALOON_IMAGE,
     art: "saloon" as VehicleArtId,
   },
@@ -47,7 +50,9 @@ const CATEGORIES = [
     title: ESTATE_CUSTOMER_NAME,
     capacity: "1–4 passengers",
     luggage: null,
+    luggageIcon: null,
     detail: ESTATE_CUSTOMER_DESCRIPTION,
+    detailIcon: "suitcase" as const,
     image: ESTATE_IMAGE,
     art: "estate" as VehicleArtId,
   },
@@ -57,7 +62,9 @@ const CATEGORIES = [
     title: EXECUTIVE_CUSTOMER_NAME,
     capacity: "1–4 passengers",
     luggage: SALOON_LUGGAGE_CAPACITY,
+    luggageIcon: "suitcase" as const,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
+    detailIcon: "crown" as const,
     image: BUSINESS_CLASS_IMAGE,
     art: "executive" as VehicleArtId,
   },
@@ -67,11 +74,19 @@ const CATEGORIES = [
     title: MINIBUS_CUSTOMER_NAME,
     capacity: null,
     luggage: null,
+    luggageIcon: null,
     detail: MINIBUS_CUSTOMER_DESCRIPTION,
+    detailIcon: null,
     image: MINIBUS_IMAGE,
     art: "minibus" as VehicleArtId,
   },
 ] as const;
+
+function VehicleLineIcon({ name }: { name: "suitcase" | "crown" | null }) {
+  if (name === "suitcase") return <QuoteSuitcaseIcon className="mt-px h-3.5 w-3.5" />;
+  if (name === "crown") return <QuoteCrownIcon className="mt-px h-3.5 w-3.5" />;
+  return null;
+}
 
 export default function QuoteVehicleCategories({
   passengers,
@@ -106,7 +121,7 @@ export default function QuoteVehicleCategories({
   if (options.length === 0) return null;
 
   return (
-    <div className="scroll-mt-20 space-y-2" data-quote-vehicle-categories>
+    <div className="scroll-mt-20 space-y-1.5" data-quote-vehicle-categories>
       <p
         className="form-label mb-0 scroll-mt-20"
         data-quote-vehicle-options-heading
@@ -114,7 +129,7 @@ export default function QuoteVehicleCategories({
         Vehicle options
       </p>
       <div
-        className="grid grid-cols-1 gap-2"
+        className="grid grid-cols-1 gap-1.5"
         role="list"
         aria-label="Vehicle options for this journey"
       >
@@ -134,13 +149,13 @@ export default function QuoteVehicleCategories({
                   if (!fits) return;
                   onSelectVehicle?.(option.vehicle);
                 }}
-                className={`flex h-[6.35rem] w-full flex-col justify-center gap-0.5 overflow-hidden rounded-xl border-2 bg-white px-2 py-1 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
+                className={`flex w-full flex-col gap-1 overflow-hidden rounded-2xl border-2 bg-white py-1.5 pl-1 pr-1 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
                   isSelected
-                    ? "border-[var(--quote-selected-border)]"
-                    : "border-navy/20"
+                    ? "border-[var(--quote-selected-border)] shadow-[0_0_0_1px_var(--quote-selected-border)]"
+                    : "border-navy/15"
                 }`}
               >
-                <span className="grid grid-cols-[5.75rem_minmax(0,1fr)_1.25rem] items-center gap-x-1.5">
+                <span className="grid w-full grid-cols-[2.85rem_minmax(0,1fr)_1.5rem] items-center gap-x-1">
                   <VehicleQuoteArt
                     vehicle={option.art}
                     src={option.image}
@@ -148,48 +163,56 @@ export default function QuoteVehicleCategories({
                     size="option"
                   />
                   <span className="min-w-0">
-                    <span className="block text-[0.78rem] font-bold leading-tight text-navy tracking-[-0.02em]">
+                    <span className="block pl-4 text-[0.95rem] font-bold leading-tight text-navy tracking-[-0.02em]">
                       {option.title}
                     </span>
                     {option.capacity ? (
-                      <span className="block text-[0.72rem] font-semibold leading-tight text-navy">
+                      <span className="mt-0.5 block pl-4 text-[0.84rem] font-semibold leading-tight text-navy">
                         {option.capacity}
                       </span>
                     ) : null}
                     {option.luggage ? (
-                      <span className="block text-[0.68rem] font-semibold leading-tight text-navy">
-                        {option.luggage}
+                      <span className="mt-0.5 grid grid-cols-[0.875rem_minmax(0,1fr)] items-start gap-x-0.5 text-[0.78rem] font-semibold leading-tight text-navy">
+                        <VehicleLineIcon name={option.luggageIcon} />
+                        <span className="min-w-0">{option.luggage}</span>
                       </span>
                     ) : null}
                     {option.detail ? (
-                      <span className="block text-[0.72rem] font-medium leading-tight text-navy">
-                        {option.detail}
-                      </span>
+                      option.detailIcon ? (
+                        <span className="mt-0.5 grid grid-cols-[0.875rem_minmax(0,1fr)] items-start gap-x-0.5 text-[0.78rem] font-medium leading-tight text-navy">
+                          <VehicleLineIcon name={option.detailIcon} />
+                          <span className="min-w-0">{option.detail}</span>
+                        </span>
+                      ) : (
+                        <span className="mt-0.5 block pl-4 text-[0.78rem] font-medium leading-tight text-navy">
+                          {option.detail}
+                        </span>
+                      )
                     ) : option.luggage ? null : (
-                      <span className="block text-[0.72rem] leading-tight text-transparent" aria-hidden>
+                      <span className="block pl-4 text-[0.78rem] leading-tight text-transparent" aria-hidden>
                         {"\u00a0"}
                       </span>
                     )}
                   </span>
                   {isSelected ? (
                     <span
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#147a2a] text-[11px] font-bold text-white"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#147a2a] text-[13px] font-bold text-white"
                       aria-hidden
                     >
                       ✓
                     </span>
                   ) : (
-                    <span className="h-5 w-5 shrink-0" aria-hidden />
+                    <span
+                      className="h-6 w-6 shrink-0 rounded-full border-2 border-navy/30"
+                      aria-hidden
+                    />
                   )}
                 </span>
-                <span
-                  className={`block truncate text-[0.62rem] font-semibold leading-tight ${
-                    fits ? "invisible" : "text-navy"
-                  }`}
-                  aria-hidden={fits}
-                >
-                  {VEHICLE_NOT_SUITABLE_CARD_MESSAGE}
-                </span>
+                {fits ? null : (
+                  <span className="block pl-[4.1rem] text-[0.72rem] font-semibold leading-tight text-navy">
+                    {VEHICLE_NOT_SUITABLE_CARD_MESSAGE}
+                  </span>
+                )}
               </button>
             </div>
           );

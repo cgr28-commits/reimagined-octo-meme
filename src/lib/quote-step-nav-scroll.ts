@@ -473,7 +473,7 @@ export function schedulePreciseResultsScroll(
 /** Pause after the last luggage choice so the selection can register. */
 export const QUOTE_REVEAL_PAUSE_MS = 350;
 /** Controlled glide. Native smooth scroll is too fast and is not used. */
-export const QUOTE_REVEAL_SCROLL_MS = 720;
+export const QUOTE_REVEAL_SCROLL_MS = 1100;
 /** Space between the sticky header and the Vehicle options heading. */
 export const QUOTE_REVEAL_BREATHING_PX = 12;
 const REVEAL_EDGE_TOLERANCE_PX = 8;
@@ -526,8 +526,9 @@ function readVisualViewport(): { height: number; offsetTop: number } {
 
 /**
  * One measurement of the Vehicle options heading.
- * Never falls back to the selected-vehicle price card. That card sits below
- * the options, so scrolling to it hides Vehicle options above the header.
+ * The reveal stops on that wording, just under the sticky header.
+ * Never falls back to the waiting note or the selected-vehicle price card.
+ * Both sit away from the heading, so scrolling to them hides Vehicle options.
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const heading = document.querySelector<HTMLElement>("[data-quote-vehicle-options-heading]");
@@ -638,7 +639,7 @@ export function scheduleQuoteRevealScroll(handlers: {
         return;
       }
       const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
-      const y = progress >= 1 ? target : Math.round(startY + change * quoteRevealEaseInOut(progress));
+      const y = progress >= 1 ? target : startY + change * quoteRevealEaseInOut(progress);
       window.scrollTo(0, y);
       if (progress >= 1) {
         haltMotion();
@@ -823,7 +824,7 @@ export function scheduleBookTransferGlide(
         return;
       }
       const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
-      const y = progress >= 1 ? nextTop : Math.round(startY + change * quoteRevealEaseInOut(progress));
+      const y = progress >= 1 ? nextTop : startY + change * quoteRevealEaseInOut(progress);
       window.scrollTo(0, y);
       if (stopped || userInterrupted) {
         haltMotion();

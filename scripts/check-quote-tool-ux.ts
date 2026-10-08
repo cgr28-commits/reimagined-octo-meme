@@ -193,7 +193,7 @@ check("Short-notice success UI after full form submit", () => {
   assert.match(card, /shortNoticeResult/);
   assert.match(card, /ShortNoticeRequestReceived/);
   assert.match(card, /Request Short-Notice Booking/);
-  assert.match(card, /Need a quick answer\? WhatsApp us/);
+  assert.match(card, /QuoteHelpContact/);
 });
 
 console.log("\nAll quote-tool UX checks passed.");

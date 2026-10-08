@@ -5,6 +5,10 @@ import {
   BOOKING_HELP_WHATSAPP_MESSAGE,
   bookingHelpWhatsAppUrl,
 } from "@/lib/booking-help-whatsapp";
+import {
+  QUOTE_RESULT_ACTION_CLASS,
+  QuoteResultActionIcon,
+} from "@/components/quote-result-action";
 
 type WhatsAppHelpProps = {
   onWhatsAppClick?: () => void;
@@ -48,8 +52,8 @@ type StartNewQuoteControlsProps = {
   /** Stable ids for tests; defaults to React useId() so they stay unique per instance. */
   titleId?: string;
   descId?: string;
-  /** Quiet text-link style for below the quote-result card. */
-  appearance?: "default" | "quiet";
+  /** Quiet text-link, or a white action card under the quote result. */
+  appearance?: "default" | "quiet" | "card";
 };
 
 /**
@@ -69,6 +73,31 @@ export function StartNewQuoteControls({
   const reactDescId = useId();
   const titleId = titleIdProp ?? reactTitleId;
   const descId = descIdProp ?? reactDescId;
+
+  if (appearance === "card") {
+    if (confirmOpen) {
+      return (
+        <div className="col-span-full min-w-0" data-start-new-quote-controls>
+          <StartNewQuoteControls
+            confirmOpen
+            onRequestStart={onRequestStart}
+            onCancelConfirm={onCancelConfirm}
+            onConfirmStart={onConfirmStart}
+            titleId={titleId}
+            descId={descId}
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="min-w-0" data-start-new-quote-controls>
+        <button type="button" onClick={onRequestStart} className={QUOTE_RESULT_ACTION_CLASS}>
+          <QuoteResultActionIcon name="restart" />
+          <span>Start over</span>
+        </button>
+      </div>
+    );
+  }
 
   if (confirmOpen) {
     return (

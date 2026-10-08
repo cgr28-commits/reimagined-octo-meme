@@ -241,8 +241,19 @@ assert.match(categories, /border-2/);
 assert.match(categories, /font-bold leading-tight text-navy/);
 assert.match(categories, /font-semibold leading-tight text-navy/);
 assert.match(categories, /font-medium leading-tight text-navy/);
-assert.match(categories, /h-\[6\.35rem\]/);
+assert.match(categories, /py-1\.5/);
+assert.doesNotMatch(categories, /min-h-\[7\.75rem\]/);
 assert.match(categories, /2 large suitcases \+ 2 hand luggage/);
+assert.match(categories, /QuoteSuitcaseIcon/);
+assert.match(categories, /QuoteCrownIcon/);
+assert.match(categories, /luggageIcon: "suitcase"/);
+assert.match(categories, /detailIcon: "suitcase"/);
+assert.match(categories, /detailIcon: "crown"/);
+const minibusStart = categories.indexOf('id: "minibus"');
+const minibusCategory = categories.slice(minibusStart, categories.indexOf("] as const", minibusStart));
+assert.match(minibusCategory, /detailIcon: null/);
+assert.match(minibusCategory, /luggageIcon: null/);
+assert.doesNotMatch(minibusCategory, /crown/);
 assert.match(categories, /disabled=\{!fits\}/);
 assert.match(categories, /aria-disabled/);
 assert.match(categories, /data-vehicle-suitable/);
@@ -280,8 +291,28 @@ assert.match(card, /Updating price…/);
 assert.match(card, /Express Pickup Included/);
 assert.match(card, /Express Drop-Off Included/);
 assert.doesNotMatch(card, /Free Pick-Up|Free Drop-Off|Free airport areas/);
-assert.match(read("src/components/vehicle-quote-art.tsx"), /h-8 w-full max-w-\[7\.25rem\]/);
-assert.match(read("src/components/vehicle-quote-art.tsx"), /h-12 w-\[5\.75rem\]/);
+assert.match(read("src/components/vehicle-quote-art.tsx"), /h-\[3\.3rem\] w-full max-w-\[11\.5rem\]/);
+assert.match(read("src/app/globals.css"), /quote-result-card \.btn-primary[\s\S]*color: #ffffff/);
+assert.match(read("src/components/QuoteHelpContact.tsx"), /text-\[#25D366\]/);
+assert.match(read("src/components/QuoteCard.tsx"), /grid-cols-4/);
+assert.doesNotMatch(read("src/components/QuoteCard.tsx"), /View journey map/);
+assert.match(read("src/components/QuoteCard.tsx"), /Hide route/);
+assert.match(read("src/components/QuoteJourneyMap.tsx"), /data-quote-route-map/);
+assert.doesNotMatch(
+  read("src/components/QuoteCard.tsx").slice(
+    read("src/components/QuoteCard.tsx").indexOf("data-quote-view-route"),
+    read("src/components/QuoteCard.tsx").indexOf("data-quote-view-route") + 500,
+  ),
+  /target="_blank"/,
+);
+assert.match(read("src/components/quote-result-action.tsx"), /bg-navy-light/);
+assert.match(read("src/components/QuoteCard.tsx"), /QUOTE_RESULT_ACTION_CLASS/);
+assert.match(read("src/components/QuoteHelpContact.tsx"), /QUOTE_RESULT_ACTION_CLASS/);
+assert.match(read("src/components/QuoteBookingHelpControls.tsx"), /QUOTE_RESULT_ACTION_CLASS/);
+assert.match(read("src/components/vehicle-quote-art.tsx"), /h-\[3\.35rem\] w-\[3\.1rem\]/);
+assert.match(categories, /grid-cols-\[2\.85rem_minmax\(0,1fr\)_1\.5rem\]/);
+assert.match(categories, /pl-4 text-\[0\.95rem\]/);
+assert.match(categories, /grid-cols-\[0\.875rem_minmax\(0,1fr\)\] items-start gap-x-0\.5/);
 assert.match(read("src/app/globals.css"), /\.quote-result-card \.btn-primary/);
 assert.match(card, /quoteVehicleRef/);
 const dropoffStart = card.indexOf("BUSINESS_CLASS_DROPOFF_INCLUSIONS");

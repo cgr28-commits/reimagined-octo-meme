@@ -13,6 +13,10 @@ type MapPoint = {
 type TripMapViewProps = {
   pickup: MapPoint;
   airport: MapPoint;
+  /** Fixed frame. Other maps keep the compact default. */
+  className?: string;
+  /** True when the driving line was drawn. False falls back to a straight line. */
+  onRouteDrawn?: (drawn: boolean) => void;
 };
 
 type RouteGeometry = {
@@ -50,9 +54,16 @@ async function fetchRouteCoordinates(
   }
 }
 
-export default function TripMapView({ pickup, airport }: TripMapViewProps) {
+export default function TripMapView({
+  pickup,
+  airport,
+  className = "h-48 w-full sm:h-56",
+  onRouteDrawn,
+}: TripMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const onRouteDrawnRef = useRef(onRouteDrawn);
+  onRouteDrawnRef.current = onRouteDrawn;
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -69,8 +80,11 @@ export default function TripMapView({ pickup, airport }: TripMapViewProps) {
     const map = L.map(containerRef.current, {
       zoomControl: true,
       scrollWheelZoom: false,
+      dragging: true,
+      touchZoom: true,
     });
     mapRef.current = map;
+    let removed = false;
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -89,6 +103,7 @@ export default function TripMapView({ pickup, airport }: TripMapViewProps) {
     ]);
 
     void fetchRouteCoordinates(pickup, airport).then((coordinates) => {
+      if (removed) return;
       if (coordinates.length > 0) {
         const latLngs = coordinates.map(([lng, lat]) => [lat, lng] as [number, number]);
         L.polyline(latLngs, { color: "#2fbf4a", weight: 4, opacity: 0.85 }).addTo(map);
@@ -104,13 +119,18 @@ export default function TripMapView({ pickup, airport }: TripMapViewProps) {
       }
 
       map.fitBounds(bounds, { padding: [24, 24] });
+      onRouteDrawnRef.current?.(coordinates.length > 0);
+      window.requestAnimationFrame(() => {
+        map.invalidateSize();
+      });
     });
 
     return () => {
+      removed = true;
       map.remove();
       mapRef.current = null;
     };
   }, [airport, pickup]);
 
-  return <div ref={containerRef} className="h-48 w-full sm:h-56" />;
+  return <div ref={containerRef} className={className} />;
 }
