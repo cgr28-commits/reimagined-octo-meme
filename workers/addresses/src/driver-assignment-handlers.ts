@@ -499,6 +499,45 @@ export async function handleDriverAssignRequest(
       );
     }
 
+    const immediateJob = await getTrackingJob(env.TRACKING_STORE, token);
+    const immediateBooking = await getBookingJob(env.TRACKING_STORE, updatedBooking.id);
+    const immediateGate = driverDispatchDecision(
+      {
+        assignmentVersion: immediateJob?.assignmentVersion,
+        assignmentStatus: immediateJob?.assignmentStatus,
+        assignedDriverEmail: immediateJob?.assignedDriverEmail,
+        acceptToken: immediateBooking?.driverAcceptToken,
+      },
+      {
+        kind: "assignment_invite",
+        assignmentVersion: record.assignmentVersion ?? 0,
+        driverEmail: intendedEmail,
+        acceptToken,
+      },
+    );
+    if (!immediateJob || !immediateGate.allow) {
+      if (immediateJob) {
+        noteDriverNotification(immediateJob, {
+          at: new Date().toISOString(),
+          kind: "driver_assignment_invite",
+          outcome: "suppressed",
+          reason: immediateGate.allow ? "missing_job" : immediateGate.reason,
+          driverEmail: intendedEmail,
+          driverName: identity?.driverFirstName || driverFirstName,
+        });
+        await saveTrackingJob(env.TRACKING_STORE, immediateJob);
+      }
+      return jsonResponse(
+        {
+          ok: false,
+          error: "The driver was no longer assigned, so the assignment email was not sent.",
+          ...assignmentFields(immediateJob ?? record),
+        },
+        409,
+        origin,
+      );
+    }
+
     const sendResult = await trySendEmail(env, {
       to: intendedEmail,
       toName: identity?.driverFirstName || driverFirstName,
@@ -508,8 +547,9 @@ export async function handleDriverAssignRequest(
       requireHtml: true,
     });
 
+    const afterSend = (await getTrackingJob(env.TRACKING_STORE, token)) ?? immediateJob;
     emailed = sendResult.sent;
-    noteDriverNotification(freshJob, {
+    noteDriverNotification(afterSend, {
       at: new Date().toISOString(),
       kind: "driver_assignment_invite",
       outcome: sendResult.sent ? "sent" : "suppressed",
@@ -517,7 +557,7 @@ export async function handleDriverAssignRequest(
       driverEmail: intendedEmail,
       driverName: identity?.driverFirstName || driverFirstName,
     });
-    await saveTrackingJob(env.TRACKING_STORE, freshJob);
+    await saveTrackingJob(env.TRACKING_STORE, afterSend);
     if (!sendResult.sent) {
       emailError = sendResult.error || "Failed to email driver";
     } else {
@@ -721,14 +761,15 @@ export async function handleDriverAssignmentResponseRequest(
     });
   }
 
-  const job = await enrichDriverJob(record, env, origin, "driver");
+  const current = (await getTrackingJob(env.TRACKING_STORE, record.token)) ?? record;
+  const job = await enrichDriverJob(current, env, origin, "driver");
 
   return jsonResponse(
     {
       ok: true,
       action,
       job,
-      ...assignmentFields(record),
+      ...assignmentFields(current),
     },
     200,
     origin,
