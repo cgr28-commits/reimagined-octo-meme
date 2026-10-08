@@ -112,6 +112,21 @@ export function profitabilityFloorFromOperations(input: {
   };
 }
 
+/**
+ * Customer-visible uplift from the fare already calculated for this quote.
+ * Null when protection did not run. Never recomputes the fare.
+ */
+export function profitabilityAdjustmentGbp(input: {
+  applied: boolean;
+  protectedAmountGbp: number;
+  existingAmountGbp: number;
+}): number | null {
+  if (!input.applied) return null;
+  const delta = roundGbp(input.protectedAmountGbp - input.existingAmountGbp);
+  if (!Number.isFinite(delta) || delta <= 0) return 0;
+  return delta;
+}
+
 export function protectSaloonOneWayFare(input: {
   existingCurveFareGbp: number;
   minimumSaloonFareGbp: number;
