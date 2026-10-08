@@ -104,7 +104,9 @@ check("unsuitable vehicles stay visible and cannot be selected or priced", () =>
   assert.match(categories, /suitableVehicleTypesForParty/);
   assert.match(categories, /py-1\.5/);
   assert.doesNotMatch(categories, /min-h-\[7\.75rem\]/);
-  assert.match(categories, /2 large suitcases \+ 2 hand luggage/);
+  assert.match(categories, /SALOON_LUGGAGE_CAPACITY = "2 large suitcases"/);
+  assert.doesNotMatch(categories, /hand luggage/);
+  assert.equal(vehicleFitsParty(SALOON_VEHICLE, 4, 2), true);
   assert.match(categories, /disabled=\{!fits\}/);
   assert.match(categories, /aria-disabled=\{!fits\}/);
   assert.match(categories, /data-vehicle-suitable=/);
