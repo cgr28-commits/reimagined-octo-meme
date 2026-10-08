@@ -1846,12 +1846,13 @@ function buildGoogleReviewRequestHtml(
   const firstName = escapeHtml(customerFirstName(details.customerName));
   const safeReviewUrl = escapeHtml(reviewUrl);
 
+  const safeBusinessName = escapeHtml(businessName);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How was your journey — ${escapeHtml(businessName)}</title>
+  <title>Thank you for travelling with us — ${safeBusinessName}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;">
@@ -1860,29 +1861,29 @@ function buildGoogleReviewRequestHtml(
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
-              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
-              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">How was your journey?</div>
+              <img src="${LOGO_URL}" alt="${safeBusinessName}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${safeBusinessName}</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Thank you for travelling with us</div>
             </td>
           </tr>
           <tr>
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Hi ${firstName},</p>
-              <p style="margin:0 0 16px;">Thank you for travelling with ${escapeHtml(businessName)}.</p>
-              <p style="margin:0 0 16px;">I hope you had a comfortable journey.</p>
-              <p style="margin:0;">If you have a moment, I’d really appreciate you sharing your experience on Google. Your feedback helps other customers find and trust our service.</p>
+              <p style="margin:0 0 16px;">Thank you for choosing ${safeBusinessName} for your journey. We really appreciate your support.</p>
+              <p style="margin:0 0 16px;">As a small, locally owned business in Northern Ireland, every customer genuinely matters to us. We’re working hard to build a business that people can trust, and your support helps us grow.</p>
+              <p style="margin:0;">If you could spare a moment to leave us an honest Google review, it would mean a great deal. Reviews help other customers discover us and give a small local business like ours the chance to compete with much bigger companies.</p>
             </td>
           </tr>
           <tr>
             <td style="padding:16px 32px 28px;text-align:center;">
               <a href="${safeReviewUrl}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Leave a Google Review</a>
-              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${safeReviewUrl}" style="color:${NAVY};word-break:break-all;">${safeReviewUrl}</a></p>
+              <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#334155;">⭐ Leave a Google Review:<br /><a href="${safeReviewUrl}" style="color:${NAVY};word-break:break-all;">${safeReviewUrl}</a></p>
             </td>
           </tr>
           <tr>
             <td style="padding:0 32px 28px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">Thank you again for choosing ${escapeHtml(businessName)}.</p>
-              <p style="margin:0;">Kind regards,<br /><strong>${escapeHtml(businessName)}</strong></p>
+              <p style="margin:0 0 16px;">Thank you again for travelling with us. We hope to welcome you back soon.</p>
+              <p style="margin:0;"><strong>${safeBusinessName}</strong> 💚</p>
             </td>
           </tr>
           <tr>
@@ -1911,19 +1912,18 @@ export function buildGoogleReviewRequestEmail(
   businessName = "My Airport Taxi NI",
 ): CustomerPaidBookingEmail {
   const firstName = customerFirstName(details.customerName);
-  const subject = `How was your journey with ${businessName}?`;
+  const subject = `Thank you for travelling with ${businessName}`;
 
   const text =
     `Hi ${firstName},\n\n` +
-    `Thank you for travelling with ${businessName}.\n\n` +
-    `I hope you had a comfortable journey.\n\n` +
-    `If you have a moment, I'd really appreciate you sharing your experience on Google. ` +
-    `Your feedback helps other customers find and trust our service.\n\n` +
-    `Leave a Google Review:\n${reviewUrl}\n\n` +
-    `Thank you again for choosing ${businessName}.\n\n` +
-    `Kind regards,\n` +
-    `${businessName}\n` +
-    `${BUSINESS_WEBSITE}`;
+    `Thank you for choosing ${businessName} for your journey. We really appreciate your support.\n\n` +
+    `As a small, locally owned business in Northern Ireland, every customer genuinely matters to us. ` +
+    `We’re working hard to build a business that people can trust, and your support helps us grow.\n\n` +
+    `If you could spare a moment to leave us an honest Google review, it would mean a great deal. ` +
+    `Reviews help other customers discover us and give a small local business like ours the chance to compete with much bigger companies.\n\n` +
+    `⭐ Leave a Google Review: ${reviewUrl}\n\n` +
+    `Thank you again for travelling with us. We hope to welcome you back soon.\n\n` +
+    `${businessName} 💚`;
 
   const html = buildGoogleReviewRequestHtml(details, reviewUrl, businessName);
 
