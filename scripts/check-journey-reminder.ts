@@ -32,13 +32,13 @@ import {
 import {
   DRIVER_CONTACT_REVEAL_LEAD_MS,
   DRIVER_CONTACT_UNLOCK_MESSAGE,
-  JOURNEY_CALL_LABEL,
+  CALL_COMPANY_LABEL,
+  CALL_DRIVER_LABEL,
   JOURNEY_REMINDER_LANDING_BODY,
   JOURNEY_REMINDER_LANDING_HEADING,
   JOURNEY_REMINDER_LEAD_MS,
   WHATSAPP_COMPANY_LABEL,
   WHATSAPP_DRIVER_LABEL,
-  WHATSAPP_PREFERRED_NOTE,
   beginJourneyReminderClaim,
   driverContactDetailsUnlocked,
   buildJourneyReminderAirportInstructions,
@@ -95,21 +95,22 @@ function assertSmartEmail(decision: ReturnType<typeof due>) {
   assert.equal(bundle.includes(DRIVER_DIGITS), false);
   assert.equal(bundle.includes(`wa.me/${DRIVER_DIGITS}`), false);
   assert.equal(bundle.includes(`tel:+${DRIVER_DIGITS}`), false);
-  assert.match(decision.html, new RegExp(WHATSAPP_PREFERRED_NOTE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(decision.message, new RegExp(WHATSAPP_PREFERRED_NOTE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(bundle, /preferred way to communicate/i);
   assert.match(decision.html, new RegExp(`>${WHATSAPP_COMPANY_LABEL}<`));
-  assert.match(decision.html, />Call</);
-  assert.doesNotMatch(decision.html, />Call Us</);
-  assert.doesNotMatch(decision.html, />Call Your Driver</);
+  assert.match(decision.html, new RegExp(`>${CALL_COMPANY_LABEL}<`));
   assert.doesNotMatch(decision.html, />Message Us on WhatsApp</);
+  assert.doesNotMatch(decision.html, />Message Your Driver on WhatsApp</);
   assert.match(decision.html, /#25D366/);
   assert.match(decision.html, /font-size:20px/);
   assert.match(decision.html, /font-size:14px/);
-  assert.ok(decision.html.indexOf("font-size:20px") < decision.html.indexOf(">Call</a>"));
+  const firstCall =
+    decision.contact.kind === "driver" ? `>${CALL_DRIVER_LABEL}</a>` : `>${CALL_COMPANY_LABEL}</a>`;
+  assert.ok(decision.html.indexOf("font-size:20px") < decision.html.indexOf(firstCall));
   assert.match(decision.html, /\/driver-contact\/\?token=/);
   assert.match(decision.html, /intent=message/);
   if (decision.contact.kind === "driver") {
     assert.match(decision.html, new RegExp(`>${WHATSAPP_DRIVER_LABEL}<`));
+    assert.match(decision.html, new RegExp(`>${CALL_DRIVER_LABEL}<`));
     assert.match(decision.html, /intent=call/);
     assert.ok(decision.html.indexOf(`>${WHATSAPP_DRIVER_LABEL}<`) < decision.html.indexOf(`>${WHATSAPP_COMPANY_LABEL}<`));
     assert.ok(
@@ -118,6 +119,7 @@ function assertSmartEmail(decision: ReturnType<typeof due>) {
     );
   } else {
     assert.doesNotMatch(decision.html, new RegExp(`>${WHATSAPP_DRIVER_LABEL}<`));
+    assert.doesNotMatch(decision.html, new RegExp(`>${CALL_DRIVER_LABEL}<`));
     assert.match(decision.html, /intent=call/);
   }
   assert.match(decision.html, new RegExp(`wa\\.me/${BUSINESS_WHATSAPP_DIGITS}`));
@@ -561,10 +563,12 @@ console.log("Timing uses UK local time");
   assert.match(read("src/components/FooterContact.tsx"), /SITE\.landlineDisplay/);
   const contactPage = read("src/app/driver-contact/DriverContactClient.tsx");
   assert.doesNotMatch(contactPage, /028 9602 2952/);
-  assert.doesNotMatch(contactPage, /Call Us|Call Your Driver|Message Us on WhatsApp/);
-  assert.match(contactPage, /WhatsApp is our preferred way to communicate about your journey/);
-  assert.match(contactPage, /Message Your Driver on WhatsApp/);
-  assert.match(contactPage, /Message My Airport Taxi NI on WhatsApp/);
+  assert.doesNotMatch(contactPage, /preferred way to communicate/i);
+  assert.doesNotMatch(contactPage, /Message Us on WhatsApp|Message Your Driver on WhatsApp/);
+  assert.match(contactPage, /WhatsApp Your Driver/);
+  assert.match(contactPage, /WhatsApp Us/);
+  assert.match(contactPage, /Call Your Driver/);
+  assert.match(contactPage, /Call Us/);
   assert.match(contactPage, /bg-\[#25D366\][^"]*text-lg/);
   assert.match(contactPage, /inline-block rounded-lg border[^"]*text-sm font-semibold/);
   const summerPickup = parseLondonLocalDateTime("2026-07-15", "16:30");
@@ -831,8 +835,8 @@ console.log("Live driver contact links");
   assert.equal(JSON.stringify(publicDriverContactResponse(unassigned)).includes("Priya"), false);
   assert.equal(publicDriverContactResponse(unassigned).phoneDisplay, businessWhatsAppMobileDisplay());
   assert.equal(publicDriverContactResponse(unassigned).whatsAppLabel, WHATSAPP_COMPANY_LABEL);
-  assert.equal(publicDriverContactResponse(unassigned).callLabel, JOURNEY_CALL_LABEL);
-  assert.equal(publicDriverContactResponse(unassigned).whatsAppNote, WHATSAPP_PREFERRED_NOTE);
+  assert.equal(publicDriverContactResponse(unassigned).callLabel, CALL_COMPANY_LABEL);
+  assert.equal(JSON.stringify(publicDriverContactResponse(unassigned)).includes("preferred way"), false);
 
   const owner = visit({
     assignmentStatus: "accepted",
@@ -844,7 +848,7 @@ console.log("Live driver contact links");
   assert.equal(JSON.stringify(publicDriverContactResponse(owner)).includes("07700900999"), false);
   assert.equal(publicDriverContactResponse(owner).phoneDisplay, businessWhatsAppMobileDisplay());
   assert.equal(publicDriverContactResponse(owner).whatsAppLabel, WHATSAPP_COMPANY_LABEL);
-  assert.equal(publicDriverContactResponse(owner).callLabel, JOURNEY_CALL_LABEL);
+  assert.equal(publicDriverContactResponse(owner).callLabel, CALL_COMPANY_LABEL);
   const ownerEarly = visit(
     {
       assignmentStatus: "accepted",
@@ -892,8 +896,8 @@ console.log("Live driver contact links");
   assert.equal(unlocked.driver?.firstName, "Priya");
   assert.equal(unlocked.driver?.mobileDisplay, DRIVER_DISPLAY);
   assert.equal(publicDriverContactResponse(unlocked).whatsAppLabel, WHATSAPP_DRIVER_LABEL);
-  assert.equal(publicDriverContactResponse(unlocked).callLabel, JOURNEY_CALL_LABEL);
-  assert.equal(publicDriverContactResponse(unlocked).whatsAppNote, WHATSAPP_PREFERRED_NOTE);
+  assert.equal(publicDriverContactResponse(unlocked).callLabel, CALL_DRIVER_LABEL);
+  assert.equal(JSON.stringify(publicDriverContactResponse(unlocked)).includes("preferred way"), false);
   assert.equal(publicDriverContactResponse(atReminder).whatsAppLabel, WHATSAPP_COMPANY_LABEL);
 
   const expired = visit({}, new Date("2026-07-16T03:30:00.000Z"));

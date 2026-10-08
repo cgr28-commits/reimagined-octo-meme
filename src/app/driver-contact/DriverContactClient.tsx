@@ -14,7 +14,6 @@ type DriverContactPayload = {
   phoneDisplay?: string;
   whatsAppLabel?: string;
   callLabel?: string;
-  whatsAppNote?: string;
 };
 
 function openUrl(token: string, channel: "whatsapp" | "call"): string {
@@ -71,11 +70,8 @@ export default function DriverContactClient() {
 
   const showActions = Boolean(payload && (payload.view === "driver" || payload.phoneDisplay));
   const whatsAppLabel =
-    payload?.whatsAppLabel ||
-    (payload?.view === "driver"
-      ? "Message Your Driver on WhatsApp"
-      : "Message My Airport Taxi NI on WhatsApp");
-  const callLabel = payload?.callLabel || "Call";
+    payload?.whatsAppLabel || (payload?.view === "driver" ? "WhatsApp Your Driver" : "WhatsApp Us");
+  const callLabel = payload?.callLabel || (payload?.view === "driver" ? "Call Your Driver" : "Call Us");
   const contactNumber = payload?.view === "driver" ? payload.mobileDisplay : payload?.phoneDisplay;
 
   return (
@@ -103,9 +99,6 @@ export default function DriverContactClient() {
               ) : null}
               {showActions && token ? (
                 <div className="space-y-3">
-                  <p className="text-sm font-semibold leading-relaxed text-[#071c38]">
-                    {payload.whatsAppNote || "WhatsApp is our preferred way to communicate about your journey."}
-                  </p>
                   <a
                     href={openUrl(token, "whatsapp")}
                     rel="noreferrer"

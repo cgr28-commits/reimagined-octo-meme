@@ -135,11 +135,11 @@ console.log("=== Collection email does not reveal the owner inbox ===");
     assert.equal(decision.html.includes("Rinkel"), false);
     assert.match(decision.html, /tel:\+447549815538/);
     assert.equal(decision.html.includes("028 9602 2952"), false);
-    assert.match(decision.html, />Message My Airport Taxi NI on WhatsApp</);
-    assert.match(decision.html, />Call</);
-    assert.match(decision.html, /WhatsApp is our preferred way to communicate about your journey/);
-    assert.doesNotMatch(decision.html, />Message Your Driver</);
-    assert.doesNotMatch(decision.html, />Call Us</);
+    assert.match(decision.html, />WhatsApp Us</);
+    assert.match(decision.html, />Call Us</);
+    assert.doesNotMatch(decision.html, /preferred way to communicate/i);
+    assert.doesNotMatch(decision.html, />WhatsApp Your Driver</);
+    assert.doesNotMatch(decision.html, />Call Your Driver</);
     assert.match(decision.html, /\/driver-contact\//);
     assert.equal(decision.html.includes("wa.me/447700900111"), false);
   }

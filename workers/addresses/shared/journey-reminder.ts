@@ -57,11 +57,10 @@ export const JOURNEY_REMINDER_LANDING_BODY =
 export const JOURNEY_REMINDER_LANDING_BEFORE_UNLOCK =
   `If you land before your driver’s contact details are available, please WhatsApp ${BUSINESS_NAME}. If WhatsApp is unavailable, you can call.`;
 
-export const WHATSAPP_PREFERRED_NOTE =
-  "WhatsApp is our preferred way to communicate about your journey.";
-export const WHATSAPP_DRIVER_LABEL = "Message Your Driver on WhatsApp";
-export const WHATSAPP_COMPANY_LABEL = `Message ${BUSINESS_NAME} on WhatsApp`;
-export const JOURNEY_CALL_LABEL = "Call";
+export const WHATSAPP_DRIVER_LABEL = "WhatsApp Your Driver";
+export const WHATSAPP_COMPANY_LABEL = "WhatsApp Us";
+export const CALL_DRIVER_LABEL = "Call Your Driver";
+export const CALL_COMPANY_LABEL = "Call Us";
 
 const REMINDER_AIRPORTS = ["BFS", "BHD", "DUB"] as const;
 type ReminderAirportCode = (typeof REMINDER_AIRPORTS)[number];
@@ -549,17 +548,15 @@ export function buildJourneyReminderMessage(
   if (contact.kind === "driver") {
     lines.push(
       "",
-      WHATSAPP_PREFERRED_NOTE,
-      "",
       WHATSAPP_DRIVER_LABEL,
-      JOURNEY_CALL_LABEL,
+      CALL_DRIVER_LABEL,
       "",
       page,
       "",
       companyNow,
       "",
       WHATSAPP_COMPANY_LABEL,
-      JOURNEY_CALL_LABEL,
+      CALL_COMPANY_LABEL,
       "",
       companyWhatsApp,
       `tel:${businessWhatsAppMobileTel()}`,
@@ -571,10 +568,8 @@ export function buildJourneyReminderMessage(
       "",
       companyNow,
       "",
-      WHATSAPP_PREFERRED_NOTE,
-      "",
       WHATSAPP_COMPANY_LABEL,
-      JOURNEY_CALL_LABEL,
+      CALL_COMPANY_LABEL,
       "",
       companyWhatsApp,
       `tel:${businessWhatsAppMobileTel()}`,
@@ -602,10 +597,11 @@ function whatsAppButton(href: string, label: string, prominent: boolean): string
 </div>`;
 }
 
-function callButton(href: string): string {
+function callButton(href: string, label: string): string {
   const safeHref = escapeHtml(href);
+  const safeLabel = escapeHtml(label);
   return `<div style="margin:0 0 18px;text-align:center;">
-<a href="${safeHref}" style="display:inline-block;background:#ffffff;color:#071c38;text-decoration:none;font-size:14px;font-weight:bold;line-height:1.3;padding:8px 16px;border-radius:8px;border:1px solid #94a3b8;text-align:center;">${JOURNEY_CALL_LABEL}</a>
+<a href="${safeHref}" style="display:inline-block;background:#ffffff;color:#071c38;text-decoration:none;font-size:14px;font-weight:bold;line-height:1.3;padding:8px 16px;border-radius:8px;border:1px solid #94a3b8;text-align:center;">${safeLabel}</a>
 <p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:#64748b;">If the button does not open, use this link:<br /><a href="${safeHref}" style="color:#071c38;word-break:break-all;">${safeHref}</a></p>
 </div>`;
 }
@@ -630,18 +626,15 @@ export function buildJourneyReminderHtml(
     .map((paragraph) => {
       if (paragraph.startsWith("https://") && paragraph.includes("/driver-contact")) return "";
       if (paragraph.startsWith("https://wa.me/") || paragraph.startsWith("tel:")) return "";
-      if (paragraph === WHATSAPP_PREFERRED_NOTE) {
-        return `<p style="margin:0 0 12px;font-size:15px;line-height:1.5;color:#071c38;font-weight:bold;">${escapeHtml(paragraph)}</p>`;
-      }
       if (paragraph.startsWith(WHATSAPP_DRIVER_LABEL)) {
-        return whatsAppButton(messageHref, WHATSAPP_DRIVER_LABEL, true) + callButton(callHref);
+        return whatsAppButton(messageHref, WHATSAPP_DRIVER_LABEL, true) + callButton(callHref, CALL_DRIVER_LABEL);
       }
       if (paragraph.startsWith(WHATSAPP_COMPANY_LABEL)) {
         const prominent = !message.includes(WHATSAPP_DRIVER_LABEL);
         const callPage = message.includes(WHATSAPP_DRIVER_LABEL)
           ? ""
           : `<p style="margin:-6px 0 18px;text-align:center;font-size:13px;line-height:1.5;"><a href="${escapeHtml(callHref)}" style="color:#071c38;">Open the contact page to call</a></p>`;
-        return whatsAppButton(companyWhatsApp, WHATSAPP_COMPANY_LABEL, prominent) + callButton(companyTel) + callPage;
+        return whatsAppButton(companyWhatsApp, WHATSAPP_COMPANY_LABEL, prominent) + callButton(companyTel, CALL_COMPANY_LABEL) + callPage;
       }
       if (paragraph.includes("the secure page for this booking")) {
         const linked = escapeHtml(paragraph).replace(
