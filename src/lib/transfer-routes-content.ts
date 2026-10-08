@@ -1567,7 +1567,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "What about luggage on this transfer?",
         answer:
-          "Enter your suitcase count on the quote form so the booking matches the vehicle offered. Saloon, Estate and Business Class carry up to 4 passengers; a 7 Seater Minibus is available when offered in the quote. Enter all passengers and luggage before choosing your vehicle.",
+          "Enter your suitcase count on the quote form so the booking matches the vehicle offered. Saloon and Estate carry up to 4 passengers. Business Class carries 1–3 passengers and up to 2 large suitcases. A 7 Seater Minibus is available when offered in the quote. Enter all passengers and luggage before choosing your vehicle.",
       },
       {
         question: "Can I book this Dublin to Belfast airport transfer online?",

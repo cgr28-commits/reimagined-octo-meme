@@ -188,8 +188,27 @@ assert.match(card, /Complimentary water included/);
 assert.doesNotMatch(card, /bottled water|Bottle of water|Complimentary bottled water/);
 assert.match(fleet, /Complimentary water included/);
 assert.doesNotMatch(fleet, /bottled water/);
+assert.match(fleet, /Business Class carries 1–3 passengers and up to 2 large suitcases/);
 assert.match(sharedCopy, /Complimentary water included/);
 assert.doesNotMatch(sharedCopy, /bottled water/);
 assert.doesNotMatch(read("src/components/quote-vehicle-line-icons.tsx"), /w-\[3\.1rem\]/);
+
+const capacityCopy = "Business Class carries 1–3 passengers and up to 2 large suitcases";
+for (const rel of [
+  "src/app/transfers/[slug]/page.tsx",
+  "src/lib/transfer-routes-belfast.ts",
+  "src/lib/transfer-routes-content.ts",
+  "src/lib/terms.ts",
+  "src/lib/data.ts",
+]) {
+  const source = read(rel);
+  assert.match(source, new RegExp(capacityCopy));
+  assert.doesNotMatch(source, /Business Class carry up to 4/);
+  assert.doesNotMatch(source, /and Business Class carry up to 4/);
+}
+assert.match(read("src/app/page.tsx"), /VehiclesSection/);
+assert.doesNotMatch(read("src/app/page.tsx"), /bottled water/);
+assert.match(read("src/lib/data.ts"), /Complimentary water included/);
+assert.doesNotMatch(read("src/lib/data.ts"), /bottled water/);
 
 console.log("OK  business class capacity");

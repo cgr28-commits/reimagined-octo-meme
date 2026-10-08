@@ -30,7 +30,7 @@ const FLEET = [
   {
     id: "executive",
     title: "Business Class",
-    detail: "Premium executive vehicle",
+    detail: "1–3 passengers and 2 large suitcases. Complimentary water included.",
     image: BUSINESS_CLASS_IMAGE,
   },
   {
@@ -64,7 +64,7 @@ export default function VehiclesSection() {
           navId="vehicles"
           description={
             minibusOn
-              ? "Professional private airport transfer. Choose a Saloon, Estate or similar larger vehicle, Business Class, or 7 Seater Minibus when it suits your passengers and luggage."
+              ? "Saloon and Estate carry up to 4 passengers. Business Class carries 1–3 passengers and up to 2 large suitcases, with Complimentary water included. A 7 Seater Minibus is available when it suits your party."
               : "Saloon and Estate airport transfers for up to 4 passengers, plus Business Class for 1–3 passengers and a 7 Seater Minibus when available. Enter your passengers and luggage to see the vehicles offered for your journey."
           }
         />

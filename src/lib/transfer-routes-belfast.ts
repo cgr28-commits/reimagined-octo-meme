@@ -51,7 +51,7 @@ export const TRANSFER_ROUTE_BELFAST: TransferRouteContent[] = [
       {
         question: "What if I have several suitcases for a holiday flight?",
         answer:
-          "Enter the suitcase count on the quote form so the booking matches the vehicle offered. Saloon, Estate and Business Class carry up to 4 passengers; a 7 Seater Minibus is available when offered in the quote. Enter all passengers and luggage before choosing your vehicle.",
+          "Enter the suitcase count on the quote form so the booking matches the vehicle offered. Saloon and Estate carry up to 4 passengers. Business Class carries 1–3 passengers and up to 2 large suitcases. A 7 Seater Minibus is available when offered in the quote. Enter all passengers and luggage before choosing your vehicle.",
       },
       {
         question: "Can I book a return collection at Belfast International?",
