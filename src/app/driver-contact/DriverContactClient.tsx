@@ -40,7 +40,6 @@ export default function DriverContactClient() {
           cache: "no-store",
           headers: {
             Accept: "application/json",
-            "Cache-Control": "no-store",
           },
         },
       );
