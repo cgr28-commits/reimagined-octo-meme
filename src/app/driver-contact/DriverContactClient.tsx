@@ -100,7 +100,7 @@ export default function DriverContactClient() {
               ) : null}
               {payload.phoneDisplay ? (
                 <div className="rounded-xl border border-[#dbe3ee] bg-[#f8fafc] px-4 py-4">
-                  <p className="text-sm font-semibold uppercase tracking-wide text-[#64748b]">Business telephone</p>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-[#64748b]">Business mobile</p>
                   <p className="mt-1 text-2xl font-bold text-[#071c38]">{payload.phoneDisplay}</p>
                 </div>
               ) : null}

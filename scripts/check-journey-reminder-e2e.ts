@@ -4,7 +4,12 @@
  * Run: node node_modules/tsx/dist/cli.mjs scripts/check-journey-reminder-e2e.ts
  */
 import assert from "node:assert/strict";
-import { BUSINESS_PHONE_DISPLAY, BUSINESS_PHONE_TEL, BUSINESS_WHATSAPP_DIGITS } from "../shared/business-email";
+import {
+  BUSINESS_PHONE_DISPLAY,
+  BUSINESS_WHATSAPP_DIGITS,
+  businessWhatsAppMobileDisplay,
+  businessWhatsAppMobileTel,
+} from "../shared/business-email";
 import { DRIVER_CONTACT_UNLOCK_MESSAGE, formatJourneyReminderClock } from "../shared/journey-reminder";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import type { TrackingJobRecord } from "../shared/tracking";
@@ -356,7 +361,8 @@ console.log("Airport collection, drop-off, and owner wording");
   assert.match(bfs.html, />Message Us on WhatsApp</);
   assert.match(bfs.html, />Call Us</);
   assert.match(bfs.html, new RegExp(`wa\\.me/${BUSINESS_WHATSAPP_DIGITS}`));
-  assert.match(bfs.html, new RegExp(`tel:${BUSINESS_PHONE_TEL.replace("+", "\\+")}`));
+  assert.match(bfs.html, new RegExp(`tel:${businessWhatsAppMobileTel().replace("+", "\\+")}`));
+  assert.equal(bfs.html.includes(BUSINESS_PHONE_DISPLAY), false);
   assert.match(bfs.html, /name="viewport"/);
   assert.equal(bfs.html.includes(PRIYA_DIGITS), false);
 
@@ -551,12 +557,12 @@ console.log("Driver A, unlock, de-assign, Driver B");
   assert.equal(earlyBody.view, "too_early");
   assert.equal(earlyBody.heading, DRIVER_CONTACT_UNLOCK_MESSAGE);
   assert.equal(earlyBody.driverFirstName, undefined);
-  assert.equal(earlyBody.phoneDisplay, BUSINESS_PHONE_DISPLAY);
+  assert.equal(earlyBody.phoneDisplay, businessWhatsAppMobileDisplay());
   const earlyWhatsApp = await contact(env, token, "whatsapp");
   assert.equal(earlyWhatsApp.status, 302);
   assert.equal(new URL(earlyWhatsApp.headers.get("location") ?? "").pathname, `/${BUSINESS_WHATSAPP_DIGITS}`);
   const earlyCall = await contact(env, token, "call");
-  assert.equal(earlyCall.headers.get("location"), `tel:${BUSINESS_PHONE_TEL}`);
+  assert.equal(earlyCall.headers.get("location"), `tel:${businessWhatsAppMobileTel()}`);
 
   const unlocked = londonWall(minutesFromNow(30));
   const storedPaid = paid({
@@ -598,9 +604,9 @@ console.log("Driver A, unlock, de-assign, Driver B");
   assert.match(withdrawnBody.heading ?? "", /Your driver details have been updated/);
   assert.equal(withdrawnJson.includes("Priya"), false);
   assert.equal(withdrawnJson.includes(PRIYA_DIGITS), false);
-  assert.equal(withdrawnBody.phoneDisplay, BUSINESS_PHONE_DISPLAY);
+  assert.equal(withdrawnBody.phoneDisplay, businessWhatsAppMobileDisplay());
   const withdrawnCall = await contact(env, token, "call");
-  assert.equal(withdrawnCall.headers.get("location"), `tel:${BUSINESS_PHONE_TEL}`);
+  assert.equal(withdrawnCall.headers.get("location"), `tel:${businessWhatsAppMobileTel()}`);
 
   env.DRIVER_NAME = "Alex";
   await expectOk(

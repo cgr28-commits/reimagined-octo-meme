@@ -9,7 +9,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildCustomerConfirmationEmail } from "../shared/booking-notifications";
-import { BUSINESS_PHONE_DISPLAY, BUSINESS_PHONE_TEL, BUSINESS_WHATSAPP_DIGITS } from "../shared/business-email";
+import {
+  BUSINESS_PHONE_DISPLAY,
+  BUSINESS_WHATSAPP_DIGITS,
+  businessWhatsAppMobileDisplay,
+  businessWhatsAppMobileTel,
+} from "../shared/business-email";
 import { buildOnTheWayCompanyVoiceMessage } from "../shared/company-voice-journey";
 import {
   DRIVER_CONTACT_RATE_LIMIT,
@@ -95,7 +100,10 @@ function assertSmartEmail(decision: ReturnType<typeof due>) {
   assert.match(decision.html, /intent=message/);
   assert.match(decision.html, /intent=call/);
   assert.match(decision.html, new RegExp(`wa\\.me/${BUSINESS_WHATSAPP_DIGITS}`));
-  assert.match(decision.html, new RegExp(`tel:${BUSINESS_PHONE_TEL.replace("+", "\\+")}`));
+  assert.match(decision.html, new RegExp(`tel:${businessWhatsAppMobileTel().replace("+", "\\+")}`));
+  assert.match(decision.message, new RegExp(businessWhatsAppMobileDisplay().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.equal(bundle.includes(BUSINESS_PHONE_DISPLAY), false);
+  assert.equal(bundle.includes("+442896022952"), false);
   assert.match(decision.message, new RegExp(DRIVER_CONTACT_UNLOCK_MESSAGE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(decision.contactPageHref.includes("wa.me"), false);
 }
@@ -519,6 +527,13 @@ console.log("Timing uses UK local time");
 {
   assert.equal(JOURNEY_REMINDER_LEAD_MS, 3 * 60 * 60 * 1000);
   assert.equal(DRIVER_CONTACT_REVEAL_LEAD_MS, 2 * 60 * 60 * 1000);
+  assert.equal(BUSINESS_PHONE_DISPLAY, "028 9602 2952");
+  assert.equal(businessWhatsAppMobileDisplay(), "07549 815538");
+  assert.equal(businessWhatsAppMobileTel(), "+447549815538");
+  assert.match(read("src/lib/data.ts"), /landlineDisplay:\s*"028 9602 2952"/);
+  assert.match(read("src/lib/data.ts"), /whatsapp:\s*"447549815538"/);
+  assert.match(read("src/components/FooterContact.tsx"), /SITE\.landlineDisplay/);
+  assert.doesNotMatch(read("src/app/driver-contact/DriverContactClient.tsx"), /028 9602 2952/);
   const summerPickup = parseLondonLocalDateTime("2026-07-15", "16:30");
   const winterPickup = parseLondonLocalDateTime("2026-01-15", "16:30");
   assert.ok(summerPickup && winterPickup);
@@ -737,11 +752,11 @@ console.log("Live driver contact links");
   assert.equal(removedJson.includes("Priya"), false);
   assert.equal(removedJson.includes(DRIVER_DIGITS), false);
   assert.equal(removedJson.includes(DRIVER_DISPLAY), false);
-  assert.match(removedJson, new RegExp(BUSINESS_PHONE_DISPLAY.replace(/ /g, " ")));
+  assert.match(removedJson, new RegExp(businessWhatsAppMobileDisplay().replace(/ /g, " ")));
   const removedWhatsApp = driverContactRedirectHref(removed, "whatsapp") ?? "";
   assert.equal(new URL(removedWhatsApp).pathname, `/${BUSINESS_WHATSAPP_DIGITS}`);
   assert.equal(removedWhatsApp.includes(DRIVER_DIGITS), false);
-  assert.equal(driverContactRedirectHref(removed, "call"), `tel:${BUSINESS_PHONE_TEL}`);
+  assert.equal(driverContactRedirectHref(removed, "call"), `tel:${businessWhatsAppMobileTel()}`);
 
   const replacement = visit({
     assignmentStatus: "accepted",
@@ -781,7 +796,7 @@ console.log("Live driver contact links");
   assert.equal(unassigned.view, "company");
   assert.notEqual(unassigned.heading, DRIVER_CONTACT_UPDATED_HEADING);
   assert.equal(JSON.stringify(publicDriverContactResponse(unassigned)).includes("Priya"), false);
-  assert.equal(publicDriverContactResponse(unassigned).phoneDisplay, BUSINESS_PHONE_DISPLAY);
+  assert.equal(publicDriverContactResponse(unassigned).phoneDisplay, businessWhatsAppMobileDisplay());
 
   const owner = visit({
     assignmentStatus: "accepted",
@@ -791,7 +806,7 @@ console.log("Live driver contact links");
   });
   assert.equal(owner.view, "company");
   assert.equal(JSON.stringify(publicDriverContactResponse(owner)).includes("07700900999"), false);
-  assert.equal(publicDriverContactResponse(owner).phoneDisplay, BUSINESS_PHONE_DISPLAY);
+  assert.equal(publicDriverContactResponse(owner).phoneDisplay, businessWhatsAppMobileDisplay());
   const ownerEarly = visit(
     {
       assignmentStatus: "accepted",
@@ -804,15 +819,15 @@ console.log("Live driver contact links");
   assert.equal(ownerEarly.view, "company");
   assert.notEqual(ownerEarly.heading, DRIVER_CONTACT_UNLOCK_MESSAGE);
   assert.equal(JSON.stringify(publicDriverContactResponse(ownerEarly)).includes("07700900999"), false);
-  assert.equal(publicDriverContactResponse(ownerEarly).phoneDisplay, BUSINESS_PHONE_DISPLAY);
-  assert.equal(driverContactRedirectHref(ownerEarly, "call"), `tel:${BUSINESS_PHONE_TEL}`);
+  assert.equal(publicDriverContactResponse(ownerEarly).phoneDisplay, businessWhatsAppMobileDisplay());
+  assert.equal(driverContactRedirectHref(ownerEarly, "call"), `tel:${businessWhatsAppMobileTel()}`);
   const unassignedEarly = visit(
     { assignmentStatus: "unassigned", assignedDriverName: "", assignedDriverMobile: "", assignmentAudit: [] },
     new Date("2026-07-15T12:30:00.000Z"),
   );
   assert.equal(unassignedEarly.view, "too_early");
   assert.equal(unassignedEarly.heading, DRIVER_CONTACT_UNLOCK_MESSAGE);
-  assert.equal(publicDriverContactResponse(unassignedEarly).phoneDisplay, BUSINESS_PHONE_DISPLAY);
+  assert.equal(publicDriverContactResponse(unassignedEarly).phoneDisplay, businessWhatsAppMobileDisplay());
 
   const cancelled = visit({ bookingStatus: "cancelled" });
   assert.equal(cancelled.view, "cancelled");
@@ -826,9 +841,9 @@ console.log("Live driver contact links");
   assert.equal(atReminder.heading, DRIVER_CONTACT_UNLOCK_MESSAGE);
   assert.equal(JSON.stringify(publicDriverContactResponse(atReminder)).includes("Priya"), false);
   assert.equal(JSON.stringify(publicDriverContactResponse(atReminder)).includes(DRIVER_DIGITS), false);
-  assert.equal(publicDriverContactResponse(atReminder).phoneDisplay, BUSINESS_PHONE_DISPLAY);
+  assert.equal(publicDriverContactResponse(atReminder).phoneDisplay, businessWhatsAppMobileDisplay());
   assert.equal(new URL(driverContactRedirectHref(atReminder, "whatsapp") ?? "").pathname, `/${BUSINESS_WHATSAPP_DIGITS}`);
-  assert.equal(driverContactRedirectHref(atReminder, "call"), `tel:${BUSINESS_PHONE_TEL}`);
+  assert.equal(driverContactRedirectHref(atReminder, "call"), `tel:${businessWhatsAppMobileTel()}`);
   const tooEarly = visit({}, new Date("2026-07-15T13:29:00.000Z"));
   assert.equal(tooEarly.view, "too_early");
   assert.equal(tooEarly.driver, undefined);

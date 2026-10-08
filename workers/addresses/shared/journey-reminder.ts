@@ -8,16 +8,16 @@
  * This reminder is due at the booked pickup minus three hours in UK local time
  * (Europe/London, including daylight saving). Each leg is separate. Personal
  * driver details stay on the live contact page and unlock two hours before
- * pickup. The email may include the company WhatsApp and business telephone.
+ * pickup. The email may include the company WhatsApp mobile.
  * It must not include an external driver's mobile, tel: link, or wa.me link.
  * The message does not promise that the provider will deliver at that exact minute.
  */
 
 import {
   BUSINESS_NAME,
-  BUSINESS_PHONE_DISPLAY,
-  BUSINESS_PHONE_TEL,
   BUSINESS_WHATSAPP_DIGITS,
+  businessWhatsAppMobileDisplay,
+  businessWhatsAppMobileTel,
   businessWhatsAppChatUrl,
 } from "./business-email";
 import { AIRPORT_PICKUP_COPY } from "./company-voice-journey";
@@ -544,13 +544,13 @@ export function buildJourneyReminderMessage(
     "",
     page,
     "",
-    `You can contact ${BUSINESS_NAME} now on WhatsApp or ${BUSINESS_PHONE_DISPLAY}.`,
+    `You can contact ${BUSINESS_NAME} now on WhatsApp or ${businessWhatsAppMobileDisplay()}.`,
     "",
     "Message Us on WhatsApp",
     "Call Us",
     "",
     companyWhatsApp,
-    `tel:${BUSINESS_PHONE_TEL}`,
+    `tel:${businessWhatsAppMobileTel()}`,
     "",
     "We look forward to welcoming you.",
     "",
@@ -588,7 +588,7 @@ export function buildJourneyReminderHtml(
     journeyReminderWhatsAppDraft(input, companyContact),
     companyContact,
   );
-  const companyTel = `tel:${BUSINESS_PHONE_TEL}`;
+  const companyTel = `tel:${businessWhatsAppMobileTel()}`;
   const paragraphs = message
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
@@ -619,10 +619,11 @@ export function buildJourneyReminderHtml(
         return `<p style="margin:20px 0 8px;font-size:${landing ? "16px" : "13px"};letter-spacing:${landing ? "0" : "0.06em"};font-weight:bold;color:${landing ? "#9a3412" : "#071c38"};">${escapeHtml(paragraph)}</p>`;
       }
       let safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
-      if (paragraph.includes(BUSINESS_PHONE_DISPLAY)) {
+      const companyMobile = businessWhatsAppMobileDisplay();
+      if (paragraph.includes(companyMobile)) {
         safe = safe.replace(
-          BUSINESS_PHONE_DISPLAY,
-          `<a href="tel:${BUSINESS_PHONE_TEL}" style="color:#071c38;font-weight:bold;">${BUSINESS_PHONE_DISPLAY}</a>`,
+          companyMobile,
+          `<a href="tel:${businessWhatsAppMobileTel()}" style="color:#071c38;font-weight:bold;">${companyMobile}</a>`,
         );
       }
       const landingBody = paragraph.startsWith("Once your flight has landed");
@@ -725,7 +726,7 @@ export function evaluateJourneyReminder(
   };
 }
 
-/** Last-moment guard. Company WhatsApp and the business telephone are allowed. */
+/** Last-moment guard. The company WhatsApp mobile is allowed. Any other number is not. */
 export function journeyReminderEmailExposesDirectContact(
   text: string,
   html: string,
@@ -735,7 +736,7 @@ export function journeyReminderEmailExposesDirectContact(
   const waPaths = [...bundle.matchAll(/wa\.me\/(\d+)/gi)].map((match) => match[1]);
   if (waPaths.some((digits) => digits !== BUSINESS_WHATSAPP_DIGITS)) return true;
   const tels = [...bundle.matchAll(/tel:(\+\d+)/gi)].map((match) => match[1]);
-  if (tels.some((tel) => tel !== BUSINESS_PHONE_TEL)) return true;
+  if (tels.some((tel) => tel !== businessWhatsAppMobileTel())) return true;
   if (contact.kind !== "driver") return false;
   return (
     bundle.includes(contact.mobileDisplay) ||

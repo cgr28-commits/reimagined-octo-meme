@@ -7,7 +7,11 @@
  * never placed in the email and is not returned once they are no longer accepted.
  */
 
-import { BUSINESS_NAME, BUSINESS_PHONE_DISPLAY, BUSINESS_PHONE_TEL } from "./business-email";
+import {
+  BUSINESS_NAME,
+  businessWhatsAppMobileDisplay,
+  businessWhatsAppMobileTel,
+} from "./business-email";
 import {
   DRIVER_CONTACT_UNLOCK_MESSAGE,
   driverContactDetailsUnlocked,
@@ -154,10 +158,10 @@ function companyTarget(input: JourneyReminderInput): DriverContactTarget {
   const contact: JourneyReminderContact = { kind: "company" };
   const draft = journeyReminderWhatsAppDraft(input, contact);
   return {
-    phoneDisplay: BUSINESS_PHONE_DISPLAY,
-    phoneTel: BUSINESS_PHONE_TEL,
+    phoneDisplay: businessWhatsAppMobileDisplay(),
+    phoneTel: businessWhatsAppMobileTel(),
     whatsAppHref: journeyReminderWhatsAppHref(draft, contact),
-    callHref: `tel:${BUSINESS_PHONE_TEL}`,
+    callHref: `tel:${businessWhatsAppMobileTel()}`,
   };
 }
 
@@ -199,7 +203,7 @@ export function evaluateDriverContactVisit(
       return closed(
         "expired",
         "This link has expired",
-        `This link has expired. Please contact ${BUSINESS_NAME} on WhatsApp or ${BUSINESS_PHONE_DISPLAY}.`,
+        `This link has expired. Please contact ${BUSINESS_NAME} on WhatsApp or ${businessWhatsAppMobileDisplay()}.`,
         companyTarget(input),
       );
     }
@@ -217,7 +221,7 @@ export function evaluateDriverContactVisit(
     return closed(
       "expired",
       "This link has expired",
-      `This link has expired. Please contact ${BUSINESS_NAME} on WhatsApp or ${BUSINESS_PHONE_DISPLAY}.`,
+      `This link has expired. Please contact ${BUSINESS_NAME} on WhatsApp or ${businessWhatsAppMobileDisplay()}.`,
       companyTarget(input),
     );
   }
@@ -226,7 +230,7 @@ export function evaluateDriverContactVisit(
     return closed(
       "cancelled",
       "This booking has been cancelled",
-      `This booking has been cancelled. Please contact ${BUSINESS_NAME} on WhatsApp or ${BUSINESS_PHONE_DISPLAY} if you need help.`,
+      `This booking has been cancelled. Please contact ${BUSINESS_NAME} on WhatsApp or ${businessWhatsAppMobileDisplay()} if you need help.`,
       companyTarget(input),
     );
   }
@@ -255,7 +259,7 @@ export function evaluateDriverContactVisit(
       ok: true,
       view: "updated",
       heading: DRIVER_CONTACT_UPDATED_HEADING,
-      message: `${DRIVER_CONTACT_UPDATED_HEADING}. Please use our WhatsApp and business telephone below.`,
+      message: `${DRIVER_CONTACT_UPDATED_HEADING}. Please use our WhatsApp and business mobile below.`,
       company: companyTarget(input),
     };
   }
@@ -267,7 +271,7 @@ export function evaluateDriverContactVisit(
       ok: true,
       view: "too_early",
       heading: DRIVER_CONTACT_UNLOCK_MESSAGE,
-      message: `${DRIVER_CONTACT_UNLOCK_MESSAGE} Until then, message or call ${BUSINESS_NAME} on WhatsApp or ${BUSINESS_PHONE_DISPLAY}. Reopen or refresh this page to check again. It does not update on its own.`,
+      message: `${DRIVER_CONTACT_UNLOCK_MESSAGE} Until then, message or call ${BUSINESS_NAME} on WhatsApp or ${businessWhatsAppMobileDisplay()}. Reopen or refresh this page to check again. It does not update on its own.`,
       company: companyTarget(input),
     };
   }
@@ -276,7 +280,7 @@ export function evaluateDriverContactVisit(
     ok: true,
     view: "company",
     heading: `Contact ${BUSINESS_NAME}`,
-    message: `Message or call ${BUSINESS_NAME} on WhatsApp or ${BUSINESS_PHONE_DISPLAY}.`,
+    message: `Message or call ${BUSINESS_NAME} on WhatsApp or ${businessWhatsAppMobileDisplay()}.`,
     company: companyTarget(input),
   };
 }
