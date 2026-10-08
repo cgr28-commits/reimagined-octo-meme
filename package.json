@@ -145,7 +145,8 @@
     "check:deposit-cash": "npx tsx scripts/check-deposit-cash.ts",
     "check:minibus-availability": "npx tsx scripts/check-minibus-availability.ts",
     "check:quote-reveal-scroll": "npx tsx scripts/check-quote-reveal-scroll.ts",
-    "check:business-class-minimum": "npx tsx scripts/check-business-class-minimum.ts"
+    "check:business-class-minimum": "npx tsx scripts/check-business-class-minimum.ts",
+    "check:minibus-minimum": "npx tsx scripts/check-minibus-minimum.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

@@ -92,6 +92,11 @@ export type WebsiteFareBreakdownInput = {
    * One-way price floor applied after the normal fare, including airport access.
    */
   businessClassMinimumFareGbp?: number;
+  /**
+   * 7 Seater Minibus only. Omit for every other vehicle.
+   * Same floor as Business Class, after the normal fare, including airport access.
+   */
+  minibusMinimumFareGbp?: number;
   /** Journey + Night & Weekend + airport fixed costs, before access and before the return discount. */
   outboundOneWayBeforeAccessGbp?: number;
   returnOneWayBeforeAccessGbp?: number;
@@ -211,7 +216,18 @@ export function composeWebsiteFareBreakdown(
   let journeyFareBeforeReturnDiscountAdjusted = journeyFareBeforeReturnDiscountGbp;
   let journeyFareDisplayAdjusted = transferFareAfterPromotionsGbp;
 
-  const minimumFareGbp = Number(input.businessClassMinimumFareGbp);
+  const businessMinimum = Number(input.businessClassMinimumFareGbp);
+  const minibusMinimum = Number(input.minibusMinimumFareGbp);
+  const minimumFareGbp =
+    input.businessClassMinimumFareGbp != null &&
+    Number.isFinite(businessMinimum) &&
+    businessMinimum >= 0
+      ? businessMinimum
+      : input.minibusMinimumFareGbp != null &&
+          Number.isFinite(minibusMinimum) &&
+          minibusMinimum >= 0
+        ? minibusMinimum
+        : Number.NaN;
   const outboundBeforeAccess = Number(input.outboundOneWayBeforeAccessGbp);
   if (
     Number.isFinite(minimumFareGbp) &&

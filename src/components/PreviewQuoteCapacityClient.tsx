@@ -36,7 +36,7 @@ export default function PreviewQuoteCapacityClient({
     if (!requiresMinibus(passengers, suitcases)) return null;
     const pricing = {
       ...defaultOwnerPricingSettings(),
-      minibus: { publicEnabled: true, multiplier: 1.55 },
+      minibus: { ...defaultOwnerPricingSettings().minibus, publicEnabled: true, multiplier: 1.55 },
     };
     return minibusBaseFareFromSaloon(50, pricing);
   }, [enabled, passengers, suitcases]);

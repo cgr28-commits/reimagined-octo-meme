@@ -346,7 +346,8 @@ assert.match(panel, /New quotes use this amount/);
 assert.match(panel, /data-executive-multiplier/);
 
 const quoteCard = readFileSync("src/components/QuoteCard.tsx", "utf8");
-assert.match(quoteCard, /businessClassMinimumFareGbp/);
+assert.match(quoteCard, /vehicleMinimumFareBreakdownFields|businessClassMinimumFareGbp/);
+assert.match(readFileSync("shared/business-class-minimum.ts", "utf8"), /businessClassMinimumFareGbp: input.executiveMinimumFareGbp/);
 assert.doesNotMatch(quoteCard, /w-\[3\.1rem\]/);
 
 const paidBookings = readFileSync("src/components/OwnerPaidBookingsPanel.tsx", "utf8");
