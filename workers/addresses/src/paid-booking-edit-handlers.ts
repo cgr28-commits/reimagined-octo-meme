@@ -49,6 +49,7 @@ import {
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
+import { invalidateJourneyRemindersOnScheduleChange } from "./journey-reminder-schedule";
 import { type WorkerEmailEnv } from "./worker-email";
 import {
   sendUpdatedConfirmationForPaymentReference,
@@ -515,6 +516,17 @@ export async function handlePaidBookingEditRequest(
         await reindexTrackingJobDate(env.TRACKING_STORE, job.token, prevDate, job.tripDate);
       }
     }
+    await invalidateJourneyRemindersOnScheduleChange(env.TRACKING_STORE, {
+      paymentReference,
+      previousTripDate: existing.tripDate,
+      previousTripTime: existing.tripTime,
+      nextTripDate: updated.tripDate,
+      nextTripTime: updated.tripTime,
+      previousReturnDate: existing.returnDate,
+      previousReturnTime: existing.returnTime,
+      nextReturnDate: updated.returnDate,
+      nextReturnTime: updated.returnTime,
+    });
   }
 
   if (calendarConfigured(env) && updated.calendarEventIds.length > 0) {

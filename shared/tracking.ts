@@ -182,6 +182,17 @@ export type TrackingJobRecord = {
   airportPickupReminderSentAt?: string;
   airportPickupReminderFailedAt?: string;
   airportPickupReminderLastError?: string;
+  /** Pickup instant (ISO) the last 2-hour reminder was sent for. A new time invalidates it. */
+  journeyReminderSentForPickupAt?: string;
+  /** company, or driver:firstname:digits, captured when the reminder was sent. */
+  journeyReminderDriverKey?: string;
+  journeyReminderClaimId?: string;
+  journeyReminderClaimedAt?: string;
+  /** Last accepted driver included in an updated-driver email. */
+  journeyDriverUpdateSentForKey?: string;
+  journeyDriverUpdateSentAt?: string;
+  journeyDriverUpdateClaimId?: string;
+  journeyDriverUpdateClaimedAt?: string;
 };
 
 export type DriverLocationPoint = {

@@ -686,6 +686,41 @@ export async function updateDepositCashSettings(
   return payload.settings as BookingSettings;
 }
 
+export async function fetchJourneyReminderAirports(ownerKey: string): Promise<Record<string, string>> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    headers: {
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not load airport reminder instructions"));
+  }
+  return (payload.journeyReminderAirports ?? {}) as Record<string, string>;
+}
+
+export async function saveJourneyReminderAirports(
+  ownerKey: string,
+  journeyReminderAirports: Record<string, string>,
+): Promise<Record<string, string>> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ action: "set-journey-reminder-airports", journeyReminderAirports }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not save airport reminder instructions"));
+  }
+  return (payload.journeyReminderAirports ?? journeyReminderAirports) as Record<string, string>;
+}
+
 export async function fetchBookingSettings(ownerKey: string): Promise<BookingSettings> {
   const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
     headers: {

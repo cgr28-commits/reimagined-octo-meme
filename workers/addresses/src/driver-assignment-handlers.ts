@@ -629,6 +629,13 @@ export async function handleDriverAssignmentResponseRequest(
 
   await saveTrackingJob(env.TRACKING_STORE, record);
 
+  if (action === "accept") {
+    const { notifyJourneyDriverUpdateIfNeeded } = await import("./airport-pickup-reminder-handlers");
+    await notifyJourneyDriverUpdateIfNeeded(env, record).catch((error) => {
+      console.error("Updated driver details email failed", error);
+    });
+  }
+
   const job = await enrichDriverJob(record, env, origin, "driver");
 
   return jsonResponse(

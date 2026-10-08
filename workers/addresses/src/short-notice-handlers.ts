@@ -2150,6 +2150,9 @@ export async function handleOwnerGetBookingSettings(
   | {
       ok: true;
       settings: ReturnType<typeof bookingSettingsPublicView>;
+      journeyReminderAirports: Awaited<
+        ReturnType<typeof import("./journey-reminder-store").getJourneyReminderAirportCopy>
+      >;
     }
   | { error: string; status: number }
 > {
@@ -2157,7 +2160,9 @@ export async function handleOwnerGetBookingSettings(
     return { error: "Unauthorized — owner access required.", status: 401 };
   }
   const settings = await getBookingSettings(env.TRACKING_STORE);
-  return { ok: true, settings: bookingSettingsPublicView(settings) };
+  const { getJourneyReminderAirportCopy } = await import("./journey-reminder-store");
+  const journeyReminderAirports = await getJourneyReminderAirportCopy(env.TRACKING_STORE);
+  return { ok: true, settings: bookingSettingsPublicView(settings), journeyReminderAirports };
 }
 
 export async function handleOwnerSaveBookingSettings(
@@ -2169,6 +2174,9 @@ export async function handleOwnerSaveBookingSettings(
       ok: true;
       settings: ReturnType<typeof bookingSettingsPublicView>;
       period?: { id: string; startLocal: string; endLocal: string; note?: string; mode?: string };
+      journeyReminderAirports?: Awaited<
+        ReturnType<typeof import("./journey-reminder-store").getJourneyReminderAirportCopy>
+      >;
     }
   | { error: string; status: number }
 > {
@@ -2229,6 +2237,16 @@ export async function handleOwnerSaveBookingSettings(
         body.customerPaymentWindowMinutes ?? body.minutes,
       );
       return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+
+    if (action === "set-journey-reminder-airports") {
+      const { saveJourneyReminderAirportCopy } = await import("./journey-reminder-store");
+      const journeyReminderAirports = await saveJourneyReminderAirportCopy(
+        env.TRACKING_STORE,
+        (body.journeyReminderAirports ?? body) as Partial<Record<string, string>>,
+      );
+      const settings = await getBookingSettings(env.TRACKING_STORE);
+      return { ok: true, settings: bookingSettingsPublicView(settings), journeyReminderAirports };
     }
 
     if (action === "set-deposit-cash" || action === "set-deposit-cash-settings") {

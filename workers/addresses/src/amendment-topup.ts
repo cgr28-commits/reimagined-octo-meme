@@ -49,6 +49,7 @@ import {
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
+import { invalidateJourneyRemindersOnScheduleChange } from "./journey-reminder-schedule";
 import type { WorkerEmailEnv } from "./worker-email";
 
 export {
@@ -550,6 +551,17 @@ export async function finalizeAmendmentTopUpCheckout(input: {
         await reindexTrackingJobDate(input.env.TRACKING_STORE, job.token, prevDate, job.tripDate);
       }
     }
+    await invalidateJourneyRemindersOnScheduleChange(input.env.TRACKING_STORE, {
+      paymentReference: bookingRef,
+      previousTripDate,
+      previousTripTime,
+      nextTripDate: newTripDate,
+      nextTripTime: newTripTime,
+      previousReturnDate: booking.returnDate,
+      previousReturnTime: booking.returnTime,
+      nextReturnDate: booking.returnDate,
+      nextReturnTime: booking.returnTime,
+    });
   }
 
   if (

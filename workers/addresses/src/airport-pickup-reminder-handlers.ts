@@ -1,17 +1,20 @@
 /**
- * Hourly journey-day email for customers collected from an airport.
- * Uses Resend, the same customer-email path as other scheduled reminders.
- * Does not open WhatsApp or SMS, and does not call a paid SMS provider.
+ * Hourly 2-hour journey reminder for every confirmed leg.
+ * Resend email only. WhatsApp and phone links are for the customer to open.
  */
 
-import {
-  evaluateAirportPickupReminder,
-  type AirportPickupReminderInput,
-} from "../shared/airport-pickup-reminder";
+import { beginJourneyReminderClaim, evaluateJourneyReminder, type JourneyReminderInput } from "../shared/journey-reminder";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import type { TrackingJobRecord } from "../shared/tracking";
+import { getJourneyReminderAirportCopy } from "./journey-reminder-store";
 import { getPaidBookingRecord } from "./paid-booking-store";
-import { listUpcomingTrackingJobs, saveTrackingJob, trackingStoreConfigured } from "./tracking-store";
+import {
+  findTrackingJobsByPaymentReference,
+  getTrackingJob,
+  listUpcomingTrackingJobs,
+  saveTrackingJob,
+  trackingStoreConfigured,
+} from "./tracking-store";
 import { trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
@@ -29,10 +32,8 @@ export type AirportPickupReminderRunResult = {
 export function airportPickupReminderInput(
   job: TrackingJobRecord,
   paid: PaidBookingRecord | null,
-): AirportPickupReminderInput {
+): JourneyReminderInput {
   const leg = job.journeyLeg === "return" ? "return" : "outbound";
-  // Build from the paid booking at send time so a changed pickup, airport,
-  // or return leg is used. The tracking job is only the fallback.
   const schedule =
     leg === "return"
       ? {
@@ -40,12 +41,14 @@ export function airportPickupReminderInput(
           tripTime: paid?.returnTime?.trim() || job.tripTime,
           pickupLabel: paid?.dropoffLabel?.trim() || job.pickupLabel,
           dropoffLabel: paid?.pickupLabel?.trim() || job.dropoffLabel,
+          flightNumber: paid?.returnFlightNumber?.trim() || job.flightNumber,
         }
       : {
           tripDate: paid?.tripDate?.trim() || job.tripDate,
           tripTime: paid?.tripTime?.trim() || job.tripTime,
           pickupLabel: paid?.pickupLabel?.trim() || job.pickupLabel,
           dropoffLabel: paid?.dropoffLabel?.trim() || job.dropoffLabel,
+          flightNumber: paid?.flightNumber?.trim() || job.flightNumber,
         };
   const isFromAirport =
     typeof paid?.isFromAirport === "boolean"
@@ -63,7 +66,8 @@ export function airportPickupReminderInput(
     journeyLeg: leg,
     isFromAirport,
     airportCode: job.airportCode || paid?.airportCode,
-    flightNumber: job.flightNumber,
+    flightNumber: schedule.flightNumber,
+    vehicle: paid?.vehicle || undefined,
     airportAccessOption: paid?.airportAccessOption,
     outboundAirportAccessOption: paid?.outboundAirportAccessOption,
     returnAirportAccessOption: paid?.returnAirportAccessOption,
@@ -78,6 +82,12 @@ export function airportPickupReminderInput(
     dublinArrivalTerminal: paid?.dublinArrivalTerminal,
     returnDublinArrivalTerminal: paid?.returnDublinArrivalTerminal,
     reminderSentAt: job.airportCollectionInfoSentAt || job.airportPickupReminderSentAt,
+    reminderSentForPickupAt: job.journeyReminderSentForPickupAt,
+    reminderDriverKey: job.journeyReminderDriverKey,
+    driverUpdateSentForKey: job.journeyDriverUpdateSentForKey,
+    assignmentStatus: job.assignmentStatus,
+    assignedDriverName: job.assignedDriverName,
+    assignedDriverMobile: job.assignedDriverMobile,
     refundedAt: job.refundedAt,
     operationalStatus: paid?.operationalStatus,
     bookingStatus: paid?.status,
@@ -86,8 +96,6 @@ export function airportPickupReminderInput(
     returnCancelledAt: paid?.returnCancelledAt,
     journeyStatus: job.journeyStatus,
     isRefundTest: paid?.isRefundTest,
-    assignedDriverMobile: job.assignedDriverMobile,
-    customerReference: paid?.customerReference,
   };
 }
 
@@ -102,14 +110,9 @@ export async function processDueAirportPickupReminders(
     skipped: 0,
     errors: 0,
   };
-
-  if (!trackingStoreConfigured(env.TRACKING_STORE)) {
-    return result;
-  }
-
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) return result;
   const jobs = await listUpcomingTrackingJobs(env.TRACKING_STORE, 1);
   result.scanned = jobs.length;
-
   for (const job of jobs) {
     const outcome = await maybeSendAirportPickupReminder(env, job, now);
     if (outcome === "sent") {
@@ -123,8 +126,28 @@ export async function processDueAirportPickupReminders(
       result.skipped += 1;
     }
   }
-
   return result;
+}
+
+/** Send immediately when a new booking is already inside the two-hour window. */
+export async function processJourneyRemindersForPayment(
+  env: Env,
+  paymentReference: string,
+  now: Date = new Date(),
+): Promise<void> {
+  if (!trackingStoreConfigured(env.TRACKING_STORE) || !paymentReference.trim()) return;
+  const jobs = await findTrackingJobsByPaymentReference(env.TRACKING_STORE, paymentReference);
+  for (const job of jobs) {
+    await maybeSendAirportPickupReminder(env, job, now);
+  }
+}
+
+export async function notifyJourneyDriverUpdateIfNeeded(
+  env: Env,
+  job: TrackingJobRecord,
+  now: Date = new Date(),
+): Promise<void> {
+  await maybeSendAirportPickupReminder(env, job, now);
 }
 
 async function maybeSendAirportPickupReminder(
@@ -132,21 +155,69 @@ async function maybeSendAirportPickupReminder(
   job: TrackingJobRecord,
   now: Date,
 ): Promise<"not_eligible" | "eligible_skipped" | "sent" | "eligible_error"> {
-  if (job.airportCollectionInfoSentAt?.trim() || job.airportPickupReminderSentAt?.trim()) {
-    return "not_eligible";
-  }
-
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) return "not_eligible";
+  const store = env.TRACKING_STORE;
   const paymentReference = job.paymentReference?.trim() ?? "";
-  const paid = paymentReference
-    ? await getPaidBookingRecord(env.TRACKING_STORE!, paymentReference)
-    : null;
-  const decision = evaluateAirportPickupReminder(airportPickupReminderInput(job, paid), now);
-  if (!decision.eligible) {
-    return "not_eligible";
+  const paid = paymentReference ? await getPaidBookingRecord(store, paymentReference) : null;
+  const airportCopy = await getJourneyReminderAirportCopy(store).catch(() => undefined);
+  const first = evaluateJourneyReminder(
+    { ...airportPickupReminderInput(job, paid), airportCopy },
+    now,
+  );
+  if (!first.eligible) return "not_eligible";
+
+  const updateAlreadySent =
+    first.kind === "driver_update" && job.journeyDriverUpdateSentForKey === first.driverKey;
+  const reminderAlreadySent =
+    first.kind === "reminder" &&
+    Boolean(job.airportCollectionInfoSentAt || job.airportPickupReminderSentAt) &&
+    job.journeyReminderSentForPickupAt === first.pickupKey;
+  const claim = beginJourneyReminderClaim(
+    {
+      sentAt: updateAlreadySent
+        ? job.journeyDriverUpdateSentAt
+        : reminderAlreadySent
+          ? job.airportCollectionInfoSentAt || job.airportPickupReminderSentAt
+          : "",
+      claimId: first.kind === "driver_update" ? job.journeyDriverUpdateClaimId : job.journeyReminderClaimId,
+      claimedAt:
+        first.kind === "driver_update" ? job.journeyDriverUpdateClaimedAt : job.journeyReminderClaimedAt,
+    },
+    now,
+  );
+  if (!claim.ok) return "eligible_skipped";
+
+  const claimedAt = now.toISOString();
+  if (first.kind === "driver_update") {
+    job.journeyDriverUpdateClaimId = claim.claimId;
+    job.journeyDriverUpdateClaimedAt = claimedAt;
+  } else {
+    job.journeyReminderClaimId = claim.claimId;
+    job.journeyReminderClaimedAt = claimedAt;
+  }
+  await saveTrackingJob(store, job);
+
+  const fresh = await getTrackingJob(store, job.token);
+  const owns =
+    fresh &&
+    (first.kind === "driver_update"
+      ? fresh.journeyDriverUpdateClaimId === claim.claimId
+      : fresh.journeyReminderClaimId === claim.claimId);
+  if (!fresh || !owns) return "eligible_skipped";
+
+  const freshPaid = paymentReference ? await getPaidBookingRecord(store, paymentReference) : paid;
+  const decision = evaluateJourneyReminder(
+    { ...airportPickupReminderInput(fresh, freshPaid), airportCopy },
+    now,
+  );
+  if (!decision.eligible || decision.kind !== first.kind || decision.pickupKey !== first.pickupKey) {
+    clearClaim(fresh, first.kind, claim.claimId);
+    await saveTrackingJob(store, fresh);
+    return "eligible_skipped";
   }
 
-  const email = (job.customerEmail || paid?.customerEmail || "").trim();
-  const name = (job.customerName || paid?.customerName || email).trim();
+  const email = (fresh.customerEmail || freshPaid?.customerEmail || "").trim();
+  const name = (fresh.customerName || freshPaid?.customerName || email).trim();
   const sendResult = await trySendResendOnlyCustomerEmail(env, {
     to: email,
     toName: name,
@@ -156,16 +227,45 @@ async function maybeSendAirportPickupReminder(
   });
 
   if (!sendResult.sent || sendResult.provider !== "resend") {
-    job.airportPickupReminderFailedAt = new Date().toISOString();
-    job.airportPickupReminderLastError = sendResult.error || "Airport pickup reminder email failed";
-    await saveTrackingJob(env.TRACKING_STORE!, job);
-    console.error("Airport pickup reminder email failed", job.airportPickupReminderLastError, job.token);
+    clearClaim(fresh, decision.kind, claim.claimId);
+    fresh.airportPickupReminderFailedAt = new Date().toISOString();
+    fresh.airportPickupReminderLastError = sendResult.error || "Journey reminder email failed";
+    await saveTrackingJob(store, fresh);
+    console.error("Journey reminder email failed", fresh.airportPickupReminderLastError, fresh.token);
     return "eligible_error";
   }
 
-  job.airportCollectionInfoSentAt = new Date().toISOString();
-  delete job.airportPickupReminderFailedAt;
-  delete job.airportPickupReminderLastError;
-  await saveTrackingJob(env.TRACKING_STORE!, job);
+  const sentAt = new Date().toISOString();
+  if (decision.kind === "driver_update") {
+    fresh.journeyDriverUpdateSentForKey = decision.driverKey;
+    fresh.journeyDriverUpdateSentAt = sentAt;
+    fresh.journeyReminderDriverKey = decision.driverKey;
+    delete fresh.journeyDriverUpdateClaimId;
+    delete fresh.journeyDriverUpdateClaimedAt;
+  } else {
+    fresh.airportCollectionInfoSentAt = sentAt;
+    fresh.airportPickupReminderSentAt = sentAt;
+    fresh.journeyReminderSentForPickupAt = decision.pickupKey;
+    fresh.journeyReminderDriverKey = decision.driverKey;
+    delete fresh.journeyReminderClaimId;
+    delete fresh.journeyReminderClaimedAt;
+  }
+  delete fresh.airportPickupReminderFailedAt;
+  delete fresh.airportPickupReminderLastError;
+  await saveTrackingJob(store, fresh);
   return "sent";
+}
+
+function clearClaim(job: TrackingJobRecord, kind: "reminder" | "driver_update", claimId: string): void {
+  if (kind === "driver_update") {
+    if (job.journeyDriverUpdateClaimId === claimId) {
+      delete job.journeyDriverUpdateClaimId;
+      delete job.journeyDriverUpdateClaimedAt;
+    }
+    return;
+  }
+  if (job.journeyReminderClaimId === claimId) {
+    delete job.journeyReminderClaimId;
+    delete job.journeyReminderClaimedAt;
+  }
 }

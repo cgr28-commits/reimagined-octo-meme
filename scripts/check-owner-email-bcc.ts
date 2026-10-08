@@ -29,7 +29,7 @@ function read(rel: string): string {
 }
 
 const CUSTOMER = "sarah@example.com";
-const SUBJECT = "Important information about your airport collection";
+const SUBJECT = "Your journey reminder — My Airport Taxi NI";
 const TEXT = "Hi Sarah,\n\nYour airport collection with My Airport Taxi NI is coming up today.";
 const HTML = "<p>Hi Sarah,</p>";
 
@@ -124,7 +124,7 @@ console.log("=== Collection email does not reveal the owner inbox ===");
       bookingStatus: "confirmed",
       customerReference: "MAT-4827",
     },
-    new Date("2026-10-02T13:00:00.000Z"),
+    new Date("2026-10-02T15:00:00.000Z"),
   );
   assert.equal(decision.eligible, true);
   if (decision.eligible) {
@@ -133,7 +133,7 @@ console.log("=== Collection email does not reveal the owner inbox ===");
     assert.equal(decision.html.includes(BUSINESS_MAILBOX), false);
     assert.equal(decision.html.includes("Rinkel"), false);
     assert.match(decision.html, /tel:\+442896022952/);
-    assert.match(decision.html, />MESSAGE US ON WHATSAPP</);
+    assert.match(decision.html, />Message Us on WhatsApp</);
   }
   const message = buildAirportPickupReminderMessage({
     customerName: "Sarah Johnson",
