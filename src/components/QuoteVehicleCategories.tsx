@@ -149,13 +149,13 @@ export default function QuoteVehicleCategories({
                   if (!fits) return;
                   onSelectVehicle?.(option.vehicle);
                 }}
-                className={`flex w-full flex-col gap-1 overflow-hidden rounded-2xl border-2 bg-white px-2.5 py-1.5 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
+                className={`flex w-full flex-col gap-1 overflow-hidden rounded-2xl border-2 bg-white py-1.5 pl-1 pr-1 text-left text-navy shadow-sm disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 ${
                   isSelected
                     ? "border-[var(--quote-selected-border)] shadow-[0_0_0_1px_var(--quote-selected-border)]"
                     : "border-navy/15"
                 }`}
               >
-                <span className="grid grid-cols-[6.4rem_minmax(0,1fr)_1.5rem] items-center gap-x-2.5">
+                <span className="grid w-full grid-cols-[2.85rem_minmax(0,1fr)_1.5rem] items-center gap-x-1">
                   <VehicleQuoteArt
                     vehicle={option.art}
                     src={option.image}
@@ -163,27 +163,33 @@ export default function QuoteVehicleCategories({
                     size="option"
                   />
                   <span className="min-w-0">
-                    <span className="block text-[0.95rem] font-bold leading-tight text-navy tracking-[-0.02em]">
+                    <span className="block pl-4 text-[0.95rem] font-bold leading-tight text-navy tracking-[-0.02em]">
                       {option.title}
                     </span>
                     {option.capacity ? (
-                      <span className="mt-0.5 block text-[0.84rem] font-semibold leading-tight text-navy">
+                      <span className="mt-0.5 block pl-4 text-[0.84rem] font-semibold leading-tight text-navy">
                         {option.capacity}
                       </span>
                     ) : null}
                     {option.luggage ? (
-                      <span className="mt-0.5 flex items-start gap-1 text-[0.78rem] font-semibold leading-tight text-navy">
+                      <span className="mt-0.5 grid grid-cols-[0.875rem_minmax(0,1fr)] items-start gap-x-0.5 text-[0.78rem] font-semibold leading-tight text-navy">
                         <VehicleLineIcon name={option.luggageIcon} />
-                        <span>{option.luggage}</span>
+                        <span className="min-w-0">{option.luggage}</span>
                       </span>
                     ) : null}
                     {option.detail ? (
-                      <span className="mt-0.5 flex items-start gap-1 text-[0.78rem] font-medium leading-tight text-navy">
-                        <VehicleLineIcon name={option.detailIcon} />
-                        <span>{option.detail}</span>
-                      </span>
+                      option.detailIcon ? (
+                        <span className="mt-0.5 grid grid-cols-[0.875rem_minmax(0,1fr)] items-start gap-x-0.5 text-[0.78rem] font-medium leading-tight text-navy">
+                          <VehicleLineIcon name={option.detailIcon} />
+                          <span className="min-w-0">{option.detail}</span>
+                        </span>
+                      ) : (
+                        <span className="mt-0.5 block pl-4 text-[0.78rem] font-medium leading-tight text-navy">
+                          {option.detail}
+                        </span>
+                      )
                     ) : option.luggage ? null : (
-                      <span className="block text-[0.78rem] leading-tight text-transparent" aria-hidden>
+                      <span className="block pl-4 text-[0.78rem] leading-tight text-transparent" aria-hidden>
                         {"\u00a0"}
                       </span>
                     )}
@@ -203,7 +209,7 @@ export default function QuoteVehicleCategories({
                   )}
                 </span>
                 {fits ? null : (
-                  <span className="block text-[0.72rem] font-semibold leading-tight text-navy">
+                  <span className="block pl-[4.1rem] text-[0.72rem] font-semibold leading-tight text-navy">
                     {VEHICLE_NOT_SUITABLE_CARD_MESSAGE}
                   </span>
                 )}
