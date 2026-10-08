@@ -3,7 +3,7 @@
  * The page behind them is already navy, so the panel is the lighter navy token.
  */
 export const QUOTE_RESULT_ACTION_CLASS =
-  "flex min-h-[3.85rem] w-full flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/25 bg-navy-light px-2 py-1.5 text-center text-white shadow-sm transition-colors hover:border-white/45 hover:bg-[#14386a]";
+  "flex h-full min-h-11 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-white/25 bg-navy-light px-0.5 py-1 text-center text-[0.6875rem] font-bold leading-none tracking-[-0.02em] text-white shadow-sm transition-colors hover:border-white/45 hover:bg-[#14386a]";
 
 export function QuoteResultActionIcon({
   name,

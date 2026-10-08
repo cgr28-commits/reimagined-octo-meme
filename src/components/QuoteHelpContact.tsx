@@ -24,11 +24,11 @@ export default function QuoteHelpContact({
         target="_blank"
         rel="noopener noreferrer"
         data-quote-help-card
+        aria-label="Need help? WhatsApp us"
         className={`quote-help-contact ${QUOTE_RESULT_ACTION_CLASS} ${className}`}
       >
         <QuoteResultActionIcon name="whatsapp" className="h-[1.15rem] w-[1.15rem] text-[#25D366]" />
-        <span className="text-[0.8125rem] font-bold leading-tight">Need help?</span>
-        <span className="text-[0.7rem] font-medium leading-tight text-white/75">WhatsApp us</span>
+        <span>WhatsApp</span>
       </a>
     );
   }

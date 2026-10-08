@@ -74,6 +74,31 @@ export function StartNewQuoteControls({
   const titleId = titleIdProp ?? reactTitleId;
   const descId = descIdProp ?? reactDescId;
 
+  if (appearance === "card") {
+    if (confirmOpen) {
+      return (
+        <div className="col-span-full min-w-0" data-start-new-quote-controls>
+          <StartNewQuoteControls
+            confirmOpen
+            onRequestStart={onRequestStart}
+            onCancelConfirm={onCancelConfirm}
+            onConfirmStart={onConfirmStart}
+            titleId={titleId}
+            descId={descId}
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="min-w-0" data-start-new-quote-controls>
+        <button type="button" onClick={onRequestStart} className={QUOTE_RESULT_ACTION_CLASS}>
+          <QuoteResultActionIcon name="restart" />
+          <span>Start over</span>
+        </button>
+      </div>
+    );
+  }
+
   if (confirmOpen) {
     return (
       <div
@@ -105,35 +130,6 @@ export function StartNewQuoteControls({
             Start New Quote
           </button>
         </div>
-      </div>
-    );
-  }
-
-  if (appearance === "card") {
-    if (confirmOpen) {
-      return (
-        <div className="col-span-2" data-start-new-quote-controls>
-          <StartNewQuoteControls
-            confirmOpen
-            onRequestStart={onRequestStart}
-            onCancelConfirm={onCancelConfirm}
-            onConfirmStart={onConfirmStart}
-            titleId={titleId}
-            descId={descId}
-          />
-        </div>
-      );
-    }
-    return (
-      <div data-start-new-quote-controls>
-        <button
-          type="button"
-          onClick={onRequestStart}
-          className={QUOTE_RESULT_ACTION_CLASS}
-        >
-          <QuoteResultActionIcon name="restart" />
-          <span className="text-[0.8125rem] font-bold leading-tight">Start over</span>
-        </button>
       </div>
     );
   }

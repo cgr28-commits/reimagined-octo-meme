@@ -7037,8 +7037,12 @@ function QuoteCard({
           className="h-px w-full scroll-mt-44 md:scroll-mt-28"
           aria-hidden="true"
         />
-        <div id="quote-step1-next" className="space-y-1.5" data-quote-result-actions>
-          <div className="grid grid-cols-2 gap-1.5">
+        <div
+          id="quote-step1-next"
+          className="scroll-mt-24 space-y-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
+          data-quote-result-actions
+        >
+          <div className="grid grid-cols-4 gap-1.5 max-[340px]:grid-cols-2">
             {mapsHref ? (
               <button
                 type="button"
@@ -7049,12 +7053,7 @@ function QuoteCard({
                 className={QUOTE_RESULT_ACTION_CLASS}
               >
                 <QuoteResultActionIcon name="route" />
-                <span className="text-[0.8125rem] font-bold leading-tight">
-                  {journeyMapOpen ? "Hide route" : "View route"}
-                </span>
-                <span className="text-[0.7rem] font-medium leading-tight text-white/75">
-                  View journey map
-                </span>
+                <span>{journeyMapOpen ? "Hide route" : "View route"}</span>
               </button>
             ) : null}
             <button
@@ -7064,7 +7063,7 @@ function QuoteCard({
               className={QUOTE_RESULT_ACTION_CLASS}
             >
               <QuoteResultActionIcon name="save" />
-              <span className="text-[0.8125rem] font-bold leading-tight">Save Quote</span>
+              <span>Save Quote</span>
             </button>
             {renderStartNewQuoteControls("results")}
             <QuoteHelpContact variant="card" className="!mt-0" />
