@@ -22,6 +22,10 @@ import {
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "./return-journey-discount";
 import { NIGHT_WEEKEND_SURCHARGE_RATE } from "./night-weekend-surcharge";
 import { DEFAULT_EXECUTIVE_MULTIPLIER } from "./executive-vehicle";
+import {
+  DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
+  MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP,
+} from "./business-class-minimum";
 import { defaultMeetGreetFees, type MeetGreetFeesGbp } from "./meet-greet";
 
 export const OWNER_PRICING_SCHEMA_VERSION = 1 as const;
@@ -84,6 +88,11 @@ export type OwnerPricingSettings = {
     /** Missing stored values stay bookable. */
     publicEnabled: boolean;
     multiplier: number;
+    /**
+     * One-way Business Class price floor. Missing stored values use £75.
+     * Applied after the normal fare. Not an extra charge.
+     */
+    minimumFareGbp: number;
   };
   returnDiscount: {
     rate: number;
@@ -144,6 +153,7 @@ export type PublicOwnerPricingConfig = {
   executive: {
     publicEnabled: boolean;
     multiplier: number;
+    minimumFareGbp: number;
   };
   returnDiscount: OwnerPricingSettings["returnDiscount"];
   night: OwnerPricingSettings["night"];
@@ -215,6 +225,7 @@ export function defaultOwnerPricingSettings(
     executive: {
       publicEnabled: true,
       multiplier: DEFAULT_EXECUTIVE_MULTIPLIER,
+      minimumFareGbp: DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
     },
     returnDiscount: {
       rate: DEFAULT_RETURN_DISCOUNT_RATE,
@@ -355,6 +366,7 @@ export function validateOwnerPricingInput(
 
   let executiveMultiplier = DEFAULT_EXECUTIVE_MULTIPLIER;
   let executivePublicEnabled = true;
+  let executiveMinimumFareGbp = DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP;
   if (executiveExplicit) {
     if (executiveRaw.publicEnabled != null && typeof executiveRaw.publicEnabled !== "boolean") {
       reject(errors, "executive.publicEnabled", "Offer Executive online must be on or off.");
@@ -371,6 +383,24 @@ export function validateOwnerPricingInput(
         );
       } else {
         executiveMultiplier = Math.round(parsed * 100) / 100;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(executiveRaw, "minimumFareGbp")) {
+      const parsedMinimum = readRate(
+        executiveRaw.minimumFareGbp,
+        "executive.minimumFareGbp",
+        errors,
+      );
+      if (parsedMinimum != null) {
+        if (parsedMinimum < 0 || parsedMinimum > MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP) {
+          reject(
+            errors,
+            "executive.minimumFareGbp",
+            "Business Class minimum fare must be between £0.00 and £2,000.00.",
+          );
+        } else {
+          executiveMinimumFareGbp = Math.round(parsedMinimum * 100) / 100;
+        }
       }
     }
   }
@@ -466,6 +496,7 @@ export function validateOwnerPricingInput(
       executive: {
         publicEnabled: executivePublicEnabled,
         multiplier: executiveMultiplier,
+        minimumFareGbp: executiveMinimumFareGbp,
       },
       returnDiscount: {
         rate: returnRate ?? defaults.returnDiscount.rate,
@@ -538,6 +569,8 @@ export function toPublicOwnerPricingConfig(
     executive: {
       publicEnabled: settings.executive.publicEnabled !== false,
       multiplier: settings.executive.multiplier,
+      minimumFareGbp:
+        settings.executive.minimumFareGbp ?? DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
     },
     returnDiscount: settings.returnDiscount,
     night: settings.night,
@@ -553,6 +586,8 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
     estatePremiumGbp: resolved.estate.upliftGbp,
     minibusMultiplier: resolved.minibus.multiplier,
     executiveMultiplier: resolved.executive.multiplier,
+    executiveMinimumFareGbp:
+      resolved.executive.minimumFareGbp ?? DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
     publicExecutiveEnabled: resolved.executive.publicEnabled !== false,
     saloonMinimumGbp: resolved.saloon.minimumFareGbp,
     saloonFloorMiles: resolved.saloon.floorMiles,
@@ -593,6 +628,8 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return settings.executive.publicEnabled ? "ON" : "OFF";
     case "executive.multiplier":
       return String(settings.executive.multiplier);
+    case "executive.minimumFareGbp":
+      return `£${settings.executive.minimumFareGbp.toFixed(2)}`;
     case "returnDiscount.rate":
       return formatPercentFromRate(settings.returnDiscount.rate);
     case "night.enabled":
@@ -631,6 +668,7 @@ const DIFF_PATHS = [
   "minibus.multiplier",
   "executive.publicEnabled",
   "executive.multiplier",
+  "executive.minimumFareGbp",
   "returnDiscount.rate",
   "night.enabled",
   "night.surchargeRate",
@@ -653,6 +691,7 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "minibus.multiplier": "7 Seater Minibus multiplier",
   "executive.publicEnabled": "Offer Executive online",
   "executive.multiplier": "Executive multiplier",
+  "executive.minimumFareGbp": "Business Class minimum fare",
   "returnDiscount.rate": "Return Booking Discount",
   "night.enabled": "Night pricing",
   "night.surchargeRate": "Night surcharge",

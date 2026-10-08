@@ -40,6 +40,12 @@ import {
   tryClaimSavedQuoteReminder,
 } from "./saved-quote-store";
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import { isExecutiveVehicle } from "../shared/executive-vehicle";
+import { ownerPricingEngineOptions, type OwnerPricingSettings } from "../shared/owner-pricing-config";
+import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import { resolveExpressDropOff } from "../shared/express-drop-off";
+import { quoteAirportAccessCharges } from "../shared/meet-greet";
+import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 
 export type SavedQuoteEnv = WorkerEmailEnv & {
   TRACKING_STORE: KVNamespace;
@@ -165,6 +171,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   clientSubmittedAmount?: number;
   clientPricingMeta?: Record<string, unknown>;
   googlePlacesApiKey?: string;
+  pricing?: OwnerPricingSettings | null;
 }): Promise<
   | { ok: true; pricing: SavedQuotePricingSnapshot; quote: Extract<QuoteServiceResult, { ok: true }> }
   | { ok: false; message: string; reason: string }
@@ -196,14 +203,49 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
     passengers: journey.passengers,
     suitcases: journey.suitcases,
     routeMetrics,
+    pricing: input.pricing,
   });
 
   if (!quote.ok) {
     return { ok: false, message: quote.message, reason: quote.reason };
   }
 
+  let serverAmount = quote.amount;
+  if (isExecutiveVehicle(quote.vehicleType)) {
+    const options = ownerPricingEngineOptions(input.pricing);
+    const express = resolveExpressDropOff({
+      airportCode: airportCode ?? null,
+      fromAirport: Boolean(journey.isFromAirport),
+      returnJourney: Boolean(journey.returnJourney),
+      selected: true,
+      outboundSelected: true,
+      returnSelected: true,
+    });
+    const access = quoteAirportAccessCharges({
+      expressLegs: express.legs,
+      airportCode: airportCode ?? null,
+      fromAirport: Boolean(journey.isFromAirport),
+      returnJourney: Boolean(journey.returnJourney),
+      fees: input.pricing?.meetGreet,
+      meetGreetIncluded: true,
+    });
+    serverAmount = composeWebsiteFareBreakdown({
+      journeyFareBeforeAirportAccessGbp: quote.journeyFareGbp ?? quote.amount,
+      airportFixedCostsGbp: quote.airportFixedCostsGbp ?? 0,
+      nightWeekendSurchargeGbp: quote.nightWeekendSurchargeGbp ?? 0,
+      airportAccessChargeGbp: access.airportAccessChargeGbp,
+      outboundAirportAccessChargeGbp: access.outboundAirportAccessChargeGbp,
+      returnAirportAccessChargeGbp: access.returnAirportAccessChargeGbp,
+      returnJourney: quote.returnJourney,
+      businessClassMinimumFareGbp: options.executiveMinimumFareGbp,
+      outboundOneWayBeforeAccessGbp: quote.outboundOneWayBeforeAccessGbp,
+      returnOneWayBeforeAccessGbp: quote.returnOneWayBeforeAccessGbp,
+      returnDiscountRate: options.returnDiscountRate,
+    }).finalAmountPayableGbp;
+  }
+
   const pricing = lockSavedQuotePricingFromServer({
-    serverAmount: quote.amount,
+    serverAmount,
     amountLabel: quote.amountLabel || formatSavedQuoteAmount(quote.amount),
     clientSubmittedAmount: input.clientSubmittedAmount,
     pricingMeta: {
@@ -278,11 +320,13 @@ export async function handleCreateSavedQuote(
 
   // Never trust client pricing — recalculate with the same engine as Quick Quote / QuoteCard.
   const clientPrice = readClientSubmittedAmount(body);
+  const ownerPricing = await loadOwnerPricingOrDefault(env);
   const priced = await buildAuthoritativeSavedQuotePricing({
     journey: journeyBase,
     clientSubmittedAmount: clientPrice.amount,
     clientPricingMeta: clientPrice.meta,
     googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+    pricing: ownerPricing,
   });
   if (!priced.ok) {
     return jsonResponse(

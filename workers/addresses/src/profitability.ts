@@ -42,6 +42,11 @@ export type CustomerFareSnapshot = {
   journeyFareGbp: number;
   airportFixedCostsGbp: number;
   nightWeekendSurchargeGbp: number;
+  /** Journey + night + fixed costs for the leg, before airport access and the return discount. */
+  outboundOneWayBeforeAccessGbp?: number;
+  returnOneWayBeforeAccessGbp?: number;
+  outboundFixedGbp?: number;
+  returnFixedGbp?: number;
 };
 
 type LegMetrics = { distanceKm: number; durationMinutes: number };
@@ -221,6 +226,10 @@ export async function applyProfitabilityProtection(input: {
     journeyFareGbp: roundGbp(input.existing.journeyFareGbp),
     airportFixedCostsGbp: roundGbp(input.existing.airportFixedCostsGbp),
     nightWeekendSurchargeGbp: roundGbp(input.existing.nightWeekendSurchargeGbp),
+    outboundOneWayBeforeAccessGbp: input.existing.outboundOneWayBeforeAccessGbp,
+    returnOneWayBeforeAccessGbp: input.existing.returnOneWayBeforeAccessGbp,
+    outboundFixedGbp: input.existing.outboundFixedGbp,
+    returnFixedGbp: input.existing.returnFixedGbp,
     applied: false,
     fallbackReason: null as string | null,
   };
@@ -314,6 +323,35 @@ export async function applyProfitabilityProtection(input: {
     const journeyFareGbp = roundGbp(premium.total);
     const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
     const amountGbp = roundGbp(journeyFareGbp + existing.airportFixedCostsGbp);
+    const outboundFixed =
+      existing.outboundFixedGbp ??
+      (input.returnJourney ? 0 : existing.airportFixedCostsGbp);
+    const outboundLeg = applyTripPremium(
+      outboundVehicle,
+      {
+        outboundDate: input.schedule.outboundDate,
+        outboundTime: input.schedule.outboundTime,
+        returnJourney: false,
+      },
+      undefined,
+      { pricing: input.pricing },
+    );
+    const outboundOneWayBeforeAccessGbp = roundGbp(outboundLeg.total + Math.max(0, outboundFixed));
+    let returnOneWayBeforeAccessGbp = existing.returnOneWayBeforeAccessGbp;
+    if (input.returnJourney) {
+      const returnLeg = applyTripPremium(
+        returnVehicle,
+        {
+          outboundDate: input.schedule.returnDate,
+          outboundTime: input.schedule.returnTime,
+          returnJourney: false,
+        },
+        undefined,
+        { pricing: input.pricing },
+      );
+      const returnFixed = existing.returnFixedGbp ?? 0;
+      returnOneWayBeforeAccessGbp = roundGbp(returnLeg.total + Math.max(0, returnFixed));
+    }
     if (amountGbp + 0.001 < existing.amountGbp) {
       logFallback("below_existing_fare");
       return { ...existing, fallbackReason: "below_existing_fare" };
@@ -323,6 +361,10 @@ export async function applyProfitabilityProtection(input: {
       journeyFareGbp,
       airportFixedCostsGbp: existing.airportFixedCostsGbp,
       nightWeekendSurchargeGbp,
+      outboundOneWayBeforeAccessGbp,
+      returnOneWayBeforeAccessGbp,
+      outboundFixedGbp: existing.outboundFixedGbp,
+      returnFixedGbp: existing.returnFixedGbp,
       applied: true,
       fallbackReason: null,
     };

@@ -24,6 +24,10 @@ export function buildOpenWebsiteFareBreakdown(input: {
   nightWeekendSurchargeGbp?: number;
   returnJourney?: boolean;
   returnOfferDiscountRate?: number;
+  businessClassMinimumFareGbp?: number;
+  outboundOneWayBeforeAccessGbp?: number;
+  returnOneWayBeforeAccessGbp?: number;
+  returnDiscountRate?: number;
 }): WebsiteFareBreakdown {
   return composeWebsiteFareBreakdown({
     journeyFareBeforeAirportAccessGbp: input.journeyFareBeforeAirportAccessGbp,
@@ -35,6 +39,14 @@ export function buildOpenWebsiteFareBreakdown(input: {
     returnJourney: Boolean(input.returnJourney),
     ...(typeof input.returnOfferDiscountRate === "number"
       ? { returnOfferDiscountRate: input.returnOfferDiscountRate }
+      : {}),
+    ...(typeof input.businessClassMinimumFareGbp === "number"
+      ? {
+          businessClassMinimumFareGbp: input.businessClassMinimumFareGbp,
+          outboundOneWayBeforeAccessGbp: input.outboundOneWayBeforeAccessGbp,
+          returnOneWayBeforeAccessGbp: input.returnOneWayBeforeAccessGbp,
+          returnDiscountRate: input.returnDiscountRate,
+        }
       : {}),
   });
 }
