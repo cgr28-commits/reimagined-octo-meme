@@ -6,18 +6,14 @@
  * the company WhatsApp number. Driver mobiles were intentionally omitted.
  *
  * This reminder is due at the booked pickup minus two hours in UK local time
- * (Europe/London, including daylight saving). Each leg is separate. Accepted
- * driver contact details appear only here — never in earlier booking emails.
+ * (Europe/London, including daylight saving). Each leg is separate. The email
+ * does not contain a driver's mobile, a tel: link, or a wa.me link. Those open
+ * from a booking-specific page that reads the live assignment on every visit.
+ * Accepted driver contact details are not included in earlier booking emails.
  * The message does not promise that the provider will deliver at that exact minute.
  */
 
-import {
-  BUSINESS_NAME,
-  BUSINESS_PHONE_DISPLAY,
-  BUSINESS_PHONE_TEL,
-  BUSINESS_WHATSAPP_DIGITS,
-  businessWhatsAppChatUrl,
-} from "./business-email";
+import { BUSINESS_NAME, businessWhatsAppChatUrl } from "./business-email";
 import { AIRPORT_PICKUP_COPY } from "./company-voice-journey";
 import { parseDublinArrivalTerminal } from "./dublin-arrival-terminal";
 import {
@@ -111,6 +107,11 @@ export type JourneyReminderInput = {
   journeyStatus?: string | null;
   isRefundTest?: boolean | null;
   airportCopy?: Partial<JourneyReminderAirportCopy> | null;
+  /**
+   * Secure page for this booking. The email buttons use only this URL.
+   * A wa.me or tel: value is ignored.
+   */
+  driverContactUrl?: string | null;
 };
 
 export type JourneyReminderSkipReason =
@@ -143,8 +144,8 @@ export type JourneyReminderDecision =
       subject: string;
       text: string;
       html: string;
-      whatsAppHref: string;
-      whatsAppDraft: string;
+      /** Secure driver-contact page. Not a wa.me link. */
+      contactPageHref: string;
       pickupKey: string;
       driverKey: string;
       contact: JourneyReminderContact;
@@ -227,8 +228,8 @@ export function journeyReminderFirstName(fullName: string | null | undefined): s
   return first;
 }
 
-function isOwnerDriverName(name: string): boolean {
-  const value = name.trim().toLowerCase();
+export function isOwnerDriverName(name: string | null | undefined): boolean {
+  const value = String(name ?? "").trim().toLowerCase();
   if (!value) return true;
   return value === "owner" || value.includes("owner / primary") || value === "primary driver";
 }
@@ -415,7 +416,7 @@ export function buildJourneyReminderAirportInstructions(input: JourneyReminderIn
   return access === "free" ? copy.bfsFreeDropOff : copy.bfsExpressDropOff;
 }
 
-function isCancelled(input: JourneyReminderInput): boolean {
+export function isJourneyReminderCancelled(input: JourneyReminderInput): boolean {
   if (input.operationalStatus === "cancelled") return true;
   const status = String(input.bookingStatus ?? "").trim().toLowerCase();
   if (status === "cancelled" || status === "refunded") return true;
@@ -488,18 +489,25 @@ function journeyDetailLines(input: JourneyReminderInput): string[] {
   ];
 }
 
-function contactLines(contact: JourneyReminderContact): string[] {
-  if (contact.kind === "driver") {
-    return [
-      "Your Driver",
-      `Driver: ${contact.firstName}`,
-      `Mobile: ${contact.mobileDisplay}`,
-      "",
-      "Message Your Driver on WhatsApp",
-      "Call Your Driver",
-    ];
+const DRIVER_CONTACT_PAGE_FALLBACK = "https://www.myairporttaxini.co.uk/driver-contact/";
+
+/** Email buttons may only open the secure page. Direct wa.me and tel: values are dropped. */
+export function journeyReminderContactPageHref(
+  raw: string | null | undefined,
+  intent: "message" | "call",
+): string {
+  try {
+    const url = new URL(String(raw ?? "").trim());
+    const path = url.pathname.replace(/\/+$/, "");
+    if (url.protocol !== "https:" || url.hostname === "wa.me" || !path.endsWith("/driver-contact")) {
+      return DRIVER_CONTACT_PAGE_FALLBACK;
+    }
+    url.searchParams.set("intent", intent);
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return DRIVER_CONTACT_PAGE_FALLBACK;
   }
-  return ["Call us on our business line:", BUSINESS_PHONE_DISPLAY, "", "Message Us on WhatsApp", "Call Us"];
 }
 
 export function buildJourneyReminderMessage(
@@ -514,11 +522,13 @@ export function buildJourneyReminderMessage(
     "",
     kind === "driver_update"
       ? contact.kind === "driver"
-        ? "Updated Driver Details\n\nYour driver for this journey has changed. Please use the contact details below from now on."
-        : "Updated contact details\n\nPlease use our WhatsApp and business line below for this journey. A previous driver’s details are no longer the ones to use."
+        ? "Updated Driver Details\n\nYour driver for this journey has changed. Use the buttons below to see the current contact details."
+        : "Updated contact details\n\nPlease use the buttons below for this journey. A previous driver’s details are no longer the ones to use."
       : `Your ${BUSINESS_NAME} pickup is coming up. The time below is the booked pickup time. This note is prepared about two hours beforehand; if it reaches you a little later, please use that booked time.`,
     "",
     ...journeyDetailLines(input),
+    "",
+    "Use the buttons below to message or call. They open a secure page for this booking and show the contact details assigned right now.",
   ];
   if (instructions) {
     lines.push("", collection ? "AIRPORT COLLECTION" : "AIRPORT DROP-OFF", instructions);
@@ -526,10 +536,8 @@ export function buildJourneyReminderMessage(
   if (collection) {
     lines.push("", JOURNEY_REMINDER_LANDING_HEADING, landingBody(input));
   }
-  const draft = journeyReminderWhatsAppDraft(input, contact);
-  const href = journeyReminderWhatsAppHref(draft, contact);
-  const call = contact.kind === "driver" ? `tel:${contact.mobileTel}` : `tel:${BUSINESS_PHONE_TEL}`;
-  lines.push("", ...contactLines(contact), "", href, call, "", "We look forward to welcoming you.", "", BUSINESS_NAME);
+  const page = journeyReminderContactPageHref(input.driverContactUrl, "message").replace(/[?&]intent=message$/, "");
+  lines.push("", "Message Your Driver", "Call Your Driver", "", page, "", "We look forward to welcoming you.", "", BUSINESS_NAME);
   return lines.join("\n");
 }
 
@@ -552,26 +560,24 @@ function button(href: string, label: string, background: string, color: string):
 
 export function buildJourneyReminderHtml(
   message: string,
-  contact: JourneyReminderContact,
-  whatsAppHref: string,
+  input: JourneyReminderInput,
   kind: "reminder" | "driver_update",
 ): string {
-  const callHref = contact.kind === "driver" ? `tel:${contact.mobileTel}` : `tel:${BUSINESS_PHONE_TEL}`;
-  const whatsAppLabel = contact.kind === "driver" ? "Message Your Driver on WhatsApp" : "Message Us on WhatsApp";
-  const callLabel = contact.kind === "driver" ? "Call Your Driver" : "Call Us";
+  const messageHref = journeyReminderContactPageHref(input.driverContactUrl, "message");
+  const callHref = journeyReminderContactPageHref(input.driverContactUrl, "call");
   const paragraphs = message
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
     .map((paragraph) => {
-      if (paragraph.startsWith("Message Your Driver on WhatsApp") || paragraph.startsWith("Message Us on WhatsApp")) {
+      if (paragraph.startsWith("https://") && paragraph.includes("/driver-contact")) return "";
+      if (paragraph.startsWith("Message Your Driver")) {
         return (
-          button(whatsAppHref, whatsAppLabel, "#25D366", "#ffffff") +
-          button(callHref, callLabel, "#071c38", "#ffffff")
+          button(messageHref, "Message Your Driver", "#25D366", "#ffffff") +
+          button(callHref, "Call Your Driver", "#071c38", "#ffffff")
         );
       }
       if (
-        paragraph === "Your Driver" ||
         paragraph === "AIRPORT COLLECTION" ||
         paragraph === "AIRPORT DROP-OFF" ||
         paragraph === "Updated Driver Details" ||
@@ -581,19 +587,7 @@ export function buildJourneyReminderHtml(
         const landing = paragraph === JOURNEY_REMINDER_LANDING_HEADING;
         return `<p style="margin:20px 0 8px;font-size:${landing ? "16px" : "13px"};letter-spacing:${landing ? "0" : "0.06em"};font-weight:bold;color:${landing ? "#9a3412" : "#071c38"};">${escapeHtml(paragraph)}</p>`;
       }
-      let safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
-      if (contact.kind === "driver" && paragraph.includes(contact.mobileDisplay)) {
-        safe = safe.replace(
-          escapeHtml(contact.mobileDisplay),
-          `<a href="tel:${escapeHtml(contact.mobileTel)}" style="color:#071c38;font-weight:bold;">${escapeHtml(contact.mobileDisplay)}</a>`,
-        );
-      }
-      if (paragraph.includes(BUSINESS_PHONE_DISPLAY)) {
-        safe = safe.replace(
-          BUSINESS_PHONE_DISPLAY,
-          `<a href="tel:${BUSINESS_PHONE_TEL}" style="color:#071c38;font-weight:bold;">${BUSINESS_PHONE_DISPLAY}</a>`,
-        );
-      }
+      const safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
       const landingBody = paragraph.startsWith("Once your flight has landed");
       const style = landingBody
         ? "margin:0 0 16px;padding:14px 16px;background:#fff7ed;border-left:4px solid #c2410c;border-radius:8px;"
@@ -619,7 +613,7 @@ export function buildJourneyReminderHtml(
 </body></html>`;
 }
 
-function pickupInstant(input: JourneyReminderInput): Date | null {
+export function journeyReminderPickupAt(input: JourneyReminderInput): Date | null {
   const tripDate = String(input.tripDate ?? "").trim();
   const tripTime = String(input.tripTime ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || !tripTime) return null;
@@ -637,11 +631,11 @@ export function evaluateJourneyReminder(
   });
 
   if (input.isRefundTest) return skip("not_customer_booking");
-  if (isCancelled(input)) return skip("cancelled");
+  if (isJourneyReminderCancelled(input)) return skip("cancelled");
   if (input.journeyStatus === "completed") return skip("journey_finished");
   if (!input.customerEmail?.trim()) return skip("missing_email");
 
-  const pickupAt = pickupInstant(input);
+  const pickupAt = journeyReminderPickupAt(input);
   if (!pickupAt) return skip("missing_pickup_time");
   const sendAt = journeyReminderSendAt(pickupAt);
   if (!sendAt) return skip("missing_pickup_time");
@@ -658,8 +652,6 @@ export function evaluateJourneyReminder(
     const updateKey = String(input.driverUpdateSentForKey ?? "").trim();
     const previousDriverKey = String(input.reminderDriverKey ?? "").trim();
     if (previousDriverKey && driverKey !== previousDriverKey && driverKey !== updateKey) {
-      const draft = journeyReminderWhatsAppDraft(input, contact);
-      const href = journeyReminderWhatsAppHref(draft, contact);
       const message = buildJourneyReminderMessage(input, contact, "driver_update");
       return {
         eligible: true,
@@ -668,9 +660,8 @@ export function evaluateJourneyReminder(
         message,
         subject: contact.kind === "driver" ? JOURNEY_DRIVER_UPDATE_SUBJECT : "Updated contact details — My Airport Taxi NI",
         text: message,
-        html: buildJourneyReminderHtml(message, contact, href, "driver_update"),
-        whatsAppHref: href,
-        whatsAppDraft: draft,
+        html: buildJourneyReminderHtml(message, input, "driver_update"),
+        contactPageHref: journeyReminderContactPageHref(input.driverContactUrl, "message"),
         pickupKey,
         driverKey,
         contact,
@@ -681,8 +672,6 @@ export function evaluateJourneyReminder(
 
   if (now.getTime() < sendAt.getTime()) return skip("too_early");
 
-  const draft = journeyReminderWhatsAppDraft(input, contact);
-  const href = journeyReminderWhatsAppHref(draft, contact);
   const message = buildJourneyReminderMessage(input, contact, "reminder");
   return {
     eligible: true,
@@ -691,13 +680,28 @@ export function evaluateJourneyReminder(
     message,
     subject: JOURNEY_REMINDER_SUBJECT,
     text: message,
-    html: buildJourneyReminderHtml(message, contact, href, "reminder"),
-    whatsAppHref: href,
-    whatsAppDraft: draft,
+    html: buildJourneyReminderHtml(message, input, "reminder"),
+    contactPageHref: journeyReminderContactPageHref(input.driverContactUrl, "message"),
     pickupKey,
     driverKey,
     contact,
   };
+}
+
+/** Last-moment guard so a reminder cannot leave with a direct driver shortcut. */
+export function journeyReminderEmailExposesDirectContact(
+  text: string,
+  html: string,
+  contact: JourneyReminderContact,
+): boolean {
+  const bundle = `${text}\n${html}`;
+  if (/wa\.me/i.test(bundle) || /tel:/i.test(bundle)) return true;
+  if (contact.kind !== "driver") return false;
+  return (
+    bundle.includes(contact.mobileDisplay) ||
+    bundle.includes(contact.mobileTel) ||
+    bundle.includes(contact.whatsAppDigits)
+  );
 }
 
 export function beginJourneyReminderClaim(

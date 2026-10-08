@@ -1,6 +1,6 @@
 /**
  * Hourly 2-hour journey reminder for every confirmed leg.
- * Resend email only. WhatsApp and phone links are for the customer to open.
+ * Resend email only. Customer buttons open the live driver-contact page.
  */
 
 import {
@@ -10,14 +10,17 @@ import {
   driverJourneyNoticeRecipient,
   noteDriverNotification,
 } from "../shared/driver-notification-safety";
+import { buildDriverContactPageUrl } from "../shared/driver-contact-link";
 import {
   beginJourneyReminderClaim,
   evaluateJourneyReminder,
+  journeyReminderEmailExposesDirectContact,
   journeyReminderFirstName,
-  type JourneyReminderInput,
+  journeyReminderPickupAt,
 } from "../shared/journey-reminder";
-import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import type { TrackingJobRecord } from "../shared/tracking";
+import { ensureDriverContactLink } from "./driver-contact-handlers";
+import { airportPickupReminderInput } from "./journey-reminder-input";
 import { getJourneyReminderAirportCopy } from "./journey-reminder-store";
 import { getPaidBookingRecord } from "./paid-booking-store";
 import {
@@ -31,7 +34,22 @@ import { trySendEmail, trySendResendOnlyCustomerEmail, type WorkerEmailEnv } fro
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
+  SITE_URL?: string;
 };
+
+const DEFAULT_SITE_URL = "https://www.myairporttaxini.co.uk";
+
+function reminderSiteUrl(env: Env): string {
+  const configured = env.SITE_URL?.trim() ?? "";
+  if (!configured) return DEFAULT_SITE_URL;
+  try {
+    const url = new URL(configured);
+    if (url.protocol !== "https:") return DEFAULT_SITE_URL;
+    return url.origin;
+  } catch {
+    return DEFAULT_SITE_URL;
+  }
+}
 
 export type AirportPickupReminderRunResult = {
   scanned: number;
@@ -40,76 +58,6 @@ export type AirportPickupReminderRunResult = {
   skipped: number;
   errors: number;
 };
-
-export function airportPickupReminderInput(
-  job: TrackingJobRecord,
-  paid: PaidBookingRecord | null,
-): JourneyReminderInput {
-  const leg = job.journeyLeg === "return" ? "return" : "outbound";
-  const schedule =
-    leg === "return"
-      ? {
-          tripDate: paid?.returnDate?.trim() || job.tripDate,
-          tripTime: paid?.returnTime?.trim() || job.tripTime,
-          pickupLabel: paid?.dropoffLabel?.trim() || job.pickupLabel,
-          dropoffLabel: paid?.pickupLabel?.trim() || job.dropoffLabel,
-          flightNumber: paid?.returnFlightNumber?.trim() || job.flightNumber,
-        }
-      : {
-          tripDate: paid?.tripDate?.trim() || job.tripDate,
-          tripTime: paid?.tripTime?.trim() || job.tripTime,
-          pickupLabel: paid?.pickupLabel?.trim() || job.pickupLabel,
-          dropoffLabel: paid?.dropoffLabel?.trim() || job.dropoffLabel,
-          flightNumber: paid?.flightNumber?.trim() || job.flightNumber,
-        };
-  const isFromAirport =
-    typeof paid?.isFromAirport === "boolean"
-      ? leg === "return"
-        ? !paid.isFromAirport
-        : paid.isFromAirport
-      : job.isFromAirport;
-  return {
-    customerName: paid?.customerName || job.customerName,
-    customerEmail: paid?.customerEmail || job.customerEmail,
-    pickupLabel: schedule.pickupLabel,
-    dropoffLabel: schedule.dropoffLabel,
-    tripDate: schedule.tripDate,
-    tripTime: schedule.tripTime,
-    journeyLeg: leg,
-    isFromAirport,
-    airportCode: job.airportCode || paid?.airportCode,
-    flightNumber: schedule.flightNumber,
-    vehicle: paid?.vehicle || undefined,
-    airportAccessOption: paid?.airportAccessOption,
-    outboundAirportAccessOption: paid?.outboundAirportAccessOption,
-    returnAirportAccessOption: paid?.returnAirportAccessOption,
-    expressDropOffSelected: paid?.expressDropOffSelected,
-    outboundExpressDropOffSelected: paid?.outboundExpressDropOffSelected,
-    returnExpressDropOffSelected: paid?.returnExpressDropOffSelected,
-    expressDropOffFee:
-      leg === "return"
-        ? paid?.returnAirportAccessChargeGbp
-        : (paid?.outboundAirportAccessChargeGbp ?? paid?.expressDropOffFee),
-    expressDropOffAirport: paid?.expressDropOffAirport,
-    dublinArrivalTerminal: paid?.dublinArrivalTerminal,
-    returnDublinArrivalTerminal: paid?.returnDublinArrivalTerminal,
-    reminderSentAt: job.airportCollectionInfoSentAt || job.airportPickupReminderSentAt,
-    reminderSentForPickupAt: job.journeyReminderSentForPickupAt,
-    reminderDriverKey: job.journeyReminderDriverKey,
-    driverUpdateSentForKey: job.journeyDriverUpdateSentForKey,
-    assignmentStatus: job.assignmentStatus,
-    assignedDriverName: job.assignedDriverName,
-    assignedDriverMobile: job.assignedDriverMobile,
-    refundedAt: job.refundedAt,
-    operationalStatus: paid?.operationalStatus,
-    bookingStatus: paid?.status,
-    cancelledLegs: paid?.cancelledLegs,
-    outboundCancelledAt: paid?.outboundCancelledAt,
-    returnCancelledAt: paid?.returnCancelledAt,
-    journeyStatus: job.journeyStatus,
-    isRefundTest: paid?.isRefundTest,
-  };
-}
 
 export async function processDueAirportPickupReminders(
   env: Env,
@@ -242,27 +190,54 @@ async function maybeSendAirportPickupReminder(
   }
 
   const latest = await getTrackingJob(store, fresh.token);
-  const latestPaid = paymentReference ? await getPaidBookingRecord(store, paymentReference) : freshPaid;
-  const latestInput = { ...airportPickupReminderInput(latest ?? fresh, latestPaid), airportCopy };
-  const latestDecision = evaluateJourneyReminder(latestInput, now);
-  if (
-    !latest ||
-    !latestDecision.eligible ||
-    latestDecision.kind !== decision.kind ||
-    latestDecision.pickupKey !== decision.pickupKey ||
-    !customerDriverStillCurrent(latestDecision.driverKey, latestInput)
-  ) {
-    clearClaim(latest ?? fresh, first.kind, claim.claimId);
-    noteDriverNotification(latest ?? fresh, {
+  if (!latest) {
+    clearClaim(fresh, first.kind, claim.claimId);
+    noteDriverNotification(fresh, {
       at: now.toISOString(),
       kind: first.kind === "driver_update" ? "customer_driver_update" : "customer_journey_reminder",
       outcome: "suppressed",
       reason: "stale_assignment",
     });
-    await saveTrackingJob(store, latest ?? fresh);
+    await saveTrackingJob(store, fresh);
+    return "eligible_skipped";
+  }
+  const latestPaid = paymentReference ? await getPaidBookingRecord(store, paymentReference) : freshPaid;
+  const scheduleInput = { ...airportPickupReminderInput(latest, latestPaid), airportCopy };
+  await ensureDriverContactLink(store, latest, journeyReminderPickupAt(scheduleInput));
+  const latestInput = {
+    ...scheduleInput,
+    driverContactUrl: buildDriverContactPageUrl(reminderSiteUrl(env), latest.driverContactToken ?? ""),
+  };
+  const latestDecision = evaluateJourneyReminder(latestInput, now);
+  if (
+    !latestDecision.eligible ||
+    latestDecision.kind !== decision.kind ||
+    latestDecision.pickupKey !== decision.pickupKey ||
+    !customerDriverStillCurrent(latestDecision.driverKey, latestInput)
+  ) {
+    clearClaim(latest, first.kind, claim.claimId);
+    noteDriverNotification(latest, {
+      at: now.toISOString(),
+      kind: first.kind === "driver_update" ? "customer_driver_update" : "customer_journey_reminder",
+      outcome: "suppressed",
+      reason: "stale_assignment",
+    });
+    await saveTrackingJob(store, latest);
+    return "eligible_skipped";
+  }
+  if (journeyReminderEmailExposesDirectContact(latestDecision.text, latestDecision.html, latestDecision.contact)) {
+    clearClaim(latest, latestDecision.kind, claim.claimId);
+    noteDriverNotification(latest, {
+      at: now.toISOString(),
+      kind: latestDecision.kind === "driver_update" ? "customer_driver_update" : "customer_journey_reminder",
+      outcome: "suppressed",
+      reason: "direct_contact_blocked",
+    });
+    await saveTrackingJob(store, latest);
     return "eligible_skipped";
   }
 
+  await saveTrackingJob(store, latest);
   const email = (latest.customerEmail || latestPaid?.customerEmail || "").trim();
   const name = (latest.customerName || latestPaid?.customerName || email).trim();
   const sendResult = await trySendResendOnlyCustomerEmail(env, {

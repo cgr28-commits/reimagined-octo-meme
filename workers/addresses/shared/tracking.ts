@@ -202,6 +202,14 @@ export type TrackingJobRecord = {
   driverNotificationAudit?: DriverNotificationAuditEntry[];
   /** `${assignmentVersion}:${email}` once that accepted driver was emailed for this leg. */
   journeyDriverNoticeSentFor?: string;
+  /**
+   * Unguessable token for the customer driver-contact page. Reused across
+   * reassignment so an already-sent reminder always reads the live driver.
+   * Not a booking reference, payment id, or tracking job token.
+   */
+  driverContactToken?: string;
+  /** ISO time after which the page stops disclosing an external driver mobile. */
+  driverContactExpiresAt?: string;
   journeyDriverNoticeClaimId?: string;
   journeyDriverNoticeClaimedAt?: string;
 };

@@ -12,6 +12,19 @@ import { buildCustomerConfirmationEmail } from "../shared/booking-notifications"
 import { BUSINESS_PHONE_DISPLAY, BUSINESS_PHONE_TEL, BUSINESS_WHATSAPP_DIGITS } from "../shared/business-email";
 import { buildOnTheWayCompanyVoiceMessage } from "../shared/company-voice-journey";
 import {
+  DRIVER_CONTACT_RATE_LIMIT,
+  DRIVER_CONTACT_UPDATED_HEADING,
+  driverContactRedirectHref,
+  driverContactTokenMatches,
+  evaluateDriverContactVisit,
+  generateDriverContactToken,
+  isSafeDriverContactRedirect,
+  nextDriverContactRateHits,
+  normalizeDriverContactToken,
+  publicDriverContactResponse,
+  type DriverContactVisitInput,
+} from "../shared/driver-contact-link";
+import {
   JOURNEY_REMINDER_LANDING_BODY,
   JOURNEY_REMINDER_LANDING_HEADING,
   JOURNEY_REMINDER_LEAD_MS,
@@ -19,6 +32,7 @@ import {
   buildJourneyReminderAirportInstructions,
   clearJourneyReminderDelivery,
   evaluateJourneyReminder,
+  journeyReminderEmailExposesDirectContact,
   journeyReminderSendAt,
   resolveJourneyReminderAirportCopy,
   type JourneyReminderInput,
@@ -36,6 +50,8 @@ const root = process.cwd();
 const DRIVER_MOBILE = "07700900111";
 const DRIVER_DISPLAY = "07700 900111";
 const DRIVER_DIGITS = "447700900111";
+const CONTACT_TOKEN = "ab".repeat(32);
+const CONTACT_PAGE = `https://www.myairporttaxini.co.uk/driver-contact/?token=${CONTACT_TOKEN}`;
 const SUMMER_NOW = new Date("2026-07-15T13:30:00.000Z");
 
 function read(rel: string): string {
@@ -55,8 +71,25 @@ function base(overrides: JourneyReminderInput = {}): JourneyReminderInput {
     bookingStatus: "confirmed",
     operationalStatus: "confirmed",
     assignmentStatus: "unassigned",
+    driverContactUrl: CONTACT_PAGE,
     ...overrides,
   };
+}
+
+function assertSmartEmail(decision: ReturnType<typeof due>) {
+  const bundle = `${decision.html}\n${decision.text}\n${decision.message}`;
+  assert.equal(/wa\.me/i.test(bundle), false);
+  assert.equal(/tel:/i.test(bundle), false);
+  assert.equal(bundle.includes(DRIVER_MOBILE), false);
+  assert.equal(bundle.includes(DRIVER_DISPLAY), false);
+  assert.equal(bundle.includes(DRIVER_DIGITS), false);
+  assert.match(decision.html, />Message Your Driver</);
+  assert.match(decision.html, />Call Your Driver</);
+  assert.match(decision.html, /#25D366/);
+  assert.match(decision.html, /\/driver-contact\/\?token=/);
+  assert.match(decision.html, /intent=message/);
+  assert.match(decision.html, /intent=call/);
+  assert.equal(decision.contactPageHref.includes("wa.me"), false);
 }
 
 function due(input: JourneyReminderInput, now = SUMMER_NOW) {
@@ -70,26 +103,21 @@ console.log("1. Owner-operated booking");
 {
   const decision = due(base({ assignmentStatus: "accepted", assignedDriverName: "Owner / Primary Driver", assignedDriverMobile: "07700900999" }));
   assert.equal(decision.contact.kind, "company");
-  assert.match(decision.html, />Message Us on WhatsApp</);
-  assert.match(decision.html, />Call Us</);
-  assert.match(decision.html, new RegExp(`tel:${BUSINESS_PHONE_TEL.replace("+", "\\+")}`));
-  assert.match(decision.message, new RegExp(BUSINESS_PHONE_DISPLAY));
+  assertSmartEmail(decision);
   assert.equal(decision.message.includes("07700900999"), false);
   assert.equal(decision.html.includes("07700 900999"), false);
-  assert.equal(new URL(decision.whatsAppHref).pathname, `/${BUSINESS_WHATSAPP_DIGITS}`);
   assert.match(decision.message, /My Airport Taxi NI/);
-  console.log("OK  company WhatsApp and business phone, no owner mobile");
+  console.log("OK  secure page link, no owner mobile");
 }
 
 console.log("2. Accepted assigned driver");
 {
   const decision = due(base({ assignmentStatus: "accepted", assignedDriverName: "Priya Shah", assignedDriverMobile: DRIVER_MOBILE }));
   assert.equal(decision.contact.kind, "driver");
-  assert.match(decision.message, /Your Driver/);
-  assert.match(decision.message, /Driver: Priya/);
-  assert.match(decision.message, new RegExp(`Mobile: ${DRIVER_DISPLAY}`));
+  assertSmartEmail(decision);
+  assert.equal(decision.message.includes("Priya"), false);
   assert.doesNotMatch(decision.message, /Shah/);
-  console.log("OK  first name and mobile");
+  console.log("OK  email omits the driver name and mobile");
 }
 
 console.log("3. Assigned driver WhatsApp");
@@ -102,40 +130,28 @@ console.log("3. Assigned driver WhatsApp");
       flightNumber: "EI 164",
     }),
   );
-  const parsed = new URL(decision.whatsAppHref);
-  assert.equal(parsed.hostname, "wa.me");
-  assert.equal(parsed.pathname, `/${DRIVER_DIGITS}`);
-  const text = parsed.searchParams.get("text") ?? "";
-  assert.match(text, /^Hi Priya, I’m contacting you about my transfer with My Airport Taxi NI\./);
-  assert.match(text, /Date: Wednesday, 15 July 2026/);
-  assert.match(text, /Pickup time: 4:30 PM/);
-  assert.match(text, /Pickup: 12 High Street, Belfast/);
-  assert.match(text, /Destination: 22 Main Street, Lisburn/);
-  assert.match(text, /Flight: EI 164/);
-  assert.match(text, /Could you please help me with my journey\?/);
-  assert.doesNotMatch(text, /£|paid|card/i);
-  assert.equal(text.includes("sarah@example.com"), false);
-  console.log("OK  direct wa.me link and prefilled journey");
+  assertSmartEmail(decision);
+  assert.equal(decision.html.includes(DRIVER_DIGITS), false);
+  assert.equal(decision.message.includes("Priya"), false);
+  console.log("OK  reminder email has no direct WhatsApp link");
 }
 
 console.log("4. Assigned driver click-to-call");
 {
   const decision = due(base({ assignmentStatus: "accepted", assignedDriverName: "Priya", assignedDriverMobile: DRIVER_MOBILE }));
-  assert.match(decision.html, new RegExp(`href="tel:\\+${DRIVER_DIGITS}"`));
-  assert.match(decision.html, />Call Your Driver</);
-  console.log("OK  tel link");
+  assertSmartEmail(decision);
+  assert.equal(decision.html.includes(`tel:+${DRIVER_DIGITS}`), false);
+  console.log("OK  call button opens the secure page");
 }
 
 console.log("5. Unassigned booking");
 {
   const decision = due(base({ assignmentStatus: "unassigned", assignedDriverName: "Priya", assignedDriverMobile: DRIVER_MOBILE }));
   assert.equal(decision.contact.kind, "company");
+  assertSmartEmail(decision);
   assert.equal(decision.message.includes("Priya"), false);
   assert.equal(decision.message.includes(DRIVER_DISPLAY), false);
-  assert.equal(new URL(decision.whatsAppHref).pathname, `/${BUSINESS_WHATSAPP_DIGITS}`);
-  const text = new URL(decision.whatsAppHref).searchParams.get("text") ?? "";
-  assert.match(text, /^Hi My Airport Taxi NI, I’m contacting you about my transfer\./);
-  console.log("OK  company fallback");
+  console.log("OK  company fallback stays off the email");
 }
 
 console.log("6. Missing or invalid driver number");
@@ -143,9 +159,8 @@ console.log("6. Missing or invalid driver number");
   for (const mobile of ["", "abc", "123", "028 9602 2952"]) {
     const decision = due(base({ assignmentStatus: "accepted", assignedDriverName: "Priya", assignedDriverMobile: mobile }));
     assert.equal(decision.contact.kind, "company", mobile);
+    assertSmartEmail(decision);
     assert.equal(decision.message.includes("Priya"), false);
-    assert.equal(decision.html.includes("href=\"tel:+44abc\""), false);
-    assert.equal(decision.html.includes("wa.me/?"), false);
   }
   console.log("OK  invalid numbers use the company line");
 }
@@ -154,8 +169,8 @@ console.log("7. Driver assignment not accepted");
 {
   const decision = due(base({ assignmentStatus: "pending", assignedDriverName: "Priya Shah", assignedDriverMobile: DRIVER_MOBILE }));
   assert.equal(decision.contact.kind, "company");
+  assertSmartEmail(decision);
   assert.equal(decision.message.includes("Priya"), false);
-  assert.equal(decision.html.includes(DRIVER_DIGITS), false);
   console.log("OK  pending assignment stays private");
 }
 
@@ -178,7 +193,7 @@ console.log("8. Belfast International airport collection");
   assert.doesNotMatch(decision.message, /Long Stay/i);
   assert.match(decision.html, /IMPORTANT — PLEASE CONTACT YOUR DRIVER WHEN YOU LAND/);
   const headingAt = decision.html.indexOf("IMPORTANT");
-  const buttonAt = decision.html.indexOf("Message Us on WhatsApp");
+  const buttonAt = decision.html.indexOf("Message Your Driver");
   assert.ok(headingAt > 0 && headingAt < buttonAt);
   console.log("OK  Belfast International Express collection");
 }
@@ -394,9 +409,9 @@ console.log("18. Driver reassignment after reminder");
   assert.equal(updated.kind, "driver_update");
   assert.match(updated.subject, /Updated driver details/);
   assert.match(updated.message, /Updated Driver Details/);
-  assert.match(updated.message, /Driver: Alex/);
-  assert.match(updated.html, />Message Your Driver on WhatsApp</);
-  assert.match(updated.html, />Call Your Driver</);
+  assert.equal(updated.message.includes("Alex"), false);
+  assert.equal(updated.message.includes(DRIVER_DISPLAY), false);
+  assertSmartEmail(updated);
   const repeat = evaluateJourneyReminder(
     base({
       reminderSentAt: "2026-07-15T13:30:00.000Z",
@@ -466,8 +481,7 @@ console.log("20. Email buttons on phone and desktop");
   assert.match(decision.html, /font-size:18px/);
   assert.match(decision.html, /padding:18px 22px/);
   assert.match(decision.html, /If the button does not open, use this link:/);
-  assert.match(decision.html, /https:\/\/wa\.me\//);
-  assert.match(decision.html, /href="tel:/);
+  assertSmartEmail(decision);
   assert.match(decision.message, /Hi Sarah,/);
   assert.match(decision.message, /Journey date:/);
   assert.match(decision.message, /Pickup time:/);
@@ -491,8 +505,9 @@ console.log("Timing uses UK local time");
   assert.match(custom.dubT1Collection, /Terminal 1/);
   const cron = read("workers/addresses/src/index.ts");
   const handler = read("workers/addresses/src/airport-pickup-reminder-handlers.ts");
+  const schedule = read("workers/addresses/src/journey-reminder-input.ts");
   assert.match(cron, /processDueAirportPickupReminders\(env\)/);
-  assert.match(handler, /paid\?\.returnTime/);
+  assert.match(schedule, /paid\?\.returnTime/);
   assert.match(handler, /trySendResendOnlyCustomerEmail/);
   assert.doesNotMatch(handler, /twilio|sms:/i);
   console.log("OK  two-hour London lead, editable copy, existing email cron");
@@ -574,7 +589,8 @@ console.log("Driver de-assignment");
   assert.equal(withdrawn.message.includes("Priya"), false);
   assert.equal(withdrawn.message.includes(DRIVER_DISPLAY), false);
   assert.equal(withdrawn.message.includes("07700 900222"), false);
-  assert.match(withdrawn.message, /028 9602 2952/);
+  assert.equal(/wa\.me|tel:/i.test(withdrawn.html), false);
+  assert.match(withdrawn.html, /\/driver-contact\//);
 
   const notice = buildDriverJourneyNoticeEmail({
     driverName: "Priya Shah",
@@ -611,6 +627,233 @@ console.log("Driver de-assignment");
   assert.match(assign, /driverDispatchDecision/);
   assert.match(assign, /noteAssignmentChange/);
   console.log("OK  stale, deassigned, duplicate, and unassigned driver sends are blocked");
+}
+
+console.log("Live driver contact links");
+{
+  function visit(overrides: Partial<DriverContactVisitInput> = {}, now = SUMMER_NOW) {
+    return evaluateDriverContactVisit(
+      {
+        ...base(),
+        requestToken: CONTACT_TOKEN,
+        storedToken: CONTACT_TOKEN,
+        assignmentStatus: "accepted",
+        assignedDriverName: "Priya Shah",
+        assignedDriverMobile: DRIVER_MOBILE,
+        flightNumber: "EI 164",
+        ...overrides,
+      },
+      now,
+    );
+  }
+
+  const current = visit();
+  assert.equal(current.view, "driver");
+  assert.equal(current.driver?.firstName, "Priya");
+  assert.equal(current.driver?.mobileDisplay, DRIVER_DISPLAY);
+  const shown = publicDriverContactResponse(current);
+  const shownJson = JSON.stringify(shown);
+  assert.equal(shownJson.includes("wa.me"), false);
+  assert.equal(shownJson.includes("tel:"), false);
+  assert.equal(shownJson.includes("Shah"), false);
+  assert.match(shownJson, new RegExp(DRIVER_DISPLAY));
+  const whatsApp = driverContactRedirectHref(current, "whatsapp") ?? "";
+  const parsed = new URL(whatsApp);
+  assert.equal(parsed.hostname, "wa.me");
+  assert.equal(parsed.pathname, `/${DRIVER_DIGITS}`);
+  const text = parsed.searchParams.get("text") ?? "";
+  assert.match(text, /^Hi Priya, I’m contacting you about my transfer with My Airport Taxi NI\./);
+  assert.match(text, /Date: Wednesday, 15 July 2026/);
+  assert.match(text, /Pickup time: 4:30 PM/);
+  assert.match(text, /Pickup: 12 High Street, Belfast/);
+  assert.match(text, /Destination: 22 Main Street, Lisburn/);
+  assert.match(text, /Flight: EI 164/);
+  assert.match(text, /Could you please help me with my journey\?/);
+  assert.doesNotMatch(text, /£|paid|card/i);
+  assert.equal(text.includes("sarah@example.com"), false);
+  assert.equal(driverContactRedirectHref(current, "call"), `tel:+${DRIVER_DIGITS}`);
+  assert.equal(isSafeDriverContactRedirect(whatsApp), true);
+  assert.equal(isSafeDriverContactRedirect("https://evil.example/447700900111"), false);
+  assert.equal(isSafeDriverContactRedirect("https://wa.me.evil.com/447700900111"), false);
+
+  for (let click = 0; click < 5; click += 1) {
+    const again = visit();
+    assert.equal(again.driver?.mobileDisplay, DRIVER_DISPLAY);
+    assert.equal(driverContactRedirectHref(again, "call"), `tel:+${DRIVER_DIGITS}`);
+  }
+
+  const removed = visit({
+    assignmentStatus: "unassigned",
+    assignedDriverName: "",
+    assignedDriverMobile: "",
+    assignmentAudit: [
+      { action: "accepted", driverName: "Priya Shah" },
+      { action: "deassigned", driverName: "Priya Shah" },
+    ],
+  });
+  assert.equal(removed.view, "updated");
+  assert.equal(removed.heading, DRIVER_CONTACT_UPDATED_HEADING);
+  assert.match(removed.message, /Your driver details have been updated/);
+  const removedJson = JSON.stringify(publicDriverContactResponse(removed));
+  assert.equal(removedJson.includes("Priya"), false);
+  assert.equal(removedJson.includes(DRIVER_DIGITS), false);
+  assert.equal(removedJson.includes(DRIVER_DISPLAY), false);
+  assert.match(removedJson, new RegExp(BUSINESS_PHONE_DISPLAY.replace(/ /g, " ")));
+  const removedWhatsApp = driverContactRedirectHref(removed, "whatsapp") ?? "";
+  assert.equal(new URL(removedWhatsApp).pathname, `/${BUSINESS_WHATSAPP_DIGITS}`);
+  assert.equal(removedWhatsApp.includes(DRIVER_DIGITS), false);
+  assert.equal(driverContactRedirectHref(removed, "call"), `tel:${BUSINESS_PHONE_TEL}`);
+
+  const replacement = visit({
+    assignmentStatus: "accepted",
+    assignedDriverName: "Alex Murphy",
+    assignedDriverMobile: "07700900222",
+    assignmentAudit: [
+      { action: "accepted", driverName: "Priya Shah" },
+      { action: "deassigned", driverName: "Priya Shah" },
+      { action: "accepted", driverName: "Alex Murphy" },
+    ],
+  });
+  assert.equal(replacement.view, "driver");
+  assert.equal(replacement.driver?.firstName, "Alex");
+  assert.equal(replacement.driver?.mobileDisplay, "07700 900222");
+  assert.equal(JSON.stringify(publicDriverContactResponse(replacement)).includes(DRIVER_DIGITS), false);
+  assert.equal(JSON.stringify(publicDriverContactResponse(replacement)).includes("Priya"), false);
+  assert.equal(new URL(driverContactRedirectHref(replacement, "whatsapp") ?? "").pathname, "/447700900222");
+
+  const pending = visit({
+    assignmentStatus: "pending",
+    assignedDriverName: "Alex Murphy",
+    assignedDriverMobile: "07700900222",
+    assignmentAudit: [{ action: "deassigned", driverName: "Priya Shah" }],
+  });
+  assert.equal(pending.view, "updated");
+  const pendingJson = JSON.stringify(publicDriverContactResponse(pending));
+  assert.equal(pendingJson.includes("Alex"), false);
+  assert.equal(pendingJson.includes("Priya"), false);
+  assert.equal(pendingJson.includes("07700 900222"), false);
+
+  const unassigned = visit({
+    assignmentStatus: "unassigned",
+    assignedDriverName: "Priya Shah",
+    assignedDriverMobile: DRIVER_MOBILE,
+    assignmentAudit: [],
+  });
+  assert.equal(unassigned.view, "company");
+  assert.notEqual(unassigned.heading, DRIVER_CONTACT_UPDATED_HEADING);
+  assert.equal(JSON.stringify(publicDriverContactResponse(unassigned)).includes("Priya"), false);
+  assert.equal(publicDriverContactResponse(unassigned).phoneDisplay, BUSINESS_PHONE_DISPLAY);
+
+  const owner = visit({
+    assignmentStatus: "accepted",
+    assignedDriverName: "Owner / Primary Driver",
+    assignedDriverMobile: "07700900999",
+    assignmentAudit: [{ action: "accepted", driverName: "Owner / Primary Driver" }],
+  });
+  assert.equal(owner.view, "company");
+  assert.equal(JSON.stringify(publicDriverContactResponse(owner)).includes("07700900999"), false);
+  assert.equal(publicDriverContactResponse(owner).phoneDisplay, BUSINESS_PHONE_DISPLAY);
+
+  const cancelled = visit({ bookingStatus: "cancelled" });
+  assert.equal(cancelled.view, "cancelled");
+  assert.equal(cancelled.driver, undefined);
+  assert.match(cancelled.message, /cancelled/i);
+  assert.equal(JSON.stringify(publicDriverContactResponse(cancelled)).includes(DRIVER_DIGITS), false);
+
+  const tooEarly = visit({}, new Date("2026-07-15T13:29:00.000Z"));
+  assert.equal(tooEarly.view, "too_early");
+  assert.equal(tooEarly.driver, undefined);
+  assert.equal(JSON.stringify(publicDriverContactResponse(tooEarly)).includes("Priya"), false);
+  assert.equal(new URL(driverContactRedirectHref(tooEarly, "whatsapp") ?? "").pathname, `/${BUSINESS_WHATSAPP_DIGITS}`);
+
+  const expired = visit({}, new Date("2026-07-16T03:30:00.000Z"));
+  assert.equal(expired.view, "expired");
+  assert.equal(expired.driver, undefined);
+  assert.equal(JSON.stringify(publicDriverContactResponse(expired)).includes(DRIVER_DISPLAY), false);
+  const stillOpen = visit({}, new Date("2026-07-16T03:29:59.000Z"));
+  assert.equal(stillOpen.view, "driver");
+
+  const invalidRef = visit({ requestToken: "MAT-4827" });
+  assert.equal(invalidRef.view, "invalid");
+  assert.equal(JSON.stringify(publicDriverContactResponse(invalidRef)).includes(DRIVER_DIGITS), false);
+  const paymentRef = visit({ requestToken: "T-TEST-PAYMENT" });
+  assert.equal(paymentRef.view, "invalid");
+  const mismatch = visit({ requestToken: "cd".repeat(32) });
+  assert.equal(mismatch.view, "invalid");
+  assert.equal(driverContactRedirectHref(mismatch, "whatsapp"), null);
+  assert.equal(normalizeDriverContactToken("MAT-4827"), "");
+  assert.equal(driverContactTokenMatches(CONTACT_TOKEN, "MAT-4827"), false);
+  const minted = generateDriverContactToken();
+  assert.match(minted, /^[a-f0-9]{64}$/);
+  assert.notEqual(minted, "MAT-1001");
+
+  const oldEmail = due(
+    base({
+      assignmentStatus: "accepted",
+      assignedDriverName: "Priya Shah",
+      assignedDriverMobile: DRIVER_MOBILE,
+      flightNumber: "EI 164",
+    }),
+  );
+  assert.equal(oldEmail.html.includes(DRIVER_DIGITS), false);
+  assert.equal(oldEmail.html.includes("Priya"), false);
+  assert.match(oldEmail.html, new RegExp(CONTACT_TOKEN));
+  assert.equal(journeyReminderEmailExposesDirectContact(oldEmail.text, oldEmail.html, oldEmail.contact), false);
+  const afterOldEmail = visit({
+    assignmentStatus: "unassigned",
+    assignedDriverName: "",
+    assignedDriverMobile: "",
+    assignmentAudit: [{ action: "deassigned", driverName: "Priya Shah" }],
+  });
+  assert.equal(afterOldEmail.view, "updated");
+  assert.equal(afterOldEmail.message.includes(DRIVER_DISPLAY), false);
+
+  const hijack = due(
+    base({
+      assignmentStatus: "accepted",
+      assignedDriverName: "Priya",
+      assignedDriverMobile: DRIVER_MOBILE,
+      driverContactUrl: `https://wa.me/${DRIVER_DIGITS}`,
+    }),
+  );
+  assert.equal(/wa\.me/i.test(hijack.html), false);
+  assert.match(hijack.html, /https:\/\/www\.myairporttaxini\.co\.uk\/driver-contact\//);
+
+  let hits: number[] = [];
+  let allowed = true;
+  for (let i = 0; i < DRIVER_CONTACT_RATE_LIMIT; i += 1) {
+    const step = nextDriverContactRateHits(hits, SUMMER_NOW.getTime());
+    allowed = step.allow;
+    hits = step.hits;
+  }
+  assert.equal(allowed, true);
+  assert.equal(nextDriverContactRateHits(hits, SUMMER_NOW.getTime()).allow, false);
+
+  const kept = clearJourneyReminderDelivery({
+    driverContactToken: CONTACT_TOKEN,
+    airportPickupReminderSentAt: "2026-07-15T13:30:00.000Z",
+  });
+  assert.equal(kept.driverContactToken, CONTACT_TOKEN);
+  assert.equal(kept.airportPickupReminderSentAt, undefined);
+
+  const contactHandler = read("workers/addresses/src/driver-contact-handlers.ts");
+  const routes = read("workers/addresses/src/index.ts");
+  const reminderHandler = read("workers/addresses/src/airport-pickup-reminder-handlers.ts");
+  assert.match(contactHandler, /no-store/);
+  assert.match(contactHandler, /Referrer-Policy/);
+  assert.match(contactHandler, /readAuthoritativeContact/);
+  assert.match(contactHandler, /getTrackingJobForDriverContactToken/);
+  assert.doesNotMatch(contactHandler, /searchParams\.get\("booking"\)/);
+  assert.match(routes, /driver-contact-open/);
+  const ensureAt = reminderHandler.indexOf("await ensureDriverContactLink");
+  const sendAt = reminderHandler.indexOf("await trySendResendOnlyCustomerEmail");
+  assert.ok(ensureAt > 0 && sendAt > ensureAt);
+  assert.match(read("src/app/driver-contact/page.tsx"), /index: false/);
+  assert.match(read("src/app/driver-contact/DriverContactClient.tsx"), /cache:\s*"no-store"/);
+  assert.match(read("src/app/driver-contact/DriverContactClient.tsx"), /driver-contact\/open/);
+  assert.match(read("src/app/robots.ts"), /\/driver-contact/);
+  assert.match(read("src/lib/data.ts"), /\/driver-contact/);
+  console.log("OK  live page follows de-assignment, replacement, expiry, and old emails");
 }
 
 console.log("\nAll journey reminder checks passed.");
