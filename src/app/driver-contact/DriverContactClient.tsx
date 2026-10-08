@@ -14,6 +14,7 @@ type DriverContactPayload = {
   phoneDisplay?: string;
   whatsAppLabel?: string;
   callLabel?: string;
+  whatsAppNote?: string;
 };
 
 function openUrl(token: string, channel: "whatsapp" | "call"): string {
@@ -69,8 +70,13 @@ export default function DriverContactClient() {
   }, [load]);
 
   const showActions = Boolean(payload && (payload.view === "driver" || payload.phoneDisplay));
-  const whatsAppLabel = payload?.whatsAppLabel || "Message Your Driver";
-  const callLabel = payload?.callLabel || "Call Your Driver";
+  const whatsAppLabel =
+    payload?.whatsAppLabel ||
+    (payload?.view === "driver"
+      ? "Message Your Driver on WhatsApp"
+      : "Message My Airport Taxi NI on WhatsApp");
+  const callLabel = payload?.callLabel || "Call";
+  const contactNumber = payload?.view === "driver" ? payload.mobileDisplay : payload?.phoneDisplay;
 
   return (
     <main className="min-h-dvh bg-[#f4f6f8] px-4 py-10 text-[#1a2b3c]">
@@ -93,19 +99,13 @@ export default function DriverContactClient() {
                 <div className="rounded-xl border border-[#dbe3ee] bg-[#f8fafc] px-4 py-4">
                   <p className="text-sm font-semibold uppercase tracking-wide text-[#64748b]">Your driver</p>
                   <p className="mt-1 text-2xl font-bold text-[#071c38]">{payload.driverFirstName}</p>
-                  {payload.mobileDisplay ? (
-                    <p className="mt-2 text-xl font-semibold tracking-wide">{payload.mobileDisplay}</p>
-                  ) : null}
-                </div>
-              ) : null}
-              {payload.phoneDisplay ? (
-                <div className="rounded-xl border border-[#dbe3ee] bg-[#f8fafc] px-4 py-4">
-                  <p className="text-sm font-semibold uppercase tracking-wide text-[#64748b]">Business mobile</p>
-                  <p className="mt-1 text-2xl font-bold text-[#071c38]">{payload.phoneDisplay}</p>
                 </div>
               ) : null}
               {showActions && token ? (
                 <div className="space-y-3">
+                  <p className="text-sm font-semibold leading-relaxed text-[#071c38]">
+                    {payload.whatsAppNote || "WhatsApp is our preferred way to communicate about your journey."}
+                  </p>
                   <a
                     href={openUrl(token, "whatsapp")}
                     rel="noreferrer"
@@ -113,13 +113,18 @@ export default function DriverContactClient() {
                   >
                     {whatsAppLabel}
                   </a>
-                  <a
-                    href={openUrl(token, "call")}
-                    rel="noreferrer"
-                    className="block rounded-xl bg-[#071c38] px-5 py-4 text-center text-lg font-bold text-white"
-                  >
-                    {callLabel}
-                  </a>
+                  <div className="pt-1 text-center">
+                    <a
+                      href={openUrl(token, "call")}
+                      rel="noreferrer"
+                      className="inline-block rounded-lg border border-[#94a3b8] bg-white px-4 py-2 text-center text-sm font-semibold text-[#071c38]"
+                    >
+                      {callLabel}
+                    </a>
+                    {contactNumber ? (
+                      <p className="mt-2 text-sm tracking-wide text-[#64748b]">{contactNumber}</p>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
               {token ? (

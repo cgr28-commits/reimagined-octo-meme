@@ -32,9 +32,13 @@ import {
 import {
   DRIVER_CONTACT_REVEAL_LEAD_MS,
   DRIVER_CONTACT_UNLOCK_MESSAGE,
+  JOURNEY_CALL_LABEL,
   JOURNEY_REMINDER_LANDING_BODY,
   JOURNEY_REMINDER_LANDING_HEADING,
   JOURNEY_REMINDER_LEAD_MS,
+  WHATSAPP_COMPANY_LABEL,
+  WHATSAPP_DRIVER_LABEL,
+  WHATSAPP_PREFERRED_NOTE,
   beginJourneyReminderClaim,
   driverContactDetailsUnlocked,
   buildJourneyReminderAirportInstructions,
@@ -91,14 +95,31 @@ function assertSmartEmail(decision: ReturnType<typeof due>) {
   assert.equal(bundle.includes(DRIVER_DIGITS), false);
   assert.equal(bundle.includes(`wa.me/${DRIVER_DIGITS}`), false);
   assert.equal(bundle.includes(`tel:+${DRIVER_DIGITS}`), false);
-  assert.match(decision.html, />Message Your Driver</);
-  assert.match(decision.html, />Call Your Driver</);
-  assert.match(decision.html, />Message Us on WhatsApp</);
-  assert.match(decision.html, />Call Us</);
+  assert.match(decision.html, new RegExp(WHATSAPP_PREFERRED_NOTE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(decision.message, new RegExp(WHATSAPP_PREFERRED_NOTE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(decision.html, new RegExp(`>${WHATSAPP_COMPANY_LABEL}<`));
+  assert.match(decision.html, />Call</);
+  assert.doesNotMatch(decision.html, />Call Us</);
+  assert.doesNotMatch(decision.html, />Call Your Driver</);
+  assert.doesNotMatch(decision.html, />Message Us on WhatsApp</);
   assert.match(decision.html, /#25D366/);
+  assert.match(decision.html, /font-size:20px/);
+  assert.match(decision.html, /font-size:14px/);
+  assert.ok(decision.html.indexOf("font-size:20px") < decision.html.indexOf(">Call</a>"));
   assert.match(decision.html, /\/driver-contact\/\?token=/);
   assert.match(decision.html, /intent=message/);
-  assert.match(decision.html, /intent=call/);
+  if (decision.contact.kind === "driver") {
+    assert.match(decision.html, new RegExp(`>${WHATSAPP_DRIVER_LABEL}<`));
+    assert.match(decision.html, /intent=call/);
+    assert.ok(decision.html.indexOf(`>${WHATSAPP_DRIVER_LABEL}<`) < decision.html.indexOf(`>${WHATSAPP_COMPANY_LABEL}<`));
+    assert.ok(
+      decision.html.indexOf("font-size:20px;padding:20px 24px") <
+        decision.html.indexOf("font-size:16px;padding:14px 18px"),
+    );
+  } else {
+    assert.doesNotMatch(decision.html, new RegExp(`>${WHATSAPP_DRIVER_LABEL}<`));
+    assert.match(decision.html, /intent=call/);
+  }
   assert.match(decision.html, new RegExp(`wa\\.me/${BUSINESS_WHATSAPP_DIGITS}`));
   assert.match(decision.html, new RegExp(`tel:${businessWhatsAppMobileTel().replace("+", "\\+")}`));
   assert.match(decision.message, new RegExp(businessWhatsAppMobileDisplay().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -204,17 +225,20 @@ console.log("8. Belfast International airport collection");
   );
   assert.match(decision.message, /Belfast International Airport/);
   assert.match(decision.message, /Express Pick-Up/);
-  assert.match(decision.message, /IMPORTANT — PLEASE CONTACT YOUR DRIVER WHEN YOU LAND/);
+  assert.match(decision.message, /IMPORTANT — PLEASE WHATSAPP YOUR DRIVER WHEN YOU LAND/);
   assert.match(decision.message, /Once your flight has landed/);
-  assert.match(decision.message, /contact your driver using the contact buttons provided/);
-  assert.match(decision.message, /ready for collection, please update your driver/);
+  assert.match(decision.message, /WhatsApp your driver/);
+  assert.match(decision.message, /If WhatsApp is unavailable, you can call/);
+  assert.match(decision.message, /ready for collection, please update your driver on WhatsApp/);
   assert.match(decision.message, /If you land before your driver’s contact details are available/);
+  assert.match(decision.message, /please WhatsApp My Airport Taxi NI/);
   assert.ok(decision.message.includes(JOURNEY_REMINDER_LANDING_BODY.split("\n")[0]));
   assert.doesNotMatch(decision.message, /Long Stay/i);
-  assert.match(decision.html, /IMPORTANT — PLEASE CONTACT YOUR DRIVER WHEN YOU LAND/);
+  assert.match(decision.html, /IMPORTANT — PLEASE WHATSAPP YOUR DRIVER WHEN YOU LAND/);
   assert.match(decision.html, /border-left:4px solid #c2410c/);
+  assert.match(decision.html, /font-size:18px/);
   const headingAt = decision.html.indexOf("IMPORTANT");
-  const buttonAt = decision.html.indexOf(">Message Your Driver</a>");
+  const buttonAt = decision.html.indexOf(`>${WHATSAPP_COMPANY_LABEL}</a>`);
   assert.ok(headingAt > 0 && buttonAt > headingAt);
   console.log("OK  Belfast International Express collection");
 }
@@ -233,7 +257,7 @@ console.log("9. Belfast City airport collection");
   assert.match(decision.message, /George Best Belfast City Airport/);
   assert.match(decision.message, /Long Stay Car Park Free Pick-Up Location/);
   assert.match(decision.message, /5–10 minute walk/);
-  assert.match(decision.message, /IMPORTANT — PLEASE CONTACT YOUR DRIVER WHEN YOU LAND/);
+  assert.match(decision.message, /IMPORTANT — PLEASE WHATSAPP YOUR DRIVER WHEN YOU LAND/);
   assert.match(decision.message, /Long Stay Car Park Free Pick-Up Location/);
   assert.doesNotMatch(decision.message, /make your way to Express Pick-Up/);
   assert.doesNotMatch(buildJourneyReminderAirportInstructions(base({
@@ -293,7 +317,7 @@ console.log("11. Airport drop-off");
   assert.match(decision.message, /Pickup time: 4:30 PM/);
   assert.match(decision.message, /Belfast International Airport/);
   assert.match(decision.message, /Express Drop-Off/);
-  assert.doesNotMatch(decision.message, /IMPORTANT — PLEASE CONTACT YOUR DRIVER WHEN YOU LAND/);
+  assert.doesNotMatch(decision.message, /IMPORTANT — PLEASE WHATSAPP YOUR DRIVER WHEN YOU LAND/);
   assert.doesNotMatch(decision.message, /Once your flight has landed/);
   console.log("OK  drop-off has no landing instructions");
 }
@@ -513,8 +537,10 @@ console.log("20. Email buttons on phone and desktop");
   const decision = due(base({ assignmentStatus: "accepted", assignedDriverName: "Priya", assignedDriverMobile: DRIVER_MOBILE }));
   assert.match(decision.html, /name="viewport"/);
   assert.match(decision.html, /display:block/);
-  assert.match(decision.html, /font-size:18px/);
-  assert.match(decision.html, /padding:18px 22px/);
+  assert.match(decision.html, /font-size:20px/);
+  assert.match(decision.html, /padding:20px 24px/);
+  assert.match(decision.html, /font-size:14px/);
+  assert.match(decision.html, /padding:8px 16px/);
   assert.match(decision.html, /If the button does not open, use this link:/);
   assertSmartEmail(decision);
   assert.match(decision.message, /Hi Sarah,/);
@@ -533,7 +559,14 @@ console.log("Timing uses UK local time");
   assert.match(read("src/lib/data.ts"), /landlineDisplay:\s*"028 9602 2952"/);
   assert.match(read("src/lib/data.ts"), /whatsapp:\s*"447549815538"/);
   assert.match(read("src/components/FooterContact.tsx"), /SITE\.landlineDisplay/);
-  assert.doesNotMatch(read("src/app/driver-contact/DriverContactClient.tsx"), /028 9602 2952/);
+  const contactPage = read("src/app/driver-contact/DriverContactClient.tsx");
+  assert.doesNotMatch(contactPage, /028 9602 2952/);
+  assert.doesNotMatch(contactPage, /Call Us|Call Your Driver|Message Us on WhatsApp/);
+  assert.match(contactPage, /WhatsApp is our preferred way to communicate about your journey/);
+  assert.match(contactPage, /Message Your Driver on WhatsApp/);
+  assert.match(contactPage, /Message My Airport Taxi NI on WhatsApp/);
+  assert.match(contactPage, /bg-\[#25D366\][^"]*text-lg/);
+  assert.match(contactPage, /inline-block rounded-lg border[^"]*text-sm font-semibold/);
   const summerPickup = parseLondonLocalDateTime("2026-07-15", "16:30");
   const winterPickup = parseLondonLocalDateTime("2026-01-15", "16:30");
   assert.ok(summerPickup && winterPickup);
@@ -797,6 +830,9 @@ console.log("Live driver contact links");
   assert.notEqual(unassigned.heading, DRIVER_CONTACT_UPDATED_HEADING);
   assert.equal(JSON.stringify(publicDriverContactResponse(unassigned)).includes("Priya"), false);
   assert.equal(publicDriverContactResponse(unassigned).phoneDisplay, businessWhatsAppMobileDisplay());
+  assert.equal(publicDriverContactResponse(unassigned).whatsAppLabel, WHATSAPP_COMPANY_LABEL);
+  assert.equal(publicDriverContactResponse(unassigned).callLabel, JOURNEY_CALL_LABEL);
+  assert.equal(publicDriverContactResponse(unassigned).whatsAppNote, WHATSAPP_PREFERRED_NOTE);
 
   const owner = visit({
     assignmentStatus: "accepted",
@@ -807,6 +843,8 @@ console.log("Live driver contact links");
   assert.equal(owner.view, "company");
   assert.equal(JSON.stringify(publicDriverContactResponse(owner)).includes("07700900999"), false);
   assert.equal(publicDriverContactResponse(owner).phoneDisplay, businessWhatsAppMobileDisplay());
+  assert.equal(publicDriverContactResponse(owner).whatsAppLabel, WHATSAPP_COMPANY_LABEL);
+  assert.equal(publicDriverContactResponse(owner).callLabel, JOURNEY_CALL_LABEL);
   const ownerEarly = visit(
     {
       assignmentStatus: "accepted",
@@ -853,6 +891,10 @@ console.log("Live driver contact links");
   assert.equal(unlocked.view, "driver");
   assert.equal(unlocked.driver?.firstName, "Priya");
   assert.equal(unlocked.driver?.mobileDisplay, DRIVER_DISPLAY);
+  assert.equal(publicDriverContactResponse(unlocked).whatsAppLabel, WHATSAPP_DRIVER_LABEL);
+  assert.equal(publicDriverContactResponse(unlocked).callLabel, JOURNEY_CALL_LABEL);
+  assert.equal(publicDriverContactResponse(unlocked).whatsAppNote, WHATSAPP_PREFERRED_NOTE);
+  assert.equal(publicDriverContactResponse(atReminder).whatsAppLabel, WHATSAPP_COMPANY_LABEL);
 
   const expired = visit({}, new Date("2026-07-16T03:30:00.000Z"));
   assert.equal(expired.view, "expired");

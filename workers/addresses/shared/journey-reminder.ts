@@ -45,16 +45,23 @@ export const JOURNEY_REMINDER_SUBJECT = "Your journey reminder — My Airport Ta
 export const JOURNEY_DRIVER_UPDATE_SUBJECT = "Updated driver details — My Airport Taxi NI";
 
 export const JOURNEY_REMINDER_LANDING_HEADING =
-  "IMPORTANT — PLEASE CONTACT YOUR DRIVER WHEN YOU LAND";
+  "IMPORTANT — PLEASE WHATSAPP YOUR DRIVER WHEN YOU LAND";
 
 export const JOURNEY_REMINDER_LANDING_BODY =
-  "Once your flight has landed, please switch on your mobile phone and contact your driver using the contact buttons provided.\n" +
+  "Once your flight has landed, please switch on your mobile phone and WhatsApp your driver.\n" +
   "This helps us coordinate your airport collection.\n" +
-  "Once you’ve collected your luggage and are ready for collection, please update your driver.\n" +
-  "If you’re delayed at passport control or baggage reclaim, please keep your driver informed.";
+  "Once you’ve collected your luggage and are ready for collection, please update your driver on WhatsApp.\n" +
+  "If you’re delayed at passport control or baggage reclaim, please keep your driver informed on WhatsApp.\n" +
+  "If WhatsApp is unavailable, you can call.";
 
 export const JOURNEY_REMINDER_LANDING_BEFORE_UNLOCK =
-  "If you land before your driver’s contact details are available, please contact My Airport Taxi NI using the company WhatsApp and Call Us buttons.";
+  `If you land before your driver’s contact details are available, please WhatsApp ${BUSINESS_NAME}. If WhatsApp is unavailable, you can call.`;
+
+export const WHATSAPP_PREFERRED_NOTE =
+  "WhatsApp is our preferred way to communicate about your journey.";
+export const WHATSAPP_DRIVER_LABEL = "Message Your Driver on WhatsApp";
+export const WHATSAPP_COMPANY_LABEL = `Message ${BUSINESS_NAME} on WhatsApp`;
+export const JOURNEY_CALL_LABEL = "Call";
 
 const REMINDER_AIRPORTS = ["BFS", "BHD", "DUB"] as const;
 type ReminderAirportCode = (typeof REMINDER_AIRPORTS)[number];
@@ -461,10 +468,11 @@ function landingBody(input: JourneyReminderInput): string {
       : null);
   if (usesMeetAndGreet(input, airport)) {
     return (
-      "Once your flight has landed, please switch on your mobile phone and contact your driver using the contact buttons provided.\n" +
+      "Once your flight has landed, please switch on your mobile phone and WhatsApp your driver.\n" +
       "This helps us coordinate your airport collection. Your driver will meet you at the agreed arrivals meeting point with our Meet & Greet service. Please stay there rather than walking to Express Pick-Up.\n" +
-      "Once you’ve collected your luggage and are ready for collection, please update your driver.\n" +
-      "If you’re delayed at passport control or baggage reclaim, please keep your driver informed."
+      "Once you’ve collected your luggage and are ready for collection, please update your driver on WhatsApp.\n" +
+      "If you’re delayed at passport control or baggage reclaim, please keep your driver informed on WhatsApp.\n" +
+      "If WhatsApp is unavailable, you can call."
     );
   }
   return JOURNEY_REMINDER_LANDING_BODY;
@@ -526,7 +534,7 @@ export function buildJourneyReminderMessage(
     ...journeyDetailLines(input),
     "",
     DRIVER_CONTACT_UNLOCK_MESSAGE,
-    "The Message Your Driver and Call Your Driver buttons open a secure page for this booking. From 2 hours before pickup they show the driver assigned at that moment. You do not need another email.",
+    "From 2 hours before pickup, the secure page for this booking shows the driver assigned at that moment. You do not need another email.",
   ];
   if (instructions) {
     lines.push("", collection ? "AIRPORT COLLECTION" : "AIRPORT DROP-OFF", instructions);
@@ -537,25 +545,42 @@ export function buildJourneyReminderMessage(
   const page = journeyReminderContactPageHref(input.driverContactUrl, "message").replace(/[?&]intent=message$/, "");
   const companyContact: JourneyReminderContact = { kind: "company" };
   const companyWhatsApp = journeyReminderWhatsAppHref(journeyReminderWhatsAppDraft(input, companyContact), companyContact);
-  lines.push(
-    "",
-    "Message Your Driver",
-    "Call Your Driver",
-    "",
-    page,
-    "",
-    `You can contact ${BUSINESS_NAME} now on WhatsApp or ${businessWhatsAppMobileDisplay()}.`,
-    "",
-    "Message Us on WhatsApp",
-    "Call Us",
-    "",
-    companyWhatsApp,
-    `tel:${businessWhatsAppMobileTel()}`,
-    "",
-    "We look forward to welcoming you.",
-    "",
-    BUSINESS_NAME,
-  );
+  const companyNow = `You can contact ${BUSINESS_NAME} now on WhatsApp or ${businessWhatsAppMobileDisplay()}.`;
+  if (contact.kind === "driver") {
+    lines.push(
+      "",
+      WHATSAPP_PREFERRED_NOTE,
+      "",
+      WHATSAPP_DRIVER_LABEL,
+      JOURNEY_CALL_LABEL,
+      "",
+      page,
+      "",
+      companyNow,
+      "",
+      WHATSAPP_COMPANY_LABEL,
+      JOURNEY_CALL_LABEL,
+      "",
+      companyWhatsApp,
+      `tel:${businessWhatsAppMobileTel()}`,
+    );
+  } else {
+    lines.push(
+      "",
+      page,
+      "",
+      companyNow,
+      "",
+      WHATSAPP_PREFERRED_NOTE,
+      "",
+      WHATSAPP_COMPANY_LABEL,
+      JOURNEY_CALL_LABEL,
+      "",
+      companyWhatsApp,
+      `tel:${businessWhatsAppMobileTel()}`,
+    );
+  }
+  lines.push("", "We look forward to welcoming you.", "", BUSINESS_NAME);
   return lines.join("\n");
 }
 
@@ -567,12 +592,21 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function button(href: string, label: string, background: string, color: string): string {
+function whatsAppButton(href: string, label: string, prominent: boolean): string {
   const safeHref = escapeHtml(href);
   const safeLabel = escapeHtml(label);
-  return `<div style="margin:0 0 16px;">
-<a href="${safeHref}" style="display:block;background:${background};color:${color};text-decoration:none;font-size:18px;font-weight:bold;line-height:1.3;padding:18px 22px;border-radius:10px;text-align:center;">${safeLabel}</a>
+  const size = prominent ? "font-size:20px;padding:20px 24px;" : "font-size:16px;padding:14px 18px;";
+  return `<div style="margin:0 0 10px;">
+<a href="${safeHref}" style="display:block;background:#25D366;color:#ffffff;text-decoration:none;${size}font-weight:bold;line-height:1.3;border-radius:10px;text-align:center;">${safeLabel}</a>
 <p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:#64748b;">If the button does not open, use this link:<br /><a href="${safeHref}" style="color:#071c38;word-break:break-all;">${safeHref}</a></p>
+</div>`;
+}
+
+function callButton(href: string): string {
+  const safeHref = escapeHtml(href);
+  return `<div style="margin:0 0 18px;text-align:center;">
+<a href="${safeHref}" style="display:inline-block;background:#ffffff;color:#071c38;text-decoration:none;font-size:14px;font-weight:bold;line-height:1.3;padding:8px 16px;border-radius:8px;border:1px solid #94a3b8;text-align:center;">${JOURNEY_CALL_LABEL}</a>
+<p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:#64748b;">If the button does not open, use this link:<br /><a href="${safeHref}" style="color:#071c38;word-break:break-all;">${safeHref}</a></p>
 </div>`;
 }
 
@@ -596,17 +630,25 @@ export function buildJourneyReminderHtml(
     .map((paragraph) => {
       if (paragraph.startsWith("https://") && paragraph.includes("/driver-contact")) return "";
       if (paragraph.startsWith("https://wa.me/") || paragraph.startsWith("tel:")) return "";
-      if (paragraph.startsWith("Message Your Driver")) {
-        return (
-          button(messageHref, "Message Your Driver", "#25D366", "#ffffff") +
-          button(callHref, "Call Your Driver", "#071c38", "#ffffff")
-        );
+      if (paragraph === WHATSAPP_PREFERRED_NOTE) {
+        return `<p style="margin:0 0 12px;font-size:15px;line-height:1.5;color:#071c38;font-weight:bold;">${escapeHtml(paragraph)}</p>`;
       }
-      if (paragraph.startsWith("Message Us on WhatsApp")) {
-        return (
-          button(companyWhatsApp, "Message Us on WhatsApp", "#25D366", "#ffffff") +
-          button(companyTel, "Call Us", "#071c38", "#ffffff")
+      if (paragraph.startsWith(WHATSAPP_DRIVER_LABEL)) {
+        return whatsAppButton(messageHref, WHATSAPP_DRIVER_LABEL, true) + callButton(callHref);
+      }
+      if (paragraph.startsWith(WHATSAPP_COMPANY_LABEL)) {
+        const prominent = !message.includes(WHATSAPP_DRIVER_LABEL);
+        const callPage = message.includes(WHATSAPP_DRIVER_LABEL)
+          ? ""
+          : `<p style="margin:-6px 0 18px;text-align:center;font-size:13px;line-height:1.5;"><a href="${escapeHtml(callHref)}" style="color:#071c38;">Open the contact page to call</a></p>`;
+        return whatsAppButton(companyWhatsApp, WHATSAPP_COMPANY_LABEL, prominent) + callButton(companyTel) + callPage;
+      }
+      if (paragraph.includes("the secure page for this booking")) {
+        const linked = escapeHtml(paragraph).replace(
+          "secure page",
+          `<a href="${escapeHtml(messageHref)}" style="color:#071c38;font-weight:bold;">secure page</a>`,
         );
+        return `<p style="margin:0 0 16px;">${linked}</p>`;
       }
       if (
         paragraph === "AIRPORT COLLECTION" ||
@@ -616,7 +658,7 @@ export function buildJourneyReminderHtml(
         paragraph === JOURNEY_REMINDER_LANDING_HEADING
       ) {
         const landing = paragraph === JOURNEY_REMINDER_LANDING_HEADING;
-        return `<p style="margin:20px 0 8px;font-size:${landing ? "16px" : "13px"};letter-spacing:${landing ? "0" : "0.06em"};font-weight:bold;color:${landing ? "#9a3412" : "#071c38"};">${escapeHtml(paragraph)}</p>`;
+        return `<p style="margin:20px 0 8px;font-size:${landing ? "18px" : "13px"};letter-spacing:${landing ? "0" : "0.06em"};font-weight:bold;color:${landing ? "#9a3412" : "#071c38"};">${escapeHtml(paragraph)}</p>`;
       }
       let safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
       const companyMobile = businessWhatsAppMobileDisplay();

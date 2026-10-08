@@ -14,6 +14,10 @@ import {
 } from "./business-email";
 import {
   DRIVER_CONTACT_UNLOCK_MESSAGE,
+  JOURNEY_CALL_LABEL,
+  WHATSAPP_COMPANY_LABEL,
+  WHATSAPP_DRIVER_LABEL,
+  WHATSAPP_PREFERRED_NOTE,
   driverContactDetailsUnlocked,
   isJourneyReminderCancelled,
   isOwnerDriverName,
@@ -92,6 +96,7 @@ export type DriverContactPublicResponse = {
   phoneDisplay?: string;
   whatsAppLabel?: string;
   callLabel?: string;
+  whatsAppNote?: string;
 };
 
 export function generateDriverContactToken(bytes = DRIVER_CONTACT_TOKEN_BYTES): string {
@@ -211,7 +216,7 @@ export function evaluateDriverContactVisit(
       ok: true,
       view: "company",
       heading: `Contact ${BUSINESS_NAME}`,
-      message: `Please message or call ${BUSINESS_NAME} and we will help with this journey.`,
+      message: `Please WhatsApp ${BUSINESS_NAME} and we will help with this journey. You can call if WhatsApp is unavailable.`,
       company: companyTarget(input),
     };
   }
@@ -243,7 +248,7 @@ export function evaluateDriverContactVisit(
       ok: true,
       view: "driver",
       heading: "Your driver",
-      message: `Message or call ${contact.firstName} about this journey.`,
+      message: `WhatsApp ${contact.firstName} about this journey. You can call if WhatsApp is unavailable.`,
       driver: {
         firstName: contact.firstName,
         mobileDisplay: contact.mobileDisplay,
@@ -259,7 +264,7 @@ export function evaluateDriverContactVisit(
       ok: true,
       view: "updated",
       heading: DRIVER_CONTACT_UPDATED_HEADING,
-      message: `${DRIVER_CONTACT_UPDATED_HEADING}. Please use our WhatsApp and business mobile below.`,
+      message: `${DRIVER_CONTACT_UPDATED_HEADING}. Please WhatsApp ${BUSINESS_NAME} below. You can call if WhatsApp is unavailable.`,
       company: companyTarget(input),
     };
   }
@@ -271,7 +276,7 @@ export function evaluateDriverContactVisit(
       ok: true,
       view: "too_early",
       heading: DRIVER_CONTACT_UNLOCK_MESSAGE,
-      message: `${DRIVER_CONTACT_UNLOCK_MESSAGE} Until then, message or call ${BUSINESS_NAME} on WhatsApp or ${businessWhatsAppMobileDisplay()}. Reopen or refresh this page to check again. It does not update on its own.`,
+      message: `${DRIVER_CONTACT_UNLOCK_MESSAGE} Until then, WhatsApp ${BUSINESS_NAME}. You can call if WhatsApp is unavailable. Reopen or refresh this page to check again. It does not update on its own.`,
       company: companyTarget(input),
     };
   }
@@ -280,7 +285,7 @@ export function evaluateDriverContactVisit(
     ok: true,
     view: "company",
     heading: `Contact ${BUSINESS_NAME}`,
-    message: `Message or call ${BUSINESS_NAME} on WhatsApp or ${businessWhatsAppMobileDisplay()}.`,
+    message: `WhatsApp ${BUSINESS_NAME} about this journey. You can call if WhatsApp is unavailable.`,
     company: companyTarget(input),
   };
 }
@@ -298,16 +303,18 @@ export function publicDriverContactResponse(visit: DriverContactVisit): DriverCo
       ...base,
       driverFirstName: visit.driver.firstName,
       mobileDisplay: visit.driver.mobileDisplay,
-      whatsAppLabel: "Message Your Driver",
-      callLabel: "Call Your Driver",
+      whatsAppLabel: WHATSAPP_DRIVER_LABEL,
+      callLabel: JOURNEY_CALL_LABEL,
+      whatsAppNote: WHATSAPP_PREFERRED_NOTE,
     };
   }
   if (visit.company && visit.view !== "invalid" && visit.view !== "rate_limited") {
     return {
       ...base,
       phoneDisplay: visit.company.phoneDisplay,
-      whatsAppLabel: "Message Us on WhatsApp",
-      callLabel: "Call Us",
+      whatsAppLabel: WHATSAPP_COMPANY_LABEL,
+      callLabel: JOURNEY_CALL_LABEL,
+      whatsAppNote: WHATSAPP_PREFERRED_NOTE,
     };
   }
   return base;

@@ -353,13 +353,16 @@ console.log("Airport collection, drop-off, and owner wording");
     }),
   );
   assert.match(bfs.text, /STAGING EXPRESS COLLECTION POINT/);
-  assert.match(bfs.text, /IMPORTANT — PLEASE CONTACT YOUR DRIVER WHEN YOU LAND/);
+  assert.match(bfs.text, /IMPORTANT — PLEASE WHATSAPP YOUR DRIVER WHEN YOU LAND/);
+  assert.match(bfs.text, /WhatsApp your driver/);
+  assert.match(bfs.text, /If WhatsApp is unavailable, you can call/);
   assert.match(bfs.text, /If you land before your driver’s contact details are available/);
   assert.match(bfs.text, /EZY123/);
-  assert.match(bfs.html, />Message Your Driver</);
-  assert.match(bfs.html, />Call Your Driver</);
-  assert.match(bfs.html, />Message Us on WhatsApp</);
-  assert.match(bfs.html, />Call Us</);
+  assert.match(bfs.html, />Message My Airport Taxi NI on WhatsApp</);
+  assert.match(bfs.html, />Call</);
+  assert.match(bfs.html, /WhatsApp is our preferred way to communicate about your journey/);
+  assert.doesNotMatch(bfs.html, />Call Us</);
+  assert.doesNotMatch(bfs.html, />Call Your Driver</);
   assert.match(bfs.html, new RegExp(`wa\\.me/${BUSINESS_WHATSAPP_DIGITS}`));
   assert.match(bfs.html, new RegExp(`tel:${businessWhatsAppMobileTel().replace("+", "\\+")}`));
   assert.equal(bfs.html.includes(BUSINESS_PHONE_DISPLAY), false);
@@ -472,7 +475,7 @@ console.log("Airport collection, drop-off, and owner wording");
     }),
   );
   assert.match(drop.text, /Express Drop-Off/);
-  assert.doesNotMatch(drop.text, /IMPORTANT — PLEASE CONTACT YOUR DRIVER WHEN YOU LAND/);
+  assert.doesNotMatch(drop.text, /IMPORTANT — PLEASE WHATSAPP YOUR DRIVER WHEN YOU LAND/);
   console.log("OK  airport wording, Meet & Greet, drop-off, and owner save without deploy");
 }
 
