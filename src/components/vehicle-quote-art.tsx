@@ -42,7 +42,7 @@ export function VehicleQuoteArt({
 }) {
   const frame =
     size === "option"
-      ? "relative -ml-1 h-[3.35rem] w-[3.1rem] shrink-0"
+      ? "relative h-[3.35rem] w-[6.4rem] shrink-0"
       : "relative mx-auto h-[3.3rem] w-full max-w-[11.5rem]";
   return (
     <span
