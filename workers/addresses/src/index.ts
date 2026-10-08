@@ -5450,7 +5450,7 @@ export default {
     );
 
     // Saved Quote follow-ups: ~24h reminder, ~day-5 final reminder, expire open quotes.
-    // Re-checks status before every send; idempotent via sent-at timestamps.
+    // Re-checks saved-quote status and the latest paid booking before every send.
     if (env.TRACKING_STORE) {
       ctx.waitUntil(
         processDueReturnOffers({ ...env, TRACKING_STORE: env.TRACKING_STORE }).then((result) => {

@@ -30,7 +30,7 @@ import { gateShortNoticePaidCheckout, markShortNoticePaid } from "./short-notice
 import { markA2aQuotePaid } from "./a2a-quote-handlers";
 import { markPersonalQuoteUsed } from "./personal-quote-store";
 import { markQuickQuotePaid } from "./quick-quote-store";
-import { markSavedQuoteBookedFromPayment } from "./saved-quote-handlers";
+import { suppressSavedQuoteRemindersForBooking } from "./saved-quote-handlers";
 import { getSavedQuoteByToken } from "./saved-quote-store";
 import { persistableLegFares } from "../shared/owner-dashboard-ops";
 import {
@@ -697,12 +697,6 @@ export async function finalizePaidCheckout(input: {
     if (pending?.quickQuoteId) {
       await markQuickQuotePaid(env.TRACKING_STORE, pending.quickQuoteId, paymentReference);
     }
-    if (pending?.savedQuoteToken) {
-      await markSavedQuoteBookedFromPayment(env.TRACKING_STORE, pending.savedQuoteToken, {
-        paymentReference,
-        checkoutId,
-      });
-    }
     if (pending?.returnOfferToken && pending.returnOfferOriginalPaymentReference) {
       const tokenHash = await hashReturnOfferToken(pending.returnOfferToken);
       const offer = await getReturnOfferByTokenHash(env.TRACKING_STORE, tokenHash);
@@ -713,6 +707,35 @@ export async function finalizePaidCheckout(input: {
           paymentReference,
         );
       }
+    }
+  }
+
+  // Stop saved-quote reminders only after the booking is confirmed and paid.
+  // Linked token plus any other open quote for the same journey. A failed
+  // checkout returns before this point and does not mark quotes booked.
+  if (env.TRACKING_STORE) {
+    try {
+      const pendingForQuote = pendingCheckoutStoreConfigured(env.TRACKING_STORE)
+        ? (pendingForAudit ?? (await getPendingCheckout(env.TRACKING_STORE, checkoutId)))
+        : pendingForAudit;
+      await suppressSavedQuoteRemindersForBooking(env.TRACKING_STORE, {
+        savedQuoteToken: pendingForQuote?.savedQuoteToken,
+        paymentReference,
+        checkoutId,
+        match: {
+          customerEmail: bookingForSave.customerEmail,
+          pickupLabel: bookingForSave.pickupLabel,
+          dropoffLabel: bookingForSave.dropoffLabel,
+          tripDate: bookingForSave.tripDate,
+          tripTime: bookingForSave.tripTime,
+          returnJourney: Boolean(bookingForSave.returnJourney),
+          returnDate: bookingForSave.returnDate,
+          returnTime: bookingForSave.returnTime,
+          isFromAirport: bookingForSave.isFromAirport,
+        },
+      });
+    } catch (error) {
+      console.error("Saved quote reminder suppression after payment failed", error);
     }
   }
 

@@ -163,7 +163,9 @@ export async function patchSavedQuoteEmailTimestamps(
 ): Promise<SavedQuoteRecord | null> {
   const record = await getSavedQuoteByToken(store, token);
   if (!record) return null;
-  const updated: SavedQuoteRecord = { ...record, ...patch };
+  // A converted quote must stay converted. A reminder claim must not write status back to "saved".
+  if (record.status === "booked") return record;
+  const updated: SavedQuoteRecord = { ...record, ...patch, status: record.status };
   await saveSavedQuoteRecord(store, updated);
   return updated;
 }
@@ -234,7 +236,7 @@ export async function clearSavedQuoteReminderClaim(
   claimId: string,
 ): Promise<void> {
   const record = await getSavedQuoteByToken(store, token);
-  if (!record) return;
+  if (!record || record.status === "booked") return;
   if (kind === "first") {
     if (record.firstReminderClaimId !== claimId || record.firstReminderSentAt) return;
     await saveSavedQuoteRecord(store, {

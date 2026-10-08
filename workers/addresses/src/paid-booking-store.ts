@@ -176,6 +176,27 @@ export async function getPaidBookingRecord(
   return record;
 }
 
+/** Bookings indexed on one journey date. No horizon filter — reminder checks need the latest row. */
+export async function listPaidBookingsForTripDay(
+  store: KVNamespace,
+  tripDay: string,
+): Promise<PaidBookingRecord[]> {
+  const day = tripDay.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return [];
+  const ids = await store.get<string[]>(paidBookingTripDayIndexKey(day), "json");
+  if (!Array.isArray(ids)) return [];
+  const records: PaidBookingRecord[] = [];
+  const seen = new Set<string>();
+  for (const id of ids) {
+    const paymentReference = String(id ?? "").trim();
+    if (!paymentReference || seen.has(paymentReference)) continue;
+    seen.add(paymentReference);
+    const record = await getPaidBookingRecord(store, paymentReference);
+    if (record) records.push(record);
+  }
+  return records;
+}
+
 export async function getPaidBookingRecordByCustomerReference(
   store: KVNamespace,
   customerReference: string,
