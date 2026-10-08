@@ -76,9 +76,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "Belfast International",
     title: "Belfast International Airport Taxi & Transfers",
     metaDescription:
-      "Pre-book fixed-price Belfast International (BFS) transfers, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.",
+      "Book a Belfast International Airport taxi to or from Belfast and nearby towns. Get a fixed-price online quote with airport access charges included.",
     intro:
-      `Belfast International (Aldergrove) is Northern Ireland’s main long-haul and holiday airport. We provide door-to-door private transfers across Greater Belfast and beyond. ${FLIGHT_MONITORING_SHORT}`,
+      `Book a Belfast International Airport taxi for a departure or an arrival at Aldergrove (BFS). We collect from homes and hotels in Belfast, Newtownabbey, Lisburn and the surrounding towns, and provide airport pickups for the journey home. Enter your addresses, travel date, passengers and suitcases for a fixed-price online quote with applicable airport access charges included. Choose a car or 7 Seater Minibus when available. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
       "Fixed online prices for cars and 7 Seater Minibus when available",
       "Up to 60 minutes complimentary waiting time on airport pickups",
@@ -90,6 +90,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "For departures, allow extra time for the M2/M22 corridor in peak morning traffic — we’ll quote a pickup time that suits your flight.",
       "Arrivals pickups use the airport’s designated private-hire meeting points; share your flight number so we can track landing time.",
       "Spacious private transfers are ideal for family holidays with multiple large suitcases from BFS.",
+      "For an airport collection, select From an Airport in the quote form and enter your destination. Include your flight number when completing the booking.",
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 30 minutes from Belfast city centre in normal traffic",
@@ -125,9 +126,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     shortName: "Belfast City Airport",
     title: "Belfast City Airport Taxi & Transfers",
     metaDescription:
-      "Book a Belfast City Airport taxi. Fixed-price transfers from the city and nearby towns, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.",
+      "Book a Belfast City Airport taxi to or from Belfast, Holywood and nearby towns. Get a fixed-price online quote with airport access charges included.",
     intro:
-      "George Best Belfast City Airport is the city airport beside the Titanic Quarter and the city centre, used mainly for short-haul and business flights. This page covers Belfast City Airport taxis and transfers from Belfast and the surrounding towns we serve. The Sydenham Bypass and the airport approach are the usual roads. Open the Belfast route below when the pickup is in the city, or choose another town for that quote.",
+      `Book a taxi to or from George Best Belfast City Airport (BHD), close to Belfast city centre and the Titanic Quarter. We collect from homes and hotels in Belfast, Holywood, Bangor, Lisburn and the surrounding towns, with airport pickups for returning travellers. Enter your journey details for a fixed-price online quote with applicable airport access charges included. The Sydenham Bypass is the usual airport approach, so allow extra time during peak traffic. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
       "Short transfer times from Belfast city centre, Holywood, and Bangor",
       "Up to 60 minutes complimentary waiting time on airport pickups",
@@ -139,6 +140,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "City Airport security queues are usually shorter than Aldergrove, but still allow buffer for morning business flights.",
       "Hotel pickups in the Titanic Quarter and Cathedral Quarter are a frequent route for us.",
       "If you have a connecting flight from BHD, tell us your departure time and we’ll plan the drop-off window carefully.",
+      "For an airport collection, select From an Airport in the quote form and enter your destination. Include your flight number when completing the booking.",
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 15 minutes from Belfast city centre in normal traffic",
