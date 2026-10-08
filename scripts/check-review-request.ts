@@ -182,7 +182,9 @@ console.log("\n=== 6. Customer first name populated safely ===");
   assert.match(email.html, /Kind regards/);
   assert.doesNotMatch(email.html, /\bColin\b/);
   assert.doesNotMatch(email.text, /\bColin\b/);
-  assert.match(email.html, /google-business-logo\.png/);
+  assert.match(email.html, /https:\/\/www\.myairporttaxini\.co\.uk\/logo-email\.png/);
+  assert.match(email.html, /alt="My Airport Taxi NI"/);
+  assert.equal(email.html.match(/logo-email\.png/g)?.length, 1);
   assert.match(email.html, /#071c38|#2fbf4a/i);
   console.log("OK  first name + subject + business sign-off (no personal name)");
 }

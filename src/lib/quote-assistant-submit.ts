@@ -19,6 +19,7 @@ import {
 import { buildBookingMessage, buildEnquiryBookingMessage } from "@/lib/booking-message";
 import { parseAmountValue } from "@/lib/finalize-paid-booking";
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
+import { businessEmailClientMeta, businessEmailLogoHtml } from "../../shared/business-email";
 import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import {
@@ -30,7 +31,7 @@ import { CANCELLATION_POLICY_VERSION } from "../../shared/refund-ops";
 const WEB3FORMS_ACCESS_KEY =
   process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY?.trim() ?? "";
 
-function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: string; html: string } {
+export function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: string; html: string } {
   const airportName =
     AIRPORTS.find((airport) => airport.code === draft.airportCode)?.name ?? draft.airportCode;
   const direction =
@@ -76,21 +77,40 @@ function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; text: s
           .join("")}</ul>`
       : `<p style="margin:0 0 16px">${inclusions.summary}</p>`;
 
-  const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0b1b33">
-      <h2 style="margin:0 0 12px">Your ${SITE.name} quote</h2>
-      <p style="font-size:28px;font-weight:700;margin:0 0 16px">${price}</p>
-      <p style="margin:0 0 8px"><strong>Trip:</strong> ${direction}</p>
-      <p style="margin:0 0 8px"><strong>Address:</strong> ${draft.address}</p>
-      <p style="margin:0 0 8px"><strong>Journey:</strong> ${returnLine}</p>
-      <p style="margin:0 0 8px"><strong>Vehicle:</strong> ${vehicle}</p>
-      <p style="margin:0 0 8px"><strong>Passengers:</strong> ${draft.passengers ?? "—"}</p>
-      <p style="margin:0 0 16px"><strong>Suitcases:</strong> ${draft.suitcases ?? "—"}</p>
-      ${includeHtml}
-      <p style="margin:0 0 8px"><a href="${SITE.url}">Book online</a></p>
-      <p style="margin:0">WhatsApp @${SITE.whatsappUsername} · ${SITE.landlineDisplay} · ${SITE.email}</p>
-    </div>
-  `.trim();
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${businessEmailClientMeta()}
+  <title>Your ${SITE.name} quote</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#0b1b33;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
+        <tr><td class="matni-header" bgcolor="#071c38" style="background:#071c38;padding:24px 20px;text-align:center;">
+          ${businessEmailLogoHtml()}
+          <div style="margin-top:12px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#2fbf4a;font-weight:bold;">${SITE.name}</div>
+        </td></tr>
+        <tr><td style="padding:24px 20px;line-height:1.5;">
+          <h2 style="margin:0 0 12px">Your ${SITE.name} quote</h2>
+          <p style="font-size:28px;font-weight:700;margin:0 0 16px">${price}</p>
+          <p style="margin:0 0 8px"><strong>Trip:</strong> ${direction}</p>
+          <p style="margin:0 0 8px"><strong>Address:</strong> ${draft.address}</p>
+          <p style="margin:0 0 8px"><strong>Journey:</strong> ${returnLine}</p>
+          <p style="margin:0 0 8px"><strong>Vehicle:</strong> ${vehicle}</p>
+          <p style="margin:0 0 8px"><strong>Passengers:</strong> ${draft.passengers ?? "—"}</p>
+          <p style="margin:0 0 16px"><strong>Suitcases:</strong> ${draft.suitcases ?? "—"}</p>
+          ${includeHtml}
+          <p style="margin:0 0 8px"><a href="${SITE.url}">Book online</a></p>
+          <p style="margin:0">WhatsApp @${SITE.whatsappUsername} · ${SITE.landlineDisplay} · ${SITE.email}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
   return {
     subject: `Your quote — ${price} — ${SITE.name}`,
