@@ -193,6 +193,40 @@ export type TrackingJobRecord = {
   journeyDriverUpdateSentAt?: string;
   journeyDriverUpdateClaimId?: string;
   journeyDriverUpdateClaimedAt?: string;
+  /**
+   * Increments on every assign, accept, decline, and de-assign.
+   * A queued driver email must still match this value at dispatch.
+   */
+  assignmentVersion?: number;
+  assignmentAudit?: AssignmentAuditEntry[];
+  driverNotificationAudit?: DriverNotificationAuditEntry[];
+  /** `${assignmentVersion}:${email}` once that accepted driver was emailed for this leg. */
+  journeyDriverNoticeSentFor?: string;
+  journeyDriverNoticeClaimId?: string;
+  journeyDriverNoticeClaimedAt?: string;
+};
+
+export type AssignmentAuditEntry = {
+  at: string;
+  action: "assigned" | "accepted" | "declined" | "deassigned";
+  assignmentVersion: number;
+  driverName?: string;
+  driverEmail?: string;
+  profileKey?: string;
+};
+
+export type DriverNotificationAuditEntry = {
+  at: string;
+  kind:
+    | "customer_journey_reminder"
+    | "customer_driver_update"
+    | "driver_journey_reminder"
+    | "driver_assignment_invite";
+  outcome: "sent" | "suppressed";
+  reason?: string;
+  assignmentVersion: number;
+  driverName?: string;
+  driverEmail?: string;
 };
 
 export type DriverLocationPoint = {

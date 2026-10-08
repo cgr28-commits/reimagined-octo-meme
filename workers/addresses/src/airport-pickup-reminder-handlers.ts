@@ -3,7 +3,19 @@
  * Resend email only. WhatsApp and phone links are for the customer to open.
  */
 
-import { beginJourneyReminderClaim, evaluateJourneyReminder, type JourneyReminderInput } from "../shared/journey-reminder";
+import {
+  buildDriverJourneyNoticeEmail,
+  customerDriverStillCurrent,
+  driverDispatchDecision,
+  driverJourneyNoticeRecipient,
+  noteDriverNotification,
+} from "../shared/driver-notification-safety";
+import {
+  beginJourneyReminderClaim,
+  evaluateJourneyReminder,
+  journeyReminderFirstName,
+  type JourneyReminderInput,
+} from "../shared/journey-reminder";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import type { TrackingJobRecord } from "../shared/tracking";
 import { getJourneyReminderAirportCopy } from "./journey-reminder-store";
@@ -15,7 +27,7 @@ import {
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
-import { trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import { trySendEmail, trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -164,7 +176,14 @@ async function maybeSendAirportPickupReminder(
     { ...airportPickupReminderInput(job, paid), airportCopy },
     now,
   );
-  if (!first.eligible) return "not_eligible";
+  if (!first.eligible) {
+    if (first.reason === "already_sent") {
+      await maybeSendAcceptedDriverNotice(env, job, now).catch((error) => {
+        console.error("Accepted driver journey notice failed", error);
+      });
+    }
+    return "not_eligible";
+  }
 
   const updateAlreadySent =
     first.kind === "driver_update" && job.journeyDriverUpdateSentForKey === first.driverKey;
@@ -212,48 +231,168 @@ async function maybeSendAirportPickupReminder(
   );
   if (!decision.eligible || decision.kind !== first.kind || decision.pickupKey !== first.pickupKey) {
     clearClaim(fresh, first.kind, claim.claimId);
+    noteDriverNotification(fresh, {
+      at: now.toISOString(),
+      kind: first.kind === "driver_update" ? "customer_driver_update" : "customer_journey_reminder",
+      outcome: "suppressed",
+      reason: "assignment_changed_before_dispatch",
+    });
     await saveTrackingJob(store, fresh);
     return "eligible_skipped";
   }
 
-  const email = (fresh.customerEmail || freshPaid?.customerEmail || "").trim();
-  const name = (fresh.customerName || freshPaid?.customerName || email).trim();
+  const latest = await getTrackingJob(store, fresh.token);
+  const latestPaid = paymentReference ? await getPaidBookingRecord(store, paymentReference) : freshPaid;
+  const latestInput = { ...airportPickupReminderInput(latest ?? fresh, latestPaid), airportCopy };
+  const latestDecision = evaluateJourneyReminder(latestInput, now);
+  if (
+    !latest ||
+    !latestDecision.eligible ||
+    latestDecision.kind !== decision.kind ||
+    latestDecision.pickupKey !== decision.pickupKey ||
+    !customerDriverStillCurrent(latestDecision.driverKey, latestInput)
+  ) {
+    clearClaim(latest ?? fresh, first.kind, claim.claimId);
+    noteDriverNotification(latest ?? fresh, {
+      at: now.toISOString(),
+      kind: first.kind === "driver_update" ? "customer_driver_update" : "customer_journey_reminder",
+      outcome: "suppressed",
+      reason: "stale_assignment",
+    });
+    await saveTrackingJob(store, latest ?? fresh);
+    return "eligible_skipped";
+  }
+
+  const email = (latest.customerEmail || latestPaid?.customerEmail || "").trim();
+  const name = (latest.customerName || latestPaid?.customerName || email).trim();
   const sendResult = await trySendResendOnlyCustomerEmail(env, {
     to: email,
     toName: name,
-    subject: decision.subject,
-    body: decision.text,
-    htmlBody: decision.html,
+    subject: latestDecision.subject,
+    body: latestDecision.text,
+    htmlBody: latestDecision.html,
   });
 
   if (!sendResult.sent || sendResult.provider !== "resend") {
-    clearClaim(fresh, decision.kind, claim.claimId);
-    fresh.airportPickupReminderFailedAt = new Date().toISOString();
-    fresh.airportPickupReminderLastError = sendResult.error || "Journey reminder email failed";
-    await saveTrackingJob(store, fresh);
-    console.error("Journey reminder email failed", fresh.airportPickupReminderLastError, fresh.token);
+    clearClaim(latest, latestDecision.kind, claim.claimId);
+    latest.airportPickupReminderFailedAt = new Date().toISOString();
+    latest.airportPickupReminderLastError = sendResult.error || "Journey reminder email failed";
+    await saveTrackingJob(store, latest);
+    console.error("Journey reminder email failed", latest.airportPickupReminderLastError, latest.token);
     return "eligible_error";
   }
 
   const sentAt = new Date().toISOString();
-  if (decision.kind === "driver_update") {
-    fresh.journeyDriverUpdateSentForKey = decision.driverKey;
-    fresh.journeyDriverUpdateSentAt = sentAt;
-    fresh.journeyReminderDriverKey = decision.driverKey;
-    delete fresh.journeyDriverUpdateClaimId;
-    delete fresh.journeyDriverUpdateClaimedAt;
+  if (latestDecision.kind === "driver_update") {
+    latest.journeyDriverUpdateSentForKey = latestDecision.driverKey;
+    latest.journeyDriverUpdateSentAt = sentAt;
+    latest.journeyReminderDriverKey = latestDecision.driverKey;
+    delete latest.journeyDriverUpdateClaimId;
+    delete latest.journeyDriverUpdateClaimedAt;
   } else {
-    fresh.airportCollectionInfoSentAt = sentAt;
-    fresh.airportPickupReminderSentAt = sentAt;
-    fresh.journeyReminderSentForPickupAt = decision.pickupKey;
-    fresh.journeyReminderDriverKey = decision.driverKey;
-    delete fresh.journeyReminderClaimId;
-    delete fresh.journeyReminderClaimedAt;
+    latest.airportCollectionInfoSentAt = sentAt;
+    latest.airportPickupReminderSentAt = sentAt;
+    latest.journeyReminderSentForPickupAt = latestDecision.pickupKey;
+    latest.journeyReminderDriverKey = latestDecision.driverKey;
+    delete latest.journeyReminderClaimId;
+    delete latest.journeyReminderClaimedAt;
   }
-  delete fresh.airportPickupReminderFailedAt;
-  delete fresh.airportPickupReminderLastError;
-  await saveTrackingJob(store, fresh);
+  delete latest.airportPickupReminderFailedAt;
+  delete latest.airportPickupReminderLastError;
+  noteDriverNotification(latest, {
+    at: sentAt,
+    kind: latestDecision.kind === "driver_update" ? "customer_driver_update" : "customer_journey_reminder",
+    outcome: "sent",
+    driverName: latestDecision.contact.kind === "driver" ? latestDecision.contact.firstName : undefined,
+  });
+  await saveTrackingJob(store, latest);
+  await maybeSendAcceptedDriverNotice(env, latest, now).catch((error) => {
+    console.error("Accepted driver journey notice failed", error);
+  });
   return "sent";
+}
+
+async function maybeSendAcceptedDriverNotice(env: Env, job: TrackingJobRecord, now: Date): Promise<void> {
+  if (!trackingStoreConfigured(env.TRACKING_STORE)) return;
+  const store = env.TRACKING_STORE;
+  const recipient = driverJourneyNoticeRecipient(job);
+  if (!recipient.allow) return;
+
+  const claim = beginJourneyReminderClaim(
+    { claimId: job.journeyDriverNoticeClaimId, claimedAt: job.journeyDriverNoticeClaimedAt },
+    now,
+  );
+  if (!claim.ok) return;
+  job.journeyDriverNoticeClaimId = claim.claimId;
+  job.journeyDriverNoticeClaimedAt = now.toISOString();
+  await saveTrackingJob(store, job);
+
+  const fresh = await getTrackingJob(store, job.token);
+  if (!fresh || fresh.journeyDriverNoticeClaimId !== claim.claimId) return;
+  const again = driverJourneyNoticeRecipient(fresh);
+  const gate = driverDispatchDecision(fresh, {
+    kind: "journey_reminder",
+    assignmentVersion: recipient.assignmentVersion,
+    driverEmail: recipient.email,
+  });
+  if (!again.allow || !gate.allow || again.email !== recipient.email) {
+    delete fresh.journeyDriverNoticeClaimId;
+    delete fresh.journeyDriverNoticeClaimedAt;
+    noteDriverNotification(fresh, {
+      at: now.toISOString(),
+      kind: "driver_journey_reminder",
+      outcome: "suppressed",
+      reason: gate.allow ? "stale_assignment" : gate.reason,
+      driverEmail: recipient.email,
+      driverName: recipient.name,
+    });
+    await saveTrackingJob(store, fresh);
+    return;
+  }
+
+  const paymentReference = fresh.paymentReference?.trim() ?? "";
+  const paid = paymentReference ? await getPaidBookingRecord(store, paymentReference) : null;
+  const input = airportPickupReminderInput(fresh, paid);
+  const notice = buildDriverJourneyNoticeEmail({
+    driverName: again.name,
+    pickupLabel: String(input.pickupLabel ?? ""),
+    dropoffLabel: String(input.dropoffLabel ?? ""),
+    tripDate: String(input.tripDate ?? ""),
+    tripTime: String(input.tripTime ?? ""),
+    flightNumber: input.flightNumber,
+    customerFirstName: journeyReminderFirstName(input.customerName),
+  });
+  const sendResult = await trySendEmail(env, {
+    to: again.email,
+    toName: again.name,
+    subject: notice.subject,
+    body: notice.text,
+    htmlBody: notice.html,
+    requireHtml: true,
+  });
+  delete fresh.journeyDriverNoticeClaimId;
+  delete fresh.journeyDriverNoticeClaimedAt;
+  if (!sendResult.sent) {
+    noteDriverNotification(fresh, {
+      at: now.toISOString(),
+      kind: "driver_journey_reminder",
+      outcome: "suppressed",
+      reason: sendResult.error || "send_failed",
+      driverEmail: again.email,
+      driverName: again.name,
+    });
+    await saveTrackingJob(store, fresh);
+    return;
+  }
+  fresh.journeyDriverNoticeSentFor = again.sentKey;
+  noteDriverNotification(fresh, {
+    at: now.toISOString(),
+    kind: "driver_journey_reminder",
+    outcome: "sent",
+    driverEmail: again.email,
+    driverName: again.name,
+  });
+  await saveTrackingJob(store, fresh);
 }
 
 function clearClaim(job: TrackingJobRecord, kind: "reminder" | "driver_update", claimId: string): void {

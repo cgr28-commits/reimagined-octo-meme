@@ -513,7 +513,9 @@ export function buildJourneyReminderMessage(
     greeting(input),
     "",
     kind === "driver_update"
-      ? "Updated Driver Details\n\nYour driver for this journey has changed. Please use the contact details below from now on."
+      ? contact.kind === "driver"
+        ? "Updated Driver Details\n\nYour driver for this journey has changed. Please use the contact details below from now on."
+        : "Updated contact details\n\nPlease use our WhatsApp and business line below for this journey. A previous driver’s details are no longer the ones to use."
       : `Your ${BUSINESS_NAME} pickup is coming up. The time below is the booked pickup time. This note is prepared about two hours beforehand; if it reaches you a little later, please use that booked time.`,
     "",
     ...journeyDetailLines(input),
@@ -573,6 +575,7 @@ export function buildJourneyReminderHtml(
         paragraph === "AIRPORT COLLECTION" ||
         paragraph === "AIRPORT DROP-OFF" ||
         paragraph === "Updated Driver Details" ||
+        paragraph === "Updated contact details" ||
         paragraph === JOURNEY_REMINDER_LANDING_HEADING
       ) {
         const landing = paragraph === JOURNEY_REMINDER_LANDING_HEADING;
@@ -653,7 +656,8 @@ export function evaluateJourneyReminder(
 
   if (sentForThisPickup) {
     const updateKey = String(input.driverUpdateSentForKey ?? "").trim();
-    if (contact.kind === "driver" && driverKey !== "company" && driverKey !== String(input.reminderDriverKey ?? "") && driverKey !== updateKey) {
+    const previousDriverKey = String(input.reminderDriverKey ?? "").trim();
+    if (previousDriverKey && driverKey !== previousDriverKey && driverKey !== updateKey) {
       const draft = journeyReminderWhatsAppDraft(input, contact);
       const href = journeyReminderWhatsAppHref(draft, contact);
       const message = buildJourneyReminderMessage(input, contact, "driver_update");
@@ -662,7 +666,7 @@ export function evaluateJourneyReminder(
         kind: "driver_update",
         reason: "due",
         message,
-        subject: JOURNEY_DRIVER_UPDATE_SUBJECT,
+        subject: contact.kind === "driver" ? JOURNEY_DRIVER_UPDATE_SUBJECT : "Updated contact details — My Airport Taxi NI",
         text: message,
         html: buildJourneyReminderHtml(message, contact, href, "driver_update"),
         whatsAppHref: href,

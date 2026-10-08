@@ -25,6 +25,11 @@ import {
   parseDriverPayToPence,
 } from "../shared/driver-pay-ledger";
 import { journeyStatusOf, type TrackingJobRecord } from "../shared/tracking";
+import {
+  driverDispatchDecision,
+  noteAssignmentChange,
+  noteDriverNotification,
+} from "../shared/driver-notification-safety";
 import { corsHeaders } from "../shared/google-places";
 import { sanitizeAdsAttribution } from "../shared/ads-attribution";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
@@ -91,6 +96,31 @@ async function syncTrackingAssignmentFromBooking(
 
   const nowIso = job.assignedAt || new Date().toISOString();
   for (const tracking of jobs) {
+    const nextEmail = status === "unassigned" ? "" : job.driverEmail?.trim().toLowerCase() || "";
+    const changed =
+      (tracking.assignmentStatus ?? "unassigned") !== status ||
+      (tracking.assignedDriverEmail?.trim().toLowerCase() ?? "") !== nextEmail;
+    if (changed) {
+      noteAssignmentChange(tracking, {
+        action: status === "accepted" ? "accepted" : status === "declined" ? "declined" : status === "unassigned" ? "deassigned" : "assigned",
+        at: nowIso,
+        driverName: status === "unassigned" ? tracking.assignedDriverName : job.driverFirstName,
+        driverEmail: status === "unassigned" ? tracking.assignedDriverEmail : job.driverEmail,
+        profileKey: status === "unassigned" ? tracking.assignedDriverProfileKey : job.driverProfileKey,
+      });
+      if (status === "unassigned") {
+        delete tracking.journeyDriverNoticeClaimId;
+        delete tracking.journeyDriverNoticeClaimedAt;
+        noteDriverNotification(tracking, {
+          at: nowIso,
+          kind: "driver_journey_reminder",
+          outcome: "suppressed",
+          reason: "deassigned",
+          driverEmail: tracking.assignedDriverEmail,
+          driverName: tracking.assignedDriverName,
+        });
+      }
+    }
     if (status === "unassigned") {
       delete tracking.assignedDriverName;
       delete tracking.assignmentStatus;
@@ -572,6 +602,9 @@ export async function handleBookingJobAssignDriverRequest(
     });
     portalUrl = driverPortalMagicLink(siteUrl(env), accessToken);
   }
+  const queuedJobs = await trackingJobsForBooking(env.TRACKING_STORE, updated);
+  const queuedVersion = queuedJobs[0]?.assignmentVersion ?? 0;
+  const intendedEmail = identity?.driverEmail || driverEmail;
   const email = buildDriverAssignmentEmail({
     job: updated,
     acceptUrl,
@@ -579,8 +612,44 @@ export async function handleBookingJobAssignDriverRequest(
     ...(portalUrl ? { portalUrl } : {}),
   });
 
+  const freshBooking = await getBookingJob(env.TRACKING_STORE, updated.id);
+  const freshJobs = freshBooking ? await trackingJobsForBooking(env.TRACKING_STORE, freshBooking) : [];
+  const freshTracking = freshJobs[0];
+  const gate = driverDispatchDecision(
+    {
+      assignmentVersion: freshTracking?.assignmentVersion,
+      assignmentStatus: freshBooking?.driverAssignmentStatus ?? freshTracking?.assignmentStatus,
+      assignedDriverEmail: freshBooking?.driverEmail ?? freshTracking?.assignedDriverEmail,
+      acceptToken: freshBooking?.driverAcceptToken,
+    },
+    {
+      kind: "assignment_invite",
+      assignmentVersion: queuedVersion,
+      driverEmail: intendedEmail,
+      acceptToken,
+    },
+  );
+  if (!gate.allow) {
+    if (freshTracking) {
+      noteDriverNotification(freshTracking, {
+        at: new Date().toISOString(),
+        kind: "driver_assignment_invite",
+        outcome: "suppressed",
+        reason: gate.reason,
+        driverEmail: intendedEmail,
+        driverName: identity?.driverFirstName || driverFirstName,
+      });
+      await saveTrackingJob(env.TRACKING_STORE, freshTracking);
+    }
+    return jsonResponse(
+      { error: "The driver was no longer assigned, so the assignment email was not sent." },
+      409,
+      origin,
+    );
+  }
+
   const sendResult = await trySendEmail(env, {
-    to: identity?.driverEmail || driverEmail,
+    to: intendedEmail,
     toName: identity?.driverFirstName || driverFirstName,
     subject: email.subject,
     body: email.text,

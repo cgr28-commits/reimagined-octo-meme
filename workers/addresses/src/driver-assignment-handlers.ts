@@ -50,6 +50,11 @@ import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import { remainingCashDueGbp } from "../shared/deposit-cash";
+import {
+  driverDispatchDecision,
+  noteAssignmentChange,
+  noteDriverNotification,
+} from "../shared/driver-notification-safety";
 
 type Env = DriverAuthEnv &
   WorkerEmailEnv & {
@@ -368,6 +373,13 @@ export async function handleDriverAssignRequest(
   }
   if (assignedProfile) record.assignedDriverProfileKey = assignedProfile.profileKey;
   else delete record.assignedDriverProfileKey;
+  noteAssignmentChange(record, {
+    action: "assigned",
+    at: now,
+    driverName: record.assignedDriverName,
+    driverEmail: record.assignedDriverEmail,
+    profileKey: record.assignedDriverProfileKey,
+  });
   stopDriverSharing(record);
 
   await saveTrackingJob(env.TRACKING_STORE, record);
@@ -447,8 +459,48 @@ export async function handleDriverAssignRequest(
       ...(portalUrl ? { portalUrl } : {}),
     });
 
+    const intendedEmail = identity?.driverEmail || driverEmail;
+    const freshJob = await getTrackingJob(env.TRACKING_STORE, token);
+    const freshBooking = await getBookingJob(env.TRACKING_STORE, updatedBooking.id);
+    const gate = driverDispatchDecision(
+      {
+        assignmentVersion: freshJob?.assignmentVersion,
+        assignmentStatus: freshJob?.assignmentStatus,
+        assignedDriverEmail: freshJob?.assignedDriverEmail,
+        acceptToken: freshBooking?.driverAcceptToken,
+      },
+      {
+        kind: "assignment_invite",
+        assignmentVersion: record.assignmentVersion ?? 0,
+        driverEmail: intendedEmail,
+        acceptToken,
+      },
+    );
+    if (!freshJob || !gate.allow) {
+      if (freshJob) {
+        noteDriverNotification(freshJob, {
+          at: new Date().toISOString(),
+          kind: "driver_assignment_invite",
+          outcome: "suppressed",
+          reason: gate.allow ? "missing_job" : gate.reason,
+          driverEmail: intendedEmail,
+          driverName: identity?.driverFirstName || driverFirstName,
+        });
+        await saveTrackingJob(env.TRACKING_STORE, freshJob);
+      }
+      return jsonResponse(
+        {
+          ok: false,
+          error: "The driver was no longer assigned, so the assignment email was not sent.",
+          ...assignmentFields(freshJob ?? record),
+        },
+        409,
+        origin,
+      );
+    }
+
     const sendResult = await trySendEmail(env, {
-      to: identity?.driverEmail || driverEmail,
+      to: intendedEmail,
       toName: identity?.driverFirstName || driverFirstName,
       subject: email.subject,
       body: email.text,
@@ -457,6 +509,15 @@ export async function handleDriverAssignRequest(
     });
 
     emailed = sendResult.sent;
+    noteDriverNotification(freshJob, {
+      at: new Date().toISOString(),
+      kind: "driver_assignment_invite",
+      outcome: sendResult.sent ? "sent" : "suppressed",
+      reason: sendResult.sent ? undefined : sendResult.error || "send_failed",
+      driverEmail: intendedEmail,
+      driverName: identity?.driverFirstName || driverFirstName,
+    });
+    await saveTrackingJob(env.TRACKING_STORE, freshJob);
     if (!sendResult.sent) {
       emailError = sendResult.error || "Failed to email driver";
     } else {
@@ -552,6 +613,23 @@ export async function handleDriverDeassignRequest(
   }
 
   await clearLinkedBookingAssignment(env.TRACKING_STORE, record);
+  noteAssignmentChange(record, {
+    action: "deassigned",
+    at: new Date().toISOString(),
+    driverName: record.assignedDriverName,
+    driverEmail: record.assignedDriverEmail,
+    profileKey: record.assignedDriverProfileKey,
+  });
+  delete record.journeyDriverNoticeClaimId;
+  delete record.journeyDriverNoticeClaimedAt;
+  noteDriverNotification(record, {
+    at: new Date().toISOString(),
+    kind: "driver_journey_reminder",
+    outcome: "suppressed",
+    reason: "deassigned",
+    driverEmail: record.assignedDriverEmail,
+    driverName: record.assignedDriverName,
+  });
   clearJobAssignment(record);
   await saveTrackingJob(env.TRACKING_STORE, record);
   await syncDurableDriverPayFromTracking(env.TRACKING_STORE, record);
@@ -626,6 +704,13 @@ export async function handleDriverAssignmentResponseRequest(
     delete record.acceptedAt;
     stopDriverSharing(record);
   }
+  noteAssignmentChange(record, {
+    action: action === "accept" ? "accepted" : "declined",
+    at: now,
+    driverName: record.assignedDriverName,
+    driverEmail: record.assignedDriverEmail,
+    profileKey: record.assignedDriverProfileKey,
+  });
 
   await saveTrackingJob(env.TRACKING_STORE, record);
 

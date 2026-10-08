@@ -24,6 +24,13 @@ import {
   type JourneyReminderInput,
 } from "../shared/journey-reminder";
 import { parseLondonLocalDateTime } from "../shared/uk-time";
+import {
+  buildDriverJourneyNoticeEmail,
+  driverDispatchDecision,
+  driverJourneyNoticeRecipient,
+  noteAssignmentChange,
+} from "../shared/driver-notification-safety";
+import type { TrackingJobRecord } from "../shared/tracking";
 
 const root = process.cwd();
 const DRIVER_MOBILE = "07700900111";
@@ -489,6 +496,121 @@ console.log("Timing uses UK local time");
   assert.match(handler, /trySendResendOnlyCustomerEmail/);
   assert.doesNotMatch(handler, /twilio|sms:/i);
   console.log("OK  two-hour London lead, editable copy, existing email cron");
+}
+
+console.log("Driver de-assignment");
+{
+  const priya = {
+    assignmentVersion: 3,
+    assignmentStatus: "accepted" as const,
+    assignedDriverEmail: "priya@example.com",
+    assignedDriverName: "Priya",
+  };
+  const queued = driverDispatchDecision(priya, {
+    kind: "journey_reminder",
+    assignmentVersion: 3,
+    driverEmail: "priya@example.com",
+  });
+  assert.equal(queued.allow, true);
+
+  const replaced = driverDispatchDecision(
+    { ...priya, assignmentVersion: 4, assignedDriverEmail: "alex@example.com", assignedDriverName: "Alex" },
+    { kind: "journey_reminder", assignmentVersion: 3, driverEmail: "priya@example.com" },
+  );
+  assert.equal(replaced.allow, false);
+  if (!replaced.allow) assert.equal(replaced.reason, "stale_assignment");
+
+  const removed = driverDispatchDecision(
+    { assignmentVersion: 4, assignmentStatus: "unassigned", assignedDriverEmail: "" },
+    { kind: "assignment_invite", assignmentVersion: 3, driverEmail: "priya@example.com", acceptToken: "old-token" },
+  );
+  assert.equal(removed.allow, false);
+  if (!removed.allow) assert.equal(removed.reason, "stale_assignment");
+
+  const unassignedNotice = driverJourneyNoticeRecipient({
+    assignmentVersion: 4,
+    assignmentStatus: "unassigned",
+    assignedDriverEmail: "",
+    assignedDriverName: "",
+  });
+  assert.equal(unassignedNotice.allow, false);
+  if (!unassignedNotice.allow) assert.equal(unassignedNotice.reason, "unassigned");
+
+  const pendingNotice = driverJourneyNoticeRecipient({
+    assignmentVersion: 5,
+    assignmentStatus: "pending",
+    assignedDriverEmail: "alex@example.com",
+    assignedDriverName: "Alex",
+  });
+  assert.equal(pendingNotice.allow, false);
+  if (!pendingNotice.allow) assert.equal(pendingNotice.reason, "not_accepted");
+
+  const firstNotice = driverJourneyNoticeRecipient({
+    ...priya,
+    journeyDriverNoticeSentFor: undefined,
+  });
+  assert.equal(firstNotice.allow, true);
+  const duplicateNotice = driverJourneyNoticeRecipient({
+    ...priya,
+    journeyDriverNoticeSentFor: "3:priya@example.com",
+  });
+  assert.equal(duplicateNotice.allow, false);
+  if (!duplicateNotice.allow) assert.equal(duplicateNotice.reason, "already_sent");
+
+  const sent = due(base({ assignmentStatus: "accepted", assignedDriverName: "Priya", assignedDriverMobile: DRIVER_MOBILE }));
+  const withdrawn = due(
+    base({
+      assignmentStatus: "unassigned",
+      assignedDriverName: "Alex",
+      assignedDriverMobile: "07700900222",
+      reminderSentAt: "2026-07-15T13:30:00.000Z",
+      reminderSentForPickupAt: sent.pickupKey,
+      reminderDriverKey: sent.driverKey,
+    }),
+    new Date("2026-07-15T14:00:00.000Z"),
+  );
+  assert.equal(withdrawn.kind, "driver_update");
+  assert.equal(withdrawn.contact.kind, "company");
+  assert.equal(withdrawn.message.includes("Priya"), false);
+  assert.equal(withdrawn.message.includes(DRIVER_DISPLAY), false);
+  assert.equal(withdrawn.message.includes("07700 900222"), false);
+  assert.match(withdrawn.message, /028 9602 2952/);
+
+  const notice = buildDriverJourneyNoticeEmail({
+    driverName: "Priya Shah",
+    pickupLabel: "12 High Street, Belfast",
+    dropoffLabel: "22 Main Street, Lisburn",
+    tripDate: "2026-07-15",
+    tripTime: "16:30",
+    flightNumber: "EI 164",
+    customerFirstName: "Sarah",
+  });
+  assert.doesNotMatch(`${notice.subject}\n${notice.text}`, /£|paid|card/i);
+  assert.match(notice.text, /accepted driver/);
+
+  const job = {
+    assignmentVersion: 2,
+    assignmentStatus: "accepted",
+    assignedDriverName: "Priya",
+    assignedDriverEmail: "priya@example.com",
+  } as TrackingJobRecord;
+  noteAssignmentChange(job, {
+    action: "deassigned",
+    at: "2026-07-15T14:05:00.000Z",
+    driverName: job.assignedDriverName,
+    driverEmail: job.assignedDriverEmail,
+  });
+  assert.equal(job.assignmentVersion, 3);
+  assert.equal(job.assignmentAudit?.[0]?.driverEmail, "priya@example.com");
+  assert.equal(job.assignmentAudit?.[0]?.action, "deassigned");
+
+  const handler = read("workers/addresses/src/airport-pickup-reminder-handlers.ts");
+  const assign = read("workers/addresses/src/driver-assignment-handlers.ts");
+  assert.match(handler, /driverDispatchDecision/);
+  assert.match(handler, /customerDriverStillCurrent/);
+  assert.match(assign, /driverDispatchDecision/);
+  assert.match(assign, /noteAssignmentChange/);
+  console.log("OK  stale, deassigned, duplicate, and unassigned driver sends are blocked");
 }
 
 console.log("\nAll journey reminder checks passed.");
