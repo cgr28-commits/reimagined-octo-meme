@@ -1145,7 +1145,8 @@ function QuoteCard({
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
     isIncompleteAddressPlace(pickupPlace) &&
-    !detectAirportCodeFromPlace(pickupPlace);
+    !detectAirportCodeFromPlace(pickupPlace) &&
+    !isUnverifiedManualPlace(pickupPlace);
   const showsRequestQuoteFlow =
     isRequestQuote || isManualQuoteJourney || pricingConfirmationRequired;
   const effectiveAirportCode = isA2AFlow
@@ -7394,9 +7395,6 @@ function QuoteCard({
         ) : null}
         {quoteStep === 1 ? (
           <>
-        {isUnverifiedManualPlace(pickupPlace) || isUnverifiedManualPlace(dropoffPlace) ? (
-          <ManualAddressQuoteNotice pickup={pickupAddress} dropoff={dropoffAddress} />
-        ) : null}
         <div
           id="step1-journey-details"
           ref={step1JourneyRef}
@@ -7987,6 +7985,10 @@ function QuoteCard({
             />
           </>
         )}
+
+        {isUnverifiedManualPlace(pickupPlace) || isUnverifiedManualPlace(dropoffPlace) ? (
+          <ManualAddressQuoteNotice pickup={pickupAddress} dropoff={dropoffAddress} />
+        ) : null}
 
         {!quoteResultsReady && (
           <div className="sr-only" aria-hidden="true">

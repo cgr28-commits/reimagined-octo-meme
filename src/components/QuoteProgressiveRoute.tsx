@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import type { SelectedPlace } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
+import ManualAddressQuoteNotice from "@/components/ManualAddressQuoteNotice";
+import { isUnverifiedManualPlace } from "../../shared/manual-address";
 import JourneyOptionCard from "@/components/JourneyOptionCard";
 import {
   CUSTOMER_AIRPORTS,
@@ -367,6 +369,10 @@ export default function QuoteProgressiveRoute({
               </strong>
             </p>
           )}
+          {isUnverifiedManualPlace(pickupConfirmedPlace) ||
+          isUnverifiedManualPlace(dropoffConfirmedPlace) ? (
+            <ManualAddressQuoteNotice pickup={pickupAddress} dropoff={dropoffAddress} />
+          ) : null}
         </div>
       )}
 
