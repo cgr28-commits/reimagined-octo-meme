@@ -18,6 +18,10 @@ import {
   matchServedAirportCode,
   servedAirportFromPlaceId,
 } from "./served-airports";
+import {
+  isUnverifiedManualPlaceId,
+  parseManualServiceAddress,
+} from "./manual-address";
 
 export type RoutePoint = { lat: number; lng: number };
 
@@ -128,6 +132,12 @@ export async function resolveRoutePointWithPlaceId(options: {
 }> {
   const placeId = String(options.placeId ?? "").trim();
   const trimmed = options.address.trim();
+
+  // A typed premises line that no provider matched must not be priced from a
+  // nearby street or a postcode centroid.
+  if (isUnverifiedManualPlaceId(placeId) || (!placeId && parseManualServiceAddress(trimmed))) {
+    return { point: null };
+  }
 
   if (placeId) {
     const servedById = servedAirportFromPlaceId(placeId);

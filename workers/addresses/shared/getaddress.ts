@@ -4,10 +4,12 @@ import {
   isFullNorthernIrelandPostcode,
   isNorthernIrelandPostcodeQuery,
   isNorthernIrelandText,
+  isPureFullNorthernIrelandPostcodeQuery,
   normaliseNorthernIrelandPostcode,
   sortSuggestionsByStreetNumber,
 } from "./address-validation";
 import { extractLeadingStreetNumber } from "./google-places";
+import { selectMatchingPremises } from "./manual-address";
 export const GETADDRESS_NI_FILTER = "postcode:BT";
 
 export type AddressSuggestion = {
@@ -119,10 +121,11 @@ function shouldUseGetAddress(airportCode: string, query: string): boolean {
 
 export { shouldUseGetAddress };
 
-async function searchGetAddressAutocomplete(
+async function fetchGetAddressAutocomplete(
   apiKey: string,
   query: string,
   airportCode: string,
+  useNiFilter: boolean,
 ): Promise<AddressSuggestion[]> {
   const url = new URL(
     `https://api.getAddress.io/autocomplete/${encodeURIComponent(query.trim())}`,
@@ -132,7 +135,7 @@ async function searchGetAddressAutocomplete(
   url.searchParams.set("top", "6");
   url.searchParams.set("show-postcode", "true");
 
-  if (airportCode !== "DUB" && !isNorthernIrelandPostcodeQuery(query)) {
+  if (useNiFilter && airportCode !== "DUB" && !isNorthernIrelandPostcodeQuery(query)) {
     url.searchParams.set("filter", GETADDRESS_NI_FILTER);
   }
 
@@ -150,6 +153,23 @@ async function searchGetAddressAutocomplete(
       .filter((item) => isNorthernIrelandText(item.address))
       .map(toGetAddressSuggestion),
   ).slice(0, 6);
+}
+
+async function searchGetAddressAutocomplete(
+  apiKey: string,
+  query: string,
+  airportCode: string,
+): Promise<AddressSuggestion[]> {
+  const filtered = await fetchGetAddressAutocomplete(apiKey, query, airportCode, true);
+  if (filtered.length > 0) return filtered;
+
+  // `postcode:BT` is an exact-style filter and returns nothing for street
+  // queries. Retry without it, scoped to Northern Ireland, then keep only NI text.
+  const scoped =
+    /northern ireland|\bireland\b/i.test(query) || isNorthernIrelandPostcodeQuery(query)
+      ? query
+      : `${query.trim()}, Northern Ireland`;
+  return fetchGetAddressAutocomplete(apiKey, scoped, airportCode, false);
 }
 
 async function searchGetAddressFind(
@@ -210,7 +230,7 @@ async function searchGetAddressFind(
     suggestions.push(toStaticGetAddressSuggestion(formatted));
   }
 
-  return sortSuggestionsByStreetNumber(suggestions).slice(0, 8);
+  return sortSuggestionsByStreetNumber(suggestions);
 }
 
 export async function searchGetAddress(
@@ -228,7 +248,11 @@ export async function searchGetAddress(
     if (extracted && isFullNorthernIrelandPostcode(extracted)) {
       const findResults = await searchGetAddressFind(apiKey, extracted, airportCode);
       if (findResults.length > 0) {
-        return findResults;
+        const limit = isPureFullNorthernIrelandPostcodeQuery(trimmed) ? 25 : 8;
+        const selected = selectMatchingPremises(trimmed, findResults, limit);
+        if (selected.length > 0) {
+          return selected;
+        }
       }
     }
   }

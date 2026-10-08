@@ -13,3 +13,16 @@ export function bookingHelpWhatsAppUrl(
 ): string {
   return `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message)}`;
 }
+
+/**
+ * Same company WhatsApp number. Includes only the addresses the customer typed
+ * so the team can price a journey the website could not verify.
+ */
+export function manualAddressQuoteWhatsAppUrl(pickup: string, dropoff: string): string {
+  const lines = [
+    "Hi My Airport Taxi NI, please quote this transfer. The address could not be verified online.",
+    pickup.trim() ? `Pickup: ${pickup.trim()}` : "",
+    dropoff.trim() ? `Destination: ${dropoff.trim()}` : "",
+  ].filter(Boolean);
+  return bookingHelpWhatsAppUrl(lines.join("\n"));
+}

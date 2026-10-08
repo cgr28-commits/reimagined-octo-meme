@@ -322,6 +322,7 @@ import {
   openDesktopSumUpCheckout,
 } from "@/lib/sumup-desktop-handoff";
 import FlightNumberField, { formatVerifiedFlightSummary } from "@/components/FlightNumberField";
+import ManualAddressQuoteNotice from "@/components/ManualAddressQuoteNotice";
 import GoogleAdsRequestQuote from "@/components/GoogleAdsRequestQuote";
 import type { AdsQuotePageType } from "@/lib/google-ads";
 import {
@@ -357,6 +358,7 @@ import {
   type QuickSelectAirportCode,
   type SelectedPlace,
 } from "@/lib/selected-place";
+import { isUnverifiedManualPlace } from "../../shared/manual-address";
 
 const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
 
@@ -1699,12 +1701,17 @@ function QuoteCard({
       isPlaceSelected(dropoffPlace) &&
       !placesEqual(pickupPlace, dropoffPlace)
     : Boolean(pickupAddress.trim() && dropoffAddress.trim());
+  const addressReadyToPrice = (place: SelectedPlace) =>
+    Boolean(place.placeId?.trim()) && !isUnverifiedManualPlace(place);
   const hasQuoteRoute =
     !ldyServiceAreaInvalid &&
+    !isUnverifiedManualPlace(pickupPlace) &&
+    !isUnverifiedManualPlace(dropoffPlace) &&
     (isA2AFlow
       ? isAddressPairComplete
       : isAirportTrip
-        ? isAirportAddressComplete
+        ? isAirportAddressComplete &&
+          addressReadyToPrice(isFromAirport ? dropoffPlace : pickupPlace)
         : isAddressPairComplete);
 
   // Fixed price only after route + journey mode + party + booked pickup schedule.
@@ -7387,6 +7394,9 @@ function QuoteCard({
         ) : null}
         {quoteStep === 1 ? (
           <>
+        {isUnverifiedManualPlace(pickupPlace) || isUnverifiedManualPlace(dropoffPlace) ? (
+          <ManualAddressQuoteNotice pickup={pickupAddress} dropoff={dropoffAddress} />
+        ) : null}
         <div
           id="step1-journey-details"
           ref={step1JourneyRef}
@@ -7419,8 +7429,16 @@ function QuoteCard({
               onDropoffPlaceSelect={handleDropoffPlacesSuggestionSelect}
               pickupPlaceError={pickupPlaceError}
               dropoffPlaceError={dropoffPlaceError}
-              pickupConfirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
-              dropoffConfirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+              pickupConfirmedPlace={
+                isQuoteReadyPlace(pickupPlace) || isUnverifiedManualPlace(pickupPlace)
+                  ? pickupPlace
+                  : null
+              }
+              dropoffConfirmedPlace={
+                isQuoteReadyPlace(dropoffPlace) || isUnverifiedManualPlace(dropoffPlace)
+                  ? dropoffPlace
+                  : null
+              }
               pickupRestoredHint={pickupRestoredHint}
               dropoffRestoredHint={dropoffRestoredHint}
               onClearPickup={() => {
@@ -7852,7 +7870,11 @@ function QuoteCard({
                 onChange={handleDropoffChange}
                 onSelectPlace={handleDropoffPlacesSuggestionSelect}
                 requireSuggestion
-                confirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+                confirmedPlace={
+                  isQuoteReadyPlace(dropoffPlace) || isUnverifiedManualPlace(dropoffPlace)
+                    ? dropoffPlace
+                    : null
+                }
                 needsCompletion={quoteStep === 1 && !isPlaceSelected(dropoffPlace)}
                 selectionError={dropoffPlaceError}
                 airportCode={addressLookupCode}
@@ -7892,7 +7914,11 @@ function QuoteCard({
                 onChange={handlePickupChange}
                 onSelectPlace={handlePickupPlacesSuggestionSelect}
                 requireSuggestion
-                confirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
+                confirmedPlace={
+                  isQuoteReadyPlace(pickupPlace) || isUnverifiedManualPlace(pickupPlace)
+                    ? pickupPlace
+                    : null
+                }
                 needsCompletion={quoteStep === 1 && !isPlaceSelected(pickupPlace)}
                 selectionError={pickupPlaceError}
                 airportCode={addressLookupCode}
@@ -7927,7 +7953,11 @@ function QuoteCard({
               onChange={handlePickupChange}
               onSelectPlace={handlePickupPlacesSuggestionSelect}
               requireSuggestion
-              confirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
+              confirmedPlace={
+                isQuoteReadyPlace(pickupPlace) || isUnverifiedManualPlace(pickupPlace)
+                  ? pickupPlace
+                  : null
+              }
               needsCompletion={quoteStep === 1 && !isPlaceSelected(pickupPlace)}
               selectionError={pickupPlaceError}
               airportCode={addressLookupCode}
@@ -7943,7 +7973,11 @@ function QuoteCard({
               onChange={handleDropoffChange}
               onSelectPlace={handleDropoffPlacesSuggestionSelect}
               requireSuggestion
-              confirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+              confirmedPlace={
+                isQuoteReadyPlace(dropoffPlace) || isUnverifiedManualPlace(dropoffPlace)
+                  ? dropoffPlace
+                  : null
+              }
               needsCompletion={quoteStep === 1 && !isPlaceSelected(dropoffPlace)}
               selectionError={dropoffPlaceError}
               airportCode={addressLookupCode}

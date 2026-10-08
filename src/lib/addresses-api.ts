@@ -250,3 +250,69 @@ export async function fetchWorkerAddressDetails(
     return null;
   }
 }
+
+export type WorkerManualAddressResult =
+  | {
+      verified: true;
+      address: string;
+      formattedAddress: string;
+      displayAddress: string;
+      placeId: string;
+      lat: number;
+      lng: number;
+      countryCode: string | null;
+      postalCode: string | null;
+      streetNumber: string | null;
+      route: string | null;
+      locality: string | null;
+    }
+  | {
+      verified: false;
+      manual: {
+        formatted: string;
+        houseNumber: string | null;
+        street: string;
+        dependentStreet: string | null;
+        locality: string | null;
+        town: string;
+        postcode: string;
+      };
+    };
+
+/** Ask the worker to match a typed premises line. Never invents coordinates. */
+export async function fetchWorkerManualAddress(
+  query: string,
+  airportCode: string,
+): Promise<WorkerManualAddressResult | null> {
+  const baseUrl = resolveAddressesApiUrl();
+  const url = new URL(baseUrl);
+  url.searchParams.set("resolveManual", "1");
+  url.searchParams.set("q", query);
+  if (airportCode) {
+    url.searchParams.set("airport", airportCode);
+  }
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as WorkerManualAddressResult;
+    if (payload.verified === true) {
+      if (
+        typeof payload.lat !== "number" ||
+        typeof payload.lng !== "number" ||
+        !payload.placeId
+      ) {
+        return null;
+      }
+      return payload;
+    }
+    if (payload.verified === false && payload.manual?.formatted) {
+      return payload;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
