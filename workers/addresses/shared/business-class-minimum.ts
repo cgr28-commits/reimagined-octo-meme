@@ -1,7 +1,7 @@
 /**
  * Shared one-way price floor for Business Class and the 7 Seater Minibus.
  *
- * The owner sets each amount in Pricing. £75 and £90 are only the starting
+ * The owner sets each amount in Pricing. £75 and £80 are only the starting
  * defaults. Calculate the normal one-way fare first (multiplier, surcharges,
  * airport charges, profitability). The minimum then raises that total; it is
  * not an extra charge, and airport access inside it is not added again.
@@ -14,7 +14,7 @@ import { isExecutiveVehicle } from "./executive-vehicle";
 import { isMinibusVehicleType } from "./vehicle-display";
 
 export const DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP = 75;
-export const DEFAULT_MINIBUS_MINIMUM_FARE_GBP = 90;
+export const DEFAULT_MINIBUS_MINIMUM_FARE_GBP = 80;
 export const MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP = 2000;
 export const MAX_MINIBUS_MINIMUM_FARE_GBP = MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP;
 

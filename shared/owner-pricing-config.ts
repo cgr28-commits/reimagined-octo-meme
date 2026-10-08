@@ -85,7 +85,7 @@ export type OwnerPricingSettings = {
     publicEnabled: boolean;
     multiplier: number;
     /**
-     * One-way 7 Seater price floor. Missing stored values use £90.
+     * One-way 7 Seater price floor. Missing stored values use £80.
      * Applied after the normal fare. Not an extra charge.
      */
     minimumFareGbp: number;

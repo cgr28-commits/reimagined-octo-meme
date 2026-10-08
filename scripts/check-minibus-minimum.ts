@@ -30,9 +30,9 @@ const ESTATE = "Estate Car (1–4 passengers)";
 const MINIBUS = "Minibus (5–7 passengers)";
 const EXECUTIVE = "Executive Saloon (1–4 passengers)";
 
-assert.equal(DEFAULT_MINIBUS_MINIMUM_FARE_GBP, 90);
-assert.equal(defaultOwnerPricingSettings().minibus.minimumFareGbp, 90);
-assert.equal(ownerPricingEngineOptions().minibusMinimumFareGbp, 90);
+assert.equal(DEFAULT_MINIBUS_MINIMUM_FARE_GBP, 80);
+assert.equal(defaultOwnerPricingSettings().minibus.minimumFareGbp, 80);
+assert.equal(ownerPricingEngineOptions().minibusMinimumFareGbp, 80);
 assert.equal(defaultOwnerPricingSettings().executive.minimumFareGbp, DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP);
 assert.equal(defaultOwnerPricingSettings().minibus.multiplier, 1.55);
 
@@ -45,7 +45,7 @@ const kept = normalizeOwnerPricingSettings({
 });
 assert.equal(kept.minibus.multiplier, 1.6);
 assert.equal(kept.minibus.publicEnabled, true);
-assert.equal(kept.minibus.minimumFareGbp, 90);
+assert.equal(kept.minibus.minimumFareGbp, 80);
 assert.equal(kept.executive.minimumFareGbp, 75);
 
 function reloadSavedPricing(input: unknown) {
@@ -56,7 +56,7 @@ function reloadSavedPricing(input: unknown) {
   return { saved: saved.settings, refreshed };
 }
 
-for (const amount of [0, 90, 100, 110, 2000]) {
+for (const amount of [0, 80, 100, 110, 2000]) {
   const saved = validateOwnerPricingInput({
     ...defaultOwnerPricingSettings(),
     minibus: { ...defaultOwnerPricingSettings().minibus, minimumFareGbp: amount },
@@ -91,7 +91,7 @@ function payable(input: {
   const floor =
     vehicle === "minibus"
       ? {
-          minibusMinimumFareGbp: input.minimum ?? 90,
+          minibusMinimumFareGbp: input.minimum ?? 80,
           outboundOneWayBeforeAccessGbp: input.journey,
           returnOneWayBeforeAccessGbp: input.returnJourney ? input.journey : undefined,
           returnDiscountRate: 0.05,
@@ -116,36 +116,38 @@ function payable(input: {
   });
 }
 
-assert.equal(payable({ journey: 60 }).finalAmountPayableGbp, 90);
-assert.equal(payable({ journey: 89 }).finalAmountPayableGbp, 90);
+assert.equal(payable({ journey: 60 }).finalAmountPayableGbp, 80);
+assert.equal(payable({ journey: 79 }).finalAmountPayableGbp, 80);
+assert.equal(payable({ journey: 80 }).finalAmountPayableGbp, 80);
+assert.equal(payable({ journey: 89 }).finalAmountPayableGbp, 89);
 assert.equal(payable({ journey: 110 }).finalAmountPayableGbp, 110);
 assert.equal(payable({ journey: 60, minimum: 100 }).finalAmountPayableGbp, 100);
 assert.equal(payable({ journey: 110, minimum: 100 }).finalAmountPayableGbp, 110);
 
 const oneWayAccess = payable({ journey: 60, access: 5 });
-assert.equal(oneWayAccess.finalAmountPayableGbp, 90);
+assert.equal(oneWayAccess.finalAmountPayableGbp, 80);
 assert.equal(oneWayAccess.airportAccessChargeGbp, 5);
 assert.notEqual(oneWayAccess.finalAmountPayableGbp, 60 + 5 + 5);
-assert.notEqual(oneWayAccess.finalAmountPayableGbp, 90 + 5);
-assert.equal(checkoutAmountsMatch(90, oneWayAccess.finalAmountPayableGbp), true);
+assert.notEqual(oneWayAccess.finalAmountPayableGbp, 80 + 5);
+assert.equal(checkoutAmountsMatch(80, oneWayAccess.finalAmountPayableGbp), true);
 assert.equal(
-  resolveSumUpChargeAmountGbp(90, oneWayAccess.finalAmountPayableGbp),
+  resolveSumUpChargeAmountGbp(80, oneWayAccess.finalAmountPayableGbp),
   oneWayAccess.finalAmountPayableGbp,
 );
-assert.equal(resolveSumUpChargeAmountGbp(89, oneWayAccess.finalAmountPayableGbp), null);
+assert.equal(resolveSumUpChargeAmountGbp(79, oneWayAccess.finalAmountPayableGbp), null);
 
 const returnBelow = payable({ journey: 60, returnJourney: true });
-assert.equal(returnBelow.finalAmountPayableGbp, roundCustomerPayableGbp(180 * 0.95));
-assert.equal(returnBelow.finalAmountPayableGbp, 171);
-assert.notEqual(returnBelow.finalAmountPayableGbp, roundCustomerPayableGbp(171 * 0.95));
+assert.equal(returnBelow.finalAmountPayableGbp, roundCustomerPayableGbp(160 * 0.95));
+assert.equal(returnBelow.finalAmountPayableGbp, 152);
+assert.notEqual(returnBelow.finalAmountPayableGbp, roundCustomerPayableGbp(152 * 0.95));
 
 const returnWithAccess = payable({ journey: 60, access: 5, returnJourney: true });
-assert.equal(returnWithAccess.finalAmountPayableGbp, 171);
+assert.equal(returnWithAccess.finalAmountPayableGbp, 152);
 assert.equal(returnWithAccess.airportAccessChargeGbp, 10);
-assert.notEqual(returnWithAccess.finalAmountPayableGbp, 171 + 10);
+assert.notEqual(returnWithAccess.finalAmountPayableGbp, 152 + 10);
 
 const returnAbove = businessClassFlooredPayableGbp({
-  minimumFareGbp: 90,
+  minimumFareGbp: 80,
   returnJourney: true,
   returnDiscountRate: 0.05,
   outboundOneWayBeforeAccessGbp: 110,
@@ -156,7 +158,7 @@ assert.equal(payable({ journey: 110, returnJourney: true }).finalAmountPayableGb
 
 assert.equal(payable({ journey: 60, vehicle: "other", minimum: 100 }).finalAmountPayableGbp, 60);
 assert.equal(payable({ journey: 50, vehicle: "executive", minimum: 75 }).finalAmountPayableGbp, 75);
-assert.notEqual(payable({ journey: 50, vehicle: "executive", minimum: 75 }).finalAmountPayableGbp, 90);
+assert.notEqual(payable({ journey: 50, vehicle: "executive", minimum: 75 }).finalAmountPayableGbp, 80);
 
 const raised = reloadSavedPricing({
   ...defaultOwnerPricingSettings(),
@@ -188,7 +190,7 @@ const route = { distanceKm: 8, durationMinutes: 15 };
 const schedule = { outboundDate: "2026-10-14", outboundTime: "10:00" };
 const pricing = {
   ...defaultOwnerPricingSettings(),
-  minibus: { ...defaultOwnerPricingSettings().minibus, publicEnabled: true, minimumFareGbp: 90 },
+  minibus: { ...defaultOwnerPricingSettings().minibus, publicEnabled: true, minimumFareGbp: 80 },
 };
 const saloon = calculateQuote("Belfast City Hall", "BFS", SALOON, false, schedule, route, true, pricing);
 const estate = calculateQuote("Belfast City Hall", "BFS", ESTATE, false, schedule, route, true, pricing);
@@ -211,11 +213,11 @@ assert.equal(saloonFields.businessClassMinimumFareGbp, undefined);
 const minibusFields = vehicleMinimumFareBreakdownFields({
   vehicleType: MINIBUS,
   executiveMinimumFareGbp: 75,
-  minibusMinimumFareGbp: 90,
+  minibusMinimumFareGbp: 80,
   outboundOneWayBeforeAccessGbp: minibusQuote.outboundOneWayBeforeAccessGbp,
   returnDiscountRate: 0.05,
 });
-assert.equal(minibusFields.minibusMinimumFareGbp, 90);
+assert.equal(minibusFields.minibusMinimumFareGbp, 80);
 assert.equal(minibusFields.businessClassMinimumFareGbp, undefined);
 const flooredMinibus = composeWebsiteFareBreakdown({
   journeyFareBeforeAirportAccessGbp: minibusQuote.journeyFareGbp ?? minibusQuote.amount,
@@ -224,8 +226,8 @@ const flooredMinibus = composeWebsiteFareBreakdown({
   ...minibusFields,
 });
 const normalMinibus = minibusQuote.outboundOneWayBeforeAccessGbp ?? 0;
-if (normalMinibus < 90) {
-  assert.equal(flooredMinibus.finalAmountPayableGbp, 90);
+if (normalMinibus < 80) {
+  assert.equal(flooredMinibus.finalAmountPayableGbp, 80);
 } else {
   assert.equal(flooredMinibus.finalAmountPayableGbp, roundCustomerPayableGbp(normalMinibus));
 }
@@ -238,7 +240,7 @@ const confirmedBooking = {
   finalAmountPayableGbp: 66,
 };
 assert.equal(confirmedBooking.amountPaidGbp, 66);
-assert.notEqual(confirmedBooking.finalAmountPayableGbp, 90);
+assert.notEqual(confirmedBooking.finalAmountPayableGbp, 80);
 
 const panel = readFileSync("src/components/OwnerPricingPanel.tsx", "utf8");
 assert.match(panel, /7 Seater Minimum Fare/);
