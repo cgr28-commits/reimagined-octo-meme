@@ -110,6 +110,14 @@ export type QuoteResult = {
   airportFixedCostsGbp?: number;
   /** Journey subtotal before airport fixed costs (after return discount when booked). */
   journeyFareGbp?: number;
+  /**
+   * One-way total before airport access and before the return discount:
+   * journey + Night & Weekend + airport fixed costs for that leg.
+   */
+  outboundOneWayBeforeAccessGbp?: number;
+  returnOneWayBeforeAccessGbp?: number;
+  outboundFixedGbp?: number;
+  returnFixedGbp?: number;
   /** True when public display must wait for owner-approved pricing rules. */
   confirmationRequired?: boolean;
 };
@@ -188,6 +196,51 @@ function applyPointToPointVehiclePricing(
 }
 
 export type QuotePricingConfig = OwnerPricingEngineInput | PublicOwnerPricingConfig | OwnerPricingSettings | null;
+
+function withOneWayBeforeAccess(
+  quote: QuoteResult,
+  oneWayJourneyGbp: number,
+  schedule: TripSchedule,
+  returnJourney: boolean,
+  pricing: QuotePricingConfig | undefined,
+  outboundFixedGbp: number,
+  returnFixedGbp: number,
+  premiumRate?: number,
+): QuoteResult {
+  const outbound = applyTripPremium(
+    oneWayJourneyGbp,
+    {
+      outboundDate: schedule.outboundDate,
+      outboundTime: schedule.outboundTime,
+      returnJourney: false,
+    },
+    premiumRate,
+    { pricing },
+  );
+  const outboundFixed = roundGbp(Math.max(0, outboundFixedGbp));
+  const next: QuoteResult = {
+    ...quote,
+    outboundFixedGbp: outboundFixed,
+    outboundOneWayBeforeAccessGbp: roundGbp(outbound.total + outboundFixed),
+  };
+  if (!returnJourney) return next;
+  const inbound = applyTripPremium(
+    oneWayJourneyGbp,
+    {
+      outboundDate: schedule.returnDate,
+      outboundTime: schedule.returnTime,
+      returnJourney: false,
+    },
+    premiumRate,
+    { pricing },
+  );
+  const returnFixed = roundGbp(Math.max(0, returnFixedGbp));
+  return {
+    ...next,
+    returnFixedGbp: returnFixed,
+    returnOneWayBeforeAccessGbp: roundGbp(inbound.total + returnFixed),
+  };
+}
 
 function quoteEngineOptions(pricing?: QuotePricingConfig) {
   const configured = pricing ? ownerPricingEngineOptions(pricing) : ownerPricingEngineOptions();
@@ -618,24 +671,32 @@ export function calculatePointToPointQuote(
   const journeyFareGbp = roundGbp(premium.total);
   const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
 
-  return {
-    amount: journeyFareGbp,
-    area: dropoffArea ?? pickupArea,
-    areaSurcharge: Math.round(roadMiles * 10) / 10,
-    airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
-    vehicleMultiplier,
-    vehicleAdjustment,
-    pickupArea,
-    dropoffArea,
-    premiumApplied: premium.premiumApplied,
-    nightWeekendSurchargeGbp,
-    journeyFareGbp,
-    operational: {
-      distanceKm: routeMetrics.distanceKm,
-      durationMinutes: routeMetrics.durationMinutes,
-      band: "weekday",
+  return withOneWayBeforeAccess(
+    {
+      amount: journeyFareGbp,
+      area: dropoffArea ?? pickupArea,
+      areaSurcharge: Math.round(roadMiles * 10) / 10,
+      airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
+      vehicleMultiplier,
+      vehicleAdjustment,
+      pickupArea,
+      dropoffArea,
+      premiumApplied: premium.premiumApplied,
+      nightWeekendSurchargeGbp,
+      journeyFareGbp,
+      operational: {
+        distanceKm: routeMetrics.distanceKm,
+        durationMinutes: routeMetrics.durationMinutes,
+        band: "weekday",
+      },
     },
-  };
+    oneWay,
+    schedule,
+    returnJourney,
+    pricing,
+    0,
+    0,
+  );
 }
 
 export function getPointToPointFromPrice(
@@ -727,23 +788,32 @@ export function calculateQuote(
   const roundedFixed = roundGbp(composed.fixedTotalGbp);
   const amount = roundGbp(roundedJourneyFare + roundedFixed);
 
-  return {
-    amount,
-    area: matchedArea,
-    areaSurcharge: Math.round(roadMiles * 10) / 10,
-    airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
-    vehicleMultiplier,
-    vehicleAdjustment,
-    premiumApplied: premium.premiumApplied,
-    nightWeekendSurchargeGbp: roundGbp(premium.premiumAmount),
-    airportFixedCostsGbp: roundedFixed,
-    journeyFareGbp: roundedJourneyFare,
-    operational: {
-      distanceKm: routeMetrics.distanceKm,
-      durationMinutes: routeMetrics.durationMinutes,
-      band: "weekday",
+  return withOneWayBeforeAccess(
+    {
+      amount,
+      area: matchedArea,
+      areaSurcharge: Math.round(roadMiles * 10) / 10,
+      airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
+      vehicleMultiplier,
+      vehicleAdjustment,
+      premiumApplied: premium.premiumApplied,
+      nightWeekendSurchargeGbp: roundGbp(premium.premiumAmount),
+      airportFixedCostsGbp: roundedFixed,
+      journeyFareGbp: roundedJourneyFare,
+      operational: {
+        distanceKm: routeMetrics.distanceKm,
+        durationMinutes: routeMetrics.durationMinutes,
+        band: "weekday",
+      },
     },
-  };
+    oneWayFare,
+    schedule,
+    returnJourney,
+    pricing,
+    outboundFixed,
+    returnFixed,
+    AIRPORT_TRIP_PREMIUM_RATE,
+  );
 }
 
 export function getAirportFromPrice(
@@ -871,17 +941,26 @@ export function calculateAirportToAirportQuote(
   const roundedFixed = roundGbp(composed.fixedTotalGbp);
   const amount = roundGbp(roundedJourneyFare + roundedFixed);
 
-  return {
-    ...underlyingOneWay,
-    amount,
-    // Combined genuine fixed costs (not a town-zone surcharge).
-    areaSurcharge: roundedFixed,
-    airportBase: underlyingOneWay.amount,
-    airportFixedCostsGbp: roundedFixed,
-    journeyFareGbp: roundedJourneyFare,
-    premiumApplied: premium.premiumApplied,
-    nightWeekendSurchargeGbp: roundGbp(premium.premiumAmount),
-  };
+  return withOneWayBeforeAccess(
+    {
+      ...underlyingOneWay,
+      amount,
+      // Combined genuine fixed costs (not a town-zone surcharge).
+      areaSurcharge: roundedFixed,
+      airportBase: underlyingOneWay.amount,
+      airportFixedCostsGbp: roundedFixed,
+      journeyFareGbp: roundedJourneyFare,
+      premiumApplied: premium.premiumApplied,
+      nightWeekendSurchargeGbp: roundGbp(premium.premiumAmount),
+    },
+    underlyingOneWay.amount,
+    schedule,
+    returnJourney,
+    pricing,
+    outboundFixed,
+    returnFixed,
+    AIRPORT_TRIP_PREMIUM_RATE,
+  );
 }
 
 /**

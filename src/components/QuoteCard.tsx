@@ -271,6 +271,7 @@ import {
   AIRPORT_ACCESS_INCLUDED_HEADING,
   isExecutiveVehicle,
 } from "../../shared/executive-vehicle";
+import { DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP } from "../../shared/business-class-minimum";
 import {
   RETURN_OFFER_CONFIG,
   isReturnOfferAirportJourney,
@@ -2062,6 +2063,12 @@ function QuoteCard({
                 typeof alternate.nightWeekendSurchargeGbp === "number"
                   ? Math.round(alternate.nightWeekendSurchargeGbp * 100) / 100
                   : 0,
+              ...(typeof alternate.outboundOneWayBeforeAccessGbp === "number"
+                ? { outboundOneWayBeforeAccessGbp: alternate.outboundOneWayBeforeAccessGbp }
+                : {}),
+              ...(typeof alternate.returnOneWayBeforeAccessGbp === "number"
+                ? { returnOneWayBeforeAccessGbp: alternate.returnOneWayBeforeAccessGbp }
+                : {}),
               amountGbp: Math.round(alternate.amount * 100) / 100,
               vehicleType: vehicle,
               passengers: requestedPassengers,
@@ -2145,6 +2152,12 @@ function QuoteCard({
             typeof result.nightWeekendSurchargeGbp === "number"
               ? Math.round(result.nightWeekendSurchargeGbp * 100) / 100
               : 0,
+          ...(typeof result.outboundOneWayBeforeAccessGbp === "number"
+            ? { outboundOneWayBeforeAccessGbp: result.outboundOneWayBeforeAccessGbp }
+            : {}),
+          ...(typeof result.returnOneWayBeforeAccessGbp === "number"
+            ? { returnOneWayBeforeAccessGbp: result.returnOneWayBeforeAccessGbp }
+            : {}),
           amountGbp: Math.round(result.amount * 100) / 100,
           vehicleType: requestedVehicle,
           passengers: requestedPassengers,
@@ -2663,6 +2676,7 @@ function QuoteCard({
       Boolean(returnOfferToken) &&
       !returnJourney &&
       isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
+    const businessClass = isExecutiveVehicle(quoteVehicle);
     return buildOpenWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
@@ -2673,6 +2687,20 @@ function QuoteCard({
       returnJourney,
       ...(applyReturnOffer
         ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
+        : {}),
+      ...(businessClass
+        ? {
+            businessClassMinimumFareGbp:
+              publicPricing.executive?.minimumFareGbp ??
+              DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
+            outboundOneWayBeforeAccessGbp:
+              currentServerFareParts?.outboundOneWayBeforeAccessGbp ??
+              liveQuote?.outboundOneWayBeforeAccessGbp,
+            returnOneWayBeforeAccessGbp:
+              currentServerFareParts?.returnOneWayBeforeAccessGbp ??
+              liveQuote?.returnOneWayBeforeAccessGbp,
+            returnDiscountRate: publicPricing.returnDiscount?.rate,
+          }
         : {}),
     });
   }, [
@@ -2687,6 +2715,13 @@ function QuoteCard({
     returnOfferToken,
     pickupAddress,
     dropoffAddress,
+    quoteVehicle,
+    publicPricing.executive?.minimumFareGbp,
+    publicPricing.returnDiscount?.rate,
+    currentServerFareParts?.outboundOneWayBeforeAccessGbp,
+    currentServerFareParts?.returnOneWayBeforeAccessGbp,
+    liveQuote?.outboundOneWayBeforeAccessGbp,
+    liveQuote?.returnOneWayBeforeAccessGbp,
   ]);
 
   const transferFareGbp = useMemo(() => {

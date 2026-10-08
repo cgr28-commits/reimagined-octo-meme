@@ -18,6 +18,8 @@ export type ServerFarePartyParts = {
   journeyFareGbp: number;
   airportFixedCostsGbp: number;
   nightWeekendSurchargeGbp?: number;
+  outboundOneWayBeforeAccessGbp?: number;
+  returnOneWayBeforeAccessGbp?: number;
   amountGbp: number;
   vehicleType: string;
   passengers: number;

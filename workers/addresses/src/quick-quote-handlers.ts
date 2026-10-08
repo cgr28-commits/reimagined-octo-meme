@@ -48,6 +48,14 @@ import {
   resolveExpressDropOff,
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
+import { isExecutiveVehicle } from "../shared/executive-vehicle";
+import { quoteAirportAccessCharges } from "../shared/meet-greet";
+import {
+  ownerPricingEngineOptions,
+  type OwnerPricingSettings,
+} from "../shared/owner-pricing-config";
+import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -170,6 +178,7 @@ async function authoritativeAmount(
   journey: QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice },
   body: Record<string, unknown>,
   env: { GOOGLE_PLACES_API_KEY?: string },
+  pricing?: OwnerPricingSettings | null,
 ) {
   const pickupLat = Number(body.pickupLat);
   const pickupLng = Number(body.pickupLng);
@@ -220,6 +229,7 @@ async function authoritativeAmount(
     enforceAirportPickupServiceArea: false,
     vehicleType,
     maxPassengers: quickQuoteMaxPassengersForVehicle(journey.vehicleChoice),
+    pricing,
   });
 }
 
@@ -284,6 +294,7 @@ export async function handleOwnerCreateQuickQuote(
 
   let transferFareBeforeDiscount: number;
   let vehicleTypeLabel: string | undefined = journey.vehicleType;
+  let executivePayableIncludesAccess = false;
 
   if (pricingSource === "owner-manual") {
     const manual = parseQuickQuoteManualTransferFare(
@@ -298,12 +309,46 @@ export async function handleOwnerCreateQuickQuote(
         ? "Minibus (partner / on request)"
         : resolveVehicle(journey.vehicleChoice, journey.passengers, journey.suitcases);
   } else {
-    const quote = await authoritativeAmount(journey, body, env);
+    const ownerPricing = await loadOwnerPricingOrDefault(env);
+    const quote = await authoritativeAmount(journey, body, env, ownerPricing);
     if (!quote.ok) {
       return json({ error: quote.message, reason: quote.reason }, 422, origin);
     }
     transferFareBeforeDiscount = quote.amount;
     vehicleTypeLabel = quote.vehicleType;
+    if (isExecutiveVehicle(quote.vehicleType)) {
+      const options = ownerPricingEngineOptions(ownerPricing);
+      const express = resolveExpressDropOff({
+        airportCode: journey.airportCode,
+        fromAirport: journey.fromAirport,
+        returnJourney: journey.returnJourney,
+        selected: true,
+        outboundSelected: true,
+        returnSelected: true,
+      });
+      const access = quoteAirportAccessCharges({
+        expressLegs: express.legs,
+        airportCode: journey.airportCode,
+        fromAirport: journey.fromAirport,
+        returnJourney: journey.returnJourney,
+        fees: ownerPricing.meetGreet,
+        meetGreetIncluded: true,
+      });
+      transferFareBeforeDiscount = composeWebsiteFareBreakdown({
+        journeyFareBeforeAirportAccessGbp: quote.journeyFareGbp ?? quote.amount,
+        airportFixedCostsGbp: quote.airportFixedCostsGbp ?? 0,
+        nightWeekendSurchargeGbp: quote.nightWeekendSurchargeGbp ?? 0,
+        airportAccessChargeGbp: access.airportAccessChargeGbp,
+        outboundAirportAccessChargeGbp: access.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: access.returnAirportAccessChargeGbp,
+        returnJourney: quote.returnJourney,
+        businessClassMinimumFareGbp: options.executiveMinimumFareGbp,
+        outboundOneWayBeforeAccessGbp: quote.outboundOneWayBeforeAccessGbp,
+        returnOneWayBeforeAccessGbp: quote.returnOneWayBeforeAccessGbp,
+        returnDiscountRate: options.returnDiscountRate,
+      }).finalAmountPayableGbp;
+      executivePayableIncludesAccess = true;
+    }
   }
 
   const discounted = applyQuickQuoteManualDiscount(
@@ -340,7 +385,7 @@ export async function handleOwnerCreateQuickQuote(
   const expressFields = toExpressDropOffPersistedFields(expressSelection);
   const composed = composeFareWithExpressDropOff({
     transferFareGbp: discounted.customerFare,
-    expressDropOffFeeGbp: expressFields.expressDropOffFee,
+    expressDropOffFeeGbp: executivePayableIncludesAccess ? 0 : expressFields.expressDropOffFee,
   });
 
   const record = await createQuickQuoteRecord(env.TRACKING_STORE, {

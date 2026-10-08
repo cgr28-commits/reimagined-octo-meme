@@ -577,6 +577,10 @@ export async function handleQuoteCalculateRequest(
           typeof a2a.airportFixedCostsGbp === "number"
             ? Math.round(a2a.airportFixedCostsGbp * 100) / 100
             : undefined,
+        outboundOneWayBeforeAccessGbp: a2a.outboundOneWayBeforeAccessGbp,
+        returnOneWayBeforeAccessGbp: a2a.returnOneWayBeforeAccessGbp,
+        outboundFixedGbp: a2a.outboundFixedGbp,
+        returnFixedGbp: a2a.returnFixedGbp,
         source: "website-pricing-engine",
         needsLuggageCapacityConfirmation: needsLuggageCapacityConfirmation(
           passengers,
@@ -637,6 +641,10 @@ export async function handleQuoteCalculateRequest(
         journeyFareGbp: result.journeyFareGbp ?? result.amount,
         airportFixedCostsGbp: result.airportFixedCostsGbp ?? 0,
         nightWeekendSurchargeGbp: result.nightWeekendSurchargeGbp ?? 0,
+        outboundOneWayBeforeAccessGbp: result.outboundOneWayBeforeAccessGbp,
+        returnOneWayBeforeAccessGbp: result.returnOneWayBeforeAccessGbp,
+        outboundFixedGbp: result.outboundFixedGbp,
+        returnFixedGbp: result.returnFixedGbp,
       },
     });
     if (protectedFare.applied) {
@@ -647,6 +655,10 @@ export async function handleQuoteCalculateRequest(
         journeyFareGbp: protectedFare.journeyFareGbp,
         airportFixedCostsGbp: protectedFare.airportFixedCostsGbp,
         nightWeekendSurchargeGbp: protectedFare.nightWeekendSurchargeGbp,
+        outboundOneWayBeforeAccessGbp:
+          protectedFare.outboundOneWayBeforeAccessGbp ?? result.outboundOneWayBeforeAccessGbp,
+        returnOneWayBeforeAccessGbp:
+          protectedFare.returnOneWayBeforeAccessGbp ?? result.returnOneWayBeforeAccessGbp,
         premiumApplied: protectedFare.nightWeekendSurchargeGbp > 0,
       };
     }
