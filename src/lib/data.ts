@@ -558,7 +558,7 @@ export const VEHICLE_FLEET = [
   },
   {
     name: "Business Class",
-    capacity: "1–4 passengers",
+    capacity: "1–3 passengers",
     description:
       "Premium executive vehicle. Book and pay online when Business Class is available.",
     enquiryOnly: false,

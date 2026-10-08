@@ -17,6 +17,8 @@ export const ESTATE_CUSTOMER_DESCRIPTION = "Extra luggage space and comfort";
 /** Customer label only. Stored bookings stay "Executive Saloon (1–4 passengers)". */
 export const EXECUTIVE_CUSTOMER_NAME = "Business Class";
 export const EXECUTIVE_CUSTOMER_DESCRIPTION = "Premium executive vehicle";
+export const EXECUTIVE_CUSTOMER_CAPACITY = "1–3 passengers";
+export const EXECUTIVE_LUGGAGE_CAPACITY = "2 large suitcases";
 
 export function isBusinessClassLabel(vehicleType: string | null | undefined): boolean {
   const value = String(vehicleType ?? "").toLowerCase();

@@ -262,7 +262,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Passenger capacity",
       body:
-        "My Airport Taxi NI provides private airport transfers. Online quotes offer Saloon, Estate or similar larger vehicle, and Business Class for 1–4 passengers, and a 7 Seater Minibus when it is offered and the party fits. All enabled vehicle categories stay visible. A vehicle that cannot take the passengers and luggage is shown but cannot be selected. Enter your passengers and luggage for a suitable recommendation.",
+        "My Airport Taxi NI provides private airport transfers. Online quotes offer Saloon and Estate or similar larger vehicle for 1–4 passengers, Business Class for 1–3 passengers with up to 2 large suitcases, and a 7 Seater Minibus when it is offered and the party fits. All enabled vehicle categories stay visible. A vehicle that cannot take the passengers and luggage is shown but cannot be selected. Enter your passengers and luggage for a suitable recommendation.",
     },
     {
       title: "Operator and business details",

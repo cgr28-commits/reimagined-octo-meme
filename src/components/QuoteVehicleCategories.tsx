@@ -13,8 +13,10 @@ import {
 import {
   ESTATE_CUSTOMER_DESCRIPTION,
   ESTATE_CUSTOMER_NAME,
+  EXECUTIVE_CUSTOMER_CAPACITY,
   EXECUTIVE_CUSTOMER_DESCRIPTION,
   EXECUTIVE_CUSTOMER_NAME,
+  EXECUTIVE_LUGGAGE_CAPACITY,
   MINIBUS_CUSTOMER_DESCRIPTION,
   MINIBUS_CUSTOMER_NAME,
   SALOON_CUSTOMER_DESCRIPTION,
@@ -24,8 +26,8 @@ import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-a
 import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-line-icons";
 
 /**
- * Card wording only. Saloon and Business Class still fit 2 large suitcases
- * plus 2 small hand-luggage bags; that capacity is not changed here.
+ * Card wording. Saloon: 1–4 passengers and 2 large suitcases.
+ * Business Class: 1–3 passengers and 2 large suitcases.
  */
 const SALOON_LUGGAGE_CAPACITY = "2 large suitcases";
 
@@ -63,8 +65,8 @@ const CATEGORIES = [
     id: "executive" as const,
     vehicle: EXECUTIVE_VEHICLE,
     title: EXECUTIVE_CUSTOMER_NAME,
-    capacity: "1–4 passengers",
-    luggage: SALOON_LUGGAGE_CAPACITY,
+    capacity: EXECUTIVE_CUSTOMER_CAPACITY,
+    luggage: EXECUTIVE_LUGGAGE_CAPACITY,
     luggageIcon: "suitcase" as const,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
     detailIcon: "crown" as const,

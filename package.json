@@ -144,7 +144,8 @@
     "check:destination-hero-images": "npx tsx scripts/check-destination-hero-images.ts",
     "check:deposit-cash": "npx tsx scripts/check-deposit-cash.ts",
     "check:minibus-availability": "npx tsx scripts/check-minibus-availability.ts",
-    "check:quote-reveal-scroll": "npx tsx scripts/check-quote-reveal-scroll.ts"
+    "check:quote-reveal-scroll": "npx tsx scripts/check-quote-reveal-scroll.ts",
+    "check:business-class-capacity": "npx tsx scripts/check-business-class-capacity.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

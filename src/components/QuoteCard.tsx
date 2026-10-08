@@ -379,14 +379,14 @@ const BUSINESS_CLASS_PICKUP_INCLUSIONS = [
   "Meet & Greet inside arrivals",
   "Personalised name board",
   "Luggage assistance",
-  "Complimentary bottled water",
+  "Complimentary water included",
   "Phone charging",
   "Airport terminal access included",
 ] as const;
 
 const BUSINESS_CLASS_DROPOFF_INCLUSIONS = [
   "Luggage assistance",
-  "Complimentary bottled water",
+  "Complimentary water included",
   "Phone charging",
   "Airport terminal access included",
 ] as const;

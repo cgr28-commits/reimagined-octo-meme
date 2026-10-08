@@ -55,7 +55,8 @@ assert.match(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /Meet & Greet/);
 assert.match(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /personalised name board/);
 assert.match(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /luggage assistance/);
 assert.match(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /barrier and parking/);
-assert.match(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /bottled water/);
+assert.match(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /Complimentary water included/);
+assert.doesNotMatch(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /bottled water/);
 assert.match(EXECUTIVE_AIRPORT_PICKUP_INCLUDED, /phone charging/);
 
 for (const multiplier of [1.4, 1.5, 1.75, 2]) {

@@ -65,7 +65,7 @@ export default function VehiclesSection() {
           description={
             minibusOn
               ? "Professional private airport transfer. Choose a Saloon, Estate or similar larger vehicle, Business Class, or 7 Seater Minibus when it suits your passengers and luggage."
-              : "Saloon and Estate airport transfers for up to 4 passengers, plus Business Class and a 7 Seater Minibus when available. Enter your passengers and luggage to see the vehicles offered for your journey."
+              : "Saloon and Estate airport transfers for up to 4 passengers, plus Business Class for 1–3 passengers and a 7 Seater Minibus when available. Enter your passengers and luggage to see the vehicles offered for your journey."
           }
         />
 
@@ -128,15 +128,14 @@ export default function VehiclesSection() {
             <div className="space-y-5">
               <div className="rounded-2xl border border-emerald/30 bg-emerald/10 px-5 py-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-                  Up to 4 passengers
+                  Saloon and Estate up to 4 · Business Class 1–3
                 </p>
                 <p className="mt-1 text-xl font-bold text-white">Saloon, Estate &amp; Business Class</p>
                 <p className="mt-2 text-sm leading-relaxed text-white/70">
                   Instant quote where eligible. You choose among the vehicles that suit your
-                  passengers and luggage. Business Class is a premium executive vehicle you can
-                  select and pay for online when it is available. Airport pickups in Business Class
-                  include Meet &amp; Greet, a name board, luggage assistance, barrier and parking,
-                  bottled water and phone charging.
+                  passengers and luggage. Business Class carries 1–3 passengers and up to 2 large
+                  suitcases. Airport pickups in Business Class include Meet &amp; Greet, a name
+                  board, luggage assistance, barrier and parking, phone charging, and Complimentary water included.
                 </p>
               </div>
 
