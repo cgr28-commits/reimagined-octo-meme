@@ -526,19 +526,15 @@ function readVisualViewport(): { height: number; offsetTop: number } {
 
 /**
  * One measurement of the Vehicle options heading.
- * Never falls back to the selected-vehicle price card. That card sits below
- * the options, so scrolling to it hides Vehicle options above the header.
+ * The reveal stops on that wording, just under the sticky header.
+ * Never falls back to the waiting note or the selected-vehicle price card.
+ * Both sit away from the heading, so scrolling to them hides Vehicle options.
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const heading = document.querySelector<HTMLElement>("[data-quote-vehicle-options-heading]");
-  const waitingNote = document.querySelector<HTMLElement>("[data-quote-results-lead]");
-  const target =
-    waitingNote instanceof HTMLElement && waitingNote.getClientRects().length > 0
-      ? waitingNote
-      : heading;
-  if (!(target instanceof HTMLElement) || target.getClientRects().length === 0) return null;
+  if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
-  const headingRect = target.getBoundingClientRect();
+  const headingRect = heading.getBoundingClientRect();
   const layoutClientHeight = document.documentElement.clientHeight || visual.height;
   const maxScroll = Math.max(
     0,

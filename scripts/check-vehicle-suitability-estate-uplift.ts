@@ -343,7 +343,7 @@ check("the vehicle-options scroll runs once, eased, and keeps its stop", () => {
     scroll.indexOf("export function scheduleBookTransferGlide"),
   );
   assert.match(revealFn, /data-quote-vehicle-options-heading/);
-  assert.doesNotMatch(revealFn, /data-quote-result-heading/);
+  assert.doesNotMatch(revealFn, /data-quote-result-heading|quote-results-lead/);
   assert.match(revealFn, /quoteRevealEaseInOut/);
   assert.match(revealFn, /prefersReducedMotion\(\)/);
   assert.match(revealFn, /scrollBehavior = "auto"/);
