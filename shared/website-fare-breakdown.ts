@@ -32,6 +32,7 @@ import {
   applyReturnOfferSaving,
   formatReturnOfferPercent,
 } from "./return-offer";
+import { businessClassFlooredPayableGbp } from "./business-class-minimum";
 
 function roundGbp(amount: number): number {
   return Math.round(Number(amount) * 100) / 100;
@@ -86,6 +87,16 @@ export type WebsiteFareBreakdownInput = {
    * live journey fare only — never airport fixed costs or Express.
    */
   returnOfferDiscountRate?: number;
+  /**
+   * Business Class only. Omit for every other vehicle.
+   * One-way price floor applied after the normal fare, including airport access.
+   */
+  businessClassMinimumFareGbp?: number;
+  /** Journey + Night & Weekend + airport fixed costs, before access and before the return discount. */
+  outboundOneWayBeforeAccessGbp?: number;
+  returnOneWayBeforeAccessGbp?: number;
+  /** Owner return-discount rate. Defaults to the public 5%. */
+  returnDiscountRate?: number;
 };
 
 export type WebsiteFareBreakdown = {
@@ -191,13 +202,51 @@ export function composeWebsiteFareBreakdown(
   const totalPromotionalSavingGbp = roundGbp(
     returnJourneySavingGbp + returnOfferSavingGbp,
   );
-  const finalAmountPayableGbp = roundCustomerPayableGbp(
+  let finalAmountPayableGbp = roundCustomerPayableGbp(
     transferFareAfterPromotionsGbp + airportAccessChargeGbp,
   );
+  let journeyFareAfterPromotionsAdjusted = journeyFareAfterPromotionsGbp;
+  let transferFareAfterPromotionsAdjusted = transferFareAfterPromotionsGbp;
+  let journeyFareBeforePromotionsAdjusted = journeyForOtherPromos;
+  let journeyFareBeforeReturnDiscountAdjusted = journeyFareBeforeReturnDiscountGbp;
+  let journeyFareDisplayAdjusted = transferFareAfterPromotionsGbp;
+
+  const minimumFareGbp = Number(input.businessClassMinimumFareGbp);
+  const outboundBeforeAccess = Number(input.outboundOneWayBeforeAccessGbp);
+  if (
+    Number.isFinite(minimumFareGbp) &&
+    minimumFareGbp >= 0 &&
+    Number.isFinite(outboundBeforeAccess)
+  ) {
+    const floored = businessClassFlooredPayableGbp({
+      minimumFareGbp,
+      returnJourney,
+      returnDiscountRate: input.returnDiscountRate,
+      outboundOneWayBeforeAccessGbp: outboundBeforeAccess,
+      returnOneWayBeforeAccessGbp: input.returnOneWayBeforeAccessGbp,
+      outboundAirportAccessChargeGbp,
+      returnAirportAccessChargeGbp,
+    });
+    const flooredAfterOffer =
+      floored == null
+        ? null
+        : roundCustomerPayableGbp(Math.max(0, floored - returnOfferSavingGbp));
+    if (flooredAfterOffer != null && flooredAfterOffer > finalAmountPayableGbp + 0.001) {
+      const uplift = roundGbp(flooredAfterOffer - finalAmountPayableGbp);
+      finalAmountPayableGbp = flooredAfterOffer;
+      journeyFareAfterPromotionsAdjusted = roundGbp(journeyFareAfterPromotionsGbp + uplift);
+      transferFareAfterPromotionsAdjusted = roundGbp(transferFareAfterPromotionsGbp + uplift);
+      journeyFareBeforePromotionsAdjusted = roundGbp(journeyForOtherPromos + uplift);
+      journeyFareBeforeReturnDiscountAdjusted = roundGbp(
+        journeyFareBeforeReturnDiscountGbp + uplift,
+      );
+      journeyFareDisplayAdjusted = transferFareAfterPromotionsAdjusted;
+    }
+  }
 
   return {
-    journeyFareBeforeReturnDiscountGbp,
-    journeyFareBeforePromotionsGbp: journeyForOtherPromos,
+    journeyFareBeforeReturnDiscountGbp: journeyFareBeforeReturnDiscountAdjusted,
+    journeyFareBeforePromotionsGbp: journeyFareBeforePromotionsAdjusted,
     nightWeekendSurchargeGbp,
     nightWeekendSurchargeLabel: NIGHT_WEEKEND_SURCHARGE_LABEL,
     airportFixedCostsGbp,
@@ -208,15 +257,15 @@ export function composeWebsiteFareBreakdown(
     returnOfferDiscountPercentLabel: formatReturnOfferPercent(
       applyReturnOffer ? returnOfferRate : undefined,
     ),
-    journeyFareAfterPromotionsGbp,
-    transferFareAfterPromotionsGbp,
+    journeyFareAfterPromotionsGbp: journeyFareAfterPromotionsAdjusted,
+    transferFareAfterPromotionsGbp: transferFareAfterPromotionsAdjusted,
     airportAccessChargeGbp,
     outboundAirportAccessChargeGbp,
     returnAirportAccessChargeGbp,
     bookingValueBeforePromotionsGbp,
-    journeyFareDisplayGbp: transferFareAfterPromotionsGbp,
+    journeyFareDisplayGbp: journeyFareDisplayAdjusted,
     totalPromotionalSavingGbp,
-    originalEligibleJourneyPriceGbp: journeyFareBeforeReturnDiscountGbp,
+    originalEligibleJourneyPriceGbp: journeyFareBeforeReturnDiscountAdjusted,
     finalAmountPayableGbp,
   };
 }

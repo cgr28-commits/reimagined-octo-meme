@@ -233,11 +233,12 @@ console.log("=== Failsafe keeps the existing fare ===");
   assert.equal(broken.amountGbp, 65);
 }
 
-console.log("=== Estate +£6 then return discount once ===");
+console.log("=== Estate +£10 then return discount once ===");
 {
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
   const outboundEstate = 41 + UNIVERSAL_ESTATE_PREMIUM_GBP;
   const returnEstate = 41 + UNIVERSAL_ESTATE_PREMIUM_GBP;
-  assert.equal(outboundEstate, 47);
+  assert.equal(outboundEstate, 51);
   const premium = applyTripPremium(
     outboundEstate,
     {
@@ -250,7 +251,8 @@ console.log("=== Estate +£6 then return discount once ===");
     undefined,
     { returnDiscountRate: 0.05, returnOneWayFare: returnEstate },
   );
-  assert.equal(Math.round(premium.total * 100) / 100, 89.3);
+  // (51 + 51) × 0.95 = 96.90. The 5% is applied once, not twice.
+  assert.equal(Math.round(premium.total * 100) / 100, 96.9);
   assert.equal(premium.premiumAmount, 0);
   const twice = Math.round(premium.total * 0.95 * 100) / 100;
   assert.notEqual(Math.round(premium.total * 100) / 100, twice);

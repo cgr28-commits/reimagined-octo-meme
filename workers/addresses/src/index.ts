@@ -450,6 +450,7 @@ import {
 import {
   PUBLIC_MINIBUS_UNAVAILABLE_CODE,
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+  ownerPricingEngineOptions,
   publicMinibusAllowed,
 } from "../shared/owner-pricing-config";
 import {
@@ -2325,6 +2326,7 @@ async function handlePaymentRequest(
           returnTime: booking.returnTime || sj.returnTime,
         },
         googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+        pricing: await loadOwnerPricingOrDefault(env),
       });
       if (!priced.ok) {
         return json({ error: priced.message }, 422, origin);
@@ -2524,6 +2526,10 @@ async function handlePaymentRequest(
       journeyFareGbp: number;
       airportFixedCostsGbp: number;
       nightWeekendSurchargeGbp?: number;
+      outboundOneWayBeforeAccessGbp?: number;
+      returnOneWayBeforeAccessGbp?: number;
+      outboundFixedGbp?: number;
+      returnFixedGbp?: number;
     } | null = null;
     const pricing = await loadOwnerPricingOrDefault(env);
     const requoteMinibusOn = pricing.minibus.publicEnabled === true;
@@ -2614,6 +2620,10 @@ async function handlePaymentRequest(
             typeof a2aQuote.nightWeekendSurchargeGbp === "number"
               ? Math.round(a2aQuote.nightWeekendSurchargeGbp * 100) / 100
               : 0,
+          outboundOneWayBeforeAccessGbp: a2aQuote.outboundOneWayBeforeAccessGbp,
+          returnOneWayBeforeAccessGbp: a2aQuote.returnOneWayBeforeAccessGbp,
+          outboundFixedGbp: a2aQuote.outboundFixedGbp,
+          returnFixedGbp: a2aQuote.returnFixedGbp,
         };
       }
     } else {
@@ -2660,6 +2670,10 @@ async function handlePaymentRequest(
           journeyFareGbp,
           airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 0,
           nightWeekendSurchargeGbp: requote.nightWeekendSurchargeGbp ?? 0,
+          outboundOneWayBeforeAccessGbp: requote.outboundOneWayBeforeAccessGbp,
+          returnOneWayBeforeAccessGbp: requote.returnOneWayBeforeAccessGbp,
+          outboundFixedGbp: requote.outboundFixedGbp,
+          returnFixedGbp: requote.returnFixedGbp,
         };
       }
     }
@@ -2690,6 +2704,10 @@ async function handlePaymentRequest(
         journeyFareGbp: authoritativeQuote.journeyFareGbp,
         airportFixedCostsGbp: authoritativeQuote.airportFixedCostsGbp,
         nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
+        outboundOneWayBeforeAccessGbp: authoritativeQuote.outboundOneWayBeforeAccessGbp,
+        returnOneWayBeforeAccessGbp: authoritativeQuote.returnOneWayBeforeAccessGbp,
+        outboundFixedGbp: authoritativeQuote.outboundFixedGbp,
+        returnFixedGbp: authoritativeQuote.returnFixedGbp,
       },
     });
     if (protectedFare?.applied) {
@@ -2698,6 +2716,14 @@ async function handlePaymentRequest(
         journeyFareGbp: protectedFare.journeyFareGbp,
         airportFixedCostsGbp: protectedFare.airportFixedCostsGbp,
         nightWeekendSurchargeGbp: protectedFare.nightWeekendSurchargeGbp,
+        outboundOneWayBeforeAccessGbp:
+          protectedFare.outboundOneWayBeforeAccessGbp ??
+          authoritativeQuote.outboundOneWayBeforeAccessGbp,
+        returnOneWayBeforeAccessGbp:
+          protectedFare.returnOneWayBeforeAccessGbp ??
+          authoritativeQuote.returnOneWayBeforeAccessGbp,
+        outboundFixedGbp: authoritativeQuote.outboundFixedGbp,
+        returnFixedGbp: authoritativeQuote.returnFixedGbp,
       };
     }
 
@@ -2768,6 +2794,95 @@ async function handlePaymentRequest(
       }
     }
 
+    if (
+      isExecutiveVehicle(vehicleType) &&
+      !Number.isFinite(authoritativeQuote.outboundOneWayBeforeAccessGbp)
+    ) {
+      const legSchedule = {
+        outboundDate: booking.tripDate,
+        outboundTime: booking.tripTime,
+        returnDate: booking.returnDate,
+        returnTime: booking.returnTime,
+        returnJourney: Boolean(booking.returnJourney),
+      };
+      if (
+        airportContext.isAirportToAirport &&
+        airportContext.pickupAirportCode &&
+        airportContext.dropoffAirportCode
+      ) {
+        const legQuote = calculateAirportToAirportQuote(
+          airportContext.pickupAirportCode,
+          airportContext.dropoffAirportCode,
+          booking.pickupLabel,
+          booking.dropoffLabel,
+          vehicleType,
+          Boolean(booking.returnJourney),
+          legSchedule,
+          routeMetrics,
+          pricing,
+        );
+        if (legQuote) {
+          authoritativeQuote = {
+            ...authoritativeQuote,
+            outboundOneWayBeforeAccessGbp: legQuote.outboundOneWayBeforeAccessGbp,
+            returnOneWayBeforeAccessGbp: legQuote.returnOneWayBeforeAccessGbp,
+          };
+        }
+      } else {
+        const legQuote = calculateAuthoritativeWebsiteQuote({
+          airportCode: airportContext.airportCode,
+          fromAirport: airportContext.fromAirport,
+          pickupAddress: booking.pickupLabel,
+          dropoffAddress: booking.dropoffLabel,
+          returnJourney: Boolean(booking.returnJourney),
+          outboundDate: booking.tripDate,
+          outboundTime: booking.tripTime,
+          returnDate: booking.returnDate,
+          returnTime: booking.returnTime,
+          passengers: Number(booking.passengers),
+          suitcases: Number(booking.suitcases),
+          routeMetrics,
+          vehicleType,
+          pricing,
+          ownerMode: false,
+          maxPassengers: pricing.minibus.publicEnabled ? 7 : 4,
+        });
+        if (legQuote.ok) {
+          let outboundLeg = legQuote.outboundOneWayBeforeAccessGbp;
+          let returnLeg = legQuote.returnOneWayBeforeAccessGbp;
+          const protectedLegs = await applyProfitabilityProtection({
+            pricing,
+            vehicleType,
+            routeMetrics,
+            pickup: routeOutcome.pickup ?? null,
+            dropoff: routeOutcome.dropoff ?? null,
+            returnJourney: Boolean(booking.returnJourney),
+            schedule: legSchedule,
+            existing: {
+              amountGbp: legQuote.amount,
+              journeyFareGbp: legQuote.journeyFareGbp ?? legQuote.amount,
+              airportFixedCostsGbp: legQuote.airportFixedCostsGbp ?? 0,
+              nightWeekendSurchargeGbp: legQuote.nightWeekendSurchargeGbp ?? 0,
+              outboundOneWayBeforeAccessGbp: outboundLeg,
+              returnOneWayBeforeAccessGbp: returnLeg,
+              outboundFixedGbp: legQuote.outboundFixedGbp,
+              returnFixedGbp: legQuote.returnFixedGbp,
+            },
+          });
+          if (protectedLegs.applied) {
+            outboundLeg = protectedLegs.outboundOneWayBeforeAccessGbp ?? outboundLeg;
+            returnLeg = protectedLegs.returnOneWayBeforeAccessGbp ?? returnLeg;
+          }
+          authoritativeQuote = {
+            ...authoritativeQuote,
+            outboundOneWayBeforeAccessGbp: outboundLeg,
+            returnOneWayBeforeAccessGbp: returnLeg,
+          };
+        }
+      }
+    }
+
+    const pricingOptions = ownerPricingEngineOptions(pricing);
     const breakdown = composeWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
       airportFixedCostsGbp,
@@ -2777,6 +2892,14 @@ async function handlePaymentRequest(
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       returnJourney: Boolean(booking.returnJourney),
       ...(returnOfferDiscountRate > 0 ? { returnOfferDiscountRate } : {}),
+      ...(isExecutiveVehicle(vehicleType)
+        ? {
+            businessClassMinimumFareGbp: pricingOptions.executiveMinimumFareGbp,
+            outboundOneWayBeforeAccessGbp: authoritativeQuote.outboundOneWayBeforeAccessGbp,
+            returnOneWayBeforeAccessGbp: authoritativeQuote.returnOneWayBeforeAccessGbp,
+            returnDiscountRate: pricingOptions.returnDiscountRate,
+          }
+        : {}),
     });
 
     const serverFinalAmountGbp = breakdown.finalAmountPayableGbp;
@@ -3923,6 +4046,7 @@ export default {
         },
         clientSubmittedAmount: Number(body.clientAmount) || undefined,
         googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+        pricing: await loadOwnerPricingOrDefault(env),
       });
       if (!priced.ok) {
         return json({ error: priced.message, reason: priced.reason }, 422, origin);

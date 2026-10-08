@@ -92,6 +92,10 @@ export type QuoteServiceSuccess = {
   nightWeekendSurchargeGbp?: number;
   /** Airport fixed costs included in `amount` (before Express / promos). */
   airportFixedCostsGbp?: number;
+  outboundOneWayBeforeAccessGbp?: number;
+  returnOneWayBeforeAccessGbp?: number;
+  outboundFixedGbp?: number;
+  returnFixedGbp?: number;
   source: "website-pricing-engine";
   /** High combined passenger + luggage load — quote shown, payment held. */
   needsLuggageCapacityConfirmation: boolean;
@@ -393,6 +397,16 @@ export function calculateAuthoritativeWebsiteQuote(
     Number.isFinite(quote.nightWeekendSurchargeGbp)
       ? Math.round(quote.nightWeekendSurchargeGbp * 100) / 100
       : undefined;
+  const outboundOneWayBeforeAccessGbp =
+    typeof quote.outboundOneWayBeforeAccessGbp === "number" &&
+    Number.isFinite(quote.outboundOneWayBeforeAccessGbp)
+      ? Math.round(quote.outboundOneWayBeforeAccessGbp * 100) / 100
+      : undefined;
+  const returnOneWayBeforeAccessGbp =
+    typeof quote.returnOneWayBeforeAccessGbp === "number" &&
+    Number.isFinite(quote.returnOneWayBeforeAccessGbp)
+      ? Math.round(quote.returnOneWayBeforeAccessGbp * 100) / 100
+      : undefined;
 
   return {
     ok: true,
@@ -405,6 +419,10 @@ export function calculateAuthoritativeWebsiteQuote(
     ...(journeyFareGbp != null ? { journeyFareGbp } : {}),
     ...(nightWeekendSurchargeGbp != null ? { nightWeekendSurchargeGbp } : {}),
     ...(airportFixedCostsGbp != null ? { airportFixedCostsGbp } : {}),
+    ...(outboundOneWayBeforeAccessGbp != null ? { outboundOneWayBeforeAccessGbp } : {}),
+    ...(returnOneWayBeforeAccessGbp != null ? { returnOneWayBeforeAccessGbp } : {}),
+    ...(typeof quote.outboundFixedGbp === "number" ? { outboundFixedGbp: quote.outboundFixedGbp } : {}),
+    ...(typeof quote.returnFixedGbp === "number" ? { returnFixedGbp: quote.returnFixedGbp } : {}),
     source: "website-pricing-engine",
     needsLuggageCapacityConfirmation: needsLuggageCapacityConfirmation(
       passengers,
