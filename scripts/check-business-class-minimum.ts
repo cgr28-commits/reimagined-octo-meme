@@ -18,6 +18,10 @@ import {
   validateOwnerPricingInput,
 } from "../shared/owner-pricing-config";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import {
+  checkoutAmountsMatch,
+  resolveSumUpChargeAmountGbp,
+} from "../shared/open-website-payment-fares";
 import { UNIVERSAL_ESTATE_PREMIUM_GBP, calculateUniversalJourneyFareGbp } from "../shared/universal-distance-pricing";
 import { calculateQuote } from "../src/lib/quote";
 
@@ -242,8 +246,86 @@ assert.equal(
   roundGbp(29 * 1.4),
 );
 
-const confirmedBooking = { status: "confirmed", amountPaidGbp: 66 };
-assert.equal(confirmedBooking.amountPaidGbp, 66);
+function reloadSavedPricing(input: unknown) {
+  const saved = validateOwnerPricingInput(input);
+  assert.equal(saved.ok, true);
+  if (!saved.ok) throw new Error("expected a valid pricing save");
+  const refreshed = normalizeOwnerPricingSettings(JSON.parse(JSON.stringify(saved.settings)));
+  return { saved: saved.settings, refreshed };
+}
+
+const raised = reloadSavedPricing({
+  ...defaultOwnerPricingSettings(),
+  executive: { ...defaultOwnerPricingSettings().executive, minimumFareGbp: 90 },
+});
+assert.equal(raised.saved.executive.minimumFareGbp, 90);
+assert.equal(raised.refreshed.executive.minimumFareGbp, 90);
+assert.equal(raised.refreshed.estate.upliftGbp, 10);
+assert.equal(ownerPricingEngineOptions(raised.refreshed).executiveMinimumFareGbp, 90);
+assert.equal(
+  payable({
+    journey: 50,
+    minimum: ownerPricingEngineOptions(raised.refreshed).executiveMinimumFareGbp,
+  }),
+  90,
+);
+assert.equal(payable({ journey: 110, minimum: 90 }), 110);
+
+const restored = reloadSavedPricing({
+  ...defaultOwnerPricingSettings(),
+  executive: { ...defaultOwnerPricingSettings().executive, minimumFareGbp: 75 },
+});
+assert.equal(restored.refreshed.executive.minimumFareGbp, 75);
+assert.equal(
+  payable({
+    journey: 50,
+    minimum: ownerPricingEngineOptions(restored.refreshed).executiveMinimumFareGbp,
+  }),
+  75,
+);
+
+const returnBreakdown = composeWebsiteFareBreakdown({
+  journeyFareBeforeAirportAccessGbp: roundGbp(50 * 2 * 0.95),
+  airportAccessChargeGbp: 10,
+  outboundAirportAccessChargeGbp: 5,
+  returnAirportAccessChargeGbp: 5,
+  returnJourney: true,
+  businessClassMinimumFareGbp: 75,
+  outboundOneWayBeforeAccessGbp: 50,
+  returnOneWayBeforeAccessGbp: 50,
+  returnDiscountRate: 0.05,
+});
+const returnOnce = roundCustomerPayableGbp(150 * 0.95);
+assert.equal(returnOnce, 143);
+assert.equal(returnBreakdown.finalAmountPayableGbp, returnOnce);
+assert.notEqual(returnBreakdown.finalAmountPayableGbp, roundCustomerPayableGbp(returnOnce * 0.95));
+assert.equal(returnBreakdown.airportAccessChargeGbp, 10);
+assert.notEqual(returnBreakdown.finalAmountPayableGbp, 150 + 10);
+
+const oneWayWithAccess = composeWebsiteFareBreakdown({
+  journeyFareBeforeAirportAccessGbp: 60,
+  airportAccessChargeGbp: 5,
+  outboundAirportAccessChargeGbp: 5,
+  businessClassMinimumFareGbp: 75,
+  outboundOneWayBeforeAccessGbp: 60,
+  returnDiscountRate: 0.05,
+});
+assert.equal(oneWayWithAccess.finalAmountPayableGbp, 75);
+assert.equal(oneWayWithAccess.airportAccessChargeGbp, 5);
+assert.notEqual(oneWayWithAccess.finalAmountPayableGbp, 60 + 5 + 5);
+assert.equal(checkoutAmountsMatch(75, oneWayWithAccess.finalAmountPayableGbp), true);
+assert.equal(
+  resolveSumUpChargeAmountGbp(75, oneWayWithAccess.finalAmountPayableGbp),
+  oneWayWithAccess.finalAmountPayableGbp,
+);
+assert.equal(resolveSumUpChargeAmountGbp(80, oneWayWithAccess.finalAmountPayableGbp), null);
+
+const confirmedBooking = {
+  status: "confirmed",
+  amountPaid: "£66.00",
+  amountPaidGbp: 66,
+  finalAmountPayableGbp: 66,
+};
 assert.equal(
   businessClassFlooredPayableGbp({
     minimumFareGbp: 90,
@@ -253,6 +335,8 @@ assert.equal(
   90,
 );
 assert.equal(confirmedBooking.amountPaidGbp, 66);
+assert.equal(confirmedBooking.finalAmountPayableGbp, 66);
+assert.notEqual(confirmedBooking.finalAmountPayableGbp, 90);
 
 const panel = readFileSync("src/components/OwnerPricingPanel.tsx", "utf8");
 assert.match(panel, /Business Class Minimum Fare/);
@@ -264,5 +348,15 @@ assert.match(panel, /data-executive-multiplier/);
 const quoteCard = readFileSync("src/components/QuoteCard.tsx", "utf8");
 assert.match(quoteCard, /businessClassMinimumFareGbp/);
 assert.doesNotMatch(quoteCard, /w-\[3\.1rem\]/);
+
+const paidBookings = readFileSync("src/components/OwnerPaidBookingsPanel.tsx", "utf8");
+const confirmation = readFileSync("src/app/booking-confirmed/BookingConfirmedClient.tsx", "utf8");
+assert.match(paidBookings, /booking\.amountPaid/);
+assert.match(confirmation, /result\.amountPaid/);
+assert.doesNotMatch(paidBookings, /businessClassFlooredPayableGbp|businessClassMinimumFareGbp/);
+assert.doesNotMatch(confirmation, /businessClassFlooredPayableGbp|businessClassMinimumFareGbp/);
+const payment = readFileSync("workers/addresses/src/index.ts", "utf8");
+assert.match(payment, /resolveSumUpChargeAmountGbp\(\s*acceptedFinalRaw,\s*serverFinalAmountGbp/);
+assert.match(payment, /finalAmountPayableGbp: sumUpChargeGbp/);
 
 console.log("OK  business class minimum fare");
