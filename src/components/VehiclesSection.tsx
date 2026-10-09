@@ -26,19 +26,33 @@ function vehicleSrcSet(ext: "avif" | "webp"): string {
 }
 
 const FLEET = [
-  { id: "saloon", title: "Saloon", detail: "1–4 passengers", image: SALOON_IMAGE },
-  { id: "estate", title: "Estate or similar larger vehicle", detail: ESTATE_CUSTOMER_DESCRIPTION, image: ESTATE_IMAGE },
+  {
+    id: "saloon",
+    title: "Saloon",
+    detail: "1–4 passengers",
+    image: SALOON_IMAGE,
+    imageScale: 0.84,
+  },
+  {
+    id: "estate",
+    title: "Estate or similar larger vehicle",
+    detail: ESTATE_CUSTOMER_DESCRIPTION,
+    image: ESTATE_IMAGE,
+    imageScale: 0.8,
+  },
   {
     id: "executive",
     title: "Business Class",
     detail: "Premium executive vehicle",
     image: BUSINESS_CLASS_IMAGE,
+    imageScale: 1,
   },
   {
     id: "minibus",
     title: MINIBUS_CUSTOMER_NAME,
     detail: MINIBUS_CUSTOMER_DESCRIPTION,
     image: MINIBUS_IMAGE,
+    imageScale: 1,
   },
 ] as const;
 
@@ -86,6 +100,7 @@ export default function VehiclesSection() {
                       fill
                       sizes="280px"
                       className="object-contain object-center p-3"
+                      style={vehicle.imageScale === 1 ? undefined : { transform: `scale(${vehicle.imageScale})` }}
                     />
                   </div>
                   <p className="mt-3 text-lg font-bold text-white">{vehicle.title}</p>
