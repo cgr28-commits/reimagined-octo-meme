@@ -24,6 +24,7 @@ const sources = [
   { source: "belfast-international-arrivals-2025", output: "belfast-international" },
   { source: "belfast-city", output: "belfast-city" },
   { source: "dublin", output: "dublin-airport" },
+  { source: "business-class-dublin", output: "business-class-dublin" },
   { source: "derry-airport", output: "derry-airport" },
   { source: "carrickfergus-castle", output: "carrickfergus-castle" },
   { source: "bangor-harbour", output: "bangor-harbour" },

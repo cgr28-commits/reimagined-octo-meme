@@ -200,6 +200,10 @@ const pages = [
     path: "/belfast-cruise-terminal-transfers/",
     source: "src/lib/cruise-terminal-content.ts",
   },
+  {
+    path: "/transfers/business-class-dublin-airport/",
+    source: "src/app/transfers/business-class-dublin-airport/page.tsx",
+  },
   // /unsubscribe/ is noindex — omit from the sitemap.
   // /book/, /quote/, /manage-booking/, /pay/, /owner/, /driver/, /tip/ omitted.
   // /tip/ is a transactional noindex page. Never list tokenised tip URLs.
@@ -217,6 +221,9 @@ const pages = [
 // not build time; content changes in shared FAQs must refresh affected pages too.
 function pageContentSources(page) {
   const sharedContent = ["src/lib/data.ts", "shared/cancellation-policy.ts"];
+  if (page.path === "/transfers/business-class-dublin-airport/") {
+    return [page.source, "src/lib/business-class-dublin-content.ts"];
+  }
   if (page.path === "/") return [page.source, ...sharedContent,
     "src/components/VehiclesSection.tsx", "src/components/PopularBelfastTransfers.tsx"];
   if (page.path.startsWith("/transfers/")) return [page.source, ...sharedContent,

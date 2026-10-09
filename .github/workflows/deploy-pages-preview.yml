@@ -27,6 +27,7 @@ name: Deploy Pages Preview
       - cursor/sa-choose-another-date-514b
       - cursor/inclusive-airport-quote-514b
       - cursor/quote-result-mockup-514b
+      - cursor/business-class-dublin-seo-514b
 
 concurrency:
   group: pages-preview

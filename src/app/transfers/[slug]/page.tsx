@@ -410,21 +410,43 @@ export default async function TransferRoutePage({ params }: Props) {
                 </Link>
                 .
               </p>
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                Business Class is a selectable upgrade in the quote for this journey.{" "}
+                <Link
+                  href="/transfers/business-class-dublin-airport/"
+                  className="text-emerald hover:text-emerald-light"
+                >
+                  Business Class Dublin Airport transfers
+                </Link>{" "}
+                sets out what is included on a pickup and on a drop-off.
+              </p>
               <EmergeDiscoveryPromo description="Flying into Dublin for EMERGE? Pre-book your airport, hotel or return transfer for 29–30 August 2026." />
             </>
           ) : null}
 
           {page.slug === "dublin-airport-to-belfast" ? (
-            <p className="mt-8 text-sm leading-relaxed text-white/65">
-              Travelling from Belfast to Dublin Airport? Use{" "}
-              <Link
-                href="/transfers/belfast-to-dublin-airport/"
-                className="text-emerald hover:text-emerald-light"
-              >
-                Belfast to Dublin Airport taxi
-              </Link>
-              .
-            </p>
+            <>
+              <p className="mt-8 text-sm leading-relaxed text-white/65">
+                Travelling from Belfast to Dublin Airport? Use{" "}
+                <Link
+                  href="/transfers/belfast-to-dublin-airport/"
+                  className="text-emerald hover:text-emerald-light"
+                >
+                  Belfast to Dublin Airport taxi
+                </Link>
+                .
+              </p>
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                Business Class is a selectable upgrade in the quote for this journey.{" "}
+                <Link
+                  href="/transfers/business-class-dublin-airport/"
+                  className="text-emerald hover:text-emerald-light"
+                >
+                  Business Class Dublin Airport transfers
+                </Link>{" "}
+                sets out what is included on a pickup and on a drop-off.
+              </p>
+            </>
           ) : null}
 
           {isLanding ? (
