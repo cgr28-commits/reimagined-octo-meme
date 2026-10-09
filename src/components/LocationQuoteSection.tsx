@@ -8,6 +8,8 @@ type Props = {
   direction?: "to-airport" | "from-airport";
   addressHint?: string;
   heading?: string;
+  /** Other landing pages keep the mobile sticky quote bar. This page can turn it off. */
+  showStickyQuote?: boolean;
 };
 
 export default function LocationQuoteSection({
@@ -15,6 +17,7 @@ export default function LocationQuoteSection({
   direction = "to-airport",
   addressHint = "",
   heading = "Get your fixed quote",
+  showStickyQuote = true,
 }: Props) {
   return (
     <section
@@ -46,7 +49,7 @@ export default function LocationQuoteSection({
           initialAddressHint={addressHint}
         />
       </div>
-      <LandingPageStickyQuoteCta />
+      {showStickyQuote ? <LandingPageStickyQuoteCta /> : null}
     </section>
   );
 }

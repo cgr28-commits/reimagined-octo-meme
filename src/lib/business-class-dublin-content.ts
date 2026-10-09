@@ -21,7 +21,7 @@ export const BUSINESS_CLASS_DUBLIN_PICKUP_INCLUSIONS = [
   "Luggage assistance",
   "Complimentary bottled water",
   "Phone charging",
-  "Airport terminal access included in the fixed fare",
+  "Terminal access included in the fixed fare",
 ] as const;
 
 export const BUSINESS_CLASS_DUBLIN_DROPOFF_INCLUSIONS = [
@@ -45,7 +45,7 @@ export const BUSINESS_CLASS_DUBLIN_FAQS = [
   {
     question: "What is included on a Business Class pickup at Dublin Airport?",
     answer:
-      "A Dublin Airport pickup includes Meet & Greet inside arrivals, a personalised name board, luggage assistance, complimentary bottled water, phone charging, and airport terminal access in the fixed fare.",
+      "A Dublin Airport pickup includes Meet & Greet inside arrivals, a personalised name board, luggage assistance, complimentary bottled water, phone charging, and terminal access in the fixed fare.",
   },
   {
     question: "Does a drop-off at Dublin Airport include Meet & Greet?",

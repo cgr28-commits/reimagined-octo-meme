@@ -67,7 +67,7 @@ console.log("\n=== Quote inclusions and booking limits ===");
     "Luggage assistance",
     "Complimentary bottled water",
     "Phone charging",
-    "Airport terminal access included in the fixed fare",
+    "Terminal access included in the fixed fare",
   ]);
   assert.deepEqual(BUSINESS_CLASS_DUBLIN_DROPOFF_INCLUSIONS, [
     "Luggage assistance",
@@ -86,9 +86,13 @@ console.log("\n=== Quote inclusions and booking limits ===");
   assert.match(combined, /select Estate instead/);
   assert.match(combined, /not a separate\s+chauffeur service/i);
   assert.match(page, /Business Class is not selected for you/);
+  assert.match(page, /Extra comfort for your journey/);
+  assert.match(page, /Enjoy a more comfortable Dublin Airport transfer/);
+  assert.match(page, /How to book Business Class/);
   assert.match(page, /airportCode="DUB"/);
   assert.match(page, /direction="to-airport"/);
   assert.match(page, /<LocationQuoteSection/);
+  assert.match(page, /showStickyQuote=\{false\}/);
   assert.doesNotMatch(page, /chooseExecutive|EXECUTIVE_VEHICLE|initialVehicle|publicExecutiveEnabled=\{false\}/);
   assert.doesNotMatch(combined, /Mercedes|BMW|Audi|Wi-Fi|wifi|limousine|hourly chauffeur/i);
   assert.equal(BUSINESS_CLASS_DUBLIN_FAQS.length >= 4, true);
