@@ -117,13 +117,13 @@
       "BFS": 8,
       "BHD": 0,
       "DUB": 50,
-      "LDY": 98
+      "LDY": 101
     },
     "Holywood": {
       "BFS": 18,
       "BHD": 0,
       "DUB": 58,
-      "LDY": 103
+      "LDY": 106
     },
     "Newtownabbey": {
       "BFS": 0,
@@ -133,9 +133,9 @@
     },
     "Lisburn": {
       "BFS": 0,
-      "BHD": 5,
+      "BHD": 0,
       "DUB": 60,
-      "LDY": 103
+      "LDY": 104
     },
     "Dundonald": {
       "BFS": 28,
