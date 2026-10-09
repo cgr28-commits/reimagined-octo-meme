@@ -51,6 +51,11 @@ import {
   shouldUseGetAddress,
 } from "../shared/getaddress";
 import {
+  endpointAllowsAutomaticFare,
+  UNVERIFIED_ADDRESS_FARE_MESSAGE,
+} from "../shared/manual-address";
+import { resolveTypedManualAddress } from "./manual-address-resolve";
+import {
   isIdealPostcodesPlaceId,
   resolveIdealPostcodesDetails,
   searchIdealPostcodes,
@@ -2420,6 +2425,19 @@ async function handlePaymentRequest(
     const paymentDropoffLabel = String(booking.dropoffLabel ?? "");
     const paymentPickupPlaceId = String(body.pickupPlaceId ?? "").trim();
     const paymentDropoffPlaceId = String(body.dropoffPlaceId ?? "").trim();
+    if (
+      !endpointAllowsAutomaticFare(paymentPickupPlaceId, paymentPickupLabel) ||
+      !endpointAllowsAutomaticFare(paymentDropoffPlaceId, paymentDropoffLabel)
+    ) {
+      return json(
+        {
+          error: UNVERIFIED_ADDRESS_FARE_MESSAGE,
+          code: "address_unverified",
+        },
+        409,
+        origin,
+      );
+    }
     const receiptPricing = await loadOwnerPricingOrDefault(env);
     const receiptVehicleType: VehicleType = canonicalVehicleType(booking.vehicle);
     let receiptClaims: QuoteReceiptClaims | null = null;
@@ -5112,6 +5130,29 @@ export default {
     const airportCode = url.searchParams.get("airport")?.trim().toUpperCase() ?? "";
     const sessionToken = url.searchParams.get("session")?.trim() ?? undefined;
 
+    if (url.searchParams.get("resolveManual") === "1") {
+      if (!query) {
+        return json({ error: "Missing address" }, 400, origin);
+      }
+      try {
+        const resolved = await resolveTypedManualAddress({
+          query,
+          airportCode,
+          getAddressApiKey: env.GETADDRESS_API_KEY,
+          googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+        });
+        if (!resolved) {
+          return json({ error: "Enter the house number, street, town and postcode." }, 400, origin);
+        }
+        if (!resolved.verified) {
+          return json({ verified: false, manual: resolved.manual }, 200, origin);
+        }
+        return json(resolved, 200, origin);
+      } catch {
+        return json({ error: "Address lookup failed" }, 502, origin);
+      }
+    }
+
     if (id) {
       try {
         const userInput = url.searchParams.get("userInput")?.trim() || undefined;
@@ -5286,6 +5327,36 @@ export default {
             200,
             origin,
           );
+        }
+      }
+
+      // getAddress Find is the premises list for a BT postcode. Do not skip it
+      // and ask for a house number before the configured PAF provider has been asked.
+      if (
+        isPureNiPostcode &&
+        env.GETADDRESS_API_KEY &&
+        shouldUseGetAddress(airportCode, query)
+      ) {
+        try {
+          const premises = await searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode);
+          if (premises.length > 0) {
+            return json(
+              {
+                suggestions: premises.slice(0, 25),
+                provider: "getaddress",
+                postcode: postcode ?? undefined,
+                configured: {
+                  idealPostcodes: Boolean(env.IDEAL_POSTCODES_API_KEY?.trim()),
+                  getaddress: true,
+                  google: Boolean(env.GOOGLE_PLACES_API_KEY?.trim()),
+                },
+              },
+              200,
+              origin,
+            );
+          }
+        } catch (error) {
+          console.error("getAddress postcode premises lookup failed", error);
         }
       }
 

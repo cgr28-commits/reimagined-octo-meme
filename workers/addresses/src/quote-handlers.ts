@@ -9,6 +9,10 @@
 
 import { corsHeaders } from "../shared/google-places";
 import {
+  endpointAllowsAutomaticFare,
+  UNVERIFIED_ADDRESS_FARE_MESSAGE,
+} from "../shared/manual-address";
+import {
   parseQuickQuoteVehicleChoice,
   quickQuoteMaxPassengersForVehicle,
   type QuickQuoteVehicleChoice,
@@ -275,6 +279,21 @@ export async function handleQuoteCalculateRequest(
 
   const pickupAddress = String(body.pickupAddress ?? "");
   const dropoffAddress = String(body.dropoffAddress ?? "");
+
+  if (
+    !endpointAllowsAutomaticFare(pickupPlaceId, pickupAddress) ||
+    !endpointAllowsAutomaticFare(dropoffPlaceId, dropoffAddress)
+  ) {
+    return json(
+      {
+        ok: false,
+        reason: "address_unverified",
+        message: UNVERIFIED_ADDRESS_FARE_MESSAGE,
+      },
+      422,
+      origin,
+    );
+  }
 
   // Prefer address-derived airport identity (same as SumUp payment) so display
   // and checkout share one SERVED_AIRPORTS match. Client airportCode is a hint

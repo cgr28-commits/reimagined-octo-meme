@@ -19,6 +19,7 @@ import {
   withStreetNumber,
 } from "./journey-address-label";
 import { getLdyLocationRestriction, isGreaterBelfastServiceAddress } from "./ldy-service-area";
+import { typedStreetTokensCovered } from "./manual-address";
 
 export {
   extractLeadingStreetNumber,
@@ -636,6 +637,7 @@ function writeSuggestionCache(key: string, items: AddressSuggestion[]): void {
 function formatSuggestion(
   prediction: NonNullable<GoogleAutocompleteResponse["suggestions"]>[number]["placePrediction"],
   userNumber: string | null,
+  query = "",
 ): AddressSuggestion | null {
   if (!prediction?.placeId) {
     return null;
@@ -644,6 +646,12 @@ function formatSuggestion(
   const mainText = prediction.structuredFormat?.mainText?.text ?? prediction.text?.text ?? "";
   const secondaryText = prediction.structuredFormat?.secondaryText?.text ?? "";
   if (!mainText) {
+    return null;
+  }
+
+  const rawLabel = secondaryText ? `${mainText}, ${secondaryText}` : mainText;
+  // Never relabel a different street with the customer's house number.
+  if (query && !typedStreetTokensCovered(query, rawLabel)) {
     return null;
   }
 
@@ -843,7 +851,7 @@ export async function searchGooglePlaces(
   const data = (await response.json()) as GoogleAutocompleteResponse;
 
   const suggestions = (data.suggestions ?? [])
-    .map((item) => formatSuggestion(item.placePrediction, userNumber))
+    .map((item) => formatSuggestion(item.placePrediction, userNumber, query))
     .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
     .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code));
 
@@ -900,7 +908,7 @@ async function searchGooglePlacesUntyped(
 
   return sortSuggestionsByStreetNumber(
     (data.suggestions ?? [])
-      .map((item) => formatSuggestion(item.placePrediction, userNumber))
+      .map((item) => formatSuggestion(item.placePrediction, userNumber, query))
       .filter((suggestion): suggestion is AddressSuggestion => suggestion !== null)
       .filter((suggestion) => isAllowedAutocompleteLabel(suggestion.label, code)),
   ).slice(0, 8);
@@ -971,9 +979,13 @@ export async function searchGoogleStreetAddresses(
       continue;
     }
 
-    let formatted = place.formattedAddress.trim();
+    const providerFormatted = place.formattedAddress.trim();
+    if (!typedStreetTokensCovered(trimmed, providerFormatted)) {
+      continue;
+    }
+    let formatted = providerFormatted;
     // Prefer results that already include a door number; if the user typed one
-    // and Google returned a route-only match, keep their number visible.
+    // and Google returned the same street without a number, keep their number visible.
     if (!hasLeadingStreetNumber(formatted)) {
       if (userNumber) {
         formatted = withStreetNumber(userNumber, formatted);
@@ -1098,7 +1110,11 @@ export async function searchGooglePostcodePremises(
         continue;
       }
 
-      const formatted = place.formattedAddress.trim();
+      const providerFormatted = place.formattedAddress.trim();
+      if (!typedStreetTokensCovered(query, providerFormatted)) {
+        continue;
+      }
+      const formatted = providerFormatted;
       const parts = parseGoogleAddressComponents(place.addressComponents);
       const resultPostcode = (parts.postcode ?? extractNorthernIrelandPostcode(formatted) ?? "")
         .replace(/\s+/g, "")
@@ -1123,9 +1139,10 @@ export async function searchGooglePostcodePremises(
       const commaIndex = formatted.indexOf(",");
       const mainText = commaIndex === -1 ? formatted : formatted.slice(0, commaIndex);
       const secondaryText = commaIndex === -1 ? "" : formatted.slice(commaIndex + 1).trim();
+      const typedNumber = extractLeadingStreetNumber(premise);
       const displayMain =
-        extractLeadingStreetNumber(premise) && !hasLeadingStreetNumber(mainText)
-          ? withStreetNumber(extractLeadingStreetNumber(premise)!, mainText)
+        typedNumber && !hasLeadingStreetNumber(mainText) && typedStreetTokensCovered(query, providerFormatted)
+          ? withStreetNumber(typedNumber, mainText)
           : mainText;
 
       suggestions.push({

@@ -19,10 +19,16 @@ import {
   isPureFullNorthernIrelandPostcodeQuery,
   type AddressPrediction,
 } from "@/lib/google-maps";
+import { fetchWorkerManualAddress } from "@/lib/addresses-api";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { addressFieldShellClass } from "@/lib/quote-ui-highlight";
 import { buildDisplayAddress, looksLikeStreetAddressLine, normaliseAddressCompareKey } from "@/lib/selected-place";
 import { hasLeadingStreetNumber } from "../../shared/journey-address-label";
+import {
+  isUnverifiedManualPlaceId,
+  parseManualServiceAddress,
+  unverifiedManualPlaceId,
+} from "../../shared/manual-address";
 import { isHighConfidenceAddressMatch } from "@/lib/address-match";
 
 type AddressInputProps = {
@@ -119,6 +125,7 @@ export default function AddressInput({
   const [suggestions, setSuggestions] = useState<AddressPrediction[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [resolvingManual, setResolvingManual] = useState(false);
   const [needsHouseNumber, setNeedsHouseNumber] = useState(false);
   const [houseOrBuilding, setHouseOrBuilding] = useState("");
   const [lockedPostcode, setLockedPostcode] = useState<string | null>(null);
@@ -534,9 +541,72 @@ export default function AddressInput({
   }
   selectPredictionRef.current = handleSelect;
 
+  async function handleUseTypedAddress() {
+    const parsed = parseManualServiceAddress(value);
+    if (!parsed || resolvingManual) return;
+    setResolvingManual(true);
+    setLoadError(null);
+    try {
+      const resolved = await fetchWorkerManualAddress(parsed.formatted, airportCode);
+      if (
+        resolved?.verified &&
+        typeof resolved.lat === "number" &&
+        typeof resolved.lng === "number"
+      ) {
+        const nextPlace: SelectedPlace = {
+          placeId: resolved.placeId,
+          formattedAddress: resolved.formattedAddress || resolved.address,
+          displayAddress: parsed.formatted,
+          placeName: null,
+          lat: resolved.lat,
+          lng: resolved.lng,
+          countryCode: resolved.countryCode,
+          postalCode: resolved.postalCode || parsed.postcode,
+          streetNumber: resolved.streetNumber || parsed.houseNumber,
+          route: resolved.route || parsed.street,
+          locality: resolved.locality || parsed.locality || parsed.town,
+        };
+        selectedPlaceRef.current = nextPlace;
+        onChange(parsed.formatted);
+        onSelectAddress?.(parsed.formatted);
+        onSelectPlace?.(nextPlace);
+        setSuggestionsOpen(false);
+        return;
+      }
+
+      const manual = resolved?.verified === false ? resolved.manual : parsed;
+      const nextPlace: SelectedPlace = {
+        placeId: unverifiedManualPlaceId(manual.formatted),
+        formattedAddress: manual.formatted,
+        displayAddress: manual.formatted,
+        placeName: null,
+        lat: null,
+        lng: null,
+        countryCode: "GB",
+        postalCode: manual.postcode,
+        streetNumber: manual.houseNumber,
+        route: manual.street,
+        locality: manual.locality || manual.town,
+      };
+      selectedPlaceRef.current = nextPlace;
+      onChange(manual.formatted);
+      onSelectAddress?.(manual.formatted);
+      onSelectPlace?.(nextPlace);
+      setSuggestionsOpen(false);
+    } finally {
+      setResolvingManual(false);
+    }
+  }
+
   const showSuggestions = suggestionsOpen && suggestions.length > 0;
   const showHouseStep = needsHouseNumber || Boolean(lockedPostcode && houseOrBuilding);
   const hasConfirmedSelection = Boolean(confirmedPlace?.placeId?.trim());
+  const confirmedIsUnverified = isUnverifiedManualPlaceId(confirmedPlace?.placeId);
+  const manualCandidate =
+    !showSuggestions && !showHouseStep && !hasConfirmedSelection
+      ? parseManualServiceAddress(value)
+      : null;
+  const showManualUse = Boolean(manualCandidate && loadError);
   const placeComplete = requireSuggestion
     ? hasConfirmedSelection
     : Boolean(value.trim());
@@ -547,6 +617,8 @@ export default function AddressInput({
     loadError ??
     (restoredHint && hasConfirmedSelection
       ? "Using your previous address — edit or clear to choose a different one."
+      : confirmedIsUnverified
+        ? "Address saved. It is not verified, so an online fare is not available."
       : hasConfirmedSelection && requireSuggestion
         ? "Address confirmed — edit to choose a different one."
         : showNeedsCompletion && requireSuggestion
@@ -773,6 +845,22 @@ export default function AddressInput({
       >
         {hintMessage}
       </p>
+      {showManualUse && manualCandidate ? (
+        <button
+          type="button"
+          onClick={() => void handleUseTypedAddress()}
+          disabled={resolvingManual}
+          data-use-typed-address
+          className="mt-2 w-full rounded-xl border border-white/25 bg-white/10 px-4 py-3 text-left text-white disabled:opacity-60"
+        >
+          <span className="block text-sm font-semibold">
+            {resolvingManual ? "Checking this address…" : "Use this address"}
+          </span>
+          <span className="mt-0.5 block text-xs leading-snug text-white/75">
+            {manualCandidate.formatted}
+          </span>
+        </button>
+      ) : null}
     </div>
   );
 }
