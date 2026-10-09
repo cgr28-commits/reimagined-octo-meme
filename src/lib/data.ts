@@ -398,7 +398,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "Cars and 7-seater airport transfers",
     description:
-      "Choose Saloon, Estate, Business Class or a 7 Seater Minibus when available. Cars carry up to 4 passengers and the minibus up to 7; enter your luggage for a suitable vehicle recommendation and a fixed quote.",
+      "Saloon and Estate carry up to 4 passengers. Business Class carries 1–3 passengers and up to 2 large suitcases. A 7 Seater Minibus carries up to 7 when available. Enter your luggage for a suitable vehicle recommendation and a fixed quote.",
   },
 ] as const;
 
@@ -466,7 +466,7 @@ export const FAQS = [
   {
     question: "How many passengers can I book for?",
     answer:
-      "Cars carry up to 4 passengers. A 7 Seater Minibus carries up to 7 when available. Enter your passenger and suitcase numbers; the quote recommends a vehicle and shows the options available for your booking.",
+      "Saloon and Estate carry up to 4 passengers. Business Class carries 1–3 passengers and up to 2 large suitcases. A 7 Seater Minibus carries up to 7 when available. Enter your passenger and suitcase numbers; the quote recommends a vehicle and shows the options available for your booking.",
   },
   {
     question: "Are tolls included?",
@@ -558,9 +558,9 @@ export const VEHICLE_FLEET = [
   },
   {
     name: "Business Class",
-    capacity: "1–4 passengers",
+    capacity: "1–3 passengers",
     description:
-      "Premium executive vehicle. Book and pay online when Business Class is available.",
+      "Premium executive vehicle for 1–3 passengers and up to 2 large suitcases. Complimentary water included. Book and pay online when Business Class is available.",
     enquiryOnly: false,
     requestQuote: false,
     partnerOperated: false,

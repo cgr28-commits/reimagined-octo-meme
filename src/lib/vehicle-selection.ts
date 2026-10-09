@@ -4,6 +4,7 @@
  *
  * Automatic starting vehicle (guidance, not a restriction):
  * - Standard Saloon: 1–4 passengers AND 0–2 suitcases
+ * - Business Class: 1–3 passengers AND 0–2 large suitcases (upgrade, not automatic)
  * - Estate Car: 1–4 passengers AND 3–4 suitcases
  * - 7 Seater Minibus: 5–7 passengers OR 5+ large bags
  *   (offered online only when Offer 7 Seater Minibus Online is ON)
@@ -51,9 +52,12 @@ export function canonicalVehicleType(raw: string | null | undefined): VehicleTyp
   return SALOON_VEHICLE;
 }
 
-/** Saloon and Business Class share saloon luggage room. Estate covers up to 4 large cases. */
+/** Saloon luggage room. Estate covers up to 4 large cases. */
 export const SALOON_MAX_LARGE_SUITCASES = 2;
 export const ESTATE_MAX_LARGE_SUITCASES = 4;
+/** Business Class only. Saloon stays at 4 passengers. */
+export const BUSINESS_CLASS_MAX_PASSENGERS = 3;
+export const BUSINESS_CLASS_MAX_LARGE_SUITCASES = 2;
 
 export const BUSINESS_CLASS_UNAVAILABLE_ONLINE_MESSAGE =
   "Business Class is not available to book online.";
@@ -63,7 +67,9 @@ export const VEHICLE_NOT_SUITABLE_CARD_MESSAGE =
   "Not suitable for this passenger/luggage selection";
 
 /**
- * Physical fit only. Saloon and Business Class: 1–4 passengers and 0–2 large suitcases.
+ * Physical fit only.
+ * Business Class: 1–3 passengers and 0–2 large suitcases.
+ * Saloon: 1–4 passengers and 0–2 large suitcases.
  * Estate: 1–4 passengers and up to 4 large suitcases. Minibus: up to 7 passengers.
  */
 export function vehicleFitsParty(
@@ -76,6 +82,9 @@ export function vehicleFitsParty(
   if (!Number.isFinite(pax) || !Number.isFinite(bags) || pax < 1 || bags < 0) return false;
   const canonical = canonicalVehicleType(vehicle);
   if (canonical === MINIBUS_VEHICLE) return pax <= GROUP_PASSENGER_MAX;
+  if (canonical === EXECUTIVE_VEHICLE) {
+    return pax <= BUSINESS_CLASS_MAX_PASSENGERS && bags <= BUSINESS_CLASS_MAX_LARGE_SUITCASES;
+  }
   if (pax > MAX_PASSENGERS || bags > ESTATE_MAX_LARGE_SUITCASES) return false;
   if (canonical === ESTATE_VEHICLE) return true;
   return bags <= SALOON_MAX_LARGE_SUITCASES;
@@ -149,7 +158,12 @@ export function resolvePublicVehicleChoice(input: {
   const publicExecutiveEnabled = input.publicExecutiveEnabled !== false;
 
   if (input.ownerMode === true) {
-    if (isExecutiveVehicle(requested)) return { ok: true, vehicleType: EXECUTIVE_VEHICLE };
+    if (isExecutiveVehicle(requested)) {
+      if (!vehicleFitsParty(EXECUTIVE_VEHICLE, pax, bags)) {
+        return { ok: false, message: VEHICLE_NOT_SUITABLE_CARD_MESSAGE };
+      }
+      return { ok: true, vehicleType: EXECUTIVE_VEHICLE };
+    }
     if (/minibus/i.test(requested)) return { ok: true, vehicleType: MINIBUS_VEHICLE };
     if (/estate/i.test(requested)) return { ok: true, vehicleType: ESTATE_VEHICLE };
     if (/saloon/i.test(requested)) {

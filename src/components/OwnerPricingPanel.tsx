@@ -986,8 +986,8 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           Executive fare = Saloon journey fare × multiplier, nearest penny. Change 1.40, 1.50, 1.75
           or 2.00 here without a code change. When Executive is on and available, customers can
           select it and pay online. Airport Executive pickups include Meet &amp; Greet, a
-          personalised name board, luggage assistance, barrier and parking, bottled water and phone
-          charging. Executive availability is separate from Saloon, Estate and the 7-Seater.
+          personalised name board, luggage assistance, barrier and parking, Complimentary water included
+          and phone charging. Executive availability is separate from Saloon, Estate and the 7-Seater.
         </p>
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="text-sm text-white/80">Offer Executive online</p>

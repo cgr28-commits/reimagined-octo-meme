@@ -210,9 +210,7 @@ export default async function TransferRoutePage({ params }: Props) {
           <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <h2 className="text-lg font-bold text-white">Vehicles, luggage and airport access</h2>
             <p className="mt-4 text-sm leading-relaxed text-white/65">
-              Saloon, Estate and Business Class carry up to 4 passengers. For larger groups,
-              choose a 7 Seater Minibus when available. Enter all passengers and suitcases
-              before choosing your vehicle; the quote shows the options and fixed fare.
+              Saloon and Estate carry up to 4 passengers. Business Class carries 1–3 passengers and up to 2 large suitcases. For larger groups, choose a 7 Seater Minibus when available. Enter all passengers and suitcases before choosing your vehicle; the quote shows the options and fixed fare.
             </p>
             <p className="mt-4 text-sm leading-relaxed text-white/65">
               {page.airport.code === "BFS" || page.airport.code === "BHD"

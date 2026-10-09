@@ -6,12 +6,14 @@
 
 export const DEFAULT_EXECUTIVE_MULTIPLIER = 1.5;
 
+export const BUSINESS_CLASS_WATER_INCLUDED = "Complimentary water included";
+
 export const EXECUTIVE_AIRPORT_PICKUP_INCLUDED =
-  "Airport Executive pickups include Meet & Greet, a personalised name board, luggage assistance, barrier and parking, bottled water and phone charging.";
+  "Airport Executive pickups include Meet & Greet, a personalised name board, luggage assistance, barrier and parking, Complimentary water included and phone charging.";
 
 /** Customer wording. Does not name a manufacturer or model. */
 export const BUSINESS_CLASS_AIRPORT_PICKUP_INCLUDED =
-  "Airport pickups include Meet & Greet, a personalised name board, luggage assistance, barrier and parking, bottled water and phone charging.";
+  "Airport pickups include Meet & Greet, a personalised name board, luggage assistance, barrier and parking, Complimentary water included and phone charging.";
 
 export const AIRPORT_ACCESS_INCLUDED_HEADING = "Airport access included";
 

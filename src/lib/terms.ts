@@ -54,7 +54,7 @@ export const TERMS_SECTIONS = [
       "Pickups from elsewhere in Northern Ireland to a Greater Belfast destination receive a live online quote where route pricing is available. Other out-of-area pickups (for example outside Northern Ireland, or NI pickups to destinations outside Greater Belfast) require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
     ],
     footer:
-      "All journeys are subject to vehicle availability. Saloon, Estate or similar larger vehicle, and Business Class carry up to 4 passengers. A 7 Seater Minibus carries up to 7 when it is offered and available. Business Class is a premium executive vehicle and can be booked and paid online when it is available.",
+      "All journeys are subject to vehicle availability. Saloon and Estate or similar larger vehicle carry up to 4 passengers. Business Class carries 1–3 passengers and up to 2 large suitcases. A 7 Seater Minibus carries up to 7 when it is offered and available. Business Class is a premium executive vehicle and can be booked and paid online when it is available.",
   },
   {
     title: "Cross-border & Republic of Ireland journeys",
@@ -70,7 +70,7 @@ export const TERMS_SECTIONS = [
     title: "Vehicles & capacity",
     content: [
       "Saloon and estate car transfers for up to 4 passengers are fulfilled by My Airport Taxi NI using our own licensed vehicles and drivers.",
-      "A 7 Seater Minibus carries up to 7 passengers when it is offered and available. Business Class is a premium executive vehicle and can be booked and paid online when it is available.",
+      "Business Class carries 1–3 passengers and up to 2 large suitcases. A 7 Seater Minibus carries up to 7 passengers when it is offered and available. Business Class is a premium executive vehicle and can be booked and paid online when it is available.",
       "We remain your point of contact for booking, payment (where applicable), and customer service.",
     ],
   },

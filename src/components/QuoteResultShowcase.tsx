@@ -108,7 +108,11 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         ? BUSINESS_CLASS_IMAGE
         : SALOON_IMAGE;
   const supporting = vehicleCustomerDescription(vehicleType);
-  const capacityLine = isMinibus ? "Up to 7 passengers" : "1–4 passengers";
+  const capacityLine = isMinibus
+    ? "Up to 7 passengers"
+    : isExecutive
+      ? "1–3 passengers"
+      : "1–4 passengers";
   const detailLine = isEstate || isExecutive ? supporting : "\u00a0";
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
