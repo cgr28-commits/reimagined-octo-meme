@@ -121,6 +121,17 @@ export default async function AirportTransferPage({ params }: Props) {
               {page.highlights.map((item) => (
                 <li key={item}>{item}</li>
               ))}
+              {page.slug === "dublin" ? (
+                <li>
+                  <Link
+                    href="/transfers/business-class-dublin-airport/"
+                    className="text-emerald hover:text-emerald-light"
+                  >
+                    Business Class
+                  </Link>{" "}
+                  airport pickups include Meet &amp; Greet with a name board
+                </li>
+              ) : null}
             </ul>
           </section>
 
