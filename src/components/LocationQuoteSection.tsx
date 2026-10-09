@@ -10,6 +10,8 @@ type Props = {
   heading?: string;
   /** Other landing pages keep the mobile sticky quote bar. This page can turn it off. */
   showStickyQuote?: boolean;
+  /** Prefer the existing 7 Seater Minibus when it is offered and fits the party. */
+  preferMinibus?: boolean;
 };
 
 export default function LocationQuoteSection({
@@ -18,6 +20,7 @@ export default function LocationQuoteSection({
   addressHint = "",
   heading = "Get your fixed quote",
   showStickyQuote = true,
+  preferMinibus = false,
 }: Props) {
   return (
     <section
@@ -47,6 +50,7 @@ export default function LocationQuoteSection({
           initialAirportCode={airportCode}
           initialDirection={direction}
           initialAddressHint={addressHint}
+          preferMinibus={preferMinibus}
         />
       </div>
       {showStickyQuote ? <LandingPageStickyQuoteCta /> : null}

@@ -204,6 +204,16 @@ const pages = [
     path: "/transfers/business-class-dublin-airport/",
     source: "src/app/transfers/business-class-dublin-airport/page.tsx",
   },
+  ...[
+    "/transfers/7-seater-airport-transfers-belfast/",
+    "/transfers/belfast-to-dublin-airport-7-seater/",
+    "/transfers/hen-party-transport-belfast/",
+    "/transfers/stag-party-transport-belfast/",
+    "/transfers/private-group-transfers-belfast/",
+  ].map((path) => ({
+    path,
+    source: `src/app${path}page.tsx`,
+  })),
   // /unsubscribe/ is noindex — omit from the sitemap.
   // /book/, /quote/, /manage-booking/, /pay/, /owner/, /driver/, /tip/ omitted.
   // /tip/ is a transactional noindex page. Never list tokenised tip URLs.
@@ -224,8 +234,18 @@ function pageContentSources(page) {
   if (page.path === "/transfers/business-class-dublin-airport/") {
     return [page.source, "src/lib/business-class-dublin-content.ts"];
   }
+  if (
+    page.path === "/transfers/7-seater-airport-transfers-belfast/" ||
+    page.path === "/transfers/belfast-to-dublin-airport-7-seater/" ||
+    page.path === "/transfers/hen-party-transport-belfast/" ||
+    page.path === "/transfers/stag-party-transport-belfast/" ||
+    page.path === "/transfers/private-group-transfers-belfast/"
+  ) {
+    return [page.source, "src/lib/vito-group-content.ts", "src/components/VitoGroupLanding.tsx"];
+  }
   if (page.path === "/") return [page.source, ...sharedContent,
-    "src/components/VehiclesSection.tsx", "src/components/PopularBelfastTransfers.tsx"];
+    "src/components/VehiclesSection.tsx", "src/components/PopularBelfastTransfers.tsx",
+    "src/components/VitoGroupTransfersSection.tsx"];
   if (page.path.startsWith("/transfers/")) return [page.source, ...sharedContent,
     "src/app/transfers/[slug]/page.tsx", "src/lib/transfer-routes-content.ts",
     "src/lib/transfer-routes-belfast.ts", "src/lib/transfer-routes-batch-3.ts",

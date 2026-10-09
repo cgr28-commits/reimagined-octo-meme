@@ -96,6 +96,14 @@ export default function VehiclesSection() {
                       Business Class Dublin Airport transfers
                     </Link>
                   ) : null}
+                  {vehicle.id === "minibus" ? (
+                    <Link
+                      href="/transfers/7-seater-airport-transfers-belfast/"
+                      className="mt-2 inline-block text-sm font-semibold text-emerald hover:text-emerald-light"
+                    >
+                      7-seater airport transfers
+                    </Link>
+                  ) : null}
                 </div>
               ))}
             </div>
