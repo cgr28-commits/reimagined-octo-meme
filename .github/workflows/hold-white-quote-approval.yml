@@ -1,0 +1,19 @@
+name: Hold white quote until approved
+
+# Keeps this visual experiment off the live site. The repo auto-merges
+# cursor/ pull requests once checks pass; this check stays failed until the
+# white homepage quote is approved and the hold is removed.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  await-approval:
+    if: contains(github.head_ref, 'homepage-white-quote')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merge until the white quote appearance is approved
+        run: |
+          echo "This draft compares a white homepage quote tool with the live dark one."
+          echo "Do not merge until that appearance is approved."
+          exit 1

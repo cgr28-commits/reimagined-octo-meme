@@ -1088,3 +1088,224 @@ main {
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset;
   }
 }
+
+/*
+ * Homepage quote experiment only. Landing pages keep the dark quote-flow tokens.
+ * The save-quote dialog stays on its own navy panel.
+ */
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] {
+  --quote-card-bg: #ffffff;
+  --quote-card-border: #e2e8f0;
+  --quote-panel-bg: #f8fafc;
+  --quote-panel-border: #e2e8f0;
+  --quote-input-bg: #ffffff;
+  --quote-input-border: #d5deea;
+  --quote-choice-bg: #f8fafc;
+  --quote-choice-border: #e2e8f0;
+  --quote-selected-border: #2fbf4a;
+  --quote-selected-bg: #eefaf1;
+  --quote-selected-glow: none;
+  --quote-selected-icon: #2fbf4a;
+  --quote-placeholder: #64748b;
+  --quote-price-ink: #071c38;
+  --quote-secondary-ink: #5b6b7c;
+  color: #071c38;
+  color-scheme: light;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"].glass-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 16px 36px rgba(2, 8, 20, 0.22);
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .text-white {
+  color: #071c38;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [class*="text-white/"] {
+  color: #5b6b7c;
+}
+
+/* Address labels use a Tailwind ! utility. Important colour in @layer utilities
+   beats an unlayered !important, so this override lives in the earlier base layer. */
+@layer base {
+  .homepage-hero .quote-flow[data-quote-presentation="homepage"] .form-label {
+    color: #071c38 !important;
+  }
+
+  .homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] .form-label {
+    color: #d7e0ec !important;
+  }
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-secondary,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-helper-text {
+  color: #5b6b7c;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-step {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #071c38;
+  box-shadow: none;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-step-active {
+  background: #eefaf1;
+  border-color: #2fbf4a;
+  color: #071c38;
+  box-shadow: none;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-step-done {
+  background: #ffffff;
+  border-color: #c9e8d2;
+  color: #071c38;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .journey-option-card {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #071c38;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .journey-option-card:hover {
+  background: #f8fafc;
+  border-color: #2fbf4a;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .journey-option-icon,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .journey-option-chevron,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .journey-option-card.quote-choice-selected .journey-option-icon,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .journey-option-card.quote-choice-selected .journey-option-chevron {
+  color: #2fbf4a;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-choice {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #071c38;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-choice:hover {
+  border-color: #2fbf4a;
+  background: #f8fafc;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-choice-selected,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .journey-option-card.quote-choice-selected,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .journey-option-card.quote-choice-selected:hover,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-choice-selected:hover {
+  background: #eefaf1;
+  border-color: #2fbf4a;
+  color: #071c38;
+  box-shadow: none;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-text-input:not([role="dialog"] *),
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-datetime-shell:not([role="dialog"] *),
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .address-input:not([role="dialog"] *),
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [class*="bg-white/"]:not([role="dialog"], [role="dialog"] *),
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [class*="bg-navy"]:not([role="dialog"], [role="dialog"] *) {
+  background-color: #ffffff;
+  color: #071c38;
+  color-scheme: light;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [class*="bg-white/"]:not(.quote-text-input):not(.quote-datetime-shell):not(.address-input):not(input):not(button):not([role="dialog"], [role="dialog"] *) {
+  background-color: #f8fafc;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [class*="border-white"]:not([role="dialog"], [role="dialog"] *) {
+  border-color: #e2e8f0;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-text-input::placeholder,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .address-input::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-price-figure {
+  color: #071c38;
+  text-shadow: none;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-price-panel {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  box-shadow: none;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-price-label {
+  color: #1f9a36;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .btn-secondary {
+  color: #071c38;
+  border-color: #c5d0dc;
+  background: #ffffff;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .btn-secondary:hover:not(:disabled) {
+  border-color: #2fbf4a;
+  background: #f8fafc;
+  color: #071c38;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .btn-primary,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .quote-result-card .btn-primary {
+  color: #071c38;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .btn-primary:disabled {
+  color: #071c38;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] .btn-secondary:disabled {
+  color: #5b6b7c;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [class*="text-red-"] {
+  color: #b42318;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] :focus-visible {
+  outline-color: #2fbf4a;
+}
+
+/* Save-quote dialog keeps the existing dark panel. */
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"],
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] .quote-flow {
+  color: #e8edf5;
+  color-scheme: dark;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] .text-white,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] [class*="text-white/"] {
+  color: #ffffff;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] [class*="text-white/"] {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] .form-label,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] .quote-secondary {
+  color: #d7e0ec !important;
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] .quote-text-input,
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] [class*="bg-navy"] {
+  background-color: #0c2a52;
+  color: #ffffff;
+  color-scheme: dark;
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.homepage-hero .quote-flow[data-quote-presentation="homepage"] [role="dialog"] .quote-text-input::placeholder {
+  color: rgba(255, 255, 255, 0.65);
+}
