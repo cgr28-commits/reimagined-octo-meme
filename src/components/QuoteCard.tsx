@@ -676,6 +676,12 @@ type QuoteCardProps = {
    * Never pass URL/query-string address text here.
    */
   initialDropoffPlace?: SelectedPlace | null;
+  /**
+   * Landing pages for the 7-seater can prefer that existing vehicle once the
+   * party fits and the option is offered. Customers can still choose another
+   * suitable vehicle. This does not change the fare calculation.
+   */
+  preferMinibus?: boolean;
 };
 
 function resolveLandingJourneyIntent(params: {
@@ -730,6 +736,7 @@ function QuoteCard({
   returnOfferToken = "",
   initialPickupPlace = null,
   initialDropoffPlace = null,
+  preferMinibus = false,
 }: QuoteCardProps) {
   preloadQuoteResultVehicleImages();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -948,6 +955,8 @@ function QuoteCard({
   const [serverQuoteUnavailable, setServerQuoteUnavailable] = useState(false);
   const serverQuoteGenRef = useRef(0);
   const quoteVehicleRef = useRef("");
+  const customerPickedVehicleRef = useRef(false);
+  const preferMinibusPartyKeyRef = useRef("");
   const quoteFareAbortRef = useRef<AbortController | null>(null);
   /** Stops a vehicle_unavailable response from retrying the same unsuitable choice. */
   const unsuitableFareRecoveryRef = useRef("");
@@ -1097,6 +1106,38 @@ function QuoteCard({
     publicMinibusEnabled,
     suitcases,
     vehicle,
+  ]);
+
+  useEffect(() => {
+    if (!preferMinibus || !publicMinibusEnabled || customerPickedVehicleRef.current) return;
+    const pax =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers != null && passengers >= 1 ? passengers : null);
+    if (pax == null || suitcases == null) return;
+    const partyKey = `${pax}:${suitcases}`;
+    if (preferMinibusPartyKeyRef.current === partyKey) return;
+    if (
+      !enabledVehicleTypesForQuote({
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      }).includes(MINIBUS_VEHICLE_TYPE) ||
+      !vehicleFitsParty(MINIBUS_VEHICLE_TYPE, pax, suitcases)
+    ) {
+      return;
+    }
+    preferMinibusPartyKeyRef.current = partyKey;
+    setManualVehicle(MINIBUS_VEHICLE_TYPE);
+    setChooseMinibus(true);
+    setChooseExecutive(false);
+    setChooseEstate(false);
+    setVehicle(MINIBUS_VEHICLE_TYPE);
+  }, [
+    passengerLimit,
+    passengers,
+    preferMinibus,
+    publicExecutiveEnabled,
+    publicMinibusEnabled,
+    suitcases,
   ]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
@@ -2843,6 +2884,8 @@ function QuoteCard({
     setChooseExecutive(false);
     setChooseEstate(false);
     setManualVehicle(null);
+    customerPickedVehicleRef.current = false;
+    preferMinibusPartyKeyRef.current = "";
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -4507,6 +4550,8 @@ function QuoteCard({
     setChooseExecutive(false);
     setChooseEstate(false);
     setManualVehicle(null);
+    customerPickedVehicleRef.current = false;
+    preferMinibusPartyKeyRef.current = "";
     setOutboundAccessChoice("express");
     setReturnAccessChoice("express");
     setExpressRemovalAck(false);
@@ -6947,6 +6992,7 @@ function QuoteCard({
     ) {
       return;
     }
+    customerPickedVehicleRef.current = true;
     setManualVehicle(chosen);
     setChooseExecutive(next === EXECUTIVE_VEHICLE);
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
