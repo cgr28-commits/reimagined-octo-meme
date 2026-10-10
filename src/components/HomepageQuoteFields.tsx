@@ -140,7 +140,7 @@ export default function HomepageQuoteFields({
   const passengerChoices = publicPassengerOptions(publicMinibusEnabled);
   const suitcaseChoices = publicSuitcaseOptions(publicMinibusEnabled);
 
-  async function useCurrentLocation() {
+  async function locatePickup() {
     if (gpsBusy) return;
     setGpsMessage("");
     setGpsBusy(true);
@@ -253,7 +253,7 @@ export default function HomepageQuoteFields({
             aria-label="Use my current location"
             disabled={gpsBusy}
             onClick={() => {
-              void useCurrentLocation();
+              void locatePickup();
             }}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-emerald disabled:opacity-60"
           >
