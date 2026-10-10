@@ -19,6 +19,15 @@ try {
   assert.equal(await page.locator('img').getAttribute('alt'),'My Airport Taxi NI');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.screenshot({path:`${output}/390-collection-email-${colorScheme}.png`,fullPage:true});
+  await page.setContent(await fs.readFile('public/invoice-example.html','utf8'));
+  await page.waitForFunction(()=>Array.from(document.images).every(i=>i.complete&&i.naturalWidth>0));
+  assert.ok(await page.getByText('Thank you, Alex',{exact:true}).isVisible());
+  assert.ok(await page.getByText('MAT-1001',{exact:true}).first().isVisible());
+  assert.ok(await page.getByRole('link',{name:'Manage Your Booking',exact:true}).isVisible());
+  assert.ok(await page.getByRole('link',{name:'Save My Airport Taxi NI to Contacts',exact:true}).isVisible());
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.screenshot({path:`${output}/390-booking-email-${colorScheme}.png`,fullPage:true});
+  await page.setContent(result.html);
   await page.locator('img').evaluate(i=>i.src='https://blocked.invalid/missing.png');
   await page.waitForTimeout(100);
   assert.ok(await page.locator('.matni-header').getByText('My Airport Taxi NI',{exact:true}).isVisible());

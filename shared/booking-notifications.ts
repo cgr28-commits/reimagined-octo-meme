@@ -483,7 +483,7 @@ function buildInvoiceHtml(
     details.customerReference?.trim().toUpperCase() ||
     details.checkoutReference?.trim() ||
     "";
-  const customerName = escapeHtml(details.customerName);
+  const customerName = escapeHtml(customerFirstName(details.customerName));
   const rowsHtml = invoiceRows(details)
     .map(
       (row) =>
@@ -703,7 +703,7 @@ export function buildCustomerConfirmationEmail(
     : `Invoice & booking confirmed — ${businessName}`;
 
   const text =
-    `Dear ${details.customerName},\n\n` +
+    `Dear ${customerFirstName(details.customerName)},\n\n` +
     `Thank you for your booking with ${businessName}. ${
       depositCashReceiptDetails(details)
         ? `We've received your deposit and your transfer is confirmed. ${REMAINING_BALANCE_CASH_ONLY}`
@@ -2139,7 +2139,7 @@ export function buildUpdatedBookingConfirmationEmail(
       : "";
   const fareBlock = options?.fareNote ? `${options.fareNote}\n\n` : "";
   const intro =
-    `Dear ${receipt.customerName},\n\n` +
+    `Dear ${customerFirstName(receipt.customerName)},\n\n` +
     `Your booking has been updated.\n\n` +
     fareBlock +
     whatChangedBlock +
@@ -2163,7 +2163,7 @@ export function buildUpdatedBookingConfirmationEmail(
     .replace(/Thank you for your booking with [^.<]+?\./i, "Your booking has been updated.")
     .replace(
       /(<div style="margin-top:8px;font-size:22px;line-height:1\.35;color:#ffffff;font-weight:bold;">)([^<]*)(<\/div>)/,
-      `$1Your booking has been updated$3`,
+      (_match, start, _heading, end) => `${start}Your booking has been updated, ${escapeHtml(customerFirstName(receipt.customerName))}${end}`,
     );
 
   if (options?.fareNote || (options?.whatChanged && options.whatChanged.length > 0)) {

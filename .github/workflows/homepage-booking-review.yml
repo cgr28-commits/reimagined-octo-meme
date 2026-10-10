@@ -34,6 +34,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node --import tsx scripts/check-dublin-airport-label.ts
       - run: node --import tsx scripts/check-email-logo.ts
+      - run: node --import tsx scripts/check-booking-confirmation-preview.ts
       - name: Test homepage and booking on mobile and desktop
         run: |
           python3 -m http.server 3000 --directory out &
