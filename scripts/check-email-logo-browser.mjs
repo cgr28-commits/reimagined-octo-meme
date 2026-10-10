@@ -21,7 +21,7 @@ try {
   await page.screenshot({path:`${output}/390-collection-email-${colorScheme}.png`,fullPage:true});
   await page.locator('img').evaluate(i=>i.src='https://blocked.invalid/missing.png');
   await page.waitForTimeout(100);
-  assert.ok(await page.getByText('My Airport Taxi NI',{exact:true}).isVisible());
+  assert.ok(await page.locator('.matni-header').getByText('My Airport Taxi NI',{exact:true}).isVisible());
   console.log('PASS collection email: visible logo, mobile layout, '+colorScheme+', company name retained when image blocked');
   await context.close();
  }
