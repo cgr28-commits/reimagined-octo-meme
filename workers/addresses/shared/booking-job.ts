@@ -1,6 +1,7 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
 import type { AdsAttribution } from "./ads-attribution";
+import { businessEmailClientMeta, businessEmailLogoHtml } from "./business-email";
 
 function formatJobDateDmy(date: string): string {
   if (!date) return "";
@@ -263,8 +264,18 @@ export function buildCustomerDriverDetailsEmail(options: {
 
   const html = `<!DOCTYPE html>
 <html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${businessEmailClientMeta()}
+  <title>${escapeHtml(subject)}</title>
+</head>
 <body style="margin:0;padding:0;background:#071c38;font-family:Arial,sans-serif;color:#e8edf5;">
   <div style="max-width:560px;margin:0 auto;padding:24px;">
+    <div class="matni-header" style="text-align:center;padding:8px 0 20px;">
+      ${businessEmailLogoHtml()}
+      <div style="margin-top:12px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#2fbf4a;font-weight:bold;">${escapeHtml(businessName)}</div>
+    </div>
     <h1 style="color:#2fbf4a;font-size:22px;">Your driver details</h1>
     <p>Hi ${escapeHtml(customerName)},</p>
     <p>${

@@ -33,12 +33,14 @@ jobs:
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium
       - run: node --import tsx scripts/check-dublin-airport-label.ts
+      - run: node --import tsx scripts/check-email-logo.ts
       - name: Test homepage and booking on mobile and desktop
         run: |
           python3 -m http.server 3000 --directory out &
           node --import tsx scripts/check-homepage-booking-browser.mjs
           node --import tsx scripts/check-return-vehicle-stability.mjs
           node --import tsx scripts/check-hub-quote-browser.mjs
+          node --import tsx scripts/check-email-logo-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

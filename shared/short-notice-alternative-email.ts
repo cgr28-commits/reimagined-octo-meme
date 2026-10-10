@@ -10,10 +10,11 @@ import {
   BUSINESS_MAILBOX as BUSINESS_EMAIL,
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
+  businessEmailClientMeta,
+  businessEmailLogoHtml,
 } from "./business-email";
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
-const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
 const ACCENT = BRAND_EMERALD;
 const NAVY = BRAND_NAVY;
 
@@ -86,6 +87,7 @@ export function buildShortNoticeAlternativeOfferEmail(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+${businessEmailClientMeta()}
   <title>${escapeHtml(subject)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
@@ -95,7 +97,7 @@ export function buildShortNoticeAlternativeOfferEmail(
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              ${businessEmailLogoHtml()}
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Alternative pickup time offered</div>
             </td>

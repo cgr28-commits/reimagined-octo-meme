@@ -9,6 +9,8 @@ import {
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
   businessWhatsAppChatUrl,
   businessWhatsAppPublicPageUrl,
+  businessEmailClientMeta,
+  businessEmailLogoHtml,
 } from "./business-email";
 import { contactVCardPublicUrl, resolveGoogleReviewUrl } from "./business-links";
 import { vehicleServiceLabel } from "./booking-notice";
@@ -189,8 +191,6 @@ function depositCashReceiptDetails(details: PaidBookingReceipt): {
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const BUSINESS_EMAIL = BUSINESS_MAILBOX;
-/** Official logo already hosted on the live site (same asset as Google Business). */
-const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
 const ACCENT = BRAND_EMERALD;
 const NAVY = BRAND_NAVY;
 
@@ -496,6 +496,7 @@ function buildInvoiceHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+${businessEmailClientMeta()}
   <title>Invoice — ${escapeHtml(businessName)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
@@ -505,7 +506,7 @@ function buildInvoiceHtml(
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              ${businessEmailLogoHtml()}
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Invoice &amp; booking confirmation</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Thank you, ${customerName}</div>
               ${
@@ -1029,6 +1030,7 @@ function buildTrackingReminderHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+${businessEmailClientMeta()}
   <title>Live tracking — ${escapeHtml(businessName)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
@@ -1038,7 +1040,7 @@ function buildTrackingReminderHtml(
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              ${businessEmailLogoHtml()}
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your driver tracking is now available</div>
             </td>
@@ -1129,6 +1131,7 @@ function buildRefundConfirmationHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+${businessEmailClientMeta()}
   <title>Refund confirmation — ${escapeHtml(businessName)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
@@ -1138,7 +1141,7 @@ function buildRefundConfirmationHtml(
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              ${businessEmailLogoHtml()}
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Refund confirmation</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your refund is on its way, ${customerName}</div>
             </td>
@@ -1561,7 +1564,7 @@ function buildCustomerCancellationConfirmation(input: {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="color-scheme" content="light" />
+${businessEmailClientMeta()}
 <title>Cancellation confirmed — ${escapeHtml(businessName)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;-webkit-text-size-adjust:100%;">
@@ -1569,7 +1572,7 @@ function buildCustomerCancellationConfirmation(input: {
 <tr><td align="center">
 <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;">
 <tr><td style="background:${NAVY};padding:28px 24px 26px;text-align:center;">
-<img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="64" style="display:block;margin:0 auto;height:64px;width:auto;max-width:100%;border:0;" />
+${businessEmailLogoHtml()}
 <div style="margin-top:18px;font-size:12px;line-height:1.3;letter-spacing:0.14em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Cancellation confirmed</div>
 <div style="margin-top:8px;font-size:26px;line-height:1.25;color:#ffffff;font-weight:bold;">Booking cancelled</div>
 <div style="margin-top:10px;font-size:13px;line-height:1.4;color:#c9d4e0;">Booking reference: ${escapeHtml(ref)}</div>
@@ -1821,12 +1824,13 @@ function buildSimpleBrandedEmailHtml(input: {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+${businessEmailClientMeta()}
 <title>${escapeHtml(input.title)} — ${escapeHtml(input.businessName)}</title></head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;"><tr><td align="center">
 <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
 <tr><td style="background:${NAVY};padding:28px 32px;text-align:center;">
-<img src="${LOGO_URL}" alt="${escapeHtml(input.businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;" />
+${businessEmailLogoHtml()}
 <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(input.title)}</div>
 <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">${input.headline}</div>
 </td></tr>
@@ -1866,6 +1870,7 @@ function buildGoogleReviewRequestHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+${businessEmailClientMeta()}
   <title>How was your journey — ${escapeHtml(businessName)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
@@ -1875,7 +1880,7 @@ function buildGoogleReviewRequestHtml(
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              ${businessEmailLogoHtml()}
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">How was your journey?</div>
             </td>
@@ -2018,6 +2023,7 @@ export function buildDriverArrivedPickupEmail(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+${businessEmailClientMeta()}
   <title>${escapeHtml(subject)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
@@ -2027,7 +2033,7 @@ export function buildDriverArrivedPickupEmail(
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              ${businessEmailLogoHtml()}
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">${escapeHtml(statusHeading)}</div>
             </td>
@@ -2076,6 +2082,7 @@ export function buildDriverOnTheWayEmail(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+${businessEmailClientMeta()}
   <title>${escapeHtml(subject)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
@@ -2085,7 +2092,7 @@ export function buildDriverOnTheWayEmail(
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+              ${businessEmailLogoHtml()}
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">${escapeHtml(statusHeading)}</div>
             </td>

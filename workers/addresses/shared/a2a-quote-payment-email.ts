@@ -10,11 +10,12 @@ import {
   BUSINESS_MAILBOX as BUSINESS_EMAIL,
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
+  businessEmailClientMeta,
+  businessEmailLogoHtml,
 } from "./business-email";
 import { formatA2aQuoteValidityLabel } from "./a2a-personalised-quote";
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
-const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
 const ACCENT = BRAND_EMERALD;
 const NAVY = BRAND_NAVY;
 
@@ -243,14 +244,16 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
 
   const html = `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+${businessEmailClientMeta()}</head>
 <body style="margin:0;padding:0;background:#0b1f33;font-family:Arial,Helvetica,sans-serif;color:#ffffff;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0b1f33;padding:24px 12px;">
     <tr><td align="center">
       <table role="presentation" width="100%" style="max-width:560px;background:${NAVY};border-radius:16px;overflow:hidden;">
         <tr><td style="padding:28px 28px 12px;text-align:center;">
-          <img src="${LOGO_URL}" alt="My Airport Taxi NI" width="120" style="display:block;margin:0 auto 16px;"/>
-          <p style="margin:0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:${ACCENT};">${
+          ${businessEmailLogoHtml()}
+          <div style="margin-top:12px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">My Airport Taxi NI</div>
+          <p style="margin:8px 0 0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:${ACCENT};">${
             isCounterOffer ? "Alternative Journey Offer" : "Personalised Quote"
           }</p>
           <h1 style="margin:8px 0 0;font-size:26px;line-height:1.25;color:#fff;">${escapeHtml(details.amountLabel)}</h1>

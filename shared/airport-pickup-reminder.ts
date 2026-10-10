@@ -18,6 +18,8 @@ import {
   BUSINESS_NAME,
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_PHONE_TEL,
+  businessEmailClientMeta,
+  businessEmailLogoHtml,
   businessWhatsAppChatUrl,
 } from "./business-email";
 import { normalizeCustomerBookingReference } from "./customer-booking-reference";
@@ -510,12 +512,14 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string): 
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+${businessEmailClientMeta()}
 <title>Important information about your airport collection</title></head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;"><tr><td align="center">
 <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
-<tr><td style="background:#071c38;padding:28px 32px;text-align:center;">
-<div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#2fbf4a;font-weight:bold;">${escapeHtml(BUSINESS_NAME)}</div>
+<tr><td class="matni-header" bgcolor="#071c38" style="background:#071c38;padding:28px 32px;text-align:center;">
+${businessEmailLogoHtml()}
+<div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#2fbf4a;font-weight:bold;">${escapeHtml(BUSINESS_NAME)}</div>
 <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
 </td></tr>
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}</td></tr>
