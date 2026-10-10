@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   fetchAddressPredictionsDetailed,
   fetchPlaceDetails,
@@ -33,8 +34,12 @@ type AddressInputProps = {
   label: ReactNode;
   placeholder?: string;
   helperText?: string;
+  /** Keep a blank line under the field so later rows do not jump. */
+  reserveHelperSpace?: boolean;
   required?: boolean;
   action?: ReactNode;
+  /** Icon or button drawn inside the field, on the left. */
+  startAdornment?: ReactNode;
   airportCode?: string;
   /** Skip scrolling the page when suggestions open (e.g. inside the quote bot). */
   disableAutoScroll?: boolean;
@@ -89,8 +94,10 @@ export default function AddressInput({
   label,
   placeholder,
   helperText,
+  reserveHelperSpace = true,
   required = true,
   action,
+  startAdornment = null,
   airportCode = "",
   disableAutoScroll = true,
   onSelectAddress,
@@ -109,6 +116,7 @@ export default function AddressInput({
 }: AddressInputProps) {
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
+  const suggestionListRef = useRef<HTMLUListElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const houseInputRef = useRef<HTMLInputElement>(null);
   const selectedPlaceRef = useRef<SelectedPlace | null>(null);
@@ -158,9 +166,11 @@ export default function AddressInput({
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setSuggestionsOpen(false);
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target) || suggestionListRef.current?.contains(target)) {
+        return;
       }
+      setSuggestionsOpen(false);
     }
 
     document.addEventListener("mousedown", handlePointerDown);
@@ -577,25 +587,39 @@ export default function AddressInput({
     }
     const rect = fieldShellRef.current.getBoundingClientRect();
     const visual = window.visualViewport;
-    const viewportTop = visual?.offsetTop ?? 0;
-    const viewportBottom = viewportTop + (visual?.height ?? window.innerHeight);
+    const offsetTop = visual?.offsetTop ?? 0;
+    const offsetLeft = visual?.offsetLeft ?? 0;
+    const layoutTop = rect.top + offsetTop;
+    const layoutBottom = rect.bottom + offsetTop;
+    const viewportTop = offsetTop;
+    const viewportBottom = offsetTop + (visual?.height ?? window.innerHeight);
     const spaceBelow = viewportBottom - rect.bottom - 12;
     const spaceAbove = rect.top - viewportTop - 12;
-    const placeAbove = showAbove || (spaceBelow < 96 && spaceAbove > spaceBelow);
-    const maxHeight = Math.max(96, Math.min(placeAbove ? spaceAbove : Math.max(spaceBelow, 96), 16 * 16));
+    const placeAbove = showAbove || (spaceBelow < 160 && spaceAbove > spaceBelow);
+    const maxHeight = Math.max(120, Math.min(placeAbove ? spaceAbove : spaceBelow, 16 * 16));
     setOverlayStyle((prev) => {
-      const next: CSSProperties = {
-        position: "absolute",
-        left: 0,
-        right: 0,
-        width: "100%",
-        top: placeAbove ? "auto" : "calc(100% + 6px)",
-        bottom: placeAbove ? "calc(100% + 6px)" : "auto",
-        maxHeight,
-        zIndex: 90,
-      };
+      const next: CSSProperties = placeAbove
+        ? {
+            position: "fixed",
+            left: rect.left + offsetLeft,
+            width: rect.width,
+            bottom: window.innerHeight - layoutTop + 6,
+            maxHeight,
+            zIndex: 90,
+          }
+        : {
+            position: "fixed",
+            left: rect.left + offsetLeft,
+            width: rect.width,
+            top: layoutBottom + 6,
+            maxHeight,
+            zIndex: 90,
+          };
       if (
         prev &&
+        prev.position === next.position &&
+        prev.left === next.left &&
+        prev.width === next.width &&
         prev.top === next.top &&
         prev.bottom === next.bottom &&
         prev.maxHeight === next.maxHeight
@@ -627,6 +651,7 @@ export default function AddressInput({
 
   const suggestionList = showSuggestions ? (
     <ul
+      ref={suggestionListRef}
       id={listboxId}
       role="listbox"
       style={overlayStyle}
@@ -688,6 +713,11 @@ export default function AddressInput({
           })}
         >
           <div className="relative">
+            {startAdornment ? (
+              <div className="absolute left-1 top-1/2 z-[1] flex -translate-y-1/2 items-center">
+                {startAdornment}
+              </div>
+            ) : null}
             <input
               ref={inputRef}
               id={id}
@@ -711,7 +741,9 @@ export default function AddressInput({
               aria-controls={listboxId}
               aria-autocomplete="list"
               role="combobox"
-              className="address-input box-border h-12 w-full min-w-0 border-0 bg-transparent py-3 pl-4 pr-11 text-base leading-normal text-white placeholder:text-white/70 outline-none truncate"
+              className={`address-input box-border h-12 w-full min-w-0 border-0 bg-transparent py-3 pr-11 text-base leading-normal text-white placeholder:text-white/70 outline-none truncate ${
+                startAdornment ? "pl-12" : "pl-4"
+              }`}
             />
             {value ? (
               <button
@@ -764,15 +796,25 @@ export default function AddressInput({
           </div>
         </div>
 
-        {suggestionList}
+        {suggestionList && overlayStyle?.position === "fixed" && typeof document !== "undefined"
+          ? createPortal(suggestionList, document.body)
+          : suggestionList}
       </div>
 
-      <p
-        id={hintId}
-        className={`mt-1.5 min-h-[2.5rem] text-xs leading-snug ${hintToneClass}`}
-      >
-        {hintMessage}
-      </p>
+      {hintMessage || reserveHelperSpace ? (
+        <p
+          id={hintId}
+          className={`text-xs leading-snug ${hintToneClass} ${
+            reserveHelperSpace ? "mt-1.5 min-h-[2.5rem]" : hintMessage ? "mt-1.5" : ""
+          }`}
+        >
+          {hintMessage}
+        </p>
+      ) : (
+        <p id={hintId} className="sr-only">
+          {hintMessage}
+        </p>
+      )}
     </div>
   );
 }

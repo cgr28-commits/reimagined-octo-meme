@@ -98,6 +98,7 @@ export default function QuoteVehicleCategories({
   onSelectVehicle,
   publicMinibusEnabled = true,
   publicExecutiveEnabled = true,
+  hideUnsuitable = false,
 }: {
   passengers: number | null;
   suitcases: number | null;
@@ -106,6 +107,8 @@ export default function QuoteVehicleCategories({
   onSelectVehicle?: (vehicle: (typeof CATEGORIES)[number]["vehicle"]) => void;
   publicMinibusEnabled?: boolean;
   publicExecutiveEnabled?: boolean;
+  /** Homepage quote results list only vehicles that fit this party. */
+  hideUnsuitable?: boolean;
 }) {
   const enabled = enabledVehicleTypesForQuote({
     publicMinibusEnabled,
@@ -120,6 +123,8 @@ export default function QuoteVehicleCategories({
       : enabled;
   const options = CATEGORIES.filter((option) =>
     enabled.some((vehicle) => vehicle === option.vehicle),
+  ).filter(
+    (option) => !hideUnsuitable || suitable.some((vehicle) => vehicle === option.vehicle),
   );
   if (options.length === 0) return null;
 

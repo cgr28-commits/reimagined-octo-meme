@@ -57,11 +57,20 @@ check("journey only / party without date → no displayed price", () => {
   );
   assert.match(card, /hasEnteredQuoteSchedule/);
   assert.match(card, /scheduleEntered/);
-  assert.match(card, /canShowPrice =\s*\n?\s*hasQuoteRoute &&\s*\n?\s*quoteChoicesReady &&\s*\n?\s*isScheduleComplete/);
   assert.match(
     card,
-    /const resultsCanRender =\s*\n?\s*quoteChoicesReady &&\s*\n?\s*hasQuoteRoute &&\s*\n?\s*isScheduleComplete/,
+    /const scheduleReadyForQuote =\s*\n?\s*isScheduleComplete \|\| presentation === "homepage"/,
   );
+  assert.match(
+    card,
+    /canShowPrice =\s*\n?\s*hasQuoteRoute &&\s*\n?\s*quoteChoicesReady &&\s*\n?\s*scheduleReadyForQuote/,
+  );
+  assert.match(
+    card,
+    /const resultsCanRender =\s*\n?\s*quoteChoicesReady &&\s*\n?\s*hasQuoteRoute &&\s*\n?\s*scheduleReadyForQuote/,
+  );
+  assert.match(card, /presentation !== "homepage" \|\| homepagePriceRequested/);
+  assert.match(card, /validateTripForBooking/);
   assert.match(card, /const quoteResultsReady = resultsCanRender/);
   assert.doesNotMatch(
     card.slice(card.indexOf("const resultsCanRender"), card.indexOf("const quoteResultsReady")),
@@ -139,8 +148,11 @@ check("customer flow order: journey type → date/time → passengers → suitca
 
 check("vehicle cards / Book Now stay hidden until complete quote", () => {
   assert.match(card, /quoteResultsReady && quoteStep === 1 &&/);
-  assert.match(card, /!isScheduleComplete/);
-  assert.match(card, /disabled=\{\s*submitted \|\|\s*!quoteChoicesReady \|\|\s*!isScheduleComplete/);
+  assert.match(card, /presentation !== "homepage" && !isScheduleComplete/);
+  assert.match(
+    card,
+    /disabled=\{\s*submitted \|\|\s*!quoteChoicesReady \|\|\s*\(presentation === "homepage" \? false : !isScheduleComplete\)/,
+  );
   assert.match(card, /failStep1\(\s*"missing_schedule"/);
   assert.match(card, /scrollQuoteStage\("quote-section-schedule"\)/);
   assert.match(card, /Choose your vehicle/);
