@@ -850,19 +850,19 @@ function QuoteCard({
     : null;
   const [pickupAddress, setPickupAddress] = useState(
     confirmedInitialPickup
-      ? confirmedInitialPickup.displayAddress || confirmedInitialPickup.formattedAddress
+      ? placeDisplayText(confirmedInitialPickup)
       : initialDirection === "from-airport" && initialAirportPlace
-        ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
+        ? placeDisplayText(initialAirportPlace)
         : initialDirection === "to-airport"
           ? initialAddressHint
           : "",
   );
   const [dropoffAddress, setDropoffAddress] = useState(
     confirmedInitialDropoff
-      ? confirmedInitialDropoff.displayAddress || confirmedInitialDropoff.formattedAddress
+      ? placeDisplayText(confirmedInitialDropoff)
       : initialDropoffHint ||
         (initialDirection === "to-airport" && initialAirportPlace
-          ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
+          ? placeDisplayText(initialAirportPlace)
           : initialDirection === "from-airport"
             ? initialAddressHint
             : ""),
@@ -3036,9 +3036,9 @@ function QuoteCard({
       clearConfirmedPickupPlace();
       return;
     }
-    // Prefer exact display/formatted text — never trim here (trailing space after a
-    // house number must remain while the customer is still typing).
-    const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+    // Only confirmed selections reach here; use the airport-aware display label.
+    // Free typing returns above, preserving spaces after house numbers.
+    const display = placeDisplayText(place);
     setPickupAddress(display);
     setPickupRestoredHint(false);
     if (isQuoteReadyPlace(place)) {
@@ -3087,7 +3087,7 @@ function QuoteCard({
       clearConfirmedDropoffPlace();
       return;
     }
-    const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+    const display = placeDisplayText(place);
     setDropoffAddress(display);
     setDropoffRestoredHint(false);
     if (isQuoteReadyPlace(place)) {
@@ -3249,7 +3249,7 @@ function QuoteCard({
       if (intentAirportCode) {
         const place = quickSelectToPlace(intentAirportCode);
         if (place) {
-          const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+          const display = placeDisplayText(place);
           setDropoffPlace(place);
           setDropoffAddress(display);
           setDropoffPlaceError("");
@@ -3262,7 +3262,7 @@ function QuoteCard({
       if (intentAirportCode) {
         const place = quickSelectToPlace(intentAirportCode);
         if (place) {
-          const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+          const display = placeDisplayText(place);
           setPickupPlace(place);
           setPickupAddress(display);
           setPickupPlaceError("");
@@ -4625,19 +4625,19 @@ function QuoteCard({
     setAirportCode(nextAirport);
     setPickupAddress(
       confirmedInitialPickup
-        ? confirmedInitialPickup.displayAddress || confirmedInitialPickup.formattedAddress
+        ? placeDisplayText(confirmedInitialPickup)
         : nextDirection === "from-airport" && airportPlace
-          ? airportPlace.displayAddress || airportPlace.formattedAddress
+          ? placeDisplayText(airportPlace)
           : nextDirection === "to-airport"
             ? initialAddressHint
             : "",
     );
     setDropoffAddress(
       confirmedInitialDropoff
-        ? confirmedInitialDropoff.displayAddress || confirmedInitialDropoff.formattedAddress
+        ? placeDisplayText(confirmedInitialDropoff)
         : initialDropoffHint ||
           (nextDirection === "to-airport" && airportPlace
-            ? airportPlace.displayAddress || airportPlace.formattedAddress
+            ? placeDisplayText(airportPlace)
             : nextDirection === "from-airport"
               ? initialAddressHint
               : ""),

@@ -10,6 +10,7 @@ on:
       - 'src/app/globals.css'
       - 'src/components/HomepageQuoteFields.tsx'
       - 'src/components/QuoteCard.tsx'
+      - 'src/components/AddressInput.tsx'
       - 'scripts/check-homepage-booking-browser.mjs'
       - '.github/workflows/homepage-booking-review.yml'
 permissions:

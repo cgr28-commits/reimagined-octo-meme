@@ -41,6 +41,10 @@ try {
       if (url.origin === new URL(base).origin) return route.continue();
       const json = (body) => route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
       if (url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:26000,duration:1800,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
+      if (url.pathname.endsWith('/addresses')) {
+        if (url.searchParams.has('id')) return json({placeId:'test-dublin-airport',address:'Dublin, Ireland',formattedAddress:'Dublin, Ireland',displayAddress:'Dublin, Ireland',placeName:'Dublin',lat:53.4264,lng:-6.2499,countryCode:'IE',postalCode:null});
+        return json({suggestions:[{id:'test-dublin-airport',label:'Dublin Airport Terminal 2, Ireland',mainText:'Dublin Airport Terminal 2',secondaryText:'Ireland'}]});
+      }
       if (url.pathname === '/pricing/public') return json({config:toPublicOwnerPricingConfig(defaultOwnerPricingSettings())});
       if (url.pathname === '/quote/availability') return json({blocked:false,available:true,alternativeTimes:[]});
       if (/checkout|bookings|short-notice/.test(url.pathname) && req.method() === 'POST') writes.push(url.pathname);
@@ -132,6 +136,17 @@ try {
     pass(`${width}px: 5+ requires explicit prior capacity confirmation; party edits reset it`);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth));
     pass(`${width}px: no horizontal overflow`);
+    await page.goto(`${base}/?previewJourney=bfs&previewMinibus=1`);
+    await page.waitForFunction(()=> document.getElementById('pickup')?.value.includes('City Hall'));
+    for (const field of ['dropoff','pickup']) {
+      await page.locator(`#${field}`).fill('Dublin Airport');
+      await page.getByRole('button',{name:'Dublin Airport Terminal 2 Ireland',exact:true}).click();
+      await page.waitForFunction((id)=>document.getElementById(id)?.value === 'Dublin Airport, Ireland',field);
+      assert.equal(await page.locator(`#${field}`).inputValue(),'Dublin Airport, Ireland');
+    }
+    await page.locator('#pickup').scrollIntoViewIfNeeded();
+    await page.screenshot({path:`${output}/${width}-dublin-airport-fields.png`});
+    pass(`${width}px: airport suggestion resolving to Dublin, Ireland displays Dublin Airport, Ireland in pickup and drop-off`);
     await context.close();
   }
 } finally {

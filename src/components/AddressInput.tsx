@@ -24,6 +24,7 @@ import type { SelectedPlace } from "@/lib/selected-place";
 import { addressFieldShellClass } from "@/lib/quote-ui-highlight";
 import {
   buildDisplayAddress,
+  placeDisplayText,
   looksLikeStreetAddressLine,
   venueNameForPlace,
 } from "@/lib/selected-place";
@@ -506,9 +507,11 @@ export default function AddressInput({
           nextPlace = { ...nextPlace, lat: coords.lat, lng: coords.lng };
         }
       }
+      const display = placeDisplayText(nextPlace);
+      nextPlace = { ...nextPlace, displayAddress: display };
       selectedPlaceRef.current = nextPlace;
-      onChange(resolvedDisplay);
-      onSelectAddress?.(resolvedDisplay);
+      onChange(display);
+      onSelectAddress?.(display);
       onSelectPlace?.(nextPlace);
       setLoadError(null);
       return;
@@ -542,9 +545,11 @@ export default function AddressInput({
         nextPlace = { ...nextPlace, lat: coords.lat, lng: coords.lng };
       }
     }
+    const display = placeDisplayText(nextPlace);
+    nextPlace = { ...nextPlace, displayAddress: display };
     selectedPlaceRef.current = nextPlace;
-    onChange(nextAddress);
-    onSelectAddress?.(nextAddress);
+    onChange(display);
+    onSelectAddress?.(display);
     onSelectPlace?.(nextPlace);
     setLoadError(null);
   }
