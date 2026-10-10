@@ -5249,13 +5249,11 @@ function QuoteCard({
         type="button"
         data-back-to-quote={placement}
         onClick={handleBackToQuote}
-        className={
-          placement === "top"
-            ? "btn-secondary mt-3 w-full sm:mt-4 sm:max-w-xs"
-            : "btn-secondary w-full"
-        }
+        className={`${
+          placement === "top" ? "mt-1.5" : ""
+        } inline-flex items-center py-1 text-sm font-semibold text-emerald hover:text-white`}
       >
-        ← Back to quote
+        ← Back to your quote
       </button>
     );
   }
@@ -6413,7 +6411,7 @@ function QuoteCard({
         <div
           id="step2-travel-details"
           ref={step2TravelDetailsRef}
-          className="scroll-mt-44 space-y-4 md:scroll-mt-28"
+          className="scroll-mt-44 space-y-3 md:scroll-mt-28"
         >
           <h2
             data-booking-nav-heading
@@ -7481,7 +7479,15 @@ function QuoteCard({
           : "quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7"
       }
     >
-      <div className={presentation === "homepage" ? "mb-2.5 sm:mb-5 lg:mb-5" : "mb-4 sm:mb-5 lg:mb-5"}>
+      <div
+        className={
+          quoteStep >= 2
+            ? "mb-2"
+            : presentation === "homepage"
+              ? "mb-2.5 sm:mb-5 lg:mb-5"
+              : "mb-4 sm:mb-5 lg:mb-5"
+        }
+      >
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
@@ -7511,13 +7517,15 @@ function QuoteCard({
             </p>
           </div>
         ) : null}
-        <div className={`${presentation === "homepage" ? "mt-0.5" : "mt-1"} text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed`}>
+        <div
+          className={
+            quoteStep >= 2
+              ? "mt-1 text-sm leading-snug quote-secondary"
+              : `${presentation === "homepage" ? "mt-0.5" : "mt-1"} text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed`
+          }
+        >
           {quoteStep >= 2 ? (
-            <p className="text-[0.8125rem] sm:text-sm">
-              {presentation === "homepage"
-                ? "Add your pickup date and time. If the fare changes, we’ll show the updated price before you pay."
-                : "Enter your pickup time and details, then confirm. Your fare stays the same."}
-            </p>
+            <p>Add your pickup details to confirm your transfer.</p>
           ) : presentation === "homepage" ? (
             <p>Your fixed price in just a few clicks.</p>
           ) : (
@@ -7535,6 +7543,7 @@ function QuoteCard({
             </>
           )}
         </div>
+        {quoteStep < 2 ? (
         <ol
           className={`${presentation === "homepage" && quoteStep === 1 ? "hidden" : ""} ${presentation === "homepage" ? "mt-2" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
           aria-label="Booking steps"
@@ -7584,6 +7593,7 @@ function QuoteCard({
             );
           })}
         </ol>
+        ) : null}
         {quoteStep >= 2 ? renderBackToQuoteButton("top") : null}
       </div>
 
@@ -7591,9 +7601,11 @@ function QuoteCard({
         id="quoteForm"
         onSubmit={handleSubmit}
         className={
-          presentation === "homepage"
-            ? "relative space-y-2.5 overflow-visible sm:space-y-4 lg:space-y-3.5"
-            : "relative space-y-3 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5"
+          quoteStep >= 2
+            ? "relative space-y-3 overflow-x-clip overflow-y-visible"
+            : presentation === "homepage"
+              ? "relative space-y-2.5 overflow-visible sm:space-y-4 lg:space-y-3.5"
+              : "relative space-y-3 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5"
         }
       >
         <GoogleAdsRequestQuote
