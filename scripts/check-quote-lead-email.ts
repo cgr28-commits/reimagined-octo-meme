@@ -93,7 +93,7 @@ console.log("=== Client posts quote sessions and may email; never blocks the UI 
 console.log("\n=== QuoteCard / bot keep a stable quoteTransactionId ===");
 {
   const quoteCard = read("src/components/QuoteCard.tsx");
-  const assistant = read("src/components/QuoteAssistant.tsx");
+  const assistant = read("src/components/QuoteAssistantPanel.tsx");
   assert.match(quoteCard, /scheduleQuoteLeadAlert\(/);
   assert.match(quoteCard, /scheduleQuoteContactAlert\(/);
   assert.match(quoteCard, /notifyOwnerQuoteContactIfReady/);
