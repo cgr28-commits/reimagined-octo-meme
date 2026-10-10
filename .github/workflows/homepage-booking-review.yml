@@ -12,6 +12,7 @@ on:
       - 'src/components/QuoteCard.tsx'
       - 'src/components/AddressInput.tsx'
       - 'scripts/check-homepage-booking-browser.mjs'
+      - 'scripts/check-return-vehicle-stability.mjs'
       - '.github/workflows/homepage-booking-review.yml'
 permissions:
   contents: read
@@ -34,6 +35,7 @@ jobs:
         run: |
           python3 -m http.server 3000 --directory out &
           node --import tsx scripts/check-homepage-booking-browser.mjs
+          node --import tsx scripts/check-return-vehicle-stability.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -7931,6 +7931,7 @@ function QuoteCard({
                         </p>
                       </div>
                     ) : null}
+                    {renderQuoteVehicleChoice()}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
                       <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5" data-homepage-return-breakdown>
                         <PromotionalPriceBreakdown
@@ -7943,7 +7944,6 @@ function QuoteCard({
                         />
                       </div>
                     ) : null}
-                    {renderQuoteVehicleChoice()}
                     {renderBookingErrorHelp("results")}
                     {showInstantQuoteResultCard ? (
                       renderInstantQuoteResultCard()
