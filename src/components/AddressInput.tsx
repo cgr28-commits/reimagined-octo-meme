@@ -22,7 +22,11 @@ import {
 } from "@/lib/google-maps";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { addressFieldShellClass } from "@/lib/quote-ui-highlight";
-import { buildDisplayAddress, looksLikeStreetAddressLine, normaliseAddressCompareKey } from "@/lib/selected-place";
+import {
+  buildDisplayAddress,
+  looksLikeStreetAddressLine,
+  venueNameForPlace,
+} from "@/lib/selected-place";
 import { hasLeadingStreetNumber } from "../../shared/journey-address-label";
 import { isHighConfidenceAddressMatch } from "@/lib/address-match";
 
@@ -472,19 +476,15 @@ export default function AddressInput({
       const suggestionIsStreetLine = looksLikeStreetAddressLine(suggestionName);
       const apiPlaceName = place.placeName?.trim() || "";
       const apiNameIsStreetLine = looksLikeStreetAddressLine(apiPlaceName);
-      const postalKey = normaliseAddressCompareKey(postalWithNumber);
-      const suggestionKey = normaliseAddressCompareKey(suggestionName);
 
       let placeName: string | null = null;
       if (apiPlaceName && !apiNameIsStreetLine) {
         placeName = apiPlaceName;
-      } else if (
-        suggestionName &&
-        !suggestionIsStreetLine &&
-        suggestionKey &&
-        !postalKey.includes(suggestionKey)
-      ) {
-        placeName = suggestionName;
+      } else if (suggestionName && !suggestionIsStreetLine) {
+        // A landmark already written into the formatted address ("Belfast City
+        // Hall, Belfast BT1 5JD") is still the building identifier. Road-only
+        // lines stay incomplete so a street without a number is not accepted.
+        placeName = venueNameForPlace(suggestionName, place.locality);
       }
 
       const resolvedDisplay = buildDisplayAddress(placeName, postalWithNumber);

@@ -18,6 +18,7 @@ import {
   needsManualQuoteApproval,
   quickSelectToPlace,
   selectedPlaceFromParts,
+  venueNameForPlace,
   type SelectedPlace,
 } from "../src/lib/selected-place";
 
@@ -116,6 +117,22 @@ check("3. Belfast street without house/building → incomplete, not out-of-area"
   assert.equal(classifyPickupArea(streetOnly).reason, "incomplete");
   assert.equal(needsManualQuoteApproval(streetOnly, dub), false);
   assert.match(INCOMPLETE_PICKUP_ADDRESS_MESSAGE, /house number or building name/i);
+  assert.equal(venueNameForPlace("High Street", "Belfast"), null);
+  assert.equal(venueNameForPlace("Belfast", "Belfast"), null);
+  const cityHallName = venueNameForPlace("Belfast City Hall", "Belfast");
+  assert.equal(cityHallName, "Belfast City Hall");
+  const cityHall = place({
+    placeId: "city-hall",
+    formattedAddress: "Belfast City Hall, Belfast BT1 5JD, UK",
+    displayAddress: "Belfast City Hall, Belfast BT1 5JD, UK",
+    postalCode: "BT1 5JD",
+    streetNumber: null,
+    placeName: cityHallName,
+    lat: 54.5965,
+    lng: -5.9301,
+    locality: "Belfast",
+  });
+  assert.equal(isIncompleteAddressPlace(cityHall), false);
 });
 
 check("4. Missing postcode but valid coordinates inside boundary → inside", () => {

@@ -104,7 +104,7 @@ check("4. Minibus OFF => 5 large bags rejected server-side", () => {
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.equal(result.reason, "luggage_limit");
-    assert.match(result.message, /0–4|up to 4 large suitcases/);
+    assert.match(result.message, /0–4|up to 4 standard suitcases \(23kg\)/);
   }
 });
 

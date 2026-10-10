@@ -7,24 +7,22 @@ import Image from "next/image";
  * of that canvas. Scale each asset so the vehicle itself, not the empty
  * margin, fills the same fixed frame.
  *
- * Option cards use a larger painted box (about 12% up on the previous
- * scales) sized from each vehicle's opaque bounds, then clip it. That keeps
- * Saloon, Estate, Business Class and the 7 Seater the same visual length
- * without a CSS scale() upscale, and without growing the card.
+ * Option cards keep each vehicle fully inside the frame. The white studio
+ * canvas is object-contain, so the car is not cropped or stretched.
  */
 export const VEHICLE_ART_SCALE = {
-  saloon: "scale-[0.96]",
-  estate: "scale-[0.92]",
-  executive: "scale-[1.16]",
-  minibus: "scale-[1.17]",
+  saloon: "scale-100",
+  estate: "scale-100",
+  executive: "scale-100",
+  minibus: "scale-100",
 } as const;
 
-/** Painted size inside the fixed option frame. The frame itself does not grow. */
+/** Full vehicle inside the fixed option frame. The frame itself does not grow. */
 const OPTION_ART_BOX = {
-  saloon: "h-[107%] w-[107%]",
-  estate: "h-[103%] w-[103%]",
-  executive: "h-[130%] w-[130%]",
-  minibus: "h-[132%] w-[132%]",
+  saloon: "h-full w-full",
+  estate: "h-full w-full",
+  executive: "h-full w-full",
+  minibus: "h-full w-full",
 } as const;
 
 export type VehicleArtId = keyof typeof VEHICLE_ART_SCALE;

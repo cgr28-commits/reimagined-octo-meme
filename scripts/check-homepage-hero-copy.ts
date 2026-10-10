@@ -15,7 +15,7 @@ const header = fs.readFileSync(path.join(root, "src/components/Header.tsx"), "ut
 const logo = fs.readFileSync(path.join(root, "src/components/Logo.tsx"), "utf8");
 const why = fs.readFileSync(path.join(root, "src/lib/data.ts"), "utf8");
 
-assert.match(hero, /Belfast Airport Transfers/);
+assert.match(hero, /Belfast &amp; Dublin Airport Transfers/);
 assert.doesNotMatch(
   hero,
   /Pre-Booked 24\/7/,
@@ -47,7 +47,7 @@ assert.doesNotMatch(
 );
 assert.match(
   hero,
-  /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,
+  /Premium, fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport\./,
   "hero supporting copy must name Belfast International, Belfast City and Dublin Airport",
 );
 assert.match(hero, /baseName="belfast-international-homepage"/);
@@ -56,8 +56,8 @@ assert.doesNotMatch(hero, /baseName="belfast-international"(?!-homepage)/);
 assert.doesNotMatch(hero, /belfast-international-arrivals-2025/);
 assert.match(
   hero,
-  /<h1[\s\S]*?>[\s\S]*Belfast Airport Transfers\s*<\/h1>/,
-  "homepage H1 must be Belfast Airport Transfers",
+  /<h1[\s\S]*?>[\s\S]*Belfast &amp; Dublin Airport Transfers\s*<\/h1>/,
+  "homepage H1 must be Belfast & Dublin Airport Transfers",
 );
 assert.match(hero, /HeroBenefitsRow/, "compact benefits row must sit by the quote panel");
 assert.match(benefits, /Pre-booked driver/);
@@ -93,7 +93,7 @@ assert.match(hero, /max-w-xl/);
 assert.match(hero, /min-w-0/);
 assert.match(hero, /overflow-x-clip/);
 
-console.log("OK  homepage H1 is Belfast Airport Transfers");
+console.log("OK  homepage H1 is Belfast & Dublin Airport Transfers");
 console.log("OK  eyebrow is private airport transfers; description names the three airports");
 console.log("OK  compact benefits sit by the quote panel");
 console.log("OK  Why Choose Us reserved-driver card retains travel-day updates");

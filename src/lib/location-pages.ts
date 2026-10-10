@@ -89,7 +89,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     localTips: [
       "For departures, allow extra time for the M2/M22 corridor in peak morning traffic — we’ll quote a pickup time that suits your flight.",
       "Arrivals pickups use the airport’s designated private-hire meeting points; share your flight number so we can track landing time.",
-      "Spacious private transfers are ideal for family holidays with multiple large suitcases from BFS.",
+      "Spacious private transfers are ideal for family holidays with multiple standard suitcases (23kg) from BFS.",
       "For an airport collection, select From an Airport in the quote form and enter your destination. Include your flight number when completing the booking.",
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",

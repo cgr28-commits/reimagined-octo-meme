@@ -24,10 +24,10 @@ import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-a
 import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-line-icons";
 
 /**
- * Card wording only. Saloon and Business Class still fit 2 large suitcases
- * plus 2 small hand-luggage bags; that capacity is not changed here.
+ * Card wording only. Saloon and Business Class still fit 2 standard suitcases
+ * (23kg) plus 2 small hand-luggage bags; that capacity is not changed here.
  */
-const SALOON_LUGGAGE_CAPACITY = "2 large suitcases";
+const SALOON_LUGGAGE_CAPACITY = "2 standard suitcases (23kg)";
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");

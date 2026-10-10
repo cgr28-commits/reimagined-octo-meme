@@ -3,12 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import AddressInput from "@/components/AddressInput";
+import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
 import {
   fetchAddressPredictionsDetailed,
   fetchSelectedPlaceDetails,
 } from "@/lib/google-maps";
-import { looksLikeStreetAddressLine, type SelectedPlace } from "@/lib/selected-place";
+import {
+  isIncompleteAddressPlace,
+  isQuoteReadyPlace,
+  venueNameForPlace,
+  type SelectedPlace,
+} from "@/lib/selected-place";
 import {
   publicPassengerOptions,
   publicSuitcaseOptions,
@@ -75,6 +81,75 @@ function predictionMatchesGeocode(
   return head.length > 8 && (description.includes(head) || main.includes(head));
 }
 
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const earthKm = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * earthKm * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Turn a reverse-geocoded line into the same place record a tapped suggestion
+ * produces. Prefer a nearby result that has a street or a building name.
+ * Do not accept a far-away or incomplete match.
+ */
+async function resolveGpsPickupPlace(
+  address: string,
+  lat: number,
+  lng: number,
+  airportCode: string,
+): Promise<SelectedPlace | null> {
+  const head = address.split(",")[0]?.trim() ?? "";
+  const queries = head && head.length >= 3 && head !== address.trim() ? [address, head] : [address];
+  const seen = new Set<string>();
+  let landmark: SelectedPlace | null = null;
+
+  for (const query of queries) {
+    const result = await fetchAddressPredictionsDetailed(query, airportCode);
+    for (const prediction of result.predictions) {
+      if (!prediction.placeId || seen.has(prediction.placeId)) continue;
+      if (
+        !predictionMatchesGeocode(prediction, address) &&
+        !predictionMatchesGeocode(prediction, query)
+      ) {
+        continue;
+      }
+      seen.add(prediction.placeId);
+      const place = await fetchSelectedPlaceDetails(
+        prediction.placeId,
+        airportCode,
+        address,
+        prediction.mainText,
+      );
+      if (!place?.placeId) continue;
+      const venue = venueNameForPlace(prediction.mainText, place.locality);
+      let next: SelectedPlace = place;
+      if (!next.placeName?.trim() && venue) {
+        next = { ...next, placeName: venue };
+      }
+      if (
+        (typeof next.lat !== "number" || typeof next.lng !== "number") &&
+        Number.isFinite(lat) &&
+        Number.isFinite(lng)
+      ) {
+        next = { ...next, lat, lng };
+      }
+      if (typeof next.lat === "number" && typeof next.lng === "number") {
+        if (distanceKm(lat, lng, next.lat, next.lng) > 0.8) continue;
+      }
+      if (!isQuoteReadyPlace(next) || isIncompleteAddressPlace(next)) continue;
+      if (next.streetNumber?.trim() || next.route?.trim()) return next;
+      landmark = landmark ?? next;
+      if (seen.size >= 6) return landmark;
+    }
+  }
+  return landmark;
+}
+
 function gpsFailureMessage(error: unknown): string {
   const code =
     typeof error === "object" && error && "code" in error
@@ -109,6 +184,9 @@ function SwapIcon() {
 
 const selectClass =
   "box-border h-12 w-full min-w-0 rounded-xl border border-white/20 bg-[#0c2748] px-3 text-base font-semibold text-white outline-none focus:border-emerald focus:ring-1 focus:ring-emerald/50";
+
+/** Fallback height for the pinned button plus the help line beneath it. */
+const STICKY_QUOTE_ACTION_PX = 96;
 
 export default function HomepageQuoteFields({
   journeyMode,
@@ -145,12 +223,16 @@ export default function HomepageQuoteFields({
   const [mobileLayout, setMobileLayout] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [selectFocused, setSelectFocused] = useState(false);
+  const [controlsCovered, setControlsCovered] = useState(false);
+  const [flowActionBelow, setFlowActionBelow] = useState(false);
   const quoteBarRef = useRef<HTMLDivElement>(null);
+  const flowActionRef = useRef<HTMLDivElement>(null);
   const pickupSuggestionsRef = useRef(false);
   const dropoffSuggestionsRef = useRef(false);
-  const showQuoteButton =
-    quoteFormActive &&
-    !(mobileLayout && (keyboardOpen || suggestionsOpen || selectFocused));
+  const stickyBlocked =
+    keyboardOpen || suggestionsOpen || selectFocused || controlsCovered;
+  const showStickyQuoteButton =
+    quoteFormActive && mobileLayout && flowActionBelow && !stickyBlocked;
   const passengerChoices = publicPassengerOptions(publicMinibusEnabled);
   const suitcaseChoices = publicSuitcaseOptions(publicMinibusEnabled);
 
@@ -185,27 +267,71 @@ export default function HomepageQuoteFields({
   }, []);
 
   useEffect(() => {
-    const root = document.documentElement;
-    const bar = quoteBarRef.current;
-    if (!mobileLayout || !showQuoteButton || !bar) {
-      root.style.removeProperty("--homepage-quote-bar");
+    if (!mobileLayout || !quoteFormActive) {
+      setFlowActionBelow(false);
       return;
     }
-    const sync = () => {
-      const height = Math.ceil(bar.getBoundingClientRect().height);
-      if (height > 0) root.style.setProperty("--homepage-quote-bar", `${height}px`);
-      else root.style.removeProperty("--homepage-quote-bar");
+    const check = () => {
+      const action = flowActionRef.current;
+      if (!action) {
+        setFlowActionBelow(false);
+        return;
+      }
+      const top = action.getBoundingClientRect().top;
+      setFlowActionBelow(top >= window.innerHeight - 8);
     };
-    sync();
-    const observer = new ResizeObserver(sync);
-    observer.observe(bar);
-    window.addEventListener("resize", sync);
+    check();
+    window.addEventListener("scroll", check, true);
+    window.addEventListener("resize", check);
+    const visual = window.visualViewport;
+    visual?.addEventListener("resize", check);
+    visual?.addEventListener("scroll", check);
     return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", sync);
-      root.style.removeProperty("--homepage-quote-bar");
+      window.removeEventListener("scroll", check, true);
+      window.removeEventListener("resize", check);
+      visual?.removeEventListener("resize", check);
+      visual?.removeEventListener("scroll", check);
     };
-  }, [mobileLayout, showQuoteButton]);
+  }, [mobileLayout, quoteFormActive]);
+
+  useEffect(() => {
+    if (!mobileLayout || !quoteFormActive) {
+      setControlsCovered(false);
+      return;
+    }
+    const check = () => {
+      const visual = window.visualViewport;
+      const viewportBottom = (visual?.offsetTop ?? 0) + (visual?.height ?? window.innerHeight);
+      const cookieRaw = getComputedStyle(document.documentElement)
+        .getPropertyValue("--matni-cookie-banner-offset")
+        .trim();
+      const cookie = cookieRaw.endsWith("px") ? Number.parseFloat(cookieRaw) : 0;
+      const barHeight = quoteBarRef.current?.getBoundingClientRect().height ?? STICKY_QUOTE_ACTION_PX;
+      const reserved = Math.max(Number.isFinite(cookie) ? cookie : 0, 0) + Math.ceil(barHeight);
+      const zoneTop = viewportBottom - reserved;
+      const controls = document.querySelectorAll(
+        "#pickup, #dropoff, [data-swap-locations], #passenger-luggage-section, #airports h2",
+      );
+      let covered = false;
+      controls.forEach((control) => {
+        const rect = control.getBoundingClientRect();
+        if (rect.top < viewportBottom && rect.bottom > zoneTop) covered = true;
+      });
+      setControlsCovered(covered);
+    };
+    check();
+    window.addEventListener("scroll", check, true);
+    window.addEventListener("resize", check);
+    const visual = window.visualViewport;
+    visual?.addEventListener("resize", check);
+    visual?.addEventListener("scroll", check);
+    return () => {
+      window.removeEventListener("scroll", check, true);
+      window.removeEventListener("resize", check);
+      visual?.removeEventListener("resize", check);
+      visual?.removeEventListener("scroll", check);
+    };
+  }, [mobileLayout, quoteFormActive, suggestionsOpen, keyboardOpen]);
 
   async function locatePickup() {
     if (gpsBusy) return;
@@ -223,27 +349,16 @@ export default function HomepageQuoteFields({
         );
         return;
       }
-      const predictions = await fetchAddressPredictionsDetailed(address, addressLookupCode);
-      const first = predictions.predictions.find((prediction) =>
-        predictionMatchesGeocode(prediction, address),
+      const resolved = await resolveGpsPickupPlace(
+        address,
+        position.coords.latitude,
+        position.coords.longitude,
+        addressLookupCode,
       );
-      if (first?.placeId) {
-        const place = await fetchSelectedPlaceDetails(
-          first.placeId,
-          addressLookupCode,
-          address,
-          first.mainText,
-        );
-        if (place?.placeId && place.lat != null && place.lng != null) {
-          const venueName = first.mainText?.trim() || "";
-          const withVenue =
-            place.placeName?.trim() || !venueName || looksLikeStreetAddressLine(venueName)
-              ? place
-              : { ...place, placeName: venueName };
-          onPickupPlaceSelect(withVenue);
-          setGpsMessage("Check this address. You can edit it if it isn't quite right.");
-          return;
-        }
+      if (resolved) {
+        onPickupPlaceSelect(resolved);
+        setGpsMessage("Check this address. You can edit it if it isn't quite right.");
+        return;
       }
       onPickupChange(address);
       setGpsSuggestToken((token) => token + 1);
@@ -256,11 +371,8 @@ export default function HomepageQuoteFields({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-homepage-quote-fields>
-      <div
-        className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pb-[var(--homepage-quote-bar,0px)]"
-        data-homepage-quote-scroll
-      >
+    <div data-homepage-quote-fields>
+      <div className="space-y-1" data-homepage-quote-scroll>
       <div>
         <p className="form-label mb-1">Journey type</p>
         <div
@@ -375,8 +487,8 @@ export default function HomepageQuoteFields({
         onSuggestionsVisibilityChange={(open) => noteSuggestions("dropoff", open)}
       />
 
-      <div className="grid grid-cols-2 gap-2" id="passenger-luggage-section">
-        <div>
+      <div className="grid grid-cols-2 items-end gap-2" id="passenger-luggage-section">
+        <div className="flex min-w-0 flex-col">
           <label htmlFor="quote-section-passengers" className="form-label mb-1">
             Passengers
           </label>
@@ -402,9 +514,9 @@ export default function HomepageQuoteFields({
             </p>
           ) : null}
         </div>
-        <div>
-          <label htmlFor="quote-section-suitcases" className="form-label mb-1">
-            Suitcases
+        <div className="flex min-w-0 flex-col">
+          <label htmlFor="quote-section-suitcases" className="form-label mb-1 whitespace-nowrap leading-tight">
+            Suitcases (23kg)
           </label>
           <select
             id="quote-section-suitcases"
@@ -431,7 +543,20 @@ export default function HomepageQuoteFields({
       </div>
 
       </div>
-      {showQuoteButton && mobileLayout && typeof document !== "undefined"
+      {quoteFormActive && mobileLayout ? (
+        <div ref={flowActionRef} data-quote-price-action="flow" className="sm:hidden pt-1 pb-1.5">
+          <button
+            type="button"
+            data-get-fixed-price
+            onClick={onRequestPrice}
+            className="btn-primary min-h-12 w-full rounded-xl text-base"
+          >
+            Get My Fixed Price →
+          </button>
+          <QuoteHelpContact />
+        </div>
+      ) : null}
+      {showStickyQuoteButton && typeof document !== "undefined"
         ? createPortal(
             <div ref={quoteBarRef} data-sticky-quote-bar data-quote-price-action="pinned">
               <button
@@ -442,11 +567,12 @@ export default function HomepageQuoteFields({
               >
                 Get My Fixed Price →
               </button>
+              <QuoteHelpContact />
             </div>,
             document.body,
           )
         : null}
-      {showQuoteButton && !mobileLayout ? (
+      {quoteFormActive && !mobileLayout ? (
         <div data-quote-price-action="inline" className="max-sm:hidden shrink-0 pt-1.5">
           <button
             type="button"
