@@ -10,8 +10,8 @@ const browser = await chromium.launch();
 const results = [];
 const cases = [
   {path:'/airports/dublin/',field:'dropoff',airport:/Dublin Airport/},
-  {path:'/locations/newtownabbey/',field:'pickup',airport:null},
-  {path:'/transfers/belfast-to-belfast-city-airport/',field:'dropoff',airport:/Belfast City/},
+  {path:'/locations/newtownabbey-airport-taxis/',field:'pickup',airport:null},
+  {path:'/transfers/belfast-to-belfast-city/',field:'dropoff',airport:/Belfast City/},
   {path:'/transfers/dublin-airport-to-belfast/',field:'pickup',airport:/Dublin Airport/},
 ];
 try {
