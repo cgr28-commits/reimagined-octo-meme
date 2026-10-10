@@ -4,6 +4,7 @@ import { placeDisplayText, type SelectedPlace } from "../src/lib/selected-place"
 import { buildCustomerConfirmationEmail, buildOwnerPaidBookingEmail, buildUpdatedBookingConfirmationEmail, type PaidBookingReceipt } from "../shared/booking-notifications";
 const place: SelectedPlace = { placeId: "selected-airport", formattedAddress: "Dublin", lat:53.4213, lng:-6.2701, countryCode:"IE", postalCode:null };
 assert.equal(placeDisplayText(place), "Dublin Airport");
+assert.equal(placeDisplayText({...place, formattedAddress:"Dublin, Ireland", displayAddress:"Dublin, Ireland"}), "Dublin Airport, Ireland");
 assert.equal(placeDisplayText({...place, lat:53.3498,lng:-6.2603}), "Dublin");
 assert.equal(airportDisplayLabel("Terminal 2, Dublin", "DUB"), "Dublin Airport, Terminal 2, Dublin");
 assert.equal(airportDisplayLabel("Dublin Airport, Terminal 1", "DUB"), "Dublin Airport, Terminal 1");
