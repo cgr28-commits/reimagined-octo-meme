@@ -15,6 +15,12 @@ import { roundCustomerPayableGbp, roundGbp } from "../shared/gbp";
 import { getReturnJourneyFare } from "../src/lib/point-to-point-premium";
 import { calculatePointToPointQuote, calculateQuote } from "../src/lib/quote";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
+import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import { resolveSumUpChargeAmountGbp } from "../shared/open-website-payment-fares";
+import {
+  getOwnerPricingSettings,
+  saveOwnerPricingSettings,
+} from "../workers/addresses/src/owner-pricing-store";
 
 const SALOON = "Standard Saloon (1–4 passengers)" as const;
 const ESTATE = "Estate Car (1–4 passengers)" as const;
@@ -161,4 +167,136 @@ assert.match(quoteSrc, /dublinAirportJourneyFareGbp/);
 const payment = fs.readFileSync("workers/addresses/src/index.ts", "utf8");
 assert.match(payment, /dublinAirportJourney/);
 
-console.log("Dublin Airport fare adjustment checks passed.");
+function memoryKv() {
+  const data = new Map<string, string>();
+  return {
+    async get(key: string, type?: string) {
+      const raw = data.get(key);
+      if (raw == null) return null;
+      return type === "json" ? JSON.parse(raw) : raw;
+    },
+    async put(key: string, value: string) {
+      data.set(key, value);
+    },
+  } as unknown as KVNamespace;
+}
+
+async function verifySavedSettingMatchesQuoteAndCheckout() {
+  const store = memoryKv();
+  const initial = await getOwnerPricingSettings(store);
+  assert.equal(initial.dublinAirportFareAdjustment.rate, 0);
+
+  const draft = defaultOwnerPricingSettings();
+  draft.dublinAirportFareAdjustment = { rate: 0.1 };
+  const saved = await saveOwnerPricingSettings(store, draft, {
+    expectedVersion: initial.version,
+    actor: "owner",
+  });
+  assert.equal(saved.settings.dublinAirportFareAdjustment.rate, 0.1);
+  assert.ok(
+    saved.audit.some((entry) =>
+      entry.changes.some(
+        (change) =>
+          change.setting === "Dublin Airport Fare Adjustment" &&
+          change.oldValue === "0%" &&
+          change.newValue === "10%",
+      ),
+    ),
+  );
+
+  const loaded = await getOwnerPricingSettings(store);
+  assert.equal(loaded.dublinAirportFareAdjustment.rate, 0.1);
+  assert.equal(loaded.saloon.knots.length, initial.saloon.knots.length);
+  assert.equal(loaded.estate.upliftGbp, initial.estate.upliftGbp);
+
+  for (const vehicle of VEHICLES) {
+    for (const returnJourney of [false, true]) {
+      const quote = calculateQuote(
+        CITY,
+        "DUB",
+        vehicle,
+        returnJourney,
+        {},
+        DUB_METRICS,
+        false,
+        loaded,
+      )!;
+      const service = calculateAuthoritativeWebsiteQuote({
+        airportCode: "DUB",
+        fromAirport: false,
+        pickupAddress: CITY,
+        dropoffAddress: "Dublin Airport",
+        returnJourney,
+        passengers: vehicle === MINIBUS ? 6 : 2,
+        suitcases: vehicle === ESTATE || vehicle === MINIBUS ? 4 : 1,
+        routeMetrics: DUB_METRICS,
+        vehicleType: vehicle,
+        pricing: loaded,
+        ownerMode: vehicle === MINIBUS,
+        maxPassengers: 7,
+      });
+      assert.equal(service.ok, true);
+      if (!service.ok) continue;
+      assert.equal(service.amount, quote.amount);
+      assert.equal(service.journeyFareGbp, quote.journeyFareGbp);
+      assert.equal(service.airportFixedCostsGbp, quote.airportFixedCostsGbp);
+      const breakdown = composeWebsiteFareBreakdown({
+        journeyFareBeforeAirportAccessGbp: service.journeyFareGbp ?? 0,
+        airportFixedCostsGbp: service.airportFixedCostsGbp ?? 0,
+        nightWeekendSurchargeGbp: service.nightWeekendSurchargeGbp ?? 0,
+        returnJourney,
+        ...(vehicle === EXECUTIVE
+          ? {
+              businessClassMinimumFareGbp: loaded.executive.minimumFareGbp,
+              outboundOneWayBeforeAccessGbp: service.outboundOneWayBeforeAccessGbp,
+              returnOneWayBeforeAccessGbp: service.returnOneWayBeforeAccessGbp,
+              returnDiscountRate: loaded.returnDiscount.rate,
+            }
+          : {}),
+      });
+      const charge = resolveSumUpChargeAmountGbp(
+        breakdown.finalAmountPayableGbp,
+        breakdown.finalAmountPayableGbp,
+      );
+      assert.equal(charge, breakdown.finalAmountPayableGbp);
+      const withExtra = composeWebsiteFareBreakdown({
+        journeyFareBeforeAirportAccessGbp: service.journeyFareGbp ?? 0,
+        airportFixedCostsGbp: service.airportFixedCostsGbp ?? 0,
+        nightWeekendSurchargeGbp: service.nightWeekendSurchargeGbp ?? 0,
+        airportAccessChargeGbp: 10,
+        returnJourney,
+      });
+      assert.equal(withExtra.airportAccessChargeGbp, 10);
+      assert.equal(
+        withExtra.finalAmountPayableGbp,
+        roundCustomerPayableGbp(
+          (service.journeyFareGbp ?? 0) + (service.airportFixedCostsGbp ?? 0) + 10,
+        ),
+      );
+    }
+  }
+
+  const bfsSaved = calculateQuote(CITY, "BFS", SALOON, false, {}, BFS_METRICS, false, loaded)!;
+  const bfsDefault = calculateQuote(CITY, "BFS", SALOON, false, {}, BFS_METRICS, false, initial)!;
+  assert.equal(bfsSaved.amount, bfsDefault.amount);
+
+  const zeroDraft = defaultOwnerPricingSettings();
+  zeroDraft.dublinAirportFareAdjustment = { rate: 0 };
+  const restored = await saveOwnerPricingSettings(store, zeroDraft, {
+    expectedVersion: loaded.version,
+    actor: "owner",
+  });
+  assert.equal(restored.settings.dublinAirportFareAdjustment.rate, 0);
+  const back = calculateQuote(CITY, "DUB", SALOON, false, {}, DUB_METRICS, false, restored.settings)!;
+  assert.equal(back.amount, 210);
+  assert.equal(back.airportFixedCostsGbp, 4);
+}
+
+verifySavedSettingMatchesQuoteAndCheckout()
+  .then(() => {
+    console.log("Dublin Airport fare adjustment checks passed.");
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
