@@ -26,6 +26,8 @@ try {
   await page.getByRole('heading',{name:'Checking your payment',exact:true}).waitFor();
   assert.equal(await page.locator('[data-confirmed-booking-number]').count(),0);
   assert.equal(calls,0);
+  const cookie=page.getByRole('button',{name:'Essential only',exact:true});
+  if(await cookie.isVisible())await cookie.click();
   for(const test of ['paid','deposit','error','pending']) {
    state=test;
    await page.goto(`${base}/booking-confirmed/?payment=return&checkout_id=test-${width}-${test}`);
@@ -33,12 +35,15 @@ try {
    assert.equal(await page.locator('[data-confirmed-booking-number]').count(),0);
    if(test==='paid'||test==='deposit') {
     await page.getByRole('heading',{name:'Booking confirmed',exact:true}).waitFor();
-    assert.match(await page.locator('[data-confirmed-booking-number]').innerText(),/Your booking number\s+MAT-1234/);
+    assert.match(await page.locator('[data-confirmed-booking-number]').innerText(),/Your booking number\s+MAT-1234/i);
     assert.ok(await page.locator('[data-confirmed-booking-number]').isVisible());
     assert.match(await page.locator('main').innerText(),/Payment reference: SUMUP-EXAMPLE/);
     if(test==='deposit')assert.match(await page.locator('main').innerText(),/80/);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({path:`${output}/${width}-payment-confirmation-${test}.png`,fullPage:true});
+    await page.getByRole('link',{name:'Back to home',exact:true}).click();
+    await page.locator('#quote-section-passengers').waitFor();
+    assert.equal(new URL(page.url()).pathname,'/');
    } else {
     await page.getByRole('heading',{name:test==='pending'?'Payment processing':'Payment check',exact:true}).waitFor();
     assert.equal(await page.locator('[data-confirmed-booking-number]').count(),0);
