@@ -3332,16 +3332,16 @@ function QuoteCard({
     : isAirportTrip
       ? isFromAirport
         ? airportName
-        : pickupAddress.trim()
-      : pickupAddress.trim();
+        : placeDisplayText(pickupPlace) || pickupAddress.trim()
+      : placeDisplayText(pickupPlace) || pickupAddress.trim();
 
   const dropoffLabel = isA2AFlow
     ? placeDisplayText(dropoffPlace) || dropoffAddress.trim()
     : isAirportTrip
       ? isFromAirport
-        ? dropoffAddress.trim()
+        ? placeDisplayText(dropoffPlace) || dropoffAddress.trim()
         : airportName
-      : dropoffAddress.trim();
+      : placeDisplayText(dropoffPlace) || dropoffAddress.trim();
 
   function customerAvailabilityBookingInput() {
     return {

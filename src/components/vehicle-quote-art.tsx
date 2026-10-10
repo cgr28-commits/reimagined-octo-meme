@@ -13,16 +13,8 @@ import Image from "next/image";
 export const VEHICLE_ART_SCALE = {
   saloon: "scale-100",
   estate: "scale-100",
-  executive: "scale-100",
-  minibus: "scale-100",
-} as const;
-
-/** Full vehicle inside the fixed option frame. The frame itself does not grow. */
-const OPTION_ART_BOX = {
-  saloon: "h-full w-full",
-  estate: "h-full w-full",
-  executive: "h-full w-full",
-  minibus: "h-full w-full",
+  executive: "scale-[1.23]",
+  minibus: "scale-[1.45] -translate-y-[4%]",
 } as const;
 
 export type VehicleArtId = keyof typeof VEHICLE_ART_SCALE;
@@ -53,11 +45,7 @@ export function VehicleQuoteArt({
         alt={alt}
         width={1400}
         height={700}
-        className={
-          size === "option"
-            ? `absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain object-center ${OPTION_ART_BOX[vehicle]}`
-            : `h-full w-full object-contain object-center ${VEHICLE_ART_SCALE[vehicle]}`
-        }
+        className={`h-full w-full max-w-none object-contain object-center ${VEHICLE_ART_SCALE[vehicle]}`}
         sizes={size === "option" ? "184px" : "184px"}
         priority={size === "result"}
       />

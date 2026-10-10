@@ -1,3 +1,4 @@
+import { airportDisplayLabel } from "./airport-display-label";
 import { formatMarketingOptInLine } from "./marketing";
 import {
   BRAND_EMERALD,
@@ -669,11 +670,24 @@ function buildInvoiceHtml(
 </html>`;
 }
 
+/** Clarify legacy short airport labels in email output without changing stored bookings. */
+function withAirportDisplayLabels<T extends PaidBookingDetails>(details: T): T {
+  const pickupCode = details.pickupAirportCode ||
+    (details.isAirportTrip && details.isFromAirport ? details.airportCode : null);
+  const dropoffCode = details.dropoffAirportCode ||
+    (details.isAirportTrip && !details.isFromAirport ? details.airportCode : null);
+  return { ...details,
+    pickupLabel: airportDisplayLabel(details.pickupLabel, pickupCode),
+    dropoffLabel: airportDisplayLabel(details.dropoffLabel, dropoffCode),
+  };
+}
+
 export function buildCustomerConfirmationEmail(
   details: PaidBookingReceipt,
   businessName = "My Airport Taxi NI",
   options?: { trackUrl?: string; manageUrl?: string },
 ): CustomerPaidBookingEmail {
+  details = withAirportDisplayLabels(details);
   const trackUrl = options?.trackUrl?.trim();
   const manageUrl = options?.manageUrl?.trim();
   // Customer website live-tracking links are retired. Keep the optional param for
@@ -807,6 +821,7 @@ export function buildOwnerPaidBookingEmail(
   businessName = "My Airport Taxi NI",
   options?: { trackUrl?: string },
 ): { subject: string; body: string } {
+  details = withAirportDisplayLabels(details);
   // Customer website track links are retired; ignore any trackUrl for owner alerts too.
   void options?.trackUrl;
   const deposit = depositCashReceiptDetails(details);

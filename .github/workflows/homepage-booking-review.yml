@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'shared/executive-vehicle.ts'
+      - 'shared/booking-notifications.ts'
+      - 'shared/airport-display-label.ts'
+      - 'src/lib/selected-place.ts'
+      - 'src/components/vehicle-quote-art.tsx'
       - 'src/app/globals.css'
       - 'src/components/HomepageQuoteFields.tsx'
       - 'src/components/QuoteCard.tsx'
@@ -24,6 +28,7 @@ jobs:
       - run: GITHUB_PAGES=true npm run build
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium
+      - run: node --import tsx scripts/check-dublin-airport-label.ts
       - name: Test homepage and booking on mobile and desktop
         run: |
           python3 -m http.server 3000 --directory out &
