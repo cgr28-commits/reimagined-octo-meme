@@ -1141,28 +1141,28 @@ main {
   }
 
   .quote-flow[data-quote-presentation="homepage"].glass-card {
-    padding: 1px 0.5rem 0;
+    padding: 0.75rem 0.5rem;
   }
 
   .quote-flow[data-quote-presentation="homepage"] > div:first-child {
-    margin-bottom: 0;
+    margin-bottom: 0.75rem;
   }
 
   .quote-flow[data-quote-presentation="homepage"] h2 {
-    font-size: 1.05rem;
-    line-height: 1.05;
+    font-size: 1.2rem;
+    line-height: 1.25;
   }
 
   .quote-flow[data-quote-presentation="homepage"] h2 + div {
-    margin-top: 0;
-    font-size: 0.75rem;
-    line-height: 1.15;
+    margin-top: 0.375rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
   }
 
   .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-fields] .form-label {
-    margin-bottom: 0;
-    font-size: 0.625rem;
-    line-height: 1;
+    margin-bottom: 0.25rem;
+    font-size: 0.6875rem;
+    line-height: 1.4;
     letter-spacing: 0.04em;
   }
 
@@ -1171,7 +1171,7 @@ main {
   }
 
   .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > * + * {
-    margin-top: 0;
+    margin-top: 0.5rem;
   }
 
   .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > :not(:last-child) {

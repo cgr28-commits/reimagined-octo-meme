@@ -2,6 +2,7 @@ name: Homepage booking review
 on:
   pull_request:
     paths:
+      - 'src/app/globals.css'
       - 'src/components/HomepageQuoteFields.tsx'
       - 'src/components/QuoteCard.tsx'
       - 'scripts/check-homepage-booking-browser.mjs'
