@@ -73,6 +73,15 @@ try {
     await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
     assert.match(await page.locator('[data-quote-results="ready"]').innerText(), /0 suitcases/);
     pass(`${width}px: missing either selection prevents quote; None accepted as numeric 0`);
+    for (const vehicle of ['saloon','estate','executive','minibus']) {
+      await page.locator(`[data-vehicle-category="${vehicle}"]`).click();
+      await page.locator(`[data-vehicle-art="${vehicle}"][data-vehicle-art-size="result"]`).waitFor();
+      await page.locator('[data-quote-results="ready"]').scrollIntoViewIfNeeded();
+      await page.screenshot({path:`${output}/${width}-${vehicle}-quote.png`});
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth));
+    }
+    await page.locator('[data-vehicle-category="saloon"]').click();
+    pass(`${width}px: all four vehicle options and quote images render without horizontal overflow`);
     await book(page);
     await page.screenshot({path:`${output}/${width}-booking.png`});
     await page.locator('#date').fill(''); await page.locator('#time').fill('');

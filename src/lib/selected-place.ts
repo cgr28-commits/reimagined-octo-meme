@@ -1,3 +1,4 @@
+import { airportDisplayLabel } from "../../shared/airport-display-label";
 /**
  * Structured place selection for the quote form.
  * Customers must pick a Google suggestion — free-typed text alone is invalid.
@@ -108,7 +109,7 @@ export function placeDisplayText(place: SelectedPlace | null | undefined): strin
     return "";
   }
   const raw = (place.displayAddress || place.formattedAddress || "").trim();
-  return normaliseJourneyAddressLabel(raw);
+  return airportDisplayLabel(normaliseJourneyAddressLabel(raw), detectAirportCodeFromPlace(place));
 }
 
 export function normaliseAddressCompareKey(value: string): string {
