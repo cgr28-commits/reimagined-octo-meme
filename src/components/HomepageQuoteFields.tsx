@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
 import {
@@ -42,6 +43,8 @@ type HomepageQuoteFieldsProps = {
   publicMinibusEnabled: boolean;
   onRequestPrice: () => void;
   formResetKey: number;
+  /** False once the homepage is showing quote results. */
+  quoteFormActive?: boolean;
 };
 
 function requestCurrentPosition(): Promise<GeolocationPosition> {
@@ -133,12 +136,76 @@ export default function HomepageQuoteFields({
   publicMinibusEnabled,
   onRequestPrice,
   formResetKey,
+  quoteFormActive = true,
 }: HomepageQuoteFieldsProps) {
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsMessage, setGpsMessage] = useState("");
   const [gpsSuggestToken, setGpsSuggestToken] = useState(0);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [mobileLayout, setMobileLayout] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [selectFocused, setSelectFocused] = useState(false);
+  const quoteBarRef = useRef<HTMLDivElement>(null);
+  const pickupSuggestionsRef = useRef(false);
+  const dropoffSuggestionsRef = useRef(false);
+  const showQuoteButton =
+    quoteFormActive &&
+    !(mobileLayout && (keyboardOpen || suggestionsOpen || selectFocused));
   const passengerChoices = publicPassengerOptions(publicMinibusEnabled);
   const suitcaseChoices = publicSuitcaseOptions(publicMinibusEnabled);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const update = () => setMobileLayout(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  const noteSuggestions = useCallback((field: "pickup" | "dropoff", open: boolean) => {
+    if (field === "pickup") pickupSuggestionsRef.current = open;
+    else dropoffSuggestionsRef.current = open;
+    setSuggestionsOpen(pickupSuggestionsRef.current || dropoffSuggestionsRef.current);
+  }, []);
+
+  useEffect(() => {
+    const visual = window.visualViewport;
+    if (!visual) return;
+    const update = () => {
+      const hidden = window.innerHeight - visual.height - visual.offsetTop;
+      setKeyboardOpen(hidden > 120);
+    };
+    update();
+    visual.addEventListener("resize", update);
+    visual.addEventListener("scroll", update);
+    return () => {
+      visual.removeEventListener("resize", update);
+      visual.removeEventListener("scroll", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const bar = quoteBarRef.current;
+    if (!mobileLayout || !showQuoteButton || !bar) {
+      root.style.removeProperty("--homepage-quote-bar");
+      return;
+    }
+    const sync = () => {
+      const height = Math.ceil(bar.getBoundingClientRect().height);
+      if (height > 0) root.style.setProperty("--homepage-quote-bar", `${height}px`);
+      else root.style.removeProperty("--homepage-quote-bar");
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(bar);
+    window.addEventListener("resize", sync);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+      root.style.removeProperty("--homepage-quote-bar");
+    };
+  }, [mobileLayout, showQuoteButton]);
 
   async function locatePickup() {
     if (gpsBusy) return;
@@ -189,9 +256,13 @@ export default function HomepageQuoteFields({
   }
 
   return (
-    <div className="space-y-2.5" data-homepage-quote-fields>
+    <div className="flex min-h-0 flex-1 flex-col" data-homepage-quote-fields>
+      <div
+        className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pb-[var(--homepage-quote-bar,0px)]"
+        data-homepage-quote-scroll
+      >
       <div>
-        <p className="form-label mb-1.5">Journey type</p>
+        <p className="form-label mb-1">Journey type</p>
         <div
           role="group"
           aria-label="Journey type"
@@ -201,7 +272,7 @@ export default function HomepageQuoteFields({
             type="button"
             aria-pressed={journeyMode === "one-way"}
             onClick={() => onJourneyModeChange("one-way")}
-            className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${
+            className={`flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold ${
               journeyMode === "one-way"
                 ? "bg-emerald text-[#071c38]"
                 : "text-white hover:bg-white/10"
@@ -213,20 +284,23 @@ export default function HomepageQuoteFields({
             type="button"
             aria-pressed={journeyMode === "return"}
             onClick={() => onJourneyModeChange("return")}
-            className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${
+            className={`flex min-h-11 flex-col items-center justify-center rounded-lg px-3 py-1 leading-none ${
               journeyMode === "return"
                 ? "bg-emerald text-[#071c38]"
                 : "text-white hover:bg-white/10"
             }`}
           >
-            Return
+            <span className="text-sm font-semibold">Return</span>
+            <span
+              data-return-discount-note
+              className={`mt-0.5 text-[10px] font-bold tracking-[0.08em] ${
+                journeyMode === "return" ? "text-[#071c38]" : "text-emerald"
+              }`}
+            >
+              SAVE 5%
+            </span>
           </button>
         </div>
-        {journeyMode === "return" ? (
-          <p className="mt-1.5 text-xs font-semibold text-emerald" data-return-discount-note>
-            Save 5% on return bookings
-          </p>
-        ) : null}
       </div>
 
       <AddressInput
@@ -244,8 +318,10 @@ export default function HomepageQuoteFields({
         selectionError={pickupPlaceError}
         helperText=""
         reserveHelperSpace={false}
+        dense
         airportCode={addressLookupCode}
         autoSuggestToken={gpsSuggestToken || null}
+        onSuggestionsVisibilityChange={(open) => noteSuggestions("pickup", open)}
         startAdornment={
           <button
             type="button"
@@ -273,7 +349,7 @@ export default function HomepageQuoteFields({
           data-swap-locations
           aria-label="Swap pickup and drop-off"
           onClick={onSwap}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald text-[#071c38] shadow-sm"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald text-[#071c38]"
         >
           <SwapIcon />
         </button>
@@ -294,12 +370,14 @@ export default function HomepageQuoteFields({
         selectionError={dropoffPlaceError}
         helperText=""
         reserveHelperSpace={false}
+        dense
         airportCode={addressLookupCode}
+        onSuggestionsVisibilityChange={(open) => noteSuggestions("dropoff", open)}
       />
 
       <div className="grid grid-cols-2 gap-2" id="passenger-luggage-section">
         <div>
-          <label htmlFor="quote-section-passengers" className="form-label mb-1.5">
+          <label htmlFor="quote-section-passengers" className="form-label mb-1">
             Passengers
           </label>
           <select
@@ -309,6 +387,8 @@ export default function HomepageQuoteFields({
             onChange={(event) => onPassengersChange(Number(event.target.value))}
             className={selectClass}
             aria-invalid={Boolean(passengersError)}
+            onFocus={() => setSelectFocused(true)}
+            onBlur={() => setSelectFocused(false)}
           >
             {passengerChoices.map((count) => (
               <option key={count} value={count}>
@@ -323,7 +403,7 @@ export default function HomepageQuoteFields({
           ) : null}
         </div>
         <div>
-          <label htmlFor="quote-section-suitcases" className="form-label mb-1.5">
+          <label htmlFor="quote-section-suitcases" className="form-label mb-1">
             Suitcases
           </label>
           <select
@@ -333,6 +413,8 @@ export default function HomepageQuoteFields({
             onChange={(event) => onSuitcasesChange(Number(event.target.value))}
             className={selectClass}
             aria-invalid={Boolean(suitcasesError)}
+            onFocus={() => setSelectFocused(true)}
+            onBlur={() => setSelectFocused(false)}
           >
             {suitcaseChoices.map((count) => (
               <option key={count} value={count}>
@@ -348,14 +430,34 @@ export default function HomepageQuoteFields({
         </div>
       </div>
 
-      <button
-        type="button"
-        data-get-fixed-price
-        onClick={onRequestPrice}
-        className="btn-primary min-h-[3.25rem] w-full text-base"
-      >
-        Get My Fixed Price →
-      </button>
+      </div>
+      {showQuoteButton && mobileLayout && typeof document !== "undefined"
+        ? createPortal(
+            <div ref={quoteBarRef} data-sticky-quote-bar data-quote-price-action="pinned">
+              <button
+                type="button"
+                data-get-fixed-price
+                onClick={onRequestPrice}
+                className="btn-primary min-h-12 w-full rounded-xl text-base"
+              >
+                Get My Fixed Price →
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
+      {showQuoteButton && !mobileLayout ? (
+        <div data-quote-price-action="inline" className="max-sm:hidden shrink-0 pt-1.5">
+          <button
+            type="button"
+            data-get-fixed-price
+            onClick={onRequestPrice}
+            className="btn-primary min-h-12 w-full rounded-xl text-base"
+          >
+            Get My Fixed Price →
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

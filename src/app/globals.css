@@ -1088,3 +1088,64 @@ main {
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset;
   }
 }
+
+@media (max-width: 639px) {
+  .homepage-hero {
+    padding-top: 3.5rem;
+  }
+
+  .homepage-hero-copy .section-eyebrow {
+    margin-bottom: 0.2rem;
+  }
+
+  .homepage-hero-copy h1 {
+    font-size: 1.6rem;
+    line-height: 1.1;
+  }
+
+  .homepage-hero-copy > p {
+    margin-top: 0.15rem;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+  }
+
+  .homepage-hero .hero-benefits-row {
+    margin-top: 0.25rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .homepage-hero .hero-benefit-icon {
+    height: 1.75rem;
+    width: 1.75rem;
+  }
+
+  .homepage-hero .hero-benefit-label {
+    min-height: 0;
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    line-height: 1.15;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"].glass-card {
+    padding-top: 0.5rem;
+    padding-bottom: 0.45rem;
+  }
+
+  [data-sticky-quote-bar] {
+    position: fixed;
+    right: 0;
+    left: 0;
+    z-index: 40;
+    bottom: max(
+      var(--matni-cookie-banner-offset, 0px),
+      env(safe-area-inset-bottom, 0px)
+    );
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: #071c38;
+    padding: 0.4rem 0.75rem;
+  }
+
+  [data-sticky-quote-bar] .btn-primary {
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset;
+  }
+}

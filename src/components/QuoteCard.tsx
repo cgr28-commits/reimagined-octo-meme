@@ -7489,7 +7489,7 @@ function QuoteCard({
             quoteStep >= 2
               ? "text-[1.05rem] font-semibold uppercase tracking-[0.14em] text-white outline-none sm:text-lg"
               : presentation === "homepage"
-                ? "font-display text-[1.55rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+                ? "font-display text-[1.2rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
               : "font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
           }`}
         >
@@ -7697,6 +7697,7 @@ function QuoteCard({
                 suitcasesError={suitcasesError}
                 publicMinibusEnabled={publicMinibusEnabled}
                 onRequestPrice={requestHomepagePrice}
+                quoteFormActive={!homepagePriceRequested}
               />
             ) : (
             <QuoteProgressiveRoute

@@ -84,6 +84,10 @@ type AddressInputProps = {
    * otherwise leave suggestions open for a one-tap confirm.
    */
   autoConfirmExactMatch?: boolean;
+  /** Lets a sticky action hide while this field's suggestion list is open. */
+  onSuggestionsVisibilityChange?: (open: boolean) => void;
+  /** Slightly tighter label spacing for the compact homepage quote form. */
+  dense?: boolean;
 };
 
 export default function AddressInput({
@@ -113,6 +117,8 @@ export default function AddressInput({
   className = "",
   autoSuggestToken = null,
   autoConfirmExactMatch = false,
+  onSuggestionsVisibilityChange,
+  dense = false,
 }: AddressInputProps) {
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -545,6 +551,13 @@ export default function AddressInput({
   selectPredictionRef.current = handleSelect;
 
   const showSuggestions = suggestionsOpen && suggestions.length > 0;
+
+  useEffect(() => {
+    onSuggestionsVisibilityChange?.(showSuggestions);
+    return () => {
+      if (showSuggestions) onSuggestionsVisibilityChange?.(false);
+    };
+  }, [onSuggestionsVisibilityChange, showSuggestions]);
   const showHouseStep = needsHouseNumber || Boolean(lockedPostcode && houseOrBuilding);
   const hasConfirmedSelection = Boolean(confirmedPlace?.placeId?.trim());
   const placeComplete = requireSuggestion
@@ -593,7 +606,12 @@ export default function AddressInput({
     const layoutBottom = rect.bottom + offsetTop;
     const viewportTop = offsetTop;
     const viewportBottom = offsetTop + (visual?.height ?? window.innerHeight);
-    const spaceBelow = viewportBottom - rect.bottom - 12;
+    const quoteBarRaw = getComputedStyle(document.documentElement)
+      .getPropertyValue("--homepage-quote-bar")
+      .trim();
+    const quoteBar = quoteBarRaw.endsWith("px") ? Number.parseFloat(quoteBarRaw) : 0;
+    const reservedBelow = Number.isFinite(quoteBar) ? quoteBar : 0;
+    const spaceBelow = viewportBottom - rect.bottom - 12 - reservedBelow;
     const spaceAbove = rect.top - viewportTop - 12;
     const placeAbove = showAbove || (spaceBelow < 160 && spaceAbove > spaceBelow);
     const maxHeight = Math.max(120, Math.min(placeAbove ? spaceAbove : spaceBelow, 16 * 16));
@@ -695,7 +713,7 @@ export default function AddressInput({
           {label}
         </label>
       ) : (
-        <div className="mb-1.5 flex items-center justify-between gap-3">
+        <div className={`${dense ? "mb-1" : "mb-1.5"} flex items-center justify-between gap-3`}>
           <label htmlFor={id} className="form-label !text-[#dce4ee]">
             {label}
           </label>
