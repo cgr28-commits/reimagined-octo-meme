@@ -1,3 +1,4 @@
+import { airportDisplayLabel } from "../../shared/airport-display-label";
 /**
  * Structured place selection for the quote form.
  * Customers must pick a Google suggestion — free-typed text alone is invalid.
@@ -108,7 +109,7 @@ export function placeDisplayText(place: SelectedPlace | null | undefined): strin
     return "";
   }
   const raw = (place.displayAddress || place.formattedAddress || "").trim();
-  return normaliseJourneyAddressLabel(raw);
+  return airportDisplayLabel(normaliseJourneyAddressLabel(raw), detectAirportCodeFromPlace(place));
 }
 
 export function normaliseAddressCompareKey(value: string): string {
@@ -122,6 +123,36 @@ export function looksLikeStreetAddressLine(value: string): boolean {
   if (/^\d+[a-zA-Z]?$/.test(trimmed)) return true;
   if (hasLeadingStreetNumber(trimmed)) return true;
   return /^\d+[a-zA-Z]?\s+\S+/.test(trimmed);
+}
+
+/** A road name is not a building. "High Street" stays incomplete; "Belfast City Hall" does not. */
+const ROAD_ONLY_NAME =
+  /\b(street|road|avenue|drive|lane|square|gardens|parade|terrace|crescent|close|court|park|boulevard|grove|walk|quay)\b/i;
+
+export function looksLikeRoadOnlyName(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (looksLikeStreetAddressLine(trimmed)) return true;
+  return ROAD_ONLY_NAME.test(trimmed);
+}
+
+/**
+ * Venue / building name from an autocomplete main line.
+ * Kept even when Google already folded that name into the formatted address,
+ * because a landmark such as Belfast City Hall has no house number.
+ * Road-only lines and a bare town name are not a building identifier.
+ */
+export function venueNameForPlace(
+  suggestionName: string | null | undefined,
+  locality?: string | null,
+): string | null {
+  const name = suggestionName?.trim() || "";
+  if (!name || looksLikeStreetAddressLine(name) || looksLikeRoadOnlyName(name)) {
+    return null;
+  }
+  const local = locality?.trim().toLowerCase() || "";
+  if (local && name.toLowerCase() === local) return null;
+  return name;
 }
 
 /**

@@ -35,7 +35,7 @@ export const LUGGAGE_CAPACITY_CONFIRMATION_HEADING =
   "Luggage capacity confirmation required";
 
 export const LUGGAGE_CAPACITY_CONFIRMATION_BODY =
-  "With this number of passengers and large bags, we need to confirm the available 7 Seater has sufficient luggage space before you book.";
+  "With this number of passengers and standard suitcases (23kg), we need to confirm the available 7 Seater has sufficient luggage space before you book.";
 
 export const LUGGAGE_CAPACITY_CONFIRMATION_CTA = "Request Capacity Confirmation";
 

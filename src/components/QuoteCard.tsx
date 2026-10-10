@@ -3,6 +3,7 @@
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import AddressInput from "@/components/AddressInput";
+import HomepageQuoteFields from "@/components/HomepageQuoteFields";
 import QuoteProgressiveRoute from "@/components/QuoteProgressiveRoute";
 import QuoteScheduleFields from "@/components/QuoteScheduleFields";
 import {
@@ -363,6 +364,33 @@ const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
 type TripMode = "airport" | "address";
 type TripDirection = "to-airport" | "from-airport";
 
+/** Homepage only: journey direction comes from the two verified places. */
+function classifyVerifiedJourney(
+  pickup: SelectedPlace,
+  dropoff: SelectedPlace,
+): {
+  intent: QuoteJourneyIntent;
+  airport: CustomerAirportCode | "";
+  direction: TripDirection;
+} | null {
+  if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) return null;
+  const kind = detectJourneyKind(pickup, dropoff);
+  if (!kind) return null;
+  const pickupCode = detectAirportCodeFromPlace(pickup);
+  const dropoffCode = detectAirportCodeFromPlace(dropoff);
+  if (kind === "address-to-airport" && dropoffCode && isCustomerAirportCode(dropoffCode)) {
+    return { intent: "to-airport", airport: dropoffCode, direction: "to-airport" };
+  }
+  if (
+    (kind === "airport-to-address" || kind === "airport-to-airport") &&
+    pickupCode &&
+    isCustomerAirportCode(pickupCode)
+  ) {
+    return { intent: "from-airport", airport: pickupCode, direction: "from-airport" };
+  }
+  return { intent: "address-to-address", airport: "", direction: "to-airport" };
+}
+
 function fieldState(options: {
   hasError?: boolean;
   complete: boolean;
@@ -676,6 +704,12 @@ type QuoteCardProps = {
    * Never pass URL/query-string address text here.
    */
   initialDropoffPlace?: SelectedPlace | null;
+  /**
+   * Landing pages for the 7-seater can prefer that existing vehicle once the
+   * party fits and the option is offered. Customers can still choose another
+   * suitable vehicle. This does not change the fare calculation.
+   */
+  preferMinibus?: boolean;
 };
 
 function resolveLandingJourneyIntent(params: {
@@ -730,9 +764,12 @@ function QuoteCard({
   returnOfferToken = "",
   initialPickupPlace = null,
   initialDropoffPlace = null,
+  preferMinibus = false,
 }: QuoteCardProps) {
   preloadQuoteResultVehicleImages();
   const cardRef = useRef<HTMLDivElement>(null);
+  /** Fare shown before date and time, so checkout can confirm a later change. */
+  const provisionalQuotedAmountRef = useRef<number | null>(null);
   const step1JourneyRef = useRef<HTMLDivElement>(null);
   /** Stage 6: YOUR ROUTE / results stack after bags complete. */
   const routeSummaryRef = useRef<HTMLDivElement>(null);
@@ -813,19 +850,19 @@ function QuoteCard({
     : null;
   const [pickupAddress, setPickupAddress] = useState(
     confirmedInitialPickup
-      ? confirmedInitialPickup.displayAddress || confirmedInitialPickup.formattedAddress
+      ? placeDisplayText(confirmedInitialPickup)
       : initialDirection === "from-airport" && initialAirportPlace
-        ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
+        ? placeDisplayText(initialAirportPlace)
         : initialDirection === "to-airport"
           ? initialAddressHint
           : "",
   );
   const [dropoffAddress, setDropoffAddress] = useState(
     confirmedInitialDropoff
-      ? confirmedInitialDropoff.displayAddress || confirmedInitialDropoff.formattedAddress
+      ? placeDisplayText(confirmedInitialDropoff)
       : initialDropoffHint ||
         (initialDirection === "to-airport" && initialAirportPlace
-          ? initialAirportPlace.displayAddress || initialAirportPlace.formattedAddress
+          ? placeDisplayText(initialAirportPlace)
           : initialDirection === "from-airport"
             ? initialAddressHint
             : ""),
@@ -860,8 +897,11 @@ function QuoteCard({
   const [dropoffRestoredHint, setDropoffRestoredHint] = useState(false);
   /** Explicit One Way / Return — null until the customer taps a choice. */
   const [journeyMode, setJourneyMode] = useState<"one-way" | "return" | null>(
-    returnOfferToken ? "one-way" : null,
+    returnOfferToken || presentation === "homepage" ? "one-way" : null,
   );
+  /** Homepage shows vehicle prices only after Get My Fixed Price. */
+  const [homepagePriceRequested, setHomepagePriceRequested] = useState(false);
+  const [homepageFareChangeAck, setHomepageFareChangeAck] = useState(false);
   const returnJourney = journeyMode === "return";
   const [tripDateError, setTripDateError] = useState("");
   const [returnDateError, setReturnDateError] = useState("");
@@ -906,6 +946,7 @@ function QuoteCard({
   const [trackedPartyKey, setTrackedPartyKey] = useState("");
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
+  const [homepageCapacityConfirmed, setHomepageCapacityConfirmed] = useState(false);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
   const [childSeats, setChildSeats] = useState(0);
   const [childSeatNotes, setChildSeatNotes] = useState("");
@@ -948,6 +989,8 @@ function QuoteCard({
   const [serverQuoteUnavailable, setServerQuoteUnavailable] = useState(false);
   const serverQuoteGenRef = useRef(0);
   const quoteVehicleRef = useRef("");
+  const customerPickedVehicleRef = useRef(false);
+  const preferMinibusPartyKeyRef = useRef("");
   const quoteFareAbortRef = useRef<AbortController | null>(null);
   /** Stops a vehicle_unavailable response from retrying the same unsuitable choice. */
   const unsuitableFareRecoveryRef = useRef("");
@@ -1098,6 +1141,38 @@ function QuoteCard({
     suitcases,
     vehicle,
   ]);
+
+  useEffect(() => {
+    if (!preferMinibus || !publicMinibusEnabled || customerPickedVehicleRef.current) return;
+    const pax =
+      effectivePartyPassengers(passengers, passengerLimit) ??
+      (passengers != null && passengers >= 1 ? passengers : null);
+    if (pax == null || suitcases == null) return;
+    const partyKey = `${pax}:${suitcases}`;
+    if (preferMinibusPartyKeyRef.current === partyKey) return;
+    if (
+      !enabledVehicleTypesForQuote({
+        publicMinibusEnabled,
+        publicExecutiveEnabled,
+      }).includes(MINIBUS_VEHICLE_TYPE) ||
+      !vehicleFitsParty(MINIBUS_VEHICLE_TYPE, pax, suitcases)
+    ) {
+      return;
+    }
+    preferMinibusPartyKeyRef.current = partyKey;
+    setManualVehicle(MINIBUS_VEHICLE_TYPE);
+    setChooseMinibus(true);
+    setChooseExecutive(false);
+    setChooseEstate(false);
+    setVehicle(MINIBUS_VEHICLE_TYPE);
+  }, [
+    passengerLimit,
+    passengers,
+    preferMinibus,
+    publicExecutiveEnabled,
+    publicMinibusEnabled,
+    suitcases,
+  ]);
   const isA2AFlow = IS_A2A_PRIMARY;
   const isAirportTrip = !isA2AFlow && tripMode === "airport";
   const journeyKind: JourneyKind | null = useMemo(() => {
@@ -1106,6 +1181,18 @@ function QuoteCard({
     }
     return detectJourneyKind(pickupPlace, dropoffPlace);
   }, [isA2AFlow, pickupPlace, dropoffPlace]);
+
+  useEffect(() => {
+    if (presentation !== "homepage" || !isA2AFlow) return;
+    const classified = classifyVerifiedJourney(pickupPlace, dropoffPlace);
+    if (!classified) return;
+    setJourneyIntent(classified.intent);
+    setTripDirection(classified.direction);
+    setIntentAirportCode(classified.airport);
+    setAirportCode(classified.airport);
+    setTripMode("address");
+  }, [presentation, isA2AFlow, pickupPlace, dropoffPlace]);
+
   const pickupAirportCode = isA2AFlow ? detectAirportCodeFromPlace(pickupPlace) : null;
   const dropoffAirportCode = isA2AFlow ? detectAirportCodeFromPlace(dropoffPlace) : null;
   const isRoiJourney =
@@ -1708,17 +1795,31 @@ function QuoteCard({
         : isAddressPairComplete);
 
   // Fixed price only after route + journey mode + party + booked pickup schedule.
+  // The homepage may show a provisional fare before date and time. Checkout
+  // still requires a complete schedule before payment.
   // Public flow clamps to 1–4 / 0–4, so this stays false; kept as a hard guard.
   const exceedsOnlineCapacity =
     quoteChoicesReady &&
     effectivePassengers != null &&
     suitcases != null &&
     exceedsOnlineVehicleOptions(effectivePassengers, suitcases, passengerLimit, suitcaseLimit);
+  const scheduleReadyForQuote =
+    isScheduleComplete || presentation === "homepage";
   const canShowPrice =
     hasQuoteRoute &&
     quoteChoicesReady &&
-    isScheduleComplete &&
+    scheduleReadyForQuote &&
     !exceedsOnlineCapacity;
+
+  // Homepage input gate only; schedule and payment validation stay separate.
+  const homepageQuoteReady =
+    canShowPrice &&
+    isQuoteReadyPlace(pickupPlace) &&
+    isQuoteReadyPlace(dropoffPlace) &&
+    addressTextMatchesPlace(pickupAddress, pickupPlace) &&
+    addressTextMatchesPlace(dropoffAddress, dropoffPlace) &&
+    !placesEqual(pickupPlace, dropoffPlace) &&
+    (suitcases !== 5 || homepageCapacityConfirmed);
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
@@ -2818,7 +2919,8 @@ function QuoteCard({
   const resultsCanRender =
     quoteChoicesReady &&
     hasQuoteRoute &&
-    isScheduleComplete &&
+    scheduleReadyForQuote &&
+    (presentation !== "homepage" || homepagePriceRequested) &&
     (instantPriceExpected ||
       Boolean(liveQuote) ||
       pricingConfirmationRequired ||
@@ -2835,14 +2937,20 @@ function QuoteCard({
     : hasQuoteRoute;
 
   function clearDownstreamQuoteChoices() {
-    setJourneyMode(null);
-    setPassengers(null);
-    setSuitcases(null);
-    setExactPassengers(null);
+    if (presentation === "homepage") {
+      setHomepagePriceRequested(false);
+    } else {
+      setJourneyMode(null);
+      setPassengers(null);
+      setSuitcases(null);
+      setExactPassengers(null);
+    }
     setChooseMinibus(false);
     setChooseExecutive(false);
     setChooseEstate(false);
     setManualVehicle(null);
+    customerPickedVehicleRef.current = false;
+    preferMinibusPartyKeyRef.current = "";
     setRouteMetrics(null);
     setServerFareParts(null);
   }
@@ -2928,9 +3036,9 @@ function QuoteCard({
       clearConfirmedPickupPlace();
       return;
     }
-    // Prefer exact display/formatted text — never trim here (trailing space after a
-    // house number must remain while the customer is still typing).
-    const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+    // Only confirmed selections reach here; use the airport-aware display label.
+    // Free typing returns above, preserving spaces after house numbers.
+    const display = placeDisplayText(place);
     setPickupAddress(display);
     setPickupRestoredHint(false);
     if (isQuoteReadyPlace(place)) {
@@ -2979,7 +3087,7 @@ function QuoteCard({
       clearConfirmedDropoffPlace();
       return;
     }
-    const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+    const display = placeDisplayText(place);
     setDropoffAddress(display);
     setDropoffRestoredHint(false);
     if (isQuoteReadyPlace(place)) {
@@ -3016,6 +3124,63 @@ function QuoteCard({
         quoteFunnelParams(),
       );
     }
+  }
+
+  function swapHomepageLocations() {
+    const nextPickupPlace = dropoffPlace;
+    const nextDropoffPlace = pickupPlace;
+    const nextPickupAddress = dropoffAddress;
+    const nextDropoffAddress = pickupAddress;
+    setPickupPlace(nextPickupPlace);
+    setDropoffPlace(nextDropoffPlace);
+    setPickupAddress(nextPickupAddress);
+    setDropoffAddress(nextDropoffAddress);
+    setPickupPlaceError("");
+    setDropoffPlaceError("");
+    setPickupRestoredHint(false);
+    setDropoffRestoredHint(false);
+    if (isQuoteReadyPlace(nextPickupPlace)) {
+      saveConfirmedPickupPlace(nextPickupPlace);
+    } else {
+      clearConfirmedPickupPlace();
+    }
+    if (isQuoteReadyPlace(nextDropoffPlace)) {
+      saveConfirmedDropoffPlace(nextDropoffPlace);
+    } else {
+      clearConfirmedDropoffPlace();
+    }
+    setRouteMetrics(null);
+    setServerFareParts(null);
+  }
+
+  function requestHomepagePrice() {
+    if (presentation !== "homepage" || !homepageQuoteReady) return;
+    if (journeyMode == null) {
+      setSubmitError("Choose One Way or Return to continue.");
+      return;
+    }
+    if (!validateA2APlaces()) {
+      window.setTimeout(() => {
+        focusFirstInvalidField(cardRef.current ?? document);
+      }, 0);
+      return;
+    }
+    if (!partySelectionReady) {
+      if (passengers == null) setPassengersError(QUOTE_REQUIRED_FIELD_MESSAGES.passengers);
+      if (suitcases == null) setSuitcasesError(QUOTE_REQUIRED_FIELD_MESSAGES.suitcases);
+      return;
+    }
+    const classified = classifyVerifiedJourney(pickupPlace, dropoffPlace);
+    if (classified) {
+      setJourneyIntent(classified.intent);
+      setTripDirection(classified.direction);
+      setIntentAirportCode(classified.airport);
+      setAirportCode(classified.airport);
+      setTripMode("address");
+    }
+    setSubmitError("");
+    hadRouteSummaryScrollRef.current = false;
+    setHomepagePriceRequested(true);
   }
 
   function applyJourneyIntent(intent: QuoteJourneyIntent) {
@@ -3084,7 +3249,7 @@ function QuoteCard({
       if (intentAirportCode) {
         const place = quickSelectToPlace(intentAirportCode);
         if (place) {
-          const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+          const display = placeDisplayText(place);
           setDropoffPlace(place);
           setDropoffAddress(display);
           setDropoffPlaceError("");
@@ -3097,7 +3262,7 @@ function QuoteCard({
       if (intentAirportCode) {
         const place = quickSelectToPlace(intentAirportCode);
         if (place) {
-          const display = place.displayAddress || place.formattedAddress || placeDisplayText(place);
+          const display = placeDisplayText(place);
           setPickupPlace(place);
           setPickupAddress(display);
           setPickupPlaceError("");
@@ -3167,16 +3332,16 @@ function QuoteCard({
     : isAirportTrip
       ? isFromAirport
         ? airportName
-        : pickupAddress.trim()
-      : pickupAddress.trim();
+        : placeDisplayText(pickupPlace) || pickupAddress.trim()
+      : placeDisplayText(pickupPlace) || pickupAddress.trim();
 
   const dropoffLabel = isA2AFlow
     ? placeDisplayText(dropoffPlace) || dropoffAddress.trim()
     : isAirportTrip
       ? isFromAirport
-        ? dropoffAddress.trim()
+        ? placeDisplayText(dropoffPlace) || dropoffAddress.trim()
         : airportName
-      : dropoffAddress.trim();
+      : placeDisplayText(dropoffPlace) || dropoffAddress.trim();
 
   function customerAvailabilityBookingInput() {
     return {
@@ -3969,6 +4134,13 @@ function QuoteCard({
       : mayPaintNumericFare
         ? (liveQuote?.amount ?? null)
         : null);
+  const homepageQuotedBaseline = provisionalQuotedAmountRef.current;
+  const homepageFareChanged =
+    presentation === "homepage" &&
+    homepageQuotedBaseline != null &&
+    paymentAmount != null &&
+    Number.isFinite(paymentAmount) &&
+    Math.abs(paymentAmount - homepageQuotedBaseline) >= 0.01;
   const depositCashOffer =
     depositCashSettings?.enabled === true &&
     !appliedPersonalQuote &&
@@ -4453,19 +4625,19 @@ function QuoteCard({
     setAirportCode(nextAirport);
     setPickupAddress(
       confirmedInitialPickup
-        ? confirmedInitialPickup.displayAddress || confirmedInitialPickup.formattedAddress
+        ? placeDisplayText(confirmedInitialPickup)
         : nextDirection === "from-airport" && airportPlace
-          ? airportPlace.displayAddress || airportPlace.formattedAddress
+          ? placeDisplayText(airportPlace)
           : nextDirection === "to-airport"
             ? initialAddressHint
             : "",
     );
     setDropoffAddress(
       confirmedInitialDropoff
-        ? confirmedInitialDropoff.displayAddress || confirmedInitialDropoff.formattedAddress
+        ? placeDisplayText(confirmedInitialDropoff)
         : initialDropoffHint ||
           (nextDirection === "to-airport" && airportPlace
-            ? airportPlace.displayAddress || airportPlace.formattedAddress
+            ? placeDisplayText(airportPlace)
             : nextDirection === "from-airport"
               ? initialAddressHint
               : ""),
@@ -4488,7 +4660,10 @@ function QuoteCard({
     setDropoffPlaceError("");
     setPickupRestoredHint(false);
     setDropoffRestoredHint(false);
-    setJourneyMode(returnOfferToken ? "one-way" : null);
+    setJourneyMode(returnOfferToken || presentation === "homepage" ? "one-way" : null);
+    setHomepagePriceRequested(false);
+    setHomepageFareChangeAck(false);
+    provisionalQuotedAmountRef.current = null;
     setTripDateError("");
     setReturnDateError("");
     setCustomerNameError("");
@@ -4507,6 +4682,8 @@ function QuoteCard({
     setChooseExecutive(false);
     setChooseEstate(false);
     setManualVehicle(null);
+    customerPickedVehicleRef.current = false;
+    preferMinibusPartyKeyRef.current = "";
     setOutboundAccessChoice("express");
     setReturnAccessChoice("express");
     setExpressRemovalAck(false);
@@ -4515,6 +4692,7 @@ function QuoteCard({
     setExpressEditingLeg(null);
     setPassengers(null);
     setSuitcases(null);
+    setHomepageCapacityConfirmed(false);
     setExactPassengers(null);
     setChildSeats(0);
     setChildSeatNotes("");
@@ -4830,6 +5008,14 @@ function QuoteCard({
 
   async function submitCheckoutForm() {
     setSubmitError("");
+    if (
+      presentation === "homepage" &&
+      homepageFareChanged &&
+      !homepageFareChangeAck
+    ) {
+      setSubmitError("Please confirm the updated price before you pay.");
+      return;
+    }
     const schedule = syncScheduleFieldsFromInputs();
     if (!validateTripForBooking(schedule)) {
       window.setTimeout(() => {
@@ -4883,11 +5069,12 @@ function QuoteCard({
       };
 
       if (isA2AFlow) {
-        if (!journeyIntent) {
+        if (presentation !== "homepage" && !journeyIntent) {
           failStep1("missing_journey_intent", "Please choose where you are travelling.");
           return;
         }
         if (
+          presentation !== "homepage" &&
           (journeyIntent === "to-airport" || journeyIntent === "from-airport") &&
           !intentAirportCode
         ) {
@@ -4985,7 +5172,7 @@ function QuoteCard({
         );
         return;
       }
-      if (!isScheduleComplete) {
+      if (presentation !== "homepage" && !isScheduleComplete) {
         failStep1(
           "missing_schedule",
           travelDetailsBlocker || QUOTE_PRICE_WAIT_FOR_SCHEDULE,
@@ -5017,6 +5204,21 @@ function QuoteCard({
       }
       setSubmitError("");
       setExpressEditingLeg(null);
+      if (presentation === "homepage") {
+        const classified = classifyVerifiedJourney(pickupPlace, dropoffPlace);
+        if (classified) {
+          setJourneyIntent(classified.intent);
+          setTripDirection(classified.direction);
+          setIntentAirportCode(classified.airport);
+          setAirportCode(classified.airport);
+          setTripMode("address");
+        }
+        provisionalQuotedAmountRef.current =
+          paymentAmount != null && Number.isFinite(paymentAmount)
+            ? paymentAmount
+            : liveQuote?.amount ?? null;
+        setHomepageFareChangeAck(false);
+      }
       // Blur CTA before DOM swap so iOS does not keep scroll anchored to the old button.
       if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -5055,13 +5257,11 @@ function QuoteCard({
         type="button"
         data-back-to-quote={placement}
         onClick={handleBackToQuote}
-        className={
-          placement === "top"
-            ? "btn-secondary mt-3 w-full sm:mt-4 sm:max-w-xs"
-            : "btn-secondary w-full"
-        }
+        className={`${
+          placement === "top" ? "mt-1.5" : ""
+        } inline-flex items-center py-1 text-sm font-semibold text-emerald hover:text-white`}
       >
-        ← Back to quote
+        ← Back to your quote
       </button>
     );
   }
@@ -5141,7 +5341,7 @@ function QuoteCard({
     bookTransferGlideRef.current = false;
     if (glideToDetails && target === 2) {
       return scheduleBookTransferGlide(
-        step3CustomerDetailsRef.current ?? "step3-customer-details",
+        step2TravelDetailsRef.current ?? "step2-travel-details",
       );
     }
     const element =
@@ -5213,7 +5413,7 @@ function QuoteCard({
   // Stage 1: Address to Address tapped → PICKUP / DESTINATION fields.
   // Desktop only. On mobile (< md / 768px) the viewport must stay still.
   useEffect(() => {
-    if (!isA2AFlow || quoteStep !== 1) {
+    if (!isA2AFlow || quoteStep !== 1 || presentation === "homepage") {
       prevJourneyIntentRef.current = journeyIntent;
       hadA2aAddressesScrollRef.current = false;
       return;
@@ -5227,13 +5427,13 @@ function QuoteCard({
     if (detectMobileDevice()) return;
     // No layout-correction pulse — stage scrolls are precise one-shots (avoids judder).
     return scrollQuoteStage("quote-section-addresses", { correctAfterMs: 0 });
-  }, [isA2AFlow, journeyIntent, quoteStep]);
+  }, [isA2AFlow, journeyIntent, presentation, quoteStep]);
 
   // Stage 3: both addresses selected → JOURNEY (One way / Return) only.
   // Pickup alone must not scroll. Route/vehicle renders must not steal viewport.
   // Desktop only — mobile Step 1 must not jump after an address becomes valid.
   useEffect(() => {
-    if (!isA2AFlow || quoteStep !== 1) {
+    if (!isA2AFlow || quoteStep !== 1 || presentation === "homepage") {
       hadA2aJourneyTypeScrollRef.current = false;
       return;
     }
@@ -5249,14 +5449,14 @@ function QuoteCard({
     // the customer scrolls to it themselves.
     if (detectMobileDevice()) return;
     return scrollQuoteStage("journey-type-selector", { correctAfterMs: 0 });
-  }, [a2aShowJourneyMode, isA2AFlow, journeyMode, quoteStep]);
+  }, [a2aShowJourneyMode, isA2AFlow, journeyMode, presentation, quoteStep]);
 
   // Stage 4: One way / Return selected → pickup date & time (then passengers).
   // Same 720ms glide as the quote reveal and Book This Transfer.
   // This effect runs after the selection render, so a Return choice has already
   // laid out the return note and return date/time before the glide measures.
   useEffect(() => {
-    if (!isA2AFlow || quoteStep !== 1) {
+    if (!isA2AFlow || quoteStep !== 1 || presentation === "homepage") {
       hadA2aPartyScrollRef.current = false;
       return;
     }
@@ -5267,7 +5467,7 @@ function QuoteCard({
     if (hadA2aPartyScrollRef.current) return;
     hadA2aPartyScrollRef.current = true;
     return scheduleBookTransferGlide("quote-section-schedule");
-  }, [a2aShowParty, isA2AFlow, quoteStep]);
+  }, [a2aShowParty, isA2AFlow, presentation, quoteStep]);
 
   // One results scroll, as soon as the results mount.
   // Stops with Vehicle options under the sticky header. Fare, vehicle,
@@ -5281,10 +5481,12 @@ function QuoteCard({
       return;
     }
 
+    const revealWithoutSchedule =
+      presentation === "homepage" && homepagePriceRequested;
     if (
       !quoteResultsReady ||
       !quoteChoicesReady ||
-      !isScheduleComplete ||
+      (!isScheduleComplete && !revealWithoutSchedule) ||
       hadRouteSummaryScrollRef.current
     ) {
       return;
@@ -5301,7 +5503,15 @@ function QuoteCard({
         quoteRevealScrollCancelRef.current = null;
       },
     });
-  }, [hasQuoteRoute, isScheduleComplete, quoteChoicesReady, quoteResultsReady, quoteStep]);
+  }, [
+    hasQuoteRoute,
+    homepagePriceRequested,
+    isScheduleComplete,
+    presentation,
+    quoteChoicesReady,
+    quoteResultsReady,
+    quoteStep,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -5947,7 +6157,7 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Passengers: {formatPassengerChoice(effectivePassengers as number)}
               <span className="mx-2 text-white/35">·</span>
-              Large suitcases: {formatSuitcaseChoice(suitcases as number)}
+              Standard suitcases (23kg): {formatSuitcaseChoice(suitcases as number)}
             </p>
             <PriceInclusionBlock
               isAirportTrip={isAirportLegForInclusions}
@@ -6050,7 +6260,7 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Passengers: {formatPassengerChoice(effectivePassengers as number)}
               <span className="mx-2 text-white/35">·</span>
-              Large suitcases: {formatSuitcaseChoice(suitcases as number)}
+              Standard suitcases (23kg): {formatSuitcaseChoice(suitcases as number)}
             </p>
             {testChargeAmount !== null && (
               <p className="quote-secondary mt-2 text-xs">
@@ -6209,17 +6419,40 @@ function QuoteCard({
         <div
           id="step2-travel-details"
           ref={step2TravelDetailsRef}
-          className="scroll-mt-44 space-y-4 md:scroll-mt-28"
+          className="scroll-mt-44 space-y-3 md:scroll-mt-28"
         >
           <h2
             data-booking-nav-heading
             tabIndex={-1}
-            className="sr-only"
+            className="text-sm font-semibold text-white outline-none"
           >
-            Step 3 — Complete your booking
+            Pickup date & time — Complete your booking
           </h2>
 
           {renderQuoteScheduleFields("checkout")}
+
+          {presentation === "homepage" && homepageFareChanged ? (
+            <div
+              className="rounded-xl border border-emerald/40 bg-emerald/10 px-3.5 py-3 text-sm text-white"
+              data-homepage-fare-change
+            >
+              <p className="font-semibold text-emerald">Updated price</p>
+              <p className="mt-1 leading-snug">
+                Your fare is now {formatQuote(paymentAmount ?? 0)}. It was{" "}
+                {formatQuote(homepageQuotedBaseline ?? 0)} before the date and time were added.
+                Please confirm the updated amount before you pay.
+              </p>
+              <label className="mt-2 flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 accent-emerald"
+                  checked={homepageFareChangeAck}
+                  onChange={(event) => setHomepageFareChangeAck(event.target.checked)}
+                />
+                <span>I confirm the updated price.</span>
+              </label>
+            </div>
+          ) : null}
 
           <section
             id="step3-customer-details"
@@ -6828,7 +7061,7 @@ function QuoteCard({
         disabled={
           submitted ||
           !quoteChoicesReady ||
-          !isScheduleComplete ||
+          (presentation === "homepage" ? false : !isScheduleComplete) ||
           (instantPriceExpected && !mayPaintNumericFare) ||
           (isEnquiryOnly ||
           isManualQuoteJourney ||
@@ -6947,6 +7180,7 @@ function QuoteCard({
     ) {
       return;
     }
+    customerPickedVehicleRef.current = true;
     setManualVehicle(chosen);
     setChooseExecutive(next === EXECUTIVE_VEHICLE);
     setChooseMinibus(next === MINIBUS_VEHICLE_TYPE);
@@ -6966,6 +7200,7 @@ function QuoteCard({
         onSelectVehicle={handleQuoteVehicleChoice}
         publicMinibusEnabled={publicMinibusEnabled}
         publicExecutiveEnabled={publicExecutiveEnabled}
+        hideUnsuitable={presentation === "homepage"}
       />
     );
   }
@@ -6998,7 +7233,7 @@ function QuoteCard({
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
-        priceLabel={appliedPersonalQuote ? "Personal quoted fare" : "Your transfer price"}
+        priceLabel="Fixed price"
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
         businessClassInclusions={renderBusinessClassInclusions()}
@@ -7006,11 +7241,6 @@ function QuoteCard({
         onRetryPrice={() => {
           void refreshAuthoritativeServerQuote(true);
         }}
-        surchargeNote={
-          mayPaintNumericFare && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0
-            ? QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE
-            : null
-        }
         airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />
@@ -7244,7 +7474,15 @@ function QuoteCard({
           : "quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7"
       }
     >
-      <div className={presentation === "homepage" ? "mb-2.5 sm:mb-5 lg:mb-5" : "mb-4 sm:mb-5 lg:mb-5"}>
+      <div
+        className={
+          quoteStep >= 2
+            ? "mb-2"
+            : presentation === "homepage"
+              ? "mb-1 sm:mb-5 lg:mb-5"
+              : "mb-4 sm:mb-5 lg:mb-5"
+        }
+      >
         <h2
           data-site-nav-heading="quote"
           tabIndex={-1}
@@ -7252,11 +7490,15 @@ function QuoteCard({
             quoteStep >= 2
               ? "text-[1.05rem] font-semibold uppercase tracking-[0.14em] text-white outline-none sm:text-lg"
               : presentation === "homepage"
-                ? "font-display text-[1.55rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
+                ? "font-display text-[1.2rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
               : "font-display text-[1.35rem] font-semibold leading-tight tracking-tight text-white outline-none sm:text-[1.85rem] lg:text-[1.75rem]"
           }`}
         >
-          {quoteStep >= 2 ? "COMPLETE YOUR BOOKING" : "Get a Live Quote"}
+          {quoteStep >= 2
+            ? "COMPLETE YOUR BOOKING"
+            : presentation === "homepage"
+              ? "Get Your Live Quote"
+              : "Get a Live Quote"}
         </h2>
         {returnOfferToken ? (
           <div className="mt-3 rounded-xl border border-emerald/30 bg-emerald/[0.08] px-3.5 py-3">
@@ -7270,11 +7512,17 @@ function QuoteCard({
             </p>
           </div>
         ) : null}
-        <div className={`${presentation === "homepage" ? "mt-0.5" : "mt-1"} text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed`}>
+        <div
+          className={
+            quoteStep >= 2
+              ? "mt-1 text-sm leading-snug quote-secondary"
+              : `${presentation === "homepage" ? "mt-0.5" : "mt-1"} text-sm leading-snug quote-secondary sm:mt-2.5 sm:leading-relaxed lg:text-[0.9rem] lg:leading-relaxed`
+          }
+        >
           {quoteStep >= 2 ? (
-            <p className="text-[0.8125rem] sm:text-sm">
-              Enter your pickup time and details, then confirm. Your fare stays the same.
-            </p>
+            <p>Add your pickup details to confirm your transfer.</p>
+          ) : presentation === "homepage" ? (
+            <p>Your fixed price in just a few clicks.</p>
           ) : (
             <>
           {/* Mobile: compact — frees space for journey choices above the fold */}
@@ -7290,8 +7538,9 @@ function QuoteCard({
             </>
           )}
         </div>
+        {quoteStep < 2 ? (
         <ol
-          className={`${presentation === "homepage" ? "mt-2" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
+          className={`${presentation === "homepage" && quoteStep === 1 ? "hidden" : ""} ${presentation === "homepage" ? "mt-2" : "mt-3"} grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2`}
           aria-label="Booking steps"
         >
           {(
@@ -7339,6 +7588,7 @@ function QuoteCard({
             );
           })}
         </ol>
+        ) : null}
         {quoteStep >= 2 ? renderBackToQuoteButton("top") : null}
       </div>
 
@@ -7346,9 +7596,11 @@ function QuoteCard({
         id="quoteForm"
         onSubmit={handleSubmit}
         className={
-          presentation === "homepage"
-            ? "relative space-y-0 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5"
-            : "relative space-y-3 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5"
+          quoteStep >= 2
+            ? "relative space-y-3 overflow-x-clip overflow-y-visible"
+            : presentation === "homepage"
+              ? "relative space-y-2.5 overflow-visible sm:space-y-4 lg:space-y-3.5"
+              : "relative space-y-3 overflow-x-clip overflow-y-visible sm:space-y-4 lg:space-y-3.5"
         }
       >
         <GoogleAdsRequestQuote
@@ -7405,6 +7657,61 @@ function QuoteCard({
         </h2>
         {isA2AFlow ? (
           <>
+            {presentation === "homepage" ? (
+              <HomepageQuoteFields
+                formResetKey={formResetKey}
+                journeyMode={journeyMode === "return" ? "return" : "one-way"}
+                onJourneyModeChange={(value) => {
+                  if (returnOfferToken) return;
+                  markQuoteFunnelStarted();
+                  setJourneyMode(value);
+                  if (value === "one-way") setReturnDateError("");
+                  setHomepagePriceRequested(false);
+                }}
+                pickupAddress={pickupAddress}
+                dropoffAddress={dropoffAddress}
+                onPickupChange={handlePickupChange}
+                onDropoffChange={handleDropoffChange}
+                onPickupPlaceSelect={handlePickupPlacesSuggestionSelect}
+                onDropoffPlaceSelect={handleDropoffPlacesSuggestionSelect}
+                pickupPlaceError={pickupPlaceError}
+                dropoffPlaceError={dropoffPlaceError}
+                pickupConfirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
+                dropoffConfirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+                onClearPickup={() => {
+                  handlePickupChange("");
+                }}
+                onClearDropoff={() => {
+                  handleDropoffChange("");
+                }}
+                addressLookupCode={addressLookupCode}
+                onSwap={swapHomepageLocations}
+                passengers={passengers}
+                suitcases={suitcases}
+                onPassengersChange={(value) => {
+                  markQuoteFunnelStarted();
+                  setPassengers(value);
+                  setHomepageCapacityConfirmed(false);
+                  setPassengersError("");
+                  setHomepagePriceRequested(false);
+                }}
+                onSuitcasesChange={(value) => {
+                  markQuoteFunnelStarted();
+                  setSuitcases(value);
+                  setHomepageCapacityConfirmed(false);
+                  setSuitcasesError("");
+                  setHomepagePriceRequested(false);
+                }}
+                passengersError={passengersError}
+                suitcasesError={suitcasesError}
+                publicMinibusEnabled={publicMinibusEnabled}
+                onRequestPrice={requestHomepagePrice}
+                quoteReady={homepageQuoteReady}
+                capacityConfirmed={homepageCapacityConfirmed}
+                onCapacityConfirmedChange={setHomepageCapacityConfirmed}
+                quoteFormActive={!homepagePriceRequested}
+              />
+            ) : (
             <QuoteProgressiveRoute
               key={`quote-route-${formResetKey}`}
               journeyIntent={journeyIntent}
@@ -7499,7 +7806,8 @@ function QuoteCard({
               journeyKindLabel={journeyKind ? journeyKindLabel(journeyKind) : undefined}
               presentation={presentation}
             />
-            {journeyMode != null && quoteStep === 1 && !quoteResultsReady ? (
+            )}
+            {presentation !== "homepage" && journeyMode != null && quoteStep === 1 && !quoteResultsReady ? (
               <p
                 id="quote-price-wait"
                 className="rounded-xl quote-panel px-4 py-3 text-sm text-white"
@@ -7596,7 +7904,46 @@ function QuoteCard({
                       className="h-px w-full"
                       aria-hidden="true"
                     />
+                    {presentation === "homepage" ? (
+                      <div
+                        className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-white"
+                        data-homepage-journey-summary
+                      >
+                        <p className="font-semibold leading-snug">
+                          {pickupLabel || "Pickup"} → {dropoffLabel || "Drop-off"}
+                        </p>
+                        {returnJourney ? (
+                          <p className="mt-1 text-xs font-medium text-emerald">
+                            Return journey reverses this route. The 5% return booking discount is included.
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-xs text-white/70">
+                            {journeyKind ? journeyKindLabel(journeyKind) : "One way"}
+                          </p>
+                        )}
+                        <p className="mt-1 text-xs text-white/75">
+                          {effectivePassengers ?? passengers} passenger
+                          {(effectivePassengers ?? passengers) === 1 ? "" : "s"}
+                          {" · "}
+                          {suitcases != null && suitcases >= 5
+                            ? "5+ suitcases"
+                            : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
+                        </p>
+                      </div>
+                    ) : null}
                     {renderQuoteVehicleChoice()}
+                    {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
+                      <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5" data-homepage-return-breakdown>
+                        <PromotionalPriceBreakdown
+                          alwaysShow
+                          breakdown={openWebsiteFareBreakdown}
+                          service={expressSelection.service ?? "drop-off"}
+                          freeAirportAccessSelected={
+                            expressSelection.eligible && expressSelection.feeGbp === 0
+                          }
+                        />
+                      </div>
+                    ) : null}
                     {renderBookingErrorHelp("results")}
                     {showInstantQuoteResultCard ? (
                       renderInstantQuoteResultCard()
@@ -7642,14 +7989,20 @@ function QuoteCard({
                   key="quote-route-map"
                   className={
                     (quoteResultsReady && quoteStep === 1) ||
-                    (quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
+                    (presentation !== "homepage" &&
+                      quoteChoicesReady &&
+                      hasQuoteRoute &&
+                      quoteStep === 1)
                       ? undefined
                       : "sr-only"
                   }
                   aria-hidden={
                     !(
                       (quoteResultsReady && quoteStep === 1) ||
-                      (quoteChoicesReady && hasQuoteRoute && quoteStep === 1)
+                      (presentation !== "homepage" &&
+                        quoteChoicesReady &&
+                        hasQuoteRoute &&
+                        quoteStep === 1)
                     )
                   }
                 >
@@ -8009,7 +8362,7 @@ function QuoteCard({
               needsCompletion={quoteStep === 1 && passengers == null}
             />
             <TapChoiceRow
-              label="Large suitcases (23kg)"
+              label="Standard suitcases (23kg)"
               options={publicSuitcaseOptions(publicMinibusEnabled)}
               value={
                 suitcases != null && suitcases <= suitcaseLimit && suitcases >= 0

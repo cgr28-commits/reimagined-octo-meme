@@ -27,12 +27,12 @@ assert.match(hero, /md:order-1 md:scroll-mt-28 lg:order-2/);
 // Compact mobile stack: tighter gap, short supporting line, extra hero blocks hidden.
 assert.match(hero, /gap-1\.5 /);
 assert.match(hero, /md:gap-12/);
-assert.match(hero, /section-eyebrow mb-3[\s\S]*md:mb-6/);
+assert.match(hero, /section-eyebrow mb-1\.5[\s\S]*md:mb-6/);
 assert.match(hero, /Private airport transfers • Belfast &amp; Northern Ireland/);
 assert.match(hero, /md:hidden">Private airport transfers • Northern Ireland/);
 assert.match(
   hero,
-  /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,
+  /Premium, fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport\./,
 );
 assert.match(hero, /max-w-xl/);
 assert.doesNotMatch(hero, /whitespace-nowrap/);

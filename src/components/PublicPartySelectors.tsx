@@ -149,7 +149,7 @@ export default function PublicPartySelectors({
 
       <div id="quote-section-suitcases" className="order-3 flex h-full min-w-0 flex-col lg:order-2">
         <PartyChoiceGrid
-          label="Suitcases / large bags"
+          label="Standard suitcases (23kg)"
           options={suitcaseOptions}
           value={selectedSuitcases}
           onChange={onSuitcasesChange}

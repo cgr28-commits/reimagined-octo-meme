@@ -250,7 +250,7 @@ export function buildGroupQuoteRequestMessage(
     `${"=".repeat(36)}\n` +
     (reference ? `Reference: ${reference}\n` : "") +
     `Passengers: ${details.passengers}\n` +
-    `Luggage (large bags): ${details.suitcases}\n` +
+    `Standard suitcases (23kg): ${details.suitcases}\n` +
     (() => {
       const childSeatsLine = formatChildSeatsLine(details.childSeats, details.childSeatNotes);
       return childSeatsLine ? `${childSeatsLine}\n` : "";

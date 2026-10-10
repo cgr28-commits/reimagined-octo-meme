@@ -243,7 +243,7 @@ assert.match(categories, /font-semibold leading-tight text-navy/);
 assert.match(categories, /font-medium leading-tight text-navy/);
 assert.match(categories, /py-1\.5/);
 assert.doesNotMatch(categories, /min-h-\[7\.75rem\]/);
-assert.match(categories, /SALOON_LUGGAGE_CAPACITY = "2 large suitcases"/);
+assert.match(categories, /SALOON_LUGGAGE_CAPACITY = "2 standard suitcases \(23kg\)"/);
 assert.doesNotMatch(categories, /hand luggage/);
 assert.match(categories, /QuoteLuggageIcon/);
 assert.match(read("src/components/quote-vehicle-line-icons.tsx"), /M6 20a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h12/);

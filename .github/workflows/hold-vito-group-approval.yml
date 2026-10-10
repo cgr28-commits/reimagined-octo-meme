@@ -1,0 +1,18 @@
+name: Hold Vito group pages until approved
+
+# Keeps this SEO addition off the live site. The repo auto-merges cursor/
+# pull requests once checks pass; this check stays failed until the pages
+# are approved and the hold is removed.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  await-approval:
+    if: contains(github.head_ref, 'vito-group-transfers')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merge until the Vito group pages are approved
+        run: |
+          echo "These pages are a preview. Do not merge until they are approved."
+          exit 1

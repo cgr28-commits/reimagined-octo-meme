@@ -112,10 +112,10 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
   const detailLine = isEstate || isExecutive ? supporting : "\u00a0";
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
-    ? "5+ large bags"
+    ? "5+ standard suitcases (23kg)"
     : suitcases === 1
-      ? "1 large suitcase"
-      : `${formatPublicSuitcaseChoice(suitcases)} large suitcases`;
+      ? "1 standard suitcase (23kg)"
+      : `${formatPublicSuitcaseChoice(suitcases)} standard suitcases (23kg)`;
 
   return (
     <div

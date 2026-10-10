@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import HeroSlideshow from "@/components/HeroSlideshow";
 import AirportsSection from "@/components/AirportsSection";
 import PopularBelfastTransfers from "@/components/PopularBelfastTransfers";
+import VitoGroupTransfersSection from "@/components/VitoGroupTransfersSection";
 import FlightStatusSection from "@/components/FlightStatusSection";
 import AreasSection from "@/components/AreasSection";
 import WhyChooseUsSection from "@/components/WhyChooseUsSection";
@@ -43,6 +44,7 @@ export default function Home() {
         <HeroSlideshow />
         <AirportsSection />
         <PopularBelfastTransfers />
+        <VitoGroupTransfersSection />
         <FlightStatusSection />
         <AreasSection />
         {/* Soft-hidden via SERVICE_FLAGS — set dayTrips: true in data.ts to restore */}

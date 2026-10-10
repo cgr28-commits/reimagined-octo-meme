@@ -1,0 +1,16 @@
+[
+  "390px: fresh Select defaults, exact options, disabled CTA, side-by-side layout",
+  "390px: missing either selection prevents quote; None accepted as numeric 0",
+  "390px: date/time visible above contact and below header; no-date quote; one-way validation; back preserves party/contact",
+  "390px: return fields visible; invalid return ordering prevents payment",
+  "390px: 7-Seater unavailable blocks 5–7 passenger quote without removing options",
+  "390px: 5+ requires explicit prior capacity confirmation; party edits reset it",
+  "390px: no horizontal overflow",
+  "1280px: fresh Select defaults, exact options, disabled CTA, side-by-side layout",
+  "1280px: missing either selection prevents quote; None accepted as numeric 0",
+  "1280px: date/time visible above contact and below header; no-date quote; one-way validation; back preserves party/contact",
+  "1280px: return fields visible; invalid return ordering prevents payment",
+  "1280px: 7-Seater unavailable blocks 5–7 passenger quote without removing options",
+  "1280px: 5+ requires explicit prior capacity confirmation; party edits reset it",
+  "1280px: no horizontal overflow"
+]

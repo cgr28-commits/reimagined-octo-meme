@@ -145,7 +145,7 @@ check("Desktop uses the same heading stop", () => {
   assert.ok(Math.abs(landedHeading(frame, nextTop) - idealHeading(80)) <= 1);
 });
 
-check("Book This Transfer uses the same glide and stops on Your details", () => {
+check("Book This Transfer uses the same glide and stops on pickup date/time", () => {
   assert.ok(BOOK_TRANSFER_CLEARANCE_PX >= 16 && BOOK_TRANSFER_CLEARANCE_PX <= 24);
   const frame = {
     scrollY: 500,
@@ -176,7 +176,7 @@ check("Book This Transfer uses the same glide and stops on Your details", () => 
   assert.doesNotMatch(glide, /correctAfterMs|behavior:\s*"smooth"|vibrate|quote-result-reveal/);
   const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
   assert.match(card, /bookTransferGlideRef\.current = true/);
-  assert.match(card, /scheduleBookTransferGlide\(\s*step3CustomerDetailsRef\.current \?\? "step3-customer-details"/);
+  assert.match(card, /scheduleBookTransferGlide\(\s*step2TravelDetailsRef\.current \?\? "step2-travel-details"/);
   assert.doesNotMatch(card, /navigator\.vibrate|tickSelectionHaptic|requestSelectionHaptic/);
 });
 

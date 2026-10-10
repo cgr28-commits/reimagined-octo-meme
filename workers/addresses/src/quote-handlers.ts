@@ -26,6 +26,7 @@ import { applyProfitabilityProtection } from "./profitability";
 import { signQuoteReceipt } from "./quote-receipt";
 import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
 import {
+  isDublinAirportCode,
   PUBLIC_MINIBUS_UNAVAILABLE_CODE,
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
   publicMaxPassengers,
@@ -635,6 +636,11 @@ export async function handleQuoteCalculateRequest(
           ? { lat: dropoffLat, lng: dropoffLng }
           : null,
       returnJourney,
+      dublinAirportJourney:
+        isDublinAirportCode(airportCode) ||
+        (addressAirport.ok &&
+          (isDublinAirportCode(addressAirport.context.pickupAirportCode) ||
+            isDublinAirportCode(addressAirport.context.dropoffAirportCode))),
       schedule,
       existing: {
         amountGbp: result.amount,

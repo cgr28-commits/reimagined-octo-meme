@@ -56,6 +56,9 @@ function asDraft(
   return {
     ...settings,
     profitability: normalizeProfitabilitySettings(settings.profitability),
+    dublinAirportFareAdjustment: {
+      rate: settings.dublinAirportFareAdjustment?.rate ?? 0,
+    },
     executive: {
       multiplier:
         settings.executive?.multiplier ?? defaultOwnerPricingSettings().executive.multiplier,
@@ -1170,7 +1173,19 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
           Airport / fixed charges
         </h3>
-        <p className="mt-2 text-xs text-white/55">
+        <div data-dublin-fare-adjustment>
+          <PercentField
+            label="Dublin Airport Fare Adjustment (%)"
+            value={Math.round((draft.dublinAirportFareAdjustment?.rate ?? 0) * 1000) / 10}
+            onChange={(value) => update("dublinAirportFareAdjustment", { rate: value / 100 })}
+          />
+          <p className="mt-1 text-xs text-white/55">
+            Increases the journey fare for transfers to and from Dublin Airport. Tolls, parking,
+            airport access fees and optional extras stay the same. The 5% return discount is
+            calculated on the adjusted journey fare. 0% keeps current fares.
+          </p>
+        </div>
+        <p className="mt-3 text-xs text-white/55">
           Fixed airport charges below stay display-only. Meet &amp; Greet pickup fees can be changed
           here and apply to new quotes.
         </p>

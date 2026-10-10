@@ -38,11 +38,11 @@ export const GROUP_PASSENGER_MAX = OWNER_QUICK_QUOTE_MAX_PASSENGERS;
 export const PASSENGER_LIMIT_ERROR =
   "We can only quote for up to 4 passengers. Please select 1–4 passengers.";
 export const SUITCASE_LIMIT_ERROR =
-  "We can only quote for up to 4 large suitcases. Please select 0–4.";
+  "We can only quote for up to 4 standard suitcases (23kg). Please select 0–4.";
 export const PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR =
   "We can only quote for up to 7 passengers.";
 export const PUBLIC_MINIBUS_SUITCASE_LIMIT_ERROR =
-  "Please select 0–4 or 5+ large bags.";
+  "Please select 0–4 or 5+ standard suitcases (23kg).";
 
 export function isValidPassengerCount(value: unknown): value is number {
   const n = typeof value === "number" ? value : Number(value);

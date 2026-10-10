@@ -41,7 +41,7 @@ console.log("\n=== 3. Nav Get a Quote + coverage text preserved ===");
   assert.match(header, /Get a Quote/);
   assert.match(
     hero,
-    /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,
+    /Premium, fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport\./,
   );
   console.log("OK  header CTA + destination coverage text present");
 }
@@ -51,7 +51,7 @@ console.log("\n=== 4. No discontinued first-booking promo near quote CTA ===");
   const css = read("src/app/globals.css");
   assert.match(
     hero,
-    /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,
+    /Premium, fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport\./,
   );
   assert.doesNotMatch(hero, /FirstBookingOfferStrip|FirstBookingOfferBadge/);
   assert.doesNotMatch(hero, /first-booking|firstBooking|£5 booking offer/i);

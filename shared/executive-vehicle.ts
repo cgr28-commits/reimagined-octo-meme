@@ -19,12 +19,12 @@ export const AIRPORT_ACCESS_INCLUDED_BODY =
   "Airport access and applicable tolls included in your fixed price.";
 
 /** Customer wording when the journey direction is known. Not a separate charge. */
-export const EXPRESS_PICKUP_INCLUDED_HEADING = "Express Pickup Included";
+export const EXPRESS_PICKUP_INCLUDED_HEADING = "Express Pick-Up Included";
 export const EXPRESS_DROPOFF_INCLUDED_HEADING = "Express Drop-Off Included";
 export const EXPRESS_PICKUP_INCLUDED_BODY =
-  "Airport pickup access and applicable charges are included in your fixed price.";
+  "Be collected from the designated pick-up area closest to the airport terminal, for a shorter walk with your luggage.";
 export const EXPRESS_DROPOFF_INCLUDED_BODY =
-  "Airport drop-off access and applicable charges are included in your fixed price.";
+  "Be dropped off at the designated drop-off area closest to the airport terminal, minimising your walk to departures.";
 
 export function includedAirportAccessCopy(service: "pick-up" | "drop-off"): {
   heading: string;

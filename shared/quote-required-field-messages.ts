@@ -15,7 +15,7 @@ export const QUOTE_REQUIRED_FIELD_MESSAGES = {
   flightNumber: "Please enter your flight number",
   terms: "Please agree to the Terms & Conditions and Privacy Policy",
   passengers: "Please select the number of passengers",
-  suitcases: "Please select the number of large suitcases",
+  suitcases: "Please select the number of standard suitcases (23kg)",
   childSeatNotes:
     "Please tell us each child’s age and whether you need a child seat or booster seat.",
 } as const;

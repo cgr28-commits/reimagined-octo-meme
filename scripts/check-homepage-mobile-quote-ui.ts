@@ -25,12 +25,12 @@ console.log("=== Homepage hero + quote presentation ===");
 assert.match(hero, /<HeroBenefitsRow/);
 assert.match(hero, /id="quote"/);
 assert.match(hero, /<QuoteCard/);
-assert.match(hero, /Belfast Airport Transfers/);
+assert.match(hero, /Belfast &amp; Dublin Airport Transfers/);
 assert.match(hero, /Private airport transfers • Belfast &amp; Northern Ireland/);
 assert.match(hero, /md:hidden">Private airport transfers • Northern Ireland/);
 assert.match(
   hero,
-  /Pre-booked private transfers to and from Belfast International Airport, Belfast City Airport and Dublin Airport\./,
+  /Premium, fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport\./,
 );
 assert.doesNotMatch(
   hero,
@@ -60,8 +60,8 @@ assert.match(benefits, /fill="#ffffff"/);
 assert.match(benefits, /hero-benefit-label/);
 assert.match(benefits, /hero-benefit-label-waiting/);
 assert.match(benefits, /hero-benefit-waiting/);
-assert.match(benefits, /mt-2\.5 mb-\[18px\]/);
-assert.match(benefits, /grid-cols-4/);
+assert.match(benefits, /grid grid-cols-4/);
+assert.doesNotMatch(benefits, /grid-cols-2/);
 assert.match(benefits, /text-\[0\.8rem\]/);
 assert.match(benefits, /leading-\[1\.28\]/);
 assert.match(benefits, /text-white/);
@@ -79,16 +79,19 @@ assert.match(css, /font-family: var\(--font-sans\), Arial, "Helvetica Neue", Hel
 assert.match(css, /font-weight: 800/);
 assert.doesNotMatch(benefits, /<span className="hero-benefit-pound"[^>]*>\s*\$/);
 assert.match(css, /\.hero-benefit-label \{/);
-assert.match(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1\.32fr\)/);
+assert.match(
+  css,
+  /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1\.32fr\)/,
+);
 assert.match(css, /\.hero-benefit-label-waiting \{/);
 assert.match(css, /\.hero-benefit-label-waiting \.hero-benefit-line-2 \{[\s\S]*white-space: nowrap/);
 assert.match(benefits, /<span className="hero-benefit-pound"/);
-for (const width of [375, 390, 430]) {
+for (const width of [320, 375, 390, 430]) {
   const column = width / 4;
-  const iconBox = 2.1 * 16;
-  assert.ok(iconBox < column, `2.1rem icon box must fit one of four columns at ${width}px`);
+  const iconBox = 1.75 * 16;
+  assert.ok(iconBox < column, `1.75rem icon box must fit one of four columns at ${width}px`);
 }
-console.log("OK  four-column benefits replace the middot line");
+console.log("OK  mobile benefits sit in one row above the quote form");
 
 console.log("=== Journey option cards ===");
 assert.match(progressive, /presentation === "homepage"/);
@@ -133,14 +136,36 @@ console.log("OK  existing journey options restyled, same handlers");
 console.log("=== Continue button + steps ===");
 assert.match(card, /Continue to travel details/);
 assert.match(card, /Get a Live Quote/);
+assert.match(card, /Get Your Live Quote/);
+assert.match(card, /Your fixed price in just a few clicks\./);
 assert.match(card, /Get your fixed price in three quick steps\./);
 assert.match(card, /label: "Journey details"/);
 assert.match(card, /label: "Your quote"/);
 assert.match(card, /label: "Complete your booking"/);
 assert.match(card, /quote-step-active/);
 assert.match(card, /quoteResultsReady && quoteStep === 1/);
-assert.match(card, /!quoteChoicesReady \|\|\s*!isScheduleComplete/);
-assert.match(card, /presentation === "homepage"[\s\S]{0,80}space-y-0/);
+assert.match(card, /presentation === "homepage" \? false : !isScheduleComplete/);
+assert.match(card, /HomepageQuoteFields/);
+assert.match(card, /presentation !== "homepage" && !isScheduleComplete/);
+const homepageFields = read("src/components/HomepageQuoteFields.tsx");
+assert.match(homepageFields, /Get My Fixed Price →/);
+assert.match(homepageFields, /SAVE 5%/);
+assert.match(homepageFields, /data-sticky-quote-bar/);
+assert.match(homepageFields, /createPortal/);
+assert.match(homepageFields, /data-homepage-quote-scroll/);
+assert.match(homepageFields, /Suitcases \(23kg\)/);
+assert.match(homepageFields, /whitespace-nowrap/);
+assert.doesNotMatch(homepageFields, /pb-\[var\(--homepage-quote-bar/);
+assert.match(homepageFields, /quoteFormActive/);
+assert.doesNotMatch(homepageFields, /Save 5% on return bookings/);
+assert.match(homepageFields, /Enter pickup address or airport/);
+assert.match(homepageFields, /Enter destination address or airport/);
+assert.match(homepageFields, /data-gps-location/);
+assert.match(homepageFields, /data-swap-locations/);
+assert.match(homepageFields, /getCurrentPosition/);
+assert.doesNotMatch(homepageFields, /watchPosition/);
+assert.match(card, /scheduleReadyForQuote/);
+assert.match(card, /validateTripForBooking/);
 console.log("OK  step labels and continue action text unchanged");
 
 console.log("=== Compact mobile cookie banner (copy + layout only) ===");
