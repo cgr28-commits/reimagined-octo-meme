@@ -7,8 +7,32 @@ export const BRAND_NAVY = "#071c38";
 export const BRAND_EMERALD = "#2fbf4a";
 export const BUSINESS_PHONE_DISPLAY = "028 9602 2952";
 export const BUSINESS_PHONE_TEL = "+442896022952";
-/** Same digits as website SITE.whatsapp — never show this number in customer email copy. */
+/**
+ * Digits behind the company WhatsApp chat (`wa.me/447549815538`).
+ * Same value as website `SITE.whatsapp`. The public @belfasttaxi name is a
+ * label only and is not used as a telephone number.
+ * Journey reminders and the driver-contact page show and call this mobile.
+ * The 028 landline stays on the rest of the website.
+ */
 export const BUSINESS_WHATSAPP_DIGITS = "447549815538";
+const UK_WHATSAPP_MOBILE = /^447\d{9}$/;
+
+/** Dial string for the company WhatsApp mobile. Throws if the chat target is not a UK mobile. */
+export function businessWhatsAppMobileTel(): string {
+  if (!UK_WHATSAPP_MOBILE.test(BUSINESS_WHATSAPP_DIGITS)) {
+    throw new Error("Business WhatsApp destination is not a UK mobile number");
+  }
+  return `+${BUSINESS_WHATSAPP_DIGITS}`;
+}
+
+/** National display for the company WhatsApp mobile, for example 07549 815538. */
+export function businessWhatsAppMobileDisplay(): string {
+  if (!UK_WHATSAPP_MOBILE.test(BUSINESS_WHATSAPP_DIGITS)) {
+    throw new Error("Business WhatsApp destination is not a UK mobile number");
+  }
+  const national = `0${BUSINESS_WHATSAPP_DIGITS.slice(2)}`;
+  return `${national.slice(0, 5)} ${national.slice(5)}`;
+}
 export const BUSINESS_WHATSAPP_USERNAME = "belfasttaxi";
 export const BUSINESS_WHATSAPP_DEFAULT_MESSAGE = "Hi, I'd like some help.";
 

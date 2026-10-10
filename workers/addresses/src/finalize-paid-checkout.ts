@@ -12,6 +12,7 @@ import {
 } from "../shared/sumup-checkout";
 import { reconcilePaidBookingSumUpTransaction } from "./reconcile-sumup-transaction";
 import { createTrackingJobForPaidBooking } from "./tracking-handlers";
+import { processJourneyRemindersForPayment } from "./airport-pickup-reminder-handlers";
 import { savePaidBookingRecordFromConfirm } from "./refund-handlers";
 import {
   getPaidBookingRecord,
@@ -578,6 +579,12 @@ export async function finalizePaidCheckout(input: {
         await attachCalendarEventIdToTrackingJob(env.TRACKING_STORE, job.token, eventId);
       }
     }
+  }
+
+  if (paymentReference && env.TRACKING_STORE) {
+    await processJourneyRemindersForPayment(env, paymentReference).catch((error) => {
+      console.error("Journey reminder after payment failed", error);
+    });
   }
 
   const receipt = {

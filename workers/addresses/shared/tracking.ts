@@ -182,6 +182,59 @@ export type TrackingJobRecord = {
   airportPickupReminderSentAt?: string;
   airportPickupReminderFailedAt?: string;
   airportPickupReminderLastError?: string;
+  /** Pickup instant (ISO) the last 2-hour reminder was sent for. A new time invalidates it. */
+  journeyReminderSentForPickupAt?: string;
+  /** company, or driver:firstname:digits, captured when the reminder was sent. */
+  journeyReminderDriverKey?: string;
+  journeyReminderClaimId?: string;
+  journeyReminderClaimedAt?: string;
+  /** Last accepted driver included in an updated-driver email. */
+  journeyDriverUpdateSentForKey?: string;
+  journeyDriverUpdateSentAt?: string;
+  journeyDriverUpdateClaimId?: string;
+  journeyDriverUpdateClaimedAt?: string;
+  /**
+   * Increments on every assign, accept, decline, and de-assign.
+   * A queued driver email must still match this value at dispatch.
+   */
+  assignmentVersion?: number;
+  assignmentAudit?: AssignmentAuditEntry[];
+  driverNotificationAudit?: DriverNotificationAuditEntry[];
+  /** `${assignmentVersion}:${email}` once that accepted driver was emailed for this leg. */
+  journeyDriverNoticeSentFor?: string;
+  /**
+   * Unguessable token for the customer driver-contact page. Reused across
+   * reassignment so an already-sent reminder always reads the live driver.
+   * Not a booking reference, payment id, or tracking job token.
+   */
+  driverContactToken?: string;
+  /** ISO time after which the page stops disclosing an external driver mobile. */
+  driverContactExpiresAt?: string;
+  journeyDriverNoticeClaimId?: string;
+  journeyDriverNoticeClaimedAt?: string;
+};
+
+export type AssignmentAuditEntry = {
+  at: string;
+  action: "assigned" | "accepted" | "declined" | "deassigned";
+  assignmentVersion: number;
+  driverName?: string;
+  driverEmail?: string;
+  profileKey?: string;
+};
+
+export type DriverNotificationAuditEntry = {
+  at: string;
+  kind:
+    | "customer_journey_reminder"
+    | "customer_driver_update"
+    | "driver_journey_reminder"
+    | "driver_assignment_invite";
+  outcome: "sent" | "suppressed";
+  reason?: string;
+  assignmentVersion: number;
+  driverName?: string;
+  driverEmail?: string;
 };
 
 export type DriverLocationPoint = {

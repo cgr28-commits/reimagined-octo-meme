@@ -51,6 +51,7 @@ export const SITE_OFFLINE = {
 /** Paths that stay live while SITE_OFFLINE is active (bookings ops / legal). */
 export const SITE_OFFLINE_ALLOWLIST = [
   "/driver-accept",
+  "/driver-contact",
   "/driver",
   "/owner",
   "/admin",

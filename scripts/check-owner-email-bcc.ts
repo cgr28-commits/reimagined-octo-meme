@@ -29,7 +29,7 @@ function read(rel: string): string {
 }
 
 const CUSTOMER = "sarah@example.com";
-const SUBJECT = "Important information about your airport collection";
+const SUBJECT = "Your journey reminder — My Airport Taxi NI";
 const TEXT = "Hi Sarah,\n\nYour airport collection with My Airport Taxi NI is coming up today.";
 const HTML = "<p>Hi Sarah,</p>";
 
@@ -123,8 +123,9 @@ console.log("=== Collection email does not reveal the owner inbox ===");
       outboundAirportAccessOption: "express",
       bookingStatus: "confirmed",
       customerReference: "MAT-4827",
+      driverContactUrl: "https://www.myairporttaxini.co.uk/driver-contact/?token=abcdabcdabcdabcdabcdabcdabcdabcd",
     },
-    new Date("2026-10-02T13:00:00.000Z"),
+    new Date("2026-10-02T14:00:00.000Z"),
   );
   assert.equal(decision.eligible, true);
   if (decision.eligible) {
@@ -132,8 +133,15 @@ console.log("=== Collection email does not reveal the owner inbox ===");
     assert.equal(decision.text.includes(BUSINESS_MAILBOX), false);
     assert.equal(decision.html.includes(BUSINESS_MAILBOX), false);
     assert.equal(decision.html.includes("Rinkel"), false);
-    assert.match(decision.html, /tel:\+442896022952/);
-    assert.match(decision.html, />MESSAGE US ON WHATSAPP</);
+    assert.match(decision.html, /tel:\+447549815538/);
+    assert.equal(decision.html.includes("028 9602 2952"), false);
+    assert.match(decision.html, />WhatsApp Us</);
+    assert.match(decision.html, />Call Us</);
+    assert.doesNotMatch(decision.html, /preferred way to communicate/i);
+    assert.doesNotMatch(decision.html, />WhatsApp Your Driver</);
+    assert.doesNotMatch(decision.html, />Call Your Driver</);
+    assert.match(decision.html, /\/driver-contact\//);
+    assert.equal(decision.html.includes("wa.me/447700900111"), false);
   }
   const message = buildAirportPickupReminderMessage({
     customerName: "Sarah Johnson",

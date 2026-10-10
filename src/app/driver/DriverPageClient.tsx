@@ -23,6 +23,7 @@ import OwnerDashboardToolSwitcher, {
 import OwnerSmartAvailabilityPanel from "@/components/OwnerSmartAvailabilityPanel";
 import OwnerLiveAvailabilityCard from "@/components/OwnerLiveAvailabilityCard";
 import OwnerPricingPanel from "@/components/OwnerPricingPanel";
+import OwnerJourneyReminderAirports from "@/components/OwnerJourneyReminderAirports";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   customerTelHref,
@@ -3304,6 +3305,7 @@ export default function DriverPageClient({
                   aria-labelledby="owner-tool-tab-pricing"
                 >
                   <OwnerPricingPanel ownerKey={savedKey} />
+                  <OwnerJourneyReminderAirports ownerKey={savedKey} />
                 </div>
               ) : null}
 

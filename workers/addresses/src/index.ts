@@ -246,6 +246,7 @@ import {
 } from "./driver-pay-handlers";
 import { processDueTrackingAvailableReminders } from "./tracking-reminder-handlers";
 import { processDueAirportPickupReminders } from "./airport-pickup-reminder-handlers";
+import { handleDriverContactRequest } from "./driver-contact-handlers";
 import {
   handleCreateSavedQuote,
   handleGetSavedQuote,
@@ -747,6 +748,8 @@ function routePath(
   | "booking-jobs-assign-driver"
   | "driver-accept"
   | "driver-accept-confirm"
+  | "driver-contact"
+  | "driver-contact-open"
   | "flights"
   | "calendar-status"
   | "email-status"
@@ -903,6 +906,14 @@ function routePath(
 
   if (pathname === "/driver-accept" || pathname === "/api/driver-accept") {
     return "driver-accept";
+  }
+
+  if (pathname === "/driver-contact/open" || pathname === "/api/driver-contact/open") {
+    return "driver-contact-open";
+  }
+
+  if (pathname === "/driver-contact" || pathname === "/api/driver-contact") {
+    return "driver-contact";
   }
 
   if (pathname === "/flights" || pathname === "/api/flights") {
@@ -4950,6 +4961,15 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
       return handleDriverAcceptConfirmRequest(request, env, origin);
+    }
+
+    if (route === "driver-contact" || route === "driver-contact-open") {
+      return handleDriverContactRequest(
+        request,
+        env,
+        origin,
+        route === "driver-contact-open" ? "open" : "view",
+      );
     }
 
     if (route === "quote-leads") {

@@ -22,6 +22,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: [
         "/driver/",
+        "/driver-contact",
         "/owner/",
         "/track/demo/",
         "/test-booking/",
