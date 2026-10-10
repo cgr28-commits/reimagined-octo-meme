@@ -26,19 +26,33 @@ function vehicleSrcSet(ext: "avif" | "webp"): string {
 }
 
 const FLEET = [
-  { id: "saloon", title: "Saloon", detail: "1–4 passengers", image: SALOON_IMAGE },
-  { id: "estate", title: "Estate or similar larger vehicle", detail: ESTATE_CUSTOMER_DESCRIPTION, image: ESTATE_IMAGE },
+  {
+    id: "saloon",
+    title: "Saloon",
+    detail: "1–4 passengers",
+    image: SALOON_IMAGE,
+    imageScale: 0.84,
+  },
+  {
+    id: "estate",
+    title: "Estate or similar larger vehicle",
+    detail: ESTATE_CUSTOMER_DESCRIPTION,
+    image: ESTATE_IMAGE,
+    imageScale: 0.8,
+  },
   {
     id: "executive",
     title: "Business Class",
     detail: "Premium executive vehicle",
     image: BUSINESS_CLASS_IMAGE,
+    imageScale: 1,
   },
   {
     id: "minibus",
     title: MINIBUS_CUSTOMER_NAME,
     detail: MINIBUS_CUSTOMER_DESCRIPTION,
     image: MINIBUS_IMAGE,
+    imageScale: 1,
   },
 ] as const;
 
@@ -79,13 +93,16 @@ export default function VehiclesSection() {
                   data-fleet-vehicle={vehicle.id}
                   className="rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-5 text-center"
                 >
-                  <Image
-                    src={vehicle.image}
-                    alt={`${vehicle.title} airport transfer vehicle`}
-                    width={1400}
-                    height={700}
-                    className="mx-auto h-auto w-full max-w-[280px] object-contain"
-                  />
+                  <div className="relative mx-auto aspect-[2/1] w-full max-w-[280px] bg-white">
+                    <Image
+                      src={vehicle.image}
+                      alt={`${vehicle.title} airport transfer vehicle`}
+                      fill
+                      sizes="280px"
+                      className="object-contain object-center p-3"
+                      style={vehicle.imageScale === 1 ? undefined : { transform: `scale(${vehicle.imageScale})` }}
+                    />
+                  </div>
                   <p className="mt-3 text-lg font-bold text-white">{vehicle.title}</p>
                   <p className="mt-1 text-sm text-white/65">{vehicle.detail}</p>
                   {vehicle.id === "executive" ? (
