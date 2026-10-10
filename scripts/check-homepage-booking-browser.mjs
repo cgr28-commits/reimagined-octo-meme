@@ -85,7 +85,7 @@ try {
     assert.equal(await page.locator('#date').inputValue(),''); assert.equal(await page.locator('#time').inputValue(),'');
     assert.equal(await page.locator('#name').inputValue(),'Preview Test');
     assert.equal(await page.locator('#email').inputValue(),'preview@example.invalid');
-    await page.locator('button[type="submit"]').last().click();
+    await page.locator('#step2-travel-details .btn-pay').click();
     await page.waitForTimeout(300);
     assert.equal(await page.locator('#date').getAttribute('aria-invalid'), 'true');
     assert.deepEqual(writes,[]);
@@ -100,7 +100,7 @@ try {
     const nextDate=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
     await page.locator('#date').fill(nextDate); await page.locator('#time').fill('10:00');
     await page.locator('#returnDate').fill(nextDate); await page.locator('#returnTime').fill('09:00');
-    await page.locator('button[type="submit"]').last().click();
+    await page.locator('#step2-travel-details .btn-pay').click();
     await page.waitForTimeout(300);
     assert.match(await page.locator('form').innerText(),/Return.*after|after.*outbound/i);
     assert.deepEqual(writes,[]);
