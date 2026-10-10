@@ -944,12 +944,9 @@ function QuoteCard({
   /** Explicit tap. Cleared only when passengers or suitcases change. */
   const [manualVehicle, setManualVehicle] = useState<VehicleType | null>(null);
   const [trackedPartyKey, setTrackedPartyKey] = useState("");
-  const [passengers, setPassengers] = useState<number | null>(
-    presentation === "homepage" ? 1 : null,
-  );
-  const [suitcases, setSuitcases] = useState<number | null>(
-    presentation === "homepage" ? 1 : null,
-  );
+  const [passengers, setPassengers] = useState<number | null>(null);
+  const [suitcases, setSuitcases] = useState<number | null>(null);
+  const [homepageCapacityConfirmed, setHomepageCapacityConfirmed] = useState(false);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
   const [childSeats, setChildSeats] = useState(0);
   const [childSeatNotes, setChildSeatNotes] = useState("");
@@ -1813,6 +1810,16 @@ function QuoteCard({
     quoteChoicesReady &&
     scheduleReadyForQuote &&
     !exceedsOnlineCapacity;
+
+  // Homepage input gate only; schedule and payment validation stay separate.
+  const homepageQuoteReady =
+    canShowPrice &&
+    isQuoteReadyPlace(pickupPlace) &&
+    isQuoteReadyPlace(dropoffPlace) &&
+    addressTextMatchesPlace(pickupAddress, pickupPlace) &&
+    addressTextMatchesPlace(dropoffAddress, dropoffPlace) &&
+    !placesEqual(pickupPlace, dropoffPlace) &&
+    (suitcases !== 5 || homepageCapacityConfirmed);
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
@@ -3147,7 +3154,7 @@ function QuoteCard({
   }
 
   function requestHomepagePrice() {
-    if (presentation !== "homepage") return;
+    if (presentation !== "homepage" || !homepageQuoteReady) return;
     if (journeyMode == null) {
       setSubmitError("Choose One Way or Return to continue.");
       return;
@@ -4683,8 +4690,9 @@ function QuoteCard({
     setReturnExpressRemovalAck(false);
     setExpressAckRequired(false);
     setExpressEditingLeg(null);
-    setPassengers(presentation === "homepage" ? 1 : null);
-    setSuitcases(presentation === "homepage" ? 1 : null);
+    setPassengers(null);
+    setSuitcases(null);
+    setHomepageCapacityConfirmed(false);
     setExactPassengers(null);
     setChildSeats(0);
     setChildSeatNotes("");
@@ -5333,7 +5341,7 @@ function QuoteCard({
     bookTransferGlideRef.current = false;
     if (glideToDetails && target === 2) {
       return scheduleBookTransferGlide(
-        step3CustomerDetailsRef.current ?? "step3-customer-details",
+        step2TravelDetailsRef.current ?? "step2-travel-details",
       );
     }
     const element =
@@ -6416,9 +6424,9 @@ function QuoteCard({
           <h2
             data-booking-nav-heading
             tabIndex={-1}
-            className="sr-only"
+            className="text-sm font-semibold text-white outline-none"
           >
-            Step 3 — Complete your booking
+            Pickup date & time — Complete your booking
           </h2>
 
           {renderQuoteScheduleFields("checkout")}
@@ -7696,12 +7704,14 @@ function QuoteCard({
                 onPassengersChange={(value) => {
                   markQuoteFunnelStarted();
                   setPassengers(value);
+                  setHomepageCapacityConfirmed(false);
                   setPassengersError("");
                   setHomepagePriceRequested(false);
                 }}
                 onSuitcasesChange={(value) => {
                   markQuoteFunnelStarted();
                   setSuitcases(value);
+                  setHomepageCapacityConfirmed(false);
                   setSuitcasesError("");
                   setHomepagePriceRequested(false);
                 }}
@@ -7709,6 +7719,9 @@ function QuoteCard({
                 suitcasesError={suitcasesError}
                 publicMinibusEnabled={publicMinibusEnabled}
                 onRequestPrice={requestHomepagePrice}
+                quoteReady={homepageQuoteReady}
+                capacityConfirmed={homepageCapacityConfirmed}
+                onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}
               />
             ) : (

@@ -42,12 +42,15 @@ type HomepageQuoteFieldsProps = {
   onSwap: () => void;
   passengers: number | null;
   suitcases: number | null;
-  onPassengersChange: (value: number) => void;
-  onSuitcasesChange: (value: number) => void;
+  onPassengersChange: (value: number | null) => void;
+  onSuitcasesChange: (value: number | null) => void;
   passengersError: string;
   suitcasesError: string;
   publicMinibusEnabled: boolean;
   onRequestPrice: () => void;
+  quoteReady: boolean;
+  capacityConfirmed: boolean;
+  onCapacityConfirmedChange: (value: boolean) => void;
   formResetKey: number;
   /** False once the homepage is showing quote results. */
   quoteFormActive?: boolean;
@@ -213,6 +216,9 @@ export default function HomepageQuoteFields({
   suitcasesError,
   publicMinibusEnabled,
   onRequestPrice,
+  quoteReady,
+  capacityConfirmed,
+  onCapacityConfirmedChange,
   formResetKey,
   quoteFormActive = true,
 }: HomepageQuoteFieldsProps) {
@@ -233,8 +239,8 @@ export default function HomepageQuoteFields({
     keyboardOpen || suggestionsOpen || selectFocused || controlsCovered;
   const showStickyQuoteButton =
     quoteFormActive && mobileLayout && flowActionBelow && !stickyBlocked;
-  const passengerChoices = publicPassengerOptions(publicMinibusEnabled);
-  const suitcaseChoices = publicSuitcaseOptions(publicMinibusEnabled);
+  const passengerChoices = publicPassengerOptions(true);
+  const suitcaseChoices = publicSuitcaseOptions(true);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 639px)");
@@ -496,12 +502,13 @@ export default function HomepageQuoteFields({
             id="quote-section-passengers"
             name="passengers"
             value={passengers == null ? "" : String(passengers)}
-            onChange={(event) => onPassengersChange(Number(event.target.value))}
+            onChange={(event) => onPassengersChange(event.target.value === "" ? null : Number(event.target.value))}
             className={selectClass}
             aria-invalid={Boolean(passengersError)}
             onFocus={() => setSelectFocused(true)}
             onBlur={() => setSelectFocused(false)}
           >
+            <option value="">Select</option>
             {passengerChoices.map((count) => (
               <option key={count} value={count}>
                 {count}
@@ -522,15 +529,16 @@ export default function HomepageQuoteFields({
             id="quote-section-suitcases"
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
-            onChange={(event) => onSuitcasesChange(Number(event.target.value))}
+            onChange={(event) => onSuitcasesChange(event.target.value === "" ? null : Number(event.target.value))}
             className={selectClass}
             aria-invalid={Boolean(suitcasesError)}
             onFocus={() => setSelectFocused(true)}
             onBlur={() => setSelectFocused(false)}
           >
+            <option value="">Select</option>
             {suitcaseChoices.map((count) => (
               <option key={count} value={count}>
-                {formatPublicSuitcaseChoice(count)}
+                {count === 0 ? "None" : formatPublicSuitcaseChoice(count)}
               </option>
             ))}
           </select>
@@ -541,13 +549,37 @@ export default function HomepageQuoteFields({
           ) : null}
         </div>
       </div>
-
+      {suitcases === 5 && publicMinibusEnabled ? (
+        <div className="rounded-xl border border-white/20 p-3 text-xs text-white/85" data-homepage-capacity-check>
+          <p>5+ means five or more suitcases. Contact us to confirm that the available 7-Seater can carry your full party and luggage before requesting a price.</p>
+          <QuoteHelpContact />
+          <label className="mt-2 flex items-start gap-2">
+            <input type="checkbox" checked={capacityConfirmed} onChange={(event) => onCapacityConfirmedChange(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald" />
+            <span>My Airport Taxi NI has confirmed space for my full party and all suitcases.</span>
+          </label>
+        </div>
+      ) : null}
+      <p id="homepage-quote-requirements" role="status" className="text-xs leading-snug text-white/75">
+        {!publicMinibusEnabled && ((passengers ?? 0) > 4 || (suitcases ?? 0) > 4)
+          ? "The 7-Seater is unavailable. Online quotes currently support up to 4 passengers and 4 suitcases."
+          : !pickupConfirmedPlace || !dropoffConfirmedPlace
+            ? "Select and confirm both pickup and drop-off addresses."
+            : passengers == null || suitcases == null
+              ? "Select passengers and suitcases to see your fixed price."
+              : suitcases === 5 && !capacityConfirmed
+                ? "Confirm luggage capacity with us before requesting a price for 5+ suitcases."
+                : !quoteReady
+                  ? "Choose different, confirmed pickup and drop-off addresses and a suitable party size."
+                  : "Ready for your quote. Add date and time when you book."}
+      </p>
       </div>
       {quoteFormActive && mobileLayout ? (
         <div ref={flowActionRef} data-quote-price-action="flow" className="sm:hidden pt-1 pb-1.5">
           <button
             type="button"
             data-get-fixed-price
+            disabled={!quoteReady}
+            aria-describedby="homepage-quote-requirements"
             onClick={onRequestPrice}
             className="btn-primary min-h-12 w-full rounded-xl text-base"
           >
@@ -562,6 +594,8 @@ export default function HomepageQuoteFields({
               <button
                 type="button"
                 data-get-fixed-price
+                disabled={!quoteReady}
+                aria-describedby="homepage-quote-requirements"
                 onClick={onRequestPrice}
                 className="btn-primary min-h-12 w-full rounded-xl text-base"
               >
@@ -577,6 +611,8 @@ export default function HomepageQuoteFields({
           <button
             type="button"
             data-get-fixed-price
+            disabled={!quoteReady}
+            aria-describedby="homepage-quote-requirements"
             onClick={onRequestPrice}
             className="btn-primary min-h-12 w-full rounded-xl text-base"
           >
