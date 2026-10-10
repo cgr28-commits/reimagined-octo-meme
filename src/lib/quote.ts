@@ -16,6 +16,8 @@ import {
 } from "../../shared/universal-distance-pricing";
 import { formatGbpAmount, roundGbp } from "../../shared/gbp";
 import {
+  dublinAirportJourneyFareGbp,
+  isDublinAirportCode,
   ownerPricingEngineOptions,
   type PublicOwnerPricingConfig,
   type OwnerPricingSettings,
@@ -749,7 +751,11 @@ export function calculateQuote(
     saloonFloorMiles: engine.saloonFloorMiles,
     saloonKnots: engine.saloonKnots,
   });
-  const oneWayFare = universal.journeyFareGbp;
+  const oneWayFare = dublinAirportJourneyFareGbp(
+    universal.journeyFareGbp,
+    isDublinAirportCode(airportCode),
+    engine.dublinAirportFareAdjustmentRate,
+  );
   const matchedArea = matchAreaFromAddress(trimmedAddress);
   const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(
     vehicleType,
