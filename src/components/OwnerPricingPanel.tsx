@@ -67,6 +67,14 @@ function asDraft(
         settings.executive?.minimumFareGbp ??
         defaultOwnerPricingSettings().executive.minimumFareGbp,
     },
+    minibus: {
+      publicEnabled: settings.minibus?.publicEnabled === true,
+      multiplier:
+        settings.minibus?.multiplier ?? defaultOwnerPricingSettings().minibus.multiplier,
+      minimumFareGbp:
+        settings.minibus?.minimumFareGbp ??
+        defaultOwnerPricingSettings().minibus.minimumFareGbp,
+    },
   };
 }
 
@@ -180,6 +188,13 @@ function withExecutiveMinimumText(draft: PricingDraft, text: string): PricingDra
   return { ...draft, executive: { ...draft.executive, minimumFareGbp: parsed } };
 }
 
+function withMinibusMinimumText(draft: PricingDraft, text: string): PricingDraft {
+  const parsed = completeNonNegativeMoney(text);
+  const current = draft.minibus?.minimumFareGbp;
+  if (parsed == null || parsed === current) return draft;
+  return { ...draft, minibus: { ...draft.minibus, minimumFareGbp: parsed } };
+}
+
 function knotLabel(index: number, knots: Array<{ miles: number }>): string {
   if (index === 0) return `Distance rate — up to ${knots[0]?.miles ?? 0} miles`;
   return `Distance rate — ${knots[index - 1]?.miles ?? 0} to ${knots[index]?.miles ?? 0} miles`;
@@ -240,6 +255,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   const [executiveMinimumText, setExecutiveMinimumText] = useState(() =>
     defaultOwnerPricingSettings().executive.minimumFareGbp.toFixed(2),
   );
+  const [minibusMinimumText, setMinibusMinimumText] = useState(() =>
+    defaultOwnerPricingSettings().minibus.minimumFareGbp.toFixed(2),
+  );
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [minibusNoticeDraft, setMinibusNoticeDraft] = useState(
     String(DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS),
@@ -279,6 +297,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
       setMultiplierText(String(loaded.minibus.multiplier));
       setExecutiveMultiplierText(String(loaded.executive.multiplier));
       setExecutiveMinimumText(loaded.executive.minimumFareGbp.toFixed(2));
+      setMinibusMinimumText(loaded.minibus.minimumFareGbp.toFixed(2));
       setDefaults(asDraft(result.defaults));
       setAudit(result.audit);
     } catch (err) {
@@ -453,28 +472,40 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
 
   const editingDraft = useMemo(
     () =>
-      withExecutiveMinimumText(
-        withExecutiveMultiplierText(
-          withMinibusMultiplierText(draft, multiplierText),
-          executiveMultiplierText,
+      withMinibusMinimumText(
+        withExecutiveMinimumText(
+          withExecutiveMultiplierText(
+            withMinibusMultiplierText(draft, multiplierText),
+            executiveMultiplierText,
+          ),
+          executiveMinimumText,
         ),
-        executiveMinimumText,
+        minibusMinimumText,
       ),
-    [draft, multiplierText, executiveMultiplierText, executiveMinimumText],
+    [draft, multiplierText, executiveMultiplierText, executiveMinimumText, minibusMinimumText],
   );
   const dirty = useMemo(() => !settingsEqual(saved, editingDraft), [saved, editingDraft]);
   const validation = useMemo(() => {
     const base = validateOwnerPricingInput(editingDraft);
     const profit = validateProfitabilitySettings(editingDraft.profitability);
-    const minimumError =
-      completeNonNegativeMoney(executiveMinimumText) == null
+    const minimumError = [
+      ...(completeNonNegativeMoney(executiveMinimumText) == null
         ? [
             {
               field: "executive.minimumFareGbp",
               message: "Business Class minimum fare must be £0.00 or more, up to £2,000.00.",
             },
           ]
-        : [];
+        : []),
+      ...(completeNonNegativeMoney(minibusMinimumText) == null
+        ? [
+            {
+              field: "minibus.minimumFareGbp",
+              message: "7 Seater minimum fare must be £0.00 or more, up to £2,000.00.",
+            },
+          ]
+        : []),
+    ];
     if (base.ok && profit.ok && minimumError.length === 0) return { ok: true as const, errors: [] };
     return {
       ok: false as const,
@@ -484,7 +515,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         ...(profit.ok ? [] : profit.errors),
       ],
     };
-  }, [editingDraft, executiveMinimumText]);
+  }, [editingDraft, executiveMinimumText, minibusMinimumText]);
   const changes = useMemo(
     () => [
       ...diffOwnerPricingSettings(saved, editingDraft),
@@ -522,12 +553,15 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     setSaving(true);
     setError(null);
     try {
-      const toSave = withExecutiveMinimumText(
-        withExecutiveMultiplierText(
-          withMinibusMultiplierText(draft, multiplierText),
-          executiveMultiplierText,
+      const toSave = withMinibusMinimumText(
+        withExecutiveMinimumText(
+          withExecutiveMultiplierText(
+            withMinibusMultiplierText(draft, multiplierText),
+            executiveMultiplierText,
+          ),
+          executiveMinimumText,
         ),
-        executiveMinimumText,
+        minibusMinimumText,
       );
       const result =
         mode === "restore"
@@ -539,13 +573,14 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
       setMultiplierText(String(stored.minibus.multiplier));
       setExecutiveMultiplierText(String(stored.executive.multiplier));
       setExecutiveMinimumText(stored.executive.minimumFareGbp.toFixed(2));
+      setMinibusMinimumText(stored.minibus.minimumFareGbp.toFixed(2));
       setDefaults(asDraft(result.defaults));
       setAudit(result.audit);
       setConfirm(null);
       setSaveNotice(
         mode === "restore"
-          ? `Default pricing restored. Business Class minimum fare is £${stored.executive.minimumFareGbp.toFixed(2)}.`
-          : `Saved. Business Class minimum fare is £${stored.executive.minimumFareGbp.toFixed(2)}. New quotes use this amount.`,
+          ? `Default pricing restored. Business Class minimum fare is £${stored.executive.minimumFareGbp.toFixed(2)}. 7 Seater minimum fare is £${stored.minibus.minimumFareGbp.toFixed(2)}.`
+          : `Saved. Business Class minimum fare is £${stored.executive.minimumFareGbp.toFixed(2)}. 7 Seater minimum fare is £${stored.minibus.minimumFareGbp.toFixed(2)}. New quotes use this amount.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save pricing settings.");
@@ -772,6 +807,48 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             <p className="mt-1 text-xs text-white/55">
               Estate × {editingDraft.minibus.multiplier.toFixed(2)}, nearest penny only. Not
               rounded to the nearest £5.
+            </p>
+            <label className={`${labelClass} mt-3`} data-minibus-minimum>
+              7 Seater Minimum Fare (£)
+              <span className="relative mt-1 block">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/55" aria-hidden>
+                  £
+                </span>
+                <input
+                  className={prefixedFieldClass}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="done"
+                  aria-label="7 Seater Minimum Fare (£)"
+                  value={minibusMinimumText}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    if (next === "" || /^\d*\.?\d{0,2}$/.test(next)) {
+                      setSaveNotice(null);
+                      setMinibusMinimumText(next);
+                    }
+                  }}
+                  onBlur={() => {
+                    const parsed = completeNonNegativeMoney(minibusMinimumText);
+                    if (parsed == null) {
+                      setMinibusMinimumText(draft.minibus.minimumFareGbp.toFixed(2));
+                      return;
+                    }
+                    if (parsed !== draft.minibus.minimumFareGbp) {
+                      update("minibus", { ...draft.minibus, minimumFareGbp: parsed });
+                    }
+                    setMinibusMinimumText(parsed.toFixed(2));
+                  }}
+                />
+              </span>
+            </label>
+            <p className="mt-1 text-xs text-white/55">
+              One-way 7 Seater fare is at least £{editingDraft.minibus.minimumFareGbp.toFixed(2)},
+              including airport access. Fares already above this stay as calculated. Change it here
+              without a code change.
             </p>
             <div className="mt-4 rounded-xl border border-white/10 bg-navy/40 p-3" data-minibus-notice-setting>
               <label className={labelClass} htmlFor="minibus-minimum-booking-notice">
@@ -1313,6 +1390,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             setMultiplierText(String(saved.minibus.multiplier));
             setExecutiveMultiplierText(String(saved.executive.multiplier));
             setExecutiveMinimumText(saved.executive.minimumFareGbp.toFixed(2));
+            setMinibusMinimumText(saved.minibus.minimumFareGbp.toFixed(2));
             setSaveNotice(null);
           }}
           className="min-h-12 rounded-xl border border-white/20 px-4 text-sm font-semibold text-white disabled:opacity-40"

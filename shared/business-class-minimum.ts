@@ -1,19 +1,22 @@
 /**
- * Adjustable Business Class one-way price floor.
+ * Shared one-way price floor for Business Class and the 7 Seater Minibus.
  *
- * The owner sets the amount in Pricing → Business Class. £75 is only the
- * starting default. Calculate the normal one-way fare first (multiplier,
- * surcharges, airport charges, profitability). The minimum then raises that
- * total; it is not an extra charge, and airport access inside it is not added
- * again. Return bookings floor each leg, then apply the existing return
- * discount once.
+ * The owner sets each amount in Pricing. £75 and £80 are only the starting
+ * defaults. Calculate the normal one-way fare first (multiplier, surcharges,
+ * airport charges, profitability). The minimum then raises that total; it is
+ * not an extra charge, and airport access inside it is not added again.
+ * Return bookings floor each leg, then apply the existing return discount once.
  */
 
 import { roundCustomerPayableGbp, roundGbp } from "./gbp";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "./return-journey-discount";
+import { isExecutiveVehicle } from "./executive-vehicle";
+import { isMinibusVehicleType } from "./vehicle-display";
 
 export const DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP = 75;
+export const DEFAULT_MINIBUS_MINIMUM_FARE_GBP = 80;
 export const MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP = 2000;
+export const MAX_MINIBUS_MINIMUM_FARE_GBP = MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP;
 
 export function applyBusinessClassOneWayFloor(
   normalOneWayGbp: number,
@@ -72,4 +75,36 @@ export function businessClassFlooredPayableGbp(
     : RETURN_JOURNEY_DISCOUNT_RATE;
   const discounted = preDiscount * (1 - rate);
   return roundCustomerPayableGbp(discounted);
+}
+
+/**
+ * Pass the floor for the booked vehicle only. Saloon and Estate omit it.
+ * Business Class and the 7 Seater share businessClassFlooredPayableGbp.
+ */
+export function vehicleMinimumFareBreakdownFields(input: {
+  vehicleType: string | null | undefined;
+  executiveMinimumFareGbp: number;
+  minibusMinimumFareGbp: number;
+  outboundOneWayBeforeAccessGbp?: number;
+  returnOneWayBeforeAccessGbp?: number;
+  returnDiscountRate?: number;
+}): {
+  businessClassMinimumFareGbp?: number;
+  minibusMinimumFareGbp?: number;
+  outboundOneWayBeforeAccessGbp?: number;
+  returnOneWayBeforeAccessGbp?: number;
+  returnDiscountRate?: number;
+} {
+  const legs = {
+    outboundOneWayBeforeAccessGbp: input.outboundOneWayBeforeAccessGbp,
+    returnOneWayBeforeAccessGbp: input.returnOneWayBeforeAccessGbp,
+    returnDiscountRate: input.returnDiscountRate,
+  };
+  if (isExecutiveVehicle(input.vehicleType)) {
+    return { businessClassMinimumFareGbp: input.executiveMinimumFareGbp, ...legs };
+  }
+  if (isMinibusVehicleType(input.vehicleType)) {
+    return { minibusMinimumFareGbp: input.minibusMinimumFareGbp, ...legs };
+  }
+  return {};
 }

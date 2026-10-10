@@ -24,7 +24,9 @@ import { NIGHT_WEEKEND_SURCHARGE_RATE } from "./night-weekend-surcharge";
 import { DEFAULT_EXECUTIVE_MULTIPLIER } from "./executive-vehicle";
 import {
   DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
+  DEFAULT_MINIBUS_MINIMUM_FARE_GBP,
   MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP,
+  MAX_MINIBUS_MINIMUM_FARE_GBP,
 } from "./business-class-minimum";
 import { defaultMeetGreetFees, type MeetGreetFeesGbp } from "./meet-greet";
 import { roundGbp } from "./gbp";
@@ -85,6 +87,11 @@ export type OwnerPricingSettings = {
   minibus: {
     publicEnabled: boolean;
     multiplier: number;
+    /**
+     * One-way 7 Seater price floor. Missing stored values use £80.
+     * Applied after the normal fare. Not an extra charge.
+     */
+    minimumFareGbp: number;
   };
   /** Executive fare = Saloon journey fare × this multiplier. Missing values use 1.50. */
   executive: {
@@ -159,6 +166,7 @@ export type PublicOwnerPricingConfig = {
   minibus: {
     publicEnabled: boolean;
     multiplier: number;
+    minimumFareGbp: number;
   };
   executive: {
     publicEnabled: boolean;
@@ -232,6 +240,7 @@ export function defaultOwnerPricingSettings(
     minibus: {
       publicEnabled: DEFAULT_PUBLIC_MINIBUS_ENABLED,
       multiplier: DEFAULT_MINIBUS_MULTIPLIER,
+      minimumFareGbp: DEFAULT_MINIBUS_MINIMUM_FARE_GBP,
     },
     executive: {
       publicEnabled: true,
@@ -379,6 +388,22 @@ export function validateOwnerPricingInput(
         "minibus.multiplier",
         "7 Seater multiplier must be between 1.00 and 3.00. Invalid values are rejected, not adjusted.",
       );
+    }
+  }
+
+  let minibusMinimumFareGbp = DEFAULT_MINIBUS_MINIMUM_FARE_GBP;
+  if (Object.prototype.hasOwnProperty.call(minibusRaw, "minimumFareGbp")) {
+    const parsedMinimum = readRate(minibusRaw.minimumFareGbp, "minibus.minimumFareGbp", errors);
+    if (parsedMinimum != null) {
+      if (parsedMinimum < 0 || parsedMinimum > MAX_MINIBUS_MINIMUM_FARE_GBP) {
+        reject(
+          errors,
+          "minibus.minimumFareGbp",
+          "7 Seater minimum fare must be between £0.00 and £2,000.00.",
+        );
+      } else {
+        minibusMinimumFareGbp = Math.round(parsedMinimum * 100) / 100;
+      }
     }
   }
 
@@ -530,6 +555,7 @@ export function validateOwnerPricingInput(
       minibus: {
         publicEnabled: minibusRaw.publicEnabled === true,
         multiplier: minibusMultiplier ?? defaults.minibus.multiplier,
+        minimumFareGbp: minibusMinimumFareGbp,
       },
       executive: {
         publicEnabled: executivePublicEnabled,
@@ -606,6 +632,7 @@ export function toPublicOwnerPricingConfig(
     minibus: {
       publicEnabled: settings.minibus.publicEnabled === true,
       multiplier: settings.minibus.multiplier,
+      minimumFareGbp: settings.minibus.minimumFareGbp ?? DEFAULT_MINIBUS_MINIMUM_FARE_GBP,
     },
     executive: {
       publicEnabled: settings.executive.publicEnabled !== false,
@@ -634,6 +661,8 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
     executiveMultiplier: resolved.executive.multiplier,
     executiveMinimumFareGbp:
       resolved.executive.minimumFareGbp ?? DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
+    minibusMinimumFareGbp:
+      resolved.minibus.minimumFareGbp ?? DEFAULT_MINIBUS_MINIMUM_FARE_GBP,
     publicExecutiveEnabled: resolved.executive.publicEnabled !== false,
     saloonMinimumGbp: resolved.saloon.minimumFareGbp,
     saloonFloorMiles: resolved.saloon.floorMiles,
@@ -691,6 +720,8 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return settings.minibus.publicEnabled ? "ON" : "OFF";
     case "minibus.multiplier":
       return String(settings.minibus.multiplier);
+    case "minibus.minimumFareGbp":
+      return `£${settings.minibus.minimumFareGbp.toFixed(2)}`;
     case "executive.publicEnabled":
       return settings.executive.publicEnabled ? "ON" : "OFF";
     case "executive.multiplier":
@@ -737,6 +768,7 @@ const DIFF_PATHS = [
   "estate.upliftGbp",
   "minibus.publicEnabled",
   "minibus.multiplier",
+  "minibus.minimumFareGbp",
   "executive.publicEnabled",
   "executive.multiplier",
   "executive.minimumFareGbp",
@@ -761,6 +793,7 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "estate.upliftGbp": "Estate uplift",
   "minibus.publicEnabled": "7 Seater Minibus offer online",
   "minibus.multiplier": "7 Seater Minibus multiplier",
+  "minibus.minimumFareGbp": "7 Seater minimum fare",
   "executive.publicEnabled": "Offer Executive online",
   "executive.multiplier": "Executive multiplier",
   "executive.minimumFareGbp": "Business Class minimum fare",

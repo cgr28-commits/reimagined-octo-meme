@@ -422,6 +422,8 @@ import {
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
+import { isMinibusVehicleType } from "../shared/vehicle-display";
+import { vehicleMinimumFareBreakdownFields } from "../shared/business-class-minimum";
 import { quoteAirportAccessCharges } from "../shared/meet-greet";
 import {
   formatHoursUntilPickupLabel,
@@ -2800,7 +2802,7 @@ async function handlePaymentRequest(
     }
 
     if (
-      isExecutiveVehicle(vehicleType) &&
+      (isExecutiveVehicle(vehicleType) || isMinibusVehicleType(vehicleType)) &&
       !Number.isFinite(authoritativeQuote.outboundOneWayBeforeAccessGbp)
     ) {
       const legSchedule = {
@@ -2898,14 +2900,14 @@ async function handlePaymentRequest(
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       returnJourney: Boolean(booking.returnJourney),
       ...(returnOfferDiscountRate > 0 ? { returnOfferDiscountRate } : {}),
-      ...(isExecutiveVehicle(vehicleType)
-        ? {
-            businessClassMinimumFareGbp: pricingOptions.executiveMinimumFareGbp,
-            outboundOneWayBeforeAccessGbp: authoritativeQuote.outboundOneWayBeforeAccessGbp,
-            returnOneWayBeforeAccessGbp: authoritativeQuote.returnOneWayBeforeAccessGbp,
-            returnDiscountRate: pricingOptions.returnDiscountRate,
-          }
-        : {}),
+      ...vehicleMinimumFareBreakdownFields({
+        vehicleType,
+        executiveMinimumFareGbp: pricingOptions.executiveMinimumFareGbp,
+        minibusMinimumFareGbp: pricingOptions.minibusMinimumFareGbp,
+        outboundOneWayBeforeAccessGbp: authoritativeQuote.outboundOneWayBeforeAccessGbp,
+        returnOneWayBeforeAccessGbp: authoritativeQuote.returnOneWayBeforeAccessGbp,
+        returnDiscountRate: pricingOptions.returnDiscountRate,
+      }),
     });
 
     const serverFinalAmountGbp = breakdown.finalAmountPayableGbp;
