@@ -40,7 +40,7 @@ export const BUSINESS_CLASS_DUBLIN_FAQS = [
   {
     question: "How many passengers and suitcases can Business Class take?",
     answer:
-      "Business Class carries 1–4 passengers and up to 2 large suitcases. If you have 3 or 4 large suitcases, select Estate instead.",
+      "Business Class carries 1–4 passengers and up to 2 standard suitcases (23kg). If you have 3 or 4 standard suitcases (23kg), select Estate instead.",
   },
   {
     question: "What is included on a Business Class pickup at Dublin Airport?",

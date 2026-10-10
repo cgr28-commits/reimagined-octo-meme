@@ -291,7 +291,7 @@ async function main() {
     const showcase = read("src/components/QuoteResultShowcase.tsx");
     assert.doesNotMatch(showcase, /capacityConfirmation/);
     assert.doesNotMatch(showcase, /data-luggage-capacity-confirmation/);
-    assert.match(showcase, /5\+ large bags/);
+    assert.match(showcase, /5\+ standard suitcases \(23kg\)/);
   });
 
   check("12. Luggage quantity does not block SumUp", () => {

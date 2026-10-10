@@ -56,7 +56,7 @@ check("Passenger and luggage use selectable buttons", () => {
   assert.match(selectors, /Passengers/);
   assert.match(selectors, /Include all children in the passenger total\./);
   assert.match(card, /Include all children in the passenger total\./);
-  assert.match(selectors, /Suitcases \/ large bags/);
+  assert.match(selectors, /Standard suitcases \(23kg\)/);
   assert.doesNotMatch(progressive, /Child seats/);
   assert.match(progressive, /One way/);
   assert.match(progressive, /Return/);

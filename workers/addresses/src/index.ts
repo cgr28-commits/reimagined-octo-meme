@@ -2520,6 +2520,10 @@ async function handlePaymentRequest(
       return json({ error: airportCtxResult.error }, 409, origin);
     }
     const airportContext = airportCtxResult.context;
+    const dublinAirportJourney =
+      airportContext.airportCode === "DUB" ||
+      airportContext.pickupAirportCode === "DUB" ||
+      airportContext.dropoffAirportCode === "DUB";
 
     let authoritativeQuote: {
       amountGbp: number;
@@ -2698,6 +2702,7 @@ async function handlePaymentRequest(
       pickup: routeOutcome.pickup ?? null,
       dropoff: routeOutcome.dropoff ?? null,
       returnJourney: Boolean(booking.returnJourney),
+      dublinAirportJourney,
       schedule,
       existing: {
         amountGbp: authoritativeQuote.amountGbp,
@@ -2857,6 +2862,7 @@ async function handlePaymentRequest(
             pickup: routeOutcome.pickup ?? null,
             dropoff: routeOutcome.dropoff ?? null,
             returnJourney: Boolean(booking.returnJourney),
+            dublinAirportJourney,
             schedule: legSchedule,
             existing: {
               amountGbp: legQuote.amount,

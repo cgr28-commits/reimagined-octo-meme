@@ -152,8 +152,8 @@ export default function BusinessClassDublinAirportPage() {
             <section className={lightCardClass}>
               <h2 className="text-lg font-bold text-navy">Passengers and luggage</h2>
               <p className="mt-2 text-sm leading-relaxed text-[#1a2a3d]">
-                Business Class carries 1–4 passengers and up to 2 large suitcases. If you have 3 or
-                4 large suitcases, select Estate instead.
+                Business Class carries 1–4 passengers and up to 2 standard suitcases (23kg). If you
+                have 3 or 4 standard suitcases (23kg), select Estate instead.
               </p>
             </section>
 

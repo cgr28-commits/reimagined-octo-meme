@@ -127,6 +127,7 @@ check("missing config → Saloon / Estate / Minibus / Return / Night / Weekend /
   assert.equal(normalized.minibus.multiplier, 1.55);
   assert.equal(DEFAULT_MINIBUS_MULTIPLIER, 1.55);
   assert.equal(normalized.returnDiscount.rate, 0.05);
+  assert.equal(normalized.dublinAirportFareAdjustment.rate, 0);
   assert.equal(DEFAULT_RETURN_DISCOUNT_RATE, RETURN_JOURNEY_DISCOUNT_RATE);
   assert.equal(normalized.night.surchargeRate, 0.1);
   assert.equal(normalized.weekend.surchargeRate, 0.1);

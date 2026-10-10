@@ -27,6 +27,7 @@ import {
   MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP,
 } from "./business-class-minimum";
 import { defaultMeetGreetFees, type MeetGreetFeesGbp } from "./meet-greet";
+import { roundGbp } from "./gbp";
 
 export const OWNER_PRICING_SCHEMA_VERSION = 1 as const;
 
@@ -34,6 +35,8 @@ export const DEFAULT_ESTATE_UPLIFT_GBP = UNIVERSAL_ESTATE_PREMIUM_GBP;
 export const DEFAULT_MINIBUS_MULTIPLIER = 1.55;
 export { DEFAULT_EXECUTIVE_MULTIPLIER };
 export const DEFAULT_RETURN_DISCOUNT_RATE = RETURN_JOURNEY_DISCOUNT_RATE;
+/** 0 keeps current Dublin Airport journey fares. Stored as a rate (0.10 = 10%). */
+export const DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE = 0;
 export const DEFAULT_NIGHT_SURCHARGE_RATE = NIGHT_WEEKEND_SURCHARGE_RATE;
 export const DEFAULT_WEEKEND_SURCHARGE_RATE = NIGHT_WEEKEND_SURCHARGE_RATE;
 /** Current approved Night window: Mon–Fri 22:00–05:59 (06:00 is not Night). */
@@ -97,6 +100,13 @@ export type OwnerPricingSettings = {
   returnDiscount: {
     rate: number;
   };
+  /**
+   * Extra percentage on the journey fare for trips to or from Dublin Airport.
+   * Missing stored values use 0%. Tolls, parking, access fees and extras are unchanged.
+   */
+  dublinAirportFareAdjustment: {
+    rate: number;
+  };
   night: {
     enabled: boolean;
     surchargeRate: number;
@@ -156,6 +166,7 @@ export type PublicOwnerPricingConfig = {
     minimumFareGbp: number;
   };
   returnDiscount: OwnerPricingSettings["returnDiscount"];
+  dublinAirportFareAdjustment: OwnerPricingSettings["dublinAirportFareAdjustment"];
   night: OwnerPricingSettings["night"];
   weekend: OwnerPricingSettings["weekend"];
   meetGreet: OwnerPricingSettings["meetGreet"];
@@ -230,6 +241,9 @@ export function defaultOwnerPricingSettings(
     returnDiscount: {
       rate: DEFAULT_RETURN_DISCOUNT_RATE,
     },
+    dublinAirportFareAdjustment: {
+      rate: DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
+    },
     night: {
       enabled: true,
       surchargeRate: DEFAULT_NIGHT_SURCHARGE_RATE,
@@ -290,6 +304,10 @@ export function validateOwnerPricingInput(
   const executiveExplicit = input.executive != null && typeof input.executive === "object";
   const executiveRaw = (executiveExplicit ? input.executive : {}) as Record<string, unknown>;
   const returnRaw = (input.returnDiscount ?? {}) as Record<string, unknown>;
+  const dublinExplicit =
+    input.dublinAirportFareAdjustment != null &&
+    typeof input.dublinAirportFareAdjustment === "object";
+  const dublinRaw = (dublinExplicit ? input.dublinAirportFareAdjustment : {}) as Record<string, unknown>;
   const nightRaw = (input.night ?? {}) as Record<string, unknown>;
   const weekendRaw = (input.weekend ?? {}) as Record<string, unknown>;
   const meetGreetExplicit = input.meetGreet != null && typeof input.meetGreet === "object";
@@ -414,6 +432,26 @@ export function validateOwnerPricingInput(
     );
   }
 
+  let dublinAirportFareAdjustmentRate = DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE;
+  const dublinRateProvided =
+    dublinExplicit && Object.prototype.hasOwnProperty.call(dublinRaw, "rate") && dublinRaw.rate !== "";
+  if (dublinRateProvided) {
+    const parsedDublin = readRate(
+      dublinRaw.rate,
+      "dublinAirportFareAdjustment.rate",
+      errors,
+    );
+    if (parsedDublin != null && (parsedDublin < 0 || parsedDublin > 1)) {
+      reject(
+        errors,
+        "dublinAirportFareAdjustment.rate",
+        "Dublin Airport Fare Adjustment must be between 0% and 100%.",
+      );
+    } else if (parsedDublin != null) {
+      dublinAirportFareAdjustmentRate = Math.round(parsedDublin * 10000) / 10000;
+    }
+  }
+
   if (nightRaw.enabled != null && typeof nightRaw.enabled !== "boolean") {
     reject(errors, "night.enabled", "Night pricing enabled must be on or off.");
   }
@@ -501,6 +539,9 @@ export function validateOwnerPricingInput(
       returnDiscount: {
         rate: returnRate ?? defaults.returnDiscount.rate,
       },
+      dublinAirportFareAdjustment: {
+        rate: dublinAirportFareAdjustmentRate,
+      },
       night: {
         enabled: nightRaw.enabled !== false,
         surchargeRate: nightRate ?? defaults.night.surchargeRate,
@@ -573,6 +614,11 @@ export function toPublicOwnerPricingConfig(
         settings.executive.minimumFareGbp ?? DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
     },
     returnDiscount: settings.returnDiscount,
+    dublinAirportFareAdjustment: {
+      rate:
+        settings.dublinAirportFareAdjustment?.rate ??
+        DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
+    },
     night: settings.night,
     weekend: settings.weekend,
     meetGreet: settings.meetGreet,
@@ -593,6 +639,8 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
     saloonFloorMiles: resolved.saloon.floorMiles,
     saloonKnots: resolved.saloon.knots.map((knot) => [knot.miles, knot.fareGbp] as const),
     returnDiscountRate: resolved.returnDiscount.rate,
+    dublinAirportFareAdjustmentRate:
+      resolved.dublinAirportFareAdjustment?.rate ?? DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
     nightEnabled: resolved.night.enabled,
     nightRate: resolved.night.surchargeRate,
     nightStartMinutes: resolved.night.startMinutes,
@@ -602,6 +650,25 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
     weekendDays: resolved.weekend.days,
     publicMinibusEnabled: resolved.minibus.publicEnabled === true,
   };
+}
+
+export function isDublinAirportCode(code: string | null | undefined): boolean {
+  return String(code ?? "").trim().toUpperCase() === "DUB";
+}
+
+/**
+ * Increase a vehicle journey fare for a Dublin Airport transfer.
+ * 0% and non-Dublin journeys return the fare unchanged.
+ * Tolls, parking, access fees and extras are not passed in here.
+ */
+export function dublinAirportJourneyFareGbp(
+  journeyFareGbp: number,
+  dublinAirport: boolean,
+  rate: number,
+): number {
+  const fare = Number(journeyFareGbp);
+  if (!dublinAirport || !(Number(rate) > 0) || !Number.isFinite(fare)) return fare;
+  return roundGbp(fare * (1 + rate));
 }
 
 export function formatPercentFromRate(rate: number): string {
@@ -632,6 +699,10 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return `£${settings.executive.minimumFareGbp.toFixed(2)}`;
     case "returnDiscount.rate":
       return formatPercentFromRate(settings.returnDiscount.rate);
+    case "dublinAirportFareAdjustment.rate":
+      return formatPercentFromRate(
+        settings.dublinAirportFareAdjustment?.rate ?? DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
+      );
     case "night.enabled":
       return settings.night.enabled ? "ON" : "OFF";
     case "night.surchargeRate":
@@ -670,6 +741,7 @@ const DIFF_PATHS = [
   "executive.multiplier",
   "executive.minimumFareGbp",
   "returnDiscount.rate",
+  "dublinAirportFareAdjustment.rate",
   "night.enabled",
   "night.surchargeRate",
   "night.startMinutes",
@@ -693,6 +765,7 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "executive.multiplier": "Executive multiplier",
   "executive.minimumFareGbp": "Business Class minimum fare",
   "returnDiscount.rate": "Return Booking Discount",
+  "dublinAirportFareAdjustment.rate": "Dublin Airport Fare Adjustment",
   "night.enabled": "Night pricing",
   "night.surchargeRate": "Night surcharge",
   "night.startMinutes": "Night starts",

@@ -476,11 +476,25 @@ main {
 }
 
 @media (max-width: 767px) {
-  /* Start under the fixed header so the terminal sign is not hidden behind it. */
+  /* Phones use the navy section background. The photograph is desktop-only. */
   .homepage-hero-media {
-    top: 4rem;
-    bottom: auto;
-    height: 17.5rem;
+    display: none;
+  }
+
+  .homepage-hero {
+    padding-top: 4.35rem;
+    padding-bottom: 0.5rem;
+  }
+
+  #airports {
+    padding-top: 1.25rem;
+    padding-bottom: 3rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .homepage-hero {
+    padding-top: 5.15rem;
   }
 }
 
@@ -1043,13 +1057,13 @@ main {
 
 @media (max-width: 767px) {
   .homepage-hero .section-eyebrow {
-    margin-bottom: 0.75rem;
-    gap: 0.45rem;
-    font-size: 0.6875rem;
-    letter-spacing: 0.06em;
-    line-height: 1.25;
-    flex-wrap: nowrap;
-    white-space: nowrap;
+    margin-bottom: 0.35rem;
+    gap: 0.4rem;
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+    flex-wrap: wrap;
+    white-space: normal;
   }
 
   .homepage-hero .section-eyebrow::before {
@@ -1086,5 +1100,166 @@ main {
 
   .quote-flow[data-quote-presentation="homepage"] .btn-primary {
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset;
+  }
+}
+
+@media (max-width: 639px) {
+  .homepage-hero-copy .section-eyebrow {
+    margin-bottom: 0.3rem;
+  }
+
+  .homepage-hero-layout {
+    padding-top: 0;
+  }
+
+  .homepage-hero-copy h1 {
+    font-size: 1.5625rem;
+    line-height: 1.15;
+  }
+
+  .homepage-hero-copy > p {
+    margin-top: 0.15rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .homepage-hero .hero-benefits-row {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+  }
+
+  .homepage-hero .hero-benefit-icon {
+    height: 1.75rem;
+    width: 1.75rem;
+  }
+
+  .homepage-hero .hero-benefit-label {
+    min-height: 0;
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    line-height: 1.15;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"].glass-card {
+    padding: 1px 0.5rem 0;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] > div:first-child {
+    margin-bottom: 0;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] h2 {
+    font-size: 1.05rem;
+    line-height: 1.05;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] h2 + div {
+    margin-top: 0;
+    font-size: 0.75rem;
+    line-height: 1.15;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-fields] .form-label {
+    margin-bottom: 0;
+    font-size: 0.625rem;
+    line-height: 1;
+    letter-spacing: 0.04em;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-fields] .mb-1 {
+    margin-bottom: 4px;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > * + * {
+    margin-top: 0;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > :not(:last-child) {
+    margin-bottom: 0;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] [aria-label="Journey type"] {
+    padding: 1px;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] [aria-label="Journey type"] > button {
+    min-height: 46px;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] .address-input {
+    height: 46px;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  /* 36px green circle inside a 44px hit target. Negative margin keeps the row at 36px. */
+  .quote-flow[data-quote-presentation="homepage"] [data-swap-locations] {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    margin-block: -4px;
+    background: transparent;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] [data-swap-locations]::before {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    background: #2fbf4a;
+    z-index: 0;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] [data-swap-locations] svg {
+    position: relative;
+    z-index: 1;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] #passenger-luggage-section {
+    column-gap: 0.35rem;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] #passenger-luggage-section select {
+    height: 48px;
+  }
+
+  .homepage-hero-quote > .quote-help-contact {
+    display: none;
+  }
+
+  [data-sticky-quote-bar] {
+    position: fixed;
+    right: 0;
+    left: 0;
+    z-index: 40;
+    bottom: max(
+      var(--matni-cookie-banner-offset, 0px),
+      env(safe-area-inset-bottom, 0px)
+    );
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: #071c38;
+    padding: 0.3rem 0.75rem 0.35rem;
+  }
+
+  [data-sticky-quote-bar] .btn-primary {
+    min-height: 3.375rem;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset;
+  }
+
+  [data-sticky-quote-bar] .quote-help-contact,
+  [data-quote-price-action="flow"] .quote-help-contact {
+    margin-top: 10px;
+    margin-bottom: 0;
+    padding: 0;
+    line-height: 1.15;
+  }
+
+  [data-quote-price-action="flow"] .btn-primary {
+    min-height: 3.375rem;
   }
 }

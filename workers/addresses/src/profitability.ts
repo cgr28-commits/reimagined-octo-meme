@@ -13,7 +13,10 @@ import {
   calculateUniversalSaloonJourneyFareGbp,
   universalDrivingMilesFromKm,
 } from "../shared/universal-distance-pricing";
-import { ownerPricingEngineOptions } from "../shared/owner-pricing-config";
+import {
+  dublinAirportJourneyFareGbp,
+  ownerPricingEngineOptions,
+} from "../shared/owner-pricing-config";
 import type { OwnerPricingSettings } from "../shared/owner-pricing-config";
 import {
   DEFAULT_MINIMUM_SALOON_ONE_WAY_GBP,
@@ -218,6 +221,8 @@ export async function applyProfitabilityProtection(input: {
   pickup: RoutePoint | null;
   dropoff: RoutePoint | null;
   returnJourney: boolean;
+  /** True when the transfer is to or from Dublin Airport. */
+  dublinAirportJourney?: boolean;
   schedule: TripSchedule;
   existing: CustomerFareSnapshot;
 }): Promise<CustomerFareSnapshot & { applied: boolean; fallbackReason: string | null }> {
@@ -311,13 +316,25 @@ export async function applyProfitabilityProtection(input: {
       );
     }
 
-    const premium = applyTripPremium(
+    const dublinRate = ownerPricingEngineOptions(input.pricing).dublinAirportFareAdjustmentRate ?? 0;
+    const adjustedOutboundVehicle = dublinAirportJourneyFareGbp(
       outboundVehicle,
+      input.dublinAirportJourney === true,
+      dublinRate,
+    );
+    const adjustedReturnVehicle = dublinAirportJourneyFareGbp(
+      returnVehicle,
+      input.dublinAirportJourney === true,
+      dublinRate,
+    );
+
+    const premium = applyTripPremium(
+      adjustedOutboundVehicle,
       { ...input.schedule, returnJourney: input.returnJourney },
       undefined,
       {
         pricing: input.pricing,
-        returnOneWayFare: input.returnJourney ? returnVehicle : undefined,
+        returnOneWayFare: input.returnJourney ? adjustedReturnVehicle : undefined,
       },
     );
     const journeyFareGbp = roundGbp(premium.total);
@@ -327,7 +344,7 @@ export async function applyProfitabilityProtection(input: {
       existing.outboundFixedGbp ??
       (input.returnJourney ? 0 : existing.airportFixedCostsGbp);
     const outboundLeg = applyTripPremium(
-      outboundVehicle,
+      adjustedOutboundVehicle,
       {
         outboundDate: input.schedule.outboundDate,
         outboundTime: input.schedule.outboundTime,
@@ -340,7 +357,7 @@ export async function applyProfitabilityProtection(input: {
     let returnOneWayBeforeAccessGbp = existing.returnOneWayBeforeAccessGbp;
     if (input.returnJourney) {
       const returnLeg = applyTripPremium(
-        returnVehicle,
+        adjustedReturnVehicle,
         {
           outboundDate: input.schedule.returnDate,
           outboundTime: input.schedule.returnTime,

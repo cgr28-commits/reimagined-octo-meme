@@ -159,6 +159,40 @@ export async function fetchWorkerAddressSuggestions(
   }
 }
 
+/**
+ * Reverse-geocode a one-off browser location via the Worker.
+ * Does not watch the device. Returns a formatted address, or null when the
+ * point is outside the service area or the lookup fails.
+ */
+export async function fetchWorkerReverseGeocode(
+  lat: number,
+  lon: number,
+): Promise<string | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return null;
+  }
+
+  const baseUrl = resolveAddressesApiUrl().replace(/\/addresses\/?$/, "/geocode");
+  const url = new URL(baseUrl);
+  url.searchParams.set("lat", String(lat));
+  url.searchParams.set("lon", String(lon));
+  url.searchParams.set("airport", "A2A");
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as { address?: string };
+    const address = payload.address?.trim() ?? "";
+    return address || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Forward-geocode an address string via the Worker (server Places key). */
 export async function fetchWorkerForwardGeocode(
   address: string,

@@ -75,30 +75,32 @@ export default function QuoteScheduleFields({
   const dateIncomplete = !tripDate.trim();
   const timeIncomplete = !tripTime.trim();
 
+  const fieldGridClass = isQuote
+    ? "grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2"
+    : "grid w-full min-w-0 max-w-full gap-2 sm:grid-cols-2";
+
   return (
     <section
       id="quote-section-schedule"
-      className="scroll-mt-44 space-y-3 md:scroll-mt-28"
+      className={`scroll-mt-44 md:scroll-mt-28 ${isQuote ? "space-y-3" : "space-y-2"}`}
       data-quote-schedule
     >
+      {isQuote ? (
       <p
         data-booking-nav-heading
         tabIndex={-1}
-        className={
-          isQuote
-            ? "form-label outline-none"
-            : "text-xs font-semibold uppercase tracking-wider text-white outline-none"
-        }
+        className="form-label outline-none"
       >
-        {isQuote ? "Pickup date & time" : "Pickup"}
-        {isQuote && (dateIncomplete || timeIncomplete || (returnJourney && (!returnDate || !returnTime))) ? (
+        Pickup date & time
+        {dateIncomplete || timeIncomplete || (returnJourney && (!returnDate || !returnTime)) ? (
           <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald/80">
             (required)
           </span>
         ) : null}
       </p>
+      ) : null}
 
-      <div className="grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2">
+      <div className={fieldGridClass}>
         <div className="min-w-0 max-w-full">
           <label htmlFor="date" className="form-label">
             {returnJourney ? "Outbound date" : "Pickup date"}
@@ -166,7 +168,7 @@ export default function QuoteScheduleFields({
       </div>
 
       {returnJourney ? (
-        <div className="grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2">
+        <div className={fieldGridClass}>
           <div className="min-w-0 max-w-full">
             <label htmlFor="returnDate" className="form-label">
               Return date

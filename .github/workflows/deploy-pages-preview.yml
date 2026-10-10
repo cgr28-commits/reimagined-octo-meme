@@ -29,6 +29,7 @@ name: Deploy Pages Preview
       - cursor/quote-result-mockup-514b
       - cursor/business-class-dublin-seo-514b
       - cursor/vito-group-transfers-514b
+      - cursor/homepage-quote-form-514b
 
 concurrency:
   group: pages-preview

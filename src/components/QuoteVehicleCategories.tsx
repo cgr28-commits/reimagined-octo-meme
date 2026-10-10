@@ -24,10 +24,10 @@ import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-a
 import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-line-icons";
 
 /**
- * Card wording only. Saloon and Business Class still fit 2 large suitcases
- * plus 2 small hand-luggage bags; that capacity is not changed here.
+ * Card wording only. Saloon and Business Class still fit 2 standard suitcases
+ * (23kg) plus 2 small hand-luggage bags; that capacity is not changed here.
  */
-const SALOON_LUGGAGE_CAPACITY = "2 large suitcases";
+const SALOON_LUGGAGE_CAPACITY = "2 standard suitcases (23kg)";
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
@@ -98,6 +98,7 @@ export default function QuoteVehicleCategories({
   onSelectVehicle,
   publicMinibusEnabled = true,
   publicExecutiveEnabled = true,
+  hideUnsuitable = false,
 }: {
   passengers: number | null;
   suitcases: number | null;
@@ -106,6 +107,8 @@ export default function QuoteVehicleCategories({
   onSelectVehicle?: (vehicle: (typeof CATEGORIES)[number]["vehicle"]) => void;
   publicMinibusEnabled?: boolean;
   publicExecutiveEnabled?: boolean;
+  /** Homepage quote results list only vehicles that fit this party. */
+  hideUnsuitable?: boolean;
 }) {
   const enabled = enabledVehicleTypesForQuote({
     publicMinibusEnabled,
@@ -120,6 +123,8 @@ export default function QuoteVehicleCategories({
       : enabled;
   const options = CATEGORIES.filter((option) =>
     enabled.some((vehicle) => vehicle === option.vehicle),
+  ).filter(
+    (option) => !hideUnsuitable || suitable.some((vehicle) => vehicle === option.vehicle),
   );
   if (options.length === 0) return null;
 

@@ -124,6 +124,36 @@ export function looksLikeStreetAddressLine(value: string): boolean {
   return /^\d+[a-zA-Z]?\s+\S+/.test(trimmed);
 }
 
+/** A road name is not a building. "High Street" stays incomplete; "Belfast City Hall" does not. */
+const ROAD_ONLY_NAME =
+  /\b(street|road|avenue|drive|lane|square|gardens|parade|terrace|crescent|close|court|park|boulevard|grove|walk|quay)\b/i;
+
+export function looksLikeRoadOnlyName(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (looksLikeStreetAddressLine(trimmed)) return true;
+  return ROAD_ONLY_NAME.test(trimmed);
+}
+
+/**
+ * Venue / building name from an autocomplete main line.
+ * Kept even when Google already folded that name into the formatted address,
+ * because a landmark such as Belfast City Hall has no house number.
+ * Road-only lines and a bare town name are not a building identifier.
+ */
+export function venueNameForPlace(
+  suggestionName: string | null | undefined,
+  locality?: string | null,
+): string | null {
+  const name = suggestionName?.trim() || "";
+  if (!name || looksLikeStreetAddressLine(name) || looksLikeRoadOnlyName(name)) {
+    return null;
+  }
+  const local = locality?.trim().toLowerCase() || "";
+  if (local && name.toLowerCase() === local) return null;
+  return name;
+}
+
 /**
  * Build "{place name}, {formatted address}" without duplicating the name when
  * Google already included it in the formatted address (including Ave/Avenue etc.).

@@ -51,7 +51,7 @@ console.log("=== Homepage title, description, H1 ===");
   assert.match(HOMEPAGE_SEO_DESCRIPTION, /up to 60 minutes’ complimentary waiting on airport pickups/);
   assert.equal(SITE.name, "My Airport Taxi NI");
   assert.doesNotMatch(SITE_PUBLIC_SEO_DESCRIPTION, /£\d/);
-  assert.match(hero, /Belfast Airport Transfers/);
+  assert.match(hero, /Belfast &amp; Dublin Airport Transfers/);
   assert.doesNotMatch(hero, /Pre-Booked 24\/7/);
   const popular = read("src/components/PopularBelfastTransfers.tsx");
   const belfastRoutes = read("src/lib/locations-content.ts");
