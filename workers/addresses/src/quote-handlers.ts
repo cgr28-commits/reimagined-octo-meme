@@ -22,7 +22,7 @@ import {
 import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
-import { applyProfitabilityProtection } from "./profitability";
+import { applyProfitabilityProtection, profitabilityAdjustmentGbp } from "./profitability";
 import { signQuoteReceipt } from "./quote-receipt";
 import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
 import {
@@ -620,7 +620,9 @@ export async function handleQuoteCalculateRequest(
     });
   }
 
+  let profitabilityAdjustment: number | null = null;
   if (result.ok) {
+    const fareBeforeProtectionGbp = result.amount;
     const protectedFare = await applyProfitabilityProtection({
       pricing,
       vehicleType: result.vehicleType,
@@ -654,6 +656,11 @@ export async function handleQuoteCalculateRequest(
       },
     });
     if (protectedFare.applied) {
+      profitabilityAdjustment = profitabilityAdjustmentGbp({
+        applied: true,
+        protectedAmountGbp: protectedFare.amountGbp,
+        existingAmountGbp: fareBeforeProtectionGbp,
+      });
       result = {
         ...result,
         amount: protectedFare.amountGbp,
@@ -724,6 +731,8 @@ export async function handleQuoteCalculateRequest(
     ...result,
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,
+    profitabilityAdjustmentGbp: profitabilityAdjustment,
+    pricingVersion: pricingForRoute.version,
   };
 
   if (protectionActive && result.ok) {

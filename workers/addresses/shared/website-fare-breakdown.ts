@@ -126,6 +126,14 @@ export type WebsiteFareBreakdown = {
   /** Strikethrough / original eligible price (journey before promos only). */
   originalEligibleJourneyPriceGbp: number;
   finalAmountPayableGbp: number;
+  /**
+   * Vehicle minimum considered for this quote. Null when this vehicle has none.
+   * Display only. When applied, the uplift is already inside the journey lines
+   * and finalAmountPayableGbp — do not add it again.
+   */
+  vehicleMinimumFareGbp: number | null;
+  /** True only when the minimum raised the customer payable. */
+  vehicleMinimumApplied: boolean;
 };
 
 /**
@@ -212,14 +220,13 @@ export function composeWebsiteFareBreakdown(
   let journeyFareDisplayAdjusted = transferFareAfterPromotionsGbp;
 
   const minimumFareGbp = Number(input.businessClassMinimumFareGbp);
+  const vehicleMinimumFareGbp =
+    Number.isFinite(minimumFareGbp) && minimumFareGbp >= 0 ? roundGbp(minimumFareGbp) : null;
+  let vehicleMinimumApplied = false;
   const outboundBeforeAccess = Number(input.outboundOneWayBeforeAccessGbp);
-  if (
-    Number.isFinite(minimumFareGbp) &&
-    minimumFareGbp >= 0 &&
-    Number.isFinite(outboundBeforeAccess)
-  ) {
+  if (vehicleMinimumFareGbp != null && Number.isFinite(outboundBeforeAccess)) {
     const floored = businessClassFlooredPayableGbp({
-      minimumFareGbp,
+      minimumFareGbp: vehicleMinimumFareGbp,
       returnJourney,
       returnDiscountRate: input.returnDiscountRate,
       outboundOneWayBeforeAccessGbp: outboundBeforeAccess,
@@ -232,6 +239,7 @@ export function composeWebsiteFareBreakdown(
         ? null
         : roundCustomerPayableGbp(Math.max(0, floored - returnOfferSavingGbp));
     if (flooredAfterOffer != null && flooredAfterOffer > finalAmountPayableGbp + 0.001) {
+      vehicleMinimumApplied = true;
       const uplift = roundGbp(flooredAfterOffer - finalAmountPayableGbp);
       finalAmountPayableGbp = flooredAfterOffer;
       journeyFareAfterPromotionsAdjusted = roundGbp(journeyFareAfterPromotionsGbp + uplift);
@@ -267,6 +275,8 @@ export function composeWebsiteFareBreakdown(
     totalPromotionalSavingGbp,
     originalEligibleJourneyPriceGbp: journeyFareBeforeReturnDiscountAdjusted,
     finalAmountPayableGbp,
+    vehicleMinimumFareGbp,
+    vehicleMinimumApplied,
   };
 }
 

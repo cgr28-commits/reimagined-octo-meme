@@ -55,6 +55,13 @@ export type QuickQuoteCalculateResult =
       airportFixedCostsGbp?: number;
       outboundOneWayBeforeAccessGbp?: number;
       returnOneWayBeforeAccessGbp?: number;
+      /**
+       * Uplift already inside `amount`. Null when protection did not run.
+       * Do not add it to the customer total.
+       */
+      profitabilityAdjustmentGbp?: number | null;
+      /** Owner pricing configuration version used for this fare. */
+      pricingVersion?: number;
       /** Opaque Worker receipt. Present only while profitability protection is active. */
       quoteReceipt?: string;
       distanceKm?: number;
@@ -191,6 +198,17 @@ export async function calculateServerQuote(
       : {}),
     ...(typeof payload.returnOneWayBeforeAccessGbp === "number"
       ? { returnOneWayBeforeAccessGbp: Number(payload.returnOneWayBeforeAccessGbp) }
+      : {}),
+    ...(payload.profitabilityAdjustmentGbp === null
+      ? { profitabilityAdjustmentGbp: null }
+      : typeof payload.profitabilityAdjustmentGbp === "number" &&
+          Number.isFinite(payload.profitabilityAdjustmentGbp)
+        ? { profitabilityAdjustmentGbp: Number(payload.profitabilityAdjustmentGbp) }
+        : {}),
+    ...(typeof payload.pricingVersion === "number" &&
+    Number.isInteger(payload.pricingVersion) &&
+    payload.pricingVersion > 0
+      ? { pricingVersion: payload.pricingVersion }
       : {}),
     ...(typeof payload.quoteReceipt === "string" &&
     payload.quoteReceipt.startsWith("v1.") &&
