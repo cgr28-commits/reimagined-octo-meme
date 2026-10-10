@@ -7233,13 +7233,7 @@ function QuoteCard({
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
-        priceLabel={
-          appliedPersonalQuote
-            ? "Personal quoted fare"
-            : presentation === "homepage" && !isScheduleComplete
-              ? "Provisional fare"
-              : "Your transfer price"
-        }
+        priceLabel="Fixed price"
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
         businessClassInclusions={renderBusinessClassInclusions()}
@@ -7247,13 +7241,6 @@ function QuoteCard({
         onRetryPrice={() => {
           void refreshAuthoritativeServerQuote(true);
         }}
-        surchargeNote={
-          presentation === "homepage" && !isScheduleComplete
-            ? "Provisional fare. Evening, night, weekend or availability charges can change this price once you add your pickup date and time."
-            : mayPaintNumericFare && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0
-              ? QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE
-              : null
-        }
         airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />
