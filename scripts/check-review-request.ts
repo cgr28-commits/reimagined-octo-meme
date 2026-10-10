@@ -176,12 +176,18 @@ console.log("\n=== 6. Customer first name populated safely ===");
     { customerName: "Jordan Smith" },
     DEFAULT_GOOGLE_REVIEW_URL,
   );
-  assert.match(email.subject, /How was your journey with My Airport Taxi NI\?/);
+  assert.match(email.subject, /Thank you for travelling with My Airport Taxi NI/);
   assert.match(email.text, /^Hi Jordan,/m);
   assert.match(email.html, /Hi Jordan,/);
-  assert.match(email.html, /Kind regards/);
+  assert.match(email.text, /honest Google review/);
+  assert.match(email.html, /honest Google review/);
+  assert.match(email.text, /small, locally owned business in Northern Ireland/);
+  assert.match(email.text, /My Airport Taxi NI 💚$/);
+  assert.doesNotMatch(email.text, /Kind regards|I hope you had|positive review|5-star|five star|reward|voucher|discount/i);
+  assert.doesNotMatch(email.html, /Kind regards|I hope you had|positive review|5-star|five star|reward|voucher|discount/i);
   assert.doesNotMatch(email.html, /\bColin\b/);
   assert.doesNotMatch(email.text, /\bColin\b/);
+  assert.doesNotMatch(email.text, /\bI\b/);
   assert.match(email.html, /google-business-logo\.png/);
   assert.match(email.html, /#071c38|#2fbf4a/i);
   console.log("OK  first name + subject + business sign-off (no personal name)");
