@@ -1,0 +1,19 @@
+name: Hold Dublin fare adjustment until approved
+
+# The owner asked to review PR #593 before any production merge or deploy.
+# This check stays failed so auto-merge cannot ship the branch.
+# Remove this workflow only after that approval.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  await-approval:
+    if: github.head_ref == 'cursor/dublin-fare-adjustment-514b'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merge until the Dublin fare adjustment is approved
+        run: |
+          echo "Dublin Airport Fare Adjustment is ready for review."
+          echo "Do not merge or deploy until the owner approves."
+          exit 1
