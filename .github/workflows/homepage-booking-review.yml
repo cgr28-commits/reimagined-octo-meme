@@ -10,9 +10,11 @@ on:
       - 'src/app/globals.css'
       - 'src/components/HomepageQuoteFields.tsx'
       - 'src/components/QuoteCard.tsx'
+      - 'src/components/LocationQuoteSection.tsx'
       - 'src/components/AddressInput.tsx'
       - 'scripts/check-homepage-booking-browser.mjs'
       - 'scripts/check-return-vehicle-stability.mjs'
+      - 'scripts/check-hub-quote-browser.mjs'
       - '.github/workflows/homepage-booking-review.yml'
 permissions:
   contents: read
@@ -36,6 +38,7 @@ jobs:
           python3 -m http.server 3000 --directory out &
           node --import tsx scripts/check-homepage-booking-browser.mjs
           node --import tsx scripts/check-return-vehicle-stability.mjs
+          node --import tsx scripts/check-hub-quote-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

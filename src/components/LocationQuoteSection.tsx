@@ -47,6 +47,7 @@ export default function LocationQuoteSection({
           </p>
         </div>
         <QuoteCard
+          presentation="homepage"
           initialAirportCode={airportCode}
           initialDirection={direction}
           initialAddressHint={addressHint}
