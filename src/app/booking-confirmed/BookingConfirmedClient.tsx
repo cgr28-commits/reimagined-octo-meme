@@ -177,6 +177,11 @@ export default function BookingConfirmedClient() {
       />
 
       <div className="rounded-2xl border border-white/10 bg-navy/70 p-6 sm:p-8">
+        {status === "confirmed" ? (
+          <div aria-hidden="true" className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald text-3xl font-bold text-navy">
+            ✓
+          </div>
+        ) : null}
         <p className="text-xs font-semibold uppercase tracking-wider text-emerald">{SITE.name}</p>
         <h1 className="mt-2 text-2xl font-bold text-white sm:text-3xl">
           {status === "confirmed"
@@ -200,13 +205,20 @@ export default function BookingConfirmedClient() {
         >
           {summary}
         </p>
-        {customerReference || paymentReference ? (
-          <p className="mt-3 text-sm text-white/80">
-            <span className="text-white/50">Booking reference: </span>
-            <span className="font-semibold tracking-wide text-emerald">
-              {(customerReference || paymentReference || "").trim()}
-            </span>
-          </p>
+        {status === "confirmed" && customerReference ? (
+          <div data-confirmed-booking-number className="mt-6 rounded-xl border border-emerald/50 bg-white px-4 py-5 text-center">
+            <p className="text-xs font-bold uppercase tracking-wider text-navy/70">Your booking number</p>
+            <p className="mt-2 break-words text-3xl font-bold tracking-wide text-navy sm:text-4xl">
+              {customerReference.trim()}
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-navy/75">Keep this number for any questions about your transfer.</p>
+          </div>
+        ) : null}
+        {status === "confirmed" && !customerReference ? (
+          <p className="mt-4 text-sm leading-relaxed text-white/75">Your booking number is included in your confirmation email. Please contact us if you need help finding it.</p>
+        ) : null}
+        {paymentReference ? (
+          <p className="mt-3 break-words text-xs text-white/50">Payment reference: {paymentReference.trim()}</p>
         ) : null}
         {amountPaid && cashDueGbp == null ? (
           <p className="mt-1 text-sm text-white/50">Amount paid: {amountPaid}</p>
