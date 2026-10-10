@@ -85,9 +85,10 @@ try {
     assert.equal(await page.locator('#date').inputValue(),''); assert.equal(await page.locator('#time').inputValue(),'');
     assert.equal(await page.locator('#name').inputValue(),'Preview Test');
     assert.equal(await page.locator('#email').inputValue(),'preview@example.invalid');
+    // Isolated static test: no booking, contact or payment requests can leave this context.
+    await page.getByRole('checkbox', {name:/I agree to the Terms/}).check();
     await page.locator('.btn-pay').click();
-    await page.waitForTimeout(300);
-    assert.equal(await page.locator('#date').getAttribute('aria-invalid'), 'true');
+    await page.getByText('Select your pickup date to continue.', {exact:true}).waitFor();
     assert.deepEqual(writes,[]);
     pass(`${width}px: date/time visible above contact and below header; no-date quote; one-way validation; back preserves party/contact`);
 
