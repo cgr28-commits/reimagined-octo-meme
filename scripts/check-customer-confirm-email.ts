@@ -76,7 +76,10 @@ const email = buildCustomerConfirmationEmail({
   paymentReference: "T3TESTREF",
   checkoutReference: "matni-test-ref",
 });
-assert.match(email.html, /google-business-logo\.png/);
+assert.match(email.html, /https:\/\/www\.myairporttaxini\.co\.uk\/logo-email\.png/);
+assert.match(email.html, /alt="My Airport Taxi NI"/);
+assert.match(email.html, /href="https:\/\/www\.myairporttaxini\.co\.uk\/"/);
+assert.equal(email.html.match(/logo-email\.png/g)?.length, 1);
 assert.match(email.html, /#071c38/);
 assert.match(email.html, /#2fbf4a/);
 assert.match(email.html, /Paid in full/);
