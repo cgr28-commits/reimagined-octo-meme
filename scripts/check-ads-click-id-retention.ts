@@ -199,7 +199,8 @@ assert.match(createPayment, /bookingWithConsentedAdsAttribution\(request\.bookin
 assert.match(submitBooking, /bookingWithConsentedAdsAttribution\(submission\.booking\)/);
 assert.match(captureComponent, /rememberLandingAdsAttribution\(\)/);
 assert.match(captureComponent, /clearStoredAdsAttribution\(\)/);
-assert.match(layout, /__matniLandingSearch/);
+assert.match(layout, /ADS_CLICK_ID_EARLY_SCRIPT/);
+assert.match(read("src/lib/ads-click-id-early-script.ts"), /__matniLandingSearch/);
 assert.match(siteNav, /adsClickIdSearchForNavigation\(window\.location\.search\)/);
 assert.match(quotePrefill, /adsClickIdSearchForNavigation\(window\.location\.search\)/);
 assert.match(captureComponent, /window\.location\.assign\(next\)/);

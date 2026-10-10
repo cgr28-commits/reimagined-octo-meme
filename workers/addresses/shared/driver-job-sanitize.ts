@@ -99,6 +99,7 @@ export const DRIVER_FORBIDDEN_FINANCIAL_KEYS = [
   "margin",
   "financialSummary",
   "attribution",
+  "adsMeasurement",
   "customerEmail",
   "driverPayAmountPence",
   "driverPayMethod",

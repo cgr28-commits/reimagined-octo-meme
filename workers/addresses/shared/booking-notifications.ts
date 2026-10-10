@@ -36,6 +36,7 @@ import {
 import {
   formatAdsAttributionForOwner,
   type AdsAttribution,
+  type AdsMeasurementRecord,
 } from "./ads-attribution";
 import {
   CANCELLATION_POLICY_PATH,
@@ -131,6 +132,8 @@ export type PaidBookingDetails = {
   marketingConsentVersion?: string;
   /** Consented, non-PII campaign attribution; owner/server use only. */
   attribution?: AdsAttribution;
+  /** Consent state and attribution outcome. Never contains a click ID. */
+  adsMeasurement?: AdsMeasurementRecord;
   /** Quote session id for the daily owner quote report. */
   quoteTransactionId?: string;
 };

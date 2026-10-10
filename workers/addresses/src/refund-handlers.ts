@@ -14,6 +14,7 @@ import {
   type PaidBookingDetails,
 } from "../shared/booking-notifications";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
+import { applyAdsMeasurementToBooking } from "../shared/ads-attribution";
 import {
   grossAmountCollectedOf,
   journeyFareOf,
@@ -2188,7 +2189,16 @@ export async function savePaidBookingRecordFromConfirm(input: {
     termsAcceptedAt: input.booking.termsAcceptedAt,
     termsVersion: input.booking.termsVersion,
     cancellationPolicyVersion: input.booking.cancellationPolicyVersion,
-    attribution: input.booking.attribution,
+    ...(() => {
+      const measured = applyAdsMeasurementToBooking({
+        attribution: input.booking.attribution,
+        adsMeasurement: input.booking.adsMeasurement,
+      });
+      return {
+        ...(measured.attribution ? { attribution: measured.attribution } : {}),
+        ...(measured.adsMeasurement ? { adsMeasurement: measured.adsMeasurement } : {}),
+      };
+    })(),
     trackingToken: input.trackingToken,
     calendarEventIds: input.calendarEventIds,
     ...(input.calendarEventIdsByLeg ? { calendarEventIdsByLeg: input.calendarEventIdsByLeg } : {}),

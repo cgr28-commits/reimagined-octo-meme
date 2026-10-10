@@ -7,7 +7,7 @@ import {
   resolveJourneyInclusions,
 } from "@/lib/journey-inclusions";
 import { formatMarketingOptInLine } from "../../shared/marketing";
-import type { AdsAttribution } from "../../shared/ads-attribution";
+import type { AdsAttribution, AdsMeasurementRecord } from "../../shared/ads-attribution";
 import {
   EXPRESS_DROP_OFF_PASSED_ON_NOTE,
   formatAirportAccessOptionCustomerLines,
@@ -75,6 +75,8 @@ export type BookingDetails = {
   marketingConsentVersion?: string;
   /** Consented, non-PII campaign attribution; never rendered in customer copy. */
   attribution?: AdsAttribution;
+  /** Consent state and attribution outcome. Never contains a click ID. */
+  adsMeasurement?: AdsMeasurementRecord;
   /** Quote session id — matches the daily owner quote report, not shown to customers. */
   quoteTransactionId?: string;
   /** Optional. Requests stay valid when a flow does not collect a Google place id. */

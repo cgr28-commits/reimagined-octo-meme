@@ -118,7 +118,11 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
     return;
   }
 
-  const attribution = input.attribution ?? existing?.attribution ?? null;
+  // A stored consent record is authoritative. Do not upload a click ID that
+  // the paid booking refused because consent was missing or rejected.
+  const attribution = existing?.adsMeasurement
+    ? (existing.attribution ?? null)
+    : (input.attribution ?? existing?.attribution ?? null);
   const amount =
     Number.isFinite(input.amount) && input.amount > 0
       ? input.amount

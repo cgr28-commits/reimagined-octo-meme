@@ -1621,6 +1621,7 @@ export default function OwnerPaidBookingsPanel({
                 {ownerGoogleAdsPaidConversionLabel(
                   booking.googleAdsPaidConversionStatus,
                   booking.googleAdsClickIdCaptured === true,
+                  booking.adsAttributionOutcome,
                 )}
               </span>
             </p>

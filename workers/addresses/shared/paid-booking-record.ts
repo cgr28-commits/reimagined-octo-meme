@@ -1,6 +1,6 @@
 import type { RefundAuditEntry, PaidBookingMoneyStatus } from "./refund-ops";
 import type { DateTimeAmendmentAuditEntry } from "./booking-amendment";
-import type { AdsAttribution } from "./ads-attribution";
+import type { AdsAttribution, AdsMeasurementRecord } from "./ads-attribution";
 
 export type PaidBookingStatus = PaidBookingMoneyStatus;
 
@@ -201,6 +201,8 @@ export type PaidBookingRecord = {
   cancellationPolicyVersion?: string;
   /** Consented campaign attribution retained for owner reporting. */
   attribution?: AdsAttribution;
+  /** Why tracking is or is not present. Absent on bookings stored before this was recorded. */
+  adsMeasurement?: AdsMeasurementRecord;
   /**
    * Server-side Google Ads Paid Booking click conversion (UploadClickConversions).
    * Set only after SumUp PAID finalize attempts an upload — used for idempotency.
