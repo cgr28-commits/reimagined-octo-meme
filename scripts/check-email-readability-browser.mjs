@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
+const { chromium } = createRequire(import.meta.url)('playwright');
+
+const output = 'test-results/email-readability';
+const files = (await fs.readdir(output)).filter(file => file.endsWith('.html'));
+const logo = await fs.readFile('public/logo-email.png');
+const browser = await chromium.launch({ args: ['--no-sandbox'] });
+try {
+  for (const colorScheme of ['light', 'dark']) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme });
+    await context.route('**/*', route => route.request().url().endsWith('/logo-email.png')
+      ? route.fulfill({ contentType: 'image/png', body: logo }) : route.abort());
+    const page = await context.newPage();
+    for (const file of files) {
+      const html = await fs.readFile(`${output}/${file}`, 'utf8');
+      await page.setContent(html);
+      if (!html.includes('class="matni-light"')) continue;
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${file}: mobile overflow`);
+      const colours = await page.evaluate(() => ({
+        background: getComputedStyle(document.body).backgroundColor,
+        paragraphs: [...document.querySelectorAll('p, h1, h2, td, div')].map(node => getComputedStyle(node).color),
+        cells: [...document.querySelectorAll('td')].map(node => getComputedStyle(node).backgroundColor),
+      }));
+      assert.equal(colours.background, 'rgb(255, 255, 255)', file);
+      assert.ok(colours.paragraphs.every(colour => colour === 'rgb(7, 28, 56)'), `${file}: text must be brand navy`);
+      assert.ok(colours.cells.every(colour => colour === 'rgb(255, 255, 255)'), `${file}: cells must stay white`);
+      assert.equal(await page.locator('img').count(), 1, file);
+      if (['review-request.html', 'journey-reminder.html', 'driver-details.html'].includes(file)) {
+        await page.screenshot({ path: `${output}/${file.replace('.html', '')}-${colorScheme}.png`, fullPage: true });
+      }
+      // Email clients that remove head CSS still receive explicit readable inline colours.
+      await page.locator('head').evaluate(node => node.remove());
+      assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(255, 255, 255)', file);
+    }
+    console.log(`PASS ${colorScheme}: white/navy text, mobile layout, logo and inline fallback across all non-paid previews`);
+    await context.close();
+  }
+} finally {
+  await browser.close();
+}

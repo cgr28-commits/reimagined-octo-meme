@@ -9,6 +9,7 @@ import {
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
   businessWhatsAppChatUrl,
   businessWhatsAppPublicPageUrl,
+  lightCustomerEmailHtml,
   businessEmailClientMeta,
   businessEmailLogoHtml,
 } from "./business-email";
@@ -1025,7 +1026,7 @@ function buildTrackingReminderHtml(
     ? escapeHtml(details.bookingReference.trim())
     : "";
 
-  return `<!DOCTYPE html>
+  return lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1081,7 +1082,7 @@ ${businessEmailClientMeta()}
     </tr>
   </table>
 </body>
-</html>`;
+</html>`);
 }
 
 export function buildTrackingReminderEmail(
@@ -1126,7 +1127,7 @@ function buildRefundConfirmationHtml(
   const customerName = escapeHtml(details.customerName);
   const when = escapeHtml(formatTripDateTime(details.tripDate, details.tripTime));
 
-  return `<!DOCTYPE html>
+  return lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1187,7 +1188,7 @@ ${businessEmailClientMeta()}
     </tr>
   </table>
 </body>
-</html>`;
+</html>`);
 }
 
 export function buildCustomerRefundConfirmationEmail(
@@ -1559,7 +1560,7 @@ function buildCustomerCancellationConfirmation(input: {
     ? `<p style="margin:4px 0 0;font-size:12px;line-height:1.45;color:#64748b;">${escapeHtml(CUSTOMER_STATUTORY_RIGHTS_LINE)}</p>`
     : "";
 
-  const html = `<!DOCTYPE html>
+  const html = lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -1607,7 +1608,7 @@ ${statutoryHtml}
 </table>
 </td></tr>
 </table>
-</body></html>`;
+</body></html>`);
 
   return { text, html };
 }
@@ -1703,7 +1704,7 @@ export function buildCustomerCancellationEmails(
       paymentParagraphs: [NON_REFUNDABLE_WITHIN_24H_PAYMENT],
     });
     return {
-      customer: { subject, text: confirmation.text, html: confirmation.html },
+      customer: { subject, text: confirmation.text, html: lightCustomerEmailHtml(confirmation.html) },
       owner: buildOwnerCancellationEmail(
         details,
         `Cancellation (<24h, no refund) — ${details.customerName} — ${ref}`,
@@ -1731,7 +1732,7 @@ export function buildCustomerCancellationEmails(
       ],
     });
     return {
-      customer: { subject, text: confirmation.text, html: confirmation.html },
+      customer: { subject, text: confirmation.text, html: lightCustomerEmailHtml(confirmation.html) },
       owner: buildOwnerCancellationEmail(
         details,
         `Cancellation & refund — ${details.customerName} — ${details.refundAmount}`,
@@ -1821,7 +1822,7 @@ function buildSimpleBrandedEmailHtml(input: {
   bodyHtml: string;
   businessName: string;
 }): string {
-  return `<!DOCTYPE html>
+  return lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${businessEmailClientMeta()}
@@ -1840,7 +1841,7 @@ ${businessEmailLogoHtml()}
 <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a>
 </td></tr>
 </table></td></tr></table>
-</body></html>`;
+</body></html>`);
 }
 
 export type GoogleReviewRequestDetails = {
@@ -1865,7 +1866,7 @@ function buildGoogleReviewRequestHtml(
   const firstName = escapeHtml(customerFirstName(details.customerName));
   const safeReviewUrl = escapeHtml(reviewUrl);
 
-  return `<!DOCTYPE html>
+  return lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1922,7 +1923,7 @@ ${businessEmailClientMeta()}
     </tr>
   </table>
 </body>
-</html>`;
+</html>`);
 }
 
 export function buildGoogleReviewRequestEmail(
@@ -2018,7 +2019,7 @@ export function buildDriverArrivedPickupEmail(
 
   const text = `${bodyLine}\n\n${journeyStatusContactText(businessName)}`;
 
-  const html = `<!DOCTYPE html>
+  const html = lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -2049,7 +2050,7 @@ ${businessEmailClientMeta()}
     </tr>
   </table>
 </body>
-</html>`;
+</html>`);
 
   return { subject, text, html };
 }
@@ -2077,7 +2078,7 @@ export function buildDriverOnTheWayEmail(
 
   const text = `${bodyLine}\n\n${journeyStatusContactText(businessName)}`;
 
-  const html = `<!DOCTYPE html>
+  const html = lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -2111,7 +2112,7 @@ ${businessEmailClientMeta()}
     </tr>
   </table>
 </body>
-</html>`;
+</html>`);
 
   return { subject, text, html };
 }

@@ -19,7 +19,8 @@ import {
 import { buildBookingMessage, buildEnquiryBookingMessage } from "@/lib/booking-message";
 import { parseAmountValue } from "@/lib/finalize-paid-booking";
 import { resolveJourneyInclusions } from "@/lib/journey-inclusions";
-import { businessEmailClientMeta, businessEmailLogoHtml } from "../../shared/business-email";
+import { lightCustomerEmailHtml,
+  businessEmailClientMeta, businessEmailLogoHtml } from "../../shared/business-email";
 import { sendViaFormSubmitEmail } from "../../shared/email-delivery";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import {
@@ -77,7 +78,7 @@ export function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; 
           .join("")}</ul>`
       : `<p style="margin:0 0 16px">${inclusions.summary}</p>`;
 
-  const html = `<!DOCTYPE html>
+  const html = lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -110,7 +111,7 @@ export function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; 
     </td></tr>
   </table>
 </body>
-</html>`;
+</html>`);
 
   return {
     subject: `Your quote — ${price} — ${SITE.name}`,

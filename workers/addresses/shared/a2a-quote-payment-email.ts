@@ -10,6 +10,7 @@ import {
   BUSINESS_MAILBOX as BUSINESS_EMAIL,
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
+  lightCustomerEmailHtml,
   businessEmailClientMeta,
   businessEmailLogoHtml,
 } from "./business-email";
@@ -242,7 +243,7 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
           ${journeyBlockHtml(offered)}
           <div style="height:20px;"></div>`;
 
-  const html = `<!DOCTYPE html>
+  const html = lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 ${businessEmailClientMeta()}</head>
@@ -270,7 +271,7 @@ ${businessEmailClientMeta()}</head>
     </td></tr>
   </table>
 </body>
-</html>`;
+</html>`);
 
   return { subject, text, html };
 }

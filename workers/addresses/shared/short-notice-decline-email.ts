@@ -9,6 +9,7 @@ import {
   BUSINESS_MAILBOX as BUSINESS_EMAIL,
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
+  lightCustomerEmailHtml,
   businessEmailClientMeta,
   businessEmailLogoHtml,
 } from "./business-email";
@@ -61,7 +62,7 @@ export function buildShortNoticeDeclineEmail(
     `Phone: ${BUSINESS_PHONE_DISPLAY}\n` +
     `Email: ${BUSINESS_EMAIL}`;
 
-  const html = `<!DOCTYPE html>
+  const html = lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -107,7 +108,7 @@ ${businessEmailClientMeta()}
     </tr>
   </table>
 </body>
-</html>`;
+</html>`);
 
   return { subject, text, html };
 }

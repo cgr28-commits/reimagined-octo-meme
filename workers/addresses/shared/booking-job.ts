@@ -1,7 +1,8 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
 import type { AdsAttribution } from "./ads-attribution";
-import { businessEmailClientMeta, businessEmailLogoHtml } from "./business-email";
+import { lightCustomerEmailHtml,
+  businessEmailClientMeta, businessEmailLogoHtml } from "./business-email";
 
 function formatJobDateDmy(date: string): string {
   if (!date) return "";
@@ -262,7 +263,7 @@ export function buildCustomerDriverDetailsEmail(options: {
 
   const text = lines.join("\n");
 
-  const html = `<!DOCTYPE html>
+  const html = lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -298,7 +299,7 @@ export function buildCustomerDriverDetailsEmail(options: {
     <p style="font-size:12px;color:#8a97ab;">${escapeHtml(businessName)}</p>
   </div>
 </body>
-</html>`;
+</html>`);
 
   return { subject, text, html };
 }

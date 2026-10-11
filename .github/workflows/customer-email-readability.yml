@@ -1,0 +1,35 @@
+name: Customer email readability
+on:
+  pull_request:
+    paths:
+      - 'shared/**'
+      - 'workers/addresses/shared/**'
+      - 'src/lib/quote-assistant-submit.ts'
+      - 'scripts/check-email-logo.ts'
+      - 'scripts/check-email-readability-browser.mjs'
+      - '.github/workflows/customer-email-readability.yml'
+permissions:
+  contents: read
+jobs:
+  email-readability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: EMAIL_PREVIEW_OUTPUT=test-results/email-readability node --import tsx scripts/check-email-logo.ts
+      - run: node --import tsx scripts/check-airport-pickup-reminder.ts
+      - run: node --import tsx scripts/check-review-request.ts
+      - run: node --import tsx scripts/check-customer-confirm-email.ts
+      - run: npx tsc shared/business-email.ts shared/booking-notifications.ts shared/airport-pickup-reminder.ts --noEmit --skipLibCheck --target ES2022 --module ESNext --moduleResolution bundler
+      - run: npm install --no-save playwright
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/check-email-readability-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: customer-email-previews
+          path: test-results/email-readability
