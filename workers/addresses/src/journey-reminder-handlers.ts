@@ -26,7 +26,7 @@ export async function processDueJourneyReminders(env: Env, now = new Date()) {
       refundedAt: paid.refundedAt || job.refundedAt,
       passengers: paid.passengers, suitcases: paid.suitcases,
       // Older paid records have no exact-quantity flag; preserve 5+ as a lower bound.
-      suitcasesExact: (paid as typeof paid & { suitcasesExact?: boolean }).suitcasesExact ?? (paid.suitcases < 5),
+      suitcasesExact: (paid as typeof paid & { suitcasesExact?: boolean }).suitcasesExact ?? ((paid.suitcases ?? 0) < 5),
       vehicle: paid.vehicle,
     }, now);
     if (!decision.eligible) continue;
