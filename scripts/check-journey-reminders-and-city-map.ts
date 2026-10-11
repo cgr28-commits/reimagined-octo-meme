@@ -100,14 +100,20 @@ const internationalCollection=evaluateAirportPickupReminder(internationalInput,d
 const internationalJourney=evaluateJourneyReminder(internationalInput,due);
 assert.ok(internationalCollection.eligible);assert.ok(internationalJourney.eligible);
 const internationalMap='/maps/belfast-international-pick-up-drop-off.jpg';
+assert.ok(!collection.html.includes(internationalMap));
+assert.equal(evaluateAirportPickupReminder({...internationalInput,pickupLabel:base.pickupLabel,dropoffLabel:'Belfast International Airport',isFromAirport:false},due).eligible,false);
 for(const email of [internationalCollection]) {
  assert.ok(email.html.includes(internationalMap));assert.doesNotMatch(email.html,/\.pdf/);
  assert.match(email.html,/Free Long Stay and Meet &amp; Greet use different meeting points/);
+ assert.ok(email.html.indexOf("WHERE TO GO") < email.html.indexOf(internationalMap));
+ assert.ok(email.html.indexOf(internationalMap) < email.html.indexOf("WHEN YOU ARE READY"));
+ assert.equal(email.html.split(internationalMap).length-1,1);
 }
 assert.match(internationalCollection.text,/maximum stay of 10 minutes/);
 for(const option of ['free','meet-greet'] as const) {
  const email=evaluateAirportPickupReminder({...internationalInput,outboundAirportAccessOption:option},due);
  assert.ok(email.eligible);assert.ok(email.html.includes(internationalMap));
+ assert.ok(email.html.indexOf(internationalMap) < email.html.indexOf('WHEN YOU ARE READY'));
  if(option==='free') assert.match(email.text,/Long Stay/);
 }
 const internationalReturn=evaluateJourneyReminder({...internationalInput,journeyLeg:'return',returnAirportAccessOption:'express'},due);

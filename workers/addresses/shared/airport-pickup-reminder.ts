@@ -479,7 +479,7 @@ export function evaluateAirportPickupReminder(
     message,
     subject,
     text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input),
-    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input), matchServedAirportCode(input.pickupLabel ?? "") === "BHD"),
+    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input), true),
     whatsAppHref,
     whatsAppDraft,
   };
