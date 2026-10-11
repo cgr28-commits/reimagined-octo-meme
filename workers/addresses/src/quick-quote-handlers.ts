@@ -49,6 +49,8 @@ import {
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
+import { isMinibusVehicleType } from "../shared/vehicle-display";
+import { vehicleMinimumFareBreakdownFields } from "../shared/business-class-minimum";
 import { quoteAirportAccessCharges } from "../shared/meet-greet";
 import {
   ownerPricingEngineOptions,
@@ -316,7 +318,7 @@ export async function handleOwnerCreateQuickQuote(
     }
     transferFareBeforeDiscount = quote.amount;
     vehicleTypeLabel = quote.vehicleType;
-    if (isExecutiveVehicle(quote.vehicleType)) {
+    if (isExecutiveVehicle(quote.vehicleType) || isMinibusVehicleType(quote.vehicleType)) {
       const options = ownerPricingEngineOptions(ownerPricing);
       const express = resolveExpressDropOff({
         airportCode: journey.airportCode,
@@ -332,7 +334,7 @@ export async function handleOwnerCreateQuickQuote(
         fromAirport: journey.fromAirport,
         returnJourney: journey.returnJourney,
         fees: ownerPricing.meetGreet,
-        meetGreetIncluded: true,
+        meetGreetIncluded: isExecutiveVehicle(quote.vehicleType),
       });
       transferFareBeforeDiscount = composeWebsiteFareBreakdown({
         journeyFareBeforeAirportAccessGbp: quote.journeyFareGbp ?? quote.amount,
@@ -342,10 +344,14 @@ export async function handleOwnerCreateQuickQuote(
         outboundAirportAccessChargeGbp: access.outboundAirportAccessChargeGbp,
         returnAirportAccessChargeGbp: access.returnAirportAccessChargeGbp,
         returnJourney: quote.returnJourney,
-        businessClassMinimumFareGbp: options.executiveMinimumFareGbp,
-        outboundOneWayBeforeAccessGbp: quote.outboundOneWayBeforeAccessGbp,
-        returnOneWayBeforeAccessGbp: quote.returnOneWayBeforeAccessGbp,
-        returnDiscountRate: options.returnDiscountRate,
+        ...vehicleMinimumFareBreakdownFields({
+          vehicleType: quote.vehicleType,
+          executiveMinimumFareGbp: options.executiveMinimumFareGbp,
+          minibusMinimumFareGbp: options.minibusMinimumFareGbp,
+          outboundOneWayBeforeAccessGbp: quote.outboundOneWayBeforeAccessGbp,
+          returnOneWayBeforeAccessGbp: quote.returnOneWayBeforeAccessGbp,
+          returnDiscountRate: options.returnDiscountRate,
+        }),
       }).finalAmountPayableGbp;
       executivePayableIncludesAccess = true;
     }

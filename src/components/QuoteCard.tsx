@@ -272,7 +272,11 @@ import {
   AIRPORT_ACCESS_INCLUDED_HEADING,
   isExecutiveVehicle,
 } from "../../shared/executive-vehicle";
-import { DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP } from "../../shared/business-class-minimum";
+import {
+  DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
+  DEFAULT_MINIBUS_MINIMUM_FARE_GBP,
+  vehicleMinimumFareBreakdownFields,
+} from "../../shared/business-class-minimum";
 import {
   RETURN_OFFER_CONFIG,
   isReturnOfferAirportJourney,
@@ -2777,7 +2781,6 @@ function QuoteCard({
       Boolean(returnOfferToken) &&
       !returnJourney &&
       isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
-    const businessClass = isExecutiveVehicle(quoteVehicle);
     return buildOpenWebsiteFareBreakdown({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
@@ -2789,20 +2792,20 @@ function QuoteCard({
       ...(applyReturnOffer
         ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
         : {}),
-      ...(businessClass
-        ? {
-            businessClassMinimumFareGbp:
-              publicPricing.executive?.minimumFareGbp ??
-              DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
-            outboundOneWayBeforeAccessGbp:
-              currentServerFareParts?.outboundOneWayBeforeAccessGbp ??
-              liveQuote?.outboundOneWayBeforeAccessGbp,
-            returnOneWayBeforeAccessGbp:
-              currentServerFareParts?.returnOneWayBeforeAccessGbp ??
-              liveQuote?.returnOneWayBeforeAccessGbp,
-            returnDiscountRate: publicPricing.returnDiscount?.rate,
-          }
-        : {}),
+      ...vehicleMinimumFareBreakdownFields({
+        vehicleType: quoteVehicle,
+        executiveMinimumFareGbp:
+          publicPricing.executive?.minimumFareGbp ?? DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
+        minibusMinimumFareGbp:
+          publicPricing.minibus?.minimumFareGbp ?? DEFAULT_MINIBUS_MINIMUM_FARE_GBP,
+        outboundOneWayBeforeAccessGbp:
+          currentServerFareParts?.outboundOneWayBeforeAccessGbp ??
+          liveQuote?.outboundOneWayBeforeAccessGbp,
+        returnOneWayBeforeAccessGbp:
+          currentServerFareParts?.returnOneWayBeforeAccessGbp ??
+          liveQuote?.returnOneWayBeforeAccessGbp,
+        returnDiscountRate: publicPricing.returnDiscount?.rate,
+      }),
     });
   }, [
     useOpenWebsitePromoPricing,
@@ -2818,6 +2821,7 @@ function QuoteCard({
     dropoffAddress,
     quoteVehicle,
     publicPricing.executive?.minimumFareGbp,
+    publicPricing.minibus?.minimumFareGbp,
     publicPricing.returnDiscount?.rate,
     currentServerFareParts?.outboundOneWayBeforeAccessGbp,
     currentServerFareParts?.returnOneWayBeforeAccessGbp,

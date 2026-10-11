@@ -25,6 +25,7 @@ export function buildOpenWebsiteFareBreakdown(input: {
   returnJourney?: boolean;
   returnOfferDiscountRate?: number;
   businessClassMinimumFareGbp?: number;
+  minibusMinimumFareGbp?: number;
   outboundOneWayBeforeAccessGbp?: number;
   returnOneWayBeforeAccessGbp?: number;
   returnDiscountRate?: number;
@@ -43,6 +44,14 @@ export function buildOpenWebsiteFareBreakdown(input: {
     ...(typeof input.businessClassMinimumFareGbp === "number"
       ? {
           businessClassMinimumFareGbp: input.businessClassMinimumFareGbp,
+          outboundOneWayBeforeAccessGbp: input.outboundOneWayBeforeAccessGbp,
+          returnOneWayBeforeAccessGbp: input.returnOneWayBeforeAccessGbp,
+          returnDiscountRate: input.returnDiscountRate,
+        }
+      : {}),
+    ...(typeof input.minibusMinimumFareGbp === "number"
+      ? {
+          minibusMinimumFareGbp: input.minibusMinimumFareGbp,
           outboundOneWayBeforeAccessGbp: input.outboundOneWayBeforeAccessGbp,
           returnOneWayBeforeAccessGbp: input.returnOneWayBeforeAccessGbp,
           returnDiscountRate: input.returnDiscountRate,
