@@ -1,7 +1,6 @@
 import { matchServedAirportCode } from "./served-airports";
 
 const ORIGIN = "https://www.myairporttaxini.co.uk";
-export const BELFAST_CITY_MAP_PDF_URL = `${ORIGIN}/maps/belfast-city-express-pick-up-drop-off.pdf`;
 export const BELFAST_CITY_MAP_IMAGE_URL = `${ORIGIN}/maps/belfast-city-express-pick-up-drop-off.jpg`;
 
 type AirportMapJourney = {
@@ -23,7 +22,7 @@ export function includesBelfastCityAirport(journey: AirportMapJourney): boolean 
 
 export function belfastCityMapText(journey: AirportMapJourney): string {
   return includesBelfastCityAirport(journey)
-    ? `\n\nBELFAST CITY AIRPORT MAP\nExpress Pick-Up & Drop-Off area and car parks. Follow the instructions for your booked collection option.\nView the full-size map (PDF): ${BELFAST_CITY_MAP_PDF_URL}\n`
+    ? `\n\nBELFAST CITY AIRPORT MAP\nExpress Pick-Up & Drop-Off area and car parks. Follow the instructions for your booked collection option.\nThe airport map is included in the HTML version of this email.\n`
     : "";
 }
 
@@ -32,7 +31,6 @@ export function belfastCityMapHtml(journey: AirportMapJourney): string {
   return `<div style="margin:20px 0;background:#ffffff;color:#071c38;">
 <h2 style="font-size:18px;line-height:1.4;color:#071c38;">Belfast City Airport map</h2>
 <p style="font-size:14px;line-height:1.6;color:#071c38;">Express Pick-Up &amp; Drop-Off area and car parks. Follow the instructions for your booked collection option.</p>
-<a href="${BELFAST_CITY_MAP_PDF_URL}" style="color:#071c38;"><img src="${BELFAST_CITY_MAP_IMAGE_URL}" alt="Belfast City Airport Express Pick-Up and Drop-Off area and car parks" width="560" style="display:block;width:100%;max-width:560px;height:auto;border:0;" /></a>
-<p style="font-size:14px;line-height:1.6;"><a href="${BELFAST_CITY_MAP_PDF_URL}" style="color:#071c38;font-weight:bold;">View the full-size map (PDF)</a></p>
+<img src="${BELFAST_CITY_MAP_IMAGE_URL}" alt="Belfast City Airport Express Pick-Up and Drop-Off area and car parks" width="560" style="display:block;width:100%;max-width:560px;height:auto;border:0;" />
 </div>`;
 }

@@ -28,7 +28,16 @@ try {
     const picture=page.locator('img[alt^="Belfast City Airport Express"]');
     assert.ok(await picture.evaluate(img=>img.naturalWidth>=2000));
     const box=await picture.boundingBox();assert.ok(box.width<=390);
-    assert.ok((await picture.locator('..').getAttribute('href')).endsWith('.pdf'));
+    assert.equal(await page.locator('a[href$=".pdf"]').count(),0);
+    assert.ok(!html.includes('.pdf'));
+   }
+   if(file.includes('journey-reminder')) {
+    assert.ok(await page.getByText('Hi Sarah,',{exact:true}).isVisible());
+    const button=page.getByRole('link',{name:'Message Us',exact:true});
+    assert.ok(await button.isVisible());
+    assert.equal(await button.evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(47, 191, 74)');
+    assert.ok((await button.getAttribute('href')).startsWith('https://wa.me/447549815538?'));
+    assert.ok(!(await page.textContent('body')).includes('028 9602 2952'));
    }
    if(html.includes('class="matni-light"')) {
     assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(255, 255, 255)');
@@ -36,6 +45,6 @@ try {
    }
    await page.screenshot({path:`${output}/${file.replace('.html','')}-${colorScheme}.png`,fullPage:true});
   }
-  await context.close();console.log(`PASS 390px ${colorScheme}: logos, loaded maps, PDF links, white/navy reminders and no overflow`);
+  await context.close();console.log(`PASS 390px ${colorScheme}: logos, loaded inline maps without PDFs, white/navy reminders and no overflow`);
  }
 } finally {await browser.close();}

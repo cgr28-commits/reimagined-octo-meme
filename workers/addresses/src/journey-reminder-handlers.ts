@@ -1,4 +1,4 @@
-import { evaluateJourneyReminder } from "../shared/journey-reminder";
+import { evaluateJourneyReminder, resolveJourneyReminderCustomerName } from "../shared/journey-reminder";
 import { airportPickupReminderInput } from "./airport-pickup-reminder-handlers";
 import { getPaidBookingRecord } from "./paid-booking-store";
 import { listUpcomingTrackingJobs, saveTrackingJob } from "./tracking-store";
@@ -21,6 +21,11 @@ export async function processDueJourneyReminders(env: Env, now = new Date()) {
     const paid = await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference);
     if (!paid || (job.journeyLeg === "return" && !paid.returnJourney)) continue; // Never remind unpaid requests or orphaned tracking records.
     const current = airportPickupReminderInput(job, paid);
+    // A whitespace-only/placeholder name on an older payment must not hide the tracking name.
+    const legacy = paid as typeof paid & { firstName?: string; customerFirstName?: string; name?: string };
+    current.customerName = resolveJourneyReminderCustomerName(
+      paid.customerName, job.customerName, legacy.customerFirstName, legacy.firstName, legacy.name,
+    );
     const decision = evaluateJourneyReminder({ ...current,
       reminderSentAt: job.journeyReminderSentAt,
       refundedAt: paid.refundedAt || job.refundedAt,

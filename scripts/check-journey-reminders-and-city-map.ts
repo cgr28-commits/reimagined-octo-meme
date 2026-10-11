@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { evaluateJourneyReminder } from '../shared/journey-reminder';
+import { evaluateJourneyReminder, resolveJourneyReminderCustomerName } from '../shared/journey-reminder';
 import { evaluateAirportPickupReminder } from '../shared/airport-pickup-reminder';
 import { buildCustomerConfirmationEmail, buildUpdatedBookingConfirmationEmail, type PaidBookingReceipt } from '../shared/booking-notifications';
-import { BELFAST_CITY_MAP_PDF_URL, belfastCityMapHtml } from '../shared/belfast-city-airport-map';
+import { BELFAST_CITY_MAP_IMAGE_URL, belfastCityMapHtml } from '../shared/belfast-city-airport-map';
 import { processDueJourneyReminders } from '../workers/addresses/src/journey-reminder-handlers';
 import { paidBookingRefKey } from '../shared/paid-booking-record';
 
@@ -14,10 +14,25 @@ const due = new Date('2026-10-12T07:00:00Z'); // 08:00 London, four hours before
 const reminder = evaluateJourneyReminder(base, due);
 assert.ok(reminder.eligible);
 assert.match(reminder.text, /Hi Sarah,/);
+assert.match(reminder.html, /<strong[^>]*>Hi Sarah,<\/strong>/);
+assert.match(reminder.html, />Message Us<\/a>/);
+assert.match(reminder.html, /background-color:#2fbf4a/);
+assert.doesNotMatch(reminder.html, /028 9602 2952|tel:/);
+assert.doesNotMatch(reminder.text, /028 9602 2952/);
+assert.equal(resolveJourneyReminderCustomerName('  ',' Sarah   Johnson '),'Sarah Johnson');
+assert.equal(resolveJourneyReminderCustomerName('undefined','sarah@example.com','Sarah Johnson'),'Sarah Johnson');
+assert.equal(resolveJourneyReminderCustomerName('null','customer','guest'),'');
+const whatsappHref=reminder.html.match(/href="(https:\/\/wa\.me\/[^"]+)"[^>]*>Message Us/)[1].replace(/&amp;/g,'&');
+assert.equal(new URL(whatsappHref).searchParams.get('text'),'Hi, I need help with my booking MAT-4827.');
+for (const name of ['  Sarah   Johnson ','Sarah']) {
+ const named=evaluateJourneyReminder({...base,customerName:name},due);assert.ok(named.eligible);assert.match(named.html,/<strong[^>]*>Hi Sarah,/);
+}
+const safeName=evaluateJourneyReminder({...base,customerName:'<Sarah> Johnson'},due);assert.ok(safeName.eligible);assert.match(safeName.html,/Hi &lt;Sarah&gt;,/);
 assert.match(reminder.text, /Booking reference: MAT-4827/);
 assert.match(reminder.text, /Suitcases: 0/);
 assert.match(reminder.html, /class="matni-light"/);
-assert.ok(reminder.text.includes(BELFAST_CITY_MAP_PDF_URL));
+assert.ok(reminder.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+assert.doesNotMatch(reminder.html, /\.pdf|full-size map/);
 assert.equal(evaluateJourneyReminder(base, new Date(due.getTime()-1)).eligible, false);
 assert.equal(evaluateJourneyReminder(base, new Date('2026-10-12T11:00:00Z')).eligible, false);
 for (const patch of [{reminderSentAt: due.toISOString()}, {bookingStatus:'cancelled'}, {operationalStatus:'cancelled'},
@@ -33,7 +48,7 @@ assert.ok(returnReminder.eligible);
 assert.match(returnReminder.text,/return journey/);
 const ordinary = evaluateJourneyReminder({...base,dropoffLabel:'Antrim town centre'},due);
 assert.ok(ordinary.eligible);
-assert.ok(!ordinary.html.includes(BELFAST_CITY_MAP_PDF_URL));
+assert.ok(!ordinary.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
 for (const [tripDate,tripTime,utcDue] of [
   ['2026-10-13','02:00','2026-10-12T21:00:00Z'], // crosses midnight, no quiet-hour shift
   ['2026-12-12','12:00','2026-12-12T08:00:00Z'], // winter GMT
@@ -49,20 +64,20 @@ const receipt: PaidBookingReceipt = {...base, mobileNumber:'07700 900123',tripLa
   amountPaid:'£80.00', paymentReference:'TEST-PAYMENT', outboundAirportAccessOption:'express',returnAirportAccessOption:'free'};
 const booking = buildCustomerConfirmationEmail(receipt);
 const updated = buildUpdatedBookingConfirmationEmail(receipt);
-assert.ok(booking.text.includes(BELFAST_CITY_MAP_PDF_URL));
-assert.ok(updated.html.includes(BELFAST_CITY_MAP_PDF_URL));
+assert.ok(booking.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+assert.ok(updated.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
 assert.equal((booking.html.match(/Belfast City Airport map<\/h2>/g)||[]).length,1);
 assert.ok(!booking.html.includes('class="matni-light"')); // invoice theme preserved
 for (const direction of [true,false]) {
   const email = buildCustomerConfirmationEmail({...receipt,returnJourney:false,isFromAirport:direction,
     pickupLabel:direction?base.dropoffLabel:base.pickupLabel,dropoffLabel:direction?base.pickupLabel:base.dropoffLabel});
-  assert.ok(email.html.includes(BELFAST_CITY_MAP_PDF_URL));
+  assert.ok(email.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
 }
 assert.equal(belfastCityMapHtml({pickupLabel:'Dublin Airport',dropoffLabel:'Belfast International Airport'}),'');
 const collection = evaluateAirportPickupReminder({...base,pickupLabel:base.dropoffLabel,dropoffLabel:base.pickupLabel,
   isFromAirport:true,outboundAirportAccessOption:'express'},due);
 assert.ok(collection.eligible);
-assert.ok(collection.text.includes(BELFAST_CITY_MAP_PDF_URL));
+assert.ok(collection.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
 assert.match(collection.text,/baggage/);
 const freeCollection = evaluateAirportPickupReminder({...base,pickupLabel:base.dropoffLabel,dropoffLabel:base.pickupLabel,
   isFromAirport:true,outboundAirportAccessOption:'free'},due);
@@ -97,6 +112,12 @@ try {
  assert.ok(JSON.stringify(requests.at(-1).to).includes('sarah@example.com'));
  result=await processDueJourneyReminders(env,now);assert.equal(result.sent,0);assert.equal(requests.length,2);
  assert.ok(keys[0].startsWith('journey-reminder-test-outbound-'));assert.equal(keys[0],keys[1]);
+ // Blank or placeholder payment name falls back to the stored tracking name.
+ const fallback={...job,token:'name-fallback',customerName:'Sarah Johnson'};
+ items.set('track:job:'+fallback.token,JSON.stringify(fallback));items.set('track:day:'+day,JSON.stringify([fallback.token]));
+ items.set(paidBookingRefKey('TEST-PAYMENT'),JSON.stringify({...receipt,tripDate:day,status:'confirmed',customerName:'   '}));
+ result=await processDueJourneyReminders(env,now);assert.equal(result.sent,1);
+ assert.match(requests.at(-1).text,/^Hi Sarah,/);assert.match(requests.at(-1).html,/>Message Us<\/a>/);
  // Return uses current paid return date/time and reverses addresses independently.
  const ret={...job,token:'test-return',journeyLeg:'return'};
  items.set('track:job:'+ret.token,JSON.stringify(ret));items.set('track:day:'+day,JSON.stringify([job.token,ret.token]));
