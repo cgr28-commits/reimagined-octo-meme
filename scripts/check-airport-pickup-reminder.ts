@@ -72,7 +72,7 @@ function assertWhatsAppEmail(input: AirportPickupReminderInput, airportName: str
   assert.equal(decision.eligible, true);
   if (!decision.eligible) return;
   const { html, message, whatsAppHref, whatsAppDraft } = decision;
-  assert.match(message, /Once you have reached your pickup location and are ready to be collected, please contact us:/);
+  assert.match(message, /(?:Once you have reached your pickup location and are ready to be collected|If you need help contacting your driver), please contact us:/);
   assert.match(message, /MESSAGE US ON WHATSAPP/);
   assert.match(message, /Or call our Business Line:/);
   assert.match(html, />MESSAGE US ON WHATSAPP</);
@@ -112,13 +112,25 @@ console.log("=== Belfast International Express ===");
   assert.match(message, /Belfast International Airport/);
   assert.match(message, /4:30 PM/);
   assert.match(message, /Express Pickup/);
-  assert.match(message, /Express Pick-Up/);
+  assert.match(message, /After collecting your baggage/);
+  assert.match(message, /Drop-Off Zone/);
+  assert.match(message, /signposted outside the terminal/);
+  assert.match(message, /Once you are there, contact your driver/);
+  assert.match(message, /waiting a few minutes away and will drive over to meet you/);
   assert.doesNotMatch(message, /Long Stay/i);
-  assert.doesNotMatch(message, /10 minutes/i);
-  assert.match(message, /limited waiting time/i);
+  assert.match(message, /maximum stay of 10 minutes/);
+  assert.match(decision.html, /After collecting your baggage/);
+  assert.match(decision.html, /Drop-Off Zone/);
+  const returnMessage = messageOf(dueCollection({
+    journeyLeg: "return",
+    returnAirportAccessOption: "express",
+  }));
+  assert.match(returnMessage, /Drop-Off Zone/);
+  assert.match(returnMessage, /maximum stay of 10 minutes/);
+  assert.match(message, /Please contact your driver once you are at the Drop-Off Zone/);
   assertCompanyReminder(message);
   assertWhatsAppEmail(dueCollection(), "Belfast International Airport");
-  console.log("OK  Express directions, no Long Stay, no unverified 10-minute claim");
+  console.log("OK  BFS Express drop-off-zone directions in HTML/text and both journey legs");
 }
 
 console.log("=== Belfast International Free ===");
@@ -149,7 +161,22 @@ console.log("=== Belfast City Express and Free ===");
     }),
   );
   assert.match(express, /George Best Belfast City Airport/);
-  assert.match(express, /Express Pick-Up/);
+  assert.match(express, /After collecting your baggage/);
+  assert.match(express, /Express Pick-Up & Drop-Off area/);
+  assert.match(express, /clearly signposted/);
+  assert.match(express, /Once you are there, contact your driver/);
+  assert.match(express, /waiting a few minutes away and will drive over to meet you/);
+  assert.doesNotMatch(express, /10 minutes/);
+  const cityInput = dueCollection({
+    pickupLabel: "George Best Belfast City Airport",
+    airportCode: "BHD",
+    journeyLeg: "return",
+    returnAirportAccessOption: "express",
+  });
+  const cityReturn = evaluateAirportPickupReminder(cityInput, NOW);
+  assert.ok(cityReturn.eligible);
+  assert.match(cityReturn.message, /Express Pick-Up & Drop-Off area/);
+  assert.match(cityReturn.html, /Express Pick-Up &amp; Drop-Off area/);
   assert.doesNotMatch(express, /Long Stay/i);
   assertCompanyReminder(express);
   assertWhatsAppEmail(
@@ -375,7 +402,7 @@ console.log("=== Eligibility ===");
   const optionExpress = messageOf(
     dueCollection({ outboundAirportAccessOption: "express", tripTime: "18:00" }),
   );
-  assert.match(optionExpress, /Express Pick-Up/);
+  assert.match(optionExpress, /Drop-Off Zone/);
   assert.doesNotMatch(optionExpress, /Long Stay/i);
   const optionFree = messageOf(
     dueCollection({ outboundAirportAccessOption: "free", tripTime: "18:00" }),

@@ -1,0 +1,22 @@
+name: Airport collection email checks
+on:
+  pull_request:
+    paths:
+      - 'shared/airport-pickup-reminder.ts'
+      - 'workers/addresses/shared/airport-pickup-reminder.ts'
+      - 'scripts/check-airport-pickup-reminder.ts'
+      - '.github/workflows/airport-collection-email-review.yml'
+permissions:
+  contents: read
+jobs:
+  collection-email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: node --import tsx scripts/check-airport-pickup-reminder.ts
+      - run: npx tsc shared/airport-pickup-reminder.ts --noEmit --skipLibCheck --target ES2022 --module ESNext --moduleResolution bundler
