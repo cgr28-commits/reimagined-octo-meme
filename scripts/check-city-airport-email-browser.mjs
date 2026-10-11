@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const output = 'test-results/city-airport-emails';
-const logo = await fs.readFile('public/logo-email.png');
+const logo = await fs.readFile('public/logo.png');
 const map = await fs.readFile('public/maps/belfast-city-express-pick-up-drop-off.jpg');
 const internationalMap = await fs.readFile('public/maps/belfast-international-pick-up-drop-off.jpg');
 const dublinMap = await fs.readFile('public/maps/dublin-airport-car-parks.jpg');
@@ -13,7 +13,7 @@ try {
   const context = await browser.newContext({viewport:{width:390,height:844},colorScheme});
   await context.route('**/*',route=>{
    const url=route.request().url();
-   if(url.endsWith('/logo-email.png')) return route.fulfill({contentType:'image/png',body:logo});
+   if(url.endsWith('/logo.png')) return route.fulfill({contentType:'image/png',body:logo});
    if(url.endsWith('/belfast-city-express-pick-up-drop-off.jpg')) return route.fulfill({contentType:'image/jpeg',body:map});
    if(url.endsWith('/belfast-international-pick-up-drop-off.jpg')) return route.fulfill({contentType:'image/jpeg',body:internationalMap});
    if(url.endsWith('/dublin-airport-car-parks.jpg')) return route.fulfill({contentType:'image/jpeg',body:dublinMap});

@@ -25,13 +25,13 @@ export function businessWhatsAppPublicPageUrl(siteUrl = BUSINESS_WEBSITE): strin
 }
 
 /**
- * Horizontal email header. PNG export of the website header logo
- * (public/logo-header.webp) so Gmail, Outlook, and Apple Mail can load it.
+ * Original high-resolution PNG artwork for all email headers.
+ * Compatible with Gmail, Outlook, and Apple Mail.
  * Public HTTPS URL — the file is not attached to the message.
  */
-export const BUSINESS_EMAIL_LOGO_URL = `${BUSINESS_WEBSITE}/logo-email.png`;
+export const BUSINESS_EMAIL_LOGO_URL = `${BUSINESS_WEBSITE}/logo.png`;
 export const BUSINESS_EMAIL_LOGO_ALT = "My Airport Taxi NI";
-/** Display size. Source artwork is 124×96; the PNG is 372×288 so it stays sharp. */
+/** Display size. Original source artwork is 697×541, over 3× the default display width. */
 export const BUSINESS_EMAIL_LOGO_WIDTH = 220;
 export const BUSINESS_EMAIL_LOGO_HEIGHT = 170;
 
@@ -54,11 +54,10 @@ export function businessEmailClientMeta(): string {
  * Shared customer-email header mark. One logo, linked to the website.
  * Alt text is the company name, which clients show when images are blocked.
  */
-export function businessEmailLogoHtml(): string {
-  const width = BUSINESS_EMAIL_LOGO_WIDTH;
-  const height = BUSINESS_EMAIL_LOGO_HEIGHT;
+export function businessEmailLogoHtml(width = BUSINESS_EMAIL_LOGO_WIDTH, logoUrl = BUSINESS_EMAIL_LOGO_URL): string {
+  const height = Math.round(width * BUSINESS_EMAIL_LOGO_HEIGHT / BUSINESS_EMAIL_LOGO_WIDTH);
   return `<a href="${BUSINESS_WEBSITE}/" style="text-decoration:none;display:inline-block;">
-<img class="matni-logo" src="${BUSINESS_EMAIL_LOGO_URL}" alt="${BUSINESS_EMAIL_LOGO_ALT}" width="${width}" height="${height}" border="0" bgcolor="#071c38" style="display:block;margin:0 auto;width:${width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;background-color:#071c38;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;line-height:1.2;color:#ffffff;" />
+<img class="matni-logo" src="${logoUrl}" alt="${BUSINESS_EMAIL_LOGO_ALT}" width="${width}" height="${height}" border="0" bgcolor="#071c38" style="display:block;margin:0 auto;width:${width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;background-color:#071c38;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;line-height:1.2;color:#ffffff;" />
 </a>`;
 }
 

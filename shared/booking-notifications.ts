@@ -1876,47 +1876,45 @@ ${businessEmailClientMeta()}
   <title>How was your journey — ${escapeHtml(businessName)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;padding:20px 12px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
+        <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
           <tr>
-            <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              ${businessEmailLogoHtml()}
-              <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
-              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">How was your journey?</div>
+            <td style="background:#ffffff;padding:24px 24px 20px;text-align:left;border-top:4px solid ${ACCENT};border-bottom:1px solid #e2e8f0;">
+              ${businessEmailLogoHtml(110, `${BUSINESS_WEBSITE}/logo.png`)}
+              <h1 style="margin:20px 0 0;font-size:26px;line-height:1.25;letter-spacing:-0.5px;color:${NAVY};font-weight:bold;">How was your journey?</h1>
             </td>
           </tr>
           <tr>
-            <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">Hi ${firstName},</p>
-              <p style="margin:0 0 16px;">Thank you for travelling with ${escapeHtml(businessName)}.</p>
-              <p style="margin:0 0 16px;">We hope you had a comfortable journey and felt well looked after.</p>
+            <td style="padding:24px 24px 0;font-size:15px;line-height:1.65;color:#334155;">
+              <p style="margin:0 0 16px;font-weight:bold;">Hi ${firstName},</p>
+              <p style="margin:0 0 16px;">Thank you for travelling with ${escapeHtml(businessName)}.<br />We hope you had a comfortable journey and felt well looked after.</p>
               <p style="margin:0;">As a small independent business, your support means a great deal to us. Every booking helps us grow, and we’re grateful you chose to travel with us.</p>
               <p style="margin:16px 0 0;">If you have a moment, please share your experience on Google. An honest review makes a real difference: it helps new customers feel confident booking with us and supports a small business like ours.</p>
             </td>
           </tr>
           <tr>
-            <td style="padding:16px 32px 28px;text-align:center;">
-              <a href="${safeReviewUrl}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Leave a Google Review</a>
-              <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${safeReviewUrl}" style="color:${NAVY};word-break:break-all;">${safeReviewUrl}</a></p>
+            <td style="padding:24px 24px;text-align:left;">
+              <a href="${safeReviewUrl}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:15px;line-height:1.4;font-weight:bold;padding:14px 22px;border-radius:6px;">Leave a Google Review</a>
+              <p style="margin:14px 0 0;font-size:12px;line-height:1.5;color:#64748b;">Or copy this link:<br /><a href="${safeReviewUrl}" style="color:${NAVY};word-break:break-all;">${safeReviewUrl}</a></p>
             </td>
           </tr>
           <tr>
-            <td style="padding:0 32px 28px;font-size:15px;line-height:1.7;color:#334155;">
+            <td style="padding:0 24px 24px;font-size:15px;line-height:1.65;color:#334155;">
               <p style="margin:0 0 16px;">Thank you again for supporting ${escapeHtml(businessName)}. We’d love to welcome you back for your next journey.</p>
               <p style="margin:0;">Kind regards,<br /><strong>${escapeHtml(businessName)}</strong></p>
             </td>
           </tr>
           <tr>
-            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 24px;font-size:12px;line-height:1.6;color:#64748b;">
               <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
               <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a> ·
               <a href="tel:${BUSINESS_PHONE_TEL}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>
             </td>
           </tr>
           <tr>
-            <td style="background:${NAVY};padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">
+            <td style="background:${NAVY};padding:0 24px 18px;text-align:left;font-size:11px;line-height:1.5;color:#94a3b8;">
               Premium airport transfers across Northern Ireland · Belfast · Dublin · Derry
             </td>
           </tr>
