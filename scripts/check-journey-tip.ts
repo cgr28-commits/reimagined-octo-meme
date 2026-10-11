@@ -42,7 +42,7 @@ function read(rel: string): string {
 const YES =
   "Thank you for travelling with My Airport Taxi NI. We really appreciate your custom and your kind tip. We hope you had a comfortable journey.";
 const NO_PREFIX =
-  "Thank you for travelling with My Airport Taxi NI. We hope you had a comfortable journey. If you’d like to leave an optional tip, you can do so securely here: ";
+  "Thank you for travelling with My Airport Taxi NI. We hope you had a comfortable journey. If you’d like to thank your driver with an optional tip, you can do so securely here: ";
 
 function requestedTip(overrides: Partial<JourneyTipRecord> = {}): JourneyTipRecord {
   return {
