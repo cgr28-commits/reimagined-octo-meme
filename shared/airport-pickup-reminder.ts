@@ -321,7 +321,11 @@ export function buildAirportPickupReminderDirections(
   }
 
   if (airport === "BFS" && access === "express") {
-    return "After collecting your luggage, please make your way to the airport's Drop-Off Zone, which is signposted outside the terminal. Once you are there, contact your driver. Your driver will be waiting a few minutes away and will drive over to meet you. Please note there is a maximum stay of 10 minutes in the Drop-Off Zone for passenger pickup.";
+    return "After collecting your baggage, please make your way to the airport's Drop-Off Zone, which is signposted outside the terminal. Once you are there, contact your driver. Your driver will be waiting a few minutes away and will drive over to meet you. Please note there is a maximum stay of 10 minutes in the Drop-Off Zone for passenger pickup.";
+  }
+
+  if (airport === "BHD" && access === "express") {
+    return "After collecting your baggage, please make your way to the Express Pick-Up & Drop-Off area, which is clearly signposted. Once you are there, contact your driver. Your driver will be waiting a few minutes away and will drive over to meet you.";
   }
 
   if (access !== "express" && access !== "free") return null;
@@ -372,7 +376,8 @@ export function buildAirportPickupReminderMessage(
   const airportName = getServedAirport(airport)?.name ?? airport;
   const pickupTime = formatCollectionClock(String(input.tripTime ?? "").trim());
   const option = collectionOptionLabel(airport, input);
-  const bfsExpress = airport === "BFS" && resolveReminderAirportAccess(input, airport) === "express";
+  const belfastExpress = (airport === "BFS" || airport === "BHD") && resolveReminderAirportAccess(input, airport) === "express";
+  const expressMeetingPoint = airport === "BHD" ? "Express Pick-Up & Drop-Off area" : "Drop-Off Zone";
   const whatsAppHref = airportPickupWhatsAppHref(input);
   const lines = [
     airportPickupReminderGreeting(input.customerName),
@@ -390,15 +395,15 @@ export function buildAirportPickupReminderMessage(
     directions,
     "",
     "WHEN YOU ARE READY",
-    bfsExpress
-      ? "Please contact your driver once you are at the Drop-Off Zone and ready to be collected, so they can drive over to meet you."
+    belfastExpress
+      ? `Please contact your driver once you are at the ${expressMeetingPoint} and ready to be collected, so they can drive over to meet you.`
       : READY_COPY,
   ];
 
   if (whatsAppHref) {
     lines.push(
       "",
-      bfsExpress ? "If you need help contacting your driver, please contact us:" : CONTACT_INTRO,
+      belfastExpress ? "If you need help contacting your driver, please contact us:" : CONTACT_INTRO,
       "",
       "MESSAGE US ON WHATSAPP",
       whatsAppHref,

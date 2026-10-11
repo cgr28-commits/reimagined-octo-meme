@@ -112,14 +112,14 @@ console.log("=== Belfast International Express ===");
   assert.match(message, /Belfast International Airport/);
   assert.match(message, /4:30 PM/);
   assert.match(message, /Express Pickup/);
-  assert.match(message, /After collecting your luggage/);
+  assert.match(message, /After collecting your baggage/);
   assert.match(message, /Drop-Off Zone/);
   assert.match(message, /signposted outside the terminal/);
   assert.match(message, /Once you are there, contact your driver/);
   assert.match(message, /waiting a few minutes away and will drive over to meet you/);
   assert.doesNotMatch(message, /Long Stay/i);
   assert.match(message, /maximum stay of 10 minutes/);
-  assert.match(decision.html, /After collecting your luggage/);
+  assert.match(decision.html, /After collecting your baggage/);
   assert.match(decision.html, /Drop-Off Zone/);
   const returnMessage = messageOf(dueCollection({
     journeyLeg: "return",
@@ -161,7 +161,22 @@ console.log("=== Belfast City Express and Free ===");
     }),
   );
   assert.match(express, /George Best Belfast City Airport/);
-  assert.match(express, /Express Pick-Up/);
+  assert.match(express, /After collecting your baggage/);
+  assert.match(express, /Express Pick-Up & Drop-Off area/);
+  assert.match(express, /clearly signposted/);
+  assert.match(express, /Once you are there, contact your driver/);
+  assert.match(express, /waiting a few minutes away and will drive over to meet you/);
+  assert.doesNotMatch(express, /10 minutes/);
+  const cityInput = dueCollection({
+    pickupLabel: "George Best Belfast City Airport",
+    airportCode: "BHD",
+    journeyLeg: "return",
+    returnAirportAccessOption: "express",
+  });
+  const cityReturn = evaluateAirportPickupReminder(cityInput, NOW);
+  assert.ok(cityReturn.eligible);
+  assert.match(cityReturn.message, /Express Pick-Up & Drop-Off area/);
+  assert.match(cityReturn.html, /Express Pick-Up &amp; Drop-Off area/);
   assert.doesNotMatch(express, /Long Stay/i);
   assertCompanyReminder(express);
   assertWhatsAppEmail(
