@@ -107,6 +107,9 @@ for (const terminal of ['T1','T2']) {
   assert.ok(email.html.indexOf('WHERE TO GO')<email.html.indexOf(DUBLIN_AIRPORT_MAP_IMAGE_URL));
   assert.ok(email.html.indexOf(DUBLIN_AIRPORT_MAP_IMAGE_URL)<email.html.indexOf('WHEN YOU ARE READY'));
   assert.match(email.html,/meeting point confirmed by your driver/);
+  assert.match(email.text,/After collecting your baggage, please contact your driver/);
+  assert.match(email.html,/message on WhatsApp advising which car park to proceed to/);
+  assert.doesNotMatch(email.text,/10 minutes|maximum stay|limited waiting/);
   assert.doesNotMatch(email.html,/\.pdf/);
   dublinCollections[`dublin-${terminal.toLowerCase()}-${leg}-collection`]=email;
   const general=evaluateJourneyReminder(input,due);assert.ok(general.eligible);
@@ -115,7 +118,8 @@ for (const terminal of ['T1','T2']) {
 }
 const dublinMeet=evaluateAirportPickupReminder({...base,pickupLabel:'Dublin Airport',isFromAirport:true,airportCode:'DUB',outboundAirportAccessOption:'meet-greet'},due);
 assert.ok(dublinMeet.eligible);assert.ok(dublinMeet.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
-assert.match(dublinMeet.html,/meet your driver inside Arrivals as arranged/);
+assert.match(dublinMeet.html,/After collecting your baggage, please contact your driver/);
+assert.doesNotMatch(dublinMeet.html,/10 minutes|maximum stay|limited waiting/);
 assert.equal(dublinAirportMapHtml({pickupLabel:base.pickupLabel,isFromAirport:false}),'');
 assert.equal(dublinAirportMapHtml({pickupLabel:'Belfast City Airport'}),'');
 assert.equal(evaluateAirportPickupReminder({...base,dropoffLabel:'Dublin Airport',isFromAirport:false},due).eligible,false);

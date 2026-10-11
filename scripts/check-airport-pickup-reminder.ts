@@ -220,7 +220,7 @@ console.log("=== Dublin terminals ===");
       flightNumber: "EI164",
     }),
   );
-  assert.match(terminal1, /paid Pick-Up Location at Terminal 1/);
+  assert.match(terminal1, /After collecting your baggage, please contact your driver/);
   assert.match(terminal1, /Dublin Airport/);
   assert.match(terminal1, /Collection option: Paid pickup/);
   assert.doesNotMatch(terminal1, /Flight:/);
@@ -245,7 +245,7 @@ console.log("=== Dublin terminals ===");
       outboundAirportAccessOption: null,
     }),
   );
-  assert.match(terminal2, /paid Pick-Up Location at Terminal 2/);
+  assert.match(terminal2, /message on WhatsApp advising which car park to proceed to/);
   assert.match(terminal2, /Collection option: Paid pickup/);
   assert.doesNotMatch(terminal2, /Terminal 1/);
   assert.doesNotMatch(terminal2, /Long Stay|Free Pick-Up/i);
@@ -268,11 +268,11 @@ console.log("=== Dublin terminals ===");
     }),
   );
   assert.ok(unknown);
-  assert.match(unknown, /agreed paid Pick-Up Location at Dublin Airport/);
-  assert.match(unknown, /terminal still needs confirmation/i);
+  assert.match(unknown, /After collecting your baggage, please contact your driver/);
+  assert.doesNotMatch(unknown, /10 minutes|maximum stay|limited waiting/i);
   assert.doesNotMatch(unknown, /Terminal 1|Terminal 2/);
   assert.doesNotMatch(unknown, /Long Stay|Free Pick-Up/i);
-  console.log("OK  Dublin uses the stored terminal and never the free pickup");
+  console.log("OK  Dublin asks passengers to contact their driver after baggage and await WhatsApp car-park instructions");
 }
 
 console.log("=== Eligibility ===");
