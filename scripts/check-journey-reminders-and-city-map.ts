@@ -31,7 +31,7 @@ const safeName=evaluateJourneyReminder({...base,customerName:'<Sarah> Johnson'},
 assert.match(reminder.text, /Booking reference: MAT-4827/);
 assert.match(reminder.text, /Suitcases: 0/);
 assert.match(reminder.html, /class="matni-light"/);
-assert.ok(reminder.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+assert.ok(!reminder.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
 assert.doesNotMatch(reminder.html, /\.pdf|full-size map/);
 assert.equal(evaluateJourneyReminder(base, new Date(due.getTime()-1)).eligible, false);
 assert.equal(evaluateJourneyReminder(base, new Date('2026-10-12T11:00:00Z')).eligible, false);
@@ -64,14 +64,14 @@ const receipt: PaidBookingReceipt = {...base, mobileNumber:'07700 900123',tripLa
   amountPaid:'£80.00', paymentReference:'TEST-PAYMENT', outboundAirportAccessOption:'express',returnAirportAccessOption:'free'};
 const booking = buildCustomerConfirmationEmail(receipt);
 const updated = buildUpdatedBookingConfirmationEmail(receipt);
-assert.ok(booking.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
-assert.ok(updated.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
-assert.equal((booking.html.match(/Belfast City Airport map<\/h2>/g)||[]).length,1);
+assert.ok(!booking.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+assert.ok(!updated.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+assert.equal((booking.html.match(/Belfast City Airport map<\/h2>/g)||[]).length,0);
 assert.ok(!booking.html.includes('class="matni-light"')); // invoice theme preserved
 for (const direction of [true,false]) {
   const email = buildCustomerConfirmationEmail({...receipt,returnJourney:false,isFromAirport:direction,
     pickupLabel:direction?base.dropoffLabel:base.pickupLabel,dropoffLabel:direction?base.pickupLabel:base.dropoffLabel});
-  assert.ok(email.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+  assert.ok(!email.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
 }
 assert.equal(belfastCityMapHtml({pickupLabel:'Dublin Airport',dropoffLabel:'Belfast International Airport'}),'');
 const collection = evaluateAirportPickupReminder({...base,pickupLabel:base.dropoffLabel,dropoffLabel:base.pickupLabel,
@@ -84,7 +84,12 @@ const freeCollection = evaluateAirportPickupReminder({...base,pickupLabel:base.d
 assert.ok(freeCollection.eligible);
 assert.match(freeCollection.text,/Long Stay/);
 assert.match(freeCollection.html,/Follow the instructions for your booked collection option/);
-console.log('PASS City Airport map in both directions, updated/return invoices, Express/Free collections; other airports excluded');
+assert.ok(!returnReminder.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+const cityReturnCollection=evaluateAirportPickupReminder({...base,pickupLabel:base.dropoffLabel,dropoffLabel:base.pickupLabel,isFromAirport:true,journeyLeg:'return',returnAirportAccessOption:'express'},due);
+assert.ok(cityReturnCollection.eligible);assert.ok(cityReturnCollection.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+assert.ok(!reminder.text.includes('BELFAST CITY AIRPORT MAP'));
+assert.ok(!booking.text.includes('BELFAST CITY AIRPORT MAP'));
+console.log('PASS City map only in outbound/return collection emails; confirmations/general journey reminders excluded');
 
 const internationalInput = {...base,pickupLabel:'Belfast International Airport',dropoffLabel:base.pickupLabel,isFromAirport:true,outboundAirportAccessOption:'express' as const};
 const internationalCollection=evaluateAirportPickupReminder(internationalInput,due);
