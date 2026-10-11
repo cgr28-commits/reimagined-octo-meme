@@ -139,7 +139,7 @@ export function buildTipPageUrl(token: string): string {
 }
 
 export function optionalTipWhatsAppMessage(tipUrl: string): string {
-  return `Thank you for travelling with My Airport Taxi NI. We hope you had a comfortable journey. Would you like to leave your driver an optional tip? You can do so securely here: ${tipUrl}`;
+  return `Thank you for travelling with My Airport Taxi NI. We hope you had a comfortable journey. If you’d like to thank your driver with an optional tip, you can do so securely here: ${tipUrl}`;
 }
 
 export function tipWhatsAppMessage(decision: StoredTipDecision): string | null {
