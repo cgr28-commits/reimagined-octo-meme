@@ -1,3 +1,4 @@
+import { belfastCityMapHtml, belfastCityMapText } from "./belfast-city-airport-map";
 /**
  * Journey-day reminder for customers being collected FROM an airport.
  *
@@ -418,7 +419,7 @@ export function buildAirportPickupReminderMessage(
   return lines.join("\n");
 }
 
-function isCancelledBooking(input: AirportPickupReminderInput): boolean {
+export function isCancelledBooking(input: AirportPickupReminderInput): boolean {
   if (input.operationalStatus === "cancelled") return true;
   const status = String(input.bookingStatus ?? "").trim().toLowerCase();
   if (status === "cancelled" || status === "refunded") return true;
@@ -476,8 +477,8 @@ export function evaluateAirportPickupReminder(
     reason: "due",
     message,
     subject,
-    text: message,
-    html: buildAirportPickupReminderHtml(message, whatsAppHref),
+    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }),
+    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel })),
     whatsAppHref,
     whatsAppDraft,
   };
@@ -499,7 +500,7 @@ function whatsAppButtonBlock(href: string): string {
 </div>`;
 }
 
-function buildAirportPickupReminderHtml(message: string, whatsAppHref: string): string {
+function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, mapHtml = ""): string {
   const paragraphs = message
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
@@ -535,7 +536,7 @@ ${businessEmailLogoHtml()}
 <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#2fbf4a;font-weight:bold;">${escapeHtml(BUSINESS_NAME)}</div>
 <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
 </td></tr>
-<tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}</td></tr>
+<tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}${mapHtml}</td></tr>
 </table></td></tr></table>
 </body></html>`);
 }

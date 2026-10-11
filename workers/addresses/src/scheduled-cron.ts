@@ -1,6 +1,6 @@
 /**
  * Cloudflare invokes scheduled() once per matching cron.
- * The 5-minute trigger only expires unanswered short-notice requests.
+ * The 5-minute trigger expires unanswered short-notice requests and sends four-hour journey reminders.
  * The hourly trigger keeps review emails, tracking reminders, return offers,
  * saved-quote reminders, checkout recovery, ads retry, ad-fraud cleanup,
  * and the 19:30 London quote report on their existing cadence.

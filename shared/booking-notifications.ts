@@ -1,3 +1,4 @@
+import { belfastCityMapHtml, belfastCityMapText } from "./belfast-city-airport-map";
 import { airportDisplayLabel } from "./airport-display-label";
 import { formatMarketingOptInLine } from "./marketing";
 import {
@@ -590,6 +591,7 @@ ${businessEmailClientMeta()}
             <td style="padding:16px 32px 8px;">
               <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin-bottom:12px;">Booking details</div>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rowsHtml}</table>
+              ${belfastCityMapHtml(details)}
             </td>
           </tr>
           <tr>
@@ -815,7 +817,7 @@ export function buildCustomerConfirmationEmail(
 
   const html = buildInvoiceHtml(details, businessName, undefined, manageUrl);
 
-  return { subject, text, html };
+  return { subject, text: text + belfastCityMapText(details), html };
 }
 
 export function buildOwnerPaidBookingEmail(

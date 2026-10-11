@@ -178,6 +178,10 @@ export type TrackingJobRecord = {
    * Set only after the provider accepts the message. Absent means not sent.
    */
   airportCollectionInfoSentAt?: string;
+  /** Four-hour journey reminder, once per outbound/return tracking leg. */
+  journeyReminderSentAt?: string;
+  journeyReminderFailedAt?: string;
+  journeyReminderLastError?: string;
   /** Earlier name for the same per-leg send. Still treated as already sent. */
   airportPickupReminderSentAt?: string;
   airportPickupReminderFailedAt?: string;
