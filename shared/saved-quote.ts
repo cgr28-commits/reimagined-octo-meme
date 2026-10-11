@@ -305,6 +305,234 @@ export function shouldSendFinalReminder(record: SavedQuoteRecord, now = new Date
   return hoursSince(record.createdAt, now) >= SAVED_QUOTE_FINAL_REMINDER_DAYS * 24;
 }
 
+/**
+ * Journey identity used to decide whether a saved quote is the same trip as a
+ * booking. Email alone is never sufficient.
+ */
+export type SavedQuoteJourneyMatchInput = {
+  customerEmail: string;
+  pickupLabel: string;
+  dropoffLabel: string;
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
+  tripDate: string;
+  tripTime: string;
+  returnJourney: boolean;
+  returnDate?: string;
+  returnTime?: string;
+  isFromAirport?: boolean;
+  tripDirection?: string;
+};
+
+/**
+ * Authoritative booking fields that decide whether reminders must stop.
+ * Failed, abandoned, and unpaid checkouts are not suppressing states.
+ */
+export type SavedQuoteBookingSuppressionView = {
+  status?: string;
+  operationalStatus?: string;
+  paymentStatus?: string;
+  isRefundTest?: boolean;
+  isAmendmentTestFixture?: boolean;
+};
+
+const REMINDER_SUPPRESSING_BOOKING_STATUSES = new Set([
+  "confirmed",
+  "partially_refunded",
+  "refunded_active",
+]);
+
+const REMINDER_NON_SUPPRESSING_STATES = new Set([
+  "cancelled",
+  "refunded",
+  "awaiting_payment",
+  "abandoned",
+  "failed",
+  "expired",
+  "pending",
+  "pending_payment",
+  "unpaid",
+]);
+
+export function normalizeSavedQuoteEmail(email: string | undefined | null): string {
+  return String(email ?? "").trim().toLowerCase();
+}
+
+export function normalizeSavedQuoteDate(value: string | undefined | null): string {
+  const raw = String(value ?? "").trim();
+  const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  return iso ? iso[1] : "";
+}
+
+/** 9:00 and 09:00:00 are the same pickup time. Empty stays empty. */
+export function normalizeSavedQuoteClock(value: string | undefined | null): string {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{1,2})[:.](\d{2})/);
+  if (!match) return "";
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour > 23 || minute > 59) {
+    return "";
+  }
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+export function normalizeSavedQuoteAddress(value: string | undefined | null): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[.,/#]/g, " ")
+    .replace(/\b(united kingdom|uk|northern ireland)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function normalizeSavedQuotePlaceId(value: string | undefined | null): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function savedQuotePlacesMatch(
+  placeIdA: string | undefined,
+  labelA: string | undefined,
+  placeIdB: string | undefined,
+  labelB: string | undefined,
+): boolean {
+  const idA = normalizeSavedQuotePlaceId(placeIdA);
+  const idB = normalizeSavedQuotePlaceId(placeIdB);
+  if (idA && idB) return idA === idB;
+  const left = normalizeSavedQuoteAddress(labelA);
+  const right = normalizeSavedQuoteAddress(labelB);
+  return Boolean(left) && left === right;
+}
+
+function savedQuoteDirectionsMatch(
+  left: SavedQuoteJourneyMatchInput,
+  right: SavedQuoteJourneyMatchInput,
+): boolean {
+  if (
+    typeof left.isFromAirport === "boolean" &&
+    typeof right.isFromAirport === "boolean" &&
+    left.isFromAirport !== right.isFromAirport
+  ) {
+    return false;
+  }
+  const directionA = String(left.tripDirection ?? "").trim().toLowerCase();
+  const directionB = String(right.tripDirection ?? "").trim().toLowerCase();
+  if (directionA && directionB && directionA !== directionB) return false;
+  return true;
+}
+
+/**
+ * True only when both sides are the same customer journey.
+ * A shared email with a different date, time, address, direction, or return is not a match.
+ */
+export function savedQuotesShareJourney(
+  left: SavedQuoteJourneyMatchInput,
+  right: SavedQuoteJourneyMatchInput,
+): boolean {
+  const emailA = normalizeSavedQuoteEmail(left.customerEmail);
+  const emailB = normalizeSavedQuoteEmail(right.customerEmail);
+  if (!emailA || emailA !== emailB) return false;
+
+  const dateA = normalizeSavedQuoteDate(left.tripDate);
+  const dateB = normalizeSavedQuoteDate(right.tripDate);
+  if (!dateA || dateA !== dateB) return false;
+
+  const timeA = normalizeSavedQuoteClock(left.tripTime);
+  const timeB = normalizeSavedQuoteClock(right.tripTime);
+  if (!timeA || timeA !== timeB) return false;
+
+  if (
+    !savedQuotePlacesMatch(left.pickupPlaceId, left.pickupLabel, right.pickupPlaceId, right.pickupLabel)
+  ) {
+    return false;
+  }
+  if (
+    !savedQuotePlacesMatch(
+      left.dropoffPlaceId,
+      left.dropoffLabel,
+      right.dropoffPlaceId,
+      right.dropoffLabel,
+    )
+  ) {
+    return false;
+  }
+
+  const returnA = Boolean(left.returnJourney);
+  const returnB = Boolean(right.returnJourney);
+  if (returnA !== returnB) return false;
+  if (returnA) {
+    const returnDateA = normalizeSavedQuoteDate(left.returnDate);
+    const returnDateB = normalizeSavedQuoteDate(right.returnDate);
+    if (!returnDateA || returnDateA !== returnDateB) return false;
+    const returnTimeA = normalizeSavedQuoteClock(left.returnTime);
+    const returnTimeB = normalizeSavedQuoteClock(right.returnTime);
+    if (!returnTimeA || returnTimeA !== returnTimeB) return false;
+  }
+
+  return savedQuoteDirectionsMatch(left, right);
+}
+
+export function savedQuoteJourneyMatchFromRecord(
+  record: Pick<SavedQuoteRecord, "customerEmail" | "journey">,
+): SavedQuoteJourneyMatchInput {
+  return {
+    customerEmail: record.customerEmail,
+    pickupLabel: record.journey.pickupLabel,
+    dropoffLabel: record.journey.dropoffLabel,
+    pickupPlaceId: record.journey.pickupPlaceId,
+    dropoffPlaceId: record.journey.dropoffPlaceId,
+    tripDate: record.journey.tripDate,
+    tripTime: record.journey.tripTime,
+    returnJourney: Boolean(record.journey.returnJourney),
+    returnDate: record.journey.returnDate,
+    returnTime: record.journey.returnTime,
+    isFromAirport: record.journey.isFromAirport,
+    tripDirection: record.journey.tripDirection,
+  };
+}
+
+/**
+ * Confirmed / accepted journeys and successfully paid bookings stop reminders.
+ * Cancelled journeys, refund-tests, and failed or abandoned checkouts do not.
+ */
+export function bookingSuppressesSavedQuoteReminders(
+  booking: SavedQuoteBookingSuppressionView,
+): boolean {
+  if (booking.isRefundTest || booking.isAmendmentTestFixture) return false;
+  const status = String(booking.status ?? "").trim().toLowerCase();
+  const operational = String(booking.operationalStatus ?? "").trim().toLowerCase();
+  const payment = String(booking.paymentStatus ?? "").trim().toLowerCase();
+
+  if (operational === "cancelled" || status === "cancelled" || status === "refunded") return false;
+  if (REMINDER_NON_SUPPRESSING_STATES.has(status) || REMINDER_NON_SUPPRESSING_STATES.has(payment)) {
+    return false;
+  }
+
+  const paid =
+    payment === "paid" ||
+    payment === "partially_refunded" ||
+    payment === "fully_refunded" ||
+    REMINDER_SUPPRESSING_BOOKING_STATUSES.has(status);
+  const confirmed =
+    operational === "confirmed" ||
+    (!operational && REMINDER_SUPPRESSING_BOOKING_STATUSES.has(status));
+  if (payment === "fully_refunded" && operational !== "confirmed" && status !== "refunded_active") {
+    return false;
+  }
+  return paid && confirmed;
+}
+
+export function savedQuoteReminderBlockedByBookings(
+  record: Pick<SavedQuoteRecord, "customerEmail" | "journey">,
+  bookings: Array<SavedQuoteJourneyMatchInput & SavedQuoteBookingSuppressionView>,
+): boolean {
+  const quote = savedQuoteJourneyMatchFromRecord(record);
+  return bookings.some(
+    (booking) =>
+      bookingSuppressesSavedQuoteReminders(booking) && savedQuotesShareJourney(quote, booking),
+  );
+}
+
 export function firstNameFromCustomerName(name: string): string {
   const part = String(name ?? "")
     .trim()

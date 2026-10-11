@@ -9,10 +9,15 @@ import {
   evaluateSavedQuoteAccess,
   formatSavedQuoteAmount,
   lockSavedQuotePricingFromServer,
+  normalizeSavedQuoteDate,
   normalizeSavedQuoteToken,
+  savedQuoteJourneyMatchFromRecord,
+  savedQuoteReminderBlockedByBookings,
+  savedQuotesShareJourney,
   shouldSendFinalReminder,
   shouldSendFirstReminder,
   toSavedQuotePublicSummary,
+  type SavedQuoteJourneyMatchInput,
   type SavedQuoteJourneySnapshot,
   type SavedQuotePricingSnapshot,
   type SavedQuoteRecord,
@@ -40,6 +45,8 @@ import {
   tryClaimSavedQuoteReminder,
 } from "./saved-quote-store";
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import { listPaidBookingsForTripDay } from "./paid-booking-store";
+import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
 import { ownerPricingEngineOptions, type OwnerPricingSettings } from "../shared/owner-pricing-config";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
@@ -545,11 +552,230 @@ export async function markSavedQuoteBookedFromPayment(
 }
 
 /**
- * Hourly cron: 24h + day-5 reminders; expire open quotes.
- * Re-checks status before every send. Claim-before-send narrows KV races
- * (same best-effort pattern as personal-quote reservations — KV has no true CAS).
+ * Root cause: reminders were gated only on the saved-quote row. That row was
+ * marked booked solely for the token attached to a successful SumUp checkout.
+ * A fresh website booking, and any other save of the same journey, stayed
+ * "saved", so the hourly cron kept emailing.
+ *
+ * On a confirmed paid booking we mark the linked token and every other open
+ * saved quote for that same customer journey. Immediately before each send
+ * the cron reads the trip-day booking index again, so a job queued or claimed
+ * earlier still sees the latest paid/confirmed state. Failed and abandoned
+ * checkouts never reach this function.
  */
-export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
+export async function suppressSavedQuoteRemindersForBooking(
+  store: KVNamespace,
+  input: {
+    savedQuoteToken?: string;
+    paymentReference: string;
+    checkoutId?: string;
+    bookedAt?: string;
+    match: SavedQuoteJourneyMatchInput;
+  },
+): Promise<{ markedTokens: string[] }> {
+  const marked = new Set<string>();
+  const meta = {
+    paymentReference: input.paymentReference,
+    checkoutId: input.checkoutId,
+    bookedAt: input.bookedAt,
+  };
+  const linkedToken = normalizeSavedQuoteToken(input.savedQuoteToken ?? "");
+  if (linkedToken.length >= 32) {
+    const linked = await markSavedQuoteBooked(store, linkedToken, meta);
+    if (linked) marked.add(linked.token);
+  }
+
+  const openTokens = await listOpenSavedQuoteTokens(store);
+  for (const openToken of openTokens) {
+    if (marked.has(openToken)) continue;
+    const record = await getSavedQuoteByToken(store, openToken);
+    if (!record || record.status !== "saved") continue;
+    if (!savedQuotesShareJourney(savedQuoteJourneyMatchFromRecord(record), input.match)) continue;
+    const updated = await markSavedQuoteBooked(store, record.token, meta);
+    if (updated) marked.add(updated.token);
+  }
+
+  if (marked.size > 0) {
+    console.log("[saved-quote] suppressed reminders after booking", {
+      paymentReference: input.paymentReference,
+      marked: marked.size,
+    });
+  }
+  return { markedTokens: [...marked] };
+}
+
+function paidBookingJourneyMatch(booking: PaidBookingRecord): SavedQuoteJourneyMatchInput {
+  return {
+    customerEmail: booking.customerEmail,
+    pickupLabel: booking.pickupLabel,
+    dropoffLabel: booking.dropoffLabel,
+    tripDate: booking.tripDate,
+    tripTime: booking.tripTime,
+    returnJourney: Boolean(booking.returnJourney),
+    returnDate: booking.returnDate,
+    returnTime: booking.returnTime,
+    isFromAirport: booking.isFromAirport,
+  };
+}
+
+/** Latest paid/confirmed booking for this quote's journey, if one exists. */
+export async function findAuthoritativeBookingBlockingSavedQuote(
+  store: KVNamespace,
+  record: SavedQuoteRecord,
+): Promise<PaidBookingRecord | null> {
+  const day = normalizeSavedQuoteDate(record.journey.tripDate);
+  if (!day) return null;
+  const bookings = await listPaidBookingsForTripDay(store, day);
+  const blocking = bookings.filter((booking) =>
+    savedQuoteReminderBlockedByBookings(record, [
+      {
+        ...paidBookingJourneyMatch(booking),
+        status: booking.status,
+        operationalStatus: booking.operationalStatus,
+        paymentStatus: booking.paymentStatus,
+        isRefundTest: booking.isRefundTest,
+        isAmendmentTestFixture: booking.isAmendmentTestFixture,
+      },
+    ]),
+  );
+  return blocking[0] ?? null;
+}
+
+export type SavedQuoteReminderSend = (
+  env: SavedQuoteEnv,
+  message: {
+    to: string;
+    toName?: string;
+    subject: string;
+    body: string;
+    htmlBody?: string;
+  },
+) => Promise<{ sent: boolean; error?: string }>;
+
+export type ProcessSavedQuoteRemindersOptions = {
+  now?: Date;
+  sendEmail?: SavedQuoteReminderSend;
+  /**
+   * Runs after a reminder is claimed and before the authoritative booking
+   * re-check. Tests use this to confirm a booking while a job is in flight.
+   */
+  afterClaim?: (record: SavedQuoteRecord) => Promise<void>;
+};
+
+async function deliverSavedQuoteReminder(input: {
+  env: SavedQuoteEnv;
+  store: KVNamespace;
+  token: string;
+  kind: "first" | "final";
+  now: Date;
+  origin: string;
+  options?: ProcessSavedQuoteRemindersOptions;
+}): Promise<"sent" | "skipped" | "error"> {
+  const { env, store, token, kind, now, origin, options } = input;
+  const claim = await tryClaimSavedQuoteReminder(store, token, kind);
+  if (!claim.ok) return "skipped";
+  const stillDue =
+    kind === "first"
+      ? shouldSendFirstReminder(claim.record, now)
+      : shouldSendFinalReminder(claim.record, now);
+  if (!stillDue || claim.record.status !== "saved") {
+    await clearSavedQuoteReminderClaim(store, token, kind, claim.claimId);
+    return "skipped";
+  }
+
+  if (options?.afterClaim) {
+    await options.afterClaim(claim.record);
+  }
+
+  let current = await getSavedQuoteByToken(store, token);
+  if (!current || current.status !== "saved") return "skipped";
+  if (kind === "first" ? current.firstReminderSentAt : current.finalReminderSentAt) return "skipped";
+  const dueNow =
+    kind === "first" ? shouldSendFirstReminder(current, now) : shouldSendFinalReminder(current, now);
+  if (!dueNow) {
+    await clearSavedQuoteReminderClaim(store, token, kind, claim.claimId);
+    return "skipped";
+  }
+
+  let blocker: PaidBookingRecord | null = null;
+  try {
+    blocker = await findAuthoritativeBookingBlockingSavedQuote(store, current);
+  } catch (error) {
+    await clearSavedQuoteReminderClaim(store, token, kind, claim.claimId);
+    console.error("[saved-quote] booking re-check failed", {
+      reference: current.reference,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return "error";
+  }
+  if (blocker) {
+    try {
+      await suppressSavedQuoteRemindersForBooking(store, {
+        savedQuoteToken: current.token,
+        paymentReference: blocker.paymentReference,
+        checkoutId: blocker.checkoutId,
+        match: paidBookingJourneyMatch(blocker),
+      });
+    } catch (error) {
+      console.error("[saved-quote] suppression during reminder failed", {
+        reference: current.reference,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return "skipped";
+  }
+
+  current = await getSavedQuoteByToken(store, token);
+  if (!current || current.status !== "saved") return "skipped";
+  if (kind === "first" ? current.firstReminderSentAt : current.finalReminderSentAt) return "skipped";
+  const ownsClaim =
+    kind === "first"
+      ? current.firstReminderClaimId === claim.claimId
+      : current.finalReminderClaimId === claim.claimId;
+  if (!ownsClaim) return "skipped";
+
+  const email =
+    kind === "first"
+      ? buildSavedQuoteFirstReminderEmail(current, { origin })
+      : buildSavedQuoteFinalReminderEmail(current, { origin });
+  const send = options?.sendEmail ?? trySendBrandedCustomerEmail;
+  const result = await send(env, {
+    to: current.customerEmail,
+    toName: current.customerName,
+    subject: email.subject,
+    body: email.text,
+    htmlBody: email.html,
+  });
+  if (result.sent) {
+    await patchSavedQuoteEmailTimestamps(store, token, {
+      ...(kind === "first"
+        ? { firstReminderSentAt: new Date().toISOString() }
+        : { finalReminderSentAt: new Date().toISOString() }),
+      lastEmailError: undefined,
+    });
+    return "sent";
+  }
+  await clearSavedQuoteReminderClaim(store, token, kind, claim.claimId);
+  await patchSavedQuoteEmailTimestamps(store, token, {
+    lastEmailError: result.error || (kind === "first" ? "First reminder failed" : "Final reminder failed"),
+  });
+  console.error("[saved-quote] reminder failed", {
+    kind,
+    reference: current.reference,
+    error: result.error,
+  });
+  return "error";
+}
+
+/**
+ * Hourly cron: 24h + day-5 reminders; expire open quotes.
+ * Re-checks saved-quote status and the latest paid booking before every send.
+ * Claim-before-send narrows KV races (KV has no true CAS).
+ */
+export async function processSavedQuoteReminders(
+  env: SavedQuoteEnv,
+  options?: ProcessSavedQuoteRemindersOptions,
+): Promise<{
   processed: number;
   firstReminders: number;
   finalReminders: number;
@@ -563,7 +789,7 @@ export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
 
   const store = env.TRACKING_STORE;
   const tokens = await listOpenSavedQuoteTokens(store);
-  const now = new Date();
+  const now = options?.now ?? new Date();
   let firstReminders = 0;
   let finalReminders = 0;
   let expired = 0;
@@ -595,81 +821,24 @@ export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
         continue;
       }
 
-      if (shouldSendFirstReminder(record, now)) {
-        const claim = await tryClaimSavedQuoteReminder(store, token, "first");
-        if (!claim.ok) {
-          skipped += 1;
-          continue;
-        }
-        // Re-check due window after claim (status may have changed).
-        if (!shouldSendFirstReminder(claim.record, now) || claim.record.status !== "saved") {
-          await clearSavedQuoteReminderClaim(store, token, "first", claim.claimId);
-          skipped += 1;
-          continue;
-        }
-        const email = buildSavedQuoteFirstReminderEmail(claim.record, { origin });
-        const result = await trySendBrandedCustomerEmail(env, {
-          to: claim.record.customerEmail,
-          toName: claim.record.customerName,
-          subject: email.subject,
-          body: email.text,
-          htmlBody: email.html,
+      if (shouldSendFirstReminder(record, now) || shouldSendFinalReminder(record, now)) {
+        const kind = shouldSendFirstReminder(record, now) ? "first" : "final";
+        const outcome = await deliverSavedQuoteReminder({
+          env,
+          store,
+          token,
+          kind,
+          now,
+          origin,
+          options,
         });
-        if (result.sent) {
-          await patchSavedQuoteEmailTimestamps(store, token, {
-            firstReminderSentAt: new Date().toISOString(),
-            lastEmailError: undefined,
-          });
-          firstReminders += 1;
-        } else {
-          await clearSavedQuoteReminderClaim(store, token, "first", claim.claimId);
-          await patchSavedQuoteEmailTimestamps(store, token, {
-            lastEmailError: result.error || "First reminder failed",
-          });
-          console.error("[saved-quote] first reminder failed", {
-            reference: claim.record.reference,
-            error: result.error,
-          });
+        if (outcome === "sent") {
+          if (kind === "first") firstReminders += 1;
+          else finalReminders += 1;
+        } else if (outcome === "error") {
           errors += 1;
-        }
-        continue;
-      }
-
-      if (shouldSendFinalReminder(record, now)) {
-        const claim = await tryClaimSavedQuoteReminder(store, token, "final");
-        if (!claim.ok) {
-          skipped += 1;
-          continue;
-        }
-        if (!shouldSendFinalReminder(claim.record, now) || claim.record.status !== "saved") {
-          await clearSavedQuoteReminderClaim(store, token, "final", claim.claimId);
-          skipped += 1;
-          continue;
-        }
-        const email = buildSavedQuoteFinalReminderEmail(claim.record, { origin });
-        const result = await trySendBrandedCustomerEmail(env, {
-          to: claim.record.customerEmail,
-          toName: claim.record.customerName,
-          subject: email.subject,
-          body: email.text,
-          htmlBody: email.html,
-        });
-        if (result.sent) {
-          await patchSavedQuoteEmailTimestamps(store, token, {
-            finalReminderSentAt: new Date().toISOString(),
-            lastEmailError: undefined,
-          });
-          finalReminders += 1;
         } else {
-          await clearSavedQuoteReminderClaim(store, token, "final", claim.claimId);
-          await patchSavedQuoteEmailTimestamps(store, token, {
-            lastEmailError: result.error || "Final reminder failed",
-          });
-          console.error("[saved-quote] final reminder failed", {
-            reference: claim.record.reference,
-            error: result.error,
-          });
-          errors += 1;
+          skipped += 1;
         }
         continue;
       }
