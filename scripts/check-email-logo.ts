@@ -64,7 +64,7 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   assert.match(html, /alt="My Airport Taxi NI"/);
   assert.match(html, /href="https:\/\/www\.myairporttaxini\.co\.uk\/"/);
   assert.match(html, /max-width:100%/);
-  assert.match(html, /width:220px/);
+  assert.match(html, name === "review request" ? /width:110px/ : /width:220px/);
   assert.match(html, /#071c38/);
   if (html.includes('class="matni-light"')) {
     assert.match(html, /name="color-scheme" content="light"/);

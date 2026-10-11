@@ -54,9 +54,8 @@ export function businessEmailClientMeta(): string {
  * Shared customer-email header mark. One logo, linked to the website.
  * Alt text is the company name, which clients show when images are blocked.
  */
-export function businessEmailLogoHtml(): string {
-  const width = BUSINESS_EMAIL_LOGO_WIDTH;
-  const height = BUSINESS_EMAIL_LOGO_HEIGHT;
+export function businessEmailLogoHtml(width = BUSINESS_EMAIL_LOGO_WIDTH): string {
+  const height = Math.round(width * BUSINESS_EMAIL_LOGO_HEIGHT / BUSINESS_EMAIL_LOGO_WIDTH);
   return `<a href="${BUSINESS_WEBSITE}/" style="text-decoration:none;display:inline-block;">
 <img class="matni-logo" src="${BUSINESS_EMAIL_LOGO_URL}" alt="${BUSINESS_EMAIL_LOGO_ALT}" width="${width}" height="${height}" border="0" bgcolor="#071c38" style="display:block;margin:0 auto;width:${width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;background-color:#071c38;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;line-height:1.2;color:#ffffff;" />
 </a>`;
