@@ -78,12 +78,16 @@ const collection = evaluateAirportPickupReminder({...base,pickupLabel:base.dropo
   isFromAirport:true,outboundAirportAccessOption:'express'},due);
 assert.ok(collection.eligible);
 assert.ok(collection.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+assert.ok(collection.html.indexOf("WHERE TO GO") < collection.html.indexOf(BELFAST_CITY_MAP_IMAGE_URL));
+assert.ok(collection.html.indexOf(BELFAST_CITY_MAP_IMAGE_URL) < collection.html.indexOf("WHEN YOU ARE READY"));
+assert.equal(collection.html.split(BELFAST_CITY_MAP_IMAGE_URL).length-1,1);
 assert.match(collection.text,/baggage/);
 const freeCollection = evaluateAirportPickupReminder({...base,pickupLabel:base.dropoffLabel,dropoffLabel:base.pickupLabel,
   isFromAirport:true,outboundAirportAccessOption:'free'},due);
 assert.ok(freeCollection.eligible);
 assert.match(freeCollection.text,/Long Stay/);
 assert.match(freeCollection.html,/Follow the instructions for your booked collection option/);
+assert.ok(freeCollection.html.indexOf(BELFAST_CITY_MAP_IMAGE_URL) < freeCollection.html.indexOf("WHEN YOU ARE READY"));
 assert.ok(!returnReminder.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
 const cityReturnCollection=evaluateAirportPickupReminder({...base,pickupLabel:base.dropoffLabel,dropoffLabel:base.pickupLabel,isFromAirport:true,journeyLeg:'return',returnAirportAccessOption:'express'},due);
 assert.ok(cityReturnCollection.eligible);assert.ok(cityReturnCollection.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
