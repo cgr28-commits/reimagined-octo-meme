@@ -1,0 +1,44 @@
+name: City Airport maps and journey reminders
+on:
+  pull_request:
+    paths:
+      - 'shared/belfast-city-airport-map.ts'
+      - 'shared/journey-reminder.ts'
+      - 'shared/airport-pickup-reminder.ts'
+      - 'shared/booking-notifications.ts'
+      - 'shared/tracking.ts'
+      - 'workers/addresses/src/journey-reminder-handlers.ts'
+      - 'workers/addresses/src/worker-email.ts'
+      - 'workers/addresses/src/index.ts'
+      - 'public/maps/**'
+      - 'scripts/check-journey-reminders-and-city-map.ts'
+      - 'scripts/check-city-airport-email-browser.mjs'
+      - '.github/workflows/city-airport-journey-emails.yml'
+permissions:
+  contents: read
+jobs:
+  journey-emails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-worker-shared.mjs
+      - run: node --import tsx scripts/check-journey-reminders-and-city-map.ts
+      - run: node --import tsx scripts/check-airport-pickup-reminder.ts
+      - run: node --import tsx scripts/check-customer-confirm-email.ts
+      - run: node --import tsx scripts/check-email-logo.ts
+      - run: npm ci --prefix workers/addresses
+      - run: npm --prefix workers/addresses run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/check-city-airport-email-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: city-airport-journey-email-previews
+          path: test-results/city-airport-emails/

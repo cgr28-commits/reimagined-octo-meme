@@ -1,3 +1,4 @@
+import { processDueJourneyReminders } from "./journey-reminder-handlers";
 import {
   isValidCapacityPassengerCount,
   isValidCapacitySuitcaseCount,
@@ -5424,6 +5425,14 @@ export default {
             console.error("Short-notice response expiry cron failed", error);
           }),
       );
+    }
+
+    // Four-hour customer journey reminders use the existing five-minute trigger.
+    // Other scheduled work keeps its existing hourly cadence.
+    if (!cron || cron === "*/5 * * * *") {
+      ctx.waitUntil(processDueJourneyReminders(env, new Date(event.scheduledTime)).then(result => {
+        if (result.sent || result.errors) console.log("Journey reminder cron", JSON.stringify(result));
+      }).catch(error => console.error("Journey reminder cron failed", error)));
     }
 
     if (!shouldRunHourlyScheduledJobs(cron)) return;

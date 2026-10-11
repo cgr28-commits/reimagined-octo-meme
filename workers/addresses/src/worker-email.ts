@@ -29,6 +29,8 @@ export type WorkerEmailEnv = {
 };
 
 export type EmailPayload = {
+  /** Optional Resend retry deduplication; omitted by all existing callers. */
+  idempotencyKey?: string;
   to: string;
   subject: string;
   body: string;
@@ -130,6 +132,7 @@ async function sendViaResend(
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
+      ...(options.idempotencyKey ? { "Idempotency-Key": `${options.idempotencyKey}${bcc ? "-bcc" : "-to"}` } : {}),
       "Content-Type": "application/json",
       Accept: "application/json",
     },
