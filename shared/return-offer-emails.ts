@@ -8,6 +8,7 @@ import {
   BUSINESS_MAILBOX,
   BUSINESS_NAME,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
+  lightCustomerEmailHtml,
   businessEmailClientMeta,
   businessEmailLogoHtml,
 } from "./business-email";
@@ -43,7 +44,7 @@ function brandedHtml(input: {
   ctaUrl: string;
   ctaLabel: string;
 }): string {
-  return `<!DOCTYPE html>
+  return lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${businessEmailClientMeta()}
 <title>${escapeHtml(input.title)} — ${escapeHtml(BUSINESS_NAME)}</title></head>
@@ -67,7 +68,7 @@ ${businessEmailLogoHtml()}
 <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>
 </td></tr>
 </table></td></tr></table>
-</body></html>`;
+</body></html>`);
 }
 
 export function buildReturnOfferEmail(input: {

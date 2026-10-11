@@ -4,7 +4,7 @@
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildA2aQuotePaymentLinkEmail } from "../shared/a2a-quote-payment-email";
 import {
@@ -54,6 +54,9 @@ function read(rel: string): string {
 }
 
 function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
+  if (name !== "booking confirmation" && name !== "updated booking confirmation") {
+    assert.match(html, /class="matni-light"/, `${name} should use the white customer theme`);
+  }
   const logos = html.match(/logo-email\.png/g) ?? [];
   assert.equal(logos.length, 1, `${name} should contain the logo once`);
   assert.equal(html.match(/<img\b/gi)?.length, 1, `${name} should have one image`);
@@ -63,13 +66,23 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   assert.match(html, /max-width:100%/);
   assert.match(html, /width:220px/);
   assert.match(html, /#071c38/);
-  assert.match(html, /#2fbf4a/);
+  if (html.includes('class="matni-light"')) {
+    assert.match(html, /name="color-scheme" content="light"/);
+    assert.match(html, /bgcolor="#ffffff"/);
+    assert.match(html, /color:#071c38/);
+  } else {
+    assert.match(html, /#2fbf4a/);
+  }
   assert.match(html, /color-scheme/);
   assert.match(html, preserved);
   assert.doesNotMatch(html, /google-business-logo\.png/);
   assert.doesNotMatch(html, /cid:/i);
   assert.doesNotMatch(html, /data:image/i);
   assert.match(html, />My Airport Taxi NI</);
+  if (process.env.EMAIL_PREVIEW_OUTPUT) {
+    mkdirSync(process.env.EMAIL_PREVIEW_OUTPUT, { recursive: true });
+    writeFileSync(join(process.env.EMAIL_PREVIEW_OUTPUT, name.replace(/[^a-z0-9]+/gi, "-") + ".html"), html);
+  }
   console.log(`OK  ${name}`);
 }
 
@@ -108,6 +121,7 @@ const confirmation = buildCustomerConfirmationEmail({
   checkoutReference: "matni-test-ref",
 } as never);
 assertSharedLogo("booking confirmation", confirmation.html, /Paid in full/);
+assert.doesNotMatch(confirmation.html, /matni-light/);
 assert.match(confirmation.html, /£45\.00/);
 assert.match(confirmation.subject, /Invoice & booking confirmed/);
 
@@ -138,6 +152,7 @@ const updated = buildUpdatedBookingConfirmationEmail(
   { whatChanged: ["Pickup time is now 10:00"], fareNote: "No change to your fare" },
 );
 assertSharedLogo("updated booking confirmation", updated.html, /Your booking has been updated/);
+assert.doesNotMatch(updated.html, /matni-light/);
 assert.match(updated.text, /No change to your fare/);
 assert.match(updated.text, /Pickup time is now 10:00/);
 

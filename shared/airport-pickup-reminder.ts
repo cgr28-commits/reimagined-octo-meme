@@ -18,6 +18,7 @@ import {
   BUSINESS_NAME,
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_PHONE_TEL,
+  lightCustomerEmailHtml,
   businessEmailClientMeta,
   businessEmailLogoHtml,
   businessWhatsAppChatUrl,
@@ -521,7 +522,7 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string): 
     })
     .join("");
 
-  return `<!DOCTYPE html>
+  return lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${businessEmailClientMeta()}
@@ -536,7 +537,7 @@ ${businessEmailLogoHtml()}
 </td></tr>
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}</td></tr>
 </table></td></tr></table>
-</body></html>`;
+</body></html>`);
 }
 
 export function airportPickupReminderUsesCompanyVoice(message: string): boolean {

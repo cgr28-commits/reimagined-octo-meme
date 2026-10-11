@@ -96,3 +96,47 @@ export function canonicalizeBookingConfirmedRedirectUrl(redirectUrl: string): st
     return trimmed;
   }
 }
+
+/**
+ * White/navy customer email theme. Opt-in only: paid invoice HTML keeps its
+ * existing theme. Inline colours support clients that strip head styles.
+ */
+export function lightCustomerEmailHtml(html: string): string {
+  const meta = `<meta name="color-scheme" content="light" />
+<meta name="supported-color-schemes" content="light" />
+<style type="text/css">
+  :root { color-scheme: light; supported-color-schemes: light; }
+  .matni-light { background-color: #ffffff !important; color: #071c38 !important; }
+  @media (prefers-color-scheme: dark) {
+    .matni-light, .matni-light table, .matni-light td, .matni-light div {
+      background-color: #ffffff !important;
+    }
+    .matni-light, .matni-light p, .matni-light div, .matni-light td,
+    .matni-light a, .matni-light span, .matni-light strong,
+    .matni-light h1, .matni-light h2, .matni-light h3, .matni-light li {
+      color: #071c38 !important; -webkit-text-fill-color: #071c38 !important;
+    }
+  }
+</style>`;
+  return html
+    .replace(businessEmailClientMeta(), meta)
+    .replace(/<(body|table|td|div|p|h[1-6]|span|li|ul|ol|strong|a)\b[^>]*>/gi, (tag, name: string) => {
+      const container = /^(body|table|td|div)$/i.test(name);
+      let next = tag.replace(/style="([^"]*)"/i, (_attribute: string, style: string) => {
+        const clean = style
+          .replace(/(^|;)\s*color\s*:[^;]*/gi, "$1")
+          .replace(name.toLowerCase() === "a" ? /(^|;)\s*background(?:-color)?\s*:[^;]*/gi : /$^/g, "$1background-color:#2fbf4a")
+          .replace(container ? /(^|;)\s*background(?:-color|-image)?\s*:[^;]*/gi : /$^/g, "$1");
+        return `style="${clean};color:#071c38;-webkit-text-fill-color:#071c38;${container ? "background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);" : ""}"`;
+      });
+      if (!/style="/i.test(next)) {
+        next = next.replace(/>$/, ` style="color:#071c38;-webkit-text-fill-color:#071c38;${container ? "background-color:#ffffff;background-image:linear-gradient(#ffffff,#ffffff);" : ""}">`);
+      }
+      if (container) {
+        next = next.replace(/\sbgcolor="[^"]*"/gi, "");
+        next = next.replace(/>$/, ' bgcolor="#ffffff">');
+      }
+      if (name.toLowerCase() === "body") next = next.replace("<body", '<body class="matni-light"');
+      return next;
+    });
+}
