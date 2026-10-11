@@ -1,3 +1,4 @@
+import { belfastInternationalMapHtml, belfastInternationalMapText } from "./belfast-international-airport-map";
 import { belfastCityMapHtml, belfastCityMapText } from "./belfast-city-airport-map";
 /**
  * Journey-day reminder for customers being collected FROM an airport.
@@ -477,8 +478,8 @@ export function evaluateAirportPickupReminder(
     reason: "due",
     message,
     subject,
-    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }),
-    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel })),
+    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input),
+    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input)),
     whatsAppHref,
     whatsAppDraft,
   };

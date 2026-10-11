@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'shared/belfast-city-airport-map.ts'
+      - 'shared/belfast-international-airport-map.ts'
       - 'shared/journey-reminder.ts'
       - 'shared/airport-pickup-reminder.ts'
       - 'shared/booking-notifications.ts'

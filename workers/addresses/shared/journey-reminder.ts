@@ -1,3 +1,4 @@
+import { belfastInternationalMapHtml, belfastInternationalMapText } from "./belfast-international-airport-map";
 import { airportPickupReminderGreeting, isCancelledBooking, type AirportPickupReminderInput } from "./airport-pickup-reminder";
 import { belfastCityMapHtml, belfastCityMapText } from "./belfast-city-airport-map";
 import { BUSINESS_NAME, businessWhatsAppChatUrl, businessEmailClientMeta, businessEmailLogoHtml, lightCustomerEmailHtml } from "./business-email";
@@ -59,14 +60,14 @@ export function evaluateJourneyReminder(input: JourneyReminderInput, now = new D
     ...(input.vehicle ? [["Vehicle", customerFacingVehicleName(input.vehicle)]] : []),
   ];
   const intro = `This is a reminder of your upcoming ${input.journeyLeg === "return" ? "return " : ""}journey with ${BUSINESS_NAME}. Please be ready at your booked pickup time.`;
-  const text = `${greeting}\n\n${intro}\n\n${leg.toUpperCase()}\n${rows.map(([key, value]) => `${key}: ${value}`).join("\n")}${belfastCityMapText(input)}\n\nIf you need help, message us on WhatsApp:\n${messageHref}\nOr reply to this email.\n\n${BUSINESS_NAME}`;
+  const text = `${greeting}\n\n${intro}\n\n${leg.toUpperCase()}\n${rows.map(([key, value]) => `${key}: ${value}`).join("\n")}${belfastCityMapText(input)}${belfastInternationalMapText(input)}\n\nIf you need help, message us on WhatsApp:\n${messageHref}\nOr reply to this email.\n\n${BUSINESS_NAME}`;
   const html = lightCustomerEmailHtml(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />${businessEmailClientMeta()}<title>Your journey reminder</title></head>
 <body style="margin:0;background:#ffffff;color:#071c38;font-family:Arial,Helvetica,sans-serif;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 16px;">
 <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;"><tr><td style="padding:24px 16px;text-align:center;">${businessEmailLogoHtml()}<h1 style="font-size:24px;line-height:1.35;">Your ${input.journeyLeg === "return" ? "return " : ""}journey reminder</h1></td></tr>
 <tr><td style="padding:16px;font-size:16px;line-height:1.7;word-break:break-word;"><p><strong>${escapeHtml(greeting)}</strong></p><p>${escapeHtml(intro)}</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="table-layout:fixed;">${rows.map(([key, value]) => `<tr><td style="width:35%;padding:10px 8px 10px 0;vertical-align:top;border-bottom:1px solid #e2e8f0;">${escapeHtml(key)}</td><td style="padding:10px 0;vertical-align:top;border-bottom:1px solid #e2e8f0;font-weight:bold;">${escapeHtml(value)}</td></tr>`).join("")}</table>
-${belfastCityMapHtml(input)}<p>If you need help, message us on WhatsApp.</p>
+${belfastCityMapHtml(input)}${belfastInternationalMapHtml(input)}<p>If you need help, message us on WhatsApp.</p>
 <div style="margin:20px 0;text-align:center;"><a href="${escapeHtml(messageHref)}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-size:18px;font-weight:bold;line-height:1.3;padding:16px 28px;border-radius:8px;">Message Us</a></div>
 <p style="font-size:14px;">If the button does not open, reply to this email.</p><p>${BUSINESS_NAME}</p></td></tr></table></td></tr></table></body></html>`);
   return { eligible: true as const, reason: "due", subject: `${leg} reminder${ref ? ` — ${ref}` : ""}`, text, html };
