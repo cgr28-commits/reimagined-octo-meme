@@ -91,7 +91,7 @@ const internationalCollection=evaluateAirportPickupReminder(internationalInput,d
 const internationalJourney=evaluateJourneyReminder(internationalInput,due);
 assert.ok(internationalCollection.eligible);assert.ok(internationalJourney.eligible);
 const internationalMap='/maps/belfast-international-pick-up-drop-off.jpg';
-for(const email of [internationalCollection,internationalJourney]) {
+for(const email of [internationalCollection]) {
  assert.ok(email.html.includes(internationalMap));assert.doesNotMatch(email.html,/\.pdf/);
  assert.match(email.html,/Free Long Stay and Meet &amp; Greet use different meeting points/);
 }
@@ -102,13 +102,17 @@ for(const option of ['free','meet-greet'] as const) {
  if(option==='free') assert.match(email.text,/Long Stay/);
 }
 const internationalReturn=evaluateJourneyReminder({...internationalInput,journeyLeg:'return',returnAirportAccessOption:'express'},due);
-assert.ok(internationalReturn.eligible);assert.ok(internationalReturn.html.includes(internationalMap));
+assert.ok(internationalReturn.eligible);assert.ok(!internationalReturn.html.includes(internationalMap));
+assert.ok(!internationalJourney.html.includes(internationalMap));
+assert.ok(!internationalJourney.text.includes("BELFAST INTERNATIONAL AIRPORT MAP"));
+const returnCollection=evaluateAirportPickupReminder({...internationalInput,journeyLeg:"return",returnAirportAccessOption:"express"},due);
+assert.ok(returnCollection.eligible);assert.ok(returnCollection.html.includes(internationalMap));
 for(const patch of [{pickupLabel:base.pickupLabel,dropoffLabel:'Belfast International Airport',isFromAirport:false},
  {pickupLabel:'Dublin Airport'}, {pickupLabel:base.dropoffLabel}, {pickupLabel:base.pickupLabel,pickupAirportCode:'BFS'}, {isFromAirport:false}]) {
  const email=evaluateJourneyReminder({...internationalInput,...patch},due);assert.ok(email.eligible);
  assert.ok(!email.html.includes(internationalMap));
 }
-console.log('PASS BFS pickup-only maps: Express/Free/Meet & Greet, outbound/return reminders, other airports and drop-offs excluded, no PDF');
+console.log('PASS BFS pickup-only maps: Express/Free/Meet & Greet, outbound/return collection emails only, general journey reminders/other airports/drop-offs excluded, no PDF');
 
 // Real handler + in-memory KV + intercepted email: no customer email or API call leaves this test.
 async function deliveryChecks() {

@@ -26,8 +26,8 @@ try {
    assert.equal(await page.locator('img[alt="My Airport Taxi NI"]').count(),1);
    const expected=file==='ordinary-journey-reminder.html'||file.startsWith('international-')?0:1;
    const bfs=page.locator('img[alt^="Belfast International Airport map"]');
-   assert.equal(await bfs.count(),file.startsWith('international-')?1:0);
-   if(file.startsWith('international-')) {assert.ok(await bfs.evaluate(img=>img.naturalWidth>=900));assert.ok((await bfs.boundingBox()).width<=390);assert.ok(!html.includes('.pdf'));}
+   assert.equal(await bfs.count(),file==='international-collection.html'?1:0);
+   if(file==='international-collection.html') {assert.ok(await bfs.evaluate(img=>img.naturalWidth>=900));assert.ok((await bfs.boundingBox()).width<=390);assert.ok(!html.includes('.pdf'));}
    assert.equal(await page.locator('img[alt^="Belfast City Airport Express"]').count(),expected);
    if(expected) {
     const picture=page.locator('img[alt^="Belfast City Airport Express"]');
