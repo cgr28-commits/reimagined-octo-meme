@@ -6,6 +6,7 @@ const output = 'test-results/city-airport-emails';
 const logo = await fs.readFile('public/logo-email.png');
 const map = await fs.readFile('public/maps/belfast-city-express-pick-up-drop-off.jpg');
 const internationalMap = await fs.readFile('public/maps/belfast-international-pick-up-drop-off.jpg');
+const dublinMap = await fs.readFile('public/maps/dublin-airport-car-parks.jpg');
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 try {
  for (const colorScheme of ['light','dark']) {
@@ -15,6 +16,7 @@ try {
    if(url.endsWith('/logo-email.png')) return route.fulfill({contentType:'image/png',body:logo});
    if(url.endsWith('/belfast-city-express-pick-up-drop-off.jpg')) return route.fulfill({contentType:'image/jpeg',body:map});
    if(url.endsWith('/belfast-international-pick-up-drop-off.jpg')) return route.fulfill({contentType:'image/jpeg',body:internationalMap});
+   if(url.endsWith('/dublin-airport-car-parks.jpg')) return route.fulfill({contentType:'image/jpeg',body:dublinMap});
    return route.abort();
   });
   const page=await context.newPage();
@@ -24,6 +26,9 @@ try {
    await page.locator('img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${file}: mobile overflow`);
    assert.equal(await page.locator('img[alt="My Airport Taxi NI"]').count(),1);
+   const dub=page.locator('img[alt^="Dublin Airport map"]');
+   assert.equal(await dub.count(),file.startsWith('dublin-')?1:0);
+   if(file.startsWith('dublin-')) {assert.ok(await dub.evaluate(img=>img.naturalWidth>500));assert.ok((await dub.boundingBox()).width<=390);}
    const expected=file==='city-collection.html'?1:0;
    const bfs=page.locator('img[alt^="Belfast International Airport map"]');
    assert.equal(await bfs.count(),file==='international-collection.html'?1:0);

@@ -2,6 +2,7 @@ name: City Airport maps and journey reminders
 on:
   pull_request:
     paths:
+      - 'shared/dublin-airport-map.ts'
       - 'shared/belfast-city-airport-map.ts'
       - 'shared/belfast-international-airport-map.ts'
       - 'shared/journey-reminder.ts'

@@ -1,3 +1,4 @@
+import { dublinAirportMapHtml, dublinAirportMapText } from "./dublin-airport-map";
 import { belfastInternationalMapHtml, belfastInternationalMapText } from "./belfast-international-airport-map";
 import { belfastCityMapHtml, belfastCityMapText } from "./belfast-city-airport-map";
 /**
@@ -257,7 +258,9 @@ export function resolveReminderAirportAccess(
   const legOption =
     leg === "return" ? input.returnAirportAccessOption : input.outboundAirportAccessOption;
   if (legOption === "meet-greet") return "meet-greet";
-  if (airport === "DUB") return null;
+  if (airport === "DUB") {
+    return leg === "outbound" && !legOption && input.airportAccessOption === "meet-greet" ? "meet-greet" : null;
+  }
   if (!EXPRESS_FREE_PICKUP_CONFIGURED[airport]) return null;
 
   if (legOption === "express" || legOption === "free") return legOption;
@@ -301,6 +304,13 @@ export function buildAirportPickupReminderDirections(
   const airport = reminderAirport(input);
   if (!airport) return null;
 
+  if (airport === "DUB") {
+    if (resolveReminderAirportAccess(input, airport) === "meet-greet") {
+      return "After collecting your baggage, please wait in Arrivals for your driver.";
+    }
+    return "After collecting your baggage, please contact your driver. You will receive a message on WhatsApp advising which car park to proceed to.";
+  }
+
   const access = resolveReminderAirportAccess(input, airport);
   if (access === "meet-greet") {
     return adaptDirections(
@@ -313,15 +323,6 @@ export function buildAirportPickupReminderDirections(
     );
   }
 
-  if (airport === "DUB") {
-    const instruction = buildAirportPickupInstruction({
-      isAirportPickup: true,
-      airportCode: "DUB",
-      pickupLabel: input.pickupLabel ?? getServedAirport("DUB")?.name,
-      dublinArrivalTerminal: dublinTerminalForLeg(input),
-    });
-    return adaptDirections(instruction);
-  }
 
   if (airport === "BFS" && access === "express") {
     return "After collecting your baggage, please make your way to the airport's Drop-Off Zone, which is signposted outside the terminal. Once you are there, contact your driver. Your driver will be waiting a few minutes away and will drive over to meet you. Please note there is a maximum stay of 10 minutes in the Drop-Off Zone for passenger pickup.";
@@ -398,7 +399,11 @@ export function buildAirportPickupReminderMessage(
     directions,
     "",
     "WHEN YOU ARE READY",
-    belfastExpress
+    airport === "DUB" && resolveReminderAirportAccess(input, airport) === "meet-greet"
+      ? "Please contact your driver to let them know you have collected your baggage and are waiting in Arrivals."
+      : airport === "DUB"
+      ? "Please wait for your driver’s WhatsApp message confirming the car park before making your way there."
+      : belfastExpress
       ? `Please contact your driver once you are at the ${expressMeetingPoint} and ready to be collected, so they can drive over to meet you.`
       : READY_COPY,
   ];
@@ -406,7 +411,7 @@ export function buildAirportPickupReminderMessage(
   if (whatsAppHref) {
     lines.push(
       "",
-      belfastExpress ? "If you need help contacting your driver, please contact us:" : CONTACT_INTRO,
+      (belfastExpress || airport === "DUB") ? "If you need help contacting your driver, please contact us:" : CONTACT_INTRO,
       "",
       "MESSAGE US ON WHATSAPP",
       whatsAppHref,
@@ -416,7 +421,7 @@ export function buildAirportPickupReminderMessage(
     );
   }
 
-  lines.push("", MEET_COPY, "", "We look forward to welcoming you.", "", BUSINESS_NAME);
+  lines.push("", airport === "DUB" && resolveReminderAirportAccess(input, airport) === "meet-greet" ? "Your driver will meet you in Arrivals." : MEET_COPY, "", "We look forward to welcoming you.", "", BUSINESS_NAME);
   return lines.join("\n");
 }
 
@@ -478,8 +483,8 @@ export function evaluateAirportPickupReminder(
     reason: "due",
     message,
     subject,
-    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input),
-    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input), true),
+    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input) + dublinAirportMapText(input),
+    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input) + dublinAirportMapHtml(input), true),
     whatsAppHref,
     whatsAppDraft,
   };
