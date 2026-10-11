@@ -1,3 +1,4 @@
+import { belfastInternationalMapHtml, belfastInternationalMapText } from "./belfast-international-airport-map";
 import { belfastCityMapHtml, belfastCityMapText } from "./belfast-city-airport-map";
 /**
  * Journey-day reminder for customers being collected FROM an airport.
@@ -477,8 +478,8 @@ export function evaluateAirportPickupReminder(
     reason: "due",
     message,
     subject,
-    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }),
-    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel })),
+    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input),
+    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input), matchServedAirportCode(input.pickupLabel ?? "") === "BHD"),
     whatsAppHref,
     whatsAppDraft,
   };
@@ -500,7 +501,8 @@ function whatsAppButtonBlock(href: string): string {
 </div>`;
 }
 
-function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, mapHtml = ""): string {
+function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, mapHtml = "", mapAfterDirections = false): string {
+  let mapPlaced = false;
   const paragraphs = message
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
@@ -519,7 +521,9 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, m
           `<a href="tel:${BUSINESS_PHONE_TEL}" style="color:#071c38;font-weight:bold;">${BUSINESS_PHONE_DISPLAY}</a>`,
         );
       }
-      return `<p style="margin:0 0 16px;">${safe}</p>`;
+      const showMap = mapAfterDirections && Boolean(mapHtml) && paragraph.startsWith("WHERE TO GO\n");
+      if (showMap) mapPlaced = true;
+      return `<p style="margin:0 0 16px;">${safe}</p>${showMap ? mapHtml : ""}`;
     })
     .join("");
 
@@ -536,7 +540,7 @@ ${businessEmailLogoHtml()}
 <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#2fbf4a;font-weight:bold;">${escapeHtml(BUSINESS_NAME)}</div>
 <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
 </td></tr>
-<tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}${mapHtml}</td></tr>
+<tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}${mapPlaced ? "" : mapHtml}</td></tr>
 </table></td></tr></table>
 </body></html>`);
 }

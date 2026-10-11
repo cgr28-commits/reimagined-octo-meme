@@ -59,7 +59,7 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   }
   const logos = html.match(/logo-email\.png/g) ?? [];
   assert.equal(logos.length, 1, `${name} should contain the logo once`);
-  assert.equal(html.match(/<img\b/gi)?.length, 1, `${name} should have one image`);
+  assert.equal(html.match(/<img\b[^>]*alt="My Airport Taxi NI"/gi)?.length, 1, `${name} should have one logo image`);
   assert.match(html, new RegExp(BUSINESS_EMAIL_LOGO_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(html, /alt="My Airport Taxi NI"/);
   assert.match(html, /href="https:\/\/www\.myairporttaxini\.co\.uk\/"/);
