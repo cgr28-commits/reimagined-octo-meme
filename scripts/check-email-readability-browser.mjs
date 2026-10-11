@@ -6,12 +6,14 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const output = 'test-results/email-readability';
 const files = (await fs.readdir(output)).filter(file => file.endsWith('.html'));
 const logo = await fs.readFile('public/logo-email.png');
+const originalLogo = await fs.readFile('public/logo.png');
 const map = await fs.readFile('public/maps/belfast-international-pick-up-drop-off.jpg');
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 try {
   for (const colorScheme of ['light', 'dark']) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme });
-    await context.route('**/*', route => route.request().url().endsWith('/logo-email.png')
+    await context.route('**/*', route => route.request().url().endsWith('/logo.png')
+      ? route.fulfill({contentType:'image/png',body:originalLogo}) : route.request().url().endsWith('/logo-email.png')
       ? route.fulfill({ contentType: 'image/png', body: logo }) : route.request().url().endsWith('/belfast-international-pick-up-drop-off.jpg') ? route.fulfill({contentType:'image/jpeg',body:map}) : route.abort());
     const page = await context.newPage();
     for (const file of files) {
