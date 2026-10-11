@@ -118,7 +118,13 @@ for (const terminal of ['T1','T2']) {
 }
 const dublinMeet=evaluateAirportPickupReminder({...base,pickupLabel:'Dublin Airport',isFromAirport:true,airportCode:'DUB',outboundAirportAccessOption:'meet-greet'},due);
 assert.ok(dublinMeet.eligible);assert.ok(dublinMeet.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
-assert.match(dublinMeet.html,/After collecting your baggage, please contact your driver/);
+assert.match(dublinMeet.html,/After collecting your baggage, please wait in Arrivals for your driver/);
+assert.doesNotMatch(dublinMeet.text,/which car park to proceed to|confirming the car park/);
+for (const patch of [{journeyLeg:"return",returnAirportAccessOption:"meet-greet"},{outboundAirportAccessOption:null,airportAccessOption:"meet-greet"}]) {
+ const email=evaluateAirportPickupReminder({...base,pickupLabel:"Dublin Airport",isFromAirport:true,airportCode:"DUB",...patch} as any,due);
+ assert.ok(email.eligible);assert.match(email.text,/please wait in Arrivals for your driver/);
+}
+dublinCollections["dublin-meet-greet-collection"]=dublinMeet;
 assert.doesNotMatch(dublinMeet.html,/10 minutes|maximum stay|limited waiting/);
 assert.equal(dublinAirportMapHtml({pickupLabel:base.pickupLabel,isFromAirport:false}),'');
 assert.equal(dublinAirportMapHtml({pickupLabel:'Belfast City Airport'}),'');

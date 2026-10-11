@@ -258,7 +258,9 @@ export function resolveReminderAirportAccess(
   const legOption =
     leg === "return" ? input.returnAirportAccessOption : input.outboundAirportAccessOption;
   if (legOption === "meet-greet") return "meet-greet";
-  if (airport === "DUB") return null;
+  if (airport === "DUB") {
+    return leg === "outbound" && !legOption && input.airportAccessOption === "meet-greet" ? "meet-greet" : null;
+  }
   if (!EXPRESS_FREE_PICKUP_CONFIGURED[airport]) return null;
 
   if (legOption === "express" || legOption === "free") return legOption;
@@ -303,6 +305,9 @@ export function buildAirportPickupReminderDirections(
   if (!airport) return null;
 
   if (airport === "DUB") {
+    if (resolveReminderAirportAccess(input, airport) === "meet-greet") {
+      return "After collecting your baggage, please wait in Arrivals for your driver.";
+    }
     return "After collecting your baggage, please contact your driver. You will receive a message on WhatsApp advising which car park to proceed to.";
   }
 
@@ -394,7 +399,9 @@ export function buildAirportPickupReminderMessage(
     directions,
     "",
     "WHEN YOU ARE READY",
-    airport === "DUB"
+    airport === "DUB" && resolveReminderAirportAccess(input, airport) === "meet-greet"
+      ? "Please contact your driver to let them know you have collected your baggage and are waiting in Arrivals."
+      : airport === "DUB"
       ? "Please wait for your driver’s WhatsApp message confirming the car park before making your way there."
       : belfastExpress
       ? `Please contact your driver once you are at the ${expressMeetingPoint} and ready to be collected, so they can drive over to meet you.`
@@ -414,7 +421,7 @@ export function buildAirportPickupReminderMessage(
     );
   }
 
-  lines.push("", MEET_COPY, "", "We look forward to welcoming you.", "", BUSINESS_NAME);
+  lines.push("", airport === "DUB" && resolveReminderAirportAccess(input, airport) === "meet-greet" ? "Your driver will meet you in Arrivals." : MEET_COPY, "", "We look forward to welcoming you.", "", BUSINESS_NAME);
   return lines.join("\n");
 }
 
