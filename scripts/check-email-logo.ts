@@ -57,7 +57,7 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   if (name !== "booking confirmation" && name !== "updated booking confirmation") {
     assert.match(html, /class="matni-light"/, `${name} should use the white customer theme`);
   }
-  const logoUrl = name === "review request" ? "https://www.myairporttaxini.co.uk/logo.png" : BUSINESS_EMAIL_LOGO_URL;
+  const logoUrl = BUSINESS_EMAIL_LOGO_URL;
   const logos = html.split(logoUrl).slice(1);
   assert.equal(logos.length, 1, `${name} should contain the logo once`);
   assert.equal(html.match(/<img\b[^>]*alt="My Airport Taxi NI"/gi)?.length, 1, `${name} should have one logo image`);
@@ -89,7 +89,7 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
 
 const logo = businessEmailLogoHtml();
 assert.equal(BUSINESS_EMAIL_LOGO_ALT, "My Airport Taxi NI");
-assert.equal(BUSINESS_EMAIL_LOGO_URL, "https://www.myairporttaxini.co.uk/logo-email.png");
+assert.equal(BUSINESS_EMAIL_LOGO_URL, "https://www.myairporttaxini.co.uk/logo.png");
 assert.equal(BUSINESS_EMAIL_LOGO_WIDTH, 220);
 assert.equal(BUSINESS_EMAIL_LOGO_HEIGHT, 170);
 assert.equal(logo.match(/<img\b/g)?.length, 1);

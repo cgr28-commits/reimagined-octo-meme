@@ -25,13 +25,13 @@ export function businessWhatsAppPublicPageUrl(siteUrl = BUSINESS_WEBSITE): strin
 }
 
 /**
- * Horizontal email header. PNG export of the website header logo
- * (public/logo-header.webp) so Gmail, Outlook, and Apple Mail can load it.
+ * Original high-resolution PNG artwork for all email headers.
+ * Compatible with Gmail, Outlook, and Apple Mail.
  * Public HTTPS URL — the file is not attached to the message.
  */
-export const BUSINESS_EMAIL_LOGO_URL = `${BUSINESS_WEBSITE}/logo-email.png`;
+export const BUSINESS_EMAIL_LOGO_URL = `${BUSINESS_WEBSITE}/logo.png`;
 export const BUSINESS_EMAIL_LOGO_ALT = "My Airport Taxi NI";
-/** Display size. Source artwork is 124×96; the PNG is 372×288 so it stays sharp. */
+/** Display size. Original source artwork is 697×541, over 3× the default display width. */
 export const BUSINESS_EMAIL_LOGO_WIDTH = 220;
 export const BUSINESS_EMAIL_LOGO_HEIGHT = 170;
 

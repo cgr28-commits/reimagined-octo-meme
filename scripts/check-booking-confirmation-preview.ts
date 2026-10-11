@@ -24,7 +24,7 @@ for (const result of [email,updated]) {
  assert.match(result.html,/Belfast City Hall/); assert.match(result.html,/Belfast City Airport/);
  assert.match(result.html,/alex@example\.invalid/); // retain full booking/contact detail
  assert.match(result.html,/Alex Example/); // stored full name stays in booking details
- assert.equal(result.html.match(/logo-email\.png/g)?.length,1);
+ assert.equal(result.html.match(/logo\.png/g)?.length,1);
 }
 assert.match(email.html,/Thank you, Alex<\/div>/);
 assert.match(updated.html,/Your booking has been updated, Alex<\/div>/);
