@@ -7,11 +7,12 @@ assert.ok(result.eligible);
 const output='test-results/homepage-booking';
 await fs.mkdir(output,{recursive:true});
 const png=await fs.readFile('public/logo-email.png');
+const map=await fs.readFile('public/maps/belfast-city-express-pick-up-drop-off.jpg');
 const browser=await chromium.launch();
 try {
  for (const colorScheme of ['light','dark']) {
   const context=await browser.newContext({viewport:{width:390,height:900},colorScheme});
-  await context.route('**/*',route=>route.request().url().endsWith('/logo-email.png') ? route.fulfill({contentType:'image/png',body:png}) : route.abort());
+  await context.route('**/*',route=>route.request().url().endsWith('/logo-email.png') ? route.fulfill({contentType:'image/png',body:png}) : route.request().url().endsWith('/belfast-city-express-pick-up-drop-off.jpg') ? route.fulfill({contentType:'image/jpeg',body:map}) : route.abort());
   const page=await context.newPage();
   await page.setContent(result.html);
   await page.waitForFunction(()=>Array.from(document.images).every(i=>i.complete&&i.naturalWidth>0));
@@ -21,6 +22,7 @@ try {
   await page.screenshot({path:`${output}/390-collection-email-${colorScheme}.png`,fullPage:true});
   await page.setContent(await fs.readFile('public/invoice-example.html','utf8'));
   await page.waitForFunction(()=>Array.from(document.images).every(i=>i.complete&&i.naturalWidth>0));
+  assert.equal(await page.locator('img[alt^="Belfast City Airport Express"]').count(),1);
   assert.ok(await page.getByText('Thank you, Alex',{exact:true}).isVisible());
   assert.ok(await page.getByText('MAT-1001',{exact:true}).first().isVisible());
   assert.ok(await page.getByRole('link',{name:'Manage Your Booking',exact:true}).isVisible());
