@@ -1891,8 +1891,9 @@ ${businessEmailClientMeta()}
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Hi ${firstName},</p>
               <p style="margin:0 0 16px;">Thank you for travelling with ${escapeHtml(businessName)}.</p>
-              <p style="margin:0 0 16px;">I hope you had a comfortable journey.</p>
-              <p style="margin:0;">If you have a moment, I’d really appreciate you sharing your experience on Google. Your feedback helps other customers find and trust our service.</p>
+              <p style="margin:0 0 16px;">We hope you had a comfortable journey and felt well looked after.</p>
+              <p style="margin:0;">As a small independent business, your support means a great deal to us. Every booking helps us grow, and we’re grateful you chose to travel with us.</p>
+              <p style="margin:16px 0 0;">If you have a moment, please share your experience on Google. An honest review makes a real difference: it helps new customers feel confident booking with us and supports a small business like ours.</p>
             </td>
           </tr>
           <tr>
@@ -1903,7 +1904,7 @@ ${businessEmailClientMeta()}
           </tr>
           <tr>
             <td style="padding:0 32px 28px;font-size:15px;line-height:1.7;color:#334155;">
-              <p style="margin:0 0 16px;">Thank you again for choosing ${escapeHtml(businessName)}.</p>
+              <p style="margin:0 0 16px;">Thank you again for supporting ${escapeHtml(businessName)}. We’d love to welcome you back for your next journey.</p>
               <p style="margin:0;">Kind regards,<br /><strong>${escapeHtml(businessName)}</strong></p>
             </td>
           </tr>
@@ -1938,11 +1939,11 @@ export function buildGoogleReviewRequestEmail(
   const text =
     `Hi ${firstName},\n\n` +
     `Thank you for travelling with ${businessName}.\n\n` +
-    `I hope you had a comfortable journey.\n\n` +
-    `If you have a moment, I'd really appreciate you sharing your experience on Google. ` +
-    `Your feedback helps other customers find and trust our service.\n\n` +
+    `We hope you had a comfortable journey and felt well looked after.\n\n` +
+    `As a small independent business, your support means a great deal to us. Every booking helps us grow, and we’re grateful you chose to travel with us.\n\n` +
+    `If you have a moment, please share your experience on Google. An honest review makes a real difference: it helps new customers feel confident booking with us and supports a small business like ours.\n\n` +
     `Leave a Google Review:\n${reviewUrl}\n\n` +
-    `Thank you again for choosing ${businessName}.\n\n` +
+    `Thank you again for supporting ${businessName}. We’d love to welcome you back for your next journey.\n\n` +
     `Kind regards,\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
