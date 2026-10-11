@@ -1,3 +1,4 @@
+import { dublinAirportMapHtml, dublinAirportMapText } from "./dublin-airport-map";
 import { belfastInternationalMapHtml, belfastInternationalMapText } from "./belfast-international-airport-map";
 import { belfastCityMapHtml, belfastCityMapText } from "./belfast-city-airport-map";
 /**
@@ -478,8 +479,8 @@ export function evaluateAirportPickupReminder(
     reason: "due",
     message,
     subject,
-    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input),
-    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input), true),
+    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input) + dublinAirportMapText(input),
+    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input) + dublinAirportMapHtml(input), true),
     whatsAppHref,
     whatsAppDraft,
   };

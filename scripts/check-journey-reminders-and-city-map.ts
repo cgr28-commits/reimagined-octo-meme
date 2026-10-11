@@ -1,3 +1,4 @@
+import { DUBLIN_AIRPORT_MAP_IMAGE_URL, dublinAirportMapHtml } from '../shared/dublin-airport-map';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { evaluateJourneyReminder, resolveJourneyReminderCustomerName } from '../shared/journey-reminder';
@@ -95,6 +96,34 @@ assert.ok(!reminder.text.includes('BELFAST CITY AIRPORT MAP'));
 assert.ok(!booking.text.includes('BELFAST CITY AIRPORT MAP'));
 console.log('PASS City map only in outbound/return collection emails; confirmations/general journey reminders excluded');
 
+const dublinCollections: Record<string, {html:string;text:string}> = {};
+for (const terminal of ['T1','T2']) {
+ for (const leg of ['outbound','return'] as const) {
+  const input={...base,pickupLabel:`Dublin Airport ${terminal}`,dropoffLabel:base.pickupLabel,
+   isFromAirport:true,airportCode:'DUB',journeyLeg:leg,dublinArrivalTerminal:terminal,returnDublinArrivalTerminal:terminal};
+  const email=evaluateAirportPickupReminder(input,due);
+  assert.ok(email.eligible);
+  assert.equal(email.html.split(DUBLIN_AIRPORT_MAP_IMAGE_URL).length-1,1);
+  assert.ok(email.html.indexOf('WHERE TO GO')<email.html.indexOf(DUBLIN_AIRPORT_MAP_IMAGE_URL));
+  assert.ok(email.html.indexOf(DUBLIN_AIRPORT_MAP_IMAGE_URL)<email.html.indexOf('WHEN YOU ARE READY'));
+  assert.match(email.html,/meeting point confirmed by your driver/);
+  assert.doesNotMatch(email.html,/\.pdf/);
+  dublinCollections[`dublin-${terminal.toLowerCase()}-${leg}-collection`]=email;
+  const general=evaluateJourneyReminder(input,due);assert.ok(general.eligible);
+  assert.ok(!general.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
+ }
+}
+const dublinMeet=evaluateAirportPickupReminder({...base,pickupLabel:'Dublin Airport',isFromAirport:true,airportCode:'DUB',outboundAirportAccessOption:'meet-greet'},due);
+assert.ok(dublinMeet.eligible);assert.ok(dublinMeet.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
+assert.match(dublinMeet.html,/meet your driver inside Arrivals as arranged/);
+assert.equal(dublinAirportMapHtml({pickupLabel:base.pickupLabel,isFromAirport:false}),'');
+assert.equal(dublinAirportMapHtml({pickupLabel:'Belfast City Airport'}),'');
+assert.equal(evaluateAirportPickupReminder({...base,dropoffLabel:'Dublin Airport',isFromAirport:false},due).eligible,false);
+for(const email of [collection,booking,updated]) assert.ok(!email.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
+const dublinBooking=buildCustomerConfirmationEmail({...receipt,airportCode:'DUB',isFromAirport:true,pickupLabel:'Dublin Airport'});
+assert.ok(!dublinBooking.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
+console.log('PASS Dublin T1/T2 outbound/return: one inline map under directions; dropoffs, other airports, general reminders and invoices excluded');
+
 const internationalInput = {...base,pickupLabel:'Belfast International Airport',dropoffLabel:base.pickupLabel,isFromAirport:true,outboundAirportAccessOption:'express' as const};
 const internationalCollection=evaluateAirportPickupReminder(internationalInput,due);
 const internationalJourney=evaluateJourneyReminder(internationalInput,due);
@@ -181,7 +210,7 @@ deliveryChecks().catch(error => {console.error(error);process.exitCode=1;});
 const cron=readFileSync('workers/addresses/src/index.ts','utf8');
 assert.ok(cron.indexOf('processDueJourneyReminders(env,')<cron.indexOf('if (!shouldRunHourlyScheduledJobs(cron)) return;'));
 mkdirSync('test-results/city-airport-emails',{recursive:true});
-for(const [name,email] of Object.entries({'international-collection':internationalCollection,'international-journey-reminder':internationalJourney,'international-return-journey-reminder':internationalReturn,'city-booking':booking,'city-collection':collection,'journey-reminder':reminder,'return-journey-reminder':returnReminder,'ordinary-journey-reminder':ordinary})) {
+for(const [name,email] of Object.entries({...dublinCollections,'international-collection':internationalCollection,'international-journey-reminder':internationalJourney,'international-return-journey-reminder':internationalReturn,'city-booking':booking,'city-collection':collection,'journey-reminder':reminder,'return-journey-reminder':returnReminder,'ordinary-journey-reminder':ordinary})) {
  writeFileSync(`test-results/city-airport-emails/${name}.html`,email.html);
  writeFileSync(`test-results/city-airport-emails/${name}.txt`,email.text);
 }
