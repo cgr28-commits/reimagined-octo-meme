@@ -21,6 +21,9 @@ try {
       if (url.pathname === '/quote/availability') return json({blocked:false,available:true,alternativeTimes:[]});
       return route.abort(); // Never call live booking, payment or email services.
     });
+    const previewPricing = defaultOwnerPricingSettings();
+    previewPricing.meetGreet={bfsGbp:25,bhdGbp:25,dubGbp:25};
+    await context.addInitScript(settings => localStorage.setItem('matni:preview-pricing-settings',JSON.stringify(settings)),previewPricing);
     const page = await context.newPage();
     await page.goto(`${base}/?previewJourney=bfs&previewMinibus=1`);
     await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
