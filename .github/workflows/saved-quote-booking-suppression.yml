@@ -1,0 +1,26 @@
+name: Saved quote booking suppression
+on:
+  pull_request:
+    paths:
+      - 'workers/addresses/src/saved-quote-*.ts'
+      - 'workers/addresses/src/paid-booking-store.ts'
+      - 'shared/saved-quote.ts'
+      - 'scripts/check-saved-quote-booking-suppression.ts'
+      - '.github/workflows/saved-quote-booking-suppression.yml'
+permissions:
+  contents: read
+jobs:
+  saved-quote-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-worker-shared.mjs
+      - run: node --import tsx scripts/check-saved-quote-booking-suppression.ts
+      - run: node --import tsx scripts/check-saved-quote.ts
+      - run: npm ci --prefix workers/addresses
+      - run: npm --prefix workers/addresses run build

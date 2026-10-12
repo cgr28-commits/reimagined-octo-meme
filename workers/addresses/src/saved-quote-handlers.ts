@@ -46,6 +46,7 @@ import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { resolveExpressDropOff } from "../shared/express-drop-off";
 import { quoteAirportAccessCharges } from "../shared/meet-greet";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
+import { suppressSavedQuoteReminderForBookedJourney } from "./saved-quote-booking-match";
 
 export type SavedQuoteEnv = WorkerEmailEnv & {
   TRACKING_STORE: KVNamespace;
@@ -607,6 +608,11 @@ export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
           skipped += 1;
           continue;
         }
+        if (await suppressSavedQuoteReminderForBookedJourney(store, claim.record)) {
+          await clearSavedQuoteReminderClaim(store, token, "first", claim.claimId);
+          skipped += 1;
+          continue;
+        }
         const email = buildSavedQuoteFirstReminderEmail(claim.record, { origin });
         const result = await trySendBrandedCustomerEmail(env, {
           to: claim.record.customerEmail,
@@ -642,6 +648,11 @@ export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
           continue;
         }
         if (!shouldSendFinalReminder(claim.record, now) || claim.record.status !== "saved") {
+          await clearSavedQuoteReminderClaim(store, token, "final", claim.claimId);
+          skipped += 1;
+          continue;
+        }
+        if (await suppressSavedQuoteReminderForBookedJourney(store, claim.record)) {
           await clearSavedQuoteReminderClaim(store, token, "final", claim.claimId);
           skipped += 1;
           continue;
