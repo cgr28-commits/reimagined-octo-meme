@@ -45,7 +45,7 @@ export function previewMinibusQueryEnabled(): boolean {
 export function previewCustomerJourneyRequested(): boolean {
   if (typeof window === "undefined" || !isBrowserPricingPreview()) return false;
   const value = new URLSearchParams(window.location.search).get("previewJourney");
-  return value === "1" || value === "bfs" || value === "true";
+  return value === "1" || value === "bfs" || value === "true" || value === "ireland";
 }
 
 export function previewPartyFromQuery(): {

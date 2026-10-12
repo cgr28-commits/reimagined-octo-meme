@@ -30,7 +30,7 @@ export const LONG_DISTANCE_HIGHLIGHTS = [
   {
     title: "Fixed quotes where needed",
     description:
-      "Dublin Airport and many Northern Ireland routes into Greater Belfast show an online price where available. Other out-of-area pickups and Republic of Ireland city destinations use Request Fixed Quote.",
+      "Belfast International and Belfast City Airport pickups can receive instant quotes to destinations throughout Northern Ireland and the Republic of Ireland. Enter your exact destination address to check the price and availability. Other out-of-area pickups may require Request Fixed Quote.",
   },
 ] as const;
 
