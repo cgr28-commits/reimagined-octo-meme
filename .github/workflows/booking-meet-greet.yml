@@ -1,0 +1,38 @@
+name: Booking Meet and Greet
+on:
+  pull_request:
+    paths:
+      - 'shared/meet-greet.ts'
+      - 'scripts/check-booking-meet-greet*'
+      - '.github/workflows/booking-meet-greet.yml'
+permissions:
+  contents: read
+jobs:
+  booking-meet-greet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-worker-shared.mjs
+      - run: node --import tsx scripts/check-booking-meet-greet.ts
+      - run: node --import tsx scripts/check-meet-greet.ts
+      - run: node --import tsx scripts/check-business-class-quote-selector.ts
+      - run: npm ci --prefix workers/addresses
+      - run: npm --prefix workers/addresses run build
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - name: Mobile and desktop booking preview
+        run: |
+          python3 -m http.server 3000 --directory out &
+          node --import tsx scripts/check-booking-meet-greet-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: booking-meet-greet-previews
+          path: test-results/meet-greet/

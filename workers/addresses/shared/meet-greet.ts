@@ -211,6 +211,8 @@ export function quoteAirportAccessCharges(input: {
   fees?: MeetGreetFeesGbp | null;
   /** Executive airport pickup: Meet & Greet is part of the fare, not an extra charge. */
   meetGreetIncluded?: boolean;
+  /** Booking-stage opt-in; older saved/agreed quotes retain their locked pricing. */
+  allowPaidMeetGreet?: boolean;
 }): QuotedAirportAccess {
   // Customer free / Meet & Greet choices are ignored. The configured terminal fee applies.
   const expressLegs = input.expressLegs ?? [];
@@ -263,6 +265,18 @@ export function quoteAirportAccessCharges(input: {
       meetGreetFeeGbp: 0,
       chargeGbp: 0,
     });
+  }
+
+  if (input.allowPaidMeetGreet) {
+    for (const pickup of pickupLegs) {
+      const row = legs.find(leg => leg.leg === pickup.leg && leg.service === "pick-up");
+      const choice = pickup.leg === "outbound" ? input.outboundChoice : input.returnChoice;
+      if (row && (choice === "meet-greet" || input.meetGreetIncluded)) {
+        row.option = "meet-greet";
+        row.meetGreetFeeGbp = input.meetGreetIncluded ? 0 : meetGreetFeeGbp(pickup.airportCode, input.fees);
+        row.chargeGbp = roundGbp(row.expressFeeGbp + row.meetGreetFeeGbp);
+      }
+    }
   }
 
   const chargeFor = (legName: "outbound" | "return") =>

@@ -2769,10 +2769,11 @@ async function handlePaymentRequest(
       isAirportToAirport: airportContext.isAirportToAirport,
       pickupAirportCode: airportContext.pickupAirportCode,
       dropoffAirportCode: airportContext.dropoffAirportCode,
-      outboundChoice: "express",
-      returnChoice: "express",
+      outboundChoice: booking.outboundAirportAccessOption === "meet-greet" ? "meet-greet" : "express",
+      returnChoice: booking.returnAirportAccessOption === "meet-greet" ? "meet-greet" : "express",
       fees: pricing.meetGreet,
       meetGreetIncluded: isExecutiveVehicle(vehicleType),
+      allowPaidMeetGreet: true,
     });
     const persisted = {
       ...expressPersisted,

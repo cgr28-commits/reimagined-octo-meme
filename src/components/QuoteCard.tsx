@@ -263,6 +263,8 @@ import {
 } from "../../shared/express-drop-off";
 import {
   listAirportPickupLegs,
+  meetGreetFeeGbp,
+  formatMeetGreetGbp,
   quoteAirportAccessCharges,
   type AirportAccessChoice,
   type AirportPickupLegRef,
@@ -1386,7 +1388,7 @@ function QuoteCard({
         draft.outboundAirportAccessChoice === "meet-greet" ||
         typeof draft.expressDropOffSelected === "boolean"
       ) {
-        setOutboundAccessChoice("express");
+        setOutboundAccessChoice(draft.outboundAirportAccessChoice === "meet-greet" ? "meet-greet" : "express");
       }
       if (
         draft.returnAirportAccessChoice === "express" ||
@@ -1394,7 +1396,7 @@ function QuoteCard({
         draft.returnAirportAccessChoice === "meet-greet" ||
         typeof draft.returnExpressDropOffSelected === "boolean"
       ) {
-        setReturnAccessChoice("express");
+        setReturnAccessChoice(draft.returnAirportAccessChoice === "meet-greet" ? "meet-greet" : "express");
       }
       if (draft.personalQuoteCode?.trim()) {
         const code = draft.personalQuoteCode.trim().toUpperCase();
@@ -2626,6 +2628,7 @@ function QuoteCard({
         returnChoice: returnAccessChoice,
         fees: publicPricing.meetGreet,
         meetGreetIncluded: isExecutiveVehicle(quoteVehicle),
+        allowPaidMeetGreet: useOpenWebsitePromoPricing,
       }),
     [
       expressSelection.legs,
@@ -2638,6 +2641,7 @@ function QuoteCard({
       outboundAccessChoice,
       returnAccessChoice,
       publicPricing.meetGreet,
+      useOpenWebsitePromoPricing,
       quoteVehicle,
     ],
   );
@@ -6652,6 +6656,39 @@ function QuoteCard({
                   Child seats are requested subject to availability. We’ll confirm your request.
                 </p>
               </div>
+              {useOpenWebsitePromoPricing && testChargeAmount === null ? (
+                <div className="space-y-3" data-booking-meet-greet>
+                  {listAirportPickupLegs({
+                    airportCode: effectiveAirportCode || null, fromAirport: isFromAirport,
+                    returnJourney, isAirportToAirport: isAirportToAirportJourney,
+                    pickupAirportCode, dropoffAirportCode,
+                  }).map((leg) => {
+                    const included = isExecutiveVehicle(quoteVehicle);
+                    const selected = included || (leg.leg === "return" ? returnAccessChoice : outboundAccessChoice) === "meet-greet";
+                    const fee = meetGreetFeeGbp(leg.airportCode, publicPricing.meetGreet);
+                    return (
+                      <div key={leg.leg} className="rounded-xl border border-white/20 bg-white/5 p-4" data-meet-greet-leg={leg.leg}>
+                        <p className="form-label mb-2">Meet &amp; Greet{leg.leg === "return" ? " — return collection" : ""}</p>
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input type="checkbox" checked={selected} disabled={included}
+                            aria-label={`Meet & Greet ${leg.leg === "return" ? "return" : "outbound"} collection`}
+                            onChange={(event) => {
+                              const choice = event.target.checked ? "meet-greet" : "express";
+                              if (leg.leg === "return") setReturnAccessChoice(choice);
+                              else setOutboundAccessChoice(choice);
+                            }}
+                            className="mt-1 h-5 w-5 shrink-0 accent-[#2fbf4a]" />
+                          <span className="min-w-0">
+                            <span className="block text-base font-semibold text-white">{included ? "Included with Business Class" : `Add Meet & Greet — +${formatMeetGreetGbp(fee)}`}</span>
+                            <span className="mt-1 block text-sm leading-relaxed text-white/80">Your driver will meet you inside Arrivals with a personalised name board and help with your baggage.</span>
+                            <span className="mt-1 block text-xs leading-relaxed text-white/65">Please wait in Arrivals for your driver after collecting your baggage.{included ? "" : " Optional; added to your booking total."}</span>
+                          </span>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           </section>
 

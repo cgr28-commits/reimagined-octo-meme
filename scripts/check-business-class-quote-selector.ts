@@ -325,7 +325,8 @@ assert.match(read("workers/addresses/src/index.ts"), /Never trust body\.routeMet
 assert.doesNotMatch(read("src/lib/terms.ts"), /Mercedes|Lexus|Audi|C-Class/);
 assert.doesNotMatch(read("src/lib/data.ts"), /Mercedes-Benz C-Class/);
 assert.doesNotMatch(read("src/components/ExpressDropOffSelector.tsx"), /Add Meet & Greet/);
-assert.doesNotMatch(card, /meetGreetFeeGbp\(/);
+assert.match(card, /data-booking-meet-greet/);
+assert.match(card, /allowPaidMeetGreet: useOpenWebsitePromoPricing/);
 assert.match(read("shared/meet-greet.ts"), /mandatoryTerminalFeeGbp/);
 
 console.log("check-business-class-quote-selector: ok");
