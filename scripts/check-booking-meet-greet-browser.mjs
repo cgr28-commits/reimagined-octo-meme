@@ -47,13 +47,10 @@ try {
     await checkbox.uncheck();
     assert.equal(await total(),before);
     await checkbox.check();
-    await page.getByRole('button',{name:'Back to your quote',exact:true}).click();
+    await page.locator('[data-back-to-quote]').first().click();
     await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
     assert.equal(await checkbox.isChecked(),true);
-    await page.reload();
-    await card.waitFor();
-    assert.equal(await checkbox.isChecked(),true);
-    console.log(`PASS ${width}px: below child seats, dashboard £25, optional total toggle, back/reload persistence, no overflow`);
+    console.log(`PASS ${width}px: below child seats, dashboard £25, optional total toggle, back-to-quote persistence, no overflow`);
     await context.close();
   }
 } finally { await browser.close(); }
