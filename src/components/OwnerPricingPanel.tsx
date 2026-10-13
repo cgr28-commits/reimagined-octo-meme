@@ -15,6 +15,7 @@ import {
   type OwnerPricingAuditEntry,
   type OwnerPricingSettings,
 } from "../../shared/owner-pricing-config";
+import { addLongDistanceTiers, LONG_DISTANCE_TIER_MILES } from "@/lib/long-distance-pricing";
 import { AIRPORT_FIXED_COSTS_GBP } from "../../shared/airport-fixed-costs";
 import { EXPRESS_DROP_OFF_FEES_GBP } from "../../shared/express-drop-off";
 import {
@@ -603,10 +604,39 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
                 }
               />
             </label>
+            <div className="mt-4 rounded-xl border border-emerald/30 bg-emerald/5 p-3">
+              <p className="text-sm font-semibold text-white">Long-distance pricing</p>
+              <p className="mt-2 text-sm text-white/70">
+                Add adjustable fares at 125, 150, 200, 250 and 300 miles for longer journeys.
+                Starting values follow your current mileage curve. Raise the fares you want,
+                then review and save. Your profitability protection stays in place.
+              </p>
+              <button
+                type="button"
+                data-add-long-distance-tiers
+                disabled={loading || saving || LONG_DISTANCE_TIER_MILES.every(miles =>
+                  draft.saloon.knots.some(knot => knot.miles === miles))}
+                onClick={() => {
+                  try {
+                    update("saloon", addLongDistanceTiers(draft.saloon));
+                    setError(null);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Could not add mileage tiers.");
+                  }
+                }}
+                className="mt-3 min-h-12 w-full rounded-xl bg-emerald px-3 py-2 text-sm font-semibold text-navy disabled:opacity-40"
+              >
+                {LONG_DISTANCE_TIER_MILES.every(miles => draft.saloon.knots.some(knot => knot.miles === miles))
+                  ? "Long-distance tiers added" : "Add 125–300 mile tiers"}
+              </button>
+              <p className="mt-2 text-xs text-white/60">
+                Fares between tiers increase smoothly. Beyond your final tier, its per-mile increase continues.
+              </p>
+            </div>
             <p className="mt-3 text-xs text-white/55">Current Saloon distance rates</p>
             <div className="mt-2 space-y-3">
               {draft.saloon.knots.map((knot, index) => (
-                <div key={`${knot.miles}-${index}`} className="min-w-0">
+                <div key={index} className="min-w-0" data-mileage-tier={knot.miles}>
                   <p className="text-sm font-medium text-white/80">{knotLabel(index, draft.saloon.knots)}</p>
                   <div className="grid grid-cols-2 gap-2">
                     <label className={labelClass}>

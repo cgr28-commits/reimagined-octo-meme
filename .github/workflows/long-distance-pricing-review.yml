@@ -1,0 +1,35 @@
+name: Long-distance pricing review
+on:
+  pull_request:
+    paths:
+      - 'src/lib/long-distance-pricing.ts'
+      - 'src/components/OwnerPricingPanel.tsx'
+      - 'scripts/check-long-distance-tiers*'
+      - '.github/workflows/long-distance-pricing-review.yml'
+permissions:
+  contents: read
+jobs:
+  pricing-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --import tsx scripts/check-long-distance-tiers.ts
+      - run: node --import tsx scripts/check-owner-pricing.ts
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - name: Isolated mobile and desktop dashboard tests
+        run: |
+          python3 -m http.server 3000 --directory out &
+          node --import tsx scripts/check-long-distance-tiers-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: long-distance-tier-previews
+          path: test-results/long-distance-tiers/
