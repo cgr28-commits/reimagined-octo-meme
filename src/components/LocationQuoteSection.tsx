@@ -8,6 +8,8 @@ type Props = {
   direction?: "to-airport" | "from-airport";
   addressHint?: string;
   heading?: string;
+  eyebrow?: string;
+  description?: string;
   /** Other landing pages keep the mobile sticky quote bar. This page can turn it off. */
   showStickyQuote?: boolean;
   /** Prefer the existing 7 Seater Minibus when it is offered and fits the party. */
@@ -19,6 +21,8 @@ export default function LocationQuoteSection({
   direction = "to-airport",
   addressHint = "",
   heading = "Get your fixed quote",
+  eyebrow = "Instant quote",
+  description = "Fixed prices. No surge pricing. Airport pickups include up to 60 minutes complimentary waiting time.",
   showStickyQuote = true,
   preferMinibus = false,
 }: Props) {
@@ -34,7 +38,7 @@ export default function LocationQuoteSection({
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/25 to-navy" />
       <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Instant quote</p>
+          <p className="text-sm font-semibold uppercase tracking-widest text-emerald">{eyebrow}</p>
           <h2
             data-booking-nav-heading
             className="mt-2 text-2xl font-bold text-white sm:text-3xl"
@@ -42,8 +46,7 @@ export default function LocationQuoteSection({
             {heading}
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-white/60 sm:text-base">
-            Fixed prices. No surge pricing. Airport pickups include up to 60 minutes complimentary
-            waiting time.
+            {description}
           </p>
         </div>
         <QuoteCard

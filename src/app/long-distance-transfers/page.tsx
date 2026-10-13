@@ -87,6 +87,14 @@ export default function LongDistanceTransfersPage() {
               </ul>
             </section>
 
+            <section className="mt-10">
+              <h2 className="text-xl font-bold text-white">Belfast and Cork private transfers</h2>
+              <p className="mt-3 max-w-2xl leading-relaxed text-white/70">Read our route guides for door-to-door journeys between Belfast and Cork, including Belfast airport collections and personalised Cork pickups.</p>
+              <div className="mt-4 flex flex-wrap gap-4 font-semibold text-emerald">
+                <Link href="/transfers/belfast-to-cork/" className="underline underline-offset-4">Belfast to Cork</Link>
+                <Link href="/transfers/cork-to-belfast/" className="underline underline-offset-4">Cork to Belfast</Link>
+              </div>
+            </section>
             <div className="mt-14 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
               <p className="text-sm font-medium uppercase tracking-wider text-emerald">Get a quote</p>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/75">
