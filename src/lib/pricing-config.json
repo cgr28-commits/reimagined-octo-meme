@@ -114,26 +114,26 @@
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
-      "BFS": 11,
+      "BFS": 8,
       "BHD": 0,
       "DUB": 50,
-      "LDY": 101
+      "LDY": 98
     },
     "Holywood": {
-      "BFS": 13,
+      "BFS": 18,
       "BHD": 0,
       "DUB": 58,
-      "LDY": 109
+      "LDY": 103
     },
     "Newtownabbey": {
       "BFS": 0,
-      "BHD": 0,
+      "BHD": 1,
       "DUB": 60,
       "LDY": 88
     },
     "Lisburn": {
       "BFS": 3,
-      "BHD": 5,
+      "BHD": 14,
       "DUB": 60,
       "LDY": 104
     },
@@ -151,7 +151,7 @@
     },
     "Ballyclare": {
       "BFS": 0,
-      "BHD": 19,
+      "BHD": 20,
       "DUB": 65,
       "LDY": 89
     },
@@ -187,13 +187,13 @@
     },
     "Newtownards": {
       "BFS": 28,
-      "BHD": 4,
+      "BHD": 5,
       "DUB": 62,
       "LDY": 118
     },
     "Ballymena": {
       "BFS": 0,
-      "BHD": 49,
+      "BHD": 54,
       "DUB": 78,
       "LDY": 64
     },
