@@ -14,6 +14,12 @@ for (const direction of ["belfast-to-cork", "cork-to-belfast"] as const) {
   assert.ok(html.includes('"@type":"BreadcrumbList"'));
   assert.ok(html.includes('id="quote"'));
   assert.ok(html.includes(page.collectionTitle));
+  const hero = direction === "belfast-to-cork" ? "cork-cathedral-river" : "belfast-big-fish";
+  assert.ok(html.includes(hero));
+  assert.ok(html.includes(direction === "belfast-to-cork" ? "Zairon" : "Ajay Suresh"));
+  for (const width of [960, 1920]) for (const ext of ["avif", "webp", "jpg"])
+    assert.ok(readFileSync(`public/images/hero/optimized/${hero}-${width}.${ext}`).length > 1000);
+
   const sitemap = readFileSync("public/sitemap.xml", "utf8");
   assert.ok(sitemap.includes(`/transfers/${direction}/`));
 }

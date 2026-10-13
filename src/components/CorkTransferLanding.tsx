@@ -13,6 +13,9 @@ import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/l
 const cardClass = "rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7";
 export default function CorkTransferLanding({ direction }: { direction: CorkTransferDirection }) {
   const page = CORK_TRANSFER_PAGES[direction];
+  const hero = direction === "belfast-to-cork"
+    ? { base: "cork-cathedral-river", alt: "River Lee and St Fin Barre's Cathedral in Cork city", author: "Zairon", source: "https://commons.wikimedia.org/wiki/File:Cork_River_Lee_1.jpg", license: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/" }
+    : { base: "belfast-big-fish", alt: "The Big Fish landmark on Donegall Quay in Belfast", author: "Ajay Suresh", source: "https://commons.wikimedia.org/wiki/File:The_Big_Fish_-_Belfast_(49528473747).jpg", license: "CC BY 2.0", licenseUrl: "https://creativecommons.org/licenses/by/2.0/" };
   const path = `/transfers/${direction}/`;
   const opposite = direction === "belfast-to-cork" ? "cork-to-belfast" : "belfast-to-cork";
   const schemas = [
@@ -25,13 +28,17 @@ export default function CorkTransferLanding({ direction }: { direction: CorkTran
       {schemas.map((schema, index) => <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />)}
       <Header />
       <style>{`
+        .cork-transfer-page [data-landing-hero] { height: clamp(16rem, 30vw, 26rem); }
+        .cork-transfer-page [data-landing-hero] > div { background: linear-gradient(to top, rgba(7,28,56,.65), rgba(7,28,56,.08) 65%); }
+        .cork-transfer-belfast-to-cork [data-landing-hero] img { object-position: center 14%; }
+        .cork-transfer-cork-to-belfast [data-landing-hero] img { object-position: center 48%; }
         @media (max-width: 767px) {
           .cork-transfer-page [data-landing-hero] { height: 8rem; }
           body:has(.cork-transfer-page) [data-sticky-quote-bar] { display: none; }
         }
       `}</style>
-      <main className={`${LANDING_PAGE_MAIN_CLASS} cork-transfer-page`}>
-        <LandingHeroMedia baseName="titanic-belfast" alt="Titanic Belfast, a landmark on the Belfast side of your journey" />
+      <main className={`${LANDING_PAGE_MAIN_CLASS} cork-transfer-page cork-transfer-${direction}`}>
+        <LandingHeroMedia baseName={hero.base} alt={hero.alt} />
         <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Long-distance transfers", href: "/long-distance-transfers/" }, { name: page.title }]} />
           <header className="mt-6">
@@ -78,6 +85,10 @@ export default function CorkTransferLanding({ direction }: { direction: CorkTran
             </section>
             <nav aria-label="Related transfers" className={cardClass}><h2 className="text-lg font-bold text-white">Plan the other direction</h2><div className="mt-4 flex flex-wrap gap-4 text-sm font-semibold text-emerald"><Link className="underline underline-offset-4" href={`/transfers/${opposite}/`}>{CORK_TRANSFER_PAGES[opposite].title}</Link><Link className="underline underline-offset-4" href="/long-distance-transfers/">All long-distance transfers</Link><Link className="underline underline-offset-4" href="/transfers/belfast-to-dublin-airport/">Belfast to Dublin Airport</Link></div></nav>
           </div>
+          <p className="mt-8 text-xs leading-relaxed text-white/45">
+            Photo: <a href={hero.source} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{hero.author}</a>{" · "}
+            <a href={hero.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{hero.license}</a>. Resized and cropped for display.
+          </p>
         </div>
         <LocationQuoteSection heading="Get your Belfast–Cork fixed quote" eyebrow="Your journey" description={page.quoteText} />
       </main>

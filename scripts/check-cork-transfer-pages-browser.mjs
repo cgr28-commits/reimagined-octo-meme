@@ -27,7 +27,7 @@ try {
       assert.ok((await page.title()).includes(CORK_TRANSFER_PAGES[direction].title));
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       const images = await page.locator("[data-landing-hero] img").evaluateAll(images => images.map(img => ({ loaded: img.complete && img.naturalWidth > 0, alt: img.alt })));
-      assert.ok(images.length > 0 && images.every(img => img.loaded && img.alt.includes("Belfast")));
+      assert.ok(images.length > 0 && images.every(img => img.loaded && img.alt.includes(direction === "belfast-to-cork" ? "Cathedral" : "Big Fish")));
       if (width === 390) {
         for (const button of await page.getByRole("button", { name: "Get My Fixed Price", exact: false }).all()) {
           if (!await button.isVisible()) continue;
