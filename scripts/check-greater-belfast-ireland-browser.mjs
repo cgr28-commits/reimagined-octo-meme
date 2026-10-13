@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { calculatePointToPointQuote } from '../src/lib/quote';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
 const base=process.env.TEST_BASE_URL || 'http://localhost:3000';
 await fs.mkdir('test-results/greater-belfast-ireland',{recursive:true});
@@ -16,6 +17,13 @@ try {
       if(url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:420000,duration:18000,geometry:{coordinates:[[-5.9302,54.5964],[-8.4656,51.8966]],type:'LineString'}}]});
       if(url.pathname==='/pricing/public') return json({config:toPublicOwnerPricingConfig(defaultOwnerPricingSettings())});
       if(url.pathname==='/quote/availability') return json({blocked:false,available:true,alternativeTimes:[]});
+      if(url.pathname==='/quote/calculate') {
+        const body=req.postDataJSON();
+        const fare=calculatePointToPointQuote('Belfast City Hall','Irish destination',body.vehicleType,Boolean(body.returnJourney),{}, {distanceKm:420,durationMinutes:300,source:'osrm'},null);
+        assert.ok(fare && fare.amount>0);
+        return json({ok:true,amount:fare.amount,journeyFareGbp:fare.amount,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0,
+          vehicleType:body.vehicleType,returnJourney:body.returnJourney,distanceKm:420,durationMinutes:300});
+      }
       if(req.method()==='POST') writes.push(url.pathname);
       return route.abort();
     });

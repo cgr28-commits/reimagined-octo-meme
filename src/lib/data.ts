@@ -506,7 +506,7 @@ export const FAQS = [
   {
     question: "Do you cover journeys in the Republic of Ireland?",
     answer:
-      "Yes. Dublin Airport keeps a live online quote where eligible. Other Republic of Ireland city destinations, and some out-of-area pickups, use a tailored fixed-quote request — no automatic price or immediate payment until confirmed.",
+      "Yes. Confirmed Greater Belfast pickups can receive instant fixed quotes to addresses throughout Northern Ireland and the Republic of Ireland. Existing eligible airport routes keep their online quotes. Other out-of-area pickups use a tailored fixed-quote request where required.",
   },
   {
     question: "Do you provide child seats or booster seats?",
