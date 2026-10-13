@@ -41,8 +41,8 @@ try {
     await page.screenshot({path:`test-results/greater-belfast-ireland/${width}-${destination}.png`});
     await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
     await page.locator('#date').waitFor({state:'visible'});
-    assert.equal(await page.locator('#quote-section-passengers').inputValue(),'2');
-    assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'0');
+    assert.match(await page.locator('#quote-price-summary').innerText(),/2 passengers/);
+    assert.match(await page.locator('#quote-price-summary').innerText(),/0 suitcases/);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     assert.deepEqual(writes,[],'no real customer, email or payment writes');
     console.log(`PASS ${width}px Greater Belfast → ${destination}: numeric fare and booking details`);
