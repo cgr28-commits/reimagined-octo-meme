@@ -95,6 +95,7 @@ const dublinCity = place({
 
 const corkCity = place({
   placeId: "cork-city",
+  placeName: "Cork landmark",
   formattedAddress: "Patrick Street, Cork, T12, Ireland",
   countryCode: "IE",
   postalCode: "T12",
@@ -113,7 +114,7 @@ check("Belfast address to Dublin city is ROI geography (priced corridor, not DUB
   assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
 });
 
-check("Belfast address to Cork is ROI fixed-quote", () => {
+check("Belfast address to Cork is ROI geography with outbound instant eligibility", () => {
   assert.equal(detectJourneyKind(belfastHome, corkCity), "address-to-address");
   assert.equal(isRepublicOfIrelandJourney(belfastHome, corkCity), true);
 });
@@ -218,10 +219,10 @@ check("Omagh → Boucher Playing Fields is personalised A2A quote (no live £)",
   assert.equal(needsManualQuoteApproval(omaghUk, boucher), true);
 });
 
-check("Bangor to Cork is ROI manual quote (standard Greater Belfast pickup)", () => {
+check("Bangor to Cork is instant from Greater Belfast", () => {
   assert.equal(isOutOfAreaPickup(bangorHome), false);
   assert.equal(isRepublicOfIrelandJourney(bangorHome, corkCity), true);
-  assert.equal(needsManualQuoteApproval(bangorHome, corkCity), true);
+  assert.equal(needsManualQuoteApproval(bangorHome, corkCity), false);
 });
 
 check("BFS ↔ Cork is instant quote (existing pricing engine; eligibility unlock)", () => {
@@ -235,12 +236,12 @@ check("BHD ↔ Dublin city is instant quote (existing pricing engine; eligibilit
   assert.equal(needsManualQuoteApproval(dublinCity, bhd!), false);
 });
 
-check("Belfast to Bangor is personalised A2A quote (no instant price)", () => {
+check("Belfast to Bangor is instant from Greater Belfast", () => {
   assert.equal(detectJourneyKind(belfastHome, bangorHome), "address-to-address");
-  assert.equal(needsManualQuoteApproval(belfastHome, bangorHome), true);
+  assert.equal(needsManualQuoteApproval(belfastHome, bangorHome), false);
 });
 
-check("Boucher Playing Fields ↔ Belfast city centre is personalised A2A quote", () => {
+check("Boucher Playing Fields ↔ Belfast city centre is instant within Greater Belfast", () => {
   const boucher = place({
     placeId: "boucher",
     formattedAddress: "Boucher Playing Fields, Belfast BT12 6HR, UK",
@@ -251,8 +252,8 @@ check("Boucher Playing Fields ↔ Belfast city centre is personalised A2A quote"
     lng: -5.96,
   });
   assert.equal(detectJourneyKind(belfastHome, boucher), "address-to-address");
-  assert.equal(needsManualQuoteApproval(belfastHome, boucher), true);
-  assert.equal(needsManualQuoteApproval(boucher, belfastHome), true);
+  assert.equal(needsManualQuoteApproval(belfastHome, boucher), false);
+  assert.equal(needsManualQuoteApproval(boucher, belfastHome), false);
 });
 
 check("A2A Places mode allows NI and ROI labels", () => {

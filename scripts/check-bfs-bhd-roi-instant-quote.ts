@@ -355,8 +355,8 @@ check("Saloon/Estate relationship holds on ROI distance", () => {
 
 console.log("\n=== Still blocked (must not accidentally unlock) ===\n");
 
-check("Bangor (GB) → Cork remains manual", () => {
-  assert.equal(needsManualQuoteApproval(bangor, roiPlaces.cork), true);
+check("Bangor (Greater Belfast) → Cork is instant", () => {
+  assert.equal(needsManualQuoteApproval(bangor, roiPlaces.cork), false);
   assert.equal(isBelfastAirportRoiInstantJourney(bangor, roiPlaces.cork), false);
 });
 

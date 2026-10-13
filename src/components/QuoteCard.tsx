@@ -350,6 +350,7 @@ import {
   isPlaceSelected,
   isBelfastAirportRoiInstantJourney,
   isRepublicOfIrelandJourney,
+  isGreaterBelfastIrelandInstantJourney,
   journeyKindLabel,
   needsManualQuoteApproval,
   PLACES_LOOKUP_A2A,
@@ -1201,7 +1202,8 @@ function QuoteCard({
     isPlaceSelected(dropoffPlace) &&
     isRepublicOfIrelandJourney(pickupPlace, dropoffPlace) &&
     !isDublinCityCorridorJourney(pickupPlace, dropoffPlace) &&
-    !isBelfastAirportRoiInstantJourney(pickupPlace, dropoffPlace);
+    !isBelfastAirportRoiInstantJourney(pickupPlace, dropoffPlace) &&
+    !isGreaterBelfastIrelandInstantJourney(pickupPlace, dropoffPlace);
   const isDublinCityCorridor =
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
@@ -1908,8 +1910,7 @@ function QuoteCard({
           publicPricing,
         );
       }
-      // Address↔address: no live public price (personalised quote). Needs route metrics
-      // only if owner tools compute a guide fare via calculatePointToPointQuote.
+      // Eligible address journeys use actual road metrics; never invent a fare.
       if (!routeMetrics) {
         return null;
       }
