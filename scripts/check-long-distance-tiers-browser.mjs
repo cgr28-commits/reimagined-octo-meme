@@ -23,6 +23,7 @@ try {
       if (!sessionStorage.getItem("matni:preview-pricing-settings")) sessionStorage.setItem("matni:preview-pricing-settings", JSON.stringify(settings));
     }, settings);
     await page.goto("http://127.0.0.1:3000/owner/pricing-preview/", { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Essential only", exact: true }).click();
     const add = page.locator("[data-add-long-distance-tiers]");
     await add.waitFor();
     await add.click();
@@ -34,8 +35,8 @@ try {
     await page.locator('[data-mileage-tier="250"] input').last().fill("700");
     assert.ok(await page.getByRole("button", { name: "Save Changes", exact: true }).isEnabled());
     await page.getByRole("button", { name: "Save Changes", exact: true }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Save Pricing", exact: true }).click();
-    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    await page.getByRole("dialog", { name: "Confirm pricing changes" }).getByRole("button", { name: "Save Pricing", exact: true }).click();
+    await page.getByRole("dialog", { name: "Confirm pricing changes" }).waitFor({ state: "hidden" });
     const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("matni:preview-pricing-settings")));
     assert.equal(saved.saloon.knots.find(knot => knot.miles === 250).fareGbp, 700);
     assert.deepEqual(saved.saloon.knots.filter(knot => knot.miles <= 100), settings.saloon.knots);
