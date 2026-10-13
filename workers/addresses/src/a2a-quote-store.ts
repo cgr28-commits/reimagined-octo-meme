@@ -75,7 +75,8 @@ export async function getA2aQuoteByToken(
 ): Promise<A2aQuoteRequestRecord | null> {
   const reference = await store.get(a2aQuoteTokenKey(token.trim()));
   if (!reference?.trim()) return null;
-  return getA2aQuoteByReference(store, reference.trim());
+  const record = await getA2aQuoteByReference(store, reference.trim());
+  return record?.paymentToken === token.trim() ? record : null;
 }
 
 export async function listOpenA2aQuoteRequests(

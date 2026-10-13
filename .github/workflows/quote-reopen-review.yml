@@ -1,0 +1,42 @@
+name: Expired quote review
+on:
+  pull_request:
+    paths:
+      - 'src/components/OwnerSavedQuotesPanel.tsx'
+      - 'src/components/OwnerA2aQuotesPanel.tsx'
+      - 'src/app/owner/quote-review-preview/**'
+      - 'workers/addresses/src/owner-saved-quote-handlers.ts'
+      - 'workers/addresses/src/a2a-quote-handlers.ts'
+      - 'scripts/check-*quote-reopen*'
+      - 'scripts/check-reopen-a2a-quote.ts'
+      - '.github/workflows/quote-reopen-review.yml'
+permissions:
+  contents: read
+jobs:
+  quote-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-worker-shared.mjs
+      - run: node --import tsx scripts/check-owner-saved-quote-reopen.ts
+      - run: node --import tsx scripts/check-reopen-a2a-quote.ts
+      - run: node --import tsx scripts/check-saved-quote.ts
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm --prefix workers/addresses ci
+      - run: npm --prefix workers/addresses run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          python3 -m http.server 3000 --directory out &
+          node scripts/check-quote-reopen-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quote-reopen-previews
+          path: test-results/quote-reopen/

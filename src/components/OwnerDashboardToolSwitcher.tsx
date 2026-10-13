@@ -7,6 +7,7 @@ export type OwnerDashboardToolTab =
   | "more"
   | "pricing"
   | "a2a-quotes"
+  | "saved-quotes"
   | "personal-quotes"
   | "same-fare"
   | "admin"
@@ -38,6 +39,7 @@ export const OWNER_MORE_DESTINATIONS: {
   { id: "enquiries", label: "Enquiries", hint: "Quotes and enquiry jobs" },
   { id: "tracking", label: "Tracking", hint: "Driver tracking jobs and acceptance" },
   { id: "pricing", label: "Pricing", hint: "Fares and vehicle pricing" },
+  { id: "saved-quotes", label: "Saved Quotes", hint: "Find, reopen and resend expired quote links" },
   { id: "a2a-quotes", label: "A2A Quotes", hint: "Address-to-address quote queue" },
   { id: "personal-quotes", label: "Personal Quotes", hint: "Personal quote codes" },
   { id: "same-fare", label: "Same Fare Test", hint: "Same-fare amendment test" },

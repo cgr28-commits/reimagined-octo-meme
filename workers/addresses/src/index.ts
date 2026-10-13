@@ -1,3 +1,4 @@
+import { handleOwnerSavedQuotes } from "./owner-saved-quote-handlers";
 import { processDueJourneyReminders } from "./journey-reminder-handlers";
 import {
   isValidCapacityPassengerCount,
@@ -3954,6 +3955,10 @@ export default {
       return handlePublicQuickQuoteLookup(request, env, origin);
     }
 
+    if (url.pathname === "/owner/saved-quotes" || url.pathname === "/api/owner/saved-quotes") {
+      if (!env.TRACKING_STORE) return json({error:"Storage is not configured"},503,origin);
+      return handleOwnerSavedQuotes(request, { ...env, TRACKING_STORE: env.TRACKING_STORE }, origin);
+    }
     if (isSavedQuotesCreatePath(url.pathname) && request.method === "POST") {
       if (!env.TRACKING_STORE) {
         return json({ error: "Storage is not configured" }, 503, origin);

@@ -7,7 +7,9 @@ import {
   A2A_QUOTE_VALIDITY_MIN_MINUTES,
   A2A_QUOTE_VALIDITY_PRESETS_MINUTES,
   buildA2aPickupValidityWarning,
+  calculateA2aReturnOffer,
 } from "../../shared/a2a-personalised-quote";
+import { formatReturnJourneyDiscountPercent } from "../../shared/return-journey-discount";
 import { parseLondonLocalDateTime } from "../../shared/uk-time";
 import AddressInput from "@/components/AddressInput";
 import {
@@ -27,8 +29,17 @@ import {
 } from "@/lib/selected-place";
 import { formatJourneyDistance, formatJourneyDuration } from "@/lib/trip-route";
 
+const liveQuoteApi = {
+  list: fetchOwnerA2aQuotes,
+  update: updateOwnerA2aQuoteJourney,
+  approve: approveOwnerA2aQuote,
+  resend: resendOwnerA2aPaymentEmail,
+};
 type OwnerA2aQuotesPanelProps = {
   ownerKey: string;
+  /** Isolated fixture adapter for review/tests; live dashboard uses the default. */
+  api?: typeof liveQuoteApi;
+  initialFilter?: A2aQuoteOwnerFilter;
 };
 
 type JourneyDraft = {
@@ -36,6 +47,7 @@ type JourneyDraft = {
   dropoffLabel: string;
   tripDate: string;
   tripTime: string;
+  returnJourney: boolean;
   returnDate: string;
   returnTime: string;
   passengers: string;
@@ -93,6 +105,7 @@ function draftFromQuote(quote: A2aQuoteOwnerSummary): JourneyDraft {
     dropoffLabel: quote.dropoffLabel,
     tripDate: quote.tripDate,
     tripTime: quote.tripTime,
+    returnJourney: quote.returnJourney,
     returnDate: quote.returnDate || "",
     returnTime: quote.returnTime || "",
     passengers: String(quote.passengers ?? 1),
@@ -102,14 +115,16 @@ function draftFromQuote(quote: A2aQuoteOwnerSummary): JourneyDraft {
   };
 }
 
-export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelProps) {
-  const [filter, setFilter] = useState<A2aQuoteOwnerFilter>("awaiting");
+export default function OwnerA2aQuotesPanel({ ownerKey, api = liveQuoteApi, initialFilter = "awaiting" }: OwnerA2aQuotesPanelProps) {
+  const [filter, setFilter] = useState<A2aQuoteOwnerFilter>(initialFilter);
   const [quotes, setQuotes] = useState<A2aQuoteOwnerSummary[]>([]);
   const [awaitingCount, setAwaitingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [priceByRef, setPriceByRef] = useState<Record<string, string>>({});
+  const [returnOfferByRef, setReturnOfferByRef] = useState<Record<string, boolean>>({});
+  const [returnFareByRef, setReturnFareByRef] = useState<Record<string, string>>({});
   const [validityByRef, setValidityByRef] = useState<Record<string, string>>({});
   const [approvingRef, setApprovingRef] = useState<string | null>(null);
   const [resendingRef, setResendingRef] = useState<string | null>(null);
@@ -126,9 +141,24 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
       setLoading(true);
       setError("");
       try {
-        const result = await fetchOwnerA2aQuotes(ownerKey, nextFilter);
+        const result = await api.list(ownerKey, nextFilter);
         setQuotes(result.quotes);
         setAwaitingCount(result.awaitingCount);
+        setPriceByRef(prev => {
+          const next = { ...prev };
+          for (const q of result.quotes) if (next[q.reference] == null && q.quotedPrice != null) next[q.reference] = String(q.returnOfferPricing?.outboundFare ?? q.quotedPrice);
+          return next;
+        });
+        setReturnOfferByRef(prev => {
+          const next = { ...prev };
+          for (const q of result.quotes) if (next[q.reference] == null) next[q.reference] = Boolean(q.returnOfferPricing);
+          return next;
+        });
+        setReturnFareByRef(prev => {
+          const next = { ...prev };
+          for (const q of result.quotes) if (next[q.reference] == null && q.returnOfferPricing) next[q.reference] = String(q.returnOfferPricing.returnFare);
+          return next;
+        });
         setValidityByRef((prev) => {
           const next = { ...prev };
           for (const q of result.quotes) {
@@ -144,7 +174,7 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
         setLoading(false);
       }
     },
-    [filter, ownerKey],
+    [filter, ownerKey, api],
   );
 
   useEffect(() => {
@@ -181,7 +211,13 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
       setError("Enter a valid pickup time.");
       return;
     }
-    if (quote.returnJourney) {
+    if (journeyDraft.returnJourney) {
+      const pickup = parseLondonLocalDateTime(journeyDraft.tripDate, journeyDraft.tripTime);
+      const returning = parseLondonLocalDateTime(journeyDraft.returnDate, journeyDraft.returnTime);
+      if (!pickup || !returning || returning <= pickup) {
+        setError("Enter a valid return date and time after pickup.");
+        return;
+      }
       if (
         journeyDraft.returnDate.trim() &&
         !/^\d{4}-\d{2}-\d{2}$/.test(journeyDraft.returnDate.trim())
@@ -225,15 +261,15 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
         }
       }
 
-      const record = await updateOwnerA2aQuoteJourney(ownerKey, {
+      const record = await api.update(ownerKey, {
         reference: quote.reference,
         pickupLabel: pickup,
         dropoffLabel: dropoff,
         tripDate: journeyDraft.tripDate.trim(),
         tripTime: journeyDraft.tripTime.trim(),
-        returnJourney: quote.returnJourney,
-        returnDate: quote.returnJourney ? journeyDraft.returnDate.trim() : "",
-        returnTime: quote.returnJourney ? journeyDraft.returnTime.trim() : "",
+        returnJourney: journeyDraft.returnJourney,
+        returnDate: journeyDraft.returnJourney ? journeyDraft.returnDate.trim() : "",
+        returnTime: journeyDraft.returnJourney ? journeyDraft.returnTime.trim() : "",
         passengers: Math.max(1, Math.min(7, Number(journeyDraft.passengers) || 1)),
         suitcases: Math.max(0, Math.min(20, Number(journeyDraft.suitcases) || 0)),
         ...(journeyDistance ? { journeyDistance } : {}),
@@ -241,6 +277,10 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
       });
 
       setQuotes((prev) => prev.map((row) => (row.reference === record.reference ? record : row)));
+      if (record.returnJourney && !quote.returnJourney) {
+        setReturnOfferByRef(prev => ({ ...prev, [quote.reference]: true }));
+        setReturnFareByRef(prev => ({ ...prev, [quote.reference]: priceByRef[quote.reference] ?? "" }));
+      } else if (!record.returnJourney) setReturnOfferByRef(prev => ({ ...prev, [quote.reference]: false }));
       setEditingRef(null);
       setJourneyDraft(null);
       const changeNote =
@@ -264,7 +304,15 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
       setError("Save or cancel journey edits before approving.");
       return;
     }
-    const quotedPrice = parseMoney(priceByRef[quote.reference] ?? "");
+    const outbound = parseMoney(priceByRef[quote.reference] ?? "");
+    const inbound = parseMoney(returnFareByRef[quote.reference] ?? "");
+    const offer = returnOfferByRef[quote.reference] && quote.returnJourney
+      ? calculateA2aReturnOffer(outbound, inbound, quote.returnOfferPricing?.accessCharges ?? 0) : null;
+    if (returnOfferByRef[quote.reference] && quote.returnJourney && !offer) {
+      setError("Enter the outbound and return transfer fares before sending.");
+      return;
+    }
+    const quotedPrice = offer?.total ?? outbound;
     const validityMinutes = parseMinutes(
       validityByRef[quote.reference] ?? String(A2A_QUOTE_VALIDITY_DEFAULT_MINUTES),
     );
@@ -283,10 +331,11 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
     setError("");
     setMessage("");
     try {
-      const result = await approveOwnerA2aQuote(ownerKey, {
+      const result = await api.approve(ownerKey, {
         reference: quote.reference,
         quotedPrice,
         validityMinutes,
+        ...(offer ? { returnOfferFares: { outbound: offer.outboundFare, inbound: offer.returnFare } } : {}),
       });
       if (result.paymentEmailSent) {
         setEmailFailedByRef((prev) => {
@@ -295,7 +344,7 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
           return next;
         });
         setMessage(
-          `Approved ${result.record.reference} at ${result.record.quotedPriceLabel} — valid ${result.record.quoteValidityLabel}. Payment email sent with the final journey details.`,
+          `${quote.status === "EXPIRED" ? "Reopened" : "Approved"} ${result.record.reference} at ${result.record.quotedPriceLabel} — valid ${result.record.quoteValidityLabel}. Payment email sent with the final journey details.`,
         );
       } else {
         const failText = result.paymentEmailError || "Email provider did not accept the message.";
@@ -322,7 +371,7 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
     setError("");
     setMessage("");
     try {
-      const result = await resendOwnerA2aPaymentEmail(ownerKey, quote.reference);
+      const result = await api.resend(ownerKey, quote.reference);
       setEmailFailedByRef((prev) => {
         const next = { ...prev };
         delete next[quote.reference];
@@ -340,7 +389,7 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
   }
 
   function showApproveForm(quote: A2aQuoteOwnerSummary): boolean {
-    return quote.status === "AWAITING_QUOTE";
+    return !quote.paymentReference && !quote.paidAt && (quote.status === "AWAITING_QUOTE" || quote.status === "EXPIRED");
   }
 
   function showPaymentActions(quote: A2aQuoteOwnerSummary): boolean {
@@ -434,6 +483,8 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
           });
           const failed = emailFailed(quote);
           const failedDetail = emailFailedByRef[quote.reference];
+          const returnOffer = returnOfferByRef[quote.reference] && quote.returnJourney;
+          const returnPricing = returnOffer ? calculateA2aReturnOffer(priceByRef[quote.reference], returnFareByRef[quote.reference], quote.returnOfferPricing?.accessCharges ?? 0) : null;
           const isEditing = editingRef === quote.reference && journeyDraft != null;
 
           return (
@@ -646,8 +697,13 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
                       className={fieldClass}
                     />
                   </label>
-                  {quote.returnJourney ? (
+                  <label className="flex items-center gap-3 text-sm text-white sm:col-span-2">
+                    <input type="checkbox" checked={journeyDraft.returnJourney} onChange={e => setJourneyDraft(prev => prev ? { ...prev, returnJourney: e.target.checked } : prev)} />
+                    Include a return journey
+                  </label>
+                  {journeyDraft.returnJourney ? (
                     <>
+                      <p className="break-words text-sm text-white/70 sm:col-span-2">Return route: {journeyDraft.dropoffLabel} → {journeyDraft.pickupLabel}</p>
                       <label className="block min-w-0 text-sm text-white/80">
                         Return date
                         <input
@@ -774,9 +830,23 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
                     </p>
                   ) : null}
 
+                  {quote.status === "EXPIRED" ? <p className="mt-3 text-sm text-amber-100">Reopen this quote: review the amended journey and price, then choose a fresh validity. The customer will receive a new payment email.</p> : null}
+                  {quote.returnJourney ? (
+                    <div className="mt-4 rounded-xl border border-emerald/30 p-3">
+                      <label className="flex items-center gap-3 text-sm text-white">
+                        <input type="checkbox" checked={Boolean(returnOffer)} onChange={e => setReturnOfferByRef(prev => ({ ...prev, [quote.reference]: e.target.checked }))} />
+                        Apply the {formatReturnJourneyDiscountPercent()} return booking discount
+                      </label>
+                      {returnOffer ? <>
+                        <label className="mt-3 block text-sm text-white/80">Return transfer fare (£)<input type="number" min="1" step="0.01" value={returnFareByRef[quote.reference] ?? ""} onChange={e => setReturnFareByRef(prev => ({ ...prev, [quote.reference]: e.target.value }))} className={fieldClass} /></label>
+                        <p className="mt-2 text-xs text-white/60">Enter transfer fares before the return discount. Airport/access charges are not discounted.</p>
+                        {returnPricing ? <p className="mt-2 text-sm text-emerald" role="status">Outbound £{returnPricing.outboundFare.toFixed(2)} + return £{returnPricing.returnFare.toFixed(2)} − {formatReturnJourneyDiscountPercent()} (£{returnPricing.discount.toFixed(2)}){returnPricing.accessCharges ? ` + access £${returnPricing.accessCharges.toFixed(2)}` : ""} = fixed price £{returnPricing.total.toFixed(2)}</p> : null}
+                      </> : null}
+                    </div>
+                  ) : <p className="mt-3 text-sm text-white/60">To offer a return with the {formatReturnJourneyDiscountPercent()} discount, choose Edit journey and include the return date and time.</p>}
                   <div className="mt-4 grid w-full min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
                     <label className="block min-w-0 text-sm text-white/80">
-                      Quote Price (£)
+                      {returnOffer ? "Outbound transfer fare (£)" : "Quote Price (£)"}
                       <input
                         type="number"
                         inputMode="decimal"
@@ -847,7 +917,7 @@ export default function OwnerA2aQuotesPanel({ ownerKey }: OwnerA2aQuotesPanelPro
                       onClick={() => void handleApprove(quote)}
                       className="min-h-11 w-full min-w-0 max-w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-navy disabled:opacity-60 sm:w-auto"
                     >
-                      {approvingRef === quote.reference ? "Approving…" : "Approve Quote"}
+                      {approvingRef === quote.reference ? "Sending…" : quote.status === "EXPIRED" ? "Reopen quote & email customer" : "Approve Quote"}
                     </button>
                   </div>
                 </>
