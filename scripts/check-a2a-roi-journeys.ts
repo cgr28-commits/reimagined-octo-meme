@@ -161,13 +161,14 @@ check("Dublin Airport keeps instant quote (not ROI fixed-quote)", () => {
   assert.equal(detectJourneyKind(belfastHome, dub!), "address-to-airport");
   assert.equal(needsManualQuoteApproval(belfastHome, dub!), false);
   assert.equal(needsManualQuoteApproval(dub!, belfastHome), false);
-  assert.equal(needsManualQuoteApproval(dub!, newryPickup), true);
+  assert.equal(needsManualQuoteApproval(dub!, newryPickup), false);
 });
 
-check("Dublin city address↔address requires personalised quote (no live £)", () => {
+check("Dublin city → Greater Belfast is instant; reverse stays manual", () => {
   assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
   assert.equal(detectJourneyKind(belfastHome, dublinCity), "address-to-address");
   assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), true);
+  assert.equal(needsManualQuoteApproval(dublinCity, belfastHome), false);
 });
 
 check("Greater Belfast address is a standard instant pickup", () => {
@@ -182,19 +183,19 @@ check("BFS, BHD and DUB airports are standard instant pickups", () => {
   assert.equal(isStandardInstantPickup(dub!), true);
 });
 
-check("NI pickup outside Greater Belfast → Greater Belfast is personalised A2A quote", () => {
+check("NI pickup outside Greater Belfast → Greater Belfast is instant", () => {
   assert.equal(isOutOfAreaPickup(newryPickup), true);
   assert.equal(isStandardInstantPickup(newryPickup), false);
-  assert.equal(needsManualQuoteApproval(newryPickup, bangorHome), true);
+  assert.equal(needsManualQuoteApproval(newryPickup, bangorHome), false);
   assert.equal(needsManualQuoteApproval(newryPickup, dublinCity), true);
 });
 
-check("NI pickup (Derry city) → Belfast is personalised A2A quote", () => {
+check("NI pickup (Derry city) → Belfast is instant", () => {
   assert.equal(isOutOfAreaPickup(derryCityPickup), true);
-  assert.equal(needsManualQuoteApproval(derryCityPickup, belfastHome), true);
+  assert.equal(needsManualQuoteApproval(derryCityPickup, belfastHome), false);
 });
 
-check("Omagh → Boucher Playing Fields is personalised A2A quote (no live £)", () => {
+check("Omagh → Boucher Playing Fields is instant", () => {
   const omaghUk = place({
     placeId: "omagh-uk",
     formattedAddress: "1 High Street, Omagh BT78 1AB, UK",
@@ -214,7 +215,7 @@ check("Omagh → Boucher Playing Fields is personalised A2A quote (no live £)",
     lng: -5.96,
   });
   assert.equal(isOutOfAreaPickup(omaghUk), true);
-  assert.equal(needsManualQuoteApproval(omaghUk, boucher), true);
+  assert.equal(needsManualQuoteApproval(omaghUk, boucher), false);
 });
 
 check("Bangor to Cork is ROI manual quote (standard Greater Belfast pickup)", () => {
@@ -234,12 +235,12 @@ check("BHD ↔ Dublin city is instant quote (existing pricing engine; eligibilit
   assert.equal(needsManualQuoteApproval(dublinCity, bhd!), false);
 });
 
-check("Belfast to Bangor is personalised A2A quote (no instant price)", () => {
+check("Belfast to Bangor is instant within Greater Belfast", () => {
   assert.equal(detectJourneyKind(belfastHome, bangorHome), "address-to-address");
-  assert.equal(needsManualQuoteApproval(belfastHome, bangorHome), true);
+  assert.equal(needsManualQuoteApproval(belfastHome, bangorHome), false);
 });
 
-check("Boucher Playing Fields ↔ Belfast city centre is personalised A2A quote", () => {
+check("Boucher Playing Fields ↔ Belfast city centre is instant", () => {
   const boucher = place({
     placeId: "boucher",
     formattedAddress: "Boucher Playing Fields, Belfast BT12 6HR, UK",
@@ -250,8 +251,8 @@ check("Boucher Playing Fields ↔ Belfast city centre is personalised A2A quote"
     lng: -5.96,
   });
   assert.equal(detectJourneyKind(belfastHome, boucher), "address-to-address");
-  assert.equal(needsManualQuoteApproval(belfastHome, boucher), true);
-  assert.equal(needsManualQuoteApproval(boucher, belfastHome), true);
+  assert.equal(needsManualQuoteApproval(belfastHome, boucher), false);
+  assert.equal(needsManualQuoteApproval(boucher, belfastHome), false);
 });
 
 check("A2A Places mode allows NI and ROI labels", () => {

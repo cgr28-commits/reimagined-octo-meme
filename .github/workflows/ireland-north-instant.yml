@@ -1,0 +1,36 @@
+name: Ireland to Greater Belfast and M2 A26 instant quotes
+on:
+  pull_request:
+    paths:
+      - 'src/lib/selected-place.ts'
+      - 'shared/m2-a26-service-corridor.ts'
+      - 'scripts/check-ireland-north*'
+      - '.github/workflows/ireland-north-instant.yml'
+permissions:
+  contents: read
+jobs:
+  city-transfer-quotes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --import tsx scripts/check-ireland-north-instant.ts
+      - run: node --import tsx scripts/check-bfs-bhd-roi-instant-quote.ts
+      - run: node --import tsx scripts/check-a2a-roi-journeys.ts
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - name: Actual mobile and desktop booking flow
+        run: |
+          python3 -m http.server 3000 --directory out &
+          node --import tsx scripts/check-ireland-north-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ireland-north-previews
+          path: test-results/ireland-north/

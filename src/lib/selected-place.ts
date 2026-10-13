@@ -1,3 +1,4 @@
+import { isM2A26ServiceCorridorDestination } from "../../shared/m2-a26-service-corridor";
 import { airportDisplayLabel } from "../../shared/airport-display-label";
 /**
  * Structured place selection for the quote form.
@@ -699,7 +700,7 @@ export function airportPickupDestinationNeedsManualQuote(
 
 /**
  * Journeys that must not show an automatic fare or immediate payment:
- * - Pure Address-to-Address (no airport on either leg) — personalised quote
+ * - Address-to-address outside the complete Ireland → Greater Belfast / M2–A26 corridor — personalised quote
  * - ROI city destinations (not DUB airport), or pickups outside NI / not into Greater Belfast
  *   — except BFS/BHD ↔ ROI address (instant via existing pricing engine)
  * - BFS / BHD / DUB airport pickup to a destination outside Northern Ireland
@@ -708,6 +709,20 @@ export function airportPickupDestinationNeedsManualQuote(
  * Airport journeys that remain eligible keep the instant-quote path.
  * Incomplete addresses are validation errors, not manual-quote / out-of-area.
  */
+/** Complete Ireland address pickup → Greater Belfast or the reviewed M2/A26 destination corridor. */
+export function isIrelandToBelfastNorthInstantJourney(pickup: SelectedPlace, dropoff: SelectedPlace): boolean {
+  if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff) ||
+      isIncompleteAddressPlace(pickup) || isIncompleteAddressPlace(dropoff)) return false;
+  // Airport flows retain their existing coverage and validation.
+  if (detectAirportCodeFromPlace(pickup) || detectAirportCodeFromPlace(dropoff)) return false;
+  const country = normaliseCountryCode(pickup.countryCode);
+  if (country && country !== "IE" && country !== "GB") return false;
+  if (country === "GB" && /\b(scotland|england|wales)\b/i.test([pickup.administrativeArea,pickup.formattedAddress].join(" "))) return false;
+  const irishPickup = country === "IE" || isNorthernIrelandPlace(pickup) || isIrelandAddressText(pickup.formattedAddress);
+  if (!irishPickup || normaliseCountryCode(dropoff.countryCode) === "IE" || !isNorthernIrelandPlace(dropoff)) return false;
+  return isGreaterBelfastDestination(dropoff) || isM2A26ServiceCorridorDestination(dropoff.lat, dropoff.lng);
+}
+
 export function needsManualQuoteApproval(
   pickup: SelectedPlace,
   dropoff: SelectedPlace,
@@ -720,11 +735,12 @@ export function needsManualQuoteApproval(
     return false;
   }
 
-  // All pure address↔address journeys require a personalised quote (no live £).
+  // Ireland → Greater Belfast / M2–A26 is an instant address-to-address corridor.
+  // Both ends must be complete confirmed places; all other address pairs stay manual.
   const pickupAirport = detectAirportCodeFromPlace(pickup);
   const dropoffAirport = detectAirportCodeFromPlace(dropoff);
   if (!pickupAirport && !dropoffAirport) {
-    return true;
+    return !isIrelandToBelfastNorthInstantJourney(pickup, dropoff);
   }
 
   // BFS/BHD ↔ Republic of Ireland address: unlock instant quote (eligibility only).
