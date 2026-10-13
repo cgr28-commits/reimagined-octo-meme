@@ -1,0 +1,36 @@
+name: Cork transfer page review
+on:
+  pull_request:
+    paths:
+      - 'src/components/CorkTransferLanding.tsx'
+      - 'src/lib/cork-transfer-content.ts'
+      - 'src/app/transfers/belfast-to-cork/**'
+      - 'src/app/transfers/cork-to-belfast/**'
+      - 'scripts/check-cork-transfer-pages*'
+      - '.github/workflows/cork-transfer-page-review.yml'
+permissions:
+  contents: read
+jobs:
+  page-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: GITHUB_PAGES=true npm run build
+      - run: node --import tsx scripts/check-cork-transfer-pages.ts
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - name: Mobile and desktop landing-page review
+        run: |
+          python3 -m http.server 3000 --directory out &
+          node --import tsx scripts/check-cork-transfer-pages-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cork-transfer-page-previews
+          path: test-results/cork-transfer-pages/

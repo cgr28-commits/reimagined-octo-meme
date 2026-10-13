@@ -1,0 +1,51 @@
+export type CorkTransferDirection = "belfast-to-cork" | "cork-to-belfast";
+const sharedFaqs = [
+  { question: "Which vehicle should I choose for a long-distance transfer?", answer: "Enter everyone travelling and all standard suitcases before choosing a vehicle. Saloon and Estate carry up to four passengers, with Estate suited to extra luggage. A 7-Seater Minibus is offered only when available and suitable for the party. Vehicle capacity and availability are checked during the quote." },
+  { question: "Can we arrange a comfort stop?", answer: "Please tell us before booking if you would like a comfort stop, an additional pickup or a detour. We can confirm the plan and any effect on your quote before you commit. Allow extra time if you have a flight or appointment at the destination." },
+  { question: "Is the price per passenger or per vehicle?", answer: "Your confirmed transfer price is for the booked vehicle and journey, rather than a separate fare for each passenger. Enter the full party and suitcase count so we can offer a suitable vehicle. The price is agreed before payment." },
+  { question: "Can I arrange the journey back as well?", answer: "Yes. Choose Return and enter the details for both journeys. Where an eligible online return fare is shown, the existing return-booking discount is applied by the quote tool. A personalised return request is confirmed with you before payment." },
+];
+export const CORK_TRANSFER_PAGES = {
+  "belfast-to-cork": {
+    title: "Belfast to Cork Taxi & Private Transfer",
+    description: "Pre-book a private Belfast to Cork transfer from a home, hotel or Belfast airport. Door-to-door travel, a confirmed fixed quote and suitable cars or 7-seaters.",
+    eyebrow: "Belfast → Cork · Private transfers",
+    intro: "Travel from Belfast to Cork in one private vehicle, with your pickup, destination and price agreed in advance. We collect from Belfast homes, hotels and offices, as well as Belfast International and George Best Belfast City Airport, for the journey south to Cork.",
+    journeyTitle: "One booked journey from Belfast to Cork",
+    journeyText: "A long journey is easier when you have one collection point and one car carrying you and your baggage all the way. There is no change of vehicle in Dublin and no need to organise a separate connection across the city. Whether you are travelling for work, visiting family or starting a stay in Cork, your driver takes you to the address agreed in your booking.",
+    collectionTitle: "Your Belfast pickup",
+    collectionText: "Give us the full hotel name or street address, including a postcode where available. City-centre hotels, the Cathedral Quarter, the Titanic Quarter and south Belfast can have different collection points and journey times, so use your actual address rather than a general Belfast pin. If your hotel has a separate entrance for vehicles, add that detail when arranging the collection.",
+    destinationTitle: "Where in Cork are you going?",
+    destinationText: "Cork city centre, a hotel near Kent Station, a business address in Little Island and a home in Douglas are different destinations. Enter the full drop-off address or Eircode so your quote covers the correct journey. If you are travelling farther into County Cork, name that destination too; a Cork city quote should not be used for an onward trip to Cobh, Kinsale or another town.",
+    airportTitle: "Arriving at a Belfast airport?",
+    airportText: "Select Belfast International Airport or George Best Belfast City Airport as your pickup and your exact Cork destination. Eligible airport-to-Cork journeys can show an instant fixed price once your addresses, passengers and suitcases are confirmed. Add the flight number and pickup details when booking. Your collection instructions explain where to meet your driver, and flight monitoring applies where available.",
+    quoteText: "Enter the exact Belfast pickup and Cork drop-off, then select passengers and suitcases. Belfast airport journeys can receive an instant online price where eligible. City-address journeys use a personalised fixed quote, confirmed before payment.",
+    faqs: [
+      { question: "How much is a taxi from Belfast to Cork?", answer: "The fare depends on the exact pickup and drop-off, vehicle and journey details. Use the quote form rather than a single headline fare. Eligible Belfast airport collections can show an instant price; city-address journeys use a personalised fixed quote. Your confirmed price is agreed before payment." },
+      { question: "How long does Belfast to Cork take?", answer: "Plan for roughly five to six hours on the road, depending on the addresses, route, traffic and any agreed stops. The quote tool shows a mapped estimate for your journey. Leave additional time for a flight connection or a time-sensitive appointment." },
+      { question: "Can you collect from Belfast International or Belfast City Airport?", answer: "Yes. Select the correct airport as the pickup, enter your Cork destination and provide your flight details when booking. Follow the collection instructions sent for that airport and contact your driver as advised." },
+      ...sharedFaqs,
+    ],
+  },
+  "cork-to-belfast": {
+    title: "Cork to Belfast Taxi & Private Transfer",
+    description: "Arrange a pre-booked Cork to Belfast private transfer from your hotel, home or business address. A personalised fixed quote for door-to-door cross-border travel.",
+    eyebrow: "Cork → Belfast · Private transfers",
+    intro: "Arrange a private journey from Cork to Belfast with a reserved collection and a fixed quote confirmed before payment. We collect from your Cork hotel, home or business address and take you directly to the Belfast destination agreed in your booking.",
+    journeyTitle: "From your Cork address to your Belfast door",
+    journeyText: "This is a pre-booked transfer for the full journey north, rather than a local taxi hailed on the day. It suits travellers moving between hotels, visiting family or heading to a business meeting with baggage. One vehicle carries you from your Cork pickup to Belfast, without a change in Dublin or a separate connection to arrange.",
+    collectionTitle: "Plan your collection in Cork",
+    collectionText: "Enter the full hotel name, street address or Eircode and the time you want to leave. A city-centre hotel, a home in Douglas and an office in Little Island need different collection arrangements. Please include any access instructions and let us know in advance about extra pickups. A journey from elsewhere in County Cork should be quoted from that exact address.",
+    destinationTitle: "Choose the right Belfast destination",
+    destinationText: "Use the full name and address of your Belfast hotel, home or office. The city centre, Cathedral Quarter, Titanic Quarter and south Belfast have different arrival points. If you are travelling to an airport, select its full name: Belfast International is at Aldergrove, while George Best Belfast City Airport is on the Sydenham side of the city.",
+    airportTitle: "Travelling north for a flight?",
+    airportText: "Tell us which Belfast airport you are flying from, your flight details and the check-in time you need to meet. A long cross-border transfer needs a sensible buffer for traffic and any comfort stop. Your collection plan and fixed quote are confirmed before booking; a road-time estimate is not a guaranteed airport arrival time.",
+    quoteText: "Cork city and hotel pickups currently use a personalised fixed quote. Enter your exact Cork pickup and Belfast destination, passengers and suitcases, then send the request. We confirm the fare and availability before payment.",
+    faqs: [
+      { question: "Can I book a private transfer from Cork to Belfast?", answer: "Yes. Send your Cork collection address, Belfast destination, date, time, passengers and suitcases through the quote form or WhatsApp. Cork city and hotel pickups currently use a personalised fixed quote, with availability and price confirmed before payment." },
+      { question: "How much does a Cork to Belfast transfer cost?", answer: "Request a fixed quote for your exact addresses and vehicle requirements. There is no single city-to-city fare that covers every Cork pickup and Belfast destination. We confirm the amount before you book and pay." },
+      { question: "How long is the journey from Cork to Belfast?", answer: "Allow roughly five to six hours of road travel, depending on your pickup, destination, traffic and stops. If you are heading to a Belfast airport, allow extra time for check-in and security as well as the journey itself." },
+      ...sharedFaqs,
+    ],
+  },
+} as const;
