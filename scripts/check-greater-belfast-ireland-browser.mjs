@@ -24,7 +24,8 @@ try {
         return json({ok:true,amount:fare.amount,journeyFareGbp:fare.amount,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0,
           vehicleType:body.vehicleType,returnJourney:body.returnJourney,distanceKm:420,durationMinutes:300});
       }
-      if(req.method()==='POST') writes.push(url.pathname);
+      // Telemetry and anonymous quote leads are aborted below, never sent to production.
+      if(req.method()==='POST' && /checkout|bookings|a2a-quotes|short-notice/.test(url.pathname)) writes.push(url.pathname);
       return route.abort();
     });
     const page=await context.newPage();
