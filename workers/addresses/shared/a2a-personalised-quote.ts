@@ -5,6 +5,28 @@
  */
 
 import type { PaidBookingDetails } from "./booking-notifications";
+import { RETURN_JOURNEY_DISCOUNT_RATE } from "./return-journey-discount";
+
+export type A2aReturnOfferPricing = {
+  outboundFare: number;
+  returnFare: number;
+  accessCharges: number;
+  discount: number;
+  total: number;
+};
+
+/** Owner-entered transfer fares; airport/access charges are never discounted. */
+export function calculateA2aReturnOffer(outbound: unknown, inbound: unknown, access: unknown = 0): A2aReturnOfferPricing | null {
+  const outboundFare = normalizeA2aQuotedPriceGbp(outbound);
+  const returnFare = normalizeA2aQuotedPriceGbp(inbound);
+  const accessCharges = Math.round(Number(access) * 100) / 100;
+  if (outboundFare == null || returnFare == null || !Number.isFinite(accessCharges) || accessCharges < 0) return null;
+  const gross = Math.round((outboundFare + returnFare) * 100) / 100;
+  const discount = Math.round(gross * RETURN_JOURNEY_DISCOUNT_RATE * 100) / 100;
+  const total = Math.round((gross - discount + accessCharges) * 100) / 100;
+  if (normalizeA2aQuotedPriceGbp(total) == null) return null;
+  return { outboundFare, returnFare, accessCharges, discount, total };
+}
 
 export const A2A_QUOTE_STATUSES = [
   "AWAITING_QUOTE",
@@ -72,6 +94,8 @@ export type A2aQuoteRequestRecord = {
   updatedAt: string;
   /** Owner-entered quote price (GBP) — set on approve. */
   quotedPrice?: number;
+  returnOfferPricing?: A2aReturnOfferPricing;
+  reopenedAt?: string;
   quoteApprovedAt?: string;
   /** Owner-chosen validity in whole minutes (any integer ≥ 1). */
   quoteValidityMinutes?: number;

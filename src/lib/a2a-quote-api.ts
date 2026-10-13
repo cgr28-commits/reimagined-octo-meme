@@ -41,6 +41,7 @@ export type A2aQuoteOwnerSummary = {
   tripLabel: string;
   createdAt: string;
   updatedAt: string;
+  returnOfferPricing?: import("../../shared/a2a-personalised-quote").A2aReturnOfferPricing;
   quotedPrice: number | null;
   quotedPriceLabel: string | null;
   quoteApprovedAt: string | null;
@@ -193,7 +194,7 @@ export async function updateOwnerA2aQuoteJourney(
 
 export async function approveOwnerA2aQuote(
   ownerKey: string,
-  input: { reference: string; quotedPrice: number; validityMinutes: number },
+  input: { reference: string; quotedPrice: number; validityMinutes: number; returnOfferFares?: { outbound: number; inbound: number } },
 ): Promise<{
   record: A2aQuoteOwnerSummary;
   payUrl: string;
@@ -212,6 +213,7 @@ export async function approveOwnerA2aQuote(
       reference: input.reference,
       quotedPrice: input.quotedPrice,
       validityMinutes: input.validityMinutes,
+      returnOfferFares: input.returnOfferFares,
     }),
   });
   const payload = (await response.json().catch(() => null)) as {

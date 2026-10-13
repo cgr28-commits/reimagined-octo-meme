@@ -71,6 +71,8 @@ export type SavedQuoteRecord = {
   pricing: SavedQuotePricingSnapshot;
   status: SavedQuoteStatus;
   createdAt: string;
+  originalCreatedAt?: string;
+  reopenedAt?: string;
   expiresAt: string;
   bookedAt?: string;
   bookingId?: string;

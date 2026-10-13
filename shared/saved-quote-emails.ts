@@ -115,6 +115,8 @@ export function buildSavedQuoteInitialEmail(
   const expiry = formatSavedQuoteExpiryLabel(record.expiresAt);
   const price = record.pricing.amountLabel;
   const subject = `Your My Airport Taxi NI Quote – ${record.reference}`;
+  const returnOffer = record.journey.returnJourney && record.pricing.pricingMeta?.ownerReturnOffer === true;
+  const returnNote = returnOffer ? "Your return quote includes the 5% return booking fare discount. Airport/access charges are not discounted." : "";
 
   const text =
     `Your airport transfer quote is saved\n\n` +
@@ -123,6 +125,7 @@ export function buildSavedQuoteInitialEmail(
     `Your fixed-price airport transfer quote is:\n\n` +
     `${price}\n\n` +
     `${journeySummary(record)}\n\n` +
+    (returnNote ? `${returnNote}\n\n` : "") +
     `Quote reference:\n${record.reference}\n\n` +
     `Your quote is valid until:\n${expiry}\n\n` +
     `Your journey has not yet been booked.\n\n` +
@@ -138,6 +141,7 @@ export function buildSavedQuoteInitialEmail(
       `<p>Thanks for requesting a quote from ${escapeHtml(businessName)}.</p>` +
       `<p style="font-size:28px;font-weight:bold;color:${NAVY};margin:16px 0;">${escapeHtml(price)}</p>` +
       `<p>${journeySummaryHtml(record)}</p>` +
+      (returnNote ? `<p>${escapeHtml(returnNote)}</p>` : "") +
       `<p><strong>Quote reference:</strong> ${escapeHtml(record.reference)}<br/>` +
       `<strong>Valid until:</strong> ${escapeHtml(expiry)}</p>` +
       `<p><strong>Your journey has not yet been booked.</strong></p>`,

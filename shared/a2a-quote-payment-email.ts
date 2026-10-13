@@ -14,6 +14,8 @@ import {
   businessEmailClientMeta,
   businessEmailLogoHtml,
 } from "./business-email";
+import { formatReturnJourneyDiscountPercent } from "./return-journey-discount";
+import type { A2aReturnOfferPricing } from "./a2a-personalised-quote";
 import { formatA2aQuoteValidityLabel } from "./a2a-personalised-quote";
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
@@ -49,6 +51,7 @@ export type A2aQuotePaymentLinkEmailDetails = {
   reference: string;
   payUrl: string;
   validityMinutes: number;
+  returnOfferPricing?: A2aReturnOfferPricing;
   /** When true, email is framed as a counter-offer vs the original request. */
   isCounterOffer?: boolean;
   originalPickupLabel?: string;
@@ -209,6 +212,16 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
       ...journeyLines(offered),
     );
   }
+  const pricing = details.returnOfferPricing;
+  const breakdown = pricing ? [
+    `Outbound transfer fare: £${pricing.outboundFare.toFixed(2)}`,
+    `Return transfer fare: £${pricing.returnFare.toFixed(2)}`,
+    `${formatReturnJourneyDiscountPercent()} return booking discount: −£${pricing.discount.toFixed(2)}`,
+    ...(pricing.accessCharges ? [`Airport/access charges: £${pricing.accessCharges.toFixed(2)}`] : []),
+    `Fixed price for both journeys: ${details.amountLabel}`,
+  ] : [];
+  textLines.push("", ...breakdown);
+  const breakdownHtml = breakdown.length ? `<div style="margin:0 0 20px;padding:16px;border:1px solid ${ACCENT};border-radius:12px;">${breakdown.map(line => `<p style="margin:0 0 8px;">${escapeHtml(line)}</p>`).join("")}</div>` : "";
   textLines.push(
     "",
     `Reference: ${details.reference}`,
@@ -261,6 +274,7 @@ ${businessEmailClientMeta()}</head>
         </td></tr>
         <tr><td style="padding:8px 28px 24px;color:#d7e2ec;font-size:15px;line-height:1.55;">
           ${bodyHtml}
+          ${breakdownHtml}
           <p style="margin:0 0 24px;text-align:center;">
             <a href="${escapeHtml(details.payUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-weight:700;padding:14px 28px;border-radius:999px;font-size:16px;">${escapeHtml(ctaLabel)}</a>
           </p>

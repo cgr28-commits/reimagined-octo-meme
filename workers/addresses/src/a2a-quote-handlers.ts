@@ -5,6 +5,7 @@
 
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import {
+  calculateA2aReturnOffer,
   A2A_QUOTE_EXPIRED_CUSTOMER_MESSAGE,
   A2A_QUOTE_VALIDITY_DEFAULT_MINUTES,
   a2aQuoteStatusLabel,
@@ -19,10 +20,13 @@ import {
   type A2aQuoteRequestRecord,
 } from "../shared/a2a-personalised-quote";
 import { buildA2aQuotePaymentLinkEmail } from "../shared/a2a-quote-payment-email";
+import { parseLondonLocalDateTime } from "../shared/uk-time";
 import { normaliseJourneyAddressLabel } from "../shared/journey-address-label";
 import { isValidCustomerEmail } from "../shared/short-notice-payment-email";
 import {
   createSumUpHostedCheckout,
+  getSumUpCheckout,
+  isSumUpCheckoutPaid,
   type SumUpCheckoutResult,
 } from "../shared/sumup-checkout";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
@@ -98,6 +102,7 @@ function toOwnerSummary(record: A2aQuoteRequestRecord) {
     tripLabel: record.booking.tripLabel,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    returnOfferPricing: record.returnOfferPricing,
     quotedPrice: record.quotedPrice ?? null,
     quotedPriceLabel:
       typeof record.quotedPrice === "number" ? formatAmountLabel(record.quotedPrice) : null,
@@ -390,6 +395,7 @@ async function sendA2aPaymentEmail(
     reference: record.reference,
     payUrl,
     validityMinutes,
+    returnOfferPricing: record.returnOfferPricing,
     isCounterOffer: counterOffer,
     originalPickupLabel: normaliseJourneyAddressLabel(original.pickupLabel),
     originalDropoffLabel: normaliseJourneyAddressLabel(original.dropoffLabel),
@@ -437,9 +443,10 @@ export async function handleOwnerUpdateA2aQuoteJourney(
 
   const existing = await getA2aQuoteByReference(env.TRACKING_STORE, reference);
   if (!existing) return { error: "Quote request not found.", status: 404 };
-  if (existing.status !== "AWAITING_QUOTE") {
+  const editable = await maybeExpireRecord(env.TRACKING_STORE, existing);
+  if (editable.paymentReference || editable.paidAt || !["AWAITING_QUOTE", "EXPIRED"].includes(editable.status)) {
     return {
-      error: "Journey details can only be edited before the quote is approved.",
+      error: "Journey details can only be edited on an unpaid awaiting or expired quote.",
       status: 409,
     };
   }
@@ -458,14 +465,17 @@ export async function handleOwnerUpdateA2aQuoteJourney(
     return { error: "Enter a valid pickup time (HH:MM).", status: 400 };
   }
 
-  const returnJourney = Boolean(
-    body.returnJourney === true ||
-      body.returnJourney === "true" ||
-      existing.booking.returnJourney,
-  );
+  const returnJourney = body.returnJourney == null
+    ? Boolean(existing.booking.returnJourney)
+    : body.returnJourney === true || body.returnJourney === "true";
   let returnDate = String(body.returnDate ?? existing.booking.returnDate ?? "").trim();
   let returnTime = String(body.returnTime ?? existing.booking.returnTime ?? "").trim();
   if (returnJourney) {
+    const pickup = parseLondonLocalDateTime(tripDate, tripTime);
+    const returning = parseLondonLocalDateTime(returnDate, returnTime);
+    if (!pickup || !returning || returning <= pickup) {
+      return { error: "Enter a valid return date and time after pickup.", status: 400 };
+    }
     if (returnDate && !/^\d{4}-\d{2}-\d{2}$/.test(returnDate)) {
       return { error: "Enter a valid return date (YYYY-MM-DD).", status: 400 };
     }
@@ -539,9 +549,10 @@ export async function handleOwnerUpdateA2aQuoteJourney(
   else delete nextBooking.journeyDuration;
 
   const next: A2aQuoteRequestRecord = {
-    ...existing,
+    ...editable,
     originalBooking,
     booking: nextBooking,
+    ...(!returnJourney ? { returnOfferPricing: undefined } : {}),
     updatedAt: nowIso,
   };
 
@@ -574,7 +585,7 @@ export async function handleOwnerApproveA2aQuote(
   const reference = String(body.reference ?? "").trim();
   if (!reference) return { error: "Reference is required.", status: 400 };
 
-  const quotedPrice = normalizeA2aQuotedPriceGbp(body.quotedPrice ?? body.quotePrice);
+  let quotedPrice = normalizeA2aQuotedPriceGbp(body.quotedPrice ?? body.quotePrice);
   if (quotedPrice == null) {
     return { error: "Enter a valid Quote Price (£) between 1 and 5000.", status: 400 };
   }
@@ -591,7 +602,7 @@ export async function handleOwnerApproveA2aQuote(
 
   const existing = await getA2aQuoteByReference(env.TRACKING_STORE, reference);
   if (!existing) return { error: "Quote request not found.", status: 404 };
-  if (existing.status === "CONFIRMED" || existing.paymentReference) {
+  if (existing.status === "CONFIRMED" || existing.paymentReference || existing.paidAt) {
     return { error: "This quote has already been paid.", status: 409 };
   }
   if (existing.status === "CANCELLED") {
@@ -608,10 +619,57 @@ export async function handleOwnerApproveA2aQuote(
   }
 
   const now = new Date();
+  const reopening = existing.status === "EXPIRED" || Boolean(existing.quoteExpiresAt && new Date(existing.quoteExpiresAt) <= now);
+  // A delayed payment webhook must not let an already-paid quote be reopened.
+  if (reopening && existing.checkoutId) {
+    try {
+      if (isSumUpCheckoutPaid(await getSumUpCheckout(apiKey, existing.checkoutId))) {
+        return { error: "This checkout has already been paid. Refresh bookings before reopening.", status: 409 };
+      }
+    } catch {
+      return { error: "Could not verify the previous payment. Try again before reopening.", status: 502 };
+    }
+  }
+  if (reopening) {
+    const pickup = parseLondonLocalDateTime(existing.booking.tripDate, existing.booking.tripTime);
+    if (!pickup || pickup <= now) return { error: "Update the pickup date and time before reopening a past journey.", status: 400 };
+  }
+  let returnOfferPricing = existing.returnOfferPricing;
+  if (body.returnOfferFares != null) {
+    const fares = body.returnOfferFares as { outbound?: unknown; inbound?: unknown };
+    const pickup = parseLondonLocalDateTime(existing.booking.tripDate, existing.booking.tripTime);
+    const returning = parseLondonLocalDateTime(existing.booking.returnDate ?? "", existing.booking.returnTime ?? "");
+    if (!existing.booking.returnJourney || !pickup || !returning || returning <= pickup) {
+      return { error: "Save a return journey with a valid date and time before approving the return offer.", status: 400 };
+    }
+    returnOfferPricing = calculateA2aReturnOffer(fares.outbound, fares.inbound, existing.booking.airportAccessChargeGbp ?? existing.booking.expressDropOffFee ?? 0) ?? undefined;
+    if (!returnOfferPricing) return { error: "Enter valid outbound and return transfer fares (total at most £5000).", status: 400 };
+    quotedPrice = returnOfferPricing.total;
+  } else if (returnOfferPricing && quotedPrice !== returnOfferPricing.total) {
+    // A manually changed final total must not retain a misleading discount breakdown.
+    returnOfferPricing = undefined;
+  }
   const approvedAt = now.toISOString();
   const quoteExpiresAt = computeA2aQuoteExpiresAtIso(approvedAt, validityMinutes);
+  // Retire the expired hosted checkout before issuing another payable link.
+  // SumUp rejects deactivation if payment won the race; fail closed in that case.
+  if (reopening && existing.checkoutId) {
+    try {
+      const previous = await getSumUpCheckout(apiKey, existing.checkoutId);
+      if (isSumUpCheckoutPaid(previous)) return { error: "This checkout has already been paid.", status: 409 };
+      if (previous.status === "PENDING") {
+        const response = await fetch(`https://api.sumup.com/v0.1/checkouts/${encodeURIComponent(existing.checkoutId)}`, {
+          method: "DELETE", headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!response.ok) return { error: "Could not retire the previous payment link. Refresh bookings and try again.", status: 502 };
+      }
+    } catch {
+      return { error: "Could not retire the previous payment link. Try again.", status: 502 };
+    }
+  }
+  const paymentToken = reopening ? generateA2aPaymentToken() : existing.paymentToken;
   const siteOrigin = siteOriginFrom(env, request);
-  const payPageUrl = buildA2aQuotePayUrl(siteOrigin, existing.paymentToken);
+  const payPageUrl = buildA2aQuotePayUrl(siteOrigin, paymentToken);
   const checkoutReference = `${existing.reference}-${Date.now().toString(36)}`.slice(0, 100);
   const redirectUrl = `${siteOrigin}/booking-confirmed/?payment=return`;
 
@@ -634,9 +692,15 @@ export async function handleOwnerApproveA2aQuote(
     checkoutId: checkout.checkoutId,
     checkoutReference: checkout.checkoutReference,
     amount: quotedPrice,
-    booking: existing.booking,
+    booking: returnOfferPricing ? {
+      ...existing.booking,
+      outboundFare: returnOfferPricing.outboundFare,
+      returnFare: returnOfferPricing.returnFare,
+      returnJourneySavingGbp: returnOfferPricing.discount,
+      finalAmountPayableGbp: returnOfferPricing.total,
+    } : existing.booking,
     createdAt: approvedAt,
-    a2aQuoteToken: existing.paymentToken,
+    a2aQuoteToken: paymentToken,
     a2aQuoteReference: existing.reference,
   });
 
@@ -651,9 +715,22 @@ export async function handleOwnerApproveA2aQuote(
 
   const record: A2aQuoteRequestRecord = {
     ...existing,
+    paymentToken,
     originalBooking,
     status: "QUOTE_APPROVED_AWAITING_PAYMENT",
     quotedPrice,
+    returnOfferPricing,
+    expiredAt: undefined,
+    ...(reopening ? { reopenedAt: approvedAt } : {}),
+    paymentLinkEmailSentAt: undefined,
+    paymentLinkEmailPayUrl: undefined,
+    booking: returnOfferPricing ? {
+      ...existing.booking,
+      outboundFare: returnOfferPricing.outboundFare,
+      returnFare: returnOfferPricing.returnFare,
+      returnJourneySavingGbp: returnOfferPricing.discount,
+      finalAmountPayableGbp: returnOfferPricing.total,
+    } : existing.booking,
     quoteApprovedAt: approvedAt,
     quoteValidityMinutes: validityMinutes,
     quoteExpiresAt,
