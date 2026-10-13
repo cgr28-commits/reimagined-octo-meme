@@ -28,10 +28,21 @@ try {
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       const images = await page.locator("[data-landing-hero] img").evaluateAll(images => images.map(img => ({ loaded: img.complete && img.naturalWidth > 0, alt: img.alt })));
       assert.ok(images.length > 0 && images.every(img => img.loaded && img.alt.includes("Belfast")));
+      if (width === 390) {
+        const price = await page.getByRole("button", { name: "Get My Fixed Price", exact: false }).boundingBox();
+        assert.ok(price && price.y > 844, "No disabled quote button may float over landing-page content");
+      }
       await page.screenshot({ path: `test-results/cork-transfer-pages/${width}-${direction}-top.png` });
       await page.waitForTimeout(1500);
       await page.locator("[data-landing-quote-cta]").first().click();
-      await page.waitForTimeout(1200);
+      await page.waitForFunction(() => {
+        const heading = document.querySelector('#quote [data-site-nav-heading="quote"]');
+        const header = document.querySelector('header.fixed');
+        if (!heading) return false;
+        const top = heading.getBoundingClientRect().top;
+        const bottom = header?.getBoundingClientRect().bottom ?? 0;
+        return top >= bottom - 8 && top <= bottom + 90;
+      }, { timeout: 10000 });
       const section = await page.locator("#quote").boundingBox();
       const header = await page.locator("header").first().boundingBox();
       const heading = await page.locator('#quote [data-site-nav-heading="quote"]').boundingBox();

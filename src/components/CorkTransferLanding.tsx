@@ -24,7 +24,13 @@ export default function CorkTransferLanding({ direction }: { direction: CorkTran
     <>
       {schemas.map((schema, index) => <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />)}
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS}>
+      <style>{`
+        @media (max-width: 767px) {
+          .cork-transfer-page [data-landing-hero] { height: 8rem; }
+          .cork-transfer-page [data-quote-presentation="homepage"] .sticky { position: static; }
+        }
+      `}</style>
+      <main className={`${LANDING_PAGE_MAIN_CLASS} cork-transfer-page`}>
         <LandingHeroMedia baseName="titanic-belfast" alt="Titanic Belfast, a landmark on the Belfast side of your journey" />
         <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Long-distance transfers", href: "/long-distance-transfers/" }, { name: page.title }]} />
