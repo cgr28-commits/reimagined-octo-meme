@@ -11,6 +11,7 @@ function place(id: string, address: string, lat: number, lng: number, countryCod
   return { placeId: id, formattedAddress: address, displayAddress: address, placeName: address.split(",")[0], lat, lng, countryCode, postalCode: null, streetNumber: null, route: null, locality: null, administrativeArea: null };
 }
 const dublin = place("citizenm", "citizenM Dublin St. Patrick's, 67-69 Bride St, Dublin D08 C8CN, Ireland", 53.339, -6.272, "IE");
+const cork = place("cork-hotel", "Hotel, Cork, Ireland", 51.8985, -8.4756, "IE");
 const belfast = place("europa", "Europa Hotel, Great Victoria St, Belfast BT2 7AP, UK", 54.5946, -5.9358, "GB");
 assert.equal(needsManualQuoteApproval(dublin, belfast), false);
 assert.equal(needsManualQuoteApproval(belfast, dublin), false);
@@ -30,7 +31,7 @@ async function main() {
     const passenger = { distanceKm: 175, durationMinutes: 125 };
     const floor = profitabilityFloorFromOperations({ operationalMiles: universalDrivingMilesFromKm(775), operationalMinutes: 725, settings });
     assert.ok(floor);
-    for (const [pickup, dropoff] of [[dublin, belfast], [belfast, dublin]]) {
+    for (const [pickup, dropoff] of [[dublin, belfast], [belfast, dublin], [belfast, cork]]) {
       for (const returnJourney of [false, true]) {
         const result = await applyProfitabilityProtection({
           pricing, vehicleType: ESTATE_VEHICLE, pickup: { lat: pickup.lat!, lng: pickup.lng! },
@@ -49,7 +50,8 @@ async function main() {
     assert.ok(legs.some(url => url.includes(`${belfast.lng},${belfast.lat};${home}`)));
     assert.ok(legs.some(url => url.includes(`${home};${belfast.lng},${belfast.lat}`)));
     assert.ok(legs.some(url => url.includes(`${dublin.lng},${dublin.lat};${home}`)));
-    console.log("Dublin hotel ↔ Belfast hotel eligibility and home-positioning profitability checks passed (one-way and return).");
+    assert.ok(legs.some(url => url.includes(`${cork.lng},${cork.lat};${home}`)));
+    console.log("Dublin corridor and Belfast to Cork home-positioning profitability checks passed (one-way and return).");
   } finally { globalThis.fetch = originalFetch; }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

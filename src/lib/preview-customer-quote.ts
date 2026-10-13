@@ -52,7 +52,20 @@ function nextWeekdayMorningDate(now = new Date()): string {
 
 export function readPreviewCustomerQuoteSeed(): PreviewCustomerQuoteSeed | null {
   if (!previewCustomerJourneyRequested()) return null;
-  const dropoff = quickSelectToPlace("BFS");
+  const previewDestinations: Record<string, [string, number, number, string]> = {
+    cork: ["Cork City Hall, Anglesea Street, Cork, Ireland", 51.8966, -8.4656, "IE"],
+    galway: ["Eyre Square, Galway, Ireland", 53.2742, -9.0497, "IE"],
+    donegal: ["Donegal Castle, Donegal, Ireland", 54.6542, -8.1105, "IE"],
+    derry: ["Guildhall, Derry, Northern Ireland", 54.9972, -7.3199, "GB"],
+  };
+  const selected = previewDestinations[new URLSearchParams(window.location.search).get("previewDestination") ?? ""];
+  const dropoff = selected ? {
+    ...PREVIEW_BELFAST_CITY_HALL_PLACE,
+    placeId: `preview-ireland-${selected[0]}`,
+    formattedAddress: selected[0], displayAddress: selected[0], placeName: selected[0].split(",")[0],
+    lat: selected[1], lng: selected[2], countryCode: selected[3], postalCode: null,
+    route: null, locality: null, administrativeArea: null,
+  } : quickSelectToPlace("BFS");
   if (!dropoff) return null;
   const party = previewPartyFromQuery();
   return {

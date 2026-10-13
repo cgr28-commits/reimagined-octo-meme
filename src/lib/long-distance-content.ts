@@ -30,7 +30,7 @@ export const LONG_DISTANCE_HIGHLIGHTS = [
   {
     title: "Fixed quotes where needed",
     description:
-      "Dublin Airport and many Northern Ireland routes into Greater Belfast show an online price where available. Other out-of-area pickups and Republic of Ireland city destinations use Request Fixed Quote.",
+      "Confirmed Greater Belfast pickups can show instant fixed prices to addresses throughout Northern Ireland and the Republic of Ireland. Other out-of-area pickups retain their existing quote rules.",
   },
 ] as const;
 
@@ -47,5 +47,5 @@ export const LONG_DISTANCE_SERVICE_NOTES = [
   "Standard pickups are from Greater Belfast (plus Belfast International, Belfast City, City of Derry, and Dublin Airport). Pickups from elsewhere in Northern Ireland to a Greater Belfast destination can receive a live online quote where available.",
   "Destinations can be anywhere in Northern Ireland or the Republic of Ireland.",
   "Other out-of-area pickup requests need Request Fixed Quote for manual approval — no automatic online fare or immediate payment until confirmed.",
-  "Dublin Airport keeps a live online quote and book-online flow where eligible; other Republic of Ireland city destinations use Request Fixed Quote.",
+  "Greater Belfast pickups to confirmed destinations across Ireland can receive an instant quote. Dublin Airport and other existing eligible airport routes keep their online quote and booking flow.",
 ] as const;

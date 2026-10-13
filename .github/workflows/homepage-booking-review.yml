@@ -33,6 +33,7 @@ jobs:
       - run: npm ci
       - name: Dublin city corridor and profitability regression checks
         run: |
+          node --import tsx scripts/check-greater-belfast-ireland.ts
           node --import tsx scripts/check-a2a-roi-journeys.ts
           node --import tsx scripts/check-bfs-bhd-roi-instant-quote.ts
           node --import tsx scripts/check-profitability-floor.ts
@@ -46,6 +47,7 @@ jobs:
       - name: Test homepage and booking on mobile and desktop
         run: |
           python3 -m http.server 3000 --directory out &
+          node --import tsx scripts/check-greater-belfast-ireland-browser.mjs
           node --import tsx scripts/check-homepage-booking-browser.mjs
           node --import tsx scripts/check-return-vehicle-stability.mjs
           node --import tsx scripts/check-hub-quote-browser.mjs
@@ -55,4 +57,6 @@ jobs:
         if: always()
         with:
           name: homepage-booking-review
-          path: test-results/homepage-booking/
+          path: |
+            test-results/homepage-booking/
+            test-results/greater-belfast-ireland/

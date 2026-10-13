@@ -697,9 +697,28 @@ export function airportPickupDestinationNeedsManualQuote(
   return !isNorthernIrelandPlace(dropoff);
 }
 
+/** Greater Belfast address pickups can quote to confirmed addresses across Ireland.
+ * Directional: a standalone pickup elsewhere retains its existing eligibility.
+ * Reuses the established service boundary and road-based fare/profitability engine.
+ */
+export function isGreaterBelfastIrelandInstantJourney(
+  pickup: SelectedPlace,
+  dropoff: SelectedPlace,
+): boolean {
+  if (isIncompleteAddressPlace(pickup) || isIncompleteAddressPlace(dropoff)) return false;
+  if (detectAirportCodeFromPlace(pickup)) return false;
+  const pickupCountry = normaliseCountryCode(pickup.countryCode);
+  const dropoffCountry = normaliseCountryCode(dropoff.countryCode);
+  if (pickupCountry && pickupCountry !== "GB") return false;
+  if (dropoffCountry && dropoffCountry !== "GB" && dropoffCountry !== "IE") return false;
+  if (!isGreaterBelfastDestination(pickup)) return false;
+  return isNorthernIrelandPlace(dropoff) || isRoiNonAirportLeg(dropoff) ||
+    detectAirportCodeFromPlace(dropoff) === "DUB";
+}
+
 /**
  * Journeys that must not show an automatic fare or immediate payment:
- * - Pure Address-to-Address (no airport on either leg) — personalised quote
+ * - Address-to-address outside the Greater Belfast outbound or Dublin corridor exceptions
  * - ROI city destinations (not DUB airport), or pickups outside NI / not into Greater Belfast
  *   — except BFS/BHD ↔ ROI address (instant via existing pricing engine)
  * - BFS / BHD / DUB airport pickup to a destination outside Northern Ireland
@@ -720,7 +739,11 @@ export function needsManualQuoteApproval(
     return false;
   }
 
-  // Keep address↔address journeys personalised except the existing Dublin city ↔ Greater Belfast corridor.
+  if (isGreaterBelfastIrelandInstantJourney(pickup, dropoff)) {
+    return false;
+  }
+
+  // Other address journeys retain the existing Dublin city ↔ Greater Belfast exception.
   const pickupAirport = detectAirportCodeFromPlace(pickup);
   const dropoffAirport = detectAirportCodeFromPlace(dropoff);
   if (!pickupAirport && !dropoffAirport) {
