@@ -89,7 +89,7 @@ export function readPreviewCustomerQuoteSeed(): PreviewCustomerQuoteSeed | null 
     const pickup = origins[(params.get("previewOrigin") ?? "dublin") as keyof typeof origins];
     const destination = destinations[(params.get("previewDestination") ?? "belfast") as keyof typeof destinations];
     if (!pickup || !destination) return null;
-    return {pickup,dropoff:destination,passengers:party.passengers,suitcases:party.suitcases,tripDate:nextWeekdayMorningDate(),tripTime:"07:00"};
+    return {pickup:{...pickup,placeId:`preview-north-origin-${params.get("previewOrigin") ?? "dublin"}`},dropoff:{...destination,placeId:`preview-north-destination-${params.get("previewDestination") ?? "belfast"}`},passengers:party.passengers,suitcases:party.suitcases,tripDate:nextWeekdayMorningDate(),tripTime:"07:00"};
   }
 
   return {
