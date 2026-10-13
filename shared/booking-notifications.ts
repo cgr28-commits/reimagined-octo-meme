@@ -488,16 +488,24 @@ function buildInvoiceHtml(
   const rowsHtml = invoiceRows(details)
     .map(
       (row) =>
-        `<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:14px;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:${NAVY};font-size:14px;font-weight:600;vertical-align:top;">${escapeHtml(row.value)}</td></tr>`,
+        `<tr><td class="matni-detail-label" style="padding:12px 12px 12px 0;border-bottom:1px solid #e2e8f0;color:#334155;font-size:16px;line-height:1.5;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td><td class="matni-detail-value" style="padding:12px 0;border-bottom:1px solid #e2e8f0;color:${NAVY};font-size:16px;line-height:1.5;font-weight:600;overflow-wrap:anywhere;vertical-align:top;">${escapeHtml(row.value)}</td></tr>`,
     )
     .join("");
 
-  return `<!DOCTYPE html>
+  return lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ${businessEmailClientMeta()}
+  <style type="text/css">
+    @media only screen and (max-width:480px) {
+      .matni-detail-label, .matni-detail-value { display:block !important; width:100% !important; box-sizing:border-box; }
+      .matni-detail-label { padding:12px 0 2px !important; border-bottom:0 !important; }
+      .matni-detail-value { padding:0 0 12px !important; }
+    }
+    a[x-apple-data-detectors] { color:inherit !important; -webkit-text-fill-color:inherit !important; }
+  </style>
   <title>Invoice — ${escapeHtml(businessName)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
@@ -670,7 +678,7 @@ ${businessEmailClientMeta()}
     </tr>
   </table>
 </body>
-</html>`;
+</html>`);
 }
 
 /** Clarify legacy short airport labels in email output without changing stored bookings. */
