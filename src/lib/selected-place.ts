@@ -720,11 +720,14 @@ export function needsManualQuoteApproval(
     return false;
   }
 
-  // All pure address↔address journeys require a personalised quote (no live £).
+  // Keep address↔address journeys personalised except the existing Dublin city ↔ Greater Belfast corridor.
   const pickupAirport = detectAirportCodeFromPlace(pickup);
   const dropoffAirport = detectAirportCodeFromPlace(dropoff);
   if (!pickupAirport && !dropoffAirport) {
-    return true;
+    return !(
+      !isIncompleteAddressPlace(dropoff) &&
+      isDublinCityCorridorJourney(pickup, dropoff)
+    );
   }
 
   // BFS/BHD ↔ Republic of Ireland address: unlock instant quote (eligibility only).

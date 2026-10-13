@@ -360,8 +360,9 @@ check("Bangor (GB) → Cork remains manual", () => {
   assert.equal(isBelfastAirportRoiInstantJourney(bangor, roiPlaces.cork), false);
 });
 
-check("Dublin city ↔ Belfast address remains personalised A2A (no airport)", () => {
-  assert.equal(needsManualQuoteApproval(belfastCityHall, roiPlaces.dublin), true);
+check("Dublin city ↔ Belfast address uses the existing priced corridor", () => {
+  assert.equal(needsManualQuoteApproval(belfastCityHall, roiPlaces.dublin), false);
+  assert.equal(needsManualQuoteApproval(roiPlaces.dublin, belfastCityHall), false);
 });
 
 check("Cork ↔ Galway (ROI↔ROI) remains manual", () => {

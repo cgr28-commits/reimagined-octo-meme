@@ -161,13 +161,14 @@ check("Dublin Airport keeps instant quote (not ROI fixed-quote)", () => {
   assert.equal(detectJourneyKind(belfastHome, dub!), "address-to-airport");
   assert.equal(needsManualQuoteApproval(belfastHome, dub!), false);
   assert.equal(needsManualQuoteApproval(dub!, belfastHome), false);
-  assert.equal(needsManualQuoteApproval(dub!, newryPickup), true);
+  assert.equal(needsManualQuoteApproval(dub!, newryPickup), false);
 });
 
-check("Dublin city address↔address requires personalised quote (no live £)", () => {
+check("Dublin city ↔ Greater Belfast address allows the existing road-based quote", () => {
   assert.equal(isRepublicOfIrelandJourney(belfastHome, dublinCity), true);
   assert.equal(detectJourneyKind(belfastHome, dublinCity), "address-to-address");
-  assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), true);
+  assert.equal(needsManualQuoteApproval(belfastHome, dublinCity), false);
+  assert.equal(needsManualQuoteApproval(dublinCity, belfastHome), false);
 });
 
 check("Greater Belfast address is a standard instant pickup", () => {
