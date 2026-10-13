@@ -480,32 +480,24 @@ function buildInvoiceHtml(
   manageUrl?: string,
 ): string {
   void _trackUrl;
+  const LOGO_URL = `${BUSINESS_WEBSITE}/google-business-logo.png`;
   const customerRef =
     details.customerReference?.trim().toUpperCase() ||
     details.checkoutReference?.trim() ||
     "";
-  const customerName = escapeHtml(customerFirstName(details.customerName));
+  const customerName = escapeHtml(details.customerName);
   const rowsHtml = invoiceRows(details)
     .map(
       (row) =>
-        `<tr><td class="matni-detail-label" style="padding:12px 12px 12px 0;border-bottom:1px solid #e2e8f0;color:#334155;font-size:16px;line-height:1.5;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td><td class="matni-detail-value" style="padding:12px 0;border-bottom:1px solid #e2e8f0;color:${NAVY};font-size:16px;line-height:1.5;font-weight:600;overflow-wrap:anywhere;vertical-align:top;">${escapeHtml(row.value)}</td></tr>`,
+        `<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:14px;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:${NAVY};font-size:14px;font-weight:600;vertical-align:top;">${escapeHtml(row.value)}</td></tr>`,
     )
     .join("");
 
-  return lightCustomerEmailHtml(`<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-${businessEmailClientMeta()}
-  <style type="text/css">
-    @media only screen and (max-width:480px) {
-      .matni-detail-label, .matni-detail-value { display:block !important; width:100% !important; box-sizing:border-box; }
-      .matni-detail-label { padding:12px 0 2px !important; border-bottom:0 !important; }
-      .matni-detail-value { padding:0 0 12px !important; }
-    }
-    a[x-apple-data-detectors] { color:inherit !important; -webkit-text-fill-color:inherit !important; }
-  </style>
   <title>Invoice — ${escapeHtml(businessName)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
@@ -515,7 +507,7 @@ ${businessEmailClientMeta()}
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
-              ${businessEmailLogoHtml()}
+              <img src="${LOGO_URL}" alt="${escapeHtml(businessName)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">Invoice &amp; booking confirmation</div>
               <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Thank you, ${customerName}</div>
               ${
@@ -598,7 +590,6 @@ ${businessEmailClientMeta()}
             <td style="padding:16px 32px 8px;">
               <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin-bottom:12px;">Booking details</div>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rowsHtml}</table>
-              
             </td>
           </tr>
           <tr>
@@ -678,7 +669,7 @@ ${businessEmailClientMeta()}
     </tr>
   </table>
 </body>
-</html>`);
+</html>`;
 }
 
 /** Clarify legacy short airport labels in email output without changing stored bookings. */
