@@ -33,6 +33,20 @@ export type PreviewCustomerQuoteSeed = {
   tripTime: string;
 };
 
+/** Representative destinations for reviewing the existing all-Ireland airport corridor. */
+export const IRELAND_PREVIEW_DESTINATIONS = {
+  dublin: { label: "Trinity College, College Green, Dublin, Ireland", lat: 53.3438, lng: -6.2546, country: "IE" },
+  cork: { label: "The English Market, Cork, Ireland", lat: 51.8973, lng: -8.4755, country: "IE" },
+  galway: { label: "Eyre Square, Galway, Ireland", lat: 53.2744, lng: -9.049, country: "IE" },
+  limerick: { label: "The Hunt Museum, Limerick, Ireland", lat: 52.6689, lng: -8.6232, country: "IE" },
+  waterford: { label: "House of Waterford Crystal, Waterford, Ireland", lat: 52.2591, lng: -7.1063, country: "IE" },
+  donegal: { label: "Letterkenny Bus Station, Letterkenny, County Donegal, Ireland", lat: 54.9512, lng: -7.7305, country: "IE" },
+  sligo: { label: "Sligo Abbey, Sligo, Ireland", lat: 54.2702, lng: -8.4708, country: "IE" },
+  dundalk: { label: "Dundalk Railway Station, Dundalk, County Louth, Ireland", lat: 54.0002, lng: -6.4129, country: "IE" },
+  derry: { label: "Guildhall, Derry BT48 6DQ, Northern Ireland", lat: 54.997, lng: -7.321, country: "GB" },
+  enniskillen: { label: "Enniskillen Castle, Enniskillen BT74 7HL, Northern Ireland", lat: 54.3448, lng: -7.6442, country: "GB" },
+} as const;
+
 function nextWeekdayMorningDate(now = new Date()): string {
   for (let offset = 2; offset <= 10; offset += 1) {
     const candidate = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
@@ -55,6 +69,25 @@ export function readPreviewCustomerQuoteSeed(): PreviewCustomerQuoteSeed | null 
   const dropoff = quickSelectToPlace("BFS");
   if (!dropoff) return null;
   const party = previewPartyFromQuery();
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("previewJourney") === "ireland") {
+    const key = params.get("previewDestination") ?? "dublin";
+    const destination = IRELAND_PREVIEW_DESTINATIONS[key as keyof typeof IRELAND_PREVIEW_DESTINATIONS];
+    if (!destination) return null;
+    const pickup = quickSelectToPlace(params.get("previewAirport") === "BHD" ? "BHD" : "BFS");
+    if (!pickup) return null;
+    return {
+      pickup,
+      dropoff: {
+        placeId: `preview-ireland-${key}`, formattedAddress: destination.label, displayAddress: destination.label,
+        placeName: destination.label.split(",")[0], lat: destination.lat, lng: destination.lng,
+        countryCode: destination.country, postalCode: null, streetNumber: null, route: null,
+        locality: key, administrativeArea: destination.country === "GB" ? "Northern Ireland" : "Ireland",
+      },
+      passengers: party.passengers, suitcases: party.suitcases,
+      tripDate: nextWeekdayMorningDate(), tripTime: "10:00",
+    };
+  }
   return {
     pickup: PREVIEW_BELFAST_CITY_HALL_PLACE,
     dropoff,

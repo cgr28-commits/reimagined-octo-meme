@@ -1,0 +1,36 @@
+name: Belfast airports all-Ireland test preview
+on:
+  pull_request:
+    paths:
+      - 'src/lib/preview-customer-quote.ts'
+      - 'src/lib/pricing-preview-store.ts'
+      - 'scripts/check-belfast-airports-all-ireland*'
+      - '.github/workflows/belfast-airports-all-ireland.yml'
+permissions:
+  contents: read
+jobs:
+  all-ireland-quotes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --import tsx scripts/check-belfast-airports-all-ireland.ts
+      - run: node --import tsx scripts/check-bfs-bhd-roi-instant-quote.ts
+      - run: node --import tsx scripts/check-airport-pickup-destination-area.ts
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - name: Test mobile and desktop quotes
+        run: |
+          python3 -m http.server 3000 --directory out &
+          node --import tsx scripts/check-belfast-airports-all-ireland-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ireland-airport-quote-previews
+          path: test-results/ireland-airport-quotes/
