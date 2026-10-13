@@ -27,7 +27,7 @@ export default function CorkTransferLanding({ direction }: { direction: CorkTran
       <style>{`
         @media (max-width: 767px) {
           .cork-transfer-page [data-landing-hero] { height: 8rem; }
-          .cork-transfer-page [data-quote-presentation="homepage"] .sticky { position: static; }
+          body:has(.cork-transfer-page) [data-sticky-quote-bar] { display: none; }
         }
       `}</style>
       <main className={`${LANDING_PAGE_MAIN_CLASS} cork-transfer-page`}>
