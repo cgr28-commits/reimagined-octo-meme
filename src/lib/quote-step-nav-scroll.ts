@@ -265,66 +265,36 @@ export function scrollJourneySummaryAfterTimeConfirm(
   summary: BookingNavTargetId | HTMLElement | string | null | undefined,
   continueCta: BookingNavTargetId | HTMLElement | string | null | undefined = "quote-step2-next",
 ): () => void {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
+  // Reuse the controlled glide even for long movements after the native picker closes.
+  return scheduleBookTransferGlide(summary, {
+    computeScrollTop: (summaryEl) => {
+      const clearancePx = HEADER_CLEARANCE_PX;
+      let nextTop = computeScrollTopBelowHeader(summaryEl, clearancePx);
 
-  cancelCompetingScrollJobs();
+      const ctaEl = resolveBookingNavElement(continueCta);
+      if (ctaEl) {
+        const viewportHeight =
+          window.visualViewport?.height != null
+            ? Math.round(window.visualViewport.height + (window.visualViewport.offsetTop ?? 0))
+            : window.innerHeight;
+        const bottomPad = 16;
+        const ctaRect = ctaEl.getBoundingClientRect();
+        const ctaBottomDoc = window.scrollY + ctaRect.bottom;
+        // Do not scroll so far that Continue sits below the fold.
+        const maxKeepCtaInView = Math.max(0, Math.round(ctaBottomDoc - viewportHeight + bottomPad));
+        // Do not scroll so far that Continue is covered by the sticky header.
+        const headerBottom = getHeaderBottomPx();
+        const ctaTopDoc = window.scrollY + ctaRect.top;
+        const maxKeepCtaBelowHeader = Math.max(
+          0,
+          Math.round(ctaTopDoc - (headerBottom + clearancePx)),
+        );
+        nextTop = Math.min(nextTop, maxKeepCtaInView, maxKeepCtaBelowHeader);
+      }
 
-  const generation = getScrollJobGeneration();
-  let cancelled = false;
-  let raf2 = 0;
-
-  const apply = () => {
-    if (cancelled || !isScrollJobGenerationCurrent(generation)) return;
-
-    const summaryEl = resolveBookingNavElement(summary);
-    if (!summaryEl) return;
-
-    const clearancePx = HEADER_CLEARANCE_PX;
-    let nextTop = computeScrollTopBelowHeader(summaryEl, clearancePx);
-
-    const ctaEl = resolveBookingNavElement(continueCta);
-    if (ctaEl) {
-      const viewportHeight =
-        window.visualViewport?.height != null
-          ? Math.round(window.visualViewport.height + (window.visualViewport.offsetTop ?? 0))
-          : window.innerHeight;
-      const bottomPad = 16;
-      const ctaRect = ctaEl.getBoundingClientRect();
-      const ctaBottomDoc = window.scrollY + ctaRect.bottom;
-      // Do not scroll so far that Continue sits below the fold.
-      const maxKeepCtaInView = Math.max(0, Math.round(ctaBottomDoc - viewportHeight + bottomPad));
-      // Do not scroll so far that Continue is covered by the sticky header.
-      const headerBottom = getHeaderBottomPx();
-      const ctaTopDoc = window.scrollY + ctaRect.top;
-      const maxKeepCtaBelowHeader = Math.max(
-        0,
-        Math.round(ctaTopDoc - (headerBottom + clearancePx)),
-      );
-      nextTop = Math.min(nextTop, maxKeepCtaInView, maxKeepCtaBelowHeader);
-    }
-
-    nextTop = Math.max(0, nextTop);
-    const distance = Math.abs(window.scrollY - nextTop);
-    if (distance <= RESULTS_CORRECTION_TOLERANCE_PX) return;
-
-    const behavior = scrollBehaviorForDistance(distance);
-    window.scrollTo({ top: nextTop, behavior });
-  };
-
-  const raf1 = window.requestAnimationFrame(() => {
-    raf2 = window.requestAnimationFrame(() => {
-      apply();
-    });
+      return Math.max(0, nextTop);
+    },
   });
-
-  const cancel = () => {
-    cancelled = true;
-    window.cancelAnimationFrame(raf1);
-    if (raf2) window.cancelAnimationFrame(raf2);
-  };
-  return trackScrollJob(cancel);
 }
 
 /**
@@ -749,6 +719,7 @@ function measureBookTransferHeading(element: HTMLElement): BookTransferMetrics {
  */
 export function scheduleBookTransferGlide(
   target: BookingNavTargetId | HTMLElement | string | null | undefined,
+  options?: { computeScrollTop?: (element: HTMLElement) => number | null },
 ): () => void {
   if (typeof window === "undefined") {
     return () => {};
@@ -851,7 +822,9 @@ export function scheduleBookTransferGlide(
       stopListening();
       return;
     }
-    const nextTop = computeBookTransferScrollTop(measureBookTransferHeading(element));
+    const nextTop = options?.computeScrollTop
+      ? options.computeScrollTop(element)
+      : computeBookTransferScrollTop(measureBookTransferHeading(element));
     if (nextTop == null) {
       stopListening();
       return;
