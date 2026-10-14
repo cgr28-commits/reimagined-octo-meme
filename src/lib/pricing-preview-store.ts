@@ -156,6 +156,11 @@ export function savePreviewPricingState(
   const next: OwnerPricingSettings = {
     ...validated.settings,
     ...(profitability ? { profitability } : {}),
+    executive: {
+      ...defaultOwnerPricingSettings().executive,
+      publicEnabled: current.settings.executive.publicEnabled !== false,
+      requestQuote: current.settings.executive.requestQuote === true,
+    },
     version: current.settings.version + 1,
     updatedAt: new Date().toISOString(),
   } as OwnerPricingSettings;
