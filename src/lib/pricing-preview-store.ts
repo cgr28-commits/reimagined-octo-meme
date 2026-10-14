@@ -156,11 +156,6 @@ export function savePreviewPricingState(
   const next: OwnerPricingSettings = {
     ...validated.settings,
     ...(profitability ? { profitability } : {}),
-    executive: {
-      ...defaultOwnerPricingSettings().executive,
-      publicEnabled: current.settings.executive.publicEnabled !== false,
-      requestQuote: current.settings.executive.requestQuote === true,
-    },
     version: current.settings.version + 1,
     updatedAt: new Date().toISOString(),
   } as OwnerPricingSettings;
@@ -193,6 +188,11 @@ export function restorePreviewPricingState(expectedVersion: number): {
       ...defaultOwnerPricingSettings().minibus,
       publicEnabled: current.settings.minibus.publicEnabled === true,
       requestQuote: current.settings.minibus.requestQuote === true,
+    },
+    executive: {
+      ...defaultOwnerPricingSettings().executive,
+      publicEnabled: current.settings.executive.publicEnabled !== false,
+      requestQuote: current.settings.executive.requestQuote === true,
     },
     version: current.settings.version + 1,
     updatedAt: new Date().toISOString(),
