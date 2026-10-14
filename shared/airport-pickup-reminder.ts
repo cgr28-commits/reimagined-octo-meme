@@ -21,9 +21,7 @@ import {
   BUSINESS_NAME,
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_PHONE_TEL,
-  lightCustomerEmailHtml,
-  businessEmailClientMeta,
-  businessEmailLogoHtml,
+  BUSINESS_WEBSITE,
   businessWhatsAppChatUrl,
 } from "./business-email";
 import { normalizeCustomerBookingReference } from "./customer-booking-reference";
@@ -484,7 +482,7 @@ export function evaluateAirportPickupReminder(
     message,
     subject,
     text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input) + dublinAirportMapText(input),
-    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input) + dublinAirportMapHtml(input), true),
+    html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input) + dublinAirportMapHtml(input), true, input),
     whatsAppHref,
     whatsAppDraft,
   };
@@ -506,48 +504,51 @@ function whatsAppButtonBlock(href: string): string {
 </div>`;
 }
 
-function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, mapHtml = "", mapAfterDirections = false): string {
+function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, mapHtml = "", mapAfterDirections = false, input: AirportPickupReminderInput = {}): string {
+  const navy = "#071c38";
+  const accent = "#2fbf4a";
+  const reference = normalizeCustomerBookingReference(input.customerReference);
+  const row = (label: string, value: string) => `<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:14px;width:38%;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:${navy};font-size:14px;font-weight:600;vertical-align:top;">${escapeHtml(value)}</td></tr>`;
+  const sectionTitle = (title: string) => `<div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${accent};font-weight:bold;margin-bottom:12px;">${escapeHtml(title)}</div>`;
   let mapPlaced = false;
-  const paragraphs = message
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-    .map((paragraph) => {
-      if (paragraph.startsWith("MESSAGE US ON WHATSAPP")) {
-        return whatsAppButtonBlock(whatsAppHref);
-      }
-      if (paragraph === "YOUR COLLECTION" || paragraph === "WHERE TO GO" || paragraph === "WHEN YOU ARE READY") {
-        return `<p style="margin:18px 0 8px;font-size:13px;letter-spacing:0.08em;font-weight:bold;color:#071c38;">${escapeHtml(paragraph)}</p>`;
-      }
-      let safe = escapeHtml(paragraph).replace(/\n/g, "<br />");
-      if (paragraph.includes(BUSINESS_PHONE_DISPLAY)) {
-        safe = safe.replace(
-          BUSINESS_PHONE_DISPLAY,
-          `<a href="tel:${BUSINESS_PHONE_TEL}" style="color:#071c38;font-weight:bold;">${BUSINESS_PHONE_DISPLAY}</a>`,
-        );
-      }
-      const showMap = mapAfterDirections && Boolean(mapHtml) && paragraph.startsWith("WHERE TO GO\n");
+  const paragraphs = message.split(/\n{2,}/).map(part => part.trim()).filter(Boolean).map(part => {
+    if (part.startsWith("MESSAGE US ON WHATSAPP")) return whatsAppButtonBlock(whatsAppHref);
+    const lines = part.split("\n");
+    const heading = lines[0];
+    if (heading === "YOUR COLLECTION") {
+      const rows = lines.slice(1).map(line => {
+        const split = line.indexOf(":");
+        return split < 0 ? "" : row(line.slice(0, split), line.slice(split + 1).trim());
+      }).join("");
+      return `<div style="margin:20px 0;">${sectionTitle("Your collection")}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table></div>`;
+    }
+    let safe = escapeHtml(lines.slice(heading === "WHERE TO GO" || heading === "WHEN YOU ARE READY" ? 1 : 0).join("\n")).replace(/\n/g, "<br />");
+    safe = safe.replace(BUSINESS_PHONE_DISPLAY, `<a href="tel:${BUSINESS_PHONE_TEL}" style="color:${navy};">${BUSINESS_PHONE_DISPLAY}</a>`);
+    if (heading === "WHERE TO GO" || heading === "WHEN YOU ARE READY") {
+      const showMap = heading === "WHERE TO GO" && mapAfterDirections && Boolean(mapHtml);
       if (showMap) mapPlaced = true;
-      return `<p style="margin:0 0 16px;">${safe}</p>${showMap ? mapHtml : ""}`;
-    })
-    .join("");
+      return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;"><tr><td style="padding:20px 24px;">${sectionTitle(heading)}<div style="font-size:14px;line-height:1.8;color:#475569;">${safe}</div>${showMap ? mapHtml : ""}</td></tr></table>`;
+    }
+    return `<p style="margin:0 0 16px;">${safe}</p>`;
+  }).join("");
 
-  return lightCustomerEmailHtml(`<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-${businessEmailClientMeta()}
+  // Match the original booking confirmation header and palette. Do not run this
+  // template through lightCustomerEmailHtml, which replaces the navy header.
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Important information about your airport collection</title></head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;"><tr><td align="center">
-<table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
-<tr><td class="matni-header" bgcolor="#071c38" style="background:#071c38;padding:28px 32px;text-align:center;">
-${businessEmailLogoHtml()}
-<div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#2fbf4a;font-weight:bold;">${escapeHtml(BUSINESS_NAME)}</div>
+<table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
+<tr><td bgcolor="${navy}" style="background:${navy};padding:28px 32px;text-align:center;">
+<img src="${BUSINESS_WEBSITE}/google-business-logo.png" alt="${escapeHtml(BUSINESS_NAME)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
+<div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${accent};font-weight:bold;">Airport collection information</div>
 <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
+${reference ? `<div style="margin-top:14px;display:inline-block;background:rgba(16,185,129,0.15);border:1px solid ${accent};border-radius:10px;padding:10px 16px;font-size:15px;color:#ffffff;"><span style="color:${accent};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;">Booking reference</span><br /><span style="font-size:22px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(reference)}</span></div>` : ""}
 </td></tr>
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}${mapPlaced ? "" : mapHtml}</td></tr>
-</table></td></tr></table>
-</body></html>`);
+<tr><td style="background:${navy};padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">Premium airport transfers across Northern Ireland · Belfast · Dublin · Derry</td></tr>
+</table></td></tr></table></body></html>`;
 }
 
 export function airportPickupReminderUsesCompanyVoice(message: string): boolean {
