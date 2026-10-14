@@ -210,32 +210,11 @@ export async function handleOwnerSaveSmartOps(
       flags: {
         ...current.config.flags,
         ...incomingFlags,
-        // Signed-off customer flags. Owner Test Tool still evaluates fully.
-        smartAvailability: true,
-        alternativeTimeSuggestions: true,
-        smartReturnPricing: false,
-        returnCorridorMatching: false,
-        backupDriverCapacity: false,
-        shadowMode: true,
       },
       updatedAt: new Date().toISOString(),
     });
     const state = await saveSmartOpsState(env.TRACKING_STORE, { ...current, config });
-    const triedUnsignedOn =
-      incomingFlags.smartReturnPricing === true ||
-      incomingFlags.returnCorridorMatching === true ||
-      incomingFlags.backupDriverCapacity === true;
-    const triedSignedOffOff =
-      incomingFlags.smartAvailability === false ||
-      incomingFlags.alternativeTimeSuggestions === false;
-    return {
-      ok: true,
-      state,
-      locked:
-        triedUnsignedOn || triedSignedOffOff || incomingFlags.shadowMode === false
-          ? "Smart Availability and Alternative Times stay ON. Smart Return, corridor matching and backup capacity stay OFF. Shadow mode stays ON."
-          : undefined,
-    };
+    return { ok: true, state };
   }
 
   if (action === "quick_block") {
@@ -394,7 +373,8 @@ export async function handleOwnerEvaluateSmartOps(
     },
     parents,
     config,
-    forceEnabled: true,
+    // Owner Smart Return tests follow the saved testing switches.
+    forceEnabled: false,
   });
   const previous = occupied.find((job) => job.id === availability.diagnostics.previousBookingId);
   const next = occupied.find((job) => job.id === availability.diagnostics.nextBookingId);

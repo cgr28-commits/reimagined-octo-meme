@@ -110,16 +110,11 @@ console.log("=== Signed-off customer flags ===");
   assert.equal(customerFacingSmartOpsEnabled(config), false);
 
   const saveHandler = read("workers/addresses/src/smart-ops-handlers.ts");
-  assert.match(saveHandler, /smartAvailability:\s*true/);
-  assert.match(saveHandler, /alternativeTimeSuggestions:\s*true/);
-  assert.match(saveHandler, /smartReturnPricing:\s*false/);
-  assert.match(saveHandler, /returnCorridorMatching:\s*false/);
-  assert.match(saveHandler, /backupDriverCapacity:\s*false/);
-  assert.match(saveHandler, /shadowMode:\s*true/);
+  assert.match(saveHandler, /\.\.\.incomingFlags/);
+  assert.doesNotMatch(saveHandler, /triedUnsignedOn|triedSignedOffOff/);
   const store = read("workers/addresses/src/smart-ops-store.ts");
-  assert.match(store, /applySignedOffCustomerSmartOpsFlags/);
-  assert.match(store, /customerSmartOpsFlagsMatchSignedOff/);
-  console.log("OK  production defaults + save-handler lock keep signed-off flags");
+  assert.doesNotMatch(store, /applySignedOffCustomerSmartOpsFlags|customerSmartOpsFlagsMatchSignedOff/);
+  console.log("OK  production defaults preserved; saved owner flags are not forced");
 }
 
 console.log("\n=== Flag OFF → customer gate does not enforce ===");

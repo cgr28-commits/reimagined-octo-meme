@@ -664,7 +664,8 @@ console.log("\n=== Newry corridor + owner/dashboard wiring ===");
   const switcher = read("src/components/OwnerDashboardToolSwitcher.tsx");
   assert.match(switcher, /"availability"/);
   const panel = read("src/components/OwnerSmartAvailabilityPanel.tsx");
-  assert.match(panel, /Shadow test mode/);
+  assert.match(panel, /SMART_OPS_FEATURE_CONTROLS/);
+  assert.match(read("shared/smart-ops-config.ts"), /Background testing/);
   assert.match(panel, /Owner test tool/);
   assert.match(panel, /Quick controls/);
   assert.match(panel, /Schedule availability/);
@@ -1533,8 +1534,8 @@ console.log("\n=== Add unavailable time: tomorrow 00:00–10:00 one-off ===");
   assert.match(describeUnavailableRule(weekly, MONDAY), /Every Monday · 00:00–10:00/);
 
   const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
-  assert.match(handlers, /returnCorridorMatching: false/);
-  assert.match(handlers, /backupDriverCapacity: false/);
+  assert.match(handlers, /\.\.\.incomingFlags/);
+  assert.match(handlers, /forceEnabled: false/);
   assert.match(handlers, /ruleId: interval.ruleId/);
   console.log("OK  add unavailable time 00:00–10:00");
 }
