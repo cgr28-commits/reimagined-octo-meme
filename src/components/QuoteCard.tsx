@@ -6437,7 +6437,7 @@ function QuoteCard({
             tabIndex={-1}
             className="text-sm font-semibold text-white outline-none"
           >
-            Pickup date & time — Complete your booking
+            Pickup date & time
           </h2>
 
           {renderQuoteScheduleFields("checkout")}
