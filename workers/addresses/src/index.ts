@@ -453,6 +453,9 @@ import {
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
   ownerPricingEngineOptions,
   publicMinibusAllowed,
+  publicMinibusRequiresPersonalQuote,
+  MINIBUS_PERSONAL_QUOTE_CODE,
+  MINIBUS_PERSONAL_QUOTE_MESSAGE,
 } from "../shared/owner-pricing-config";
 import {
   LUGGAGE_CAPACITY_OWNER_REASON,
@@ -2537,6 +2540,9 @@ async function handlePaymentRequest(
       returnFixedGbp?: number;
     } | null = null;
     const pricing = await loadOwnerPricingOrDefault(env);
+    if (publicMinibusRequiresPersonalQuote(booking.vehicle, pricing)) {
+      return json({ error: MINIBUS_PERSONAL_QUOTE_MESSAGE, code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
+    }
     const requoteMinibusOn = pricing.minibus.publicEnabled === true;
     if (!isValidPublicPassengerCount(Number(booking.passengers), requoteMinibusOn)) {
       return json(
@@ -3066,6 +3072,10 @@ async function handlePaymentRequest(
   }
 
   const paymentPricing = await loadOwnerPricingOrDefault(env);
+  if (!quickQuoteId && !a2aQuoteToken && !shortNoticeToken && !personalQuoteCode &&
+      publicMinibusRequiresPersonalQuote(booking.vehicle, paymentPricing)) {
+    return json({ error: MINIBUS_PERSONAL_QUOTE_MESSAGE, code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
+  }
   const paymentMinibusOn = paymentPricing.minibus.publicEnabled === true;
   if (!quickQuoteId && !isValidPublicPassengerCount(booking.passengers, paymentMinibusOn)) {
     return json(

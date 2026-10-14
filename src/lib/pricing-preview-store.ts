@@ -187,6 +187,7 @@ export function restorePreviewPricingState(expectedVersion: number): {
     minibus: {
       ...defaultOwnerPricingSettings().minibus,
       publicEnabled: current.settings.minibus.publicEnabled === true,
+      requestQuote: current.settings.minibus.requestQuote === true,
     },
     version: current.settings.version + 1,
     updatedAt: new Date().toISOString(),
