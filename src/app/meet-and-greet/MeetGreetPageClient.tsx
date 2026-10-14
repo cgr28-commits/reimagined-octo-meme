@@ -10,7 +10,7 @@ export default function MeetGreetPageClient() {
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   async function load(current: string) {
     const response = await fetch(`${base}/meet-greet/status?t=${encodeURIComponent(current)}`, { cache: "no-store" });
-    const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "This offer is unavailable.");
+    const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "This Meet & Greet upgrade is unavailable.");
     return payload as Offer;
   }
   useLayoutEffect(() => {

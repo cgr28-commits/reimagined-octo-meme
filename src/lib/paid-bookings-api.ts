@@ -893,3 +893,10 @@ export async function markPaidBookingCashCollected(
     cashBalanceDue?: number;
   };
 }
+
+export async function sendMeetGreetEmailNow(ownerKey: string, paymentReference: string, leg: "outbound" | "return") {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/send-meet-greet`, { method: "POST", headers: { "Content-Type": "application/json", "X-Owner-Key": ownerKey }, body: JSON.stringify({ paymentReference, leg }) });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) throw new Error(payload.error || "Could not send Meet & Greet email");
+  return payload as { ok: true; sent: number; alreadySent: number };
+}

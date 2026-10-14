@@ -1,4 +1,6 @@
 "use client";
+import { matchServedAirportCode } from "../../shared/served-airports";
+import { isExecutiveVehicle } from "../../shared/executive-vehicle";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -65,6 +67,7 @@ import {
   finalizePaidCheckoutRecovery,
   markPaidBookingCashCollected,
   resendPaidBookingConfirmation,
+  sendMeetGreetEmailNow,
   sendManualReturnOfferNow,
   reopenOwnerJob,
   sendOwnerReviewRequest,
@@ -770,6 +773,16 @@ export default function OwnerPaidBookingsPanel({
     } finally {
       setBusyRef("");
     }
+  }
+
+  async function handleSendMeetGreet(booking: OwnerPaidBookingSummary, leg: "outbound" | "return") {
+    if (!window.confirm(`Send the Add Meet & Greet email to ${booking.customerEmail} for booking ${booking.paymentReference}? The secure purchase link uses your dashboard price.`)) return;
+    setBusyRef(booking.paymentReference); setError(""); setMessage("");
+    try {
+      const result = await sendMeetGreetEmailNow(ownerKey, booking.paymentReference, leg);
+      setMessage(result.sent ? `Meet & Greet email sent to ${booking.customerEmail}.` : "The Meet & Greet email has already been sent for this collection. No duplicate was sent.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not send Meet & Greet email"); }
+    finally { setBusyRef(""); }
   }
 
   async function handleResend(booking: OwnerPaidBookingSummary) {
@@ -1747,6 +1760,14 @@ export default function OwnerPaidBookingsPanel({
                 {busyRef === booking.paymentReference
                   ? "Sending…"
                   : "Resend Updated Confirmation"}
+              </button>
+            ) : null}
+            {!isClosed && !isCompleted && booking.customerEmail && !isExecutiveVehicle(booking.vehicle) &&
+              ["BFS", "BHD", "DUB"].includes(matchServedAirportCode(displayLeg === "return" ? booking.dropoffLabel : booking.pickupLabel) ?? "") &&
+              (displayLeg === "return" ? booking.returnAirportAccessOption : booking.outboundAirportAccessOption ?? booking.airportAccessOption) !== "meet-greet" ? (
+              <button type="button" disabled={busyRef === booking.paymentReference} onClick={() => void handleSendMeetGreet(booking, displayLeg)}
+                className="min-h-11 w-full rounded-xl border border-emerald/40 bg-emerald/10 px-4 py-2.5 text-sm font-semibold text-emerald disabled:opacity-60">
+                {busyRef === booking.paymentReference ? "Sending…" : "Send Meet & Greet Email"}
               </button>
             ) : null}
             <button
