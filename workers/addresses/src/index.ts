@@ -1,3 +1,5 @@
+import { handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
+export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
 import { processDueJourneyReminders } from "./journey-reminder-handlers";
 import {
   isValidCapacityPassengerCount,
@@ -540,6 +542,7 @@ type Env = {
   /** Optional GPS audit retention override (seconds, min 30 days). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
   /** Per-booking refund serialization (Durable Object). */
+  MEET_GREET_COORDINATOR?: DurableObjectNamespace;
   REFUND_COORDINATOR?: DurableObjectNamespace;
   /** Per-fingerprint quote / contact email claim (Durable Object). */
   QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
@@ -3636,6 +3639,9 @@ async function handlePaymentWebhookRequest(
 
   const checkoutId = extractCheckoutIdFromRequest(request, payload);
   if (checkoutId) {
+    const meetGreetWebhook = await confirmMeetGreetWebhook(env, checkoutId);
+    if (meetGreetWebhook === "retry") return json({ ok: false }, 503, origin);
+    if (meetGreetWebhook === "done") return json({ ok: true }, 200, origin);
     const tipWebhook = await confirmJourneyTipWebhook(env, checkoutId);
     if (tipWebhook === "retry") {
       return json({ ok: false }, 503, origin);
@@ -3923,6 +3929,10 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (/^\/(api\/)?meet-greet\/(status|checkout|confirm)$/.test(url.pathname)) {
+      return handleMeetGreetUpgrade(request, env, origin);
     }
 
     if (
@@ -5440,6 +5450,7 @@ export default {
     // Four-hour customer journey reminders use the existing five-minute trigger.
     // Other scheduled work keeps its existing hourly cadence.
     if (!cron || cron === "*/5 * * * *") {
+      ctx.waitUntil(recoverMeetGreetEmails(env).catch(error => console.error("Meet & Greet queue recovery failed", error)));
       ctx.waitUntil(processDueJourneyReminders(env, new Date(event.scheduledTime)).then(result => {
         if (result.sent || result.errors) console.log("Journey reminder cron", JSON.stringify(result));
       }).catch(error => console.error("Journey reminder cron failed", error)));

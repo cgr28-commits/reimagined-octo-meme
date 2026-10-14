@@ -123,6 +123,7 @@ export type OwnerPaidBookingSummary = Pick<
   outboundCompletedAt?: string;
   returnCompletedAt?: string;
   additionalPayments?: PaidBookingRecord["additionalPayments"];
+  meetGreetUpgrades?: PaidBookingRecord["meetGreetUpgrades"];
   quoteSnapshot?: Record<string, unknown> | null;
   editHistory?: PaidBookingRecord["editHistory"];
   /** Owner-only £1 refund smoke-test — never show in operational lists. */

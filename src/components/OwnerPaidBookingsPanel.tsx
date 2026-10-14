@@ -2239,6 +2239,17 @@ export default function OwnerPaidBookingsPanel({
               </dd>
             </div>
           ) : null}
+          {booking.meetGreetUpgrades?.length ? (
+            <div className="col-span-2 rounded-xl border border-emerald/30 p-3" data-paid-meet-greet>
+              <dt className="text-xs text-white/70">Meet &amp; Greet payments</dt>
+              <dd className="mt-1 space-y-2 text-sm text-white">
+                {booking.meetGreetUpgrades.map(upgrade => <p key={upgrade.token}>
+                  {upgrade.airport} · {upgrade.leg === "return" ? "Return" : "Outbound"} collection · Paid £{upgrade.amount.toFixed(2)}<br />
+                  <span className="break-all text-xs text-white/70">{upgrade.checkoutReference} · {upgrade.transactionCode || upgrade.transactionId || upgrade.checkoutId}</span>
+                </p>)}
+              </dd>
+            </div>
+          ) : null}
           {booking.lastUpdatedConfirmationError ? (
             <div className="col-span-2">
               <dt className="text-[11px] text-red-200/80">Confirmation email</dt>

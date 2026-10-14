@@ -1,3 +1,4 @@
+import { queueMeetGreetEmail } from "./meet-greet-upgrade-handlers";
 import {
   buildCustomerConfirmationEmail,
   buildOwnerPaidBookingEmail,
@@ -53,6 +54,7 @@ import { parseGbpAmount } from "../shared/quote-session";
 const BUSINESS_NAME = "My Airport Taxi NI";
 
 type FinalizeEnv = {
+  MEET_GREET_COORDINATOR?: DurableObjectNamespace;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
   RESEND_API_KEY?: string;
@@ -714,6 +716,10 @@ export async function finalizePaidCheckout(input: {
         );
       }
     }
+  }
+
+  if (customerEmailResult.sent) {
+    await queueMeetGreetEmail(env, paymentReference).catch(error => console.error("Meet & Greet email queue failed", error));
   }
 
   const emailSent = customerEmailResult.sent && ownerNotifySent;

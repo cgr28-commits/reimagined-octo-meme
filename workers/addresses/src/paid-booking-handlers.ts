@@ -591,6 +591,7 @@ export async function handlePaidBookingsListRequest(
         outboundCompletedAt: booking.outboundCompletedAt || outboundJob?.journeyCompletedAt,
         returnCompletedAt: booking.returnCompletedAt || returnJob?.journeyCompletedAt,
         additionalPayments: booking.additionalPayments,
+        meetGreetUpgrades: booking.meetGreetUpgrades,
         quoteSnapshot: booking.quoteSnapshot,
         editHistory,
         isRefundTest: booking.isRefundTest === true ? true : undefined,
