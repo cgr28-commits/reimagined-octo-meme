@@ -239,7 +239,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
             <p className="text-xs uppercase tracking-wider text-white/45">Website quotes</p>
             <p className="mt-1 text-2xl font-bold text-white">{stats.quoteLeadsTotal}</p>
             <p className="mt-1 text-xs text-white/50">
-              Unique live quotes emailed to you
+              Unique fixed quotes emailed to you
               {stats.quoteLeadsLastAt
                 ? ` · last ${formatUkInstant(stats.quoteLeadsLastAt)}`
                 : " · counting from deploy"}

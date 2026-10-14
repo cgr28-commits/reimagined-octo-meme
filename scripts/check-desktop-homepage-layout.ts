@@ -50,7 +50,7 @@ const quote = read("src/components/QuoteCard.tsx");
 assert.match(quote, /lg:grid-cols-2/);
 assert.match(quote, /lg:space-y-3\.5|lg:space-y-4/);
 assert.match(quote, /lg:p-6/);
-assert.match(quote, /Get a Live Quote/);
+assert.match(quote, /Get Your Fixed Quote/);
 console.log("OK  quote card desktop spacing / side-by-side fields");
 
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");

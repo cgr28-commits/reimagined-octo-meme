@@ -108,7 +108,7 @@ export default async function TownHubPage({ params }: Props) {
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
             <LandingCtaRow
-              quoteLabel="Get a Live Quote"
+              quoteLabel="Get Your Fixed Quote"
               whatsappMessage={`Hi, I'd like an airport taxi from ${page.town.name}.`}
             />
           </header>
@@ -245,7 +245,7 @@ export default async function TownHubPage({ params }: Props) {
             </p>
             <div className="flex justify-center">
               <LandingCtaRow
-                quoteLabel="Get a Live Quote"
+                quoteLabel="Get Your Fixed Quote"
                 whatsappMessage={`Hi, I'd like an airport taxi from ${page.town.name}.`}
               />
             </div>

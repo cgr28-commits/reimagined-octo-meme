@@ -236,7 +236,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get a Live Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes show Saloon, Estate or similar larger vehicle, Business Class, and 7 Seater Minibus when enabled and available; the form recommends a suitable vehicle from your passengers and luggage. Airport access required for the journey is included in the fixed price. My Airport Taxi NI provides private airport transfers for up to 4 passengers, or up to 7 when a 7 Seater is offered.",
+        "Standard process: (1) Get Your Fixed Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes show Saloon, Estate or similar larger vehicle, Business Class, and 7 Seater Minibus when enabled and available; the form recommends a suitable vehicle from your passengers and luggage. Airport access required for the journey is included in the fixed price. My Airport Taxi NI provides private airport transfers for up to 4 passengers, or up to 7 when a 7 Seater is offered.",
     },
     {
       title: "Quote tool flow",
@@ -1728,7 +1728,7 @@ export function createWelcomeMessages(): AssistantMessage[] {
     {
       role: "bot",
       text:
-        `Hi — I’m the ${SITE.name} assistant. I answer questions using the information on our website (airports, long-distance transfers, vehicles, terms, privacy, and more) and can price airport transfers using the same steps and pricing as the live quote tool.\n\n` +
+        `Hi — I’m the ${SITE.name} assistant. I answer questions using the information on our website (airports, long-distance transfers, vehicles, terms, privacy, and more) and can price airport transfers using the same steps and pricing as the fixed quote tool.\n\n` +
         "Ask anything, or say “Get a quote” to start.",
     },
   ];

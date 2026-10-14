@@ -71,7 +71,7 @@ assert.doesNotMatch(
 assert.match(card, /rounded-\[1\.05rem\] p-4/);
 assert.match(card, /presentation === "homepage"/);
 assert.match(card, /Where are you travelling\?|QuoteProgressiveRoute/);
-assert.match(card, /quote-secondary|Get a Live Quote/);
+assert.match(card, /quote-secondary|Get Your Fixed Quote/);
 
 console.log("OK  mobile hero places service message above the quote form");
 console.log("OK  tablet/desktop restore the previous column order");

@@ -1,5 +1,5 @@
 /**
- * Landing-page “Get a Live Quote” CTA — jump to the existing calculator.
+ * Landing-page “Get Your Fixed Quote” CTA — jump to the existing calculator.
  * Run: npx tsx scripts/check-landing-quote-cta.ts
  */
 import assert from "node:assert/strict";
@@ -33,7 +33,7 @@ const quoteCard = read("src/components/QuoteCard.tsx");
 const header = read("src/components/Header.tsx");
 
 console.log("=== Shared landing quote CTA ===");
-assert.match(cta, /LANDING_QUOTE_CTA_LABEL = "Get a Live Quote"/);
+assert.match(cta, /LANDING_QUOTE_CTA_LABEL = "Get Your Fixed Quote"/);
 assert.match(cta, /LANDING_QUOTE_HREF = "#quote"/);
 assert.match(cta, /LandingPageQuoteCta/);
 assert.match(cta, /LandingPageStickyQuoteCta/);
@@ -99,10 +99,10 @@ console.log("OK  one QuoteCard; prefills unchanged; #quote retained");
 console.log("=== Page types use the shared CTA ===");
 assert.match(airports, /LandingPageQuoteCta/);
 assert.match(locations, /LandingCtaRow/);
-assert.match(locations, /Get a Live Quote/);
+assert.match(locations, /Get Your Fixed Quote/);
 assert.match(transfers, /LandingCtaRow/);
 assert.match(transfers, /LandingPageQuoteCta/);
-assert.match(transfers, /Get a Live Quote/);
+assert.match(transfers, /Get Your Fixed Quote/);
 assert.match(row, /LandingPageQuoteCta/);
 {
   const stickySource = cta.slice(cta.indexOf("export function LandingPageStickyQuoteCta"));
@@ -147,7 +147,7 @@ console.log("OK  generateMetadata, canonical, H1, schema helpers still present")
 
 console.log("=== Quote / pricing logic not imported here ===");
 assert.doesNotMatch(cta, /calculateFare|SUMUP|returnJourneyDiscount|expressDropOff/);
-assert.match(quoteCard, /Get a Live Quote/);
+assert.match(quoteCard, /Get Your Fixed Quote/);
 console.log("OK  CTA layer does not touch fare/payment code");
 
 console.log("\nAll landing quote CTA checks passed.");

@@ -11,7 +11,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     title: "Newtownabbey Airport Taxi & Airport Transfers",
     h1: "Newtownabbey Airport Taxi & Airport Transfers",
     metaDescription:
-      "Choose a Newtownabbey airport taxi for Belfast International, Belfast City or Dublin Airport. Each route page has the live quote for that terminal.",
+      "Choose a Newtownabbey airport taxi for Belfast International, Belfast City or Dublin Airport. Each route page has the fixed quote for that terminal.",
     intro:
       "Use this page to pick which airport you are flying from Newtownabbey, then open that route. Belfast International is the holiday and long-haul terminal most families here use — collections join the M2 at Sandyknowes from Glengormley, Mallusk, Carnmoney and Monkstown. George Best Belfast City Airport is usually the shorter run from Whiteabbey and Jordanstown along the Shore Road toward the Sydenham Bypass. Dublin Airport is the cross-border booking: M2 onto the M1/A1, with applicable tolls included on those fares as on our other Dublin pages. Each card below opens a page with that airport already selected. Enter the full street so the quote is for that pickup, not a generic town-centre pin. Ulster University Jordanstown pickups should include the building or halls name. Mallusk business-park collections need the unit or reception entrance.",
     blurb:

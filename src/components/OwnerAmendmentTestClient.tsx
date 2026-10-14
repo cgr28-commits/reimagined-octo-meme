@@ -146,7 +146,7 @@ export default function OwnerAmendmentTestClient() {
       });
       setLatest(result.fixture);
       setMessage(
-        `Created ${result.fixture.customerReference} at ${result.fixture.amountPaidLabel} (live quote; no SumUp charge).`,
+        `Created ${result.fixture.customerReference} at ${result.fixture.amountPaidLabel} (fixed quote; no SumUp charge).`,
       );
       await load();
     } catch (err) {

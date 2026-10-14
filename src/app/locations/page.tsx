@@ -209,7 +209,7 @@ export default function LocationsPage() {
                 href="/#quote"
                 className="mt-6 inline-flex min-h-11 items-center rounded-full bg-emerald px-8 py-3.5 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
               >
-                Get a live quote
+                Get Your Fixed Quote
               </QuoteNavLink>
             </div>
           </div>

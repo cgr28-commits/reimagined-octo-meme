@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import QuoteNavLink from "@/components/QuoteNavLink";
 
-export const LANDING_QUOTE_CTA_LABEL = "Get a Live Quote";
+export const LANDING_QUOTE_CTA_LABEL = "Get Your Fixed Quote";
 export const LANDING_QUOTE_HREF = "#quote";
 export const LANDING_INLINE_QUOTE_CTA_ATTR = "data-landing-quote-cta";
 
@@ -17,7 +17,7 @@ export function collectLandingStickyHideTargets(
   ].filter((node): node is Element => Boolean(node));
 }
 
-/** Sticky Get a Live Quote stays hidden while any observed CTA or calculator is on screen. */
+/** Sticky Get Your Fixed Quote stays hidden while any observed CTA or calculator is on screen. */
 export function shouldShowLandingStickyQuote(visibleTargetCount: number): boolean {
   return visibleTargetCount === 0;
 }
@@ -48,7 +48,7 @@ export function LandingPageQuoteCta({
 
 /**
  * Mobile-only sticky jump to the existing `#quote` calculator.
- * Hidden on desktop, while an inline Get a Live Quote CTA is on screen,
+ * Hidden on desktop, while an inline Get Your Fixed Quote CTA is on screen,
  * and while the local calculator is already in view.
  */
 export function LandingPageStickyQuoteCta() {
@@ -101,7 +101,7 @@ export function LandingPageStickyQuoteCta() {
             <QuoteNavLink
               href={LANDING_QUOTE_HREF}
               className="inline-flex min-h-11 w-full max-w-sm items-center justify-center rounded-full bg-emerald px-5 py-2.5 text-sm font-bold text-navy shadow-lg shadow-navy/40"
-              aria-label="Get a Live Quote — open the quote calculator"
+              aria-label="Get Your Fixed Quote — open the quote calculator"
             >
               {LANDING_QUOTE_CTA_LABEL}
             </QuoteNavLink>

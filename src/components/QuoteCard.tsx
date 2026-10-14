@@ -4465,7 +4465,7 @@ function QuoteCard({
         setPaymentError(
           refreshed
             ? error.message
-            : `${error.message} We could not refresh the live quote automatically — please check your journey details.`,
+            : `${error.message} We could not refresh the fixed quote automatically — please check your journey details.`,
         );
         setPaymentLoading(false);
         return;
@@ -7509,8 +7509,8 @@ function QuoteCard({
           {quoteStep >= 2
             ? "COMPLETE YOUR BOOKING"
             : presentation === "homepage"
-              ? "Get Your Live Quote"
-              : "Get a Live Quote"}
+              ? "Get Your Fixed Quote"
+              : "Get Your Fixed Quote"}
         </h2>
         {returnOfferToken ? (
           <div className="mt-3 rounded-xl border border-emerald/30 bg-emerald/[0.08] px-3.5 py-3">
@@ -7534,7 +7534,7 @@ function QuoteCard({
           {quoteStep >= 2 ? (
             <p>Add your pickup details to confirm your transfer.</p>
           ) : presentation === "homepage" ? (
-            <p>Your fixed price in just a few clicks.</p>
+            <p>Pre-book your airport transfer in just a few clicks.</p>
           ) : (
             <>
           {/* Mobile: compact — frees space for journey choices above the fold */}
