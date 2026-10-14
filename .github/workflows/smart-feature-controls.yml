@@ -1,0 +1,30 @@
+name: Smart feature controls
+on:
+  pull_request:
+    paths:
+      - 'shared/smart-ops-config.ts'
+      - 'workers/addresses/src/smart-ops-store.ts'
+      - 'workers/addresses/src/smart-ops-handlers.ts'
+      - 'src/components/OwnerSmartAvailabilityPanel.tsx'
+      - 'scripts/check-smart-feature-toggles.ts'
+      - '.github/workflows/smart-feature-controls.yml'
+permissions:
+  contents: read
+jobs:
+  smart-feature-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-worker-shared.mjs
+      - run: node --import tsx scripts/check-smart-feature-toggles.ts
+      - run: node --import tsx scripts/check-smart-ops.ts
+      - run: node --import tsx scripts/check-customer-smart-availability.ts
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm ci --prefix workers/addresses
+      - run: npm --prefix workers/addresses run build

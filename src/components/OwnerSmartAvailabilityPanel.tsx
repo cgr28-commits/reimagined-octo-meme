@@ -17,7 +17,7 @@ import {
   type UnavailableTimeForm,
   type UntilShortcutId,
 } from "../../shared/smart-availability";
-import { DEFAULT_SMART_OPS_CONFIG, type SmartOpsConfig } from "../../shared/smart-ops-config";
+import { DEFAULT_SMART_OPS_CONFIG, SMART_OPS_FEATURE_CONTROLS, type SmartOpsConfig } from "../../shared/smart-ops-config";
 import {
   customerAvailabilityMessage,
   evaluateSmartAvailability,
@@ -297,6 +297,46 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
         ) : null}
         {message ? <p className="mt-3 text-sm text-emerald-light">{message}</p> : null}
       </div>
+
+      <section className="rounded-2xl border border-white/10 bg-navy/70 p-4" aria-labelledby="owner-smart-features-title" data-owner-smart-features>
+        <h3 id="owner-smart-features-title" className="text-lg font-bold text-white">Smart features</h3>
+        <p className="mt-1 text-sm text-white/60">Switches save automatically. Your choices stay saved when you leave the dashboard.</p>
+        {!state ? <p className="mt-2 text-sm text-white/60">Loading smart settings…</p> : null}
+        <div className="mt-4 grid gap-3">
+          {SMART_OPS_FEATURE_CONTROLS.map((feature) => {
+            const enabled = Boolean(config.flags[feature.key]);
+            const inactive = enabled && (
+              (feature.key === "alternativeTimeSuggestions" && !config.flags.smartAvailability) ||
+              (feature.key === "returnCorridorMatching" && !config.flags.smartReturnPricing)
+            );
+            const status = feature.stage === "not_connected"
+              ? (enabled ? "Stored on" : "Stored off")
+              : inactive ? "On — inactive"
+              : feature.stage === "owner_test" ? (enabled ? "Testing on" : "Testing off")
+              : enabled ? "On" : "Off";
+            return (
+              <label key={feature.key} className="flex min-h-16 items-center justify-between gap-4 rounded-xl border border-white/10 p-3">
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-white">{feature.label}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-white/60">{feature.description}</span>
+                  {feature.stage !== "customer" ? (
+                    <span className="mt-1 block text-xs font-semibold text-amber-100">
+                      {feature.stage === "owner_test" ? "Owner testing only" : "Not connected yet"}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="flex shrink-0 flex-col items-end gap-2">
+                  <span className="text-xs text-white/70" aria-live="polite">{state ? status : "Loading"}</span>
+                  <input type="checkbox" role="switch" aria-label={feature.label}
+                    checked={enabled} disabled={busy || !state}
+                    onChange={(event) => void saveFlags({ [feature.key]: event.target.checked })}
+                    className="h-6 w-6 accent-emerald disabled:opacity-50" />
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </section>
 
       <div className="rounded-2xl border border-white/10 bg-navy/70 p-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Quick controls</h3>
@@ -1003,38 +1043,8 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
 
       <details className="rounded-2xl border border-white/10 bg-navy/70 p-4">
         <summary className="min-h-11 cursor-pointer text-sm font-bold uppercase tracking-wider text-white/50">
-          Advanced settings — keep off
+          Timing and pricing settings
         </summary>
-        <div className="mt-3 grid gap-2">
-          {(
-            [
-              ["smartAvailability", "Smart Availability (customer)", true],
-              ["alternativeTimeSuggestions", "Alternative time suggestions (customer)", true],
-              ["smartReturnPricing", "Smart Return Pricing (customer)", true],
-              ["returnCorridorMatching", "Return corridor matching", true],
-              ["backupDriverCapacity", "Backup driver capacity", true],
-              ["shadowMode", "Shadow test mode", true],
-            ] as const
-          ).map(([key, label, locked]) => (
-            <label key={key} className="flex min-h-11 items-center justify-between gap-3 text-sm text-white">
-              <span>
-                {label}
-                {locked ? <span className="ml-2 text-xs text-amber-100/80">locked</span> : null}
-              </span>
-              <input
-                type="checkbox"
-                checked={Boolean(config.flags[key])}
-                disabled={locked || busy}
-                onChange={(event) => void saveFlags({ [key]: event.target.checked })}
-                className="h-5 w-5 accent-emerald disabled:opacity-60"
-              />
-            </label>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-amber-100/90">
-          Customer Smart Availability, Alternative Times, Smart Return, corridor matching and backup
-          capacity stay OFF. Shadow test mode stays ON. Live quotes are unchanged.
-        </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-white/50">
             Short journey buffer

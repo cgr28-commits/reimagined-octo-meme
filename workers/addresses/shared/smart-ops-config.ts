@@ -1,7 +1,7 @@
 /**
  * Smart Availability + Smart Return Pricing — owner-configurable flags and buffers.
- * Signed-off customer flags: Smart Availability and Alternative Times ON.
- * Smart Return, corridor matching and backup capacity stay OFF. Shadow stays ON.
+ * Defaults keep Smart Availability and Alternative Times ON.
+ * Owner controls can change saved flags; unfinished features are labelled in the UI.
  */
 
 export const SMART_OPS_REASON = {
@@ -52,7 +52,29 @@ export type SmartOpsFeatureFlags = {
   shadowMode: boolean;
 };
 
+/** Saved flags and customer readiness are shown separately on the dashboard. */
+export const SMART_OPS_FEATURE_CONTROLS = [
+  { key: "smartAvailability", label: "Smart availability", stage: "customer",
+    description: "Check booking clashes and travel time for customer bookings." },
+  { key: "alternativeTimeSuggestions", label: "Alternative times", stage: "customer",
+    description: "Suggest other pickup times when a journey is unavailable. Requires Smart availability." },
+  { key: "shadowMode", label: "Background testing", stage: "customer",
+    description: "Record test comparisons without changing customer fares." },
+  { key: "smartReturnPricing", label: "Smart Return pricing", stage: "owner_test",
+    description: "Enable discounted return calculations in the owner test tool. Customer discounts are not connected yet." },
+  { key: "returnCorridorMatching", label: "Return corridor matching", stage: "owner_test",
+    description: "Allow corridor matches in Smart Return tests. Requires Smart Return pricing." },
+  { key: "backupDriverCapacity", label: "Backup driver capacity", stage: "not_connected",
+    description: "Save this setting for future use. Backup-driver allocation is not connected yet." },
+] as const satisfies ReadonlyArray<{
+  key: keyof SmartOpsFeatureFlags;
+  label: string;
+  stage: "customer" | "owner_test" | "not_connected";
+  description: string;
+}>;
+
 export type SmartOpsBuffers = {
+
   shortJourneyBufferMinutes: 15 | 30 | 45;
   longDistanceBufferMinutes: 30 | 45 | 60;
   airportPickupBufferMinutes: number;
@@ -89,7 +111,7 @@ export type SmartOpsConfig = {
   updatedAt: string;
 };
 
-/** Production customer flags after owner sign-off. Other customer engines stay off. */
+/** Starting defaults only; saved owner choices are never overwritten on read. */
 export const SIGNED_OFF_CUSTOMER_SMART_OPS_FLAGS: SmartOpsFeatureFlags = {
   smartAvailability: true,
   alternativeTimeSuggestions: true,

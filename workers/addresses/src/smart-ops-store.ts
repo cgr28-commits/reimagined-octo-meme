@@ -4,8 +4,6 @@
  */
 
 import {
-  applySignedOffCustomerSmartOpsFlags,
-  customerSmartOpsFlagsMatchSignedOff,
   DEFAULT_SMART_OPS_CONFIG,
   normalizeSmartOpsConfig,
   type SmartOpsConfig,
@@ -75,14 +73,7 @@ export function normalizeSmartOpsState(raw: unknown): SmartOpsState {
 
 export async function getSmartOpsState(store: KVNamespace): Promise<SmartOpsState> {
   const raw = await store.get(STATE_KEY, "json");
-  const state = raw ? normalizeSmartOpsState(raw) : defaultSmartOpsState();
-  if (customerSmartOpsFlagsMatchSignedOff(state.config.flags)) {
-    return state;
-  }
-  return saveSmartOpsState(store, {
-    ...state,
-    config: applySignedOffCustomerSmartOpsFlags(state.config),
-  });
+  return raw ? normalizeSmartOpsState(raw) : defaultSmartOpsState();
 }
 
 export async function saveSmartOpsState(
