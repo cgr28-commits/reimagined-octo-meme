@@ -536,13 +536,20 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, m
   // template through lightCustomerEmailHtml, which replaces the navy header.
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Important information about your airport collection</title></head>
+<title>Important information about your airport collection</title>
+<style type="text/css">
+@media only screen and (max-width:480px) { .collection-email-title { font-size:11px !important; } }
+@media only screen and (max-width:360px) { .collection-email-title { font-size:10px !important; } }
+</style></head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1a2b3c;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;"><tr><td align="center">
 <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
 <tr><td bgcolor="${navy}" style="background:${navy};padding:28px 32px;text-align:center;">
-<img src="${BUSINESS_WEBSITE}/google-business-logo.png" alt="${escapeHtml(BUSINESS_NAME)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
-<div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
+<picture>
+<source srcset="${BUSINESS_WEBSITE}/logo-email-vector.svg" type="image/svg+xml" />
+<img src="${BUSINESS_WEBSITE}/logo.png" alt="${escapeHtml(BUSINESS_NAME)}" width="124" height="96" style="display:block;margin:0 auto;height:96px;width:124px;max-width:100%;border:0;background:#071c38;" />
+</picture>
+<div class="collection-email-title" style="margin-top:16px;font-size:16px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
 ${reference ? `<div style="margin-top:14px;display:inline-block;background:rgba(16,185,129,0.15);border:1px solid ${accent};border-radius:10px;padding:10px 16px;font-size:15px;color:#ffffff;"><span style="color:${accent};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;">Booking reference</span><br /><span style="font-size:22px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(reference)}</span></div>` : ""}
 </td></tr>
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}${mapPlaced ? "" : mapHtml}</td></tr>
