@@ -1810,7 +1810,7 @@ function QuoteCard({
     suitcases != null &&
     exceedsOnlineVehicleOptions(effectivePassengers, suitcases, passengerLimit, suitcaseLimit);
   const scheduleReadyForQuote =
-    isScheduleComplete || presentation === "homepage";
+    isScheduleComplete || (presentation === "homepage" && !isMinibusPersonalQuote);
   const canShowPrice =
     hasQuoteRoute &&
     quoteChoicesReady &&
@@ -1825,7 +1825,7 @@ function QuoteCard({
     addressTextMatchesPlace(pickupAddress, pickupPlace) &&
     addressTextMatchesPlace(dropoffAddress, dropoffPlace) &&
     !placesEqual(pickupPlace, dropoffPlace) &&
-    (suitcases !== 5 || homepageCapacityConfirmed);
+    (isMinibusPersonalQuote || suitcases !== 5 || homepageCapacityConfirmed);
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
@@ -6130,7 +6130,7 @@ function QuoteCard({
               Personalised Quote
             </p>
             <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              Get a personalised quote for your journey
+              {isMinibusPersonalQuote ? "On request" : "Get a personalised quote for your journey"}
             </p>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
               {isMinibusPersonalQuote
@@ -7717,6 +7717,10 @@ function QuoteCard({
                 publicMinibusEnabled={publicMinibusEnabled}
                 onRequestPrice={requestHomepagePrice}
                 quoteReady={homepageQuoteReady}
+                scheduleFields={isMinibusPersonalQuote && hasQuoteRoute && partySelectionReady ? renderQuoteScheduleFields("quote") : null}
+                scheduleComplete={!isMinibusPersonalQuote || isScheduleComplete}
+                actionLabel={isMinibusPersonalQuote ? "Show Transfer Options →" : undefined}
+                capacityConfirmationRequired={!isMinibusPersonalQuote}
                 capacityConfirmed={homepageCapacityConfirmed}
                 onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}
@@ -7775,7 +7779,7 @@ function QuoteCard({
               suitcasesError={suitcasesError}
               publicMinibusEnabled={publicMinibusEnabled}
               publicExecutiveEnabled={publicExecutiveEnabled}
-              showVehicleCategories={!(quoteResultsReady && quoteStep === 1)}
+              showVehicleCategories={!isMinibusPersonalQuote && !(quoteResultsReady && quoteStep === 1)}
               selectedVehicle={quoteVehicle}
               onSelectVehicle={handleQuoteVehicleChoice}
               isGroupQuote={false}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
@@ -49,6 +49,10 @@ type HomepageQuoteFieldsProps = {
   publicMinibusEnabled: boolean;
   onRequestPrice: () => void;
   quoteReady: boolean;
+  scheduleFields?: ReactNode;
+  scheduleComplete?: boolean;
+  actionLabel?: string;
+  capacityConfirmationRequired?: boolean;
   capacityConfirmed: boolean;
   onCapacityConfirmedChange: (value: boolean) => void;
   formResetKey: number;
@@ -217,6 +221,10 @@ export default function HomepageQuoteFields({
   publicMinibusEnabled,
   onRequestPrice,
   quoteReady,
+  scheduleFields = null,
+  scheduleComplete = true,
+  actionLabel = "Get My Fixed Price →",
+  capacityConfirmationRequired = true,
   capacityConfirmed,
   onCapacityConfirmedChange,
   formResetKey,
@@ -549,7 +557,7 @@ export default function HomepageQuoteFields({
           ) : null}
         </div>
       </div>
-      {suitcases === 5 && publicMinibusEnabled ? (
+      {suitcases === 5 && publicMinibusEnabled && capacityConfirmationRequired ? (
         <div className="rounded-xl border border-white/20 p-3 text-xs text-white/85" data-homepage-capacity-check>
           <p>5+ means five or more suitcases. Contact us to confirm that the available 7-Seater can carry your full party and luggage before requesting a price.</p>
           <QuoteHelpContact />
@@ -559,6 +567,7 @@ export default function HomepageQuoteFields({
           </label>
         </div>
       ) : null}
+      {scheduleFields ? <div className="mt-3" data-homepage-schedule-before-vehicle>{scheduleFields}</div> : null}
       <p id="homepage-quote-requirements" role="status" className="text-xs leading-snug text-white/75">
         {!publicMinibusEnabled && ((passengers ?? 0) > 4 || (suitcases ?? 0) > 4)
           ? "The 7-Seater is unavailable. Online quotes currently support up to 4 passengers and 4 suitcases."
@@ -566,11 +575,13 @@ export default function HomepageQuoteFields({
             ? "Select and confirm both pickup and drop-off addresses."
             : passengers == null || suitcases == null
               ? "Select passengers and suitcases to see your fixed price."
-              : suitcases === 5 && !capacityConfirmed
+              : !scheduleComplete
+                ? "Add your pickup date and time, and return date and time if needed."
+              : suitcases === 5 && capacityConfirmationRequired && !capacityConfirmed
                 ? "Confirm luggage capacity with us before requesting a price for 5+ suitcases."
                 : !quoteReady
                   ? "Choose different, confirmed pickup and drop-off addresses and a suitable party size."
-                  : "Ready for your quote. Add date and time when you book."}
+                  : scheduleFields ? "Ready to show your transfer options." : "Ready for your quote. Add date and time when you book."}
       </p>
       </div>
       {quoteFormActive && mobileLayout ? (
@@ -583,7 +594,7 @@ export default function HomepageQuoteFields({
             onClick={onRequestPrice}
             className="btn-primary min-h-12 w-full rounded-xl text-base"
           >
-            Get My Fixed Price →
+            {actionLabel}
           </button>
           <QuoteHelpContact />
         </div>
@@ -599,7 +610,7 @@ export default function HomepageQuoteFields({
                 onClick={onRequestPrice}
                 className="btn-primary min-h-12 w-full rounded-xl text-base"
               >
-                Get My Fixed Price →
+                {actionLabel}
               </button>
               <QuoteHelpContact />
             </div>,
@@ -616,7 +627,7 @@ export default function HomepageQuoteFields({
             onClick={onRequestPrice}
             className="btn-primary min-h-12 w-full rounded-xl text-base"
           >
-            Get My Fixed Price →
+            {actionLabel}
           </button>
         </div>
       ) : null}
