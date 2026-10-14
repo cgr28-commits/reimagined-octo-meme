@@ -22,7 +22,7 @@ import {
 } from "./universal-distance-pricing";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "./return-journey-discount";
 import { NIGHT_WEEKEND_SURCHARGE_RATE } from "./night-weekend-surcharge";
-import { DEFAULT_EXECUTIVE_MULTIPLIER } from "./executive-vehicle";
+import { DEFAULT_EXECUTIVE_MULTIPLIER, isExecutiveVehicle } from "./executive-vehicle";
 import {
   DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
   MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP,
@@ -91,6 +91,7 @@ export type OwnerPricingSettings = {
   };
   /** Executive fare = Saloon journey fare × this multiplier. Missing values use 1.50. */
   executive: {
+    requestQuote?: boolean;
     /** Missing stored values stay bookable. */
     publicEnabled: boolean;
     multiplier: number;
@@ -166,6 +167,7 @@ export type PublicOwnerPricingConfig = {
     multiplier: number;
   };
   executive: {
+    requestQuote?: boolean;
     publicEnabled: boolean;
     multiplier: number;
     minimumFareGbp: number;
@@ -240,6 +242,7 @@ export function defaultOwnerPricingSettings(
       multiplier: DEFAULT_MINIBUS_MULTIPLIER,
     },
     executive: {
+      requestQuote: false,
       publicEnabled: true,
       multiplier: DEFAULT_EXECUTIVE_MULTIPLIER,
       minimumFareGbp: DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
@@ -378,6 +381,10 @@ export function validateOwnerPricingInput(
 
   if (minibusRaw.requestQuote != null && typeof minibusRaw.requestQuote !== "boolean") {
     reject(errors, "minibus.requestQuote", "7-Seater quote mode must be instant price or personal quote.");
+  }
+
+  if (executiveRaw.requestQuote != null && typeof executiveRaw.requestQuote !== "boolean") {
+    reject(errors, "executive.requestQuote", "Business Class quote mode must be instant price or personal quote.");
   }
 
   const minibusMultiplier = readRate(minibusRaw.multiplier, "minibus.multiplier", errors);
@@ -554,6 +561,7 @@ export function validateOwnerPricingInput(
         multiplier: minibusMultiplier ?? defaults.minibus.multiplier,
       },
       executive: {
+        requestQuote: executiveRaw.requestQuote === true,
         publicEnabled: executivePublicEnabled,
         multiplier: executiveMultiplier,
         minimumFareGbp: executiveMinimumFareGbp,
@@ -632,6 +640,7 @@ export function toPublicOwnerPricingConfig(
       multiplier: settings.minibus.multiplier,
     },
     executive: {
+      requestQuote: settings.executive.requestQuote === true,
       publicEnabled: settings.executive.publicEnabled !== false,
       multiplier: settings.executive.multiplier,
       minimumFareGbp:
@@ -718,6 +727,8 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return settings.minibus.requestQuote ? "Request a personal quote" : "Instant price";
     case "minibus.multiplier":
       return String(settings.minibus.multiplier);
+    case "executive.requestQuote":
+      return settings.executive.requestQuote ? "Request a personal quote" : "Instant price";
     case "executive.publicEnabled":
       return settings.executive.publicEnabled ? "ON" : "OFF";
     case "executive.multiplier":
@@ -765,6 +776,7 @@ const DIFF_PATHS = [
   "minibus.publicEnabled",
   "minibus.requestQuote",
   "minibus.multiplier",
+  "executive.requestQuote",
   "executive.publicEnabled",
   "executive.multiplier",
   "executive.minimumFareGbp",
@@ -793,6 +805,7 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "minibus.publicEnabled": "7 Seater Minibus offer online",
   "minibus.requestQuote": "7 Seater Minibus quote mode",
   "minibus.multiplier": "7 Seater Minibus multiplier",
+  "executive.requestQuote": "Business Class quote mode",
   "executive.publicEnabled": "Offer Executive online",
   "executive.multiplier": "Executive multiplier",
   "executive.minimumFareGbp": "Business Class minimum fare",
@@ -1023,3 +1036,19 @@ export function publicMinibusRequiresPersonalQuote(
 }
 export const MINIBUS_PERSONAL_QUOTE_CODE = "personal_quote_required";
 export const MINIBUS_PERSONAL_QUOTE_MESSAGE = "Please request a personal quote for your 7 Seater Minibus journey. We’ll confirm your fare before payment.";
+
+/** Each public vehicle follows its own mode; owner-priced payment links are exempt. */
+export function publicVehicleRequiresPersonalQuote(
+  vehicleType: string | null | undefined,
+  settings: OwnerPricingSettings | PublicOwnerPricingConfig,
+  ownerMode = false,
+): boolean {
+  if (ownerMode) return false;
+  return publicMinibusRequiresPersonalQuote(vehicleType, settings) ||
+    (isExecutiveVehicle(vehicleType) && settings.executive.requestQuote === true);
+}
+export function vehiclePersonalQuoteMessage(vehicleType: string | null | undefined): string {
+  return isExecutiveVehicle(vehicleType)
+    ? "Please request a personal quote for your Business Class journey. We’ll confirm availability and your fare before payment."
+    : MINIBUS_PERSONAL_QUOTE_MESSAGE;
+}

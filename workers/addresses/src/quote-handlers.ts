@@ -31,9 +31,9 @@ import {
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
   publicMaxPassengers,
   publicMinibusAllowed,
-  publicMinibusRequiresPersonalQuote,
+  publicVehicleRequiresPersonalQuote,
   MINIBUS_PERSONAL_QUOTE_CODE,
-  MINIBUS_PERSONAL_QUOTE_MESSAGE,
+  vehiclePersonalQuoteMessage,
 } from "../shared/owner-pricing-config";
 import { needsLuggageCapacityConfirmation } from "../shared/vehicle-capacity";
 import {
@@ -533,8 +533,8 @@ export async function handleQuoteCalculateRequest(
     );
   }
 
-  if (publicMinibusRequiresPersonalQuote(resolved.vehicleType, pricing, ownerMode)) {
-    return json({ ok: false, reason: MINIBUS_PERSONAL_QUOTE_CODE, code: MINIBUS_PERSONAL_QUOTE_CODE, message: MINIBUS_PERSONAL_QUOTE_MESSAGE }, 409, origin);
+  if (publicVehicleRequiresPersonalQuote(resolved.vehicleType, pricing, ownerMode)) {
+    return json({ ok: false, reason: MINIBUS_PERSONAL_QUOTE_CODE, code: MINIBUS_PERSONAL_QUOTE_CODE, message: vehiclePersonalQuoteMessage(resolved.vehicleType) }, 409, origin);
   }
 
   const schedule = {

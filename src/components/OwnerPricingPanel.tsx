@@ -61,6 +61,7 @@ function asDraft(
       rate: settings.dublinAirportFareAdjustment?.rate ?? 0,
     },
     executive: {
+      requestQuote: settings.executive?.requestQuote === true,
       multiplier:
         settings.executive?.multiplier ?? defaultOwnerPricingSettings().executive.multiplier,
       publicEnabled: settings.executive?.publicEnabled !== false,
@@ -497,6 +498,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     const restored = {
       ...defaults,
       minibus: { ...defaults.minibus, publicEnabled: draft.minibus.publicEnabled, requestQuote: draft.minibus.requestQuote === true },
+      executive: { ...defaults.executive, publicEnabled: draft.executive.publicEnabled, requestQuote: draft.executive.requestQuote === true },
     };
     return [
       ...diffOwnerPricingSettings(draft, restored),
@@ -1035,7 +1037,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <p className="mt-2 text-sm text-white/70">
           Executive fare = Saloon journey fare × multiplier, nearest penny. Change 1.40, 1.50, 1.75
           or 2.00 here without a code change. When Executive is on and available, customers can
-          select it and pay online. Airport Executive pickups include Meet &amp; Greet, a
+          select it for an instant price or request a personal quote, depending on the mode below. Airport Executive pickups include Meet &amp; Greet, a
           personalised name board, luggage assistance, barrier and parking, bottled water and phone
           charging. Executive availability is separate from Saloon, Estate and the 7-Seater.
         </p>
@@ -1050,6 +1052,23 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             }
           />
         </div>
+        <label className={`${labelClass} mt-3`} htmlFor="business-class-quote-mode">
+          Business Class quote mode
+          <select
+            id="business-class-quote-mode"
+            className={fieldClass}
+            value={draft.executive.requestQuote ? "personal" : "instant"}
+            onChange={(event) => update("executive", { ...draft.executive, requestQuote: event.target.value === "personal" })}
+          >
+            <option value="instant">Instant price</option>
+            <option value="personal">Request a personal quote</option>
+          </select>
+        </label>
+        <p className="mt-1 text-xs text-white/55">
+          Business Class stays visible for 1–4 passengers with up to 2 large suitcases.
+          Request mode sends the journey details to A2A Quotes for your price and payment link.
+          Saloon, Estate and the 7-Seater keep their own booking modes. Save pricing settings below.
+        </p>
         <label className={`${labelClass} mt-3`}>
           Pricing: Saloon fare ×
           <input

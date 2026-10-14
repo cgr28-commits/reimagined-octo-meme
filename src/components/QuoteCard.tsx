@@ -95,6 +95,7 @@ import {
 } from "../../shared/passenger-limits";
 import {
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+  publicVehicleRequiresPersonalQuote,
   publicMinibusRequiresPersonalQuote,
   publicMaxPassengers,
   publicMaxSuitcases,
@@ -1210,10 +1211,14 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
+  // Preserve the existing 7-Seater schedule gate; Business Class follows
+  // the normal quote -> booking-details stages.
   const isMinibusPersonalQuote =
     publicMinibusRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
+  const isVehiclePersonalQuote =
+    publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
   const isManualQuoteJourney =
-    isMinibusPersonalQuote ||
+    isVehiclePersonalQuote ||
     (isA2AFlow &&
       isPlaceSelected(pickupPlace) &&
       isPlaceSelected(dropoffPlace) &&
@@ -1230,7 +1235,7 @@ function QuoteCard({
   const priceConfirmationLabel = getPublicUnapprovedPriceLabel();
   /** Amber banner only when an out-of-area pickup still needs manual approval. */
   const isOutOfAreaPickupJourney =
-    !isMinibusPersonalQuote && isManualQuoteJourney && isOutOfAreaPickup(pickupPlace);
+    !isVehiclePersonalQuote && isManualQuoteJourney && isOutOfAreaPickup(pickupPlace);
   /** Incomplete place selection — never show out-of-area for these. */
   const isIncompletePickupAddress =
     isA2AFlow &&
@@ -4922,8 +4927,8 @@ function QuoteCard({
         const enquiryMessage = buildEnquiryBookingMessage(details);
         const subject = pricingConfirmationRequired
           ? `Price confirmation request — ${details.customerName}`
-          : isMinibusPersonalQuote
-            ? `7-Seater personal quote request — ${details.customerName}`
+          : isVehiclePersonalQuote
+            ? `${vehicleShortLabel(quoteVehicle)} personal quote request — ${details.customerName}`
           : journeyKind === "address-to-address"
             ? `Address-to-Address quote request — ${details.customerName}`
           : isOutOfAreaPickupJourney
@@ -4933,20 +4938,20 @@ function QuoteCard({
             : `New vehicle enquiry — ${details.customerName}`;
 
         // Persist A2A personalised-quote requests into Owner dashboard (Awaiting Quote).
-        if (isMinibusPersonalQuote || (journeyKind === "address-to-address" && isManualQuoteJourney)) {
+        if (isVehiclePersonalQuote || (journeyKind === "address-to-address" && isManualQuoteJourney)) {
           try {
             const { createA2aQuoteRequest } = await import("@/lib/a2a-quote-api");
             const created = await createA2aQuoteRequest({
               ...details,
               estimatedPrice: null,
-              isAirportTrip: isMinibusPersonalQuote ? details.isAirportTrip : false,
+              isAirportTrip: isVehiclePersonalQuote ? details.isAirportTrip : false,
             });
             if (created.reference) {
               reference = created.reference;
             }
           } catch (persistErr) {
             console.error("A2A quote request persist failed", persistErr);
-            if (isMinibusPersonalQuote) throw persistErr;
+            if (isVehiclePersonalQuote) throw persistErr;
           }
         }
 
@@ -6130,11 +6135,11 @@ function QuoteCard({
               Personalised Quote
             </p>
             <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              {isMinibusPersonalQuote ? "On request" : "Get a personalised quote for your journey"}
+              {isVehiclePersonalQuote ? "On request" : "Get a personalised quote for your journey"}
             </p>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
-              {isMinibusPersonalQuote
-                ? "Send your 7-Seater journey details and we’ll confirm availability and your personal price before payment."
+              {isVehiclePersonalQuote
+                ? `Send your ${vehicleShortLabel(quoteVehicle)} journey details and we’ll confirm availability and your personal price before payment.`
                 : journeyKind === "address-to-address"
                 ? "Address-to-address journeys are individually priced. Continue with your travel details and submit your quote request."
                 : isOutOfAreaPickupJourney
@@ -7210,6 +7215,7 @@ function QuoteCard({
         onSelectVehicle={handleQuoteVehicleChoice}
         publicMinibusEnabled={publicMinibusEnabled}
         publicExecutiveEnabled={publicExecutiveEnabled}
+        requestQuoteVehicles={enabledVehicleTypesForQuote({ publicMinibusEnabled, publicExecutiveEnabled }).filter((v) => publicVehicleRequiresPersonalQuote(v, publicPricing))}
         hideUnsuitable={presentation === "homepage"}
       />
     );
