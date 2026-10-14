@@ -22,6 +22,7 @@ import {
   BUSINESS_EMAIL_LOGO_URL,
   BUSINESS_EMAIL_LOGO_WIDTH,
   businessEmailLogoHtml,
+  customerEmailHeaderHtml,
 } from "../shared/business-email";
 import {
   buildCustomerCancellationEmails,
@@ -54,7 +55,8 @@ function read(rel: string): string {
 }
 
 function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
-  if (name !== "booking confirmation" && name !== "updated booking confirmation") {
+  const airportCollection = /Important information about your airport collection/.test(html);
+  if (name !== "booking confirmation" && name !== "updated booking confirmation" && !airportCollection) {
     assert.match(html, /class="matni-light"/, `${name} should use the white customer theme`);
   }
   const logoUrl = BUSINESS_EMAIL_LOGO_URL;
@@ -65,7 +67,11 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   assert.match(html, /alt="My Airport Taxi NI"/);
   assert.match(html, /href="https:\/\/www\.myairporttaxini\.co\.uk\/"/);
   assert.match(html, /max-width:100%/);
-  assert.match(html, name === "review request" ? /width:110px/ : /width:220px/);
+  assert.match(html, /width:124px/);
+  if (!airportCollection) {
+    assert.match(html, /data-matni-customer-header="true"/);
+    assert.match(html, /background-color:#071c38 !important/);
+  }
   assert.match(html, /#071c38/);
   if (html.includes('class="matni-light"')) {
     assert.match(html, /name="color-scheme" content="light"/);
@@ -74,7 +80,7 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   } else {
     assert.match(html, /#2fbf4a/);
   }
-  assert.match(html, /color-scheme/);
+  if (!airportCollection) assert.match(html, /color-scheme/);
   assert.match(html, preserved);
   assert.doesNotMatch(html, /google-business-logo\.png/);
   assert.doesNotMatch(html, /cid:/i);
@@ -90,11 +96,20 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
 const logo = businessEmailLogoHtml();
 assert.equal(BUSINESS_EMAIL_LOGO_ALT, "My Airport Taxi NI");
 assert.equal(BUSINESS_EMAIL_LOGO_URL, "https://www.myairporttaxini.co.uk/logo.png");
-assert.equal(BUSINESS_EMAIL_LOGO_WIDTH, 220);
-assert.equal(BUSINESS_EMAIL_LOGO_HEIGHT, 170);
+assert.equal(BUSINESS_EMAIL_LOGO_WIDTH, 124);
+assert.equal(BUSINESS_EMAIL_LOGO_HEIGHT, 96);
 assert.equal(logo.match(/<img\b/g)?.length, 1);
 assert.match(logo, /color:#ffffff/);
 console.log("OK  shared header helper");
+
+// Header restyling must not change the customer's payment/booking layout.
+const preservedBody = '<tr><td style="padding:24px;color:#475569"><table><tr><td>£123.45 &amp; cash balance</td></tr></table><a href="https://example.com/pay?ref=MAT-1234&amp;x=2">Pay</a><img src="https://example.com/map.jpg" /></td></tr>';
+const sourceHtml = '<html><head></head><body><table><tr><td style="background:#fff;padding:24px">' + businessEmailLogoHtml() + '<div style="font-size:22px;color:#ffffff">Your booking</div></td></tr>' + preservedBody + '</table></body></html>';
+const branded = customerEmailHeaderHtml(sourceHtml);
+assert.equal(branded.slice(branded.indexOf(preservedBody)), preservedBody + '</table></body></html>');
+assert.equal(customerEmailHeaderHtml(branded), branded, "repeated branding must not duplicate or corrupt styles");
+assert.equal(customerEmailHeaderHtml('<p>Owner operational alert</p>'), '<p>Owner operational alert</p>');
+console.log("OK  body markup, payment link and map preserved; branding is idempotent");
 
 assert.equal(AIRPORT_COLLECTION_LEAD_MS, 4 * 60 * 60 * 1000);
 console.log("OK  airport collection lead is unchanged");

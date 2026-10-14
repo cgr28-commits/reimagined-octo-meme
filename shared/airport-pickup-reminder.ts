@@ -22,6 +22,7 @@ import {
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_PHONE_TEL,
   BUSINESS_WEBSITE,
+  businessEmailLogoHtml,
   businessWhatsAppChatUrl,
 } from "./business-email";
 import { normalizeCustomerBookingReference } from "./customer-booking-reference";
@@ -545,7 +546,7 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, m
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:32px 16px;"><tr><td align="center">
 <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
 <tr><td bgcolor="${navy}" style="background:${navy};padding:28px 32px;text-align:center;">
-<img src="${BUSINESS_WEBSITE}/logo.png" alt="${escapeHtml(BUSINESS_NAME)}" width="124" height="96" style="display:block;margin:0 auto;height:96px;width:124px;max-width:100%;border:0;background:#071c38;" />
+${businessEmailLogoHtml()}
 <div class="collection-email-title" style="margin-top:16px;font-size:16px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
 ${reference ? `<div style="margin-top:14px;display:inline-block;background:rgba(16,185,129,0.15);border:1px solid ${accent};border-radius:10px;padding:10px 16px;font-size:15px;color:#ffffff;"><span style="color:${accent};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;">Booking reference</span><br /><span style="font-size:22px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(reference)}</span></div>` : ""}
 </td></tr>
