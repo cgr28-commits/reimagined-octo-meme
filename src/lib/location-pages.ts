@@ -439,7 +439,7 @@ function buildLegacyRoute(town: TownArea, airport: AirportPage): TransferRoutePa
     title: `${town.name} to ${airport.shortName} Taxi`,
     h1: `${town.name} to ${airport.shortName} Taxi`,
     metaDescription: `Pre-book a fixed-price taxi from ${town.name} to ${airport.name}, with flight monitoring and secure online booking.`,
-    intro: `${town.blurb} This page is for ${town.name} ↔ ${airport.shortName} transfers — get a live quote with the airport already selected.`,
+    intro: `${town.blurb} This page is for ${town.name} ↔ ${airport.shortName} transfers — get your fixed quote with the airport already selected.`,
     journeyNotes: buildRouteNotes(town, airport),
     faqs: airport.code === "LDY" ? cityOfDerryRouteFaqs(town) : undefined,
   };

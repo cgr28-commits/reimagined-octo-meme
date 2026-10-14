@@ -45,7 +45,7 @@ check("Canonical destinations map covers acceptance matrix", () => {
     ["Why Us", "/#why-us", "Why Choose Us"],
     ["FAQ", "/#faq", "Frequently Asked Questions"],
     ["Manage Your Booking", "/manage-booking/", "Manage Your Booking"],
-    ["Get a Quote", "/#quote", "Get a Live Quote"],
+    ["Get a Quote", "/#quote", "Get Your Fixed Quote"],
   ] as const;
 
   for (const [label, href, heading] of expected) {

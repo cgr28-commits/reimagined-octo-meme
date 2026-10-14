@@ -105,7 +105,7 @@ export const SITE_NAV_DESTINATIONS: readonly SiteNavDestination[] = [
     label: "Get a Quote",
     href: "/#quote",
     hash: "quote",
-    heading: "Get a Live Quote",
+    heading: "Get Your Fixed Quote",
     navId: "quote",
   },
 ] as const;
@@ -129,7 +129,7 @@ export function normalizePathname(pathname: string): string {
 }
 
 /**
- * Landing “Get a Live Quote” links use href="#quote". If that target exists on
+ * Landing “Get Your Fixed Quote” links use href="#quote". If that target exists on
  * the current page, stay there so route prefills are not reset. If it does not
  * (hub / cruise pages), fall back to the homepage calculator.
  */

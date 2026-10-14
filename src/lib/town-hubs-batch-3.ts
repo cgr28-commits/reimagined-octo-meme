@@ -92,7 +92,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     title: "Comber Airport Taxi & Airport Transfers",
     h1: "Comber Airport Taxi & Airport Transfers",
     metaDescription:
-      "Choose a Comber airport taxi for Belfast International, Belfast City or Dublin Airport. A22 routes toward Dundonald, with a live quote online.",
+      "Choose a Comber airport taxi for Belfast International, Belfast City or Dublin Airport. A22 routes toward Dundonald, with a fixed quote online.",
     intro:
       "Comber is the town at the north-west corner of Strangford Lough, and airport transfers from here begin by leaving the lough on the A22 toward Dundonald. This page is the chooser: open the airport that matches your ticket so the quote is not a generic Ards pin. Belfast City Airport and Belfast International share that A22 start, then split once you reach the Belfast road network. City Airport stays on the eastern side of the city, toward Sydenham. International turns west onto the M2 for Aldergrove. Dublin Airport is the reserved long run after that, down the A1/M1, with applicable tolls included. The Square is the town centre; Killinchy Road and the A21 toward Newtownards are different starts and should be written in full. Moneyreagh and Ballygowan sit off the Comber side of south-east Belfast and are collected when that street is the address you enter. They are not the same timing as a pickup in The Square. Dundonald is the next town on the A22, and Newtownards is the next town on the A21 — each has its own airport page if that is where you are actually starting.",
     blurb:

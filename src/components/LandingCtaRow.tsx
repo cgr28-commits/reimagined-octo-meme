@@ -7,7 +7,7 @@ type Props = {
 };
 
 export default function LandingCtaRow({
-  quoteLabel = "Get a Live Quote",
+  quoteLabel = "Get Your Fixed Quote",
   whatsappMessage,
 }: Props) {
   const whatsappHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(whatsappMessage)}`;

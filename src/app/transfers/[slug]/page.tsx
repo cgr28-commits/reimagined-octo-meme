@@ -188,7 +188,7 @@ export default async function TransferRoutePage({ params }: Props) {
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
             {isLanding ? (
               <LandingCtaRow
-                quoteLabel="Get a Live Quote"
+                quoteLabel="Get Your Fixed Quote"
                 whatsappMessage={whatsappMessage}
               />
             ) : (
@@ -463,7 +463,7 @@ export default async function TransferRoutePage({ params }: Props) {
               </p>
               <div className="flex justify-center">
                 <LandingCtaRow
-                  quoteLabel="Get a Live Quote"
+                  quoteLabel="Get Your Fixed Quote"
                   whatsappMessage={whatsappMessage}
                 />
               </div>

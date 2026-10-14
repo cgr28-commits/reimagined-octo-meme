@@ -33,7 +33,7 @@ export default function LocationQuoteSection({
       className="relative scroll-mt-36 py-16 sm:py-20 md:scroll-mt-28"
     >
       <span id="live-quote" className="sr-only">
-        Live quote calculator
+        Fixed quote calculator
       </span>
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/25 to-navy" />
       <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">

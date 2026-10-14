@@ -135,9 +135,9 @@ console.log("OK  existing journey options restyled, same handlers");
 
 console.log("=== Continue button + steps ===");
 assert.match(card, /Continue to travel details/);
-assert.match(card, /Get a Live Quote/);
-assert.match(card, /Get Your Live Quote/);
-assert.match(card, /Your fixed price in just a few clicks\./);
+assert.match(card, /Get Your Fixed Quote/);
+assert.match(card, /Get Your Fixed Quote/);
+assert.match(card, /Pre-book your airport transfer in just a few clicks\./);
 assert.match(card, /Get your fixed price in three quick steps\./);
 assert.match(card, /label: "Journey details"/);
 assert.match(card, /label: "Your quote"/);

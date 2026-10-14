@@ -1033,7 +1033,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
         </div>
         <p className="mt-2 text-xs text-amber-100/90">
           Customer Smart Availability, Alternative Times, Smart Return, corridor matching and backup
-          capacity stay OFF. Shadow test mode stays ON. Live quotes are unchanged.
+          capacity stay OFF. Shadow test mode stays ON. Fixed quotes are unchanged.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-white/50">
