@@ -2183,10 +2183,17 @@ export function buildUpdatedBookingConfirmationEmail(
           .join("")}</ul>`,
       );
     }
-    html = html.replace(
-      /(Your booking has been updated\. Please review the updated journey details below\.)/i,
-      `$1${extraBits.join("")}`,
-    );
+    const introPattern = /(Your booking has been updated\. Please review the updated journey details below\.)/i;
+    if (introPattern.test(html)) {
+      html = html.replace(introPattern, `$1${extraBits.join("")}`);
+    } else {
+      // The original confirmation uses an inline brand name in its introduction.
+      // Keep that layout while inserting amendment details in the visible HTML.
+      html = html.replace(
+        /(<p\b[^>]*>)Your card payment has been received[\s\S]*?<\/p>/i,
+        `$1Your booking has been updated. Please review the updated journey details below.</p>${extraBits.join("")}`,
+      );
+    }
   }
 
   return { subject, text, html };

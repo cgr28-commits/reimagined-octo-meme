@@ -1234,8 +1234,23 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         </div>
         <p className="mt-3 text-xs text-white/55">
           Fixed airport charges below stay display-only. Meet &amp; Greet pickup fees can be changed
-          here and apply to new quotes.
+          here and apply to new email offers.
         </p>
+        <div className="mt-4 space-y-3" data-meet-greet-email-settings>
+          <p className="text-sm text-white/80">Offer Meet &amp; Greet by email 30 minutes after booking confirmation. Airport collections only; customers pay separately against their original booking. Existing included Meet &amp; Greet is excluded.</p>
+          {([['BFS', 'Belfast International'], ['BHD', 'Belfast City'], ['DUB', 'Dublin Airport']] as const).map(([code, name]) => (
+            <div key={code} className="flex items-center justify-between gap-3">
+              <span className="text-sm text-white/80">{name} email offer</span>
+              <Toggle id={`meet-greet-email-${code}`} label={`${name} Meet & Greet email offer`}
+                checked={draft.meetGreetEmail?.enabled[code] === true}
+                onChange={(enabled) => update("meetGreetEmail", {
+                  enabled: { BFS: false, BHD: false, DUB: false, ...draft.meetGreetEmail?.enabled, [code]: enabled },
+                  enabledSince: draft.meetGreetEmail?.enabledSince ?? {},
+                })} />
+            </div>
+          ))}
+          <p className="text-xs text-white/60">Applies to new paid bookings after switching on. Prices below are per airport collection for the whole party, including Meet &amp; Greet parking. Save pricing settings to apply.</p>
+        </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <MoneyField
             label="Meet & Greet — Belfast International"

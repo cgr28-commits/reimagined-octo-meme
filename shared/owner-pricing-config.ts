@@ -1,3 +1,4 @@
+import { defaultMeetGreetEmailSettings, type MeetGreetEmailSettings } from "./meet-greet-upgrade";
 /**
  * Owner-configurable pricing overlay.
  *
@@ -122,6 +123,7 @@ export type OwnerPricingSettings = {
   };
   /** Fixed Meet & Greet pickup fees. Missing stored values use the approved defaults. */
   meetGreet: MeetGreetFeesGbp;
+  meetGreetEmail?: MeetGreetEmailSettings;
   bankHoliday: {
     sharesWeekendSurcharge: true;
     daytimeExtraSurcharge: false;
@@ -260,6 +262,7 @@ export function defaultOwnerPricingSettings(
       days: [...DEFAULT_WEEKEND_DAYS],
     },
     meetGreet: defaultMeetGreetFees(),
+    meetGreetEmail: defaultMeetGreetEmailSettings(),
     bankHoliday: {
       sharesWeekendSurcharge: true,
       daytimeExtraSurcharge: false,
@@ -516,6 +519,16 @@ export function validateOwnerPricingInput(
     }
   }
 
+  const emailRaw = (input.meetGreetEmail ?? {}) as Partial<MeetGreetEmailSettings>;
+  const meetGreetEmail = defaultMeetGreetEmailSettings();
+  for (const airport of ["BFS", "BHD", "DUB"] as const) {
+    const enabled = emailRaw.enabled?.[airport];
+    if (enabled != null && typeof enabled !== "boolean") reject(errors, `meetGreetEmail.${airport}`, "Email offer must be on or off.");
+    meetGreetEmail.enabled[airport] = enabled === true;
+    const since = emailRaw.enabledSince?.[airport];
+    if (typeof since === "string" && Number.isFinite(Date.parse(since))) meetGreetEmail.enabledSince[airport] = since;
+  }
+
   if (errors.length > 0) {
     return { ok: false, errors };
   }
@@ -563,6 +576,7 @@ export function validateOwnerPricingInput(
         days: weekendDays,
       },
       meetGreet,
+      meetGreetEmail,
       bankHoliday: {
         sharesWeekendSurcharge: true,
         daytimeExtraSurcharge: false,
@@ -688,6 +702,7 @@ export function formatPercentFromRate(rate: number): string {
 }
 
 export function describeOwnerPricingValue(path: string, settings: OwnerPricingSettings): string {
+  if (path.startsWith("meetGreetEmail.")) return settings.meetGreetEmail?.enabled[path.split(".")[1] as "BFS" | "BHD" | "DUB"] ? "ON" : "OFF";
   switch (path) {
     case "saloon.minimumFareGbp":
       return `£${settings.saloon.minimumFareGbp.toFixed(2)}`;
@@ -762,6 +777,9 @@ const DIFF_PATHS = [
   "weekend.enabled",
   "weekend.surchargeRate",
   "weekend.days",
+  "meetGreetEmail.BFS",
+  "meetGreetEmail.BHD",
+  "meetGreetEmail.DUB",
   "meetGreet.bfsGbp",
   "meetGreet.bhdGbp",
   "meetGreet.dubGbp",
@@ -787,6 +805,9 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "weekend.enabled": "Weekend pricing",
   "weekend.surchargeRate": "Weekend surcharge",
   "weekend.days": "Weekend days",
+  "meetGreetEmail.BFS": "Belfast International Meet & Greet email",
+  "meetGreetEmail.BHD": "Belfast City Meet & Greet email",
+  "meetGreetEmail.DUB": "Dublin Meet & Greet email",
   "meetGreet.bfsGbp": "Meet & Greet Belfast International",
   "meetGreet.bhdGbp": "Meet & Greet Belfast City",
   "meetGreet.dubGbp": "Meet & Greet Dublin Airport",

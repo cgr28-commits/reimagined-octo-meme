@@ -102,6 +102,7 @@ export async function sendUpdatedConfirmationFromCanonicalRecord(input: {
   }
 
   const sendResult = await trySendBrandedCustomerEmail(input.env, {
+    ...(input.amendmentId ? { idempotencyKey: `updated-confirmation-${input.amendmentId}` } : {}),
     to: input.record.customerEmail,
     toName: input.record.customerName,
     subject: email.subject,

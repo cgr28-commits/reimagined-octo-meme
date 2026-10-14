@@ -28,6 +28,10 @@ class_name = "RefundCoordinator"
 name = "QUOTE_LEAD_COORDINATOR"
 class_name = "QuoteLeadCoordinator"
 
+[[durable_objects.bindings]]
+name = "MEET_GREET_COORDINATOR"
+class_name = "MeetGreetCoordinator"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
@@ -35,6 +39,10 @@ new_sqlite_classes = ["RefundCoordinator"]
 [[migrations]]
 tag = "v2-quote-lead-coordinator"
 new_sqlite_classes = ["QuoteLeadCoordinator"]
+
+[[migrations]]
+tag = "v3-meet-greet-coordinator"
+new_sqlite_classes = ["MeetGreetCoordinator"]
 
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
@@ -106,3 +114,7 @@ RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS = "12"
 RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS = "24"
 # Preview Worker only — never add this to production [vars].
 CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE = "1"
+
+[[env.preview.durable_objects.bindings]]
+name = "MEET_GREET_COORDINATOR"
+class_name = "MeetGreetCoordinator"

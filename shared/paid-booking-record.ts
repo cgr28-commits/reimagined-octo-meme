@@ -1,3 +1,4 @@
+import type { MeetGreetUpgrade } from "./meet-greet-upgrade";
 import type { RefundAuditEntry, PaidBookingMoneyStatus } from "./refund-ops";
 import type { DateTimeAmendmentAuditEntry } from "./booking-amendment";
 import type { AdsAttribution } from "./ads-attribution";
@@ -112,6 +113,7 @@ export type PaidBookingRecord = {
   originalAmount?: number;
   /** Append-only SumUp top-up payments for higher-fare amendments. */
   additionalPayments?: PaidBookingAdditionalPayment[];
+  meetGreetUpgrades?: MeetGreetUpgrade[];
   /** Cumulative GBP already refunded via SumUp (authoritative money state). */
   amountRefunded?: number;
   /**

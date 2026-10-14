@@ -163,6 +163,15 @@ export async function saveOwnerPricingSettings(
     };
   }
 
+  if (!options.restoreDefaults) {
+    for (const airport of ["BFS", "BHD", "DUB"] as const) {
+      if (next.meetGreetEmail?.enabled[airport]) {
+        next.meetGreetEmail.enabledSince[airport] = current.meetGreetEmail?.enabled[airport]
+          ? current.meetGreetEmail.enabledSince[airport] ?? new Date().toISOString() : new Date().toISOString();
+      }
+    }
+  }
+
   const changes: OwnerPricingAuditChange[] = [
     ...diffOwnerPricingSettings(current, next),
     ...diffProfitabilitySettings(current.profitability, next.profitability),
