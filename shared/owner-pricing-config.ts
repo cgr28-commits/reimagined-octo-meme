@@ -83,6 +83,8 @@ export type OwnerPricingSettings = {
     upliftGbp: number;
   };
   minibus: {
+    /** Keep visible, but require an owner-priced enquiry instead of instant checkout. */
+    requestQuote?: boolean;
     publicEnabled: boolean;
     multiplier: number;
   };
@@ -158,6 +160,7 @@ export type PublicOwnerPricingConfig = {
   estate: OwnerPricingSettings["estate"];
   minibus: {
     publicEnabled: boolean;
+    requestQuote?: boolean;
     multiplier: number;
   };
   executive: {
@@ -231,6 +234,7 @@ export function defaultOwnerPricingSettings(
     },
     minibus: {
       publicEnabled: DEFAULT_PUBLIC_MINIBUS_ENABLED,
+      requestQuote: false,
       multiplier: DEFAULT_MINIBUS_MULTIPLIER,
     },
     executive: {
@@ -367,6 +371,10 @@ export function validateOwnerPricingInput(
 
   if (minibusRaw.publicEnabled != null && typeof minibusRaw.publicEnabled !== "boolean") {
     reject(errors, "minibus.publicEnabled", "Offer online must be on or off.");
+  }
+
+  if (minibusRaw.requestQuote != null && typeof minibusRaw.requestQuote !== "boolean") {
+    reject(errors, "minibus.requestQuote", "7-Seater quote mode must be instant price or personal quote.");
   }
 
   const minibusMultiplier = readRate(minibusRaw.multiplier, "minibus.multiplier", errors);
@@ -529,6 +537,7 @@ export function validateOwnerPricingInput(
       },
       minibus: {
         publicEnabled: minibusRaw.publicEnabled === true,
+        requestQuote: minibusRaw.requestQuote === true,
         multiplier: minibusMultiplier ?? defaults.minibus.multiplier,
       },
       executive: {
@@ -605,6 +614,7 @@ export function toPublicOwnerPricingConfig(
     estate: settings.estate,
     minibus: {
       publicEnabled: settings.minibus.publicEnabled === true,
+      requestQuote: settings.minibus.requestQuote === true,
       multiplier: settings.minibus.multiplier,
     },
     executive: {
@@ -689,6 +699,8 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return `£${settings.estate.upliftGbp.toFixed(2)}`;
     case "minibus.publicEnabled":
       return settings.minibus.publicEnabled ? "ON" : "OFF";
+    case "minibus.requestQuote":
+      return settings.minibus.requestQuote ? "Request a personal quote" : "Instant price";
     case "minibus.multiplier":
       return String(settings.minibus.multiplier);
     case "executive.publicEnabled":
@@ -736,6 +748,7 @@ const DIFF_PATHS = [
   "saloon.knots",
   "estate.upliftGbp",
   "minibus.publicEnabled",
+  "minibus.requestQuote",
   "minibus.multiplier",
   "executive.publicEnabled",
   "executive.multiplier",
@@ -760,6 +773,7 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "saloon.knots": "Saloon distance rates",
   "estate.upliftGbp": "Estate uplift",
   "minibus.publicEnabled": "7 Seater Minibus offer online",
+  "minibus.requestQuote": "7 Seater Minibus quote mode",
   "minibus.multiplier": "7 Seater Minibus multiplier",
   "executive.publicEnabled": "Offer Executive online",
   "executive.multiplier": "Executive multiplier",
@@ -977,3 +991,14 @@ export function calculateConfiguredSaloonFareGbp(
     knots: options.saloonKnots,
   });
 }
+
+/** Owner-created and approved quotes use their own stored amount. */
+export function publicMinibusRequiresPersonalQuote(
+  vehicleType: string | null | undefined,
+  settings: OwnerPricingSettings | PublicOwnerPricingConfig,
+  ownerMode = false,
+): boolean {
+  return !ownerMode && isPublicMinibusVehicle(vehicleType) && settings.minibus.requestQuote === true;
+}
+export const MINIBUS_PERSONAL_QUOTE_CODE = "personal_quote_required";
+export const MINIBUS_PERSONAL_QUOTE_MESSAGE = "Please request a personal quote for your 7 Seater Minibus journey. We’ll confirm your fare before payment.";

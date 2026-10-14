@@ -496,7 +496,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   const restoreChanges = useMemo(() => {
     const restored = {
       ...defaults,
-      minibus: { ...defaults.minibus, publicEnabled: draft.minibus.publicEnabled },
+      minibus: { ...defaults.minibus, publicEnabled: draft.minibus.publicEnabled, requestQuote: draft.minibus.requestQuote === true },
     };
     return [
       ...diffOwnerPricingSettings(draft, restored),
@@ -771,6 +771,23 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
                 }
               />
             </div>
+            <label className={`${labelClass} mt-3`} htmlFor="minibus-quote-mode">
+              7-Seater quote mode
+              <select
+                id="minibus-quote-mode"
+                className={fieldClass}
+                value={draft.minibus.requestQuote ? "personal" : "instant"}
+                onChange={(event) => update("minibus", { ...draft.minibus, requestQuote: event.target.value === "personal" })}
+              >
+                <option value="instant">Instant price</option>
+                <option value="personal">Request a personal quote</option>
+              </select>
+            </label>
+            <p className="mt-1 text-xs text-white/55">
+              Personal quote keeps the 7-Seater visible when offered online. Customers send their
+              journey details; you set the fare and send a payment link from A2A Quotes.
+              Save pricing settings below to apply this choice.
+            </p>
             <label className={`${labelClass} mt-3`}>
               Pricing: Estate fare ×
               <input

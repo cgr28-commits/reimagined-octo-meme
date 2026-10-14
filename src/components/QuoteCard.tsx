@@ -95,6 +95,7 @@ import {
 } from "../../shared/passenger-limits";
 import {
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+  publicMinibusRequiresPersonalQuote,
   publicMaxPassengers,
   publicMaxSuitcases,
   type PublicOwnerPricingConfig,
@@ -1209,7 +1210,10 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
+  const isMinibusPersonalQuote =
+    publicMinibusRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
   const isManualQuoteJourney =
+    isMinibusPersonalQuote ||
     (isA2AFlow &&
       isPlaceSelected(pickupPlace) &&
       isPlaceSelected(dropoffPlace) &&
@@ -1226,7 +1230,7 @@ function QuoteCard({
   const priceConfirmationLabel = getPublicUnapprovedPriceLabel();
   /** Amber banner only when an out-of-area pickup still needs manual approval. */
   const isOutOfAreaPickupJourney =
-    isManualQuoteJourney && isOutOfAreaPickup(pickupPlace);
+    !isMinibusPersonalQuote && isManualQuoteJourney && isOutOfAreaPickup(pickupPlace);
   /** Incomplete place selection — never show out-of-area for these. */
   const isIncompletePickupAddress =
     isA2AFlow &&
@@ -1806,7 +1810,7 @@ function QuoteCard({
     suitcases != null &&
     exceedsOnlineVehicleOptions(effectivePassengers, suitcases, passengerLimit, suitcaseLimit);
   const scheduleReadyForQuote =
-    isScheduleComplete || presentation === "homepage";
+    isScheduleComplete || (presentation === "homepage" && !isMinibusPersonalQuote);
   const canShowPrice =
     hasQuoteRoute &&
     quoteChoicesReady &&
@@ -1821,7 +1825,7 @@ function QuoteCard({
     addressTextMatchesPlace(pickupAddress, pickupPlace) &&
     addressTextMatchesPlace(dropoffAddress, dropoffPlace) &&
     !placesEqual(pickupPlace, dropoffPlace) &&
-    (suitcases !== 5 || homepageCapacityConfirmed);
+    (isMinibusPersonalQuote || suitcases !== 5 || homepageCapacityConfirmed);
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
@@ -4918,6 +4922,8 @@ function QuoteCard({
         const enquiryMessage = buildEnquiryBookingMessage(details);
         const subject = pricingConfirmationRequired
           ? `Price confirmation request — ${details.customerName}`
+          : isMinibusPersonalQuote
+            ? `7-Seater personal quote request — ${details.customerName}`
           : journeyKind === "address-to-address"
             ? `Address-to-Address quote request — ${details.customerName}`
           : isOutOfAreaPickupJourney
@@ -4927,19 +4933,20 @@ function QuoteCard({
             : `New vehicle enquiry — ${details.customerName}`;
 
         // Persist A2A personalised-quote requests into Owner dashboard (Awaiting Quote).
-        if (journeyKind === "address-to-address" && isManualQuoteJourney) {
+        if (isMinibusPersonalQuote || (journeyKind === "address-to-address" && isManualQuoteJourney)) {
           try {
             const { createA2aQuoteRequest } = await import("@/lib/a2a-quote-api");
             const created = await createA2aQuoteRequest({
               ...details,
               estimatedPrice: null,
-              isAirportTrip: false,
+              isAirportTrip: isMinibusPersonalQuote ? details.isAirportTrip : false,
             });
             if (created.reference) {
               reference = created.reference;
             }
           } catch (persistErr) {
             console.error("A2A quote request persist failed", persistErr);
+            if (isMinibusPersonalQuote) throw persistErr;
           }
         }
 
@@ -6123,10 +6130,12 @@ function QuoteCard({
               Personalised Quote
             </p>
             <p className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              Get a personalised quote for your journey
+              {isMinibusPersonalQuote ? "On request" : "Get a personalised quote for your journey"}
             </p>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
-              {journeyKind === "address-to-address"
+              {isMinibusPersonalQuote
+                ? "Send your 7-Seater journey details and we’ll confirm availability and your personal price before payment."
+                : journeyKind === "address-to-address"
                 ? "Address-to-address journeys are individually priced. Continue with your travel details and submit your quote request."
                 : isOutOfAreaPickupJourney
                   ? "This journey needs a personalised quote. Continue with your travel details and submit your quote request."
@@ -7708,6 +7717,10 @@ function QuoteCard({
                 publicMinibusEnabled={publicMinibusEnabled}
                 onRequestPrice={requestHomepagePrice}
                 quoteReady={homepageQuoteReady}
+                scheduleFields={isMinibusPersonalQuote && hasQuoteRoute && partySelectionReady ? renderQuoteScheduleFields("quote") : null}
+                scheduleComplete={!isMinibusPersonalQuote || isScheduleComplete}
+                actionLabel={isMinibusPersonalQuote ? "Show Transfer Options →" : undefined}
+                capacityConfirmationRequired={!isMinibusPersonalQuote}
                 capacityConfirmed={homepageCapacityConfirmed}
                 onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}
@@ -7766,7 +7779,7 @@ function QuoteCard({
               suitcasesError={suitcasesError}
               publicMinibusEnabled={publicMinibusEnabled}
               publicExecutiveEnabled={publicExecutiveEnabled}
-              showVehicleCategories={!(quoteResultsReady && quoteStep === 1)}
+              showVehicleCategories={!isMinibusPersonalQuote && !(quoteResultsReady && quoteStep === 1)}
               selectedVehicle={quoteVehicle}
               onSelectVehicle={handleQuoteVehicleChoice}
               isGroupQuote={false}

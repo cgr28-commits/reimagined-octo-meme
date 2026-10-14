@@ -133,6 +133,7 @@ export async function saveOwnerPricingSettings(
       minibus: {
         ...defaultOwnerPricingSettings().minibus,
         publicEnabled: current.minibus.publicEnabled === true,
+        requestQuote: current.minibus.requestQuote === true,
       },
       profitability: defaultProfitabilitySettings(),
       version: current.version + 1,
