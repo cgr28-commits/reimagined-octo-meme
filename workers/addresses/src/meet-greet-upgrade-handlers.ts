@@ -162,7 +162,7 @@ export class MeetGreetCoordinator {
     }
     item.attachedAt ??= new Date().toISOString(); await this.save(item);
     if (booking.refundDueReason === "Meet & Greet paid for a cancelled or elapsed collection" || booking.operationalStatus === "cancelled" || ["cancelled", "refunded"].includes(booking.status) || booking.cancelledLegs?.includes(item.leg)) {
-      item.closedReason = "Your payment is recorded, but the collection is cancelled or has passed. Please contact Colin for a refund review."; await this.save(item); return;
+      item.closedReason = "Your payment is recorded, but the collection is cancelled or has passed. Please contact us for a refund review."; await this.save(item); return;
     }
     if (!item.confirmationSentAt) {
       const result = await sendUpdatedConfirmationFromCanonicalRecord({ env: this.env, record: booking, amendmentId: `meet-greet-${item.token}`, persistStatus: true,

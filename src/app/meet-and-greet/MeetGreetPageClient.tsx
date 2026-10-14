@@ -49,7 +49,7 @@ export default function MeetGreetPageClient() {
           <button type="button" onClick={() => void pay()} disabled={busy} className="btn-primary mt-5 min-h-12 w-full">{busy ? "Opening secure payment…" : `Pay £${offer.amount.toFixed(2)} and add Meet & Greet`}</button>
           <p className="mt-4 text-sm leading-relaxed text-white/75">Optional upgrade for this airport collection. Your existing transfer is confirmed. If you don’t want Meet &amp; Greet, there’s nothing you need to do.</p>
         </>}
-        <p className="mt-6 text-sm"><a href="mailto:bookings@myairporttaxini.co.uk" className="underline">Questions? Contact Colin</a></p>
+        <p className="mt-6 text-sm"><a href="mailto:bookings@myairporttaxini.co.uk" className="underline">Questions? Contact us</a></p>
       </> : null}
     </section>
   </main>;
