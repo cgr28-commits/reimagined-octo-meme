@@ -110,7 +110,7 @@ async function parseJson(response: Response): Promise<Record<string, unknown>> {
   return payload as Record<string, unknown>;
 }
 
-export async function calculateServerQuote(
+async function calculateServerQuoteOnce(
   journey: QuickQuoteJourney &
     QuickQuoteRoutePayload & {
       vehicleChoice?: QuickQuoteVehicleChoice;
@@ -140,7 +140,7 @@ export async function calculateServerQuote(
   if (!response.ok) {
     return {
       ok: false,
-      reason: String(payload.reason ?? ""),
+      reason: String(payload.reason ?? (response.status >= 500 ? "server_unavailable" : "")),
       message: String(payload.message || payload.error || "Could not calculate fare"),
       error: String(payload.error ?? ""),
     };
@@ -282,4 +282,22 @@ export async function fetchQuickQuoteById(id: string): Promise<QuickQuotePublicS
     );
   }
   return quote as QuickQuotePublicSummary;
+}
+
+/** A transient route/provider error retries once without changing fare or journey inputs. */
+export async function calculateServerQuote(
+  journey: QuickQuoteJourney & QuickQuoteRoutePayload & { vehicleChoice?: QuickQuoteVehicleChoice },
+  ownerKey?: string,
+  signal?: AbortSignal,
+): Promise<QuickQuoteCalculateResult> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (signal?.aborted) throw new DOMException("Quote request cancelled", "AbortError");
+    try {
+      const result = await calculateServerQuoteOnce(journey, ownerKey, signal);
+      if (attempt === 1 || result.ok || !["routing_unavailable", "server_unavailable"].includes(result.reason ?? "")) return result;
+    } catch (error) {
+      if (attempt === 1 || signal?.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
+    }
+  }
+  throw new Error("Could not calculate fare");
 }
