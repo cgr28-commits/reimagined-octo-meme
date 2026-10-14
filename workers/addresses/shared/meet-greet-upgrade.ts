@@ -15,6 +15,7 @@ export type MeetGreetUpgrade = {
   token: string; paymentReference: string; customerReference: string;
   leg: "outbound" | "return"; airport: MeetGreetAirportCode; amount: number;
   pickupDate: string; pickupTime: string; pickupLabel: string; dropoffLabel: string;
+  manual?: boolean;
   offeredAt?: string; checkoutId?: string; checkoutReference?: string; paymentUrl?: string;
   paidAt?: string; transactionCode?: string; transactionId?: string;
   closedReason?: string;
@@ -23,7 +24,7 @@ export type MeetGreetUpgrade = {
 export const MEET_GREET_EMAIL_DELAY_MS = 30 * 60 * 1000;
 export const MEET_GREET_AIRPORT_NAMES = { BFS: "Belfast International Airport", BHD: "Belfast City Airport", DUB: "Dublin Airport" };
 export const MEET_GREET_BENEFITS = ["Your driver meets you inside arrivals", "A personalised name board so your driver is easy to find", "Help with your luggage", "An escort from arrivals to your vehicle", "Flight monitoring and a coordinated arrival pickup", "Parking for the Meet & Greet collection included in the upgrade price"];
-export function airportPickupOffers(booking: PaidBookingRecord, pricing: OwnerPricingSettings, now = new Date(), requireDelay = true) {
+export function airportPickupOffers(booking: PaidBookingRecord, pricing: OwnerPricingSettings, now = new Date(), requireDelay = true, manual = false) {
   if (!booking.customerReference || !booking.customerEmail || booking.isRefundTest || booking.isAmendmentTestFixture || booking.operationalStatus === "cancelled" || ["cancelled", "refunded"].includes(booking.status) || isExecutiveVehicle(booking.vehicle ?? "")) return [];
   if (requireDelay && now.getTime() < Date.parse(booking.createdAt) + MEET_GREET_EMAIL_DELAY_MS) return [];
   const resolved = resolvePaymentAirportContextFromAddresses(booking.pickupLabel, booking.dropoffLabel);
@@ -34,7 +35,7 @@ export function airportPickupOffers(booking: PaidBookingRecord, pricing: OwnerPr
   return legs.filter(({ leg, airportCode }) => {
     const selected = leg === "return" ? booking.returnAirportAccessOption : booking.outboundAirportAccessOption ?? booking.airportAccessOption;
     const pickupAt = parseLondonLocalDateTime(leg === "return" ? booking.returnDate ?? "" : booking.tripDate, leg === "return" ? booking.returnTime ?? "" : booking.tripTime);
-    return pricing.meetGreetEmail?.enabled[airportCode] === true && selected !== "meet-greet" &&
+    return (manual || pricing.meetGreetEmail?.enabled[airportCode] === true) && selected !== "meet-greet" &&
       !booking.cancelledLegs?.includes(leg) && !(leg === "return" ? booking.returnCompletedAt : booking.outboundCompletedAt) &&
       pickupAt != null && pickupAt.getTime() > now.getTime() && meetGreetFeeGbp(airportCode, pricing.meetGreet) > 0 &&
       (!requireDelay || Date.parse(booking.createdAt) >= Date.parse(pricing.meetGreetEmail?.enabledSince[airportCode] ?? "9999-01-01"));

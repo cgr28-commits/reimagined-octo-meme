@@ -1,4 +1,4 @@
-import { handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
+import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
 import { processDueJourneyReminders } from "./journey-reminder-handlers";
 import {
@@ -3929,6 +3929,10 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (/^\/(api\/)?paid-bookings\/send-meet-greet$/.test(url.pathname)) {
+      return handleOwnerSendMeetGreetEmail(request, env, origin);
     }
 
     if (/^\/(api\/)?meet-greet\/(status|checkout|confirm)$/.test(url.pathname)) {

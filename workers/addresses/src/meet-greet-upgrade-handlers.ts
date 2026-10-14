@@ -1,3 +1,4 @@
+import { ownerAuthorized } from "./driver-auth";
 import { airportPickupOffers, buildMeetGreetOfferEmail, meetGreetCheckoutReference, verifyMeetGreetPayment, MEET_GREET_EMAIL_DELAY_MS, type MeetGreetUpgrade } from "../shared/meet-greet-upgrade";
 import { meetGreetFeeGbp } from "../shared/meet-greet";
 import { getPaidBookingRecord, listPaidBookingsCreatedSince, updatePaidBookingFields, savePaidBookingRecord } from "./paid-booking-store";
@@ -8,7 +9,7 @@ import { createSumUpHostedCheckout, getSumUpCheckout, listSumUpCheckoutsByRefere
 import { parseLondonLocalDateTime } from "../shared/uk-time";
 import { corsHeaders } from "../shared/google-places";
 
-export type MeetGreetEnv = WorkerEmailEnv & { TRACKING_STORE?: KVNamespace; MEET_GREET_COORDINATOR?: DurableObjectNamespace; SUMUP_API_KEY?: string; SUMUP_MERCHANT_CODE?: string };
+export type MeetGreetEnv = WorkerEmailEnv & { TRACKING_STORE?: KVNamespace; MEET_GREET_COORDINATOR?: DurableObjectNamespace; SUMUP_API_KEY?: string; SUMUP_MERCHANT_CODE?: string; OWNER_ACCESS_KEY?: string };
 const origin = "https://www.myairporttaxini.co.uk";
 const validToken = (token: string) => /^[a-f0-9]{64}$/.test(token);
 const newToken = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), n => n.toString(16).padStart(2, "0")).join("");
@@ -38,8 +39,8 @@ export class MeetGreetCoordinator {
       const pricing = await loadOwnerPricingOrDefault(this.env);
       const eligible = booking ? airportPickupOffers(booking, pricing) : [];
       for (const item of offers) {
-        if (!item.offeredAt && !item.checkoutId && !eligible.some(x => x.leg === item.leg && x.airportCode === item.airport)) {
-          item.closedReason = "This offer is no longer available."; await this.save(item);
+        if (!item.offeredAt && !item.checkoutId && !(item.manual && booking ? airportPickupOffers(booking, pricing, new Date(), false, true) : eligible).some(x => x.leg === item.leg && x.airportCode === item.airport)) {
+          item.closedReason = "This Meet & Greet upgrade is no longer available."; await this.save(item);
         }
       }
       if (offers.some(x => x.checkoutId && !x.confirmationSentAt && !x.closedReason) || offers.some(x => !x.offeredAt && !x.paidAt && !x.closedReason)) {
@@ -52,7 +53,7 @@ export class MeetGreetCoordinator {
     await this.state.storage.put("offers", [...items.filter(x => x.token !== item.token), item]);
   }
   private async handle(request: Request): Promise<Response> {
-    const body = await request.json() as { action: string; paymentReference?: string; token?: string; fallback?: boolean; apiOrigin?: string };
+    const body = await request.json() as { action: string; paymentReference?: string; token?: string; fallback?: boolean; apiOrigin?: string; leg?: "outbound" | "return" };
     if (body.action === "queue" && body.paymentReference) {
       if (!await this.state.storage.get("reference")) {
         await this.state.storage.put("reference", body.paymentReference);
@@ -63,6 +64,11 @@ export class MeetGreetCoordinator {
       }
       return json({ ok: true });
     }
+    if (body.action === "send-now" && body.paymentReference && body.leg) {
+      await this.state.storage.put("reference", body.paymentReference);
+      const result = await this.offer(body.leg);
+      return result.sent || result.alreadySent ? json({ ok: true, ...result }) : json({ error: "Meet & Greet is not available for this collection, is already included, or could not be emailed." }, 409);
+    }
     const item = ((await this.state.storage.get<MeetGreetUpgrade[]>("offers")) ?? []).find(x => x.token === body.token);
     if (!item) return json({ error: "This upgrade link is unavailable." }, 404);
     if (body.action === "confirm" || (body.action === "status" && item.checkoutId)) await this.settle(item);
@@ -71,10 +77,10 @@ export class MeetGreetCoordinator {
     if (item.paidAt) return json({ state: "paid", bookingReference: item.customerReference, airport: item.airport, amount: item.amount, leg: item.leg, confirmationSent: !!item.confirmationSentAt, ...(item.closedReason ? { warning: item.closedReason } : {}) });
     if (item.closedReason) return json({ error: item.closedReason }, 410);
     const pricing = await loadOwnerPricingOrDefault(this.env);
-    const eligible = booking && airportPickupOffers(booking, pricing, new Date(), false).some(x => x.leg === item.leg && x.airportCode === item.airport) &&
+    const eligible = booking && airportPickupOffers(booking, pricing, new Date(), false, item.manual === true).some(x => x.leg === item.leg && x.airportCode === item.airport) &&
       item.pickupDate === (item.leg === "return" ? booking.returnDate : booking.tripDate) && item.pickupTime === (item.leg === "return" ? booking.returnTime : booking.tripTime) &&
       item.pickupLabel === (item.leg === "return" ? booking.dropoffLabel : booking.pickupLabel);
-    if (!eligible) return json({ error: "This offer is no longer available. Please contact us if you’d like Meet & Greet." }, 410);
+    if (!eligible) return json({ error: "This Meet & Greet upgrade is no longer available. Please contact us if you’d like Meet & Greet." }, 410);
     if (body.action === "checkout") {
       if (!this.env.SUMUP_API_KEY || !this.env.SUMUP_MERCHANT_CODE || !this.env.TRACKING_STORE) return json({ error: "Online payment is unavailable." }, 503);
       if (!item.checkoutId) {
@@ -106,26 +112,32 @@ export class MeetGreetCoordinator {
     }
     return json({ state: "open", bookingReference: item.customerReference, airport: item.airport, amount: item.amount, leg: item.leg, pickupDate: item.pickupDate, pickupTime: item.pickupTime, pickupLabel: item.pickupLabel, dropoffLabel: item.dropoffLabel });
   }
-  private async offer() {
+  private async offer(manualLeg?: "outbound" | "return") {
+    let sent = 0; let alreadySent = 0;
     const reference = await this.state.storage.get<string>("reference");
     const dueAt = await this.state.storage.get<number>("dueAt");
-    if (!reference || !this.env.TRACKING_STORE || (dueAt && Date.now() < dueAt)) return;
+    if (!reference || !this.env.TRACKING_STORE || (!manualLeg && dueAt && Date.now() < dueAt)) return { sent, alreadySent };
     const booking = await getPaidBookingRecord(this.env.TRACKING_STORE, reference);
-    if (!booking) return;
+    if (!booking) return { sent, alreadySent };
     const pricing = await loadOwnerPricingOrDefault(this.env);
-    for (const { leg, airportCode } of airportPickupOffers(booking, pricing)) {
+    for (const { leg, airportCode } of airportPickupOffers(booking, pricing, new Date(), !manualLeg, !!manualLeg)) {
+      if (manualLeg && leg !== manualLeg) continue;
       let item = ((await this.state.storage.get<MeetGreetUpgrade[]>("offers")) ?? []).find(x => x.leg === leg);
-      if (item?.offeredAt || item?.paidAt) continue;
+      if (item?.offeredAt || item?.paidAt) { alreadySent++; continue; }
+      if (item?.closedReason) continue;
       item ??= { token: newToken(), paymentReference: reference, customerReference: booking.customerReference!, airport: airportCode, leg,
         amount: meetGreetFeeGbp(airportCode, pricing.meetGreet), pickupDate: leg === "return" ? booking.returnDate! : booking.tripDate,
         pickupTime: leg === "return" ? booking.returnTime! : booking.tripTime, pickupLabel: leg === "return" ? booking.dropoffLabel : booking.pickupLabel,
         dropoffLabel: leg === "return" ? booking.pickupLabel : booking.dropoffLabel };
+      if (manualLeg) item.manual = true;
       await this.save(item);
       await this.env.TRACKING_STORE.put(tokenKey(item.token), reference, { expirationTtl: 31536000 });
       const mail = buildMeetGreetOfferEmail(item, booking.customerName);
       const result = await trySendResendOnlyCustomerEmail(this.env, { idempotencyKey: `meet-greet-offer-${item.token}`, to: booking.customerEmail, toName: booking.customerName, subject: mail.subject, body: mail.text, htmlBody: mail.html });
-      if (result.sent) { item.offeredAt = new Date().toISOString(); await this.save(item); }
+      if (result.sent) { sent++; item.offeredAt = new Date().toISOString(); await this.save(item); }
+      else if (manualLeg) throw new Error("Meet & Greet email delivery failed");
     }
+    return { sent, alreadySent };
   }
   private async settle(item: MeetGreetUpgrade) {
     if (!item.checkoutId || !this.env.SUMUP_API_KEY || !this.env.TRACKING_STORE) return;
@@ -209,4 +221,19 @@ export async function confirmMeetGreetWebhook(env: MeetGreetEnv, checkoutId: str
   if (!link) return "missing";
   const response = await callCoordinator(env, link.reference, { action: "confirm", token: link.token });
   return response.ok ? "done" : "retry";
+}
+
+/** Owner-only immediate invitation; automatic email switches govern scheduled sends only. */
+export async function handleOwnerSendMeetGreetEmail(request: Request, env: MeetGreetEnv, requestOrigin: string | null) {
+  const respond = (body: unknown, status: number) => {
+    const response = json(body, status); const headers = new Headers(response.headers);
+    for (const [key, value] of Object.entries(corsHeaders(requestOrigin))) headers.set(key, value);
+    return new Response(response.body, { status, headers });
+  };
+  if (!ownerAuthorized(request, env)) return respond({ error: "Unauthorized" }, 401);
+  if (request.method !== "POST") return respond({ error: "Method not allowed" }, 405);
+  const body = await request.json().catch(() => null) as { paymentReference?: string; leg?: string } | null;
+  if (!body?.paymentReference || !["outbound", "return"].includes(body.leg ?? "")) return respond({ error: "Booking reference and collection leg are required." }, 400);
+  const result = await callCoordinator(env, body.paymentReference, { action: "send-now", paymentReference: body.paymentReference, leg: body.leg });
+  const payload = await result.json(); return respond(payload, result.status);
 }

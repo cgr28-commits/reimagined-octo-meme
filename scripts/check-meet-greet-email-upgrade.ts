@@ -49,7 +49,7 @@ async function main() {
     doData.set("dueAt", Date.now() - 1);
     await coordinator.alarm();
     const offer = (doData.get("offers") as MeetGreetUpgrade[])[0]; assert.ok(offer.offeredAt); assert.equal(emails.length, 1);
-    assert.match(emails[0].text, /name board|name.*board/); assert.match(emails[0].html, /MAT-1234/); assert.match(emails[0].html, /logo\.png/); assert.doesNotMatch(emails[0].text + emails[0].html, /Colin/);
+    assert.match(emails[0].text, /name board|name.*board/); assert.match(emails[0].html, /MAT-1234/); assert.match(emails[0].html, /logo\.png/); assert.doesNotMatch(emails[0].subject + emails[0].text + emails[0].html, /Colin|\boffer\b/i);
     await coordinator.alarm(); assert.equal(emails.length, 1, "offer is sent once");
     const requests = await Promise.all([action({ action: "checkout", token: offer.token, apiOrigin: "https://test.workers.dev" }), action({ action: "checkout", token: offer.token, apiOrigin: "https://test.workers.dev" })]);
     assert.equal(checkoutCount, 1, "repeat clicks reuse checkout"); assert.ok(requests.every(r => r.ok));
