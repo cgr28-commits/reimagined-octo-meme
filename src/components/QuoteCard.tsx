@@ -96,6 +96,7 @@ import {
 import {
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
   publicVehicleRequiresPersonalQuote,
+  publicMinibusRequiresPersonalQuote,
   publicMaxPassengers,
   publicMaxSuitcases,
   type PublicOwnerPricingConfig,
@@ -1210,6 +1211,10 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
+  // Preserve the existing 7-Seater schedule gate; Business Class follows
+  // the normal quote -> booking-details stages.
+  const isMinibusPersonalQuote =
+    publicMinibusRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
   const isVehiclePersonalQuote =
     publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
   const isManualQuoteJourney =
@@ -1810,7 +1815,7 @@ function QuoteCard({
     suitcases != null &&
     exceedsOnlineVehicleOptions(effectivePassengers, suitcases, passengerLimit, suitcaseLimit);
   const scheduleReadyForQuote =
-    isScheduleComplete || (presentation === "homepage" && !isVehiclePersonalQuote);
+    isScheduleComplete || (presentation === "homepage" && !isMinibusPersonalQuote);
   const canShowPrice =
     hasQuoteRoute &&
     quoteChoicesReady &&
@@ -1825,7 +1830,7 @@ function QuoteCard({
     addressTextMatchesPlace(pickupAddress, pickupPlace) &&
     addressTextMatchesPlace(dropoffAddress, dropoffPlace) &&
     !placesEqual(pickupPlace, dropoffPlace) &&
-    (isVehiclePersonalQuote || suitcases !== 5 || homepageCapacityConfirmed);
+    (isMinibusPersonalQuote || suitcases !== 5 || homepageCapacityConfirmed);
 
   const tripDetailsReady = hasQuoteRoute && isScheduleComplete;
 
@@ -2924,7 +2929,7 @@ function QuoteCard({
   const resultsCanRender =
     quoteChoicesReady &&
     hasQuoteRoute &&
-    (scheduleReadyForQuote || (presentation === "homepage" && homepagePriceRequested && isVehiclePersonalQuote)) &&
+    scheduleReadyForQuote &&
     (presentation !== "homepage" || homepagePriceRequested) &&
     (instantPriceExpected ||
       Boolean(liveQuote) ||
@@ -7718,10 +7723,10 @@ function QuoteCard({
                 publicMinibusEnabled={publicMinibusEnabled}
                 onRequestPrice={requestHomepagePrice}
                 quoteReady={homepageQuoteReady}
-                scheduleFields={isVehiclePersonalQuote && hasQuoteRoute && partySelectionReady ? renderQuoteScheduleFields("quote") : null}
-                scheduleComplete={!isVehiclePersonalQuote || isScheduleComplete}
-                actionLabel={isVehiclePersonalQuote ? "Show Transfer Options →" : undefined}
-                capacityConfirmationRequired={!isVehiclePersonalQuote}
+                scheduleFields={isMinibusPersonalQuote && hasQuoteRoute && partySelectionReady ? renderQuoteScheduleFields("quote") : null}
+                scheduleComplete={!isMinibusPersonalQuote || isScheduleComplete}
+                actionLabel={isMinibusPersonalQuote ? "Show Transfer Options →" : undefined}
+                capacityConfirmationRequired={!isMinibusPersonalQuote}
                 capacityConfirmed={homepageCapacityConfirmed}
                 onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}
@@ -7780,7 +7785,7 @@ function QuoteCard({
               suitcasesError={suitcasesError}
               publicMinibusEnabled={publicMinibusEnabled}
               publicExecutiveEnabled={publicExecutiveEnabled}
-              showVehicleCategories={!isVehiclePersonalQuote && !(quoteResultsReady && quoteStep === 1)}
+              showVehicleCategories={!isMinibusPersonalQuote && !(quoteResultsReady && quoteStep === 1)}
               selectedVehicle={quoteVehicle}
               onSelectVehicle={handleQuoteVehicleChoice}
               isGroupQuote={false}
