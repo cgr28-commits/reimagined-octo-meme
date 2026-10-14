@@ -120,7 +120,7 @@
       "LDY": 98
     },
     "Holywood": {
-      "BFS": 18,
+      "BFS": 8,
       "BHD": 0,
       "DUB": 58,
       "LDY": 103
@@ -135,7 +135,7 @@
       "BFS": 3,
       "BHD": 14,
       "DUB": 60,
-      "LDY": 104
+      "LDY": 103
     },
     "Dundonald": {
       "BFS": 28,
@@ -223,7 +223,7 @@
     },
     "Portadown": {
       "BFS": 28,
-      "BHD": 54,
+      "BHD": 59,
       "DUB": 85,
       "LDY": 70
     },
