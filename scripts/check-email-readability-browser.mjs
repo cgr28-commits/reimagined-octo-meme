@@ -21,12 +21,15 @@ try {
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${file}: mobile overflow`);
       const colours = await page.evaluate(() => ({
         background: getComputedStyle(document.body).backgroundColor,
-        paragraphs: [...document.querySelectorAll('p, h1, h2, td, div')].map(node => getComputedStyle(node).color),
-        cells: [...document.querySelectorAll('td')].map(node => getComputedStyle(node).backgroundColor),
+        paragraphs: [...document.querySelectorAll('p, h1, h2, td, div')].filter(node => !node.closest('[data-matni-customer-header]')).map(node => getComputedStyle(node).color),
+        cells: [...document.querySelectorAll('td')].filter(node => !node.closest('[data-matni-customer-header]')).map(node => getComputedStyle(node).backgroundColor),
       }));
       assert.equal(colours.background, 'rgb(255, 255, 255)', file);
       assert.ok(colours.paragraphs.every(colour => colour === 'rgb(7, 28, 56)'), `${file}: text must be brand navy`);
       assert.ok(colours.cells.every(colour => colour === 'rgb(255, 255, 255)'), `${file}: cells must stay white`);
+      const header = page.locator('[data-matni-customer-header]');
+      assert.equal(await header.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(7, 28, 56)', file);
+      assert.equal(await page.locator('img[alt="My Airport Taxi NI"]').evaluate(img => Math.round(img.getBoundingClientRect().width)), 124, file);
       assert.equal(await page.locator('img[alt="My Airport Taxi NI"]').count(), 1, file);
       await page.locator('img[alt="My Airport Taxi NI"]').evaluate(img => img.decode());
       assert.equal(await page.locator('img[alt="My Airport Taxi NI"]').evaluate(img => img.naturalWidth), 697, file);
@@ -36,6 +39,7 @@ try {
       // Email clients that remove head CSS still receive explicit readable inline colours.
       await page.locator('head').evaluate(node => node.remove());
       assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(255, 255, 255)', file);
+      assert.equal(await header.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(7, 28, 56)', file);
     }
     console.log(`PASS ${colorScheme}: white/navy text, mobile layout, logo and inline fallback across all non-paid previews`);
     await context.close();

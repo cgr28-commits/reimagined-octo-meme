@@ -69,7 +69,7 @@ assert.ok(lateText.includes(OPENING));
 assert.match(lateHtml, /Cancellation confirmed/);
 assert.match(lateHtml, />Booking cancelled</);
 assert.match(lateHtml, /font-size:13px[^>]*>Booking reference: TAAA6RTCVM2/);
-assert.match(lateHtml, /font-size:26px[^>]*>Booking cancelled</);
+assert.match(lateHtml, /font-size:16px[^>]*>Booking cancelled</);
 assert.doesNotMatch(lateHtml, /Booking cancelled — TAAA6RTCVM2/);
 assert.match(lateText, /Airport pickup\n6 October 2026 · 12:55pm/);
 assert.match(lateHtml, /6 October 2026 · 12:55pm/);

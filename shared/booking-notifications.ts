@@ -12,6 +12,7 @@ import {
   lightCustomerEmailHtml,
   businessEmailClientMeta,
   businessEmailLogoHtml,
+  customerEmailHeaderHtml,
 } from "./business-email";
 import { contactVCardPublicUrl, resolveGoogleReviewUrl } from "./business-links";
 import { vehicleServiceLabel } from "./booking-notice";
@@ -814,7 +815,7 @@ export function buildCustomerConfirmationEmail(
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 
-  const html = buildInvoiceHtml(details, businessName, undefined, manageUrl);
+  const html = customerEmailHeaderHtml(buildInvoiceHtml(details, businessName, undefined, manageUrl));
 
   return { subject, text, html };
 }
@@ -2163,7 +2164,7 @@ export function buildUpdatedBookingConfirmationEmail(
     )
     .replace(/Thank you for your booking with [^.<]+?\./i, "Your booking has been updated.")
     .replace(
-      /(<div style="margin-top:8px;font-size:22px;line-height:1\.35;color:#ffffff;font-weight:bold;">)([^<]*)(<\/div>)/,
+      /(<div\b(?=[^>]*\bclass="[^"]*\bmatni-customer-title\b)[^>]*>)([^<]*)(<\/div>)/,
       (_match, start, _heading, end) => `${start}Your booking has been updated, ${escapeHtml(customerFirstName(receipt.customerName))}${end}`,
     );
 
