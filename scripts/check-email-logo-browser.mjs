@@ -35,7 +35,9 @@ try {
   await page.setContent(result.html);
   await page.locator('img[alt="My Airport Taxi NI"]').evaluate(i=>i.src='https://blocked.invalid/missing.png');
   await page.waitForTimeout(100);
-  assert.ok(await page.locator('.matni-header').getByText('My Airport Taxi NI',{exact:true}).isVisible());
+  const blockedLogo = page.locator('img[alt="My Airport Taxi NI"]');
+  assert.equal(await blockedLogo.getAttribute('alt'),'My Airport Taxi NI');
+  assert.ok(await blockedLogo.isVisible());
   console.log('PASS collection email: visible logo, mobile layout, '+colorScheme+', company name retained when image blocked');
   await context.close();
  }

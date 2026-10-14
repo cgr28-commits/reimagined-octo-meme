@@ -32,8 +32,8 @@ export function businessWhatsAppPublicPageUrl(siteUrl = BUSINESS_WEBSITE): strin
 export const BUSINESS_EMAIL_LOGO_URL = `${BUSINESS_WEBSITE}/logo.png`;
 export const BUSINESS_EMAIL_LOGO_ALT = "My Airport Taxi NI";
 /** Display size. Original source artwork is 697×541, over 3× the default display width. */
-export const BUSINESS_EMAIL_LOGO_WIDTH = 220;
-export const BUSINESS_EMAIL_LOGO_HEIGHT = 170;
+export const BUSINESS_EMAIL_LOGO_WIDTH = 124;
+export const BUSINESS_EMAIL_LOGO_HEIGHT = 96;
 
 /**
  * Asks clients that honour it to keep our navy header instead of inverting the logo.
@@ -59,6 +59,106 @@ export function businessEmailLogoHtml(width = BUSINESS_EMAIL_LOGO_WIDTH, logoUrl
   return `<a href="${BUSINESS_WEBSITE}/" style="text-decoration:none;display:inline-block;">
 <img class="matni-logo" src="${logoUrl}" alt="${BUSINESS_EMAIL_LOGO_ALT}" width="${width}" height="${height}" border="0" bgcolor="#071c38" style="display:block;margin:0 auto;width:${width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;background-color:#071c38;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;line-height:1.2;color:#ffffff;" />
 </a>`;
+}
+
+type EmailHeaderRange = { start: number; end: number };
+
+/** Locate only the logo's header cell/div, never its containing booking table. */
+function emailHeaderRanges(html: string): EmailHeaderRange[] {
+  type Node = { tag: string; start: number; end?: number; opening: string; parent?: Node };
+  const stack: Node[] = [];
+  const headers = new Set<Node>();
+  for (const match of html.matchAll(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi)) {
+    const tag = match[1].toLowerCase();
+    const token = match[0];
+    const start = match.index!;
+    if (token.startsWith("</")) {
+      const index = stack.map(node => node.tag).lastIndexOf(tag);
+      if (index >= 0) {
+        for (const node of stack.splice(index)) node.end = start + token.length;
+      }
+      continue;
+    }
+    if (tag === "img" && /\/(?:logo|google-business-logo)\.png(?:["?])/i.test(token)) {
+      const header = [...stack].reverse().find(node =>
+        node.tag === "td" || (node.tag === "div" && /\bmatni-header\b/.test(node.opening)));
+      if (header) headers.add(header);
+    }
+    if (!["img", "br", "meta", "link", "hr", "input", "source", "wbr"].includes(tag) && !token.endsWith("/>")) {
+      stack.push({ tag, start, opening: token, parent: stack.at(-1) });
+    }
+  }
+  return [...headers].filter(node => node.end != null)
+    .map(node => ({ start: node.start, end: node.end! })).sort((a, b) => a.start - b.start);
+}
+
+function setHeaderStyle(tag: string, properties: Record<string, string>): string {
+  let style = /\bstyle="([^"]*)"/i.exec(tag)?.[1] ?? "";
+  for (const [property, value] of Object.entries(properties)) {
+    style = style.replace(new RegExp("(^|;)\\s*" + property + "\\s*:[^;]*", "gi"), "$1");
+    style += ";" + property + ":" + value;
+  }
+  return /\bstyle="/i.test(tag)
+    ? tag.replace(/\bstyle="[^"]*"/i, `style="${style}"`)
+    : tag.replace(/>$/, ` style="${style}">`);
+}
+
+function customerHeaderBlock(header: string): string {
+  if (header.includes('data-matni-customer-header="true"')) return header;
+  // The linked original artwork is over five times its 124px display width.
+  const logo = businessEmailLogoHtml(124).match(/<img\b[^>]*>/)![0];
+  let result = header.replace(/<img\b[^>]*src="[^"]*\/(?:logo|google-business-logo)\.png"[^>]*>/gi, logo);
+  let first = true;
+  const source = result;
+  result = result.replace(/<(td|div|p|h[1-6]|span|a)\b[^>]*>/gi, (tag, name: string, offset: number) => {
+    const greenLabel = /color:\s*#2fbf4a/i.test(tag);
+    const color = greenLabel ? "#2fbf4a" : "#ffffff";
+    const properties: Record<string, string> = {
+      color: color + " !important",
+      "-webkit-text-fill-color": color + " !important",
+    };
+    if (first) {
+      first = false;
+      properties["background"] = "#071c38 !important";
+      properties["background-color"] = "#071c38 !important";
+      tag = tag.replace(/\s(?:bgcolor|data-matni-customer-header)="[^"]*"/gi, "").replace(/>$/, ' bgcolor="#071c38" data-matni-customer-header="true">');
+    } else if (name === "div") {
+      const originalBackground = /(?:^|;)\s*background(?:-color)?:([^;"]+)/i.exec(tag)?.[1]?.trim();
+      properties["background-color"] = (originalBackground ?? "#071c38").replace(/!important/gi, "").trim() + " !important";
+    }
+    const font = /font-size:\s*(\d+)px/i.exec(tag)?.[1];
+    const nextText = source.slice(offset + tag.length).split("<", 1)[0].trim();
+    if (font && Number(font) >= 20 && /^(div|p|h[1-6])$/i.test(name) && !/^[£€$]\d/.test(nextText)) {
+      properties["font-size"] = "16px";
+      tag = /\bmatni-customer-title\b/.test(tag) ? tag : /class="/.test(tag)
+        ? tag.replace(/class="/, 'class="matni-customer-title ')
+        : tag.replace(/>$/, ' class="matni-customer-title">');
+    }
+    return setHeaderStyle(tag, properties);
+  });
+  return result;
+}
+
+/** Replace header markup only; everything outside those ranges stays byte-for-byte intact. */
+export function customerEmailHeaderHtml(html: string, originalHtml = html): string {
+  const ranges = emailHeaderRanges(html);
+  const originals = emailHeaderRanges(originalHtml);
+  if (!ranges.length || ranges.length !== originals.length) return html;
+  let result = html;
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    const range = ranges[i];
+    const original = originals[i];
+    result = result.slice(0, range.start) +
+      customerHeaderBlock(originalHtml.slice(original.start, original.end)) +
+      result.slice(range.end);
+  }
+  if (!result.includes('id="matni-customer-header-style"')) {
+    result = result.replace(/<\/head>/i, `<style id="matni-customer-header-style" type="text/css">
+@media only screen and (max-width:480px) { .matni-customer-title { font-size:11px !important; } }
+@media only screen and (max-width:360px) { .matni-customer-title { font-size:10px !important; } }
+</style></head>`);
+  }
+  return result;
 }
 
 /** Always bookings@ — ignore env overrides that point elsewhere. */
@@ -117,7 +217,7 @@ export function lightCustomerEmailHtml(html: string): string {
     }
   }
 </style>`;
-  return html
+  const themed = html
     .replace(businessEmailClientMeta(), meta)
     .replace(/<(body|table|td|div|p|h[1-6]|span|li|ul|ol|strong|a)\b[^>]*>/gi, (tag, name: string) => {
       const container = /^(body|table|td|div)$/i.test(name);
@@ -138,4 +238,5 @@ export function lightCustomerEmailHtml(html: string): string {
       if (name.toLowerCase() === "body") next = next.replace("<body", '<body class="matni-light"');
       return next;
     });
+  return customerEmailHeaderHtml(themed, html);
 }
