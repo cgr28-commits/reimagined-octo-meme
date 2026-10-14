@@ -5349,8 +5349,17 @@ function QuoteCard({
     const glideToDetails = bookTransferGlideRef.current;
     bookTransferGlideRef.current = false;
     if (glideToDetails && target === 2) {
+      // Mobile homepage: retain the introduction and benefits above the booking form.
+      // Tablet/desktop use the card because their hero columns have a different order.
+      const introduction =
+        presentation === "homepage" && window.matchMedia("(max-width: 767px)").matches
+          ? document.getElementById("homepage-booking-intro")
+          : null;
+      const bookingHeading = cardRef.current?.querySelector<HTMLElement>(
+        '[data-site-nav-heading="quote"]',
+      );
       return scheduleBookTransferGlide(
-        step2TravelDetailsRef.current ?? "step2-travel-details",
+        introduction ?? bookingHeading ?? cardRef.current ?? step2TravelDetailsRef.current ?? "step2-travel-details",
       );
     }
     const element =
@@ -5363,7 +5372,7 @@ function QuoteCard({
       focusHeading: true,
       correctAfterMs: 150,
     });
-  }, [quoteStep]);
+  }, [quoteStep, presentation]);
 
   // Availability-confirmation result: scroll once to the confirmation card.
   useEffect(() => {
@@ -6437,7 +6446,7 @@ function QuoteCard({
             tabIndex={-1}
             className="text-sm font-semibold text-white outline-none"
           >
-            Pickup date & time — Complete your booking
+            Pickup date & time
           </h2>
 
           {renderQuoteScheduleFields("checkout")}

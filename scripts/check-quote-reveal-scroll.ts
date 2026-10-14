@@ -145,7 +145,7 @@ check("Desktop uses the same heading stop", () => {
   assert.ok(Math.abs(landedHeading(frame, nextTop) - idealHeading(80)) <= 1);
 });
 
-check("Book This Transfer uses the same glide and stops on pickup date/time", () => {
+check("Book This Transfer preserves the mobile introduction and booking heading", () => {
   assert.ok(BOOK_TRANSFER_CLEARANCE_PX >= 16 && BOOK_TRANSFER_CLEARANCE_PX <= 24);
   const frame = {
     scrollY: 500,
@@ -176,7 +176,11 @@ check("Book This Transfer uses the same glide and stops on pickup date/time", ()
   assert.doesNotMatch(glide, /correctAfterMs|behavior:\s*"smooth"|vibrate|quote-result-reveal/);
   const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
   assert.match(card, /bookTransferGlideRef\.current = true/);
-  assert.match(card, /scheduleBookTransferGlide\(\s*step2TravelDetailsRef\.current \?\? "step2-travel-details"/);
+  assert.match(card, /scheduleBookTransferGlide\(\s*introduction \?\? bookingHeading \?\? cardRef\.current \?\? step2TravelDetailsRef\.current \?\? "step2-travel-details"/);
+  assert.match(card, /presentation === "homepage" && window\.matchMedia\("\(max-width: 767px\)"\)\.matches/);
+  assert.match(card, /document\.getElementById\("homepage-booking-intro"\)/);
+  const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
+  assert.match(hero, /id="homepage-booking-intro"/);
   assert.doesNotMatch(card, /navigator\.vibrate|tickSelectionHaptic|requestSelectionHaptic/);
 });
 
