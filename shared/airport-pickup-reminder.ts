@@ -542,7 +542,6 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, m
 <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
 <tr><td bgcolor="${navy}" style="background:${navy};padding:28px 32px;text-align:center;">
 <img src="${BUSINESS_WEBSITE}/google-business-logo.png" alt="${escapeHtml(BUSINESS_NAME)}" height="72" style="display:block;margin:0 auto;height:72px;width:auto;max-width:100%;" />
-<div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${accent};font-weight:bold;">Airport collection information</div>
 <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
 ${reference ? `<div style="margin-top:14px;display:inline-block;background:rgba(16,185,129,0.15);border:1px solid ${accent};border-radius:10px;padding:10px 16px;font-size:15px;color:#ffffff;"><span style="color:${accent};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;">Booking reference</span><br /><span style="font-size:22px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(reference)}</span></div>` : ""}
 </td></tr>
