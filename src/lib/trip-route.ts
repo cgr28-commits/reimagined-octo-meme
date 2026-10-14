@@ -154,6 +154,7 @@ export async function fetchOsrmTripRouteMetrics(
   originLng: number,
   destinationLat: number,
   destinationLng: number,
+  options: { timeoutMs?: number } = {},
 ): Promise<ResolvedTripRouteMetrics | null> {
   const path =
     `${originLng},${originLat};${destinationLng},${destinationLat}?overview=false`;
@@ -162,8 +163,10 @@ export async function fetchOsrmTripRouteMetrics(
   for (let attempt = 1; attempt <= OSRM_ROUTE_BASES.length; attempt += 1) {
     const base = OSRM_ROUTE_BASES[attempt - 1];
     const hostname = osrmHostnameFromBase(base);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 5000);
     try {
-      const response = await fetch(`${base}/${path}`, { headers });
+      const response = await fetch(`${base}/${path}`, { headers, signal: controller.signal });
       if (!response.ok) {
         logOsrmDiagnostic({
           hostname,
@@ -194,8 +197,10 @@ export async function fetchOsrmTripRouteMetrics(
       logOsrmDiagnostic({
         hostname,
         attempt,
-        category: classifyOsrmNetworkError(error),
+        category: controller.signal.aborted ? "timeout" : classifyOsrmNetworkError(error),
       });
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

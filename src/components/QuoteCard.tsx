@@ -2109,7 +2109,7 @@ function QuoteCard({
           : suitableVehicleTypesForParty(paxNow, suitcases, {
               publicMinibusEnabled,
               publicExecutiveEnabled,
-            }),
+            }).filter((candidate) => !publicVehicleRequiresPersonalQuote(candidate, publicPricing)),
     });
     const rememberFare = (vehicle: string, parts: ServerFarePartyParts) => {
       authoritativeFareCacheRef.current.set(fareKeyFor(vehicle), parts);
@@ -2434,6 +2434,7 @@ function QuoteCard({
     passengerLimit,
     publicExecutiveEnabled,
     publicMinibusEnabled,
+    publicPricing,
   ]);
   const refreshAuthoritativeServerQuoteRef = useRef(refreshAuthoritativeServerQuote);
   refreshAuthoritativeServerQuoteRef.current = refreshAuthoritativeServerQuote;
