@@ -6,6 +6,7 @@ export type OwnerDashboardToolTab =
   | "availability"
   | "more"
   | "pricing"
+  | "postcode-pricing"
   | "a2a-quotes"
   | "personal-quotes"
   | "same-fare"
@@ -38,6 +39,7 @@ export const OWNER_MORE_DESTINATIONS: {
   { id: "enquiries", label: "Enquiries", hint: "Quotes and enquiry jobs" },
   { id: "tracking", label: "Tracking", hint: "Driver tracking jobs and acceptance" },
   { id: "pricing", label: "Pricing", hint: "Fares and vehicle pricing" },
+  { id: "postcode-pricing", label: "Postcode Pricing", hint: "Fixed district-to-airport Saloon fares and the configured Estate supplement" },
   { id: "a2a-quotes", label: "A2A Quotes", hint: "Address-to-address quote queue" },
   { id: "personal-quotes", label: "Personal Quotes", hint: "Personal quote codes" },
   { id: "same-fare", label: "Same Fare Test", hint: "Same-fare amendment test" },

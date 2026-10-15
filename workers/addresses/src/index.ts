@@ -2728,6 +2728,9 @@ async function handlePaymentRequest(
     const protectedFare = receiptClaims
       ? null
       : await applyProfitabilityProtection({
+      postcodeContext: airportContext.airportCode && !(airportContext.pickupAirportCode && airportContext.dropoffAirportCode)
+        ? { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode, fromAirport: airportContext.fromAirport }
+        : undefined,
       pricing,
       vehicleType,
       routeMetrics,
@@ -2888,6 +2891,9 @@ async function handlePaymentRequest(
           let outboundLeg = legQuote.outboundOneWayBeforeAccessGbp;
           let returnLeg = legQuote.returnOneWayBeforeAccessGbp;
           const protectedLegs = await applyProfitabilityProtection({
+            postcodeContext: airportContext.airportCode && !(airportContext.pickupAirportCode && airportContext.dropoffAirportCode)
+              ? { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode, fromAirport: airportContext.fromAirport }
+              : undefined,
             pricing,
             vehicleType,
             routeMetrics,

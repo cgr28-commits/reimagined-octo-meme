@@ -8,6 +8,7 @@
  */
 
 import { roundGbp } from "../shared/gbp";
+import { postcodeJourneyLegs, type PostcodeJourneyContext } from "../shared/postcode-pricing";
 import {
   calculateUniversalJourneyFareGbp,
   calculateUniversalSaloonJourneyFareGbp,
@@ -215,6 +216,7 @@ function vehicleFareFromProtectedSaloon(
 }
 
 export async function applyProfitabilityProtection(input: {
+  postcodeContext?: PostcodeJourneyContext;
   pricing: OwnerPricingSettings | (OwnerPricingSettings & { profitability?: ProfitabilitySettings | null }) | null;
   vehicleType: string;
   routeMetrics: LegMetrics;
@@ -317,12 +319,24 @@ export async function applyProfitabilityProtection(input: {
     }
 
     const dublinRate = ownerPricingEngineOptions(input.pricing).dublinAirportFareAdjustmentRate ?? 0;
-    const adjustedOutboundVehicle = dublinAirportJourneyFareGbp(
+    const postcode = postcodeJourneyLegs({
+      rules: input.pricing?.postcodeRules, context: input.postcodeContext,
+      vehicle: input.vehicleType, estateSupplement: ownerPricingEngineOptions(input.pricing).estatePremiumGbp,
+      returnJourney: input.returnJourney,
+      outboundFixed: existing.outboundFixedGbp ?? existing.airportFixedCostsGbp,
+      returnFixed: existing.returnFixedGbp ?? 0,
+    });
+    const pricedSchedule = {
+      ...input.schedule,
+      ...(postcode.outbound != null ? { outboundDate: undefined, outboundTime: undefined } : {}),
+      ...(postcode.inbound != null ? { returnDate: undefined, returnTime: undefined } : {}),
+    };
+    const adjustedOutboundVehicle = postcode.outbound ?? dublinAirportJourneyFareGbp(
       outboundVehicle,
       input.dublinAirportJourney === true,
       dublinRate,
     );
-    const adjustedReturnVehicle = dublinAirportJourneyFareGbp(
+    const adjustedReturnVehicle = postcode.inbound ?? dublinAirportJourneyFareGbp(
       returnVehicle,
       input.dublinAirportJourney === true,
       dublinRate,
@@ -330,7 +344,7 @@ export async function applyProfitabilityProtection(input: {
 
     const premium = applyTripPremium(
       adjustedOutboundVehicle,
-      { ...input.schedule, returnJourney: input.returnJourney },
+      { ...pricedSchedule, returnJourney: input.returnJourney },
       undefined,
       {
         pricing: input.pricing,
@@ -346,8 +360,8 @@ export async function applyProfitabilityProtection(input: {
     const outboundLeg = applyTripPremium(
       adjustedOutboundVehicle,
       {
-        outboundDate: input.schedule.outboundDate,
-        outboundTime: input.schedule.outboundTime,
+        outboundDate: pricedSchedule.outboundDate,
+        outboundTime: pricedSchedule.outboundTime,
         returnJourney: false,
       },
       undefined,
@@ -359,8 +373,8 @@ export async function applyProfitabilityProtection(input: {
       const returnLeg = applyTripPremium(
         adjustedReturnVehicle,
         {
-          outboundDate: input.schedule.returnDate,
-          outboundTime: input.schedule.returnTime,
+          outboundDate: pricedSchedule.returnDate,
+          outboundTime: pricedSchedule.returnTime,
           returnJourney: false,
         },
         undefined,

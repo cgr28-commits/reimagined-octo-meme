@@ -1,5 +1,6 @@
 import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "./data";
 import { isExecutiveVehicle } from "../../shared/executive-vehicle";
+import { postcodeJourneyLegs } from "../../shared/postcode-pricing";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import {
   composeFareWithAirportFixedCosts,
@@ -208,6 +209,7 @@ function withOneWayBeforeAccess(
   outboundFixedGbp: number,
   returnFixedGbp: number,
   premiumRate?: number,
+  returnOneWayJourneyGbp?: number,
 ): QuoteResult {
   const outbound = applyTripPremium(
     oneWayJourneyGbp,
@@ -227,7 +229,7 @@ function withOneWayBeforeAccess(
   };
   if (!returnJourney) return next;
   const inbound = applyTripPremium(
-    oneWayJourneyGbp,
+    returnOneWayJourneyGbp ?? oneWayJourneyGbp,
     {
       outboundDate: schedule.returnDate,
       outboundTime: schedule.returnTime,
@@ -775,11 +777,24 @@ export function calculateQuote(
       })
     : 0;
 
+  const postcode = postcodeJourneyLegs({
+    rules: pricing?.postcodeRules,
+    context: { address: trimmedAddress, airportCode, fromAirport },
+    vehicle: vehicleType, estateSupplement: engine.estatePremiumGbp,
+    returnJourney, outboundFixed, returnFixed,
+  });
+  const outboundFare = postcode.outbound ?? oneWayFare;
+  const inboundFare = postcode.inbound ?? oneWayFare;
+  const pricedSchedule = {
+    ...schedule,
+    ...(postcode.outbound != null ? { outboundDate: undefined, outboundTime: undefined } : {}),
+    ...(postcode.inbound != null ? { returnDate: undefined, returnTime: undefined } : {}),
+  };
   const premium = applyTripPremium(
-    oneWayFare,
-    { ...schedule, returnJourney },
+    outboundFare,
+    { ...pricedSchedule, returnJourney },
     AIRPORT_TRIP_PREMIUM_RATE,
-    { pricing },
+    { pricing, returnOneWayFare: inboundFare },
   );
   const composed = composeFareWithAirportFixedCosts({
     journeyOneWayGbp: oneWayFare,
@@ -812,13 +827,14 @@ export function calculateQuote(
         band: "weekday",
       },
     },
-    oneWayFare,
-    schedule,
+    outboundFare,
+    pricedSchedule,
     returnJourney,
     pricing,
     outboundFixed,
     returnFixed,
     AIRPORT_TRIP_PREMIUM_RATE,
+    inboundFare,
   );
 }
 
