@@ -38,6 +38,8 @@ export type PaymentCheckoutRequest = {
   shortNoticeToken?: string;
   /** After Owner A2A quote approval — pay the locked personalised quote. */
   a2aQuoteToken?: string;
+  /** Flight details collected after approval; the server keeps all other quote fields locked. */
+  quoteFlightDetails?: { flightNumber: string; returnFlightNumber: string };
   /**
    * Personal quote code. Server re-validates and overwrites `amount` from KV.
    * Never rely on the client amount when this is set.
@@ -340,6 +342,7 @@ export async function createPaymentCheckout(
       ...(booking ? { booking } : {}),
       ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
       ...(request.a2aQuoteToken ? { a2aQuoteToken: request.a2aQuoteToken } : {}),
+      ...(request.a2aQuoteToken && request.quoteFlightDetails ? { quoteFlightDetails: request.quoteFlightDetails } : {}),
       ...(request.personalQuoteCode ? { personalQuoteCode: request.personalQuoteCode } : {}),
       ...(request.quickQuoteId ? { quickQuoteId: request.quickQuoteId } : {}),
       ...(request.savedQuoteToken ? { savedQuoteToken: request.savedQuoteToken } : {}),

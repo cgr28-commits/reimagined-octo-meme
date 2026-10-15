@@ -207,6 +207,7 @@ import {
   getA2aQuoteByToken,
   saveA2aQuoteRequest,
 } from "./a2a-quote-store";
+import { completeApprovedQuoteFlights } from "../shared/approved-quote-flights";
 import {
   handleOwnerCreatePersonalQuote,
   handleOwnerDeactivatePersonalQuote,
@@ -1505,6 +1506,8 @@ async function handleBookingRequest(
     booking: (body.booking as unknown as Record<string, unknown> | undefined) ?? null,
     tour: (body.tour as unknown as Record<string, unknown> | undefined) ?? null,
     publicMinibusEnabled: bookingPricing?.minibus.publicEnabled === true,
+    deferFlightNumbers: Boolean(bookingPricing && body.booking &&
+      publicVehicleRequiresPersonalQuote(body.booking.vehicle, bookingPricing)),
   });
   if (!requestValidation.ok) {
     return json({ error: requestValidation.error }, 400, origin);
@@ -2055,7 +2058,11 @@ async function handlePaymentRequest(
     }
     const record = resolved.record;
     amount = Math.round((record.quotedPrice ?? 0) * 100) / 100;
-    booking = record.booking;
+    const completed = completeApprovedQuoteFlights(record.booking, body.quoteFlightDetails);
+    if (!completed.ok) {
+      return json({ error: completed.error, code: "invalid_flight_number" }, 400, origin);
+    }
+    booking = completed.booking;
     a2aQuoteReference = record.reference;
 
     const a2aClosed = await blockedOwnerNoAvailabilityResponse(env, origin, booking);
@@ -2074,6 +2081,18 @@ async function handlePaymentRequest(
         if (isSumUpCheckoutPaid(existingCheckout)) {
           return json({ error: "This quote has already been paid." }, 409, origin);
         }
+        // An existing checkout must carry the completed details too, otherwise
+        // confirmation/driver notifications would retain the original blanks.
+        await savePendingCheckout(env.TRACKING_STORE, {
+          checkoutId: record.checkoutId,
+          checkoutReference: record.checkoutReference || record.reference,
+          amount,
+          booking,
+          createdAt: record.quoteApprovedAt || new Date().toISOString(),
+          a2aQuoteToken,
+          a2aQuoteReference: record.reference,
+        });
+        await saveA2aQuoteRequest(env.TRACKING_STORE, { ...record, booking, updatedAt: new Date().toISOString() });
         return json(
           {
             ok: true,
@@ -3532,6 +3551,7 @@ async function handlePaymentRequest(
       if (aq) {
         await saveA2aQuoteRequest(env.TRACKING_STORE, {
           ...aq,
+          booking,
           checkoutId: checkout.checkoutId,
           checkoutReference: checkout.checkoutReference,
           paymentUrl: checkout.paymentUrl,

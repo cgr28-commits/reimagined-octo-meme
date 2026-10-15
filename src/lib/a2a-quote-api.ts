@@ -65,6 +65,8 @@ export type A2aQuoteOwnerSummary = {
 };
 
 export type PublicA2aQuoteSummary = {
+  flightNumber?: string;
+  returnFlightNumber?: string;
   reference: string;
   status: string;
   statusLabel: string;

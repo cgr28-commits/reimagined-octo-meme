@@ -13,6 +13,7 @@ import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-paym
 import { fetchPublicA2aQuote, type PublicA2aQuoteSummary } from "@/lib/a2a-quote-api";
 import { A2A_QUOTE_EXPIRED_CUSTOMER_MESSAGE } from "../../../../shared/a2a-personalised-quote";
 import CustomerPaymentDeadline from "@/components/CustomerPaymentDeadline";
+import { approvedQuoteFlightBlockers, approvedQuoteFlightRequirements } from "../../../../shared/approved-quote-flights";
 
 function readTokenFromLocation(): string {
   if (typeof window === "undefined") return "";
@@ -26,6 +27,8 @@ function A2aQuotePayInner() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [flightNumber, setFlightNumber] = useState("");
+  const [returnFlightNumber, setReturnFlightNumber] = useState("");
 
   useEffect(() => {
     const fromUrl = searchParams.get("token")?.trim() ?? readTokenFromLocation();
@@ -46,7 +49,11 @@ function A2aQuotePayInner() {
       setError("");
       try {
         const quote = await fetchPublicA2aQuote(token);
-        if (!cancelled) setSummary(quote);
+        if (!cancelled) {
+          setSummary(quote);
+          setFlightNumber(quote.flightNumber || "");
+          setReturnFlightNumber(quote.returnFlightNumber || "");
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Could not load quote");
@@ -62,6 +69,11 @@ function A2aQuotePayInner() {
 
   async function handlePay() {
     if (!summary?.payable || !token || summary.amount == null) return;
+    const flightBlockers = approvedQuoteFlightBlockers({ ...summary, flightNumber, returnFlightNumber });
+    if (flightBlockers.length > 0) {
+      setError(flightBlockers[0]);
+      return;
+    }
     setPaying(true);
     setError("");
     try {
@@ -74,6 +86,7 @@ function A2aQuotePayInner() {
         description: `Personalised quote ${summary.reference}`,
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         a2aQuoteToken: token,
+        quoteFlightDetails: { flightNumber, returnFlightNumber },
       });
       if (!checkout.paymentUrl || !checkout.checkoutId) {
         throw new Error("Could not start secure payment");
@@ -96,12 +109,13 @@ function A2aQuotePayInner() {
             tripTime: summary.tripTime,
             returnDate: summary.returnDate || "",
             returnTime: summary.returnTime || "",
-            flightNumber: "",
+            flightNumber: flightNumber.trim().toUpperCase(),
+            returnFlightNumber: returnFlightNumber.trim().toUpperCase(),
             passengers: summary.passengers,
             suitcases: summary.suitcases,
             vehicle: summary.vehicle,
             estimatedPrice: summary.amountLabel,
-            isAirportTrip: false,
+            isAirportTrip: approvedQuoteFlightRequirements(summary).isAirportTrip,
           },
         },
         returnToken,
@@ -135,6 +149,7 @@ function A2aQuotePayInner() {
   if (!summary) return null;
 
   const isCounterOffer = Boolean(summary.isCounterOffer);
+  const flights = approvedQuoteFlightRequirements(summary);
   const payLabel = isCounterOffer ? "Accept Changes & Pay Securely" : "Pay Securely";
 
   return (
@@ -255,6 +270,29 @@ function A2aQuotePayInner() {
           </p>
         </>
       )}
+
+      {summary.payable && (flights.outbound || flights.inbound) ? (
+        <div className="mt-5 space-y-4 rounded-xl border border-white/15 p-4" data-approved-quote-flight-details>
+          <p className="text-sm font-semibold text-white">Complete your booking — flight details</p>
+          <p className="text-xs leading-snug text-white/75">Now your quote is approved, enter your flight number so we can monitor your arrival and arrange collection.</p>
+          {flights.outbound ? (
+            <div>
+              <label htmlFor="approved-quote-flight" className="text-sm font-medium">Flight number (required)</label>
+              <input id="approved-quote-flight" required autoCapitalize="characters" autoComplete="off" spellCheck={false}
+                value={flightNumber} onChange={(event) => { setFlightNumber(event.target.value); setError(""); }}
+                placeholder="e.g. BA1234" className="mt-1 min-h-12 w-full rounded-xl border border-white/25 bg-navy px-3 py-2 text-white uppercase" />
+            </div>
+          ) : null}
+          {flights.inbound ? (
+            <div>
+              <label htmlFor="approved-quote-return-flight" className="text-sm font-medium">Return flight number (required)</label>
+              <input id="approved-quote-return-flight" required autoCapitalize="characters" autoComplete="off" spellCheck={false}
+                value={returnFlightNumber} onChange={(event) => { setReturnFlightNumber(event.target.value); setError(""); }}
+                placeholder="e.g. EZY456" className="mt-1 min-h-12 w-full rounded-xl border border-white/25 bg-navy px-3 py-2 text-white uppercase" />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {isCustomerSmartAvailabilityBlockMessage(error) ? (
         <div className="mt-4">
