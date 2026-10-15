@@ -3,6 +3,7 @@
  * Used by the website Pay button and the Worker /payments endpoint.
  */
 
+import { businessClassPassengerLimitError } from "./business-class-capacity";
 import { QUOTE_REQUIRED_FIELD_MESSAGES } from "./quote-required-field-messages";
 
 export type PaymentBookingGateInput = {
@@ -89,6 +90,8 @@ export function getPaymentBookingBlockers(input: PaymentBookingGateInput): strin
   const airportCode = String(input.airportCode ?? "").trim();
   const termsAcceptedAt = String(input.termsAcceptedAt ?? "").trim();
   const passengers = Number(input.passengers);
+  const capacityError = businessClassPassengerLimitError(input.vehicle, passengers);
+  if (capacityError) blockers.push(capacityError);
 
   if (!name) {
     blockers.push("Full name is required.");

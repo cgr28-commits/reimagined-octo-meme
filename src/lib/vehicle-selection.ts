@@ -23,6 +23,7 @@
 
 import { MINIBUS_VEHICLE_TYPE, VEHICLE_TYPES, type VehicleType } from "./data";
 import {
+  BUSINESS_CLASS_MAX_PASSENGERS,
   GROUP_PASSENGER_MAX,
   GROUP_PASSENGER_MIN,
   MAX_PASSENGERS,
@@ -63,7 +64,7 @@ export const VEHICLE_NOT_SUITABLE_CARD_MESSAGE =
   "Not suitable for this passenger/luggage selection";
 
 /**
- * Physical fit only. Saloon and Business Class: 1–4 passengers and 0–2 large suitcases.
+ * Physical fit only. Saloon: 1–4 passengers; Business Class: 1–3. Both allow 0–2 large suitcases.
  * Estate: 1–4 passengers and up to 4 large suitcases. Minibus: up to 7 passengers.
  */
 export function vehicleFitsParty(
@@ -77,6 +78,7 @@ export function vehicleFitsParty(
   const canonical = canonicalVehicleType(vehicle);
   if (canonical === MINIBUS_VEHICLE) return pax <= GROUP_PASSENGER_MAX;
   if (pax > MAX_PASSENGERS || bags > ESTATE_MAX_LARGE_SUITCASES) return false;
+  if (canonical === EXECUTIVE_VEHICLE && pax > BUSINESS_CLASS_MAX_PASSENGERS) return false;
   if (canonical === ESTATE_VEHICLE) return true;
   return bags <= SALOON_MAX_LARGE_SUITCASES;
 }
@@ -149,7 +151,10 @@ export function resolvePublicVehicleChoice(input: {
   const publicExecutiveEnabled = input.publicExecutiveEnabled !== false;
 
   if (input.ownerMode === true) {
-    if (isExecutiveVehicle(requested)) return { ok: true, vehicleType: EXECUTIVE_VEHICLE };
+    if (isExecutiveVehicle(requested)) {
+      if (pax > BUSINESS_CLASS_MAX_PASSENGERS) return { ok: false, message: VEHICLE_NOT_SUITABLE_CARD_MESSAGE };
+      return { ok: true, vehicleType: EXECUTIVE_VEHICLE };
+    }
     if (/minibus/i.test(requested)) return { ok: true, vehicleType: MINIBUS_VEHICLE };
     if (/estate/i.test(requested)) return { ok: true, vehicleType: ESTATE_VEHICLE };
     if (/saloon/i.test(requested)) {

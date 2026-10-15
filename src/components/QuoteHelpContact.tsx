@@ -34,6 +34,7 @@ export default function QuoteHelpContact({
   }
   return (
     <p
+      data-quote-help-inline
       className={`quote-help-contact mt-1 px-1 text-center text-[0.8125rem] font-medium leading-snug text-white md:mt-2 md:text-sm ${className}`}
     >
       <span>Need help?</span>

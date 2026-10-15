@@ -42,6 +42,7 @@ export function VehicleQuoteArt({
     >
       <picture className="contents">
         <source media="(max-width: 767px)" srcSet={src.replace(/\.webp$/, "-transparent.webp")} type="image/webp" />
+        <source media="(min-width: 1024px)" srcSet={src.replace(/\.webp$/, "-transparent.webp")} type="image/webp" />
         <Image
           src={src}
           alt={alt}

@@ -1,3 +1,4 @@
+import { businessClassPassengerLimitError } from "../shared/business-class-capacity";
 /**
  * Address-to-Address personalised quotes: create / list / approve / pay.
  * Owner chooses Quote Price (£) and validity in any whole minutes (1, 10, 60, …).
@@ -239,6 +240,9 @@ export async function handleCreateA2aQuoteRequest(
   if (!booking.tripDate?.trim() || !booking.tripTime?.trim()) {
     return { error: "Pickup date and time are required.", status: 400 };
   }
+
+  const capacityError = businessClassPassengerLimitError(booking.vehicle, booking.passengers);
+  if (capacityError) return { error: capacityError, status: 400 };
 
   const record = await createA2aQuoteRequest({
     store: env.TRACKING_STORE,
@@ -499,6 +503,9 @@ export async function handleOwnerUpdateA2aQuoteJourney(
       ? Number(existing.booking.suitcases) || 0
       : Math.max(0, Math.min(20, Math.floor(Number(suitcasesRaw)) || 0));
 
+  const capacityError = businessClassPassengerLimitError(existing.booking.vehicle, passengers);
+  if (capacityError) return { error: capacityError, status: 400 };
+
   const addressesChanged =
     pickupLabel !== normaliseJourneyAddressLabel(existing.booking.pickupLabel) ||
     dropoffLabel !== normaliseJourneyAddressLabel(existing.booking.dropoffLabel);
@@ -608,6 +615,9 @@ export async function handleOwnerApproveA2aQuote(
   if (existing.status === "CANCELLED") {
     return { error: "This quote request was cancelled.", status: 409 };
   }
+
+  const capacityError = businessClassPassengerLimitError(existing.booking.vehicle, existing.booking.passengers);
+  if (capacityError) return { error: capacityError, status: 400 };
 
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
   const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";

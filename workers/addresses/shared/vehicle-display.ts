@@ -4,6 +4,8 @@
  * Customers see "7 Seater Minibus" — never "minibus" as a raw type.
  */
 
+import { BUSINESS_CLASS_MAX_PASSENGERS } from "./passenger-limits";
+
 export const MINIBUS_INTERNAL_TYPE = "Minibus (5–7 passengers)";
 export const MINIBUS_CUSTOMER_NAME = "7 Seater Minibus";
 export const MINIBUS_CUSTOMER_DESCRIPTION = "Up to 7 passengers";
@@ -16,6 +18,7 @@ export const ESTATE_CUSTOMER_DESCRIPTION = "Extra luggage space and comfort";
 
 /** Customer label only. Stored bookings stay "Executive Saloon (1–4 passengers)". */
 export const EXECUTIVE_CUSTOMER_NAME = "Business Class";
+export const EXECUTIVE_CUSTOMER_CAPACITY = `1–${BUSINESS_CLASS_MAX_PASSENGERS} passengers`;
 export const EXECUTIVE_CUSTOMER_DESCRIPTION = "Premium executive vehicle";
 
 export function isBusinessClassLabel(vehicleType: string | null | undefined): boolean {

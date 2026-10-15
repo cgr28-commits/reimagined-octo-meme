@@ -80,7 +80,8 @@ console.log("\n=== Quote inclusions and booking limits ===");
     false,
   );
   assert.match(page, /Meet &amp; Greet is not included on a drop-off/);
-  assert.match(combined, /1–4 passengers/);
+  assert.match(combined, /1–3 passengers/);
+  assert.doesNotMatch(combined, /Business Class carries 1–4 passengers/);
   assert.match(combined, /up to 2 standard suitcases \(23kg\)/i);
   assert.match(combined, /3 or 4 standard suitcases \(23kg\)/);
   assert.match(combined, /select Estate instead/);

@@ -54,7 +54,7 @@ export const TERMS_SECTIONS = [
       "Pickups from elsewhere in Northern Ireland to a Greater Belfast destination receive a live online quote where route pricing is available. Other out-of-area pickups (for example outside Northern Ireland, or NI pickups to destinations outside Greater Belfast) require manual approval, do not receive an automatic online price, and cannot be paid for immediately online until we confirm a fixed quote.",
     ],
     footer:
-      "All journeys are subject to vehicle availability. Saloon, Estate or similar larger vehicle, and Business Class carry up to 4 passengers. A 7 Seater Minibus carries up to 7 when it is offered and available. Business Class is a premium executive vehicle and can be booked and paid online when it is available.",
+      "All journeys are subject to vehicle availability. Saloon and Estate or similar larger vehicle carry up to 4 passengers. Business Class carries up to 3 passengers. A 7 Seater Minibus carries up to 7 when it is offered and available. Business Class is a premium executive vehicle and can be booked and paid online when it is available.",
   },
   {
     title: "Cross-border & Republic of Ireland journeys",
@@ -249,7 +249,7 @@ export const TERMS_SECTIONS = [
       "Oversized luggage is advised in advance.",
     ],
     footer:
-      "We reserve the right to refuse luggage that cannot safely be accommodated for your passenger count (which may require a different vehicle or change the fare). Cars are booked for up to 4 passengers. A 7 Seater Minibus is booked for up to 7 when it is offered.",
+      "We reserve the right to refuse luggage that cannot safely be accommodated for your passenger count (which may require a different vehicle or change the fare). Saloon and Estate are booked for up to 4 passengers; Business Class for up to 3 passengers. A 7 Seater Minibus is booked for up to 7 when it is offered.",
   },
   {
     title: "Lost Property",

@@ -15,6 +15,7 @@
 export const MIN_PASSENGERS = 1;
 /** Safe public default. Raised to 7 only when public Minibus is explicitly ON. */
 export const MAX_PASSENGERS = 4;
+export const BUSINESS_CLASS_MAX_PASSENGERS = 3;
 /** Instant fixed-quote path (public). Same as MAX_PASSENGERS. */
 export const INSTANT_QUOTE_MAX_PASSENGERS = MAX_PASSENGERS;
 /**
