@@ -41,6 +41,15 @@ export function previewMinibusQueryEnabled(): boolean {
   return previewMinibusQueryOverride() === true;
 }
 
+/** Only explicit pricing demos use isolated defaults; customer previews read public settings. */
+export function hasPreviewPricingOverrides(): boolean {
+  return isBrowserPricingPreview() && (
+    readJson<OwnerPricingSettings>(SETTINGS_KEY) != null ||
+    previewMinibusQueryOverride() != null ||
+    (typeof window !== "undefined" && window.location.pathname.startsWith("/owner/pricing-preview"))
+  );
+}
+
 /** Preview-only: prefill the real homepage quote so the customer UI can be reviewed. */
 export function previewCustomerJourneyRequested(): boolean {
   if (typeof window === "undefined" || !isBrowserPricingPreview()) return false;
