@@ -161,6 +161,7 @@ export default function Header() {
   return (
     <>
       <header
+        data-site-header
         className={`fixed inset-x-0 top-0 z-[60] max-w-[100%] transition-[background-color,backdrop-filter,border-color] duration-200 ${
           scrolled
             ? "border-b border-white/10 bg-navy/95 backdrop-blur-md"
@@ -221,7 +222,7 @@ export default function Header() {
           </div>
 
           {/* Mobile only (< md): logo + Quote + WhatsApp + Menu. Slimmer chrome so the logo leads. */}
-          <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:hidden">
+          <div data-mobile-header-actions className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:hidden">
             {MOBILE_QUICK_LINKS.map((link) => (
               <QuoteNavLink
                 key={link.href}
