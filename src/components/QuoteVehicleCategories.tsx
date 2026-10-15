@@ -173,7 +173,7 @@ export default function QuoteVehicleCategories({
                     size="option"
                   />
                   <span className="min-w-0">
-                    <span className="block text-[0.95rem] font-bold leading-tight text-navy tracking-[-0.02em]">
+                    <span data-vehicle-name className="block text-[0.95rem] font-bold leading-tight text-navy tracking-[-0.02em]">
                       {option.title}
                     </span>
                     {fits && requestQuoteVehicles.includes(option.vehicle) ? (
@@ -203,6 +203,7 @@ export default function QuoteVehicleCategories({
                   </span>
                   {isSelected ? (
                     <span
+                      data-vehicle-selection-indicator
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#147a2a] text-[13px] font-bold text-white"
                       aria-hidden
                     >
@@ -210,6 +211,7 @@ export default function QuoteVehicleCategories({
                     </span>
                   ) : (
                     <span
+                      data-vehicle-selection-indicator
                       className="h-6 w-6 shrink-0 rounded-full border-2 border-navy/30"
                       aria-hidden
                     />

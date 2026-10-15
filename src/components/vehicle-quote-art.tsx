@@ -40,15 +40,18 @@ export function VehicleQuoteArt({
       data-vehicle-art={vehicle}
       data-vehicle-art-size={size}
     >
-      <Image
-        src={src}
-        alt={alt}
-        width={1400}
-        height={700}
-        className={`h-full w-full max-w-none object-contain object-center ${VEHICLE_ART_SCALE[vehicle]}`}
-        sizes={size === "option" ? "184px" : "184px"}
-        priority={size === "result"}
-      />
+      <picture className="contents">
+        <source media="(max-width: 767px)" srcSet={src.replace(/\.webp$/, "-transparent.webp")} type="image/webp" />
+        <Image
+          src={src}
+          alt={alt}
+          width={1400}
+          height={700}
+          className={`h-full w-full max-w-none object-contain object-center ${VEHICLE_ART_SCALE[vehicle]}`}
+          sizes={size === "option" ? "184px" : "184px"}
+          priority={size === "result"}
+        />
+      </picture>
     </span>
   );
 }

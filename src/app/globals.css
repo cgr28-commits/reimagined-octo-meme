@@ -1263,3 +1263,81 @@ main {
     min-height: 3.375rem;
   }
 }
+
+/* Mobile vehicle colour treatment only. Geometry and desktop surfaces stay intact. */
+@media (max-width: 767px) {
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] {
+    background: linear-gradient(135deg, #0B2748, #071C38);
+    border-color: #244B70;
+    color: #C4D3E5;
+    box-shadow: 0 4px 12px rgba(2, 10, 24, 0.2);
+  }
+
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] .text-navy {
+    color: #C4D3E5;
+  }
+
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] [data-vehicle-name] {
+    color: #FFFFFF;
+  }
+
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="true"] {
+    border-color: #2FBF4A;
+    box-shadow: 0 0 0 1px #2FBF4A, 0 4px 12px rgba(2, 10, 24, 0.2);
+  }
+
+  .quote-flow [data-vehicle-category] [data-vehicle-selection-indicator] {
+    border-color: #244B70;
+  }
+
+  .quote-flow [data-vehicle-category][aria-pressed="true"] [data-vehicle-selection-indicator] {
+    background-color: #2FBF4A;
+    color: #071C38;
+  }
+
+  .quote-flow [data-quote-result-card] {
+    background: linear-gradient(135deg, #0B2748, #071C38);
+    border-color: #244B70;
+    color: #FFFFFF;
+  }
+
+  .quote-flow [data-quote-result-card] .text-navy {
+    color: #FFFFFF;
+  }
+
+  .quote-flow [data-quote-vehicle-summary] > p:not([data-quote-result-heading]),
+  .quote-flow [data-quote-result-card] [data-quote-party],
+  .quote-flow [data-quote-manual-state] > p + p {
+    color: #C4D3E5;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-airport-benefits],
+  .quote-flow [data-quote-result-card] [data-business-class-inclusions] {
+    background-color: rgba(47, 191, 74, 0.07);
+    border-color: #244B70;
+    color: #FFFFFF;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-airport-benefits] p:last-child {
+    color: #C4D3E5;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-airport-benefits] [aria-hidden],
+  .quote-flow [data-quote-result-card] [data-business-class-inclusions] [aria-hidden],
+  .quote-flow [data-quote-result-card] [data-quote-assurance] {
+    color: #2FBF4A;
+  }
+
+  .quote-flow [data-quote-result-card] .btn-primary {
+    background-color: #2FBF4A;
+    color: #071C38;
+    text-shadow: none;
+  }
+
+  .quote-flow [data-quote-result-card] .btn-secondary,
+  .quote-flow [data-quote-result-card] [data-quote-price-retry] {
+    background-color: #071C38;
+    border-color: #244B70;
+    color: #FFFFFF;
+  }
+}
