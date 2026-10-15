@@ -128,7 +128,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-3 py-2 text-navy shadow-[0_8px_22px_rgba(2,10,24,0.16)] sm:px-3.5 sm:py-2.5"
       style={{ overflowAnchor: "none" }}
     >
-      <div className="min-w-0 text-center">
+      <div className="min-w-0 text-center" data-quote-vehicle-summary>
         <p
           data-quote-result-heading
           className="font-sans text-base font-bold leading-tight tracking-[-0.02em] text-navy"
@@ -163,7 +163,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             size="result"
           />
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-0.5 text-[0.84rem] font-semibold leading-tight text-navy min-[390px]:flex-nowrap">
+        <div data-quote-party className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-0.5 text-[0.84rem] font-semibold leading-tight text-navy min-[390px]:flex-nowrap">
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
             <PassengerIcon />
             {passengerLabel}
@@ -239,7 +239,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         ) : null}
         <div className="mt-0.5">{bookButton}</div>
         {requestQuote || priceUnavailable ? null : (
-          <p className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
+          <p data-quote-assurance className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
         )}
         {requestQuote ? null : businessClassInclusions}
       </div>
