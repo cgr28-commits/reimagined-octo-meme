@@ -528,6 +528,16 @@ main {
   }
 }
 
+/* Desktop quote comparison: vehicle tiles above the existing fare card.
+ * Keep the mobile and tablet option rows unchanged. */
+@media (min-width: 1024px) {
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] {
+    width: 100%;
+    max-width: 10rem;
+    height: 5rem;
+  }
+}
+
 /* 1536px+: about 14% wider than the 1400px desktop shell, still centred. */
 @media (min-width: 1536px) {
   .desktop-shell {
