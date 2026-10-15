@@ -1247,17 +1247,19 @@ function QuoteCard({
   /**
    * Outbound flight number: airport pickup only (collecting the customer from an airport).
    * To-airport / address-to-address do not ask for an outbound flight.
+   * Manual vehicle quote requests defer flight details until their approved booking.
    */
   const needsOutboundFlightNumber =
-    (isAirportTrip && isFromAirport) ||
+    !isVehiclePersonalQuote && ((isAirportTrip && isFromAirport) ||
     (isA2AFlow && Boolean(pickupAirportCode)) ||
     journeyKind === "airport-to-address" ||
-    journeyKind === "airport-to-airport";
+    journeyKind === "airport-to-airport");
   /**
    * Return/collection flight: only when returning from an airport drop-off
    * (customer is collected at the airport on the return leg).
    */
   const needsReturnCollectionFlightNumber =
+    !isVehiclePersonalQuote &&
     returnJourney &&
     ((isAirportTrip && !isFromAirport) ||
       (isA2AFlow && Boolean(dropoffAirportCode)) ||
@@ -3748,8 +3750,8 @@ function QuoteCard({
   ]);
 
   /**
-   * Airport-pickup flight numbers are required (format-valid) whenever the journey
-   * collects the customer from an airport. Soft AeroDataBox failures do not block;
+   * Airport-pickup flight numbers are required (format-valid) when completing a
+   * booking, after any manual vehicle quote approval. Soft AeroDataBox failures do not block;
    * blank / malformed / hard lookup errors do.
    */
   function validateRequiredFlightNumbers(): boolean {

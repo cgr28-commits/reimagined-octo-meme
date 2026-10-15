@@ -42,6 +42,8 @@ export type UnpaidBookingRequestInput = {
   booking?: Record<string, unknown> | null;
   tour?: Record<string, unknown> | null;
   publicMinibusEnabled?: boolean;
+  /** Server-derived manual vehicle mode only; not a client-supplied exemption. */
+  deferFlightNumbers?: boolean;
   now?: Date;
 };
 
@@ -81,6 +83,7 @@ export function validateUnpaidBookingRequest(
   if (booking && typeof booking === "object") {
     return validateStructuredBookingRequest(booking, {
       publicMinibusEnabled: input.publicMinibusEnabled === true,
+      deferFlightNumbers: input.deferFlightNumbers === true,
       now: input.now ?? new Date(),
     });
   }
@@ -95,7 +98,7 @@ export function validateUnpaidBookingRequest(
 
 function validateStructuredBookingRequest(
   booking: Record<string, unknown>,
-  options: { publicMinibusEnabled: boolean; now: Date },
+  options: { publicMinibusEnabled: boolean; deferFlightNumbers: boolean; now: Date },
 ): UnpaidBookingRequestResult {
   const blockers = getPaymentBookingBlockers({
     customerName: stringField(booking.customerName),
@@ -150,7 +153,7 @@ function validateStructuredBookingRequest(
   const scheduleError = scheduleErrorForBooking(booking, options.now);
   if (scheduleError) return { ok: false, error: scheduleError };
 
-  const flightBlockers = getAirportPickupFlightNumberBlockers({
+  const flightBlockers = options.deferFlightNumbers ? [] : getAirportPickupFlightNumberBlockers({
     airportContext: flightContextFromRequest(booking),
     returnJourney: booking.returnJourney === true,
     flightNumber: stringField(booking.flightNumber),

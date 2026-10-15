@@ -4,6 +4,7 @@
  */
 
 import type { PaidBookingDetails } from "../shared/booking-notifications";
+import { approvedQuoteFlightBlockers } from "../shared/approved-quote-flights";
 import {
   A2A_QUOTE_EXPIRED_CUSTOMER_MESSAGE,
   A2A_QUOTE_VALIDITY_DEFAULT_MINUTES,
@@ -158,13 +159,15 @@ export function publicA2aQuoteSummary(record: A2aQuoteRequestRecord) {
     passengers: record.booking.passengers,
     suitcases: record.booking.suitcases,
     vehicle: record.booking.vehicle,
+    flightNumber: record.booking.flightNumber || "",
+    returnFlightNumber: record.booking.returnFlightNumber || "",
     quoteExpiresAt: record.quoteExpiresAt ?? null,
     quoteValidityMinutes: record.quoteValidityMinutes ?? null,
     quoteValidityLabel:
       typeof record.quoteValidityMinutes === "number"
         ? formatA2aQuoteValidityLabel(record.quoteValidityMinutes)
         : null,
-    paymentUrl: record.paymentUrl ?? null,
+    paymentUrl: approvedQuoteFlightBlockers(record.booking).length > 0 ? null : record.paymentUrl ?? null,
     payable: !expired && isA2aQuotePayable(record),
     expired,
     expiredMessage: expired ? A2A_QUOTE_EXPIRED_CUSTOMER_MESSAGE : null,
@@ -558,8 +561,8 @@ export async function handleOwnerUpdateA2aQuoteJourney(
 }
 
 /**
- * Owner Approve Quote: set price, validity (any whole minutes), create SumUp checkout,
- * email customer Pay Securely link. Expiry is computed server-side.
+ * Owner Approve Quote: set price and validity, then email the payment/booking link.
+ * Missing airport flight details defer checkout until the customer completes them.
  */
 export async function handleOwnerApproveA2aQuote(
   request: Request,
@@ -623,22 +626,26 @@ export async function handleOwnerApproveA2aQuote(
   const checkoutReference = `${existing.reference}-${Date.now().toString(36)}`.slice(0, 100);
   const redirectUrl = `${siteOrigin}/booking-confirmed/?payment=return`;
 
-  let checkout: SumUpCheckoutResult;
-  try {
-    checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
-      amount: quotedPrice,
-      description: `A2A quote ${existing.reference}`.slice(0, 140),
-      checkoutReference,
-      redirectUrl,
-    });
-  } catch (err) {
-    return {
-      error: err instanceof Error ? err.message : "Could not create SumUp checkout",
-      status: 502,
-    };
+  // Collect missing arrival details on our approved booking page before creating
+  // a hosted checkout. Address-only journeys keep their existing payment path.
+  let checkout: SumUpCheckoutResult | null = null;
+  if (approvedQuoteFlightBlockers(existing.booking).length === 0) {
+    try {
+      checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
+        amount: quotedPrice,
+        description: `A2A quote ${existing.reference}`.slice(0, 140),
+        checkoutReference,
+        redirectUrl,
+      });
+    } catch (err) {
+      return {
+        error: err instanceof Error ? err.message : "Could not create SumUp checkout",
+        status: 502,
+      };
+    }
   }
 
-  await savePendingCheckout(env.TRACKING_STORE, {
+  if (checkout) await savePendingCheckout(env.TRACKING_STORE, {
     checkoutId: checkout.checkoutId,
     checkoutReference: checkout.checkoutReference,
     amount: quotedPrice,
@@ -665,15 +672,15 @@ export async function handleOwnerApproveA2aQuote(
     quoteApprovedAt: approvedAt,
     quoteValidityMinutes: validityMinutes,
     quoteExpiresAt,
-    checkoutId: checkout.checkoutId,
-    checkoutReference: checkout.checkoutReference,
-    paymentUrl: checkout.paymentUrl,
+    checkoutId: checkout?.checkoutId,
+    checkoutReference: checkout?.checkoutReference,
+    paymentUrl: checkout?.paymentUrl,
     isCounterOffer: counterOffer,
     updatedAt: approvedAt,
   };
 
-  // Prefer SumUp hosted URL in the email Pay Securely button; pay page also works.
-  const emailPayUrl = checkout.paymentUrl || payPageUrl;
+  // Hosted payment only when all required booking details are already present.
+  const emailPayUrl = checkout?.paymentUrl || payPageUrl;
   const send = await sendA2aPaymentEmail(env, record, emailPayUrl);
   const next: A2aQuoteRequestRecord = send.sent
     ? {
@@ -743,8 +750,9 @@ export async function handleOwnerResendA2aPaymentEmail(
 
   const siteOrigin = siteOriginFrom(env, request);
   const payPageUrl = buildA2aQuotePayUrl(siteOrigin, record.paymentToken);
-  const emailPayUrl =
-    (record.paymentUrl || record.paymentLinkEmailPayUrl || "").trim() || payPageUrl;
+  const emailPayUrl = approvedQuoteFlightBlockers(record.booking).length > 0
+    ? payPageUrl
+    : (record.paymentUrl || record.paymentLinkEmailPayUrl || "").trim() || payPageUrl;
 
   const send = await sendA2aPaymentEmail(env, record, emailPayUrl);
   if (!send.sent) {
