@@ -23,6 +23,7 @@ import OwnerDashboardToolSwitcher, {
 import OwnerSmartAvailabilityPanel from "@/components/OwnerSmartAvailabilityPanel";
 import OwnerLiveAvailabilityCard from "@/components/OwnerLiveAvailabilityCard";
 import OwnerPricingPanel from "@/components/OwnerPricingPanel";
+import OwnerPostcodePricingPanel from "@/components/OwnerPostcodePricingPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   customerTelHref,
@@ -2653,6 +2654,7 @@ export default function DriverPageClient({
     const tab = new URLSearchParams(window.location.search).get("tab")?.trim().toLowerCase();
     if (tab === "availability") setOwnerToolTab("availability");
     if (tab === "pricing") setOwnerToolTab("pricing");
+    if (tab === "postcode-pricing") setOwnerToolTab("postcode-pricing");
     if (tab === "past" || tab === "jobs" || tab === "more") setOwnerToolTab(tab);
   }, [isOwnerPortal]);
 
@@ -3304,6 +3306,12 @@ export default function DriverPageClient({
                   aria-labelledby="owner-tool-tab-pricing"
                 >
                   <OwnerPricingPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "postcode-pricing" ? (
+                <div id="owner-tool-panel-postcode-pricing" role="tabpanel" aria-label="Postcode Pricing">
+                  <OwnerPostcodePricingPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 

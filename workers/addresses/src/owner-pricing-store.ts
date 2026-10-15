@@ -130,6 +130,7 @@ export async function saveOwnerPricingSettings(
   if (options.restoreDefaults) {
     next = {
       ...defaultOwnerPricingSettings(new Date()),
+      postcodeRules: current.postcodeRules ?? [],
       minibus: {
         ...defaultOwnerPricingSettings().minibus,
         publicEnabled: current.minibus.publicEnabled === true,
@@ -145,7 +146,10 @@ export async function saveOwnerPricingSettings(
       updatedAt: new Date().toISOString(),
     };
   } else {
-    const validated = validateOwnerPricingInput(input);
+    // Older clients must not silently erase separately managed postcode rules.
+    const validated = validateOwnerPricingInput(input && typeof input === "object"
+      ? { ...input, postcodeRules: (input as { postcodeRules?: unknown }).postcodeRules ?? current.postcodeRules ?? [] }
+      : input);
     if (!validated.ok) {
       throw new OwnerPricingValidationError(validated.errors);
     }

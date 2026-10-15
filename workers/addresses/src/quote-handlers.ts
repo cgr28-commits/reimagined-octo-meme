@@ -629,6 +629,9 @@ export async function handleQuoteCalculateRequest(
 
   if (result.ok) {
     const protectedFare = await applyProfitabilityProtection({
+      postcodeContext: airportCode && !(addressAirport.ok && addressAirport.context.pickupAirportCode && addressAirport.context.dropoffAirportCode)
+        ? { address: fromAirport ? dropoffAddress : pickupAddress, airportCode, fromAirport }
+        : undefined,
       pricing,
       vehicleType: result.vehicleType,
       routeMetrics,

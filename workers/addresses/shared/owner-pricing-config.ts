@@ -1,4 +1,5 @@
 import { defaultMeetGreetEmailSettings, type MeetGreetEmailSettings } from "./meet-greet-upgrade";
+import { validatePostcodeRules, type PostcodePricingRule } from "./postcode-pricing";
 /**
  * Owner-configurable pricing overlay.
  *
@@ -72,6 +73,7 @@ export type SaloonKnot = {
 };
 
 export type OwnerPricingSettings = {
+  postcodeRules?: PostcodePricingRule[];
   schemaVersion: OwnerPricingSchemaVersion;
   version: number;
   updatedAt: string;
@@ -156,6 +158,7 @@ export type OwnerPricingValidationResult =
   | { ok: false; errors: OwnerPricingValidationError[] };
 
 export type PublicOwnerPricingConfig = {
+  postcodeRules?: PostcodePricingRule[];
   schemaVersion: OwnerPricingSchemaVersion;
   version: number;
   updatedAt: string;
@@ -227,6 +230,7 @@ export function defaultOwnerPricingSettings(
   return {
     schemaVersion: OWNER_PRICING_SCHEMA_VERSION,
     version: 1,
+    postcodeRules: [],
     updatedAt: now.toISOString(),
     saloon: {
       minimumFareGbp: UNIVERSAL_SALOON_MINIMUM_GBP,
@@ -306,6 +310,8 @@ export function validateOwnerPricingInput(
     };
   }
   const input = raw as Record<string, unknown>;
+  const postcodes = validatePostcodeRules(input.postcodeRules);
+  for (const message of postcodes.errors) errors.push({ field: "postcodeRules", message });
   const defaults = defaultOwnerPricingSettings();
 
   const saloonRaw = (input.saloon ?? {}) as Record<string, unknown>;
@@ -544,6 +550,7 @@ export function validateOwnerPricingInput(
   return {
     ok: true,
     settings: {
+      postcodeRules: postcodes.rules,
       schemaVersion: OWNER_PRICING_SCHEMA_VERSION,
       version: Number.isInteger(expectedVersion) && expectedVersion > 0 ? expectedVersion : defaults.version,
       updatedAt: typeof input.updatedAt === "string" ? input.updatedAt : defaults.updatedAt,
@@ -632,6 +639,7 @@ export function toPublicOwnerPricingConfig(
     schemaVersion: settings.schemaVersion,
     version: settings.version,
     updatedAt: settings.updatedAt,
+    postcodeRules: settings.postcodeRules ?? [],
     saloon: settings.saloon,
     estate: settings.estate,
     minibus: {
@@ -721,6 +729,8 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return settings.saloon.knots.map((knot) => `${knot.miles}mi £${knot.fareGbp}`).join(", ");
     case "estate.upliftGbp":
       return `£${settings.estate.upliftGbp.toFixed(2)}`;
+    case "postcodeRules":
+      return JSON.stringify(settings.postcodeRules ?? []);
     case "minibus.publicEnabled":
       return settings.minibus.publicEnabled ? "ON" : "OFF";
     case "minibus.requestQuote":
@@ -769,6 +779,7 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
 }
 
 const DIFF_PATHS = [
+  "postcodeRules",
   "saloon.minimumFareGbp",
   "saloon.floorMiles",
   "saloon.knots",
@@ -798,6 +809,7 @@ const DIFF_PATHS = [
 ] as const;
 
 const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
+  "postcodeRules": "Postcode Pricing rules (district to airport)",
   "saloon.minimumFareGbp": "Saloon minimum fare",
   "saloon.floorMiles": "Saloon floor distance",
   "saloon.knots": "Saloon distance rates",
