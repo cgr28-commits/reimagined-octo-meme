@@ -1065,7 +1065,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           </select>
         </label>
         <p className="mt-1 text-xs text-white/55">
-          Business Class stays visible for 1–4 passengers with up to 2 large suitcases.
+          Business Class stays visible for 1–3 passengers with up to 2 large suitcases.
           Request mode sends the journey details to A2A Quotes for your price and payment link.
           Saloon, Estate and the 7-Seater keep their own booking modes. Save pricing settings below.
         </p>

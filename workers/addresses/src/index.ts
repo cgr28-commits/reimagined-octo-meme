@@ -425,6 +425,7 @@ import {
   resolveExpressDropOff,
   toExpressDropOffPersistedFields,
 } from "../shared/express-drop-off";
+import { businessClassPassengerLimitError } from "../shared/business-class-capacity";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
 import { quoteAirportAccessCharges } from "../shared/meet-greet";
 import {
@@ -2057,6 +2058,8 @@ async function handlePaymentRequest(
       return json({ error: resolved.error }, resolved.status, origin);
     }
     const record = resolved.record;
+    const capacityError = businessClassPassengerLimitError(record.booking.vehicle, record.booking.passengers);
+    if (capacityError) return json({ error: capacityError }, 400, origin);
     amount = Math.round((record.quotedPrice ?? 0) * 100) / 100;
     const completed = completeApprovedQuoteFlights(record.booking, body.quoteFlightDetails);
     if (!completed.ok) {

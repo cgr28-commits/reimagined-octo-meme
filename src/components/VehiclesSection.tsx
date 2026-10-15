@@ -162,7 +162,7 @@ export default function VehiclesSection() {
             <div className="space-y-5">
               <div className="rounded-2xl border border-emerald/30 bg-emerald/10 px-5 py-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
-                  Up to 4 passengers
+                  Saloon &amp; Estate: up to 4 · Business Class: up to 3
                 </p>
                 <p className="mt-1 text-xl font-bold text-white">Saloon, Estate &amp; Business Class</p>
                 <p className="mt-2 text-sm leading-relaxed text-white/70">

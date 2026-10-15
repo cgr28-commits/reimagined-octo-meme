@@ -13,6 +13,7 @@ import {
 import {
   ESTATE_CUSTOMER_DESCRIPTION,
   ESTATE_CUSTOMER_NAME,
+  EXECUTIVE_CUSTOMER_CAPACITY,
   EXECUTIVE_CUSTOMER_DESCRIPTION,
   EXECUTIVE_CUSTOMER_NAME,
   MINIBUS_CUSTOMER_DESCRIPTION,
@@ -63,7 +64,7 @@ const CATEGORIES = [
     id: "executive" as const,
     vehicle: EXECUTIVE_VEHICLE,
     title: EXECUTIVE_CUSTOMER_NAME,
-    capacity: "1–4 passengers",
+    capacity: EXECUTIVE_CUSTOMER_CAPACITY,
     luggage: SALOON_LUGGAGE_CAPACITY,
     luggageIcon: "suitcase" as const,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
@@ -165,14 +166,14 @@ export default function QuoteVehicleCategories({
                     : "border-navy/15"
                 }`}
               >
-                <span className="grid grid-cols-[6.4rem_minmax(0,1fr)_1.5rem] items-center gap-x-2.5">
+                <span data-vehicle-option-layout className="grid grid-cols-[6.4rem_minmax(0,1fr)_1.5rem] items-center gap-x-2.5">
                   <VehicleQuoteArt
                     vehicle={option.art}
                     src={option.image}
                     alt=""
                     size="option"
                   />
-                  <span className="min-w-0">
+                  <span data-vehicle-option-copy className="min-w-0">
                     <span data-vehicle-name className="block text-[0.95rem] font-bold leading-tight text-navy tracking-[-0.02em]">
                       {option.title}
                     </span>

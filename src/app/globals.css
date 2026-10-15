@@ -1264,8 +1264,8 @@ main {
   }
 }
 
-/* Mobile vehicle colour treatment only. Geometry and desktop surfaces stay intact. */
-@media (max-width: 767px) {
+/* Shared premium vehicle colours. Mobile geometry and tablet styling stay intact. */
+@media (max-width: 767px), (min-width: 1024px) {
   .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] {
     background: linear-gradient(120deg, #0B2748, #071C38 75%);
     border-color: rgba(36, 75, 112, 0.55);
@@ -1370,5 +1370,43 @@ main {
     background-color: #0B2748;
     border-color: rgba(36, 75, 112, 0.65);
     color: #FFFFFF;
+  }
+}
+
+/* Desktop vehicle comparison; retain the existing tablet and mobile arrangement. */
+@media (min-width: 1024px) {
+  [data-quote-help-inline] { display: none; }
+
+  .quote-flow [data-quote-vehicle-categories] [role="list"] {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed] {
+    position: relative;
+    height: 100%;
+    border-width: 1px;
+    padding: 1rem 0.75rem;
+  }
+
+  .quote-flow [data-vehicle-option-layout] {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .quote-flow [data-vehicle-option-copy] { width: 100%; text-align: center; }
+  .quote-flow [data-vehicle-option-copy] > .flex { justify-content: center; }
+
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] {
+    width: 100%; max-width: 10rem; height: 5rem;
+  }
+
+  .quote-flow [data-vehicle-category] [data-vehicle-selection-indicator] {
+    position: absolute; top: 0.625rem; right: 0.625rem;
   }
 }

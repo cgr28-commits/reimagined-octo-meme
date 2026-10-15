@@ -398,7 +398,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "Cars and 7-seater airport transfers",
     description:
-      "Choose Saloon, Estate, Business Class or a 7 Seater Minibus when available. Cars carry up to 4 passengers and the minibus up to 7; enter your luggage for a suitable vehicle recommendation and a fixed quote.",
+      "Choose Saloon, Estate, Business Class or a 7 Seater Minibus when available. Saloon and Estate carry up to 4 passengers, Business Class up to 3 and the minibus up to 7; enter your luggage for a suitable vehicle recommendation and a fixed quote.",
   },
 ] as const;
 

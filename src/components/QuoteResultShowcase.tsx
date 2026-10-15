@@ -9,7 +9,7 @@ import {
   MINIBUS_VEHICLE,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
-import { vehicleCustomerDescription } from "../../shared/vehicle-display";
+import { EXECUTIVE_CUSTOMER_CAPACITY, vehicleCustomerDescription } from "../../shared/vehicle-display";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
 import { QuoteCrownIcon, QuoteSuitcaseIcon } from "@/components/quote-vehicle-line-icons";
 import {
@@ -110,7 +110,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         ? BUSINESS_CLASS_IMAGE
         : SALOON_IMAGE;
   const supporting = vehicleCustomerDescription(vehicleType);
-  const capacityLine = isMinibus ? "Up to 7 passengers" : "1–4 passengers";
+  const capacityLine = isMinibus ? "Up to 7 passengers" : isExecutive ? EXECUTIVE_CUSTOMER_CAPACITY : "1–4 passengers";
   const detailLine = isEstate || isExecutive ? supporting : "\u00a0";
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
