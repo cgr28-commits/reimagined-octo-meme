@@ -999,8 +999,6 @@ function QuoteCard({
   const unsuitableFareRecoveryRef = useRef("");
   /** Vehicles the server has already rejected for the current party. */
   const rejectedVehicleKeysRef = useRef(new Set<string>());
-  /** Last authoritative £ so a vehicle change does not blank the price slot. */
-  const stableFareLabelRef = useRef<string | null>(null);
   /** Route identity that already has a displayed fare. Vehicle switches reuse it. */
   const displayedRouteKeyRef = useRef<string | null>(null);
   const [vehicleFareUpdating, setVehicleFareUpdating] = useState(false);
@@ -2010,6 +2008,8 @@ function QuoteCard({
     force = false,
     signal?: AbortSignal,
   ): Promise<boolean> => {
+    // Default settings must not start instant requests before the owner's modes arrive.
+    if (!publicPricingLoaded) return false;
     if (isBrowserPricingPreview() && previewMinibusQueryEnabled()) {
       setServerFareParts(null);
       setServerQuoteUnavailable(true);
@@ -2156,6 +2156,7 @@ function QuoteCard({
           }
           if (
             alternate.ok &&
+            canonicalVehicleType(alternate.vehicleType) === vehicle &&
             Number.isFinite(alternate.amount) &&
             typeof alternate.journeyFareGbp === "number" &&
             Number.isFinite(alternate.journeyFareGbp)
@@ -2245,6 +2246,7 @@ function QuoteCard({
       const result = await inflight.promise;
       if (
         result.ok &&
+        canonicalVehicleType(result.vehicleType) === requestedVehicle &&
         Number.isFinite(result.amount) &&
         typeof result.journeyFareGbp === "number" &&
         Number.isFinite(result.journeyFareGbp)
@@ -2363,6 +2365,22 @@ function QuoteCard({
       ) {
         return false;
       }
+      if (!result.ok && result.reason === "personal_quote_required") {
+        // The server may have a newer mode than this tab. Follow its explicit
+        // response instead of treating an intentional manual quote as an outage.
+        const category = isExecutiveVehicle(requestedVehicle) ? "executive" :
+          requestedVehicle === MINIBUS_VEHICLE_TYPE ? "minibus" : null;
+        if (category) {
+          setPublicPricing((current) => ({
+            ...current,
+            [category]: { ...current[category], requestQuote: true },
+          }));
+          setServerFareParts(null);
+          setVehicleFareUpdating(false);
+          setServerQuoteUnavailable(false);
+          return false;
+        }
+      }
       if (!result.ok && result.reason === "vehicle_unavailable" && paxNow != null) {
         rejectedVehicleKeysRef.current.add(rejectionKey(requestedVehicle));
         const suitable = suitableVehicleTypesForParty(paxNow, suitcases, {
@@ -2436,6 +2454,7 @@ function QuoteCard({
     publicExecutiveEnabled,
     publicMinibusEnabled,
     publicPricing,
+    publicPricingLoaded,
   ]);
   const refreshAuthoritativeServerQuoteRef = useRef(refreshAuthoritativeServerQuote);
   refreshAuthoritativeServerQuoteRef.current = refreshAuthoritativeServerQuote;
@@ -2506,6 +2525,7 @@ function QuoteCard({
   ]);
 
   const quoteRequestKey = [
+    publicPricingLoaded ? "loaded" : "loading",
     canShowPrice ? "1" : "0",
     isManualQuoteJourney ? "1" : "0",
     pricingConfirmationRequired ? "1" : "0",
@@ -7095,6 +7115,8 @@ function QuoteCard({
       >
         {submitted
           ? submitInProgressLabel
+          : isVehiclePersonalQuote
+            ? "REQUEST A QUOTE"
           : authoritativeQuoteFailed
             ? "Price unavailable"
             : vehicleFareUpdating && instantPriceExpected && !mayPaintNumericFare
@@ -7228,6 +7250,26 @@ function QuoteCard({
   }
 
   function renderInstantQuoteResultCard() {
+    if (isVehiclePersonalQuote) {
+      const businessClass = isExecutiveVehicle(quoteVehicle);
+      return (
+        <QuoteResultShowcase
+          ref={quoteSelectedVehicleCardRef}
+          vehicleType={quoteVehicle}
+          passengers={effectivePassengers as number}
+          suitcases={suitcases as number}
+          priceLabel=""
+          formattedPrice=""
+          requestQuote={{
+            heading: `${vehicleShortLabel(quoteVehicle)} — Request a Quote`,
+            description: businessClass
+              ? "Executive airport transfers tailored to your requirements. Contact us for a personalised quotation."
+              : "Group airport transfers tailored to your requirements. Contact us for a personalised quotation.",
+          }}
+          bookButton={renderStep1BookButton()}
+        />
+      );
+    }
     const authoritativeTotal =
       testChargeAmount ??
       (appliedPersonalQuote
@@ -7241,14 +7283,11 @@ function QuoteCard({
       authoritativeTotal != null && Number.isFinite(authoritativeTotal)
         ? formatQuote(authoritativeTotal)
         : null;
-    if (liveLabel) stableFareLabelRef.current = liveLabel;
     const amountLabel = authoritativeQuoteFailed
       ? AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE
       : liveLabel
         ? liveLabel
-        : priceUpdating && stableFareLabelRef.current
-          ? stableFareLabelRef.current
-          : "Calculating…";
+        : "Calculating…";
     return (
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
@@ -7975,8 +8014,11 @@ function QuoteCard({
                       </div>
                     ) : null}
                     {renderBookingErrorHelp("results")}
-                    {showInstantQuoteResultCard ? (
-                      renderInstantQuoteResultCard()
+                    {showInstantQuoteResultCard || isVehiclePersonalQuote ? (
+                      <>
+                        {renderInstantQuoteResultCard()}
+                        {isVehiclePersonalQuote ? renderStartNewQuoteControls("results") : null}
+                      </>
                     ) : (
                       <>
                         {!exceedsOnlineCapacity && (
@@ -8050,7 +8092,7 @@ function QuoteCard({
                     destinationLat={dropoffPlace.lat}
                     destinationLng={dropoffPlace.lng}
                     onRouteMetrics={handleRouteMetrics}
-                    variant={showInstantQuoteResultCard ? "metrics" : "summary"}
+                    variant={showInstantQuoteResultCard || isVehiclePersonalQuote ? "metrics" : "summary"}
                   />
                 </div>
                 {quoteResultsReady && quoteStep === 1 && showInstantQuoteResultCard

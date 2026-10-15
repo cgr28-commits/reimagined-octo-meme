@@ -8,6 +8,7 @@ import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../s
 import type { OwnerProfitabilityReport } from "@/lib/owner-profitability-report";
 import {
   isBrowserPricingPreview,
+  hasPreviewPricingOverrides,
   previewPublicPricingConfig,
   readPreviewPricingState,
   restorePreviewPricingState,
@@ -122,7 +123,7 @@ export async function previewOwnerProfitability(
 }
 
 export async function fetchPublicPricingConfig(): Promise<PublicOwnerPricingConfig> {
-  if (isBrowserPricingPreview()) {
+  if (hasPreviewPricingOverrides()) {
     return previewPublicPricingConfig();
   }
   try {

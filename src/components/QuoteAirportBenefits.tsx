@@ -41,17 +41,18 @@ export function buildQuoteAirportBenefits(input: Props) {
         line.selected && line.chargedFeeGbp > 0,
     );
     const dublin = stop.code === "DUB";
-    const heading = included
-      ? `${dublin ? "Airport" : "Terminal"} ${pickup ? "Pickup" : "Drop-Off"} Included`
+    const zeroDropOff = dublin && !pickup && getAirportFixedCostRow(stop.code)?.dropOffFeeGbp === 0;
+    const heading = included || zeroDropOff
+      ? `Terminal ${pickup ? "Pickup" : "Drop-Off"} Included`
       : `Airport ${pickup ? "Collection" : "Drop-Off"}`;
     const description = included
       ? dublin && pickup
-        ? "Collection from Dublin Airport’s designated pickup area, with airport pickup/parking charges included in your fixed fare."
+        ? "Collection from Dublin Airport’s designated pickup area, with applicable pickup and parking charges included in your fixed fare."
         : pickup
           ? "Convenient collection close to the terminal, with airport pickup charges included in your fixed fare."
-          : "Enjoy convenient drop-off close to the terminal, with applicable airport drop-off charges included in your fixed fare."
-      : dublin && !pickup && getAirportFixedCostRow(stop.code)?.dropOffFeeGbp === 0
-        ? "Drop-off at Dublin Airport’s designated terminal drop-off area. No airport drop-off charge is added to your fare."
+          : "Convenient drop-off close to the terminal, with applicable airport drop-off charges included in your fixed fare."
+      : zeroDropOff
+        ? "Drop-off at Dublin Airport’s designated terminal drop-off area. No additional airport drop-off charge applies."
         : `Your ${pickup ? "collection" : "drop-off"} uses the selected airport area. See your fare breakdown for any applicable airport charges.`;
     return {
       key: `${stop.leg}:${stop.code}:${stop.direction}`,
@@ -67,14 +68,14 @@ export default function QuoteAirportBenefits(props: Props) {
   const benefits = buildQuoteAirportBenefits(props);
   if (benefits.length === 0) return null;
   return (
-    <div className="space-y-2 rounded-xl border border-emerald/20 bg-emerald/[0.05] px-3 py-2 text-left text-navy" data-quote-airport-benefits>
+    <div className="space-y-1.5 rounded-xl border border-emerald/20 bg-emerald/[0.05] px-2.5 py-1.5 text-left text-navy" data-quote-airport-benefits>
       {benefits.map((benefit) => (
-        <div key={benefit.key} className="flex items-start gap-2">
+        <div key={benefit.key} className="flex items-start gap-1.5">
           <span className="shrink-0 text-sm font-bold text-[#147a2a]" aria-hidden>✓</span>
           <div className="min-w-0">
             {benefits.length > 1 ? <p className="text-[11px] font-medium leading-snug">{benefit.label}</p> : null}
-            <p className="text-sm font-bold leading-snug">{benefit.heading}</p>
-            <p className="mt-0.5 text-xs leading-snug">{benefit.description}</p>
+            <p className="text-[13px] font-bold leading-snug">{benefit.heading}</p>
+            <p className="mt-0.5 text-xs font-semibold leading-snug text-[#061a30]">{benefit.description}</p>
           </div>
         </div>
       ))}

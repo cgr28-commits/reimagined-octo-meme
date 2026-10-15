@@ -41,7 +41,8 @@ for (const code of ["BFS", "BHD", "DUB"]) {
       if (code !== "DUB") assert.match(benefits[0].heading, /Terminal .* Included/);
       else {
         assert.doesNotMatch(benefits[0].description, /closest|close to/);
-        assert.match(benefits[0].description, pickup ? /pickup\/parking charges included/ : /No airport drop-off charge/);
+        assert.match(benefits[0].heading, /Terminal .* Included/);
+        assert.match(benefits[0].description, pickup ? /pickup and parking charges included/ : /No additional airport drop-off charge applies/);
       }
       assert.equal(JSON.stringify(props), before, "Rendering must not mutate fare data");
       console.log(`OK ${code} ${pickup ? "pickup" : "drop-off"}${returning ? " return" : ""}`);
@@ -77,4 +78,16 @@ assert.ok(html.indexOf("£54") < html.indexOf("Terminal Pickup Included"));
 assert.ok(html.indexOf("Terminal Pickup Included") < html.indexOf("BOOK THIS TRANSFER"));
 assert.ok(html.indexOf("BOOK THIS TRANSFER") < html.indexOf("Fixed price. No surprises."));
 assert.doesNotMatch(renderCard(true), /Terminal Pickup Included/);
+for (const vehicleType of ["Executive", "Minibus"]) {
+  const manual = renderToStaticMarkup(
+    <QuoteResultShowcase vehicleType={vehicleType} passengers={2} suitcases={2}
+      priceLabel="Fixed price" formattedPrice="£54"
+      requestQuote={{ heading: "Request a Quote", description: "A personalised quotation before payment." }}
+      bookButton={<button type="submit">REQUEST A QUOTE</button>}
+      airportAccess={<QuoteAirportBenefits {...fixture("BFS", null)} />}
+    />,
+  );
+  assert.match(manual, /REQUEST A QUOTE/);
+  assert.doesNotMatch(manual, /Fixed price|£54|No surprises|Terminal Pickup Included/);
+}
 console.log("OK airport-to-airport, non-airport, unpaid-access fallback, card order and unavailable-fare checks");

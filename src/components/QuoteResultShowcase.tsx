@@ -35,6 +35,7 @@ type QuoteResultShowcaseProps = {
   /** Worker quote failed. Do not show a fallback fare in the price slot. */
   priceUnavailable?: boolean;
   onRetryPrice?: () => void;
+  requestQuote?: { heading: string; description: string };
 };
 
 // Presentational only: image follows the vehicle type already chosen for
@@ -79,6 +80,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       surchargeNote = null,
       priceUnavailable = false,
       onRetryPrice,
+      requestQuote,
     },
     ref,
   ) {
@@ -175,6 +177,13 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
 
       <div className="mt-1 min-w-0 text-center">
         <div data-quote-result-price>
+          {requestQuote ? (
+            <div className="mt-1" data-quote-manual-state>
+              <p className="text-sm font-bold leading-snug">{requestQuote.heading}</p>
+              <p className="mt-1 text-xs leading-snug">{requestQuote.description}</p>
+            </div>
+          ) : (
+          <>
           <p className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-navy">
             {priceLabel}
           </p>
@@ -215,22 +224,24 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           {priceUpdating && formattedPrice.startsWith("£") ? (
             <p className="text-[11px] font-semibold leading-none text-navy">Updating price…</p>
           ) : null}
+          </>
+          )}
         </div>
         {surchargeNote ? (
           <p className="mt-0.5 text-xs font-semibold text-navy" data-night-weekend-surcharge-badge>
             {surchargeNote}
           </p>
         ) : null}
-        {!priceUnavailable && airportAccess ? (
-          <div className="my-2 text-left" data-quote-result-airport-access>
+        {!requestQuote && !priceUnavailable && airportAccess ? (
+          <div className="my-1.5 text-left" data-quote-result-airport-access>
             {airportAccess}
           </div>
         ) : null}
         <div className="mt-0.5">{bookButton}</div>
-        {priceUnavailable ? null : (
+        {requestQuote || priceUnavailable ? null : (
           <p className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
         )}
-        {businessClassInclusions}
+        {requestQuote ? null : businessClassInclusions}
       </div>
     </div>
   );
