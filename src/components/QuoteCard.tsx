@@ -225,6 +225,7 @@ import {
 } from "@/lib/personal-quote-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
+import QuoteAirportBenefits from "@/components/QuoteAirportBenefits";
 import QuoteResultShowcase, {
   preloadQuoteResultVehicleImages,
 } from "@/components/QuoteResultShowcase";
@@ -7262,7 +7263,15 @@ function QuoteCard({
         onRetryPrice={() => {
           void refreshAuthoritativeServerQuote(true);
         }}
-        airportAccess={renderExpressChoiceInPriceCard("full", "on-light")}
+        airportAccess={testChargeAmount === null && effectiveAirportCode ? (
+          <QuoteAirportBenefits
+            pickupAirportCode={isAirportToAirportJourney ? pickupAirportCode : isFromAirport ? effectiveAirportCode || null : null}
+            dropoffAirportCode={isAirportToAirportJourney ? dropoffAirportCode : !isFromAirport ? effectiveAirportCode || null : null}
+            returnJourney={returnJourney}
+            airportFees={airportFeeResolution}
+            expressSelection={expressSelection}
+          />
+        ) : null}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />
     );

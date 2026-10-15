@@ -221,16 +221,16 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {surchargeNote}
           </p>
         ) : null}
+        {!priceUnavailable && airportAccess ? (
+          <div className="my-2 text-left" data-quote-result-airport-access>
+            {airportAccess}
+          </div>
+        ) : null}
         <div className="mt-0.5">{bookButton}</div>
         {priceUnavailable ? null : (
           <p className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
         )}
         {businessClassInclusions}
-        {airportAccess ? (
-          <div className="mt-2 text-left" data-quote-result-airport-access>
-            {airportAccess}
-          </div>
-        ) : null}
       </div>
     </div>
   );
