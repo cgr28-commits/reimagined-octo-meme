@@ -79,6 +79,8 @@ No SQL database or data migration is required. Reuses Cloudflare KV `owner:prici
 
 Browser, routing, payment, address-provider and notification tests use isolated data/mocks. No live payment or message was sent. Initial browser test harness issues (inactive-rule default, filter accessible labels and mock credentials for protected server routing) were corrected; the final full flow passed. Temporary test routes are removed before build and are not shipped.
 
+Release-preparation CI exposed an additional test-only teardown race after every browser assertion passed: Next's historical server could still write its cache while its temporary directory was removed (`ENOTEMPTY`). Test cleanup now waits for server processes to close before deleting the fixture and uses bounded asynchronous filesystem retries. No application/pricing code was changed for this correction. A separate homepage build's Google font-loader failure passed on retry; that failed attempt remains in Actions history. Final CI results are reported on PR #641.
+
 ## Release and later activation
 
 1. Review the corrected branch and approve release separately. No push, merge or deploy is authorised by this report.

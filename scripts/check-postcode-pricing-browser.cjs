@@ -155,6 +155,6 @@ async function main(){try{
  assert.deepEqual(failures,[]);assert.ok(api.some(x=>x.path==='/owner/pricing'&&x.method==='POST'&&x.status===200));assert.ok(api.some(x=>x.status===409));assert.ok(api.some(x=>x.path==='/quote/calculate'&&x.status===200));
  console.log('OK full browser → authenticated API → in-memory KV/audit → customer quote/booking flow; no JS exceptions; no live writes or payments');
  } catch(e) {console.error('Isolated failure state:',JSON.stringify({api,failures,settings:await getOwnerPricingSettings(store),page:activePage?await activePage.locator('body').innerText():null}));throw e;}
- finally {globalThis.fetch=realFetch;fs.rmSync(path.dirname(routeFile),{recursive:true});if(browser)await browser.close();server.kill();if(oldServer)oldServer.kill();if(historical)historical.close();fs.writeFileSync(root+'/../postcode-browser-server.log',log);}
+ finally {globalThis.fetch=realFetch;if(browser)await browser.close();const {stopTestProcess}=require('./postcode-legacy-harness.cjs');await Promise.all([stopTestProcess(server),stopTestProcess(oldServer)]);fs.rmSync(path.dirname(routeFile),{recursive:true});if(historical)await historical.close();fs.writeFileSync(root+'/../postcode-browser-server.log',log);}
 }
 void main().catch(e=>{console.error(e);process.exitCode=1});

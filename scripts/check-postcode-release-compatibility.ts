@@ -75,6 +75,6 @@ async function main() {
   const on=await request("/owner/pricing",{settings:{...latest,postcodePricingEnabled:true},expectedVersion:latest.version,postcodeRulesEditorVersion:2});assert.equal(on.status,200);assert.equal(on.body.settings.postcodePricingEnabled,true);assert.equal((await request("/pricing/public")).body.config.postcodeRules.length,6);
   const off=await request("/owner/pricing",{settings:{...on.body.settings,postcodePricingEnabled:false},expectedVersion:on.body.settings.version,postcodeRulesEditorVersion:2});assert.equal(off.status,200);assert.equal((await request("/pricing/public")).body.config.postcodeRules.length,0);
   console.log("OK explicit OFF/ON, only six approved enabled outbound rules, legacy-client omitted fields preserved, metadata/record-erasing older saves rejected without mutation");
- }finally{historical.close();globalThis.fetch=original;}
+ }finally{try{await historical.close();}finally{globalThis.fetch=original;}}
 }
 void main().catch(e=>{console.error(e);process.exitCode=1});

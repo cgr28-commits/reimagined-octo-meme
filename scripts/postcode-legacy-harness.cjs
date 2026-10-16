@@ -32,6 +32,15 @@ if(process.argv[2]==='--child'){
   process.stdout.write(JSON.stringify({id:m.id,result})+'\n');
  }catch(e){process.stdout.write(JSON.stringify({id:m.id,error:String(e.stack||e)})+'\n')}})});
 }else{
+ exports.stopTestProcess=async function(child){
+  if(!child)return;
+  await new Promise((resolve,reject)=>{
+   // Wait for close, not just exit: Next's child server can still hold pipes/cache files.
+   if(child.exitCode!==null||child.signalCode!==null)return resolve();
+   const timer=setTimeout(()=>reject(new Error('Test process did not shut down; refusing to remove its working directory')),10000);
+   child.once('close',()=>{clearTimeout(timer);resolve()});child.kill();
+  });
+ };
  exports.startLegacyHarness=async function(root){
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'matni-postcode-legacy-'));
   const archive=cp.execFileSync('git',['archive','--format=tar','6fd400514e3f4b9920142c24018434ad306188a3','src','shared','workers/addresses/src','workers/addresses/shared','workers/addresses/tsconfig.json','tsconfig.json','next.config.ts','package.json','postcss.config.mjs'],{cwd:root,maxBuffer:40*1024*1024});
@@ -42,6 +51,6 @@ if(process.argv[2]==='--child'){
   let id=0,logs='';const waiting=new Map();child.stderr.on('data',b=>logs+=b);
   readline.createInterface({input:child.stdout}).on('line',line=>{const r=JSON.parse(line),w=waiting.get(r.id);if(w){waiting.delete(r.id);r.error?w.reject(new Error(r.error)):w.resolve(r.result)}});
   child.on('exit',()=>{for(const w of waiting.values())w.reject(new Error('Legacy harness exited: '+logs.slice(-2000)));waiting.clear()});
-  return{root:dir,call(message){return new Promise((resolve,reject)=>{const n=++id;waiting.set(n,{resolve,reject});child.stdin.write(JSON.stringify({...message,id:n})+'\n')})},close(){child.stdin.end();child.kill();fs.rmSync(dir,{recursive:true,force:true})}};
+  return{root:dir,call(message){return new Promise((resolve,reject)=>{const n=++id;waiting.set(n,{resolve,reject});child.stdin.write(JSON.stringify({...message,id:n})+'\n')})},async close(){child.stdin.end();await exports.stopTestProcess(child);await fs.promises.rm(dir,{recursive:true,force:true,maxRetries:5,retryDelay:100})}};
  };
 }
