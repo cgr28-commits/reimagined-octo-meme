@@ -130,7 +130,6 @@ export default function QuoteVehicleCategories({
     (option) => !hideUnsuitable || suitable.some((vehicle) => vehicle === option.vehicle),
   );
   if (options.length === 0) return null;
-  const selectedOption = options.find((option) => option.vehicle === selectedVehicle);
 
   return (
     <div className="scroll-mt-20 space-y-1.5" data-quote-vehicle-categories>
@@ -229,12 +228,6 @@ export default function QuoteVehicleCategories({
           );
         })}
       </div>
-      {selectedOption ? (
-        <p data-mobile-selected-vehicle-details className="hidden">
-          {[selectedOption.capacity, selectedOption.luggage, selectedOption.detail].filter(Boolean).join(" · ")}
-          {requestQuoteVehicles.includes(selectedOption.vehicle) ? " · On request · Request quote" : ""}
-        </p>
-      ) : null}
     </div>
   );
 }

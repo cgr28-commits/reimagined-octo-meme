@@ -1351,37 +1351,6 @@ main {
 
 /* Balance the existing mobile header controls without changing their geometry. */
 @media (max-width: 767px) {
-  /* Compact mobile choices; the selected vehicle retains its full details below. */
-  .quote-flow [data-quote-vehicle-categories] [role="list"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.375rem;
-  }
-
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-layout] {
-    grid-template-columns: minmax(0, 1fr) 1.25rem;
-    width: 100%;
-    gap: 0.375rem;
-    min-height: 2.5rem;
-  }
-
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"],
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > :not([data-vehicle-name]) {
-    display: none;
-  }
-
-  .quote-flow [data-vehicle-category] [data-vehicle-selection-indicator] {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-
-  .quote-flow [data-mobile-selected-vehicle-details] {
-    display: block;
-    color: #C4D3E5;
-    font-size: 0.78rem;
-    line-height: 1.35;
-    margin: 0.375rem 0 0;
-  }
-
   /* Keep the selected vehicle, price and action together on phone screens. */
   .quote-flow [data-quote-result-card] {
     padding: 0.5rem 0.625rem;

@@ -474,16 +474,16 @@ export function quoteRevealEaseInOut(t: number): number {
 
 /**
  * Resting scroll offset for the first quote reveal.
- * Keeps the heading stop on desktop. On mobile, scroll further only when needed
- * to expose the whole booking action, without putting it behind the header.
+ * Desktop stops at Vehicle options; mobile stops at the selected vehicle.
+ * Never hide the selected heading simply to force a lower action into view.
  */
 export function computeQuoteRevealScrollTop(metrics: QuoteRevealMetrics): number | null {
   const breathing = metrics.clearancePx ?? QUOTE_REVEAL_BREATHING_PX;
   const idealHeadingTop = metrics.headerBottom + breathing;
   const delta = metrics.headingTop - idealHeadingTop;
   const desiredTop = metrics.scrollY + delta;
-  // Never sacrifice the vehicle choices to bring a lower action above the fold.
-  // Compact mobile choices fit on typical iPhones; shorter screens scroll naturally.
+  // Keep the selected vehicle heading visible on mobile. The summary is compact
+  // enough for common iPhones; unusually short viewports can scroll naturally.
   const maxScroll = metrics.maxScroll ?? Number.POSITIVE_INFINITY;
   const nextTop = Math.min(maxScroll, Math.max(0, Math.round(desiredTop)));
   return Math.abs(nextTop - metrics.scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
@@ -508,11 +508,13 @@ function readVisualViewport(): { height: number; offsetTop: number } {
  * The four vehicle options plus summary cannot always fit on one phone screen.
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
-  const heading = document.querySelector<HTMLElement>("[data-quote-vehicle-options-heading]");
+  const mobile = window.matchMedia("(max-width: 767px)").matches;
+  const heading = document.querySelector<HTMLElement>(mobile
+    ? "[data-quote-result-card] [data-quote-result-heading]"
+    : "[data-quote-vehicle-options-heading]");
   if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
   const headingRect = heading.getBoundingClientRect();
-  const mobile = window.matchMedia("(max-width: 767px)").matches;
   const action = mobile ? Array.from(document.querySelectorAll<HTMLElement>("[data-quote-result-card] #quote-book-now-button"))
     .find(element => element.getClientRects().length > 0) : undefined;
   const actionRect = action?.getBoundingClientRect();
@@ -535,8 +537,8 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
 
 /**
  * First completed quote only.
- * Waits so the luggage choice can register, then scrolls once so Vehicle
- * options sits under the sticky header, or further on mobile to reveal the CTA.
+ * Waits so the luggage choice can register, then reveals the selected vehicle
+ * summary on mobile. Desktop keeps the Vehicle options heading stop.
  * One ease-in-out glide of QUOTE_REVEAL_SCROLL_MS. Document coordinates stay
  * fixed during the glide; the visible viewport height still follows iPhone bars.
  * Reduced motion jumps to the same stop. A touch, swipe, wheel, or scroll key

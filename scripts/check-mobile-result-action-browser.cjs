@@ -47,12 +47,12 @@ async function main() {
    await page.waitForTimeout(1900);
    const m = await page.evaluate(() => {
     const btn = [...document.querySelectorAll('[data-quote-result-card] #quote-book-now-button')].find(e => e.getClientRects().length);
-    const rect = btn.getBoundingClientRect(), heading = document.querySelector('[data-quote-vehicle-options-heading]').getBoundingClientRect();
+    const rect = btn.getBoundingClientRect(), heading = document.querySelector(innerWidth < 768 ? '[data-quote-result-card] [data-quote-result-heading]' : '[data-quote-vehicle-options-heading]').getBoundingClientRect();
     const header = document.querySelector('header.fixed, header[class*="fixed"]');
-    return { top: rect.top, bottom: rect.bottom, header: header?.getBoundingClientRect().bottom || 0, heading: heading.top, height: visualViewport.height, inset: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--matni-cookie-banner-offset')) || 0, y: scrollY, label: btn.innerText, overflow: document.documentElement.scrollWidth > innerWidth };
+    return { top: rect.top, bottom: rect.bottom, header: header?.getBoundingClientRect().bottom || 0, heading: heading.top, height: visualViewport.height, inset: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--matni-cookie-banner-offset')) || 0, y: scrollY, label: btn.innerText, stacked: new Set([...document.querySelectorAll('[data-vehicle-category]')].map(e => Math.round(e.getBoundingClientRect().left))).size === 1, overflow: document.documentElement.scrollWidth > innerWidth };
    });
    assert.equal(m.overflow, false); assert.ok(m.header > 0, 'Real fixed site header must be mounted');
-   if (width < 768) { assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must not hide vehicle choices: ' + JSON.stringify(m)); if (width >= 390 && height >= 844) assert.ok(m.bottom <= m.height - m.inset - 15, 'Main iPhone summary and action must fit: ' + JSON.stringify(m)); }
+   if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must not hide selected vehicle: ' + JSON.stringify(m)); if (width >= 375 && height >= 667) assert.ok(m.bottom <= m.height - m.inset - 15, 'Main iPhone summary and action must fit: ' + JSON.stringify(m)); }
    else assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m));
    assert.match(m.label, /BOOK THIS TRANSFER|REQUEST A QUOTE/);
    // Once the initial responses settle, the result must not keep scrolling.
@@ -68,7 +68,7 @@ async function main() {
   await quote(1280, 900);
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
-  assert.deepEqual(errors, []); console.log('OK mobile choices stay visible, main iPhone summary/action fit, desktop unchanged, booking works; no JS exceptions or live API calls');
+  assert.deepEqual(errors, []); console.log('OK original stacked options retained, mobile selected summary/action fit, desktop unchanged, booking works; no JS exceptions or live API calls');
  } finally {
   try { if (browser) await browser.close(); await stopTestProcess(server); }
   finally { fs.rmSync(path.dirname(route), { recursive: true, force: true }); }
