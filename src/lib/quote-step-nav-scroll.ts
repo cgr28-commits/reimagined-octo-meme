@@ -446,6 +446,8 @@ export const QUOTE_REVEAL_PAUSE_MS = 350;
 export const QUOTE_REVEAL_SCROLL_MS = 1100;
 /** Space between the sticky header and the Vehicle options heading. */
 export const QUOTE_REVEAL_BREATHING_PX = 12;
+/** Keep the full mobile action clear of browser chrome and bottom overlays. */
+export const QUOTE_REVEAL_ACTION_CLEARANCE_PX = 24;
 const REVEAL_EDGE_TOLERANCE_PX = 8;
 
 export type QuoteRevealMetrics = {
@@ -455,6 +457,10 @@ export type QuoteRevealMetrics = {
   headerBottom: number;
   /** Vehicle heading (Saloon, Estate, or 7-Seater) in visual-viewport coordinates. */
   headingTop: number;
+  /** Only supplied on the existing mobile breakpoint; desktop keeps its heading stop. */
+  actionTop?: number;
+  actionBottom?: number;
+  bottomInset?: number;
   clearancePx?: number;
   /** Largest scroll offset the document can actually reach. */
   maxScroll?: number;
@@ -468,15 +474,22 @@ export function quoteRevealEaseInOut(t: number): number {
 
 /**
  * Resting scroll offset for the first quote reveal.
- * Places the rendered vehicle heading just below the sticky header.
- * Returns null when that heading is already there.
+ * Keeps the heading stop on desktop. On mobile, scroll further only when needed
+ * to expose the whole booking action, without putting it behind the header.
  */
 export function computeQuoteRevealScrollTop(metrics: QuoteRevealMetrics): number | null {
   const breathing = metrics.clearancePx ?? QUOTE_REVEAL_BREATHING_PX;
   const idealHeadingTop = metrics.headerBottom + breathing;
   const delta = metrics.headingTop - idealHeadingTop;
+  let desiredTop = metrics.scrollY + delta;
+  if (metrics.actionTop != null && metrics.actionBottom != null) {
+    const visibleBottom = metrics.viewportHeight - (metrics.bottomInset ?? 0) - QUOTE_REVEAL_ACTION_CLEARANCE_PX;
+    const showActionBottom = metrics.scrollY + metrics.actionBottom - visibleBottom;
+    const keepActionBelowHeader = metrics.scrollY + metrics.actionTop - idealHeadingTop;
+    desiredTop = Math.min(Math.max(desiredTop, showActionBottom), keepActionBelowHeader);
+  }
   const maxScroll = metrics.maxScroll ?? Number.POSITIVE_INFINITY;
-  const nextTop = Math.min(maxScroll, Math.max(0, Math.round(metrics.scrollY + delta)));
+  const nextTop = Math.min(maxScroll, Math.max(0, Math.round(desiredTop)));
   return Math.abs(nextTop - metrics.scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
 }
 
@@ -495,16 +508,20 @@ function readVisualViewport(): { height: number; offsetTop: number } {
 }
 
 /**
- * One measurement of the Vehicle options heading.
- * The reveal stops on that wording, just under the sticky header.
- * Never falls back to the waiting note or the selected-vehicle price card.
- * Both sit away from the heading, so scrolling to them hides Vehicle options.
+ * Measure the heading and, on mobile only, the visible result-card action.
+ * The four vehicle options plus summary cannot always fit on one phone screen.
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const heading = document.querySelector<HTMLElement>("[data-quote-vehicle-options-heading]");
   if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
   const headingRect = heading.getBoundingClientRect();
+  const mobile = window.matchMedia("(max-width: 767px)").matches;
+  const action = mobile ? Array.from(document.querySelectorAll<HTMLElement>("[data-quote-result-card] #quote-book-now-button"))
+    .find(element => element.getClientRects().length > 0) : undefined;
+  const actionRect = action?.getBoundingClientRect();
+  const bottomInset = mobile ? Math.max(0, Number.parseFloat(window.getComputedStyle(document.documentElement)
+    .getPropertyValue("--matni-cookie-banner-offset")) || 0) : 0;
   const layoutClientHeight = document.documentElement.clientHeight || visual.height;
   const maxScroll = Math.max(
     0,
@@ -515,6 +532,7 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
     viewportHeight: visual.height,
     headerBottom: Math.round(getHeaderBottomPx() - visual.offsetTop),
     headingTop: headingRect.top - visual.offsetTop,
+    ...(actionRect ? { actionTop: actionRect.top - visual.offsetTop, actionBottom: actionRect.bottom - visual.offsetTop, bottomInset } : {}),
     maxScroll,
   };
 }
@@ -522,8 +540,9 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
 /**
  * First completed quote only.
  * Waits so the luggage choice can register, then scrolls once so Vehicle
- * options sits under the sticky header. One ease-in-out glide of
- * QUOTE_REVEAL_SCROLL_MS, measured once so it cannot overshoot the heading.
+ * options sits under the sticky header, or further on mobile to reveal the CTA.
+ * One ease-in-out glide of QUOTE_REVEAL_SCROLL_MS. Mobile remeasures during
+ * this same glide as iPhone browser chrome and delayed content settle.
  * Reduced motion jumps to the same stop. A touch, swipe, wheel, or scroll key
  * cancels it. Fare updates do not start another scroll.
  */
@@ -609,7 +628,11 @@ export function scheduleQuoteRevealScroll(handlers: {
         return;
       }
       const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
-      const y = progress >= 1 ? target : startY + change * quoteRevealEaseInOut(progress);
+      if (window.matchMedia("(max-width: 767px)").matches) {
+        const current = measureQuoteReveal();
+        if (current?.actionBottom != null) target = computeQuoteRevealScrollTop(current) ?? window.scrollY;
+      }
+      const y = progress >= 1 ? target : startY + (target - startY) * quoteRevealEaseInOut(progress);
       window.scrollTo(0, y);
       if (progress >= 1) {
         haltMotion();

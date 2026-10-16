@@ -10,6 +10,9 @@ on:
       - 'src/app/globals.css'
       - 'src/components/HomepageQuoteFields.tsx'
       - 'src/components/QuoteCard.tsx'
+      - 'src/lib/quote-step-nav-scroll.ts'
+      - 'scripts/check-quote-reveal-scroll.ts'
+      - 'scripts/check-mobile-result-action-browser.cjs'
       - 'src/app/booking-confirmed/BookingConfirmedClient.tsx'
       - 'scripts/check-payment-confirmation-browser.mjs'
       - 'src/components/LocationQuoteSection.tsx'
@@ -33,6 +36,7 @@ jobs:
       - run: npm ci
       - name: Dublin city corridor and profitability regression checks
         run: |
+          node --import tsx scripts/check-quote-reveal-scroll.ts
           node --import tsx scripts/check-greater-belfast-ireland.ts
           node --import tsx scripts/check-a2a-roi-journeys.ts
           node --import tsx scripts/check-bfs-bhd-roi-instant-quote.ts
@@ -53,6 +57,10 @@ jobs:
           node --import tsx scripts/check-hub-quote-browser.mjs
           node --import tsx scripts/check-email-logo-browser.mjs
           node --import tsx scripts/check-payment-confirmation-browser.mjs
+      - name: Mobile result scroll keeps the booking action visible
+        run: |
+          mv .next "$RUNNER_TEMP/mobile-scroll-static-next"
+          node --import tsx scripts/check-mobile-result-action-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
