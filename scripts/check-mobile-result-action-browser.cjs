@@ -29,6 +29,7 @@ async function main() {
    return r.abort();
   });
   await context.addInitScript(() => {
+   localStorage.clear(); // Each case begins with a fresh customer journey.
    // Emulate iPhone browser bars reducing the visible viewport without resizing layout.
    window.testBrowserBarHeight = 0;
    if (window.visualViewport) Object.defineProperty(window.visualViewport, 'height', { get: () => innerHeight - window.testBrowserBarHeight });
@@ -68,6 +69,7 @@ async function main() {
     if (manual) assert.equal(await page.getByText('View price breakdown', { exact: true }).count(), 0, 'Unpriced requests must not show a fare breakdown');
     assert.equal(await page.getByRole('button', { name: 'Save Quote', exact: true }).isDisabled(), manual, 'Unpriced requests cannot be saved as confirmed fares');
     await page.getByRole('button', { name: 'View route', exact: true }).click();
+    await page.locator('[data-quote-route-map] .leaflet-container').waitFor();
     await page.getByRole('button', { name: 'Hide route', exact: true }).click();
     await page.locator('[data-quote-result-card] #quote-book-now-button').scrollIntoViewIfNeeded();
     // A customer can scroll the unchanged stacked list; account for simulated browser bars.
@@ -91,6 +93,9 @@ async function main() {
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
   assert.deepEqual(errors, []); console.log('OK original stacked options retained, duplicate mobile art/capacity hidden, all result actions retained, desktop unchanged, booking works; no JS exceptions or live API calls');
+ } catch (error) {
+  console.error(serverLog.slice(-5000));
+  throw error;
  } finally {
   try { if (browser) await browser.close(); await stopTestProcess(server); }
   finally { fs.rmSync(path.dirname(route), { recursive: true, force: true }); }
