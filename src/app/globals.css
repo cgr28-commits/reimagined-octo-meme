@@ -1351,6 +1351,38 @@ main {
 
 /* Balance the existing mobile header controls without changing their geometry. */
 @media (max-width: 767px) {
+  /* Keep the selected vehicle, price and action together on phone screens. */
+  .quote-flow [data-quote-result-card] {
+    padding: 0.5rem 0.625rem;
+  }
+
+  .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
+    height: 2.75rem;
+    max-width: 10rem;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-fare-status] {
+    min-height: 2.35rem;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-party] {
+    column-gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-party] > span {
+    white-space: normal;
+    min-width: 0;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-party] svg {
+    flex-shrink: 0;
+  }
+
+  .quote-flow [data-quote-result-airport-access] {
+    margin-block: 0.25rem;
+  }
+
   [data-site-header] .quote-header-logo {
     filter: brightness(1.03) contrast(1.04) saturate(1.02);
   }

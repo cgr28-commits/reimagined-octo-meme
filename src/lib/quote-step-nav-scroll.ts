@@ -541,8 +541,8 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
  * First completed quote only.
  * Waits so the luggage choice can register, then scrolls once so Vehicle
  * options sits under the sticky header, or further on mobile to reveal the CTA.
- * One ease-in-out glide of QUOTE_REVEAL_SCROLL_MS. Mobile remeasures during
- * this same glide as iPhone browser chrome and delayed content settle.
+ * One ease-in-out glide of QUOTE_REVEAL_SCROLL_MS. Document coordinates stay
+ * fixed during the glide; the visible viewport height still follows iPhone bars.
  * Reduced motion jumps to the same stop. A touch, swipe, wheel, or scroll key
  * cancels it. Fare updates do not start another scroll.
  */
@@ -605,14 +605,18 @@ export function scheduleQuoteRevealScroll(handlers: {
 
   let attempts = 0;
 
-  const scrollOnce = (target: number) => {
+  const scrollOnce = (target: number, metrics: QuoteRevealMetrics) => {
     const root = document.documentElement;
     const previousBehavior = root.style.scrollBehavior;
+    const previousAnchor = root.style.overflowAnchor;
     root.style.scrollBehavior = "auto";
+    root.style.overflowAnchor = "none";
+    const mobile = window.matchMedia("(max-width: 767px)").matches;
     const startY = window.scrollY;
     const change = target - startY;
     restoreMotion = () => {
       root.style.scrollBehavior = previousBehavior;
+      root.style.overflowAnchor = previousAnchor;
     };
     if (prefersReducedMotion() || Math.abs(change) <= REVEAL_EDGE_TOLERANCE_PX) {
       if (Math.abs(change) > 1) window.scrollTo(0, target);
@@ -628,9 +632,13 @@ export function scheduleQuoteRevealScroll(handlers: {
         return;
       }
       const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
-      if (window.matchMedia("(max-width: 767px)").matches) {
-        const current = measureQuoteReveal();
-        if (current?.actionBottom != null) target = computeQuoteRevealScrollTop(current) ?? window.scrollY;
+      if (mobile && metrics.actionBottom != null) {
+        // Do not feed this animation's changing scroll position back into its
+        // destination or force a layout measurement on every frame.
+        target = computeQuoteRevealScrollTop({
+          ...metrics,
+          viewportHeight: readVisualViewport().height,
+        }) ?? startY;
       }
       const y = progress >= 1 ? target : startY + (target - startY) * quoteRevealEaseInOut(progress);
       window.scrollTo(0, y);
@@ -668,7 +676,7 @@ export function scheduleQuoteRevealScroll(handlers: {
       stopListening();
       return;
     }
-    scrollOnce(nextTop);
+    scrollOnce(nextTop, metrics);
   };
 
   timer = window.setTimeout(() => {
