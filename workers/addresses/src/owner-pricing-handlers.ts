@@ -6,6 +6,7 @@ import {
   requestIsPricingPreview,
 } from "../shared/pricing-preview-isolation";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
+import { previewPostcodeRule } from "./postcode-preview";
 import {
   getOwnerPricingSettings,
   listOwnerPricingAudit,
@@ -30,7 +31,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 }
 
 export function isOwnerPricingPath(pathname: string): boolean {
-  return pathname === "/owner/pricing" || pathname === "/api/owner/pricing";
+  return ["/owner/pricing", "/api/owner/pricing", "/owner/postcode-preview", "/api/owner/postcode-preview"].includes(pathname);
 }
 
 export function isPublicPricingConfigPath(pathname: string): boolean {
@@ -68,6 +69,16 @@ export async function handleOwnerPricingRequest(
   if (!ownerAuthorized(request, env)) {
     return json({ error: "Unauthorized — owner access required." }, 401, origin);
   }
+  if (new URL(request.url).pathname.endsWith("/postcode-preview")) {
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, origin);
+    try {
+      const body = await request.json() as Record<string, unknown>;
+      const settings = await getOwnerPricingSettings(env.TRACKING_STORE);
+      return json({ ok: true, preview: await previewPostcodeRule(body, settings) }, 200, origin);
+    } catch (e) {
+      return json({ error: e instanceof Error ? e.message : "Preview unavailable." }, 422, origin);
+    }
+  }
 
   if (request.method !== "GET" && requestIsPricingPreview(request)) {
     return json(
@@ -89,6 +100,7 @@ export async function handleOwnerPricingRequest(
         settings,
         defaults: ownerPricingDefaults(),
         audit,
+        postcodeRulesEditorVersion: 2,
       },
       200,
       origin,
@@ -107,7 +119,17 @@ export async function handleOwnerPricingRequest(
   }
 
   try {
-    const result = await saveOwnerPricingSettings(env.TRACKING_STORE, body.settings ?? body, {
+    const input = body.settings ?? body;
+    // Old editors can strip direction/approval fields or drop records they cannot represent.
+    // They may still save ordinary pricing, but cannot rewrite the postcode rule collection.
+    if (body.postcodeRulesEditorVersion !== 2 && body.action !== "restore-defaults" && input && typeof input === "object") {
+      const current = await getOwnerPricingSettings(env.TRACKING_STORE);
+      const incoming = (input as { postcodeRules?: unknown }).postcodeRules;
+      if (incoming != null && JSON.stringify(incoming) !== JSON.stringify(current.postcodeRules ?? [])) {
+        return json({ error: "Reload the updated Postcode Pricing dashboard before changing postcode rules. Existing rules were preserved.", code: "postcode_editor_upgrade_required" }, 409, origin);
+      }
+    }
+    const result = await saveOwnerPricingSettings(env.TRACKING_STORE, input, {
       expectedVersion: Number(body.expectedVersion ?? (body.settings as { version?: number } | undefined)?.version),
       actor: "owner",
       restoreDefaults: body.action === "restore-defaults",
@@ -118,6 +140,7 @@ export async function handleOwnerPricingRequest(
         settings: result.settings,
         defaults: ownerPricingDefaults(),
         audit: result.audit,
+        postcodeRulesEditorVersion: 2,
       },
       200,
       origin,

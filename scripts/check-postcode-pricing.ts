@@ -23,7 +23,7 @@ function kv() {
 const metrics = {distanceKm:159,durationMinutes:112};
 const baseline=defaultOwnerPricingSettings(); baseline.night.enabled=false;baseline.weekend.enabled=false;
 baseline.minibus.publicEnabled=true;
-const pricing={...baseline, postcodeRules:PROPOSED_POSTCODE_RULES.map(r=>({...r}))};
+const pricing={...baseline, postcodePricingEnabled:true, postcodeRules:PROPOSED_POSTCODE_RULES.map(r=>({...r}))};
 const addresses=["Belfast City Hall, Donegall Square N, Belfast BT1 5GS, UK", "The Grand Central Hotel, 9-15 Bedford Street, Belfast BT2 7FF, UK"];
 const quote=(a:string,vehicle:VehicleType=S,airport="DUB",fromAirport=false,returning=false,p:OwnerPricingSettings=pricing)=>calculateQuote(a,airport,vehicle,returning,{},metrics,fromAirport,p)!;
 
@@ -46,7 +46,7 @@ async function main(){
   for(const airport of ["BFS","BHD","LDY"])for(const a of addresses)for(const vehicle of [S,E])assert.deepEqual(quote(a,vehicle,airport),quote(a,vehicle,airport,false,false,baseline));
   // Arbitrary test-only Belfast prices: not proposed or activated business fares.
   for(const [airportCode,testFare] of [["BFS",50],["BHD",35]] as const) {
-    const testPricing={...baseline,postcodeRules:[{district:"BT1",airportCode,saloonFareGbp:testFare,enabled:true},{district:"BT2",airportCode,saloonFareGbp:testFare,enabled:true}]};
+    const testPricing={...baseline,postcodePricingEnabled:true,postcodeRules:[{district:"BT1",airportCode,saloonFareGbp:testFare,enabled:true},{district:"BT2",airportCode,saloonFareGbp:testFare,enabled:true}]};
     for(const a of addresses){assert.equal(quote(a,S,airportCode,false,false,testPricing).amount+postcodeTerminalAccessGbp(airportCode),testFare);assert.equal(quote(a,E,airportCode,false,false,testPricing).amount+postcodeTerminalAccessGbp(airportCode),testFare+testPricing.estate.upliftGbp);assert.deepEqual(quote(a,S,airportCode,true,false,testPricing),quote(a,S,airportCode,true,false,baseline));}
   }
   for(const a of addresses)for(const vehicle of [S,E,B,M]){
@@ -90,7 +90,7 @@ async function main(){
   const kept=await saveOwnerPricingSettings(store,legacy,{expectedVersion:saved.settings.version});assert.equal(kept.settings.postcodeRules?.length,2,"Older client saves preserve rules");
   await assert.rejects(saveOwnerPricingSettings(store,kept.settings,{expectedVersion:1}),/another session/);
   const env={TRACKING_STORE:store,OWNER_ACCESS_KEY:"test-owner",DRIVER_ACCESS_KEY:"test-driver"};
-  const req=(key?:string,body:unknown={settings:kept.settings,expectedVersion:kept.settings.version},origin="https://www.myairporttaxini.co.uk")=>new Request("https://worker.example/owner/pricing",{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,...(key?{"X-Owner-Key":key}:{})},body:JSON.stringify(body)});
+  const req=(key?:string,body:unknown={settings:kept.settings,expectedVersion:kept.settings.version},origin="https://www.myairporttaxini.co.uk")=>new Request("https://worker.example/owner/pricing",{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,...(key?{"X-Owner-Key":key}:{})},body:JSON.stringify({postcodeRulesEditorVersion:2,...body as object})});
   const pricingSnapshot=()=>JSON.stringify([...data].filter(([k])=>k.startsWith("owner:pricing")));
   const before=pricingSnapshot();
   for(const key of [undefined,"wrong","test-driver"])assert.equal((await worker.fetch(req(key),env as never)).status,401);
@@ -163,7 +163,21 @@ async function main(){
       const mismatch=await worker.fetch(new Request("https://worker.example/payments",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://www.myairporttaxini.co.uk"},body:JSON.stringify({...payload,acceptedFinalAmountGbp:1})}),payEnv as never);assert.equal(mismatch.status,409,"Changed accepted fare cannot reach SumUp");
     }
     assert.deepEqual(checkoutAmounts,[245,255,55,65,35,45,245,255,55,65,35,45]);
+    // Deliberately test-only reverse prices, not approved/staged business fares.
+    const reversePricing={...approvedPricing,postcodeRules:[...approvedPricing.postcodeRules,...approvedPricing.postcodeRules.filter(r=>r.district==="BT1").map(r=>({...r,direction:"from-airport" as const,approvalStatus:"approved" as const,saloonFareGbp:123.45}))]};
+    await saveOwnerPricingSettings(payments.store,reversePricing);
+    for(const airportCode of ["DUB","BFS","BHD"])for(const vehicle of [S,E]){
+      const fare=vehicle===E?133.45:123.45;
+      const q=quote(addresses[0],vehicle,airportCode,true,false,reversePricing);
+      const airport=airportCode==="DUB"?"Dublin Airport (DUB)":airportCode==="BFS"?"Belfast International Airport (BFS)":"Belfast City Airport (BHD)";
+      const booking={customerName:"Test Customer",customerEmail:"test@example.com",mobileNumber:"07700900123",pickupLabel:airport,dropoffLabel:addresses[0],tripLabel:"Airport pickup",tripDate:date,tripTime:"12:00",returnJourney:false,passengers:2,suitcases:1,vehicle,isAirportTrip:true,isFromAirport:true,airportCode,flightNumber:"BA1234",termsAcceptedAt:new Date().toISOString()};
+      const payload={booking,pickupPlaceId:`quickselect-${airportCode}`,dropoffPlaceId:"ChIJ-isolated-test",amount:q.amount,acceptedFinalAmountGbp:fare,journeyFareGbp:q.journeyFareGbp,airportFixedCostsGbp:q.airportFixedCostsGbp,description:"Airport transfer",redirectUrl:"https://www.myairporttaxini.co.uk/booking-confirmed/"};
+      const response=await worker.fetch(new Request("https://worker.example/payments",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://www.myairporttaxini.co.uk"},body:JSON.stringify(payload)}),payEnv as never);
+      const b=await response.json() as {checkoutId:string};assert.equal(response.status,200,JSON.stringify(b));assert.equal(checkoutAmounts.at(-1),fare);assert.equal((await getPendingCheckout(payments.store,b.checkoutId))?.amount,fare);
+    }
+    assert.deepEqual(checkoutAmounts.slice(12),[123.45,133.45,123.45,133.45,123.45,133.45]);
   } finally {globalThis.fetch=realFetch;}
   console.log("OK BT1/BT2 actual /payments → exact totals Dublin £245/£255, International £55/£65, City £35/£45, with terminal charges once; persisted amounts and mismatch rejection; no live payments");
+  console.log("OK independently configured reverse test fares reach exact pence SumUp amounts for all three airports/Saloon/Estate; included arrival charges not duplicated");
 }
 void main().catch(e=>{console.error(e);process.exitCode=1});

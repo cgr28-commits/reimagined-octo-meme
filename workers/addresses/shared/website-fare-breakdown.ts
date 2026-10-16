@@ -97,6 +97,8 @@ export type WebsiteFareBreakdownInput = {
   returnOneWayBeforeAccessGbp?: number;
   /** Owner return-discount rate. Defaults to the public 5%. */
   returnDiscountRate?: number;
+  /** Trusted matched postcode fare explicitly contains pence. Never taken from a payment client. */
+  preserveFixedFarePence?: boolean;
 };
 
 export type WebsiteFareBreakdown = {
@@ -202,7 +204,7 @@ export function composeWebsiteFareBreakdown(
   const totalPromotionalSavingGbp = roundGbp(
     returnJourneySavingGbp + returnOfferSavingGbp,
   );
-  let finalAmountPayableGbp = roundCustomerPayableGbp(
+  let finalAmountPayableGbp = (input.preserveFixedFarePence ? roundGbp : roundCustomerPayableGbp)(
     transferFareAfterPromotionsGbp + airportAccessChargeGbp,
   );
   let journeyFareAfterPromotionsAdjusted = journeyFareAfterPromotionsGbp;

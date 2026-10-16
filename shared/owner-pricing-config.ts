@@ -1,5 +1,5 @@
 import { defaultMeetGreetEmailSettings, type MeetGreetEmailSettings } from "./meet-greet-upgrade";
-import { validatePostcodeRules, type PostcodePricingRule } from "./postcode-pricing";
+import { validatePostcodeRules, postcodePricingIsEnabled, postcodeRuleApproved, type PostcodePricingRule } from "./postcode-pricing";
 /**
  * Owner-configurable pricing overlay.
  *
@@ -74,6 +74,7 @@ export type SaloonKnot = {
 
 export type OwnerPricingSettings = {
   postcodeRules?: PostcodePricingRule[];
+  postcodePricingEnabled?: boolean;
   schemaVersion: OwnerPricingSchemaVersion;
   version: number;
   updatedAt: string;
@@ -159,6 +160,7 @@ export type OwnerPricingValidationResult =
 
 export type PublicOwnerPricingConfig = {
   postcodeRules?: PostcodePricingRule[];
+  postcodePricingEnabled?: boolean;
   schemaVersion: OwnerPricingSchemaVersion;
   version: number;
   updatedAt: string;
@@ -231,6 +233,7 @@ export function defaultOwnerPricingSettings(
     schemaVersion: OWNER_PRICING_SCHEMA_VERSION,
     version: 1,
     postcodeRules: [],
+    postcodePricingEnabled: false,
     updatedAt: now.toISOString(),
     saloon: {
       minimumFareGbp: UNIVERSAL_SALOON_MINIMUM_GBP,
@@ -311,6 +314,7 @@ export function validateOwnerPricingInput(
   }
   const input = raw as Record<string, unknown>;
   const postcodes = validatePostcodeRules(input.postcodeRules);
+  if (input.postcodePricingEnabled != null && typeof input.postcodePricingEnabled !== "boolean") errors.push({ field: "postcodePricingEnabled", message: "Postcode pricing switch must be on or off." });
   for (const message of postcodes.errors) errors.push({ field: "postcodeRules", message });
   const defaults = defaultOwnerPricingSettings();
 
@@ -551,6 +555,7 @@ export function validateOwnerPricingInput(
     ok: true,
     settings: {
       postcodeRules: postcodes.rules,
+      postcodePricingEnabled: postcodePricingIsEnabled(input.postcodePricingEnabled, postcodes.rules),
       schemaVersion: OWNER_PRICING_SCHEMA_VERSION,
       version: Number.isInteger(expectedVersion) && expectedVersion > 0 ? expectedVersion : defaults.version,
       updatedAt: typeof input.updatedAt === "string" ? input.updatedAt : defaults.updatedAt,
@@ -639,7 +644,8 @@ export function toPublicOwnerPricingConfig(
     schemaVersion: settings.schemaVersion,
     version: settings.version,
     updatedAt: settings.updatedAt,
-    postcodeRules: settings.postcodeRules ?? [],
+    postcodePricingEnabled: postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules),
+    postcodeRules: postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules) ? (settings.postcodeRules ?? []).filter(r => r.enabled && postcodeRuleApproved(r)).map(({ district, airportCode, saloonFareGbp, enabled, direction }) => ({ district, airportCode, saloonFareGbp, enabled, direction, approvalStatus: "approved" as const })) : [],
     saloon: settings.saloon,
     estate: settings.estate,
     minibus: {
@@ -731,6 +737,8 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return `£${settings.estate.upliftGbp.toFixed(2)}`;
     case "postcodeRules":
       return JSON.stringify(settings.postcodeRules ?? []);
+    case "postcodePricingEnabled":
+      return postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules) ? "ON" : "OFF";
     case "minibus.publicEnabled":
       return settings.minibus.publicEnabled ? "ON" : "OFF";
     case "minibus.requestQuote":
@@ -779,6 +787,7 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
 }
 
 const DIFF_PATHS = [
+  "postcodePricingEnabled",
   "postcodeRules",
   "saloon.minimumFareGbp",
   "saloon.floorMiles",
@@ -810,6 +819,7 @@ const DIFF_PATHS = [
 
 const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "postcodeRules": "Postcode Pricing rules (district to airport)",
+  "postcodePricingEnabled": "Postcode Pricing feature switch",
   "saloon.minimumFareGbp": "Saloon minimum fare",
   "saloon.floorMiles": "Saloon floor distance",
   "saloon.knots": "Saloon distance rates",

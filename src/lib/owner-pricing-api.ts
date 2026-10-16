@@ -44,6 +44,7 @@ export async function fetchOwnerPricing(ownerKey: string): Promise<{
   settings: OwnerPricingSettings;
   defaults: OwnerPricingSettings;
   audit: OwnerPricingAuditEntry[];
+  postcodeRulesEditorVersion?: number;
 }> {
   if (isBrowserPricingPreview()) {
     return readPreviewPricingState();
@@ -69,7 +70,7 @@ export async function saveOwnerPricing(
   }
   return ownerFetch("/owner/pricing", ownerKey, {
     method: "POST",
-    body: JSON.stringify({ settings, expectedVersion }),
+    body: JSON.stringify({ settings, expectedVersion, postcodeRulesEditorVersion: 2 }),
   }) as Promise<{
     settings: OwnerPricingSettings;
     defaults: OwnerPricingSettings;
@@ -145,4 +146,17 @@ export async function fetchPublicPricingConfig(): Promise<PublicOwnerPricingConf
   } catch {
     return toPublicOwnerPricingConfig(defaultOwnerPricingSettings());
   }
+}
+
+export type PostcodeProfitabilityPreview = {
+  fareGbp: number; totalMiles: number; drivingMinutes: number; passengerMiles: number;
+  fuelCostGbp: number; wearCostGbp: number; airportCostsGbp: number; directCostsGbp: number;
+  contributionGbp: number; hourlyGbp: number; targetHourlyGbp: number; belowTarget: boolean; measuredAt: string;
+};
+
+export function previewOwnerPostcodeRule(ownerKey: string, input: {
+  rule: import("../../shared/postcode-pricing").PostcodePricingRule;
+  address: string; lat: number; lng: number; vehicle: "saloon" | "estate";
+}): Promise<{ preview: PostcodeProfitabilityPreview }> {
+  return ownerFetch("/owner/postcode-preview", ownerKey, { method: "POST", body: JSON.stringify(input) }) as Promise<{ preview: PostcodeProfitabilityPreview }>;
 }

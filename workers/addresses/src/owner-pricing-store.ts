@@ -12,6 +12,7 @@ import {
   type OwnerPricingAuditEntry,
   type OwnerPricingSettings,
 } from "../shared/owner-pricing-config";
+import { postcodeRuleKey } from "../shared/postcode-pricing";
 import {
   defaultProfitabilitySettings,
   diffProfitabilitySettings,
@@ -131,6 +132,7 @@ export async function saveOwnerPricingSettings(
     next = {
       ...defaultOwnerPricingSettings(new Date()),
       postcodeRules: current.postcodeRules ?? [],
+      postcodePricingEnabled: current.postcodePricingEnabled === true,
       minibus: {
         ...defaultOwnerPricingSettings().minibus,
         publicEnabled: current.minibus.publicEnabled === true,
@@ -148,7 +150,7 @@ export async function saveOwnerPricingSettings(
   } else {
     // Older clients must not silently erase separately managed postcode rules.
     const validated = validateOwnerPricingInput(input && typeof input === "object"
-      ? { ...input, postcodeRules: (input as { postcodeRules?: unknown }).postcodeRules ?? current.postcodeRules ?? [] }
+      ? { ...input, postcodeRules: (input as { postcodeRules?: unknown }).postcodeRules ?? current.postcodeRules ?? [], postcodePricingEnabled: (input as { postcodePricingEnabled?: unknown }).postcodePricingEnabled ?? current.postcodePricingEnabled ?? false }
       : input);
     if (!validated.ok) {
       throw new OwnerPricingValidationError(validated.errors);
@@ -173,6 +175,12 @@ export async function saveOwnerPricingSettings(
   }
 
   if (!options.restoreDefaults) {
+    // Server-owned timestamps: imports/clients cannot forge when a fare changed.
+    next.postcodeRules = (next.postcodeRules ?? []).map(rule => {
+      const previous = current.postcodeRules?.find(r => postcodeRuleKey(r) === postcodeRuleKey(rule));
+      const content = ({ updatedAt: _at, ...rest }: typeof rule) => JSON.stringify(rest);
+      return { ...rule, updatedAt: previous && content(previous) === content(rule) ? previous.updatedAt : next.updatedAt };
+    });
     for (const airport of ["BFS", "BHD", "DUB"] as const) {
       if (next.meetGreetEmail?.enabled[airport]) {
         next.meetGreetEmail.enabledSince[airport] = current.meetGreetEmail?.enabled[airport]

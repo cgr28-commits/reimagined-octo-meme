@@ -13,6 +13,7 @@ import {
   type PublicOwnerPricingConfig,
 } from "../../shared/owner-pricing-config";
 import { hostnameIsPricingPreview } from "../../shared/pricing-preview-isolation";
+import { postcodePricingIsEnabled } from "../../shared/postcode-pricing";
 
 const SETTINGS_KEY = "matni:preview-pricing-settings";
 const AUDIT_KEY = "matni:preview-pricing-audit";
@@ -147,7 +148,7 @@ export function savePreviewPricingState(
     error.code = "stale_pricing_config";
     throw error;
   }
-  const validated = validateOwnerPricingInput(input);
+  const validated = validateOwnerPricingInput({ ...input, postcodeRules: input.postcodeRules ?? current.settings.postcodeRules ?? [], postcodePricingEnabled: input.postcodePricingEnabled ?? postcodePricingIsEnabled(current.settings.postcodePricingEnabled, current.settings.postcodeRules) });
   if (!validated.ok) {
     const error = new Error(validated.errors[0]?.message || "Pricing settings are invalid.") as Error & {
       status?: number;
@@ -193,6 +194,8 @@ export function restorePreviewPricingState(expectedVersion: number): {
   const current = readPreviewPricingState();
   const restored = {
     ...defaultOwnerPricingSettings(new Date()),
+    postcodeRules: current.settings.postcodeRules ?? [],
+    postcodePricingEnabled: postcodePricingIsEnabled(current.settings.postcodePricingEnabled, current.settings.postcodeRules),
     minibus: {
       ...defaultOwnerPricingSettings().minibus,
       publicEnabled: current.settings.minibus.publicEnabled === true,
