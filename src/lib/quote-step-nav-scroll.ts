@@ -612,11 +612,13 @@ export function scheduleQuoteRevealScroll(handlers: {
     root.style.scrollBehavior = "auto";
     root.style.overflowAnchor = "none";
     const mobile = window.matchMedia("(max-width: 767px)").matches;
+    let layoutObserver: ResizeObserver | null = null;
     const startY = window.scrollY;
     const change = target - startY;
     restoreMotion = () => {
       root.style.scrollBehavior = previousBehavior;
       root.style.overflowAnchor = previousAnchor;
+      layoutObserver?.disconnect();
     };
     if (prefersReducedMotion() || Math.abs(change) <= REVEAL_EDGE_TOLERANCE_PX) {
       if (Math.abs(change) > 1) window.scrollTo(0, target);
@@ -625,6 +627,17 @@ export function scheduleQuoteRevealScroll(handlers: {
       return;
     }
     const started = performance.now();
+    if (mobile && typeof ResizeObserver !== "undefined") {
+      const results = document.getElementById("quote-results-summary");
+      if (results) {
+        // A late return-fare breakdown can grow above the card. Remeasure only
+        // for a real layout change, never as feedback from our own scroll.
+        layoutObserver = new ResizeObserver(() => {
+          if (!stopped && !userInterrupted) metrics = measureQuoteReveal() ?? metrics;
+        });
+        layoutObserver.observe(results);
+      }
+    }
     const tick = (now: number) => {
       if (stopped || userInterrupted) {
         haltMotion();
@@ -638,7 +651,7 @@ export function scheduleQuoteRevealScroll(handlers: {
         target = computeQuoteRevealScrollTop({
           ...metrics,
           viewportHeight: readVisualViewport().height,
-        }) ?? startY;
+        }) ?? target;
       }
       const y = progress >= 1 ? target : startY + (target - startY) * quoteRevealEaseInOut(progress);
       window.scrollTo(0, y);

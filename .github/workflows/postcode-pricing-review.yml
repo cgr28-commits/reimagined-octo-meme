@@ -44,6 +44,8 @@ jobs:
           node --import tsx scripts/check-postcode-release-compatibility.ts
           node --import tsx scripts/check-owner-pricing.ts
           node --import tsx scripts/check-profitability-floor.ts
+          node --import tsx scripts/check-quote-positioning-performance.ts
+          node --import tsx scripts/check-quote-reveal-stability.ts
           node --import tsx scripts/check-open-website-payment-fares.ts
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium

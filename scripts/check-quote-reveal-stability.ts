@@ -5,14 +5,14 @@ import { scheduleQuoteRevealScroll } from "../src/lib/quote-step-nav-scroll";
 const original = Object.getOwnPropertyDescriptors(globalThis);
 const frames = new Map<number, FrameRequestCallback>(), timers = new Map<number, () => void>();
 const listeners = new Map<string, () => void>();
-let id = 0, y = 100, height = 744, measurements = 0;
+let id = 0, y = 100, height = 744, measurements = 0, actionShift = 0;
 class Element {
   getClientRects() { return [{}]; }
   getBoundingClientRect() { return { top: 1000 - y, bottom: 1020 - y }; }
 }
 const heading = new Element(), action = new Element(), header = new Element();
 heading.getBoundingClientRect = () => { measurements++; return { top: 1000 - y, bottom: 1020 - y }; };
-action.getBoundingClientRect = () => ({ top: 1700 - y, bottom: 1756 - y });
+action.getBoundingClientRect = () => ({ top: 1700 + actionShift - y, bottom: 1756 + actionShift - y });
 header.getBoundingClientRect = () => ({ top: 0, bottom: 72 });
 const root = { style: { scrollBehavior: "smooth", overflowAnchor: "auto" }, clientHeight: 844, scrollHeight: 5000 };
 const win = {
@@ -31,7 +31,7 @@ const win = {
 try {
   Object.defineProperties(globalThis, {
     window: { value: win, configurable: true },
-    document: { value: { documentElement: root, querySelector: (q: string) => q.startsWith("header") ? header : heading, querySelectorAll: () => [action] }, configurable: true },
+    document: { value: { documentElement: root, getElementById: () => heading, querySelector: (q: string) => q.startsWith("header") ? header : heading, querySelectorAll: () => [action] }, configurable: true },
     HTMLElement: { value: Element, configurable: true },
     performance: { value: { now: () => 0 }, configurable: true },
   });
@@ -50,6 +50,25 @@ try {
   assert.equal(root.style.overflowAnchor, "auto");
   assert.equal(root.style.scrollBehavior, "smooth");
   cancel();
+
+  let layoutChanged = () => {}, disconnected = false;
+  Object.defineProperty(globalThis, "ResizeObserver", { configurable: true, value: class {
+    constructor(callback: () => void) { layoutChanged = callback; }
+    observe() {}
+    disconnect() { disconnected = true; }
+  } });
+  y = 100; measurements = 0;
+  const lateLayout = scheduleQuoteRevealScroll({ onConsume() {}, onRetry() {} });
+  timers.forEach(fn => fn()); timers.clear();
+  for (let now = 0; now <= 1200; now += 16) {
+    if (now === 608) { actionShift = 160; layoutChanged(); }
+    const batch = [...frames.values()]; frames.clear(); batch.forEach(fn => fn(now));
+  }
+  assert.equal(measurements, 2, "Only a real late layout change triggers another measurement");
+  assert.ok(1756 + actionShift - y <= height - 24, "Late return breakdown must not hide the booking button");
+  assert.ok(disconnected, "Observer must stop when the glide ends");
+  lateLayout();
+
   const stop = scheduleQuoteRevealScroll({ onConsume() {}, onRetry() {} });
   timers.forEach(fn => fn()); timers.clear();
   for (let i = 0; i < 3; i++) { const batch = [...frames.values()]; frames.clear(); batch.forEach(fn => fn(16 * i)); }
@@ -59,7 +78,7 @@ try {
   stop();
   console.log("OK stable reveal with changing iPhone viewport, no per-frame layout, touch cancellation and restored anchoring");
 } finally {
-  for (const key of ["window", "document", "HTMLElement", "performance"]) {
+  for (const key of ["window", "document", "HTMLElement", "performance", "ResizeObserver"]) {
     if (original[key]) Object.defineProperty(globalThis, key, original[key]);
     else Reflect.deleteProperty(globalThis, key);
   }
