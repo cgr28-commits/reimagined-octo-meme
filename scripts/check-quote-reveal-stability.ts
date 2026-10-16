@@ -44,7 +44,7 @@ try {
     positions.push(y);
   }
   assert.equal(measurements, 1, "No per-frame layout measurement or moving document target");
-  assert.ok(1756 - y <= height - 24);
+  assert.equal(1000 - y, 84, "Vehicle choices must stay below the fixed header");
   assert.ok(1700 - y >= 84);
   assert.ok(positions.every((value, i) => i === 0 || value >= positions[i - 1]), "Glide must not reverse");
   assert.equal(root.style.overflowAnchor, "auto");
@@ -65,7 +65,7 @@ try {
     const batch = [...frames.values()]; frames.clear(); batch.forEach(fn => fn(now));
   }
   assert.equal(measurements, 2, "Only a real late layout change triggers another measurement");
-  assert.ok(1756 + actionShift - y <= height - 24, "Late return breakdown must not hide the booking button");
+  assert.equal(1000 - y, 84, "Late content must not scroll past the vehicle choices");
   assert.ok(disconnected, "Observer must stop when the glide ends");
   lateLayout();
 

@@ -481,13 +481,9 @@ export function computeQuoteRevealScrollTop(metrics: QuoteRevealMetrics): number
   const breathing = metrics.clearancePx ?? QUOTE_REVEAL_BREATHING_PX;
   const idealHeadingTop = metrics.headerBottom + breathing;
   const delta = metrics.headingTop - idealHeadingTop;
-  let desiredTop = metrics.scrollY + delta;
-  if (metrics.actionTop != null && metrics.actionBottom != null) {
-    const visibleBottom = metrics.viewportHeight - (metrics.bottomInset ?? 0) - QUOTE_REVEAL_ACTION_CLEARANCE_PX;
-    const showActionBottom = metrics.scrollY + metrics.actionBottom - visibleBottom;
-    const keepActionBelowHeader = metrics.scrollY + metrics.actionTop - idealHeadingTop;
-    desiredTop = Math.min(Math.max(desiredTop, showActionBottom), keepActionBelowHeader);
-  }
+  const desiredTop = metrics.scrollY + delta;
+  // Never sacrifice the vehicle choices to bring a lower action above the fold.
+  // Compact mobile choices fit on typical iPhones; shorter screens scroll naturally.
   const maxScroll = metrics.maxScroll ?? Number.POSITIVE_INFINITY;
   const nextTop = Math.min(maxScroll, Math.max(0, Math.round(desiredTop)));
   return Math.abs(nextTop - metrics.scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;

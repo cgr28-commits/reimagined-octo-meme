@@ -52,11 +52,13 @@ async function main() {
     return { top: rect.top, bottom: rect.bottom, header: header?.getBoundingClientRect().bottom || 0, heading: heading.top, height: visualViewport.height, inset: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--matni-cookie-banner-offset')) || 0, y: scrollY, label: btn.innerText, overflow: document.documentElement.scrollWidth > innerWidth };
    });
    assert.equal(m.overflow, false); assert.ok(m.header > 0, 'Real fixed site header must be mounted');
-   if (width < 768) { assert.ok(m.top >= m.header, JSON.stringify(m)); assert.ok(m.bottom <= m.height - m.inset - 15, JSON.stringify(m)); }
+   if (width < 768) { assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must not hide vehicle choices: ' + JSON.stringify(m)); if (width >= 390 && height >= 844) assert.ok(m.bottom <= m.height - m.inset - 15, 'Main iPhone summary and action must fit: ' + JSON.stringify(m)); }
    else assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m));
    assert.match(m.label, /BOOK THIS TRANSFER|REQUEST A QUOTE/);
    // Once the initial responses settle, the result must not keep scrolling.
    await page.waitForTimeout(250); assert.ok(Math.abs(await page.evaluate(() => scrollY) - m.y) <= 2);
+   fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
+   await page.screenshot({ path: path.join(root, `test-results/mobile-result/${width}-${height}-${bars}-${lateBars}-${reduced}-${vehicle.split(' ')[0]}.png`) });
    console.log('OK result landing ' + JSON.stringify({ width, height, bars, lateBars, reduced, vehicle, ...m }));
   }
   for (const [width, height] of [[320, 568], [375, 667], [390, 844], [430, 932]]) await quote(width, height, { bars: 100 });
@@ -66,7 +68,7 @@ async function main() {
   await quote(1280, 900);
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
-  assert.deepEqual(errors, []); console.log('OK full mobile action visible, desktop unchanged, booking flow works; no JS exceptions or live API calls');
+  assert.deepEqual(errors, []); console.log('OK mobile choices stay visible, main iPhone summary/action fit, desktop unchanged, booking works; no JS exceptions or live API calls');
  } finally {
   try { if (browser) await browser.close(); await stopTestProcess(server); }
   finally { fs.rmSync(path.dirname(route), { recursive: true, force: true }); }

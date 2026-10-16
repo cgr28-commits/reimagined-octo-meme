@@ -10,6 +10,7 @@ on:
       - 'src/app/globals.css'
       - 'src/components/HomepageQuoteFields.tsx'
       - 'src/components/QuoteCard.tsx'
+      - 'src/components/QuoteVehicleCategories.tsx'
       - 'src/lib/quote-step-nav-scroll.ts'
       - 'scripts/check-quote-reveal-scroll.ts'
       - 'scripts/check-mobile-result-action-browser.cjs'
@@ -66,5 +67,6 @@ jobs:
         with:
           name: homepage-booking-review
           path: |
+            test-results/mobile-result/
             test-results/homepage-booking/
             test-results/greater-belfast-ireland/
