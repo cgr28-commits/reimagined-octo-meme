@@ -6,6 +6,7 @@ import {
 import type { ExpressDropOffSelection } from "../../shared/express-drop-off";
 
 type Props = {
+  layoutOnly?: boolean;
   /** Airport codes already identified by the quote engine; never parse addresses here. */
   pickupAirportCode: string | null;
   dropoffAirportCode: string | null;
@@ -68,7 +69,7 @@ export default function QuoteAirportBenefits(props: Props) {
   const benefits = buildQuoteAirportBenefits(props);
   if (benefits.length === 0) return null;
   return (
-    <div className="space-y-1.5 rounded-xl border border-emerald/20 bg-emerald/[0.05] px-2.5 py-1.5 text-left text-navy" data-quote-airport-benefits>
+    <div className="space-y-1.5 rounded-xl border border-emerald/20 bg-emerald/[0.05] px-2.5 py-1.5 text-left text-navy" data-quote-airport-benefits={props.layoutOnly ? undefined : true}>
       {benefits.map((benefit) => (
         <div key={benefit.key} className="flex items-start gap-1.5">
           <span className="shrink-0 text-sm font-bold text-[#147a2a]" aria-hidden>✓</span>

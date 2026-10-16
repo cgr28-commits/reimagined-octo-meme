@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, type ReactNode } from "react";
+import { cloneElement, isValidElement, forwardRef, type ReactNode } from "react";
 import { preload } from "react-dom";
 import { withBasePath } from "@/lib/paths";
 import {
@@ -28,6 +28,7 @@ type QuoteResultShowcaseProps = {
   bookButton: ReactNode;
   /** Compact Business Class inclusions, directly under the book button. */
   businessClassInclusions?: ReactNode;
+  layoutBusinessClassInclusions?: ReactNode;
   /** Vehicle changed; keep the card and wait for the new authoritative price. */
   priceUpdating?: boolean;
   /** Shown only when the first displayed price already includes the 10%. */
@@ -76,6 +77,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       airportAccess,
       bookButton,
       businessClassInclusions = null,
+      layoutBusinessClassInclusions = null,
       priceUpdating = false,
       surchargeNote = null,
       priceUnavailable = false,
@@ -119,6 +121,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       ? "1 standard suitcase (23kg)"
       : `${formatPublicSuitcaseChoice(suitcases)} standard suitcases (23kg)`;
 
+  const layoutAirportAccess = isValidElement<{ layoutOnly?: boolean }>(airportAccess)
+    ? cloneElement(airportAccess, { layoutOnly: true }) : airportAccess;
+
   return (
     <div
       ref={ref}
@@ -130,6 +135,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
     >
       <div className="min-w-0 text-center" data-quote-vehicle-summary>
         <p
+          key={vehicleType}
           data-quote-result-heading
           className="font-sans text-base font-bold leading-tight tracking-[-0.02em] text-navy"
         >
@@ -137,6 +143,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         </p>
         <p className="sr-only">Vehicle for this journey</p>
         <p data-quote-result-capacity className="mt-0.5 text-[0.84rem] font-semibold leading-tight text-navy">{capacityLine}</p>
+        <div data-quote-result-detail-slot>
         {detailLine.trim() ? (
           <p className="flex items-center justify-center gap-1 text-[0.78rem] font-medium leading-tight text-navy">
             {isExecutive ? (
@@ -147,6 +154,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {detailLine}
           </p>
         ) : null}
+        </div>
         <div data-quote-result-art className="mt-0.5">
           <VehicleQuoteArt
             vehicle={art}
@@ -176,6 +184,19 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       </div>
 
       <div className="mt-1 min-w-0 text-center">
+        <div data-quote-info-grid>
+          <div data-quote-layout-reference aria-hidden="true" inert>
+            <div data-quote-instant-reference>
+              <p className="text-[0.72rem] font-bold uppercase tracking-[0.16em]">Fixed price</p>
+              <p className="mt-0.5 min-h-[2.35rem]" />
+              {layoutAirportAccess ? <div className="my-1.5 text-left">{layoutAirportAccess}</div> : null}
+            </div>
+            <div className="mt-1" data-quote-manual-reference>
+              <p className="text-sm font-bold leading-snug">Business Class — Request a Quote</p>
+              <p className="mt-1 text-xs leading-snug">Executive airport transfers tailored to your requirements. Contact us for a personalised quotation.</p>
+            </div>
+          </div>
+          <div data-quote-changing-info key={vehicleType}>
         <div data-quote-result-price>
           {requestQuote ? (
             <div className="mt-1" data-quote-manual-state>
@@ -237,11 +258,21 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {airportAccess}
           </div>
         ) : null}
-        <div className="mt-0.5">{bookButton}</div>
+          </div>
+        </div>
+        <div className="mt-0.5" data-quote-result-main-action>{bookButton}</div>
+        <div data-quote-footer-grid>
+          <div data-quote-layout-reference aria-hidden="true" inert>
+            <p className="mt-1.5 text-xs font-semibold leading-tight">✓ Fixed price. No surprises.</p>
+            {layoutBusinessClassInclusions}
+          </div>
+          <div data-quote-result-footer>
         {requestQuote || priceUnavailable ? null : (
           <p data-quote-assurance className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
         )}
         {requestQuote ? null : businessClassInclusions}
+          </div>
+        </div>
       </div>
     </div>
   );

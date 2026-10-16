@@ -3,21 +3,21 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const { spawn } = require('node:child_process');
-const root = path.resolve(__dirname, '..'), route = path.join(root, 'src/app/mobile-result-scroll-check/page.tsx');
+const root = path.resolve(__dirname, '..');
 const { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } = require('../shared/owner-pricing-config.ts');
 const { stopTestProcess } = require('./postcode-legacy-harness.cjs');
-if (fs.existsSync(route)) throw new Error('Refusing to overwrite an existing route');
-fs.mkdirSync(path.dirname(route), { recursive: true });
-fs.writeFileSync(route, `'use client';import {useEffect,useState} from 'react';import Header from '@/components/Header';import Footer from '@/components/Footer';import QuoteCard from '@/components/QuoteCard';import {quickSelectToPlace} from '@/lib/selected-place';import {PREVIEW_BELFAST_CITY_HALL_PLACE} from '@/lib/preview-customer-quote';export default function Check(){const [ready,setReady]=useState(false);useEffect(()=>setReady(true),[]);return ready?<><Header/><main className="mx-auto max-w-xl px-4 pt-24"><QuoteCard presentation="homepage" initialPickupPlace={PREVIEW_BELFAST_CITY_HALL_PLACE} initialDropoffPlace={quickSelectToPlace('BFS')}/></main><Footer/></>:null}`);
-const config = toPublicOwnerPricingConfig(defaultOwnerPricingSettings());
+const settings = defaultOwnerPricingSettings();
+settings.executive.requestQuote = true;
+settings.minibus = { ...settings.minibus, publicEnabled: true, requestQuote: true };
+const config = toPublicOwnerPricingConfig(settings);
 config.executive.requestQuote = true; config.minibus = { ...config.minibus, publicEnabled: true, requestQuote: true };
-const server = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '--hostname', '127.0.0.1', '--port', '3094'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn('python3', ['-m', 'http.server', '3094', '--bind', '127.0.0.1', '--directory', 'out'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
 let serverLog = '', browser;
 server.stdout.on('data', b => serverLog += b); server.stderr.on('data', b => serverLog += b);
 const errors = [];
 async function main() {
  try {
-  for (let i = 0; i < 80; i++) { try { const r = await fetch('http://127.0.0.1:3094/mobile-result-scroll-check/', { signal: AbortSignal.timeout(1500) }); if (r.ok) break; } catch {} await new Promise(r => setTimeout(r, 250)); }
+  for (let i = 0; i < 80; i++) { try { const r = await fetch('http://127.0.0.1:3094/?previewJourney=bfs', { signal: AbortSignal.timeout(1500) }); if (r.ok) break; } catch {} await new Promise(r => setTimeout(r, 250)); }
   browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
   const context = await browser.newContext({ serviceWorkers: 'block' });
   await context.route('https://**/*', async r => {
@@ -28,16 +28,17 @@ async function main() {
    if (u.includes('workers.dev')) return r.fulfill({ json: { ok: true, available: true, blocked: false, settings: {} } });
    return r.abort();
   });
-  await context.addInitScript(() => {
+  await context.addInitScript(settings => {
    localStorage.clear(); // Each case begins with a fresh customer journey.
+   localStorage.setItem('matni:preview-pricing-settings', JSON.stringify(settings));
    // Emulate iPhone browser bars reducing the visible viewport without resizing layout.
    window.testBrowserBarHeight = 0;
    if (window.visualViewport) Object.defineProperty(window.visualViewport, 'height', { get: () => innerHeight - window.testBrowserBarHeight });
-  });
+  }, settings);
   const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
    await page.setViewportSize({ width, height }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
-   await page.goto('http://127.0.0.1:3094/mobile-result-scroll-check/');
+   await page.goto('http://127.0.0.1:3094/?previewJourney=bfs');
    await page.locator('#quote-section-passengers').waitFor();
    await page.waitForTimeout(150);
    const consent = page.getByRole('button', { name: 'Essential only', exact: true }); if (await consent.isVisible()) await consent.click();
@@ -89,6 +90,22 @@ async function main() {
   await quote(390, 844, { lateBars: 160 });
   await quote(375, 667, { bars: 100, reduced: true });
   for (const vehicle of ['Estate Car (1–4 passengers)', 'Executive Saloon (1–4 passengers)', 'Minibus (5–7 passengers)']) await quote(390, 844, { bars: 100, vehicle });
+  // Switch through instant, pending and manual states without moving either action row.
+  for (const width of [320, 375, 390, 430]) {
+   await quote(width, 844, { reduced: width === 375 });
+   const positions = () => page.evaluate(() => ['[data-quote-result-main-action]', '[data-quote-result-actions]'].map(selector => document.querySelector(selector).getBoundingClientRect().top + scrollY));
+   const baseline = await positions();
+   for (const id of ['estate', 'executive', 'minibus', 'saloon']) {
+    await page.locator(`[data-vehicle-category="${id}"]`).click();
+    await page.waitForTimeout(100);
+    for (const [i, top] of (await positions()).entries()) assert.ok(Math.abs(top - baseline[i]) <= 2, `${width}px ${id} pending: action ${i} moved ${top - baseline[i]}px`);
+    await page.waitForTimeout(600);
+    for (const [i, top] of (await positions()).entries()) assert.ok(Math.abs(top - baseline[i]) <= 2, `${width}px ${id} ready: action ${i} moved ${top - baseline[i]}px`);
+    const duration = await page.locator('[data-quote-changing-info]').evaluate(el => getComputedStyle(el).animationDuration);
+    assert.equal(duration, width === 375 ? '0s' : '0.36s');
+   }
+   console.log(`OK ${width}px: both action rows stationary through all four vehicles; gentle fade respects Reduce Motion`);
+  }
   await quote(1280, 900);
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
@@ -97,8 +114,7 @@ async function main() {
   console.error(serverLog.slice(-5000));
   throw error;
  } finally {
-  try { if (browser) await browser.close(); await stopTestProcess(server); }
-  finally { fs.rmSync(path.dirname(route), { recursive: true, force: true }); }
+  if (browser) await browser.close(); await stopTestProcess(server);
   if (process.exitCode) console.error(serverLog.slice(-5000));
  }
 }

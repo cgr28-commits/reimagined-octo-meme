@@ -60,7 +60,6 @@ jobs:
           node --import tsx scripts/check-payment-confirmation-browser.mjs
       - name: Mobile result scroll keeps the booking action visible
         run: |
-          mv .next "$RUNNER_TEMP/mobile-scroll-static-next"
           node --import tsx scripts/check-mobile-result-action-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()

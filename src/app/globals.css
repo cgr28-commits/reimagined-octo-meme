@@ -1349,8 +1349,32 @@ main {
   }
 }
 
+/* Invisible, inert text reserves only the space needed by the largest quote state. */
+[data-quote-layout-reference] { display: none; }
+[data-quote-result-detail-slot] { display: contents; }
+
 /* Balance the existing mobile header controls without changing their geometry. */
 @media (max-width: 767px) {
+  .quote-flow [data-quote-result-detail-slot] { display: block; min-height: 1.25rem; }
+  .quote-flow [data-quote-info-grid],
+  .quote-flow [data-quote-footer-grid],
+  .quote-flow [data-quote-layout-reference] { display: grid; }
+  .quote-flow [data-quote-layout-reference] { visibility: hidden; pointer-events: none; }
+  .quote-flow [data-quote-info-grid] > [data-quote-layout-reference] > *,
+  .quote-flow [data-quote-info-grid] > *,
+  .quote-flow [data-quote-footer-grid] > * { grid-area: 1 / 1; min-width: 0; }
+  .quote-flow [data-quote-result-heading],
+  .quote-flow [data-quote-changing-info] { animation: quote-information-change 360ms ease-out; }
+  .quote-flow [data-quote-result-main-action] { min-height: 3rem; }
+  @keyframes quote-information-change {
+    from { opacity: 0.25; }
+    to { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .quote-flow [data-quote-result-heading],
+    .quote-flow [data-quote-changing-info] { animation: none; }
+  }
+
   /* Vehicle art/capacity already appear in the unchanged mobile options above. */
   .quote-flow [data-quote-result-card] [data-quote-result-art],
   .quote-flow [data-quote-result-card] [data-quote-result-capacity] {

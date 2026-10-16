@@ -5953,8 +5953,8 @@ function QuoteCard({
     );
   }
 
-  function renderBusinessClassInclusions() {
-    if (!isExecutiveVehicle(quoteVehicle)) return null;
+  function renderBusinessClassInclusions(forLayout = false) {
+    if (!forLayout && !isExecutiveVehicle(quoteVehicle)) return null;
     const pickupLegs = listAirportPickupLegs({
       airportCode: effectiveAirportCode || null,
       fromAirport: isFromAirport,
@@ -5974,8 +5974,8 @@ function QuoteCard({
     return (
       <div
         className="mt-2 rounded-xl border border-navy/10 bg-navy/[0.03] px-3 py-2 text-left"
-        data-business-class-inclusions
-        data-business-class-pickup={hasPickup ? "true" : "false"}
+        data-business-class-inclusions={forLayout ? undefined : true}
+        data-business-class-pickup={forLayout ? undefined : hasPickup ? "true" : "false"}
       >
         <p className="text-sm font-bold text-navy">Included with Business Class</p>
         <ul className="mt-1.5 grid grid-cols-1 gap-y-1 min-[390px]:grid-cols-2 min-[390px]:gap-x-3">
@@ -7259,6 +7259,18 @@ function QuoteCard({
   }
 
   function renderInstantQuoteResultCard() {
+    const layoutAirportAccess = testChargeAmount === null && effectiveAirportCode ? (
+      <QuoteAirportBenefits
+        pickupAirportCode={isAirportToAirportJourney ? pickupAirportCode : isFromAirport ? effectiveAirportCode || null : null}
+        dropoffAirportCode={isAirportToAirportJourney ? dropoffAirportCode : !isFromAirport ? effectiveAirportCode || null : null}
+        returnJourney={returnJourney}
+        airportFees={airportFeeResolution}
+        expressSelection={expressSelection}
+      />
+    ) : null;
+    const layoutBusinessClassInclusions = publicExecutiveEnabled &&
+      !publicVehicleRequiresPersonalQuote(EXECUTIVE_VEHICLE, publicPricing)
+      ? renderBusinessClassInclusions(true) : null;
     if (isVehiclePersonalQuote) {
       const businessClass = isExecutiveVehicle(quoteVehicle);
       return (
@@ -7269,6 +7281,8 @@ function QuoteCard({
           suitcases={suitcases as number}
           priceLabel=""
           formattedPrice=""
+          airportAccess={layoutAirportAccess}
+          layoutBusinessClassInclusions={layoutBusinessClassInclusions}
           requestQuote={{
             heading: `${vehicleShortLabel(quoteVehicle)} — Request a Quote`,
             description: businessClass
@@ -7311,15 +7325,8 @@ function QuoteCard({
         onRetryPrice={() => {
           void refreshAuthoritativeServerQuote(true);
         }}
-        airportAccess={testChargeAmount === null && effectiveAirportCode ? (
-          <QuoteAirportBenefits
-            pickupAirportCode={isAirportToAirportJourney ? pickupAirportCode : isFromAirport ? effectiveAirportCode || null : null}
-            dropoffAirportCode={isAirportToAirportJourney ? dropoffAirportCode : !isFromAirport ? effectiveAirportCode || null : null}
-            returnJourney={returnJourney}
-            airportFees={airportFeeResolution}
-            expressSelection={expressSelection}
-          />
-        ) : null}
+        airportAccess={layoutAirportAccess}
+        layoutBusinessClassInclusions={layoutBusinessClassInclusions}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />
     );
@@ -7436,6 +7443,13 @@ function QuoteCard({
           <p>Flight monitoring for airport pickups · No hidden charges</p>
           <p>Vehicle shown for illustration.</p>
         </div>
+        {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown && !isVehiclePersonalQuote ? (
+          <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:hidden" data-homepage-return-breakdown>
+            <PromotionalPriceBreakdown alwaysShow breakdown={openWebsiteFareBreakdown}
+              service={expressSelection.service ?? "drop-off"}
+              freeAirportAccessSelected={expressSelection.eligible && expressSelection.feeGbp === 0} />
+          </div>
+        ) : null}
         {isVehiclePersonalQuote ? null : renderPriceBreakdownCollapsible()}
       </>
     );
@@ -8013,7 +8027,7 @@ function QuoteCard({
                     ) : null}
                     {renderQuoteVehicleChoice()}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
-                      <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5" data-homepage-return-breakdown>
+                      <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>
                         <PromotionalPriceBreakdown
                           alwaysShow
                           breakdown={openWebsiteFareBreakdown}
