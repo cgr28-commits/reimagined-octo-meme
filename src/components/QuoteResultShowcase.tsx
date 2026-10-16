@@ -136,7 +136,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           {vehicleLabel}
         </p>
         <p className="sr-only">Vehicle for this journey</p>
-        <p className="mt-0.5 text-[0.84rem] font-semibold leading-tight text-navy">{capacityLine}</p>
+        <p data-quote-result-capacity className="mt-0.5 text-[0.84rem] font-semibold leading-tight text-navy">{capacityLine}</p>
         {detailLine.trim() ? (
           <p className="flex items-center justify-center gap-1 text-[0.78rem] font-medium leading-tight text-navy">
             {isExecutive ? (
@@ -147,7 +147,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {detailLine}
           </p>
         ) : null}
-        <div className="mt-0.5">
+        <div data-quote-result-art className="mt-0.5">
           <VehicleQuoteArt
             vehicle={art}
             src={vehicleImage}

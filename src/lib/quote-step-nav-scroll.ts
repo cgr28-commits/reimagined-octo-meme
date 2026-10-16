@@ -474,7 +474,7 @@ export function quoteRevealEaseInOut(t: number): number {
 
 /**
  * Resting scroll offset for the first quote reveal.
- * Desktop stops at Vehicle options; mobile stops at the selected vehicle.
+ * Stop at Vehicle options on both desktop and mobile.
  * Never hide the selected heading simply to force a lower action into view.
  */
 export function computeQuoteRevealScrollTop(metrics: QuoteRevealMetrics): number | null {
@@ -509,9 +509,7 @@ function readVisualViewport(): { height: number; offsetTop: number } {
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const mobile = window.matchMedia("(max-width: 767px)").matches;
-  const heading = document.querySelector<HTMLElement>(mobile
-    ? "[data-quote-result-card] [data-quote-result-heading]"
-    : "[data-quote-vehicle-options-heading]");
+  const heading = document.querySelector<HTMLElement>("[data-quote-vehicle-options-heading]");
   if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
   const headingRect = heading.getBoundingClientRect();
@@ -537,8 +535,8 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
 
 /**
  * First completed quote only.
- * Waits so the luggage choice can register, then reveals the selected vehicle
- * summary on mobile. Desktop keeps the Vehicle options heading stop.
+ * Waits so the luggage choice can register, then reveals all available vehicle
+ * choices below the fixed header on mobile and desktop.
  * One ease-in-out glide of QUOTE_REVEAL_SCROLL_MS. Document coordinates stay
  * fixed during the glide; the visible viewport height still follows iPhone bars.
  * Reduced motion jumps to the same stop. A touch, swipe, wheel, or scroll key

@@ -1351,6 +1351,12 @@ main {
 
 /* Balance the existing mobile header controls without changing their geometry. */
 @media (max-width: 767px) {
+  /* Vehicle art/capacity already appear in the unchanged mobile options above. */
+  .quote-flow [data-quote-result-card] [data-quote-result-art],
+  .quote-flow [data-quote-result-card] [data-quote-result-capacity] {
+    display: none;
+  }
+
   /* Keep the selected vehicle, price and action together on phone screens. */
   .quote-flow [data-quote-result-card] {
     padding: 0.5rem 0.625rem;

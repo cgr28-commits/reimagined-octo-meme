@@ -51,7 +51,7 @@ check("Pause and glide stay in range, and the quote card does not animate", () =
     scrollLib.indexOf("export function quoteStepTargetId"),
   );
   assert.match(reveal, /data-quote-vehicle-options-heading/);
-  assert.match(reveal, /data-quote-result-heading/);
+  assert.doesNotMatch(reveal, /data-quote-result-heading/);
   assert.doesNotMatch(reveal, /quote-results-lead/);
   assert.match(reveal, /requestAnimationFrame/);
   assert.match(reveal, /scrollBehavior = "auto"/);
