@@ -1,0 +1,56 @@
+name: Postcode pricing review
+on:
+  pull_request:
+    paths:
+      - 'shared/postcode-pricing.ts'
+      - 'shared/owner-pricing-config.ts'
+      - 'shared/website-fare-breakdown.ts'
+      - 'shared/open-website-payment-fares.ts'
+      - 'src/components/OwnerPostcode*'
+      - 'src/components/QuoteFareTrust.tsx'
+      - 'src/components/QuoteCard.tsx'
+      - 'src/lib/postcode-pricing*'
+      - 'src/lib/owner-pricing-api.ts'
+      - 'src/lib/quote.ts'
+      - 'src/lib/pricing-preview-store.ts'
+      - 'workers/addresses/src/owner-pricing*'
+      - 'workers/addresses/src/postcode-preview.ts'
+      - 'workers/addresses/src/profitability.ts'
+      - 'workers/addresses/src/index.ts'
+      - 'scripts/check-postcode*'
+      - 'scripts/postcode-legacy-harness.cjs'
+      - '.github/workflows/postcode-pricing-review.yml'
+permissions:
+  contents: read
+jobs:
+  postcode-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: node scripts/sync-worker-shared.mjs
+      - name: Isolated quote, checkout, security and draft-management tests
+        run: |
+          node --import tsx scripts/check-postcode-pricing.ts
+          node --import tsx scripts/check-postcode-management.ts
+          node --import tsx scripts/check-postcode-release-compatibility.ts
+          node --import tsx scripts/check-owner-pricing.ts
+          node --import tsx scripts/check-profitability-floor.ts
+          node --import tsx scripts/check-open-website-payment-fares.ts
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - name: Isolated dashboard to API to customer booking browser tests
+        run: node --import tsx scripts/check-postcode-pricing-browser.cjs
+      - name: Separate browser development cache from the clean production build
+        run: mv .next "$RUNNER_TEMP/postcode-browser-next"
+      - run: npm run lint
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm --prefix workers/addresses run build

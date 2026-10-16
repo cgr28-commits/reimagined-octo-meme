@@ -439,6 +439,7 @@ import {
 } from "../shared/availability-resource";
 import { getBookingSettings } from "./booking-settings-store";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import { postcodeFareHasPence } from "../shared/postcode-pricing";
 import {
   handleGetReturnOffer,
   handleManualReturnOfferSend,
@@ -2927,7 +2928,9 @@ async function handlePaymentRequest(
     }
 
     const pricingOptions = ownerPricingEngineOptions(pricing);
+    const preserveFixedFarePence = postcodeFareHasPence({ enabled: pricing.postcodePricingEnabled, rules: pricing.postcodeRules, context: { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode ?? "", fromAirport: airportContext.fromAirport }, vehicle: vehicleType, estateSupplement: pricing.estate.upliftGbp, returnJourney: Boolean(booking.returnJourney) });
     const breakdown = composeWebsiteFareBreakdown({
+      preserveFixedFarePence,
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
       airportFixedCostsGbp,
       nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
@@ -2977,6 +2980,8 @@ async function handlePaymentRequest(
     const sumUpChargeGbp = resolveSumUpChargeAmountGbp(
       acceptedFinalRaw,
       serverFinalAmountGbp,
+      undefined,
+      preserveFixedFarePence,
     );
     if (sumUpChargeGbp == null) {
       return json(

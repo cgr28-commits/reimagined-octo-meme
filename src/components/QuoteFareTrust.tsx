@@ -28,8 +28,10 @@ export function buildOpenWebsiteFareBreakdown(input: {
   outboundOneWayBeforeAccessGbp?: number;
   returnOneWayBeforeAccessGbp?: number;
   returnDiscountRate?: number;
+  preserveFixedFarePence?: boolean;
 }): WebsiteFareBreakdown {
   return composeWebsiteFareBreakdown({
+    preserveFixedFarePence: input.preserveFixedFarePence,
     journeyFareBeforeAirportAccessGbp: input.journeyFareBeforeAirportAccessGbp,
     airportFixedCostsGbp: input.airportFixedCostsGbp ?? 0,
     airportAccessChargeGbp: input.airportAccessChargeGbp ?? 0,

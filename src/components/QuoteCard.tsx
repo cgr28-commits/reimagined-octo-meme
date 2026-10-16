@@ -103,6 +103,7 @@ import {
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
 import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
 import { isBrowserPricingPreview, previewMinibusQueryEnabled } from "@/lib/pricing-preview-store";
+import { postcodeFareHasPence } from "../../shared/postcode-pricing";
 import { readPreviewCustomerQuoteSeed } from "@/lib/preview-customer-quote";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
 import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
@@ -2808,6 +2809,7 @@ function QuoteCard({
       isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
     const businessClass = isExecutiveVehicle(quoteVehicle);
     return buildOpenWebsiteFareBreakdown({
+      preserveFixedFarePence: postcodeFareHasPence({ enabled: publicPricing.postcodePricingEnabled, rules: publicPricing.postcodeRules, context: { address: isFromAirport ? dropoffAddress : pickupAddress, airportCode: effectiveAirportCode, fromAirport: isFromAirport }, vehicle: quoteVehicle, estateSupplement: publicPricing.estate.upliftGbp, returnJourney }),
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       nightWeekendSurchargeGbp: journeyFareParts.nightWeekendSurchargeGbp ?? 0,
@@ -2848,6 +2850,11 @@ function QuoteCard({
     quoteVehicle,
     publicPricing.executive?.minimumFareGbp,
     publicPricing.returnDiscount?.rate,
+    publicPricing.postcodeRules,
+    publicPricing.postcodePricingEnabled,
+    publicPricing.estate.upliftGbp,
+    effectiveAirportCode,
+    isFromAirport,
     currentServerFareParts?.outboundOneWayBeforeAccessGbp,
     currentServerFareParts?.returnOneWayBeforeAccessGbp,
     liveQuote?.outboundOneWayBeforeAccessGbp,

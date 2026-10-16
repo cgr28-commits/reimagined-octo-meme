@@ -140,7 +140,7 @@ export function protectSaloonOneWayFare(input: {
   };
 }
 
-async function fetchCachedLeg(from: RoutePoint, to: RoutePoint): Promise<LegMetrics | null> {
+export async function fetchCachedLeg(from: RoutePoint, to: RoutePoint): Promise<LegMetrics | null> {
   if (!Number.isFinite(from.lat) || !Number.isFinite(from.lng) || !Number.isFinite(to.lat) || !Number.isFinite(to.lng)) {
     return null;
   }
@@ -167,7 +167,7 @@ async function fetchCachedLeg(from: RoutePoint, to: RoutePoint): Promise<LegMetr
   return metrics;
 }
 
-async function measureOperationalJob(input: {
+export async function measureOperationalJob(input: {
   pickup: RoutePoint;
   dropoff: RoutePoint;
   passenger: LegMetrics;
@@ -320,6 +320,7 @@ export async function applyProfitabilityProtection(input: {
 
     const dublinRate = ownerPricingEngineOptions(input.pricing).dublinAirportFareAdjustmentRate ?? 0;
     const postcode = postcodeJourneyLegs({
+      enabled: input.pricing?.postcodePricingEnabled,
       rules: input.pricing?.postcodeRules, context: input.postcodeContext,
       vehicle: input.vehicleType, estateSupplement: ownerPricingEngineOptions(input.pricing).estatePremiumGbp,
       returnJourney: input.returnJourney,

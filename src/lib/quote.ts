@@ -778,6 +778,7 @@ export function calculateQuote(
     : 0;
 
   const postcode = postcodeJourneyLegs({
+    enabled: pricing?.postcodePricingEnabled,
     rules: pricing?.postcodeRules,
     context: { address: trimmedAddress, airportCode, fromAirport },
     vehicle: vehicleType, estateSupplement: engine.estatePremiumGbp,

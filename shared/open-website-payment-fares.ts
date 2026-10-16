@@ -296,19 +296,20 @@ export function checkoutAmountsMatch(
 }
 
 /**
- * When validation passes, SumUp charges the authoritative whole-pound server
- * total. The browser cannot substitute a penny variant.
+ * When validation passes, SumUp charges the authoritative server total. Ordinary
+ * fares keep whole-pound rounding; a trusted fixed-pence fare stays exact.
  * Returns null when outside tolerance — caller must 409 / not create checkout.
  */
 export function resolveSumUpChargeAmountGbp(
   acceptedFinalAmountGbp: number,
   serverFinalAmountGbp: number,
   toleranceGbp = 0.02,
+  preserveFixedFarePence = false,
 ): number | null {
   if (!checkoutAmountsMatch(acceptedFinalAmountGbp, serverFinalAmountGbp, toleranceGbp)) {
     return null;
   }
-  return roundCustomerPayableGbp(serverFinalAmountGbp);
+  return preserveFixedFarePence ? roundGbp(serverFinalAmountGbp) : roundCustomerPayableGbp(serverFinalAmountGbp);
 }
 
 export function buildFareMismatchPaymentError(
