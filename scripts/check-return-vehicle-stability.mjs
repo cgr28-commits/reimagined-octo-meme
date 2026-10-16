@@ -43,6 +43,10 @@ try {
   await page.waitForTimeout(1200);
   await page.locator('[data-quote-vehicle-options-heading]').scrollIntoViewIfNeeded();
   for(const [id,vehicle] of [['estate',ESTATE_VEHICLE],['executive',EXECUTIVE_VEHICLE],['minibus',MINIBUS_VEHICLE]]) {
+   // The initial mobile landing is the selected summary. Bring each original
+   // stacked choice into view before measuring repricing, excluding the browser's
+   // legitimate click-target reveal from the no-judder assertion.
+   await page.locator(`[data-vehicle-category="${id}"]`).scrollIntoViewIfNeeded();
    await page.evaluate(()=>{
     window.vehicleFrames=[];
     window.vehicleSampler=setInterval(()=>{const e=document.querySelector('[data-quote-vehicle-options-heading]');const top=e.getBoundingClientRect().top;window.vehicleFrames.push({top,documentTop:top+scrollY,y:scrollY})},16);
