@@ -79,13 +79,16 @@ try {
     pass(`${width}px: missing either selection prevents quote; None accepted as numeric 0`);
     for (const vehicle of ['saloon','estate','executive','minibus']) {
       await page.locator(`[data-vehicle-category="${vehicle}"]`).click();
-      await page.locator(`[data-vehicle-art="${vehicle}"][data-vehicle-art-size="result"]`).waitFor();
+      const summaryArt = page.locator(`[data-vehicle-art="${vehicle}"][data-vehicle-art-size="result"]`);
+      await summaryArt.waitFor({ state: width < 768 ? 'attached' : 'visible' });
+      assert.equal(await summaryArt.isVisible(), width >= 768, 'Duplicate artwork is desktop-only');
+      assert.ok(await page.locator(`[data-vehicle-category="${vehicle}"] [data-vehicle-art-size="option"]`).isVisible(), 'Original choice artwork remains visible');
       await page.locator('[data-quote-results="ready"]').scrollIntoViewIfNeeded();
       await page.screenshot({path:`${output}/${width}-${vehicle}-quote.png`});
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth));
     }
     await page.locator('[data-vehicle-category="saloon"]').click();
-    pass(`${width}px: all four vehicle options and quote images render without horizontal overflow`);
+    pass(`${width}px: all four vehicle options retain images, mobile summary avoids duplication and no horizontal overflow`);
     await book(page);
     await page.screenshot({path:`${output}/${width}-booking.png`});
     await page.locator('#date').fill(''); await page.locator('#time').fill('');
