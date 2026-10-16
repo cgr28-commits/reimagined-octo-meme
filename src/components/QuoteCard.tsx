@@ -7403,7 +7403,9 @@ function QuoteCard({
               type="button"
               onClick={handleSaveQuoteClick}
               data-quote-save
-              className={QUOTE_RESULT_ACTION_CLASS}
+              disabled={isVehiclePersonalQuote}
+              title={isVehiclePersonalQuote ? "Available once your personalised price is confirmed." : undefined}
+              className={`${QUOTE_RESULT_ACTION_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               <QuoteResultActionIcon name="save" />
               <span>Save Quote</span>
@@ -7434,7 +7436,7 @@ function QuoteCard({
           <p>Flight monitoring for airport pickups · No hidden charges</p>
           <p>Vehicle shown for illustration.</p>
         </div>
-        {renderPriceBreakdownCollapsible()}
+        {isVehiclePersonalQuote ? null : renderPriceBreakdownCollapsible()}
       </>
     );
   }
@@ -8026,7 +8028,9 @@ function QuoteCard({
                     {showInstantQuoteResultCard || isVehiclePersonalQuote ? (
                       <>
                         {renderInstantQuoteResultCard()}
-                        {isVehiclePersonalQuote ? renderStartNewQuoteControls("results") : null}
+                        {isVehiclePersonalQuote ? (
+                          <div className="hidden md:block">{renderStartNewQuoteControls("results")}</div>
+                        ) : null}
                       </>
                     ) : (
                       <>
@@ -8104,9 +8108,10 @@ function QuoteCard({
                     variant={showInstantQuoteResultCard || isVehiclePersonalQuote ? "metrics" : "summary"}
                   />
                 </div>
-                {quoteResultsReady && quoteStep === 1 && showInstantQuoteResultCard
-                  ? renderQuoteResultFollowOn(null)
-                  : null}
+                {quoteResultsReady && quoteStep === 1 ? (
+                  showInstantQuoteResultCard ? renderQuoteResultFollowOn(null) :
+                  isVehiclePersonalQuote ? <div className="md:hidden">{renderQuoteResultFollowOn(null)}</div> : null
+                ) : null}
               </div>
             )}
             <div hidden>

@@ -64,6 +64,11 @@ async function main() {
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), false);
     for (const name of ['View route', 'Save Quote', 'Start over']) assert.ok(await page.getByRole('button', { name, exact: true }).isVisible());
     assert.ok(await page.getByRole('link', { name: 'Need help? WhatsApp us', exact: true }).isVisible());
+    const manual = /Executive|Minibus/.test(vehicle);
+    if (manual) assert.equal(await page.getByText('View price breakdown', { exact: true }).count(), 0, 'Unpriced requests must not show a fare breakdown');
+    assert.equal(await page.getByRole('button', { name: 'Save Quote', exact: true }).isDisabled(), manual, 'Unpriced requests cannot be saved as confirmed fares');
+    await page.getByRole('button', { name: 'View route', exact: true }).click();
+    await page.getByRole('button', { name: 'Hide route', exact: true }).click();
     await page.locator('[data-quote-result-card] #quote-book-now-button').scrollIntoViewIfNeeded();
     // A customer can scroll the unchanged stacked list; account for simulated browser bars.
     await page.evaluate(() => {
