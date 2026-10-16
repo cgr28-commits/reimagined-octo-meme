@@ -53,7 +53,7 @@ async function main() {
    });
    assert.equal(m.overflow, false); assert.ok(m.header > 0, 'Real fixed site header must be mounted');
    if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must start at the full vehicle list: ' + JSON.stringify(m));  }
-   else assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m));
+   else { assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m)); assert.ok(await page.locator('[data-quote-result-art]').isVisible()); assert.ok(await page.locator('[data-quote-result-capacity]').isVisible()); }
    assert.match(m.label, /BOOK THIS TRANSFER|REQUEST A QUOTE/);
    // Once the initial responses settle, the result must not keep scrolling.
    await page.waitForTimeout(250); assert.ok(Math.abs(await page.evaluate(() => scrollY) - m.y) <= 2);
@@ -69,7 +69,7 @@ async function main() {
     await page.evaluate(() => {
      const button = document.querySelector('[data-quote-result-card] #quote-book-now-button');
      const overflow = button.getBoundingClientRect().bottom - visualViewport.height + 24;
-     if (overflow > 0) window.scrollBy(0, overflow);
+     if (overflow > 0) window.scrollBy({ top: overflow, behavior: 'instant' });
     });
     const action = await page.locator('[data-quote-result-card] #quote-book-now-button').boundingBox();
     assert.ok(action.y >= m.header && action.y + action.height <= m.height - m.inset, 'Action accessible on mobile');
