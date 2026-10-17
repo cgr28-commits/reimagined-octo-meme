@@ -678,7 +678,7 @@ export default function AddressInput({
       id={listboxId}
       role="listbox"
       style={overlayStyle}
-      className={`address-suggestions address-suggestions-overlay overflow-y-auto overscroll-contain rounded-xl border border-[#d7e0ec] bg-white shadow-xl shadow-black/25 ${
+      className={`address-suggestions address-suggestions-overlay overflow-y-auto overscroll-contain rounded-xl border border-[#244B70] bg-[#0B2748] shadow-xl shadow-black/25 ${
         overlayStyle
           ? "z-[90]"
           : showAbove
@@ -692,13 +692,13 @@ export default function AddressInput({
             type="button"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => void handleSelect(prediction)}
-            className="block min-h-[3.25rem] w-full px-4 py-3.5 text-left transition-colors hover:bg-emerald/15 active:bg-emerald/20"
+            className="block min-h-[3.25rem] w-full px-4 py-3.5 text-left transition-colors hover:bg-emerald/15 active:bg-emerald/20 focus-visible:bg-emerald/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald"
           >
-            <span className="block truncate text-base font-semibold leading-snug text-navy">
+            <span className="block truncate text-base font-semibold leading-snug text-white">
               {prediction.mainText}
             </span>
             {prediction.secondaryText ? (
-              <span className="mt-0.5 block truncate text-sm leading-snug text-navy/70">
+              <span className="mt-0.5 block truncate text-sm leading-snug text-[#C4D3E5]">
                 {prediction.secondaryText}
               </span>
             ) : null}
