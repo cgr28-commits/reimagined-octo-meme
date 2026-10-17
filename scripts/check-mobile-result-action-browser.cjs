@@ -1,6 +1,6 @@
 // Focused quote-reveal regression. All external requests are intercepted; no live API writes.
 // Run: node --import tsx scripts/check-mobile-result-action-browser.cjs
-const { chromium, webkit } = require('playwright');
+const { chromium, webkit, devices } = require('playwright');
 const engine = process.env.QUOTE_TEST_BROWSER || 'chromium';
 assertEngine();
 function assertEngine() { if (!['chromium', 'webkit'].includes(engine)) throw new Error('Unknown quote test browser: ' + engine); }
@@ -22,7 +22,7 @@ async function main() {
  try {
   for (let i = 0; i < 80; i++) { try { const r = await fetch('http://127.0.0.1:3094/?previewJourney=bfs', { signal: AbortSignal.timeout(1500) }); if (r.ok) break; } catch {} await new Promise(r => setTimeout(r, 250)); }
   browser = await (engine === 'webkit' ? webkit.launch() : chromium.launch({ executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] }));
-  const context = await browser.newContext({ serviceWorkers: 'block', hasTouch: true });
+  const context = await browser.newContext({ ...(engine === 'webkit' ? devices['iPhone 14 Pro Max'] : {}), serviceWorkers: 'block', hasTouch: true });
   await context.route('https://**/*', async r => {
    const u = r.request().url();
    if (u.includes('/pricing/public')) return r.fulfill({ json: { ok: true, config } });
