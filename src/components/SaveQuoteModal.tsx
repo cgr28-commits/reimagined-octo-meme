@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { createPortal } from "react-dom";
 import { isValidEmailAddress } from "@/lib/booking-message";
 import { saveQuote, type SaveQuoteRequest, type SaveQuoteResult } from "@/lib/saved-quote-api";
 import type { BuildSaveQuotePayloadResult } from "@/lib/save-quote-payload";
@@ -52,7 +53,7 @@ export default function SaveQuoteModal({
   const [error, setError] = useState("");
   const [result, setResult] = useState<SaveQuoteResult | null>(null);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -101,14 +102,16 @@ export default function SaveQuoteModal({
     onClose();
   }
 
-  return (
+  // Escape the quote card’s backdrop-filter containing block so the dialog
+  // follows the viewport even when the customer is near the end of the form.
+  return createPortal(
     <div
       className="fixed inset-0 z-[80] flex items-end justify-center bg-navy/80 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="save-quote-title"
     >
-      <div className="quote-flow w-full max-w-md overflow-hidden rounded-2xl border border-white/24 bg-navy-dark shadow-2xl">
+      <div className="quote-flow max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/24 bg-navy-dark shadow-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-white/20 px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
@@ -247,6 +250,7 @@ export default function SaveQuoteModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

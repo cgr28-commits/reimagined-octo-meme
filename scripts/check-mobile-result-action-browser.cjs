@@ -19,7 +19,7 @@ async function main() {
  try {
   for (let i = 0; i < 80; i++) { try { const r = await fetch('http://127.0.0.1:3094/?previewJourney=bfs', { signal: AbortSignal.timeout(1500) }); if (r.ok) break; } catch {} await new Promise(r => setTimeout(r, 250)); }
   browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
-  const context = await browser.newContext({ serviceWorkers: 'block' });
+  const context = await browser.newContext({ serviceWorkers: 'block', hasTouch: true });
   await context.route('https://**/*', async r => {
    const u = r.request().url();
    if (u.includes('/pricing/public')) return r.fulfill({ json: { ok: true, config } });
@@ -69,9 +69,33 @@ async function main() {
     const manual = /Executive|Minibus/.test(vehicle);
     if (manual) assert.equal(await page.getByText('View price breakdown', { exact: true }).count(), 0, 'Unpriced requests must not show a fare breakdown');
     assert.equal(await page.getByRole('button', { name: 'Save Quote', exact: true }).isDisabled(), manual, 'Unpriced requests cannot be saved as confirmed fares');
-    await page.getByRole('button', { name: 'View route', exact: true }).click();
+    // Tap the result controls where they are on screen; do not rely on the
+    // locator's automatic scrolling to reveal off-screen map/dialog content.
+    const routeButton = page.getByRole('button', { name: 'View route', exact: true });
+    await routeButton.scrollIntoViewIfNeeded();
+    const routeBox = await routeButton.boundingBox();
+    await page.touchscreen.tap(routeBox.x + routeBox.width / 2, routeBox.y + routeBox.height / 2);
     await page.locator('[data-quote-route-map] .leaflet-container').waitFor();
+    await page.waitForTimeout(700);
+    const mapBox = await page.locator('[data-quote-route-map]').boundingBox();
+    assert.ok(mapBox.y >= m.header && mapBox.y < await page.evaluate(() => visualViewport.height), 'Tapped View route must reveal the map below the header');
     await page.getByRole('button', { name: 'Hide route', exact: true }).click();
+    if (!manual) {
+     const saveButton = page.locator('[data-quote-save]');
+     await saveButton.scrollIntoViewIfNeeded();
+     const saveBox = await saveButton.boundingBox();
+     await page.touchscreen.tap(saveBox.x + saveBox.width / 2, saveBox.y + saveBox.height / 2);
+     const dialog = page.getByRole('dialog', { name: 'Save Quote', exact: true });
+     await dialog.waitFor();
+     assert.ok(await dialog.evaluate(el => el.parentElement === document.body), 'Save dialog must escape the filtered quote card');
+     const bounds = await dialog.locator('.quote-flow').boundingBox();
+     assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= height + 1, 'Save dialog must be within the current phone viewport without scrolling up');
+     const input = dialog.getByRole('textbox', { name: 'YOUR NAME', exact: true });
+     await input.fill('Preview Test');
+     await page.screenshot({ path: path.join(root, `test-results/mobile-result/${width}-${height}-save-dialog.png`) });
+     await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+     assert.equal(await dialog.count(), 0);
+    }
     await page.locator('[data-quote-result-card] #quote-book-now-button').scrollIntoViewIfNeeded();
     // A customer can scroll the unchanged stacked list; account for simulated browser bars.
     await page.evaluate(() => {

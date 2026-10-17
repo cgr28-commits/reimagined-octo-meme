@@ -33,6 +33,7 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { cancelCompetingScrollJobs } from "@/lib/scroll-jobs";
 import {
   focusFirstInvalidField,
+  scheduleBookingNavAfterRender,
   quoteStepTargetId,
   scheduleScrollToBookNowAfterExpressAck,
   scheduleBookTransferGlide,
@@ -7399,7 +7400,13 @@ function QuoteCard({
                 data-quote-view-route
                 aria-expanded={journeyMapOpen}
                 aria-controls="quote-journey-map"
-                onClick={() => setJourneyMapOpen((open) => !open)}
+                onClick={() => {
+                  setJourneyMapOpen((open) => !open);
+                  if (!journeyMapOpen) {
+                    cancelCompetingScrollJobs();
+                    scheduleBookingNavAfterRender("quote-journey-map");
+                  }
+                }}
                 className={QUOTE_RESULT_ACTION_CLASS}
               >
                 <QuoteResultActionIcon name="route" />
