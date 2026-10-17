@@ -1349,8 +1349,78 @@ main {
   }
 }
 
+/* Invisible, inert text reserves only the space needed by the largest quote state. */
+[data-quote-layout-reference] { display: none; }
+[data-quote-result-detail-slot] { display: contents; }
+
 /* Balance the existing mobile header controls without changing their geometry. */
 @media (max-width: 767px) {
+  /* Keep the tall results in the normal scrolling layer on touch screens.
+     The nearly opaque navy surface is unchanged; a backdrop-filter here puts
+     every result action in a separate composited layer during the auto-scroll. */
+  .quote-flow.glass-card[data-quote-presentation]:has([data-quote-result-actions]) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .quote-flow [data-quote-result-detail-slot] { display: block; min-height: 1.25rem; }
+  .quote-flow [data-quote-info-grid],
+  .quote-flow [data-quote-footer-grid],
+  .quote-flow [data-quote-layout-reference] { display: grid; }
+  .quote-flow [data-quote-layout-reference] { visibility: hidden; pointer-events: none; }
+  .quote-flow [data-quote-info-grid] > [data-quote-layout-reference] > *,
+  .quote-flow [data-quote-info-grid] > *,
+  .quote-flow [data-quote-footer-grid] > * { grid-area: 1 / 1; min-width: 0; }
+  .quote-flow [data-quote-result-heading],
+  .quote-flow [data-quote-changing-info] { animation: quote-information-change 360ms ease-out; }
+  .quote-flow [data-quote-result-main-action] { min-height: 3rem; }
+  @keyframes quote-information-change {
+    from { opacity: 0.25; }
+    to { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .quote-flow [data-quote-result-heading],
+    .quote-flow [data-quote-changing-info] { animation: none; }
+  }
+
+  /* Vehicle art/capacity already appear in the unchanged mobile options above. */
+  .quote-flow [data-quote-result-card] [data-quote-result-art],
+  .quote-flow [data-quote-result-card] [data-quote-result-capacity] {
+    display: none;
+  }
+
+  /* Keep the selected vehicle, price and action together on phone screens. */
+  .quote-flow [data-quote-result-card] {
+    padding: 0.5rem 0.625rem;
+  }
+
+  .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
+    height: 2.75rem;
+    max-width: 10rem;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-fare-status] {
+    min-height: 2.35rem;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-party] {
+    column-gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-party] > span {
+    white-space: normal;
+    min-width: 0;
+  }
+
+  .quote-flow [data-quote-result-card] [data-quote-party] svg {
+    flex-shrink: 0;
+  }
+
+  .quote-flow [data-quote-result-airport-access] {
+    margin-block: 0.25rem;
+  }
+
   [data-site-header] .quote-header-logo {
     filter: brightness(1.03) contrast(1.04) saturate(1.02);
   }

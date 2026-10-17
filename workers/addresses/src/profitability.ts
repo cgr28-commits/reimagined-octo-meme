@@ -58,6 +58,7 @@ type LegMetrics = { distanceKm: number; durationMinutes: number };
 const LEG_TTL_MS = 15 * 60 * 1000;
 const LEG_CACHE_MAX = 300;
 const legCache = new Map<string, { metrics: LegMetrics; storedAt: number }>();
+const legInflight = new Map<string, Promise<LegMetrics | null>>();
 
 function roundCoord(value: number): string {
   return value.toFixed(4);
@@ -153,18 +154,25 @@ export async function fetchCachedLeg(from: RoutePoint, to: RoutePoint): Promise<
   if (cached && now - cached.storedAt < LEG_TTL_MS) {
     return cached.metrics;
   }
-  const routed = await fetchOsrmTripRouteMetrics(from.lat, from.lng, to.lat, to.lng);
-  if (!routed || routed.source !== "osrm") return null;
-  const metrics = {
-    distanceKm: routed.distanceKm,
-    durationMinutes: routed.durationMinutes,
-  };
-  legCache.set(key, { metrics, storedAt: now });
-  if (legCache.size > LEG_CACHE_MAX) {
-    const oldest = legCache.keys().next().value;
-    if (oldest) legCache.delete(oldest);
+  const pending = legInflight.get(key);
+  if (pending) return pending;
+  const request = (async () => {
+    const routed = await fetchOsrmTripRouteMetrics(from.lat, from.lng, to.lat, to.lng);
+    if (!routed || routed.source !== "osrm") return null;
+    const metrics = { distanceKm: routed.distanceKm, durationMinutes: routed.durationMinutes };
+    legCache.set(key, { metrics, storedAt: Date.now() });
+    if (legCache.size > LEG_CACHE_MAX) {
+      const oldest = legCache.keys().next().value;
+      if (oldest) legCache.delete(oldest);
+    }
+    return metrics;
+  })();
+  legInflight.set(key, request);
+  try {
+    return await request;
+  } finally {
+    legInflight.delete(key);
   }
-  return metrics;
 }
 
 export async function measureOperationalJob(input: {
@@ -172,8 +180,11 @@ export async function measureOperationalJob(input: {
   dropoff: RoutePoint;
   passenger: LegMetrics;
 }): Promise<{ operationalMiles: number; operationalMinutes: number } | null> {
-  const toPickup = await fetchCachedLeg(OPERATING_BASE, input.pickup);
-  const toBase = await fetchCachedLeg(input.dropoff, OPERATING_BASE);
+  // Independent legs run together and are shared by concurrent vehicle quotes.
+  const [toPickup, toBase] = await Promise.all([
+    fetchCachedLeg(OPERATING_BASE, input.pickup),
+    fetchCachedLeg(input.dropoff, OPERATING_BASE),
+  ]);
   if (!toPickup || !toBase) return null;
   const distanceKm = toPickup.distanceKm + input.passenger.distanceKm + toBase.distanceKm;
   const durationMinutes =

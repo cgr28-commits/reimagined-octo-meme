@@ -20,6 +20,7 @@ import {
 } from "@/components/QuoteBookingHelpControls";
 import TripMap from "@/components/TripMap";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
+import QuoteActionDialog from "@/components/QuoteActionDialog";
 import {
   QUOTE_RESULT_ACTION_CLASS,
   QuoteResultActionIcon,
@@ -973,7 +974,7 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
-  const [journeyMapOpen, setJourneyMapOpen] = useState(false);
+  const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | null>(null);
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
   const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
@@ -4650,7 +4651,7 @@ function QuoteCard({
     setQuoteTransactionId("");
     setBookingDelivery(null);
     setQuoteStep(1);
-    setJourneyMapOpen(false);
+    setQuoteActionOpen(null);
     setCustomerName("");
     setCustomerMobile("");
     setCustomerEmail("");
@@ -5953,8 +5954,8 @@ function QuoteCard({
     );
   }
 
-  function renderBusinessClassInclusions() {
-    if (!isExecutiveVehicle(quoteVehicle)) return null;
+  function renderBusinessClassInclusions(forLayout = false) {
+    if (!forLayout && !isExecutiveVehicle(quoteVehicle)) return null;
     const pickupLegs = listAirportPickupLegs({
       airportCode: effectiveAirportCode || null,
       fromAirport: isFromAirport,
@@ -5974,8 +5975,8 @@ function QuoteCard({
     return (
       <div
         className="mt-2 rounded-xl border border-navy/10 bg-navy/[0.03] px-3 py-2 text-left"
-        data-business-class-inclusions
-        data-business-class-pickup={hasPickup ? "true" : "false"}
+        data-business-class-inclusions={forLayout ? undefined : true}
+        data-business-class-pickup={forLayout ? undefined : hasPickup ? "true" : "false"}
       >
         <p className="text-sm font-bold text-navy">Included with Business Class</p>
         <ul className="mt-1.5 grid grid-cols-1 gap-y-1 min-[390px]:grid-cols-2 min-[390px]:gap-x-3">
@@ -7259,6 +7260,18 @@ function QuoteCard({
   }
 
   function renderInstantQuoteResultCard() {
+    const layoutAirportAccess = testChargeAmount === null && effectiveAirportCode ? (
+      <QuoteAirportBenefits
+        pickupAirportCode={isAirportToAirportJourney ? pickupAirportCode : isFromAirport ? effectiveAirportCode || null : null}
+        dropoffAirportCode={isAirportToAirportJourney ? dropoffAirportCode : !isFromAirport ? effectiveAirportCode || null : null}
+        returnJourney={returnJourney}
+        airportFees={airportFeeResolution}
+        expressSelection={expressSelection}
+      />
+    ) : null;
+    const layoutBusinessClassInclusions = publicExecutiveEnabled &&
+      !publicVehicleRequiresPersonalQuote(EXECUTIVE_VEHICLE, publicPricing)
+      ? renderBusinessClassInclusions(true) : null;
     if (isVehiclePersonalQuote) {
       const businessClass = isExecutiveVehicle(quoteVehicle);
       return (
@@ -7269,6 +7282,8 @@ function QuoteCard({
           suitcases={suitcases as number}
           priceLabel=""
           formattedPrice=""
+          airportAccess={layoutAirportAccess}
+          layoutBusinessClassInclusions={layoutBusinessClassInclusions}
           requestQuote={{
             heading: `${vehicleShortLabel(quoteVehicle)} — Request a Quote`,
             description: businessClass
@@ -7311,15 +7326,8 @@ function QuoteCard({
         onRetryPrice={() => {
           void refreshAuthoritativeServerQuote(true);
         }}
-        airportAccess={testChargeAmount === null && effectiveAirportCode ? (
-          <QuoteAirportBenefits
-            pickupAirportCode={isAirportToAirportJourney ? pickupAirportCode : isFromAirport ? effectiveAirportCode || null : null}
-            dropoffAirportCode={isAirportToAirportJourney ? dropoffAirportCode : !isFromAirport ? effectiveAirportCode || null : null}
-            returnJourney={returnJourney}
-            airportFees={airportFeeResolution}
-            expressSelection={expressSelection}
-          />
-        ) : null}
+        airportAccess={layoutAirportAccess}
+        layoutBusinessClassInclusions={layoutBusinessClassInclusions}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />
     );
@@ -7366,12 +7374,35 @@ function QuoteCard({
     return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
   }
 
+  function renderQuoteActionPopup() {
+    if (!quoteActionOpen) return null;
+    const journey = quoteJourneyEndpoints();
+    const restarting = quoteActionOpen === "restart";
+    return (
+      <QuoteActionDialog
+        title={quoteActionOpen === "route" ? "View route" : restarting ? "Need a quote for a different journey?" : "WhatsApp"}
+        role={restarting ? "alertdialog" : "dialog"}
+        wide={quoteActionOpen === "route"}
+        onClose={() => setQuoteActionOpen(null)}>
+        {quoteActionOpen === "route" ? (
+          <QuoteJourneyMap origin={journey?.origin ?? null} destination={journey?.destination ?? null}
+            durationLabel={routeMetrics ? formatRouteCardJourneyTime(routeMetrics.durationMinutes) : ""}
+            fallbackHref={quoteDirectionsHref()} />
+        ) : restarting ? (
+          <div data-start-new-quote-confirm>
+            <p className="quote-secondary text-sm leading-relaxed">This will clear your current journey details and start a new quote. Continue?</p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <button type="button" onClick={() => setQuoteActionOpen(null)} className="rounded-xl border border-white/25 px-4 py-3 text-sm font-semibold text-white">Keep Current Quote</button>
+              <button type="button" onClick={performStartNewQuote} className="rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy">Start New Quote</button>
+            </div>
+          </div>
+        ) : <QuoteHelpContact variant="card" />}
+      </QuoteActionDialog>
+    );
+  }
+
   function renderQuoteResultFollowOn(routeMap: ReactNode) {
     const mapsHref = quoteDirectionsHref();
-    const journey = quoteJourneyEndpoints();
-    const routeTimeLabel = routeMetrics
-      ? formatRouteCardJourneyTime(routeMetrics.durationMinutes)
-      : "";
     return (
       <>
         {routeMap}
@@ -7390,35 +7421,39 @@ function QuoteCard({
               <button
                 type="button"
                 data-quote-view-route
-                aria-expanded={journeyMapOpen}
-                aria-controls="quote-journey-map"
-                onClick={() => setJourneyMapOpen((open) => !open)}
+                aria-haspopup="dialog"
+                onClick={() => setQuoteActionOpen("route")}
                 className={QUOTE_RESULT_ACTION_CLASS}
               >
                 <QuoteResultActionIcon name="route" />
-                <span>{journeyMapOpen ? "Hide route" : "View route"}</span>
+                <span>View route</span>
               </button>
             ) : null}
             <button
               type="button"
               onClick={handleSaveQuoteClick}
               data-quote-save
-              className={QUOTE_RESULT_ACTION_CLASS}
+              aria-haspopup="dialog"
+              disabled={isVehiclePersonalQuote}
+              title={isVehiclePersonalQuote ? "Available once your personalised price is confirmed." : undefined}
+              className={`${QUOTE_RESULT_ACTION_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               <QuoteResultActionIcon name="save" />
               <span>Save Quote</span>
             </button>
-            {renderStartNewQuoteControls("results")}
-            <QuoteHelpContact variant="card" className="!mt-0" />
+            {startNewQuotePlacement === "results" ? (
+              <button type="button" onClick={() => setQuoteActionOpen("restart")}
+                aria-haspopup="dialog" className={QUOTE_RESULT_ACTION_CLASS}>
+                <QuoteResultActionIcon name="restart" /><span>Start over</span>
+              </button>
+            ) : null}
+            <button type="button" onClick={() => setQuoteActionOpen("whatsapp")}
+              aria-haspopup="dialog" aria-label="Need help? WhatsApp us"
+              className={QUOTE_RESULT_ACTION_CLASS}>
+              <QuoteResultActionIcon name="whatsapp" className="h-[1.15rem] w-[1.15rem] text-[#25D366]" />
+              <span>WhatsApp</span>
+            </button>
           </div>
-          {journeyMapOpen ? (
-            <QuoteJourneyMap
-              origin={journey?.origin ?? null}
-              destination={journey?.destination ?? null}
-              durationLabel={routeTimeLabel}
-              fallbackHref={mapsHref}
-            />
-          ) : null}
           {renderBookingErrorHelp("step1-actions")}
           {saveQuotePrompt ? (
             <p className="text-center text-xs text-emerald/90" role="status">
@@ -7434,7 +7469,14 @@ function QuoteCard({
           <p>Flight monitoring for airport pickups · No hidden charges</p>
           <p>Vehicle shown for illustration.</p>
         </div>
-        {renderPriceBreakdownCollapsible()}
+        {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown && !isVehiclePersonalQuote ? (
+          <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:hidden" data-homepage-return-breakdown>
+            <PromotionalPriceBreakdown alwaysShow breakdown={openWebsiteFareBreakdown}
+              service={expressSelection.service ?? "drop-off"}
+              freeAirportAccessSelected={expressSelection.eligible && expressSelection.feeGbp === 0} />
+          </div>
+        ) : null}
+        {isVehiclePersonalQuote ? null : renderPriceBreakdownCollapsible()}
       </>
     );
   }
@@ -8011,7 +8053,7 @@ function QuoteCard({
                     ) : null}
                     {renderQuoteVehicleChoice()}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
-                      <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5" data-homepage-return-breakdown>
+                      <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>
                         <PromotionalPriceBreakdown
                           alwaysShow
                           breakdown={openWebsiteFareBreakdown}
@@ -8026,7 +8068,9 @@ function QuoteCard({
                     {showInstantQuoteResultCard || isVehiclePersonalQuote ? (
                       <>
                         {renderInstantQuoteResultCard()}
-                        {isVehiclePersonalQuote ? renderStartNewQuoteControls("results") : null}
+                        {isVehiclePersonalQuote ? (
+                          <div className="hidden md:block">{renderStartNewQuoteControls("results")}</div>
+                        ) : null}
                       </>
                     ) : (
                       <>
@@ -8104,9 +8148,10 @@ function QuoteCard({
                     variant={showInstantQuoteResultCard || isVehiclePersonalQuote ? "metrics" : "summary"}
                   />
                 </div>
-                {quoteResultsReady && quoteStep === 1 && showInstantQuoteResultCard
-                  ? renderQuoteResultFollowOn(null)
-                  : null}
+                {quoteResultsReady && quoteStep === 1 ? (
+                  showInstantQuoteResultCard ? renderQuoteResultFollowOn(null) :
+                  isVehiclePersonalQuote ? <div className="space-y-1.5 md:hidden">{renderQuoteResultFollowOn(null)}</div> : null
+                ) : null}
               </div>
             )}
             <div hidden>
@@ -8607,6 +8652,7 @@ function QuoteCard({
 
         {quoteStep >= 2 ? renderCheckoutPage() : null}
       </form>
+      {renderQuoteActionPopup()}
       <SaveQuoteModal
         open={saveQuoteOpen}
         onClose={() => {

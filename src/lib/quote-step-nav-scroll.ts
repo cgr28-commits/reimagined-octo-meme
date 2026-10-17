@@ -474,20 +474,16 @@ export function quoteRevealEaseInOut(t: number): number {
 
 /**
  * Resting scroll offset for the first quote reveal.
- * Keeps the heading stop on desktop. On mobile, scroll further only when needed
- * to expose the whole booking action, without putting it behind the header.
+ * Stop at Vehicle options on both desktop and mobile.
+ * Never hide the selected heading simply to force a lower action into view.
  */
 export function computeQuoteRevealScrollTop(metrics: QuoteRevealMetrics): number | null {
   const breathing = metrics.clearancePx ?? QUOTE_REVEAL_BREATHING_PX;
   const idealHeadingTop = metrics.headerBottom + breathing;
   const delta = metrics.headingTop - idealHeadingTop;
-  let desiredTop = metrics.scrollY + delta;
-  if (metrics.actionTop != null && metrics.actionBottom != null) {
-    const visibleBottom = metrics.viewportHeight - (metrics.bottomInset ?? 0) - QUOTE_REVEAL_ACTION_CLEARANCE_PX;
-    const showActionBottom = metrics.scrollY + metrics.actionBottom - visibleBottom;
-    const keepActionBelowHeader = metrics.scrollY + metrics.actionTop - idealHeadingTop;
-    desiredTop = Math.min(Math.max(desiredTop, showActionBottom), keepActionBelowHeader);
-  }
+  const desiredTop = metrics.scrollY + delta;
+  // Keep the selected vehicle heading visible on mobile. The summary is compact
+  // enough for common iPhones; unusually short viewports can scroll naturally.
   const maxScroll = metrics.maxScroll ?? Number.POSITIVE_INFINITY;
   const nextTop = Math.min(maxScroll, Math.max(0, Math.round(desiredTop)));
   return Math.abs(nextTop - metrics.scrollY) <= REVEAL_EDGE_TOLERANCE_PX ? null : nextTop;
@@ -512,11 +508,11 @@ function readVisualViewport(): { height: number; offsetTop: number } {
  * The four vehicle options plus summary cannot always fit on one phone screen.
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
+  const mobile = window.matchMedia("(max-width: 767px)").matches;
   const heading = document.querySelector<HTMLElement>("[data-quote-vehicle-options-heading]");
   if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
   const headingRect = heading.getBoundingClientRect();
-  const mobile = window.matchMedia("(max-width: 767px)").matches;
   const action = mobile ? Array.from(document.querySelectorAll<HTMLElement>("[data-quote-result-card] #quote-book-now-button"))
     .find(element => element.getClientRects().length > 0) : undefined;
   const actionRect = action?.getBoundingClientRect();
@@ -539,10 +535,10 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
 
 /**
  * First completed quote only.
- * Waits so the luggage choice can register, then scrolls once so Vehicle
- * options sits under the sticky header, or further on mobile to reveal the CTA.
- * One ease-in-out glide of QUOTE_REVEAL_SCROLL_MS. Mobile remeasures during
- * this same glide as iPhone browser chrome and delayed content settle.
+ * Waits so the luggage choice can register, then reveals all available vehicle
+ * choices below the fixed header on mobile and desktop.
+ * One ease-in-out glide of QUOTE_REVEAL_SCROLL_MS. Document coordinates stay
+ * fixed during the glide; the visible viewport height still follows iPhone bars.
  * Reduced motion jumps to the same stop. A touch, swipe, wheel, or scroll key
  * cancels it. Fare updates do not start another scroll.
  */
@@ -605,14 +601,20 @@ export function scheduleQuoteRevealScroll(handlers: {
 
   let attempts = 0;
 
-  const scrollOnce = (target: number) => {
+  const scrollOnce = (target: number, metrics: QuoteRevealMetrics) => {
     const root = document.documentElement;
     const previousBehavior = root.style.scrollBehavior;
+    const previousAnchor = root.style.overflowAnchor;
     root.style.scrollBehavior = "auto";
+    root.style.overflowAnchor = "none";
+    const mobile = window.matchMedia("(max-width: 767px)").matches;
+    let layoutObserver: ResizeObserver | null = null;
     const startY = window.scrollY;
     const change = target - startY;
     restoreMotion = () => {
       root.style.scrollBehavior = previousBehavior;
+      root.style.overflowAnchor = previousAnchor;
+      layoutObserver?.disconnect();
     };
     if (prefersReducedMotion() || Math.abs(change) <= REVEAL_EDGE_TOLERANCE_PX) {
       if (Math.abs(change) > 1) window.scrollTo(0, target);
@@ -621,6 +623,17 @@ export function scheduleQuoteRevealScroll(handlers: {
       return;
     }
     const started = performance.now();
+    if (mobile && typeof ResizeObserver !== "undefined") {
+      const results = document.getElementById("quote-results-summary");
+      if (results) {
+        // A late return-fare breakdown can grow above the card. Remeasure only
+        // for a real layout change, never as feedback from our own scroll.
+        layoutObserver = new ResizeObserver(() => {
+          if (!stopped && !userInterrupted) metrics = measureQuoteReveal() ?? metrics;
+        });
+        layoutObserver.observe(results);
+      }
+    }
     const tick = (now: number) => {
       if (stopped || userInterrupted) {
         haltMotion();
@@ -628,9 +641,13 @@ export function scheduleQuoteRevealScroll(handlers: {
         return;
       }
       const progress = Math.min(1, (now - started) / QUOTE_REVEAL_SCROLL_MS);
-      if (window.matchMedia("(max-width: 767px)").matches) {
-        const current = measureQuoteReveal();
-        if (current?.actionBottom != null) target = computeQuoteRevealScrollTop(current) ?? window.scrollY;
+      if (mobile && metrics.actionBottom != null) {
+        // Do not feed this animation's changing scroll position back into its
+        // destination or force a layout measurement on every frame.
+        target = computeQuoteRevealScrollTop({
+          ...metrics,
+          viewportHeight: readVisualViewport().height,
+        }) ?? target;
       }
       const y = progress >= 1 ? target : startY + (target - startY) * quoteRevealEaseInOut(progress);
       window.scrollTo(0, y);
@@ -668,7 +685,7 @@ export function scheduleQuoteRevealScroll(handlers: {
       stopListening();
       return;
     }
-    scrollOnce(nextTop);
+    scrollOnce(nextTop, metrics);
   };
 
   timer = window.setTimeout(() => {

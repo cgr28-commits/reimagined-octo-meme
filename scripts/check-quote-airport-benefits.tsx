@@ -65,6 +65,26 @@ noFee.expressSelection = resolveExpressDropOff({ airportCode: "BFS", fromAirport
 assert.doesNotMatch(buildQuoteAirportBenefits(noFee)[0].heading, /Included|Terminal/);
 assert.doesNotMatch(buildQuoteAirportBenefits(noFee)[0].description, /charges included|close to/);
 
+// Ignore inert sizing references when checking customer-visible claims and order.
+// Balance nested divs so removing a reference never removes the live card content.
+function visibleCardMarkup(html: string) {
+  let depth = 0;
+  return html.replace(/<\/?div\b[^>]*>|[^<]+|<[^>]*>/g, (token) => {
+    if (depth) {
+      if (/^<div\b/.test(token)) depth++;
+      if (/^<\/div>/.test(token)) depth--;
+      return "";
+    }
+    if (/^<div\b/.test(token) && token.includes("data-quote-layout-reference")) {
+      assert.match(token, /aria-hidden="true"/);
+      assert.match(token, /inert=""/);
+      depth = 1;
+      return "";
+    }
+    return token;
+  });
+}
+
 const renderCard = (unavailable = false) => renderToStaticMarkup(
   <QuoteResultShowcase
     vehicleType="Saloon" passengers={2} suitcases={2} priceLabel="Fixed price" formattedPrice="£54"
@@ -73,11 +93,11 @@ const renderCard = (unavailable = false) => renderToStaticMarkup(
     bookButton={<button type="button" data-test-book>BOOK THIS TRANSFER</button>}
   />,
 );
-const html = renderCard();
+const html = visibleCardMarkup(renderCard());
 assert.ok(html.indexOf("£54") < html.indexOf("Terminal Pickup Included"));
 assert.ok(html.indexOf("Terminal Pickup Included") < html.indexOf("BOOK THIS TRANSFER"));
 assert.ok(html.indexOf("BOOK THIS TRANSFER") < html.indexOf("Fixed price. No surprises."));
-assert.doesNotMatch(renderCard(true), /Terminal Pickup Included/);
+assert.doesNotMatch(visibleCardMarkup(renderCard(true)), /Terminal Pickup Included/);
 for (const vehicleType of ["Executive", "Minibus"]) {
   const manual = renderToStaticMarkup(
     <QuoteResultShowcase vehicleType={vehicleType} passengers={2} suitcases={2}
@@ -88,6 +108,6 @@ for (const vehicleType of ["Executive", "Minibus"]) {
     />,
   );
   assert.match(manual, /REQUEST A QUOTE/);
-  assert.doesNotMatch(manual, /Fixed price|£54|No surprises|Terminal Pickup Included/);
+  assert.doesNotMatch(visibleCardMarkup(manual), /Fixed price|£54|No surprises|Terminal Pickup Included/);
 }
 console.log("OK airport-to-airport, non-airport, unpaid-access fallback, card order and unavailable-fare checks");

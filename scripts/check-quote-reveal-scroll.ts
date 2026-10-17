@@ -13,7 +13,6 @@ import {
   computeQuoteRevealScrollTop,
   quoteRevealEaseInOut,
   QUOTE_REVEAL_BREATHING_PX,
-  QUOTE_REVEAL_ACTION_CLEARANCE_PX,
   QUOTE_REVEAL_PAUSE_MS,
   QUOTE_REVEAL_SCROLL_MS,
   type QuoteRevealMetrics,
@@ -52,7 +51,8 @@ check("Pause and glide stay in range, and the quote card does not animate", () =
     scrollLib.indexOf("export function quoteStepTargetId"),
   );
   assert.match(reveal, /data-quote-vehicle-options-heading/);
-  assert.doesNotMatch(reveal, /data-quote-result-heading|quote-results-lead/);
+  assert.doesNotMatch(reveal, /data-quote-result-heading/);
+  assert.doesNotMatch(reveal, /quote-results-lead/);
   assert.match(reveal, /requestAnimationFrame/);
   assert.match(reveal, /scrollBehavior = "auto"/);
   assert.match(reveal, /QUOTE_REVEAL_SCROLL_MS/);
@@ -96,15 +96,14 @@ const phones = [
 ] as const;
 
 for (const phone of phones) {
-  check(`${phone.name} keeps the complete mobile booking action above browser chrome`, () => {
+  check(`${phone.name} never hides the selected vehicle to force a lower action onto the screen`, () => {
     const frame: QuoteRevealMetrics = {
       scrollY: 1200, viewportHeight: phone.viewportHeight, headerBottom: phone.headerBottom,
       headingTop: 750, actionTop: 1650, actionBottom: 1706, bottomInset: 0,
     };
     const nextTop = computeQuoteRevealScrollTop(frame)!;
-    const bottom = frame.actionBottom! + frame.scrollY - nextTop;
     const top = frame.actionTop! + frame.scrollY - nextTop;
-    assert.ok(bottom <= phone.viewportHeight - QUOTE_REVEAL_ACTION_CLEARANCE_PX + 1);
+    assert.equal(landedHeading(frame, nextTop), idealHeading(phone.headerBottom));
     assert.ok(top >= phone.headerBottom + QUOTE_REVEAL_BREATHING_PX - 1);
   });
   check(`${phone.name} rests the vehicle heading just below the header`, () => {
@@ -122,11 +121,11 @@ for (const phone of phones) {
   });
 }
 
-check("Mobile action clears the cookie banner and uses the visual viewport, not layout height", () => {
+check("Short viewports preserve the selected heading and allow normal scrolling", () => {
   const frame: QuoteRevealMetrics = {scrollY: 400, viewportHeight: 520, headerBottom: 72,
     headingTop: 500, actionTop: 1100, actionBottom: 1156, bottomInset: 140};
   const nextTop = computeQuoteRevealScrollTop(frame)!;
-  assert.equal(frame.actionBottom! + frame.scrollY - nextTop, 520 - 140 - QUOTE_REVEAL_ACTION_CLEARANCE_PX);
+  assert.equal(landedHeading(frame, nextTop), idealHeading(frame.headerBottom));
   const landed = {...frame, scrollY: nextTop, headingTop: frame.headingTop + frame.scrollY - nextTop,
     actionTop: frame.actionTop! + frame.scrollY - nextTop, actionBottom: frame.actionBottom! + frame.scrollY - nextTop};
   assert.equal(computeQuoteRevealScrollTop(landed), null, "settled result must not keep scrolling");

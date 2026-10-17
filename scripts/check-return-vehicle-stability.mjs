@@ -10,7 +10,7 @@ await fs.mkdir(output,{recursive:true});
 const browser=await chromium.launch();
 const results=[];
 try {
- for (const width of [390,1280]) for (const returning of [false,true]) {
+ for (const width of [320,375,390,430,1280]) for (const returning of [false,true]) {
   const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
   const settings=defaultOwnerPricingSettings(); settings.minibus.publicEnabled=true;
   await context.addInitScript(settings=>localStorage.setItem('matni:preview-pricing-settings',JSON.stringify(settings)),settings);
@@ -39,23 +39,27 @@ try {
   await page.locator('#quote-section-suitcases').selectOption('0');
   await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
   await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i}).waitFor();
-  if(returning) await page.locator('[data-homepage-return-breakdown]').waitFor();
+  if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
   await page.waitForTimeout(1200);
   await page.locator('[data-quote-vehicle-options-heading]').scrollIntoViewIfNeeded();
   for(const [id,vehicle] of [['estate',ESTATE_VEHICLE],['executive',EXECUTIVE_VEHICLE],['minibus',MINIBUS_VEHICLE]]) {
+   // The initial mobile landing is the selected summary. Bring each original
+   // stacked choice into view before measuring repricing, excluding the browser's
+   // legitimate click-target reveal from the no-judder assertion.
+   await page.locator(`[data-vehicle-category="${id}"]`).scrollIntoViewIfNeeded();
    await page.evaluate(()=>{
     window.vehicleFrames=[];
-    window.vehicleSampler=setInterval(()=>{const e=document.querySelector('[data-quote-vehicle-options-heading]');const top=e.getBoundingClientRect().top;window.vehicleFrames.push({top,documentTop:top+scrollY,y:scrollY})},16);
+    window.vehicleSampler=setInterval(()=>{const e=document.querySelector('[data-quote-vehicle-options-heading]');const top=e.getBoundingClientRect().top;const action=document.querySelector("[data-quote-result-main-action]").getBoundingClientRect();const tools=document.querySelector("[data-quote-result-actions]").getBoundingClientRect();window.vehicleFrames.push({top,documentTop:top+scrollY,y:scrollY,action:action.top+scrollY,tools:tools.top+scrollY})},16);
    });
    await page.locator(`[data-vehicle-category="${id}"]`).click();
    await page.waitForTimeout(450);
-   if(returning) assert.equal(await page.locator('[data-homepage-return-breakdown]').count(),0,'must exercise the pending-fare layout');
+   if(returning) assert.equal(await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').count(),0,'must exercise the pending-fare layout');
    allowed.add(vehicle);for(const resolve of pending.get(vehicle)||[]) resolve(); pending.delete(vehicle);
    await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i}).waitFor();
-   if(returning) await page.locator('[data-homepage-return-breakdown]').waitFor();
+   if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
    await page.waitForTimeout(250);
    const frames=await page.evaluate(()=>{clearInterval(window.vehicleSampler);return window.vehicleFrames});
-   for(const key of ['top','documentTop','y']) assert.ok(Math.max(...frames.map(f=>f[key]))-Math.min(...frames.map(f=>f[key]))<=2,`${width}px ${returning?'return':'one-way'} ${id}: ${key} moved`);
+   for(const key of width<768?['top','documentTop','y','action','tools']:['top','documentTop','y']) assert.ok(Math.max(...frames.map(f=>f[key]))-Math.min(...frames.map(f=>f[key]))<=2,`${width}px ${returning?'return':'one-way'} ${id}: ${key} moved`);
   }
   await page.screenshot({path:`${output}/${width}-${returning?'return':'one-way'}-vehicle-stability.png`});
   results.push(`${width}px ${returning?'return':'one-way'}: Estate, Business Class and 7-Seater delayed authoritative repricing keeps vehicle heading and scroll position within 2px`);

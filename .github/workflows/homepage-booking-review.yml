@@ -10,6 +10,9 @@ on:
       - 'src/app/globals.css'
       - 'src/components/HomepageQuoteFields.tsx'
       - 'src/components/QuoteCard.tsx'
+      - 'src/components/QuoteActionDialog.tsx'
+      - 'src/components/SaveQuoteModal.tsx'
+      - 'src/components/QuoteVehicleCategories.tsx'
       - 'src/lib/quote-step-nav-scroll.ts'
       - 'scripts/check-quote-reveal-scroll.ts'
       - 'scripts/check-mobile-result-action-browser.cjs'
@@ -44,10 +47,14 @@ jobs:
           node --import tsx scripts/check-dublin-city-profitability.ts
       - run: GITHUB_PAGES=true npm run build
       - run: npm install --no-save --package-lock=false playwright@1.58.2
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - run: node --import tsx scripts/check-dublin-airport-label.ts
       - run: node --import tsx scripts/check-email-logo.ts
       - run: node --import tsx scripts/check-booking-confirmation-preview.ts
+      - name: Mobile result scroll keeps the booking action visible
+        run: |
+          QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs
+          node --import tsx scripts/check-mobile-result-action-browser.cjs
       - name: Test homepage and booking on mobile and desktop
         run: |
           python3 -m http.server 3000 --directory out &
@@ -57,14 +64,11 @@ jobs:
           node --import tsx scripts/check-hub-quote-browser.mjs
           node --import tsx scripts/check-email-logo-browser.mjs
           node --import tsx scripts/check-payment-confirmation-browser.mjs
-      - name: Mobile result scroll keeps the booking action visible
-        run: |
-          mv .next "$RUNNER_TEMP/mobile-scroll-static-next"
-          node --import tsx scripts/check-mobile-result-action-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: homepage-booking-review
           path: |
+            test-results/mobile-result/
             test-results/homepage-booking/
             test-results/greater-belfast-ireland/
