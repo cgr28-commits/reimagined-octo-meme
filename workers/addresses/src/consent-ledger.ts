@@ -1,3 +1,4 @@
+import { markMeasurementUnavailable } from "./measurement-availability";
 /** Irrevocable, strongly consistent withdrawal tombstones; no customer/click data. */
 const PREFIX = "measurement:withdrawn:";
 const RETENTION_MS = 180 * 86400_000;
@@ -36,17 +37,19 @@ export function withConsistentConsentLedger(
     if (!namespace || !/^[a-f0-9-]{36}$/i.test(id)) throw new Error("Consent ledger unavailable");
     return namespace.get(namespace.idFromName(id));
   };
-  return new Proxy(store, {
+  const wrapped = new Proxy(store, {
     get(target, property) {
       if (property === "get") return async (key: string, ...args: unknown[]) => {
         if (!key.startsWith(PREFIX)) return Reflect.apply(target.get, target, [key, ...args]);
-        const response = await stubFor(key).fetch("https://consent.internal/status");
-        if (!response.ok) throw new Error("Consent check unavailable");
-        const body = await response.json() as { revoked?: unknown };
-        if (typeof body.revoked !== "boolean") throw new Error("Invalid consent status");
-        if (body.revoked) return "1";
-        // Honour existing legacy denials during the coordinated cutover as well.
-        return (await Reflect.apply(target.get, target, [key])) ? "1" : null;
+        try {
+          const response = await stubFor(key).fetch("https://consent.internal/status");
+          if (!response.ok) throw new Error("Consent check unavailable");
+          const body = await response.json() as { revoked?: unknown };
+          if (typeof body.revoked !== "boolean") throw new Error("Invalid consent status");
+          if (body.revoked) return "1";
+          // Honour existing legacy denials during the coordinated cutover as well.
+          return (await Reflect.apply(target.get, target, [key])) ? "1" : null;
+        } catch (error) { markMeasurementUnavailable(wrapped); throw error; }
       };
       if (property === "put") return async (key: string, ...args: unknown[]) => {
         if (!key.startsWith(PREFIX)) return Reflect.apply(target.put, target, [key, ...args]);
@@ -64,4 +67,5 @@ export function withConsistentConsentLedger(
       return typeof value === "function" ? value.bind(target) : value;
     },
   });
+  return wrapped;
 }

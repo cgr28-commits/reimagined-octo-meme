@@ -63,6 +63,7 @@ async function run(mode, mobile=false){
   // otherwise WebKit can correctly interrupt our next navigation with the reload.
   await page.waitForFunction(previous=>performance.timeOrigin!==previous,previousDocument);
   await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('networkidle');
   const stopped=collected.length;await page.waitForTimeout(600);assert.equal(collected.length,stopped,'no new external requests after withdrawal');
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('operational-test-draft')),'keep');
   if(mode==='storage-failure'){assert.ok(page.url().includes('measurement=off'));await page.goto(site+'/cookies/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(300);assert.equal(collected.length,stopped,'essential denial cookie protects other URLs after blocked preference storage');}

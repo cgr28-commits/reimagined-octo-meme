@@ -1,4 +1,5 @@
 import { eligibleAdvertisingConsent } from "./measurement-consent";
+import { measurementUnavailable } from "./measurement-availability";
 /**
  * After SumUp PAID finalize: upload Paid Booking to Google Ads once per payment.
  * Never throws — payment confirmation must not fail because Ads is unavailable.
@@ -109,8 +110,23 @@ async function uploadEligiblePaidBooking(input: {
     return;
   }
 
+  if (measurementUnavailable(store)) {
+    await persistConversionOutcome(store, paymentReference, {
+      status: "failed", orderId: paymentReference,
+      error: "Consent verification unavailable; retry after recovery",
+    });
+    return;
+  }
+
   const attribution = existing.attribution ?? null; // Persisted permitted evidence is authoritative.
   const consent = await eligibleAdvertisingConsent(store, attribution?.consent);
+  if (measurementUnavailable(store)) {
+    await persistConversionOutcome(store, paymentReference, {
+      status: "failed", orderId: paymentReference,
+      error: "Consent verification unavailable; retry after recovery",
+    });
+    return;
+  }
   if (
     !consent ||
     existing?.cancelledAt ||

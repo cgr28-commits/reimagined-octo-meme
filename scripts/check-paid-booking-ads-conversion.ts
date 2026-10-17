@@ -326,6 +326,36 @@ async function main() {
   });
   assert.equal(unpaid.paid, false);
   assert.equal(uploads.length, uploaded);
+  // A ledger outage denies uploads, but must not erase evidence or make a
+  // transient outage terminal. A later request must still check withdrawal.
+  const outageKv = mockKv(), ledger = await mockConsentNamespace();
+  const healthy = withConsistentConsentLedger(outageKv as unknown as KVNamespace, ledger as unknown as DurableObjectNamespace)!;
+  const retained = consent(), revokedDuringOutage = consent();
+  for (const [ref, snapshot] of [["TEST-RECOVER", retained], ["TEST-REVOKED-RECOVER", revokedDuringOutage]] as const)
+    await savePaidBookingRecord(healthy, {...make(ref), attribution: {...attribution, consent: snapshot}});
+  const originalTtl = outageKv.ttls.get("measurement:paid:TEST-RECOVER");
+  const unavailable = {idFromName:(id:string)=>id,get:()=>({fetch:async()=>new Response("{}",{status:503})})};
+  for (const ref of ["TEST-RECOVER", "TEST-REVOKED-RECOVER"]) {
+    const down = withConsistentConsentLedger(outageKv as unknown as KVNamespace, unavailable as unknown as DurableObjectNamespace)!;
+    await maybeUploadPaidBookingAdsConversion({env:{...env, TRACKING_STORE:down},paymentReference:ref,amount:50});
+    assert.equal(JSON.parse(outageKv.m.get(`booking:ref:${ref}`)!).googleAdsPaidConversionStatus,"failed");
+    assert.ok(outageKv.m.has(`measurement:paid:${ref}`));
+  }
+  assert.equal(uploads.length,uploaded,"no upload during ledger outage");
+  assert.equal(outageKv.ttls.get("measurement:paid:TEST-RECOVER"), originalTtl,"outage does not extend retention");
+  await handleMeasurementWithdrawal(new Request("https://test.invalid/measurement/withdraw",{method:"POST",body:JSON.stringify({ids:[revokedDuringOutage.id]})}),healthy,null);
+  let recoveryUploads=0;
+  globalThis.fetch=async(input)=>{
+    if(String(input).includes("oauth2.googleapis.com"))return new Response('{"access_token":"TEST"}');
+    if(String(input).includes("googleads.googleapis.com")){recoveryUploads++;return new Response('{"results":[{"orderId":"TEST-RECOVER"}]}');}
+    throw Error("Unexpected external request in outage recovery");
+  };
+  const recoveredStore=withConsistentConsentLedger(outageKv as unknown as KVNamespace,ledger as unknown as DurableObjectNamespace)!;
+  await retryRecentPaidBookingAdsConversions({...env,TRACKING_STORE:recoveredStore});
+  assert.equal(recoveryUploads,1,"only still-consented booking uploads after recovery");
+  assert.equal((await getPaidBookingRecord(recoveredStore,"TEST-RECOVER"))?.googleAdsPaidConversionStatus,"sent");
+  assert.equal((await getPaidBookingRecord(recoveredStore,"TEST-REVOKED-RECOVER"))?.googleAdsPaidConversionStatus,"skipped_no_consent");
+  console.log("PASS ledger outage preserves TTL/evidence, retries after recovery and still enforces withdrawal");
   console.log(
     "PASS first SumUp PAID checkout, customer/owner notification mocks, no return, duplicate webhook, unpaid SumUp rejection",
   );

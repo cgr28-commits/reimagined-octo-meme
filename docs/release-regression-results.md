@@ -1,6 +1,6 @@
 # Isolated regression census — 17 October 2026
 
-239 TS checks attempted: 200 pass, 39 non-passes also reproduced on remote main. No new non-pass relative to main. The separate 20-suite measurement runner and real workerd/SQLite test pass. Tests run with fictional/mocked providers, without credentials or unmocked HTTP/CLI access.
+Latest rerun: 239 TS checks attempted; 201 pass, 38 non-passes also reproduced on remote main. The earlier run was 200/239; the Cork transfer check is intermittent on the unchanged baseline. No new non-pass relative to main. The separate 20-suite measurement runner and real workerd/SQLite test pass. Tests run with fictional/mocked providers, without credentials or unmocked HTTP/CLI access.
 
 Do not describe this as a fully green repository. Review stale assertions and genuine baseline defects before release; live-data and historical-harness checks need isolated supported substitutes rather than production access. Pricing algorithms/configuration are unchanged by this branch.
 
@@ -53,7 +53,7 @@ Do not describe this as a fully green repository. Review stale assertions and ge
 | `check-company-voice-journey-messages.ts` | Pass | — |
 | `check-consent-ledger.ts` | Pass | — |
 | `check-conversion-tracking.ts` | Pass | — |
-| `check-cork-transfer-pages.ts` | Existing assertion failure | Also fails/blocked on main |
+| `check-cork-transfer-pages.ts` | Pass on latest rerun; previously failed | Intermittent baseline check |
 | `check-cruise-terminal-page.ts` | Pass | — |
 | `check-customer-booking-reference.ts` | Existing assertion failure | Also fails/blocked on main |
 | `check-customer-confirm-email.ts` | Pass | — |
