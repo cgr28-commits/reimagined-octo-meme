@@ -7404,7 +7404,7 @@ function QuoteCard({
                   setJourneyMapOpen((open) => !open);
                   if (!journeyMapOpen) {
                     cancelCompetingScrollJobs();
-                    scheduleBookingNavAfterRender("quote-journey-map");
+                    scheduleBookingNavAfterRender("quote-step1-next");
                   }
                 }}
                 className={QUOTE_RESULT_ACTION_CLASS}
