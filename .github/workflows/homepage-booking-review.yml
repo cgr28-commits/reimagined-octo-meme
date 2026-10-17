@@ -10,6 +10,8 @@ on:
       - 'src/app/globals.css'
       - 'src/components/HomepageQuoteFields.tsx'
       - 'src/components/QuoteCard.tsx'
+      - 'src/components/QuoteActionDialog.tsx'
+      - 'src/components/SaveQuoteModal.tsx'
       - 'src/components/QuoteVehicleCategories.tsx'
       - 'src/lib/quote-step-nav-scroll.ts'
       - 'scripts/check-quote-reveal-scroll.ts'
@@ -45,7 +47,7 @@ jobs:
           node --import tsx scripts/check-dublin-city-profitability.ts
       - run: GITHUB_PAGES=true npm run build
       - run: npm install --no-save --package-lock=false playwright@1.58.2
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - run: node --import tsx scripts/check-dublin-airport-label.ts
       - run: node --import tsx scripts/check-email-logo.ts
       - run: node --import tsx scripts/check-booking-confirmation-preview.ts
@@ -61,6 +63,7 @@ jobs:
       - name: Mobile result scroll keeps the booking action visible
         run: |
           node --import tsx scripts/check-mobile-result-action-browser.cjs
+          QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

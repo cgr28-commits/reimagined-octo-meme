@@ -1355,6 +1355,14 @@ main {
 
 /* Balance the existing mobile header controls without changing their geometry. */
 @media (max-width: 767px) {
+  /* Keep the tall results in the normal scrolling layer on touch screens.
+     The nearly opaque navy surface is unchanged; a backdrop-filter here puts
+     every result action in a separate composited layer during the auto-scroll. */
+  .quote-flow.glass-card[data-quote-presentation]:has([data-quote-result-actions]) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
   .quote-flow [data-quote-result-detail-slot] { display: block; min-height: 1.25rem; }
   .quote-flow [data-quote-info-grid],
   .quote-flow [data-quote-footer-grid],

@@ -1,6 +1,9 @@
 // Focused quote-reveal regression. All external requests are intercepted; no live API writes.
 // Run: node --import tsx scripts/check-mobile-result-action-browser.cjs
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
+const engine = process.env.QUOTE_TEST_BROWSER || 'chromium';
+assertEngine();
+function assertEngine() { if (!['chromium', 'webkit'].includes(engine)) throw new Error('Unknown quote test browser: ' + engine); }
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
@@ -18,7 +21,7 @@ const errors = [];
 async function main() {
  try {
   for (let i = 0; i < 80; i++) { try { const r = await fetch('http://127.0.0.1:3094/?previewJourney=bfs', { signal: AbortSignal.timeout(1500) }); if (r.ok) break; } catch {} await new Promise(r => setTimeout(r, 250)); }
-  browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] });
+  browser = await (engine === 'webkit' ? webkit.launch() : chromium.launch({ executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] }));
   const context = await browser.newContext({ serviceWorkers: 'block', hasTouch: true });
   await context.route('https://**/*', async r => {
    const u = r.request().url();
@@ -36,7 +39,7 @@ async function main() {
    if (window.visualViewport) Object.defineProperty(window.visualViewport, 'height', { get: () => innerHeight - window.testBrowserBarHeight });
   }, settings);
   const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
-  async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
+  async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, firstTap = null, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
    await page.setViewportSize({ width, height }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
    await page.goto('http://127.0.0.1:3094/?previewJourney=bfs');
    await page.locator('#quote-section-passengers').waitFor();
@@ -60,7 +63,7 @@ async function main() {
    // Once the initial responses settle, the result must not keep scrolling.
    await page.waitForTimeout(250); assert.ok(Math.abs(await page.evaluate(() => scrollY) - m.y) <= 2);
    fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
-   await page.screenshot({ path: path.join(root, `test-results/mobile-result/${width}-${height}-${bars}-${lateBars}-${reduced}-${vehicle.split(' ')[0]}.png`) });
+   await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-${width}-${height}-${bars}-${lateBars}-${reduced}-${vehicle.split(' ')[0]}.png`) });
    if (width < 768) {
     assert.equal(await page.locator('[data-quote-result-art]').isVisible(), false);
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), false);
@@ -75,9 +78,26 @@ async function main() {
      ['Start over', 'alertdialog', 'Need a quote for a different journey?'],
      ['Need help? WhatsApp us', 'dialog', 'WhatsApp'],
     ];
-    for (const [buttonName, role, title] of popups) {
+    for (const [buttonName, role, title] of popups.filter(([name]) => !firstTap || name === firstTap)) {
      const control = page.getByRole('button', { name: buttonName, exact: true });
-     await control.scrollIntoViewIfNeeded();
+     // A fresh journey for each first-tap case: do not use locator.click(),
+     // scrollIntoViewIfNeeded(), wheel or swipe before this coordinate tap.
+     if (!firstTap) await control.scrollIntoViewIfNeeded();
+     else {
+      assert.ok(Math.abs(await page.evaluate(() => scrollY) - m.y) <= 2, 'No helper scroll before the first tap');
+      const hit = await control.evaluate(el => {
+       const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+       const top = document.elementFromPoint(x, y);
+       const surface = el.closest('.glass-card');
+       const css = getComputedStyle(surface);
+       return { x, y, bottom: r.bottom, height: visualViewport.height,
+        target: el === top || el.contains(top), blocker: top?.outerHTML.slice(0, 250),
+        blur: css.backdropFilter || css.webkitBackdropFilter || 'none' };
+      });
+      assert.ok(hit.y > m.header && hit.bottom <= hit.height, 'First-tap target must actually be visible at the automatic landing: ' + JSON.stringify(hit));
+      assert.equal(hit.target, true, 'First tap is intercepted: ' + JSON.stringify(hit));
+      assert.equal(hit.blur, 'none', 'Mobile result controls must not inherit a filtered scrolling layer');
+     }
      const before = await page.evaluate(() => ({ y: scrollY, fare: document.querySelector('[data-quote-result-card]').textContent,
       actionTop: document.querySelector('[data-quote-result-actions]').getBoundingClientRect().top }));
      const box = await control.boundingBox();
@@ -91,7 +111,7 @@ async function main() {
      if (buttonName === 'View route') await dialog.locator('.leaflet-container').waitFor();
      if (buttonName === 'Save Quote') await dialog.getByRole('textbox', { name: 'Your name', exact: true }).fill('Preview Test');
      if (buttonName === 'Need help? WhatsApp us') assert.match(await dialog.getByRole('link', { name: 'Need help? WhatsApp us', exact: true }).getAttribute('href'), /wa\.me\//);
-     await page.screenshot({ path: path.join(root, `test-results/mobile-result/${width}-${height}-${vehicle.split(' ')[0]}-${buttonName.split(' ')[0]}-popup.png`) });
+     await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-${width}-${height}-${vehicle.split(' ')[0]}-${buttonName.split(' ')[0]}-popup.png`) });
      await dialog.getByRole('button', { name: 'Close', exact: true }).click();
      await page.waitForTimeout(80);
      assert.equal(await dialog.count(), 0);
@@ -111,10 +131,20 @@ async function main() {
     });
     const action = await page.locator('[data-quote-result-card] #quote-book-now-button').boundingBox();
     assert.ok(action.y >= m.header && action.y + action.height <= m.height - m.inset, 'Action accessible on mobile: ' + JSON.stringify({ width, height, action, header: m.header, visibleHeight: m.height }));
-    await page.screenshot({ path: path.join(root, `test-results/mobile-result/${width}-${height}-${vehicle.split(' ')[0]}-action.png`) });
+    await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-${width}-${height}-${vehicle.split(' ')[0]}-action.png`) });
    }
 
-   console.log('OK result landing ' + JSON.stringify({ width, height, bars, lateBars, reduced, vehicle, ...m }));
+   console.log('OK ' + engine + (firstTap ? ' first tap without manual scrolling: ' + firstTap + ' ' : ' result landing ')  + JSON.stringify({ width, height, bars, lateBars, reduced, vehicle, ...m }));
+  }
+  // Each action must work as the FIRST touch after the automatic reveal.
+  // Larger iPhone viewport fits the unchanged stacked list and action row.
+  for (const firstTap of ['View route', 'Save Quote', 'Start over', 'Need help? WhatsApp us']) {
+   await quote(430, 932, { firstTap });
+  }
+  if (engine === 'webkit') {
+   assert.deepEqual(errors, []);
+   console.log('OK WebKit mobile: all four first taps open popups at the automatic landing, close restores quote/scroll; no helper scrolling or live writes');
+   return;
   }
   for (const [width, height] of [[320, 568], [375, 667], [390, 844], [430, 932]]) await quote(width, height, { bars: 100 });
   await quote(390, 844, { lateBars: 160 });
