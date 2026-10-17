@@ -32,16 +32,7 @@ async function main() {
    return r.abort();
   });
   await context.addInitScript(settings => {
-   window.testScrollCalls = []; window.testTouchEvents = []; window.testRaf = { requested: 0, fired: 0 }; window.testTimers = [];
-   const nativeRaf = requestAnimationFrame.bind(window);
-   window.requestAnimationFrame = callback => { window.testRaf.requested++; return nativeRaf(at => { window.testRaf.fired++; callback(at); }); };
-   const nativeTimeout = setTimeout.bind(window), nativeClear = clearTimeout.bind(window);
-   window.setTimeout = (callback, delay, ...args) => {
-    const record = delay === 350 ? { at: Math.round(performance.now()), delay, fired: false, cancelled: false } : null;
-    const id = nativeTimeout((...values) => { if (record) record.fired = true; callback(...values); }, delay, ...args);
-    if (record) { record.id = id; window.testTimers.push(record); } return id;
-   };
-   window.clearTimeout = id => { const record = window.testTimers.find(item => item.id === id); if (record) record.cancelled = true; return nativeClear(id); };
+   window.testScrollCalls = []; window.testTouchEvents = [];
    const nativeScrollTo = window.scrollTo.bind(window);
    window.scrollTo = (...args) => { window.testScrollCalls.push({ args, at: Math.round(performance.now()) }); return nativeScrollTo(...args); };
    for (const name of ['touchstart', 'touchmove', 'touchend', 'wheel']) window.addEventListener(name, event => {
@@ -74,7 +65,7 @@ async function main() {
    await page.waitForFunction(() => {
     const heading = document.querySelector('[data-quote-vehicle-options-heading]');
     const header = document.querySelector('header.fixed, header[class*="fixed"]');
-    return heading && header && Math.abs(heading.getBoundingClientRect().top - header.getBoundingClientRect().bottom - 12) <= 9;
+    return heading && header && document.documentElement.style.scrollBehavior !== 'auto' && Math.abs(heading.getBoundingClientRect().top - header.getBoundingClientRect().bottom - 12) <= 9;
    }, null, { timeout: 10000 });
    const m = await page.evaluate(() => {
     const btn = [...document.querySelectorAll('[data-quote-result-card] #quote-book-now-button')].find(e => e.getClientRects().length);
@@ -210,7 +201,7 @@ async function main() {
    console.error('Scroll diagnostics', await page.evaluate(() => ({
     y: scrollY, root: document.documentElement.scrollHeight, client: document.documentElement.clientHeight,
     body: document.body.style.cssText, behavior: document.documentElement.style.cssText,
-    visible: document.visibilityState, raf: window.testRaf, timers: window.testTimers,
+    visible: document.visibilityState,
     scrolls: window.testScrollCalls.slice(-5), touches: window.testTouchEvents,
     ancestors: (() => { const out = []; let el = document.querySelector('[data-quote-result-actions]'); while (el) { const s = getComputedStyle(el); out.push({ tag: el.tagName, class: el.className, scrollTop: el.scrollTop, overflow: s.overflow }); el = el.parentElement; } return out; })(),
    })));
