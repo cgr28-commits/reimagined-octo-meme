@@ -2,20 +2,20 @@ import { buildGoogleReviewRequestEmail } from "../shared/booking-notifications";
 import { resolveGoogleReviewUrl } from "../shared/business-links";
 import { corsHeaders } from "../shared/google-places";
 import {
+  clearUnsentReviewRequest,
   ensureReviewRequestScheduled,
   getReviewRequestStatus,
   isReviewRequestDue,
-  journeyStatusOf,
   resolveReviewRequestDelayMs,
+  reviewRequestSendRefusal,
   type ReviewRequestStatus,
   type TrackingJobRecord,
 } from "../shared/tracking";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
-import { getPaidBookingRecord } from "./paid-booking-store";
+import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import {
   findTrackingJobByPaymentReference,
   getTrackingJob,
-  isTrackingJobCancelled,
   listTrackingJobsForRecentDays,
   saveTrackingJob,
   trackingStoreConfigured,
@@ -86,6 +86,77 @@ export function buildReviewRequestSummary(job: TrackingJobRecord): ReviewRequest
       ? { ownerBccSent: job.reviewRequestOwnerBccSent }
       : {}),
   };
+}
+
+/**
+ * A cancelled paid booking, or the cancelled leg of a return, must not receive
+ * a Google review request. A refund that leaves the journey confirmed does not
+ * block it.
+ */
+export function paidBookingCancelsReviewRequest(
+  booking: {
+    operationalStatus?: string | null;
+    status?: string | null;
+    cancelledLegs?: Array<"outbound" | "return"> | null;
+    outboundCancelledAt?: string | null;
+    returnCancelledAt?: string | null;
+  } | null | undefined,
+  journeyLeg?: "outbound" | "return" | null,
+): boolean {
+  if (!booking) return false;
+  if (booking.operationalStatus === "cancelled" || booking.status === "cancelled") return true;
+  if (journeyLeg === "return") {
+    return Boolean(booking.returnCancelledAt?.trim() || booking.cancelledLegs?.includes("return"));
+  }
+  if (journeyLeg === "outbound") {
+    return Boolean(
+      booking.outboundCancelledAt?.trim() || booking.cancelledLegs?.includes("outbound"),
+    );
+  }
+  return false;
+}
+
+export type ReviewRequestGateReason = "ok" | "missing" | "already_sent" | "not_completed" | "cancelled";
+
+export type ReviewRequestGate = {
+  action: "send" | "skip";
+  reason: ReviewRequestGateReason;
+  job: TrackingJobRecord | null;
+};
+
+/**
+ * Reload the stored journey immediately before a review email can be sent.
+ * A stale in-memory copy from the cron scan is not enough: Cancel or Reopen
+ * may have landed after that scan. Pending unsent review fields are removed
+ * when the live record is cancelled or no longer completed. A sent audit is
+ * never rewritten.
+ */
+export async function reloadReviewRequestEligibility(
+  store: KVNamespace,
+  token: string,
+  options?: { allowAlreadySent?: boolean },
+): Promise<ReviewRequestGate> {
+  const job = await getTrackingJob(store, token);
+  if (!job) return { action: "skip", reason: "missing", job: null };
+
+  const paymentReference = job.paymentReference?.trim() ?? "";
+  let bookingCancelled = false;
+  if (paymentReference && paidBookingStoreConfigured(store)) {
+    const paid = await getPaidBookingRecord(store, paymentReference);
+    bookingCancelled = paidBookingCancelsReviewRequest(paid, job.journeyLeg);
+  }
+
+  const refusal = bookingCancelled ? "cancelled" : reviewRequestSendRefusal(job);
+  if (!refusal) return { action: "send", reason: "ok", job };
+  if (refusal === "already_sent" && options?.allowAlreadySent) {
+    return { action: "send", reason: "ok", job };
+  }
+  if (refusal === "cancelled" || refusal === "not_completed") {
+    const cleared = clearUnsentReviewRequest(job);
+    if (cleared !== job) await saveTrackingJob(store, cleared);
+    return { action: "skip", reason: refusal, job: cleared };
+  }
+  return { action: "skip", reason: "already_sent", job };
 }
 
 export function isReviewRequestSendPath(pathname: string): boolean {
@@ -279,15 +350,12 @@ async function maybeProcessReviewRequest(
     return "not_eligible";
   }
 
-  if (isTrackingJobCancelled(job) || job.refundedAt?.trim()) {
+  const opened = await reloadReviewRequestEligibility(env.TRACKING_STORE!, job.token);
+  if (opened.action === "skip" || !opened.job) {
     return "not_eligible";
   }
 
-  if (journeyStatusOf(job) !== "completed") {
-    return "not_eligible";
-  }
-
-  let current = job;
+  let current = opened.job;
   const beforeScheduled = Boolean(current.reviewRequestScheduledAt?.trim());
   current = ensureReviewRequestScheduled(current, delayMs);
   if (!beforeScheduled && current.reviewRequestScheduledAt) {
@@ -300,6 +368,13 @@ async function maybeProcessReviewRequest(
   }
 
   const recipient = await resolveReviewRequestRecipient(env.TRACKING_STORE!, current);
+  // Send-time check. Cancel or Reopen after the scan must still stop the email.
+  const fresh = await reloadReviewRequestEligibility(env.TRACKING_STORE!, current.token);
+  if (fresh.action === "skip" || !fresh.job || !isReviewRequestDue(fresh.job, delayMs)) {
+    return "not_eligible";
+  }
+  current = fresh.job;
+
   if (!recipient) {
     current.reviewRequestFailedAt = new Date().toISOString();
     current.reviewRequestLastError =
@@ -309,7 +384,11 @@ async function maybeProcessReviewRequest(
     return "eligible_error";
   }
 
-  current = recipient.job;
+  current = {
+    ...current,
+    ...(current.customerEmail?.trim() ? {} : { customerEmail: recipient.job.customerEmail }),
+    ...(current.customerName?.trim() ? {} : { customerName: recipient.job.customerName }),
+  };
   const sendResult = await sendReviewRequestEmail(env, current, reviewUrl, recipient);
   if (!sendResult.sent) {
     current.reviewRequestFailedAt = new Date().toISOString();
@@ -366,35 +445,36 @@ export async function handleReviewRequestSendRequest(
     );
   }
 
-  if (isTrackingJobCancelled(job) || job.refundedAt?.trim()) {
-    return jsonResponse(
-      { error: "This booking was cancelled or refunded — review request not sent." },
-      400,
-      origin,
-    );
-  }
-
-  if (journeyStatusOf(job) !== "completed") {
+  const gated = await reloadReviewRequestEligibility(env.TRACKING_STORE, job.token, {
+    allowAlreadySent: forceResend,
+  });
+  if (gated.action === "skip" || !gated.job) {
+    if (gated.reason === "cancelled") {
+      return jsonResponse(
+        { error: "This booking was cancelled or refunded — review request not sent." },
+        400,
+        origin,
+      );
+    }
+    if (gated.reason === "already_sent") {
+      return jsonResponse(
+        {
+          ok: false,
+          alreadySent: true,
+          error:
+            "A Google review email was already sent for this journey. Use Resend Email Review Request if you intentionally want another email copy.",
+          reviewRequest: buildReviewRequestSummary(gated.job ?? job),
+        },
+        409,
+        origin,
+      );
+    }
     return jsonResponse(
       {
         error: "Journey is not completed yet. Mark the journey completed before sending a review request.",
-        reviewRequest: buildReviewRequestSummary(job),
+        reviewRequest: buildReviewRequestSummary(gated.job ?? job),
       },
-      409,
-      origin,
-    );
-  }
-
-  if (job.reviewRequestSentAt?.trim() && !forceResend) {
-    return jsonResponse(
-      {
-        ok: false,
-        alreadySent: true,
-        error:
-          "A Google review email was already sent for this journey. Use Resend Email Review Request if you intentionally want another email copy.",
-        reviewRequest: buildReviewRequestSummary(job),
-      },
-      409,
+      gated.reason === "missing" ? 404 : 409,
       origin,
     );
   }
@@ -405,7 +485,7 @@ export async function handleReviewRequestSendRequest(
   }
 
   const delayMs = delayMsFromEnv(env);
-  let current = ensureReviewRequestScheduled(job, delayMs);
+  let current = ensureReviewRequestScheduled(gated.job, delayMs);
 
   const recipient = await resolveReviewRequestRecipient(env.TRACKING_STORE, current);
   if (!recipient) {
@@ -425,7 +505,44 @@ export async function handleReviewRequestSendRequest(
     );
   }
 
-  current = recipient.job;
+  const fresh = await reloadReviewRequestEligibility(env.TRACKING_STORE, current.token, {
+    allowAlreadySent: forceResend,
+  });
+  if (fresh.action === "skip" || !fresh.job) {
+    if (fresh.reason === "cancelled") {
+      return jsonResponse(
+        { error: "This booking was cancelled or refunded — review request not sent." },
+        400,
+        origin,
+      );
+    }
+    if (fresh.reason === "already_sent") {
+      return jsonResponse(
+        {
+          ok: false,
+          alreadySent: true,
+          error:
+            "A Google review email was already sent for this journey. Use Resend Email Review Request if you intentionally want another email copy.",
+          reviewRequest: buildReviewRequestSummary(fresh.job ?? current),
+        },
+        409,
+        origin,
+      );
+    }
+    return jsonResponse(
+      {
+        error: "Journey is not completed yet. Mark the journey completed before sending a review request.",
+        reviewRequest: buildReviewRequestSummary(fresh.job ?? current),
+      },
+      fresh.reason === "missing" ? 404 : 409,
+      origin,
+    );
+  }
+  current = {
+    ...fresh.job,
+    ...(fresh.job.customerEmail?.trim() ? {} : { customerEmail: recipient.job.customerEmail }),
+    ...(fresh.job.customerName?.trim() ? {} : { customerName: recipient.job.customerName }),
+  };
   const sendResult = await sendReviewRequestEmail(env, current, reviewUrl, recipient);
   if (!sendResult.sent) {
     current.reviewRequestFailedAt = new Date().toISOString();
