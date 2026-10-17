@@ -1,3 +1,4 @@
+import { storeAttribution, loadAttribution } from "./attribution-store";
 import {
   paidBookingCheckoutKey,
   paidBookingCreatedDayIndexKey,
@@ -18,12 +19,17 @@ import {
   generateManageBookingToken,
   normalizeManageBookingToken,
 } from "../shared/manage-booking-token";
-import { bookingInUpcomingHorizon, isOwnerOperationalTestBooking } from "../shared/upcoming-jobs";
+import {
+  bookingInUpcomingHorizon,
+  isOwnerOperationalTestBooking,
+} from "../shared/upcoming-jobs";
 
 const RECORD_TTL = 60 * 60 * 24 * 400;
 const DAY_INDEX_TTL = 60 * 60 * 24 * 400;
 
-export function paidBookingStoreConfigured(store?: KVNamespace): store is KVNamespace {
+export function paidBookingStoreConfigured(
+  store?: KVNamespace,
+): store is KVNamespace {
   return Boolean(store);
 }
 
@@ -88,19 +94,37 @@ export async function savePaidBookingRecord(
   record: PaidBookingRecord,
   options?: { previousTripDate?: string; previousReturnDate?: string },
 ): Promise<void> {
-  await store.put(paidBookingRefKey(record.paymentReference), JSON.stringify(record), {
-    expirationTtl: RECORD_TTL,
-  });
+  const attributionKey = `measurement:paid:${record.paymentReference}`;
+  await storeAttribution(store, attributionKey, record.attribution);
+  const operational = { ...record };
+  delete operational.attribution;
+  await store.put(
+    paidBookingRefKey(record.paymentReference),
+    JSON.stringify(operational),
+    {
+      expirationTtl: RECORD_TTL,
+    },
+  );
   if (record.checkoutId?.trim()) {
-    await store.put(paidBookingCheckoutKey(record.checkoutId), record.paymentReference, {
-      expirationTtl: RECORD_TTL,
-    });
+    await store.put(
+      paidBookingCheckoutKey(record.checkoutId),
+      record.paymentReference,
+      {
+        expirationTtl: RECORD_TTL,
+      },
+    );
   }
-  const customerRef = normalizeCustomerBookingReference(record.customerReference ?? "");
+  const customerRef = normalizeCustomerBookingReference(
+    record.customerReference ?? "",
+  );
   if (customerRef) {
-    await store.put(paidBookingCustomerRefKey(customerRef), record.paymentReference, {
-      expirationTtl: RECORD_TTL,
-    });
+    await store.put(
+      paidBookingCustomerRefKey(customerRef),
+      record.paymentReference,
+      {
+        expirationTtl: RECORD_TTL,
+      },
+    );
   }
   if (record.createdAt?.trim()) {
     await addIdToDayIndex(
@@ -112,14 +136,22 @@ export async function savePaidBookingRecord(
   const tripDay = record.tripDate?.trim();
   if (tripDay && /^\d{4}-\d{2}-\d{2}$/.test(tripDay)) {
     const previousTripDate = options?.previousTripDate?.trim();
-    if (previousTripDate && previousTripDate !== tripDay && /^\d{4}-\d{2}-\d{2}$/.test(previousTripDate)) {
+    if (
+      previousTripDate &&
+      previousTripDate !== tripDay &&
+      /^\d{4}-\d{2}-\d{2}$/.test(previousTripDate)
+    ) {
       await removeIdFromDayIndex(
         store,
         paidBookingTripDayIndexKey(previousTripDate),
         record.paymentReference,
       );
     }
-    await addIdToDayIndex(store, paidBookingTripDayIndexKey(tripDay), record.paymentReference);
+    await addIdToDayIndex(
+      store,
+      paidBookingTripDayIndexKey(tripDay),
+      record.paymentReference,
+    );
   }
 
   const returnDay = record.returnDate?.trim();
@@ -136,7 +168,11 @@ export async function savePaidBookingRecord(
         record.paymentReference,
       );
     }
-    await addIdToDayIndex(store, paidBookingTripDayIndexKey(returnDay), record.paymentReference);
+    await addIdToDayIndex(
+      store,
+      paidBookingTripDayIndexKey(returnDay),
+      record.paymentReference,
+    );
   } else if (options?.previousReturnDate?.trim()) {
     const previousReturnDate = options.previousReturnDate.trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(previousReturnDate)) {
@@ -168,12 +204,22 @@ export async function getPaidBookingRecord(
   store: KVNamespace,
   paymentReference: string,
 ): Promise<PaidBookingRecord | null> {
-  const record = await store.get<PaidBookingRecord>(paidBookingRefKey(paymentReference), "json");
+  const record = await store.get<PaidBookingRecord>(
+    paidBookingRefKey(paymentReference),
+    "json",
+  );
   if (!record?.paymentReference) {
     return null;
   }
 
-  return record;
+  const attribution = await loadAttribution(
+    store,
+    `measurement:paid:${record.paymentReference}`,
+  );
+  const result = { ...record };
+  delete result.attribution; // Never return historical embedded marketing data.
+  if (attribution) result.attribution = attribution;
+  return result;
 }
 
 export async function getPaidBookingRecordByCustomerReference(
@@ -182,7 +228,9 @@ export async function getPaidBookingRecordByCustomerReference(
 ): Promise<PaidBookingRecord | null> {
   const normalized = normalizeCustomerBookingReference(customerReference);
   if (!normalized) return null;
-  const paymentReference = await store.get(paidBookingCustomerRefKey(normalized));
+  const paymentReference = await store.get(
+    paidBookingCustomerRefKey(normalized),
+  );
   if (!paymentReference?.trim()) return null;
   return getPaidBookingRecord(store, paymentReference.trim());
 }
@@ -216,13 +264,19 @@ export async function ensureCustomerBookingReference(
   store: KVNamespace,
   record: PaidBookingRecord,
 ): Promise<PaidBookingRecord> {
-  const existing = normalizeCustomerBookingReference(record.customerReference ?? "");
+  const existing = normalizeCustomerBookingReference(
+    record.customerReference ?? "",
+  );
   if (existing) {
     const indexed = await store.get(paidBookingCustomerRefKey(existing));
     if (!indexed?.trim()) {
-      await store.put(paidBookingCustomerRefKey(existing), record.paymentReference, {
-        expirationTtl: RECORD_TTL,
-      });
+      await store.put(
+        paidBookingCustomerRefKey(existing),
+        record.paymentReference,
+        {
+          expirationTtl: RECORD_TTL,
+        },
+      );
     }
     if (record.customerReference !== existing) {
       const updated = { ...record, customerReference: existing };
@@ -253,9 +307,13 @@ export async function ensureManageBookingToken(
   if (existing) {
     const indexed = await store.get(paidBookingManageTokenKey(existing));
     if (!indexed?.trim()) {
-      await store.put(paidBookingManageTokenKey(existing), record.paymentReference, {
-        expirationTtl: RECORD_TTL,
-      });
+      await store.put(
+        paidBookingManageTokenKey(existing),
+        record.paymentReference,
+        {
+          expirationTtl: RECORD_TTL,
+        },
+      );
     }
     if (record.manageBookingToken !== existing) {
       const updated = { ...record, manageBookingToken: existing };
@@ -269,10 +327,16 @@ export async function ensureManageBookingToken(
     const token = generateManageBookingToken();
     const key = paidBookingManageTokenKey(token);
     const claimed = await store.get(key);
-    if (claimed && claimed.trim() && claimed.trim() !== record.paymentReference) {
+    if (
+      claimed &&
+      claimed.trim() &&
+      claimed.trim() !== record.paymentReference
+    ) {
       continue;
     }
-    await store.put(key, record.paymentReference, { expirationTtl: RECORD_TTL });
+    await store.put(key, record.paymentReference, {
+      expirationTtl: RECORD_TTL,
+    });
     const updated = { ...record, manageBookingToken: token };
     await savePaidBookingRecord(store, updated);
     return updated;
@@ -286,7 +350,9 @@ export async function getPaidBookingRecordByManageToken(
 ): Promise<PaidBookingRecord | null> {
   const normalized = normalizeManageBookingToken(token);
   if (!normalized) return null;
-  const paymentReference = await store.get(paidBookingManageTokenKey(normalized));
+  const paymentReference = await store.get(
+    paidBookingManageTokenKey(normalized),
+  );
   if (!paymentReference?.trim()) return null;
   return getPaidBookingRecord(store, paymentReference.trim());
 }
@@ -303,7 +369,10 @@ export async function resolvePaidBookingForCustomerLookup(
 
   const asCustomer = normalizeCustomerBookingReference(trimmed);
   if (asCustomer) {
-    const byCustomer = await getPaidBookingRecordByCustomerReference(store, asCustomer);
+    const byCustomer = await getPaidBookingRecordByCustomerReference(
+      store,
+      asCustomer,
+    );
     if (byCustomer) {
       return ensureCustomerBookingReference(store, byCustomer);
     }
@@ -352,7 +421,10 @@ export async function listRecentPaidBookings(
   const today = londonToday();
   for (let offset = 0; offset < days; offset += 1) {
     const day = addDaysYmd(today, -offset);
-    const ids = await store.get<string[]>(paidBookingCreatedDayIndexKey(day), "json");
+    const ids = await store.get<string[]>(
+      paidBookingCreatedDayIndexKey(day),
+      "json",
+    );
     if (!Array.isArray(ids)) continue;
     for (const id of ids) {
       if (!id?.trim() || byRef.has(id)) continue;
@@ -365,7 +437,11 @@ export async function listRecentPaidBookings(
   if (byRef.size < limit) {
     let cursor: string | undefined;
     do {
-      const page = await store.list({ prefix: "booking:ref:", cursor, limit: 100 });
+      const page = await store.list({
+        prefix: "booking:ref:",
+        cursor,
+        limit: 100,
+      });
       for (const key of page.keys) {
         const ref = key.name.replace(/^booking:ref:/, "").trim();
         if (!ref || byRef.has(ref)) continue;
@@ -391,7 +467,9 @@ export async function listPaidBookingsCreatedSince(
   fromDay: string,
   options?: { limit?: number },
 ): Promise<PaidBookingRecord[]> {
-  const start = /^\d{4}-\d{2}-\d{2}$/.test(fromDay) ? fromDay : addDaysYmd(londonToday(), -366);
+  const start = /^\d{4}-\d{2}-\d{2}$/.test(fromDay)
+    ? fromDay
+    : addDaysYmd(londonToday(), -366);
   const limit = Math.min(Math.max(options?.limit ?? 500, 1), 800);
   const byRef = new Map<string, PaidBookingRecord>();
   const today = londonToday();
@@ -399,7 +477,10 @@ export async function listPaidBookingsCreatedSince(
   let cursor = today;
   let guard = 0;
   while (cursor >= start && guard < 400) {
-    const ids = await store.get<string[]>(paidBookingCreatedDayIndexKey(cursor), "json");
+    const ids = await store.get<string[]>(
+      paidBookingCreatedDayIndexKey(cursor),
+      "json",
+    );
     if (Array.isArray(ids)) {
       for (const id of ids) {
         if (!id?.trim() || byRef.has(id)) continue;
@@ -416,7 +497,11 @@ export async function listPaidBookingsCreatedSince(
   if (byRef.size < limit) {
     let listCursor: string | undefined;
     do {
-      const page = await store.list({ prefix: "booking:ref:", cursor: listCursor, limit: 100 });
+      const page = await store.list({
+        prefix: "booking:ref:",
+        cursor: listCursor,
+        limit: 100,
+      });
       for (const key of page.keys) {
         const ref = key.name.replace(/^booking:ref:/, "").trim();
         if (!ref || byRef.has(ref)) continue;
@@ -456,7 +541,10 @@ export async function listUpcomingPaidBookings(
 
   for (let offset = -pastDays; offset <= futureDays; offset += 1) {
     const day = addDaysYmd(today, offset);
-    const ids = await store.get<string[]>(paidBookingTripDayIndexKey(day), "json");
+    const ids = await store.get<string[]>(
+      paidBookingTripDayIndexKey(day),
+      "json",
+    );
     if (!Array.isArray(ids)) continue;
     for (const id of ids) {
       if (!id?.trim() || byRef.has(id)) continue;
@@ -468,7 +556,11 @@ export async function listUpcomingPaidBookings(
   // Always scan booking:ref:* so pre-index / early-paid future trips still appear.
   let cursor: string | undefined;
   do {
-    const page = await store.list({ prefix: "booking:ref:", cursor, limit: 100 });
+    const page = await store.list({
+      prefix: "booking:ref:",
+      cursor,
+      limit: 100,
+    });
     for (const key of page.keys) {
       const ref = key.name.replace(/^booking:ref:/, "").trim();
       if (!ref || byRef.has(ref)) continue;
@@ -483,7 +575,9 @@ export async function listUpcomingPaidBookings(
 
   return [...byRef.values()]
     .filter((record) => !isOwnerOperationalTestBooking(record))
-    .filter((record) => bookingInUpcomingHorizon(record, horizonStart, horizonEnd))
+    .filter((record) =>
+      bookingInUpcomingHorizon(record, horizonStart, horizonEnd),
+    )
     .sort((a, b) => tripSortKey(a).localeCompare(tripSortKey(b)))
     .slice(0, limit);
 }
@@ -509,7 +603,10 @@ export async function listPaidBookingsForTripRange(
   let cursor = start;
   let guard = 0;
   while (cursor <= end && guard < 420) {
-    const ids = await store.get<string[]>(paidBookingTripDayIndexKey(cursor), "json");
+    const ids = await store.get<string[]>(
+      paidBookingTripDayIndexKey(cursor),
+      "json",
+    );
     if (Array.isArray(ids)) {
       for (const id of ids) {
         if (!id?.trim() || byRef.has(id)) continue;
@@ -535,7 +632,10 @@ export async function listRefundTestPaidBookings(
   options?: { limit?: number },
 ): Promise<PaidBookingRecord[]> {
   const limit = Math.min(Math.max(options?.limit ?? 40, 1), 100);
-  const ids = await store.get<string[]>(paidBookingRefundTestIndexKey(), "json");
+  const ids = await store.get<string[]>(
+    paidBookingRefundTestIndexKey(),
+    "json",
+  );
   const byRef = new Map<string, PaidBookingRecord>();
 
   if (Array.isArray(ids)) {
@@ -550,7 +650,11 @@ export async function listRefundTestPaidBookings(
   if (byRef.size < limit) {
     let cursor: string | undefined;
     do {
-      const page = await store.list({ prefix: "booking:ref:", cursor, limit: 100 });
+      const page = await store.list({
+        prefix: "booking:ref:",
+        cursor,
+        limit: 100,
+      });
       for (const key of page.keys) {
         const ref = key.name.replace(/^booking:ref:/, "").trim();
         if (!ref || byRef.has(ref)) continue;
@@ -572,21 +676,29 @@ export async function listAmendmentTestPaidBookings(
   options?: { limit?: number },
 ): Promise<PaidBookingRecord[]> {
   const limit = Math.min(Math.max(options?.limit ?? 20, 1), 50);
-  const ids = await store.get<string[]>(paidBookingAmendmentTestIndexKey(), "json");
+  const ids = await store.get<string[]>(
+    paidBookingAmendmentTestIndexKey(),
+    "json",
+  );
   const byRef = new Map<string, PaidBookingRecord>();
 
   if (Array.isArray(ids)) {
     for (const id of ids) {
       if (!id?.trim() || byRef.has(id)) continue;
       const record = await getPaidBookingRecord(store, id);
-      if (record?.isAmendmentTestFixture) byRef.set(record.paymentReference, record);
+      if (record?.isAmendmentTestFixture)
+        byRef.set(record.paymentReference, record);
     }
   }
 
   if (byRef.size < limit) {
     let cursor: string | undefined;
     do {
-      const page = await store.list({ prefix: "booking:ref:", cursor, limit: 100 });
+      const page = await store.list({
+        prefix: "booking:ref:",
+        cursor,
+        limit: 100,
+      });
       for (const key of page.keys) {
         const ref = key.name.replace(/^booking:ref:/, "").trim();
         if (!ref || byRef.has(ref)) continue;
@@ -613,7 +725,10 @@ export async function listPaymentRefsWithReturnDateInRange(
   fromDate: string,
   toDate: string,
 ): Promise<string[]> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDate) || !/^\d{4}-\d{2}-\d{2}$/.test(toDate)) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(fromDate) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(toDate)
+  ) {
     return [];
   }
 
@@ -622,13 +737,22 @@ export async function listPaymentRefsWithReturnDateInRange(
   let cursor: string | undefined;
 
   do {
-    const page = await store.list({ prefix: "booking:ref:", cursor, limit: 100 });
+    const page = await store.list({
+      prefix: "booking:ref:",
+      cursor,
+      limit: 100,
+    });
     for (const key of page.keys) {
       const ref = key.name.replace(/^booking:ref:/, "").trim();
       if (!ref || seen.has(ref)) continue;
       seen.add(ref);
       const record = await getPaidBookingRecord(store, ref);
-      if (!record || record.status === "refunded" || record.status === "cancelled") continue;
+      if (
+        !record ||
+        record.status === "refunded" ||
+        record.status === "cancelled"
+      )
+        continue;
       if (!record.returnJourney) continue;
       const returnDate = record.returnDate?.trim() ?? "";
       if (!/^\d{4}-\d{2}-\d{2}$/.test(returnDate)) continue;
@@ -659,7 +783,9 @@ export async function markPaidBookingRefunded(
     refundAmountLabel,
   };
 
-  await savePaidBookingRecord(store, updated, { previousTripDate: record.tripDate });
+  await savePaidBookingRecord(store, updated, {
+    previousTripDate: record.tripDate,
+  });
   return updated;
 }
 
@@ -735,10 +861,17 @@ export async function updatePaidBookingFields(
   store: KVNamespace,
   paymentReference: string,
   fields: PaidBookingUpdateFields,
-  options?: { appendAudit?: boolean; changedBy?: "Owner" | "Customer" | "System" },
+  options?: {
+    appendAudit?: boolean;
+    changedBy?: "Owner" | "Customer" | "System";
+  },
 ): Promise<PaidBookingRecord | null> {
   const record = await getPaidBookingRecord(store, paymentReference);
-  if (!record || record.status === "refunded" || record.status === "cancelled") {
+  if (
+    !record ||
+    record.status === "refunded" ||
+    record.status === "cancelled"
+  ) {
     return null;
   }
 
@@ -765,7 +898,9 @@ export async function updatePaidBookingFields(
       ) {
         continue;
       }
-      const previousValue = auditValue((record as Record<string, unknown>)[field]);
+      const previousValue = auditValue(
+        (record as Record<string, unknown>)[field],
+      );
       const newValue = auditValue(newRaw);
       if (previousValue === newValue) continue;
       audit.push({

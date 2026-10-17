@@ -1,4 +1,5 @@
 "use client";
+import MarketingAttributionReport from "./MarketingAttributionReport";
 import { matchServedAirportCode } from "../../shared/served-airports";
 import { isExecutiveVehicle } from "../../shared/executive-vehicle";
 
@@ -2393,6 +2394,7 @@ export default function OwnerPaidBookingsPanel({
 
   return (
     <section className={mode === "day" ? "mb-6" : "mb-10"}>
+      {mode === "admin" && <MarketingAttributionReport ownerKey={ownerKey} />}
       {error ? (
         <p className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {error}

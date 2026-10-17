@@ -1,3 +1,7 @@
+import {
+  hasMarketingCookieConsent,
+  readMeasurementConsent,
+} from "./cookie-consent";
 /**
  * Passive Ad Fraud / advertising-abuse monitoring beacons.
  * Internal Worker events only — never fires Google Ads conversions.
@@ -8,7 +12,10 @@ import {
   isPaidAdAttribution,
   type AdFraudEventType,
 } from "../../shared/ad-fraud";
-import { sanitizeAdsAttribution, type AdsAttribution } from "../../shared/ads-attribution";
+import {
+  sanitizeAdsAttribution,
+  type AdsAttribution,
+} from "../../shared/ads-attribution";
 import { resolveWorkerBaseUrl } from "./worker-api";
 
 const SESSION_KEY = "matni-security-sid";
@@ -19,7 +26,7 @@ function resolveAdFraudEventsUrl(): string {
 }
 
 export function getOrCreateSecuritySessionId(): string {
-  if (typeof window === "undefined") return "";
+  if (typeof window === "undefined" || !hasMarketingCookieConsent()) return "";
   try {
     const existing = window.sessionStorage.getItem(SESSION_KEY)?.trim();
     if (existing && existing.length >= 8) return existing;
@@ -37,7 +44,9 @@ export function getOrCreateSecuritySessionId(): string {
 function readUrlAttribution(): AdsAttribution | undefined {
   if (typeof window === "undefined") return undefined;
   try {
-    return attributionFromSearchParams(new URLSearchParams(window.location.search));
+    return attributionFromSearchParams(
+      new URLSearchParams(window.location.search),
+    );
   } catch {
     return undefined;
   }
@@ -51,9 +60,10 @@ function postEvent(
     landingPath?: string;
   },
 ): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !hasMarketingCookieConsent()) return;
   const payload = {
     eventType,
+    consent: readMeasurementConsent(),
     sessionId: getOrCreateSecuritySessionId(),
     landingPath: extras?.landingPath || window.location.pathname,
     referrer: document.referrer || undefined,
@@ -66,7 +76,10 @@ function postEvent(
   const url = resolveAdFraudEventsUrl();
 
   try {
-    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+    if (
+      typeof navigator !== "undefined" &&
+      typeof navigator.sendBeacon === "function"
+    ) {
       const blob = new Blob([body], { type: "application/json" });
       if (navigator.sendBeacon(url, blob)) return;
     }
@@ -86,7 +99,7 @@ function postEvent(
 
 /** Record a paid-ad landing once per session when ads params are present. */
 export function maybeRecordPaidAdVisit(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !hasMarketingCookieConsent()) return;
   const attribution = readUrlAttribution();
   if (!isPaidAdAttribution(attribution)) return;
   try {

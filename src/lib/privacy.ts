@@ -1,6 +1,6 @@
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "September 2026 v1";
+export const PRIVACY_LAST_UPDATED = "17 October 2026";
 
 export const PRIVACY_SECTIONS = [
   {
@@ -25,7 +25,7 @@ export const PRIVACY_SECTIONS = [
       "Optional live location if a customer chooses to share it via WhatsApp",
       "Driver GPS location history may be recorded during booked journeys for operational/dispute evidence",
       "Marketing preferences if you opt in to receive updates (optional)",
-      "Limited technical signals for security, fraud prevention and advertising abuse monitoring (such as hashed network identifiers, coarse browser/device category, landing page, referrer host, and advertising campaign parameters when present)",
+      "Limited technical signals for operational security. Optional advertising-abuse monitoring collects hashed network identifiers, coarse browser/device category, landing page, referrer host and campaign parameters only with advertising-measurement permission",
     ],
   },
   {
@@ -72,12 +72,15 @@ export const PRIVACY_SECTIONS = [
   },
   {
     title: "Who we share data with",
-    content: ["We may share limited data with trusted service providers, including:"],
+    content: [
+      "We may share limited data with trusted service providers, including:",
+    ],
     list: [
       "SumUp — card payment processing",
       "Cloudflare — website hosting and booking API",
       "Email delivery providers — sending confirmations",
       "Google — address autocomplete (Google Places), maps, directions, and calendar logging where configured",
+      "Google Ads — only with advertising-measurement permission, click/campaign identifiers, payment reference, verified booking value and conversion time. We do not send email or phone identifiers for enhanced conversions in this implementation",
       "Flight data providers — verifying flight numbers you enter",
       "Meta Platforms, Inc. / WhatsApp — when you contact us or send booking messages via WhatsApp, message content and related contact details may be processed through Meta’s WhatsApp Business Platform and our WhatsApp Business provider",
     ],
@@ -106,7 +109,7 @@ export const PRIVACY_SECTIONS = [
     title: "Retention",
     content: [
       "Booking and payment records are kept as long as needed for customer service, accounting, tax and dispute resolution — typically up to 6 years where required for tax or accounting, then deleted or anonymised where we no longer need them.",
-      "Saved quotes are kept for the 7-day validity window and a short additional period for audit and conversion tracking, then removed automatically from active storage.",
+      "Saved quotes are kept for the 7-day validity window and a short additional period for operational audit and, only with permission, campaign attribution, then removed automatically from active storage.",
       "Driver GPS journey evidence is retained as an operational/dispute record for a configurable period (default around 13 months / ~400 days unless a longer period is set for the business). It is not retained indefinitely.",
       "Journey records and any operational GPS evidence are retained only as needed for disputes, safety, and legal requirements. Optional WhatsApp live location is controlled by the sender inside WhatsApp.",
       "Refund and cancellation audit records are kept with the related booking for the same accounting/dispute retention period.",
@@ -123,13 +126,12 @@ export const PRIVACY_SECTIONS = [
   {
     title: "Cookies",
     content: [
-      "This website uses essential browser storage to remember payment return state during checkout and to store your cookie preference.",
-      "We may also use a short-lived essential session identifier for security, fraud prevention and advertising abuse monitoring. This is separate from optional marketing measurement and is not used to identify individual competitors.",
-      "Optional Google Ads cookies are used only if you choose “Accept measurement cookies” on our consent banner. When accepted, we load the Google tag sitewide with Google Consent Mode so Google may measure fixed-price quotes, saved booking requests and completed paid bookings, subject to that consent choice.",
-      "The Google tag may set Google cookies used for conversion measurement. It is not used for general site analytics browsing tracking.",
-      "With your consent, we may also send securely hashed booking contact details (such as email or phone) to Google as enhanced conversions to improve measurement accuracy. These details are hashed in the browser before they are sent.",
-      "A third-party traffic-quality provider (TrafficGuard) may load for advertising traffic quality measurement. Our own advertising-abuse monitoring complements that provider and does not replace it.",
-      "You can change your mind later by clearing site data for this website in your browser settings; the consent banner will appear again if no preference is stored.",
+      "Essential storage supports quotes, checkout and your cookie preferences. Optional advertising measurement and website analytics are separately selectable in Cookie Settings, available in the footer. Choices expire after 90 days. Personalised advertising remains disabled.",
+      "Advertising measurement starts only after permission. It may associate campaign tags, click identifiers and limited referring-site information with your booking, and report a verified paid booking to Google Ads where configured. Website analytics covers optional quote-tool diagnostics.",
+      "TrafficGuard is disabled pending review. Our own advertising-abuse monitoring requires advertising permission; it is not treated as essential security storage. Operational booking security is independent of optional measurement.",
+      "Use Cookie Settings to withdraw permission. We clear optional browser storage and notify our server using a random consent receipt identifier to prevent future eligible uploads. Once received and acknowledged, the server denial is checked in strongly consistent storage before further eligible marketing processing. Missing or unavailable withdrawal storage prevents marketing eligibility. If you are offline, server withdrawal is pending and retries when you reconnect; the server cannot know an undelivered choice. Browser tracking stops immediately. Withdrawal cannot recall data already sent; contact us for further data-rights requests.",
+      "Campaign attribution is retained in browser storage for up to 90 days, without extending its original consent expiry. Consent evidence includes purposes, timestamps and policy version. Operational booking and financial records are kept separately from advertising permission. A withdrawal receipt is retained for 180 days to prevent reuse of an old grant.",
+      "We do not infer a declined visitor's marketing identity from fraud-monitoring records. Bookings without reliable permitted source evidence are reported as Unknown. See our Cookie Policy for details.",
     ],
   },
   {

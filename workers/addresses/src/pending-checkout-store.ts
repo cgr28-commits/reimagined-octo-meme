@@ -1,3 +1,4 @@
+import { storeAttribution, loadAttribution } from "./attribution-store";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 
 export type PendingCheckoutRecord = {
@@ -75,7 +76,9 @@ export function paidBookingCheckoutKey(checkoutId: string): string {
   return `booking:checkout:${checkoutId.trim()}`;
 }
 
-export function pendingCheckoutStoreConfigured(store?: KVNamespace): store is KVNamespace {
+export function pendingCheckoutStoreConfigured(
+  store?: KVNamespace,
+): store is KVNamespace {
   return Boolean(store);
 }
 
@@ -83,21 +86,44 @@ export async function savePendingCheckout(
   store: KVNamespace,
   record: PendingCheckoutRecord,
 ): Promise<void> {
-  await store.put(pendingCheckoutKey(record.checkoutId), JSON.stringify(record), {
-    // Keep long enough for delayed returns / webhook retries.
-    expirationTtl: 60 * 60 * 24 * 14,
-  });
+  await storeAttribution(
+    store,
+    `measurement:pending:${record.checkoutId}`,
+    record.booking.attribution,
+  );
+  const operational = { ...record, booking: { ...record.booking } };
+  delete operational.booking.attribution;
+  await store.put(
+    pendingCheckoutKey(record.checkoutId),
+    JSON.stringify(operational),
+    {
+      // Keep long enough for delayed returns / webhook retries.
+      expirationTtl: 60 * 60 * 24 * 14,
+    },
+  );
 }
 
 export async function getPendingCheckout(
   store: KVNamespace,
   checkoutId: string,
 ): Promise<PendingCheckoutRecord | null> {
-  const record = await store.get<PendingCheckoutRecord>(pendingCheckoutKey(checkoutId), "json");
+  const record = await store.get<PendingCheckoutRecord>(
+    pendingCheckoutKey(checkoutId),
+    "json",
+  );
   if (!record?.checkoutId || !record.booking?.customerEmail) {
     return null;
   }
-  return record;
+  return {
+    ...record,
+    booking: {
+      ...record.booking,
+      attribution: await loadAttribution(
+        store,
+        `measurement:pending:${record.checkoutId}`,
+      ),
+    },
+  };
 }
 
 export async function markPendingCheckoutFinalized(
@@ -121,7 +147,13 @@ export async function patchPendingCheckout(
   store: KVNamespace,
   checkoutId: string,
   patch: Partial<
-    Pick<PendingCheckoutRecord, "attemptEmailSentAt" | "unsuccessfulEmailSentAt" | "finalizedAt" | "paymentReference">
+    Pick<
+      PendingCheckoutRecord,
+      | "attemptEmailSentAt"
+      | "unsuccessfulEmailSentAt"
+      | "finalizedAt"
+      | "paymentReference"
+    >
   >,
 ): Promise<PendingCheckoutRecord | null> {
   const existing = await getPendingCheckout(store, checkoutId);
@@ -146,7 +178,11 @@ export async function listRecentPendingCheckouts(
   let cursor: string | undefined;
 
   do {
-    const page = await store.list({ prefix: "pending-checkout:", cursor, limit: 100 });
+    const page = await store.list({
+      prefix: "pending-checkout:",
+      cursor,
+      limit: 100,
+    });
     for (const key of page.keys) {
       const checkoutId = key.name.replace(/^pending-checkout:/, "").trim();
       if (!checkoutId) continue;

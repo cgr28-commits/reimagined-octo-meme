@@ -50,13 +50,24 @@ function env(name: PublicGoogleAdsEnvName): string {
     case "NEXT_PUBLIC_GOOGLE_ADS_ID":
       return process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() ?? "";
     case "NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL":
-      return process.env.NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL?.trim() ?? "";
+      return (
+        process.env.NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL?.trim() ?? ""
+      );
     case "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL":
-      return process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL?.trim() ?? "";
+      return (
+        process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL?.trim() ??
+        ""
+      );
     case "NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL":
-      return process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL?.trim() ?? "";
+      return (
+        process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL?.trim() ??
+        ""
+      );
     case "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL":
-      return process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL?.trim() ?? "";
+      return (
+        process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL?.trim() ??
+        ""
+      );
   }
 }
 
@@ -83,9 +94,12 @@ function resolveQuoteLabel(raw: string): string {
  * is fired only from the server-authored SumUp PAID confirmation payload.
  */
 export function getGoogleAdsConfig(): GoogleAdsConfig {
-  const adsId = resolveAdsId(env("NEXT_PUBLIC_GOOGLE_ADS_ID") || DEFAULT_GOOGLE_ADS_ID);
+  const adsId = resolveAdsId(
+    env("NEXT_PUBLIC_GOOGLE_ADS_ID") || DEFAULT_GOOGLE_ADS_ID,
+  );
   const quoteConversionLabel = resolveQuoteLabel(
-    env("NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL") || DEFAULT_QUOTE_CONVERSION_LABEL,
+    env("NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL") ||
+      DEFAULT_QUOTE_CONVERSION_LABEL,
   );
   let bookingRequestConversionLabel = env(
     "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL",
@@ -107,8 +121,7 @@ export function getGoogleAdsConfig(): GoogleAdsConfig {
     adsId && bookingRequestConversionLabel
       ? `${adsId}/${bookingRequestConversionLabel}`
       : "";
-  const purchaseSendTo =
-    adsId && purchaseConversionLabel ? `${adsId}/${purchaseConversionLabel}` : "";
+  const purchaseSendTo = ""; // Paid bookings use only the verified server upload strategy.
 
   return {
     adsId,

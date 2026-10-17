@@ -17,7 +17,10 @@ import {
 } from "@/lib/pricing-config";
 import { getGoogleAdsConfig } from "@/lib/google-ads";
 import { absoluteSiteUrl } from "@/lib/paths";
-import { getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
+import {
+  getLocalBusinessJsonLd,
+  getWebSiteJsonLd,
+} from "@/lib/structured-data";
 import { TIP_TOKEN_STRIP_SCRIPT } from "../../shared/journey-tip";
 
 const manrope = Manrope({
@@ -33,7 +36,8 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 
-const offlineActive = SITE_OFFLINE.enabled && Date.parse(SITE_OFFLINE.until) > Date.now();
+const offlineActive =
+  SITE_OFFLINE.enabled && Date.parse(SITE_OFFLINE.until) > Date.now();
 
 const livePrices = arePublicLivePricesEnabled();
 const description = offlineActive
@@ -138,33 +142,7 @@ export default function RootLayout({
         <Script id="strip-tip-token" strategy="beforeInteractive">
           {TIP_TOKEN_STRIP_SCRIPT}
         </Script>
-        {/* TrafficGuard sitewide pageview tracking */}
-        <Script id="trafficguard-init" strategy="afterInteractive">
-          {`
-            window.dataTrafficGuard = window.dataTrafficGuard || [];
-            window.dataTrafficGuard.push(['property_group_id', 'tg-g-026255-001']);
-            window.dataTrafficGuard.push(['event', 'pageview']);
-          `}
-        </Script>
-        <Script
-          id="trafficguard-script"
-          src="https://tgtag.io/tg.js?pid=tg-g-026255-001"
-          strategy="afterInteractive"
-        />
-        <noscript>
-          {/* TrafficGuard requires a raw tracking pixel when JavaScript is disabled. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="https://p.tgtag.io/event?property_group_id=tg-g-026255-001&event_name=pageview&no_script=1"
-            width="1"
-            height="1"
-            style={{ border: 0 }}
-            alt=""
-          />
-        </noscript>
-        <Script id="matni-landing-click-id" strategy="beforeInteractive">
-          {`try{if(!window.__matniLandingSearch&&typeof window.location.search==="string"&&window.location.search.length>1){window.__matniLandingSearch=window.location.search}}catch(e){}`}
-        </Script>
+        {/* TrafficGuard disabled pending provider/privacy review. No unconditional pixel. */}
         {googleAdsConfig.tagEnabled ? (
           <Script id="google-consent-default" strategy="beforeInteractive">
             {`
@@ -182,7 +160,11 @@ export default function RootLayout({
         ) : null}
         {structuredData.map((schema, index) => (
           <script
-            key={Array.isArray(schema["@type"]) ? schema["@type"].join("-") : schema["@type"] ?? index}
+            key={
+              Array.isArray(schema["@type"])
+                ? schema["@type"].join("-")
+                : (schema["@type"] ?? index)
+            }
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
           />

@@ -1,3 +1,4 @@
+import { consent } from "./measurement-test-helpers";
 /**
  * Step 1 quote funnel diagnostic events — no Ads conversion changes.
  * Run: npx tsx scripts/check-quote-funnel-analytics.ts
@@ -50,14 +51,17 @@ const gtagCalls: unknown[][] = [];
 
 (globalThis as { window?: unknown }).window = globalThis;
 (globalThis as { localStorage?: Storage }).localStorage = memoryStorage(local);
-(globalThis as { sessionStorage?: Storage }).sessionStorage = memoryStorage(session);
+(globalThis as { sessionStorage?: Storage }).sessionStorage =
+  memoryStorage(session);
 (globalThis as { dataLayer?: unknown[] }).dataLayer = dataLayer;
-(globalThis as { gtag?: (...args: unknown[]) => void }).gtag = (...args: unknown[]) => {
+(globalThis as { gtag?: (...args: unknown[]) => void }).gtag = (
+  ...args: unknown[]
+) => {
   gtagCalls.push(args);
 };
 
 function acceptConsent() {
-  local.set(COOKIE_CONSENT_KEY, "accepted");
+  local.set(COOKIE_CONSENT_KEY, JSON.stringify(consent()));
 }
 
 function clearConsent() {
@@ -88,9 +92,18 @@ assert.equal(trackQuoteToolViewed({ page_type: "home" }), false);
 assert.equal(eventsNamed(QUOTE_FUNNEL_EVENTS.TOOL_VIEWED).length, 1);
 console.log("OK  quote_tool_viewed once per session/page_type");
 
-assert.equal(trackQuoteStarted("attempt-1", { journey_intent: "to-airport" }), true);
-assert.equal(trackQuoteStarted("attempt-1", { journey_intent: "to-airport" }), false);
-assert.equal(trackQuoteStarted("attempt-2", { journey_intent: "from-airport" }), true);
+assert.equal(
+  trackQuoteStarted("attempt-1", { journey_intent: "to-airport" }),
+  true,
+);
+assert.equal(
+  trackQuoteStarted("attempt-1", { journey_intent: "to-airport" }),
+  false,
+);
+assert.equal(
+  trackQuoteStarted("attempt-2", { journey_intent: "from-airport" }),
+  true,
+);
 console.log("OK  quote_started once per attempt");
 
 assert.equal(
@@ -106,11 +119,19 @@ console.log("OK  place selected events require Places placeId and dedupe");
 
 assert.equal(trackQuoteRequestClicked({ cta: "book_now" }), true);
 assert.equal(trackQuoteValidationError("places_pickup_not_selected", {}), true);
-assert.equal(trackQuoteManualEnquiry("attempt-1", { pricing_path: "manual_quote" }), true);
-assert.equal(trackQuoteManualEnquiry("attempt-1", { pricing_path: "manual_quote" }), false);
+assert.equal(
+  trackQuoteManualEnquiry("attempt-1", { pricing_path: "manual_quote" }),
+  true,
+);
+assert.equal(
+  trackQuoteManualEnquiry("attempt-1", { pricing_path: "manual_quote" }),
+  false,
+);
 console.log("OK  request click / validation / manual enquiry");
 
-const lastValidation = eventsNamed(QUOTE_FUNNEL_EVENTS.VALIDATION_ERROR).at(-1) as {
+const lastValidation = eventsNamed(QUOTE_FUNNEL_EVENTS.VALIDATION_ERROR).at(
+  -1,
+) as {
   validation_reason?: string;
 };
 assert.equal(lastValidation.validation_reason, "places_pickup_not_selected");
@@ -152,7 +173,10 @@ assert.equal(
 console.log("OK  quote_generated Ads send_to still works");
 
 const root = process.cwd();
-const quoteCard = readFileSync(join(root, "src/components/QuoteCard.tsx"), "utf8");
+const quoteCard = readFileSync(
+  join(root, "src/components/QuoteCard.tsx"),
+  "utf8",
+);
 assert.match(quoteCard, /trackQuoteToolViewed/);
 assert.match(quoteCard, /trackQuoteStarted/);
 assert.match(quoteCard, /trackPickupPlaceSelected/);
@@ -163,7 +187,10 @@ assert.match(quoteCard, /trackQuoteManualEnquiry/);
 assert.match(quoteCard, /GoogleAdsRequestQuote/);
 assert.match(quoteCard, /--matni-cookie-banner-offset/);
 
-const adsClient = readFileSync(join(root, "src/lib/google-ads-client.ts"), "utf8");
+const adsClient = readFileSync(
+  join(root, "src/lib/google-ads-client.ts"),
+  "utf8",
+);
 assert.match(adsClient, /ADS_EVENT_QUOTE_GENERATED/);
 assert.match(adsClient, /hasMarketingCookieConsent/);
 
@@ -173,19 +200,22 @@ const paid = readFileSync(
 );
 assert.match(paid, /uploadPaidBookingClickConversion/);
 
-const cookie = readFileSync(join(root, "src/components/CookieConsent.tsx"), "utf8");
+const cookie = readFileSync(
+  join(root, "src/components/CookieConsent.tsx"),
+  "utf8",
+);
 assert.match(cookie, /matni-cookie-banner-offset/);
 assert.match(cookie, /z-\[70\]/);
 assert.match(cookie, /Cookies &amp; privacy/);
-assert.match(cookie, /We use optional cookies to measure advertising performance\./);
 assert.match(cookie, /href="\/privacy\/"/);
-assert.match(cookie, /writeCookieConsent\(next\)/);
-assert.match(cookie, /updateGoogleConsent\(next === "accepted"\)/);
-assert.match(cookie, /choose\("rejected"\)/);
-assert.match(cookie, /choose\("accepted"\)/);
-assert.doesNotMatch(cookie, /Cookies &amp; advertising measurement/);
+assert.match(cookie, /writeCookieConsent/);
+assert.match(cookie, /save\(false,\s*false\)/);
+assert.match(cookie, /save\(true,\s*true\)/);
 
-const address = readFileSync(join(root, "src/components/AddressInput.tsx"), "utf8");
+const address = readFileSync(
+  join(root, "src/components/AddressInput.tsx"),
+  "utf8",
+);
 assert.match(address, /z-\[80\]|z-\[90\]/);
 assert.match(address, /typing alone is not enough/);
 

@@ -1,3 +1,4 @@
+import { eligibleAdvertisingConsent } from "./measurement-consent";
 /**
  * Ad Fraud monitoring HTTP handlers — ingest (public, rate-limited) + owner admin APIs.
  */
@@ -22,7 +23,11 @@ import {
 
 export type AdFraudEnv = DriverAuthEnv & AdFraudStoreEnv;
 
-function jsonResponse(body: unknown, status: number, origin: string | null): Response {
+function jsonResponse(
+  body: unknown,
+  status: number,
+  origin: string | null,
+): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -73,6 +78,13 @@ export async function handleAdFraudIngestRequest(
     return jsonResponse({ error: "Invalid JSON" }, 400, origin);
   }
 
+  if (
+    !(await eligibleAdvertisingConsent(
+      env.TRACKING_STORE,
+      (body as { consent?: unknown })?.consent,
+    ))
+  )
+    return jsonResponse({ error: "Advertising consent required" }, 403, origin);
   const validated = validateAdFraudIngestPayload(body);
   if (!validated.ok) {
     return jsonResponse({ error: validated.error }, 400, origin);
@@ -112,15 +124,24 @@ export async function handleAdFraudAdminSummaryRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
   if (!adFraudStoreConfigured(env.TRACKING_STORE)) {
-    return jsonResponse({ error: "Ad fraud store is not configured" }, 503, origin);
+    return jsonResponse(
+      { error: "Ad fraud store is not configured" },
+      503,
+      origin,
+    );
   }
 
   const url = new URL(request.url);
   const rangeRaw = url.searchParams.get("range") || "7";
-  const rangeDays = rangeRaw === "1" || rangeRaw === "today" ? 1 : rangeRaw === "30" ? 30 : 7;
+  const rangeDays =
+    rangeRaw === "1" || rangeRaw === "today" ? 1 : rangeRaw === "30" ? 30 : 7;
   const riskParam = url.searchParams.get("risk") || "all";
   const risk =
-    riskParam === "all" ? "all" : isAdFraudRiskLevel(riskParam) ? riskParam : "all";
+    riskParam === "all"
+      ? "all"
+      : isAdFraudRiskLevel(riskParam)
+        ? riskParam
+        : "all";
   const campaign = url.searchParams.get("campaign") || undefined;
 
   const dashboard = await buildAdFraudDashboard(
@@ -144,7 +165,9 @@ export async function handleAdFraudAdminSummaryRequest(
 
 function visitorHashFromPath(pathname: string): string {
   const parts = pathname.split("/");
-  return (parts[parts.length - 1] || "").replace(/[^a-f0-9]/gi, "").slice(0, 32);
+  return (parts[parts.length - 1] || "")
+    .replace(/[^a-f0-9]/gi, "")
+    .slice(0, 32);
 }
 
 export async function handleAdFraudAdminVisitorRequest(
@@ -159,7 +182,11 @@ export async function handleAdFraudAdminVisitorRequest(
     return jsonResponse({ error: "Unauthorized" }, 401, origin);
   }
   if (!adFraudStoreConfigured(env.TRACKING_STORE)) {
-    return jsonResponse({ error: "Ad fraud store is not configured" }, 503, origin);
+    return jsonResponse(
+      { error: "Ad fraud store is not configured" },
+      503,
+      origin,
+    );
   }
 
   const url = new URL(request.url);
@@ -206,11 +233,17 @@ export async function handleAdFraudAdminVisitorRequest(
       return jsonResponse({ error: "Invalid review status" }, 400, origin);
     }
     const notes =
-      typeof record.notes === "string" ? record.notes.trim().slice(0, 500) : undefined;
-    const updated = await updateAdFraudVisitorReview(env.TRACKING_STORE, visitorHash, {
-      reviewStatus: record.reviewStatus,
-      notes,
-    });
+      typeof record.notes === "string"
+        ? record.notes.trim().slice(0, 500)
+        : undefined;
+    const updated = await updateAdFraudVisitorReview(
+      env.TRACKING_STORE,
+      visitorHash,
+      {
+        reviewStatus: record.reviewStatus,
+        notes,
+      },
+    );
     if (!updated) {
       return jsonResponse({ error: "Visitor not found" }, 404, origin);
     }
@@ -230,7 +263,9 @@ export async function handleAdFraudAdminVisitorRequest(
   return jsonResponse({ error: "Method not allowed" }, 405, origin);
 }
 
-export async function runAdFraudRetentionCleanup(env: AdFraudEnv): Promise<void> {
+export async function runAdFraudRetentionCleanup(
+  env: AdFraudEnv,
+): Promise<void> {
   if (!adFraudStoreConfigured(env.TRACKING_STORE)) return;
   const result = await pruneAdFraudVisitorEvents(env.TRACKING_STORE, 3);
   if (result.visitorsTouched > 0) {

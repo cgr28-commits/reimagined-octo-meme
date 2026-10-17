@@ -1,3 +1,4 @@
+import { eligibleAdvertisingConsent } from "./measurement-consent";
 /**
  * After SumUp PAID finalize: upload Paid Booking to Google Ads once per payment.
  * Never throws — payment confirmation must not fail because Ads is unavailable.
@@ -30,6 +31,8 @@ function shouldSkipUpload(record: PaidBookingRecord): boolean {
   return (
     status === "sent" ||
     status === "skipped_duplicate" ||
+    status === "skipped_no_consent" ||
+    status === "skipped_cancelled" ||
     status === "skipped_no_click_id"
   );
 }
@@ -50,7 +53,8 @@ async function persistConversionOutcome(
 
   const next: PaidBookingRecord = {
     ...record,
-    googleAdsPaidConversionOrderId: outcome.orderId || record.googleAdsPaidConversionOrderId,
+    googleAdsPaidConversionOrderId:
+      outcome.orderId || record.googleAdsPaidConversionOrderId,
     googleAdsPaidConversionStatus: outcome.status,
     ...(outcome.clickIdType
       ? { googleAdsPaidConversionClickIdType: outcome.clickIdType }
@@ -77,7 +81,7 @@ async function persistConversionOutcome(
  * Upload Paid Booking click conversion if credentials + click id are present.
  * Idempotent across SumUp webhook retries and browser confirm calls.
  */
-export async function maybeUploadPaidBookingAdsConversion(input: {
+async function uploadEligiblePaidBooking(input: {
   env: PaidBookingAdsConversionEnv;
   paymentReference: string;
   amount: number;
@@ -100,10 +104,28 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
 
   const store = input.env.TRACKING_STORE;
   const existing = await getPaidBookingRecord(store, paymentReference);
-  if (existing && shouldSkipUpload(existing)) {
+  if (!existing) return; // Never upload a purchase without a verified paid-booking record.
+  if (shouldSkipUpload(existing)) {
     return;
   }
 
+  const attribution = existing.attribution ?? null; // Persisted permitted evidence is authoritative.
+  const consent = await eligibleAdvertisingConsent(store, attribution?.consent);
+  if (
+    !consent ||
+    existing?.cancelledAt ||
+    existing.status === "cancelled" ||
+    existing.status === "refunded" ||
+    existing?.operationalStatus === "cancelled" ||
+    existing?.paymentStatus === "fully_refunded"
+  ) {
+    if (existing)
+      await persistConversionOutcome(store, paymentReference, {
+        status: consent ? "skipped_cancelled" : "skipped_no_consent",
+        orderId: paymentReference,
+      });
+    return;
+  }
   if (!isGoogleAdsClickConversionConfigured(input.env)) {
     if (existing) {
       await persistConversionOutcome(store, paymentReference, {
@@ -118,7 +140,14 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
     return;
   }
 
-  const attribution = input.attribution ?? existing?.attribution ?? null;
+  // KV is not a lock: overlapping deliveries use the same action/order ID for Google deduplication.
+  if (existing)
+    await savePaidBookingRecord(store, {
+      ...existing,
+      googleAdsPaidConversionAttempts:
+        (existing.googleAdsPaidConversionAttempts || 0) + 1,
+      googleAdsPaidConversionLastAttemptAt: new Date().toISOString(),
+    });
   const amount =
     Number.isFinite(input.amount) && input.amount > 0
       ? input.amount
@@ -231,4 +260,17 @@ export async function retryRecentPaidBookingAdsConversions(
   }
 
   return result;
+}
+
+/** Optional measurement can never turn a successful checkout into a payment failure. */
+export async function maybeUploadPaidBookingAdsConversion(
+  input: Parameters<typeof uploadEligiblePaidBooking>[0],
+): Promise<void> {
+  try {
+    await uploadEligiblePaidBooking(input);
+  } catch {
+    console.error(
+      "Paid booking measurement deferred; operational payment is unaffected",
+    );
+  }
 }

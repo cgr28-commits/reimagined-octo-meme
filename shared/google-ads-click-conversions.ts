@@ -1,3 +1,4 @@
+import { advertisingConsent } from "./measurement-consent";
 /**
  * Google Ads click conversion upload (ConversionUploadService.UploadClickConversions).
  * Used after SumUp PAID finalize — never from the browser.
@@ -12,34 +13,18 @@ import { UK_TIME_ZONE } from "./uk-time";
 
 export const GOOGLE_ADS_API_VERSION = "v25";
 
-/**
- * Google Ads *account* customer ID (digits only, no dashes).
- * This is NOT the website tag ID `AW-18303631278` — that tag is for gtag/send_to only.
- */
-export const DEFAULT_GOOGLE_ADS_CUSTOMER_ID = "4955115517";
-
-/** Numeric conversion action id for the Paid Booking action in account 495-511-5517. */
-export const DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "7734768680";
-
-const STALE_GOOGLE_ADS_CUSTOMER_IDS = new Set(["18303631278", "10303631278"]);
-const STALE_PAID_BOOKING_ACTION_IDS = new Set(["77347686808", "7733724411"]);
-
 export type GoogleAdsClickConversionEnv = {
+  /** Enable only after validating the account/action type, counting and upload diagnostics. */
+  GOOGLE_ADS_PAID_UPLOAD_VERIFIED?: string;
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   GOOGLE_ADS_CLIENT_ID?: string;
   GOOGLE_ADS_CLIENT_SECRET?: string;
   GOOGLE_ADS_REFRESH_TOKEN?: string;
-  /**
-   * Numeric Google Ads customer id without dashes (default {@link DEFAULT_GOOGLE_ADS_CUSTOMER_ID}).
-   * Do not set this to the AW- tag number (18303631278).
-   */
+  /** Explicit account ID, digits only; never a website AW tag identifier. */
   GOOGLE_ADS_CUSTOMER_ID?: string;
   /** Optional manager / MCC login customer id (no dashes). */
   GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
-  /**
-   * Numeric Paid Booking conversion action id
-   * (default {@link DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID}).
-   */
+  /** Explicit verified imported paid-booking conversion action ID. */
   GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
 };
 
@@ -48,7 +33,9 @@ export type PaidBookingAdsConversionStatus =
   | "skipped_no_click_id"
   | "skipped_not_configured"
   | "skipped_duplicate"
-  | "failed";
+  | "failed"
+  | "skipped_no_consent"
+  | "skipped_cancelled";
 
 export type UploadPaidBookingClickConversionInput = {
   attribution?: AdsAttribution | null;
@@ -74,32 +61,28 @@ export function isGoogleAdsClickConversionConfigured(
   env: GoogleAdsClickConversionEnv,
 ): boolean {
   return Boolean(
+    env.GOOGLE_ADS_PAID_UPLOAD_VERIFIED === "true" &&
     trimSecret(env.GOOGLE_ADS_DEVELOPER_TOKEN) &&
-      trimSecret(env.GOOGLE_ADS_CLIENT_ID) &&
-      trimSecret(env.GOOGLE_ADS_CLIENT_SECRET) &&
-      trimSecret(env.GOOGLE_ADS_REFRESH_TOKEN),
+    trimSecret(env.GOOGLE_ADS_CLIENT_ID) &&
+    trimSecret(env.GOOGLE_ADS_CLIENT_SECRET) &&
+    trimSecret(env.GOOGLE_ADS_REFRESH_TOKEN) &&
+    resolveGoogleAdsCustomerId(env) &&
+    resolvePaidBookingConversionActionId(env),
   );
 }
 
-export function resolveGoogleAdsCustomerId(env: GoogleAdsClickConversionEnv): string {
-  const candidate = digitsOnlyCustomerId(
-    trimSecret(env.GOOGLE_ADS_CUSTOMER_ID) || DEFAULT_GOOGLE_ADS_CUSTOMER_ID,
-  );
-  return STALE_GOOGLE_ADS_CUSTOMER_IDS.has(candidate)
-    ? DEFAULT_GOOGLE_ADS_CUSTOMER_ID
-    : candidate;
+export function resolveGoogleAdsCustomerId(
+  env: GoogleAdsClickConversionEnv,
+): string {
+  const value = trimSecret(env.GOOGLE_ADS_CUSTOMER_ID);
+  return /^\d{10}$/.test(value) ? value : "";
 }
 
 export function resolvePaidBookingConversionActionId(
   env: GoogleAdsClickConversionEnv,
 ): string {
-  const candidate = digitsOnlyCustomerId(
-    trimSecret(env.GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID) ||
-      DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID,
-  );
-  return STALE_PAID_BOOKING_ACTION_IDS.has(candidate)
-    ? DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID
-    : candidate;
+  const value = trimSecret(env.GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID);
+  return /^\d+$/.test(value) ? value : "";
 }
 
 /** Prefer gclid, then wbraid (iOS web), then gbraid — exactly one id per upload. */
@@ -122,7 +105,9 @@ function pad2(value: number): string {
  * Google Ads requires `yyyy-mm-dd hh:mm:ss+|-hh:mm` with an explicit zone offset.
  * Format the instant in Europe/London wall clock + its offset at that moment.
  */
-export function formatGoogleAdsConversionDateTime(instant = new Date()): string {
+export function formatGoogleAdsConversionDateTime(
+  instant = new Date(),
+): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: UK_TIME_ZONE,
     year: "numeric",
@@ -156,7 +141,9 @@ export function digitsOnlyCustomerId(raw: string): string {
   return raw.replace(/\D/g, "");
 }
 
-async function fetchGoogleAdsAccessToken(env: GoogleAdsClickConversionEnv): Promise<string> {
+async function fetchGoogleAdsAccessToken(
+  env: GoogleAdsClickConversionEnv,
+): Promise<string> {
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     client_id: trimSecret(env.GOOGLE_ADS_CLIENT_ID),
@@ -218,7 +205,10 @@ export async function uploadPaidBookingClickConversion(
     };
   }
 
-  const clickId = pickAdsClickIdentifier(input.attribution);
+  const consent = advertisingConsent(input.attribution?.consent);
+  if (!consent) return { status: "skipped_no_consent", orderId };
+  const clickId = input.attribution?.lastTouch && input.attribution.lastTouch.source !== "Google Ads"
+    ? null : pickAdsClickIdentifier(input.attribution);
   if (!clickId) {
     return { status: "skipped_no_click_id", orderId };
   }
@@ -241,7 +231,10 @@ export async function uploadPaidBookingClickConversion(
     currencyCode,
     orderId,
     // Attribution was only stored after measurement consent on the site.
-    consent: { adUserData: "GRANTED" },
+    // Click-conversion imports support ad_user_data; personalization is never enabled.
+    consent: {
+      adUserData: consent.advertising ? "GRANTED" : "DENIED",
+    },
     [clickId.type]: clickId.value,
   };
 
@@ -318,6 +311,10 @@ export async function uploadPaidBookingClickConversion(
       };
     }
 
+    if (!Array.isArray(payload?.results) || payload.results.length !== 1) {
+      return { status: "failed", orderId, clickIdType: clickId.type, error: "Google Ads did not acknowledge the conversion" };
+    }
+
     return {
       status: "sent",
       orderId,
@@ -329,7 +326,8 @@ export async function uploadPaidBookingClickConversion(
       status: "failed",
       orderId,
       clickIdType: clickId.type,
-      error: error instanceof Error ? error.message : "Google Ads upload failed",
+      error:
+        error instanceof Error ? error.message : "Google Ads upload failed",
     };
   }
 }
