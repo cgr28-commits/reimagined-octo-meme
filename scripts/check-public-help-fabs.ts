@@ -58,7 +58,11 @@ console.log("\n=== 3. Exclusive breakpoint (never both) ===");
   assert.match(assistant, /isMobile !== false/);
   assert.match(layout, /QuoteAssistant/);
   assert.doesNotMatch(layout, /<WhatsAppButton/);
-  console.log("OK  ≥768px ? only · <768px Header WhatsApp only");
+  assert.match(assistant, /import\(\/\* webpackChunkName: "quote-assistant-panel" \*\/ "\.\/QuoteAssistantPanel"\)/);
+  assert.doesNotMatch(assistant, /from "@\/lib\/quote-assistant"/);
+  assert.doesNotMatch(assistant, /from "@\/components\/AddressInput"/);
+  assert.doesNotMatch(assistant, /webpackPrefetch/);
+  console.log("OK  ≥768px ? only · <768px Header WhatsApp only · chat chunk deferred");
 }
 
 console.log("\n=== 4. Hero CTAs removed · Live Quote untouched · nav Quote kept ===");
