@@ -70,8 +70,8 @@ export default function QuoteActionDialog({
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-navy/80 p-4 sm:items-center"
       role={role} aria-modal="true" aria-labelledby={headingId} data-quote-action-dialog>
-      <div ref={panelRef} className={`quote-flow max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-2xl border border-white/24 bg-navy-dark shadow-2xl ${wide ? "max-w-2xl" : "max-w-md"}`}>
-        <div className="flex items-start justify-between gap-3 border-b border-white/20 px-5 py-4">
+      <div ref={panelRef} className={`quote-flow flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-white/24 bg-navy-dark shadow-2xl ${wide ? "max-w-2xl" : "max-w-md"}`}>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/20 px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">My Airport Taxi NI</p>
             <h2 id={headingId} className="mt-1 text-lg font-semibold text-white">{title}</h2>
@@ -79,7 +79,7 @@ export default function QuoteActionDialog({
           <button type="button" onClick={onClose} disabled={closeDisabled} aria-label="Close"
             className="rounded-lg px-2 py-1 text-sm quote-secondary hover:bg-white/10 hover:text-white disabled:opacity-50">✕</button>
         </div>
-        <div className="px-5 py-5">{children}</div>
+        <div className="isolate min-h-0 overflow-y-auto px-5 py-5">{children}</div>
       </div>
     </div>, document.body,
   );
