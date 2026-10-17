@@ -93,15 +93,22 @@ export default function VehiclesSection() {
                   data-fleet-vehicle={vehicle.id}
                   className="rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-5 text-center"
                 >
-                  <div className="relative mx-auto aspect-[2/1] w-full max-w-[280px] bg-white">
-                    <Image
-                      src={vehicle.image}
-                      alt={`${vehicle.title} airport transfer vehicle`}
-                      fill
-                      sizes="280px"
-                      className="object-contain object-center p-3"
-                      style={vehicle.imageScale === 1 ? undefined : { transform: `scale(${vehicle.imageScale})` }}
-                    />
+                  <div className="relative mx-auto aspect-[2/1] w-full max-w-[280px] bg-white lg:bg-transparent">
+                    <picture className="contents">
+                      <source
+                        media="(min-width: 1024px)"
+                        srcSet={vehicle.image.replace(/\.webp$/, "-transparent.webp")}
+                        type="image/webp"
+                      />
+                      <Image
+                        src={vehicle.image}
+                        alt={`${vehicle.title} airport transfer vehicle`}
+                        fill
+                        sizes="280px"
+                        className="object-contain object-center p-3"
+                        style={vehicle.imageScale === 1 ? undefined : { transform: `scale(${vehicle.imageScale})` }}
+                      />
+                    </picture>
                   </div>
                   <p className="mt-3 text-lg font-bold text-white">{vehicle.title}</p>
                   <p className="mt-1 text-sm text-white/65">{vehicle.detail}</p>
