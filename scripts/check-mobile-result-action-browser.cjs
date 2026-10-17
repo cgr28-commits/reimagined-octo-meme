@@ -102,7 +102,8 @@ async function main() {
     await page.waitForTimeout(600);
     for (const [i, top] of (await positions()).entries()) assert.ok(Math.abs(top - baseline[i]) <= 2, `${width}px ${id} ready: action ${i} moved ${top - baseline[i]}px`);
     const duration = await page.locator('[data-quote-changing-info]').evaluate(el => getComputedStyle(el).animationDuration);
-    assert.equal(duration, width === 375 ? '0s' : '0.36s');
+    if (width === 375) assert.equal(await page.locator('[data-quote-changing-info]').evaluate(el => getComputedStyle(el).animationName), 'none');
+    else assert.equal(duration, '0.36s');
    }
    console.log(`OK ${width}px: both action rows stationary through all four vehicles; gentle fade respects Reduce Motion`);
   }
