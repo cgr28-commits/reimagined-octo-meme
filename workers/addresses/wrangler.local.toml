@@ -15,6 +15,15 @@ class_name = "RefundCoordinator"
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
 
+[[durable_objects.bindings]]
+name = "CONSENT_LEDGER"
+class_name = "ConsentLedger"
+
+[[migrations]]
+tag = "v4-consent-ledger"
+new_sqlite_classes = ["ConsentLedger"]
+
 [vars]
+GOOGLE_ADS_PAID_UPLOAD_VERIFIED = "false"
 DRIVER_ACCESS_KEY = "demo-driver-key"
 GOOGLE_PLACES_API_KEY = "local-demo"

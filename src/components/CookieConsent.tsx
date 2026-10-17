@@ -1,102 +1,166 @@
 "use client";
-
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
-  readCookieConsent,
+  readMeasurementConsent,
   writeCookieConsent,
-  type CookieConsentChoice,
+  flushConsentWithdrawals,
+  clearOptionalMeasurementStorage,
+  hasPendingConsentWithdrawals,
 } from "@/lib/cookie-consent";
-import { updateGoogleConsent } from "@/lib/google-ads-client";
-
-const COOKIE_BANNER_OFFSET_VAR = "--matni-cookie-banner-offset";
-
+import { stopMeasurementAndReload } from "@/lib/measurement-shutdown";
 export default function CookieConsent() {
-  const [choice, setChoice] = useState<CookieConsentChoice | null | "loading">("loading");
-  const bannerRef = useRef<HTMLDivElement>(null);
-
+  const banner = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false),
+    [advertising, setAdvertising] = useState(false),
+    [analytics, setAnalytics] = useState(false),
+    [message, setMessage] = useState("");
   useEffect(() => {
-    setChoice(readCookieConsent());
+    const c = readMeasurementConsent();
+    setOpen(!c);
+    setAdvertising(c?.advertising === true);
+    setAnalytics(c?.analytics === true);
+    if (!c) clearOptionalMeasurementStorage();
+    const pendingMessage = "Your choice is saved on this device. Optional tracking is stopped. Server withdrawal is pending and will retry when you reconnect.";
+    const retry = () => {
+      if (hasPendingConsentWithdrawals()) { setOpen(true); setMessage(pendingMessage); }
+      void flushConsentWithdrawals().then((synced) => {
+        if (synced) setMessage("");
+        else { setOpen(true); setMessage(pendingMessage); }
+      });
+    };
+    retry();
+    const show = () => {
+      const latest = readMeasurementConsent();
+      setAdvertising(latest?.advertising === true);
+      setAnalytics(latest?.analytics === true);
+      setOpen(true);
+    };
+    window.addEventListener("matni-open-cookie-settings", show);
+    window.addEventListener("online", retry);
+    return () => {
+      window.removeEventListener("matni-open-cookie-settings", show);
+      window.removeEventListener("online", retry);
+    };
   }, []);
-
   useEffect(() => {
-    if (choice === "loading" || choice !== null) {
-      document.documentElement.style.removeProperty(COOKIE_BANNER_OFFSET_VAR);
+    const el = banner.current;
+    if (!open || !el) {
+      document.documentElement.style.removeProperty(
+        "--matni-cookie-banner-offset",
+      );
       return;
     }
-
-    const el = bannerRef.current;
-    if (!el) return;
-
-    const syncOffset = () => {
+    const sync = () =>
       document.documentElement.style.setProperty(
-        COOKIE_BANNER_OFFSET_VAR,
+        "--matni-cookie-banner-offset",
         `${Math.ceil(el.getBoundingClientRect().height)}px`,
       );
-    };
-    syncOffset();
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncOffset) : null;
+    sync();
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(sync) : null;
     observer?.observe(el);
-    window.addEventListener("resize", syncOffset);
     return () => {
       observer?.disconnect();
-      window.removeEventListener("resize", syncOffset);
-      document.documentElement.style.removeProperty(COOKIE_BANNER_OFFSET_VAR);
+      document.documentElement.style.removeProperty(
+        "--matni-cookie-banner-offset",
+      );
     };
-  }, [choice]);
-
-  if (choice === "loading" || choice !== null) {
-    return null;
+  }, [open]);
+  async function save(ads: boolean, stats: boolean) {
+    const previous = readMeasurementConsent();
+    setAdvertising(ads);
+    setAnalytics(stats);
+    const saved = writeCookieConsent(ads ? "accepted" : "rejected", stats);
+    const reduced = (previous?.advertising && !ads) || (previous?.analytics && !stats);
+    if (reduced || (!saved && (previous?.advertising || previous?.analytics))) {
+      setMessage("Optional tracking is stopped. Withdrawal synchronisation will retry when you reconnect.");
+      stopMeasurementAndReload();
+      return;
+    }
+    if (!saved) {
+      setMessage("Optional measurement is off on this page. Your browser could not save your choice; enable site storage and retry before leaving.");
+      return;
+    }
+    setAdvertising(ads);
+    setAnalytics(stats);
+    const synced = await flushConsentWithdrawals();
+    if (!synced) {
+      setMessage(
+        "Your choice is saved on this device. Optional tracking is stopped. Server withdrawal is pending and will retry when you reconnect.",
+      );
+      return;
+    }
+    setOpen(false);
+    setMessage("");
   }
-
-  function choose(next: CookieConsentChoice) {
-    writeCookieConsent(next);
-    updateGoogleConsent(next === "accepted");
-    setChoice(next);
-  }
-
+  if (!open) return null;
   return (
     <div
-      ref={bannerRef}
-      className="cookie-consent-banner fixed inset-x-0 bottom-0 z-[70] border-t border-white/12 bg-navy-dark/96 shadow-[0_-8px_32px_rgba(2,8,20,0.45)] backdrop-blur-xl"
+      ref={banner}
       role="dialog"
-      aria-label="Cookie consent"
+      aria-label="Cookie settings"
+      className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/20 bg-navy-dark p-4 text-white shadow-xl"
     >
-      <div className="cookie-consent-inner mx-auto flex max-w-5xl flex-col sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="cookie-consent-heading font-semibold text-white">Cookies &amp; privacy</p>
-          <p className="cookie-consent-copy text-white/70">
-            <span className="sm:hidden">
-              We use optional cookies to measure advertising performance. See our{" "}
-            </span>
-            <span className="hidden sm:inline">
-              We use essential storage for booking checkout. Optional Google Ads cookies may measure
-              fixed-price quotes, saved booking requests and completed paid bookings — only if you
-              accept. Address suggestions use Google Places. See our{" "}
-            </span>
-            <Link href="/privacy/" className="font-medium text-emerald underline-offset-2 hover:underline">
-              Privacy Policy
-            </Link>
-            .
-          </p>
-        </div>
-        <div className="cookie-consent-actions flex shrink-0 flex-row">
+      <div className="mx-auto max-w-3xl">
+        <h2 className="font-semibold">Cookies &amp; privacy</h2>
+        <p className="my-2 text-sm">
+          Essential storage keeps quotes and payments working. Optional
+          measurement is off until you choose. You can change this anytime in
+          Cookie Settings.
+        </p>
+        <label className="my-2 flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={advertising}
+            onChange={(e) => setAdvertising(e.target.checked)}
+          />
+          Advertising measurement — campaign attribution, Google Ads conversions
+          and advertising-abuse monitoring.
+        </label>
+        <label className="my-2 flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={analytics}
+            onChange={(e) => setAnalytics(e.target.checked)}
+          />
+          Website analytics — optional quote-tool diagnostics. No personalised
+          advertising.
+        </label>
+        <p className="text-sm">
+          <Link href="/privacy/" className="underline">
+            Privacy Policy
+          </Link>{" "}
+          ·{" "}
+          <Link href="/cookies/" className="underline">
+            Cookie Policy
+          </Link>
+        </p>
+        <div className="mt-3 flex flex-wrap gap-3">
           <button
-            type="button"
-            onClick={() => choose("rejected")}
-            className="btn-secondary flex-1 sm:flex-none"
+            className="btn-secondary"
+            onClick={() => void save(false, false)}
           >
             Essential only
           </button>
           <button
-            type="button"
-            onClick={() => choose("accepted")}
-            className="btn-primary flex-1 sm:flex-none"
+            className="btn-primary"
+            onClick={() => void save(advertising, analytics)}
           >
-            Accept
-            <span className="hidden sm:inline">&nbsp;measurement cookies</span>
+            Save choices
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={() => void save(true, true)}
+          >
+            Accept measurement
           </button>
         </div>
+        {message && (
+          <p role="status" className="mt-2 text-sm">
+            {message}
+          </p>
+        )}
       </div>
     </div>
   );

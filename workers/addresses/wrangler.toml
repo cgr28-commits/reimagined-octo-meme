@@ -13,12 +13,16 @@ compatibility_date = "2025-08-01"
 # - GOOGLE_ADS_DEVELOPER_TOKEN / GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET /
 #   GOOGLE_ADS_REFRESH_TOKEN (all four required for server Paid Booking conversions)
 # - GOOGLE_ADS_LOGIN_CUSTOMER_ID (optional manager/MCC customer id)
-# Customer/action IDs have guarded code defaults: 4955115517 / 7734768680.
+# Customer/action IDs require explicit verified environment configuration; no defaults.
 # - GOOGLE_REVIEW_URL  (Google Business "Write a review" link for post-trip emails)
 # - OWNER_ACCESS_KEY   (optional — defaults to DRIVER_ACCESS_KEY for /admin/refund/)
 # - QUOTE_RECEIPT_SECRET  (Worker-only HMAC key for quote receipts; never expose to the browser)
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
+
+[[durable_objects.bindings]]
+name = "CONSENT_LEDGER"
+class_name = "ConsentLedger"
 
 [[durable_objects.bindings]]
 name = "REFUND_COORDINATOR"
@@ -43,6 +47,10 @@ new_sqlite_classes = ["QuoteLeadCoordinator"]
 [[migrations]]
 tag = "v3-meet-greet-coordinator"
 new_sqlite_classes = ["MeetGreetCoordinator"]
+
+[[migrations]]
+tag = "v4-consent-ledger"
+new_sqlite_classes = ["ConsentLedger"]
 
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
@@ -74,6 +82,7 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 name = "EMAIL"
 
 [vars]
+GOOGLE_ADS_PAID_UPLOAD_VERIFIED = "false"
 # Minutes after journey COMPLETE before automated Google review email (hourly cron sends when due).
 REVIEW_REQUEST_DELAY_MINUTES = "120"
 # Return Journey Offer delays (hours). JSON defaults live in shared/return-offer-config.json.

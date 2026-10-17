@@ -207,6 +207,8 @@ export type PaidBookingRecord = {
    * Server-side Google Ads Paid Booking click conversion (UploadClickConversions).
    * Set only after SumUp PAID finalize attempts an upload — used for idempotency.
    */
+  googleAdsPaidConversionAttempts?: number;
+  googleAdsPaidConversionLastAttemptAt?: string;
   googleAdsPaidConversionSentAt?: string;
   googleAdsPaidConversionOrderId?: string;
   googleAdsPaidConversionStatus?:
@@ -214,7 +216,9 @@ export type PaidBookingRecord = {
     | "skipped_no_click_id"
     | "skipped_not_configured"
     | "skipped_duplicate"
-    | "failed";
+    | "failed"
+    | "skipped_no_consent"
+    | "skipped_cancelled";
   googleAdsPaidConversionLastError?: string;
   googleAdsPaidConversionClickIdType?: "gclid" | "gbraid" | "wbraid";
   trackingToken?: string;
@@ -299,7 +303,9 @@ export type PaidBookingRecord = {
 /** Default driver label when no other driver is assigned (multi-driver capable later). */
 export const PRIMARY_DRIVER_LABEL = "Owner / Primary Driver";
 
-export function resolveAssignedDriverLabel(assignedDriverName?: string | null): string {
+export function resolveAssignedDriverLabel(
+  assignedDriverName?: string | null,
+): string {
   const trimmed = assignedDriverName?.trim();
   return trimmed || PRIMARY_DRIVER_LABEL;
 }
@@ -401,7 +407,15 @@ export function grossAmountCollectedOf(
 }
 
 export function amountActuallyRefundedOf(
-  record: Pick<PaidBookingRecord, "amountRefunded" | "status" | "amount" | "amountPaidLabel" | "originalAmount" | "additionalPayments">,
+  record: Pick<
+    PaidBookingRecord,
+    | "amountRefunded"
+    | "status"
+    | "amount"
+    | "amountPaidLabel"
+    | "originalAmount"
+    | "additionalPayments"
+  >,
 ): number {
   if (typeof record.amountRefunded === "number" && record.amountRefunded >= 0) {
     return roundMoneyGbp(record.amountRefunded);
@@ -425,7 +439,10 @@ export function netAmountRetainedOf(
   >,
 ): number {
   return roundMoneyGbp(
-    Math.max(0, grossAmountCollectedOf(record) - amountActuallyRefundedOf(record)),
+    Math.max(
+      0,
+      grossAmountCollectedOf(record) - amountActuallyRefundedOf(record),
+    ),
   );
 }
 

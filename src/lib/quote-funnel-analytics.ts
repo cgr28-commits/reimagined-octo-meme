@@ -4,7 +4,7 @@
  * Requires the same marketing/measurement cookie consent as other browser measurement.
  */
 
-import { hasMarketingCookieConsent } from "@/lib/cookie-consent";
+import { hasAnalyticsCookieConsent } from "@/lib/cookie-consent";
 
 declare global {
   interface Window {
@@ -73,11 +73,17 @@ function sessionSet(key: string, value: string): void {
   }
 }
 
-function cleanParams(params: QuoteFunnelParams): Record<string, string | number | boolean> {
+function cleanParams(
+  params: QuoteFunnelParams,
+): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(params)) {
     if (value == null || value === "") continue;
-    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
       out[key] = value;
     }
   }
@@ -93,7 +99,7 @@ export function trackQuoteFunnelEvent(
   eventName: QuoteFunnelEventName,
   params: QuoteFunnelParams = {},
 ): boolean {
-  if (typeof window === "undefined" || !hasMarketingCookieConsent()) {
+  if (typeof window === "undefined" || !hasAnalyticsCookieConsent()) {
     return false;
   }
 
@@ -145,7 +151,10 @@ export function trackPickupPlaceSelected(
   if (!pid || !attemptId.trim()) return false;
   const key = `${PLACE_PREFIX}pickup:${attemptId}:${pid}`;
   if (sessionGet(key)) return false;
-  const ok = trackQuoteFunnelEvent(QUOTE_FUNNEL_EVENTS.PICKUP_PLACE_SELECTED, params);
+  const ok = trackQuoteFunnelEvent(
+    QUOTE_FUNNEL_EVENTS.PICKUP_PLACE_SELECTED,
+    params,
+  );
   if (ok) sessionSet(key, "1");
   return ok;
 }
@@ -159,12 +168,17 @@ export function trackDropoffPlaceSelected(
   if (!pid || !attemptId.trim()) return false;
   const key = `${PLACE_PREFIX}dropoff:${attemptId}:${pid}`;
   if (sessionGet(key)) return false;
-  const ok = trackQuoteFunnelEvent(QUOTE_FUNNEL_EVENTS.DROPOFF_PLACE_SELECTED, params);
+  const ok = trackQuoteFunnelEvent(
+    QUOTE_FUNNEL_EVENTS.DROPOFF_PLACE_SELECTED,
+    params,
+  );
   if (ok) sessionSet(key, "1");
   return ok;
 }
 
-export function trackQuoteRequestClicked(params: QuoteFunnelParams = {}): boolean {
+export function trackQuoteRequestClicked(
+  params: QuoteFunnelParams = {},
+): boolean {
   return trackQuoteFunnelEvent(QUOTE_FUNNEL_EVENTS.REQUEST_CLICKED, params);
 }
 
@@ -194,13 +208,23 @@ export function trackQuoteManualEnquiry(
 }
 
 /** Error-help WhatsApp support click (diagnostic; no Ads send_to). */
-export function trackWhatsAppBookingHelpClick(params: QuoteFunnelParams = {}): boolean {
-  return trackQuoteFunnelEvent(QUOTE_FUNNEL_EVENTS.WHATSAPP_BOOKING_HELP_CLICK, params);
+export function trackWhatsAppBookingHelpClick(
+  params: QuoteFunnelParams = {},
+): boolean {
+  return trackQuoteFunnelEvent(
+    QUOTE_FUNNEL_EVENTS.WHATSAPP_BOOKING_HELP_CLICK,
+    params,
+  );
 }
 
 /** Confirmed Start New Quote reset (diagnostic; no Ads send_to). */
-export function trackStartNewQuoteClick(params: QuoteFunnelParams = {}): boolean {
-  return trackQuoteFunnelEvent(QUOTE_FUNNEL_EVENTS.START_NEW_QUOTE_CLICK, params);
+export function trackStartNewQuoteClick(
+  params: QuoteFunnelParams = {},
+): boolean {
+  return trackQuoteFunnelEvent(
+    QUOTE_FUNNEL_EVENTS.START_NEW_QUOTE_CLICK,
+    params,
+  );
 }
 
 /** Test helper — clears funnel dedupe keys from session storage. */

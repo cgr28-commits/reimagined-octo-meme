@@ -31,17 +31,25 @@ try {
       return route.abort();
     });
     const page = await context.newPage();
+    let essentialChosen = false;
     for (const item of cases) {
       await page.goto(`${base}${item.path}?previewMinibus=1`);
       await page.locator('#quote-section-passengers').waitFor();
       const cookie = page.getByRole('button',{name:'Essential only',exact:true});
-      if (await cookie.isVisible()) await cookie.click();
+      if (!essentialChosen) {
+        // A fresh context always needs a choice. Await hydration instead of
+        // treating a dialog that has not mounted yet as an existing preference.
+        await cookie.click();
+        await cookie.waitFor({state:'hidden'});
+        essentialChosen = true;
+      }
       assert.equal(await page.locator('[data-quote-presentation="homepage"]').count(),1);
       assert.equal(await page.locator('#quote-section-passengers').inputValue(),'');
       assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'');
       if (item.airport) assert.match(await page.locator(`#${item.field}`).inputValue(),item.airport);
       for (const button of await page.locator('[data-get-fixed-price]').all()) assert.equal(await button.isEnabled(),false);
       const cta = page.locator('a[data-landing-quote-cta]').first();
+      await cta.evaluate(element=>element.scrollIntoView({block:'center'}));
       await cta.click();
       await page.waitForTimeout(1100);
       assert.equal(new URL(page.url()).hash,'#quote');

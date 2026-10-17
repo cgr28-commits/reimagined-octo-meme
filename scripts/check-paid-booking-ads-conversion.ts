@@ -1,274 +1,369 @@
-/**
- * Regression checks for server-side Paid Booking Google Ads click conversions.
- * Run: npx tsx scripts/check-paid-booking-ads-conversion.ts
- */
-
+/** Real conversion/store functions with in-memory KV and mocked OAuth/Ads/SumUp. */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { consent, mockKv, mockConsentNamespace } from "./measurement-test-helpers";
+import { makeAttributionTouch } from "../shared/ads-attribution";
 import {
-  DEFAULT_GOOGLE_ADS_CUSTOMER_ID,
-  DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID,
-  GOOGLE_ADS_API_VERSION,
-  formatGoogleAdsConversionDateTime,
-  isGoogleAdsClickConversionConfigured,
-  pickAdsClickIdentifier,
-  resolveGoogleAdsCustomerId,
-  resolvePaidBookingConversionActionId,
-  uploadPaidBookingClickConversion,
-} from "../shared/google-ads-click-conversions";
-import { DEFAULT_GOOGLE_ADS_ID } from "../src/lib/google-ads";
-import { ownerGoogleAdsPaidConversionLabel } from "../src/lib/google-ads-owner-status";
-
-function read(path: string): string {
-  return readFileSync(join(process.cwd(), path), "utf8");
-}
-
+  savePaidBookingRecord,
+  getPaidBookingRecord,
+} from "../workers/addresses/src/paid-booking-store";
+import {
+  savePendingCheckout,
+  getPendingCheckout,
+} from "../workers/addresses/src/pending-checkout-store";
+import {
+  maybeUploadPaidBookingAdsConversion,
+  retryRecentPaidBookingAdsConversions,
+} from "../workers/addresses/src/paid-booking-ads-conversion";
+import { handleMeasurementWithdrawal } from "../workers/addresses/src/measurement-consent";
+import { finalizePaidCheckout } from "../workers/addresses/src/finalize-paid-checkout";
+import { marketingReportRow } from "../shared/marketing-report";
+import { handleMarketingReport } from "../workers/addresses/src/marketing-report";
+import { saveBookingJob } from "../workers/addresses/src/booking-job-store";
+import type { PaidBookingRecord } from "../shared/paid-booking-record";
 async function main() {
-  console.log("=== Account vs website tag IDs ===");
-  assert.equal(DEFAULT_GOOGLE_ADS_ID, "AW-18303631278");
-  assert.equal(DEFAULT_GOOGLE_ADS_CUSTOMER_ID, "4955115517");
-  assert.equal(DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID, "7734768680");
-  assert.equal(GOOGLE_ADS_API_VERSION, "v25");
-  assert.notEqual(
-    DEFAULT_GOOGLE_ADS_CUSTOMER_ID,
-    DEFAULT_GOOGLE_ADS_ID.replace(/^AW-/, ""),
-    "customer ID must not be the AW- tag number",
-  );
-  assert.equal(resolveGoogleAdsCustomerId({}), "4955115517");
-  assert.equal(resolvePaidBookingConversionActionId({}), "7734768680");
-  assert.equal(
-    resolveGoogleAdsCustomerId({ GOOGLE_ADS_CUSTOMER_ID: "495-511-5517" }),
-    "4955115517",
-  );
-  assert.equal(
-    resolveGoogleAdsCustomerId({ GOOGLE_ADS_CUSTOMER_ID: "18303631278" }),
-    "4955115517",
-  );
-  assert.equal(
-    resolveGoogleAdsCustomerId({ GOOGLE_ADS_CUSTOMER_ID: "10303631278" }),
-    "4955115517",
-  );
-  assert.equal(
-    resolvePaidBookingConversionActionId({
-      GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "77347686808",
-    }),
-    "7734768680",
-  );
-  assert.equal(
-    resolvePaidBookingConversionActionId({
-      GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "7733724411",
-    }),
-    "7734768680",
-  );
-  console.log("OK  v25; customer 4955115517; action 7734768680; stale IDs guarded");
-
-  console.log("=== Click id selection ===");
-  assert.deepEqual(pickAdsClickIdentifier({ gclid: "abc", wbraid: "wb", gbraid: "gb" }), {
-    type: "gclid",
-    value: "abc",
-  });
-  assert.deepEqual(pickAdsClickIdentifier({ wbraid: "wb", gbraid: "gb" }), {
-    type: "wbraid",
-    value: "wb",
-  });
-  assert.deepEqual(pickAdsClickIdentifier({ gbraid: "gb" }), {
-    type: "gbraid",
-    value: "gb",
-  });
-  assert.equal(pickAdsClickIdentifier({ utm_source: "google" }), null);
-  console.log("OK  gclid > wbraid > gbraid; UTMs alone are not enough");
-
-  console.log("=== Conversion datetime format ===");
-  const formatted = formatGoogleAdsConversionDateTime(new Date("2026-01-15T12:00:00.000Z"));
-  assert.match(formatted, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
-  console.log("OK ", formatted);
-
-  console.log("=== Config gate ===");
-  assert.equal(isGoogleAdsClickConversionConfigured({}), false);
-  assert.equal(
-    isGoogleAdsClickConversionConfigured({
-      GOOGLE_ADS_DEVELOPER_TOKEN: "dev",
-      GOOGLE_ADS_CLIENT_ID: "id",
-      GOOGLE_ADS_CLIENT_SECRET: "secret",
-      GOOGLE_ADS_REFRESH_TOKEN: "refresh",
-    }),
-    true,
-    "OAuth secrets alone are enough; customer/action IDs have code defaults",
-  );
-  console.log("OK  Worker OAuth secrets required; customer/action IDs defaulted");
-
-  console.log("=== Upload skips without click id / config ===");
-  {
-    const skipped = await uploadPaidBookingClickConversion(
-      {
-        GOOGLE_ADS_DEVELOPER_TOKEN: "dev",
-        GOOGLE_ADS_CLIENT_ID: "id",
-        GOOGLE_ADS_CLIENT_SECRET: "secret",
-        GOOGLE_ADS_REFRESH_TOKEN: "refresh",
-        GOOGLE_ADS_CUSTOMER_ID: "4955115517",
-        GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "7734768680",
-      },
-      {
-        orderId: "PAY-1",
-        conversionValue: 50,
-        attribution: { utm_source: "google" },
-      },
-    );
-    assert.equal(skipped.status, "skipped_no_click_id");
-  }
-  {
-    const skipped = await uploadPaidBookingClickConversion(
-      {},
-      { orderId: "PAY-1", conversionValue: 50, attribution: { gclid: "x" } },
-    );
-    assert.equal(skipped.status, "skipped_not_configured");
-  }
-  console.log("OK  upload refuses missing click id or secrets");
-
-  console.log("=== v25 upload endpoint and conversion action resource ===");
-  {
-    const originalFetch = globalThis.fetch;
-    const calls: Array<{ url: string; init?: RequestInit }> = [];
-    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      calls.push({ url, init });
-      if (url === "https://oauth2.googleapis.com/token") {
-        return new Response(JSON.stringify({ access_token: "access" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ results: [{ orderId: "PAY-V25" }] }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }) as typeof fetch;
-    try {
-      const uploaded = await uploadPaidBookingClickConversion(
-        {
-          GOOGLE_ADS_DEVELOPER_TOKEN: "dev",
-          GOOGLE_ADS_CLIENT_ID: "id",
-          GOOGLE_ADS_CLIENT_SECRET: "secret",
-          GOOGLE_ADS_REFRESH_TOKEN: "refresh",
-          // Deliberately stale values must be remapped.
-          GOOGLE_ADS_CUSTOMER_ID: "18303631278",
-          GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "7733724411",
-        },
-        {
-          orderId: "PAY-V25",
-          conversionValue: 75,
-          attribution: { gclid: "click-v25" },
-          conversionTime: new Date("2026-09-01T12:00:00.000Z"),
-        },
-      );
-      assert.equal(uploaded.status, "sent");
-      assert.equal(
-        calls[1]?.url,
-        "https://googleads.googleapis.com/v25/customers/4955115517:uploadClickConversions",
-      );
-      const body = JSON.parse(String(calls[1]?.init?.body)) as {
-        conversions: Array<{ conversionAction: string; orderId: string }>;
-      };
-      assert.equal(
-        body.conversions[0]?.conversionAction,
-        "customers/4955115517/conversionActions/7734768680",
-      );
-      assert.equal(body.conversions[0]?.orderId, "PAY-V25");
-    } finally {
-      globalThis.fetch = originalFetch;
+  const kv = mockKv();
+  const { withConsistentConsentLedger } = await import("../workers/addresses/src/consent-ledger");
+  const store = withConsistentConsentLedger(kv as unknown as KVNamespace, await mockConsentNamespace() as unknown as DurableObjectNamespace)!;
+  const uploads: any[] = [];
+  let fail = false;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("oauth2.googleapis.com"))
+      return new Response(JSON.stringify({ access_token: "TEST" }));
+    if (url.includes("googleads.googleapis.com")) {
+      uploads.push(JSON.parse(String(init?.body)).conversions[0]);
+      return fail
+        ? new Response('{"error":{"message":"mock failure"}}', { status: 503 })
+        : new Response('{"results":[{"orderId":"TEST"}]}');
     }
-  }
-  console.log("OK  v25 endpoint + corrected account/action resource");
-
-  console.log("=== Offline fallback and browser purchase destination ===");
-  const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
-  assert.match(finalize, /maybeUploadPaidBookingAdsConversion/);
-  assert.doesNotMatch(finalize, /window\.gtag|gtag\(/);
-  const helper = read("workers/addresses/src/paid-booking-ads-conversion.ts");
-  assert.match(helper, /googleAdsPaidConversionSentAt/);
-  assert.match(helper, /shouldSkipUpload/);
-  assert.match(helper, /isRefundTest/);
-  assert.match(helper, /isAmendmentTopUp/);
-  assert.match(helper, /retryRecentPaidBookingAdsConversions/);
-  assert.match(helper, /days:\s*30/);
-  assert.match(helper, /limit:\s*50/);
-  assert.match(helper, /conversionTime:\s*createdAt/);
-  assert.match(helper, /record\.totalFare/);
-  assert.match(helper, /record\.amount/);
-  assert.match(helper, /record\.isRefundTest \|\| record\.isAmendmentTestFixture/);
-  const workerIndex = read("workers/addresses/src/index.ts");
-  assert.match(workerIndex, /retryRecentPaidBookingAdsConversions\(env\)/);
-  const browserAds = read("src/lib/google-ads.ts");
-  assert.match(browserAds, /DEFAULT_PURCHASE_CONVERSION_LABEL/);
-  assert.match(browserAds, /NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL/);
-
-  const envExample = read("env.example");
-  assert.match(envExample, /GOOGLE_ADS_CUSTOMER_ID=4955115517/);
-  assert.match(envExample, /GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID=7734768680/);
-  assert.match(envExample, /Do NOT use the AW- tag number 18303631278/);
-  assert.doesNotMatch(envExample, /GOOGLE_ADS_CUSTOMER_ID=18303631278/);
-
-  const sharedModule = read("shared/google-ads-click-conversions.ts");
-  const workerModule = read("workers/addresses/shared/google-ads-click-conversions.ts");
-  for (const source of [sharedModule, workerModule, envExample]) {
-    assert.match(source, /4955115517/);
-  }
-  assert.doesNotMatch(
-    envExample,
-    /GOOGLE_ADS_CUSTOMER_ID\s*=\s*(?:18303631278|10303631278)/,
-    "env example must not configure AW-tag digits as the customer id",
-  );
-  assert.match(sharedModule, /STALE_GOOGLE_ADS_CUSTOMER_IDS/);
-  assert.match(workerModule, /STALE_GOOGLE_ADS_CUSTOMER_IDS/);
-  assert.match(sharedModule, /GOOGLE_ADS_API_VERSION = "v25"/);
-  assert.match(workerModule, /GOOGLE_ADS_API_VERSION = "v25"/);
-  assert.match(sharedModule, /DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "7734768680"/);
-  assert.match(workerModule, /DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID = "7734768680"/);
-
-  const deployWorkflow = read(".github/workflows/deploy-worker.yml");
-  for (const secret of [
-    "GOOGLE_ADS_DEVELOPER_TOKEN",
-    "GOOGLE_ADS_CLIENT_ID",
-    "GOOGLE_ADS_CLIENT_SECRET",
-    "GOOGLE_ADS_REFRESH_TOKEN",
-    "GOOGLE_ADS_LOGIN_CUSTOMER_ID",
-  ]) {
-    assert.match(deployWorkflow, new RegExp(`secrets\\.${secret}`));
-    assert.match(deployWorkflow, new RegExp(`wrangler secret put ${secret}`));
-  }
-  assert.match(
-    deployWorkflow,
-    /Google Ads API credentials are incomplete — existing Cloudflare Worker secrets are left unchanged/,
-  );
-  console.log("OK  browser Paid Booking is live; Worker upload remains a separate fallback");
-
-  console.log("=== Owner dashboard status labels ===");
-  assert.equal(ownerGoogleAdsPaidConversionLabel("sent", true), "Sent");
-  assert.equal(ownerGoogleAdsPaidConversionLabel("skipped_duplicate", true), "Sent");
-  assert.equal(ownerGoogleAdsPaidConversionLabel("failed", true), "Failed");
+    throw Error(`Unexpected external call blocked: ${url}`);
+  };
+  // Fictional configuration only; a flag or credentials alone cannot enable uploads.
+  const { isGoogleAdsClickConversionConfigured } = await import("../shared/google-ads-click-conversions");
+  assert.equal(isGoogleAdsClickConversionConfigured({ GOOGLE_ADS_PAID_UPLOAD_VERIFIED: "false" }), false);
+  const grant = consent();
+  const touch = makeAttributionTouch({
+    gclid: "TEST-CLICK",
+    utm_source: "google",
+    utm_medium: "cpc",
+  });
+  const attribution = {
+    gclid: "TEST-CLICK",
+    utm_source: "google",
+    utm_medium: "cpc",
+    consent: grant,
+    firstTouch: touch,
+    lastTouch: touch,
+  };
+  const env = {
+    TRACKING_STORE: store,
+    GOOGLE_ADS_PAID_UPLOAD_VERIFIED: "true",
+    GOOGLE_ADS_CUSTOMER_ID: "1234567890",
+    GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: "9876543210",
+    GOOGLE_ADS_DEVELOPER_TOKEN: "TEST",
+    GOOGLE_ADS_CLIENT_ID: "TEST",
+    GOOGLE_ADS_CLIENT_SECRET: "TEST",
+    GOOGLE_ADS_REFRESH_TOKEN: "TEST",
+  };
+  assert.equal(isGoogleAdsClickConversionConfigured(env), true);
+  assert.equal(isGoogleAdsClickConversionConfigured({ ...env, GOOGLE_ADS_PAID_UPLOAD_VERIFIED: "false" }), false);
+  assert.equal(isGoogleAdsClickConversionConfigured({ ...env, GOOGLE_ADS_CUSTOMER_ID: undefined }), false);
+  assert.equal(isGoogleAdsClickConversionConfigured({ ...env, GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID: undefined }), false);
+  assert.equal(isGoogleAdsClickConversionConfigured({ ...env, GOOGLE_ADS_CUSTOMER_ID: "AW-EXAMPLE" }), false);
+  const make = (ref: string) =>
+    ({
+      paymentReference: ref,
+      checkoutId: `checkout-${ref}`,
+      customerReference: `customer-${ref}`,
+      createdAt: new Date().toISOString(),
+      amount: 50,
+      totalFare: 50,
+      originalAmount: 50,
+      amountPaidLabel: "£50.00",
+      currency: "GBP",
+      status: "paid",
+      paymentStatus: "paid",
+      operationalStatus: "confirmed",
+      customerName: "Fictional",
+      customerEmail: "audit@example.invalid",
+      mobileNumber: "07700900000",
+      tripDate: "2026-12-01",
+      tripTime: "10:00",
+      calendarEventIds: [],
+      transactionId: "TEST-TX",
+      transactionCode: "TEST-CODE",
+      attribution,
+    }) as PaidBookingRecord;
+  const deposit = { ...make("TEST-DEPOSIT"), amount: 10, originalAmount: 10, totalFare: 50, cashBalanceDue: 40, amountRefunded: 5 };
+  assert.equal(marketingReportRow(deposit, true).collected, 10);
+  assert.equal(marketingReportRow(deposit, true).fare, 50);
+  assert.equal(marketingReportRow(deposit, true).refunded, 5);
+  assert.equal(marketingReportRow({ ...deposit, cashCollectedAt: new Date().toISOString() }, true).collected, 50);
+  await savePaidBookingRecord(store, make("TEST-ONE"));
   assert.equal(
-    ownerGoogleAdsPaidConversionLabel("skipped_not_configured", true),
-    "Missing configuration",
+    JSON.parse(kv.m.get("booking:ref:TEST-ONE")!).attribution,
+    undefined,
+    "no click IDs in long-lived operational record",
+  );
+  assert.ok(kv.ttls.get("measurement:paid:TEST-ONE")! <= 90 * 86400);
+  await maybeUploadPaidBookingAdsConversion({
+    env,
+    paymentReference: "TEST-ONE",
+    amount: 50,
+  });
+  assert.equal(uploads.length, 1);
+  assert.equal(uploads[0].orderId, "TEST-ONE");
+  assert.deepEqual(uploads[0].consent, {
+    adUserData: "GRANTED",
+  });
+  await maybeUploadPaidBookingAdsConversion({
+    env,
+    paymentReference: "TEST-ONE",
+    amount: 50,
+  });
+  assert.equal(uploads.length, 1, "webhook repeat does not upload twice");
+  await saveBookingJob(store, { id: "TEST-UNPAID-REQUEST", kind: "booking-request", status: "awaiting_payment", createdAt: new Date().toISOString() } as any);
+  const deniedReport = await handleMarketingReport(new Request("https://audit.invalid/owner/marketing-attribution"), { TRACKING_STORE: store, OWNER_ACCESS_KEY: "TEST-OWNER" }, null);
+  assert.equal(deniedReport.status, 401);
+  const report = await handleMarketingReport(new Request("https://audit.invalid/owner/marketing-attribution", { headers: { "X-Owner-Key": "TEST-OWNER" } }), { TRACKING_STORE: store, OWNER_ACCESS_KEY: "TEST-OWNER" }, null);
+  const reportBody = await report.json() as any;
+  assert.equal(reportBody.rows.length, 1);
+  assert.equal(reportBody.unpaidRequests, 1);
+  assert.equal(reportBody.totalRecordedBookings, 2);
+  assert.ok(!JSON.stringify(reportBody).includes("TEST-CLICK"));
+
+  await maybeUploadPaidBookingAdsConversion({
+    env,
+    paymentReference: "UNPAID-NONEXISTENT",
+    amount: 50,
+    attribution,
+  });
+  assert.equal(uploads.length, 1);
+  await savePaidBookingRecord(store, {
+    ...make("TEST-CANCEL"),
+    cancelledAt: new Date().toISOString(),
+  });
+  await maybeUploadPaidBookingAdsConversion({
+    env,
+    paymentReference: "TEST-CANCEL",
+    amount: 50,
+  });
+  assert.equal(uploads.length, 1);
+  await savePaidBookingRecord(store, {
+    ...make("TEST-NOCONSENT"),
+    attribution: { gclid: "LEGACY" },
+  });
+  await maybeUploadPaidBookingAdsConversion({
+    env,
+    paymentReference: "TEST-NOCONSENT",
+    amount: 50,
+  });
+  assert.equal(uploads.length, 1);
+  fail = true;
+  await savePaidBookingRecord(store, make("TEST-RETRY"));
+  await maybeUploadPaidBookingAdsConversion({
+    env,
+    paymentReference: "TEST-RETRY",
+    amount: 50,
+  });
+  assert.equal(
+    (await getPaidBookingRecord(store, "TEST-RETRY"))
+      ?.googleAdsPaidConversionStatus,
+    "failed",
+  );
+  fail = false;
+  await retryRecentPaidBookingAdsConversions(env);
+  assert.equal(
+    (await getPaidBookingRecord(store, "TEST-RETRY"))
+      ?.googleAdsPaidConversionStatus,
+    "sent",
   );
   assert.equal(
-    ownerGoogleAdsPaidConversionLabel("skipped_no_click_id", false),
-    "No captured click ID",
+    (await getPaidBookingRecord(store, "TEST-RETRY"))
+      ?.googleAdsPaidConversionAttempts,
+    2,
   );
-  assert.equal(ownerGoogleAdsPaidConversionLabel(undefined, false), "No captured click ID");
-  assert.equal(ownerGoogleAdsPaidConversionLabel(undefined, true), "Not recorded");
-  const panel = read("src/components/OwnerPaidBookingsPanel.tsx");
-  assert.match(panel, /data-owner-google-ads-status/);
-  assert.match(panel, /Paid booking conversion:/);
-  const handlers = read("workers/addresses/src/paid-booking-handlers.ts");
-  assert.match(handlers, /redactGoogleAdsOwnerError/);
-  assert.doesNotMatch(handlers, /googleAdsPaidConversionLastError:\s*booking\.googleAdsPaidConversionLastError/);
-  console.log("OK  More options shows sent, failed, missing configuration, or no click ID");
+  const booking = {
+    customerName: "Fictional",
+    customerEmail: "audit@example.invalid",
+    mobileNumber: "07700900000",
+    attribution,
+  } as any;
+  await savePendingCheckout(store, {
+    checkoutId: "TEST-PENDING",
+    checkoutReference: "TEST",
+    amount: 50,
+    booking,
+    createdAt: new Date().toISOString(),
+  });
+  assert.equal(
+    (await getPendingCheckout(store, "TEST-PENDING"))?.booking.attribution
+      ?.gclid,
+    "TEST-CLICK",
+  );
+  assert.equal(
+    JSON.parse(kv.m.get("pending-checkout:TEST-PENDING")!).booking.attribution,
+    undefined,
+  );
+  await savePaidBookingRecord(store, make("TEST-REVOKED"));
+  const before = uploads.length;
+  const revoked = await handleMeasurementWithdrawal(
+    new Request("https://audit.invalid/measurement/withdraw", {
+      method: "POST",
+      body: JSON.stringify({ ids: [grant.id] }),
+    }),
+    store,
+    null,
+  );
+  assert.equal(revoked.status, 200);
+  assert.equal(
+    (await getPendingCheckout(store, "TEST-PENDING"))?.booking.attribution,
+    undefined,
+  );
+  await maybeUploadPaidBookingAdsConversion({
+    env,
+    paymentReference: "TEST-REVOKED",
+    amount: 50,
+    attribution,
+  });
+  assert.equal(uploads.length, before);
+  const row = marketingReportRow(make("TEST-REPORT"), false);
+  assert.equal(row.source, "Unknown");
+  assert.equal(row.collected, 50);
+  // Paid webhook recovery needs no browser session. Existing verified record is enough.
+  const fresh = consent();
+  const webhookRecord = {
+    ...make("TEST-WEBHOOK"),
+    attribution: { ...attribution, consent: fresh },
+  };
+  await savePaidBookingRecord(store, webhookRecord);
+  const args = {
+    env: { ...env, SUMUP_API_KEY: "TEST" },
+    checkoutId: webhookRecord.checkoutId,
+    booking,
+    logPaidBookingCalendar: async () => ({ logged: true }),
+  };
+  const result = await finalizePaidCheckout(args);
+  assert.equal(result.paid, true);
+  assert.equal(result.alreadyFinalized, true);
+  assert.equal(uploads.at(-1).orderId, "TEST-WEBHOOK");
+  const count = uploads.length;
+  await finalizePaidCheckout(args);
+  assert.equal(uploads.length, count);
 
-  console.log("\nAll Paid Booking Ads conversion checks passed.");
+  // First successful checkout and notification delivery, with no browser return.
+  const fullBooking = {
+    ...booking,
+    attribution: { ...attribution, consent: consent() },
+    tripLabel: "Airport drop-off",
+    pickupLabel: "Fictional Belfast address",
+    dropoffLabel: "Belfast International Airport",
+    tripDate: "2026-12-01",
+    tripTime: "10:00",
+    passengers: 1,
+    suitcases: 1,
+    vehicle: "Saloon",
+    returnJourney: false,
+    airportCode: "BFS",
+    isFromAirport: false,
+  };
+  let emails = 0;
+  const newEnv = {
+    ...env,
+    SUMUP_API_KEY: "TEST",
+    EMAIL: {
+      send: async () => {
+        emails++;
+        return { messageId: "MOCK" };
+      },
+    },
+  };
+  const newCheckout = {
+    id: "TEST-NEW-CHECKOUT",
+    status: "PAID",
+    amount: 50,
+    currency: "GBP",
+    checkout_reference: "TEST-NEW-REFERENCE",
+    transaction_id: "TEST-NEW-ID",
+    transaction_code: "TEST-NEW-CODE",
+  };
+  await savePendingCheckout(store, {
+    checkoutId: newCheckout.id,
+    checkoutReference: "TEST-NEW-REFERENCE",
+    amount: 50,
+    booking: fullBooking,
+    createdAt: new Date().toISOString(),
+  });
+  const success = await finalizePaidCheckout({
+    env: newEnv,
+    checkoutId: newCheckout.id,
+    booking: fullBooking,
+    checkout: newCheckout,
+    logPaidBookingCalendar: async () => ({ logged: true, eventIds: [] }),
+  });
+  assert.equal(success.paid, true);
+  assert.equal(success.customerEmailSent, true);
+  assert.equal(success.ownerEmailSent, true);
+  assert.ok(emails >= 2);
+  assert.equal(success.purchase?.transactionId, success.paymentReference);
+  const uploaded = uploads.length,
+    notified = emails;
+  await finalizePaidCheckout({
+    env: newEnv,
+    checkoutId: newCheckout.id,
+    booking: fullBooking,
+    checkout: newCheckout,
+    logPaidBookingCalendar: async () => ({ logged: true, eventIds: [] }),
+  });
+  assert.equal(uploads.length, uploaded);
+  assert.equal(emails, notified);
+  const unpaid = await finalizePaidCheckout({
+    env: newEnv,
+    checkoutId: "TEST-UNPAID",
+    booking: fullBooking,
+    checkout: { ...newCheckout, id: "TEST-UNPAID", status: "PENDING" },
+    logPaidBookingCalendar: async () => ({ logged: true }),
+  });
+  assert.equal(unpaid.paid, false);
+  assert.equal(uploads.length, uploaded);
+  // A ledger outage denies uploads, but must not erase evidence or make a
+  // transient outage terminal. A later request must still check withdrawal.
+  const outageKv = mockKv(), ledger = await mockConsentNamespace();
+  const healthy = withConsistentConsentLedger(outageKv as unknown as KVNamespace, ledger as unknown as DurableObjectNamespace)!;
+  const retained = consent(), revokedDuringOutage = consent();
+  for (const [ref, snapshot] of [["TEST-RECOVER", retained], ["TEST-REVOKED-RECOVER", revokedDuringOutage]] as const)
+    await savePaidBookingRecord(healthy, {...make(ref), attribution: {...attribution, consent: snapshot}});
+  const originalTtl = outageKv.ttls.get("measurement:paid:TEST-RECOVER");
+  const unavailable = {idFromName:(id:string)=>id,get:()=>({fetch:async()=>new Response("{}",{status:503})})};
+  for (const ref of ["TEST-RECOVER", "TEST-REVOKED-RECOVER"]) {
+    const down = withConsistentConsentLedger(outageKv as unknown as KVNamespace, unavailable as unknown as DurableObjectNamespace)!;
+    await maybeUploadPaidBookingAdsConversion({env:{...env, TRACKING_STORE:down},paymentReference:ref,amount:50});
+    assert.equal(JSON.parse(outageKv.m.get(`booking:ref:${ref}`)!).googleAdsPaidConversionStatus,"failed");
+    assert.ok(outageKv.m.has(`measurement:paid:${ref}`));
+  }
+  assert.equal(uploads.length,uploaded,"no upload during ledger outage");
+  assert.equal(outageKv.ttls.get("measurement:paid:TEST-RECOVER"), originalTtl,"outage does not extend retention");
+  await handleMeasurementWithdrawal(new Request("https://test.invalid/measurement/withdraw",{method:"POST",body:JSON.stringify({ids:[revokedDuringOutage.id]})}),healthy,null);
+  let recoveryUploads=0;
+  globalThis.fetch=async(input)=>{
+    if(String(input).includes("oauth2.googleapis.com"))return new Response('{"access_token":"TEST"}');
+    if(String(input).includes("googleads.googleapis.com")){recoveryUploads++;return new Response('{"results":[{"orderId":"TEST-RECOVER"}]}');}
+    throw Error("Unexpected external request in outage recovery");
+  };
+  const recoveredStore=withConsistentConsentLedger(outageKv as unknown as KVNamespace,ledger as unknown as DurableObjectNamespace)!;
+  await retryRecentPaidBookingAdsConversions({...env,TRACKING_STORE:recoveredStore});
+  assert.equal(recoveryUploads,1,"only still-consented booking uploads after recovery");
+  assert.equal((await getPaidBookingRecord(recoveredStore,"TEST-RECOVER"))?.googleAdsPaidConversionStatus,"sent");
+  assert.equal((await getPaidBookingRecord(recoveredStore,"TEST-REVOKED-RECOVER"))?.googleAdsPaidConversionStatus,"skipped_no_consent");
+  console.log("PASS ledger outage preserves TTL/evidence, retries after recovery and still enforces withdrawal");
+  console.log(
+    "PASS first SumUp PAID checkout, customer/owner notification mocks, no return, duplicate webhook, unpaid SumUp rejection",
+  );
+  console.log(
+    "PASS backend evidence/withdrawal, expiring sidecars, unpaid/cancelled exclusion, stable server order ID, failed upload/retry, no browser return and duplicate finalize recovery",
+  );
 }
-
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
+main().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
 });

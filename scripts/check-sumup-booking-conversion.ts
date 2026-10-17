@@ -1,3 +1,4 @@
+import { consent } from "./measurement-test-helpers";
 /** Regression checks for saved-booking conversion delivery before SumUp navigation. */
 
 import assert from "node:assert/strict";
@@ -37,15 +38,21 @@ async function main(): Promise<void> {
   const dataLayer: unknown[] = [];
   const gtagCalls: unknown[][] = [];
   (globalThis as { window?: unknown }).window = globalThis;
-  (globalThis as { localStorage?: Storage }).localStorage = memoryStorage(local);
-  (globalThis as { sessionStorage?: Storage }).sessionStorage = memoryStorage(session);
+  (globalThis as { localStorage?: Storage }).localStorage =
+    memoryStorage(local);
+  (globalThis as { sessionStorage?: Storage }).sessionStorage =
+    memoryStorage(session);
   (globalThis as { dataLayer?: unknown[] }).dataLayer = dataLayer;
-  (globalThis as { gtag?: (...args: unknown[]) => void }).gtag = (...args: unknown[]) => {
+  (globalThis as { gtag?: (...args: unknown[]) => void }).gtag = (
+    ...args: unknown[]
+  ) => {
     gtagCalls.push(args);
   };
-  local.set(COOKIE_CONSENT_KEY, "accepted");
+  local.set(COOKIE_CONSENT_KEY, JSON.stringify(consent()));
 
-  console.log("=== Immediate SumUp navigation waits for conversion delivery ===");
+  console.log(
+    "=== Immediate SumUp navigation waits for conversion delivery ===",
+  );
   let navigated = false;
   const navigation = (async () => {
     const tracked = await trackBookingRequestSubmittedBeforeNavigation(
@@ -63,13 +70,18 @@ async function main(): Promise<void> {
   })();
 
   await Promise.resolve();
-  assert.equal(navigated, false, "external navigation must wait for callback or timeout");
+  assert.equal(
+    navigated,
+    false,
+    "external navigation must wait for callback or timeout",
+  );
 
   const namedEvents = dataLayer.filter(
     (entry) =>
       entry &&
       typeof entry === "object" &&
-      (entry as { event?: string }).event === ADS_EVENT_BOOKING_REQUEST_SUBMITTED,
+      (entry as { event?: string }).event ===
+        ADS_EVENT_BOOKING_REQUEST_SUBMITTED,
   );
   assert.equal(namedEvents.length, 1);
   const namedPayload = namedEvents[0] as Record<string, unknown>;
@@ -111,12 +123,14 @@ async function main(): Promise<void> {
       (entry) =>
         entry &&
         typeof entry === "object" &&
-        (entry as { event?: string }).event === ADS_EVENT_BOOKING_REQUEST_SUBMITTED,
+        (entry as { event?: string }).event ===
+          ADS_EVENT_BOOKING_REQUEST_SUBMITTED,
     ).length,
     1,
   );
   assert.equal(
-    gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion").length,
+    gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion")
+      .length,
     1,
   );
   console.log("OK  retry/rerender sends no duplicate lead conversion");
@@ -131,34 +145,25 @@ async function main(): Promise<void> {
   assert.equal(timeoutTracked, true);
   assert.equal(navigatedAfterTimeout, true);
   assert.equal(
-    gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion").length,
+    gtagCalls.filter((call) => call[0] === "event" && call[1] === "conversion")
+      .length,
     2,
   );
   console.log("OK  a missing callback cannot block SumUp navigation");
 
-  console.log("=== Denied consent still sends a cookieless booking conversion ===");
-  local.set(COOKIE_CONSENT_KEY, "rejected");
-  const cookielessPromise = trackBookingRequestSubmittedBeforeNavigation(
-    { bookingReference: "matni-checkout-cookieless", value: 70, currency: "GBP" },
-    50,
+  local.set(COOKIE_CONSENT_KEY, JSON.stringify(consent(false)));
+  const before = gtagCalls.length;
+  assert.equal(
+    await trackBookingRequestSubmittedBeforeNavigation(
+      { bookingReference: "TEST-DENIED", value: 70 },
+      50,
+    ),
+    false,
   );
-  await Promise.resolve();
-  const cookielessEvent = gtagCalls.find(
-    (call) =>
-      call[0] === "event" &&
-      call[1] === "conversion" &&
-      (call[2] as { transaction_id?: string } | undefined)?.transaction_id ===
-        "matni-checkout-cookieless",
+  assert.equal(gtagCalls.length, before);
+  console.log(
+    "OK denied consent skips tracking immediately without blocking SumUp navigation",
   );
-  assert.ok(cookielessEvent, "denied consent must still emit a Consent Mode ping");
-  const cookielessPayload = cookielessEvent![2] as Record<string, unknown>;
-  assert.equal(cookielessPayload.email, undefined);
-  assert.equal(cookielessPayload.phone_number, undefined);
-  (cookielessPayload.event_callback as () => void)();
-  assert.equal(await cookielessPromise, true);
-  local.set(COOKIE_CONSENT_KEY, "accepted");
-  console.log("OK  booking conversion is cookieless; no enhanced user data");
-
   console.log("=== Persistence acknowledgement gates the live Pay handler ===");
   const card = read("src/components/QuoteCard.tsx");
   const worker = read("workers/addresses/src/index.ts");
@@ -174,18 +179,32 @@ async function main(): Promise<void> {
     "window.location.assign(checkout.paymentUrl)",
     trackingIndex,
   );
-  assert.ok(gateIndex >= 0, "Pay handler must require the Worker persistence acknowledgement");
-  assert.ok(trackingIndex > gateIndex, "tracking must run inside the persistence gate");
-  assert.ok(navigationIndex > trackingIndex, "SumUp navigation must happen after tracking wait");
+  assert.ok(
+    gateIndex >= 0,
+    "Pay handler must require the Worker persistence acknowledgement",
+  );
+  assert.ok(
+    trackingIndex > gateIndex,
+    "tracking must run inside the persistence gate",
+  );
+  assert.ok(
+    navigationIndex > trackingIndex,
+    "SumUp navigation must happen after tracking wait",
+  );
 
-  const saveIndex = worker.indexOf("await savePendingCheckout(env.TRACKING_STORE");
+  const saveIndex = worker.indexOf(
+    "await savePendingCheckout(env.TRACKING_STORE",
+  );
   const acknowledgementIndex = worker.indexOf("bookingSaved: true", saveIndex);
   assert.ok(saveIndex >= 0, "Worker must persist the pending checkout");
   assert.ok(
     acknowledgementIndex > saveIndex,
     "Worker must acknowledge bookingSaved only after persistence succeeds",
   );
-  assert.match(worker.slice(acknowledgementIndex, acknowledgementIndex + 300), /bookingReference:\s*checkout\.checkoutReference/);
+  assert.match(
+    worker.slice(acknowledgementIndex, acknowledgementIndex + 300),
+    /bookingReference:\s*checkout\.checkoutReference/,
+  );
   assert.match(createPayment, /bookingSaved\?: boolean/);
   assert.match(createPayment, /bookingReference\?: string/);
   console.log("OK  no success acknowledgement means no booking conversion");

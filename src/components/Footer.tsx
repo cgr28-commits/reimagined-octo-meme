@@ -1,7 +1,13 @@
+import CookieSettingsButton from "./CookieSettingsButton";
 import Link from "next/link";
 import Logo from "./Logo";
 import FooterContact from "./FooterContact";
-import { NAV_LINKS, SERVICE_FLAGS, SITE, SITE_PUBLIC_SEO_BLURB } from "@/lib/data";
+import {
+  NAV_LINKS,
+  SERVICE_FLAGS,
+  SITE,
+  SITE_PUBLIC_SEO_BLURB,
+} from "@/lib/data";
 import { AIRPORT_PAGES, TOWN_HUB_PAGES } from "@/lib/location-pages";
 import { TOURS } from "@/lib/tours";
 
@@ -10,6 +16,9 @@ export default function Footer() {
 
   return (
     <footer className="relative border-t border-white/10 bg-navy-dark">
+      <div className="mx-auto max-w-7xl px-4 pt-4 text-sm text-white/70">
+        <CookieSettingsButton /> · <Link href="/cookies/">Cookie Policy</Link>
+      </div>
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 desktop-shell lg:max-w-[1400px] lg:px-10 lg:py-16 xl:px-12">
         <div
           className={`grid gap-10 sm:grid-cols-2 ${
@@ -83,7 +92,10 @@ export default function Footer() {
               </h3>
               <ul className="mt-4 space-y-2">
                 <li>
-                  <Link href="/tours/" className="text-sm text-white/50 transition-colors hover:text-emerald">
+                  <Link
+                    href="/tours/"
+                    className="text-sm text-white/50 transition-colors hover:text-emerald"
+                  >
                     All day trips
                   </Link>
                 </li>
@@ -162,19 +174,30 @@ export default function Footer() {
               Save to contacts
             </Link>
             <span className="text-white/20">|</span>
-            <Link href="/terms/" className="transition-colors hover:text-emerald">
+            <Link
+              href="/terms/"
+              className="transition-colors hover:text-emerald"
+            >
               Terms &amp; Conditions
             </Link>
             <span className="text-white/20">|</span>
-            <Link href="/cancellation/" className="transition-colors hover:text-emerald">
+            <Link
+              href="/cancellation/"
+              className="transition-colors hover:text-emerald"
+            >
               Cancellation Policy
             </Link>
             <span className="text-white/20">|</span>
-            <Link href="/privacy/" className="transition-colors hover:text-emerald">
+            <Link
+              href="/privacy/"
+              className="transition-colors hover:text-emerald"
+            >
               Privacy Policy
             </Link>
             <span className="hidden text-white/20 sm:inline">|</span>
-            <span className="text-white/65">Fully licensed &amp; insured private hire operator</span>
+            <span className="text-white/65">
+              Fully licensed &amp; insured private hire operator
+            </span>
           </div>
         </div>
       </div>

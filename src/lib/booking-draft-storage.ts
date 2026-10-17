@@ -10,6 +10,21 @@ import type { VehicleType } from "@/lib/data";
 
 const BOOKING_DRAFT_KEY = "matni-booking-draft-v1";
 const OPEN_CHECKOUT_KEY = "matni-open-checkout-v1";
+const CONSENT_RELOAD_KEY = "matni-consent-quote-recovery-v1";
+
+/** One same-tab continuation of an essential draft after privacy shutdown. */
+export function markConsentQuoteRecovery(): void {
+  try { sessionStorage.setItem(CONSENT_RELOAD_KEY, JSON.stringify({ path: location.pathname, at: Date.now() })); }
+  catch { /* no draft recovery without essential session storage */ }
+}
+export function consumeConsentQuoteRecovery(): boolean {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(CONSENT_RELOAD_KEY) || "null");
+    sessionStorage.removeItem(CONSENT_RELOAD_KEY);
+    const age = Date.now() - value?.at;
+    return value?.path === location.pathname && age >= 0 && age < 60_000;
+  } catch { return false; }
+}
 
 export type BookingFormDraft = {
   quoteStep?: 1 | 2 | 3;

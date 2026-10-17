@@ -5,12 +5,14 @@
 
 import {
   ADS_EVENT_BOOKING_REQUEST_SUBMITTED,
-  ADS_EVENT_PURCHASE,
   ADS_EVENT_QUOTE_GENERATED,
   getGoogleAdsConfig,
   type AdsQuotePageType,
 } from "@/lib/google-ads";
-import { hasMarketingCookieConsent } from "@/lib/cookie-consent";
+import {
+  hasMarketingCookieConsent,
+  readMeasurementConsent,
+} from "@/lib/cookie-consent";
 
 declare global {
   interface Window {
@@ -21,7 +23,6 @@ declare global {
 
 const FIRED_QUOTE_PREFIX = "matni-ads-fired-quote:";
 const FIRED_BOOKING_REQUEST_PREFIX = "matni-ads-fired-booking-request:";
-const FIRED_PURCHASE_PREFIX = "matni-ads-fired-purchase:";
 
 export type AdsUserData = {
   email?: string;
@@ -78,8 +79,10 @@ export function updateGoogleConsent(granted: boolean): void {
   window.gtag("consent", "update", {
     ad_storage: value,
     ad_user_data: value,
-    ad_personalization: value,
-    analytics_storage: value,
+    ad_personalization: "denied",
+    analytics_storage: readMeasurementConsent()?.analytics
+      ? "granted"
+      : "denied",
   });
 }
 
@@ -104,7 +107,8 @@ export function normalizePhoneForAds(phone?: string): string | undefined {
  * gtag hashes plaintext email/phone before sending to Google.
  */
 export function setEnhancedConversionUserData(userData?: AdsUserData): void {
-  if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+  if (typeof window === "undefined" || typeof window.gtag !== "function")
+    return;
   if (!hasMarketingCookieConsent() || !userData) return;
 
   const email = normalizeEmailForAds(userData.email);
@@ -169,6 +173,10 @@ function fireTrackedEvent(options: {
     options.delivery?.onComplete();
     return false;
   }
+  if (!hasMarketingCookieConsent()) {
+    options.delivery?.onComplete();
+    return false;
+  }
   if (alreadyFired(options.dedupeKey, options.dedupeStorage)) {
     options.delivery?.onComplete();
     return true;
@@ -181,7 +189,11 @@ function fireTrackedEvent(options: {
   // Direct Ads conversion is optional. Named events are emitted exactly once to
   // dataLayer for GTM/GA4 even when a verified Ads label has not been configured.
   let deliveryHandled = false;
-  if (options.directAds !== false && options.sendTo && typeof window.gtag === "function") {
+  if (
+    options.directAds !== false &&
+    options.sendTo &&
+    typeof window.gtag === "function"
+  ) {
     const conversionParams: Record<string, unknown> = {
       ...options.params,
       send_to: options.sendTo,
@@ -189,7 +201,10 @@ function fireTrackedEvent(options: {
 
     if (options.delivery) {
       deliveryHandled = true;
-      const timeoutMs = Math.max(0, Math.min(Math.trunc(options.delivery.timeoutMs), 2000));
+      const timeoutMs = Math.max(
+        0,
+        Math.min(Math.trunc(options.delivery.timeoutMs), 2000),
+      );
       let completed = false;
       const completeOnce = () => {
         if (completed) return;
@@ -226,7 +241,9 @@ function isValidQuoteValue(value: unknown): value is number {
  * Requires a positive numeric value and a unique transaction/quote ID.
  * Never call on page load, button click alone, validation failure, or API failure.
  */
-export function trackRequestQuoteConversion(options: AdsConversionPayload = {}): boolean {
+export function trackRequestQuoteConversion(
+  options: AdsConversionPayload = {},
+): boolean {
   if (typeof window === "undefined") {
     return false;
   }
@@ -256,7 +273,8 @@ export function trackRequestQuoteConversion(options: AdsConversionPayload = {}):
     shared.page_type = pageType;
   }
   if (options.airport?.trim()) shared.airport = options.airport.trim();
-  if (options.journeyType?.trim()) shared.journey_type = options.journeyType.trim();
+  if (options.journeyType?.trim())
+    shared.journey_type = options.journeyType.trim();
   if (
     typeof options.passengers === "number" &&
     Number.isInteger(options.passengers) &&
@@ -303,7 +321,8 @@ export function trackBookingRequestSubmitted(
   delivery?: BookingRequestDeliveryOptions,
 ): boolean {
   const config = getGoogleAdsConfig();
-  const bookingReference = options.bookingReference?.trim() || options.transactionId?.trim();
+  const bookingReference =
+    options.bookingReference?.trim() || options.transactionId?.trim();
   if (!bookingReference) return false;
 
   const params: Record<string, unknown> = {
@@ -313,7 +332,8 @@ export function trackBookingRequestSubmitted(
   };
   if (isValidQuoteValue(options.value)) params.value = options.value;
   if (options.airport?.trim()) params.airport = options.airport.trim();
-  if (options.journeyType?.trim()) params.journey_type = options.journeyType.trim();
+  if (options.journeyType?.trim())
+    params.journey_type = options.journeyType.trim();
 
   return fireTrackedEvent({
     sendTo: config.bookingRequestSendTo,
@@ -355,34 +375,11 @@ export function trackBookingRequestSubmittedBeforeNavigation(
 }
 
 /** Fire a GA4-standard purchase only from a SumUp-verified server result. */
-export function trackPurchase(options: AdsConversionPayload): boolean {
-  const config = getGoogleAdsConfig();
-  const transactionId = options.transactionId?.trim();
-  if (!transactionId || !isValidQuoteValue(options.value)) {
-    return false;
-  }
-
-  if (options.includeUserData === true) {
-    ensureGtagStub();
-    setEnhancedConversionUserData(options.userData);
-  }
-
-  const params: Record<string, unknown> = {
-    transaction_id: transactionId,
-    value: options.value,
-    currency: options.currency?.trim() || "GBP",
-  };
-  if (options.bookingReference?.trim()) {
-    params.booking_reference = options.bookingReference.trim();
-  }
-
-  return fireTrackedEvent({
-    sendTo: config.purchaseSendTo,
-    eventName: ADS_EVENT_PURCHASE,
-    params,
-    dedupeKey: `${FIRED_PURCHASE_PREFIX}${transactionId}`,
-    dedupeStorage: "local",
-  });
+export function trackPurchase(_options: AdsConversionPayload): boolean {
+  void _options;
+  // Paid bookings have one authoritative, consent-checked server upload path.
+  // Do not emit a second browser Ads action or an implicitly imported GA4 purchase.
+  return false;
 }
 
 /** @deprecated Paid bookings now use the standard purchase event. */

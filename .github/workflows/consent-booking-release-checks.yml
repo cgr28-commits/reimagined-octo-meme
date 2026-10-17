@@ -1,0 +1,59 @@
+name: Consent booking isolated release checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'shared/**'
+      - 'workers/addresses/**'
+      - 'scripts/**'
+      - '.github/workflows/consent-booking-release-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-browser:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'fix/consent-booking-attribution'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      GOOGLE_ADS_PAID_UPLOAD_VERIFIED: 'false'
+      MATNI_BROWSER: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - name: Install isolated browser runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/matni-browser" playwright-core@1.64.1
+          node "$RUNNER_TEMP/matni-browser/node_modules/playwright-core/cli.js" install --with-deps "${{ matrix.browser }}"
+          echo "MATNI_PLAYWRIGHT_MODULE=$RUNNER_TEMP/matni-browser/node_modules/playwright-core/index.mjs" >> "$GITHUB_ENV"
+      - run: npm run check:measurement
+      - run: node scripts/check-consent-ledger-runtime.mjs
+      - name: Browser quote, payment, webhook, notifications and draft recovery
+        run: |
+          node scripts/browser/check-worker-booking-journeys.mjs
+          MATNI_WITHDRAW_MID_BOOKING=true node scripts/browser/check-worker-booking-journeys.mjs
+      - name: Executable Google tag withdrawal and expiry
+        run: |
+          GITHUB_PAGES=true NEXT_PUBLIC_BOOKINGS_API_URL='http://127.0.0.1:8789/bookings' NEXT_PUBLIC_ADDRESSES_API_URL='http://127.0.0.1:8789/addresses' NEXT_PUBLIC_GOOGLE_ADS_ID='AW-1234567890' npm run build
+          curl --fail --location --retry 2 'https://www.googletagmanager.com/gtag/js?id=AW-1234567890' -o "$RUNNER_TEMP/fictional-google-tag.js"
+          MATNI_STATIC_EXPORT=true MATNI_GOOGLE_TAG_FILE="$RUNNER_TEMP/fictional-google-tag.js" node scripts/browser/check-withdrawal-behaviour.mjs
+      - name: Upload synthetic test summaries only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consent-${{ matrix.browser }}-results
+          path: |
+            /tmp/matni-worker-journey-results.json
+            /tmp/matni-withdrawal-behaviour-results.json
+          if-no-files-found: ignore

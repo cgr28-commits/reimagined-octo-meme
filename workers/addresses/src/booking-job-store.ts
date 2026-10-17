@@ -1,3 +1,4 @@
+import { storeAttribution, loadAttribution } from "./attribution-store";
 import {
   bookingJobCreatedDayIndexKey,
   bookingJobDayIndexKey,
@@ -9,7 +10,9 @@ import {
 const DAY_INDEX_TTL = 60 * 60 * 24 * 90;
 const ACCEPT_TTL = 60 * 60 * 24 * 60;
 
-export function bookingJobStoreConfigured(store?: KVNamespace): store is KVNamespace {
+export function bookingJobStoreConfigured(
+  store?: KVNamespace,
+): store is KVNamespace {
   return Boolean(store);
 }
 
@@ -45,7 +48,14 @@ export async function saveBookingJob(
   store: KVNamespace,
   job: BookingJobRecord,
 ): Promise<void> {
-  await store.put(bookingJobKey(job.id), JSON.stringify(job), {
+  await storeAttribution(
+    store,
+    `measurement:request:${job.id}`,
+    job.attribution,
+  );
+  const operational = { ...job };
+  delete operational.attribution;
+  await store.put(bookingJobKey(job.id), JSON.stringify(operational), {
     expirationTtl: DAY_INDEX_TTL,
   });
 
@@ -73,7 +83,15 @@ export async function getBookingJob(
   id: string,
 ): Promise<BookingJobRecord | null> {
   const job = await store.get<BookingJobRecord>(bookingJobKey(id), "json");
-  return job && typeof job === "object" ? job : null;
+  return job && typeof job === "object"
+    ? {
+        ...job,
+        attribution: await loadAttribution(
+          store,
+          `measurement:request:${job.id}`,
+        ),
+      }
+    : null;
 }
 
 export async function deleteDriverAcceptToken(
@@ -132,7 +150,10 @@ export async function listBookingJobsForCreatedDate(
   store: KVNamespace,
   createdDate: string,
 ): Promise<BookingJobRecord[]> {
-  return listBookingJobsForIndexKey(store, bookingJobCreatedDayIndexKey(createdDate));
+  return listBookingJobsForIndexKey(
+    store,
+    bookingJobCreatedDayIndexKey(createdDate),
+  );
 }
 
 /** List every stored booking-job record (skips day-index keys). */
@@ -151,7 +172,12 @@ export async function listAllBookingJobs(
 
     for (const key of page.keys) {
       const job = await store.get<BookingJobRecord>(key.name, "json");
-      if (job && typeof job === "object" && typeof job.id === "string" && job.id) {
+      if (
+        job &&
+        typeof job === "object" &&
+        typeof job.id === "string" &&
+        job.id
+      ) {
         jobs.push(job);
       }
     }
@@ -215,7 +241,10 @@ export async function listBookingJobsForDateRange(
   if (createdFrom && createdTo) {
     let createdCursor = createdFrom;
     for (let i = 0; i < 60; i++) {
-      for (const job of await listBookingJobsForCreatedDate(store, createdCursor)) {
+      for (const job of await listBookingJobsForCreatedDate(
+        store,
+        createdCursor,
+      )) {
         byId.set(job.id, job);
       }
       if (createdCursor >= createdTo) {

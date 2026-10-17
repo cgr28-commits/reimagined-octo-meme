@@ -292,6 +292,7 @@ import {
 } from "@/lib/save-quote-payload";
 import {
   clearOpenCheckoutSession,
+  consumeConsentQuoteRecovery,
   readBookingFormDraft,
   readOpenCheckoutSession,
   saveBookingFormDraft,
@@ -1449,14 +1450,23 @@ function QuoteCard({
     });
 
     const draft = readBookingFormDraft();
+    const consentRecovery = consumeConsentQuoteRecovery();
 
-    if (visitDecision.clearStoredAddresses) {
+    if (visitDecision.clearStoredAddresses && !consentRecovery) {
       // Never rehydrate pickup/destination from localStorage or an old session draft.
       clearStoredQuoteAddresses();
     }
 
     if (draft) {
       applyNonAddressDraftFields(draft);
+      if (consentRecovery && draft.pickupPlace && draft.dropoffPlace && isQuoteReadyPlace(draft.pickupPlace) && isQuoteReadyPlace(draft.dropoffPlace)) {
+        setPickupPlace(draft.pickupPlace);
+        setDropoffPlace(draft.dropoffPlace);
+        setPickupAddress(draft.pickupAddress || placeDisplayText(draft.pickupPlace));
+        setDropoffAddress(draft.dropoffAddress || placeDisplayText(draft.dropoffPlace));
+        setHomepagePriceRequested(true);
+        setQuoteStep(draft.quoteStep === 3 ? 3 : draft.quoteStep === 2 ? 2 : 1);
+      }
     }
 
     const existingCheckout = readOpenCheckoutSession();
@@ -5366,6 +5376,51 @@ function QuoteCard({
       setContinueToDetailsBusy(false);
     }
   }
+
+  // Capture only essential form fields immediately before privacy shutdown.
+  // Refresh this listener after each render so it reads the current form, without
+  // persisting customer details on every keystroke or changing fare calculations.
+  useEffect(() => {
+    const preserve = () => {
+      if (!hasQuoteRoute) return;
+      saveBookingFormDraft({
+        quoteStep,
+        pickupAddress,
+        dropoffAddress,
+        pickupPlace,
+        dropoffPlace,
+        tripDate,
+        tripTime,
+        ...(journeyMode != null
+          ? { returnJourney: journeyMode === "return", journeyMode }
+          : {}),
+        returnDate,
+        returnTime,
+        ...(passengers != null ? { passengers } : {}),
+        ...(suitcases != null ? { suitcases } : {}),
+        childSeats,
+        childSeatNotes: childSeats > 0 ? childSeatNotes.trim() : "",
+        exactPassengers,
+        vehicle: quoteVehicle,
+        customerName,
+        customerEmail,
+        customerMobile,
+        goingFlightNumber,
+        collectionFlightNumber,
+        journeyIntent,
+        intentAirportCode,
+        termsAccepted,
+        marketingOptIn,
+        personalQuoteCode: appliedPersonalQuote?.code,
+        expressDropOffSelected: outboundAccessChoice === "express",
+        returnExpressDropOffSelected: returnAccessChoice === "express",
+        outboundAirportAccessChoice: outboundAccessChoice,
+        returnAirportAccessChoice: returnAccessChoice,
+      });
+    };
+    window.addEventListener("matni-preserve-booking-for-consent-reload", preserve);
+    return () => window.removeEventListener("matni-preserve-booking-for-consent-reload", preserve);
+  });
 
   const usesWhatsApp = isMobileDevice === true;
 

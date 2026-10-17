@@ -156,9 +156,9 @@ async function main() {
     assert.equal(scored.risk, "medium");
   });
 
-  await check("Wiring: TrafficGuard untouched; Ad Fraud modules + admin auth present", () => {
+  await check("Wiring: TrafficGuard disabled; consent-gated Ad Fraud modules + admin auth present", () => {
     const layout = read("src/app/layout.tsx");
-    assert.match(layout, /tg-g-026255-001/);
+    assert.doesNotMatch(layout, /tg-g-026255-001|tgtag.io|pixel.trafficguard/);
     assert.match(layout, /AdFraudMonitor/);
     assert.match(layout, /AdsAttributionCapture/);
 
@@ -170,6 +170,7 @@ async function main() {
 
     const handlers = read("workers/addresses/src/ad-fraud-handlers.ts");
     assert.match(handlers, /ownerAuthorized/);
+    assert.match(handlers, /eligibleAdvertisingConsent/);
     assert.match(handlers, /CF-Connecting-IP/);
     assert.doesNotMatch(handlers, /blockingEnabled:\s*true/);
 

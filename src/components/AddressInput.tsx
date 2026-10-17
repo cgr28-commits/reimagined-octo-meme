@@ -687,7 +687,7 @@ export default function AddressInput({
       }`}
     >
       {suggestions.map((prediction, index) => (
-        <li key={`${prediction.placeId}-${index}`} role="option">
+        <li key={`${prediction.placeId}-${index}`} role="option" aria-selected={false}>
           <button
             type="button"
             onMouseDown={(event) => event.preventDefault()}

@@ -1,3 +1,8 @@
+import { handleMarketingReport } from "./marketing-report";
+import { withConsistentConsentLedger } from "./consent-ledger";
+export { ConsentLedger } from "./consent-ledger";
+import { handleMeasurementWithdrawal } from "./measurement-consent";
+import { advertisingConsent } from "../shared/measurement-consent";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
 import { processDueJourneyReminders } from "./journey-reminder-handlers";
@@ -547,6 +552,7 @@ type Env = {
   /** Per-booking refund serialization (Durable Object). */
   MEET_GREET_COORDINATOR?: DurableObjectNamespace;
   REFUND_COORDINATOR?: DurableObjectNamespace;
+  CONSENT_LEDGER?: DurableObjectNamespace;
   /** Per-fingerprint quote / contact email claim (Durable Object). */
   QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
   /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
@@ -554,6 +560,7 @@ type Env = {
   GOOGLE_ADS_CLIENT_ID?: string;
   GOOGLE_ADS_CLIENT_SECRET?: string;
   GOOGLE_ADS_REFRESH_TOKEN?: string;
+  GOOGLE_ADS_PAID_UPLOAD_VERIFIED?: string;
   GOOGLE_ADS_CUSTOMER_ID?: string;
   GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
   GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
@@ -1238,7 +1245,8 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     marketingOptIn: details.marketingOptIn === true ? true : undefined,
     marketingOptInAt: String(details.marketingOptInAt ?? "").trim() || undefined,
     marketingConsentVersion: String(details.marketingConsentVersion ?? "").trim() || undefined,
-    attribution: sanitizeAdsAttribution(details.attribution),
+    attribution: advertisingConsent((details.attribution as { consent?: unknown } | undefined)?.consent)
+      ? sanitizeAdsAttribution(details.attribution) : undefined,
   };
 
   // Hard gate — incomplete bookings must never open SumUp.
@@ -3954,6 +3962,7 @@ async function handleFlightLookupRequest(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    env = { ...env, TRACKING_STORE: withConsistentConsentLedger(env.TRACKING_STORE, env.CONSENT_LEDGER) };
     const origin = request.headers.get("Origin");
     const url = new URL(request.url);
     const route = routePath(url.pathname);
@@ -4829,6 +4838,12 @@ export default {
       return json({ error: "Method not allowed" }, 405, origin);
     }
 
+    if (url.pathname === "/measurement/withdraw")
+      return handleMeasurementWithdrawal(request, env.TRACKING_STORE, origin);
+
+    if (url.pathname === "/owner/marketing-attribution")
+      return handleMarketingReport(request, env, origin);
+
     if (!route) {
       return json({ error: "Not found" }, 404, origin);
     }
@@ -5470,6 +5485,7 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    env = { ...env, TRACKING_STORE: withConsistentConsentLedger(env.TRACKING_STORE, env.CONSENT_LEDGER) };
     const cron = event.cron;
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {
       ctx.waitUntil(

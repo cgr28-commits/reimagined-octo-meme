@@ -77,6 +77,7 @@ type FinalizeEnv = {
   GOOGLE_ADS_CLIENT_ID?: string;
   GOOGLE_ADS_CLIENT_SECRET?: string;
   GOOGLE_ADS_REFRESH_TOKEN?: string;
+  GOOGLE_ADS_PAID_UPLOAD_VERIFIED?: string;
   GOOGLE_ADS_CUSTOMER_ID?: string;
   GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
   GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
@@ -124,7 +125,7 @@ function verifiedPurchase(input: {
   const bookingReference = input.customerReference?.trim() || paymentReference;
   if (!bookingReference || !Number.isFinite(input.amount) || input.amount <= 0) return undefined;
   return {
-    transactionId: bookingReference,
+    transactionId: paymentReference,
     bookingReference,
     value: Math.round(input.amount * 100) / 100,
     currency: input.currency?.trim().toUpperCase() || "GBP",
