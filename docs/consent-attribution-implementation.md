@@ -121,7 +121,11 @@ Rollback keeps uploads false and retains the ConsentLedger class/binding/migrati
 
 Primary guidance reviewed: https://developers.cloudflare.com/kv/concepts/how-kv-works/ ; https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/ ; https://developers.google.com/google-ads/api/docs/conversions/upload-offline ; https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-the-use-of-storage-and-access-technologies/how-do-we-manage-consent-in-practice/ .
 
-## Authorised publication instructions (not executed)
+## Review publication and supported browser verification
+
+Draft PR #647 was created through the authorised GitHub connection. Its initial single review commit has the exact tested local tree, current remote main as its sole parent, and excludes the rejected commit/private report. No auto-merge or deployment was enabled. Supported Ubuntu CI passed all six real Worker/mocked-provider booking journeys on both Chromium and WebKit. Chromium also passed all 12 executable-Google consent scenarios. The first WebKit consent run exposed a harness navigation race after script removal but before the replacement document loaded; the harness now waits for a different document time origin and DOM readiness before continuing. Require the updated exact-commit WebKit result; these statements do not mark a pending check as passed.
+
+### Authorised Git publication procedure
 
 Use an authenticated GitHub connection with write permission to this repository. Authenticate using the normal GitHub CLI/browser flow or your approved credential manager, never by embedding a token in a URL. Review the local tip/diff, then:
 

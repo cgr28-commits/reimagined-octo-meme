@@ -44,6 +44,7 @@ async function run(mode, mobile=false){
    await page.waitForFunction(()=>!document.querySelector('script[src*="googletagmanager.com/gtag"]'),null,{timeout:20000});
    assert.equal(tags,1);const count=collected.length;await page.waitForTimeout(500);assert.equal(collected.length,count);console.log('PASS actual Google expiry shutdown');return;
   }
+  const previousDocument=await page.evaluate(()=>performance.timeOrigin);
   if(mode==='offline')await context.setOffline(true);
   if(mode==='storage-failure')await page.evaluate(()=>{Storage.prototype.setItem=function(){throw Error('blocked test storage')};Storage.prototype.removeItem=function(){throw Error('blocked test storage')};});
   if(mode==='cross-tab'){
@@ -58,6 +59,10 @@ async function run(mode, mobile=false){
    ack=true;await context.setOffline(false);
   }
   await page.waitForFunction(()=>!document.querySelector('script[src*="googletagmanager.com/gtag"]'));
+  // Script removal happens before navigation; wait for the replacement document,
+  // otherwise WebKit can correctly interrupt our next navigation with the reload.
+  await page.waitForFunction(previous=>performance.timeOrigin!==previous,previousDocument);
+  await page.waitForLoadState('domcontentloaded');
   const stopped=collected.length;await page.waitForTimeout(600);assert.equal(collected.length,stopped,'no new external requests after withdrawal');
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('operational-test-draft')),'keep');
   if(mode==='storage-failure'){assert.ok(page.url().includes('measurement=off'));await page.goto(site+'/cookies/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(300);assert.equal(collected.length,stopped,'essential denial cookie protects other URLs after blocked preference storage');}
