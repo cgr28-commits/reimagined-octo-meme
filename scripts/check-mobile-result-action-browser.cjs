@@ -100,11 +100,15 @@ async function main() {
     // A customer can scroll the unchanged stacked list; account for simulated browser bars.
     await page.evaluate(() => {
      const button = document.querySelector('[data-quote-result-card] #quote-book-now-button');
-     const overflow = button.getBoundingClientRect().bottom - visualViewport.height + 24;
-     if (overflow > 0) window.scrollBy({ top: overflow, behavior: 'instant' });
+     const rect = button.getBoundingClientRect();
+     const header = document.querySelector('header.fixed, header[class*="fixed"]')?.getBoundingClientRect().bottom || 0;
+     const overflow = rect.bottom - visualViewport.height + 24;
+     const coveredTop = rect.top - header - 12;
+     if (coveredTop < 0) window.scrollBy({ top: coveredTop, behavior: 'instant' });
+     else if (overflow > 0) window.scrollBy({ top: overflow, behavior: 'instant' });
     });
     const action = await page.locator('[data-quote-result-card] #quote-book-now-button').boundingBox();
-    assert.ok(action.y >= m.header && action.y + action.height <= m.height - m.inset, 'Action accessible on mobile');
+    assert.ok(action.y >= m.header && action.y + action.height <= m.height - m.inset, 'Action accessible on mobile: ' + JSON.stringify({ width, height, action, header: m.header, visibleHeight: m.height }));
     await page.screenshot({ path: path.join(root, `test-results/mobile-result/${width}-${height}-${vehicle.split(' ')[0]}-action.png`) });
    }
 
