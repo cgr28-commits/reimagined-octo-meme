@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 const {chromium,webkit}=await import(process.env.MATNI_PLAYWRIGHT_MODULE || 'playwright-core');
 const repository=fileURLToPath(new URL('../../',import.meta.url));
 const site='http://127.0.0.1:3012';
-const server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','--hostname','127.0.0.1','--port','3012'],{cwd:repository,env:{...process.env,NEXT_PUBLIC_BOOKINGS_API_URL:'http://127.0.0.1:8789/bookings',NEXT_PUBLIC_ADDRESSES_API_URL:'http://127.0.0.1:8789/addresses',NEXT_TELEMETRY_DISABLED:'1',NEXT_PUBLIC_GOOGLE_ADS_ID:'AW-1234567890'}});
+const server=spawn(process.execPath,process.env.MATNI_STATIC_EXPORT==='true'?['scripts/browser/serve-isolated-export.mjs']:['node_modules/next/dist/bin/next','dev','--hostname','127.0.0.1','--port','3012'],{cwd:repository,env:{...process.env,NEXT_PUBLIC_BOOKINGS_API_URL:'http://127.0.0.1:8789/bookings',NEXT_PUBLIC_ADDRESSES_API_URL:'http://127.0.0.1:8789/addresses',NEXT_TELEMETRY_DISABLED:'1',NEXT_PUBLIC_GOOGLE_ADS_ID:'AW-1234567890'}});
 process.on('exit',()=>server.kill('SIGTERM'));
 server.stderr.on('data',b=>fs.appendFileSync('/tmp/matni-browser-server.log',b));
 await new Promise((resolve,reject)=>{server.stdout.on('data',b=>{fs.appendFileSync('/tmp/matni-browser-server.log',b);if(String(b).includes('Ready'))resolve()});server.on('exit',c=>reject(Error('server exit '+c)));setTimeout(()=>reject(Error('server timeout')),40000).unref()});

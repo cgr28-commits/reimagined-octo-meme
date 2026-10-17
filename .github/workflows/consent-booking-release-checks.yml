@@ -45,8 +45,9 @@ jobs:
           MATNI_WITHDRAW_MID_BOOKING=true node scripts/browser/check-worker-booking-journeys.mjs
       - name: Executable Google tag withdrawal and expiry
         run: |
+          GITHUB_PAGES=true NEXT_PUBLIC_BOOKINGS_API_URL='http://127.0.0.1:8789/bookings' NEXT_PUBLIC_ADDRESSES_API_URL='http://127.0.0.1:8789/addresses' NEXT_PUBLIC_GOOGLE_ADS_ID='AW-1234567890' npm run build
           curl --fail --location --retry 2 'https://www.googletagmanager.com/gtag/js?id=AW-1234567890' -o "$RUNNER_TEMP/fictional-google-tag.js"
-          MATNI_GOOGLE_TAG_FILE="$RUNNER_TEMP/fictional-google-tag.js" node scripts/browser/check-withdrawal-behaviour.mjs
+          MATNI_STATIC_EXPORT=true MATNI_GOOGLE_TAG_FILE="$RUNNER_TEMP/fictional-google-tag.js" node scripts/browser/check-withdrawal-behaviour.mjs
       - name: Upload synthetic test summaries only
         if: always()
         uses: actions/upload-artifact@v4
