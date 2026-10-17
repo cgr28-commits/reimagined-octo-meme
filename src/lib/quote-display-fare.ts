@@ -24,6 +24,13 @@ export type ServerFarePartyParts = {
   vehicleType: string;
   passengers: number;
   suitcases: number;
+  /**
+   * Uplift already inside amountGbp. Null when protection did not run.
+   * Display only — never added on top of the customer total.
+   */
+  profitabilityAdjustmentGbp?: number | null;
+  /** Owner pricing configuration version that produced this fare. */
+  pricingVersion?: number;
   /** Opaque Worker signature. Absent while profitability protection is off. */
   quoteReceipt?: string;
 } & ServerFareScheduleParts;

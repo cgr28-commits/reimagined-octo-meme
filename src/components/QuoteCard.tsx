@@ -319,6 +319,7 @@ import {
   savePickupAddressLabel,
 } from "@/lib/address-place-storage";
 import { scheduleQuoteContactAlert, scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import { quoteLeadPricingFromDisplayedFare } from "../../shared/quote-lead";
 import { destinationEligibleForStandardAirportPickup } from "../../shared/airport-pickup-service-area";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import {
@@ -2181,6 +2182,13 @@ function QuoteCard({
                 ? { returnOneWayBeforeAccessGbp: alternate.returnOneWayBeforeAccessGbp }
                 : {}),
               amountGbp: Math.round(alternate.amount * 100) / 100,
+              ...(alternate.profitabilityAdjustmentGbp === null ||
+              typeof alternate.profitabilityAdjustmentGbp === "number"
+                ? { profitabilityAdjustmentGbp: alternate.profitabilityAdjustmentGbp }
+                : {}),
+              ...(typeof alternate.pricingVersion === "number"
+                ? { pricingVersion: alternate.pricingVersion }
+                : {}),
               vehicleType: vehicle,
               passengers: requestedPassengers,
               suitcases,
@@ -2271,6 +2279,13 @@ function QuoteCard({
             ? { returnOneWayBeforeAccessGbp: result.returnOneWayBeforeAccessGbp }
             : {}),
           amountGbp: Math.round(result.amount * 100) / 100,
+          ...(result.profitabilityAdjustmentGbp === null ||
+          typeof result.profitabilityAdjustmentGbp === "number"
+            ? { profitabilityAdjustmentGbp: result.profitabilityAdjustmentGbp }
+            : {}),
+          ...(typeof result.pricingVersion === "number"
+            ? { pricingVersion: result.pricingVersion }
+            : {}),
           vehicleType: requestedVehicle,
           passengers: requestedPassengers,
           suitcases: requestedSuitcases,
@@ -2908,6 +2923,41 @@ function QuoteCard({
     testChargeAmount,
     expressSelection.feeIfSelectedGbp,
     expressSelection.eligible,
+  ]);
+
+  /**
+   * Owner email uses this object only. It is the breakdown already shown to
+   * the customer, so the notification cannot race ahead of the server fare.
+   */
+  const displayedQuoteLeadPricing = useMemo(() => {
+    if (!authoritativeFareReady || !openWebsiteFareBreakdown || pricedFare?.totalGbp == null) {
+      return null;
+    }
+    if (pricedFare.totalGbp !== openWebsiteFareBreakdown.finalAmountPayableGbp) {
+      return null;
+    }
+    return quoteLeadPricingFromDisplayedFare({
+      baseJourneyFareGbp: openWebsiteFareBreakdown.returnJourney
+        ? openWebsiteFareBreakdown.originalEligibleJourneyPriceGbp
+        : openWebsiteFareBreakdown.journeyFareBeforePromotionsGbp,
+      nightWeekendSurchargeGbp: openWebsiteFareBreakdown.nightWeekendSurchargeGbp,
+      airportAccessChargeGbp: openWebsiteFareBreakdown.airportAccessChargeGbp,
+      outboundAirportAccessChargeGbp: openWebsiteFareBreakdown.outboundAirportAccessChargeGbp,
+      returnAirportAccessChargeGbp: openWebsiteFareBreakdown.returnAirportAccessChargeGbp,
+      returnJourney: openWebsiteFareBreakdown.returnJourney,
+      returnDiscountGbp: openWebsiteFareBreakdown.returnJourneySavingGbp,
+      vehicleMinimumFareGbp: openWebsiteFareBreakdown.vehicleMinimumFareGbp,
+      vehicleMinimumApplied: openWebsiteFareBreakdown.vehicleMinimumApplied,
+      finalCustomerPriceGbp: openWebsiteFareBreakdown.finalAmountPayableGbp,
+      profitabilityAdjustmentGbp: currentServerFareParts?.profitabilityAdjustmentGbp ?? null,
+      pricingVersion: currentServerFareParts?.pricingVersion,
+    });
+  }, [
+    authoritativeFareReady,
+    openWebsiteFareBreakdown,
+    pricedFare?.totalGbp,
+    currentServerFareParts?.profitabilityAdjustmentGbp,
+    currentServerFareParts?.pricingVersion,
   ]);
 
   /** Pay online at quote time — saloon/estate when SumUp enabled. */
@@ -3677,6 +3727,11 @@ function QuoteCard({
     if (!quoteTransactionId) {
       return;
     }
+    // Instant quotes must not email the browser curve before the server fare,
+    // including profitability, is the price the customer can see.
+    if (instantPriceExpected && !displayedQuoteLeadPricing) {
+      return;
+    }
 
     // Fire as soon as a live price is shown — date/time may still be empty.
     if (tripDate && !isTripDateOnOrAfterToday(tripDate)) {
@@ -3716,7 +3771,11 @@ function QuoteCard({
       passengers: effectivePassengers as number,
       suitcases: suitcases as number,
       vehicle: quoteVehicle,
-      estimatedPrice: formatQuote(pricedFare?.totalGbp ?? liveQuote.amount),
+      estimatedPrice: formatQuote(
+        displayedQuoteLeadPricing?.finalCustomerPriceGbp ??
+          pricedFare?.totalGbp ??
+          liveQuote.amount,
+      ),
       journeyDistance: journeyDistanceLabel || undefined,
       journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip,
@@ -3725,7 +3784,11 @@ function QuoteCard({
       journeyFareGbp: journeyFareParts.journeyFareGbp ?? undefined,
       airportAccessOption: websiteAirportAccessLeadLabel(expressSelection),
       airportAccessFeeGbp: expressSelection.feeGbp,
-      totalGbp: pricedFare?.totalGbp ?? liveQuote.amount,
+      totalGbp:
+        displayedQuoteLeadPricing?.finalCustomerPriceGbp ??
+        pricedFare?.totalGbp ??
+        liveQuote.amount,
+      ...(displayedQuoteLeadPricing ? { pricing: displayedQuoteLeadPricing } : {}),
       source: "website",
     });
   }, [
@@ -3744,6 +3807,8 @@ function QuoteCard({
     journeyDurationLabel,
     journeyFareParts.journeyFareGbp,
     liveQuote,
+    displayedQuoteLeadPricing,
+    instantPriceExpected,
     pickupLabel,
     pricedFare?.totalGbp,
     quoteVehicle,
@@ -4100,6 +4165,9 @@ function QuoteCard({
     if (!liveQuote || !quoteTransactionId) {
       return;
     }
+    if (instantPriceExpected && !displayedQuoteLeadPricing) {
+      return;
+    }
     const tripLabel = isOutOfAreaPickupJourney
       ? "Out-of-area pickup — manual quote request"
       : isRoiJourney
@@ -4123,12 +4191,20 @@ function QuoteCard({
       passengers: effectivePassengers as number,
       suitcases: (suitcases ?? 0) as number,
       vehicle: quoteVehicle,
-      estimatedPrice: formatQuote(pricedFare?.totalGbp ?? liveQuote.amount),
+      estimatedPrice: formatQuote(
+        displayedQuoteLeadPricing?.finalCustomerPriceGbp ??
+          pricedFare?.totalGbp ??
+          liveQuote.amount,
+      ),
       isAirportTrip,
       quoteTransactionId,
       airportCode: effectiveAirportCode || undefined,
       airportAccessOption: websiteAirportAccessLeadLabel(expressSelection),
-      totalGbp: pricedFare?.totalGbp ?? liveQuote.amount,
+      totalGbp:
+        displayedQuoteLeadPricing?.finalCustomerPriceGbp ??
+        pricedFare?.totalGbp ??
+        liveQuote.amount,
+      ...(displayedQuoteLeadPricing ? { pricing: displayedQuoteLeadPricing } : {}),
       source: "website",
       customerName,
       customerEmail,
