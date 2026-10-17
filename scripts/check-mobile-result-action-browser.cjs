@@ -32,6 +32,12 @@ async function main() {
    return r.abort();
   });
   await context.addInitScript(settings => {
+   window.testScrollCalls = []; window.testTouchEvents = [];
+   const nativeScrollTo = window.scrollTo.bind(window);
+   window.scrollTo = (...args) => { window.testScrollCalls.push({ args, at: Math.round(performance.now()) }); return nativeScrollTo(...args); };
+   for (const name of ['touchstart', 'touchmove', 'touchend', 'wheel']) window.addEventListener(name, event => {
+    window.testTouchEvents.push({ name, target: event.target?.tagName, at: Math.round(performance.now()) });
+   }, { passive: true });
    localStorage.clear(); // Each case begins with a fresh customer journey.
    localStorage.setItem('matni:preview-pricing-settings', JSON.stringify(settings));
    // Emulate iPhone browser bars reducing the visible viewport without resizing layout.
@@ -41,15 +47,24 @@ async function main() {
   const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, firstTap = null, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
    await page.setViewportSize({ width, height }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
-   await page.goto('http://127.0.0.1:3094/?previewJourney=bfs');
+   await page.goto('http://127.0.0.1:3094/?previewJourney=bfs&previewPax=1&previewBags=1');
    await page.locator('#quote-section-passengers').waitFor();
-   await page.waitForTimeout(150);
+   await page.waitForFunction(() => document.querySelector('#pickup')?.value && document.querySelector('#dropoff')?.value && document.querySelector('#quote-section-passengers')?.value === '1');
    const consent = page.getByRole('button', { name: 'Essential only', exact: true }); if (await consent.isVisible()) await consent.click();
    await page.evaluate(({ bars, vehicle }) => { window.testBrowserBarHeight = bars; window.dispatchEvent(new CustomEvent('quote-prefill-draft', { detail: { passengers: 1, suitcases: 1, vehicle, returnJourney: false, tripDate: new Date(Date.now()+10*86400000).toISOString().slice(0,10), tripTime: '12:00' } })); }, { bars, vehicle });
-   await page.getByRole('button', { name: 'Get My Fixed Price', exact: false }).click();
+   const getPrice = page.getByRole('button', { name: 'Get My Fixed Price', exact: false });
+   await getPrice.scrollIntoViewIfNeeded();
+   await page.waitForFunction(() => [...document.querySelectorAll('[data-get-fixed-price]')].some(el => !el.disabled));
+   const getPriceBox = await getPrice.boundingBox();
+   await page.touchscreen.tap(getPriceBox.x + getPriceBox.width / 2, getPriceBox.y + getPriceBox.height / 2);
    await page.locator('[data-quote-result-card]').waitFor();
    if (lateBars) await page.evaluate(value => setTimeout(() => { window.testBrowserBarHeight = value; }, 650), lateBars);
    await page.waitForTimeout(1900);
+   if (engine === 'webkit') console.log('WebKit scroll state', await page.evaluate(() => ({
+    y: scrollY, root: document.documentElement.scrollHeight, client: document.documentElement.clientHeight,
+    body: document.body.style.cssText, behavior: document.documentElement.style.cssText,
+    scrolls: window.testScrollCalls, touches: window.testTouchEvents,
+   })));
    const m = await page.evaluate(() => {
     const btn = [...document.querySelectorAll('[data-quote-result-card] #quote-book-now-button')].find(e => e.getClientRects().length);
     const rect = btn.getBoundingClientRect(), heading = document.querySelector('[data-quote-vehicle-options-heading]').getBoundingClientRect();
