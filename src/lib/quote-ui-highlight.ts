@@ -53,7 +53,7 @@ export function quoteDateTimeInputClass(): string {
 /** Booking panel text inputs (slightly stronger default border). */
 export function bookingTextFieldClass(state: QuoteFieldHighlightState): string {
   const base =
-    "quote-text-input box-border h-12 w-full min-w-0 max-w-full rounded-[0.75rem] bg-navy-light px-4 text-white placeholder:text-white/65 outline-none transition-[border-color,box-shadow] duration-150";
+    "quote-text-input box-border h-12 w-full min-w-0 max-w-full rounded-[0.75rem] bg-white/[0.1] px-4 text-white placeholder:text-white/65 outline-none transition-[border-color,box-shadow] duration-150";
   switch (state) {
     case "error":
       return `${base} border border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400`;
