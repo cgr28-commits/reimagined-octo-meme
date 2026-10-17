@@ -90,7 +90,7 @@ async function main() {
      assert.ok(await dialog.evaluate(el => el.parentElement === document.body), 'Save dialog must escape the filtered quote card');
      const bounds = await dialog.locator('.quote-flow').boundingBox();
      assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= height + 1, 'Save dialog must be within the current phone viewport without scrolling up');
-     const input = dialog.getByRole('textbox', { name: 'YOUR NAME', exact: true });
+     const input = dialog.getByRole('textbox', { name: 'Your name', exact: true });
      await input.fill('Preview Test');
      await page.screenshot({ path: path.join(root, `test-results/mobile-result/${width}-${height}-save-dialog.png`) });
      await dialog.getByRole('button', { name: 'Close', exact: true }).click();
