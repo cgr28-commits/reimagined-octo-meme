@@ -66,6 +66,10 @@ async function main(){try{
   frontendVersion=front;backendVersion=back;await page.setViewportSize({width:390,height:1000});
   for(const [airport,saloon,estate] of [['BHD',35,45],['BFS',55,65],['DUB',245,255]]){
    await page.goto(url+'?mode=quote&to='+airport);await page.locator('#quote-section-passengers').waitFor();
+   // Both frontend versions must make an explicit essential-only choice before
+   // checking booking controls; the privacy dialog legitimately covers them.
+   const essential=page.getByRole('button',{name:/^(Essential only|Decline)$/}).first();
+   if(await essential.isVisible()){await essential.click();await essential.waitFor({state:'hidden'});}
    await page.evaluate(date=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:2,suitcases:1,returnJourney:false,tripDate:date,tripTime:'12:00'}})),date);
    await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+saloon+'$')}).waitFor();
    await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+estate+'$')}).waitFor();
