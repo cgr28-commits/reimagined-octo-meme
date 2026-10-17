@@ -65,13 +65,21 @@ async function run(mode, mobile=false){
   // otherwise WebKit can correctly interrupt our next navigation with the reload.
   await page.waitForFunction(previous=>window.__consentFixtureDocument!==previous&&typeof window.__transportTicks==='undefined',previousDocument);
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForLoadState('networkidle');
   const stopped=collected.length;await page.waitForTimeout(600);assert.equal(collected.length,stopped,'no new external requests after withdrawal');
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('operational-test-draft')),'keep');
   if(mode==='storage-failure'){
    assert.ok(page.url().includes('measurement=off'));
    console.log('storage-failure before policy navigation',await page.evaluate(()=>({url:location.href,denialCookie:document.cookie.includes('matni-measurement-denied=1'),oldCallbackPresent:typeof window.__transportTicks!=='undefined'})));
-   await page.goto(site+'/cookies/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(300);assert.equal(collected.length,stopped,'essential denial cookie protects other URLs after blocked preference storage');
+   await page.goto(site+'/cookies/',{waitUntil:'domcontentloaded'}).catch(error=>{
+    if(!error.message.includes('interrupted by another navigation'))throw error;
+    console.log('policy navigation interruption; requiring the intended URL and rendered policy');
+   });
+   // WebKit can report an interruption from client history synchronisation.
+   // Do not retry navigation or accept the wrong page: the original navigation
+   // must actually finish at the policy and render its heading.
+   await page.waitForURL(site+'/cookies/',{waitUntil:'domcontentloaded'});
+   await page.getByRole('heading',{name:'Cookie Policy',exact:true}).waitFor();
+   await page.waitForTimeout(300);assert.equal(collected.length,stopped,'essential denial cookie protects other URLs after blocked preference storage');
   }
   else{
    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('matni-cookie-consent-v2')).advertising),false);
