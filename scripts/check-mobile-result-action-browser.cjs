@@ -15,7 +15,7 @@ settings.minibus = { ...settings.minibus, publicEnabled: true, requestQuote: tru
 const config = toPublicOwnerPricingConfig(settings);
 config.executive.requestQuote = true; config.minibus = { ...config.minibus, publicEnabled: true, requestQuote: true };
 const server = spawn('python3', ['-m', 'http.server', '3094', '--bind', '127.0.0.1', '--directory', 'out'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
-let serverLog = '', browser;
+let serverLog = '', browser, page;
 server.stdout.on('data', b => serverLog += b); server.stderr.on('data', b => serverLog += b);
 const errors = [];
 async function main() {
@@ -32,7 +32,16 @@ async function main() {
    return r.abort();
   });
   await context.addInitScript(settings => {
-   window.testScrollCalls = []; window.testTouchEvents = [];
+   window.testScrollCalls = []; window.testTouchEvents = []; window.testRaf = { requested: 0, fired: 0 }; window.testTimers = [];
+   const nativeRaf = requestAnimationFrame.bind(window);
+   window.requestAnimationFrame = callback => { window.testRaf.requested++; return nativeRaf(at => { window.testRaf.fired++; callback(at); }); };
+   const nativeTimeout = setTimeout.bind(window), nativeClear = clearTimeout.bind(window);
+   window.setTimeout = (callback, delay, ...args) => {
+    const record = delay === 350 ? { at: Math.round(performance.now()), delay, fired: false, cancelled: false } : null;
+    const id = nativeTimeout((...values) => { if (record) record.fired = true; callback(...values); }, delay, ...args);
+    if (record) { record.id = id; window.testTimers.push(record); } return id;
+   };
+   window.clearTimeout = id => { const record = window.testTimers.find(item => item.id === id); if (record) record.cancelled = true; return nativeClear(id); };
    const nativeScrollTo = window.scrollTo.bind(window);
    window.scrollTo = (...args) => { window.testScrollCalls.push({ args, at: Math.round(performance.now()) }); return nativeScrollTo(...args); };
    for (const name of ['touchstart', 'touchmove', 'touchend', 'wheel']) window.addEventListener(name, event => {
@@ -44,7 +53,7 @@ async function main() {
    window.testBrowserBarHeight = 0;
    if (window.visualViewport) Object.defineProperty(window.visualViewport, 'height', { get: () => innerHeight - window.testBrowserBarHeight });
   }, settings);
-  const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
+  page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, firstTap = null, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
    await page.setViewportSize({ width, height }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
    await page.goto('http://127.0.0.1:3094/?previewJourney=bfs&previewPax=1&previewBags=1');
@@ -60,11 +69,13 @@ async function main() {
    await page.locator('[data-quote-result-card]').waitFor();
    if (lateBars) await page.evaluate(value => setTimeout(() => { window.testBrowserBarHeight = value; }, 650), lateBars);
    await page.waitForTimeout(1900);
-   if (engine === 'webkit') console.log('WebKit scroll state', await page.evaluate(() => ({
-    y: scrollY, root: document.documentElement.scrollHeight, client: document.documentElement.clientHeight,
-    body: document.body.style.cssText, behavior: document.documentElement.style.cssText,
-    scrolls: window.testScrollCalls, touches: window.testTouchEvents,
-   })));
+   // Wait for the actual reveal rather than assuming WebKit's rendering/effects
+   // finish on Chromium's timing. This does not scroll or alter the page.
+   await page.waitForFunction(() => {
+    const heading = document.querySelector('[data-quote-vehicle-options-heading]');
+    const header = document.querySelector('header.fixed, header[class*="fixed"]');
+    return heading && header && Math.abs(heading.getBoundingClientRect().top - header.getBoundingClientRect().bottom - 12) <= 9;
+   }, null, { timeout: 10000 });
    const m = await page.evaluate(() => {
     const btn = [...document.querySelectorAll('[data-quote-result-card] #quote-book-now-button')].find(e => e.getClientRects().length);
     const rect = btn.getBoundingClientRect(), heading = document.querySelector('[data-quote-vehicle-options-heading]').getBoundingClientRect();
@@ -194,7 +205,19 @@ async function main() {
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
   assert.deepEqual(errors, []); console.log('OK original stacked options retained, duplicate mobile art/capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
  } catch (error) {
-  console.error(serverLog.slice(-5000));
+  console.error('Browser errors', errors);
+  if (page) {
+   console.error('Scroll diagnostics', await page.evaluate(() => ({
+    y: scrollY, root: document.documentElement.scrollHeight, client: document.documentElement.clientHeight,
+    body: document.body.style.cssText, behavior: document.documentElement.style.cssText,
+    visible: document.visibilityState, raf: window.testRaf, timers: window.testTimers,
+    scrolls: window.testScrollCalls.slice(-5), touches: window.testTouchEvents,
+    ancestors: (() => { const out = []; let el = document.querySelector('[data-quote-result-actions]'); while (el) { const s = getComputedStyle(el); out.push({ tag: el.tagName, class: el.className, scrollTop: el.scrollTop, overflow: s.overflow }); el = el.parentElement; } return out; })(),
+   })));
+   fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
+   await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-failure.png`) });
+  }
+  console.error(serverLog.slice(-300));
   throw error;
  } finally {
   if (browser) await browser.close(); await stopTestProcess(server);
