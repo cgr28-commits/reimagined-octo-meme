@@ -8124,7 +8124,7 @@ function QuoteCard({
                 </div>
                 {quoteResultsReady && quoteStep === 1 ? (
                   showInstantQuoteResultCard ? renderQuoteResultFollowOn(null) :
-                  isVehiclePersonalQuote ? <div className="md:hidden">{renderQuoteResultFollowOn(null)}</div> : null
+                  isVehiclePersonalQuote ? <div className="space-y-1.5 md:hidden">{renderQuoteResultFollowOn(null)}</div> : null
                 ) : null}
               </div>
             )}
