@@ -20,6 +20,7 @@ import {
 } from "@/components/QuoteBookingHelpControls";
 import TripMap from "@/components/TripMap";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
+import QuoteActionDialog from "@/components/QuoteActionDialog";
 import {
   QUOTE_RESULT_ACTION_CLASS,
   QuoteResultActionIcon,
@@ -33,7 +34,6 @@ import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
 import { cancelCompetingScrollJobs } from "@/lib/scroll-jobs";
 import {
   focusFirstInvalidField,
-  scheduleBookingNavAfterRender,
   quoteStepTargetId,
   scheduleScrollToBookNowAfterExpressAck,
   scheduleBookTransferGlide,
@@ -974,7 +974,7 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
-  const [journeyMapOpen, setJourneyMapOpen] = useState(false);
+  const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | null>(null);
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
   const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
@@ -4651,7 +4651,7 @@ function QuoteCard({
     setQuoteTransactionId("");
     setBookingDelivery(null);
     setQuoteStep(1);
-    setJourneyMapOpen(false);
+    setQuoteActionOpen(null);
     setCustomerName("");
     setCustomerMobile("");
     setCustomerEmail("");
@@ -7374,12 +7374,35 @@ function QuoteCard({
     return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
   }
 
+  function renderQuoteActionPopup() {
+    if (!quoteActionOpen) return null;
+    const journey = quoteJourneyEndpoints();
+    const restarting = quoteActionOpen === "restart";
+    return (
+      <QuoteActionDialog
+        title={quoteActionOpen === "route" ? "View route" : restarting ? "Need a quote for a different journey?" : "WhatsApp"}
+        role={restarting ? "alertdialog" : "dialog"}
+        wide={quoteActionOpen === "route"}
+        onClose={() => setQuoteActionOpen(null)}>
+        {quoteActionOpen === "route" ? (
+          <QuoteJourneyMap origin={journey?.origin ?? null} destination={journey?.destination ?? null}
+            durationLabel={routeMetrics ? formatRouteCardJourneyTime(routeMetrics.durationMinutes) : ""}
+            fallbackHref={quoteDirectionsHref()} />
+        ) : restarting ? (
+          <div data-start-new-quote-confirm>
+            <p className="quote-secondary text-sm leading-relaxed">This will clear your current journey details and start a new quote. Continue?</p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <button type="button" onClick={() => setQuoteActionOpen(null)} className="rounded-xl border border-white/25 px-4 py-3 text-sm font-semibold text-white">Keep Current Quote</button>
+              <button type="button" onClick={performStartNewQuote} className="rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy">Start New Quote</button>
+            </div>
+          </div>
+        ) : <QuoteHelpContact variant="card" />}
+      </QuoteActionDialog>
+    );
+  }
+
   function renderQuoteResultFollowOn(routeMap: ReactNode) {
     const mapsHref = quoteDirectionsHref();
-    const journey = quoteJourneyEndpoints();
-    const routeTimeLabel = routeMetrics
-      ? formatRouteCardJourneyTime(routeMetrics.durationMinutes)
-      : "";
     return (
       <>
         {routeMap}
@@ -7398,25 +7421,19 @@ function QuoteCard({
               <button
                 type="button"
                 data-quote-view-route
-                aria-expanded={journeyMapOpen}
-                aria-controls="quote-journey-map"
-                onClick={() => {
-                  setJourneyMapOpen((open) => !open);
-                  if (!journeyMapOpen) {
-                    cancelCompetingScrollJobs();
-                    scheduleBookingNavAfterRender("quote-step1-next");
-                  }
-                }}
+                aria-haspopup="dialog"
+                onClick={() => setQuoteActionOpen("route")}
                 className={QUOTE_RESULT_ACTION_CLASS}
               >
                 <QuoteResultActionIcon name="route" />
-                <span>{journeyMapOpen ? "Hide route" : "View route"}</span>
+                <span>View route</span>
               </button>
             ) : null}
             <button
               type="button"
               onClick={handleSaveQuoteClick}
               data-quote-save
+              aria-haspopup="dialog"
               disabled={isVehiclePersonalQuote}
               title={isVehiclePersonalQuote ? "Available once your personalised price is confirmed." : undefined}
               className={`${QUOTE_RESULT_ACTION_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
@@ -7424,17 +7441,19 @@ function QuoteCard({
               <QuoteResultActionIcon name="save" />
               <span>Save Quote</span>
             </button>
-            {renderStartNewQuoteControls("results")}
-            <QuoteHelpContact variant="card" className="!mt-0" />
+            {startNewQuotePlacement === "results" ? (
+              <button type="button" onClick={() => setQuoteActionOpen("restart")}
+                aria-haspopup="dialog" className={QUOTE_RESULT_ACTION_CLASS}>
+                <QuoteResultActionIcon name="restart" /><span>Start over</span>
+              </button>
+            ) : null}
+            <button type="button" onClick={() => setQuoteActionOpen("whatsapp")}
+              aria-haspopup="dialog" aria-label="Need help? WhatsApp us"
+              className={QUOTE_RESULT_ACTION_CLASS}>
+              <QuoteResultActionIcon name="whatsapp" className="h-[1.15rem] w-[1.15rem] text-[#25D366]" />
+              <span>WhatsApp</span>
+            </button>
           </div>
-          {journeyMapOpen ? (
-            <QuoteJourneyMap
-              origin={journey?.origin ?? null}
-              destination={journey?.destination ?? null}
-              durationLabel={routeTimeLabel}
-              fallbackHref={mapsHref}
-            />
-          ) : null}
           {renderBookingErrorHelp("step1-actions")}
           {saveQuotePrompt ? (
             <p className="text-center text-xs text-emerald/90" role="status">
@@ -8633,6 +8652,7 @@ function QuoteCard({
 
         {quoteStep >= 2 ? renderCheckoutPage() : null}
       </form>
+      {renderQuoteActionPopup()}
       <SaveQuoteModal
         open={saveQuoteOpen}
         onClose={() => {

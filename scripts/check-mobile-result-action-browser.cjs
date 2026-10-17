@@ -65,36 +65,38 @@ async function main() {
     assert.equal(await page.locator('[data-quote-result-art]').isVisible(), false);
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), false);
     for (const name of ['View route', 'Save Quote', 'Start over']) assert.ok(await page.getByRole('button', { name, exact: true }).isVisible());
-    assert.ok(await page.getByRole('link', { name: 'Need help? WhatsApp us', exact: true }).isVisible());
+    assert.ok(await page.getByRole('button', { name: 'Need help? WhatsApp us', exact: true }).isVisible());
     const manual = /Executive|Minibus/.test(vehicle);
     if (manual) assert.equal(await page.getByText('View price breakdown', { exact: true }).count(), 0, 'Unpriced requests must not show a fare breakdown');
-    assert.equal(await page.getByRole('button', { name: 'Save Quote', exact: true }).isDisabled(), manual, 'Unpriced requests cannot be saved as confirmed fares');
-    // Tap the result controls where they are on screen; do not rely on the
-    // locator's automatic scrolling to reveal off-screen map/dialog content.
-    const routeButton = page.getByRole('button', { name: 'View route', exact: true });
-    await routeButton.scrollIntoViewIfNeeded();
-    const routeBox = await routeButton.boundingBox();
-    await page.touchscreen.tap(routeBox.x + routeBox.width / 2, routeBox.y + routeBox.height / 2);
-    await page.locator('[data-quote-route-map] .leaflet-container').waitFor();
-    await page.waitForTimeout(700);
-    const mapBox = await page.locator('[data-quote-route-map]').boundingBox();
-    assert.ok(mapBox.y >= m.header && mapBox.y < await page.evaluate(() => visualViewport.height), 'Tapped View route must reveal the map below the header');
-    await page.getByRole('button', { name: 'Hide route', exact: true }).click();
-    if (!manual) {
-     const saveButton = page.locator('[data-quote-save]');
-     await saveButton.scrollIntoViewIfNeeded();
-     const saveBox = await saveButton.boundingBox();
-     await page.touchscreen.tap(saveBox.x + saveBox.width / 2, saveBox.y + saveBox.height / 2);
-     const dialog = page.getByRole('dialog', { name: 'Save Quote', exact: true });
+    assert.equal(await page.locator('[data-quote-save]').isDisabled(), manual, 'Unpriced requests cannot be saved as confirmed fares');
+    const popups = [
+     ['View route', 'dialog', 'View route'],
+     ...(!manual ? [['Save Quote', 'dialog', 'Save Quote']] : []),
+     ['Start over', 'alertdialog', 'Need a quote for a different journey?'],
+     ['Need help? WhatsApp us', 'dialog', 'WhatsApp'],
+    ];
+    for (const [buttonName, role, title] of popups) {
+     const control = page.getByRole('button', { name: buttonName, exact: true });
+     await control.scrollIntoViewIfNeeded();
+     const before = await page.evaluate(() => ({ y: scrollY, fare: document.querySelector('[data-quote-result-card]').textContent,
+      actionTop: document.querySelector('[data-quote-result-actions]').getBoundingClientRect().top }));
+     const box = await control.boundingBox();
+     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+     const dialog = page.getByRole(role, { name: title, exact: true });
      await dialog.waitFor();
-     assert.ok(await dialog.evaluate(el => el.parentElement === document.body), 'Save dialog must escape the filtered quote card');
-     const bounds = await dialog.locator('.quote-flow').boundingBox();
-     assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= height + 1, 'Save dialog must be within the current phone viewport without scrolling up');
-     const input = dialog.getByRole('textbox', { name: 'Your name', exact: true });
-     await input.fill('Preview Test');
-     await page.screenshot({ path: path.join(root, `test-results/mobile-result/${width}-${height}-save-dialog.png`) });
+     assert.ok(await dialog.evaluate(el => el.parentElement === document.body), 'Popup must escape the filtered quote card');
+     const panel = await dialog.locator('.quote-flow').boundingBox();
+     assert.ok(panel.y >= 0 && panel.y + panel.height <= height + 1, 'Popup must stay in the current viewport');
+     assert.ok(Math.abs(await page.locator('[data-quote-result-actions]').evaluate(el => el.getBoundingClientRect().top) - before.actionTop) <= 2, 'Opening a popup must not move the buttons behind it');
+     if (buttonName === 'View route') await dialog.locator('.leaflet-container').waitFor();
+     if (buttonName === 'Save Quote') await dialog.getByRole('textbox', { name: 'Your name', exact: true }).fill('Preview Test');
+     if (buttonName === 'Need help? WhatsApp us') assert.match(await dialog.getByRole('link', { name: 'Need help? WhatsApp us', exact: true }).getAttribute('href'), /wa\.me\//);
+     await page.screenshot({ path: path.join(root, `test-results/mobile-result/${width}-${height}-${vehicle.split(' ')[0]}-${buttonName.split(' ')[0]}-popup.png`) });
      await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+     await page.waitForTimeout(80);
      assert.equal(await dialog.count(), 0);
+     assert.ok(Math.abs(await page.evaluate(() => scrollY) - before.y) <= 2, 'Closing must restore the same scroll position');
+     assert.equal(await page.locator('[data-quote-result-card]').textContent(), before.fare, 'Closing must preserve the current quote');
     }
     await page.locator('[data-quote-result-card] #quote-book-now-button').scrollIntoViewIfNeeded();
     // A customer can scroll the unchanged stacked list; account for simulated browser bars.
@@ -136,9 +138,16 @@ async function main() {
    console.log(`OK ${width}px: both action rows stationary through all four vehicles; gentle fade respects Reduce Motion`);
   }
   await quote(1280, 900);
+  // Confirming Start over still uses the existing reset; closing it above does not.
+  await quote(390, 844);
+  await page.getByRole('button', { name: 'Start over', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Start New Quote', exact: true }).click();
+  await page.locator('[data-quote-result-card]').waitFor({ state: 'detached' });
+  assert.equal(await page.locator('#quote-section-passengers').inputValue(), '');
+  assert.notEqual(await page.evaluate(() => document.body.style.position), 'fixed');
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
-  assert.deepEqual(errors, []); console.log('OK original stacked options retained, duplicate mobile art/capacity hidden, all result actions retained, desktop unchanged, booking works; no JS exceptions or live API calls');
+  assert.deepEqual(errors, []); console.log('OK original stacked options retained, duplicate mobile art/capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
  } catch (error) {
   console.error(serverLog.slice(-5000));
   throw error;
