@@ -20,9 +20,11 @@ const results=[];
 async function run(mode, mobile=false){
  const browser=await launchBrowser(),context=await browser.newContext({serviceWorkers:'allow',viewport:mobile?{width:390,height:844}:{width:1280,height:900},isMobile:mobile,hasTouch:mobile}),page=await context.newPage();
  page.setDefaultTimeout(20000);
+ if(mode==='storage-failure')page.on('framenavigated',frame=>{if(frame===page.mainFrame())console.log('storage-failure document navigation',frame.url());});
  let ack=false,tags=0;const collected=[];
  const expires=mode==='expiry'?Date.now()+15000:Date.now()+3600000;
  await context.addInitScript(({key,expires,mode})=>{
+  window.__consentFixtureDocument=crypto.randomUUID();
   window.__cspDirectives=[];document.addEventListener('securitypolicyviolation',e=>window.__cspDirectives.push(e.effectiveDirective));
   if(!sessionStorage.getItem('seeded')){localStorage.setItem(key,JSON.stringify({id:'11111111-1111-4111-8111-111111111111',version:'2026-10-17',recordedAt:new Date(Date.now()-1000).toISOString(),expiresAt:new Date(expires).toISOString(),advertising:mode!=='analytics',analytics:true,personalization:false}));sessionStorage.setItem('seeded','1');sessionStorage.setItem('operational-test-draft','keep');}
  },{key,expires,mode});
@@ -44,7 +46,7 @@ async function run(mode, mobile=false){
    await page.waitForFunction(()=>!document.querySelector('script[src*="googletagmanager.com/gtag"]'),null,{timeout:20000});
    assert.equal(tags,1);const count=collected.length;await page.waitForTimeout(500);assert.equal(collected.length,count);console.log('PASS actual Google expiry shutdown');return;
   }
-  const previousDocument=await page.evaluate(()=>performance.timeOrigin);
+  const previousDocument=await page.evaluate(()=>window.__consentFixtureDocument);
   if(mode==='offline')await context.setOffline(true);
   if(mode==='storage-failure')await page.evaluate(()=>{Storage.prototype.setItem=function(){throw Error('blocked test storage')};Storage.prototype.removeItem=function(){throw Error('blocked test storage')};});
   if(mode==='cross-tab'){
@@ -61,12 +63,16 @@ async function run(mode, mobile=false){
   await page.waitForFunction(()=>!document.querySelector('script[src*="googletagmanager.com/gtag"]'));
   // Script removal happens before navigation; wait for the replacement document,
   // otherwise WebKit can correctly interrupt our next navigation with the reload.
-  await page.waitForFunction(previous=>performance.timeOrigin!==previous,previousDocument);
+  await page.waitForFunction(previous=>window.__consentFixtureDocument!==previous&&typeof window.__transportTicks==='undefined',previousDocument);
   await page.waitForLoadState('domcontentloaded');
   await page.waitForLoadState('networkidle');
   const stopped=collected.length;await page.waitForTimeout(600);assert.equal(collected.length,stopped,'no new external requests after withdrawal');
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('operational-test-draft')),'keep');
-  if(mode==='storage-failure'){assert.ok(page.url().includes('measurement=off'));await page.goto(site+'/cookies/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(300);assert.equal(collected.length,stopped,'essential denial cookie protects other URLs after blocked preference storage');}
+  if(mode==='storage-failure'){
+   assert.ok(page.url().includes('measurement=off'));
+   console.log('storage-failure before policy navigation',await page.evaluate(()=>({url:location.href,denialCookie:document.cookie.includes('matni-measurement-denied=1'),oldCallbackPresent:typeof window.__transportTicks!=='undefined'})));
+   await page.goto(site+'/cookies/',{waitUntil:'domcontentloaded'});await page.waitForTimeout(300);assert.equal(collected.length,stopped,'essential denial cookie protects other URLs after blocked preference storage');
+  }
   else{
    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('matni-cookie-consent-v2')).advertising),false);
    if(mode!=='offline'){assert.ok(await page.evaluate(()=>JSON.parse(localStorage.getItem('matni-consent-withdrawals-v1')).length>0));ack=true;await page.evaluate(()=>dispatchEvent(new Event('online')));}
