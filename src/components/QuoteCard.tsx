@@ -7318,7 +7318,7 @@ function QuoteCard({
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
-        priceLabel="Fixed price"
+        priceLabel={effectiveAirportCode ? "YOUR FIXED AIRPORT TRANSFER PRICE" : "Fixed price"}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
         businessClassInclusions={renderBusinessClassInclusions()}

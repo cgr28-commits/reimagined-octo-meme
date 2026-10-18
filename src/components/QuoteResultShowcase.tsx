@@ -187,7 +187,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         <div data-quote-info-grid>
           <div data-quote-layout-reference aria-hidden="true" inert>
             <div data-quote-instant-reference>
-              <p className="text-[0.72rem] font-bold uppercase tracking-[0.16em]">Fixed price</p>
+              <p className="text-[0.72rem] font-bold uppercase tracking-[0.16em]">{priceLabel}</p>
               <p className="mt-0.5 min-h-[2.35rem]" />
               {layoutAirportAccess ? <div className="my-1.5 text-left">{layoutAirportAccess}</div> : null}
             </div>
@@ -263,12 +263,12 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         <div className="mt-0.5" data-quote-result-main-action>{bookButton}</div>
         <div data-quote-footer-grid>
           <div data-quote-layout-reference aria-hidden="true" inert>
-            <p className="mt-1.5 text-xs font-semibold leading-tight">✓ Fixed price. No surprises.</p>
+            <p className="mt-1.5 text-xs font-semibold leading-tight">{formattedPrice.startsWith("£") && !priceUpdating ? `${formattedPrice} total. The price you see is the price you pay.` : "✓ Fixed price. No surprises."}</p>
             {layoutBusinessClassInclusions}
           </div>
           <div data-quote-result-footer>
         {requestQuote || priceUnavailable ? null : (
-          <p data-quote-assurance className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">✓ Fixed price. No surprises.</p>
+          <p data-quote-assurance className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">{formattedPrice.startsWith("£") && !priceUpdating ? `${formattedPrice} total. The price you see is the price you pay.` : "✓ Fixed price. No surprises."}</p>
         )}
         {requestQuote ? null : businessClassInclusions}
           </div>
