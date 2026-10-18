@@ -188,13 +188,23 @@ export default function QuoteVehicleCategories({
                     {option.luggage ? (
                       <span className="mt-0.5 flex items-start gap-1 text-[0.78rem] font-semibold leading-tight text-navy">
                         <VehicleLineIcon name={option.luggageIcon} />
-                        <span>{option.luggage}</span>
+                        <span>
+                          <span className="md:hidden">2 suitcases (23kg)</span>
+                          <span className="hidden md:inline">{option.luggage}</span>
+                        </span>
                       </span>
                     ) : null}
                     {option.detail ? (
                       <span className="mt-0.5 flex items-start gap-1 text-[0.78rem] font-medium leading-tight text-navy">
                         <VehicleLineIcon name={option.detailIcon} />
-                        <span>{option.detail}</span>
+                        <span>
+                          {option.id === "estate" ? (
+                            <>
+                              <span className="md:hidden">Extra luggage &amp; comfort</span>
+                              <span className="hidden md:inline">{option.detail}</span>
+                            </>
+                          ) : option.detail}
+                        </span>
                       </span>
                     ) : option.luggage ? null : (
                       <span className="block text-[0.78rem] leading-tight text-transparent" aria-hidden>
