@@ -1354,7 +1354,7 @@ main {
 [data-quote-result-detail-slot] { display: contents; }
 
 /* Keep vehicle changes stable and smooth at every viewport size. */
-  .quote-flow [data-quote-result-detail-slot] { display: block; min-height: 1.25rem; }
+  .quote-flow [data-quote-result-detail-slot] { display: block; min-height: 2.5rem; }
   .quote-flow [data-quote-info-grid],
   .quote-flow [data-quote-footer-grid],
   .quote-flow [data-quote-layout-reference] { display: grid; }

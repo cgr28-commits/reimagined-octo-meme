@@ -113,7 +113,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         : SALOON_IMAGE;
   const supporting = vehicleCustomerDescription(vehicleType);
   const capacityLine = isMinibus ? "Up to 7 passengers" : isExecutive ? EXECUTIVE_CUSTOMER_CAPACITY : "1–4 passengers";
-  const detailLine = isMinibus ? "Up to 7 passengers · 5+ suitcases" : isEstate || isExecutive ? supporting : "\u00a0";
+  const detailLine = isMinibus ? "Up to 7 passengers · 5+ suitcases" : isEstate || isExecutive ? supporting : "Up to 4 passengers · 2 standard suitcases + 2\u00a0small\u00a0bags";
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
     ? "5+ standard suitcases"
