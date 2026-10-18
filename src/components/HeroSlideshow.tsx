@@ -29,7 +29,7 @@ export default function HeroSlideshow() {
           Tablet (md): quote first, then the heading.
           Desktop (lg+): heading, then benefits above a centred quote form. */}
       <div className="homepage-hero-layout desktop-shell relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-1.5 px-4 py-1.5 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
-        <div id="homepage-booking-intro" className="homepage-hero-copy order-1 min-w-0 md:order-2 lg:order-1 lg:pt-2">
+        <div id="homepage-booking-intro" className="homepage-hero-copy order-1 min-w-0 text-center md:order-2 lg:order-1 lg:pt-2">
           <p className="section-eyebrow mb-1.5 max-w-full md:mb-6 lg:mb-7">
             <span className="md:hidden">Private airport transfers • Northern Ireland</span>
             <span className="hidden md:inline">
@@ -41,7 +41,7 @@ export default function HeroSlideshow() {
             Belfast &amp; Dublin Airport Transfers
           </h1>
 
-          <p className="mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
+          <p className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
             Premium, fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport.
           </p>
         </div>
