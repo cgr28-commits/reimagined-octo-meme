@@ -200,7 +200,7 @@ export default function QuoteVehicleCategories({
                         <span>
                           {option.id === "estate" ? (
                             <>
-                              <span className="md:hidden">Extra luggage &amp; comfort</span>
+                              <span className="md:hidden">{option.detail}</span>
                               <span className="hidden md:inline">{option.detail}</span>
                             </>
                           ) : option.detail}
