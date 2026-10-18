@@ -47,7 +47,7 @@ export function buildQuoteAirportBenefits(input: Props) {
       ? `Terminal ${pickup ? "pick-up" : "drop-off"} included`
       : `Airport ${pickup ? "Collection" : "Drop-Off"}`;
     const description = included || zeroDropOff
-      ? `✓ No additional airport ${pickup ? "pick-up" : "drop-off"} fee`
+      ? `No additional airport ${pickup ? "pick-up" : "drop-off"} fee`
       : `Your ${pickup ? "collection" : "drop-off"} uses the selected airport area. See your fare breakdown for any applicable airport charges.`;
     return {
       key: `${stop.leg}:${stop.code}:${stop.direction}`,
