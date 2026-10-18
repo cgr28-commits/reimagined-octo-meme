@@ -38,6 +38,7 @@ import {
   MINIBUS_VEHICLE,
   SALOON_VEHICLE,
   formatSuitcaseChoice,
+  vehicleFitsParty,
   selectVehicleForParty,
 } from "../src/lib/vehicle-selection";
 import {
@@ -291,7 +292,18 @@ async function main() {
     const showcase = read("src/components/QuoteResultShowcase.tsx");
     assert.doesNotMatch(showcase, /capacityConfirmation/);
     assert.doesNotMatch(showcase, /data-luggage-capacity-confirmation/);
-    assert.match(showcase, /5\+ standard suitcases \(23kg\)/);
+    assert.match(showcase, /5\+ suitcases/);
+    // Approved capacities: Saloon 2 standard 23kg suitcases + 2 small bags;
+    // Estate 4 large suitcases + 2 small bags. Public cards omit weight labels.
+    assert.equal(vehicleFitsParty(SALOON_VEHICLE, 4, 2), true);
+    assert.equal(vehicleFitsParty(SALOON_VEHICLE, 4, 3), false);
+    assert.equal(vehicleFitsParty(ESTATE_VEHICLE, 4, 4), true);
+    assert.equal(vehicleFitsParty(ESTATE_VEHICLE, 4, 5), false);
+    assert.match(showcase, /4 suitcases \+ <span className="whitespace-nowrap">2 small bags<\/span>/);
+    assert.match(showcase, /2 suitcases \+ <span className="whitespace-nowrap">2 small bags<\/span>/);
+    const categories = read("src/components/QuoteVehicleCategories.tsx");
+    assert.match(categories, /SALOON_LUGGAGE_CAPACITY = <>2 suitcases \+ <span className="whitespace-nowrap">2 small bags<\/span>/);
+    assert.match(categories, /ESTATE_LUGGAGE_CAPACITY = <>Up to 4 suitcases \+ <span className="whitespace-nowrap">2 small bags<\/span>/);
   });
 
   check("12. Luggage quantity does not block SumUp", () => {
