@@ -1563,3 +1563,82 @@ main {
   /* Tighten the image-to-name gap without resizing the car; Estate stays unchanged. */
   .quote-flow [data-quote-result-art]:not(:has([data-vehicle-art="estate"])) { margin-bottom: -0.125rem; }
 }
+
+/* Targeted shared homepage/station quote polish; native selects retain their semantics. */
+[data-homepage-quote-fields] #passenger-luggage-section select {
+  -webkit-appearance: none;
+  appearance: none;
+  color-scheme: dark;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem;
+}
+
+[data-get-fixed-price] {
+  color: #071c38;
+}
+
+[data-get-fixed-price]:active:not(:disabled) {
+  background-color: #29aa42;
+  transform: translateY(1px);
+}
+
+.btn-primary[data-get-fixed-price]:disabled {
+  background-color: #61756a;
+  color: #ffffff;
+  box-shadow: none;
+  opacity: 1;
+}
+
+[data-get-fixed-price][aria-busy="true"] {
+  cursor: progress;
+  background-image: linear-gradient(110deg, transparent 30%, #ffffff40 50%, transparent 70%);
+}
+
+@media (forced-colors: active) {
+  [data-homepage-quote-fields] #passenger-luggage-section select {
+    -webkit-appearance: auto;
+    appearance: auto;
+    background-image: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .homepage-hero .hero-benefits-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .homepage-hero .hero-benefits-row > li {
+    padding-inline: 0.125rem;
+  }
+
+  .homepage-hero .hero-benefit-label {
+    font-size: 0.72rem;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .homepage-hero .hero-benefit-label-waiting .hero-benefit-line-2 {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 639px) {
+  .quote-flow[data-quote-presentation="homepage"] > div:first-child h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+
+  /* Remove connector-row margins while keeping the complete 44px touch target. */
+  .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > div:has(> [data-swap-locations]),
+  .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > div:has(> [data-swap-locations]) + * {
+    margin-top: 0;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"] [data-swap-locations] {
+    margin-block: 0;
+  }
+}

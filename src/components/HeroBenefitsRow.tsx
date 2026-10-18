@@ -29,7 +29,7 @@ const BENEFITS = [
   },
   {
     label: "Airport waiting included",
-    lines: ["Airport", "waiting included"],
+    lines: ["Airport waiting", "included"],
     icon: (
       <svg viewBox="0 0 24 24" fill="#ffffff" aria-hidden>
         <path
