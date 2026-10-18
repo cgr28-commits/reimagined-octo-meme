@@ -110,11 +110,15 @@ for (const vehicleType of ["Executive", "Minibus"]) {
     <QuoteResultShowcase vehicleType={vehicleType} passengers={2} suitcases={2}
       priceLabel="Fixed price" formattedPrice="£54"
       requestQuote={{ heading: "Request a Quote", description: "A personalised quotation before payment." }}
-      bookButton={<button type="submit">REQUEST A QUOTE</button>}
+      bookButton={<button type="submit">Request quote</button>}
       airportAccess={<QuoteAirportBenefits {...fixture("BFS", null)} />}
     />,
   );
-  assert.match(manual, /REQUEST A QUOTE/);
-  assert.doesNotMatch(visibleCardMarkup(manual), /Fixed price|£54|No surprises|Terminal pick-up included/);
+  assert.match(manual, /Request quote/);
+  assert.doesNotMatch(visibleCardMarkup(manual), /£54|No surprises|£54 total/);
+  assert.match(visibleCardMarkup(manual), /TBC/);
+  assert.match(visibleCardMarkup(manual), /Terminal pick-up included/);
+  assert.match(visibleCardMarkup(manual), /Your own pre-booked transfer/);
+  assert.match(visibleCardMarkup(manual), /Your fixed price will be confirmed before booking/);
 }
 console.log("OK airport-to-airport, non-airport, unpaid-access fallback, card order and unavailable-fare checks");

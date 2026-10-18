@@ -1353,16 +1353,7 @@ main {
 [data-quote-layout-reference] { display: none; }
 [data-quote-result-detail-slot] { display: contents; }
 
-/* Balance the existing mobile header controls without changing their geometry. */
-@media (max-width: 767px) {
-  /* Keep the tall results in the normal scrolling layer on touch screens.
-     The nearly opaque navy surface is unchanged; a backdrop-filter here puts
-     every result action in a separate composited layer during the auto-scroll. */
-  .quote-flow.glass-card[data-quote-presentation]:has([data-quote-result-actions]) {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
+/* Keep vehicle changes stable and smooth at every viewport size. */
   .quote-flow [data-quote-result-detail-slot] { display: block; min-height: 1.25rem; }
   .quote-flow [data-quote-info-grid],
   .quote-flow [data-quote-footer-grid],
@@ -1382,6 +1373,18 @@ main {
     .quote-flow [data-quote-result-heading],
     .quote-flow [data-quote-changing-info] { animation: none; }
   }
+
+
+/* Balance the existing mobile header controls without changing their geometry. */
+@media (max-width: 767px) {
+  /* Keep the tall results in the normal scrolling layer on touch screens.
+     The nearly opaque navy surface is unchanged; a backdrop-filter here puts
+     every result action in a separate composited layer during the auto-scroll. */
+  .quote-flow.glass-card[data-quote-presentation]:has([data-quote-result-actions]) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
 
   /* Vehicle art/capacity already appear in the unchanged mobile options above. */
   .quote-flow [data-quote-result-card] [data-quote-result-art],

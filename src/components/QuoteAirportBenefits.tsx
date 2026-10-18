@@ -88,7 +88,10 @@ export default function QuoteAirportBenefits(props: Props) {
           ) : null}
         </div>
       ))}
-      <p className="text-[13px] font-bold leading-snug">✓ Your own pre-booked transfer</p>
+      <div className="flex items-start gap-1.5">
+        <span className="w-3 shrink-0 text-[13px] font-bold leading-snug text-[#147a2a]" aria-hidden>✓</span>
+        <span className="text-[13px] font-bold leading-snug">Your own pre-booked transfer</span>
+      </div>
     </div>
   );
 }

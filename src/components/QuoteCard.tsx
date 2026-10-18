@@ -7126,7 +7126,7 @@ function QuoteCard({
         {submitted
           ? submitInProgressLabel
           : isVehiclePersonalQuote
-            ? "REQUEST A QUOTE"
+            ? "Request quote"
           : authoritativeQuoteFailed
             ? "Price unavailable"
             : vehicleFareUpdating && instantPriceExpected && !mayPaintNumericFare
@@ -7280,7 +7280,7 @@ function QuoteCard({
           vehicleType={quoteVehicle}
           passengers={effectivePassengers as number}
           suitcases={suitcases as number}
-          priceLabel=""
+          priceLabel={effectiveAirportCode ? "YOUR FIXED AIRPORT TRANSFER PRICE" : "Fixed price"}
           formattedPrice=""
           airportAccess={layoutAirportAccess}
           layoutBusinessClassInclusions={layoutBusinessClassInclusions}
