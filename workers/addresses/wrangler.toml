@@ -32,6 +32,10 @@ class_name = "QuoteLeadCoordinator"
 name = "MEET_GREET_COORDINATOR"
 class_name = "MeetGreetCoordinator"
 
+[[durable_objects.bindings]]
+name = "CONSENT_LEDGER"
+class_name = "ConsentLedger"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
@@ -43,6 +47,12 @@ new_sqlite_classes = ["QuoteLeadCoordinator"]
 [[migrations]]
 tag = "v3-meet-greet-coordinator"
 new_sqlite_classes = ["MeetGreetCoordinator"]
+
+# This migration is already recorded in production. Keep its class and history
+# when deploying releases that do not use the consent-ledger integration.
+[[migrations]]
+tag = "v4-consent-ledger"
+new_sqlite_classes = ["ConsentLedger"]
 
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
