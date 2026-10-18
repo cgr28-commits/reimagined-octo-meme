@@ -5625,6 +5625,12 @@ function QuoteCard({
           isReturnAfterOutbound(date, time, retDate, retTime)));
     if (!complete) return;
     hadJourneySummaryScrollRef.current = true;
+    // The combined checkout already shows Your details directly after the schedule.
+    // Stop at its heading; the legacy summary/Continue target sits below the name.
+    if (step3CustomerDetailsRef.current) {
+      scrollJourneySummaryAfterTimeConfirm(step3CustomerDetailsRef.current, null);
+      return;
+    }
     const preferFlightDetails =
       needsOutboundFlightNumber || needsReturnCollectionFlightNumber;
     scrollJourneySummaryAfterTimeConfirm(

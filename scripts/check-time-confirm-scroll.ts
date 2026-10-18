@@ -78,3 +78,14 @@ assert.equal(y, 316);
 assert.equal(frames.size, 0);
 assert.equal(style.scrollBehavior, "smooth");
 console.log("OK time confirmation: long glide, destination clamp, swipe cancellation and reduced motion");
+
+// Combined checkout: stop at Your details, without the legacy Continue clamp.
+y = 2200; reduced = false;
+scrollJourneySummaryAfterTimeConfirm(summary as unknown as HTMLElement, null); begin();
+frame(performance.now() + QUOTE_REVEAL_SCROLL_MS + 100);
+assert.equal(y, 384, "Your details must align below the fixed header, without skipping the name");
+assert.equal(style.scrollBehavior, "smooth");
+y = 2200; reduced = true;
+scrollJourneySummaryAfterTimeConfirm(summary as unknown as HTMLElement, null); begin();
+assert.equal(y, 384, "Reduced motion must stop at the same Your details heading");
+console.log("OK combined checkout: Your details heading remains below the header");
