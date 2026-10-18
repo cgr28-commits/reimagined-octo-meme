@@ -6208,7 +6208,7 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Passengers: {formatPassengerChoice(effectivePassengers as number)}
               <span className="mx-2 text-white/35">·</span>
-              Standard suitcases (23kg): {formatSuitcaseChoice(suitcases as number)}
+              Standard suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
             <PriceInclusionBlock
               isAirportTrip={isAirportLegForInclusions}
@@ -6311,7 +6311,7 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Passengers: {formatPassengerChoice(effectivePassengers as number)}
               <span className="mx-2 text-white/35">·</span>
-              Standard suitcases (23kg): {formatSuitcaseChoice(suitcases as number)}
+              Standard suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
             {testChargeAmount !== null && (
               <p className="quote-secondary mt-2 text-xs">
@@ -7126,7 +7126,7 @@ function QuoteCard({
         {submitted
           ? submitInProgressLabel
           : isVehiclePersonalQuote
-            ? "REQUEST A QUOTE"
+            ? "REQUEST QUOTE"
           : authoritativeQuoteFailed
             ? "Price unavailable"
             : vehicleFareUpdating && instantPriceExpected && !mayPaintNumericFare
@@ -7280,7 +7280,7 @@ function QuoteCard({
           vehicleType={quoteVehicle}
           passengers={effectivePassengers as number}
           suitcases={suitcases as number}
-          priceLabel=""
+          priceLabel={effectiveAirportCode ? "YOUR FIXED AIRPORT TRANSFER PRICE" : "Fixed price"}
           formattedPrice=""
           airportAccess={layoutAirportAccess}
           layoutBusinessClassInclusions={layoutBusinessClassInclusions}
@@ -7318,7 +7318,7 @@ function QuoteCard({
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
-        priceLabel="Fixed price"
+        priceLabel={effectiveAirportCode ? "YOUR FIXED AIRPORT TRANSFER PRICE" : "Fixed price"}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
         businessClassInclusions={renderBusinessClassInclusions()}
@@ -8488,7 +8488,7 @@ function QuoteCard({
               needsCompletion={quoteStep === 1 && passengers == null}
             />
             <TapChoiceRow
-              label="Standard suitcases (23kg)"
+              label="Standard suitcases"
               options={publicSuitcaseOptions(publicMinibusEnabled)}
               value={
                 suitcases != null && suitcases <= suitcaseLimit && suitcases >= 0

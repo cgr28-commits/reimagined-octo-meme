@@ -26,9 +26,9 @@ import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-lin
 
 /**
  * Card wording only. Saloon and Business Class still fit 2 standard suitcases
- * (23kg) plus 2 small hand-luggage bags; that capacity is not changed here.
+ * plus 2 small hand-luggage bags; that capacity is not changed here.
  */
-const SALOON_LUGGAGE_CAPACITY = "2 standard suitcases (23kg)";
+const SALOON_LUGGAGE_CAPACITY = "2 standard suitcases + 2\u00a0small\u00a0bags";
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
@@ -65,7 +65,7 @@ const CATEGORIES = [
     vehicle: EXECUTIVE_VEHICLE,
     title: EXECUTIVE_CUSTOMER_NAME,
     capacity: EXECUTIVE_CUSTOMER_CAPACITY,
-    luggage: SALOON_LUGGAGE_CAPACITY,
+    luggage: "2 standard suitcases",
     luggageIcon: "suitcase" as const,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
     detailIcon: "crown" as const,
@@ -189,7 +189,7 @@ export default function QuoteVehicleCategories({
                       <span className="mt-0.5 flex items-start gap-1 text-[0.78rem] font-semibold leading-tight text-navy">
                         <VehicleLineIcon name={option.luggageIcon} />
                         <span>
-                          <span className="md:hidden">2 suitcases (23kg)</span>
+                          <span className="md:hidden">{option.id === "saloon" ? SALOON_LUGGAGE_CAPACITY : "2 suitcases"}</span>
                           <span className="hidden md:inline">{option.luggage}</span>
                         </span>
                       </span>
@@ -200,7 +200,7 @@ export default function QuoteVehicleCategories({
                         <span>
                           {option.id === "estate" ? (
                             <>
-                              <span className="md:hidden">Extra luggage &amp; comfort</span>
+                              <span className="md:hidden">{option.detail}</span>
                               <span className="hidden md:inline">{option.detail}</span>
                             </>
                           ) : option.detail}

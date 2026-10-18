@@ -44,17 +44,11 @@ export function buildQuoteAirportBenefits(input: Props) {
     const dublin = stop.code === "DUB";
     const zeroDropOff = dublin && !pickup && getAirportFixedCostRow(stop.code)?.dropOffFeeGbp === 0;
     const heading = included || zeroDropOff
-      ? `Terminal ${pickup ? "Pickup" : "Drop-Off"} Included`
+      ? `Terminal ${pickup ? "pick-up" : "drop-off"} included`
       : `Airport ${pickup ? "Collection" : "Drop-Off"}`;
-    const description = included
-      ? dublin && pickup
-        ? "Collection from Dublin Airport’s designated pickup area, with applicable pickup and parking charges included in your fixed fare."
-        : pickup
-          ? "Convenient collection close to the terminal, with airport pickup charges included in your fixed fare."
-          : "Convenient drop-off close to the terminal, with applicable airport drop-off charges included in your fixed fare."
-      : zeroDropOff
-        ? "Drop-off at Dublin Airport’s designated terminal drop-off area. No additional airport drop-off charge applies."
-        : `Your ${pickup ? "collection" : "drop-off"} uses the selected airport area. See your fare breakdown for any applicable airport charges.`;
+    const description = included || zeroDropOff
+      ? `No additional airport ${pickup ? "pick-up" : "drop-off"} fee`
+      : `Your ${pickup ? "collection" : "drop-off"} uses the selected airport area. See your fare breakdown for any applicable airport charges.`;
     return {
       key: `${stop.leg}:${stop.code}:${stop.direction}`,
       pickup,
@@ -94,6 +88,10 @@ export default function QuoteAirportBenefits(props: Props) {
           ) : null}
         </div>
       ))}
+      <div className="flex items-start gap-1.5">
+        <span className="w-3 shrink-0 text-[13px] font-bold leading-snug text-[#147a2a]" aria-hidden>✓</span>
+        <span className="text-[13px] font-bold leading-snug">Your own pre-booked transfer</span>
+      </div>
     </div>
   );
 }

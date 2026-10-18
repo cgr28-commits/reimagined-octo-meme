@@ -471,8 +471,21 @@ main {
   display: flex;
   width: 100%;
   max-width: 36rem;
-  align-items: flex-start;
+  margin-inline: auto;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
   line-height: 1.45;
+}
+
+/* Balance the homepage eyebrow with matching decorative lines. */
+.homepage-hero .section-eyebrow::after {
+  content: "";
+  width: 1.25rem;
+  height: 1px;
+  background: var(--color-emerald);
+  opacity: 0.7;
+  flex-shrink: 0;
 }
 
 @media (max-width: 767px) {
@@ -1066,7 +1079,8 @@ main {
     white-space: normal;
   }
 
-  .homepage-hero .section-eyebrow::before {
+  .homepage-hero .section-eyebrow::before,
+  .homepage-hero .section-eyebrow::after {
     width: 0.75rem;
     flex-shrink: 0;
   }
@@ -1353,6 +1367,28 @@ main {
 [data-quote-layout-reference] { display: none; }
 [data-quote-result-detail-slot] { display: contents; }
 
+/* Keep vehicle changes stable and smooth at every viewport size. */
+  .quote-flow [data-quote-result-detail-slot] { display: block; min-height: 2.5rem; }
+  .quote-flow [data-quote-info-grid],
+  .quote-flow [data-quote-footer-grid],
+  .quote-flow [data-quote-layout-reference] { display: grid; }
+  .quote-flow [data-quote-layout-reference] { visibility: hidden; pointer-events: none; }
+  .quote-flow [data-quote-info-grid] > [data-quote-layout-reference] > *,
+  .quote-flow [data-quote-info-grid] > *,
+  .quote-flow [data-quote-footer-grid] > * { grid-area: 1 / 1; min-width: 0; }
+  .quote-flow [data-quote-result-heading],
+  .quote-flow [data-quote-changing-info] { animation: quote-information-change 700ms ease-out; }
+  .quote-flow [data-quote-result-main-action] { min-height: 3rem; }
+  @keyframes quote-information-change {
+    from { opacity: 0.25; }
+    to { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .quote-flow [data-quote-result-heading],
+    .quote-flow [data-quote-changing-info] { animation: none; }
+  }
+
+
 /* Balance the existing mobile header controls without changing their geometry. */
 @media (max-width: 767px) {
   /* Keep the tall results in the normal scrolling layer on touch screens.
@@ -1363,25 +1399,6 @@ main {
     -webkit-backdrop-filter: none;
   }
 
-  .quote-flow [data-quote-result-detail-slot] { display: block; min-height: 1.25rem; }
-  .quote-flow [data-quote-info-grid],
-  .quote-flow [data-quote-footer-grid],
-  .quote-flow [data-quote-layout-reference] { display: grid; }
-  .quote-flow [data-quote-layout-reference] { visibility: hidden; pointer-events: none; }
-  .quote-flow [data-quote-info-grid] > [data-quote-layout-reference] > *,
-  .quote-flow [data-quote-info-grid] > *,
-  .quote-flow [data-quote-footer-grid] > * { grid-area: 1 / 1; min-width: 0; }
-  .quote-flow [data-quote-result-heading],
-  .quote-flow [data-quote-changing-info] { animation: quote-information-change 360ms ease-out; }
-  .quote-flow [data-quote-result-main-action] { min-height: 3rem; }
-  @keyframes quote-information-change {
-    from { opacity: 0.25; }
-    to { opacity: 1; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .quote-flow [data-quote-result-heading],
-    .quote-flow [data-quote-changing-info] { animation: none; }
-  }
 
   /* Vehicle art/capacity already appear in the unchanged mobile options above. */
   .quote-flow [data-quote-result-card] [data-quote-result-art],
