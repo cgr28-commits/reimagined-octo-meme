@@ -175,9 +175,10 @@ async function fetchGoogleAdsAccessToken(env: GoogleAdsClickConversionEnv): Prom
   } | null;
   if (!response.ok || !payload?.access_token) {
     throw new Error(
-      payload?.error_description ||
-        payload?.error ||
-        `Google OAuth token exchange failed (${response.status})`,
+      [
+        `Google OAuth token exchange failed (HTTP ${response.status})`,
+        payload?.error,
+      ].filter(Boolean).join(" — "),
     );
   }
   return payload.access_token;
@@ -187,9 +188,43 @@ function isDuplicateOrderFailure(message: string): boolean {
   const lower = message.toLowerCase();
   return (
     lower.includes("duplicate_order_id") ||
-    lower.includes("duplicate order id") ||
-    lower.includes("already exists")
+    lower.includes("duplicate order id")
   );
+}
+
+type GoogleAdsFailure = {
+  message?: string;
+  status?: string;
+  details?: Array<{
+    errors?: Array<{
+      errorCode?: Record<string, unknown>;
+      location?: { fieldPathElements?: Array<{ fieldName?: string; index?: number }> };
+    }>;
+  }>;
+};
+
+/** Preserve error codes and field paths, without request values or credentials. */
+function describeGoogleAdsFailure(
+  failure: GoogleAdsFailure | undefined,
+  fallback: string,
+  sensitiveValues: string[],
+): string {
+  const codes = (failure?.details ?? []).flatMap((detail) =>
+    (detail.errors ?? []).map((error) => {
+      const code = Object.entries(error.errorCode ?? {})
+        .filter(([key, value]) => /^[a-zA-Z]+$/.test(key) && typeof value === "string" && /^[A-Z0-9_]+$/.test(value))
+        .map(([key, value]) => key + ":" + value).join(", ");
+      const path = (error.location?.fieldPathElements ?? [])
+        .filter((field) => /^[a-zA-Z_]+$/.test(field.fieldName ?? ""))
+        .map((field) => field.fieldName + (Number.isInteger(field.index) ? "[" + field.index + "]" : "")).join(".");
+      return code ? code + (path ? " at " + path : "") : "";
+    }),
+  ).filter(Boolean);
+  let summary = [failure?.status, ...codes, failure?.message || fallback].filter(Boolean).join(" — ");
+  for (const value of sensitiveValues.filter(Boolean).sort((a, b) => b.length - a.length)) {
+    summary = summary.split(value).join("[redacted]");
+  }
+  return summary.slice(0, 500);
 }
 
 /**
@@ -269,17 +304,25 @@ export async function uploadPaidBookingClickConversion(
     );
 
     const payload = (await response.json().catch(() => null)) as {
-      partialFailureError?: { message?: string; details?: unknown[] };
-      results?: Array<{ orderId?: string; gclid?: string }>;
-      error?: { message?: string; status?: string };
+      partialFailureError?: GoogleAdsFailure;
+      results?: Array<{ orderId?: string; gclid?: string; gbraid?: string; wbraid?: string; conversionDateTime?: string }>;
+      error?: GoogleAdsFailure;
       message?: string;
     } | null;
 
+    const sensitiveValues = [
+      clickId.value,
+      trimSecret(env.GOOGLE_ADS_DEVELOPER_TOKEN),
+      trimSecret(env.GOOGLE_ADS_CLIENT_SECRET),
+      trimSecret(env.GOOGLE_ADS_REFRESH_TOKEN),
+      accessToken,
+    ];
     if (!response.ok) {
-      const message =
-        payload?.error?.message ||
-        payload?.message ||
-        `Google Ads upload failed (${response.status})`;
+      const message = describeGoogleAdsFailure(
+        payload?.error ?? { message: payload?.message },
+        `Google Ads upload failed (HTTP ${response.status})`,
+        sensitiveValues,
+      );
       if (isDuplicateOrderFailure(message)) {
         return {
           status: "skipped_duplicate",
@@ -292,16 +335,16 @@ export async function uploadPaidBookingClickConversion(
         status: "failed",
         orderId,
         clickIdType: clickId.type,
-        error: message,
+        error: `HTTP ${response.status} — ${message}`.slice(0, 500),
       };
     }
 
-    const partialMessage =
-      payload?.partialFailureError?.message ||
-      (typeof payload?.partialFailureError === "object"
-        ? JSON.stringify(payload.partialFailureError)
-        : "");
-    if (partialMessage) {
+    if (payload?.partialFailureError) {
+      const partialMessage = describeGoogleAdsFailure(
+        payload.partialFailureError,
+        "Google Ads partial failure",
+        sensitiveValues,
+      );
       if (isDuplicateOrderFailure(partialMessage)) {
         return {
           status: "skipped_duplicate",
@@ -315,6 +358,15 @@ export async function uploadPaidBookingClickConversion(
         orderId,
         clickIdType: clickId.type,
         error: partialMessage,
+      };
+    }
+
+    if (!payload?.results?.some((result) => result && (result.orderId || result.gclid || result.gbraid || result.wbraid || result.conversionDateTime))) {
+      return {
+        status: "failed",
+        orderId,
+        clickIdType: clickId.type,
+        error: `Google Ads returned no processed conversion (HTTP ${response.status})`,
       };
     }
 

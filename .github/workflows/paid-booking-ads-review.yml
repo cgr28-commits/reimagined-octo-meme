@@ -1,0 +1,23 @@
+name: Paid booking Ads upload checks
+on:
+  pull_request:
+    paths:
+      - 'shared/google-ads-click-conversions.ts'
+      - 'workers/addresses/**'
+      - 'scripts/check-paid-booking-ads-conversion.ts'
+      - '.github/workflows/paid-booking-ads-review.yml'
+permissions:
+  contents: read
+jobs:
+  upload-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: node --import tsx scripts/check-paid-booking-ads-conversion.ts
+      - run: npm --prefix workers/addresses ci
+      - run: npm --prefix workers/addresses run build
