@@ -34,6 +34,8 @@ for (const code of ["BFS", "BHD", "DUB"]) {
     for (const returning of [false, true]) {
       const props = fixture(pickup ? code : null, pickup ? null : code, returning);
       const before = JSON.stringify(props);
+      const waitingHtml = renderToStaticMarkup(<QuoteAirportBenefits {...props} />);
+      assert.equal((waitingHtml.match(/data-airport-waiting-included/g) || []).length, pickup || returning ? 1 : 0);
       const benefits = buildQuoteAirportBenefits(props);
       assert.equal(benefits.length, returning ? 2 : 1);
       assert.match(benefits[0].heading, pickup ? /Pickup|Collection/ : /Drop-Off/);

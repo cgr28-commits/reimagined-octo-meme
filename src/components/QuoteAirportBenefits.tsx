@@ -57,6 +57,7 @@ export function buildQuoteAirportBenefits(input: Props) {
         : `Your ${pickup ? "collection" : "drop-off"} uses the selected airport area. See your fare breakdown for any applicable airport charges.`;
     return {
       key: `${stop.leg}:${stop.code}:${stop.direction}`,
+      pickup,
       heading,
       description,
       label: `${input.returnJourney ? `${stop.leg === "return" ? "Return" : "Outbound"} · ` : ""}${getAirportDisplayName(stop.code)}`,
@@ -71,13 +72,26 @@ export default function QuoteAirportBenefits(props: Props) {
   return (
     <div className="space-y-1.5 rounded-xl border border-emerald/20 bg-emerald/[0.05] px-2.5 py-1.5 text-left text-navy" data-quote-airport-benefits={props.layoutOnly ? undefined : true}>
       {benefits.map((benefit) => (
-        <div key={benefit.key} className="flex items-start gap-1.5">
-          <span className="shrink-0 text-sm font-bold text-[#147a2a]" aria-hidden>✓</span>
-          <div className="min-w-0">
-            {benefits.length > 1 ? <p className="text-[11px] font-medium leading-snug">{benefit.label}</p> : null}
-            <p className="text-[13px] font-bold leading-snug">{benefit.heading}</p>
-            <p className="mt-0.5 text-xs font-semibold leading-snug text-[#061a30]">{benefit.description}</p>
+        <div key={benefit.key} className="space-y-1.5">
+          <div className="flex items-start gap-1.5">
+            <span className="w-3 shrink-0 text-[13px] font-bold leading-snug text-[#147a2a]" aria-hidden>✓</span>
+            <div className="min-w-0">
+              {benefits.length > 1 ? <p className="text-[11px] font-medium leading-snug">{benefit.label}</p> : null}
+              <p className="text-[13px] font-bold leading-snug">{benefit.heading}</p>
+              <p className="mt-0.5 text-xs font-semibold leading-snug text-[#061a30]">{benefit.description}</p>
+            </div>
           </div>
+          {benefit.pickup ? (
+            <div className="flex items-start gap-1.5" data-airport-waiting-included={props.layoutOnly ? undefined : true}>
+              <span className="w-3 shrink-0 text-[13px] font-bold leading-snug text-[#147a2a]" aria-hidden>✓</span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold leading-snug">60 Minutes Airport Waiting Included</p>
+                <p className="mt-0.5 text-xs font-medium leading-snug text-[#061a30]">
+                  Complimentary waiting time for airport pickups.
+                </p>
+              </div>
+            </div>
+          ) : null}
         </div>
       ))}
     </div>
