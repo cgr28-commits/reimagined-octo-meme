@@ -11,7 +11,7 @@ import {
 } from "@/lib/vehicle-selection";
 import { EXECUTIVE_CUSTOMER_CAPACITY, vehicleCustomerDescription } from "../../shared/vehicle-display";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
-import { QuoteCrownIcon, QuoteSuitcaseIcon } from "@/components/quote-vehicle-line-icons";
+import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-line-icons";
 import {
   formatPublicSuitcaseChoice,
   isFivePlusLuggage,
@@ -149,7 +149,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {isExecutive ? (
               <QuoteCrownIcon className="h-3.5 w-3.5" />
             ) : (
-              <QuoteSuitcaseIcon className="h-3.5 w-3.5" />
+              <QuoteLuggageIcon className="h-3.5 w-3.5" />
             )}
             {detailLine}
           </p>
@@ -177,7 +177,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {passengerLabel}
           </span>
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
-            <QuoteSuitcaseIcon className="h-4 w-4" />
+            <QuoteLuggageIcon className="h-4 w-4" />
             {suitcaseLabel}
           </span>
         </div>

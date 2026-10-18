@@ -7126,7 +7126,7 @@ function QuoteCard({
         {submitted
           ? submitInProgressLabel
           : isVehiclePersonalQuote
-            ? "Request quote"
+            ? "REQUEST QUOTE"
           : authoritativeQuoteFailed
             ? "Price unavailable"
             : vehicleFareUpdating && instantPriceExpected && !mayPaintNumericFare
