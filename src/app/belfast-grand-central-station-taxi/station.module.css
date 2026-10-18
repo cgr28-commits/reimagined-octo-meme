@@ -21,3 +21,10 @@
 .quote{max-width:none;width:100%;margin:0}
 @media(min-width:1024px) and (max-width:1279px){.heroGrid{max-width:736px}}
 @media(min-width:1536px){.heroGrid{max-width:864px}}
+
+/* Native anchor navigation keeps every destination and FAQ available without scripts. */
+.jumpLinks,.destinationLinks{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:24px}
+.jumpLinks a,.destinationLinks a{display:inline-flex;align-items:center;min-height:44px;padding:8px 12px;border:1px solid #ffffff40;border-radius:8px;color:#d6dfeb;text-decoration:underline;text-underline-offset:4px;max-width:100%;overflow-wrap:anywhere}
+.page section[id],.route[id],.travelCard[id]{scroll-margin-top:144px}
+.faqs summary{min-height:44px;line-height:1.5}
+@media(max-width:640px){.destinationLinks{gap:8px}.destinationLinks a{flex:1 1 140px}.routeActions a{min-height:44px;display:inline-flex;align-items:center}}

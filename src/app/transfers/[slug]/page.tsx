@@ -392,7 +392,7 @@ export default async function TransferRoutePage({ params }: Props) {
                   >
                     {page.airport.shortName} transfers
                   </Link>{" "}
-                  guide.
+                  guide. Arriving by train or coach? <Link href="/belfast-grand-central-station-taxi/" className="text-emerald underline underline-offset-4">Arrange a Belfast Grand Central Station transfer</Link> for your onward airport connection.
                 </p>
               ) : null}
             </section>

@@ -4,6 +4,8 @@ import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import QuoteCard from "@/components/QuoteCard";
 
 type Props = {
+  bookingIntroduction?: string;
+  pickupNotice?: string;
   airportCode?: string;
   direction?: "to-airport" | "from-airport";
   addressHint?: string;
@@ -17,6 +19,8 @@ type Props = {
 };
 
 export default function LocationQuoteSection({
+  bookingIntroduction,
+  pickupNotice,
   airportCode = "",
   direction = "to-airport",
   addressHint = "",
@@ -49,7 +53,9 @@ export default function LocationQuoteSection({
             {description}
           </p>
         </div>
+        {pickupNotice ? <p className="mb-6 rounded-xl border border-emerald/30 bg-emerald/5 p-4 text-sm leading-relaxed text-white/85"><strong>Station pickup:</strong> {pickupNotice}</p> : null}
         <QuoteCard
+          bookingIntroduction={bookingIntroduction}
           presentation="homepage"
           initialAirportCode={airportCode}
           initialDirection={direction}

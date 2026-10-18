@@ -83,7 +83,10 @@ export default function GrandCentralStationPage() {
           </div>
         </div>
       </section>
+      <nav className={`${styles.shell} ${styles.jumpLinks}`} aria-label="On this page"><a href="#quote">Get a quote</a><a href="#routes">Popular destinations</a><a href="#meeting-point">Meeting your driver</a><a href="#station-vehicles">Vehicles and luggage</a><a href="#station-faqs">FAQs</a></nav>
       <LocationQuoteSection
+        bookingIntroduction="Pre-book your transfer to or from Belfast Grand Central Station in just a few clicks."
+        pickupNotice="Follow the meeting instructions agreed for your booking. Do not assume collection at the public-hire taxi rank. If your meeting point is not confirmed, contact us on WhatsApp before heading outside."
         addressHint="Belfast Grand Central Station, Belfast"
         heading="Quote a taxi to or from Belfast Grand Central Station"
         description="Enter your pickup, destination, passengers and luggage. Choose your date and time when you book."
@@ -98,14 +101,15 @@ export default function GrandCentralStationPage() {
           <p className={styles.eyebrow}>One station. Many onward journeys.</p>
           <h2>Popular Grand Central Station taxi routes</h2>
           <p>Every route below can be booked in either direction. Your fare comes from the existing calculator using your selected addresses, vehicle and journey details.</p>
-          <div className={styles.routes}>{routes.map((route) => <article key={route.name} className={styles.route}>
+          <nav className={styles.destinationLinks} aria-label="Choose a popular destination">{routes.map((route, index) => <a key={route.name} href={`#station-route-${index}`}>{route.name}</a>)}</nav>
+          <div className={styles.routes}>{routes.map((route, index) => <article id={`station-route-${index}`} key={route.name} className={styles.route}>
             <p className={styles.routeLabel}>Grand Central Station ↔</p><h3>{route.name}</h3><p>{route.text}</p>
             <div className={styles.routeActions}><LandingPageQuoteCta label={`Quote ${route.name} transfer`} className={styles.textCta} />{route.href && <Link href={route.href}>Airport guide →</Link>}</div>
           </article>)}</div>
           <p className={styles.small}>Travelling to Dundonald, Carryduff or another Greater Belfast address? Enter the precise location for a quote, or ask us on WhatsApp if you need help.</p>
         </section>
         <section className={`${styles.section} ${styles.travelGrid}`}>
-          <article className={styles.travelCard}><p className={styles.eyebrow}>Arriving in Belfast</p><h2>Where to meet your driver</h2>
+          <article id="meeting-point" className={styles.travelCard}><p className={styles.eyebrow}>Arriving in Belfast</p><h2>Where to meet your driver</h2>
             <p>Book for a realistic collection time after your train or coach arrival, leaving time to collect your bags and walk through the station. Keep your phone available and follow the meeting instructions agreed for your booking.</p>
             <p>Translink lists general drop-off spaces on Boyne Bridge Place alongside a separate public-hire taxi rank. The dedicated drop-off spaces have a maximum stay of 10 minutes. This is a site access limit, not an extension of your booking’s waiting allowance.</p>
             <p>A private pre-booked collection does not mean joining the black-taxi rank. Confirm your meeting point with us; access, signs and space availability may affect the lawful place your driver can stop.</p>
@@ -122,7 +126,7 @@ export default function GrandCentralStationPage() {
           <h2>Saloon, Estate, Business Class and 7-seater transfers</h2>
           <p>From an individual business trip to a family or group arrival, enter your passengers and luggage to see suitable vehicles and their current fares. Business Class and the 7 Seater Minibus are subject to availability.</p>
           <div className={styles.routes}>
-            <article className={styles.route}><h3>Saloon &amp; Estate</h3><p>Both accommodate up to four passengers. Choose Saloon for up to two large suitcases, or Estate for additional luggage space, up to four large suitcases. Estate adds £7 to the equivalent Saloon vehicle fare before any return discount.</p><div className={styles.routeActions}><LandingPageQuoteCta label="Quote a Saloon or Estate" className={styles.textCta} /></div></article>
+            <article className={styles.route}><h3>Saloon &amp; Estate</h3><p>Both accommodate up to four passengers. Choose Saloon for up to two standard suitcases plus two small bags, or Estate for up to four large suitcases plus two small bags. Estate adds £7 to the equivalent Saloon vehicle fare before any return discount.</p><div className={styles.routeActions}><LandingPageQuoteCta label="Quote a Saloon or Estate" className={styles.textCta} /></div></article>
             <article className={styles.route}><h3>Business Class</h3><p>A premium vehicle option for up to three passengers and two large suitcases, when offered by the calculator. Suitable for a business visit, hotel connection or onward airport journey. Station pickups use your agreed collection point.</p><div className={styles.routeActions}><LandingPageQuoteCta label="Check Business Class options" className={styles.textCta} /></div></article>
             <article className={styles.route}><h3>7 Seater Minibus</h3><p>Travel together with up to seven passengers, plus the driver. Enter your suitcase count and tell us about any unusual luggage so capacity can be checked. The existing minibus availability and advance-booking requirements apply.</p><div className={styles.routeActions}><LandingPageQuoteCta label="Check 7-seater options" className={styles.textCta} /></div></article>
           </div>
@@ -131,7 +135,7 @@ export default function GrandCentralStationPage() {
           <ul className={styles.why}>{["A fixed-price quote to review before booking", "Simple online booking for pre-booked transfers", "Secure card payments through SumUp", "Saloon and Estate options for up to four passengers", "Business Class and up to seven passengers by Minibus, when available", "Additional luggage capacity with Estate", "The existing 5% discount on return bookings"].map((benefit) => <li key={benefit}><span aria-hidden="true">✓</span>{benefit}</li>)}</ul>
           <p>Choose the vehicle that fits your luggage and check your booking confirmation. Airport access costs apply only where your journey involves an airport; the station itself does not attract an airport pickup fee or a flight-number requirement.</p>
         </section>
-        <section className={styles.section}><p className={styles.eyebrow}>Before you travel</p><h2>Grand Central Station taxi questions</h2><div className={styles.faqs}>{faqs.map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div><p className={styles.small}>Read the <Link href="/terms/">booking terms</Link> and <Link href="/cancellation/">cancellation policy</Link> before confirming your journey.</p></section>
+        <section id="station-faqs" className={styles.section}><p className={styles.eyebrow}>Before you travel</p><h2>Grand Central Station taxi questions</h2><div className={styles.faqs}>{faqs.map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div><p className={styles.small}>Read the <Link href="/terms/">booking terms</Link> and <Link href="/cancellation/">cancellation policy</Link> before confirming your journey.</p></section>
       </div>
       <section className={styles.final}><div className={styles.shell}><p className={styles.eyebrow}>Your onward journey starts here</p><h2>Book your Grand Central Station transfer</h2><p>To the station or from it. Enter your journey, choose your vehicle and see your fixed quote before you book.</p><div className={styles.actions}><LandingPageQuoteCta label="Get Instant Quote" /><a href={whatsapp} target="_blank" rel="noopener noreferrer">Message us on WhatsApp ↗</a></div></div></section>
     </main><Footer />

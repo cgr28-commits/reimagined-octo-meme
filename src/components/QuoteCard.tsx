@@ -675,6 +675,7 @@ function isTripDateTimeNotInPast(tripDate: string, tripTime: string): boolean {
 type BookingDelivery = "whatsapp" | "email";
 
 type QuoteCardProps = {
+  bookingIntroduction?: string;
   /** Preselect airport on dedicated landing pages. */
   initialAirportCode?: string;
   initialDirection?: TripDirection;
@@ -764,6 +765,7 @@ function QuoteCard({
   initialDropoffHint = "",
   initialJourneyIntent,
   presentation = "default",
+  bookingIntroduction = "Pre-book your airport transfer in just a few clicks.",
   pageType = "main",
   maxPassengers = MAX_ONLINE_PASSENGERS,
   returnOfferToken = "",
@@ -7666,7 +7668,7 @@ function QuoteCard({
           {quoteStep >= 2 ? (
             <p>Add your pickup details to confirm your transfer.</p>
           ) : presentation === "homepage" ? (
-            <p>Pre-book your airport transfer in just a few clicks.</p>
+            <p>{bookingIntroduction}</p>
           ) : (
             <>
           {/* Mobile: compact — frees space for journey choices above the fold */}
