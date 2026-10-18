@@ -323,8 +323,9 @@ check("Approved Minibus pricing unchanged (Estate × 1.55, penny only)", () => {
   }
   const fare = minibusBaseFareFromSaloon(50, onPricing);
   assert.equal(fare.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
-  assert.equal(fare.minibusQuotedGbp, 93);
-  assert.equal(fare.minibusExactGbp, 93);
+  // Approved £7 Estate fallback: (£50 + £7) × 1.55 = £88.35.
+  assert.equal(fare.minibusQuotedGbp, 88.35);
+  assert.equal(fare.minibusExactGbp, 88.35);
 });
 
 check("Preview customer journey seed is isolated to preview hosts", () => {

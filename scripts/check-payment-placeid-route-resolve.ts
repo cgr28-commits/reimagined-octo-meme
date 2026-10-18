@@ -416,7 +416,7 @@ async function main() {
     assert.match(card, /routeValidationBlockingPayment/);
   });
 
-  await check("13. mocked SumUp checkout receives exact accepted server-verified amount", async () => {
+  await check("13. mocked SumUp checkout applies standard whole-pound rounding", async () => {
     const { checkoutAmountsMatch, resolveSumUpChargeAmountGbp } = await import(
       "../shared/open-website-payment-fares"
     );
@@ -424,15 +424,15 @@ async function main() {
     const server = 180.5;
     assert.equal(checkoutAmountsMatch(accepted, server), true);
     const charge = resolveSumUpChargeAmountGbp(accepted, server);
-    assert.equal(charge, 180.5);
+    assert.equal(charge, 181); // Existing standard fare rule: nearest whole pound.
     // Mock SumUp Hosted Checkout payload — no live API call.
     const mockSumUpCheckout = {
       amount: charge!,
       currency: "GBP" as const,
       description: "My Airport Taxi NI transfer",
     };
-    assert.equal(mockSumUpCheckout.amount, accepted);
-    assert.equal(mockSumUpCheckout.amount, server);
+    assert.equal(mockSumUpCheckout.amount, 181);
+    assert.equal(mockSumUpCheckout.amount, 181);
     assert.equal(resolveSumUpChargeAmountGbp(100, 100.03), null);
   });
 

@@ -32,7 +32,10 @@ console.log("=== Checkout page is compact and sans-serif ===");
   assert.match(card, /label: "Journey details"/);
   assert.match(card, /label: "Your quote"/);
   assert.match(card, /label: "Complete your booking"/);
-  assert.match(card, /Step 3 — Complete your booking/);
+  // Step number and label are rendered separately from the shared progress array.
+  assert.match(card, /step: 3 as const, label: "Complete your booking"/);
+  assert.match(card, /<span>Step \{item\.step\}<\/span>/);
+  assert.match(card, /\{item\.label\}/);
   assert.doesNotMatch(card, /Step 2 — Complete your booking/);
   assert.match(card, /grid-cols-3/);
   assert.doesNotMatch(card, /quoteStep >= 2 \? "grid-cols-2"/);
@@ -98,7 +101,7 @@ console.log("\n=== Checkout submit uses existing pay / booking handlers ===");
   assert.match(card, /async function handlePayNow/);
   assert.match(card, /createPaymentCheckout/);
   assert.match(card, /composeFareWithExpressDropOff/);
-  assert.match(card, /airportAccessChargeGbp: expressSelection\.feeGbp/);
+  assert.match(card, /airportAccessChargeGbp: airportAccessQuote\.airportAccessChargeGbp/);
   console.log("OK  submit wires to existing handlers; no new fare math");
 }
 

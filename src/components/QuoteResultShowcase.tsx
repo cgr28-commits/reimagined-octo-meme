@@ -9,9 +9,9 @@ import {
   MINIBUS_VEHICLE,
   vehicleShortLabel,
 } from "@/lib/vehicle-selection";
-import { EXECUTIVE_CUSTOMER_CAPACITY, vehicleCustomerDescription } from "../../shared/vehicle-display";
+import { EXECUTIVE_CUSTOMER_CAPACITY } from "../../shared/vehicle-display";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
-import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-line-icons";
+import { QuoteLuggageIcon as QuoteSuitcaseIcon } from "@/components/quote-vehicle-line-icons";
 import {
   formatPublicSuitcaseChoice,
   isFivePlusLuggage,
@@ -96,7 +96,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
     !isExecutive &&
     !isMinibus &&
     (vehicleType === ESTATE_VEHICLE || String(vehicleType).toLowerCase().includes("estate"));
-  const vehicleLabel = vehicleShortLabel(vehicleType);
+  const vehicleLabel = isEstate ? "Estate" : vehicleShortLabel(vehicleType);
   const art: VehicleArtId = isMinibus
     ? "minibus"
     : isEstate
@@ -111,15 +111,18 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       : isExecutive
         ? BUSINESS_CLASS_IMAGE
         : SALOON_IMAGE;
-  const supporting = vehicleCustomerDescription(vehicleType);
   const capacityLine = isMinibus ? "Up to 7 passengers" : isExecutive ? EXECUTIVE_CUSTOMER_CAPACITY : "1–4 passengers";
-  const detailLine = isMinibus ? "Up to 7 passengers · 5+ suitcases" : isEstate || isExecutive ? supporting : "Up to 4 passengers · 2 standard suitcases + 2\u00a0small\u00a0bags";
+  const detailLine = isMinibus ? "Up to 7 passengers" : isExecutive
+    ? `${EXECUTIVE_CUSTOMER_CAPACITY} · 2 suitcases`
+    : isEstate
+      ? <>Up to 4 passengers · 4 suitcases + <span className="whitespace-nowrap">2 small bags</span></>
+      : <>Up to 4 passengers · 2 suitcases + <span className="whitespace-nowrap">2 small bags</span></>;
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
-    ? "5+ standard suitcases"
+    ? "5+ suitcases"
     : suitcases === 1
-      ? "1 standard suitcase"
-      : `${formatPublicSuitcaseChoice(suitcases)} standard suitcases`;
+      ? "1 suitcase"
+      : `${formatPublicSuitcaseChoice(suitcases)} suitcases`;
 
   const layoutAirportAccess = isValidElement<{ layoutOnly?: boolean }>(airportAccess)
     ? cloneElement(airportAccess, { layoutOnly: true }) : airportAccess;
@@ -144,14 +147,10 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         <p className="sr-only">Vehicle for this journey</p>
         <p data-quote-result-capacity className="mt-0.5 text-[0.84rem] font-semibold leading-tight text-navy">{capacityLine}</p>
         <div data-quote-result-detail-slot>
-        {detailLine.trim() ? (
-          <p className="flex items-center justify-center gap-1 text-[0.78rem] font-medium leading-tight text-navy">
-            {isExecutive ? (
-              <QuoteCrownIcon className="h-3.5 w-3.5" />
-            ) : (
-              <QuoteLuggageIcon className="h-3.5 w-3.5" />
-            )}
-            {detailLine}
+        {detailLine ? (
+          <p className="flex items-start justify-center gap-1 text-[0.78rem] font-medium leading-tight text-navy">
+            <QuoteSuitcaseIcon className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0">{detailLine}</span>
           </p>
         ) : null}
         </div>
@@ -177,7 +176,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {passengerLabel}
           </span>
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
-            <QuoteLuggageIcon className="h-4 w-4" />
+            <QuoteSuitcaseIcon className="h-4 w-4" />
             {suitcaseLabel}
           </span>
         </div>
@@ -258,15 +257,21 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         ) : null}
           </div>
         </div>
-        <div className="mt-0.5" data-quote-result-main-action>{bookButton}</div>
+        {!requestQuote && !priceUnavailable && !airportAccess ? (
+          <p className="my-1.5 flex items-start gap-1.5 text-left text-[13px] font-bold leading-snug text-navy" data-private-transfer-benefit>
+            <span className="w-3 shrink-0 text-[#2FBF4A]" aria-hidden>✓</span>
+            Your own pre-booked transfer
+          </p>
+        ) : null}
+        <div className="mt-3" data-quote-result-main-action>{bookButton}</div>
         <div data-quote-footer-grid>
           <div data-quote-layout-reference aria-hidden="true" inert>
-            <p className="mt-1.5 text-xs font-semibold leading-tight">{formattedPrice.startsWith("£") ? formattedPrice : "TBC"} total. The price you see is the price you pay.</p>
+            <p className="mt-1.5 text-xs font-semibold leading-tight">The price you see is the price you pay.</p>
             {layoutBusinessClassInclusions}
           </div>
           <div data-quote-result-footer>
         {priceUnavailable ? null : (
-          <p data-quote-assurance className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">{requestQuote ? "Your fixed price will be confirmed before booking." : formattedPrice.startsWith("£") && !priceUpdating ? `${formattedPrice} total. The price you see is the price you pay.` : "✓ Fixed price. No surprises."}</p>
+          <p data-quote-assurance className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">{requestQuote ? "Your fixed price will be confirmed before booking." : "The price you see is the price you pay."}</p>
         )}
         {requestQuote ? null : businessClassInclusions}
           </div>

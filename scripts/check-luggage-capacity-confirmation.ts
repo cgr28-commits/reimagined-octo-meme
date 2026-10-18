@@ -393,8 +393,11 @@ async function main() {
   check("17. Minibus pricing remains unchanged", () => {
     const fare = minibusBaseFareFromSaloon(50, onPricing);
     assert.equal(fare.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
-    assert.equal(fare.minibusQuotedGbp, 93);
-    assert.equal(fare.minibusExactGbp, 93);
+    // Synthetic £50 Saloon + approved £7 Estate uplift, multiplied by 1.55.
+    assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 7);
+    assert.equal(fare.estateGbp, 57);
+    assert.equal(fare.minibusQuotedGbp, 88.35);
+    assert.equal(fare.minibusExactGbp, 88.35);
     const hold = calculateAuthoritativeWebsiteQuote(
       quoteInput({ passengers: 7, suitcases: 5, pricing: onPricing }),
     );

@@ -163,6 +163,7 @@ const transferSlugs = [
 ];
 
 const pages = [
+  { path: "/belfast-grand-central-station-taxi/", source: "src/app/belfast-grand-central-station-taxi/page.tsx" },
   { path: "/", source: "src/app/page.tsx" },
   { path: "/airports/", source: "src/app/airports/page.tsx" },
   ...airportSlugs.map((slug) => ({

@@ -16,6 +16,17 @@ export type TestBookingPrefill = {
   routeLabel: string;
 };
 
+/** Test-price overrides are local development/test only, never production builds. */
+export function isTestBookingAllowed(): boolean {
+  if (process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test") return false;
+  if (typeof window === "undefined") return false;
+  return ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+}
+
+function clearTestBooking(): void {
+  try { sessionStorage.removeItem(TEST_BOOKING_STORAGE_KEY); } catch { /* Storage may be disabled. */ }
+}
+
 function londonDatePlusDays(days: number): string {
   const now = Date.now() + days * 24 * 60 * 60 * 1000;
   return new Intl.DateTimeFormat("en-CA", {
@@ -45,23 +56,36 @@ export function buildTestBookingPrefill(): TestBookingPrefill {
   };
 }
 
-export function activateTestBooking(): TestBookingPrefill {
+export function activateTestBooking(): TestBookingPrefill | null {
+  if (!isTestBookingAllowed()) {
+    clearTestBooking();
+    return null;
+  }
   const prefill = buildTestBookingPrefill();
-  sessionStorage.setItem(TEST_BOOKING_STORAGE_KEY, JSON.stringify(prefill));
-  return prefill;
+  try {
+    sessionStorage.setItem(TEST_BOOKING_STORAGE_KEY, JSON.stringify(prefill));
+    return prefill;
+  } catch {
+    return null;
+  }
 }
 
 export function readTestBookingPrefill(): TestBookingPrefill | null {
-  const raw = sessionStorage.getItem(TEST_BOOKING_STORAGE_KEY);
-  if (!raw) {
+  // Check before reading: manually injected storage must never enable production overrides.
+  if (!isTestBookingAllowed()) {
+    clearTestBooking();
     return null;
   }
-
-  sessionStorage.removeItem(TEST_BOOKING_STORAGE_KEY);
-
   try {
-    const parsed = JSON.parse(raw) as TestBookingPrefill;
-    return parsed?.active ? parsed : null;
+    const raw = sessionStorage.getItem(TEST_BOOKING_STORAGE_KEY);
+    clearTestBooking();
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" ||
+        !("active" in parsed) || parsed.active !== true ||
+        !("chargeAmount" in parsed) || parsed.chargeAmount !== 1) return null;
+    // Storage is an activation signal, never authority for an amount or route.
+    return buildTestBookingPrefill();
   } catch {
     return null;
   }

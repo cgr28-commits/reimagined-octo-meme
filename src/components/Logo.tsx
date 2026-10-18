@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import { withBasePath } from "@/lib/paths";
 
@@ -22,6 +25,7 @@ export default function Logo({
   size = "header",
   priority = false,
 }: LogoProps) {
+  const [failed, setFailed] = useState(false);
   const compact = size === "header";
   const src = compact
     ? theme === "light"
@@ -31,9 +35,16 @@ export default function Logo({
       ? withBasePath("/logo-light.png")
       : withBasePath("/logo.png");
 
+  if (failed) return (
+    <span role="img" aria-label="My Airport Taxi NI" className={`${className} inline-flex items-center text-sm font-extrabold leading-tight text-white`}>
+      MY AIRPORT<br />TAXI NI
+    </span>
+  );
+
   return (
     <Image
       src={src}
+      onError={() => setFailed(true)}
       alt="My Airport Taxi NI"
       width={compact ? HEADER_LOGO_WIDTH : ORIGINAL_LOGO_WIDTH}
       height={compact ? HEADER_LOGO_HEIGHT : ORIGINAL_LOGO_HEIGHT}

@@ -6100,7 +6100,17 @@ function QuoteCard({
     }
     const payable = formatQuote(openWebsiteFareBreakdown.finalAmountPayableGbp);
     return (
-      <details className="rounded-xl quote-panel px-3 py-2.5">
+      <details
+        className="relative rounded-xl quote-panel px-3 py-2.5"
+        data-quote-price-breakdown
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.currentTarget.open = false;
+            event.currentTarget.querySelector("summary")?.focus();
+          }
+        }}
+      >
         <summary className="cursor-pointer list-none text-sm font-medium text-white/80 [&::-webkit-details-marker]:hidden">
           <span className="flex items-center justify-between gap-3">
             <span>
@@ -6114,7 +6124,23 @@ function QuoteCard({
             </span>
           </span>
         </summary>
-        <div className="mt-2 border-t border-white/10 pt-2">
+        <div className="quote-breakdown-panel" data-quote-breakdown-panel>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="font-bold text-white">Your price breakdown</h3>
+            <button
+              type="button"
+              className="min-h-11 rounded-lg border border-white/30 px-3 text-sm font-semibold text-white"
+              onClick={(event) => {
+                const details = event.currentTarget.closest("details");
+                if (details) {
+                  details.open = false;
+                  details.querySelector("summary")?.focus();
+                }
+              }}
+            >
+              Close breakdown
+            </button>
+          </div>
           <PromotionalPriceBreakdown
             alwaysShow
             breakdown={openWebsiteFareBreakdown}
@@ -6208,7 +6234,7 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Passengers: {formatPassengerChoice(effectivePassengers as number)}
               <span className="mx-2 text-white/35">·</span>
-              Standard suitcases: {formatSuitcaseChoice(suitcases as number)}
+              Suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
             <PriceInclusionBlock
               isAirportTrip={isAirportLegForInclusions}
@@ -6311,7 +6337,7 @@ function QuoteCard({
               <span className="mx-2 text-white/35">·</span>
               Passengers: {formatPassengerChoice(effectivePassengers as number)}
               <span className="mx-2 text-white/35">·</span>
-              Standard suitcases: {formatSuitcaseChoice(suitcases as number)}
+              Suitcases: {formatSuitcaseChoice(suitcases as number)}
             </p>
             {testChargeAmount !== null && (
               <p className="quote-secondary mt-2 text-xs">
@@ -7318,7 +7344,7 @@ function QuoteCard({
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
-        priceLabel={effectiveAirportCode ? "YOUR FIXED AIRPORT TRANSFER PRICE" : "Fixed price"}
+        priceLabel={effectiveAirportCode ? "Your fixed airport transfer price" : "Your fixed transfer price"}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
         businessClassInclusions={renderBusinessClassInclusions()}
@@ -7460,14 +7486,6 @@ function QuoteCard({
               {saveQuotePrompt}
             </p>
           ) : null}
-        </div>
-        <div
-          className="px-1 text-center text-[11px] font-medium leading-snug text-white/80"
-          data-quote-result-trust
-        >
-          <p>Secure booking · Secure payment powered by SumUp</p>
-          <p>Flight monitoring for airport pickups · No hidden charges</p>
-          <p>Vehicle shown for illustration.</p>
         </div>
         {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown && !isVehiclePersonalQuote ? (
           <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:hidden" data-homepage-return-breakdown>
@@ -8488,7 +8506,7 @@ function QuoteCard({
               needsCompletion={quoteStep === 1 && passengers == null}
             />
             <TapChoiceRow
-              label="Standard suitcases"
+              label="Suitcases"
               options={publicSuitcaseOptions(publicMinibusEnabled)}
               value={
                 suitcases != null && suitcases <= suitcaseLimit && suitcases >= 0

@@ -19,11 +19,29 @@ export default function QuoteActionDialog({
   const generatedId = useId();
   const headingId = titleId ?? generatedId;
   const panelRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     cancelCompetingScrollJobs();
+    // iPhone browser chrome and keyboards can make the visual viewport smaller
+    // than the layout viewport. Keep the entire popup inside the visible area.
+    const viewport = window.visualViewport;
+    function fitVisibleViewport() {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const height = viewport?.height || window.innerHeight;
+      overlay.style.top = `${viewport?.offsetTop || 0}px`;
+      overlay.style.left = `${viewport?.offsetLeft || 0}px`;
+      overlay.style.width = `${viewport?.width || window.innerWidth}px`;
+      overlay.style.height = `${height}px`;
+      overlay.style.setProperty("--quote-dialog-height", `${height}px`);
+    }
+    fitVisibleViewport();
+    viewport?.addEventListener("resize", fitVisibleViewport);
+    viewport?.addEventListener("scroll", fitVisibleViewport);
+    window.addEventListener("resize", fitVisibleViewport);
     const body = document.body;
     const x = window.scrollX, y = window.scrollY;
     const previousFocus = document.activeElement;
@@ -58,6 +76,9 @@ export default function QuoteActionDialog({
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
+      viewport?.removeEventListener("resize", fitVisibleViewport);
+      viewport?.removeEventListener("scroll", fitVisibleViewport);
+      window.removeEventListener("resize", fitVisibleViewport);
       keys.forEach((key, index) => { body.style[key] = previous[index]; });
       window.scrollTo({ left: x, top: y, behavior: "instant" });
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
@@ -68,9 +89,9 @@ export default function QuoteActionDialog({
 
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-navy/80 p-4 sm:items-center"
+    <div ref={overlayRef} className="fixed left-0 top-0 z-[80] flex h-dvh w-full items-center justify-center bg-navy/80 p-4"
       role={role} aria-modal="true" aria-labelledby={headingId} data-quote-action-dialog>
-      <div ref={panelRef} className={`quote-flow flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-white/24 bg-navy-dark shadow-2xl ${wide ? "max-w-2xl" : "max-w-md"}`}>
+      <div ref={panelRef} className={`quote-flow flex max-h-[calc(var(--quote-dialog-height,100dvh)-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-white/24 bg-navy-dark shadow-2xl ${wide ? "max-w-2xl" : "max-w-md"}`}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/20 px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">My Airport Taxi NI</p>

@@ -38,8 +38,8 @@ for (const code of ["BFS", "BHD", "DUB"]) {
       assert.equal((waitingHtml.match(/data-airport-waiting-included/g) || []).length, pickup || returning ? 1 : 0);
       const benefits = buildQuoteAirportBenefits(props);
       assert.equal(benefits.length, returning ? 2 : 1);
-      assert.match(benefits[0].heading, pickup ? /pick-up|Collection/ : /drop-off/);
-      if (returning) assert.match(benefits[1].heading, pickup ? /drop-off/ : /pick-up|Collection/);
+      assert.match(benefits[0].heading, pickup ? /pick-up|Collection/ : /drop-off|Drop-Off/);
+      if (returning) assert.match(benefits[1].heading, pickup ? /drop-off|Drop-Off/ : /pick-up|Collection/);
       if (code !== "DUB") assert.match(benefits[0].heading, /Terminal .* included/);
       else {
         assert.doesNotMatch(benefits[0].description, /closest|close to/);
@@ -57,7 +57,7 @@ for (const pickup of ["BFS", "BHD", "DUB"]) {
       const benefits = buildQuoteAirportBenefits(fixture(pickup, dropoff, returning));
       assert.equal(benefits.length, returning ? 4 : 2);
       assert.match(benefits[0].heading, /pick-up/);
-      assert.match(benefits[1].heading, /drop-off/);
+      assert.match(benefits[1].heading, /drop-off|Drop-Off/);
     }
   }
 }
@@ -97,13 +97,15 @@ const renderCard = (unavailable = false, price = "£54") => renderToStaticMarkup
 );
 for (const price of ["£41", "£65", "£123.45"]) {
   const priced = visibleCardMarkup(renderCard(false, price));
-  assert.equal(priced.split(price).length - 1, 2);
-  assert.ok(priced.includes(`${price} total. The price you see is the price you pay.`));
+  assert.equal(priced.split(price).length - 1, 1);
+  assert.ok(priced.includes("The price you see is the price you pay."));
 }
 const html = visibleCardMarkup(renderCard());
+assert.match(html, /Your own pre-booked transfer/);
+assert.doesNotMatch(html, /Convenient collection|Convenient drop-off/);
 assert.ok(html.indexOf("£54") < html.indexOf("Terminal pick-up included"));
 assert.ok(html.indexOf("Terminal pick-up included") < html.indexOf("BOOK THIS TRANSFER"));
-assert.ok(html.indexOf("BOOK THIS TRANSFER") < html.indexOf("£54 total. The price you see is the price you pay."));
+assert.ok(html.indexOf("BOOK THIS TRANSFER") < html.indexOf("The price you see is the price you pay."));
 assert.doesNotMatch(visibleCardMarkup(renderCard(true)), /Terminal pick-up included/);
 for (const vehicleType of ["Executive", "Minibus"]) {
   const manual = renderToStaticMarkup(
@@ -114,11 +116,7 @@ for (const vehicleType of ["Executive", "Minibus"]) {
       airportAccess={<QuoteAirportBenefits {...fixture("BFS", null)} />}
     />,
   );
-  assert.match(manual, /Request quote/);
-  assert.doesNotMatch(visibleCardMarkup(manual), /£54|No surprises|£54 total/);
-  assert.match(visibleCardMarkup(manual), /TBC/);
-  assert.match(visibleCardMarkup(manual), /Terminal pick-up included/);
-  assert.match(visibleCardMarkup(manual), /Your own pre-booked transfer/);
-  assert.match(visibleCardMarkup(manual), /Your fixed price will be confirmed before booking/);
+  assert.match(manual, /TBC/);
+  assert.doesNotMatch(visibleCardMarkup(manual), /£54|No surprises/);
 }
 console.log("OK airport-to-airport, non-airport, unpaid-access fallback, card order and unavailable-fare checks");

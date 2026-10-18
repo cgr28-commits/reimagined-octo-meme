@@ -11,8 +11,6 @@ import {
   suitableVehicleTypesForParty,
 } from "@/lib/vehicle-selection";
 import {
-  ESTATE_CUSTOMER_DESCRIPTION,
-  ESTATE_CUSTOMER_NAME,
   EXECUTIVE_CUSTOMER_CAPACITY,
   EXECUTIVE_CUSTOMER_DESCRIPTION,
   EXECUTIVE_CUSTOMER_NAME,
@@ -25,10 +23,11 @@ import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-a
 import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-line-icons";
 
 /**
- * Card wording only. Saloon and Business Class still fit 2 standard suitcases
- * plus 2 small hand-luggage bags; that capacity is not changed here.
+ * Card wording only. Saloon and Business Class still fit 2 suitcases
+ * (23kg) plus 2 small hand-luggage bags; that capacity is not changed here.
  */
-const SALOON_LUGGAGE_CAPACITY = "2 standard suitcases + 2\u00a0small\u00a0bags";
+const SALOON_LUGGAGE_CAPACITY = <>2 suitcases + <span className="whitespace-nowrap">2 small bags</span></>;
+const ESTATE_LUGGAGE_CAPACITY = <>Up to 4 suitcases + <span className="whitespace-nowrap">2 small bags</span></>;
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
@@ -51,12 +50,12 @@ const CATEGORIES = [
   {
     id: "estate" as const,
     vehicle: ESTATE_VEHICLE,
-    title: ESTATE_CUSTOMER_NAME,
+    title: "Estate",
     capacity: "1–4 passengers",
-    luggage: null,
-    luggageIcon: null,
-    detail: ESTATE_CUSTOMER_DESCRIPTION,
-    detailIcon: "suitcase" as const,
+    luggage: ESTATE_LUGGAGE_CAPACITY,
+    luggageIcon: "suitcase" as const,
+    detail: null,
+    detailIcon: null,
     image: ESTATE_IMAGE,
     art: "estate" as VehicleArtId,
   },
@@ -65,7 +64,7 @@ const CATEGORIES = [
     vehicle: EXECUTIVE_VEHICLE,
     title: EXECUTIVE_CUSTOMER_NAME,
     capacity: EXECUTIVE_CUSTOMER_CAPACITY,
-    luggage: "2 standard suitcases",
+    luggage: "2 suitcases",
     luggageIcon: "suitcase" as const,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
     detailIcon: "crown" as const,
@@ -189,8 +188,7 @@ export default function QuoteVehicleCategories({
                       <span className="mt-0.5 flex items-start gap-1 text-[0.78rem] font-semibold leading-tight text-navy">
                         <VehicleLineIcon name={option.luggageIcon} />
                         <span>
-                          <span className="md:hidden">{option.id === "saloon" ? SALOON_LUGGAGE_CAPACITY : "2 suitcases"}</span>
-                          <span className="hidden md:inline">{option.luggage}</span>
+                          {option.luggage}
                         </span>
                       </span>
                     ) : null}
@@ -198,12 +196,7 @@ export default function QuoteVehicleCategories({
                       <span className="mt-0.5 flex items-start gap-1 text-[0.78rem] font-medium leading-tight text-navy">
                         <VehicleLineIcon name={option.detailIcon} />
                         <span>
-                          {option.id === "estate" ? (
-                            <>
-                              <span className="md:hidden">{option.detail}</span>
-                              <span className="hidden md:inline">{option.detail}</span>
-                            </>
-                          ) : option.detail}
+                          {option.detail}
                         </span>
                       </span>
                     ) : option.luggage ? null : (

@@ -1,33 +1,41 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import {
   activateTestBooking,
+  isTestBookingAllowed,
   buildTestBookingPrefill,
   formatTestTripDate,
 } from "@/lib/test-booking";
 
 export default function TestBookingPageClient() {
   const searchParams = useSearchParams();
+  const [allowed, setAllowed] = useState(false);
+  useEffect(() => { setAllowed(isTestBookingAllowed()); }, []);
   const prefill = buildTestBookingPrefill();
   const autoStart = searchParams.get("start") === "1";
 
   function startTestBooking() {
-    activateTestBooking();
-    window.location.href = "/#quote";
+    if (activateTestBooking()) window.location.href = "/#quote";
   }
 
   useEffect(() => {
-    if (!autoStart) {
+    if (!allowed || !autoStart) {
       return;
     }
 
-    activateTestBooking();
-    window.location.href = "/#quote";
-  }, [autoStart]);
+    if (activateTestBooking()) window.location.href = "/#quote";
+  }, [allowed, autoStart]);
+
+  if (!allowed) {
+    return <><Header /><main className="min-h-screen bg-navy px-4 pt-36 text-white">
+      <h1 className="text-2xl font-bold">Test booking unavailable</h1>
+      <p className="mt-4">Test bookings are available only in local development and test environments.</p>
+    </main><Footer /></>;
+  }
 
   if (autoStart) {
     return (

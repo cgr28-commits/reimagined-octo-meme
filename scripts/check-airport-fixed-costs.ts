@@ -73,7 +73,7 @@ check("Estate = Saloon + configured uplift on BHD", () => {
   const saloon = calculateQuote(CITY, "BHD", S, false, {}, M4, false)!;
   const estate = calculateQuote(CITY, "BHD", E, false, {}, M4, false)!;
   assert.equal(saloon.amount, 29);
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 7);
   assert.equal(estate.amount, 29 + UNIVERSAL_ESTATE_PREMIUM_GBP);
   assert.equal(estate.amount - saloon.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
   assert.equal(

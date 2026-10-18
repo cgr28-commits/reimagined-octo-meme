@@ -147,6 +147,13 @@ export default async function AirportTransferPage({ params }: Props) {
             </ul>
           </section>
 
+          {["belfast-international", "belfast-city", "dublin"].includes(page.slug) && (
+            <section className="mt-8 rounded-2xl border border-white/10 p-6">
+              <h2 className="text-lg font-bold text-white">Connecting with a train or coach?</h2>
+              <p className="mt-3 text-sm text-white/70">Arrange a pre-booked transfer between {page.shortName} and <Link href="/belfast-grand-central-station-taxi/" className="text-emerald underline underline-offset-4">Belfast Grand Central Station</Link>, in either direction. Read the station collection guidance and get a quote before booking.</p>
+            </section>
+          )}
+
           {relatedHubs.length > 0 ? (
             <section className="mt-8">
               <h2 className="text-lg font-bold text-white">Towns we serve for {page.shortName}</h2>

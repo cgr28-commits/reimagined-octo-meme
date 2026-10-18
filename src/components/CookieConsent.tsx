@@ -67,7 +67,7 @@ export default function CookieConsent() {
           <p className="cookie-consent-heading font-semibold text-white">Cookies &amp; privacy</p>
           <p className="cookie-consent-copy text-white/70">
             <span className="sm:hidden">
-              We use optional cookies to measure advertising performance. See our{" "}
+              Essential storage supports booking. Optional advertising cookies are used only with consent. Address search uses Google Places. See our{" "}
             </span>
             <span className="hidden sm:inline">
               We use essential storage for booking checkout. Optional Google Ads cookies may measure
