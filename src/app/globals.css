@@ -478,6 +478,16 @@ main {
   line-height: 1.45;
 }
 
+/* Balance the homepage eyebrow with matching decorative lines. */
+.homepage-hero .section-eyebrow::after {
+  content: "";
+  width: 1.25rem;
+  height: 1px;
+  background: var(--color-emerald);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
 @media (max-width: 767px) {
   /* Phones use the navy section background. The photograph is desktop-only. */
   .homepage-hero-media {
@@ -1069,7 +1079,8 @@ main {
     white-space: normal;
   }
 
-  .homepage-hero .section-eyebrow::before {
+  .homepage-hero .section-eyebrow::before,
+  .homepage-hero .section-eyebrow::after {
     width: 0.75rem;
     flex-shrink: 0;
   }
