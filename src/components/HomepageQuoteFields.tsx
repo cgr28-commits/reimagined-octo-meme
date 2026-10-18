@@ -531,7 +531,7 @@ export default function HomepageQuoteFields({
         </div>
         <div className="flex min-w-0 flex-col">
           <label htmlFor="quote-section-suitcases" className="form-label mb-1 whitespace-nowrap leading-tight">
-            Suitcases (23kg)
+            Suitcases
           </label>
           <select
             id="quote-section-suitcases"

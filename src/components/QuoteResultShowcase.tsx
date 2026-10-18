@@ -116,10 +116,10 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
   const detailLine = isMinibus ? "Up to 7 passengers · 5+ suitcases" : isEstate || isExecutive ? supporting : "\u00a0";
   const passengerLabel = passengers === 1 ? "1 passenger" : `${passengers} passengers`;
   const suitcaseLabel = isFivePlusLuggage(suitcases)
-    ? "5+ standard suitcases (23kg)"
+    ? "5+ standard suitcases"
     : suitcases === 1
-      ? "1 standard suitcase (23kg)"
-      : `${formatPublicSuitcaseChoice(suitcases)} standard suitcases (23kg)`;
+      ? "1 standard suitcase"
+      : `${formatPublicSuitcaseChoice(suitcases)} standard suitcases`;
 
   const layoutAirportAccess = isValidElement<{ layoutOnly?: boolean }>(airportAccess)
     ? cloneElement(airportAccess, { layoutOnly: true }) : airportAccess;
