@@ -14,7 +14,7 @@ export const SALOON_CUSTOMER_NAME = "Saloon";
 export const SALOON_CUSTOMER_DESCRIPTION = "1–4 passengers";
 
 export const ESTATE_CUSTOMER_NAME = "Estate";
-export const ESTATE_CUSTOMER_DESCRIPTION = "Up to 4 large suitcases + 2 small bags";
+export const ESTATE_CUSTOMER_DESCRIPTION = "Up to 4 large suitcases + 2\u00a0small\u00a0bags";
 
 /** Customer label only. Stored bookings stay "Executive Saloon (1–4 passengers)". */
 export const EXECUTIVE_CUSTOMER_NAME = "Business Class";
