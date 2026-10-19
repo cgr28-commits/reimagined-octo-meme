@@ -114,28 +114,28 @@
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
-      "BFS": 8,
+      "BFS": 9,
       "BHD": 0,
       "DUB": 50,
-      "LDY": 98
+      "LDY": 104
     },
     "Holywood": {
-      "BFS": 13,
+      "BFS": 14,
       "BHD": 0,
       "DUB": 58,
       "LDY": 103
     },
     "Newtownabbey": {
       "BFS": 0,
-      "BHD": 1,
+      "BHD": 5,
       "DUB": 60,
-      "LDY": 88
+      "LDY": 94
     },
     "Lisburn": {
       "BFS": 3,
-      "BHD": 0,
+      "BHD": 7,
       "DUB": 60,
-      "LDY": 104
+      "LDY": 103
     },
     "Dundonald": {
       "BFS": 28,
@@ -145,9 +145,9 @@
     },
     "Antrim": {
       "BFS": 0,
-      "BHD": 29,
+      "BHD": 34,
       "DUB": 50,
-      "LDY": 68
+      "LDY": 73
     },
     "Ballyclare": {
       "BFS": 0,
@@ -157,27 +157,27 @@
     },
     "Hillsborough": {
       "BFS": 8,
-      "BHD": 19,
+      "BHD": 25,
       "DUB": 65,
       "LDY": 118
     },
     "Carrickfergus": {
       "BFS": 18,
-      "BHD": 9,
+      "BHD": 14,
       "DUB": 62,
-      "LDY": 103
+      "LDY": 108
     },
     "Comber": {
       "BFS": 28,
       "BHD": 4,
       "DUB": 62,
-      "LDY": 119
+      "LDY": 118
     },
     "Larne": {
-      "BFS": 18,
-      "BHD": 44,
+      "BFS": 24,
+      "BHD": 49,
       "DUB": 72,
-      "LDY": 98
+      "LDY": 103
     },
     "Bangor": {
       "BFS": 33,
@@ -186,19 +186,19 @@
       "LDY": 123
     },
     "Newtownards": {
-      "BFS": 28,
-      "BHD": 5,
+      "BFS": 34,
+      "BHD": 4,
       "DUB": 62,
-      "LDY": 118
+      "LDY": 124
     },
     "Ballymena": {
-      "BFS": 0,
+      "BFS": 3,
       "BHD": 54,
       "DUB": 78,
       "LDY": 64
     },
     "Downpatrick": {
-      "BFS": 43,
+      "BFS": 49,
       "BHD": 49,
       "DUB": 75,
       "LDY": 85
@@ -210,7 +210,7 @@
       "LDY": 78
     },
     "Newcastle": {
-      "BFS": 63,
+      "BFS": 69,
       "BHD": 64,
       "DUB": 80,
       "LDY": 90
@@ -222,7 +222,7 @@
       "LDY": 72
     },
     "Portadown": {
-      "BFS": 28,
+      "BFS": 34,
       "BHD": 59,
       "DUB": 85,
       "LDY": 70
@@ -240,7 +240,7 @@
       "LDY": 88
     },
     "Cookstown": {
-      "BFS": 33,
+      "BFS": 38,
       "BHD": 84,
       "DUB": 95,
       "LDY": 28
@@ -259,7 +259,7 @@
     },
     "Derry / Londonderry": {
       "BFS": 88,
-      "BHD": 135,
+      "BHD": 134,
       "DUB": 105,
       "LDY": 0
     },
