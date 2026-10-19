@@ -115,6 +115,47 @@ export default async function AirportTransferPage({ params }: Props) {
             </div>
           </header>
 
+          {page.code === "BFS" ? (
+            <section className="mt-8 space-y-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <div>
+                <h2 className="text-lg font-bold text-white">Taxi to Belfast International Airport</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  Check that your flight leaves from Belfast International at Aldergrove (BFS), rather than
+                  Belfast City Airport (BHD). Use your home, hotel or business address as the pickup and BFS
+                  as the destination. Allow around 30 minutes from Belfast city centre in normal traffic,
+                  plus extra road time at busy periods and the check-in time recommended by your airline.
+                  Your booking needs the time you want to be collected, not your flight departure time.
+                </p>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Pre-booked pickups at Aldergrove</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  For an arrival, put Belfast International Airport in Pickup location and enter your destination
+                  address. Add your flight number when completing the booking so we can monitor your flight.
+                  Follow the collection instructions confirmed by your driver after you have collected your luggage.
+                  Business Class airport pickups include Meet &amp; Greet with a name board; check the details
+                  for the vehicle and collection service you book.
+                </p>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Fixed-price quotes and airport access charges</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  Enter both addresses, passengers and suitcases, then choose “Get My Fixed Price”. Review the
+                  available vehicles and quote before adding your date, pickup time and contact details to book.
+                  Vehicle supplements form part of the journey fare. Applicable airport terminal access charges
+                  are separate from that fare in the price breakdown and included in the total you see.
+                  The 5% return-booking discount applies to the journey fare, not the airport access charges.
+                </p>
+              </div>
+              <p className="text-sm leading-relaxed text-white/70">
+                Choose the route for your pickup area: <Link href="/transfers/belfast-to-belfast-international/" className="text-emerald underline underline-offset-4">Belfast</Link>,{" "}
+                <Link href="/transfers/newtownabbey-to-belfast-international/" className="text-emerald underline underline-offset-4">Newtownabbey</Link>,{" "}
+                <Link href="/transfers/antrim-to-belfast-international/" className="text-emerald underline underline-offset-4">Antrim</Link> or{" "}
+                <Link href="/transfers/lisburn-to-belfast-international/" className="text-emerald underline underline-offset-4">Lisburn to Belfast International Airport</Link>.
+              </p>
+            </section>
+          ) : null}
+
           {page.code === "BHD" ? (
             <section className="mt-8 space-y-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
               <div>

@@ -33,6 +33,11 @@ export default function PopularBelfastTransfers() {
           ))}
         </ul>
         <p className="mt-6 text-sm leading-relaxed text-white/70">
+          For departures from Aldergrove (BFS), see our{" "}
+          <Link href="/airports/belfast-international/" className="text-emerald underline underline-offset-4">Belfast International Airport taxi guide</Link>{" "}
+          for pickup planning, arrival collections and the airport charges included in your quote.
+        </p>
+        <p className="mt-6 text-sm leading-relaxed text-white/70">
           Flying from George Best Belfast City Airport (BHD)? Read our{" "}
           <Link href="/airports/belfast-city/" className="text-emerald underline underline-offset-4">Belfast City Airport taxi and pickup guide</Link>{" "}
           before getting a fixed-price quote for your city-centre or hotel journey.

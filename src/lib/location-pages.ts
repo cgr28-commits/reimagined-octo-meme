@@ -76,10 +76,11 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "Belfast International Airport",
     shortName: "Belfast International",
     title: "Belfast International Airport Taxi & Transfers",
+    seoTitle: "Belfast International Airport Taxi | Fixed-Price Quotes",
     metaDescription:
-      "Book a Belfast International Airport taxi to or from Belfast and nearby towns. Get a fixed-price online quote with airport access charges included.",
+      "Pre-book a Belfast International Airport taxi to or from Aldergrove (BFS). Get a fixed-price online quote with applicable airport access charges included.",
     intro:
-      `Book a Belfast International Airport taxi for a departure or an arrival at Aldergrove (BFS). We collect from homes and hotels in Belfast, Newtownabbey, Lisburn and the surrounding towns, and provide airport pickups for the journey home. Enter your addresses, travel date, passengers and suitcases for a fixed-price online quote with applicable airport access charges included. Choose a car or 7 Seater Minibus when available. ${FLIGHT_MONITORING_SHORT}`,
+      `Book a taxi to or from Belfast International Airport (BFS), also known as Aldergrove. We collect from homes and hotels in Belfast, Newtownabbey, Antrim, Lisburn and the surrounding towns, and provide airport pickups for the journey home. Enter your addresses, passengers and suitcases for a fixed-price online quote, then add your travel date and time when booking. Applicable airport access charges are included in the quoted total. Choose a car or 7 Seater Minibus when available. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
       "Fixed online prices for cars and 7 Seater Minibus when available",
       "Up to 60 minutes complimentary waiting time on airport pickups",
@@ -89,7 +90,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     ],
     localTips: [
       "For departures, allow extra time for the M2/M22 corridor in peak morning traffic — we’ll quote a pickup time that suits your flight.",
-      "For Express collection, the Express Pick-Up & Drop-Off Zone is opposite the terminal. Follow the instructions for your booked collection option: Free Long Stay and Meet & Greet use different meeting points.",
+      "For an airport collection, follow the meeting point confirmed for your booking. Read your driver’s instructions before leaving the terminal; do not assume a different car park or the airport taxi rank is your collection point.",
       "Spacious private transfers are ideal for family holidays with multiple standard suitcases (23kg) from BFS.",
       "For an airport collection, use “Swap pickup and drop-off” to put the airport in Pickup location, then enter your destination in Drop-off location and choose the matching address suggestion. Select your passengers and suitcases, then choose “Get My Fixed Price”. Add your flight number when completing the booking.",
     ],

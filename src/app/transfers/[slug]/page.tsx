@@ -186,6 +186,13 @@ export default async function TransferRoutePage({ params }: Props) {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
+            {page.airport.code === "BFS" ? (
+              <p className="mt-4 text-sm leading-relaxed text-white/70">
+                Planning your {page.town.name} journey? Our{" "}
+                <Link href="/airports/belfast-international/" className="text-emerald underline underline-offset-4">Belfast International Airport transfer guide</Link>{" "}
+                explains departures, Aldergrove pickups and how airport access charges appear in your quote.
+              </p>
+            ) : null}
             {page.airport.code === "BHD" ? (
               <p className="mt-4 text-sm leading-relaxed text-white/70">
                 This page covers your {page.town.name} route. For George Best Belfast City Airport (BHD)
