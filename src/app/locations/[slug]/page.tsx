@@ -107,6 +107,14 @@ export default async function TownHubPage({ params }: Props) {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
+            {["holywood", "bangor"].includes(page.town.slug) ? (
+              <p className="mt-4 text-sm leading-relaxed text-white/70">
+                {page.town.slug === "holywood"
+                  ? "For a flight from nearby George Best Belfast City Airport (BHD), check the collection guidance and fare inclusions in our "
+                  : "Planning a Bangor journey to George Best Belfast City Airport (BHD)? Read the arrival pickup and booking guidance in our "}
+                <Link href="/airports/belfast-city/" className="text-emerald underline underline-offset-4">Belfast City Airport taxi guide</Link>.
+              </p>
+            ) : null}
             <LandingCtaRow
               quoteLabel="Get Your Fixed Quote"
               whatsappMessage={`Hi, I'd like an airport taxi from ${page.town.name}.`}

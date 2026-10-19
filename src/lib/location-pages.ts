@@ -12,6 +12,7 @@ export type AirportPage = {
   name: string;
   shortName: string;
   title: string;
+  seoTitle?: string;
   metaDescription: string;
   intro: string;
   highlights: string[];
@@ -125,8 +126,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "George Best Belfast City Airport",
     shortName: "Belfast City Airport",
     title: "Belfast City Airport Taxi & Transfers",
+    seoTitle: "Belfast City Airport Taxi | Fixed-Price Bookings",
     metaDescription:
-      "Book a Belfast City Airport taxi to or from Belfast, Holywood and nearby towns. Get a fixed-price online quote with airport access charges included.",
+      "Pre-book a fixed-price Belfast City Airport taxi to or from Belfast, Holywood or Bangor. Get an online quote with applicable airport access charges included.",
     intro:
       `Book a taxi to or from George Best Belfast City Airport (BHD), close to Belfast city centre and the Titanic Quarter. We collect from homes and hotels in Belfast, Holywood, Bangor, Lisburn and the surrounding towns, with airport pickups for returning travellers. Enter your journey details for a fixed-price online quote with applicable airport access charges included. The Sydenham Bypass is the usual airport approach, so allow extra time during peak traffic. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [

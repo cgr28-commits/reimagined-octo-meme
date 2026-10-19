@@ -31,11 +31,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: `Airport Transfer | ${SITE.name}` };
   }
   return {
-    title: `${page.title} | ${SITE.name}`,
+    title: page.seoTitle ?? `${page.title} | ${SITE.name}`,
     description: page.metaDescription,
     alternates: { canonical: `/airports/${page.slug}/` },
     openGraph: {
-      title: `${page.title} | ${SITE.name}`,
+      title: page.seoTitle ?? `${page.title} | ${SITE.name}`,
       description: page.metaDescription,
       url: `/airports/${page.slug}/`,
       images: [
@@ -114,6 +114,40 @@ export default async function AirportTransferPage({ params }: Props) {
               <LandingPageQuoteCta />
             </div>
           </header>
+
+          {page.code === "BHD" ? (
+            <section className="mt-8 space-y-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <div>
+                <h2 className="text-lg font-bold text-white">Belfast City Airport pickups</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  George Best Belfast City Airport (BHD) is separate from Belfast International Airport (BFS).
+                  Check your flight confirmation before choosing your airport. For a City Airport taxi after landing,
+                  enter BHD as your pickup and your home or hotel as the destination. Add your flight number when
+                  completing the booking and follow the collection instructions for your booked pickup option.
+                  The Express Pick-Up &amp; Drop-Off area and other car parks have different meeting points.
+                </p>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Belfast city-centre transfers</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  Travelling between the airport and a Belfast hotel or city-centre address? Allow around 15 minutes
+                  in normal traffic and extra time at busy periods. Enter the full address for your journey quote.
+                  See the <Link href="/transfers/belfast-to-belfast-city/" className="text-emerald underline underline-offset-4">Belfast to Belfast City Airport transfer</Link> page
+                  for the city route, or choose a <Link href="/transfers/holywood-to-belfast-city-airport/" className="text-emerald underline underline-offset-4">Holywood airport transfer</Link> or a{" "}
+                  <Link href="/transfers/bangor-to-belfast-city-airport/" className="text-emerald underline underline-offset-4">Bangor airport transfer</Link>.
+                </p>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Book your fixed-price airport taxi</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  Enter your pickup and drop-off addresses, travel details, passengers and suitcases, then choose
+                  “Get My Fixed Price”. For an arrival, use “Swap pickup and drop-off” to put the airport first.
+                  Review the available vehicle and fare before proceeding to booking. Applicable airport access
+                  charges are included in the quote; check your selected collection option before confirming.
+                </p>
+              </div>
+            </section>
+          ) : null}
 
           <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <h2 className="text-lg font-bold text-white">What&apos;s included</h2>

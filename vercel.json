@@ -2,7 +2,8 @@
   "framework": "nextjs",
   "git": {
     "deploymentEnabled": {
-      "codex/mobile-price-bar-guidance": false
+      "codex/mobile-price-bar-guidance": false,
+      "codex/belfast-city-airport-seo": false
     }
   }
 }
