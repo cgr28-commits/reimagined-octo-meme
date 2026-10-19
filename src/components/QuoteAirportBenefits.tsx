@@ -67,20 +67,20 @@ export default function QuoteAirportBenefits(props: Props) {
     <div className="space-y-1.5 rounded-xl border border-emerald/20 bg-emerald/[0.05] px-2.5 py-1.5 text-left text-navy" data-quote-airport-benefits={props.layoutOnly ? undefined : true}>
       {benefits.map((benefit) => (
         <div key={benefit.key} className="space-y-1.5">
-          <div className="flex items-start gap-1.5">
+          <div className="flex items-start gap-1.5" data-airport-benefit-row>
             <span className="w-3 shrink-0 text-[13px] font-bold leading-snug text-[#147a2a]" aria-hidden>✓</span>
-            <div className="min-w-0">
-              {benefits.length > 1 ? <p className="text-[11px] font-medium leading-snug">{benefit.label}</p> : null}
-              <p className="text-[13px] font-bold leading-snug">{benefit.heading}</p>
-              <p className="mt-0.5 text-xs font-semibold leading-snug text-[#061a30]">{benefit.description}</p>
+            <div className="min-w-0" data-airport-benefit-copy>
+              {benefits.length > 1 ? <p className="text-[11px] font-medium leading-snug" data-airport-benefit-label>{benefit.label}</p> : null}
+              <p className="text-[13px] font-bold leading-snug" data-airport-benefit-heading>{benefit.heading}</p>
+              <p className="mt-0.5 text-xs font-semibold leading-snug text-[#061a30]" data-airport-benefit-description>{benefit.description}</p>
             </div>
           </div>
           {benefit.pickup ? (
-            <div className="flex items-start gap-1.5" data-airport-waiting-included={props.layoutOnly ? undefined : true}>
+            <div className="flex items-start gap-1.5" data-airport-benefit-row data-airport-waiting-included={props.layoutOnly ? undefined : true}>
               <span className="w-3 shrink-0 text-[13px] font-bold leading-snug text-[#147a2a]" aria-hidden>✓</span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold leading-snug">60 Minutes Airport Waiting Included</p>
-                <p className="mt-0.5 text-xs font-medium leading-snug text-[#061a30]">
+              <div className="min-w-0" data-airport-benefit-copy>
+                <p className="text-[13px] font-bold leading-snug" data-airport-benefit-heading>60 Minutes Airport Waiting Included</p>
+                <p className="mt-0.5 text-xs font-medium leading-snug text-[#061a30]" data-airport-benefit-description>
                   Complimentary waiting time for airport pickups.
                 </p>
               </div>

@@ -54,7 +54,12 @@ console.log("\n=== Quote containers and step indicator ===");
   assert.match(card, /quote-secondary/);
   assert.match(card, /quote-price-figure/);
   assert.match(card, /quote-price-panel/);
-  assert.doesNotMatch(card, /text-white\/(45|50|55)/);
+  const faintPaymentLines = card.split("\n").filter(line => /text-white\/(45|50|55)/.test(line));
+  assert.equal(faintPaymentLines.length, 4, "only the four existing mobile payment labels retain legacy opacity");
+  for (const line of faintPaymentLines) assert.match(line, /desktop-payment-support/);
+  assert.match(read("src/app/globals.css"), /@media \(min-width: 1024px\) \{\s*\.quote-flow \.desktop-payment-support \{ color: var\(--quote-secondary-ink\); \}/);
+  const luminance = (rgb: number[]) => rgb.map(v => { const s = v / 255; return s <= .04045 ? s / 12.92 : ((s + .055) / 1.055) ** 2.4; }).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
+  assert.ok((luminance([200, 211, 223]) + .05) / (luminance([34, 58, 87]) + .05) >= 4.5, "desktop supporting copy meets WCAG AA on navy");
   console.log("OK  all three steps share quote-flow / glass-card");
 }
 

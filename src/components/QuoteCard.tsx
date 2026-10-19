@@ -21,6 +21,7 @@ import {
 import TripMap from "@/components/TripMap";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import QuoteActionDialog from "@/components/QuoteActionDialog";
+import DesktopQuoteEnquiry from "@/components/DesktopQuoteEnquiry";
 import {
   QUOTE_RESULT_ACTION_CLASS,
   QuoteResultActionIcon,
@@ -7000,8 +7001,8 @@ function QuoteCard({
                         <p className="mt-2 text-sm font-semibold text-emerald">
                           {todayPayLabel(depositCashOffer.totalFare)}
                         </p>
-                        <p className="mt-0.5 text-xs text-white/55">{nothingToPayOnTheDayLabel()}</p>
-                        <p className="mt-2 text-[11px] leading-snug text-white/45">
+                        <p className="desktop-payment-support mt-0.5 text-xs text-white/55">{nothingToPayOnTheDayLabel()}</p>
+                        <p className="desktop-payment-support mt-2 text-[11px] leading-snug text-white/45">
                           {FULL_ONLINE_SUPPORTING}
                         </p>
                       </button>
@@ -7013,7 +7014,7 @@ function QuoteCard({
                           <p>{cashSelectedRemainingSentence(depositCashOffer.cashDueGbp)}</p>
                           <p>{CASH_SELECTED_CARD_UNAVAILABLE}</p>
                         </div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                        <p className="desktop-payment-support text-xs font-semibold uppercase tracking-wider text-white/50">
                           {DEPOSIT_CASH_SUMMARY_HEADING}
                         </p>
                         <ul className="space-y-1 text-sm text-white/85">
@@ -7039,7 +7040,7 @@ function QuoteCard({
                         </label>
                       </div>
                     ) : null}
-                    <p className="text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
+                    <p className="desktop-payment-support text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
                   </div>
                 ) : null}
                 {isAvailabilityRequest && !openCheckout ? (
@@ -7483,10 +7484,19 @@ function QuoteCard({
             ) : null}
             <button type="button" onClick={() => setQuoteActionOpen("whatsapp")}
               aria-haspopup="dialog" aria-label="Need help? WhatsApp us"
-              className={QUOTE_RESULT_ACTION_CLASS}>
+              className={`${QUOTE_RESULT_ACTION_CLASS} desktop-result-whatsapp`}>
               <QuoteResultActionIcon name="whatsapp" className="h-[1.15rem] w-[1.15rem] text-[#25D366]" />
               <span>WhatsApp</span>
             </button>
+            <DesktopQuoteEnquiry className={QUOTE_RESULT_ACTION_CLASS} journey={[
+              `Journey: ${pickupAddress.trim()} → ${dropoffAddress.trim()}`,
+              `Vehicle: ${vehicleShortLabel(quoteVehicle)}`,
+              `Party: ${effectivePassengers ?? "Not selected"} passengers · ${suitcases ?? "Not selected"} suitcases`,
+              `Journey type: ${returnJourney ? "Return (5% journey-fare discount where applicable)" : "One way"}`,
+              `Quoted fare: ${isVehiclePersonalQuote ? "On request" : authoritativeFareReady && pricedFare ? formatQuote(pricedFare.totalGbp) : "Awaiting confirmed quote"}`,
+              tripDate || tripTime ? `Pickup date/time: ${tripDate || "Not set"} ${tripTime || "Not set"}` : "Pickup date/time: added at booking stage; not yet booked.",
+              ...(returnJourney ? [`Return date/time: ${returnDate || "Not set"} ${returnTime || "Not set"}`] : []),
+            ].join("\n")} />
           </div>
           {renderBookingErrorHelp("step1-actions")}
           {saveQuotePrompt ? (
