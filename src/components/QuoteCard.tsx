@@ -21,6 +21,7 @@ import {
 import TripMap from "@/components/TripMap";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import QuoteActionDialog from "@/components/QuoteActionDialog";
+import DesktopQuoteEnquiry from "@/components/DesktopQuoteEnquiry";
 import {
   QUOTE_RESULT_ACTION_CLASS,
   QuoteResultActionIcon,
@@ -7483,10 +7484,19 @@ function QuoteCard({
             ) : null}
             <button type="button" onClick={() => setQuoteActionOpen("whatsapp")}
               aria-haspopup="dialog" aria-label="Need help? WhatsApp us"
-              className={QUOTE_RESULT_ACTION_CLASS}>
+              className={`${QUOTE_RESULT_ACTION_CLASS} desktop-result-whatsapp`}>
               <QuoteResultActionIcon name="whatsapp" className="h-[1.15rem] w-[1.15rem] text-[#25D366]" />
               <span>WhatsApp</span>
             </button>
+            <DesktopQuoteEnquiry className={QUOTE_RESULT_ACTION_CLASS} journey={[
+              `Journey: ${pickupAddress.trim()} → ${dropoffAddress.trim()}`,
+              `Vehicle: ${vehicleShortLabel(quoteVehicle)}`,
+              `Party: ${effectivePassengers ?? "Not selected"} passengers · ${suitcases ?? "Not selected"} suitcases`,
+              `Journey type: ${returnJourney ? "Return (5% journey-fare discount where applicable)" : "One way"}`,
+              `Quoted fare: ${isVehiclePersonalQuote ? "On request" : authoritativeFareReady && pricedFare ? formatQuote(pricedFare.totalGbp) : "Awaiting confirmed quote"}`,
+              tripDate || tripTime ? `Pickup date/time: ${tripDate || "Not set"} ${tripTime || "Not set"}` : "Pickup date/time: added at booking stage; not yet booked.",
+              ...(returnJourney ? [`Return date/time: ${returnDate || "Not set"} ${returnTime || "Not set"}`] : []),
+            ].join("\n")} />
           </div>
           {renderBookingErrorHelp("step1-actions")}
           {saveQuotePrompt ? (

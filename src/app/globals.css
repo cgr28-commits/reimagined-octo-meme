@@ -1436,36 +1436,88 @@ main {
   [data-quote-help-inline] { display: none; }
 
   .quote-flow [data-quote-vehicle-categories] [role="list"] {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
     gap: 0.75rem;
   }
 
   .quote-flow [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed] {
     position: relative;
-    height: 100%;
+    min-height: 9rem;
     border-width: 1px;
     padding: 1rem 0.75rem;
   }
 
   .quote-flow [data-vehicle-option-layout] {
-    display: flex;
+    display: grid;
+    grid-template-columns: clamp(10rem, 15vw, 14rem) minmax(0, 1fr) 1.5rem;
     height: 100%;
-    flex-direction: column;
     align-items: center;
     gap: 0.75rem;
   }
 
-  .quote-flow [data-vehicle-option-copy] { width: 100%; text-align: center; }
-  .quote-flow [data-vehicle-option-copy] > .flex { justify-content: center; }
+  .quote-flow [data-vehicle-option-copy] { width: 100%; text-align: left; }
+  .quote-flow [data-vehicle-option-copy] > .flex { justify-content: flex-start; }
+  .quote-flow [data-vehicle-option-copy] [data-vehicle-name] { font-size: 1.2rem; }
 
   .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] {
-    width: 100%; max-width: 10rem; height: 5rem;
+    width: 100%; max-width: 14rem; height: 7rem;
   }
 
   .quote-flow [data-vehicle-category] [data-vehicle-selection-indicator] {
-    position: absolute; top: 0.625rem; right: 0.625rem;
+    position: static;
+  }
+}
+
+/* New enquiry control has no mobile/tablet layout footprint. */
+.desktop-enquiry-trigger { display: none; }
+
+@media (min-width: 1024px) {
+  .desktop-enquiry-trigger { display: flex; }
+  .desktop-result-whatsapp { display: none; }
+  .homepage-hero .section-eyebrow {
+    max-width: 62rem;
+    font-size: clamp(1.15rem, 1.5vw, 1.8rem);
+    line-height: 1.4;
+    letter-spacing: 0.1em;
+    white-space: normal;
+    text-wrap: balance;
+    margin-bottom: 1rem;
+  }
+  .address-suggestions-overlay {
+    background: #0B2748;
+    color: #FFFFFF;
+    border: 1px solid #244B70;
+    box-shadow: 0 16px 36px rgba(2, 10, 24, 0.35);
+  }
+  .address-suggestions-overlay button { color: #FFFFFF; }
+  .address-suggestions-overlay button:hover,
+  .address-suggestions-overlay button:focus-visible { background: rgba(47, 191, 74, 0.15); }
+  .address-suggestions-overlay button:focus-visible { outline: 2px solid #2FBF4A; outline-offset: -2px; }
+  .quote-flow [data-quote-result-card] { padding: 1.5rem; }
+  .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
+    height: clamp(12rem, 22vw, 20rem);
+    max-width: 38rem;
+    width: 100%;
+  }
+  .quote-flow [data-quote-result-art] { margin: 1rem auto; }
+  .quote-flow [data-quote-result-heading] { font-size: 1.75rem; }
+  .quote-flow [data-quote-result-main-action] .btn-primary { min-height: 3.5rem; }
+  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="saloon"]) { --desktop-quote-backdrop: url("/images/vehicles/quote-saloon-transparent.webp"); }
+  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="estate"]) { --desktop-quote-backdrop: url("/images/vehicles/quote-estate-transparent.webp"); }
+  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="executive"]) { --desktop-quote-backdrop: url("/images/vehicles/quote-business-class-transparent.webp"); }
+  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="minibus"]) { --desktop-quote-backdrop: url("/images/vehicles/quote-minibus-transparent.webp"); }
+  .homepage-hero:has([data-quote-result-card]) .homepage-hero-media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--desktop-quote-backdrop);
+    background-repeat: no-repeat;
+    background-position: center 16rem;
+    background-size: min(96vw, 1600px) auto;
+    opacity: 0.24;
+    pointer-events: none;
   }
 }
 
