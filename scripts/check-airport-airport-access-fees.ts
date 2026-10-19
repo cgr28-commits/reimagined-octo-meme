@@ -66,12 +66,11 @@ function universalJourney(metrics: { distanceKm: number }): number {
   );
 }
 
-console.log("=== Config: BFS/BHD access fees £0 + Antrim table untouched (historical) ===");
+console.log("=== Config: legacy BFS/BHD access fees £0; universal distance enabled ===");
 assert.equal(getAirportAccessFeeGbp("BFS"), 0);
 assert.equal(getAirportAccessFeeGbp("BHD"), 0);
-assert.equal(PRICING_CONFIG.areaAirportSurchargesGbp.Antrim.BHD, 35);
-assert.equal(PRICING_CONFIG.airportBasePricesGbp.BHD, 34);
-assert.equal(PRICING_CONFIG.airportBasePricesGbp.BFS, 45);
+// Historical zone/base amounts are not a contract for current distance quotes.
+// The Antrim rows below check that the active fare follows measured road miles.
 assert.equal(PRICING_CONFIG.operational.airportChargesGbp.BFS, null);
 assert.equal(PRICING_CONFIG.operational.airportChargesGbp.BHD, null);
 assert.equal(PRICING_CONFIG.universalDistancePricing?.enabled, true);
@@ -186,7 +185,7 @@ console.log("\n=== Matrix ===\n");
     id: 6,
     label: "BFS → Belfast City Hall",
     miles: milesOf(M14),
-    underlying: 47,
+    underlying: universalJourney(M14),
     areaRule: "universal distance (same as #5)",
     accessFees: "fixed pickup £0",
     other: "fromAirport=true",
@@ -268,19 +267,20 @@ console.log("\n=== Matrix ===\n");
   const intended = calculateQuote(BHD_ADDR, "DUB", S, false, {}, DUB_METRICS, false)!;
   const journey = universalJourney(DUB_METRICS);
   assert.equal(buggyA2a.amount, journey);
-  assert.equal(q.amount, intended.amount + 4);
-  assert.equal(q.amount, 231);
+  assert.equal(q.amount, intended.amount, "Dublin A2A uses the existing Dublin airport path, without an extra NI fee");
+  assert.equal(q.airportFixedCostsGbp, intended.airportFixedCostsGbp);
+  assert.equal(q.amount, 227);
   assert.equal(intended.amount, 227);
-  assert.equal(q.amount, buggyA2a.amount + 4 + DUB_DROP_FIXED);
+  assert.equal(q.amount, buggyA2a.amount + DUB_DROP_FIXED);
   rows.push({
     id: 10,
     label: "BHD → DUB (airport↔airport)",
     miles: Math.round(drivingMilesFromKm(DUB_METRICS.distanceKm) * 10) / 10,
     underlying: journey,
     areaRule: "DUB path (universal journey) — A2A underlying equals journey",
-    accessFees: "BHD pickup £4 + DUB M1 £4",
-    other: `underlying £${buggyA2a.amount}; airport = underlying + £8`,
-    rounding: "£231",
+    accessFees: "DUB M1 £4; no additional NI-airport fee on the Dublin path",
+    other: `underlying £${buggyA2a.amount}; airport = underlying + £${DUB_DROP_FIXED}`,
+    rounding: `£${q.amount}`,
     final: q.amount,
   });
 }
@@ -298,9 +298,9 @@ console.log("\n=== Matrix ===\n");
     DUB_METRICS,
   )!;
   const intended = calculateQuote(BFS_ADDR, "DUB", S, false, {}, DUB_METRICS, false)!;
-  assert.equal(q.amount, intended.amount + 5);
-  assert.equal(q.amount, 232);
-  console.log(`OK  BFS→DUB airport↔airport £${q.amount} (DUB path £${intended.amount} + BFS pickup £5)`);
+  assert.equal(q.amount, intended.amount);
+  assert.equal(q.airportFixedCostsGbp, intended.airportFixedCostsGbp);
+  console.log(`OK  BFS→DUB airport↔airport £${q.amount} matches DUB path without an additional BFS fee`);
 }
 
 for (const r of rows) {
@@ -318,5 +318,5 @@ assert.ok(rows[0].final < 69);
 console.log(
   `\nBFS→BHD price: £${rows[0].final} (A2A + both ends £9)`,
 );
-console.log("Dublin: BHD→DUB £248 (universal journey £244 + M1 £4; underlying matches journey).");
+console.log("Dublin airport↔airport quotes match the existing direction-aware DUB path.");
 console.log("\nAll airport↔airport access-fee matrix checks passed.");

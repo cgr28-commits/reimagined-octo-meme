@@ -17,9 +17,8 @@ import { PRICING_CONFIG } from "../src/lib/pricing-config";
 import { SERVED_AIRPORTS } from "../shared/served-airports";
 import {
   calculateUniversalSaloonJourneyFareGbp,
-  calculateUniversalEstateJourneyFareGbp,
-  UNIVERSAL_ESTATE_PREMIUM_GBP,
 } from "../shared/universal-distance-pricing";
+import { defaultOwnerPricingSettings } from "../shared/owner-pricing-config";
 
 const S = SALOON_VEHICLE;
 const E = ESTATE_VEHICLE;
@@ -70,16 +69,14 @@ check("BFS/BHD address↔airport: journey only (no fixed add-on)", () => {
 });
 
 check("Estate = Saloon + configured uplift on BHD", () => {
-  const saloon = calculateQuote(CITY, "BHD", S, false, {}, M4, false)!;
-  const estate = calculateQuote(CITY, "BHD", E, false, {}, M4, false)!;
-  assert.equal(saloon.amount, 29);
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 7);
-  assert.equal(estate.amount, 29 + UNIVERSAL_ESTATE_PREMIUM_GBP);
-  assert.equal(estate.amount - saloon.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
-  assert.equal(
-    estate.amount,
-    calculateUniversalEstateJourneyFareGbp(saloon.amount),
-  );
+  for (const upliftGbp of [7, 10]) {
+    const pricing = { ...defaultOwnerPricingSettings(), estate: { upliftGbp } };
+    const saloon = calculateQuote(CITY, "BHD", S, false, {}, M4, false, pricing)!;
+    const estate = calculateQuote(CITY, "BHD", E, false, {}, M4, false, pricing)!;
+    assert.equal(saloon.amount, 29);
+    assert.equal(estate.amount - saloon.amount, pricing.estate.upliftGbp);
+    assert.equal(estate.airportFixedCostsGbp, saloon.airportFixedCostsGbp);
+  }
 });
 
 check("Dublin: universal journey + fixed costs", () => {
