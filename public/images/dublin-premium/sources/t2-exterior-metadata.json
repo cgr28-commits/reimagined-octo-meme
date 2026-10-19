@@ -1,0 +1,85 @@
+{
+  "url": "https://upload.wikimedia.org/wikipedia/commons/d/d4/Outside_Terminal_2.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+  "descriptionurl": "https://commons.wikimedia.org/wiki/File:Outside_Terminal_2.JPG",
+  "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=18614501",
+  "extmetadata": {
+    "DateTime": {
+      "value": "2012-03-07 10:23:58",
+      "source": "mediawiki-metadata",
+      "hidden": ""
+    },
+    "ObjectName": {
+      "value": "Outside Terminal 2",
+      "source": "mediawiki-metadata"
+    },
+    "CommonsMetadataExtension": {
+      "value": 1.2,
+      "source": "extension",
+      "hidden": ""
+    },
+    "Categories": {
+      "value": "Taken with Pentax Optio P80|Self-published work|2010 at Dublin Airport|Terminal 2, Dublin Airport|Bridges in Dublin Airport",
+      "source": "commons-categories",
+      "hidden": ""
+    },
+    "Assessments": {
+      "value": "",
+      "source": "commons-categories",
+      "hidden": ""
+    },
+    "ImageDescription": {
+      "value": "The front exterior of Dublin Airport T2",
+      "source": "commons-desc-page"
+    },
+    "DateTimeOriginal": {
+      "value": "2010-11-23",
+      "source": "commons-desc-page"
+    },
+    "Credit": {
+      "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+      "source": "commons-desc-page"
+    },
+    "Artist": {
+      "value": "Ronan Menton (<a href=\"//commons.wikimedia.org/w/index.php?title=User:Menton&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Menton (page does not exist)\">Menton</a>) <a rel=\"nofollow\" class=\"external text\" href=\"http://www.dublinairportt2.com\">Dublin Airport T2</a>",
+      "source": "commons-desc-page"
+    },
+    "Permission": {
+      "value": "Outside Wikipedia projects you <b>must</b> attribute the work to <a rel=\"nofollow\" class=\"external text\" href=\"http://www.dublinairportt2.com\">Dublin Airport T2.com</a>",
+      "source": "commons-desc-page",
+      "hidden": ""
+    },
+    "LicenseShortName": {
+      "value": "CC BY 3.0",
+      "source": "commons-desc-page",
+      "hidden": ""
+    },
+    "UsageTerms": {
+      "value": "Creative Commons Attribution 3.0",
+      "source": "commons-desc-page"
+    },
+    "AttributionRequired": {
+      "value": "true",
+      "source": "commons-desc-page",
+      "hidden": ""
+    },
+    "LicenseUrl": {
+      "value": "https://creativecommons.org/licenses/by/3.0",
+      "source": "commons-desc-page"
+    },
+    "Copyrighted": {
+      "value": "True",
+      "source": "commons-desc-page",
+      "hidden": ""
+    },
+    "Restrictions": {
+      "value": "",
+      "source": "commons-desc-page",
+      "hidden": ""
+    },
+    "License": {
+      "value": "cc-by-3.0",
+      "source": "commons-templates",
+      "hidden": ""
+    }
+  }
+}

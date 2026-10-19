@@ -7,6 +7,7 @@ import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
+import { DublinRouteHeroMedia } from "@/components/DublinPremiumPresentation";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { LANDING_WHY_BOOK } from "@/lib/landing-why-book";
@@ -65,9 +66,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: `/transfers/${page.slug}/`,
       images: [
         {
-          url: withBasePath(`/images/hero/optimized/${page.airport.heroBase}-1920.jpg`),
-          width: 1920,
-          height: 1080,
+          url: withBasePath(page.airport.code === "DUB" && page.town.slug === "belfast" ? "/images/dublin-premium/hero-1600.jpg" : `/images/hero/optimized/${page.airport.heroBase}-1920.jpg`),
+          width: page.airport.code === "DUB" && page.town.slug === "belfast" ? 1600 : 1920,
+          height: page.airport.code === "DUB" && page.town.slug === "belfast" ? 533 : 1080,
           alt: page.airport.heroAlt,
         },
       ],
@@ -139,10 +140,10 @@ export default async function TransferRoutePage({ params }: Props) {
       ) : null}
       <Header />
       <main className={LANDING_PAGE_MAIN_CLASS}>
-        <LandingHeroMedia
+        {page.airport.code === "DUB" && page.town.slug === "belfast" ? <DublinRouteHeroMedia /> : <LandingHeroMedia
           baseName={page.airport.heroBase}
           alt={page.airport.heroAlt}
-        />
+        />}
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           {isLanding && page.hubSlug ? (
