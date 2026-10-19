@@ -88,7 +88,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     ],
     localTips: [
       "For departures, allow extra time for the M2/M22 corridor in peak morning traffic — we’ll quote a pickup time that suits your flight.",
-      "Arrivals pickups use the airport’s designated private-hire meeting points; share your flight number so we can track landing time.",
+      "For Express collection, the Express Pick-Up & Drop-Off Zone is opposite the terminal. Follow the instructions for your booked collection option: Free Long Stay and Meet & Greet use different meeting points.",
       "Spacious private transfers are ideal for family holidays with multiple standard suitcases (23kg) from BFS.",
       "For an airport collection, select From an Airport in the quote form and enter your destination. Include your flight number when completing the booking.",
     ],
@@ -137,7 +137,8 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Licensed private hire with clear fixed pricing",
     ],
     localTips: [
-      "City Airport security queues are usually shorter than Aldergrove, but still allow buffer for morning business flights.",
+      "For departures, follow your airline’s check-in and bag-drop guidance and allow extra road travel time during the morning and evening peaks.",
+      "The airport has an Express Pick-Up & Drop-Off area and separate car parks. Follow the collection instructions for your booked option rather than heading to a different car park.",
       "Hotel pickups in the Titanic Quarter and Cathedral Quarter are a frequent route for us.",
       "If you have a connecting flight from BHD, tell us your departure time and we’ll plan the drop-off window carefully.",
       "For an airport collection, select From an Airport in the quote form and enter your destination. Include your flight number when completing the booking.",
@@ -178,7 +179,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     metaDescription:
       "Pre-book fixed-price transfers from Northern Ireland to Dublin Airport (DUB), with flight monitoring, included tolls and secure online booking.",
     intro:
-      `Dublin Airport is a major gateway for Northern Ireland travellers. We run comfortable cross-border transfers with drivers who know the A1/M1 corridor, border timing, and terminal pickup arrangements. ${FLIGHT_MONITORING_SHORT}`,
+      `Pre-book a private transfer between Northern Ireland and Dublin Airport, with collections from Belfast, Bangor, Lisburn and surrounding towns. Tell us whether you need Terminal 1 or Terminal 2 so we can plan your airport drop-off or arrival collection. Enter your journey details for a fixed-price quote with applicable tolls included. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
       "Fixed prices for NI ↔ Dublin Airport journeys",
       "Applicable tolls included on Dublin Airport fares",
@@ -187,9 +188,10 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Return bookings available with a 5% discount online",
     ],
     localTips: [
-      "Cross-border journeys take around two hours from Belfast depending on traffic and checks — we build a realistic schedule around your flight.",
+      "Allow around two hours for the road journey from Belfast in normal traffic, plus the time your airline recommends for check-in and security. Allow extra travel time during busy periods.",
       "For early Dublin departures, overnight or very early pickups from Bangor, Belfast, and Lisburn are common.",
-      "Tell us which Dublin terminal you need when known; we’ll confirm the pickup point for arrivals.",
+      "For departures, select Dublin Airport as your destination and tell us whether your flight leaves from Terminal 1 or Terminal 2 when known.",
+      "For arrivals, select Dublin Airport as your pickup and provide your flight number when completing the booking. Follow your collection instructions and the meeting point confirmed by your driver for your arrival terminal.",
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 2 hours from Belfast in normal traffic",
@@ -238,6 +240,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     localTips: [
       "Pickup must be in the greater Belfast area for journeys to LDY — enter a Bangor, Belfast, or Lisburn-area address in the quote tool.",
       "For arrivals at LDY heading to Belfast/Bangor, share your flight number so we can adjust for delays.",
+      "For an arrival collection, select City of Derry Airport as your pickup and enter your Belfast-area destination. Follow the agreed collection instructions after collecting your luggage.",
       "These are longer inter-city runs; return bookings are popular for weekend trips.",
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",

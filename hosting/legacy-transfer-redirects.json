@@ -1,0 +1,76 @@
+{
+  "description": "Hosting-level redirect specification. GitHub Pages does not apply this file. Configure these exact path matches in the HTTP layer serving www.myairporttaxini.co.uk; preserve query strings. No booking, payment or API paths are included.",
+  "host": "www.myairporttaxini.co.uk",
+  "redirects": [
+    {
+      "source": "/transfers/newtownabbey-to-belfast-city",
+      "destination": "/transfers/newtownabbey-to-belfast-city-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/newtownabbey-to-belfast-city/",
+      "destination": "/transfers/newtownabbey-to-belfast-city-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/newtownabbey-to-dublin",
+      "destination": "/transfers/newtownabbey-to-dublin-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/newtownabbey-to-dublin/",
+      "destination": "/transfers/newtownabbey-to-dublin-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/belfast-to-dublin",
+      "destination": "/transfers/belfast-to-dublin-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/belfast-to-dublin/",
+      "destination": "/transfers/belfast-to-dublin-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/lisburn-to-belfast-city",
+      "destination": "/transfers/lisburn-to-belfast-city-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/lisburn-to-belfast-city/",
+      "destination": "/transfers/lisburn-to-belfast-city-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/lisburn-to-dublin",
+      "destination": "/transfers/lisburn-to-dublin-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/lisburn-to-dublin/",
+      "destination": "/transfers/lisburn-to-dublin-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/bangor-to-belfast-city",
+      "destination": "/transfers/bangor-to-belfast-city-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/bangor-to-belfast-city/",
+      "destination": "/transfers/bangor-to-belfast-city-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/bangor-to-dublin",
+      "destination": "/transfers/bangor-to-dublin-airport/",
+      "statusCode": 301
+    },
+    {
+      "source": "/transfers/bangor-to-dublin/",
+      "destination": "/transfers/bangor-to-dublin-airport/",
+      "statusCode": 301
+    }
+  ]
+}
