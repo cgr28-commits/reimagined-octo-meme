@@ -49,14 +49,6 @@ html {
   touch-action: pan-y pinch-zoom;
 }
 
-@media (max-width: 767px) {
-  /* Room for the landing sticky quote CTA; homepage #quote has no data-landing-quote. */
-  main:has([data-landing-quote]),
-  main:has([data-landing-sticky-quote]) {
-    padding-bottom: 6.5rem;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -1246,26 +1238,6 @@ main {
     display: none;
   }
 
-  [data-sticky-quote-bar] {
-    position: fixed;
-    right: 0;
-    left: 0;
-    z-index: 40;
-    bottom: max(
-      var(--matni-cookie-banner-offset, 0px),
-      env(safe-area-inset-bottom, 0px)
-    );
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    background: #071c38;
-    padding: 0.3rem 0.75rem 0.35rem;
-  }
-
-  [data-sticky-quote-bar] .btn-primary {
-    min-height: 3.375rem;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset;
-  }
-
-  [data-sticky-quote-bar] .quote-help-contact,
   [data-quote-price-action="flow"] .quote-help-contact {
     margin-top: 10px;
     margin-bottom: 0;

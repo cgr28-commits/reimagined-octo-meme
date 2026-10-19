@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useState, type ReactNode } from "react";
 import AddressInput from "@/components/AddressInput";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
@@ -192,9 +191,6 @@ function SwapIcon() {
 const selectClass =
   "box-border h-12 w-full min-w-0 rounded-xl border border-white/20 bg-[#0c2748] px-3 text-base font-semibold text-white outline-none focus:border-emerald focus:ring-1 focus:ring-emerald/50";
 
-/** Fallback height for the pinned button plus the help line beneath it. */
-const STICKY_QUOTE_ACTION_PX = 96;
-
 export default function HomepageQuoteFields({
   journeyMode,
   onJourneyModeChange,
@@ -233,119 +229,8 @@ export default function HomepageQuoteFields({
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsMessage, setGpsMessage] = useState("");
   const [gpsSuggestToken, setGpsSuggestToken] = useState(0);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
-  const [mobileLayout, setMobileLayout] = useState(false);
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
-  const [selectFocused, setSelectFocused] = useState(false);
-  const [controlsCovered, setControlsCovered] = useState(false);
-  const [flowActionBelow, setFlowActionBelow] = useState(false);
-  const quoteBarRef = useRef<HTMLDivElement>(null);
-  const flowActionRef = useRef<HTMLDivElement>(null);
-  const pickupSuggestionsRef = useRef(false);
-  const dropoffSuggestionsRef = useRef(false);
-  const stickyBlocked =
-    keyboardOpen || suggestionsOpen || selectFocused || controlsCovered;
-  const showStickyQuoteButton =
-    quoteFormActive && mobileLayout && flowActionBelow && !stickyBlocked;
   const passengerChoices = publicPassengerOptions(true);
   const suitcaseChoices = publicSuitcaseOptions(true);
-
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 639px)");
-    const update = () => setMobileLayout(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-
-  const noteSuggestions = useCallback((field: "pickup" | "dropoff", open: boolean) => {
-    if (field === "pickup") pickupSuggestionsRef.current = open;
-    else dropoffSuggestionsRef.current = open;
-    setSuggestionsOpen(pickupSuggestionsRef.current || dropoffSuggestionsRef.current);
-  }, []);
-
-  useEffect(() => {
-    const visual = window.visualViewport;
-    if (!visual) return;
-    const update = () => {
-      const hidden = window.innerHeight - visual.height - visual.offsetTop;
-      setKeyboardOpen(hidden > 120);
-    };
-    update();
-    visual.addEventListener("resize", update);
-    visual.addEventListener("scroll", update);
-    return () => {
-      visual.removeEventListener("resize", update);
-      visual.removeEventListener("scroll", update);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!mobileLayout || !quoteFormActive) {
-      setFlowActionBelow(false);
-      return;
-    }
-    const check = () => {
-      const action = flowActionRef.current;
-      if (!action) {
-        setFlowActionBelow(false);
-        return;
-      }
-      const top = action.getBoundingClientRect().top;
-      setFlowActionBelow(top >= window.innerHeight - 8);
-    };
-    check();
-    window.addEventListener("scroll", check, true);
-    window.addEventListener("resize", check);
-    const visual = window.visualViewport;
-    visual?.addEventListener("resize", check);
-    visual?.addEventListener("scroll", check);
-    return () => {
-      window.removeEventListener("scroll", check, true);
-      window.removeEventListener("resize", check);
-      visual?.removeEventListener("resize", check);
-      visual?.removeEventListener("scroll", check);
-    };
-  }, [mobileLayout, quoteFormActive]);
-
-  useEffect(() => {
-    if (!mobileLayout || !quoteFormActive) {
-      setControlsCovered(false);
-      return;
-    }
-    const check = () => {
-      const visual = window.visualViewport;
-      const viewportBottom = (visual?.offsetTop ?? 0) + (visual?.height ?? window.innerHeight);
-      const cookieRaw = getComputedStyle(document.documentElement)
-        .getPropertyValue("--matni-cookie-banner-offset")
-        .trim();
-      const cookie = cookieRaw.endsWith("px") ? Number.parseFloat(cookieRaw) : 0;
-      const barHeight = quoteBarRef.current?.getBoundingClientRect().height ?? STICKY_QUOTE_ACTION_PX;
-      const reserved = Math.max(Number.isFinite(cookie) ? cookie : 0, 0) + Math.ceil(barHeight);
-      const zoneTop = viewportBottom - reserved;
-      const controls = document.querySelectorAll(
-        "#pickup, #dropoff, [data-swap-locations], #passenger-luggage-section, #airports h2",
-      );
-      let covered = false;
-      controls.forEach((control) => {
-        const rect = control.getBoundingClientRect();
-        if (rect.top < viewportBottom && rect.bottom > zoneTop) covered = true;
-      });
-      setControlsCovered(covered);
-    };
-    check();
-    window.addEventListener("scroll", check, true);
-    window.addEventListener("resize", check);
-    const visual = window.visualViewport;
-    visual?.addEventListener("resize", check);
-    visual?.addEventListener("scroll", check);
-    return () => {
-      window.removeEventListener("scroll", check, true);
-      window.removeEventListener("resize", check);
-      visual?.removeEventListener("resize", check);
-      visual?.removeEventListener("scroll", check);
-    };
-  }, [mobileLayout, quoteFormActive, suggestionsOpen, keyboardOpen]);
 
   async function locatePickup() {
     if (gpsBusy) return;
@@ -447,7 +332,6 @@ export default function HomepageQuoteFields({
         dense
         airportCode={addressLookupCode}
         autoSuggestToken={gpsSuggestToken || null}
-        onSuggestionsVisibilityChange={(open) => noteSuggestions("pickup", open)}
         startAdornment={
           <button
             type="button"
@@ -498,7 +382,6 @@ export default function HomepageQuoteFields({
         reserveHelperSpace={false}
         dense
         airportCode={addressLookupCode}
-        onSuggestionsVisibilityChange={(open) => noteSuggestions("dropoff", open)}
       />
 
       <div className="grid grid-cols-2 items-end gap-2" id="passenger-luggage-section">
@@ -513,8 +396,6 @@ export default function HomepageQuoteFields({
             onChange={(event) => onPassengersChange(event.target.value === "" ? null : Number(event.target.value))}
             className={selectClass}
             aria-invalid={Boolean(passengersError)}
-            onFocus={() => setSelectFocused(true)}
-            onBlur={() => setSelectFocused(false)}
           >
             <option value="">Select</option>
             {passengerChoices.map((count) => (
@@ -540,8 +421,6 @@ export default function HomepageQuoteFields({
             onChange={(event) => onSuitcasesChange(event.target.value === "" ? null : Number(event.target.value))}
             className={selectClass}
             aria-invalid={Boolean(suitcasesError)}
-            onFocus={() => setSelectFocused(true)}
-            onBlur={() => setSelectFocused(false)}
           >
             <option value="">Select</option>
             {suitcaseChoices.map((count) => (
@@ -584,8 +463,8 @@ export default function HomepageQuoteFields({
                   : scheduleFields ? "Ready to show your transfer options." : "Ready for your quote. Add date and time when you book."}
       </p>
       </div>
-      {quoteFormActive && mobileLayout ? (
-        <div ref={flowActionRef} data-quote-price-action="flow" className="sm:hidden pt-1 pb-1.5">
+      {quoteFormActive ? (
+        <div data-quote-price-action="flow" className="shrink-0 pt-1.5 pb-1.5">
           <button
             type="button"
             data-get-fixed-price
@@ -596,39 +475,7 @@ export default function HomepageQuoteFields({
           >
             {actionLabel}
           </button>
-          <QuoteHelpContact />
-        </div>
-      ) : null}
-      {showStickyQuoteButton && typeof document !== "undefined"
-        ? createPortal(
-            <div ref={quoteBarRef} data-sticky-quote-bar data-quote-price-action="pinned">
-              <button
-                type="button"
-                data-get-fixed-price
-                disabled={!quoteReady}
-                aria-describedby="homepage-quote-requirements"
-                onClick={onRequestPrice}
-                className="btn-primary min-h-12 w-full rounded-xl text-base"
-              >
-                {actionLabel}
-              </button>
-              <QuoteHelpContact />
-            </div>,
-            document.body,
-          )
-        : null}
-      {quoteFormActive && !mobileLayout ? (
-        <div data-quote-price-action="inline" className="max-sm:hidden shrink-0 pt-1.5">
-          <button
-            type="button"
-            data-get-fixed-price
-            disabled={!quoteReady}
-            aria-describedby="homepage-quote-requirements"
-            onClick={onRequestPrice}
-            className="btn-primary min-h-12 w-full rounded-xl text-base"
-          >
-            {actionLabel}
-          </button>
+          <QuoteHelpContact className="sm:hidden" />
         </div>
       ) : null}
     </div>
