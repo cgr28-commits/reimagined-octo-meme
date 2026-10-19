@@ -114,6 +114,61 @@ export default async function AirportTransferPage({ params }: Props) {
               <LandingPageQuoteCta />
             </div>
           </header>
+        </div>
+
+        {page.code === "DUB" ? (
+          <LocationQuoteSection airportCode={page.code} direction="to-airport" heading="Your Dublin Airport transfer quote" />
+        ) : null}
+
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          {page.code === "DUB" ? (
+            <section className="mt-8 space-y-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <div>
+                <h2 className="text-lg font-bold text-white">Travelling to Dublin Airport</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  For a departure, use your Northern Ireland home, hotel or business address as Pickup location
+                  and Dublin Airport as Drop-off location. Check Terminal 1 or Terminal 2 with your airline.
+                  Book the time you need to be collected, allowing for the road journey, traffic and your
+                  airline’s check-in and bag-drop requirements. Our{" "}
+                  <Link href="/transfers/belfast-to-dublin-airport/" className="text-emerald underline underline-offset-4">Belfast to Dublin Airport taxi</Link>{" "}
+                  page covers the Belfast departure route in more detail.
+                </p>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Arriving at Dublin Airport</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  For a collection, use “Swap pickup and drop-off” to put Dublin Airport in Pickup location,
+                  then enter your Northern Ireland destination. Add your flight number when completing the
+                  booking and share your arrival terminal when known. After collecting your luggage, follow
+                  the meeting point confirmed by your driver for Terminal 1 or Terminal 2. A pre-booked
+                  collection has its own instructions; do not assume the public taxi rank is your meeting point.
+                  Landing at Dublin and heading north? See our{" "}
+                  <Link href="/transfers/dublin-airport-to-belfast/" className="text-emerald underline underline-offset-4">Dublin Airport to Belfast taxi</Link>{" "}
+                  page for that direction.
+                </p>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Booking your vehicle and luggage</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  Select and confirm both address suggestions, then enter everyone travelling and all suitcases
+                  before choosing “Get My Fixed Price”. Review the vehicle options and luggage allowance shown
+                  with your quote. If you have oversized bags or unusual luggage, ask us to confirm suitability
+                  before booking. Add your travel date, pickup time and contact details at the booking stage.
+                </p>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Fixed-price quotes, tolls and return bookings</h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  Your Dublin Airport quote includes applicable M1 tolls and any airport pickup or parking
+                  allowance shown in the breakdown. Vehicle supplements form part of the journey fare; review
+                  the total for your selected vehicle before booking. Choose Return to book both directions
+                  together. The existing 5% return-booking discount applies to the combined journey fare,
+                  excluding tolls, airport access, parking and other fixed charges. Any applicable night or
+                  weekend surcharge is also excluded from the discount and included in the quoted total.
+                </p>
+              </div>
+            </section>
+          ) : null}
 
           {page.code === "BFS" ? (
             <section className="mt-8 space-y-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
@@ -249,7 +304,7 @@ export default async function AirportTransferPage({ params }: Props) {
 
           {relatedRoutes.length > 0 ? (
             <section className="mt-8">
-              <h2 className="text-lg font-bold text-white">Popular routes to {page.shortName}</h2>
+              <h2 className="text-lg font-bold text-white">Popular routes {page.code === "DUB" ? "to and from" : "to"} {page.shortName}</h2>
               <ul className="mt-4 grid gap-2 sm:grid-cols-2">
                 {orderedRoutes.map((route) => (
                   <li key={route.slug}>
@@ -274,11 +329,11 @@ export default async function AirportTransferPage({ params }: Props) {
           ) : null}
         </div>
 
-        <LocationQuoteSection
+        {page.code !== "DUB" ? <LocationQuoteSection
           airportCode={page.code}
           direction="to-airport"
           heading={`Quote a ${page.shortName} transfer`}
-        />
+        /> : null}
       </main>
       <Footer />
     </>
