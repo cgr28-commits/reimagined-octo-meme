@@ -12,7 +12,7 @@ type Props = {
   heading?: string;
   eyebrow?: string;
   description?: string;
-  /** Other landing pages keep the mobile sticky quote bar. This page can turn it off. */
+  /** Show the additional mobile quote link below the calculator. */
   showStickyQuote?: boolean;
   /** Prefer the existing 7 Seater Minibus when it is offered and fits the party. */
   preferMinibus?: boolean;

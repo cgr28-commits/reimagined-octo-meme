@@ -5,11 +5,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  LANDING_INLINE_QUOTE_CTA_ATTR,
-  collectLandingStickyHideTargets,
-  shouldShowLandingStickyQuote,
-} from "../src/components/LandingPageQuoteCta";
 
 function read(rel: string): string {
   return readFileSync(join(process.cwd(), rel), "utf8");
@@ -38,52 +33,12 @@ assert.match(cta, /LANDING_QUOTE_HREF = "#quote"/);
 assert.match(cta, /LandingPageQuoteCta/);
 assert.match(cta, /LandingPageStickyQuoteCta/);
 assert.match(cta, /md:hidden/);
-assert.match(cta, /safe-area-inset-bottom/);
-assert.match(cta, /matni-cookie-banner-offset/);
-assert.match(cta, /z-\[65\]/);
-assert.match(cta, /IntersectionObserver/);
 assert.match(cta, /href=\{LANDING_QUOTE_HREF\}/);
-assert.match(cta, /data-landing-sticky-quote/);
+assert.match(cta, /data-landing-mobile-quote/);
 assert.match(cta, /LANDING_INLINE_QUOTE_CTA_ATTR = "data-landing-quote-cta"/);
-assert.match(cta, /data-landing-quote-cta/);
-assert.match(cta, /collectLandingStickyHideTargets/);
-assert.match(cta, /shouldShowLandingStickyQuote\(visible\.size\)/);
-assert.match(cta, /threshold: 0/);
+assert.doesNotMatch(cta, /\bfixed\b|\bsticky\b|createPortal|IntersectionObserver/);
 assert.doesNotMatch(cta, /belfast-cruise-terminal-transfers/);
-console.log("OK  shared inline + mobile sticky CTA");
-
-console.log("=== Sticky hides while inline CTA or #quote is on screen ===");
-{
-  const quote = { id: "quote" } as unknown as Element;
-  const inlineA = { id: "cta-a" } as unknown as Element;
-  const inlineB = { id: "cta-b" } as unknown as Element;
-  const targets = collectLandingStickyHideTargets(
-    (id) => (id === "quote" ? quote : null),
-    (selector) => {
-      assert.equal(selector, `[${LANDING_INLINE_QUOTE_CTA_ATTR}]`);
-      return [inlineA, inlineB];
-    },
-  );
-  assert.deepEqual(targets, [quote, inlineA, inlineB]);
-  assert.equal(shouldShowLandingStickyQuote(1), false, "inline CTA visible → sticky hidden");
-  assert.equal(shouldShowLandingStickyQuote(2), false, "calculator visible → sticky hidden");
-  assert.equal(shouldShowLandingStickyQuote(0), true, "neither visible → sticky shown");
-
-  const cruiseLike = collectLandingStickyHideTargets(
-    () => null,
-    () => [inlineA, inlineB],
-  );
-  assert.deepEqual(cruiseLike, [inlineA, inlineB]);
-  assert.equal(shouldShowLandingStickyQuote(cruiseLike.length > 0 ? 1 : 0), false);
-
-  const noTargets = collectLandingStickyHideTargets(
-    () => null,
-    () => [],
-  );
-  assert.deepEqual(noTargets, []);
-  assert.equal(shouldShowLandingStickyQuote(0), true);
-}
-console.log("OK  hide/show rules cover inline CTA and #quote without URL-specific logic");
+console.log("OK  shared inline + mobile quote links stay in document flow");
 
 console.log("=== Quote section keeps one calculator and #quote ===");
 assert.match(section, /id="quote"/);
@@ -123,12 +78,12 @@ assert.match(quoteNav, /resolveQuoteNavHref/);
 assert.doesNotMatch(quoteNav, /href\.startsWith\("\/"\) \? href : "\/#quote"/);
 console.log("OK  hash CTA stays on the landing page when #quote exists");
 
-console.log("=== Sticky does not collide with cookie / header chrome ===");
-assert.match(css, /main:has\(\[data-landing-quote\]\)/);
-assert.match(css, /main:has\(\[data-landing-sticky-quote\]\)/);
+console.log("=== No fixed quote overlay remains ===");
+assert.doesNotMatch(css, /\[data-sticky-quote-bar\]/);
+assert.doesNotMatch(css, /main:has\(\[data-landing-sticky-quote\]\)/);
 assert.match(header, /data-matni-whatsapp-quick/);
 assert.match(header, /z-\[60\]/);
-console.log("OK  cookie-offset sticky + extra mobile main padding; header WhatsApp stays");
+console.log("OK  no fixed quote bar; header WhatsApp stays");
 
 console.log("=== SEO metadata / H1 / schema hooks unchanged ===");
 for (const [name, source] of [
