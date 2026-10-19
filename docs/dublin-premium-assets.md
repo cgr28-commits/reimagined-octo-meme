@@ -19,6 +19,7 @@ The terminal background pixels are never passed through generation in the shippe
 
 - Title: **Outside Terminal 2.JPG** — front exterior of Dublin Airport T2.
 - Creator: **Ronan Menton (Menton)**.
+- Required outside-Wikipedia attribution: **Dublin Airport T2.com** (source Permission field). Visible credit includes this name, the photographer, the photo title, source/licence links and a change notice.
 - Source: https://commons.wikimedia.org/wiki/File:Outside_Terminal_2.JPG
 - Licence: **CC BY 3.0**, https://creativecommons.org/licenses/by/3.0/
 - Commercial copying and adaptation permitted with credit, source/licence link and indication of changes. No endorsement implied. Retain attribution when reusing.
@@ -70,3 +71,31 @@ SEO baseline is the connected Search Console Web/final data for 19 September–1
 - Existing live Dublin journey smoke test (unchanged production UI): Belfast City Hall → Dublin Airport, 2 passengers/2 cases; Saloon £235, Estate £242. Return Estate base journey fare £486, 5% saving £24.30, fixed charges £13, rounded payable £475. No booking or payment submitted. Tests cover configured Estate £7/£10 values in memory, not live admin edits.
 - Protected production code matches main: homepage fields, QuoteCard, shared/Worker logic, quote engine/service, vehicle selection, pricing config, structured-data and sitemap generators. No payment/admin/live pricing changes.
 - Known source sitemap drift remains separate: tracked XML has 100 entries; unchanged generator emits 102 including existing Cork directional routes. Generated source edits restored, no sitemap changes in this PR.
+
+## Final pre-publication review — PR #657
+
+Review corrections: added the Terminal 2 source's specific required “Dublin Airport T2.com” attribution, alongside Ronan Menton, original title, source and licence links, on the hub and both Belfast directional pages. Corrected Open Graph alt text to describe the actual terminal-only social image. No imagery from the two subsequently supplied, unverified uploads was introduced.
+
+Verified against the Commons file pages: Terminal 2 is Ronan Menton's genuine 23 November 2010 photograph, CC BY 3.0; Terminal 1 is M901QX's genuine 11 September 2022 photograph, CC BY-SA 4.0. Re-encoding the original source inputs reproduces the shipped 960px AVIF backgrounds byte-for-byte, confirming no generative terminal pixels. Credits/change and representative-image notices are visible at desktop 1440×1000 and mobile 390×844 / 360×800. All images load; no overflow or imagery over calculator/booking fields. No fleet-size or guaranteed chauffeur/model/leather claim. Owner should still approve the representative styling before publication.
+
+### Preview authorisation and completed functional test
+
+The prior port-4173 limitation is superseded. Read-only Vercel inventory found **no deployment for this PR branch**, consistent with its disabled automatic deployments. No deployment was created.
+
+The existing backend explicitly permits **http://localhost:3000**, confirmed by a public address lookup response returning that exact Access-Control-Allow-Origin. Served the production export at that already-authorised origin, with no CORS, backend, account or pricing changes. Browser test of the **new design** passed: choose a real address suggestion, generate quote, select Estate, add Return and proceed to the booking details stage. Date/time remain at booking stage; final booking/payment was not submitted.
+
+- Belfast City Hall → Dublin Airport, two passengers/two cases: Saloon £235, Estate £242.
+- Current public pricing configuration: version 211, estate.upliftGbp = 7, returnDiscount.rate = 0.05. Live values read only.
+- Return Estate: journey fare £486, discount £24.30 (5%), fixed charges £13, rounded payable £475. Booking form preserves the selected vehicle and total, and separates £4 outbound toll / £4 return toll / £5 pickup parking. No genuine booking or payment submitted.
+- The existing automated configurable-Estate fixtures for £7/£10 pass without live setting edits; customer quote logic remains unchanged.
+- Both directional links, back-to-hub links, correct airport prefill and updated source credits verified in browser. No browser errors.
+
+For a future remote Vercel preview, first obtain owner approval to create the deployment and verify its project ownership and PR commit. Current CORS uses a project-name prefix matcher, not cryptographic Vercel ownership verification; do not treat an arbitrary matching hostname as trusted. Prefer an exact verified origin, ideally on an isolated preview Worker with only the required public address/quote routes. Any production allowlist change requires separate approval. No broad suffix wildcard, auth bypass, credentials or permission changes were added here. The existing prefix matcher merits separate security review; it is not introduced by this PR.
+
+### Final checks and decision
+
+13 selected npm check commands passed in this final review: technical-seo, locations-crawl, landing-quote-cta, homepage-mobile-quote-ui, airport-hero-images, airport-fixed-costs, pricing-vehicle-quote-flow, owner-pricing, return-offer, quote-journey-direction, sumup-booking-conversion, child-seats-booking-sumup and quote-checkout-page. Technical SEO was rerun after the review corrections and passed. Final production build passed with 148 static pages. Windows/OneDrive cache permission/readlink errors during a rebuild were resolved by removing only the verified generated .next directory; no source workaround was needed. Existing unrelated lint/static-export warnings remain.
+
+Final export verification: 102 unique sitemap URLs, 6,511 internal anchor occurrences resolve, no duplicate titles/descriptions, one H1/self-canonical and parseable JSON-LD per sitemap page. Protected pricing, vehicle-capacity, homepage-field, booking, Worker, admin and SumUp implementation sources match main. No remaining selected-test failures or discovered booking regression.
+
+**Decision:** technically safe to merge after owner approval of representative imagery/service fit. Keep draft until that approval; do not merge or deploy as part of this review. SumUp regression tests passed, but real payment settlement was deliberately not exercised.

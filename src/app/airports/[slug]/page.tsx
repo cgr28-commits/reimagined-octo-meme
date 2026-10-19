@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           url: withBasePath(page.code === "DUB" ? "/images/dublin-premium/hero-1600.jpg" : `/images/hero/optimized/${page.heroBase}-1920.jpg`),
           width: page.code === "DUB" ? 1600 : 1920,
           height: page.code === "DUB" ? 533 : 1080,
-          alt: page.code === "DUB" ? "Illustrative estate car at Dublin Airport Terminal 2" : page.heroAlt,
+          alt: page.code === "DUB" ? "Dublin Airport Terminal 2 photographed by Ronan Menton" : page.heroAlt,
         },
       ],
     },

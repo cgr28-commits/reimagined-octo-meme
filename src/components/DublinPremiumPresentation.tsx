@@ -33,7 +33,7 @@ export function DublinPremiumHero({ title }: { title: string }) {
             </div>
           </div>
           <figcaption className="px-5 py-3 text-xs leading-relaxed text-slate-600 sm:px-10">
-            Terminal 2 photo: <a href="https://commons.wikimedia.org/wiki/File:Outside_Terminal_2.JPG" className="underline">Ronan Menton</a>,{" "}
+            “Outside Terminal 2” photo: <a href="https://commons.wikimedia.org/wiki/File:Outside_Terminal_2.JPG" className="underline">Ronan Menton / Dublin Airport T2.com</a>,{" "}
             <a href="https://creativecommons.org/licenses/by/3.0/" className="underline">CC BY 3.0</a>. Illustrative vehicle added with AI; vehicle and collection point vary by booking.
           </figcaption>
         </figure>
@@ -112,7 +112,7 @@ export function DublinRouteHeroMedia() {
   return (
     <figure className="mx-auto max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
       <div className="aspect-[2/1] overflow-hidden rounded-2xl sm:aspect-[3/1]"><DublinPhoto asset="hero" alt="Dublin Airport Terminal 2 photographed by Ronan Menton" priority /></div>
-      <figcaption className="py-3 text-xs text-white/75">Dublin Airport Terminal 2: <a href="https://commons.wikimedia.org/wiki/File:Outside_Terminal_2.JPG" className="underline">Ronan Menton</a>, <a href="https://creativecommons.org/licenses/by/3.0/" className="underline">CC BY 3.0</a>. Cropped and resized; not a meeting-point photograph.</figcaption>
+      <figcaption className="py-3 text-xs text-white/75">“Outside Terminal 2” photo: <a href="https://commons.wikimedia.org/wiki/File:Outside_Terminal_2.JPG" className="underline">Ronan Menton / Dublin Airport T2.com</a>, <a href="https://creativecommons.org/licenses/by/3.0/" className="underline">CC BY 3.0</a>. Cropped and resized; not a meeting-point photograph.</figcaption>
     </figure>
   );
 }
