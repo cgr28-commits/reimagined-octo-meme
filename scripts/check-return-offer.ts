@@ -32,7 +32,9 @@ import {
   type ReturnOfferRecord,
 } from "../shared/return-offer";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
-import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
+import { calculateUniversalJourneyFareGbp } from "../shared/universal-distance-pricing";
+import { defaultOwnerPricingSettings, ownerPricingEngineOptions } from "../shared/owner-pricing-config";
+import { SALOON_VEHICLE, ESTATE_VEHICLE } from "../src/lib/vehicle-selection";
 import { buildReturnOfferEmail } from "../shared/return-offer-emails";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -392,14 +394,26 @@ async function run() {
   });
 
   await check("Configured Estate uplift remains in the fare before the 5%", () => {
-    const saloonFare = 40;
-    const estateFare = saloonFare + UNIVERSAL_ESTATE_PREMIUM_GBP;
-    const saloon = applyReturnOfferSaving(saloonFare);
-    const estate = applyReturnOfferSaving(estateFare);
-    assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
-    assert.equal(saloon.savingGbp, 2);
-    assert.equal(estate.savingGbp, 2.5);
-    assert.equal(estateFare - saloonFare, UNIVERSAL_ESTATE_PREMIUM_GBP);
+    for (const upliftGbp of [7, 10]) {
+      const pricing = { ...defaultOwnerPricingSettings(), estate: { upliftGbp } };
+      const options = { ...ownerPricingEngineOptions(pricing), saloonFareGbp: 40 };
+      const saloonFare = calculateUniversalJourneyFareGbp(0, SALOON_VEHICLE, options).journeyFareGbp;
+      const estateFare = calculateUniversalJourneyFareGbp(0, ESTATE_VEHICLE, options).journeyFareGbp;
+      assert.equal(estateFare - saloonFare, pricing.estate.upliftGbp);
+      const estate = applyReturnOfferSaving(estateFare);
+      assert.equal(estate.savingGbp, Math.round(estateFare * 0.05 * 100) / 100);
+      assert.equal(estate.fareAfterGbp, estateFare - estate.savingGbp);
+      const breakdown = composeWebsiteFareBreakdown({
+        journeyFareBeforeAirportAccessGbp: estateFare,
+        airportFixedCostsGbp: 8,
+        airportAccessChargeGbp: 5,
+        returnOfferDiscountRate: 0.05,
+      });
+      assert.equal(breakdown.returnOfferSavingGbp, estate.savingGbp);
+      assert.equal(breakdown.airportFixedCostsGbp, 8);
+      assert.equal(breakdown.airportAccessChargeGbp, 5);
+      assert.equal(breakdown.finalAmountPayableGbp, Math.ceil(estate.fareAfterGbp + 8 + 5));
+    }
   });
 
   await check("Direction detection for BHD, DUB, LDY", () => {

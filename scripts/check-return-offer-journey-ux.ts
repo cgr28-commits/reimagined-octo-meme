@@ -112,7 +112,8 @@ check("6. Valid Return Offer hides the One way / Return toggle", () => {
   const progressive = read("src/components/QuoteProgressiveRoute.tsx");
   assert.match(card, /showJourneyModeFields=\{\s*returnOfferToken\s*\?\s*false/);
   assert.match(progressive, /showJourneyModeFields && !lockReturnOfferJourney/);
-  assert.match(card, /returnOfferToken \? "one-way" : null/);
+  // Homepage now also defaults to one-way; a valid Return Offer still forces it.
+  assert.match(card, /returnOfferToken \|\| presentation === "homepage" \? "one-way" : null/);
   assert.match(card, /hasQuoteRoute && !returnOfferToken/);
 });
 

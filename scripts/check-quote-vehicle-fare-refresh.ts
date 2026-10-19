@@ -13,6 +13,7 @@ import {
   composeFareWithExpressDropOff,
 } from "../shared/express-drop-off";
 import { UNIVERSAL_ESTATE_PREMIUM_GBP } from "../shared/universal-distance-pricing";
+import { defaultOwnerPricingSettings } from "../shared/owner-pricing-config";
 import {
   resolveDisplayJourneyFareGbp,
   serverFareAppliesToParty,
@@ -52,10 +53,29 @@ function staleSaloonParts(saloonFare: number): ServerFarePartyParts {
 
 console.log("=== Estate premium stays the configured uplift in the pricing engine ===");
 {
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
+  assert.equal(defaultOwnerPricingSettings().estate.upliftGbp, UNIVERSAL_ESTATE_PREMIUM_GBP);
   assert.equal(selectVehicleForParty(2, 2), SALOON_VEHICLE);
   assert.equal(selectVehicleForParty(2, 3), ESTATE_VEHICLE);
   console.log("OK  2p/2 bags = Saloon; 2p/3 bags = Estate; premium uses the configured uplift");
+}
+
+console.log("\n=== Configured uplifts reach the customer calculator and vehicle-switch display ===");
+for (const upliftGbp of [7, 10]) {
+  const pricing = { ...defaultOwnerPricingSettings(), estate: { upliftGbp } };
+  const saloon = calculateQuote(cityHall, "BHD", SALOON_VEHICLE, false, {}, cityBhdMetrics, false, pricing);
+  const estate = calculateQuote(cityHall, "BHD", ESTATE_VEHICLE, false, {}, cityBhdMetrics, false, pricing);
+  assert.ok(saloon && estate);
+  assert.equal(journeyFare(estate) - journeyFare(saloon), pricing.estate.upliftGbp);
+  const displayed = resolveDisplayJourneyFareGbp({
+    liveJourneyFareGbp: estate.journeyFareGbp ?? estate.amount,
+    liveAmountGbp: estate.amount,
+    serverFareParts: staleSaloonParts(journeyFare(saloon)),
+    passengers: 2,
+    suitcases: 3,
+    vehicleType: ESTATE_VEHICLE,
+  });
+  assert.equal(displayed, journeyFare(estate));
+  console.log(`OK  configured £${upliftGbp} uplift survives Saloon → Estate display refresh`);
 }
 
 console.log("\n=== BFS: luggage Saloon → Estate changes fare immediately by the uplift ===");
@@ -284,7 +304,7 @@ console.log("\n=== QuoteCard drops stale server fares when the vehicle changes =
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /serverFareAppliesToParty/);
   assert.match(card, /currentServerFareParts/);
-  assert.match(card, /getAutoVehicle\(pax, suitcases/);
+  assert.match(card, /getAutoVehicle\(paxNow, suitcases/);
   assert.match(card, /requestedVehicle/);
   assert.match(card, /serverQuoteGenRef/);
   assert.doesNotMatch(
