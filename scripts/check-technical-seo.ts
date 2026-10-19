@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { getAirportPage } from "../src/lib/location-pages";
 import {
   HOMEPAGE_SEO_DESCRIPTION,
   HOMEPAGE_SEO_TITLE,
@@ -141,10 +142,11 @@ console.log("\n=== Sitemap ===");
     locationPages,
     /metaDescription: `Pre-book a fixed-price taxi from \$\{town\.name\} to \$\{airport\.name\}[^`]*waiting/,
   );
-  assert.match(
-    locationPages,
-    /from Northern Ireland to Dublin Airport \(DUB\), with flight monitoring, included tolls and secure online booking/,
-  );
+  const dublin = getAirportPage("dublin")!;
+  assert.match(dublin.metaDescription, /Dublin Airport transfers to or from Belfast and Northern Ireland/);
+  assert.match(dublin.metaDescription, /fixed-price taxi quote with applicable tolls included/);
+  assert.match(dublin.intro, /Dublin Airport \(DUB\)/);
+  assert.match(dublin.intro, /Terminal 1 or Terminal 2/);
   assert.doesNotMatch(sitemap, /\/manage-booking\//);
   assert.doesNotMatch(sitemap, /\/quote\//);
   assert.doesNotMatch(sitemap, /\/book\//);

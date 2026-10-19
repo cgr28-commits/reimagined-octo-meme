@@ -178,17 +178,18 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     code: "DUB",
     name: "Dublin Airport",
     shortName: "Dublin Airport",
-    title: "Dublin Airport Transfers from NI",
+    title: "Dublin Airport Transfers to & from Northern Ireland",
+    seoTitle: "Dublin Airport Transfers | Belfast & Northern Ireland",
     metaDescription:
-      "Pre-book fixed-price transfers from Northern Ireland to Dublin Airport (DUB), with flight monitoring, included tolls and secure online booking.",
+      "Book private Dublin Airport transfers to or from Belfast and Northern Ireland. Get a fixed-price taxi quote with applicable tolls included. Book online.",
     intro:
-      `Pre-book a private transfer between Northern Ireland and Dublin Airport, with collections from Belfast, Bangor, Lisburn and surrounding towns. Tell us whether you need Terminal 1 or Terminal 2 so we can plan your airport drop-off or arrival collection. Enter your journey details for a fixed-price quote with applicable tolls included. ${FLIGHT_MONITORING_SHORT}`,
+      `Pre-book a private transfer to or from Dublin Airport (DUB), with Belfast, Bangor, Lisburn and surrounding towns in our Northern Ireland service area. Choose a departure transfer from your home or hotel to the airport, or an arrival collection from Dublin Airport to your Northern Ireland address. Tell us whether you need Terminal 1 or Terminal 2 when known. Enter your journey details for a fixed-price quote with applicable tolls included. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
       "Fixed prices for NI ↔ Dublin Airport journeys",
       "Applicable tolls included on Dublin Airport fares",
       "Up to 60 minutes complimentary waiting time on airport pickups",
       "Applicable airport access charges included in your fixed fare",
-      "Return bookings available with a 5% discount online",
+      "5% return-booking discount on the combined journey fare, excluding fixed charges and surcharges",
     ],
     localTips: [
       "Allow around two hours for the road journey from Belfast in normal traffic, plus the time your airline recommends for check-in and security. Allow extra travel time during busy periods.",

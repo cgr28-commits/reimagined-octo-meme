@@ -186,6 +186,15 @@ export default async function TransferRoutePage({ params }: Props) {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
+            {page.airport.code === "DUB" && page.town.slug === "belfast" ? (
+              <p className="mt-4 text-sm leading-relaxed text-white/70">
+                {isFromAirport
+                  ? "This is your arrival transfer from Dublin Airport to Belfast. "
+                  : "This is your departure transfer from Belfast to Dublin Airport. "}
+                For Terminal 1 and Terminal 2 collection guidance, luggage and booking steps, see our{" "}
+                <Link href="/airports/dublin/" className="text-emerald underline underline-offset-4">Dublin Airport transfer guide</Link>.
+              </p>
+            ) : null}
             {page.airport.code === "BFS" ? (
               <p className="mt-4 text-sm leading-relaxed text-white/70">
                 Planning your {page.town.name} journey? Our{" "}

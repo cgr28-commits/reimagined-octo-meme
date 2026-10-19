@@ -4,7 +4,8 @@
     "deploymentEnabled": {
       "codex/mobile-price-bar-guidance": false,
       "codex/belfast-city-airport-seo": false,
-      "codex/belfast-international-airport-seo": false
+      "codex/belfast-international-airport-seo": false,
+      "codex/dublin-airport-seo": false
     }
   }
 }
