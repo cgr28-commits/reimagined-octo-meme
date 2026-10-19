@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import DesktopVehicleSources from "./DesktopVehicleSources";
 import Link from "next/link";
 import { withBasePath } from "@/lib/paths";
 import DeviceBookingCta from "./DeviceBookingCta";
@@ -95,6 +96,7 @@ export default function VehiclesSection() {
                 >
                   <div className="relative mx-auto aspect-[2/1] w-full max-w-[280px] bg-transparent">
                     <picture className="contents">
+                      <DesktopVehicleSources vehicle={vehicle.id} sizes="(min-width: 1440px) 320px, 24vw" />
                       <source
                         srcSet={vehicle.image.replace(/\.webp$/, "-transparent.webp")}
                         type="image/webp"

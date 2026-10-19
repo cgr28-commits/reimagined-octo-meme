@@ -1,3 +1,4 @@
+import DesktopVehicleSources from "./DesktopVehicleSources";
 import { withBasePath } from "@/lib/paths";
 
 type Props = {
@@ -8,10 +9,12 @@ type Props = {
 export default function VitoVehiclePlaceholder({ compact = false }: Props) {
   return (
     <figure
-      className={`overflow-hidden rounded-2xl border border-white/15 bg-white ${
+      className={`desktop-vito-figure overflow-hidden rounded-2xl border border-white/15 bg-white ${
         compact ? "" : "mx-auto max-w-3xl"
       }`}
     >
+      <picture className="contents">
+      <DesktopVehicleSources vehicle="minibus" sizes={compact ? "40vw" : "768px"} />
       <img
         src={withBasePath("/images/vehicles/quote-minibus.webp")}
         alt="Representative black Mercedes-Benz Vito-style vehicle"
@@ -19,6 +22,7 @@ export default function VitoVehiclePlaceholder({ compact = false }: Props) {
         height={700}
         className={`w-full bg-white object-contain ${compact ? "max-h-40" : "h-auto max-h-72"}`}
       />
+      </picture>
       <figcaption className="border-t border-white/10 bg-[#071c38] px-4 py-3 text-sm leading-snug text-white/80">
         Representative Mercedes-Benz Vito-style vehicle. The people carrier sent for a group
         transfer can vary.

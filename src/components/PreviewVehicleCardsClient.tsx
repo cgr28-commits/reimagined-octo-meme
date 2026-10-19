@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import DesktopVehicleSources from "./DesktopVehicleSources";
 import { withBasePath } from "@/lib/paths";
 import { MINIBUS_CUSTOMER_DESCRIPTION, MINIBUS_CUSTOMER_NAME } from "../../shared/vehicle-display";
 import { PREVIEW_PRICING_BANNER } from "../../shared/pricing-preview-isolation";
@@ -48,6 +49,8 @@ export default function PreviewVehicleCardsClient() {
                   isSelected ? "border-emerald bg-emerald/10 text-white" : "border-white/15 text-white/80"
                 }`}
               >
+                <picture className="contents">
+                <DesktopVehicleSources vehicle={option.id} sizes="96px" />
                 <Image
                   src={option.image}
                   alt=""
@@ -55,6 +58,7 @@ export default function PreviewVehicleCardsClient() {
                   height={48}
                   className="h-12 w-20 shrink-0 object-contain"
                 />
+                </picture>
                 <span className="min-w-0">
                   <span className="block font-semibold leading-snug">{option.title}</span>
                   <span className="block text-xs text-white/60">{option.detail}</span>

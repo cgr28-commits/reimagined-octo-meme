@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import DesktopVehicleSources from "./DesktopVehicleSources";
 
 /**
  * Source canvases are all 1400×700, but the cars occupy different fractions
@@ -42,13 +43,13 @@ export function VehicleQuoteArt({
     >
       <picture className="contents">
         <source media="(max-width: 767px)" srcSet={src.replace(/\.webp$/, "-transparent.webp")} type="image/webp" />
-        <source media="(min-width: 1024px)" srcSet={src.replace(/\.webp$/, "-transparent.webp")} type="image/webp" />
+        <DesktopVehicleSources vehicle={vehicle} sizes={size === "option" ? "256px" : "(min-width: 1440px) 672px, 65vw"} />
         <Image
           src={src}
           alt={alt}
           width={1400}
           height={700}
-          className={`h-full w-full max-w-none object-contain object-center ${VEHICLE_ART_SCALE[vehicle]}`}
+          className={`h-full w-full max-w-none object-contain object-center ${VEHICLE_ART_SCALE[vehicle]} lg:scale-100 lg:translate-y-0`}
           sizes={size === "option" ? "184px" : "184px"}
           priority={size === "result"}
         />

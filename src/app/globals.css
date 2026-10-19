@@ -1451,7 +1451,7 @@ main {
 
   .quote-flow [data-vehicle-option-layout] {
     display: grid;
-    grid-template-columns: clamp(10rem, 15vw, 14rem) minmax(0, 1fr) 1.5rem;
+    grid-template-columns: clamp(11rem, 17vw, 16rem) minmax(0, 1fr) 1.5rem;
     height: 100%;
     align-items: center;
     gap: 0.75rem;
@@ -1462,7 +1462,7 @@ main {
   .quote-flow [data-vehicle-option-copy] [data-vehicle-name] { font-size: 1.2rem; }
 
   .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] {
-    width: 100%; max-width: 14rem; height: 7rem;
+    width: 100%; max-width: 16rem; height: 8rem;
   }
 
   .quote-flow [data-vehicle-category] [data-vehicle-selection-indicator] {
@@ -1497,17 +1497,17 @@ main {
   .address-suggestions-overlay button:focus-visible { outline: 2px solid #2FBF4A; outline-offset: -2px; }
   .quote-flow [data-quote-result-card] { padding: 1.5rem; }
   .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
-    height: clamp(12rem, 22vw, 20rem);
-    max-width: 38rem;
+    height: clamp(14rem, 24vw, 24rem);
+    max-width: 42rem;
     width: 100%;
   }
   .quote-flow [data-quote-result-art] { margin: 1rem auto; }
   .quote-flow [data-quote-result-heading] { font-size: 1.75rem; }
   .quote-flow [data-quote-result-main-action] .btn-primary { min-height: 3.5rem; }
-  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="saloon"]) { --desktop-quote-backdrop: url("/images/vehicles/quote-saloon-transparent.webp"); }
-  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="estate"]) { --desktop-quote-backdrop: url("/images/vehicles/quote-estate-transparent.webp"); }
-  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="executive"]) { --desktop-quote-backdrop: url("/images/vehicles/quote-business-class-transparent.webp"); }
-  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="minibus"]) { --desktop-quote-backdrop: url("/images/vehicles/quote-minibus-transparent.webp"); }
+  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="saloon"]) { --desktop-quote-backdrop: url("/images/vehicles/desktop/saloon-1600.webp"); }
+  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="estate"]) { --desktop-quote-backdrop: url("/images/vehicles/desktop/estate-1600.webp"); }
+  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="executive"]) { --desktop-quote-backdrop: url("/images/vehicles/desktop/business-class-1600.webp"); }
+  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="minibus"]) { --desktop-quote-backdrop: url("/images/vehicles/desktop/minibus-1600.webp"); }
   .homepage-hero:has([data-quote-result-card]) .homepage-hero-media::after {
     content: "";
     position: absolute;
@@ -1665,4 +1665,13 @@ main {
   .quote-flow[data-quote-presentation="homepage"] [data-swap-locations] {
     margin-block: 0;
   }
+}
+
+/* Separate polished desktop sources; mobile retains its exact source, frame and transforms. */
+@media (min-width: 1024px) {
+  [data-vehicle-art] img { transform: none; filter: drop-shadow(0 10px 12px rgba(0,0,0,.22)); }
+  [data-fleet-vehicle] > div { max-width: 340px; }
+  [data-fleet-vehicle] img { padding: 0; transform: none !important; }
+  .desktop-vito-figure { background: #071c38; }
+  .desktop-vito-figure img { background: transparent; }
 }
