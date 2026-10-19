@@ -6,7 +6,6 @@ import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
-import { DublinPremiumHero, DublinTravelExperience } from "@/components/DublinPremiumPresentation";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
@@ -41,10 +40,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: `/airports/${page.slug}/`,
       images: [
         {
-          url: withBasePath(page.code === "DUB" ? "/images/dublin-premium/hero-1600.jpg" : `/images/hero/optimized/${page.heroBase}-1920.jpg`),
-          width: page.code === "DUB" ? 1600 : 1920,
-          height: page.code === "DUB" ? 533 : 1080,
-          alt: page.code === "DUB" ? "Dublin Airport Terminal 2 photographed by Ronan Menton" : page.heroAlt,
+          url: withBasePath(`/images/hero/optimized/${page.heroBase}-1920.jpg`),
+          width: 1920,
+          height: 1080,
+          alt: page.heroAlt,
         },
       ],
     },
@@ -86,16 +85,10 @@ export default async function AirportTransferPage({ params }: Props) {
       />
       <Header />
       <main className={LANDING_PAGE_MAIN_CLASS}>
-        {page.code === "DUB" ? (
-          <>
-            <DublinPremiumHero title={page.title} />
-            <LocationQuoteSection airportCode={page.code} direction="to-airport" heading="Your Dublin Airport transfer quote" />
-            <DublinTravelExperience />
-          </>
-        ) : <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />}
+        <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          {page.code !== "DUB" ? <><Link
+          <Link
             href="/airports/"
             className="relative z-10 -mt-10 inline-flex min-h-11 items-center gap-2 text-sm text-white/70 transition-colors hover:text-emerald"
           >
@@ -120,8 +113,14 @@ export default async function AirportTransferPage({ params }: Props) {
             <div className="mt-6">
               <LandingPageQuoteCta />
             </div>
-          </header></> : <p className="mt-4 text-base leading-relaxed text-white/75">{page.intro}</p>}
+          </header>
+        </div>
 
+        {page.code === "DUB" ? (
+          <LocationQuoteSection airportCode={page.code} direction="to-airport" heading="Your Dublin Airport transfer quote" />
+        ) : null}
+
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           {page.code === "DUB" ? (
             <section className="mt-8 space-y-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
               <div>
