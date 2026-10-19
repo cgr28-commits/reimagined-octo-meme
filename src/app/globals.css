@@ -1478,11 +1478,10 @@ main {
   .desktop-result-whatsapp { display: none; }
   .homepage-hero .section-eyebrow {
     max-width: 62rem;
-    font-size: clamp(1.15rem, 1.5vw, 1.8rem);
+    font-size: clamp(0.875rem, 1.1vw, 1.125rem);
     line-height: 1.4;
-    letter-spacing: 0.1em;
-    white-space: normal;
-    text-wrap: balance;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
     margin-bottom: 1rem;
   }
   .address-suggestions-overlay {
@@ -1504,21 +1503,13 @@ main {
   .quote-flow [data-quote-result-art] { margin: 0.375rem auto; }
   .quote-flow [data-quote-result-heading] { font-size: 1.25rem; }
   .quote-flow [data-quote-result-main-action] .btn-primary { min-height: 3.5rem; }
-  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="saloon"]) { --desktop-quote-backdrop: url("/images/vehicles/desktop/saloon-1600.webp"); }
-  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="estate"]) { --desktop-quote-backdrop: url("/images/vehicles/desktop/estate-1600.webp"); }
-  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="executive"]) { --desktop-quote-backdrop: url("/images/vehicles/desktop/business-class-1600.webp"); }
-  .homepage-hero:has([data-quote-result-art] [data-vehicle-art="minibus"]) { --desktop-quote-backdrop: url("/images/vehicles/desktop/minibus-1600.webp"); }
-  .homepage-hero:has([data-quote-result-card]) .homepage-hero-media::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image: var(--desktop-quote-backdrop);
-    background-repeat: no-repeat;
-    background-position: center 16rem;
-    background-size: min(96vw, 1600px) auto;
-    opacity: 0.24;
-    pointer-events: none;
+  /* Static desktop branding: no photograph, vehicle overlay or selection transition. */
+  .homepage-hero-media {
+    background: radial-gradient(ellipse at 50% 12%, #12365b 0%, #0b2748 40%, #071c38 80%);
   }
+  .homepage-hero-media > picture,
+  .homepage-hero-media > .homepage-hero-scrim { display: none; }
+
 }
 
 /* Selected-vehicle landing view: keep alternatives above the mobile viewport. */

@@ -5,8 +5,8 @@ import QuoteHelpContact from "./QuoteHelpContact";
 
 /**
  * Server component: static H1/copy stay outside the QuoteCard client boundary.
- * Desktop keeps the Belfast International photograph. Phones use the navy
- * background and do not request that file.
+ * Tablet keeps the Belfast International photograph. Desktop uses a static navy
+ * gradient; phones retain their existing navy background.
  */
 export default function HeroSlideshow() {
   return (
@@ -32,9 +32,10 @@ export default function HeroSlideshow() {
         <div id="homepage-booking-intro" className="homepage-hero-copy order-1 min-w-0 text-center md:order-2 lg:order-1 lg:pt-2">
           <p className="section-eyebrow mb-1.5 max-w-full md:mb-6 lg:mb-7">
             <span className="md:hidden">Private airport transfers • Northern Ireland</span>
-            <span className="hidden md:inline">
+            <span className="hidden md:inline lg:hidden">
               Private airport transfers • Belfast &amp; Northern Ireland
             </span>
+            <span className="hidden lg:inline">Private airport transfers Belfast &amp; Northern Ireland</span>
           </p>
 
           <h1 className="font-display text-balance text-[1.5625rem] font-semibold leading-[1.15] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
