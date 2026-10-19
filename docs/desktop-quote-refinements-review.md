@@ -21,7 +21,7 @@ Browser-only intercepted responses tested success and a provider failure without
 ## Validation and review evidence
 
 - Desktop 1024/1280/1440/1920 and mobile 320/375/390/430 checked. Before/after screenshots and measurements are in the task's `desktop-quote-refinements/` visualization folder, with a gallery. Main mobile comparison uses the previously captured current-main baseline, not a different revision.
-- Measured full quote height before/after (px): 1024: 2160.68/1741.47 (19.4% shorter); 1280: 2230.13/1795.78 (19.5%); 1440: 2272.13/1805.47 (20.5%); 1920: 2310.53/1805.47 (21.9%). Maximum width is 704px, previously 736/800/800/864px respectively. The large selected vehicle remains visible and contained at every width.
+- Measured full quote height before/after (px): 1024: 2160.68/1688.97 (21.8% shorter); 1280: 2230.13/1743.28 (21.8%); 1440: 2272.13/1752.97 (22.8%); 1920: 2310.53/1752.97 (24.1%). Maximum width is 704px, previously 736/800/800/864px respectively. The large selected vehicle remains visible and contained at every width.
 - All four mobile hero, vehicle-list and result dimensions match main. Original image sources, typography and button sizes remain unchanged; no horizontal overflow.
 - All four desktop vehicle choices/backgrounds are captured at all four widths. Address suggestions and keyboard selection, View Route and Save Quote popups, enquiry context updates and booking handoff pass. Estate one-way GBP242 and return GBP475; breakdown shows GBP486 minus GBP24.30 (5%) plus GBP13 charges, rounded as before. No real email/booking/payment was submitted. Final browser error log is empty; the expected mocked provider-error response was confined to the earlier local UI test.
 - Thirteen targeted regression scripts pass: mobile quote UI, pricing/vehicle quote flow, configurable owner pricing, minibus capacity, luggage capacity, return offer/address/journey UX, SumUp conversion, child-seat booking/SumUp, checkout, technical SEO and desktop enquiry.
@@ -30,3 +30,12 @@ Browser-only intercepted responses tested success and a provider failure without
 - Export scan: 7,576 internal hrefs resolve; 102 unique sitemap URLs. Generated sitemap drift restored before commit.
 
 Keep PR #658 draft for visual approval and real email-delivery verification. No live settings, backend permissions, redirects or payments changed.
+
+
+## Airport inclusion presentation
+
+Desktop result inclusions are centred directly above the full-width booking action. The green tick and existing conditional heading remain, with smaller centred supporting text below. The oversized background/border/padding and desktop pre-booked-transfer line are removed. The latter remains unchanged on mobile, including the non-airport fallback. Builder/fee logic is untouched; JSX adds styling hooks only.
+
+Rendered checks at desktop 1024/1280/1440/1920 confirm heading/description centres within 0.001px of the panel centre, no border/background/padding, and roughly 12px from supporting text to booking button. Mobile 320/375/390/430 retains the exact main hero/result/vehicle-list heights and visible original pre-booked-transfer line. Pickup retains its pickup/waiting messages; a return journey correctly labels the outbound pickup and return drop-off. No browser errors.
+
+Seven targeted suites pass: quote-airport-benefits (all airport/direction/return/fallback cases), airport-fee-wording, express-drop-off, homepage-mobile-quote-ui, owner-pricing, pricing-vehicle-quote-flow and sumup-booking-conversion. Production build passes (148 pages); existing warnings only. No calculations, charges, settings, assets, booking or SumUp implementation changed. Review screenshots and measurements: task visualization folder `desktop-airport-inclusions/`.
