@@ -1766,3 +1766,8 @@ main {
   .quote-flow [data-quote-result-card] [data-airport-benefit-row]:has([data-airport-benefit-label]) [data-airport-benefit-heading] { grid-row: 2; }
   .quote-flow [data-quote-result-card] [data-quote-result-main-action] { margin-top: 0.375rem; }
 }
+
+/* Keep existing mobile payment styling; lift desktop supporting-copy contrast. */
+@media (min-width: 1024px) {
+  .quote-flow .desktop-payment-support { color: var(--quote-secondary-ink); }
+}

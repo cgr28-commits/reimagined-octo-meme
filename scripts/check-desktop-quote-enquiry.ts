@@ -36,6 +36,16 @@ async function main() {
   assert.match(quote, /setQuoteActionOpen\("whatsapp"\)[\s\S]{0,250}desktop-result-whatsapp/);
   assert.match(quote, /authoritativeFareReady && pricedFare/);
   assert.match(readFileSync("src/components/DesktopQuoteEnquiry.tsx", "utf8"), /event\.stopPropagation\(\)/, "portal submit must not bubble into the booking form");
+  const form = readFileSync("src/components/DesktopQuoteEnquiry.tsx", "utf8");
+  assert.match(form, /if \(submission.current\) return;[\s\S]*Object.freeze\(\{ name, email, message, journey \}\)/);
+  assert.match(form, /submission.current = input;[\s\S]*await sendDesktopQuoteEnquiry\(input\)/);
+  assert.match(form, /finally \{ submission.current = null; setSending\(false\); \}/);
+  for (const field of ["name", "email", "message"]) assert.ok(form.includes(`value={${field}} disabled={sending}`));
+  const confirmation = form.slice(form.indexOf('{sent ? <div'), form.indexOf('<form data-desktop-enquiry-form'));
+  assert.match(form, /title=\{sent \? "Enquiry Sent Successfully" : "Email enquiry"\}/);
+  assert.ok(confirmation.includes("Thank you for contacting My Airport Taxi NI."));
+  assert.ok(confirmation.includes("We've received your enquiry and will get back to you as soon as possible."));
+  assert.doesNotMatch(confirmation, /SITE.email|email.trim|bookings@|acknowledgement/i);
   console.log("PASS: validation, journey context, existing endpoint, no booking payload, confirmed email success, HTTP/provider/network errors, desktop-only visibility and preserved mobile WhatsApp.");
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

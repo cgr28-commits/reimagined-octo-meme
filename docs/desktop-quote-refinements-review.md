@@ -16,7 +16,7 @@ Existing name/email/length validation, loading lock, confirmed-email success and
 
 Browser-only intercepted responses tested success and a provider failure without delivering enquiries. The captured payload included the current route, Saloon, two passengers/two suitcases and GBP235. A deliberately paused request tested timeout feedback. Required-name/invalid-email validation, disabled loading action, focus wrap in both directions, Escape, close and return-to-quote were tested. Focus returns to Email Enquiry and the quote remains selected at GBP235. All interception was cleared after testing.
 
-**Outstanding publication blocker:** actual email delivery through the existing endpoint remains unverified from the earlier PR work. Mocked browser success is not evidence of real inbox delivery. This update does not change backend permissions or fix that separate integration issue.
+**Email delivery verification PASSED:** the business owner confirmed receipt of test enquiry MATNI-1049 in the business inbox. This supersedes the earlier unverified-delivery status. The working delivery integration is preserved; no additional real enquiries are sent during final corrections. See `desktop-final-corrections-review.md` for the final form-race fix and validation.
 
 ## Validation and review evidence
 
@@ -29,7 +29,7 @@ Browser-only intercepted responses tested success and a provider failure without
 - Production static export: 148 pages. Existing unused-variable/hooks, AddressInput aria-selected and static-export headers/redirects warnings remain. OneDrive cache locks/readlink caused an intermediate build failure; clearing only the verified generated `.next` cache resolved it.
 - Export scan: 7,576 internal hrefs resolve; 102 unique sitemap URLs. Generated sitemap drift restored before commit.
 
-Keep PR #658 draft for visual approval and real email-delivery verification. No live settings, backend permissions, redirects or payments changed.
+Keep PR #658 draft pending the owner’s final visual approval. Real email delivery is now confirmed by the owner (MATNI-1049). No live settings, backend permissions, redirects or payments changed.
 
 
 ## Airport inclusion presentation

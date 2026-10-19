@@ -68,7 +68,7 @@ assert.match(card, /label: "Your quote"/);
 assert.match(card, /label: "Complete your booking"/);
 assert.match(card, /Step 1 — Journey details/);
 assert.match(card, /Step 2 — Your quote/);
-assert.match(card, /Step 3 — Complete your booking/);
+assert.match(card, /quoteStep >= 2\s*\? "COMPLETE YOUR BOOKING"\s*: presentation === "homepage"\s*\? "Get Your Fixed Quote"/);
 assert.doesNotMatch(card, /Step 2 — Complete your booking/);
 assert.match(card, /grid-cols-3/);
 assert.match(card, /quoteProgressStep/);

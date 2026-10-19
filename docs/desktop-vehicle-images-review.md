@@ -32,4 +32,4 @@ Larger contained desktop frames and soft shadows; responsive Tailwind scale/tran
 - Production static export passes: 148 pages. Export scan: 7,576 internal hrefs resolve; 102 unique sitemap URLs. Generated sitemap drift restored before commit.
 - Existing unrelated unused-variable/hooks, AddressInput aria-selected and static-export headers/redirects warnings remain.
 
-The earlier PR #658 email-delivery blocker remains: the existing backend has not confirmed real enquiry delivery. Keep the PR draft pending visual approval and delivery verification. No merge or deployment performed.
+**Email delivery verification PASSED:** the business owner confirmed receipt of test enquiry MATNI-1049 in the business inbox. This supersedes the earlier unverified-delivery status. The working delivery integration is preserved; no additional real enquiries are sent during final corrections. See `desktop-final-corrections-review.md` for the final form-race fix and validation.

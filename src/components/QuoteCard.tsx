@@ -7001,8 +7001,8 @@ function QuoteCard({
                         <p className="mt-2 text-sm font-semibold text-emerald">
                           {todayPayLabel(depositCashOffer.totalFare)}
                         </p>
-                        <p className="mt-0.5 text-xs text-white/55">{nothingToPayOnTheDayLabel()}</p>
-                        <p className="mt-2 text-[11px] leading-snug text-white/45">
+                        <p className="desktop-payment-support mt-0.5 text-xs text-white/55">{nothingToPayOnTheDayLabel()}</p>
+                        <p className="desktop-payment-support mt-2 text-[11px] leading-snug text-white/45">
                           {FULL_ONLINE_SUPPORTING}
                         </p>
                       </button>
@@ -7014,7 +7014,7 @@ function QuoteCard({
                           <p>{cashSelectedRemainingSentence(depositCashOffer.cashDueGbp)}</p>
                           <p>{CASH_SELECTED_CARD_UNAVAILABLE}</p>
                         </div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                        <p className="desktop-payment-support text-xs font-semibold uppercase tracking-wider text-white/50">
                           {DEPOSIT_CASH_SUMMARY_HEADING}
                         </p>
                         <ul className="space-y-1 text-sm text-white/85">
@@ -7040,7 +7040,7 @@ function QuoteCard({
                         </label>
                       </div>
                     ) : null}
-                    <p className="text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
+                    <p className="desktop-payment-support text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
                   </div>
                 ) : null}
                 {isAvailabilityRequest && !openCheckout ? (

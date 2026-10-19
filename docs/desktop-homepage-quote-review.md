@@ -17,7 +17,7 @@ The existing public Worker `/bookings` route accepts a generic name/message enqu
 
 The frontend requires both `ok:true` and `emailSent:true` before claiming success. It does not treat a saved request as proof of email delivery. No automatic retry.
 
-**Outstanding:** real, clearly marked QA enquiry attempts to the existing business inbox did not receive confirmation within the 20-second client timeout. Delivery/inbox receipt is unverified; the request might have reached the provider despite the timeout. Do not repeatedly retry or publish the new enquiry action until the existing route/provider is investigated and a real delivery is confirmed. Backend changes, if needed, require separate approval. No production backend or pricing settings were changed.
+**Email delivery verification PASSED:** the business owner confirmed receipt of test enquiry MATNI-1049 in the business inbox. This supersedes the earlier unverified-delivery status. The working delivery integration is preserved; no additional real enquiries are sent during final corrections. See `desktop-final-corrections-review.md` for the final form-race fix and validation.
 
 Validation covered native required/invalid email errors, disabled loading action, and the real timeout error. A temporary browser-only mocked response verified success rendering, Tab trapping, Escape closing and retention of the quote stage; the mock was cleared immediately and never reached production. An early UI test exposed React portal submit bubbling into the parent quote form; `stopPropagation` now isolates it, and the success retest stayed in the quote stage. No booking or payment was submitted.
 
