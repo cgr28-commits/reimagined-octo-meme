@@ -20,6 +20,12 @@ import { getBreadcrumbJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data
 
 type Props = { params: Promise<{ slug: string }> };
 
+const INTERNATIONAL_GUIDE_CONTEXT: Record<string, string> = {
+  newtownabbey: "Flying from Aldergrove? Plan your Newtownabbey pickup and read the arrival collection guidance in our ",
+  antrim: "For an Antrim journey to Belfast International (BFS), check the airport meeting-point and booking guidance in our ",
+  lisburn: "Travelling from Lisburn to Aldergrove? Read how airport access charges are included in your quote in our ",
+};
+
 export function generateStaticParams() {
   return TOWN_HUB_PAGES.map((page) => ({ slug: page.slug }));
 }
@@ -107,6 +113,12 @@ export default async function TownHubPage({ params }: Props) {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
+            {INTERNATIONAL_GUIDE_CONTEXT[page.town.slug] ? (
+              <p className="mt-4 text-sm leading-relaxed text-white/70">
+                {INTERNATIONAL_GUIDE_CONTEXT[page.town.slug]}
+                <Link href="/airports/belfast-international/" className="text-emerald underline underline-offset-4">Belfast International Airport taxi guide</Link>.
+              </p>
+            ) : null}
             {["holywood", "bangor"].includes(page.town.slug) ? (
               <p className="mt-4 text-sm leading-relaxed text-white/70">
                 {page.town.slug === "holywood"
