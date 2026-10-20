@@ -34,7 +34,7 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
   const fieldBoxes = await Promise.all([pickupDateInput, time].map(field => field.boundingBox()));
   assert.ok(fieldBoxes.every(box => box && box.height >= 44), 'date/time touch targets must be at least 44px high');
   assert.equal(Math.round(fieldBoxes[0].y), Math.round(fieldBoxes[1].y), 'pickup date and time must share a row');
-  await page.screenshot({path:`${output}/${page.viewportSize().width}-schedule-inline.png`});
+  await schedule.screenshot({path:`${output}/${page.viewportSize().width}-schedule-inline.png`});
   assert.equal(await page.locator('[data-quote-results="ready"]').count(), 0,
     'a final fare must remain hidden while the schedule is incomplete or has changed');
   if (!(await pickupDateInput.inputValue()) || !(await time.inputValue())) {
@@ -62,7 +62,7 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
       }
     }
   }
-  await page.screenshot({path:`${output}/${page.viewportSize().width}-schedule-complete.png`});
+  await schedule.screenshot({path:`${output}/${page.viewportSize().width}-schedule-complete.png`});
   await trigger.click();
   await page.locator('[data-quote-results="ready"]').waitFor({ state: 'attached' });
 }
@@ -117,7 +117,7 @@ try {
     const page = await context.newPage();
     await page.goto(base);
     await page.locator('#quote-section-passengers').waitFor();
-    if (await page.getByRole('button',{name:'Essential only',exact:true}).isVisible()) await page.getByRole('button',{name:'Essential only',exact:true}).click();
+    if (await page.getByRole('button',{name:'Reject optional',exact:true}).isVisible()) await page.getByRole('button',{name:'Reject optional',exact:true}).click();
     assert.equal(await page.locator('#quote-section-passengers').inputValue(),'');
     assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'');
     assert.deepEqual(await page.locator('#quote-section-passengers option').allTextContents(),['Select','1','2','3','4','5','6','7']);
@@ -137,6 +137,8 @@ try {
     await page.locator('#quote-section-passengers').selectOption('');
     await page.locator('#quote-section-suitcases').selectOption('0'); await disabled(page);
     await page.locator('#quote-section-passengers').selectOption('2');
+    await page.locator('#date').fill('');
+    await page.locator('#time').fill('');
     await requestFixedPrice(page);
     await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
     assert.match(await page.locator('[data-quote-results="ready"]').innerText(), /0 suitcases/);

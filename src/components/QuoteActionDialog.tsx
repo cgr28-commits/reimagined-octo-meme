@@ -20,14 +20,7 @@ export default function QuoteActionDialog({
   const headingId = titleId ?? generatedId;
   const panelRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef(onClose);
-  const openerRef = useRef<HTMLElement | null>(null);
-  // Capture during render, before the dialog's autofocus can replace the opener
-  // as document.activeElement.
-  if (openerRef.current === null && typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
-    openerRef.current = document.activeElement;
-  }
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
@@ -51,7 +44,7 @@ export default function QuoteActionDialog({
     window.addEventListener("resize", fitVisibleViewport);
     const body = document.body;
     const x = window.scrollX, y = window.scrollY;
-    const previousFocus = openerRef.current;
+    const previousFocus = document.activeElement;
     const keys = ["position", "top", "left", "width", "overflow", "paddingRight"] as const;
     const previous = keys.map((key) => body.style[key]);
     const scrollbar = window.innerWidth - document.documentElement.clientWidth;
@@ -62,7 +55,7 @@ export default function QuoteActionDialog({
     body.style.width = "100%";
     body.style.overflow = "hidden";
     body.style.paddingRight = `${padding + scrollbar}px`;
-    closeButtonRef.current?.focus({ preventScroll: true });
+    panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -104,7 +97,7 @@ export default function QuoteActionDialog({
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">My Airport Taxi NI</p>
             <h2 id={headingId} className="mt-1 text-lg font-semibold text-white">{title}</h2>
           </div>
-          <button ref={closeButtonRef} autoFocus type="button" onClick={onClose} disabled={closeDisabled} aria-label="Close"
+          <button type="button" onClick={onClose} disabled={closeDisabled} aria-label="Close"
             className="rounded-lg px-2 py-1 text-sm quote-secondary hover:bg-white/10 hover:text-white disabled:opacity-50">✕</button>
         </div>
         <div className="isolate min-h-0 overflow-y-auto px-5 py-5">{children}</div>

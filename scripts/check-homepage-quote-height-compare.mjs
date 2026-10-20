@@ -53,7 +53,7 @@ async function measure(label, url, width) {
   const passenger = page.locator('#quote-section-passengers');
   const passengerBox = await passenger.boundingBox();
   dimensions.passengerTouchTargetHeight = passengerBox?.height ?? null;
-  await page.screenshot({ path: `${output}/${label}-${width}.png`, fullPage: false });
+  await card.screenshot({ path: `${output}/${label}-${width}.png` });
   await context.close();
   return { label, width, syntheticDeviceHeight: deviceHeight, syntheticVisibleHeight: visibleHeight, ...dimensions };
 }

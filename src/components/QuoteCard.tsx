@@ -3231,7 +3231,8 @@ function QuoteCard({
       if (suitcases == null) setSuitcasesError(QUOTE_REQUIRED_FIELD_MESSAGES.suitcases);
       return false;
     }
-    if (!isScheduleComplete || !validateTripForBooking()) {
+    if (!isScheduleComplete) {
+      validateTripForBooking();
       focusHomepageScheduleError();
       return false;
     }

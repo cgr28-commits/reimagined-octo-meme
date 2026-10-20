@@ -64,7 +64,7 @@ jobs:
           node --import tsx scripts/check-quote-schedule-price-gate.ts
           node --import tsx scripts/check-quote-checkout-page.ts
           node --import tsx scripts/check-quote-required-fields.ts
-      - name: Test popup, booking and compare card heights at five viewports
+      - name: Test inline schedule, booking and compare card heights at five viewports
         run: |
           python3 -m http.server 3000 --directory out > "$RUNNER_TEMP/matni-updated-server.log" 2>&1 &
           for attempt in {1..30}; do
