@@ -31,10 +31,8 @@ import {
 } from "../../shared/owner-dashboard-ops";
 import {
   activeLegPickupLabel,
-  activeLegPickupTime,
   buildArrivedPickupWhatsAppLink,
   buildArrivedPickupWhatsAppMessage,
-  buildDriverOnTheWayWhatsAppLink,
   isAirportPickupLabel,
   toWhatsAppDigits,
 } from "../../shared/arrival-whatsapp";
@@ -87,6 +85,7 @@ import { markBookingRefundedExternally } from "@/lib/refund-api";
 import {
   ensurePaidBookingTracking,
   postJourneyAction,
+  postDriverLocation,
   type JourneyAction,
 } from "@/lib/tracking-api";
 import {
@@ -255,26 +254,6 @@ function openReviewWhatsAppForBooking(
     customerName: booking.customerName,
   });
   openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, message));
-  return "opened";
-}
-
-function openOnTheWayWhatsAppForBooking(
-  booking: OwnerPaidBookingSummary,
-  serverMessage?: string,
-): "opened" | "no_mobile" {
-  const mobile = bookingCustomerMobile(booking);
-  if (!mobile) return "no_mobile";
-  if (serverMessage?.trim()) {
-    openWhatsAppDeepLink(buildArrivedPickupWhatsAppLink(mobile, serverMessage.trim()));
-    return "opened";
-  }
-  openWhatsAppDeepLink(
-    buildDriverOnTheWayWhatsAppLink(mobile, {
-      customerName: booking.customerName,
-      bookedPickupTime: activeLegPickupTime(booking),
-      authenticatedRole: "owner",
-    }),
-  );
   return "opened";
 }
 
@@ -524,6 +503,27 @@ export default function OwnerPaidBookingsPanel({
   onSelectedDateChange,
 }: OwnerPaidBookingsPanelProps) {
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
+  const [gpsJob, setGpsJob] = useState<{ token: string; sessionToken?: string } | null>(null);
+  useEffect(() => {
+    if (!gpsJob || !navigator.geolocation) return;
+    let disposed = false;
+    let inFlight = false;
+    let confirmed = false;
+    const sendPosition = async (position: GeolocationPosition) => {
+      if (disposed || inFlight) return;
+      inFlight = true;
+      try {
+        const result = await postDriverLocation(ownerKey, gpsJob.token, position.coords.latitude, position.coords.longitude, { sessionToken: gpsJob.sessionToken, accuracy: position.coords.accuracy });
+        if (!disposed && result.stored && !confirmed) { confirmed = true; setMessage("GPS received by the tracking server. Keep this page open; locking the phone or switching apps may pause updates."); }
+      } catch (error) { if (!disposed) setError(error instanceof Error ? error.message : "GPS upload failed"); }
+      finally { inFlight = false; }
+    };
+    const geoError = (error: GeolocationPositionError) => { if (!disposed) setError(`GPS unavailable: ${error.message}`); };
+    const options = { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 };
+    const watch = navigator.geolocation.watchPosition(sendPosition, geoError, options);
+    const heartbeat = window.setInterval(() => navigator.geolocation.getCurrentPosition(sendPosition, geoError, options), 20000);
+    return () => { disposed = true; window.clearInterval(heartbeat); navigator.geolocation.clearWatch(watch); };
+  }, [gpsJob, ownerKey]);
   const [pending, setPending] = useState<OwnerPendingCheckoutSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1014,6 +1014,8 @@ export default function OwnerPaidBookingsPanel({
       }
 
       const result = await postJourneyAction(ownerKey, token, action, options);
+      if (action === "start_tracking") setGpsJob({ token, sessionToken: result.trackingSession?.sessionToken });
+      if (!result.sharingActive) setGpsJob(null);
       setBookings((current) =>
         current.map((entry) =>
           entry.paymentReference === booking.paymentReference
@@ -1072,7 +1074,7 @@ export default function OwnerPaidBookingsPanel({
                 : "";
 
         const mobile = bookingCustomerMobile(booking);
-        const openWhatsApp = !options?.retryArrivalNotification && Boolean(mobile);
+        const openWhatsApp = !gpsJob && !options?.retryArrivalNotification && Boolean(mobile);
         if (openWhatsApp) {
           openArrivalWhatsAppForBooking(booking, result.customerWhatsAppMessage);
           setMessage(
@@ -1106,20 +1108,7 @@ export default function OwnerPaidBookingsPanel({
               : result.onTheWayNotificationStatus === "not_configured"
                 ? " On-the-way email not configured."
                 : "";
-        const wa = openOnTheWayWhatsAppForBooking(booking, result.customerWhatsAppMessage);
-        setMessage(
-          result.idempotent
-            ? `Already marked Driver on the way.${notify}${
-                wa === "opened"
-                  ? " WhatsApp opened — press Send (live location stays manual in WhatsApp)."
-                  : " No customer mobile on this booking for WhatsApp."
-              }`
-            : `Driver on the way recorded.${notify}${
-                wa === "opened"
-                  ? " WhatsApp opened — press Send (live location stays manual in WhatsApp)."
-                  : " No customer mobile on this booking for WhatsApp."
-              }`,
-        );
+        setMessage(`Driver on the way recorded.${notify} Waiting for GPS confirmation. Allow precise location and keep this page open for tracking.`);
       } else if (options?.retryArrivalNotification) {
         setMessage(
           result.arrivalNotificationStatus === "sent"
@@ -2414,6 +2403,9 @@ export default function OwnerPaidBookingsPanel({
 
   return (
     <section className={mode === "day" ? "mb-6" : "mb-10"}>
+      {gpsJob && <div className="mb-4 rounded-xl border border-emerald/30 p-4 text-sm text-white"><p>Live tracking: keep this page open. Locking your phone or switching apps may pause GPS.</p><button type="button" className="mt-3 rounded-xl bg-red-500/20 px-4 py-3 font-semibold text-red-100" onClick={() => {
+        void postJourneyAction(ownerKey, gpsJob.token, "stop_tracking").then(() => { setGpsJob(null); setMessage("Tracking stopped. The customer can no longer see a live position."); }).catch(error => setError(error instanceof Error ? error.message : "Could not stop tracking; please retry."));
+      }}>Stop sharing location</button></div>}
       {error ? (
         <p className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {error}

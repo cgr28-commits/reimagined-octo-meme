@@ -40,7 +40,7 @@ export default function DriverTrackingSection() {
               <li>
                 <span className="font-semibold text-white">2. Save the link</span>
                 <br />
-                Tracking opens on travel day, about one hour before your pickup time.
+                The link only becomes live when your driver is on the way and starts sharing their location.
               </li>
               <li>
                 <span className="font-semibold text-white">3. Follow your driver</span>

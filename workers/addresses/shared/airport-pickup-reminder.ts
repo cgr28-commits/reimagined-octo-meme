@@ -1,3 +1,4 @@
+import { customerTrackingHtml, customerTrackingText } from "./customer-tracking-email";
 import { dublinAirportMapHtml, dublinAirportMapText } from "./dublin-airport-map";
 import { belfastInternationalMapHtml, belfastInternationalMapText } from "./belfast-international-airport-map";
 import { belfastCityMapHtml, belfastCityMapText } from "./belfast-city-airport-map";
@@ -69,6 +70,7 @@ const MEET_COPY = "Your driver will then meet you at the designated pickup locat
 export type AirportPickupReminderLeg = "outbound" | "return";
 
 export type AirportPickupReminderInput = {
+  trackUrl?: string;
   customerName?: string | null;
   customerEmail?: string | null;
   pickupLabel?: string | null;
@@ -482,7 +484,7 @@ export function evaluateAirportPickupReminder(
     reason: "due",
     message,
     subject,
-    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input) + dublinAirportMapText(input),
+    text: message + belfastCityMapText({ pickupLabel: input.pickupLabel }) + belfastInternationalMapText(input) + dublinAirportMapText(input) + customerTrackingText(input.trackUrl),
     html: buildAirportPickupReminderHtml(message, whatsAppHref, belfastCityMapHtml({ pickupLabel: input.pickupLabel }) + belfastInternationalMapHtml(input) + dublinAirportMapHtml(input), true, input),
     whatsAppHref,
     whatsAppDraft,
@@ -550,7 +552,7 @@ ${businessEmailLogoHtml()}
 <div class="collection-email-title" style="margin-top:16px;font-size:16px;line-height:1.35;color:#ffffff;font-weight:bold;">Important information about your airport collection</div>
 ${reference ? `<div style="margin-top:14px;display:inline-block;background:rgba(16,185,129,0.15);border:1px solid ${accent};border-radius:10px;padding:10px 16px;font-size:15px;color:#ffffff;"><span style="color:${accent};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;">Booking reference</span><br /><span style="font-size:22px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(reference)}</span></div>` : ""}
 </td></tr>
-<tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}${mapPlaced ? "" : mapHtml}</td></tr>
+<tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}${mapPlaced ? "" : mapHtml}${customerTrackingHtml(input?.trackUrl)}</td></tr>
 <tr><td style="background:${navy};padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">Premium airport transfers across Northern Ireland · Belfast · Dublin · Derry</td></tr>
 </table></td></tr></table></body></html>`;
 }

@@ -1178,7 +1178,8 @@ function DriverJobCard({
     journeyStatus !== "completed";
   const allowedActions: JourneyAction[] = (() => {
     if (!isOwner) {
-      return sequentialDriverJourneyActions(journeyStatus);
+      const actions = sequentialDriverJourneyActions(journeyStatus);
+      return SERVICE_FLAGS.liveDriverTracking && job.sharingActive ? [...actions, "stop_tracking" as JourneyAction] : actions;
     }
     const raw =
       job.allowedJourneyActions ??
@@ -1193,7 +1194,7 @@ function DriverJobCard({
               : journeyStatus === "arrived_destination"
                 ? (["complete_journey"] as JourneyAction[])
                 : []);
-    return raw.filter((action) => action !== "stop_tracking");
+    return SERVICE_FLAGS.liveDriverTracking ? raw : raw.filter((action) => action !== "stop_tracking");
   })();
 
   useEffect(() => {
@@ -1363,7 +1364,7 @@ function DriverJobCard({
       // WhatsApp click-to-chat after recording arrival (manual Send). Keep Resend/email as-is.
       // Voice follows the authenticated session: portal drivers use first person; the owner stays company voice.
       const whatsappRole = isDriverPortalSessionToken(driverKey) ? "driver" : "owner";
-      if (action === "arrived_pickup") {
+      if (action === "arrived_pickup" && !SERVICE_FLAGS.liveDriverTracking) {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
           // Return-leg jobs already store the leg's pickup on pickupLabel.
@@ -1388,7 +1389,7 @@ function DriverJobCard({
       }
 
       // Optional WhatsApp for Driver on the way (manual Send / Live Location).
-      if (action === "start_tracking") {
+      if (action === "start_tracking" && !SERVICE_FLAGS.liveDriverTracking) {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
           const href = result.customerWhatsAppMessage?.trim()
@@ -1830,7 +1831,7 @@ function DriverJobCard({
           )}
           <p className="mt-2 text-sm font-semibold text-emerald">
             Journey: {journeyLabel}
-            {SERVICE_FLAGS.liveDriverTracking && job.sharingActive ? " · GPS live" : ""}
+            {SERVICE_FLAGS.liveDriverTracking && job.sharingActive ? driverSharingLive ? " · GPS live" : " · Waiting for GPS" : ""}
           </p>
           {SERVICE_FLAGS.liveDriverTracking && isActive && gpsStale && (
             <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
@@ -2932,8 +2933,6 @@ export default function DriverPageClient({
     }
 
     const sendPosition = (position: GeolocationPosition) => {
-      setLastGpsAt(Date.now());
-      setGpsStale(false);
       void postDriverLocation(
         savedKey,
         activeToken,
@@ -2952,8 +2951,10 @@ export default function DriverPageClient({
             ? { heading: position.coords.heading }
             : {}),
         },
-      ).catch(() => {
-        // Ignore transient GPS upload errors; next tick will retry.
+      ).then((result) => {
+        if (result.stored) { setLastGpsAt(Date.now()); setGpsStale(false); }
+      }).catch(() => {
+        setGpsStale(true);
       });
     };
 
@@ -2967,6 +2968,8 @@ export default function DriverPageClient({
       timeout: 20_000,
     });
 
+    const heartbeat = window.setInterval(() => navigator.geolocation.getCurrentPosition(sendPosition, onGeoError, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }), 20000);
+
     const staleTimer = window.setInterval(() => {
       setLastGpsAt((prev) => {
         if (prev && Date.now() - prev >= DRIVER_GPS_STALE_MS) {
@@ -2978,6 +2981,7 @@ export default function DriverPageClient({
 
     return () => {
       window.clearInterval(staleTimer);
+      window.clearInterval(heartbeat);
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
@@ -3532,6 +3536,7 @@ export default function DriverPageClient({
               */}
               {savedKey && (!isOwnerView || ownerToolTab === "tracking") ? (
               <div id={isOwnerView ? "owner-tool-panel-tracking" : undefined}>
+              {activeToken && SERVICE_FLAGS.liveDriverTracking && <p role="status" className="mb-4 rounded-xl border border-emerald/30 bg-emerald/10 p-4 text-sm text-white">{gpsStale ? "GPS upload is not confirmed. Check location permission and your connection." : lastGpsAt ? "GPS received by the tracking server." : "Waiting for the first GPS upload — allow precise location."} Keep this page open for live tracking. Phone locking and switching apps may pause updates.</p>}
               {isOwnerView ? (
                 <OwnerToolBackBar title="Tracking" onBack={() => setOwnerToolTab("more")} />
               ) : null}

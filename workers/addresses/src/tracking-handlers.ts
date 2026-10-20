@@ -194,10 +194,11 @@ function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
   if (
     !windowOpen ||
     journeyDone ||
+    !record.trackingStartedAt ||
     !record.sharingActive ||
     typeof record.driverLat !== "number" ||
     typeof record.driverLng !== "number" ||
-    !isLocationFresh(record.driverUpdatedAt)
+    !isLocationFresh(record.driverUpdatedAt, Date.now(), 90_000)
   ) {
     return null;
   }
@@ -233,6 +234,11 @@ export function publicTrackPayload(
   options: { includeCustomerLocation?: boolean } = {},
 ) {
   const window = getTrackingWindow(record.pickupAt);
+  // An early departure can activate the link; the upper expiry bound remains.
+  if (window.reason === "too_early" && record.trackingStartedAt && record.sharingActive) {
+    window.open = true;
+    window.reason = "open";
+  }
   const driver = liveDriverLocation(record, window.open);
   const customer = options.includeCustomerLocation
     ? liveCustomerLocation(record, window.open)
@@ -331,14 +337,13 @@ export async function buildPublicTrackResponse(
   origin: string | null,
 ): Promise<ReturnType<typeof publicTrackPayload> & { vehicle?: ReturnType<typeof toCustomerVehicleDetails> }> {
   const payload = publicTrackPayload(record, origin);
-  const window = getTrackingWindow(record.pickupAt);
 
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return payload;
   }
 
   const profile = await resolveCustomerVisibleVehicle(env.TRACKING_STORE, {
-    trackingWindowOpen: window.open,
+    trackingWindowOpen: payload.trackingWindow.open,
     sharingActive: record.sharingActive,
     driverName: record.activeDriverName ?? record.assignedDriverName,
   });

@@ -84,10 +84,10 @@ export const SERVICE_FLAGS = {
    */
   customerSumUpPay: true,
   /**
-   * Soft-hide customer website live tracking (homepage section, nav, /track map).
+   * Customer website live tracking (homepage section, nav, /track map).
    * Journey status actions (Driver on the way / Arrived) stay available on driver/owner dashboards.
    */
-  liveDriverTracking: false,
+  liveDriverTracking: true,
   /** Public driver dashboard — enabled for journey tracking on phone. */
   driverDashboard: true,
 } as const;
