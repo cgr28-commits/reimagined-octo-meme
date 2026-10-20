@@ -7,6 +7,7 @@ import { shouldHidePublicSalesWidgets } from "@/lib/owner-portal";
 import { withBasePath } from "@/lib/paths";
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import QuoteNavLink from "@/components/QuoteNavLink";
+import { useIsMobileDevice } from "@/lib/device";
 
 type TawkAPI = {
   onLoad?: () => void;
@@ -23,6 +24,13 @@ type ChatWindow = Window & {
 };
 
 export default function TawkChat() {
+  const isMobile = useIsMobileDevice();
+  // Wait for the viewport check before mounting or loading Tawk.to.
+  if (isMobile !== false) return null;
+  return <DesktopTawkChat />;
+}
+
+function DesktopTawkChat() {
   const pathname = usePathname();
   const [opening, setOpening] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -83,6 +91,7 @@ export default function TawkChat() {
       document.head.appendChild(script);
     }
     return () => {
+      chatWindow.Tawk_API?.hideWidget?.();
       if (api.onLoad === onLoad) api.onLoad = undefined;
       if (api.onChatMaximized === onMaximized) api.onChatMaximized = undefined;
       if (api.onChatMinimized === onMinimized) api.onChatMinimized = undefined;
