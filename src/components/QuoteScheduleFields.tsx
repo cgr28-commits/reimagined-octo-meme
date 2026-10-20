@@ -84,7 +84,7 @@ export default function QuoteScheduleFields({
   return (
     <section
       id="quote-section-schedule"
-      className={`scroll-mt-44 md:scroll-mt-28 ${isQuote ? (homepageInline ? "space-y-1.5 sm:space-y-3" : "space-y-3") : "space-y-2"}`}
+      className={`scroll-mt-44 md:scroll-mt-28 ${isQuote ? (homepageInline ? "space-y-0 sm:space-y-3" : "space-y-3") : "space-y-2"}`}
       data-quote-schedule
     >
       {isQuote ? (
@@ -127,7 +127,7 @@ export default function QuoteScheduleFields({
               required
               onChange={(e) => onTripDateChange(e.target.value)}
               onInput={(e) => onTripDateChange((e.target as HTMLInputElement).value)}
-              className={quoteDateTimeInputClass()}
+              className={quoteDateTimeInputClass(homepageInline)}
             />
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function QuoteScheduleFields({
               onChange={(e) => onTripTimeChange(e.target.value)}
               onInput={(e) => onTripTimeChange((e.target as HTMLInputElement).value)}
               onBlur={onTimeBlur}
-              className={quoteDateTimeInputClass()}
+              className={quoteDateTimeInputClass(homepageInline)}
             />
           </div>
         </div>
@@ -193,7 +193,7 @@ export default function QuoteScheduleFields({
                 required
                 onChange={(e) => onReturnDateChange(e.target.value)}
                 onInput={(e) => onReturnDateChange((e.target as HTMLInputElement).value)}
-                className={quoteDateTimeInputClass()}
+                className={quoteDateTimeInputClass(homepageInline)}
               />
             </div>
           </div>
@@ -220,7 +220,7 @@ export default function QuoteScheduleFields({
                 onChange={(e) => onReturnTimeChange(e.target.value)}
                 onInput={(e) => onReturnTimeChange((e.target as HTMLInputElement).value)}
                 onBlur={onTimeBlur}
-                className={quoteDateTimeInputClass()}
+                className={quoteDateTimeInputClass(homepageInline)}
               />
             </div>
           </div>

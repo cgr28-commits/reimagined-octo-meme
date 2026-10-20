@@ -165,7 +165,7 @@ assert.doesNotMatch(homepageFields, /data-homepage-schedule-before-vehicle/);
 assert.match(card, /const scheduleReadyForQuote = isScheduleComplete/);
 const scheduleFields = read("src/components/QuoteScheduleFields.tsx");
 assert.match(scheduleFields, /homepageInline \? "grid-cols-2 gap-2 sm:gap-3"/);
-assert.match(scheduleFields, /homepageInline \? "space-y-1\.5 sm:space-y-3"/);
+assert.match(scheduleFields, /homepageInline \? "space-y-0 sm:space-y-3"/);
 assert.match(card, /renderQuoteScheduleFields\("quote", true\)/);
 assert.doesNotMatch(homepageFields, /Save 5% on return bookings/);
 assert.match(homepageFields, /Enter pickup address or airport/);
