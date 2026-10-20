@@ -32,7 +32,11 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
   await time.waitFor({ state: 'visible' });
   const schedule = page.locator('[data-quote-schedule]');
   assert.equal(await schedule.isVisible(), true, 'pickup schedule must be inline in the homepage quote tool');
-  const fieldBoxes = await Promise.all([pickupDateInput, time].map(field => field.boundingBox()));
+  // Read both rectangles in the same frame: back-to-quote can still be scrolling.
+  const fieldBoxes = await schedule.evaluate(section => ['date', 'time'].map(id => {
+    const rect = section.querySelector(`#${id}`).getBoundingClientRect();
+    return {y:rect.y, height:rect.height};
+  }));
   assert.ok(fieldBoxes.every(box => box && box.height >= 44), 'date/time touch targets must be at least 44px high');
   assert.equal(Math.round(fieldBoxes[0].y), Math.round(fieldBoxes[1].y), 'pickup date and time must share a row');
   await schedule.screenshot({path:`${output}/${page.viewportSize().width}-schedule-inline.png`});
