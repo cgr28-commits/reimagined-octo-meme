@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import AddressInput from "@/components/AddressInput";
+import QuoteActionDialog from "@/components/QuoteActionDialog";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
 import {
@@ -46,10 +47,13 @@ type HomepageQuoteFieldsProps = {
   passengersError: string;
   suitcasesError: string;
   publicMinibusEnabled: boolean;
-  onRequestPrice: () => void;
+  onRequestPrice: () => boolean | void;
   quoteReady: boolean;
   scheduleFields?: ReactNode;
   scheduleComplete?: boolean;
+  scheduleDate?: string;
+  scheduleTime?: string;
+  onConfirmSchedule?: () => boolean;
   actionLabel?: string;
   capacityConfirmationRequired?: boolean;
   capacityConfirmed: boolean;
@@ -218,7 +222,10 @@ export default function HomepageQuoteFields({
   onRequestPrice,
   quoteReady,
   scheduleFields = null,
-  scheduleComplete = true,
+  scheduleComplete = false,
+  scheduleDate = "",
+  scheduleTime = "",
+  onConfirmSchedule,
   actionLabel = "Get My Fixed Price →",
   capacityConfirmationRequired = true,
   capacityConfirmed,
@@ -229,6 +236,7 @@ export default function HomepageQuoteFields({
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsMessage, setGpsMessage] = useState("");
   const [gpsSuggestToken, setGpsSuggestToken] = useState(0);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const passengerChoices = publicPassengerOptions(true);
   const suitcaseChoices = publicSuitcaseOptions(true);
 
@@ -446,7 +454,6 @@ export default function HomepageQuoteFields({
           </label>
         </div>
       ) : null}
-      {scheduleFields ? <div className="mt-3" data-homepage-schedule-before-vehicle>{scheduleFields}</div> : null}
       <p id="homepage-quote-requirements" role="status" className="text-xs leading-snug text-white/75">
         {!publicMinibusEnabled && ((passengers ?? 0) > 4 || (suitcases ?? 0) > 4)
           ? "The 7-Seater is unavailable. Online quotes currently support up to 4 passengers and 4 suitcases."
@@ -460,23 +467,69 @@ export default function HomepageQuoteFields({
                 ? "Confirm luggage capacity with us before requesting a price for 5+ suitcases."
                 : !quoteReady
                   ? "Choose different, confirmed pickup and drop-off addresses and a suitable party size."
-                  : scheduleFields ? "Ready to show your transfer options." : "Ready for your quote. Add date and time when you book."}
+                  : "Ready to show your transfer options."}
       </p>
       </div>
       {quoteFormActive ? (
         <div data-quote-price-action="flow" className="shrink-0 pt-1.5 pb-1.5">
-          <button
-            type="button"
-            data-get-fixed-price
-            disabled={!quoteReady}
-            aria-describedby="homepage-quote-requirements"
-            onClick={onRequestPrice}
-            className="btn-primary min-h-12 w-full rounded-xl text-base"
-          >
-            {actionLabel}
-          </button>
+          <div className="flex min-w-0 items-stretch gap-2">
+            <button
+              type="button"
+              data-get-fixed-price
+              disabled={!quoteReady}
+              aria-describedby="homepage-quote-requirements"
+              onClick={() => {
+                if (!scheduleComplete) {
+                  setScheduleDialogOpen(true);
+                  return;
+                }
+                if (onRequestPrice() === false) setScheduleDialogOpen(true);
+              }}
+              className="btn-primary min-h-12 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold sm:text-base"
+            >
+              {actionLabel}
+            </button>
+            {scheduleComplete ? (
+              <button
+                type="button"
+                data-edit-quote-schedule
+                aria-label="Edit pickup date and time"
+                aria-haspopup="dialog"
+                aria-expanded={scheduleDialogOpen}
+                onClick={() => setScheduleDialogOpen(true)}
+                className="flex min-h-12 shrink-0 flex-col items-center justify-center rounded-xl border border-white/25 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/10"
+              >
+                <span>{scheduleDate}</span>
+                <span className="text-emerald">{scheduleTime} · Edit</span>
+              </button>
+            ) : null}
+          </div>
           <QuoteHelpContact className="sm:hidden" />
         </div>
+      ) : null}
+      {scheduleDialogOpen && scheduleFields ? (
+        <QuoteActionDialog
+          title="Pickup date & time"
+          onClose={() => setScheduleDialogOpen(false)}
+        >
+          <div className="space-y-4" data-homepage-schedule-dialog>
+            <p className="text-sm leading-relaxed text-white/80">
+              Choose when you need picked up. We’ll use this to show your fixed price.
+              {journeyMode === "return" ? " Add the return pickup time too." : ""}
+            </p>
+            {scheduleFields}
+            <button
+              type="button"
+              data-confirm-quote-schedule
+              onClick={() => {
+                if (onConfirmSchedule?.()) setScheduleDialogOpen(false);
+              }}
+              className="btn-primary min-h-12 w-full rounded-xl text-base"
+            >
+              Save date & time
+            </button>
+          </div>
+        </QuoteActionDialog>
       ) : null}
     </div>
   );

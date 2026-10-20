@@ -21,6 +21,7 @@ on:
       - 'src/components/LocationQuoteSection.tsx'
       - 'src/components/AddressInput.tsx'
       - 'scripts/check-homepage-booking-browser.mjs'
+      - 'scripts/check-homepage-quote-height-compare.mjs'
       - 'scripts/check-return-vehicle-stability.mjs'
       - 'scripts/check-hub-quote-browser.mjs'
       - '.github/workflows/homepage-booking-review.yml'
@@ -46,8 +47,29 @@ jobs:
           node --import tsx scripts/check-profitability-floor.ts
           node --import tsx scripts/check-dublin-city-profitability.ts
       - run: GITHUB_PAGES=true npm run build
+      - name: Build main for before/after quote-card comparison
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: baseline
+      - name: Build baseline main and serve its static export
+        working-directory: baseline
+        run: |
+          npm ci
+          GITHUB_PAGES=true npm run build
+          python3 -m http.server 3001 --directory out > "$RUNNER_TEMP/matni-baseline-server.log" 2>&1 &
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:3001/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:3001/ > /dev/null
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium webkit
+      - name: Quote date/time and checkout regression checks
+        run: |
+          node --import tsx scripts/check-quote-schedule-price-gate.ts
+          node --import tsx scripts/check-quote-checkout-page.ts
+          node --import tsx scripts/check-quote-required-fields.ts
       - run: node --import tsx scripts/check-dublin-airport-label.ts
       - run: node --import tsx scripts/check-email-logo.ts
       - run: node --import tsx scripts/check-booking-confirmation-preview.ts
@@ -59,6 +81,7 @@ jobs:
         run: |
           python3 -m http.server 3000 --directory out &
           node --import tsx scripts/check-greater-belfast-ireland-browser.mjs
+          QUOTE_BASELINE_URL=http://127.0.0.1:3001 QUOTE_UPDATED_URL=http://127.0.0.1:3000 node --import tsx scripts/check-homepage-quote-height-compare.mjs
           node --import tsx scripts/check-homepage-booking-browser.mjs
           node --import tsx scripts/check-return-vehicle-stability.mjs
           node --import tsx scripts/check-hub-quote-browser.mjs
@@ -71,4 +94,5 @@ jobs:
           path: |
             test-results/mobile-result/
             test-results/homepage-booking/
+            test-results/homepage-layout-compare/
             test-results/greater-belfast-ireland/
