@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { shouldHidePublicSalesWidgets } from "@/lib/owner-portal";
 import { withBasePath } from "@/lib/paths";
@@ -19,6 +19,8 @@ const DIRECT_CHAT_URL = "https://tawk.to/chat/6ad66513bb99a434ca8e2310/1k5anllun
 
 export default function TawkChat() {
   const pathname = usePathname();
+  const [opening, setOpening] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const chatWindow = window as ChatWindow;
@@ -46,26 +48,51 @@ export default function TawkChat() {
     }
   }, [pathname]);
 
-  function openChat(event: MouseEvent<HTMLAnchorElement>) {
-    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    const api = (window as ChatWindow).Tawk_API;
-    if (typeof api?.maximize !== "function") return;
-    try {
-      api.showWidget?.();
-      api.maximize();
-      event.preventDefault();
-    } catch {
-      // Leave the normal link available when embedded chat cannot open.
-    }
+  useEffect(() => {
+    if (!opening || shouldHidePublicSalesWidgets(pathname)) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const deadline = Date.now() + 12000;
+    const tryOpen = () => {
+      if (cancelled) return;
+      const api = (window as ChatWindow).Tawk_API;
+      if (typeof api?.maximize === "function") {
+        try {
+          api.showWidget?.();
+          api.maximize();
+          setOpening(false);
+          return;
+        } catch {
+          // Retry while the widget finishes initialising.
+        }
+      }
+      if (Date.now() >= deadline) {
+        setOpening(false);
+        setFailed(true);
+        return;
+      }
+      timer = setTimeout(tryOpen, 200);
+    };
+    tryOpen();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [opening, pathname]);
+
+  function openChat() {
+    setFailed(false);
+    setOpening(true);
   }
 
   if (shouldHidePublicSalesWidgets(pathname)) return null;
 
   return (
-    <a
-      href={DIRECT_CHAT_URL}
-      target="_blank"
-      rel="noopener noreferrer"
+    <>
+    <button
+      type="button"
+      disabled={opening}
+      aria-busy={opening}
       onClick={openChat}
       aria-label="Chat with My Airport Taxi NI"
       className="fixed left-4 z-[65] inline-flex min-h-14 items-center gap-2 rounded-full border border-white/40 bg-navy py-1 pl-1 pr-4 text-sm font-semibold text-white shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald"
@@ -78,7 +105,15 @@ export default function TawkChat() {
         height={48}
         className="h-12 w-12 rounded-full"
       />
-      <span>Chat</span>
-    </a>
+      <span>{opening ? "Opening chat…" : "Chat"}</span>
+    </button>
+    {failed && (
+      <div role="status" className="fixed bottom-24 left-4 z-[66] max-w-xs rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-900 shadow-lg">
+        <p>Chat could not load. Please try again, or open our separate chat page.</p>
+        <a href={DIRECT_CHAT_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block font-semibold underline">Open separate chat page</a>
+        <button type="button" onClick={() => setFailed(false)} className="ml-4 underline">Close</button>
+      </div>
+    )}
+    </>
   );
 }
