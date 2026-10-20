@@ -62,9 +62,9 @@ function statusMessage(data: PublicTrackResponse): { title: string; detail: stri
   if (!trackingWindow.open) {
     if (trackingWindow.reason === "too_early") {
       return {
-        title: "Tracking opens closer to pickup",
+        title: "Waiting for your driver",
         detail:
-          "Live driver tracking will become available approximately 1 hour before your scheduled pickup.",
+          "Your tracking link only becomes live when your driver is on the way and starts sharing their location.",
       };
     }
 
@@ -112,17 +112,22 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
   const [customerSharing, setCustomerSharing] = useState(false);
   const [nowTick, setNowTick] = useState(0);
   const watchIdRef = useRef<number | null>(null);
+  const refreshSequence = useRef(0);
 
   const refresh = useCallback(async () => {
+    const sequence = ++refreshSequence.current;
     try {
       const next = await fetchPublicTrack(token);
+      if (sequence !== refreshSequence.current) return;
       setData(next);
       setCustomerSharing(next.customerSharingActive);
       setError(null);
     } catch (err) {
+      if (sequence !== refreshSequence.current) return;
+      setData(null);
       setError(err instanceof Error ? err.message : "Could not load tracking");
     } finally {
-      setLoading(false);
+      if (sequence === refreshSequence.current) setLoading(false);
     }
   }, [token]);
 
@@ -132,7 +137,7 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
       void refresh();
     }, 10_000);
 
-    return () => window.clearInterval(interval);
+    return () => { ++refreshSequence.current; window.clearInterval(interval); };
   }, [refresh]);
 
   useEffect(() => {
@@ -191,7 +196,7 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
   const journeyDone =
     data?.journeyStatus === "completed" || data?.journeyStatus === "stopped";
   const showLiveMap =
-    Boolean(data?.driver) && Boolean(data?.trackingWindow.open) && !journeyDone;
+    Boolean(data?.driver) && Boolean(data?.sharingActive) && Boolean(data?.trackingWindow.open) && !journeyDone && Date.now() - Date.parse(data?.driver?.updatedAt ?? "") < 90_000;
   const mapMarkers: MapMarker[] = showLiveMap && data?.driver
     ? [{ lat: data.driver.lat, lng: data.driver.lng, label: "Your driver" }]
     : [];
@@ -210,6 +215,7 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">
               Live driver tracking
             </h1>
+            <p className="mt-3 text-white/70">Your tracking link only becomes live when your driver is on the way and starts sharing their location. Tracking stops when sharing is stopped or your journey is completed.</p>
             {data && (
               <p className="mt-3 text-white/70">
                 Pickup {data.pickupDisplay} · {data.pickupLabel}

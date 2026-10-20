@@ -1,3 +1,4 @@
+import { customerTrackingHtml, customerTrackingText } from "./customer-tracking-email";
 import { airportDisplayLabel } from "./airport-display-label";
 import { formatMarketingOptInLine } from "./marketing";
 import {
@@ -477,10 +478,9 @@ function brandFooterHtml(businessName: string): string {
 function buildInvoiceHtml(
   details: PaidBookingReceipt,
   businessName: string,
-  _trackUrl?: string,
+  trackUrl?: string,
   manageUrl?: string,
 ): string {
-  void _trackUrl;
   const customerRef =
     details.customerReference?.trim().toUpperCase() ||
     details.checkoutReference?.trim() ||
@@ -665,6 +665,7 @@ ${businessEmailClientMeta()}
               <p style="margin:0;">Questions? Reply to this email, call <a href="tel:${BUSINESS_PHONE_TEL}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>, or email <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>.</p>
             </td>
           </tr>
+          ${trackUrl ? `<tr><td style="padding:8px 32px;">${customerTrackingHtml(trackUrl)}</td></tr>` : ""}
           ${brandFooterHtml(businessName)}
         </table>
       </td>
@@ -694,9 +695,6 @@ export function buildCustomerConfirmationEmail(
   details = withAirportDisplayLabels(details);
   const trackUrl = options?.trackUrl?.trim();
   const manageUrl = options?.manageUrl?.trim();
-  // Customer website live-tracking links are retired. Keep the optional param for
-  // call-site compatibility, but never include a Track Your Driver CTA.
-  void trackUrl;
   const customerRef =
     details.customerReference?.trim().toUpperCase() ||
     details.checkoutReference?.trim() ||
@@ -807,6 +805,7 @@ export function buildCustomerConfirmationEmail(
         `Need to change pickup, destination, date, time, or passenger details?\n` +
         `Manage Your Booking:\n${manageUrl}\n`
       : "") +
+    customerTrackingText(trackUrl) +
     `\nSAVE US FOR YOUR NEXT JOURNEY\n${"=".repeat(40)}\n` +
     `Keep ${businessName} in your contacts so we're easy to find whenever you need another airport transfer.\n` +
     `Save My Airport Taxi NI to Contacts:\n${contactVCardPublicUrl()}\n` +
@@ -815,7 +814,7 @@ export function buildCustomerConfirmationEmail(
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 
-  const html = customerEmailHeaderHtml(buildInvoiceHtml(details, businessName, undefined, manageUrl));
+  const html = customerEmailHeaderHtml(buildInvoiceHtml(details, businessName, trackUrl, manageUrl));
 
   return { subject, text, html };
 }
@@ -1984,7 +1983,7 @@ export type ArrivalNotificationDetails = {
   /** @deprecated Vehicle details must not appear in customer email. */
   partialRegistration?: string;
   /**
-   * @deprecated Website GPS tracking is retired — ignored for Driver on the way email.
+   * Private per-journey tracking link, active only after the driver starts sharing.
    */
   trackUrl?: string;
 };
@@ -2059,13 +2058,12 @@ ${businessEmailClientMeta()}
 /**
  * Customer message when driver/owner marks Driver on the way.
  * Company voice only — identical for owner-operated and assigned-driver journeys.
- * Website GPS / Track Your Driver links are retired; WhatsApp Live Location is optional (“may”).
+ * The private tracking link waits until the driver starts sharing GPS.
  */
 export function buildDriverOnTheWayEmail(
   details: ArrivalNotificationDetails,
   businessName = "My Airport Taxi NI",
 ): CustomerPaidBookingEmail {
-  void details.trackUrl;
   void details.driverMobile;
   void details.driverFirstName;
   void details.vehicleColour;
@@ -2075,9 +2073,9 @@ export function buildDriverOnTheWayEmail(
   const bodyLine = buildOnTheWayCompanyVoiceMessage({
     customerName: details.customerName,
     bookedPickupTime: details.bookedPickupTime,
-  });
+  }).replace(" We may also share a live location with you here on WhatsApp.", "");
 
-  const text = `${bodyLine}\n\n${journeyStatusContactText(businessName)}`;
+  const text = `${bodyLine}${customerTrackingText(details.trackUrl)}\n\n${journeyStatusContactText(businessName)}`;
 
   const html = lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
@@ -2102,9 +2100,7 @@ ${businessEmailClientMeta()}
           <tr>
             <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0;">${escapeHtml(bodyLine)}</p>
-              <p style="margin:16px 0 0;font-size:14px;color:#64748b;">
-                WhatsApp contact and live location sharing, when used, are sent by My Airport Taxi NI — they are not automatic and are not a website tracking link.
-              </p>
+              ${customerTrackingHtml(details.trackUrl)}
             </td>
           </tr>
           ${journeyStatusContactHtml(businessName)}

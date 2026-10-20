@@ -67,19 +67,20 @@ function baseJob(overrides: Partial<TrackingJobRecord> = {}): TrackingJobRecord 
   };
 }
 
-console.log("=== Initial confirmation omits website track CTA ===");
+console.log("=== Initial confirmation includes waiting-state tracking link ===");
 {
   const token = generateTrackingToken();
   const trackUrl = buildPublicTrackUrl(token);
   const email = buildCustomerConfirmationEmail(sampleReceipt, "My Airport Taxi NI", {
     trackUrl,
   });
-  assert.doesNotMatch(email.html, /Track Your Driver/);
+  assert.match(email.html, /Track Your Driver/);
+  assert.match(email.text, /only becomes live when your driver is on the way/);
   assert.doesNotMatch(email.html, /LIVE DRIVER TRACKING/i);
   assert.doesNotMatch(email.text, /LIVE DRIVER TRACKING/);
   assert.doesNotMatch(email.html, /OWNER_ACCESS_KEY|DRIVER_ACCESS_KEY/);
   assert.doesNotMatch(email.text, /OWNER_ACCESS_KEY|DRIVER_ACCESS_KEY/);
-  console.log("OK  confirmation ignores trackUrl — no customer website track CTA");
+  console.log("OK  confirmation includes trackUrl and activation wording");
 }
 
 console.log("\n=== Resend path still uses confirmation builders ===");
@@ -154,7 +155,7 @@ console.log("\n=== Expired / revoked token is not emailed ===");
   console.log("OK  missing/refunded tokens yield no email URL");
 }
 
-console.log("\n=== Customer website track page is retired ===");
+console.log("\n=== Customer website track page renders private journey links ===");
 {
   const a = generateTrackingToken();
   const b = generateTrackingToken();
@@ -164,9 +165,9 @@ console.log("\n=== Customer website track page is retired ===");
   assert.notEqual(urlA, urlB);
 
   const page = read("src/app/track/page.tsx");
-  assert.match(page, /Driver updates by email/);
-  assert.doesNotMatch(page, /TrackPageClient/);
-  assert.match(page, /Message us on WhatsApp/);
+  assert.match(page, /useSearchParams/);
+  assert.match(page, /TrackPageClient/);
+  assert.match(page, /only becomes live when your driver is on the way/);
   console.log("OK  /track no longer mounts live map client");
 }
 

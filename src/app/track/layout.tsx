@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
 import { SITE } from "@/lib/data";
-
 export const metadata: Metadata = {
-  title: `Driver updates | ${SITE.name}`,
-  description:
-    "On travel day we email you when your driver is on the way. Your driver may share live location via WhatsApp when appropriate.",
-  robots: {
-    index: false,
-    follow: false,
-  },
+  title: `Track your driver | ${SITE.name}`,
+  description: "Your private tracking link becomes live when your driver is on the way and starts sharing their location.",
+  robots: { index: false, follow: false },
+  referrer: "no-referrer",
 };
-
-export default function TrackLayout({ children }: { children: React.ReactNode }) {
+export default function TrackingLayout({ children }: { children: React.ReactNode }) {
   return children;
 }

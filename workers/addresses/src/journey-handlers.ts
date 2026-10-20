@@ -150,6 +150,7 @@ export async function sendArrivalNotificationIfNeeded(
 
   const email = buildDriverArrivedPickupEmail(
     {
+      trackUrl: buildPublicTrackUrl(job.token),
       customerName: job.customerName || customerFirstName(emailAddress),
       bookedPickupTime: job.tripTime,
       pickupLabel: job.pickupLabel,
@@ -222,6 +223,7 @@ export async function sendOnTheWayNotificationIfNeeded(
 
   const email = buildDriverOnTheWayEmail(
     {
+      trackUrl: buildPublicTrackUrl(job.token),
       customerName: job.customerName || customerFirstName(emailAddress),
       bookedPickupTime: job.tripTime,
       pickupLabel: job.pickupLabel,
@@ -365,7 +367,8 @@ export async function handleJourneyTransitionRequest(
   if (
     session.role === "driver" &&
     !sequentialDriverJourneyActions(currentStatus).includes(action) &&
-    !driverMayRepeat
+    !driverMayRepeat &&
+    !(action === "stop_tracking" && record.sharingActive)
   ) {
     return jsonResponse({ error: "That update is not available for this journey yet" }, 409, origin);
   }
@@ -426,8 +429,12 @@ export async function handleJourneyTransitionRequest(
   // Idempotent Driver on the way: keep status; optionally retry email; re-issue GPS session.
   if (alreadyOnTheWay) {
     let next = record;
+    if (!next.trackingStartedAt) {
+      next = { ...next, trackingStartedAt: new Date().toISOString() };
+      await saveTrackingJob(env.TRACKING_STORE, next);
+    }
     if (forceRetryOnTheWay || record.onTheWayNotificationStatus !== "sent") {
-      next = await sendOnTheWayNotificationIfNeeded(env, record, {
+      next = await sendOnTheWayNotificationIfNeeded(env, next, {
         forceRetry: forceRetryOnTheWay,
       });
       await saveTrackingJob(env.TRACKING_STORE, next);
