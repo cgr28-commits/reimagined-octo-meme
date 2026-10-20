@@ -32,6 +32,7 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
   const dialogShell = page.locator('[data-quote-action-dialog]');
   assert.equal(await dialogShell.getAttribute('role'), 'dialog');
   assert.equal(await dialogShell.getAttribute('aria-modal'), 'true');
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Close');
   assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Close',
     'opening the dialog must move keyboard focus inside it');
   assert.equal(await page.evaluate(() => document.body.style.position), 'fixed',
@@ -54,6 +55,7 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
   await page.screenshot({path:`${output}/${page.viewportSize().width}-schedule-selected.png`});
   await page.keyboard.press('Escape');
   await dialog.waitFor({ state: 'detached' });
+  await page.waitForFunction(() => document.activeElement?.hasAttribute('data-get-fixed-price'));
   assert.equal(await page.evaluate(() => document.activeElement?.hasAttribute('data-get-fixed-price')), true,
     'closing the dialog must restore focus to its opener');
   assert.notEqual(await page.evaluate(() => document.body.style.position), 'fixed',
