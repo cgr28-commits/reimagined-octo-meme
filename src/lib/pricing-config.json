@@ -114,13 +114,13 @@
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
-      "BFS": 9,
+      "BFS": 14,
       "BHD": 0,
       "DUB": 50,
-      "LDY": 104
+      "LDY": 103
     },
     "Holywood": {
-      "BFS": 14,
+      "BFS": 24,
       "BHD": 0,
       "DUB": 58,
       "LDY": 103
@@ -133,7 +133,7 @@
     },
     "Lisburn": {
       "BFS": 3,
-      "BHD": 7,
+      "BHD": 0,
       "DUB": 60,
       "LDY": 103
     },
@@ -153,13 +153,13 @@
       "BFS": 0,
       "BHD": 20,
       "DUB": 65,
-      "LDY": 89
+      "LDY": 88
     },
     "Hillsborough": {
       "BFS": 8,
       "BHD": 25,
       "DUB": 65,
-      "LDY": 118
+      "LDY": 123
     },
     "Carrickfergus": {
       "BFS": 18,
@@ -168,7 +168,7 @@
       "LDY": 108
     },
     "Comber": {
-      "BFS": 28,
+      "BFS": 34,
       "BHD": 4,
       "DUB": 62,
       "LDY": 118
@@ -205,7 +205,7 @@
     },
     "Banbridge": {
       "BFS": 44,
-      "BHD": 49,
+      "BHD": 55,
       "DUB": 75,
       "LDY": 78
     },
@@ -235,7 +235,7 @@
     },
     "Newry": {
       "BFS": 68,
-      "BHD": 69,
+      "BHD": 75,
       "DUB": 40,
       "LDY": 88
     },
