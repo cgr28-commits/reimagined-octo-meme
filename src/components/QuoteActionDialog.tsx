@@ -56,9 +56,7 @@ export default function QuoteActionDialog({
     body.style.width = "100%";
     body.style.overflow = "hidden";
     body.style.paddingRight = `${padding + scrollbar}px`;
-    const focusFrame = window.requestAnimationFrame(() => {
-      closeButtonRef.current?.focus({ preventScroll: true });
-    });
+    closeButtonRef.current?.focus({ preventScroll: true });
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -82,7 +80,6 @@ export default function QuoteActionDialog({
       viewport?.removeEventListener("resize", fitVisibleViewport);
       viewport?.removeEventListener("scroll", fitVisibleViewport);
       window.removeEventListener("resize", fitVisibleViewport);
-      window.cancelAnimationFrame(focusFrame);
       keys.forEach((key, index) => { body.style[key] = previous[index]; });
       window.scrollTo({ left: x, top: y, behavior: "instant" });
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
@@ -101,7 +98,7 @@ export default function QuoteActionDialog({
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald">My Airport Taxi NI</p>
             <h2 id={headingId} className="mt-1 text-lg font-semibold text-white">{title}</h2>
           </div>
-          <button ref={closeButtonRef} type="button" onClick={onClose} disabled={closeDisabled} aria-label="Close"
+          <button ref={closeButtonRef} autoFocus type="button" onClick={onClose} disabled={closeDisabled} aria-label="Close"
             className="rounded-lg px-2 py-1 text-sm quote-secondary hover:bg-white/10 hover:text-white disabled:opacity-50">✕</button>
         </div>
         <div className="isolate min-h-0 overflow-y-auto px-5 py-5">{children}</div>

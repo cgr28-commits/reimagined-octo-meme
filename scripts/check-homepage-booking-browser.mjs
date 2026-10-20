@@ -32,6 +32,12 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
   const dialogShell = page.locator('[data-quote-action-dialog]');
   assert.equal(await dialogShell.getAttribute('role'), 'dialog');
   assert.equal(await dialogShell.getAttribute('aria-modal'), 'true');
+  console.log('Popup focus state', await page.evaluate(() => ({
+    active: document.activeElement?.outerHTML?.slice(0, 240),
+    closeExists: Boolean(document.querySelector('[data-quote-action-dialog] button[aria-label="Close"]')),
+    focusInsideDialog: Boolean(document.querySelector('[data-quote-action-dialog]')?.contains(document.activeElement)),
+  })));
+  await page.screenshot({path:`${output}/${page.viewportSize().width}-schedule-open.png`});
   await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Close');
   assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Close',
     'opening the dialog must move keyboard focus inside it');
