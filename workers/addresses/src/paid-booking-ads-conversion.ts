@@ -44,6 +44,7 @@ async function persistConversionOutcome(
     error?: string;
   },
 ): Promise<void> {
+  if (outcome.status === "validated") return; // Diagnostic results are never upload receipts.
   const record = await getPaidBookingRecord(store, paymentReference);
   if (!record) return;
   if (shouldSkipUpload(record) && outcome.status !== "sent") return;

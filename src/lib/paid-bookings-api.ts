@@ -900,3 +900,13 @@ export async function sendMeetGreetEmailNow(ownerKey: string, paymentReference: 
   if (!response.ok || !payload.ok) throw new Error(payload.error || "Could not send Meet & Greet email");
   return payload as { ok: true; sent: number; alreadySent: number };
 }
+
+export async function validateOwnerBookingAds(ownerKey: string, paymentReference: string): Promise<string> {
+  const response = await fetch(`${WORKER_BASE}/paid-bookings/ads-diagnostic`, {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Owner-Key": ownerKey.trim() },
+    body: JSON.stringify({ paymentReference }), cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) throw new Error(String(payload.error || "Validation unavailable"));
+  return String(payload.detail || payload.status);
+}

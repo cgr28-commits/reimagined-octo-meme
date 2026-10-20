@@ -181,6 +181,64 @@ async function main() {
   }
   console.log("OK  v25 endpoint + corrected account/action resource");
 
+  console.log("=== Rejected uploads expose safe error codes and never false success ===");
+  {
+    const originalFetch = globalThis.fetch;
+    const env = {
+      GOOGLE_ADS_DEVELOPER_TOKEN: "private-developer-token",
+      GOOGLE_ADS_CLIENT_ID: "client-id",
+      GOOGLE_ADS_CLIENT_SECRET: "private-client-secret",
+      GOOGLE_ADS_REFRESH_TOKEN: "private-refresh-token",
+    };
+    const input = {
+      orderId: "PAY-DIAGNOSTIC",
+      conversionValue: 58,
+      attribution: { gclid: "private-click-id" },
+    };
+    const run = async (payload: unknown, status = 200) => {
+      globalThis.fetch = (async (url: unknown) =>
+        String(url).includes("oauth2.googleapis.com")
+          ? Response.json({ access_token: "private-access-token" })
+          : Response.json(payload, { status })
+      ) as typeof fetch;
+      return uploadPaidBookingClickConversion(env, input);
+    };
+    try {
+      const details = [{
+        errors: [{
+          errorCode: { conversionUploadError: "INVALID_CONVERSION_ACTION" },
+          location: { fieldPathElements: [{ fieldName: "conversions", index: 0 }, { fieldName: "conversionAction" }] },
+          trigger: { stringValue: "private-click-id" },
+        }],
+      }];
+      const rejected = await run({ error: {
+        status: "INVALID_ARGUMENT",
+        message: "Bad Request private-click-id private-client-secret private-access-token",
+        details,
+      } }, 400);
+      assert.equal(rejected.status, "failed");
+      assert.match(rejected.error!, /INVALID_ARGUMENT/);
+      assert.match(rejected.error!, /conversionUploadError:INVALID_CONVERSION_ACTION/);
+      assert.match(rejected.error!, /conversions\[0\]\.conversionAction/);
+      assert.doesNotMatch(rejected.error!, /private-/);
+      const partial = await run({ partialFailureError: { message: "Bad Request", details }, results: [{}] });
+      assert.equal(partial.status, "failed");
+      assert.match(partial.error!, /INVALID_CONVERSION_ACTION/);
+      assert.equal((await run({})).status, "failed");
+      assert.equal((await run({ results: [{}] })).status, "failed");
+      assert.equal((await run({ results: [{ orderId: input.orderId }] })).status, "sent");
+      assert.equal((await run({ partialFailureError: {
+        message: "Bad Request",
+        details: [{ errors: [{ errorCode: { conversionUploadError: "DUPLICATE_ORDER_ID" } }] }],
+      } })).status, "skipped_duplicate");
+      assert.equal((await run({ error: { message: "An unrelated resource already exists" } }, 400)).status, "failed");
+      assert.equal((await run({ error: { message: "Gateway failure" } }, 503)).status, "failed");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  }
+  console.log("OK  HTTP and partial failures; redaction; empty responses; duplicate-only recovery");
+
   console.log("=== Offline fallback and browser purchase destination ===");
   const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
   assert.match(finalize, /maybeUploadPaidBookingAdsConversion/);
