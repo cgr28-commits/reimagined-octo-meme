@@ -197,7 +197,6 @@ try {
     assert.deepEqual(writes,[]);
     pass(`${width}px: schedule required before fare; dates and customer inputs persist; changed schedule invalidates fare and requires a fresh quote; no payment or booking writes`);
 
-    await page.locator('[data-back-to-quote="top"]').click();
     await page.getByRole('button',{name:/Return SAVE/}).click();
     await requestFixedPrice(page,{returning:true});
     await book(page);
