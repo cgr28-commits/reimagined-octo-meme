@@ -1,6 +1,6 @@
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "September 2026 v1";
+export const PRIVACY_LAST_UPDATED = "20 October 2026";
 
 export const PRIVACY_SECTIONS = [
   {
@@ -77,12 +77,20 @@ export const PRIVACY_SECTIONS = [
       "SumUp — card payment processing",
       "Cloudflare — website hosting and booking API",
       "Email delivery providers — sending confirmations",
+      "Tawk.to — live chat and offline enquiries, including messages and contact details you provide, and technical information such as IP address, device and visited pages",
       "Google — address autocomplete (Google Places), maps, directions, and calendar logging where configured",
       "Flight data providers — verifying flight numbers you enter",
       "Meta Platforms, Inc. / WhatsApp — when you contact us or send booking messages via WhatsApp, message content and related contact details may be processed through Meta’s WhatsApp Business Platform and our WhatsApp Business provider",
     ],
     footer:
       "When our automated booking or messaging systems are connected to WhatsApp, booking and message information may be processed through Meta’s WhatsApp Business Platform and whichever WhatsApp Business provider we use. We do not sell your personal data.",
+  },
+  {
+    title: "Website live chat",
+    content: [
+      "We use Tawk.to to provide live chat and receive offline enquiries. Tawk.to may process technical information about your visit and use browser storage to maintain the chat session. If you send a message, it also processes your message and any contact details you choose to provide so we can respond.",
+      "Please do not send payment card details or other sensitive information through chat. You can also contact us using the details above.",
+    ],
   },
   {
     title: "Google Places address search",
