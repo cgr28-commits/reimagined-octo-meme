@@ -62,18 +62,10 @@ export default function CookieConsent() {
       role="dialog"
       aria-label="Cookie consent"
     >
-      <div className="cookie-consent-inner mx-auto flex max-w-5xl flex-col sm:flex-row sm:items-end sm:justify-between">
+      <div className="cookie-consent-inner mx-auto flex max-w-5xl flex-col sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
-          <p className="cookie-consent-heading font-semibold text-white">Cookies &amp; privacy</p>
           <p className="cookie-consent-copy text-white/70">
-            <span className="sm:hidden">
-              Essential storage supports booking. Optional advertising cookies are used only with consent. Address search uses Google Places. See our{" "}
-            </span>
-            <span className="hidden sm:inline">
-              We use essential storage for booking checkout. Optional Google Ads cookies may measure
-              fixed-price quotes, saved booking requests and completed paid bookings — only if you
-              accept. Address suggestions use Google Places. See our{" "}
-            </span>
+            Essential cookies support booking. Optional Google Ads cookies measure quotes and paid bookings only if you accept.{" "}
             <Link href="/privacy/" className="font-medium text-emerald underline-offset-2 hover:underline">
               Privacy Policy
             </Link>
@@ -86,7 +78,7 @@ export default function CookieConsent() {
             onClick={() => choose("rejected")}
             className="btn-secondary flex-1 sm:flex-none"
           >
-            Essential only
+            Reject optional
           </button>
           <button
             type="button"
@@ -94,7 +86,6 @@ export default function CookieConsent() {
             className="btn-primary flex-1 sm:flex-none"
           >
             Accept
-            <span className="hidden sm:inline">&nbsp;measurement cookies</span>
           </button>
         </div>
       </div>
