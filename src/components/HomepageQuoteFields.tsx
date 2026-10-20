@@ -271,7 +271,7 @@ export default function HomepageQuoteFields({
 
   return (
     <div data-homepage-quote-fields>
-      <div className="space-y-1" data-homepage-quote-scroll>
+      <div className="space-y-0.5" data-homepage-quote-scroll>
       <div>
         <p className="form-label mb-1">Journey type</p>
         <div

@@ -62,6 +62,9 @@ try {
   for (const width of [320, 360, 375, 390, 1280]) {
     const baseline = await measure('main-before', baselineUrl, width);
     const updated = await measure('inline-after', updatedUrl, width);
+    const cardHeightDeltaPx = Math.round((updated.height - baseline.height) * 100) / 100;
+    measurements.push({ width, before: baseline, after: updated, cardHeightDeltaPx, passed: false });
+    console.log(`MEASURE ${width}px: ${baseline.height}px → ${updated.height}px (${cardHeightDeltaPx >= 0 ? '+' : ''}${cardHeightDeltaPx}px); usable mobile viewport ${updated.syntheticVisibleHeight}px`);
     assert.ok(updated.passengerTouchTargetHeight >= 44,
       `${width}px passenger selector is below the minimum touch target`);
     assert.ok(updated.documentScrollWidth <= updated.viewportWidth,
@@ -72,10 +75,8 @@ try {
       assert.ok(updated.fitsQuoteToolInUsableViewport,
         `${width}px quote tool does not fit the usable mobile viewport`);
     }
-    measurements.push({ width, before: baseline, after: updated,
-      cardHeightDeltaPx: Math.round((updated.height - baseline.height) * 100) / 100,
-      passed: true });
-    console.log(`PASS ${width}px: ${baseline.height}px → ${updated.height}px (${measurements.at(-1).cardHeightDeltaPx >= 0 ? '+' : ''}${measurements.at(-1).cardHeightDeltaPx}px); mobile usable viewport ${updated.syntheticVisibleHeight}px`);
+    measurements.at(-1).passed = true;
+    console.log(`PASS ${width}px: dimensions, touch targets and overflow checks passed`);
   }
 } finally {
   await fs.writeFile(`${output}/measurements.json`, JSON.stringify(measurements, null, 2));

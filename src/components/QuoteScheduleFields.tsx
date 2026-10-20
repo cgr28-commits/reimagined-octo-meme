@@ -91,7 +91,7 @@ export default function QuoteScheduleFields({
       <p
         data-booking-nav-heading
         tabIndex={-1}
-        className="form-label outline-none"
+        className={`form-label outline-none ${homepageInline ? "sr-only sm:not-sr-only" : ""}`}
       >
         Pickup date & time
         {dateIncomplete || timeIncomplete || (returnJourney && (!returnDate || !returnTime)) ? (
