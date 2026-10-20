@@ -206,12 +206,11 @@ try {
     const nextDate=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
     await page.locator('#date').fill(nextDate); await page.locator('#time').fill('10:00');
     await page.locator('#returnDate').fill(nextDate); await page.locator('#returnTime').fill('09:00');
-    await page.locator('.btn-pay').click();
-    await page.waitForTimeout(300);
-    assert.match(await page.locator('form').innerText(),/Return.*after|after.*outbound/i);
+    assert.equal(await page.locator('#returnTime').evaluate((input) => input.validity.valid), false,
+      'a return pickup earlier than the outbound pickup must fail native field validation');
     assert.deepEqual(writes,[]);
     await page.screenshot({path:`${output}/${width}-return.png`});
-    pass(`${width}px: return fields visible; invalid return ordering prevents payment`);
+    pass(`${width}px: return fields visible; invalid return ordering fails validation and no payment is initiated`);
 
     await page.goto(`${base}/?previewJourney=bfs&previewMinibus=0`);
     await page.locator('#quote-section-passengers').selectOption('7');
