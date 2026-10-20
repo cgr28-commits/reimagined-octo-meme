@@ -24,9 +24,10 @@ async function disabled(page) {
   for (const button of await buttons.all()) assert.equal(await button.isEnabled(), false);
 }
 async function requestFixedPrice(page, { returning = false, date = futureDate() } = {}) {
-  const card = page.locator('[data-quote-presentation="homepage"].quote-flow');
+  const trigger = page.getByRole('button', { name: /Get My Fixed Price/ }).last();
+  const card = trigger.locator('xpath=ancestor::*[@data-quote-presentation="homepage" and contains(@class, "quote-flow")]').first();
   const before = await card.evaluate((element) => element.getBoundingClientRect().height);
-  await page.getByRole('button', { name: /Get My Fixed Price/ }).last().click();
+  await trigger.click();
   const dialog = page.locator('[data-homepage-schedule-dialog]');
   await dialog.waitFor({ state: 'visible' });
   const dialogShell = page.locator('[data-quote-action-dialog]');
