@@ -22,11 +22,13 @@ type LiveTrackMapProps = {
   className?: string;
 };
 
-function configureLeafletIcons() {
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+function createDriverIcon() {
+  return L.divIcon({
+    className: "",
+    html: '<div style="width:44px;height:44px;border-radius:50%;background:#071C38;border:3px solid #2FBF4A;box-shadow:0 2px 7px #0006;display:flex;align-items:center;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 10 2-5h10l2 5M5 10h14a2 2 0 0 1 2 2v6H3v-6a2 2 0 0 1 2-2Z"/><path d="M5 18v2m14-2v2M7 14h.01M17 14h.01M9 18h6"/></svg></div>',
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -24],
   });
 }
 
@@ -53,8 +55,6 @@ export default function LiveTrackMap({
     if (!containerRef.current) {
       return;
     }
-
-    configureLeafletIcons();
 
     if (!mapRef.current) {
       const map = L.map(containerRef.current, {
@@ -119,7 +119,7 @@ export default function LiveTrackMap({
       let leafletMarker = markerRefs.current.get(key);
 
       if (!leafletMarker) {
-        leafletMarker = L.marker(position, isCustomer ? { icon: createCustomerIcon() } : undefined).addTo(
+        leafletMarker = L.marker(position, { icon: isCustomer ? createCustomerIcon() : createDriverIcon(), title: marker.label }).addTo(
           map,
         );
         markerRefs.current.set(key, leafletMarker);
