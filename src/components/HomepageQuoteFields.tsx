@@ -46,7 +46,7 @@ type HomepageQuoteFieldsProps = {
   passengersError: string;
   suitcasesError: string;
   publicMinibusEnabled: boolean;
-  onRequestPrice: () => boolean | void;
+  onRequestPrice: () => void;
   quoteReady: boolean;
   scheduleFields?: ReactNode;
   scheduleComplete?: boolean;
@@ -466,20 +466,16 @@ export default function HomepageQuoteFields({
       </div>
       {quoteFormActive ? (
         <div data-quote-price-action="flow" className="shrink-0 pt-1.5 pb-1.5">
-          <div className="flex min-w-0 items-stretch gap-2">
-            <button
-              type="button"
-              data-get-fixed-price
-              disabled={!quoteReady}
-              aria-describedby="homepage-quote-requirements"
-              onClick={() => {
-                onRequestPrice();
-              }}
-              className="btn-primary min-h-12 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold sm:text-base"
-            >
-              {actionLabel}
-            </button>
-          </div>
+          <button
+            type="button"
+            data-get-fixed-price
+            disabled={!quoteReady}
+            aria-describedby="homepage-quote-requirements"
+            onClick={onRequestPrice}
+            className="btn-primary min-h-12 w-full rounded-xl text-base"
+          >
+            {actionLabel}
+          </button>
           <QuoteHelpContact className="sm:hidden" />
         </div>
       ) : null}
