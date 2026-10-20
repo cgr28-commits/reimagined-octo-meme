@@ -234,8 +234,11 @@ try {
     await page.goto(`${base}/?previewJourney=bfs&previewMinibus=1`);
     await page.waitForFunction(()=> document.getElementById('pickup')?.value.includes('City Hall'));
     for (const field of ['dropoff','pickup']) {
-      await page.locator(`#${field}`).fill('Dublin Airport');
-      await page.getByRole('button',{name:'Dublin Airport Terminal 2 Ireland',exact:true}).click();
+      const input=page.locator(`#${field}`);
+      await input.fill('Dublin Airport');
+      const listboxId=await input.getAttribute('aria-controls');
+      assert.ok(listboxId,`${field} autocomplete must identify its listbox`);
+      await page.locator(`[id="${listboxId}"]`).getByRole('button',{name:'Dublin Airport Terminal 2 Ireland',exact:true}).click();
       await page.waitForFunction((id)=>document.getElementById(id)?.value === 'Dublin Airport, Ireland',field);
       assert.equal(await page.locator(`#${field}`).inputValue(),'Dublin Airport, Ireland');
     }
