@@ -22,6 +22,12 @@ export default function QuoteActionDialog({
   const overlayRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef(onClose);
+  const openerRef = useRef<HTMLElement | null>(null);
+  // Capture during render, before the dialog's autofocus can replace the opener
+  // as document.activeElement.
+  if (openerRef.current === null && typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    openerRef.current = document.activeElement;
+  }
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
@@ -45,7 +51,7 @@ export default function QuoteActionDialog({
     window.addEventListener("resize", fitVisibleViewport);
     const body = document.body;
     const x = window.scrollX, y = window.scrollY;
-    const previousFocus = document.activeElement;
+    const previousFocus = openerRef.current;
     const keys = ["position", "top", "left", "width", "overflow", "paddingRight"] as const;
     const previous = keys.map((key) => body.style[key]);
     const scrollbar = window.innerWidth - document.documentElement.clientWidth;
