@@ -59,6 +59,7 @@ import { formatAirportAccessOptionDashboardValue } from "../../shared/express-dr
 import OwnerEditBookingModal from "@/components/OwnerEditBookingModal";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import {
+  validateOwnerBookingAds,
   fetchOwnerPaidBooking,
   fetchOwnerPaidBookings,
   fetchOwnerPendingCheckouts,
@@ -932,6 +933,18 @@ export default function OwnerPaidBookingsPanel({
     }
   }
 
+  const [adsValidation, setAdsValidation] = useState<Record<string, string>>({});
+  const [adsValidationBusy, setAdsValidationBusy] = useState("");
+  async function handleAdsValidation(booking: OwnerPaidBookingSummary) {
+    setAdsValidationBusy(booking.paymentReference);
+    try {
+      const detail = await validateOwnerBookingAds(ownerKey, booking.paymentReference);
+      setAdsValidation(current => ({ ...current, [booking.paymentReference]: detail }));
+    } catch (err) {
+      setAdsValidation(current => ({ ...current, [booking.paymentReference]: err instanceof Error ? err.message : "Validation unavailable" }));
+    } finally { setAdsValidationBusy(""); }
+  }
+
   async function handleTrackingDiagnostic(booking: OwnerPaidBookingSummary) {
     setDiagnosticBusyRef(booking.paymentReference);
     setError("");
@@ -1625,6 +1638,14 @@ export default function OwnerPaidBookingsPanel({
         </summary>
         <div className="space-y-3 border-t border-white/10 px-3 py-3">
           <div data-owner-google-ads-status>
+            <button type="button" disabled={Boolean(adsValidationBusy)} onClick={() => void handleAdsValidation(booking)}
+              className="mb-2 rounded-lg border border-white/20 px-3 py-2 text-sm text-white disabled:opacity-50">
+              {adsValidationBusy === booking.paymentReference ? "Validating…" : "Validate Google Ads (no import)"}
+            </button>
+            {adsValidation[booking.paymentReference] ? <p className="mb-2 break-words text-sm text-amber-100" role="status">
+              Validation only — no conversion imported: {adsValidation[booking.paymentReference]}
+            </p> : null}
+
             <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">
               Google Ads
             </p>

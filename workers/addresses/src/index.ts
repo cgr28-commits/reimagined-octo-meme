@@ -1,3 +1,4 @@
+import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
@@ -4246,6 +4247,10 @@ export default {
 
     if (isJourneyEvidencePath(url.pathname) && request.method === "GET") {
       return handleJourneyEvidenceRequest(request, env, origin);
+    }
+
+    if (url.pathname === "/paid-bookings/ads-diagnostic") {
+      return handlePaidBookingAdsDiagnostic(request, env, origin);
     }
 
     if (isJourneyDiagnosticPath(url.pathname) && request.method === "GET") {
