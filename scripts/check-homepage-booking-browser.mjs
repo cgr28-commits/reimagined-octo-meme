@@ -187,11 +187,15 @@ try {
     assert.equal(await page.locator('#email').inputValue(),'preview@example.invalid');
     // Isolated static test: no booking, contact or payment requests can leave this context.
     await page.locator('#date').fill(''); await page.locator('#time').fill('');
-    await page.getByRole('checkbox', {name:/I agree to the Terms/}).check();
-    await page.locator('.btn-pay').click();
-    await page.getByText('Select your pickup date to continue.', {exact:true}).waitFor();
+    assert.equal(await page.locator('[data-quote-results="ready"]').count(),0,
+      'changing a booking date/time must invalidate the previous fixed fare');
+    assert.deepEqual(writes,[], 'browser checkout regression must not submit booking or payment writes');
+    await page.locator('[data-back-to-quote="top"]').click();
+    await requestFixedPrice(page);
+    assert.ok(await page.locator('[data-quote-results="ready"]').count(),
+      'a fresh quote must be available after a valid schedule is selected again');
     assert.deepEqual(writes,[]);
-    pass(`${width}px: no fare before schedule; saved date/time survives booking flow; checkout still blocks missing date; back preserves party/contact`);
+    pass(`${width}px: schedule required before fare; dates and customer inputs persist; changed schedule invalidates fare and requires a fresh quote; no payment or booking writes`);
 
     await page.locator('[data-back-to-quote="top"]').click();
     await page.getByRole('button',{name:/Return SAVE/}).click();
