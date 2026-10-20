@@ -4,14 +4,15 @@
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
 
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
-const output = 'test-results/homepage-booking';
+const engine = process.env.PLAYWRIGHT_BROWSER || 'chromium';
+const output = `test-results/homepage-booking/${engine}`;
 await fs.mkdir(output, { recursive: true });
 const results = [];
-const browser = await chromium.launch();
+const browser = await ({ chromium, webkit }[engine]).launch();
 function pass(label) { results.push(label); console.log('PASS', label); }
 function futureDate(days = 5) {
   const date = new Date();
@@ -89,6 +90,8 @@ try {
       hasTouch:mobile,
       deviceScaleFactor:mobile ? 2 : 1,
       reducedMotion:'reduce',
+      locale:'en-GB',
+      timezoneId:'Europe/London',
     });
     const writes = [];
     await context.route('**/*', async route => {
@@ -117,7 +120,8 @@ try {
     const page = await context.newPage();
     await page.goto(base);
     await page.locator('#quote-section-passengers').waitFor();
-    if (await page.getByRole('button',{name:'Reject optional',exact:true}).isVisible()) await page.getByRole('button',{name:'Reject optional',exact:true}).click();
+    await page.getByRole('button',{name:'Reject optional',exact:true}).waitFor({state:'visible'});
+    await page.getByRole('button',{name:'Reject optional',exact:true}).click();
     assert.equal(await page.locator('#quote-section-passengers').inputValue(),'');
     assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'');
     assert.deepEqual(await page.locator('#quote-section-passengers option').allTextContents(),['Select','1','2','3','4','5','6','7']);
@@ -137,6 +141,18 @@ try {
     await page.locator('#quote-section-passengers').selectOption('');
     await page.locator('#quote-section-suitcases').selectOption('0'); await disabled(page);
     await page.locator('#quote-section-passengers').selectOption('2');
+    await page.locator('#date').fill('');
+    await page.locator('#time').fill('');
+    if (mobile) {
+      assert.equal(await page.getByText('Select date', {exact:true}).isVisible(), true);
+      assert.equal(await page.getByText('Select time', {exact:true}).isVisible(), true);
+      assert.equal(await page.locator('#date').evaluate(input => getComputedStyle(input).fontSize), '16px');
+    }
+    await page.locator('#date').fill('2020-01-01');
+    await page.locator('#time').fill('12:00');
+    await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
+    assert.equal(await page.locator('[data-quote-results="ready"]').count(), 0,
+      'a past pickup date must not reveal a fare');
     await page.locator('#date').fill('');
     await page.locator('#time').fill('');
     await requestFixedPrice(page);

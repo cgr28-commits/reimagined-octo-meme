@@ -86,6 +86,7 @@ export default function QuoteScheduleFields({
       id="quote-section-schedule"
       className={`scroll-mt-44 md:scroll-mt-28 ${isQuote ? (homepageInline ? "space-y-0 sm:space-y-3" : "space-y-3") : "space-y-2"}`}
       data-quote-schedule
+      data-homepage-inline-schedule={homepageInline || undefined}
     >
       {isQuote ? (
       <p
@@ -108,6 +109,8 @@ export default function QuoteScheduleFields({
             {returnJourney ? "Outbound date" : "Pickup date"}
           </label>
           <div
+            data-schedule-control={homepageInline ? "date" : undefined}
+            data-schedule-empty={homepageInline && !tripDate ? true : undefined}
             className={quoteDateTimeFieldShellClass(
               scheduleFieldState({
                 hasError: Boolean(tripDateError),
@@ -115,6 +118,7 @@ export default function QuoteScheduleFields({
               }),
             )}
           >
+            {homepageInline && !tripDate ? <span className="homepage-schedule-prompt" aria-hidden="true">Select date</span> : null}
             <input
               id="date"
               ref={tripDateInputRef}
@@ -136,6 +140,8 @@ export default function QuoteScheduleFields({
             {outboundTimeLabel}
           </label>
           <div
+            data-schedule-control={homepageInline ? "time" : undefined}
+            data-schedule-empty={homepageInline && !tripTime ? true : undefined}
             className={quoteDateTimeFieldShellClass(
               scheduleFieldState({
                 hasError: Boolean(tripDateError),
@@ -143,6 +149,7 @@ export default function QuoteScheduleFields({
               }),
             )}
           >
+            {homepageInline && !tripTime ? <span className="homepage-schedule-prompt" aria-hidden="true">Select time</span> : null}
             <input
               id="time"
               ref={tripTimeInputRef}
@@ -176,6 +183,8 @@ export default function QuoteScheduleFields({
               Return date
             </label>
             <div
+              data-schedule-control={homepageInline ? "date" : undefined}
+              data-schedule-empty={homepageInline && !returnDate ? true : undefined}
               className={quoteDateTimeFieldShellClass(
                 scheduleFieldState({
                   hasError: Boolean(returnDateError),
@@ -183,6 +192,7 @@ export default function QuoteScheduleFields({
                 }),
               )}
             >
+              {homepageInline && !returnDate ? <span className="homepage-schedule-prompt" aria-hidden="true">Select date</span> : null}
               <input
                 id="returnDate"
                 ref={returnDateInputRef}
@@ -202,6 +212,8 @@ export default function QuoteScheduleFields({
               {returnTimeLabel}
             </label>
             <div
+              data-schedule-control={homepageInline ? "time" : undefined}
+              data-schedule-empty={homepageInline && !returnTime ? true : undefined}
               className={quoteDateTimeFieldShellClass(
                 scheduleFieldState({
                   hasError: Boolean(returnDateError),
@@ -209,6 +221,7 @@ export default function QuoteScheduleFields({
                 }),
               )}
             >
+              {homepageInline && !returnTime ? <span className="homepage-schedule-prompt" aria-hidden="true">Select time</span> : null}
               <input
                 id="returnTime"
                 ref={returnTimeInputRef}

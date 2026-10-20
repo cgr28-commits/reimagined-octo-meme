@@ -41,12 +41,12 @@ jobs:
       - run: npm ci
       - name: Build updated quote flow
         run: GITHUB_PAGES=true npm run build
-      - name: Check out main for before/after measurements
+      - name: Check out reviewed inline form for before/after measurements
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: 9d9ef4180925f9f526e15b6c247e979e9fa09688
           path: baseline
-      - name: Build baseline main and serve it
+      - name: Build reviewed baseline and serve it
         working-directory: baseline
         run: |
           npm ci
@@ -58,7 +58,7 @@ jobs:
           done
           curl --silent --fail http://127.0.0.1:3001/ > /dev/null
       - run: npm install --no-save --package-lock=false playwright@1.58.2
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - name: Schedule and checkout regression checks
         run: |
           node --import tsx scripts/check-quote-schedule-price-gate.ts
@@ -72,8 +72,10 @@ jobs:
             sleep 1
           done
           curl --silent --fail http://127.0.0.1:3000/ > /dev/null
-          QUOTE_BASELINE_URL=http://127.0.0.1:3001 QUOTE_UPDATED_URL=http://127.0.0.1:3000 node --import tsx scripts/check-homepage-quote-height-compare.mjs
-          TEST_BASE_URL=http://127.0.0.1:3000 node --import tsx scripts/check-homepage-booking-browser.mjs
+          for engine in chromium webkit; do
+            PLAYWRIGHT_BROWSER=$engine QUOTE_BASELINE_URL=http://127.0.0.1:3001 QUOTE_UPDATED_URL=http://127.0.0.1:3000 node --import tsx scripts/check-homepage-quote-height-compare.mjs
+            PLAYWRIGHT_BROWSER=$engine TEST_BASE_URL=http://127.0.0.1:3000 node --import tsx scripts/check-homepage-booking-browser.mjs
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
