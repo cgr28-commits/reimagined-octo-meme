@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import L from "leaflet";
+import { withBasePath } from "@/lib/paths";
 import "leaflet/dist/leaflet.css";
 
 export type MapMarker = {
@@ -25,10 +26,10 @@ type LiveTrackMapProps = {
 function createDriverIcon() {
   return L.divIcon({
     className: "",
-    html: '<div style="width:44px;height:44px;border-radius:50%;background:#071C38;border:3px solid #2FBF4A;box-shadow:0 2px 7px #0006;display:flex;align-items:center;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="#2563EB" stroke="#93C5FD" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 10 2-5h10l2 5M5 10h14a2 2 0 0 1 2 2v6H3v-6a2 2 0 0 1 2-2Z"/><path d="M5 18v2m14-2v2M7 14h.01M17 14h.01M9 18h6"/></svg></div>',
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    popupAnchor: [0, -24],
+    html: `<div style="position:relative;width:64px;height:80px;filter:drop-shadow(0 2px 3px #0005)"><div style="position:absolute;left:19px;top:54px;width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-top:24px solid #2FBF4A"></div><div style="position:absolute;left:2px;top:0;width:60px;height:60px;box-sizing:border-box;border-radius:50%;border:3px solid #2FBF4A;background:white;display:flex;align-items:center;justify-content:center"><img src="${withBasePath("/logo-light-header.webp")}" alt="My Airport Taxi NI" width="48" height="38" style="width:48px;height:38px;object-fit:contain" /></div></div>`,
+    iconSize: [64, 80],
+    iconAnchor: [32, 78],
+    popupAnchor: [0, -80],
   });
 }
 
