@@ -46,9 +46,8 @@ export function quoteDateTimeFieldShellClass(state: QuoteFieldHighlightState): s
 }
 
 /** Inner control for date/time — no border; shell owns the visible edge. */
-export function quoteDateTimeInputClass(compactMobile = false): string {
-  const mobileSize = compactMobile ? "h-11 leading-[2.75rem] sm:h-12 sm:leading-[3rem]" : "h-12 leading-[3rem]";
-  return `quote-text-input quote-datetime-input box-border block ${mobileSize} w-full min-w-0 max-w-full border-0 bg-transparent px-4 text-[1.125rem] font-semibold text-white outline-none [color-scheme:dark]`;
+export function quoteDateTimeInputClass(): string {
+  return "quote-text-input quote-datetime-input box-border block h-12 w-full min-w-0 max-w-full border-0 bg-transparent px-4 text-[1.125rem] font-semibold leading-[3rem] text-white outline-none [color-scheme:dark]";
 }
 
 /** Booking panel text inputs (slightly stronger default border). */

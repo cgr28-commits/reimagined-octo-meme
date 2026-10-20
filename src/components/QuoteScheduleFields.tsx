@@ -127,7 +127,7 @@ export default function QuoteScheduleFields({
               required
               onChange={(e) => onTripDateChange(e.target.value)}
               onInput={(e) => onTripDateChange((e.target as HTMLInputElement).value)}
-              className={quoteDateTimeInputClass(homepageInline)}
+              className={quoteDateTimeInputClass()}
             />
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function QuoteScheduleFields({
               onChange={(e) => onTripTimeChange(e.target.value)}
               onInput={(e) => onTripTimeChange((e.target as HTMLInputElement).value)}
               onBlur={onTimeBlur}
-              className={quoteDateTimeInputClass(homepageInline)}
+              className={quoteDateTimeInputClass()}
             />
           </div>
         </div>
@@ -193,7 +193,7 @@ export default function QuoteScheduleFields({
                 required
                 onChange={(e) => onReturnDateChange(e.target.value)}
                 onInput={(e) => onReturnDateChange((e.target as HTMLInputElement).value)}
-                className={quoteDateTimeInputClass(homepageInline)}
+                className={quoteDateTimeInputClass()}
               />
             </div>
           </div>
@@ -220,7 +220,7 @@ export default function QuoteScheduleFields({
                 onChange={(e) => onReturnTimeChange(e.target.value)}
                 onInput={(e) => onReturnTimeChange((e.target as HTMLInputElement).value)}
                 onBlur={onTimeBlur}
-                className={quoteDateTimeInputClass(homepageInline)}
+                className={quoteDateTimeInputClass()}
               />
             </div>
           </div>

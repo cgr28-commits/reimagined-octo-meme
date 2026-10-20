@@ -1166,7 +1166,7 @@ main {
   }
 
   .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > * + * {
-    margin-top: 0.5rem;
+    margin-top: 0.25rem;
   }
 
   .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > :not(:last-child) {
