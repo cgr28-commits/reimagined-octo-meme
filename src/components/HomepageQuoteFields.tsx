@@ -497,10 +497,10 @@ export default function HomepageQuoteFields({
                 aria-haspopup="dialog"
                 aria-expanded={scheduleDialogOpen}
                 onClick={() => setScheduleDialogOpen(true)}
-                className="flex min-h-12 shrink-0 flex-col items-center justify-center rounded-xl border border-white/25 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/10"
+                className="flex min-h-12 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/10"
               >
-                <span>{scheduleDate}</span>
-                <span className="text-emerald">{scheduleTime} · Edit</span>
+                <span className="text-emerald">Edit</span>
+                <span className="sr-only">{scheduleDate} at {scheduleTime}</span>
               </button>
             ) : null}
           </div>
