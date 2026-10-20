@@ -188,8 +188,15 @@ function SwapIcon() {
   );
 }
 
-const selectClass =
-  "box-border h-12 w-full min-w-0 rounded-xl border border-white/20 bg-[#0c2748] px-3 text-base font-semibold text-white outline-none focus:border-emerald focus:ring-1 focus:ring-emerald/50";
+function selectClass(hasError: boolean, complete: boolean) {
+  const base = "box-border h-12 w-full min-w-0 rounded-xl border bg-white/[0.1] px-3 text-base font-semibold text-white outline-none";
+  const highlight = hasError
+    ? "border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400"
+    : complete
+      ? "border-emerald/45 focus:border-emerald/70 focus:ring-1 focus:ring-inset focus:ring-emerald/35"
+      : "border-emerald/65 ring-1 ring-inset ring-emerald/30 focus:border-emerald";
+  return `${base} ${highlight}`;
+}
 
 export default function HomepageQuoteFields({
   journeyMode,
@@ -396,7 +403,7 @@ export default function HomepageQuoteFields({
             name="passengers"
             value={passengers == null ? "" : String(passengers)}
             onChange={(event) => onPassengersChange(event.target.value === "" ? null : Number(event.target.value))}
-            className={selectClass}
+            className={selectClass(Boolean(passengersError), passengers != null)}
             aria-invalid={Boolean(passengersError)}
           >
             <option value="">Select</option>
@@ -421,7 +428,7 @@ export default function HomepageQuoteFields({
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
             onChange={(event) => onSuitcasesChange(event.target.value === "" ? null : Number(event.target.value))}
-            className={selectClass}
+            className={selectClass(Boolean(suitcasesError), suitcases != null)}
             aria-invalid={Boolean(suitcasesError)}
           >
             <option value="">Select</option>
