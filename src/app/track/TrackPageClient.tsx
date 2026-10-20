@@ -112,18 +112,22 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
   const [customerSharing, setCustomerSharing] = useState(false);
   const [nowTick, setNowTick] = useState(0);
   const watchIdRef = useRef<number | null>(null);
+  const refreshSequence = useRef(0);
 
   const refresh = useCallback(async () => {
+    const sequence = ++refreshSequence.current;
     try {
       const next = await fetchPublicTrack(token);
+      if (sequence !== refreshSequence.current) return;
       setData(next);
       setCustomerSharing(next.customerSharingActive);
       setError(null);
     } catch (err) {
+      if (sequence !== refreshSequence.current) return;
       setData(null);
       setError(err instanceof Error ? err.message : "Could not load tracking");
     } finally {
-      setLoading(false);
+      if (sequence === refreshSequence.current) setLoading(false);
     }
   }, [token]);
 
@@ -133,7 +137,7 @@ export default function TrackPageClient({ token }: TrackPageClientProps) {
       void refresh();
     }, 10_000);
 
-    return () => window.clearInterval(interval);
+    return () => { ++refreshSequence.current; window.clearInterval(interval); };
   }, [refresh]);
 
   useEffect(() => {

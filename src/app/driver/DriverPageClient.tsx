@@ -38,6 +38,7 @@ import {
   postDriverLocation,
   setDriverSharing,
   postJourneyAction,
+  fetchJourneySession,
   fetchJourneyEvidence,
   JOURNEY_ACTION_LABELS,
   updateDriverBooking,
@@ -2123,6 +2124,10 @@ function DriverJobCard({
             {isActive ? "Stop sharing location" : "Start sharing location"}
           </button>
         )}
+        {SERVICE_FLAGS.liveDriverTracking && canOperateJourney && job.sharingActive && !isActive && <button type="button" disabled={busy} className="rounded-xl bg-emerald px-4 py-3 font-semibold text-navy disabled:opacity-60" onClick={() => {
+          setBusy(true);
+          void fetchJourneySession(driverKey, job.token).then(session => { onSessionChange(job.token, session.sessionToken); onSharingChange(job.token); }).catch(error => setError(error instanceof Error ? error.message : "Could not resume GPS")).finally(() => setBusy(false));
+        }}>Resume GPS on this phone</button>}
         {!isRefunded && isOwner && (assignmentStatus === "pending" || assignmentStatus === "accepted") ? (
           <a
             href={buildWhatsAppDriverDetailsLink({
@@ -2931,6 +2936,8 @@ export default function DriverPageClient({
     if (!savedKey || !activeToken || !navigator.geolocation) {
       return;
     }
+    setLastGpsAt(null);
+    setGpsStale(false);
 
     const sendPosition = (position: GeolocationPosition) => {
       void postDriverLocation(
