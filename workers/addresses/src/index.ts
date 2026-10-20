@@ -1,3 +1,4 @@
+import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
@@ -3965,6 +3966,10 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (/^\/(api\/)?owner\/private-gps-test$/.test(url.pathname)) {
+      return handlePrivateGpsTest(request, env, origin);
     }
 
     if (/^\/(api\/)?paid-bookings\/send-meet-greet$/.test(url.pathname)) {
