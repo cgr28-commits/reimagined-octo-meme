@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from "react";
 import AddressInput from "@/components/AddressInput";
-import QuoteActionDialog from "@/components/QuoteActionDialog";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
 import {
@@ -51,9 +50,6 @@ type HomepageQuoteFieldsProps = {
   quoteReady: boolean;
   scheduleFields?: ReactNode;
   scheduleComplete?: boolean;
-  scheduleDate?: string;
-  scheduleTime?: string;
-  onConfirmSchedule?: () => boolean;
   actionLabel?: string;
   capacityConfirmationRequired?: boolean;
   capacityConfirmed: boolean;
@@ -223,9 +219,6 @@ export default function HomepageQuoteFields({
   quoteReady,
   scheduleFields = null,
   scheduleComplete = false,
-  scheduleDate = "",
-  scheduleTime = "",
-  onConfirmSchedule,
   actionLabel = "Get My Fixed Price →",
   capacityConfirmationRequired = true,
   capacityConfirmed,
@@ -236,7 +229,6 @@ export default function HomepageQuoteFields({
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsMessage, setGpsMessage] = useState("");
   const [gpsSuggestToken, setGpsSuggestToken] = useState(0);
-  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const passengerChoices = publicPassengerOptions(true);
   const suitcaseChoices = publicSuitcaseOptions(true);
 
@@ -392,6 +384,8 @@ export default function HomepageQuoteFields({
         airportCode={addressLookupCode}
       />
 
+      {scheduleFields}
+
       <div className="grid grid-cols-2 items-end gap-2" id="passenger-luggage-section">
         <div className="flex min-w-0 flex-col">
           <label htmlFor="quote-section-passengers" className="form-label mb-1">
@@ -479,57 +473,15 @@ export default function HomepageQuoteFields({
               disabled={!quoteReady}
               aria-describedby="homepage-quote-requirements"
               onClick={() => {
-                if (!scheduleComplete) {
-                  setScheduleDialogOpen(true);
-                  return;
-                }
-                if (onRequestPrice() === false) setScheduleDialogOpen(true);
+                onRequestPrice();
               }}
               className="btn-primary min-h-12 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold sm:text-base"
             >
               {actionLabel}
             </button>
-            {scheduleComplete ? (
-              <button
-                type="button"
-                data-edit-quote-schedule
-                aria-label="Edit pickup date and time"
-                aria-haspopup="dialog"
-                aria-expanded={scheduleDialogOpen}
-                onClick={() => setScheduleDialogOpen(true)}
-                className="flex min-h-12 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/10"
-              >
-                <span className="text-emerald">Edit</span>
-                <span className="sr-only">{scheduleDate} at {scheduleTime}</span>
-              </button>
-            ) : null}
           </div>
           <QuoteHelpContact className="sm:hidden" />
         </div>
-      ) : null}
-      {scheduleDialogOpen && scheduleFields ? (
-        <QuoteActionDialog
-          title="Pickup date & time"
-          onClose={() => setScheduleDialogOpen(false)}
-        >
-          <div className="space-y-4" data-homepage-schedule-dialog>
-            <p className="text-sm leading-relaxed text-white/80">
-              Choose when you need picked up. We’ll use this to show your fixed price.
-              {journeyMode === "return" ? " Add the return pickup time too." : ""}
-            </p>
-            {scheduleFields}
-            <button
-              type="button"
-              data-confirm-quote-schedule
-              onClick={() => {
-                if (onConfirmSchedule?.()) setScheduleDialogOpen(false);
-              }}
-              className="btn-primary min-h-12 w-full rounded-xl text-base"
-            >
-              Save date & time
-            </button>
-          </div>
-        </QuoteActionDialog>
       ) : null}
     </div>
   );

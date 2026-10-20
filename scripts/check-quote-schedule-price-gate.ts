@@ -144,11 +144,10 @@ check("customer flow order: journey type → date/time → passengers → suitca
   assert.match(scheduleUi, /id="returnDate"/);
   assert.match(scheduleUi, /id="returnTime"/);
   assert.match(card, /showScheduleFields=/);
-  assert.match(card, /scheduleFields=\{renderQuoteScheduleFields\("quote"\)\}/);
+  assert.match(card, /scheduleFields=\{renderQuoteScheduleFields\("quote", true\)\}/);
   assert.match(card, /scheduleComplete=\{isScheduleComplete\}/);
-  assert.match(card, /onConfirmSchedule=\{confirmHomepageSchedule\}/);
-  assert.match(homepageFields, /data-homepage-schedule-dialog/);
-  assert.match(homepageFields, /data-edit-quote-schedule/);
+  assert.match(homepageFields, /\{scheduleFields\}/);
+  assert.doesNotMatch(homepageFields, /QuoteActionDialog|data-homepage-schedule-dialog|data-edit-quote-schedule/);
   assert.doesNotMatch(homepageFields, /data-homepage-schedule-before-vehicle/);
 });
 

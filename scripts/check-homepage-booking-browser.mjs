@@ -23,69 +23,47 @@ async function disabled(page) {
   assert.ok(await buttons.count());
   for (const button of await buttons.all()) assert.equal(await button.isEnabled(), false);
 }
-async function requestFixedPrice(page, { returning = false, date = futureDate(), assertStableHeight = true } = {}) {
+async function requestFixedPrice(page, { returning = false, date = futureDate() } = {}) {
   const trigger = page.getByRole('button', { name: /Get My Fixed Price/ }).last();
-  const card = trigger.locator('xpath=ancestor::*[@data-quote-presentation="homepage" and contains(@class, "quote-flow")]').first();
-  const before = await card.evaluate((element) => element.getBoundingClientRect().height);
-  await trigger.click();
-  const dialog = page.locator('[data-homepage-schedule-dialog]');
-  await dialog.waitFor({ state: 'visible' });
-  const dialogShell = page.locator('[data-quote-action-dialog]');
-  assert.equal(await dialogShell.getAttribute('role'), 'dialog');
-  assert.equal(await dialogShell.getAttribute('aria-modal'), 'true');
-  await page.screenshot({path:`${output}/${page.viewportSize().width}-schedule-open.png`});
-  await page.waitForFunction(() => {
-    const dialog = document.querySelector('[data-quote-action-dialog]');
-    return dialog?.contains(document.activeElement);
-  });
-  assert.equal(await page.evaluate(() => document.querySelector('[data-quote-action-dialog]')?.contains(document.activeElement)), true,
-    'opening the dialog must move keyboard focus inside it');
-  await page.keyboard.press('Tab');
-  assert.equal(await page.evaluate(() => document.querySelector('[data-quote-action-dialog]')?.contains(document.activeElement)), true,
-    'keyboard focus must stay within the open dialog');
-  assert.equal(await page.evaluate(() => document.body.style.position), 'fixed',
-    'opening the dialog must lock background scrolling');
+  const pickupDateInput = page.locator('#date');
+  const time = page.locator('#time');
+  await pickupDateInput.waitFor({ state: 'visible' });
+  await time.waitFor({ state: 'visible' });
+  const schedule = page.locator('[data-quote-schedule]');
+  assert.equal(await schedule.isVisible(), true, 'pickup schedule must be inline in the homepage quote tool');
+  const fieldBoxes = await Promise.all([pickupDateInput, time].map(field => field.boundingBox()));
+  assert.ok(fieldBoxes.every(box => box && box.height >= 44), 'date/time touch targets must be at least 44px high');
+  assert.equal(Math.round(fieldBoxes[0].y), Math.round(fieldBoxes[1].y), 'pickup date and time must share a row');
+  await page.screenshot({path:`${output}/${page.viewportSize().width}-schedule-inline.png`});
   assert.equal(await page.locator('[data-quote-results="ready"]').count(), 0,
-    'a final fare must remain hidden while the schedule dialog is incomplete');
-  const whileOpen = await card.evaluate((element) => element.getBoundingClientRect().height);
-  if (assertStableHeight) {
-    assert.equal(whileOpen, before, 'the schedule popup must not change quote-card height');
-  } else {
-    console.log(`REOPENED POPUP ${page.viewportSize().width}px: card ${before}px → ${whileOpen}px`);
+    'a final fare must remain hidden while the schedule is incomplete or has changed');
+  if (!(await pickupDateInput.inputValue()) || !(await time.inputValue())) {
+    await trigger.click();
+    assert.equal(await page.locator('[data-quote-results="ready"]').count(), 0,
+      'clicking for a fare without schedule values must not show a price');
+    if (!(await pickupDateInput.inputValue())) {
+      assert.ok(await pickupDateInput.evaluate(input => input.validity.valueMissing));
+      await pickupDateInput.fill(date);
+    }
+    if (!(await time.inputValue())) await time.fill('12:00');
   }
-  await page.getByRole('button', { name: 'Save date & time', exact: true }).click();
-  assert.equal(await dialog.isVisible(), true, 'an empty schedule must not be accepted');
-  await page.screenshot({path:`${output}/${page.viewportSize().width}-schedule-popup.png`});
-  await page.locator('#date').fill(date);
-  await page.locator('#time').fill('12:00');
   if (returning) {
-    await page.locator('#returnDate').fill(date);
-    await page.getByRole('button', { name: 'Save date & time', exact: true }).click();
-    assert.equal(await dialog.isVisible(), true, 'a return journey must require a return time');
-    await page.locator('#returnTime').fill('14:00');
+    const returnDate = page.locator('#returnDate');
+    const returnTime = page.locator('#returnTime');
+    await returnDate.waitFor({ state: 'visible' });
+    if (!(await returnDate.inputValue()) || !(await returnTime.inputValue())) {
+      if (!(await returnDate.inputValue())) await returnDate.fill(futureDate(7));
+      await trigger.click();
+      assert.equal(await page.locator('[data-quote-results="ready"]').count(), 0,
+        'a return journey must require return time before showing a fare');
+      if (!(await returnTime.inputValue())) {
+        assert.ok(await returnTime.evaluate(input => input.validity.valueMissing));
+        await returnTime.fill('14:00');
+      }
+    }
   }
-  await page.screenshot({path:`${output}/${page.viewportSize().width}-schedule-selected.png`});
-  await page.keyboard.press('Escape');
-  await dialog.waitFor({ state: 'detached' });
-  await page.waitForFunction(() => document.activeElement?.hasAttribute('data-get-fixed-price'));
-  assert.equal(await page.evaluate(() => document.activeElement?.hasAttribute('data-get-fixed-price')), true,
-    'closing the dialog must restore focus to its opener');
-  assert.notEqual(await page.evaluate(() => document.body.style.position), 'fixed',
-    'closing the dialog must restore background scrolling');
-  await page.locator('[data-edit-quote-schedule]').click();
-  await dialog.waitFor({ state: 'visible' });
-  assert.equal(await page.locator('#date').inputValue(), date, 'closing the popup must preserve pickup date');
-  assert.equal(await page.locator('#time').inputValue(), '12:00', 'closing the popup must preserve pickup time');
-  if (returning) {
-    assert.equal(await page.locator('#returnDate').inputValue(), date);
-    assert.equal(await page.locator('#returnTime').inputValue(), '14:00');
-  }
-  await page.getByRole('button', { name: 'Save date & time', exact: true }).click();
-  await dialog.waitFor({ state: 'detached' });
-  const afterSave = await card.evaluate((element) => element.getBoundingClientRect().height);
-  assert.ok(afterSave <= before + 1, 'saving schedule must not increase quote-card height');
-  assert.ok(await page.locator('[data-edit-quote-schedule]').isVisible());
-  await page.getByRole('button', { name: /Get My Fixed Price/ }).last().click();
+  await page.screenshot({path:`${output}/${page.viewportSize().width}-schedule-complete.png`});
+  await trigger.click();
   await page.locator('[data-quote-results="ready"]').waitFor({ state: 'attached' });
 }
 async function book(page) {
@@ -184,7 +162,7 @@ try {
     assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'0');
     // Returning with an empty schedule must hide the previous fare until dates are reselected.
     assert.equal(await page.locator('[data-quote-results="ready"]').count(),0);
-    await requestFixedPrice(page, { assertStableHeight: false });
+    await requestFixedPrice(page);
     await book(page);
     assert.equal(await page.locator('#date').inputValue(),futureDate());
     assert.equal(await page.locator('#time').inputValue(),'12:00');
@@ -196,14 +174,14 @@ try {
       'changing a booking date/time must invalidate the previous fixed fare');
     assert.deepEqual(writes,[], 'browser checkout regression must not submit booking or payment writes');
     await page.locator('[data-back-to-quote="top"]').click();
-    await requestFixedPrice(page, { assertStableHeight: false });
+    await requestFixedPrice(page);
     assert.ok(await page.locator('[data-quote-results="ready"]').count(),
       'a fresh quote must be available after a valid schedule is selected again');
     assert.deepEqual(writes,[]);
     pass(`${width}px: schedule required before fare; dates and customer inputs persist; changed schedule invalidates fare and requires a fresh quote; no payment or booking writes`);
 
     await page.getByRole('button',{name:/Return SAVE/}).click();
-    await requestFixedPrice(page,{returning:true,assertStableHeight:false});
+    await requestFixedPrice(page,{returning:true});
     await book(page);
     await page.locator('#returnDate').waitFor({state:'visible'});
     await page.locator('#returnTime').waitFor({state:'visible'});

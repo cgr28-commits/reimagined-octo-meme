@@ -1,4 +1,4 @@
-/** Compare the homepage quote card on main and the PR build at compact visible viewports. */
+/** Compare the homepage quote card before and after adding inline schedule fields. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -14,6 +14,9 @@ const measurements = [];
 
 async function measure(label, url, width) {
   const mobile = width < 768;
+  // The mobile viewport reserves roughly 100px for browser chrome on a 740px
+  // device screen; the desktop viewport is a typical laptop content area.
+  const deviceHeight = mobile ? 740 : 800;
   const visibleHeight = mobile ? 640 : 800;
   const context = await browser.newContext({
     viewport: { width, height: visibleHeight },
@@ -43,30 +46,36 @@ async function measure(label, url, width) {
       documentScrollWidth: document.documentElement.scrollWidth,
       viewportWidth: innerWidth,
       viewportHeight: innerHeight,
+      fitsQuoteToolInUsableViewport: rect.height <= innerHeight,
       scrollHeight: document.documentElement.scrollHeight,
     };
   });
   const passenger = page.locator('#quote-section-passengers');
-  await passenger.scrollIntoViewIfNeeded();
+  const passengerBox = await passenger.boundingBox();
+  dimensions.passengerTouchTargetHeight = passengerBox?.height ?? null;
   await page.screenshot({ path: `${output}/${label}-${width}.png`, fullPage: false });
   await context.close();
-  return { label, width, syntheticVisibleHeight: visibleHeight, ...dimensions };
+  return { label, width, syntheticDeviceHeight: deviceHeight, syntheticVisibleHeight: visibleHeight, ...dimensions };
 }
 
 try {
   for (const width of [320, 360, 375, 390, 1280]) {
     const baseline = await measure('main-before', baselineUrl, width);
-    const updated = await measure('popup-after', updatedUrl, width);
-    assert.ok(updated.height <= baseline.height + 1,
-      `${width}px quote card grew from ${baseline.height}px to ${updated.height}px`);
+    const updated = await measure('inline-after', updatedUrl, width);
+    assert.ok(updated.passengerTouchTargetHeight >= 44,
+      `${width}px passenger selector is below the minimum touch target`);
     assert.ok(updated.documentScrollWidth <= updated.viewportWidth,
       `${width}px updated homepage has horizontal overflow`);
     assert.ok(updated.height <= updated.syntheticVisibleHeight,
-      `${width}px quote card exceeds the ${updated.syntheticVisibleHeight}px visible viewport`);
+      `${width}px quote tool exceeds its ${updated.syntheticVisibleHeight}px usable viewport after reserving browser chrome`);
+    if (width < 768) {
+      assert.ok(updated.fitsQuoteToolInUsableViewport,
+        `${width}px quote tool does not fit the usable mobile viewport`);
+    }
     measurements.push({ width, before: baseline, after: updated,
       cardHeightDeltaPx: Math.round((updated.height - baseline.height) * 100) / 100,
       passed: true });
-    console.log(`PASS ${width}px: ${baseline.height}px → ${updated.height}px (${measurements.at(-1).cardHeightDeltaPx >= 0 ? '+' : ''}${measurements.at(-1).cardHeightDeltaPx}px)`);
+    console.log(`PASS ${width}px: ${baseline.height}px → ${updated.height}px (${measurements.at(-1).cardHeightDeltaPx >= 0 ? '+' : ''}${measurements.at(-1).cardHeightDeltaPx}px); mobile usable viewport ${updated.syntheticVisibleHeight}px`);
   }
 } finally {
   await fs.writeFile(`${output}/measurements.json`, JSON.stringify(measurements, null, 2));

@@ -22,6 +22,7 @@ function scheduleFieldState(
 
 export type QuoteScheduleFieldsProps = {
   variant?: "quote" | "checkout";
+  homepageInline?: boolean;
   returnJourney: boolean;
   tripDate: string;
   tripTime: string;
@@ -48,6 +49,7 @@ export type QuoteScheduleFieldsProps = {
 
 export default function QuoteScheduleFields({
   variant = "quote",
+  homepageInline = false,
   returnJourney,
   tripDate,
   tripTime,
@@ -76,13 +78,13 @@ export default function QuoteScheduleFields({
   const timeIncomplete = !tripTime.trim();
 
   const fieldGridClass = isQuote
-    ? "grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2"
+    ? `grid w-full min-w-0 max-w-full ${homepageInline ? "grid-cols-2 gap-2 sm:gap-3" : "gap-3 sm:grid-cols-2"}`
     : "grid w-full min-w-0 max-w-full gap-2 sm:grid-cols-2";
 
   return (
     <section
       id="quote-section-schedule"
-      className={`scroll-mt-44 md:scroll-mt-28 ${isQuote ? "space-y-3" : "space-y-2"}`}
+      className={`scroll-mt-44 md:scroll-mt-28 ${isQuote ? (homepageInline ? "space-y-1.5 sm:space-y-3" : "space-y-3") : "space-y-2"}`}
       data-quote-schedule
     >
       {isQuote ? (
@@ -161,9 +163,9 @@ export default function QuoteScheduleFields({
         <p
           id="trip-date-error"
           role={tripDateError ? "alert" : undefined}
-          className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400"
+          className={`sm:col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}
         >
-          {tripDateError || "\u00a0"}
+          {tripDateError || (homepageInline ? null : "\u00a0")}
         </p>
       </div>
 
@@ -222,8 +224,8 @@ export default function QuoteScheduleFields({
               />
             </div>
           </div>
-          <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
-            {returnDateError || "\u00a0"}
+          <p className={`sm:col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}>
+            {returnDateError || (homepageInline ? null : "\u00a0")}
           </p>
         </div>
       ) : null}

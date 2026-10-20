@@ -3214,18 +3214,6 @@ function QuoteCard({
     }, 0);
   }
 
-  function confirmHomepageSchedule(): boolean {
-    if (!isScheduleComplete || !validateTripForBooking()) {
-      focusHomepageScheduleError();
-      return false;
-    }
-    setSubmitError("");
-    // A changed schedule invalidates the previous fixed fare. Make the quote
-    // action available again so the customer can request a fresh calculation.
-    setHomepagePriceRequested(false);
-    return true;
-  }
-
   function requestHomepagePrice(): boolean {
     if (presentation !== "homepage" || !homepageQuoteReady) return false;
     if (journeyMode == null) {
@@ -6432,10 +6420,11 @@ function QuoteCard({
     return fromAirport ? "Scheduled flight arrival time" : "Pickup time";
   }
 
-  function renderQuoteScheduleFields(variant: "quote" | "checkout") {
+  function renderQuoteScheduleFields(variant: "quote" | "checkout", homepageInline = false) {
     return (
       <QuoteScheduleFields
         variant={variant}
+        homepageInline={homepageInline}
         returnJourney={returnJourney}
         tripDate={tripDate}
         tripTime={tripTime}
@@ -7905,11 +7894,8 @@ function QuoteCard({
                 publicMinibusEnabled={publicMinibusEnabled}
                 onRequestPrice={requestHomepagePrice}
                 quoteReady={homepageQuoteReady}
-                scheduleFields={renderQuoteScheduleFields("quote")}
+                scheduleFields={renderQuoteScheduleFields("quote", true)}
                 scheduleComplete={isScheduleComplete}
-                scheduleDate={formatUkDate(tripDate)}
-                scheduleTime={formatUkTime(tripTime)}
-                onConfirmSchedule={confirmHomepageSchedule}
                 capacityConfirmed={homepageCapacityConfirmed}
                 onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}
