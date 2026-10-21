@@ -82,7 +82,7 @@ async function main() {
    assert.equal(m.overflow, false); assert.ok(m.header > 0, 'Real fixed site header must be mounted');
    if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must reveal the selected vehicle card: ' + JSON.stringify(m));  }
    else { assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m)); assert.ok(await page.locator('[data-quote-result-art]').isVisible()); assert.ok(await page.locator('[data-quote-result-capacity]').isVisible()); }
-   assert.match(m.label, /BOOK THIS TRANSFER|REQUEST A QUOTE/);
+   assert.match(m.label, /BOOK THIS TRANSFER|REQUEST QUOTE/);
    // Once the initial responses settle, the result must not keep scrolling.
    await page.waitForTimeout(250); assert.ok(Math.abs(await page.evaluate(() => scrollY) - m.y) <= 2);
    fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
@@ -202,7 +202,7 @@ async function main() {
   assert.notEqual(await page.evaluate(() => document.body.style.position), 'fixed');
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
-  assert.deepEqual(errors, []); console.log('OK original stacked options retained, duplicate mobile art/capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
+  assert.deepEqual(errors, []); console.log('OK original stacked options retained, existing mobile art visible and duplicate capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
  } catch (error) {
   console.error('Browser errors', errors);
   if (page) {
