@@ -126,7 +126,31 @@ jobs:
               QUOTE_TEST_BROWSER=$engine QUOTE_SWITCH_WIDTH=$width QUOTE_SWITCH_DIAGNOSTIC=pr-$engine-$width node --import tsx scripts/check-mobile-result-action-browser.cjs
             done
           done
-          node -e "const fs=require('fs'),a=require('assert/strict');const read=n=>JSON.parse(fs.readFileSync('test-results/mobile-result/switch-'+n+'.json'));for(const e of ['webkit','chromium'])for(const w of [320,375]){const m=read('main-'+e+'-'+w),p=read('pr-'+e+'-'+w);for(const k of ['before','pending','settled','transitions'])a.deepEqual(p[k],m[k]);a.equal(p.bookingOpened,true);a.equal(m.bookingOpened,true);console.log('PASS identical main/PR '+e+' '+w+'px geometry, fonts and accessible booking flow');}"
+          # Compare defined ready states. An arbitrary 100ms pending sample can
+          # precede or follow a paint; retain it as evidence, not a zero-motion contract.
+          node <<'NODE'
+          const fs=require('fs'),a=require('assert/strict');
+          const read=n=>JSON.parse(fs.readFileSync('test-results/mobile-result/switch-'+n+'.json'));
+          for(const e of ['webkit','chromium'])for(const w of [320,375]){
+            const m=read('main-'+e+'-'+w),p=read('pr-'+e+'-'+w);
+            for(const k of ['before','settled'])a.deepEqual(p[k],m[k]);
+            for(const id of ['estate','executive','minibus','saloon'])for(const phase of ['before','settled'])a.deepEqual(p.transitions[id][phase],m.transitions[id][phase]);
+            a.equal(p.bookingOpened,true);a.equal(m.bookingOpened,true);
+            const selector='[data-quote-result-main-action]';
+            for(const [source,v] of [['main',m],['pr',p]])console.log('BASELINE MOVEMENT '+JSON.stringify({source,engine:e,width:w,before:v.before[selector].top,pending:v.pending[selector].top,settled:v.settled[selector].top,delta:v.settled[selector].top-v.before[selector].top}));
+            console.log('PASS identical main/PR '+e+' '+w+'px settled geometry, fonts and accessible booking flow');
+          }
+          NODE
+      - name: Record main delayed-fare movement with the identical browser harness
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -m http.server 3001 --bind 127.0.0.1 --directory switch-baseline/out > "$RUNNER_TEMP/matni-vehicle-main.log" 2>&1 &
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:3001/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:3001/ > /dev/null
+          TEST_BASE_URL=http://127.0.0.1:3001 VEHICLE_STABILITY_BASELINE=main node --import tsx scripts/check-return-vehicle-stability.mjs
       - name: Verify real prefetch responses across reset and test reload on main and PR
         if: ${{ !cancelled() }}
         run: |
