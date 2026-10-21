@@ -69,7 +69,8 @@ try {
           const banner=page.getByRole('dialog',{name:'Cookie consent'});
           await banner.waitFor();
           await page.evaluate(()=>document.fonts.ready);
-          await page.locator('main img').evaluateAll(images=>Promise.all(images.map(image=>image.decode().catch(()=>{}))));
+          // Offscreen lazy images have no request yet; waiting for decode would never finish.
+          await page.locator('main img').evaluateAll(images=>Promise.all(images.filter(image=>image.complete && image.naturalWidth>0).map(image=>image.decode().catch(()=>{}))));
           assert.equal(await grantedBeforeChoice(page),false,'optional consent must start denied');
           const policy=banner.getByRole('link',{name:'Privacy Policy'});
           assert.equal(await policy.getAttribute('href'),'/privacy/');

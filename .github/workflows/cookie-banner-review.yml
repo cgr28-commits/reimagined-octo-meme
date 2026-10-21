@@ -11,6 +11,9 @@ on:
       - .github/workflows/cookie-banner-review.yml
 permissions:
   contents: read
+concurrency:
+  group: cookie-banner-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   isolated-browser-review:
     runs-on: ubuntu-latest
