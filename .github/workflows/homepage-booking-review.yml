@@ -151,6 +151,7 @@ jobs:
           done
           curl --silent --fail http://127.0.0.1:3001/ > /dev/null
           TEST_BASE_URL=http://127.0.0.1:3001 VEHICLE_STABILITY_BASELINE=main node --import tsx scripts/check-return-vehicle-stability.mjs
+          TEST_BASE_URL=http://127.0.0.1:3001 HUB_TEST_LABEL=main node --import tsx scripts/check-hub-quote-browser.mjs
       - name: Verify real prefetch responses across reset and test reload on main and PR
         if: ${{ !cancelled() }}
         run: |
@@ -178,12 +179,19 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           python3 -m http.server 3000 --directory out &
-          node --import tsx scripts/check-greater-belfast-ireland-browser.mjs
-          node --import tsx scripts/check-homepage-booking-browser.mjs
-          node --import tsx scripts/check-return-vehicle-stability.mjs
-          node --import tsx scripts/check-hub-quote-browser.mjs
-          node --import tsx scripts/check-email-logo-browser.mjs
-          node --import tsx scripts/check-payment-confirmation-browser.mjs
+          # Run every required browser script, preserving a failed job if ANY
+          # script fails. Earlier failures must not hide the remaining results.
+          status=0
+          for script in \
+            check-greater-belfast-ireland-browser.mjs \
+            check-homepage-booking-browser.mjs \
+            check-return-vehicle-stability.mjs \
+            check-hub-quote-browser.mjs \
+            check-email-logo-browser.mjs \
+            check-payment-confirmation-browser.mjs; do
+            node --import tsx "scripts/$script" || status=1
+          done
+          exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

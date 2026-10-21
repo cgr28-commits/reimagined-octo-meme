@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
-const output = 'test-results/homepage-booking';
+const output = `test-results/homepage-booking/hub-${process.env.HUB_TEST_LABEL || 'pr'}`;
 await fs.mkdir(output, {recursive:true});
 const browser = await chromium.launch();
 const results = [];
@@ -28,6 +28,10 @@ try {
       }
       if (url.pathname === '/pricing/public') return json({config:toPublicOwnerPricingConfig(defaultOwnerPricingSettings())});
       if (url.pathname === '/quote/availability') return json({blocked:false,available:true,alternativeTimes:[]});
+      if (url.pathname === '/quote/calculate') {
+        const body=route.request().postDataJSON();
+        return json({ok:true,amount:60,journeyFareGbp:60,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0,vehicleType:body.vehicleType});
+      }
       return route.abort();
     });
     const page = await context.newPage();
@@ -56,6 +60,14 @@ try {
         await page.getByRole('button',{name:/Belfast City Hall.*Donegall/}).first().click();
         await page.locator('#quote-section-passengers').selectOption('2');
         await page.locator('#quote-section-suitcases').selectOption('0');
+        // Main's inline form already requires the pickup schedule before a
+        // final fare. Keep that gate covered instead of expecting the removed
+        // "quote without dates" flow, and mock the authoritative response above.
+        await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
+        assert.equal(await page.locator('[data-quote-results="ready"]').count(),0,'no final fare without the pickup schedule');
+        assert.ok(await page.locator('#date').evaluate(input=>input.validity.valueMissing));
+        await page.locator('#date').fill(new Date(Date.now()+10*86400000).toISOString().slice(0,10));
+        await page.locator('#time').fill('12:00');
         await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
         await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
         await page.locator('#date').waitFor({state:'visible'});
@@ -68,7 +80,7 @@ try {
         assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'0');
         assert.match(await page.locator(`#${item.field}`).inputValue(),item.airport);
       }
-      const label = `${width}px ${item.path}: new form, live quote link, prefill, Select defaults, compact layout${item.airport ? ', quote without dates, booking date visibility and back preservation' : ''}`;
+      const label = `${width}px ${item.path}: new form, live quote link, prefill, Select defaults, compact layout${item.airport ? ', required pickup schedule, authoritative quote, booking date visibility and back preservation' : ''}`;
       results.push(label); console.log('PASS',label);
     }
     await context.close();
