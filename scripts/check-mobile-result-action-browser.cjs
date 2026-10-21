@@ -67,18 +67,20 @@ async function main() {
    // Wait for the actual reveal rather than assuming WebKit's rendering/effects
    // finish on Chromium's timing. This does not scroll or alter the page.
    await page.waitForFunction(() => {
-    const heading = document.querySelector('[data-quote-vehicle-options-heading]');
+    // Main and candidate both reveal the selected card on mobile (baseline
+    // investigation 39661970175); Vehicle options is the desktop target.
+    const heading = document.querySelector(innerWidth < 768 ? '[data-quote-selected-vehicle-card]' : '[data-quote-vehicle-options-heading]');
     const header = document.querySelector('header.fixed, header[class*="fixed"]');
     return heading && header && document.documentElement.style.scrollBehavior !== 'auto' && Math.abs(heading.getBoundingClientRect().top - header.getBoundingClientRect().bottom - 12) <= 9;
    }, null, { timeout: 10000 });
    const m = await page.evaluate(() => {
     const btn = [...document.querySelectorAll('[data-quote-result-card] #quote-book-now-button')].find(e => e.getClientRects().length);
-    const rect = btn.getBoundingClientRect(), heading = document.querySelector('[data-quote-vehicle-options-heading]').getBoundingClientRect();
+    const rect = btn.getBoundingClientRect(), heading = document.querySelector(innerWidth < 768 ? '[data-quote-selected-vehicle-card]' : '[data-quote-vehicle-options-heading]').getBoundingClientRect();
     const header = document.querySelector('header.fixed, header[class*="fixed"]');
     return { top: rect.top, bottom: rect.bottom, header: header?.getBoundingClientRect().bottom || 0, heading: heading.top, height: visualViewport.height, inset: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--matni-cookie-banner-offset')) || 0, y: scrollY, label: btn.innerText, stacked: new Set([...document.querySelectorAll('[data-vehicle-category]')].map(e => Math.round(e.getBoundingClientRect().left))).size === 1, overflow: document.documentElement.scrollWidth > innerWidth };
    });
    assert.equal(m.overflow, false); assert.ok(m.header > 0, 'Real fixed site header must be mounted');
-   if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must start at the full vehicle list: ' + JSON.stringify(m));  }
+   if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must reveal the selected vehicle card: ' + JSON.stringify(m));  }
    else { assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m)); assert.ok(await page.locator('[data-quote-result-art]').isVisible()); assert.ok(await page.locator('[data-quote-result-capacity]').isVisible()); }
    assert.match(m.label, /BOOK THIS TRANSFER|REQUEST A QUOTE/);
    // Once the initial responses settle, the result must not keep scrolling.
