@@ -21,12 +21,72 @@ on:
       - 'src/components/LocationQuoteSection.tsx'
       - 'src/components/AddressInput.tsx'
       - 'scripts/check-homepage-booking-browser.mjs'
+      - 'scripts/check-homepage-quote-height-compare.mjs'
       - 'scripts/check-return-vehicle-stability.mjs'
       - 'scripts/check-hub-quote-browser.mjs'
       - '.github/workflows/homepage-booking-review.yml'
 permissions:
   contents: read
+
 jobs:
+  compact-schedule-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build updated quote flow
+        run: GITHUB_PAGES=true npm run build
+      - name: Check out reviewed inline form for before/after measurements
+        uses: actions/checkout@v4
+        with:
+          ref: 9d9ef4180925f9f526e15b6c247e979e9fa09688
+          path: baseline
+      - name: Build reviewed baseline and serve it
+        working-directory: baseline
+        run: |
+          npm ci
+          GITHUB_PAGES=true npm run build
+          python3 -m http.server 3001 --directory out > "$RUNNER_TEMP/matni-baseline-server.log" 2>&1 &
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:3001/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:3001/ > /dev/null
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Schedule and checkout regression checks
+        run: |
+          node --import tsx scripts/check-quote-schedule-price-gate.ts
+          node --import tsx scripts/check-quote-checkout-page.ts
+          node --import tsx scripts/check-quote-required-fields.ts
+      - name: Test inline schedule, booking and compare card heights at five viewports
+        run: |
+          python3 -m http.server 3000 --directory out > "$RUNNER_TEMP/matni-updated-server.log" 2>&1 &
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:3000/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:3000/ > /dev/null
+          status=0
+          for engine in chromium webkit; do
+            PLAYWRIGHT_BROWSER=$engine QUOTE_BASELINE_URL=http://127.0.0.1:3001 QUOTE_UPDATED_URL=http://127.0.0.1:3000 node --import tsx scripts/check-homepage-quote-height-compare.mjs || status=1
+            PLAYWRIGHT_BROWSER=$engine TEST_BASE_URL=http://127.0.0.1:3000 node --import tsx scripts/check-homepage-booking-browser.mjs || status=1
+          done
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compact-schedule-browser-review
+          path: |
+            test-results/homepage-booking/
+            test-results/homepage-layout-compare/
+          if-no-files-found: warn
+
   browser-review:
     runs-on: ubuntu-latest
     timeout-minutes: 15

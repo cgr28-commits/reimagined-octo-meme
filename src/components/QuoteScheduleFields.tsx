@@ -20,8 +20,16 @@ function scheduleFieldState(
   return "needs";
 }
 
+// Display only: keep the full ISO date in the native input and existing booking state.
+function mobileDateText(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Select date";
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year.slice(-2)}`;
+}
+
 export type QuoteScheduleFieldsProps = {
   variant?: "quote" | "checkout";
+  homepageInline?: boolean;
   returnJourney: boolean;
   tripDate: string;
   tripTime: string;
@@ -48,6 +56,7 @@ export type QuoteScheduleFieldsProps = {
 
 export default function QuoteScheduleFields({
   variant = "quote",
+  homepageInline = false,
   returnJourney,
   tripDate,
   tripTime,
@@ -76,20 +85,21 @@ export default function QuoteScheduleFields({
   const timeIncomplete = !tripTime.trim();
 
   const fieldGridClass = isQuote
-    ? "grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2"
+    ? `grid w-full min-w-0 max-w-full ${homepageInline ? "grid-cols-2 gap-2 sm:gap-3" : "gap-3 sm:grid-cols-2"}`
     : "grid w-full min-w-0 max-w-full gap-2 sm:grid-cols-2";
 
   return (
     <section
       id="quote-section-schedule"
-      className={`scroll-mt-44 md:scroll-mt-28 ${isQuote ? "space-y-3" : "space-y-2"}`}
+      className={`scroll-mt-44 md:scroll-mt-28 ${isQuote ? (homepageInline ? "space-y-0 sm:space-y-3" : "space-y-3") : "space-y-2"}`}
       data-quote-schedule
+      data-homepage-inline-schedule={homepageInline || undefined}
     >
       {isQuote ? (
       <p
         data-booking-nav-heading
         tabIndex={-1}
-        className="form-label outline-none"
+        className={`form-label outline-none ${homepageInline ? "sr-only sm:not-sr-only" : ""}`}
       >
         Pickup date & time
         {dateIncomplete || timeIncomplete || (returnJourney && (!returnDate || !returnTime)) ? (
@@ -106,6 +116,8 @@ export default function QuoteScheduleFields({
             {returnJourney ? "Outbound date" : "Pickup date"}
           </label>
           <div
+            data-schedule-control={homepageInline ? "date" : undefined}
+            data-schedule-empty={homepageInline && !tripDate ? true : undefined}
             className={quoteDateTimeFieldShellClass(
               scheduleFieldState({
                 hasError: Boolean(tripDateError),
@@ -113,6 +125,7 @@ export default function QuoteScheduleFields({
               }),
             )}
           >
+            {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(tripDate)}</span> : null}
             <input
               id="date"
               ref={tripDateInputRef}
@@ -134,6 +147,8 @@ export default function QuoteScheduleFields({
             {outboundTimeLabel}
           </label>
           <div
+            data-schedule-control={homepageInline ? "time" : undefined}
+            data-schedule-empty={homepageInline && !tripTime ? true : undefined}
             className={quoteDateTimeFieldShellClass(
               scheduleFieldState({
                 hasError: Boolean(tripDateError),
@@ -141,6 +156,7 @@ export default function QuoteScheduleFields({
               }),
             )}
           >
+            {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{tripTime ? tripTime.slice(0, 5) : "Select time"}</span> : null}
             <input
               id="time"
               ref={tripTimeInputRef}
@@ -161,9 +177,9 @@ export default function QuoteScheduleFields({
         <p
           id="trip-date-error"
           role={tripDateError ? "alert" : undefined}
-          className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400"
+          className={`sm:col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}
         >
-          {tripDateError || "\u00a0"}
+          {tripDateError || (homepageInline ? null : "\u00a0")}
         </p>
       </div>
 
@@ -174,6 +190,8 @@ export default function QuoteScheduleFields({
               Return date
             </label>
             <div
+              data-schedule-control={homepageInline ? "date" : undefined}
+              data-schedule-empty={homepageInline && !returnDate ? true : undefined}
               className={quoteDateTimeFieldShellClass(
                 scheduleFieldState({
                   hasError: Boolean(returnDateError),
@@ -181,6 +199,7 @@ export default function QuoteScheduleFields({
                 }),
               )}
             >
+              {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(returnDate)}</span> : null}
               <input
                 id="returnDate"
                 ref={returnDateInputRef}
@@ -200,6 +219,8 @@ export default function QuoteScheduleFields({
               {returnTimeLabel}
             </label>
             <div
+              data-schedule-control={homepageInline ? "time" : undefined}
+              data-schedule-empty={homepageInline && !returnTime ? true : undefined}
               className={quoteDateTimeFieldShellClass(
                 scheduleFieldState({
                   hasError: Boolean(returnDateError),
@@ -207,6 +228,7 @@ export default function QuoteScheduleFields({
                 }),
               )}
             >
+              {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{returnTime ? returnTime.slice(0, 5) : "Select time"}</span> : null}
               <input
                 id="returnTime"
                 ref={returnTimeInputRef}
@@ -222,8 +244,8 @@ export default function QuoteScheduleFields({
               />
             </div>
           </div>
-          <p className="sm:col-span-2 min-h-[1.1rem] text-xs text-red-400">
-            {returnDateError || "\u00a0"}
+          <p className={`sm:col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}>
+            {returnDateError || (homepageInline ? null : "\u00a0")}
           </p>
         </div>
       ) : null}

@@ -1806,26 +1806,26 @@ function QuoteCard({
         ? isAirportAddressComplete
         : isAddressPairComplete);
 
-  // Fixed price only after route + journey mode + party + booked pickup schedule.
-  // The homepage may show a provisional fare before date and time. Checkout
-  // still requires a complete schedule before payment.
+  // A final fixed price requires the booked pickup schedule on every presentation.
   // Public flow clamps to 1–4 / 0–4, so this stays false; kept as a hard guard.
   const exceedsOnlineCapacity =
     quoteChoicesReady &&
     effectivePassengers != null &&
     suitcases != null &&
     exceedsOnlineVehicleOptions(effectivePassengers, suitcases, passengerLimit, suitcaseLimit);
-  const scheduleReadyForQuote =
-    isScheduleComplete || presentation === "homepage";
+  const scheduleReadyForQuote = isScheduleComplete;
   const canShowPrice =
     hasQuoteRoute &&
     quoteChoicesReady &&
     scheduleReadyForQuote &&
     !exceedsOnlineCapacity;
 
-  // Homepage input gate only; schedule and payment validation stay separate.
+  // Homepage action gate for route and party. Schedule validation is enforced
+  // before the action can request or display a final fare.
   const homepageQuoteReady =
-    canShowPrice &&
+    hasQuoteRoute &&
+    quoteChoicesReady &&
+    !exceedsOnlineCapacity &&
     isQuoteReadyPlace(pickupPlace) &&
     isQuoteReadyPlace(dropoffPlace) &&
     addressTextMatchesPlace(pickupAddress, pickupPlace) &&
@@ -3193,22 +3193,48 @@ function QuoteCard({
     setServerFareParts(null);
   }
 
-  function requestHomepagePrice() {
-    if (presentation !== "homepage" || !homepageQuoteReady) return;
+  function focusHomepageScheduleError() {
+    window.setTimeout(() => {
+      const target = !tripDate.trim()
+        ? tripDateInputRef.current
+        : !tripTime.trim()
+          ? tripTimeInputRef.current
+          : !isTripDateOnOrAfterToday(tripDate)
+            ? tripDateInputRef.current
+            : !isTripDateTimeNotInPast(tripDate, tripTime)
+              ? tripTimeInputRef.current
+              : returnJourney && !returnDate.trim()
+                ? returnDateInputRef.current
+                : returnJourney && !returnTime.trim()
+                  ? returnTimeInputRef.current
+                  : returnJourney && !isReturnAfterOutbound(tripDate, tripTime, returnDate, returnTime)
+                    ? returnDateInputRef.current
+                    : tripDateInputRef.current;
+      target?.focus({ preventScroll: true });
+    }, 0);
+  }
+
+  function requestHomepagePrice(): boolean {
+    if (presentation !== "homepage" || !homepageQuoteReady) return false;
     if (journeyMode == null) {
       setSubmitError("Choose One Way or Return to continue.");
-      return;
+      return false;
     }
     if (!validateA2APlaces()) {
       window.setTimeout(() => {
         focusFirstInvalidField(cardRef.current ?? document);
       }, 0);
-      return;
+      return false;
     }
     if (!partySelectionReady) {
       if (passengers == null) setPassengersError(QUOTE_REQUIRED_FIELD_MESSAGES.passengers);
       if (suitcases == null) setSuitcasesError(QUOTE_REQUIRED_FIELD_MESSAGES.suitcases);
-      return;
+      return false;
+    }
+    if (!isScheduleComplete) {
+      validateTripForBooking();
+      focusHomepageScheduleError();
+      return false;
     }
     const classified = classifyVerifiedJourney(pickupPlace, dropoffPlace);
     if (classified) {
@@ -3221,6 +3247,7 @@ function QuoteCard({
     setSubmitError("");
     hadRouteSummaryScrollRef.current = false;
     setHomepagePriceRequested(true);
+    return true;
   }
 
   function applyJourneyIntent(intent: QuoteJourneyIntent) {
@@ -6394,10 +6421,11 @@ function QuoteCard({
     return fromAirport ? "Scheduled flight arrival time" : "Pickup time";
   }
 
-  function renderQuoteScheduleFields(variant: "quote" | "checkout") {
+  function renderQuoteScheduleFields(variant: "quote" | "checkout", homepageInline = false) {
     return (
       <QuoteScheduleFields
         variant={variant}
+        homepageInline={homepageInline}
         returnJourney={returnJourney}
         tripDate={tripDate}
         tripTime={tripTime}
@@ -6417,20 +6445,24 @@ function QuoteCard({
         returnTimeInputRef={returnTimeInputRef}
         onTripDateChange={(value) => {
           setTripDate(value);
+          if (presentation === "homepage") setHomepagePriceRequested(false);
           if (value && tripTime) setTripDateError("");
           setReturnDateError("");
         }}
         onTripTimeChange={(value) => {
           setTripTime(value);
+          if (presentation === "homepage") setHomepagePriceRequested(false);
           if (tripDate && value) setTripDateError("");
           setReturnDateError("");
         }}
         onReturnDateChange={(value) => {
           setReturnDate(value);
+          if (presentation === "homepage") setHomepagePriceRequested(false);
           setReturnDateError("");
         }}
         onReturnTimeChange={(value) => {
           setReturnTime(value);
+          if (presentation === "homepage") setHomepagePriceRequested(false);
           setReturnDateError("");
         }}
         onTimeBlur={
@@ -7863,6 +7895,8 @@ function QuoteCard({
                 publicMinibusEnabled={publicMinibusEnabled}
                 onRequestPrice={requestHomepagePrice}
                 quoteReady={homepageQuoteReady}
+                scheduleFields={renderQuoteScheduleFields("quote", true)}
+                scheduleComplete={isScheduleComplete}
                 capacityConfirmed={homepageCapacityConfirmed}
                 onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}

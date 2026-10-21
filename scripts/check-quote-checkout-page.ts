@@ -122,7 +122,7 @@ console.log("\n=== Narrow-phone field shells stay full-width ===");
 {
   const schedule = read("src/components/QuoteScheduleFields.tsx");
   assert.match(checkout, /renderQuoteScheduleFields\("checkout"\)/);
-  assert.match(schedule, /grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2/);
+  assert.match(schedule, /homepageInline \? "grid-cols-2 gap-2 sm:gap-3" : "gap-3 sm:grid-cols-2"/);
   assert.match(schedule, /quoteDateTimeFieldShellClass/);
   assert.match(checkout, /bookingTextFieldClass/);
   assert.match(summary, /text-lg font-bold tracking-tight text-white sm:text-xl/);

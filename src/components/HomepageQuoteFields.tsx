@@ -188,8 +188,15 @@ function SwapIcon() {
   );
 }
 
-const selectClass =
-  "box-border h-12 w-full min-w-0 rounded-xl border border-white/20 bg-[#0c2748] px-3 text-base font-semibold text-white outline-none focus:border-emerald focus:ring-1 focus:ring-emerald/50";
+function selectClass(hasError: boolean, complete: boolean) {
+  const base = "box-border h-12 w-full min-w-0 rounded-xl border bg-white/[0.1] px-3 text-base font-semibold text-white outline-none";
+  const highlight = hasError
+    ? "border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400"
+    : complete
+      ? "border-emerald/45 focus:border-emerald/70 focus:ring-1 focus:ring-inset focus:ring-emerald/35"
+      : "border-emerald/65 ring-1 ring-inset ring-emerald/30 focus:border-emerald";
+  return `${base} ${highlight}`;
+}
 
 export default function HomepageQuoteFields({
   journeyMode,
@@ -218,7 +225,7 @@ export default function HomepageQuoteFields({
   onRequestPrice,
   quoteReady,
   scheduleFields = null,
-  scheduleComplete = true,
+  scheduleComplete = false,
   actionLabel = "Get My Fixed Price →",
   capacityConfirmationRequired = true,
   capacityConfirmed,
@@ -384,6 +391,8 @@ export default function HomepageQuoteFields({
         airportCode={addressLookupCode}
       />
 
+      {scheduleFields}
+
       <div className="grid grid-cols-2 items-end gap-2" id="passenger-luggage-section">
         <div className="flex min-w-0 flex-col">
           <label htmlFor="quote-section-passengers" className="form-label mb-1">
@@ -394,7 +403,7 @@ export default function HomepageQuoteFields({
             name="passengers"
             value={passengers == null ? "" : String(passengers)}
             onChange={(event) => onPassengersChange(event.target.value === "" ? null : Number(event.target.value))}
-            className={selectClass}
+            className={selectClass(Boolean(passengersError), passengers != null)}
             aria-invalid={Boolean(passengersError)}
           >
             <option value="">Select</option>
@@ -419,7 +428,7 @@ export default function HomepageQuoteFields({
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
             onChange={(event) => onSuitcasesChange(event.target.value === "" ? null : Number(event.target.value))}
-            className={selectClass}
+            className={selectClass(Boolean(suitcasesError), suitcases != null)}
             aria-invalid={Boolean(suitcasesError)}
           >
             <option value="">Select</option>
@@ -446,7 +455,6 @@ export default function HomepageQuoteFields({
           </label>
         </div>
       ) : null}
-      {scheduleFields ? <div className="mt-3" data-homepage-schedule-before-vehicle>{scheduleFields}</div> : null}
       <p id="homepage-quote-requirements" role="status" className="text-xs leading-snug text-white/75">
         {!publicMinibusEnabled && ((passengers ?? 0) > 4 || (suitcases ?? 0) > 4)
           ? "The 7-Seater is unavailable. Online quotes currently support up to 4 passengers and 4 suitcases."
@@ -460,7 +468,7 @@ export default function HomepageQuoteFields({
                 ? "Confirm luggage capacity with us before requesting a price for 5+ suitcases."
                 : !quoteReady
                   ? "Choose different, confirmed pickup and drop-off addresses and a suitable party size."
-                  : scheduleFields ? "Ready to show your transfer options." : "Ready for your quote. Add date and time when you book."}
+                  : "Ready to show your transfer options."}
       </p>
       </div>
       {quoteFormActive ? (

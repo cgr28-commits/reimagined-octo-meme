@@ -34,6 +34,7 @@ function check(label: string, fn: () => void) {
 const card = read("src/components/QuoteCard.tsx");
 const progressive = read("src/components/QuoteProgressiveRoute.tsx");
 const scheduleUi = read("src/components/QuoteScheduleFields.tsx");
+const homepageFields = read("src/components/HomepageQuoteFields.tsx");
 const showcase = read("src/components/QuoteResultShowcase.tsx");
 const payment = read("workers/addresses/src/index.ts");
 
@@ -59,7 +60,7 @@ check("journey only / party without date → no displayed price", () => {
   assert.match(card, /scheduleEntered/);
   assert.match(
     card,
-    /const scheduleReadyForQuote =\s*\n?\s*isScheduleComplete \|\| presentation === "homepage"/,
+    /const scheduleReadyForQuote = isScheduleComplete/,
   );
   assert.match(
     card,
@@ -143,7 +144,11 @@ check("customer flow order: journey type → date/time → passengers → suitca
   assert.match(scheduleUi, /id="returnDate"/);
   assert.match(scheduleUi, /id="returnTime"/);
   assert.match(card, /showScheduleFields=/);
-  assert.match(card, /scheduleFields=\{renderQuoteScheduleFields\("quote"\)\}/);
+  assert.match(card, /scheduleFields=\{renderQuoteScheduleFields\("quote", true\)\}/);
+  assert.match(card, /scheduleComplete=\{isScheduleComplete\}/);
+  assert.match(homepageFields, /\{scheduleFields\}/);
+  assert.doesNotMatch(homepageFields, /QuoteActionDialog|data-homepage-schedule-dialog|data-edit-quote-schedule/);
+  assert.doesNotMatch(homepageFields, /data-homepage-schedule-before-vehicle/);
 });
 
 check("vehicle cards / Book Now stay hidden until complete quote", () => {

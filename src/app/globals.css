@@ -700,6 +700,10 @@ main {
   overflow: hidden;
 }
 
+.homepage-schedule-prompt {
+  display: none;
+}
+
 #quoteForm input[type="date"].quote-datetime-input,
 #quoteForm input[type="time"].quote-datetime-input {
   box-sizing: border-box;
@@ -1166,7 +1170,7 @@ main {
   }
 
   .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > * + * {
-    margin-top: 0.5rem;
+    margin-top: 0.125rem;
   }
 
   .quote-flow[data-quote-presentation="homepage"] [data-homepage-quote-scroll] > :not(:last-child) {
@@ -1644,6 +1648,99 @@ main {
 
   .quote-flow[data-quote-presentation="homepage"] [data-swap-locations] {
     margin-block: 0;
+  }
+}
+
+/* Homepage only: visible empty native pickers and room above mobile browser chrome. */
+@media (max-width: 767px) {
+  .quote-flow[data-quote-presentation="homepage"]:has([data-homepage-quote-fields]) {
+    padding-block: 0.5rem;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"]:has([data-homepage-quote-fields]) > div:first-child {
+    margin-bottom: 0.25rem;
+  }
+
+  .quote-flow[data-quote-presentation="homepage"]:has([data-homepage-quote-fields]) h2 + div {
+    margin-top: 0.25rem;
+  }
+
+  [data-homepage-inline-schedule] [data-schedule-control] {
+    position: relative;
+  }
+
+  [data-homepage-inline-schedule] .homepage-schedule-prompt {
+    display: flex;
+    align-items: center;
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0.5rem;
+    inset-inline-end: 1.5rem;
+    pointer-events: none;
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  [data-homepage-inline-schedule] [data-schedule-empty] .homepage-schedule-prompt {
+    inset-inline-start: 0.75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  /* Native pickers retain focus, validation and values; the label only formats mobile text. */
+  #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input {
+    display: block;
+    padding-inline: 0.75rem;
+    font-size: 1rem;
+    line-height: normal;
+    -webkit-appearance: auto;
+    appearance: auto;
+    color: #fff;
+    -webkit-text-fill-color: transparent;
+  }
+
+  #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-datetime-edit,
+  #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-date-and-time-value {
+    display: block;
+    height: auto;
+    min-height: 1.5em;
+    font-size: 1rem;
+    line-height: 1.5;
+    text-align: left;
+  }
+
+  #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-datetime-edit,
+  #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-date-and-time-value {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  [data-homepage-inline-schedule] p:empty {
+    display: none;
+  }
+
+  [data-homepage-quote-fields] [data-quote-price-action="flow"] {
+    padding-top: 0.25rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+    scroll-margin-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  [data-homepage-quote-fields] [data-quote-price-action="flow"] .btn-primary {
+    min-height: 3rem;
+  }
+
+  [data-homepage-quote-fields] [data-quote-price-action="flow"] .quote-help-contact {
+    margin-top: 0.25rem;
+  }
+}
+
+/* Leave room for all date digits and the native picker icon on narrow phones. */
+@media (max-width: 359px) {
+  #quoteForm [data-homepage-inline-schedule] input[type="date"].quote-datetime-input {
+    padding-inline: 0.25rem;
   }
 }
 
