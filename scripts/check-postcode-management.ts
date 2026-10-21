@@ -14,7 +14,8 @@ import { resolveSumUpChargeAmountGbp } from "../shared/open-website-payment-fare
 import { postcodeFareHasPence } from "../shared/postcode-pricing";
 
 async function main() {
-  const base = defaultOwnerPricingSettings(); base.night.enabled = false; base.weekend.enabled = false;
+  const base = defaultOwnerPricingSettings(); // Explicit historical fixture supplement; current defaults are independently tested.
+  base.estate.upliftGbp = 10; base.night.enabled = false; base.weekend.enabled = false;
   const address = "Belfast City Hall, Belfast BT1 5GS";
   const metrics = { distanceKm: 159, durationMinutes: 112 };
   const rules = APPROVED_POSTCODE_RULES;
@@ -53,7 +54,8 @@ async function main() {
     const reverse = { ...rules.find(r => r.district === "BT1" && r.airportCode === airport)!, direction: "from-airport" as const, approvalStatus: "approved" as const, saloonFareGbp: 123.45 };
     const both = { ...active, postcodeRules: [...rules, reverse] };
     assert.equal(quote(both, airport, true).amount + postcodeTerminalAccessGbp(airport), 123.45);
-    assert.equal(quote(both, airport, true, false, E).amount + postcodeTerminalAccessGbp(airport), 133.45);
+    // The configured Estate supplement is authoritative; do not hard-code an old default.
+    assert.equal(quote(both, airport, true, false, E).amount + postcodeTerminalAccessGbp(airport), 123.45 + both.estate.upliftGbp);
     assert.equal(quote({ ...both, estate: { upliftGbp: 12.34 } }, airport, true, false, E).amount + postcodeTerminalAccessGbp(airport), 135.79);
     const out = quote(both, airport), back = quote(both, airport, true), ret = quote(both, airport, false, true);
     assert.equal(ret.amount, roundGbp((out.journeyFareGbp! + back.journeyFareGbp!) * .95 + out.airportFixedCostsGbp! + back.airportFixedCostsGbp!));

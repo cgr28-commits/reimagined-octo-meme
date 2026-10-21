@@ -60,7 +60,7 @@ async function main(){try{
  const row=(d,code='DUB')=>page.getByRole('row').filter({has:page.getByRole('rowheader',{name:d,exact:true})}).filter({has:page.getByRole('cell',{name:names[code],exact:true})}).filter({has:page.getByRole('cell',{name:/^To airport/})});
  const save=async()=>{await page.getByRole('button',{name:'Save postcode pricing',exact:true}).click();await page.getByRole('status').filter({hasText:'Postcode pricing rules saved.'}).waitFor();};
  const reloadPricing=async()=>{await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/owner/pricing'&&r.request().method()==='GET'),page.getByRole('button',{name:'Reload pricing',exact:true}).click()]);await row('BT2').waitFor();};
- const legacy={...defaultOwnerPricingSettings(),version:205,updatedAt:'2026-10-16T03:35:06.718Z',postcodeRules:require('../shared/postcode-pricing.ts').APPROVED_POSTCODE_RULES,profitability:require('../src/lib/owner-profitability-settings.ts').approvedProductionProfitabilitySettings()};delete legacy.postcodePricingEnabled;legacy.night.enabled=false;legacy.weekend.enabled=false;
+ const legacy={...defaultOwnerPricingSettings(),version:205,updatedAt:'2026-10-16T03:35:06.718Z',postcodeRules:require('../shared/postcode-pricing.ts').APPROVED_POSTCODE_RULES,profitability:require('../src/lib/owner-profitability-settings.ts').approvedProductionProfitabilitySettings()};legacy.estate.upliftGbp=10;delete legacy.postcodePricingEnabled;legacy.night.enabled=false;legacy.weekend.enabled=false;
  data.set('owner:pricing-settings',JSON.stringify(legacy));await historical.call({kind:'init',settings:legacy,ownerKey:'isolated-owner'});
  for(const [front,back] of [['new','old'],['old','new']]){
   frontendVersion=front;backendVersion=back;await page.setViewportSize({width:390,height:1000});
@@ -77,10 +77,10 @@ async function main(){try{
  assert.equal(JSON.stringify([...data].filter(([k])=>k.startsWith('owner:pricing'))),JSON.stringify([['owner:pricing-settings',JSON.stringify(legacy)]]),'Rollout customer/read-only admin flows do not rewrite pricing or audit');
  frontendVersion='new';backendVersion='new';
  for(const width of [390,1280]){
-  data.clear();const defaults=defaultOwnerPricingSettings();defaults.night.enabled=false;defaults.weekend.enabled=false;defaults.profitability=require('../src/lib/owner-profitability-settings.ts').approvedProductionProfitabilitySettings();data.set('owner:pricing-settings',JSON.stringify(defaults));
+  data.clear();const defaults=defaultOwnerPricingSettings();defaults.estate.upliftGbp=10;defaults.night.enabled=false;defaults.weekend.enabled=false;defaults.profitability=require('../src/lib/owner-profitability-settings.ts').approvedProductionProfitabilitySettings();data.set('owner:pricing-settings',JSON.stringify(defaults));
   await page.setViewportSize({width,height:1000});await page.goto(url);
   await page.getByRole('button',{name:'Load approved BT1 / BT2 airport rules',exact:true}).waitFor();
-  const cookie=page.getByRole('button',{name:'Essential only',exact:true});if(await cookie.isVisible())await cookie.click();
+  const cookie=page.getByRole('button',{name:'Reject optional',exact:true});if(await cookie.isVisible())await cookie.click();
   await page.getByRole('button',{name:'Load approved BT1 / BT2 airport rules',exact:true}).click();
   assert.equal((await getOwnerPricingSettings(store)).postcodeRules.length,0,'Loading proposal does not activate it');
   assert.match(await row('BT1').innerText(),/£245.00\s+£255.00/);await save();

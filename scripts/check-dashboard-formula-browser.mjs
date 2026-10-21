@@ -20,16 +20,17 @@ try {
    const consent=page.getByRole('button',{name:'Reject optional',exact:true});if(await consent.isVisible())await consent.click();
    const toggle=page.getByRole('checkbox',{name:'Use mileage formula for new quotes'});
    await toggle.waitFor();assert.equal(await toggle.isChecked(),false);assert.equal(await toggle.isEnabled(),true);
-   assert.equal(Number(await page.getByLabel('Starting charge',{exact:true}).inputValue()),10);
-   assert.equal(Number(await page.getByLabel('Price per passenger road mile',{exact:true}).inputValue()),2.2);
-   assert.equal(Number(await page.getByLabel('Formula minimum fare',{exact:true}).inputValue()),30);
+   await toggle.scrollIntoViewIfNeeded();await page.screenshot({path:`test-results/dashboard-formula/${name}-${width}-defaults.png`});
+   assert.equal(Number(await page.getByRole('textbox',{name:'Starting charge',exact:true}).inputValue()),10);
+   assert.equal(Number(await page.getByRole('textbox',{name:'Price per passenger road mile',exact:true}).inputValue()),2.2);
+   assert.equal(Number(await page.getByRole('textbox',{name:'Formula minimum fare',exact:true}).inputValue()),30);
    const original=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('matni:preview-pricing-settings')));
-   await page.getByLabel('Starting charge',{exact:true}).fill('12');await page.getByLabel('Price per passenger road mile',{exact:true}).fill('2.35');await page.getByLabel('Formula minimum fare',{exact:true}).fill('32');await toggle.check();
+   await page.getByRole('textbox',{name:'Starting charge',exact:true}).fill('12');await page.getByRole('textbox',{name:'Price per passenger road mile',exact:true}).fill('2.35');await page.getByRole('textbox',{name:'Formula minimum fare',exact:true}).fill('32');await toggle.check();
    async function save(){await page.getByRole('button',{name:'Save Changes',exact:true}).click();await page.getByRole('dialog',{name:'Confirm pricing changes'}).getByRole('button',{name:'Save Pricing',exact:true}).click();await page.getByRole('dialog',{name:'Confirm pricing changes'}).waitFor({state:'hidden'});}
    await save();await page.reload({waitUntil:'networkidle'});assert.equal(await toggle.isChecked(),true);
-   assert.equal(Number(await page.getByLabel('Starting charge',{exact:true}).inputValue()),12);
-   assert.equal(Number(await page.getByLabel('Price per passenger road mile',{exact:true}).inputValue()),2.35);
-   assert.equal(Number(await page.getByLabel('Formula minimum fare',{exact:true}).inputValue()),32);
+   assert.equal(Number(await page.getByRole('textbox',{name:'Starting charge',exact:true}).inputValue()),12);
+   assert.equal(Number(await page.getByRole('textbox',{name:'Price per passenger road mile',exact:true}).inputValue()),2.35);
+   assert.equal(Number(await page.getByRole('textbox',{name:'Formula minimum fare',exact:true}).inputValue()),32);
    await toggle.uncheck();await save();await page.reload({waitUntil:'networkidle'});assert.equal(await toggle.isChecked(),false);
    const saved=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('matni:preview-pricing-settings')));
    if(original)for(const key of ['saloon','postcodeRules','night','weekend','estate','returnDiscount','meetGreet'])assert.deepEqual(saved[key],original[key],key);
