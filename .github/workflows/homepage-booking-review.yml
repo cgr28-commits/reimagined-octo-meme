@@ -138,9 +138,13 @@ jobs:
           cat main-webkit.log
           QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs > pr-webkit.log 2>&1 || pr_status=$?
           cat pr-webkit.log
-          test "$main_status" -eq 0 && test "$pr_status" -eq 0
-          node --import tsx scripts/check-mobile-result-action-browser.cjs
+          chromium_status=0
+          node --import tsx scripts/check-mobile-result-action-browser.cjs || chromium_status=$?
+          if [ "$main_status" -ne 0 ] || [ "$pr_status" -ne 0 ] || [ "$chromium_status" -ne 0 ]; then
+            exit 1
+          fi
       - name: Test homepage and booking on mobile and desktop
+        if: ${{ !cancelled() }}
         run: |
           python3 -m http.server 3000 --directory out &
           node --import tsx scripts/check-greater-belfast-ireland-browser.mjs

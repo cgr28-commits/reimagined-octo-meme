@@ -57,6 +57,14 @@ async function main() {
   page.on('framenavigated', frame => { if (frame === page.mainFrame()) console.log('NAVIGATION', Date.now(), frame.url()); });
   async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, firstTap = null, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
    await page.setViewportSize({ width, height }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
+   // Each quote() is an independent test case. Main and PR both start RSC
+   // prefetches after reset/resize. Reloading during that work makes WebKit
+   // report teardown refusals as access-control pageerrors (main trace:
+   // 07:28:41.171/.173 errors, 07:28:41.188 navigation, all on loopback).
+   // Drain the previous case before hard navigation; keep prefetch and every
+   // pageerror assertion enabled. This is teardown synchronization, not an
+   // application readiness assertion or a change to customer navigation.
+   if (page.url() !== 'about:blank') await page.waitForLoadState('networkidle', { timeout: 10000 });
    await page.goto('http://127.0.0.1:3094/?previewJourney=bfs&previewPax=1&previewBags=1');
    await page.locator('#quote-section-passengers').waitFor();
    await page.waitForFunction(() => document.querySelector('#pickup')?.value && document.querySelector('#dropoff')?.value && document.querySelector('#quote-section-passengers')?.value === '1');
@@ -272,6 +280,10 @@ async function main() {
   assert.notEqual(await page.evaluate(() => document.body.style.position), 'fixed');
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
+  for (const route of ['/transfers/belfast-to-dublin-airport/index.txt', '/airports/city-of-derry/index.txt']) {
+   assert.ok(network.some(event => event.event === 'response' && new URL(event.url).pathname === route && event.status === 200), 'Real local prefetch must return 200: ' + route);
+   assert.ok(network.some(event => event.event === 'finished' && new URL(event.url).pathname === route), 'Real local prefetch must finish: ' + route);
+  }
   assert.deepEqual(errors, []); console.log('OK original stacked options retained, selected mobile vehicle art visible and duplicate capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
  } catch (error) {
   console.error('Browser errors', errors);
