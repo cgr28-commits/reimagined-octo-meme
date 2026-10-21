@@ -20,6 +20,13 @@ function scheduleFieldState(
   return "needs";
 }
 
+// Display only: keep the full ISO date in the native input and existing booking state.
+function mobileDateText(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Select date";
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year.slice(-2)}`;
+}
+
 export type QuoteScheduleFieldsProps = {
   variant?: "quote" | "checkout";
   homepageInline?: boolean;
@@ -118,7 +125,7 @@ export default function QuoteScheduleFields({
               }),
             )}
           >
-            {homepageInline && !tripDate ? <span className="homepage-schedule-prompt" aria-hidden="true">Select date</span> : null}
+            {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(tripDate)}</span> : null}
             <input
               id="date"
               ref={tripDateInputRef}
@@ -149,7 +156,7 @@ export default function QuoteScheduleFields({
               }),
             )}
           >
-            {homepageInline && !tripTime ? <span className="homepage-schedule-prompt" aria-hidden="true">Select time</span> : null}
+            {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{tripTime ? tripTime.slice(0, 5) : "Select time"}</span> : null}
             <input
               id="time"
               ref={tripTimeInputRef}
@@ -192,7 +199,7 @@ export default function QuoteScheduleFields({
                 }),
               )}
             >
-              {homepageInline && !returnDate ? <span className="homepage-schedule-prompt" aria-hidden="true">Select date</span> : null}
+              {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(returnDate)}</span> : null}
               <input
                 id="returnDate"
                 ref={returnDateInputRef}
@@ -221,7 +228,7 @@ export default function QuoteScheduleFields({
                 }),
               )}
             >
-              {homepageInline && !returnTime ? <span className="homepage-schedule-prompt" aria-hidden="true">Select time</span> : null}
+              {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{returnTime ? returnTime.slice(0, 5) : "Select time"}</span> : null}
               <input
                 id="returnTime"
                 ref={returnTimeInputRef}

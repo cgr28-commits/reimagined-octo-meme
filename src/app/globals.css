@@ -1670,19 +1670,27 @@ main {
   }
 
   [data-homepage-inline-schedule] .homepage-schedule-prompt {
-    display: block;
+    display: flex;
+    align-items: center;
     position: absolute;
-    inset-inline-start: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
+    inset-block: 0;
+    inset-inline-start: 0.5rem;
+    inset-inline-end: 1.5rem;
     pointer-events: none;
     color: #fff;
-    font-size: 1rem;
+    font-size: 1.25rem;
     font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  [data-homepage-inline-schedule] [data-schedule-empty] .homepage-schedule-prompt {
+    inset-inline-start: 0.75rem;
+    font-size: 1rem;
     line-height: 1.5;
   }
 
-  /* Keep the real native input tappable; only the empty value text is replaced. */
+  /* Native pickers retain focus, validation and values; the label only formats mobile text. */
   #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input {
     display: block;
     padding-inline: 0.75rem;
@@ -1691,7 +1699,7 @@ main {
     -webkit-appearance: auto;
     appearance: auto;
     color: #fff;
-    -webkit-text-fill-color: currentColor;
+    -webkit-text-fill-color: transparent;
   }
 
   #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-datetime-edit,
@@ -1704,8 +1712,8 @@ main {
     text-align: left;
   }
 
-  #quoteForm [data-homepage-inline-schedule] [data-schedule-empty] .quote-datetime-input::-webkit-datetime-edit,
-  #quoteForm [data-homepage-inline-schedule] [data-schedule-empty] .quote-datetime-input::-webkit-date-and-time-value {
+  #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-datetime-edit,
+  #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-date-and-time-value {
     color: transparent;
     -webkit-text-fill-color: transparent;
   }
