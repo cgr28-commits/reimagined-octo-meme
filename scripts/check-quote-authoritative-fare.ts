@@ -94,8 +94,8 @@ assert.equal(
 assert.match(showcase, /data-quote-fare-status="unavailable"/);
 assert.match(showcase, /data-quote-price-retry/);
 assert.match(showcase, /AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE/);
-// The legacy badge remains authoritative-only; new collection bands stay inclusive.
-assert.match(card, /mayPaintNumericFare && !collectionTimePricingEnabled\(publicPricing\) && \(journeyFareParts\.nightWeekendSurchargeGbp/);
+// Wait for the pricing configuration before showing any legacy badge; new bands stay inclusive.
+assert.match(card, /mayPaintNumericFare && publicPricingLoaded && !collectionTimePricingEnabled\(publicPricing\) && \(journeyFareParts\.nightWeekendSurchargeGbp/);
 assert.doesNotMatch(card, /journeyFareGbp \* 0\.9|amount \* 0\.9|surcharge \* 0/);
 assert.match(card, /Calculating your transfer price/);
 assert.match(card, /const authoritativeFareReady = mayPaintNumericFare/);

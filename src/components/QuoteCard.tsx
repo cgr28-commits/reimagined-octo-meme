@@ -2813,7 +2813,7 @@ function QuoteCard({
       isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
     const businessClass = isExecutiveVehicle(quoteVehicle);
     return buildOpenWebsiteFareBreakdown({
-      inclusiveSchedulePricing: collectionTimePricingEnabled(publicPricing),
+      inclusiveSchedulePricing: !publicPricingLoaded || collectionTimePricingEnabled(publicPricing),
       preserveFixedFarePence: postcodeFareHasPence({ enabled: publicPricing.postcodePricingEnabled, rules: publicPricing.postcodeRules, context: { address: isFromAirport ? dropoffAddress : pickupAddress, airportCode: effectiveAirportCode, fromAirport: isFromAirport }, vehicle: quoteVehicle, estateSupplement: publicPricing.estate.upliftGbp, returnJourney }),
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
@@ -2859,6 +2859,7 @@ function QuoteCard({
     publicPricing.postcodePricingEnabled,
     publicPricing.estate.upliftGbp,
     publicPricing.collectionTimePricing,
+    publicPricingLoaded,
     effectiveAirportCode,
     isFromAirport,
     currentServerFareParts?.outboundOneWayBeforeAccessGbp,
@@ -6338,7 +6339,7 @@ function QuoteCard({
             </p>
             )}
             {authoritativeQuoteFailed ? renderAuthoritativeQuoteRetry() : null}
-            {mayPaintNumericFare && !collectionTimePricingEnabled(publicPricing) && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ? (
+            {mayPaintNumericFare && publicPricingLoaded && !collectionTimePricingEnabled(publicPricing) && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ? (
               <p
                 className="mt-1.5 text-xs font-semibold text-emerald"
                 data-night-weekend-surcharge-badge
