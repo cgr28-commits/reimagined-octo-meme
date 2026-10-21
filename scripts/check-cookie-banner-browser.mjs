@@ -14,7 +14,15 @@ async function serve(directory, port) {
   const server = http.createServer(async (req, res) => {
     try {
       let name = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-      if (name.startsWith('/isolated-api/')) { res.setHeader('Content-Type','application/json'); res.end('{}'); return; }
+      if (name.startsWith('/isolated-api/')) {
+        // Both builds use the same mock API; the comparison page is on another local port.
+        // Permit that fixture request in WebKit without silencing any browser errors.
+        res.setHeader('Access-Control-Allow-Origin','*');
+        res.setHeader('Access-Control-Allow-Methods','GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers','Accept, Content-Type');
+        res.setHeader('Content-Type','application/json');
+        res.end('{}'); return;
+      }
       if (name.endsWith('/')) name += 'index.html';
       const file = path.resolve(root, '.' + name);
       assert.ok(file.startsWith(root + path.sep));
