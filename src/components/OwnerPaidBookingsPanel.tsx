@@ -2293,7 +2293,7 @@ export default function OwnerPaidBookingsPanel({
 
         {isActiveCard ? (
           <div className="mt-3 space-y-3">
-            {renderJourneyControls(booking)}
+            <p className="text-sm text-white/60">Journey controls are in your personal My Jobs dashboard.</p>
             {moreOptions}
           </div>
         ) : (

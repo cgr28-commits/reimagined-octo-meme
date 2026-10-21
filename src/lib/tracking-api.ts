@@ -254,18 +254,7 @@ export const JOURNEY_ACTION_LABELS: Record<JourneyAction, string> = {
   stop_tracking: "Stop tracking",
 };
 
-export type DriverFlight = {
-  flightNumber: string;
-  airline: string;
-  date: string;
-  scheduledTime: string;
-  scheduledTimeLabel: string;
-  airportCode: string;
-  airportName: string;
-  departureAirport: string;
-  arrivalAirport: string;
-  status?: string;
-};
+export type DriverFlight = import("../../shared/flight-lookup").VerifiedFlight;
 
 export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";
 
@@ -365,6 +354,10 @@ export type DriverBookingUpdateResponse = {
   warnings?: string[];
 };
 
+export class DriverApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
+
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
@@ -372,7 +365,7 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
       payload && typeof payload === "object" && "error" in payload
         ? String((payload as { error?: unknown }).error)
         : "Request failed";
-    throw new Error(message);
+    throw new DriverApiError(message, response.status);
   }
 
   return payload as T;
@@ -1471,4 +1464,40 @@ export function buildWhatsAppDriverDetailsLink(options: {
 
   const text = encodeURIComponent(lines.join("\n"));
   return waNumber ? `https://wa.me/${waNumber}?text=${text}` : `https://wa.me/?text=${text}`;
+}
+
+/** Personal sessions only: scan every page, including empty pages with a cursor. */
+export async function fetchAllAssignedDriverJobs(session: string): Promise<DriverJobsResponse> {
+  if (!isDriverPortalSessionToken(session)) throw new Error("Open your personal My Jobs invitation.");
+  let cursor: string | null = null;
+  const seen = new Set<string>();
+  const jobs = new Map<string, DriverJob>();
+  let result: DriverJobsResponse;
+  do {
+    const url = new URL(`${WORKER_BASE}/driver/jobs`);
+    url.searchParams.set("scope", "assigned-page");
+    if (cursor) url.searchParams.set("cursor", cursor);
+    const response = await fetch(url, { headers: driverGetHeaders(session), cache: "no-store" });
+    const page = await parseJsonResponse<DriverJobsResponse & { nextCursor?: string | null }>(response);
+    if (page.role !== "driver") throw new Error("A personal driver session is required.");
+    page.jobs.forEach(job => jobs.set(job.token, job));
+    result = page;
+    cursor = page.nextCursor ?? null;
+    if (cursor && seen.has(cursor)) throw new Error("The jobs list could not finish loading. Please refresh.");
+    if (cursor) seen.add(cursor);
+  } while (cursor);
+  return { ...result!, jobs: [...jobs.values()].sort((a, b) => a.pickupAt.localeCompare(b.pickupAt)) };
+}
+export async function createPersonalDriverInvite(ownerKey: string, profileKey = "owner") {
+  const response = await fetch(`${WORKER_BASE}/driver/portal/invite`, {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Owner-Key": ownerKey },
+    body: JSON.stringify({ profileKey }),
+  });
+  return parseJsonResponse<{ access: string; driverName: string }>(response);
+}
+export async function fetchDriverFlight(session: string, token: string) {
+  const url = new URL(`${WORKER_BASE}/driver/flight`);
+  url.searchParams.set("token", token);
+  const response = await fetch(url, { headers: driverGetHeaders(session), cache: "no-store" });
+  return parseJsonResponse<{ flight: DriverFlight | null; message?: string; lastCheckedAt?: string; stale?: boolean }>(response);
 }

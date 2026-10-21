@@ -111,6 +111,7 @@ import {
   handleCustomerLocationRequest,
   handleCustomerSharingRequest,
   handleDriverJobsRequest,
+  handlePersonalDriverFlight,
   handleDriverLocationRequest,
   handleDriverLocationHistoryRequest,
   handleDriverSharingRequest,
@@ -298,7 +299,7 @@ import {
   handleDriverAssignmentResponseRequest,
   handleDriverRosterRequest,
 } from "./driver-assignment-handlers";
-import { handleDriverPortalExchangeRequest } from "./driver-portal-handlers";
+import { handleDriverPortalExchangeRequest, handleDriverPortalInviteRequest } from "./driver-portal-handlers";
 import {
   handleDriverVehicleGetRequest,
   handleDriverVehicleProfilesRequest,
@@ -537,6 +538,7 @@ type Env = {
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  DRIVER_FLIGHT_MONITOR_ENABLED?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
   TRACKING_STORE?: KVNamespace;
@@ -4185,6 +4187,10 @@ export default {
       return handlePublicTrackRequest(trackToken, env, origin);
     }
 
+    if (/^\/(api\/)?driver\/portal\/invite$/.test(url.pathname) && request.method === "POST") {
+      return handleDriverPortalInviteRequest(request, env, origin);
+    }
+    if (/^\/(api\/)?driver\/flight$/.test(url.pathname) && request.method === "GET") return handlePersonalDriverFlight(request, env, origin);
     const driverRoute = parseDriverRoute(url.pathname);
     if (driverRoute === "portal-exchange" && request.method === "POST") {
       return handleDriverPortalExchangeRequest(request, env, origin);

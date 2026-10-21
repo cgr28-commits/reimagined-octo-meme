@@ -23,6 +23,7 @@ import {
   listTrackingJobsForDateRange,
   listTrackingJobsForRecentDays,
   listUpcomingTrackingJobs,
+  listDriverTrackingPage,
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
@@ -65,6 +66,7 @@ type Env = WorkerEmailEnv & {
   DRIVER_NAME?: string;
   DRIVER_ROSTER?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  DRIVER_FLIGHT_MONITOR_ENABLED?: string;
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
 };
 
@@ -149,6 +151,7 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
     status,
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-store",
       ...corsHeaders(origin),
     },
   });
@@ -531,8 +534,15 @@ export async function handleDriverJobsRequest(
 
   let jobs: TrackingJobRecord[];
   let responseDate = tripDate;
+  let nextCursor: string | null = null;
 
-  if (scope === "pending") {
+  if (scope === "assigned-page") {
+    if (role !== "driver" || !session.profileKey) return jsonResponse({ error: "Personal driver sign-in required" }, 403, origin);
+    const page = await listDriverTrackingPage(env.TRACKING_STORE, url.searchParams.get("cursor") || undefined);
+    jobs = page.jobs;
+    nextCursor = page.nextCursor;
+    responseDate = "all-assigned";
+  } else if (scope === "pending") {
     jobs = await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead);
     jobs = jobs.filter((job) => jobAssignmentStatus(job) === "pending");
     responseDate = "pending";
@@ -561,7 +571,7 @@ export async function handleDriverJobsRequest(
 
   const enrichedJobs = await Promise.all(
     jobs.map(async (job) => {
-      const flight = await resolveDriverFlight(job, env);
+      const flight = scope === "assigned-page" ? null : await resolveDriverFlight(job, env);
       let amountPaidLabel: string | undefined;
       let bookingStatus:
         | "confirmed"
@@ -636,7 +646,7 @@ export async function handleDriverJobsRequest(
         return buildSanitizedDriverJobView(
           rawJob,
           {
-            customerReference: paidRecord?.customerReference,
+            customerReference: paidRecord?.customerReference || job.customerReference || (bookingJob?.id && /^MAT(?:NI)?-/i.test(bookingJob.id) ? bookingJob.id : undefined),
             driverPayAmount: await driverPayAmountVisibleForJob(
               env.TRACKING_STORE,
               job,
@@ -686,6 +696,7 @@ export async function handleDriverJobsRequest(
       role,
       ...(session.authorized && session.role === "driver" ? { driverName: session.driverName } : {}),
       jobs: enrichedJobs,
+      ...(scope === "assigned-page" ? { nextCursor } : {}),
     },
     200,
     origin,
@@ -772,7 +783,7 @@ export async function handleDriverSharingRequest(
   }
 
   const operateError = assertDriverCanOperateJob(record, session);
-  if (operateError && Boolean(active)) {
+  if (operateError) {
     return jsonResponse({ error: operateError }, 409, origin);
   }
 
@@ -1132,4 +1143,25 @@ export async function handleCustomerLocationRequest(
   await saveTrackingJob(env.TRACKING_STORE, record, { indexPaymentReference: false });
 
   return jsonResponse({ ok: true, jobPersisted: true }, 200, origin);
+}
+
+/** Explicit opt-in: no additional provider calls until the existing allowance is verified. */
+export async function handlePersonalDriverFlight(request: Request, env: Env, origin: string | null): Promise<Response> {
+  const session = await resolveAuthorizedSession(request, env);
+  if (!session.authorized || session.role !== "driver" || !session.profileKey) return jsonResponse({ error: "Personal driver sign-in required" }, 403, origin);
+  if (!env.TRACKING_STORE) return jsonResponse({ error: "Driver portal unavailable" }, 503, origin);
+  const token = new URL(request.url).searchParams.get("token") ?? "";
+  const job = await getTrackingJob(env.TRACKING_STORE, token);
+  if (!job || !filterJobsForSession([job], session).length) return jsonResponse({ error: "Job not found" }, 404, origin);
+  if (env.DRIVER_FLIGHT_MONITOR_ENABLED !== "true") return jsonResponse({ flight: null, message: "Automatic flight updates are not enabled. Check the airport arrivals board." }, 200, origin);
+  const daysAway = (Date.parse(job.tripDate + "T12:00:00Z") - Date.now()) / 86400000;
+  if (daysAway > 2 || daysAway < -2) return jsonResponse({ flight: null, message: "Flight updates become available close to the pickup date." }, 200, origin);
+  const cacheKey = `driver-flight:${job.airportCode}:${job.tripDate}:${job.flightNumber}`;
+  type Cached = { flight: VerifiedFlight | null; lastCheckedAt: string; message?: string };
+  const cached = await env.TRACKING_STORE.get<Cached>(cacheKey, "json");
+  if (cached && Date.now() - Date.parse(cached.lastCheckedAt) < 300000) return jsonResponse(cached, 200, origin);
+  const flight = await resolveDriverFlight(job, env);
+  const result: Cached = { flight, lastCheckedAt: new Date().toISOString(), ...(!flight ? { message: "Flight status unavailable. Check the airport arrivals board." } : {}) };
+  await env.TRACKING_STORE.put(cacheKey, JSON.stringify(result), { expirationTtl: 600 });
+  return jsonResponse(result, 200, origin);
 }

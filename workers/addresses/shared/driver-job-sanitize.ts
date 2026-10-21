@@ -53,6 +53,7 @@ export const DRIVER_JOB_WHITELIST = [
   "assignedAt",
   "acceptedAt",
   "declinedAt",
+  "journeyLeg",
   "journeyStatus",
   "journeyStatusLabel",
   "allowedJourneyActions",

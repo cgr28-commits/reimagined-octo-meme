@@ -11,6 +11,9 @@ export type VerifiedFlight = {
   departureAirport: string;
   arrivalAirport: string;
   status?: string;
+  revisedTime?: string;
+  runwayTime?: string;
+  delayMinutes?: number;
   /** Raw arrival terminal from AeroDataBox when provided (e.g. "1", "2", "T1"). */
   arrivalTerminal?: string | null;
 };
@@ -152,11 +155,15 @@ type AeroFlight = {
   departure?: {
     airport?: { iata?: string; name?: string; icao?: string };
     scheduledTime?: { local?: string; utc?: string };
+    revisedTime?: { local?: string; utc?: string };
+    runwayTime?: { local?: string; utc?: string };
     terminal?: string | null;
   };
   arrival?: {
     airport?: { iata?: string; name?: string; icao?: string };
     scheduledTime?: { local?: string; utc?: string };
+    revisedTime?: { local?: string; utc?: string };
+    runwayTime?: { local?: string; utc?: string };
     terminal?: string | null;
   };
 };
@@ -276,7 +283,14 @@ function mapAeroFlight(
       ? arrAirport?.name ?? params.airportName
       : depAirport?.name ?? params.airportName;
 
+  const movement = params.direction === "from-airport" ? flight.arrival : flight.departure;
+  const revised = readScheduledLocal(movement?.revisedTime);
+  const runway = readScheduledLocal(movement?.runwayTime);
+  const delta = revised ? Math.round((Date.parse(revised) - Date.parse(scheduledRaw)) / 60000) : NaN;
   return {
+    ...(revised ? { revisedTime: revised } : {}),
+    ...(runway ? { runwayTime: runway } : {}),
+    ...(Number.isFinite(delta) ? { delayMinutes: Math.max(0, delta) } : {}),
     flightNumber: formatFlightNumberForDisplay(flight.number ?? params.flightNumber),
     airline: readAirlineName(flight),
     date: formatIsoDate(scheduledRaw) || params.fallbackDate,

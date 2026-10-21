@@ -50,6 +50,8 @@ import {
   fetchDriverRoster,
   fetchDriverLocationHistory,
   exchangeDriverPortalAccess,
+  fetchAllAssignedDriverJobs,
+  DriverApiError,
   isDriverPortalSessionToken,
   fetchDriverVehicleProfiles,
   fetchDriverVehicle,
@@ -59,6 +61,8 @@ import {
   type JourneyAction,
   type JourneyEvidencePack,
 } from "@/lib/tracking-api";
+import OwnerMyJobsAccess from "@/components/OwnerMyJobsAccess";
+import PersonalFlightStatus from "@/components/PersonalFlightStatus";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import { markBookingRefundedExternally, type RefundIssueResponse } from "@/lib/refund-api";
 import { remainingCashDueGbp } from "../../../shared/deposit-cash";
@@ -329,7 +333,7 @@ function DriverFlightPanel({
       </div>
       <p className="mt-3 text-sm text-white/80">
         Scheduled arrival:{" "}
-        <span className="font-semibold text-white">{flight.scheduledTimeLabel}</span>
+        <span className="font-semibold text-white">{flight.scheduledTime}</span>
         {" · "}
         {flight.airportName} ({flight.airportCode})
       </p>
@@ -1828,7 +1832,7 @@ function DriverJobCard({
             </p>
           )}
           {!isOwner && job.bookingReference && (
-            <p className="mt-1 text-xs text-white/40">Ref: {job.bookingReference}</p>
+            <p className="mt-2 text-base font-bold text-emerald">Booking {job.bookingReference}</p>
           )}
           <p className="mt-2 text-sm font-semibold text-emerald">
             Journey: {journeyLabel}
@@ -1927,7 +1931,7 @@ function DriverJobCard({
         </div>
       )}
 
-      <DriverFlightPanel job={job} onRefresh={onRefreshJob} refreshing={refreshingJob} />
+      {!isOwner && isDriverPortalSessionToken(driverKey) ? <PersonalFlightStatus session={driverKey} job={job} /> : <DriverFlightPanel job={job} onRefresh={onRefreshJob} refreshing={refreshingJob} />}
 
       {isOwner && !isRefunded && assignFormOpen ? (
         <div className="mt-5 space-y-3 rounded-xl border border-emerald/30 bg-emerald/5 p-4">
@@ -2065,7 +2069,7 @@ function DriverJobCard({
           </>
         ) : null}
 
-        {canOperateJourney && (
+        {!isOwner && canOperateJourney && (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             {allowedActions.map((action) => {
               const isArrivedCta = action === "arrived_pickup";
@@ -2110,7 +2114,7 @@ function DriverJobCard({
           </button>
         )}
 
-        {!canOperateJourney && canShare && SERVICE_FLAGS.liveDriverTracking && (
+        {!isOwner && !canOperateJourney && canShare && SERVICE_FLAGS.liveDriverTracking && (
           <button
             type="button"
             disabled={busy}
@@ -2124,7 +2128,7 @@ function DriverJobCard({
             {isActive ? "Stop sharing location" : "Start sharing location"}
           </button>
         )}
-        {SERVICE_FLAGS.liveDriverTracking && canOperateJourney && job.sharingActive && !isActive && <button type="button" disabled={busy} className="rounded-xl bg-emerald px-4 py-3 font-semibold text-navy disabled:opacity-60" onClick={() => {
+        {!isOwner && SERVICE_FLAGS.liveDriverTracking && canOperateJourney && job.sharingActive && !isActive && <button type="button" disabled={busy} className="rounded-xl bg-emerald px-4 py-3 font-semibold text-navy disabled:opacity-60" onClick={() => {
           setBusy(true);
           void fetchJourneySession(driverKey, job.token).then(session => { onSessionChange(job.token, session.sessionToken); onSharingChange(job.token); }).catch(error => setError(error instanceof Error ? error.message : "Could not resume GPS")).finally(() => setBusy(false));
         }}>Resume GPS on this phone</button>}
@@ -2609,7 +2613,11 @@ export default function DriverPageClient({
       setError(null);
 
       try {
-        const [mainResponse, pendingResponse] = await Promise.all([
+        const allAssigned = isDriverPortalSessionToken(key) ? await fetchAllAssignedDriverJobs(key) : null;
+        const [mainResponse, pendingResponse] = allAssigned ? [
+          { ...allAssigned, jobs: allAssigned.jobs.filter(job => view === "upcoming" ? job.tripDate >= today : job.tripDate === (view === "today" ? today : selectedDate)) },
+          { ...allAssigned, jobs: allAssigned.jobs.filter(job => job.assignmentStatus === "pending") },
+        ] : await Promise.all([
           view === "upcoming"
             ? fetchDriverJobs(key, { scope: "upcoming", days: 60 })
             : fetchDriverJobs(key, {
@@ -2617,6 +2625,7 @@ export default function DriverPageClient({
               }),
           fetchDriverJobs(key, { scope: "pending", days: 60 }),
         ]);
+        setActiveToken(current => current && allAssigned && !allAssigned.jobs.some(job => job.token === current && job.assignmentStatus === "accepted" && job.sharingActive) ? null : current);
         setJobs(mainResponse.jobs);
         setPendingJobs(pendingResponse.jobs);
         if (key === DEMO_DRIVER_KEY) {
@@ -2635,10 +2644,15 @@ export default function DriverPageClient({
           }
         }
       } catch (err) {
+        if (isDriverPortalSessionToken(key) && err instanceof DriverApiError && err.status === 401) {
+          window.localStorage.removeItem(DRIVER_PORTAL_SESSION_STORAGE_KEY);
+          setSavedKey(null);
+          setActiveToken(null);
+        }
         const message = err instanceof Error ? err.message : "Could not load jobs";
         setError(
           isDriverPortalSessionToken(key)
-            ? "This My Jobs link has expired. Open the latest link in your assignment email."
+            ? message
             : message.toLowerCase().includes("unauthorized") ||
                 message.toLowerCase().includes("did not match")
               ? "Your driver key was not accepted. Sign out and re-enter the exact DRIVER_ACCESS_KEY from Cloudflare → Workers → reimagined-octo-meme → Secrets."
@@ -2875,10 +2889,11 @@ export default function DriverPageClient({
       return;
     }
 
-    const access = new URLSearchParams(window.location.search).get("access")?.trim() ?? "";
+    const access = (new URLSearchParams(window.location.hash.slice(1)).get("access") ?? new URLSearchParams(window.location.search).get("access") ?? "").trim();
     if (access.startsWith("dpl_")) {
       const url = new URL(window.location.href);
       url.searchParams.delete("access");
+      url.hash = "";
       window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
       setLoading(true);
       void exchangeDriverPortalAccess(access)
@@ -2903,7 +2918,7 @@ export default function DriverPageClient({
       return;
     }
 
-    if (stored && stored !== DEMO_OWNER_KEY) {
+    if (stored === DEMO_DRIVER_KEY && SERVICE_FLAGS.trackingDemo) {
       if (stored === DEMO_DRIVER_KEY) {
         setSessionRole("driver");
         setDriverName(DEMO_DRIVER_NAME);
@@ -2926,8 +2941,8 @@ export default function DriverPageClient({
     }
 
     const interval = window.setInterval(() => {
-      void loadJobs(savedKey);
-    }, 10_000);
+      if (!document.hidden) void loadJobs(savedKey);
+    }, isDriverPortalSessionToken(savedKey) ? 60_000 : 10_000);
 
     return () => window.clearInterval(interval);
   }, [loadJobs, savedKey, viewRole, view]);
@@ -2940,13 +2955,14 @@ export default function DriverPageClient({
     setGpsStale(false);
 
     const sendPosition = (position: GeolocationPosition) => {
+      if (document.hidden || Date.now() - position.timestamp > 30_000) return;
       void postDriverLocation(
         savedKey,
         activeToken,
         position.coords.latitude,
         position.coords.longitude,
         {
-          ...(trackingSessionToken ? { sessionToken: trackingSessionToken } : {}),
+          ...(!isDriverPortalSessionToken(savedKey) && trackingSessionToken ? { sessionToken: trackingSessionToken } : {}),
           ...(Number.isFinite(position.coords.accuracy)
             ? { accuracy: position.coords.accuracy }
             : {}),
@@ -3109,16 +3125,24 @@ export default function DriverPageClient({
                 )
               ) : (
                 <>
-                  Accept assigned jobs at any time — live tracking starts on the day of travel,
-                  from about 1 hour before pickup. For airport pickups, your flight number and
-                  live arrival status are shown on each job.
+                  View current and future assigned journeys. Start location sharing when you are
+                  on the way, and keep this page open. Airport collection jobs include a flight
+                  updates panel when the service is enabled.
                 </>
               )}
             </p>
           </header>
 
           {!savedKey ? (
-            isOwnerPortal && loading ? (
+            !isOwnerPortal ? (
+              <section className="rounded-2xl border border-emerald/35 p-6 text-white">
+                <h2 className="text-xl font-bold">My Jobs</h2>
+                <p className="mt-3">Open your personal My Jobs link from your assignment email. No driver key is needed.</p>
+                <p className="mt-3 text-white/60">Owners can open their driving jobs from the owner dashboard.</p>
+                {loading && <p className="mt-3">Opening your jobs…</p>}
+                {error && <p role="alert" className="mt-3 text-red-200">{error}</p>}
+              </section>
+            ) : isOwnerPortal && loading ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-white/70">
                 Checking saved owner session…
               </div>
@@ -3293,6 +3317,8 @@ export default function DriverPageClient({
                 </button>
               </div>
 
+              {!isOwnerView && <p className="mb-6 rounded-xl border border-white/15 p-4 text-sm text-white/75">Save My Jobs in Safari: Share → Add to Home Screen. If offered, turn off Open as Web App to keep this Safari sign-in. Your personal sign-in lasts up to 30 days. Keep this page open and your iPhone unlocked while sharing GPS.</p>}
+              {isOwnerView && savedKey && <OwnerMyJobsAccess ownerKey={savedKey} />}
               {isOwnerView && savedKey ? (
                 <OwnerDashboardToolSwitcher
                   value={ownerToolTab}
@@ -3631,7 +3657,7 @@ export default function DriverPageClient({
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-white/70">
                   {viewRole === "driver"
                     ? view === "upcoming"
-                      ? "No jobs assigned to you in the next 60 days. When the owner assigns a job, it will appear at the top for you to accept."
+                      ? "No future jobs assigned to you. When the owner assigns a job, it will appear at the top for you to accept."
                       : "No jobs assigned to you for this date yet."
                     : view === "upcoming"
                       ? "No unfinished paid bookings with tracking in the next 60 days."

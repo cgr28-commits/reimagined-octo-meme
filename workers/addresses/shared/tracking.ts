@@ -29,6 +29,8 @@ export const JOURNEY_STATUS_LABELS: Record<JourneyStatus, string> = {
 };
 
 export type TrackingJobRecord = {
+  /** Customer-facing reference retained with the journey, including far-future bookings. */
+  customerReference?: string;
   token: string;
   createdAt: string;
   customerName: string;
