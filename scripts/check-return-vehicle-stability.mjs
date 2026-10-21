@@ -92,8 +92,19 @@ try {
     }
     for(const field of ['action','tools']) {
      const mainOffsets=[0,...main.frames.map(f=>f[field]-main.before[field]),main.pending[field]-main.before[field]];
-     const min=Math.min(...mainOffsets),max=Math.max(...mainOffsets);
-     for(const frame of sample.frames) assert.ok(frame[field]-sample.before[field]>=min-2 && frame[field]-sample.before[field]<=max+2,`${key}: ${field} exceeded main movement envelope [${min}, ${max}]`);
+     // Vehicle layout and pending-price text can commit in either order. Main
+     // has recorded Estate +12px and pending text -6.40625px, but a 16ms sampler
+     // may miss the price-only frame. Derive bounds from BOTH measured changes
+     // instead of treating one run's sampled frame order as a layout contract.
+     // Exact before/pending/settled geometry and fonts are still checked above.
+     const layoutDelta=main.settled[field]-main.before[field];
+     const pendingDelta=main.pending[field]-main.settled[field];
+     const min=Math.min(...mainOffsets,Math.min(0,layoutDelta)+Math.min(0,pendingDelta));
+     const max=Math.max(...mainOffsets,Math.max(0,layoutDelta)+Math.max(0,pendingDelta));
+     for(const frame of sample.frames) {
+      const offset=frame[field]-sample.before[field];
+      assert.ok(offset>=min-2 && offset<=max+2,`${key}: ${field} offset ${offset}px exceeded main-derived movement envelope [${min}, ${max}]`);
+     }
     }
    }
    console.log('VEHICLE MOVEMENT '+JSON.stringify({source:baselineRun?'main':'pr',key,before:sample.before.action,pending:pendingState.action,settled:sample.settled.action,delta:sample.settled.action-sample.before.action,range:Math.max(...sample.frames.map(f=>f.action))-Math.min(...sample.frames.map(f=>f.action))}));
