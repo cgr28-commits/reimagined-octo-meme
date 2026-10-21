@@ -46,6 +46,37 @@ async function main() {
   }, settings);
   page = await context.newPage();
   const network = [];
+  const pendingLocal = new Set();
+  let lastLocalActivity = 0;
+  page.on('request', request => {
+   if (request.url().startsWith('http://127.0.0.1:3094/')) { pendingLocal.add(request); lastLocalActivity = Date.now(); }
+  });
+  for (const event of ['requestfinished', 'requestfailed']) page.on(event, request => {
+   if (pendingLocal.delete(request)) lastLocalActivity = Date.now();
+  });
+  async function drainPreviousCase() {
+   // A cached load-state can already be 'networkidle' when reset/resize queues
+   // new Link prefetches. Require a NEW quiet interval, including scroll settling.
+   const started = Date.now();
+   let lastScroll = started, previousY = null;
+   while (Date.now() - started < 15000) {
+    const y = await page.evaluate(() => scrollY);
+    if (y !== previousY) { previousY = y; lastScroll = Date.now(); }
+    if (!pendingLocal.size && Date.now() - Math.max(started, lastLocalActivity, lastScroll) >= 750) return;
+    await page.waitForTimeout(50);
+   }
+   assert.fail('Previous case did not settle before reload: ' + [...pendingLocal].map(r => r.url()).join(', '));
+  }
+  async function verifyRoutePrefetches() {
+   for (const route of ['/transfers/belfast-to-dublin-airport/index.txt', '/airports/city-of-derry/index.txt']) {
+    // Exercise actual next/link prefetch, not a mocked/direct fetch. A link below
+    // the viewport is not guaranteed to have prefetched during the quote flow.
+    await page.locator('a[href="' + route.replace('index.txt', '') + '"]').first().scrollIntoViewIfNeeded();
+    await drainPreviousCase();
+    assert.ok(network.some(event => event.event === 'response' && new URL(event.url).pathname === route && event.status === 200), 'Local prefetch must return 200: ' + route);
+    assert.ok(network.some(event => event.event === 'finished' && new URL(event.url).pathname === route), 'Local prefetch must finish: ' + route);
+   }
+  }
   const record = (event, request, extra = {}) => {
    if (request.url().includes('index.txt')) network.push({ at: Date.now(), event, url: request.url(), ...extra });
   };
@@ -64,7 +95,7 @@ async function main() {
    // Drain the previous case before hard navigation; keep prefetch and every
    // pageerror assertion enabled. This is teardown synchronization, not an
    // application readiness assertion or a change to customer navigation.
-   if (page.url() !== 'about:blank') await page.waitForLoadState('networkidle', { timeout: 10000 });
+   if (page.url() !== 'about:blank') await drainPreviousCase();
    await page.goto('http://127.0.0.1:3094/?previewJourney=bfs&previewPax=1&previewBags=1');
    await page.locator('#quote-section-passengers').waitFor();
    await page.waitForFunction(() => document.querySelector('#pickup')?.value && document.querySelector('#dropoff')?.value && document.querySelector('#quote-section-passengers')?.value === '1');
@@ -179,11 +210,7 @@ async function main() {
    await page.getByRole('alertdialog').getByRole('button', { name: 'Start New Quote', exact: true }).click();
    await page.locator('[data-quote-result-card]').waitFor({ state: 'detached' });
    await quote(390, 844);
-   await page.waitForLoadState('networkidle', { timeout: 10000 });
-   for (const route of ['/transfers/belfast-to-dublin-airport/index.txt', '/airports/city-of-derry/index.txt']) {
-    assert.ok(network.some(event => event.event === 'response' && new URL(event.url).pathname === route && event.status === 200), 'Local prefetch must return 200: ' + route);
-    assert.ok(network.some(event => event.event === 'finished' && new URL(event.url).pathname === route), 'Local prefetch must finish: ' + route);
-   }
+   await verifyRoutePrefetches();
    assert.deepEqual(errors, []);
    console.log('PASS PREFETCH ' + process.env.QUOTE_PREFETCH_ONLY + ': both real route responses 200, bodies finished, reset/reload completed, zero pageerrors');
    return;
@@ -297,10 +324,6 @@ async function main() {
   assert.notEqual(await page.evaluate(() => document.body.style.position), 'fixed');
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
-  for (const route of ['/transfers/belfast-to-dublin-airport/index.txt', '/airports/city-of-derry/index.txt']) {
-   assert.ok(network.some(event => event.event === 'response' && new URL(event.url).pathname === route && event.status === 200), 'Real local prefetch must return 200: ' + route);
-   assert.ok(network.some(event => event.event === 'finished' && new URL(event.url).pathname === route), 'Real local prefetch must finish: ' + route);
-  }
   assert.deepEqual(errors, []); console.log('OK original stacked options retained, selected mobile vehicle art visible and duplicate capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
  } catch (error) {
   console.error('Browser errors', errors);
