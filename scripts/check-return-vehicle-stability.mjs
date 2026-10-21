@@ -40,6 +40,15 @@ try {
   if(returning) await page.getByRole('button',{name:/Return SAVE/}).click();
   await page.locator('#quote-section-passengers').selectOption('2');
   await page.locator('#quote-section-suitcases').selectOption('0');
+  // Main and candidate both require a complete schedule before quoting. The
+  // old fixture never supplied the return collection and timed out on both.
+  const futureDate=days=>new Date(Date.now()+days*86400000).toISOString().slice(0,10);
+  await page.locator('#date').fill(futureDate(5));
+  await page.locator('#time').fill('12:00');
+  if(returning) {
+   await page.locator('#returnDate').fill(futureDate(7));
+   await page.locator('#returnTime').fill('14:00');
+  }
   await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
   await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i}).waitFor();
   if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
