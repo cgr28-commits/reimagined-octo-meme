@@ -2931,7 +2931,7 @@ async function handlePaymentRequest(
     }
 
     const pricingOptions = ownerPricingEngineOptions(pricing);
-    const preserveFixedFarePence = postcodeFareHasPence({ enabled: pricing.postcodePricingEnabled, rules: pricing.postcodeRules, context: { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode ?? "", fromAirport: airportContext.fromAirport }, vehicle: vehicleType, estateSupplement: pricing.estate.upliftGbp, returnJourney: Boolean(booking.returnJourney) });
+    const preserveFixedFarePence = postcodeFareHasPence({ enabled: pricing.saloonFormula?.enabled === true ? false : pricing.postcodePricingEnabled, rules: pricing.postcodeRules, context: { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode ?? "", fromAirport: airportContext.fromAirport }, vehicle: vehicleType, estateSupplement: pricing.estate.upliftGbp, returnJourney: Boolean(booking.returnJourney) });
     const breakdown = composeWebsiteFareBreakdown({
       preserveFixedFarePence,
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,

@@ -68,6 +68,7 @@ function interpolateSegment(
  * Distances beyond 100 miles continue the 90–100 mile slope (no step jump).
  */
 export type UniversalSaloonCurveOptions = {
+  formula?: { enabled: boolean; startingChargeGbp: number; ratePerMileGbp: number; minimumFareGbp: number };
   minimumGbp?: number;
   floorMiles?: number;
   knots?: ReadonlyArray<readonly [number, number]>;
@@ -78,6 +79,9 @@ export function rawUniversalSaloonJourneyFareGbp(
   curve?: UniversalSaloonCurveOptions,
 ): number {
   const m = Math.max(0, Number(roadMiles) || 0);
+  if (curve?.formula?.enabled === true) {
+    return Math.max(curve.formula.minimumFareGbp, curve.formula.startingChargeGbp + curve.formula.ratePerMileGbp * m);
+  }
   const floorMiles = curve?.floorMiles ?? UNIVERSAL_SALOON_FLOOR_MILES;
   const minimumGbp = curve?.minimumGbp ?? UNIVERSAL_SALOON_MINIMUM_GBP;
   if (m <= floorMiles) return minimumGbp;
@@ -157,6 +161,7 @@ export function calculateUniversalJourneyFareGbp(
     executiveMultiplier?: number;
     estatePremiumGbp?: number;
     saloonFareGbp?: number;
+    saloonFormula?: UniversalSaloonCurveOptions["formula"];
     saloonMinimumGbp?: number;
     saloonFloorMiles?: number;
     saloonKnots?: ReadonlyArray<readonly [number, number]>;
@@ -167,6 +172,7 @@ export function calculateUniversalJourneyFareGbp(
     options?.saloonFareGbp != null
       ? roundUniversalSaloonFareGbp(options.saloonFareGbp)
       : calculateUniversalSaloonJourneyFareGbp(roadMiles, {
+          formula: options?.saloonFormula,
           minimumGbp: options?.saloonMinimumGbp,
           floorMiles: options?.saloonFloorMiles,
           knots: options?.saloonKnots,
