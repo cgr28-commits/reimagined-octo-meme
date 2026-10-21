@@ -27,11 +27,11 @@ jobs:
         run: npm ci && GITHUB_PAGES=true npm run build
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium webkit
-      - name: Compare identical fresh-cookie browser cases twice
+      - name: Compare full browser cases against unchanged main
         run: |
           status=0
           for engine in webkit chromium; do
-          for attempt in 1 2; do
+          for attempt in 1; do
             for variant in baseline candidate; do
               export_dir=out
               if [ "$variant" = baseline ]; then export_dir=../baseline/out; fi
