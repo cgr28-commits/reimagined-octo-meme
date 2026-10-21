@@ -128,6 +128,8 @@ jobs:
           done
           node -e "const fs=require('fs'),a=require('assert/strict');const read=n=>JSON.parse(fs.readFileSync('test-results/mobile-result/switch-'+n+'.json'));for(const e of ['webkit','chromium'])for(const w of [320,375]){const m=read('main-'+e+'-'+w),p=read('pr-'+e+'-'+w);for(const k of ['before','pending','settled','transitions'])a.deepEqual(p[k],m[k]);a.equal(p.bookingOpened,true);a.equal(m.bookingOpened,true);console.log('PASS identical main/PR '+e+' '+w+'px geometry, fonts and accessible booking flow');}"
       - name: Mobile result scroll keeps the booking action visible
+        # Collect prefetch diagnostics even if an earlier comparison fails; the job stays failed.
+        if: ${{ !cancelled() }}
         run: |
           # Collect both identical full WebKit runs, then fail if either fails.
           main_status=0
