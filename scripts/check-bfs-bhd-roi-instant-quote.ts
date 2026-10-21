@@ -176,7 +176,11 @@ const roiPlaces = {
 
 console.log("=== NI fare regression fixtures (existing engine, unchanged formulas) ===\n");
 
-/** Locked amounts from calculateQuote — must not drift after eligibility change. */
+/**
+ * Locked amounts from calculateQuote — must not drift after eligibility change.
+ * Main ed67b1f8 and collection-time 824a30db both use the existing £7 Estate
+ * uplift. The former Estate fixtures still assumed £10; no fare code changed.
+ */
 const NI_FIXTURES: Array<{
   name: string;
   address: string;
@@ -203,7 +207,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 20 * 1.609344,
-    expectedAmount: 63,
+    expectedAmount: 60,
   },
   {
     name: "BHD → Belfast City Hall ~4 mi Saloon",
@@ -221,7 +225,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 4 * 1.609344,
-    expectedAmount: 39,
+    expectedAmount: 36,
   },
   {
     name: "BFS → Derry ~70 mi Saloon weekday",
@@ -248,7 +252,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 38 * 1.609344,
-    expectedAmount: 88,
+    expectedAmount: 85,
   },
 ];
 
