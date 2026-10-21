@@ -44,7 +44,7 @@ try {
         await page.getByText('Booking MAT-STAGE-OTHER', { exact: true }).waitFor();
         assert.equal(await page.getByText('Booking MAT-STAGE-OUTBOUND', { exact: true }).count(), 0);
         await page.getByLabel('Test driver', { exact: true }).selectOption('empty');
-        await page.getByText(/No .*jobs|No .*bookings/i).first().waitFor();
+        await page.getByText('No jobs assigned to you for this date yet.', { exact: true }).waitFor();
         assert.deepEqual(external, []);
         await page.route('**/driver/jobs?*', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"Staging data unavailable. Please retry."}' }));
         await page.getByLabel('Test driver', { exact: true }).selectOption('owner');
