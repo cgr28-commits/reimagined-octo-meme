@@ -63,18 +63,18 @@ async function main() {
    // Wait for the actual reveal rather than assuming WebKit's rendering/effects
    // finish on Chromium's timing. This does not scroll or alter the page.
    await page.waitForFunction(() => {
-    const heading = document.querySelector('[data-quote-vehicle-options-heading]');
+    const heading = document.querySelector(innerWidth < 768 ? '[data-quote-selected-vehicle-card]' : '[data-quote-vehicle-options-heading]');
     const header = document.querySelector('header.fixed, header[class*="fixed"]');
     return heading && header && document.documentElement.style.scrollBehavior !== 'auto' && Math.abs(heading.getBoundingClientRect().top - header.getBoundingClientRect().bottom - 12) <= 9;
    }, null, { timeout: 10000 });
    const m = await page.evaluate(() => {
     const btn = [...document.querySelectorAll('[data-quote-result-card] #quote-book-now-button')].find(e => e.getClientRects().length);
-    const rect = btn.getBoundingClientRect(), heading = document.querySelector('[data-quote-vehicle-options-heading]').getBoundingClientRect();
+    const rect = btn.getBoundingClientRect(), heading = document.querySelector(innerWidth < 768 ? '[data-quote-selected-vehicle-card]' : '[data-quote-vehicle-options-heading]').getBoundingClientRect();
     const header = document.querySelector('header.fixed, header[class*="fixed"]');
     return { top: rect.top, bottom: rect.bottom, header: header?.getBoundingClientRect().bottom || 0, heading: heading.top, height: visualViewport.height, inset: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--matni-cookie-banner-offset')) || 0, y: scrollY, label: btn.innerText, stacked: new Set([...document.querySelectorAll('[data-vehicle-category]')].map(e => Math.round(e.getBoundingClientRect().left))).size === 1, overflow: document.documentElement.scrollWidth > innerWidth };
    });
    assert.equal(m.overflow, false); assert.ok(m.header > 0, 'Real fixed site header must be mounted');
-   if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must start at the full vehicle list: ' + JSON.stringify(m));  }
+   if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must reveal the selected result below the header: ' + JSON.stringify(m));  }
    else { assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m)); assert.ok(await page.locator('[data-quote-result-art]').isVisible()); assert.ok(await page.locator('[data-quote-result-capacity]').isVisible()); }
    assert.match(m.label, /BOOK THIS TRANSFER|REQUEST A QUOTE/);
    // Once the initial responses settle, the result must not keep scrolling.
@@ -82,7 +82,7 @@ async function main() {
    fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
    await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-${width}-${height}-${bars}-${lateBars}-${reduced}-${vehicle.split(' ')[0]}.png`) });
    if (width < 768) {
-    assert.equal(await page.locator('[data-quote-result-art]').isVisible(), false);
+    assert.equal(await page.locator('[data-quote-result-art]').isVisible(), true);
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), false);
     for (const name of ['View route', 'Save Quote', 'Start over']) assert.ok(await page.getByRole('button', { name, exact: true }).isVisible());
     assert.ok(await page.getByRole('button', { name: 'Need help? WhatsApp us', exact: true }).isVisible());
@@ -154,21 +154,18 @@ async function main() {
    console.log('OK ' + engine + (firstTap ? ' first tap without manual scrolling: ' + firstTap + ' ' : ' result landing ')  + JSON.stringify({ width, height, bars, lateBars, reduced, vehicle, ...m }));
   }
   // Each action must work as the FIRST touch after the automatic reveal.
-  // Larger iPhone viewport fits the unchanged stacked list and action row.
+  // Mobile reveal targets the selected result (measureQuoteReveal), not the
+  // vehicle-list heading. The existing selected artwork remains visible.
+  // The CI failure screenshot confirms the selected card and actions fit here.
   for (const firstTap of ['View route', 'Save Quote', 'Start over', 'Need help? WhatsApp us']) {
    await quote(430, 932, { firstTap });
   }
-  if (engine === 'webkit') {
-   assert.deepEqual(errors, []);
-   console.log('OK WebKit mobile: all four first taps open popups at the automatic landing, close restores quote/scroll; no helper scrolling or live writes');
-   return;
-  }
-  for (const [width, height] of [[320, 568], [375, 667], [390, 844], [430, 932]]) await quote(width, height, { bars: 100 });
+  for (const [width, height] of [[320, 568], [360, 800], [375, 667], [390, 844], [430, 932]]) await quote(width, height, { bars: 100 });
   await quote(390, 844, { lateBars: 160 });
   await quote(375, 667, { bars: 100, reduced: true });
   for (const vehicle of ['Estate Car (1–4 passengers)', 'Executive Saloon (1–4 passengers)', 'Minibus (5–7 passengers)']) await quote(390, 844, { bars: 100, vehicle });
   // Switch through instant, pending and manual states without moving either action row.
-  for (const width of [320, 375, 390, 430]) {
+  for (const width of [320, 360, 375, 390, 430]) {
    await quote(width, 844, { reduced: width === 375 });
    const positions = () => page.evaluate(() => ['[data-quote-result-main-action]', '[data-quote-result-actions]'].map(selector => document.querySelector(selector).getBoundingClientRect().top + scrollY));
    const baseline = await positions();
@@ -194,7 +191,7 @@ async function main() {
   assert.notEqual(await page.evaluate(() => document.body.style.position), 'fixed');
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
-  assert.deepEqual(errors, []); console.log('OK original stacked options retained, duplicate mobile art/capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
+  assert.deepEqual(errors, []); console.log('OK original stacked options retained, selected mobile vehicle art visible and duplicate capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
  } catch (error) {
   console.error('Browser errors', errors);
   if (page) {
