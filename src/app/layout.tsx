@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Manrope } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
+import PublicWebsiteOnly from "@/components/PublicWebsiteOnly";
 import CookieConsent from "@/components/CookieConsent";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
 import AdsAttributionCapture from "@/components/AdsAttributionCapture";
@@ -138,7 +139,8 @@ export default function RootLayout({
         <Script id="strip-tip-token" strategy="beforeInteractive">
           {TIP_TOKEN_STRIP_SCRIPT}
         </Script>
-        {/* TrafficGuard sitewide pageview tracking */}
+        <PublicWebsiteOnly>
+        {/* Public-website pageview tracking; never mounted on driver routes. */}
         <Script id="trafficguard-init" strategy="afterInteractive">
           {`
             window.dataTrafficGuard = window.dataTrafficGuard || [];
@@ -162,12 +164,14 @@ export default function RootLayout({
             alt=""
           />
         </noscript>
+        </PublicWebsiteOnly>
         <Script id="matni-landing-click-id" strategy="beforeInteractive">
-          {`try{if(!window.__matniLandingSearch&&typeof window.location.search==="string"&&window.location.search.length>1){window.__matniLandingSearch=window.location.search}}catch(e){}`}
+          {`try{if(!/^\\/driver(?:\\/|$)/.test(window.location.pathname)&&!window.__matniLandingSearch&&typeof window.location.search==="string"&&window.location.search.length>1){window.__matniLandingSearch=window.location.search}}catch(e){}`}
         </Script>
         {googleAdsConfig.tagEnabled ? (
           <Script id="google-consent-default" strategy="beforeInteractive">
             {`
+              if (!/^\\/driver(?:\\/|$)/.test(window.location.pathname)) {
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('consent', 'default', {
@@ -177,6 +181,7 @@ export default function RootLayout({
                 analytics_storage: 'denied',
                 wait_for_update: 500
               });
+              }
             `}
           </Script>
         ) : null}
@@ -192,12 +197,14 @@ export default function RootLayout({
             {children}
           </div>
           {/* Outside the overflow clip so position:fixed is viewport-relative on mobile */}
+          <PublicWebsiteOnly freshDriverNavigation>
           <GoogleAdsTag />
           <AdsAttributionCapture />
           <AdFraudMonitor />
-          <SiteHashScroll />
           <TawkChat />
           <CookieConsent />
+          </PublicWebsiteOnly>
+          <SiteHashScroll />
         </SiteOfflineGate>
         <PreventHorizontalScroll />
       </body>

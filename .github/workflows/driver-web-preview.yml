@@ -4,6 +4,8 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'src/app/driver/**'
+      - 'src/app/layout.tsx'
+      - 'src/components/PublicWebsiteOnly.tsx'
       - 'src/components/PersonalFlightStatus.tsx'
       - 'scripts/prepare-driver-preview.mjs'
       - 'scripts/check-driver-preview-browser.mjs'
@@ -34,11 +36,11 @@ jobs:
           NEXT_PUBLIC_MY_JOBS_PREVIEW: 'true'
           NEXT_PUBLIC_BOOKINGS_API_URL: https://preview.invalid/bookings
           NEXT_PUBLIC_ADDRESSES_API_URL: https://preview.invalid/addresses
-      - run: node scripts/prepare-driver-preview.mjs
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium webkit
       - name: Verify iPhone-size preview and network isolation
         run: node scripts/check-driver-preview-browser.mjs
+      - run: node scripts/prepare-driver-preview.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
