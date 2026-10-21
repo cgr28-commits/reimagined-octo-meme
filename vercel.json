@@ -8,7 +8,8 @@
       "codex/dublin-airport-seo": false,
       "codex/dublin-premium-redesign": false,
       "codex/desktop-homepage-quote": false,
-      "codex/dashboard-pricing-controls": false
+      "codex/dashboard-pricing-controls": false,
+      "codex/collection-time-pricing": false
     }
   }
 }

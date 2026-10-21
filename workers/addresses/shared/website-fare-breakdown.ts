@@ -60,6 +60,7 @@ export function getReturnJourneySavingGbp(
 }
 
 export type WebsiteFareBreakdownInput = {
+  inclusiveSchedulePricing?: boolean;
   /**
    * Taxi/journey fare after the 5% return discount (when booked) PLUS any
    * Night & Weekend Surcharge already added by the pricing engine, before
@@ -102,6 +103,8 @@ export type WebsiteFareBreakdownInput = {
 };
 
 export type WebsiteFareBreakdown = {
+  /** Presentation only: include collection premiums in the journey row, never label them separately. */
+  inclusiveSchedulePricing?: boolean;
   journeyFareBeforeReturnDiscountGbp: number;
   journeyFareBeforePromotionsGbp: number;
   nightWeekendSurchargeGbp: number;
@@ -247,6 +250,7 @@ export function composeWebsiteFareBreakdown(
   }
 
   return {
+    ...(input.inclusiveSchedulePricing ? { inclusiveSchedulePricing: true } : {}),
     journeyFareBeforeReturnDiscountGbp: journeyFareBeforeReturnDiscountAdjusted,
     journeyFareBeforePromotionsGbp: journeyFareBeforePromotionsAdjusted,
     nightWeekendSurchargeGbp,

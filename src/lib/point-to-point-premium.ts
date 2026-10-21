@@ -71,6 +71,7 @@ export function isTripPremiumDateTime(
   const options = pricing ? ownerPricingEngineOptions(pricing) : null;
   const rules = options
     ? {
+        collectionTimePricing: options.collectionTimePricing,
         nightEnabled: options.nightEnabled,
         nightStartMinutes: options.nightStartMinutes,
         nightEndMinutes: options.nightEndMinutes,
@@ -147,6 +148,7 @@ export function applyTripPremium(
   const weekendRate = pricingOptions?.weekendRate ?? premiumRate;
   const rules = pricingOptions
     ? {
+        collectionTimePricing: pricingOptions.collectionTimePricing,
         nightEnabled: pricingOptions.nightEnabled,
         nightStartMinutes: pricingOptions.nightStartMinutes,
         nightEndMinutes: pricingOptions.nightEndMinutes,

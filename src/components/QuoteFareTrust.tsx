@@ -16,6 +16,7 @@ import {
 } from "../../shared/express-drop-off";
 
 export function buildOpenWebsiteFareBreakdown(input: {
+  inclusiveSchedulePricing?: boolean;
   journeyFareBeforeAirportAccessGbp: number;
   airportFixedCostsGbp?: number;
   airportAccessChargeGbp?: number;
@@ -31,6 +32,7 @@ export function buildOpenWebsiteFareBreakdown(input: {
   preserveFixedFarePence?: boolean;
 }): WebsiteFareBreakdown {
   return composeWebsiteFareBreakdown({
+    inclusiveSchedulePricing: input.inclusiveSchedulePricing,
     preserveFixedFarePence: input.preserveFixedFarePence,
     journeyFareBeforeAirportAccessGbp: input.journeyFareBeforeAirportAccessGbp,
     airportFixedCostsGbp: input.airportFixedCostsGbp ?? 0,
@@ -168,13 +170,13 @@ export function PromotionalPriceBreakdown({
       freeAirportAccessSelected);
   const surchargeGbp = breakdown.nightWeekendSurchargeGbp;
   const hasSurcharge = surchargeGbp > 0;
-  const journeyDisplayGbp = breakdown.returnJourney
+  const journeyDisplayGbp = (breakdown.returnJourney
     ? breakdown.originalEligibleJourneyPriceGbp
-    : breakdown.journeyFareBeforePromotionsGbp;
+    : breakdown.journeyFareBeforePromotionsGbp) + (breakdown.inclusiveSchedulePricing ? surchargeGbp : 0);
   const journeyLabel = breakdown.returnJourney
     ? "Return journey fare"
     : "Journey fare";
-  const showSurchargeLine = hasSurcharge;
+  const showSurchargeLine = hasSurcharge && !breakdown.inclusiveSchedulePricing;
   const finalPayableGbp = breakdown.finalAmountPayableGbp;
   if (
     !alwaysShow &&
@@ -292,7 +294,7 @@ export function PromotionalPriceBreakdown({
           </dd>
         </div>
       </dl>
-      {hasSurcharge ? (
+      {showSurchargeLine ? (
         <p className="text-[11px] leading-snug quote-secondary">
           {NIGHT_WEEKEND_SURCHARGE_EXPLANATION}
         </p>
@@ -333,9 +335,9 @@ export function FinalPayableBreakdown({
           </dt>
           <dd className="shrink-0 tabular-nums">
             {formatGbpFare(
-              breakdown.returnJourney
+              (breakdown.returnJourney
                 ? breakdown.originalEligibleJourneyPriceGbp
-                : breakdown.journeyFareBeforePromotionsGbp,
+                : breakdown.journeyFareBeforePromotionsGbp) + (breakdown.inclusiveSchedulePricing ? breakdown.nightWeekendSurchargeGbp : 0),
             )}
           </dd>
         </div>
@@ -347,7 +349,7 @@ export function FinalPayableBreakdown({
             </dd>
           </div>
         ) : null}
-        {breakdown.nightWeekendSurchargeGbp > 0 ? (
+        {breakdown.nightWeekendSurchargeGbp > 0 && !breakdown.inclusiveSchedulePricing ? (
           <div className="flex justify-between gap-3 text-white/75">
             <dt>{breakdown.nightWeekendSurchargeLabel}</dt>
             <dd className="shrink-0 tabular-nums">
@@ -413,7 +415,7 @@ export function FinalPayableBreakdown({
           </dd>
         </div>
       </dl>
-      {breakdown.nightWeekendSurchargeGbp > 0 ? (
+      {breakdown.nightWeekendSurchargeGbp > 0 && !breakdown.inclusiveSchedulePricing ? (
         <p className="quote-secondary mt-2 text-[11px] leading-snug">
           {NIGHT_WEEKEND_SURCHARGE_EXPLANATION}
         </p>

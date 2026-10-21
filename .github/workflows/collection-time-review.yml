@@ -1,0 +1,57 @@
+name: Collection-time pricing review
+on:
+  push:
+    branches: [codex/collection-time-pricing]
+permissions:
+  contents: read
+concurrency:
+  group: collection-time-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_ADDRESSES_API_URL: http://127.0.0.1:3194/isolated-api/addresses
+      NEXT_PUBLIC_BOOKINGS_API_URL: http://127.0.0.1:3194/isolated-api/bookings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: node scripts/sync-worker-shared.mjs
+      - name: Collection-time boundaries, settings, legacy compatibility and payment preparation
+        run: node --import tsx scripts/check-collection-time-pricing.ts
+      - name: Existing pricing, postcode, timing and payment regressions
+        run: |
+          node --import tsx scripts/check-dashboard-formula-recovery.ts
+          node --import tsx scripts/check-owner-pricing.ts
+          node --import tsx scripts/check-postcode-pricing.ts
+          node --import tsx scripts/check-night-weekend-surcharge.ts
+          node --import tsx scripts/check-uk-time.ts
+          node --import tsx scripts/check-open-website-payment-fares.ts
+          node --import tsx scripts/check-quote-authoritative-fare.ts
+          node --import tsx scripts/check-airport-fixed-costs.ts
+          node --import tsx scripts/check-airport-airport-access-fees.ts
+          node --import tsx scripts/check-express-drop-off.ts
+          node --import tsx scripts/check-quote-schedule-price-gate.ts
+          node --import tsx scripts/check-payment-placeid-route-resolve.ts
+          node --import tsx scripts/check-deposit-cash.ts
+      - run: npm run lint
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm --prefix workers/addresses run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Dashboard browser save, reload and independent controls
+        run: node scripts/check-collection-time-browser.mjs
+      - name: Existing default-OFF formula dashboard browser regression
+        run: node scripts/check-dashboard-formula-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: collection-time-pricing-review
+          path: test-results/
+          retention-days: 14

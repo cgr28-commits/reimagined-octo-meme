@@ -163,10 +163,11 @@ async function main() {
   check("Weekend premium uses UK calendar weekday, not server local TZ", () => {
     // Saturday in UK
     assert.equal(isTripPremiumDateTime("2026-03-28", "10:00"), true);
-    // Monday after 06:30 — not premium
+    // Existing default night window on main ends at 06:00 (not the obsolete 06:30).
     assert.equal(isTripPremiumDateTime("2026-03-30", "07:00"), false);
-    // Monday before 06:30 — premium
-    assert.equal(isTripPremiumDateTime("2026-03-30", "06:00"), true);
+    // Check both sides of that unchanged default boundary.
+    assert.equal(isTripPremiumDateTime("2026-03-30", "05:59"), true);
+    assert.equal(isTripPremiumDateTime("2026-03-30", "06:00"), false);
   });
 
   check("UTC ISO vs London wall-clock display both avoid GMT/BST", () => {
