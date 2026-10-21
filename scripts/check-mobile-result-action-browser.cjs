@@ -155,11 +155,13 @@ async function main() {
   }
   // Isolated same-fixture measurement against the pinned main export in CI.
   if (process.env.QUOTE_SWITCH_DIAGNOSTIC) {
-   await quote(320, 844);
+   const diagnosticWidth = Number(process.env.QUOTE_SWITCH_WIDTH || 320);
+   await quote(diagnosticWidth, 844, { reduced: diagnosticWidth === 375 });
+   await page.evaluate(() => document.fonts.ready);
    const measure = () => page.evaluate(() => {
     const card = document.querySelector('[data-quote-selected-vehicle-card]');
-    const rect = el => { const r = el.getBoundingClientRect(); return { top: r.top + scrollY, height: r.height, text: el.innerText }; };
-    return Object.fromEntries(['[data-quote-result-heading]', '[data-quote-result-detail-slot]', '[data-quote-result-art]', '[data-quote-info-grid]', '[data-quote-changing-info]', '[data-quote-result-main-action]', '[data-quote-result-actions]'].map(selector => [selector, rect(document.querySelector(selector))]));
+    const rect = el => { const r = el.getBoundingClientRect(); const c=getComputedStyle(el); return { top: r.top + scrollY, height: r.height, text: el.innerText, font:c.fontFamily, fontSize:c.fontSize, lineHeight:c.lineHeight }; };
+    return Object.fromEntries(['[data-quote-result-heading]', '[data-quote-result-detail-slot]', '[data-quote-result-art]', '[data-quote-result-price]', '[data-quote-info-grid]', '[data-quote-changing-info]', '[data-quote-result-main-action]', '[data-quote-result-actions]'].map(selector => [selector, rect(document.querySelector(selector))]));
    });
    const before = await measure();
    await page.locator('[data-vehicle-category="estate"]').click();
