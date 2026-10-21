@@ -88,7 +88,9 @@ async function main() {
    fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
    await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-${width}-${height}-${bars}-${lateBars}-${reduced}-${vehicle.split(' ')[0]}.png`) });
    if (width < 768) {
-    assert.equal(await page.locator('[data-quote-result-art]').isVisible(), false);
+    // Both main and candidate show the selected vehicle image (paired run
+    // 39662818694). Keep that established design under regression coverage.
+    assert.equal(await page.locator('[data-quote-result-art]').isVisible(), true);
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), false);
     for (const name of ['View route', 'Save Quote', 'Start over']) assert.ok(await page.getByRole('button', { name, exact: true }).isVisible());
     assert.ok(await page.getByRole('button', { name: 'Need help? WhatsApp us', exact: true }).isVisible());
