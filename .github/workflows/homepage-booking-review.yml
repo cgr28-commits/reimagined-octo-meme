@@ -127,6 +127,16 @@ jobs:
             done
           done
           node -e "const fs=require('fs'),a=require('assert/strict');const read=n=>JSON.parse(fs.readFileSync('test-results/mobile-result/switch-'+n+'.json'));for(const e of ['webkit','chromium'])for(const w of [320,375]){const m=read('main-'+e+'-'+w),p=read('pr-'+e+'-'+w);for(const k of ['before','pending','settled','transitions'])a.deepEqual(p[k],m[k]);a.equal(p.bookingOpened,true);a.equal(m.bookingOpened,true);console.log('PASS identical main/PR '+e+' '+w+'px geometry, fonts and accessible booking flow');}"
+      - name: Verify real prefetch responses across reset and test reload on main and PR
+        if: ${{ !cancelled() }}
+        run: |
+          main_status=0
+          pr_status=0
+          QUOTE_TEST_BROWSER=webkit QUOTE_PREFETCH_ONLY=main QUOTE_TEST_EXPORT_DIR=switch-baseline/out node --import tsx scripts/check-mobile-result-action-browser.cjs || main_status=$?
+          QUOTE_TEST_BROWSER=webkit QUOTE_PREFETCH_ONLY=pr node --import tsx scripts/check-mobile-result-action-browser.cjs || pr_status=$?
+          if [ "$main_status" -ne 0 ] || [ "$pr_status" -ne 0 ]; then
+            exit 1
+          fi
       - name: Mobile result scroll keeps the booking action visible
         # Collect prefetch diagnostics even if an earlier comparison fails; the job stays failed.
         if: ${{ !cancelled() }}

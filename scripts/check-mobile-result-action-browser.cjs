@@ -171,6 +171,23 @@ async function main() {
 
    console.log('OK ' + engine + (firstTap ? ' first tap without manual scrolling: ' + firstTap + ' ' : ' result landing ')  + JSON.stringify({ width, height, bars, lateBars, reduced, vehicle, ...m }));
   }
+  // Reproduce the exact reset -> next independent case boundary at which
+  // main emitted the two access-control errors, without unrelated geometry cases.
+  if (process.env.QUOTE_PREFETCH_ONLY) {
+   await quote(390, 844);
+   await page.getByRole('button', { name: 'Start over', exact: true }).click();
+   await page.getByRole('alertdialog').getByRole('button', { name: 'Start New Quote', exact: true }).click();
+   await page.locator('[data-quote-result-card]').waitFor({ state: 'detached' });
+   await quote(390, 844);
+   await page.waitForLoadState('networkidle', { timeout: 10000 });
+   for (const route of ['/transfers/belfast-to-dublin-airport/index.txt', '/airports/city-of-derry/index.txt']) {
+    assert.ok(network.some(event => event.event === 'response' && new URL(event.url).pathname === route && event.status === 200), 'Local prefetch must return 200: ' + route);
+    assert.ok(network.some(event => event.event === 'finished' && new URL(event.url).pathname === route), 'Local prefetch must finish: ' + route);
+   }
+   assert.deepEqual(errors, []);
+   console.log('PASS PREFETCH ' + process.env.QUOTE_PREFETCH_ONLY + ': both real route responses 200, bodies finished, reset/reload completed, zero pageerrors');
+   return;
+  }
   // Isolated same-fixture measurement against the pinned main export in CI.
   if (process.env.QUOTE_SWITCH_DIAGNOSTIC) {
    const diagnosticWidth = Number(process.env.QUOTE_SWITCH_WIDTH || 320);
