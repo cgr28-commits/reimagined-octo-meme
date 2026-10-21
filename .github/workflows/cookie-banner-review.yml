@@ -1,0 +1,59 @@
+name: Compact cookie banner review
+on:
+  push:
+    branches: [codex/compact-cookie-banner]
+  pull_request:
+    branches: [main]
+    paths:
+      - src/components/CookieConsent.tsx
+      - src/app/globals.css
+      - scripts/check-cookie-banner-browser.mjs
+      - .github/workflows/cookie-banner-review.yml
+permissions:
+  contents: read
+jobs:
+  isolated-browser-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GITHUB_PAGES: 'true'
+      NEXT_PUBLIC_ADDRESSES_API_URL: http://127.0.0.1:3198/isolated-api/addresses
+      NEXT_PUBLIC_BOOKINGS_API_URL: http://127.0.0.1:3198/isolated-api/bookings
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: ed67b1f85debc674eed0fe71a3a8ee6ccbed9dad
+          path: baseline
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: candidate/package-lock.json
+      - name: Build unchanged main baseline
+        working-directory: baseline
+        run: npm ci && npm run build
+      - name: Build candidate and check consent code
+        working-directory: candidate
+        run: |
+          npm ci
+          npm run lint
+          npm run check:google-ads
+          npm run check:conversion-tracking
+          npm run build
+      - name: Install test browsers
+        working-directory: candidate
+        run: |
+          npm install --no-save --package-lock=false playwright@1.58.2
+          npx playwright install --with-deps chromium webkit
+      - name: Compare banner, consent and unchanged page at five widths
+        working-directory: candidate
+        run: BASELINE_OUT=../baseline/out node scripts/check-cookie-banner-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cookie-banner-before-after
+          path: candidate/test-results/cookie-banner/
+          retention-days: 14
