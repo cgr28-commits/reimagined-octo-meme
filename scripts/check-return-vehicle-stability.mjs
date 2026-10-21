@@ -40,6 +40,17 @@ try {
   if(returning) await page.getByRole('button',{name:/Return SAVE/}).click();
   await page.locator('#quote-section-passengers').selectOption('2');
   await page.locator('#quote-section-suitcases').selectOption('0');
+  // Main already requires a complete outbound AND return schedule. The old
+  // fixture relied on preview defaults and never supplied the return fields;
+  // once the first movement assertion passed it timed out before any quote.
+  // Use the identical explicit schedule for both exports, without changing UI.
+  const date=days=>new Date(Date.now()+days*86400000).toISOString().slice(0,10);
+  await page.locator('#date').fill(date(10));
+  await page.locator('#time').fill('12:00');
+  if(returning) {
+   await page.locator('#returnDate').fill(date(17));
+   await page.locator('#returnTime').fill('14:00');
+  }
   await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
   await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i}).waitFor();
   if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
