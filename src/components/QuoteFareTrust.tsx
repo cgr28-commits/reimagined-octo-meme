@@ -8,7 +8,6 @@ import {
   formatGbpFare,
   type WebsiteFareBreakdown,
 } from "../../shared/website-fare-breakdown";
-import { NIGHT_WEEKEND_SURCHARGE_EXPLANATION } from "../../shared/night-weekend-surcharge";
 import {
   expressAirportLegendLabel,
   expressAvoidedChargeMessage,
@@ -168,13 +167,12 @@ export function PromotionalPriceBreakdown({
       freeAirportAccessSelected);
   const surchargeGbp = breakdown.nightWeekendSurchargeGbp;
   const hasSurcharge = surchargeGbp > 0;
-  const journeyDisplayGbp = breakdown.returnJourney
+  const journeyDisplayGbp = (breakdown.returnJourney
     ? breakdown.originalEligibleJourneyPriceGbp
-    : breakdown.journeyFareBeforePromotionsGbp;
+    : breakdown.journeyFareBeforePromotionsGbp) + surchargeGbp;
   const journeyLabel = breakdown.returnJourney
     ? "Return journey fare"
     : "Journey fare";
-  const showSurchargeLine = hasSurcharge;
   const finalPayableGbp = breakdown.finalAmountPayableGbp;
   if (
     !alwaysShow &&
@@ -193,7 +191,7 @@ export function PromotionalPriceBreakdown({
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className="text-white/60 line-through">
             {formatGbpFare(
-              breakdown.journeyFareBeforePromotionsGbp + breakdown.airportFixedCostsGbp,
+              breakdown.journeyFareBeforePromotionsGbp + surchargeGbp + breakdown.airportFixedCostsGbp,
             )}
           </span>
           <span className="text-sm font-semibold text-white">
@@ -228,14 +226,7 @@ export function PromotionalPriceBreakdown({
             </dd>
           </div>
         ) : null}
-        {showSurchargeLine ? (
-          <div className="flex justify-between gap-3">
-            <dt>{breakdown.nightWeekendSurchargeLabel}</dt>
-            <dd className="shrink-0 tabular-nums text-white/80">
-              +{formatGbpFare(surchargeGbp)}
-            </dd>
-          </div>
-        ) : null}
+
         {breakdown.airportFixedCostsGbp > 0 ? (
           <div className="flex justify-between gap-3">
             <dt>Airport / barrier charges</dt>
@@ -292,11 +283,7 @@ export function PromotionalPriceBreakdown({
           </dd>
         </div>
       </dl>
-      {hasSurcharge ? (
-        <p className="text-[11px] leading-snug quote-secondary">
-          {NIGHT_WEEKEND_SURCHARGE_EXPLANATION}
-        </p>
-      ) : null}
+
       {freeAirportAccessSelected && !hasAccess && !showPerLegAccess ? (
         <p className="text-[11px] leading-snug text-emerald/85">
           ✓ {expressAvoidedChargeMessage(service)}
@@ -333,9 +320,9 @@ export function FinalPayableBreakdown({
           </dt>
           <dd className="shrink-0 tabular-nums">
             {formatGbpFare(
-              breakdown.returnJourney
+              (breakdown.returnJourney
                 ? breakdown.originalEligibleJourneyPriceGbp
-                : breakdown.journeyFareBeforePromotionsGbp,
+                : breakdown.journeyFareBeforePromotionsGbp) + breakdown.nightWeekendSurchargeGbp,
             )}
           </dd>
         </div>
@@ -347,14 +334,7 @@ export function FinalPayableBreakdown({
             </dd>
           </div>
         ) : null}
-        {breakdown.nightWeekendSurchargeGbp > 0 ? (
-          <div className="flex justify-between gap-3 text-white/75">
-            <dt>{breakdown.nightWeekendSurchargeLabel}</dt>
-            <dd className="shrink-0 tabular-nums">
-              +{formatGbpFare(breakdown.nightWeekendSurchargeGbp)}
-            </dd>
-          </div>
-        ) : null}
+
         {breakdown.airportFixedCostsGbp > 0 ? (
           <div className="flex justify-between gap-3 text-white/75">
             <dt>Airport / barrier charges</dt>
@@ -413,11 +393,7 @@ export function FinalPayableBreakdown({
           </dd>
         </div>
       </dl>
-      {breakdown.nightWeekendSurchargeGbp > 0 ? (
-        <p className="quote-secondary mt-2 text-[11px] leading-snug">
-          {NIGHT_WEEKEND_SURCHARGE_EXPLANATION}
-        </p>
-      ) : null}
+
       <FixedPriceAssurance
         className="mt-2.5"
         includesSelectedAirportAccess={

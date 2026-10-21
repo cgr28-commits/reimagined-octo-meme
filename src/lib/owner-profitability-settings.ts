@@ -55,8 +55,9 @@ export function approvedProductionProfitabilitySettings(): ProfitabilitySettings
 export function isProfitabilityProtectionActive(
   settings: Pick<ProfitabilitySettings, "vehicleMpg"> | null | undefined,
 ): boolean {
-  const mpg = settings?.vehicleMpg;
-  return typeof mpg === "number" && Number.isFinite(mpg) && mpg > 0;
+  // New customer quotes use passenger miles, with no hourly earnings floor.
+  void settings;
+  return false;
 }
 
 /** Read-only fuel cost. Null until a valid MPG is set. */

@@ -52,9 +52,9 @@ async function main() {
   for (const airport of ["BFS", "BHD", "DUB"]) {
     const reverse = { ...rules.find(r => r.district === "BT1" && r.airportCode === airport)!, direction: "from-airport" as const, approvalStatus: "approved" as const, saloonFareGbp: 123.45 };
     const both = { ...active, postcodeRules: [...rules, reverse] };
-    assert.equal(quote(both, airport, true).amount + postcodeTerminalAccessGbp(airport), 123.45);
-    assert.equal(quote(both, airport, true, false, E).amount + postcodeTerminalAccessGbp(airport), 133.45);
-    assert.equal(quote({ ...both, estate: { upliftGbp: 12.34 } }, airport, true, false, E).amount + postcodeTerminalAccessGbp(airport), 135.79);
+    assert.deepEqual(quote(both, airport, true), quote({ ...both, postcodeRules: [] }, airport, true), "Archived reverse fares cannot change mileage quotes");
+    assert.equal(roundGbp(quote(both, airport, true, false, E).amount - quote(both, airport, true).amount), base.estate.upliftGbp);
+    assert.equal(roundGbp(quote({ ...both, estate: { upliftGbp: 12.34 } }, airport, true, false, E).amount - quote(both, airport, true).amount), 12.34);
     const out = quote(both, airport), back = quote(both, airport, true), ret = quote(both, airport, false, true);
     assert.equal(ret.amount, roundGbp((out.journeyFareGbp! + back.journeyFareGbp!) * .95 + out.airportFixedCostsGbp! + back.airportFixedCostsGbp!));
     for (const status of ["draft", "needs-verification"] as const) assert.deepEqual(quote({ ...active, postcodeRules: [{ ...reverse, enabled: false, approvalStatus: status }] }, airport, true), quote({ ...active, postcodeRules: [] }, airport, true));
@@ -69,11 +69,11 @@ async function main() {
   assert.equal(unchanged.settings.postcodeRules![0].updatedAt, firstAt, "Client cannot forge a change timestamp");
   const legacy = { ...unchanged.settings }; delete legacy.postcodePricingEnabled; delete legacy.postcodeRules;
   const preserved = await saveOwnerPricingSettings(store, legacy, { expectedVersion: unchanged.settings.version });
-  assert.equal(preserved.settings.postcodePricingEnabled, true); assert.equal(preserved.settings.postcodeRules!.length, 6);
+  assert.equal(preserved.settings.postcodePricingEnabled, false); assert.equal(preserved.settings.postcodeRules!.length, 6);
   const restored = await saveOwnerPricingSettings(store, {}, { expectedVersion: preserved.settings.version, restoreDefaults: true });
-  assert.equal(restored.settings.postcodePricingEnabled, true); assert.equal(restored.settings.postcodeRules!.length, 6);
+  assert.equal(restored.settings.postcodePricingEnabled, false); assert.equal(restored.settings.postcodeRules!.length, 6);
   const publicConfig = toPublicOwnerPricingConfig({ ...active, postcodeRules: [{ ...rules[0], updatedAt: firstAt }, ...drafts.slice(12, 14)] });
-  assert.equal(publicConfig.postcodeRules!.length, 1); assert.ok(!JSON.stringify(publicConfig).includes("needs-verification")); assert.ok(!JSON.stringify(publicConfig.postcodeRules).includes("updatedAt"));
+  assert.equal(publicConfig.postcodeRules!.length, 0); assert.ok(!JSON.stringify(publicConfig).includes("needs-verification")); assert.ok(!JSON.stringify(publicConfig.postcodeRules).includes("updatedAt"));
   console.log("OK server-owned timestamps, legacy saves/default restore preserve flag/rules; public config omits drafts, inactive fares and timestamps");
 
   await saveOwnerPricingSettings(store, { ...active, profitability: approvedProductionProfitabilitySettings() });
@@ -90,12 +90,12 @@ async function main() {
     assert.equal(urls.length, 0, "Unauthorised callers cannot run private routing");
     const response = await worker.fetch(req("test-owner"), env as never); assert.equal(response.status, 200);
     const result = await response.json() as { preview: { fareGbp: number; directCostsGbp: number; totalMiles: number; drivingMinutes: number; hourlyGbp: number; contributionGbp: number; belowTarget: boolean } };
-    assert.equal(result.preview.fareGbp, 255); assert.equal(result.preview.drivingMinutes, 120); assert.equal(result.preview.totalMiles, 55.9);
-    assert.equal(result.preview.contributionGbp, roundGbp(255 - result.preview.directCostsGbp)); assert.equal(result.preview.hourlyGbp, roundGbp(result.preview.contributionGbp / 2));
+    assert.equal(result.preview.fareGbp, 252); assert.equal(result.preview.drivingMinutes, 120); assert.equal(result.preview.totalMiles, 55.9);
+    assert.equal(result.preview.contributionGbp, roundGbp(252 - result.preview.directCostsGbp)); assert.equal(result.preview.hourlyGbp, roundGbp(result.preview.contributionGbp / 2));
     assert.equal(urls.length, 3, "Passenger route plus positioning and homeward legs");
     assert.ok(urls.some(u => u.includes("-5.97026,54.66598")), "Existing home base used on server only");
     const low = await worker.fetch(req("test-owner", { ...body, rule: { ...body.rule, saloonFareGbp: 15 } }), env as never);
-    assert.equal(low.status, 200); const lowBody = await low.json() as { preview: { fareGbp: number; belowTarget: boolean } }; assert.equal(lowBody.preview.belowTarget, true); assert.equal(lowBody.preview.fareGbp, 25, "Low profit never increases the customer fare");
+    assert.equal(low.status, 200); const lowBody = await low.json() as { preview: { fareGbp: number; belowTarget: boolean } }; assert.equal(lowBody.preview.belowTarget, true); assert.equal(lowBody.preview.fareGbp, 22, "Low profit never increases the customer fare");
     assert.equal((await worker.fetch(req("test-owner", { ...body, address: "Road BT10 0AA" }), env as never)).status, 422);
     assert.equal((await worker.fetch(req("test-owner", { ...body, lat: null }), env as never)).status, 422);
     assert.equal(JSON.stringify([...data]), snapshot, "Preview does not write settings, audits or bookings");

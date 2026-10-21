@@ -75,7 +75,7 @@ export function formatCustomerPromoPricingLines(
     typeof fields.originalEligibleJourneyPriceGbp === "number" &&
     fields.originalEligibleJourneyPriceGbp > 0
   ) {
-    lines.push(`Journey fare: ${formatGbpFare(fields.originalEligibleJourneyPriceGbp)}`);
+    lines.push(`Journey fare: ${formatGbpFare(fields.originalEligibleJourneyPriceGbp + (fields.nightWeekendSurchargeGbp ?? 0))}`);
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
     lines.push(
@@ -87,11 +87,7 @@ export function formatCustomerPromoPricingLines(
       `Return journey saving 5%: −${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
     );
   }
-  if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
-    lines.push(
-      `Night & Weekend Surcharge (10%): ${formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0)}`,
-    );
-  }
+
   if (
     (fields.outboundAirportAccessChargeGbp ?? 0) > 0 ||
     (fields.returnAirportAccessChargeGbp ?? 0) > 0
@@ -135,7 +131,7 @@ export function formatCustomerPromoPricingHtmlRows(
   ) {
     rows.push({
       label: "Journey fare",
-      value: formatGbpFare(fields.originalEligibleJourneyPriceGbp),
+      value: formatGbpFare(fields.originalEligibleJourneyPriceGbp + (fields.nightWeekendSurchargeGbp ?? 0)),
     });
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
@@ -150,12 +146,7 @@ export function formatCustomerPromoPricingHtmlRows(
       value: `−${formatGbpFare(fields.returnOfferSavingGbp ?? 0)}`,
     });
   }
-  if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
-    rows.push({
-      label: "Night & Weekend Surcharge (10%)",
-      value: formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0),
-    });
-  }
+
   if (
     (fields.outboundAirportAccessChargeGbp ?? 0) > 0 ||
     (fields.returnAirportAccessChargeGbp ?? 0) > 0

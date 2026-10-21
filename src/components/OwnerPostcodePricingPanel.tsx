@@ -83,15 +83,15 @@ export default function OwnerPostcodePricingPanel({ ownerKey }: { ownerKey: stri
   }
   return <section className="min-w-0 rounded-2xl border border-white/10 bg-navy/50 p-4 sm:p-5">
     <h2 className="text-xl font-bold text-white">Postcode Pricing</h2>
-    <p className="mt-2 text-sm leading-relaxed text-white/70">Directional fixed fares for Saloon and Estate. Only enabled, approved rules apply when the feature is ON. Each fare includes the normal airport costs for its direction. Other journeys keep their existing pricing.</p>
+    <p className="mt-2 text-sm leading-relaxed text-white/70">Archived postcode rules. New customer quotes use £10 + £2.20 per passenger road mile, minimum £30, with airport charges and tolls added separately. These saved rules no longer set fares.</p>
     {isBrowserPricingPreview() ? <p className="mt-3 rounded-xl border border-emerald/30 bg-emerald/10 p-3 text-sm text-white">Isolated preview — no live pricing changes.</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-300">{error}</p> : null}
     {notice ? <p role="status" className="mt-3 text-sm text-emerald">{notice}</p> : null}
     <button type="button" className="btn-secondary mt-3 px-4" disabled={saving} onClick={() => { if (!dirty || window.confirm("Discard unsaved postcode changes and reload pricing?")) setReload(v => v + 1); }}>Reload pricing</button>
     {!settings ? <p role="status" className="mt-4 text-white/70">{error ? "Pricing is unavailable. Use Reload pricing to try again." : "Loading pricing…"}</p> : <>
       <p className="mt-4 text-sm text-white/80">Estate uses the existing Pricing supplement: <strong>{money(supplement)}</strong>. Change it in Pricing, not here.</p>
-      <label className="mt-4 flex min-h-12 items-center gap-3 rounded-xl border border-emerald/30 p-3 text-white"><input aria-label="Enable postcode pricing feature" type="checkbox" disabled={saving || !editorSupported} checked={featureEnabled} onChange={e => setFeatureEnabled(e.target.checked)} /><span>Postcode pricing feature: <strong>{featureEnabled ? "ON" : "OFF"}</strong> — save to apply</span></label>
-      <p className="mt-2 text-sm text-white/70">New configurations default OFF. Existing active legacy rules stay active until explicitly switched OFF. Loading or importing fares never turns this switch on. Reverse fares and workbook estimates need individual approval.</p>
+      <label className="mt-4 flex min-h-12 items-center gap-3 rounded-xl border border-emerald/30 p-3 text-white"><input aria-label="Enable postcode pricing feature" type="checkbox" disabled checked={false} onChange={e => setFeatureEnabled(e.target.checked)} /><span>Postcode pricing feature: <strong>{featureEnabled ? "ON" : "OFF"}</strong> — retired</span></label>
+      <p className="mt-2 text-sm text-white/70">Rules are retained for reference. Enabling postcode pricing cannot override the mileage tariff.</p>
       {!editorSupported ? <p role="status" className="mt-3 text-sm text-amber-200">Postcode management upgrade pending. Existing fares remain active. Editing becomes available once the Worker upgrade is deployed; reload pricing then.</p> : null}
       <fieldset disabled={saving || !editorSupported} className="mt-4 min-w-0">
         <legend className="font-semibold text-white">{editing ? "Edit pricing rule" : "Add pricing rule"}</legend>

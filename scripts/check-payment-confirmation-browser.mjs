@@ -26,7 +26,7 @@ try {
   await page.getByRole('heading',{name:'Checking your payment',exact:true}).waitFor();
   assert.equal(await page.locator('[data-confirmed-booking-number]').count(),0);
   assert.equal(calls,0);
-  const cookie=page.getByRole('button',{name:'Essential only',exact:true});
+  const cookie=page.getByRole('button',{name:/^(Essential only|Reject optional)$/,exact:true});
   if(await cookie.isVisible())await cookie.click();
   for(const test of ['paid','deposit','error','pending']) {
    state=test;

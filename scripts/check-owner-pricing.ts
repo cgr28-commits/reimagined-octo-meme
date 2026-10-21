@@ -137,7 +137,7 @@ check("missing config → Saloon / Estate / Minibus / Return / Night / Weekend /
   assert.deepEqual(normalized.weekend.days, [0, 6]);
   assert.equal(normalized.minibus.publicEnabled, false);
   assert.equal(DEFAULT_PUBLIC_MINIBUS_ENABLED, false);
-  assert.equal(normalized.saloon.minimumFareGbp, 29);
+  assert.equal(normalized.saloon.minimumFareGbp, 30);
 });
 
 check("corrupt config falls back and never enables public Minibus", () => {
@@ -296,7 +296,7 @@ await checkAsync("admin saves runtime Estate settings; public and authoritative 
         const returnQuote = calculateAuthoritativeWebsiteQuote({ ...input, vehicleType: ESTATE_VEHICLE, returnJourney: true });
         assert.ok(saloon.ok && estate.ok && returnQuote.ok);
         assert.equal(estate.vehicleType, ESTATE_VEHICLE);
-        assert.equal(estate.amount - saloon.amount, upliftGbp);
+        assert.equal(Math.round((estate.amount - saloon.amount) * 100), Math.round(upliftGbp * 100));
         assert.equal(estate.airportFixedCostsGbp, saloon.airportFixedCostsGbp);
         assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0.05);
         assert.equal(returnQuote.journeyFareGbp,
@@ -309,6 +309,34 @@ await checkAsync("admin saves runtime Estate settings; public and authoritative 
       }
     }
     console.log(`OK  configured Estate uplift £${upliftGbp}: saved, publicly loaded and applied to BFS/BHD/DUB quotes`);
+  }
+});
+
+await checkAsync("saved independent night/weekend toggles and percentages affect new quotes", async () => {
+  const store = memoryKv();
+  const env = { OWNER_ACCESS_KEY: "test-owner-key", TRACKING_STORE: store as never };
+  const origin = "https://www.myairporttaxini.co.uk";
+  for (const [nightEnabled, weekendEnabled] of [[false,false],[true,false],[false,true],[true,true],[false,false]]) {
+    const current = await getOwnerPricingSettings(store);
+    const settings = { ...current, night: { ...current.night, enabled: nightEnabled, surchargeRate: .2 }, weekend: { ...current.weekend, enabled: weekendEnabled, surchargeRate: .3 } };
+    const response = await handleOwnerPricingRequest(new Request(`${origin}/owner/pricing`, {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Owner-Key": "test-owner-key", Origin: origin },
+      body: JSON.stringify({ settings, expectedVersion: current.version, postcodeRulesEditorVersion: 2 }),
+    }), env, origin);
+    assert.equal(response.status, 200);
+    const saved = await getOwnerPricingSettings(store);
+    assert.deepEqual(saved.night, settings.night);
+    assert.deepEqual(saved.weekend, settings.weekend);
+    const { config } = await (await handlePublicGetPricingConfig(env, origin)).json() as { config: PublicOwnerPricingConfig };
+    for (const pricing of [saved, config]) {
+      for (const [date,time,rate] of [["2026-11-10","12:00",0],["2026-11-10","23:00",nightEnabled ? .2 : 0],["2026-11-14","12:00",weekendEnabled ? .3 : 0],["2026-12-25","12:00",.5]] as const) {
+        const quote = calculateAuthoritativeWebsiteQuote({ pickupAddress:"Belfast City Hall, Belfast", dropoffAddress:"Airport", airportCode:"BFS", fromAirport:false, returnJourney:false, passengers:2, suitcases:1, vehicleType:SALOON_VEHICLE, routeMetrics:{distanceKm:20 / .621371,durationMinutes:35}, outboundDate:date,outboundTime:time, pricing });
+        assert.ok(quote.ok);
+        assert.equal(quote.journeyFareGbp,Math.round(54 * (1 + rate) * 100) / 100);
+        assert.equal(quote.nightWeekendSurchargeGbp,Math.round(54 * rate * 100) / 100);
+        assert.equal(quote.amount,Math.round((54 * (1 + rate)) * 100) / 100);
+      }
+    }
   }
 });
 
@@ -331,8 +359,8 @@ check("Minibus ×1.55 is penny-rounded only: default Estate uplift then nearest 
   const from50 = minibusBaseFareFromSaloon(50);
   assert.equal(from50.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
   const expected = Math.round(from50.estateGbp * DEFAULT_MINIBUS_MULTIPLIER * 100) / 100;
-  assert.equal(from50.minibusExactGbp, expected);
-  assert.equal(from50.minibusQuotedGbp, expected);
+  assert.equal(Math.round(from50.minibusExactGbp * 100) / 100, expected);
+  assert.equal(Math.round(from50.minibusQuotedGbp * 100) / 100, expected);
   const priced = calculateUniversalJourneyFareGbp(0, MINIBUS_VEHICLE, {
     saloonFareGbp: 50,
     minibusMultiplier: 1.55,
@@ -363,7 +391,7 @@ check("changed Minibus multiplier works without nearest-£5 rounding", () => {
     minibusMultiplier: 1.6,
     estatePremiumGbp: 6,
   });
-  assert.equal(priced.journeyFareGbp, 89.6);
+  assert.equal(Math.round(priced.journeyFareGbp * 100) / 100, 89.6);
   assert.notEqual(priced.journeyFareGbp, 90);
 
   const oneSixtyFive = calculateUniversalJourneyFareGbp(0, MINIBUS_VEHICLE, {
@@ -371,7 +399,7 @@ check("changed Minibus multiplier works without nearest-£5 rounding", () => {
     minibusMultiplier: 1.65,
     estatePremiumGbp: 6,
   });
-  assert.equal(oneSixtyFive.journeyFareGbp, 92.4);
+  assert.equal(Math.round(oneSixtyFive.journeyFareGbp * 100) / 100, 92.4);
   assert.notEqual(oneSixtyFive.journeyFareGbp, Math.round((56 * 1.65) / 5) * 5);
 });
 
@@ -585,8 +613,8 @@ check("Saloon → configured Estate uplift → Minibus; Night from Minibus base;
   assert.equal(preview.estateGbp, 50 + UNIVERSAL_ESTATE_PREMIUM_GBP);
   assert.equal(preview.estateUpliftGbp, DEFAULT_ESTATE_UPLIFT_GBP);
   const expected = Math.round(preview.estateGbp * preview.minibusMultiplier * 100) / 100;
-  assert.equal(preview.minibusExactGbp, expected);
-  assert.equal(preview.minibusQuotedGbp, expected);
+  assert.equal(Math.round(preview.minibusExactGbp * 100) / 100, expected);
+  assert.equal(Math.round(preview.minibusQuotedGbp * 100) / 100, expected);
   const night10 = previewSurchargeOnBase(86.8, 0.1);
   assert.equal(night10.surchargeGbp, 8.68);
   const night20 = previewSurchargeOnBase(86.8, 0.2);

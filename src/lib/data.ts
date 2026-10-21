@@ -393,7 +393,7 @@ export const WHY_CHOOSE_US = [
   {
     title: "Book online 24/7",
     description:
-      "Request a transfer online any time — including early mornings, late nights, bank holidays and Christmas. Bookings are confirmed in advance for your chosen pickup time.",
+      "Request a transfer online for any day of the year. Bookings are confirmed in advance for your chosen pickup time.",
   },
   {
     title: "Cars and 7-seater airport transfers",

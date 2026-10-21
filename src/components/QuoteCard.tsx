@@ -8,7 +8,6 @@ import QuoteProgressiveRoute from "@/components/QuoteProgressiveRoute";
 import QuoteScheduleFields from "@/components/QuoteScheduleFields";
 import {
   hasEnteredQuoteSchedule,
-  QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE,
   QUOTE_PRICE_WAIT_FOR_DETAILS,
   QUOTE_PRICE_WAIT_FOR_SCHEDULE,
 } from "../../shared/quote-display-gate";
@@ -6336,14 +6335,7 @@ function QuoteCard({
             </p>
             )}
             {authoritativeQuoteFailed ? renderAuthoritativeQuoteRetry() : null}
-            {mayPaintNumericFare && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ? (
-              <p
-                className="mt-1.5 text-xs font-semibold text-emerald"
-                data-night-weekend-surcharge-badge
-              >
-                {QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE}
-              </p>
-            ) : null}
+
             {testChargeAmount === null && !appliedPersonalQuote ? (
               <FixedPriceAssurance
                 includesSelectedAirportAccess={expressSelection.eligible}

@@ -29,25 +29,25 @@ const quote=(a:string,vehicle:VehicleType=S,airport="DUB",fromAirport=false,retu
 
 async function main(){
   assert.deepEqual(defaultOwnerPricingSettings().postcodeRules,[],"No automatic production activation");
-  for(const address of addresses) for(const [vehicle,fare] of [[S,245],[E,252]] as const){
+  for(const address of addresses) for(const [vehicle,fare] of [[S,231.36],[E,238.36]] as const){
     const q=quote(address,vehicle);assert.equal(q.amount,fare);assert.equal(roundGbp(q.journeyFareGbp!+q.airportFixedCostsGbp!),fare);
     assert.equal(q.outboundOneWayBeforeAccessGbp,fare);assert.equal(q.airportFixedCostsGbp,4,"Existing Dublin toll is inside, not on top of, fixed price");
     const service=calculateAuthoritativeWebsiteQuote({pickupAddress:address,dropoffAddress:"Dublin Airport (DUB)",airportCode:"DUB",fromAirport:false,returnJourney:false,passengers:2,suitcases:1,vehicleType:vehicle,routeMetrics:metrics,pricing});
     assert.ok(service.ok);if(service.ok)assert.equal(service.amount,fare);
     const breakdown=composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:q.journeyFareGbp!,airportFixedCostsGbp:q.airportFixedCostsGbp});
     const payment=resolveOpenWebsitePaymentTransferFares({clientTransferAmountGbp:fare,booking:{pickupLabel:address,dropoffLabel:"Dublin Airport (DUB)",vehicle},authoritativeQuote:{amountGbp:q.amount,journeyFareGbp:q.journeyFareGbp!,airportFixedCostsGbp:q.airportFixedCostsGbp!}});
-    assert.ok(payment.ok);assert.equal(resolveSumUpChargeAmountGbp(fare,breakdown.finalAmountPayableGbp),fare);
+    assert.ok(payment.ok);assert.equal(resolveSumUpChargeAmountGbp(breakdown.finalAmountPayableGbp,breakdown.finalAmountPayableGbp),Math.round(fare));
   }
-  for(const uplift of [0,6.5,12.75,20])assert.equal(quote(addresses[0],E,"DUB",false,false,{...pricing,estate:{upliftGbp:uplift}}).amount,roundGbp(245+uplift),"Supplement is configurable, never hardcoded");
+  for(const uplift of [0,6.5,12.75,20])assert.equal(quote(addresses[0],E,"DUB",false,false,{...pricing,estate:{upliftGbp:uplift}}).amount,roundGbp(231.36+uplift),"Supplement is configurable, never hardcoded");
   for(const a of ["10 Finaghy Road, Belfast BT10 0AA", "12 Road, Belfast BT11 9AA", "1 Road, Belfast BT12 6AA", "Road BT101AA", "Road BT111AA", "Road BT121AA", "Road BT21 1AA", "BT1 Road, Belfast BT10 0AA", "Belfast BT1"]){
     assert.equal(quote(a).amount,quote(a,S,"DUB",false,false,baseline).amount,a);
   }
-  for(const a of ["Donegall Square, Belfast bt15gs", "Bedford Street, Belfast bt27ff"]){assert.equal(quote(a).amount,245);}
+  for(const a of ["Donegall Square, Belfast bt15gs", "Bedford Street, Belfast bt27ff"]){assert.equal(quote(a).amount,231.36);}
   for(const airport of ["BFS","BHD","LDY"])for(const a of addresses)for(const vehicle of [S,E])assert.deepEqual(quote(a,vehicle,airport),quote(a,vehicle,airport,false,false,baseline));
   // Arbitrary test-only Belfast prices: not proposed or activated business fares.
   for(const [airportCode,testFare] of [["BFS",50],["BHD",35]] as const) {
     const testPricing={...baseline,postcodePricingEnabled:true,postcodeRules:[{district:"BT1",airportCode,saloonFareGbp:testFare,enabled:true},{district:"BT2",airportCode,saloonFareGbp:testFare,enabled:true}]};
-    for(const a of addresses){assert.equal(quote(a,S,airportCode,false,false,testPricing).amount+postcodeTerminalAccessGbp(airportCode),testFare);assert.equal(quote(a,E,airportCode,false,false,testPricing).amount+postcodeTerminalAccessGbp(airportCode),testFare+testPricing.estate.upliftGbp);assert.deepEqual(quote(a,S,airportCode,true,false,testPricing),quote(a,S,airportCode,true,false,baseline));}
+    for(const a of addresses)for(const vehicle of [S,E])assert.deepEqual(quote(a,vehicle,airportCode,false,false,testPricing),quote(a,vehicle,airportCode,false,false,baseline),"Archived rules cannot override the mileage tariff");
   }
   for(const a of addresses)for(const vehicle of [S,E,B,M]){
     assert.deepEqual(quote(a,vehicle,"DUB",true),quote(a,vehicle,"DUB",true,false,baseline),"Reverse one-way unchanged");
@@ -62,22 +62,27 @@ async function main(){
     assert.equal(ret.amount,roundGbp((out.journeyFareGbp!+back.journeyFareGbp!)*(1-pricing.returnDiscount.rate)+out.airportFixedCostsGbp!+back.airportFixedCostsGbp!),"Existing 5% journey-only discount; reverse leg priced normally");
   }
   const night={...pricing,night:{...pricing.night,enabled:true},weekend:{...pricing.weekend,enabled:true}};
-  assert.equal(calculateQuote(addresses[0],"DUB",S,false,{outboundDate:"2026-10-17",outboundTime:"23:00"},metrics,false,night)!.amount,245,"Fixed price also takes priority over mileage surcharges");
+  assert.equal(calculateQuote(addresses[0],"DUB",S,false,{outboundDate:"2026-10-17",outboundTime:"23:00"},metrics,false,night)!.amount,254.09,"Configured schedule premium applies to mileage fare only");
   assert.equal(findPostcodeFare(pricing.postcodeRules,{address:"George Best Belfast City Airport, Belfast BT3 9JH",airportCode:"DUB",fromAirport:false},S,10),null);
   for(const from of ["BFS","BHD"])assert.deepEqual(calculateAirportToAirportQuote(from,"DUB","Belfast Airport","Dublin Airport",S,false,{},metrics,pricing),calculateAirportToAirportQuote(from,"DUB","Belfast Airport","Dublin Airport",S,false,{},metrics,baseline));
   for(const bad of [[{...PROPOSED_POSTCODE_RULES[0],district:"BT1 5GS"}],[{...PROPOSED_POSTCODE_RULES[0],district:"BT0"}],[{...PROPOSED_POSTCODE_RULES[0],airportCode:"FAKE"}],[{...PROPOSED_POSTCODE_RULES[0],saloonFareGbp:-1}],[{...PROPOSED_POSTCODE_RULES[0],saloonFareGbp:245.001}],[{...PROPOSED_POSTCODE_RULES[0],enabled:"yes"}],[PROPOSED_POSTCODE_RULES[0],PROPOSED_POSTCODE_RULES[0]]])assert.ok(validatePostcodeRules(bad).errors.length);
   assert.ok(validateOwnerPricingInput(pricing).ok);assert.equal(validateOwnerPricingInput({...pricing,postcodeRules:[{district:"BT1"}]}).ok,false);
-  assert.equal(toPublicOwnerPricingConfig(pricing).postcodeRules?.length,2);
-  console.log("OK BT1/BT2 full and compact postcodes: £245 Saloon / £252 Estate; configurable uplift; exact district boundaries; airports/directions/vehicles/fallbacks; return discount; included costs and payment amount");
+  assert.equal(toPublicOwnerPricingConfig(pricing).postcodeRules?.length,0);
+  console.log("OK archived postcode rules ignored: mileage fare, configurable uplift, district boundaries, airports/directions/vehicles, return discount and payment amount");
 
   const {data,store}=kv();
   const saved=await saveOwnerPricingSettings(store,pricing,{expectedVersion:1,actor:"owner"});
-  const quoteEnv={TRACKING_STORE:store,OWNER_ACCESS_KEY:"test-owner",DRIVER_ACCESS_KEY:"test-driver"};
+  const quoteEnv={GOOGLE_PLACES_API_KEY:"test-google",TRACKING_STORE:store,OWNER_ACCESS_KEY:"test-owner",DRIVER_ACCESS_KEY:"test-driver"};
   const originalFetch=globalThis.fetch;
-  globalThis.fetch=async()=>{throw new Error("Unexpected external request during isolated API pricing test");};
+  globalThis.fetch=async input=>{
+    const url=String(input);
+    if(url.includes("googleapis.com"))return Response.json({status:"OK",results:[{geometry:{location:{lat:54.5964,lng:-5.9302}}}],result:{geometry:{location:{lat:54.5964,lng:-5.9302}}},location:{latitude:54.5964,longitude:-5.9302}});
+    if(url.includes("/route/v1/"))return Response.json({code:"Ok",routes:[{distance:159000,duration:6720}]});
+    throw new Error("Unexpected external request during isolated API pricing test: "+url);
+  };
   try {
     for(const address of [...addresses,"10 Finaghy Road, Belfast BT10 0AA","1 Road, Belfast BT12 6AA"])for(const airportCode of ["DUB","BFS","BHD"])for(const fromAirport of [false,true])for(const vehicle of [S,E]) {
-      const payload={airportCode,fromAirport,pickupAddress:fromAirport?`${airportCode} Airport`:address,dropoffAddress:fromAirport?address:`${airportCode} Airport`,returnJourney:false,passengers:2,suitcases:1,vehicleType:vehicle,routeMetrics:metrics,amount:1,postcodeRules:[{district:"BT1",airportCode:"DUB",saloonFareGbp:1,enabled:true}]};
+      const payload={pickupPlaceId:fromAirport?`quickselect-${airportCode}`:"ChIJ-isolated-test",dropoffPlaceId:fromAirport?"ChIJ-isolated-test":`quickselect-${airportCode}`,airportCode,fromAirport,pickupAddress:fromAirport?`${airportCode} Airport`:address,dropoffAddress:fromAirport?address:`${airportCode} Airport`,returnJourney:false,passengers:2,suitcases:1,vehicleType:vehicle,routeMetrics:metrics,amount:1,postcodeRules:[{district:"BT1",airportCode:"DUB",saloonFareGbp:1,enabled:true}]};
       const response=await worker.fetch(new Request("https://worker.example/quote/calculate",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://www.myairporttaxini.co.uk"},body:JSON.stringify(payload)}),quoteEnv as never);
       const body=await response.json() as {amount:number};assert.equal(response.status,200,JSON.stringify(body));
       assert.equal(body.amount,quote(address,vehicle,airportCode,fromAirport).amount,"API must use stored settings, never client prices/rules");
@@ -125,14 +130,11 @@ async function main(){
       const q=quote(addresses[0],vehicle,airportCode,fromAirport,returning,approvedPricing);
       const input={pricing:protectedPricing,vehicleType:vehicle,routeMetrics:metrics,pickup:{lat:54.5964,lng:-5.9302},dropoff:{lat:53.4264,lng:-6.2499},returnJourney:returning,dublinAirportJourney:airportCode==="DUB",schedule:{},existing:{amountGbp:q.amount,journeyFareGbp:q.journeyFareGbp!,airportFixedCostsGbp:q.airportFixedCostsGbp!,nightWeekendSurchargeGbp:0,outboundOneWayBeforeAccessGbp:q.outboundOneWayBeforeAccessGbp,returnOneWayBeforeAccessGbp:q.returnOneWayBeforeAccessGbp,outboundFixedGbp:q.outboundFixedGbp,returnFixedGbp:q.returnFixedGbp}};
       const result=await applyProfitabilityProtection({...input,postcodeContext:{address:addresses[0],airportCode,fromAirport}});
-      const fare=saloon+(vehicle===E?approvedPricing.estate.upliftGbp:0)-postcodeTerminalAccessGbp(airportCode);
-      if(!fromAirport)assert.equal(result.outboundOneWayBeforeAccessGbp,fare);
-      if(!fromAirport&&!returning)assert.equal(result.amountGbp,fare,"Fixed postcode fare overrides even a much higher profitability floor");
-      if(returning&&fromAirport)assert.equal(result.returnOneWayBeforeAccessGbp,fare);
-      if(returning){const normal=await applyProfitabilityProtection({...input,pricing:{...protectedPricing,postcodeRules:[]}});if(fromAirport)assert.equal(result.outboundOneWayBeforeAccessGbp,normal.outboundOneWayBeforeAccessGbp);else assert.equal(result.returnOneWayBeforeAccessGbp,normal.returnOneWayBeforeAccessGbp);}
+      assert.equal(result.applied,false);
+      assert.equal(result.amountGbp,q.amount,"Neither postcode nor hourly settings can replace the mileage quote");
     }
   }finally{globalThis.fetch=realFetch;}
-  console.log("OK active profitability cannot override the fixed leg; unmatched return legs retain ordinary protected pricing");
+  console.log("OK archived postcode and profitability settings cannot override mileage quotes in either direction or on returns");
 
   const payments=kv();await saveOwnerPricingSettings(payments.store,approvedPricing,{expectedVersion:1});
   const checkoutAmounts:number[]=[];
@@ -151,7 +153,7 @@ async function main(){
     const payEnv={TRACKING_STORE:payments.store,SUMUP_API_KEY:"test-only",SUMUP_MERCHANT_CODE:"test-merchant",GOOGLE_PLACES_API_KEY:"test-google",OWNER_ACCESS_KEY:"test-owner",PUBLIC_SITE_ORIGIN:"https://www.myairporttaxini.co.uk"};
     const date=new Date(Date.now()+10*86400000).toISOString().slice(0,10);
     for(const address of addresses)for(const [airportCode,saloon] of [["DUB",245],["BFS",55],["BHD",35]] as const)for(const vehicle of [S,E]){
-      const fare=saloon+(vehicle===E?approvedPricing.estate.upliftGbp:0);
+      const fare=Math.round(227.36+(vehicle===E?approvedPricing.estate.upliftGbp:0)+(airportCode==="BFS"?5:4));
       const q=quote(address,vehicle,airportCode,false,false,approvedPricing);
       const access=quoteAirportAccessCharges({expressLegs:resolveExpressDropOff({airportCode,fromAirport:false,selected:true}).legs,airportCode,fromAirport:false});
       assert.equal(composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:q.journeyFareGbp!,airportFixedCostsGbp:q.airportFixedCostsGbp,airportAccessChargeGbp:access.airportAccessChargeGbp}).finalAmountPayableGbp,fare);
@@ -162,12 +164,12 @@ async function main(){
       const pending=await getPendingCheckout(payments.store,b.checkoutId);assert.equal(pending?.amount,fare);assert.equal(pending?.booking.vehicle,vehicle);
       const mismatch=await worker.fetch(new Request("https://worker.example/payments",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://www.myairporttaxini.co.uk"},body:JSON.stringify({...payload,acceptedFinalAmountGbp:1})}),payEnv as never);assert.equal(mismatch.status,409,"Changed accepted fare cannot reach SumUp");
     }
-    assert.deepEqual(checkoutAmounts,[245,252,55,62,35,42,245,252,55,62,35,42]);
+    assert.deepEqual(checkoutAmounts,[231,238,232,239,231,238,231,238,232,239,231,238]);
     // Deliberately test-only reverse prices, not approved/staged business fares.
     const reversePricing={...approvedPricing,postcodeRules:[...approvedPricing.postcodeRules,...approvedPricing.postcodeRules.filter(r=>r.district==="BT1").map(r=>({...r,direction:"from-airport" as const,approvalStatus:"approved" as const,saloonFareGbp:123.45}))]};
     await saveOwnerPricingSettings(payments.store,reversePricing);
     for(const airportCode of ["DUB","BFS","BHD"])for(const vehicle of [S,E]){
-      const fare=vehicle===E?130.45:123.45;
+      const fare=Math.round(227.36+(vehicle===E?7:0)+(airportCode==="DUB"?9:airportCode==="BFS"?5:4));
       const q=quote(addresses[0],vehicle,airportCode,true,false,reversePricing);
       const airport=airportCode==="DUB"?"Dublin Airport (DUB)":airportCode==="BFS"?"Belfast International Airport (BFS)":"Belfast City Airport (BHD)";
       const booking={customerName:"Test Customer",customerEmail:"test@example.com",mobileNumber:"07700900123",pickupLabel:airport,dropoffLabel:addresses[0],tripLabel:"Airport pickup",tripDate:date,tripTime:"12:00",returnJourney:false,passengers:2,suitcases:1,vehicle,isAirportTrip:true,isFromAirport:true,airportCode,flightNumber:"BA1234",termsAcceptedAt:new Date().toISOString()};
@@ -175,9 +177,9 @@ async function main(){
       const response=await worker.fetch(new Request("https://worker.example/payments",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://www.myairporttaxini.co.uk"},body:JSON.stringify(payload)}),payEnv as never);
       const b=await response.json() as {checkoutId:string};assert.equal(response.status,200,JSON.stringify(b));assert.equal(checkoutAmounts.at(-1),fare);assert.equal((await getPendingCheckout(payments.store,b.checkoutId))?.amount,fare);
     }
-    assert.deepEqual(checkoutAmounts.slice(12),[123.45,130.45,123.45,130.45,123.45,130.45]);
+    assert.deepEqual(checkoutAmounts.slice(12),[236,243,232,239,231,238]);
   } finally {globalThis.fetch=realFetch;}
-  console.log("OK BT1/BT2 actual /payments → exact totals Dublin £245/£252, International £55/£62, City £35/£42, with terminal charges once; persisted amounts and mismatch rejection; no live payments");
-  console.log("OK independently configured reverse test fares reach exact pence SumUp amounts for all three airports/Saloon/Estate; included arrival charges not duplicated");
+  console.log("OK BT1/BT2 isolated checkout: mileage fare plus terminal charges once, persisted totals and mismatch rejection; no live payments");
+  console.log("OK archived reverse fares ignored for all airports/Saloon/Estate; arrival charges not duplicated");
 }
 void main().catch(e=>{console.error(e);process.exitCode=1});

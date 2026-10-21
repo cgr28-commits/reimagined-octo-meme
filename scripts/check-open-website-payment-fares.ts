@@ -31,11 +31,11 @@ const CITY = "Belfast City Hall, Belfast BT1 5GS";
 const DUB_METRICS = { distanceKm: 168, durationMinutes: 115 };
 const LDY_METRICS = { distanceKm: 120, durationMinutes: 90 };
 /** PR #435 expectations for DUB_METRICS (road miles → universal Saloon). */
-const DUB_JOURNEY = calculateUniversalSaloonJourneyFareGbp(
+const DUB_JOURNEY = Math.round(calculateUniversalSaloonJourneyFareGbp(
   universalDrivingMilesFromKm(DUB_METRICS.distanceKm),
-);
-const DUB_DROP_TOTAL = DUB_JOURNEY + 4; // + M1 toll
-const DUB_PICK_TOTAL = DUB_JOURNEY + 9; // + parking £5 + M1 £4
+) * 100) / 100;
+const DUB_DROP_TOTAL = Math.round(DUB_JOURNEY + 4); // + M1 toll
+const DUB_PICK_TOTAL = Math.round(DUB_JOURNEY + 9); // + parking £5 + M1 £4
 const DUB_ESTATE_JOURNEY = calculateUniversalEstateJourneyFareGbp(DUB_JOURNEY);
 /** Genuine long-distance BFS metrics vs client-spoofed 1km/1min. */
 const COLERAINE = "Coleraine, Northern Ireland";
@@ -404,9 +404,9 @@ check("5% return discount still applies on canonical DUB journey", () => {
   // Journey portion only is discounted; fixed costs (outbound toll + return parking+toll) are not.
   assert.ok((ret.journeyFareGbp ?? 0) < (oneWay.journeyFareGbp ?? 0) * 2);
   assert.equal(ret.airportFixedCostsGbp, 13); // £4 + £5 + £4
-  assert.equal(DUB_JOURNEY, 223);
-  assert.equal(ret.journeyFareGbp, 423.7);
-  assert.equal(ret.amount, 436.7);
+  assert.equal(DUB_JOURNEY, 239.66);
+  assert.equal(ret.journeyFareGbp, 455.35);
+  assert.equal(ret.amount, 468.35);
 });
 
 // --- Route-metric tampering: client distance/duration must never cut SumUp ---
@@ -503,7 +503,7 @@ check("tamper distanceKm=1 on mileage BFS: SumUp keeps server fare", () => {
       routeMetrics: { distanceKm: 1, durationMinutes: SERVER_BFS_METRICS.durationMinutes },
     },
   );
-  assert.equal(charged, genuine.amount);
+  assert.equal(charged, Math.round(genuine.amount));
 });
 
 check("tamper durationMinutes=1 on mileage BFS: SumUp keeps server fare", () => {
@@ -531,7 +531,7 @@ check("tamper durationMinutes=1 on mileage BFS: SumUp keeps server fare", () => 
       routeMetrics: { distanceKm: SERVER_BFS_METRICS.distanceKm, durationMinutes: 1 },
     },
   );
-  assert.equal(charged, genuine.amount);
+  assert.equal(charged, Math.round(genuine.amount));
 });
 
 check("tamper distanceKm=1 and durationMinutes=1 on mileage BFS: SumUp keeps server fare", () => {
@@ -556,7 +556,7 @@ check("tamper distanceKm=1 and durationMinutes=1 on mileage BFS: SumUp keeps ser
       routeMetrics: TAMPERED_METRICS,
     },
   );
-  assert.equal(charged, genuine.amount);
+  assert.equal(charged, Math.round(genuine.amount));
 });
 
 check("tamper journey+amount+routeMetrics together: SumUp keeps server fare", () => {
@@ -578,7 +578,7 @@ check("tamper journey+amount+routeMetrics together: SumUp keeps server fare", ()
       routeMetrics: TAMPERED_METRICS,
     },
   );
-  assert.equal(charged, genuine.amount);
+  assert.equal(charged, Math.round(genuine.amount));
 });
 
 check("no server requote + DUB fees: checkout rejected (never falls back to client metrics)", () => {

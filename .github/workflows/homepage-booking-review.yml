@@ -89,7 +89,8 @@ jobs:
 
   browser-review:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Includes the pinned-main build and full WebKit + Chromium viewport matrix.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -111,19 +112,86 @@ jobs:
       - run: node --import tsx scripts/check-dublin-airport-label.ts
       - run: node --import tsx scripts/check-email-logo.ts
       - run: node --import tsx scripts/check-booking-confirmation-preview.ts
-      - name: Mobile result scroll keeps the booking action visible
+      - name: Check out current main for identical WebKit comparisons
+        uses: actions/checkout@v4
+        with:
+          ref: 4fa36b0efa285a662b1f4bc468ad926fd7de8305
+          path: switch-baseline
+      - name: Build main and compare the identical Saloon to Estate interaction
         run: |
-          QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs
-          node --import tsx scripts/check-mobile-result-action-browser.cjs
+          (cd switch-baseline && npm ci && GITHUB_PAGES=true npm run build)
+          for engine in webkit chromium; do
+            for width in 320 375; do
+              QUOTE_TEST_BROWSER=$engine QUOTE_SWITCH_WIDTH=$width QUOTE_SWITCH_DIAGNOSTIC=main-$engine-$width QUOTE_TEST_EXPORT_DIR=switch-baseline/out node --import tsx scripts/check-mobile-result-action-browser.cjs
+              QUOTE_TEST_BROWSER=$engine QUOTE_SWITCH_WIDTH=$width QUOTE_SWITCH_DIAGNOSTIC=pr-$engine-$width node --import tsx scripts/check-mobile-result-action-browser.cjs
+            done
+          done
+          # Compare defined ready states. An arbitrary 100ms pending sample can
+          # precede or follow a paint; retain it as evidence, not a zero-motion contract.
+          node <<'NODE'
+          const fs=require('fs'),a=require('assert/strict');
+          const read=n=>JSON.parse(fs.readFileSync('test-results/mobile-result/switch-'+n+'.json'));
+          for(const e of ['webkit','chromium'])for(const w of [320,375]){
+            const m=read('main-'+e+'-'+w),p=read('pr-'+e+'-'+w);
+            for(const k of ['before','settled'])a.deepEqual(p[k],m[k]);
+            for(const id of ['estate','executive','minibus','saloon'])for(const phase of ['before','settled'])a.deepEqual(p.transitions[id][phase],m.transitions[id][phase]);
+            a.equal(p.bookingOpened,true);a.equal(m.bookingOpened,true);
+            const selector='[data-quote-result-main-action]';
+            for(const [source,v] of [['main',m],['pr',p]])console.log('BASELINE MOVEMENT '+JSON.stringify({source,engine:e,width:w,before:v.before[selector].top,pending:v.pending[selector].top,settled:v.settled[selector].top,delta:v.settled[selector].top-v.before[selector].top}));
+            console.log('PASS identical main/PR '+e+' '+w+'px settled geometry, fonts and accessible booking flow');
+          }
+          NODE
+      - name: Record main delayed-fare movement with the identical browser harness
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -m http.server 3001 --bind 127.0.0.1 --directory switch-baseline/out > "$RUNNER_TEMP/matni-vehicle-main.log" 2>&1 &
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:3001/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:3001/ > /dev/null
+          TEST_BASE_URL=http://127.0.0.1:3001 VEHICLE_STABILITY_BASELINE=main node --import tsx scripts/check-return-vehicle-stability.mjs
+          TEST_BASE_URL=http://127.0.0.1:3001 HUB_TEST_LABEL=main node --import tsx scripts/check-hub-quote-browser.mjs
+      - name: Verify real prefetch responses across reset and test reload on main and PR
+        if: ${{ !cancelled() }}
+        run: |
+          main_status=0
+          pr_status=0
+          QUOTE_TEST_BROWSER=webkit QUOTE_PREFETCH_ONLY=main QUOTE_TEST_EXPORT_DIR=switch-baseline/out node --import tsx scripts/check-mobile-result-action-browser.cjs || main_status=$?
+          QUOTE_TEST_BROWSER=webkit QUOTE_PREFETCH_ONLY=pr node --import tsx scripts/check-mobile-result-action-browser.cjs || pr_status=$?
+          if [ "$main_status" -ne 0 ] || [ "$pr_status" -ne 0 ]; then
+            exit 1
+          fi
+      - name: Mobile result scroll keeps the booking action visible
+        # Collect prefetch diagnostics even if an earlier comparison fails; the job stays failed.
+        if: ${{ !cancelled() }}
+        run: |
+          # The focused check above compares main/PR at the reproduced boundary.
+          # Retain both complete required PR browser matrices and every exit code.
+          webkit_status=0
+          chromium_status=0
+          QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs || webkit_status=$?
+          node --import tsx scripts/check-mobile-result-action-browser.cjs || chromium_status=$?
+          if [ "$webkit_status" -ne 0 ] || [ "$chromium_status" -ne 0 ]; then
+            exit 1
+          fi
       - name: Test homepage and booking on mobile and desktop
+        if: ${{ !cancelled() }}
         run: |
           python3 -m http.server 3000 --directory out &
-          node --import tsx scripts/check-greater-belfast-ireland-browser.mjs
-          node --import tsx scripts/check-homepage-booking-browser.mjs
-          node --import tsx scripts/check-return-vehicle-stability.mjs
-          node --import tsx scripts/check-hub-quote-browser.mjs
-          node --import tsx scripts/check-email-logo-browser.mjs
-          node --import tsx scripts/check-payment-confirmation-browser.mjs
+          # Run every required browser script, preserving a failed job if ANY
+          # script fails. Earlier failures must not hide the remaining results.
+          status=0
+          for script in \
+            check-greater-belfast-ireland-browser.mjs \
+            check-homepage-booking-browser.mjs \
+            check-return-vehicle-stability.mjs \
+            check-hub-quote-browser.mjs \
+            check-email-logo-browser.mjs \
+            check-payment-confirmation-browser.mjs; do
+            node --import tsx "scripts/$script" || status=1
+          done
+          exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

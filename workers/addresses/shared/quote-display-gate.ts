@@ -35,4 +35,4 @@ export const QUOTE_PRICE_WAIT_FOR_DETAILS =
   "Complete your travel details to see your fixed price.";
 
 export const QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE =
-  "Includes 10% Night & Weekend Surcharge";
+  "Your fixed transfer price";

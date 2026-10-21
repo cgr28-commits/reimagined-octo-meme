@@ -1,48 +1,18 @@
-/**
- * Universal distance-based journey fares for My Airport Taxi NI.
- *
- * One formula for all airport-transfer (and address↔address) journeys —
- * not town/postcode/zone special cases.
- *
- * Approved Saloon anchors (linear interpolation between neighbouring knots):
- *   0–4 mi → £29 (flat floor)
- *   6 → £32, 8 → £35, 10 → £38, 12 → £41, 15 → £46
- *   20 → £53, 25 → £60, 30 → £67, 35 → £74, 40 → £81
- *   50 → £96, 60 → £115, 70 → £135, 80 → £157, 90 → £181, 100 → £210
- *
- * Estate = final rounded Saloon + the configured uplift (default £7, never rounded separately).
- * Minibus = Estate × multiplier, rounded to the nearest penny only
- * (no nearest-£5 rounding).
- * Airport Express / access charges are NOT included here — add after.
- */
+/** Mileage tariff: max(£30, £10 + £2.20 × passenger road miles). Airport costs are added separately. */
 
 import { DEFAULT_EXECUTIVE_MULTIPLIER } from "./executive-vehicle";
 import { roundGbp } from "./gbp";
 
 /** Code default when the owner has not saved an Estate uplift. Owner settings override this. */
 export const UNIVERSAL_ESTATE_PREMIUM_GBP = 7;
-export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
-export const UNIVERSAL_SALOON_FLOOR_MILES = 4;
+/** Invalidate unbooked receipts from the previous tariff at deployment. */
+export const MILEAGE_RECEIPT_VERSION_OFFSET = 1_000_000_000;
+export const UNIVERSAL_SALOON_MINIMUM_GBP = 30;
+export const UNIVERSAL_SALOON_FLOOR_MILES = 0;
 
-/** Miles / Saloon £ knots. First knot is the end of the £29 floor. */
+/** Reference values for legacy settings consumers; the formula is authoritative. */
 export const UNIVERSAL_SALOON_KNOTS: ReadonlyArray<readonly [number, number]> = [
-  [4, 29],
-  [6, 32],
-  [8, 35],
-  [10, 38],
-  [12, 41],
-  [15, 46],
-  [20, 53],
-  [25, 60],
-  [30, 67],
-  [35, 74],
-  [40, 81],
-  [50, 96],
-  [60, 115],
-  [70, 135],
-  [80, 157],
-  [90, 181],
-  [100, 210],
+  [0, 30], [10, 32], [20, 54], [50, 120], [100, 230],
 ];
 
 /** Statute miles from driving km (same factor as public journey distance labels). */
@@ -50,23 +20,6 @@ export function universalDrivingMilesFromKm(distanceKm: number): number {
   return distanceKm * 0.621371;
 }
 
-function interpolateSegment(
-  miles: number,
-  startMiles: number,
-  startFareGbp: number,
-  endMiles: number,
-  endFareGbp: number,
-): number {
-  const span = endMiles - startMiles;
-  if (!(span > 0)) return endFareGbp;
-  return startFareGbp + ((endFareGbp - startFareGbp) / span) * (miles - startMiles);
-}
-
-/**
- * Piecewise-linear raw Saloon journey fare before rounding.
- * 0–4 miles stay on the £29 floor; later miles interpolate between adjacent knots.
- * Distances beyond 100 miles continue the 90–100 mile slope (no step jump).
- */
 export type UniversalSaloonCurveOptions = {
   minimumGbp?: number;
   floorMiles?: number;
@@ -77,23 +30,10 @@ export function rawUniversalSaloonJourneyFareGbp(
   roadMiles: number,
   curve?: UniversalSaloonCurveOptions,
 ): number {
+  // Legacy curves are retained in stored settings for rollback, never used for new quotes.
+  void curve;
   const m = Math.max(0, Number(roadMiles) || 0);
-  const floorMiles = curve?.floorMiles ?? UNIVERSAL_SALOON_FLOOR_MILES;
-  const minimumGbp = curve?.minimumGbp ?? UNIVERSAL_SALOON_MINIMUM_GBP;
-  if (m <= floorMiles) return minimumGbp;
-
-  const knots = curve?.knots ?? UNIVERSAL_SALOON_KNOTS;
-  for (let i = 1; i < knots.length; i++) {
-    const [startMiles, startFareGbp] = knots[i - 1]!;
-    const [endMiles, endFareGbp] = knots[i]!;
-    if (m <= endMiles) {
-      return interpolateSegment(m, startMiles, startFareGbp, endMiles, endFareGbp);
-    }
-  }
-
-  const [prevMiles, prevFareGbp] = knots[knots.length - 2]!;
-  const [lastMiles, lastFareGbp] = knots[knots.length - 1]!;
-  return interpolateSegment(m, prevMiles, prevFareGbp, lastMiles, lastFareGbp);
+  return Math.max(UNIVERSAL_SALOON_MINIMUM_GBP, 10 + 2.2 * m);
 }
 
 /** Single consistent journey rounding: nearest £1. */
@@ -115,18 +55,17 @@ export function calculateUniversalSaloonJourneyFareGbp(
   roadMiles: number,
   curve?: UniversalSaloonCurveOptions,
 ): number {
-  return roundUniversalSaloonFareGbp(rawUniversalSaloonJourneyFareGbp(roadMiles, curve));
+  return rawUniversalSaloonJourneyFareGbp(roadMiles, curve);
 }
 
 /**
- * Estate journey fare from an already-rounded Saloon fare.
- * Always exactly + uplift (default £6) — do not re-round.
+ * Add the configured Estate uplift before premiums and final payable rounding.
  */
 export function calculateUniversalEstateJourneyFareGbp(
   roundedSaloonFareGbp: number,
   estatePremiumGbp: number = UNIVERSAL_ESTATE_PREMIUM_GBP,
 ): number {
-  return roundUniversalSaloonFareGbp(roundedSaloonFareGbp) + Number(estatePremiumGbp || 0);
+  return roundedSaloonFareGbp + Number(estatePremiumGbp || 0);
 }
 
 export type UniversalVehicleKind = "saloon" | "estate" | "executive" | "minibus";
@@ -143,9 +82,7 @@ export function classifyUniversalVehicle(
 
 /**
  * Journey fare (taxi only) from road miles + vehicle.
- * Estate is the rounded Saloon fare plus its uplift.
- * Minibus is Estate × multiplier, nearest penny.
- * Executive is the Saloon journey fare × multiplier, nearest penny.
+ * Preserve precision through vehicle adjustments; round the final customer total.
  */
 export function calculateUniversalJourneyFareGbp(
   roadMiles: number,
@@ -165,7 +102,7 @@ export function calculateUniversalJourneyFareGbp(
   const estatePremiumGbp = options?.estatePremiumGbp ?? UNIVERSAL_ESTATE_PREMIUM_GBP;
   const saloonGbp =
     options?.saloonFareGbp != null
-      ? roundUniversalSaloonFareGbp(options.saloonFareGbp)
+      ? options.saloonFareGbp
       : calculateUniversalSaloonJourneyFareGbp(roadMiles, {
           minimumGbp: options?.saloonMinimumGbp,
           floorMiles: options?.saloonFloorMiles,
@@ -187,7 +124,7 @@ export function calculateUniversalJourneyFareGbp(
         vehicleAdjustmentGbp: estatePremiumGbp,
       };
     case "executive": {
-      const raw = roundUniversalExecutiveFareGbp(saloonGbp * execMult);
+      const raw = saloonGbp * execMult;
       return {
         saloonGbp,
         journeyFareGbp: raw,
@@ -195,7 +132,7 @@ export function calculateUniversalJourneyFareGbp(
       };
     }
     case "minibus": {
-      const raw = roundUniversalMinibusFareGbp(estateGbp * minibusMult);
+      const raw = estateGbp * minibusMult;
       return {
         saloonGbp,
         journeyFareGbp: raw,

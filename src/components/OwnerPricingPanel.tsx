@@ -15,7 +15,6 @@ import {
   type OwnerPricingAuditEntry,
   type OwnerPricingSettings,
 } from "../../shared/owner-pricing-config";
-import { addLongDistanceTiers, LONG_DISTANCE_TIER_MILES } from "@/lib/long-distance-pricing";
 import { AIRPORT_FIXED_COSTS_GBP } from "../../shared/airport-fixed-costs";
 import { EXPRESS_DROP_OFF_FEES_GBP } from "../../shared/express-drop-off";
 import {
@@ -41,13 +40,10 @@ import {
 } from "@/lib/short-notice-api";
 import {
   diffProfitabilitySettings,
-  fuelCostPerMileGbp,
-  isProfitabilityProtectionActive,
   normalizeProfitabilitySettings,
   validateProfitabilitySettings,
   type ProfitabilitySettings,
 } from "@/lib/owner-profitability-settings";
-import OwnerProfitabilityTester from "@/components/OwnerProfitabilityTester";
 
 type PricingDraft = OwnerPricingSettings & { profitability: ProfitabilitySettings };
 
@@ -182,10 +178,7 @@ function withExecutiveMinimumText(draft: PricingDraft, text: string): PricingDra
   return { ...draft, executive: { ...draft.executive, minimumFareGbp: parsed } };
 }
 
-function knotLabel(index: number, knots: Array<{ miles: number }>): string {
-  if (index === 0) return `Distance rate — up to ${knots[0]?.miles ?? 0} miles`;
-  return `Distance rate — ${knots[index - 1]?.miles ?? 0} to ${knots[index]?.miles ?? 0} miles`;
-}
+
 
 function cloneSettings(settings: OwnerPricingSettings): OwnerPricingSettings {
   return JSON.parse(JSON.stringify(settings)) as OwnerPricingSettings;
@@ -590,85 +583,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <div className="mt-4 space-y-6">
           <div>
             <p className="text-lg font-semibold text-white">Saloon</p>
-            <MoneyField
-              label="Minimum fare"
-              value={draft.saloon.minimumFareGbp}
-              onChange={(minimumFareGbp) => update("saloon", { ...draft.saloon, minimumFareGbp })}
-            />
-            <label className={`${labelClass} mt-3`}>
-              Floor distance (miles)
-              <input
-                className={fieldClass}
-                inputMode="numeric"
-                value={draft.saloon.floorMiles}
-                onChange={(event) =>
-                  update("saloon", { ...draft.saloon, floorMiles: Number(event.target.value) })
-                }
-              />
-            </label>
-            <div className="mt-4 rounded-xl border border-emerald/30 bg-emerald/5 p-3">
-              <p className="text-sm font-semibold text-white">Long-distance pricing</p>
-              <p className="mt-2 text-sm text-white/70">
-                Add adjustable fares at 125, 150, 200, 250 and 300 miles for longer journeys.
-                Starting values follow your current mileage curve. Raise the fares you want,
-                then review and save. Your profitability protection stays in place.
-              </p>
-              <button
-                type="button"
-                data-add-long-distance-tiers
-                disabled={loading || saving || LONG_DISTANCE_TIER_MILES.every(miles =>
-                  draft.saloon.knots.some(knot => knot.miles === miles))}
-                onClick={() => {
-                  try {
-                    update("saloon", addLongDistanceTiers(draft.saloon));
-                    setError(null);
-                  } catch (err) {
-                    setError(err instanceof Error ? err.message : "Could not add mileage tiers.");
-                  }
-                }}
-                className="mt-3 min-h-12 w-full rounded-xl bg-emerald px-3 py-2 text-sm font-semibold text-navy disabled:opacity-40"
-              >
-                {LONG_DISTANCE_TIER_MILES.every(miles => draft.saloon.knots.some(knot => knot.miles === miles))
-                  ? "Long-distance tiers added" : "Add 125–300 mile tiers"}
-              </button>
-              <p className="mt-2 text-xs text-white/60">
-                Fares between tiers increase smoothly. Beyond your final tier, its per-mile increase continues.
-              </p>
-            </div>
-            <p className="mt-3 text-xs text-white/55">Current Saloon distance rates</p>
-            <div className="mt-2 space-y-3">
-              {draft.saloon.knots.map((knot, index) => (
-                <div key={index} className="min-w-0" data-mileage-tier={knot.miles}>
-                  <p className="text-sm font-medium text-white/80">{knotLabel(index, draft.saloon.knots)}</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className={labelClass}>
-                      Miles
-                      <input
-                        className={fieldClass}
-                        inputMode="decimal"
-                        value={knot.miles}
-                        onChange={(event) => {
-                          const knots = draft.saloon.knots.map((row, rowIndex) =>
-                            rowIndex === index ? { ...row, miles: Number(event.target.value) } : row,
-                          );
-                          update("saloon", { ...draft.saloon, knots });
-                        }}
-                      />
-                    </label>
-                    <MoneyField
-                      label="Fare"
-                      value={knot.fareGbp}
-                      onChange={(fareGbp) => {
-                        const knots = draft.saloon.knots.map((row, rowIndex) =>
-                          rowIndex === index ? { ...row, fareGbp } : row,
-                        );
-                        update("saloon", { ...draft.saloon, knots });
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="mt-2 text-sm text-white/80">£10 + £2.20 per passenger road mile, minimum £30. Airport charges and tolls are added afterwards. The final total is rounded to the nearest pound.</p>
+            <p className="mt-2 text-sm text-white/70">Christmas: 24 December 14:00–27 December 06:00. New Year: 31 December 20:00–2 January 00:00. A 50% journey premium applies, replacing any lower night/weekend premium.</p>
+            <p className="mt-2 text-sm text-white/70">Saved postcode rates, mileage tiers and hourly profitability floors no longer set new customer fares.</p>
           </div>
 
           <div>
@@ -683,81 +600,6 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             </p>
           </div>
 
-          <div>
-            <p className="text-lg font-semibold text-white">Profitability protection</p>
-            <p
-              className={`mt-2 rounded-xl px-3 py-2 text-sm font-semibold ${
-                isProfitabilityProtectionActive(draft.profitability)
-                  ? "bg-emerald/20 text-emerald"
-                  : "bg-amber-300/10 text-amber-100"
-              }`}
-            >
-              {isProfitabilityProtectionActive(draft.profitability)
-                ? "PROFITABILITY PROTECTION ACTIVE"
-                : "PROFITABILITY PROTECTION NOT ACTIVE — VEHICLE MPG REQUIRED"}
-            </p>
-            <p className="mt-2 text-xs text-white/55">
-              The £{draft.saloon.minimumFareGbp.toFixed(2)} Saloon curve floor above stays as it is.
-              The minimum here is a separate all-distance Saloon protection and applies only after a
-              vehicle MPG is saved.
-            </p>
-            <MoneyField
-              label="Target earnings after direct costs (£/hour)"
-              value={draft.profitability.targetHourlyEarningsGbp}
-              onChange={(targetHourlyEarningsGbp) =>
-                update("profitability", { ...draft.profitability, targetHourlyEarningsGbp })
-              }
-            />
-            <MoneyField
-              label="Minimum Saloon one-way fare"
-              value={draft.profitability.minimumSaloonOneWayGbp}
-              onChange={(minimumSaloonOneWayGbp) =>
-                update("profitability", { ...draft.profitability, minimumSaloonOneWayGbp })
-              }
-            />
-            <MoneyField
-              label="Diesel price (£/litre)"
-              value={draft.profitability.dieselPricePerLitreGbp}
-              onChange={(dieselPricePerLitreGbp) =>
-                update("profitability", { ...draft.profitability, dieselPricePerLitreGbp })
-              }
-            />
-            <label className={`${labelClass} mt-3`}>
-              Vehicle MPG
-              <input
-                className={fieldClass}
-                inputMode="decimal"
-                placeholder="Not set"
-                value={draft.profitability.vehicleMpg ?? ""}
-                onChange={(event) => {
-                  const raw = event.target.value.trim();
-                  update("profitability", {
-                    ...draft.profitability,
-                    vehicleMpg: raw === "" ? null : Number(raw),
-                  });
-                }}
-              />
-            </label>
-            <MoneyField
-              label="Vehicle wear and maintenance (£/mile)"
-              value={draft.profitability.wearAllowancePerMileGbp}
-              onChange={(wearAllowancePerMileGbp) =>
-                update("profitability", { ...draft.profitability, wearAllowancePerMileGbp })
-              }
-            />
-            <p className="mt-3 text-sm text-white/80">
-              Fuel cost per mile{" "}
-              <span className="font-semibold text-white">
-                {(() => {
-                  const fuel = fuelCostPerMileGbp(
-                    draft.profitability.dieselPricePerLitreGbp,
-                    draft.profitability.vehicleMpg,
-                  );
-                  return fuel == null ? "Set vehicle MPG to calculate" : `£${fuel.toFixed(4)}`;
-                })()}
-              </span>
-            </p>
-          </div>
 
           <div>
             <p className="text-lg font-semibold text-white">{MINIBUS_CUSTOMER_NAME}</p>
@@ -1239,18 +1081,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
           Airport / fixed charges
         </h3>
-        <div data-dublin-fare-adjustment>
-          <PercentField
-            label="Dublin Airport Fare Adjustment (%)"
-            value={Math.round((draft.dublinAirportFareAdjustment?.rate ?? 0) * 1000) / 10}
-            onChange={(value) => update("dublinAirportFareAdjustment", { rate: value / 100 })}
-          />
-          <p className="mt-1 text-xs text-white/55">
-            Increases the journey fare for transfers to and from Dublin Airport. Tolls, parking,
-            airport access fees and optional extras stay the same. The 5% return discount is
-            calculated on the adjusted journey fare. 0% keeps current fares.
-          </p>
-        </div>
+
         <p className="mt-3 text-xs text-white/55">
           Fixed airport charges below stay display-only. Meet &amp; Greet pickup fees can be changed
           here and apply to new email offers.
@@ -1335,7 +1166,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         </dl>
       </section>
 
-      <OwnerProfitabilityTester ownerKey={ownerKey} isolated={isolatedPreview} />
+
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Change history</h3>

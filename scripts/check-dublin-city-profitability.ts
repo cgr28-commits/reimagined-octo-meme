@@ -30,7 +30,7 @@ async function main() {
     const pricing = { ...defaultOwnerPricingSettings(), profitability: settings };
     const passenger = { distanceKm: 175, durationMinutes: 125 };
     const floor = profitabilityFloorFromOperations({ operationalMiles: universalDrivingMilesFromKm(775), operationalMinutes: 725, settings });
-    assert.ok(floor);
+    assert.equal(floor, null, "Retired operational floor cannot reprice mileage fares");
     for (const [pickup, dropoff] of [[dublin, belfast], [belfast, dublin], [belfast, cork]]) {
       for (const returnJourney of [false, true]) {
         const result = await applyProfitabilityProtection({
@@ -39,19 +39,13 @@ async function main() {
           schedule: { outboundDate: "2026-11-10", outboundTime: "12:00", returnJourney, returnDate: "2026-11-12", returnTime: "12:00" },
           existing: { amountGbp: 245, journeyFareGbp: 245, airportFixedCostsGbp: 0, nightWeekendSurchargeGbp: 0 },
         });
-        assert.equal(result.applied, true);
-        assert.equal(result.fallbackReason, null);
-        const oneWay = roundUpWholePoundGbp(floor.floorGbp) + pricing.estate.upliftGbp;
-        assert.ok(result.amountGbp >= (returnJourney ? oneWay * 2 * (1 - pricing.returnDiscount.rate) - 1 : oneWay), "Positioning and getting home must be included before vehicle uplift/return discount");
+        assert.equal(result.applied, false);
+        assert.equal(result.fallbackReason, "mpg_not_configured");
+        assert.equal(result.amountGbp, 245);
       }
     }
-    const home = `${OPERATING_BASE.lng},${OPERATING_BASE.lat}`;
-    assert.ok(legs.some(url => url.includes(`${home};${dublin.lng},${dublin.lat}`)));
-    assert.ok(legs.some(url => url.includes(`${belfast.lng},${belfast.lat};${home}`)));
-    assert.ok(legs.some(url => url.includes(`${home};${belfast.lng},${belfast.lat}`)));
-    assert.ok(legs.some(url => url.includes(`${dublin.lng},${dublin.lat};${home}`)));
-    assert.ok(legs.some(url => url.includes(`${cork.lng},${cork.lat};${home}`)));
-    console.log("Dublin corridor and Belfast to Cork home-positioning profitability checks passed (one-way and return).");
+    assert.equal(legs.length, 0, "Retired floor must not request positioning routes");
+    console.log("Dublin corridor retains service eligibility without an hourly pricing floor.");
   } finally { globalThis.fetch = originalFetch; }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

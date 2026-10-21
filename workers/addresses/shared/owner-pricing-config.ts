@@ -318,7 +318,7 @@ export function validateOwnerPricingInput(
   for (const message of postcodes.errors) errors.push({ field: "postcodeRules", message });
   const defaults = defaultOwnerPricingSettings();
 
-  const saloonRaw = (input.saloon ?? {}) as Record<string, unknown>;
+  const saloonRaw = { ...defaults.saloon };
   const estateRaw = (input.estate ?? {}) as Record<string, unknown>;
   const minibusRaw = (input.minibus ?? {}) as Record<string, unknown>;
   const executiveExplicit = input.executive != null && typeof input.executive === "object";
@@ -327,7 +327,7 @@ export function validateOwnerPricingInput(
   const dublinExplicit =
     input.dublinAirportFareAdjustment != null &&
     typeof input.dublinAirportFareAdjustment === "object";
-  const dublinRaw = (dublinExplicit ? input.dublinAirportFareAdjustment : {}) as Record<string, unknown>;
+  const dublinRaw = { rate: 0 } as Record<string, unknown>;
   const nightRaw = (input.night ?? {}) as Record<string, unknown>;
   const weekendRaw = (input.weekend ?? {}) as Record<string, unknown>;
   const meetGreetExplicit = input.meetGreet != null && typeof input.meetGreet === "object";
@@ -992,9 +992,9 @@ export function nightWeekendSurchargeLabel(settings?: OwnerPricingSettings | Pub
   const nightPct = formatPercentFromRate(options.nightRate);
   const weekendPct = formatPercentFromRate(options.weekendRate);
   if (nightPct === weekendPct) {
-    return `Night & Weekend Surcharge (${nightPct})`;
+    return "Journey fare";
   }
-  return `Night ${nightPct} / Weekend ${weekendPct} surcharge`;
+  return "Journey fare";
 }
 
 export function nightWeekendSurchargeExplanation(
@@ -1023,9 +1023,9 @@ export function quoteIncludesSurchargeLabel(
   const nightPct = formatPercentFromRate(options.nightRate);
   const weekendPct = formatPercentFromRate(options.weekendRate);
   if (nightPct === weekendPct) {
-    return `Includes ${nightPct} Night & Weekend Surcharge`;
+    return "Your fixed transfer price";
   }
-  return `Includes Night ${nightPct} / Weekend ${weekendPct} surcharge`;
+  return "Your fixed transfer price";
 }
 
 export function classifyConfiguredVehicle(vehicleType: string): UniversalVehicleKind {

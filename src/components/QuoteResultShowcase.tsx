@@ -79,7 +79,6 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       businessClassInclusions = null,
       layoutBusinessClassInclusions = null,
       priceUpdating = false,
-      surchargeNote = null,
       priceUnavailable = false,
       onRetryPrice,
       requestQuote,
@@ -245,11 +244,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           </>
           )}
         </div>
-        {surchargeNote ? (
-          <p className="mt-0.5 text-xs font-semibold text-navy" data-night-weekend-surcharge-badge>
-            {surchargeNote}
-          </p>
-        ) : null}
+
         {!priceUnavailable && airportAccess ? (
           <div className="my-1.5 text-left" data-quote-result-airport-access>
             {airportAccess}

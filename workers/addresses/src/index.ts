@@ -1,3 +1,4 @@
+import { MILEAGE_RECEIPT_VERSION_OFFSET } from "../shared/universal-distance-pricing";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 export { ConsentLedger } from "./consent-ledger";
@@ -489,7 +490,6 @@ import {
   decideQuoteReceiptPayment,
   type QuoteReceiptClaims,
 } from "./quote-receipt";
-import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
 import {
   resolveOpenWebsitePaymentTransferFares,
   resolvePaymentAirportContextFromAddresses,
@@ -2456,7 +2456,7 @@ async function handlePaymentRequest(
     const receiptPricing = await loadOwnerPricingOrDefault(env);
     const receiptVehicleType: VehicleType = canonicalVehicleType(booking.vehicle);
     let receiptClaims: QuoteReceiptClaims | null = null;
-    if (isProfitabilityProtectionActive(receiptPricing.profitability)) {
+    { // Verify signed mileage quotes independently of the retired hourly floor.
       const receiptSecret = env.QUOTE_RECEIPT_SECRET?.trim() ?? "";
       if (!receiptSecret) {
         console.warn("[quote-receipt] secret_missing; payment will re-quote on the server");
@@ -2469,7 +2469,7 @@ async function handlePaymentRequest(
         token: body.quoteReceipt,
         nowMs: Date.now(),
         expected: {
-          pricingVersion: receiptPricing.version,
+          pricingVersion: receiptPricing.version + MILEAGE_RECEIPT_VERSION_OFFSET,
           pickupPlaceId: paymentPickupPlaceId,
           dropoffPlaceId: paymentDropoffPlaceId,
           pickupAddress: paymentPickupLabel,

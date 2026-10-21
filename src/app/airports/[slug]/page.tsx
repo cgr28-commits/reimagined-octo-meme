@@ -163,8 +163,7 @@ export default async function AirportTransferPage({ params }: Props) {
                   allowance shown in the breakdown. Vehicle supplements form part of the journey fare; review
                   the total for your selected vehicle before booking. Choose Return to book both directions
                   together. The existing 5% return-booking discount applies to the combined journey fare,
-                  excluding tolls, airport access, parking and other fixed charges. Any applicable night or
-                  weekend surcharge is also excluded from the discount and included in the quoted total.
+                  excluding tolls, airport access, parking and other fixed charges. Your saving and complete fixed price are shown before you book.
                 </p>
               </div>
             </section>

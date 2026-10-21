@@ -20,7 +20,7 @@ const customExpanded = addLongDistanceTiers(custom);
 assert.equal(customExpanded.knots.find(knot => knot.miles === 150)?.fareGbp, 350);
 for (let miles = 0; miles <= 400; miles += 0.25) assert.ok(Math.abs(rawUniversalSaloonJourneyFareGbp(miles, curve(custom)) - rawUniversalSaloonJourneyFareGbp(miles, curve(customExpanded))) < 1e-8);
 const raised = { ...expanded, knots: expanded.knots.map(knot => knot.miles >= 125 ? { ...knot, fareGbp: knot.fareGbp + 25 } : knot) };
-assert.ok(calculateUniversalSaloonJourneyFareGbp(267, curve(raised)) > calculateUniversalSaloonJourneyFareGbp(267, curve(expanded)));
+assert.equal(calculateUniversalSaloonJourneyFareGbp(267, curve(raised)), 10 + 2.2 * 267, "Retired tiers cannot override £10 + £2.20 per mile");
 for (let miles = 0; miles <= 100; miles += 0.25) assert.equal(calculateUniversalSaloonJourneyFareGbp(miles, curve(raised)), calculateUniversalSaloonJourneyFareGbp(miles, curve(original)));
 assert.throws(() => addLongDistanceTiers({ ...original, knots: [] }));
 assert.throws(() => addLongDistanceTiers({ ...original, knots: [{ miles: 100, fareGbp: 200 }, { miles: 90, fareGbp: 180 }] }));

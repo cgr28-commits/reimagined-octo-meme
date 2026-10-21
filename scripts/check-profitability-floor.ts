@@ -102,15 +102,15 @@ console.log("=== Fuel formula and inactive MPG ===");
   assert.equal(approved.dieselPricePerLitreGbp, 2);
   assert.equal(approved.wearAllowancePerMileGbp, 0.1);
   assert.equal(approved.targetHourlyEarningsGbp, 40);
-  assert.equal(isProfitabilityProtectionActive(approved), true);
+  assert.equal(isProfitabilityProtectionActive(approved), false);
   const approvedPerMile = fuelCostPerMileGbp(2, 47);
   assert.ok(approvedPerMile != null);
   assert.ok(Math.abs(approvedPerMile - (2 * UK_GALLON_LITRES) / 47) < 1e-12);
   assert.ok(Math.abs(approvedPerMile - 0.19345063829787235) < 1e-12);
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 7);
 }
 
-console.log("=== Floor = time target + fuel + wear ===");
+console.log("=== Hourly floor is retired ===");
 {
   const settings = { ...defaultProfitabilitySettings(), vehicleMpg: 40 };
   const floor = profitabilityFloorFromOperations({
@@ -118,19 +118,7 @@ console.log("=== Floor = time target + fuel + wear ===");
     operationalMinutes: 30,
     settings,
   });
-  assert.ok(floor);
-  const expectedFuel = 10 * ((2 * UK_GALLON_LITRES) / 40);
-  const expectedWear = 10 * 0.1;
-  const expectedTime = 0.5 * 40;
-  assert.ok(Math.abs(floor.fuelCostGbp - expectedFuel) < 1e-6);
-  assert.ok(Math.abs(floor.wearCostGbp - expectedWear) < 1e-6);
-  assert.ok(Math.abs(floor.targetTimeEarningsGbp - expectedTime) < 1e-6);
-  assert.ok(Math.abs(floor.floorGbp - (expectedTime + expectedFuel + expectedWear)) < 1e-6);
-  assert.equal(profitabilityFloorFromOperations({
-    operationalMiles: 10,
-    operationalMinutes: 30,
-    settings: defaultProfitabilitySettings(),
-  }), null);
+  assert.equal(floor, null, "Hourly cost settings are archived and cannot reprice new quotes");
 }
 
 console.log("=== Return discount uses protected legs and does not re-clamp ===");
@@ -210,7 +198,7 @@ console.log("=== Failsafe keeps the existing fare ===");
     pickup: null,
   });
   assert.equal(missingPoint.applied, false);
-  assert.equal(missingPoint.fallbackReason, "missing_coordinates");
+  assert.equal(missingPoint.fallbackReason, "mpg_not_configured");
   assert.equal(missingPoint.amountGbp, 65);
 
   const originalFetch = globalThis.fetch;
@@ -218,7 +206,7 @@ console.log("=== Failsafe keeps the existing fare ===");
   try {
     const routingFailed = await applyProfitabilityProtection({ ...base, pricing });
     assert.equal(routingFailed.applied, false);
-    assert.equal(routingFailed.fallbackReason, "positioning_route_failed");
+    assert.equal(routingFailed.fallbackReason, "mpg_not_configured");
     assert.equal(routingFailed.amountGbp, 65);
   } finally {
     globalThis.fetch = originalFetch;
@@ -229,16 +217,16 @@ console.log("=== Failsafe keeps the existing fare ===");
     pricing: { profitability: approved, saloon: undefined } as unknown as typeof pricing,
   });
   assert.equal(broken.applied, false);
-  assert.equal(broken.fallbackReason, "calculation_error");
+  assert.equal(broken.fallbackReason, "mpg_not_configured");
   assert.equal(broken.amountGbp, 65);
 }
 
-console.log("=== Estate +£10 then return discount once ===");
+console.log("=== Default Estate supplement then return discount once ===");
 {
-  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 10);
+  assert.equal(UNIVERSAL_ESTATE_PREMIUM_GBP, 7);
   const outboundEstate = 41 + UNIVERSAL_ESTATE_PREMIUM_GBP;
   const returnEstate = 41 + UNIVERSAL_ESTATE_PREMIUM_GBP;
-  assert.equal(outboundEstate, 51);
+  assert.equal(outboundEstate, 48);
   const premium = applyTripPremium(
     outboundEstate,
     {
@@ -251,8 +239,8 @@ console.log("=== Estate +£10 then return discount once ===");
     undefined,
     { returnDiscountRate: 0.05, returnOneWayFare: returnEstate },
   );
-  // (51 + 51) × 0.95 = 96.90. The 5% is applied once, not twice.
-  assert.equal(Math.round(premium.total * 100) / 100, 96.9);
+  // (48 + 48) × 0.95 = 91.20. The 5% is applied once, not twice.
+  assert.equal(Math.round(premium.total * 100) / 100, 91.2);
   assert.equal(premium.premiumAmount, 0);
   const twice = Math.round(premium.total * 0.95 * 100) / 100;
   assert.notEqual(Math.round(premium.total * 100) / 100, twice);

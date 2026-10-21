@@ -64,7 +64,7 @@ check("BFS/BHD address↔airport: journey only (no fixed add-on)", () => {
   assert.equal(pick.amount, drop.amount);
 
   const bhdCity = calculateQuote(CITY, "BHD", S, false, {}, M4, false)!;
-  assert.equal(bhdCity.amount, 29);
+  assert.equal(bhdCity.amount, 30);
   assert.equal(bhdCity.airportFixedCostsGbp, 0);
 });
 
@@ -73,7 +73,7 @@ check("Estate = Saloon + configured uplift on BHD", () => {
     const pricing = { ...defaultOwnerPricingSettings(), estate: { upliftGbp } };
     const saloon = calculateQuote(CITY, "BHD", S, false, {}, M4, false, pricing)!;
     const estate = calculateQuote(CITY, "BHD", E, false, {}, M4, false, pricing)!;
-    assert.equal(saloon.amount, 29);
+    assert.equal(saloon.amount, 30);
     assert.equal(estate.amount - saloon.amount, pricing.estate.upliftGbp);
     assert.equal(estate.airportFixedCostsGbp, saloon.airportFixedCostsGbp);
   }
@@ -82,12 +82,12 @@ check("Estate = Saloon + configured uplift on BHD", () => {
 check("Dublin: universal journey + fixed costs", () => {
   const drop = calculateQuote(CITY, "DUB", S, false, {}, M98, false)!;
   const pick = calculateQuote(CITY, "DUB", S, false, {}, M98, true)!;
-  assert.equal(drop.journeyFareGbp, 204);
-  assert.equal(pick.journeyFareGbp, 204);
+  assert.equal(drop.journeyFareGbp, 225.6);
+  assert.equal(pick.journeyFareGbp, 225.6);
   assert.equal(drop.airportFixedCostsGbp, 4);
   assert.equal(pick.airportFixedCostsGbp, 9);
-  assert.equal(drop.amount, 208);
-  assert.equal(pick.amount, 213);
+  assert.equal(drop.amount, 229.6);
+  assert.equal(pick.amount, 234.6);
 });
 
 check("A2A BFS↔BHD includes terminal access at both ends", () => {
@@ -101,7 +101,7 @@ check("A2A BFS↔BHD includes terminal access at both ends", () => {
     {},
     M17,
   )!;
-  assert.equal(bfsBhd.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(17));
+  assert.equal(bfsBhd.journeyFareGbp, 47.4);
   assert.equal(bfsBhd.airportFixedCostsGbp, 9);
   assert.equal(bfsBhd.amount, bfsBhd.journeyFareGbp! + 9);
 });

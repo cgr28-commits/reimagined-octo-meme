@@ -194,7 +194,7 @@ const NI_FIXTURES: Array<{
     fromAirport: true,
     vehicle: SALOON_VEHICLE,
     distanceKm: 20 * 1.609344,
-    expectedAmount: 53,
+    expectedAmount: 54,
   },
   {
     name: "Belfast City Hall → BFS ~20 mi Estate",
@@ -203,7 +203,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 20 * 1.609344,
-    expectedAmount: 63,
+    expectedAmount: 61,
   },
   {
     name: "BHD → Belfast City Hall ~4 mi Saloon",
@@ -212,7 +212,7 @@ const NI_FIXTURES: Array<{
     fromAirport: true,
     vehicle: SALOON_VEHICLE,
     distanceKm: 4 * 1.609344,
-    expectedAmount: 29,
+    expectedAmount: 30,
   },
   {
     name: "Belfast → BHD ~4 mi Estate",
@@ -221,7 +221,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 4 * 1.609344,
-    expectedAmount: 39,
+    expectedAmount: 37,
   },
   {
     name: "BFS → Derry ~70 mi Saloon weekday",
@@ -230,7 +230,7 @@ const NI_FIXTURES: Array<{
     fromAirport: true,
     vehicle: SALOON_VEHICLE,
     distanceKm: 70 * 1.609344,
-    expectedAmount: 135,
+    expectedAmount: 164,
   },
   {
     name: "BHD → Newry ~38 mi Saloon",
@@ -239,7 +239,7 @@ const NI_FIXTURES: Array<{
     fromAirport: true,
     vehicle: SALOON_VEHICLE,
     distanceKm: 38 * 1.609344,
-    expectedAmount: 78,
+    expectedAmount: 93.6,
   },
   {
     name: "Newry → BHD ~38 mi Estate",
@@ -248,7 +248,7 @@ const NI_FIXTURES: Array<{
     fromAirport: false,
     vehicle: ESTATE_VEHICLE,
     distanceKm: 38 * 1.609344,
-    expectedAmount: 88,
+    expectedAmount: 100.6,
   },
 ];
 
@@ -341,7 +341,7 @@ check("Sample ROI fares use existing universal curve (not hard-coded)", () => {
     assert.ok(quote);
     const miles = universalDrivingMilesFromKm(sample.km);
     const expected = calculateUniversalJourneyFareGbp(miles, SALOON_VEHICLE).journeyFareGbp;
-    assert.equal(quote!.journeyFareGbp, expected);
+    assert.equal(quote!.journeyFareGbp, Math.round(expected * 100) / 100);
     console.log(`    ${sample.airport}↔${sample.label} @ ${sample.km} km → £${quote!.amount}`);
   }
 });

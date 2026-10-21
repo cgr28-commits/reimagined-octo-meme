@@ -54,6 +54,17 @@ function parseLocalDateTime(date: string, time: string): { day: number; minutes:
   return { day, minutes };
 }
 
+/** Europe/London wall-clock dates, including the full New Year's Day. */
+export function festivePremiumRate(date: string, time: string): number {
+  if (!parseLocalDateTime(date, time)) return 0;
+  const monthDay = date.slice(5);
+  const minutes = wallClockMinutes(time)!;
+  return ((monthDay === "12-24" && minutes >= 14 * 60) ||
+    monthDay === "12-25" || monthDay === "12-26" ||
+    (monthDay === "12-27" && minutes < 6 * 60) ||
+    (monthDay === "12-31" && minutes >= 20 * 60) || monthDay === "01-01") ? 0.5 : 0;
+}
+
 /**
  * Night & Weekend window in Europe/London wall-clock time:
  * Sat/Sun 00:00–23:59; Mon–Fri 22:00–05:59. Daytime bank holidays are not extra.
@@ -68,6 +79,7 @@ export function isTripPremiumDateTime(
     return false;
   }
 
+  if (festivePremiumRate(date, time) > 0) return true;
   const options = pricing ? ownerPricingEngineOptions(pricing) : null;
   const rules = options
     ? {
@@ -159,13 +171,13 @@ export function applyTripPremium(
     if (!date || !time) return 0;
     const parsed = parseLocalDateTime(date, time);
     if (!parsed) return 0;
-    return surchargeRateForDateTime({
+    return Math.max(festivePremiumRate(date, time), surchargeRateForDateTime({
       day: parsed.day,
       minutes: parsed.minutes,
       nightRate,
       weekendRate,
       rules,
-    });
+    }));
   };
 
   const outboundFare = oneWayFare;

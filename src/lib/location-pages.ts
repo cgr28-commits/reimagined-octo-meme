@@ -189,7 +189,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Applicable tolls included on Dublin Airport fares",
       "Up to 60 minutes complimentary waiting time on airport pickups",
       "Applicable airport access charges included in your fixed fare",
-      "5% return-booking discount on the combined journey fare, excluding fixed charges and surcharges",
+      "Return-booking saving calculated automatically and shown in your fixed quote",
     ],
     localTips: [
       "Allow around two hours for the road journey from Belfast in normal traffic, plus the time your airline recommends for check-in and security. Allow extra travel time during busy periods.",

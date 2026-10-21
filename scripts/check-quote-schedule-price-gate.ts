@@ -172,7 +172,7 @@ assert.ok(weekday);
 const weekdayFare = weekday.amount;
 
 check("complete weekday daytime quote includes no surcharge", () => {
-  assert.equal(weekdayFare, 44);
+  assert.equal(weekdayFare, 40.8);
   assert.equal(weekday.premiumApplied, false);
   assert.equal(weekday.nightWeekendSurchargeGbp, 0);
 });
@@ -195,7 +195,7 @@ check("weekday 21:59 normal; 22:00 / 05:59 include 10% in first price; 06:00 nor
     assert.ok(quote);
     if (expectPremium) {
       assert.equal(quote.amount, roundGbp(weekdayFare * 1.1));
-      assert.equal(quote.nightWeekendSurchargeGbp, 4.4);
+      assert.equal(quote.nightWeekendSurchargeGbp, 4.08);
     } else {
       assert.equal(quote.amount, weekdayFare);
       assert.equal(quote.nightWeekendSurchargeGbp, 0);
@@ -231,17 +231,16 @@ check("completed return + one qualifying leg only surcharges that leg", () => {
     cityBfsMetrics,
   );
   assert.ok(neither && sundayReturn);
-  assert.equal(neither.amount, 83.6);
-  assert.equal(sundayReturn.amount, 88);
-  assert.equal(sundayReturn.nightWeekendSurchargeGbp, 4.4);
+  assert.equal(neither.amount, 77.52);
+  assert.equal(sundayReturn.amount, 81.6);
+  assert.equal(sundayReturn.nightWeekendSurchargeGbp, 4.08);
 });
 
-check("first displayed price already includes surcharge copy", () => {
-  assert.equal(QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE, "Includes 10% Night & Weekend Surcharge");
-  assert.match(card, /QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE/);
-  assert.match(card, /data-night-weekend-surcharge-badge/);
-  assert.match(showcase, /surchargeNote/);
-  assert.match(showcase, /data-night-weekend-surcharge-badge/);
+check("customer price contains no schedule surcharge wording", () => {
+  for (const source of [card, showcase]) {
+    assert.doesNotMatch(source, /data-night-weekend-surcharge-badge/);
+    assert.doesNotMatch(source, /QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE/);
+  }
 });
 
 check("changing schedule invalidates stale Worker fare before the new quote paints", () => {

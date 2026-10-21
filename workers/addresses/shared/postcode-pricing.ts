@@ -20,8 +20,10 @@ export const postcodeRuleApproved = (r: PostcodePricingRule) => postcodeRuleAppr
  * approved rules preserve an absent legacy switch; no record is created or enabled.
  */
 export function postcodePricingIsEnabled(value: unknown, rules?: PostcodePricingRule[]): boolean {
-  if (typeof value === "boolean") return value;
-  return value == null && (rules ?? []).some(r => r.enabled === true && postcodeRuleApproved(r));
+  // Retired for the mileage tariff; keep saved rules available for rollback.
+  void value;
+  void rules;
+  return false;
 }
 
 /** Full postcode only; conflicting postcodes and invalid inward letters fail closed. */
