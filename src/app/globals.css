@@ -1729,6 +1729,13 @@ main {
   }
 }
 
+/* Leave room for all date digits and the native picker icon on narrow phones. */
+@media (max-width: 359px) {
+  #quoteForm [data-homepage-inline-schedule] input[type="date"].quote-datetime-input {
+    padding-inline: 0.25rem;
+  }
+}
+
 /* Separate polished desktop sources; mobile retains its exact source, frame and transforms. */
 @media (min-width: 1024px) {
   [data-vehicle-art] img { transform: none; filter: drop-shadow(0 10px 12px rgba(0,0,0,.22)); }
