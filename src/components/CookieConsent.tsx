@@ -65,7 +65,7 @@ export default function CookieConsent() {
       <div className="cookie-consent-inner flex flex-col">
         <div className="min-w-0 flex-1">
           <p className="cookie-consent-copy text-white/70">
-            Essential booking cookies. Google Ads cookies are optional.{" "}
+            Essential booking cookies; optional Google Ads measurement cookies.{" "}
             <Link href="/privacy/" className="font-medium text-emerald underline-offset-2 hover:underline">
               Privacy Policy
             </Link>
