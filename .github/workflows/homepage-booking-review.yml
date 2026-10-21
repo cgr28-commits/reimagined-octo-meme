@@ -113,18 +113,23 @@ jobs:
       - run: node --import tsx scripts/check-booking-confirmation-preview.ts
       - name: Mobile result scroll keeps the booking action visible
         run: |
-          QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs
-          node --import tsx scripts/check-mobile-result-action-browser.cjs
+          status=0
+          QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs || status=1
+          node --import tsx scripts/check-mobile-result-action-browser.cjs || status=1
+          exit "$status"
       - name: Test homepage and booking on mobile and desktop
+        if: ${{ !cancelled() }}
         run: |
           python3 -m http.server 3000 --directory out &
-          node --import tsx scripts/check-greater-belfast-ireland-browser.mjs
-          node --import tsx scripts/check-homepage-booking-browser.mjs
-          PLAYWRIGHT_BROWSER=webkit node --import tsx scripts/check-return-vehicle-stability.mjs
-          node --import tsx scripts/check-return-vehicle-stability.mjs
-          node --import tsx scripts/check-hub-quote-browser.mjs
-          node --import tsx scripts/check-email-logo-browser.mjs
-          node --import tsx scripts/check-payment-confirmation-browser.mjs
+          status=0
+          node --import tsx scripts/check-greater-belfast-ireland-browser.mjs || status=1
+          node --import tsx scripts/check-homepage-booking-browser.mjs || status=1
+          PLAYWRIGHT_BROWSER=webkit node --import tsx scripts/check-return-vehicle-stability.mjs || status=1
+          node --import tsx scripts/check-return-vehicle-stability.mjs || status=1
+          node --import tsx scripts/check-hub-quote-browser.mjs || status=1
+          node --import tsx scripts/check-email-logo-browser.mjs || status=1
+          node --import tsx scripts/check-payment-confirmation-browser.mjs || status=1
+          exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

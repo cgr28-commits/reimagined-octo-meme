@@ -59,18 +59,37 @@ try {
    // stacked choice into view before measuring repricing, excluding the browser's
    // legitimate click-target reveal from the no-judder assertion.
    await page.locator(`[data-vehicle-category="${id}"]`).scrollIntoViewIfNeeded();
+   const layout=()=>page.evaluate(id=>{
+    const measure=selector=>{const el=document.querySelector(selector);if(!el)return null;const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {top:r.top,documentTop:r.top+scrollY,height:r.height,width:r.width,marginBottom:s.marginBottom,padding:s.padding,border:s.borderWidth,font:s.font,lineHeight:s.lineHeight};};
+    return {y:scrollY,heading:measure('[data-quote-vehicle-options-heading]'),option:measure(`[data-vehicle-category="${id}"]`),art:measure('[data-quote-result-art]'),action:measure('[data-quote-result-main-action]'),documentHeight:document.documentElement.scrollHeight};
+   },id);
+   const before=await layout();
    await page.evaluate(()=>{
     window.vehicleFrames=[];
-    window.vehicleSampler=setInterval(()=>{const e=document.querySelector('[data-quote-vehicle-options-heading]');const top=e.getBoundingClientRect().top;const action=document.querySelector("[data-quote-result-main-action]").getBoundingClientRect();const tools=document.querySelector("[data-quote-result-actions]").getBoundingClientRect();window.vehicleFrames.push({at:performance.now(),top,documentTop:top+scrollY,y:scrollY,action:action.top+scrollY,tools:tools.top+scrollY})},16);
+    window.vehiclePhase='click';
+    window.vehicleSampler=setInterval(()=>{const e=document.querySelector('[data-quote-vehicle-options-heading]');const top=e.getBoundingClientRect().top;const action=document.querySelector("[data-quote-result-main-action]").getBoundingClientRect();const tools=document.querySelector("[data-quote-result-actions]").getBoundingClientRect();window.vehicleFrames.push({at:performance.now(),phase:window.vehiclePhase,top,documentTop:top+scrollY,y:scrollY,action:action.top+scrollY,tools:tools.top+scrollY})},16);
    });
    await page.locator(`[data-vehicle-category="${id}"]`).click();
+   const clicked=await layout();
+   await page.evaluate(()=>{window.vehiclePhase='pending';});
    await page.waitForTimeout(450);
    if(returning) assert.equal(await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').count(),0,'must exercise the pending-fare layout');
    allowed.add(vehicle);for(const resolve of pending.get(vehicle)||[]) resolve(); pending.delete(vehicle);
+   await page.evaluate(()=>{window.vehiclePhase='response';});
    await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i}).waitFor();
    if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
    await page.waitForTimeout(250);
    const frames=await page.evaluate(()=>{clearInterval(window.vehicleSampler);return window.vehicleFrames});
+   const ready=await layout();
+   const booking=page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i});
+   await booking.scrollIntoViewIfNeeded();
+   const hit=await booking.evaluate(el=>{const r=el.getBoundingClientRect(),target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {top:r.top,bottom:r.bottom,visible:r.top>=document.querySelector('header').getBoundingClientRect().bottom&&r.bottom<=innerHeight,hit:el===target||el.contains(target),disabled:el.disabled,overflow:document.documentElement.scrollWidth>innerWidth};});
+   const ranges=Object.fromEntries(['top','documentTop','y','action','tools'].map(key=>[key,Math.max(...frames.map(f=>f[key]))-Math.min(...frames.map(f=>f[key]))]));
+   const changes=frames.filter((f,i)=>i===0||['phase','top','documentTop','y','action','tools'].some(key=>f[key]!==frames[i-1][key]));
+   const diagnostic={engine,width,returning,id,ranges,before,clicked,ready,hit,changes};
+   console.log('VEHICLE_STABILITY',JSON.stringify(diagnostic));
+   await fs.writeFile(`${output}/${width}-${returning?'return':'one-way'}-${id}-measurements.json`,JSON.stringify({...diagnostic,frames},null,2));
+   await page.screenshot({path:`${output}/${width}-${returning?'return':'one-way'}-${id}-button.png`});
    // Existing vehicle-specific image spacing and pending/ready copy legitimately
    // change card height. Keep the continuous viewport-judder checks; require the
    // action rows to stop moving once the authoritative fare has settled.
@@ -78,9 +97,6 @@ try {
    const settled=frames.filter(f=>f.at>=frames.at(-1).at-180);
    assert.ok(settled.length>=3,'enough settled frames to detect ongoing movement');
    for(const key of ['action','tools']) assert.ok(Math.max(...settled.map(f=>f[key]))-Math.min(...settled.map(f=>f[key]))<=2,`${width}px ${id}: settled ${key} keeps moving`);
-   const booking=page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i});
-   await booking.scrollIntoViewIfNeeded();
-   const hit=await booking.evaluate(el=>{const r=el.getBoundingClientRect(),target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {visible:r.top>=document.querySelector('header').getBoundingClientRect().bottom&&r.bottom<=innerHeight,hit:el===target||el.contains(target),disabled:el.disabled};});
    assert.ok(hit.visible&&hit.hit&&!hit.disabled,'repriced booking button accessible: '+JSON.stringify(hit));
   }
   await page.screenshot({path:`${output}/${width}-${returning?'return':'one-way'}-vehicle-stability.png`});

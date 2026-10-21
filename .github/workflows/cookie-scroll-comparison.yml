@@ -27,7 +27,7 @@ jobs:
         run: npm ci && GITHUB_PAGES=true npm run build
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium webkit
-      - name: Compare full browser cases against unchanged main
+      - name: Compare delayed vehicle repricing against unchanged main
         run: |
           status=0
           for engine in webkit chromium; do
@@ -36,19 +36,18 @@ jobs:
               export_dir=out
               if [ "$variant" = baseline ]; then export_dir=../baseline/out; fi
               echo "CASE $variant BROWSER $engine ATTEMPT $attempt"
-              QUOTE_TEST_BROWSER="$engine" QUOTE_TEST_EXPORT_DIR="$export_dir" node --import tsx scripts/check-mobile-result-action-browser.cjs > "$RUNNER_TEMP/$engine-$variant-$attempt.log" 2>&1 || status=1
               python3 -m http.server 3197 --bind 127.0.0.1 --directory "$export_dir" > "$RUNNER_TEMP/return-server.log" 2>&1 &
               return_server_pid=$!
               for server_attempt in {1..30}; do
                 if curl --silent --fail http://127.0.0.1:3197/ > /dev/null; then break; fi
                 sleep 1
               done
-              PLAYWRIGHT_BROWSER="$engine" TEST_BASE_URL=http://127.0.0.1:3197 node --import tsx scripts/check-return-vehicle-stability.mjs >> "$RUNNER_TEMP/$engine-$variant-$attempt.log" 2>&1 || status=1
+              PLAYWRIGHT_BROWSER="$engine" TEST_BASE_URL=http://127.0.0.1:3197 node --import tsx scripts/check-return-vehicle-stability.mjs > "$RUNNER_TEMP/$engine-$variant-$attempt.log" 2>&1 || status=1
               kill "$return_server_pid"
               wait "$return_server_pid" || true
               cat "$RUNNER_TEMP/$engine-$variant-$attempt.log"
               mkdir -p "test-results/scroll-comparison/$engine-$variant-$attempt"
-              cp -r test-results/mobile-result/. "test-results/scroll-comparison/$engine-$variant-$attempt/"
+              cp -r "test-results/homepage-booking/$engine/." "test-results/scroll-comparison/$engine-$variant-$attempt/"
               cp "$RUNNER_TEMP/$engine-$variant-$attempt.log" "test-results/scroll-comparison/$engine-$variant-$attempt/"
             done
           done
