@@ -197,7 +197,10 @@ async function main() {
   await quote(390, 844, { lateBars: 160 });
   await quote(375, 667, { bars: 100, reduced: true });
   for (const vehicle of ['Estate Car (1–4 passengers)', 'Executive Saloon (1–4 passengers)', 'Minibus (5–7 passengers)']) await quote(390, 844, { bars: 100, vehicle });
-  // Switch through instant, pending and manual states without moving either action row.
+  // Main 4fa36b0e and PR cecc728f both move Estate down 12px at 320px:
+  // globals.css keeps Estate art margin-bottom 10px and other vehicles -2px.
+  // Compare pending -> ready within the selected vehicle, not different vehicle
+  // content heights. Returning to Saloon must restore the original geometry.
   for (const width of [320, 360, 375, 390, 430]) {
    await quote(width, 844, { reduced: width === 375 });
    const positions = () => page.evaluate(() => ['[data-quote-result-main-action]', '[data-quote-result-actions]'].map(selector => document.querySelector(selector).getBoundingClientRect().top + scrollY));
@@ -205,14 +208,25 @@ async function main() {
    for (const id of ['estate', 'executive', 'minibus', 'saloon']) {
     await page.locator(`[data-vehicle-category="${id}"]`).click();
     await page.waitForTimeout(100);
-    for (const [i, top] of (await positions()).entries()) assert.ok(Math.abs(top - baseline[i]) <= 2, `${width}px ${id} pending: action ${i} moved ${top - baseline[i]}px`);
+    const pendingPositions = await positions();
     await page.waitForTimeout(600);
-    for (const [i, top] of (await positions()).entries()) assert.ok(Math.abs(top - baseline[i]) <= 2, `${width}px ${id} ready: action ${i} moved ${top - baseline[i]}px`);
+    for (const [i, top] of (await positions()).entries()) {
+     assert.ok(Math.abs(top - pendingPositions[i]) <= 2, `${width}px ${id} repricing: action ${i} moved ${top - pendingPositions[i]}px`);
+     if (id === 'saloon') assert.ok(Math.abs(top - baseline[i]) <= 2, `${width}px Saloon geometry did not return to baseline`);
+    }
+    const booking = page.locator('[data-quote-result-card] #quote-book-now-button');
+    await booking.scrollIntoViewIfNeeded();
+    await booking.click({ trial: true });
+    assert.ok(await booking.evaluate(el => {
+     const r = el.getBoundingClientRect();
+     const header = document.querySelector('header.fixed, header[class*="fixed"]')?.getBoundingClientRect().bottom || 0;
+     return r.top >= header && r.bottom <= visualViewport.height && el.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2));
+    }), `${width}px ${id}: booking button must be fully visible and unobstructed after normal scroll`);
     const duration = await page.locator('[data-quote-changing-info]').evaluate(el => getComputedStyle(el).animationDuration);
     if (width === 375) assert.equal(await page.locator('[data-quote-changing-info]').evaluate(el => getComputedStyle(el).animationName), 'none');
-    else assert.equal(duration, '0.36s');
+    else assert.equal(duration, '0.7s'); // Existing 700ms CSS on main and PR.
    }
-   console.log(`OK ${width}px: both action rows stationary through all four vehicles; gentle fade respects Reduce Motion`);
+   console.log(`OK ${width}px: both action rows stable during repricing; intended vehicle spacing preserved; booking accessible; fade respects Reduce Motion`);
   }
   await quote(1280, 900);
   // Confirming Start over still uses the existing reset; closing it above does not.

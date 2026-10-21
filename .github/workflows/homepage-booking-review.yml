@@ -121,6 +121,7 @@ jobs:
           (cd switch-baseline && npm ci && GITHUB_PAGES=true npm run build)
           QUOTE_TEST_BROWSER=webkit QUOTE_SWITCH_DIAGNOSTIC=main QUOTE_TEST_EXPORT_DIR=switch-baseline/out node --import tsx scripts/check-mobile-result-action-browser.cjs
           QUOTE_TEST_BROWSER=webkit QUOTE_SWITCH_DIAGNOSTIC=pr node --import tsx scripts/check-mobile-result-action-browser.cjs
+          node -e "const fs=require('fs'),a=require('assert/strict');const read=n=>JSON.parse(fs.readFileSync('test-results/mobile-result/switch-'+n+'.json'));const m=read('main'),p=read('pr');for(const k of ['before','pending','settled'])a.deepEqual(p[k],m[k]);a.equal(p.bookingOpened,true);a.equal(m.bookingOpened,true);console.log('PASS identical main/PR 320px geometry and accessible booking flow');"
       - name: Mobile result scroll keeps the booking action visible
         run: |
           QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs

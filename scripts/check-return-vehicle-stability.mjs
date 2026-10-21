@@ -47,11 +47,14 @@ try {
    // stacked choice into view before measuring repricing, excluding the browser's
    // legitimate click-target reveal from the no-judder assertion.
    await page.locator(`[data-vehicle-category="${id}"]`).scrollIntoViewIfNeeded();
+   // Vehicle-specific art spacing is intentional on main (Estate +12px).
+   // Begin sampling after selection commits; still cover the full delayed
+   // authoritative response and pending -> ready transition below.
+   await page.locator(`[data-vehicle-category="${id}"]`).click();
    await page.evaluate(()=>{
     window.vehicleFrames=[];
     window.vehicleSampler=setInterval(()=>{const e=document.querySelector('[data-quote-vehicle-options-heading]');const top=e.getBoundingClientRect().top;const action=document.querySelector("[data-quote-result-main-action]").getBoundingClientRect();const tools=document.querySelector("[data-quote-result-actions]").getBoundingClientRect();window.vehicleFrames.push({top,documentTop:top+scrollY,y:scrollY,action:action.top+scrollY,tools:tools.top+scrollY})},16);
    });
-   await page.locator(`[data-vehicle-category="${id}"]`).click();
    await page.waitForTimeout(450);
    if(returning) assert.equal(await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').count(),0,'must exercise the pending-fare layout');
    allowed.add(vehicle);for(const resolve of pending.get(vehicle)||[]) resolve(); pending.delete(vehicle);
