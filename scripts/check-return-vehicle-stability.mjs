@@ -55,10 +55,13 @@ try {
   await page.waitForTimeout(1200);
   await page.locator('[data-quote-vehicle-options-heading]').scrollIntoViewIfNeeded();
   for(const [id,vehicle] of [['estate',ESTATE_VEHICLE],['executive',EXECUTIVE_VEHICLE],['minibus',MINIBUS_VEHICLE]]) {
-   // The initial mobile landing is the selected summary. Bring each original
-   // stacked choice into view before measuring repricing, excluding the browser's
-   // legitimate click-target reveal from the no-judder assertion.
-   await page.locator(`[data-vehicle-category="${id}"]`).scrollIntoViewIfNeeded();
+   // Paired main/PR677 runs: scrollIntoViewIfNeeded can leave Minibus under the
+   // fixed header (360px WebKit / 375px Chromium). Playwright then scrolls
+   // 830/832px to click it; document layout stays fixed on both branches.
+   // Reveal the entire choice before sampling, without relaxing the 2px limit.
+   const option=page.locator(`[data-vehicle-category="${id}"]`);
+   await option.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+   assert.ok(await option.evaluate(el=>{const r=el.getBoundingClientRect(),target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return r.top>=document.querySelector('header').getBoundingClientRect().bottom&&r.bottom<=innerHeight&&(el===target||el.contains(target));}),'vehicle choice must be fully visible and unobstructed before measuring');
    const layout=()=>page.evaluate(id=>{
     const measure=selector=>{const el=document.querySelector(selector);if(!el)return null;const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {top:r.top,documentTop:r.top+scrollY,height:r.height,width:r.width,marginBottom:s.marginBottom,padding:s.padding,border:s.borderWidth,font:s.font,lineHeight:s.lineHeight};};
     return {y:scrollY,heading:measure('[data-quote-vehicle-options-heading]'),option:measure(`[data-vehicle-category="${id}"]`),art:measure('[data-quote-result-art]'),action:measure('[data-quote-result-main-action]'),documentHeight:document.documentElement.scrollHeight};
@@ -93,11 +96,15 @@ try {
    // Existing vehicle-specific image spacing and pending/ready copy legitimately
    // change card height. Keep the continuous viewport-judder checks; require the
    // action rows to stop moving once the authoritative fare has settled.
-   for(const key of ['top','documentTop','y']) assert.ok(Math.max(...frames.map(f=>f[key]))-Math.min(...frames.map(f=>f[key]))<=2,`${width}px ${returning?'return':'one-way'} ${id}: ${key} moved`);
+   const initial={top:before.heading.top,documentTop:before.heading.documentTop,y:before.y};
+   for(const key of ['top','documentTop','y']) {
+    const values=[initial[key],...frames.map(f=>f[key])];
+    assert.ok(Math.max(...values)-Math.min(...values)<=2,`${width}px ${returning?'return':'one-way'} ${id}: ${key} moved`);
+   }
    const settled=frames.filter(f=>f.at>=frames.at(-1).at-180);
    assert.ok(settled.length>=3,'enough settled frames to detect ongoing movement');
    for(const key of ['action','tools']) assert.ok(Math.max(...settled.map(f=>f[key]))-Math.min(...settled.map(f=>f[key]))<=2,`${width}px ${id}: settled ${key} keeps moving`);
-   assert.ok(hit.visible&&hit.hit&&!hit.disabled,'repriced booking button accessible: '+JSON.stringify(hit));
+   assert.ok(hit.visible&&hit.hit&&!hit.disabled&&!hit.overflow,'repriced booking button accessible: '+JSON.stringify(hit));
   }
   await page.screenshot({path:`${output}/${width}-${returning?'return':'one-way'}-vehicle-stability.png`});
   results.push(`${width}px ${returning?'return':'one-way'}: Estate, Business Class and 7-Seater delayed authoritative repricing keeps vehicle heading and scroll position within 2px`);
