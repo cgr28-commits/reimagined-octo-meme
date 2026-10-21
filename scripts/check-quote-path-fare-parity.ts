@@ -247,7 +247,7 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
   );
 });
 
-check("Test A: Knocknagoney → BFS (universal ~22 mi → £56)", () => {
+check("Test A: Knocknagoney → BFS (universal ~22 mi → £58.40)", () => {
   const zoneOnly = calculateQuote(KNOCKNAGONEY, "BFS", SALOON_VEHICLE, false, {}, null, false);
   assert.equal(zoneOnly, null, "null metrics must refuse fare (no zone fallback)");
 
@@ -257,7 +257,7 @@ check("Test A: Knocknagoney → BFS (universal ~22 mi → £56)", () => {
     airportCode: "BFS",
     fromAirport: false,
     metrics: KNOCK_BFS_METRICS,
-    expected: 56,
+    expected: 58.4,
   });
 });
 
@@ -268,18 +268,18 @@ check("Test B: BFS → Knocknagoney (same metrics, pickup direction)", () => {
     airportCode: "BFS",
     fromAirport: true,
     metrics: KNOCK_BFS_METRICS,
-    expected: 56,
+    expected: 58.4,
   });
 });
 
-check("Short Belfast City Hall → BFS (~14 mi → £44)", () => {
+check("Short Belfast City Hall → BFS (~14 mi → £40.80)", () => {
   compareThree({
     label: "City Hall → BFS",
     address: CITY_HALL,
     airportCode: "BFS",
     fromAirport: false,
     metrics: CITY_BFS_METRICS,
-    expected: 44,
+    expected: 40.8,
   });
 });
 
@@ -309,18 +309,18 @@ check("BFS pickup (City Hall reverse)", () => {
     airportCode: "BFS",
     fromAirport: true,
     metrics: CITY_BFS_METRICS,
-    expected: 44,
+    expected: 40.8,
   });
 });
 
-check("Dublin Airport drop-off (~104 mi → £223 + £4 fixed)", () => {
+check("Dublin Airport drop-off (~104 mi → mileage fare + £4 fixed)", () => {
   compareThree({
     label: "City Hall → DUB",
     address: CITY_HALL,
     airportCode: "DUB",
     fromAirport: false,
     metrics: CITY_DUB_METRICS,
-    expected: 227,
+    expected: 243.66,
   });
 });
 

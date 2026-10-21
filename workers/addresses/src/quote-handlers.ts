@@ -1,3 +1,4 @@
+import { MILEAGE_RECEIPT_VERSION_OFFSET } from "../shared/universal-distance-pricing";
 /**
  * POST /quote/calculate — server-authoritative website fare.
  * Uses the SAME pricing engine as the public quote tool (no second algorithm).
@@ -24,7 +25,6 @@ import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { applyProfitabilityProtection } from "./profitability";
 import { signQuoteReceipt } from "./quote-receipt";
-import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
 import {
   isDublinAirportCode,
   PUBLIC_MINIBUS_UNAVAILABLE_CODE,
@@ -326,7 +326,8 @@ export async function handleQuoteCalculateRequest(
     ? loadBookingSettingsCached(env.TRACKING_STORE)
     : Promise.resolve(null);
   const pricingForRoute = await pricingPromise;
-  const protectionActive = isProfitabilityProtectionActive(pricingForRoute.profitability);
+  // Server routing and signed quotes remain enabled independently of the retired hourly floor.
+  const protectionActive = true;
   let routeMetricsSource: "worker" | "client" | "none" = "none";
   let routeMetrics = protectionActive ? null : clientMetrics;
   let serverPickup: { lat: number; lng: number } | null = null;
@@ -745,7 +746,7 @@ export async function handleQuoteCalculateRequest(
     } else {
       quoteBody.quoteReceipt = await signQuoteReceipt(
       {
-        pricingVersion: pricingForRoute.version,
+        pricingVersion: pricingForRoute.version + MILEAGE_RECEIPT_VERSION_OFFSET,
         pickupPlaceId: pickupPlaceId ?? "",
         dropoffPlaceId: dropoffPlaceId ?? "",
         pickupAddress,
