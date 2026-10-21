@@ -10,7 +10,7 @@
  *   20 → £53, 25 → £60, 30 → £67, 35 → £74, 40 → £81
  *   50 → £96, 60 → £115, 70 → £135, 80 → £157, 90 → £181, 100 → £210
  *
- * Estate = final rounded Saloon + the configured uplift (default £10, never rounded separately).
+ * Estate = final rounded Saloon + the configured uplift (default £7, never rounded separately).
  * Minibus = Estate × multiplier, rounded to the nearest penny only
  * (no nearest-£5 rounding).
  * Airport Express / access charges are NOT included here — add after.
@@ -20,7 +20,7 @@ import { DEFAULT_EXECUTIVE_MULTIPLIER } from "./executive-vehicle";
 import { roundGbp } from "./gbp";
 
 /** Code default when the owner has not saved an Estate uplift. Owner settings override this. */
-export const UNIVERSAL_ESTATE_PREMIUM_GBP = 10;
+export const UNIVERSAL_ESTATE_PREMIUM_GBP = 7;
 export const UNIVERSAL_SALOON_MINIMUM_GBP = 29;
 export const UNIVERSAL_SALOON_FLOOR_MILES = 4;
 
@@ -68,6 +68,7 @@ function interpolateSegment(
  * Distances beyond 100 miles continue the 90–100 mile slope (no step jump).
  */
 export type UniversalSaloonCurveOptions = {
+  formula?: { enabled: boolean; startingChargeGbp: number; ratePerMileGbp: number; minimumFareGbp: number };
   minimumGbp?: number;
   floorMiles?: number;
   knots?: ReadonlyArray<readonly [number, number]>;
@@ -78,6 +79,9 @@ export function rawUniversalSaloonJourneyFareGbp(
   curve?: UniversalSaloonCurveOptions,
 ): number {
   const m = Math.max(0, Number(roadMiles) || 0);
+  if (curve?.formula?.enabled === true) {
+    return Math.max(curve.formula.minimumFareGbp, curve.formula.startingChargeGbp + curve.formula.ratePerMileGbp * m);
+  }
   const floorMiles = curve?.floorMiles ?? UNIVERSAL_SALOON_FLOOR_MILES;
   const minimumGbp = curve?.minimumGbp ?? UNIVERSAL_SALOON_MINIMUM_GBP;
   if (m <= floorMiles) return minimumGbp;
@@ -157,6 +161,7 @@ export function calculateUniversalJourneyFareGbp(
     executiveMultiplier?: number;
     estatePremiumGbp?: number;
     saloonFareGbp?: number;
+    saloonFormula?: UniversalSaloonCurveOptions["formula"];
     saloonMinimumGbp?: number;
     saloonFloorMiles?: number;
     saloonKnots?: ReadonlyArray<readonly [number, number]>;
@@ -167,6 +172,7 @@ export function calculateUniversalJourneyFareGbp(
     options?.saloonFareGbp != null
       ? roundUniversalSaloonFareGbp(options.saloonFareGbp)
       : calculateUniversalSaloonJourneyFareGbp(roadMiles, {
+          formula: options?.saloonFormula,
           minimumGbp: options?.saloonMinimumGbp,
           floorMiles: options?.saloonFloorMiles,
           knots: options?.saloonKnots,
