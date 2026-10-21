@@ -230,8 +230,8 @@ async function main() {
      // CI builds main with identical fonts/data and gates *every* recorded state
      // against PR. Match that established transition, retaining the 2px tolerance.
      let expectedDelta = 0;
-     if (engine === 'webkit' && width === 375) {
-      const reference = JSON.parse(fs.readFileSync('test-results/mobile-result/switch-main-375.json'));
+     if (width === 375) {
+      const reference = JSON.parse(fs.readFileSync(`test-results/mobile-result/switch-main-${engine}-375.json`));
       const selector = ['[data-quote-result-main-action]', '[data-quote-result-actions]'][i];
       expectedDelta = reference.transitions[id].settled[selector].top - reference.transitions[id].pending[selector].top;
      }
