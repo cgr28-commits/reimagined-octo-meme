@@ -251,6 +251,7 @@ export async function applyProfitabilityProtection(input: {
     applied: false,
     fallbackReason: null as string | null,
   };
+  if (input.pricing?.saloonFormula?.enabled === true) return { ...existing, fallbackReason: "mileage_formula_selected" };
   try {
     const settings = readProfitability(input.pricing);
     if (!settings || !isProfitabilityProtectionActive(settings)) {
@@ -463,6 +464,7 @@ export async function buildOwnerProfitabilityReport(input: {
   const passengerMiles = Math.round(roadMiles * 10) / 10;
   const passengerMinutes = Math.round(input.routeMetrics.durationMinutes);
   const saloonCurve = calculateUniversalSaloonJourneyFareGbp(roadMiles, {
+    formula: input.pricing.saloonFormula,
     minimumGbp: input.pricing.saloon.minimumFareGbp,
     floorMiles: input.pricing.saloon.floorMiles,
     knots: input.pricing.saloon.knots.map((knot) => [knot.miles, knot.fareGbp] as const),
@@ -471,6 +473,7 @@ export async function buildOwnerProfitabilityReport(input: {
     estatePremiumGbp: ownerPricingEngineOptions(input.pricing).estatePremiumGbp,
     minibusMultiplier: ownerPricingEngineOptions(input.pricing).minibusMultiplier,
     executiveMultiplier: ownerPricingEngineOptions(input.pricing).executiveMultiplier,
+    saloonFormula: input.pricing.saloonFormula,
     saloonMinimumGbp: input.pricing.saloon.minimumFareGbp,
     saloonFloorMiles: input.pricing.saloon.floorMiles,
     saloonKnots: input.pricing.saloon.knots.map((knot) => [knot.miles, knot.fareGbp] as const),

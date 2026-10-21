@@ -56,6 +56,7 @@ function asDraft(
 ): PricingDraft {
   return {
     ...settings,
+    saloonFormula: settings.saloonFormula ?? defaultOwnerPricingSettings().saloonFormula,
     profitability: normalizeProfitabilitySettings(settings.profitability),
     dublinAirportFareAdjustment: {
       rate: settings.dublinAirportFareAdjustment?.rate ?? 0,
@@ -270,11 +271,13 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     endTime: "",
   });
 
+  const [formulaSupported, setFormulaSupported] = useState(isolated === true);
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const result = await fetchOwnerPricing(ownerKey);
+      setFormulaSupported(result.saloonFormulaEditorVersion === 1 || isolated === true);
       const loaded = asDraft(result.settings);
       setSaved(loaded);
       setDraft(loaded);
@@ -288,7 +291,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     } finally {
       setLoading(false);
     }
-  }, [ownerKey]);
+  }, [ownerKey, isolated]);
 
   useEffect(() => {
     void load();
@@ -590,8 +593,21 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <div className="mt-4 space-y-6">
           <div>
             <p className="text-lg font-semibold text-white">Saloon</p>
+            <fieldset disabled={!formulaSupported} className="mt-3 space-y-3">
+              <label className={labelClass}>
+                <input type="checkbox" checked={draft.saloonFormula?.enabled === true}
+                  onChange={(event) => update("saloonFormula", { ...draft.saloonFormula!, enabled: event.target.checked })} />
+                Use mileage formula for new quotes
+              </label>
+              <p className="text-sm text-white/60">OFF keeps existing tiers and postcode fares. ON uses the formula instead of tiers, postcode fares and profitability floors. Saved rules are retained.</p>
+              {([["startingChargeGbp", "Starting charge"], ["ratePerMileGbp", "Price per passenger road mile"], ["minimumFareGbp", "Formula minimum fare"]] as const).map(([key, label]) => (
+                <MoneyField key={key} label={label} value={draft.saloonFormula![key]}
+                  onChange={(value) => update("saloonFormula", { ...draft.saloonFormula!, [key]: value })} />
+              ))}
+              {!formulaSupported && <p className="text-sm text-white/60">The Worker must support formula settings before they can be edited.</p>}
+            </fieldset>
             <MoneyField
-              label="Minimum fare"
+              label="Tier minimum fare (formula OFF)"
               value={draft.saloon.minimumFareGbp}
               onChange={(minimumFareGbp) => update("saloon", { ...draft.saloon, minimumFareGbp })}
             />

@@ -150,7 +150,7 @@ export async function saveOwnerPricingSettings(
   } else {
     // Older clients must not silently erase separately managed postcode rules.
     const validated = validateOwnerPricingInput(input && typeof input === "object"
-      ? { ...input, postcodeRules: (input as { postcodeRules?: unknown }).postcodeRules ?? current.postcodeRules ?? [], postcodePricingEnabled: (input as { postcodePricingEnabled?: unknown }).postcodePricingEnabled ?? current.postcodePricingEnabled ?? false }
+      ? { ...input, saloonFormula: (input as { saloonFormula?: unknown }).saloonFormula ?? current.saloonFormula, postcodeRules: (input as { postcodeRules?: unknown }).postcodeRules ?? current.postcodeRules ?? [], postcodePricingEnabled: (input as { postcodePricingEnabled?: unknown }).postcodePricingEnabled ?? current.postcodePricingEnabled ?? false }
       : input);
     if (!validated.ok) {
       throw new OwnerPricingValidationError(validated.errors);

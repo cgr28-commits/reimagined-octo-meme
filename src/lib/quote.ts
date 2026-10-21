@@ -654,6 +654,7 @@ export function calculatePointToPointQuote(
     minibusMultiplier: engine.minibusMultiplier,
     executiveMultiplier: engine.executiveMultiplier,
     estatePremiumGbp: engine.estatePremiumGbp,
+    saloonFormula: engine.saloonFormula,
     saloonMinimumGbp: engine.saloonMinimumGbp,
     saloonFloorMiles: engine.saloonFloorMiles,
     saloonKnots: engine.saloonKnots,
@@ -749,6 +750,7 @@ export function calculateQuote(
     minibusMultiplier: engine.minibusMultiplier,
     executiveMultiplier: engine.executiveMultiplier,
     estatePremiumGbp: engine.estatePremiumGbp,
+    saloonFormula: engine.saloonFormula,
     saloonMinimumGbp: engine.saloonMinimumGbp,
     saloonFloorMiles: engine.saloonFloorMiles,
     saloonKnots: engine.saloonKnots,
@@ -778,7 +780,7 @@ export function calculateQuote(
     : 0;
 
   const postcode = postcodeJourneyLegs({
-    enabled: pricing?.postcodePricingEnabled,
+    enabled: pricing?.saloonFormula?.enabled === true ? false : pricing?.postcodePricingEnabled,
     rules: pricing?.postcodeRules,
     context: { address: trimmedAddress, airportCode, fromAirport },
     vehicle: vehicleType, estateSupplement: engine.estatePremiumGbp,

@@ -72,7 +72,11 @@ export type SaloonKnot = {
   fareGbp: number;
 };
 
+export type SaloonFormula = { enabled: boolean; startingChargeGbp: number; ratePerMileGbp: number; minimumFareGbp: number };
+export const DEFAULT_SALOON_FORMULA: SaloonFormula = { enabled: false, startingChargeGbp: 10, ratePerMileGbp: 2.2, minimumFareGbp: 30 };
+
 export type OwnerPricingSettings = {
+  saloonFormula?: SaloonFormula;
   postcodeRules?: PostcodePricingRule[];
   postcodePricingEnabled?: boolean;
   schemaVersion: OwnerPricingSchemaVersion;
@@ -159,6 +163,7 @@ export type OwnerPricingValidationResult =
   | { ok: false; errors: OwnerPricingValidationError[] };
 
 export type PublicOwnerPricingConfig = {
+  saloonFormula?: SaloonFormula;
   postcodeRules?: PostcodePricingRule[];
   postcodePricingEnabled?: boolean;
   schemaVersion: OwnerPricingSchemaVersion;
@@ -232,6 +237,7 @@ export function defaultOwnerPricingSettings(
   return {
     schemaVersion: OWNER_PRICING_SCHEMA_VERSION,
     version: 1,
+    saloonFormula: { ...DEFAULT_SALOON_FORMULA },
     postcodeRules: [],
     postcodePricingEnabled: false,
     updatedAt: now.toISOString(),
@@ -318,6 +324,20 @@ export function validateOwnerPricingInput(
   for (const message of postcodes.errors) errors.push({ field: "postcodeRules", message });
   const defaults = defaultOwnerPricingSettings();
 
+  const formula = { ...DEFAULT_SALOON_FORMULA };
+  if (input.saloonFormula != null) {
+    const rawFormula = input.saloonFormula as Record<string, unknown>;
+    if (typeof rawFormula.enabled !== "boolean") reject(errors, "saloonFormula.enabled", "Choose ON or OFF.");
+    formula.enabled = rawFormula.enabled === true;
+    for (const key of ["startingChargeGbp", "ratePerMileGbp", "minimumFareGbp"] as const) {
+      const value = readRate(rawFormula[key], `saloonFormula.${key}`, errors);
+      const max = key === "ratePerMileGbp" ? 100 : 1000;
+      if (value != null && (value < 0 || value > max || (key !== "startingChargeGbp" && value === 0))) {
+        reject(errors, `saloonFormula.${key}`, `Enter a positive amount up to £${max}.`);
+      }
+      if (value != null) formula[key] = value;
+    }
+  }
   const saloonRaw = (input.saloon ?? {}) as Record<string, unknown>;
   const estateRaw = (input.estate ?? {}) as Record<string, unknown>;
   const minibusRaw = (input.minibus ?? {}) as Record<string, unknown>;
@@ -554,6 +574,7 @@ export function validateOwnerPricingInput(
   return {
     ok: true,
     settings: {
+      saloonFormula: formula,
       postcodeRules: postcodes.rules,
       postcodePricingEnabled: postcodePricingIsEnabled(input.postcodePricingEnabled, postcodes.rules),
       schemaVersion: OWNER_PRICING_SCHEMA_VERSION,
@@ -644,8 +665,9 @@ export function toPublicOwnerPricingConfig(
     schemaVersion: settings.schemaVersion,
     version: settings.version,
     updatedAt: settings.updatedAt,
-    postcodePricingEnabled: postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules),
+    postcodePricingEnabled: settings.saloonFormula?.enabled !== true && postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules),
     postcodeRules: postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules) ? (settings.postcodeRules ?? []).filter(r => r.enabled && postcodeRuleApproved(r)).map(({ district, airportCode, saloonFareGbp, enabled, direction }) => ({ district, airportCode, saloonFareGbp, enabled, direction, approvalStatus: "approved" as const })) : [],
+    saloonFormula: { ...(settings.saloonFormula ?? DEFAULT_SALOON_FORMULA) },
     saloon: settings.saloon,
     estate: settings.estate,
     minibus: {
@@ -682,6 +704,7 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
     executiveMinimumFareGbp:
       resolved.executive.minimumFareGbp ?? DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
     publicExecutiveEnabled: resolved.executive.publicEnabled !== false,
+    saloonFormula: resolved.saloonFormula,
     saloonMinimumGbp: resolved.saloon.minimumFareGbp,
     saloonFloorMiles: resolved.saloon.floorMiles,
     saloonKnots: resolved.saloon.knots.map((knot) => [knot.miles, knot.fareGbp] as const),
@@ -727,6 +750,10 @@ export function formatPercentFromRate(rate: number): string {
 export function describeOwnerPricingValue(path: string, settings: OwnerPricingSettings): string {
   if (path.startsWith("meetGreetEmail.")) return settings.meetGreetEmail?.enabled[path.split(".")[1] as "BFS" | "BHD" | "DUB"] ? "ON" : "OFF";
   switch (path) {
+    case "saloonFormula": {
+      const formula = settings.saloonFormula ?? DEFAULT_SALOON_FORMULA;
+      return `${formula.enabled ? "ON" : "OFF"}; starting £${formula.startingChargeGbp.toFixed(2)}; £${formula.ratePerMileGbp.toFixed(2)} per road mile; minimum £${formula.minimumFareGbp.toFixed(2)}`;
+    }
     case "saloon.minimumFareGbp":
       return `£${settings.saloon.minimumFareGbp.toFixed(2)}`;
     case "saloon.floorMiles":
@@ -787,6 +814,7 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
 }
 
 const DIFF_PATHS = [
+  "saloonFormula",
   "postcodePricingEnabled",
   "postcodeRules",
   "saloon.minimumFareGbp",
@@ -818,6 +846,7 @@ const DIFF_PATHS = [
 ] as const;
 
 const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
+  "saloonFormula": "Saloon mileage formula",
   "postcodeRules": "Postcode Pricing rules (district to airport)",
   "postcodePricingEnabled": "Postcode Pricing feature switch",
   "saloon.minimumFareGbp": "Saloon minimum fare",
@@ -1042,6 +1071,7 @@ export function calculateConfiguredSaloonFareGbp(
 ): number {
   const options = ownerPricingEngineOptions(settings);
   return calculateUniversalSaloonJourneyFareGbp(roadMiles, {
+    formula: options.saloonFormula,
     minimumGbp: options.saloonMinimumGbp,
     floorMiles: options.saloonFloorMiles,
     knots: options.saloonKnots,
