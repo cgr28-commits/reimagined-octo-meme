@@ -1,0 +1,45 @@
+name: Cookie scroll baseline investigation
+on:
+  push:
+    branches: [codex/compact-cookie-banner]
+permissions:
+  contents: read
+jobs:
+  identical-webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ed67b1f85debc674eed0fe71a3a8ee6ccbed9dad
+          path: baseline
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci && GITHUB_PAGES=true npm run build
+      - working-directory: baseline
+        run: npm ci && GITHUB_PAGES=true npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps webkit
+      - name: Compare identical fresh-cookie WebKit cases twice
+        run: |
+          status=0
+          for attempt in 1 2; do
+            for variant in baseline candidate; do
+              export_dir=out
+              if [ "$variant" = baseline ]; then export_dir=baseline/out; fi
+              echo "CASE $variant ATTEMPT $attempt"
+              QUOTE_TEST_BROWSER=webkit QUOTE_TEST_EXPORT_DIR="$export_dir" node --import tsx scripts/check-mobile-result-action-browser.cjs > "$RUNNER_TEMP/$variant-$attempt.log" 2>&1 || status=1
+              cat "$RUNNER_TEMP/$variant-$attempt.log"
+              mkdir -p "test-results/scroll-comparison/$variant-$attempt"
+              cp -r test-results/mobile-result/. "test-results/scroll-comparison/$variant-$attempt/"
+              cp "$RUNNER_TEMP/$variant-$attempt.log" "test-results/scroll-comparison/$variant-$attempt/"
+            done
+          done
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: identical-webkit-scroll-comparison
+          path: test-results/scroll-comparison/

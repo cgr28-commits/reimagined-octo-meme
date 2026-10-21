@@ -14,7 +14,7 @@ settings.executive.requestQuote = true;
 settings.minibus = { ...settings.minibus, publicEnabled: true, requestQuote: true };
 const config = toPublicOwnerPricingConfig(settings);
 config.executive.requestQuote = true; config.minibus = { ...config.minibus, publicEnabled: true, requestQuote: true };
-const server = spawn('python3', ['-m', 'http.server', '3094', '--bind', '127.0.0.1', '--directory', 'out'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn('python3', ['-m', 'http.server', '3094', '--bind', '127.0.0.1', '--directory', process.env.QUOTE_TEST_EXPORT_DIR || 'out'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
 let serverLog = '', browser, page;
 server.stdout.on('data', b => serverLog += b); server.stderr.on('data', b => serverLog += b);
 const errors = [];
@@ -206,6 +206,7 @@ async function main() {
     y: scrollY, root: document.documentElement.scrollHeight, client: document.documentElement.clientHeight,
     body: document.body.style.cssText, behavior: document.documentElement.style.cssText,
     visible: document.visibilityState,
+    geometry: Object.fromEntries(['[data-quote-vehicle-options-heading]', 'header.fixed, header[class*="fixed"]', '[data-quote-result-card] #quote-book-now-button', '[data-quote-result-actions]'].map(selector => { const el = document.querySelector(selector); const r = el?.getBoundingClientRect(); return [selector, r ? { top:r.top, bottom:r.bottom, height:r.height } : null]; })),
     scrolls: window.testScrollCalls.slice(-5), touches: window.testTouchEvents,
     ancestors: (() => { const out = []; let el = document.querySelector('[data-quote-result-actions]'); while (el) { const s = getComputedStyle(el); out.push({ tag: el.tagName, class: el.className, scrollTop: el.scrollTop, overflow: s.overflow }); el = el.parentElement; } return out; })(),
    })));
