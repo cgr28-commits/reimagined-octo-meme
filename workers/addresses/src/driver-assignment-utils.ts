@@ -6,7 +6,8 @@ export function filterJobsForSession(
   jobs: TrackingJobRecord[],
   session: DriverSession,
 ): TrackingJobRecord[] {
-  if (!session.authorized || session.role === "owner") {
+  if (!session.authorized) return [];
+  if (session.role === "owner") {
     return jobs;
   }
 

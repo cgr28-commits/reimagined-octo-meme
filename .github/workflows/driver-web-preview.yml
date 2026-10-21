@@ -1,9 +1,15 @@
-name: Isolated My Jobs preview
+name: Isolated My Jobs integration preview
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - 'src/app/driver/**'
+      - 'shared/driver-portal-access.ts'
+      - 'workers/addresses/src/**'
+      - 'scripts/driver-integration/**'
+      - 'scripts/check-driver-integration*'
+      - 'scripts/prepare-driver-integration.mjs'
+      - 'src/lib/tracking-api.ts'
       - 'src/app/layout.tsx'
       - 'src/components/PublicWebsiteOnly.tsx'
       - 'src/components/PersonalFlightStatus.tsx'
@@ -29,25 +35,26 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: node --import tsx scripts/check-driver-integration.ts
       - name: Build with no backend or service credentials
         run: npm run build
         env:
           GITHUB_PAGES: 'true'
-          NEXT_PUBLIC_MY_JOBS_PREVIEW: 'true'
+          NEXT_PUBLIC_MY_JOBS_INTEGRATION_PREVIEW: 'true'
           NEXT_PUBLIC_BOOKINGS_API_URL: https://preview.invalid/bookings
           NEXT_PUBLIC_ADDRESSES_API_URL: https://preview.invalid/addresses
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium webkit
       - name: Verify iPhone-size preview and network isolation
-        run: node scripts/check-driver-preview-browser.mjs
-      - run: node scripts/prepare-driver-preview.mjs
+        run: node --import tsx scripts/check-driver-integration-browser.mjs
+      - run: node scripts/prepare-driver-integration.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: my-jobs-preview
           path: |
             out
-            artifacts/driver-preview
+            artifacts/driver-integration
       - name: Deploy static files to existing preview project only
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
@@ -56,4 +63,4 @@ jobs:
           set -euo pipefail
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
-          npx --yes wrangler@3.109.0 pages deploy out --project-name=my-airport-taxi-ni-preview --branch=driver-jobs-sample --commit-hash="${{ github.event.pull_request.head.sha }}"
+          npx --yes wrangler@3.109.0 pages deploy out --project-name=my-airport-taxi-ni-preview --branch=driver-jobs-integration --commit-hash="${{ github.event.pull_request.head.sha }}"

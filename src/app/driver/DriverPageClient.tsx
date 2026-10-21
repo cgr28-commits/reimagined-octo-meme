@@ -1870,7 +1870,7 @@ function DriverJobCard({
         </div>
         {isRefunded ? (
           <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-red-200">
-            Refunded · Job cancelled
+            {job.bookingStatus === "cancelled" ? "Booking cancelled" : "Refunded · Job cancelled"}
           </span>
         ) : (
           <div className="flex flex-col items-end gap-2">

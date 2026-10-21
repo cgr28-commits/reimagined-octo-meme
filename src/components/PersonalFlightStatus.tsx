@@ -21,7 +21,8 @@ export default function PersonalFlightStatus({ session, job }: { session: string
     const timer = window.setInterval(() => void refresh(), 300000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [session, job.token, open]);
-  if (!job.isAirportPickup || !job.flightNumber) return null;
+  if (!job.isAirportPickup) return null;
+  if (!job.flightNumber) return <p className="mt-4 text-sm text-white/70">No flight number supplied for this airport pickup.</p>;
   const flight = result?.flight;
   const warning = /delay|cancel|divert/i.test(flight?.status ?? "") || (flight?.delayMinutes ?? 0) > 0;
   const arrived = /^(arrived|landed)$/i.test(flight?.status ?? "");

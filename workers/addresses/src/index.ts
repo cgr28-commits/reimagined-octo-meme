@@ -4190,7 +4190,7 @@ export default {
     if (/^\/(api\/)?driver\/portal\/invite$/.test(url.pathname) && request.method === "POST") {
       return handleDriverPortalInviteRequest(request, env, origin);
     }
-    if (/^\/(api\/)?driver\/flight$/.test(url.pathname) && request.method === "GET") return handlePersonalDriverFlight(request, env, origin);
+    if (/^\/(api\/)?driver\/flight$/.test(url.pathname) && ["GET", "POST"].includes(request.method)) return handlePersonalDriverFlight(request, env, origin);
     const driverRoute = parseDriverRoute(url.pathname);
     if (driverRoute === "portal-exchange" && request.method === "POST") {
       return handleDriverPortalExchangeRequest(request, env, origin);

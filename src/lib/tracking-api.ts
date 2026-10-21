@@ -49,7 +49,7 @@ function resolveWorkerBaseUrl(): string {
   }
 }
 
-const WORKER_BASE = resolveWorkerBaseUrl();
+const WORKER_BASE = process.env.NEXT_PUBLIC_MY_JOBS_INTEGRATION_PREVIEW === "true" && typeof window !== "undefined" ? window.location.origin : resolveWorkerBaseUrl();
 
 export function isDriverPortalSessionToken(value: string | null | undefined): boolean {
   return (value ?? "").trim().startsWith("dps_");
@@ -1497,7 +1497,6 @@ export async function createPersonalDriverInvite(ownerKey: string, profileKey = 
 }
 export async function fetchDriverFlight(session: string, token: string) {
   const url = new URL(`${WORKER_BASE}/driver/flight`);
-  url.searchParams.set("token", token);
-  const response = await fetch(url, { headers: driverGetHeaders(session), cache: "no-store" });
+  const response = await fetch(url, { method: "POST", headers: driverPostHeaders(session), body: JSON.stringify({ token }), cache: "no-store" });
   return parseJsonResponse<{ flight: DriverFlight | null; message?: string; lastCheckedAt?: string; stale?: boolean }>(response);
 }

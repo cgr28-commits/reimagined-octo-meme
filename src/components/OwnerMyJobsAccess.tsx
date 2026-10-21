@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { createPersonalDriverInvite } from "@/lib/tracking-api";
+import { createPersonalDriverInvite, exchangeDriverPortalAccess } from "@/lib/tracking-api";
 
 export default function OwnerMyJobsAccess({ ownerKey }: { ownerKey: string }) {
   const [busy, setBusy] = useState(false);
@@ -9,7 +9,9 @@ export default function OwnerMyJobsAccess({ ownerKey }: { ownerKey: string }) {
     setBusy(true); setError("");
     try {
       const invite = await createPersonalDriverInvite(ownerKey);
-      window.location.assign(`/driver/#access=${encodeURIComponent(invite.access)}`);
+      const session = await exchangeDriverPortalAccess(invite.access);
+      window.localStorage.setItem("matni-driver-portal-session", session.sessionToken);
+      window.location.assign("/driver/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open My Jobs.");
       setBusy(false);

@@ -571,7 +571,7 @@ export async function handleDriverJobsRequest(
 
   const enrichedJobs = await Promise.all(
     jobs.map(async (job) => {
-      const flight = scope === "assigned-page" ? null : await resolveDriverFlight(job, env);
+      const flight = session.profileKey ? null : await resolveDriverFlight(job, env);
       let amountPaidLabel: string | undefined;
       let bookingStatus:
         | "confirmed"
@@ -629,14 +629,14 @@ export async function handleDriverJobsRequest(
         driverLocationRecordedTo: job.driverLocationRecordedTo,
         journeyStatus: journeyStatusOf(job),
         journeyStatusLabel: customerJourneyLabel(job),
-        allowedJourneyActions: allowedJourneyActions(journeyStatusOf(job)),
+        allowedJourneyActions: bookingStatus === "cancelled" || bookingStatus === "refunded" ? [] : allowedJourneyActions(journeyStatusOf(job)),
         trackingStartedAt: job.trackingStartedAt,
         arrivedPickupAt: job.arrivedPickupAt,
         journeyStartedAt: job.journeyStartedAt,
         arrivedDestinationAt: job.arrivedDestinationAt,
         journeyCompletedAt: job.journeyCompletedAt,
         isAirportPickup: isAirportPickupJob(job),
-        flightNumber: job.flightNumber ?? paidRecord?.flightNumber ?? null,
+        flightNumber: job.flightNumber ?? (job.journeyLeg === "return" ? paidRecord?.returnFlightNumber : paidRecord?.flightNumber) ?? null,
         airportCode: job.airportCode ?? paidRecord?.airportCode ?? null,
         journeyLeg: job.journeyLeg ?? null,
         flight,
@@ -664,8 +664,8 @@ export async function handleDriverJobsRequest(
             cashBalanceDue: paidRecord?.cashBalanceDue,
             cashCollected: paidRecord?.cashCollected === true,
             cashCollectedAt: paidRecord?.cashCollectedAt,
-            airportAccessOption: paidRecord?.airportAccessOption ?? null,
-            dublinArrivalTerminal: paidRecord?.dublinArrivalTerminal ?? null,
+            airportAccessOption: (job.journeyLeg === "return" ? paidRecord?.returnAirportAccessOption : paidRecord?.outboundAirportAccessOption) ?? paidRecord?.airportAccessOption ?? null,
+            dublinArrivalTerminal: (job.journeyLeg === "return" ? paidRecord?.returnDublinArrivalTerminal : paidRecord?.dublinArrivalTerminal) ?? null,
           },
           { accepted: jobAssignmentStatus(job) === "accepted" },
         );
@@ -1150,17 +1150,28 @@ export async function handlePersonalDriverFlight(request: Request, env: Env, ori
   const session = await resolveAuthorizedSession(request, env);
   if (!session.authorized || session.role !== "driver" || !session.profileKey) return jsonResponse({ error: "Personal driver sign-in required" }, 403, origin);
   if (!env.TRACKING_STORE) return jsonResponse({ error: "Driver portal unavailable" }, 503, origin);
-  const token = new URL(request.url).searchParams.get("token") ?? "";
+  let token = new URL(request.url).searchParams.get("token") ?? "";
+  if (request.method === "POST") {
+    try { token = String((await request.json() as { token?: string }).token ?? ""); }
+    catch { return jsonResponse({ error: "Invalid request" }, 400, origin); }
+  }
   const job = await getTrackingJob(env.TRACKING_STORE, token);
   if (!job || !filterJobsForSession([job], session).length) return jsonResponse({ error: "Job not found" }, 404, origin);
+  const paid = job.paymentReference ? await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference) : null;
+  const flightJob = { ...job,
+    flightNumber: job.flightNumber || (job.journeyLeg === "return" ? paid?.returnFlightNumber : paid?.flightNumber),
+    airportCode: job.airportCode || paid?.airportCode,
+  };
+  if (!flightJob.isFromAirport || !flightJob.flightNumber?.trim() || !flightJob.airportCode?.trim()) return jsonResponse({ flight: null, message: "No flight information is available for this journey." }, 200, origin);
+  if (await cancelledJobResponse(job, env, origin)) return jsonResponse({ flight: null, message: "This booking is cancelled. Flight monitoring has stopped." }, 200, origin);
   if (env.DRIVER_FLIGHT_MONITOR_ENABLED !== "true") return jsonResponse({ flight: null, message: "Automatic flight updates are not enabled. Check the airport arrivals board." }, 200, origin);
   const daysAway = (Date.parse(job.tripDate + "T12:00:00Z") - Date.now()) / 86400000;
   if (daysAway > 2 || daysAway < -2) return jsonResponse({ flight: null, message: "Flight updates become available close to the pickup date." }, 200, origin);
-  const cacheKey = `driver-flight:${job.airportCode}:${job.tripDate}:${job.flightNumber}`;
+  const cacheKey = `driver-flight:${flightJob.airportCode}:${flightJob.tripDate}:${flightJob.flightNumber}`;
   type Cached = { flight: VerifiedFlight | null; lastCheckedAt: string; message?: string };
   const cached = await env.TRACKING_STORE.get<Cached>(cacheKey, "json");
   if (cached && Date.now() - Date.parse(cached.lastCheckedAt) < 300000) return jsonResponse(cached, 200, origin);
-  const flight = await resolveDriverFlight(job, env);
+  const flight = await resolveDriverFlight(flightJob, env);
   const result: Cached = { flight, lastCheckedAt: new Date().toISOString(), ...(!flight ? { message: "Flight status unavailable. Check the airport arrivals board." } : {}) };
   await env.TRACKING_STORE.put(cacheKey, JSON.stringify(result), { expirationTtl: 600 });
   return jsonResponse(result, 200, origin);

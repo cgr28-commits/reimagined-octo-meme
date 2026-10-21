@@ -63,9 +63,9 @@ export function createPortalToken(prefix: typeof PORTAL_LINK_PREFIX | typeof POR
 }
 
 /**
- * Profile key wins when both sides have one.
+ * Personal sessions require an exact saved profile assignment.
  * A session key never matches a different job key, even if the display names match.
- * Legacy jobs and the configured DRIVER_ACCESS_KEY session have no profile key and match by name.
+ * Only legacy shared-key sessions retain name matching; personal sessions fail closed.
  */
 export function assignedDriverMatchesIdentity(
   job: AssignedJobIdentity,
@@ -77,7 +77,7 @@ export function assignedDriverMatchesIdentity(
     return sessionKey === jobKey;
   }
   if (sessionKey && !jobKey) {
-    return driverNamesMatch(job.assignedDriverName, identity.driverName);
+    return false;
   }
   return driverNamesMatch(job.assignedDriverName, identity.driverName);
 }
