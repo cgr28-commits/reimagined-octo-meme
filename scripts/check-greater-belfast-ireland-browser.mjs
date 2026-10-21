@@ -31,7 +31,7 @@ try {
     const page=await context.newPage();
     await page.goto(`${base}/?previewJourney=bfs&previewDestination=${destination}`);
     await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
-    const cookie=page.getByRole('button',{name:'Essential only',exact:true});
+    const cookie=page.getByRole('button',{name:/^(Essential only|Reject optional)$/,exact:true});
     if(await cookie.isVisible()) await cookie.click();
     await page.locator('#quote-section-passengers').selectOption('2');
     await page.locator('#quote-section-suitcases').selectOption('0');

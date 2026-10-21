@@ -24,7 +24,7 @@ try {
       if (!sessionStorage.getItem("matni:preview-pricing-settings")) sessionStorage.setItem("matni:preview-pricing-settings", JSON.stringify(settings));
     }, settings);
     await page.goto("http://127.0.0.1:3000/owner/pricing-preview/", { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "Essential only", exact: true }).click();
+    await page.getByRole("button", { name: /^(Essential only|Reject optional)$/, exact: true }).click();
     assert.equal(await page.locator("[data-add-long-distance-tiers]").count(), 0);
     assert.equal(await page.locator("#night-enabled").isChecked(), false);
     assert.equal(await page.locator("#weekend-enabled").isChecked(), false);

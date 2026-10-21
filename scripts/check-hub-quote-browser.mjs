@@ -34,7 +34,7 @@ try {
     for (const item of cases) {
       await page.goto(`${base}${item.path}?previewMinibus=1`);
       await page.locator('#quote-section-passengers').waitFor();
-      const cookie = page.getByRole('button',{name:'Essential only',exact:true});
+      const cookie = page.getByRole('button',{name:/^(Essential only|Reject optional)$/,exact:true});
       if (await cookie.isVisible()) await cookie.click();
       assert.equal(await page.locator('[data-quote-presentation="homepage"]').count(),1);
       assert.equal(await page.locator('#quote-section-passengers').inputValue(),'');

@@ -63,7 +63,7 @@ async function main(){try{
   data.clear();const defaults=defaultOwnerPricingSettings();defaults.night.enabled=false;defaults.weekend.enabled=false;defaults.profitability=require('../src/lib/owner-profitability-settings.ts').approvedProductionProfitabilitySettings();data.set('owner:pricing-settings',JSON.stringify(defaults));
   await page.setViewportSize({width,height:1000});await page.goto(url);
   await page.getByRole('button',{name:'Load approved BT1 / BT2 airport rules',exact:true}).waitFor();
-  const cookie=page.getByRole('button',{name:'Essential only',exact:true});if(await cookie.isVisible())await cookie.click();
+  const cookie=page.getByRole('button',{name:/^(Essential only|Reject optional)$/,exact:true});if(await cookie.isVisible())await cookie.click();
   await page.getByRole('button',{name:'Load approved BT1 / BT2 airport rules',exact:true}).click();
   assert.equal((await getOwnerPricingSettings(store)).postcodeRules.length,0,'Loading proposal does not activate it');
   assert.match(await row('BT1').innerText(),/£245.00\s+£252.00/);await save();
