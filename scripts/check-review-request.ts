@@ -365,7 +365,7 @@ console.log("\n=== Email and WhatsApp review channels share one message ===");
   assert.match(panel, /hasUsableEmail: isUsableMailbox\(booking\.customerEmail\)/);
   const reviewWhatsApp = panel.slice(
     panel.indexOf("function openReviewWhatsAppForBooking"),
-    panel.indexOf("function openOnTheWayWhatsAppForBooking"),
+    panel.indexOf("\n}", panel.indexOf("function openReviewWhatsAppForBooking")) + 2,
   );
   assert.match(reviewWhatsApp, /buildGoogleReviewRequestWhatsAppMessage/);
   assert.match(reviewWhatsApp, /buildArrivedPickupWhatsAppLink/);

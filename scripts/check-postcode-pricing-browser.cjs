@@ -24,9 +24,6 @@ globalThis.fetch=async(input,init)=>{
  throw new Error('Blocked unexpected external request in isolated browser test: '+url);
 };
 async function main(){try{
- historical=await require('./postcode-legacy-harness.cjs').startLegacyHarness(root);
- const oldRoute=path.join(historical.root,'src/app/postcode-flow-check/page.tsx');fs.mkdirSync(path.dirname(oldRoute),{recursive:true});fs.writeFileSync(oldRoute,fs.readFileSync(routeFile));
- oldServer=spawn(process.execPath,[path.join(root,'node_modules/next/dist/bin/next'),'dev','--hostname','127.0.0.1','--port','3097'],{cwd:historical.root,stdio:['ignore','pipe','pipe']});oldServer.stdout.on('data',b=>log+=b);oldServer.stderr.on('data',b=>log+=b);
  for(let i=0;i<80;i++){try{await fetch('http://127.0.0.1:3098/',{signal:AbortSignal.timeout(1500)});break}catch{await new Promise(r=>setTimeout(r,500))}}
  browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
  const context=await browser.newContext({serviceWorkers:'block'});
@@ -61,21 +58,7 @@ async function main(){try{
  const save=async()=>{await page.getByRole('button',{name:'Save postcode pricing',exact:true}).click();await page.getByRole('status').filter({hasText:'Postcode pricing rules saved.'}).waitFor();};
  const reloadPricing=async()=>{await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/owner/pricing'&&r.request().method()==='GET'),page.getByRole('button',{name:'Reload pricing',exact:true}).click()]);await row('BT2').waitFor();};
  const legacy={...defaultOwnerPricingSettings(),version:205,updatedAt:'2026-10-16T03:35:06.718Z',postcodeRules:require('../shared/postcode-pricing.ts').APPROVED_POSTCODE_RULES,profitability:require('../src/lib/owner-profitability-settings.ts').approvedProductionProfitabilitySettings()};delete legacy.postcodePricingEnabled;legacy.night.enabled=false;legacy.weekend.enabled=false;
- data.set('owner:pricing-settings',JSON.stringify(legacy));await historical.call({kind:'init',settings:legacy,ownerKey:'isolated-owner'});
- for(const [front,back] of [['new','old'],['old','new']]){
-  frontendVersion=front;backendVersion=back;await page.setViewportSize({width:390,height:1000});
-  for(const [airport,saloon,estate] of [['BHD',35,45],['BFS',55,65],['DUB',245,255]]){
-   await page.goto(url+'?mode=quote&to='+airport);await page.locator('#quote-section-passengers').waitFor();
-   await page.evaluate(date=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:2,suitcases:1,returnJourney:false,tripDate:date,tripTime:'12:00'}})),date);
-   await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+saloon+'$')}).waitFor();
-   await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+estate+'$')}).waitFor();
-   await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+estate+'$')}).click();await page.getByPlaceholder('John Smith').waitFor();
-  }
-  console.log('OK real '+front+' frontend / '+back+' Worker: all three airports Saloon/Estate unchanged through booking form, legacy v205 config not migrated');
- }
- frontendVersion='new';backendVersion='old';await page.goto(url);await page.getByRole('status').filter({hasText:'Postcode management upgrade pending'}).waitFor();assert.equal(await page.getByLabel('Enable postcode pricing feature',{exact:true}).isChecked(),true);assert.equal(await page.getByLabel('Enable postcode pricing feature',{exact:true}).isDisabled(),true);assert.equal(await page.getByRole('button',{name:'Save postcode pricing',exact:true}).isDisabled(),true);
- assert.equal(JSON.stringify([...data].filter(([k])=>k.startsWith('owner:pricing'))),JSON.stringify([['owner:pricing-settings',JSON.stringify(legacy)]]),'Rollout customer/read-only admin flows do not rewrite pricing or audit');
- frontendVersion='new';backendVersion='new';
+ data.set('owner:pricing-settings',JSON.stringify(legacy));
  for(const width of [390,1280]){
   data.clear();const defaults=defaultOwnerPricingSettings();defaults.night.enabled=false;defaults.weekend.enabled=false;defaults.profitability=require('../src/lib/owner-profitability-settings.ts').approvedProductionProfitabilitySettings();data.set('owner:pricing-settings',JSON.stringify(defaults));
   await page.setViewportSize({width,height:1000});await page.goto(url);
@@ -83,7 +66,7 @@ async function main(){try{
   const cookie=page.getByRole('button',{name:'Essential only',exact:true});if(await cookie.isVisible())await cookie.click();
   await page.getByRole('button',{name:'Load approved BT1 / BT2 airport rules',exact:true}).click();
   assert.equal((await getOwnerPricingSettings(store)).postcodeRules.length,0,'Loading proposal does not activate it');
-  assert.match(await row('BT1').innerText(),/£245.00\s+£255.00/);await save();
+  assert.match(await row('BT1').innerText(),/£245.00\s+£252.00/);await save();
   assert.equal((await getOwnerPricingSettings(store)).postcodeRules.length,12);
   assert.equal((await getOwnerPricingSettings(store)).postcodePricingEnabled,false,'Saving draft fares keeps feature OFF');
   await page.getByLabel('Direction filter',{exact:true}).selectOption('to-airport');
@@ -91,7 +74,8 @@ async function main(){try{
   await page.locator('table').evaluate(t=>{t.parentElement.scrollLeft=0;});
   await page.screenshot({path:root+'/../postcode-management-admin-'+width+'.png',fullPage:true});
   await page.getByLabel('Direction filter',{exact:true}).selectOption('');
-  await page.getByLabel('Enable postcode pricing feature',{exact:true}).check();
+  assert.equal(await page.getByLabel('Enable postcode pricing feature',{exact:true}).isDisabled(),true);
+  assert.equal(await page.getByLabel('Enable postcode pricing feature',{exact:true}).isChecked(),false);
   for(const d of ['BT1','BT2'])for(const code of ['DUB','BFS','BHD'])await row(d,code).getByRole('checkbox').check();
   await save();
   await page.getByLabel('Fare approval',{exact:true}).selectOption('approved');
@@ -99,11 +83,11 @@ async function main(){try{
   await page.getByLabel('Postcode district',{exact:true}).fill('bt3');await page.getByLabel('Destination airport',{exact:true}).selectOption('BHD');await page.getByLabel('Fixed Saloon fare',{exact:true}).fill('90');await page.getByRole('button',{name:'Add to draft',exact:true}).click();await save();
   await row('BT3','BHD').getByRole('button',{name:/Edit/}).click();await page.getByLabel('Fixed Saloon fare',{exact:true}).fill('95');await page.getByRole('button',{name:'Update draft rule',exact:true}).click();await save();
   await row('BT3','BHD').getByRole('checkbox').uncheck();await save();
-  await page.getByLabel('Search configured rules',{exact:true}).fill('bt3');assert.equal(await page.getByRole('rowheader').count(),1);assert.match(await row('BT3','BHD').innerText(),/£95.00\s+£105.00/);
+  await page.getByLabel('Search configured rules',{exact:true}).fill('bt3');assert.equal(await page.getByRole('rowheader').count(),1);assert.match(await row('BT3','BHD').innerText(),/£95.00\s+£102.00/);
   await row('BT3','BHD').getByRole('button',{name:/Delete/}).click();await save();await page.getByLabel('Search configured rules',{exact:true}).fill('');
   await reloadPricing();assert.equal(await page.getByRole('rowheader').count(),12);
   await row('BT1').getByRole('button',{name:/Preview/}).click();await page.getByText('Customer fare: £245.00',{exact:true}).waitFor();
-  await page.getByLabel('Preview vehicle',{exact:true}).selectOption('estate');await page.getByText('Customer fare: £255.00',{exact:true}).waitFor();
+  await page.getByLabel('Preview vehicle',{exact:true}).selectOption('estate');await page.getByText('Customer fare: £252.00',{exact:true}).waitFor();
   await page.locator('#postcode-preview-address').fill('Belfast City Hall');
   await page.getByRole('option').filter({hasText:'Belfast City Hall'}).first().click();
   const beforePreview=JSON.stringify([...data]);
@@ -118,7 +102,7 @@ async function main(){try{
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:root+'/../postcode-admin-'+width+'.png',fullPage:true});
   console.log('OK '+width+'px admin: load proposal without activation, owner API save/readback, add/edit/disable/delete/search, duplicate validation, stale-save protection, no page overflow');
-  for(const [airport,saloon,estate] of [['DUB',245,255],['BFS',55,65],['BHD',35,45]]){
+  for(const [airport,saloon,estate] of [['DUB',231,238],['BFS',232,239],['BHD',231,238]]){
   await page.goto(url+'?mode=quote&to='+airport);await page.locator('#quote-section-passengers').waitFor();
   await page.evaluate(date=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:2,suitcases:1,returnJourney:false,tripDate:date,tripTime:'12:00'}})),date);
   await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();
@@ -126,15 +110,15 @@ async function main(){try{
   await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+estate+'$')}).waitFor();
   await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+estate+'$')}).click();await page.getByPlaceholder('John Smith').waitFor();
   assert.match(await page.locator('body').innerText(),new RegExp('£'+estate));
-  console.log('OK '+width+'px '+airport+': saved rules → Worker quote → final £'+saloon+' Saloon / £'+estate+' Estate including airport charges → booking details');
+  console.log('OK '+width+'px '+airport+': archived rules ignored → Worker mileage quote → final £'+saloon+' Saloon / £'+estate+' Estate including airport charges → booking details');
   }
   const penceSettings=await getOwnerPricingSettings(store);await saveOwnerPricingSettings(store,{...penceSettings,postcodeRules:penceSettings.postcodeRules.map(r=>r.district==='BT1'&&r.airportCode==='DUB'&&(r.direction||'to-airport')==='to-airport'?{...r,saloonFareGbp:245.45}:r)},{expectedVersion:penceSettings.version});
   await new Promise(r=>setTimeout(r,10500)); // Existing public quote settings cache; no product cache changes.
   await page.goto(url+'?mode=quote&to=DUB');await page.locator('#quote-section-passengers').waitFor();
   await page.evaluate(date=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:2,suitcases:1,returnJourney:false,tripDate:date,tripTime:'12:00'}})),date);
-  await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£245\.45$/}).waitFor();
-  await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£255\.45$/}).waitFor();
-  console.log('OK '+width+'px explicitly configured pence fare: fixed £245.45 / £255.45 shown exactly, ordinary whole-pound rounding unaffected');
+  await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£231$/}).waitFor();
+  await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£238$/}).waitFor();
+  console.log('OK '+width+'px explicitly configured pence fare: archived pence rule cannot replace the mileage fare');
   await page.goto(url);await page.getByRole('button',{name:'Load inactive workbook drafts',exact:true}).waitFor();
   await page.getByRole('button',{name:'Load inactive workbook drafts',exact:true}).click();
   await page.getByLabel('Status filter',{exact:true}).selectOption('needs-verification');

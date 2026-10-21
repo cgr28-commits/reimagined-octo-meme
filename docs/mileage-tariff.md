@@ -54,7 +54,8 @@ socket. The customer render check is `npm run check:customer-fixed-fare-display`
 This branch is a draft, not a production deployment. Deploy the frontend and
 Worker together after review. Frontend-only previews still connected to the old
 production Worker are not valid demonstrations of the new authoritative prices.
-Other historical suites contain old curve/postcode/hourly assumptions and need
-review if CI runs them; do not bypass required checks. No browser checkout or live
-payment was submitted during verification. Rollback is the prior code revision;
+Historical curve/postcode/hourly tests now verify the replacement mileage tariff,
+retained archived records, stale-price rejection and independent saved night/weekend
+controls. Required checks must pass before merging. Isolated checkout tests mock
+all external calls; no real payment or customer email is sent. Rollback is the prior code revision;
 no production KV settings have been written by this implementation.

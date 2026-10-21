@@ -39,6 +39,9 @@ jobs:
       - run: node scripts/sync-worker-shared.mjs
       - name: Isolated quote, checkout, security and draft-management tests
         run: |
+          node --import tsx scripts/check-universal-distance-pricing.ts
+          node --import tsx scripts/check-quote-path-fare-parity.ts
+          node --import tsx scripts/check-customer-fixed-fare-display.tsx
           node --import tsx scripts/check-postcode-pricing.ts
           node --import tsx scripts/check-postcode-management.ts
           node --import tsx scripts/check-postcode-release-compatibility.ts
