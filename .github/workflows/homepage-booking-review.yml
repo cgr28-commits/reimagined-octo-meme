@@ -124,7 +124,7 @@ jobs:
             QUOTE_TEST_BROWSER=webkit QUOTE_SWITCH_WIDTH=$width QUOTE_SWITCH_DIAGNOSTIC=main-$width QUOTE_TEST_EXPORT_DIR=switch-baseline/out node --import tsx scripts/check-mobile-result-action-browser.cjs
             QUOTE_TEST_BROWSER=webkit QUOTE_SWITCH_WIDTH=$width QUOTE_SWITCH_DIAGNOSTIC=pr-$width node --import tsx scripts/check-mobile-result-action-browser.cjs
           done
-          node -e "const fs=require('fs'),a=require('assert/strict');const read=n=>JSON.parse(fs.readFileSync('test-results/mobile-result/switch-'+n+'.json'));for(const w of [320,375]){const m=read('main-'+w),p=read('pr-'+w);for(const k of ['before','pending','settled'])a.deepEqual(p[k],m[k]);a.equal(p.bookingOpened,true);a.equal(m.bookingOpened,true);console.log('PASS identical main/PR '+w+'px geometry, fonts and accessible booking flow');}"
+          node -e "const fs=require('fs'),a=require('assert/strict');const read=n=>JSON.parse(fs.readFileSync('test-results/mobile-result/switch-'+n+'.json'));for(const w of [320,375]){const m=read('main-'+w),p=read('pr-'+w);for(const k of ['before','pending','settled','transitions'])a.deepEqual(p[k],m[k]);a.equal(p.bookingOpened,true);a.equal(m.bookingOpened,true);console.log('PASS identical main/PR '+w+'px geometry, fonts and accessible booking flow');}"
       - name: Mobile result scroll keeps the booking action visible
         run: |
           QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs
