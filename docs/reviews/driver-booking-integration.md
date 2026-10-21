@@ -15,6 +15,7 @@ Status: development branch `codex/driver-web-dashboard`, draft PR #678. No produ
 
 - The existing authenticated My Jobs API supplies booking references, addresses, dates/times, passengers, luggage, notes and leg-specific details. Existing pagination covers all retained future legs; frontend sorts chronologically.
 - Personal driver sessions now require an exact assigned profile ID. Same-name drivers, unassigned jobs and legacy name-only records cannot pass personal-session checks. Unauthorized filtering fails closed. Existing shared-key compatibility remains separate.
+- Preserve formatted pickup date/time in the driver privacy whitelist; integration/browser tests explicitly verify the pickup time is visible.
 - Return flight number, airport access and Dublin terminal use return fields. A missing return flight never falls back to the outbound flight number.
 - Cancelled/refunded journeys return no available journey actions. Cancelled bookings are labelled without claiming a refund occurred.
 - Personal jobs-list reads never perform implicit flight lookup or return-leg backfill. Flight lookup is an explicit, assignment-checked request; the new frontend sends the job identifier in a POST body. Missing flights and cancelled jobs return clear unavailable states.

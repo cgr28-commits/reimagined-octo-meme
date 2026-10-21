@@ -31,6 +31,7 @@ try {
         await page.route('**/*', route => { if (!route.request().url().startsWith(origin)) { external.push(route.request().url().split('?')[0]); return route.abort(); } return route.continue(); });
         await page.goto(origin + '/driver/');
         await page.getByText('Booking MAT-STAGE-OUTBOUND', { exact: true }).waitFor();
+        await page.getByText(/10:30.*Titanic Belfast/).waitFor();
         assert.equal(await page.getByRole('dialog', { name: 'Cookie consent' }).count(), 0);
         assert.equal(await page.locator('script[src*="googletagmanager"],script[src*="tgtag.io"],script[src*="tawk.to"]').count(), 0);
         await page.getByText('Booking cancelled', { exact: true }).waitFor();

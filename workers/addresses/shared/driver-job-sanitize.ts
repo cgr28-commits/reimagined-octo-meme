@@ -15,6 +15,7 @@ export const DRIVER_JOB_WHITELIST = [
   "tripDate",
   "tripTime",
   "pickupAt",
+  "pickupDisplay",
   "returnJourney",
   "returnDate",
   "returnTime",

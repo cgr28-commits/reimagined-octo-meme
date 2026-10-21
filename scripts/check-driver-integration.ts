@@ -23,6 +23,7 @@ async function main() {
       assert.ok(!jobs.some(job => ['staging-other', 'staging-unassigned', 'staging-legacy'].includes(job.token)));
       const returning = jobs.find(job => job.journeyLeg === 'return')!;
       assert.equal(returning.flightNumber, 'RETURN123'); assert.equal(returning.airportAccessOption, 'express'); assert.equal(returning.dublinArrivalTerminal, 'T2');
+      assert.ok(returning.pickupDisplay?.includes('12:00'), 'Pickup time must survive the driver privacy filter');
       assert.equal(returning.passengers, 3); assert.equal(returning.suitcases, 2); assert.ok(returning.notes.includes('Fictional'));
       const cancelled = jobs.find(job => job.token === 'staging-cancelled')!;
       assert.equal(cancelled.bookingStatus, 'cancelled'); assert.deepEqual(cancelled.allowedJourneyActions, []);
