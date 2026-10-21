@@ -44,17 +44,18 @@ async function main() {
    window.testBrowserBarHeight = 0;
    if (window.visualViewport) Object.defineProperty(window.visualViewport, 'height', { get: () => innerHeight - window.testBrowserBarHeight });
   }, settings);
-  page = await context.newPage(); page.on('pageerror', e => { errors.push(e.message); console.error('PAGEERROR', e.message); });
-  page.on('requestfailed', request => {
-   if (request.url().startsWith('http://127.0.0.1:3094/')) console.error('LOCAL REQUEST FAILED', request.url(), request.failure());
-  });
   async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, firstTap = null, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
+   // Each case is a fresh customer journey. Replacing the previous document
+   // immediately after Start New Quote races its newly visible link prefetches
+   // in WebKit (run 39670823766). Isolate pages instead of suppressing errors;
+   // every page keeps its error listener through close and shares this assertion.
+   if (page) await page.close();
+   page = await context.newPage();
+   page.on('pageerror', e => { errors.push(e.message); console.error('PAGEERROR', e.message); });
+   page.on('requestfailed', request => {
+    if (request.url().startsWith('http://127.0.0.1:3094/')) console.error('LOCAL REQUEST FAILED', request.url(), request.failure());
+   });
    await page.setViewportSize({ width, height }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
-   // Resizing the previous case can expose links and start Next.js prefetches.
-   // Finish this isolated fixture's requests before replacing its document;
-   // WebKit can report teardown cancellations as access-control page errors.
-   // Keep every pageerror in the final assertion, including during this wait.
-   if (page.url() !== 'about:blank') await page.waitForLoadState('networkidle', { timeout: 10000 });
    console.log('BEGIN CASE', JSON.stringify({ engine, width, height, reduced, vehicle, firstTap }));
    await page.goto('http://127.0.0.1:3094/?previewJourney=bfs&previewPax=1&previewBags=1');
    await page.locator('#quote-section-passengers').waitFor();
