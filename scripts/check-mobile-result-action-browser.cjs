@@ -44,7 +44,17 @@ async function main() {
    window.testBrowserBarHeight = 0;
    if (window.visualViewport) Object.defineProperty(window.visualViewport, 'height', { get: () => innerHeight - window.testBrowserBarHeight });
   }, settings);
-  page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
+  page = await context.newPage();
+  const network = [];
+  const record = (event, request, extra = {}) => {
+   if (request.url().includes('index.txt')) network.push({ at: Date.now(), event, url: request.url(), ...extra });
+  };
+  page.on('request', request => record('request', request));
+  page.on('response', response => record('response', response.request(), { status: response.status(), headers: response.headers() }));
+  page.on('requestfinished', request => record('finished', request));
+  page.on('requestfailed', request => record('failed', request, { failure: request.failure() }));
+  page.on('pageerror', e => { errors.push(e.message); console.error('PAGEERROR', JSON.stringify({ at: Date.now(), message: e.message, stack: e.stack, recentRequests: network.slice(-30) })); });
+  page.on('framenavigated', frame => { if (frame === page.mainFrame()) console.log('NAVIGATION', Date.now(), frame.url()); });
   async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, firstTap = null, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
    await page.setViewportSize({ width, height }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
    await page.goto('http://127.0.0.1:3094/?previewJourney=bfs&previewPax=1&previewBags=1');
@@ -276,7 +286,7 @@ async function main() {
    fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
    await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-failure.png`) });
   }
-  console.error(serverLog.slice(-300));
+  console.error('TEST SERVER LOG', serverLog);
   throw error;
  } finally {
   if (browser) await browser.close(); await stopTestProcess(server);

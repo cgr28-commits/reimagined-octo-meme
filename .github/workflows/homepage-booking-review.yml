@@ -129,7 +129,14 @@ jobs:
           node -e "const fs=require('fs'),a=require('assert/strict');const read=n=>JSON.parse(fs.readFileSync('test-results/mobile-result/switch-'+n+'.json'));for(const e of ['webkit','chromium'])for(const w of [320,375]){const m=read('main-'+e+'-'+w),p=read('pr-'+e+'-'+w);for(const k of ['before','pending','settled','transitions'])a.deepEqual(p[k],m[k]);a.equal(p.bookingOpened,true);a.equal(m.bookingOpened,true);console.log('PASS identical main/PR '+e+' '+w+'px geometry, fonts and accessible booking flow');}"
       - name: Mobile result scroll keeps the booking action visible
         run: |
-          QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs
+          # Collect both identical full WebKit runs, then fail if either fails.
+          main_status=0
+          pr_status=0
+          QUOTE_TEST_BROWSER=webkit QUOTE_TEST_EXPORT_DIR=switch-baseline/out node --import tsx scripts/check-mobile-result-action-browser.cjs > main-webkit.log 2>&1 || main_status=$?
+          cat main-webkit.log
+          QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs > pr-webkit.log 2>&1 || pr_status=$?
+          cat pr-webkit.log
+          test "$main_status" -eq 0 && test "$pr_status" -eq 0
           node --import tsx scripts/check-mobile-result-action-browser.cjs
       - name: Test homepage and booking on mobile and desktop
         run: |
