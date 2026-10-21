@@ -111,6 +111,16 @@ jobs:
       - run: node --import tsx scripts/check-dublin-airport-label.ts
       - run: node --import tsx scripts/check-email-logo.ts
       - run: node --import tsx scripts/check-booking-confirmation-preview.ts
+      - name: Check out current main for the 320px WebKit comparison
+        uses: actions/checkout@v4
+        with:
+          ref: 4fa36b0efa285a662b1f4bc468ad926fd7de8305
+          path: switch-baseline
+      - name: Build main and compare the identical Saloon to Estate interaction
+        run: |
+          (cd switch-baseline && npm ci && GITHUB_PAGES=true npm run build)
+          QUOTE_TEST_BROWSER=webkit QUOTE_SWITCH_DIAGNOSTIC=main QUOTE_TEST_EXPORT_DIR=switch-baseline/out node --import tsx scripts/check-mobile-result-action-browser.cjs
+          QUOTE_TEST_BROWSER=webkit QUOTE_SWITCH_DIAGNOSTIC=pr node --import tsx scripts/check-mobile-result-action-browser.cjs
       - name: Mobile result scroll keeps the booking action visible
         run: |
           QUOTE_TEST_BROWSER=webkit node --import tsx scripts/check-mobile-result-action-browser.cjs

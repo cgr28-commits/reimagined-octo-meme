@@ -14,7 +14,7 @@ settings.executive.requestQuote = true;
 settings.minibus = { ...settings.minibus, publicEnabled: true, requestQuote: true };
 const config = toPublicOwnerPricingConfig(settings);
 config.executive.requestQuote = true; config.minibus = { ...config.minibus, publicEnabled: true, requestQuote: true };
-const server = spawn('python3', ['-m', 'http.server', '3094', '--bind', '127.0.0.1', '--directory', 'out'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn('python3', ['-m', 'http.server', '3094', '--bind', '127.0.0.1', '--directory', process.env.QUOTE_TEST_EXPORT_DIR || 'out'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
 let serverLog = '', browser, page;
 server.stdout.on('data', b => serverLog += b); server.stderr.on('data', b => serverLog += b);
 const errors = [];
@@ -152,6 +152,39 @@ async function main() {
    }
 
    console.log('OK ' + engine + (firstTap ? ' first tap without manual scrolling: ' + firstTap + ' ' : ' result landing ')  + JSON.stringify({ width, height, bars, lateBars, reduced, vehicle, ...m }));
+  }
+  // Isolated same-fixture measurement against the pinned main export in CI.
+  if (process.env.QUOTE_SWITCH_DIAGNOSTIC) {
+   await quote(320, 844);
+   const measure = () => page.evaluate(() => {
+    const card = document.querySelector('[data-quote-selected-vehicle-card]');
+    const rect = el => { const r = el.getBoundingClientRect(); return { top: r.top + scrollY, height: r.height, text: el.innerText }; };
+    return Object.fromEntries(['[data-quote-result-heading]', '[data-quote-result-detail-slot]', '[data-quote-result-art]', '[data-quote-info-grid]', '[data-quote-changing-info]', '[data-quote-result-main-action]', '[data-quote-result-actions]'].map(selector => [selector, rect(document.querySelector(selector))]));
+   });
+   const before = await measure();
+   await page.locator('[data-vehicle-category="estate"]').click();
+   await page.waitForTimeout(100);
+   const pending = await measure();
+   await page.waitForTimeout(1500);
+   const settled = await measure();
+   const button = page.locator('[data-quote-result-card] #quote-book-now-button');
+   await button.scrollIntoViewIfNeeded();
+   await button.click({ trial: true });
+   const hit = await button.evaluate(el => {
+    const r = el.getBoundingClientRect();
+    const headerBottom = document.querySelector('header.fixed, header[class*="fixed"]')?.getBoundingClientRect().bottom || 0;
+    return { top:r.top, bottom:r.bottom, viewport:visualViewport.height, headerBottom,
+     unobstructed:[.2,.5,.8].every(x=>[.2,.5,.8].every(y=>el.contains(document.elementFromPoint(r.left+r.width*x,r.top+r.height*y)))) };
+   });
+   assert.ok(hit.top >= hit.headerBottom && hit.bottom <= hit.viewport && hit.unobstructed, JSON.stringify(hit));
+   await page.screenshot({path:`test-results/mobile-result/switch-${process.env.QUOTE_SWITCH_DIAGNOSTIC}.png`});
+   await button.click();
+   await page.getByPlaceholder('John Smith').waitFor();
+   const report = {before,pending,settled,hit,bookingOpened:true};
+   fs.writeFileSync(`test-results/mobile-result/switch-${process.env.QUOTE_SWITCH_DIAGNOSTIC}.json`, JSON.stringify(report,null,2));
+   console.log('SWITCH DIAGNOSTIC '+process.env.QUOTE_SWITCH_DIAGNOSTIC+' '+JSON.stringify(report));
+   assert.deepEqual(errors, []);
+   return;
   }
   // Each action must work as the FIRST touch after the automatic reveal.
   // Mobile reveal targets the selected result (measureQuoteReveal), not the
