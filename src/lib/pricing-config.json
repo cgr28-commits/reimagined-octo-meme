@@ -120,10 +120,10 @@
       "LDY": 103
     },
     "Holywood": {
-      "BFS": 24,
+      "BFS": 19,
       "BHD": 0,
       "DUB": 58,
-      "LDY": 103
+      "LDY": 108
     },
     "Newtownabbey": {
       "BFS": 0,
@@ -132,7 +132,7 @@
       "LDY": 94
     },
     "Lisburn": {
-      "BFS": 3,
+      "BFS": 6,
       "BHD": 0,
       "DUB": 60,
       "LDY": 103
@@ -151,7 +151,7 @@
     },
     "Ballyclare": {
       "BFS": 0,
-      "BHD": 20,
+      "BHD": 19,
       "DUB": 65,
       "LDY": 88
     },
@@ -195,7 +195,7 @@
       "BFS": 3,
       "BHD": 54,
       "DUB": 78,
-      "LDY": 64
+      "LDY": 63
     },
     "Downpatrick": {
       "BFS": 49,
