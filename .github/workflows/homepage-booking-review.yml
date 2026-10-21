@@ -89,7 +89,7 @@ jobs:
 
   browser-review:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -120,6 +120,7 @@ jobs:
           python3 -m http.server 3000 --directory out &
           node --import tsx scripts/check-greater-belfast-ireland-browser.mjs
           node --import tsx scripts/check-homepage-booking-browser.mjs
+          PLAYWRIGHT_BROWSER=webkit node --import tsx scripts/check-return-vehicle-stability.mjs
           node --import tsx scripts/check-return-vehicle-stability.mjs
           node --import tsx scripts/check-hub-quote-browser.mjs
           node --import tsx scripts/check-email-logo-browser.mjs
