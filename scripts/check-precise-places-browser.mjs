@@ -77,6 +77,11 @@ try {
         if(pathname==='/') {
           await enterAddress(page,'#dropoff','Belfast International');
           await page.getByRole('button',{name:/Belfast International Airport.*Airport Rd/}).first().click();
+          await enterAddress(page,'#dropoff','Dublin Airport');
+          await page.getByRole('button',{name:/Dublin Airport.*Ireland/}).first().click();
+          await page.waitForFunction(()=>document.querySelector('#dropoff')?.value==='Dublin Airport, Co. Dublin, Ireland');
+          await enterAddress(page,'#dropoff','Belfast International');
+          await page.getByRole('button',{name:/Belfast International Airport.*Airport Rd/}).first().click();
         }
         const price=page.locator('[data-get-fixed-price]').last();
         await enterAddress(page,'#pickup','Holywood Road');
@@ -125,7 +130,11 @@ try {
       await page.getByRole('button',{name:'Save Changes',exact:true}).click();
       await page.getByRole('dialog',{name:'Confirm pricing changes'}).getByRole('button',{name:'Save Pricing',exact:true}).click();
       await page.getByRole('dialog',{name:'Confirm pricing changes'}).waitFor({state:'hidden'});
-      await page.reload();await minimum.waitFor();assert.equal(await minimum.inputValue(),'47.25');
+      await page.reload();await minimum.waitFor();
+      await page.waitForFunction(()=>[...document.querySelectorAll('label')]
+        .find(label=>label.textContent.includes('Belfast International Airport — Minimum Saloon Fare'))
+        ?.querySelector('input')?.value==='47.25');
+      assert.equal(await minimum.inputValue(),'47.25');
       await minimum.scrollIntoViewIfNeeded();await page.screenshot({path:`${output}/${engineName}-${width}-admin.png`});
       assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);
       cases++;console.log(`PASS ${engineName} ${width}px admin: default, blank rejection, decimal editing and save/reload`);
