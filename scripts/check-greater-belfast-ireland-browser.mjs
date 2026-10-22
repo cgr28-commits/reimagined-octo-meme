@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
+const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
 import { calculatePointToPointQuote } from '../src/lib/quote';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
 const base=process.env.TEST_BASE_URL || 'http://localhost:3000';
-await fs.mkdir('test-results/greater-belfast-ireland',{recursive:true});
-const browser=await chromium.launch();
+await fs.mkdir(`test-results/greater-belfast-ireland/${engine}`,{recursive:true});
+const browser=await ({chromium,webkit}[engine]).launch();
 try {
   for (const width of [390,1280]) for (const destination of ['cork','galway','donegal','derry']) {
     const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
@@ -31,7 +32,7 @@ try {
     const page=await context.newPage();
     await page.goto(`${base}/?previewJourney=bfs&previewDestination=${destination}`);
     await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
-    const cookie=page.getByRole('button',{name:'Essential only',exact:true});
+    const cookie=page.getByRole('button',{name:'Reject optional',exact:true});
     if(await cookie.isVisible()) await cookie.click();
     await page.locator('#quote-section-passengers').selectOption('2');
     await page.locator('#quote-section-suitcases').selectOption('0');
@@ -39,7 +40,7 @@ try {
     await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
     assert.match(await page.locator('[data-quote-results="ready"]').innerText(),/£[\d,]+/);
     await page.locator('[data-quote-results="ready"]').scrollIntoViewIfNeeded();
-    await page.screenshot({path:`test-results/greater-belfast-ireland/${width}-${destination}.png`});
+    await page.screenshot({path:`test-results/greater-belfast-ireland/${engine}/${width}-${destination}.png`});
     await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
     await page.locator('#date').waitFor({state:'visible'});
     assert.match(await page.locator('#quote-price-summary').innerText(),/2 passengers/);

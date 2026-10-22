@@ -21,8 +21,10 @@ try {
       const evening=page.getByRole('switch',{name:'Evening pricing enabled'}), overnight=page.getByRole('switch',{name:'Overnight pricing enabled'});
       assert.equal(await evening.getAttribute('aria-checked'),'false');assert.equal(await overnight.getAttribute('aria-checked'),'false');
       assert.equal(await evening.isEnabled(),true);assert.equal(await overnight.isEnabled(),true);
-      assert.equal(await page.getByRole('textbox',{name:'Evening premium',exact:true}).inputValue(),'5');
+      assert.equal(await page.getByRole('textbox',{name:'Evening premium',exact:true}).inputValue(),'10');
       assert.equal(await page.getByRole('textbox',{name:'Overnight premium',exact:true}).inputValue(),'15');
+      assert.equal(await page.getByText('18:00–21:59: OFF — saved 10%',{exact:true}).isVisible(),true);
+      assert.equal(await page.getByText('22:00–05:59: OFF — saved 15%',{exact:true}).isVisible(),true);
       assert.equal(await page.getByRole('checkbox',{name:'Use mileage formula for new quotes'}).isChecked(),false);
       const legacyBefore={night:await page.getByRole('switch',{name:'Night pricing enabled',exact:true}).getAttribute('aria-checked'),weekend:await page.getByRole('switch',{name:'Weekend pricing enabled',exact:true}).getAttribute('aria-checked'),nightRate:await page.getByRole('textbox',{name:'Night surcharge',exact:true}).inputValue(),weekendRate:await page.getByRole('textbox',{name:'Weekend surcharge',exact:true}).inputValue()};
       await page.getByText('Collection-time pricing — Europe/London',{exact:true}).scrollIntoViewIfNeeded();

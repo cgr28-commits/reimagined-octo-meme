@@ -15,7 +15,7 @@ import { workbookDraftRules } from '../src/lib/postcode-pricing-drafts';
 
 Object.assign(globalThis, { React });
 const round=(value:number)=>Math.round(value*100)/100;
-const enabledBands=()=>({evening:{enabled:true,surchargeRate:.05},overnight:{enabled:true,surchargeRate:.15}});
+const enabledBands=()=>({evening:{enabled:true,surchargeRate:.10},overnight:{enabled:true,surchargeRate:.15}});
 function premium(pricing:OwnerPricingSettings,date:string,time:string,ret?:{date:string,time:string}) {
   return applyTripPremium(100,{outboundDate:date,outboundTime:time,returnJourney:!!ret,returnDate:ret?.date,returnTime:ret?.time},undefined,{pricing,returnOneWayFare:80});
 }
@@ -30,7 +30,7 @@ async function main() {
     let boundaries=0;
     for(const formula of [false,true]) for(const date of ['2026-01-13','2026-07-14','2026-03-29','2026-10-25']) {
       pricing.saloonFormula={...DEFAULT_SALOON_FORMULA,enabled:formula};
-      for(const [time,expected] of [['05:59',15],['06:00',0],['19:59',0],['20:00',5],['23:59',5],['00:00',15]] as const) {
+      for(const [time,expected] of [['05:59',15],['06:00',0],['17:59',0],['18:00',10],['21:59',10],['22:00',15],['23:59',15],['00:00',15]] as const) {
         assert.equal(premium(pricing,date,time).premiumAmount,expected,`${formula} ${date} ${time}`);boundaries++;
       }
     }
@@ -50,10 +50,16 @@ async function main() {
     assert.equal(premium(pricing,'2026-11-14','01:00').premiumAmount,15,'overnight wins over weekend');
     assert.equal(premium(pricing,'2026-11-14','12:00').premiumAmount,12);
     const returned=premium(pricing,'2026-11-13','20:00',{date:'2026-11-14',time:'01:00'});
-    assert.equal(returned.premiumAmount,17,'100×5% + 80×15%, no legacy 45%');
-    assert.equal(returned.total,188,'5% on base fares only; fees added later');
+    assert.equal(returned.premiumAmount,22,'100×10% + 80×15%, no legacy 45%');
+    assert.equal(returned.total,193,'5% on base fares only; fees added later');
+    const agreed={...pricing,weekend:{...pricing.weekend,surchargeRate:.10}};
+    for(const date of ['2026-11-13','2026-11-14','2026-11-15']) {
+      assert.equal(premium(agreed,date,'18:00').total,110,'evening/weekend: one 10% of original base');
+      assert.equal(premium(agreed,date,'22:00').total,115,'overnight/weekend: one 15%, never compounded to 126.50');
+      assert.equal(premium(agreed,date,'02:00').total,115,'early morning uses original base on every day');
+    }
     pricing.collectionTimePricing.evening.enabled=false;
-    assert.equal(premium(pricing,'2026-11-13','23:00').premiumAmount,0,'disabled evening cannot fall back to legacy night');
+    assert.equal(premium(pricing,'2026-11-13','20:00').premiumAmount,0,'disabled evening cannot fall back to legacy night');
     pricing.collectionTimePricing.evening.enabled=true;pricing.collectionTimePricing.overnight.enabled=false;
     assert.equal(premium(pricing,'2026-11-13','01:00').premiumAmount,0,'disabled overnight cannot fall back to legacy night');
     pricing.collectionTimePricing.evening.enabled=false;
@@ -75,6 +81,7 @@ async function main() {
     assert.equal((await api('GET',undefined,'wrong')).status,401);
     const initial=await (await api('GET')).json();assert.equal(initial.collectionTimePricingEditorVersion,1);
     let saved:OwnerPricingSettings=initial.settings;
+    saved.saloonFormula={...DEFAULT_SALOON_FORMULA,enabled:true,ratePerMileGbp:2.60};
     saved.postcodeRules=workbookDraftRules().slice(0,172);saved.postcodePricingEnabled=true;
     saved.night={...saved.night,enabled:false,surchargeRate:.27};saved.weekend={...saved.weekend,enabled:true,surchargeRate:.19};saved.estate.upliftGbp=12.75;
     saved.collectionTimePricing={evening:{enabled:true,surchargeRate:.075},overnight:{enabled:false,surchargeRate:.18}};
@@ -109,8 +116,9 @@ async function main() {
       const inbound=calculateAuthoritativeWebsiteQuote({...input,pickupAddress:input.dropoffAddress,dropoffAddress:input.pickupAddress,fromAirport:true,returnJourney:false,pricing:disabled});
       if(!out.ok||!inbound.ok)throw Error('baseline quote failed');
       const baseOut=out.journeyFareGbp!,baseReturn=inbound.journeyFareGbp!;
-      const expected=ret?round((baseOut+baseReturn)*.95+(baseOut*.05+baseReturn*.15)):round(baseOut*1.05);
+      const expected=ret?round((baseOut+baseReturn)*.95+(baseOut*.10+baseReturn*.15)):round(baseOut*1.10);
       assert.equal(quote.journeyFareGbp,expected,`${mode} ${airport} ${vehicle} ${ret}`);
+      assert.equal(quote.airportFixedCostsGbp,round(out.airportFixedCostsGbp!+(ret?inbound.airportFixedCostsGbp!:0)),'airport fees and tolls are not increased by time premiums');
       const access=airport==='BFS'?(ret?10:5):0;
       const breakdown=composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:quote.journeyFareGbp!,nightWeekendSurchargeGbp:quote.nightWeekendSurchargeGbp,airportFixedCostsGbp:quote.airportFixedCostsGbp!,airportAccessChargeGbp:access,returnJourney:ret,inclusiveSchedulePricing:true});
       assert.equal(breakdown.finalAmountPayableGbp,Math.round(expected+quote.airportFixedCostsGbp!+access));

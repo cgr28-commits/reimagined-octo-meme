@@ -14,7 +14,7 @@ settings.executive.requestQuote = true;
 settings.minibus = { ...settings.minibus, publicEnabled: true, requestQuote: true };
 const config = toPublicOwnerPricingConfig(settings);
 config.executive.requestQuote = true; config.minibus = { ...config.minibus, publicEnabled: true, requestQuote: true };
-const server = spawn('python3', ['-m', 'http.server', '3094', '--bind', '127.0.0.1', '--directory', 'out'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn('python3', ['-m', 'http.server', '3094', '--bind', '127.0.0.1', '--directory', process.env.QUOTE_TEST_EXPORT_DIR || 'out'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
 let serverLog = '', browser, page;
 server.stdout.on('data', b => serverLog += b); server.stderr.on('data', b => serverLog += b);
 const errors = [];
@@ -44,13 +44,28 @@ async function main() {
    window.testBrowserBarHeight = 0;
    if (window.visualViewport) Object.defineProperty(window.visualViewport, 'height', { get: () => innerHeight - window.testBrowserBarHeight });
   }, settings);
-  page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, firstTap = null, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
+   // Each case is a fresh customer journey. Replacing the previous document
+   // immediately after Start New Quote races its newly visible link prefetches
+   // in WebKit (run 39670823766). Isolate pages instead of suppressing errors;
+   // every page keeps its error listener through close and shares this assertion.
+   if (page) await page.close();
+   page = await context.newPage();
+   page.on('pageerror', e => { errors.push(e.message); console.error('PAGEERROR', e.message); });
+   page.on('requestfailed', request => {
+    if (request.url().startsWith('http://127.0.0.1:3094/')) console.error('LOCAL REQUEST FAILED', request.url(), request.failure());
+   });
    await page.setViewportSize({ width, height }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
+   console.log('BEGIN CASE', JSON.stringify({ engine, width, height, reduced, vehicle, firstTap }));
    await page.goto('http://127.0.0.1:3094/?previewJourney=bfs&previewPax=1&previewBags=1');
    await page.locator('#quote-section-passengers').waitFor();
+   await page.evaluate(() => document.fonts.ready);
    await page.waitForFunction(() => document.querySelector('#pickup')?.value && document.querySelector('#dropoff')?.value && document.querySelector('#quote-section-passengers')?.value === '1');
-   const consent = page.getByRole('button', { name: 'Essential only', exact: true }); if (await consent.isVisible()) await consent.click();
+   // The existing banner uses "Reject optional". Await hydration and actually
+   // dismiss it before testing quote scrolling; the old selector left it open.
+   const consent = page.getByRole('button', { name: 'Reject optional', exact: true });
+   await consent.click();
+   await page.getByRole('dialog', { name: 'Cookie consent' }).waitFor({ state: 'hidden' });
    await page.evaluate(({ bars, vehicle }) => { window.testBrowserBarHeight = bars; window.dispatchEvent(new CustomEvent('quote-prefill-draft', { detail: { passengers: 1, suitcases: 1, vehicle, returnJourney: false, tripDate: new Date(Date.now()+10*86400000).toISOString().slice(0,10), tripTime: '12:00' } })); }, { bars, vehicle });
    const getPrice = page.getByRole('button', { name: 'Get My Fixed Price', exact: false });
    await getPrice.scrollIntoViewIfNeeded();
@@ -63,26 +78,30 @@ async function main() {
    // Wait for the actual reveal rather than assuming WebKit's rendering/effects
    // finish on Chromium's timing. This does not scroll or alter the page.
    await page.waitForFunction(() => {
-    const heading = document.querySelector('[data-quote-vehicle-options-heading]');
+    // Main and candidate both reveal the selected card on mobile (baseline
+    // investigation 39661970175); Vehicle options is the desktop target.
+    const heading = document.querySelector(innerWidth < 768 ? '[data-quote-selected-vehicle-card]' : '[data-quote-vehicle-options-heading]');
     const header = document.querySelector('header.fixed, header[class*="fixed"]');
     return heading && header && document.documentElement.style.scrollBehavior !== 'auto' && Math.abs(heading.getBoundingClientRect().top - header.getBoundingClientRect().bottom - 12) <= 9;
    }, null, { timeout: 10000 });
    const m = await page.evaluate(() => {
     const btn = [...document.querySelectorAll('[data-quote-result-card] #quote-book-now-button')].find(e => e.getClientRects().length);
-    const rect = btn.getBoundingClientRect(), heading = document.querySelector('[data-quote-vehicle-options-heading]').getBoundingClientRect();
+    const rect = btn.getBoundingClientRect(), heading = document.querySelector(innerWidth < 768 ? '[data-quote-selected-vehicle-card]' : '[data-quote-vehicle-options-heading]').getBoundingClientRect();
     const header = document.querySelector('header.fixed, header[class*="fixed"]');
     return { top: rect.top, bottom: rect.bottom, header: header?.getBoundingClientRect().bottom || 0, heading: heading.top, height: visualViewport.height, inset: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--matni-cookie-banner-offset')) || 0, y: scrollY, label: btn.innerText, stacked: new Set([...document.querySelectorAll('[data-vehicle-category]')].map(e => Math.round(e.getBoundingClientRect().left))).size === 1, overflow: document.documentElement.scrollWidth > innerWidth };
    });
    assert.equal(m.overflow, false); assert.ok(m.header > 0, 'Real fixed site header must be mounted');
-   if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must start at the full vehicle list: ' + JSON.stringify(m));  }
-   else { assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m)); assert.ok(await page.locator('[data-quote-result-art]').isVisible()); assert.ok(await page.locator('[data-quote-result-capacity]').isVisible()); }
-   assert.match(m.label, /BOOK THIS TRANSFER|REQUEST A QUOTE/);
+   if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must reveal the selected vehicle card: ' + JSON.stringify(m));  }
+   else { assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m)); assert.ok(await page.locator('[data-quote-result-art]').isVisible()); assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), width < 1024, 'Existing desktop layout suppresses the duplicate capacity line'); }
+   assert.match(m.label, /BOOK THIS TRANSFER|REQUEST QUOTE/);
    // Once the initial responses settle, the result must not keep scrolling.
    await page.waitForTimeout(250); assert.ok(Math.abs(await page.evaluate(() => scrollY) - m.y) <= 2);
    fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
    await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-${width}-${height}-${bars}-${lateBars}-${reduced}-${vehicle.split(' ')[0]}.png`) });
    if (width < 768) {
-    assert.equal(await page.locator('[data-quote-result-art]').isVisible(), false);
+    // Both main and candidate show the selected vehicle image (paired run
+    // 39662818694). Keep that established design under regression coverage.
+    assert.equal(await page.locator('[data-quote-result-art]').isVisible(), true);
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), false);
     for (const name of ['View route', 'Save Quote', 'Start over']) assert.ok(await page.getByRole('button', { name, exact: true }).isVisible());
     assert.ok(await page.getByRole('button', { name: 'Need help? WhatsApp us', exact: true }).isVisible());
@@ -158,31 +177,50 @@ async function main() {
   for (const firstTap of ['View route', 'Save Quote', 'Start over', 'Need help? WhatsApp us']) {
    await quote(430, 932, { firstTap });
   }
-  if (engine === 'webkit') {
-   assert.deepEqual(errors, []);
-   console.log('OK WebKit mobile: all four first taps open popups at the automatic landing, close restores quote/scroll; no helper scrolling or live writes');
-   return;
-  }
-  for (const [width, height] of [[320, 568], [375, 667], [390, 844], [430, 932]]) await quote(width, height, { bars: 100 });
+  for (const [width, height] of [[320, 568], [360, 740], [375, 667], [390, 844], [430, 932]]) await quote(width, height, { bars: 100 });
   await quote(390, 844, { lateBars: 160 });
   await quote(375, 667, { bars: 100, reduced: true });
   for (const vehicle of ['Estate Car (1–4 passengers)', 'Executive Saloon (1–4 passengers)', 'Minibus (5–7 passengers)']) await quote(390, 844, { bars: 100, vehicle });
-  // Switch through instant, pending and manual states without moving either action row.
-  for (const width of [320, 375, 390, 430]) {
+  // Main deliberately gives Estate 10px image margin and other vehicles -2px.
+  // Different vehicle copy/manual states also have natural heights. Compare the
+  // known Estate spacing, then require settled rows and usable controls instead
+  // of imposing zero movement across different content (main/PR run 39664182450).
+  for (const width of [320, 360, 375, 390, 430]) {
    await quote(width, 844, { reduced: width === 375 });
    const positions = () => page.evaluate(() => ['[data-quote-result-main-action]', '[data-quote-result-actions]'].map(selector => document.querySelector(selector).getBoundingClientRect().top + scrollY));
-   const baseline = await positions();
+   const spacing = () => page.evaluate(() => ({
+    margin: parseFloat(getComputedStyle(document.querySelector('[data-quote-result-art]')).marginBottom),
+    detail: document.querySelector('[data-quote-result-detail-slot]').getBoundingClientRect().height,
+    heading: document.querySelector('[data-quote-result-heading]').getBoundingClientRect().height,
+   }));
+   const baseline = await positions(), saloonSpacing = await spacing();
    for (const id of ['estate', 'executive', 'minibus', 'saloon']) {
     await page.locator(`[data-vehicle-category="${id}"]`).click();
     await page.waitForTimeout(100);
-    for (const [i, top] of (await positions()).entries()) assert.ok(Math.abs(top - baseline[i]) <= 2, `${width}px ${id} pending: action ${i} moved ${top - baseline[i]}px`);
-    await page.waitForTimeout(600);
-    for (const [i, top] of (await positions()).entries()) assert.ok(Math.abs(top - baseline[i]) <= 2, `${width}px ${id} ready: action ${i} moved ${top - baseline[i]}px`);
+    const pending = await positions();
+    await page.waitForTimeout(900); // 450ms quote fixture and existing 700ms fade.
+    const settled = await positions(), currentSpacing = await spacing();
+    if (id === 'estate') {
+     assert.equal(saloonSpacing.margin, -2); assert.equal(currentSpacing.margin, 10);
+     const expected = currentSpacing.margin - saloonSpacing.margin + currentSpacing.detail - saloonSpacing.detail + currentSpacing.heading - saloonSpacing.heading;
+     for (const [i, top] of settled.entries()) assert.ok(Math.abs(top - baseline[i] - expected) <= 2, `${width}px Estate action ${i}: unexplained movement ${top-baseline[i]}px, expected spacing ${expected}px`);
+    }
+    await page.waitForTimeout(250);
+    for (const [i, top] of (await positions()).entries()) assert.ok(Math.abs(top - settled[i]) <= 2, `${width}px ${id}: settled action ${i} keeps moving`);
     const duration = await page.locator('[data-quote-changing-info]').evaluate(el => getComputedStyle(el).animationDuration);
     if (width === 375) assert.equal(await page.locator('[data-quote-changing-info]').evaluate(el => getComputedStyle(el).animationName), 'none');
-    else assert.equal(duration, '0.36s');
+    else assert.equal(duration, '0.7s', 'Preserve the existing main-branch information fade');
+    const button = page.locator('[data-quote-result-card] #quote-book-now-button');
+    await button.scrollIntoViewIfNeeded();
+    await button.focus();
+    const hit = await button.evaluate(el => {
+     const r=el.getBoundingClientRect(), target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+     return {top:r.top,bottom:r.bottom,height:innerHeight,header:document.querySelector('header').getBoundingClientRect().bottom,unobstructed:el===target||el.contains(target),focused:el===document.activeElement,disabled:el.disabled,overflow:document.documentElement.scrollWidth>innerWidth};
+    });
+    assert.ok(hit.top >= hit.header && hit.bottom <= hit.height && hit.unobstructed && hit.focused && !hit.disabled && !hit.overflow, 'Selected vehicle booking control accessible: '+JSON.stringify(hit));
+    console.log('VEHICLE '+JSON.stringify({engine,width,id,pending:pending.map((n,i)=>n-baseline[i]),settled:settled.map((n,i)=>n-baseline[i]),spacing:currentSpacing,hit}));
    }
-   console.log(`OK ${width}px: both action rows stationary through all four vehicles; gentle fade respects Reduce Motion`);
+   console.log(`OK ${engine} ${width}px: intended vehicle spacing, settled action rows, accessible controls and reduced motion`);
   }
   await quote(1280, 900);
   // Confirming Start over still uses the existing reset; closing it above does not.
@@ -194,7 +232,7 @@ async function main() {
   assert.notEqual(await page.evaluate(() => document.body.style.position), 'fixed');
   // The booking control still opens the existing details flow.
   await quote(390, 844); await page.locator('[data-quote-result-card] #quote-book-now-button').click(); await page.getByPlaceholder('John Smith').waitFor();
-  assert.deepEqual(errors, []); console.log('OK original stacked options retained, duplicate mobile art/capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
+  assert.deepEqual(errors, []); console.log('OK original stacked options retained, existing mobile art visible and duplicate capacity hidden, all four result popups open with touch and close without moving the quote, desktop unchanged, booking works; no JS exceptions or live API calls');
  } catch (error) {
   console.error('Browser errors', errors);
   if (page) {
@@ -202,6 +240,7 @@ async function main() {
     y: scrollY, root: document.documentElement.scrollHeight, client: document.documentElement.clientHeight,
     body: document.body.style.cssText, behavior: document.documentElement.style.cssText,
     visible: document.visibilityState,
+    geometry: Object.fromEntries(['[data-quote-vehicle-options-heading]', 'header.fixed, header[class*="fixed"]', '[data-quote-result-card] #quote-book-now-button', '[data-quote-result-actions]'].map(selector => { const el = document.querySelector(selector); const r = el?.getBoundingClientRect(); return [selector, r ? { top:r.top, bottom:r.bottom, height:r.height } : null]; })),
     scrolls: window.testScrollCalls.slice(-5), touches: window.testTouchEvents,
     ancestors: (() => { const out = []; let el = document.querySelector('[data-quote-result-actions]'); while (el) { const s = getComputedStyle(el); out.push({ tag: el.tagName, class: el.className, scrollTop: el.scrollTop, overflow: s.overflow }); el = el.parentElement; } return out; })(),
    })));

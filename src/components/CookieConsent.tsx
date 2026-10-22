@@ -62,10 +62,10 @@ export default function CookieConsent() {
       role="dialog"
       aria-label="Cookie consent"
     >
-      <div className="cookie-consent-inner mx-auto flex max-w-5xl flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="cookie-consent-inner flex flex-col">
         <div className="min-w-0 flex-1">
           <p className="cookie-consent-copy text-white/70">
-            Essential cookies support booking. Optional Google Ads cookies measure quotes and paid bookings only if you accept.{" "}
+            Essential booking cookies; optional Google Ads measurement cookies.{" "}
             <Link href="/privacy/" className="font-medium text-emerald underline-offset-2 hover:underline">
               Privacy Policy
             </Link>
@@ -76,14 +76,14 @@ export default function CookieConsent() {
           <button
             type="button"
             onClick={() => choose("rejected")}
-            className="btn-secondary flex-1 sm:flex-none"
+            className="btn-secondary flex-1"
           >
             Reject optional
           </button>
           <button
             type="button"
             onClick={() => choose("accepted")}
-            className="btn-primary flex-1 sm:flex-none"
+            className="btn-secondary flex-1"
           >
             Accept
           </button>

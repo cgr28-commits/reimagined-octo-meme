@@ -82,7 +82,7 @@ export type CollectionTimePricing = {
 
 export function defaultCollectionTimePricing(): CollectionTimePricing {
   return {
-    evening: { enabled: false, surchargeRate: 0.05 },
+    evening: { enabled: false, surchargeRate: 0.10 },
     overnight: { enabled: false, surchargeRate: 0.15 },
   };
 }
@@ -792,7 +792,7 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
     case "collectionTimePricing.overnight": {
       const band = path.endsWith("evening") ? "evening" : "overnight";
       const value = (settings.collectionTimePricing ?? defaultCollectionTimePricing())[band];
-      return `${value.enabled ? "ON" : "OFF"}; ${formatPercentFromRate(value.surchargeRate)}; ${band === "evening" ? "20:00–23:59" : "00:00–05:59"} Europe/London`;
+      return `${value.enabled ? "ON" : "OFF"}; ${formatPercentFromRate(value.surchargeRate)}; ${band === "evening" ? "18:00–21:59" : "22:00–05:59"} Europe/London`;
     }
     case "saloonFormula": {
       const formula = settings.saloonFormula ?? DEFAULT_SALOON_FORMULA;
@@ -1057,10 +1057,10 @@ export function surchargeRateForDateTime(input: {
   const weekend = isWeekendDay(input.day, rules);
   if (collectionTimePricingEnabled(rules)) {
     const bands = rules.collectionTimePricing!;
-    const timeRate = input.minutes >= 20 * 60
-      ? (bands.evening.enabled ? bands.evening.surchargeRate : 0)
-      : input.minutes < 6 * 60
-        ? (bands.overnight.enabled ? bands.overnight.surchargeRate : 0)
+    const timeRate = input.minutes >= 22 * 60 || input.minutes < 6 * 60
+      ? (bands.overnight.enabled ? bands.overnight.surchargeRate : 0)
+      : input.minutes >= 18 * 60
+        ? (bands.evening.enabled ? bands.evening.surchargeRate : 0)
         : 0;
     // New collection bands replace the legacy night rule, never overlap it.
     return Math.max(timeRate, weekend ? input.weekendRate : 0);

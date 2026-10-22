@@ -178,7 +178,7 @@ console.log("=== NI fare regression fixtures (existing engine, unchanged formula
 
 /**
  * Locked amounts from calculateQuote — must not drift after eligibility change.
- * Main ed67b1f8 and collection-time 824a30db both use the existing £7 Estate
+ * Main ed67b1f8 and cookie branch 96bd35fb both use the existing £7 Estate
  * uplift. The former Estate fixtures still assumed £10; no fare code changed.
  */
 const NI_FIXTURES: Array<{
