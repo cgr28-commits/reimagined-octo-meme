@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { BT_DISTRICTS, APPROVED_POSTCODE_RULES, postcodeDistrict, validatePostcodeRules, postcodeTerminalAccessGbp } from "../shared/postcode-pricing";
-import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../shared/owner-pricing-config";
+import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig, validateOwnerPricingInput } from "../shared/owner-pricing-config";
 import { approvedStartingRules, workbookDraftRules, mergeMissingPostcodeRules } from "../src/lib/postcode-pricing-drafts";
 import { exportPostcodeCsv, importPostcodeCsv } from "../src/lib/postcode-pricing-csv";
 import { calculateQuote } from "../src/lib/quote";
@@ -12,8 +12,33 @@ import worker from "../workers/addresses/src/index";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { resolveSumUpChargeAmountGbp } from "../shared/open-website-payment-fares";
 import { postcodeFareHasPence } from "../shared/postcode-pricing";
+import { SERVED_AIRPORTS } from "../shared/served-airports";
+import { OPERATING_BASE } from "../workers/addresses/src/operating-base";
 
 async function main() {
+  // Current customer tariff: saved legacy postcode rules cannot override mileage mode.
+  const mileage = defaultOwnerPricingSettings();
+  mileage.saloonFormula = { enabled: true, startingChargeGbp: 10, ratePerMileGbp: 2.5, minimumFareGbp: 30 };
+  mileage.bfsMinimumSaloonFareGbp = 45;
+  mileage.estate.upliftGbp = 7;
+  mileage.night.enabled = false; mileage.weekend.enabled = false;
+  const passengerRoute = { distanceKm: 20 / 0.621371, durationMinutes: 30 };
+  for (const airport of ["BFS", "BHD", "DUB"] as const) for (const fromAirport of [false, true]) for (const returning of [false, true]) for (const vehicle of [S, E]) {
+    const expected = (10 + 2.5 * 20 + (vehicle === E ? mileage.estate.upliftGbp : 0)) * (returning ? 2 * .95 : 1);
+    for (const postcodePricingEnabled of [false, true]) for (const saloonFareGbp of [20, 999]) {
+      const settings = { ...mileage, postcodePricingEnabled, postcodeRules: (["to-airport", "from-airport"] as const).map(direction => ({ district: "BT1", airportCode: airport, direction, approvalStatus: "approved" as const, enabled: true, saloonFareGbp })) };
+      assert.equal(validateOwnerPricingInput(settings).ok, true, "Retained postcode fixtures must be valid so the engine cannot fall back to defaults");
+      for (const pricing of [settings, toPublicOwnerPricingConfig(settings)]) {
+        const result = calculateQuote("Belfast City Hall, Belfast BT1 5GS", airport, vehicle, returning, {}, passengerRoute, fromAirport, pricing)!;
+        assert.equal(result.journeyFareGbp, roundGbp(expected), "Passenger miles determine the vehicle fare even with retained postcode rules; return discount excludes airport charges");
+      }
+      assert.equal(toPublicOwnerPricingConfig(settings).postcodePricingEnabled, false, "Public mileage mode keeps postcode pricing disabled");
+    }
+  }
+  console.log("OK mileage tariff overrides retained postcode rules: three airports, both directions, Saloon/Estate, one-way/return and public/server parity");
+
+  // Historical compatibility and owner-only management checks below use isolated settings.
+  // They do not enable postcode pricing or profitability adjustments for customer quotes.
   const base = defaultOwnerPricingSettings(); // Explicit historical fixture supplement; current defaults are independently tested.
   base.estate.upliftGbp = 10; base.night.enabled = false; base.weekend.enabled = false;
   const address = "Belfast City Hall, Belfast BT1 5GS";
@@ -94,8 +119,15 @@ async function main() {
     const result = await response.json() as { preview: { fareGbp: number; directCostsGbp: number; totalMiles: number; drivingMinutes: number; hourlyGbp: number; contributionGbp: number; belowTarget: boolean } };
     assert.equal(result.preview.fareGbp, 255); assert.equal(result.preview.drivingMinutes, 120); assert.equal(result.preview.totalMiles, 55.9);
     assert.equal(result.preview.contributionGbp, roundGbp(255 - result.preview.directCostsGbp)); assert.equal(result.preview.hourlyGbp, roundGbp(result.preview.contributionGbp / 2));
-    assert.equal(urls.length, 3, "Passenger route plus positioning and homeward legs");
-    assert.ok(urls.some(u => u.includes("-5.97026,54.66598")), "Existing home base used on server only");
+    assert.equal(urls.length, 3, "Private analysis routes passenger, positioning and homeward legs");
+    const airport = SERVED_AIRPORTS.find(a => a.code === body.rule.airportCode)!;
+    const point = (p: { lat: number; lng: number }) => `${p.lng},${p.lat}`;
+    const legs = urls.map(url => decodeURIComponent(new URL(url).pathname).split("/driving/")[1]);
+    assert.deepEqual(legs.sort(), [
+      `${point(body)};${point(airport)}`,
+      `${point(OPERATING_BASE)};${point(body)}`,
+      `${point(airport)};${point(OPERATING_BASE)}`,
+    ].sort(), "Private analysis uses the current operating base and canonical airport in the correct directions");
     const low = await worker.fetch(req("test-owner", { ...body, rule: { ...body.rule, saloonFareGbp: 15 } }), env as never);
     assert.equal(low.status, 200); const lowBody = await low.json() as { preview: { fareGbp: number; belowTarget: boolean } }; assert.equal(lowBody.preview.belowTarget, true); assert.equal(lowBody.preview.fareGbp, 25, "Low profit never increases the customer fare");
     assert.equal((await worker.fetch(req("test-owner", { ...body, address: "Road BT10 0AA" }), env as never)).status, 422);
