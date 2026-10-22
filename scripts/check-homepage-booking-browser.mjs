@@ -240,12 +240,12 @@ try {
       const listboxId=await input.getAttribute('aria-controls');
       assert.ok(listboxId,`${field} autocomplete must identify its listbox`);
       await page.locator(`[id="${listboxId}"]`).getByRole('button',{name:'Dublin Airport Terminal 2 Ireland',exact:true}).click();
-      await page.waitForFunction((id)=>document.getElementById(id)?.value === 'Dublin Airport, Ireland',field);
-      assert.equal(await page.locator(`#${field}`).inputValue(),'Dublin Airport, Ireland');
+      await page.waitForFunction(({id,label})=>document.getElementById(id)?.value === label,{id:field,label:getServedAirport('DUB').formattedAddress});
+      assert.equal(await page.locator(`#${field}`).inputValue(),getServedAirport('DUB').formattedAddress);
     }
     await page.locator('#pickup').scrollIntoViewIfNeeded();
     await page.screenshot({path:`${output}/${width}-dublin-airport-fields.png`});
-    pass(`${width}px: canonical Dublin airport suggestion displays Dublin Airport, Ireland in pickup and drop-off`);
+    pass(`${width}px: canonical Dublin airport suggestion retains its verified airport address in pickup and drop-off`);
     await context.close();
   }
 } finally {

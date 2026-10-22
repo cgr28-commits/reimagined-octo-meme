@@ -24,6 +24,11 @@ await fs.mkdir(output,{recursive:true});
 const home={placeId:'test-home',address:'12 Holywood Road, Belfast BT4 1NT, UK',formattedAddress:'12 Holywood Road, Belfast BT4 1NT, UK',displayAddress:'12 Holywood Road, Belfast BT4 1NT, UK',placeName:null,lat:54.6063,lng:-5.8711,countryCode:'GB',postalCode:'BT4 1NT',streetNumber:'12',route:'Holywood Road',types:['street_address'],provider:'google'};
 const hotel={...home,placeId:'test-hotel',placeName:'Individual Hotel',address:'Individual Hotel, Belfast BT1 5GS, UK',formattedAddress:'Belfast BT1 5GS, UK',displayAddress:'Individual Hotel, Belfast BT1 5GS, UK',streetNumber:null,types:['lodging','establishment','point_of_interest']};
 const road={...home,placeId:'test-road',address:'Holywood Road, Belfast, UK',displayAddress:'Holywood Road, Belfast, UK',formattedAddress:'Holywood Road, Belfast, UK',placeName:'Holywood Road',streetNumber:null,types:['route']};
+async function enterAddress(page, selector, value) {
+  // A real customer taps the visible input before typing. WebKit fill() alone
+  // can edit an offscreen input, leaving its fixed-position popup offscreen.
+  const input=page.locator(selector);await input.click();await input.fill(value);
+}
 let cases=0;
 try {
   for (const [engineName,engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER === "chromium" ? {chromium} : {chromium,webkit})) for(const width of [390,1280]) {
@@ -64,15 +69,15 @@ try {
         const consent=page.getByRole('button',{name:'Reject optional',exact:true});if(await consent.isVisible())await consent.click();
         // Homepage has no selected airport on a fresh visit.
         if(pathname==='/') {
-          await page.locator('#dropoff').fill('Belfast International');
+          await enterAddress(page,'#dropoff','Belfast International');
           await page.getByRole('button',{name:/Belfast International Airport.*Airport Rd/}).first().click();
         }
         const price=page.locator('[data-get-fixed-price]').last();
-        await page.locator('#pickup').fill('Holywood Road');
+        await enterAddress(page,'#pickup','Holywood Road');
         await page.getByRole('button',{name:/Holywood Road.*Belfast/}).first().click();
         await page.getByText('Please choose a full address, hotel or individual building from the suggestions.',{exact:true}).first().waitFor();
         assert.equal(await price.isDisabled(),true,'road must not enable quote');
-        await page.locator('#pickup').fill('12 Holywood Road');
+        await enterAddress(page,'#pickup','12 Holywood Road');
         await page.getByRole('button',{name:/12 Holywood Road.*Belfast/}).first().click();
         await page.waitForFunction(()=>document.querySelector('#pickup')?.value.includes('BT4 1NT'));
         await page.locator('#quote-section-passengers').selectOption('1');await page.locator('#quote-section-suitcases').selectOption('1');
@@ -85,10 +90,10 @@ try {
         await page.locator('#name').waitFor({state:'visible'});
         await page.locator('[data-back-to-quote="top"]').click();
         const prior=quotes.length;
-        await page.locator('#pickup').fill('99 Holywood Road, Belfast');
+        await enterAddress(page,'#pickup','99 Holywood Road, Belfast');
         assert.equal(await price.isDisabled(),true,'editing invalidates previous ID and quote');
         await page.waitForTimeout(350);assert.equal(quotes.length,prior,'edited text cannot request a price');
-        await page.locator('#pickup').fill('Individual Hotel');
+        await enterAddress(page,'#pickup','Individual Hotel');
         await page.getByRole('button',{name:/Individual Hotel.*Belfast/}).first().click();
         await page.waitForFunction(()=>document.querySelector('#pickup')?.value.includes('BT1 5GS'));
         await page.locator('#quote-section-passengers').selectOption('1');await page.locator('#quote-section-suitcases').selectOption('1');
@@ -97,12 +102,9 @@ try {
         await page.screenshot({path:`${output}/${engineName}-${width}-${pathname==='/'?'home':'hub'}.png`});
         // A slow selection response must not restore coordinates after another edit.
         delayDetails=true;
-        // Match a customer's tap after the result has scrolled into view. fill()
-        // alone can edit an offscreen input in WebKit without moving its popup.
-        await page.locator('#pickup').click();
-        await page.locator('#pickup').fill('12 Holywood Road');
+        await enterAddress(page,'#pickup','12 Holywood Road');
         await page.getByRole('button',{name:/12 Holywood Road.*Belfast/}).first().click();
-        await page.locator('#pickup').fill('Other unfinished address');
+        await enterAddress(page,'#pickup','Other unfinished address');
         await page.waitForTimeout(700);
         assert.equal(await page.locator('#pickup').inputValue(),'Other unfinished address');assert.equal(await price.isDisabled(),true);
         delayDetails=false;
