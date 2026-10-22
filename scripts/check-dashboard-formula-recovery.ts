@@ -33,6 +33,20 @@ try {
  saved=await getOwnerPricingSettings(kv);
  assert.deepEqual(saved.saloonFormula,DEFAULT_SALOON_FORMULA);
  for(const bad of ['',-1,Infinity,NaN]) assert.equal(validateOwnerPricingInput({...saved,saloonFormula:{...saved.saloonFormula,ratePerMileGbp:bad}}).ok,false);
+ for (const rate of [2.35, 2.50, 2.75]) {
+  const before=JSON.parse(JSON.stringify(saved));
+  saved.saloonFormula.ratePerMileGbp=rate;
+  assert.equal((await api('POST',saved)).status,200);
+  saved=(await (await api('GET')).json()).settings;
+  assert.equal(saved.saloonFormula.ratePerMileGbp,rate);
+  assert.equal(toPublicOwnerPricingConfig(saved).saloonFormula?.ratePerMileGbp,rate);
+  const withoutMileageAndMetadata=(value:typeof saved)=>{
+   const {version,updatedAt,saloonFormula,...rest}=value;
+   const {ratePerMileGbp,...formula}=saloonFormula!;
+   return {...rest,saloonFormula:formula};
+  };
+  assert.deepEqual(withoutMileageAndMetadata(saved),withoutMileageAndMetadata(before),'only mileage rate and audit metadata change');
+ }
  const baseline=calculateConfiguredSaloonFareGbp(20,saved);
  saved.saloonFormula={enabled:true,startingChargeGbp:12,ratePerMileGbp:2.35,minimumFareGbp:32};
  assert.equal((await api('POST',saved)).status,200);saved=(await (await api('GET')).json()).settings;
