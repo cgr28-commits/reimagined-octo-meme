@@ -20,9 +20,9 @@ import { SERVED_AIRPORTS } from "../shared/served-airports";
  * the receipt immediately through the pricing version, so expiry is not the
  * only control.
  */
-// v2 binds the pricing/precise-location policy revision into the signature.
-// Pre-release v1 receipts must refresh even when stored pricing.version is unchanged.
-const QUOTE_RECEIPT_FORMAT = "v2";
+// v3 binds corrected airport routing, analysis-only pricing and binding-floor pence.
+// Older receipts must refresh even when stored pricing.version is unchanged.
+const QUOTE_RECEIPT_FORMAT = "v3";
 
 export const QUOTE_RECEIPT_TTL_SECONDS = 3 * 60 * 60;
 
@@ -30,6 +30,7 @@ export const QUOTE_RECEIPT_REFRESH_MESSAGE =
   "Quote amount is out of date. Please refresh your quote and try again.";
 
 export type QuoteReceiptClaims = {
+  preserveBfsMinimumPence?: boolean;
   exp: number;
   pricingVersion: number;
   pickupPlaceId: string;
@@ -55,6 +56,7 @@ export type QuoteReceiptClaims = {
 
 export type QuoteReceiptJourney = Omit<
   QuoteReceiptClaims,
+  | "preserveBfsMinimumPence"
   | "exp"
   | "journeyFareGbp"
   | "airportFixedCostsGbp"
@@ -70,6 +72,7 @@ export type QuoteReceiptDecision =
   | { action: "accept"; claims: QuoteReceiptClaims };
 
 const CLAIM_KEYS = [
+  "preserveBfsMinimumPence",
   "exp",
   "pricingVersion",
   "pickupPlaceId",
@@ -161,7 +164,7 @@ async function hmacSha256(secret: string, message: string): Promise<Uint8Array> 
 
 function canonicalClaims(claims: QuoteReceiptClaims): string {
   const record: Record<string, string | number | boolean> = {};
-  for (const key of CLAIM_KEYS) record[key] = claims[key];
+  for (const key of CLAIM_KEYS) record[key] = key === "preserveBfsMinimumPence" ? Boolean(claims[key]) : claims[key]!;
   return JSON.stringify(record);
 }
 
@@ -193,6 +196,7 @@ function readClaims(parsed: unknown): QuoteReceiptClaims | null {
   return {
     exp,
     pricingVersion,
+    preserveBfsMinimumPence: raw.preserveBfsMinimumPence === true,
     pickupPlaceId: normalizeReceiptText(raw.pickupPlaceId),
     dropoffPlaceId: normalizeReceiptText(raw.dropoffPlaceId),
     pickupAddress: normalizeReceiptText(raw.pickupAddress),

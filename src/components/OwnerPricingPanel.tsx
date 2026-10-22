@@ -766,7 +766,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           </div>
 
           <div>
-            <p className="text-lg font-semibold text-white">Profitability protection</p>
+            <p className="text-lg font-semibold text-white">Internal profitability analysis</p>
             <p
               className={`mt-2 rounded-xl px-3 py-2 text-sm font-semibold ${
                 isProfitabilityProtectionActive(draft.profitability)
@@ -775,23 +775,22 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
               }`}
             >
               {isProfitabilityProtectionActive(draft.profitability)
-                ? "PROFITABILITY PROTECTION ACTIVE"
-                : "PROFITABILITY PROTECTION NOT ACTIVE — VEHICLE MPG REQUIRED"}
+                ? "ANALYSIS ONLY — NEVER CHANGES CUSTOMER QUOTES"
+                : "ANALYSIS ONLY — VEHICLE MPG REQUIRED"}
             </p>
             <p className="mt-2 text-xs text-white/55">
-              The £{draft.saloon.minimumFareGbp.toFixed(2)} Saloon curve floor above stays as it is.
-              The minimum here is a separate all-distance Saloon protection and applies only after a
-              vehicle MPG is saved.
+              These saved assumptions are for internal analysis only. They never increase fares
+              or add positioning/return-home charges, in any pricing mode.
             </p>
             <MoneyField
-              label="Target earnings after direct costs (£/hour)"
+              label="Analysis target after direct costs (£/hour)"
               value={draft.profitability.targetHourlyEarningsGbp}
               onChange={(targetHourlyEarningsGbp) =>
                 update("profitability", { ...draft.profitability, targetHourlyEarningsGbp })
               }
             />
             <MoneyField
-              label="Minimum Saloon one-way fare"
+              label="Analysis comparison minimum (not a customer fare)"
               value={draft.profitability.minimumSaloonOneWayGbp}
               onChange={(minimumSaloonOneWayGbp) =>
                 update("profitability", { ...draft.profitability, minimumSaloonOneWayGbp })

@@ -37,7 +37,7 @@ async function enterAddress(page, selector, value) {
 }
 let cases=0;
 try {
-  for (const [engineName,engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER === "chromium" ? {chromium} : {chromium,webkit})) for(const width of [390,1280]) {
+  for (const [engineName,engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER === "chromium" ? {chromium} : {chromium,webkit})) for(const width of [320,390,1280]) {
     const browser=await engine.launch(engineName === "chromium" && process.env.CHROMIUM_EXECUTABLE_PATH ? {executablePath:process.env.CHROMIUM_EXECUTABLE_PATH,args:["--no-sandbox","--no-zygote","--single-process","--disable-dev-shm-usage","--use-gl=disabled","--disable-gpu","--disable-software-rasterizer","--disable-webgl","--in-process-gpu","--disable-features=AudioServiceOutOfProcess,IsolateOrigins,site-per-process"]} : {});
     try {
       const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce',...(width<500?{isMobile:true,hasTouch:true}:{})});

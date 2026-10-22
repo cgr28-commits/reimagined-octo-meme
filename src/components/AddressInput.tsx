@@ -326,6 +326,12 @@ export default function AddressInput({
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
+    // Results belong to the old query until the new debounced request completes.
+    // Invalidate immediately so a late response or tap cannot select a stale place.
+    suggestionAbortRef.current?.abort();
+    suggestionRequestIdRef.current += 1;
+    setSuggestions([]);
+    setSuggestionsOpen(false);
     setLoadError(null);
     onChange(next);
     clearSelectionOnType(next);

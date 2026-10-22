@@ -20,12 +20,14 @@ export function applyBfsMinimumFare(
   return roundGbp(Math.max(vehicleFareGbp, saloonMinimum + supplement));
 }
 
-/** Preserve owner-entered pence through the existing website/payment compositor. */
+/** Preserve a fractional floor only for legs whose normal vehicle fare meets it. */
 export function bfsMinimumHasPence(
   vehicle: string,
   airportCodes: readonly (string | null | undefined)[],
-  pricing?: MinimumPricing | null,
+  pricing: MinimumPricing | null | undefined,
+  normalVehicleFares: readonly number[],
 ): boolean {
   const floor = applyBfsMinimumFare(0, vehicle, airportCodes, pricing);
-  return Math.abs(floor - Math.round(floor)) > 0.001;
+  return Math.abs(floor - Math.round(floor)) > 0.001 &&
+    normalVehicleFares.some(fare => Number.isFinite(fare) && fare <= floor);
 }

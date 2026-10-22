@@ -58,8 +58,8 @@ check("weekend / night pickup is 10% above weekday daytime; BH daytime is normal
   }, cityBfsMetrics);
   const noDate = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {}, cityBfsMetrics);
   assert.ok(weekday && weekend && bh && noDate);
-  assert.equal(weekday.amount, 44, "14 mi City→BFS saloon = £44");
-  assert.equal(weekend.amount, 48.4);
+  assert.equal(weekday.amount, 45, "14 mi City→BFS saloon respects £45 BFS minimum");
+  assert.equal(weekend.amount, 49.5);
   assert.equal(weekday.amount, bh.amount);
   assert.equal(weekday.amount, noDate.amount);
   assert.equal(weekday.premiumApplied, false);
@@ -75,8 +75,8 @@ check("weekend / night pickup is 10% above weekday daytime; BH daytime is normal
     outboundTime: "15:00",
   }, cityBfsMetrics);
   assert.ok(friday && saturdayAlt);
-  assert.equal(friday.amount, 44);
-  assert.equal(saturdayAlt.amount, 48.4);
+  assert.equal(friday.amount, 45);
+  assert.equal(saturdayAlt.amount, 49.5);
   assert.equal(friday.premiumApplied, false);
   assert.equal(saturdayAlt.premiumApplied, true);
 });

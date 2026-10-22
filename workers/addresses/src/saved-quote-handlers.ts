@@ -245,6 +245,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
       meetGreetIncluded: true,
     });
     serverAmount = composeWebsiteFareBreakdown({
+      preserveFixedFarePence: quote.preserveBfsMinimumPence,
       journeyFareBeforeAirportAccessGbp: quote.journeyFareGbp ?? quote.amount,
       airportFixedCostsGbp: quote.airportFixedCostsGbp ?? 0,
       nightWeekendSurchargeGbp: quote.nightWeekendSurchargeGbp ?? 0,

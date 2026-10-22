@@ -8,6 +8,8 @@ on:
       - 'workers/addresses/**'
       - 'scripts/check-bfs-minimum-and-precise-places.ts'
       - 'scripts/check-precise-places-browser.mjs'
+      - 'scripts/check-approved-pricing-routing.ts'
+      - 'scripts/fixtures/reviewed-airport-routes.json'
       - '.github/workflows/precise-quote-review.yml'
 permissions:
   contents: read
@@ -29,6 +31,7 @@ jobs:
       - run: node scripts/sync-worker-shared.mjs
       - run: node --import tsx scripts/check-bfs-minimum-and-precise-places.ts
       - run: node --import tsx scripts/check-quote-receipt.ts
+      - run: node --import tsx scripts/check-approved-pricing-routing.ts
       - run: npm --prefix workers/addresses run build
       - run: GITHUB_PAGES=true npm run build
       - run: npm install --no-save --package-lock=false playwright@1.58.2

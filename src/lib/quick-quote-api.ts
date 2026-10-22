@@ -55,8 +55,9 @@ export type QuickQuoteCalculateResult =
       airportFixedCostsGbp?: number;
       outboundOneWayBeforeAccessGbp?: number;
       returnOneWayBeforeAccessGbp?: number;
-      /** Opaque Worker receipt. Present only while profitability protection is active. */
+      /** Opaque Worker receipt binding the validated journey and pricing policy. */
       quoteReceipt?: string;
+      preserveBfsMinimumPence?: boolean;
       distanceKm?: number;
       durationMinutes?: number;
       smartAvailability?: CustomerSmartAvailabilityQuoteSignal;
@@ -169,6 +170,7 @@ async function calculateServerQuoteOnce(
   return {
     ok: true,
     amount: Number(payload.amount),
+    preserveBfsMinimumPence: payload.preserveBfsMinimumPence === true,
     amountLabel: String(payload.amountLabel ?? ""),
     vehicleType: String(payload.vehicleType ?? ""),
     vehicleChoice:
@@ -193,7 +195,7 @@ async function calculateServerQuoteOnce(
       ? { returnOneWayBeforeAccessGbp: Number(payload.returnOneWayBeforeAccessGbp) }
       : {}),
     ...(typeof payload.quoteReceipt === "string" &&
-    payload.quoteReceipt.startsWith("v1.") &&
+    payload.quoteReceipt.startsWith("v3.") &&
     payload.quoteReceipt.length < 4000
       ? { quoteReceipt: payload.quoteReceipt }
       : {}),

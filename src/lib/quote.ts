@@ -1,4 +1,4 @@
-import { applyBfsMinimumFare } from "../../shared/bfs-minimum-fare";
+import { applyBfsMinimumFare, bfsMinimumHasPence } from "../../shared/bfs-minimum-fare";
 import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "./data";
 import { isExecutiveVehicle } from "../../shared/executive-vehicle";
 import { postcodeJourneyLegs } from "../../shared/postcode-pricing";
@@ -93,6 +93,8 @@ const OTS_UNDERCUT_MID = (OTS_UNDERCUT_MIN + OTS_UNDERCUT_MAX) / 2;
 const A2A_DISTANCE_BANDS = PRICING_CONFIG.addressToAddressDistanceBands;
 
 export type QuoteResult = {
+  /** Only a binding fractional BFS vehicle floor preserves final pence. */
+  preserveBfsMinimumPence?: boolean;
   amount: number;
   area: string | null;
   areaSurcharge: number;
@@ -817,6 +819,7 @@ export function calculateQuote(
   return withOneWayBeforeAccess(
     {
       amount,
+      preserveBfsMinimumPence: bfsMinimumHasPence(vehicleType, minimumAirportCodes, pricing, [postcode.outbound ?? oneWayFare, ...(returnJourney ? [postcode.inbound ?? oneWayFare] : [])]),
       area: matchedArea,
       areaSurcharge: Math.round(roadMiles * 10) / 10,
       airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
@@ -974,6 +977,7 @@ export function calculateAirportToAirportQuote(
     {
       ...underlyingOneWay,
       amount,
+      preserveBfsMinimumPence: bfsMinimumHasPence(vehicleType, [pickupCode, dropoffCode], pricing, [underlyingOneWay.amount]),
       // Combined genuine fixed costs (not a town-zone surcharge).
       areaSurcharge: roundedFixed,
       airportBase: a2aVehicleFare,

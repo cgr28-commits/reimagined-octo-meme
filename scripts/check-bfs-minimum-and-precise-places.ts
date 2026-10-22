@@ -1,7 +1,10 @@
 import { fetchWorkerAddressDetails } from "../src/lib/addresses-api";
-import { applyProfitabilityProtection } from "../workers/addresses/src/profitability";
+import { applyProfitabilityProtection, measureOperationalJob } from "../workers/addresses/src/profitability";
 import { approvedProductionProfitabilitySettings } from "../src/lib/owner-profitability-settings";
 import worker from "../workers/addresses/src/index";
+import { savePaidBookingRecordFromConfirm } from "../workers/addresses/src/refund-handlers";
+import { getPaidBookingRecord } from "../workers/addresses/src/paid-booking-store";
+import { OPERATING_BASE } from "../workers/addresses/src/operating-base";
 import { getPendingCheckout } from "../workers/addresses/src/pending-checkout-store";
 /** Isolated regressions: no live settings, bookings, payments or emails. */
 import assert from "node:assert/strict";
@@ -60,8 +63,17 @@ async function main() {
   }
   const fractional = {...settings,bfsMinimumSaloonFareGbp:45.25,estate:{upliftGbp:9.35}};
   eq(applyBfsMinimumFare(30,ESTATE_VEHICLE,["BFS"],fractional),54.6,"configured supplement after fractional floor");
-  const fractionalTotal = composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:45.25,airportAccessChargeGbp:5,preserveFixedFarePence:bfsMinimumHasPence(SALOON_VEHICLE,["BFS"],fractional)}).finalAmountPayableGbp;
+  const fractionalTotal = composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:45.25,airportAccessChargeGbp:5,preserveFixedFarePence:bfsMinimumHasPence(SALOON_VEHICLE,["BFS"],fractional,[30])}).finalAmountPayableGbp;
   eq(fractionalTotal,50.25,"do not round configured floor down"); eq(resolveSumUpChargeAmountGbp(50.25,50.25,0.02,true),50.25,"fractional payment parity");
+  for(const fromAirport of [false,true]) for(const returning of [false,true]) for(const vehicle of [SALOON_VEHICLE,ESTATE_VEHICLE]) {
+    const total=(floor:number,normalSaloon:number)=>{
+      const q=calculateQuote("12 Holywood Road, Belfast BT4 1NT","BFS",vehicle,returning,schedule,metrics(normalSaloon),fromAirport,{...settings,bfsMinimumSaloonFareGbp:floor})!;
+      return composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:q.journeyFareGbp!,airportAccessChargeGbp:returning?10:5,returnJourney:returning,preserveFixedFarePence:q.preserveBfsMinimumPence}).finalAmountPayableGbp;
+    };
+    eq(total(45.25,55),total(45,55),"unused fractional minimum never changes higher-fare rounding");
+    const q=calculateQuote("12 Holywood Road, Belfast BT4 1NT","BFS",vehicle,returning,schedule,metrics(30),fromAirport,{...settings,bfsMinimumSaloonFareGbp:45.25})!;
+    eq(q.preserveBfsMinimumPence,true,"binding fractional minimum survives premiums/discount composition");
+  }
   for (const code of ["BHD","DUB",null]) eq(applyBfsMinimumFare(30,SALOON_VEHICLE,[code],settings),30,"no minimum at other airports");
   for (const vehicle of ["Executive Saloon (1–4 passengers)","Minibus (5–7 passengers)"]) eq(applyBfsMinimumFare(30,vehicle,["BFS"],settings),30,"other vehicle policies unchanged");
   eq(calculateAirportToAirportQuote("BFS","BHD",bfs.formattedAddress,bhd.formattedAddress,SALOON_VEHICLE,false,schedule,metrics(30),settings)!.journeyFareGbp,45,"canonical A2A BFS floor");
@@ -127,6 +139,9 @@ async function main() {
       const result=await response.json() as {ok:boolean;amount:number;diagnostics:{distanceKm:number}};
       eq(response.status,200,"quote endpoint accepts verified place");eq(result.amount,47.25,"quote reads changed BFS setting despite spoofed airport");eq(result.diagnostics.distanceKm,5,"server ignores client metrics");
     }
+    eq(routeUrls.some(url=>url.includes(`/${bfs.lng},${bfs.lat};`)),true,"airport pickup uses verified Express road point");
+    eq(routeUrls.some(url=>url.endsWith(`;${bfs.lng},${bfs.lat}`)),true,"airport dropoff uses same verified Express road point");
+    eq([bfs.lat,bfs.lng],[54.6627299,-6.2173267],"verified BFS terminal loop");
     const savedQuote=await buildAuthoritativeSavedQuotePricing({journey:{pickupLabel:numbered.formattedAddress,dropoffLabel:bfs.formattedAddress,pickupPlaceId:numbered.placeId,dropoffPlaceId:bfs.placeId,tripDate:schedule.outboundDate,tripTime:schedule.outboundTime,returnJourney:false,passengers:1,suitcases:1,vehicle:SALOON_VEHICLE,tripLabel:"Airport drop-off"},pricing:await getOwnerPricingSettings(kv),googlePlacesApiKey:"mock-key"});
     assert.ok(savedQuote.ok);eq(savedQuote.quote.amount,47.25,"saved quote uses canonical BFS and strict details");
     const a2aSaved=await buildAuthoritativeSavedQuotePricing({journey:{pickupLabel:bfs.formattedAddress,dropoffLabel:bhd.formattedAddress,pickupPlaceId:bfs.placeId,dropoffPlaceId:bhd.placeId,tripDate:schedule.outboundDate,tripTime:schedule.outboundTime,returnJourney:false,passengers:1,suitcases:1,vehicle:SALOON_VEHICLE,tripLabel:"Airport transfer"},pricing:await getOwnerPricingSettings(kv),googlePlacesApiKey:"mock-key"});
@@ -136,10 +151,11 @@ async function main() {
       vehicleType:SALOON_VEHICLE,routeMetrics:{distanceKm:5,durationMinutes:10},pickup:{lat:numbered.lat,lng:numbered.lng},dropoff:{lat:bfs.lat,lng:bfs.lng},returnJourney:false,bfsAirportJourney:true,schedule:{},
       existing:{amountGbp:45,journeyFareGbp:45,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0},
     });
-    eq(protectedResult.applied,true,"active profitability recalculation exercised");
-    eq(protectedResult.journeyFareGbp,45,"active profitability cannot undercut BFS floor");
-    eq(routeUrls.some(url=>url.includes("/-5.97026,54.66598;")),true,"positioning starts at configured operating base");
-    eq(routeUrls.some(url=>url.endsWith(";-5.97026,54.66598")),true,"return routing ends at same operating base");
+    eq(protectedResult.applied,false,"legacy mode never reprices from earnings targets");
+    eq(protectedResult.journeyFareGbp,45,"tariff snapshot retained");
+    await measureOperationalJob({pickup:numbered,dropoff:bfs,passenger:{distanceKm:5,durationMinutes:10}});
+    eq(routeUrls.some(url=>url.includes(`/${OPERATING_BASE.lng},${OPERATING_BASE.lat};`)),true,"positioning starts at configured operating base");
+    eq(routeUrls.some(url=>url.endsWith(`;${OPERATING_BASE.lng},${OPERATING_BASE.lat}`)),true,"return routing ends at same operating base");
     const postcodePricing={...settings,saloonFormula:{...settings.saloonFormula!,enabled:false},postcodePricingEnabled:true,postcodeRules:[{district:"BT4",airportCode:"BFS" as const,saloonFareGbp:40,enabled:true,approvalStatus:"approved" as const,direction:"both" as const}]};
     eq(calculateQuote(numbered.formattedAddress,"BFS",SALOON_VEHICLE,false,schedule,{distanceKm:5,durationMinutes:10},false,postcodePricing)!.journeyFareGbp,45,"postcode vehicle fare also meets BFS minimum");
     const payEnv={...env,SUMUP_API_KEY:"mock-sumup",SUMUP_MERCHANT_CODE:"mock-merchant",PUBLIC_SITE_ORIGIN:origin};
@@ -156,6 +172,14 @@ async function main() {
       eq(pending?.booking.pickupPlaceId,payload.pickupPlaceId,"persist verified pickup ID");
       eq(pending?.booking.dropoffPlaceId,payload.dropoffPlaceId,"persist verified destination ID");
       eq(pending?.booking.pickupLat,fromAirport?bfs.lat:numbered.lat,"persist authoritative coordinates");
+      assert.ok(pending);
+      const paymentReference=`isolated-${data.checkoutId}`;
+      const storedBeforeFinalization = new Map(store);
+      await savePaidBookingRecordFromConfirm({env:payEnv,booking:pending.booking,checkoutId:data.checkoutId,amount:total,currency:"GBP",amountPaidLabel:`£${total.toFixed(2)}`,paymentReference,calendarEventIds:[]});
+      const paid=await getPaidBookingRecord(kv,paymentReference);
+      eq(paid?.amount,total,"finalized booking retains the checkout amount");
+      for(const key of ["pickupPlaceId","dropoffPlaceId","pickupLat","pickupLng","dropoffLat","dropoffLng"] as const) eq(paid?.[key],pending.booking[key],`finalized booking retains validated ${key}`);
+      store.clear(); for(const [key,value] of storedBeforeFinalization) store.set(key,value); // isolate each fictional checkout from availability
       const count=checkoutAmounts.length;
       eq((await pay({...payload,acceptedFinalAmountGbp:1})).status,409,"tampered amount rejected");
       eq((await pay({...payload,pickupPlaceId:fromAirport?bfs.placeId:"test-road",dropoffPlaceId:fromAirport?"test-road":bfs.placeId,booking:{...booking,pickupLabel:fromAirport?bfs.formattedAddress:"Holywood Road, Belfast, UK",dropoffLabel:fromAirport?"Holywood Road, Belfast, UK":bfs.formattedAddress}})).status,409,"vague payment selection rejected");

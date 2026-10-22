@@ -1,6 +1,5 @@
 "use client";
 
-import { bfsMinimumHasPence } from "../../shared/bfs-minimum-fare";
 
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
@@ -2173,6 +2172,7 @@ function QuoteCard({
             Number.isFinite(alternate.journeyFareGbp)
           ) {
             rememberFare(vehicle, {
+              preserveBfsMinimumPence: Boolean(alternate.preserveBfsMinimumPence),
               journeyFareGbp: Math.round(alternate.journeyFareGbp * 100) / 100,
               airportFixedCostsGbp:
                 typeof alternate.airportFixedCostsGbp === "number"
@@ -2263,6 +2263,7 @@ function QuoteCard({
         Number.isFinite(result.journeyFareGbp)
       ) {
         const pricedParts: ServerFarePartyParts = {
+          preserveBfsMinimumPence: Boolean(result.preserveBfsMinimumPence),
           journeyFareGbp: Math.round(result.journeyFareGbp * 100) / 100,
           airportFixedCostsGbp:
             typeof result.airportFixedCostsGbp === "number"
@@ -2817,7 +2818,7 @@ function QuoteCard({
       isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
     const businessClass = isExecutiveVehicle(quoteVehicle);
     return buildOpenWebsiteFareBreakdown({
-      preserveFixedFarePence: bfsMinimumHasPence(quoteVehicle, [detectAirportCodeFromPlace(pickupPlace), detectAirportCodeFromPlace(dropoffPlace)], publicPricing) || postcodeFareHasPence({ enabled: publicPricing.postcodePricingEnabled, rules: publicPricing.postcodeRules, context: { address: isFromAirport ? dropoffAddress : pickupAddress, airportCode: effectiveAirportCode, fromAirport: isFromAirport }, vehicle: quoteVehicle, estateSupplement: publicPricing.estate.upliftGbp, returnJourney }),
+      preserveFixedFarePence: (currentServerFareParts?.preserveBfsMinimumPence ?? liveQuote?.preserveBfsMinimumPence ?? false) || postcodeFareHasPence({ enabled: publicPricing.saloonFormula?.enabled === true ? false : publicPricing.postcodePricingEnabled, rules: publicPricing.postcodeRules, context: { address: isFromAirport ? dropoffAddress : pickupAddress, airportCode: effectiveAirportCode, fromAirport: isFromAirport }, vehicle: quoteVehicle, estateSupplement: publicPricing.estate.upliftGbp, returnJourney }),
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       nightWeekendSurchargeGbp: journeyFareParts.nightWeekendSurchargeGbp ?? 0,
@@ -2866,6 +2867,8 @@ function QuoteCard({
     publicPricing.estate.upliftGbp,
     effectiveAirportCode,
     isFromAirport,
+    currentServerFareParts?.preserveBfsMinimumPence,
+    liveQuote?.preserveBfsMinimumPence,
     currentServerFareParts?.outboundOneWayBeforeAccessGbp,
     currentServerFareParts?.returnOneWayBeforeAccessGbp,
     liveQuote?.outboundOneWayBeforeAccessGbp,

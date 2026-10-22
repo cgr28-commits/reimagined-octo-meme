@@ -204,11 +204,11 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
   assert.match(read("src/lib/route-point-resolver.ts"), /geocodePickupAddress/);
   assert.match(
     read("workers/addresses/src/quick-quote-handlers.ts"),
-    /parseClientRouteMetrics/,
+    /resolvePreciseQuoteRoute/,
   );
   assert.match(
     read("workers/addresses/src/quote-handlers.ts"),
-    /parseClientRouteMetrics/,
+    /resolvePreciseQuoteRoute/,
   );
   assert.match(
     read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"),

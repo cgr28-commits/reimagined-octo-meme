@@ -129,6 +129,9 @@ export type PaidBookingRecord = {
   tripLabel: string;
   pickupLabel: string;
   dropoffLabel: string;
+  /** Verified Google/canonical airport IDs; absent on historic bookings. */
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
   returnJourney: boolean;
   tripDate: string;
   tripTime: string;
