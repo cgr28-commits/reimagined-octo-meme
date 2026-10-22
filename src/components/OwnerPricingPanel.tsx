@@ -243,6 +243,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   const [executiveMinimumText, setExecutiveMinimumText] = useState(() =>
     defaultOwnerPricingSettings().executive.minimumFareGbp.toFixed(2),
   );
+  const [mileageRateText, setMileageRateText] = useState(() =>
+    defaultOwnerPricingSettings().saloonFormula!.ratePerMileGbp.toFixed(2),
+  );
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [minibusNoticeDraft, setMinibusNoticeDraft] = useState(
     String(DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS),
@@ -281,6 +284,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
       const loaded = asDraft(result.settings);
       setSaved(loaded);
       setDraft(loaded);
+      setMileageRateText(loaded.saloonFormula!.ratePerMileGbp.toFixed(2));
       setMultiplierText(String(loaded.minibus.multiplier));
       setExecutiveMultiplierText(String(loaded.executive.multiplier));
       setExecutiveMinimumText(loaded.executive.minimumFareGbp.toFixed(2));
@@ -467,10 +471,17 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
       ),
     [draft, multiplierText, executiveMultiplierText, executiveMinimumText],
   );
-  const dirty = useMemo(() => !settingsEqual(saved, editingDraft), [saved, editingDraft]);
+  const dirty = useMemo(
+    () => !settingsEqual(saved, editingDraft)
+      || mileageRateText !== saved.saloonFormula!.ratePerMileGbp.toFixed(2),
+    [saved, editingDraft, mileageRateText],
+  );
   const validation = useMemo(() => {
     const base = validateOwnerPricingInput(editingDraft);
     const profit = validateProfitabilitySettings(editingDraft.profitability);
+    const mileageError = completeNonNegativeMoney(mileageRateText) == null
+      ? [{ field: "saloonFormula.ratePerMileGbp", message: "Enter a complete mileage rate with up to two decimal places." }]
+      : [];
     const minimumError =
       completeNonNegativeMoney(executiveMinimumText) == null
         ? [
@@ -480,16 +491,17 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             },
           ]
         : [];
-    if (base.ok && profit.ok && minimumError.length === 0) return { ok: true as const, errors: [] };
+    if (base.ok && profit.ok && minimumError.length === 0 && mileageError.length === 0) return { ok: true as const, errors: [] };
     return {
       ok: false as const,
       errors: [
         ...minimumError,
+        ...mileageError,
         ...(base.ok ? [] : base.errors),
         ...(profit.ok ? [] : profit.errors),
       ],
     };
-  }, [editingDraft, executiveMinimumText]);
+  }, [editingDraft, executiveMinimumText, mileageRateText]);
   const changes = useMemo(
     () => [
       ...diffOwnerPricingSettings(saved, editingDraft),
@@ -525,6 +537,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   };
 
   const persist = async (mode: "save" | "restore") => {
+    if (mode === "save" && !validation.ok) return;
     setSaving(true);
     setError(null);
     try {
@@ -542,6 +555,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
       const stored = asDraft(result.settings);
       setSaved(stored);
       setDraft(stored);
+      setMileageRateText(stored.saloonFormula!.ratePerMileGbp.toFixed(2));
       setMultiplierText(String(stored.minibus.multiplier));
       setExecutiveMultiplierText(String(stored.executive.multiplier));
       setExecutiveMinimumText(stored.executive.minimumFareGbp.toFixed(2));
@@ -600,10 +614,38 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
                 Use mileage formula for new quotes
               </label>
               <p className="text-sm text-white/60">OFF keeps existing tiers and postcode fares. ON uses the formula instead of tiers, postcode fares and profitability floors. Saved rules are retained.</p>
-              {([["startingChargeGbp", "Starting charge"], ["ratePerMileGbp", "Price per passenger road mile"], ["minimumFareGbp", "Formula minimum fare"]] as const).map(([key, label]) => (
-                <MoneyField key={key} label={label} value={draft.saloonFormula![key]}
-                  onChange={(value) => update("saloonFormula", { ...draft.saloonFormula!, [key]: value })} />
-              ))}
+              <MoneyField label="Starting charge" value={draft.saloonFormula!.startingChargeGbp}
+                onChange={(startingChargeGbp) => update("saloonFormula", { ...draft.saloonFormula!, startingChargeGbp })} />
+              <label className={`${labelClass} mt-3`}>
+                Price per passenger road mile
+                <span className="relative mt-1 block">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/55" aria-hidden>£</span>
+                  <input
+                    className={prefixedFieldClass}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    enterKeyHint="done"
+                    aria-invalid={validation.errors.some((item) => item.field === "saloonFormula.ratePerMileGbp")}
+                    value={mileageRateText}
+                    onChange={(event) => {
+                      const text = event.target.value;
+                      // Keep intermediate text (especially "2.") instead of coercing each keystroke.
+                      if (!/^\d*\.?\d{0,2}$/.test(text)) return;
+                      setMileageRateText(text);
+                      setSaveNotice(null);
+                      const rate = completeNonNegativeMoney(text);
+                      if (rate != null) update("saloonFormula", { ...draft.saloonFormula!, ratePerMileGbp: rate });
+                    }}
+                    onBlur={() => {
+                      const rate = completeNonNegativeMoney(mileageRateText);
+                      if (rate != null) setMileageRateText(rate.toFixed(2));
+                    }}
+                  />
+                </span>
+              </label>
+              <MoneyField label="Formula minimum fare" value={draft.saloonFormula!.minimumFareGbp}
+                onChange={(minimumFareGbp) => update("saloonFormula", { ...draft.saloonFormula!, minimumFareGbp })} />
               {!formulaSupported && <p className="text-sm text-white/60">The Worker must support formula settings before they can be edited.</p>}
             </fieldset>
             <MoneyField
@@ -1407,6 +1449,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           disabled={!dirty || saving}
           onClick={() => {
             setDraft(asDraft(cloneSettings(saved)));
+            setMileageRateText(saved.saloonFormula!.ratePerMileGbp.toFixed(2));
             setMultiplierText(String(saved.minibus.multiplier));
             setExecutiveMultiplierText(String(saved.executive.multiplier));
             setExecutiveMinimumText(saved.executive.minimumFareGbp.toFixed(2));

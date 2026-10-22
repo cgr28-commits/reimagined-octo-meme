@@ -24,10 +24,42 @@ try {
    assert.equal(Number(await page.getByRole('textbox',{name:'Starting charge',exact:true}).inputValue()),10);
    assert.equal(Number(await page.getByRole('textbox',{name:'Price per passenger road mile',exact:true}).inputValue()),2.2);
    assert.equal(Number(await page.getByRole('textbox',{name:'Formula minimum fare',exact:true}).inputValue()),30);
-   const original=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('matni:preview-pricing-settings')));
+   const rate=page.getByRole('textbox',{name:'Price per passenger road mile',exact:true});
+   const saveButton=page.getByRole('button',{name:'Save Changes',exact:true});
+   const discardButton=page.getByRole('button',{name:'Discard Changes',exact:true});
+   assert.equal(await rate.getAttribute('inputmode'),'decimal');
+   assert.equal(await rate.getAttribute('type'),'text');
+   assert.equal(await saveButton.isDisabled(),true,'loading must not edit the rate');
+   await rate.fill('');
+   assert.equal(await saveButton.isDisabled(),true,'blank cannot save the previous numeric value');
+   assert.equal(await discardButton.isEnabled(),true,'an empty text edit can be discarded');
+   await discardButton.click();assert.equal(await rate.inputValue(),'2.20');
+   await rate.fill('2.');await rate.blur();assert.equal(await rate.inputValue(),'2.');
+   assert.equal(await saveButton.isDisabled(),true,'trailing decimal cannot save');
+   await discardButton.click();assert.equal(await rate.inputValue(),'2.20');
    await page.getByRole('textbox',{name:'Starting charge',exact:true}).fill('12');await page.getByRole('textbox',{name:'Price per passenger road mile',exact:true}).fill('2.35');await page.getByRole('textbox',{name:'Formula minimum fare',exact:true}).fill('32');await toggle.check();
    async function save(){await page.getByRole('button',{name:'Save Changes',exact:true}).click();await page.getByRole('dialog',{name:'Confirm pricing changes'}).getByRole('button',{name:'Save Pricing',exact:true}).click();await page.getByRole('dialog',{name:'Confirm pricing changes'}).waitFor({state:'hidden'});}
+   let original;
+   for (const amount of ['2.35','2.50','2.75']) {
+    await rate.fill('');await rate.pressSequentially('2.');assert.equal(await rate.inputValue(),'2.');
+    assert.equal(await page.getByRole('button',{name:'Save Changes',exact:true}).isDisabled(),true);
+    await rate.pressSequentially(amount.slice(2));assert.equal(await rate.inputValue(),amount);
+    await rate.pressSequentially('9');assert.equal(await rate.inputValue(),amount,'reject third decimal');
+    for(const invalid of ['2..35','-2.35','2e2','2.351','abc']) {
+     await rate.fill(invalid);assert.equal(await rate.inputValue(),amount,`reject invalid paste ${invalid}`);
+    }
+    await save();await page.reload({waitUntil:'networkidle'});assert.equal(await rate.inputValue(),amount);
+    const stored=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('matni:preview-pricing-settings')));
+    assert.equal(stored.saloonFormula.ratePerMileGbp,Number(amount));
+    if(!original)original=stored;
+    for(const key of ['saloon','postcodeRules','night','weekend','estate','returnDiscount','meetGreet'])assert.deepEqual(stored[key],original[key],key);
+   }
+   await rate.fill('');assert.equal(await page.getByRole('button',{name:'Save Changes',exact:true}).isDisabled(),true);
+   await rate.pressSequentially('2..35');assert.equal(await rate.inputValue(),'2.35');
    await save();await page.reload({waitUntil:'networkidle'});assert.equal(await toggle.isChecked(),true);
+   await rate.fill('3');await rate.blur();assert.equal(await rate.inputValue(),'3.00');
+   await discardButton.click();assert.equal(await rate.inputValue(),'2.35');
+   assert.equal(await saveButton.isDisabled(),true);
    assert.equal(Number(await page.getByRole('textbox',{name:'Starting charge',exact:true}).inputValue()),12);
    assert.equal(Number(await page.getByRole('textbox',{name:'Price per passenger road mile',exact:true}).inputValue()),2.35);
    assert.equal(Number(await page.getByRole('textbox',{name:'Formula minimum fare',exact:true}).inputValue()),32);
@@ -36,7 +68,7 @@ try {
    if(original)for(const key of ['saloon','postcodeRules','night','weekend','estate','returnDiscount','meetGreet'])assert.deepEqual(saved[key],original[key],key);
    assert.equal(writes,0);assert.deepEqual(errors,[]);
    await toggle.scrollIntoViewIfNeeded();await page.screenshot({path:`test-results/dashboard-formula/${name}-${width}.png`});
-   console.log(`PASS ${name} ${width}px default OFF, edited values save/reload, ON/OFF, preserved settings, no browser errors or external writes`);await context.close();
+   console.log(`PASS ${name} ${width}px: decimal typing, invalid/third-decimal rejection, incomplete save blocked, discard, 2.35/2.50/2.75 save/reload, ON/OFF, preserved settings, no browser errors or external writes`);await context.close();
   }}finally{await browser.close();}
  }
 }finally{server.close();}
