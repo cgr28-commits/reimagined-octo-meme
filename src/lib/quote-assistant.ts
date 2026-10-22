@@ -1,3 +1,4 @@
+import { isQuoteReadyPlace, placeDisplayText, type SelectedPlace } from "./selected-place";
 import {
   AIRPORTS,
   ALL_AIRPORTS,
@@ -83,6 +84,7 @@ export type QuoteCardSummary = {
 };
 
 export type QuoteDraft = {
+  selectedAddress?: SelectedPlace;
   airportCode?: string;
   direction?: "to-airport" | "from-airport";
   address?: string;
@@ -823,7 +825,7 @@ function nextQuoteField(draft: QuoteDraft): MissingField | null {
   if (!draft.direction) return "direction";
   if (draft.returnJourney === undefined) return "returnJourney";
   if (!draft.airportCode) return "airport";
-  if (!draft.address) return "address";
+  if (!draft.address || !isQuoteReadyPlace(draft.selectedAddress) || draft.address !== placeDisplayText(draft.selectedAddress!)) return "address";
   if (draft.passengers === undefined) return "passengers";
   if (draft.suitcases === undefined) return "suitcases";
   return null;
@@ -1586,7 +1588,7 @@ function tryBuildQuote(
 
   // Never price a partial address — incomplete locality falls back to a default
   // surcharge and shows the wrong (usually higher) fare until the town is added.
-  if (!isPricableStreetAddress(draft.address, draft.airportCode)) {
+  if (!isQuoteReadyPlace(draft.selectedAddress) || draft.address !== placeDisplayText(draft.selectedAddress!)) {
     return null;
   }
 
@@ -2022,7 +2024,7 @@ export async function respondToAssistantMessage(
 
     if (looksLikeAddressReply) {
       const candidate = text.replace(/[?.!]+$/, "").trim();
-      if (isPricableStreetAddress(candidate, nextDraft.airportCode)) {
+      if (isQuoteReadyPlace(nextDraft.selectedAddress) && candidate === placeDisplayText(nextDraft.selectedAddress!)) {
         nextDraft.address = candidate;
       } else if (isCompleteStreetAddress(candidate)) {
         return unpricedAreaPrompt(nextDraft, candidate);
@@ -2038,7 +2040,7 @@ export async function respondToAssistantMessage(
           candidate,
         )
       ) {
-        if (isPricableStreetAddress(candidate, nextDraft.airportCode)) {
+        if (isQuoteReadyPlace(nextDraft.selectedAddress) && candidate === placeDisplayText(nextDraft.selectedAddress!)) {
           nextDraft.address = candidate;
         } else if (isCompleteStreetAddress(candidate) && (nextField === "address" || wantsOneShotQuote(lower))) {
           return unpricedAreaPrompt(nextDraft, candidate);
@@ -2048,7 +2050,7 @@ export async function respondToAssistantMessage(
   }
 
   // Never keep a partial address on the draft (wrong default fare until completed).
-  if (nextDraft.address && !isPricableStreetAddress(nextDraft.address, nextDraft.airportCode)) {
+  if (nextDraft.address && (!isQuoteReadyPlace(nextDraft.selectedAddress) || nextDraft.address !== placeDisplayText(nextDraft.selectedAddress!))) {
     const badAddress = nextDraft.address;
     delete nextDraft.address;
     if (isCompleteStreetAddress(badAddress)) {
@@ -2156,7 +2158,7 @@ export async function respondToAssistantMessage(
     }
 
     // All fields present but address still not pricable (or LDY out of area handled above).
-    if (nextDraft.address && !isPricableStreetAddress(nextDraft.address, nextDraft.airportCode)) {
+    if (nextDraft.address && (!isQuoteReadyPlace(nextDraft.selectedAddress) || nextDraft.address !== placeDisplayText(nextDraft.selectedAddress!))) {
       const badAddress = nextDraft.address;
       delete nextDraft.address;
       if (isCompleteStreetAddress(badAddress)) {

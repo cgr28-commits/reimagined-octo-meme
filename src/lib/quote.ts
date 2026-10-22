@@ -1,3 +1,4 @@
+import { applyBfsMinimumFare } from "../../shared/bfs-minimum-fare";
 import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "./data";
 import { isExecutiveVehicle } from "../../shared/executive-vehicle";
 import { postcodeJourneyLegs } from "../../shared/postcode-pricing";
@@ -724,6 +725,7 @@ export function calculateQuote(
   /** Airport → address when true; address → airport when false. */
   fromAirport = false,
   pricing?: QuotePricingConfig,
+  minimumAirportCodes: readonly string[] = [airportCode],
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
   if (!trimmedAddress || !airportCode) {
@@ -786,8 +788,8 @@ export function calculateQuote(
     vehicle: vehicleType, estateSupplement: engine.estatePremiumGbp,
     returnJourney, outboundFixed, returnFixed,
   });
-  const outboundFare = postcode.outbound ?? oneWayFare;
-  const inboundFare = postcode.inbound ?? oneWayFare;
+  const outboundFare = applyBfsMinimumFare(postcode.outbound ?? oneWayFare, vehicleType, minimumAirportCodes, pricing);
+  const inboundFare = applyBfsMinimumFare(postcode.inbound ?? oneWayFare, vehicleType, minimumAirportCodes, pricing);
   const pricedSchedule = {
     ...schedule,
     ...(postcode.outbound != null ? { outboundDate: undefined, outboundTime: undefined } : {}),
@@ -908,6 +910,7 @@ export function calculateAirportToAirportQuote(
       routeMetrics,
       fromAirport,
       pricing,
+      [pickupCode, dropoffCode],
     );
   }
 
@@ -934,6 +937,7 @@ export function calculateAirportToAirportQuote(
     return null;
   }
 
+  const a2aVehicleFare = applyBfsMinimumFare(underlyingOneWay.amount, vehicleType, [pickupCode, dropoffCode], pricing);
   const a2aFixed = (pickupAirport: string, dropoffAirport: string) => {
     if (!isExecutiveVehicle(vehicleType)) {
       return getAirportToAirportFixedCostGbp(pickupAirport, dropoffAirport);
@@ -948,13 +952,13 @@ export function calculateAirportToAirportQuote(
   const outboundFixed = a2aFixed(pickupCode, dropoffCode);
   const returnFixed = returnJourney ? a2aFixed(dropoffCode, pickupCode) : 0;
   const premium = applyTripPremium(
-    underlyingOneWay.amount,
+    a2aVehicleFare,
     { ...schedule, returnJourney },
     AIRPORT_TRIP_PREMIUM_RATE,
     { pricing },
   );
   const composed = composeFareWithAirportFixedCosts({
-    journeyOneWayGbp: underlyingOneWay.amount,
+    journeyOneWayGbp: a2aVehicleFare,
     returnJourney,
     outboundFixedGbp: outboundFixed,
     returnFixedGbp: returnFixed,
@@ -972,13 +976,13 @@ export function calculateAirportToAirportQuote(
       amount,
       // Combined genuine fixed costs (not a town-zone surcharge).
       areaSurcharge: roundedFixed,
-      airportBase: underlyingOneWay.amount,
+      airportBase: a2aVehicleFare,
       airportFixedCostsGbp: roundedFixed,
       journeyFareGbp: roundedJourneyFare,
       premiumApplied: premium.premiumApplied,
       nightWeekendSurchargeGbp: roundGbp(premium.premiumAmount),
     },
-    underlyingOneWay.amount,
+    a2aVehicleFare,
     schedule,
     returnJourney,
     pricing,

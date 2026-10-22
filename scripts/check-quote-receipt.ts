@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 /**
  * Signed quote receipt. Does not call the live Worker and does not set MPG.
  * Run: npx tsx scripts/check-quote-receipt.ts
@@ -69,6 +70,12 @@ assert.equal(QUOTE_RECEIPT_TTL_SECONDS, 3 * 60 * 60);
 console.log("=== Sign, verify, and reject tampering ===");
 {
   const token = await signQuoteReceipt(journey(), SECRET, NOW);
+  const [format, body] = token.split(".");
+  assert.equal(format, "v2");
+  const legacySignature = createHmac("sha256", SECRET).update(Buffer.from(body!, "base64url")).digest("base64url");
+  assert.equal((await verifyQuoteReceipt(`v1.${body}.${legacySignature}`, SECRET, NOW)).ok, false, "old pricing policy must refresh");
+  assert.equal((await verifyQuoteReceipt(`v2.${body}.${legacySignature}`, SECRET, NOW)).ok, false, "changing an old token prefix must not bypass new policy");
+
   const verified = await verifyQuoteReceipt(token, SECRET, NOW + 60_000);
   assert.equal(verified.ok, true);
   if (verified.ok) {
@@ -105,14 +112,14 @@ console.log("=== Sign, verify, and reject tampering ===");
     for (const word of banned) assert.equal(text.includes(word.toLowerCase()), false, word);
   }
 
-  const forged = token.replace("v1.", "v1.") ;
+  const forged = token.replace("v2.", "v2.") ;
   const parts = token.split(".");
   const payload = JSON.parse(
     Buffer.from(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
   ) as { transferAmountGbp: number };
   payload.transferAmountGbp = 1;
   const forgedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const tampered = `v1.${forgedPayload}.${parts[2]}`;
+  const tampered = `v2.${forgedPayload}.${parts[2]}`;
   const bad = await verifyQuoteReceipt(tampered, SECRET, NOW);
   assert.equal(bad.ok, false);
   if (!bad.ok) assert.equal(bad.reason, "bad_signature");

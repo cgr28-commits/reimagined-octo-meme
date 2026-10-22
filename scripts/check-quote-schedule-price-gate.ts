@@ -172,7 +172,7 @@ assert.ok(weekday);
 const weekdayFare = weekday.amount;
 
 check("complete weekday daytime quote includes no surcharge", () => {
-  assert.equal(weekdayFare, 44);
+  assert.equal(weekdayFare, 45);
   assert.equal(weekday.premiumApplied, false);
   assert.equal(weekday.nightWeekendSurchargeGbp, 0);
 });
@@ -195,7 +195,7 @@ check("weekday 21:59 normal; 22:00 / 05:59 include 10% in first price; 06:00 nor
     assert.ok(quote);
     if (expectPremium) {
       assert.equal(quote.amount, roundGbp(weekdayFare * 1.1));
-      assert.equal(quote.nightWeekendSurchargeGbp, 4.4);
+      assert.equal(quote.nightWeekendSurchargeGbp, 4.5);
     } else {
       assert.equal(quote.amount, weekdayFare);
       assert.equal(quote.nightWeekendSurchargeGbp, 0);
@@ -231,9 +231,9 @@ check("completed return + one qualifying leg only surcharges that leg", () => {
     cityBfsMetrics,
   );
   assert.ok(neither && sundayReturn);
-  assert.equal(neither.amount, 83.6);
-  assert.equal(sundayReturn.amount, 88);
-  assert.equal(sundayReturn.nightWeekendSurchargeGbp, 4.4);
+  assert.equal(neither.amount, 85.5);
+  assert.equal(sundayReturn.amount, 90);
+  assert.equal(sundayReturn.nightWeekendSurchargeGbp, 4.5);
 });
 
 check("first displayed price already includes surcharge copy", () => {

@@ -62,6 +62,9 @@ import {
 import { formatGbpAmountExact } from "./gbp";
 
 export type PaidBookingDetails = {
+  /** Server-verified Google/catalogue selections used to price this booking. */
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
   customerName: string;
   customerEmail: string;
   mobileNumber: string;

@@ -1,3 +1,4 @@
+import { isPreciseQuotePlace } from "./precise-quote-place";
 /**
  * Return Journey Offer — 5% off a separate one-way return after a paid
  * one-way airport transfer. Not the existing same-order return-journey 5%.
@@ -102,6 +103,8 @@ export type ReturnOfferBookingSnapshot = {
 };
 
 export type ReturnOfferPlaceSnapshot = {
+  types?: string[];
+  provider?: string;
   placeId: string;
   formattedAddress: string;
   displayAddress?: string;
@@ -466,7 +469,7 @@ export function returnOfferOpenIndexKey(): string {
 export function isConfirmedReturnOfferPlace(
   place?: ReturnOfferPlaceSnapshot | null,
 ): place is ReturnOfferPlaceSnapshot {
-  return Boolean(
+  return isPreciseQuotePlace(place) && Boolean(
     place?.placeId?.trim() &&
       place.formattedAddress?.trim() &&
       typeof place.lat === "number" &&
@@ -481,6 +484,8 @@ export function normalizeReturnOfferPlace(
 ): ReturnOfferPlaceSnapshot | undefined {
   if (!place) return undefined;
   const next: ReturnOfferPlaceSnapshot = {
+    types: place.types,
+    provider: place.provider,
     placeId: String(place.placeId ?? "").trim(),
     formattedAddress: String(place.formattedAddress ?? "").trim(),
     displayAddress: String(place.displayAddress ?? place.formattedAddress ?? "").trim() || undefined,

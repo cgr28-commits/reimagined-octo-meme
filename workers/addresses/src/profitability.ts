@@ -1,3 +1,4 @@
+import { applyBfsMinimumFare } from "../shared/bfs-minimum-fare";
 /**
  * Worker-only profitability protection.
  *
@@ -236,6 +237,7 @@ export async function applyProfitabilityProtection(input: {
   returnJourney: boolean;
   /** True when the transfer is to or from Dublin Airport. */
   dublinAirportJourney?: boolean;
+  bfsAirportJourney?: boolean;
   schedule: TripSchedule;
   existing: CustomerFareSnapshot;
 }): Promise<CustomerFareSnapshot & { applied: boolean; fallbackReason: string | null }> {
@@ -344,16 +346,16 @@ export async function applyProfitabilityProtection(input: {
       ...(postcode.outbound != null ? { outboundDate: undefined, outboundTime: undefined } : {}),
       ...(postcode.inbound != null ? { returnDate: undefined, returnTime: undefined } : {}),
     };
-    const adjustedOutboundVehicle = postcode.outbound ?? dublinAirportJourneyFareGbp(
+    const adjustedOutboundVehicle = applyBfsMinimumFare(postcode.outbound ?? dublinAirportJourneyFareGbp(
       outboundVehicle,
       input.dublinAirportJourney === true,
       dublinRate,
-    );
-    const adjustedReturnVehicle = postcode.inbound ?? dublinAirportJourneyFareGbp(
+    ), input.vehicleType, [input.bfsAirportJourney ? "BFS" : input.postcodeContext?.airportCode], input.pricing);
+    const adjustedReturnVehicle = applyBfsMinimumFare(postcode.inbound ?? dublinAirportJourneyFareGbp(
       returnVehicle,
       input.dublinAirportJourney === true,
       dublinRate,
-    );
+    ), input.vehicleType, [input.bfsAirportJourney ? "BFS" : input.postcodeContext?.airportCode], input.pricing);
 
     const premium = applyTripPremium(
       adjustedOutboundVehicle,

@@ -20,6 +20,10 @@ import { SERVED_AIRPORTS } from "../shared/served-airports";
  * the receipt immediately through the pricing version, so expiry is not the
  * only control.
  */
+// v2 binds the pricing/precise-location policy revision into the signature.
+// Pre-release v1 receipts must refresh even when stored pricing.version is unchanged.
+const QUOTE_RECEIPT_FORMAT = "v2";
+
 export const QUOTE_RECEIPT_TTL_SECONDS = 3 * 60 * 60;
 
 export const QUOTE_RECEIPT_REFRESH_MESSAGE =
@@ -233,8 +237,8 @@ export async function signQuoteReceipt(
     exp: Math.floor(nowMs / 1000) + QUOTE_RECEIPT_TTL_SECONDS,
   };
   const body = canonicalClaims(claims);
-  const signature = await hmacSha256(secret, body);
-  return `v1.${bytesToBase64Url(new TextEncoder().encode(body))}.${bytesToBase64Url(signature)}`;
+  const signature = await hmacSha256(secret, `${QUOTE_RECEIPT_FORMAT}.${body}`);
+  return `${QUOTE_RECEIPT_FORMAT}.${bytesToBase64Url(new TextEncoder().encode(body))}.${bytesToBase64Url(signature)}`;
 }
 
 export async function verifyQuoteReceipt(
@@ -244,14 +248,14 @@ export async function verifyQuoteReceipt(
 ): Promise<{ ok: true; claims: QuoteReceiptClaims } | { ok: false; reason: string }> {
   if (typeof token !== "string" || !token.trim()) return { ok: false, reason: "missing" };
   const parts = token.split(".");
-  if (parts.length !== 3 || parts[0] !== "v1" || !parts[1] || !parts[2]) {
+  if (parts.length !== 3 || parts[0] !== QUOTE_RECEIPT_FORMAT || !parts[1] || !parts[2]) {
     return { ok: false, reason: "malformed" };
   }
   const payloadBytes = base64UrlToBytes(parts[1]);
   const signatureBytes = base64UrlToBytes(parts[2]);
   if (!payloadBytes || !signatureBytes) return { ok: false, reason: "malformed" };
   const payload = new TextDecoder().decode(payloadBytes);
-  const expected = await hmacSha256(secret, payload);
+  const expected = await hmacSha256(secret, `${QUOTE_RECEIPT_FORMAT}.${payload}`);
   if (!timingSafeEqual(expected, signatureBytes)) return { ok: false, reason: "bad_signature" };
   let parsed: unknown;
   try {

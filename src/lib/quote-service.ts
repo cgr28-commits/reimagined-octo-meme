@@ -4,7 +4,7 @@
  * `calculatePointToPointQuote`). Never trust client- or chat-supplied amounts.
  */
 
-import { calculatePointToPointQuote, calculateQuote, formatQuote } from "./quote";
+import { calculateAirportToAirportQuote, calculatePointToPointQuote, calculateQuote, formatQuote } from "./quote";
 import type { TripSchedule } from "./point-to-point-premium";
 import type { TripRouteMetrics } from "./trip-route";
 import { resolvePublicVehicleChoice } from "./vehicle-selection";
@@ -37,6 +37,9 @@ export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
 export type QuoteServiceAirportCode = "BFS" | "BHD" | "DUB" | "LDY";
 
 export type QuoteServiceInput = {
+  /** Canonical server-resolved endpoints for BFS airport-to-airport fares. */
+  pickupAirportCode?: QuoteServiceAirportCode | null;
+  dropoffAirportCode?: QuoteServiceAirportCode | null;
   /** Airport transfer: address ↔ airport. Omit airportCode for address-to-address. */
   airportCode?: QuoteServiceAirportCode | null;
   /** When airport set: true = pickup at airport, false = drop-off at airport. */
@@ -286,7 +289,11 @@ export function calculateAuthoritativeWebsiteQuote(
 
   let quote = null as ReturnType<typeof calculateQuote>;
 
-  if (airportCode) {
+  if (input.pickupAirportCode && input.dropoffAirportCode &&
+      [input.pickupAirportCode, input.dropoffAirportCode].includes("BFS")) {
+    quote = calculateAirportToAirportQuote(input.pickupAirportCode, input.dropoffAirportCode,
+      pickup, input.dropoffAddress ?? "", vehicleType, returnJourney, schedule, input.routeMetrics, input.pricing);
+  } else if (airportCode) {
     const address = input.fromAirport
       ? (input.dropoffAddress ?? "").trim()
       : pickup;

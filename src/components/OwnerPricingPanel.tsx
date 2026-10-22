@@ -56,6 +56,7 @@ function asDraft(
 ): PricingDraft {
   return {
     ...settings,
+    bfsMinimumSaloonFareGbp: settings.bfsMinimumSaloonFareGbp ?? defaultOwnerPricingSettings().bfsMinimumSaloonFareGbp,
     saloonFormula: settings.saloonFormula ?? defaultOwnerPricingSettings().saloonFormula,
     profitability: normalizeProfitabilitySettings(settings.profitability),
     dublinAirportFareAdjustment: {
@@ -111,6 +112,28 @@ function MoneyField({
       </span>
     </label>
   );
+}
+
+function BfsMinimumField({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  const [text, setText] = useState(value.toFixed(2));
+  const [focused, setFocused] = useState(false);
+  useEffect(() => { if (!focused && Number.isFinite(value)) setText(value.toFixed(2)); }, [value, focused]);
+  return <label className={`${labelClass} mt-3`}>
+    Belfast International Airport — Minimum Saloon Fare
+    <span className="relative mt-1 block">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/55" aria-hidden>£</span>
+      <input className={prefixedFieldClass} type="text" inputMode="decimal" autoComplete="off"
+        value={text} aria-invalid={!Number.isFinite(value) || value < 0 || value > 1000}
+        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (!/^\d*\.?\d{0,2}$/.test(next)) return;
+          setText(next);
+          onChange(next.trim() && next !== "." ? Number(next) : Number.NaN);
+        }} />
+    </span>
+    <span className="mt-2 block text-xs text-white/60">Per leg, to or from Belfast International. Before Estate supplement, discounts and airport access charges.</span>
+  </label>;
 }
 
 function PercentField({
@@ -648,6 +671,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
                 onChange={(minimumFareGbp) => update("saloonFormula", { ...draft.saloonFormula!, minimumFareGbp })} />
               {!formulaSupported && <p className="text-sm text-white/60">The Worker must support formula settings before they can be edited.</p>}
             </fieldset>
+            <BfsMinimumField value={draft.bfsMinimumSaloonFareGbp!} onChange={(value) => update("bfsMinimumSaloonFareGbp", value)} />
             <MoneyField
               label="Tier minimum fare (formula OFF)"
               value={draft.saloon.minimumFareGbp}

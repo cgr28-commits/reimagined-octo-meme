@@ -37,7 +37,7 @@ import { resolveTripRouteMetricsForAddresses } from "@/lib/route-point-resolver"
 import type { TripRouteMetrics } from "@/lib/trip-route";
 import {
   emptySelectedPlace,
-  isPlaceSelected,
+  isQuoteReadyPlace,
   placeDisplayText,
   quickSelectToPlace,
   detectAirportCodeFromPlace,
@@ -126,10 +126,10 @@ function resolveJourneyAddresses(
   dropoffPlace: SelectedPlace,
   draft: Draft,
 ): { pickupAddress: string; dropoffAddress: string } {
-  const pickupAddress = isPlaceSelected(pickupPlace)
+  const pickupAddress = isQuoteReadyPlace(pickupPlace)
     ? placeDisplayText(pickupPlace)
     : draft.pickupAddress.trim();
-  const dropoffAddress = isPlaceSelected(dropoffPlace)
+  const dropoffAddress = isQuoteReadyPlace(dropoffPlace)
     ? placeDisplayText(dropoffPlace)
     : draft.dropoffAddress.trim();
   return { pickupAddress, dropoffAddress };
@@ -525,10 +525,10 @@ export default function QuickQuoteOwnerClient() {
     setDraft(nextDraft);
 
     // Kick Places search for unconfirmed (non-airport) addresses — one-tap confirm.
-    if (!isPlaceSelected(nextPickupPlace) && nextPickup.trim().length >= 3) {
+    if (!isQuoteReadyPlace(nextPickupPlace) && nextPickup.trim().length >= 3) {
       setPickupSuggestToken((n) => n + 1);
     }
-    if (!isPlaceSelected(nextDropoffPlace) && nextDropoff.trim().length >= 3) {
+    if (!isQuoteReadyPlace(nextDropoffPlace) && nextDropoff.trim().length >= 3) {
       setDropoffSuggestToken((n) => n + 1);
     }
 
@@ -552,7 +552,7 @@ export default function QuickQuoteOwnerClient() {
       setNotice(
         "Review highlighted fields. Tap a suggested address to confirm, then Calculate Quote.",
       );
-    } else if (!isPlaceSelected(nextPickupPlace) || !isPlaceSelected(nextDropoffPlace)) {
+    } else if (!isQuoteReadyPlace(nextPickupPlace) || !isQuoteReadyPlace(nextDropoffPlace)) {
       setNotice(
         "Details extracted — tap the suggested address below to confirm, then Calculate Quote.",
       );
@@ -585,11 +585,11 @@ export default function QuickQuoteOwnerClient() {
       dropoffPlace,
       draft,
     );
-    if (!isPlaceSelected(pickupPlace) && !isAirportAddress(pickupAddress)) {
+    if (!isQuoteReadyPlace(pickupPlace) && !isAirportAddress(pickupAddress)) {
       setError("Select the pickup address from the suggestions list.");
       return;
     }
-    if (!isPlaceSelected(dropoffPlace) && !isAirportAddress(dropoffAddress)) {
+    if (!isQuoteReadyPlace(dropoffPlace) && !isAirportAddress(dropoffAddress)) {
       setError("Select the destination address from the suggestions list.");
       return;
     }
@@ -651,6 +651,8 @@ export default function QuickQuoteOwnerClient() {
           childSeatRequired: draft.childSeatRequired,
           flightNumber: draft.flightNumber.trim() || undefined,
           vehicleChoice: draft.vehicleChoice,
+          pickupPlaceId: pickupPlace.placeId || undefined,
+          dropoffPlaceId: dropoffPlace.placeId || undefined,
           pickupLat: pickupPlace.lat ?? undefined,
           pickupLng: pickupPlace.lng ?? undefined,
           dropoffLat: dropoffPlace.lat ?? undefined,
@@ -787,7 +789,9 @@ export default function QuickQuoteOwnerClient() {
         expressDropOffSelected: expressSelection.eligible
           ? expressDropOffSelected
           : false,
-        pickupLat: pickupPlace.lat ?? undefined,
+        pickupPlaceId: pickupPlace.placeId || undefined,
+          dropoffPlaceId: dropoffPlace.placeId || undefined,
+          pickupLat: pickupPlace.lat ?? undefined,
         pickupLng: pickupPlace.lng ?? undefined,
         dropoffLat: dropoffPlace.lat ?? undefined,
         dropoffLng: dropoffPlace.lng ?? undefined,
@@ -965,8 +969,8 @@ export default function QuickQuoteOwnerClient() {
               clearQuoteOutputs();
               setMissing((m) => m.filter((x) => x !== "pickupAddress"));
             }}
-            confirmedPlace={isPlaceSelected(pickupPlace) ? pickupPlace : null}
-            requireSuggestion={false}
+            confirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
+            requireSuggestion={true}
             disableAutoScroll
             autoSuggestToken={pickupSuggestToken}
             autoConfirmExactMatch
@@ -1017,8 +1021,8 @@ export default function QuickQuoteOwnerClient() {
               clearQuoteOutputs();
               setMissing((m) => m.filter((x) => x !== "dropoffAddress"));
             }}
-            confirmedPlace={isPlaceSelected(dropoffPlace) ? dropoffPlace : null}
-            requireSuggestion={false}
+            confirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
+            requireSuggestion={true}
             disableAutoScroll
             autoSuggestToken={dropoffSuggestToken}
             autoConfirmExactMatch

@@ -47,6 +47,7 @@ export type WorkerResolvedAddress = {
   locality: string | null;
   administrativeArea?: string | null;
   provider?: string;
+  types?: string[];
 };
 
 export type WorkerAddressSuggestionsResult = {
@@ -120,6 +121,7 @@ export async function fetchWorkerAddressSuggestions(
   const baseUrl = resolveAddressesApiUrl();
   const url = new URL(baseUrl);
   url.searchParams.set("q", query);
+  url.searchParams.set("precision", "premise");
   if (airportCode) {
     url.searchParams.set("airport", airportCode);
   }
@@ -237,6 +239,7 @@ export async function fetchWorkerAddressDetails(
   const baseUrl = resolveAddressesApiUrl();
   const url = new URL(baseUrl);
   url.searchParams.set("id", placeId);
+  url.searchParams.set("precision", "premise");
   if (airportCode) {
     url.searchParams.set("airport", airportCode);
   }
@@ -279,6 +282,7 @@ export async function fetchWorkerAddressDetails(
       locality: payload.locality?.trim() || null,
       administrativeArea: payload.administrativeArea?.trim() || null,
       provider: payload.provider,
+      types: Array.isArray(payload.types) ? payload.types.filter((type): type is string => typeof type === "string") : [],
     };
   } catch {
     return null;

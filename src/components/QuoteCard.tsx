@@ -1,5 +1,7 @@
 "use client";
 
+import { bfsMinimumHasPence } from "../../shared/bfs-minimum-fare";
+
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import AddressInput from "@/components/AddressInput";
@@ -352,7 +354,6 @@ import {
   isOutOfAreaPickup,
   isIncompleteAddressPlace,
   INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
-  isPlaceSelected,
   isBelfastAirportRoiInstantJourney,
   isRepublicOfIrelandJourney,
   isGreaterBelfastIrelandInstantJourney,
@@ -379,7 +380,7 @@ function classifyVerifiedJourney(
   airport: CustomerAirportCode | "";
   direction: TripDirection;
 } | null {
-  if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) return null;
+  if (!isQuoteReadyPlace(pickup) || !isQuoteReadyPlace(dropoff)) return null;
   const kind = detectJourneyKind(pickup, dropoff);
   if (!kind) return null;
   const pickupCode = detectAirportCodeFromPlace(pickup);
@@ -1203,24 +1204,24 @@ function QuoteCard({
   const dropoffAirportCode = isA2AFlow ? detectAirportCodeFromPlace(dropoffPlace) : null;
   const isRoiJourney =
     isA2AFlow &&
-    isPlaceSelected(pickupPlace) &&
-    isPlaceSelected(dropoffPlace) &&
+    isQuoteReadyPlace(pickupPlace) &&
+    isQuoteReadyPlace(dropoffPlace) &&
     isRepublicOfIrelandJourney(pickupPlace, dropoffPlace) &&
     !isDublinCityCorridorJourney(pickupPlace, dropoffPlace) &&
     !isBelfastAirportRoiInstantJourney(pickupPlace, dropoffPlace) &&
     !isGreaterBelfastIrelandInstantJourney(pickupPlace, dropoffPlace);
   const isDublinCityCorridor =
     isA2AFlow &&
-    isPlaceSelected(pickupPlace) &&
-    isPlaceSelected(dropoffPlace) &&
+    isQuoteReadyPlace(pickupPlace) &&
+    isQuoteReadyPlace(dropoffPlace) &&
     isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
   const isVehiclePersonalQuote =
     publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
   const isManualQuoteJourney =
     isVehiclePersonalQuote ||
     (isA2AFlow &&
-      isPlaceSelected(pickupPlace) &&
-      isPlaceSelected(dropoffPlace) &&
+      isQuoteReadyPlace(pickupPlace) &&
+      isQuoteReadyPlace(dropoffPlace) &&
       needsManualQuoteApproval(pickupPlace, dropoffPlace)) ||
     (isAirportTrip &&
       tripDirection === "from-airport" &&
@@ -1238,7 +1239,7 @@ function QuoteCard({
   /** Incomplete place selection — never show out-of-area for these. */
   const isIncompletePickupAddress =
     isA2AFlow &&
-    isPlaceSelected(pickupPlace) &&
+    isQuoteReadyPlace(pickupPlace) &&
     isIncompleteAddressPlace(pickupPlace) &&
     !detectAirportCodeFromPlace(pickupPlace);
   const showsRequestQuoteFlow =
@@ -1794,11 +1795,14 @@ function QuoteCard({
       : pickupAddress;
   const isAirportAddressComplete = Boolean(effectiveAirportCode && quoteAddress.trim());
   const isAddressPairComplete = isA2AFlow
-    ? isPlaceSelected(pickupPlace) &&
-      isPlaceSelected(dropoffPlace) &&
+    ? isQuoteReadyPlace(pickupPlace) &&
+      isQuoteReadyPlace(dropoffPlace) &&
       !placesEqual(pickupPlace, dropoffPlace)
     : Boolean(pickupAddress.trim() && dropoffAddress.trim());
   const hasQuoteRoute =
+    isQuoteReadyPlace(pickupPlace) && isQuoteReadyPlace(dropoffPlace) &&
+    addressTextMatchesPlace(pickupAddress, pickupPlace) &&
+    addressTextMatchesPlace(dropoffAddress, dropoffPlace) &&
     !ldyServiceAreaInvalid &&
     (isA2AFlow
       ? isAddressPairComplete
@@ -2813,7 +2817,7 @@ function QuoteCard({
       isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
     const businessClass = isExecutiveVehicle(quoteVehicle);
     return buildOpenWebsiteFareBreakdown({
-      preserveFixedFarePence: postcodeFareHasPence({ enabled: publicPricing.postcodePricingEnabled, rules: publicPricing.postcodeRules, context: { address: isFromAirport ? dropoffAddress : pickupAddress, airportCode: effectiveAirportCode, fromAirport: isFromAirport }, vehicle: quoteVehicle, estateSupplement: publicPricing.estate.upliftGbp, returnJourney }),
+      preserveFixedFarePence: bfsMinimumHasPence(quoteVehicle, [detectAirportCodeFromPlace(pickupPlace), detectAirportCodeFromPlace(dropoffPlace)], publicPricing) || postcodeFareHasPence({ enabled: publicPricing.postcodePricingEnabled, rules: publicPricing.postcodeRules, context: { address: isFromAirport ? dropoffAddress : pickupAddress, airportCode: effectiveAirportCode, fromAirport: isFromAirport }, vehicle: quoteVehicle, estateSupplement: publicPricing.estate.upliftGbp, returnJourney }),
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       nightWeekendSurchargeGbp: journeyFareParts.nightWeekendSurchargeGbp ?? 0,
@@ -2852,6 +2856,9 @@ function QuoteCard({
     pickupAddress,
     dropoffAddress,
     quoteVehicle,
+    publicPricing,
+    pickupPlace,
+    dropoffPlace,
     publicPricing.executive?.minimumFareGbp,
     publicPricing.returnDiscount?.rate,
     publicPricing.postcodeRules,
@@ -2973,7 +2980,7 @@ function QuoteCard({
   const quoteProgressStep = quoteStep >= 2 ? 3 : quoteResultsReady ? 2 : 1;
 
   const addressesReadyForRoute = isA2AFlow
-    ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+    ? isQuoteReadyPlace(pickupPlace) && isQuoteReadyPlace(dropoffPlace)
     : hasQuoteRoute;
 
   function clearDownstreamQuoteChoices() {
@@ -3032,7 +3039,7 @@ function QuoteCard({
   function handlePickupChange(value: string) {
     setPickupAddress(value);
     setPickupRestoredHint(false);
-    const hadConfirmed = isPlaceSelected(pickupPlace) || isQuoteReadyPlace(pickupPlace);
+    const hadConfirmed = isQuoteReadyPlace(pickupPlace);
     setPickupPlace(emptySelectedPlace());
     setPickupPlaceError("");
     clearConfirmedPickupPlace();
@@ -3050,7 +3057,7 @@ function QuoteCard({
   function handleDropoffChange(value: string) {
     setDropoffAddress(value);
     setDropoffRestoredHint(false);
-    const hadConfirmed = isPlaceSelected(dropoffPlace) || isQuoteReadyPlace(dropoffPlace);
+    const hadConfirmed = isQuoteReadyPlace(dropoffPlace);
     setDropoffPlace(emptySelectedPlace());
     setDropoffPlaceError("");
     clearConfirmedDropoffPlace();
@@ -3096,8 +3103,8 @@ function QuoteCard({
     // Completing the address pair: blur so iOS autocomplete cannot steal a second scroll.
     if (
       isA2AFlow &&
-      isPlaceSelected(place) &&
-      isPlaceSelected(dropoffPlace) &&
+      isQuoteReadyPlace(place) &&
+      isQuoteReadyPlace(dropoffPlace) &&
       typeof document !== "undefined" &&
       document.activeElement instanceof HTMLElement
     ) {
@@ -3144,8 +3151,8 @@ function QuoteCard({
     }
     if (
       isA2AFlow &&
-      isPlaceSelected(pickupPlace) &&
-      isPlaceSelected(place) &&
+      isQuoteReadyPlace(pickupPlace) &&
+      isQuoteReadyPlace(place) &&
       typeof document !== "undefined" &&
       document.activeElement instanceof HTMLElement
     ) {
@@ -3368,21 +3375,21 @@ function QuoteCard({
 
   function validateA2APlaces(): boolean {
     let ok = true;
-    if (!isPlaceSelected(pickupPlace)) {
+    if (!isQuoteReadyPlace(pickupPlace)) {
       setPickupPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.pickup);
       ok = false;
     } else {
       setPickupPlaceError("");
     }
-    if (!isPlaceSelected(dropoffPlace)) {
+    if (!isQuoteReadyPlace(dropoffPlace)) {
       setDropoffPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.destination);
       ok = false;
     } else {
       setDropoffPlaceError("");
     }
     if (
-      isPlaceSelected(pickupPlace) &&
-      isPlaceSelected(dropoffPlace) &&
+      isQuoteReadyPlace(pickupPlace) &&
+      isQuoteReadyPlace(dropoffPlace) &&
       placesEqual(pickupPlace, dropoffPlace)
     ) {
       setDropoffPlaceError("Pickup and drop-off cannot be the same place.");
@@ -4632,8 +4639,8 @@ function QuoteCard({
 
   function hasSubstantialQuoteInput(): boolean {
     return (
-      isPlaceSelected(pickupPlace) ||
-      isPlaceSelected(dropoffPlace) ||
+      isQuoteReadyPlace(pickupPlace) ||
+      isQuoteReadyPlace(dropoffPlace) ||
       Boolean(pickupAddress.trim()) ||
       Boolean(dropoffAddress.trim()) ||
       Boolean(tripDate) ||
@@ -5153,9 +5160,9 @@ function QuoteCard({
         }
         if (!validateA2APlaces()) {
           trackQuoteValidationError(
-            !isPlaceSelected(pickupPlace)
+            !isQuoteReadyPlace(pickupPlace)
               ? "places_pickup_not_selected"
-              : !isPlaceSelected(dropoffPlace)
+              : !isQuoteReadyPlace(dropoffPlace)
                 ? "places_dropoff_not_selected"
                 : "places_same_pickup_dropoff",
             quoteFunnelParams({ cta: step1Cta }),
@@ -5172,10 +5179,10 @@ function QuoteCard({
         } else if (isA2AFlow && journeyIntent === "from-airport") {
           setDropoffPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.destination);
         } else {
-          if (!pickupAddress.trim() && !isPlaceSelected(pickupPlace)) {
+          if (!pickupAddress.trim() && !isQuoteReadyPlace(pickupPlace)) {
             setPickupPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.pickup);
           }
-          if (!dropoffAddress.trim() && !isPlaceSelected(dropoffPlace)) {
+          if (!dropoffAddress.trim() && !isQuoteReadyPlace(dropoffPlace)) {
             setDropoffPlaceError(QUOTE_REQUIRED_FIELD_MESSAGES.destination);
           }
         }
@@ -5469,11 +5476,11 @@ function QuoteCard({
     isA2AFlow &&
     quoteStep === 1 &&
     (journeyIntent === "address-to-address"
-      ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+      ? isQuoteReadyPlace(pickupPlace) && isQuoteReadyPlace(dropoffPlace)
       : journeyIntent === "to-airport"
-        ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+        ? Boolean(intentAirportCode) && isQuoteReadyPlace(pickupPlace)
         : journeyIntent === "from-airport"
-          ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+          ? Boolean(intentAirportCode) && isQuoteReadyPlace(dropoffPlace)
           : false);
   const a2aShowParty = a2aShowJourneyMode && journeyMode != null;
 
@@ -7964,32 +7971,32 @@ function QuoteCard({
                 returnOfferToken
                   ? false
                   : journeyIntent === "address-to-address"
-                    ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+                    ? isQuoteReadyPlace(pickupPlace) && isQuoteReadyPlace(dropoffPlace)
                     : journeyIntent === "to-airport"
-                      ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+                      ? Boolean(intentAirportCode) && isQuoteReadyPlace(pickupPlace)
                       : journeyIntent === "from-airport"
-                        ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+                        ? Boolean(intentAirportCode) && isQuoteReadyPlace(dropoffPlace)
                         : false
               }
               showScheduleFields={
                 journeyMode != null &&
                 (journeyIntent === "address-to-address"
-                  ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+                  ? isQuoteReadyPlace(pickupPlace) && isQuoteReadyPlace(dropoffPlace)
                   : journeyIntent === "to-airport"
-                    ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+                    ? Boolean(intentAirportCode) && isQuoteReadyPlace(pickupPlace)
                     : journeyIntent === "from-airport"
-                      ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+                      ? Boolean(intentAirportCode) && isQuoteReadyPlace(dropoffPlace)
                       : false)
               }
               scheduleFields={renderQuoteScheduleFields("quote")}
               showPartyFields={
                 journeyMode != null &&
                 (journeyIntent === "address-to-address"
-                  ? isPlaceSelected(pickupPlace) && isPlaceSelected(dropoffPlace)
+                  ? isQuoteReadyPlace(pickupPlace) && isQuoteReadyPlace(dropoffPlace)
                   : journeyIntent === "to-airport"
-                    ? Boolean(intentAirportCode) && isPlaceSelected(pickupPlace)
+                    ? Boolean(intentAirportCode) && isQuoteReadyPlace(pickupPlace)
                     : journeyIntent === "from-airport"
-                      ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
+                      ? Boolean(intentAirportCode) && isQuoteReadyPlace(dropoffPlace)
                       : false)
               }
               showStageScrollKey={`${journeyIntent ?? ""}|${intentAirportCode}|${pickupPlace.placeId}|${dropoffPlace.placeId}`}
@@ -8402,7 +8409,7 @@ function QuoteCard({
                 onSelectPlace={handleDropoffPlacesSuggestionSelect}
                 requireSuggestion
                 confirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
-                needsCompletion={quoteStep === 1 && !isPlaceSelected(dropoffPlace)}
+                needsCompletion={quoteStep === 1 && !isQuoteReadyPlace(dropoffPlace)}
                 selectionError={dropoffPlaceError}
                 airportCode={addressLookupCode}
                 label={
@@ -8442,7 +8449,7 @@ function QuoteCard({
                 onSelectPlace={handlePickupPlacesSuggestionSelect}
                 requireSuggestion
                 confirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
-                needsCompletion={quoteStep === 1 && !isPlaceSelected(pickupPlace)}
+                needsCompletion={quoteStep === 1 && !isQuoteReadyPlace(pickupPlace)}
                 selectionError={pickupPlaceError}
                 airportCode={addressLookupCode}
                 label={isLdyTrip ? "Your Belfast-area Pickup Address" : "Your Pickup Address"}
@@ -8477,7 +8484,7 @@ function QuoteCard({
               onSelectPlace={handlePickupPlacesSuggestionSelect}
               requireSuggestion
               confirmedPlace={isQuoteReadyPlace(pickupPlace) ? pickupPlace : null}
-              needsCompletion={quoteStep === 1 && !isPlaceSelected(pickupPlace)}
+              needsCompletion={quoteStep === 1 && !isQuoteReadyPlace(pickupPlace)}
               selectionError={pickupPlaceError}
               airportCode={addressLookupCode}
               label="Pickup Address"
@@ -8493,7 +8500,7 @@ function QuoteCard({
               onSelectPlace={handleDropoffPlacesSuggestionSelect}
               requireSuggestion
               confirmedPlace={isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null}
-              needsCompletion={quoteStep === 1 && !isPlaceSelected(dropoffPlace)}
+              needsCompletion={quoteStep === 1 && !isQuoteReadyPlace(dropoffPlace)}
               selectionError={dropoffPlaceError}
               airportCode={addressLookupCode}
               label="Drop-off Address"

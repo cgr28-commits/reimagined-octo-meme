@@ -1,3 +1,5 @@
+import { isQuoteReadyPlace, placeDisplayText } from "./selected-place";
+import { getServedAirport } from "../../shared/served-airports";
 import { AIRPORTS, SITE, isVehicleEnquiryOnly, isVehicleRequestQuote } from "@/lib/data";
 import {
   isValidEmailAddress,
@@ -155,6 +157,7 @@ async function submitQuoteViaWeb3Forms(
 }
 
 export function buildBookingDetailsFromDraft(draft: QuoteDraft): BookingDetails | null {
+  if (!isQuoteReadyPlace(draft.selectedAddress) || draft.address !== placeDisplayText(draft.selectedAddress!)) return null;
   if (
     !draft.airportCode ||
     !draft.address ||
@@ -196,6 +199,8 @@ export function buildBookingDetailsFromDraft(draft: QuoteDraft): BookingDetails 
       : null;
 
   return {
+    pickupPlaceId: isFromAirport ? getServedAirport(draft.airportCode)?.placeId : draft.selectedAddress!.placeId,
+    dropoffPlaceId: isFromAirport ? draft.selectedAddress!.placeId : getServedAirport(draft.airportCode)?.placeId,
     customerName: draft.customerName.trim(),
     customerEmail: draft.customerEmail.trim(),
     mobileNumber: draft.mobileNumber.trim(),

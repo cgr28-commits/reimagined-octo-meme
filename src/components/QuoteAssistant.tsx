@@ -1,5 +1,7 @@
 "use client";
 
+import { isQuoteReadyPlace, placeDisplayText, type SelectedPlace } from "@/lib/selected-place";
+
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -15,7 +17,6 @@ import {
   createWelcomeMessages,
   emptyQuoteDraft,
   getNextQuoteField,
-  isPricableStreetAddress,
   respondToAssistantMessage,
   type AssistantMessage,
   type QuoteCardSummary,
@@ -170,6 +171,7 @@ export default function QuoteAssistant() {
   const [showContactOffer, setShowContactOffer] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [addressValue, setAddressValue] = useState("");
+  const [selectedAddress, setSelectedAddress] = useState<SelectedPlace | null>(null);
   const [mounted, setMounted] = useState(false);
   const [consecutiveMisses, setConsecutiveMisses] = useState(0);
   const [helpCorner, setHelpCorner] = useState<HelpCorner>("bottom-right");
@@ -623,7 +625,7 @@ export default function QuoteAssistant() {
   }
 
   function confirmAddress() {
-    if (!addressValue.trim() || isWorking) return;
+    if (!isQuoteReadyPlace(selectedAddress) || addressValue !== placeDisplayText(selectedAddress!) || isWorking) return;
     sendText(addressValue);
   }
 
@@ -866,11 +868,18 @@ export default function QuoteAssistant() {
                 id="bot-quote-address"
                 name="bot-quote-address"
                 value={addressValue}
-                onChange={setAddressValue}
-                onSelectAddress={(address) => {
-                  setAddressValue(address);
-                  if (isPricableStreetAddress(address, draft.airportCode)) {
-                    sendText(address);
+                onChange={(value) => {
+                  setAddressValue(value);
+                  setSelectedAddress(null);
+                  draftRef.current = { ...draftRef.current, selectedAddress: undefined, address: undefined };
+                }}
+                confirmedPlace={selectedAddress}
+                requireSuggestion
+                onSelectPlace={(place) => {
+                  setSelectedAddress(place);
+                  if (isQuoteReadyPlace(place)) {
+                    draftRef.current = { ...draftRef.current, selectedAddress: place };
+                    sendText(placeDisplayText(place));
                   }
                 }}
                 airportCode={draft.airportCode ?? ""}
@@ -885,7 +894,7 @@ export default function QuoteAssistant() {
               <button
                 type="submit"
                 disabled={
-                  isWorking || !isPricableStreetAddress(addressValue, draft.airportCode)
+                  isWorking || !isQuoteReadyPlace(selectedAddress) || addressValue !== placeDisplayText(selectedAddress!)
                 }
                 className="mt-2 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
               >

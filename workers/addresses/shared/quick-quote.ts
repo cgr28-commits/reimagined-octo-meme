@@ -69,6 +69,12 @@ export type QuickQuoteStatus =
   | "cancelled";
 
 export type QuickQuoteJourney = {
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
+  pickupLat?: number;
+  pickupLng?: number;
+  dropoffLat?: number;
+  dropoffLng?: number;
   pickupAddress: string;
   dropoffAddress: string;
   airportCode?: QuickQuoteAirportCode | null;
