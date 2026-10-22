@@ -99,6 +99,7 @@ A read-only `git merge-tree --write-tree` simulation with #680 head `7a8a9f0` co
 - `scripts/check-express-drop-off.ts`
 - `scripts/check-quote-airport-benefits.tsx`
 - `scripts/check-quote-checkout-page.ts`
+- `scripts/check-quote-required-fields.ts`
 - `scripts/check-refund-ops.ts`
 - `scripts/check-return-vehicle-stability.mjs`
 - `shared/cancellation-policy.ts`
