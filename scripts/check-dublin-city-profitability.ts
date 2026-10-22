@@ -8,7 +8,7 @@ import { OPERATING_BASE } from "../workers/addresses/src/operating-base";
 import { universalDrivingMilesFromKm } from "../shared/universal-distance-pricing";
 
 function place(id: string, address: string, lat: number, lng: number, countryCode: string): SelectedPlace {
-  return { placeId: id, formattedAddress: address, displayAddress: address, placeName: address.split(",")[0], lat, lng, countryCode, postalCode: null, streetNumber: null, route: null, locality: null, administrativeArea: null };
+  return { provider: "google", types: ["premise"], placeId: id, formattedAddress: address, displayAddress: address, placeName: address.split(",")[0], lat, lng, countryCode, postalCode: null, streetNumber: null, route: null, locality: null, administrativeArea: null };
 }
 const dublin = place("citizenm", "citizenM Dublin St. Patrick's, 67-69 Bride St, Dublin D08 C8CN, Ireland", 53.339, -6.272, "IE");
 const cork = place("cork-hotel", "Hotel, Cork, Ireland", 51.8985, -8.4756, "IE");
