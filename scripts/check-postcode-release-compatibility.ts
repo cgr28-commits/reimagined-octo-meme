@@ -1,3 +1,5 @@
+import { getServedAirport } from "../shared/served-airports";
+import { preciseTestPlaceId, preciseTestGoogleResponse } from "./precise-place-fixtures";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { defaultOwnerPricingSettings, normalizeOwnerPricingSettings, toPublicOwnerPricingConfig } from "../shared/owner-pricing-config";
@@ -31,7 +33,7 @@ async function main() {
  const env={TRACKING_STORE:store,OWNER_ACCESS_KEY:"test-owner",DRIVER_ACCESS_KEY:"test-driver",GOOGLE_PLACES_API_KEY:"test-google",SUMUP_API_KEY:"test-only",SUMUP_MERCHANT_CODE:"test-only",PUBLIC_SITE_ORIGIN:"https://www.myairporttaxini.co.uk"};
  const amounts:number[]=[];const original=globalThis.fetch;
  globalThis.fetch=async(input,init)=>{
-  const u=String(input);if(u.includes("maps.googleapis.com")||u.includes("places.googleapis.com"))return new Response(JSON.stringify({status:"OK",result:{geometry:{location:{lat:54.5964,lng:-5.9302}}},results:[{geometry:{location:{lat:54.5964,lng:-5.9302}}}],location:{latitude:54.5964,longitude:-5.9302}}),{headers:{"Content-Type":"application/json"}});
+  const u=String(input);if(u.includes("maps.googleapis.com")||u.includes("places.googleapis.com"))return preciseTestGoogleResponse(u);
   if(u.includes("/route/v1/"))return new Response(JSON.stringify({code:"Ok",routes:[{distance:159000,duration:6720}]}),{headers:{"Content-Type":"application/json"}});
   if(u==="https://api.sumup.com/v0.1/checkouts"&&init?.method==="POST"){const b=JSON.parse(String(init.body));amounts.push(b.amount);return new Response(JSON.stringify({id:"compat-test-"+amounts.length,checkout_reference:b.checkout_reference,hosted_checkout_url:"https://checkout.sumup.com/test-only",status:"PENDING",amount:b.amount}),{status:201})}
   if(u.includes("api.mailchannels.net/")||u.includes("api.resend.com/emails"))return new Response(JSON.stringify({id:"isolated-message"}));
@@ -46,16 +48,16 @@ async function main() {
   const date=new Date(Date.now()+10*86400000).toISOString().slice(0,10);
   for(const district of ["BT1","BT2"])for(const [airport,saloon] of [["BHD",35],["BFS",55],["DUB",245]] as const)for(const vehicle of [S,E]){
    const address=district==="BT1"?"Belfast City Hall, Belfast BT1 5GS":"Grand Central Hotel, Belfast BT2 7FF";
-   const airportAddress=airport==="BHD"?"Belfast City Airport (BHD)":airport==="BFS"?"Belfast International Airport (BFS)":"Dublin Airport (DUB)";
+   const airportAddress=getServedAirport(airport)!.formattedAddress;
    const expected=saloon+(vehicle===E?10:0);
    const oldToNew=await historical.call({kind:"frontend",address,airport,vehicle,pricing:config.body.config});assert.equal(oldToNew.final,expected,"Old frontend + new Worker config");
    const newToOld=calculateQuote(address,airport,vehicle,false,{}, {distanceKm:159,durationMinutes:112},false,oldConfig)!;
    const access=quoteAirportAccessCharges({expressLegs:resolveExpressDropOff({airportCode:airport,fromAirport:false,selected:true}).legs,airportCode:airport,fromAirport:false});
    assert.equal(composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:newToOld.journeyFareGbp!,airportFixedCostsGbp:newToOld.airportFixedCostsGbp,airportAccessChargeGbp:access.airportAccessChargeGbp}).finalAmountPayableGbp,expected,"New frontend + old Worker config");
-   const quoteBody={pickupAddress:address,dropoffAddress:airportAddress,returnJourney:false,passengers:2,suitcases:1,vehicleType:vehicle,pickupPlaceId:"ChIJ-isolated-test",dropoffPlaceId:`quickselect-${airport}`,pickupLat:54.5964,pickupLng:-5.9302,dropoffLat:53.4264,dropoffLng:-6.2499};
+   const quoteBody={pickupAddress:address,dropoffAddress:airportAddress,returnJourney:false,passengers:2,suitcases:1,vehicleType:vehicle,pickupPlaceId:preciseTestPlaceId(address),dropoffPlaceId:getServedAirport(airport)!.placeId,pickupLat:54.5964,pickupLng:-5.9302,dropoffLat:53.4264,dropoffLng:-6.2499};
    const modern=await request("/quote/calculate",quoteBody),old=await historical.call({path:"/quote/calculate",method:"POST",body:quoteBody});assert.equal(modern.status,200);assert.equal(old.status,200);assert.equal(modern.body.amount,old.body.amount);
    const booking={customerName:"Test Customer",customerEmail:"test@example.com",mobileNumber:"07700900123",pickupLabel:address,dropoffLabel:airportAddress,tripLabel:"Airport drop-off",tripDate:date,tripTime:"12:00",returnJourney:false,passengers:2,suitcases:1,vehicle,isAirportTrip:true,isFromAirport:false,airportCode:airport,termsAcceptedAt:new Date().toISOString()};
-   const payload={booking,pickupPlaceId:"ChIJ-isolated-test",dropoffPlaceId:`quickselect-${airport}`,amount:modern.body.amount,acceptedFinalAmountGbp:expected,journeyFareGbp:modern.body.journeyFareGbp,airportFixedCostsGbp:modern.body.airportFixedCostsGbp,description:"Airport transfer",redirectUrl:"https://www.myairporttaxini.co.uk/booking-confirmed/"};
+   const payload={booking,pickupPlaceId:preciseTestPlaceId(address),dropoffPlaceId:getServedAirport(airport)!.placeId,amount:modern.body.amount,acceptedFinalAmountGbp:expected,journeyFareGbp:modern.body.journeyFareGbp,airportFixedCostsGbp:modern.body.airportFixedCostsGbp,description:"Airport transfer",redirectUrl:"https://www.myairporttaxini.co.uk/booking-confirmed/"};
    const paid=await request("/payments",payload),oldPaid=await historical.call({path:"/payments",method:"POST",body:payload});assert.equal(paid.status,200,JSON.stringify(paid.body));assert.equal(oldPaid.status,200,JSON.stringify(oldPaid.body));assert.equal(amounts.at(-1),expected);assert.equal(oldPaid.checkoutAmounts.at(-1),expected);assert.equal((await getPendingCheckout(store,paid.body.checkoutId))?.amount,expected);
    for(const fromAirport of [false,true])for(const returnJourney of [false,true]){
     const current=calculateQuote(address,airport,vehicle,returnJourney,{}, {distanceKm:159,durationMinutes:112},fromAirport,legacy)!;

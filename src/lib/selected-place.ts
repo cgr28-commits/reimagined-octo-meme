@@ -500,7 +500,7 @@ export function hasUsablePlaceCoordinates(place: SelectedPlace): boolean {
 
 /** A name or coordinates alone cannot identify an individual premise. */
 export function isIncompleteAddressPlace(place: SelectedPlace): boolean {
-  return !isQuoteReadyPlace(place);
+  return !isQuoteReadyPlace(place) || !hasUsablePlaceCoordinates(place);
 }
 
 function logAreaClassification(result: PickupAreaClassification): void {

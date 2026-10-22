@@ -1,3 +1,4 @@
+const {preciseTestGoogleResponse}=require('./precise-place-fixtures.ts');
 // PLAYWRIGHT_EXECUTABLE_PATH=/path/to/chromium node --import tsx scripts/check-postcode-pricing-browser.cjs
 // Production-shaped browser origin, but ALL requests are intercepted. Only a local dev server
 // and an in-memory Worker are used. No real owner keys, live KV, messages or payments.
@@ -5,7 +6,7 @@ const {chromium}=require('playwright'), assert=require('node:assert/strict'), fs
 const root=path.resolve(__dirname,'..'), routeFile=path.join(root,'src/app/postcode-flow-check/page.tsx');
 if(fs.existsSync(routeFile))throw new Error('Refusing to overwrite an existing route');
 fs.mkdirSync(path.dirname(routeFile),{recursive:true});
-fs.writeFileSync(routeFile,`'use client';import {useEffect,useState} from 'react';import OwnerPostcodePricingPanel from '@/components/OwnerPostcodePricingPanel';import QuoteCard from '@/components/QuoteCard';import {quickSelectToPlace} from '@/lib/selected-place';import {PREVIEW_BELFAST_CITY_HALL_PLACE} from '@/lib/preview-customer-quote';export default function Check(){const [mode,setMode]=useState('');const [airport,setAirport]=useState<'BFS'|'BHD'|'DUB'>('DUB');useEffect(()=>{const p=new URLSearchParams(location.search);setMode(p.get('mode')||'admin');setAirport((p.get('to')||'DUB') as 'BFS'|'BHD'|'DUB')},[]);return <main><div style={{maxWidth:900,margin:'auto',padding:16}}>{mode==='quote'?<QuoteCard presentation="homepage" initialPickupPlace={PREVIEW_BELFAST_CITY_HALL_PLACE} initialDropoffPlace={quickSelectToPlace(airport)}/>:mode==='admin'?<OwnerPostcodePricingPanel ownerKey="isolated-owner"/>:null}</div></main>}`);
+fs.writeFileSync(routeFile,`'use client';import {useEffect,useState} from 'react';import OwnerPostcodePricingPanel from '@/components/OwnerPostcodePricingPanel';import QuoteCard from '@/components/QuoteCard';import {quickSelectToPlace} from '@/lib/selected-place';import {PREVIEW_BELFAST_CITY_HALL_PLACE} from '@/lib/preview-customer-quote';export default function Check(){const [mode,setMode]=useState('');const [airport,setAirport]=useState<'BFS'|'BHD'|'DUB'>('DUB');useEffect(()=>{const p=new URLSearchParams(location.search);setMode(p.get('mode')||'admin');setAirport((p.get('to')||'DUB') as 'BFS'|'BHD'|'DUB')},[]);return <main><div style={{maxWidth:900,margin:'auto',padding:16}}>{mode==='quote'?<QuoteCard presentation="homepage" initialPickupPlace={{...PREVIEW_BELFAST_CITY_HALL_PLACE,provider:'google',types:['premise']}} initialDropoffPlace={quickSelectToPlace(airport)}/>:mode==='admin'?<OwnerPostcodePricingPanel ownerKey="isolated-owner"/>:null}</div></main>}`);
 const worker=require('../workers/addresses/src/index.ts').default;
 const {defaultOwnerPricingSettings}=require('../shared/owner-pricing-config.ts');
 const {getOwnerPricingSettings,saveOwnerPricingSettings}=require('../workers/addresses/src/owner-pricing-store.ts');
@@ -19,7 +20,7 @@ const realFetch=globalThis.fetch;
 globalThis.fetch=async(input,init)=>{
  const url=String(input instanceof Request?input.url:input);
  if(url.startsWith('http://127.0.0.1:3098/')||url.startsWith('http://127.0.0.1:3097/'))return realFetch(input,init);
- if(url.includes('maps.googleapis.com')||url.includes('places.googleapis.com'))return new Response(JSON.stringify({status:'OK',result:{geometry:{location:{lat:54.5964,lng:-5.9302}}},results:[{geometry:{location:{lat:54.5964,lng:-5.9302}}}],location:{latitude:54.5964,longitude:-5.9302}}),{headers:{'Content-Type':'application/json'}});
+ if(url.includes('maps.googleapis.com')||url.includes('places.googleapis.com'))return preciseTestGoogleResponse(url);
  if(url.includes('/route/v1/'))return new Response(JSON.stringify({code:'Ok',routes:[{distance:159000,duration:6720}]}),{headers:{'Content-Type':'application/json'}});
  throw new Error('Blocked unexpected external request in isolated browser test: '+url);
 };
@@ -40,7 +41,7 @@ async function main(){try{
   if(u.hostname.endsWith('workers.dev')){
    if(u.pathname==='/addresses'){
     const address='Belfast City Hall, Donegall Square N, Belfast BT1 5GS, UK';
-    return r.fulfill({json:u.searchParams.has('id')?{address,formattedAddress:address,placeId:'isolated-city-hall',placeName:'Belfast City Hall',lat:54.5964,lng:-5.9302,countryCode:'GB',postalCode:'BT1 5GS',locality:'Belfast'}:{suggestions:[{id:'isolated-city-hall',label:address,address,mainText:'Belfast City Hall',secondaryText:'Belfast BT1 5GS'}]}});
+    return r.fulfill({json:u.searchParams.has('id')?{address,formattedAddress:address,placeId:'isolated-city-hall',placeName:'Belfast City Hall',provider:'google',types:['premise'],lat:54.5964,lng:-5.9302,countryCode:'GB',postalCode:'BT1 5GS',locality:'Belfast'}:{suggestions:[{id:'isolated-city-hall',label:address,address,mainText:'Belfast City Hall',secondaryText:'Belfast BT1 5GS'}]}});
    }
    if(['/owner/pricing','/pricing/public','/quote/calculate','/owner/postcode-preview'].includes(u.pathname)){
     if(backendVersion==='old'){const result=await historical.call({path:u.pathname,method:request.method(),headers:request.headers(),...(request.method()==='GET'?{}:{body:JSON.parse(request.postData())})});api.push({path:u.pathname,method:request.method(),status:result.status});return r.fulfill({status:result.status,json:result.body})}

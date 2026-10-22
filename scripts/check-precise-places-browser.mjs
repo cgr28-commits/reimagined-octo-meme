@@ -97,6 +97,9 @@ try {
         await page.screenshot({path:`${output}/${engineName}-${width}-${pathname==='/'?'home':'hub'}.png`});
         // A slow selection response must not restore coordinates after another edit.
         delayDetails=true;
+        // Match a customer's tap after the result has scrolled into view. fill()
+        // alone can edit an offscreen input in WebKit without moving its popup.
+        await page.locator('#pickup').click();
         await page.locator('#pickup').fill('12 Holywood Road');
         await page.getByRole('button',{name:/12 Holywood Road.*Belfast/}).first().click();
         await page.locator('#pickup').fill('Other unfinished address');
