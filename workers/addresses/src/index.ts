@@ -1,3 +1,5 @@
+export { DriverAuthCoordinator } from "./driver-auth-coordinator";
+import { handleSecureDriverAuth } from "./secure-driver-handlers";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 export { ConsentLedger } from "./consent-ledger";
@@ -523,6 +525,7 @@ type EmailBinding = {
 };
 
 type Env = {
+  DRIVER_AUTH?: DurableObjectNamespace;
   GOOGLE_PLACES_API_KEY: string;
   GETADDRESS_API_KEY?: string;
   IDEAL_POSTCODES_API_KEY?: string;
@@ -4187,6 +4190,7 @@ export default {
       return handlePublicTrackRequest(trackToken, env, origin);
     }
 
+    if (env.DRIVER_AUTH && /^\/(api\/)?driver\/portal\/(exchange|invite|session|logout|request-code)$/.test(url.pathname)) return handleSecureDriverAuth(request, env);
     if (/^\/(api\/)?driver\/portal\/invite$/.test(url.pathname) && request.method === "POST") {
       return handleDriverPortalInviteRequest(request, env, origin);
     }

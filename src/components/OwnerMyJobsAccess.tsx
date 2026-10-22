@@ -10,7 +10,7 @@ export default function OwnerMyJobsAccess({ ownerKey }: { ownerKey: string }) {
     try {
       const invite = await createPersonalDriverInvite(ownerKey);
       const session = await exchangeDriverPortalAccess(invite.access);
-      window.localStorage.setItem("matni-driver-portal-session", session.sessionToken);
+      if (process.env.NEXT_PUBLIC_DRIVER_COOKIE_AUTH !== "true") window.localStorage.setItem("matni-driver-portal-session", session.sessionToken);
       window.location.assign("/driver/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open My Jobs.");

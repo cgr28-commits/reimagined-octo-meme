@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Header from "@/components/Header";
+import SecureDriverPortal from "./SecureDriverPortal";
 import DriverPageClient from "./DriverPageClient";
 import DriverIntegrationPreview from "./DriverIntegrationPreview";
 import DriverPreviewClient from "./DriverPreviewClient";
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
 };
 
 export default function DriverPage() {
+  if (process.env.NEXT_PUBLIC_DRIVER_COOKIE_AUTH === "true") return <SecureDriverPortal staging={process.env.NEXT_PUBLIC_MY_JOBS_INTEGRATION_PREVIEW === "true"} />;
   if (process.env.NEXT_PUBLIC_MY_JOBS_INTEGRATION_PREVIEW === "true") return <DriverIntegrationPreview />;
   if (process.env.NEXT_PUBLIC_MY_JOBS_PREVIEW === "true") return <DriverPreviewClient />;
   // Soft-hidden via SERVICE_FLAGS.driverDashboard — drivers get jobs by email only

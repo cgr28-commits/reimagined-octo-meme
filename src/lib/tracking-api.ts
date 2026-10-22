@@ -49,7 +49,7 @@ function resolveWorkerBaseUrl(): string {
   }
 }
 
-const WORKER_BASE = process.env.NEXT_PUBLIC_MY_JOBS_INTEGRATION_PREVIEW === "true" && typeof window !== "undefined" ? window.location.origin : resolveWorkerBaseUrl();
+const WORKER_BASE = (process.env.NEXT_PUBLIC_MY_JOBS_INTEGRATION_PREVIEW === "true" || process.env.NEXT_PUBLIC_DRIVER_COOKIE_AUTH === "true") && typeof window !== "undefined" ? window.location.origin : resolveWorkerBaseUrl();
 
 export function isDriverPortalSessionToken(value: string | null | undefined): boolean {
   return (value ?? "").trim().startsWith("dps_");
@@ -57,7 +57,7 @@ export function isDriverPortalSessionToken(value: string | null | undefined): bo
 
 function driverQueryKey(url: URL, driverKey: string): void {
   const trimmed = driverKey.trim();
-  if (!trimmed || isDriverPortalSessionToken(trimmed)) {
+  if (process.env.NEXT_PUBLIC_DRIVER_COOKIE_AUTH === "true" || !trimmed || isDriverPortalSessionToken(trimmed)) {
     return;
   }
   url.searchParams.set("key", trimmed);
@@ -65,6 +65,7 @@ function driverQueryKey(url: URL, driverKey: string): void {
 
 function driverAuthHeaders(driverKey: string): Record<string, string> {
   const trimmed = driverKey.trim();
+  if (trimmed === "dps_cookie") return { "X-Driver-Intent": "portal" };
   if (isDriverPortalSessionToken(trimmed)) {
     return { "X-Driver-Session": trimmed };
   }
@@ -114,6 +115,7 @@ export async function exchangeDriverPortalAccess(accessToken: string): Promise<{
     method: "POST",
     headers: {
       Accept: "application/json",
+      "X-Driver-Intent": "portal",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ access: accessToken.trim() }),
@@ -1490,7 +1492,7 @@ export async function fetchAllAssignedDriverJobs(session: string): Promise<Drive
 }
 export async function createPersonalDriverInvite(ownerKey: string, profileKey = "owner") {
   const response = await fetch(`${WORKER_BASE}/driver/portal/invite`, {
-    method: "POST", headers: { "Content-Type": "application/json", "X-Owner-Key": ownerKey },
+    method: "POST", headers: { "Content-Type": "application/json", "X-Owner-Key": ownerKey, "X-Driver-Intent": "portal" },
     body: JSON.stringify({ profileKey }),
   });
   return parseJsonResponse<{ access: string; driverName: string }>(response);

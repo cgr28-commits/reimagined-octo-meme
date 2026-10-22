@@ -2507,18 +2507,24 @@ function DriverJobCard({
 
 export default function DriverPageClient({
   portal = "driver",
+  cookieSession = false,
+  onSecureSignOut,
+  onSessionExpired,
 }: {
   portal?: "owner" | "driver";
+  cookieSession?: boolean;
+  onSecureSignOut?: () => Promise<void>;
+  onSessionExpired?: () => void;
 } = {}) {
   const isOwnerPortal = portal === "owner";
   const keyStorage = portalKeyStorage(portal);
   const [driverKey, setDriverKey] = useState("");
-  const [savedKey, setSavedKey] = useState<string | null>(null);
+  const [savedKey, setSavedKey] = useState<string | null>(cookieSession ? "dps_cookie" : null);
   const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
   const [jobsDay, setJobsDay] = useState(() => todayLondonDate());
   const [isOwnerPreviewHost, setIsOwnerPreviewHost] = useState(false);
   const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(
-    isOwnerPortal ? "owner" : null,
+    isOwnerPortal ? "owner" : cookieSession ? "driver" : null,
   );
   const [driverName, setDriverName] = useState<string | null>(null);
   const [availableDrivers, setAvailableDrivers] = useState<string[]>([...DEMO_ROSTER]);
@@ -2645,6 +2651,7 @@ export default function DriverPageClient({
         }
       } catch (err) {
         if (isDriverPortalSessionToken(key) && err instanceof DriverApiError && err.status === 401) {
+          if (cookieSession) onSessionExpired?.();
           window.localStorage.removeItem(DRIVER_PORTAL_SESSION_STORAGE_KEY);
           setSavedKey(null);
           setActiveToken(null);
@@ -2664,7 +2671,7 @@ export default function DriverPageClient({
         setLoading(false);
       }
     },
-    [selectedDate, today, view],
+    [selectedDate, today, view, cookieSession, onSessionExpired],
   );
 
   useEffect(() => {
@@ -2845,7 +2852,7 @@ export default function DriverPageClient({
   };
 
   useEffect(() => {
-    if (portalBootstrappedRef.current) {
+    if (cookieSession || portalBootstrappedRef.current) {
       return;
     }
     portalBootstrappedRef.current = true;
@@ -2926,7 +2933,7 @@ export default function DriverPageClient({
       setSavedKey(stored);
       void loadJobs(stored);
     }
-  }, [isOwnerPortal, keyStorage, loadJobs, unlockWithKey]);
+  }, [cookieSession, isOwnerPortal, keyStorage, loadJobs, unlockWithKey]);
 
   useEffect(() => {
     if (!savedKey) {
@@ -3299,6 +3306,7 @@ export default function DriverPageClient({
                 <button
                   type="button"
                   onClick={() => {
+                    if (onSecureSignOut) { void onSecureSignOut(); return; }
                     window.sessionStorage.removeItem(keyStorage);
                     window.localStorage.removeItem(DRIVER_PORTAL_SESSION_STORAGE_KEY);
                     setSavedKey(null);
@@ -3317,7 +3325,7 @@ export default function DriverPageClient({
                 </button>
               </div>
 
-              {!isOwnerView && <p className="mb-6 rounded-xl border border-white/15 p-4 text-sm text-white/75">Save My Jobs in Safari: Share → Add to Home Screen. If offered, turn off Open as Web App to keep this Safari sign-in. Your personal sign-in lasts up to 30 days. Keep this page open and your iPhone unlocked while sharing GPS.</p>}
+              {!isOwnerView && <p className="mb-6 rounded-xl border border-white/15 p-4 text-sm text-white/75">Save My Jobs in Safari: Share → Add to Home Screen. You may need to sign in once inside the Home Screen app. Your personal sign-in lasts up to 30 days. Keep this page open and your iPhone unlocked while sharing GPS.</p>}
               {isOwnerView && savedKey && <OwnerMyJobsAccess ownerKey={savedKey} />}
               {isOwnerView && savedKey ? (
                 <OwnerDashboardToolSwitcher

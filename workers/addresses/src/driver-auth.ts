@@ -4,6 +4,7 @@ import {
 } from "../shared/driver-job-sanitize";
 
 export type DriverAuthEnv = {
+  DRIVER_AUTH?: DurableObjectNamespace;
   DRIVER_ACCESS_KEY?: string;
   OWNER_ACCESS_KEY?: string;
   /** Display name for the driver key holder (default Driver). */

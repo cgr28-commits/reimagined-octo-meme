@@ -1,4 +1,4 @@
-name: Isolated My Jobs integration preview
+name: Isolated secure My Jobs staging
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -8,6 +8,9 @@ on:
       - 'workers/addresses/src/**'
       - 'scripts/driver-integration/**'
       - 'scripts/check-driver-integration*'
+      - 'scripts/*driver-staging*'
+      - 'scripts/check-driver-auth-expiry.ts'
+      - 'scripts/seed-driver-staging.ts'
       - 'scripts/prepare-driver-integration.mjs'
       - 'src/lib/tracking-api.ts'
       - 'src/app/layout.tsx'
@@ -32,35 +35,40 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm --prefix workers/addresses ci
+      - run: npm --prefix workers/addresses run typecheck
       - run: node --import tsx scripts/check-driver-integration.ts
+      - run: node --import tsx scripts/check-driver-auth-expiry.ts
       - name: Build with no backend or service credentials
         run: npm run build
         env:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_MY_JOBS_INTEGRATION_PREVIEW: 'true'
+          NEXT_PUBLIC_DRIVER_COOKIE_AUTH: 'true'
           NEXT_PUBLIC_BOOKINGS_API_URL: https://preview.invalid/bookings
           NEXT_PUBLIC_ADDRESSES_API_URL: https://preview.invalid/addresses
-      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npm install --no-save --package-lock=false playwright@1.58.2 wrangler@4.151.3
       - run: npx playwright install --with-deps chromium webkit
+      - run: node scripts/prepare-secure-driver-staging.mjs
       - name: Verify iPhone-size preview and network isolation
-        run: node --import tsx scripts/check-driver-integration-browser.mjs
-      - run: node scripts/prepare-driver-integration.mjs
+        run: node --import tsx scripts/check-secure-driver-staging.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: my-jobs-preview
           path: |
-            out
-            artifacts/driver-integration
-      - name: Deploy static files to existing preview project only
+            artifacts/driver-secure-staging
+      - name: Provision and deploy isolated staging only
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
-          npx --yes wrangler@3.109.0 pages deploy out --project-name=my-airport-taxi-ni-preview --branch=driver-jobs-integration --commit-hash="${{ github.event.pull_request.head.sha }}"
+          node scripts/configure-driver-staging.mjs
+          node --import tsx scripts/seed-driver-staging.ts
+          npx wrangler deploy --config wrangler.driver-staging.generated.json
