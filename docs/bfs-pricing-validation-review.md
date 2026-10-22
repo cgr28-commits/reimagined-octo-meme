@@ -105,26 +105,30 @@ All verification used isolated fixtures/mocks for booking, payment, email and ad
 | Check | Result |
 |---|---|
 | New minimum, configuration, structured-place, routing and checkout suite | **270 assertions passed** |
-| Relevant existing/new regression scripts | **18 scripts passed** |
+| Relevant existing/new regression scripts | **34 scripts passed** |
 | Mock SumUp checkout parity | Both directions × Saloon/Estate × one-way/return passed; invalid places and tampered fares blocked |
-| Browser flows | **6 Chromium cases passed**: homepage, airport landing page and admin at desktop 1280 px and mobile 390 px |
-| Browser address coverage | Numbered home, unnumbered hotel, street rejection, edit invalidation, stale asynchronous response, quote-to-booking continuation |
+| Browser flows | **12 cases passed in Chromium and WebKit**: homepage, airport landing page and admin at desktop 1280 px and mobile 390 px |
+| Browser address coverage | Numbered home, unnumbered hotel, street rejection, edit invalidation, stale asynchronous response, airport reselection, quote-to-booking continuation |
 | Browser admin coverage | £45 initial default; blank rejected; £47.25 saved and retained after reload |
 | Root TypeScript | Passed |
 | Next.js production build/static export | Passed: 149 pages |
 | Worker TypeScript and Wrangler build | Passed; Wrangler **dry run only** |
-| WebKit/Safari | Local browser download unavailable; added Chromium + WebKit review CI, result still to be confirmed |
+| WebKit/Safari | WebKit passed in Linux CI; this is browser-engine coverage, not a physical iPhone/Safari-device test |
+| Other existing CI | Postcode pricing, long-distance pricing, saved-quote suppression, paid-booking Ads and email-readability workflows passed; broader homepage, dashboard and City Airport browser workflows were still running when this report was prepared |
 
-The 18 scripts cover owner settings/formula recovery, website payment composition, airport fixed/access fees, night/weekend premiums, authoritative fares, Place-ID routing, schedule gating, autocomplete, return offers, automatic owner quotes, saved quotes, booking amendments, SumUp metadata, signed receipts and the new combined suite. Existing lint warnings remain; they did not prevent the build.
+The 34 scripts cover owner settings/formula recovery, website payment composition, airport fixed/access fees, night/weekend premiums, authoritative fares, Place-ID routing, schedule gating, autocomplete, return offers, automatic owner quotes, saved quotes, booking-amendment policy, SumUp metadata, signed receipts and the new combined suite. Existing lint warnings remain; they did not prevent the build. The existing postcode browser suite also passed its isolated dashboard-to-API-to-booking checks, including historical/current frontend and worker combinations. Test fixtures now include structured premise evidence; service-area restrictions remain covered.
+
+The complete new-feature CI passed against code commit `3cc9060b99835784870c67af614964a57524dd7c`: [workflow run](https://github.com/cgr28-commits/reimagined-octo-meme/actions/runs/39852313599). The code is available in [draft PR #680](https://github.com/cgr28-commits/reimagined-octo-meme/pull/680). Subsequent report-only edits do not change the tested application code.
 
 ## Issues requiring attention before release
 
-- Review the draft changes and CI results; production deployment is deliberately excluded. WebKit must complete in CI or another environment before claiming Safari coverage.
-- Deploy matching worker and frontend versions as a coordinated release when approved. The strict server may ask users on an older page to refresh/reselect an address. Older instantaneous signed receipts intentionally require a fresh quote.
+- Review the draft changes and CI results; production deployment is deliberately excluded. Physical-device Safari verification remains optional additional coverage beyond the passing Chromium/WebKit tests.
+- Deploy the matching worker first, then the frontend, as a coordinated release when approved. The strict server may ask users on an older page to refresh/reselect an address. Older instantaneous signed receipts intentionally require a fresh quote.
 - Verify the BFS terminal-access and exact number-7 operating-base coordinates before any pin change. Current pins were preserved.
 - The existing mileage-mode bypass of profitability protection remains. The new minimum is not a guarantee that long positioning/empty-return jobs are profitable.
 - Historical owner-approved fixed-price quotes retain their existing agreed-price workflows. New automatic quotes enforce precise selections.
 - The pre-existing conversational assistant cannot calculate a fixed fare without route metrics; this change validates its address selections but does not redesign that separate quoting flow.
+- An additional read-only review found that the existing customer booking-amendment handler also invokes the quote engine without route metrics or current pricing configuration. The engine fails closed for fare-sensitive changes. Its address fields now inherit the shared precise-selection validation, but repairing that older amendment repricing flow is separate booking-management work and is not claimed by the passing amendment-policy unit checks.
 
 ## Files changed
 
@@ -134,13 +138,23 @@ The manifest below lists source changes, synchronized worker copies, automated c
 .github/workflows/precise-quote-review.yml
 .gitignore
 docs/bfs-pricing-validation-review.md
+scripts/check-a2a-roi-journeys.ts
 scripts/check-airport-airport-access-fees.ts
+scripts/check-bfs-bhd-roi-instant-quote.ts
 scripts/check-bfs-minimum-and-precise-places.ts
+scripts/check-dashboard-formula-browser.mjs
+scripts/check-dublin-city-profitability.ts
+scripts/check-homepage-booking-browser.mjs
+scripts/check-hub-quote-browser.mjs
 scripts/check-night-weekend-surcharge.ts
+scripts/check-postcode-pricing-browser.cjs
+scripts/check-postcode-pricing.ts
+scripts/check-postcode-release-compatibility.ts
 scripts/check-precise-places-browser.mjs
 scripts/check-quote-receipt.ts
 scripts/check-quote-schedule-price-gate.ts
 scripts/check-return-offer-address-confirm.ts
+scripts/precise-place-fixtures.ts
 shared/bfs-minimum-fare.ts
 shared/booking-notifications.ts
 shared/google-places.ts
@@ -156,6 +170,7 @@ src/components/QuoteAssistant.tsx
 src/components/QuoteCard.tsx
 src/lib/addresses-api.ts
 src/lib/google-maps.ts
+src/lib/preview-customer-quote.ts
 src/lib/quote-assistant-submit.ts
 src/lib/quote-assistant.ts
 src/lib/quote-service.ts
