@@ -1,5 +1,11 @@
 # My Jobs booking integration — review before release
 
+## Owner booking card time and reference — 22 October 2026
+
+The existing Owner Dashboard card now shows pickup time in 30px bold tabular text and the canonical `paymentReference` directly below it, outside More options. This matches the prominent time/reference treatment already present on personal My Jobs cards. Existing customer, status, date, fare, route, navigation and contact controls are retained. Return cards continue to use the selected leg's date/time and the original booking reference. This is presentation only; no API, permission, booking, payment or notification behavior changed.
+
+Offline fictional-data checks passed: owner paid-bookings UI, owner navigation/contact links and return address reversal, owner upcoming/edit contracts, and secure driver integration. The isolated My Jobs preview remains driver-scoped and does not expose owner administration; this owner-specific presentation change requires owner-screen visual review before production release. No live customer records were fetched or used as test fixtures.
+
 ## Mobile dashboard and GPS pause — 22 October 2026
 
 This follow-up remains on draft PR #678. It does not activate real bookings or production access. The isolated staging workflow must pass before publishing this revision; its run is the deployment evidence, not this report alone.

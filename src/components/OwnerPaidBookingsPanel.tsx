@@ -2107,9 +2107,18 @@ export default function OwnerPaidBookingsPanel({
             <p className="break-words text-base font-bold text-white sm:text-lg">
               {booking.customerName}
             </p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-white/60">
+              Pickup time
+            </p>
+            <p className="text-3xl font-bold tabular-nums leading-tight text-white" data-owner-pickup-time>
+              {nextTime}
+            </p>
+            <p className="mt-2 break-words text-sm font-bold text-emerald" data-owner-booking-reference>
+              Booking {booking.paymentReference}
+            </p>
             <p className="mt-1 break-words text-sm text-white/65">
               {isReturnNext ? "Return · " : ""}
-              {formatDisplayTripDate(nextDate)} · pick up {nextTime}
+              {formatDisplayTripDate(nextDate)}
               {fareLabel !== "—" ? ` · ${fareLabel}` : ""}
             </p>
             <p className="mt-1 break-words text-sm text-white/80">{routeLabel}</p>
