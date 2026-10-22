@@ -24,6 +24,12 @@ await fs.mkdir(output,{recursive:true});
 const home={placeId:'test-home',address:'12 Holywood Road, Belfast BT4 1NT, UK',formattedAddress:'12 Holywood Road, Belfast BT4 1NT, UK',displayAddress:'12 Holywood Road, Belfast BT4 1NT, UK',placeName:null,lat:54.6063,lng:-5.8711,countryCode:'GB',postalCode:'BT4 1NT',streetNumber:'12',route:'Holywood Road',types:['street_address'],provider:'google'};
 const hotel={...home,placeId:'test-hotel',placeName:'Individual Hotel',address:'Individual Hotel, Belfast BT1 5GS, UK',formattedAddress:'Belfast BT1 5GS, UK',displayAddress:'Individual Hotel, Belfast BT1 5GS, UK',streetNumber:null,types:['lodging','establishment','point_of_interest']};
 const road={...home,placeId:'test-road',address:'Holywood Road, Belfast, UK',displayAddress:'Holywood Road, Belfast, UK',formattedAddress:'Holywood Road, Belfast, UK',placeName:'Holywood Road',streetNumber:null,types:['route']};
+async function dismissConsent(page) {
+  const reject=page.getByRole('button',{name:'Reject optional',exact:true});
+  try { await reject.waitFor({state:'visible',timeout:1500}); }
+  catch(error) { if(error.name==='TimeoutError')return;throw error; }
+  await reject.click();await reject.waitFor({state:'hidden'});
+}
 async function enterAddress(page, selector, value) {
   // A real customer taps the visible input before typing. WebKit fill() alone
   // can edit an offscreen input, leaving its fixed-position popup offscreen.
@@ -66,7 +72,7 @@ try {
       for(const pathname of ['/','/transfers/belfast-to-belfast-city/']) {
         await page.goto(origin+pathname);
         await page.locator('#pickup').waitFor();
-        const consent=page.getByRole('button',{name:'Reject optional',exact:true});if(await consent.isVisible())await consent.click();
+        await dismissConsent(page);
         // Homepage has no selected airport on a fresh visit.
         if(pathname==='/') {
           await enterAddress(page,'#dropoff','Belfast International');
@@ -115,6 +121,7 @@ try {
       await minimum.waitFor();assert.equal(await minimum.inputValue(),'45.00');
       await minimum.fill('');assert.equal(await page.getByRole('button',{name:'Save Changes',exact:true}).isDisabled(),true);
       await minimum.pressSequentially('47.25');await minimum.blur();
+      await dismissConsent(page);
       await page.getByRole('button',{name:'Save Changes',exact:true}).click();
       await page.getByRole('dialog',{name:'Confirm pricing changes'}).getByRole('button',{name:'Save Pricing',exact:true}).click();
       await page.getByRole('dialog',{name:'Confirm pricing changes'}).waitFor({state:'hidden'});

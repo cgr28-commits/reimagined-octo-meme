@@ -38,7 +38,12 @@ try {
    assert.equal(await saveButton.isDisabled(),true,'trailing decimal cannot save');
    await discardButton.click();assert.equal(await rate.inputValue(),'2.20');
    await page.getByRole('textbox',{name:'Starting charge',exact:true}).fill('12');await page.getByRole('textbox',{name:'Price per passenger road mile',exact:true}).fill('2.35');await page.getByRole('textbox',{name:'Formula minimum fare',exact:true}).fill('32');await toggle.check();
-   async function save(){await page.getByRole('button',{name:'Save Changes',exact:true}).click();await page.getByRole('dialog',{name:'Confirm pricing changes'}).getByRole('button',{name:'Save Pricing',exact:true}).click();await page.getByRole('dialog',{name:'Confirm pricing changes'}).waitFor({state:'hidden'});}
+   async function save(){
+    // WebKit may show consent again after a preview reload; dismiss it as a user
+    // would before opening a modal, rather than clicking through the banner.
+    const reject=page.getByRole('button',{name:'Reject optional',exact:true});
+    if(await reject.isVisible()) {await reject.click();await reject.waitFor({state:'hidden'});}
+    await page.getByRole('button',{name:'Save Changes',exact:true}).click();await page.getByRole('dialog',{name:'Confirm pricing changes'}).getByRole('button',{name:'Save Pricing',exact:true}).click();await page.getByRole('dialog',{name:'Confirm pricing changes'}).waitFor({state:'hidden'});}
    let original;
    for (const amount of ['2.35','2.50','2.75']) {
     await rate.fill('');await rate.pressSequentially('2.');assert.equal(await rate.inputValue(),'2.');
