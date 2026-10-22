@@ -42,7 +42,7 @@ export default function SecureDriverPortal({ staging = false }: { staging?: bool
     <strong className="text-amber-200">Staging · fictional bookings · read-only</strong>
     <p className="mt-1 text-white/70">Review the layout and secure sign-in. Job changes, messages and GPS are disabled.</p>
     <div className="mt-3 flex flex-wrap items-end gap-2">
-      <label className="min-w-0 flex-1">Test driver<select aria-label="Test driver" value={profile} onChange={e => setProfile(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-white/40 bg-[#071c38] px-2 text-base"><option value="owner">Colin’s assigned jobs</option><option value="other">Other driver (same name)</option><option value="empty">Driver with no jobs</option></select></label>
+      <label className="min-w-0 flex-1">Test driver<select aria-label="Test driver" value={profile} onChange={e => setProfile(e.target.value)} style={{ colorScheme: 'dark', backgroundColor: '#071c38', color: '#ffffff' }} className="mt-1 min-h-11 w-full rounded-lg border border-white/40 px-2 text-base"><option value="owner">Colin’s assigned jobs</option><option value="other">Other driver (same name)</option><option value="empty">Driver with no jobs</option></select></label>
       <button disabled={busy} onClick={() => void run(testLogin)} className="min-h-11 rounded-lg bg-emerald px-3 py-2 font-semibold text-navy disabled:opacity-60">Open test jobs</button>
     </div>
   </aside> : null;

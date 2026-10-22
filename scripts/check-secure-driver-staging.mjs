@@ -78,7 +78,7 @@ try {
   for (const engine of [chromium, webkit]) {
     const browser = await engine.launch();
     try { for (const width of [320, 390]) {
-      const context = await browser.newContext({ viewport: { width, height: 844 }, ignoreHTTPSErrors: true });
+      const context = await browser.newContext({ viewport: { width, height: 844 }, reducedMotion: 'reduce', ignoreHTTPSErrors: true });
       const page = await context.newPage(); const external = [];
       await page.addInitScript(() => {
         window.__testGeoCalls = 0;
@@ -121,6 +121,8 @@ try {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       assert.equal(await page.getByRole('dialog', { name: 'Cookie consent' }).count(), 0);
       assert.equal(await page.locator('script[src*="googletagmanager"],script[src*="tgtag.io"],script[src*="tawk.to"]').count(), 0);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      assert.equal(await notice.evaluate(node => node.getBoundingClientRect().top >= document.querySelector('header').getBoundingClientRect().bottom), true, 'Staging controls must sit below the fixed header at the top of the page');
       await page.screenshot({ path: `artifacts/driver-secure-staging/${engine.name()}-${width}.png`, fullPage: true });
       // Browser-only fictional responses exercise the existing handlers and action mappings.
       // No mutation reaches the staging Worker, KV, customer messaging or a live service.
