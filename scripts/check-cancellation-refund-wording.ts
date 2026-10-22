@@ -52,7 +52,7 @@ console.log("=== Shared 24-hour policy ===");
 {
   assert.match(
     CHECKOUT_CANCELLATION_SUMMARY,
-    /Cancel more than 24 hours before your scheduled pickup for a refund of the amount actually paid/,
+    /Cancel at least 24 hours before your scheduled pickup for a 100% refund of the amount actually paid/,
   );
   assert.match(
     CHECKOUT_CANCELLATION_SUMMARY,
@@ -129,10 +129,10 @@ console.log("\n=== Terms Cancellations & Refunds ===");
     ]),
     cancelSection.footer ?? "",
   ].join("\n");
-  assert.match(termsText, /More than 24 hours before pickup/);
+  assert.match(termsText, /At least 24 hours before pickup/);
   assert.match(
     termsText,
-    /If we receive your cancellation more than 24 hours before the scheduled pickup time, we will issue a refund of the amount actually paid/,
+    /If we receive your cancellation at least 24 hours before the scheduled pickup time, we will issue a 100% refund of the amount actually paid/,
   );
   assert.match(termsText, /Less than 24 hours before pickup/);
   assert.match(
@@ -146,7 +146,7 @@ console.log("\n=== Terms Cancellations & Refunds ===");
   assert.doesNotMatch(termsText, /will not normally be treated/);
   assert.equal(FLIGHT_DELAY_POLICY, SIGNIFICANT_FLIGHT_DELAY_POLICY);
   assert.match(termsText, /Deposit \+ Cash bookings/);
-  assert.match(termsText, /refund the amount actually paid — the card deposit/);
+  assert.match(termsText, /refund 100% of the amount actually paid — the card deposit/);
   assert.match(termsText, /Cancellations by us/);
   assert.match(termsText, new RegExp(COMPANY_CANCEL_REFUND.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(termsText, new RegExp(STATUTORY_RIGHTS_NOTE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -190,12 +190,12 @@ console.log("\n=== FAQ aligned ===");
   const cancelFaq = FAQS.find((f) => /cancel/i.test(f.question));
   assert.ok(cancelFaq);
   assert.equal(cancelFaq!.answer, FAQ_CANCEL_ANSWER);
-  assert.match(cancelFaq!.answer, /more than 24 hours/);
+  assert.match(cancelFaq!.answer, /at least 24 hours/);
   assert.match(cancelFaq!.answer, /non-refundable/);
   assert.match(cancelFaq!.answer, /statutory/);
   assert.match(cancelFaq!.answer, /cooling-off/);
   assert.match(cancelFaq!.answer, /will not be treated as a customer cancellation or no-show/);
-  assert.match(cancelFaq!.answer, /more than 24 hours before your scheduled pickup for a refund of the amount actually paid/);
+  assert.match(cancelFaq!.answer, /at least 24 hours before your scheduled pickup for a 100% refund of the amount actually paid/);
   assert.match(cancelFaq!.answer, /Cancellations less than 24 hours before pickup are non-refundable/);
   assertNoContradictoryCancellationCopy("FAQ", cancelFaq!.answer);
   const flightFaq = FAQS.find((f) => f.question === "Do you monitor flights?");
@@ -232,7 +232,7 @@ console.log("\n=== Confirmation and cancellation emails ===");
   );
   assert.match(
     CONFIRMATION_EMAIL_CANCELLATION_POLICY,
-    /more than 24 hours before your scheduled pickup for a refund of the amount actually paid/,
+    /at least 24 hours before your scheduled pickup for a 100% refund of the amount actually paid/,
   );
   assert.match(CONFIRMATION_EMAIL_CANCELLATION_POLICY, /non-refundable/);
   assert.match(UNDER_24H_CANCEL_CUSTOMER_NOTICE, /this booking is non-refundable/);

@@ -1,0 +1,32 @@
+[
+  {
+    "width": 320,
+    "before": 524,
+    "after": 510,
+    "delta": -14
+  },
+  {
+    "width": 360,
+    "before": 491,
+    "after": 460,
+    "delta": -31
+  },
+  {
+    "width": 375,
+    "before": 491,
+    "after": 443,
+    "delta": -48
+  },
+  {
+    "width": 390,
+    "before": 491,
+    "after": 443,
+    "delta": -48
+  },
+  {
+    "width": 1280,
+    "before": 611.1875,
+    "after": 608.1875,
+    "delta": -3
+  }
+]

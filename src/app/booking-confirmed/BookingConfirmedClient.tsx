@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CHECKOUT_CANCELLATION_SUMMARY, CANCELLATION_POLICY_PATH } from "../../../shared/cancellation-policy";
 import { useEffect, useState } from "react";
 import GoogleAdsConversion from "@/components/GoogleAdsConversion";
 import { saveToContactsHref } from "@/lib/contact-card";
@@ -258,6 +259,13 @@ export default function BookingConfirmedClient() {
         ) : null}
         {status === "confirmed" ? (
           <p className="mt-1 text-xs text-white/40">Payment method: Card (SumUp)</p>
+        ) : null}
+
+        {status === "confirmed" ? (
+          <p className="mt-4 text-sm leading-relaxed text-white/75" data-confirmation-cancellation-policy>
+            {CHECKOUT_CANCELLATION_SUMMARY}{" "}
+            <Link href={CANCELLATION_POLICY_PATH} className="text-emerald underline underline-offset-2">Cancellation Policy</Link>
+          </p>
         ) : null}
 
         <div className="mt-8 flex flex-wrap gap-3">

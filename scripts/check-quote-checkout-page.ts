@@ -46,7 +46,7 @@ console.log("=== Checkout page is compact and sans-serif ===");
   assert.match(checkout, /Mobile number/);
   assert.match(checkout, /Email address/);
   assert.match(card, /Flight details/);
-  assert.match(checkout, /Confirm booking & pay securely/);
+  assert.match(checkout, /& Confirm Booking/);
   assert.match(card, /function handleBackToQuote/);
   assert.match(card, /function renderBackToQuoteButton/);
   assert.match(card, /← Back to your quote/);

@@ -91,7 +91,7 @@ const renderCard = (unavailable = false, price = "£54") => renderToStaticMarkup
   <QuoteResultShowcase
     vehicleType="Saloon" passengers={2} suitcases={2} priceLabel="Fixed price" formattedPrice={price}
     priceUnavailable={unavailable}
-    airportAccess={<QuoteAirportBenefits {...fixture("BFS", null)} />}
+    depositAvailable={true}
     bookButton={<button type="button" data-test-book>BOOK THIS TRANSFER</button>}
   />,
 );
@@ -101,10 +101,12 @@ for (const price of ["£41", "£65", "£123.45"]) {
   assert.ok(priced.includes("The price you see is the price you pay."));
 }
 const html = visibleCardMarkup(renderCard());
-assert.match(html, /Your own pre-booked transfer/);
+assert.doesNotMatch(html, /Your own pre-booked transfer|60 Minutes Airport Waiting|Terminal pick-up included/);
+assert.match(html, /100% Refund/);
+assert.match(html, /Secure Your Booking with a Small Deposit/);
 assert.doesNotMatch(html, /Convenient collection|Convenient drop-off/);
-assert.ok(html.indexOf("£54") < html.indexOf("Terminal pick-up included"));
-assert.ok(html.indexOf("Terminal pick-up included") < html.indexOf("BOOK THIS TRANSFER"));
+assert.ok(html.indexOf("Secure Your Booking with a Small Deposit") < html.indexOf("£54"));
+assert.ok(html.indexOf("£54") < html.indexOf("BOOK THIS TRANSFER"));
 assert.ok(html.indexOf("BOOK THIS TRANSFER") < html.indexOf("The price you see is the price you pay."));
 assert.doesNotMatch(visibleCardMarkup(renderCard(true)), /Terminal pick-up included/);
 for (const vehicleType of ["Executive", "Minibus"]) {
@@ -113,7 +115,7 @@ for (const vehicleType of ["Executive", "Minibus"]) {
       priceLabel="Fixed price" formattedPrice="£54"
       requestQuote={{ heading: "Request a Quote", description: "A personalised quotation before payment." }}
       bookButton={<button type="submit">Request quote</button>}
-      airportAccess={<QuoteAirportBenefits {...fixture("BFS", null)} />}
+      depositAvailable={true}
     />,
   );
   assert.match(manual, /TBC/);
