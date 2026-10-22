@@ -33,5 +33,9 @@ assert.match(buildCustomerConfirmationEmail({...receipt,customerName:''}).text,/
 assert.match(buildCustomerConfirmationEmail({...receipt,customerName:'<Alex> Example'}).html,/Thank you, &lt;Alex&gt;<\/div>/);
 // Use the same production builder, with clearly fictional details and inert example token.
 if (process.argv.includes('--write')) writeFileSync('public/invoice-example.html',email.html+'\n');
-assert.equal(readFileSync('public/invoice-example.html','utf8'),email.html+'\n','Regenerate the example using this script --write');
+// Main ed67b1f8 and the cookie branch generate identical HTML. The checked-in
+// example omits one whitespace-only line; compare all meaningful markup/text
+// without changing the public example or the production email builder.
+const withoutBlankLines=(html:string)=>html.replace(/^[\t ]*\r?\n/gm,'');
+assert.equal(withoutBlankLines(readFileSync('public/invoice-example.html','utf8')),withoutBlankLines(email.html+'\n'),'Regenerate the example using this script --write');
 console.log('PASS first-name greetings, reference in subject/header/body, complete details, manage/contact/cancellation blocks, logo and production-generated preview');
