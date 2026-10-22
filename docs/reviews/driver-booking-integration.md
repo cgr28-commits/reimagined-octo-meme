@@ -1,6 +1,8 @@
 # My Jobs booking integration — review before release
 
-Status: development branch `codex/driver-web-dashboard`, draft PR #678. No production deployment, migrations, real-data reads, assignments, payment changes or customer messages performed.
+Status: secure staging published and verified on 22 October 2026. Development branch `codex/driver-web-dashboard`, draft PR #678. No production deployment, production migrations, real-data reads, assignments, payment changes or customer messages performed. A new auth Durable Object migration was applied only to the isolated staging Worker.
+
+Review: https://my-jobs-secure-staging.cgr28.workers.dev/driver/ — choose a fictional driver and tap **Open test jobs**. No driver key is required. Staging fixtures expire after seven days; rerun the guarded staging workflow to refresh them.
 
 ## Existing system inspected
 
@@ -30,7 +32,7 @@ The secure staging Worker (`workers/addresses/src/driver-staging.ts`) uses the s
 
 The staging fixture seeder writes only fictional records, expiring after seven days. Runtime booking storage is wrapped read-only; mutations, emails, messages and GPS routes are denied. The public test-driver selector grants access only to fictional identities. It must never be enabled on a real-data environment. The existing sample Pages preview is a separate older preview.
 
-Secure staging deployment and mobile CI results are pending in this revision. No safe production read-only connection was found: the existing preview binding shares production storage, so it is not used.
+Secure staging deployment and mobile CI passed for code commit `dd2bec30b08ab3f6220bf57b3413174bddbe0728` in [run 39741475476](https://github.com/cgr28-commits/reimagined-octo-meme/actions/runs/39741475476). Deployed Worker version: `69320afd-4d6e-484b-849d-8c656b5452c2`. The deployed health check confirmed the isolated database is seeded. Public API smoke checks passed for all three fixture profiles, cookie flags, code replay denial and server logout. The browser rendered the deployed sign-in page; cloud-browser click control timed out, so deployed interaction coverage comes from the API smoke checks and the matching build's Chromium/WebKit CI tests. No safe production read-only connection was found: the existing preview binding shares production storage, so it is not used.
 
 ### Secure sign-in implementation
 
@@ -44,7 +46,7 @@ Secure staging deployment and mobile CI results are pending in this revision. No
 
 - New local real Durable Object runtime checks pass: concurrent one-use exchange, replay denial, cookie attributes, persistent session/KV across restart, logout revocation, CSRF rejection, profile isolation, read-only records and denied mutations/external service requests.
 - Expiry-boundary, hashed-storage, throttle and cleanup tests pass.
-- Secure frontend static build and Worker typecheck pass; mobile Chromium/WebKit tests run in CI because browser installation is unavailable in this workspace.
+- Secure frontend static build and Worker typecheck pass. CI Chromium and WebKit checks PASS at 320px and 390px: login/reload/logout, jobs, return journey, fictional flight delay, cancellations, profile isolation, empty/error states, no overflow and no optional advertising. Browser screenshots are in the workflow artifact `my-jobs-preview`.
 
 - Offline integration contract: unauthenticated/invalid/expired sessions; exact assignment; same-name isolation; unassigned/name-only exclusion; owner visibility; cancelled actions; return metadata; pending customer-phone privacy; missing flight; cached delay fixture; read-only datastore; denied mutations; origin check on test login. No external requests permitted.
 - Existing assigned-driver portal access, notification/privacy, owner jobs/profile and owner profile persistence tests pass.
@@ -55,11 +57,12 @@ Secure staging deployment and mobile CI results are pending in this revision. No
 
 ## Release blockers / remaining risks
 
-1. Staging deployment requires the existing GitHub Preview environment's Cloudflare account ID and token with Workers Scripts and KV access. Deployment success and the actual review URL must be checked before reporting the new preview ready.
+1. Staging configuration and permissions are verified: the existing Preview credentials successfully created the independent KV namespace and deployed the isolated Worker/auth storage. No missing staging permissions remain. Real booking completeness is unverified because production data was deliberately not accessed.
 2. Production activation is deliberately pending: configure a separate production auth namespace and same-origin frontend/API routing; set the fixed HTTPS portal origin; verify saved driver email and the existing Resend configuration. The legacy production auth paths remain active until that approved rollout. Do not simply enable cookie UI against a cross-origin backend.
 3. Existing name-only assignments intentionally disappear from personal My Jobs until an admin explicitly assigns a saved profile. No assignments were migrated. Expired tracking records and missing historical return legs are not recreated by personal reads.
 4. Flight monitoring remains OFF in production. Existing provider allowance/costs and credentials need verification before enabling it. Staging delay information is explicitly fictional; no live provider calls were made. No flight SMS/push alerts are activated.
 5. Physical iPhone/Home Screen session persistence and GPS suspension remain unverified. Browser tests simulate mobile sizes; they do not establish background GPS support. Web GPS requires the page active and phone unlocked.
-6. HttpOnly cookies reduce credential theft but do not eliminate XSS risk. Existing admin authentication is unchanged. Session expiry/logout are implemented; a separate admin lost-device/session-management interface is not included.
+6. A separate existing homepage/pricing CI check fails in `scripts/check-bfs-bhd-roi-instant-quote.ts:267` (actual £60, expected £63). The identical failure was reproduced from the pre-security commit `d8c616ce`, confirming it predates this follow-up. Pricing was not changed to hide the failure; resolve that release gate separately before merging.
+7. HttpOnly cookies reduce credential theft but do not eliminate XSS risk. Existing admin authentication is unchanged. Session expiry/logout are implemented; a separate admin lost-device/session-management interface is not included.
 
 Do not merge, run production migrations, enable live driver access, or deploy Worker/frontend to production without explicit approval. No paid upgrade or external flight subscription was enabled.
