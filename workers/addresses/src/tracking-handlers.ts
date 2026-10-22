@@ -1,3 +1,4 @@
+import { DASHBOARD_GPS_ENABLED } from "../shared/live-gps";
 import {
   buildPublicTrackUrl,
   customerJourneyLabel,
@@ -195,6 +196,7 @@ function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
   const journeyDone =
     journeyStatusOf(record) === "completed" || journeyStatusOf(record) === "stopped";
   if (
+    !DASHBOARD_GPS_ENABLED ||
     !windowOpen ||
     journeyDone ||
     !record.trackingStartedAt ||
@@ -215,6 +217,7 @@ function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
 
 function liveCustomerLocation(record: TrackingJobRecord, windowOpen: boolean) {
   if (
+    !DASHBOARD_GPS_ENABLED ||
     !windowOpen ||
     !record.customerSharingActive ||
     typeof record.customerLat !== "number" ||
@@ -261,8 +264,8 @@ export function publicTrackPayload(
       opensAtDisplay: formatLondonDateTime(window.opensAt),
       closesAtDisplay: formatLondonDateTime(window.closesAt),
     },
-    sharingActive: record.sharingActive,
-    customerSharingActive: Boolean(record.customerSharingActive),
+    sharingActive: DASHBOARD_GPS_ENABLED && record.sharingActive,
+    customerSharingActive: DASHBOARD_GPS_ENABLED && Boolean(record.customerSharingActive),
     journeyStatus: journeyStatusOf(record),
     journeyStatusLabel: customerJourneyLabel(record),
     /** Invoice / payment reference customers already receive — not a sequential internal id. */
@@ -308,6 +311,7 @@ export async function handlePublicTrackRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Website GPS tracking is temporarily unavailable. Contact us on WhatsApp.", trackingDisabled: true }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
@@ -749,6 +753,7 @@ export async function handleDriverSharingRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Dashboard GPS is disabled. Share Live Location manually in WhatsApp." }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
@@ -830,6 +835,7 @@ export async function handleDriverLocationRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Dashboard GPS is disabled. No location was collected." }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
@@ -1027,6 +1033,7 @@ export async function handleCustomerSharingRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Website GPS tracking is disabled. No location was collected." }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
@@ -1084,6 +1091,7 @@ export async function handleCustomerLocationRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Website GPS tracking is disabled. No location was collected." }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }

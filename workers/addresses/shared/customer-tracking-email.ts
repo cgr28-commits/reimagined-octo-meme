@@ -1,8 +1,10 @@
 import { BRAND_NAVY, BRAND_EMERALD } from "./business-email";
+import { DASHBOARD_GPS_ENABLED } from "./live-gps";
 
 export const TRACKING_ACTIVATION_COPY = "Your tracking link only becomes live when your driver is on the way and starts sharing their location. Before then, it will show a waiting message. Tracking stops when sharing is stopped or your journey is completed.";
 const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 function safeLink(value?: string | null): string | null {
+  if (!DASHBOARD_GPS_ENABLED) return null;
   if (!value?.trim()) return null;
   try {
     const url = new URL(value);

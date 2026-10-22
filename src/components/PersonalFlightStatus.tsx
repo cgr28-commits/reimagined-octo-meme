@@ -22,13 +22,13 @@ export default function PersonalFlightStatus({ session, job }: { session: string
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [session, job.token, open]);
   if (!job.isAirportPickup) return null;
-  if (!job.flightNumber) return <p className="mt-4 text-sm text-white/70">No flight number supplied for this airport pickup.</p>;
+  if (!job.flightNumber) return <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 text-sm font-semibold text-amber-200">Flight number missing — confirm it with the owner for this airport pickup.</p>;
   const flight = result?.flight;
   const warning = /delay|cancel|divert/i.test(flight?.status ?? "") || (flight?.delayMinutes ?? 0) > 0;
   const arrived = /^(arrived|landed)$/i.test(flight?.status ?? "");
   const progress = /enroute|departed|approaching/i.test(flight?.status ?? "") ? "In flight" : arrived ? "Landed" : flight?.status === "Expected" ? "Scheduled" : null;
-  return <section className="mt-4 rounded-xl border border-white/15 p-4 text-white">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold">Flight {job.flightNumber}</h3><button aria-expanded={open} className="rounded-lg border border-white/30 px-3 py-2 text-sm" onClick={() => setOpen(!open)}>{open ? "Hide flight updates" : "Show flight updates"}</button></div>
+  return <section className="mt-3 rounded-xl border border-white/15 p-3 text-white" aria-label={`Flight updates for ${job.flightNumber}`}>
+    <button aria-expanded={open} className="min-h-11 w-full rounded-lg border border-white/30 px-3 py-2 text-sm font-semibold" onClick={() => setOpen(!open)}>{open ? "Hide flight updates" : "Show flight updates"}</button>
     {open && <div aria-live="polite" className="mt-3 space-y-2 text-sm">
       {busy && <p>Checking flight…</p>}
       {error && <p className="text-amber-200">{error} Previous information may be out of date.</p>}

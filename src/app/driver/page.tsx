@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     ? `Driver dashboard | ${SITE.name}`
     : `Driver jobs | ${SITE.name}`,
   description: SERVICE_FLAGS.driverDashboard
-    ? "Driver bookings dashboard — accept jobs and share live location."
+    ? "Driver bookings dashboard — accept jobs and update journey status."
     : "Drivers receive job details by email — no dashboard login required.",
   robots: {
     index: false,

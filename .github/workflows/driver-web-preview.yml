@@ -5,6 +5,12 @@ on:
     paths:
       - 'src/app/driver/**'
       - 'shared/driver-portal-access.ts'
+      - 'shared/live-gps.ts'
+      - 'shared/tracking.ts'
+      - 'shared/customer-tracking-email.ts'
+      - 'src/lib/data.ts'
+      - 'src/app/track/**'
+      - 'scripts/check-gps-disabled.ts'
       - 'workers/addresses/src/**'
       - 'scripts/driver-integration/**'
       - 'scripts/check-driver-integration*'
@@ -42,6 +48,9 @@ jobs:
       - run: npm --prefix workers/addresses run typecheck
       - run: node --import tsx scripts/check-driver-integration.ts
       - run: node --import tsx scripts/check-driver-auth-expiry.ts
+      - run: node --import tsx scripts/check-gps-disabled.ts
+      - run: node --import tsx scripts/check-driver-portal-permissions.ts
+      - run: node --import tsx scripts/check-driver-whatsapp-voice.ts
       - name: Build with no backend or service credentials
         run: npm run build
         env:

@@ -38,10 +38,18 @@ export default function SecureDriverPortal({ staging = false }: { staging?: bool
     if (!response.ok) throw new Error(result.error || 'Test sign-in unavailable');
     await exchange(result.code);
   }
-  return <div className={staging ? 'pb-36' : ''}>
-    {staging && <aside className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-amber-300 bg-[#071c38] p-3 text-center text-sm text-white"><strong className="text-amber-200">Staging · fictional bookings · read-only</strong><p>Secure sign-in test. No live customers, payments, GPS or messages.</p><label>Test driver <select aria-label="Test driver" value={profile} onChange={e => setProfile(e.target.value)} className="ml-2 rounded border border-white/40 bg-[#071c38] p-2"><option value="owner">Colin’s assigned jobs</option><option value="other">Other driver (same name)</option><option value="empty">Driver with no jobs</option></select></label><button disabled={busy} onClick={() => void run(testLogin)} className="ml-2 rounded bg-emerald p-2 text-navy">Open test jobs</button></aside>}
+  const stagingNotice = staging ? <aside aria-label="Staging test controls" className="mb-5 rounded-xl border border-amber-300/40 bg-[#071c38] p-3 text-sm text-white">
+    <strong className="text-amber-200">Staging · fictional bookings · read-only</strong>
+    <p className="mt-1 text-white/70">Review the layout and secure sign-in. Job changes, messages and GPS are disabled.</p>
+    <div className="mt-3 flex flex-wrap items-end gap-2">
+      <label className="min-w-0 flex-1">Test driver<select aria-label="Test driver" value={profile} onChange={e => setProfile(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-white/40 bg-[#071c38] px-2 text-base"><option value="owner">Colin’s assigned jobs</option><option value="other">Other driver (same name)</option><option value="empty">Driver with no jobs</option></select></label>
+      <button disabled={busy} onClick={() => void run(testLogin)} className="min-h-11 rounded-lg bg-emerald px-3 py-2 font-semibold text-navy disabled:opacity-60">Open test jobs</button>
+    </div>
+  </aside> : null;
+  return <div>
+    {!signedIn && stagingNotice && <div className="mx-auto max-w-lg px-4 pt-4">{stagingNotice}</div>}
     {message && <p role="status" className="relative z-10 bg-navy p-4 text-center text-amber-200">{message}</p>}
-    {checking ? <p className="p-8 text-white">Checking sign-in…</p> : signedIn ? <DriverPageClient key={generation} cookieSession onSessionExpired={sessionExpired} onSecureSignOut={() => run(async () => { await portalRequest('logout', {}); setSignedIn(false); })} /> : <main className="mx-auto min-h-screen max-w-lg px-6 pb-40 pt-16 text-white">
+    {checking ? <p className="p-8 text-white">Checking sign-in…</p> : signedIn ? <DriverPageClient key={generation} cookieSession portalNotice={stagingNotice} onSessionExpired={sessionExpired} onSecureSignOut={() => run(async () => { await portalRequest('logout', {}); setSignedIn(false); })} /> : <main className="mx-auto min-h-screen max-w-lg px-6 pb-16 pt-6 text-white">
       <h1 className="text-3xl font-bold">My Jobs</h1><p className="mt-3 text-white/70">Sign in with a one-use code. No shared driver key is needed.</p>
       {!staging && <form className="mt-6 space-y-3" onSubmit={e => { e.preventDefault(); void run(async () => { const result = await portalRequest('request-code', { email }); setMessage(result.message); }); }}><label className="block">Driver email<input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" className="mt-2 w-full rounded border border-white/30 bg-navy p-3" /></label><button disabled={busy} className="rounded bg-emerald p-3 text-navy">Email my sign-in code</button></form>}
       <form className="mt-6 space-y-3" onSubmit={e => { e.preventDefault(); void run(() => exchange(code)); }}><label className="block">Sign-in code<input type="text" required value={code} onChange={e => setCode(e.target.value)} autoComplete="one-time-code" autoCapitalize="none" spellCheck={false} className="mt-2 w-full rounded border border-white/30 bg-navy p-3" /></label><button disabled={busy} className="rounded bg-emerald p-3 font-bold text-navy">Sign in</button></form>

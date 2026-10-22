@@ -3,6 +3,7 @@
  * Does not call SumUp, Resend, or Google Calendar.
  */
 import assert from "node:assert/strict";
+import { DASHBOARD_GPS_ENABLED } from "../shared/live-gps";
 import {
   applyJourneyAction,
   allowedJourneyActions,
@@ -60,7 +61,7 @@ function run() {
 
   job = mustApply(job, "start_tracking");
   assert.equal(job.journeyStatus, "tracking");
-  assert.equal(job.sharingActive, true);
+  assert.equal(job.sharingActive, DASHBOARD_GPS_ENABLED);
   assert.equal(customerJourneyLabel(job), "Driver on the way");
 
   job = mustApply(job, "arrived_pickup");

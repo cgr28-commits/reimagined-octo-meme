@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Footer from "@/components/Footer";
 import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
@@ -29,7 +29,6 @@ import {
   customerTelHref,
   customerWhatsAppHref,
   DRIVER_PORTAL_SESSION_STORAGE_KEY,
-  googleMapsNavigateUrl,
   sequentialDriverJourneyActions,
 } from "../../../shared/driver-portal-access";
 import {
@@ -40,7 +39,6 @@ import {
   postJourneyAction,
   fetchJourneySession,
   fetchJourneyEvidence,
-  JOURNEY_ACTION_LABELS,
   updateDriverBooking,
   verifyDriverAccessKey,
   fetchDriverStatus,
@@ -63,6 +61,7 @@ import {
 } from "@/lib/tracking-api";
 import OwnerMyJobsAccess from "@/components/OwnerMyJobsAccess";
 import PersonalFlightStatus from "@/components/PersonalFlightStatus";
+import DriverJobSummary from "./DriverJobSummary";
 import OwnerCancelRefundModal from "@/components/OwnerCancelRefundModal";
 import { markBookingRefundedExternally, type RefundIssueResponse } from "@/lib/refund-api";
 import { remainingCashDueGbp } from "../../../shared/deposit-cash";
@@ -85,6 +84,16 @@ import { driverProfileComplete } from "../../../shared/driver-vehicle";
 
 /** Mirror of shared DRIVER_GPS_STALE_MS — warn when browser GPS stops updating. */
 const DRIVER_GPS_STALE_MS = 2 * 60 * 1000;
+
+// Labels only: keep the existing transition names and notification handlers.
+const DRIVER_JOURNEY_ACTION_LABELS: Record<JourneyAction, string> = {
+  start_tracking: "Driver On Way",
+  arrived_pickup: "Driver Arrived",
+  start_journey: "Passenger On Board",
+  arrived_destination: "Arrived at Destination",
+  complete_journey: "Journey Completed",
+  stop_tracking: "Stop tracking",
+};
 
 function readDemoQueryParam(): "owner" | "driver" | null {
   if (typeof window === "undefined") {
@@ -1169,11 +1178,11 @@ function DriverJobCard({
     (isOwner || isAcceptedAssignment) &&
     !compactTracking &&
     (job.trackingWindow.open || job.sharingActive);
-  const trackingAvailable = !compactTracking && job.trackingWindow.open && !isRefunded;
+  const trackingAvailable = SERVICE_FLAGS.liveDriverTracking && !compactTracking && job.trackingWindow.open && !isRefunded;
   const driverSharingLive = Boolean(job.sharingActive && job.driver);
-  const showRecordedRoute = isOwner && (job.driverLocationPointCount ?? 0) > 0;
+  const showRecordedRoute = SERVICE_FLAGS.liveDriverTracking && isOwner && (job.driverLocationPointCount ?? 0) > 0;
   const showMap =
-    mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0);
+    SERVICE_FLAGS.liveDriverTracking && (mapMarkers.length > 0 || (showRecordedRoute && recordedRoute.length > 0));
   const journeyStatus = job.journeyStatus ?? (job.sharingActive ? "tracking" : "idle");
   const journeyLabel = job.journeyStatusLabel ?? (job.sharingActive ? "Driver on the way" : "Driver preparing");
   // Customer update actions must not wait for the GPS tracking window.
@@ -1411,7 +1420,7 @@ function DriverJobCard({
         }
       }
 
-      if (result.sharingActive) {
+      if (SERVICE_FLAGS.liveDriverTracking && result.sharingActive) {
         onSharingChange(job.token);
         if (result.trackingSession?.sessionToken) {
           onSessionChange(job.token, result.trackingSession.sessionToken);
@@ -1686,7 +1695,7 @@ function DriverJobCard({
   return (
     <article
       id={`owner-job-${job.token}`}
-      className={`rounded-2xl border p-6 ${
+      className={`rounded-2xl border ${isOwner ? "p-6" : "p-4 sm:p-5"} ${
         isRefunded
           ? "border-red-400/20 bg-red-500/[0.04] opacity-90"
           : highlightPending
@@ -1695,7 +1704,11 @@ function DriverJobCard({
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className={isOwner ? undefined : "min-w-0 w-full"}>
+          {!isOwner ? <>
+            <DriverJobSummary job={job} cancelled={isRefunded} journeyLabel={journeyLabel} />
+            <DriverPayPanel job={job} isOwner={false} ownerKey={driverKey} onUpdated={onUpdated} />
+          </> : <>
           <h2 className="text-lg font-bold text-white">{job.customerName}</h2>
           <p className="mt-1 text-sm text-white/60">
             {job.pickupDisplay} · {job.pickupLabel}
@@ -1716,52 +1729,7 @@ function DriverJobCard({
           {(isOwner || isAcceptedAssignment) && job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
           )}
-          {!isOwner && isPendingForDriver ? (
-            <p className="mt-2 text-xs text-white/45">
-              Customer mobile is shown after you accept this job.
-            </p>
-          ) : null}
-          {!isOwner ? (
-            <DriverPayPanel job={job} isOwner={false} ownerKey={driverKey} onUpdated={onUpdated} />
-          ) : null}
-          {!isOwner && (job.passengers != null || job.suitcases != null) && (
-            <p className="mt-2 text-sm text-white/70">
-              Passengers: {job.passengers ?? "—"} · Suitcases: {job.suitcases ?? "—"}
-            </p>
-          )}
-          {!isOwner && job.bookedVehicle ? (
-            <p className="mt-1 text-sm text-white/70">Vehicle booked: {job.bookedVehicle}</p>
-          ) : null}
-          {!isOwner && job.childSeats ? (
-            <p className="mt-1 text-sm text-white/70">Child seats: {job.childSeats}</p>
-          ) : null}
-          {!isOwner && job.notes ? (
-            <p className="mt-1 text-sm text-white/70">Notes: {job.notes}</p>
-          ) : null}
-          {!isOwner && (job.pickupLabel || job.dropoffLabel) ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {job.pickupLabel ? (
-                <a
-                  href={googleMapsNavigateUrl(job.pickupLabel)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-white"
-                >
-                  Navigate to pickup
-                </a>
-              ) : null}
-              {job.dropoffLabel ? (
-                <a
-                  href={googleMapsNavigateUrl(job.dropoffLabel)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-white"
-                >
-                  Navigate to destination
-                </a>
-              ) : null}
-            </div>
-          ) : null}
+          </>}
           {isOwner ? (
             <DriverPayPanel job={job} isOwner ownerKey={driverKey} onUpdated={onUpdated} />
           ) : null}
@@ -1831,13 +1799,22 @@ function DriverJobCard({
               Ref: {job.paymentReference ?? job.bookingReference}
             </p>
           )}
-          {!isOwner && job.bookingReference && (
-            <p className="mt-2 text-base font-bold text-emerald">Booking {job.bookingReference}</p>
-          )}
-          <p className="mt-2 text-sm font-semibold text-emerald">
+          {isOwner && <p className="mt-2 text-sm font-semibold text-emerald">
             Journey: {journeyLabel}
             {SERVICE_FLAGS.liveDriverTracking && job.sharingActive ? driverSharingLive ? " · GPS live" : " · Waiting for GPS" : ""}
-          </p>
+          </p>}
+          {!isOwner && !isRefunded && SERVICE_FLAGS.liveDriverTracking && (
+            <p className="mt-3 text-xs text-white/65">
+              {job.sharingActive
+                ? driverSharingLive ? "GPS live" : "Waiting for GPS"
+                : job.trackingWindow.open
+                  ? "Live location sharing is available."
+                  : job.trackingWindow.reason === "too_late"
+                    ? "The scheduled live location window has ended."
+                    : `Live location opens ${job.trackingWindow.opensAtDisplay || "one hour before pickup"}.`}
+              {" "}Job acceptance and journey updates do not depend on this window.
+            </p>
+          )}
           {SERVICE_FLAGS.liveDriverTracking && isActive && gpsStale && (
             <p className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
               Location has not updated for 2 minutes — reopen this page and keep it open while
@@ -1857,9 +1834,6 @@ function DriverJobCard({
               {job.activeDriverName} is sharing live location
             </p>
           )}
-          {!isRefunded && !isOwner && !isPendingForDriver && (
-            <p className="mt-2 text-sm text-white/55">{assignmentSummary(job)}</p>
-          )}
           {SERVICE_FLAGS.liveDriverTracking &&
             isOwner &&
             (job.driverLocationPointCount ?? 0) > 0 && (
@@ -1868,7 +1842,7 @@ function DriverJobCard({
             </p>
           )}
         </div>
-        {isRefunded ? (
+        {isOwner && (isRefunded ? (
           <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-red-200">
             {job.bookingStatus === "cancelled" ? "Booking cancelled" : "Refunded · Job cancelled"}
           </span>
@@ -1893,7 +1867,7 @@ function DriverJobCard({
             >
               {assignmentSummary(job)}
             </span>
-            <span
+            {SERVICE_FLAGS.liveDriverTracking && <span
               className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
                 job.trackingWindow.open ? "bg-emerald/15 text-emerald" : "bg-white/10 text-white/50"
               }`}
@@ -1905,26 +1879,26 @@ function DriverJobCard({
                   : compactTracking
                     ? "Upcoming"
                     : "Not yet open"}
-            </span>
+            </span>}
           </div>
-        )}
+        ))}
       </div>
 
-      {isPendingForDriver && (
-        <div className="mt-4 flex flex-wrap gap-3">
+      {isPendingForDriver && !isRefunded && (
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <button
             type="button"
             disabled={assignmentBusy}
             onClick={() => void respondToAssignment("accept")}
-            className="rounded-xl bg-emerald px-5 py-3 text-sm font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
+            className="min-h-12 rounded-xl bg-emerald px-3 py-3 text-base font-bold text-navy transition-colors hover:bg-emerald/90 disabled:opacity-60"
           >
-            {assignmentBusy ? "Saving…" : "Accept job"}
+            {assignmentBusy ? "Saving…" : "Accept Job"}
           </button>
           <button
             type="button"
             disabled={assignmentBusy}
             onClick={() => void respondToAssignment("decline")}
-            className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+            className="min-h-12 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/20 disabled:opacity-60"
           >
             Decline
           </button>
@@ -2024,7 +1998,7 @@ function DriverJobCard({
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className={isOwner ? "mt-5 flex flex-wrap gap-3" : "mt-4 flex flex-wrap gap-2"}>
         {isOwner && !isRefunded && (
           <>
             <button
@@ -2054,7 +2028,7 @@ function DriverJobCard({
           <>
             <a
               href={customerTelHref(job.customerMobile)}
-              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
+              className="flex min-h-11 flex-1 items-center justify-center rounded-xl border border-white/20 px-3 py-2.5 text-center text-sm font-semibold text-white"
             >
               Call customer
             </a>
@@ -2062,23 +2036,21 @@ function DriverJobCard({
               href={customerWhatsAppHref(job.customerMobile)}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
+              className="flex min-h-11 flex-1 items-center justify-center rounded-xl border border-white/20 px-3 py-2.5 text-center text-sm font-semibold text-white"
             >
               WhatsApp customer
             </a>
           </>
         ) : null}
 
+        {!isOwner && isAcceptedAssignment && job.customerMobile && !SERVICE_FLAGS.liveDriverTracking && (
+          <p className="w-full text-xs text-white/60">To share Live Location, open WhatsApp customer and use WhatsApp’s location menu. Nothing is shared automatically.</p>
+        )}
+
         {!isOwner && canOperateJourney && (
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            {allowedActions.map((action) => {
-              const isArrivedCta = action === "arrived_pickup";
-              const primary =
-                action === "start_tracking" ||
-                action === "arrived_pickup" ||
-                action === "start_journey" ||
-                action === "arrived_destination" ||
-                action === "complete_journey";
+          <div className="grid w-full gap-2">
+            {allowedActions.map((action, index) => {
+              const primary = index === 0;
               const danger = action === "stop_tracking";
               return (
                 <button
@@ -2086,24 +2058,22 @@ function DriverJobCard({
                   type="button"
                   disabled={busy}
                   onClick={() => void runJourneyAction(action)}
-                  className={`flex-1 rounded-xl px-4 py-3 font-semibold transition-colors disabled:opacity-60 sm:flex-none ${
-                    isArrivedCta
-                      ? "min-h-12 text-base font-bold bg-emerald text-navy hover:bg-emerald/90"
-                      : danger
-                        ? "min-h-11 text-sm bg-red-500/20 text-red-200 hover:bg-red-500/30"
-                        : primary
-                          ? "min-h-11 text-sm bg-emerald text-navy hover:bg-emerald/90"
-                          : "min-h-11 text-sm border border-white/15 text-white hover:border-white/30"
+                  className={`min-h-12 rounded-xl px-4 py-3 text-base font-semibold transition-colors disabled:opacity-60 ${
+                    danger
+                      ? "bg-red-500/20 text-red-200 hover:bg-red-500/30"
+                      : primary
+                        ? "bg-emerald text-navy hover:bg-emerald/90"
+                        : "border border-white/20 text-white hover:border-white/40"
                   }`}
                 >
-                  {busy ? "Updating…" : JOURNEY_ACTION_LABELS[action]}
+                  {busy ? "Updating…" : DRIVER_JOURNEY_ACTION_LABELS[action]}
                 </button>
               );
             })}
           </div>
         )}
 
-        {isOwner && (job.driverLocationPointCount ?? 0) > 0 && (
+        {isOwner && SERVICE_FLAGS.liveDriverTracking && (job.driverLocationPointCount ?? 0) > 0 && (
           <button
             type="button"
             disabled={evidenceBusy}
@@ -2349,21 +2319,14 @@ function DriverJobCard({
         </p>
       )}
 
-      {isPendingForDriver && (
-        <p className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          You&apos;ve been assigned this job. Accept or decline at any time — live tracking opens on
-          the day of travel.
-        </p>
-      )}
-
-      {isActive && (
+      {SERVICE_FLAGS.liveDriverTracking && isActive && (
         <p className="mt-4 text-sm text-emerald">
           Sharing live location for this job. Keep this page open while driving — GPS pauses if
           the phone locks or Safari goes to the background.
         </p>
       )}
 
-      {isOwner && driverSharingLive && !isActive && (
+      {SERVICE_FLAGS.liveDriverTracking && isOwner && driverSharingLive && !isActive && (
         <p className="mt-4 text-sm text-emerald">
           {job.activeDriverName ?? "Driver"}&apos;s live location is on the map below.
         </p>
@@ -2510,11 +2473,13 @@ export default function DriverPageClient({
   cookieSession = false,
   onSecureSignOut,
   onSessionExpired,
+  portalNotice,
 }: {
   portal?: "owner" | "driver";
   cookieSession?: boolean;
   onSecureSignOut?: () => Promise<void>;
   onSessionExpired?: () => void;
+  portalNotice?: ReactNode;
 } = {}) {
   const isOwnerPortal = portal === "owner";
   const keyStorage = portalKeyStorage(portal);
@@ -2955,7 +2920,7 @@ export default function DriverPageClient({
   }, [loadJobs, savedKey, viewRole, view]);
 
   useEffect(() => {
-    if (!savedKey || !activeToken || !navigator.geolocation) {
+    if (!SERVICE_FLAGS.liveDriverTracking || !savedKey || !activeToken || !navigator.geolocation) {
       return;
     }
     setLastGpsAt(null);
@@ -3092,7 +3057,8 @@ export default function DriverPageClient({
       />
       <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
         <div className={`mx-auto w-full min-w-0 px-4 sm:px-6 lg:px-8 ${isOwnerPortal ? "max-w-5xl" : "max-w-3xl"}`}>
-          <header className="mb-8">
+          {portalNotice}
+          <header className={isOwnerPortal ? "mb-8" : "mb-5"}>
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               {isOwnerView
                 ? "Owner dashboard"
@@ -3132,9 +3098,7 @@ export default function DriverPageClient({
                 )
               ) : (
                 <>
-                  View current and future assigned journeys. Start location sharing when you are
-                  on the way, and keep this page open. Airport collection jobs include a flight
-                  updates panel when the service is enabled.
+                  Your assigned jobs, pickup details and journey updates.
                 </>
               )}
             </p>
@@ -3325,7 +3289,7 @@ export default function DriverPageClient({
                 </button>
               </div>
 
-              {!isOwnerView && <p className="mb-6 rounded-xl border border-white/15 p-4 text-sm text-white/75">Save My Jobs in Safari: Share → Add to Home Screen. You may need to sign in once inside the Home Screen app. Your personal sign-in lasts up to 30 days. Keep this page open and your iPhone unlocked while sharing GPS.</p>}
+              {!isOwnerView && <details className="mb-4 rounded-xl border border-white/15 px-3 text-sm text-white/75"><summary className="min-h-11 cursor-pointer py-3 font-semibold">Save My Jobs to your iPhone Home Screen</summary><p className="pb-3">In Safari, tap Share → Add to Home Screen. You may need to sign in once inside the Home Screen app. Your personal sign-in lasts up to 30 days.{SERVICE_FLAGS.liveDriverTracking && " Keep this page open and your iPhone unlocked while sharing GPS."}</p></details>}
               {isOwnerView && savedKey && <OwnerMyJobsAccess ownerKey={savedKey} />}
               {isOwnerView && savedKey ? (
                 <OwnerDashboardToolSwitcher
@@ -3607,7 +3571,7 @@ export default function DriverPageClient({
                         setSelectedDate(today);
                       }
                     }}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                    className={`min-h-11 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                       view === value
                         ? "bg-emerald text-navy"
                         : "border border-white/15 text-white/75 hover:border-white/30"
@@ -3680,7 +3644,7 @@ export default function DriverPageClient({
                   </h2>
                   <p className="mb-4 text-sm text-white/60">
                     {viewRole === "driver"
-                      ? "Accept or decline at any time — live tracking opens on the day of travel."
+                      ? "Accept or decline now, including jobs booked for a future date."
                       : "These jobs are assigned but not yet accepted by the driver."}
                   </p>
                   <div className="space-y-4">

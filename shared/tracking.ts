@@ -1,4 +1,5 @@
 import { formatUkDateTimeValue, parseLondonLocalIso } from "./uk-time";
+import { DASHBOARD_GPS_ENABLED } from "./live-gps";
 
 /** Lifecycle of an active/completed driver journey (owner/driver controls). */
 export type JourneyStatus =
@@ -312,6 +313,11 @@ export function applyJourneyAction(
       break;
   }
 
+  // Journey statuses and notification timing remain independent of live GPS.
+  if (!DASHBOARD_GPS_ENABLED) {
+    next.sharingActive = false;
+    next.customerSharingActive = false;
+  }
   return { ok: true, job: next };
 }
 
@@ -813,6 +819,7 @@ export function formatLondonDateTime(iso: string): string {
 }
 
 export function buildPublicTrackUrl(token: string, siteUrl = "https://www.myairporttaxini.co.uk"): string {
+  if (!DASHBOARD_GPS_ENABLED) return "";
   return `${siteUrl.replace(/\/$/, "")}/track/?id=${encodeURIComponent(token)}`;
 }
 
@@ -891,6 +898,7 @@ export function resolveEmailTrackUrl(
   job: Pick<TrackingJobRecord, "token" | "refundedAt"> | null | undefined,
   siteUrl?: string,
 ): string | undefined {
+  if (!DASHBOARD_GPS_ENABLED) return undefined;
   const token = job?.token?.trim();
   if (!token) {
     return undefined;

@@ -1,5 +1,35 @@
 # My Jobs booking integration — review before release
 
+## Mobile dashboard and GPS pause — 22 October 2026
+
+This follow-up remains on draft PR #678. It does not activate real bookings or production access. The isolated staging workflow must pass before publishing this revision; its run is the deployment evidence, not this report alone.
+
+- Personal booking cards now lead with pickup time, date, reference and labelled addresses. Passenger/luggage/vehicle/child-seat details, notes, driver pay, cash due, navigation and accept-gated telephone/WhatsApp links remain available. Buttons have at least 44px tap targets. Owner administration and backend assignment/authentication rules are retained.
+- Driver labels map to the existing actions: Accept Job; Driver On Way (`start_tracking`, status only while GPS is off); Driver Arrived; Passenger On Board; Arrived at Destination; Journey Completed. The existing destination transition and customer notification handlers are preserved.
+- Airport instructions reuse the existing company copy and leg-specific metadata. Missing flight numbers are highlighted; delayed flight/revised arrival rendering and five-minute visible-panel flight checks are preserved.
+- Staging identity controls are in the document flow, below the header, so they cannot cover job buttons. They remain restricted to the fictional staging build. Home Screen guidance is collapsible.
+- “Not yet open” was the GPS window (pickup minus 60 minutes until pickup plus 90 minutes), not an acceptance lock. GPS timing badges are hidden while GPS is disabled; accepting future jobs and journey actions remain available.
+
+### GPS disabled behind one shared flag
+
+`shared/live-gps.ts` sets `DASHBOARD_GPS_ENABLED=false`; its Worker copy is synchronized. Frontend `SERVICE_FLAGS.liveDriverTracking` uses that flag. GPS code is retained for a separately approved reactivation.
+
+The driver and owner GPS watchers/heartbeats, permission requests, maps, live indicators, resume/stop controls and location history loading are gated off. Driver/customer location uploads, GPS sharing endpoints and new GPS-session requests return a disabled response before accessing location data. Journey handlers still apply the same statuses and notifications but do not enable sharing or create GPS sessions, including repeated on-way/arrival requests. Old stored positions are masked, not migrated or deleted.
+
+New customer confirmation, reminder and on-way emails omit website tracking links through the shared link/template helpers. Existing tracking reminder automation was already retired and remains so. The `/track/` landing page now explains the pause and offers the business WhatsApp contact without loading the tracking client, polling or a map. Already delivered emails cannot be rewritten: their old links need the updated customer landing page when a future production rollout is approved. Production remains unchanged until then. Public GPS marketing/navigation follows the same off flag.
+
+Google Maps directions, secure sign-in, assigned jobs, acceptance/decline, statuses, booking references/details, flight monitoring and manual WhatsApp contact remain functional. WhatsApp customer-message wording is unchanged. Nothing automatically sends Live Location; the driver must start it in WhatsApp. Pricing, payments and assignment records were not modified.
+
+### Validation for this follow-up
+
+Local checks pass: Worker typecheck; static frontend export; secure booking integration; invitation/session expiry; assigned-driver permissions; WhatsApp voice contracts; journey transitions; and the new `scripts/check-gps-disabled.ts`. GPS-off tests use fictional memory records and prohibit external requests. They exercise actual journey handlers, repeated transitions, denied GPS endpoints without datastore access, suppression of fresh cached positions and email tracking links, and absence of GPS sessions.
+
+Expanded Chromium/WebKit staging tests cover 320px/390px layouts, 44px card controls, unobstructed staging controls, missing/delayed/return flights, contact privacy, cancellation, fictional browser-only accept/decline and every journey action, preserved manual WhatsApp behavior, no geolocation calls or GPS requests even after a stale response claims sharing is active, and the disabled customer tracking page. Runtime staging records remain read-only; action simulations are intercepted in tests only. Local browser binary download was unavailable, so browser/deployment results must be verified in the [isolated staging workflow](https://github.com/cgr28-commits/reimagined-octo-meme/actions/workflows/driver-web-preview.yml).
+
+Staging review: https://my-jobs-secure-staging.cgr28.workers.dev/driver/ (fictional, read-only). Customer fallback: https://my-jobs-secure-staging.cgr28.workers.dev/track/ after the successful deployment gate. Physical iPhone/Home Screen checks remain for owner review. The existing unrelated pricing CI failure and real-booking activation blockers below remain separate release gates.
+
+## Previous secure integration baseline
+
 Status: secure staging published and verified on 22 October 2026. Development branch `codex/driver-web-dashboard`, draft PR #678. No production deployment, production migrations, real-data reads, assignments, payment changes or customer messages performed. A new auth Durable Object migration was applied only to the isolated staging Worker.
 
 Review: https://my-jobs-secure-staging.cgr28.workers.dev/driver/ — choose a fictional driver and tap **Open test jobs**. No driver key is required. Staging fixtures expire after seven days; rerun the guarded staging workflow to refresh them.

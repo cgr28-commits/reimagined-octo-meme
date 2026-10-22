@@ -1,6 +1,7 @@
 "use client";
 import { matchServedAirportCode } from "../../shared/served-airports";
 import { isExecutiveVehicle } from "../../shared/executive-vehicle";
+import { DASHBOARD_GPS_ENABLED } from "../../shared/live-gps";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -505,7 +506,7 @@ export default function OwnerPaidBookingsPanel({
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
   const [gpsJob, setGpsJob] = useState<{ token: string; sessionToken?: string } | null>(null);
   useEffect(() => {
-    if (!gpsJob || !navigator.geolocation) return;
+    if (!DASHBOARD_GPS_ENABLED || !gpsJob || !navigator.geolocation) return;
     let disposed = false;
     let inFlight = false;
     let confirmed = false;
@@ -1014,7 +1015,7 @@ export default function OwnerPaidBookingsPanel({
       }
 
       const result = await postJourneyAction(ownerKey, token, action, options);
-      if (action === "start_tracking") setGpsJob({ token, sessionToken: result.trackingSession?.sessionToken });
+      if (DASHBOARD_GPS_ENABLED && action === "start_tracking") setGpsJob({ token, sessionToken: result.trackingSession?.sessionToken });
       if (!result.sharingActive) setGpsJob(null);
       setBookings((current) =>
         current.map((entry) =>
@@ -1108,7 +1109,7 @@ export default function OwnerPaidBookingsPanel({
               : result.onTheWayNotificationStatus === "not_configured"
                 ? " On-the-way email not configured."
                 : "";
-        setMessage(`Driver on the way recorded.${notify} Waiting for GPS confirmation. Allow precise location and keep this page open for tracking.`);
+        setMessage(`Driver on the way recorded.${notify}${DASHBOARD_GPS_ENABLED ? " Waiting for GPS confirmation. Allow precise location and keep this page open for tracking." : " You can share Live Location manually in WhatsApp."}`);
       } else if (options?.retryArrivalNotification) {
         setMessage(
           result.arrivalNotificationStatus === "sent"
@@ -2403,7 +2404,7 @@ export default function OwnerPaidBookingsPanel({
 
   return (
     <section className={mode === "day" ? "mb-6" : "mb-10"}>
-      {gpsJob && <div className="mb-4 rounded-xl border border-emerald/30 p-4 text-sm text-white"><p>Live tracking: keep this page open. Locking your phone or switching apps may pause GPS.</p><button type="button" className="mt-3 rounded-xl bg-red-500/20 px-4 py-3 font-semibold text-red-100" onClick={() => {
+      {DASHBOARD_GPS_ENABLED && gpsJob && <div className="mb-4 rounded-xl border border-emerald/30 p-4 text-sm text-white"><p>Live tracking: keep this page open. Locking your phone or switching apps may pause GPS.</p><button type="button" className="mt-3 rounded-xl bg-red-500/20 px-4 py-3 font-semibold text-red-100" onClick={() => {
         void postJourneyAction(ownerKey, gpsJob.token, "stop_tracking").then(() => { setGpsJob(null); setMessage("Tracking stopped. The customer can no longer see a live position."); }).catch(error => setError(error instanceof Error ? error.message : "Could not stop tracking; please retry."));
       }}>Stop sharing location</button></div>}
       {error ? (
