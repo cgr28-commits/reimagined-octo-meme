@@ -1077,7 +1077,7 @@ console.log("\n=== Public booking/payment routes cannot bypass the worker gate =
   assert.match(quoteCard, /handleChooseAnotherDate/);
   assert.match(quoteCard, /onChooseAnotherDate=\{handleChooseAnotherDate\}/);
   assert.match(quoteCard, /checkoutBlocked/);
-  assert.match(quoteCard, /Confirm booking & pay securely/);
+  assert.match(quoteCard, /& Confirm Booking/);
   assert.match(quoteCard, /isCustomerSmartAvailabilityBlockMessage\(paymentError\)/);
   assert.equal(
     (quoteCard.match(/<CustomerSmartAvailabilityBlocked/g) || []).length,

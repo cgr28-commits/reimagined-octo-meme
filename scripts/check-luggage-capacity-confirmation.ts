@@ -309,7 +309,7 @@ async function main() {
   check("12. Luggage quantity does not block SumUp", () => {
     const card = read("src/components/QuoteCard.tsx");
     assert.doesNotMatch(card, /Request Capacity Confirmation/);
-    assert.match(card, /Confirm booking & pay securely/);
+    assert.match(card, /& Confirm Booking/);
     const index = read("workers/addresses/src/index.ts");
     assert.match(index, /applyPublicFivePlusLuggage/);
     assert.match(index, /isValidPublicPassengerCount/);

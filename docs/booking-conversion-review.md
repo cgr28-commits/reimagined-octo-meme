@@ -104,3 +104,13 @@ A read-only `git merge-tree --write-tree` simulation with #680 head `7a8a9f0` co
 - `src/components/QuoteResultShowcase.tsx`
 - `src/lib/terms.ts`
 - `workers/addresses/shared/cancellation-policy.ts`
+
+Additional regression sweep: personal quote codes, unpaid booking requests, luggage confirmation and Smart Availability checks pass with the new payment-button wording. Their assertions, plus the legacy mobile-scroll test’s button assertion, were updated to match the approved label. The mobile-scroll test still fails on an unrelated, pre-existing expectation for `scheduleBookTransferGlide(step3CustomerDetailsRef...)`; main uses the schedule-aware target. Navigation implementation is unchanged, and the real browser quote-to-booking tests pass.
+
+Additional test files changed:
+
+- `scripts/check-personal-quote-codes.ts`
+- `scripts/check-mobile-quote-step-scroll.ts`
+- `scripts/check-booking-request-validation.ts`
+- `scripts/check-luggage-capacity-confirmation.ts`
+- `scripts/check-customer-smart-availability.ts`

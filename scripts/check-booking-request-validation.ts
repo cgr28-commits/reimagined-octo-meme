@@ -366,7 +366,7 @@ console.log("\n=== Customer wording vs paid confirmation ===");
   assert.match(card, /UNPAID_REQUEST_RECEIVED_BODY/);
   assert.match(card, /Request reference:/);
   assert.match(card, /Send request by email/);
-  assert.match(card, /Confirm booking & pay securely/);
+  assert.match(card, /& Confirm Booking/);
   assert.doesNotMatch(card, /Booking submitted/);
   assert.doesNotMatch(card, /Confirm & book/);
   assert.match(tour, /UNPAID_REQUEST_RECEIVED_HEADING/);
