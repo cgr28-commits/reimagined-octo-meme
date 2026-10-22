@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
+const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
 import { evaluateAirportPickupReminder } from '../shared/airport-pickup-reminder';
 const result=evaluateAirportPickupReminder({customerName:'Alex Example',customerEmail:'alex@example.invalid',pickupLabel:'Belfast International Airport',dropoffLabel:'12 High Street, Belfast',tripDate:'2026-10-02',tripTime:'16:30',journeyLeg:'outbound',isFromAirport:true,airportCode:'BFS',outboundAirportAccessOption:'express',bookingStatus:'confirmed',operationalStatus:'confirmed',customerReference:'MAT-1001'},new Date('2026-10-02T13:00:00Z'));
 assert.ok(result.eligible);
-const output='test-results/homepage-booking';
+const output=`test-results/homepage-booking/${engine}`;
 await fs.mkdir(output,{recursive:true});
 const png=await fs.readFile('public/logo.png');
 const map=await fs.readFile('public/maps/belfast-international-pick-up-drop-off.jpg');
-const browser=await chromium.launch();
+const browser=await ({chromium,webkit}[engine]).launch();
 try {
  for (const colorScheme of ['light','dark']) {
   const context=await browser.newContext({viewport:{width:390,height:900},colorScheme});

@@ -10,8 +10,11 @@ const output=`test-results/homepage-booking/${engine}`;
 await fs.mkdir(output,{recursive:true});
 const browser=await ({chromium,webkit}[engine]).launch();
 const results=[];
+// Optional diagnostic subset only; the required Homepage review uses the full matrix.
+const widths=process.env.VEHICLE_STABILITY_WIDTHS?.split(',').map(Number) || [320,360,375,390,430,1280];
+assert.ok(widths.every(width=>[320,360,375,390,430,1280].includes(width)));
 try {
- for (const width of [320,360,375,390,430,1280]) for (const returning of [false,true]) {
+ for (const width of widths) for (const returning of [false,true]) {
   const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
   const settings=defaultOwnerPricingSettings(); settings.minibus.publicEnabled=true;
   await context.addInitScript(settings=>localStorage.setItem('matni:preview-pricing-settings',JSON.stringify(settings)),settings);
@@ -64,7 +67,7 @@ try {
    assert.ok(await option.evaluate(el=>{const r=el.getBoundingClientRect(),target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return r.top>=document.querySelector('header').getBoundingClientRect().bottom&&r.bottom<=innerHeight&&(el===target||el.contains(target));}),'vehicle choice must be fully visible and unobstructed before measuring');
    const layout=()=>page.evaluate(id=>{
     const measure=selector=>{const el=document.querySelector(selector);if(!el)return null;const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {top:r.top,documentTop:r.top+scrollY,height:r.height,width:r.width,marginBottom:s.marginBottom,padding:s.padding,border:s.borderWidth,font:s.font,lineHeight:s.lineHeight};};
-    return {y:scrollY,heading:measure('[data-quote-vehicle-options-heading]'),option:measure(`[data-vehicle-category="${id}"]`),art:measure('[data-quote-result-art]'),action:measure('[data-quote-result-main-action]'),documentHeight:document.documentElement.scrollHeight};
+    return {y:scrollY,heading:measure('[data-quote-vehicle-options-heading]'),option:measure(`[data-vehicle-category="${id}"]`),art:measure('[data-quote-result-art]'),price:measure('[data-quote-result-price]'),fare:measure('[data-quote-fare-status]'),fareStatus:document.querySelector('[data-quote-fare-status]')?.getAttribute('data-quote-fare-status'),action:measure('[data-quote-result-main-action]'),documentHeight:document.documentElement.scrollHeight};
    },id);
    const before=await layout();
    await page.evaluate(()=>{
@@ -76,11 +79,25 @@ try {
    const clicked=await layout();
    await page.evaluate(()=>{window.vehiclePhase='pending';});
    await page.waitForTimeout(450);
+   const pendingLayout=await layout();
    if(returning) assert.equal(await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').count(),0,'must exercise the pending-fare layout');
    allowed.add(vehicle);for(const resolve of pending.get(vehicle)||[]) resolve(); pending.delete(vehicle);
    await page.evaluate(()=>{window.vehiclePhase='response';});
    await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i}).waitFor();
+   const genericButtonAt=await page.evaluate(()=>performance.now());
+   // The generic CTA can still show a fallback price while the new response is
+   // rendering. Paired 1280px WebKit runs show the same 14px pending/ready change
+   // on main and PR677, but at different times (140ms vs 53ms after release).
+   // Start the settled-frame check only after the selected authoritative fare
+   // has rendered, keeping the continuous 2px viewport checks throughout.
+   const expectedFare=vehicle===ESTATE_VEHICLE?70:vehicle===EXECUTIVE_VEHICLE?100:95;
+   await page.waitForFunction(fare=>{
+    const price=document.querySelector('[data-quote-fare-status="ready"]');
+    const button=document.getElementById('quote-book-now-button');
+    return price?.textContent?.trim()===`£${fare}` && button?.textContent?.trim()===`BOOK THIS TRANSFER — £${fare}` && !button.disabled;
+   },expectedFare);
    if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
+   const fareReadyAt=await page.evaluate(()=>performance.now());
    await page.waitForTimeout(250);
    const frames=await page.evaluate(()=>{clearInterval(window.vehicleSampler);return window.vehicleFrames});
    const ready=await layout();
@@ -89,7 +106,9 @@ try {
    const hit=await booking.evaluate(el=>{const r=el.getBoundingClientRect(),target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {top:r.top,bottom:r.bottom,visible:r.top>=document.querySelector('header').getBoundingClientRect().bottom&&r.bottom<=innerHeight,hit:el===target||el.contains(target),disabled:el.disabled,overflow:document.documentElement.scrollWidth>innerWidth};});
    const ranges=Object.fromEntries(['top','documentTop','y','action','tools'].map(key=>[key,Math.max(...frames.map(f=>f[key]))-Math.min(...frames.map(f=>f[key]))]));
    const changes=frames.filter((f,i)=>i===0||['phase','top','documentTop','y','action','tools'].some(key=>f[key]!==frames[i-1][key]));
-   const diagnostic={engine,width,returning,id,ranges,before,clicked,ready,hit,changes};
+   const legacyWindow=frames.filter(f=>f.at>=genericButtonAt+70 && f.at<=genericButtonAt+250);
+   const legacyActionRange=legacyWindow.length ? Math.max(...legacyWindow.map(f=>f.action))-Math.min(...legacyWindow.map(f=>f.action)) : null;
+   const diagnostic={engine,width,returning,id,ranges,before,clicked,pendingLayout,ready,hit,changes,genericButtonAt,fareReadyAt,legacyActionRange};
    console.log('VEHICLE_STABILITY',JSON.stringify(diagnostic));
    await fs.writeFile(`${output}/${width}-${returning?'return':'one-way'}-${id}-measurements.json`,JSON.stringify({...diagnostic,frames},null,2));
    await page.screenshot({path:`${output}/${width}-${returning?'return':'one-way'}-${id}-button.png`});
@@ -101,8 +120,9 @@ try {
     const values=[initial[key],...frames.map(f=>f[key])];
     assert.ok(Math.max(...values)-Math.min(...values)<=2,`${width}px ${returning?'return':'one-way'} ${id}: ${key} moved`);
    }
-   const settled=frames.filter(f=>f.at>=frames.at(-1).at-180);
+   const settled=frames.filter(f=>f.at>=fareReadyAt);
    assert.ok(settled.length>=3,'enough settled frames to detect ongoing movement');
+   assert.ok(settled.at(-1).at-settled[0].at>=180,'observe at least 180ms after the confirmed fare renders');
    for(const key of ['action','tools']) assert.ok(Math.max(...settled.map(f=>f[key]))-Math.min(...settled.map(f=>f[key]))<=2,`${width}px ${id}: settled ${key} keeps moving`);
    assert.ok(hit.visible&&hit.hit&&!hit.disabled&&!hit.overflow,'repriced booking button accessible: '+JSON.stringify(hit));
   }

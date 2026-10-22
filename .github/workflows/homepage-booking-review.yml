@@ -122,13 +122,15 @@ jobs:
         run: |
           python3 -m http.server 3000 --directory out &
           status=0
-          node --import tsx scripts/check-greater-belfast-ireland-browser.mjs || status=1
-          node --import tsx scripts/check-homepage-booking-browser.mjs || status=1
-          PLAYWRIGHT_BROWSER=webkit node --import tsx scripts/check-return-vehicle-stability.mjs || status=1
-          node --import tsx scripts/check-return-vehicle-stability.mjs || status=1
-          node --import tsx scripts/check-hub-quote-browser.mjs || status=1
-          node --import tsx scripts/check-email-logo-browser.mjs || status=1
-          node --import tsx scripts/check-payment-confirmation-browser.mjs || status=1
+          for engine in chromium webkit; do
+            export PLAYWRIGHT_BROWSER="$engine"
+            node --import tsx scripts/check-greater-belfast-ireland-browser.mjs || status=1
+            node --import tsx scripts/check-homepage-booking-browser.mjs || status=1
+            node --import tsx scripts/check-return-vehicle-stability.mjs || status=1
+            node --import tsx scripts/check-hub-quote-browser.mjs || status=1
+            node --import tsx scripts/check-email-logo-browser.mjs || status=1
+            node --import tsx scripts/check-payment-confirmation-browser.mjs || status=1
+          done
           exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
