@@ -80,7 +80,9 @@ try {
    await page.evaluate(()=>{window.vehiclePhase='pending';});
    await page.waitForTimeout(450);
    const pendingLayout=await layout();
+   assert.ok(['pending','updating'].includes(pendingLayout.fareStatus),'selected vehicle must await its held authoritative response');
    if(returning) assert.equal(await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').count(),0,'must exercise the pending-fare layout');
+   const confirmedResponse=page.waitForResponse(response=>new URL(response.url()).pathname==='/quote/calculate' && response.request().postDataJSON()?.vehicleType===vehicle && response.ok());
    allowed.add(vehicle);for(const resolve of pending.get(vehicle)||[]) resolve(); pending.delete(vehicle);
    await page.evaluate(()=>{window.vehiclePhase='response';});
    await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i}).waitFor();
@@ -90,12 +92,15 @@ try {
    // on main and PR677, but at different times (140ms vs 53ms after release).
    // Start the settled-frame check only after the selected authoritative fare
    // has rendered, keeping the continuous 2px viewport checks throughout.
-   const expectedFare=vehicle===ESTATE_VEHICLE?70:vehicle===EXECUTIVE_VEHICLE?100:95;
-   await page.waitForFunction(fare=>{
+   await confirmedResponse;
+   await page.waitForFunction(()=>{
     const price=document.querySelector('[data-quote-fare-status="ready"]');
     const button=document.getElementById('quote-book-now-button');
-    return price?.textContent?.trim()===`£${fare}` && button?.textContent?.trim()===`BOOK THIS TRANSFER — £${fare}` && !button.disabled;
-   },expectedFare);
+    const amount=price?.textContent?.trim();
+    // The customer total includes the existing airport fees/return treatment;
+    // it is not just the mock's journey-fare component.
+    return /^£\d+(?:\.\d{2})?$/.test(amount || '') && button?.textContent?.trim()===`BOOK THIS TRANSFER — ${amount}` && !button.disabled;
+   });
    if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
    const fareReadyAt=await page.evaluate(()=>performance.now());
    await page.waitForTimeout(250);

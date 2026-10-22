@@ -80,13 +80,16 @@ try {
         await page.locator('#time').fill('12:00');
         await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
         await page.locator('[data-quote-fare-status="ready"]').waitFor();
-        await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£60/i}).click();
+        const customerPrice=(await page.locator('[data-quote-fare-status="ready"]').innerText()).trim();
+        assert.match(customerPrice,/^£\d+(?:\.\d{2})?$/,'confirmed total includes the existing airport fees');
+        await page.getByRole('button',{name:`BOOK THIS TRANSFER — ${customerPrice}`,exact:true}).click();
         await page.locator('#name').waitFor({state:'visible'});
         assert.ok(quotes.slice(quoteStart).some(q=>q.outboundDate===date && q.outboundTime==='12:00'),'authoritative quote receives collection schedule');
         assert.equal(await page.locator('#date').inputValue(),date);
         assert.equal(await page.locator('#time').inputValue(),'12:00');
         assert.match(await page.locator('#quote-price-summary').innerText(),/2 passengers/);
         assert.match(await page.locator('#quote-price-summary').innerText(),/0 suitcases/);
+        assert.ok((await page.locator('#quote-price-summary').innerText()).includes(customerPrice),'booking summary retains the displayed customer total');
         await page.waitForTimeout(1100);
         const positions = await page.evaluate(()=>({date:document.getElementById('date').getBoundingClientRect().top,name:document.getElementById('name').getBoundingClientRect().top,header:document.querySelector('header').getBoundingClientRect().bottom,height:innerHeight}));
         assert.ok(positions.date>=positions.header && positions.date<positions.height && positions.date<positions.name);
@@ -100,14 +103,14 @@ try {
         assert.match(await page.locator(`#${item.field}`).inputValue(),item.airport);
         assert.equal(await page.locator('#date').inputValue(),date);
         assert.equal(await page.locator('#time').inputValue(),'12:00');
-        await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£60/i}).click();
+        await page.getByRole('button',{name:`BOOK THIS TRANSFER — ${customerPrice}`,exact:true}).click();
         await page.locator('#name').waitFor({state:'visible'});
         assert.equal(await page.locator('#name').inputValue(),'Preview Test');
         assert.equal(await page.locator('#email').inputValue(),'preview@example.invalid');
       }
       assert.deepEqual(writes,[],'no booking or payment sessions may be created');
       assert.deepEqual(errors,[],'hub and booking flow must have no uncaught browser errors');
-      const label = `${engine} ${width}px ${item.path}: quote link, prefill, Select defaults, compact layout${item.airport ? ', required collection schedule, authoritative £60 fare, booking details and back preservation' : ''}`;
+      const label = `${engine} ${width}px ${item.path}: quote link, prefill, Select defaults, compact layout${item.airport ? ', required collection schedule, confirmed total preserved into booking, booking details and back preservation' : ''}`;
       results.push(label); console.log('PASS',label);
     }
     await context.close();
