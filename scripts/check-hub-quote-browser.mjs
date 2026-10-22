@@ -43,7 +43,9 @@ try {
     const page = await context.newPage();
     page.on('pageerror', error => errors.push(error.message));
     for (const item of cases) {
-      await page.goto(`${base}${item.path}?previewMinibus=1`);
+      // No previewMinibus flag: it deliberately bypasses authoritative quotes
+      // on localhost and would not exercise the customer's real booking flow.
+      await page.goto(`${base}${item.path}`);
       await page.locator('#quote-section-passengers').waitFor();
       const cookie = page.getByRole('button',{name:'Reject optional',exact:true});
       if (await cookie.isVisible()) await cookie.click();
@@ -84,7 +86,7 @@ try {
         assert.match(customerPrice,/^£\d+(?:\.\d{2})?$/,'confirmed total includes the existing airport fees');
         await page.getByRole('button',{name:`BOOK THIS TRANSFER — ${customerPrice}`,exact:true}).click();
         await page.locator('#name').waitFor({state:'visible'});
-        assert.ok(quotes.slice(quoteStart).some(q=>q.outboundDate===date && q.outboundTime==='12:00'),'authoritative quote receives collection schedule');
+        assert.ok(quotes.slice(quoteStart).some(q=>q.outboundDate===date && q.outboundTime==='12:00'),'authoritative quote receives collection schedule: '+JSON.stringify(quotes.slice(quoteStart).map(q=>({date:q.outboundDate,time:q.outboundTime}))));
         assert.equal(await page.locator('#date').inputValue(),date);
         assert.equal(await page.locator('#time').inputValue(),'12:00');
         assert.match(await page.locator('#quote-price-summary').innerText(),/2 passengers/);

@@ -102,7 +102,17 @@ try {
     return /^£\d+(?:\.\d{2})?$/.test(amount || '') && button?.textContent?.trim()===`BOOK THIS TRANSFER — ${amount}` && !button.disabled;
    });
    if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
-   const fareReadyAt=await page.evaluate(()=>performance.now());
+   // WebKit can expose the new DOM text before its updated font/layout has
+   // painted. Await those resources and two rendering frames, not an arbitrary
+   // grace period or a widened movement tolerance.
+   const fareReadyAt=await page.evaluate(async()=>{
+    const price=document.querySelector('[data-quote-fare-status="ready"]');
+    price.getBoundingClientRect();
+    await document.fonts.ready;
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    price.getBoundingClientRect();
+    return performance.now();
+   });
    await page.waitForTimeout(250);
    const frames=await page.evaluate(()=>{clearInterval(window.vehicleSampler);return window.vehicleFrames});
    const ready=await layout();
