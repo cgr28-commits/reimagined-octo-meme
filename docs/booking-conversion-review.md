@@ -60,6 +60,10 @@ An existing analytics regression test expects the Ads quote destination to be bl
 
 The browser measurements and representative previews are alongside this report. CI status must be checked on the final PR head before release.
 
+The pre-merge CI review also exposed a checked-in email preview with the old cancellation text. `public/invoice-example.html` was regenerated from the unchanged email builder to match the shared policy. The preview and cancellation wording checks pass.
+
+The vehicle stability test reproduced a Chromium nearest-edge scrolling artefact at 320px: the button's bottom was 900.34375px in a 900px viewport, although its centre was unobstructed and the vehicle heading/scroll position did not move during repricing. Unchanged main passed because its previous card height produced a different fractional position. The test now centres the button after sampling, just as it already centres vehicle choices before sampling. The full-visibility, hit-target, overflow and 2px stability assertions remain unchanged; application scrolling and pricing code are untouched.
+
 ## Pricing PR dependency
 
 The only changed path shared with #680 is `src/components/QuoteCard.tsx`. This PR touches its imports and render-only payment/results sections. Its tariff calculations, routing, Places selection, payment handlers and confirmation handling are unchanged. The £45 BFS minimum and corrected routing pin being reviewed in #680 are not copied into this branch. Keep release sequencing and their combined regression checks explicit.
@@ -86,14 +90,17 @@ A read-only `git merge-tree --write-tree` simulation with #680 head `7a8a9f0` co
 - `docs/booking-conversion/390-payment.png`
 - `docs/booking-conversion/chromium-measurements.json`
 - `docs/booking-conversion/webkit-measurements.json`
+- `public/invoice-example.html`
 - `scripts/check-booking-conversion-browser.mjs`
 - `scripts/check-booking-conversion.tsx`
+- `scripts/check-booking-confirmation-preview.ts`
 - `scripts/check-cancellation-refund-wording.ts`
 - `scripts/check-deposit-cash.ts`
 - `scripts/check-express-drop-off.ts`
 - `scripts/check-quote-airport-benefits.tsx`
 - `scripts/check-quote-checkout-page.ts`
 - `scripts/check-refund-ops.ts`
+- `scripts/check-return-vehicle-stability.mjs`
 - `shared/cancellation-policy.ts`
 - `src/app/booking-confirmed/BookingConfirmedClient.tsx`
 - `src/components/BookingPaymentOptions.tsx`
