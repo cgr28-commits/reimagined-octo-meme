@@ -1,6 +1,6 @@
 // Focused quote-reveal regression. All external requests are intercepted; no live API writes.
 // Run: node --import tsx scripts/check-mobile-result-action-browser.cjs
-const { chromium, webkit, devices } = require('playwright');
+const { chromium, webkit, devices } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const engine = process.env.QUOTE_TEST_BROWSER || 'chromium';
 assertEngine();
 function assertEngine() { if (!['chromium', 'webkit'].includes(engine)) throw new Error('Unknown quote test browser: ' + engine); }
@@ -23,8 +23,10 @@ async function main() {
   for (let i = 0; i < 80; i++) { try { const r = await fetch('http://127.0.0.1:3094/?previewJourney=bfs', { signal: AbortSignal.timeout(1500) }); if (r.ok) break; } catch {} await new Promise(r => setTimeout(r, 250)); }
   browser = await (engine === 'webkit' ? webkit.launch() : chromium.launch({ executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] }));
   const context = await browser.newContext({ ...(engine === 'webkit' ? devices['iPhone 14 Pro Max'] : {}), serviceWorkers: 'block', hasTouch: true });
-  await context.route('https://**/*', async r => {
+  await context.route('**/*', async r => {
    const u = r.request().url();
+   if (u.startsWith('http://127.0.0.1:3094/')) return r.continue();
+   if (u.includes('/saved-quotes/settings')) return r.fulfill({ json: { ok: true, settings: { enabled: true, popupEnabled: false, popupDelaySeconds: 20, validityDays: 7, emailEnabled: true, whatsappEnabled: true } } });
    if (u.includes('/pricing/public')) return r.fulfill({ json: { ok: true, config } });
    if (u.includes('/quote/calculate')) { const q = r.request().postDataJSON(); await new Promise(r => setTimeout(r, 450)); return r.fulfill({ json: { ok: true, amount: 50, journeyFareGbp: 50, airportFixedCostsGbp: 0, nightWeekendSurchargeGbp: 0, vehicleType: q.vehicleType, distanceKm: 25, durationMinutes: 25 } }); }
    if (u.includes('/route/v1/')) return r.fulfill({ json: { code: 'Ok', routes: [{ distance: 25000, duration: 1500, geometry: { coordinates: [] } }] } });
@@ -103,14 +105,14 @@ async function main() {
     // 39662818694). Keep that established design under regression coverage.
     assert.equal(await page.locator('[data-quote-result-art]').isVisible(), true);
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), false);
-    for (const name of ['View route', 'Save Quote', 'Start over']) assert.ok(await page.getByRole('button', { name, exact: true }).isVisible());
+    for (const name of ['View route', 'Save My Quote', 'Start over']) assert.ok(await page.getByRole('button', { name, exact: true }).isVisible());
     assert.ok(await page.getByRole('button', { name: 'Need help? WhatsApp us', exact: true }).isVisible());
     const manual = /Executive|Minibus/.test(vehicle);
     if (manual) assert.equal(await page.getByText('View price breakdown', { exact: true }).count(), 0, 'Unpriced requests must not show a fare breakdown');
     assert.equal(await page.locator('[data-quote-save]').isDisabled(), manual, 'Unpriced requests cannot be saved as confirmed fares');
     const popups = [
      ['View route', 'dialog', 'View route'],
-     ...(!manual ? [['Save Quote', 'dialog', 'Save Quote']] : []),
+     ...(!manual ? [['Save My Quote', 'dialog', 'Save My Quote']] : []),
      ['Start over', 'alertdialog', 'Need a quote for a different journey?'],
      ['Need help? WhatsApp us', 'dialog', 'WhatsApp'],
     ];
@@ -145,7 +147,7 @@ async function main() {
      assert.ok(panel.y >= 0 && panel.y + panel.height <= height + 1, 'Popup must stay in the current viewport');
      assert.ok(Math.abs(await page.locator('[data-quote-result-actions]').evaluate(el => el.getBoundingClientRect().top) - before.actionTop) <= 2, 'Opening a popup must not move the buttons behind it');
      if (buttonName === 'View route') await dialog.locator('.leaflet-container').waitFor();
-     if (buttonName === 'Save Quote') await dialog.getByRole('textbox', { name: 'Your name', exact: true }).fill('Preview Test');
+     if (buttonName === 'Save My Quote') await dialog.getByRole('textbox', { name: 'Email address', exact: true }).fill('preview@example.com');
      if (buttonName === 'Need help? WhatsApp us') assert.match(await dialog.getByRole('link', { name: 'Need help? WhatsApp us', exact: true }).getAttribute('href'), /wa\.me\//);
      await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-${width}-${height}-${vehicle.split(' ')[0]}-${buttonName.split(' ')[0]}-popup.png`) });
      await dialog.getByRole('button', { name: 'Close', exact: true }).click();
@@ -174,7 +176,7 @@ async function main() {
   }
   // Each action must work as the FIRST touch after the automatic reveal.
   // Larger iPhone viewport fits the unchanged stacked list and action row.
-  for (const firstTap of ['View route', 'Save Quote', 'Start over', 'Need help? WhatsApp us']) {
+  for (const firstTap of ['View route', 'Save My Quote', 'Start over', 'Need help? WhatsApp us']) {
    await quote(430, 932, { firstTap });
   }
   for (const [width, height] of [[320, 568], [360, 740], [375, 667], [390, 844], [430, 932]]) await quote(width, height, { bars: 100 });
