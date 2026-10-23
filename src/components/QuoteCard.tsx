@@ -1,4 +1,5 @@
 "use client";
+import { saveQuote, type SaveQuoteResult } from "@/lib/saved-quote-api";
 
 import { formatMeetGreetGbp, meetGreetFeeGbp, normaliseMeetGreetAirport } from "../../shared/meet-greet";
 
@@ -973,6 +974,7 @@ function QuoteCard({
     return () => controller.abort();
   }, []);
   const [saveQuoteOpen, setSaveQuoteOpen] = useState(false);
+  const [initialWhatsAppRequest, setInitialWhatsAppRequest] = useState<Promise<SaveQuoteResult> | null>(null);
   const [saveQuotePrompt, setSaveQuotePrompt] = useState("");
   const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() =>
     resolveLandingJourneyIntent({
@@ -4187,12 +4189,17 @@ function QuoteCard({
   }
 
   /** Open Save Quote when a live payable fare exists — date/time are optional. */
-  function handleSaveQuoteClick() {
+  function handleSaveQuoteClick(channel?: "email" | "whatsapp") {
     if (!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled)) return;
     setSaveQuotePrompt("");
     const schedule = syncScheduleFieldsFromInputs();
     const built = buildSaveQuotePayload(schedule);
     if (built.ok) {
+      if (channel === "whatsapp" && saveQuoteSettings.whatsappEnabled) {
+        const request = saveQuote({ ...built.payload, channel: "whatsapp", customerEmail: "" });
+        void request.catch(() => {}); // The modal presents the error after it mounts.
+        setInitialWhatsAppRequest(request);
+      } else setInitialWhatsAppRequest(null);
       setSaveQuoteOpen(true);
       return;
     }
@@ -7170,7 +7177,7 @@ function QuoteCard({
           !openCheckout ? (
             <button
               type="button"
-              onClick={handleSaveQuoteClick}
+              onClick={() => handleSaveQuoteClick()}
               style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
               className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
             >
@@ -7276,7 +7283,7 @@ function QuoteCard({
     return (
       <button
         type="button"
-        onClick={handleSaveQuoteClick}
+        onClick={() => handleSaveQuoteClick()}
               style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
         className={
           compact
@@ -7521,7 +7528,7 @@ function QuoteCard({
             ) : null}
             <button
               type="button"
-              onClick={handleSaveQuoteClick}
+              onClick={() => handleSaveQuoteClick()}
               style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
               data-quote-save
               aria-haspopup="dialog"
@@ -8759,6 +8766,7 @@ function QuoteCard({
         onBook={() => (document.getElementById("quoteForm") as HTMLFormElement | null)?.requestSubmit()}
       />
       <SaveQuoteModal
+        initialWhatsAppRequest={initialWhatsAppRequest}
         settings={saveQuoteSettings}
         open={saveQuoteOpen}
         onClose={() => {

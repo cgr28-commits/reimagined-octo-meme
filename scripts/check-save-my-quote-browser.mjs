@@ -16,7 +16,7 @@ const browser=await chromium.launch({args:['--no-sandbox']});
 try {
  for(const width of [320,360,375,390,1440]) {
   const context=await browser.newContext({viewport:{width,height:900},locale:'en-GB',timezoneId:'Europe/London',reducedMotion:'reduce',...(width<768?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'}:{})});
-  const errors=[],mutations=[];let channel='';
+  const errors=[],mutations=[];let channel='', saveRequests=0;
   await context.route('**/*',async route=>{
    const req=route.request(),u=new URL(req.url());
    const json=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
@@ -26,7 +26,7 @@ try {
    if(u.pathname==='/saved-quotes/settings') return json(DEFAULT_SAVE_QUOTE_SETTINGS);
    if(u.pathname==='/saved-quotes/by-token')return json({ok:true,quote,canBook:true});
    if(u.pathname==='/saved-quotes'&&req.method()==='POST') {
-    const body=req.postDataJSON();channel=body.channel;assert.equal(body.journey.returnJourney,true);assert.equal(body.journey.vehicle,ESTATE_VEHICLE);assert.equal(body.journey.passengers,2);
+    const body=req.postDataJSON();saveRequests++;channel=body.channel;assert.equal(body.journey.returnJourney,true);assert.equal(body.journey.vehicle,ESTATE_VEHICLE);assert.equal(body.journey.passengers,2);
     return json({ok:true,token,reference:quote.reference,amount:130,amountLabel:'£130.00',expiresAt:quote.expiresAt,expiresAtLabel:quote.expiresAtLabel,email:body.customerEmail,emailSent:channel==='email',quoteUrl:quote.bookUrl,quote:{...quote,...body}});
    }
    if(u.pathname==='/pricing/public')return json({config:toPublicOwnerPricingConfig(defaultOwnerPricingSettings())});
@@ -64,13 +64,20 @@ try {
     await reminder.getByRole('button',{name:'Close save quote reminder'}).click();
     await page.clock.fastForward(30000);assert.equal(await reminder.count(),0,'dismissed reminder stays closed');
     await page.locator('[data-quote-save]').click();
-  } else await reminder.getByRole('button',{name:'Save My Quote',exact:true}).click();
+  } else {
+    const options = reminder.getByRole('button').filter({hasText:/Email My Quote|Save via WhatsApp/});
+    assert.equal(await options.first().innerText(),width<768?'Save via WhatsApp':'Email My Quote');
+    await reminder.getByRole('button',{name:width<768?'Save via WhatsApp':'Email My Quote',exact:true}).click();
+  }
   const dialog=page.getByRole('dialog',{name:'Save My Quote',exact:true});await dialog.waitFor();
   await page.screenshot({path:`test-results/save-my-quote/${width}-save-options.png`});
-  await dialog.getByRole('button',{name:'Save via WhatsApp',exact:true}).click();
+  if(width===360 || width>=768) await dialog.getByRole('button',{name:'Save via WhatsApp',exact:true}).click();
   const share=dialog.getByRole('link',{name:'Open WhatsApp to Share'});await share.waitFor();
   assert.equal(new URL(await share.getAttribute('href')).hostname,width<768?'wa.me':'web.whatsapp.com');
   assert.equal(channel,'whatsapp');
+  assert.equal(saveRequests,1,'one quote saved per WhatsApp selection');
+  const message=new URL(await share.getAttribute('href')).searchParams.get('text');
+  for(const part of ['My Airport Taxi NI',journey.pickupLabel,journey.dropoffLabel,ESTATE_VEHICLE,'£130.00',quote.reference,quote.bookUrl,journey.tripDate,journey.returnDate,'Passengers: 2 | Suitcases: 1']) assert.ok(message.includes(part),part+' carried into WhatsApp');
   await page.screenshot({path:`test-results/save-my-quote/${width}-whatsapp.png`});
   await dialog.getByRole('button',{name:'Email My Quote instead'}).click();
   await dialog.getByLabel('Email address').fill('test@example.invalid');
