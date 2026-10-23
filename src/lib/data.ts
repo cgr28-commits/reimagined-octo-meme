@@ -3,6 +3,7 @@ import {
   FLIGHT_MONITORING_FAQ_ANSWER,
   FLIGHT_MONITORING_SHORT,
 } from "../../shared/cancellation-policy";
+import { BFS_EXPRESS_ROUTING_POINT } from "../../shared/served-airports";
 import { AIRPORT_HERO } from "./airport-hero";
 import { withBasePath } from "./paths";
 
@@ -289,7 +290,7 @@ export const ALL_AIRPORTS = [
     distance: "Get a fixed quote",
     duration: "~30 min from Belfast",
     mapLabel: "Belfast International Airport, Aldergrove, UK",
-    mapLocation: { lat: 54.6575, lng: -6.2158 },
+    mapLocation: BFS_EXPRESS_ROUTING_POINT,
     description:
       "Direct transfers to and from Aldergrove with live flight monitoring and complimentary waiting time.",
   },

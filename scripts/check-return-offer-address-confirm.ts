@@ -39,6 +39,8 @@ function check(name: string, fn: () => void) {
 }
 
 const localPlace: ReturnOfferPlaceSnapshot = {
+  provider: "google",
+  types: ["street_address"],
   placeId: "ChIJ-newtownabbey-return",
   formattedAddress: "12 Ballyduff Road, Newtownabbey BT36 6QD, UK",
   displayAddress: "12 Ballyduff Road, Newtownabbey BT36 6QD, UK",
@@ -107,7 +109,7 @@ check("2. Customer can continue without re-selecting the pre-filled address", ()
   );
   assert.match(
     card,
-    /showJourneyModeFields=\{[\s\S]*isPlaceSelected\(pickupPlace\)[\s\S]*isPlaceSelected\(dropoffPlace\)/,
+    /showJourneyModeFields=\{[\s\S]*isQuoteReadyPlace\(pickupPlace\)[\s\S]*isQuoteReadyPlace\(dropoffPlace\)/,
   );
 });
 

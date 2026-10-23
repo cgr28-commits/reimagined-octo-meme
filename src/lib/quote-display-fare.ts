@@ -15,6 +15,8 @@ export type ServerFareScheduleParts = {
 };
 
 export type ServerFarePartyParts = {
+  /** Only a binding fractional BFS vehicle floor preserves final pence. */
+  preserveBfsMinimumPence?: boolean;
   journeyFareGbp: number;
   airportFixedCostsGbp: number;
   nightWeekendSurchargeGbp?: number;

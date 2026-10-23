@@ -326,6 +326,8 @@ export async function resolveReturnOfferForPayment(
 
 function placeFromResolvedLabel(
   resolved: {
+    types?: string[];
+    provider?: string;
     placeId: string;
     formattedAddress: string;
     displayAddress: string;
@@ -343,9 +345,11 @@ function placeFromResolvedLabel(
 ): ReturnOfferPlaceSnapshot | undefined {
   const label = originalLabel.trim();
   return normalizeReturnOfferPlace({
+    types: resolved.types,
+    provider: resolved.provider,
     placeId: resolved.placeId,
     formattedAddress: resolved.formattedAddress || label,
-    displayAddress: label || resolved.displayAddress,
+    displayAddress: resolved.displayAddress,
     placeName: resolved.placeName,
     lat: resolved.lat ?? undefined,
     lng: resolved.lng ?? undefined,

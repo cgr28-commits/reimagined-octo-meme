@@ -22,15 +22,9 @@ import type { SelectedPlace } from "@/lib/selected-place";
 import { selectedPlaceFromParts } from "@/lib/selected-place";
 import {
   isGetAddressPlaceId,
-  resolveGetAddressDetails,
-  searchGetAddress,
-  shouldUseGetAddress,
 } from "../../shared/getaddress";
 import {
   isIdealPostcodesPlaceId,
-  resolveIdealPostcodesDetails,
-  searchIdealPostcodes,
-  shouldUseIdealPostcodes,
 } from "../../shared/ideal-postcodes";
 
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY?.trim() ?? "";
@@ -166,22 +160,6 @@ async function fetchLocalAddressPredictions(
 ): Promise<AddressPrediction[]> {
   const trimmed = input.trim();
   const tasks: Promise<AddressPrediction[]>[] = [];
-
-  if (IDEAL_POSTCODES_API_KEY && shouldUseIdealPostcodes(airportCode, trimmed)) {
-    tasks.push(
-      safePredictions(
-        searchIdealPostcodes(IDEAL_POSTCODES_API_KEY, trimmed, airportCode).then(toPredictions),
-      ),
-    );
-  }
-
-  if (GETADDRESS_API_KEY && shouldUseGetAddress(airportCode, trimmed)) {
-    tasks.push(
-      safePredictions(
-        searchGetAddress(GETADDRESS_API_KEY, trimmed, airportCode).then(toPredictions),
-      ),
-    );
-  }
 
   if (GOOGLE_API_KEY) {
     tasks.push(
@@ -358,55 +336,13 @@ export async function fetchSelectedPlaceDetails(
         route: workerPlace.route,
         locality: workerPlace.locality,
         administrativeArea: workerPlace.administrativeArea,
+        types: workerPlace.types,
+        provider: workerPlace.provider,
       });
     }
   }
 
-  if (isIdealPostcodesPlaceId(placeId)) {
-    const details = await resolveIdealPostcodesDetails(placeId, airportCode);
-    if (!details) {
-      return null;
-    }
-    return selectedPlaceFromParts({
-      placeId: details.placeId,
-      formattedAddress: details.formattedAddress,
-      displayAddress: details.formattedAddress,
-      placeName: null,
-      lat: details.lat,
-      lng: details.lng,
-      countryCode: details.countryCode,
-      postalCode: details.postalCode,
-      streetNumber: details.streetNumber,
-      route: details.route,
-      locality: details.locality,
-      administrativeArea: null,
-    });
-  }
-
-  if (isGetAddressPlaceId(placeId)) {
-    if (!GETADDRESS_API_KEY) {
-      return null;
-    }
-
-    const details = await resolveGetAddressDetails(GETADDRESS_API_KEY, placeId, airportCode);
-    if (!details) {
-      return null;
-    }
-    return selectedPlaceFromParts({
-      placeId: details.placeId,
-      formattedAddress: details.formattedAddress,
-      displayAddress: details.formattedAddress,
-      placeName: null,
-      lat: details.lat,
-      lng: details.lng,
-      countryCode: details.countryCode,
-      postalCode: details.postalCode,
-      streetNumber: details.streetNumber,
-      route: details.route,
-      locality: details.locality,
-      administrativeArea: null,
-    });
-  }
+  if (isIdealPostcodesPlaceId(placeId) || isGetAddressPlaceId(placeId)) return null;
 
   if (!GOOGLE_API_KEY) {
     return null;
@@ -438,5 +374,7 @@ export async function fetchSelectedPlaceDetails(
     route: details.route,
     locality: details.locality,
     administrativeArea: details.administrativeArea,
+    types: details.types,
+    provider: details.provider,
   });
 }

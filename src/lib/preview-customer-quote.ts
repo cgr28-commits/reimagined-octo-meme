@@ -22,6 +22,8 @@ export const PREVIEW_BELFAST_CITY_HALL_PLACE: SelectedPlace = {
   route: "Donegall Square North",
   locality: "Belfast",
   administrativeArea: "Northern Ireland",
+  provider: "google",
+  types: ["point_of_interest", "establishment"],
 };
 
 export type PreviewCustomerQuoteSeed = {

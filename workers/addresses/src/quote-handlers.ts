@@ -1,3 +1,5 @@
+import type { RouteResolveFailureReason } from "../shared/route-metrics-resolver";
+import { PRECISE_LOCATION_MESSAGE } from "../shared/precise-quote-place";
 /**
  * POST /quote/calculate — server-authoritative website fare.
  * Uses the SAME pricing engine as the public quote tool (no second algorithm).
@@ -66,11 +68,8 @@ import {
   publicDepositCashOffer,
 } from "../shared/deposit-cash";
 import {
-  resolveWorkerTripRouteMetrics,
   resolveWorkerTripRouteMetricsForPayment,
 } from "./resolve-route-metrics";
-import { parseClientRouteMetrics } from "./parse-route-metrics";
-import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 import { resolvePaymentAirportContextFromAddresses } from "../shared/open-website-payment-fares";
 import { calculateAirportToAirportQuote, formatQuote } from "../../../src/lib/quote";
 import { drivingMilesFromKm } from "../../../src/lib/quote";
@@ -178,6 +177,10 @@ function resolveVehicleType(
   };
 }
 
+class QuoteRouteError extends Error {
+  constructor(readonly reason: RouteResolveFailureReason) { super(reason); }
+}
+
 type CachedQuoteRoute = {
   metrics: { distanceKm: number; durationMinutes: number };
   pickup: { lat: number; lng: number } | null;
@@ -227,13 +230,14 @@ async function resolveProtectedQuoteRoute(input: {
       googlePlacesApiKey: input.googlePlacesApiKey,
       getAddressApiKey: input.getAddressApiKey,
     });
-    if (!outcome.ok) return null;
+    if (!outcome.ok) throw new QuoteRouteError(outcome.reason);
     const resolved: CachedQuoteRoute = {
       metrics: outcome.metrics,
       pickup: outcome.pickup ?? null,
       dropoff: outcome.dropoff ?? null,
       storedAt: Date.now(),
     };
+    if (quoteRouteCache.size >= 200) quoteRouteCache.delete(quoteRouteCache.keys().next().value!);
     quoteRouteCache.set(key, resolved);
     return resolved;
   })().finally(() => {
@@ -270,10 +274,6 @@ export async function handleQuoteCalculateRequest(
     return json({ error: "Invalid JSON" }, 400, origin);
   }
 
-  const pickupLat = Number(body.pickupLat);
-  const pickupLng = Number(body.pickupLng);
-  const dropoffLat = Number(body.dropoffLat);
-  const dropoffLng = Number(body.dropoffLng);
   const pickupPlaceId = String(body.pickupPlaceId ?? "").trim() || null;
   const dropoffPlaceId = String(body.dropoffPlaceId ?? "").trim() || null;
 
@@ -286,106 +286,43 @@ export async function handleQuoteCalculateRequest(
   const addressAirport = resolvePaymentAirportContextFromAddresses(
     pickupAddress,
     dropoffAddress,
+    { pickupPlaceId, dropoffPlaceId },
   );
-  const inferred = resolveAirportTransferIntent({
-    airportCode: body.airportCode == null ? null : String(body.airportCode),
-    fromAirport: typeof body.fromAirport === "boolean" ? body.fromAirport : null,
-    pickupAddress,
-    dropoffAddress,
-  });
-  const airportCode = (
-    addressAirport.ok && addressAirport.context.airportCode
-      ? addressAirport.context.airportCode
-      : (inferred?.airportCode ?? null)
-  ) as QuoteServiceAirportCode | null;
-  const fromAirport =
-    addressAirport.ok && addressAirport.context.isAirportTrip
-      ? addressAirport.context.fromAirport
-      : (inferred?.fromAirport ?? body.fromAirport === true);
-  const isAirportToAirport =
-    addressAirport.ok && addressAirport.context.isAirportToAirport;
-  const airportCodeSource =
-    addressAirport.ok &&
-    (addressAirport.context.airportCode || addressAirport.context.isAirportToAirport)
-      ? "addresses"
-      : String(body.airportCode ?? "").trim() &&
-          ["BFS", "BHD", "DUB", "LDY"].includes(String(body.airportCode).trim().toUpperCase())
-        ? "client"
-        : inferred
-          ? "inferred"
-          : "none";
+  const airportCode = (addressAirport.ok ? addressAirport.context.airportCode : null) as QuoteServiceAirportCode | null;
+  const fromAirport = addressAirport.ok && addressAirport.context.fromAirport;
+  const isAirportToAirport = addressAirport.ok && addressAirport.context.isAirportToAirport;
+  const airportCodeSource = "canonical_selection";
 
-  // Commercial fare requires real road routing (OSRM). Haversine×1.48 must never
-  // set the price. While profitability protection is off, valid browser OSRM
-  // metrics are priced immediately. While it is on, the Worker resolves place
-  // IDs itself — the same inputs payment would use — and signs that fare.
-  const clientMetrics = parseClientRouteMetrics(body.routeMetrics);
   const stageStartedAt = Date.now();
   const pricingPromise = loadQuotePricingCached(env);
   const settingsPromise = env?.TRACKING_STORE
-    ? loadBookingSettingsCached(env.TRACKING_STORE)
-    : Promise.resolve(null);
+    ? loadBookingSettingsCached(env.TRACKING_STORE) : Promise.resolve(null);
   const pricingForRoute = await pricingPromise;
   const protectionActive = isProfitabilityProtectionActive(pricingForRoute.profitability);
-  let routeMetricsSource: "worker" | "client" | "none" = "none";
-  let routeMetrics = protectionActive ? null : clientMetrics;
-  let serverPickup: { lat: number; lng: number } | null = null;
-  let serverDropoff: { lat: number; lng: number } | null = null;
-  let routeReused = false;
-  if (protectionActive) {
-    const routeKey = quoteRouteReuseKey({
-      pickupAddress,
-      dropoffAddress,
-      pickupPlaceId,
-      dropoffPlaceId,
-    });
-    const cachedBefore = quoteRouteCache.get(routeKey);
-    routeReused =
-      quoteRouteInflight.has(routeKey) ||
-      (cachedBefore != null && Date.now() - cachedBefore.storedAt < QUOTE_ROUTE_REUSE_MS);
-    const resolved = await resolveProtectedQuoteRoute({
-      pickupAddress,
-      dropoffAddress,
-      pickupPlaceId,
-      dropoffPlaceId,
-      googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
-      getAddressApiKey: env?.GETADDRESS_API_KEY,
-    });
-    if (resolved) {
-      routeMetrics = resolved.metrics;
-      routeMetricsSource = "worker";
-      serverPickup = resolved.pickup;
-      serverDropoff = resolved.dropoff;
-    }
-  } else if (routeMetrics) {
-    routeMetricsSource = "client";
-  } else {
-    routeMetrics = await resolveWorkerTripRouteMetrics({
-      pickupAddress,
-      dropoffAddress,
-      pickupPlaceId,
-      dropoffPlaceId,
-      pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-      pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-      dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-      dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
-      googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
-      getAddressApiKey: env?.GETADDRESS_API_KEY,
-      trustClientCoordinates: true,
-    });
-    if (routeMetrics) {
-      routeMetricsSource = "worker";
-    }
-  }
+  const routeMetricsSource = "worker";
+  const routeKey = quoteRouteReuseKey({ pickupAddress, dropoffAddress, pickupPlaceId, dropoffPlaceId });
+  const cachedBefore = quoteRouteCache.get(routeKey);
+  const routeReused = quoteRouteInflight.has(routeKey) ||
+    (cachedBefore != null && Date.now() - cachedBefore.storedAt < QUOTE_ROUTE_REUSE_MS);
+  const routeFailure: { reason: RouteResolveFailureReason } = { reason: "routing_unavailable" };
+  const measured = await resolveProtectedQuoteRoute({
+    pickupAddress, dropoffAddress, pickupPlaceId, dropoffPlaceId,
+    googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
+  }).catch(error => {
+    routeFailure.reason = error instanceof QuoteRouteError ? error.reason : "routing_unavailable";
+    return null;
+  });
+  const routeMetrics = measured?.metrics ?? null;
+  const serverPickup = measured?.pickup ?? null;
+  const serverDropoff = measured?.dropoff ?? null;
   const routeReadyAt = Date.now();
 
   if (!routeMetrics) {
     return json(
       {
         ok: false,
-        reason: "routing_unavailable",
-        message:
-          "We could not measure that road route yet. Please confirm both addresses from suggestions and try again in a moment.",
+        reason: routeFailure.reason,
+        message: routeFailure.reason === "place_unresolved" ? PRECISE_LOCATION_MESSAGE : "We could not check the route just now. Please try again shortly.",
         diagnostics: {
           pickupAddress,
           dropoffAddress,
@@ -396,7 +333,7 @@ export async function handleQuoteCalculateRequest(
           roadRoutingRequired: true,
         },
       },
-      422,
+      routeFailure.reason === "place_unresolved" ? 422 : 503,
       origin,
     );
   }
@@ -569,6 +506,7 @@ export async function handleQuoteCalculateRequest(
         ok: true,
         amount: Math.round(a2a.amount * 100) / 100,
         amountLabel: formatQuote(a2a.amount),
+        preserveBfsMinimumPence: Boolean(a2a.preserveBfsMinimumPence),
         currency: "GBP",
         vehicleType: resolved.vehicleType,
         premiumApplied: Boolean(a2a.premiumApplied),
@@ -620,8 +558,8 @@ export async function handleQuoteCalculateRequest(
       vehicleType: resolved.vehicleType,
       maxPassengers: resolved.maxPassengers,
       enforceAirportPickupServiceArea: !ownerMode,
-      destinationLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-      destinationLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+      destinationLat: serverDropoff?.lat ?? null,
+      destinationLng: serverDropoff?.lng ?? null,
       pricing,
       ownerMode,
     });
@@ -629,22 +567,15 @@ export async function handleQuoteCalculateRequest(
 
   if (result.ok) {
     const protectedFare = await applyProfitabilityProtection({
+        bfsAirportJourney: addressAirport.ok && [addressAirport.context.pickupAirportCode, addressAirport.context.dropoffAirportCode].includes("BFS"),
       postcodeContext: airportCode && !(addressAirport.ok && addressAirport.context.pickupAirportCode && addressAirport.context.dropoffAirportCode)
         ? { address: fromAirport ? dropoffAddress : pickupAddress, airportCode, fromAirport }
         : undefined,
       pricing,
       vehicleType: result.vehicleType,
       routeMetrics,
-      pickup: protectionActive
-        ? serverPickup
-        : Number.isFinite(pickupLat) && Number.isFinite(pickupLng)
-          ? { lat: pickupLat, lng: pickupLng }
-          : null,
-      dropoff: protectionActive
-        ? serverDropoff
-        : Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng)
-          ? { lat: dropoffLat, lng: dropoffLng }
-          : null,
+      pickup: serverPickup,
+      dropoff: serverDropoff,
       returnJourney,
       dublinAirportJourney:
         isDublinAirportCode(airportCode) ||
@@ -684,10 +615,10 @@ export async function handleQuoteCalculateRequest(
   const diagnostics = {
     pickupAddress,
     dropoffAddress,
-    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
+    pickupLat: serverPickup?.lat ?? null,
+    pickupLng: serverPickup?.lng ?? null,
+    dropoffLat: serverDropoff?.lat ?? null,
+    dropoffLng: serverDropoff?.lng ?? null,
     airportCode,
     fromAirport,
     airportCodeSource,
@@ -762,6 +693,7 @@ export async function handleQuoteCalculateRequest(
         airportFixedCostsGbp: result.airportFixedCostsGbp ?? 0,
         nightWeekendSurchargeGbp: result.nightWeekendSurchargeGbp ?? 0,
         transferAmountGbp: result.amount,
+        preserveBfsMinimumPence: Boolean(result.preserveBfsMinimumPence),
         distanceKm: routeMetrics.distanceKm,
         durationMinutes: routeMetrics.durationMinutes,
       },

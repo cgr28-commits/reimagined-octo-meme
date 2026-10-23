@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 /**
  * Signed quote receipt. Does not call the live Worker and does not set MPG.
  * Run: npx tsx scripts/check-quote-receipt.ts
@@ -68,11 +69,18 @@ assert.equal(QUOTE_RECEIPT_TTL_SECONDS, 3 * 60 * 60);
 
 console.log("=== Sign, verify, and reject tampering ===");
 {
-  const token = await signQuoteReceipt(journey(), SECRET, NOW);
+  const token = await signQuoteReceipt(journey({preserveBfsMinimumPence:true}), SECRET, NOW);
+  const [format, body] = token.split(".");
+  assert.equal(format, "v3");
+  const legacySignature = createHmac("sha256", SECRET).update(Buffer.from(body!, "base64url")).digest("base64url");
+  assert.equal((await verifyQuoteReceipt(`v1.${body}.${legacySignature}`, SECRET, NOW)).ok, false, "old pricing policy must refresh");
+  assert.equal((await verifyQuoteReceipt(`v2.${body}.${legacySignature}`, SECRET, NOW)).ok, false, "changing an old token prefix must not bypass new policy");
+
   const verified = await verifyQuoteReceipt(token, SECRET, NOW + 60_000);
   assert.equal(verified.ok, true);
   if (verified.ok) {
     assert.equal(verified.claims.transferAmountGbp, 65);
+    assert.equal(verified.claims.preserveBfsMinimumPence,true);
     assert.equal(verified.claims.exp, Math.floor(NOW / 1000) + QUOTE_RECEIPT_TTL_SECONDS);
     const decoded = JSON.parse(
       Buffer.from(token.split(".")[1]!.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
@@ -92,6 +100,7 @@ console.log("=== Sign, verify, and reject tampering ===");
       "passengers",
       "pickupAddress",
       "pickupPlaceId",
+      "preserveBfsMinimumPence",
       "pricingVersion",
       "returnDate",
       "returnJourney",
@@ -105,14 +114,14 @@ console.log("=== Sign, verify, and reject tampering ===");
     for (const word of banned) assert.equal(text.includes(word.toLowerCase()), false, word);
   }
 
-  const forged = token.replace("v1.", "v1.") ;
+  const forged = token;
   const parts = token.split(".");
   const payload = JSON.parse(
     Buffer.from(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
   ) as { transferAmountGbp: number };
   payload.transferAmountGbp = 1;
   const forgedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const tampered = `v1.${forgedPayload}.${parts[2]}`;
+  const tampered = `v3.${forgedPayload}.${parts[2]}`;
   const bad = await verifyQuoteReceipt(tampered, SECRET, NOW);
   assert.equal(bad.ok, false);
   if (!bad.ok) assert.equal(bad.reason, "bad_signature");

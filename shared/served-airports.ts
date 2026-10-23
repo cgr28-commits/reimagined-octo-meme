@@ -25,6 +25,14 @@ export type ServedAirport = {
  * Canonical served airports (BFS, BHD, DUB — plus LDY where offered).
  * Do not invent coordinates; these match the existing quote quick-select data.
  */
+export const BFS_EXPRESS_ROUTING_POINT = {
+  // Verified paid one-way terminal loop, Google parking place
+  // ChIJddwvFNGqYUgRs3L8NFROAXA; OSRM snaps within 4 m to the access road.
+  // Airport identity remains the canonical BFS Place ID below.
+  lat: 54.6627299,
+  lng: -6.2173267,
+} as const;
+
 export const SERVED_AIRPORTS: readonly ServedAirport[] = [
   {
     code: "BFS",
@@ -32,8 +40,7 @@ export const SERVED_AIRPORTS: readonly ServedAirport[] = [
     name: "Belfast International Airport",
     placeId: "ChIJy4dKsjJVYEgRntaoTC4U5gw",
     formattedAddress: "Belfast International Airport, Airport Rd, Aldergrove BT29 4AB, UK",
-    lat: 54.6575,
-    lng: -6.2158,
+    ...BFS_EXPRESS_ROUTING_POINT,
     countryCode: "GB",
     postalCode: "BT29 4AB",
     patterns: [

@@ -25,7 +25,7 @@ try {
       const json = body => route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
       if (url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:26000,duration:1800,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
       if (url.pathname.endsWith('/addresses')) {
-        if (url.searchParams.has('id')) return json({placeId:'test-city-hall',address:'Belfast City Hall, Donegall Square, Belfast BT1 5GS, UK',formattedAddress:'Belfast City Hall, Donegall Square, Belfast BT1 5GS, UK',lat:54.5964,lng:-5.9302,countryCode:'GB',postalCode:'BT1 5GS'});
+        if (url.searchParams.has('id')) return json({placeId:'test-city-hall',provider:'google',types:['premise'],placeName:'Belfast City Hall',address:'Belfast City Hall, Donegall Square, Belfast BT1 5GS, UK',formattedAddress:'Belfast City Hall, Donegall Square, Belfast BT1 5GS, UK',lat:54.5964,lng:-5.9302,countryCode:'GB',postalCode:'BT1 5GS'});
         return json({suggestions:[{id:'test-city-hall',label:'Belfast City Hall, Donegall Square, Belfast BT1 5GS, UK',mainText:'Belfast City Hall',secondaryText:'Donegall Square, Belfast BT1 5GS, UK'}]});
       }
       if (url.pathname === '/pricing/public') return json({config:toPublicOwnerPricingConfig(defaultOwnerPricingSettings())});

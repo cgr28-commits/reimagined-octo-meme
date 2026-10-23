@@ -1,3 +1,6 @@
+import { resolvePreciseQuoteRoute } from "./precise-quote-locations";
+import { resolvePaymentAirportContextFromAddresses } from "../shared/open-website-payment-fares";
+import { PRECISE_LOCATION_MESSAGE } from "../shared/precise-quote-place";
 /**
  * Saved Quote HTTP handlers + hourly reminder processor.
  * Persistence: Cloudflare KV (TRACKING_STORE). Emails: existing worker-email stack.
@@ -156,11 +159,6 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
   };
 }
 
-function parseAirportCode(value: unknown): QuoteServiceAirportCode | null {
-  const code = String(value ?? "").trim().toUpperCase();
-  if (code === "BFS" || code === "BHD" || code === "DUB" || code === "LDY") return code;
-  return null;
-}
 
 /**
  * Build the authoritative fixed price from journey details.
@@ -168,6 +166,8 @@ function parseAirportCode(value: unknown): QuoteServiceAirportCode | null {
  */
 export async function buildAuthoritativeSavedQuotePricing(input: {
   journey: SavedQuoteJourneySnapshot;
+  /** Only trusted previously-issued payment links may resolve legacy locations. */
+  allowLegacyAddressResolution?: boolean;
   /** Optional client amount for audit/mismatch logging only. */
   clientSubmittedAmount?: number;
   clientPricingMeta?: Record<string, unknown>;
@@ -178,20 +178,34 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   | { ok: false; message: string; reason: string }
 > {
   const journey = input.journey;
-  const airportCode = parseAirportCode(journey.airportCode);
-  const isAirportTrip = Boolean(airportCode || journey.isAirportTrip);
-
-  const routeMetrics = await resolveWorkerTripRouteMetrics({
-    pickupAddress: journey.pickupLabel,
-    dropoffAddress: journey.dropoffLabel,
-    pickupLat: journey.pickupLat,
-    pickupLng: journey.pickupLng,
-    dropoffLat: journey.dropoffLat,
-    dropoffLng: journey.dropoffLng,
+  const context = resolvePaymentAirportContextFromAddresses(journey.pickupLabel, journey.dropoffLabel,
+    input.allowLegacyAddressResolution ? undefined : { pickupPlaceId: journey.pickupPlaceId, dropoffPlaceId: journey.dropoffPlaceId });
+  if (!context.ok) return { ok: false, message: context.error, reason: "incomplete" };
+  const airportCode = context.context.airportCode;
+  const isAirportTrip = Boolean(airportCode);
+  journey.airportCode = airportCode ?? undefined;
+  journey.isFromAirport = context.context.fromAirport;
+  const route = input.allowLegacyAddressResolution ? null : await resolvePreciseQuoteRoute({
+    pickupAddress: journey.pickupLabel, dropoffAddress: journey.dropoffLabel,
+    pickupPlaceId: journey.pickupPlaceId, dropoffPlaceId: journey.dropoffPlaceId,
     googlePlacesApiKey: input.googlePlacesApiKey,
   });
+  if (route && !route.ok) return { ok: false, message: PRECISE_LOCATION_MESSAGE, reason: "incomplete" };
+  const routeMetrics = route?.ok ? route.metrics : await resolveWorkerTripRouteMetrics({
+    pickupAddress: journey.pickupLabel, dropoffAddress: journey.dropoffLabel,
+    pickupPlaceId: journey.pickupPlaceId, dropoffPlaceId: journey.dropoffPlaceId,
+    pickupLat: journey.pickupLat, pickupLng: journey.pickupLng,
+    dropoffLat: journey.dropoffLat, dropoffLng: journey.dropoffLng,
+    googlePlacesApiKey: input.googlePlacesApiKey,
+  });
+  if (route?.ok) {
+    journey.pickupLat = route.pickup?.lat; journey.pickupLng = route.pickup?.lng;
+    journey.dropoffLat = route.dropoff?.lat; journey.dropoffLng = route.dropoff?.lng;
+  }
 
   const quote = calculateAuthoritativeWebsiteQuote({
+    pickupAirportCode: context.context.pickupAirportCode,
+    dropoffAirportCode: context.context.dropoffAirportCode,
     airportCode: isAirportTrip ? airportCode : null,
     fromAirport: Boolean(journey.isFromAirport),
     pickupAddress: journey.pickupLabel,
@@ -231,6 +245,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
       meetGreetIncluded: true,
     });
     serverAmount = composeWebsiteFareBreakdown({
+      preserveFixedFarePence: quote.preserveBfsMinimumPence,
       journeyFareBeforeAirportAccessGbp: quote.journeyFareGbp ?? quote.amount,
       airportFixedCostsGbp: quote.airportFixedCostsGbp ?? 0,
       nightWeekendSurchargeGbp: quote.nightWeekendSurchargeGbp ?? 0,

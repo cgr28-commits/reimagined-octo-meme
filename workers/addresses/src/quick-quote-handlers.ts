@@ -1,3 +1,6 @@
+import { resolvePreciseQuoteRoute } from "./precise-quote-locations";
+import { resolvePaymentAirportContextFromAddresses } from "../shared/open-website-payment-fares";
+import { PRECISE_LOCATION_MESSAGE } from "../shared/precise-quote-place";
 /**
  * Quick Quote Worker APIs — owner create + public lookup.
  * Website fares always from calculateAuthoritativeWebsiteQuote (never from client amount).
@@ -40,8 +43,6 @@ import {
   createQuickQuoteRecord,
   getQuickQuote,
 } from "./quick-quote-store";
-import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
-import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 import {
   composeFareWithExpressDropOff,
@@ -180,32 +181,20 @@ async function authoritativeAmount(
   env: { GOOGLE_PLACES_API_KEY?: string },
   pricing?: OwnerPricingSettings | null,
 ) {
-  const pickupLat = Number(body.pickupLat);
-  const pickupLng = Number(body.pickupLng);
-  const dropoffLat = Number(body.dropoffLat);
-  const dropoffLng = Number(body.dropoffLng);
-
-  let routeMetrics = await resolveWorkerTripRouteMetrics({
-    pickupAddress: journey.pickupAddress,
-    dropoffAddress: journey.dropoffAddress,
-    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
-    googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+  const pickupPlaceId = String(body.pickupPlaceId ?? "");
+  const dropoffPlaceId = String(body.dropoffPlaceId ?? "");
+  const route = await resolvePreciseQuoteRoute({
+    pickupAddress: journey.pickupAddress, dropoffAddress: journey.dropoffAddress,
+    pickupPlaceId, dropoffPlaceId, googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
   });
-  if (!routeMetrics) {
-    routeMetrics = parseClientRouteMetrics(body.routeMetrics);
-  }
-
-  if (!routeMetrics) {
-    return {
-      ok: false as const,
-      reason: "no_fare" as const,
-      message:
-        "We could not measure that route confidently. Confirm both addresses from suggestions (or ensure map coordinates are available) and try again.",
-    };
-  }
+  if (!route.ok) return { ok: false as const, reason: "no_fare" as const, message: PRECISE_LOCATION_MESSAGE };
+  const routeMetrics = route.metrics;
+  Object.assign(journey, { pickupPlaceId, dropoffPlaceId, pickupLat: route.pickup?.lat, pickupLng: route.pickup?.lng, dropoffLat: route.dropoff?.lat, dropoffLng: route.dropoff?.lng });
+  const context = resolvePaymentAirportContextFromAddresses(journey.pickupAddress, journey.dropoffAddress, { pickupPlaceId, dropoffPlaceId });
+  if (!context.ok) return { ok: false as const, reason: "no_fare" as const, message: context.error };
+  if (context.context.airportCode === "LDY") return { ok: false as const, reason: "no_fare" as const, message: "Please request a quote for this airport." };
+  journey.airportCode = context.context.airportCode;
+  journey.fromAirport = context.context.fromAirport;
 
   const vehicleType = resolveVehicle(
     journey.vehicleChoice,
@@ -214,6 +203,8 @@ async function authoritativeAmount(
   );
 
   return calculateAuthoritativeWebsiteQuote({
+    pickupAirportCode: context.context.pickupAirportCode,
+    dropoffAirportCode: context.context.dropoffAirportCode,
     airportCode: journey.airportCode ?? null,
     fromAirport: Boolean(journey.fromAirport),
     pickupAddress: journey.pickupAddress,

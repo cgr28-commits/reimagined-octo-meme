@@ -13,22 +13,15 @@ import {
 import { createPortal } from "react-dom";
 import {
   fetchAddressPredictionsDetailed,
-  fetchPlaceDetails,
   fetchSelectedPlaceDetails,
-  geocodePickupAddress,
   isGooglePlacesEnabled,
   isPureFullNorthernIrelandPostcodeQuery,
   type AddressPrediction,
 } from "@/lib/google-maps";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { addressFieldShellClass } from "@/lib/quote-ui-highlight";
-import {
-  buildDisplayAddress,
-  placeDisplayText,
-  looksLikeStreetAddressLine,
-  venueNameForPlace,
-} from "@/lib/selected-place";
-import { hasLeadingStreetNumber } from "../../shared/journey-address-label";
+import { emptySelectedPlace, isQuoteReadyPlace, placeDisplayText } from "@/lib/selected-place";
+import { PRECISE_LOCATION_MESSAGE } from "../../shared/precise-quote-place";
 import { isHighConfidenceAddressMatch } from "@/lib/address-match";
 
 type AddressInputProps = {
@@ -111,7 +104,7 @@ export default function AddressInput({
   disableAutoScroll = true,
   onSelectAddress,
   onSelectPlace,
-  requireSuggestion = false,
+  requireSuggestion = true,
   confirmedPlace = null,
   restoredHint = false,
   onClear,
@@ -131,6 +124,9 @@ export default function AddressInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const houseInputRef = useRef<HTMLInputElement>(null);
   const selectedPlaceRef = useRef<SelectedPlace | null>(null);
+  const selectionRequestRef = useRef(0);
+  const latestValueRef = useRef(value);
+  latestValueRef.current = value;
   const selectPredictionRef = useRef<(prediction: AddressPrediction) => Promise<void>>(
     async () => undefined,
   );
@@ -156,12 +152,13 @@ export default function AddressInput({
       }
       suggestionAbortRef.current?.abort();
       suggestionRequestIdRef.current += 1;
+      selectionRequestRef.current += 1;
     };
   }, []);
 
   // Keep internal selection in sync with parent-confirmed / restored places.
   useEffect(() => {
-    if (confirmedPlace?.placeId?.trim() && confirmedPlace.formattedAddress?.trim()) {
+    if (isQuoteReadyPlace(confirmedPlace)) {
       selectedPlaceRef.current = confirmedPlace;
       return;
     }
@@ -195,6 +192,7 @@ export default function AddressInput({
   useEffect(() => {
     suggestionAbortRef.current?.abort();
     suggestionRequestIdRef.current += 1;
+    selectionRequestRef.current += 1;
     setSuggestions([]);
     setSuggestionsOpen(false);
     setNeedsHouseNumber(false);
@@ -321,55 +319,19 @@ export default function AddressInput({
   ]);
 
   function clearSelectionOnType(next: string) {
-    if (!requireSuggestion) {
-      return;
-    }
-
-    const previous = selectedPlaceRef.current;
-    const previousCore =
-      previous?.route?.trim() ||
-      previous?.formattedAddress.replace(/^\d+[a-zA-Z]?\s+/, "").split(",")[0]?.trim() ||
-      "";
-    const canKeepSelection =
-      Boolean(previous?.placeId) &&
-      previousCore.length >= 4 &&
-      next
-        .toLowerCase()
-        .includes(previousCore.toLowerCase().slice(0, Math.min(previousCore.length, 18)));
-
-    if (canKeepSelection && previous) {
-      const numberMatch = next.match(/^(\d+[a-zA-Z]?)\b/);
-      const refined: SelectedPlace = {
-        ...previous,
-        // Keep the structured postal address for area/geo checks — only the
-        // visible display line tracks what the customer is typing.
-        formattedAddress: previous.formattedAddress || next,
-        displayAddress: next,
-        streetNumber: numberMatch?.[1] ?? previous.streetNumber ?? null,
-      };
-      selectedPlaceRef.current = refined;
-      onSelectPlace?.(refined);
-      return;
-    }
-
+    selectionRequestRef.current += 1;
     selectedPlaceRef.current = null;
-    onSelectPlace?.({
-      placeId: "",
-      formattedAddress: next,
-      displayAddress: next,
-      placeName: null,
-      lat: null,
-      lng: null,
-      countryCode: null,
-      postalCode: null,
-      streetNumber: null,
-      route: null,
-      locality: null,
-    });
+    onSelectPlace?.({ ...emptySelectedPlace(), formattedAddress: next, displayAddress: next });
   }
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
+    // Results belong to the old query until the new debounced request completes.
+    // Invalidate immediately so a late response or tap cannot select a stale place.
+    suggestionAbortRef.current?.abort();
+    suggestionRequestIdRef.current += 1;
+    setSuggestions([]);
+    setSuggestionsOpen(false);
     setLoadError(null);
     onChange(next);
     clearSelectionOnType(next);
@@ -415,6 +377,9 @@ export default function AddressInput({
   }
 
   function handleClear() {
+    selectionRequestRef.current += 1;
+    suggestionRequestIdRef.current += 1;
+    suggestionAbortRef.current?.abort();
     if (debounceRef.current) {
       window.clearTimeout(debounceRef.current);
     }
@@ -449,108 +414,34 @@ export default function AddressInput({
   }
 
   async function handleSelect(prediction: AddressPrediction) {
+    const requestId = ++selectionRequestRef.current;
+    const inputAtSelection = value;
+    suggestionAbortRef.current?.abort();
+    suggestionRequestIdRef.current += 1;
     setSuggestionsOpen(false);
     setSuggestions([]);
     setNeedsHouseNumber(false);
     setHouseOrBuilding("");
     setLockedPostcode(null);
+    selectedPlaceRef.current = null;
+    onSelectPlace?.({ ...emptySelectedPlace(), formattedAddress: value, displayAddress: value });
 
-    const place = await fetchSelectedPlaceDetails(
-      prediction.placeId,
-      airportCode,
-      value,
-      prediction.mainText,
-    );
-    if (place) {
-      const typedNumber = value.trim().match(/^(\d+[a-zA-Z]?)\b/)?.[1];
-      const postal = place.formattedAddress;
-      const resolvedHasNumber = hasLeadingStreetNumber(postal);
-      const suggestionHasNumber = hasLeadingStreetNumber(prediction.description);
-      const postalWithNumber =
-        typedNumber && !resolvedHasNumber && suggestionHasNumber
-          ? prediction.description
-          : postal;
-
-      // Never treat a street-line suggestion ("18 Collingwood Avenue") as a
-      // venue name — that duplicates Ave/Avenue (and Rd/Road) onto the postal.
-      const suggestionName = prediction.mainText?.trim() || "";
-      const suggestionIsStreetLine = looksLikeStreetAddressLine(suggestionName);
-      const apiPlaceName = place.placeName?.trim() || "";
-      const apiNameIsStreetLine = looksLikeStreetAddressLine(apiPlaceName);
-
-      let placeName: string | null = null;
-      if (apiPlaceName && !apiNameIsStreetLine) {
-        placeName = apiPlaceName;
-      } else if (suggestionName && !suggestionIsStreetLine) {
-        // A landmark already written into the formatted address ("Belfast City
-        // Hall, Belfast BT1 5JD") is still the building identifier. Road-only
-        // lines stay incomplete so a street without a number is not accepted.
-        placeName = venueNameForPlace(suggestionName, place.locality);
-      }
-
-      const resolvedDisplay = buildDisplayAddress(placeName, postalWithNumber);
-      let nextPlace: SelectedPlace = {
-        ...place,
-        formattedAddress: postalWithNumber,
-        displayAddress: resolvedDisplay,
-        placeName,
-        streetNumber: place.streetNumber || typedNumber || null,
-      };
-      // Ideal/GetAddress picks often omit lat/lng — geocode so Quick Quote /
-      // TripMap can measure the route (BFS distance floor needs miles).
-      if (
-        (typeof nextPlace.lat !== "number" || typeof nextPlace.lng !== "number") &&
-        resolvedDisplay.trim().length >= 8
-      ) {
-        const coords = await geocodePickupAddress(resolvedDisplay);
-        if (coords) {
-          nextPlace = { ...nextPlace, lat: coords.lat, lng: coords.lng };
-        }
-      }
-      const display = placeDisplayText(nextPlace);
-      nextPlace = { ...nextPlace, displayAddress: display };
-      selectedPlaceRef.current = nextPlace;
-      onChange(display);
-      onSelectAddress?.(display);
-      onSelectPlace?.(nextPlace);
-      setLoadError(null);
+    let place: SelectedPlace | null = null;
+    try {
+      place = await fetchSelectedPlaceDetails(prediction.placeId, airportCode, value, prediction.mainText);
+    } catch {
+      // Failed details must never become a confirmed text/geocode fallback.
+    }
+    if (requestId !== selectionRequestRef.current || latestValueRef.current !== inputAtSelection) return;
+    if (!place || !isQuoteReadyPlace(place)) {
+      setLoadError(PRECISE_LOCATION_MESSAGE);
       return;
     }
-
-    const formatted = await fetchPlaceDetails(
-      prediction.placeId,
-      airportCode,
-      value,
-      prediction.mainText,
-    );
-    const nextAddress =
-      formatted ?? buildDisplayAddress(prediction.mainText, prediction.description);
-    const typedNumber = value.trim().match(/^(\d+[a-zA-Z]?)\b/)?.[1];
-    let nextPlace: SelectedPlace = {
-      placeId: prediction.placeId,
-      formattedAddress: prediction.description,
-      displayAddress: nextAddress,
-      placeName: prediction.mainText || null,
-      lat: null,
-      lng: null,
-      countryCode: null,
-      postalCode: null,
-      streetNumber: typedNumber ?? null,
-      route: null,
-      locality: null,
-    };
-    if (nextAddress.trim().length >= 8) {
-      const coords = await geocodePickupAddress(nextAddress);
-      if (coords) {
-        nextPlace = { ...nextPlace, lat: coords.lat, lng: coords.lng };
-      }
-    }
-    const display = placeDisplayText(nextPlace);
-    nextPlace = { ...nextPlace, displayAddress: display };
-    selectedPlaceRef.current = nextPlace;
+    const display = placeDisplayText(place);
+    selectedPlaceRef.current = place;
     onChange(display);
     onSelectAddress?.(display);
-    onSelectPlace?.(nextPlace);
+    onSelectPlace?.(place);
     setLoadError(null);
   }
   selectPredictionRef.current = handleSelect;
@@ -564,15 +455,16 @@ export default function AddressInput({
     };
   }, [onSuggestionsVisibilityChange, showSuggestions]);
   const showHouseStep = needsHouseNumber || Boolean(lockedPostcode && houseOrBuilding);
-  const hasConfirmedSelection = Boolean(confirmedPlace?.placeId?.trim());
+  const hasConfirmedSelection = isQuoteReadyPlace(confirmedPlace) &&
+    value === placeDisplayText(confirmedPlace);
   const placeComplete = requireSuggestion
     ? hasConfirmedSelection
     : Boolean(value.trim());
   const showNeedsCompletion =
     needsCompletion && !selectionError && !loadError && !placeComplete;
   const hintMessage =
-    selectionError ??
-    loadError ??
+    selectionError ||
+    loadError ||
     (restoredHint && hasConfirmedSelection
       ? "Using your previous address — edit or clear to choose a different one."
       : hasConfirmedSelection && requireSuggestion
@@ -582,7 +474,7 @@ export default function AddressInput({
         : autocompleteEnabled
           ? helperText ??
             (requireSuggestion
-              ? "Type your address, then tap a suggestion from the list — typing alone is not enough."
+              ? PRECISE_LOCATION_MESSAGE
               : "Type a street, hotel or landmark — or a postcode, then your house number.")
           : "Enter your full address including town and postcode");
 
@@ -687,7 +579,7 @@ export default function AddressInput({
       }`}
     >
       {suggestions.map((prediction, index) => (
-        <li key={`${prediction.placeId}-${index}`} role="option">
+        <li key={`${prediction.placeId}-${index}`} role="option" aria-selected={false}>
           <button
             type="button"
             onMouseDown={(event) => event.preventDefault()}

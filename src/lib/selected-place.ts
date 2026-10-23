@@ -1,3 +1,4 @@
+import { isPreciseQuotePlace } from "../../shared/precise-quote-place";
 import { airportDisplayLabel } from "../../shared/airport-display-label";
 /**
  * Structured place selection for the quote form.
@@ -11,7 +12,6 @@ import {
   type GreaterBelfastClassifyReason,
 } from "../../shared/ldy-service-area";
 import {
-  collapseDuplicateStreetAddressLabel,
   hasLeadingStreetNumber,
   normaliseJourneyAddressCompareKey,
   normaliseJourneyAddressLabel,
@@ -48,6 +48,8 @@ export type SelectedPlace = {
   locality?: string | null;
   /** Google administrative_area_level_1/2 when available. */
   administrativeArea?: string | null;
+  types?: string[];
+  provider?: string;
 };
 
 export type JourneyKind =
@@ -220,12 +222,7 @@ export function isQuoteReadyPlace(place: SelectedPlace | null | undefined): bool
   if (!isPlaceSelected(place) || !place) {
     return false;
   }
-  return (
-    typeof place.lat === "number" &&
-    typeof place.lng === "number" &&
-    Number.isFinite(place.lat) &&
-    Number.isFinite(place.lng)
-  );
+  return isPreciseQuotePlace(place);
 }
 
 export function placesEqual(a: SelectedPlace, b: SelectedPlace): boolean {
@@ -242,6 +239,9 @@ export function detectAirportCodeFromPlace(place: SelectedPlace): string | null 
   if (place.placeId && AIRPORT_CODE_BY_PLACE_ID.has(place.placeId)) {
     return AIRPORT_CODE_BY_PLACE_ID.get(place.placeId) ?? null;
   }
+
+  // A verified individual business near an airport is not the airport itself.
+  if (place.placeId && place.provider === "google") return null;
 
   // Prefer geofence for Dublin Airport before any text heuristics.
   if (isWithinDublinAirportGeofence(place)) {
@@ -498,40 +498,9 @@ export function hasUsablePlaceCoordinates(place: SelectedPlace): boolean {
   return place.lat >= 51 && place.lat <= 56 && place.lng <= -5 && place.lng >= -11;
 }
 
-function hasHouseOrBuildingIdentifier(place: SelectedPlace): boolean {
-  if (place.placeName?.trim()) {
-    return true;
-  }
-  if (place.streetNumber?.trim()) {
-    return true;
-  }
-  if (hasLeadingStreetNumber(place.formattedAddress)) {
-    return true;
-  }
-  if (place.displayAddress && hasLeadingStreetNumber(place.displayAddress)) {
-    return true;
-  }
-  return false;
-}
-
-/**
- * Incomplete for pricing / area banners: missing place selection, house/building
- * identifier, or usable coordinates. Airports are never incomplete.
- */
+/** A name or coordinates alone cannot identify an individual premise. */
 export function isIncompleteAddressPlace(place: SelectedPlace): boolean {
-  if (!isPlaceSelected(place)) {
-    return true;
-  }
-  if (detectAirportCodeFromPlace(place)) {
-    return false;
-  }
-  if (!hasHouseOrBuildingIdentifier(place)) {
-    return true;
-  }
-  if (!hasUsablePlaceCoordinates(place)) {
-    return true;
-  }
-  return false;
+  return !isQuoteReadyPlace(place) || !hasUsablePlaceCoordinates(place);
 }
 
 function logAreaClassification(result: PickupAreaClassification): void {
@@ -842,6 +811,8 @@ export function selectedPlaceFromReturnOffer(
     route: confirmed.route,
     locality: confirmed.locality,
     administrativeArea: confirmed.administrativeArea,
+    types: confirmed.types,
+    provider: confirmed.provider,
   });
   return isQuoteReadyPlace(next) ? next : null;
 }
@@ -860,6 +831,8 @@ export function selectedPlaceFromParts(options: {
   route?: string | null;
   locality?: string | null;
   administrativeArea?: string | null;
+  types?: string[];
+  provider?: string;
 }): SelectedPlace {
   const postal = normaliseJourneyAddressLabel(options.formattedAddress);
   let placeName = options.placeName?.trim() || null;
@@ -889,5 +862,7 @@ export function selectedPlaceFromParts(options: {
     route: options.route?.trim() || null,
     locality: options.locality?.trim() || null,
     administrativeArea: options.administrativeArea?.trim() || null,
+    types: options.types,
+    provider: options.provider,
   };
 }

@@ -1,3 +1,4 @@
+import { getServedAirport } from '../shared/served-airports';
 /** Browser regression against the static export. All external requests are intercepted.
  * Run after building and serving out/: node --import tsx scripts/check-homepage-booking-browser.mjs
  * Install Playwright separately (no application dependency changes).
@@ -104,8 +105,8 @@ try {
       const json = (body) => route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
       if (url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:26000,duration:1800,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
       if (url.pathname.endsWith('/addresses')) {
-        if (url.searchParams.has('id')) return json({placeId:'test-dublin-airport',address:'Dublin, Ireland',formattedAddress:'Dublin, Ireland',displayAddress:'Dublin, Ireland',placeName:'Dublin',lat:53.4264,lng:-6.2499,countryCode:'IE',postalCode:null});
-        return json({suggestions:[{id:'test-dublin-airport',label:'Dublin Airport Terminal 2, Ireland',mainText:'Dublin Airport Terminal 2',secondaryText:'Ireland'}]});
+        if (url.searchParams.has('id')) { const airport=getServedAirport('DUB'); return json({...airport,address:airport.formattedAddress,placeName:airport.name,provider:'airport'}); }
+        return json({suggestions:[{id:getServedAirport('DUB').placeId,label:'Dublin Airport Terminal 2, Ireland',mainText:'Dublin Airport Terminal 2',secondaryText:'Ireland'}]});
       }
       if (url.pathname === '/pricing/public') return json({config:toPublicOwnerPricingConfig(defaultOwnerPricingSettings())});
       if (url.pathname === '/quote/availability') return json({blocked:false,available:true,alternativeTimes:[]});
@@ -235,16 +236,17 @@ try {
     await page.waitForFunction(()=> document.getElementById('pickup')?.value.includes('City Hall'));
     for (const field of ['dropoff','pickup']) {
       const input=page.locator(`#${field}`);
+      await input.click();
       await input.fill('Dublin Airport');
       const listboxId=await input.getAttribute('aria-controls');
       assert.ok(listboxId,`${field} autocomplete must identify its listbox`);
       await page.locator(`[id="${listboxId}"]`).getByRole('button',{name:'Dublin Airport Terminal 2 Ireland',exact:true}).click();
-      await page.waitForFunction((id)=>document.getElementById(id)?.value === 'Dublin Airport, Ireland',field);
-      assert.equal(await page.locator(`#${field}`).inputValue(),'Dublin Airport, Ireland');
+      await page.waitForFunction(({id,label})=>document.getElementById(id)?.value === label,{id:field,label:getServedAirport('DUB').formattedAddress});
+      assert.equal(await page.locator(`#${field}`).inputValue(),getServedAirport('DUB').formattedAddress);
     }
     await page.locator('#pickup').scrollIntoViewIfNeeded();
     await page.screenshot({path:`${output}/${width}-dublin-airport-fields.png`});
-    pass(`${width}px: airport suggestion resolving to Dublin, Ireland displays Dublin Airport, Ireland in pickup and drop-off`);
+    pass(`${width}px: canonical Dublin airport suggestion retains its verified airport address in pickup and drop-off`);
     await context.close();
   }
 } finally {

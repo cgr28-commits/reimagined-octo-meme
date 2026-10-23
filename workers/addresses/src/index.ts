@@ -1,3 +1,5 @@
+import { resolvePreciseQuoteLocation } from "./precise-quote-locations";
+import { PRECISE_LOCATION_MESSAGE } from "../shared/precise-quote-place";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 export { ConsentLedger } from "./consent-ledger";
@@ -1849,6 +1851,8 @@ async function blockedCustomerSmartAvailabilityResponse(
         isFromAirport?: boolean | null;
         journeyDuration?: string | null;
         routeDurationMinutes?: number | null;
+        pickupPlaceId?: string;
+        dropoffPlaceId?: string;
         pickupLat?: number | null;
         pickupLng?: number | null;
         dropoffLat?: number | null;
@@ -2351,6 +2355,7 @@ async function handlePaymentRequest(
     if (scheduleChanged) {
       // Do not use the original locked price after a date/time change.
       const priced = await buildAuthoritativeSavedQuotePricing({
+        allowLegacyAddressResolution: true,
         journey: {
           ...sj,
           tripDate: requestedDate,
@@ -2453,6 +2458,16 @@ async function handlePaymentRequest(
     const paymentDropoffLabel = String(booking.dropoffLabel ?? "");
     const paymentPickupPlaceId = String(body.pickupPlaceId ?? "").trim();
     const paymentDropoffPlaceId = String(body.dropoffPlaceId ?? "").trim();
+    const precisePaymentPlaces = await Promise.all([
+      resolvePreciseQuoteLocation({ address: paymentPickupLabel, placeId: paymentPickupPlaceId, googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY }),
+      resolvePreciseQuoteLocation({ address: paymentDropoffLabel, placeId: paymentDropoffPlaceId, googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY }),
+    ]).catch(() => null);
+    if (!precisePaymentPlaces) {
+      return json({ error: "We could not check the addresses just now. Please try again shortly.", code: "route_service_unavailable" }, 503, origin);
+    }
+    if (precisePaymentPlaces.some(place => !place)) {
+      return json({ error: PRECISE_LOCATION_MESSAGE, code: "address_selection_required" }, 409, origin);
+    }
     const receiptPricing = await loadOwnerPricingOrDefault(env);
     const receiptVehicleType: VehicleType = canonicalVehicleType(booking.vehicle);
     let receiptClaims: QuoteReceiptClaims | null = null;
@@ -2533,14 +2548,14 @@ async function handlePaymentRequest(
     const routeMetrics = routeOutcome.metrics;
     booking = {
       ...booking,
+      pickupPlaceId: precisePaymentPlaces[0]!.placeId,
+      dropoffPlaceId: precisePaymentPlaces[1]!.placeId,
       routeDistanceKm: routeMetrics.distanceKm,
       routeDurationMinutes: routeMetrics.durationMinutes,
-      ...(routeOutcome.pickup
-        ? { pickupLat: routeOutcome.pickup.lat, pickupLng: routeOutcome.pickup.lng }
-        : {}),
-      ...(routeOutcome.dropoff
-        ? { dropoffLat: routeOutcome.dropoff.lat, dropoffLng: routeOutcome.dropoff.lng }
-        : {}),
+      pickupLat: precisePaymentPlaces[0]!.lat,
+      pickupLng: precisePaymentPlaces[0]!.lng,
+      dropoffLat: precisePaymentPlaces[1]!.lat,
+      dropoffLng: precisePaymentPlaces[1]!.lng,
     };
 
     // Airport identity / direction from pickup/drop-off labels vs SERVED_AIRPORTS.
@@ -2548,6 +2563,7 @@ async function handlePaymentRequest(
     const airportCtxResult = resolvePaymentAirportContextFromAddresses(
       paymentPickupLabel,
       paymentDropoffLabel,
+      { pickupPlaceId: paymentPickupPlaceId, dropoffPlaceId: paymentDropoffPlaceId },
     );
     if (!airportCtxResult.ok) {
       return json({ error: airportCtxResult.error }, 409, origin);
@@ -2559,6 +2575,7 @@ async function handlePaymentRequest(
       airportContext.dropoffAirportCode === "DUB";
 
     let authoritativeQuote: {
+      preserveBfsMinimumPence?: boolean;
       amountGbp: number;
       journeyFareGbp: number;
       airportFixedCostsGbp: number;
@@ -2620,6 +2637,7 @@ async function handlePaymentRequest(
     if (receiptClaims) {
       authoritativeQuote = {
         amountGbp: receiptClaims.transferAmountGbp,
+          preserveBfsMinimumPence: Boolean(receiptClaims.preserveBfsMinimumPence),
         journeyFareGbp: receiptClaims.journeyFareGbp,
         airportFixedCostsGbp: receiptClaims.airportFixedCostsGbp,
         nightWeekendSurchargeGbp: receiptClaims.nightWeekendSurchargeGbp,
@@ -2643,6 +2661,7 @@ async function handlePaymentRequest(
       if (a2aQuote && Number.isFinite(a2aQuote.amount) && a2aQuote.amount >= 1) {
         authoritativeQuote = {
           amountGbp: Math.round(a2aQuote.amount * 100) / 100,
+          preserveBfsMinimumPence: Boolean(a2aQuote.preserveBfsMinimumPence),
           journeyFareGbp:
             typeof a2aQuote.journeyFareGbp === "number"
               ? Math.round(a2aQuote.journeyFareGbp * 100) / 100
@@ -2707,6 +2726,7 @@ async function handlePaymentRequest(
               );
         authoritativeQuote = {
           amountGbp: requote.amount,
+          preserveBfsMinimumPence: Boolean(requote.preserveBfsMinimumPence),
           journeyFareGbp,
           airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 0,
           nightWeekendSurchargeGbp: requote.nightWeekendSurchargeGbp ?? 0,
@@ -2732,6 +2752,7 @@ async function handlePaymentRequest(
     const protectedFare = receiptClaims
       ? null
       : await applyProfitabilityProtection({
+        bfsAirportJourney: [airportContext.pickupAirportCode, airportContext.dropoffAirportCode].includes("BFS"),
       postcodeContext: airportContext.airportCode && !(airportContext.pickupAirportCode && airportContext.dropoffAirportCode)
         ? { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode, fromAirport: airportContext.fromAirport }
         : undefined,
@@ -2895,6 +2916,7 @@ async function handlePaymentRequest(
           let outboundLeg = legQuote.outboundOneWayBeforeAccessGbp;
           let returnLeg = legQuote.returnOneWayBeforeAccessGbp;
           const protectedLegs = await applyProfitabilityProtection({
+        bfsAirportJourney: [airportContext.pickupAirportCode, airportContext.dropoffAirportCode].includes("BFS"),
             postcodeContext: airportContext.airportCode && !(airportContext.pickupAirportCode && airportContext.dropoffAirportCode)
               ? { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode, fromAirport: airportContext.fromAirport }
               : undefined,
@@ -2931,7 +2953,7 @@ async function handlePaymentRequest(
     }
 
     const pricingOptions = ownerPricingEngineOptions(pricing);
-    const preserveFixedFarePence = postcodeFareHasPence({ enabled: pricing.saloonFormula?.enabled === true ? false : pricing.postcodePricingEnabled, rules: pricing.postcodeRules, context: { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode ?? "", fromAirport: airportContext.fromAirport }, vehicle: vehicleType, estateSupplement: pricing.estate.upliftGbp, returnJourney: Boolean(booking.returnJourney) });
+    const preserveFixedFarePence = Boolean(authoritativeQuote.preserveBfsMinimumPence) || postcodeFareHasPence({ enabled: pricing.saloonFormula?.enabled === true ? false : pricing.postcodePricingEnabled, rules: pricing.postcodeRules, context: { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode ?? "", fromAirport: airportContext.fromAirport }, vehicle: vehicleType, estateSupplement: pricing.estate.upliftGbp, returnJourney: Boolean(booking.returnJourney) });
     const breakdown = composeWebsiteFareBreakdown({
       preserveFixedFarePence,
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
@@ -4109,6 +4131,7 @@ export default {
         );
       }
       const priced = await buildAuthoritativeSavedQuotePricing({
+        allowLegacyAddressResolution: true,
         journey: {
           ...latest.journey,
           tripDate,
@@ -5188,6 +5211,8 @@ export default {
     const airportCode = url.searchParams.get("airport")?.trim().toUpperCase() ?? "";
     const sessionToken = url.searchParams.get("session")?.trim() ?? undefined;
 
+    const preciseLookup = url.searchParams.get("precision") === "premise";
+
     if (id) {
       try {
         const userInput = url.searchParams.get("userInput")?.trim() || undefined;
@@ -5212,6 +5237,10 @@ export default {
             200,
             origin,
           );
+        }
+
+        if (preciseLookup && (isIdealPostcodesPlaceId(id) || id.startsWith("ga:"))) {
+          return json({ error: PRECISE_LOCATION_MESSAGE }, 422, origin);
         }
 
         if (isIdealPostcodesPlaceId(id)) {
@@ -5320,6 +5349,7 @@ export default {
             route: details.route,
             locality: details.locality,
             provider: "google",
+            types: details.types,
           },
           200,
           origin,
@@ -5339,7 +5369,7 @@ export default {
 
       // Optional paid Ideal Postcodes — only when a key is configured.
       if (
-        isPureNiPostcode &&
+        !preciseLookup && isPureNiPostcode &&
         env.IDEAL_POSTCODES_API_KEY &&
         shouldUseIdealPostcodes(airportCode, query)
       ) {
@@ -5388,11 +5418,11 @@ export default {
 
       const tasks: Promise<Awaited<ReturnType<typeof searchGoogleAddressSuggestions>>>[] = [];
 
-      if (env.IDEAL_POSTCODES_API_KEY && shouldUseIdealPostcodes(airportCode, query)) {
+      if (!preciseLookup && env.IDEAL_POSTCODES_API_KEY && shouldUseIdealPostcodes(airportCode, query)) {
         tasks.push(searchIdealPostcodes(env.IDEAL_POSTCODES_API_KEY, query, airportCode));
       }
 
-      if (env.GETADDRESS_API_KEY && shouldUseGetAddress(airportCode, query)) {
+      if (!preciseLookup && env.GETADDRESS_API_KEY && shouldUseGetAddress(airportCode, query)) {
         tasks.push(searchGetAddress(env.GETADDRESS_API_KEY, query, airportCode));
       }
 

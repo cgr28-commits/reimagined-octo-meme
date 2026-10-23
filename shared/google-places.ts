@@ -1,3 +1,4 @@
+import { isPreciseQuotePlace } from "./precise-quote-place";
 import {
   extractNorthernIrelandPostcode,
   extractPremisePrefixFromPostcodeQuery,
@@ -1327,7 +1328,9 @@ export async function resolvePlaceFromAddressLabel(
     match.addressComponents?.find((component) => component.types?.includes("country"))
       ?.shortText ?? parts.country;
 
-  return {
+  const resolved: ResolvedGooglePlace = {
+    types: match.types ?? [],
+    provider: "google",
     placeId: match.id,
     formattedAddress: formatted,
     displayAddress: buildGoogleDisplayAddress(placeName, formatted),
@@ -1344,6 +1347,7 @@ export async function resolvePlaceFromAddressLabel(
     locality: (parts.town ?? parts.city)?.trim() || null,
     administrativeArea: (parts.county ?? parts.state)?.trim() || null,
   };
+  return isPreciseQuotePlace(resolved) ? resolved : null;
 }
 
 /**
@@ -1411,6 +1415,8 @@ export type ResolvedGooglePlace = {
   route: string | null;
   locality: string | null;
   administrativeArea: string | null;
+  types?: string[];
+  provider?: "google";
 };
 
 function buildGoogleDisplayAddress(
@@ -1512,6 +1518,7 @@ export async function resolveGooglePlaceDetails(
   });
 
   if (!response.ok) {
+    if (response.status === 429 || response.status >= 500) throw new Error("Google Places temporarily unavailable");
     return null;
   }
 
@@ -1539,17 +1546,8 @@ export async function resolveGooglePlaceDetails(
     return null;
   }
 
-  const userNumber = userInput ? extractLeadingStreetNumber(userInput) : null;
-  let streetNumber = parts.streetNumber?.trim() || null;
-  if (userNumber && !hasLeadingStreetNumber(formatted)) {
-    // Never silently drop the customer's typed house number for a route-only place.
-    // Ranges like "1-11 May St" already count as numbered — do not prepend "11".
-    formatted = withStreetNumber(userNumber, formatted);
-    streetNumber = streetNumber || userNumber;
-  } else if (userNumber && !streetNumber) {
-    streetNumber = userNumber;
-  }
-
+  // Never manufacture premise evidence from the customer's typed text.
+  const streetNumber = parts.streetNumber?.trim() || null;
   formatted = normaliseJourneyAddressLabel(formatted);
 
   const placeName = resolvePlaceName(
@@ -1564,7 +1562,9 @@ export async function resolveGooglePlaceDetails(
     data.addressComponents?.find((component) => component.types?.includes("country"))?.shortText ??
     parts.country;
 
-  return {
+  const resolved: ResolvedGooglePlace = {
+    types: data.types ?? [],
+    provider: "google",
     placeId: data.id || placeId,
     formattedAddress: formatted,
     displayAddress,
@@ -1578,6 +1578,7 @@ export async function resolveGooglePlaceDetails(
     locality: (parts.town ?? parts.city)?.trim() || null,
     administrativeArea: (parts.county ?? parts.state)?.trim() || null,
   };
+  return isPreciseQuotePlace(resolved) ? resolved : null;
 }
 
 export async function resolveGooglePlace(

@@ -33,6 +33,9 @@ function check(name: string, fn: () => void) {
 
 function place( partial: Partial<SelectedPlace> & Pick<SelectedPlace, "formattedAddress">): SelectedPlace {
   return {
+    // Geographic fixtures model individual Google-verified premises.
+    provider: partial.provider ?? "google",
+    types: partial.types ?? ["premise"],
     placeId: partial.placeId ?? `test:${partial.formattedAddress.slice(0, 12)}`,
     formattedAddress: partial.formattedAddress,
     displayAddress: partial.displayAddress ?? partial.formattedAddress,

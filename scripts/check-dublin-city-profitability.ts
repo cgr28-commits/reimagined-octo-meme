@@ -3,12 +3,12 @@ import { needsManualQuoteApproval, type SelectedPlace } from "../src/lib/selecte
 import { defaultOwnerPricingSettings } from "../shared/owner-pricing-config";
 import { approvedProductionProfitabilitySettings } from "../src/lib/owner-profitability-settings";
 import { ESTATE_VEHICLE } from "../src/lib/vehicle-selection";
-import { applyProfitabilityProtection, profitabilityFloorFromOperations, roundUpWholePoundGbp } from "../workers/addresses/src/profitability";
+import { applyProfitabilityProtection, profitabilityFloorFromOperations, measureOperationalJob } from "../workers/addresses/src/profitability";
 import { OPERATING_BASE } from "../workers/addresses/src/operating-base";
 import { universalDrivingMilesFromKm } from "../shared/universal-distance-pricing";
 
 function place(id: string, address: string, lat: number, lng: number, countryCode: string): SelectedPlace {
-  return { placeId: id, formattedAddress: address, displayAddress: address, placeName: address.split(",")[0], lat, lng, countryCode, postalCode: null, streetNumber: null, route: null, locality: null, administrativeArea: null };
+  return { provider: "google", types: ["premise"], placeId: id, formattedAddress: address, displayAddress: address, placeName: address.split(",")[0], lat, lng, countryCode, postalCode: null, streetNumber: null, route: null, locality: null, administrativeArea: null };
 }
 const dublin = place("citizenm", "citizenM Dublin St. Patrick's, 67-69 Bride St, Dublin D08 C8CN, Ireland", 53.339, -6.272, "IE");
 const cork = place("cork-hotel", "Hotel, Cork, Ireland", 51.8985, -8.4756, "IE");
@@ -39,11 +39,14 @@ async function main() {
           schedule: { outboundDate: "2026-11-10", outboundTime: "12:00", returnJourney, returnDate: "2026-11-12", returnTime: "12:00" },
           existing: { amountGbp: 245, journeyFareGbp: 245, airportFixedCostsGbp: 0, nightWeekendSurchargeGbp: 0 },
         });
-        assert.equal(result.applied, true);
-        assert.equal(result.fallbackReason, null);
-        const oneWay = roundUpWholePoundGbp(floor.floorGbp) + pricing.estate.upliftGbp;
-        assert.ok(result.amountGbp >= (returnJourney ? oneWay * 2 * (1 - pricing.returnDiscount.rate) - 1 : oneWay), "Positioning and getting home must be included before vehicle uplift/return discount");
+        assert.equal(result.applied, false);
+        assert.equal(result.fallbackReason, "analysis_only");
+        assert.equal(result.amountGbp,245,"Operating costs never reprice the customer tariff");
+        assert.equal(legs.length,0,"Customer fare boundary never requests home-mile routing");
       }
+    }
+    for(const [pickup,dropoff] of [[dublin,belfast],[belfast,dublin],[belfast,cork]]) {
+      await measureOperationalJob({pickup:{lat:pickup.lat!,lng:pickup.lng!},dropoff:{lat:dropoff.lat!,lng:dropoff.lng!},passenger});
     }
     const home = `${OPERATING_BASE.lng},${OPERATING_BASE.lat}`;
     assert.ok(legs.some(url => url.includes(`${home};${dublin.lng},${dublin.lat}`)));
@@ -51,7 +54,7 @@ async function main() {
     assert.ok(legs.some(url => url.includes(`${home};${belfast.lng},${belfast.lat}`)));
     assert.ok(legs.some(url => url.includes(`${dublin.lng},${dublin.lat};${home}`)));
     assert.ok(legs.some(url => url.includes(`${cork.lng},${cork.lat};${home}`)));
-    console.log("Dublin corridor and Belfast to Cork home-positioning profitability checks passed (one-way and return).");
+    console.log("Dublin corridor and Belfast to Cork internal home-positioning analysis and unchanged-customer-fare checks passed (one-way and return).");
   } finally { globalThis.fetch = originalFetch; }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

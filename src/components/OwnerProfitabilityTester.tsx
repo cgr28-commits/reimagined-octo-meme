@@ -210,9 +210,7 @@ function ReportView({ report }: { report: OwnerProfitabilityReport }) {
   return (
     <dl className="mt-4 space-y-2 text-sm">
       <p className="font-semibold uppercase tracking-wider text-emerald">
-        {report.protectionActive
-          ? "Profitability protection active"
-          : "Profitability protection not active"}
+        Internal analysis only — customer fare unchanged
       </p>
       {line("Passenger miles", outbound.passengerMiles.toFixed(1))}
       {line("Passenger driving time", `${outbound.passengerMinutes} min`)}
@@ -225,13 +223,13 @@ function ReportView({ report }: { report: OwnerProfitabilityReport }) {
         outbound.operationalMinutes == null ? "—" : `${outbound.operationalMinutes} min`,
       )}
       {line("Existing curve fare", money(outbound.existingCurveFareGbp))}
-      {line("Minimum Saloon fare", money(outbound.minimumSaloonFareGbp))}
+      {line("Analysis comparison minimum", money(outbound.minimumSaloonFareGbp))}
       {line("Fuel cost per mile", outbound.fuelCostPerMileGbp == null ? "—" : money(outbound.fuelCostPerMileGbp))}
       {line("Total fuel cost", money(outbound.fuelCostGbp))}
       {line("Wear cost", money(outbound.wearCostGbp))}
       {line("Target time earnings", money(outbound.targetTimeEarningsGbp))}
-      {line("Profitability floor", money(outbound.profitabilityFloorGbp))}
-      {line("Protected Saloon fare", money(outbound.protectedSaloonFareGbp))}
+      {line("Analysis benchmark (not charged)", money(outbound.profitabilityFloorGbp))}
+      {line("Hypothetical Saloon comparison", money(outbound.protectedSaloonFareGbp))}
       {line("Rule", outbound.rule)}
       {line("Night / weekend surcharge", money(report.outbound.nightWeekendSurchargeGbp))}
       {line("Airport fixed costs", money(report.airportFixedCostsGbp))}
@@ -243,7 +241,7 @@ function ReportView({ report }: { report: OwnerProfitabilityReport }) {
       {line("Earnings per operational hour", report.estimatedEarningsPerHourGbp == null ? "—" : `${money(report.estimatedEarningsPerHourGbp)}/hour`)}
       {report.returnLeg ? (
         <p className="pt-2 text-white/70">
-          Return job: {report.returnLeg.operationalMiles ?? "—"} operational miles, rule {report.returnLeg.rule}, protected Saloon {money(report.returnLeg.protectedSaloonFareGbp)}.
+          Return job: {report.returnLeg.operationalMiles ?? "—"} operational miles, rule {report.returnLeg.rule}, hypothetical Saloon {money(report.returnLeg.protectedSaloonFareGbp)}.
         </p>
       ) : null}
     </dl>

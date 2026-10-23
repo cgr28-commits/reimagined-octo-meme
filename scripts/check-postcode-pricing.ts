@@ -1,3 +1,5 @@
+import { getServedAirport } from "../shared/served-airports";
+import { preciseTestPlaceId, preciseTestGoogleResponse } from "./precise-place-fixtures";
 import assert from "node:assert/strict";
 import { PROPOSED_POSTCODE_RULES, APPROVED_POSTCODE_RULES, postcodeTerminalAccessGbp, findPostcodeFare, validatePostcodeRules } from "../shared/postcode-pricing";
 import { quoteAirportAccessCharges } from "../shared/meet-greet";
@@ -72,12 +74,18 @@ async function main(){
 
   const {data,store}=kv();
   const saved=await saveOwnerPricingSettings(store,pricing,{expectedVersion:1,actor:"owner"});
-  const quoteEnv={TRACKING_STORE:store,OWNER_ACCESS_KEY:"test-owner",DRIVER_ACCESS_KEY:"test-driver"};
+  const quoteEnv={GOOGLE_PLACES_API_KEY:"isolated-test",TRACKING_STORE:store,OWNER_ACCESS_KEY:"test-owner",DRIVER_ACCESS_KEY:"test-driver"};
   const originalFetch=globalThis.fetch;
-  globalThis.fetch=async()=>{throw new Error("Unexpected external request during isolated API pricing test");};
+  globalThis.fetch=async input=>{
+    const url=String(input);
+    if(url.includes("places.googleapis.com"))return preciseTestGoogleResponse(url);
+    if(url.includes("/route/v1/"))return new Response(JSON.stringify({code:"Ok",routes:[{distance:159000,duration:6720}]}));
+    throw new Error("Unexpected external request during isolated API pricing test: "+url);
+  };
   try {
     for(const address of [...addresses,"10 Finaghy Road, Belfast BT10 0AA","1 Road, Belfast BT12 6AA"])for(const airportCode of ["DUB","BFS","BHD"])for(const fromAirport of [false,true])for(const vehicle of [S,E]) {
-      const payload={airportCode,fromAirport,pickupAddress:fromAirport?`${airportCode} Airport`:address,dropoffAddress:fromAirport?address:`${airportCode} Airport`,returnJourney:false,passengers:2,suitcases:1,vehicleType:vehicle,routeMetrics:metrics,amount:1,postcodeRules:[{district:"BT1",airportCode:"DUB",saloonFareGbp:1,enabled:true}]};
+      const airport=getServedAirport(airportCode)!;
+      const payload={airportCode,fromAirport,pickupPlaceId:fromAirport?airport.placeId:preciseTestPlaceId(address),dropoffPlaceId:fromAirport?preciseTestPlaceId(address):airport.placeId,pickupAddress:fromAirport?airport.formattedAddress:address,dropoffAddress:fromAirport?address:airport.formattedAddress,returnJourney:false,passengers:2,suitcases:1,vehicleType:vehicle,routeMetrics:metrics,amount:1,postcodeRules:[{district:"BT1",airportCode:"DUB",saloonFareGbp:1,enabled:true}]};
       const response=await worker.fetch(new Request("https://worker.example/quote/calculate",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://www.myairporttaxini.co.uk"},body:JSON.stringify(payload)}),quoteEnv as never);
       const body=await response.json() as {amount:number};assert.equal(response.status,200,JSON.stringify(body));
       assert.equal(body.amount,quote(address,vehicle,airportCode,fromAirport).amount,"API must use stored settings, never client prices/rules");
@@ -138,7 +146,7 @@ async function main(){
   const checkoutAmounts:number[]=[];
   globalThis.fetch=async(input,init)=>{
     const url=String(input);
-    if(url.includes("maps.googleapis.com")||url.includes("places.googleapis.com"))return new Response(JSON.stringify({status:"OK",results:[{geometry:{location:{lat:54.5964,lng:-5.9302}}}],location:{latitude:54.5964,longitude:-5.9302}}),{headers:{"Content-Type":"application/json"}});
+    if(url.includes("maps.googleapis.com")||url.includes("places.googleapis.com"))return preciseTestGoogleResponse(url);
     if(url.includes("/route/v1/"))return new Response(JSON.stringify({code:"Ok",routes:[{distance:159000,duration:6720}]}),{headers:{"Content-Type":"application/json"}});
     if(url.includes("api.mailchannels.net/")||url.includes("api.resend.com/emails"))return new Response(JSON.stringify({id:"isolated-test-message"}),{status:200,headers:{"Content-Type":"application/json"}});
     if(url==="https://api.sumup.com/v0.1/checkouts"&&init?.method==="POST"){
@@ -155,8 +163,8 @@ async function main(){
       const q=quote(address,vehicle,airportCode,false,false,approvedPricing);
       const access=quoteAirportAccessCharges({expressLegs:resolveExpressDropOff({airportCode,fromAirport:false,selected:true}).legs,airportCode,fromAirport:false});
       assert.equal(composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:q.journeyFareGbp!,airportFixedCostsGbp:q.airportFixedCostsGbp,airportAccessChargeGbp:access.airportAccessChargeGbp}).finalAmountPayableGbp,fare);
-      const booking={customerName:"Test Customer",customerEmail:"test@example.com",mobileNumber:"07700900123",pickupLabel:address,dropoffLabel:airportCode==="DUB"?"Dublin Airport (DUB)":airportCode==="BFS"?"Belfast International Airport (BFS)":"Belfast City Airport (BHD)",tripLabel:"Airport drop-off",tripDate:date,tripTime:"12:00",returnJourney:false,passengers:2,suitcases:1,vehicle,isAirportTrip:true,isFromAirport:false,airportCode,termsAcceptedAt:new Date().toISOString()};
-      const payload={booking,pickupPlaceId:"ChIJ-isolated-test",dropoffPlaceId:`quickselect-${airportCode}`,amount:q.amount,acceptedFinalAmountGbp:fare,journeyFareGbp:q.journeyFareGbp,airportFixedCostsGbp:q.airportFixedCostsGbp,description:"Airport transfer",redirectUrl:"https://www.myairporttaxini.co.uk/booking-confirmed/"};
+      const booking={customerName:"Test Customer",customerEmail:"test@example.com",mobileNumber:"07700900123",pickupLabel:address,dropoffLabel:getServedAirport(airportCode)!.formattedAddress,tripLabel:"Airport drop-off",tripDate:date,tripTime:"12:00",returnJourney:false,passengers:2,suitcases:1,vehicle,isAirportTrip:true,isFromAirport:false,airportCode,termsAcceptedAt:new Date().toISOString()};
+      const payload={booking,pickupPlaceId:preciseTestPlaceId(address),dropoffPlaceId:getServedAirport(airportCode)!.placeId,amount:q.amount,acceptedFinalAmountGbp:fare,journeyFareGbp:q.journeyFareGbp,airportFixedCostsGbp:q.airportFixedCostsGbp,description:"Airport transfer",redirectUrl:"https://www.myairporttaxini.co.uk/booking-confirmed/"};
       const response=await worker.fetch(new Request("https://worker.example/payments",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://www.myairporttaxini.co.uk"},body:JSON.stringify(payload)}),payEnv as never);
       const b=await response.json() as {checkoutId:string};assert.equal(response.status,200,JSON.stringify(b));assert.equal(checkoutAmounts.at(-1),fare);
       const pending=await getPendingCheckout(payments.store,b.checkoutId);assert.equal(pending?.amount,fare);assert.equal(pending?.booking.vehicle,vehicle);
@@ -169,9 +177,9 @@ async function main(){
     for(const airportCode of ["DUB","BFS","BHD"])for(const vehicle of [S,E]){
       const fare=vehicle===E?130.45:123.45;
       const q=quote(addresses[0],vehicle,airportCode,true,false,reversePricing);
-      const airport=airportCode==="DUB"?"Dublin Airport (DUB)":airportCode==="BFS"?"Belfast International Airport (BFS)":"Belfast City Airport (BHD)";
+      const airport=getServedAirport(airportCode)!.formattedAddress;
       const booking={customerName:"Test Customer",customerEmail:"test@example.com",mobileNumber:"07700900123",pickupLabel:airport,dropoffLabel:addresses[0],tripLabel:"Airport pickup",tripDate:date,tripTime:"12:00",returnJourney:false,passengers:2,suitcases:1,vehicle,isAirportTrip:true,isFromAirport:true,airportCode,flightNumber:"BA1234",termsAcceptedAt:new Date().toISOString()};
-      const payload={booking,pickupPlaceId:`quickselect-${airportCode}`,dropoffPlaceId:"ChIJ-isolated-test",amount:q.amount,acceptedFinalAmountGbp:fare,journeyFareGbp:q.journeyFareGbp,airportFixedCostsGbp:q.airportFixedCostsGbp,description:"Airport transfer",redirectUrl:"https://www.myairporttaxini.co.uk/booking-confirmed/"};
+      const payload={booking,pickupPlaceId:getServedAirport(airportCode)!.placeId,dropoffPlaceId:preciseTestPlaceId(addresses[0]),amount:q.amount,acceptedFinalAmountGbp:fare,journeyFareGbp:q.journeyFareGbp,airportFixedCostsGbp:q.airportFixedCostsGbp,description:"Airport transfer",redirectUrl:"https://www.myairporttaxini.co.uk/booking-confirmed/"};
       const response=await worker.fetch(new Request("https://worker.example/payments",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://www.myairporttaxini.co.uk"},body:JSON.stringify(payload)}),payEnv as never);
       const b=await response.json() as {checkoutId:string};assert.equal(response.status,200,JSON.stringify(b));assert.equal(checkoutAmounts.at(-1),fare);assert.equal((await getPendingCheckout(payments.store,b.checkoutId))?.amount,fare);
     }

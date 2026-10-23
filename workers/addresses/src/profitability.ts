@@ -1,14 +1,13 @@
 /**
- * Worker-only profitability protection.
+ * Worker-only internal profitability analysis.
  *
- * The existing fare engine stays authoritative until a real vehicle MPG is
- * saved. Any routing or calculation failure keeps that existing fare.
- * Public callers receive only the protected customer amounts — never home
- * coordinates, dead-head legs, or the operating base.
+ * Customer fares always remain tariff-based, regardless of MPG, target or mode.
+ * Legacy analytical helpers and owner settings are retained for reporting only.
+ * Public callers never receive home coordinates or dead-head calculations.
  */
 
 import { roundGbp } from "../shared/gbp";
-import { postcodeJourneyLegs, type PostcodeJourneyContext } from "../shared/postcode-pricing";
+import { type PostcodeJourneyContext } from "../shared/postcode-pricing";
 import {
   calculateUniversalJourneyFareGbp,
   calculateUniversalSaloonJourneyFareGbp,
@@ -236,186 +235,14 @@ export async function applyProfitabilityProtection(input: {
   returnJourney: boolean;
   /** True when the transfer is to or from Dublin Airport. */
   dublinAirportJourney?: boolean;
+  bfsAirportJourney?: boolean;
   schedule: TripSchedule;
   existing: CustomerFareSnapshot;
 }): Promise<CustomerFareSnapshot & { applied: boolean; fallbackReason: string | null }> {
-  const existing = {
-    amountGbp: roundGbp(input.existing.amountGbp),
-    journeyFareGbp: roundGbp(input.existing.journeyFareGbp),
-    airportFixedCostsGbp: roundGbp(input.existing.airportFixedCostsGbp),
-    nightWeekendSurchargeGbp: roundGbp(input.existing.nightWeekendSurchargeGbp),
-    outboundOneWayBeforeAccessGbp: input.existing.outboundOneWayBeforeAccessGbp,
-    returnOneWayBeforeAccessGbp: input.existing.returnOneWayBeforeAccessGbp,
-    outboundFixedGbp: input.existing.outboundFixedGbp,
-    returnFixedGbp: input.existing.returnFixedGbp,
-    applied: false,
-    fallbackReason: null as string | null,
-  };
-  if (input.pricing?.saloonFormula?.enabled === true) return { ...existing, fallbackReason: "mileage_formula_selected" };
-  try {
-    const settings = readProfitability(input.pricing);
-    if (!settings || !isProfitabilityProtectionActive(settings)) {
-      return { ...existing, fallbackReason: "mpg_not_configured" };
-    }
-    const pickup = finitePoint(input.pickup);
-    const dropoff = finitePoint(input.dropoff);
-    if (!pickup || !dropoff) {
-      logFallback("missing_coordinates");
-      return { ...existing, fallbackReason: "missing_coordinates" };
-    }
-    const roadMiles = universalDrivingMilesFromKm(input.routeMetrics.distanceKm);
-    const saloonCurve = calculateUniversalSaloonJourneyFareGbp(roadMiles, {
-      minimumGbp: input.pricing?.saloon.minimumFareGbp,
-      floorMiles: input.pricing?.saloon.floorMiles,
-      knots: input.pricing?.saloon.knots.map((knot) => [knot.miles, knot.fareGbp] as const),
-    });
-    const outboundOps = await measureOperationalJob({
-      pickup,
-      dropoff,
-      passenger: input.routeMetrics,
-    });
-    if (!outboundOps) {
-      logFallback("positioning_route_failed");
-      return { ...existing, fallbackReason: "positioning_route_failed" };
-    }
-    const outboundFloor = profitabilityFloorFromOperations({
-      ...outboundOps,
-      settings: settings as ProfitabilitySettings,
-    });
-    if (!outboundFloor) {
-      logFallback("invalid_settings");
-      return { ...existing, fallbackReason: "invalid_settings" };
-    }
-    const outboundProtected = protectSaloonOneWayFare({
-      existingCurveFareGbp: saloonCurve,
-      minimumSaloonFareGbp: settings.minimumSaloonOneWayGbp,
-      profitabilityFloorGbp: outboundFloor.floorGbp,
-      active: true,
-    });
-    const outboundVehicle = vehicleFareFromProtectedSaloon(
-      outboundProtected.protectedFareGbp,
-      input.vehicleType,
-      input.pricing,
-    );
-
-    let returnVehicle = outboundVehicle;
-    if (input.returnJourney) {
-      const returnOps = await measureOperationalJob({
-        pickup: dropoff,
-        dropoff: pickup,
-        passenger: input.routeMetrics,
-      });
-      if (!returnOps) {
-        logFallback("return_positioning_route_failed");
-        return { ...existing, fallbackReason: "return_positioning_route_failed" };
-      }
-      const returnFloor = profitabilityFloorFromOperations({
-        ...returnOps,
-        settings: settings as ProfitabilitySettings,
-      });
-      if (!returnFloor) {
-        logFallback("invalid_settings");
-        return { ...existing, fallbackReason: "invalid_settings" };
-      }
-      const returnProtected = protectSaloonOneWayFare({
-        existingCurveFareGbp: saloonCurve,
-        minimumSaloonFareGbp: settings.minimumSaloonOneWayGbp,
-        profitabilityFloorGbp: returnFloor.floorGbp,
-        active: true,
-      });
-      returnVehicle = vehicleFareFromProtectedSaloon(
-        returnProtected.protectedFareGbp,
-        input.vehicleType,
-        input.pricing,
-      );
-    }
-
-    const dublinRate = ownerPricingEngineOptions(input.pricing).dublinAirportFareAdjustmentRate ?? 0;
-    const postcode = postcodeJourneyLegs({
-      enabled: input.pricing?.postcodePricingEnabled,
-      rules: input.pricing?.postcodeRules, context: input.postcodeContext,
-      vehicle: input.vehicleType, estateSupplement: ownerPricingEngineOptions(input.pricing).estatePremiumGbp,
-      returnJourney: input.returnJourney,
-      outboundFixed: existing.outboundFixedGbp ?? existing.airportFixedCostsGbp,
-      returnFixed: existing.returnFixedGbp ?? 0,
-    });
-    const pricedSchedule = {
-      ...input.schedule,
-      ...(postcode.outbound != null ? { outboundDate: undefined, outboundTime: undefined } : {}),
-      ...(postcode.inbound != null ? { returnDate: undefined, returnTime: undefined } : {}),
-    };
-    const adjustedOutboundVehicle = postcode.outbound ?? dublinAirportJourneyFareGbp(
-      outboundVehicle,
-      input.dublinAirportJourney === true,
-      dublinRate,
-    );
-    const adjustedReturnVehicle = postcode.inbound ?? dublinAirportJourneyFareGbp(
-      returnVehicle,
-      input.dublinAirportJourney === true,
-      dublinRate,
-    );
-
-    const premium = applyTripPremium(
-      adjustedOutboundVehicle,
-      { ...pricedSchedule, returnJourney: input.returnJourney },
-      undefined,
-      {
-        pricing: input.pricing,
-        returnOneWayFare: input.returnJourney ? adjustedReturnVehicle : undefined,
-      },
-    );
-    const journeyFareGbp = roundGbp(premium.total);
-    const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
-    const amountGbp = roundGbp(journeyFareGbp + existing.airportFixedCostsGbp);
-    const outboundFixed =
-      existing.outboundFixedGbp ??
-      (input.returnJourney ? 0 : existing.airportFixedCostsGbp);
-    const outboundLeg = applyTripPremium(
-      adjustedOutboundVehicle,
-      {
-        outboundDate: pricedSchedule.outboundDate,
-        outboundTime: pricedSchedule.outboundTime,
-        returnJourney: false,
-      },
-      undefined,
-      { pricing: input.pricing },
-    );
-    const outboundOneWayBeforeAccessGbp = roundGbp(outboundLeg.total + Math.max(0, outboundFixed));
-    let returnOneWayBeforeAccessGbp = existing.returnOneWayBeforeAccessGbp;
-    if (input.returnJourney) {
-      const returnLeg = applyTripPremium(
-        adjustedReturnVehicle,
-        {
-          outboundDate: pricedSchedule.returnDate,
-          outboundTime: pricedSchedule.returnTime,
-          returnJourney: false,
-        },
-        undefined,
-        { pricing: input.pricing },
-      );
-      const returnFixed = existing.returnFixedGbp ?? 0;
-      returnOneWayBeforeAccessGbp = roundGbp(returnLeg.total + Math.max(0, returnFixed));
-    }
-    if (amountGbp + 0.001 < existing.amountGbp) {
-      logFallback("below_existing_fare");
-      return { ...existing, fallbackReason: "below_existing_fare" };
-    }
-    return {
-      amountGbp,
-      journeyFareGbp,
-      airportFixedCostsGbp: existing.airportFixedCostsGbp,
-      nightWeekendSurchargeGbp,
-      outboundOneWayBeforeAccessGbp,
-      returnOneWayBeforeAccessGbp,
-      outboundFixedGbp: existing.outboundFixedGbp,
-      returnFixedGbp: existing.returnFixedGbp,
-      applied: true,
-      fallbackReason: null,
-    };
-  } catch {
-    logFallback("calculation_error");
-    return { ...existing, fallbackReason: "calculation_error" };
-  }
+  // Owner policy: earnings targets and dead miles are internal analysis only.
+  // Keep this compatibility boundary so every existing quote/payment caller is
+  // safe in both mileage and legacy modes. Do not route or reprice here.
+  return { ...input.existing, applied: false, fallbackReason: "analysis_only" };
 }
 
 function emptyLeg(input: {

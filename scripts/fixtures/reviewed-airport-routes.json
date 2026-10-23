@@ -1,0 +1,46 @@
+{
+  "reviewDate": "2026-10-22",
+  "source": "OSRM primary driving route, overview=false; no traffic. BFS Express terminal loop verified separately. BHD/DUB catalogue points unchanged.",
+  "address": "152-154 Holywood Rd, Belfast BT4 1NY, UK",
+  "placeId": "ChIJP-RzEJ0JYUgRPp5lhXiCzkQ",
+  "lat": 54.600569,
+  "lng": -5.87969,
+  "routes": [
+    {
+      "airport": "BFS",
+      "direction": "pickup",
+      "distanceMetres": 32365.2,
+      "durationSeconds": 1687
+    },
+    {
+      "airport": "BFS",
+      "direction": "dropoff",
+      "distanceMetres": 31517.5,
+      "durationSeconds": 1654.7
+    },
+    {
+      "airport": "BHD",
+      "direction": "pickup",
+      "distanceMetres": 4143.2,
+      "durationSeconds": 570.7
+    },
+    {
+      "airport": "BHD",
+      "direction": "dropoff",
+      "distanceMetres": 4218.8,
+      "durationSeconds": 564.9
+    },
+    {
+      "airport": "DUB",
+      "direction": "pickup",
+      "distanceMetres": 163544.9,
+      "durationSeconds": 6893.7
+    },
+    {
+      "airport": "DUB",
+      "direction": "dropoff",
+      "distanceMetres": 163496.1,
+      "durationSeconds": 6945.6
+    }
+  ]
+}

@@ -22,6 +22,8 @@ import {
 } from "./airport-fixed-costs";
 import {
   matchServedAirportCode,
+  servedAirportFromPlaceId,
+  SERVED_AIRPORTS,
   type ServedAirportCode,
 } from "./served-airports";
 
@@ -73,6 +75,7 @@ export type PaymentAirportContextResult =
 export function resolvePaymentAirportContextFromAddresses(
   pickupLabel: string,
   dropoffLabel: string,
+  selected?: { pickupPlaceId?: string | null; dropoffPlaceId?: string | null },
 ): PaymentAirportContextResult {
   const pickup = String(pickupLabel ?? "").trim();
   const dropoff = String(dropoffLabel ?? "").trim();
@@ -83,8 +86,12 @@ export function resolvePaymentAirportContextFromAddresses(
     };
   }
 
-  const pickupAirportCode = matchServedAirportCode(pickup);
-  const dropoffAirportCode = matchServedAirportCode(dropoff);
+  // New selections use canonical identity; legacy stored bookings retain their resolver.
+  const airportCode = (label: string, id?: string | null) => id
+    ? servedAirportFromPlaceId(id)?.code ?? null
+    : SERVED_AIRPORTS.find(a => [a.formattedAddress, a.label, a.name].some(v => v.toLowerCase() === label.toLowerCase()))?.code ?? null;
+  const pickupAirportCode = selected ? airportCode(pickup, selected.pickupPlaceId) : matchServedAirportCode(pickup);
+  const dropoffAirportCode = selected ? airportCode(dropoff, selected.dropoffPlaceId) : matchServedAirportCode(dropoff);
 
   if (pickupAirportCode && dropoffAirportCode && pickupAirportCode === dropoffAirportCode) {
     // Same airport both ends — not a confident transfer context.

@@ -194,7 +194,7 @@ console.log("=== Failsafe keeps the existing fare ===");
     pricing: { ...pricing, profitability: defaultProfitabilitySettings() },
   });
   assert.equal(missingMpg.applied, false);
-  assert.equal(missingMpg.fallbackReason, "mpg_not_configured");
+  assert.equal(missingMpg.fallbackReason, "analysis_only");
   assert.equal(missingMpg.amountGbp, 65);
 
   const invalidMpg = await applyProfitabilityProtection({
@@ -210,7 +210,7 @@ console.log("=== Failsafe keeps the existing fare ===");
     pickup: null,
   });
   assert.equal(missingPoint.applied, false);
-  assert.equal(missingPoint.fallbackReason, "missing_coordinates");
+  assert.equal(missingPoint.fallbackReason, "analysis_only");
   assert.equal(missingPoint.amountGbp, 65);
 
   const originalFetch = globalThis.fetch;
@@ -218,7 +218,7 @@ console.log("=== Failsafe keeps the existing fare ===");
   try {
     const routingFailed = await applyProfitabilityProtection({ ...base, pricing });
     assert.equal(routingFailed.applied, false);
-    assert.equal(routingFailed.fallbackReason, "positioning_route_failed");
+    assert.equal(routingFailed.fallbackReason, "analysis_only");
     assert.equal(routingFailed.amountGbp, 65);
   } finally {
     globalThis.fetch = originalFetch;
@@ -229,7 +229,7 @@ console.log("=== Failsafe keeps the existing fare ===");
     pricing: { profitability: approved, saloon: undefined } as unknown as typeof pricing,
   });
   assert.equal(broken.applied, false);
-  assert.equal(broken.fallbackReason, "calculation_error");
+  assert.equal(broken.fallbackReason, "analysis_only");
   assert.equal(broken.amountGbp, 65);
 }
 

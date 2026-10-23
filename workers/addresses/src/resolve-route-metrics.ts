@@ -1,3 +1,4 @@
+import { resolvePreciseQuoteRoute } from "./precise-quote-locations";
 /**
  * Cloudflare Worker helper: resolve driving-route metrics the same way the
  * public site / Personal Quotes do (catalogue → place ID → geocode → OSRM).
@@ -200,27 +201,5 @@ export async function resolveWorkerTripRouteMetricsForPayment(options: {
   googlePlacesApiKey?: string;
   getAddressApiKey?: string;
 }): Promise<RouteResolveOutcome> {
-  const apiKey = options.googlePlacesApiKey?.trim() ?? "";
-  const geocode = async (address: string) => {
-    if (!apiKey) return null;
-    try {
-      return await geocodeAddress(apiKey, address);
-    } catch {
-      return null;
-    }
-  };
-
-  return resolveTripRouteMetricsOutcome({
-    pickupAddress: options.pickupAddress,
-    dropoffAddress: options.dropoffAddress,
-    pickupPlaceId: options.pickupPlaceId,
-    dropoffPlaceId: options.dropoffPlaceId,
-    trustClientCoordinates: false,
-    geocode,
-    resolvePlaceId: buildPlaceIdResolver({
-      googlePlacesApiKey: options.googlePlacesApiKey,
-      getAddressApiKey: options.getAddressApiKey,
-    }),
-    fetchRouteMetrics: fetchRoadTripRouteMetrics,
-  });
+  return resolvePreciseQuoteRoute(options);
 }
