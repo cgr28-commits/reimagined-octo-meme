@@ -1480,7 +1480,7 @@ function QuoteCard({
     if (existingCheckout) {
       setOpenCheckout(existingCheckout);
     }
-  }, [returnOfferToken]);
+  }, [returnOfferToken, restoredQuote]);
 
   useEffect(() => {
     function blankQuoteAddressesAfterBrowserRestore() {

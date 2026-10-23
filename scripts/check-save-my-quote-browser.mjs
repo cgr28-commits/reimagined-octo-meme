@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import { pathToFileURL } from 'node:url';
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(`${process.env.PLAYWRIGHT_MODULE}/index.mjs`).href : 'playwright');
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config.ts';
 import { DEFAULT_SAVE_QUOTE_SETTINGS } from '../shared/save-quote-settings.ts';
 import { ESTATE_VEHICLE } from '../src/lib/vehicle-selection.ts';
@@ -36,11 +37,12 @@ try {
    return route.abort();
   });
   const page=await context.newPage();page.setDefaultTimeout(30000);page.on('pageerror',e=>errors.push(e.message));
+  try {
   await page.goto(base+'/quote/#t='+token,{waitUntil:'domcontentloaded'});
   const reject=page.getByRole('button',{name:'Reject optional',exact:true});if(await reject.count())await reject.click();
   await page.locator('[data-quote-fare-status="ready"]').first().waitFor();
-  assert.equal(await page.locator('#quote-section-passengers').inputValue(),'2');
-  assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'1');
+  assert.equal(await page.locator('#quoteForm [name="passengers"]').first().inputValue(),'2');
+  assert.equal(await page.locator('#quoteForm [name="suitcases"]').first().inputValue(),'1');
   assert.equal(await page.locator('#date').inputValue(),journey.tripDate);
   assert.equal(await page.locator('#time').inputValue(),journey.tripTime);
   await page.getByText(/Your current fare has changed/).waitFor();
@@ -77,6 +79,10 @@ try {
   await page.clock.fastForward(30000);assert.equal(await reminder.count(),0,'once per session survives reload');
   assert.deepEqual(errors,[]);assert.deepEqual(mutations,[]);
   console.log(`PASS ${width}px: restoration, changed fare, inactivity reset, save options, share URL, email, no overlap, session suppression`);
-  await context.close();
+  } catch (error) {
+    await page.screenshot({path:`test-results/save-my-quote/${width}-failure.png`,fullPage:true});
+    await fs.writeFile(`test-results/save-my-quote/${width}-failure.txt`,String(error)+'\n'+await page.locator('body').innerText());
+    throw error;
+  } finally { await context.close(); }
  }
 } finally {await browser.close();}
