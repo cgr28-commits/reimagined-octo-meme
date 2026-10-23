@@ -1,3 +1,4 @@
+import { normalizeSaveQuoteSettings, parseSaveQuoteSettings, type SaveQuoteSettings } from "../shared/save-quote-settings";
 /**
  * Owner booking availability settings (KV).
  * Multiple unavailable periods — eligibility is computed on read (no expiry writes).
@@ -33,6 +34,7 @@ import {
 } from "../shared/deposit-cash";
 
 export type BookingSettings = {
+  saveQuote: SaveQuoteSettings;
   unavailablePeriods: UnavailablePeriod[];
   /** Owner-configured short-notice / minimum advance period. Defaults to 12. */
   minimumBookingNoticeHours: number;
@@ -62,6 +64,7 @@ const MAX_PERIODS = 60;
 export function defaultBookingSettings(): BookingSettings {
   return {
     unavailablePeriods: [],
+    saveQuote: normalizeSaveQuoteSettings(null),
     minimumBookingNoticeHours: MINIMUM_BOOKING_NOTICE_HOURS,
     minibusMinimumBookingNoticeHours: normalizeMinibusMinimumBookingNoticeHours(undefined),
     minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
@@ -91,6 +94,7 @@ export function normalizeBookingSettings(
   );
   return {
     unavailablePeriods: normalizeUnavailablePeriods(raw?.unavailablePeriods),
+    saveQuote: normalizeSaveQuoteSettings(raw?.saveQuote),
     minimumBookingNoticeHours,
     minibusMinimumBookingNoticeHours: normalizeMinibusMinimumBookingNoticeHours(
       raw?.minibusMinimumBookingNoticeHours,
@@ -156,6 +160,7 @@ export async function saveBookingSettings(
       settings.customerPaymentWindowMinutes ?? current.customerPaymentWindowMinutes,
     ),
     depositCash: current.depositCash,
+    saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -182,6 +187,7 @@ export async function updateMinimumBookingNoticeHours(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -205,6 +211,7 @@ export async function updateMinibusMinimumBookingNoticeHours(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -233,6 +240,7 @@ export async function updateMinimumShortNoticeLeadHours(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -251,6 +259,7 @@ export async function updateDepositCashSettings(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: parsed,
+    saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -274,6 +283,7 @@ export async function updateShortNoticeConfirmationWindowHours(
     shortNoticeConfirmationWindowHours: parsed,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -297,6 +307,7 @@ export async function updateCustomerPaymentWindowMinutes(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: parsed,
     depositCash: current.depositCash,
+    saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -325,6 +336,7 @@ export async function addUnavailablePeriod(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    saveQuote: current.saveQuote,
     updatedAt: now.toISOString(),
   });
   return { settings, period };
@@ -363,6 +375,7 @@ export async function updateUnavailablePeriod(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    saveQuote: current.saveQuote,
     updatedAt: now.toISOString(),
   });
   return { settings, period };
@@ -387,6 +400,7 @@ export async function deleteUnavailablePeriod(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -399,4 +413,9 @@ export function bookingSettingsPublicView(settings: BookingSettings, now = new D
     activeUnavailablePeriods: active,
     activeCount: active.length,
   };
+}
+
+export async function updateSaveQuoteSettings(store: KVNamespace, raw: unknown): Promise<BookingSettings> {
+  const saveQuote = parseSaveQuoteSettings(raw);
+  return putBookingSettings(store, { ...await getBookingSettings(store), saveQuote });
 }

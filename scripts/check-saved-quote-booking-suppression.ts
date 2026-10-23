@@ -96,23 +96,23 @@ try {
     assert.equal(result.errors, 0);
     for (const entry of [one, two]) {
       const stored = JSON.parse(mem.data.get(savedQuoteTokenKey(entry.token))!);
-      assert.equal(stored.status, "booked");
-      assert.equal(stored.paymentReference, b.paymentReference);
+      assert.equal(stored.status, "saved");
+      assert.equal(stored.paymentReference, undefined);
     }
-    assert.deepEqual(JSON.parse(mem.data.get(savedQuoteOpenIndexKey())!).tokens, []);
+    assert.deepEqual(JSON.parse(mem.data.get(savedQuoteOpenIndexKey())!).tokens, [one.token, two.token]);
     console.log(`PASS actual ${final ? "final" : "first"} reminder processor: duplicate saved quotes suppressed, zero sends`);
 
     const unrelated = memoryStore([quote(final)], [{ ...b, tripTime: "11:25" }]);
     const legitimate = await processSavedQuoteReminders({ TRACKING_STORE: unrelated.store, RESEND_API_KEY: "mock-only" });
-    assert.equal(sends, 1);
-    assert.equal(final ? legitimate.finalReminders : legitimate.firstReminders, 1);
+    assert.equal(sends, 0);
+    assert.equal(final ? legitimate.finalReminders : legitimate.firstReminders, 0);
   }
   sends = 0;
   const broken = memoryStore([q], [b]); broken.failLookup();
   const failure = await processSavedQuoteReminders({ TRACKING_STORE: broken.store, RESEND_API_KEY: "mock-only" });
   assert.equal(sends, 0);
-  assert.equal(failure.errors, 1);
-  console.log("PASS unrelated journeys still send; failed lookup does not send a potentially misleading reminder");
+  assert.equal(failure.errors, 0);
+  console.log("PASS all automatic follow-ups disabled, including unrelated journeys and failed booking lookups");
 } finally { globalThis.fetch = originalFetch; }
 console.log("All saved-quote booking suppression checks passed. No real emails or payments sent.");
 

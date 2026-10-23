@@ -60,6 +60,7 @@ import {
   type ShortNoticeBookingSummary,
   type UnavailablePeriodSummary,
 } from "@/lib/short-notice-api";
+import OwnerSaveQuoteSettings from "@/components/OwnerSaveQuoteSettings";
 import OwnerDepositCashSettings from "@/components/OwnerDepositCashSettings";
 import {
   LUGGAGE_CAPACITY_OWNER_REASON,
@@ -1198,6 +1199,7 @@ export default function OwnerShortNoticePanel({
           Manage booking availability
         </button>
       </div>
+      <OwnerSaveQuoteSettings ownerKey={ownerKey} settings={bookingSettings} onSaved={applySettings} fieldClass={fieldClass} />
       <OwnerDepositCashSettings
         ownerKey={ownerKey}
         settings={bookingSettings}

@@ -1,3 +1,4 @@
+import { updateSaveQuoteSettings } from "./booking-settings-store";
 /**
  * Short-notice booking: create / list / approve / decline / pay-via-SumUp.
  */
@@ -2231,6 +2232,10 @@ export async function handleOwnerSaveBookingSettings(
       return { ok: true, settings: bookingSettingsPublicView(settings) };
     }
 
+    if (action === "set-save-quote") {
+      const settings = await updateSaveQuoteSettings(env.TRACKING_STORE, body.saveQuote);
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
     if (action === "set-deposit-cash" || action === "set-deposit-cash-settings") {
       const settings = await updateDepositCashSettings(
         env.TRACKING_STORE,
