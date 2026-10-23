@@ -62,6 +62,7 @@ import {
 import { formatGbpAmountExact } from "./gbp";
 
 export type PaidBookingDetails = {
+  customerReference?: string;
   customerName: string;
   customerEmail: string;
   mobileNumber: string;

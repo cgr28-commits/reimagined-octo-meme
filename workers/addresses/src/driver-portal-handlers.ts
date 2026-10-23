@@ -2,9 +2,14 @@ import { corsHeaders } from "../shared/google-places";
 import {
   driverPortalSessionCookie,
   exchangeDriverPortalLink,
+  createDriverPortalLink,
 } from "./driver-portal-session";
 
-type Env = {
+import { resolveDriverSession, type DriverAuthEnv } from "./driver-auth";
+import { getOwnerAccountProfile } from "./owner-profile-store";
+import { getDriverVehicleProfile } from "./driver-vehicle-store";
+
+type Env = DriverAuthEnv & {
   TRACKING_STORE?: KVNamespace;
   SITE_URL?: string;
 };
@@ -68,4 +73,20 @@ export async function handleDriverPortalExchangeRequest(
       "Set-Cookie": driverPortalSessionCookie(exchanged.sessionToken),
     },
   );
+}
+
+/** Owner explicitly creates a fresh, scoped My Jobs link; this grants no admin rights. */
+export async function handleDriverPortalInviteRequest(request: Request, env: Env, origin: string | null): Promise<Response> {
+  const owner = resolveDriverSession(request, env);
+  if (!owner.authorized || owner.role !== "owner" || request.headers.has("X-Driver-Session")) {
+    return jsonResponse({ error: "Owner access required" }, 403, origin);
+  }
+  if (!env.TRACKING_STORE) return jsonResponse({ error: "Driver portal unavailable" }, 503, origin);
+  let body: Record<string, unknown>;
+  try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400, origin); }
+  const key = typeof body.profileKey === "string" ? body.profileKey.trim().toLowerCase() : "owner";
+  const profile = key === "owner" ? await getOwnerAccountProfile(env.TRACKING_STORE) : await getDriverVehicleProfile(env.TRACKING_STORE, key);
+  if (!profile?.displayName) return jsonResponse({ error: "Save the driver's name and contact details in Profiles first." }, 422, origin);
+  const access = await createDriverPortalLink(env.TRACKING_STORE, { profileKey: profile.profileKey, driverName: profile.displayName });
+  return jsonResponse({ ok: true, access, driverName: profile.displayName }, 200, origin);
 }

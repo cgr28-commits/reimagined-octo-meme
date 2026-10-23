@@ -5,6 +5,7 @@ import {
 } from "../../shared/cancellation-policy";
 import { AIRPORT_HERO } from "./airport-hero";
 import { withBasePath } from "./paths";
+import { DASHBOARD_GPS_ENABLED } from "../../shared/live-gps";
 
 export const SITE = {
   name: "My Airport Taxi NI",
@@ -87,7 +88,7 @@ export const SERVICE_FLAGS = {
    * Customer website live tracking (homepage section, nav, /track map).
    * Journey status actions (Driver on the way / Arrived) stay available on driver/owner dashboards.
    */
-  liveDriverTracking: true,
+  liveDriverTracking: DASHBOARD_GPS_ENABLED,
   /** Public driver dashboard — enabled for journey tracking on phone. */
   driverDashboard: true,
 } as const;

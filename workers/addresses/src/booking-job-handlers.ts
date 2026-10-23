@@ -565,7 +565,9 @@ export async function handleBookingJobAssignDriverRequest(
 
   const acceptUrl = `${siteUrl(env).replace(/\/$/, "")}/driver-accept/?token=${encodeURIComponent(acceptToken)}`;
   let portalUrl: string | undefined;
-  if (savedProfile) {
+  if (savedProfile && env.DRIVER_AUTH) {
+    portalUrl = `${siteUrl(env).replace(/\/$/, "")}/driver/`;
+  } else if (savedProfile) {
     const accessToken = await createDriverPortalLink(env.TRACKING_STORE, {
       profileKey: savedProfile.profileKey,
       driverName: identity?.driverFirstName || savedProfile.displayName || driverFirstName,
@@ -697,6 +699,7 @@ export async function handleDriverAcceptConfirmRequest(
       if (!savedProfile) {
         return { job };
       }
+      if (env.DRIVER_AUTH) return { portalUrl: `${siteUrl(env).replace(/\/$/, "")}/driver/`, job: { ...job, driverProfileKey: savedProfile.profileKey } };
       const accessToken = await createDriverPortalLink(store, {
         profileKey: savedProfile.profileKey,
         driverName: savedProfile.displayName || job.driverFirstName || "Driver",

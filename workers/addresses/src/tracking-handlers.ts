@@ -1,3 +1,4 @@
+import { DASHBOARD_GPS_ENABLED } from "../shared/live-gps";
 import {
   buildPublicTrackUrl,
   customerJourneyLabel,
@@ -23,6 +24,7 @@ import {
   listTrackingJobsForDateRange,
   listTrackingJobsForRecentDays,
   listUpcomingTrackingJobs,
+  listDriverTrackingPage,
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
@@ -65,6 +67,7 @@ type Env = WorkerEmailEnv & {
   DRIVER_NAME?: string;
   DRIVER_ROSTER?: string;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  DRIVER_FLIGHT_MONITOR_ENABLED?: string;
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
 };
 
@@ -149,6 +152,7 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
     status,
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-store",
       ...corsHeaders(origin),
     },
   });
@@ -192,6 +196,7 @@ function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
   const journeyDone =
     journeyStatusOf(record) === "completed" || journeyStatusOf(record) === "stopped";
   if (
+    !DASHBOARD_GPS_ENABLED ||
     !windowOpen ||
     journeyDone ||
     !record.trackingStartedAt ||
@@ -212,6 +217,7 @@ function liveDriverLocation(record: TrackingJobRecord, windowOpen: boolean) {
 
 function liveCustomerLocation(record: TrackingJobRecord, windowOpen: boolean) {
   if (
+    !DASHBOARD_GPS_ENABLED ||
     !windowOpen ||
     !record.customerSharingActive ||
     typeof record.customerLat !== "number" ||
@@ -258,8 +264,8 @@ export function publicTrackPayload(
       opensAtDisplay: formatLondonDateTime(window.opensAt),
       closesAtDisplay: formatLondonDateTime(window.closesAt),
     },
-    sharingActive: record.sharingActive,
-    customerSharingActive: Boolean(record.customerSharingActive),
+    sharingActive: DASHBOARD_GPS_ENABLED && record.sharingActive,
+    customerSharingActive: DASHBOARD_GPS_ENABLED && Boolean(record.customerSharingActive),
     journeyStatus: journeyStatusOf(record),
     journeyStatusLabel: customerJourneyLabel(record),
     /** Invoice / payment reference customers already receive — not a sequential internal id. */
@@ -305,6 +311,7 @@ export async function handlePublicTrackRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Website GPS tracking is temporarily unavailable. Contact us on WhatsApp.", trackingDisabled: true }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
@@ -531,8 +538,15 @@ export async function handleDriverJobsRequest(
 
   let jobs: TrackingJobRecord[];
   let responseDate = tripDate;
+  let nextCursor: string | null = null;
 
-  if (scope === "pending") {
+  if (scope === "assigned-page") {
+    if (role !== "driver" || !session.profileKey) return jsonResponse({ error: "Personal driver sign-in required" }, 403, origin);
+    const page = await listDriverTrackingPage(env.TRACKING_STORE, url.searchParams.get("cursor") || undefined);
+    jobs = page.jobs;
+    nextCursor = page.nextCursor;
+    responseDate = "all-assigned";
+  } else if (scope === "pending") {
     jobs = await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead);
     jobs = jobs.filter((job) => jobAssignmentStatus(job) === "pending");
     responseDate = "pending";
@@ -561,7 +575,7 @@ export async function handleDriverJobsRequest(
 
   const enrichedJobs = await Promise.all(
     jobs.map(async (job) => {
-      const flight = await resolveDriverFlight(job, env);
+      const flight = session.profileKey ? null : await resolveDriverFlight(job, env);
       let amountPaidLabel: string | undefined;
       let bookingStatus:
         | "confirmed"
@@ -619,14 +633,14 @@ export async function handleDriverJobsRequest(
         driverLocationRecordedTo: job.driverLocationRecordedTo,
         journeyStatus: journeyStatusOf(job),
         journeyStatusLabel: customerJourneyLabel(job),
-        allowedJourneyActions: allowedJourneyActions(journeyStatusOf(job)),
+        allowedJourneyActions: bookingStatus === "cancelled" || bookingStatus === "refunded" ? [] : allowedJourneyActions(journeyStatusOf(job)),
         trackingStartedAt: job.trackingStartedAt,
         arrivedPickupAt: job.arrivedPickupAt,
         journeyStartedAt: job.journeyStartedAt,
         arrivedDestinationAt: job.arrivedDestinationAt,
         journeyCompletedAt: job.journeyCompletedAt,
         isAirportPickup: isAirportPickupJob(job),
-        flightNumber: job.flightNumber ?? paidRecord?.flightNumber ?? null,
+        flightNumber: job.flightNumber ?? (job.journeyLeg === "return" ? paidRecord?.returnFlightNumber : paidRecord?.flightNumber) ?? null,
         airportCode: job.airportCode ?? paidRecord?.airportCode ?? null,
         journeyLeg: job.journeyLeg ?? null,
         flight,
@@ -636,7 +650,7 @@ export async function handleDriverJobsRequest(
         return buildSanitizedDriverJobView(
           rawJob,
           {
-            customerReference: paidRecord?.customerReference,
+            customerReference: paidRecord?.customerReference || job.customerReference || (bookingJob?.id && /^MAT(?:NI)?-/i.test(bookingJob.id) ? bookingJob.id : undefined),
             driverPayAmount: await driverPayAmountVisibleForJob(
               env.TRACKING_STORE,
               job,
@@ -654,8 +668,8 @@ export async function handleDriverJobsRequest(
             cashBalanceDue: paidRecord?.cashBalanceDue,
             cashCollected: paidRecord?.cashCollected === true,
             cashCollectedAt: paidRecord?.cashCollectedAt,
-            airportAccessOption: paidRecord?.airportAccessOption ?? null,
-            dublinArrivalTerminal: paidRecord?.dublinArrivalTerminal ?? null,
+            airportAccessOption: (job.journeyLeg === "return" ? paidRecord?.returnAirportAccessOption : paidRecord?.outboundAirportAccessOption) ?? paidRecord?.airportAccessOption ?? null,
+            dublinArrivalTerminal: (job.journeyLeg === "return" ? paidRecord?.returnDublinArrivalTerminal : paidRecord?.dublinArrivalTerminal) ?? null,
           },
           { accepted: jobAssignmentStatus(job) === "accepted" },
         );
@@ -686,6 +700,7 @@ export async function handleDriverJobsRequest(
       role,
       ...(session.authorized && session.role === "driver" ? { driverName: session.driverName } : {}),
       jobs: enrichedJobs,
+      ...(scope === "assigned-page" ? { nextCursor } : {}),
     },
     200,
     origin,
@@ -738,6 +753,7 @@ export async function handleDriverSharingRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Dashboard GPS is disabled. Share Live Location manually in WhatsApp." }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
@@ -772,7 +788,7 @@ export async function handleDriverSharingRequest(
   }
 
   const operateError = assertDriverCanOperateJob(record, session);
-  if (operateError && Boolean(active)) {
+  if (operateError) {
     return jsonResponse({ error: operateError }, 409, origin);
   }
 
@@ -819,6 +835,7 @@ export async function handleDriverLocationRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Dashboard GPS is disabled. No location was collected." }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
@@ -1016,6 +1033,7 @@ export async function handleCustomerSharingRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Website GPS tracking is disabled. No location was collected." }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
@@ -1073,6 +1091,7 @@ export async function handleCustomerLocationRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Website GPS tracking is disabled. No location was collected." }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }
@@ -1132,4 +1151,36 @@ export async function handleCustomerLocationRequest(
   await saveTrackingJob(env.TRACKING_STORE, record, { indexPaymentReference: false });
 
   return jsonResponse({ ok: true, jobPersisted: true }, 200, origin);
+}
+
+/** Explicit opt-in: no additional provider calls until the existing allowance is verified. */
+export async function handlePersonalDriverFlight(request: Request, env: Env, origin: string | null): Promise<Response> {
+  const session = await resolveAuthorizedSession(request, env);
+  if (!session.authorized || session.role !== "driver" || !session.profileKey) return jsonResponse({ error: "Personal driver sign-in required" }, 403, origin);
+  if (!env.TRACKING_STORE) return jsonResponse({ error: "Driver portal unavailable" }, 503, origin);
+  let token = new URL(request.url).searchParams.get("token") ?? "";
+  if (request.method === "POST") {
+    try { token = String((await request.json() as { token?: string }).token ?? ""); }
+    catch { return jsonResponse({ error: "Invalid request" }, 400, origin); }
+  }
+  const job = await getTrackingJob(env.TRACKING_STORE, token);
+  if (!job || !filterJobsForSession([job], session).length) return jsonResponse({ error: "Job not found" }, 404, origin);
+  const paid = job.paymentReference ? await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference) : null;
+  const flightJob = { ...job,
+    flightNumber: job.flightNumber || (job.journeyLeg === "return" ? paid?.returnFlightNumber : paid?.flightNumber),
+    airportCode: job.airportCode || paid?.airportCode,
+  };
+  if (!flightJob.isFromAirport || !flightJob.flightNumber?.trim() || !flightJob.airportCode?.trim()) return jsonResponse({ flight: null, message: "No flight information is available for this journey." }, 200, origin);
+  if (await cancelledJobResponse(job, env, origin)) return jsonResponse({ flight: null, message: "This booking is cancelled. Flight monitoring has stopped." }, 200, origin);
+  if (env.DRIVER_FLIGHT_MONITOR_ENABLED !== "true") return jsonResponse({ flight: null, message: "Automatic flight updates are not enabled. Check the airport arrivals board." }, 200, origin);
+  const daysAway = (Date.parse(job.tripDate + "T12:00:00Z") - Date.now()) / 86400000;
+  if (daysAway > 2 || daysAway < -2) return jsonResponse({ flight: null, message: "Flight updates become available close to the pickup date." }, 200, origin);
+  const cacheKey = `driver-flight:${flightJob.airportCode}:${flightJob.tripDate}:${flightJob.flightNumber}`;
+  type Cached = { flight: VerifiedFlight | null; lastCheckedAt: string; message?: string };
+  const cached = await env.TRACKING_STORE.get<Cached>(cacheKey, "json");
+  if (cached && Date.now() - Date.parse(cached.lastCheckedAt) < 300000) return jsonResponse(cached, 200, origin);
+  const flight = await resolveDriverFlight(flightJob, env);
+  const result: Cached = { flight, lastCheckedAt: new Date().toISOString(), ...(!flight ? { message: "Flight status unavailable. Check the airport arrivals board." } : {}) };
+  await env.TRACKING_STORE.put(cacheKey, JSON.stringify(result), { expirationTtl: 600 });
+  return jsonResponse(result, 200, origin);
 }

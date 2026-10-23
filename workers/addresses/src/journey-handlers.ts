@@ -4,6 +4,7 @@
  */
 
 import { parseCustomerTipped, type TipCompletionPayload } from "../shared/journey-tip";
+import { DASHBOARD_GPS_ENABLED } from "../shared/live-gps";
 import {
   applyJourneyAction,
   allowedJourneyActions,
@@ -348,6 +349,7 @@ export async function handleJourneyTransitionRequest(
   if (!token || !action) {
     return jsonResponse({ error: "Missing token or valid action" }, 400, origin);
   }
+  if (!DASHBOARD_GPS_ENABLED && action === "stop_tracking") return jsonResponse({ error: "Dashboard GPS is disabled. Journey status was not changed." }, 410, origin);
 
   const record = await getTrackingJob(env.TRACKING_STORE, token);
   if (!record) {
@@ -400,7 +402,7 @@ export async function handleJourneyTransitionRequest(
         journeyStatus: journeyStatusOf(next),
         journeyStatusLabel: customerJourneyLabel(next),
         allowedActions: allowedJourneyActions(journeyStatusOf(next)),
-        sharingActive: next.sharingActive,
+        sharingActive: DASHBOARD_GPS_ENABLED && next.sharingActive,
         trackUrl: buildPublicTrackUrl(next.token),
         trackingStartedAt: next.trackingStartedAt,
         arrivedPickupAt: next.arrivedPickupAt,
@@ -440,7 +442,7 @@ export async function handleJourneyTransitionRequest(
       await saveTrackingJob(env.TRACKING_STORE, next);
     }
     let trackingSession: { sessionToken: string; expiresAt: string } | undefined;
-    if (next.sharingActive) {
+    if (DASHBOARD_GPS_ENABLED && next.sharingActive) {
       const created = await createTrackingSession(env.TRACKING_STORE, {
         jobToken: next.token,
         createdByRole: session.authorized && session.role === "owner" ? "owner" : "driver",
@@ -463,7 +465,7 @@ export async function handleJourneyTransitionRequest(
         journeyStatus: journeyStatusOf(next),
         journeyStatusLabel: customerJourneyLabel(next),
         allowedActions: allowedJourneyActions(journeyStatusOf(next)),
-        sharingActive: next.sharingActive,
+        sharingActive: DASHBOARD_GPS_ENABLED && next.sharingActive,
         trackUrl: buildPublicTrackUrl(next.token),
         trackingStartedAt: next.trackingStartedAt,
         arrivedPickupAt: next.arrivedPickupAt,
@@ -509,7 +511,7 @@ export async function handleJourneyTransitionRequest(
         journeyStatus: journeyStatusOf(record),
         journeyStatusLabel: customerJourneyLabel(record),
         allowedActions: allowedJourneyActions(journeyStatusOf(record)),
-        sharingActive: record.sharingActive,
+        sharingActive: DASHBOARD_GPS_ENABLED && record.sharingActive,
         trackUrl: buildPublicTrackUrl(record.token),
         trackingStartedAt: record.trackingStartedAt,
         arrivedPickupAt: record.arrivedPickupAt,
@@ -593,7 +595,7 @@ export async function handleJourneyTransitionRequest(
   }
 
   let trackingSession: { sessionToken: string; expiresAt: string } | undefined;
-  if (next.sharingActive) {
+  if (DASHBOARD_GPS_ENABLED && next.sharingActive) {
     const created = await createTrackingSession(env.TRACKING_STORE, {
       jobToken: next.token,
       createdByRole: session.authorized && session.role === "owner" ? "owner" : "driver",
@@ -618,7 +620,7 @@ export async function handleJourneyTransitionRequest(
       journeyStatus: journeyStatusOf(next),
       journeyStatusLabel: customerJourneyLabel(next),
       allowedActions: allowedJourneyActions(journeyStatusOf(next)),
-      sharingActive: next.sharingActive,
+      sharingActive: DASHBOARD_GPS_ENABLED && next.sharingActive,
       trackUrl: buildPublicTrackUrl(next.token),
       trackingStartedAt: next.trackingStartedAt,
       arrivedPickupAt: next.arrivedPickupAt,
@@ -650,6 +652,7 @@ export async function handleJourneySessionRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
+  if (!DASHBOARD_GPS_ENABLED) return jsonResponse({ error: "Dashboard GPS is disabled." }, 410, origin);
   if (!trackingStoreConfigured(env.TRACKING_STORE)) {
     return jsonResponse({ error: "Live tracking is not configured" }, 503, origin);
   }

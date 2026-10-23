@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Header from "@/components/Header";
+import SecureDriverPortal from "./SecureDriverPortal";
 import DriverPageClient from "./DriverPageClient";
+import DriverIntegrationPreview from "./DriverIntegrationPreview";
+import DriverPreviewClient from "./DriverPreviewClient";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 
 export const metadata: Metadata = {
@@ -8,7 +11,7 @@ export const metadata: Metadata = {
     ? `Driver dashboard | ${SITE.name}`
     : `Driver jobs | ${SITE.name}`,
   description: SERVICE_FLAGS.driverDashboard
-    ? "Driver bookings dashboard — accept jobs and share live location."
+    ? "Driver bookings dashboard — accept jobs and update journey status."
     : "Drivers receive job details by email — no dashboard login required.",
   robots: {
     index: false,
@@ -20,6 +23,9 @@ export const metadata: Metadata = {
 };
 
 export default function DriverPage() {
+  if (process.env.NEXT_PUBLIC_DRIVER_COOKIE_AUTH === "true") return <SecureDriverPortal staging={process.env.NEXT_PUBLIC_MY_JOBS_INTEGRATION_PREVIEW === "true"} />;
+  if (process.env.NEXT_PUBLIC_MY_JOBS_INTEGRATION_PREVIEW === "true") return <DriverIntegrationPreview />;
+  if (process.env.NEXT_PUBLIC_MY_JOBS_PREVIEW === "true") return <DriverPreviewClient />;
   // Soft-hidden via SERVICE_FLAGS.driverDashboard — drivers get jobs by email only
   if (!SERVICE_FLAGS.driverDashboard) {
     return (

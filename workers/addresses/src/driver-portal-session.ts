@@ -1,3 +1,4 @@
+import { secureIdentity, secureDriverCookie, validDriverMutation } from "./driver-auth-coordinator";
 import {
   createPortalToken,
   DRIVER_PORTAL_COOKIE,
@@ -138,6 +139,20 @@ export async function resolveAuthorizedSession(
   request: Request,
   env: DriverAuthEnv & { TRACKING_STORE?: KVNamespace },
 ): Promise<DriverSession> {
+  if (env.DRIVER_AUTH) {
+    const url = new URL(request.url);
+    if (url.searchParams.has("key") || url.searchParams.has("access") || request.headers.has("X-Driver-Session")) return { authorized: false };
+    // An explicit verified admin header stays independent of the driver cookie.
+    const admin = resolveDriverSession(request, env);
+    if (admin.authorized && admin.role === "owner") return admin;
+    if (secureDriverCookie(request)) {
+      if (!["GET", "HEAD"].includes(request.method) && !validDriverMutation(request)) return { authorized: false };
+      const identity = await secureIdentity(request, env);
+      return identity ? { authorized: true, role: "driver", ...identity } : { authorized: false };
+    }
+    // Existing admin authentication remains separate. Shared driver keys cannot enter the secure portal.
+    return { authorized: false };
+  }
   const header = request.headers.get("X-Driver-Session")?.trim() ?? "";
   const cookie = header ? "" : cookieValue(request, DRIVER_PORTAL_COOKIE);
   const presented = header || cookie;

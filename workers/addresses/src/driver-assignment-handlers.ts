@@ -427,7 +427,9 @@ export async function handleDriverAssignRequest(
 
     acceptUrl = `${siteUrl(env).replace(/\/$/, "")}/driver-accept/?token=${encodeURIComponent(acceptToken)}`;
     let portalUrl: string | undefined;
-    if (assignedProfile) {
+    if (assignedProfile && env.DRIVER_AUTH) {
+      portalUrl = `${siteUrl(env).replace(/\/$/, "")}/driver/`;
+    } else if (assignedProfile) {
       const accessToken = await createDriverPortalLink(env.TRACKING_STORE, {
         profileKey: assignedProfile.profileKey,
         driverName: identity?.driverFirstName || assignedProfile.displayName || driverFirstName,

@@ -14,6 +14,9 @@ import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { refundTestIsolationDecoyPaymentReference } from "../shared/refund-test-isolation";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 
+import { getBookingJob } from "./booking-job-store";
+import { getOwnerAccountProfile } from "./owner-profile-store";
+
 const JOB_PREFIX = "track:job:";
 const DAY_INDEX_PREFIX = "track:day:";
 const REF_INDEX_PREFIX = "track:ref:";
@@ -22,6 +25,12 @@ const SESSION_PREFIX = "track:session:";
 /** Job / day-index / payment-ref index retention (seconds). */
 export const TRACKING_JOB_TTL_SECONDS = 60 * 60 * 24 * 45;
 const DAY_INDEX_TTL = TRACKING_JOB_TTL_SECONDS;
+/** Keep future legs until 45 days AFTER their pickup, not 45 days after payment. */
+export function trackingRetentionSeconds(tripDate: string, now = Date.now()): number {
+  const pickupEnd = Date.parse(`${tripDate}T23:59:59Z`);
+  return Math.max(DAY_INDEX_TTL, Number.isFinite(pickupEnd)
+    ? Math.ceil((pickupEnd - now) / 1000) + DAY_INDEX_TTL : DAY_INDEX_TTL);
+}
 /** Retain driver GPS audit trail — default ~400 days; overridable via env helper. */
 const DRIVER_HISTORY_TTL = DEFAULT_GPS_HISTORY_TTL_SECONDS;
 const PAYMENT_REF_SEARCH_DAYS_BACK = 45;
@@ -69,6 +78,7 @@ async function indexTrackingJobPaymentReference(
   store: KVNamespace,
   paymentReference: string,
   token: string,
+  tripDate?: string,
 ): Promise<void> {
   const trimmed = paymentReference.trim();
   if (!trimmed || !token.trim()) {
@@ -76,14 +86,13 @@ async function indexTrackingJobPaymentReference(
   }
 
   const tokens = await readPaymentReferenceTokens(store, trimmed);
-  // Already indexed — skip rewrite so GPS / status loops do not burn KV writes.
-  if (tokens.includes(token)) {
-    return;
-  }
-
-  tokens.push(token);
+  // Refresh retention on booking/status saves; GPS callers skip reference indexing.
+  if (!tokens.includes(token)) tokens.push(token);
+  // A short outbound must not shorten an index that also contains a distant return.
+  const dates = await Promise.all(tokens.map(async item =>
+    item === token && tripDate ? tripDate : (await getTrackingJob(store, item))?.tripDate ?? ""));
   await store.put(refIndexKey(trimmed), JSON.stringify(tokens), {
-    expirationTtl: DAY_INDEX_TTL,
+    expirationTtl: Math.max(...dates.map(date => trackingRetentionSeconds(date))),
   });
 }
 
@@ -100,7 +109,7 @@ async function indexTrackingJobOnDay(
   }
   // Always rewrite so day-index TTL is refreshed (return legs need to survive until travel day).
   await store.put(indexKey, JSON.stringify(tokens), {
-    expirationTtl: DAY_INDEX_TTL,
+    expirationTtl: trackingRetentionSeconds(tripDate),
   });
 }
 
@@ -134,6 +143,7 @@ async function createTrackingLegRecord(
   const record: TrackingJobRecord = {
     token,
     createdAt: new Date().toISOString(),
+    customerReference: booking.customerReference,
     customerName: booking.customerName,
     customerEmail: booking.customerEmail,
     customerMobile: booking.mobileNumber,
@@ -180,13 +190,43 @@ async function createTrackingLegRecord(
     }
   }
 
+  // Default assignment is an accepted driver identity, never an owner/admin session.
+  // Only new legs receive this default; reassigned and explicitly unassigned jobs stay untouched.
+  const owner = await getOwnerAccountProfile(store);
+  record.assignedDriverProfileKey = "owner";
+  record.assignedDriverName = owner?.displayName || "Owner";
+  record.assignmentStatus = "accepted";
+  record.assignedAt = record.createdAt;
+  record.acceptedAt = record.createdAt;
+  if (owner) {
+    record.assignedDriverMobile = owner.mobile;
+    record.assignedDriverEmail = owner.email;
+    record.assignedDriverCarMake = owner.make;
+    record.assignedDriverCarModel = owner.model;
+    record.assignedDriverCarColour = owner.colour;
+    record.assignedDriverReg = owner.registration;
+  }
+  const savedAssignment = paymentReference ? await getBookingJob(store, paymentReference) : null;
+  if (savedAssignment?.driverProfileKey || savedAssignment?.driverFirstName) {
+    record.assignedDriverProfileKey = savedAssignment.driverProfileKey;
+    record.assignedDriverName = savedAssignment.driverFirstName;
+    record.assignmentStatus = savedAssignment.driverAssignmentStatus ?? "pending";
+    record.assignedAt = savedAssignment.assignedAt;
+    record.acceptedAt = savedAssignment.driverAcceptedAt;
+    record.assignedDriverMobile = savedAssignment.driverMobile;
+    record.assignedDriverEmail = savedAssignment.driverEmail;
+    record.assignedDriverCarMake = savedAssignment.driverCarMake;
+    record.assignedDriverCarModel = savedAssignment.driverCarModel;
+    record.assignedDriverCarColour = savedAssignment.driverCarColour;
+    record.assignedDriverReg = savedAssignment.driverReg;
+  }
   await store.put(jobKey(token), JSON.stringify(record), {
-    expirationTtl: DAY_INDEX_TTL,
+    expirationTtl: trackingRetentionSeconds(record.tripDate),
   });
   await indexTrackingJobOnDay(store, leg.tripDate, token);
 
   if (paymentReference?.trim()) {
-    await indexTrackingJobPaymentReference(store, paymentReference, token);
+    await indexTrackingJobPaymentReference(store, paymentReference, token, record.tripDate);
   }
 
   return record;
@@ -341,7 +381,7 @@ export async function saveTrackingJob(
   options?: SaveTrackingJobOptions,
 ): Promise<void> {
   await store.put(jobKey(record.token), JSON.stringify(record), {
-    expirationTtl: DAY_INDEX_TTL,
+    expirationTtl: trackingRetentionSeconds(record.tripDate),
   });
 
   if (options?.indexPaymentReference === false) {
@@ -349,7 +389,7 @@ export async function saveTrackingJob(
   }
 
   if (record.paymentReference?.trim()) {
-    await indexTrackingJobPaymentReference(store, record.paymentReference, record.token);
+    await indexTrackingJobPaymentReference(store, record.paymentReference, record.token, record.tripDate);
   }
 }
 
@@ -370,7 +410,7 @@ export async function reindexTrackingJobDate(
       await store.delete(dayIndexKey(oldDate));
     } else {
       await store.put(dayIndexKey(oldDate), JSON.stringify(filtered), {
-        expirationTtl: DAY_INDEX_TTL,
+        expirationTtl: trackingRetentionSeconds(oldDate),
       });
     }
   }
@@ -380,7 +420,7 @@ export async function reindexTrackingJobDate(
   if (!merged.includes(token)) {
     merged.push(token);
     await store.put(dayIndexKey(newDate), JSON.stringify(merged), {
-      expirationTtl: DAY_INDEX_TTL,
+      expirationTtl: trackingRetentionSeconds(newDate),
     });
   }
 }
@@ -849,4 +889,12 @@ export async function getDriverLocationHistory(
 ): Promise<DriverLocationPoint[]> {
   const history = await store.get<DriverLocationPoint[]>(driverHistoryKey(token), "json");
   return Array.isArray(history) ? history : [];
+}
+
+/** Bounded scans with an opaque continuation cursor; no arbitrary future date cutoff. */
+export async function listDriverTrackingPage(store: KVNamespace, cursor?: string) {
+  const result = await store.list({ prefix: JOB_PREFIX, limit: 25, ...(cursor ? { cursor } : {}) });
+  const records = await Promise.all(result.keys.map(key => store.get<TrackingJobRecord>(key.name, "json")));
+  return { jobs: records.filter((job): job is TrackingJobRecord => Boolean(job)),
+    nextCursor: result.list_complete ? null : result.cursor };
 }

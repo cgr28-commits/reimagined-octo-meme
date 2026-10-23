@@ -1,3 +1,5 @@
+export { DriverAuthCoordinator } from "./driver-auth-coordinator";
+import { handleSecureDriverAuth } from "./secure-driver-handlers";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 export { ConsentLedger } from "./consent-ledger";
@@ -111,6 +113,7 @@ import {
   handleCustomerLocationRequest,
   handleCustomerSharingRequest,
   handleDriverJobsRequest,
+  handlePersonalDriverFlight,
   handleDriverLocationRequest,
   handleDriverLocationHistoryRequest,
   handleDriverSharingRequest,
@@ -298,7 +301,7 @@ import {
   handleDriverAssignmentResponseRequest,
   handleDriverRosterRequest,
 } from "./driver-assignment-handlers";
-import { handleDriverPortalExchangeRequest } from "./driver-portal-handlers";
+import { handleDriverPortalExchangeRequest, handleDriverPortalInviteRequest } from "./driver-portal-handlers";
 import {
   handleDriverVehicleGetRequest,
   handleDriverVehicleProfilesRequest,
@@ -522,6 +525,7 @@ type EmailBinding = {
 };
 
 type Env = {
+  DRIVER_AUTH?: DurableObjectNamespace;
   GOOGLE_PLACES_API_KEY: string;
   GETADDRESS_API_KEY?: string;
   IDEAL_POSTCODES_API_KEY?: string;
@@ -537,6 +541,7 @@ type Env = {
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  DRIVER_FLIGHT_MONITOR_ENABLED?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
   TRACKING_STORE?: KVNamespace;
@@ -4189,6 +4194,11 @@ export default {
       return handlePublicTrackRequest(trackToken, env, origin);
     }
 
+    if (env.DRIVER_AUTH && /^\/(api\/)?driver\/portal\/(exchange|invite|session|logout|request-code)$/.test(url.pathname)) return handleSecureDriverAuth(request, env);
+    if (/^\/(api\/)?driver\/portal\/invite$/.test(url.pathname) && request.method === "POST") {
+      return handleDriverPortalInviteRequest(request, env, origin);
+    }
+    if (/^\/(api\/)?driver\/flight$/.test(url.pathname) && ["GET", "POST"].includes(request.method)) return handlePersonalDriverFlight(request, env, origin);
     const driverRoute = parseDriverRoute(url.pathname);
     if (driverRoute === "portal-exchange" && request.method === "POST") {
       return handleDriverPortalExchangeRequest(request, env, origin);
