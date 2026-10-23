@@ -280,7 +280,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Meet and greet",
       body:
-        "Business Class airport pickups include Meet & Greet in arrivals with a name board and luggage assistance. It is not an optional extra for Saloon, Estate or 7 Seater bookings. Share your flight number so we can plan the collection.",
+        "Business Class airport pickups include Meet & Greet in arrivals with a name board and luggage assistance. For eligible Belfast International, Belfast City and Dublin airport collections, you can add optional Meet & Greet after your contact details at the price shown. Share your flight number so we can plan the collection.",
     },
     {
       title: "Flight delays and waiting time",

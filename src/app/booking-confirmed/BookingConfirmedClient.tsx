@@ -98,6 +98,7 @@ export default function BookingConfirmedClient() {
         returnExpressDropOffSelected: pending.booking.returnExpressDropOffSelected,
         outboundAirportAccessOption: pending.booking.outboundAirportAccessOption,
         returnAirportAccessOption: pending.booking.returnAirportAccessOption,
+        meetGreetFeeGbp: pending.booking.meetGreetFeeGbp,
         airportAccessOption: pending.booking.airportAccessOption,
         outboundAirportAccessChargeGbp: pending.booking.outboundAirportAccessChargeGbp,
         returnAirportAccessChargeGbp: pending.booking.returnAirportAccessChargeGbp,
@@ -125,6 +126,13 @@ export default function BookingConfirmedClient() {
 
       setSummary(result.summary);
       setAmountPaid(result.amountPaid);
+      if (typeof result.result?.meetGreetFeeGbp === "number") {
+        const fee = result.result.meetGreetFeeGbp;
+        setPromoLines((lines) => [
+          ...(typeof fee === "number" ? [`Meet & Greet: £${fee.toFixed(2)}`] : []),
+          ...lines.filter((line) => !line.includes("Meet & Greet")),
+        ]);
+      }
       setPaymentReference(result.paymentReference);
       setCustomerReference(result.customerReference || result.result?.customerReference);
       const purchase = result.result?.purchase;

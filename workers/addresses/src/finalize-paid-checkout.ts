@@ -86,6 +86,7 @@ export type FinalizePaidCheckoutResult = {
   ok: boolean;
   paid: boolean;
   alreadyFinalized?: boolean;
+  meetGreetFeeGbp?: number;
   amountPaid: string;
   paymentReference: string;
   /** Short customer-facing MAT-#### reference when available. */
@@ -264,6 +265,7 @@ export async function finalizePaidCheckout(input: {
           ok: true,
           paid: true,
           alreadyFinalized: true,
+          meetGreetFeeGbp: existing.meetGreetFeeGbp,
           amountPaid: existing.amountPaidLabel,
           paymentReference: existing.paymentReference,
           customerReference: existing.customerReference,
@@ -311,6 +313,7 @@ export async function finalizePaidCheckout(input: {
         ok: true,
         paid: true,
         alreadyFinalized: true,
+        meetGreetFeeGbp: pending.booking?.meetGreetFeeGbp,
         amountPaid: formatPaidAmount(pending.amount),
         paymentReference: pending.paymentReference,
         emailSent: true,
@@ -752,6 +755,7 @@ export async function finalizePaidCheckout(input: {
   return {
     ok: true,
     paid: true,
+    meetGreetFeeGbp: booking.meetGreetFeeGbp,
     amountPaid,
     paymentReference,
     ...(customerReference ? { customerReference } : {}),

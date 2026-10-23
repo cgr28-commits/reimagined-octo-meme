@@ -3,9 +3,9 @@
  *
  * Belfast International and Belfast City terminal pickup/drop-off charges are
  * mandatory. A free or Meet & Greet choice cannot remove them.
- * Meet & Greet is not a public paid extra. Business Class airport pickups
- * include the service and still pay the configured terminal charge once.
- * Owner pricing can still store Meet & Greet amounts; the public fare does not add them.
+ * Business Class airport pickups include Meet & Greet and still pay the
+ * configured terminal charge once. Optional booking-stage Meet & Greet is
+ * calculated separately so instant vehicle quotes and access fees stay unchanged.
  */
 
 export const MEET_GREET_OPTION = "meet-greet" as const;
@@ -336,4 +336,17 @@ export function meetGreetOwnerValue(feeGbp: number): string {
 
 export function meetGreetDashboardValue(feeGbp: number): string {
   return `Meet & Greet — ${formatMeetGreetGbp(feeGbp)} — enter the terminal`;
+}
+
+/** Optional booking-stage service; eligibility must use the server-resolved pickup. */
+export function quoteOptionalMeetGreet(input: {
+  selected: boolean;
+  pickupAirportCode: string | null | undefined;
+  fees: MeetGreetFeesGbp;
+  included?: boolean;
+}): { ok: true; feeGbp: number } | { ok: false; error: string } {
+  if (!input.selected) return { ok: true, feeGbp: 0 };
+  const airport = normaliseMeetGreetAirport(input.pickupAirportCode);
+  if (!airport) return { ok: false, error: "Meet & Greet is available only for supported airport collections." };
+  return { ok: true, feeGbp: input.included ? 0 : meetGreetFeeGbp(airport, input.fees) };
 }

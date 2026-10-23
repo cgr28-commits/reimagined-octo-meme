@@ -681,6 +681,7 @@ type StoredAccessLineInput = {
   returnExpressDropOffSelected?: boolean | null;
   outboundAirportAccessOption?: AirportAccessOption | null;
   returnAirportAccessOption?: AirportAccessOption | null;
+  meetGreetFeeGbp?: number | null;
   outboundAirportAccessChargeGbp?: number | null;
   returnAirportAccessChargeGbp?: number | null;
   airportAccessOption?: AirportAccessOption | null;
@@ -720,7 +721,9 @@ function storedAccessRows(input: StoredAccessLineInput): StoredAccessRow[] {
             : "free";
     const feeGbp =
       option === "meet-greet"
-        ? typeof charged === "number" && charged > 0
+        ? typeof input.meetGreetFeeGbp === "number" && leg.leg === "outbound"
+          ? input.meetGreetFeeGbp
+          : typeof charged === "number" && charged > 0
           ? roundGbp(charged)
           : meetGreetFeeGbp(leg.airportCode)
         : option === "express"
@@ -764,7 +767,9 @@ function storedAccessRows(input: StoredAccessLineInput): StoredAccessRow[] {
       airportCode: pickup.airportCode,
       option: "meet-greet",
       feeGbp:
-        typeof charged === "number" && charged > 0
+        typeof input.meetGreetFeeGbp === "number" && pickup.leg === "outbound"
+          ? input.meetGreetFeeGbp
+          : typeof charged === "number" && charged > 0
           ? roundGbp(charged)
           : meetGreetFeeGbp(pickup.airportCode),
     });

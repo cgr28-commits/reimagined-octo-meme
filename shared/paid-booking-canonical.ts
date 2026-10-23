@@ -74,6 +74,7 @@ export function paidBookingRecordToDetails(record: PaidBookingRecord): PaidBooki
     record.returnAirportAccessOption === null
       ? { returnAirportAccessOption: record.returnAirportAccessOption }
       : {}),
+    ...(typeof record.meetGreetFeeGbp === "number" ? { meetGreetFeeGbp: record.meetGreetFeeGbp } : {}),
     ...(typeof record.outboundAirportAccessChargeGbp === "number"
       ? { outboundAirportAccessChargeGbp: record.outboundAirportAccessChargeGbp }
       : {}),
