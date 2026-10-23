@@ -43,7 +43,7 @@ export default function HeroSlideshow() {
           </h1>
 
           <p className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
-            Premium, fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport.
+            Fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport.
           </p>
         </div>
 
