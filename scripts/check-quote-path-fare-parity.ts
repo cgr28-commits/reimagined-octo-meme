@@ -208,13 +208,14 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
   );
   assert.match(
     read("workers/addresses/src/quote-handlers.ts"),
-    /resolvePreciseQuoteRoute/,
+    /await resolveWorkerTripRouteMetricsForPayment\(/,
   );
+  assert.match(read("workers/addresses/src/resolve-route-metrics.ts"), /return resolvePreciseQuoteRoute\(options\)/);
   assert.match(
     read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"),
     /resolveTripRouteMetricsForAddresses/,
   );
-  // Browser metrics preferred; Worker still prices when browser resolve fails.
+  // Browser metrics remain a hint; the Worker independently resolves the route.
   assert.match(
     read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"),
     /routeMetrics: routeMetrics \?\? undefined/,
@@ -225,7 +226,7 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
   assert.match(read("src/lib/trip-route.ts"), /ROAD_DISTANCE_FACTOR/);
   assert.match(read("workers/addresses/src/index.ts"), /forwardGeocode/);
   assert.match(read("shared/airport-transfer-intent.ts"), /resolveAirportTransferIntent/);
-  assert.match(read("workers/addresses/src/quote-handlers.ts"), /resolveAirportTransferIntent/);
+  assert.match(read("workers/addresses/src/quote-handlers.ts"), /resolvePaymentAirportContextFromAddresses\(/);
   assert.match(read("workers/addresses/src/quote-handlers.ts"), /roadRoutingRequired|routing_unavailable|Commercial fare requires/);
   assert.match(
     read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"),
@@ -236,14 +237,15 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
     /resolveTripRouteMetricsForAddresses/,
   );
   assert.match(read("src/components/TripMap.tsx"), /resolveRoutePoint/);
-  assert.match(read("src/components/AddressInput.tsx"), /geocodePickupAddress/);
+  assert.match(read("src/components/AddressInput.tsx"), /await fetchSelectedPlaceDetails\(/);
+  assert.match(read("src/components/AddressInput.tsx"), /!place \|\| !isQuoteReadyPlace\(place\)/);
   assert.doesNotMatch(
     read("src/components/OwnerPersonalQuotesPanel.tsx"),
     /typeof pickupPlace\.lat === "number" &&\s*typeof pickupPlace\.lng === "number"/,
   );
   assert.match(
     read("workers/addresses/src/quick-quote-handlers.ts"),
-    /could not measure that route/i,
+    /if \(!route.ok\) return \{ ok: false as const, reason: "no_fare" as const, message: PRECISE_LOCATION_MESSAGE \}/,
   );
 });
 
@@ -272,14 +274,14 @@ check("Test B: BFS → Knocknagoney (same metrics, pickup direction)", () => {
   });
 });
 
-check("Short Belfast City Hall → BFS (~14 mi → £44)", () => {
+check("Short Belfast City Hall → BFS (~14 mi → £44, raised to £45 minimum)", () => {
   compareThree({
     label: "City Hall → BFS",
     address: CITY_HALL,
     airportCode: "BFS",
     fromAirport: false,
     metrics: CITY_BFS_METRICS,
-    expected: 44,
+    expected: 45,
   });
 });
 
@@ -309,7 +311,7 @@ check("BFS pickup (City Hall reverse)", () => {
     airportCode: "BFS",
     fromAirport: true,
     metrics: CITY_BFS_METRICS,
-    expected: 44,
+    expected: 45,
   });
 });
 

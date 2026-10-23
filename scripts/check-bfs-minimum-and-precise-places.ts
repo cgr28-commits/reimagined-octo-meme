@@ -10,7 +10,7 @@ import { getPendingCheckout } from "../workers/addresses/src/pending-checkout-st
 import assert from "node:assert/strict";
 import { applyBfsMinimumFare, bfsMinimumHasPence } from "../shared/bfs-minimum-fare";
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig, validateOwnerPricingInput } from "../shared/owner-pricing-config";
-import { calculateQuote, calculateAirportToAirportQuote } from "../src/lib/quote";
+import { calculateQuote, calculateAirportToAirportQuote, calculatePointToPointQuote } from "../src/lib/quote";
 import { SALOON_VEHICLE, ESTATE_VEHICLE } from "../src/lib/vehicle-selection";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { resolveExpressDropOff } from "../shared/express-drop-off";
@@ -77,6 +77,31 @@ async function main() {
   for (const code of ["BHD","DUB",null]) eq(applyBfsMinimumFare(30,SALOON_VEHICLE,[code],settings),30,"no minimum at other airports");
   for (const vehicle of ["Executive Saloon (1–4 passengers)","Minibus (5–7 passengers)"]) eq(applyBfsMinimumFare(30,vehicle,["BFS"],settings),30,"other vehicle policies unchanged");
   eq(calculateAirportToAirportQuote("BFS","BHD",bfs.formattedAddress,bhd.formattedAddress,SALOON_VEHICLE,false,schedule,metrics(30),settings)!.journeyFareGbp,45,"canonical A2A BFS floor");
+
+  // Vary only the BFS setting: no side effects for another airport or an ordinary journey.
+  const highBfsMinimum = { ...settings, bfsMinimumSaloonFareGbp: 500.25 };
+  for (const fromAirport of [false, true]) for (const returning of [false, true]) for (const vehicle of [SALOON_VEHICLE, ESTATE_VEHICLE]) {
+    for (const code of ["BHD", "DUB", "LDY"]) {
+      const address = "12 Holywood Road, Belfast BT4 1NT";
+      const quote = (pricing: typeof settings) => calculateQuote(address, code, vehicle, returning, schedule, metrics(30), fromAirport, pricing);
+      assert.ok(quote(settings), `${code} fixture must produce a quote`);
+      eq(quote(highBfsMinimum), quote(settings), `${code} ignores changes to the BFS minimum`);
+    }
+    const ordinary = (pricing: typeof settings) => calculatePointToPointQuote("12 Holywood Road, Belfast BT4 1NT", "10 High Street, Bangor BT20 5AY", vehicle, returning, schedule, metrics(30), null, undefined, pricing);
+    assert.ok(ordinary(settings));
+    eq(ordinary(highBfsMinimum), ordinary(settings), "ordinary journey ignores BFS minimum changes");
+  }
+  // BFS at either end still qualifies when the other end is another airport,
+  // including the special Dublin routing branch. Fees stay separate.
+  for (const otherCode of ["BHD", "DUB"]) for (const fromBfs of [false, true]) for (const returning of [false, true]) for (const vehicle of [SALOON_VEHICLE, ESTATE_VEHICLE]) {
+    const other = SERVED_AIRPORTS.find(airport => airport.code === otherCode)!;
+    const quote = (pricing: typeof settings) => calculateAirportToAirportQuote(fromBfs ? "BFS" : otherCode, fromBfs ? otherCode : "BFS", fromBfs ? bfs.formattedAddress : other.formattedAddress, fromBfs ? other.formattedAddress : bfs.formattedAddress, vehicle, returning, schedule, metrics(30), pricing)!;
+    const raised = quote(highBfsMinimum);
+    const expectedBase = 500.25 + (vehicle === ESTATE_VEHICLE ? settings.estate.upliftGbp : 0);
+    const expectedJourney = Math.round(expectedBase * (returning ? 2 * (1 - settings.returnDiscount.rate) : 1) * 100) / 100;
+    eq(raised.journeyFareGbp, expectedJourney, "BFS airport-to-airport floor and return discount");
+    eq(raised.airportFixedCostsGbp, quote(settings).airportFixedCostsGbp, "BFS minimum leaves airport-to-airport fees unchanged");
+  }
 
   const store = new Map<string,string>();
   const kv = {async get(k:string,t?:string){const v=store.get(k);return v==null?null:t==="json"?JSON.parse(v):v;},async put(k:string,v:string){store.set(k,v);},async list(){return {keys:[],list_complete:true};}} as unknown as KVNamespace;

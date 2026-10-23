@@ -11,7 +11,8 @@ import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { resolveExpressDropOff } from "../shared/express-drop-off";
 import { quoteAirportAccessCharges } from "../shared/meet-greet";
 import { getPendingCheckout } from "../workers/addresses/src/pending-checkout-store";
-import { savePaidBookingRecordFromConfirm } from "../workers/addresses/src/refund-handlers";
+import { finalizePaidCheckout } from "../workers/addresses/src/finalize-paid-checkout";
+import type { SumUpCheckoutDetails } from "../shared/sumup-checkout";
 import { getPaidBookingRecord } from "../workers/addresses/src/paid-booking-store";
 import { approvedProductionProfitabilitySettings } from "../src/lib/owner-profitability-settings";
 
@@ -21,8 +22,10 @@ async function main() {
   const origin="https://www.myairporttaxini.co.uk";
   const store=new Map<string,string>();
   const kv={async get(key:string,type?:string){const v=store.get(key);return v==null?null:type==="json"?JSON.parse(v):v;},async put(key:string,value:string){store.set(key,value);},async delete(key:string){store.delete(key);},async list(){return {keys:[],list_complete:true};}} as unknown as KVNamespace;
-  const env={TRACKING_STORE:kv,GOOGLE_PLACES_API_KEY:"mock-google",SUMUP_API_KEY:"mock-sumup",SUMUP_MERCHANT_CODE:"mock-merchant",QUOTE_RECEIPT_SECRET:"isolated-receipt-secret",PUBLIC_SITE_ORIGIN:origin};
+  const env={TRACKING_STORE:kv,GOOGLE_PLACES_API_KEY:"mock-google",SUMUP_API_KEY:"mock-sumup",SUMUP_MERCHANT_CODE:"mock-merchant",QUOTE_RECEIPT_SECRET:"isolated-receipt-secret",PUBLIC_SITE_ORIGIN:origin,RESEND_API_KEY:"mock-email",BOOKING_TO_EMAIL:"owner@example.invalid",BOOKING_FROM_EMAIL:"bookings@example.invalid"};
   let routeCalls=0, checkoutAmount=0, checkouts=0, checks=0;
+  const paidCheckouts = new Map<string, SumUpCheckoutDetails>();
+  const emails: { to: string | string[]; text: string; html?: string }[] = [];
   const results:Record<string,unknown>[]=[]; const targetBaselines=new Map<string,number>();
   globalThis.fetch=async(input,init)=>{
     const request=new Request(input,init);const url=new URL(request.url);
@@ -40,7 +43,18 @@ async function main() {
     }
     if(url.hostname==="api.sumup.com"&&request.method==="POST"){
       const body=await request.json() as {amount:number;checkout_reference:string};checkoutAmount=body.amount;checkouts++;
-      return Response.json({id:`isolated-${checkouts}`,checkout_reference:body.checkout_reference,hosted_checkout_url:"https://checkout.sumup.com/isolated",status:"PENDING",amount:body.amount},{status:201});
+      const id = `isolated-${checkouts}`;
+      paidCheckouts.set(id, { id, checkout_reference: body.checkout_reference, status: "PAID", amount: body.amount, currency: "GBP", transactions: [{ id: `transaction-${id}`, transaction_code: `code-${id}`, status: "SUCCESSFUL" }] });
+      return Response.json({id,checkout_reference:body.checkout_reference,hosted_checkout_url:"https://checkout.sumup.com/isolated",status:"PENDING",amount:body.amount},{status:201});
+    }
+    if(url.hostname==="api.sumup.com"&&request.method==="GET"&&url.pathname.startsWith("/v0.1/checkouts/")){
+      const checkout = paidCheckouts.get(url.pathname.split("/").at(-1)!);
+      assert.ok(checkout, "Confirmation must verify a checkout created by the payment handler");
+      return Response.json(checkout);
+    }
+    if(url.hostname==="api.resend.com"&&request.method==="POST"&&url.pathname==="/emails"){
+      emails.push(await request.json());
+      return Response.json({ id: `mock-email-${emails.length}` });
     }
     throw Error(`Unexpected external call ${request.method} ${url.origin}${url.pathname}`);
   };
@@ -69,14 +83,35 @@ async function main() {
       const response=await worker.fetch(new Request("https://worker.invalid/payments",{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},body:JSON.stringify({booking,pickupPlaceId,dropoffPlaceId,quoteReceipt:quote.quoteReceipt,amount:quote.amount,acceptedFinalAmountGbp:total,journeyFareGbp:quote.journeyFareGbp,airportFixedCostsGbp:quote.airportFixedCostsGbp,description:"Isolated test",redirectUrl:origin+"/booking-confirmed/"})}),env as never);
       const body=await response.json() as {checkoutId:string};assert.equal(response.status,200,JSON.stringify(body));assert.equal(checkoutAmount,total);
       const pending=await getPendingCheckout(kv,body.checkoutId);assert.ok(pending);
-      await savePaidBookingRecordFromConfirm({env,booking:pending.booking,checkoutId:body.checkoutId,amount:total,currency:"GBP",amountPaidLabel:`£${total.toFixed(2)}`,paymentReference:body.checkoutId,calendarEventIds:[]});
-      const paid=await getPaidBookingRecord(kv,body.checkoutId);assert.equal(paid?.amount,total);assert.equal(paid?.pickupPlaceId,pickupPlaceId);assert.equal(paid?.dropoffPlaceId,dropoffPlaceId);assert.equal(paid?.pickupLat,from?airport.lat:reviewed.lat);assert.equal(paid?.dropoffLng,from?reviewed.lng:airport.lng);
+      assert.equal(pending.amount, total, "Pending checkout keeps the server-authoritative amount");
+      // A later admin edit must not reprice a payment or the resulting confirmation.
+      store.set("owner:pricing-settings", JSON.stringify({ ...pricing, bfsMinimumSaloonFareGbp: 999, estate: { upliftGbp: 99 } }));
+      const emailStart = emails.length;
+      const finalize = () => finalizePaidCheckout({ env, checkoutId: body.checkoutId, booking: pending.booking, logPaidBookingCalendar: async () => ({ logged: true, events: 0, eventIds: [] }) });
+      const confirmed = await finalize();
+      assert.equal(confirmed.ok, true, JSON.stringify(confirmed));
+      assert.equal(confirmed.paid, true);
+      assert.equal(confirmed.amountPaid, `£${total.toFixed(2)}`);
+      assert.equal(confirmed.purchase?.value, total);
+      assert.equal(confirmed.customerEmailSent, true);
+      assert.equal(confirmed.ownerEmailSent, true);
+      const sent = emails.slice(emailStart);
+      assert.equal(sent.length, 2, "Exactly one customer confirmation and one owner alert");
+      const customerEmail = sent.find(email => email.to.includes(pending.booking.customerEmail));
+      const ownerEmail = sent.find(email => email.to.includes(env.BOOKING_TO_EMAIL));
+      assert.ok(customerEmail?.text.includes(`£${total.toFixed(2)}`), "Customer text confirmation matches the checkout");
+      assert.ok(customerEmail?.html?.includes(`£${total.toFixed(2)}`), "Customer HTML confirmation matches the checkout");
+      assert.ok(ownerEmail?.text.includes(`£${total.toFixed(2)}`), "Owner alert matches the checkout");
+      const paid=await getPaidBookingRecord(kv,confirmed.paymentReference);assert.equal(paid?.amount,total);assert.equal(paid?.pickupPlaceId,pickupPlaceId);assert.equal(paid?.dropoffPlaceId,dropoffPlaceId);assert.equal(paid?.pickupLat,from?airport.lat:reviewed.lat);assert.equal(paid?.dropoffLng,from?reviewed.lng:airport.lng);
+      assert.equal(paid?.totalFare, total);
+      assert.equal((await finalize()).alreadyFinalized, true, "Duplicate confirmation is idempotent");
+      assert.equal(emails.length, emailStart + 2, "Duplicate confirmation must not send additional emails");
       if(minimum===45&&mode&&target===40)results.push({airport:airport.code,direction:route.direction,vehicle:vehicle===SALOON_VEHICLE?"Saloon":"Estate",return:returning,miles:Number((route.distanceMetres/1000*0.621371).toFixed(5)),vehicleFare:quote.journeyFareGbp,fixed:quote.airportFixedCostsGbp,access:access.airportAccessChargeGbp,total});
       checks++;
     }
     assert.equal(checks,192);assert.ok(routeCalls>0);
     console.log(JSON.stringify(results,null,2));
-    console.log(`PASS ${checks} signed browser-quote → SumUp → finalized booking cases across three airports, both directions, vehicles, return types, pricing modes, analysis targets and changed fractional minimum/supplement settings; passenger routing only; no external writes.`);
+    console.log(`PASS ${checks} signed browser-quote → SumUp → paid confirmation → stored booking → customer/owner email cases across three airports, both directions, vehicles, return types, pricing modes, analysis targets and changed fractional minimum/supplement settings; later settings preserve agreed fares; repeat confirmation is idempotent; passenger routing only; no external writes.`);
   } finally {globalThis.fetch=originalFetch;Date.now=originalNow;}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

@@ -72,3 +72,31 @@ The original 59-file PR included 30 runtime files, 8 required worker mirrors, 17
 - Profitability remains an internal diagnostic, not a guarantee of a particular earnings rate.
 - The separate amendment bug currently causes fare-sensitive schedule/address/passenger edits to fail HTTP 422 because the old handler omitted route metrics, current pricing and vehicle/access context. Existing confirmed bookings must remain unchanged on any failed replacement quote or unsuccessful top-up.
 - Existing conversational quote-assistant limitations and unrelated booking-management behaviour are not redesigned here.
+
+## BFS minimum verification — 23 October 2026
+
+Inspection of main `0499b79cbf161e7aa1aa1a1f67a7c5fe9b324a52` and draft PR #680 head `769d2b881bdba1a0f9ad578859b9213dfbc94511` confirmed that the requested configurable BFS minimum already exists in this draft, but is not on main. This follow-up reuses that implementation and changes only tests, their review workflow and this document. No second minimum, pricing setting or calculation path was added. PR #680 also contains its previously documented address-validation and routing changes; those remain part of the broader PR review.
+
+The review traced the canonical airport catalogue, shared quote engine, owner settings validation/persistence, quote API and signed receipts, payment recalculation, pending checkout, verified paid confirmation, booking records and customer/owner email generation. The default is £45; `bfsMinimumSaloonFareGbp` remains editable in Owner Dashboard → Pricing → Saloon. Estate uses the configured supplement. Return discounts and airport charges retain the order documented above.
+
+Additional coverage:
+
+- Varying only the BFS minimum leaves BHD, DUB, LDY and ordinary journey quotes identical, for Saloon/Estate and one-way/return journeys.
+- BFS ↔ BHD and BFS ↔ DUB apply the floor in both directions, with the configured supplement and return discount; airport fixed charges remain unchanged.
+- The 192-case integration matrix now calls the actual paid-confirmation handler and mocked SumUp verification, instead of calling the booking-store helper directly. It checks the pending checkout, confirmation amount, finalized booking total, customer HTML/text email and owner alert against the authoritative checkout amount.
+- Changing settings after checkout leaves the agreed fare unchanged. Repeating confirmation is idempotent and sends no additional emails. All external payment/email calls are intercepted; all storage is in memory.
+- An existing fare-parity suite had stale direct-resolver assertions and two £44 BFS expectations. These now verify the current precise-location resolver chain, selected-place validation and £45 BFS floor, retaining all ten public/Quick Quote/Personal Quote fare comparisons and missing-route rejection checks.
+
+Validation on this follow-up:
+
+| Check | Result |
+|---|---|
+| Minimum, settings, airport identification, routing and checkout suite | PASS — 409 checks |
+| Quote → SumUp → paid confirmation → record → email matrix | PASS — 192 cases |
+| Owner pricing; signed receipts; open-payment fares; airport fixed/access fees; Express; night/weekend; deposit/cash; vehicle flow; quote-path parity; customer/owner emails; authoritative fare; dashboard formula | PASS — 14 regression suites |
+| Frontend TypeScript | PASS |
+| Worker TypeScript and Wrangler dry-run bundle | PASS |
+| Frontend static production build | PASS — 149 pages |
+| Lint | PASS — existing warnings |
+
+No database migration is required: the existing settings store supplies £45 when the optional field is absent and retains saved custom values. No existing paid booking is rewritten. After owner approval, release matching Worker/frontend versions together; old instant-quote receipts must refresh. This review did not merge, deploy, change live settings, create real bookings, charge payments or send emails. Remote CI must be checked on the final published commit before release.
