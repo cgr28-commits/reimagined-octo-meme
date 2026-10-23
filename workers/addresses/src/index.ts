@@ -2559,6 +2559,7 @@ async function handlePaymentRequest(
       airportContext.dropoffAirportCode === "DUB";
 
     let authoritativeQuote: {
+      preserveBfsMinimumPence?: boolean;
       amountGbp: number;
       journeyFareGbp: number;
       airportFixedCostsGbp: number;
@@ -2620,6 +2621,7 @@ async function handlePaymentRequest(
     if (receiptClaims) {
       authoritativeQuote = {
         amountGbp: receiptClaims.transferAmountGbp,
+          preserveBfsMinimumPence: Boolean(receiptClaims.preserveBfsMinimumPence),
         journeyFareGbp: receiptClaims.journeyFareGbp,
         airportFixedCostsGbp: receiptClaims.airportFixedCostsGbp,
         nightWeekendSurchargeGbp: receiptClaims.nightWeekendSurchargeGbp,
@@ -2643,6 +2645,7 @@ async function handlePaymentRequest(
       if (a2aQuote && Number.isFinite(a2aQuote.amount) && a2aQuote.amount >= 1) {
         authoritativeQuote = {
           amountGbp: Math.round(a2aQuote.amount * 100) / 100,
+          preserveBfsMinimumPence: Boolean(a2aQuote.preserveBfsMinimumPence),
           journeyFareGbp:
             typeof a2aQuote.journeyFareGbp === "number"
               ? Math.round(a2aQuote.journeyFareGbp * 100) / 100
@@ -2707,6 +2710,7 @@ async function handlePaymentRequest(
               );
         authoritativeQuote = {
           amountGbp: requote.amount,
+          preserveBfsMinimumPence: Boolean(requote.preserveBfsMinimumPence),
           journeyFareGbp,
           airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 0,
           nightWeekendSurchargeGbp: requote.nightWeekendSurchargeGbp ?? 0,
@@ -2931,7 +2935,7 @@ async function handlePaymentRequest(
     }
 
     const pricingOptions = ownerPricingEngineOptions(pricing);
-    const preserveFixedFarePence = postcodeFareHasPence({ enabled: pricing.saloonFormula?.enabled === true ? false : pricing.postcodePricingEnabled, rules: pricing.postcodeRules, context: { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode ?? "", fromAirport: airportContext.fromAirport }, vehicle: vehicleType, estateSupplement: pricing.estate.upliftGbp, returnJourney: Boolean(booking.returnJourney) });
+    const preserveFixedFarePence = Boolean(authoritativeQuote.preserveBfsMinimumPence) || postcodeFareHasPence({ enabled: pricing.saloonFormula?.enabled === true ? false : pricing.postcodePricingEnabled, rules: pricing.postcodeRules, context: { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode ?? "", fromAirport: airportContext.fromAirport }, vehicle: vehicleType, estateSupplement: pricing.estate.upliftGbp, returnJourney: Boolean(booking.returnJourney) });
     const breakdown = composeWebsiteFareBreakdown({
       preserveFixedFarePence,
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,

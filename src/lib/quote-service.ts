@@ -78,6 +78,8 @@ export type QuoteServiceInput = {
 };
 
 export type QuoteServiceSuccess = {
+  /** Preserve pence only when a fractional BFS floor binds. */
+  preserveBfsMinimumPence?: boolean;
   ok: true;
   amount: number;
   amountLabel: string;
@@ -412,6 +414,7 @@ export function calculateAuthoritativeWebsiteQuote(
     ok: true,
     amount,
     amountLabel: formatQuote(amount),
+    preserveBfsMinimumPence: Boolean(quote.preserveBfsMinimumPence),
     currency: "GBP",
     vehicleType,
     premiumApplied: Boolean(quote.premiumApplied),
