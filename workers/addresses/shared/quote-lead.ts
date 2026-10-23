@@ -239,7 +239,7 @@ export function buildQuoteContactSubject(details: QuoteLeadDetails): string {
   return `Contact details added to quote — ${details.estimatedPrice} — ${routeLabel(details)}`;
 }
 
-function buildQuoteTripLines(details: QuoteLeadDetails): string[] {
+export function buildQuoteTripLines(details: QuoteLeadDetails): string[] {
   const lines = [
     `Quote source: ${quoteLeadSourceLabel(details.source)}`,
     `Journey direction: ${details.tripLabel}`,

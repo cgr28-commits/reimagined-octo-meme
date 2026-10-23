@@ -1,3 +1,4 @@
+import type { BookingFunnelEvent } from "../../shared/booking-funnel";
 import {
   buildQuoteContactFingerprint,
   buildQuoteLeadFingerprint,
@@ -84,11 +85,12 @@ function journeyOnlyDetails(details: QuoteLeadDetails): QuoteLeadDetails {
 async function postQuoteSessionToWorker(
   details: QuoteLeadDetails,
   fingerprint: string,
-  kind: QuoteLeadKind,
+  kind: QuoteLeadKind | BookingFunnelEvent,
 ): Promise<{ ok: boolean; emailed: boolean; recorded: boolean }> {
   try {
     const response = await fetch(QUOTE_LEADS_API_URL, {
       method: "POST",
+      keepalive: true,
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -187,4 +189,15 @@ export function scheduleQuoteContactAlert(
   void submitQuoteContactLead(details).catch((error) => {
     console.error("Quote contact email failed via worker", error);
   });
+}
+
+const pendingBookingEvents = new Set<string>();
+export function recordBookingStage(details: QuoteLeadDetails, event: BookingFunnelEvent): void {
+  if (!details.quoteTransactionId) return;
+  const key = `${event}:${details.quoteTransactionId.toLowerCase()}`;
+  if (pendingBookingEvents.has(key) || readSentFingerprints().has(key)) return;
+  pendingBookingEvents.add(key);
+  void postQuoteSessionToWorker(journeyOnlyDetails(details), key, event).then(result => {
+    if (result.recorded && (event !== "booking_started" || result.emailed)) rememberSentFingerprint(key);
+  }).finally(() => pendingBookingEvents.delete(key));
 }

@@ -312,7 +312,7 @@ import {
   saveDropoffAddressLabel,
   savePickupAddressLabel,
 } from "@/lib/address-place-storage";
-import { scheduleQuoteContactAlert, scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+import { recordBookingStage, scheduleQuoteContactAlert, scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
 import { destinationEligibleForStandardAirportPickup } from "../../shared/airport-pickup-service-area";
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import {
@@ -4220,7 +4220,7 @@ function QuoteCard({
     return true;
   }
 
-  function notifyOwnerQuoteContactIfReady() {
+  function notifyOwnerQuoteContactIfReady(event?: import("../../shared/booking-funnel").BookingFunnelEvent) {
     if (!liveQuote || !quoteTransactionId) {
       return;
     }
@@ -4235,7 +4235,13 @@ function QuoteCard({
               ? "Airport pickup"
               : "Airport drop-off"
             : "Address to address";
-    scheduleQuoteContactAlert({
+    const notify = event
+      ? (details: Parameters<typeof scheduleQuoteContactAlert>[0]) => recordBookingStage(details, event)
+      : (details: Parameters<typeof scheduleQuoteContactAlert>[0]) => {
+          recordBookingStage(details, "details_submitted");
+          scheduleQuoteContactAlert(details);
+        };
+    notify({
       tripLabel,
       pickupLabel,
       dropoffLabel,
@@ -4601,6 +4607,7 @@ function QuoteCard({
       const isMobile = isMobileDevice ?? detectMobileDevice();
       if (isMobile) {
         // Same-tab redirect — reliable on iPhone Safari / Android (no popup).
+        notifyOwnerQuoteContactIfReady("payment_opened");
         window.location.assign(checkout.paymentUrl);
         return;
       }
@@ -4674,6 +4681,7 @@ function QuoteCard({
   }
 
   function openSumUpPayment(paymentUrl: string) {
+    notifyOwnerQuoteContactIfReady("payment_opened");
     const isMobile = isMobileDevice ?? detectMobileDevice();
     if (isMobile) {
       window.location.assign(paymentUrl);
@@ -5388,6 +5396,7 @@ function QuoteCard({
       if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
+      notifyOwnerQuoteContactIfReady("booking_started");
       bookTransferGlideRef.current = true;
       pendingQuoteStepNavScrollRef.current = 2;
       setQuoteStep(2);
@@ -5476,6 +5485,7 @@ function QuoteCard({
       if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
+      notifyOwnerQuoteContactIfReady("details_opened");
       // Commit Your Details in this tap so the section exists immediately.
       // Do not use pendingQuoteStepNavScrollRef — that waits for useEffect + two frames.
       flushSync(() => {
@@ -6666,6 +6676,7 @@ function QuoteCard({
           ) : null}
 
           <section
+            onFocusCapture={() => notifyOwnerQuoteContactIfReady("details_opened")}
             id="step3-customer-details"
             ref={step3CustomerDetailsRef}
             className="scroll-mt-44 space-y-3 md:scroll-mt-28"

@@ -4,6 +4,13 @@ export const PRIVACY_LAST_UPDATED = "23 October 2026";
 
 export const PRIVACY_SECTIONS = [
   {
+    title: "Quote and booking attempts",
+    content: [
+      "When you receive a quote and continue towards booking, we record a random quote reference, journey, vehicle, displayed fare, timestamps and stages reached (booking started, contact stage, details submitted, payment opened and confirmed payment). This helps us operate the booking service and understand incomplete bookings. Before you submit contact details, the reference does not identify you by name, email or phone.",
+      "Clicking Book My Transfer sends an immediate internal email to our team with the journey and displayed quote, even if you have not supplied contact details. Repeated clicks for the same quote are deduplicated. We do not capture what you type into contact fields for this stage tracking, subscribe you to marketing, or send customer follow-up messages from these events. Operational quote and stage records expire after 60 days. Operational emails are subject to our normal email retention practices.",
+    ],
+  },
+  {
     title: "Who we are",
     content: [
       `${BUSINESS_LEGAL.tradingName} provides pre-booked private airport transfers in ${BUSINESS_LEGAL.serviceArea}.`,

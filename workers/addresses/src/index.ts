@@ -1,3 +1,5 @@
+import { isBookingFunnelEvent } from "../shared/booking-funnel";
+import { recordBookingFunnelEvent, sendBookingStartedAlert } from "./booking-funnel";
 import { allowSavedQuoteRequest } from "./saved-quote-handlers";
 import { quoteOptionalMeetGreet } from "../shared/meet-greet";
 import { handlePrivateGpsTest } from "./private-gps-test";
@@ -1362,6 +1364,16 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
   };
 }
 
+async function allowBookingFunnelRequest(request: Request, env: Env): Promise<boolean> {
+  if (!env.QUOTE_LEAD_COORDINATOR) return false;
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`booking-funnel:${ip}`));
+  const key = Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("");
+  const ns = env.QUOTE_LEAD_COORDINATOR;
+  const response = await ns.get(ns.idFromName(`booking-funnel-rate:${key}`)).fetch("https://quote-lead-coordinator/limit", { method: "POST" });
+  return (await response.json() as { allowed?: boolean }).allowed === true;
+}
+
 async function handleQuoteLeadRequest(
   request: Request,
   env: Env,
@@ -1375,6 +1387,16 @@ async function handleQuoteLeadRequest(
     return json({ error: "Invalid JSON" }, 400, origin);
   }
 
+  const funnelEvent = isBookingFunnelEvent(body?.kind) ? body.kind : null;
+  if (funnelEvent) {
+    if (!env.TRACKING_STORE || !env.QUOTE_LEAD_COORDINATOR) return json({ error: "Tracking unavailable" }, 503, origin);
+    if (!await allowBookingFunnelRequest(request, env)) return json({ error: "Too many requests" }, 429, origin);
+    if (!body || typeof body !== "object" || JSON.stringify(body).length > 8000 ||
+        [body.tripLabel, body.pickupLabel, body.dropoffLabel, body.vehicle, body.estimatedPrice, body.quoteTransactionId].some(v => typeof v !== "string" || v.length > 500) ||
+        [body.tripDate, body.tripTime, body.returnDate, body.returnTime, body.airportCode, body.airportAccessOption, body.journeyDistance, body.journeyDuration, body.fingerprint].some(v => v != null && (typeof v !== "string" || v.length > 500))) {
+      return json({ error: "Invalid booking event" }, 400, origin);
+    }
+  }
   const parsedDetails = parseQuoteLeadBody(body);
   if (!parsedDetails) {
     return json({ error: "Missing required fields" }, 400, origin);
@@ -1389,6 +1411,20 @@ async function handleQuoteLeadRequest(
   }
   const details = sanitizeQuoteLeadAutomaticPrice(parsedDetails);
 
+  if (funnelEvent) {
+    const txn = details.quoteTransactionId?.trim().toLowerCase() || "";
+    if (!isQuoteTransactionId(txn)) return json({ error: "Invalid tracking reference" }, 400, origin);
+    await recordBookingFunnelEvent(env.TRACKING_STORE!, txn, funnelEvent);
+    let emailed = false;
+    if (funnelEvent === "booking_started") {
+      emailed = await sendBookingStartedAlert(details, createQuoteLeadMarkerStore(env), async (subject, message) => {
+        const result = await trySendOwnerOperationalEmail(env, { to: ownerInbox(env), subject, body: message,
+          idempotencyKey: `booking-started-${txn}` });
+        return result.sent;
+      });
+    }
+    return json({ ok: true, recorded: true, emailed }, 200, origin);
+  }
   const fingerprint = body.fingerprint?.trim() ?? "";
   if (!fingerprint || fingerprint.length > 512) {
     return json({ error: "Missing quote fingerprint" }, 400, origin);
