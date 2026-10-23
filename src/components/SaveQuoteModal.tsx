@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import QuoteActionDialog from "@/components/QuoteActionDialog";
 import { saveQuote, type SaveQuoteResult } from "@/lib/saved-quote-api";
 import { savedQuoteWhatsAppUrl } from "@/lib/saved-quote-share";
@@ -8,7 +8,8 @@ import type { SaveQuoteSettings } from "../../shared/save-quote-settings";
 export function saveQuoteSubmitErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : "We couldn’t save your quote. Please try again.";
 }
-export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow, settings }: {
+export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow, settings, initialWhatsAppRequest = null }: {
+  initialWhatsAppRequest?: Promise<SaveQuoteResult> | null;
   open: boolean; onClose: () => void; buildPayload: () => BuildSaveQuotePayloadResult;
   onBookNow: () => void; settings: SaveQuoteSettings;
 }) {
@@ -18,6 +19,19 @@ export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow,
   const [error, setError] = useState("");
   const [result, setResult] = useState<SaveQuoteResult | null>(null);
   const [shareUrl, setShareUrl] = useState("");
+  useEffect(() => {
+    if (!open || !initialWhatsAppRequest) return;
+    let active = true;
+    setBusy(true); setError(""); setResult(null); setShareUrl("");
+    initialWhatsAppRequest.then(saved => {
+      if (!active) return;
+      setResult(saved);
+      const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      setShareUrl(savedQuoteWhatsAppUrl(saved, mobile));
+    }).catch(err => { if (active) setError(saveQuoteSubmitErrorMessage(err)); })
+      .finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
+  }, [open, initialWhatsAppRequest]);
   if (!open || !settings.enabled) return null;
   function close() { if (!busy) { setResult(null); setError(""); setShareUrl(""); onClose(); } }
   async function submit(channel: "email" | "whatsapp") {

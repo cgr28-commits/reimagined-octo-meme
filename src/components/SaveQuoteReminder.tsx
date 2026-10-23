@@ -4,8 +4,11 @@ import type { SaveQuoteSettings } from "../../shared/save-quote-settings";
 const SESSION_KEY = "matni-save-quote-reminder-shown";
 let shownInMemory = false;
 export default function SaveQuoteReminder({ eligible, settings, quoteKey, onSave, onBook }: {
-  eligible: boolean; settings: SaveQuoteSettings; quoteKey: string; onSave: () => void; onBook: () => void;
+  eligible: boolean; settings: SaveQuoteSettings; quoteKey: string; onSave: (channel: "email" | "whatsapp") => void; onBook: () => void;
 }) {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => { setMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)); }, []);
+  const channels = mobile ? ["whatsapp", "email"] as const : ["email", "whatsapp"] as const;
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number; height: number } | null>(null);
   const panel = useRef<HTMLElement>(null);
@@ -46,14 +49,14 @@ export default function SaveQuoteReminder({ eligible, settings, quoteKey, onSave
     };
     place(); window.addEventListener("resize",place); window.addEventListener("scroll",place,{ passive:true });
     return () => { window.removeEventListener("resize",place); window.removeEventListener("scroll",place); };
-  }, [visible]);
+  }, [visible, mobile]);
   if (!visible || !eligible) return null;
   return <div className="my-3" style={position ? { minHeight: position.height } : undefined}><aside ref={panel} data-save-quote-reminder role="region" aria-label="Save your quote reminder" className="z-40 mx-auto w-full max-w-[340px] rounded-2xl border border-white/20 bg-[#071C38] p-4 text-white shadow-xl" style={position ? { position: "fixed", top: position.top, left: position.left, width: "min(340px, calc(100vw - 32px))", paddingBottom: "max(16px, env(safe-area-inset-bottom))" } : undefined}>
     <button type="button" aria-label="Close save quote reminder" className="float-right -mr-2 -mt-2 min-h-11 min-w-11" onClick={() => setVisible(false)}>×</button>
     <h3 className="text-base font-bold">Not Ready to Book Yet?</h3>
     <p className="mt-2 text-sm">Save your airport transfer quote and come back whenever you’re ready.</p>
     <div className="mt-3 flex flex-col gap-2">
-      <button type="button" className="min-h-11 rounded-xl bg-[#2FBF4A] px-3 font-semibold text-[#071C38]" onClick={() => { setVisible(false); onSave(); }}>Save My Quote</button>
+      {channels.filter(channel => channel === "email" ? settings.emailEnabled : settings.whatsappEnabled).map((channel, index) => <button key={channel} type="button" className={`min-h-11 rounded-xl px-3 ${index === 0 ? "bg-[#2FBF4A] font-semibold text-[#071C38]" : "border border-white/30"}`} onClick={() => { setVisible(false); onSave(channel); }}>{channel === "email" ? "Email My Quote" : "Save via WhatsApp"}</button>)}
       <button type="button" className="min-h-11 rounded-xl border border-white/30 px-3" onClick={() => { setVisible(false); onBook(); }}>Continue to Booking</button>
     </div><p className="mt-2 text-xs text-white/70">No obligation to book.</p>
   </aside></div>;
