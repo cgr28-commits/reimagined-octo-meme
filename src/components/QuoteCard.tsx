@@ -182,26 +182,10 @@ import {
   PAYMENT_METHOD_DEPOSIT_CASH,
   PAYMENT_METHOD_FULL_ONLINE,
   CASH_AGREEMENT_REQUIRED_MESSAGE,
-  CASH_SELECTED_CARD_UNAVAILABLE,
-  DEPOSIT_CASH_BADGE,
-  DEPOSIT_CASH_CHOOSE_HEADING,
-  DEPOSIT_CASH_OPTION_LABEL,
-  DEPOSIT_CASH_SELECTED_HEADING,
-  DEPOSIT_CASH_SUMMARY_HEADING,
-  FULL_ONLINE_OPTION_LABEL,
-  FULL_ONLINE_SUPPORTING,
-  SECURE_SUMUP_LINE,
-  cashAgreementLabel,
-  cashSelectedRemainingSentence,
   depositPayButtonLabel,
   formatDepositCashGbp,
   fullPayButtonLabel,
-  nothingToPayOnTheDayLabel,
-  paymentSummaryCashDueLabel,
-  paymentSummaryPayTodayDepositLabel,
-  paymentSummaryTotalFareLabel,
   publicDepositCashOffer,
-  todayPayLabel,
   type DepositCashSettings,
   type PaymentMethod,
 } from "../../shared/deposit-cash";
@@ -228,7 +212,7 @@ import {
 } from "@/lib/personal-quote-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
-import QuoteAirportBenefits from "@/components/QuoteAirportBenefits";
+import BookingPaymentOptions from "@/components/BookingPaymentOptions";
 import QuoteResultShowcase, {
   preloadQuoteResultVehicleImages,
 } from "@/components/QuoteResultShowcase";
@@ -6987,93 +6971,24 @@ function QuoteCard({
               ) : (
                 <>
                 {showDepositCashChoice && depositCashOffer ? (
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-white">{DEPOSIT_CASH_CHOOSE_HEADING}</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH)}
-                        className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
-                          paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH
-                            ? "border-emerald bg-emerald/15"
-                            : "border-white/20 bg-white/[0.03] hover:border-white/40"
-                        }`}
-                      >
-                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
-                          {DEPOSIT_CASH_OPTION_LABEL}
-                          <span className="rounded-full bg-emerald/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald">
-                            {DEPOSIT_CASH_BADGE}
-                          </span>
-                        </p>
-                        <p className="mt-2 text-sm font-semibold text-emerald">
-                          {todayPayLabel(depositCashOffer.depositGbp)}
-                        </p>
-                        <p className="mt-0.5 text-xs text-white/70">
-                          {formatDepositCashGbp(depositCashOffer.cashDueGbp)}{" "}
-                          <span className="font-bold tracking-wide text-white">CASH</span> on the
-                          day
-                        </p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE);
-                          setCashAgreementAccepted(false);
-                          setPaymentError((prev) =>
-                            prev === CASH_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
-                          );
-                        }}
-                        className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
-                          paymentMethod === PAYMENT_METHOD_FULL_ONLINE
-                            ? "border-emerald bg-emerald/15"
-                            : "border-white/20 bg-white/[0.03] hover:border-white/40"
-                        }`}
-                      >
-                        <p className="text-sm font-semibold text-white">{FULL_ONLINE_OPTION_LABEL}</p>
-                        <p className="mt-2 text-sm font-semibold text-emerald">
-                          {todayPayLabel(depositCashOffer.totalFare)}
-                        </p>
-                        <p className="desktop-payment-support mt-0.5 text-xs text-white/55">{nothingToPayOnTheDayLabel()}</p>
-                        <p className="desktop-payment-support mt-2 text-[11px] leading-snug text-white/45">
-                          {FULL_ONLINE_SUPPORTING}
-                        </p>
-                      </button>
-                    </div>
-                    {selectedDepositCash ? (
-                      <div className="space-y-3 rounded-2xl border border-amber-300/35 bg-amber-500/10 px-4 py-3">
-                        <p className="text-sm font-semibold text-white">{DEPOSIT_CASH_SELECTED_HEADING}</p>
-                        <div className="space-y-1.5 text-xs leading-relaxed text-white/80">
-                          <p>{cashSelectedRemainingSentence(depositCashOffer.cashDueGbp)}</p>
-                          <p>{CASH_SELECTED_CARD_UNAVAILABLE}</p>
-                        </div>
-                        <p className="desktop-payment-support text-xs font-semibold uppercase tracking-wider text-white/50">
-                          {DEPOSIT_CASH_SUMMARY_HEADING}
-                        </p>
-                        <ul className="space-y-1 text-sm text-white/85">
-                          <li>{paymentSummaryTotalFareLabel(depositCashOffer.totalFare)}</li>
-                          <li>{paymentSummaryPayTodayDepositLabel(depositCashOffer.depositGbp)}</li>
-                          <li>{paymentSummaryCashDueLabel(depositCashOffer.cashDueGbp)}</li>
-                        </ul>
-                        <label className="flex items-start gap-3 text-sm leading-relaxed text-white/92">
-                          <input
-                            type="checkbox"
-                            checked={cashAgreementAccepted}
-                            onChange={(event) => {
-                              setCashAgreementAccepted(event.target.checked);
-                              if (event.target.checked) {
-                                setPaymentError((prev) =>
-                                  prev === CASH_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
-                                );
-                              }
-                            }}
-                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
-                          />
-                          <span>{cashAgreementLabel(depositCashOffer.cashDueGbp)}</span>
-                        </label>
-                      </div>
-                    ) : null}
-                    <p className="desktop-payment-support text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
-                  </div>
+                  <BookingPaymentOptions
+                    offer={depositCashOffer}
+                    paymentMethod={paymentMethod}
+                    cashAgreementAccepted={cashAgreementAccepted}
+                    onPaymentMethodChange={(method) => {
+                      setPaymentMethod(method);
+                      if (method === PAYMENT_METHOD_FULL_ONLINE) {
+                        setCashAgreementAccepted(false);
+                        setPaymentError((prev) => prev === CASH_AGREEMENT_REQUIRED_MESSAGE ? "" : prev);
+                      }
+                    }}
+                    onCashAgreementChange={(accepted) => {
+                      setCashAgreementAccepted(accepted);
+                      if (accepted) {
+                        setPaymentError((prev) => prev === CASH_AGREEMENT_REQUIRED_MESSAGE ? "" : prev);
+                      }
+                    }}
+                  />
                 ) : null}
                 {isAvailabilityRequest && !openCheckout ? (
                   <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
@@ -7081,7 +6996,7 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
-                  disabled={paymentLoading || submitted}
+                  disabled={paymentLoading || submitted || (selectedDepositCash && !cashAgreementAccepted)}
                   className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading
@@ -7098,7 +7013,7 @@ function QuoteCard({
                             ? selectedDepositCash
                               ? depositPayButtonLabel(depositCashOffer.depositGbp)
                               : fullPayButtonLabel(depositCashOffer.totalFare)
-                            : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
+                            : `Pay ${amountLabel ?? formatQuote(liveQuote.amount)} & Confirm Booking`}
                 </button>
                 </>
               )}
@@ -7327,15 +7242,6 @@ function QuoteCard({
   }
 
   function renderInstantQuoteResultCard() {
-    const layoutAirportAccess = testChargeAmount === null && effectiveAirportCode ? (
-      <QuoteAirportBenefits
-        pickupAirportCode={isAirportToAirportJourney ? pickupAirportCode : isFromAirport ? effectiveAirportCode || null : null}
-        dropoffAirportCode={isAirportToAirportJourney ? dropoffAirportCode : !isFromAirport ? effectiveAirportCode || null : null}
-        returnJourney={returnJourney}
-        airportFees={airportFeeResolution}
-        expressSelection={expressSelection}
-      />
-    ) : null;
     const layoutBusinessClassInclusions = publicExecutiveEnabled &&
       !publicVehicleRequiresPersonalQuote(EXECUTIVE_VEHICLE, publicPricing)
       ? renderBusinessClassInclusions(true) : null;
@@ -7349,7 +7255,6 @@ function QuoteCard({
           suitcases={suitcases as number}
           priceLabel={effectiveAirportCode ? "YOUR FIXED AIRPORT TRANSFER PRICE" : "Fixed price"}
           formattedPrice=""
-          airportAccess={layoutAirportAccess}
           layoutBusinessClassInclusions={layoutBusinessClassInclusions}
           requestQuote={{
             heading: `${vehicleShortLabel(quoteVehicle)} — Request a Quote`,
@@ -7393,7 +7298,7 @@ function QuoteCard({
         onRetryPrice={() => {
           void refreshAuthoritativeServerQuote(true);
         }}
-        airportAccess={layoutAirportAccess}
+        depositAvailable={showDepositCashChoice}
         layoutBusinessClassInclusions={layoutBusinessClassInclusions}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />

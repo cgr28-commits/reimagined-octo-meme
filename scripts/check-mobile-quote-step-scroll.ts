@@ -76,7 +76,7 @@ check("Explicit step CTAs set pending nav scroll then change step", () => {
   assert.match(card, /navigateQuoteStep\(1\)/);
   assert.match(card, /navigateQuoteStep\(2\)/);
   assert.match(card, /submitCheckoutForm/);
-  assert.match(card, /Confirm booking & pay securely/);
+  assert.match(card, /& Confirm Booking/);
 });
 
 check("Scroll effect consumes pending flag once and is quoteStep-gated", () => {

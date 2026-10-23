@@ -160,7 +160,7 @@ export const TERMS_SECTIONS = [
     content: [CANCELLATION_POLICY_PAGE_INTRO],
     subsections: [
       {
-        subtitle: "More than 24 hours before pickup",
+        subtitle: "At least 24 hours before pickup",
         content: [MORE_THAN_24H_REFUND],
       },
       {

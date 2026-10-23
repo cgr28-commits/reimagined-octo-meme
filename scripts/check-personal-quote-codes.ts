@@ -138,7 +138,7 @@ check("9. SumUp create uses server amount; UI shows personal quoted fare", () =>
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /Personal quoted fare/);
   assert.match(card, /appliedPersonalQuote\?\.agreedAmount/);
-  assert.match(card, /Confirm booking & pay securely/);
+  assert.match(card, /& Confirm Booking/);
 });
 
 check("10. Failed/abandoned payment does not mark quote used on Pay click", () => {

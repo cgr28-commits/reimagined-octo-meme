@@ -1,0 +1,63 @@
+name: Booking conversion review
+on:
+  pull_request:
+    paths:
+      - 'src/components/BookingPaymentOptions.tsx'
+      - 'src/components/QuoteReassurance.tsx'
+      - 'src/components/QuoteResultShowcase.tsx'
+      - 'shared/cancellation-policy.ts'
+      - 'scripts/check-booking-conversion*'
+      - '.github/workflows/booking-conversion-review.yml'
+permissions:
+  contents: read
+jobs:
+  conversion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_ADDRESSES_API_URL: http://127.0.0.1:8787/addresses
+      NEXT_PUBLIC_BOOKINGS_API_URL: http://127.0.0.1:8787/bookings
+      GITHUB_PAGES: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Monetary invariants, policy, payment and pricing regressions
+        run: |
+          node --import tsx scripts/check-booking-conversion.tsx
+          node --import tsx scripts/check-deposit-cash.ts
+          node --import tsx scripts/check-cancellation-refund-wording.ts
+          node --import tsx scripts/check-quote-airport-benefits.tsx
+          node --import tsx scripts/check-express-drop-off.ts
+          node --import tsx scripts/check-refund-ops.ts
+          node --import tsx scripts/check-sumup-booking-conversion.ts
+          node --import tsx scripts/check-pricing-vehicle-quote-flow.ts
+          node --import tsx scripts/check-quote-checkout-page.ts
+      - run: npm run build
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: baseline
+      - name: Build unchanged PR base for height comparison
+        working-directory: baseline
+        run: |
+          npm ci
+          npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Verify mobile and desktop flow in Chromium and WebKit
+        run: |
+          status=0
+          for engine in chromium webkit; do
+            BASELINE_OUT_DIR=baseline/out PLAYWRIGHT_BROWSER=$engine node --import tsx scripts/check-booking-conversion-browser.mjs || status=1
+          done
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: booking-conversion-review
+          path: test-results/booking-conversion/
+          if-no-files-found: warn

@@ -99,7 +99,7 @@ export function BookWithConfidence({ className = "" }: { className?: string }) {
         ))}
       </ul>
       <p className="quote-secondary mt-2 text-[11px] leading-snug">
-        Plans change? Cancel more than 24 hours before pickup for a full refund.
+        Plans change? Cancel at least 24 hours before pickup for a 100% refund.
       </p>
     </div>
   );

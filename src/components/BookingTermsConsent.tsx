@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { CANCELLATION_POLICY_PATH } from "../../shared/cancellation-policy";
+import { CANCELLATION_POLICY_PATH, COMPACT_CANCELLATION_REASSURANCE } from "../../shared/cancellation-policy";
 
 type BookingTermsConsentProps = {
   accepted: boolean;
@@ -47,6 +47,7 @@ export default function BookingTermsConsent({
           </p>
         </div>
       ) : null}
+      <p className="text-sm font-medium leading-snug text-emerald">{COMPACT_CANCELLATION_REASSURANCE}</p>
       <label
         className={`flex min-h-11 min-w-0 cursor-pointer items-start gap-3 rounded-lg border bg-white/[0.04] px-3 py-2.5 text-left sm:rounded-xl sm:px-4 sm:py-3 ${
           error

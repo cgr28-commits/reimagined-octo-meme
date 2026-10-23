@@ -117,7 +117,11 @@ try {
    const frames=await page.evaluate(()=>{clearInterval(window.vehicleSampler);return window.vehicleFrames});
    const ready=await layout();
    const booking=page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i});
-   await booking.scrollIntoViewIfNeeded();
+   // Reveal the whole action before the accessibility check, as for vehicle
+   // choices above. Chromium's nearest-edge scrolling can round to an integer
+   // scroll offset and leave 0.34px outside the viewport with fractional layout.
+   // Sampling has stopped; keep the strict visibility and movement assertions.
+   await booking.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
    const hit=await booking.evaluate(el=>{const r=el.getBoundingClientRect(),target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {top:r.top,bottom:r.bottom,visible:r.top>=document.querySelector('header').getBoundingClientRect().bottom&&r.bottom<=innerHeight,hit:el===target||el.contains(target),disabled:el.disabled,overflow:document.documentElement.scrollWidth>innerWidth};});
    const ranges=Object.fromEntries(['top','documentTop','y','action','tools'].map(key=>[key,Math.max(...frames.map(f=>f[key]))-Math.min(...frames.map(f=>f[key]))]));
    const changes=frames.filter((f,i)=>i===0||['phase','top','documentTop','y','action','tools'].some(key=>f[key]!==frames[i-1][key]));

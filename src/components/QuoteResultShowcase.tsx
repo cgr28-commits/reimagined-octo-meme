@@ -1,6 +1,6 @@
 "use client";
 
-import { cloneElement, isValidElement, forwardRef, type ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { preload } from "react-dom";
 import { withBasePath } from "@/lib/paths";
 import {
@@ -16,6 +16,7 @@ import {
   formatPublicSuitcaseChoice,
   isFivePlusLuggage,
 } from "../../shared/vehicle-capacity";
+import QuoteReassurance from "@/components/QuoteReassurance";
 import { AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE } from "@/lib/authoritative-quote-fare";
 
 type QuoteResultShowcaseProps = {
@@ -24,7 +25,7 @@ type QuoteResultShowcaseProps = {
   suitcases: number;
   priceLabel: string;
   formattedPrice: string;
-  airportAccess?: ReactNode;
+  depositAvailable?: boolean;
   bookButton: ReactNode;
   /** Compact Business Class inclusions, directly under the book button. */
   businessClassInclusions?: ReactNode;
@@ -74,7 +75,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       suitcases,
       priceLabel,
       formattedPrice,
-      airportAccess,
+      depositAvailable = false,
       bookButton,
       businessClassInclusions = null,
       layoutBusinessClassInclusions = null,
@@ -123,9 +124,6 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
     : suitcases === 1
       ? "1 suitcase"
       : `${formatPublicSuitcaseChoice(suitcases)} suitcases`;
-
-  const layoutAirportAccess = isValidElement<{ layoutOnly?: boolean }>(airportAccess)
-    ? cloneElement(airportAccess, { layoutOnly: true }) : airportAccess;
 
   return (
     <div
@@ -186,12 +184,13 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         <div data-quote-info-grid>
           <div data-quote-layout-reference aria-hidden="true" inert>
             <div data-quote-instant-reference>
+              <QuoteReassurance depositAvailable={depositAvailable} />
               <p className="text-[0.72rem] font-bold uppercase tracking-[0.16em]">{priceLabel}</p>
               <p className="mt-0.5 min-h-[2.35rem]" />
-              {layoutAirportAccess ? <div className="my-1.5 text-left">{layoutAirportAccess}</div> : null}
             </div>
           </div>
           <div data-quote-changing-info key={vehicleType}>
+        {!requestQuote && !priceUnavailable ? <QuoteReassurance depositAvailable={depositAvailable} /> : null}
         <div data-quote-result-price>
           {requestQuote ? (
             <div data-quote-manual-state>
@@ -250,19 +249,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             {surchargeNote}
           </p>
         ) : null}
-        {!priceUnavailable && airportAccess ? (
-          <div className="my-1.5 text-left" data-quote-result-airport-access>
-            {airportAccess}
-          </div>
-        ) : null}
+
           </div>
         </div>
-        {!requestQuote && !priceUnavailable && !airportAccess ? (
-          <p className="my-1.5 flex items-start gap-1.5 text-left text-[13px] font-bold leading-snug text-navy" data-private-transfer-benefit>
-            <span className="w-3 shrink-0 text-[#2FBF4A]" aria-hidden>✓</span>
-            Your own pre-booked transfer
-          </p>
-        ) : null}
         <div className="mt-3" data-quote-result-main-action>{bookButton}</div>
         <div data-quote-footer-grid>
           <div data-quote-layout-reference aria-hidden="true" inert>

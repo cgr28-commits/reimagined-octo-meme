@@ -588,7 +588,7 @@ check("Shared module mirrored into worker", () => {
   assert.equal(read("shared/quick-quote.ts"), read("workers/addresses/shared/quick-quote.ts"));
 });
 
-check("QuoteCard shows included airport benefits before Book; checkout retains the access summary", () => {
+check("QuoteCard shows compact reassurance before fare; checkout retains the access summary", () => {
   const card = read("src/components/QuoteCard.tsx");
   const choice = read("src/components/ExpressDropOffChoice.tsx");
 
@@ -596,14 +596,13 @@ check("QuoteCard shows included airport benefits before Book; checkout retains t
   // Checkout still uses the existing summary renderer.
   assert.doesNotMatch(card, /function renderExpressCollapsible/);
   const resultCard = card.slice(card.indexOf("function renderInstantQuoteResultCard()"), card.indexOf("function quoteJourneyEndpoints()"));
-  assert.match(resultCard, /const layoutAirportAccess[\s\S]*?<QuoteAirportBenefits/);
-  assert.match(resultCard, /airportAccess=\{layoutAirportAccess\}/);
+  assert.doesNotMatch(resultCard, /<QuoteAirportBenefits/);
+  assert.match(resultCard, /depositAvailable=\{showDepositCashChoice\}/);
   assert.doesNotMatch(resultCard, /<ExpressDropOffChoice|<ExpressDropOffSelector/);
   assert.match(card, /renderExpressChoiceInPriceCard\("full"\)/);
   const showcase = read("src/components/QuoteResultShowcase.tsx");
-  assert.match(showcase, /airportAccess/);
-  assert.match(showcase, /data-quote-result-airport-access/);
-  const accessIdx = showcase.indexOf("data-quote-result-airport-access");
+  assert.match(showcase, /QuoteReassurance/);
+  const accessIdx = showcase.indexOf("<QuoteReassurance");
   const bookIdx = showcase.indexOf("{bookButton}");
   assert.ok(accessIdx > 0 && bookIdx > accessIdx, "Included airport benefits must render before Book");
   assert.match(resultCard, /Your fixed airport transfer price/);
