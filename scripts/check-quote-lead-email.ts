@@ -228,7 +228,7 @@ console.log("\n=== Phone validation and contact sanitisation ===");
   assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, estimatedPrice: "Quote", totalGbp: undefined }), false);
   assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, estimatedPrice: "Quote", totalGbp: 45 }), false);
   assert.equal(isCompleteFixedPriceQuote({ ...quoteBase, estimatedPrice: "£0", totalGbp: 0 }), false);
-  const outOfAreaAirportPickup = {
+  const northernIrelandAirportPickup = {
     ...quoteBase,
     tripLabel: "Airport pickup",
     pickupLabel: "Dublin Airport, Co. Dublin, Ireland",
@@ -237,10 +237,11 @@ console.log("\n=== Phone validation and contact sanitisation ===");
     estimatedPrice: "£204.00",
     totalGbp: 204,
   };
-  assert.equal(isCompleteFixedPriceQuote(outOfAreaAirportPickup), false);
+  // Current airport-pickup eligibility includes Northern Ireland, not only Greater Belfast.
+  assert.equal(isCompleteFixedPriceQuote(northernIrelandAirportPickup), true);
   assert.equal(
-    sanitizeQuoteLeadAutomaticPrice(outOfAreaAirportPickup).estimatedPrice,
-    "Request fixed quote",
+    sanitizeQuoteLeadAutomaticPrice(northernIrelandAirportPickup).estimatedPrice,
+    "£204.00",
   );
   console.log("OK  invalid telephone numbers are dropped; fallback price text cannot email");
 }

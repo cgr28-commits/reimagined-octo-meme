@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { fetchOwnerQuoteStats } from '../src/lib/booking-jobs-api';
 import { createSerializedQuoteLeadMarkerStore, type QuoteLeadDetails } from '../shared/quote-lead';
 import { mergeQuoteSessionRecord, QUOTE_SESSION_TTL_SECONDS } from '../shared/quote-session';
 import { bookingFunnelKey, isBookingFunnelEvent, summarizeBookingFunnel } from '../shared/booking-funnel';
@@ -7,6 +8,26 @@ import { QuoteLeadCoordinator } from '../workers/addresses/src/quote-lead-coordi
 import { handleQuoteStatsRequest } from '../workers/addresses/src/quote-stats';
 
 async function main() {
+ const originalApi = process.env.NEXT_PUBLIC_BOOKINGS_API_URL;
+ const originalFetch = globalThis.fetch;
+ try {
+   process.env.NEXT_PUBLIC_BOOKINGS_API_URL = '';
+   let calls = 0;
+   globalThis.fetch = async () => { calls++; throw new Error('No request expected without configuration'); };
+   await assert.rejects(fetchOwnerQuoteStats('mock-owner'), /Bookings API is not configured/);
+   assert.equal(calls, 0, 'Missing build-time URL prevents the fixture request entirely');
+   process.env.NEXT_PUBLIC_BOOKINGS_API_URL = 'https://booking-funnel.test/bookings';
+   globalThis.fetch = async (url, init) => {
+     assert.equal(String(url), 'https://booking-funnel.test/quote-stats?day=2026-10-23');
+     assert.equal(new Headers(init?.headers).get('X-Driver-Key'), 'mock-owner');
+     return Response.json({ ok: true, funnel: { day: '2026-10-23', rows: [] } });
+   };
+   assert.equal((await fetchOwnerQuoteStats('mock-owner', '2026-10-23')).funnel?.day, '2026-10-23');
+ } finally {
+   globalThis.fetch = originalFetch;
+   if (originalApi === undefined) delete process.env.NEXT_PUBLIC_BOOKINGS_API_URL;
+   else process.env.NEXT_PUBLIC_BOOKINGS_API_URL = originalApi;
+ }
  const details: QuoteLeadDetails = { quoteTransactionId: 'quote_test123', tripLabel: 'Airport transfer', pickupLabel: 'Belfast City Hall', dropoffLabel: 'Dublin Airport', returnJourney: true, tripDate: '2026-11-01', tripTime: '10:00', returnDate: '2026-11-05', returnTime: '12:00', passengers: 2, suitcases: 2, vehicle: 'Saloon', estimatedPrice: '£255', isAirportTrip: true, customerEmail: 'private@example.test', customerName: 'Private', mobileNumber: '07700900000' };
  const markers = createSerializedQuoteLeadMarkerStore();
  const messages: string[] = [];
@@ -38,6 +59,24 @@ async function main() {
  assert.equal(summary.paid,1);assert.equal(summary.rows[0].possiblyAbandoned,false);assert.equal(summary.rows[0].lastStage,'Payment confirmed');
  summary=summarizeBookingFunnel('2026-10-23',[{quote:{...quote,booked:true},events:{}}]);
  assert.equal(summary.paid,0,'Booking requests are not paid bookings');
+ // Walk every stage using a fixed clock; a later-arriving earlier stage cannot undo payment.
+ const stages = ['booking_started', 'details_opened', 'details_submitted', 'payment_opened', 'paid'] as const;
+ const labels = ['Booking started', 'Contact stage opened', 'Details submitted', 'SumUp opened', 'Payment confirmed'];
+ const eventTimes: Partial<Record<typeof stages[number], string>> = {};
+ for (const [index, stage] of stages.entries()) {
+   eventTimes[stage] = now.toISOString();
+   const step = summarizeBookingFunnel('2026-10-23', [{quote, events: {...eventTimes}}], false, now.getTime() + 599999);
+   assert.equal(step.rows[0].lastStage, labels[index]);
+   assert.equal(step.rows[0].possiblyAbandoned, false, 'Active attempts are not abandoned');
+   assert.equal(step.started, 1);
+   assert.equal(step.detailsOpened, index >= 1 ? 1 : 0);
+   assert.equal(step.detailsSubmitted, index >= 2 ? 1 : 0);
+   assert.equal(step.paymentOpened, index >= 3 ? 1 : 0);
+   assert.equal(step.paid, index === 4 ? 1 : 0);
+ }
+ eventTimes.booking_started = new Date(now.getTime() + 3600000).toISOString();
+ assert.equal(summarizeBookingFunnel('2026-10-23', [{quote, events: eventTimes}]).rows[0].lastStage, 'Payment confirmed');
+
  assert.equal((await readBookingFunnel(kv,'2026-10-23')).truncated,true);
  assert.equal((await handleQuoteStatsRequest(new Request('https://test/quote-stats'),{},null)).status,401);
  const storage = new Map(); let alarm=0;

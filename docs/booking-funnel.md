@@ -33,6 +33,14 @@ Email claims are atomic across concurrent requests. Failed or thrown sends relea
 - Mocked browser checks passed at 320, 360, 375, 390 and 1440px. They verify immediate click events, same-session deduplication, retry after a simulated failure without blocking booking, contact-focus events and no contact submission on typing.
 - Owner dashboard checked at 320 and 1440px; screenshots use fictional fixture journeys. CI uploads screenshots as `booking-funnel-screenshots`.
 - Daily quote report, quote stats, authoritative fares, SumUp conversion, child-seat/SumUp and Save My Quote regression suites passed.
-- Existing `check-quote-lead-email.ts` fails at line 240: its Dublin Airport → Coalisland example expects `isCompleteFixedPriceQuote` to return false, but the unchanged `main` implementation returns true. Confirmed against the original module from commit `050d4de3`. Pricing logic was not changed to satisfy that stale expectation.
+- The pre-existing quote-email regression expected Dublin Airport → Coalisland to be rejected, despite the current Northern Ireland pickup eligibility. Confirmed against the original module from `050d4de3`, then corrected only the test expectation. The complete quote-email suite now passes; pricing and notification implementations are unchanged.
 
 No live email delivery or real payment was performed. Existing production credentials are reused; live inbox delivery remains a post-approval verification.
+
+## CI dashboard failure correction
+
+The original Booking funnel review workflow compiled the frontend without `NEXT_PUBLIC_BOOKINGS_API_URL`. Unlike the quote form, the owner booking API client intentionally rejects missing configuration before calling fetch. Authentication succeeded and the panel mounted, but no `/quote-stats` request reached Playwright's fixture, so the abandonment label could never appear. Production's deploy workflow supplies this URL; the original local validation also supplied a localhost URL.
+
+Reproduced the original line-69 timeout locally with an explicitly empty build-time URL. The review workflow now supplies `https://booking-funnel.test/bookings` and its address counterpart; all service requests are intercepted. No live credential or endpoint is required. The browser test retains the abandonment assertion, verifies the API response and existing owner header, distinguishes paid rows, checks all six count cards, and switches to an empty date to ensure stale rows disappear. Failures now save page text and a screenshot. Unit tests cover missing versus configured API URLs and every stage transition, including the ten-minute boundary and paid status surviving out-of-order events.
+
+No customer-facing, pricing, notification, authentication or payment implementation changed in this correction. No merge or production deployment is authorized by these tests.

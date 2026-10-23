@@ -14,12 +14,18 @@ on:
       - 'workers/addresses/src/quote-stats.ts'
       - 'workers/addresses/src/finalize-paid-checkout.ts'
       - 'scripts/check-booking-funnel*'
+      - 'scripts/check-quote-lead-email.ts'
       - '.github/workflows/booking-funnel-review.yml'
 permissions:
   contents: read
 jobs:
   booking-funnel:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Compile the owner API client as production does, but target only mocked test services.
+      NEXT_PUBLIC_BOOKINGS_API_URL: https://booking-funnel.test/bookings
+      NEXT_PUBLIC_ADDRESSES_API_URL: https://booking-funnel.test/addresses
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,6 +36,8 @@ jobs:
       - run: npm ci --prefix workers/addresses
       - run: npm run sync:worker-shared
       - run: npm run check:booking-funnel
+      - run: node --import tsx scripts/check-quote-lead-email.ts
+      - run: node --import tsx scripts/check-daily-quote-report.ts
       - run: npm --prefix workers/addresses run typecheck
       - run: npm run lint
       - run: GITHUB_PAGES=true npm run build
