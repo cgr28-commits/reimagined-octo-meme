@@ -45,7 +45,7 @@ export async function saveSavedQuoteRecord(
   const token = normalizeSavedQuoteToken(record.token);
   const toSave: SavedQuoteRecord = { ...record, token };
   await store.put(savedQuoteTokenKey(token), JSON.stringify(toSave), {
-    expirationTtl: SAVED_QUOTE_TTL_SECONDS,
+    expirationTtl: Math.max(60, Math.ceil((Date.parse(record.expiresAt) - Date.now()) / 1000)),
   });
 
   const open = await readOpenIndex(store);
@@ -70,6 +70,7 @@ export async function getSavedQuoteByToken(
 export async function createSavedQuote(
   store: KVNamespace,
   input: {
+    validityDays?: number;
     customerName: string;
     customerEmail: string;
     journey: SavedQuoteJourneySnapshot;
@@ -98,7 +99,7 @@ export async function createSavedQuote(
     },
     status: "saved",
     createdAt,
-    expiresAt: computeSavedQuoteExpiresAt(now),
+    expiresAt: computeSavedQuoteExpiresAt(now, input.validityDays),
   };
 
   await saveSavedQuoteRecord(store, record);

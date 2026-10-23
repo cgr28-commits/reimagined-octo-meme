@@ -68,7 +68,7 @@ function run() {
   assert.match(generateSavedQuoteReference(new Date("2026-08-19T09:45:00Z")), /^MAT-\d{6}-\d{4}-[0-9A-F]{4}$/);
 
   const url = buildSavedQuoteCustomerUrl(token);
-  assert.ok(url.includes("/quote/?t="));
+  assert.ok(url.includes("/quote/#t="));
   assert.ok(!url.includes("42.5"));
   assert.ok(!url.includes("test@"));
 
@@ -92,7 +92,7 @@ function run() {
 
   const day0 = baseRecord();
   assert.equal(shouldSendFirstReminder(day0, new Date("2026-08-19T12:00:00Z")), false);
-  assert.equal(shouldSendFirstReminder(day0, new Date("2026-08-20T11:00:00Z")), true);
+  assert.equal(shouldSendFirstReminder(day0, new Date("2026-08-20T11:00:00Z")), false);
   assert.equal(
     shouldSendFirstReminder(
       baseRecord({ firstReminderSentAt: "2026-08-20T11:05:00Z" }),
@@ -106,7 +106,7 @@ function run() {
   );
 
   assert.equal(shouldSendFinalReminder(day0, new Date("2026-08-23T09:00:00Z")), false);
-  assert.equal(shouldSendFinalReminder(day0, new Date("2026-08-24T11:00:00Z")), true);
+  assert.equal(shouldSendFinalReminder(day0, new Date("2026-08-24T11:00:00Z")), false);
   assert.equal(
     shouldSendFinalReminder(
       baseRecord({ finalReminderSentAt: "2026-08-24T11:05:00Z" }),

@@ -1,7 +1,10 @@
+import { getBookingSettings } from "./booking-settings-store";
+import { VEHICLE_TYPES, type VehicleType } from "../../../src/lib/data";
+import { getReturnJourneySavingGbp } from "../shared/website-fare-breakdown";
 /**
  * Saved Quote HTTP handlers + hourly reminder processor.
  * Persistence: Cloudflare KV (TRACKING_STORE). Emails: existing worker-email stack.
- * Fixed price is locked at save time — never recalculated on open or pay.
+ * The original fare is an audit snapshot; the normal booking flow recalculates it.
  */
 
 import {
@@ -44,7 +47,7 @@ import { isExecutiveVehicle } from "../shared/executive-vehicle";
 import { ownerPricingEngineOptions, type OwnerPricingSettings } from "../shared/owner-pricing-config";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { resolveExpressDropOff } from "../shared/express-drop-off";
-import { quoteAirportAccessCharges } from "../shared/meet-greet";
+import { quoteAirportAccessCharges, quoteOptionalMeetGreet, defaultMeetGreetFees } from "../shared/meet-greet";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { suppressSavedQuoteReminderForBookedJourney } from "./saved-quote-booking-match";
 
@@ -52,6 +55,7 @@ export type SavedQuoteEnv = WorkerEmailEnv & {
   TRACKING_STORE: KVNamespace;
   SITE_ORIGIN?: string;
   GOOGLE_PLACES_API_KEY?: string;
+  GETADDRESS_API_KEY?: string;
 };
 
 const DEFAULT_SITE_ORIGIN = "https://www.myairporttaxini.co.uk";
@@ -65,6 +69,8 @@ function jsonResponse(body: unknown, status: number, origin: string | null): Res
     status,
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
       ...corsHeaders(origin),
     },
   });
@@ -102,7 +108,7 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
   const tripDate = String(j.tripDate ?? j.pickupDate ?? "").trim();
   const tripTime = String(j.tripTime ?? j.pickupTime ?? "").trim();
   // Date/time are optional at save — booking/payment still require them.
-  if (!pickupLabel || !dropoffLabel) return null;
+  if (!pickupLabel || !dropoffLabel || pickupLabel.length > 500 || dropoffLabel.length > 500) return null;
 
   // Require explicit party selections — never invent 1 passenger / 0 bags.
   if (j.passengers == null || (j.suitcases == null && j.luggage == null)) {
@@ -124,6 +130,14 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
     pickupLabel,
     dropoffLabel,
     pickupPlaceId: asOptionalString(j.pickupPlaceId),
+    pickupPlaceName: asOptionalString(j.pickupPlaceName),
+    pickupCountryCode: asOptionalString(j.pickupCountryCode),
+    pickupPostalCode: asOptionalString(j.pickupPostalCode),
+    pickupStreetNumber: asOptionalString(j.pickupStreetNumber),
+    dropoffPlaceName: asOptionalString(j.dropoffPlaceName),
+    dropoffCountryCode: asOptionalString(j.dropoffCountryCode),
+    dropoffPostalCode: asOptionalString(j.dropoffPostalCode),
+    dropoffStreetNumber: asOptionalString(j.dropoffStreetNumber),
     dropoffPlaceId: asOptionalString(j.dropoffPlaceId ?? j.destinationPlaceId),
     pickupLat: asOptionalNumber(j.pickupLat),
     pickupLng: asOptionalNumber(j.pickupLng),
@@ -138,6 +152,9 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
         ? j.isFromAirport
         : String(j.tripDirection ?? j.journeyDirection ?? "").includes("from"),
     journeyType: asOptionalString(j.journeyType),
+    optionalMeetGreetSelected: j.optionalMeetGreetSelected === true,
+    outboundAirportAccessChoice: j.outboundAirportAccessChoice === "meet-greet" ? "meet-greet" : "express",
+    returnAirportAccessChoice: j.returnAirportAccessChoice === "meet-greet" ? "meet-greet" : "express",
     tripDate,
     tripTime,
     returnJourney: Boolean(j.returnJourney),
@@ -163,7 +180,7 @@ function parseAirportCode(value: unknown): QuoteServiceAirportCode | null {
 }
 
 /**
- * Build the authoritative fixed price from journey details.
+ * Build the original snapshot using the unchanged authoritative pricing engine.
  * Client-submitted amounts are audit-only and never become totalAmount.
  */
 export async function buildAuthoritativeSavedQuotePricing(input: {
@@ -172,6 +189,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   clientSubmittedAmount?: number;
   clientPricingMeta?: Record<string, unknown>;
   googlePlacesApiKey?: string;
+  getAddressApiKey?: string;
   pricing?: OwnerPricingSettings | null;
 }): Promise<
   | { ok: true; pricing: SavedQuotePricingSnapshot; quote: Extract<QuoteServiceResult, { ok: true }> }
@@ -184,6 +202,10 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   const routeMetrics = await resolveWorkerTripRouteMetrics({
     pickupAddress: journey.pickupLabel,
     dropoffAddress: journey.dropoffLabel,
+    pickupPlaceId: journey.pickupPlaceId,
+    dropoffPlaceId: journey.dropoffPlaceId,
+    trustClientCoordinates: false,
+    getAddressApiKey: input.getAddressApiKey,
     pickupLat: journey.pickupLat,
     pickupLng: journey.pickupLng,
     dropoffLat: journey.dropoffLat,
@@ -204,6 +226,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
     passengers: journey.passengers,
     suitcases: journey.suitcases,
     routeMetrics,
+    vehicleType: (VEHICLE_TYPES as readonly string[]).includes(journey.vehicle) ? journey.vehicle as VehicleType : undefined,
     pricing: input.pricing,
   });
 
@@ -212,7 +235,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   }
 
   let serverAmount = quote.amount;
-  if (isExecutiveVehicle(quote.vehicleType)) {
+  {
     const options = ownerPricingEngineOptions(input.pricing);
     const express = resolveExpressDropOff({
       airportCode: airportCode ?? null,
@@ -227,10 +250,13 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
       airportCode: airportCode ?? null,
       fromAirport: Boolean(journey.isFromAirport),
       returnJourney: Boolean(journey.returnJourney),
-      fees: input.pricing?.meetGreet,
-      meetGreetIncluded: true,
+      fees: input.pricing?.meetGreet ?? defaultMeetGreetFees(),
+      meetGreetIncluded: isExecutiveVehicle(quote.vehicleType),
+      outboundChoice: journey.outboundAirportAccessChoice,
+      returnChoice: journey.returnAirportAccessChoice,
     });
     serverAmount = composeWebsiteFareBreakdown({
+      preserveFixedFarePence: quote.preserveBfsMinimumPence === true,
       journeyFareBeforeAirportAccessGbp: quote.journeyFareGbp ?? quote.amount,
       airportFixedCostsGbp: quote.airportFixedCostsGbp ?? 0,
       nightWeekendSurchargeGbp: quote.nightWeekendSurchargeGbp ?? 0,
@@ -238,16 +264,24 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
       outboundAirportAccessChargeGbp: access.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: access.returnAirportAccessChargeGbp,
       returnJourney: quote.returnJourney,
-      businessClassMinimumFareGbp: options.executiveMinimumFareGbp,
+      businessClassMinimumFareGbp: isExecutiveVehicle(quote.vehicleType) ? options.executiveMinimumFareGbp : undefined,
       outboundOneWayBeforeAccessGbp: quote.outboundOneWayBeforeAccessGbp,
       returnOneWayBeforeAccessGbp: quote.returnOneWayBeforeAccessGbp,
       returnDiscountRate: options.returnDiscountRate,
     }).finalAmountPayableGbp;
   }
 
+  const optionalMeetGreet = quoteOptionalMeetGreet({
+    selected: journey.optionalMeetGreetSelected === true,
+    pickupAirportCode: journey.isFromAirport ? airportCode : null,
+    fees: input.pricing?.meetGreet ?? defaultMeetGreetFees(),
+    included: isExecutiveVehicle(quote.vehicleType),
+  });
+  if (!optionalMeetGreet.ok) return { ok: false, message: optionalMeetGreet.error, reason: "invalid_meet_greet" };
+  serverAmount = Math.round((serverAmount + optionalMeetGreet.feeGbp) * 100) / 100;
   const pricing = lockSavedQuotePricingFromServer({
     serverAmount,
-    amountLabel: quote.amountLabel || formatSavedQuoteAmount(quote.amount),
+    amountLabel: formatSavedQuoteAmount(serverAmount),
     clientSubmittedAmount: input.clientSubmittedAmount,
     pricingMeta: {
       source: quote.source,
@@ -258,6 +292,11 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
     },
   });
 
+  pricing.airportChargesGbp = Math.round((serverAmount - quote.amount + (quote.airportFixedCostsGbp ?? 0)) * 100) / 100;
+  pricing.returnSavingGbp = journey.returnJourney ? getReturnJourneySavingGbp(
+    Math.max(0, (quote.journeyFareGbp ?? quote.amount) - (quote.nightWeekendSurchargeGbp ?? 0)),
+    ownerPricingEngineOptions(input.pricing).returnDiscountRate,
+  ) : 0;
   return { ok: true, pricing, quote };
 }
 
@@ -294,20 +333,29 @@ export async function handleCreateSavedQuote(
     return jsonResponse({ error: "Quote store is not configured." }, 503, origin);
   }
 
+  const settings = (await getBookingSettings(env.TRACKING_STORE)).saveQuote;
+  if (!settings.enabled) return jsonResponse({ error: "Saving quotes is currently unavailable." }, 403, origin);
   let body: Record<string, unknown>;
   try {
-    body = (await request.json()) as Record<string, unknown>;
+    const raw = await request.text();
+    if (raw.length > 12000) return jsonResponse({ error: "Request too large." }, 413, origin);
+    body = JSON.parse(raw) as Record<string, unknown>;
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Invalid body");
   } catch {
     return jsonResponse({ error: "Invalid JSON body." }, 400, origin);
   }
 
-  const customerName = String(body.customerName ?? "").trim();
-  const customerEmail = String(body.customerEmail ?? "").trim().toLowerCase();
-  if (customerName.length < 2) {
-    return jsonResponse({ error: "Please enter your name." }, 400, origin);
+  const channel = body.channel === "whatsapp" ? "whatsapp" : "email";
+  if ((channel === "email" && !settings.emailEnabled) || (channel === "whatsapp" && !settings.whatsappEnabled)) {
+    return jsonResponse({ error: "This saving option is currently unavailable." }, 403, origin);
   }
-  if (!isValidEmail(customerEmail)) {
+  const customerName = String(body.customerName ?? "").trim().slice(0, 100);
+  const customerEmail = String(body.customerEmail ?? "").trim().toLowerCase();
+  if (channel === "email" && (!isValidEmail(customerEmail) || customerEmail.length > 254)) {
     return jsonResponse({ error: "Please enter a valid email address." }, 400, origin);
+  }
+  if (!await allowSavedQuoteRequest(env.TRACKING_STORE, request, channel === "email" ? customerEmail : undefined)) {
+    return jsonResponse({ error: "Too many requests. Please try again later." }, 429, origin);
   }
 
   const journeyBase = parseJourney(body.journey);
@@ -327,6 +375,7 @@ export async function handleCreateSavedQuote(
     clientSubmittedAmount: clientPrice.amount,
     clientPricingMeta: clientPrice.meta,
     googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+    getAddressApiKey: env.GETADDRESS_API_KEY,
     pricing: ownerPricing,
   });
   if (!priced.ok) {
@@ -350,7 +399,8 @@ export async function handleCreateSavedQuote(
   try {
     record = await createSavedQuote(env.TRACKING_STORE, {
       customerName,
-      customerEmail,
+      customerEmail: channel === "email" ? customerEmail : "",
+      validityDays: settings.validityDays,
       journey,
       pricing,
     });
@@ -376,6 +426,7 @@ export async function handleCreateSavedQuote(
   let emailSent = false;
   let emailError: string | undefined;
   try {
+    if (channel === "email") {
     const result = await trySendBrandedCustomerEmail(env, {
       to: customerEmail,
       toName: customerName,
@@ -404,6 +455,7 @@ export async function handleCreateSavedQuote(
         error: emailError,
       });
     }
+    }
   } catch (err) {
     emailError = err instanceof Error ? err.message : String(err);
     await patchSavedQuoteEmailTimestamps(env.TRACKING_STORE, record.token, {
@@ -428,7 +480,7 @@ export async function handleCreateSavedQuote(
       currency: "GBP",
       email: customerEmail,
       emailSent,
-      emailError: emailSent ? undefined : emailError,
+      emailError: !emailSent && channel === "email" ? "Email could not be sent. Use your secure link below." : undefined,
       quoteUrl: summary.bookUrl,
       quote: summary,
     },
@@ -447,6 +499,9 @@ export async function handleGetSavedQuote(
     return jsonResponse({ error: "Quote store is not configured." }, 503, origin);
   }
 
+  if (!await allowSavedQuoteRequest(env.TRACKING_STORE, request, undefined, true)) {
+    return jsonResponse({ error: "Too many requests. Please try again later." }, 429, origin);
+  }
   const url = new URL(request.url);
   const token = normalizeSavedQuoteToken(url.searchParams.get("t") || url.searchParams.get("token") || "");
   if (!token || token.length < 32) {
@@ -467,7 +522,6 @@ export async function handleGetSavedQuote(
       {
         ok: false,
         error: access.error,
-        quote: summary,
         canBook: false,
         message:
           access.error === "booked"
@@ -493,7 +547,7 @@ export async function handleGetSavedQuote(
 }
 
 /**
- * Resolve a saved quote for SumUp payment — amount always from KV (fixed price).
+ * Validate saved-quote access. Payment callers must recalculate before charging.
  */
 export async function resolveSavedQuoteForPayment(
   store: KVNamespace,
@@ -706,3 +760,24 @@ export async function processSavedQuoteReminders(env: SavedQuoteEnv): Promise<{
 }
 
 export { getSavedQuoteByToken, buildSavedQuoteCustomerUrl };
+
+/** KV limits are best-effort across regions; isolate counters also stop local bursts. */
+const localLimits = new Map<string, { count: number; until: number }>();
+export async function allowSavedQuoteRequest(store: KVNamespace, request: Request, email?: string, readOnly = false): Promise<boolean> {
+  const hour = Math.floor(Date.now() / 3600000);
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const buckets: Array<[string, number]> = [[`ip:${ip}:${readOnly ? "read" : "create"}`, readOnly ? 120 : 10]];
+  if (email) buckets.push([`email:${email}`, 3]);
+  for (const [identity, max] of buckets) {
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(identity)))).map(b => b.toString(16).padStart(2,"0")).join("");
+    const key = `saved-quote:limit:${hour}:${hash}`;
+    const local = localLimits.get(key);
+    if (local && local.until > Date.now() && local.count >= max) return false;
+    const count = Math.max(Number(await store.get(key)) || 0, local?.count || 0);
+    if (count >= max) return false;
+    if (localLimits.size > 10000) for (const [k,v] of localLimits) if (v.until <= Date.now()) localLimits.delete(k);
+    localLimits.set(key, { count: count + 1, until: (hour + 1) * 3600000 });
+    await store.put(key, String(count + 1), { expirationTtl: 3600 });
+  }
+  return true;
+}

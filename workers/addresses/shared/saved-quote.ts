@@ -1,23 +1,31 @@
 /**
- * Saved Quote — customer-saved fixed-price quotes with 7-day validity
- * and transactional follow-up emails. Persisted in Cloudflare KV (TRACKING_STORE).
+ * Saved Quote — customer-saved journey snapshots with 7-day validity
+ * and customer-requested emails. Persisted in Cloudflare KV (TRACKING_STORE).
  *
  * Secure retrieval uses a cryptographically random token — never sequential IDs,
  * never the quote reference alone, never the price in the URL.
  */
 
 export const SAVED_QUOTE_VALIDITY_DAYS = 7;
-export const SAVED_QUOTE_TTL_SECONDS = 60 * 60 * 24 * 30; // keep KV a bit past expiry for audit
+export const SAVED_QUOTE_TTL_SECONDS = 60 * 60 * 24 * 7; // maximum retrieval and retention window
 export const SAVED_QUOTE_FIRST_REMINDER_HOURS = 24;
 export const SAVED_QUOTE_FINAL_REMINDER_DAYS = 5;
 
 export type SavedQuoteStatus = "saved" | "booked" | "expired";
 
-/** Journey + pricing snapshot frozen at save time (fixed price for 7 days). */
+/** Journey details at save time; fares are always recalculated before booking. */
 export type SavedQuoteJourneySnapshot = {
   pickupLabel: string;
   dropoffLabel: string;
   pickupPlaceId?: string;
+  pickupPlaceName?: string;
+  pickupCountryCode?: string;
+  pickupPostalCode?: string;
+  pickupStreetNumber?: string;
+  dropoffPlaceName?: string;
+  dropoffCountryCode?: string;
+  dropoffPostalCode?: string;
+  dropoffStreetNumber?: string;
   dropoffPlaceId?: string;
   pickupLat?: number;
   pickupLng?: number;
@@ -29,6 +37,9 @@ export type SavedQuoteJourneySnapshot = {
   isAirportTrip: boolean;
   isFromAirport?: boolean;
   journeyType?: string;
+  optionalMeetGreetSelected?: boolean;
+  outboundAirportAccessChoice?: "express" | "free" | "meet-greet";
+  returnAirportAccessChoice?: "express" | "free" | "meet-greet";
   /** Optional at save — empty string means not set (booking still requires date/time). */
   tripDate: string;
   tripTime: string;
@@ -48,7 +59,7 @@ export type SavedQuoteJourneySnapshot = {
 };
 
 export type SavedQuotePricingSnapshot = {
-  /** Authoritative total GBP locked for the validity window. */
+  /** Original server-calculated total; recalculated before booking. */
   totalAmount: number;
   outboundAmount?: number;
   returnAmount?: number;
@@ -58,6 +69,8 @@ export type SavedQuotePricingSnapshot = {
   clientSubmittedAmount?: number;
   /** Optional audit metadata from the quote engine. */
   pricingMeta?: Record<string, unknown>;
+  airportChargesGbp?: number;
+  returnSavingGbp?: number;
 };
 
 export type SavedQuoteRecord = {
@@ -116,10 +129,8 @@ export function savedQuoteOpenIndexKey(): string {
 }
 
 export function normalizeSavedQuoteToken(token: string): string {
-  return String(token ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-f0-9]/g, "");
+  const value = String(token ?? "").trim().toLowerCase();
+  return /^[a-f0-9]{48}$/.test(value) ? value : "";
 }
 
 export function generateSavedQuoteToken(): string {
@@ -158,8 +169,8 @@ export function generateSavedQuoteReference(now = new Date()): string {
   return `MAT-${stamp}-${suffix}`;
 }
 
-export function computeSavedQuoteExpiresAt(createdAt: Date = new Date()): string {
-  const expires = new Date(createdAt.getTime() + SAVED_QUOTE_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
+export function computeSavedQuoteExpiresAt(createdAt: Date = new Date(), validityDays = 7): string {
+  const expires = new Date(createdAt.getTime() + Math.min(7, Math.max(1, validityDays)) * 24 * 60 * 60 * 1000);
   return expires.toISOString();
 }
 
@@ -259,7 +270,7 @@ export function buildSavedQuoteCustomerUrl(
 ): string {
   const base = origin.replace(/\/$/, "");
   // Query-string token — static-export friendly (GitHub Pages), same pattern as personal quotes.
-  return `${base}/quote/?t=${encodeURIComponent(normalizeSavedQuoteToken(token))}`;
+  return `${base}/quote/#t=${encodeURIComponent(normalizeSavedQuoteToken(token))}`;
 }
 
 export function toSavedQuotePublicSummary(
@@ -292,17 +303,13 @@ export function hoursSince(iso: string, now = new Date()): number {
 }
 
 export function shouldSendFirstReminder(record: SavedQuoteRecord, now = new Date()): boolean {
-  if (record.status !== "saved") return false;
-  if (isSavedQuoteExpired(record, now)) return false;
-  if (record.firstReminderSentAt) return false;
-  return hoursSince(record.createdAt, now) >= SAVED_QUOTE_FIRST_REMINDER_HOURS;
+  void record; void now;
+  return false;
 }
 
 export function shouldSendFinalReminder(record: SavedQuoteRecord, now = new Date()): boolean {
-  if (record.status !== "saved") return false;
-  if (isSavedQuoteExpired(record, now)) return false;
-  if (record.finalReminderSentAt) return false;
-  return hoursSince(record.createdAt, now) >= SAVED_QUOTE_FINAL_REMINDER_DAYS * 24;
+  void record; void now;
+  return false;
 }
 
 export function firstNameFromCustomerName(name: string): string {

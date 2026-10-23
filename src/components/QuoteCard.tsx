@@ -213,6 +213,10 @@ import {
   validatePersonalQuoteCode,
   type PersonalQuotePublicSummary,
 } from "@/lib/personal-quote-api";
+import SaveQuoteReminder from "@/components/SaveQuoteReminder";
+import { DEFAULT_SAVE_QUOTE_SETTINGS, normalizeSaveQuoteSettings } from "../../shared/save-quote-settings";
+import type { SavedQuotePublicSummary } from "../../shared/saved-quote";
+import { resolveWorkerBaseUrl as savedQuoteWorkerBaseUrl } from "@/lib/worker-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import BookingPaymentOptions from "@/components/BookingPaymentOptions";
@@ -663,6 +667,7 @@ function isTripDateTimeNotInPast(tripDate: string, tripTime: string): boolean {
 type BookingDelivery = "whatsapp" | "email";
 
 type QuoteCardProps = {
+  restoredQuote?: SavedQuotePublicSummary;
   bookingIntroduction?: string;
   /** Preselect airport on dedicated landing pages. */
   initialAirportCode?: string;
@@ -747,6 +752,7 @@ function websiteAirportAccessLeadLabel(selection: {
 }
 
 function QuoteCard({
+  restoredQuote,
   initialAirportCode = "",
   initialDirection = "to-airport",
   initialAddressHint = "",
@@ -958,6 +964,14 @@ function QuoteCard({
   const [childSeats, setChildSeats] = useState(0);
   const [childSeatNotes, setChildSeatNotes] = useState("");
   const [childSeatNotesError, setChildSeatNotesError] = useState("");
+  const [saveQuoteSettings, setSaveQuoteSettings] = useState({ ...DEFAULT_SAVE_QUOTE_SETTINGS, enabled: false });
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${savedQuoteWorkerBaseUrl()}/saved-quotes/settings`, { signal: controller.signal, cache: "no-store" })
+      .then(r => { if (!r.ok) throw new Error("Settings unavailable"); return r.json(); })
+      .then(v => setSaveQuoteSettings(normalizeSaveQuoteSettings(v))).catch(() => {});
+    return () => controller.abort();
+  }, []);
   const [saveQuoteOpen, setSaveQuoteOpen] = useState(false);
   const [saveQuotePrompt, setSaveQuotePrompt] = useState("");
   const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() =>
@@ -1458,7 +1472,7 @@ function QuoteCard({
       clearStoredQuoteAddresses();
     }
 
-    if (draft) {
+    if (draft && !restoredQuote) {
       applyNonAddressDraftFields(draft);
     }
 
@@ -1466,7 +1480,7 @@ function QuoteCard({
     if (existingCheckout) {
       setOpenCheckout(existingCheckout);
     }
-  }, [returnOfferToken]);
+  }, [returnOfferToken, restoredQuote]);
 
   useEffect(() => {
     function blankQuoteAddressesAfterBrowserRestore() {
@@ -1640,6 +1654,27 @@ function QuoteCard({
       window.removeEventListener("quote-prefill-draft", handleDraftPrefill);
     };
   }, [returnOfferToken]);
+
+  const restoredQuoteApplied = useRef(false);
+  useEffect(() => {
+    if (!restoredQuote || !publicPricingLoaded || restoredQuoteApplied.current) return;
+    restoredQuoteApplied.current = true;
+    const j = restoredQuote.journey;
+    setJourneyMode(j.returnJourney ? "return" : "one-way");
+    setTripDate(j.tripDate); setTripTime(j.tripTime);
+    setReturnDate(j.returnDate || ""); setReturnTime(j.returnTime || "");
+    setPassengers(j.passengers); setSuitcases(j.suitcases);
+    setChildSeats(normalizeChildSeats(j.childSeats)); setChildSeatNotes(j.childSeatNotes || "");
+    setGoingFlightNumber(j.flightNumber || ""); setCollectionFlightNumber(j.returnFlightNumber || "");
+    setOutboundAccessChoice(j.outboundAirportAccessChoice || "express");
+    setReturnAccessChoice(j.returnAirportAccessChoice || "express");
+    if ((VEHICLE_TYPES as readonly string[]).includes(j.vehicle)) {
+      setVehicle(j.vehicle as VehicleType); setChooseEstate(j.vehicle === ESTATE_VEHICLE);
+      setChooseMinibus(j.vehicle === MINIBUS_VEHICLE_TYPE); setChooseExecutive(isExecutiveVehicle(j.vehicle));
+      customerPickedVehicleRef.current = true;
+    }
+    setHomepagePriceRequested(true);
+  }, [restoredQuote, publicPricingLoaded]);
 
   useEffect(() => {
     if (!publicPricingLoaded) {
@@ -2699,7 +2734,11 @@ function QuoteCard({
   const bookingMeetGreetPrice = meetGreetFeeGbp(bookingMeetGreetAirport, publicPricing.meetGreet);
   const bookingMeetGreetActive = bookingMeetGreetEligible && bookingMeetGreetSelected && quoteStep > 1;
   const bookingMeetGreetCharge = bookingMeetGreetActive ? bookingMeetGreetPrice : 0;
-  useEffect(() => { setBookingMeetGreetSelected(false); }, [pickupAddress, dropoffAddress, quoteVehicle]);
+  useEffect(() => {
+    setBookingMeetGreetSelected(Boolean(restoredQuote?.journey.optionalMeetGreetSelected &&
+      pickupAddress === restoredQuote.journey.pickupLabel && dropoffAddress === restoredQuote.journey.dropoffLabel &&
+      quoteVehicle === restoredQuote.journey.vehicle));
+  }, [pickupAddress, dropoffAddress, quoteVehicle, restoredQuote]);
 
   const airportFeeResolution = useMemo(() => {
     if (isAirportToAirportJourney && pickupAirportCode && dropoffAirportCode) {
@@ -4092,7 +4131,7 @@ function QuoteCard({
     return buildSaveQuotePayloadFromLiveQuote({
       liveQuote: liveQuote
         ? {
-            amount: liveQuote.amount,
+            amount: (pricedFare?.totalGbp ?? liveQuote.amount) + (bookingMeetGreetActive ? bookingMeetGreetCharge : 0),
             area: liveQuote.area,
             areaSurcharge: liveQuote.areaSurcharge,
             airportBase: liveQuote.airportBase,
@@ -4107,7 +4146,17 @@ function QuoteCard({
       showsRequestQuoteFlow,
       pickupLabel: details.pickupLabel,
       dropoffLabel: details.dropoffLabel,
+      outboundAirportAccessChoice: outboundAccessChoice,
+      returnAirportAccessChoice: returnAccessChoice,
       pickupPlaceId: pickupPlace?.placeId || undefined,
+      pickupPlaceName: pickupPlace?.placeName || undefined,
+      pickupCountryCode: pickupPlace?.countryCode || undefined,
+      pickupPostalCode: pickupPlace?.postalCode || undefined,
+      pickupStreetNumber: pickupPlace?.streetNumber || undefined,
+      dropoffPlaceName: dropoffPlace?.placeName || undefined,
+      dropoffCountryCode: dropoffPlace?.countryCode || undefined,
+      dropoffPostalCode: dropoffPlace?.postalCode || undefined,
+      dropoffStreetNumber: dropoffPlace?.streetNumber || undefined,
       dropoffPlaceId: dropoffPlace?.placeId || undefined,
       pickupLat: typeof pickupPlace?.lat === "number" ? pickupPlace.lat : undefined,
       pickupLng: typeof pickupPlace?.lng === "number" ? pickupPlace.lng : undefined,
@@ -4118,6 +4167,7 @@ function QuoteCard({
       isAirportTrip: Boolean(details.isAirportTrip),
       isFromAirport: details.isFromAirport,
       journeyType: details.tripLabel,
+      optionalMeetGreetSelected: bookingMeetGreetActive,
       tripDate: date,
       tripTime: time,
       returnJourney,
@@ -4138,6 +4188,7 @@ function QuoteCard({
 
   /** Open Save Quote when a live payable fare exists — date/time are optional. */
   function handleSaveQuoteClick() {
+    if (!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled)) return;
     setSaveQuotePrompt("");
     const schedule = syncScheduleFieldsFromInputs();
     const built = buildSaveQuotePayload(schedule);
@@ -7120,9 +7171,10 @@ function QuoteCard({
             <button
               type="button"
               onClick={handleSaveQuoteClick}
+              style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
               className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
             >
-              Save Quote
+              Save My Quote
             </button>
           ) : null}
 
@@ -7208,6 +7260,7 @@ function QuoteCard({
   }
 
   function renderStep1SaveQuote(compact = false) {
+    if (!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled)) return null;
     if (
       !(
         liveQuote &&
@@ -7224,13 +7277,14 @@ function QuoteCard({
       <button
         type="button"
         onClick={handleSaveQuoteClick}
+              style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
         className={
           compact
             ? "inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-white/45 bg-white/5 px-3 text-sm font-semibold text-white"
             : "btn-secondary w-full"
         }
       >
-        Save Quote
+        Save My Quote
       </button>
     );
   }
@@ -7468,6 +7522,7 @@ function QuoteCard({
             <button
               type="button"
               onClick={handleSaveQuoteClick}
+              style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
               data-quote-save
               aria-haspopup="dialog"
               disabled={isVehiclePersonalQuote}
@@ -7475,7 +7530,7 @@ function QuoteCard({
               className={`${QUOTE_RESULT_ACTION_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               <QuoteResultActionIcon name="save" />
-              <span>Save Quote</span>
+              <span>Save My Quote</span>
             </button>
             {startNewQuotePlacement === "results" ? (
               <button type="button" onClick={() => setQuoteActionOpen("restart")}
@@ -8692,7 +8747,19 @@ function QuoteCard({
         {quoteStep >= 2 ? renderCheckoutPage() : null}
       </form>
       {renderQuoteActionPopup()}
+      {restoredQuote && quoteStep === 1 && <p role="status" className="my-3 rounded-xl border border-white/20 p-3 text-sm text-white">
+        Original quote: {restoredQuote.amountLabel}. {authoritativeFareReady && pricedFare ?
+          Math.abs(pricedFare.totalGbp + (bookingMeetGreetSelected ? bookingMeetGreetPrice : 0) - restoredQuote.amount) >= 0.01 ? `Your current fare has changed to ${formatQuote(pricedFare.totalGbp + (bookingMeetGreetSelected ? bookingMeetGreetPrice : 0))}.` : "Your recalculated fare is unchanged." : !tripDate || !tripTime ? "Choose your pickup date and time to recalculate." : "Recalculating your fare…"}
+      </p>}
+      <SaveQuoteReminder
+        eligible={quoteResultsReady && authoritativeFareReady && canPayNowOnline && quoteStep === 1 && !saveQuoteOpen && !submitted && !appliedPersonalQuote}
+        settings={saveQuoteSettings}
+        quoteKey={`${pickupAddress}|${dropoffAddress}|${quoteVehicle}|${pricedFare?.totalGbp}|${tripDate}|${tripTime}|${returnDate}|${returnTime}`}
+        onSave={handleSaveQuoteClick}
+        onBook={() => (document.getElementById("quoteForm") as HTMLFormElement | null)?.requestSubmit()}
+      />
       <SaveQuoteModal
+        settings={saveQuoteSettings}
         open={saveQuoteOpen}
         onClose={() => {
           setSaveQuoteOpen(false);

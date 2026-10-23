@@ -114,20 +114,20 @@ export function buildSavedQuoteInitialEmail(
   const first = firstNameFromCustomerName(record.customerName);
   const expiry = formatSavedQuoteExpiryLabel(record.expiresAt);
   const price = record.pricing.amountLabel;
-  const subject = `Your My Airport Taxi NI Quote – ${record.reference}`;
+  const subject = "Your Airport Transfer Quote — My Airport Taxi NI";
 
   const text =
     `Your airport transfer quote is saved\n\n` +
     `Hi ${first},\n\n` +
     `Thanks for requesting a quote from ${businessName}.\n\n` +
-    `Your fixed-price airport transfer quote is:\n\n` +
+    `Your original airport transfer quote is:\n\n` +
     `${price}\n\n` +
-    `${journeySummary(record)}\n\n` +
+    `${journeySummary(record)}\n${quoteDetails(record)}\n\n` +
     `Quote reference:\n${record.reference}\n\n` +
     `Your quote is valid until:\n${expiry}\n\n` +
-    `Your journey has not yet been booked.\n\n` +
+    `Your journey has not yet been booked. Your quote can be retrieved for ${Math.round((Date.parse(record.expiresAt) - Date.parse(record.createdAt)) / 86400000)} days. The fare will be recalculated before booking and may change. No marketing subscription or follow-up messages.\n\n` +
     `To complete your booking and pay securely, use the link below:\n\n` +
-    `Book This Journey\n${url}\n\n` +
+    `Return to My Quote\n${url}\n\n` +
     `Secure card payment powered by SumUp.\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
 
@@ -138,11 +138,12 @@ export function buildSavedQuoteInitialEmail(
       `<p>Thanks for requesting a quote from ${escapeHtml(businessName)}.</p>` +
       `<p style="font-size:28px;font-weight:bold;color:${NAVY};margin:16px 0;">${escapeHtml(price)}</p>` +
       `<p>${journeySummaryHtml(record)}</p>` +
+      `<p>${escapeHtml(quoteDetails(record)).replace(/\n/g, "<br/>")}</p>` +
       `<p><strong>Quote reference:</strong> ${escapeHtml(record.reference)}<br/>` +
       `<strong>Valid until:</strong> ${escapeHtml(expiry)}</p>` +
-      `<p><strong>Your journey has not yet been booked.</strong></p>`,
+      `<p><strong>Your journey has not yet been booked.</strong> Your quote can be retrieved for ${Math.round((Date.parse(record.expiresAt) - Date.parse(record.createdAt)) / 86400000)} days. The fare will be recalculated before booking and may change. No marketing subscription or follow-up messages.</p>`,
     ctaUrl: url,
-    ctaLabel: "Book This Journey",
+    ctaLabel: "Return to My Quote",
     businessName,
   });
 
@@ -227,4 +228,9 @@ export function buildSavedQuoteFinalReminderEmail(
   });
 
   return { subject, text, html };
+}
+
+function quoteDetails(record: SavedQuoteRecord): string {
+  const j = record.journey;
+  return `Vehicle: ${j.vehicle}\nPassengers: ${j.passengers} · Suitcases: ${j.suitcases}\n${j.returnJourney ? "Return journey" : "One-way journey"}\nAirport charges included: £${(record.pricing.airportChargesGbp ?? 0).toFixed(2)}\nReturn saving included: £${(record.pricing.returnSavingGbp ?? 0).toFixed(2)}`;
 }

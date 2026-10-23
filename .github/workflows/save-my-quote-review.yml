@@ -1,0 +1,44 @@
+name: Save My Quote review
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*saved-quote*'
+      - '**/*save-quote*'
+      - '**/*SaveQuote*'
+      - 'src/components/QuoteCard.tsx'
+      - 'scripts/check-save-my-quote*'
+      - '.github/workflows/save-my-quote-review.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-worker-shared.mjs
+      - run: node --import tsx scripts/check-save-my-quote.ts
+      - run: node --import tsx scripts/check-saved-quote.ts
+      - run: node --import tsx scripts/check-saved-quote-booking-suppression.ts
+      - run: npm ci --prefix workers/addresses
+      - run: npm --prefix workers/addresses run build
+      - run: npm run lint
+      - run: npm run build
+        env:
+          GITHUB_PAGES: 'true'
+          NEXT_PUBLIC_ADDRESSES_API_URL: http://localhost:8787/addresses
+          NEXT_PUBLIC_BOOKINGS_API_URL: http://localhost:8787/bookings
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - run: node --import tsx scripts/check-save-my-quote-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: save-my-quote-screenshots
+          path: test-results/save-my-quote/

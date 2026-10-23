@@ -3,7 +3,8 @@ import SavedQuoteCustomerClient from "./SavedQuoteCustomerClient";
 
 export const metadata: Metadata = {
   title: "Your saved quote | My Airport Taxi NI",
-  description: "Review your fixed-price airport transfer quote and book securely.",
+  description: "Retrieve your airport transfer details and recalculate your fare before booking.",
+  referrer: "no-referrer",
   robots: { index: false, follow: false },
 };
 

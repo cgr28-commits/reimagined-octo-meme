@@ -1,3 +1,4 @@
+import type { SaveQuoteSettings } from "../../shared/save-quote-settings";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import {
   DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
@@ -100,6 +101,7 @@ export type UnavailablePeriodSummary = {
 };
 
 export type BookingSettings = {
+  saveQuote?: SaveQuoteSettings;
   unavailablePeriods: UnavailablePeriodSummary[];
   activeUnavailablePeriods?: UnavailablePeriodSummary[];
   activeCount?: number;
@@ -819,4 +821,14 @@ export async function fetchPublicShortNotice(
     throw new Error(String(payload.error || "Payment link not found"));
   }
   return payload.booking as PublicShortNoticeSummary;
+}
+
+export async function updateSaveQuoteSettings(ownerKey: string, saveQuote: SaveQuoteSettings): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Owner-Key": ownerKey.trim() },
+    body: JSON.stringify({ action: "set-save-quote", saveQuote }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) throw new Error(String(payload.error || "Could not save settings"));
+  return payload.settings as BookingSettings;
 }

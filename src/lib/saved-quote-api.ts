@@ -10,6 +10,7 @@ const WORKER_BASE = resolveWorkerBaseUrl();
 export type { SavedQuotePublicSummary, SavedQuoteJourneySnapshot, SavedQuotePricingSnapshot };
 
 export type SaveQuoteRequest = {
+  channel?: "email" | "whatsapp";
   customerName: string;
   customerEmail: string;
   journey: SavedQuoteJourneySnapshot;
@@ -50,6 +51,7 @@ export async function saveQuote(input: SaveQuoteRequest): Promise<SaveQuoteResul
     },
     body: JSON.stringify(input),
     cache: "no-store",
+    signal: AbortSignal.timeout(20000),
   });
   const payload = await parseJson(response);
   if (!response.ok) {
@@ -78,6 +80,7 @@ export async function fetchSavedQuoteByToken(token: string): Promise<FetchSavedQ
     {
       headers: { Accept: "application/json" },
       cache: "no-store",
+    signal: AbortSignal.timeout(20000),
     },
   );
   const payload = await parseJson(response);
@@ -141,6 +144,7 @@ export async function requoteSavedQuote(input: {
     },
     body: JSON.stringify(input),
     cache: "no-store",
+    signal: AbortSignal.timeout(20000),
   });
   const payload = await parseJson(response);
   if (!response.ok) {

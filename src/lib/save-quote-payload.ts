@@ -38,6 +38,14 @@ export type BuildSaveQuotePayloadInput = {
   pickupLabel: string;
   dropoffLabel: string;
   pickupPlaceId?: string;
+  pickupPlaceName?: string;
+  pickupCountryCode?: string;
+  pickupPostalCode?: string;
+  pickupStreetNumber?: string;
+  dropoffPlaceName?: string;
+  dropoffCountryCode?: string;
+  dropoffPostalCode?: string;
+  dropoffStreetNumber?: string;
   dropoffPlaceId?: string;
   pickupLat?: number;
   pickupLng?: number;
@@ -48,6 +56,9 @@ export type BuildSaveQuotePayloadInput = {
   isAirportTrip: boolean;
   isFromAirport?: boolean;
   journeyType: string;
+  optionalMeetGreetSelected?: boolean;
+  outboundAirportAccessChoice?: "express" | "free" | "meet-greet";
+  returnAirportAccessChoice?: "express" | "free" | "meet-greet";
   tripDate: string;
   tripTime: string;
   returnJourney: boolean;
@@ -148,6 +159,14 @@ export function buildSaveQuotePayloadFromLiveQuote(
     pickupLabel,
     dropoffLabel,
     pickupPlaceId: input.pickupPlaceId || undefined,
+    pickupPlaceName: input.pickupPlaceName,
+    pickupCountryCode: input.pickupCountryCode,
+    pickupPostalCode: input.pickupPostalCode,
+    pickupStreetNumber: input.pickupStreetNumber,
+    dropoffPlaceName: input.dropoffPlaceName,
+    dropoffCountryCode: input.dropoffCountryCode,
+    dropoffPostalCode: input.dropoffPostalCode,
+    dropoffStreetNumber: input.dropoffStreetNumber,
     dropoffPlaceId: input.dropoffPlaceId || undefined,
     pickupLat: input.pickupLat,
     pickupLng: input.pickupLng,
@@ -158,6 +177,9 @@ export function buildSaveQuotePayloadFromLiveQuote(
     isAirportTrip: Boolean(input.isAirportTrip),
     isFromAirport: input.isFromAirport,
     journeyType: input.journeyType,
+    optionalMeetGreetSelected: input.optionalMeetGreetSelected,
+    outboundAirportAccessChoice: input.outboundAirportAccessChoice,
+    returnAirportAccessChoice: input.returnAirportAccessChoice,
     tripDate,
     tripTime,
     returnJourney: Boolean(input.returnJourney),

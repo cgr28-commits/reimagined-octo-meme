@@ -1,6 +1,6 @@
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "20 October 2026";
+export const PRIVACY_LAST_UPDATED = "23 October 2026";
 
 export const PRIVACY_SECTIONS = [
   {
@@ -20,7 +20,7 @@ export const PRIVACY_SECTIONS = [
       "Pickup and drop-off addresses (including addresses you select via Google Places on our quote form)",
       "Travel date, time and flight numbers (for airport journeys)",
       "Passenger and luggage details",
-      "Saved quote details (name, email, journey snapshot and fixed price) when you choose Save Quote",
+      "Saved journey details, original quoted fare and, for email saving, your email address when you choose Save My Quote",
       "Payment confirmation details from SumUp (amount, transaction reference)",
       "Optional live location if a customer chooses to share it via WhatsApp",
       "Driver GPS location history may be recorded during booked journeys for operational/dispute evidence",
@@ -33,8 +33,7 @@ export const PRIVACY_SECTIONS = [
     content: ["We use your information to:"],
     list: [
       "Provide quotations and confirm bookings",
-      "Save fixed-price quotes you request and email you a secure link to return and book",
-      "Send transactional saved-quote reminders (about 24 hours and 5 days after saving) while your quote is still valid and unpaid — these are not marketing emails",
+      "Save journey details you request and provide a secure link by email or customer-initiated WhatsApp sharing",
       "Process card payments via SumUp",
       "Send booking confirmations and invoices by email",
       "Contact you about your journey (including SMS/WhatsApp where agreed)",
@@ -47,11 +46,11 @@ export const PRIVACY_SECTIONS = [
     ],
   },
   {
-    title: "Saved quotes & quote follow-up emails",
+    title: "Saved quotes",
     content: [
-      "If you use Save Quote, we store your name, email and journey/price snapshot for up to 7 days (and a short period afterwards for audit) so you can reopen your fixed price via a secure link.",
-      "We send an initial confirmation email and up to two automated reminders while the quote remains saved, unbooked and unexpired. Saving a quote does not subscribe you to marketing emails.",
-      "Mobile numbers are not collected at the Save Quote stage — only when you continue to book.",
+      "If you use Save My Quote, we retain your journey and original price snapshot until its stated expiry, up to seven days. Email saving also requires your email address. The secure link restores your journey; the fare is recalculated before booking and may change. Saving does not create a booking.",
+      "We send only the email you request. We do not send saved-quote follow-up messages or subscribe you to marketing. For WhatsApp, you choose the recipient and send the message yourself; their access to the secure link allows them to see the journey.",
+      "Mobile numbers are not collected when saving. Limited hashed network and email identifiers are retained for up to one hour to restrict abuse. Keep your secure quote link private.",
     ],
   },
   {

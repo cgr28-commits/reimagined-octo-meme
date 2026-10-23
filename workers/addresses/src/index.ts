@@ -1,3 +1,4 @@
+import { allowSavedQuoteRequest } from "./saved-quote-handlers";
 import { quoteOptionalMeetGreet } from "../shared/meet-greet";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
@@ -2351,16 +2352,12 @@ async function handlePaymentRequest(
     const sj = sq.journey;
     const requestedDate = String(booking.tripDate || sj.tripDate).trim();
     const requestedTime = String(booking.tripTime || sj.tripTime).trim();
-    const scheduleChanged = savedQuoteScheduleChanged(sj, {
-      tripDate: requestedDate,
-      tripTime: requestedTime,
-    });
 
     savedQuoteToken = normalizeSavedQuoteToken(sq.token);
     savedQuoteReference = sq.reference;
 
-    if (scheduleChanged) {
-      // Do not use the original locked price after a date/time change.
+    {
+      // Saved fares are snapshots: always recalculate before payment.
       const priced = await buildAuthoritativeSavedQuotePricing({
         journey: {
           ...sj,
@@ -2377,6 +2374,10 @@ async function handlePaymentRequest(
       }
       amount = priced.pricing.totalAmount;
       standardWebsiteAmount = amount;
+      const accepted = Number(body.acceptedFinalAmountGbp ?? body.customerDisplayedFinalAmountGbp ?? body.amount);
+      if (!Number.isFinite(accepted) || !checkoutAmountsMatch(accepted, amount)) {
+        return json(buildFareMismatchPaymentError(accepted, amount), 409, origin);
+      }
       // Still attach token so finalize can mark booked; price is the requoted amount.
       booking = {
         ...booking,
@@ -2387,35 +2388,6 @@ async function handlePaymentRequest(
         tripTime: requestedTime,
         returnDate: booking.returnDate || sj.returnDate || "",
         returnTime: booking.returnTime || sj.returnTime || "",
-        passengers: sj.passengers,
-        suitcases: sj.suitcases,
-        flightNumber: booking.flightNumber || sj.flightNumber || "",
-        returnFlightNumber: booking.returnFlightNumber || sj.returnFlightNumber || "",
-        vehicle: sj.vehicle || booking.vehicle,
-        isAirportTrip: Boolean(sj.isAirportTrip || sj.airportCode),
-        airportCode: sj.airportCode ?? booking.airportCode,
-        isFromAirport:
-          typeof sj.isFromAirport === "boolean" ? sj.isFromAirport : booking.isFromAirport,
-        tripLabel: sj.tripLabel || booking.tripLabel || "Airport transfer",
-        journeyDistance: sj.journeyDistance,
-        journeyDuration: sj.journeyDuration,
-        pickupLat: sj.pickupLat,
-        pickupLng: sj.pickupLng,
-        dropoffLat: sj.dropoffLat,
-        dropoffLng: sj.dropoffLng,
-      };
-    } else {
-      amount = resolved.amount;
-      standardWebsiteAmount = amount;
-      booking = {
-        ...booking,
-        pickupLabel: sj.pickupLabel,
-        dropoffLabel: sj.dropoffLabel,
-        returnJourney: Boolean(sj.returnJourney),
-        tripDate: sj.tripDate,
-        tripTime: sj.tripTime,
-        returnDate: sj.returnDate ?? "",
-        returnTime: sj.returnTime ?? "",
         passengers: sj.passengers,
         suitcases: sj.suitcases,
         flightNumber: booking.flightNumber || sj.flightNumber || "",
@@ -4043,6 +4015,12 @@ export default {
       return handlePublicQuickQuoteLookup(request, env, origin);
     }
 
+    if (url.pathname === "/saved-quotes/settings" && request.method === "GET") {
+      if (!env.TRACKING_STORE) return json({ error: "Storage unavailable" }, 503, origin);
+      const settings = await getBookingSettings(env.TRACKING_STORE);
+      return new Response(JSON.stringify(settings.saveQuote), { headers: { ...corsHeaders(origin), "Content-Type": "application/json", "Cache-Control": "no-store" } });
+    }
+
     if (isSavedQuotesCreatePath(url.pathname) && request.method === "POST") {
       if (!env.TRACKING_STORE) {
         return json({ error: "Storage is not configured" }, 503, origin);
@@ -4083,6 +4061,7 @@ export default {
       if (!env.TRACKING_STORE) {
         return json({ error: "Storage is not configured" }, 503, origin);
       }
+      if (!await allowSavedQuoteRequest(env.TRACKING_STORE, request, undefined, true)) return json({ error: "Too many requests" }, 429, origin);
       let body: Record<string, unknown>;
       try {
         body = (await request.json()) as Record<string, unknown>;
@@ -4118,20 +4097,6 @@ export default {
           ? String(body.returnTime || "").trim() || undefined
           : latest.journey.returnTime;
       const scheduleChanged = savedQuoteScheduleChanged(latest.journey, { tripDate, tripTime });
-      if (!scheduleChanged) {
-        return json(
-          {
-            ok: true,
-            scheduleChanged: false,
-            amount: latest.pricing.totalAmount,
-            amountLabel: latest.pricing.amountLabel,
-            lockedOriginalAmount: latest.pricing.totalAmount,
-            quote: toSavedQuotePublicSummary(latest),
-          },
-          200,
-          origin,
-        );
-      }
       const priced = await buildAuthoritativeSavedQuotePricing({
         journey: {
           ...latest.journey,
@@ -4150,7 +4115,7 @@ export default {
       return json(
         {
           ok: true,
-          scheduleChanged: true,
+          scheduleChanged,
           amount: priced.pricing.totalAmount,
           amountLabel: priced.pricing.amountLabel,
           lockedOriginalAmount: latest.pricing.totalAmount,
