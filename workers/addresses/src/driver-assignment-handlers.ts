@@ -441,6 +441,7 @@ export async function handleDriverAssignRequest(
     const cashDue = paidRecord ? remainingCashDueGbp(paidRecord) : 0;
     const email = buildDriverAssignmentEmail({
       job: updatedBooking,
+      meetGreetSelected: typeof paidRecord?.meetGreetFeeGbp === "number" && record.journeyLeg !== "return",
       acceptUrl,
       businessName: BUSINESS_NAME,
       ...(cashDue > 0 ? { cashBalanceDue: cashDue } : {}),

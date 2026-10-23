@@ -64,6 +64,7 @@ export type PaymentCheckoutRequest = {
   expressDropOffSelected?: boolean;
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
+  meetGreetSelected?: boolean;
   outboundAirportAccessOption?: "express" | "free" | "meet-greet";
   returnAirportAccessOption?: "express" | "free" | "meet-greet";
   /**
@@ -212,6 +213,7 @@ export function isPaymentOwnerNoAvailabilityError(
 }
 
 export type PaymentConfirmationResult = {
+  meetGreetFeeGbp?: number;
   amountPaid: string;
   paymentReference: string;
   /** Short customer-facing MAT-#### when available. */
@@ -337,6 +339,7 @@ export async function createPaymentCheckout(
     body: JSON.stringify({
       amount: request.amount,
       description: request.description,
+      meetGreetSelected: request.meetGreetSelected === true,
       checkoutReference: request.checkoutReference,
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
       ...(booking ? { booking } : {}),

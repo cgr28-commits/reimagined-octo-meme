@@ -505,6 +505,7 @@ export async function handlePaidBookingsListRequest(
             ? booking.expressDropOffFee
             : undefined,
         expressDropOffAirport: booking.expressDropOffAirport || undefined,
+        meetGreetFeeGbp: booking.meetGreetFeeGbp,
         outboundAirportAccessChargeGbp:
           typeof booking.outboundAirportAccessChargeGbp === "number" &&
           Number.isFinite(booking.outboundAirportAccessChargeGbp)

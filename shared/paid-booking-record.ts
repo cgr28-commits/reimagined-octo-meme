@@ -190,6 +190,7 @@ export type PaidBookingRecord = {
   returnExpressDropOffSelected?: boolean;
   outboundAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   returnAirportAccessOption?: "express" | "free" | "meet-greet" | null;
+  meetGreetFeeGbp?: number;
   outboundAirportAccessChargeGbp?: number;
   returnAirportAccessChargeGbp?: number;
   /** Dublin Airport arrival terminal for pickup instructions. Never guessed. */

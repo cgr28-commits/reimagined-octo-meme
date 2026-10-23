@@ -53,6 +53,7 @@ export type BookingDetails = {
   airportAccessOption?: "express" | "free" | "meet-greet";
   outboundAirportAccessOption?: "express" | "free" | "meet-greet";
   returnAirportAccessOption?: "express" | "free" | "meet-greet";
+  meetGreetFeeGbp?: number;
   outboundAirportAccessChargeGbp?: number;
   returnAirportAccessChargeGbp?: number;
   journeyFareBeforePromotionsGbp?: number;
@@ -178,6 +179,7 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
         outboundAirportAccessOption: details.outboundAirportAccessOption,
         returnAirportAccessOption: details.returnAirportAccessOption,
+        meetGreetFeeGbp: details.meetGreetFeeGbp,
         airportAccessOption: details.airportAccessOption,
         outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
         returnAirportAccessChargeGbp: details.returnAirportAccessChargeGbp,

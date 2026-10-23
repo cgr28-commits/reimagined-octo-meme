@@ -1,5 +1,6 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
+import { MEET_GREET_DRIVER_NOTE } from "./meet-greet";
 import type { AdsAttribution } from "./ads-attribution";
 import { lightCustomerEmailHtml,
   businessEmailClientMeta, businessEmailLogoHtml } from "./business-email";
@@ -123,6 +124,7 @@ export function buildDriverAssignmentEmail(options: {
   acceptUrl: string;
   businessName?: string;
   cashBalanceDue?: number;
+  meetGreetSelected?: boolean;
   /** Single-use My Jobs link for this saved driver. */
   portalUrl?: string;
 }): { subject: string; text: string; html: string } {
@@ -154,6 +156,7 @@ export function buildDriverAssignmentEmail(options: {
     `Passengers: ${job.passengers}`,
     `Suitcases: ${job.suitcases}`,
     `Vehicle type booked: ${job.vehicle}`,
+    options.meetGreetSelected ? `Outbound collection — ${MEET_GREET_DRIVER_NOTE}` : null,
     vehicleLine ? `Your vehicle on this job: ${vehicleLine}` : null,
     job.driverMobile?.trim() ? `Your mobile on file: ${job.driverMobile.trim()}` : null,
     "",
@@ -195,6 +198,7 @@ export function buildDriverAssignmentEmail(options: {
           : ""
       }
       <p style="margin:0 0 8px;"><strong>Passengers / suitcases:</strong> ${job.passengers} / ${job.suitcases}</p>
+      ${options.meetGreetSelected ? `<p style="margin:0 0 8px;">${escapeHtml(`Outbound collection — ${MEET_GREET_DRIVER_NOTE}`)}</p>` : ""}
       <p style="margin:0;"><strong>Your pay for this journey:</strong> ${escapeHtml(pay)}</p>
       ${
         typeof options.cashBalanceDue === "number" && options.cashBalanceDue > 0

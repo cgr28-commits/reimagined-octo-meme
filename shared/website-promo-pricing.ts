@@ -16,6 +16,7 @@ export type WebsitePromoPricingFields = {
   totalPromotionalSavingGbp?: number;
   /** Express fee charged (0 when free option selected). */
   airportAccessChargeGbp?: number;
+  meetGreetFeeGbp?: number;
   outboundAirportAccessChargeGbp?: number;
   returnAirportAccessChargeGbp?: number;
   journeyFareAfterPromotionsGbp?: number;
@@ -51,6 +52,7 @@ export function parseWebsitePromoPricingFields(
     return Math.round(raw * 100) / 100;
   };
   return {
+    meetGreetFeeGbp: input.meetGreetFeeGbp == null ? undefined : num("meetGreetFeeGbp"),
     journeyFareBeforePromotionsGbp: num("journeyFareBeforePromotionsGbp"),
     originalEligibleJourneyPriceGbp: num("originalEligibleJourneyPriceGbp"),
     returnJourneySavingGbp: num("returnJourneySavingGbp"),
@@ -71,6 +73,7 @@ export function formatCustomerPromoPricingLines(
   amountPaidLabel?: string,
 ): string[] {
   const lines: string[] = [];
+  if (fields.meetGreetFeeGbp != null) lines.push(`Meet & Greet: ${formatGbpFare(fields.meetGreetFeeGbp)}`);
   if (
     typeof fields.originalEligibleJourneyPriceGbp === "number" &&
     fields.originalEligibleJourneyPriceGbp > 0
@@ -129,6 +132,7 @@ export function formatCustomerPromoPricingHtmlRows(
   amountPaidLabel?: string,
 ): Array<{ label: string; value: string }> {
   const rows: Array<{ label: string; value: string }> = [];
+  if (fields.meetGreetFeeGbp != null) rows.push({ label: "Meet & Greet", value: formatGbpFare(fields.meetGreetFeeGbp) });
   if (
     typeof fields.originalEligibleJourneyPriceGbp === "number" &&
     fields.originalEligibleJourneyPriceGbp > 0

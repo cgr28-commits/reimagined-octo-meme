@@ -2146,6 +2146,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
     input.booking.returnAirportAccessOption === "meet-greet"
       ? { returnAirportAccessOption: input.booking.returnAirportAccessOption }
       : {}),
+    ...(typeof input.booking.meetGreetFeeGbp === "number" ? { meetGreetFeeGbp: input.booking.meetGreetFeeGbp } : {}),
     ...(typeof input.booking.outboundAirportAccessChargeGbp === "number" &&
     Number.isFinite(input.booking.outboundAirportAccessChargeGbp)
       ? {

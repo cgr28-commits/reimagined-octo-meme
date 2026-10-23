@@ -500,7 +500,12 @@ const paymentSrc = fs.readFileSync(
   path.join(root, "workers/addresses/src/index.ts"),
   "utf8",
 );
-assert.match(paymentSrc, /const serverFinalAmountGbp = breakdown\.finalAmountPayableGbp/);
+// Optional Meet & Greet is added after the discounted fare and time premium.
+// Keep verifying the server total and accepted-price guard used for SumUp.
+assert.match(paymentSrc, /const optionalMeetGreetFee = optionalMeetGreet\.feeGbp/);
+assert.match(paymentSrc, /const serverFinalAmountGbp = Math\.round\(\(breakdown\.finalAmountPayableGbp \+ optionalMeetGreetFee\) \* 100\) \/ 100/);
+assert.match(paymentSrc, /if \(!checkoutAmountsMatch\(acceptedFinalRaw, serverFinalAmountGbp\)\)/);
+assert.match(paymentSrc, /resolveSumUpChargeAmountGbp\(\s*acceptedFinalRaw,\s*serverFinalAmountGbp/);
 assert.match(paymentSrc, /never use client standardWebsiteAmount for SumUp amount/);
 console.log("OK  Q/R engine, quote-service and SumUp use 5% on base then +surcharge");
 

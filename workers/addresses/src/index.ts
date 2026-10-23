@@ -1,3 +1,4 @@
+import { quoteOptionalMeetGreet } from "../shared/meet-greet";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 export { ConsentLedger } from "./consent-ledger";
@@ -1960,8 +1961,18 @@ async function handlePaymentRequest(
   const redirectUrl = canonicalizeBookingConfirmedRedirectUrl(
     String(body.redirectUrl ?? "").trim(),
   );
+  if (body.meetGreetSelected != null && typeof body.meetGreetSelected !== "boolean") {
+    return json({ error: "Invalid Meet & Greet selection" }, 400, origin);
+  }
+  const optionalMeetGreetSelected = body.meetGreetSelected === true;
+  // Fixed-price payment links retain their agreed services; this extra is offered in the website booking form.
+  if (optionalMeetGreetSelected && (shortNoticeToken || a2aQuoteToken || personalQuoteCodeRaw || quickQuoteIdRaw || savedQuoteTokenRaw)) {
+    return json({ error: "Meet & Greet must be arranged separately for an existing fixed-price payment link." }, 400, origin);
+  }
   let booking = parsePaidBookingDetails(body);
   if (booking) {
+    // Only the server may attach the charged optional-service snapshot.
+    delete booking.meetGreetFeeGbp;
     booking = applyPublicFivePlusLuggage(booking);
     if (isFivePlusLuggage(booking.suitcases, { suitcasesExact: booking.suitcasesExact })) {
       booking = {
@@ -2956,7 +2967,15 @@ async function handlePaymentRequest(
         : {}),
     });
 
-    const serverFinalAmountGbp = breakdown.finalAmountPayableGbp;
+    const optionalMeetGreet = quoteOptionalMeetGreet({
+      selected: optionalMeetGreetSelected,
+      pickupAirportCode: airportContext.pickupAirportCode || (airportContext.fromAirport ? airportContext.airportCode : null),
+      fees: pricing.meetGreet,
+      included: isExecutiveVehicle(vehicleType),
+    });
+    if (!optionalMeetGreet.ok) return json({ error: optionalMeetGreet.error }, 400, origin);
+    const optionalMeetGreetFee = optionalMeetGreet.feeGbp;
+    const serverFinalAmountGbp = Math.round((breakdown.finalAmountPayableGbp + optionalMeetGreetFee) * 100) / 100;
     // Customer must have been shown/agreed this exact final amount (consent + breakdown).
     // Never silently substitute a recalculated SumUp charge.
     const acceptedFinalRaw = Number(
@@ -2988,7 +3007,7 @@ async function handlePaymentRequest(
       acceptedFinalRaw,
       serverFinalAmountGbp,
       undefined,
-      preserveFixedFarePence,
+      preserveFixedFarePence || optionalMeetGreetFee % 1 !== 0,
     );
     if (sumUpChargeGbp == null) {
       return json(
@@ -3019,12 +3038,13 @@ async function handlePaymentRequest(
       expressDropOffAirport: persisted.expressDropOffAirport,
       outboundExpressDropOffSelected: persisted.outboundExpressDropOffSelected,
       returnExpressDropOffSelected: persisted.returnExpressDropOffSelected,
-      outboundAirportAccessOption: persisted.outboundAirportAccessOption,
+      outboundAirportAccessOption: optionalMeetGreetSelected ? "meet-greet" : persisted.outboundAirportAccessOption,
       returnAirportAccessOption: persisted.returnAirportAccessOption,
-      airportAccessOption: quotedAccess.airportAccessOption,
+      airportAccessOption: optionalMeetGreetSelected ? "meet-greet" : quotedAccess.airportAccessOption,
       outboundAirportAccessChargeGbp: persisted.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       ...promoFieldsFromFareBreakdown(breakdown),
+      meetGreetFeeGbp: optionalMeetGreetSelected ? optionalMeetGreetFee : undefined,
       // Persist the amount the customer accepted and SumUp will charge.
       finalAmountPayableGbp: sumUpChargeGbp,
       ...(returnOfferOriginalPaymentReference

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatMeetGreetGbp, meetGreetFeeGbp, normaliseMeetGreetAirport } from "../../shared/meet-greet";
+
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import AddressInput from "@/components/AddressInput";
@@ -823,6 +825,15 @@ function QuoteCard({
   const quoteCalculationFingerprintRef = useRef("");
   const [bookingDelivery, setBookingDelivery] = useState<BookingDelivery | null>(null);
   const [quoteStep, setQuoteStep] = useState<1 | 2 | 3>(1);
+  useEffect(() => {
+    if (quoteStep !== 2) return;
+    let cancelled = false;
+    // Re-entering contact details loads the current configured service prices.
+    void fetchPublicPricingConfig().then((config) => {
+      if (!cancelled) setPublicPricing((current) => ({ ...current, meetGreet: config.meetGreet }));
+    });
+    return () => { cancelled = true; };
+  }, [quoteStep]);
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -1015,6 +1026,7 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
+  const [bookingMeetGreetSelected, setBookingMeetGreetSelected] = useState(false);
   const [outboundAccessChoice, setOutboundAccessChoice] = useState<AirportAccessChoice>("express");
   const [returnAccessChoice, setReturnAccessChoice] = useState<AirportAccessChoice>("express");
   const expressDropOffSelected = outboundAccessChoice === "express";
@@ -2662,6 +2674,15 @@ function QuoteCard({
     ],
   );
 
+  const bookingMeetGreetAirport = isFromAirport
+    ? normaliseMeetGreetAirport(pickupAirportCode || effectiveAirportCode) : null;
+  const bookingMeetGreetEligible = Boolean(bookingMeetGreetAirport) &&
+    useOpenWebsitePromoPricing && !isExecutiveVehicle(quoteVehicle);
+  const bookingMeetGreetPrice = meetGreetFeeGbp(bookingMeetGreetAirport, publicPricing.meetGreet);
+  const bookingMeetGreetActive = bookingMeetGreetEligible && bookingMeetGreetSelected && quoteStep > 1;
+  const bookingMeetGreetCharge = bookingMeetGreetActive ? bookingMeetGreetPrice : 0;
+  useEffect(() => { setBookingMeetGreetSelected(false); }, [pickupAddress, dropoffAddress, quoteVehicle]);
+
   const airportFeeResolution = useMemo(() => {
     if (isAirportToAirportJourney && pickupAirportCode && dropoffAirportCode) {
       return resolveJourneyAirportFees({
@@ -3985,7 +4006,7 @@ function QuoteCard({
       childSeats,
       childSeatNotes: childSeats > 0 ? childSeatNotes.trim() : undefined,
       vehicle: quoteVehicle,
-      estimatedPrice,
+      estimatedPrice: bookingMeetGreetActive && liveQuote ? formatQuote((pricedFare?.totalGbp ?? liveQuote.amount) + bookingMeetGreetCharge) : estimatedPrice,
       journeyDistance: journeyDistanceLabel || undefined,
       journeyDuration: journeyDurationLabel || undefined,
       isAirportTrip: isAirportTrip || Boolean(journeyKind && journeyKind !== "address-to-address"),
@@ -4001,19 +4022,20 @@ function QuoteCard({
       expressDropOffSelected: airportAccessQuote.expressDropOffSelected,
       expressDropOffFee: airportAccessQuote.expressDropOffFee,
       expressDropOffAirport: airportAccessQuote.expressDropOffAirport,
-      airportAccessOption: airportAccessQuote.airportAccessOption ?? undefined,
+      meetGreetFeeGbp: bookingMeetGreetActive ? bookingMeetGreetCharge : undefined,
+      airportAccessOption: bookingMeetGreetActive ? "meet-greet" : airportAccessQuote.airportAccessOption ?? undefined,
       outboundExpressDropOffSelected: airportAccessQuote.outboundAirportAccessOption
         ? airportAccessQuote.outboundExpressDropOffSelected
         : undefined,
       returnExpressDropOffSelected: airportAccessQuote.returnAirportAccessOption
         ? airportAccessQuote.returnExpressDropOffSelected
         : undefined,
-      outboundAirportAccessOption: airportAccessQuote.outboundAirportAccessOption ?? undefined,
+      outboundAirportAccessOption: bookingMeetGreetActive ? "meet-greet" : airportAccessQuote.outboundAirportAccessOption ?? undefined,
       returnAirportAccessOption: airportAccessQuote.returnAirportAccessOption ?? undefined,
       outboundAirportAccessChargeGbp: airportAccessQuote.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: airportAccessQuote.returnAirportAccessChargeGbp,
       ...(openWebsiteFareBreakdown
-        ? promoFieldsFromFareBreakdown(openWebsiteFareBreakdown)
+        ? { ...promoFieldsFromFareBreakdown(openWebsiteFareBreakdown), finalAmountPayableGbp: Math.round((openWebsiteFareBreakdown.finalAmountPayableGbp + bookingMeetGreetCharge) * 100) / 100 }
         : {}),
     };
   }
@@ -4182,20 +4204,21 @@ function QuoteCard({
     return `${prefix}${tripSummary} — ${vehicleLabel}${namePart}`.slice(0, 140);
   }
 
-  const paymentAmount =
+  const transferPaymentAmount =
     testChargeAmount ??
     (pricedFare?.totalGbp != null
       ? pricedFare.totalGbp
       : mayPaintNumericFare
         ? (liveQuote?.amount ?? null)
         : null);
+  const paymentAmount = transferPaymentAmount == null ? null : Math.round((transferPaymentAmount + bookingMeetGreetCharge) * 100) / 100;
   const homepageQuotedBaseline = provisionalQuotedAmountRef.current;
   const homepageFareChanged =
     presentation === "homepage" &&
     homepageQuotedBaseline != null &&
     paymentAmount != null &&
     Number.isFinite(paymentAmount) &&
-    Math.abs(paymentAmount - homepageQuotedBaseline) >= 0.01;
+    Math.abs((transferPaymentAmount ?? paymentAmount) - homepageQuotedBaseline) >= 0.01;
   const depositCashOffer =
     depositCashSettings?.enabled === true &&
     !appliedPersonalQuote &&
@@ -4372,6 +4395,7 @@ function QuoteCard({
             : appliedPersonalQuote
               ? appliedPersonalQuote.agreedAmount
               : paymentAmount ?? liveQuote.amount ?? 0,
+        meetGreetSelected: bookingMeetGreetActive,
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
@@ -6684,10 +6708,23 @@ function QuoteCard({
                   </p>
                 ) : null}
               </div>
+              {bookingMeetGreetEligible ? (
+                <section className="rounded-xl border border-emerald/30 bg-navy/30 px-3 py-3 text-white" data-booking-meet-greet>
+                  <h3 className="text-sm font-bold">Enhance Your Airport Pickup</h3>
+                  <p className="mt-1 text-sm font-semibold">Meet &amp; Greet Service — {formatMeetGreetGbp(bookingMeetGreetPrice)}</p>
+                  <p id="booking-meet-greet-description" className="mt-1 text-xs leading-snug">Your driver will meet you inside the airport arrivals hall with a personalised name board and assist you to your vehicle.</p>
+                  <label className="mt-1 flex min-h-11 items-center gap-2 text-sm font-semibold">
+                    <input type="checkbox" className="h-4 w-4 accent-emerald" checked={bookingMeetGreetSelected}
+                      aria-describedby="booking-meet-greet-description"
+                      onChange={(event) => setBookingMeetGreetSelected(event.target.checked)} />
+                    Add Meet &amp; Greet to my booking
+                  </label>
+                </section>
+              ) : null}
               <div>
-                <p className="form-label mb-2">Child / booster seats</p>
+                <p className="form-label mb-1.5">Child / booster seats</p>
                 <div
-                  className="grid grid-cols-3 gap-2"
+                  className="grid w-full max-w-[240px] grid-cols-3 gap-1.5"
                   role="group"
                   aria-label="Child / booster seats"
                 >
@@ -6707,7 +6744,7 @@ function QuoteCard({
                             setChildSeatNotesError("");
                           }
                         }}
-                        className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
+                        className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition-all ${
                           selected ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
                         }`}
                       >
@@ -6785,6 +6822,7 @@ function QuoteCard({
                 : null
             }
           >
+            {bookingMeetGreetActive ? <p className="mt-1 text-sm font-semibold" data-meet-greet-summary>Meet &amp; Greet: {formatMeetGreetGbp(bookingMeetGreetCharge)}</p> : null}
             {showChangeDropOff && expressEditingLeg != null
               ? renderExpressChoiceInPriceCard("full")
               : null}

@@ -1,3 +1,4 @@
+import { getPaidBookingRecord } from "./paid-booking-store";
 import {
   bookingJobAssignmentLabel,
   buildDriverAssignmentEmail,
@@ -572,8 +573,10 @@ export async function handleBookingJobAssignDriverRequest(
     });
     portalUrl = driverPortalMagicLink(siteUrl(env), accessToken);
   }
+  const paidRecord = await getPaidBookingRecord(env.TRACKING_STORE, updated.paymentReference || updated.id);
   const email = buildDriverAssignmentEmail({
     job: updated,
+    meetGreetSelected: typeof paidRecord?.meetGreetFeeGbp === "number",
     acceptUrl,
     businessName: BUSINESS_NAME,
     ...(portalUrl ? { portalUrl } : {}),
