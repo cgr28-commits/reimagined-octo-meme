@@ -7,7 +7,7 @@ export default function SaveQuoteReminder({ eligible, settings, quoteKey, onSave
   eligible: boolean; settings: SaveQuoteSettings; quoteKey: string; onSave: () => void; onBook: () => void;
 }) {
   const [visible, setVisible] = useState(false);
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; height: number } | null>(null);
   const panel = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!eligible || !settings.enabled || !settings.popupEnabled || !(settings.emailEnabled || settings.whatsappEnabled)) { setVisible(false); return; }
@@ -40,20 +40,15 @@ export default function SaveQuoteReminder({ eligible, settings, quoteKey, onSave
       const height = panel.current.offsetHeight;
       const left = window.innerWidth - width - 16;
       const candidates = [96, window.innerHeight - height - 40];
-      const protectedRects = Array.from(document.querySelectorAll('#quoteForm button, #quoteForm input, [data-quote-result-card], #quoteForm [data-quote-fare-status]')).map(el => el.getBoundingClientRect());
-      // Protect the whole quote form on narrow screens; use an in-flow card if there is no safe space.
-      if (window.innerWidth < 768) {
-        const form = document.getElementById("quoteForm");
-        if (form) protectedRects.push(form.getBoundingClientRect());
-      }
+      const protectedRects = Array.from(document.querySelectorAll('#quoteForm button, #quoteForm input, [data-quote-result-price], #quoteForm [data-quote-fare-status]')).map(el => el.getBoundingClientRect());
       const top = candidates.find(y => y >= 80 && y + height <= window.innerHeight - 24 && !protectedRects.some(r => r.width && r.height && left < r.right && left + width > r.left && y < r.bottom && y + height > r.top));
-      setPosition(top === undefined ? null : { top, left });
+      setPosition(top === undefined ? null : { top, left, height });
     };
     place(); window.addEventListener("resize",place); window.addEventListener("scroll",place,{ passive:true });
     return () => { window.removeEventListener("resize",place); window.removeEventListener("scroll",place); };
   }, [visible]);
   if (!visible || !eligible) return null;
-  return <aside ref={panel} data-save-quote-reminder role="region" aria-label="Save your quote reminder" className="z-40 mx-auto my-3 w-full max-w-[340px] rounded-2xl border border-white/20 bg-[#071C38] p-4 text-white shadow-xl" style={position ? { position: "fixed", ...position, width: "min(340px, calc(100vw - 32px))", paddingBottom: "max(16px, env(safe-area-inset-bottom))" } : undefined}>
+  return <div className="my-3" style={position ? { minHeight: position.height } : undefined}><aside ref={panel} data-save-quote-reminder role="region" aria-label="Save your quote reminder" className="z-40 mx-auto w-full max-w-[340px] rounded-2xl border border-white/20 bg-[#071C38] p-4 text-white shadow-xl" style={position ? { position: "fixed", top: position.top, left: position.left, width: "min(340px, calc(100vw - 32px))", paddingBottom: "max(16px, env(safe-area-inset-bottom))" } : undefined}>
     <button type="button" aria-label="Close save quote reminder" className="float-right -mr-2 -mt-2 min-h-11 min-w-11" onClick={() => setVisible(false)}>×</button>
     <h3 className="text-base font-bold">Not Ready to Book Yet?</h3>
     <p className="mt-2 text-sm">Save your airport transfer quote and come back whenever you’re ready.</p>
@@ -61,5 +56,5 @@ export default function SaveQuoteReminder({ eligible, settings, quoteKey, onSave
       <button type="button" className="min-h-11 rounded-xl bg-[#2FBF4A] px-3 font-semibold text-[#071C38]" onClick={() => { setVisible(false); onSave(); }}>Save My Quote</button>
       <button type="button" className="min-h-11 rounded-xl border border-white/30 px-3" onClick={() => { setVisible(false); onBook(); }}>Continue to Booking</button>
     </div><p className="mt-2 text-xs text-white/70">No obligation to book.</p>
-  </aside>;
+  </aside></div>;
 }

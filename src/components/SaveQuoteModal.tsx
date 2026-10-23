@@ -41,8 +41,8 @@ export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow,
       {result ? <>
         <p role="status">{result.emailSent ? `Your quote has been emailed to ${result.email}.` : shareUrl ? "Your quote is saved. Open WhatsApp, choose a recipient and send it yourself." : "Your quote is saved, but the email could not be sent. Keep your secure link below."}</p>
         <p className="break-words">Reference: {result.reference}<br/>Original fare: {result.amountLabel}<br/>Retrieve until: {result.expiresAtLabel}</p>
-        {shareUrl && <a className="btn-primary block text-center" href={shareUrl} target="_blank" rel="noopener noreferrer">Open WhatsApp to Share</a>}
-        <a className="btn-secondary block text-center" href={result.quoteUrl} referrerPolicy="no-referrer">Return to My Quote</a>
+        {shareUrl && <a className="btn-primary block w-full text-center" href={shareUrl} target="_blank" rel="noopener noreferrer">Open WhatsApp to Share</a>}
+        <a className="btn-secondary block w-full text-center" href={result.quoteUrl} referrerPolicy="no-referrer">Return to My Quote</a>
         {settings.emailEnabled && shareUrl && <button type="button" className="btn-secondary w-full" onClick={() => { setResult(null); setShareUrl(""); }}>Email My Quote instead</button>}
         <button type="button" className="btn-secondary w-full" onClick={() => { close(); onBookNow(); }}>Continue to Booking</button>
       </> : <>

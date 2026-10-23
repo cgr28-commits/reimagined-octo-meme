@@ -5,7 +5,7 @@ Branch: `feature/save-my-quote-email-whatsapp`. No merge or deployment requested
 ## Behaviour
 
 - After a valid server-priced quote, a 20-second inactivity timer offers Save My Quote or Continue to Booking. Quote interaction/scroll resets it, hidden tabs pause it, and session storage suppresses repeat displays. Booking/payment stages suppress it.
-- A compact navy/green reminder floats only where it does not intersect protected fare/cards/controls. On cramped screens it uses an in-flow fallback. No animation; safe-area padding on floating placement.
+- A compact navy/green reminder floats only where it does not intersect the quoted fare or booking controls. On cramped screens it uses an in-flow fallback. No animation; safe-area padding on floating placement.
 - Email saving requests only an email address and uses the existing branded provider. WhatsApp saving requires no contact details and generates a mobile `wa.me` or desktop WhatsApp Web share link. A second explicit click opens sharing, avoiding asynchronous popup blocking; the customer selects the recipient and sends it.
 - 192-bit random tokens, strict format checking, fragment-based website links, no-store lookup responses, expiry enforced on reads and payments, and bounded retention. IP and hashed-recipient hourly limits reduce abuse. No marketing subscription and no scheduled saved-quote reminders (including older saved quotes).
 - Returning customers use the existing QuoteCard and normal server-validated payment flow. Restores the original locations and their selection metadata, dates, return leg, vehicle, passengers, luggage, child seats, flight numbers and selected Meet & Greet. Current fares are shown alongside an original-price comparison. No booking is created by saving.
@@ -21,7 +21,7 @@ Pricing engine modules are unchanged. The saved-quote adapter now preserves sele
 
 Locally passed frontend typecheck, lint (existing warnings), production static export, Worker typecheck/dry-run bundle, and 12 regression suites including new saved-quote integration, existing saved quotes, reminder suppression, configured evening/night pricing, Meet & Greet/payment, BFS minimum/payment, airport costs, deposit/cash, authoritative fare and child seats/payment. Email and SumUp were mocked; no real messages or charges.
 
-`Save My Quote review` CI runs the integration checks and an intercepted-network Chromium test at 320, 360, 375, 390 and 1440 pixels. Screenshots are uploaded as `save-my-quote-screenshots`. It creates no deployment. Browser execution and screenshots are pending CI: the local environment could not download a working browser binary.
+`Save My Quote review` CI runs the integration checks and an intercepted-network Chromium test at 320, 360, 375, 390 and 1440 pixels. Screenshots are uploaded as `save-my-quote-screenshots`. It creates no deployment. Local Chromium browser checks pass at all five widths. The original runtime browser download failed; installing the compatible pinned Playwright browser succeeded. Screenshots below use mocked services and fictional quote data. CI repeats these checks; some unrelated workflow attempts encountered a Google-font download/build failure and were retried.
 
 ## Limits requiring review
 
@@ -33,3 +33,17 @@ Locally passed frontend typecheck, lint (existing warnings), production static e
 ## Files
 
 Core changes: `shared/save-quote-settings.ts`, `shared/saved-quote.ts`, `shared/saved-quote-emails.ts`; `SaveQuoteReminder`, `SaveQuoteModal`, `OwnerSaveQuoteSettings`, `OwnerShortNoticePanel`, `QuoteCard`; saved quote page/client, saving/payload/sharing APIs, owner settings API and privacy content; Worker saved quote handlers/store, booking settings/owner handlers and router; synchronized Worker shared copies; integration/browser tests and CI workflow. See the PR Files Changed tab for the exact list.
+
+## Screenshots
+
+Fictional journeys and mocked example fares; these are not live price quotes.
+
+| Width | Reminder | Save options | WhatsApp sharing |
+|---|---|---|---|
+| 320px | [View](320-reminder.png) | [View](320-save-options.png) | [View](320-whatsapp.png) |
+| 360px | [View](360-reminder.png) | [View](360-save-options.png) | [View](360-whatsapp.png) |
+| 375px | [View](375-reminder.png) | [View](375-save-options.png) | [View](375-whatsapp.png) |
+| 390px | [View](390-reminder.png) | [View](390-save-options.png) | [View](390-whatsapp.png) |
+| 1440px | [View](1440-reminder.png) | [View](1440-save-options.png) | [View](1440-whatsapp.png) |
+
+Browser coverage includes 20-second inactivity, interaction resets, dismissal, once-per-session/reload suppression, booking suppression, restored return dates/party/vehicle, changed fare, email success and both sharing URL variants. Requests for payments/bookings are intercepted and asserted absent. Actual Safari and real WhatsApp/email delivery remain acceptance checks.

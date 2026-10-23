@@ -39,7 +39,7 @@ try {
   const page=await context.newPage();page.setDefaultTimeout(30000);page.on('pageerror',e=>errors.push(e.message));
   try {
   await page.goto(base+'/quote/#t='+token,{waitUntil:'domcontentloaded'});
-  const reject=page.getByRole('button',{name:'Reject optional',exact:true});if(await reject.count())await reject.click();
+  const reject=page.getByRole('button',{name:'Reject optional',exact:true});await reject.click();
   await page.locator('[data-quote-fare-status="ready"]').first().waitFor();
   assert.equal(await page.locator('#quoteForm [name="passengers"]').first().inputValue(),'2');
   assert.equal(await page.locator('#quoteForm [name="suitcases"]').first().inputValue(),'1');
@@ -57,16 +57,21 @@ try {
   const reminder=page.locator('[data-save-quote-reminder]');await reminder.waitFor();
   await reminder.scrollIntoViewIfNeeded();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no horizontal overflow');
-  const overlaps=await page.evaluate(()=>{const p=document.querySelector('[data-save-quote-reminder]').getBoundingClientRect();return [...document.querySelectorAll('#quoteForm [data-quote-result-card], #quoteForm button')].some(el=>{const r=el.getBoundingClientRect();return r.width&&r.height&&p.left<r.right&&p.right>r.left&&p.top<r.bottom&&p.bottom>r.top;});});
+  const overlaps=await page.evaluate(()=>{const p=document.querySelector('[data-save-quote-reminder]').getBoundingClientRect();return [...document.querySelectorAll('#quoteForm [data-quote-result-price], #quoteForm button')].some(el=>{const r=el.getBoundingClientRect();return r.width&&r.height&&p.left<r.right&&p.right>r.left&&p.top<r.bottom&&p.bottom>r.top;});});
   assert.equal(overlaps,false,'reminder does not cover fare or controls');
-  await page.screenshot({path:`test-results/save-my-quote/${width}-reminder.png`,fullPage:true});
-  await reminder.getByRole('button',{name:'Save My Quote',exact:true}).click();
-  const dialog=page.getByRole('dialog');await dialog.waitFor();
+  await page.screenshot({path:`test-results/save-my-quote/${width}-reminder.png`});
+  if(width===360) {
+    await reminder.getByRole('button',{name:'Close save quote reminder'}).click();
+    await page.clock.fastForward(30000);assert.equal(await reminder.count(),0,'dismissed reminder stays closed');
+    await page.locator('[data-quote-save]').click();
+  } else await reminder.getByRole('button',{name:'Save My Quote',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Save My Quote',exact:true});await dialog.waitFor();
   await page.screenshot({path:`test-results/save-my-quote/${width}-save-options.png`});
   await dialog.getByRole('button',{name:'Save via WhatsApp',exact:true}).click();
   const share=dialog.getByRole('link',{name:'Open WhatsApp to Share'});await share.waitFor();
   assert.equal(new URL(await share.getAttribute('href')).hostname,width<768?'wa.me':'web.whatsapp.com');
   assert.equal(channel,'whatsapp');
+  await page.screenshot({path:`test-results/save-my-quote/${width}-whatsapp.png`});
   await dialog.getByRole('button',{name:'Email My Quote instead'}).click();
   await dialog.getByLabel('Email address').fill('test@example.invalid');
   await dialog.getByRole('button',{name:'Email My Quote',exact:true}).click();
