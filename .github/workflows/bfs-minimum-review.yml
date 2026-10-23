@@ -1,0 +1,39 @@
+name: BFS minimum-only review
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'shared/**'
+      - 'src/**'
+      - 'workers/addresses/**'
+      - 'scripts/check-bfs-minimum-*.ts'
+      - '.github/workflows/bfs-minimum-review.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_ADDRESSES_API_URL: http://127.0.0.1:8787/addresses
+      NEXT_PUBLIC_BOOKINGS_API_URL: http://127.0.0.1:8787/bookings
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: node scripts/sync-worker-shared.mjs
+      - run: node --import tsx scripts/check-bfs-minimum-only.ts
+      - run: node --import tsx scripts/check-bfs-minimum-payment.ts
+      - name: Pricing and payment regressions
+        run: |
+          set -e
+          for suite in owner-pricing quote-receipt open-website-payment-fares airport-fixed-costs airport-airport-access-fees express-drop-off night-weekend-surcharge deposit-cash pricing-vehicle-quote-flow quote-path-fare-parity customer-confirm-email owner-email-bcc quote-authoritative-fare dashboard-formula-recovery airport-weekend-premium quote-schedule-price-gate luggage-capacity-confirmation quick-quote pricing-confirmation quote-vehicle-fare-refresh airport-to-airport-pricing; do
+            node --import tsx "scripts/check-$suite.ts"
+          done
+      - run: npm --prefix workers/addresses run build
+      - run: GITHUB_PAGES=true npm run build

@@ -157,13 +157,13 @@ console.log("\n=== Matrix ===\n");
   });
 }
 
-// 5 Belfast → BFS (14 mi → £44)
+// 5 Belfast → BFS (14 mi → £44, BFS minimum → £45)
 {
   const area = matchAreaFromAddress(CITY);
   const journey = universalJourney(M14);
   assert.equal(journey, 44);
   const q = calculateQuote(CITY, "BFS", S, false, {}, M14)!;
-  assert.equal(q.amount, 44);
+  assert.equal(q.amount, 45);
   rows.push({
     id: 5,
     label: "Belfast City Hall → BFS",
@@ -171,7 +171,7 @@ console.log("\n=== Matrix ===\n");
     underlying: journey,
     areaRule: `${area} — universal distance (zone retired)`,
     accessFees: "BFS fixed £0",
-    other: "14 mi → £44",
+    other: "14 mi → £44, BFS minimum → £45",
     rounding: `£${q.amount}`,
     final: q.amount,
   });
@@ -180,7 +180,7 @@ console.log("\n=== Matrix ===\n");
 // 6 BFS → Belfast
 {
   const q = calculateQuote(CITY, "BFS", S, false, {}, M14, true)!;
-  assert.equal(q.amount, 44);
+  assert.equal(q.amount, 45);
   rows.push({
     id: 6,
     label: "BFS → Belfast City Hall",

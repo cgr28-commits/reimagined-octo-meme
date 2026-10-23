@@ -20,12 +20,17 @@ import { SERVED_AIRPORTS } from "../shared/served-airports";
  * the receipt immediately through the pricing version, so expiry is not the
  * only control.
  */
+// Separate namespace for the BFS-only pricing policy and binding-floor pence.
+// Older receipts must refresh even when stored pricing.version is unchanged.
+const QUOTE_RECEIPT_FORMAT = "v2-bfs-minimum";
+
 export const QUOTE_RECEIPT_TTL_SECONDS = 3 * 60 * 60;
 
 export const QUOTE_RECEIPT_REFRESH_MESSAGE =
   "Quote amount is out of date. Please refresh your quote and try again.";
 
 export type QuoteReceiptClaims = {
+  preserveBfsMinimumPence?: boolean;
   exp: number;
   pricingVersion: number;
   pickupPlaceId: string;
@@ -51,6 +56,7 @@ export type QuoteReceiptClaims = {
 
 export type QuoteReceiptJourney = Omit<
   QuoteReceiptClaims,
+  | "preserveBfsMinimumPence"
   | "exp"
   | "journeyFareGbp"
   | "airportFixedCostsGbp"
@@ -66,6 +72,7 @@ export type QuoteReceiptDecision =
   | { action: "accept"; claims: QuoteReceiptClaims };
 
 const CLAIM_KEYS = [
+  "preserveBfsMinimumPence",
   "exp",
   "pricingVersion",
   "pickupPlaceId",
@@ -157,7 +164,7 @@ async function hmacSha256(secret: string, message: string): Promise<Uint8Array> 
 
 function canonicalClaims(claims: QuoteReceiptClaims): string {
   const record: Record<string, string | number | boolean> = {};
-  for (const key of CLAIM_KEYS) record[key] = claims[key];
+  for (const key of CLAIM_KEYS) record[key] = key === "preserveBfsMinimumPence" ? Boolean(claims[key]) : claims[key]!;
   return JSON.stringify(record);
 }
 
@@ -189,6 +196,7 @@ function readClaims(parsed: unknown): QuoteReceiptClaims | null {
   return {
     exp,
     pricingVersion,
+    preserveBfsMinimumPence: raw.preserveBfsMinimumPence === true,
     pickupPlaceId: normalizeReceiptText(raw.pickupPlaceId),
     dropoffPlaceId: normalizeReceiptText(raw.dropoffPlaceId),
     pickupAddress: normalizeReceiptText(raw.pickupAddress),
@@ -233,8 +241,8 @@ export async function signQuoteReceipt(
     exp: Math.floor(nowMs / 1000) + QUOTE_RECEIPT_TTL_SECONDS,
   };
   const body = canonicalClaims(claims);
-  const signature = await hmacSha256(secret, body);
-  return `v1.${bytesToBase64Url(new TextEncoder().encode(body))}.${bytesToBase64Url(signature)}`;
+  const signature = await hmacSha256(secret, `${QUOTE_RECEIPT_FORMAT}.${body}`);
+  return `${QUOTE_RECEIPT_FORMAT}.${bytesToBase64Url(new TextEncoder().encode(body))}.${bytesToBase64Url(signature)}`;
 }
 
 export async function verifyQuoteReceipt(
@@ -244,14 +252,14 @@ export async function verifyQuoteReceipt(
 ): Promise<{ ok: true; claims: QuoteReceiptClaims } | { ok: false; reason: string }> {
   if (typeof token !== "string" || !token.trim()) return { ok: false, reason: "missing" };
   const parts = token.split(".");
-  if (parts.length !== 3 || parts[0] !== "v1" || !parts[1] || !parts[2]) {
+  if (parts.length !== 3 || parts[0] !== QUOTE_RECEIPT_FORMAT || !parts[1] || !parts[2]) {
     return { ok: false, reason: "malformed" };
   }
   const payloadBytes = base64UrlToBytes(parts[1]);
   const signatureBytes = base64UrlToBytes(parts[2]);
   if (!payloadBytes || !signatureBytes) return { ok: false, reason: "malformed" };
   const payload = new TextDecoder().decode(payloadBytes);
-  const expected = await hmacSha256(secret, payload);
+  const expected = await hmacSha256(secret, `${QUOTE_RECEIPT_FORMAT}.${payload}`);
   if (!timingSafeEqual(expected, signatureBytes)) return { ok: false, reason: "bad_signature" };
   let parsed: unknown;
   try {

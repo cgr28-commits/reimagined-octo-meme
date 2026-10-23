@@ -272,14 +272,14 @@ check("Test B: BFS → Knocknagoney (same metrics, pickup direction)", () => {
   });
 });
 
-check("Short Belfast City Hall → BFS (~14 mi → £44)", () => {
+check("Short Belfast City Hall → BFS (~14 mi → £45 BFS minimum)", () => {
   compareThree({
     label: "City Hall → BFS",
     address: CITY_HALL,
     airportCode: "BFS",
     fromAirport: false,
     metrics: CITY_BFS_METRICS,
-    expected: 44,
+    expected: 45,
   });
 });
 
@@ -309,7 +309,7 @@ check("BFS pickup (City Hall reverse)", () => {
     airportCode: "BFS",
     fromAirport: true,
     metrics: CITY_BFS_METRICS,
-    expected: 44,
+    expected: 45,
   });
 });
 

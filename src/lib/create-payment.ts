@@ -400,7 +400,7 @@ export async function createPaymentCheckout(
               Math.round(Number(request.acceptedFinalAmountGbp) * 100) / 100,
           }
         : {}),
-      ...(typeof request.quoteReceipt === "string" && request.quoteReceipt.startsWith("v1.")
+      ...(typeof request.quoteReceipt === "string" && request.quoteReceipt.startsWith("v2-bfs-minimum.")
         ? { quoteReceipt: request.quoteReceipt }
         : {}),
       ...(request.returnOfferToken?.trim()
