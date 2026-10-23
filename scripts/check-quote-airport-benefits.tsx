@@ -91,7 +91,7 @@ const renderCard = (unavailable = false, price = "£54") => renderToStaticMarkup
   <QuoteResultShowcase
     vehicleType="Saloon" passengers={2} suitcases={2} priceLabel="Fixed price" formattedPrice={price}
     priceUnavailable={unavailable}
-    depositAvailable={true}
+    hasAirportCollection={true}
     bookButton={<button type="button" data-test-book>BOOK THIS TRANSFER</button>}
   />,
 );
@@ -102,12 +102,13 @@ for (const price of ["£41", "£65", "£123.45"]) {
 }
 const html = visibleCardMarkup(renderCard());
 assert.doesNotMatch(html, /Your own pre-booked transfer|60 Minutes Airport Waiting|Terminal pick-up included/);
-assert.match(html, /100% Refund/);
-assert.match(html, /Secure Your Booking with a Small Deposit/);
+assert.match(html, /100% refund/);
+assert.match(html, /60 Minutes Complimentary Waiting Time/);
 assert.doesNotMatch(html, /Convenient collection|Convenient drop-off/);
-assert.ok(html.indexOf("Secure Your Booking with a Small Deposit") < html.indexOf("£54"));
+assert.ok(html.indexOf("60 Minutes Complimentary Waiting Time") < html.indexOf("£54"));
 assert.ok(html.indexOf("£54") < html.indexOf("BOOK THIS TRANSFER"));
 assert.ok(html.indexOf("BOOK THIS TRANSFER") < html.indexOf("The price you see is the price you pay."));
+assert.doesNotMatch(html.slice(html.indexOf("BOOK THIS TRANSFER")), /refund|Free Cancellation/i);
 assert.doesNotMatch(visibleCardMarkup(renderCard(true)), /Terminal pick-up included/);
 for (const vehicleType of ["Executive", "Minibus"]) {
   const manual = renderToStaticMarkup(
@@ -115,7 +116,7 @@ for (const vehicleType of ["Executive", "Minibus"]) {
       priceLabel="Fixed price" formattedPrice="£54"
       requestQuote={{ heading: "Request a Quote", description: "A personalised quotation before payment." }}
       bookButton={<button type="submit">Request quote</button>}
-      depositAvailable={true}
+      hasAirportCollection={true}
     />,
   );
   assert.match(manual, /TBC/);

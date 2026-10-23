@@ -25,7 +25,7 @@ type QuoteResultShowcaseProps = {
   suitcases: number;
   priceLabel: string;
   formattedPrice: string;
-  depositAvailable?: boolean;
+  hasAirportCollection?: boolean;
   bookButton: ReactNode;
   /** Compact Business Class inclusions, directly under the book button. */
   businessClassInclusions?: ReactNode;
@@ -75,7 +75,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       suitcases,
       priceLabel,
       formattedPrice,
-      depositAvailable = false,
+      hasAirportCollection = false,
       bookButton,
       businessClassInclusions = null,
       layoutBusinessClassInclusions = null,
@@ -184,13 +184,13 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         <div data-quote-info-grid>
           <div data-quote-layout-reference aria-hidden="true" inert>
             <div data-quote-instant-reference>
-              <QuoteReassurance depositAvailable={depositAvailable} />
+              <QuoteReassurance hasAirportCollection={hasAirportCollection} />
               <p className="text-[0.72rem] font-bold uppercase tracking-[0.16em]">{priceLabel}</p>
               <p className="mt-0.5 min-h-[2.35rem]" />
             </div>
           </div>
           <div data-quote-changing-info key={vehicleType}>
-        {!requestQuote && !priceUnavailable ? <QuoteReassurance depositAvailable={depositAvailable} /> : null}
+        {!requestQuote && !priceUnavailable ? <QuoteReassurance hasAirportCollection={hasAirportCollection} /> : null}
         <div data-quote-result-price>
           {requestQuote ? (
             <div data-quote-manual-state>
