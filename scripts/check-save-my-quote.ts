@@ -70,6 +70,10 @@ async function main() {
   assert.ok(after.pricing.totalAmount>before.pricing.totalAmount,'same schedule recalculates changed pricing');
   const saloon=await buildAuthoritativeSavedQuotePricing({journey:{...journey,vehicle:SALOON_VEHICLE},googlePlacesApiKey:'mock-google',pricing});assert.ok(saloon.ok);
   assert.ok(saloon.pricing.totalAmount<before.pricing.totalAmount,'selected Estate retained');
+  const inbound={...journey, pickupLabel:journey.dropoffLabel,dropoffLabel:journey.pickupLabel,pickupPlaceId:journey.dropoffPlaceId,dropoffPlaceId:journey.pickupPlaceId,isFromAirport:true,returnJourney:false};
+  const pickupFare=await buildAuthoritativeSavedQuotePricing({journey:inbound,googlePlacesApiKey:'mock-google',pricing});assert.ok(pickupFare.ok);
+  const meetFare=await buildAuthoritativeSavedQuotePricing({journey:{...inbound,optionalMeetGreetSelected:true},googlePlacesApiKey:'mock-google',pricing});assert.ok(meetFare.ok);
+  assert.equal(meetFare.pricing.totalAmount-pickupFare.pricing.totalAmount,pricing.meetGreet.bfsGbp,'saved Meet & Greet uses configured charge exactly once');
   data.set('owner:pricing-settings',JSON.stringify(changed));
   const requote=await worker.fetch(new Request(origin+'/saved-quotes/requote',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify({token:saved.token})}),env as never);
   assert.equal(requote.status,200,await requote.clone().text());
