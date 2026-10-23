@@ -1,3 +1,5 @@
+import { readBookingFunnel } from "./booking-funnel";
+import { todayLondonDate } from "../shared/uk-time";
 import { STARTING_BOOKING_REF } from "../shared/booking-reference";
 import { corsHeaders } from "../shared/google-places";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
@@ -9,6 +11,7 @@ const NEXT_BOOKING_REF_KEY = "next_booking_ref";
 
 export type QuoteStatsEnv = DriverAuthEnv & {
   BOOKING_COUNTER?: KVNamespace;
+  TRACKING_STORE?: KVNamespace;
 };
 
 export type QuoteStatsSnapshot = {
@@ -25,6 +28,7 @@ function jsonResponse(body: unknown, status: number, origin: string | null): Res
     status,
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-store",
       ...corsHeaders(origin),
     },
   });
@@ -120,5 +124,8 @@ export async function handleQuoteStatsRequest(
   }
 
   const stats = await readQuoteStats(env);
-  return jsonResponse({ ok: true, ...stats }, 200, origin);
+  const day = new URL(request.url).searchParams.get("day") || todayLondonDate(new Date());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(Date.parse(day))) return jsonResponse({ error: "Invalid day" }, 400, origin);
+  const funnel = env.TRACKING_STORE ? await readBookingFunnel(env.TRACKING_STORE, day) : null;
+  return jsonResponse({ ok: true, ...stats, funnel }, 200, origin);
 }

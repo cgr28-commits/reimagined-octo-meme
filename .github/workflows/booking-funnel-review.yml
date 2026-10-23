@@ -1,0 +1,43 @@
+name: Booking funnel review
+on:
+  pull_request:
+    paths:
+      - 'shared/booking-funnel.ts'
+      - 'shared/quote-lead.ts'
+      - 'src/lib/submit-quote-lead.ts'
+      - 'src/lib/booking-jobs-api.ts'
+      - 'src/components/QuoteCard.tsx'
+      - 'src/components/OwnerBookingJobsPanel.tsx'
+      - 'workers/addresses/src/booking-funnel.ts'
+      - 'workers/addresses/src/quote-lead-coordinator.ts'
+      - 'workers/addresses/src/index.ts'
+      - 'workers/addresses/src/quote-stats.ts'
+      - 'workers/addresses/src/finalize-paid-checkout.ts'
+      - 'scripts/check-booking-funnel*'
+      - '.github/workflows/booking-funnel-review.yml'
+permissions:
+  contents: read
+jobs:
+  booking-funnel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: npm run sync:worker-shared
+      - run: npm run check:booking-funnel
+      - run: npm --prefix workers/addresses run typecheck
+      - run: npm run lint
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - run: node --import tsx scripts/check-booking-funnel-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: booking-funnel-screenshots
+          path: test-results/booking-funnel/

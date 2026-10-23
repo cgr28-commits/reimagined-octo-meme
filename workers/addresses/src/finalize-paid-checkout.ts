@@ -1,3 +1,4 @@
+import { recordBookingFunnelEvent } from "./booking-funnel";
 import { queueMeetGreetEmail } from "./meet-greet-upgrade-handlers";
 import {
   buildCustomerConfirmationEmail,
@@ -633,6 +634,8 @@ export async function finalizePaidCheckout(input: {
     const txn = booking.quoteTransactionId?.trim() || "";
     const bookedRef = customerReference?.trim() || paymentReference;
     if (txn && bookedRef && quoteSessionStoreConfigured(env.TRACKING_STORE)) {
+      try { await recordBookingFunnelEvent(env.TRACKING_STORE, txn, "paid"); }
+      catch (error) { console.error("Paid booking funnel event failed", error); }
       await markQuoteSessionBookedInStore(env.TRACKING_STORE, {
         quoteTransactionId: txn,
         bookingReference: bookedRef,

@@ -50,6 +50,7 @@ export async function fetchOwnerBookingJobs(ownerKey: string): Promise<BookingJo
 }
 
 export type OwnerQuoteStats = {
+  funnel: import("../../shared/booking-funnel").BookingFunnelSnapshot | null;
   quoteLeadsTotal: number;
   quoteLeadsDedupedTotal: number;
   quoteLeadsLastAt: string | null;
@@ -58,13 +59,13 @@ export type OwnerQuoteStats = {
   counterConfigured: boolean;
 };
 
-export async function fetchOwnerQuoteStats(ownerKey: string): Promise<OwnerQuoteStats> {
+export async function fetchOwnerQuoteStats(ownerKey: string, day?: string): Promise<OwnerQuoteStats> {
   const base = workerBaseUrl();
   if (!base) {
     throw new Error("Bookings API is not configured");
   }
 
-  const response = await fetch(`${base}/quote-stats`, {
+  const response = await fetch(`${base}/quote-stats${day ? `?day=${encodeURIComponent(day)}` : ""}`, {
     headers: {
       Accept: "application/json",
       "X-Driver-Key": ownerKey.trim(),
@@ -76,6 +77,7 @@ export async function fetchOwnerQuoteStats(ownerKey: string): Promise<OwnerQuote
   }
 
   return {
+    funnel: payload.funnel as OwnerQuoteStats["funnel"] ?? null,
     quoteLeadsTotal: Number(payload.quoteLeadsTotal) || 0,
     quoteLeadsDedupedTotal: Number(payload.quoteLeadsDedupedTotal) || 0,
     quoteLeadsLastAt:

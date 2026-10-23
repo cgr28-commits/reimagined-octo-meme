@@ -56,6 +56,7 @@ function statusBadge(job: BookingJobRecord): { label: string; className: string 
 }
 
 export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPanelProps) {
+  const [funnelDay, setFunnelDay] = useState("");
   const [jobs, setJobs] = useState<BookingJobRecord[]>([]);
   const [stats, setStats] = useState<OwnerQuoteStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +87,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     try {
       const [next, nextStats] = await Promise.all([
         fetchOwnerBookingJobs(ownerKey),
-        fetchOwnerQuoteStats(ownerKey).catch(() => null),
+        fetchOwnerQuoteStats(ownerKey, funnelDay).catch(() => null),
       ]);
       setJobs(next);
       setStats(nextStats);
@@ -95,7 +96,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     } finally {
       setLoading(false);
     }
-  }, [ownerKey]);
+  }, [ownerKey, funnelDay]);
 
   useEffect(() => {
     void load();
@@ -260,6 +261,33 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           </div>
         </div>
       ) : null}
+
+      <div className="mt-6 rounded-xl border border-white/10 bg-navy p-4" data-booking-funnel>
+        <h3 className="text-lg font-bold text-white">Customer booking journey</h3>
+        <label className="mt-3 block text-sm text-white/80">Quote date (London)
+          <input type="date" value={funnelDay || stats?.funnel?.day || ""} onChange={e => setFunnelDay(e.target.value)}
+            className="mt-1 block max-w-full rounded-lg border border-white/20 bg-navy px-3 py-2 text-white" />
+        </label>
+        <p className="mt-2 text-xs text-white/60">Website quote sessions, not identified people. Stages count once per quote. Payment confirmations come from the server. Records retained for 60 days; refresh for updates.</p>
+        {stats?.funnel ? <>
+          {stats.funnel.truncated && <p className="mt-2 text-sm text-amber-200">Showing a sample of up to 100 quote sessions for this date. These counts are not the full day totals.</p>}
+          <dl className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+            {[["Quotes received", stats.funnel.quotes], ["Book My Transfer", stats.funnel.started], ["Contact stage opened", stats.funnel.detailsOpened],
+              ["Details submitted", stats.funnel.detailsSubmitted], ["SumUp opened", stats.funnel.paymentOpened], ["Payment confirmed", stats.funnel.paid]].map(([label, value]) =>
+              <div key={label} className="rounded-lg bg-white/5 p-3"><dt className="text-xs text-white/70">{label}</dt><dd className="text-2xl font-bold text-white">{value}</dd></div>)}
+          </dl>
+          <p className="mt-3 text-xs text-white/60">Possible abandonment means no later recorded stage for 10 minutes. Customers may still return. Older sessions have no historical click-stage data.</p>
+          <ul className="mt-4 max-h-96 space-y-2 overflow-y-auto">
+            {stats.funnel.rows.map(row => <li key={row.quoteTransactionId} className="break-words rounded-lg border border-white/10 p-3 text-sm text-white/80">
+              <p>{row.pickupLabel} → {row.dropoffLabel}</p>
+              <p>{row.vehicle} · {row.estimatedPriceLabel} · {row.lastStage}</p>
+              <p className="text-xs text-white/55">{formatUkInstant(row.lastAt)} · {row.quoteTransactionId}</p>
+              {row.possiblyAbandoned && <p className="text-amber-200">Possibly abandoned — no recent stage recorded</p>}
+            </li>)}
+          </ul>
+          {stats.funnel.rows.length === 0 && <p className="mt-3 text-sm text-white/60">No quote sessions recorded for this date.</p>}
+        </> : <p className="mt-3 text-sm text-white/60">Booking journey data is unavailable.</p>}
+      </div>
 
       {error ? (
         <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
