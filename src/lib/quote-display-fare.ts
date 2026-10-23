@@ -20,6 +20,8 @@ export type ServerFarePartyParts = {
   journeyFareGbp: number;
   airportFixedCostsGbp: number;
   nightWeekendSurchargeGbp?: number;
+  nightWeekendSurchargeLabel?: string;
+  nightWeekendSurchargeExplanation?: string;
   outboundOneWayBeforeAccessGbp?: number;
   returnOneWayBeforeAccessGbp?: number;
   amountGbp: number;

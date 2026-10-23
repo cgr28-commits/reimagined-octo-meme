@@ -27,7 +27,7 @@ import {
   RETURN_JOURNEY_DISCOUNT_RATE,
   formatReturnJourneyDiscountPercent,
 } from "./return-journey-discount";
-import { NIGHT_WEEKEND_SURCHARGE_LABEL } from "./night-weekend-surcharge";
+import { NIGHT_WEEKEND_SURCHARGE_LABEL, NIGHT_WEEKEND_SURCHARGE_EXPLANATION } from "./night-weekend-surcharge";
 import {
   applyReturnOfferSaving,
   formatReturnOfferPercent,
@@ -71,6 +71,9 @@ export type WebsiteFareBreakdownInput = {
    * `journeyFareBeforeAirportAccessGbp`. Displayed separately — not added again.
    */
   nightWeekendSurchargeGbp?: number;
+  /** Copy from the same configured pricing snapshot as the authoritative fare. */
+  nightWeekendSurchargeLabel?: string;
+  nightWeekendSurchargeExplanation?: string;
   /**
    * Operational airport fixed costs already folded into the quoted transfer
    * (e.g. Dublin parking/toll). Never discounted.
@@ -106,6 +109,7 @@ export type WebsiteFareBreakdown = {
   journeyFareBeforePromotionsGbp: number;
   nightWeekendSurchargeGbp: number;
   nightWeekendSurchargeLabel: string;
+  nightWeekendSurchargeExplanation: string;
   airportFixedCostsGbp: number;
   returnJourney: boolean;
   returnJourneySavingGbp: number;
@@ -250,7 +254,8 @@ export function composeWebsiteFareBreakdown(
     journeyFareBeforeReturnDiscountGbp: journeyFareBeforeReturnDiscountAdjusted,
     journeyFareBeforePromotionsGbp: journeyFareBeforePromotionsAdjusted,
     nightWeekendSurchargeGbp,
-    nightWeekendSurchargeLabel: NIGHT_WEEKEND_SURCHARGE_LABEL,
+    nightWeekendSurchargeLabel: input.nightWeekendSurchargeLabel ?? NIGHT_WEEKEND_SURCHARGE_LABEL,
+    nightWeekendSurchargeExplanation: input.nightWeekendSurchargeExplanation ?? NIGHT_WEEKEND_SURCHARGE_EXPLANATION,
     airportFixedCostsGbp,
     returnJourney,
     returnJourneySavingGbp,

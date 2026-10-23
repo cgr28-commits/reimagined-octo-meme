@@ -1,5 +1,7 @@
 "use client";
 
+import { DEFAULT_EVENING_PRICING } from "../../shared/owner-pricing-config";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BANK_HOLIDAY_BEHAVIOUR_NOTE,
@@ -547,6 +549,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     () => previewVehicleFaresFromSaloon(50, editingDraft),
     [editingDraft],
   );
+  const evening = draft.evening ?? DEFAULT_EVENING_PRICING;
   const nightOnHundred = previewSurchargeOnBase(100, draft.night.surchargeRate);
   const nightOnMinibus = previewSurchargeOnBase(preview.minibusQuotedGbp, draft.night.surchargeRate);
   const weekendDays = draft.weekend.days.includes(6) && draft.weekend.days.includes(0)
@@ -1044,8 +1047,30 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
-          Night / Weekend / Bank Holiday
+          Evening / Night / Weekend / Bank Holiday
         </h3>
+        <div className="mt-3" data-evening-pricing>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-white/70">Evening pricing enabled</p>
+            <Toggle id="evening-enabled" label="Evening pricing enabled" checked={evening.enabled}
+              onChange={(enabled) => update("evening", { ...evening, enabled })} />
+          </div>
+          <PercentField label="Evening surcharge" value={Math.round(evening.surchargeRate * 1000) / 10}
+            onChange={(value) => update("evening", { ...evening, surchargeRate: value / 100 })} />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(["startMinutes", "endMinutes"] as const).map((field) => (
+              <label key={field} className={labelClass}>
+                {field === "startMinutes" ? "Evening starts" : "Evening ends"}
+                <input className={fieldClass} type="time" value={formatMinutesAsTime(evening[field])}
+                  onChange={(event) => {
+                    const [hours, minutes] = event.target.value.split(":").map(Number);
+                    update("evening", { ...evening, [field]: hours * 60 + minutes });
+                  }} />
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-white/55">Disabled by default. Times use Europe/London; the highest applicable Evening, Night or Weekend percentage applies once per leg.</p>
+        </div>
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="text-sm text-white/70">Night pricing enabled</p>
           <Toggle
@@ -1087,7 +1112,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           </label>
         </div>
         <p className="mt-2 text-xs text-white/55">
-          Night hours apply Monday–Friday. Current window: {formatMinutesAsTime(draft.night.startMinutes)}{" "}
+          Night hours apply every day; overlapping Weekend pricing uses the higher rate. Current window: {formatMinutesAsTime(draft.night.startMinutes)}{" "}
           to {formatMinutesAsTime(draft.night.endMinutes)}.
         </p>
 

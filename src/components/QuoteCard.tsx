@@ -10,7 +10,6 @@ import QuoteProgressiveRoute from "@/components/QuoteProgressiveRoute";
 import QuoteScheduleFields from "@/components/QuoteScheduleFields";
 import {
   hasEnteredQuoteSchedule,
-  QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE,
   QUOTE_PRICE_WAIT_FOR_DETAILS,
   QUOTE_PRICE_WAIT_FOR_SCHEDULE,
 } from "../../shared/quote-display-gate";
@@ -99,6 +98,8 @@ import {
 } from "../../shared/passenger-limits";
 import {
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
+  nightWeekendSurchargeLabel,
+  nightWeekendSurchargeExplanation,
   publicVehicleRequiresPersonalQuote,
   publicMaxPassengers,
   publicMaxSuitcases,
@@ -796,6 +797,8 @@ function QuoteCard({
     toPublicOwnerPricingConfig(defaultOwnerPricingSettings()),
   );
   const [publicPricingLoaded, setPublicPricingLoaded] = useState(false);
+  const [publicPricingFailed, setPublicPricingFailed] = useState(false);
+  const [publicPricingAttempt, setPublicPricingAttempt] = useState(0);
   const publicMinibusEnabled = publicPricing.minibus.publicEnabled === true;
   const publicExecutiveEnabled = publicPricing.executive?.publicEnabled !== false;
   const passengerLimit = publicMinibusEnabled
@@ -805,17 +808,18 @@ function QuoteCard({
 
   const previewQuoteAppliedRef = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-    void fetchPublicPricingConfig().then((config) => {
-      if (!cancelled) {
+    const controller = new AbortController();
+    void fetchPublicPricingConfig({ strict: true, signal: controller.signal }).then((config) => {
+      if (!controller.signal.aborted) {
         setPublicPricing(config);
         setPublicPricingLoaded(true);
+        setPublicPricingFailed(false);
       }
+    }).catch(() => {
+      if (!controller.signal.aborted) setPublicPricingFailed(true);
     });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    return () => controller.abort();
+  }, [publicPricingAttempt]);
   const isMobileDevice = useIsMobileDevice();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -2166,6 +2170,8 @@ function QuoteCard({
           ) {
             rememberFare(vehicle, {
               preserveBfsMinimumPence: Boolean(alternate.preserveBfsMinimumPence),
+              nightWeekendSurchargeLabel: alternate.nightWeekendSurchargeLabel,
+              nightWeekendSurchargeExplanation: alternate.nightWeekendSurchargeExplanation,
               journeyFareGbp: Math.round(alternate.journeyFareGbp * 100) / 100,
               airportFixedCostsGbp:
                 typeof alternate.airportFixedCostsGbp === "number"
@@ -2257,6 +2263,8 @@ function QuoteCard({
       ) {
         const pricedParts: ServerFarePartyParts = {
           preserveBfsMinimumPence: Boolean(result.preserveBfsMinimumPence),
+          nightWeekendSurchargeLabel: result.nightWeekendSurchargeLabel,
+          nightWeekendSurchargeExplanation: result.nightWeekendSurchargeExplanation,
           journeyFareGbp: Math.round(result.journeyFareGbp * 100) / 100,
           airportFixedCostsGbp:
             typeof result.airportFixedCostsGbp === "number"
@@ -2463,6 +2471,16 @@ function QuoteCard({
   ]);
   const refreshAuthoritativeServerQuoteRef = useRef(refreshAuthoritativeServerQuote);
   refreshAuthoritativeServerQuoteRef.current = refreshAuthoritativeServerQuote;
+
+  function retryAuthoritativeQuote() {
+    if (!publicPricingLoaded) {
+      setPublicPricingFailed(false);
+      setPublicPricingAttempt((attempt) => attempt + 1);
+      // Loading the current config triggers the quote effect with fresh settings.
+      return;
+    }
+    void refreshAuthoritativeServerQuote(true);
+  }
 
   useEffect(() => {
     quoteVehicleRef.current = quoteVehicle;
@@ -2810,6 +2828,9 @@ function QuoteCard({
     };
   }, [liveQuote, airportFeeResolution, currentServerFareParts, mayPaintNumericFare]);
 
+  const configuredSurchargeLabel = currentServerFareParts?.nightWeekendSurchargeLabel ?? nightWeekendSurchargeLabel(publicPricing);
+  const configuredSurchargeExplanation = currentServerFareParts?.nightWeekendSurchargeExplanation ?? nightWeekendSurchargeExplanation(publicPricing);
+
   const openWebsiteFareBreakdown = useMemo(() => {
     if (!useOpenWebsitePromoPricing || journeyFareParts.journeyFareGbp == null) {
       return null;
@@ -2824,6 +2845,8 @@ function QuoteCard({
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       nightWeekendSurchargeGbp: journeyFareParts.nightWeekendSurchargeGbp ?? 0,
+      nightWeekendSurchargeLabel: configuredSurchargeLabel,
+      nightWeekendSurchargeExplanation: configuredSurchargeExplanation,
       airportAccessChargeGbp: airportAccessQuote.airportAccessChargeGbp,
       outboundAirportAccessChargeGbp: airportAccessQuote.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: airportAccessQuote.returnAirportAccessChargeGbp,
@@ -2848,6 +2871,8 @@ function QuoteCard({
     });
   }, [
     useOpenWebsitePromoPricing,
+    configuredSurchargeLabel,
+    configuredSurchargeExplanation,
     journeyFareParts.journeyFareGbp,
     journeyFareParts.airportFixedCostsGbp,
     journeyFareParts.nightWeekendSurchargeGbp,
@@ -2962,7 +2987,7 @@ function QuoteCard({
     !(isEnquiryOnly && !showGuidePrice);
   const authoritativeQuoteFailed =
     instantPriceExpected &&
-    serverQuoteUnavailable &&
+    (publicPricingFailed || serverQuoteUnavailable) &&
     !previewSkipsServerQuote &&
     currentServerFareParts == null;
   const resultsCanRender =
@@ -6215,9 +6240,7 @@ function QuoteCard({
       <button
         type="button"
         data-quote-price-retry
-        onClick={() => {
-          void refreshAuthoritativeServerQuote(true);
-        }}
+        onClick={retryAuthoritativeQuote}
         className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-white/25 px-4 py-2 text-sm font-semibold text-white hover:border-white/50"
       >
         Try again
@@ -6353,7 +6376,7 @@ function QuoteCard({
                 className="mt-1.5 text-xs font-semibold text-emerald"
                 data-night-weekend-surcharge-badge
               >
-                {QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE}
+                {`Includes ${configuredSurchargeLabel}`}
               </p>
             ) : null}
             {testChargeAmount === null && !appliedPersonalQuote ? (
@@ -7335,11 +7358,10 @@ function QuoteCard({
         priceLabel={effectiveAirportCode ? "Your fixed airport transfer price" : "Your fixed transfer price"}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
+        surchargeNote={mayPaintNumericFare && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ? `Includes ${configuredSurchargeLabel}` : null}
         businessClassInclusions={renderBusinessClassInclusions()}
         priceUnavailable={authoritativeQuoteFailed}
-        onRetryPrice={() => {
-          void refreshAuthoritativeServerQuote(true);
-        }}
+        onRetryPrice={retryAuthoritativeQuote}
         hasAirportCollection={isFromAirport || (returnJourney && Boolean(isAirportTrip || dropoffAirportCode))}
         layoutBusinessClassInclusions={layoutBusinessClassInclusions}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}

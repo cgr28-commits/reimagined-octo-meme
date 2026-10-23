@@ -205,7 +205,7 @@ function buildTripDetailsBlock(details: BookingDetails, bookingReference?: strin
     includesBlock +
     (details.returnJourney && details.estimatedPrice ? "5% Return Booking Discount applied\n" : "") +
     ((details.nightWeekendSurchargeGbp ?? 0) > 0
-      ? "Night & Weekend Surcharge (10%) applied\n"
+      ? "Evening / Night / Weekend surcharge applied\n"
       : "") +
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`

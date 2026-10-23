@@ -27,6 +27,8 @@ import { signQuoteReceipt } from "./quote-receipt";
 import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
 import {
   isDublinAirportCode,
+  nightWeekendSurchargeLabel,
+  nightWeekendSurchargeExplanation,
   PUBLIC_MINIBUS_UNAVAILABLE_CODE,
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
   publicMaxPassengers,
@@ -733,6 +735,8 @@ export async function handleQuoteCalculateRequest(
 
   const quoteBody: Record<string, unknown> = {
     ...result,
+    nightWeekendSurchargeLabel: nightWeekendSurchargeLabel(pricing),
+    nightWeekendSurchargeExplanation: nightWeekendSurchargeExplanation(pricing),
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,
   };

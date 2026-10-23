@@ -1,10 +1,11 @@
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import { withRequestDeadline } from "@/lib/request-deadline";
 import type {
   OwnerPricingAuditEntry,
   OwnerPricingSettings,
   PublicOwnerPricingConfig,
 } from "../../shared/owner-pricing-config";
-import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
+import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig, validateOwnerPricingInput } from "../../shared/owner-pricing-config";
 import type { OwnerProfitabilityReport } from "@/lib/owner-profitability-report";
 import {
   isBrowserPricingPreview,
@@ -124,19 +125,28 @@ export async function previewOwnerProfitability(
   }) as Promise<{ report: OwnerProfitabilityReport }>;
 }
 
-export async function fetchPublicPricingConfig(): Promise<PublicOwnerPricingConfig> {
+export async function fetchPublicPricingConfig(
+  options: { strict?: boolean; signal?: AbortSignal } = {},
+): Promise<PublicOwnerPricingConfig> {
   if (hasPreviewPricingOverrides()) {
     return previewPublicPricingConfig();
   }
   try {
-    const response = await fetch(`${WORKER_BASE}/pricing/public`, {
-      headers: { Accept: "application/json" },
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok || !body || typeof body !== "object" || !(body as { config?: unknown }).config) {
-      return toPublicOwnerPricingConfig(defaultOwnerPricingSettings());
-    }
-    const config = (body as { config: PublicOwnerPricingConfig }).config;
+    const config = await withRequestDeadline(async (signal) => {
+      const response = await fetch(`${WORKER_BASE}/pricing/public`, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal,
+      });
+      const body = await response.json();
+      if (!response.ok || !body || typeof body !== "object" || !body.config || typeof body.config !== "object") {
+        throw new Error("Could not load pricing settings");
+      }
+      if (options.strict && !validateOwnerPricingInput(body.config).ok) {
+        throw new Error("Invalid pricing settings");
+      }
+      return body.config as PublicOwnerPricingConfig;
+    }, 10_000, options.signal);
     return {
       ...config,
       minibus: {
@@ -144,7 +154,8 @@ export async function fetchPublicPricingConfig(): Promise<PublicOwnerPricingConf
         publicEnabled: config.minibus?.publicEnabled === true,
       },
     };
-  } catch {
+  } catch (error) {
+    if (options.strict || options.signal?.aborted) throw error;
     return toPublicOwnerPricingConfig(defaultOwnerPricingSettings());
   }
 }

@@ -92,7 +92,7 @@ export function formatCustomerPromoPricingLines(
   }
   if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
     lines.push(
-      `Night & Weekend Surcharge (10%): ${formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0)}`,
+      `Evening / Night / Weekend surcharge: ${formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0)}`,
     );
   }
   if (
@@ -156,7 +156,7 @@ export function formatCustomerPromoPricingHtmlRows(
   }
   if ((fields.nightWeekendSurchargeGbp ?? 0) > 0) {
     rows.push({
-      label: "Night & Weekend Surcharge (10%)",
+      label: "Evening / Night / Weekend surcharge",
       value: formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0),
     });
   }
