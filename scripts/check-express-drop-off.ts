@@ -597,7 +597,7 @@ check("QuoteCard shows compact reassurance before fare; checkout retains the acc
   assert.doesNotMatch(card, /function renderExpressCollapsible/);
   const resultCard = card.slice(card.indexOf("function renderInstantQuoteResultCard()"), card.indexOf("function quoteJourneyEndpoints()"));
   assert.doesNotMatch(resultCard, /<QuoteAirportBenefits/);
-  assert.match(resultCard, /depositAvailable=\{showDepositCashChoice\}/);
+  assert.match(resultCard, /hasAirportCollection=\{isFromAirport \|\| \(returnJourney && Boolean\(isAirportTrip \|\| dropoffAirportCode\)\)\}/);
   assert.doesNotMatch(resultCard, /<ExpressDropOffChoice|<ExpressDropOffSelector/);
   assert.match(card, /renderExpressChoiceInPriceCard\("full"\)/);
   const showcase = read("src/components/QuoteResultShowcase.tsx");

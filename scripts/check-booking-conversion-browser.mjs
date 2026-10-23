@@ -31,7 +31,7 @@ const baseline=process.env.BASELINE_OUT_DIR ? await serve(process.env.BASELINE_O
 const launch=engine==='chromium'&&process.env.CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--no-zygote','--single-process','--disable-dev-shm-usage','--use-gl=disabled','--disable-gpu','--disable-software-rasterizer','--disable-webgl','--in-process-gpu','--disable-features=AudioServiceOutOfProcess,IsolateOrigins,site-per-process']}:{};
 const browsers=[];
 const results=[];
-async function quote(url,width,total=68,enabled=true) {
+async function quote(url,width,total=68,enabled=true,collection=false,returnTrip=false) {
  const browser=await ({chromium,webkit}[engine]).launch(launch);browsers.push(browser);
  const context=await browser.newContext({viewport:{width,height:900},isMobile:width<768,hasTouch:width<768,reducedMotion:'reduce',locale:'en-GB',timezoneId:'Europe/London'});
  const requests=[];
@@ -58,31 +58,36 @@ async function quote(url,width,total=68,enabled=true) {
  await page.goto(`${url}/?previewJourney=bfs`);
  await page.getByRole('button',{name:'Reject optional',exact:true}).click();
  await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
+ if(returnTrip) await page.getByRole('button',{name:/Return.*5%/}).first().click();
+ if(collection) await page.getByRole('button',{name:'Swap pickup and drop-off',exact:true}).click();
  await page.locator('#quote-section-passengers').selectOption('2');
  await page.locator('#quote-section-suitcases').selectOption('1');
  const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
  await page.locator('#date').fill(date);await page.locator('#time').fill('12:00');
+ if(returnTrip) { await page.locator('#returnDate').fill(new Date(Date.now()+9*86400000).toISOString().slice(0,10));await page.locator('#returnTime').fill('12:00'); }
  await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
  await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
  await page.locator('[data-quote-result-price] [data-quote-fare-status="ready"]').waitFor();
  await page.evaluate(()=>document.fonts.ready);
  const card=page.locator('[data-quote-result-card]');
  const height=await card.evaluate(el=>el.getBoundingClientRect().height);
- return {context,page,card,height,requests};
+ const dimensions=await card.evaluate(el=>['[data-quote-result-price]','[data-quote-result-main-action] button','[data-quote-vehicle-summary]'].map(selector=>{const e=el.querySelector(selector),r=e.getBoundingClientRect(),s=getComputedStyle(e);return {width:r.width,height:r.height,fontSize:s.fontSize,color:s.color,background:s.backgroundColor};}));
+ return {context,page,card,height,requests,dimensions};
 }
 try {
  for(const width of [320,360,375,390,1280]) {
-  let before;
-  if(baseline) {const b=await quote(baseline,width);before=b.height;await b.context.close();}
+  let before, beforeDimensions;
+  if(baseline) {const b=await quote(baseline,width);before=b.height;beforeDimensions=b.dimensions;await b.context.close();}
   const q=await quote(base,width),{page,card}=q;
   assert.match(await card.innerText(),/£68/);
   const visible=card.locator('[data-quote-changing-info]');
-  assert.match(await visible.innerText(),/100% Refund — Cancel 24\+ Hours Before Pickup/);
-  assert.match(await visible.innerText(),/Secure Your Booking with a Small Deposit/);
+  assert.match(await visible.innerText(),/Cancel 24\+ hours before pickup for a 100% refund\./);
+  assert.match(await visible.innerText(),/Fixed Fares · Secure Booking/);
+  assert.doesNotMatch(await visible.innerText(),/Complimentary Waiting Time/);
   assert.doesNotMatch(await visible.innerText(),/Terminal pick-up included|60 Minutes Airport Waiting|Your own pre-booked transfer/);
   const positions=await visible.evaluate(el=>({reassurance:el.querySelector('[data-quote-reassurance]').getBoundingClientRect().bottom,fare:el.querySelector('[data-quote-result-price]').getBoundingClientRect().top}));
   assert.ok(positions.reassurance<=positions.fare);
-  if(before!=null)assert.ok(q.height<=before+0.5,`quote height increased: ${before} -> ${q.height}`);
+  if(beforeDimensions) assert.deepEqual(q.dimensions,beforeDimensions,"existing fare, button and vehicle sizes/styles must remain unchanged");
   await card.screenshot({path:`${output}/${width}-quote.png`});
   await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
   await page.locator('#name').waitFor();
@@ -130,11 +135,24 @@ try {
   results.push({width,before,after:q.height,delta:before==null?null:q.height-before});console.log('PASS',width,'quote height',before,'→',q.height,'payment choices, acknowledgement, navigation, no overflow');
   await q.context.close();
  }
+ for(const width of [320,390,1280]) {
+  const q=await quote(base,width,68,true,true);
+  const visible=q.card.locator('[data-quote-changing-info]');
+  assert.match(await visible.innerText(),/60 Minutes Complimentary Waiting Time/);
+  assert.doesNotMatch(await visible.innerText(),/airport pickups/i);
+  assert.equal(await visible.locator('[data-quote-reassurance]').count(),1);
+  assert.ok(await q.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await q.card.screenshot({path:`${output}/${width}-collection.png`});
+  await q.context.close();console.log('PASS airport collection',width);
+ }
+ const returnQuote=await quote(base,390,68,true,false,true);
+ assert.match(await returnQuote.card.locator('[data-quote-changing-info]').innerText(),/60 Minutes Complimentary Waiting Time/);
+ await returnQuote.context.close();console.log('PASS collection on return leg');
  for(const [total,enabled] of [[100,true],[10,true],[68,false]]) {
   const q=await quote(base,390,total,enabled),{page,card}=q;
   assert.match(await card.innerText(),new RegExp(`£${total}`));
   const eligible=publicDepositCashOffer(total,{enabled,percent:20,minimumGbp:15}).eligible;
-  assert.equal((await card.locator('[data-quote-changing-info]').innerText()).includes('Small Deposit'),eligible);
+  assert.match(await card.locator('[data-quote-changing-info]').innerText(), /Book with Confidence/);
   await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();await page.locator('#name').waitFor();
   if(eligible)assert.match(await page.locator('[data-booking-payment-options]').innerText(),/£20.00 today[\s\S]*£80.00 cash/);
   else {assert.equal(await page.locator('[data-booking-payment-options]').count(),0);assert.equal(await page.getByRole('button',{name:`Pay £${total} & Confirm Booking`,exact:true}).count(),1);}
