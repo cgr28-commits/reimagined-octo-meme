@@ -68,7 +68,13 @@ async function quote(url,width,total=68,enabled=true,collection=false,returnTrip
  await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
  await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
  await page.locator('[data-quote-result-price] [data-quote-fare-status="ready"]').waitFor();
- await page.evaluate(()=>document.fonts.ready);
+ // WebKit can expose the ready text before its final font/layout paint.
+ // Use the same resource + rendering-frame barrier as the vehicle stability test.
+ await page.evaluate(async()=>{
+  document.querySelector('[data-quote-fare-status="ready"]').getBoundingClientRect();
+  await document.fonts.ready;
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+ });
  const card=page.locator('[data-quote-result-card]');
  const height=await card.evaluate(el=>el.getBoundingClientRect().height);
  const dimensions=await card.evaluate(el=>['[data-quote-result-price]','[data-quote-result-main-action] button','[data-quote-vehicle-summary]'].map(selector=>{const e=el.querySelector(selector),r=e.getBoundingClientRect(),s=getComputedStyle(e);return {width:r.width,height:r.height,fontSize:s.fontSize,color:s.color,background:s.backgroundColor};}));
