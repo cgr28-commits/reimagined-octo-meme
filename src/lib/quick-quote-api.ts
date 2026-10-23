@@ -1,4 +1,5 @@
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import { withRequestDeadline } from "@/lib/request-deadline";
 import {
   customerSmartAvailabilityPreviewHeaders,
   withCustomerSmartAvailabilityPreviewUrl,
@@ -52,6 +53,8 @@ export type QuickQuoteCalculateResult =
       returnJourney: boolean;
       journeyFareGbp?: number;
       nightWeekendSurchargeGbp?: number;
+      nightWeekendSurchargeLabel?: string;
+      nightWeekendSurchargeExplanation?: string;
       airportFixedCostsGbp?: number;
       outboundOneWayBeforeAccessGbp?: number;
       returnOneWayBeforeAccessGbp?: number;
@@ -177,6 +180,8 @@ async function calculateServerQuoteOnce(
       payload.vehicleChoice === "Minibus" || payload.vehicleChoice === "Saloon"
         ? payload.vehicleChoice
         : undefined,
+    nightWeekendSurchargeLabel: typeof payload.nightWeekendSurchargeLabel === "string" ? payload.nightWeekendSurchargeLabel : undefined,
+    nightWeekendSurchargeExplanation: typeof payload.nightWeekendSurchargeExplanation === "string" ? payload.nightWeekendSurchargeExplanation : undefined,
     premiumApplied: payload.premiumApplied === true,
     returnJourney: payload.returnJourney === true,
     ...(typeof payload.journeyFareGbp === "number"
@@ -292,14 +297,23 @@ export async function calculateServerQuote(
   ownerKey?: string,
   signal?: AbortSignal,
 ): Promise<QuickQuoteCalculateResult> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (signal?.aborted) throw new DOMException("Quote request cancelled", "AbortError");
-    try {
-      const result = await calculateServerQuoteOnce(journey, ownerKey, signal);
-      if (attempt === 1 || result.ok || !["routing_unavailable", "server_unavailable"].includes(result.reason ?? "")) return result;
-    } catch (error) {
-      if (attempt === 1 || signal?.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
+  try {
+    return await withRequestDeadline(async (requestSignal) => {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (requestSignal.aborted) throw new DOMException("Quote request cancelled", "AbortError");
+        try {
+          const result = await calculateServerQuoteOnce(journey, ownerKey, requestSignal);
+          if (attempt === 1 || result.ok || !["routing_unavailable", "server_unavailable"].includes(result.reason ?? "")) return result;
+        } catch (error) {
+          if (attempt === 1 || requestSignal.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
+        }
+      }
+      throw new Error("Could not calculate fare");
+    }, 20_000, signal);
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      return { ok: false, reason: "timeout", message: "We couldn’t load your price. Please try again." };
     }
+    throw error;
   }
-  throw new Error("Could not calculate fare");
 }

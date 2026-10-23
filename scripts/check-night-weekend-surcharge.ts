@@ -523,13 +523,13 @@ assert.match(
   /10% surcharge applies to journeys booked for pickup between 10pm and 6am Monday–Friday, and all day Saturday and Sunday/,
 );
 const fareTrust = fs.readFileSync(path.join(root, "src/components/QuoteFareTrust.tsx"), "utf8");
-assert.match(fareTrust, /NIGHT_WEEKEND_SURCHARGE_EXPLANATION/);
+assert.match(fareTrust, /breakdown\.nightWeekendSurchargeExplanation/);
 assert.match(fareTrust, /nightWeekendSurchargeLabel/);
 const promo = fs.readFileSync(path.join(root, "shared/website-promo-pricing.ts"), "utf8");
-assert.match(promo, /Night & Weekend Surcharge \(10%\)/);
+assert.match(promo, /Evening \/ Night \/ Weekend surcharge/);
 assert.match(promo, /5% Return Booking Discount/);
 const bookingMsg = fs.readFileSync(path.join(root, "src/lib/booking-message.ts"), "utf8");
-assert.match(bookingMsg, /Night & Weekend Surcharge \(10%\) applied/);
+assert.match(bookingMsg, /Evening \/ Night \/ Weekend surcharge applied/);
 assert.match(bookingMsg, /5% Return Booking Discount applied/);
 const fareTrustSrc = fareTrust;
 assert.match(fareTrustSrc, /5% Return Booking Discount/);

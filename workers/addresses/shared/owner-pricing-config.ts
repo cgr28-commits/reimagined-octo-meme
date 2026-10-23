@@ -46,6 +46,8 @@ export const DEFAULT_WEEKEND_SURCHARGE_RATE = NIGHT_WEEKEND_SURCHARGE_RATE;
 /** Current approved Night window: Mon–Fri 22:00–05:59 (06:00 is not Night). */
 export const DEFAULT_NIGHT_START_MINUTES = 22 * 60;
 export const DEFAULT_NIGHT_END_MINUTES = 6 * 60;
+/** Opt-in only: adding controls must not change existing fares. */
+export const DEFAULT_EVENING_PRICING = { enabled: false, surchargeRate: 0, startMinutes: 18 * 60, endMinutes: 22 * 60 };
 /** Current approved Weekend: all day Saturday and Sunday (Europe/London). */
 export const DEFAULT_WEEKEND_DAYS = [0, 6] as const;
 export const DEFAULT_PUBLIC_MINIBUS_ENABLED = false;
@@ -59,10 +61,10 @@ export const PRICE_CHANGED_MESSAGE = "The price for this journey has been update
 
 export const SURCHARGE_STACKING_RULE = "highest_applicable" as const;
 export const SURCHARGE_STACKING_EXPLANATION =
-  "When more than one premium period applies, the highest applicable surcharge is used. Night and Weekend currently use one combined window, so a qualifying journey receives only one surcharge — they are not added together.";
+  "When more than one premium period applies, the highest applicable surcharge is used. Evening, Night and Weekend are not added together.";
 
 export const BANK_HOLIDAY_BEHAVIOUR_NOTE =
-  "Daytime bank holidays are not an extra surcharge. There is no separate Bank Holiday calendar. Saturday and Sunday already qualify as Weekend. A weekday bank-holiday daytime journey is charged at the standard weekday rate unless it also falls inside Night hours.";
+  "Daytime bank holidays are not an extra surcharge. There is no separate Bank Holiday calendar. Saturday and Sunday already qualify as Weekend. A weekday bank-holiday daytime journey is charged at the standard weekday rate unless it also falls inside enabled Evening or Night hours.";
 
 export const MINIBUS_LUGGAGE_DECISION_NOTE =
   "When public 7 Seater Minibus is ON, the public selector allows 0–7 large bags and 1–7 passengers. 5–7 passengers and 5–7 large bags require 7 Seater Minibus; Saloon/Estate keep their existing 1–4 passenger and 0–2 / 3–4 suitcase rules. 7 passengers + 7 large bags is accepted as a Minibus quote only — physical fit of every 7-seat vehicle for that combination has not been validated and is not treated as a Request Quote rule.";
@@ -122,6 +124,7 @@ export type OwnerPricingSettings = {
   dublinAirportFareAdjustment: {
     rate: number;
   };
+  evening?: { enabled: boolean; surchargeRate: number; startMinutes: number; endMinutes: number };
   night: {
     enabled: boolean;
     surchargeRate: number;
@@ -190,6 +193,7 @@ export type PublicOwnerPricingConfig = {
   };
   returnDiscount: OwnerPricingSettings["returnDiscount"];
   dublinAirportFareAdjustment: OwnerPricingSettings["dublinAirportFareAdjustment"];
+  evening?: OwnerPricingSettings["evening"];
   night: OwnerPricingSettings["night"];
   weekend: OwnerPricingSettings["weekend"];
   meetGreet: OwnerPricingSettings["meetGreet"];
@@ -273,6 +277,7 @@ export function defaultOwnerPricingSettings(
     dublinAirportFareAdjustment: {
       rate: DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
     },
+    evening: { ...DEFAULT_EVENING_PRICING },
     night: {
       enabled: true,
       surchargeRate: DEFAULT_NIGHT_SURCHARGE_RATE,
@@ -362,6 +367,7 @@ export function validateOwnerPricingInput(
     input.dublinAirportFareAdjustment != null &&
     typeof input.dublinAirportFareAdjustment === "object";
   const dublinRaw = (dublinExplicit ? input.dublinAirportFareAdjustment : {}) as Record<string, unknown>;
+  const eveningRaw = (input.evening ?? DEFAULT_EVENING_PRICING) as Record<string, unknown>;
   const nightRaw = (input.night ?? {}) as Record<string, unknown>;
   const weekendRaw = (input.weekend ?? {}) as Record<string, unknown>;
   const meetGreetExplicit = input.meetGreet != null && typeof input.meetGreet === "object";
@@ -514,6 +520,23 @@ export function validateOwnerPricingInput(
     }
   }
 
+  if (input.evening != null && (typeof input.evening !== "object" || Array.isArray(input.evening))) {
+    reject(errors, "evening", "Enter valid Evening pricing settings.");
+  }
+  if (typeof eveningRaw.enabled !== "boolean") {
+    reject(errors, "evening.enabled", "Evening pricing enabled must be on or off.");
+  }
+  const eveningRate = readRate(eveningRaw.surchargeRate, "evening.surchargeRate", errors);
+  if (eveningRate != null && (eveningRate < 0 || eveningRate > 1)) {
+    reject(errors, "evening.surchargeRate", "Evening surcharge must be between 0% and 100%.");
+  }
+  const eveningStart = parseOwnerTimeInput(eveningRaw.startMinutes ?? eveningRaw.startTime);
+  const eveningEnd = parseOwnerTimeInput(eveningRaw.endMinutes ?? eveningRaw.endTime);
+  if (eveningStart == null) reject(errors, "evening.startMinutes", "Enter a valid Evening start time.");
+  if (eveningEnd == null || eveningStart === eveningEnd) {
+    reject(errors, "evening.endMinutes", "Enter a valid Evening end time different from the start.");
+  }
+
   if (nightRaw.enabled != null && typeof nightRaw.enabled !== "boolean") {
     reject(errors, "night.enabled", "Night pricing enabled must be on or off.");
   }
@@ -620,6 +643,12 @@ export function validateOwnerPricingInput(
       dublinAirportFareAdjustment: {
         rate: dublinAirportFareAdjustmentRate,
       },
+      evening: {
+        enabled: eveningRaw.enabled === true,
+        surchargeRate: eveningRate ?? DEFAULT_EVENING_PRICING.surchargeRate,
+        startMinutes: eveningStart ?? DEFAULT_EVENING_PRICING.startMinutes,
+        endMinutes: eveningEnd ?? DEFAULT_EVENING_PRICING.endMinutes,
+      },
       night: {
         enabled: nightRaw.enabled !== false,
         surchargeRate: nightRate ?? defaults.night.surchargeRate,
@@ -704,6 +733,7 @@ export function toPublicOwnerPricingConfig(
         settings.dublinAirportFareAdjustment?.rate ??
         DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
     },
+    evening: settings.evening ?? { ...DEFAULT_EVENING_PRICING },
     night: settings.night,
     weekend: settings.weekend,
     meetGreet: settings.meetGreet,
@@ -728,6 +758,10 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
     returnDiscountRate: resolved.returnDiscount.rate,
     dublinAirportFareAdjustmentRate:
       resolved.dublinAirportFareAdjustment?.rate ?? DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
+    eveningEnabled: resolved.evening?.enabled === true,
+    eveningRate: resolved.evening?.surchargeRate ?? 0,
+    eveningStartMinutes: resolved.evening?.startMinutes ?? DEFAULT_EVENING_PRICING.startMinutes,
+    eveningEndMinutes: resolved.evening?.endMinutes ?? DEFAULT_EVENING_PRICING.endMinutes,
     nightEnabled: resolved.night.enabled,
     nightRate: resolved.night.surchargeRate,
     nightStartMinutes: resolved.night.startMinutes,
@@ -805,6 +839,14 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return formatPercentFromRate(
         settings.dublinAirportFareAdjustment?.rate ?? DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
       );
+    case "evening.enabled":
+      return settings.evening?.enabled ? "ON" : "OFF";
+    case "evening.surchargeRate":
+      return formatPercentFromRate(settings.evening?.surchargeRate ?? 0);
+    case "evening.startMinutes":
+      return formatMinutesAsTime(settings.evening?.startMinutes ?? DEFAULT_EVENING_PRICING.startMinutes);
+    case "evening.endMinutes":
+      return formatMinutesAsTime(settings.evening?.endMinutes ?? DEFAULT_EVENING_PRICING.endMinutes);
     case "night.enabled":
       return settings.night.enabled ? "ON" : "OFF";
     case "night.surchargeRate":
@@ -850,6 +892,10 @@ const DIFF_PATHS = [
   "executive.minimumFareGbp",
   "returnDiscount.rate",
   "dublinAirportFareAdjustment.rate",
+  "evening.enabled",
+  "evening.surchargeRate",
+  "evening.startMinutes",
+  "evening.endMinutes",
   "night.enabled",
   "night.surchargeRate",
   "night.startMinutes",
@@ -883,6 +929,10 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "executive.minimumFareGbp": "Business Class minimum fare",
   "returnDiscount.rate": "Return Booking Discount",
   "dublinAirportFareAdjustment.rate": "Dublin Airport Fare Adjustment",
+  "evening.enabled": "Evening pricing",
+  "evening.surchargeRate": "Evening surcharge",
+  "evening.startMinutes": "Evening starts",
+  "evening.endMinutes": "Evening ends",
   "night.enabled": "Night pricing",
   "night.surchargeRate": "Night surcharge",
   "night.startMinutes": "Night starts",
@@ -983,6 +1033,9 @@ export function publicMinibusAllowed(
 }
 
 export type PremiumWindowRules = {
+  eveningEnabled?: boolean;
+  eveningStartMinutes?: number;
+  eveningEndMinutes?: number;
   nightEnabled: boolean;
   nightStartMinutes: number;
   nightEndMinutes: number;
@@ -1022,6 +1075,7 @@ export function surchargeRateForDateTime(input: {
   day: number;
   minutes: number;
   nightRate: number;
+  eveningRate?: number;
   weekendRate: number;
   rules?: PremiumWindowRules;
 }): number {
@@ -1030,6 +1084,12 @@ export function surchargeRateForDateTime(input: {
   const night = !weekend && isNightMinutes(input.minutes, rules);
   const weekendAlsoNight = weekend && isNightMinutes(input.minutes, rules);
   const rates: number[] = [];
+  if (rules.eveningEnabled && isNightMinutes(input.minutes, {
+    ...rules,
+    nightEnabled: true,
+    nightStartMinutes: rules.eveningStartMinutes ?? DEFAULT_EVENING_PRICING.startMinutes,
+    nightEndMinutes: rules.eveningEndMinutes ?? DEFAULT_EVENING_PRICING.endMinutes,
+  })) rates.push(input.eveningRate ?? 0);
   if (night && rules.nightEnabled) rates.push(input.nightRate);
   if (weekend && rules.weekendEnabled) rates.push(input.weekendRate);
   if (weekendAlsoNight && rules.nightEnabled) rates.push(input.nightRate);
@@ -1041,6 +1101,12 @@ export function nightWeekendSurchargeLabel(settings?: OwnerPricingSettings | Pub
   const options = ownerPricingEngineOptions(settings);
   const nightPct = formatPercentFromRate(options.nightRate);
   const weekendPct = formatPercentFromRate(options.weekendRate);
+  if (options.eveningEnabled) {
+    const labels = [`Evening ${formatPercentFromRate(options.eveningRate)}`];
+    if (options.nightEnabled) labels.push(`Night ${nightPct}`);
+    if (options.weekendEnabled) labels.push(`Weekend ${weekendPct}`);
+    return `${labels.join(" / ")} surcharge`;
+  }
   if (nightPct === weekendPct) {
     return `Night & Weekend Surcharge (${nightPct})`;
   }
@@ -1060,22 +1126,17 @@ export function nightWeekendSurchargeExplanation(
     .sort((a, b) => a - b)
     .map((day) => ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day])
     .join(" and ");
-  if (nightPct === weekendPct) {
-    return `A ${nightPct} surcharge applies to journeys booked for pickup between ${start} and ${end} Monday–Friday, and all day ${weekendDays}.`;
-  }
-  return `A ${nightPct} Night surcharge applies between ${start} and ${end} Monday–Friday. A ${weekendPct} Weekend surcharge applies all day ${weekendDays}. When both apply, the higher surcharge is used.`;
+  const periods: string[] = [];
+  if (options.eveningEnabled) periods.push(`A ${formatPercentFromRate(options.eveningRate)} Evening surcharge applies between ${formatMinutesAsTime(options.eveningStartMinutes)} and ${formatMinutesAsTime(options.eveningEndMinutes)}.`);
+  if (options.nightEnabled) periods.push(`A ${nightPct} Night surcharge applies between ${start} and ${end}.`);
+  if (options.weekendEnabled) periods.push(`A ${weekendPct} Weekend surcharge applies all day ${weekendDays}.`);
+  return `${periods.join(" ")} Times are Europe/London. When periods overlap, only the highest surcharge applies to each leg’s base vehicle fare; fixed airport charges are excluded.`;
 }
 
 export function quoteIncludesSurchargeLabel(
   settings?: OwnerPricingSettings | PublicOwnerPricingConfig | null,
 ): string {
-  const options = ownerPricingEngineOptions(settings);
-  const nightPct = formatPercentFromRate(options.nightRate);
-  const weekendPct = formatPercentFromRate(options.weekendRate);
-  if (nightPct === weekendPct) {
-    return `Includes ${nightPct} Night & Weekend Surcharge`;
-  }
-  return `Includes Night ${nightPct} / Weekend ${weekendPct} surcharge`;
+  return `Includes ${nightWeekendSurchargeLabel(settings)}`;
 }
 
 export function classifyConfiguredVehicle(vehicleType: string): UniversalVehicleKind {

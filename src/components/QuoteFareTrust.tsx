@@ -8,7 +8,6 @@ import {
   formatGbpFare,
   type WebsiteFareBreakdown,
 } from "../../shared/website-fare-breakdown";
-import { NIGHT_WEEKEND_SURCHARGE_EXPLANATION } from "../../shared/night-weekend-surcharge";
 import {
   expressAirportLegendLabel,
   expressAvoidedChargeMessage,
@@ -22,6 +21,8 @@ export function buildOpenWebsiteFareBreakdown(input: {
   outboundAirportAccessChargeGbp?: number;
   returnAirportAccessChargeGbp?: number;
   nightWeekendSurchargeGbp?: number;
+  nightWeekendSurchargeLabel?: string;
+  nightWeekendSurchargeExplanation?: string;
   returnJourney?: boolean;
   returnOfferDiscountRate?: number;
   businessClassMinimumFareGbp?: number;
@@ -38,6 +39,8 @@ export function buildOpenWebsiteFareBreakdown(input: {
     outboundAirportAccessChargeGbp: input.outboundAirportAccessChargeGbp ?? 0,
     returnAirportAccessChargeGbp: input.returnAirportAccessChargeGbp ?? 0,
     nightWeekendSurchargeGbp: input.nightWeekendSurchargeGbp ?? 0,
+    nightWeekendSurchargeLabel: input.nightWeekendSurchargeLabel,
+    nightWeekendSurchargeExplanation: input.nightWeekendSurchargeExplanation,
     returnJourney: Boolean(input.returnJourney),
     ...(typeof input.returnOfferDiscountRate === "number"
       ? { returnOfferDiscountRate: input.returnOfferDiscountRate }
@@ -294,7 +297,7 @@ export function PromotionalPriceBreakdown({
       </dl>
       {hasSurcharge ? (
         <p className="text-[11px] leading-snug quote-secondary">
-          {NIGHT_WEEKEND_SURCHARGE_EXPLANATION}
+          {breakdown.nightWeekendSurchargeExplanation}
         </p>
       ) : null}
       {freeAirportAccessSelected && !hasAccess && !showPerLegAccess ? (
@@ -415,7 +418,7 @@ export function FinalPayableBreakdown({
       </dl>
       {breakdown.nightWeekendSurchargeGbp > 0 ? (
         <p className="quote-secondary mt-2 text-[11px] leading-snug">
-          {NIGHT_WEEKEND_SURCHARGE_EXPLANATION}
+          {breakdown.nightWeekendSurchargeExplanation}
         </p>
       ) : null}
       <FixedPriceAssurance

@@ -238,7 +238,7 @@ check("completed return + one qualifying leg only surcharges that leg", () => {
 
 check("first displayed price already includes surcharge copy", () => {
   assert.equal(QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE, "Includes 10% Night & Weekend Surcharge");
-  assert.match(card, /QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE/);
+  assert.match(card, /Includes \$\{configuredSurchargeLabel\}/);
   assert.match(card, /data-night-weekend-surcharge-badge/);
   assert.match(showcase, /surchargeNote/);
   assert.match(showcase, /data-night-weekend-surcharge-badge/);
