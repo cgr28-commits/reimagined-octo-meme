@@ -1,6 +1,8 @@
 import { formatUkDateTime, formatUkSubmissionTime } from "./uk-time";
 import { parseGbpAmount, QUOTE_SESSION_TTL_SECONDS } from "./quote-session";
 import { quoteLeadAirportPickupRequiresManualApproval } from "./airport-pickup-service-area";
+import { formatGbpAmount, roundGbp } from "./gbp";
+import { NIGHT_WEEKEND_SURCHARGE_LABEL } from "./night-weekend-surcharge";
 
 export const QUOTE_LEAD_DEDUPE_TTL_SECONDS = QUOTE_SESSION_TTL_SECONDS;
 export const NO_QUOTE_CONTACT_YET =
@@ -40,6 +42,40 @@ export type QuoteLeadDetails = {
   customerName?: string;
   customerEmail?: string;
   mobileNumber?: string;
+  /**
+   * Customer-facing breakdown already composed for the website quote.
+   * The email reports these figures. It does not recalculate them.
+   */
+  pricing?: QuoteLeadPricingBreakdown;
+};
+
+/**
+ * Same components the customer quote already shows, plus the profitability
+ * adjustment from that quote. Amounts are display-only.
+ */
+export type QuoteLeadPricingBreakdown = {
+  /** Journey fare line the customer sees. Profitability is already inside it when applied. */
+  baseJourneyFareGbp?: number;
+  /**
+   * Uplift already inside the customer fare.
+   * null means protection did not run. 0 means it ran and added nothing.
+   */
+  profitabilityAdjustmentGbp: number | null;
+  nightWeekendSurchargeGbp?: number;
+  airportAccessChargeGbp?: number;
+  outboundAirportAccessChargeGbp?: number;
+  returnAirportAccessChargeGbp?: number;
+  returnJourney?: boolean;
+  /** 5% return discount already taken off the journey fare. Omit when this is not a return. */
+  returnDiscountGbp?: number;
+  /** Configured vehicle minimum. Null when this vehicle has none. */
+  vehicleMinimumFareGbp?: number | null;
+  /** True only when that minimum raised the payable. The uplift is already in the fare. */
+  vehicleMinimumApplied?: boolean;
+  /** Whole-pound customer total. Must match the price on the website. */
+  finalCustomerPriceGbp: number;
+  /** Owner pricing configuration version used for this quote. */
+  pricingVersion?: number;
 };
 
 export type QuoteLeadContact = {
@@ -186,7 +222,205 @@ export function sanitizeQuoteLeadAutomaticPrice(
     estimatedPrice: MANUAL_QUOTE_PRICE_LABEL,
     totalGbp: undefined,
     journeyFareGbp: undefined,
+    pricing: undefined,
   };
+}
+
+function readNonNegativeMoney(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 100000) {
+    return null;
+  }
+  return roundGbp(value);
+}
+
+/** Accept only a breakdown the caller already calculated. Invalid payloads are dropped. */
+export function parseQuoteLeadPricing(raw: unknown): QuoteLeadPricingBreakdown | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  const finalCustomerPriceGbp = readNonNegativeMoney(value.finalCustomerPriceGbp);
+  if (finalCustomerPriceGbp == null || finalCustomerPriceGbp <= 0) return undefined;
+
+  let profitabilityAdjustmentGbp: number | null = null;
+  if (value.profitabilityAdjustmentGbp === null) {
+    profitabilityAdjustmentGbp = null;
+  } else if (value.profitabilityAdjustmentGbp !== undefined) {
+    const adjustment = readNonNegativeMoney(value.profitabilityAdjustmentGbp);
+    if (adjustment == null) return undefined;
+    profitabilityAdjustmentGbp = adjustment;
+  }
+
+  const pricingVersion = Number(value.pricingVersion);
+  return {
+    finalCustomerPriceGbp,
+    profitabilityAdjustmentGbp,
+    ...(readNonNegativeMoney(value.baseJourneyFareGbp) != null
+      ? { baseJourneyFareGbp: readNonNegativeMoney(value.baseJourneyFareGbp)! }
+      : {}),
+    ...(readNonNegativeMoney(value.nightWeekendSurchargeGbp) != null
+      ? { nightWeekendSurchargeGbp: readNonNegativeMoney(value.nightWeekendSurchargeGbp)! }
+      : {}),
+    ...(readNonNegativeMoney(value.airportAccessChargeGbp) != null
+      ? { airportAccessChargeGbp: readNonNegativeMoney(value.airportAccessChargeGbp)! }
+      : {}),
+    ...(readNonNegativeMoney(value.outboundAirportAccessChargeGbp) != null
+      ? { outboundAirportAccessChargeGbp: readNonNegativeMoney(value.outboundAirportAccessChargeGbp)! }
+      : {}),
+    ...(readNonNegativeMoney(value.returnAirportAccessChargeGbp) != null
+      ? { returnAirportAccessChargeGbp: readNonNegativeMoney(value.returnAirportAccessChargeGbp)! }
+      : {}),
+    ...(typeof value.returnJourney === "boolean" ? { returnJourney: value.returnJourney } : {}),
+    ...(readNonNegativeMoney(value.returnDiscountGbp) != null
+      ? { returnDiscountGbp: readNonNegativeMoney(value.returnDiscountGbp)! }
+      : {}),
+    ...(value.vehicleMinimumFareGbp === null
+      ? { vehicleMinimumFareGbp: null }
+      : readNonNegativeMoney(value.vehicleMinimumFareGbp) != null
+        ? { vehicleMinimumFareGbp: readNonNegativeMoney(value.vehicleMinimumFareGbp)! }
+        : {}),
+    ...(typeof value.vehicleMinimumApplied === "boolean"
+      ? { vehicleMinimumApplied: value.vehicleMinimumApplied }
+      : {}),
+    ...(Number.isInteger(pricingVersion) && pricingVersion > 0
+      ? { pricingVersion }
+      : {}),
+  };
+}
+
+/**
+ * Copy the website breakdown into the owner email. Does not reprice the journey.
+ */
+export function quoteLeadPricingFromDisplayedFare(input: {
+  baseJourneyFareGbp: number;
+  nightWeekendSurchargeGbp: number;
+  airportAccessChargeGbp: number;
+  outboundAirportAccessChargeGbp?: number;
+  returnAirportAccessChargeGbp?: number;
+  returnJourney: boolean;
+  returnDiscountGbp: number;
+  vehicleMinimumFareGbp: number | null;
+  vehicleMinimumApplied: boolean;
+  finalCustomerPriceGbp: number;
+  profitabilityAdjustmentGbp: number | null;
+  pricingVersion?: number;
+}): QuoteLeadPricingBreakdown {
+  const profitability =
+    input.profitabilityAdjustmentGbp == null
+      ? null
+      : roundGbp(Math.max(0, input.profitabilityAdjustmentGbp));
+  return {
+    baseJourneyFareGbp: roundGbp(Math.max(0, input.baseJourneyFareGbp)),
+    nightWeekendSurchargeGbp: roundGbp(Math.max(0, input.nightWeekendSurchargeGbp)),
+    airportAccessChargeGbp: roundGbp(Math.max(0, input.airportAccessChargeGbp)),
+    outboundAirportAccessChargeGbp: roundGbp(
+      Math.max(0, input.outboundAirportAccessChargeGbp ?? 0),
+    ),
+    returnAirportAccessChargeGbp: roundGbp(Math.max(0, input.returnAirportAccessChargeGbp ?? 0)),
+    returnJourney: input.returnJourney,
+    returnDiscountGbp: input.returnJourney
+      ? roundGbp(Math.max(0, input.returnDiscountGbp))
+      : 0,
+    vehicleMinimumFareGbp:
+      input.vehicleMinimumFareGbp == null
+        ? null
+        : roundGbp(Math.max(0, input.vehicleMinimumFareGbp)),
+    vehicleMinimumApplied: input.vehicleMinimumApplied === true,
+    finalCustomerPriceGbp: roundGbp(Math.max(0, input.finalCustomerPriceGbp)),
+    profitabilityAdjustmentGbp: profitability,
+    ...(input.pricingVersion != null &&
+    Number.isInteger(input.pricingVersion) &&
+    input.pricingVersion > 0
+      ? { pricingVersion: input.pricingVersion }
+      : {}),
+  };
+}
+
+function includedFareLine(amount: number): string {
+  return `${formatGbpAmount(amount)} (included in the customer fare; not added again)`;
+}
+
+function profitabilityLine(amount: number | null | undefined): string {
+  if (amount == null || !Number.isFinite(amount)) return "Not applied";
+  if (amount <= 0) return "£0.00";
+  return includedFareLine(amount);
+}
+
+export function quotedPriceLabel(details: Pick<QuoteLeadDetails, "estimatedPrice" | "pricing">): string {
+  if (details.pricing && Number.isFinite(details.pricing.finalCustomerPriceGbp)) {
+    return formatGbpAmount(details.pricing.finalCustomerPriceGbp);
+  }
+  return details.estimatedPrice;
+}
+
+export function formatQuoteLeadPricingLines(details: QuoteLeadDetails): string[] {
+  const pricing = details.pricing;
+  const final = pricing
+    ? formatGbpAmount(pricing.finalCustomerPriceGbp)
+    : details.estimatedPrice;
+  const returnJourney = pricing?.returnJourney === true || details.returnJourney;
+  const accessKnown = pricing?.airportAccessChargeGbp != null;
+  const perLeg =
+    returnJourney &&
+    (pricing?.outboundAirportAccessChargeGbp != null ||
+      pricing?.returnAirportAccessChargeGbp != null);
+  const lines = [
+    "PRICING",
+    "=".repeat(40),
+    `Quote ID: ${details.quoteTransactionId?.trim() || "Not supplied"}`,
+    `Pricing configuration: ${
+      pricing?.pricingVersion != null ? String(pricing.pricingVersion) : "Not supplied"
+    }`,
+    `Base journey fare: ${
+      pricing?.baseJourneyFareGbp != null
+        ? formatGbpAmount(pricing.baseJourneyFareGbp)
+        : "Not supplied"
+    }`,
+    `Profitability adjustment: ${profitabilityLine(pricing?.profitabilityAdjustmentGbp)}`,
+    `${NIGHT_WEEKEND_SURCHARGE_LABEL}: ${
+      pricing?.nightWeekendSurchargeGbp == null
+        ? "Not supplied"
+        : pricing.nightWeekendSurchargeGbp > 0
+          ? `+${formatGbpAmount(pricing.nightWeekendSurchargeGbp)}`
+          : "£0.00"
+    }`,
+  ];
+
+  if (perLeg) {
+    const leg = (amount: number | null | undefined) =>
+      amount != null && amount > 0 ? `+${formatGbpAmount(amount)}` : "Not applied";
+    lines.push(
+      `Outbound airport terminal access: ${leg(pricing?.outboundAirportAccessChargeGbp)}`,
+      `Return airport terminal access: ${leg(pricing?.returnAirportAccessChargeGbp)}`,
+    );
+  } else {
+    lines.push(
+      `Airport terminal access: ${
+        !accessKnown
+          ? "Not supplied"
+          : (pricing?.airportAccessChargeGbp ?? 0) > 0
+            ? `+${formatGbpAmount(pricing!.airportAccessChargeGbp!)}`
+            : "Not applied"
+      }`,
+    );
+  }
+
+  lines.push(
+    `Vehicle minimum fare: ${
+      pricing?.vehicleMinimumApplied && (pricing.vehicleMinimumFareGbp ?? 0) > 0
+        ? includedFareLine(pricing.vehicleMinimumFareGbp!)
+        : "Not applied"
+    }`,
+    `5% return discount: ${
+      !returnJourney
+        ? "Not applied"
+        : pricing?.returnDiscountGbp == null
+          ? "Not supplied"
+          : pricing.returnDiscountGbp > 0
+            ? `−${formatGbpAmount(pricing.returnDiscountGbp)}`
+            : "£0.00"
+    }`,
+    `Final customer price: ${final}`,
+  );
+  return lines;
 }
 
 export function buildQuoteLeadFingerprint(details: QuoteLeadDetails): string {
@@ -232,11 +466,11 @@ function routeLabel(details: Pick<QuoteLeadDetails, "pickupLabel" | "dropoffLabe
 }
 
 export function buildQuoteLeadSubject(details: QuoteLeadDetails): string {
-  return `Quote viewed — ${details.estimatedPrice} — ${routeLabel(details)}`;
+  return `Quote viewed — ${quotedPriceLabel(details)} — ${routeLabel(details)}`;
 }
 
 export function buildQuoteContactSubject(details: QuoteLeadDetails): string {
-  return `Contact details added to quote — ${details.estimatedPrice} — ${routeLabel(details)}`;
+  return `Contact details added to quote — ${quotedPriceLabel(details)} — ${routeLabel(details)}`;
 }
 
 function buildQuoteTripLines(details: QuoteLeadDetails): string[] {
@@ -257,7 +491,7 @@ function buildQuoteTripLines(details: QuoteLeadDetails): string[] {
     `Passengers: ${details.passengers}`,
     `Luggage: ${details.suitcases} large suitcase${details.suitcases === 1 ? "" : "s"}`,
     `Vehicle: ${details.vehicle}`,
-    `Quoted price: ${details.estimatedPrice}`,
+    `Quoted price: ${quotedPriceLabel(details)}`,
     `Airport access: ${details.airportAccessOption?.trim() || "Not selected"}`,
   );
 
@@ -265,6 +499,7 @@ function buildQuoteTripLines(details: QuoteLeadDetails): string[] {
     lines.push(`Journey: ${details.journeyDistance} · ${details.journeyDuration}`);
   }
 
+  lines.push("", ...formatQuoteLeadPricingLines(details));
   return lines;
 }
 

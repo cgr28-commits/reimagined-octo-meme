@@ -23,6 +23,7 @@ import {
 } from "../shared/ads-attribution";
 import {
   createSerializedQuoteLeadMarkerStore,
+  parseQuoteLeadPricing,
   runQuoteLeadNotification,
   sanitizeQuoteLeadAutomaticPrice,
   type QuoteLeadDetails,
@@ -1353,6 +1354,7 @@ function parseQuoteLeadBody(body: QuoteLeadRequestBody): QuoteLeadDetails | null
     airportAccessFeeGbp:
       typeof body.airportAccessFeeGbp === "number" ? body.airportAccessFeeGbp : undefined,
     totalGbp: typeof body.totalGbp === "number" ? body.totalGbp : undefined,
+    pricing: parseQuoteLeadPricing(body.pricing),
     source: body.source === "bot" ? "bot" : "website",
     customerName: typeof body.customerName === "string" ? body.customerName : undefined,
     customerEmail: typeof body.customerEmail === "string" ? body.customerEmail : undefined,
