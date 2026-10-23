@@ -75,7 +75,25 @@ export type SaloonKnot = {
 export type SaloonFormula = { enabled: boolean; startingChargeGbp: number; ratePerMileGbp: number; minimumFareGbp: number };
 export const DEFAULT_SALOON_FORMULA: SaloonFormula = { enabled: false, startingChargeGbp: 10, ratePerMileGbp: 2.2, minimumFareGbp: 30 };
 
+export type CollectionTimePricing = {
+  evening: { enabled: boolean; surchargeRate: number };
+  overnight: { enabled: boolean; surchargeRate: number };
+};
+
+export function defaultCollectionTimePricing(): CollectionTimePricing {
+  return {
+    evening: { enabled: false, surchargeRate: 0.10 },
+    overnight: { enabled: false, surchargeRate: 0.15 },
+  };
+}
+
+export function collectionTimePricingEnabled(settings?: { collectionTimePricing?: CollectionTimePricing } | null): boolean {
+  return settings?.collectionTimePricing?.evening.enabled === true ||
+    settings?.collectionTimePricing?.overnight.enabled === true;
+}
+
 export type OwnerPricingSettings = {
+  collectionTimePricing?: CollectionTimePricing;
   saloonFormula?: SaloonFormula;
   postcodeRules?: PostcodePricingRule[];
   postcodePricingEnabled?: boolean;
@@ -163,6 +181,7 @@ export type OwnerPricingValidationResult =
   | { ok: false; errors: OwnerPricingValidationError[] };
 
 export type PublicOwnerPricingConfig = {
+  collectionTimePricing?: CollectionTimePricing;
   saloonFormula?: SaloonFormula;
   postcodeRules?: PostcodePricingRule[];
   postcodePricingEnabled?: boolean;
@@ -238,6 +257,7 @@ export function defaultOwnerPricingSettings(
     schemaVersion: OWNER_PRICING_SCHEMA_VERSION,
     version: 1,
     saloonFormula: { ...DEFAULT_SALOON_FORMULA },
+    collectionTimePricing: defaultCollectionTimePricing(),
     postcodeRules: [],
     postcodePricingEnabled: false,
     updatedAt: now.toISOString(),
@@ -324,6 +344,21 @@ export function validateOwnerPricingInput(
   for (const message of postcodes.errors) errors.push({ field: "postcodeRules", message });
   const defaults = defaultOwnerPricingSettings();
 
+  const collectionTimePricing = defaultCollectionTimePricing();
+  if (input.collectionTimePricing != null) {
+    const bands = input.collectionTimePricing as Record<string, unknown>;
+    for (const band of ["evening", "overnight"] as const) {
+      const rawBand = bands[band] as Record<string, unknown> | undefined;
+      if (!rawBand || typeof rawBand !== "object" || Array.isArray(rawBand)) {
+        reject(errors, `collectionTimePricing.${band}`, "Enter the enabled setting and percentage.");
+        continue;
+      }
+      if (typeof rawBand.enabled !== "boolean") reject(errors, `collectionTimePricing.${band}.enabled`, "Choose ON or OFF.");
+      const rate = readRate(rawBand.surchargeRate, `collectionTimePricing.${band}.surchargeRate`, errors);
+      if (rate != null && (rate < 0 || rate > 1)) reject(errors, `collectionTimePricing.${band}.surchargeRate`, "Enter a percentage between 0% and 100%.");
+      collectionTimePricing[band] = { enabled: rawBand.enabled === true, surchargeRate: rate ?? collectionTimePricing[band].surchargeRate };
+    }
+  }
   const formula = { ...DEFAULT_SALOON_FORMULA };
   if (input.saloonFormula != null) {
     const rawFormula = input.saloonFormula as Record<string, unknown>;
@@ -574,6 +609,7 @@ export function validateOwnerPricingInput(
   return {
     ok: true,
     settings: {
+      collectionTimePricing,
       saloonFormula: formula,
       postcodeRules: postcodes.rules,
       postcodePricingEnabled: postcodePricingIsEnabled(input.postcodePricingEnabled, postcodes.rules),
@@ -668,6 +704,7 @@ export function toPublicOwnerPricingConfig(
     postcodePricingEnabled: settings.saloonFormula?.enabled !== true && postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules),
     postcodeRules: postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules) ? (settings.postcodeRules ?? []).filter(r => r.enabled && postcodeRuleApproved(r)).map(({ district, airportCode, saloonFareGbp, enabled, direction }) => ({ district, airportCode, saloonFareGbp, enabled, direction, approvalStatus: "approved" as const })) : [],
     saloonFormula: { ...(settings.saloonFormula ?? DEFAULT_SALOON_FORMULA) },
+    collectionTimePricing: settings.collectionTimePricing ?? defaultCollectionTimePricing(),
     saloon: settings.saloon,
     estate: settings.estate,
     minibus: {
@@ -705,6 +742,7 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
       resolved.executive.minimumFareGbp ?? DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
     publicExecutiveEnabled: resolved.executive.publicEnabled !== false,
     saloonFormula: resolved.saloonFormula,
+    collectionTimePricing: resolved.collectionTimePricing ?? defaultCollectionTimePricing(),
     saloonMinimumGbp: resolved.saloon.minimumFareGbp,
     saloonFloorMiles: resolved.saloon.floorMiles,
     saloonKnots: resolved.saloon.knots.map((knot) => [knot.miles, knot.fareGbp] as const),
@@ -750,6 +788,12 @@ export function formatPercentFromRate(rate: number): string {
 export function describeOwnerPricingValue(path: string, settings: OwnerPricingSettings): string {
   if (path.startsWith("meetGreetEmail.")) return settings.meetGreetEmail?.enabled[path.split(".")[1] as "BFS" | "BHD" | "DUB"] ? "ON" : "OFF";
   switch (path) {
+    case "collectionTimePricing.evening":
+    case "collectionTimePricing.overnight": {
+      const band = path.endsWith("evening") ? "evening" : "overnight";
+      const value = (settings.collectionTimePricing ?? defaultCollectionTimePricing())[band];
+      return `${value.enabled ? "ON" : "OFF"}; ${formatPercentFromRate(value.surchargeRate)}; ${band === "evening" ? "18:00–21:59" : "22:00–05:59"} Europe/London`;
+    }
     case "saloonFormula": {
       const formula = settings.saloonFormula ?? DEFAULT_SALOON_FORMULA;
       return `${formula.enabled ? "ON" : "OFF"}; starting £${formula.startingChargeGbp.toFixed(2)}; £${formula.ratePerMileGbp.toFixed(2)} per road mile; minimum £${formula.minimumFareGbp.toFixed(2)}`;
@@ -814,6 +858,8 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
 }
 
 const DIFF_PATHS = [
+  "collectionTimePricing.evening",
+  "collectionTimePricing.overnight",
   "saloonFormula",
   "postcodePricingEnabled",
   "postcodeRules",
@@ -846,6 +892,8 @@ const DIFF_PATHS = [
 ] as const;
 
 const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
+  "collectionTimePricing.evening": "Evening premium",
+  "collectionTimePricing.overnight": "Overnight premium",
   "saloonFormula": "Saloon mileage formula",
   "postcodeRules": "Postcode Pricing rules (district to airport)",
   "postcodePricingEnabled": "Postcode Pricing feature switch",
@@ -962,6 +1010,7 @@ export function publicMinibusAllowed(
 }
 
 export type PremiumWindowRules = {
+  collectionTimePricing?: CollectionTimePricing;
   nightEnabled: boolean;
   nightStartMinutes: number;
   nightEndMinutes: number;
@@ -1006,6 +1055,16 @@ export function surchargeRateForDateTime(input: {
 }): number {
   const rules = input.rules ?? defaultPremiumWindowRules();
   const weekend = isWeekendDay(input.day, rules);
+  if (collectionTimePricingEnabled(rules)) {
+    const bands = rules.collectionTimePricing!;
+    const timeRate = input.minutes >= 22 * 60 || input.minutes < 6 * 60
+      ? (bands.overnight.enabled ? bands.overnight.surchargeRate : 0)
+      : input.minutes >= 18 * 60
+        ? (bands.evening.enabled ? bands.evening.surchargeRate : 0)
+        : 0;
+    // New collection bands replace the legacy night rule, never overlap it.
+    return Math.max(timeRate, weekend ? input.weekendRate : 0);
+  }
   const night = !weekend && isNightMinutes(input.minutes, rules);
   const weekendAlsoNight = weekend && isNightMinutes(input.minutes, rules);
   const rates: number[] = [];

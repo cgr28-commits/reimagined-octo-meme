@@ -45,6 +45,7 @@ export async function fetchOwnerPricing(ownerKey: string): Promise<{
   defaults: OwnerPricingSettings;
   audit: OwnerPricingAuditEntry[];
   saloonFormulaEditorVersion?: number;
+  collectionTimePricingEditorVersion?: number;
   postcodeRulesEditorVersion?: number;
 }> {
   if (isBrowserPricingPreview()) {

@@ -20,6 +20,7 @@ import {
   dublinAirportJourneyFareGbp,
   isDublinAirportCode,
   ownerPricingEngineOptions,
+  collectionTimePricingEnabled,
   type PublicOwnerPricingConfig,
   type OwnerPricingSettings,
 } from "../../shared/owner-pricing-config";
@@ -790,8 +791,8 @@ export function calculateQuote(
   const inboundFare = postcode.inbound ?? oneWayFare;
   const pricedSchedule = {
     ...schedule,
-    ...(postcode.outbound != null ? { outboundDate: undefined, outboundTime: undefined } : {}),
-    ...(postcode.inbound != null ? { returnDate: undefined, returnTime: undefined } : {}),
+    ...(postcode.outbound != null && !collectionTimePricingEnabled(pricing) ? { outboundDate: undefined, outboundTime: undefined } : {}),
+    ...(postcode.inbound != null && !collectionTimePricingEnabled(pricing) ? { returnDate: undefined, returnTime: undefined } : {}),
   };
   const premium = applyTripPremium(
     outboundFare,

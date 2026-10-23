@@ -5,6 +5,8 @@ import {
   BANK_HOLIDAY_BEHAVIOUR_NOTE,
   SURCHARGE_STACKING_EXPLANATION,
   defaultOwnerPricingSettings,
+  defaultCollectionTimePricing,
+  collectionTimePricingEnabled,
   diffOwnerPricingSettings,
   formatMinutesAsTime,
   formatPercentFromRate,
@@ -57,6 +59,7 @@ function asDraft(
   return {
     ...settings,
     saloonFormula: settings.saloonFormula ?? defaultOwnerPricingSettings().saloonFormula,
+    collectionTimePricing: settings.collectionTimePricing ?? defaultCollectionTimePricing(),
     profitability: normalizeProfitabilitySettings(settings.profitability),
     dublinAirportFareAdjustment: {
       rate: settings.dublinAirportFareAdjustment?.rate ?? 0,
@@ -275,12 +278,14 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   });
 
   const [formulaSupported, setFormulaSupported] = useState(isolated === true);
+  const [collectionTimeSupported, setCollectionTimeSupported] = useState(isolated === true);
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const result = await fetchOwnerPricing(ownerKey);
       setFormulaSupported(result.saloonFormulaEditorVersion === 1 || isolated === true);
+      setCollectionTimeSupported(result.collectionTimePricingEditorVersion === 1 || isolated === true);
       const loaded = asDraft(result.settings);
       setSaved(loaded);
       setDraft(loaded);
@@ -1020,8 +1025,43 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
-          Night / Weekend / Bank Holiday
+          Evening / Night / Weekend / Bank Holiday
         </h3>
+        <fieldset disabled={!collectionTimeSupported} className="mt-3">
+          <legend className="text-sm font-semibold text-white">Collection-time pricing — Europe/London</legend>
+          <p className="mt-2 text-xs text-white/70">Standard daytime: 06:00–17:59, 0% time premium. Each return collection is priced separately.</p>
+          {(["evening", "overnight"] as const).map((band) => {
+            const bands = draft.collectionTimePricing ?? defaultCollectionTimePricing();
+            const label = band === "evening" ? "Evening" : "Overnight";
+            const hours = band === "evening" ? "18:00–21:59" : "22:00–05:59";
+            return (
+              <div key={band} className="mt-3">
+                <Toggle
+                  id={`${band}-enabled`}
+                  label={`${label} pricing enabled`}
+                  checked={bands[band].enabled}
+                  onChange={(enabled) => update("collectionTimePricing", { ...bands, [band]: { ...bands[band], enabled } })}
+                />
+                <PercentField
+                  label={`${label} premium`}
+                  value={Math.round(bands[band].surchargeRate * 1000) / 10}
+                  onChange={(value) => update("collectionTimePricing", { ...bands, [band]: { ...bands[band], surchargeRate: value / 100 } })}
+                />
+                <p className="mt-1 text-xs text-white/70">{hours}: {bands[band].enabled ? `ON — ${formatPercentFromRate(bands[band].surchargeRate)}` : `OFF — saved ${formatPercentFromRate(bands[band].surchargeRate)}`}</p>
+              </div>
+            );
+          })}
+        </fieldset>
+        {!collectionTimeSupported ? <p className="mt-2 text-xs text-white/70">These controls require the matching Worker update before they can be saved.</p> : null}
+        <p className="mt-3 text-xs text-white/70">
+          The highest enabled collection-time or weekend rate applies once to the original journey fare.
+          Percentages are never added together or compounded. Airport charges and tolls stay separate.
+          Your existing night settings are retained. They are ignored while either new band is ON,
+          and resume when both new bands are OFF.
+        </p>
+        <p className="mt-2 text-xs font-semibold text-emerald" role="status">
+          {collectionTimePricingEnabled(draft) ? "New collection bands selected; legacy night rule inactive." : `New bands OFF; legacy night rule ${draft.night.enabled ? "ON" : "OFF"}.`}
+        </p>
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="text-sm text-white/70">Night pricing enabled</p>
           <Toggle
@@ -1087,7 +1127,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <p className="mt-3 text-sm text-white/80">{SURCHARGE_STACKING_EXPLANATION}</p>
         <p className="mt-4 text-sm font-semibold uppercase tracking-wider text-emerald">Bank Holidays</p>
         <p className="mt-2 text-sm text-white/70">{BANK_HOLIDAY_BEHAVIOUR_NOTE}</p>
-        <p className="mt-3 text-xs text-white/55">{nightWeekendSurchargeExplanation(draft)}</p>
+        {!collectionTimePricingEnabled(draft) ? <p className="mt-3 text-xs text-white/55">{nightWeekendSurchargeExplanation(draft)}</p> : null}
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4" data-executive-multiplier>
