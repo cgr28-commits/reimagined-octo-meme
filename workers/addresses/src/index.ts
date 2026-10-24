@@ -5098,7 +5098,8 @@ export default {
       const identity = [booking.customerEmail, booking.pickupLabel, booking.dropoffLabel,
         booking.tripDate, booking.tripTime, booking.returnJourney, booking.returnDate,
         booking.returnTime, booking.vehicle, booking.passengers, booking.suitcases];
-      const digest = await paymentOperationHash({...body, redirectUrl:undefined});
+      const digest = await paymentOperationHash({...body, redirectUrl:undefined,
+        booking:{...booking,termsAcceptedAt:Boolean(String(booking.termsAcceptedAt ?? "").trim())}});
       try {
         const {result} = await runPaymentOperation({namespace:env.QUOTE_LEAD_COORDINATOR,
           key:`payment-create:${await paymentOperationHash(identity)}`,digest,

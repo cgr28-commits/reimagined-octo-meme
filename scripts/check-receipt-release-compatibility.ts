@@ -127,7 +127,10 @@ async function main() {
       const response=paymentResponses.find(result=>result.status===200)!;
       assert.ok(response,"A valid payment request succeeds");
       assert.equal(checkouts,beforePay+1,"Concurrent/repeated payment attempts create only one checkout");
-      if(checks === 0) {assert.equal((await pay()).status,200);assert.equal(checkouts,beforePay+1,"Completed create is reused");}
+      if(checks === 0) {
+        booking.termsAcceptedAt=new Date(now+1000).toISOString();
+        assert.equal((await pay()).status,200);assert.equal(checkouts,beforePay+1,"Same booking with a fresh consent timestamp reuses its checkout");
+      }
 
       const body=await response.json() as {checkoutId:string};assert.equal(response.status,200,JSON.stringify(body));assert.equal(checkoutAmount,charged);
       const pending=await getPendingCheckout(kv,body.checkoutId);assert.ok(pending);
