@@ -118,7 +118,7 @@ export default function QuoteScheduleFields({
           <div
             data-schedule-control={homepageInline ? "date" : undefined}
             data-schedule-empty={homepageInline && !tripDate ? true : undefined}
-            className={quoteDateTimeFieldShellClass(
+            className={homepageInline ? "box-border h-12 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
               scheduleFieldState({
                 hasError: Boolean(tripDateError),
                 complete: Boolean(tripDate.trim()),
@@ -149,7 +149,7 @@ export default function QuoteScheduleFields({
           <div
             data-schedule-control={homepageInline ? "time" : undefined}
             data-schedule-empty={homepageInline && !tripTime ? true : undefined}
-            className={quoteDateTimeFieldShellClass(
+            className={homepageInline ? "box-border h-12 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
               scheduleFieldState({
                 hasError: Boolean(tripDateError),
                 complete: Boolean(tripTime.trim()),
@@ -192,7 +192,7 @@ export default function QuoteScheduleFields({
             <div
               data-schedule-control={homepageInline ? "date" : undefined}
               data-schedule-empty={homepageInline && !returnDate ? true : undefined}
-              className={quoteDateTimeFieldShellClass(
+              className={homepageInline ? "box-border h-12 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
                 scheduleFieldState({
                   hasError: Boolean(returnDateError),
                   complete: Boolean(returnDate.trim()),
@@ -221,7 +221,7 @@ export default function QuoteScheduleFields({
             <div
               data-schedule-control={homepageInline ? "time" : undefined}
               data-schedule-empty={homepageInline && !returnTime ? true : undefined}
-              className={quoteDateTimeFieldShellClass(
+              className={homepageInline ? "box-border h-12 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
                 scheduleFieldState({
                   hasError: Boolean(returnDateError),
                   complete: Boolean(returnTime.trim()),
