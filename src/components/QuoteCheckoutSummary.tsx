@@ -56,9 +56,9 @@ export default function QuoteCheckoutSummary({
       ) : null}
       {accessLine ? <p className="mt-1 text-xs text-white/75">{accessLine}</p> : null}
       <p className="mt-1 text-lg font-bold tracking-tight text-white sm:text-xl">{totalLabel}</p>
-      <div className="grid grid-cols-3 items-start gap-x-2 gap-y-0 text-xs font-semibold sm:mt-1 sm:flex sm:flex-wrap sm:gap-x-3" data-checkout-summary-controls>
+      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0 text-xs font-semibold" data-checkout-summary-controls>
         {pickupAddress && destinationAddress ? (
-          <details className="min-w-0 text-white/75 open:col-span-3 sm:open:basis-full">
+          <details className="min-w-0 text-white/75 open:basis-full">
             <summary className="min-h-11 cursor-pointer content-center text-emerald">Full journey addresses</summary>
             <p className="break-words"><strong>Pickup:</strong> {pickupAddress}</p>
             <p className="mt-1 break-words"><strong>Destination:</strong> {destinationAddress}</p>
