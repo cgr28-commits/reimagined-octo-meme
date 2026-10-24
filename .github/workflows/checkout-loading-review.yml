@@ -1,0 +1,47 @@
+name: Checkout loading review
+on:
+  pull_request:
+    paths:
+      - 'src/components/QuoteCard.tsx'
+      - 'src/lib/create-payment.ts'
+      - 'src/lib/payment-attempt-guard.ts'
+      - 'workers/addresses/src/index.ts'
+      - 'scripts/check-checkout-loading*'
+      - '.github/workflows/checkout-loading-review.yml'
+permissions:
+  contents: read
+jobs:
+  checkout-loading:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_BOOKINGS_API_URL: https://mock.invalid/bookings
+      NEXT_PUBLIC_ADDRESSES_API_URL: https://mock.invalid/addresses
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: npm run sync:worker-shared
+      - run: node --import tsx scripts/check-checkout-loading-timing.ts
+      - run: node --import tsx scripts/check-payment-operation.ts
+      - run: node --import tsx scripts/check-sumup-payment-ux.ts
+      - run: node --import tsx scripts/check-deposit-cash.ts
+      - run: node --import tsx scripts/check-sumup-booking-conversion.ts
+      - run: npm --prefix workers/addresses run typecheck
+      - run: npm run lint
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - name: Mocked desktop and mobile checkout
+        run: |
+          python3 -m http.server 3000 --directory out > /tmp/checkout-server.log 2>&1 &
+          node --import tsx scripts/check-checkout-loading-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checkout-loading-screenshots
+          path: test-results/checkout-loading/

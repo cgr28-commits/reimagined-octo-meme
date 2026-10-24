@@ -1,4 +1,6 @@
 "use client";
+
+import { hasUncertainPayment, PAYMENT_UNCERTAIN_MESSAGE, PaymentOutcomeUncertainError } from "@/lib/payment-attempt-guard";
 import { saveQuote, type SaveQuoteResult } from "@/lib/saved-quote-api";
 
 import { formatMeetGreetGbp, meetGreetFeeGbp, normaliseMeetGreetAirport } from "../../shared/meet-greet";
@@ -1028,6 +1030,22 @@ function QuoteCard({
   const displayedRouteKeyRef = useRef<string | null>(null);
   const [vehicleFareUpdating, setVehicleFareUpdating] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentUncertain, setPaymentUncertain] = useState(false);
+  useEffect(() => {
+    if (hasUncertainPayment()) {
+      setPaymentUncertain(true);
+      setPaymentError(PAYMENT_UNCERTAIN_MESSAGE);
+    }
+  }, []);
+  const paymentSubmitLock = useRef(false);
+  const paymentNavigating = useRef(false);
+  const [paymentSlow, setPaymentSlow] = useState(false);
+  useEffect(() => {
+    setPaymentSlow(false);
+    if (!paymentLoading) return;
+    const timer = window.setTimeout(() => setPaymentSlow(true), 8000);
+    return () => window.clearTimeout(timer);
+  }, [paymentLoading]);
   const [paymentError, setPaymentError] = useState("");
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
   const [paymentPopupBlocked, setPaymentPopupBlocked] = useState(false);
@@ -4349,6 +4367,25 @@ function QuoteCard({
     showDepositCashChoice && paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH;
 
   async function handlePayNow() {
+    if (paymentSubmitLock.current || paymentLoading || submitted || paymentUncertain) return;
+    if (!validateCheckoutRequiredFields()) return;
+    paymentSubmitLock.current = true;
+    paymentNavigating.current = false;
+    setPaymentLoading(true);
+    setPaymentError("");
+    try {
+      await preparePayment();
+    } catch {
+      setPaymentError("We couldn't check availability. Please try again or contact us for help.");
+    } finally {
+      if (!paymentNavigating.current) {
+        paymentSubmitLock.current = false;
+        setPaymentLoading(false);
+      }
+    }
+  }
+
+  async function preparePayment() {
     if (!validateRequiredFlightNumbers()) {
       setPaymentError("");
       setSubmitError("");
@@ -4373,7 +4410,7 @@ function QuoteCard({
     if (isCustomerSmartAvailabilityBlockMessage(paymentError) && !isMinimumNoticeRequest) {
       return;
     }
-    if (paymentLoading || submitted) {
+    if (submitted) {
       return;
     }
     if (!validateCheckoutRequiredFields()) {
@@ -4624,7 +4661,6 @@ function QuoteCard({
         openedAt: new Date().toISOString(),
       };
       saveOpenCheckoutSession(session);
-      setOpenCheckout(session);
 
       if (checkout.bookingSaved === true && checkout.bookingReference) {
         // The Worker has persisted the pending booking. Give the labelled Ads
@@ -4647,13 +4683,21 @@ function QuoteCard({
       if (isMobile) {
         // Same-tab redirect — reliable on iPhone Safari / Android (no popup).
         notifyOwnerQuoteContactIfReady("payment_opened");
+        paymentNavigating.current = true;
         window.location.assign(checkout.paymentUrl);
         return;
       }
       // Desktop: keep the completed quote visible and wait for Continue to SumUp.
+      setOpenCheckout(session);
       setPaymentLoading(false);
       return;
     } catch (error) {
+      if (error instanceof PaymentOutcomeUncertainError) {
+        setPaymentUncertain(true);
+        setPaymentError(PAYMENT_UNCERTAIN_MESSAGE);
+        setPaymentLoading(false);
+        return;
+      }
       if (isPaymentVehicleUnavailableError(error)) {
         setPaymentError(error.message || PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
         setPaymentLoading(false);
@@ -6868,7 +6912,7 @@ function QuoteCard({
 
         {paymentError && !(payNow && liveQuote) && !checkoutBlocked && !ownerClosed ? (
           <div className="space-y-3">
-            <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            <p role="alert" className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
               {paymentError}
             </p>
             {renderBookingErrorHelp("payment-early")}
@@ -6999,7 +7043,7 @@ function QuoteCard({
               ) : null}
               {paymentError && !isCustomerSmartAvailabilityBlockMessage(paymentError) ? (
                 <div className="space-y-3">
-                  <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                  <p role="alert" className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
                     {paymentError}
                   </p>
                   {renderBookingErrorHelp("payment-actions")}
@@ -7059,6 +7103,7 @@ function QuoteCard({
                     <div className="grid gap-2 sm:grid-cols-2">
                       <button
                         type="button"
+                        disabled={paymentLoading}
                         aria-pressed={paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH}
                         onClick={() => setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH)}
                         className={`min-h-11 rounded-xl border px-3 py-2.5 text-left transition-colors ${
@@ -7083,6 +7128,7 @@ function QuoteCard({
                       </button>
                       <button
                         type="button"
+                        disabled={paymentLoading}
                         aria-pressed={paymentMethod === PAYMENT_METHOD_FULL_ONLINE}
                         onClick={() => {
                           setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE);
@@ -7133,13 +7179,16 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
-                  disabled={paymentLoading || submitted || (selectedDepositCash && !cashAgreementAccepted)}
-                  className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={paymentLoading || paymentUncertain || submitted || (selectedDepositCash && !cashAgreementAccepted)}
+                  aria-busy={paymentLoading}
+                  aria-describedby={paymentLoading ? "payment-loading-status" : undefined}
+                  className="btn-pay w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-70"
                 >
+                  {paymentLoading ? <span aria-hidden="true" className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" /> : null}
                   {paymentLoading
                     ? isAvailabilityRequest
                       ? "Submitting booking request…"
-                      : "Opening secure payment…"
+                      : "Preparing your secure payment…"
                     : testChargeAmount !== null
                       ? "Pay £1.00 test charge with SumUp"
                       : isMinibusNoticeRequest
@@ -7152,6 +7201,13 @@ function QuoteCard({
                               : fullPayButtonLabel(depositCashOffer.totalFare)
                             : `Pay ${amountLabel ?? formatQuote(liveQuote.amount)} & Confirm Booking`}
                 </button>
+                <p id="payment-loading-status" role="status" aria-live="polite" aria-atomic="true" className="text-center text-sm text-white/85">
+                  {paymentLoading && !isAvailabilityRequest
+                    ? paymentSlow
+                      ? "Still connecting securely to SumUp. Please wait…"
+                      : "Please wait. We’re connecting you securely to SumUp."
+                    : ""}
+                </p>
                 <p className="text-center text-xs text-white/55">{SECURE_SUMUP_LINE}</p>
                 </>
               )}
