@@ -146,12 +146,18 @@ try {
   assert.equal(await deposit.getAttribute('aria-pressed'),'true');
   assert.ok((await deposit.innerText()).includes('CASH'));
   assert.equal(await page.getByText('Secure payment powered by SumUp',{exact:true}).count(),1);
-  await page.locator('#step3-payment-actions').screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-payment.png`});
+  await pay.scrollIntoViewIfNeeded();
+  assert.ok(await pay.evaluate(el=>{
+    const banner=document.querySelector('.cookie-consent-banner')?.getBoundingClientRect();
+    return !banner || el.getBoundingClientRect().bottom <= banner.top;
+  }),'Payment action scrolls clear of open cookie banner');
   assert.equal(await page.locator('#step3-payment-actions').getByRole('button',{name:'Start over',exact:true}).count(),1);
   const consent=width===375?'Reject optional':'Accept';
   assert.ok((await page.locator('.cookie-consent-banner').boundingBox()).height<110,'Compact banner retains 44px consent buttons');
   await page.getByRole('button',{name:consent,exact:true}).click();
   assert.equal(await page.locator('.cookie-consent-banner').count(),0);
+  await page.locator('#step3-payment-actions').screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-payment.png`});
+  await summary.screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-summary.png`});
   assert.equal(await page.evaluate(()=>localStorage.getItem('matni-cookie-consent-v1')),width===375?'rejected':'accepted');
   assert.deepEqual(writes,[]);
   await page.reload();
