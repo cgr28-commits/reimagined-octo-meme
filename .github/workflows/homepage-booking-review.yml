@@ -21,6 +21,9 @@ on:
       - 'src/components/LocationQuoteSection.tsx'
       - 'src/components/AddressInput.tsx'
       - 'scripts/check-homepage-booking-browser.mjs'
+      - 'scripts/check-homepage-field-layout.mjs'
+      - 'src/components/HeroSlideshow.tsx'
+      - 'src/components/QuoteScheduleFields.tsx'
       - 'scripts/check-homepage-quote-height-compare.mjs'
       - 'scripts/check-return-vehicle-stability.mjs'
       - 'scripts/check-hub-quote-browser.mjs'
@@ -75,6 +78,7 @@ jobs:
           status=0
           for engine in chromium webkit; do
             PLAYWRIGHT_BROWSER=$engine QUOTE_BASELINE_URL=http://127.0.0.1:3001 QUOTE_UPDATED_URL=http://127.0.0.1:3000 node --import tsx scripts/check-homepage-quote-height-compare.mjs || status=1
+            PLAYWRIGHT_BROWSER=$engine TEST_BASE_URL=http://127.0.0.1:3000 node scripts/check-homepage-field-layout.mjs || status=1
             PLAYWRIGHT_BROWSER=$engine TEST_BASE_URL=http://127.0.0.1:3000 node --import tsx scripts/check-homepage-booking-browser.mjs || status=1
           done
           exit "$status"
@@ -85,6 +89,7 @@ jobs:
           path: |
             test-results/homepage-booking/
             test-results/homepage-layout-compare/
+            test-results/homepage-fields/
           if-no-files-found: warn
 
   browser-review:
