@@ -87,8 +87,11 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       await page.locator('#quote-section-passengers').selectOption('2');
       await page.locator('#quote-section-suitcases').selectOption('2');
       await page.locator('h1').click();
-      assert.equal(await page.locator('#quote-section-passengers').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(82, 99, 122)');
-      for(const selector of fieldSelectors.slice(2)) assert.equal((await palette(selector)).color,'rgb(255, 255, 255)',selector);
+      await page.waitForFunction(()=>getComputedStyle(document.querySelector('#quote-section-passengers')).borderTopColor==='rgb(82, 99, 122)');
+      for(const selector of fieldSelectors.slice(2)) {
+        await page.waitForFunction(selector=>getComputedStyle(document.querySelector(selector)).color==='rgb(255, 255, 255)',selector);
+        assert.equal((await palette(selector)).color,'rgb(255, 255, 255)',selector);
+      }
       await checkFields();
       await page.getByRole('button',{name:/Return.*5%/}).click();
       await page.locator('#returnDate').fill('2027-02-12');

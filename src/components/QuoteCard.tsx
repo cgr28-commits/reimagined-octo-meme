@@ -7054,7 +7054,7 @@ function QuoteCard({
               ) : (
                 <>
                 {showDepositCashChoice && depositCashOffer ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3" data-booking-payment-options>
                     <p className="text-sm font-semibold text-white">{DEPOSIT_CASH_CHOOSE_HEADING}</p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <button
