@@ -30,7 +30,7 @@ export default function HeroSlideshow() {
           Desktop (lg+): heading, then benefits above a centred quote form. */}
       <div className="homepage-hero-layout desktop-shell relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-1.5 px-4 py-1.5 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
         <div id="homepage-booking-intro" className="homepage-hero-copy order-1 min-w-0 text-center md:order-2 lg:order-1 lg:pt-2">
-          <p className="section-eyebrow mb-1.5 max-w-full md:mb-6 lg:mb-7">
+          <p className="section-eyebrow mb-1.5 hidden max-w-full md:block md:mb-6 lg:mb-7">
             <span className="md:hidden">Private airport transfers • Northern Ireland</span>
             <span className="hidden md:inline lg:hidden">
               Private airport transfers • Belfast &amp; Northern Ireland
