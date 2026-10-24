@@ -1,6 +1,19 @@
 # PR #692 isolated staging verification
 
-Status: preparation only. Provider/deployment verification must not be claimed until the staging workflow completes and the test matrix below is exercised.
+Status: **BLOCKED before deployment — dedicated staging configuration is missing.** No staging Worker or frontend URL is available; no provider payment or production change was attempted.
+
+## Results — 24 October 2026
+
+- [Staging CI run](https://github.com/cgr28-commits/reimagined-octo-meme/actions/runs/40121479053), tooling commit `f286198d39225024b83ff9816db2b55531ea4115`: validation job passed; deployment job stopped at the secret-slot preflight. All six secrets listed below and `PR692_STAGING_FRONTEND_ORIGIN` were **MISSING**. The actual credential/deployment step was skipped.
+- Local root and Worker TypeScript checks passed. ESLint passed with existing application warnings. Worker Wrangler build dry run passed with the separate configuration and dummy namespace IDs; this did not provision resources.
+- Isolation tests passed: forbidden storage IDs, unapproved origins, missing identity, missing credentials and non-sandbox merchant responses are rejected; confirmation capture makes no external email calls.
+- The existing **864** signed quote → payment → stored booking → confirmation regression cases passed, including full/deposit amounts, three airports, return-leg choices, configurable fees and repeated confirmation idempotency. Provider responses are mocked in this suite; this is **not** a real SumUp sandbox result.
+- Synthetic pending/paid records survived new → old → new storage-module round-trips with amounts, access metadata and finalization marker preserved. Test: `PR692_BASELINE_ROOT=<reviewed-main-checkout> node --import tsx scripts/check-pr692-record-compatibility.ts`; baseline main `2c6bfb59a9fad54389990f217ee3b0cc056af93b`.
+- Receipt compatibility confirmed: old/old and new/new pass, both cross-version combinations reject. Outstanding quotes and cached clients need a reviewed refresh/compatibility plan before production.
+- **Not yet verified:** real sandbox checkout completion/decline, deployed confirmation persistence and duplicate protection, browser flow against the staging backend, and deployed rollback. Storage-module tests cannot establish those results.
+- PR #692 remains at `df16c3530c9cdf575237e1ab87303b06807b0f4b`; main remains at the baseline above. No merge, live customer-record access, production deployment, DNS/environment change or real charge was made.
+
+The next prerequisite is secure configuration of the dedicated environment below. Staging authorization is already recorded; production authorization is not.
 
 ## Scope and identity
 
