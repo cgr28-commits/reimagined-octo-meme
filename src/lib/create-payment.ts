@@ -425,7 +425,7 @@ export async function createPaymentCheckout(
 
   // Network loss, malformed responses and ambiguous server failures must not
   // invite another checkout. Only an explicit validation rejection is retryable.
-  if (!payload || (response.status >= 500 && payload.code !== "route_service_unavailable") || payload.code === "payment_in_progress") {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) || (response.status >= 500 && payload.code !== "route_service_unavailable") || payload.code === "payment_in_progress") {
     throw new PaymentOutcomeUncertainError();
   }
   if (!response.ok) clearPaymentPending();

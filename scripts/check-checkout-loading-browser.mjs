@@ -43,6 +43,7 @@ try {
     });
 
   const page=await context.newPage();
+  try {
   await page.goto(`${base}/?previewJourney=bfs`);
   const reject=page.getByRole('button',{name:'Reject optional',exact:true});
   if(await reject.isVisible()) await reject.click();
@@ -100,6 +101,10 @@ try {
   assert.equal(sent.amount,60,'Browser sends authoritative total; Worker derives deposit');
   assert.equal(sent.booking.passengers,2);assert.equal(sent.booking.suitcases,2);
   console.log(JSON.stringify({width,scenario,method,feedbackMs,totalMs:Date.now()-started,payments}));
-  await context.close();
+  } catch(error) {
+    await page.screenshot({path:`test-results/checkout-loading/${width}-${method}-${scenario}-failure.png`,fullPage:true});
+    console.error(await page.locator('#step3-payment-actions').innerText().catch(()=>"Checkout not visible"));
+    throw error;
+  } finally { await context.close(); }
  }
 } finally {await browser.close();}

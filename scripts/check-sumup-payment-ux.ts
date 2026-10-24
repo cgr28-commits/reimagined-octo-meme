@@ -93,7 +93,7 @@ assert.match(card, /SumUp opens in a separate tab\. Close it at any time to retu
 assert.match(card, /openDesktopSumUpCheckout\(window,\s*paymentUrl\)/);
 assert.match(read("src/lib/sumup-desktop-handoff.ts"), /window\.open\("about:blank", "_blank"\)|win\.open\("about:blank", "_blank"\)/);
 assert.match(card, /isMobileDevice \?\? detectMobileDevice\(\)/);
-assert.match(card, /if \(isMobile\) \{[\s\S]{0,250}?window\.location\.assign\(checkout\.paymentUrl\)/);
+assert.match(card, /if \(isMobile\) \{[\s\S]{0,180}?window\.location\.assign\(checkout\.paymentUrl\)/);
 assert.match(card, /saveBookingFormDraft/);
 assert.match(card, /savePendingPayment/);
 assert.match(card, /saveOpenCheckoutSession/);

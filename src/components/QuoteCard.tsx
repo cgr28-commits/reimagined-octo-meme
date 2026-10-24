@@ -4413,9 +4413,6 @@ function QuoteCard({
     if (submitted) {
       return;
     }
-    if (!validateCheckoutRequiredFields()) {
-      return;
-    }
     if (
       showDepositCashChoice &&
       paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH &&
@@ -4680,8 +4677,8 @@ function QuoteCard({
       }
 
       const isMobile = isMobileDevice ?? detectMobileDevice();
+      // Same-tab redirect — reliable on iPhone Safari / Android (no popup).
       if (isMobile) {
-        // Same-tab redirect — reliable on iPhone Safari / Android (no popup).
         notifyOwnerQuoteContactIfReady("payment_opened");
         paymentNavigating.current = true;
         window.location.assign(checkout.paymentUrl);
