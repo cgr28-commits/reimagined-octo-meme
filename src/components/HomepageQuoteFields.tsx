@@ -189,7 +189,7 @@ function SwapIcon() {
 }
 
 function selectClass(hasError: boolean, _complete: boolean) {
-  const base = "box-border h-11 w-full min-w-0 rounded-xl border bg-white/[0.14] px-4 text-base font-medium text-white outline-none transition-colors";
+  const base = "box-border h-10 w-full min-w-0 rounded-xl border bg-white/[0.14] px-4 text-[17px] font-medium text-white outline-none transition-colors";
   return hasError
     ? `${base} border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400`
     : `${base} border-white/32 focus:border-emerald/70 focus:ring-1 focus:ring-inset focus:ring-emerald/35`;
@@ -385,7 +385,7 @@ export default function HomepageQuoteFields({
           <label htmlFor="quote-section-passengers" className="form-label mb-1">
             Passengers
           </label>
-          <span className="pointer-events-none absolute mt-[2.35rem] ml-3 text-emerald" aria-hidden="true">♙</span>
+          <span className="pointer-events-none absolute mt-[2.1rem] ml-3 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></span>
           <select
             id="quote-section-passengers"
             name="passengers"
@@ -411,7 +411,7 @@ export default function HomepageQuoteFields({
           <label htmlFor="quote-section-suitcases" className="form-label mb-1 whitespace-nowrap leading-tight">
             Suitcases
           </label>
-          <span className="pointer-events-none absolute mt-[2.35rem] ml-3 text-emerald" aria-hidden="true">▣</span>
+          <span className="pointer-events-none absolute mt-[2.1rem] ml-3 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="7" width="16" height="14" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2M12 7v14"/></svg></span>
           <select
             id="quote-section-suitcases"
             name="suitcases"
