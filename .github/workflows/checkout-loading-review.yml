@@ -27,6 +27,7 @@ jobs:
       - run: npm ci --prefix workers/addresses
       - run: npm run sync:worker-shared
       - run: node --import tsx scripts/check-checkout-loading-timing.ts
+      - run: node --import tsx scripts/check-checkout-loading-recovery.ts
       - run: node --import tsx scripts/check-payment-operation.ts
       - run: node --import tsx scripts/check-sumup-payment-ux.ts
       - run: node --import tsx scripts/check-deposit-cash.ts

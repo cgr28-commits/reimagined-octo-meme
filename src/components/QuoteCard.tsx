@@ -4692,6 +4692,7 @@ function QuoteCard({
       setPaymentLoading(false);
       return;
     } catch (error) {
+      paymentNavigating.current = false;
       if (error instanceof PaymentOutcomeUncertainError) {
         setPaymentUncertain(true);
         setPaymentError(PAYMENT_UNCERTAIN_MESSAGE);

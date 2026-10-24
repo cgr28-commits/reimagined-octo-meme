@@ -1,10 +1,10 @@
-/** Reviewed route fixtures and real quote/payment/final-booking handlers; no live writes. */
+/** Controlled latency comparison: same handler with awaited versus background email; no live writes. */
 import assert from "node:assert/strict";
 import { calculateDepositCashQuote } from "../shared/deposit-cash";
 import reviewed from "./fixtures/reviewed-airport-routes.json";
 import { defaultOwnerPricingSettings } from "../shared/owner-pricing-config";
 import { SERVED_AIRPORTS } from "../shared/served-airports";
-import { SALOON_VEHICLE, ESTATE_VEHICLE } from "../src/lib/vehicle-selection";
+import { SALOON_VEHICLE } from "../src/lib/vehicle-selection";
 import { calculateServerQuote } from "../src/lib/quick-quote-api";
 import { handleQuoteCalculateRequest } from "../workers/addresses/src/quote-handlers";
 import worker from "../workers/addresses/src/index";
@@ -12,9 +12,7 @@ import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { resolveExpressDropOff } from "../shared/express-drop-off";
 import { quoteAirportAccessCharges } from "../shared/meet-greet";
 import { getPendingCheckout } from "../workers/addresses/src/pending-checkout-store";
-import { finalizePaidCheckout } from "../workers/addresses/src/finalize-paid-checkout";
 import type { SumUpCheckoutDetails } from "../shared/sumup-checkout";
-import { getPaidBookingRecord } from "../workers/addresses/src/paid-booking-store";
 import { approvedProductionProfitabilitySettings } from "../src/lib/owner-profitability-settings";
 
 async function main() {
@@ -27,7 +25,7 @@ async function main() {
   let routeCalls=0, checkoutAmount=0, checkouts=0, checks=0;
   const paidCheckouts = new Map<string, SumUpCheckoutDetails>();
   const emails: { to: string | string[]; text: string; html?: string }[] = [];
-  const results:Record<string,unknown>[]=[]; const targetBaselines=new Map<string,number>();
+  const targetBaselines=new Map<string,number>();
   globalThis.fetch=async(input,init)=>{
     const request=new Request(input,init);const url=new URL(request.url);
     if(url.pathname==="/quote/calculate")return handleQuoteCalculateRequest(request,origin,env);

@@ -61,6 +61,7 @@ try {
   if(method==='DEPOSIT_CASH') await page.locator('[data-cash-agreement]').getByRole('checkbox').check();
   const pay=page.locator('#step3-payment-actions .btn-pay').last();
   await pay.scrollIntoViewIfNeeded();
+  await page.keyboard.press("Tab");
   await pay.focus();
   assert.equal(await pay.evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
   clicked=true;
