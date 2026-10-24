@@ -47,7 +47,7 @@ assert.doesNotMatch(
 );
 assert.match(
   hero,
-  /Fixed-price airport taxi transfers to and from Belfast International, Belfast City and Dublin Airport\./,
+  /Fixed fares to Belfast International, Belfast City &amp; Dublin Airport\./,
   "hero supporting copy must name Belfast International, Belfast City and Dublin Airport",
 );
 assert.match(hero, /baseName="belfast-international-homepage"/);

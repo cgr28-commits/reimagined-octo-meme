@@ -1941,3 +1941,11 @@ main {
   }
   .homepage-hero [data-homepage-quote-scroll] > div:has(#dropoff) { grid-column: 2; }
 }
+
+/* The shared eyebrow uses unlayered inline-flex, which overrides hidden utilities. */
+@media (max-width: 767px) {
+  .homepage-hero .section-eyebrow {
+    display: none;
+    margin: 0;
+  }
+}

@@ -16,6 +16,16 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       const cookie = page.getByRole('button', {name:'Reject optional',exact:true});
       if (await cookie.isVisible()) await cookie.click();
       assert.equal((await page.locator('h1').innerText()).replace(/\s+/g,' ').trim(),'Belfast & Dublin Pre-Booked Airport Taxi Transfers');
+      const eyebrow = page.locator('.homepage-hero .section-eyebrow');
+      assert.equal(await eyebrow.isVisible(), width >= 768, 'eyebrow is desktop/tablet only');
+      if (width < 768) {
+        assert.equal(await eyebrow.evaluate(el=>el.getBoundingClientRect().height),0);
+      } else {
+        assert.equal(await eyebrow.evaluate(el=>getComputedStyle(el).display),'inline-flex');
+      }
+      assert.equal(await page.locator('h1 + p').innerText(),'Fixed fares to Belfast International, Belfast City & Dublin Airport.');
+      assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontWeight),'600');
+      assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).textAlign),'center');
       assert.equal(await page.locator('[data-swap-locations]').count(),0);
       async function checkFields() {
         const metrics = await page.evaluate(() => {
