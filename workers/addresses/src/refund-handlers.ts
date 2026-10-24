@@ -2138,6 +2138,8 @@ export async function savePaidBookingRecordFromConfirm(input: {
       : input.booking.expressDropOffAirport === null
         ? { expressDropOffAirport: null }
         : {}),
+    terminalAccessChoices: input.booking.terminalAccessChoices,
+    terminalAccessVisits: input.booking.terminalAccessVisits,
     ...(input.booking.outboundAirportAccessOption === "express" ||
     input.booking.outboundAirportAccessOption === "free" ||
     input.booking.outboundAirportAccessOption === "meet-greet"

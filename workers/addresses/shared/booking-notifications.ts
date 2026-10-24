@@ -106,6 +106,8 @@ export type PaidBookingDetails = {
   airportAccessOption?: "express" | "free" | "meet-greet" | null;
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
+  terminalAccessChoices?: import("./meet-greet").TerminalAccessChoices;
+  terminalAccessVisits?: import("./meet-greet").QuotedAirportAccessLeg[];
   outboundAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   returnAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   outboundAirportAccessChargeGbp?: number;
@@ -404,7 +406,8 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     dropoffAirportCode: details.dropoffAirportCode,
     outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
     returnExpressDropOffSelected: details.returnExpressDropOffSelected,
-    outboundAirportAccessOption: details.outboundAirportAccessOption,
+    terminalAccessVisits: details.terminalAccessVisits,
+        outboundAirportAccessOption: details.outboundAirportAccessOption,
     returnAirportAccessOption: details.returnAirportAccessOption,
     airportAccessOption: details.airportAccessOption,
     outboundAirportAccessChargeGbp: details.outboundAirportAccessChargeGbp,
@@ -749,6 +752,7 @@ export function buildCustomerConfirmationEmail(
         dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        terminalAccessVisits: details.terminalAccessVisits,
         outboundAirportAccessOption: details.outboundAirportAccessOption,
         returnAirportAccessOption: details.returnAirportAccessOption,
         airportAccessOption: details.airportAccessOption,
@@ -858,6 +862,7 @@ export function buildOwnerPaidBookingEmail(
         dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        terminalAccessVisits: details.terminalAccessVisits,
         outboundAirportAccessOption: details.outboundAirportAccessOption,
         returnAirportAccessOption: details.returnAirportAccessOption,
         airportAccessOption: details.airportAccessOption,
@@ -877,6 +882,7 @@ export function buildOwnerPaidBookingEmail(
         dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        terminalAccessVisits: details.terminalAccessVisits,
         outboundAirportAccessOption: details.outboundAirportAccessOption,
         returnAirportAccessOption: details.returnAirportAccessOption,
         airportAccessOption: details.airportAccessOption,

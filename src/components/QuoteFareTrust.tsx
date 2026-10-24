@@ -157,7 +157,7 @@ export function PromotionalPriceBreakdown({
   /** Show the journey / payable rows even when there is no Express or promo line. */
   alwaysShow?: boolean;
 }) {
-  const accessLabel = expressAirportLegendLabel(service);
+  const accessLabel = "Airport services";
   const hasPromo = breakdown.totalPromotionalSavingGbp > 0;
   const accessGbp = breakdown.airportAccessChargeGbp;
   const hasAccess = accessGbp > 0;
@@ -318,7 +318,7 @@ export function FinalPayableBreakdown({
   service?: ExpressAirportService;
   className?: string;
 }) {
-  const accessLabel = expressAirportLegendLabel(service);
+  const accessLabel = "Airport services";
   return (
     <div
       className={`rounded-xl quote-panel px-3.5 py-3 ${className}`}

@@ -1,5 +1,8 @@
 "use client";
 
+import { airportVisitKey, listTerminalAccessVisits, type TerminalAccessChoices } from "../../shared/meet-greet";
+import TerminalAccessOptions from "@/components/TerminalAccessOptions";
+
 
 import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
@@ -228,7 +231,7 @@ import {
   type PersonalQuotePublicSummary,
 } from "@/lib/personal-quote-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
-import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
+
 import QuoteAirportBenefits from "@/components/QuoteAirportBenefits";
 import QuoteResultShowcase, {
   preloadQuoteResultVehicleImages,
@@ -746,17 +749,9 @@ function isClosedAvailabilityError(message?: string | null): boolean {
   );
 }
 
-/** Owner lead copy for a public quote. Access is included; there is no free alternative. */
-function websiteAirportAccessLeadLabel(selection: {
-  eligible: boolean;
-  legs: readonly unknown[];
-  service?: string | null;
-}): string | undefined {
-  if (!selection.eligible) return undefined;
-  if (selection.legs.length > 1) {
-    return "Express Pickup Included · Express Drop-Off Included";
-  }
-  return selection.service === "pick-up" ? "Express Pickup Included" : "Express Drop-Off Included";
+/** Initial quote records the free default; optional services are chosen in booking details. */
+function websiteAirportAccessLeadLabel(selection: { eligible: boolean; legs: readonly unknown[]; service?: string | null }): string | undefined {
+  return selection.eligible ? "Free Airport Access — Long Stay; optional terminal services selected in booking details" : undefined;
 }
 
 function QuoteCard({
@@ -1031,8 +1026,9 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
-  const [outboundAccessChoice, setOutboundAccessChoice] = useState<AirportAccessChoice>("express");
-  const [returnAccessChoice, setReturnAccessChoice] = useState<AirportAccessChoice>("express");
+  const [terminalAccessChoices, setTerminalAccessChoices] = useState<TerminalAccessChoices>({});
+  const [outboundAccessChoice, setOutboundAccessChoice] = useState<AirportAccessChoice>("free");
+  const [returnAccessChoice, setReturnAccessChoice] = useState<AirportAccessChoice>("free");
   const expressDropOffSelected = outboundAccessChoice === "express";
   const returnExpressDropOffSelected = returnAccessChoice === "express";
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
@@ -1382,6 +1378,7 @@ function QuoteCard({
         setVehicle(draft.vehicle as VehicleType);
       }
       if (draft.customerName) setCustomerName(draft.customerName);
+      if (draft.terminalAccessChoices) setTerminalAccessChoices(draft.terminalAccessChoices);
       if (draft.customerEmail) setCustomerEmail(draft.customerEmail);
       if (draft.customerMobile) setCustomerMobile(draft.customerMobile);
       if (draft.goingFlightNumber) setGoingFlightNumber(draft.goingFlightNumber);
@@ -1398,7 +1395,7 @@ function QuoteCard({
         draft.outboundAirportAccessChoice === "meet-greet" ||
         typeof draft.expressDropOffSelected === "boolean"
       ) {
-        setOutboundAccessChoice("express");
+        setOutboundAccessChoice(draft.outboundAirportAccessChoice ?? (draft.expressDropOffSelected ? "express" : "free"));
       }
       if (
         draft.returnAirportAccessChoice === "express" ||
@@ -1406,7 +1403,7 @@ function QuoteCard({
         draft.returnAirportAccessChoice === "meet-greet" ||
         typeof draft.returnExpressDropOffSelected === "boolean"
       ) {
-        setReturnAccessChoice("express");
+        setReturnAccessChoice(draft.returnAirportAccessChoice ?? (draft.returnExpressDropOffSelected ? "express" : "free"));
       }
       if (draft.personalQuoteCode?.trim()) {
         const code = draft.personalQuoteCode.trim().toUpperCase();
@@ -2596,12 +2593,11 @@ function QuoteCard({
         airportCode: effectiveAirportCode || null,
         fromAirport: isFromAirport,
         returnJourney,
-        // Configured terminal access is mandatory. A free choice cannot remove it.
-        selected: true,
-        outboundSelected: true,
-        returnSelected: true,
+        selected: false,
+        outboundSelected: outboundAccessChoice === "express",
+        returnSelected: returnAccessChoice === "express",
       }),
-    [effectiveAirportCode, isFromAirport, returnJourney],
+    [effectiveAirportCode, isFromAirport, returnJourney, outboundAccessChoice, returnAccessChoice],
   );
 
   // Express is opt-in. Choosing an eligible airport must not add the fee.
@@ -2661,9 +2657,11 @@ function QuoteCard({
         isAirportToAirport: isAirportToAirportJourney,
         pickupAirportCode,
         dropoffAirportCode,
-        outboundChoice: outboundAccessChoice,
-        returnChoice: returnAccessChoice,
+        outboundChoice: quoteStep === 1 ? "free" : outboundAccessChoice,
+        returnChoice: quoteStep === 1 ? "free" : returnAccessChoice,
         fees: publicPricing.meetGreet,
+        terminalAccessFees: publicPricing.terminalAccess,
+        visitChoices: quoteStep === 1 ? {} : terminalAccessChoices,
         meetGreetIncluded: isExecutiveVehicle(quoteVehicle),
       }),
     [
@@ -2677,6 +2675,9 @@ function QuoteCard({
       outboundAccessChoice,
       returnAccessChoice,
       publicPricing.meetGreet,
+      publicPricing.terminalAccess,
+      terminalAccessChoices,
+      quoteStep,
       quoteVehicle,
     ],
   );
@@ -4030,6 +4031,8 @@ function QuoteCard({
       returnExpressDropOffSelected: airportAccessQuote.returnAirportAccessOption
         ? airportAccessQuote.returnExpressDropOffSelected
         : undefined,
+      terminalAccessChoices,
+      terminalAccessVisits: airportAccessQuote.legs,
       outboundAirportAccessOption: airportAccessQuote.outboundAirportAccessOption ?? undefined,
       returnAirportAccessOption: airportAccessQuote.returnAirportAccessOption ?? undefined,
       outboundAirportAccessChargeGbp: airportAccessQuote.outboundAirportAccessChargeGbp,
@@ -4381,6 +4384,7 @@ function QuoteCard({
       personalQuoteCode: appliedPersonalQuote?.code,
       expressDropOffSelected: outboundAccessChoice === "express",
       returnExpressDropOffSelected: returnAccessChoice === "express",
+      terminalAccessChoices,
       outboundAirportAccessChoice: outboundAccessChoice,
       returnAirportAccessChoice: returnAccessChoice,
     });
@@ -4404,6 +4408,7 @@ function QuoteCard({
         returnExpressDropOffSelected: airportAccessQuote.returnAirportAccessOption
           ? airportAccessQuote.returnExpressDropOffSelected
           : undefined,
+        terminalAccessChoices,
         outboundAirportAccessOption: airportAccessQuote.outboundAirportAccessOption ?? undefined,
         returnAirportAccessOption: airportAccessQuote.returnAirportAccessOption ?? undefined,
         ...(useOpenWebsitePromoPricing && journeyFareParts.journeyFareGbp != null
@@ -4761,8 +4766,9 @@ function QuoteCard({
     setManualVehicle(null);
     customerPickedVehicleRef.current = false;
     preferMinibusPartyKeyRef.current = "";
-    setOutboundAccessChoice("express");
-    setReturnAccessChoice("express");
+    setTerminalAccessChoices({});
+    setOutboundAccessChoice("free");
+    setReturnAccessChoice("free");
     setExpressRemovalAck(false);
     setReturnExpressRemovalAck(false);
     setExpressAckRequired(false);
@@ -5265,21 +5271,6 @@ function QuoteCard({
       }
       if (!exceedsOnlineCapacity && !isEnquiryOnly && !isManualQuoteJourney && !pricingConfirmationRequired && !liveQuote) {
         trackQuoteValidationError("price_not_ready", quoteFunnelParams({ cta: step1Cta }));
-        return;
-      }
-      if (
-        !canProceedWithoutExpressDropOffLegs(expressSelection, {
-          outbound: expressRemovalAck,
-          return: returnExpressRemovalAck,
-        })
-      ) {
-        setExpressAckRequired(true);
-        failStep1(
-          "express_ack_required",
-          expressSelection.legs.some((leg) => !leg.selected && leg.service === "pick-up")
-            ? "Please confirm you understand the free pick-up area before continuing without Express Pick-Up."
-            : "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
-        );
         return;
       }
       setSubmitError("");
@@ -6040,104 +6031,31 @@ function QuoteCard({
   }
 
   function renderExpressChoiceInPriceCard(
-    mode: "full" | "summary",
-    tone: "on-dark" | "on-light" = "on-dark",
+    _mode: "full" | "summary",
+    _tone: "on-dark" | "on-light" = "on-dark",
   ) {
-    if (testChargeAmount !== null) return null;
-    const executivePickup = isExecutiveVehicle(quoteVehicle);
-    const dublinPickups = listAirportPickupLegs({
-      airportCode: effectiveAirportCode || null,
-      fromAirport: isFromAirport,
-      returnJourney,
-      isAirportToAirport: isAirportToAirportJourney,
-      pickupAirportCode,
-      dropoffAirportCode,
-    }).filter((leg) => leg.airportCode === "DUB");
-    const uncoveredDublin = dublinPickups.filter(
-      (leg) =>
-        !expressSelection.legs.some(
-          (expressLeg) => expressLeg.leg === leg.leg && expressLeg.service === "pick-up",
-        ),
-    );
-    if (!expressSelection.eligible) {
-      if (uncoveredDublin.length === 0) return renderRequiredAirportAccessNotes(tone);
-      return renderMeetGreetOnlyChoice(mode, tone, uncoveredDublin);
-    }
-    const legs = expressSelection.legs.filter(
-      (leg) => leg.airportCode && !(executivePickup && leg.service === "pick-up"),
-    );
-    if (legs.length === 0) return renderMeetGreetOnlyChoice(mode, tone, []);
-    const light = tone === "on-light";
-    const fareTotalGbp =
-      paymentAmount != null && Number.isFinite(paymentAmount)
-        ? paymentAmount
-        : pricedFare?.totalGbp;
-
-    const expressChoices = (
-      <div className="mt-1 space-y-1 text-left" data-express-airport-choice>
-        {legs.map((leg) => {
-          const selected = true;
-          const removalAcknowledged =
-            leg.leg === "return" ? returnExpressRemovalAck : expressRemovalAck;
-          return (
-            <div key={leg.leg} data-express-leg={leg.leg}>
-              {legs.length > 1 ? (
-                <p className={`mb-1.5 text-sm font-semibold ${light ? "text-navy" : "text-white"}`}>
-                  {leg.leg === "return" ? "Return journey" : "Outbound journey"}
-                </p>
-              ) : null}
-              <ExpressDropOffChoice
-                mode={mode}
-                tone={tone}
-                terminalAccessIncluded
-                editing={expressEditingLeg === leg.leg}
-                onEditingChange={(editing) => setExpressEditingLeg(editing ? leg.leg : null)}
-                airportCode={leg.airportCode}
-                service={leg.service}
-                idPrefix={leg.leg}
-                allowFreeAlternative={leg.freeAlternativeAvailable}
-                fareTotalGbp={fareTotalGbp}
-                selected
-                removalAcknowledged={removalAcknowledged}
-                requireAcknowledgement={expressAckRequired}
-                accessChoice="express"
-                onAccessChoiceChange={(next) => {
-                  const safe = next === "express" ? "express" : "express";
-                  if (leg.leg === "return") {
-                    setReturnAccessChoice(safe);
-                    setReturnExpressRemovalAck(safe !== "express");
-                  } else {
-                    setOutboundAccessChoice(safe);
-                    setExpressRemovalAck(safe !== "express");
-                  }
-                  setExpressAckRequired(false);
-                }}
-                onSelectedChange={() => {
-                  setExpressAckRequired(false);
-                }}
-                onRemovalAcknowledgedChange={(ack) => {
-                  if (leg.leg === "return") {
-                    setReturnExpressRemovalAck(ack);
-                  } else {
-                    setExpressRemovalAck(ack);
-                  }
-                  if (ack) setExpressAckRequired(false);
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-    );
-    if (uncoveredDublin.length === 0 || executivePickup) {
-      return expressChoices;
-    }
-    return (
-      <>
-        {expressChoices}
-        {renderMeetGreetOnlyChoice(mode, tone, uncoveredDublin)}
-      </>
-    );
+    if (testChargeAmount !== null || quoteStep === 1 || appliedPersonalQuote) return null;
+    const visits = listTerminalAccessVisits({ airportCode: effectiveAirportCode, fromAirport: isFromAirport,
+      returnJourney, isAirportToAirport: isAirportToAirportJourney, pickupAirportCode, dropoffAirportCode });
+    if (!visits.length) return null;
+    return <section className="space-y-4 rounded-xl quote-panel p-3" aria-label="Airport services">
+      {visits.map((leg) => {
+        const choice = terminalAccessChoices[airportVisitKey(leg)] ?? (leg.leg === "return" ? returnAccessChoice : outboundAccessChoice);
+        const row = airportAccessQuote.legs.find((item) => item.leg === leg.leg && item.service === leg.service);
+        const included = isExecutiveVehicle(quoteVehicle) && leg.service === "pick-up";
+        const change = (next: AirportAccessChoice) => {
+          setTerminalAccessChoices(current => ({...current, [airportVisitKey(leg)]: next}));
+          setExpressAckRequired(false);
+        };
+        return <TerminalAccessOptions key={`${leg.leg}-${leg.airportCode}-${leg.service}`}
+          leg={leg.leg} airportCode={leg.airportCode} service={leg.service}
+          choice={included ? "meet-greet" : choice} onChange={change}
+          freeAvailable={true} meetGreetIncluded={included}
+          terminalFee={leg.airportCode === "BFS" ? publicPricing.terminalAccess.bfsGbp : publicPricing.terminalAccess.bhdGbp}
+          meetGreetFee={leg.airportCode === "BFS" ? publicPricing.meetGreet.bfsGbp : publicPricing.meetGreet.bhdGbp}
+          charge={row?.chargeGbp ?? 0} />;
+      })}
+    </section>;
   }
 
   function renderPriceBreakdownCollapsible() {
@@ -6492,7 +6410,7 @@ function QuoteCard({
   }
 
   function checkoutAccessLine(): string | null {
-    if (!expressSelection.eligible) {
+    if (!airportAccessQuote.legs.some(row => row.airportCode === "BFS" || row.airportCode === "BHD")) {
       const airport = effectiveAirportCode || null;
       if (!airport) return null;
       const notices = [
@@ -6504,16 +6422,9 @@ function QuoteCard({
       if (notices.length === 0) return null;
       return notices.map((notice) => notice!.body).join(" ");
     }
-    return expressSelection.legs
-      .map((leg) =>
-        expressQuoteSelectionConfirmation({
-          service: leg.service,
-          expressSelected: leg.selected,
-          feeGbp: leg.feeGbp,
-          totalGbp: paymentAmount,
-        }),
-      )
-      .join(" ");
+    return airportAccessQuote.legs.map((leg) =>
+      `${leg.leg === "return" ? "Return" : "Outbound"} ${leg.airportCode} ${leg.service}: ${leg.option === "meet-greet" ? "Meet & Greet (access included)" : leg.option === "express" ? "Terminal Access" : "Free Airport Access"} — ${formatQuote(leg.chargeGbp)}`
+    ).join(" · ");
   }
 
   function renderCheckoutPage() {
@@ -6784,6 +6695,7 @@ function QuoteCard({
           </section>
 
           {renderFlightDetailsSection(2)}
+          {renderExpressChoiceInPriceCard("full")}
 
           <div id="step2-journey-summary" ref={step2JourneySummaryRef}>
           <QuoteCheckoutSummary
@@ -6797,7 +6709,7 @@ function QuoteCard({
             }
             accessLine={checkoutAccessLine()}
             onEditJourney={() => navigateQuoteStep(1)}
-            changeAccessLabel={expressCheckoutChangeLabel()}
+            changeAccessLabel={undefined}
             onChangeDropOff={
               showChangeDropOff
                 ? () =>
@@ -6807,9 +6719,7 @@ function QuoteCard({
                 : null
             }
           >
-            {showChangeDropOff && expressEditingLeg != null
-              ? renderExpressChoiceInPriceCard("full")
-              : null}
+
           </QuoteCheckoutSummary>
           </div>
           {checkoutBlocked ? (

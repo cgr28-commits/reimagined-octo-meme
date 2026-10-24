@@ -64,6 +64,7 @@ export type PaymentCheckoutRequest = {
   expressDropOffSelected?: boolean;
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
+  terminalAccessChoices?: import("../../shared/meet-greet").TerminalAccessChoices;
   outboundAirportAccessOption?: "express" | "free" | "meet-greet";
   returnAirportAccessOption?: "express" | "free" | "meet-greet";
   /**

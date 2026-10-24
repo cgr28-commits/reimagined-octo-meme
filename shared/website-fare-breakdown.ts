@@ -204,8 +204,9 @@ export function composeWebsiteFareBreakdown(
   const totalPromotionalSavingGbp = roundGbp(
     returnJourneySavingGbp + returnOfferSavingGbp,
   );
-  let finalAmountPayableGbp = (input.preserveFixedFarePence ? roundGbp : roundCustomerPayableGbp)(
-    transferFareAfterPromotionsGbp + airportAccessChargeGbp,
+  // Keep the existing vehicle-fare rounding; optional services retain their exact price.
+  let finalAmountPayableGbp = roundGbp(
+    (input.preserveFixedFarePence ? roundGbp : roundCustomerPayableGbp)(transferFareAfterPromotionsGbp) + airportAccessChargeGbp,
   );
   let journeyFareAfterPromotionsAdjusted = journeyFareAfterPromotionsGbp;
   let transferFareAfterPromotionsAdjusted = transferFareAfterPromotionsGbp;

@@ -220,7 +220,9 @@ export async function enrichDriverJob(
       suitcases: paidRecord?.suitcases ?? bookingJob?.suitcases,
       bookedVehicle: paidRecord?.vehicle || bookingJob?.vehicle || undefined,
       notes:
-        [paidRecord?.notes, paidRecord?.childSeatNotes, bookingJob?.message]
+        [paidRecord?.notes, paidRecord?.childSeatNotes, bookingJob?.message,
+          paidRecord?.terminalAccessVisits?.filter(visit => visit.leg === (job.journeyLeg === "return" ? "return" : "outbound"))
+            .map(visit => `${visit.airportCode} ${visit.service}: ${visit.option === "meet-greet" ? "Meet & Greet — parking/access included" : visit.option === "express" ? "Terminal Access" : "Free Airport Access — Long Stay car park"} (£${visit.chargeGbp.toFixed(2)})`).join("; ")]
           .map((part) => part?.trim())
           .filter(Boolean)
           .join("\n") || undefined,

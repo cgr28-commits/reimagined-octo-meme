@@ -445,15 +445,8 @@ function buildNiAccessFeeLine(input: {
   customerChoiceAllowed: boolean;
   removedFeeIds: Set<string>;
 }): AirportFeeLine | null {
-  return makeFeeLine({
-    leg: input.leg,
-    airportCode: input.airportCode,
-    direction: input.direction,
-    amountGbp: niAccessSurchargeGbp(input.airportCode),
-    customerChoiceAllowed:
-      input.customerChoiceAllowed && isAirportFeeCustomerChoiceAllowed(input.airportCode),
-    removedFeeIds: input.removedFeeIds,
-  });
+  void input;
+  return null;
 }
 
 /**

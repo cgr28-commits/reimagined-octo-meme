@@ -82,6 +82,7 @@ export type AirportPickupReminderInput = {
   airportCode?: string | null;
   flightNumber?: string | null;
   airportAccessOption?: CompanyVoiceAirportAccessOption | null;
+  terminalAccessVisits?: import("./meet-greet").QuotedAirportAccessLeg[];
   outboundAirportAccessOption?: CompanyVoiceAirportAccessOption | null;
   returnAirportAccessOption?: CompanyVoiceAirportAccessOption | null;
   expressDropOffSelected?: boolean | null;
@@ -256,8 +257,8 @@ export function resolveReminderAirportAccess(
   airport: ReminderAirportCode,
 ): CompanyVoiceAirportAccessOption | null {
   const leg = reminderLeg(input);
-  const legOption =
-    leg === "return" ? input.returnAirportAccessOption : input.outboundAirportAccessOption;
+  const legOption = input.terminalAccessVisits?.find(visit => visit.leg === leg && visit.airportCode === airport && visit.service === "pick-up")?.option ??
+    (leg === "return" ? input.returnAirportAccessOption : input.outboundAirportAccessOption);
   if (legOption === "meet-greet") return "meet-greet";
   if (airport === "DUB") {
     return leg === "outbound" && !legOption && input.airportAccessOption === "meet-greet" ? "meet-greet" : null;

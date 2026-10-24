@@ -515,6 +515,8 @@ export async function handlePaidBookingsListRequest(
           Number.isFinite(booking.returnAirportAccessChargeGbp)
             ? booking.returnAirportAccessChargeGbp
             : undefined,
+        terminalAccessChoices: booking.terminalAccessChoices,
+        terminalAccessVisits: booking.terminalAccessVisits,
         outboundAirportAccessOption:
           booking.outboundAirportAccessOption === "express" ||
           booking.outboundAirportAccessOption === "free" ||

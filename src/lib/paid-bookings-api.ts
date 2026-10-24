@@ -28,6 +28,8 @@ export type OwnerJourneyLegSnapshot = {
 
 export type OwnerPaidBookingSummary = Pick<
   PaidBookingRecord,
+  | "terminalAccessVisits"
+  | "terminalAccessChoices"
   | "paymentReference"
   | "checkoutId"
   | "createdAt"
