@@ -1,3 +1,4 @@
+import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
 import { isBookingFunnelEvent } from "../shared/booking-funnel";
 import { recordBookingFunnelEvent, sendBookingStartedAlert } from "./booking-funnel";
 import { allowSavedQuoteRequest } from "./saved-quote-handlers";
@@ -434,6 +435,7 @@ import {
 } from "../shared/express-drop-off";
 import { businessClassPassengerLimitError } from "../shared/business-class-capacity";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
+import { quoteLegacyAirportAccessCharges } from "../shared/legacy-airport-access";
 import { parseTerminalAccessChoices, quoteAirportAccessCharges } from "../shared/meet-greet";
 import {
   formatHoursUntilPickupLabel,
@@ -2476,8 +2478,17 @@ async function handlePaymentRequest(
     const receiptPricing = await loadOwnerPricingOrDefault(env);
     const receiptVehicleType: VehicleType = canonicalVehicleType(booking.vehicle);
     let receiptClaims: QuoteReceiptClaims | null = null;
-    if (isProfitabilityProtectionActive(receiptPricing.profitability)) {
+    // New forms always submit per-visit choices (including an empty object).
+    // This protocol selects policy, never a price; both policies recalculate fees.
+    const rawBooking = body.booking as Record<string, unknown> | undefined;
+    let legacyAccess = !(body.quoteProtocol === "optional-terminal-access-v4" ||
+      body.terminalAccessChoices != null || rawBooking?.terminalAccessChoices != null ||
+      String(body.quoteReceipt ?? "").startsWith("v4-optional-terminal-access."));
+    if (isProfitabilityProtectionActive(receiptPricing.profitability) || body.quoteReceipt != null) {
       const receiptSecret = env.QUOTE_RECEIPT_SECRET?.trim() ?? "";
+      if (!receiptSecret && body.quoteReceipt != null) {
+        return json({error: QUOTE_RECEIPT_REFRESH_MESSAGE, code: "quote_refresh_required"}, 409, origin);
+      }
       if (!receiptSecret) {
         console.warn("[quote-receipt] secret_missing; payment will re-quote on the server");
       }
@@ -2519,6 +2530,10 @@ async function handlePaymentRequest(
       }
       if (decision && decision.action === "accept") {
         receiptClaims = decision.claims;
+        legacyAccess = decision.format === "v2-bfs-minimum";
+        if (legacyAccess && (body.quoteProtocol === "optional-terminal-access-v4" || body.terminalAccessChoices != null || rawBooking?.terminalAccessChoices != null)) {
+          return json({error: QUOTE_RECEIPT_REFRESH_MESSAGE, code: "quote_refresh_required"}, 409, origin);
+        }
       }
     }
     const routeOutcome = receiptClaims
@@ -2798,6 +2813,7 @@ async function handlePaymentRequest(
     }
 
     const transferResolution = resolveOpenWebsitePaymentTransferFares({
+      legacyNiAccess: legacyAccess,
       clientTransferAmountGbp: transferPrePromo,
       claimedJourneyFareGbp: Number.isFinite(claimedJourney) ? claimedJourney : null,
       claimedAirportFixedCostsGbp: Number.isFinite(claimedFixed) ? claimedFixed : null,
@@ -2824,7 +2840,7 @@ async function handlePaymentRequest(
       returnSelected: true,
     });
     const expressPersisted = toExpressDropOffPersistedFields(express);
-    const quotedAccess = quoteAirportAccessCharges({
+    const quotedAccess = (legacyAccess ? quoteLegacyAirportAccessCharges : quoteAirportAccessCharges)({
       expressLegs: express.legs,
       airportCode: airportContext.airportCode,
       fromAirport: airportContext.fromAirport,
@@ -2986,7 +3002,7 @@ async function handlePaymentRequest(
       included: isExecutiveVehicle(vehicleType),
     });
     if (!optionalMeetGreet.ok) return json({ error: optionalMeetGreet.error }, 400, origin);
-    const optionalMeetGreetFee = airportContext.airportCode === "DUB" ? optionalMeetGreet.feeGbp : 0;
+    const optionalMeetGreetFee = legacyAccess || airportContext.airportCode === "DUB" ? optionalMeetGreet.feeGbp : 0;
     const serverFinalAmountGbp = Math.round((breakdown.finalAmountPayableGbp + optionalMeetGreetFee) * 100) / 100;
     // Customer must have been shown/agreed this exact final amount (consent + breakdown).
     // Never silently substitute a recalculated SumUp charge.
@@ -3053,8 +3069,8 @@ async function handlePaymentRequest(
       outboundAirportAccessOption: optionalMeetGreetSelected ? "meet-greet" : persisted.outboundAirportAccessOption,
       returnAirportAccessOption: persisted.returnAirportAccessOption,
       airportAccessOption: optionalMeetGreetSelected ? "meet-greet" : quotedAccess.airportAccessOption,
-      terminalAccessVisits: quotedAccess.legs.filter(visit => visit.airportCode === "BFS" || visit.airportCode === "BHD"),
-      terminalAccessChoices: Object.fromEntries(quotedAccess.legs.filter(visit => visit.airportCode === "BFS" || visit.airportCode === "BHD").map(visit => [`${visit.leg}:${visit.airportCode}:${visit.service}`, visit.option])),
+      terminalAccessVisits: legacyAccess ? undefined : quotedAccess.legs.filter(visit => visit.airportCode === "BFS" || visit.airportCode === "BHD"),
+      terminalAccessChoices: legacyAccess ? undefined : Object.fromEntries(quotedAccess.legs.filter(visit => visit.airportCode === "BFS" || visit.airportCode === "BHD").map(visit => [`${visit.leg}:${visit.airportCode}:${visit.service}`, visit.option])),
       outboundAirportAccessChargeGbp: persisted.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       ...promoFieldsFromFareBreakdown(breakdown),
@@ -5074,7 +5090,27 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
 
-      return handlePaymentRequest(request, env, origin);
+      const body = await request.clone().json().catch(() => null) as Record<string, unknown> | null;
+      const booking = body?.booking as Record<string, unknown> | undefined;
+      if (!booking || !env.QUOTE_LEAD_COORDINATOR) return handlePaymentRequest(request, env, origin);
+      // Stable across double taps, redirect tokens and page reloads. A changed
+      // price/payment method cannot silently reuse or create a second checkout.
+      const identity = [booking.customerEmail, booking.pickupLabel, booking.dropoffLabel,
+        booking.tripDate, booking.tripTime, booking.returnJourney, booking.returnDate,
+        booking.returnTime, booking.vehicle, booking.passengers, booking.suitcases];
+      const digest = await paymentOperationHash({...body, redirectUrl:undefined});
+      try {
+        const {result} = await runPaymentOperation({namespace:env.QUOTE_LEAD_COORDINATOR,
+          key:`payment-create:${await paymentOperationHash(identity)}`,digest,
+          run:async()=>{const response=await handlePaymentRequest(request,env,origin); return {status:response.status,body:await response.json() as Record<string,unknown>};},
+          // A definite validation rejection made no provider request. Never retry
+          // an ambiguous 5xx automatically (the provider may have accepted it).
+          retrySafe:result=>result.status < 500 && !(result.status === 200 && result.body.checkoutId),
+        });
+        return json(result.body,result.status,origin);
+      } catch(error) {
+        return json({error:error instanceof PaymentOperationBusy ? error.message : "Payment status is uncertain. Please contact us before trying another payment.",code:"payment_in_progress"},409,origin);
+      }
     }
 
     if (route === "payments-webhook") {

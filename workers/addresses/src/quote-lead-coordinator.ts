@@ -14,6 +14,30 @@ export class QuoteLeadCoordinator implements DurableObject {
   async fetch(request: Request): Promise<Response> {
     const action = new URL(request.url).pathname.replace(/^\//, "") || "claim";
 
+    // Payment operations use their own hashed object IDs. Claims are persistent:
+    // an interrupted external operation is never automatically repeated.
+    if (action === "operation-begin" || action === "operation-finish") {
+      const body = await request.json() as {token:string; digest:string; result?:unknown; retrySafe?:boolean};
+      return this.ctx.blockConcurrencyWhile(async () => {
+        type Operation = {token:string; digest:string; result?:unknown; complete?:boolean};
+        const existing = await this.ctx.storage.get<Operation>("operation");
+        if (action === "operation-begin") {
+          if (existing) return Response.json(existing.complete
+            ? {state:"complete", digest:existing.digest, result:existing.result}
+            : {state:"busy"});
+          await this.ctx.storage.put("operation", {token:body.token,digest:body.digest});
+          return Response.json({state:"acquired"});
+        }
+        if (!existing || existing.token !== body.token) return new Response("Claim mismatch",{status:409});
+        if (body.retrySafe) await this.ctx.storage.delete("operation");
+        else {
+          await this.ctx.storage.put("operation", {...existing,result:body.result,complete:true});
+          await this.ctx.storage.setAlarm(Date.now() + 60 * 86400000);
+        }
+        return Response.json({ok:true});
+      });
+    }
+
     if (action === "limit") {
       const allowed = await this.ctx.blockConcurrencyWhile(async () => {
         const now = Date.now();

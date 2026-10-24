@@ -439,14 +439,20 @@ function buildConfiguredFeeLines(input: {
  * Included in the fixed fare. Customers cannot opt out.
  */
 function buildNiAccessFeeLine(input: {
+  legacyNiAccess?: boolean;
   leg: AirportFeeLeg;
   airportCode: "BFS" | "BHD";
   direction: AirportFeeDirection;
   customerChoiceAllowed: boolean;
   removedFeeIds: Set<string>;
 }): AirportFeeLine | null {
-  void input;
-  return null;
+  if (!input.legacyNiAccess) return null;
+  return makeFeeLine({
+    leg: input.leg, airportCode: input.airportCode, direction: input.direction,
+    amountGbp: niAccessSurchargeGbp(input.airportCode),
+    customerChoiceAllowed: input.customerChoiceAllowed && isAirportFeeCustomerChoiceAllowed(input.airportCode),
+    removedFeeIds: input.removedFeeIds,
+  });
 }
 
 /**
@@ -455,6 +461,8 @@ function buildNiAccessFeeLine(input: {
  * Removals honour airport-specific permissions (BFS/BHD only).
  */
 export function resolveAirportToAirportFeeLines(input: {
+  /** Server-only legacy protocol; new quotes never set this. */
+  legacyNiAccess?: boolean;
   pickupAirportCode: string;
   dropoffAirportCode: string;
   leg?: AirportFeeLeg;
@@ -473,6 +481,7 @@ export function resolveAirportToAirportFeeLines(input: {
   if (isNiAccessAirport(pickupCode) && isNiAccessAirport(dropoffCode)) {
     // Both airport ends are part of the fixed fare. Customers cannot opt out.
     const pickup = buildNiAccessFeeLine({
+      legacyNiAccess: input.legacyNiAccess,
       leg,
       airportCode: pickupCode,
       direction: "pickup",
@@ -481,6 +490,7 @@ export function resolveAirportToAirportFeeLines(input: {
     });
     if (pickup) lines.push(pickup);
     const dest = buildNiAccessFeeLine({
+      legacyNiAccess: input.legacyNiAccess,
       leg,
       airportCode: dropoffCode,
       direction: "drop-off",
@@ -493,6 +503,7 @@ export function resolveAirportToAirportFeeLines(input: {
 
   if (isNiAccessAirport(pickupCode)) {
     const pickup = buildNiAccessFeeLine({
+      legacyNiAccess: input.legacyNiAccess,
       leg,
       airportCode: pickupCode,
       direction: "pickup",
@@ -514,6 +525,7 @@ export function resolveAirportToAirportFeeLines(input: {
 
   if (isNiAccessAirport(dropoffCode)) {
     const drop = buildNiAccessFeeLine({
+      legacyNiAccess: input.legacyNiAccess,
       leg,
       airportCode: dropoffCode,
       direction: "drop-off",
@@ -557,6 +569,8 @@ export function getAirportToAirportFixedCostGbp(
  * - DUB / LDY / BFS / BHD: client removedFeeIds are ignored for required access.
  */
 export function resolveJourneyAirportFees(input: {
+  /** Server-only legacy protocol; new quotes never set this. */
+  legacyNiAccess?: boolean;
   /** Both ends identified as airports. */
   isAirportToAirport: boolean;
   pickupAirportCode?: string | null;
@@ -581,6 +595,7 @@ export function resolveJourneyAirportFees(input: {
     if (pickup && dropoff) {
       lines.push(
         ...resolveAirportToAirportFeeLines({
+          legacyNiAccess: input.legacyNiAccess,
           pickupAirportCode: pickup,
           dropoffAirportCode: dropoff,
           leg: "outbound",
@@ -590,6 +605,7 @@ export function resolveJourneyAirportFees(input: {
       if (returnJourney) {
         lines.push(
           ...resolveAirportToAirportFeeLines({
+          legacyNiAccess: input.legacyNiAccess,
             pickupAirportCode: dropoff,
             dropoffAirportCode: pickup,
             leg: "return",

@@ -502,7 +502,7 @@ const paymentSrc = fs.readFileSync(
 );
 // Optional Meet & Greet is added after the discounted fare and time premium.
 // Keep verifying the server total and accepted-price guard used for SumUp.
-assert.match(paymentSrc, /const optionalMeetGreetFee = airportContext\.airportCode === "DUB" \? optionalMeetGreet\.feeGbp : 0/);
+assert.match(paymentSrc, /const optionalMeetGreetFee = legacyAccess \|\| airportContext\.airportCode === "DUB" \? optionalMeetGreet\.feeGbp : 0/);
 assert.match(paymentSrc, /const serverFinalAmountGbp = Math\.round\(\(breakdown\.finalAmountPayableGbp \+ optionalMeetGreetFee\) \* 100\) \/ 100/);
 assert.match(paymentSrc, /if \(!checkoutAmountsMatch\(acceptedFinalRaw, serverFinalAmountGbp\)\)/);
 assert.match(paymentSrc, /resolveSumUpChargeAmountGbp\(\s*acceptedFinalRaw,\s*serverFinalAmountGbp/);

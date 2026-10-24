@@ -135,7 +135,7 @@ async function calculateServerQuoteOnce(
     {
       method: "POST",
       headers,
-      body: JSON.stringify(journey),
+      body: JSON.stringify({ ...journey, quoteProtocol: "optional-terminal-access-v4" }),
       cache: "no-store",
       signal,
     },

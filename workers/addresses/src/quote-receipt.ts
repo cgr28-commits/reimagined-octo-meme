@@ -20,9 +20,11 @@ import { SERVED_AIRPORTS } from "../shared/served-airports";
  * the receipt immediately through the pricing version, so expiry is not the
  * only control.
  */
-// Separate namespace for the BFS-only pricing policy and binding-floor pence.
-// Older receipts must refresh even when stored pricing.version is unchanged.
-const QUOTE_RECEIPT_FORMAT = "v4-optional-terminal-access";
+// Authenticate the original namespace; never relabel a legacy signature.
+// The payment handler uses the verified format to preserve its access rules.
+export const QUOTE_RECEIPT_FORMAT = "v4-optional-terminal-access";
+export const LEGACY_QUOTE_RECEIPT_FORMAT = "v2-bfs-minimum";
+export type QuoteReceiptFormat = typeof QUOTE_RECEIPT_FORMAT | typeof LEGACY_QUOTE_RECEIPT_FORMAT;
 
 export const QUOTE_RECEIPT_TTL_SECONDS = 3 * 60 * 60;
 
@@ -69,7 +71,7 @@ export type QuoteReceiptJourney = Omit<
 export type QuoteReceiptDecision =
   | { action: "not_required" }
   | { action: "refresh"; reason: string }
-  | { action: "accept"; claims: QuoteReceiptClaims };
+  | { action: "accept"; claims: QuoteReceiptClaims; format: QuoteReceiptFormat };
 
 const CLAIM_KEYS = [
   "preserveBfsMinimumPence",
@@ -222,6 +224,7 @@ export async function signQuoteReceipt(
   input: Omit<QuoteReceiptClaims, "exp">,
   secret: string,
   nowMs: number,
+  format: QuoteReceiptFormat = QUOTE_RECEIPT_FORMAT,
 ): Promise<string> {
   const claims: QuoteReceiptClaims = {
     ...input,
@@ -241,25 +244,25 @@ export async function signQuoteReceipt(
     exp: Math.floor(nowMs / 1000) + QUOTE_RECEIPT_TTL_SECONDS,
   };
   const body = canonicalClaims(claims);
-  const signature = await hmacSha256(secret, `${QUOTE_RECEIPT_FORMAT}.${body}`);
-  return `${QUOTE_RECEIPT_FORMAT}.${bytesToBase64Url(new TextEncoder().encode(body))}.${bytesToBase64Url(signature)}`;
+  const signature = await hmacSha256(secret, `${format}.${body}`);
+  return `${format}.${bytesToBase64Url(new TextEncoder().encode(body))}.${bytesToBase64Url(signature)}`;
 }
 
 export async function verifyQuoteReceipt(
   token: unknown,
   secret: string,
   nowMs: number,
-): Promise<{ ok: true; claims: QuoteReceiptClaims } | { ok: false; reason: string }> {
+): Promise<{ ok: true; claims: QuoteReceiptClaims; format: QuoteReceiptFormat } | { ok: false; reason: string }> {
   if (typeof token !== "string" || !token.trim()) return { ok: false, reason: "missing" };
   const parts = token.split(".");
-  if (parts.length !== 3 || parts[0] !== QUOTE_RECEIPT_FORMAT || !parts[1] || !parts[2]) {
+  if (parts.length !== 3 || (parts[0] !== QUOTE_RECEIPT_FORMAT && parts[0] !== LEGACY_QUOTE_RECEIPT_FORMAT) || !parts[1] || !parts[2]) {
     return { ok: false, reason: "malformed" };
   }
   const payloadBytes = base64UrlToBytes(parts[1]);
   const signatureBytes = base64UrlToBytes(parts[2]);
   if (!payloadBytes || !signatureBytes) return { ok: false, reason: "malformed" };
   const payload = new TextDecoder().decode(payloadBytes);
-  const expected = await hmacSha256(secret, `${QUOTE_RECEIPT_FORMAT}.${payload}`);
+  const expected = await hmacSha256(secret, `${parts[0]}.${payload}`);
   if (!timingSafeEqual(expected, signatureBytes)) return { ok: false, reason: "bad_signature" };
   let parsed: unknown;
   try {
@@ -270,7 +273,7 @@ export async function verifyQuoteReceipt(
   const claims = readClaims(parsed);
   if (!claims) return { ok: false, reason: "malformed" };
   if (claims.exp <= Math.floor(nowMs / 1000)) return { ok: false, reason: "expired" };
-  return { ok: true, claims };
+  return { ok: true, claims, format: parts[0] as QuoteReceiptFormat };
 }
 
 export function quoteReceiptJourneyMatches(
@@ -321,5 +324,5 @@ export async function decideQuoteReceiptPayment(input: {
   if (!quoteReceiptJourneyMatches(verified.claims, input.expected)) {
     return { action: "refresh", reason: "journey_mismatch" };
   }
-  return { action: "accept", claims: verified.claims };
+  return { action: "accept", claims: verified.claims, format: verified.format };
 }

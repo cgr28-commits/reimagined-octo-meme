@@ -1,5 +1,7 @@
 # PR #692 release consolidation — NOT approved for production
 
+**Update:** [Compatible release verification](release-692-compatibility.md) supersedes the staging requirement and mixed-version blocker below. This original audit is retained as history.
+
 ## Audited inputs (24 October 2026)
 
 - main: `2c6bfb59a9fad54389990f217ee3b0cc056af93b`.

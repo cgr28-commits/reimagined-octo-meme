@@ -338,6 +338,7 @@ export async function createPaymentCheckout(
       ...customerSmartAvailabilityPreviewHeaders(),
     },
     body: JSON.stringify({
+      quoteProtocol: "optional-terminal-access-v4",
       amount: request.amount,
       description: request.description,
       meetGreetSelected: request.meetGreetSelected === true,
