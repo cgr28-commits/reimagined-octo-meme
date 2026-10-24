@@ -22,6 +22,8 @@ Server-calculated visit snapshots are saved in pending checkout and the paid boo
 
 ## Preview and release scope
 
+This branch's Vercel preview has a read-only `/api/preview-addresses` adapter using the existing server-only `GOOGLE_MAPS_API_KEY` and the shared strict Google resolver from #680. The old live Worker omits `types` and `placeName`, which correctly fail the new premise validation. Preview autocomplete/details now use matching code rather than loosening that check. A conditional `preview.ts` page extension excludes this endpoint from static and production builds; the handler also rejects non-preview environments. The adapter cannot create bookings, send email or charge payments. Production Worker changes still require a separate approved release.
+
 The Vercel preview deploys the frontend only. The Cloudflare Worker is not deployed by this PR; do not attempt a real booking or payment against production from a preview. Automated tests intercept all external requests and exercise the changed Worker in memory with mock SumUp, email and KV. A coordinated frontend/Worker release is needed after approval. WebKit tests emulate iPhone-sized viewports; they do not constitute testing on a physical iPhone.
 
 ## Verification

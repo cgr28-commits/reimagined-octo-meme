@@ -7,6 +7,9 @@ export function resolveAddressesApiUrl(): string {
     return explicit;
   }
 
+  const preview = process.env.NEXT_PUBLIC_PREVIEW_ADDRESSES_URL?.trim();
+  if (preview) return preview;
+
   const bookings = process.env.NEXT_PUBLIC_BOOKINGS_API_URL?.trim() ?? "";
   if (bookings) {
     try {
