@@ -32,7 +32,7 @@ try {
    if(u.pathname==='/pricing/public')return json({config:toPublicOwnerPricingConfig(defaultOwnerPricingSettings())});
    if(u.pathname.includes('/route/v1/driving'))return json({code:'Ok',routes:[{distance:25830,duration:1506,geometry:{coordinates:[[-5.9300677,54.5966472],[-6.2158,54.6575]],type:'LineString'}}]});
    if(u.pathname==='/quote/availability')return json({blocked:false,available:true,alternativeTimes:[]});
-   if(u.pathname==='/quote/calculate'){const body=req.postDataJSON();return json({ok:true,amount:120,journeyFareGbp:120,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0,vehicleType:body.vehicleType,returnJourney:body.returnJourney,diagnostics:{distanceKm:25.83,routeDurationMinutes:25.1}});}
+   if(u.pathname==='/quote/calculate'){const body=req.postDataJSON();return json({ok:true,amount:130,journeyFareGbp:130,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0,vehicleType:body.vehicleType,returnJourney:body.returnJourney,diagnostics:{distanceKm:25.83,routeDurationMinutes:25.1}});}
    if(req.method()==='POST'&&/payments|bookings/.test(u.pathname))mutations.push(u.pathname);
    return route.abort();
   });

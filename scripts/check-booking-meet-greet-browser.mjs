@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
+import { getServedAirport } from '../shared/served-airports';
 import { publicDepositCashOffer } from '../shared/deposit-cash';
 const { chromium, webkit } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(`${process.env.PLAYWRIGHT_MODULE}/index.mjs`).href : 'playwright');
 const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
@@ -39,6 +40,14 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
   if(u.origin===url)return route.continue();
   const json=body=>route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
   if(u.pathname.includes('/route/v1/driving'))return json({code:'Ok',routes:[{distance:26000,duration:1800,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
+  if(u.pathname.endsWith('/addresses')) {
+   const bfs=getServedAirport('BFS');
+   const city={placeId:'test-city-hall',formattedAddress:'Belfast City Hall, Belfast BT1 5GS, UK',placeName:'Belfast City Hall',lat:54.5964,lng:-5.9301,countryCode:'GB',postalCode:'BT1 5GS'};
+   const airport=(u.searchParams.get('q')||'').includes('International') || u.searchParams.get('id')===bfs.placeId;
+   const place=airport?{...bfs,placeName:bfs.name,countryCode:'GB'}:city;
+   if(u.searchParams.has('id'))return json({...place,address:place.formattedAddress,provider:airport?'airport':'google'});
+   return json({suggestions:[{id:place.placeId,label:place.formattedAddress,mainText:place.placeName,secondaryText:'Northern Ireland'}]});
+  }
   if(u.pathname==='/pricing/public'){const config=defaultOwnerPricingSettings();config.meetGreet.bfsGbp=fee;return json({config:toPublicOwnerPricingConfig(config)});}
   if(u.pathname==='/quote/availability')return json({blocked:false,available:true,alternativeTimes:[]});
   if(u.pathname.endsWith('/quote/calculate')) {
@@ -57,7 +66,13 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
  await page.goto(`${url}/?previewJourney=bfs`);
  await page.getByRole('button',{name:'Reject optional',exact:true}).click();
  await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
- if(collection)await page.getByRole('button',{name:'Swap pickup and drop-off'}).click();
+ if(collection) {
+  for(const [id,text] of [['pickup','Belfast International'],['dropoff','Belfast City Hall']]) {
+   const input=page.locator('#'+id); await input.fill(text);
+   const listbox=await input.getAttribute('aria-controls');
+   await page.locator(`[id="${listbox}"]`).getByRole('button').filter({hasText:text}).first().click();
+  }
+ }
  await page.locator('#quote-section-passengers').selectOption('2');
  await page.locator('#quote-section-suitcases').selectOption('1');
  const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
