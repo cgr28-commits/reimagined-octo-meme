@@ -46,7 +46,7 @@ async function main() {
       const publicQuote = calculateQuote("12 Holywood Road, Belfast BT4 1NT", "BFS", vehicle, false, schedule, metrics(input), fromAirport, toPublicOwnerPricingConfig(settings))!;
       eq(publicQuote.amount, quote.amount, "public/worker settings parity");
       const express = resolveExpressDropOff({ airportCode: "BFS", fromAirport, returnJourney: false, selected: true });
-      const access = quoteAirportAccessCharges({ airportCode: "BFS", fromAirport, returnJourney: false, expressLegs: express.legs, fees: settings.meetGreet });
+      const access = quoteAirportAccessCharges({ outboundChoice: "express", airportCode: "BFS", fromAirport, returnJourney: false, expressLegs: express.legs, fees: settings.meetGreet });
       eq(access.airportAccessChargeGbp, 5, "pickup/dropoff access separate and once");
       const total = composeWebsiteFareBreakdown({ journeyFareBeforeAirportAccessGbp: quote.journeyFareGbp!, airportAccessChargeGbp: access.airportAccessChargeGbp }).finalAmountPayableGbp;
       eq(total, expected + (vehicle === ESTATE_VEHICLE ? 7 : 0) + 5, "payable excludes access from floor");
@@ -56,7 +56,7 @@ async function main() {
   for (const fromAirport of [false, true]) {
     const quote = calculateQuote("12 Holywood Road, Belfast BT4 1NT", "BFS", SALOON_VEHICLE, true, schedule, metrics(30), fromAirport, settings)!;
     eq(quote.journeyFareGbp,85.5,"return floor per leg before 5% discount");
-    const access = quoteAirportAccessCharges({ airportCode:"BFS", fromAirport, returnJourney:true, expressLegs:resolveExpressDropOff({airportCode:"BFS",fromAirport,returnJourney:true,selected:true,outboundSelected:true,returnSelected:true}).legs });
+    const access = quoteAirportAccessCharges({ outboundChoice:"express", returnChoice:"express", airportCode:"BFS", fromAirport, returnJourney:true, expressLegs:resolveExpressDropOff({airportCode:"BFS",fromAirport,returnJourney:true,selected:true,outboundSelected:true,returnSelected:true}).legs });
     eq(access.airportAccessChargeGbp,10,"two directional return fees");
     const final = composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:85.5,returnJourney:true,airportAccessChargeGbp:10});
     eq(final.returnJourneySavingGbp,4.5,"access not discounted"); eq(final.finalAmountPayableGbp,96,"existing whole-pound checkout rounding");
@@ -188,7 +188,7 @@ async function main() {
       const p=await getOwnerPricingSettings(kv);
       const q=calculateQuote(numbered.formattedAddress,"BFS",vehicle,returning,schedule,{distanceKm:5,durationMinutes:10},fromAirport,p)!;
       const total=composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:q.journeyFareGbp!,airportAccessChargeGbp:returning?10:5,returnJourney:returning,preserveFixedFarePence:true}).finalAmountPayableGbp;
-      const booking={customerName:"Isolated Test",customerEmail:"test@example.invalid",mobileNumber:"07700900123",pickupLabel:fromAirport?bfs.formattedAddress:numbered.formattedAddress,dropoffLabel:fromAirport?numbered.formattedAddress:bfs.formattedAddress,tripLabel:fromAirport?"Airport pickup":"Airport drop-off",tripDate:schedule.outboundDate,tripTime:schedule.outboundTime,returnDate:schedule.returnDate,returnTime:schedule.returnTime,returnJourney:returning,passengers:1,suitcases:1,vehicle,isAirportTrip:true,isFromAirport:fromAirport,airportCode:"BFS",flightNumber:"BA1234",returnFlightNumber:"BA1234",termsAcceptedAt:new Date().toISOString()};
+      const booking={outboundAirportAccessOption:"express",returnAirportAccessOption:"express",customerName:"Isolated Test",customerEmail:"test@example.invalid",mobileNumber:"07700900123",pickupLabel:fromAirport?bfs.formattedAddress:numbered.formattedAddress,dropoffLabel:fromAirport?numbered.formattedAddress:bfs.formattedAddress,tripLabel:fromAirport?"Airport pickup":"Airport drop-off",tripDate:schedule.outboundDate,tripTime:schedule.outboundTime,returnDate:schedule.returnDate,returnTime:schedule.returnTime,returnJourney:returning,passengers:1,suitcases:1,vehicle,isAirportTrip:true,isFromAirport:fromAirport,airportCode:"BFS",flightNumber:"BA1234",returnFlightNumber:"BA1234",termsAcceptedAt:new Date().toISOString()};
       const payload={booking,pickupPlaceId:fromAirport?bfs.placeId:numbered.placeId,dropoffPlaceId:fromAirport?numbered.placeId:bfs.placeId,amount:q.amount,acceptedFinalAmountGbp:total,journeyFareGbp:q.journeyFareGbp,airportFixedCostsGbp:0,description:"Isolated test",redirectUrl:origin+"/booking-confirmed/"};
       const pay=(body:unknown)=>worker.fetch(new Request("https://worker.example/payments",{method:"POST",headers:{"Content-Type":"application/json",Origin:origin},body:JSON.stringify(body)}),payEnv as never);
       const result=await pay(payload);const data=await result.json() as {checkoutId:string};

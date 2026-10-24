@@ -191,6 +191,8 @@ export type PaidBookingRecord = {
   airportAccessOption?: "express" | "free" | "meet-greet" | null;
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
+  terminalAccessChoices?: import("./meet-greet").TerminalAccessChoices;
+  terminalAccessVisits?: import("./meet-greet").QuotedAirportAccessLeg[];
   outboundAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   returnAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   outboundAirportAccessChargeGbp?: number;

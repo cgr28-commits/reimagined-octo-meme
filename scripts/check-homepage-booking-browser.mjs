@@ -240,7 +240,7 @@ try {
       await input.fill('Dublin Airport');
       const listboxId=await input.getAttribute('aria-controls');
       assert.ok(listboxId,`${field} autocomplete must identify its listbox`);
-      await page.locator(`[id="${listboxId}"]`).getByRole('button',{name:'Dublin Airport Terminal 2 Ireland',exact:true}).click();
+      await page.locator(`[id="${listboxId}"]`).getByRole('button',{name:'Dublin Airport Co. Dublin, Ireland',exact:true}).click();
       await page.waitForFunction(({id,label})=>document.getElementById(id)?.value === label,{id:field,label:getServedAirport('DUB').formattedAddress});
       assert.equal(await page.locator(`#${field}`).inputValue(),getServedAirport('DUB').formattedAddress);
     }

@@ -16,6 +16,8 @@ import type { PaidBookingRecord } from "./paid-booking-record";
 /** Build journey/contact details strictly from the canonical paid booking record. */
 export function paidBookingRecordToDetails(record: PaidBookingRecord): PaidBookingDetails {
   return {
+    terminalAccessChoices: record.terminalAccessChoices,
+    terminalAccessVisits: record.terminalAccessVisits,
     customerName: record.customerName,
     customerEmail: record.customerEmail,
     mobileNumber: record.mobileNumber,

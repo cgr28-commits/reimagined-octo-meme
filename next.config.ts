@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import { transferLegacyRedirectEntries } from "./src/lib/transfer-legacy-redirects.mjs";
 
 const isGithubPages = process.env.GITHUB_PAGES === "true";
+const previewAddresses = !isGithubPages && process.env.VERCEL_ENV === "preview" &&
+  process.env.VERCEL_GIT_COMMIT_REF === "feat/optional-terminal-access";
 
 const vcardHeaders = [
   { key: "Content-Type", value: "text/vcard; charset=utf-8" },
@@ -18,6 +20,8 @@ const nextConfig: NextConfig = {
   trailingSlash: isGithubPages,
   env: {
     NEXT_PUBLIC_BASE_PATH: "",
+    NEXT_PUBLIC_PREVIEW_ADDRESSES_URL: previewAddresses && process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}/api/preview-addresses` : "",
   },
   images: {
     unoptimized: isGithubPages,

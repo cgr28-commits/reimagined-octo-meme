@@ -1,3 +1,4 @@
+import { DEFAULT_TERMINAL_ACCESS_FEES } from "../../shared/terminal-access-config";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import type {
   OwnerPricingAuditEntry,
@@ -139,6 +140,7 @@ export async function fetchPublicPricingConfig(): Promise<PublicOwnerPricingConf
     const config = (body as { config: PublicOwnerPricingConfig }).config;
     return {
       ...config,
+      terminalAccess: config.terminalAccess ?? { ...DEFAULT_TERMINAL_ACCESS_FEES },
       minibus: {
         ...config.minibus,
         publicEnabled: config.minibus?.publicEnabled === true,

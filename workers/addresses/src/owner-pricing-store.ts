@@ -150,7 +150,7 @@ export async function saveOwnerPricingSettings(
   } else {
     // Older clients must not silently erase separately managed postcode rules.
     const validated = validateOwnerPricingInput(input && typeof input === "object"
-      ? { ...input, bfsMinimumSaloonFareGbp: (input as { bfsMinimumSaloonFareGbp?: unknown }).bfsMinimumSaloonFareGbp === undefined ? current.bfsMinimumSaloonFareGbp : (input as { bfsMinimumSaloonFareGbp?: unknown }).bfsMinimumSaloonFareGbp, saloonFormula: (input as { saloonFormula?: unknown }).saloonFormula ?? current.saloonFormula, postcodeRules: (input as { postcodeRules?: unknown }).postcodeRules ?? current.postcodeRules ?? [], postcodePricingEnabled: (input as { postcodePricingEnabled?: unknown }).postcodePricingEnabled ?? current.postcodePricingEnabled ?? false }
+      ? { ...input, terminalAccess: (input as { terminalAccess?: unknown }).terminalAccess ?? current.terminalAccess, bfsMinimumSaloonFareGbp: (input as { bfsMinimumSaloonFareGbp?: unknown }).bfsMinimumSaloonFareGbp === undefined ? current.bfsMinimumSaloonFareGbp : (input as { bfsMinimumSaloonFareGbp?: unknown }).bfsMinimumSaloonFareGbp, saloonFormula: (input as { saloonFormula?: unknown }).saloonFormula ?? current.saloonFormula, postcodeRules: (input as { postcodeRules?: unknown }).postcodeRules ?? current.postcodeRules ?? [], postcodePricingEnabled: (input as { postcodePricingEnabled?: unknown }).postcodePricingEnabled ?? current.postcodePricingEnabled ?? false }
       : input);
     if (!validated.ok) {
       throw new OwnerPricingValidationError(validated.errors);

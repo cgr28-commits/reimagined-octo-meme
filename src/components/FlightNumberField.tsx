@@ -171,13 +171,18 @@ export default function FlightNumberField({
         autoCapitalize="characters"
         autoComplete="off"
         spellCheck={false}
+        aria-required="true"
+        aria-invalid={Boolean(error) || lookupStatus === "error"}
+        aria-describedby={`${id}-feedback`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="e.g. BA1234"
         className="quote-text-input h-12 rounded-xl border border-white/25 bg-navy-dark px-4 uppercase text-white placeholder:normal-case placeholder:text-white/45 outline-none transition-colors focus:border-emerald focus:ring-2 focus:ring-inset focus:ring-emerald/25 md:border-white/30"
       />
       <p
-        className={`quote-helper-text mt-1.5 min-h-[2.25rem] text-xs leading-snug ${
+        id={`${id}-feedback`}
+        role={error || lookupStatus === "error" ? "alert" : "status"}
+        className={`quote-helper-text mt-1.5 text-xs leading-snug ${
           error || lookupStatus === "error"
             ? "text-red-300"
             : lookupStatus === "unavailable" || (!tripDate && value.trim())

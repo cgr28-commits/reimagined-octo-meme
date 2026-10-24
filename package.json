@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:addresses": "npm --prefix workers/addresses run dev",
-    "build": "node scripts/generate-sitemap.mjs && rm -f .next/cache/.tsbuildinfo && next build",
+    "build": "node scripts/prepare-preview-address-route.mjs && node scripts/generate-sitemap.mjs && rm -f .next/cache/.tsbuildinfo && next build",
     "sync:worker-shared": "node scripts/sync-worker-shared.mjs",
     "setup:worker": "node scripts/setup-worker.mjs",
     "set:driver-key": "node scripts/set-driver-access-key.mjs",
@@ -150,6 +150,7 @@
   },
   "dependencies": {
     "leaflet": "^1.9.4",
+    "lucide-react": "^1.61.0",
     "next": "^15.3.3",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",
