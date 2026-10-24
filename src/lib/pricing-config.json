@@ -114,7 +114,7 @@
   "airportExecutiveMinimumFareGbp": 105,
   "areaAirportSurchargesGbp": {
     "Belfast City Centre": {
-      "BFS": 13,
+      "BFS": 9,
       "BHD": 0,
       "DUB": 50,
       "LDY": 103
@@ -132,8 +132,8 @@
       "LDY": 94
     },
     "Lisburn": {
-      "BFS": 6,
-      "BHD": 0,
+      "BFS": 9,
+      "BHD": 14,
       "DUB": 60,
       "LDY": 103
     },
@@ -204,7 +204,7 @@
       "LDY": 85
     },
     "Banbridge": {
-      "BFS": 44,
+      "BFS": 43,
       "BHD": 55,
       "DUB": 75,
       "LDY": 78
