@@ -7,6 +7,7 @@ on:
       - 'src/lib/payment-attempt-guard.ts'
       - 'workers/addresses/src/index.ts'
       - 'scripts/check-checkout-loading*'
+      - 'scripts/check-quote-required-fields.ts'
       - '.github/workflows/checkout-loading-review.yml'
 permissions:
   contents: read
@@ -31,6 +32,7 @@ jobs:
       - run: node --import tsx scripts/check-payment-operation.ts
       - run: node --import tsx scripts/check-sumup-payment-ux.ts
       - run: node --import tsx scripts/check-deposit-cash.ts
+      - run: node --import tsx scripts/check-quote-required-fields.ts
       - run: node --import tsx scripts/check-sumup-booking-conversion.ts
       - run: npm --prefix workers/addresses run typecheck
       - run: npm run lint

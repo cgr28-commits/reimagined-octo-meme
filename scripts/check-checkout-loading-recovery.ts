@@ -10,12 +10,13 @@ Object.defineProperty(globalThis, "sessionStorage", { configurable:true, value: 
 } });
 async function main() {
   try {
-    for (const outcome of ["network","invalid-json","missing-id","server-error","in-progress"]) {
+    for (const outcome of ["network","invalid-json","primitive-json","missing-id","server-error","in-progress"]) {
       clearPaymentPending(); let requests = 0;
       globalThis.fetch = async () => {
         requests++;
         if (outcome === "network") throw new TypeError("Network lost");
         if (outcome === "invalid-json") return new Response("invalid");
+        if (outcome === "primitive-json") return Response.json(true);
         if (outcome === "missing-id") return Response.json({paymentUrl:"https://checkout.sumup.com/mock"});
         if (outcome === "server-error") return Response.json({error:"Uncertain"},{status:502});
         return Response.json({code:"payment_in_progress"},{status:409});
