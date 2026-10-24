@@ -1,5 +1,6 @@
 "use client";
 
+import { Calendar, Clock } from "lucide-react";
 import type { RefObject } from "react";
 import {
   quoteDateTimeFieldShellClass,
@@ -30,6 +31,7 @@ function mobileDateText(value: string): string {
 export type QuoteScheduleFieldsProps = {
   variant?: "quote" | "checkout";
   homepageInline?: boolean;
+  homepagePolish?: boolean;
   returnJourney: boolean;
   tripDate: string;
   tripTime: string;
@@ -57,6 +59,7 @@ export type QuoteScheduleFieldsProps = {
 export default function QuoteScheduleFields({
   variant = "quote",
   homepageInline = false,
+  homepagePolish = false,
   returnJourney,
   tripDate,
   tripTime,
@@ -117,6 +120,7 @@ export default function QuoteScheduleFields({
           </label>
           <div
             data-schedule-control={homepageInline ? "date" : undefined}
+            data-compact-error={homepagePolish && Boolean(tripDateError) || undefined}
             data-schedule-empty={homepageInline && !tripDate ? true : undefined}
             className={homepageInline ? "relative box-border h-10 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
               scheduleFieldState({
@@ -125,7 +129,7 @@ export default function QuoteScheduleFields({
               }),
             )}
           >
-            {homepageInline ? <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg></span> : null}
+            {homepagePolish ? <Calendar className="homepage-field-icon" size={18} strokeWidth={1.8} aria-hidden="true" /> : homepageInline ? <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg></span> : null}
             {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(tripDate)}</span> : null}
             <input
               id="date"
@@ -149,6 +153,7 @@ export default function QuoteScheduleFields({
           </label>
           <div
             data-schedule-control={homepageInline ? "time" : undefined}
+            data-compact-error={homepagePolish && Boolean(tripDateError) || undefined}
             data-schedule-empty={homepageInline && !tripTime ? true : undefined}
             className={homepageInline ? "relative box-border h-10 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
               scheduleFieldState({
@@ -157,7 +162,7 @@ export default function QuoteScheduleFields({
               }),
             )}
           >
-            {homepageInline ? <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> : null}
+            {homepagePolish ? <Clock className="homepage-field-icon" size={18} strokeWidth={1.8} aria-hidden="true" /> : homepageInline ? <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> : null}
             {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{tripTime ? tripTime.slice(0, 5) : "Select time"}</span> : null}
             <input
               id="time"
@@ -193,6 +198,7 @@ export default function QuoteScheduleFields({
             </label>
             <div
               data-schedule-control={homepageInline ? "date" : undefined}
+              data-compact-error={homepagePolish && Boolean(returnDateError) || undefined}
               data-schedule-empty={homepageInline && !returnDate ? true : undefined}
               className={homepageInline ? "relative box-border h-10 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
                 scheduleFieldState({
@@ -201,7 +207,7 @@ export default function QuoteScheduleFields({
                 }),
               )}
             >
-              {homepageInline ? <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg></span> : null}
+              {homepagePolish ? <Calendar className="homepage-field-icon" size={18} strokeWidth={1.8} aria-hidden="true" /> : homepageInline ? <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg></span> : null}
             {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(returnDate)}</span> : null}
               <input
                 id="returnDate"
@@ -223,6 +229,7 @@ export default function QuoteScheduleFields({
             </label>
             <div
               data-schedule-control={homepageInline ? "time" : undefined}
+              data-compact-error={homepagePolish && Boolean(returnDateError) || undefined}
               data-schedule-empty={homepageInline && !returnTime ? true : undefined}
               className={homepageInline ? "relative box-border h-10 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
                 scheduleFieldState({
@@ -231,7 +238,7 @@ export default function QuoteScheduleFields({
                 }),
               )}
             >
-              {homepageInline ? <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> : null}
+              {homepagePolish ? <Clock className="homepage-field-icon" size={18} strokeWidth={1.8} aria-hidden="true" /> : homepageInline ? <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> : null}
             {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{returnTime ? returnTime.slice(0, 5) : "Select time"}</span> : null}
               <input
                 id="returnTime"

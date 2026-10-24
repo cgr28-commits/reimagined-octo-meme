@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { UserRound, BriefcaseBusiness } from "lucide-react";
 import AddressInput from "@/components/AddressInput";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
@@ -23,6 +24,7 @@ import { formatPublicSuitcaseChoice } from "../../shared/vehicle-capacity";
 type JourneyMode = "one-way" | "return";
 
 type HomepageQuoteFieldsProps = {
+  homepagePolish?: boolean;
   journeyMode: JourneyMode;
   onJourneyModeChange: (mode: JourneyMode) => void;
   pickupAddress: string;
@@ -180,15 +182,7 @@ function LocationIcon() {
   );
 }
 
-function SwapIcon() {
-  return (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h11l-3-3M17 17H6l3 3" />
-    </svg>
-  );
-}
-
-function selectClass(hasError: boolean, _complete: boolean) {
+function selectClass(hasError: boolean) {
   const base = "box-border h-10 w-full min-w-0 rounded-xl border bg-white/[0.14] px-4 text-[17px] font-medium text-white outline-none transition-colors";
   return hasError
     ? `${base} border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400`
@@ -196,6 +190,7 @@ function selectClass(hasError: boolean, _complete: boolean) {
 }
 
 export default function HomepageQuoteFields({
+  homepagePolish = false,
   journeyMode,
   onJourneyModeChange,
   pickupAddress,
@@ -211,7 +206,6 @@ export default function HomepageQuoteFields({
   onClearPickup,
   onClearDropoff,
   addressLookupCode,
-  onSwap,
   passengers,
   suitcases,
   onPassengersChange,
@@ -385,13 +379,14 @@ export default function HomepageQuoteFields({
           <label htmlFor="quote-section-passengers" className="form-label mb-1">
             Passengers
           </label>
-          <span className="pointer-events-none absolute mt-[2.1rem] ml-3 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></span>
+          <div className={homepagePolish ? "homepage-compact-control relative" : "contents"}>
+          {homepagePolish ? <UserRound className="homepage-field-icon" size={18} strokeWidth={1.8} aria-hidden="true" /> : <span className="pointer-events-none absolute mt-[2.1rem] ml-3 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></span>}
           <select
             id="quote-section-passengers"
             name="passengers"
             value={passengers == null ? "" : String(passengers)}
             onChange={(event) => onPassengersChange(event.target.value === "" ? null : Number(event.target.value))}
-            className={`${selectClass(Boolean(passengersError), passengers != null)} pl-9`}
+            className={`${selectClass(Boolean(passengersError))} pl-9`}
             aria-invalid={Boolean(passengersError)}
           >
             <option value="">Select</option>
@@ -401,6 +396,7 @@ export default function HomepageQuoteFields({
               </option>
             ))}
           </select>
+          </div>
           {passengersError ? (
             <p className="mt-1 text-xs text-red-300" role="alert">
               {passengersError}
@@ -411,13 +407,14 @@ export default function HomepageQuoteFields({
           <label htmlFor="quote-section-suitcases" className="form-label mb-1 whitespace-nowrap leading-tight">
             Suitcases
           </label>
-          <span className="pointer-events-none absolute mt-[2.1rem] ml-3 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="7" width="16" height="14" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2M12 7v14"/></svg></span>
+          <div className={homepagePolish ? "homepage-compact-control relative" : "contents"}>
+          {homepagePolish ? <BriefcaseBusiness className="homepage-field-icon" size={18} strokeWidth={1.8} aria-hidden="true" /> : <span className="pointer-events-none absolute mt-[2.1rem] ml-3 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="7" width="16" height="14" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2M12 7v14"/></svg></span>}
           <select
             id="quote-section-suitcases"
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
             onChange={(event) => onSuitcasesChange(event.target.value === "" ? null : Number(event.target.value))}
-            className={`${selectClass(Boolean(suitcasesError), suitcases != null)} pl-9`}
+            className={`${selectClass(Boolean(suitcasesError))} pl-9`}
             aria-invalid={Boolean(suitcasesError)}
           >
             <option value="">Select</option>
@@ -427,6 +424,7 @@ export default function HomepageQuoteFields({
               </option>
             ))}
           </select>
+          </div>
           {suitcasesError ? (
             <p className="mt-1 text-xs text-red-300" role="alert">
               {suitcasesError}
