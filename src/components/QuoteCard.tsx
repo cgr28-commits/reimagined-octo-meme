@@ -112,7 +112,7 @@ import { isBrowserPricingPreview, previewMinibusQueryEnabled } from "@/lib/prici
 import { postcodeFareHasPence } from "../../shared/postcode-pricing";
 import { readPreviewCustomerQuoteSeed } from "@/lib/preview-customer-quote";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
-import { formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
+import { formatBookingDate, formatUkDate, formatUkTime, todayLondonDate, nowLondonTime } from "@/lib/format-datetime";
 import { BOOKING_FLIGHT_NUMBER_HELPER, resolveJourneyInclusions } from "@/lib/journey-inclusions";
 import {
   intentFromDirection,
@@ -6687,7 +6687,12 @@ function QuoteCard({
             totalLabel={amountLabel ? `Total ${amountLabel}` : "Total TBC"}
             whenLine={
               tripDate && tripTime
-                ? `${tripDate} · ${formatCustomerClock(tripTime) || tripTime}`
+                ? `${formatBookingDate(tripDate)} · ${formatCustomerClock(tripTime) || tripTime}`
+                : null
+            }
+            returnWhenLine={
+              returnJourney && returnDate && returnTime
+                ? `${formatBookingDate(returnDate)} · ${formatCustomerClock(returnTime) || returnTime}`
                 : null
             }
             accessLine={checkoutAccessLine()}
@@ -6944,8 +6949,7 @@ function QuoteCard({
                         </p>
                         <p className="mt-0.5 text-xs text-white/70">
                           {formatDepositCashGbp(depositCashOffer.cashDueGbp)}{" "}
-                          <span className="font-bold tracking-wide text-white">CASH</span> on the
-                          day
+                          <span className="font-semibold text-white">cash on the day</span>
                         </p>
                       </button>
                       <button
@@ -6972,11 +6976,12 @@ function QuoteCard({
                       </button>
                     </div>
                     {selectedDepositCash ? (
-                      <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2.5">
-                        <label className="flex items-start gap-3 text-sm leading-relaxed text-white/92">
+                      <div data-cash-agreement className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-2.5 py-1.5">
+                        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm leading-snug text-white/92">
                           <input
                             type="checkbox"
                             checked={cashAgreementAccepted}
+                            aria-required="true"
                             onChange={(event) => {
                               setCashAgreementAccepted(event.target.checked);
                               if (event.target.checked) {

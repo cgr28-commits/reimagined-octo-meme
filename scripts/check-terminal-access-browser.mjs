@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
+import { calculateDepositCashQuote } from '../shared/deposit-cash';
+import { formatBookingDate } from '../src/lib/format-datetime';
 import { getServedAirport } from '../shared/served-airports';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
+assert.equal(formatBookingDate('2026-10-30'),'30 Oct 2026');
+assert.equal(formatBookingDate('2026-03-29'),'29 Mar 2026');
 const base=process.env.TEST_BASE_URL||'http://127.0.0.1:3000';
 const engine=process.env.PLAYWRIGHT_BROWSER||'chromium';
 const browser=await ({chromium,webkit}[engine]).launch();
@@ -107,6 +111,7 @@ try {
   await section.locator('input[value="free"]').check();
   if(returning) {
     const pickup=page.locator('[data-terminal-access]').nth(1);
+    assert.ok((await pickup.innerText()).includes(`Just a short walk to the Long Stay collection point (approximately ${airport==='BFS'?'4 minutes':'5–10 minutes'}). Follow the airport signs to meet your driver.`));
     await pickup.locator('input[value="express"]').check();
     await pickup.getByRole('checkbox').check();
     assert.equal(await pickup.locator('input[type="radio"]').count(),0,'M&G replaces conflicting access choices');
@@ -122,6 +127,13 @@ try {
   assert.equal(await page.locator('#date').inputValue(),'2026-12-14');
   assert.equal(await page.locator('#time').inputValue(),'12:00');
   const summary=page.locator('#quote-price-summary');
+  assert.equal(await summary.locator('[data-checkout-pickup-time]').innerText(),'Pickup time: 14 Dec 2026 · 12:00');
+  assert.equal(await summary.locator('[data-checkout-return-time]').count(),returning?1:0);
+  if(returning) {
+    assert.equal(await summary.locator('[data-checkout-return-time]').innerText(),'Return pickup: 21 Dec 2026 · 12:00');
+    assert.equal(await page.locator('#returnDate').inputValue(),'2026-12-21');
+  }
+  assert.ok((await summary.locator('[data-checkout-summary-controls]').boundingBox()).height<=88.5,'Summary controls use at most two adjacent 44px rows');
   await summary.locator('summary').click();
   assert.ok((await summary.innerText()).includes('Destination:'));
   await summary.locator('summary').click();
@@ -132,6 +144,7 @@ try {
   await page.getByRole('checkbox',{name:/I agree to the/}).check();
   const full=page.getByRole('button',{name:/Pay in Full Online/});
   await full.click();
+  assert.equal(await page.locator('[data-cash-agreement]').count(),0,'Full online has no cash agreement');
   assert.equal(await full.getAttribute('aria-pressed'),'true');
   assert.ok((await full.innerText()).includes('Nothing to pay on the day'));
   const pay=page.locator('#step3-payment-actions .btn-pay').last();
@@ -159,7 +172,22 @@ try {
   await deposit.click();
   assert.equal(await confirmation.getByRole('checkbox').isChecked(),true,'Payment method changes do not reset acknowledged fare');
   assert.equal(await deposit.getAttribute('aria-pressed'),'true');
-  assert.ok((await deposit.innerText()).includes('CASH'));
+  const amounts=calculateDepositCashQuote(initial+terminalFee,{enabled:true,percent:20,minimumGbp:15});
+  assert.ok((await deposit.innerText()).includes(`£${amounts.depositGbp.toFixed(2)} today`));
+  assert.ok((await deposit.innerText()).includes(`£${amounts.cashDueGbp.toFixed(2)} cash on the day`));
+  const cash=page.locator('[data-cash-agreement]').getByRole('checkbox');
+  const cashLabel=`I understand that the remaining £${amounts.cashDueGbp} must be paid in cash to my driver on the day.`;
+  assert.equal(await page.locator('[data-cash-agreement]').innerText(),cashLabel);
+  assert.equal(await cash.isChecked(),false);
+  await pay.click();
+  assert.ok((await page.locator('#step3-payment-actions').innerText()).includes('Please confirm you understand the remaining balance must be paid in cash'));
+  assert.deepEqual(writes,[],'Missing cash acknowledgement must not start payment');
+  await cash.check();
+  assert.equal(await cash.isChecked(),true);
+  await full.click();
+  assert.equal(await page.locator('[data-cash-agreement]').count(),0);
+  await deposit.click();
+  assert.equal(await cash.isChecked(),false,'Changing back to deposit requires the cash agreement again');
   assert.equal(await page.getByText('Secure payment powered by SumUp',{exact:true}).count(),1);
   await pay.scrollIntoViewIfNeeded();
   assert.ok(await pay.evaluate(el=>{

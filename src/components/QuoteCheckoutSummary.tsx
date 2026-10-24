@@ -9,6 +9,7 @@ type Props = {
   detailLine: string;
   totalLabel: string;
   whenLine?: string | null;
+  returnWhenLine?: string | null;
   accessLine?: string | null;
   onEditJourney: () => void;
   onChangeDropOff?: (() => void) | null;
@@ -27,6 +28,7 @@ export default function QuoteCheckoutSummary({
   detailLine,
   totalLabel,
   whenLine,
+  returnWhenLine,
   accessLine,
   onEditJourney,
   onChangeDropOff,
@@ -47,16 +49,21 @@ export default function QuoteCheckoutSummary({
           Pickup time: {whenLine}
         </p>
       ) : null}
+      {returnWhenLine ? (
+        <p className="mt-1 text-sm font-semibold text-white" data-checkout-return-time>
+          Return pickup: {returnWhenLine}
+        </p>
+      ) : null}
       {accessLine ? <p className="mt-1 text-xs text-white/75">{accessLine}</p> : null}
       <p className="mt-2 text-lg font-bold tracking-tight text-white sm:text-xl">{totalLabel}</p>
-      {pickupAddress && destinationAddress ? (
-        <details className="mt-1 text-xs text-white/75">
-          <summary className="flex min-h-11 cursor-pointer items-center text-emerald">Full journey addresses</summary>
-          <p className="break-words"><strong>Pickup:</strong> {pickupAddress}</p>
-          <p className="mt-1 break-words"><strong>Destination:</strong> {destinationAddress}</p>
-        </details>
-      ) : null}
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold">
+      <div className="mt-1 flex flex-wrap items-start gap-x-3 gap-y-0 text-xs font-semibold" data-checkout-summary-controls>
+        {pickupAddress && destinationAddress ? (
+          <details className="text-white/75 open:basis-full">
+            <summary className="min-h-11 cursor-pointer content-center text-emerald">Full journey addresses</summary>
+            <p className="break-words"><strong>Pickup:</strong> {pickupAddress}</p>
+            <p className="mt-1 break-words"><strong>Destination:</strong> {destinationAddress}</p>
+          </details>
+        ) : null}
         <button
           type="button"
           onClick={onEditJourney}

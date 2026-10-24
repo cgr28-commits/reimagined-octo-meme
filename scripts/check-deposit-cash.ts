@@ -477,7 +477,7 @@ check("CASE A — £50.10 shows £15.10 deposit / £35.00 cash with two decimals
   );
   assert.equal(
     cashAgreementLabel(caseA.cashDueGbp),
-    "I understand that the remaining £35.00 must be paid in cash to my driver on the day and cannot be paid by card.",
+    "I understand that the remaining £35 must be paid in cash to my driver on the day.",
   );
   assert.equal(DEPOSIT_CASH_SELECTED_HEADING, "Deposit + Cash selected");
   assert.equal(formatGbpAmount(15), "£15");

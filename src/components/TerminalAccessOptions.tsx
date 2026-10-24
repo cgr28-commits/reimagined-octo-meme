@@ -49,7 +49,7 @@ export default function TerminalAccessOptions(props: Props) {
           <span className="font-semibold">Free {direction}</span>
           <span className="whitespace-nowrap font-semibold text-emerald">£0</span>
           <span className="col-start-2 col-end-4 text-xs leading-relaxed text-white/70">
-            {pickup ? `A short walk from the terminal to the Long Stay collection point (approximately ${walk}). Follow the airport signs to meet your driver.` : `Your driver drops you at the Long Stay car park. Follow the airport signs to the terminal (approximately ${walk} on foot).`}
+            {pickup ? `Just a short walk to the Long Stay collection point (approximately ${walk}). Follow the airport signs to meet your driver.` : `Your driver drops you at the Long Stay car park. Follow the airport signs to the terminal (approximately ${walk} on foot).`}
           </span>
         </label>}
         <label className={card(choice === "express")}>
