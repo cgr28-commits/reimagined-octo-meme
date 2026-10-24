@@ -118,12 +118,12 @@ export default function QuoteScheduleFields({
           <div
             data-schedule-control={homepageInline ? "date" : undefined}
             data-schedule-empty={homepageInline && !tripDate ? true : undefined}
-            className={quoteDateTimeFieldShellClass(
+            className={`${homepageInline ? "homepage-matched-date-time" : ""} ${quoteDateTimeFieldShellClass(
               scheduleFieldState({
                 hasError: Boolean(tripDateError),
                 complete: Boolean(tripDate.trim()),
               }),
-            )}
+            )}`}
           >
             {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(tripDate)}</span> : null}
             <input
@@ -154,7 +154,7 @@ export default function QuoteScheduleFields({
                 hasError: Boolean(tripDateError),
                 complete: Boolean(tripTime.trim()),
               }),
-            )}
+            )}`}
           >
             {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{tripTime ? tripTime.slice(0, 5) : "Select time"}</span> : null}
             <input
@@ -197,7 +197,7 @@ export default function QuoteScheduleFields({
                   hasError: Boolean(returnDateError),
                   complete: Boolean(returnDate.trim()),
                 }),
-              )}
+              )}`}
             >
               {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(returnDate)}</span> : null}
               <input
@@ -226,7 +226,7 @@ export default function QuoteScheduleFields({
                   hasError: Boolean(returnDateError),
                   complete: Boolean(returnTime.trim()),
                 }),
-              )}
+              )}`}
             >
               {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{returnTime ? returnTime.slice(0, 5) : "Select time"}</span> : null}
               <input
