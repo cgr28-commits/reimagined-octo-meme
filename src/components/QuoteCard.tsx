@@ -668,6 +668,7 @@ function isTripDateTimeNotInPast(tripDate: string, tripTime: string): boolean {
 type BookingDelivery = "whatsapp" | "email";
 
 type QuoteCardProps = {
+  homepagePolish?: boolean;
   restoredQuote?: SavedQuotePublicSummary;
   bookingIntroduction?: string;
   /** Preselect airport on dedicated landing pages. */
@@ -753,6 +754,7 @@ function websiteAirportAccessLeadLabel(selection: {
 }
 
 function QuoteCard({
+  homepagePolish = false,
   restoredQuote,
   initialAirportCode = "",
   initialDirection = "to-airport",
@@ -5515,10 +5517,11 @@ function QuoteCard({
     const glideToDetails = bookTransferGlideRef.current;
     bookTransferGlideRef.current = false;
     if (glideToDetails && target === 2) {
-      // Mobile homepage: retain the introduction and benefits above the booking form.
+      // The longer homepage headline must not push booking fields below the viewport.
+      // Legacy homepage presentations retain their introduction and benefits.
       // Tablet/desktop use the card because their hero columns have a different order.
       const introduction =
-        presentation === "homepage" && window.matchMedia("(max-width: 767px)").matches
+        presentation === "homepage" && !homepagePolish && window.matchMedia("(max-width: 767px)").matches
           ? document.getElementById("homepage-booking-intro")
           : null;
       const bookingHeading = cardRef.current?.querySelector<HTMLElement>(
@@ -5538,7 +5541,7 @@ function QuoteCard({
       focusHeading: true,
       correctAfterMs: 150,
     });
-  }, [quoteStep, presentation]);
+  }, [quoteStep, presentation, homepagePolish]);
 
   // Availability-confirmation result: scroll once to the confirmation card.
   useEffect(() => {
@@ -6529,6 +6532,7 @@ function QuoteCard({
       <QuoteScheduleFields
         variant={variant}
         homepageInline={homepageInline}
+        homepagePolish={homepagePolish && homepageInline}
         returnJourney={returnJourney}
         tripDate={tripDate}
         tripTime={tripTime}
@@ -7889,6 +7893,7 @@ function QuoteCard({
           <>
             {presentation === "homepage" ? (
               <HomepageQuoteFields
+                homepagePolish={homepagePolish}
                 formResetKey={formResetKey}
                 journeyMode={journeyMode === "return" ? "return" : "one-way"}
                 onJourneyModeChange={(value) => {
