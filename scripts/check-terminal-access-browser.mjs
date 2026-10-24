@@ -146,7 +146,10 @@ try {
     assert.equal(await summary.locator('[data-checkout-return-time]').innerText(),'Return pickup: 21 Dec 2026 · 12:00');
     assert.equal(await page.locator('#returnDate').inputValue(),'2026-12-21');
   }
-  assert.ok((await summary.locator('[data-checkout-summary-controls]').boundingBox()).height<=88.5,'Summary controls use at most two adjacent 44px rows');
+  assert.ok((await summary.locator('[data-checkout-summary-controls]').boundingBox()).height<=44.5,'Summary controls share one compact 44px row');
+  for(const control of await summary.locator('[data-checkout-summary-controls] summary, [data-checkout-summary-controls] button').all()) {
+    assert.ok((await control.boundingBox()).height>=44,'Summary controls preserve 44px tap targets');
+  }
   await summary.locator('summary').click();
   assert.ok((await summary.innerText()).includes('Destination:'));
   await summary.locator('summary').click();
@@ -218,8 +221,14 @@ try {
     return !banner || el.getBoundingClientRect().bottom <= banner.top;
   }),'Payment action scrolls clear of open cookie banner');
   assert.equal(await page.locator('#step3-payment-actions').getByRole('button',{name:'Start over',exact:true}).count(),1);
+  const consentButtons=page.locator('.cookie-consent-banner button');
+  const consentSizes=await consentButtons.evaluateAll(buttons=>buttons.map(el=>({height:el.getBoundingClientRect().height,width:el.getBoundingClientRect().width})));
+  assert.equal(consentSizes[0].width,consentSizes[1].width,'Equal consent choice widths');
+  for(const size of consentSizes) assert.ok(size.height>=44,'Consent buttons retain 44px tap targets');
+  assert.equal(await page.locator('.cookie-consent-banner').getByRole('link',{name:'Privacy Policy'}).getAttribute('href'),'/privacy/');
+  assert.equal(await page.evaluate(()=>(window.dataLayer||[]).some(item=>item[0]==='consent' && Object.values(item[2]||{}).includes('granted'))),false,'Optional tracking consent is not granted before a choice');
   const consent=width===375?'Reject optional':'Accept';
-  assert.ok((await page.locator('.cookie-consent-banner').boundingBox()).height<110,'Compact banner retains 44px consent buttons');
+  assert.ok((await page.locator('.cookie-consent-banner').boundingBox()).height<=80,'Compact banner without safe-area inset stays at most 80px');
   await page.getByRole('button',{name:consent,exact:true}).click();
   assert.equal(await page.locator('.cookie-consent-banner').count(),0);
   await page.locator('#step3-payment-actions').screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-payment.png`});
@@ -229,6 +238,10 @@ try {
   await page.reload();
   await page.waitForFunction(()=>document.getElementById('pickup')?.value);
   assert.equal(await page.locator('.cookie-consent-banner').count(),0,'Consent persists after reload');
+  await page.goto(`${base}/privacy/`);
+  await page.locator('h1').waitFor();
+  assert.equal(await page.evaluate(()=>localStorage.getItem('matni-cookie-consent-v1')),width===375?'rejected':'accepted');
+  assert.equal(await page.locator('.cookie-consent-banner').count(),0,'Consent persists across navigation');
   console.log(`PASS ${engine} ${width}px: initial fare only, free default, paid +£${terminalFee}, free reversion, no overflow, native date/time, no live writes`);
   await context.close();
  }
