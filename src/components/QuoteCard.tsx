@@ -1046,7 +1046,8 @@ function QuoteCard({
     const timer = window.setTimeout(() => setPaymentSlow(true), 8000);
     return () => window.clearTimeout(timer);
   }, [paymentLoading]);
-  const [paymentError, setPaymentError] = useState("");
+  const [paymentErrorValue, setPaymentError] = useState("");
+  const paymentError = paymentUncertain ? PAYMENT_UNCERTAIN_MESSAGE : paymentErrorValue;
   const [openCheckout, setOpenCheckout] = useState<OpenCheckoutSession | null>(null);
   const [paymentPopupBlocked, setPaymentPopupBlocked] = useState(false);
   const [
