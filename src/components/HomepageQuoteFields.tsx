@@ -189,7 +189,7 @@ function SwapIcon() {
 }
 
 function selectClass(hasError: boolean, _complete: boolean) {
-  const base = "box-border h-12 w-full min-w-0 rounded-xl border bg-white/[0.14] px-4 text-base font-medium text-white outline-none transition-colors";
+  const base = "box-border h-11 w-full min-w-0 rounded-xl border bg-white/[0.14] px-4 text-base font-medium text-white outline-none transition-colors";
   return hasError
     ? `${base} border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400`
     : `${base} border-white/32 focus:border-emerald/70 focus:ring-1 focus:ring-inset focus:ring-emerald/35`;
@@ -334,6 +334,7 @@ export default function HomepageQuoteFields({
         helperText=""
         reserveHelperSpace={false}
         dense
+        compactHomepage
         airportCode={addressLookupCode}
         autoSuggestToken={gpsSuggestToken || null}
         startAdornment={
@@ -373,6 +374,7 @@ export default function HomepageQuoteFields({
         helperText=""
         reserveHelperSpace={false}
         dense
+        compactHomepage
         airportCode={addressLookupCode}
       />
 
@@ -383,12 +385,13 @@ export default function HomepageQuoteFields({
           <label htmlFor="quote-section-passengers" className="form-label mb-1">
             Passengers
           </label>
+          <span className="pointer-events-none absolute mt-[2.35rem] ml-3 text-emerald" aria-hidden="true">♙</span>
           <select
             id="quote-section-passengers"
             name="passengers"
             value={passengers == null ? "" : String(passengers)}
             onChange={(event) => onPassengersChange(event.target.value === "" ? null : Number(event.target.value))}
-            className={selectClass(Boolean(passengersError), passengers != null)}
+            className={`${selectClass(Boolean(passengersError), passengers != null)} pl-9`}
             aria-invalid={Boolean(passengersError)}
           >
             <option value="">Select</option>
@@ -408,12 +411,13 @@ export default function HomepageQuoteFields({
           <label htmlFor="quote-section-suitcases" className="form-label mb-1 whitespace-nowrap leading-tight">
             Suitcases
           </label>
+          <span className="pointer-events-none absolute mt-[2.35rem] ml-3 text-emerald" aria-hidden="true">▣</span>
           <select
             id="quote-section-suitcases"
             name="suitcases"
             value={suitcases == null ? "" : String(suitcases)}
             onChange={(event) => onSuitcasesChange(event.target.value === "" ? null : Number(event.target.value))}
-            className={selectClass(Boolean(suitcasesError), suitcases != null)}
+            className={`${selectClass(Boolean(suitcasesError), suitcases != null)} pl-9`}
             aria-invalid={Boolean(suitcasesError)}
           >
             <option value="">Select</option>
