@@ -360,18 +360,6 @@ export default function HomepageQuoteFields({
         </p>
       ) : null}
 
-      <div className="flex justify-center">
-        <button
-          type="button"
-          data-swap-locations
-          aria-label="Swap pickup and drop-off"
-          onClick={onSwap}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald text-[#071c38]"
-        >
-          <SwapIcon />
-        </button>
-      </div>
-
       <AddressInput
         key={`homepage-dropoff-${formResetKey}`}
         id="dropoff"
