@@ -38,8 +38,8 @@ export default function HeroSlideshow() {
             <span className="hidden lg:inline">Private airport transfers Belfast &amp; Northern Ireland</span>
           </p>
 
-          <h1 className="font-display text-balance text-[1.5625rem] font-semibold leading-[1.15] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
-            Belfast &amp; Dublin Airport Transfers
+          <h1 className="font-sans text-balance text-[1.5625rem] font-semibold leading-[1.15] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
+            Belfast &amp; Dublin <span className="text-emerald">Airport Transfers</span>
           </h1>
 
           <p className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
