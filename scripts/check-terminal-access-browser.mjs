@@ -177,7 +177,7 @@ try {
   assert.ok((await deposit.innerText()).includes(`£${amounts.cashDueGbp.toFixed(2)} cash on the day`));
   const cash=page.locator('[data-cash-agreement]').getByRole('checkbox');
   const cashLabel=`I understand that the remaining £${amounts.cashDueGbp} must be paid in cash to my driver on the day.`;
-  assert.equal(await page.locator('[data-cash-agreement]').innerText(),cashLabel);
+  assert.equal((await page.locator('[data-cash-agreement]').innerText()).trim(),cashLabel);
   assert.equal(await cash.isChecked(),false);
   await pay.click();
   assert.ok((await page.locator('#step3-payment-actions').innerText()).includes('Please confirm you understand the remaining balance must be paid in cash'));
