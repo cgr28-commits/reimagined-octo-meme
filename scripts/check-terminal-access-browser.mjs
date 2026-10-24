@@ -60,7 +60,7 @@ try {
   assert.equal(await section.locator('input[value="free"]').isChecked(),true);
   assert.doesNotMatch(await section.innerText(), /(?:Terminal Access|Free Airport Access):/, "No redundant selected-service charge below cards");
   assert.ok((await section.innerText()).includes('Choose Your Drop-off Location'));
-  const freeCard=section.locator('label').filter({has:section.locator('input[value="free"]')});
+  const freeCard=section.locator('label:has(input[value="free"])');
   assert.ok((await freeCard.boundingBox()).height < 170,'Compact free card');
   await section.locator('input[value="express"]').check();
   await page.waitForFunction(expected=>document.querySelector('#step2-journey-summary')?.textContent.includes(`Total £${expected}`),initial+terminalFee);
@@ -81,7 +81,7 @@ try {
   assert.ok(await page.evaluate(()=>{
     const box=document.querySelector('[data-homepage-fare-change]').getBoundingClientRect();
     const banner=document.querySelector('.cookie-consent-banner')?.getBoundingClientRect();
-    return !banner || box.bottom <= banner.top;
+    return !banner || (box.bottom <= banner.top && parseFloat(getComputedStyle(document.documentElement).scrollPaddingBottom) >= banner.height);
   }),'Confirmation can scroll above cookie banner');
   await confirmation.screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-confirmation.png`});
   await section.locator('input[value="free"]').check();
@@ -96,6 +96,7 @@ try {
     await pickup.getByRole('checkbox').check();
     assert.equal(await pickup.locator('input[type="radio"]').count(),0,'M&G replaces conflicting access choices');
     await page.waitForFunction(expected=>document.querySelector('#step2-journey-summary')?.textContent.includes(`Total £${expected}`),initial+15);
+    await pickup.screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-meet-greet.png`});
     await pickup.getByRole('checkbox').uncheck();
     assert.equal(await pickup.locator('input[value="free"]').isChecked(),true);
     await page.waitForFunction(expected=>document.querySelector('#step2-journey-summary')?.textContent.includes(`Total £${expected}`),initial);
