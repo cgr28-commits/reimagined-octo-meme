@@ -43,6 +43,7 @@ jobs:
           node --import tsx scripts/check-homepage-hero-copy.ts
           node --import tsx scripts/check-terminal-access-payment.ts
           PR692_BASELINE_ROOT="$GITHUB_WORKSPACE/.compat-baseline" node --import tsx scripts/check-receipt-release-compatibility.ts
+          PR692_BASELINE_ROOT="$GITHUB_WORKSPACE/.compat-baseline" node --import tsx scripts/check-receipt-storage-rollback.ts
           node --import tsx scripts/check-deposit-cash.ts
           node --import tsx scripts/check-airport-pickup-flight-required.ts
           node --import tsx scripts/check-meet-greet.ts

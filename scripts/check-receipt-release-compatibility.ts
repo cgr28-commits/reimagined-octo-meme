@@ -132,6 +132,19 @@ async function main() {
       assert.equal(pending.amount, charged, "Pending checkout keeps the server-authoritative amount");
       // A later admin edit must not reprice a payment or the resulting confirmation.
       store.set("owner:pricing-settings", JSON.stringify({ ...pricing, bfsMinimumSaloonFareGbp: 999, estate: { upliftGbp: 99 } }));
+      if(checks === 0) {
+        const provider=paidCheckouts.get(body.checkoutId)!;
+        const originalCoordinator=env.QUOTE_LEAD_COORDINATOR;
+        for(const mutation of [{amount:charged+1},{currency:"EUR"},{checkout_reference:"wrong-reference"}]) {
+          env.QUOTE_LEAD_COORDINATOR=isolatedPaymentCoordinator();
+          paidCheckouts.set(body.checkoutId,{...provider,...mutation});
+          const sentBefore=emails.length;
+          await assert.rejects(()=>finalizePaidCheckout({env,checkoutId:body.checkoutId,booking:pending.booking,logPaidBookingCalendar:async()=>({logged:true})}),/does not match/);
+          assert.equal(emails.length,sentBefore,"Mismatched provider record cannot trigger confirmations");
+        }
+        env.QUOTE_LEAD_COORDINATOR=originalCoordinator;
+        paidCheckouts.set(body.checkoutId,provider);
+      }
       const emailStart = emails.length;
       const finalize = () => finalizePaidCheckout({ env, checkoutId: body.checkoutId, booking: pending.booking, logPaidBookingCalendar: async () => ({ logged: true, events: 0, eventIds: [] }) });
       const pair=checks === 0 ? await Promise.all([finalize(),finalize()]) : [await finalize()];
