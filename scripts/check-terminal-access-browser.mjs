@@ -200,21 +200,11 @@ try {
   const cashLabel=`I understand that the remaining £${amounts.cashDueGbp} must be paid in cash to my driver on the day.`;
   assert.equal((await page.locator('[data-cash-agreement]').innerText()).trim(),cashLabel);
   assert.equal(await cash.isChecked(),false);
-  await tapSettled(pay);
-  try {
-    await page.locator('#step3-payment-actions').getByText('Please confirm you understand the remaining balance must be paid in cash', {exact:false}).waitFor();
-  } catch(error) {
-    console.error('Cash validation state',await page.evaluate(()=>({
-      active:document.activeElement?.outerHTML,
-      invalid:[...document.querySelectorAll('[aria-invalid="true"]')].map(el=>el.outerHTML),
-      payment:document.querySelector('#step3-payment-actions')?.textContent
-    })));
-    await page.screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-cash-failure.png`,fullPage:true});
-    throw error;
-  }
+  assert.equal(await pay.isDisabled(),true,'Deposit payment remains disabled until cash acknowledgement');
   assert.deepEqual(writes,[],'Missing cash acknowledgement must not start payment');
   await cash.check();
   assert.equal(await cash.isChecked(),true);
+  assert.equal(await pay.isEnabled(),true,'Acknowledgement enables deposit payment');
   await full.click();
   assert.equal(await page.locator('[data-cash-agreement]').count(),0);
   await deposit.click();

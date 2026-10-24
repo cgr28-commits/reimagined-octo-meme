@@ -19,6 +19,10 @@ import {
   listOwnerVehicleProfileOptions,
 } from "../workers/addresses/src/driver-vehicle-store";
 
+// The real handler may fall back to MailChannels without provider secrets.
+// Simulate unavailable delivery locally; no request may leave this test process.
+globalThis.fetch = async () => new Response("Isolated provider unavailable", { status: 503 });
+
 const REQUIRED = "Name, email, mobile, make, model, colour, and registration are all required";
 const NAME_EXISTS = "A driver with that name already exists. Edit the existing driver instead.";
 const EMAIL_USED = "That email address is already used by another driver.";

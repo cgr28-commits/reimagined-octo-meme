@@ -452,7 +452,7 @@ console.log("\n=== 6. Ordinary address ↔ Dublin Airport (direction-aware fixed
   console.log("OK  address→DUB (+£4) and DUB→address (+£9) for City Hall/Lisburn/Bangor");
 }
 
-console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying + destination access only ===");
+console.log("\n=== 7. Belfast airport↔airport initial quote = vehicle fare only ===");
 {
   const bhd = airportPlace("BHD");
   const bfs = airportPlace("BFS");
@@ -478,11 +478,11 @@ console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying + destination a
   assert.ok(a2a && viaAirport);
   // Must NOT equal the old Antrim→BHD zone win (£69).
   assert.notEqual(viaAirport!.amount, 69);
-  // Both ends: BFS pickup £5 + BHD drop-off £4.
+  // Both Belfast terminal charges are optional after vehicle selection.
   assert.equal(
     viaAirport!.amount,
-    a2a!.amount + 9,
-    `BFS→BHD must include both terminal charges (got £${viaAirport!.amount} vs journey £${a2a!.amount})`,
+    a2a!.amount,
+    `BFS→BHD must exclude optional terminal charges (got £${viaAirport!.amount} vs journey £${a2a!.amount})`,
   );
   const reverse = calculateAirportToAirportQuote(
     "BHD",
@@ -495,9 +495,9 @@ console.log("\n=== 7. Non-DUB airport↔airport = A2A underlying + destination a
     metrics,
   );
   assert.ok(reverse);
-  assert.equal(reverse!.amount, a2a!.amount + 9);
+  assert.equal(reverse!.amount, a2a!.amount);
   console.log(
-    `OK  BFS→BHD = journey £${a2a!.amount} + £9 → £${viaAirport!.amount}; BHD→BFS + £9 → £${reverse!.amount}`,
+    `OK  BFS→BHD = journey £${a2a!.amount} + £0 → £${viaAirport!.amount}; BHD→BFS + £0 → £${reverse!.amount}`,
   );
 }
 
