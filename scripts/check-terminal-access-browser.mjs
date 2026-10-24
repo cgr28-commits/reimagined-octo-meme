@@ -40,6 +40,19 @@ try {
       return route.abort(); // prevent Google, live quotes, payment and booking writes
     });
   const page=await context.newPage();
+  async function tapSettled(control) {
+    await control.scrollIntoViewIfNeeded();
+    await control.evaluate(el => new Promise(resolve => {
+      let previous='', stable=0;
+      const check=()=>{
+        const r=el.getBoundingClientRect(), current=[scrollX,scrollY,r.x,r.y,r.width,r.height].join(',');
+        stable=current===previous?stable+1:0; previous=current;
+        if(stable>=12) resolve(); else requestAnimationFrame(check);
+      };
+      requestAnimationFrame(check);
+    }));
+    await control.tap();
+  }
   await page.goto(`${base}/?previewJourney=bfs`);
   const reject=page.getByRole('button',{name:'Reject optional',exact:true});
   // Keep the banner open to check booking controls remain scrollable above it.
@@ -57,7 +70,7 @@ try {
   assert.equal(await page.locator('[data-terminal-access]').count(),0,'No optional service controls in instant quote');
   const initial=Number((await page.locator('[data-quote-result-price]').innerText()).match(/£([0-9.]+)/)[1]);
   assert.ok(initial>0);
-  await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
+  await tapSettled(page.getByRole('button',{name:/BOOK THIS TRANSFER/i}));
   const childSeats=page.getByRole('group',{name:'Child / booster seats',exact:true});
   const seatBounds=await childSeats.boundingBox();
   assert.ok(seatBounds.width<=208.5,'Child-seat options stay compact on mobile');
@@ -149,7 +162,7 @@ try {
   assert.ok((await full.innerText()).includes('Nothing to pay on the day'));
   const pay=page.locator('#step3-payment-actions .btn-pay').last();
   if(returning) {
-    await pay.click();
+    await tapSettled(pay);
     const flight=page.locator('#collectionFlightNumber');
     await page.waitForFunction(()=>document.activeElement?.id==='collectionFlightNumber');
     assert.equal(await flight.getAttribute('aria-invalid'),'true');
@@ -157,14 +170,14 @@ try {
     assert.equal(await page.locator('#step3-payment-actions').getByText(/valid flight number|flight number is required/i).count(),0);
     await page.locator('#step2-flight-details').screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-flight-error.png`});
     await flight.fill('NOT-A-FLIGHT');
-    await pay.click();
+    await tapSettled(pay);
     await page.waitForFunction(()=>document.activeElement?.id==='collectionFlightNumber');
     await flight.fill('EZY456');
     await page.waitForFunction(()=>document.getElementById('collectionFlightNumber')?.getAttribute('aria-invalid')==='false');
   }
   await section.locator('input[value="express"]').check();
   await confirmation.waitFor();
-  await pay.click();
+  await tapSettled(pay);
   await page.waitForFunction(()=>document.activeElement?.closest('[data-homepage-fare-change]'));
   assert.deepEqual(writes,[],'Invalid flight or unacknowledged price must not start payment');
   await confirmation.getByRole('checkbox').check();
@@ -179,8 +192,18 @@ try {
   const cashLabel=`I understand that the remaining £${amounts.cashDueGbp} must be paid in cash to my driver on the day.`;
   assert.equal((await page.locator('[data-cash-agreement]').innerText()).trim(),cashLabel);
   assert.equal(await cash.isChecked(),false);
-  await pay.click();
-  await page.locator('#step3-payment-actions').getByText('Please confirm you understand the remaining balance must be paid in cash', {exact:false}).waitFor();
+  await tapSettled(pay);
+  try {
+    await page.locator('#step3-payment-actions').getByText('Please confirm you understand the remaining balance must be paid in cash', {exact:false}).waitFor();
+  } catch(error) {
+    console.error('Cash validation state',await page.evaluate(()=>({
+      active:document.activeElement?.outerHTML,
+      invalid:[...document.querySelectorAll('[aria-invalid="true"]')].map(el=>el.outerHTML),
+      payment:document.querySelector('#step3-payment-actions')?.textContent
+    })));
+    await page.screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-cash-failure.png`,fullPage:true});
+    throw error;
+  }
   assert.deepEqual(writes,[],'Missing cash acknowledgement must not start payment');
   await cash.check();
   assert.equal(await cash.isChecked(),true);
