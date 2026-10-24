@@ -41,6 +41,30 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
         for (const m of metrics) {assert.equal(m.height,44);assert.ok(m.delta<=1,JSON.stringify(m));assert.ok(m.gap>=10 && m.gap<=13,JSON.stringify(m));assert.equal(m.disabled,false);}
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       }
+      const fieldSelectors = ['#pickup','#dropoff','#date','#time','#quote-section-passengers','#quote-section-suitcases'];
+      async function palette(selector) {
+        return page.locator(selector).evaluate(el => {
+          const shell=el.matches('.address-input') ? el.parentElement.parentElement : el.closest('[data-schedule-control]') || el;
+          const prompt=shell.querySelector('.homepage-schedule-prompt');
+          const style=getComputedStyle(shell);
+          return {background:style.backgroundColor,border:style.borderTopColor,borderWidth:style.borderTopWidth,
+            color:getComputedStyle(prompt || el).color,placeholder:getComputedStyle(el,'::placeholder').color};
+        });
+      }
+      for(const selector of fieldSelectors) {
+        const color=await palette(selector);
+        assert.equal(color.background,'rgb(30, 48, 71)',selector);
+        assert.equal(color.border,'rgb(82, 99, 122)',selector);
+        assert.equal(color.borderWidth,'1px',selector);
+        assert.equal(selector==='#pickup'||selector==='#dropoff'?color.placeholder:color.color,'rgb(193, 202, 214)',selector);
+        await page.locator(selector).focus();
+        assert.equal((await palette(selector)).border,await page.locator('.homepage-field-icon').first().evaluate(el=>getComputedStyle(el).color));
+        await page.locator(selector).blur();
+        assert.equal((await palette(selector)).border,'rgb(82, 99, 122)',selector);
+      }
+      const quoteHeading=page.locator('[data-site-nav-heading="quote"]');
+      assert.ok((await quoteHeading.evaluate(el=>getComputedStyle(el).fontFamily)).toLowerCase().includes('manrope'));
+      assert.equal(await quoteHeading.evaluate(el=>getComputedStyle(el).fontWeight),'600');
       await checkFields();
       for (const [id,value] of [['date','2027-02-10'],['time','12:30']]) {
         const input=page.locator('#'+id); if(width<768) await input.tap(); else await input.click(); assert.equal(await input.evaluate(el=>document.activeElement===el),true); await input.fill(value); assert.equal(await input.inputValue(),value);
@@ -48,7 +72,8 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       await page.locator('#quote-section-passengers').selectOption('2');
       await page.locator('#quote-section-suitcases').selectOption('2');
       await page.locator('h1').click();
-      assert.equal(await page.locator('#quote-section-passengers').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(89, 97, 108)');
+      assert.equal(await page.locator('#quote-section-passengers').evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(82, 99, 122)');
+      for(const selector of fieldSelectors.slice(2)) assert.equal((await palette(selector)).color,'rgb(255, 255, 255)',selector);
       await checkFields();
       await page.getByRole('button',{name:/Return.*5%/}).click();
       await page.locator('#returnDate').fill('2027-02-12');

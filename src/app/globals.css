@@ -1949,3 +1949,38 @@ main {
     margin: 0;
   }
 }
+
+/* Slate navy is limited to the homepage's initial quote fields. */
+.homepage-hero #quoteForm [data-homepage-quote-fields] .address-input,
+.homepage-hero #quoteForm [data-homepage-quote-fields] select {
+  color: #FFFFFF;
+}
+.homepage-hero #quoteForm [data-homepage-quote-fields] .address-input::placeholder {
+  color: #C1CAD6;
+  opacity: 1;
+}
+.homepage-hero #quoteForm [data-homepage-quote-fields] select:has(option[value=""]:checked),
+.homepage-hero #quoteForm [data-homepage-quote-fields] .homepage-schedule-prompt[data-empty="true"] {
+  color: #C1CAD6;
+}
+.homepage-hero .quote-flow:has([data-homepage-quote-fields]) > div:first-child h2 {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-weight: 600;
+}
+
+.homepage-hero #quoteForm [data-homepage-quote-fields] [data-schedule-control],
+.homepage-hero #quoteForm [data-homepage-quote-fields] #passenger-luggage-section select,
+.homepage-hero #quoteForm [data-homepage-quote-fields] div:has(> div > .address-input) {
+  background-color: #1E3047;
+  border-color: #52637A;
+}
+.homepage-hero #quoteForm [data-homepage-quote-fields] [data-schedule-control]:focus-within,
+.homepage-hero #quoteForm [data-homepage-quote-fields] #passenger-luggage-section select:focus,
+.homepage-hero #quoteForm [data-homepage-quote-fields] div:has(> div > .address-input):focus-within {
+  border-color: var(--color-emerald);
+}
+.homepage-hero #quoteForm [data-homepage-quote-fields] [data-schedule-control][data-compact-error]:not(:focus-within),
+.homepage-hero #quoteForm [data-homepage-quote-fields] #passenger-luggage-section select[aria-invalid="true"]:not(:focus),
+.homepage-hero #quoteForm [data-homepage-quote-fields] div:has(> div > .address-input[aria-invalid="true"]):not(:focus-within) {
+  border-color: #f87171;
+}
