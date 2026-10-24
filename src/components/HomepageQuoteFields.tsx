@@ -189,12 +189,12 @@ function SwapIcon() {
 }
 
 function selectClass(hasError: boolean, complete: boolean) {
-  const base = "box-border h-12 w-full min-w-0 rounded-xl border bg-white/[0.06] px-3 text-base font-medium text-white outline-none transition-colors";
+  const base = "box-border h-12 w-full min-w-0 rounded-xl border bg-white/[0.14] px-4 text-base font-medium text-white outline-none transition-colors";
   const highlight = hasError
     ? "border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400"
     : complete
-      ? "border-emerald/45 focus:border-emerald/70 focus:ring-1 focus:ring-inset focus:ring-emerald/35"
-      : "border-emerald/65 ring-1 ring-inset ring-emerald/30 focus:border-emerald";
+      ? "border-emerald/60 focus:border-emerald/70 focus:ring-1 focus:ring-inset focus:ring-emerald/35"
+      : "border-white/32 focus:border-emerald/70 focus:border-emerald";
   return `${base} ${highlight}`;
 }
 
