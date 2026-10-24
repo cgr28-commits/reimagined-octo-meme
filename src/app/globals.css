@@ -1949,3 +1949,7 @@ main {
     margin: 0;
   }
 }
+/* Leave focused/scrolled booking controls above the measured cookie banner. */
+html:has(.cookie-consent-banner) {
+  scroll-padding-bottom: calc(var(--matni-cookie-banner-offset, 12rem) + 1rem);
+}

@@ -6044,10 +6044,9 @@ function QuoteCard({
     const visits = listTerminalAccessVisits({ airportCode: effectiveAirportCode, fromAirport: isFromAirport,
       returnJourney, isAirportToAirport: isAirportToAirportJourney, pickupAirportCode, dropoffAirportCode });
     if (!visits.length) return null;
-    return <section className="space-y-4 rounded-xl quote-panel p-3" aria-label="Airport services">
+    return <section className="space-y-3 rounded-xl quote-panel p-3" aria-label="Airport services">
       {visits.map((leg) => {
         const choice = terminalAccessChoices[airportVisitKey(leg)] ?? (leg.leg === "return" ? returnAccessChoice : outboundAccessChoice);
-        const row = airportAccessQuote.legs.find((item) => item.leg === leg.leg && item.service === leg.service);
         const included = isExecutiveVehicle(quoteVehicle) && leg.service === "pick-up";
         const change = (next: AirportAccessChoice) => {
           setTerminalAccessChoices(current => ({...current, [airportVisitKey(leg)]: next}));
@@ -6059,7 +6058,7 @@ function QuoteCard({
           freeAvailable={true} meetGreetIncluded={included}
           terminalFee={leg.airportCode === "BFS" ? publicPricing.terminalAccess.bfsGbp : publicPricing.terminalAccess.bhdGbp}
           meetGreetFee={leg.airportCode === "BFS" ? publicPricing.meetGreet.bfsGbp : publicPricing.meetGreet.bhdGbp}
-          charge={row?.chargeGbp ?? 0} />;
+          />;
       })}
     </section>;
   }
@@ -6781,16 +6780,15 @@ function QuoteCard({
 
           {presentation === "homepage" && homepageFareChanged ? (
             <div
-              className="rounded-xl border border-emerald/40 bg-emerald/10 px-3.5 py-3 text-sm text-white"
+              className="rounded-xl border border-emerald/40 bg-emerald/10 px-3 py-2.5 text-sm text-white"
               data-homepage-fare-change
             >
-              <p className="font-semibold text-emerald">Updated price</p>
-              <p className="mt-1 leading-snug">
-                Your total is now {formatQuote(paymentAmount ?? 0)}. Your initial quote was{" "}
-                {formatQuote(homepageQuotedBaseline ?? 0)} before your final booking choices.
-                Please confirm the total before accepting the terms and continuing to payment.
+              <p className="font-semibold text-emerald">Updated total: {formatQuote(paymentAmount ?? 0)}</p>
+              <p className="mt-1 text-xs leading-relaxed text-white/80">
+                Your fare has changed from {formatQuote(homepageQuotedBaseline ?? 0)}.
+                Please confirm the updated amount before continuing.
               </p>
-              <label className="mt-2 flex items-start gap-2 text-sm">
+              <label className="mt-1 flex min-h-11 items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   className="mt-1 h-4 w-4 accent-emerald"

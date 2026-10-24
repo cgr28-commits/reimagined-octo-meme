@@ -8,7 +8,8 @@ const engine=process.env.PLAYWRIGHT_BROWSER||'chromium';
 const browser=await ({chromium,webkit}[engine]).launch();
 await fs.mkdir(`test-results/terminal-access/${engine}`,{recursive:true});
 try {
- for(const width of [375,390]) for(const returning of [false,true]) {
+ for(const width of [375,390]) for(const airport of ["BFS","BHD"]) for(const returning of [false,true]) {
+  const terminalFee=airport==="BFS"?5:4;
   const context=await browser.newContext({viewport:{width,height:844},isMobile:true,hasTouch:true,locale:'en-GB',reducedMotion:'reduce'});
     const writes = [];
     await context.route('**/*', async route => {
@@ -37,8 +38,10 @@ try {
   const page=await context.newPage();
   await page.goto(`${base}/?previewJourney=bfs&previewMinibus=1`);
   const reject=page.getByRole('button',{name:'Reject optional',exact:true});
-  if(await reject.isVisible()) await reject.click();
+  // Keep the banner open to check booking controls remain scrollable above it.
   await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
+  if(airport==='BHD') await page.evaluate(()=>window.dispatchEvent(new CustomEvent('quote-prefill-airport',{detail:'BHD'})));
+  await page.waitForFunction(name=>document.getElementById('dropoff')?.value.includes(name),airport==='BFS'?'Belfast International':'Belfast City');
   await page.locator('#quote-section-passengers').selectOption('2');
   await page.locator('#quote-section-suitcases').selectOption('1');
   if(returning) await page.getByRole('button',{name:/Return SAVE/}).click();
@@ -55,11 +58,16 @@ try {
   await section.waitFor();
   await section.scrollIntoViewIfNeeded();
   assert.equal(await section.locator('input[value="free"]').isChecked(),true);
+  assert.doesNotMatch(await section.innerText(), /(?:Terminal Access|Free Airport Access):/, "No redundant selected-service charge below cards");
+  assert.ok((await section.innerText()).includes('Choose Your Drop-off Location'));
+  const freeCard=section.locator('label').filter({has:section.locator('input[value="free"]')});
+  assert.ok((await freeCard.boundingBox()).height < 170,'Compact free card');
   await section.locator('input[value="express"]').check();
-  await page.waitForFunction(expected=>document.querySelector('#step2-journey-summary')?.textContent.includes(`Total £${expected}`),initial+5);
+  await page.waitForFunction(expected=>document.querySelector('#step2-journey-summary')?.textContent.includes(`Total £${expected}`),initial+terminalFee);
   const confirmation = page.locator('[data-homepage-fare-change]');
   await confirmation.waitFor();
-  assert.ok((await confirmation.innerText()).includes('final booking choices'));
+  assert.ok((await confirmation.innerText()).includes(`Updated total: £${initial+terminalFee}`));
+  assert.ok((await confirmation.innerText()).includes(`Your fare has changed from £${initial}`));
   assert.equal((await confirmation.innerText()).includes('before the date and time were added'),false);
   assert.ok(await page.evaluate(()=>{
     const confirmation=document.querySelector('[data-homepage-fare-change]');
@@ -69,6 +77,13 @@ try {
       Boolean(confirmation.compareDocumentPosition(terms)&Node.DOCUMENT_POSITION_FOLLOWING);
   }),'Price confirmation follows all airport options and precedes terms');
   await confirmation.getByRole('checkbox').check();
+  await confirmation.scrollIntoViewIfNeeded();
+  assert.ok(await page.evaluate(()=>{
+    const box=document.querySelector('[data-homepage-fare-change]').getBoundingClientRect();
+    const banner=document.querySelector('.cookie-consent-banner')?.getBoundingClientRect();
+    return !banner || box.bottom <= banner.top;
+  }),'Confirmation can scroll above cookie banner');
+  await confirmation.screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-confirmation.png`});
   await section.locator('input[value="free"]').check();
   await page.waitForFunction(expected=>document.querySelector('#step2-journey-summary')?.textContent.includes(`Total £${expected}`),initial);
   await section.locator('input[value="express"]').check();
@@ -86,12 +101,12 @@ try {
     await page.waitForFunction(expected=>document.querySelector('#step2-journey-summary')?.textContent.includes(`Total £${expected}`),initial);
   }
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  await section.screenshot({path:`test-results/terminal-access/${engine}/${width}-${returning}-free-paid.png`});
+  await section.screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-free-paid.png`});
   // Native date/time inputs remain usable in the same booking flow.
   assert.equal(await page.locator('#date').inputValue(),'2026-12-14');
   assert.equal(await page.locator('#time').inputValue(),'12:00');
   assert.deepEqual(writes,[]);
-  console.log(`PASS ${engine} ${width}px: initial fare only, free default, paid +£5, free reversion, no overflow, native date/time, no live writes`);
+  console.log(`PASS ${engine} ${width}px: initial fare only, free default, paid +£${terminalFee}, free reversion, no overflow, native date/time, no live writes`);
   await context.close();
  }
 } finally { await browser.close(); }
