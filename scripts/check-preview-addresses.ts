@@ -1,11 +1,23 @@
 import assert from "node:assert/strict";
 import { handlePreviewAddressRequest } from "../src/lib/preview-address-handler";
 import { isPreciseQuotePlace } from "../shared/precise-quote-place";
-import { createValidFileMatcher } from "next/dist/server/lib/find-page-file";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
 
-const route = "src/app/api/preview-addresses/route.preview.ts";
-assert.equal(createValidFileMatcher(["tsx", "ts", "jsx", "js"]).isAppRouterPage(route), false);
-assert.equal(createValidFileMatcher(["tsx", "ts", "jsx", "js", "preview.ts"]).isAppRouterPage(route), true);
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), "preview-route-test-"));
+fs.mkdirSync(path.join(temp,"src/lib"),{recursive:true});
+fs.copyFileSync("src/lib/preview-address-route.ts",path.join(temp,"src/lib/preview-address-route.ts"));
+const prepare = path.resolve("scripts/prepare-preview-address-route.mjs");
+const env = {...process.env,VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feat/optional-terminal-access",GITHUB_PAGES:"false"};
+execFileSync(process.execPath,[prepare],{cwd:temp,env});
+assert.ok(fs.existsSync(path.join(temp,"src/app/api/preview-addresses/route.ts")));
+for (const overrides of [{GITHUB_PAGES:"true"},{VERCEL_ENV:"production"}]) {
+  execFileSync(process.execPath,[prepare],{cwd:temp,env:{...env,...overrides}});
+  assert.equal(fs.existsSync(path.join(temp,"src/app/api/preview-addresses/route.ts")),false);
+}
+fs.rmSync(temp,{recursive:true});
 const originalFetch = globalThis.fetch;
 let types = ["city_hall", "local_government_office", "point_of_interest", "establishment"];
 let requests = 0;

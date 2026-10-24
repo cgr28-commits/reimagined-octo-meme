@@ -15,8 +15,6 @@ const vcardHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // The address adapter exists only in this draft's Vercel previews, never static/production builds.
-  pageExtensions: ["tsx", "ts", "jsx", "js", ...(previewAddresses ? ["preview.ts"] : [])],
   ...(isGithubPages ? { output: "export" as const } : {}),
   basePath: "",
   trailingSlash: isGithubPages,
