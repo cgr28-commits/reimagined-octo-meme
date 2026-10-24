@@ -30,13 +30,13 @@ try {
         return json({ok:true, amount:journeyFareGbp, amountLabel:`£${journeyFareGbp.toFixed(2)}`,
           vehicleType:journey.vehicleType, vehicleChoice:'Saloon', premiumApplied:false,
           returnJourney:Boolean(journey.returnJourney), journeyFareGbp, airportFixedCostsGbp:0,
-          nightWeekendSurchargeGbp:0, distanceKm:25, durationMinutes:30});
+          depositCash:{enabled:true,percent:20,minimumGbp:15}, nightWeekendSurchargeGbp:0, distanceKm:25, durationMinutes:30});
       }
       if (/checkout|bookings|short-notice/.test(url.pathname) && req.method() === 'POST') writes.push(url.pathname);
       return route.abort(); // prevent Google, live quotes, payment and booking writes
     });
   const page=await context.newPage();
-  await page.goto(`${base}/?previewJourney=bfs&previewMinibus=1`);
+  await page.goto(`${base}/?previewJourney=bfs`);
   const reject=page.getByRole('button',{name:'Reject optional',exact:true});
   // Keep the banner open to check booking controls remain scrollable above it.
   await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
@@ -106,7 +106,57 @@ try {
   // Native date/time inputs remain usable in the same booking flow.
   assert.equal(await page.locator('#date').inputValue(),'2026-12-14');
   assert.equal(await page.locator('#time').inputValue(),'12:00');
+  const summary=page.locator('#quote-price-summary');
+  await summary.locator('summary').click();
+  assert.ok((await summary.innerText()).includes('Destination:'));
+  await summary.locator('summary').click();
+  await summary.getByRole('button',{name:'Change airport access'}).click();
+  await page.locator('#name').fill('Preview Test');
+  await page.locator('#mobile').fill('07700900123');
+  await page.locator('#email').fill('preview@example.com');
+  await page.getByRole('checkbox',{name:/I agree to the/}).check();
+  const full=page.getByRole('button',{name:/Pay in Full Online/});
+  await full.click();
+  assert.equal(await full.getAttribute('aria-pressed'),'true');
+  assert.ok((await full.innerText()).includes('Nothing to pay on the day'));
+  const pay=page.locator('#step3-payment-actions .btn-pay').last();
+  if(returning) {
+    await pay.click();
+    const flight=page.locator('#collectionFlightNumber');
+    await page.waitForFunction(()=>document.activeElement?.id==='collectionFlightNumber');
+    assert.equal(await flight.getAttribute('aria-invalid'),'true');
+    assert.ok((await page.locator('#collectionFlightNumber-feedback').innerText()).length>0);
+    assert.equal(await page.locator('#step3-payment-actions').getByText(/valid flight number|flight number is required/i).count(),0);
+    await page.locator('#step2-flight-details').screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-flight-error.png`});
+    await flight.fill('NOT-A-FLIGHT');
+    await pay.click();
+    await page.waitForFunction(()=>document.activeElement?.id==='collectionFlightNumber');
+    await flight.fill('EZY456');
+    await page.waitForFunction(()=>document.getElementById('collectionFlightNumber')?.getAttribute('aria-invalid')==='false');
+  }
+  await section.locator('input[value="express"]').check();
+  await confirmation.waitFor();
+  await pay.click();
+  await page.waitForFunction(()=>document.activeElement?.closest('[data-homepage-fare-change]'));
+  assert.deepEqual(writes,[],'Invalid flight or unacknowledged price must not start payment');
+  await confirmation.getByRole('checkbox').check();
+  const deposit=page.getByRole('button',{name:/Deposit \+ Cash/});
+  await deposit.click();
+  assert.equal(await confirmation.getByRole('checkbox').isChecked(),true,'Payment method changes do not reset acknowledged fare');
+  assert.equal(await deposit.getAttribute('aria-pressed'),'true');
+  assert.ok((await deposit.innerText()).includes('CASH'));
+  assert.equal(await page.getByText('Secure payment powered by SumUp',{exact:true}).count(),1);
+  await page.locator('#step3-payment-actions').screenshot({path:`test-results/terminal-access/${engine}/${width}-${airport}-${returning}-payment.png`});
+  assert.equal(await page.locator('#step3-payment-actions').getByRole('button',{name:'Start over',exact:true}).count(),1);
+  const consent=width===375?'Reject optional':'Accept';
+  assert.ok((await page.locator('.cookie-consent-banner').boundingBox()).height<110,'Compact banner retains 44px consent buttons');
+  await page.getByRole('button',{name:consent,exact:true}).click();
+  assert.equal(await page.locator('.cookie-consent-banner').count(),0);
+  assert.equal(await page.evaluate(()=>localStorage.getItem('matni-cookie-consent-v1')),width===375?'rejected':'accepted');
   assert.deepEqual(writes,[]);
+  await page.reload();
+  await page.waitForFunction(()=>document.getElementById('pickup')?.value);
+  assert.equal(await page.locator('.cookie-consent-banner').count(),0,'Consent persists after reload');
   console.log(`PASS ${engine} ${width}px: initial fare only, free default, paid +£${terminalFee}, free reversion, no overflow, native date/time, no live writes`);
   await context.close();
  }

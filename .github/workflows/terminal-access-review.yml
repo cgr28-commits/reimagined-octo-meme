@@ -38,6 +38,8 @@ jobs:
           node --import tsx scripts/check-homepage-hero-copy.ts
           node --import tsx scripts/check-preview-addresses.ts
           node --import tsx scripts/check-terminal-access-payment.ts
+          node --import tsx scripts/check-deposit-cash.ts
+          node --import tsx scripts/check-airport-pickup-flight-required.ts
           node --import tsx scripts/check-meet-greet.ts
           node --import tsx scripts/check-bfs-minimum-and-precise-places.ts
       - run: GITHUB_PAGES=true npm run build

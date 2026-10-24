@@ -1,5 +1,6 @@
 /** Reviewed route fixtures and real quote/payment/final-booking handlers; no live writes. */
 import assert from "node:assert/strict";
+import { calculateDepositCashQuote } from "../shared/deposit-cash";
 import reviewed from "./fixtures/reviewed-airport-routes.json";
 import { defaultOwnerPricingSettings } from "../shared/owner-pricing-config";
 import { SERVED_AIRPORTS } from "../shared/served-airports";
@@ -59,8 +60,10 @@ async function main() {
     throw Error(`Unexpected external call ${request.method} ${url.origin}${url.pathname}`);
   };
   try {
-    for(const configuredFee of [5,7.25]) for(const outboundChoice of ["free","express","meet-greet"] as const) for(const returnChoice of ["free","express","meet-greet"] as const) for(const minimum of [45]) for(const mode of [true]) for(const target of [40]) for(const route of reviewed.routes) for(const vehicle of [SALOON_VEHICLE,ESTATE_VEHICLE]) for(const returning of [false,true]) {
+    for(const paymentMethod of ["FULL_ONLINE", "DEPOSIT_CASH"] as const) for(const configuredFee of [5,7.25]) for(const outboundChoice of ["free","express","meet-greet"] as const) for(const returnChoice of ["free","express","meet-greet"] as const) for(const minimum of [45]) for(const mode of [true]) for(const target of [40]) for(const route of reviewed.routes) for(const vehicle of [SALOON_VEHICLE,ESTATE_VEHICLE]) for(const returning of [false,true]) {
       now+=61_000;store.clear();
+      const depositSettings={enabled:true,percent:20,minimumGbp:15};
+      store.set("booking:settings",JSON.stringify({depositCash:depositSettings}));
       const pricing=defaultOwnerPricingSettings();pricing.version=checkouts+1; pricing.terminalAccess={bfsGbp:configuredFee,bhdGbp:configuredFee===5?4:6.35};
       pricing.saloonFormula={enabled:mode,startingChargeGbp:10,ratePerMileGbp:2.5,minimumFareGbp:30};
       pricing.estate.upliftGbp=minimum===45?7:9.35;pricing.bfsMinimumSaloonFareGbp=minimum;
@@ -77,6 +80,8 @@ async function main() {
       const express=resolveExpressDropOff({airportCode:airport.code,fromAirport:from,returnJourney:returning,selected:true,outboundSelected:true,returnSelected:true});
       const access=quoteAirportAccessCharges({airportCode:airport.code,fromAirport:from,returnJourney:returning,expressLegs:express.legs,fees:pricing.meetGreet,terminalAccessFees:pricing.terminalAccess,outboundChoice,returnChoice});
       const total=composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:quote.journeyFareGbp!,airportFixedCostsGbp:quote.airportFixedCostsGbp,airportAccessChargeGbp:access.airportAccessChargeGbp,returnJourney:returning,preserveFixedFarePence:quote.preserveBfsMinimumPence}).finalAmountPayableGbp;
+      const deposit=calculateDepositCashQuote(total,depositSettings);
+      const charged=paymentMethod === "DEPOSIT_CASH" ? deposit.depositGbp : total;
       const key=[minimum,mode,airport.code,from,vehicle,returning].join(":");
       if(target===40)targetBaselines.set(key,total);else assert.equal(total,targetBaselines.get(key),"Changing hourly analysis target must never change the customer fare in any pricing mode");
       const booking={terminalAccessChoices:Object.fromEntries(access.legs.map(visit=>[`${visit.leg}:${visit.airportCode}:${visit.service}`,visit.option])),outboundAirportAccessOption:outboundChoice,returnAirportAccessOption:returnChoice,expressDropOffFee:9999,outboundAirportAccessChargeGbp:9999,customerName:"Isolated Test",customerEmail:"test@example.invalid",mobileNumber:"07700900123",pickupLabel:pickupAddress,dropoffLabel:dropoffAddress,tripLabel:from?"Airport pickup":"Airport drop-off",tripDate:journey.outboundDate,tripTime:journey.outboundTime,returnDate:journey.returnDate,returnTime:journey.returnTime,returnJourney:returning,passengers:1,suitcases:1,vehicle,isAirportTrip:true,isFromAirport:from,airportCode:airport.code,flightNumber:"BA1234",returnFlightNumber:"BA1234",termsAcceptedAt:new Date().toISOString()};
@@ -86,10 +91,10 @@ async function main() {
         assert.equal(tampered.status,409,"Customer-modified displayed amount is rejected");
         assert.equal(checkouts,before,"Rejected amount never creates a SumUp checkout");
       }
-      const response=await worker.fetch(new Request("https://worker.invalid/payments",{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},body:JSON.stringify({booking,pickupPlaceId,dropoffPlaceId,quoteReceipt:quote.quoteReceipt,amount:quote.amount,acceptedFinalAmountGbp:total,journeyFareGbp:quote.journeyFareGbp,airportFixedCostsGbp:quote.airportFixedCostsGbp,description:"Isolated test",redirectUrl:origin+"/booking-confirmed/"})}),env as never);
-      const body=await response.json() as {checkoutId:string};assert.equal(response.status,200,JSON.stringify(body));assert.equal(checkoutAmount,total);
+      const response=await worker.fetch(new Request("https://worker.invalid/payments",{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},body:JSON.stringify({paymentMethod,cashAgreementAccepted:true,booking,pickupPlaceId,dropoffPlaceId,quoteReceipt:quote.quoteReceipt,amount:quote.amount,acceptedFinalAmountGbp:total,journeyFareGbp:quote.journeyFareGbp,airportFixedCostsGbp:quote.airportFixedCostsGbp,description:"Isolated test",redirectUrl:origin+"/booking-confirmed/"})}),env as never);
+      const body=await response.json() as {checkoutId:string};assert.equal(response.status,200,JSON.stringify(body));assert.equal(checkoutAmount,charged);
       const pending=await getPendingCheckout(kv,body.checkoutId);assert.ok(pending);
-      assert.equal(pending.amount, total, "Pending checkout keeps the server-authoritative amount");
+      assert.equal(pending.amount, charged, "Pending checkout keeps the server-authoritative amount");
       assert.deepEqual(pending.booking.terminalAccessVisits, access.legs, "Server ignores tampered amounts and persists selected visits");
       if (airport.code !== "DUB") {
         const expectedFee = airport.code === "BFS" ? pricing.terminalAccess.bfsGbp : pricing.terminalAccess.bhdGbp;
@@ -104,7 +109,7 @@ async function main() {
       const confirmed = await finalize();
       assert.equal(confirmed.ok, true, JSON.stringify(confirmed));
       assert.equal(confirmed.paid, true);
-      assert.equal(confirmed.amountPaid, `£${total.toFixed(2)}`);
+      assert.equal(confirmed.amountPaid, `£${charged.toFixed(2)}`);
       assert.equal(confirmed.purchase?.value, total);
       assert.equal(confirmed.customerEmailSent, true);
       assert.equal(confirmed.ownerEmailSent, true);
@@ -117,6 +122,10 @@ async function main() {
       assert.ok(ownerEmail?.text.includes(`£${total.toFixed(2)}`), "Owner alert matches the checkout");
       const paid=await getPaidBookingRecord(kv,confirmed.paymentReference);assert.equal(paid?.amount,total);assert.equal(paid?.pickupPlaceId,pickupPlaceId);assert.equal(paid?.dropoffPlaceId,dropoffPlaceId);assert.equal(paid?.pickupLat,from?airport.lat:reviewed.lat);assert.equal(paid?.dropoffLng,from?reviewed.lng:airport.lng);
       assert.equal(paid?.totalFare, total);
+      if(paymentMethod === "DEPOSIT_CASH") {
+        assert.equal(paid?.cashBalanceDue,deposit.cashDueGbp);
+        assert.equal(paid?.onlineAmountPaid,charged);
+      }
       assert.deepEqual(paid?.terminalAccessVisits, access.legs, "Canonical database retains visit selections and charges");
       if (airport.code !== "DUB") {
         for (const visit of access.legs) {
@@ -129,9 +138,9 @@ async function main() {
       if(minimum===45&&mode&&target===40)results.push({airport:airport.code,direction:route.direction,vehicle:vehicle===SALOON_VEHICLE?"Saloon":"Estate",return:returning,miles:Number((route.distanceMetres/1000*0.621371).toFixed(5)),vehicleFare:quote.journeyFareGbp,fixed:quote.airportFixedCostsGbp,access:access.airportAccessChargeGbp,total});
       checks++;
     }
-    assert.equal(checks,432);assert.ok(routeCalls>0);
+    assert.equal(checks,864);assert.ok(routeCalls>0);
 
-    console.log(`PASS ${checks} terminal access signed browser-quote → SumUp → paid confirmation → stored booking → customer/owner email cases across three airports, both directions, vehicles, return types, independent outbound/return choices and default/fractional configured access prices; later settings preserve agreed fares; repeat confirmation is idempotent; passenger routing only; no external writes.`);
+    console.log(`PASS ${checks} terminal access signed browser-quote → SumUp → paid confirmation → stored booking → customer/owner email full/deposit payment cases across three airports, both directions, vehicles, return types, independent outbound/return choices and default/fractional configured access prices; later settings preserve agreed fares; repeat confirmation is idempotent; passenger routing only; no external writes.`);
   } finally {globalThis.fetch=originalFetch;Date.now=originalNow;}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

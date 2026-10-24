@@ -229,12 +229,12 @@ check("Deposit + Cash renders before Full Online and is preselected when eligibl
   assert.match(card, /CASH/);
   assert.match(card, /todayPayLabel\(depositCashOffer\.totalFare\)/);
   assert.match(card, /nothingToPayOnTheDayLabel\(\)/);
-  assert.match(card, /FULL_ONLINE_SUPPORTING/);
-  assert.match(card, /paymentSummaryTotalFareLabel\(depositCashOffer\.totalFare\)/);
-  assert.match(card, /paymentSummaryPayTodayDepositLabel\(depositCashOffer\.depositGbp\)/);
-  assert.match(card, /paymentSummaryCashDueLabel\(depositCashOffer\.cashDueGbp\)/);
-  assert.match(card, /cashSelectedRemainingSentence\(depositCashOffer\.cashDueGbp\)/);
-  assert.match(card, /CASH_SELECTED_CARD_UNAVAILABLE/);
+  assert.equal((card.match(/\{SECURE_SUMUP_LINE\}/g) ?? []).length, 1);
+
+
+
+  assert.match(card, /cashAgreementLabel\(depositCashOffer\.cashDueGbp\)/);
+
   assert.match(card, /CASH_AGREEMENT_REQUIRED_MESSAGE/);
   assert.doesNotMatch(card, /Cash payment selected/);
   assert.doesNotMatch(card, /Our drivers don't accept cards/);
@@ -508,7 +508,7 @@ check("CASE C — Full Online £50.10 shows today + nothing on the day", () => {
   assert.equal(fullPayButtonLabel(caseA.totalFare), "Pay £50.10 & Confirm Booking");
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /\{selectedDepositCash \? \(/);
-  assert.match(card, /FULL_ONLINE_SUPPORTING/);
+  assert.equal((card.match(/\{SECURE_SUMUP_LINE\}/g) ?? []).length, 1);
 });
 
 check("CASE D — cash acknowledgement stays required and unchecked", () => {

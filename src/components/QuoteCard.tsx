@@ -186,24 +186,16 @@ import {
   PAYMENT_METHOD_DEPOSIT_CASH,
   PAYMENT_METHOD_FULL_ONLINE,
   CASH_AGREEMENT_REQUIRED_MESSAGE,
-  CASH_SELECTED_CARD_UNAVAILABLE,
   DEPOSIT_CASH_BADGE,
   DEPOSIT_CASH_CHOOSE_HEADING,
   DEPOSIT_CASH_OPTION_LABEL,
-  DEPOSIT_CASH_SELECTED_HEADING,
-  DEPOSIT_CASH_SUMMARY_HEADING,
   FULL_ONLINE_OPTION_LABEL,
-  FULL_ONLINE_SUPPORTING,
   SECURE_SUMUP_LINE,
   cashAgreementLabel,
-  cashSelectedRemainingSentence,
   depositPayButtonLabel,
   formatDepositCashGbp,
   fullPayButtonLabel,
   nothingToPayOnTheDayLabel,
-  paymentSummaryCashDueLabel,
-  paymentSummaryPayTodayDepositLabel,
-  paymentSummaryTotalFareLabel,
   publicDepositCashOffer,
   todayPayLabel,
   type DepositCashSettings,
@@ -3805,6 +3797,14 @@ function QuoteCard({
    * booking, after any manual vehicle quote approval. Soft AeroDataBox failures do not block;
    * blank / malformed / hard lookup errors do.
    */
+  function focusInvalidFlightNumber() {
+    window.setTimeout(() => {
+      const root = document.getElementById("step2-flight-details") ??
+        document.getElementById("step3-flight-details");
+      focusFirstInvalidField(root);
+    }, 0);
+  }
+
   function validateRequiredFlightNumbers(): boolean {
     let ok = true;
 
@@ -4241,6 +4241,17 @@ function QuoteCard({
     showDepositCashChoice && paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH;
 
   async function handlePayNow() {
+    if (!validateRequiredFlightNumbers()) {
+      setPaymentError("");
+      setSubmitError("");
+      focusInvalidFlightNumber();
+      return;
+    }
+    if (homepageFareChanged && !homepageFareChangeAck) {
+      setSubmitError("Please confirm the updated price before you pay.");
+      document.querySelector<HTMLInputElement>("[data-homepage-fare-change] input")?.focus();
+      return;
+    }
     if (isTooSoonPickup) {
       setPaymentError(tooSoonRequestBody(minimumShortNoticeLeadHours));
       handleChooseAnotherTime();
@@ -4305,8 +4316,8 @@ function QuoteCard({
     }
 
     if (!validateRequiredFlightNumbers()) {
-      setPaymentError(FLIGHT_NUMBER_FORMAT_ERROR);
-      setQuoteStep(2);
+      setPaymentError("");
+      focusInvalidFlightNumber();
       return;
     }
 
@@ -4910,7 +4921,7 @@ function QuoteCard({
       return "step3";
     }
     if (quoteStep === 2) {
-      return "step2";
+      return "step3";
     }
     if (quoteResultsReady && quoteStep === 1) {
       return "results";
@@ -4935,7 +4946,7 @@ function QuoteCard({
       return "results";
     }
     if (quoteStep === 2) {
-      return "step2";
+      return "step3";
     }
     if (quoteStep === 3) {
       return "step3";
@@ -4975,7 +4986,7 @@ function QuoteCard({
         onRequestStart={requestStartNewQuote}
         onCancelConfirm={() => setConfirmStartNewQuote(false)}
         onConfirmStart={performStartNewQuote}
-        appearance={placement === "results" ? "card" : "default"}
+        appearance={placement === "results" ? "card" : placement === "step3" ? "quiet" : "default"}
       />
     );
   }
@@ -5115,12 +5126,7 @@ function QuoteCard({
       return;
     }
     if (!validateRequiredFlightNumbers()) {
-      setSubmitError(
-        goingFlightError || collectionFlightError || QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber,
-      );
-      window.setTimeout(() => {
-        focusFirstInvalidField(cardRef.current ?? document);
-      }, 0);
+      focusInvalidFlightNumber();
       return;
     }
     if (canPayNowOnline && liveQuote && !isEnquiryOnly && !showsRequestQuoteFlow) {
@@ -5366,12 +5372,7 @@ function QuoteCard({
       }
       // Soft lookup loading/unavailable must not require a second click — format validity is the gate.
       if (!validateRequiredFlightNumbers()) {
-        setSubmitError(
-          goingFlightError || collectionFlightError || QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber,
-        );
-        window.setTimeout(() => {
-          focusFirstInvalidField(cardRef.current ?? document);
-        }, 0);
+        focusInvalidFlightNumber();
         return;
       }
       const blocked = await applyCustomerSmartAvailabilityCheck();
@@ -5793,23 +5794,17 @@ function QuoteCard({
     return (
       <div
         id={activeOnStep === 2 ? "step2-flight-details" : "step3-flight-details"}
-        className="scroll-mt-44 space-y-4 rounded-xl quote-panel px-4 py-4 md:scroll-mt-28"
+        className="scroll-mt-44 space-y-2 rounded-xl quote-panel px-3 py-3 md:scroll-mt-28"
       >
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-white">
             Flight details
           </p>
-          {needsOutboundFlightNumber ? (
-            <p className="mt-1 text-xs quote-secondary">
-              Flight number <span className="font-medium text-white/80">(required)</span>
-            </p>
-          ) : null}
-          <p className="mt-1 text-xs quote-secondary">{BOOKING_FLIGHT_NUMBER_HELPER}</p>
         </div>
         {needsOutboundFlightNumber ? (
           <FlightNumberField
             id="goingFlightNumber"
-            label="Flight number"
+            label="Flight number (required)"
             helperText={BOOKING_FLIGHT_NUMBER_HELPER}
             value={goingFlightNumber}
             onChange={(value) => {
@@ -5832,7 +5827,7 @@ function QuoteCard({
         {needsReturnCollectionFlightNumber ? (
           <FlightNumberField
             id="collectionFlightNumber"
-            label="Return flight number"
+            label="Return flight number (required)"
             helperText={BOOKING_FLIGHT_NUMBER_HELPER}
             value={collectionFlightNumber}
             onChange={(value) => {
@@ -6684,7 +6679,9 @@ function QuoteCard({
 
           <div id="step2-journey-summary" ref={step2JourneySummaryRef}>
           <QuoteCheckoutSummary
-            routeLine={`${pickupLabel || "Pickup"} → ${dropoffLabel || "Destination"}`}
+            routeLine={`${(pickupLabel || "Pickup").split(",")[0]} → ${(dropoffLabel || "Destination").split(",")[0]}`}
+            pickupAddress={pickupAddress}
+            destinationAddress={dropoffAddress}
             detailLine={partyLine}
             totalLabel={amountLabel ? `Total ${amountLabel}` : "Total TBC"}
             whenLine={
@@ -6696,7 +6693,12 @@ function QuoteCard({
             onEditJourney={() => navigateQuoteStep(1)}
             changeAccessLabel={undefined}
             onChangeDropOff={
-              showChangeDropOff
+              airportAccessQuote.legs.length > 0
+                ? () => {
+                    const section = document.querySelector<HTMLElement>("[data-terminal-access]");
+                    if (section) scrollQuoteStage(section);
+                  }
+                : showChangeDropOff
                 ? () =>
                     setExpressEditingLeg((current) =>
                       current ? null : expressSelection.legs[0]?.leg ?? "outbound",
@@ -6793,7 +6795,10 @@ function QuoteCard({
                   type="checkbox"
                   className="mt-1 h-4 w-4 accent-emerald"
                   checked={homepageFareChangeAck}
-                  onChange={(event) => setHomepageFareChangeAck(event.target.checked)}
+                  onChange={(event) => {
+                    setHomepageFareChangeAck(event.target.checked);
+                    if (event.target.checked) setSubmitError("");
+                  }}
                 />
                 <span>I confirm the updated price.</span>
               </label>
@@ -6916,11 +6921,12 @@ function QuoteCard({
                 {showDepositCashChoice && depositCashOffer ? (
                   <div className="space-y-3">
                     <p className="text-sm font-semibold text-white">{DEPOSIT_CASH_CHOOSE_HEADING}</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-2 sm:grid-cols-2">
                       <button
                         type="button"
+                        aria-pressed={paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH}
                         onClick={() => setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH)}
-                        className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                        className={`min-h-11 rounded-xl border px-3 py-2.5 text-left transition-colors ${
                           paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH
                             ? "border-emerald bg-emerald/15"
                             : "border-white/20 bg-white/[0.03] hover:border-white/40"
@@ -6943,6 +6949,7 @@ function QuoteCard({
                       </button>
                       <button
                         type="button"
+                        aria-pressed={paymentMethod === PAYMENT_METHOD_FULL_ONLINE}
                         onClick={() => {
                           setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE);
                           setCashAgreementAccepted(false);
@@ -6950,7 +6957,7 @@ function QuoteCard({
                             prev === CASH_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
                           );
                         }}
-                        className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                        className={`min-h-11 rounded-xl border px-3 py-2.5 text-left transition-colors ${
                           paymentMethod === PAYMENT_METHOD_FULL_ONLINE
                             ? "border-emerald bg-emerald/15"
                             : "border-white/20 bg-white/[0.03] hover:border-white/40"
@@ -6960,27 +6967,11 @@ function QuoteCard({
                         <p className="mt-2 text-sm font-semibold text-emerald">
                           {todayPayLabel(depositCashOffer.totalFare)}
                         </p>
-                        <p className="desktop-payment-support mt-0.5 text-xs text-white/55">{nothingToPayOnTheDayLabel()}</p>
-                        <p className="desktop-payment-support mt-2 text-[11px] leading-snug text-white/45">
-                          {FULL_ONLINE_SUPPORTING}
-                        </p>
+                        <p className="mt-0.5 text-xs text-white/70">{nothingToPayOnTheDayLabel()}</p>
                       </button>
                     </div>
                     {selectedDepositCash ? (
-                      <div className="space-y-3 rounded-2xl border border-amber-300/35 bg-amber-500/10 px-4 py-3">
-                        <p className="text-sm font-semibold text-white">{DEPOSIT_CASH_SELECTED_HEADING}</p>
-                        <div className="space-y-1.5 text-xs leading-relaxed text-white/80">
-                          <p>{cashSelectedRemainingSentence(depositCashOffer.cashDueGbp)}</p>
-                          <p>{CASH_SELECTED_CARD_UNAVAILABLE}</p>
-                        </div>
-                        <p className="desktop-payment-support text-xs font-semibold uppercase tracking-wider text-white/50">
-                          {DEPOSIT_CASH_SUMMARY_HEADING}
-                        </p>
-                        <ul className="space-y-1 text-sm text-white/85">
-                          <li>{paymentSummaryTotalFareLabel(depositCashOffer.totalFare)}</li>
-                          <li>{paymentSummaryPayTodayDepositLabel(depositCashOffer.depositGbp)}</li>
-                          <li>{paymentSummaryCashDueLabel(depositCashOffer.cashDueGbp)}</li>
-                        </ul>
+                      <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2.5">
                         <label className="flex items-start gap-3 text-sm leading-relaxed text-white/92">
                           <input
                             type="checkbox"
@@ -6999,7 +6990,6 @@ function QuoteCard({
                         </label>
                       </div>
                     ) : null}
-                    <p className="desktop-payment-support text-xs text-white/45">{SECURE_SUMUP_LINE}</p>
                   </div>
                 ) : null}
                 {isAvailabilityRequest && !openCheckout ? (
@@ -7027,6 +7017,7 @@ function QuoteCard({
                               : fullPayButtonLabel(depositCashOffer.totalFare)
                             : `Confirm booking & pay securely — ${amountLabel ?? formatQuote(liveQuote.amount)}`}
                 </button>
+                <p className="text-center text-xs text-white/55">{SECURE_SUMUP_LINE}</p>
                 </>
               )}
             </div>

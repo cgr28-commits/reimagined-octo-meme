@@ -904,8 +904,8 @@ main {
 }
 
 .cookie-consent-banner {
-  padding: 0.375rem max(0.5rem, env(safe-area-inset-right, 0px))
-    calc(0.375rem + env(safe-area-inset-bottom, 0px))
+  padding: 0.25rem max(0.5rem, env(safe-area-inset-right, 0px))
+    calc(0.25rem + env(safe-area-inset-bottom, 0px))
     max(0.5rem, env(safe-area-inset-left, 0px));
 }
 
