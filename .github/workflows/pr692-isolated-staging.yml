@@ -1,0 +1,63 @@
+name: PR692 isolated staging
+on:
+  push:
+    branches: [staging/pr692-isolation]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: pr692-isolated-staging
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: npm run sync:worker-shared
+      - run: npm --prefix workers/addresses run typecheck
+      - run: node --import tsx scripts/check-pr692-staging-isolation.ts
+  staging:
+    needs: validate
+    if: github.ref == 'refs/heads/staging/pr692-isolation'
+    environment: pr692-staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: npm run sync:worker-shared
+      - name: Check staging secret slots and protected environment (no secret values)
+        env:
+          HAS_CLOUDFLARE_API_TOKEN: ${{ secrets.PR692_STAGING_CLOUDFLARE_API_TOKEN != '' }}
+          HAS_SUMUP_API_KEY: ${{ secrets.PR692_STAGING_SUMUP_API_KEY != '' }}
+          HAS_SUMUP_MERCHANT_CODE: ${{ secrets.PR692_STAGING_SUMUP_MERCHANT_CODE != '' }}
+          HAS_GOOGLE_PLACES_API_KEY: ${{ secrets.PR692_STAGING_GOOGLE_PLACES_API_KEY != '' }}
+          HAS_OWNER_ACCESS_KEY: ${{ secrets.PR692_STAGING_OWNER_ACCESS_KEY != '' }}
+          HAS_QUOTE_RECEIPT_SECRET: ${{ secrets.PR692_STAGING_QUOTE_RECEIPT_SECRET != '' }}
+          HAS_FRONTEND_ORIGIN: ${{ vars.PR692_STAGING_FRONTEND_ORIGIN != '' }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-pr692-staging-environment.mjs
+      - name: Verify isolated credentials and deploy only staging
+        env:
+          PR692_STAGING_CLOUDFLARE_API_TOKEN: ${{ secrets.PR692_STAGING_CLOUDFLARE_API_TOKEN }}
+          PR692_STAGING_SUMUP_API_KEY: ${{ secrets.PR692_STAGING_SUMUP_API_KEY }}
+          PR692_STAGING_SUMUP_MERCHANT_CODE: ${{ secrets.PR692_STAGING_SUMUP_MERCHANT_CODE }}
+          PR692_STAGING_GOOGLE_PLACES_API_KEY: ${{ secrets.PR692_STAGING_GOOGLE_PLACES_API_KEY }}
+          PR692_STAGING_OWNER_ACCESS_KEY: ${{ secrets.PR692_STAGING_OWNER_ACCESS_KEY }}
+          PR692_STAGING_QUOTE_RECEIPT_SECRET: ${{ secrets.PR692_STAGING_QUOTE_RECEIPT_SECRET }}
+          PR692_STAGING_FRONTEND_ORIGIN: ${{ vars.PR692_STAGING_FRONTEND_ORIGIN }}
+        run: node --import tsx scripts/deploy-pr692-staging.mjs

@@ -18,6 +18,8 @@ type EmailBinding = {
 };
 
 export type WorkerEmailEnv = {
+  /** Injected only by the separate staging entrypoint; never binds a delivery provider. */
+  STAGING_EMAIL_CAPTURE_STORE?: KVNamespace;
   BOOKING_TO_EMAIL?: string;
   BOOKING_FROM_EMAIL?: string;
   BOOKING_NOTIFICATION_EMAIL?: string;
@@ -405,10 +407,23 @@ function buildProviderChain(
   return providers;
 }
 
+async function captureStagingEmail(env: WorkerEmailEnv, options: EmailPayload): Promise<EmailSendResult | null> {
+  if (!env.STAGING_EMAIL_CAPTURE_STORE) return null;
+  const id = crypto.randomUUID();
+  const bcc = options.ownerCopy === false ? null : customerTransactionBcc(env, options.to).bcc;
+  await env.STAGING_EMAIL_CAPTURE_STORE.put(`staging:email:${id}`, JSON.stringify({
+    ...options, id, bcc, capturedAt: new Date().toISOString(), delivery: "captured-not-delivered",
+  }), {expirationTtl: 7 * 86400});
+  // Records each attempt rather than deduplicating in the capture layer: duplicate callers remain observable.
+  return {sent:true,provider:"staging-capture",ownerBcc:Boolean(bcc)};
+}
+
 export async function trySendEmail(
   env: WorkerEmailEnv,
   options: EmailPayload,
 ): Promise<EmailSendResult> {
+  const captured = await captureStagingEmail(env, options);
+  if (captured) return captured;
   const resendAttempt = { ownerBcc: false };
   warnIfOwnerCopyUnavailable(env, options);
   const providers = buildProviderChain(env, options, resendAttempt);
@@ -468,6 +483,8 @@ export async function trySendResendOnlyEmail(
   env: WorkerEmailEnv,
   options: EmailPayload,
 ): Promise<EmailSendResult> {
+  const captured = await captureStagingEmail(env, options);
+  if (captured) return captured;
   if (!env.RESEND_API_KEY?.trim()) {
     return { sent: false, error: "Resend is not configured (RESEND_API_KEY)" };
   }
