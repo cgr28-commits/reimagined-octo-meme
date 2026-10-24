@@ -154,9 +154,14 @@ try {
   assert.ok((await summary.innerText()).includes('Destination:'));
   await summary.locator('summary').click();
   await summary.getByRole('button',{name:'Change airport access'}).click();
-  await page.locator('#name').fill('Preview Test');
-  await page.locator('#mobile').fill('07700900123');
-  await page.locator('#email').fill('preview@example.com');
+  for(const [id,value] of [['name','Preview Test'],['mobile','07700900123'],['email','preview@example.com']]) {
+    const input=page.locator('#'+id);
+    await tapSettled(input);
+    await input.pressSequentially(value);
+    await input.press('Tab');
+    await page.waitForFunction(({id,value})=>document.getElementById(id)?.getAttribute('value')===value,{id,value});
+    assert.equal(await input.inputValue(),value,'Contact entry persists before payment validation');
+  }
   await page.getByRole('checkbox',{name:/I agree to the/}).check();
   const full=page.getByRole('button',{name:/Pay in Full Online/});
   await full.click();
