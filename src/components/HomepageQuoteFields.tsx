@@ -189,7 +189,7 @@ function SwapIcon() {
 }
 
 function selectClass(hasError: boolean, complete: boolean) {
-  const base = "box-border h-12 w-full min-w-0 rounded-xl border bg-white/[0.1] px-3 text-base font-semibold text-white outline-none";
+  const base = "box-border h-12 w-full min-w-0 rounded-xl border bg-white/[0.06] px-3 text-base font-medium text-white outline-none transition-colors";
   const highlight = hasError
     ? "border-red-400/70 ring-1 ring-inset ring-red-400/35 focus:border-red-400"
     : complete
