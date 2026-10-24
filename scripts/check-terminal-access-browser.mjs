@@ -54,6 +54,21 @@ try {
   const initial=Number((await page.locator('[data-quote-result-price]').innerText()).match(/£([0-9.]+)/)[1]);
   assert.ok(initial>0);
   await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
+  const childSeats=page.getByRole('group',{name:'Child / booster seats',exact:true});
+  const seatBounds=await childSeats.boundingBox();
+  assert.ok(seatBounds.width<=208.5,'Child-seat options stay compact on mobile');
+  for(const label of ['None','1','2']) {
+    const choice=childSeats.getByRole('button',{name:label,exact:true});
+    const box=await choice.boundingBox();
+    assert.ok(box.height>=44 && box.height<=44.5,'Seat choices keep 44px tap targets');
+    await choice.click();
+    assert.equal(await choice.getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('#child-seat-notes').count(),label==='None'?0:1);
+  }
+  await page.locator('#child-seat-notes').fill('Child seat request');
+  await childSeats.getByRole('button',{name:'None',exact:true}).click();
+  assert.equal(await page.locator('#child-seat-notes').count(),0);
+  await childSeats.screenshot({path:`test-results/terminal-access/${engine}/${width}-child-seats.png`});
   const section=page.locator('[data-terminal-access]').first();
   await section.waitFor();
   await section.scrollIntoViewIfNeeded();

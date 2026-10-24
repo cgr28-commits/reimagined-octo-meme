@@ -6600,7 +6600,8 @@ function QuoteCard({
               <div>
                 <p className="form-label mb-2">Child / booster seats</p>
                 <div
-                  className="grid grid-cols-3 gap-2"
+                  className="grid w-52 max-w-full grid-cols-3 gap-2 md:w-full"
+                  data-child-seat-options
                   role="group"
                   aria-label="Child / booster seats"
                 >
@@ -6620,7 +6621,7 @@ function QuoteCard({
                             setChildSeatNotesError("");
                           }
                         }}
-                        className={`min-h-12 rounded-xl text-base font-semibold transition-all lg:min-h-11 ${
+                        className={`min-h-11 rounded-xl text-sm font-semibold transition-all md:min-h-12 md:text-base lg:min-h-11 ${
                           selected ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
                         }`}
                       >
