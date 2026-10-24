@@ -1,0 +1,47 @@
+name: Desktop layout review
+on:
+  pull_request:
+    paths:
+      - 'src/app/globals.css'
+      - 'src/components/Header.tsx'
+      - 'src/components/HeroSlideshow.tsx'
+      - 'src/components/QuoteResultShowcase.tsx'
+      - 'src/components/QuoteVehicleCategories.tsx'
+      - 'scripts/check-desktop-layout-browser.mjs'
+      - '.github/workflows/desktop-layout-review.yml'
+permissions:
+  contents: read
+jobs:
+  desktop-and-mobile-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: GITHUB_PAGES=true npm run build
+      - uses: actions/checkout@v4
+        with:
+          ref: d4b2e18e1faff1bc3f0dd908e7230adf14673c89
+          path: baseline
+      - working-directory: baseline
+        run: npm ci && GITHUB_PAGES=true npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - name: Compare desktop geometry and unchanged mobile/tablet pixels
+        run: |
+          python3 -m http.server 3000 --directory out > /tmp/desktop-after.log 2>&1 &
+          python3 -m http.server 3001 --directory baseline/out > /tmp/desktop-before.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -fsS http://localhost:3000/ > /dev/null && curl -fsS http://localhost:3001/ > /dev/null; then break; fi
+            sleep 1
+          done
+          BASELINE_URL=http://localhost:3001 node --import tsx scripts/check-desktop-layout-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-layout-comparison
+          path: test-results/desktop-layout
