@@ -86,6 +86,7 @@ type AddressInputProps = {
   onSuggestionsVisibilityChange?: (open: boolean) => void;
   /** Slightly tighter label spacing for the compact homepage quote form. */
   dense?: boolean;
+  compactHomepage?: boolean;
 };
 
 export default function AddressInput({
@@ -117,6 +118,7 @@ export default function AddressInput({
   autoConfirmExactMatch = false,
   onSuggestionsVisibilityChange,
   dense = false,
+  compactHomepage = false,
 }: AddressInputProps) {
   const autocompleteEnabled = isGooglePlacesEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -656,7 +658,7 @@ export default function AddressInput({
               aria-controls={listboxId}
               aria-autocomplete="list"
               role="combobox"
-              className={`address-input box-border h-12 w-full min-w-0 border-0 bg-transparent py-3 pr-11 text-base leading-normal text-white placeholder:text-white/70 outline-none truncate ${
+              className={`address-input box-border ${compactHomepage ? "h-11 py-2" : "h-12 py-3"} w-full min-w-0 border-0 bg-transparent pr-11 text-base leading-normal text-white placeholder:text-white/70 outline-none truncate ${
                 startAdornment ? "pl-12" : "pl-4"
               }`}
             />

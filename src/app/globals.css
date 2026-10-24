@@ -1860,3 +1860,92 @@ main {
 @media (min-width: 1024px) {
   .quote-flow .desktop-payment-support { color: var(--quote-secondary-ink); }
 }
+
+/* Homepage hero only: shared station/airport forms retain their existing presentation. */
+.homepage-hero .homepage-field-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-emerald);
+  pointer-events: none;
+  z-index: 1;
+}
+.homepage-hero #quoteForm [data-schedule-control],
+.homepage-hero #quoteForm #passenger-luggage-section select,
+.homepage-hero #quoteForm div:has(> div > .address-input) {
+  box-sizing: border-box;
+  height: 44px;
+  min-height: 44px;
+  border: 1px solid #59616c;
+  border-radius: 12px;
+  background-color: #303844;
+  box-shadow: none;
+}
+.homepage-hero #quoteForm .address-input {
+  height: 42px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.homepage-hero #quoteForm #passenger-luggage-section select {
+  padding-left: 42px;
+  padding-right: 28px;
+  background-position: right 6px center;
+  font-size: 16px;
+  font-weight: 500;
+}
+/* The transparent native control remains the full-size tap/focus target.
+   The formatted text and Lucide icon cannot intercept taps on iOS. */
+.homepage-hero #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input {
+  position: absolute;
+  inset: -1px;
+  width: calc(100% + 2px);
+  height: 44px;
+  min-width: 0;
+  padding: 0 8px 0 42px;
+  opacity: 0;
+  font-size: 16px;
+  appearance: auto;
+  -webkit-appearance: auto;
+  cursor: pointer;
+}
+.homepage-hero #quoteForm [data-homepage-inline-schedule] .homepage-schedule-prompt {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  inset: 0 4px 0 42px;
+  pointer-events: none;
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.homepage-hero #quoteForm [data-schedule-control]:focus-within,
+.homepage-hero #quoteForm #passenger-luggage-section select:focus,
+.homepage-hero #quoteForm div:has(> div > .address-input):focus-within {
+  border-color: var(--color-emerald);
+  box-shadow: 0 0 0 2px var(--color-emerald);
+}
+.homepage-hero #quoteForm [data-schedule-control][data-compact-error],
+.homepage-hero #quoteForm #passenger-luggage-section select[aria-invalid="true"],
+.homepage-hero #quoteForm div:has(> div > .address-input[aria-invalid="true"]) {
+  border-color: #f87171;
+}
+.homepage-hero [data-homepage-inline-schedule] p:empty { display: none; }
+.homepage-hero [data-homepage-inline-schedule] .form-label { margin-bottom: 4px; }
+.homepage-hero #passenger-luggage-section .form-label { line-height: 1.5; }
+@media (min-width: 1024px) {
+  .homepage-hero [data-homepage-quote-scroll] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .homepage-hero [data-homepage-quote-scroll] > div:has(#dropoff) { grid-column: 2; }
+}
+
+/* The shared eyebrow uses unlayered display rules, which override hidden utilities. */
+@media (max-width: 767px) {
+  .homepage-hero .section-eyebrow {
+    display: none;
+    margin: 0;
+  }
+}

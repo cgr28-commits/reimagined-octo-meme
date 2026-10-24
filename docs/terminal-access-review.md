@@ -1,6 +1,6 @@
 # Optional airport terminal access review
 
-Draft feature, stacked on PR #680 (`fix/precise-quote-locations`, f4137d25). Do not merge either PR or deploy the frontend/Worker to production without owner approval. PR #691 is independent and untouched. Retarget/rebase this PR after #680 is approved; do not merge this feature into its dependency branch.
+Draft feature, stacked on PR #680 (`fix/precise-quote-locations`, f4137d25). Do not merge either PR or deploy the frontend/Worker to production without owner approval. This branch also includes the approved homepage presentation from PR #691 at 054023ab so the preview shows the current design alongside terminal access. Neither dependency branch is modified. Reconcile both dependencies before release; do not merge this feature into either dependency branch.
 
 ## Booking behavior
 
