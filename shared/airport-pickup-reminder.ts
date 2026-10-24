@@ -35,8 +35,8 @@ import {
 import { getServedAirport, matchServedAirportCode } from "./served-airports";
 import { parseLondonLocalDateTime, UK_TIME_ZONE } from "./uk-time";
 
-/** About four hours before the booked airport pickup. Not the flight arrival time. */
-export const AIRPORT_COLLECTION_LEAD_MS = 4 * 60 * 60 * 1000;
+/** About twelve hours before the booked airport pickup. Not the flight arrival time. */
+export const AIRPORT_COLLECTION_LEAD_MS = 12 * 60 * 60 * 1000;
 
 /** Kept so older checks can see the collection lead. */
 export const AIRPORT_PICKUP_REMINDER_LEAD_MS = AIRPORT_COLLECTION_LEAD_MS;
@@ -214,7 +214,7 @@ function isQuietLondonHour(hour: number): boolean {
 
 /**
  * When the collection email should become due.
- * Four hours before the booked pickup, moved out of 22:00–07:00 London.
+ * Twelve hours before the booked pickup, moved out of 22:00–07:00 London.
  */
 export function airportCollectionSendAt(pickupAt: Date): Date | null {
   if (Number.isNaN(pickupAt.getTime())) return null;

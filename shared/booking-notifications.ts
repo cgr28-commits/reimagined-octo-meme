@@ -1033,7 +1033,7 @@ function buildTrackingReminderHtml(
   trackUrl: string,
   businessName: string,
 ): string {
-  const customerName = escapeHtml(details.customerName);
+  const customerName = escapeHtml(customerFirstName(details.customerName));
   const pickup = escapeHtml(details.pickupLabel);
   const dropoff = escapeHtml(details.dropoffLabel);
   const when = escapeHtml(formatTripDateTime(details.tripDate, details.tripTime));
@@ -1110,7 +1110,7 @@ export function buildTrackingReminderEmail(
   const bookingReference = details.bookingReference?.trim();
 
   const text =
-    `Hi ${details.customerName},\n\n` +
+    `Hi ${customerFirstName(details.customerName)},\n\n` +
     `Live driver tracking for your transfer is now available.\n\n` +
     (when ? `Pickup time: ${when}\n` : "") +
     (bookingReference ? `Booking reference: ${bookingReference}\n` : "") +
@@ -1139,7 +1139,7 @@ function buildRefundConfirmationHtml(
   details: RefundConfirmationDetails,
   businessName: string,
 ): string {
-  const customerName = escapeHtml(details.customerName);
+  const customerName = escapeHtml(customerFirstName(details.customerName));
   const when = escapeHtml(formatTripDateTime(details.tripDate, details.tripTime));
 
   return lightCustomerEmailHtml(`<!DOCTYPE html>
@@ -1214,7 +1214,7 @@ export function buildCustomerRefundConfirmationEmail(
   const subject = `Refund confirmation — ${details.refundAmount} — ${businessName}`;
 
   const text =
-    `Hi ${details.customerName},\n\n` +
+    `Hi ${customerFirstName(details.customerName)},\n\n` +
     `Refund amount: ${details.refundAmount}\n\n` +
     `We've processed a refund of ${details.refundAmount} for your booking with ${businessName}.\n\n` +
     `Original reference: ${details.paymentReference}\n` +
@@ -1490,7 +1490,7 @@ function buildCustomerRefundDetailsBlock(details: CancellationEmailDetails): {
 
   const html =
     `<p>` +
-    `<strong>Customer:</strong> ${escapeHtml(details.customerName)}<br/>` +
+    `<strong>Customer:</strong> ${escapeHtml(customerFirstName(details.customerName))}<br/>` +
     `<strong>Booking reference:</strong> ${escapeHtml(details.paymentReference)}<br/>` +
     `<strong>Refund type:</strong> ${escapeHtml(refundType)}<br/>` +
     `<strong>Amount refunded (this operation):</strong> ${escapeHtml(details.refundAmount)}<br/>` +
@@ -1554,7 +1554,7 @@ function buildCustomerCancellationConfirmation(input: {
   const route = [details.pickupLabel, details.dropoffLabel].filter(Boolean).join(" → ");
   const paymentText = input.paymentParagraphs.join("\n\n");
   const text =
-    `Hi ${details.customerName},\n\n` +
+    `Hi ${customerFirstName(details.customerName)},\n\n` +
     `${CUSTOMER_CANCELLATION_OPENING}\n\n` +
     `${details.tripLabel}\n` +
     (when ? `${when}\n` : "") +
@@ -1594,7 +1594,7 @@ ${businessEmailLogoHtml()}
 <div style="margin-top:10px;font-size:13px;line-height:1.4;color:#c9d4e0;">Booking reference: ${escapeHtml(ref)}</div>
 </td></tr>
 <tr><td style="padding:28px 22px 8px;font-size:16px;line-height:1.5;color:#334155;">
-<p style="margin:0 0 18px;">Hi ${escapeHtml(details.customerName)},</p>
+<p style="margin:0 0 18px;">Hi ${escapeHtml(customerFirstName(details.customerName))},</p>
 <p style="margin:0 0 18px;">${escapeHtml(CUSTOMER_CANCELLATION_OPENING)}</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
 <tr><td style="padding:18px 18px 16px;">
@@ -1652,7 +1652,7 @@ export function buildCustomerCancellationEmails(
       const detailsBlock = buildCustomerRefundDetailsBlock(details);
       const subject = `Cancellation & Refund – ${ref}`;
       const text =
-        `Hi ${details.customerName},\n\n` +
+        `Hi ${customerFirstName(details.customerName)},\n\n` +
         `We're sorry — ${businessName} has had to cancel your booking.\n\n` +
         `${intentText}\n\n` +
         `${detailsBlock.text}\n` +
@@ -1660,7 +1660,7 @@ export function buildCustomerCancellationEmails(
         `${businessName}\n${BUSINESS_WEBSITE}`;
       const html = buildSimpleBrandedEmailHtml({
         title: refundType,
-        headline: `We're sorry, ${escapeHtml(details.customerName)}`,
+        headline: `We're sorry, ${escapeHtml(customerFirstName(details.customerName))}`,
         bodyHtml:
           `<p>We're sorry — ${escapeHtml(businessName)} has had to cancel your booking.</p>` +
           intentHtml +
@@ -1680,7 +1680,7 @@ export function buildCustomerCancellationEmails(
 
     const subject = `Booking Cancellation Confirmed – ${ref}`;
     const text =
-      `Hi ${details.customerName},\n\n` +
+      `Hi ${customerFirstName(details.customerName)},\n\n` +
       `We're sorry — ${businessName} has had to cancel your booking ${ref}.\n\n` +
       `Trip: ${details.tripLabel}\n` +
       (when ? `When: ${when}\n` : "") +
@@ -1691,7 +1691,7 @@ export function buildCustomerCancellationEmails(
       `${businessName}\n${BUSINESS_WEBSITE}`;
     const html = buildSimpleBrandedEmailHtml({
       title: "Booking cancelled",
-      headline: `We're sorry, ${escapeHtml(details.customerName)}`,
+      headline: `We're sorry, ${escapeHtml(customerFirstName(details.customerName))}`,
       bodyHtml:
         `<p>We have had to cancel booking <strong>${escapeHtml(ref)}</strong>.</p>` +
         `<p>${escapeHtml(details.tripLabel)}${when ? `<br/>${escapeHtml(when)}` : ""}<br/>` +
@@ -1773,7 +1773,7 @@ export function buildCustomerCancellationEmails(
             : `Partial Refund Issued – ${ref}`;
 
     const text =
-      `Hi ${details.customerName},\n\n` +
+      `Hi ${customerFirstName(details.customerName)},\n\n` +
       `${intentText}\n\n` +
       `${detailsBlock.text}\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
@@ -1799,7 +1799,7 @@ export function buildCustomerCancellationEmails(
   if (details.cancelBooking) {
     const subject = `Booking Cancellation Confirmed – ${ref}`;
     const text =
-      `Hi ${details.customerName},\n\n` +
+      `Hi ${customerFirstName(details.customerName)},\n\n` +
       `Your booking ${ref} has been cancelled.\n\n` +
       `Customer: ${details.customerName}\n` +
       `Booking reference: ${ref}\n` +
