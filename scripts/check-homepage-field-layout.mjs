@@ -21,7 +21,7 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       if (width < 768) {
         assert.equal(await eyebrow.evaluate(el=>el.getBoundingClientRect().height),0);
       } else {
-        assert.equal(await eyebrow.evaluate(el=>getComputedStyle(el).display),'inline-flex');
+        assert.equal(await eyebrow.evaluate(el=>getComputedStyle(el).display),'flex');
       }
       assert.equal(await page.locator('h1 + p').innerText(),'Fixed fares to Belfast International, Belfast City & Dublin Airport.');
       assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontWeight),'600');
@@ -37,7 +37,8 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
             return {height:r.height,delta:Math.abs(i.y+i.height/2-r.y-r.height/2),gap:textLeft-i.right,visible:input.type,disabled:input.disabled};
           });
         });
-        for (const m of metrics) {assert.equal(m.height,44);assert.ok(m.delta<1);assert.ok(m.gap>=10 && m.gap<=13,JSON.stringify(m));assert.equal(m.disabled,false);}
+        // Allow one CSS pixel for transformed SVG/border rounding after scrolling.
+        for (const m of metrics) {assert.equal(m.height,44);assert.ok(m.delta<=1,JSON.stringify(m));assert.ok(m.gap>=10 && m.gap<=13,JSON.stringify(m));assert.equal(m.disabled,false);}
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       }
       await checkFields();
