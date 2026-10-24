@@ -227,13 +227,13 @@ export function composeWebsiteFareBreakdown(
       returnDiscountRate: input.returnDiscountRate,
       outboundOneWayBeforeAccessGbp: outboundBeforeAccess,
       returnOneWayBeforeAccessGbp: input.returnOneWayBeforeAccessGbp,
-      outboundAirportAccessChargeGbp,
-      returnAirportAccessChargeGbp,
+      outboundAirportAccessChargeGbp: 0,
+      returnAirportAccessChargeGbp: 0,
     });
     const flooredAfterOffer =
       floored == null
         ? null
-        : roundCustomerPayableGbp(Math.max(0, floored - returnOfferSavingGbp));
+        : roundGbp(roundCustomerPayableGbp(Math.max(0, floored - returnOfferSavingGbp)) + airportAccessChargeGbp);
     if (flooredAfterOffer != null && flooredAfterOffer > finalAmountPayableGbp + 0.001) {
       const uplift = roundGbp(flooredAfterOffer - finalAmountPayableGbp);
       finalAmountPayableGbp = flooredAfterOffer;

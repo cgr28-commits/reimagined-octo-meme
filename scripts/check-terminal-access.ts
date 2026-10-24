@@ -44,3 +44,8 @@ const paid=composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:114,re
 assert.equal(paid.finalAmountPayableGbp-noAccess.finalAmountPayableGbp,7.25);
 assert.equal(paid.returnJourneySavingGbp,6);
 console.log(`PASS ${checks} airport-to-airport per-visit combinations plus defaults, M&G inclusion, tamper filtering, configured fees, exact optional fee and 5% return discount.`);
+
+const businessFree=composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:50,businessClassMinimumFareGbp:100,outboundOneWayBeforeAccessGbp:50});
+const businessPaid=composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:50,businessClassMinimumFareGbp:100,outboundOneWayBeforeAccessGbp:50,airportAccessChargeGbp:5.25,outboundAirportAccessChargeGbp:5.25});
+assert.equal(businessFree.finalAmountPayableGbp,100);
+assert.equal(businessPaid.finalAmountPayableGbp,105.25,"Vehicle minimum cannot absorb optional fees");

@@ -7,6 +7,8 @@ on:
       - 'src/components/QuoteCard.tsx'
       - 'workers/addresses/src/**'
       - 'scripts/check-terminal-access*'
+      - 'scripts/check-postcode-pricing.ts'
+      - 'scripts/check-open-website-payment-fares.ts'
       - '.github/workflows/terminal-access-review.yml'
 permissions:
   contents: read

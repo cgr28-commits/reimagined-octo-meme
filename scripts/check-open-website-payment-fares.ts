@@ -956,7 +956,7 @@ check("6. DUB → LDY A2A: all mandatory DUB/LDY charges apply from labels", () 
   assert.equal(resolved.airportContext.isAirportToAirport, true);
 });
 
-check("7. BFS/BHD terminal access cannot be removed on A2A", () => {
+check("7. BFS/BHD A2A vehicle quote excludes optional terminal access", () => {
   const ctx = resolvePaymentAirportContextFromAddresses(BFS_AIRPORT_LABEL, BHD_AIRPORT_LABEL);
   assert.equal(ctx.ok, true);
   if (!ctx.ok) return;
@@ -969,14 +969,8 @@ check("7. BFS/BHD terminal access cannot be removed on A2A", () => {
     dropoffAirportCode: ctx.context.dropoffAirportCode,
     removedFeeIds: ["outbound:BHD:drop-off", "outbound:BFS:pickup"],
   });
-  const bhd = withRemoval.lines.find((l) => l.airportCode === "BHD");
-  const bfs = withRemoval.lines.find((l) => l.airportCode === "BFS");
-  assert.ok(bhd && bfs);
-  assert.equal(bhd!.removable, false);
-  assert.equal(bhd!.removed, false);
-  assert.equal(bhd!.appliedAmountGbp, 4);
-  assert.equal(bfs!.appliedAmountGbp, 5);
-  assert.equal(withRemoval.totalAppliedGbp, 9);
+  assert.equal(withRemoval.lines.length, 0);
+  assert.equal(withRemoval.totalAppliedGbp, 0);
 
   const resolved = resolveOpenWebsitePaymentTransferFares({
     clientTransferAmountGbp: 50,
@@ -999,7 +993,7 @@ check("7. BFS/BHD terminal access cannot be removed on A2A", () => {
   });
   assert.equal(resolved.ok, true);
   if (!resolved.ok) return;
-  assert.equal(resolved.airportFixedCostsGbp, 9);
+  assert.equal(resolved.airportFixedCostsGbp, 0);
 });
 
 check("ambiguous same-airport both ends rejected", () => {
