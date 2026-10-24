@@ -16,9 +16,9 @@ Server-calculated visit snapshots are saved in pending checkout and the paid boo
 
 ## Official location evidence checked 24 October 2026
 
-- Belfast International: https://www.belfastairport.com/parking/pick-up-and-drop-off — official indexed content confirms a 15-minute Long Stay grace period for both pickup and drop-off. Direct retrieval returned 403. The free location is away from terminal doors. Do not state an unverified exact walking distance or time.
+- Belfast International: https://www.belfastairport.com/parking/pick-up-and-drop-off — official indexed content confirms a 15-minute Long Stay grace period for both pickup and drop-off. Direct retrieval returned 403. The free location is away from terminal doors. The official indexed Long Stay page (https://www.belfastairport.com/parking/long-stay-car-park) describes a 4-minute walk; this approximate time is shown. Do not state an unverified exact walking distance.
 - Belfast City: https://www.belfastcityairport.com/Parking/Our-Car-Parks/Long-Stay-Car-Park — both directions, any empty Long Stay bay, exit within 10 minutes. A marked walking path takes approximately 5–10 minutes. Re-entry within 15 minutes is chargeable. https://www.belfastcityairport.com/Parking/Drop-Off-and-Pick-Up confirms the £4 paid area for up to 10 minutes.
-- Outstanding before release: obtain a reliable BFS Long Stay walking time and measured walking distances for both free locations. None is invented in the interface. Confirm operator-specific access permissions and passenger coordination for avoiding overstays; airport grace periods are not a promise of unlimited free waiting inside the car park.
+- Outstanding before release: obtain measured walking distances for both free locations. None is invented in the interface. Confirm operator-specific access permissions and passenger coordination for avoiding overstays; airport grace periods are not a promise of unlimited free waiting inside the car park.
 
 ## Preview and release scope
 

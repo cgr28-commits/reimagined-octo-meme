@@ -44,7 +44,7 @@ export default function TerminalAccessOptions(props: Props) {
           <span><span className="block font-semibold">Free Airport Access — £0</span>
             <span className="mt-1 block text-xs text-white/75">
               {pickup ? "Meet your driver in" : "Your driver drops you at"} the Long Stay car park, away from the terminal doors.
-              {airportCode === "BHD" ? " Follow the marked path; allow approximately 5–10 minutes to walk." : " Follow the airport signs between Long Stay and the terminal."}
+              {airportCode === "BHD" ? " Follow the marked path; allow approximately 5–10 minutes to walk." : " The airport describes an approximately 4-minute walk to the terminal; follow the airport signs."}
               {airportCode === "BFS" ? " The airport allows 15 minutes free for pickup or drop-off." : " The airport allows 10 minutes free; re-entry within 15 minutes is chargeable."}
               {pickup ? " Contact your driver when you are ready at the collection point." : ""}
             </span>
