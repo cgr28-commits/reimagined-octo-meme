@@ -1,3 +1,4 @@
+import { hasUncertainPayment, markPaymentPending, clearPaymentPending, PaymentOutcomeUncertainError } from "./payment-attempt-guard";
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import {
@@ -330,6 +331,8 @@ export async function createPaymentCheckout(
     recordAdFraudBehaviour("payment_started");
   });
 
+  if (hasUncertainPayment()) throw new PaymentOutcomeUncertainError();
+  markPaymentPending();
   const response = await fetch(withCustomerSmartAvailabilityPreviewUrl(PAYMENTS_API_URL), {
     method: "POST",
     headers: {
@@ -416,9 +419,16 @@ export async function createPaymentCheckout(
         : {}),
       ...(request.cashAgreementAccepted === true ? { cashAgreementAccepted: true } : {}),
     }),
-  });
+  }).catch(() => { throw new PaymentOutcomeUncertainError(); });
 
   const payload = await response.json().catch(() => null);
+
+  // Network loss, malformed responses and ambiguous server failures must not
+  // invite another checkout. Only an explicit validation rejection is retryable.
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) || (response.status >= 500 && payload.code !== "route_service_unavailable") || payload.code === "payment_in_progress") {
+    throw new PaymentOutcomeUncertainError();
+  }
+  if (!response.ok) clearPaymentPending();
 
   if (!response.ok) {
     if (
@@ -514,13 +524,15 @@ export async function createPaymentCheckout(
 
   const result = payload as PaymentCheckoutResult;
   if (result.shortNotice && result.reference && result.whatsappUrl) {
+    clearPaymentPending();
     return result;
   }
 
-  if (typeof result.paymentUrl !== "string") {
-    throw new Error("Payment service returned an invalid response");
+  if (typeof result.paymentUrl !== "string" || !result.paymentUrl || !result.checkoutId) {
+    throw new PaymentOutcomeUncertainError();
   }
 
+  clearPaymentPending();
   return result;
 }
 

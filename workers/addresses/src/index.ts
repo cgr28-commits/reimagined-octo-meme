@@ -1973,7 +1973,10 @@ async function handlePaymentRequest(
   request: Request,
   env: Env,
   origin: string | null,
+  ctx?: ExecutionContext,
+  timing: Record<string, number> = {},
 ): Promise<Response> {
+  const preparationStarted = performance.now();
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
   const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
 
@@ -3521,6 +3524,8 @@ async function handlePaymentRequest(
       }
     }
 
+    timing.validation = performance.now() - preparationStarted;
+    const sumupStarted = performance.now();
     let checkout: Awaited<ReturnType<typeof createSumUpHostedCheckout>>;
     try {
       checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
@@ -3538,6 +3543,9 @@ async function handlePaymentRequest(
       }
       throw error;
     }
+
+    timing.sumup = performance.now() - sumupStarted;
+    const persistenceStarted = performance.now();
 
     if (personalQuoteCode && personalQuoteReservationAttemptId) {
       await bindPersonalQuoteReservationCheckout(
@@ -3638,18 +3646,30 @@ async function handlePaymentRequest(
       checkoutId: checkout.checkoutId,
       checkoutReference: checkout.checkoutReference,
     });
-    const attemptSend = await trySendOwnerOperationalEmail(env, {
-      to: ownerInbox(env),
-      subject: attemptEmail.subject,
-      body: attemptEmail.body,
-    });
-    if (attemptSend.sent) {
-      await patchPendingCheckout(env.TRACKING_STORE, checkout.checkoutId, {
-        attemptEmailSentAt: new Date().toISOString(),
-      });
-    } else {
-      console.error("Owner payment-attempt email failed", attemptSend.error);
-    }
+    timing.persistence = performance.now() - persistenceStarted;
+    const pendingStore = env.TRACKING_STORE;
+    const notifyOwner = async () => {
+      try {
+        const attemptSend = await trySendOwnerOperationalEmail(env, {
+          to: ownerInbox(env),
+          subject: attemptEmail.subject,
+          body: attemptEmail.body,
+        });
+        if (attemptSend.sent) {
+          await patchPendingCheckout(pendingStore, checkout.checkoutId, {
+            attemptEmailSentAt: new Date().toISOString(),
+          });
+        } else {
+          console.error("Owner payment-attempt email failed");
+        }
+      } catch {
+        console.error("Owner payment-attempt email failed");
+      }
+    };
+    // Pending payment is durable before scheduling this non-payment side effect.
+    // Cloudflare keeps waitUntil work alive after the checkout response is sent.
+    if (ctx) ctx.waitUntil(notifyOwner());
+    else await notifyOwner();
 
     return json(
       {
@@ -3662,14 +3682,14 @@ async function handlePaymentRequest(
         bookingSaved: true,
         bookingReference: checkout.checkoutReference,
         amount: Math.round(amount * 100) / 100,
-        ownerAttemptEmailSent: attemptSend.sent,
+        ownerAttemptEmailQueued: Boolean(ctx),
         ...(shortNoticeReference ? { shortNoticeReference } : {}),
       },
       200,
       origin,
     );
   } catch (error) {
-    console.error("SumUp checkout failed", error);
+    console.error("SumUp checkout failed");
     return json({ error: "Could not create SumUp payment link" }, 502, origin);
   }
 }
@@ -4010,7 +4030,7 @@ async function handleFlightLookupRequest(
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const origin = request.headers.get("Origin");
     const url = new URL(request.url);
     const route = routePath(url.pathname);
@@ -5090,9 +5110,17 @@ export default {
         return json({ error: "Method not allowed" }, 405, origin);
       }
 
+      const started = performance.now();
+      const timing: Record<string, number> = {};
+      const timedResponse = (response: Response) => {
+        const headers = new Headers(response.headers);
+        headers.set("Server-Timing", Object.entries({ ...timing, total: performance.now() - started })
+          .map(([name, duration]) => `${name};dur=${duration.toFixed(1)}`).join(", "));
+        return new Response(response.body, { status: response.status, headers });
+      };
       const body = await request.clone().json().catch(() => null) as Record<string, unknown> | null;
       const booking = body?.booking as Record<string, unknown> | undefined;
-      if (!booking || !env.QUOTE_LEAD_COORDINATOR) return handlePaymentRequest(request, env, origin);
+      if (!booking || !env.QUOTE_LEAD_COORDINATOR) return timedResponse(await handlePaymentRequest(request, env, origin, ctx, timing));
       // Stable across double taps, redirect tokens and page reloads. A changed
       // price/payment method cannot silently reuse or create a second checkout.
       const identity = [booking.customerEmail, booking.pickupLabel, booking.dropoffLabel,
@@ -5103,12 +5131,12 @@ export default {
       try {
         const {result} = await runPaymentOperation({namespace:env.QUOTE_LEAD_COORDINATOR,
           key:`payment-create:${await paymentOperationHash(identity)}`,digest,
-          run:async()=>{const response=await handlePaymentRequest(request,env,origin); return {status:response.status,body:await response.json() as Record<string,unknown>};},
+          run:async()=>{const response=await handlePaymentRequest(request,env,origin,ctx,timing); return {status:response.status,body:await response.json() as Record<string,unknown>};},
           // A definite validation rejection made no provider request. Never retry
           // an ambiguous 5xx automatically (the provider may have accepted it).
           retrySafe:result=>result.body.code === "route_service_unavailable" || (result.status < 500 && !(result.status === 200 && result.body.checkoutId)),
         });
-        return json(result.body,result.status,origin);
+        return timedResponse(json(result.body,result.status,origin));
       } catch(error) {
         return json({error:error instanceof PaymentOperationBusy ? error.message : "Payment status is uncertain. Please contact us before trying another payment.",code:"payment_in_progress"},409,origin);
       }
