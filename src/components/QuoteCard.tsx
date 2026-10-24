@@ -4216,6 +4216,9 @@ function QuoteCard({
       : mayPaintNumericFare
         ? (liveQuote?.amount ?? null)
         : null);
+  useEffect(() => {
+    setHomepageFareChangeAck(false);
+  }, [paymentAmount]);
   const homepageQuotedBaseline = provisionalQuotedAmountRef.current;
   const homepageFareChanged =
     presentation === "homepage" &&
@@ -6474,28 +6477,7 @@ function QuoteCard({
 
           {renderQuoteScheduleFields("checkout")}
 
-          {presentation === "homepage" && homepageFareChanged ? (
-            <div
-              className="rounded-xl border border-emerald/40 bg-emerald/10 px-3.5 py-3 text-sm text-white"
-              data-homepage-fare-change
-            >
-              <p className="font-semibold text-emerald">Updated price</p>
-              <p className="mt-1 leading-snug">
-                Your fare is now {formatQuote(paymentAmount ?? 0)}. It was{" "}
-                {formatQuote(homepageQuotedBaseline ?? 0)} before the date and time were added.
-                Please confirm the updated amount before you pay.
-              </p>
-              <label className="mt-2 flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 accent-emerald"
-                  checked={homepageFareChangeAck}
-                  onChange={(event) => setHomepageFareChangeAck(event.target.checked)}
-                />
-                <span>I confirm the updated price.</span>
-              </label>
-            </div>
-          ) : null}
+
 
           <section
             id="step3-customer-details"
@@ -6795,6 +6777,29 @@ function QuoteCard({
           !ownerClosed &&
           !checkoutBlocked ? (
             <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
+          ) : null}
+
+          {presentation === "homepage" && homepageFareChanged ? (
+            <div
+              className="rounded-xl border border-emerald/40 bg-emerald/10 px-3.5 py-3 text-sm text-white"
+              data-homepage-fare-change
+            >
+              <p className="font-semibold text-emerald">Updated price</p>
+              <p className="mt-1 leading-snug">
+                Your total is now {formatQuote(paymentAmount ?? 0)}. Your initial quote was{" "}
+                {formatQuote(homepageQuotedBaseline ?? 0)} before your final booking choices.
+                Please confirm the total before accepting the terms and continuing to payment.
+              </p>
+              <label className="mt-2 flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 accent-emerald"
+                  checked={homepageFareChangeAck}
+                  onChange={(event) => setHomepageFareChangeAck(event.target.checked)}
+                />
+                <span>I confirm the updated price.</span>
+              </label>
+            </div>
           ) : null}
 
           {isTooSoonCheckout ? null : (

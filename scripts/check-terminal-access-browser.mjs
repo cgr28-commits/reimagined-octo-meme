@@ -57,8 +57,24 @@ try {
   assert.equal(await section.locator('input[value="free"]').isChecked(),true);
   await section.locator('input[value="express"]').check();
   await page.waitForFunction(expected=>document.querySelector('#step2-journey-summary')?.textContent.includes(`Total £${expected}`),initial+5);
+  const confirmation = page.locator('[data-homepage-fare-change]');
+  await confirmation.waitFor();
+  assert.ok((await confirmation.innerText()).includes('final booking choices'));
+  assert.equal((await confirmation.innerText()).includes('before the date and time were added'),false);
+  assert.ok(await page.evaluate(()=>{
+    const confirmation=document.querySelector('[data-homepage-fare-change]');
+    const services=[...document.querySelectorAll('[data-terminal-access]')];
+    const terms=[...document.querySelectorAll('label')].find(el=>el.textContent.includes('I agree to the'));
+    return confirmation.closest('#step3-payment-actions') && services.every(el=>Boolean(el.compareDocumentPosition(confirmation)&Node.DOCUMENT_POSITION_FOLLOWING)) &&
+      Boolean(confirmation.compareDocumentPosition(terms)&Node.DOCUMENT_POSITION_FOLLOWING);
+  }),'Price confirmation follows all airport options and precedes terms');
+  await confirmation.getByRole('checkbox').check();
   await section.locator('input[value="free"]').check();
   await page.waitForFunction(expected=>document.querySelector('#step2-journey-summary')?.textContent.includes(`Total £${expected}`),initial);
+  await section.locator('input[value="express"]').check();
+  await confirmation.waitFor();
+  assert.equal(await confirmation.getByRole('checkbox').isChecked(),false,'Changed total needs a fresh confirmation');
+  await section.locator('input[value="free"]').check();
   if(returning) {
     const pickup=page.locator('[data-terminal-access]').nth(1);
     await pickup.locator('input[value="express"]').check();
