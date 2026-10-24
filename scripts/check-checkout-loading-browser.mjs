@@ -67,6 +67,7 @@ try {
   assert.equal(await pay.evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
   clicked=true;
   const started=Date.now();
+  const popupPromise=width>=600 && ["success","slow"].includes(scenario) ? context.waitForEvent("page") : null;
   // Two synchronous clicks exercise the ref guard before React rerenders.
   await pay.evaluate(el=>{el.click();el.click();});
   await page.getByRole('button',{name:'Preparing your secure payment…'}).waitFor();
@@ -92,8 +93,6 @@ try {
     await page.waitForURL('https://checkout.sumup.com/isolated');
   } else {
     await page.getByText('Secure payment ready',{exact:true}).waitFor();
-    const popupPromise=context.waitForEvent('page');
-    await page.getByRole('button',{name:'Continue to SumUp',exact:true}).click();
     const popup=await popupPromise;await popup.waitForURL('https://checkout.sumup.com/isolated');
   }
   assert.equal(payments,1);

@@ -4684,9 +4684,11 @@ function QuoteCard({
         window.location.assign(checkout.paymentUrl);
         return;
       }
-      // Desktop: keep the completed quote visible and wait for Continue to SumUp.
+      // Start the existing desktop handoff as soon as checkout is ready.
+      // If the browser blocks the new tab, the helper redirects this tab once.
       setOpenCheckout(session);
-      setPaymentLoading(false);
+      paymentNavigating.current = true;
+      openSumUpPayment(checkout.paymentUrl);
       return;
     } catch (error) {
       paymentNavigating.current = false;
@@ -4770,6 +4772,7 @@ function QuoteCard({
     }
     const handoff = openDesktopSumUpCheckout(window, paymentUrl);
     if (handoff.openedNewTab) {
+      paymentNavigating.current = false;
       setPaymentLoading(false);
       setPaymentPopupBlocked(false);
       return;
