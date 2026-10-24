@@ -209,17 +209,32 @@ check("QuoteCard is the only customer payment-choice UI", () => {
 
 check("Deposit + Cash renders before Full Online and is preselected when eligible", () => {
   const card = read("src/components/QuoteCard.tsx");
-  const options = read("src/components/BookingPaymentOptions.tsx");
-  assert.ok(options.indexOf("{DEPOSIT_CASH_OPTION_LABEL}") < options.indexOf("{FULL_ONLINE_OPTION_LABEL}"));
-  assert.match(card, /useState<PaymentMethod>\(PAYMENT_METHOD_DEPOSIT_CASH\)/);
-  assert.match(options, /todayPayLabel\(offer\.depositGbp\)/);
-  assert.match(options, /formatDepositCashGbp\(offer\.cashDueGbp\)/);
-  assert.match(options, /todayPayLabel\(offer\.totalFare\)/);
-  assert.match(options, /Nothing to pay on pickup/);
-  assert.match(options, /Secure card payment powered by SumUp/);
-  assert.match(options, /I agree to pay the \{cash\} cash balance/);
-  assert.match(options, /Card payments aren’t accepted for the balance/);
-  assert.doesNotMatch(options, /PAYMENT SUMMARY|calculateDepositCashQuote|Math\.floor/);
+  const depositCard = card.indexOf("{DEPOSIT_CASH_OPTION_LABEL}");
+  const fullCard = card.indexOf("{FULL_ONLINE_OPTION_LABEL}");
+  assert.ok(depositCard > 0, "Deposit + Cash card missing");
+  assert.ok(fullCard > 0, "Pay in Full Online card missing");
+  assert.ok(
+    depositCard < fullCard,
+    "Deposit + Cash must render before Pay in Full Online",
+  );
+  assert.match(
+    card,
+    /useState<PaymentMethod>\(PAYMENT_METHOD_DEPOSIT_CASH\)/,
+  );
+  assert.match(card, /DEPOSIT_CASH_BADGE/);
+  assert.match(card, /todayPayLabel\(depositCashOffer\.depositGbp\)/);
+  assert.match(card, /formatDepositCashGbp\(depositCashOffer\.cashDueGbp\)/);
+  assert.doesNotMatch(card, /calculateDepositCashQuote/);
+  assert.doesNotMatch(card, /Math\.floor\(|oddPence|cashPence/);
+  assert.match(card, /CASH/);
+  assert.match(card, /todayPayLabel\(depositCashOffer\.totalFare\)/);
+  assert.match(card, /nothingToPayOnTheDayLabel\(\)/);
+  assert.equal((card.match(/\{SECURE_SUMUP_LINE\}/g) ?? []).length, 1);
+
+
+
+  assert.match(card, /cashAgreementLabel\(depositCashOffer\.cashDueGbp\)/);
+
   assert.match(card, /CASH_AGREEMENT_REQUIRED_MESSAGE/);
 });
 
@@ -237,11 +252,11 @@ check("cash agreement stays unchecked and is required before pay", () => {
 
 check("switching to Full Online drops the cash acknowledgement requirement", () => {
   const card = read("src/components/QuoteCard.tsx");
-  const fullOnlineClick = card.indexOf("if (method === PAYMENT_METHOD_FULL_ONLINE)");
+  const fullOnlineClick = card.indexOf("setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE)");
   const resetAgreement = card.indexOf("setCashAgreementAccepted(false)", fullOnlineClick);
   assert.ok(fullOnlineClick > 0, "Full Online switch missing");
   assert.ok(resetAgreement > fullOnlineClick, "Switching to Full Online must clear the cash tick");
-  assert.match(read("src/components/BookingPaymentOptions.tsx"), /paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH \? \(/);
+  assert.match(card, /selectedDepositCash \? \(/);
 });
 
 check("disabled or ineligible Deposit + Cash keeps existing full-online pay behaviour", () => {
@@ -459,7 +474,7 @@ check("CASE A — £50.10 shows £15.10 deposit / £35.00 cash with two decimals
   );
   assert.equal(
     cashAgreementLabel(caseA.cashDueGbp),
-    "I understand that the remaining £35.00 must be paid in cash to my driver on the day and cannot be paid by card.",
+    "I understand that the remaining £35 must be paid in cash to my driver on the day.",
   );
   assert.equal(DEPOSIT_CASH_SELECTED_HEADING, "Deposit + Cash selected");
   assert.equal(formatGbpAmount(15), "£15");
@@ -489,8 +504,8 @@ check("CASE C — Full Online £50.10 shows today + nothing on the day", () => {
   assert.equal(nothingToPayOnTheDayLabel(), "Nothing to pay on the day");
   assert.equal(fullPayButtonLabel(caseA.totalFare), "Pay £50.10 & Confirm Booking");
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(card, /<BookingPaymentOptions/);
-  assert.match(read("src/components/BookingPaymentOptions.tsx"), /Nothing to pay on pickup/);
+  assert.match(card, /\{selectedDepositCash \? \(/);
+  assert.equal((card.match(/\{SECURE_SUMUP_LINE\}/g) ?? []).length, 1);
 });
 
 check("CASE D — cash acknowledgement stays required and unchecked", () => {
@@ -509,7 +524,7 @@ check("CASE E — Full Online does not require the cash acknowledgement", () => 
     card,
     /showDepositCashChoice &&\s*\n\s+paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH &&\s*\n\s+!cashAgreementAccepted/,
   );
-  assert.match(card, /if \(method === PAYMENT_METHOD_FULL_ONLINE\) \{\s+setCashAgreementAccepted\(false\)/);
+  assert.match(card, /setPaymentMethod\(PAYMENT_METHOD_FULL_ONLINE\);\s+setCashAgreementAccepted\(false\)/);
 });
 
 check("CASE F — Deposit + Cash disabled keeps the existing full-online checkout", () => {

@@ -3,8 +3,7 @@ import { needsManualQuoteApproval, type SelectedPlace } from "../src/lib/selecte
 import { defaultOwnerPricingSettings } from "../shared/owner-pricing-config";
 import { approvedProductionProfitabilitySettings } from "../src/lib/owner-profitability-settings";
 import { ESTATE_VEHICLE } from "../src/lib/vehicle-selection";
-import { applyProfitabilityProtection, profitabilityFloorFromOperations, roundUpWholePoundGbp } from "../workers/addresses/src/profitability";
-import { OPERATING_BASE } from "../workers/addresses/src/operating-base";
+import { applyProfitabilityProtection, profitabilityFloorFromOperations } from "../workers/addresses/src/profitability";
 import { universalDrivingMilesFromKm } from "../shared/universal-distance-pricing";
 
 function place(id: string, address: string, lat: number, lng: number, countryCode: string): SelectedPlace {
@@ -39,19 +38,13 @@ async function main() {
           schedule: { outboundDate: "2026-11-10", outboundTime: "12:00", returnJourney, returnDate: "2026-11-12", returnTime: "12:00" },
           existing: { amountGbp: 245, journeyFareGbp: 245, airportFixedCostsGbp: 0, nightWeekendSurchargeGbp: 0 },
         });
-        assert.equal(result.applied, true);
-        assert.equal(result.fallbackReason, null);
-        const oneWay = roundUpWholePoundGbp(floor.floorGbp) + pricing.estate.upliftGbp;
-        assert.ok(result.amountGbp >= (returnJourney ? oneWay * 2 * (1 - pricing.returnDiscount.rate) - 1 : oneWay), "Positioning and getting home must be included before vehicle uplift/return discount");
+        assert.equal(result.applied, false);
+        assert.equal(result.fallbackReason, "analysis_only");
+        assert.equal(result.amountGbp, 245, "Operational estimates must not alter customer fares");
       }
     }
-    const home = `${OPERATING_BASE.lng},${OPERATING_BASE.lat}`;
-    assert.ok(legs.some(url => url.includes(`${home};${dublin.lng},${dublin.lat}`)));
-    assert.ok(legs.some(url => url.includes(`${belfast.lng},${belfast.lat};${home}`)));
-    assert.ok(legs.some(url => url.includes(`${home};${belfast.lng},${belfast.lat}`)));
-    assert.ok(legs.some(url => url.includes(`${dublin.lng},${dublin.lat};${home}`)));
-    assert.ok(legs.some(url => url.includes(`${cork.lng},${cork.lat};${home}`)));
-    console.log("Dublin corridor and Belfast to Cork home-positioning profitability checks passed (one-way and return).");
+    assert.deepEqual(legs, [], "Customer pricing must not route positioning mileage");
+    console.log("Dublin corridor customer fares unchanged; no positioning routes (one-way and return).");
   } finally { globalThis.fetch = originalFetch; }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

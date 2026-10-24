@@ -75,6 +75,8 @@ export type PaidBookingAdditionalPayment = {
 };
 
 export type PaidBookingRecord = {
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
   /**
    * Internal / SumUp reconciliation key (transaction code or checkout ref).
    * Not the customer-facing booking reference — see {@link customerReference}.
@@ -188,6 +190,8 @@ export type PaidBookingRecord = {
   airportAccessOption?: "express" | "free" | "meet-greet" | null;
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
+  terminalAccessChoices?: import("./meet-greet").TerminalAccessChoices;
+  terminalAccessVisits?: import("./meet-greet").QuotedAirportAccessLeg[];
   outboundAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   returnAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   meetGreetFeeGbp?: number;

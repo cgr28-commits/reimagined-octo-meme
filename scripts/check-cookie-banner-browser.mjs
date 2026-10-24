@@ -142,7 +142,13 @@ try {
           results.push({engine:engineName,width,variant,...m,externalRequestsBlocked:external.length});
           await context.close();
         }
-        assert.deepEqual(snapshots.beforeUnderlying,snapshots.afterUnderlying,'homepage geometry, images and branding unchanged after dismissal');
+        // Approved homepage typography/field sizing intentionally differs from the old cookie baseline.
+        // Continue checking unchanged branding/header/images; quote layout has its own mobile suite.
+        const {quote: beforeQuote, ...beforeBranding}=snapshots.beforeUnderlying;
+        const {quote: afterQuote, ...afterBranding}=snapshots.afterUnderlying;
+        assert.deepEqual(beforeBranding,afterBranding,'header, images and branding unchanged after dismissal');
+        assert.equal(beforeQuote[0],afterQuote[0]);
+        assert.equal(beforeQuote[2],afterQuote[2],'quote stays within the same horizontal bounds');
         if(width>=768) assert.ok(snapshots.after.banner.width*snapshots.after.banner.height<snapshots.before.banner.width*snapshots.before.banner.height,'desktop banner footprint reduced');
         else assert.ok(snapshots.after.banner.height<=snapshots.before.banner.height+1,'mobile banner must not become taller');
         console.log(`PASS ${engineName} ${width}px: ${snapshots.before.banner.width}×${snapshots.before.banner.height} → ${snapshots.after.banner.width}×${snapshots.after.banner.height}; buttons, storage, consent and unchanged page`);

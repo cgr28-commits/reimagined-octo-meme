@@ -82,7 +82,7 @@ async function main() {
       const pickupPlaceId=from?airport.placeId:reviewed.placeId,dropoffPlaceId=from?reviewed.placeId:airport.placeId;
       const journey={pickupAddress,dropoffAddress,pickupPlaceId,dropoffPlaceId,returnJourney:returning,outboundDate:"2026-11-13",outboundTime:"12:00",returnDate:"2026-11-20",returnTime:"12:00",passengers:1,suitcases:1,vehicleType:vehicle};
       const quote=await calculateServerQuote(journey);
-      assert.ok(quote.ok,JSON.stringify(quote)); assert.equal(Boolean(quote.quoteReceipt?.startsWith("v2-bfs-minimum.")), signed, "Browser retains the BFS-only signed receipt when available");
+      assert.ok(quote.ok,JSON.stringify(quote)); assert.equal(Boolean(quote.quoteReceipt?.startsWith("v4-optional-terminal-access.")), signed, "Browser retains the versioned signed receipt when available");
       const express=resolveExpressDropOff({airportCode:airport.code,fromAirport:from,returnJourney:returning,selected:true,outboundSelected:true,returnSelected:true});
       const access=quoteAirportAccessCharges({airportCode:airport.code,fromAirport:from,returnJourney:returning,expressLegs:express.legs,fees:pricing.meetGreet});
       const total=composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:quote.journeyFareGbp!,airportFixedCostsGbp:quote.airportFixedCostsGbp,airportAccessChargeGbp:access.airportAccessChargeGbp,returnJourney:returning,preserveFixedFarePence:quote.preserveBfsMinimumPence}).finalAmountPayableGbp;

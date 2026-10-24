@@ -296,7 +296,7 @@ console.log("\n=== Checkout wording is Change airport access ===");
   assert.equal(expressCheckoutChangeLabel("combined"), "Change airport access");
   const summary = read("src/components/QuoteCheckoutSummary.tsx");
   const card = read("src/components/QuoteCard.tsx");
-  assert.match(card, /expressCheckoutChangeLabel\(\)/);
+  assert.match(summary, /Change airport access/);
   assert.match(summary, /changeAccessLabel/);
   assert.doesNotMatch(card, /Change pick-up/);
   console.log("OK  checkout link no longer says Change drop-off / pick-up");

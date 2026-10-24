@@ -90,7 +90,7 @@ check("Dublin: universal journey + fixed costs", () => {
   assert.equal(pick.amount, 213);
 });
 
-check("A2A BFS↔BHD includes terminal access at both ends", () => {
+check("A2A BFS↔BHD excludes optional terminal access at both ends", () => {
   const bfsBhd = calculateAirportToAirportQuote(
     "BFS",
     "BHD",
@@ -102,8 +102,8 @@ check("A2A BFS↔BHD includes terminal access at both ends", () => {
     M17,
   )!;
   assert.equal(bfsBhd.journeyFareGbp, calculateUniversalSaloonJourneyFareGbp(17));
-  assert.equal(bfsBhd.airportFixedCostsGbp, 9);
-  assert.equal(bfsBhd.amount, bfsBhd.journeyFareGbp! + 9);
+  assert.equal(bfsBhd.airportFixedCostsGbp, 0);
+  assert.equal(bfsBhd.amount, bfsBhd.journeyFareGbp!);
 });
 
 check("Null metrics refuse fare", () => {

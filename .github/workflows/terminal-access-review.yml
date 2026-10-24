@@ -1,0 +1,69 @@
+name: Terminal access review
+on:
+  pull_request:
+    paths:
+      - 'shared/**'
+      - 'src/components/TerminalAccessOptions.tsx'
+      - 'src/components/QuoteCard.tsx'
+      - 'workers/addresses/src/**'
+      - 'scripts/check-terminal-access*'
+      - 'scripts/check-postcode-pricing.ts'
+      - 'scripts/check-open-website-payment-fares.ts'
+      - '.github/workflows/terminal-access-review.yml'
+permissions:
+  contents: read
+jobs:
+  booking-and-mobile:
+    if: github.head_ref == 'feat/optional-terminal-access'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_ADDRESSES_API_URL: http://127.0.0.1:8787/addresses
+      NEXT_PUBLIC_BOOKINGS_API_URL: http://127.0.0.1:8787/bookings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/checkout@v4
+        with:
+          ref: 2c6bfb59a9fad54389990f217ee3b0cc056af93b
+          path: .compat-baseline
+          persist-credentials: false
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: npm run sync:worker-shared
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm --prefix workers/addresses run build
+      - name: Isolated pricing, booking, payment and email matrix
+        run: |
+          node --import tsx scripts/check-terminal-access.ts
+          node --import tsx scripts/check-homepage-hero-copy.ts
+          node --import tsx scripts/check-terminal-access-payment.ts
+          PR692_BASELINE_ROOT="$GITHUB_WORKSPACE/.compat-baseline" node --import tsx scripts/check-receipt-release-compatibility.ts
+          PR692_BASELINE_ROOT="$GITHUB_WORKSPACE/.compat-baseline" node --import tsx scripts/check-receipt-storage-rollback.ts
+          node --import tsx scripts/check-deposit-cash.ts
+          node --import tsx scripts/check-airport-pickup-flight-required.ts
+          node --import tsx scripts/check-meet-greet.ts
+          node --import tsx scripts/check-bfs-minimum-only.ts
+          node --import tsx scripts/release-fare-snapshot.ts
+          node --import tsx scripts/check-saved-quote.ts
+          node --import tsx scripts/check-quote-receipt.ts
+          node --import tsx scripts/check-payment-operation.ts
+      - run: GITHUB_PAGES=true npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Check 375px and 390px on Chromium and WebKit
+        run: |
+          python3 -m http.server 3000 --directory out > "$RUNNER_TEMP/terminal-server.log" 2>&1 &
+          TEST_BASE_URL=http://127.0.0.1:3000 PLAYWRIGHT_BROWSER=chromium node --import tsx scripts/check-terminal-access-browser.mjs
+          TEST_BASE_URL=http://127.0.0.1:3000 PLAYWRIGHT_BROWSER=chromium node scripts/check-homepage-field-layout.mjs
+          TEST_BASE_URL=http://127.0.0.1:3000 PLAYWRIGHT_BROWSER=webkit node --import tsx scripts/check-terminal-access-browser.mjs
+          TEST_BASE_URL=http://127.0.0.1:3000 PLAYWRIGHT_BROWSER=webkit node scripts/check-homepage-field-layout.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terminal-access-mobile
+          path: test-results/terminal-access

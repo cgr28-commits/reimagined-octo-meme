@@ -23,7 +23,8 @@ import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { applyProfitabilityProtection } from "./profitability";
-import { signQuoteReceipt } from "./quote-receipt";
+import { resolveJourneyAirportFees } from "../shared/airport-fixed-costs";
+import { signQuoteReceipt, LEGACY_QUOTE_RECEIPT_FORMAT, QUOTE_RECEIPT_FORMAT } from "./quote-receipt";
 import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
 import {
   isDublinAirportCode,
@@ -733,6 +734,15 @@ export async function handleQuoteCalculateRequest(
     return json({ ...result, diagnostics }, status, origin);
   }
 
+  // Older cached clients do not advertise optional-access semantics. Keep their
+  // receipt namespace and embedded A2A fixed costs until they naturally reload.
+  const legacyQuote = body.quoteProtocol !== "optional-terminal-access-v4";
+  if (legacyQuote && isAirportToAirport && addressAirport.ok) {
+    const fixed = resolveJourneyAirportFees({...addressAirport.context, returnJourney, legacyNiAccess: true}).totalAppliedGbp;
+    result = {...result, amount: Math.round((result.amount - (result.airportFixedCostsGbp ?? 0) + fixed) * 100) / 100, airportFixedCostsGbp: fixed};
+    result.amountLabel = `£${result.amount.toFixed(result.amount % 1 ? 2 : 0)}`;
+  }
+
   const quoteBody: Record<string, unknown> = {
     ...result,
     nightWeekendSurchargeLabel: nightWeekendSurchargeLabel(pricing),
@@ -773,6 +783,7 @@ export async function handleQuoteCalculateRequest(
       },
         secret,
         Date.now(),
+        legacyQuote ? LEGACY_QUOTE_RECEIPT_FORMAT : QUOTE_RECEIPT_FORMAT,
       );
     }
   }

@@ -57,6 +57,7 @@ export type BuildSaveQuotePayloadInput = {
   isFromAirport?: boolean;
   journeyType: string;
   optionalMeetGreetSelected?: boolean;
+  terminalAccessChoices?: import("../../shared/meet-greet").TerminalAccessChoices;
   outboundAirportAccessChoice?: "express" | "free" | "meet-greet";
   returnAirportAccessChoice?: "express" | "free" | "meet-greet";
   tripDate: string;
@@ -178,6 +179,7 @@ export function buildSaveQuotePayloadFromLiveQuote(
     isFromAirport: input.isFromAirport,
     journeyType: input.journeyType,
     optionalMeetGreetSelected: input.optionalMeetGreetSelected,
+    terminalAccessChoices: input.terminalAccessChoices,
     outboundAirportAccessChoice: input.outboundAirportAccessChoice,
     returnAirportAccessChoice: input.returnAirportAccessChoice,
     tripDate,

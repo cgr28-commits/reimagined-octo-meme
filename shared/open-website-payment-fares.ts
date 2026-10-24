@@ -155,6 +155,7 @@ export function resolvePaymentAirportContextFromAddresses(
 }
 
 export type OpenWebsitePaymentTransferInput = {
+  legacyNiAccess?: boolean;
   /** Client-claimed transfer total (journey + fixed costs) before Express / promos. */
   clientTransferAmountGbp: number;
   claimedJourneyFareGbp?: number | null;
@@ -357,6 +358,7 @@ export function resolveOpenWebsitePaymentTransferFares(
   }
   const ctx = ctxResult.context;
   const feeResolution = resolveJourneyAirportFees({
+    legacyNiAccess: input.legacyNiAccess,
     isAirportToAirport: ctx.isAirportToAirport,
     pickupAirportCode: ctx.pickupAirportCode,
     dropoffAirportCode: ctx.dropoffAirportCode,

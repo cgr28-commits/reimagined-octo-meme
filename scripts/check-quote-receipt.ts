@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   QUOTE_RECEIPT_TTL_SECONDS,
+  LEGACY_QUOTE_RECEIPT_FORMAT,
   canonicalJourneyEndpoint,
   decideQuoteReceiptPayment,
   signQuoteReceipt,
@@ -71,10 +72,23 @@ console.log("=== Sign, verify, and reject tampering ===");
 {
   const token = await signQuoteReceipt(journey({preserveBfsMinimumPence:true}), SECRET, NOW);
   const [format, body] = token.split(".");
-  assert.equal(format, "v2-bfs-minimum");
+  assert.equal(format, "v4-optional-terminal-access");
   const legacySignature = createHmac("sha256", SECRET).update(Buffer.from(body!, "base64url")).digest("base64url");
   assert.equal((await verifyQuoteReceipt(`v1.${body}.${legacySignature}`, SECRET, NOW)).ok, false, "old pricing policy must refresh");
   assert.equal((await verifyQuoteReceipt(`v2.${body}.${legacySignature}`, SECRET, NOW)).ok, false, "changing an old token prefix must not bypass new policy");
+
+  const legacy = await signQuoteReceipt(journey(), SECRET, NOW, LEGACY_QUOTE_RECEIPT_FORMAT);
+  const legacyVerified = await verifyQuoteReceipt(legacy, SECRET, NOW + 60_000);
+  assert.ok(legacyVerified.ok);
+  if (legacyVerified.ok) assert.equal(legacyVerified.format, LEGACY_QUOTE_RECEIPT_FORMAT);
+  assert.equal((await verifyQuoteReceipt(legacy.replace("v2-bfs-minimum", "v4-optional-terminal-access"), SECRET, NOW)).ok, false);
+  assert.equal((await verifyQuoteReceipt(token.replace("v4-optional-terminal-access", "v2-bfs-minimum"), SECRET, NOW)).ok, false);
+  assert.equal((await verifyQuoteReceipt(legacy, SECRET, NOW + 3 * 3600000)).ok, false);
+  assert.equal((await verifyQuoteReceipt(legacy, "wrong-secret", NOW)).ok, false);
+  const changed = await decideQuoteReceiptPayment({protectionActive:true, secret:SECRET, token:legacy, nowMs:NOW, expected:{...expectedFrom(journey()), passengers:3}});
+  assert.equal(changed.action,"refresh");
+  const changedVersion = await decideQuoteReceiptPayment({protectionActive:true, secret:SECRET, token:legacy, nowMs:NOW, expected:{...expectedFrom(journey()), pricingVersion:999}});
+  assert.equal(changedVersion.action,"refresh");
 
   const verified = await verifyQuoteReceipt(token, SECRET, NOW + 60_000);
   assert.equal(verified.ok, true);
@@ -121,7 +135,7 @@ console.log("=== Sign, verify, and reject tampering ===");
   ) as { transferAmountGbp: number };
   payload.transferAmountGbp = 1;
   const forgedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const tampered = `v2-bfs-minimum.${forgedPayload}.${parts[2]}`;
+  const tampered = `v4-optional-terminal-access.${forgedPayload}.${parts[2]}`;
   const bad = await verifyQuoteReceipt(tampered, SECRET, NOW);
   assert.equal(bad.ok, false);
   if (!bad.ok) assert.equal(bad.reason, "bad_signature");

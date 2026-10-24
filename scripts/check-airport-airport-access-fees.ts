@@ -83,16 +83,16 @@ console.log("\n=== Matrix ===\n");
   const underlying = calculatePointToPointQuote(BFS_ADDR, BHD_ADDR, S, false, {}, M17)!;
   const q = calculateAirportToAirportQuote("BFS", "BHD", BFS_ADDR, BHD_ADDR, S, false, {}, M17)!;
   assert.notEqual(q.amount, 69, "must not use Antrim→BHD zone path");
-  assert.equal(q.amount, underlying.amount + 9);
+  assert.equal(q.amount, underlying.amount);
   rows.push({
     id: 1,
     label: "BFS → BHD (airport↔airport)",
     miles: milesOf(M17),
     underlying: underlying.amount,
     areaRule: "none (airports identified; A2A underlying — universal distance)",
-    accessFees: "BFS pickup £5 + BHD drop-off £4",
+    accessFees: "Optional Belfast access excluded",
     other: "no zone surcharge / no airport minimum re-apply",
-    rounding: `${underlying.amount}+9 → ${q.amount}`,
+    rounding: `${underlying.amount}+0 → ${q.amount}`,
     final: q.amount,
   });
 }
@@ -101,7 +101,7 @@ console.log("\n=== Matrix ===\n");
 {
   const underlying = calculatePointToPointQuote(BHD_ADDR, BFS_ADDR, S, false, {}, M17)!;
   const q = calculateAirportToAirportQuote("BHD", "BFS", BHD_ADDR, BFS_ADDR, S, false, {}, M17)!;
-  assert.equal(q.amount, underlying.amount + 9);
+  assert.equal(q.amount, underlying.amount);
   assert.notEqual(q.amount, 69);
   rows.push({
     id: 2,
@@ -109,9 +109,9 @@ console.log("\n=== Matrix ===\n");
     miles: milesOf(M17),
     underlying: underlying.amount,
     areaRule: "none (A2A underlying — universal distance)",
-    accessFees: "BHD pickup £4 + BFS drop-off £5",
+    accessFees: "Optional Belfast access excluded",
     other: "both airport ends included",
-    rounding: `${underlying.amount}+9 → ${q.amount}`,
+    rounding: `${underlying.amount}+0 → ${q.amount}`,
     final: q.amount,
   });
 }
@@ -312,8 +312,8 @@ for (const r of rows) {
   );
 }
 
-assert.equal(rows[0].final, rows[0].underlying + 9);
-assert.equal(rows[1].final, rows[1].underlying + 9);
+assert.equal(rows[0].final, rows[0].underlying);
+assert.equal(rows[1].final, rows[1].underlying);
 assert.ok(rows[0].final < 69);
 console.log(
   `\nBFS→BHD price: £${rows[0].final} (A2A + both ends £9)`,

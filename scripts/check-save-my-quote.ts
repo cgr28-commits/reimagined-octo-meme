@@ -47,6 +47,8 @@ async function main() {
   const saved=await res.json() as any;
   assert.ok(saved.amount>1); assert.equal(saved.quote.journey.vehicle,ESTATE_VEHICLE);
   assert.equal(saved.emailSent,true);assert.equal(sends,1);
+  assert.equal(saved.quote.journey.outboundAirportAccessChoice,'free','missing access choice stays free after saving');
+  assert.equal(saved.quote.journey.returnAirportAccessChoice,'free');
   assert.equal(mail.subject,'Your Airport Transfer Quote — My Airport Taxi NI');
   for(const value of ['7 days','recalculated','Vehicle:','Passengers:','Suitcases:','Airport charges included:','Return saving included:','Return to My Quote']) assert.ok(String(mail.text).includes(value),value);
   assert.equal((Date.parse(saved.expiresAt)-Date.parse(saved.quote.createdAt))/86400000,7);

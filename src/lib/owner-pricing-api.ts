@@ -1,3 +1,4 @@
+import { DEFAULT_TERMINAL_ACCESS_FEES } from "../../shared/terminal-access-config";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import { withRequestDeadline } from "@/lib/request-deadline";
 import type {
@@ -149,6 +150,7 @@ export async function fetchPublicPricingConfig(
     }, 10_000, options.signal);
     return {
       ...config,
+      terminalAccess: config.terminalAccess ?? { ...DEFAULT_TERMINAL_ACCESS_FEES },
       minibus: {
         ...config.minibus,
         publicEnabled: config.minibus?.publicEnabled === true,

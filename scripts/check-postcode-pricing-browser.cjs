@@ -23,6 +23,8 @@ globalThis.fetch=async(input,init)=>{
  if(url.includes('/route/v1/'))return new Response(JSON.stringify({code:'Ok',routes:[{distance:159000,duration:6720}]}),{headers:{'Content-Type':'application/json'}});
  throw new Error('Blocked unexpected external request in isolated browser test: '+url);
 };
+function instantFare(total,airport){return frontendVersion==='new'?total-(airport==='BFS'?5:airport==='BHD'?4:0):total;}
+async function chooseTerminalAccess(page,airport){if(frontendVersion==='new'&&airport!=='DUB')await page.locator('[data-terminal-access] input[value="express"]').check();}
 async function main(){try{
  historical=await require('./postcode-legacy-harness.cjs').startLegacyHarness(root);
  const oldRoute=path.join(historical.root,'src/app/postcode-flow-check/page.tsx');fs.mkdirSync(path.dirname(oldRoute),{recursive:true});fs.writeFileSync(oldRoute,fs.readFileSync(routeFile));
@@ -67,9 +69,9 @@ async function main(){try{
   for(const [airport,saloon,estate] of [['BHD',35,45],['BFS',55,65],['DUB',245,255]]){
    await page.goto(url+'?mode=quote&to='+airport);await page.locator('#quote-section-passengers').waitFor();
    await page.evaluate(date=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:2,suitcases:1,returnJourney:false,tripDate:date,tripTime:'12:00'}})),date);
-   await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+saloon+'$')}).waitFor();
-   await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+estate+'$')}).waitFor();
-   await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+estate+'$')}).click();await page.getByPlaceholder('John Smith').waitFor();
+   await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(saloon,airport)+'$')}).waitFor();
+   await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(estate,airport)+'$')}).waitFor();
+   await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(estate,airport)+'$')}).click();await page.getByPlaceholder('John Smith').waitFor();await chooseTerminalAccess(page,airport);
   }
   console.log('OK real '+front+' frontend / '+back+' Worker: all three airports Saloon/Estate unchanged through booking form, legacy v205 config not migrated');
  }
@@ -122,9 +124,9 @@ async function main(){try{
   await page.goto(url+'?mode=quote&to='+airport);await page.locator('#quote-section-passengers').waitFor();
   await page.evaluate(date=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:2,suitcases:1,returnJourney:false,tripDate:date,tripTime:'12:00'}})),date);
   await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();
-  await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+saloon+'$')}).waitFor();
-  await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+estate+'$')}).waitFor();
-  await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+estate+'$')}).click();await page.getByPlaceholder('John Smith').waitFor();
+  await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(saloon,airport)+'$')}).waitFor();
+  await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(estate,airport)+'$')}).waitFor();
+  await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(estate,airport)+'$')}).click();await page.getByPlaceholder('John Smith').waitFor();await chooseTerminalAccess(page,airport);
   assert.match(await page.locator('body').innerText(),new RegExp('£'+estate));
   console.log('OK '+width+'px '+airport+': saved rules → Worker quote → final £'+saloon+' Saloon / £'+estate+' Estate including airport charges → booking details');
   }

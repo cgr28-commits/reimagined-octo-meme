@@ -33,20 +33,21 @@ export function buildQuoteAirportBenefits(input: Props) {
 
   return legs.filter((stop) => stop.code).map((stop) => {
     const pickup = stop.direction === "pickup";
-    const included = input.airportFees.lines.some(
+    const belfast = stop.code === "BFS" || stop.code === "BHD";
+    const included = !belfast && (input.airportFees.lines.some(
       (line) => line.airportCode === stop.code && line.leg === stop.leg &&
         line.direction === stop.direction && !line.removed && line.appliedAmountGbp > 0,
     ) || input.expressSelection.legs.some(
       (line) => line.airportCode === stop.code && line.leg === stop.leg &&
         line.service === (pickup ? "pick-up" : "drop-off") &&
         line.selected && line.chargedFeeGbp > 0,
-    );
+    ));
     const dublin = stop.code === "DUB";
     const zeroDropOff = dublin && !pickup && getAirportFixedCostRow(stop.code)?.dropOffFeeGbp === 0;
-    const heading = included || zeroDropOff
+    const heading = belfast ? "Free Airport Access available" : included || zeroDropOff
       ? `Terminal ${pickup ? "pick-up" : "drop-off"} included`
       : `Airport ${pickup ? "Collection" : "Drop-Off"}`;
-    const description = included || zeroDropOff
+    const description = belfast ? "Choose Long Stay, paid Terminal Access or pickup Meet & Greet in booking details." : included || zeroDropOff
       ? `No additional airport ${pickup ? "pick-up" : "drop-off"} fee`
       : `Your ${pickup ? "collection" : "drop-off"} uses the selected airport area. See your fare breakdown for any applicable airport charges.`;
     return {

@@ -135,7 +135,7 @@ async function calculateServerQuoteOnce(
     {
       method: "POST",
       headers,
-      body: JSON.stringify(journey),
+      body: JSON.stringify({ ...journey, quoteProtocol: "optional-terminal-access-v4" }),
       cache: "no-store",
       signal,
     },
@@ -200,7 +200,7 @@ async function calculateServerQuoteOnce(
       ? { returnOneWayBeforeAccessGbp: Number(payload.returnOneWayBeforeAccessGbp) }
       : {}),
     ...(typeof payload.quoteReceipt === "string" &&
-    payload.quoteReceipt.startsWith("v2-bfs-minimum.") &&
+    payload.quoteReceipt.startsWith("v4-optional-terminal-access.") &&
     payload.quoteReceipt.length < 4000
       ? { quoteReceipt: payload.quoteReceipt }
       : {}),

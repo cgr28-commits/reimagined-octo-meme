@@ -2097,18 +2097,20 @@ export async function savePaidBookingRecordFromConfirm(input: {
         }
       : {}),
     vehicle: input.booking.vehicle,
+    ...(input.booking.pickupPlaceId ? { pickupPlaceId: input.booking.pickupPlaceId } : {}),
+    ...(input.booking.dropoffPlaceId ? { dropoffPlaceId: input.booking.dropoffPlaceId } : {}),
     journeyDistance: input.booking.journeyDistance,
     journeyDuration: input.booking.journeyDuration,
-    ...(Number.isFinite(Number(input.booking.pickupLat))
+    ...(typeof input.booking.pickupLat === "number" && Number.isFinite(input.booking.pickupLat)
       ? { pickupLat: Number(input.booking.pickupLat) }
       : {}),
-    ...(Number.isFinite(Number(input.booking.pickupLng))
+    ...(typeof input.booking.pickupLng === "number" && Number.isFinite(input.booking.pickupLng)
       ? { pickupLng: Number(input.booking.pickupLng) }
       : {}),
-    ...(Number.isFinite(Number(input.booking.dropoffLat))
+    ...(typeof input.booking.dropoffLat === "number" && Number.isFinite(input.booking.dropoffLat)
       ? { dropoffLat: Number(input.booking.dropoffLat) }
       : {}),
-    ...(Number.isFinite(Number(input.booking.dropoffLng))
+    ...(typeof input.booking.dropoffLng === "number" && Number.isFinite(input.booking.dropoffLng)
       ? { dropoffLng: Number(input.booking.dropoffLng) }
       : {}),
     ...(Number.isFinite(Number(input.booking.routeDistanceKm))
@@ -2136,6 +2138,8 @@ export async function savePaidBookingRecordFromConfirm(input: {
       : input.booking.expressDropOffAirport === null
         ? { expressDropOffAirport: null }
         : {}),
+    terminalAccessChoices: input.booking.terminalAccessChoices,
+    terminalAccessVisits: input.booking.terminalAccessVisits,
     ...(input.booking.outboundAirportAccessOption === "express" ||
     input.booking.outboundAirportAccessOption === "free" ||
     input.booking.outboundAirportAccessOption === "meet-greet"

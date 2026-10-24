@@ -288,7 +288,7 @@ export function cashSelectedBody(cashDueGbp: number): string {
 }
 
 export function cashAgreementLabel(cashDueGbp: number): string {
-  return `I understand that the remaining ${formatDepositCashGbp(cashDueGbp)} must be paid in cash to my driver on the day and cannot be paid by card.`;
+  return `I understand that the remaining ${formatGbpAmount(cashDueGbp)} must be paid in cash to my driver on the day.`;
 }
 
 export function depositPayButtonLabel(depositGbp: number): string {

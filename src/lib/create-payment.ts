@@ -65,6 +65,7 @@ export type PaymentCheckoutRequest = {
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
   meetGreetSelected?: boolean;
+  terminalAccessChoices?: import("../../shared/meet-greet").TerminalAccessChoices;
   outboundAirportAccessOption?: "express" | "free" | "meet-greet";
   returnAirportAccessOption?: "express" | "free" | "meet-greet";
   /**
@@ -337,6 +338,7 @@ export async function createPaymentCheckout(
       ...customerSmartAvailabilityPreviewHeaders(),
     },
     body: JSON.stringify({
+      quoteProtocol: "optional-terminal-access-v4",
       amount: request.amount,
       description: request.description,
       meetGreetSelected: request.meetGreetSelected === true,
@@ -403,7 +405,7 @@ export async function createPaymentCheckout(
               Math.round(Number(request.acceptedFinalAmountGbp) * 100) / 100,
           }
         : {}),
-      ...(typeof request.quoteReceipt === "string" && request.quoteReceipt.startsWith("v2-bfs-minimum.")
+      ...(typeof request.quoteReceipt === "string" && request.quoteReceipt.startsWith("v4-optional-terminal-access.")
         ? { quoteReceipt: request.quoteReceipt }
         : {}),
       ...(request.returnOfferToken?.trim()

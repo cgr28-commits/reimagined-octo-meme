@@ -1,3 +1,4 @@
+import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
 import { recordBookingFunnelEvent } from "./booking-funnel";
 import { queueMeetGreetEmail } from "./meet-greet-upgrade-handlers";
 import {
@@ -55,6 +56,7 @@ import { parseGbpAmount } from "../shared/quote-session";
 const BUSINESS_NAME = "My Airport Taxi NI";
 
 type FinalizeEnv = {
+  QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
   MEET_GREET_COORDINATOR?: DurableObjectNamespace;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
@@ -203,7 +205,7 @@ export type LogPaidBookingCalendarFn = (
  * Booking contact details must already be available (from KV pending checkout or client body).
  * Safe to call from browser return and from SumUp webhook — second call is idempotent.
  */
-export async function finalizePaidCheckout(input: {
+async function finalizePaidCheckoutOnce(input: {
   env: FinalizeEnv;
   checkoutId: string;
   booking: PaidBookingDetails;
@@ -369,6 +371,11 @@ export async function finalizePaidCheckout(input: {
   const pendingForAudit = pendingCheckoutStoreConfigured(env.TRACKING_STORE)
     ? await getPendingCheckout(env.TRACKING_STORE, checkoutId)
     : null;
+  if (pendingForAudit && (checkout.id !== checkoutId || checkout.checkout_reference !== pendingForAudit.checkoutReference ||
+      checkout.currency?.toUpperCase() !== "GBP" || !Number.isFinite(checkout.amount) ||
+      Math.round(Number(checkout.amount) * 100) !== Math.round(pendingForAudit.amount * 100))) {
+    throw new Error("Verified payment does not match the stored checkout; owner reconciliation required");
+  }
   const depositSnapshot = depositSnapshotFromPending(pendingForAudit);
   const confirmedFareGbp =
     depositSnapshot?.totalFare ?? checkout.amount ?? 0;
@@ -894,4 +901,30 @@ export function extractCheckoutIdFromRequest(
   if (fromQuery) return fromQuery;
 
   return "";
+}
+
+/** All browser/webhook callers share the same durable operation per checkout. */
+export async function finalizePaidCheckout(input: Parameters<typeof finalizePaidCheckoutOnce>[0]): Promise<FinalizePaidCheckoutResult> {
+  if (!input.env.SUMUP_API_KEY?.trim()) return finalizePaidCheckoutOnce(input);
+  // Safe reads must remain retryable. Claim only after SumUp confirms PAID;
+  // a temporary GET failure must not strand an otherwise valid payment.
+  if (input.env.TRACKING_STORE) {
+    const existing = await getPaidBookingRecordByCheckoutId(input.env.TRACKING_STORE, input.checkoutId);
+    const pending = existing ? await getPendingCheckout(input.env.TRACKING_STORE, input.checkoutId) : null;
+    if (existing && pending?.checkoutKind !== "amendment-topup") return finalizePaidCheckoutOnce(input);
+  }
+  const checkout = input.checkout ?? await getSumUpCheckout(input.env.SUMUP_API_KEY?.trim() ?? "", input.checkoutId);
+  if (!isSumUpCheckoutPaid(checkout)) return finalizePaidCheckoutOnce({...input, checkout});
+  try {
+    const {result,reused}=await runPaymentOperation({
+      namespace:input.env.QUOTE_LEAD_COORDINATOR,
+      key:`payment-finalize:${await paymentOperationHash(input.checkoutId)}`,
+      run:()=>finalizePaidCheckoutOnce({...input, checkout}),
+      retrySafe:result=>!result.paid,
+    });
+    return reused ? {...result,alreadyFinalized:true} : result;
+  } catch(error) {
+    if(!(error instanceof PaymentOperationBusy)) throw error;
+    return {ok:false,paid:false,amountPaid:"",paymentReference:"",emailSent:false,customerEmailSent:false,ownerEmailSent:false,calendarLogged:false,calendarEvents:0,trackingCreated:false,error:error.message};
+  }
 }

@@ -62,6 +62,9 @@ import {
 import { formatGbpAmountExact } from "./gbp";
 
 export type PaidBookingDetails = {
+  /** Selected IDs bound to the validated quote; no new address-precision requirement. */
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
   customerName: string;
   customerEmail: string;
   mobileNumber: string;
@@ -103,6 +106,8 @@ export type PaidBookingDetails = {
   airportAccessOption?: "express" | "free" | "meet-greet" | null;
   outboundExpressDropOffSelected?: boolean;
   returnExpressDropOffSelected?: boolean;
+  terminalAccessChoices?: import("./meet-greet").TerminalAccessChoices;
+  terminalAccessVisits?: import("./meet-greet").QuotedAirportAccessLeg[];
   outboundAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   returnAirportAccessOption?: "express" | "free" | "meet-greet" | null;
   meetGreetFeeGbp?: number;
@@ -402,7 +407,8 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
     dropoffAirportCode: details.dropoffAirportCode,
     outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
     returnExpressDropOffSelected: details.returnExpressDropOffSelected,
-    outboundAirportAccessOption: details.outboundAirportAccessOption,
+    terminalAccessVisits: details.terminalAccessVisits,
+        outboundAirportAccessOption: details.outboundAirportAccessOption,
     returnAirportAccessOption: details.returnAirportAccessOption,
     meetGreetFeeGbp: details.meetGreetFeeGbp,
     airportAccessOption: details.airportAccessOption,
@@ -748,6 +754,7 @@ export function buildCustomerConfirmationEmail(
         dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        terminalAccessVisits: details.terminalAccessVisits,
         outboundAirportAccessOption: details.outboundAirportAccessOption,
         returnAirportAccessOption: details.returnAirportAccessOption,
         meetGreetFeeGbp: details.meetGreetFeeGbp,
@@ -858,6 +865,7 @@ export function buildOwnerPaidBookingEmail(
         dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        terminalAccessVisits: details.terminalAccessVisits,
         outboundAirportAccessOption: details.outboundAirportAccessOption,
         returnAirportAccessOption: details.returnAirportAccessOption,
         meetGreetFeeGbp: details.meetGreetFeeGbp,
@@ -878,6 +886,7 @@ export function buildOwnerPaidBookingEmail(
         dropoffAirportCode: details.dropoffAirportCode,
         outboundExpressDropOffSelected: details.outboundExpressDropOffSelected,
         returnExpressDropOffSelected: details.returnExpressDropOffSelected,
+        terminalAccessVisits: details.terminalAccessVisits,
         outboundAirportAccessOption: details.outboundAirportAccessOption,
         returnAirportAccessOption: details.returnAirportAccessOption,
         meetGreetFeeGbp: details.meetGreetFeeGbp,

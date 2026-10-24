@@ -38,6 +38,7 @@ export type SavedQuoteJourneySnapshot = {
   isFromAirport?: boolean;
   journeyType?: string;
   optionalMeetGreetSelected?: boolean;
+  terminalAccessChoices?: import("./meet-greet").TerminalAccessChoices;
   outboundAirportAccessChoice?: "express" | "free" | "meet-greet";
   returnAirportAccessChoice?: "express" | "free" | "meet-greet";
   /** Optional at save — empty string means not set (booking still requires date/time). */

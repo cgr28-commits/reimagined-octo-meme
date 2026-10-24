@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
+import { getServedAirport } from '../shared/served-airports';
 import { publicDepositCashOffer } from '../shared/deposit-cash';
 const { chromium, webkit } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(`${process.env.PLAYWRIGHT_MODULE}/index.mjs`).href : 'playwright');
 const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
@@ -39,6 +40,14 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
   if(u.origin===url)return route.continue();
   const json=body=>route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
   if(u.pathname.includes('/route/v1/driving'))return json({code:'Ok',routes:[{distance:26000,duration:1800,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
+  if(u.pathname.endsWith('/addresses')) {
+   const bfs=getServedAirport('BFS');
+   const city={placeId:'test-city-hall',formattedAddress:'Belfast City Hall, Belfast BT1 5GS, UK',placeName:'Belfast City Hall',lat:54.5964,lng:-5.9301,countryCode:'GB',postalCode:'BT1 5GS'};
+   const airport=(u.searchParams.get('q')||'').includes('International') || u.searchParams.get('id')===bfs.placeId;
+   const place=airport?{...bfs,placeName:bfs.name,countryCode:'GB'}:city;
+   if(u.searchParams.has('id'))return json({...place,address:place.formattedAddress,provider:airport?'airport':'google'});
+   return json({suggestions:[{id:place.placeId,label:place.formattedAddress,mainText:place.placeName,secondaryText:'Northern Ireland'}]});
+  }
   if(u.pathname==='/pricing/public'){const config=defaultOwnerPricingSettings();config.meetGreet.bfsGbp=fee;return json({config:toPublicOwnerPricingConfig(config)});}
   if(u.pathname==='/quote/availability')return json({blocked:false,available:true,alternativeTimes:[]});
   if(u.pathname.endsWith('/quote/calculate')) {
@@ -57,7 +66,13 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
  await page.goto(`${url}/?previewJourney=bfs`);
  await page.getByRole('button',{name:'Reject optional',exact:true}).click();
  await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
- if(collection)await page.getByRole('button',{name:'Swap pickup and drop-off'}).click();
+ if(collection) {
+  for(const [id,text] of [['pickup','Belfast International'],['dropoff','Belfast City Hall']]) {
+   const input=page.locator('#'+id); await input.fill(text);
+   const listbox=await input.getAttribute('aria-controls');
+   await page.locator(`[id="${listbox}"]`).getByRole('button').filter({hasText:text}).first().click();
+  }
+ }
  await page.locator('#quote-section-passengers').selectOption('2');
  await page.locator('#quote-section-suitcases').selectOption('1');
  const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
@@ -74,20 +89,20 @@ try {
  for(const width of (process.env.TEST_WIDTH ? [Number(process.env.TEST_WIDTH)] : [320,390,1280])) {
   for(const collection of [false,true]) {
    const q=await quote(base,width,68,true,collection),{page}=q;
-   assert.equal(await page.locator('[data-booking-meet-greet]').count(),0);
+   assert.equal(await page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})}).count(),0);
    await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
    await page.locator('#name').waitFor();
-   const section=page.locator('[data-booking-meet-greet]');
+   const section=page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})});
    assert.equal(await section.count(),collection?1:0);
    if(collection) {
-    assert.match(await section.innerText(),/Meet & Greet Service — £18.25/);
+    assert.match(await section.innerText(),/Meet & Greet[\s\S]*£18.25/);
     const checkbox=section.getByRole('checkbox');assert.equal(await checkbox.isChecked(),false);
-    const pos=await page.evaluate(()=>({contact:document.querySelector('#email').getBoundingClientRect().bottom,service:document.querySelector('[data-booking-meet-greet]').getBoundingClientRect().top}));
+    const pos=await page.evaluate(()=>({contact:document.querySelector('#email').getBoundingClientRect().bottom,service:document.querySelector('[data-terminal-access]').getBoundingClientRect().top}));
     assert.ok(pos.service>=pos.contact);
-    const options=page.locator('[data-booking-payment-options]');
+    const options=page.locator('form').filter({has:page.locator('#name')});
     await options.getByRole('button',{name:/Pay in Full Online/}).click();
     const before=await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).innerText();
-    await checkbox.check();assert.match(await page.locator('[data-meet-greet-summary]').innerText(),/£18.25/);
+    await checkbox.check();assert.match(await page.locator('#quote-price-summary').innerText(),/Meet & Greet[\s\S]*£18.25/);
     const after=await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).innerText();
     const amount=s=>Number(s.match(/£([\d.]+)/)[1]);assert.equal(Math.round((amount(after)-amount(before))*100),1825);
     await checkbox.uncheck();assert.equal(await page.locator('[data-meet-greet-summary]').count(),0);
@@ -97,9 +112,10 @@ try {
       await page.locator('#name').fill('Meet Greet Test');await page.locator('#mobile').fill('07700900123');await page.locator('#email').fill('test@example.invalid');
       for(const id of ['goingFlightNumber','collectionFlightNumber'])if(await page.locator(`#${id}`).count())await page.locator(`#${id}`).fill('BA1234');
       await page.getByRole('checkbox',{name:/I agree to the Terms/}).check();
+      const priceAck=page.getByRole('checkbox',{name:'I confirm the updated price.'}); if(await priceAck.count())await priceAck.check();
       await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).click();
       await page.waitForFunction(()=>document.body.innerText.includes('Isolated test: payment not sent to SumUp'));
-      assert.equal(q.requests.length,1);assert.equal(q.requests[0].meetGreetSelected,true);
+      assert.equal(q.requests.length,1);assert.equal(q.requests[0].booking.terminalAccessChoices['outbound:BFS:pick-up'],'meet-greet');
       assert.equal(q.requests[0].acceptedFinalAmountGbp,amount(after));
       await q.context.route('**/payments/confirm',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({amountPaid:`£${amount(after).toFixed(2)}`,paymentReference:'TEST-ONLY',customerReference:'MAT-TEST',customerEmailSent:true,ownerEmailSent:true,emailSent:true,calendarLogged:true,paymentMethod:'FULL_ONLINE',totalFare:amount(after),meetGreetFeeGbp:18.25})}));
     }
