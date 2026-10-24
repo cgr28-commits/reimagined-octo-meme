@@ -118,13 +118,14 @@ export default function QuoteScheduleFields({
           <div
             data-schedule-control={homepageInline ? "date" : undefined}
             data-schedule-empty={homepageInline && !tripDate ? true : undefined}
-            className={homepageInline ? "box-border h-12 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
+            className={homepageInline ? "box-border h-11 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
               scheduleFieldState({
                 hasError: Boolean(tripDateError),
                 complete: Boolean(tripDate.trim()),
               }),
             )}
           >
+            {homepageInline ? <span className="pointer-events-none absolute ml-3 mt-3 text-emerald" aria-hidden="true">▦</span> : null}
             {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(tripDate)}</span> : null}
             <input
               id="date"
@@ -149,13 +150,14 @@ export default function QuoteScheduleFields({
           <div
             data-schedule-control={homepageInline ? "time" : undefined}
             data-schedule-empty={homepageInline && !tripTime ? true : undefined}
-            className={homepageInline ? "box-border h-12 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
+            className={homepageInline ? "box-border h-11 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
               scheduleFieldState({
                 hasError: Boolean(tripDateError),
                 complete: Boolean(tripTime.trim()),
               }),
             )}
           >
+            {homepageInline ? <span className="pointer-events-none absolute ml-3 mt-3 text-emerald" aria-hidden="true">▦</span> : null}
             {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{tripTime ? tripTime.slice(0, 5) : "Select time"}</span> : null}
             <input
               id="time"
@@ -192,14 +194,15 @@ export default function QuoteScheduleFields({
             <div
               data-schedule-control={homepageInline ? "date" : undefined}
               data-schedule-empty={homepageInline && !returnDate ? true : undefined}
-              className={homepageInline ? "box-border h-12 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
+              className={homepageInline ? "box-border h-11 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
                 scheduleFieldState({
                   hasError: Boolean(returnDateError),
                   complete: Boolean(returnDate.trim()),
                 }),
               )}
             >
-              {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(returnDate)}</span> : null}
+              {homepageInline ? <span className="pointer-events-none absolute ml-3 mt-3 text-emerald" aria-hidden="true">▦</span> : null}
+            {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{mobileDateText(returnDate)}</span> : null}
               <input
                 id="returnDate"
                 ref={returnDateInputRef}
@@ -221,14 +224,15 @@ export default function QuoteScheduleFields({
             <div
               data-schedule-control={homepageInline ? "time" : undefined}
               data-schedule-empty={homepageInline && !returnTime ? true : undefined}
-              className={homepageInline ? "box-border h-12 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
+              className={homepageInline ? "box-border h-11 w-full min-w-0 max-w-full overflow-hidden rounded-[0.75rem] border border-white/32 bg-white/[0.14] focus-within:border-emerald/70" : quoteDateTimeFieldShellClass(
                 scheduleFieldState({
                   hasError: Boolean(returnDateError),
                   complete: Boolean(returnTime.trim()),
                 }),
               )}
             >
-              {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{returnTime ? returnTime.slice(0, 5) : "Select time"}</span> : null}
+              {homepageInline ? <span className="pointer-events-none absolute ml-3 mt-3 text-emerald" aria-hidden="true">▦</span> : null}
+            {homepageInline ? <span className="homepage-schedule-prompt" aria-hidden="true">{returnTime ? returnTime.slice(0, 5) : "Select time"}</span> : null}
               <input
                 id="returnTime"
                 ref={returnTimeInputRef}
