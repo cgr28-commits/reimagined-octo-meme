@@ -1,3 +1,4 @@
+import { DEFAULT_TERMINAL_ACCESS_FEES } from "./terminal-access-config";
 import { includedAirportAccessCopy } from "./executive-vehicle";
 import {
   listAirportPickupLegs,
@@ -25,8 +26,8 @@ export type ExpressAirportService = "drop-off" | "pick-up";
 
 /** Central fee table — keep in sync with pricing-config.json → expressDropOffFeesGbp. */
 export const EXPRESS_DROP_OFF_FEES_GBP: Record<ExpressDropOffAirportCode, number> = {
-  BFS: 5,
-  BHD: 4,
+  BFS: DEFAULT_TERMINAL_ACCESS_FEES.bfsGbp,
+  BHD: DEFAULT_TERMINAL_ACCESS_FEES.bhdGbp,
 };
 
 export const EXPRESS_DROP_OFF_AIRPORT_NAMES: Record<ExpressDropOffAirportCode, string> = {
@@ -644,9 +645,7 @@ export function formatAirportAccessOptionCustomerLine(input: {
   if (!airport) return null;
   const service =
     input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
-  void airport;
-  void option;
-  return `Airport access: ${includedAirportAccessCopy(service).heading}`;
+  return `Airport access: ${formatAirportAccessLegCustomerValue({ option, airportCode: airport, service, feeGbp: input.expressDropOffFee ?? 0 })}`;
 }
 
 function formatAirportAccessLegCustomerValue(input: {
@@ -657,17 +656,18 @@ function formatAirportAccessLegCustomerValue(input: {
 }): string {
   if (input.option === "meet-greet") {
     const fee =
-      typeof input.feeGbp === "number" && input.feeGbp > 0
+      typeof input.feeGbp === "number" && input.feeGbp >= 0
         ? roundGbp(input.feeGbp)
         : meetGreetFeeGbp(input.airportCode);
     return meetGreetCustomerValue(fee);
   }
-  void input.option;
-  void input.feeGbp;
-  return includedAirportAccessCopy(input.service).heading;
+  return input.option === "express"
+    ? `Terminal Access (${input.service}) — ${formatExpressDropOffGbp(input.feeGbp ?? 0)}`
+    : `Free Airport Access (${input.service}) — Long Stay car park, away from terminal doors — £0`;
 }
 
 type StoredAccessLineInput = {
+  terminalAccessVisits?: import("./meet-greet").QuotedAirportAccessLeg[];
   expressDropOffSelected?: boolean | null;
   expressDropOffFee?: number | null;
   expressDropOffAirport?: string | null;
@@ -696,6 +696,7 @@ type StoredAccessRow = {
 };
 
 function storedAccessRows(input: StoredAccessLineInput): StoredAccessRow[] {
+  if (input.terminalAccessVisits) return input.terminalAccessVisits.map(row => ({...row, feeGbp: row.chargeGbp}));
   const selection = resolveExpressDropOff({
     airportCode: input.expressDropOffAirport ?? input.airportCode,
     fromAirport: input.fromAirport,
@@ -767,9 +768,7 @@ function storedAccessRows(input: StoredAccessLineInput): StoredAccessRow[] {
       airportCode: pickup.airportCode,
       option: "meet-greet",
       feeGbp:
-        typeof input.meetGreetFeeGbp === "number" && pickup.leg === "outbound"
-          ? input.meetGreetFeeGbp
-          : typeof charged === "number" && charged > 0
+        typeof charged === "number" && charged >= 0
           ? roundGbp(charged)
           : meetGreetFeeGbp(pickup.airportCode),
     });
@@ -877,18 +876,18 @@ export function formatAirportAccessOptionDashboardValue(input: StoredAccessLineI
   service?: ExpressAirportService | null;
 }): string | null {
   const rows = storedAccessRows(input);
-  if (rows.some((row) => row.option === "meet-greet")) {
+  if (input.terminalAccessVisits || rows.some((row) => row.option === "meet-greet")) {
     return rows
       .map((row) => {
         const label = row.option === "meet-greet"
           ? meetGreetDashboardValue(row.feeGbp)
           : row.option === "express"
-            ? `Express — ${formatExpressDropOffGbp(row.feeGbp)} paid`
+            ? `Terminal Access — ${formatExpressDropOffGbp(row.feeGbp)} paid`
             : row.service === "pick-up"
               ? "Free pick-up area"
               : "Free drop-off area";
         return rows.length > 1
-          ? `${row.leg === "outbound" ? "Outbound" : "Return"}: ${label}`
+          ? `${row.leg === "outbound" ? "Outbound" : "Return"} ${row.airportCode} ${row.service}: ${label}`
           : label;
       })
       .join(" · ");
@@ -989,7 +988,5 @@ export function formatExpressDropOffSummaryLine(input: {
   }
   const service =
     input.service ?? resolveExpressAirportService({ fromAirport: input.fromAirport });
-  void input.expressDropOffFee;
-  void input.expressDropOffSelected;
-  return includedAirportAccessCopy(service).heading;
+  return formatAirportAccessLegCustomerValue({ option: input.expressDropOffSelected ? "express" : "free", airportCode: airport, service, feeGbp: input.expressDropOffFee ?? 0 });
 }

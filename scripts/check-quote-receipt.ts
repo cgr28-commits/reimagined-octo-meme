@@ -71,7 +71,7 @@ console.log("=== Sign, verify, and reject tampering ===");
 {
   const token = await signQuoteReceipt(journey({preserveBfsMinimumPence:true}), SECRET, NOW);
   const [format, body] = token.split(".");
-  assert.equal(format, "v2-bfs-minimum");
+  assert.equal(format, "v4-optional-terminal-access");
   const legacySignature = createHmac("sha256", SECRET).update(Buffer.from(body!, "base64url")).digest("base64url");
   assert.equal((await verifyQuoteReceipt(`v1.${body}.${legacySignature}`, SECRET, NOW)).ok, false, "old pricing policy must refresh");
   assert.equal((await verifyQuoteReceipt(`v2.${body}.${legacySignature}`, SECRET, NOW)).ok, false, "changing an old token prefix must not bypass new policy");
@@ -121,7 +121,7 @@ console.log("=== Sign, verify, and reject tampering ===");
   ) as { transferAmountGbp: number };
   payload.transferAmountGbp = 1;
   const forgedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const tampered = `v2-bfs-minimum.${forgedPayload}.${parts[2]}`;
+  const tampered = `v4-optional-terminal-access.${forgedPayload}.${parts[2]}`;
   const bad = await verifyQuoteReceipt(tampered, SECRET, NOW);
   assert.equal(bad.ok, false);
   if (!bad.ok) assert.equal(bad.reason, "bad_signature");

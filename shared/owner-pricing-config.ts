@@ -1,3 +1,4 @@
+import { DEFAULT_TERMINAL_ACCESS_FEES } from "./terminal-access-config";
 import { defaultMeetGreetEmailSettings, type MeetGreetEmailSettings } from "./meet-greet-upgrade";
 import { validatePostcodeRules, postcodePricingIsEnabled, postcodeRuleApproved, type PostcodePricingRule } from "./postcode-pricing";
 /**
@@ -137,6 +138,7 @@ export type OwnerPricingSettings = {
     days: number[];
   };
   /** Fixed Meet & Greet pickup fees. Missing stored values use the approved defaults. */
+  terminalAccess: { bfsGbp: number; bhdGbp: number };
   meetGreet: MeetGreetFeesGbp;
   meetGreetEmail?: MeetGreetEmailSettings;
   bankHoliday: {
@@ -196,6 +198,7 @@ export type PublicOwnerPricingConfig = {
   evening?: OwnerPricingSettings["evening"];
   night: OwnerPricingSettings["night"];
   weekend: OwnerPricingSettings["weekend"];
+  terminalAccess: OwnerPricingSettings["terminalAccess"];
   meetGreet: OwnerPricingSettings["meetGreet"];
   surchargeStacking: typeof SURCHARGE_STACKING_RULE;
 };
@@ -289,6 +292,7 @@ export function defaultOwnerPricingSettings(
       surchargeRate: DEFAULT_WEEKEND_SURCHARGE_RATE,
       days: [...DEFAULT_WEEKEND_DAYS],
     },
+    terminalAccess: { ...DEFAULT_TERMINAL_ACCESS_FEES },
     meetGreet: defaultMeetGreetFees(),
     meetGreetEmail: defaultMeetGreetEmailSettings(),
     bankHoliday: {
@@ -571,6 +575,13 @@ export function validateOwnerPricingInput(
     reject(errors, "weekend.days", "Select at least one Weekend day.");
   }
 
+  const terminalRaw = (input.terminalAccess ?? defaults.terminalAccess) as Record<string, unknown>;
+  const terminalAccess = { ...defaults.terminalAccess };
+  for (const key of ["bfsGbp", "bhdGbp"] as const) {
+    const amount = readRate(terminalRaw[key], `terminalAccess.${key}`, errors);
+    if (amount != null && amount >= 0 && amount <= 100) terminalAccess[key] = Math.round(amount * 100) / 100;
+    else reject(errors, `terminalAccess.${key}`, "Terminal access must be between £0.00 and £100.00.");
+  }
   let meetGreet = defaultMeetGreetFees();
   if (meetGreetExplicit) {
     const bfsGbp = readRate(meetGreetRaw.bfsGbp, "meetGreet.bfsGbp", errors);
@@ -660,6 +671,7 @@ export function validateOwnerPricingInput(
         surchargeRate: weekendRate ?? defaults.weekend.surchargeRate,
         days: weekendDays,
       },
+      terminalAccess,
       meetGreet,
       meetGreetEmail,
       bankHoliday: {
@@ -736,6 +748,7 @@ export function toPublicOwnerPricingConfig(
     evening: settings.evening ?? { ...DEFAULT_EVENING_PRICING },
     night: settings.night,
     weekend: settings.weekend,
+    terminalAccess: settings.terminalAccess,
     meetGreet: settings.meetGreet,
     surchargeStacking: SURCHARGE_STACKING_RULE,
   };
@@ -863,6 +876,8 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return settings.weekend.days
         .map((day) => ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day] ?? String(day))
         .join(", ");
+    case "terminalAccess.bfsGbp": return `£${settings.terminalAccess.bfsGbp.toFixed(2)}`;
+    case "terminalAccess.bhdGbp": return `£${settings.terminalAccess.bhdGbp.toFixed(2)}`;
     case "meetGreet.bfsGbp":
       return `£${settings.meetGreet.bfsGbp.toFixed(2)}`;
     case "meetGreet.bhdGbp":
@@ -906,6 +921,8 @@ const DIFF_PATHS = [
   "meetGreetEmail.BFS",
   "meetGreetEmail.BHD",
   "meetGreetEmail.DUB",
+  "terminalAccess.bfsGbp",
+  "terminalAccess.bhdGbp",
   "meetGreet.bfsGbp",
   "meetGreet.bhdGbp",
   "meetGreet.dubGbp",
@@ -943,6 +960,8 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "meetGreetEmail.BFS": "Belfast International Meet & Greet email",
   "meetGreetEmail.BHD": "Belfast City Meet & Greet email",
   "meetGreetEmail.DUB": "Dublin Meet & Greet email",
+  "terminalAccess.bfsGbp": "Terminal Access Belfast International",
+  "terminalAccess.bhdGbp": "Terminal Access Belfast City",
   "meetGreet.bfsGbp": "Meet & Greet Belfast International",
   "meetGreet.bhdGbp": "Meet & Greet Belfast City",
   "meetGreet.dubGbp": "Meet & Greet Dublin Airport",

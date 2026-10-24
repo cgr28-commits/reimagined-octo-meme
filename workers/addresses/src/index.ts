@@ -434,7 +434,7 @@ import {
 } from "../shared/express-drop-off";
 import { businessClassPassengerLimitError } from "../shared/business-class-capacity";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
-import { quoteAirportAccessCharges } from "../shared/meet-greet";
+import { parseTerminalAccessChoices, quoteAirportAccessCharges } from "../shared/meet-greet";
 import {
   formatHoursUntilPickupLabel,
   isWithinMinimumBookingNotice,
@@ -1118,6 +1118,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
   }
 
   const parsed: PaidBookingDetails = {
+    terminalAccessChoices: parseTerminalAccessChoices(details.terminalAccessChoices),
     customerName,
     customerEmail,
     mobileNumber,
@@ -2552,6 +2553,8 @@ async function handlePaymentRequest(
     const routeMetrics = routeOutcome.metrics;
     booking = {
       ...booking,
+      pickupPlaceId: paymentPickupPlaceId || undefined,
+      dropoffPlaceId: paymentDropoffPlaceId || undefined,
       routeDistanceKm: routeMetrics.distanceKm,
       routeDurationMinutes: routeMetrics.durationMinutes,
       ...(routeOutcome.pickup
@@ -2811,8 +2814,7 @@ async function handlePaymentRequest(
     const journeyFareGbp = transferResolution.journeyFareGbp;
     const airportFixedCostsGbp = transferResolution.airportFixedCostsGbp;
 
-    // Public quotes always include the configured terminal charge. A client "free"
-    // or Meet & Greet choice cannot remove it.
+    // Resolve configured optional charges server-side, never from browser amounts.
     const express = resolveExpressDropOff({
       airportCode: airportContext.airportCode,
       fromAirport: airportContext.fromAirport,
@@ -2830,9 +2832,11 @@ async function handlePaymentRequest(
       isAirportToAirport: airportContext.isAirportToAirport,
       pickupAirportCode: airportContext.pickupAirportCode,
       dropoffAirportCode: airportContext.dropoffAirportCode,
-      outboundChoice: "express",
-      returnChoice: "express",
+      outboundChoice: optionalMeetGreetSelected && airportContext.airportCode !== "DUB" ? "meet-greet" : booking.outboundAirportAccessOption,
+      returnChoice: booking.returnAirportAccessOption,
       fees: pricing.meetGreet,
+      terminalAccessFees: pricing.terminalAccess,
+      visitChoices: booking.terminalAccessChoices,
       meetGreetIncluded: isExecutiveVehicle(vehicleType),
     });
     const persisted = {
@@ -2976,7 +2980,7 @@ async function handlePaymentRequest(
     });
 
     const optionalMeetGreet = quoteOptionalMeetGreet({
-      selected: optionalMeetGreetSelected,
+      selected: optionalMeetGreetSelected && airportContext.airportCode === "DUB",
       pickupAirportCode: airportContext.pickupAirportCode || (airportContext.fromAirport ? airportContext.airportCode : null),
       fees: pricing.meetGreet,
       included: isExecutiveVehicle(vehicleType),
@@ -3015,7 +3019,7 @@ async function handlePaymentRequest(
       acceptedFinalRaw,
       serverFinalAmountGbp,
       undefined,
-      preserveFixedFarePence || optionalMeetGreetFee % 1 !== 0,
+      true,
     );
     if (sumUpChargeGbp == null) {
       return json(
@@ -3049,10 +3053,12 @@ async function handlePaymentRequest(
       outboundAirportAccessOption: optionalMeetGreetSelected ? "meet-greet" : persisted.outboundAirportAccessOption,
       returnAirportAccessOption: persisted.returnAirportAccessOption,
       airportAccessOption: optionalMeetGreetSelected ? "meet-greet" : quotedAccess.airportAccessOption,
+      terminalAccessVisits: quotedAccess.legs,
+      terminalAccessChoices: Object.fromEntries(quotedAccess.legs.map(visit => [`${visit.leg}:${visit.airportCode}:${visit.service}`, visit.option])),
       outboundAirportAccessChargeGbp: persisted.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       ...promoFieldsFromFareBreakdown(breakdown),
-      meetGreetFeeGbp: optionalMeetGreetSelected ? optionalMeetGreetFee : undefined,
+      meetGreetFeeGbp: quotedAccess.meetGreetFeeGbp + optionalMeetGreetFee || undefined,
       // Persist the amount the customer accepted and SumUp will charge.
       finalAmountPayableGbp: sumUpChargeGbp,
       ...(returnOfferOriginalPaymentReference

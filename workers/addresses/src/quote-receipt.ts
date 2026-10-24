@@ -22,7 +22,7 @@ import { SERVED_AIRPORTS } from "../shared/served-airports";
  */
 // Separate namespace for the BFS-only pricing policy and binding-floor pence.
 // Older receipts must refresh even when stored pricing.version is unchanged.
-const QUOTE_RECEIPT_FORMAT = "v2-bfs-minimum";
+const QUOTE_RECEIPT_FORMAT = "v4-optional-terminal-access";
 
 export const QUOTE_RECEIPT_TTL_SECONDS = 3 * 60 * 60;
 

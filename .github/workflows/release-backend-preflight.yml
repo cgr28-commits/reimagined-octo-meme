@@ -1,0 +1,24 @@
+name: Release backend read-only preflight
+on:
+  pull_request:
+    paths:
+      - 'workers/addresses/**'
+      - 'shared/**'
+      - 'scripts/check-production-worker-bindings.mjs'
+      - '.github/workflows/release-backend-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  bindings:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feat/optional-terminal-access'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read production binding names only (no deployment or payment)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/check-production-worker-bindings.mjs

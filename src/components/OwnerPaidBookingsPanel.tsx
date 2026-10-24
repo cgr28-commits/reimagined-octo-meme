@@ -1601,6 +1601,7 @@ export default function OwnerPaidBookingsPanel({
       airportCode: booking.airportCode,
       fromAirport: booking.isFromAirport,
       returnJourney: booking.returnJourney,
+      terminalAccessVisits: booking.terminalAccessVisits,
       outboundAirportAccessOption: booking.outboundAirportAccessOption,
       returnAirportAccessOption: booking.returnAirportAccessOption,
       airportAccessOption: booking.airportAccessOption,

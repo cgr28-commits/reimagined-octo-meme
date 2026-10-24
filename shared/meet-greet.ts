@@ -1,12 +1,5 @@
-/**
- * Airport access charges.
- *
- * Belfast International and Belfast City terminal pickup/drop-off charges are
- * mandatory. A free or Meet & Greet choice cannot remove them.
- * Business Class airport pickups include Meet & Greet and still pay the
- * configured terminal charge once. Optional booking-stage Meet & Greet is
- * calculated separately so instant vehicle quotes and access fees stay unchanged.
- */
+import { DEFAULT_TERMINAL_ACCESS_FEES } from "./terminal-access-config";
+/** Optional Belfast airport access, charged once per visit after the vehicle fare. */
 
 export const MEET_GREET_OPTION = "meet-greet" as const;
 
@@ -19,6 +12,42 @@ export const MEET_GREET_DRIVER_NOTE =
 export type MeetGreetAirportCode = "BFS" | "BHD" | "DUB";
 
 export type AirportAccessChoice = "express" | "free" | "meet-greet";
+
+export type TerminalAccessChoices = Partial<Record<string, AirportAccessChoice>>;
+
+export function airportVisitKey(visit: {leg: string; airportCode: string; service: string}): string {
+  return `${visit.leg}:${visit.airportCode}:${visit.service}`;
+}
+
+/** Allow only choices; browser-supplied prices and unknown keys never enter pricing. */
+export function parseTerminalAccessChoices(value: unknown): TerminalAccessChoices {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter(([key, choice]) =>
+    /^(outbound|return):(BFS|BHD):(pick-up|drop-off)$/.test(key) && isAirportAccessChoice(choice)
+  )) as TerminalAccessChoices;
+}
+
+export function listTerminalAccessVisits(input: {
+  airportCode?: string | null; fromAirport?: boolean | null; returnJourney?: boolean | null;
+  isAirportToAirport?: boolean | null; pickupAirportCode?: string | null; dropoffAirportCode?: string | null;
+}): Array<{leg: "outbound" | "return"; service: "pick-up" | "drop-off"; airportCode: "BFS" | "BHD"}> {
+  const rows: Array<{leg: "outbound" | "return"; service: "pick-up" | "drop-off"; airportCode: "BFS" | "BHD"}> = [];
+  const add = (leg: "outbound" | "return", service: "pick-up" | "drop-off", airport: string | null | undefined) => {
+    if (airport === "BFS" || airport === "BHD") rows.push({ leg, service, airportCode: airport });
+  };
+  if (input.isAirportToAirport) {
+    add("outbound", "pick-up", input.pickupAirportCode);
+    add("outbound", "drop-off", input.dropoffAirportCode);
+    if (input.returnJourney) {
+      add("return", "pick-up", input.dropoffAirportCode);
+      add("return", "drop-off", input.pickupAirportCode);
+    }
+  } else {
+    add("outbound", input.fromAirport ? "pick-up" : "drop-off", input.airportCode);
+    if (input.returnJourney) add("return", input.fromAirport ? "drop-off" : "pick-up", input.airportCode);
+  }
+  return rows;
+}
 
 export type MeetGreetFeesGbp = {
   bfsGbp: number;
@@ -142,13 +171,13 @@ export type ExpressLegChargeSnapshot = {
   airportCode: string;
   selected: boolean;
   chargedFeeGbp: number;
-  /** Catalogue terminal-access fee for this leg. Charged even when selected is false. */
+  /** Catalogue terminal-access fee for this visit; charged only when chosen. */
   feeGbp?: number;
   /** Same catalogue fee under the resolved-leg name. */
   feeIfSelectedGbp?: number;
 };
 
-/** Configured terminal charge for a leg. Selection and Meet & Greet cannot remove it. */
+/** Legacy catalogue fee fallback; the choice resolver decides whether it is charged. */
 export function mandatoryTerminalFeeGbp(leg: ExpressLegChargeSnapshot): number {
   const catalogue = roundGbp(Math.max(0, Number(leg.feeGbp) || 0));
   if (catalogue > 0) return catalogue;
@@ -191,13 +220,7 @@ function expressAirportCode(code: string | null | undefined): "BFS" | "BHD" | nu
   return normalised === "BFS" || normalised === "BHD" ? normalised : null;
 }
 
-/**
- * Public airport-access total.
- * BFS/BHD terminal charges are added from the configured fee on every applicable
- * leg. `selected: false`, choice "free", and choice "meet-greet" do not remove them.
- * Airport-to-airport access stays in the fixed-cost total and is not added again.
- * Business Class (`meetGreetIncluded`) does not add a Meet & Greet fee on top.
- */
+/** Resolve optional Belfast services once per visit. Dublin fixed costs stay in the vehicle quote. */
 export function quoteAirportAccessCharges(input: {
   expressLegs?: ExpressLegChargeSnapshot[] | null;
   airportCode?: string | null;
@@ -211,44 +234,31 @@ export function quoteAirportAccessCharges(input: {
   fees?: MeetGreetFeesGbp | null;
   /** Executive airport pickup: Meet & Greet is part of the fare, not an extra charge. */
   meetGreetIncluded?: boolean;
+  terminalAccessFees?: { bfsGbp: number; bhdGbp: number };
+  visitChoices?: TerminalAccessChoices;
 }): QuotedAirportAccess {
-  // Customer free / Meet & Greet choices are ignored. The configured terminal fee applies.
-  const expressLegs = input.expressLegs ?? [];
+  const expressLegs: ExpressLegChargeSnapshot[] = listTerminalAccessVisits(input).map(visit => {
+    const prior = input.expressLegs?.find(row => airportVisitKey(row) === airportVisitKey(visit));
+    return prior ?? { ...visit, selected: false, chargedFeeGbp: 0, feeGbp: visit.airportCode === "BFS" ? DEFAULT_TERMINAL_ACCESS_FEES.bfsGbp : DEFAULT_TERMINAL_ACCESS_FEES.bhdGbp };
+  });
   const pickupLegs = listAirportPickupLegs(input);
   const legs: QuotedAirportAccessLeg[] = [];
 
-  for (const expressLeg of expressLegs) {
-    const pickup =
-      expressLeg.service === "pick-up" &&
-      pickupLegs.some((leg) => leg.leg === expressLeg.leg);
-    if (input.isAirportToAirport) {
-      // Both airport ends are already in the fixed fare. Do not add Express again.
-      legs.push({
-        leg: expressLeg.leg,
-        service: expressLeg.service,
-        airportCode: expressLeg.airportCode,
-        option: pickup && input.meetGreetIncluded ? "meet-greet" : "express",
-        expressFeeGbp: 0,
-        meetGreetFeeGbp: 0,
-        chargeGbp: 0,
-      });
-      continue;
-    }
-    const terminalFee = mandatoryTerminalFeeGbp(expressLeg);
-    legs.push({
-      leg: expressLeg.leg,
-      service: expressLeg.service,
-      airportCode: expressLeg.airportCode,
-      option:
-        pickup && input.meetGreetIncluded && terminalFee <= 0
-          ? "meet-greet"
-          : terminalFee > 0
-            ? "express"
-            : "free",
-      expressFeeGbp: terminalFee,
-      meetGreetFeeGbp: 0,
-      chargeGbp: terminalFee,
-    });
+  for (const visit of expressLegs) {
+    const pickup = visit.service === "pick-up";
+    const requested = input.visitChoices?.[airportVisitKey(visit)] ?? (visit.leg === "return" ? input.returnChoice : input.outboundChoice);
+    const option: AirportAccessChoice = pickup && input.meetGreetIncluded
+      ? "meet-greet"
+      : requested === "meet-greet" && pickup ? "meet-greet"
+      : requested === "express" ? "express" : "free";
+    const configured = visit.airportCode === "BFS"
+      ? input.terminalAccessFees?.bfsGbp : input.terminalAccessFees?.bhdGbp;
+    const terminalFee = configured == null ? mandatoryTerminalFeeGbp(visit) : roundGbp(Math.max(0, configured));
+    const expressFeeGbp = option === "express" ? terminalFee : 0;
+    const meetGreetFee = option === "meet-greet" && !input.meetGreetIncluded
+      ? meetGreetFeeGbp(visit.airportCode, input.fees) : 0;
+    legs.push({ leg: visit.leg, service: visit.service, airportCode: visit.airportCode, option, expressFeeGbp, meetGreetFeeGbp: meetGreetFee,
+      chargeGbp: roundGbp(expressFeeGbp + meetGreetFee) });
   }
 
   for (const pickup of pickupLegs) {

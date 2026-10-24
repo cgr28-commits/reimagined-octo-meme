@@ -30,7 +30,7 @@ async function main() {
       const publicQuote = calculateQuote("12 Holywood Road, Belfast BT4 1NT", "BFS", vehicle, false, schedule, metrics(input), fromAirport, toPublicOwnerPricingConfig(settings))!;
       eq(publicQuote.amount, quote.amount, "public/worker settings parity");
       const express = resolveExpressDropOff({ airportCode: "BFS", fromAirport, returnJourney: false, selected: true });
-      const access = quoteAirportAccessCharges({ airportCode: "BFS", fromAirport, returnJourney: false, expressLegs: express.legs, fees: settings.meetGreet });
+      const access = quoteAirportAccessCharges({ airportCode: "BFS", fromAirport, returnJourney: false, expressLegs: express.legs, outboundChoice: "express", returnChoice: "express", fees: settings.meetGreet });
       eq(access.airportAccessChargeGbp, 5, "pickup/dropoff access separate and once");
       const total = composeWebsiteFareBreakdown({ journeyFareBeforeAirportAccessGbp: quote.journeyFareGbp!, airportAccessChargeGbp: access.airportAccessChargeGbp }).finalAmountPayableGbp;
       eq(total, expected + (vehicle === ESTATE_VEHICLE ? 7 : 0) + 5, "payable excludes access from floor");
@@ -40,7 +40,7 @@ async function main() {
   for (const fromAirport of [false, true]) {
     const quote = calculateQuote("12 Holywood Road, Belfast BT4 1NT", "BFS", SALOON_VEHICLE, true, schedule, metrics(30), fromAirport, settings)!;
     eq(quote.journeyFareGbp,85.5,"return floor per leg before 5% discount");
-    const access = quoteAirportAccessCharges({ airportCode:"BFS", fromAirport, returnJourney:true, expressLegs:resolveExpressDropOff({airportCode:"BFS",fromAirport,returnJourney:true,selected:true,outboundSelected:true,returnSelected:true}).legs });
+    const access = quoteAirportAccessCharges({ outboundChoice:"express",returnChoice:"express",airportCode:"BFS", fromAirport, returnJourney:true, expressLegs:resolveExpressDropOff({airportCode:"BFS",fromAirport,returnJourney:true,selected:true,outboundSelected:true,returnSelected:true}).legs });
     eq(access.airportAccessChargeGbp,10,"two directional return fees");
     const final = composeWebsiteFareBreakdown({journeyFareBeforeAirportAccessGbp:85.5,returnJourney:true,airportAccessChargeGbp:10});
     eq(final.returnJourneySavingGbp,4.5,"access not discounted"); eq(final.finalAmountPayableGbp,96,"existing whole-pound checkout rounding");

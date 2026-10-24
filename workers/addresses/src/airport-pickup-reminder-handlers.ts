@@ -67,6 +67,7 @@ export function airportPickupReminderInput(
     airportCode: job.airportCode || paid?.airportCode,
     flightNumber: job.flightNumber,
     airportAccessOption: paid?.airportAccessOption,
+    terminalAccessVisits: paid?.terminalAccessVisits,
     outboundAirportAccessOption: paid?.outboundAirportAccessOption,
     returnAirportAccessOption: paid?.returnAirportAccessOption,
     expressDropOffSelected: paid?.expressDropOffSelected,

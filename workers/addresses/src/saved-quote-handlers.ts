@@ -47,7 +47,7 @@ import { isExecutiveVehicle } from "../shared/executive-vehicle";
 import { ownerPricingEngineOptions, type OwnerPricingSettings } from "../shared/owner-pricing-config";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { resolveExpressDropOff } from "../shared/express-drop-off";
-import { quoteAirportAccessCharges, quoteOptionalMeetGreet, defaultMeetGreetFees } from "../shared/meet-greet";
+import { parseTerminalAccessChoices, quoteAirportAccessCharges, quoteOptionalMeetGreet, defaultMeetGreetFees } from "../shared/meet-greet";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { suppressSavedQuoteReminderForBookedJourney } from "./saved-quote-booking-match";
 
@@ -153,8 +153,9 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
         : String(j.tripDirection ?? j.journeyDirection ?? "").includes("from"),
     journeyType: asOptionalString(j.journeyType),
     optionalMeetGreetSelected: j.optionalMeetGreetSelected === true,
-    outboundAirportAccessChoice: j.outboundAirportAccessChoice === "meet-greet" ? "meet-greet" : "express",
-    returnAirportAccessChoice: j.returnAirportAccessChoice === "meet-greet" ? "meet-greet" : "express",
+    terminalAccessChoices: parseTerminalAccessChoices(j.terminalAccessChoices),
+    outboundAirportAccessChoice: j.outboundAirportAccessChoice === "free" ? "free" : j.outboundAirportAccessChoice === "meet-greet" ? "meet-greet" : "express",
+    returnAirportAccessChoice: j.returnAirportAccessChoice === "free" ? "free" : j.returnAirportAccessChoice === "meet-greet" ? "meet-greet" : "express",
     tripDate,
     tripTime,
     returnJourney: Boolean(j.returnJourney),
@@ -252,7 +253,9 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
       returnJourney: Boolean(journey.returnJourney),
       fees: input.pricing?.meetGreet ?? defaultMeetGreetFees(),
       meetGreetIncluded: isExecutiveVehicle(quote.vehicleType),
-      outboundChoice: journey.outboundAirportAccessChoice,
+      terminalAccessFees: input.pricing?.terminalAccess,
+      visitChoices: journey.terminalAccessChoices,
+      outboundChoice: journey.optionalMeetGreetSelected && airportCode !== "DUB" ? "meet-greet" : journey.outboundAirportAccessChoice,
       returnChoice: journey.returnAirportAccessChoice,
     });
     serverAmount = composeWebsiteFareBreakdown({
@@ -272,7 +275,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   }
 
   const optionalMeetGreet = quoteOptionalMeetGreet({
-    selected: journey.optionalMeetGreetSelected === true,
+    selected: journey.optionalMeetGreetSelected === true && airportCode === "DUB",
     pickupAirportCode: journey.isFromAirport ? airportCode : null,
     fees: input.pricing?.meetGreet ?? defaultMeetGreetFees(),
     included: isExecutiveVehicle(quote.vehicleType),

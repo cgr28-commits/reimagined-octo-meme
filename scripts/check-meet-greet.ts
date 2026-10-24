@@ -1,5 +1,5 @@
 /**
- * Terminal access is mandatory. Meet & Greet is not a public paid extra.
+ * Belfast access is optional. Pickup Meet & Greet includes access.
  * Run: npx tsx scripts/check-meet-greet.ts
  */
 
@@ -97,14 +97,14 @@ assert.equal(defaults.bhdGbp, 15);
 assert.equal(defaults.dubGbp, 25);
 
 const bfsPickup = access({ airportCode: "BFS", fromAirport: true, outbound: "meet-greet", express: true });
-assert.equal(bfsPickup.meetGreetFeeGbp, 0);
-assert.equal(bfsPickup.expressDropOffFee, 5);
-assert.equal(bfsPickup.airportAccessChargeGbp, 5);
-assert.equal(bfsPickup.outboundAirportAccessOption, "express");
+assert.equal(bfsPickup.meetGreetFeeGbp, 15);
+assert.equal(bfsPickup.expressDropOffFee, 0);
+assert.equal(bfsPickup.airportAccessChargeGbp, 15);
+assert.equal(bfsPickup.outboundAirportAccessOption, "meet-greet");
 
 const bhdPickup = access({ airportCode: "BHD", fromAirport: true, outbound: "free" });
 assert.equal(bhdPickup.meetGreetFeeGbp, 0);
-assert.equal(bhdPickup.airportAccessChargeGbp, 4);
+assert.equal(bhdPickup.airportAccessChargeGbp, 0);
 
 const dubPickup = access({ airportCode: "DUB", fromAirport: true, outbound: "meet-greet" });
 assert.equal(dubPickup.expressDropOffFee, 0);
@@ -123,8 +123,8 @@ const dropOffIgnoresMeetGreet = access({
   express: false,
 });
 assert.equal(dropOffIgnoresMeetGreet.meetGreetFeeGbp, 0);
-assert.equal(dropOffIgnoresMeetGreet.expressDropOffFee, 5);
-assert.equal(dropOffIgnoresMeetGreet.airportAccessChargeGbp, 5);
+assert.equal(dropOffIgnoresMeetGreet.expressDropOffFee, 0);
+assert.equal(dropOffIgnoresMeetGreet.airportAccessChargeGbp, 0);
 
 const toAirportReturn = access({
   airportCode: "BHD",
@@ -134,12 +134,12 @@ const toAirportReturn = access({
   returnChoice: "meet-greet",
   express: false,
 });
-assert.equal(toAirportReturn.outboundAirportAccessChargeGbp, 4);
-assert.equal(toAirportReturn.returnAirportAccessChargeGbp, 4);
-assert.equal(toAirportReturn.meetGreetFeeGbp, 0);
-assert.equal(toAirportReturn.airportAccessChargeGbp, 8);
-assert.notEqual(toAirportReturn.returnAirportAccessOption, "meet-greet");
-assert.equal(toAirportReturn.outboundAirportAccessOption, "express");
+assert.equal(toAirportReturn.outboundAirportAccessChargeGbp, 0);
+assert.equal(toAirportReturn.returnAirportAccessChargeGbp, 15);
+assert.equal(toAirportReturn.meetGreetFeeGbp, 15);
+assert.equal(toAirportReturn.airportAccessChargeGbp, 15);
+assert.equal(toAirportReturn.returnAirportAccessOption, "meet-greet");
+assert.equal(toAirportReturn.outboundAirportAccessOption, "free");
 
 const fromAirportReturn = access({
   airportCode: "DUB",
@@ -183,7 +183,7 @@ const returnPriced = customerTotal({
   accessGbp: toAirportReturn.airportAccessChargeGbp,
   returnJourney: true,
 });
-assert.equal(toAirportReturn.meetGreetFeeGbp, 0);
+assert.equal(toAirportReturn.meetGreetFeeGbp, 15);
 assert.equal(
   returnPriced.finalAmountPayableGbp,
   roundCustomerPayableGbp(returnFare + toAirportReturn.airportAccessChargeGbp),

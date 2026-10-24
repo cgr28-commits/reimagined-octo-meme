@@ -1394,6 +1394,12 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             onChange={(dubGbp) => update("meetGreet", { ...draft.meetGreet, dubGbp })}
           />
         </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <MoneyField label="Terminal Access — Belfast International" value={draft.terminalAccess.bfsGbp}
+            onChange={(bfsGbp) => update("terminalAccess", { ...draft.terminalAccess, bfsGbp })} />
+          <MoneyField label="Terminal Access — Belfast City" value={draft.terminalAccess.bhdGbp}
+            onChange={(bhdGbp) => update("terminalAccess", { ...draft.terminalAccess, bhdGbp })} />
+        </div>
         <ul className="mt-3 space-y-2 text-sm text-white/80">
           {(["BFS", "BHD", "DUB", "LDY"] as const).map((code) => {
             const row = AIRPORT_FIXED_COSTS_GBP[code];
