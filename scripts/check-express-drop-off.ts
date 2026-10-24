@@ -501,7 +501,7 @@ check("Breakdown / customer copy wording", () => {
       expressDropOffFee: 5,
       expressDropOffAirport: "BFS",
     }),
-    "Express Drop-Off Included",
+    "Terminal Access (drop-off) — £5",
   );
   assert.equal(
     formatExpressDropOffSummaryLine({ expressDropOffAirport: "BFS" }),
@@ -588,84 +588,15 @@ check("Shared module mirrored into worker", () => {
   assert.equal(read("shared/quick-quote.ts"), read("workers/addresses/shared/quick-quote.ts"));
 });
 
-check("QuoteCard shows compact reassurance before fare; checkout retains the access summary", () => {
+check("QuoteCard offers free-default access in booking details", () => {
   const card = read("src/components/QuoteCard.tsx");
-  const choice = read("src/components/ExpressDropOffChoice.tsx");
-
-  // Instant results show included terminal access, not the legacy Free/Express selector.
-  // Checkout still uses the existing summary renderer.
-  assert.doesNotMatch(card, /function renderExpressCollapsible/);
-  const resultCard = card.slice(card.indexOf("function renderInstantQuoteResultCard()"), card.indexOf("function quoteJourneyEndpoints()"));
-  assert.doesNotMatch(resultCard, /<QuoteAirportBenefits/);
-  assert.match(resultCard, /hasAirportCollection=\{isFromAirport \|\| \(returnJourney && Boolean\(isAirportTrip \|\| dropoffAirportCode\)\)\}/);
-  assert.doesNotMatch(resultCard, /<ExpressDropOffChoice|<ExpressDropOffSelector/);
-  assert.match(card, /renderExpressChoiceInPriceCard\("full"\)/);
-  const showcase = read("src/components/QuoteResultShowcase.tsx");
-  assert.match(showcase, /QuoteReassurance/);
-  const accessIdx = showcase.indexOf("<QuoteReassurance");
-  const bookIdx = showcase.indexOf("{bookButton}");
-  assert.ok(accessIdx > 0 && bookIdx > accessIdx, "Included airport benefits must render before Book");
-  assert.match(resultCard, /Your fixed airport transfer price/);
-  assert.match(card, /data-express-airport-choice/);
-  assert.match(card, /renderExpressChoiceInPriceCard/);
-  assert.match(card, /service=\{leg\.service\}|service=\{expressSelection\.service/);
-  assert.match(card, /ExpressDropOffChoice/);
-  assert.match(card, /pricedFare/);
-  assert.match(card, /composeFareWithExpressDropOff/);
-  assert.match(card, /resolveExpressDropOff/);
-  assert.match(card, /expressDropOffSelected/);
-  assert.match(
-    card,
-    /const \[outboundAccessChoice, setOutboundAccessChoice\] = useState<AirportAccessChoice>\("express"\)/,
-  );
-  assert.match(
-    card,
-    /const \[returnAccessChoice, setReturnAccessChoice\] = useState<AirportAccessChoice>\("express"\)/,
-  );
-  assert.match(card, /const expressDropOffSelected = outboundAccessChoice === "express"/);
-  assert.match(card, /terminalAccessIncluded/);
-  assert.doesNotMatch(card, /Add Meet & Greet/);
-  assert.doesNotMatch(card, /shouldDefaultExpressSelectedOnNewEligibility/);
-  assert.match(card, /renderExpressChoiceInPriceCard\(quoteStep === 1 \? "full" : "summary"\)/);
-  // Browser sends transfer fare + boolean — never trusts a client fee for SumUp.
-  assert.match(card, /createPaymentCheckout\(\{/);
-  assert.match(card, /journeyFareGbp/);
-  assert.match(card, /airportAccessChargeGbp: airportAccessQuote\.airportAccessChargeGbp/);
-  assert.doesNotMatch(card, /claimFirstBookingOffer/);
-  assert.doesNotMatch(card, /claimFirstBookingForCheckout/);
-  assert.doesNotMatch(card, /FirstBookingOfferAdvert/);
-  assert.doesNotMatch(card, /checkFirstBookingOfferEligibility/);
-  assert.doesNotMatch(card, /advertiseFirstBookingOffer/);
-  assert.match(card, /expressDropOffSelected: airportAccessQuote\.expressDropOffSelected/);
-  assert.match(card, /canProceedWithoutExpressDropOff/);
-  // Persist selection across steps / drafts / Book Now + Save Quote.
-  assert.match(card, /expressDropOffSelected:/);
-  assert.match(card, /Book Now/);
-  assert.match(card, /Save Quote/);
-  assert.match(read("src/lib/booking-draft-storage.ts"), /expressDropOffSelected\?: boolean/);
-
-  // Choice component: full under initial price; summary + Change on payment pages.
-  assert.match(choice, /mode\?: "full" \| "summary"/);
-  assert.match(choice, />\s*Change\s*</);
-  assert.match(choice, /ExpressDropOffSelector/);
-  assert.match(choice, /expressDropOffBreakdownLabel/);
-
-  // Selector copy matches product wording (direction-aware).
-  const selector = read("src/components/ExpressDropOffSelector.tsx");
-  assert.match(selector, /expressQuoteExpressTitle/);
-  assert.match(selector, /expressQuoteFreeTitle/);
-  assert.match(selector, /expressQuoteSelectionConfirmation/);
-  assert.doesNotMatch(selector, /Recommended/);
-  assert.doesNotMatch(selector, /£0/);
-  assert.doesNotMatch(selector, /save £/);
-  assert.doesNotMatch(selector, /add £/);
-  assert.match(selector, /expressAirportOptionHeading/);
-  assert.doesNotMatch(selector, /aria-expanded/);
-  assert.match(selector, /role="radiogroup"/);
-  assert.match(selector, /min-h-11/);
-  assert.match(selector, /service/);
-  assert.match(selector, /onRemovalAcknowledgedChange\(next !== "express"\)/);
-  assert.doesNotMatch(selector, /type="checkbox"/);
+  const options = read("src/components/TerminalAccessOptions.tsx");
+  assert.match(card, /<TerminalAccessOptions/);
+  assert.match(card, /useState<AirportAccessChoice>\("free"\)/);
+  assert.match(options, /type="radio"/);
+  assert.match(options, /data-terminal-access/);
+  assert.match(card, /terminalAccessChoices/);
+  assert.match(card, /createPaymentCheckout/);
 });
 
 check("Included terminal-access benefits follow airport, direction and return legs", () => {
@@ -681,11 +612,11 @@ check("Included terminal-access benefits follow airport, direction and return le
         });
         assert.equal(benefits.length, returnJourney ? 2 : 1);
         assert.equal(benefits[0].pickup, fromAirport);
-        assert.equal(benefits[0].heading, `Terminal ${fromAirport ? "pick-up" : "drop-off"} included`);
+        assert.equal(benefits[0].heading, "Free Airport Access available");
         if (returnJourney) assert.equal(benefits[1].pickup, !fromAirport);
         for (const benefit of benefits) {
-          assert.match(benefit.description, /No additional airport/);
-          assert.doesNotMatch(benefit.heading + benefit.description, /free|save|opt.out/i);
+          assert.match(benefit.description, /Choose Long Stay, paid Terminal Access/);
+          assert.doesNotMatch(benefit.heading, /Terminal.*included/i);
         }
       }
     }
@@ -1104,26 +1035,14 @@ check("Emails and booking records show the customer’s final Express choice", (
   };
 
   const enquiry = buildBookingMessage(removedBooking);
-  assert.match(enquiry, /Airport access: Express Drop-Off Included/);
-  assert.doesNotMatch(enquiry, /Free drop-off|Free pickup|Free Drop-Off|Free Pickup/i);
-  assert.match(enquiry, /Airport-imposed Express access charges are passed on at cost with no markup/);
-
-  const receipt: PaidBookingReceipt = {
-    ...removedBooking,
-    amountPaid: "£40.00",
-    paymentReference: "PAY-TEST",
-    customerReference: "MAT-1001",
-  };
+  assert.match(enquiry, /Airport access: Free Airport Access/);
+  const receipt: PaidBookingReceipt = { ...removedBooking, amountPaid: "£40.00", paymentReference: "PAY-TEST", customerReference: "MAT-1001" };
   const customerEmail = buildCustomerConfirmationEmail(receipt);
-  assert.match(customerEmail.text, /Airport access: Express Drop-Off Included/);
-  assert.match(customerEmail.html, /Express Drop-Off Included/);
-  assert.doesNotMatch(customerEmail.text, /Free designated drop-off|Free pickup|Free Drop-Off/i);
-  assert.doesNotMatch(customerEmail.html, /Free designated drop-off|Free pickup|Free Drop-Off/i);
+  assert.match(customerEmail.text, /Free Airport Access/);
+  assert.match(customerEmail.html, /Free Airport Access/);
+  assert.doesNotMatch(customerEmail.text, /Terminal Access.*£5/);
   const ownerEmail = buildOwnerPaidBookingEmail(receipt);
   assert.match(ownerEmail.body, /AIRPORT ACCESS: FREE DROP-OFF AREA/);
-  assert.match(ownerEmail.body, /Airport access: Express Drop-Off Included/);
-  assert.doesNotMatch(ownerEmail.body, /Free designated drop-off|Free pickup option/i);
-
   const keptExpressBooking = {
     ...removedBooking,
     expressDropOffSelected: true,
@@ -1136,8 +1055,8 @@ check("Emails and booking records show the customer’s final Express choice", (
     customerReference: "MAT-1002",
   };
   const keptCustomer = buildCustomerConfirmationEmail(keptReceipt);
-  assert.match(keptCustomer.text, /Airport access: Express Drop-Off Included/);
-  assert.match(keptCustomer.html, /Express Drop-Off Included/);
+  assert.match(keptCustomer.text, /Airport access: Terminal Access \(drop-off\) — £5/);
+  assert.match(keptCustomer.html, /Terminal Access \(drop-off\) — £5/);
   assert.doesNotMatch(keptCustomer.text, /Free pickup|Free drop-off|Free Drop-Off|Free Pickup/i);
   const keptOwner = buildOwnerPaidBookingEmail(keptReceipt);
   assert.match(keptOwner.body, /AIRPORT ACCESS: EXPRESS — £5 PAID/);
@@ -1149,7 +1068,7 @@ check("Emails and booking records show the customer’s final Express choice", (
     expressDropOffAirport: "BFS",
     fromAirport: false,
   });
-  assert.equal(switched, "Airport access: Express Drop-Off Included");
+  assert.equal(switched, "Airport access: Terminal Access (drop-off) — £5");
   assert.equal(
     formatAirportAccessOptionOwnerLine({
       expressDropOffSelected: false,
@@ -1165,7 +1084,7 @@ check("Emails and booking records show the customer’s final Express choice", (
     expressDropOffFee: 4,
     expressDropOffAirport: "BHD",
   });
-  assert.equal(kept, "Express Drop-Off Included");
+  assert.equal(kept, "Terminal Access (drop-off) — £4");
 });
 
 check("Paid booking record + confirmation page persist airport access option", () => {
@@ -1388,16 +1307,16 @@ check("A–J: single vs return Express legs, 5% on taxi only, independent select
     returnExpressDropOffSelected: false,
   });
   assert.equal(lines.length, 2);
-  assert.match(lines[0]!, /Outbound airport access: Express Drop-Off Included/);
-  assert.match(lines[1]!, /Return airport access: Express Pick-Up Included/);
-  assert.doesNotMatch(lines.join("\n"), /Free pickup|Free drop-off|Free designated/i);
+  assert.match(lines[0]!, /Outbound airport access: Terminal Access \(drop-off\) — £5/);
+  assert.match(lines[1]!, /Return airport access: Free Airport Access \(pick-up\)/);
+  assert.match(lines[1]!, /Long Stay car park.*£0/);
 
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /returnExpressDropOffSelected/);
   assert.doesNotMatch(card, /<CombinedAirportAccessChoice/);
-  assert.match(card, /data-express-leg=\{leg\.leg\}/);
-  assert.match(card, /accessChoice="express"/);
-  assert.match(card, /terminalAccessIncluded/);
+  assert.match(card, /<TerminalAccessOptions/);
+  assert.match(card, /terminalAccessChoices/);
+  assert.match(card, /airportAccessQuote/);
   assert.match(card, /canProceedWithoutExpressDropOffLegs/);
   assert.match(card, /outboundExpressDropOffSelected/);
   assert.match(card, /returnAirportAccessChargeGbp/);

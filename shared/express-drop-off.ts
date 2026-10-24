@@ -696,7 +696,6 @@ type StoredAccessRow = {
 };
 
 function storedAccessRows(input: StoredAccessLineInput): StoredAccessRow[] {
-  if (input.terminalAccessVisits) return input.terminalAccessVisits.map(row => ({...row, feeGbp: row.chargeGbp}));
   const selection = resolveExpressDropOff({
     airportCode: input.expressDropOffAirport ?? input.airportCode,
     fromAirport: input.fromAirport,
@@ -705,7 +704,9 @@ function storedAccessRows(input: StoredAccessLineInput): StoredAccessRow[] {
     outboundSelected: input.outboundExpressDropOffSelected,
     returnSelected: input.returnExpressDropOffSelected,
   });
-  const rows: StoredAccessRow[] = selection.legs.map((leg) => {
+  const rows: StoredAccessRow[] = input.terminalAccessVisits
+    ? input.terminalAccessVisits.map(row => ({ ...row, feeGbp: row.chargeGbp }))
+    : selection.legs.map((leg) => {
     const explicit =
       leg.leg === "return" ? input.returnAirportAccessOption : input.outboundAirportAccessOption;
     const charged =
@@ -768,7 +769,9 @@ function storedAccessRows(input: StoredAccessLineInput): StoredAccessRow[] {
       airportCode: pickup.airportCode,
       option: "meet-greet",
       feeGbp:
-        typeof charged === "number" && charged >= 0
+        pickup.leg === "outbound" && typeof input.meetGreetFeeGbp === "number"
+          ? input.meetGreetFeeGbp
+          : typeof charged === "number" && charged >= 0
           ? roundGbp(charged)
           : meetGreetFeeGbp(pickup.airportCode),
     });

@@ -83,7 +83,7 @@ try {
  assert.equal(q({...saved,night:{...saved.night,enabled:true}},'BFS',20,SALOON_VEHICLE,false,'2026-11-10','23:00').journeyFareGbp,Math.round(day*1.17*100)/100);
  assert.equal(q({...saved,weekend:{...saved.weekend,enabled:true}},'BFS',20,SALOON_VEHICLE,false,'2026-11-14','12:00').journeyFareGbp,Math.round(day*1.23*100)/100);
  assert.equal(q({...saved,estate:{upliftGbp:12.75}},'BFS',20,ESTATE_VEHICLE).journeyFareGbp,day+12.75);
- const protectedResult=await applyProfitabilityProtection({pricing:saved,vehicleType:SALOON_VEHICLE,routeMetrics:{distanceKm:20/.621371,durationMinutes:40},pickup:null,dropoff:null,returnJourney:false,schedule:{},existing:{amountGbp:54,journeyFareGbp:54,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0}});assert.equal(protectedResult.amountGbp,54);assert.equal(protectedResult.fallbackReason,'mileage_formula_selected');
+ const protectedResult=await applyProfitabilityProtection({pricing:saved,vehicleType:SALOON_VEHICLE,routeMetrics:{distanceKm:20/.621371,durationMinutes:40},pickup:null,dropoff:null,returnJourney:false,schedule:{},existing:{amountGbp:54,journeyFareGbp:54,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0}});assert.equal(protectedResult.amountGbp,54);assert.equal(protectedResult.fallbackReason,'analysis_only');
  saved.saloonFormula!.enabled=false;assert.equal((await api('POST',saved)).status,200);saved=await getOwnerPricingSettings(kv);
  assert.equal(toPublicOwnerPricingConfig(saved).postcodePricingEnabled,true);assert.equal(JSON.stringify(saved.postcodeRules),retained);assert.equal(calculateConfiguredSaloonFareGbp(20,saved),baseline);
  assert.notEqual(q(saved,'BFS',20).amount,q({...saved,saloonFormula:{...DEFAULT_SALOON_FORMULA,enabled:true}},'BFS',20).amount);

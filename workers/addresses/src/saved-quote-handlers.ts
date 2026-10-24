@@ -154,8 +154,8 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
     journeyType: asOptionalString(j.journeyType),
     optionalMeetGreetSelected: j.optionalMeetGreetSelected === true,
     terminalAccessChoices: parseTerminalAccessChoices(j.terminalAccessChoices),
-    outboundAirportAccessChoice: j.outboundAirportAccessChoice === "free" ? "free" : j.outboundAirportAccessChoice === "meet-greet" ? "meet-greet" : "express",
-    returnAirportAccessChoice: j.returnAirportAccessChoice === "free" ? "free" : j.returnAirportAccessChoice === "meet-greet" ? "meet-greet" : "express",
+    outboundAirportAccessChoice: j.outboundAirportAccessChoice === "express" ? "express" : j.outboundAirportAccessChoice === "meet-greet" ? "meet-greet" : "free",
+    returnAirportAccessChoice: j.returnAirportAccessChoice === "express" ? "express" : j.returnAirportAccessChoice === "meet-greet" ? "meet-greet" : "free",
     tripDate,
     tripTime,
     returnJourney: Boolean(j.returnJourney),
@@ -275,13 +275,13 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   }
 
   const optionalMeetGreet = quoteOptionalMeetGreet({
-    selected: journey.optionalMeetGreetSelected === true && airportCode === "DUB",
+    selected: journey.optionalMeetGreetSelected === true,
     pickupAirportCode: journey.isFromAirport ? airportCode : null,
     fees: input.pricing?.meetGreet ?? defaultMeetGreetFees(),
     included: isExecutiveVehicle(quote.vehicleType),
   });
   if (!optionalMeetGreet.ok) return { ok: false, message: optionalMeetGreet.error, reason: "invalid_meet_greet" };
-  serverAmount = Math.round((serverAmount + optionalMeetGreet.feeGbp) * 100) / 100;
+  serverAmount = Math.round((serverAmount + (airportCode === "DUB" ? optionalMeetGreet.feeGbp : 0)) * 100) / 100;
   const pricing = lockSavedQuotePricingFromServer({
     serverAmount,
     amountLabel: formatSavedQuoteAmount(serverAmount),

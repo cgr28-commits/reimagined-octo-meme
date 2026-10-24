@@ -95,7 +95,7 @@ async function main() {
       const body=await response.json() as {checkoutId:string};assert.equal(response.status,200,JSON.stringify(body));assert.equal(checkoutAmount,charged);
       const pending=await getPendingCheckout(kv,body.checkoutId);assert.ok(pending);
       assert.equal(pending.amount, charged, "Pending checkout keeps the server-authoritative amount");
-      assert.deepEqual(pending.booking.terminalAccessVisits, access.legs, "Server ignores tampered amounts and persists selected visits");
+      assert.deepEqual(pending.booking.terminalAccessVisits, access.legs.filter(visit => visit.airportCode === "BFS" || visit.airportCode === "BHD"), "Server ignores tampered amounts and persists selected visits");
       if (airport.code !== "DUB") {
         const expectedFee = airport.code === "BFS" ? pricing.terminalAccess.bfsGbp : pricing.terminalAccess.bhdGbp;
         const expected = (choice: string, pickup: boolean) => choice === "express" ? expectedFee : choice === "meet-greet" && pickup ? 15 : 0;
@@ -126,7 +126,7 @@ async function main() {
         assert.equal(paid?.cashBalanceDue,deposit.cashDueGbp);
         assert.equal(paid?.onlineAmountPaid,charged);
       }
-      assert.deepEqual(paid?.terminalAccessVisits, access.legs, "Canonical database retains visit selections and charges");
+      assert.deepEqual(paid?.terminalAccessVisits, access.legs.filter(visit => visit.airportCode === "BFS" || visit.airportCode === "BHD"), "Canonical database retains visit selections and charges");
       if (airport.code !== "DUB") {
         for (const visit of access.legs) {
           const label = visit.option === "meet-greet" ? "Meet & Greet" : visit.option === "express" ? "Terminal Access" : "Free Airport Access";

@@ -2980,13 +2980,13 @@ async function handlePaymentRequest(
     });
 
     const optionalMeetGreet = quoteOptionalMeetGreet({
-      selected: optionalMeetGreetSelected && airportContext.airportCode === "DUB",
+      selected: optionalMeetGreetSelected,
       pickupAirportCode: airportContext.pickupAirportCode || (airportContext.fromAirport ? airportContext.airportCode : null),
       fees: pricing.meetGreet,
       included: isExecutiveVehicle(vehicleType),
     });
     if (!optionalMeetGreet.ok) return json({ error: optionalMeetGreet.error }, 400, origin);
-    const optionalMeetGreetFee = optionalMeetGreet.feeGbp;
+    const optionalMeetGreetFee = airportContext.airportCode === "DUB" ? optionalMeetGreet.feeGbp : 0;
     const serverFinalAmountGbp = Math.round((breakdown.finalAmountPayableGbp + optionalMeetGreetFee) * 100) / 100;
     // Customer must have been shown/agreed this exact final amount (consent + breakdown).
     // Never silently substitute a recalculated SumUp charge.
@@ -3053,8 +3053,8 @@ async function handlePaymentRequest(
       outboundAirportAccessOption: optionalMeetGreetSelected ? "meet-greet" : persisted.outboundAirportAccessOption,
       returnAirportAccessOption: persisted.returnAirportAccessOption,
       airportAccessOption: optionalMeetGreetSelected ? "meet-greet" : quotedAccess.airportAccessOption,
-      terminalAccessVisits: quotedAccess.legs,
-      terminalAccessChoices: Object.fromEntries(quotedAccess.legs.map(visit => [`${visit.leg}:${visit.airportCode}:${visit.service}`, visit.option])),
+      terminalAccessVisits: quotedAccess.legs.filter(visit => visit.airportCode === "BFS" || visit.airportCode === "BHD"),
+      terminalAccessChoices: Object.fromEntries(quotedAccess.legs.filter(visit => visit.airportCode === "BFS" || visit.airportCode === "BHD").map(visit => [`${visit.leg}:${visit.airportCode}:${visit.service}`, visit.option])),
       outboundAirportAccessChargeGbp: persisted.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       ...promoFieldsFromFareBreakdown(breakdown),

@@ -387,7 +387,7 @@ const a2aSaturday = calculateAirportToAirportQuote(
   a2aMetrics,
 );
 assert.ok(a2aUnderlying && a2aWeekday && a2aSaturday);
-const a2aFixed = 9;
+const a2aFixed = 0; // Belfast access is optional after vehicle selection.
 assert.equal(a2aWeekday.nightWeekendSurchargeGbp, 0);
 assert.equal(a2aWeekday.amount, roundGbp(a2aUnderlying.amount + a2aFixed));
 assert.equal(a2aSaturday.nightWeekendSurchargeGbp, roundGbp(a2aUnderlying.amount * 0.1));

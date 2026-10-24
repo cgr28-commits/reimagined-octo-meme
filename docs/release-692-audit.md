@@ -36,6 +36,7 @@ Required selectively reviewed dependencies:
 - TypeScript, ESLint (existing warnings), static frontend production build, Worker typecheck/dry-run build: passed.
 - 1,152 vehicle-fare snapshots match untouched main across airports/directions/vehicles, single/return, formula modes, supplements and date bands. Dublin fixed costs also match.
 - 246 configurable BFS minimum checks; 72 access combinations; 864 isolated signed quote/payment/storage/customer-owner confirmation cases: passed.
+- Additional 192 signed/unsigned BFS minimum payment cases and 384 Meet & Greet payment/driver/owner cases pass. The latter caught and fixed a Dublin owner-notification regression; Belfast visit storage no longer overwrites Dublin service details.
 - Saved quotes, deposit/cash, Meet & Greet, flight validation, signed receipt tampering/expiry, checkout structure, required fields and schedule gates: passed.
 - Profitability regression expectations intentionally changed to assert unchanged customer fares and zero positioning requests, while retaining analytical calculations.
 - Initial frontend build interruption came from installing test dependencies during build; clean `npm ci` and a fresh build passed.
@@ -46,7 +47,7 @@ Required selectively reviewed dependencies:
 
 NOT RELEASE-READY until these are resolved and recorded against the final commit:
 1. Required GitHub checks and Chromium/WebKit runs must pass; final exact Vercel deployment must be READY.
-2. Read-only production binding preflight must succeed. Secret presence alone cannot establish credential validity or delivery.
+2. Read-only production binding preflight passed in GitHub run 40116025057: storage/coordinators, SumUp keys, quote signing, Google and email bindings are present. Presence alone cannot establish credential validity or delivery.
 3. The currently deployed Worker has not been updated. A frontend-only Vercel preview cannot demonstrate optional-access production checkout compatibility. No test-only API adapter conceals this limitation.
 4. Mixed frontend/backend versions need a verified cutover strategy: old v2 receipts and cached old frontends cannot be assumed compatible with v4 optional-access semantics. Existing pending/paid checkouts retain their stored totals; newly created checkouts must use matched code. A matching non-production Worker plus sandbox/provider verification is required before release approval.
 5. Existing Pages and Worker workflows both auto-deploy independently on pushes to main. External Cloudflare/Vercel Git integrations also require an inventory. Do not merge while this can cause an uncoordinated rollout.
