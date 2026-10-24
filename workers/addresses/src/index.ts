@@ -5105,7 +5105,7 @@ export default {
           run:async()=>{const response=await handlePaymentRequest(request,env,origin); return {status:response.status,body:await response.json() as Record<string,unknown>};},
           // A definite validation rejection made no provider request. Never retry
           // an ambiguous 5xx automatically (the provider may have accepted it).
-          retrySafe:result=>result.status < 500 && !(result.status === 200 && result.body.checkoutId),
+          retrySafe:result=>result.body.code === "route_service_unavailable" || (result.status < 500 && !(result.status === 200 && result.body.checkoutId)),
         });
         return json(result.body,result.status,origin);
       } catch(error) {

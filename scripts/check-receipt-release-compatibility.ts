@@ -43,6 +43,7 @@ async function main() {
   const kv={async get(key:string,type?:string){const v=store.get(key);return v==null?null:type==="json"?JSON.parse(v):v;},async put(key:string,value:string){store.set(key,value);},async delete(key:string){store.delete(key);},async list(){return {keys:[],list_complete:true};}} as unknown as KVNamespace;
   const env={QUOTE_LEAD_COORDINATOR:isolatedPaymentCoordinator(),TRACKING_STORE:kv,GOOGLE_PLACES_API_KEY:"mock-google",SUMUP_API_KEY:"mock-sumup",SUMUP_MERCHANT_CODE:"mock-merchant",QUOTE_RECEIPT_SECRET:"isolated-receipt-secret",PUBLIC_SITE_ORIGIN:origin,RESEND_API_KEY:"mock-email",BOOKING_TO_EMAIL:"owner@example.invalid",BOOKING_FROM_EMAIL:"bookings@example.invalid"};
   let routeCalls=0, checkoutAmount=0, checkouts=0, checks=0;
+  let failNextProviderRead=false;
   const paidCheckouts = new Map<string, SumUpCheckoutDetails>();
   const emails: { to: string | string[]; text: string; html?: string }[] = [];
   const results:Record<string,unknown>[]=[]; const targetBaselines=new Map<string,number>();
@@ -67,6 +68,7 @@ async function main() {
       return Response.json({id,checkout_reference:body.checkout_reference,hosted_checkout_url:"https://checkout.sumup.com/isolated",status:"PENDING",amount:body.amount},{status:201});
     }
     if(url.hostname==="api.sumup.com"&&request.method==="GET"&&url.pathname.startsWith("/v0.1/checkouts/")){
+      if(failNextProviderRead) {failNextProviderRead=false;throw Error("transient provider read failure");}
       const checkout = paidCheckouts.get(url.pathname.split("/").at(-1)!);
       assert.ok(checkout, "Confirmation must verify a checkout created by the payment handler");
       return Response.json(checkout);
@@ -144,6 +146,10 @@ async function main() {
         }
         env.QUOTE_LEAD_COORDINATOR=originalCoordinator;
         paidCheckouts.set(body.checkoutId,provider);
+      }
+      if(checks === 0) {
+        failNextProviderRead=true;
+        await assert.rejects(()=>finalizePaidCheckout({env,checkoutId:body.checkoutId,booking:pending.booking,logPaidBookingCalendar:async()=>({logged:true})}),/transient provider read/);
       }
       const emailStart = emails.length;
       const finalize = () => finalizePaidCheckout({ env, checkoutId: body.checkoutId, booking: pending.booking, logPaidBookingCalendar: async () => ({ logged: true, events: 0, eventIds: [] }) });

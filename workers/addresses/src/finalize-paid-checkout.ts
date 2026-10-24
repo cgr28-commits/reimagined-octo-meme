@@ -905,11 +905,21 @@ export function extractCheckoutIdFromRequest(
 
 /** All browser/webhook callers share the same durable operation per checkout. */
 export async function finalizePaidCheckout(input: Parameters<typeof finalizePaidCheckoutOnce>[0]): Promise<FinalizePaidCheckoutResult> {
+  if (!input.env.SUMUP_API_KEY?.trim()) return finalizePaidCheckoutOnce(input);
+  // Safe reads must remain retryable. Claim only after SumUp confirms PAID;
+  // a temporary GET failure must not strand an otherwise valid payment.
+  if (input.env.TRACKING_STORE) {
+    const existing = await getPaidBookingRecordByCheckoutId(input.env.TRACKING_STORE, input.checkoutId);
+    const pending = existing ? await getPendingCheckout(input.env.TRACKING_STORE, input.checkoutId) : null;
+    if (existing && pending?.checkoutKind !== "amendment-topup") return finalizePaidCheckoutOnce(input);
+  }
+  const checkout = input.checkout ?? await getSumUpCheckout(input.env.SUMUP_API_KEY?.trim() ?? "", input.checkoutId);
+  if (!isSumUpCheckoutPaid(checkout)) return finalizePaidCheckoutOnce({...input, checkout});
   try {
     const {result,reused}=await runPaymentOperation({
       namespace:input.env.QUOTE_LEAD_COORDINATOR,
       key:`payment-finalize:${await paymentOperationHash(input.checkoutId)}`,
-      run:()=>finalizePaidCheckoutOnce(input),
+      run:()=>finalizePaidCheckoutOnce({...input, checkout}),
       retrySafe:result=>!result.paid,
     });
     return reused ? {...result,alreadyFinalized:true} : result;
