@@ -180,7 +180,7 @@ try {
   assert.equal((await page.locator('[data-cash-agreement]').innerText()).trim(),cashLabel);
   assert.equal(await cash.isChecked(),false);
   await pay.click();
-  assert.ok((await page.locator('#step3-payment-actions').innerText()).includes('Please confirm you understand the remaining balance must be paid in cash'));
+  await page.locator('#step3-payment-actions').getByText('Please confirm you understand the remaining balance must be paid in cash', {exact:false}).waitFor();
   assert.deepEqual(writes,[],'Missing cash acknowledgement must not start payment');
   await cash.check();
   assert.equal(await cash.isChecked(),true);
