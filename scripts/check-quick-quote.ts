@@ -288,7 +288,14 @@ assert.ok(fs.existsSync(path.join(root, "src/app/quick-quote/page.tsx")));
 assert.ok(fs.existsSync(path.join(root, "src/app/book-quote/page.tsx")));
 assert.ok(fs.existsSync(path.join(root, "src/lib/quote-service.ts")));
 assert.ok(!fs.existsSync(path.join(root, "shared/whatsapp-meta.ts")));
-assert.ok(!fs.existsSync(path.join(root, "workers/addresses/src/whatsapp-handlers.ts")));
+// WhatsApp Business API quote assistant may only price via the shared authoritative path.
+const whatsappHandlers = fs.readFileSync(
+  path.join(root, "workers/addresses/src/whatsapp-handlers.ts"),
+  "utf8",
+);
+assert.match(whatsappHandlers, /createPricedQuickQuote\(/);
+assert.match(whatsappHandlers, /createdByOwner: false/);
+assert.match(whatsappHandlers, /verifyWhatsAppSignature/);
 
 const qqPage = fs.readFileSync(path.join(root, "src/app/quick-quote/page.tsx"), "utf8");
 const qqClient = fs.readFileSync(

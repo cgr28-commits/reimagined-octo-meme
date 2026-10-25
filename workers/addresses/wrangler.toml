@@ -17,6 +17,9 @@ compatibility_date = "2025-08-01"
 # - GOOGLE_REVIEW_URL  (Google Business "Write a review" link for post-trip emails)
 # - OWNER_ACCESS_KEY   (optional — defaults to DRIVER_ACCESS_KEY for /admin/refund/)
 # - QUOTE_RECEIPT_SECRET  (Worker-only HMAC key for quote receipts; never expose to the browser)
+# - WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_APP_SECRET / WHATSAPP_VERIFY_TOKEN
+#   (WhatsApp quote assistant — all four required; see docs/whatsapp-business-api.md.
+#   Optional plain vars: WHATSAPP_BOT_ENABLED="false" to pause replies, WHATSAPP_HANDOFF_HOURS)
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
