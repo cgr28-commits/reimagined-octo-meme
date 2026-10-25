@@ -2,12 +2,17 @@
  * WhatsApp Business Platform (Cloud API) helpers — webhook parsing, signature
  * verification and outbound text messages.
  *
- * Designed for Coexistence: the business keeps its existing number in the
- * WhatsApp Business app while the Worker also receives and sends via the API.
- * Messages the owner sends from the app arrive as `smb_message_echoes`.
+ * Two ways to connect:
+ * - Meta direct: access token + phone number ID; webhooks signed with the App secret.
+ *   Supports Coexistence (owner app replies arrive as `smb_message_echoes`).
+ * - 360dialog: one API key (D360_API_KEY). Sends via waba-v2.360dialog.io and the
+ *   webhook carries a shared secret header derived from that key.
  */
 
 export const WHATSAPP_DEFAULT_GRAPH_VERSION = "v23.0";
+export const D360_API_BASE = "https://waba-v2.360dialog.io";
+/** Header 360dialog adds to every webhook POST (set by /whatsapp/connect). */
+export const D360_WEBHOOK_SECRET_HEADER = "X-Webhook-Secret";
 
 export type WhatsAppCloudEnv = {
   /** Permanent System User access token (Worker secret). */
@@ -20,6 +25,8 @@ export type WhatsAppCloudEnv = {
   WHATSAPP_VERIFY_TOKEN?: string;
   /** Optional Graph API version override, e.g. "v23.0". */
   WHATSAPP_GRAPH_VERSION?: string;
+  /** 360dialog API key — when set, 360dialog is used instead of Meta direct (Worker secret). */
+  D360_API_KEY?: string;
 };
 
 export type WhatsAppInboundMessage = {
@@ -46,7 +53,12 @@ export type ParsedWhatsAppWebhook = {
   echoes: WhatsAppOwnerEcho[];
 };
 
+export function whatsAppUses360dialog(env: WhatsAppCloudEnv): boolean {
+  return Boolean(env.D360_API_KEY?.trim());
+}
+
 export function whatsAppCloudConfigured(env: WhatsAppCloudEnv): boolean {
+  if (whatsAppUses360dialog(env)) return true;
   return Boolean(
     env.WHATSAPP_ACCESS_TOKEN?.trim() &&
       env.WHATSAPP_PHONE_NUMBER_ID?.trim() &&
@@ -75,16 +87,56 @@ export async function verifyWhatsAppSignature(
 ): Promise<boolean> {
   const header = signatureHeader?.trim() ?? "";
   if (!header.startsWith("sha256=") || !appSecret) return false;
+  const expected = await hmacSha256Hex(appSecret, rawBody);
+  return timingSafeEqualHex(header.slice("sha256=".length).toLowerCase(), expected);
+}
+
+async function hmacSha256Hex(secret: string, message: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(appSecret),
+    new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
   );
-  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-  const expected = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return timingSafeEqualHex(header.slice("sha256=".length).toLowerCase(), expected);
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Webhook secret for 360dialog, derived from the API key so no extra secret is needed. */
+export function derive360dialogWebhookSecret(apiKey: string): Promise<string> {
+  return hmacSha256Hex(apiKey.trim(), "matni-whatsapp-webhook-v1");
+}
+
+export async function verify360dialogWebhookSecret(
+  headerValue: string | null,
+  apiKey: string,
+): Promise<boolean> {
+  if (!headerValue || !apiKey.trim()) return false;
+  return timingSafeEqualHex(headerValue.trim().toLowerCase(), await derive360dialogWebhookSecret(apiKey));
+}
+
+/** Point the 360dialog number's webhook at `webhookUrl`, with the shared secret header. */
+export async function register360dialogWebhook(
+  apiKey: string,
+  webhookUrl: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ ok: boolean; status: number; error?: string }> {
+  try {
+    const res = await fetchImpl(`${D360_API_BASE}/v1/configs/webhook`, {
+      method: "POST",
+      headers: { "D360-API-KEY": apiKey.trim(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: webhookUrl,
+        headers: { [D360_WEBHOOK_SECRET_HEADER]: await derive360dialogWebhookSecret(apiKey) },
+      }),
+    });
+    if (res.ok) return { ok: true, status: res.status };
+    const text = (await res.text().catch(() => "")).slice(0, 300);
+    return { ok: false, status: res.status, error: text || `HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, status: 0, error: err instanceof Error ? err.message : "Request failed" };
+  }
 }
 
 /**
@@ -141,7 +193,8 @@ export function parseWhatsAppWebhook(payload: unknown): ParsedWhatsAppWebhook {
       }>;
     }>;
   };
-  if (body?.object !== "whatsapp_business_account" || !Array.isArray(body.entry)) return out;
+  if (!Array.isArray(body?.entry)) return out;
+  if (body.object && body.object !== "whatsapp_business_account") return out;
 
   for (const entry of body.entry) {
     for (const change of entry.changes ?? []) {
@@ -192,18 +245,28 @@ export async function sendWhatsAppText(
   body: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<WhatsAppSendResult> {
-  const token = env.WHATSAPP_ACCESS_TOKEN?.trim();
-  const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID?.trim();
-  if (!token || !phoneNumberId) return { sent: false, error: "WhatsApp Cloud API not configured" };
-  const version = env.WHATSAPP_GRAPH_VERSION?.trim() || WHATSAPP_DEFAULT_GRAPH_VERSION;
+  let endpoint: string;
+  let auth: Record<string, string>;
+  const d360Key = env.D360_API_KEY?.trim();
+  if (d360Key) {
+    endpoint = `${D360_API_BASE}/messages`;
+    auth = { "D360-API-KEY": d360Key };
+  } else {
+    const token = env.WHATSAPP_ACCESS_TOKEN?.trim();
+    const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+    if (!token || !phoneNumberId) return { sent: false, error: "WhatsApp Cloud API not configured" };
+    const version = env.WHATSAPP_GRAPH_VERSION?.trim() || WHATSAPP_DEFAULT_GRAPH_VERSION;
+    endpoint = `https://graph.facebook.com/${version}/${encodeURIComponent(phoneNumberId)}/messages`;
+    auth = { Authorization: `Bearer ${token}` };
+  }
 
   try {
     const res = await fetchImpl(
-      `https://graph.facebook.com/${version}/${encodeURIComponent(phoneNumberId)}/messages`,
+      endpoint,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...auth,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

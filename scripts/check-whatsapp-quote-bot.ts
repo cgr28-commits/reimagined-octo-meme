@@ -7,14 +7,18 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 
 import {
+  derive360dialogWebhookSecret,
   normalizeWhatsAppNumber,
   parseWhatsAppWebhook,
+  register360dialogWebhook,
   sendWhatsAppText,
+  verify360dialogWebhookSecret,
   verifyWhatsAppSignature,
   whatsAppCloudConfigured,
   whatsAppVerifyChallenge,
 } from "../shared/whatsapp-cloud";
 import {
+  buildWhatsAppTeamHandoffReply,
   decideWhatsAppReply,
   detectWhatsAppIntent,
   extractClockTimes,
@@ -61,6 +65,53 @@ async function main() {
     true,
   );
   assert.equal(normalizeWhatsAppNumber("+44 7700 900123"), "447700900123");
+  assert.equal(whatsAppCloudConfigured({ D360_API_KEY: "k" }), true, "360dialog needs only its API key");
+
+  console.log("=== 360dialog webhook secret ===");
+  const d360Secret = await derive360dialogWebhookSecret("key-1");
+  assert.match(d360Secret, /^[0-9a-f]{64}$/);
+  assert.equal(await verify360dialogWebhookSecret(d360Secret, "key-1"), true);
+  assert.equal(await verify360dialogWebhookSecret(d360Secret.toUpperCase(), " key-1 "), true);
+  assert.equal(await verify360dialogWebhookSecret(d360Secret, "key-2"), false);
+  assert.equal(await verify360dialogWebhookSecret(null, "key-1"), false);
+  {
+    let call: { url: string; init?: RequestInit } | undefined;
+    const registered = await register360dialogWebhook("key-1", "https://w.example/whatsapp/webhook", (async (
+      url: string,
+      init?: RequestInit,
+    ) => {
+      call = { url, init };
+      return new Response("{}", { status: 201 });
+    }) as typeof fetch);
+    assert.equal(registered.ok, true);
+    assert.equal(call!.url, "https://waba-v2.360dialog.io/v1/configs/webhook");
+    assert.equal((call!.init!.headers as Record<string, string>)["D360-API-KEY"], "key-1");
+    assert.deepEqual(JSON.parse(String(call!.init!.body)), {
+      url: "https://w.example/whatsapp/webhook",
+      headers: { "X-Webhook-Secret": d360Secret },
+    });
+  }
+
+  console.log("=== Team handoff link ===");
+  {
+    const reply = buildWhatsAppTeamHandoffReply("+44 7549 815538", {
+      pickupAddress: "BT9 6AA",
+      dropoffAddress: "Belfast International Airport",
+      outboundDate: "2026-10-30",
+      outboundTime: "05:00",
+      passengers: 6,
+    });
+    assert.match(reply, /larger vehicle/);
+    const link = reply.match(/https:\/\/wa\.me\/(\d+)\?text=(\S+)/);
+    assert.ok(link);
+    assert.equal(link[1], "447549815538");
+    const prefill = decodeURIComponent(link[2]);
+    assert.match(prefill, /From: BT9 6AA/);
+    assert.match(prefill, /Date: Fri 30 Oct 2026 at 05:00/);
+    assert.match(prefill, /Passengers: 6/);
+    assert.doesNotMatch(prefill, /undefined|Suitcases/);
+    assert.match(buildWhatsAppTeamHandoffReply("447549815538", {}), /No problem/);
+  }
 
   console.log("=== Webhook payload parsing ===");
   const payload = {
@@ -262,6 +313,38 @@ async function main() {
 
     const result = await sendWhatsAppText({}, "1", "x");
     assert.equal(result.sent, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  console.log("=== Worker processing via 360dialog with a team number ===");
+  const d360Sent: Array<{ to: string; body: string; key: string | null }> = [];
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    if (String(url) === "https://waba-v2.360dialog.io/messages") {
+      const msg = JSON.parse(String(init?.body));
+      d360Sent.push({
+        to: msg.to,
+        body: msg.text.body,
+        key: (init?.headers as Record<string, string>)["D360-API-KEY"] ?? null,
+      });
+      return new Response(JSON.stringify({ messages: [{ id: "wamid.360" }] }), { status: 200 });
+    }
+    // Owner handoff email providers are not configured here.
+    return new Response("{}", { status: 500 });
+  }) as typeof fetch;
+  const d360Env = { TRACKING_STORE: store, D360_API_KEY: "d360-key", WHATSAPP_TEAM_NUMBER: "447549815538" };
+  try {
+    await processWhatsAppWebhook(inbound("d1", "hi", "447700900888"), d360Env);
+    assert.equal(d360Sent.length, 1);
+    assert.equal(d360Sent[0].key, "d360-key");
+    assert.match(d360Sent[0].body, /fixed price/);
+
+    await processWhatsAppWebhook(inbound("d2", "agent", "447700900888"), d360Env);
+    assert.match(d360Sent.at(-1)!.body, /wa\.me\/447549815538/);
+    assert.ok(!kv.has("whatsapp:paused:447700900888"), "assistant stays available on its own number");
+
+    await processWhatsAppWebhook(inbound("d3", "hi", "447700900888"), d360Env);
+    assert.equal(d360Sent.length, 3, "customer can carry on with the assistant after a handoff");
   } finally {
     globalThis.fetch = realFetch;
   }

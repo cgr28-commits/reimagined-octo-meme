@@ -411,6 +411,35 @@ export function buildWhatsAppQuoteFailedReply(reason?: string): string {
 const HANDOFF_REPLY = `No problem, a member of our team will reply here shortly. 👍`;
 
 /**
+ * Handoff reply when the assistant runs on its own number and the team answers
+ * from a different WhatsApp number (e.g. a 360dialog virtual number + the owner's app).
+ * The link pre-fills the journey so the customer doesn't have to repeat it.
+ */
+export function buildWhatsAppTeamHandoffReply(teamNumber: string, draft: WhatsAppQuoteDraft): string {
+  const digits = String(teamNumber).replace(/\D/g, "");
+  const largeGroup = draft.passengers != null && draft.passengers > QUICK_QUOTE_SALOON_MAX_PASSENGERS;
+  const details = [
+    draft.pickupAddress && `From: ${draft.pickupAddress}`,
+    draft.dropoffAddress && `To: ${draft.dropoffAddress}`,
+    draft.outboundDate &&
+      `Date: ${displayDate(draft.outboundDate)}${draft.outboundTime ? ` at ${draft.outboundTime}` : ""}`,
+    draft.returnJourney &&
+      `Return: ${draft.returnDate ? displayDate(draft.returnDate) : "yes"}${draft.returnTime ? ` at ${draft.returnTime}` : ""}`,
+    draft.passengers != null && `Passengers: ${draft.passengers}`,
+    draft.suitcases != null && `Suitcases: ${draft.suitcases}`,
+    draft.flightNumber && `Flight: ${draft.flightNumber}`,
+  ].filter(Boolean);
+  const prefill = details.length
+    ? `Hi, I'd like a quote please:\n${details.join("\n")}`
+    : "Hi, I'd like some help with a booking please.";
+  const link = `https://wa.me/${digits}?text=${encodeURIComponent(prefill)}`;
+  const intro = largeGroup
+    ? `For groups of more than ${QUICK_QUOTE_SALOON_MAX_PASSENGERS} we'll arrange a larger vehicle for you.`
+    : "No problem! 👍";
+  return `${intro}\n\nTap here to chat with our team directly:\n${link}`;
+}
+
+/**
  * Decide the reply to one inbound customer message.
  * `action: "quote"` means the Worker should now price `conversation.draft`.
  */

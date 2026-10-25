@@ -409,7 +409,12 @@ import {
   handleOwnerCreateQuickQuote,
   handlePublicQuickQuoteLookup,
 } from "./quick-quote-handlers";
-import { handleWhatsAppWebhook, isWhatsAppWebhookPath } from "./whatsapp-handlers";
+import {
+  handleWhatsAppConnect,
+  handleWhatsAppWebhook,
+  isWhatsAppConnectPath,
+  isWhatsAppWebhookPath,
+} from "./whatsapp-handlers";
 import {
   getQuickQuote,
   markQuickQuoteCheckout,
@@ -587,6 +592,10 @@ type Env = {
   WHATSAPP_GRAPH_VERSION?: string;
   WHATSAPP_BOT_ENABLED?: string;
   WHATSAPP_HANDOFF_HOURS?: string;
+  /** 360dialog API key (Worker secret) — used instead of the Meta token / app secret when set. */
+  D360_API_KEY?: string;
+  /** Team WhatsApp number for handoffs when the assistant runs on a separate number. */
+  WHATSAPP_TEAM_NUMBER?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -4047,6 +4056,9 @@ export default {
     // Server-to-server from Meta — no CORS, signature-verified inside.
     if (isWhatsAppWebhookPath(url.pathname)) {
       return handleWhatsAppWebhook(request, env, ctx);
+    }
+    if (isWhatsAppConnectPath(url.pathname)) {
+      return handleWhatsAppConnect(request, env);
     }
 
     if (request.method === "OPTIONS") {

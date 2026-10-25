@@ -5,16 +5,27 @@
  * POST /whatsapp/webhook — signed message notifications. Customers chat to get a
  *      fixed price; the reply carries a Quick Quote link where they book and pay.
  *
+ * GET  /whatsapp/connect?key=<owner key> — 360dialog only: points the number's
+ *      webhook at this Worker (with the shared secret header).
+ *
  * Coexistence-friendly: when the owner replies from the WhatsApp Business app
  * (smb_message_echoes), the assistant pauses for that customer so it never talks
  * over a human. Customers can also reply AGENT to pause it themselves.
+ *
+ * Separate-number mode (WHATSAPP_TEAM_NUMBER set, e.g. a 360dialog virtual number):
+ * handoffs send the customer a link to chat with the team's own WhatsApp instead,
+ * and the owner gets an email.
  */
 
 import {
+  D360_WEBHOOK_SECRET_HEADER,
   parseWhatsAppWebhook,
+  register360dialogWebhook,
   sendWhatsAppText,
+  verify360dialogWebhookSecret,
   verifyWhatsAppSignature,
   whatsAppCloudConfigured,
+  whatsAppUses360dialog,
   whatsAppVerifyChallenge,
   type WhatsAppCloudEnv,
   type WhatsAppInboundMessage,
@@ -22,14 +33,17 @@ import {
 import {
   buildWhatsAppQuoteFailedReply,
   buildWhatsAppQuoteReply,
+  buildWhatsAppTeamHandoffReply,
   decideWhatsAppReply,
   whatsAppDraftToQuoteBody,
   type WhatsAppConversation,
 } from "../shared/whatsapp-quote-bot";
+import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
+import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
 
-export type WhatsAppEnv = WhatsAppCloudEnv & {
+export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & DriverAuthEnv & {
   TRACKING_STORE?: KVNamespace;
   SITE_ORIGIN?: string;
   GOOGLE_PLACES_API_KEY?: string;
@@ -37,6 +51,12 @@ export type WhatsAppEnv = WhatsAppCloudEnv & {
   WHATSAPP_BOT_ENABLED?: string;
   /** Hours the assistant stays quiet after a handoff or an owner reply (default 12). */
   WHATSAPP_HANDOFF_HOURS?: string;
+  /**
+   * The team's own WhatsApp number (e.g. 447549815538) when the assistant runs on a
+   * separate number. Handoffs then link the customer to this number.
+   */
+  WHATSAPP_TEAM_NUMBER?: string;
+  BOOKING_TO_EMAIL?: string;
 };
 
 /** Matches the WhatsApp customer service window — free-form replies are allowed inside it. */
@@ -63,6 +83,40 @@ export function isWhatsAppWebhookPath(pathname: string): boolean {
   return pathname === "/whatsapp/webhook" || pathname === "/api/whatsapp/webhook";
 }
 
+export function isWhatsAppConnectPath(pathname: string): boolean {
+  return pathname === "/whatsapp/connect";
+}
+
+function plain(text: string, status: number): Response {
+  return new Response(text, {
+    status,
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+  });
+}
+
+/** Owner opens /whatsapp/connect?key=… once after adding D360_API_KEY. */
+export async function handleWhatsAppConnect(request: Request, env: WhatsAppEnv): Promise<Response> {
+  if (!ownerAuthorized(request, env)) return plain("Add ?key=YOUR_OWNER_KEY to the address.", 401);
+  const apiKey = env.D360_API_KEY?.trim();
+  if (!apiKey) {
+    return plain("D360_API_KEY is not set yet. Add it in Cloudflare (Variables and Secrets), then try again.", 503);
+  }
+  const webhookUrl = `${new URL(request.url).origin}/whatsapp/webhook`;
+  const result = await register360dialogWebhook(apiKey, webhookUrl);
+  if (!result.ok) {
+    return plain(
+      `360dialog did not accept the webhook (status ${result.status}).\n${result.error ?? ""}\n\n` +
+        "Check the API key was copied in full, then try again.",
+      502,
+    );
+  }
+  return plain(
+    `Connected ✅\n\nWhatsApp messages to your 360dialog number now go to:\n${webhookUrl}\n\n` +
+      "Send the number a test message (e.g. \"Hi\") from another phone.",
+    200,
+  );
+}
+
 export async function handleWhatsAppWebhook(
   request: Request,
   env: WhatsAppEnv,
@@ -84,11 +138,16 @@ export async function handleWhatsAppWebhook(
   }
 
   const rawBody = await request.text();
-  const validSignature = await verifyWhatsAppSignature(
-    rawBody,
-    request.headers.get("X-Hub-Signature-256"),
-    env.WHATSAPP_APP_SECRET!.trim(),
-  );
+  const validSignature = whatsAppUses360dialog(env)
+    ? await verify360dialogWebhookSecret(
+        request.headers.get(D360_WEBHOOK_SECRET_HEADER),
+        env.D360_API_KEY!,
+      )
+    : await verifyWhatsAppSignature(
+        rawBody,
+        request.headers.get("X-Hub-Signature-256"),
+        env.WHATSAPP_APP_SECRET!.trim(),
+      );
   if (!validSignature) {
     console.warn(JSON.stringify({ event: "whatsapp_webhook_bad_signature" }));
     return new Response("Invalid signature", { status: 401 });
@@ -159,8 +218,15 @@ async function handleInboundMessage(
   let text = decision.reply;
 
   if (decision.action === "handoff") {
-    await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
+    const teamNumber = env.WHATSAPP_TEAM_NUMBER?.replace(/\D/g, "");
+    if (teamNumber && teamNumber !== phone) {
+      // The team answers from another number, so keep the assistant available here.
+      text = buildWhatsAppTeamHandoffReply(teamNumber, conversation.draft);
+    } else {
+      await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
+    }
     logEvent("whatsapp_bot_handoff", phone);
+    await notifyOwnerOfHandoff(env, phone, message.profileName, conversation);
   }
 
   if (decision.action === "quote") {
@@ -203,6 +269,41 @@ async function handleInboundMessage(
     expirationTtl: CONVERSATION_TTL_SECONDS,
   });
   if (text) await reply(env, phone, text);
+}
+
+async function notifyOwnerOfHandoff(
+  env: WhatsAppEnv,
+  phone: string,
+  profileName: string | undefined,
+  conversation: WhatsAppConversation,
+): Promise<void> {
+  const d = conversation.draft;
+  const lines = [
+    `A WhatsApp customer asked to speak to the team.`,
+    ``,
+    `Name: ${profileName || "—"}`,
+    `WhatsApp: +${phone}`,
+    `Chat: https://wa.me/${phone}`,
+    ``,
+    d.pickupAddress ? `From: ${d.pickupAddress}` : "",
+    d.dropoffAddress ? `To: ${d.dropoffAddress}` : "",
+    d.outboundDate ? `Date: ${d.outboundDate}${d.outboundTime ? ` at ${d.outboundTime}` : ""}` : "",
+    d.returnJourney ? `Return: ${d.returnDate ?? "?"}${d.returnTime ? ` at ${d.returnTime}` : ""}` : "",
+    d.passengers != null ? `Passengers: ${d.passengers}` : "",
+    d.suitcases != null ? `Suitcases: ${d.suitcases}` : "",
+    d.flightNumber ? `Flight: ${d.flightNumber}` : "",
+    conversation.lastQuoteAmountLabel ? `Last quote: ${conversation.lastQuoteAmountLabel}` : "",
+  ].filter((line, i, all) => line !== "" || (i > 0 && all[i - 1] !== ""));
+  try {
+    const sent = await trySendOwnerOperationalEmail(env, {
+      to: env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk",
+      subject: `WhatsApp: ${profileName || `+${phone}`} wants to speak to you`,
+      body: lines.join("\n"),
+    });
+    if (!sent.sent) logEvent("whatsapp_handoff_email_failed", phone);
+  } catch {
+    logEvent("whatsapp_handoff_email_failed", phone);
+  }
 }
 
 async function reply(env: WhatsAppEnv, phone: string, text: string): Promise<void> {

@@ -29,7 +29,31 @@ Assistant: Your fixed price is £45 ✅  To book, check your details and pay sec
 - Quote links last 24 hours. Each customer can create up to 10 quotes per hour.
 - Media, voice notes and locations get a polite "please type your journey" reply.
 
-## One-time setup
+## Setup with 360dialog (virtual number)
+
+This is the simplest route. The assistant gets its own WhatsApp number (a virtual
+number from Meta via 360dialog). Your existing number stays on your phone, untouched.
+
+1. In 360dialog (hub.360dialog.com) finish the signup and choose **"Use a display name
+   with a virtual number instead"**.
+2. In the 360dialog dashboard, generate an **API key** for the number.
+3. In Cloudflare → Workers → reimagined-octo-meme → Settings → Variables and Secrets add:
+   - `D360_API_KEY` (type **Secret**): the 360dialog API key.
+   - `WHATSAPP_TEAM_NUMBER` (type Text): your own WhatsApp number, e.g. `447549815538`.
+     When a customer replies AGENT (or needs a larger vehicle) the assistant sends them
+     a link to chat with this number, with their journey details pre-filled.
+4. Open this address once in your browser (replace the key with your owner key):
+   `https://reimagined-octo-meme.cgr28.workers.dev/whatsapp/connect?key=YOUR_OWNER_KEY`
+   It tells 360dialog to send messages to the Worker. You should see **Connected ✅**.
+5. Message the new number from another phone to test.
+6. Point the website's WhatsApp buttons at the new number (`SITE.whatsapp` in
+   `src/lib/data.ts`).
+
+The owner also gets an email whenever a customer asks to speak to the team. 360dialog
+mode needs no Meta access token, app secret or verify token. The webhook is protected
+by a secret header derived from the API key.
+
+## One-time setup (Meta direct, Coexistence)
 
 You need a Meta Business account (business.facebook.com) and about 30 minutes.
 
@@ -80,8 +104,10 @@ secret, so the provider must forward Meta's original body and signature.
 | `WHATSAPP_BOT_ENABLED = "false"` | Worker variable | Assistant stops replying; you handle every chat in the app. |
 | `WHATSAPP_HANDOFF_HOURS` | Worker variable | How long it stays quiet after AGENT or your reply (default 12). |
 | `WHATSAPP_GRAPH_VERSION` | Worker variable | Graph API version (default `v23.0`). |
+| `WHATSAPP_TEAM_NUMBER` | Worker variable | Handoffs link customers to this number instead of pausing the assistant. |
 
-Without the four secrets the webhook returns 503 and nothing else changes on the site.
+Without either `D360_API_KEY` or the four Meta secrets, the webhook returns 503 and
+nothing else changes on the site.
 
 ## Costs and rules
 
