@@ -27,9 +27,7 @@ assert.match(hero, /md:order-1 md:scroll-mt-28 lg:order-2/);
 // Compact mobile stack: tighter gap, short supporting line, extra hero blocks hidden.
 assert.match(hero, /gap-1\.5 /);
 assert.match(hero, /md:gap-12/);
-assert.match(hero, /section-eyebrow mb-1\.5[\s\S]*md:mb-6/);
-assert.match(hero, /Private airport transfers • Belfast &amp; Northern Ireland/);
-assert.match(hero, /md:hidden">Private airport transfers • Northern Ireland/);
+assert.doesNotMatch(hero, /Private airport transfers/, "hero has no eyebrow line above the H1");
 assert.match(
   hero,
   /Premium, fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport\./,
