@@ -106,6 +106,24 @@ const LiveTrackMap = dynamic(() => import("@/components/LiveTrackMap"), {
 
 const DRIVER_KEY_STORAGE = "matni-driver-key";
 const OWNER_KEY_STORAGE = "matni-owner-key";
+/** Owner key kept across visits when "Remember this device" is ticked; cleared on sign out. */
+const OWNER_REMEMBERED_KEY_STORAGE = "matni-owner-key-remembered";
+
+function readRememberedOwnerKey(): string {
+  try {
+    return window.localStorage.getItem(OWNER_REMEMBERED_KEY_STORAGE)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function forgetRememberedOwnerKey(): void {
+  try {
+    window.localStorage.removeItem(OWNER_REMEMBERED_KEY_STORAGE);
+  } catch {
+    // Storage can be unavailable (private browsing); nothing to forget.
+  }
+}
 
 function portalKeyStorage(portal: "owner" | "driver"): string {
   return portal === "owner" ? OWNER_KEY_STORAGE : DRIVER_KEY_STORAGE;
@@ -2509,6 +2527,7 @@ export default function DriverPageClient({
   const isOwnerPortal = portal === "owner";
   const keyStorage = portalKeyStorage(portal);
   const [driverKey, setDriverKey] = useState("");
+  const [rememberOwnerDevice, setRememberOwnerDevice] = useState(true);
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
   const [jobsDay, setJobsDay] = useState(() => todayLondonDate());
@@ -2814,6 +2833,17 @@ export default function DriverPageClient({
         }
 
         window.sessionStorage.setItem(keyStorage, keyToUse);
+        if (isOwnerPortal && keyToUse !== DEMO_OWNER_KEY) {
+          if (rememberOwnerDevice) {
+            try {
+              window.localStorage.setItem(OWNER_REMEMBERED_KEY_STORAGE, keyToUse);
+            } catch {
+              // Private browsing: the key still lasts for this session.
+            }
+          } else {
+            forgetRememberedOwnerKey();
+          }
+        }
         setDriverKey(keyToUse);
         setSavedKey(keyToUse);
         await loadJobs(keyToUse);
@@ -2823,7 +2853,7 @@ export default function DriverPageClient({
         setLoading(false);
       }
     },
-    [isOwnerPortal, keyStorage, loadDriverRoster, loadJobs],
+    [isOwnerPortal, keyStorage, loadDriverRoster, loadJobs, rememberOwnerDevice],
   );
 
   const unlock = async () => {
@@ -2836,13 +2866,16 @@ export default function DriverPageClient({
     }
     portalBootstrappedRef.current = true;
 
-    const stored = window.sessionStorage.getItem(keyStorage)?.trim() ?? "";
+    const stored =
+      window.sessionStorage.getItem(keyStorage)?.trim() ||
+      (isOwnerPortal ? readRememberedOwnerKey() : "");
 
     // /owner/ — restore a live owner session only. Never auto-open the demo.
     // Always clear loading when there is no valid session so the key form shows.
     if (isOwnerPortal) {
       if (stored === DEMO_OWNER_KEY || stored === DEMO_DRIVER_KEY) {
         window.sessionStorage.removeItem(keyStorage);
+        forgetRememberedOwnerKey();
         setLoading(false);
         return;
       }
@@ -2852,6 +2885,8 @@ export default function DriverPageClient({
         void fetchDriverStatus(stored)
           .then((status) => {
             if (status.ok && status.role === "owner") {
+              // Other owner pages read the session copy.
+              window.sessionStorage.setItem(keyStorage, stored);
               setSessionRole("owner");
               setDriverName(null);
               setSavedKey(stored);
@@ -2861,10 +2896,13 @@ export default function DriverPageClient({
               void loadJobs(stored);
               return;
             }
+            // Rejected key (e.g. rotated in Cloudflare): ask again.
             window.sessionStorage.removeItem(keyStorage);
+            forgetRememberedOwnerKey();
             setLoading(false);
           })
           .catch(() => {
+            // Network failure: keep the remembered key for the next visit.
             window.sessionStorage.removeItem(keyStorage);
             setLoading(false);
           });
@@ -3214,6 +3252,17 @@ export default function DriverPageClient({
                   </>
                 )}
               </p>
+              {isOwnerPortal ? (
+                <label className="mt-4 flex min-h-11 items-center gap-3 text-sm text-white/80">
+                  <input
+                    type="checkbox"
+                    checked={rememberOwnerDevice}
+                    onChange={(event) => setRememberOwnerDevice(event.target.checked)}
+                    className="h-5 w-5 accent-emerald"
+                  />
+                  Remember this device (stay signed in until you sign out)
+                </label>
+              ) : null}
               {error && (
                 <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
                   {error}
@@ -3277,6 +3326,7 @@ export default function DriverPageClient({
                   onClick={() => {
                     window.sessionStorage.removeItem(keyStorage);
                     window.localStorage.removeItem(DRIVER_PORTAL_SESSION_STORAGE_KEY);
+                    forgetRememberedOwnerKey();
                     setSavedKey(null);
                     setJobs([]);
                     setPendingJobs([]);

@@ -116,6 +116,7 @@ export const ABANDONED_QUOTE_STORAGE_KEYS = {
     "matni-payment-result-",
     "matni-cookie-consent",
     "matni-owner-key",
+    "matni-owner-key-remembered",
     "matni-driver-key",
   ],
 } as const;
