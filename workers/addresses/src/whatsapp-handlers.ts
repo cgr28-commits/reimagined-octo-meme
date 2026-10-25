@@ -5,8 +5,10 @@
  * POST /whatsapp/webhook — signed message notifications. Customers chat to get a
  *      fixed price; the reply carries a Quick Quote link where they book and pay.
  *
- * GET  /whatsapp/connect?key=<owner key> — 360dialog only: points the number's
- *      webhook at this Worker (with the shared secret header).
+ * GET  /whatsapp/connect — 360dialog only: points the number's webhook at this
+ *      Worker (with the shared secret header). No key needed: it can only ever
+ *      point the webhook back at this Worker, so it is safe to open; a short
+ *      cooldown stops it being hammered.
  *
  * Coexistence-friendly: when the owner replies from the WhatsApp Business app
  * (smb_message_echoes), the assistant pauses for that customer so it never talks
@@ -38,12 +40,11 @@ import {
   whatsAppDraftToQuoteBody,
   type WhatsAppConversation,
 } from "../shared/whatsapp-quote-bot";
-import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
 import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
 
-export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & DriverAuthEnv & {
+export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
   SITE_ORIGIN?: string;
   GOOGLE_PLACES_API_KEY?: string;
@@ -94,12 +95,20 @@ function plain(text: string, status: number): Response {
   });
 }
 
-/** Owner opens /whatsapp/connect?key=… once after adding D360_API_KEY. */
+const CONNECT_COOLDOWN_KEY = "whatsapp:connect:last";
+const CONNECT_COOLDOWN_SECONDS = 60;
+
+/** Owner opens /whatsapp/connect once after adding D360_API_KEY. */
 export async function handleWhatsAppConnect(request: Request, env: WhatsAppEnv): Promise<Response> {
-  if (!ownerAuthorized(request, env)) return plain("Add ?key=YOUR_OWNER_KEY to the address.", 401);
   const apiKey = env.D360_API_KEY?.trim();
   if (!apiKey) {
     return plain("D360_API_KEY is not set yet. Add it in Cloudflare (Variables and Secrets), then try again.", 503);
+  }
+  if (env.TRACKING_STORE) {
+    if (await env.TRACKING_STORE.get(CONNECT_COOLDOWN_KEY)) {
+      return plain("Please wait a minute and try again.", 429);
+    }
+    await env.TRACKING_STORE.put(CONNECT_COOLDOWN_KEY, "1", { expirationTtl: CONNECT_COOLDOWN_SECONDS });
   }
   const webhookUrl = `${new URL(request.url).origin}/whatsapp/webhook`;
   const result = await register360dialogWebhook(apiKey, webhookUrl);
