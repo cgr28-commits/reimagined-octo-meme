@@ -18,9 +18,10 @@ Customer:  yes
 Assistant: Your fixed price is £45 ✅  To book, check your details and pay securely here: https://www.myairporttaxini.co.uk/book-quote/?id=…
 ```
 
-- Tap buttons: **✅ Yes, get price / 🆕 New quote / 👤 Speak to team** on the summary,
-  **➡️ One way / 🔁 Return** when asking about the journey type, and **New quote / Speak
-  to team** after a price. Typing still works everywhere.
+- Tap buttons: **✅ Yes, get price / 🆕 New quote** on the summary, **➡️ One way /
+  🔁 Return** when asking about the journey type, and **🆕 New quote** after a price.
+  Typing still works everywhere. "Speak to team" is not offered; typing AGENT still
+  hands off quietly.
 - Missing details are asked for one at a time (pickup, destination, date, time, passengers,
   suitcases, one way/return, return date/time).
 - Customers can correct anything ("3 passengers", "make it a return on 20/11 at 9pm").

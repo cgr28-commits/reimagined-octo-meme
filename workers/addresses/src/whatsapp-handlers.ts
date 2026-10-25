@@ -12,7 +12,8 @@
  *
  * Coexistence-friendly: when the owner replies from the WhatsApp Business app
  * (smb_message_echoes), the assistant pauses for that customer so it never talks
- * over a human. Customers can also reply AGENT to pause it themselves.
+ * over a human. Typing AGENT still hands off (not advertised: the owner wants the
+ * assistant to handle quotes itself).
  *
  * Separate-number mode (WHATSAPP_TEAM_NUMBER set, e.g. a 360dialog virtual number):
  * handoffs send the customer a link to chat with the team's own WhatsApp instead,
@@ -41,7 +42,6 @@ import {
   buildWhatsAppQuoteReply,
   buildWhatsAppTeamHandoffReply,
   decideWhatsAppReply,
-  WHATSAPP_BUTTONS,
   WHATSAPP_QUOTED_BUTTONS,
   whatsAppDraftToQuoteBody,
   type WhatsAppConversation,
@@ -269,7 +269,7 @@ async function handleInboundMessage(
     await reply(
       env,
       phone,
-      "Sorry, I can only read text messages. Please type your journey details, or reply *AGENT* to speak to our team.",
+      "Sorry, I can only read text messages. Please type your journey details, e.g. pickup postcode, destination, date and time.",
     );
     return;
   }
@@ -300,8 +300,8 @@ async function handleInboundMessage(
       QUOTES_PER_CUSTOMER_PER_HOUR,
     );
     if (quota === "limited") {
-      text = "You've requested a lot of quotes in the last hour. Please try again later, or reply *AGENT* to speak to our team.";
-      buttons = [WHATSAPP_BUTTONS.agent];
+      text = "You've requested a lot of quotes in the last hour. Please try again a little later.";
+      buttons = undefined;
     } else {
       const priced = await createPricedQuickQuote(
         whatsAppDraftToQuoteBody(conversation.draft),
@@ -326,7 +326,7 @@ async function handleInboundMessage(
       } else {
         conversation.stage = "collecting";
         text = buildWhatsAppQuoteFailedReply(priced.status === 422 ? undefined : priced.error);
-        buttons = [WHATSAPP_BUTTONS.agent];
+        buttons = undefined;
         logEvent("whatsapp_quote_failed", phone, { status: priced.status, reason: priced.reason });
       }
     }

@@ -64,7 +64,6 @@ export type WhatsAppBotButton = { id: string; title: string };
 export const WHATSAPP_BUTTONS = {
   yes: { id: "txt:yes", title: "✅ Yes, get price" },
   newQuote: { id: "txt:new", title: "🆕 New quote" },
-  agent: { id: "txt:agent", title: "👤 Speak to team" },
   oneWay: { id: "txt:one way", title: "➡️ One way" },
   return: { id: "txt:return", title: "🔁 Return" },
 } as const satisfies Record<string, WhatsAppBotButton>;
@@ -77,8 +76,8 @@ export type WhatsAppBotDecision = {
   buttons?: WhatsAppBotButton[];
 };
 
-const CONFIRM_BUTTONS = [WHATSAPP_BUTTONS.yes, WHATSAPP_BUTTONS.newQuote, WHATSAPP_BUTTONS.agent];
-export const WHATSAPP_QUOTED_BUTTONS = [WHATSAPP_BUTTONS.newQuote, WHATSAPP_BUTTONS.agent];
+const CONFIRM_BUTTONS = [WHATSAPP_BUTTONS.yes, WHATSAPP_BUTTONS.newQuote];
+export const WHATSAPP_QUOTED_BUTTONS = [WHATSAPP_BUTTONS.newQuote];
 
 const BUSINESS_NAME = "My Airport Taxi NI";
 
@@ -338,8 +337,7 @@ export function buildWhatsAppWelcome(name?: string): string {
   return (
     `${greeting}, thanks for messaging ${BUSINESS_NAME} 🚕\n\n` +
     `I can give you a fixed price and a secure booking link right here. Just tell me about your journey, for example:\n\n` +
-    `_From BT9 6AA to Belfast International, 14/11 at 5am, 2 passengers, 2 suitcases, one way_\n\n` +
-    `Reply *AGENT* at any time to speak to our team.`
+    `_From BT9 6AA to Belfast International, 14/11 at 5am, 2 passengers, 2 suitcases, one way_`
   );
 }
 
@@ -425,14 +423,14 @@ export function buildWhatsAppQuoteReply(input: { amountLabel: string; bookingUrl
   return (
     `Your fixed price is *${input.amountLabel}* ✅\n\n` +
     `To book, check your details and pay securely here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
-    `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote or *AGENT* to speak to our team.`
+    `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote.`
   );
 }
 
 export function buildWhatsAppQuoteFailedReply(reason?: string): string {
   return (
     `Sorry, I couldn't price that journey automatically${reason ? ` (${reason.replace(/\.$/, "")})` : ""}.\n\n` +
-    `Please check both addresses include a town or postcode and send any corrections, or reply *AGENT* and our team will help.`
+    `Please check both addresses include a town or postcode and send me the corrected address.`
   );
 }
 
@@ -506,7 +504,7 @@ export function decideWhatsAppReply(
         conversation,
         reply:
           `Thanks! Your booking link is above${conversation.lastQuoteUrl ? `:\n${conversation.lastQuoteUrl}` : ""}.\n\n` +
-          `Tell me anything you'd like to change, reply *NEW* for a new quote, or *AGENT* to speak to our team.`,
+          `Tell me anything you'd like to change, or reply *NEW* for a new quote.`,
         action: "none",
         buttons: WHATSAPP_QUOTED_BUTTONS,
       };

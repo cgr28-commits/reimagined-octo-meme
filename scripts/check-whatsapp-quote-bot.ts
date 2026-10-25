@@ -120,7 +120,7 @@ async function main() {
     await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "Pick one", [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return], stub);
     assert.equal(payload!.type, "interactive");
     assert.equal(payload!.interactive.action.buttons[1].reply.id, "txt:return");
-    await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "x".repeat(1100), [WHATSAPP_BUTTONS.agent], stub);
+    await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "x".repeat(1100), [WHATSAPP_BUTTONS.newQuote], stub);
     assert.equal(payload!.type, "text", "long bodies fall back to plain text");
 
     // Profile picture: session then upload.
