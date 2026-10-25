@@ -20,7 +20,7 @@ compatibility_date = "2025-08-01"
 # - WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_APP_SECRET / WHATSAPP_VERIFY_TOKEN
 #   (WhatsApp quote assistant — all four required; see docs/whatsapp-business-api.md.
 #   Optional plain vars: WHATSAPP_BOT_ENABLED="false" to pause replies, WHATSAPP_HANDOFF_HOURS)
-# - D360_API_KEY (360dialog instead of the four Meta secrets; then open /whatsapp/connect?key=OWNER_KEY)
+# - D360_API_KEY (360dialog instead of the four Meta secrets; then open /whatsapp/connect)
 #   Optional plain var: WHATSAPP_TEAM_NUMBER="447549815538" — handoffs link to the team's own WhatsApp
 # Redeploy after changing worker code: wrangler deploy (or Cloudflare dashboard → Deploy)
 account_id = "36c5c88df4c1f0259413d555f2679f3c"

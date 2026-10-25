@@ -42,8 +42,8 @@ number from Meta via 360dialog). Your existing number stays on your phone, untou
    - `WHATSAPP_TEAM_NUMBER` (type Text): your own WhatsApp number, e.g. `447549815538`.
      When a customer replies AGENT (or needs a larger vehicle) the assistant sends them
      a link to chat with this number, with their journey details pre-filled.
-4. Open this address once in your browser (replace the key with your owner key):
-   `https://reimagined-octo-meme.cgr28.workers.dev/whatsapp/connect?key=YOUR_OWNER_KEY`
+4. Open this address once in your browser:
+   `https://reimagined-octo-meme.cgr28.workers.dev/whatsapp/connect`
    It tells 360dialog to send messages to the Worker. You should see **Connected ✅**.
 5. Message the new number from another phone to test.
 6. Point the website's WhatsApp buttons at the new number (`SITE.whatsapp` in
