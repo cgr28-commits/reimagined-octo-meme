@@ -14,7 +14,8 @@ import VehiclesSection from "@/components/VehiclesSection";
 import ChauffeurSection from "@/components/ChauffeurSection";
 import EmergePromoCard from "@/components/EmergePromoCard";
 import Footer from "@/components/Footer";
-import { HOMEPAGE_SEO_DESCRIPTION, HOMEPAGE_SEO_TITLE, SERVICE_FLAGS } from "@/lib/data";
+import { HOMEPAGE_SEO_DESCRIPTION, HOMEPAGE_SEO_TITLE, SERVICE_FLAGS, SITE } from "@/lib/data";
+import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
@@ -27,6 +28,15 @@ export const metadata: Metadata = {
     title: HOMEPAGE_SEO_TITLE,
     description: HOMEPAGE_SEO_DESCRIPTION,
     url: "/",
+    // Page-level openGraph replaces the layout's, so the share image must be repeated here.
+    images: [
+      {
+        url: absoluteSiteUrl("/og-image-square.png"),
+        width: 1200,
+        height: 1200,
+        alt: `${SITE.name} — Premium Airport Transfers`,
+      },
+    ],
   },
 };
 

@@ -58,6 +58,7 @@ export const metadata: Metadata = {
     title: `${BUSINESS_CLASS_DUBLIN_SEO_TITLE} | ${SITE.name}`,
     description: BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION,
     url: BUSINESS_CLASS_DUBLIN_PATH,
+    images: [{ url: "/og-image-square.png", alt: SITE.name }],
   },
 };
 

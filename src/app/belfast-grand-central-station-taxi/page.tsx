@@ -6,6 +6,7 @@ import LocationQuoteSection from "@/components/LocationQuoteSection";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
+import { absoluteSiteUrl } from "@/lib/paths";
 import { getBreadcrumbJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 import styles from "./station.module.css";
 
@@ -18,8 +19,14 @@ const whatsapp = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent("Hell
 export const metadata: Metadata = {
   title: { absolute: title }, description,
   alternates: { canonical: path },
-  openGraph: { title, description, url: path, type: "website" },
-  twitter: { card: "summary", title, description },
+  openGraph: {
+    title,
+    description,
+    url: path,
+    type: "website",
+    images: [{ url: absoluteSiteUrl("/og-image-square.png"), width: 1200, height: 1200, alt: SITE.name }],
+  },
+  twitter: { card: "summary", title, description, images: [absoluteSiteUrl("/og-image-square.png")] },
 };
 
 const routes = [

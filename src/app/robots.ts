@@ -27,6 +27,11 @@ export default function robots(): MetadataRoute.Robots {
         "/test-booking/",
         "/admin/",
         "/tip",
+        // Static files in public/ — email previews, sample invoices and partner
+        // proposals. Not customer pages; keep them out of search results.
+        "/email-previews/",
+        "/partners/",
+        "/*-example.html",
       ],
     },
     sitemap: `${SITE.url}/sitemap.xml`,
