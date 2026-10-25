@@ -18,7 +18,7 @@ function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
-console.log("=== Mobile WhatsApp floating button (not in header row) ===");
+console.log("=== Mobile WhatsApp in shortcut row (no floating FAB) ===");
 {
   const header = read("src/components/Header.tsx");
   const layout = read("src/app/layout.tsx");
@@ -26,19 +26,23 @@ console.log("=== Mobile WhatsApp floating button (not in header row) ===");
   const assistant = read("src/components/QuoteAssistant.tsx");
   const hero = read("src/components/HeroSlideshow.tsx");
 
-  assert.doesNotMatch(header, /data-matni-whatsapp-quick/);
+  assert.match(header, /data-matni-whatsapp-quick/);
   assert.match(header, /Get a Quote/);
+  assert.match(header, /h-7 w-7/);
+  assert.match(header, /#25D366/);
+  assert.match(header, /whatsAppAssistantChatUrl\(\)/);
   assert.match(header, /items-center/);
+  assert.doesNotMatch(header, /data-matni-whatsapp-fab/);
+  // Icon-only — no WhatsApp text on the quick-row control.
+  const quickIdx = header.indexOf("data-matni-whatsapp-quick");
+  const quickSlice = header.slice(quickIdx, quickIdx + 800);
+  assert.doesNotMatch(quickSlice, />\s*WhatsApp\s*</);
 
-  assert.match(layout, /<WhatsAppButton \/>/);
-  assert.match(wa, /data-matni-whatsapp-fab/);
-  assert.match(wa, /#25D366/);
-  assert.match(wa, /whatsAppAssistantChatUrl\(\)/);
-  assert.match(wa, /md:hidden/);
-  assert.match(wa, /isMobile !== true/);
-  assert.match(wa, /shouldHidePublicSalesWidgets/);
-  // Icon-only — no WhatsApp text on the button.
-  assert.doesNotMatch(wa, />\s*WhatsApp\s*</);
+  assert.doesNotMatch(layout, /<WhatsAppButton/);
+  assert.match(wa, /return null/);
+  assert.doesNotMatch(wa, /createPortal/);
+  assert.doesNotMatch(wa, /position:\s*"fixed"/);
+  assert.doesNotMatch(wa, /fixed z-\[60\]/);
 
   // Desktop help unchanged.
   assert.match(assistant, /data-matni-help-launcher/);

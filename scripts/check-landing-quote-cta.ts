@@ -81,9 +81,9 @@ console.log("OK  hash CTA stays on the landing page when #quote exists");
 console.log("=== No fixed quote overlay remains ===");
 assert.doesNotMatch(css, /\[data-sticky-quote-bar\]/);
 assert.doesNotMatch(css, /main:has\(\[data-landing-sticky-quote\]\)/);
-assert.doesNotMatch(header, /data-matni-whatsapp-quick/);
+assert.match(header, /data-matni-whatsapp-quick/);
 assert.match(header, /z-\[60\]/);
-console.log("OK  no fixed quote bar; WhatsApp is the mobile floating button");
+console.log("OK  no fixed quote bar; header WhatsApp stays");
 
 console.log("=== SEO metadata / H1 / schema hooks unchanged ===");
 for (const [name, source] of [

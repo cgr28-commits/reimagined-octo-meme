@@ -197,7 +197,7 @@ console.log("OK  cookie banner compact on mobile; consent handlers unchanged");
 
 console.log("=== Header / SEO / landing CTA preserved ===");
 assert.match(header, /Get a Quote/);
-assert.doesNotMatch(header, /data-matni-whatsapp-quick/); // WhatsApp is the mobile floating button now
+assert.match(header, /data-matni-whatsapp-quick/);
 assert.match(page, /HOMEPAGE_SEO_TITLE/);
 assert.match(page, /canonical: "\/"/);
 assert.match(landingCta, /LANDING_QUOTE_HREF = "#quote"/);

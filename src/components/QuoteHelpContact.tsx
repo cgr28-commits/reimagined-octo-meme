@@ -1,6 +1,6 @@
 "use client";
 
-import { whatsAppChatUrl } from "@/lib/contact-card";
+import { whatsAppAssistantChatUrl } from "@/lib/contact-card";
 import {
   QUOTE_RESULT_ACTION_CLASS,
   QuoteResultActionIcon,
@@ -20,7 +20,7 @@ export default function QuoteHelpContact({
   if (variant === "card") {
     return (
       <a
-        href={whatsAppChatUrl()}
+        href={whatsAppAssistantChatUrl()}
         target="_blank"
         rel="noopener noreferrer"
         data-quote-help-card
@@ -40,7 +40,7 @@ export default function QuoteHelpContact({
       <span>Need help?</span>
       {" "}
       <a
-        href={whatsAppChatUrl()}
+        href={whatsAppAssistantChatUrl()}
         target="_blank"
         rel="noopener noreferrer"
         className="font-medium text-emerald underline-offset-2 transition-colors hover:text-emerald-light hover:underline"
