@@ -444,6 +444,46 @@ function tripSortKey(record: PaidBookingRecord): string {
  * Lists paid bookings for the owner Upcoming Jobs board.
  * Indexed by journey/pickup date (not merely payment-created date), soonest first.
  */
+/** KV reads issued together per batch — far faster than one round trip per key. */
+const KV_READ_BATCH = 50;
+
+async function loadPaidBookingRecords(
+  store: KVNamespace,
+  refs: string[],
+  byRef: Map<string, PaidBookingRecord>,
+): Promise<void> {
+  const unique = [...new Set(refs.map((ref) => ref?.trim()).filter(Boolean))].filter(
+    (ref) => !byRef.has(ref),
+  );
+  for (let i = 0; i < unique.length; i += KV_READ_BATCH) {
+    const records = await Promise.all(
+      unique.slice(i, i + KV_READ_BATCH).map((ref) => getPaidBookingRecord(store, ref)),
+    );
+    for (const record of records) {
+      if (record) byRef.set(record.paymentReference, record);
+    }
+  }
+}
+
+async function loadPaidBookingsForTripDays(
+  store: KVNamespace,
+  days: string[],
+  byRef: Map<string, PaidBookingRecord>,
+): Promise<void> {
+  const ids: string[] = [];
+  for (let i = 0; i < days.length; i += KV_READ_BATCH) {
+    const lists = await Promise.all(
+      days
+        .slice(i, i + KV_READ_BATCH)
+        .map((day) => store.get<string[]>(paidBookingTripDayIndexKey(day), "json")),
+    );
+    for (const list of lists) {
+      if (Array.isArray(list)) ids.push(...list);
+    }
+  }
+  await loadPaidBookingRecords(store, ids, byRef);
+}
+
 export async function listUpcomingPaidBookings(
   store: KVNamespace,
   options?: { pastDays?: number; futureDays?: number; limit?: number },
@@ -454,27 +494,18 @@ export async function listUpcomingPaidBookings(
   const byRef = new Map<string, PaidBookingRecord>();
   const today = londonToday();
 
-  for (let offset = -pastDays; offset <= futureDays; offset += 1) {
-    const day = addDaysYmd(today, offset);
-    const ids = await store.get<string[]>(paidBookingTripDayIndexKey(day), "json");
-    if (!Array.isArray(ids)) continue;
-    for (const id of ids) {
-      if (!id?.trim() || byRef.has(id)) continue;
-      const record = await getPaidBookingRecord(store, id);
-      if (record) byRef.set(record.paymentReference, record);
-    }
-  }
+  const days: string[] = [];
+  for (let offset = -pastDays; offset <= futureDays; offset += 1) days.push(addDaysYmd(today, offset));
+  await loadPaidBookingsForTripDays(store, days, byRef);
 
   // Always scan booking:ref:* so pre-index / early-paid future trips still appear.
   let cursor: string | undefined;
   do {
     const page = await store.list({ prefix: "booking:ref:", cursor, limit: 100 });
-    for (const key of page.keys) {
-      const ref = key.name.replace(/^booking:ref:/, "").trim();
-      if (!ref || byRef.has(ref)) continue;
-      const record = await getPaidBookingRecord(store, ref);
-      if (record) byRef.set(record.paymentReference, record);
-    }
+    const refs = page.keys
+      .map((key) => key.name.replace(/^booking:ref:/, "").trim())
+      .filter((ref) => ref && !byRef.has(ref));
+    await loadPaidBookingRecords(store, refs, byRef);
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
 
@@ -506,21 +537,14 @@ export async function listPaidBookingsForTripRange(
   const limit = Math.min(Math.max(options?.limit ?? 250, 1), 400);
   const byRef = new Map<string, PaidBookingRecord>();
 
+  const days: string[] = [];
   let cursor = start;
-  let guard = 0;
-  while (cursor <= end && guard < 420) {
-    const ids = await store.get<string[]>(paidBookingTripDayIndexKey(cursor), "json");
-    if (Array.isArray(ids)) {
-      for (const id of ids) {
-        if (!id?.trim() || byRef.has(id)) continue;
-        const record = await getPaidBookingRecord(store, id);
-        if (record) byRef.set(record.paymentReference, record);
-      }
-    }
-    if (cursor === end) break;
+  while (days.length <= 420) {
+    days.push(cursor);
+    if (cursor >= end) break;
     cursor = addDaysYmd(cursor, 1);
-    guard += 1;
   }
+  await loadPaidBookingsForTripDays(store, days, byRef);
 
   return [...byRef.values()]
     .filter((record) => !isOwnerOperationalTestBooking(record))
