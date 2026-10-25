@@ -38,6 +38,8 @@ import {
   type WhatsAppReplyButton,
 } from "../shared/whatsapp-cloud";
 import {
+  buildWhatsAppAlternativeTimeButtons,
+  buildWhatsAppUnavailableReply,
   buildWhatsAppQuoteFailedReply,
   buildWhatsAppQuoteReply,
   buildWhatsAppTeamHandoffReply,
@@ -45,7 +47,13 @@ import {
   WHATSAPP_QUOTED_BUTTONS,
   whatsAppDraftToQuoteBody,
   type WhatsAppConversation,
+  type WhatsAppJourneyLeg,
+  type WhatsAppQuoteDraft,
 } from "../shared/whatsapp-quote-bot";
+import { isWithinMinimumBookingNotice } from "../shared/booking-notice";
+import { getBookingSettings } from "./booking-settings-store";
+import { evaluateOwnerNoAvailabilityFromStore } from "./short-notice-handlers";
+import { enforceCustomerSmartAvailabilityGate } from "./smart-ops-handlers";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
 import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
@@ -294,6 +302,17 @@ async function handleInboundMessage(
   }
 
   if (decision.action === "quote") {
+    const availability = await checkWhatsAppAvailability(conversation.draft, store);
+    if (!availability.ok) {
+      conversation.stage = "collecting";
+      conversation.awaiting = availability.leg === "return" ? "returnTime" : "outboundTime";
+      await store.put(conversationKey(phone), JSON.stringify(conversation), {
+        expirationTtl: CONVERSATION_TTL_SECONDS,
+      });
+      logEvent("whatsapp_quote_unavailable", phone, { reason: availability.reason, leg: availability.leg });
+      await reply(env, phone, availability.text, availability.buttons);
+      return;
+    }
     const quota = await consumeQuickQuoteCreateQuota(
       store,
       `whatsapp:${phone}`,
@@ -336,6 +355,109 @@ async function handleInboundMessage(
     expirationTtl: CONVERSATION_TTL_SECONDS,
   });
   if (text) await reply(env, phone, text, buttons);
+}
+
+type AvailabilityResult =
+  | { ok: true }
+  | {
+      ok: false;
+      leg: WhatsAppJourneyLeg;
+      reason: "booked" | "closed" | "notice";
+      text: string;
+      buttons?: WhatsAppReplyButton[];
+    };
+
+/**
+ * Same rules as the website before payment: minimum notice, owner "no availability"
+ * periods, then Smart Availability against existing bookings (when switched on in the
+ * owner dashboard). Each leg is checked on its own so alternative times are for that leg.
+ * Fails open on errors so a storage hiccup never blocks quoting.
+ */
+export async function checkWhatsAppAvailability(
+  draft: WhatsAppQuoteDraft,
+  store: KVNamespace,
+  now = new Date(),
+): Promise<AvailabilityResult> {
+  try {
+    const settings = await getBookingSettings(store);
+    const legs: Array<{ leg: WhatsAppJourneyLeg; date?: string; time?: string }> = [
+      { leg: "outbound", date: draft.outboundDate, time: draft.outboundTime },
+      ...(draft.returnJourney
+        ? [{ leg: "return" as const, date: draft.returnDate, time: draft.returnTime }]
+        : []),
+    ];
+    for (const { leg, date, time } of legs) {
+      if (!date || !time) continue;
+      if (isWithinMinimumBookingNotice(date, time, now, settings.minimumBookingNoticeHours)) {
+        return {
+          ok: false,
+          leg,
+          reason: "notice",
+          text: buildWhatsAppUnavailableReply({
+            leg,
+            draft,
+            reason: "notice",
+            noticeHours: settings.minimumBookingNoticeHours,
+            hasAlternatives: false,
+          }),
+        };
+      }
+      const closed = await evaluateOwnerNoAvailabilityFromStore(
+        store,
+        { tripDate: date, tripTime: time, returnJourney: false, vehicle: "Saloon" },
+        now,
+      );
+      if (closed.blocked) {
+        return {
+          ok: false,
+          leg,
+          reason: "closed",
+          text: buildWhatsAppUnavailableReply({
+            leg,
+            draft,
+            reason: "closed",
+            message: closed.customerMessage,
+            hasAlternatives: false,
+          }),
+        };
+      }
+      const outbound = leg === "outbound";
+      const gate = await enforceCustomerSmartAvailabilityGate({
+        store,
+        origin: null,
+        now,
+        booking: {
+          pickupLabel: outbound ? draft.pickupAddress : draft.dropoffAddress,
+          dropoffLabel: outbound ? draft.dropoffAddress : draft.pickupAddress,
+          tripDate: date,
+          tripTime: time,
+          returnJourney: false,
+          vehicle: "Saloon",
+          airportCode: draft.airportCode ?? null,
+          isFromAirport: draft.fromAirport == null ? null : outbound ? draft.fromAirport : !draft.fromAirport,
+        },
+      });
+      if (gate.blocked) {
+        const buttons = buildWhatsAppAlternativeTimeButtons(leg, gate.alternativeTimes);
+        return {
+          ok: false,
+          leg,
+          reason: "booked",
+          text: buildWhatsAppUnavailableReply({ leg, draft, reason: "booked", hasAlternatives: buttons.length > 0 }),
+          buttons,
+        };
+      }
+    }
+    return { ok: true };
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "whatsapp_availability_check_failed",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return { ok: true };
+  }
 }
 
 async function notifyOwnerOfHandoff(

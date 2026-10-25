@@ -20,6 +20,8 @@ import {
   whatsAppVerifyChallenge,
 } from "../shared/whatsapp-cloud";
 import {
+  buildWhatsAppAlternativeTimeButtons,
+  buildWhatsAppUnavailableReply,
   buildWhatsAppTeamHandoffReply,
   buildWhatsAppWelcome,
   WHATSAPP_BUTTONS,
@@ -32,7 +34,7 @@ import {
 } from "../shared/whatsapp-quote-bot";
 import { addCalendarDays } from "../shared/quick-quote-parse";
 import { todayLondonDate } from "../shared/uk-time";
-import { processWhatsAppWebhook } from "../workers/addresses/src/whatsapp-handlers";
+import { checkWhatsAppAvailability, processWhatsAppWebhook } from "../workers/addresses/src/whatsapp-handlers";
 
 async function main() {
   // Wednesday 2026-10-28 09:00 London (GMT).
@@ -134,6 +136,72 @@ async function main() {
     assert.deepEqual(up, { ok: true, handle: "handle-1" });
     assert.equal(calls[0], "https://waba-v2.360dialog.io/uploads?file_length=4&file_type=image%2Fpng");
     assert.equal(calls[1], "https://waba-v2.360dialog.io/upload:abc");
+  }
+
+  console.log("=== Availability: alternative times ===");
+  {
+    const altButtons = buildWhatsAppAlternativeTimeButtons("outbound", [
+      { tripDate: "2026-10-30", tripTime: "04:15" },
+      { tripDate: "2026-10-30", tripTime: "05:45" },
+      { tripDate: "2026-10-30", tripTime: "06:15" },
+      { tripDate: "2026-10-30", tripTime: "06:45" },
+    ]);
+    assert.equal(altButtons.length, 3);
+    assert.equal(altButtons[1].id, "txt:alt out 2026-10-30 05:45");
+    assert.equal(altButtons[1].title, "🕐 Fri 30 Oct 05:45");
+    for (const b of altButtons) assert.ok(b.title.length <= 20, b.title);
+    assert.equal(buildWhatsAppAlternativeTimeButtons("return", [{ tripDate: "2026-11-02", tripTime: "21:00" }])[0].id, "txt:alt ret 2026-11-02 21:00");
+
+    // Tapping an alternative moves that leg and prices straight away.
+    const ready: WhatsAppConversation = {
+      stage: "collecting",
+      awaiting: "outboundTime",
+      updatedAt: now.toISOString(),
+      draft: {
+        pickupAddress: "BT9 6AA", dropoffAddress: "Belfast International Airport", airportCode: "BFS",
+        fromAirport: false, returnJourney: false, outboundDate: "2026-10-30", outboundTime: "05:00",
+        passengers: 2, suitcases: 2,
+      },
+    };
+    const tapped = decideWhatsAppReply(ready, "alt out 2026-10-30 05:45", { now });
+    assert.equal(tapped.action, "quote");
+    assert.equal(tapped.conversation.draft.outboundTime, "05:45");
+    assert.equal(tapped.conversation.stage, "confirming");
+    const tappedReturn = decideWhatsAppReply(
+      { ...ready, draft: { ...ready.draft, returnJourney: true, returnDate: "2026-11-02", returnTime: "20:00" } },
+      "alt ret 2026-11-02 21:00",
+      { now },
+    );
+    assert.equal(tappedReturn.action, "quote");
+    assert.equal(tappedReturn.conversation.draft.returnTime, "21:00");
+    assert.equal(tappedReturn.conversation.draft.outboundTime, "05:00");
+
+    assert.match(
+      buildWhatsAppUnavailableReply({ leg: "outbound", draft: ready.draft, reason: "booked", hasAlternatives: true }),
+      /already booked for a pickup at 05:00 on Fri 30 Oct 2026[\s\S]*Tap one/,
+    );
+    assert.match(
+      buildWhatsAppUnavailableReply({ leg: "return", draft: { ...ready.draft, returnDate: "2026-11-02", returnTime: "20:00" }, reason: "notice", noticeHours: 12, hasAlternatives: false }),
+      /at least 12 hours' notice[\s\S]*return pickup at 20:00/,
+    );
+
+    // Worker check: minimum notice, then an open diary.
+    const emptyKv = {
+      async get() { return null; },
+      async put() {},
+      async list() { return { keys: [], list_complete: true, cursor: "" }; },
+    } as unknown as KVNamespace;
+    const soon = await checkWhatsAppAvailability(
+      { ...ready.draft, outboundDate: "2026-10-28", outboundTime: "11:00" },
+      emptyKv,
+      now,
+    );
+    assert.equal(soon.ok, false);
+    assert.equal(!soon.ok && soon.reason, "notice");
+    const fine = await checkWhatsAppAvailability(ready.draft, emptyKv, now);
+    assert.deepEqual(fine, { ok: true });
+    const failing = { async get() { throw new Error("kv down"); } } as unknown as KVNamespace;
+    assert.deepEqual(await checkWhatsAppAvailability(ready.draft, failing, now), { ok: true }, "fails open");
   }
 
   console.log("=== Greeting name ===");

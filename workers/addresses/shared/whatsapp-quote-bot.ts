@@ -434,6 +434,57 @@ export function buildWhatsAppQuoteFailedReply(reason?: string): string {
   );
 }
 
+export type WhatsAppJourneyLeg = "outbound" | "return";
+
+const ALT_CHOICE = /^alt (out|ret) (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/;
+
+function parseAlternativeTimeChoice(
+  text: string,
+): { leg: WhatsAppJourneyLeg; tripDate: string; tripTime: string } | null {
+  const m = text.trim().toLowerCase().match(ALT_CHOICE);
+  if (!m) return null;
+  return { leg: m[1] === "ret" ? "return" : "outbound", tripDate: m[2], tripTime: m[3] };
+}
+
+/** "Fri 05:45" buttons for the nearest free times (max 3). */
+export function buildWhatsAppAlternativeTimeButtons(
+  leg: WhatsAppJourneyLeg,
+  times: Array<{ tripDate: string; tripTime: string }>,
+): WhatsAppBotButton[] {
+  return times.slice(0, 3).map(({ tripDate, tripTime }) => ({
+    id: `txt:alt ${leg === "return" ? "ret" : "out"} ${tripDate} ${tripTime}`,
+    title: `🕐 ${displayDate(tripDate).split(" ").slice(0, 3).join(" ")} ${tripTime}`.slice(0, 20),
+  }));
+}
+
+/** Reply when the requested time can't be booked. */
+export function buildWhatsAppUnavailableReply(input: {
+  leg: WhatsAppJourneyLeg;
+  draft: WhatsAppQuoteDraft;
+  reason: "booked" | "closed" | "notice";
+  message?: string | null;
+  noticeHours?: number;
+  hasAlternatives: boolean;
+}): string {
+  const date = input.leg === "return" ? input.draft.returnDate : input.draft.outboundDate;
+  const time = input.leg === "return" ? input.draft.returnTime : input.draft.outboundTime;
+  const when = `${time ?? ""}${date ? ` on ${displayDate(date)}` : ""}`.trim();
+  const legLabel = input.leg === "return" ? "return pickup" : "pickup";
+  if (input.reason === "notice") {
+    return (
+      `Sorry, we need at least ${input.noticeHours ?? 24} hours' notice to book online, so we can't confirm a ${legLabel} at ${when}.\n\n` +
+      `Please send me a later date or time.`
+    );
+  }
+  const opener =
+    input.reason === "closed"
+      ? input.message?.trim() || `Sorry, we're not available for a ${legLabel} at ${when}.`
+      : `Sorry, we're already booked for a ${legLabel} at ${when}.`;
+  return input.hasAlternatives
+    ? `${opener}\n\nThe nearest times we can do are below. Tap one to get your price, or send me another time.`
+    : `${opener}\n\nPlease send me another date or time and I'll check it for you.`;
+}
+
 const HANDOFF_REPLY = `No problem, a member of our team will reply here shortly. 👍`;
 
 /**
@@ -490,6 +541,23 @@ export function decideWhatsAppReply(
   }
   if (intent === "confirm" && conversation.stage === "confirming") {
     return { conversation, reply: "", action: "quote" };
+  }
+
+  // Tapped one of the "nearest free times" buttons: move that leg and price straight away.
+  const alt = parseAlternativeTimeChoice(text);
+  if (alt) {
+    if (alt.leg === "return") {
+      conversation.draft.returnDate = alt.tripDate;
+      conversation.draft.returnTime = alt.tripTime;
+    } else {
+      conversation.draft.outboundDate = alt.tripDate;
+      conversation.draft.outboundTime = alt.tripTime;
+    }
+    if (!nextMissingField(conversation.draft)) {
+      conversation.stage = "confirming";
+      delete conversation.awaiting;
+      return { conversation, reply: "", action: "quote" };
+    }
   }
 
   const isNew = !existing || Object.keys(existing.draft).length === 0;
