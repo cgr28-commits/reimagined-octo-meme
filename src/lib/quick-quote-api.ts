@@ -177,7 +177,9 @@ async function calculateServerQuoteOnce(
     amountLabel: String(payload.amountLabel ?? ""),
     vehicleType: String(payload.vehicleType ?? ""),
     vehicleChoice:
-      payload.vehicleChoice === "Minibus" || payload.vehicleChoice === "Saloon"
+      payload.vehicleChoice === "Minibus" ||
+      payload.vehicleChoice === "Estate" ||
+      payload.vehicleChoice === "Saloon"
         ? payload.vehicleChoice
         : undefined,
     nightWeekendSurchargeLabel: typeof payload.nightWeekendSurchargeLabel === "string" ? payload.nightWeekendSurchargeLabel : undefined,
