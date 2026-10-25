@@ -1,6 +1,6 @@
 /**
  * Internal Google Ads suspicious-traffic monitoring (evidence only — no blocking).
- * Complements TrafficGuard; does not replace Ads attribution or Google Ads conversions.
+ * Does not replace Ads attribution or Google Ads conversions.
  */
 
 import {

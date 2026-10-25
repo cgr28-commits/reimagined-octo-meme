@@ -156,9 +156,9 @@ async function main() {
     assert.equal(scored.risk, "medium");
   });
 
-  await check("Wiring: TrafficGuard untouched; Ad Fraud modules + admin auth present", () => {
+  await check("Wiring: TrafficGuard removed; Ad Fraud modules + admin auth present", () => {
     const layout = read("src/app/layout.tsx");
-    assert.match(layout, /tg-g-026255-001/);
+    assert.doesNotMatch(layout, /tgtag\.io|tg-g-026255-001|dataTrafficGuard/);
     assert.match(layout, /AdFraudMonitor/);
     assert.match(layout, /AdsAttributionCapture/);
 

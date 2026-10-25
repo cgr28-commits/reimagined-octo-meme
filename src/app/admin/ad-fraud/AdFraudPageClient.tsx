@@ -156,8 +156,7 @@ export default function AdFraudPageClient() {
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/70">
               Indicators of suspicious Google Ads / paid traffic patterns for evidence gathering.
               These are <span className="font-semibold text-white/85">not proof</span> that a
-              visitor is a competitor. Automatic blocking is disabled. TrafficGuard continues to run
-              separately.
+              visitor is a competitor. Automatic blocking is disabled.
             </p>
           </header>
 

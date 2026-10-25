@@ -2,7 +2,7 @@
 
 /**
  * Sitewide passive Ad Fraud monitors.
- * Does not touch TrafficGuard, Google Ads tags, or AdsAttributionCapture.
+ * Does not touch Google Ads tags or AdsAttributionCapture.
  */
 
 import { useEffect } from "react";

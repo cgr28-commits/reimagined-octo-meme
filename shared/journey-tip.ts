@@ -27,7 +27,7 @@ export const TIP_TOKEN_STORAGE_KEY = "matni-tip-token";
 
 /**
  * Runs from the root layout as a blocking beforeInteractive script, before
- * TrafficGuard, Google Ads, attribution, or fraud monitoring can read the URL.
+ * Google Ads, attribution, or fraud monitoring can read the URL.
  * On /tip/ only: store a valid token, then drop the whole query string.
  */
 export const TIP_TOKEN_STRIP_SCRIPT = `(function(){try{var path=String(location.pathname||"").replace(/\\/+$/,"")||"/";if(path!=="/tip")return;var search=String(location.search||"");if(!search)return;var params=new URLSearchParams(search);var token=String(params.get("t")||"").trim().toLowerCase();if(/^[a-f0-9]{32}$/.test(token)){try{sessionStorage.setItem(${JSON.stringify(TIP_TOKEN_STORAGE_KEY)},token);}catch(e){}}history.replaceState(history.state,"",String(location.pathname||"")+String(location.hash||""));}catch(e){}})();`;
