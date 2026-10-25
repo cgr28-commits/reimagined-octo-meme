@@ -31,6 +31,7 @@ export type OwnerPaidBookingSummary = Pick<
   | "terminalAccessVisits"
   | "terminalAccessChoices"
   | "paymentReference"
+  | "customerReference"
   | "checkoutId"
   | "createdAt"
   | "status"

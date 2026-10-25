@@ -39,11 +39,14 @@ export function OwnerWazeAddressLink({
 export function OwnerCustomerCallWhatsApp({
   phone,
   tone = "light",
+  message,
 }: {
   phone?: string | null;
   tone?: "light" | "muted";
+  /** Optional WhatsApp draft, e.g. the booking details. */
+  message?: string | null;
 }) {
-  const contact = ownerCustomerContactActions(phone);
+  const contact = ownerCustomerContactActions(phone, message);
   if (!contact) return null;
   const actionClass =
     tone === "muted"

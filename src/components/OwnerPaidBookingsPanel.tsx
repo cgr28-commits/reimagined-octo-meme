@@ -96,7 +96,9 @@ import {
 } from "../../shared/refund-ops";
 import { ownerManualReturnOfferUi } from "../../shared/return-offer";
 import {
+  ownerCustomerBookingMessage,
   ownerCustomerContactActions,
+  ownerCustomerEmailHref,
   resolveOwnerDisplayedLegNav,
 } from "../../shared/owner-job-actions";
 import {
@@ -1616,7 +1618,23 @@ export default function OwnerPaidBookingsPanel({
       isFromAirport: booking.isFromAirport,
       quoteSnapshot: booking.quoteSnapshot,
     });
-    const customerContact = ownerCustomerContactActions(booking.mobileNumber);
+    const customerBookingDetails = {
+      customerName: booking.customerName,
+      customerReference: booking.customerReference,
+      tripDate: nextDate,
+      tripTime: nextTime === "—" ? "" : nextTime,
+      pickupLabel: isReturnNext ? booking.dropoffLabel : booking.pickupLabel,
+      dropoffLabel: isReturnNext ? booking.pickupLabel : booking.dropoffLabel,
+      returnLeg: isReturnNext,
+      passengers: booking.passengers,
+      suitcases: booking.suitcases,
+      flightNumber: flightLabel,
+      cashDueGbp: remainingCashDueGbp(booking),
+    };
+    const customerMessage = ownerCustomerBookingMessage(customerBookingDetails);
+    const customerContact = ownerCustomerContactActions(booking.mobileNumber, customerMessage);
+    const customerEmailHref = ownerCustomerEmailHref(booking.customerEmail, customerBookingDetails);
+    const customerRef = booking.customerReference?.trim().toUpperCase();
 
     const moreOptions = (
       <details
@@ -1666,9 +1684,9 @@ export default function OwnerPaidBookingsPanel({
                 Customer contact
               </p>
               <div className="flex flex-col gap-2">
-                {booking.customerEmail ? (
+                {customerEmailHref ? (
                   <a
-                    href={`mailto:${encodeURIComponent(booking.customerEmail)}`}
+                    href={customerEmailHref}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
                   >
                     Email customer
@@ -2104,14 +2122,24 @@ export default function OwnerPaidBookingsPanel({
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="break-words text-base font-bold text-white sm:text-lg">
-              {booking.customerName}
-            </p>
-            <p className="mt-1 break-words text-sm text-white/65">
+            <p
+              className="break-words text-xl font-bold tabular-nums text-white sm:text-2xl"
+              data-owner-job-when
+            >
               {isReturnNext ? "Return · " : ""}
-              {formatDisplayTripDate(nextDate)} · pick up {nextTime}
-              {fareLabel !== "—" ? ` · ${fareLabel}` : ""}
+              {formatDisplayTripDate(nextDate)} · {nextTime}
             </p>
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-2 break-words text-base font-semibold text-white">
+              <span>{booking.customerName}</span>
+              {customerRef ? (
+                <span className="font-mono text-sm font-bold tracking-wide text-emerald" data-owner-job-ref>
+                  {customerRef}
+                </span>
+              ) : null}
+            </p>
+            {fareLabel !== "—" ? (
+              <p className="mt-1 text-sm text-white/65">{fareLabel}</p>
+            ) : null}
             <p className="mt-1 break-words text-sm text-white/80">{routeLabel}</p>
             {booking.returnJourney ? (
               <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-white/45">
@@ -2207,7 +2235,7 @@ export default function OwnerPaidBookingsPanel({
             <div className="col-span-2">
               <dt className="text-[11px] text-white/40">Customer</dt>
               <dd>
-                <OwnerCustomerCallWhatsApp phone={booking.mobileNumber} />
+                <OwnerCustomerCallWhatsApp phone={booking.mobileNumber} message={customerMessage} />
               </dd>
             </div>
           ) : null}
