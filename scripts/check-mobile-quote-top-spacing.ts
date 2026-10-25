@@ -54,7 +54,7 @@ assert.match(prefill, /HEADER_SCROLL_OFFSET = 112/);
 assert.match(header, /Logo className="(?:quote-header-logo )?h-\[3\.25rem\] sm:h-16 md:h-20"/);
 assert.match(header, /Get a Quote/);
 assert.match(header, /Menu/);
-assert.match(header, /data-matni-whatsapp-quick/);
+assert.doesNotMatch(header, /data-matni-whatsapp-quick/); // WhatsApp is the mobile floating button now
 assert.doesNotMatch(header, /aria-label="Quick services"/);
 assert.match(header, /href="\/manage-booking\/"/);
 assert.match(data, /label: "Get a Quote"/);

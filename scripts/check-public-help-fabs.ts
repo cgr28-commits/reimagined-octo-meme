@@ -39,26 +39,28 @@ console.log("=== 1. Desktop round ? help button ===");
   console.log("OK  50px circle ? · fixed · desktop-only");
 }
 
-console.log("\n=== 2. Mobile WhatsApp in Header quick row ===");
+console.log("\n=== 2. Mobile floating WhatsApp button ===");
 {
-  assert.match(header, /data-matni-whatsapp-quick/);
-  assert.match(header, /h-11 w-11|min-h-11/);
-  assert.match(header, /#25D366/);
-  assert.match(header, /whatsAppChatUrl/);
-  assert.match(header, /Hi, I need some help with an airport transfer/);
-  assert.match(wa, /return null/);
-  assert.doesNotMatch(layout, /<WhatsAppButton/);
+  assert.doesNotMatch(header, /data-matni-whatsapp-quick/);
+  assert.match(wa, /data-matni-whatsapp-fab/);
+  assert.match(wa, /h-14 w-14/);
+  assert.match(wa, /rounded-full/);
+  assert.match(wa, /#25D366/);
+  assert.match(wa, /whatsAppChatUrl/);
+  assert.match(wa, /Hi, I need some help with an airport transfer/);
+  assert.match(wa, /safe-area-inset-bottom/);
+  assert.match(layout, /<WhatsAppButton \/>/);
   assert.doesNotMatch(hero, /data-matni-whatsapp/);
-  console.log("OK  Header quick-row WhatsApp · no floating FAB · outside quote");
+  console.log("OK  floating WhatsApp on mobile · not in header · outside quote");
 }
 
 console.log("\n=== 3. Exclusive breakpoint (never both) ===");
 {
   assert.match(device, /min-width: 768px/);
   assert.match(assistant, /isMobile !== false/);
+  assert.match(wa, /isMobile !== true/);
   assert.match(layout, /QuoteAssistant/);
-  assert.doesNotMatch(layout, /<WhatsAppButton/);
-  console.log("OK  ≥768px ? only · <768px Header WhatsApp only");
+  console.log("OK  ≥768px ? only · <768px floating WhatsApp only");
 }
 
 console.log("\n=== 4. Hero CTAs removed · Live Quote untouched · nav Quote kept ===");

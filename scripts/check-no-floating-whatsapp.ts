@@ -1,6 +1,7 @@
 /**
- * Floating WhatsApp FAB removed — mobile uses Header quick-row icon.
- * Desktop uses the round “?” help button.
+ * Mobile uses a floating WhatsApp button (WhatsAppButton); the header no longer
+ * carries a WhatsApp icon. Desktop uses the round “?” help button.
+ * (File name kept for history: the FAB was removed once, then brought back.)
  * Run: npx tsx scripts/check-no-floating-whatsapp.ts
  */
 
@@ -23,12 +24,11 @@ const data = read("src/lib/data.ts");
 const layout = read("src/app/layout.tsx");
 const assistant = read("src/components/QuoteAssistant.tsx");
 
-assert.match(wa, /return null/);
-assert.doesNotMatch(wa, /createPortal/);
-assert.doesNotMatch(wa, /data-matni-whatsapp-fab/);
-assert.doesNotMatch(layout, /<WhatsAppButton/);
+assert.match(wa, /data-matni-whatsapp-fab/);
+assert.match(wa, /md:hidden/);
+assert.match(layout, /<WhatsAppButton \/>/);
 
-assert.match(header, /data-matni-whatsapp-quick/);
+assert.doesNotMatch(header, /data-matni-whatsapp-quick/);
 assert.match(assistant, /isMobile !== false/);
 
 assert.match(hero, /QuoteHelpContact/);
@@ -55,8 +55,8 @@ assert.match(data, /whatsapp:\s*"447549815538"/);
 assert.match(data, /whatsappUsername:\s*"belfasttaxi"/);
 assert.match(data, /whatsappDefaultMessage/);
 
-console.log("OK  no floating WhatsApp FAB");
-console.log("OK  mobile WhatsApp in Header quick row");
+console.log("OK  mobile floating WhatsApp button");
+console.log("OK  no WhatsApp icon in the mobile header row");
 console.log("OK  desktop uses exclusive ? help (QuoteAssistant)");
 console.log("OK  secondary WhatsApp: menu, footer, Need help under quote");
-console.log("\nAll no-floating-whatsapp checks passed.");
+console.log("\nAll mobile WhatsApp button checks passed.");

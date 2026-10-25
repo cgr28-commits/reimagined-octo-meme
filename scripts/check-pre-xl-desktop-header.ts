@@ -44,7 +44,7 @@ assert.doesNotMatch(header, /aria-label="Laptop navigation"/);
 
 // Mobile chrome must remain strictly below md
 assert.match(header, /sm:gap-2 md:hidden/);
-assert.match(header, /data-matni-whatsapp-quick/);
+assert.doesNotMatch(header, /data-matni-whatsapp-quick/); // WhatsApp is the mobile floating button now
 assert.match(header, /fixed inset-0 z-\[80\][\s\S]*md:hidden/);
 
 const hero = readFileSync(join(root, "src/components/HeroSlideshow.tsx"), "utf8");
