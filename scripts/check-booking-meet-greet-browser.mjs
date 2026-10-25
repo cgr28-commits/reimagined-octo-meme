@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
 import { getServedAirport } from '../shared/served-airports';
 import { publicDepositCashOffer } from '../shared/deposit-cash';
+import { PAYMENT_UNCERTAIN_MESSAGE } from '../src/lib/payment-attempt-guard';
 const { chromium, webkit } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(`${process.env.PLAYWRIGHT_MODULE}/index.mjs`).href : 'playwright');
 const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
 const output=`test-results/booking-meet-greet/${engine}`;
@@ -114,7 +115,8 @@ try {
       await page.getByRole('checkbox',{name:/I agree to the Terms/}).check();
       const priceAck=page.getByRole('checkbox',{name:'I confirm the updated price.'}); if(await priceAck.count())await priceAck.check();
       await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).click();
-      await page.waitForFunction(()=>document.body.innerText.includes('Isolated test: payment not sent to SumUp'));
+      await page.getByText(PAYMENT_UNCERTAIN_MESSAGE,{exact:true}).waitFor();
+      assert.equal(await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).isDisabled(),true,'An ambiguous 503 must block another payment attempt');
       assert.equal(q.requests.length,1);assert.equal(q.requests[0].booking.terminalAccessChoices['outbound:BFS:pick-up'],'meet-greet');
       assert.equal(q.requests[0].acceptedFinalAmountGbp,amount(after));
       await q.context.route('**/payments/confirm',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({amountPaid:`£${amount(after).toFixed(2)}`,paymentReference:'TEST-ONLY',customerReference:'MAT-TEST',customerEmailSent:true,ownerEmailSent:true,emailSent:true,calendarLogged:true,paymentMethod:'FULL_ONLINE',totalFare:amount(after),meetGreetFeeGbp:18.25})}));
