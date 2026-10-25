@@ -228,6 +228,7 @@ export const FRESH_VISIT_ADDRESS_STORAGE_KEYS = {
     "matni-open-checkout-v1",
     "matni-cookie-consent",
     "matni-owner-key",
+    "matni-owner-key-remembered",
     "matni-driver-key",
   ],
   preservedPrefixes: [

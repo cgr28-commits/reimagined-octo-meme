@@ -21,6 +21,7 @@ import {
   materialFieldsChanged,
   normalizeScheduleDate,
   normalizeScheduleTime,
+  summarizeAmendmentChanges,
   validatePendingAmendmentForPayment,
   isPendingAmendmentExpired,
   type DateTimeAmendmentAuditEntry,
@@ -308,17 +309,10 @@ function buildChangeSummary(
   record: PaidBookingRecord,
   merged: ReturnType<typeof mergeProposedOntoRecord>,
 ): string[] {
-  const changes: string[] = [];
-  if (merged.pickupLabel !== record.pickupLabel) changes.push("Pickup address changed");
-  if (merged.dropoffLabel !== record.dropoffLabel) changes.push("Destination changed");
-  if (merged.tripDate !== record.tripDate) changes.push("Pickup date changed");
-  if (merged.tripTime !== record.tripTime) changes.push("Pickup time changed");
-  if (merged.passengers !== (record.passengers ?? 1)) changes.push("Passenger count changed");
-  if (merged.suitcases !== (record.suitcases ?? 0)) changes.push("Luggage changed");
-  if (merged.childSeats !== (record.childSeats ?? 0)) changes.push("Child seats changed");
-  if (merged.flightNumber !== (record.flightNumber || "")) changes.push("Flight number changed");
-  if (merged.mobileNumber !== (record.mobileNumber || "")) changes.push("Mobile number changed");
-  return changes;
+  return summarizeAmendmentChanges(
+    record as unknown as Record<string, unknown>,
+    merged as unknown as Record<string, unknown>,
+  );
 }
 
 function fieldDiffs(

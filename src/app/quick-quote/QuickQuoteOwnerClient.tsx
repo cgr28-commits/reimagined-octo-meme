@@ -294,7 +294,11 @@ export default function QuickQuoteOwnerClient() {
     setFareAmount(composed.totalGbp);
     setFareLabel(formatQuickQuoteAmount(composed.totalGbp));
     setVehicleType(
-      draft.vehicleChoice === "Minibus" ? "Minibus (partner / on request)" : "Standard Saloon",
+      draft.vehicleChoice === "Minibus"
+        ? "Minibus (partner / on request)"
+        : draft.vehicleChoice === "Estate"
+          ? "Estate Car"
+          : "Standard Saloon",
     );
     setBookingUrl("");
     setWhatsappReply("");
@@ -576,7 +580,7 @@ export default function QuickQuoteOwnerClient() {
       setError(
         draft.vehicleChoice === "Minibus"
           ? `Minibus quotes are limited to ${maxPax} passengers.`
-          : `Saloon quotes are limited to ${maxPax} passengers. Switch to Minibus for larger parties.`,
+          : `${draft.vehicleChoice} quotes are limited to ${maxPax} passengers. Switch to Minibus for larger parties.`,
       );
       return;
     }
@@ -1122,7 +1126,7 @@ export default function QuickQuoteOwnerClient() {
 
         <div className="min-w-0">
           <FieldLabel label="Vehicle" />
-          <div className="grid min-w-0 grid-cols-2 gap-2">
+          <div className="grid min-w-0 grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => setVehicleChoice("Saloon")}
@@ -1133,6 +1137,17 @@ export default function QuickQuoteOwnerClient() {
               }`}
             >
               Saloon
+            </button>
+            <button
+              type="button"
+              onClick={() => setVehicleChoice("Estate")}
+              className={`min-h-11 min-w-0 rounded-xl border text-sm ${
+                draft.vehicleChoice === "Estate"
+                  ? "border-emerald text-emerald"
+                  : "border-white/15 text-white/80"
+              }`}
+            >
+              Estate
             </button>
             <button
               type="button"

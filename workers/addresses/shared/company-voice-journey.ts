@@ -172,7 +172,8 @@ export function buildArrivedCompanyVoiceEmailBody(
     const instruction =
       buildAirportPickupInstruction({ ...booking, isAirportPickup: true }) ||
       AIRPORT_PICKUP_COPY.generic;
-    return `Hi ${first}, ${instruction}`;
+    // Continue the greeting's sentence: "Hi Alex, please make your way…".
+    return `Hi ${first}, ${instruction.charAt(0).toLowerCase()}${instruction.slice(1)}`;
   }
   return `Hi ${first}, your driver has arrived at your pickup location and is ready when you are.`;
 }

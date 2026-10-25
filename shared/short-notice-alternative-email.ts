@@ -14,6 +14,12 @@ import {
   businessEmailClientMeta,
   businessEmailLogoHtml,
 } from "./business-email";
+import { formatUkDateTime } from "./uk-time";
+
+/** "14-11-2026 at 05:30" — the date/time style used in booking emails. */
+function journeyWhen(date: string, time: string): string {
+  return formatUkDateTime(date, time, { withZoneLabel: false }) || `${date} ${time}`;
+}
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const ACCENT = BRAND_EMERALD;
@@ -63,10 +69,10 @@ export function buildShortNoticeAlternativeOfferEmail(
   const text =
     `Hi ${firstName},\n\n` +
     `Thank you for your booking request.\n\n` +
-    `We're unable to accommodate your original requested pickup time of ${details.originalDate} ${details.originalTime}.\n\n` +
+    `We're unable to accommodate your original requested pickup time of ${journeyWhen(details.originalDate, details.originalTime)}.\n\n` +
     `However, we can offer the following alternative:\n\n` +
     `New pickup time:\n` +
-    `${details.offeredDate} ${details.offeredTime}\n\n` +
+    `${journeyWhen(details.offeredDate, details.offeredTime)}\n\n` +
     `Quoted price:\n` +
     `${details.amountLabel}\n\n` +
     `Journey:\n` +
@@ -107,10 +113,10 @@ ${businessEmailClientMeta()}
             <td style="padding:28px 32px 8px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
               <p style="margin:0 0 16px;">Thank you for your booking request.</p>
-              <p style="margin:0 0 16px;">We're unable to accommodate your original requested pickup time of ${escapeHtml(details.originalDate)} ${escapeHtml(details.originalTime)}.</p>
+              <p style="margin:0 0 16px;">We're unable to accommodate your original requested pickup time of ${escapeHtml(journeyWhen(details.originalDate, details.originalTime))}.</p>
               <p style="margin:0 0 8px;">However, we can offer the following alternative:</p>
               <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">New pickup time</p>
-              <p style="margin:0 0 16px;font-weight:600;color:${NAVY};">${escapeHtml(details.offeredDate)} · ${escapeHtml(details.offeredTime)}</p>
+              <p style="margin:0 0 16px;font-weight:600;color:${NAVY};">${escapeHtml(journeyWhen(details.offeredDate, details.offeredTime))}</p>
               <p style="margin:0 0 16px;"><strong style="color:${NAVY};">Quoted price:</strong> ${escapeHtml(details.amountLabel)}</p>
               <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin:0 0 10px;">Journey</div>
               <p style="margin:0 0 16px;font-weight:600;color:${NAVY};">${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>

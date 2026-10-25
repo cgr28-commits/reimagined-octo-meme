@@ -1,33 +1,29 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { applyJourneyAction, buildPublicTrackUrl, type TrackingJobRecord } from "../shared/tracking";
 import { publicTrackPayload } from "../workers/addresses/src/tracking-handlers";
 import { handleJourneyTransitionRequest } from "../workers/addresses/src/journey-handlers";
 import { buildCustomerConfirmationEmail, buildDriverOnTheWayEmail, buildUpdatedBookingConfirmationEmail } from "../shared/booking-notifications";
 import { evaluateJourneyReminder } from "../shared/journey-reminder";
 import { evaluateAirportPickupReminder } from "../shared/airport-pickup-reminder";
-import { customerTrackingHtml, TRACKING_ACTIVATION_COPY } from "../shared/customer-tracking-email";
 
 const token = "a".repeat(32), trackUrl = buildPublicTrackUrl(token);
 const receipt = { customerName: "Private Test", customerEmail: "test@example.com", mobileNumber: "07700900000", tripLabel: "Airport transfer", pickupLabel: "Belfast International Airport", dropoffLabel: "Belfast", returnJourney: false, tripDate: "2026-10-21", tripTime: "02:00", returnDate: "", returnTime: "", passengers: 2, suitcases: 2, vehicle: "Estate", isAirportTrip: true, airportCode: "BFS", amountPaid: "£70.00", paymentReference: "TEST-ONLY", checkoutReference: "TEST-ONLY" };
+// Website tracking is retired: callers may still pass a track URL, but no customer email shows it.
 for (const email of [buildCustomerConfirmationEmail(receipt, undefined, { trackUrl }), buildUpdatedBookingConfirmationEmail(receipt, undefined, { trackUrl }), buildDriverOnTheWayEmail({ customerName: "Private Test", trackUrl })]) {
-  assert.ok(email.text.includes(trackUrl));
-  assert.ok(email.html.includes(trackUrl));
-  assert.ok(email.text.includes(TRACKING_ACTIVATION_COPY));
-  assert.equal((email.html.match(/>Track Your Driver<\/a>/g) ?? []).length, 1);
+  assert.ok(!email.text.includes("/track/"));
+  assert.ok(!email.html.includes("/track/"));
+  assert.doesNotMatch(email.text + email.html, /track your driver/i);
   assert.doesNotMatch(email.text, /OWNER_ACCESS_KEY|DRIVER_ACCESS_KEY|here on WhatsApp/);
 }
-assert.equal(customerTrackingHtml("javascript:alert(1)"), "");
-assert.equal(customerTrackingHtml("https://example.com/track/"), "");
-const reminderInput = { ...receipt, customerReference: "MAT-1234", isFromAirport: true, airportAccessOption: "express" as const, outboundAirportAccessOption: "express" as const, bookingStatus: "confirmed", trackUrl };
+const reminderInput = { ...receipt, customerReference: "MAT-1234", isFromAirport: true, airportAccessOption: "express" as const, outboundAirportAccessOption: "express" as const, bookingStatus: "confirmed" };
 const now = new Date("2026-10-20T23:00:00Z");
 for (const decision of [evaluateJourneyReminder(reminderInput, now), evaluateAirportPickupReminder(reminderInput, now)]) {
   assert.equal(decision.eligible, true);
-  if (decision.eligible) { assert.ok(decision.text.includes(trackUrl)); assert.ok(decision.html.includes(TRACKING_ACTIVATION_COPY)); }
+  if (decision.eligible) { assert.ok(!decision.text.includes("/track/")); assert.doesNotMatch(decision.html, /track your driver/i); }
 }
-const returnUrl = buildPublicTrackUrl("b".repeat(32));
-const returnReminder = evaluateJourneyReminder({ ...reminderInput, journeyLeg: "return", trackUrl: returnUrl }, now);
-assert.ok(returnReminder.eligible);
-if (returnReminder.eligible) { assert.ok(returnReminder.text.includes(returnUrl)); assert.ok(!returnReminder.text.includes(trackUrl)); }
+const data = readFileSync("src/lib/data.ts", "utf8");
+assert.match(data, /liveDriverTracking:\s*false/);
 
 const pickup = new Date(Date.now() + 2 * 3600_000);
 const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(pickup);
@@ -44,7 +40,7 @@ for (const action of ["stop_tracking", "complete_journey"] as const) {
   const ended = applyJourneyAction(job, action); assert.ok(ended.ok);
   if (ended.ok) assert.equal(publicTrackPayload(ended.job, null).driver, null);
 }
-console.log("PASS live tracking release: emails, per-leg reminders, activation gate, freshness, stop and completion. No network calls or real bookings.");
+console.log("PASS tracking retired from customer emails and reminders; track API activation gate, freshness, stop and completion unchanged. No network calls or real bookings.");
 
 void (async () => {
   const data = new Map<string, string>();

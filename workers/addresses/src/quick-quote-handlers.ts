@@ -31,6 +31,7 @@ import {
 } from "../shared/quick-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
+  ESTATE_VEHICLE,
   MINIBUS_VEHICLE,
   selectVehicleForParty,
 } from "../../../src/lib/vehicle-selection";
@@ -84,6 +85,7 @@ function resolveVehicle(
   suitcases: number,
 ): VehicleType {
   if (choice === "Minibus") return MINIBUS_VEHICLE;
+  if (choice === "Estate") return ESTATE_VEHICLE;
   return selectVehicleForParty(passengers, Math.max(0, suitcases));
 }
 
@@ -138,7 +140,7 @@ function parseJourney(
       error:
         vehicleChoice === "Minibus"
           ? `Minibus Quick Quotes are limited to ${maxPax} passengers.`
-          : `Saloon Quick Quotes are limited to ${maxPax} passengers. Switch to Minibus for larger parties.`,
+          : `${vehicleChoice} Quick Quotes are limited to ${maxPax} passengers. Switch to Minibus for larger parties.`,
     };
   }
   if (!Number.isFinite(suitcases) || suitcases < 0) {

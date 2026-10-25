@@ -85,9 +85,10 @@ export const SERVICE_FLAGS = {
   customerSumUpPay: true,
   /**
    * Customer website live tracking (homepage section, nav, /track map).
-   * Journey status actions (Driver on the way / Arrived) stay available on driver/owner dashboards.
+   * Off: drivers share their live location manually on WhatsApp, and the
+   * dashboard opens WhatsApp for Driver on the way / Arrived.
    */
-  liveDriverTracking: true,
+  liveDriverTracking: false,
   /** Public driver dashboard — enabled for journey tracking on phone. */
   driverDashboard: true,
 } as const;

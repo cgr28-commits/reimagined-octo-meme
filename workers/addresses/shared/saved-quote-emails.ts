@@ -18,6 +18,7 @@ import {
   formatSavedQuoteExpiryLabel,
   type SavedQuoteRecord,
 } from "./saved-quote";
+import { formatUkDateTime } from "./uk-time";
 
 export type SavedQuoteEmail = {
   subject: string;
@@ -42,7 +43,7 @@ function journeyScheduleLabel(date?: string, time?: string): string {
   const d = String(date ?? "").trim();
   const t = String(time ?? "").trim();
   if (!d || !t) return "Not set";
-  return `${d} at ${t}`;
+  return formatUkDateTime(d, t) || `${d} at ${t}`;
 }
 
 function journeySummary(record: SavedQuoteRecord): string {
@@ -232,5 +233,14 @@ export function buildSavedQuoteFinalReminderEmail(
 
 function quoteDetails(record: SavedQuoteRecord): string {
   const j = record.journey;
-  return `Vehicle: ${j.vehicle}\nPassengers: ${j.passengers} · Suitcases: ${j.suitcases}\n${j.returnJourney ? "Return journey" : "One-way journey"}\nAirport charges included: £${(record.pricing.airportChargesGbp ?? 0).toFixed(2)}\nReturn saving included: £${(record.pricing.returnSavingGbp ?? 0).toFixed(2)}`;
+  // Only mention charges or savings that actually apply to this quote.
+  const airportCharges = record.pricing.airportChargesGbp ?? 0;
+  const returnSaving = record.pricing.returnSavingGbp ?? 0;
+  return [
+    `Vehicle: ${j.vehicle}`,
+    `Passengers: ${j.passengers} · Suitcases: ${j.suitcases}`,
+    j.returnJourney ? "Return journey" : "One-way journey",
+    ...(airportCharges > 0 ? [`Airport charges included: £${airportCharges.toFixed(2)}`] : []),
+    ...(returnSaving > 0 ? [`Return saving included: £${returnSaving.toFixed(2)}`] : []),
+  ].join("\n");
 }

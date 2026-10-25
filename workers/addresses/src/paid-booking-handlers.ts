@@ -453,6 +453,7 @@ export async function handlePaidBookingsListRequest(
       return {
         ...googleAdsOwnerStatusFields(booking),
         paymentReference: booking.paymentReference,
+        customerReference: booking.customerReference,
         checkoutId: booking.checkoutId,
         createdAt: booking.createdAt,
         status: booking.status,

@@ -129,13 +129,14 @@ check("Driver on the way email — company voice; no operator or vehicle details
     email.text,
     /Hi Alex, your driver is now on the way to your pickup location for your booked pickup time of 10:30/,
   );
-  assert.match(email.text, /only becomes live when your driver is on the way/);
+  assert.doesNotMatch(email.text, /only becomes live when your driver is on the way/);
   assert.doesNotMatch(email.text, /\bJohn\b|Vehicle colour:|Registration:|Silver|AB12/);
   assert.doesNotMatch(email.text, /AB12 CDE/);
   assert.doesNotMatch(email.text, /Driver mobile|07700 900123|07700900999/i);
-  assert.match(email.text, /\/track\/\?id=/i);
-  assert.match(email.text, /TRACK YOUR DRIVER/i);
-  assert.match(email.html, /Track Your Driver/);
+  // Website tracking is retired; drivers share their location on WhatsApp.
+  assert.doesNotMatch(email.text, /\/track\/\?id=/i);
+  assert.doesNotMatch(email.text, /TRACK YOUR DRIVER/i);
+  assert.doesNotMatch(email.html, /Track Your Driver/);
   assert.doesNotMatch(email.text, /I['’]m your driver|I['’]m now on the way|I may also share my/i);
   assert.doesNotMatch(email.text, /£80|£120|SumUp|driver pay|amountPaid/i);
   assert.doesNotMatch(email.html, /07700 900123|Driver mobile|\bJohn\b/i);

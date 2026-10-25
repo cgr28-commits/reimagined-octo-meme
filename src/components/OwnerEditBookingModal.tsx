@@ -7,6 +7,14 @@ import {
   type OwnerEditBookingInput,
   type OwnerPaidBookingSummary,
 } from "@/lib/paid-bookings-api";
+import {
+  ESTATE_VEHICLE,
+  EXECUTIVE_VEHICLE,
+  MINIBUS_VEHICLE,
+  SALOON_VEHICLE,
+} from "@/lib/vehicle-selection";
+
+const VEHICLE_OPTIONS = [SALOON_VEHICLE, ESTATE_VEHICLE, EXECUTIVE_VEHICLE, MINIBUS_VEHICLE] as const;
 
 type EditFormState = {
   tripDate: string;
@@ -25,6 +33,7 @@ type EditFormState = {
   childSeats: string;
   childSeatNotes: string;
   notes: string;
+  vehicle: string;
   returnJourney: boolean;
   returnDate: string;
   returnTime: string;
@@ -50,6 +59,7 @@ function formFromBooking(booking: OwnerPaidBookingSummary): EditFormState {
     childSeats: String(booking.childSeats ?? 0),
     childSeatNotes: booking.childSeatNotes || "",
     notes: booking.notes || "",
+    vehicle: booking.vehicle || "",
     returnJourney: Boolean(booking.returnJourney),
     returnDate: booking.returnDate || "",
     returnTime: booking.returnTime || "",
@@ -80,6 +90,7 @@ function buildDiffs(original: EditFormState, next: EditFormState): DiffRow[] {
   push("Luggage", original.suitcases, next.suitcases);
   push("Child seats", original.childSeats, next.childSeats);
   push("Child-seat notes", original.childSeatNotes, next.childSeatNotes);
+  push("Vehicle", original.vehicle, next.vehicle);
   push("Notes", original.notes, next.notes);
   push(
     "Return journey",
@@ -133,6 +144,7 @@ export default function OwnerEditBookingModal({
       "Passengers",
       "Luggage",
       "Child seats",
+      "Vehicle",
       "Return journey",
       "Return date",
       "Return time",
@@ -170,6 +182,8 @@ export default function OwnerEditBookingModal({
         childSeats: Number(form.childSeats) || 0,
         childSeatNotes: form.childSeatNotes.trim(),
         notes: form.notes.trim(),
+        // Only send a vehicle change: any vehicle sent counts as a fare-sensitive edit.
+        ...(form.vehicle !== original.vehicle ? { vehicle: form.vehicle } : {}),
         returnJourney: form.returnJourney,
         returnDate: form.returnDate.trim(),
         returnTime: form.returnTime.trim(),
@@ -363,6 +377,23 @@ export default function OwnerEditBookingModal({
                   />
                 </label>
               </div>
+              <label className="text-sm text-white/70">
+                Vehicle
+                <select
+                  value={form.vehicle}
+                  onChange={(e) => update("vehicle", e.target.value)}
+                  className={fieldClass()}
+                >
+                  {form.vehicle && !(VEHICLE_OPTIONS as readonly string[]).includes(form.vehicle) ? (
+                    <option value={form.vehicle}>{form.vehicle}</option>
+                  ) : null}
+                  {VEHICLE_OPTIONS.map((vehicle) => (
+                    <option key={vehicle} value={vehicle}>
+                      {vehicle}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="text-sm text-white/70">
                 Child seats
                 <input

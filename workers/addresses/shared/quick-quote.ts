@@ -45,7 +45,7 @@ export const QUICK_QUOTE_MIN_TRANSFER_FARE_GBP = 1;
  * Minibus is NOT advertised on the public site as MATNI-owned fleet —
  * QQ may price partner / subcontract minibus work via existing multipliers.
  */
-export type QuickQuoteVehicleChoice = "Saloon" | "Minibus";
+export type QuickQuoteVehicleChoice = "Saloon" | "Estate" | "Minibus";
 
 export type QuickQuoteDiscountType = "none" | "percent" | "fixed";
 
@@ -224,6 +224,7 @@ export function quickQuoteAmountsEqual(a: number, b: number): boolean {
 export function parseQuickQuoteVehicleChoice(value: unknown): QuickQuoteVehicleChoice {
   const raw = String(value ?? "").trim().toLowerCase();
   if (raw === "minibus" || raw.includes("minibus")) return "Minibus";
+  if (raw.includes("estate")) return "Estate";
   return "Saloon";
 }
 

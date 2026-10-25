@@ -13,6 +13,12 @@ import {
   businessEmailClientMeta,
   businessEmailLogoHtml,
 } from "./business-email";
+import { formatUkDateTime } from "./uk-time";
+
+/** "14-11-2026 at 05:30" — the date/time style used in booking emails. */
+function journeyWhen(date: string, time: string): string {
+  return formatUkDateTime(date, time, { withZoneLabel: false }) || `${date} ${time}`;
+}
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const ACCENT = BRAND_EMERALD;
@@ -53,7 +59,7 @@ export function buildShortNoticeDeclineEmail(
     `Thank you for your booking request.\n\n` +
     `We’re sorry, but unfortunately we do not have availability for your requested journey.\n\n` +
     `${details.pickupLabel} → ${details.dropoffLabel}\n` +
-    `${details.tripDate} ${details.tripTime}\n` +
+    `${journeyWhen(details.tripDate, details.tripTime)}\n` +
     `Request reference: ${details.reference}\n\n` +
     `No payment has been taken.\n\n` +
     `We apologise that we’re unable to accommodate your journey on this occasion.\n\n` +
@@ -88,7 +94,7 @@ ${businessEmailClientMeta()}
               <p style="margin:0 0 16px;">Thank you for your booking request.</p>
               <p style="margin:0 0 16px;">We’re sorry, but unfortunately we do not have availability for your requested journey.</p>
               <p style="margin:0 0 6px;font-weight:600;color:${NAVY};">${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>
-              <p style="margin:0 0 8px;">${escapeHtml(details.tripDate)} · ${escapeHtml(details.tripTime)}</p>
+              <p style="margin:0 0 8px;">${escapeHtml(journeyWhen(details.tripDate, details.tripTime))}</p>
               <p style="margin:0 0 16px;"><strong style="color:${NAVY};">Request reference:</strong> ${escapeHtml(details.reference)}</p>
               <p style="margin:0 0 16px;">No payment has been taken.</p>
               <p style="margin:0;">We apologise that we’re unable to accommodate your journey on this occasion.</p>

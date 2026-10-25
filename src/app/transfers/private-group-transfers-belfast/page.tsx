@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     title: `${page.seoTitle} | ${SITE.name}`,
     description: page.description,
     url: page.path,
+    images: [{ url: "/og-image-square.png", alt: SITE.name }],
   },
 };
 

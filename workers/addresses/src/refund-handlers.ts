@@ -1803,6 +1803,7 @@ async function completeRefundSideEffects(
     {
       customerName: record.customerName,
       paymentReference: record.paymentReference,
+      customerReference: record.customerReference,
       refundAmount: input.refundAmountLabel,
       refundAmountValue: input.refundAmount,
       originalAmount: formatPaidAmount(paidAfter, record.currency || "GBP"),

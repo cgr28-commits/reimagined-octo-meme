@@ -1,4 +1,3 @@
-import { buildPublicTrackUrl } from "../shared/tracking";
 /**
  * Hourly journey-day email for customers collected from an airport.
  * Uses Resend, the same customer-email path as other scheduled reminders.
@@ -55,7 +54,6 @@ export function airportPickupReminderInput(
         : paid.isFromAirport
       : job.isFromAirport;
   return {
-    trackUrl: buildPublicTrackUrl(job.token),
     customerName: paid?.customerName || job.customerName,
     customerEmail: paid?.customerEmail || job.customerEmail,
     pickupLabel: schedule.pickupLabel,

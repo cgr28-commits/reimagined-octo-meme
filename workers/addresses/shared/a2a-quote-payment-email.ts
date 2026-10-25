@@ -15,6 +15,7 @@ import {
   businessEmailLogoHtml,
 } from "./business-email";
 import { formatA2aQuoteValidityLabel } from "./a2a-personalised-quote";
+import { formatUkDate } from "./uk-time";
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const ACCENT = BRAND_EMERALD;
@@ -77,7 +78,7 @@ function journeyLines(options: {
   const lines = [
     `Pickup: ${options.pickupLabel}`,
     `Destination: ${options.dropoffLabel}`,
-    `Date: ${options.tripDate}`,
+    `Date: ${formatUkDate(options.tripDate)}`,
     `Time: ${options.tripTime}`,
   ];
   if (
@@ -115,7 +116,7 @@ function journeyBlockHtml(options: {
   const rows: Array<[string, string]> = [
     ["Pickup", options.pickupLabel],
     ["Destination", options.dropoffLabel],
-    ["Date", options.tripDate],
+    ["Date", formatUkDate(options.tripDate)],
     ["Time", options.tripTime],
   ];
   if (

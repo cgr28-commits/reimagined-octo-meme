@@ -15,6 +15,7 @@
  */
 
 import { hoursUntilPickup, isWithin24HoursOfPickup } from "./refund-ops";
+import { formatUkDate, formatUkTime } from "./uk-time";
 import type {
   PaidBookingRecord,
   PendingBookingAmendment,
@@ -268,35 +269,54 @@ export function materialFieldsChanged(
   return changed;
 }
 
+type AmendmentFieldKind = "text" | "date" | "time" | "count" | "yes-no";
+
+const AMENDMENT_SUMMARY_FIELDS: Array<[key: string, label: string, kind: AmendmentFieldKind]> = [
+  ["pickupLabel", "Pickup address", "text"],
+  ["dropoffLabel", "Destination", "text"],
+  ["tripDate", "Pickup date", "date"],
+  ["tripTime", "Pickup time", "time"],
+  ["returnJourney", "Return journey", "yes-no"],
+  ["returnDate", "Return date", "date"],
+  ["returnTime", "Return time", "time"],
+  ["passengers", "Passengers", "count"],
+  ["suitcases", "Suitcases", "count"],
+  ["childSeats", "Child seats", "count"],
+  ["airportCode", "Airport", "text"],
+  ["flightNumber", "Flight number", "text"],
+  ["returnFlightNumber", "Return flight number", "text"],
+  ["customerName", "Name", "text"],
+  ["customerEmail", "Email", "text"],
+  ["mobileNumber", "Mobile", "text"],
+  ["vehicle", "Vehicle", "text"],
+];
+
+/**
+ * Customer-facing "What changed" lines, old → new ("Pickup time: 05:30 → 06:00").
+ * Unset and empty/zero/false compare equal, so a booking saved without child
+ * seats is not reported as a child seat change when only the time moves.
+ */
 export function summarizeAmendmentChanges(
   before: Record<string, unknown>,
   after: Record<string, unknown>,
 ): string[] {
-  const labels: Record<string, string> = {
-    pickupLabel: "Pickup address updated",
-    dropoffLabel: "Destination updated",
-    tripDate: "Pickup date changed",
-    tripTime: "Pickup time changed",
-    returnJourney: "Return journey updated",
-    returnDate: "Return date changed",
-    returnTime: "Return time changed",
-    passengers: "Passenger count updated",
-    suitcases: "Luggage count updated",
-    childSeats: "Child seats updated",
-    airportCode: "Airport updated",
-    flightNumber: "Flight number updated",
-    returnFlightNumber: "Return flight number updated",
-    customerName: "Name updated",
-    customerEmail: "Email updated",
-    mobileNumber: "Mobile updated",
-    vehicle: "Vehicle/service updated",
+  const display = (kind: AmendmentFieldKind, value: unknown): string => {
+    const text = String(value ?? "").trim();
+    if (kind === "count") return String(Number(value) || 0);
+    if (kind === "yes-no") return value === true || text === "true" ? "Yes" : "No";
+    if (kind === "date") return text ? formatUkDate(text) : "";
+    if (kind === "time") return text ? formatUkTime(text) : "";
+    return text;
   };
   const lines: string[] = [];
-  for (const [key, label] of Object.entries(labels)) {
+  for (const [key, label, kind] of AMENDMENT_SUMMARY_FIELDS) {
     if (!(key in after)) continue;
-    if (String(before[key] ?? "") !== String(after[key] ?? "")) {
-      lines.push(label);
-    }
+    const was = display(kind, before[key]);
+    const now = display(kind, after[key]);
+    if (was === now) continue;
+    if (kind === "yes-no") lines.push(now === "Yes" ? "Return journey added" : "Return journey removed");
+    else if (!was) lines.push(`${label}: ${now}`);
+    else lines.push(`${label}: ${was} → ${now || "removed"}`);
   }
   return lines;
 }

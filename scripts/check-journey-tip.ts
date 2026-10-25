@@ -615,9 +615,9 @@ console.log("\n=== 7. Tip token is stripped before sitewide tracking ===");
 {
   const layout = read("src/app/layout.tsx");
   const stripAt = layout.indexOf('id="strip-tip-token"');
-  const trafficAt = layout.indexOf('id="trafficguard-init"');
+  const clickIdAt = layout.indexOf('id="matni-landing-click-id"');
   const adsAt = layout.indexOf("<GoogleAdsTag");
-  assert.ok(stripAt > 0 && trafficAt > stripAt && adsAt > stripAt);
+  assert.ok(stripAt > 0 && clickIdAt > stripAt && adsAt > stripAt);
   assert.match(layout.slice(stripAt, stripAt + 180), /beforeInteractive/);
   assert.match(layout, /TIP_TOKEN_STRIP_SCRIPT/);
   assert.doesNotMatch(TIP_TOKEN_STRIP_SCRIPT, /useLayoutEffect|useEffect/);

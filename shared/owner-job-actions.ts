@@ -4,6 +4,7 @@
  */
 
 import { getServedAirport, matchServedAirportCode } from "./served-airports";
+import { formatUkDate, formatUkTime } from "./uk-time";
 
 const WAZE_UL = "https://waze.com/ul";
 const E164_MIN = 8;
@@ -152,16 +153,79 @@ export function ownerWhatsAppDigits(raw: string | null | undefined): string {
 
 export function ownerCustomerContactActions(
   raw: string | null | undefined,
+  /** Optional WhatsApp draft, e.g. {@link ownerCustomerBookingMessage}. */
+  message?: string | null,
 ): OwnerCustomerContactActions | null {
   const display = (raw ?? "").trim();
   if (!display) return null;
   const digits = ownerWhatsAppDigits(display);
   if (!digits) return null;
+  const text = message?.trim();
   return {
     display,
     telHref: `tel:+${digits}`,
-    whatsAppHref: `https://wa.me/${digits}`,
+    whatsAppHref: text
+      ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/${digits}`,
   };
+}
+
+export type OwnerCustomerBookingMessageInput = {
+  customerName?: string | null;
+  customerReference?: string | null;
+  /** The displayed leg's date / time / route. */
+  tripDate?: string | null;
+  tripTime?: string | null;
+  pickupLabel?: string | null;
+  dropoffLabel?: string | null;
+  returnLeg?: boolean;
+  passengers?: number | null;
+  suitcases?: number | null;
+  flightNumber?: string | null;
+  cashDueGbp?: number | null;
+};
+
+/** Booking details the owner sends the customer from the dashboard (WhatsApp or email). */
+export function ownerCustomerBookingMessage(input: OwnerCustomerBookingMessageInput): string {
+  const first = (input.customerName ?? "").trim().split(/\s+/)[0] || "there";
+  const ref = input.customerReference?.trim().toUpperCase();
+  const date = input.tripDate?.trim() ? formatUkDate(input.tripDate.trim()) : "";
+  const time = input.tripTime?.trim() ? formatUkTime(input.tripTime.trim()) : "";
+  const lines = [
+    `Hi ${first},`,
+    "",
+    `Here are your ${input.returnLeg ? "return journey" : "booking"} details with My Airport Taxi NI:`,
+    "",
+    ...(ref ? [`Booking ref: ${ref}`] : []),
+    ...(date ? [`Date: ${date}`] : []),
+    ...(time ? [`Pickup time: ${time}`] : []),
+    ...(input.pickupLabel?.trim() ? [`From: ${input.pickupLabel.trim()}`] : []),
+    ...(input.dropoffLabel?.trim() ? [`To: ${input.dropoffLabel.trim()}`] : []),
+    ...(typeof input.passengers === "number"
+      ? [`Passengers: ${input.passengers}${typeof input.suitcases === "number" ? ` · Suitcases: ${input.suitcases}` : ""}`]
+      : []),
+    ...(input.flightNumber?.trim() ? [`Flight: ${input.flightNumber.trim().toUpperCase()}`] : []),
+    ...(typeof input.cashDueGbp === "number" && input.cashDueGbp > 0
+      ? [`Cash due on the day: £${input.cashDueGbp.toFixed(2)}`]
+      : []),
+  ];
+  return lines.join("\n");
+}
+
+/**
+ * mailto: link with subject and booking details filled in. Opens the phone's
+ * default email app (set Titan as the default to open it there).
+ */
+export function ownerCustomerEmailHref(
+  email: string | null | undefined,
+  input: OwnerCustomerBookingMessageInput,
+): string | null {
+  const to = email?.trim();
+  if (!to) return null;
+  const ref = input.customerReference?.trim().toUpperCase();
+  const subject = `Your booking${ref ? ` ${ref}` : ""} — My Airport Taxi NI`;
+  const body = ownerCustomerBookingMessage(input).replace(/\n/g, "\r\n");
+  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 export function resolveOwnerDisplayedLegNav(input: {
