@@ -1,6 +1,7 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
 import { MEET_GREET_DRIVER_NOTE } from "./meet-greet";
+import { formatUkDateTime } from "./uk-time";
 import type { AdsAttribution } from "./ads-attribution";
 import { lightCustomerEmailHtml,
   businessEmailClientMeta, businessEmailLogoHtml } from "./business-email";
@@ -239,8 +240,10 @@ export function buildCustomerDriverDetailsEmail(options: {
     .map((part) => part?.trim())
     .filter(Boolean)
     .join(" ");
-  const when = [job.tripDate, job.tripTime].filter(Boolean).join(" ");
-  const customerName = job.customerName?.trim() || "there";
+  const when =
+    formatUkDateTime(job.tripDate ?? "", job.tripTime ?? "", { withZoneLabel: false }) ||
+    [job.tripDate, job.tripTime].filter(Boolean).join(" ");
+  const customerName = job.customerName?.trim().split(/\s+/)[0] || "there";
 
   const subject = when
     ? `Your driver details — ${when} — ${businessName}`

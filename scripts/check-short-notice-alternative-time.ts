@@ -108,8 +108,8 @@ check("Alternative offer email: Accept & pay + Decline CTAs, no GET mutation", (
   });
   assert.match(email.subject, /Alternative pickup time available — My Airport Taxi NI/);
   assert.match(email.text, /Hi Jill,/);
-  assert.match(email.text, /2026-08-21 14:00/);
-  assert.match(email.text, /2026-08-22 15:00/);
+  assert.match(email.text, /21-08-2026 at 14:00/);
+  assert.match(email.text, /22-08-2026 at 15:00/);
   assert.match(email.text, /Quoted price:/);
   assert.match(email.text, /£55\.00/);
   assert.match(email.text, /Accept alternative time|accept it using the button below/);

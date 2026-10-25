@@ -313,6 +313,12 @@ export function resolveJourneyInclusions(options: {
   });
 }
 
+/** Drop "Outbound:" / "Return:" headings that have no items under them. */
+function withoutEmptySections(lines: string[]): string[] {
+  const isHeading = (line: string) => line === "Outbound:" || line === "Return:";
+  return lines.filter((line, index) => !isHeading(line) || (index + 1 < lines.length && !isHeading(lines[index + 1]!)));
+}
+
 /** Format email “Includes” block under the fixed fare. */
 export function formatEmailFareIncludesBlock(
   inclusions: JourneyInclusions,
@@ -323,12 +329,13 @@ export function formatEmailFareIncludesBlock(
     lines.push(`Fixed fare: ${fareLabel.trim()}`);
     lines.push("");
   }
-  if (inclusions.emailIncludeLines.length === 0) {
+  const includeLines = withoutEmptySections(inclusions.emailIncludeLines);
+  if (includeLines.length === 0) {
     lines.push(inclusions.summary);
     return lines.join("\n");
   }
   lines.push("Includes:");
-  for (const line of inclusions.emailIncludeLines) {
+  for (const line of includeLines) {
     if (line === "Outbound:" || line === "Return:") {
       lines.push("");
       lines.push(line);
@@ -352,14 +359,15 @@ export function formatEmailFareIncludesHtml(
       `<p style="margin:0 0 8px;font-size:15px;"><strong>Fixed fare:</strong> ${escapeHtml(fareLabel.trim())}</p>`,
     );
   }
-  if (inclusions.emailIncludeLines.length === 0) {
+  const includeLines = withoutEmptySections(inclusions.emailIncludeLines);
+  if (includeLines.length === 0) {
     parts.push(
       `<p style="margin:0;font-size:14px;color:#475569;">${escapeHtml(inclusions.summary)}</p>`,
     );
     return parts.join("");
   }
 
-  const items = inclusions.emailIncludeLines
+  const items = includeLines
     .map((line) => {
       if (line === "Outbound:" || line === "Return:") {
         return `</ul><p style="margin:12px 0 4px;font-size:13px;font-weight:700;color:#071C38;">${escapeHtml(line)}</p><ul style="margin:0;padding-left:18px;">`;

@@ -13,7 +13,12 @@ import {
   businessEmailClientMeta,
   businessEmailLogoHtml,
 } from "./business-email";
-import { formatCustomerPaymentDeadline } from "./uk-time";
+import { formatCustomerPaymentDeadline, formatUkDateTime } from "./uk-time";
+
+/** "14-11-2026 at 05:30" — the date/time style used in booking emails. */
+function journeyWhen(date: string, time: string): string {
+  return formatUkDateTime(date, time, { withZoneLabel: false }) || `${date} ${time}`;
+}
 
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const ACCENT = BRAND_EMERALD;
@@ -80,7 +85,7 @@ export function buildShortNoticePaymentLinkEmail(
     `Your transfer request has been accepted at the quoted price of ${details.amountLabel}.\n\n` +
     `Journey\n` +
     `${details.pickupLabel} → ${details.dropoffLabel}\n` +
-    `${details.tripDate} ${details.tripTime}\n` +
+    `${journeyWhen(details.tripDate, details.tripTime)}\n` +
     `Request reference: ${details.reference}\n\n` +
     reservedText +
     `Complete payment using the secure link below.\n` +
@@ -119,7 +124,7 @@ ${businessEmailClientMeta()}
               <p style="margin:0 0 16px;">Your transfer request has been accepted at the quoted price of ${escapeHtml(details.amountLabel)}.</p>
               <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${ACCENT};font-weight:bold;margin:0 0 10px;">Journey</div>
               <p style="margin:0 0 6px;font-weight:600;color:${NAVY};">${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>
-              <p style="margin:0 0 16px;">${escapeHtml(details.tripDate)} · ${escapeHtml(details.tripTime)}</p>
+              <p style="margin:0 0 16px;">${escapeHtml(journeyWhen(details.tripDate, details.tripTime))}</p>
               <p style="margin:0 0 20px;"><strong style="color:${NAVY};">Request reference:</strong> ${escapeHtml(details.reference)}</p>
               ${reservedHtml}
               <p style="margin:0 0 8px;">Complete payment using the secure button below.</p>

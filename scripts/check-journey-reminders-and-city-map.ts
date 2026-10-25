@@ -87,8 +87,9 @@ const freeCollection = evaluateAirportPickupReminder({...base,pickupLabel:base.d
   isFromAirport:true,outboundAirportAccessOption:'free'},due);
 assert.ok(freeCollection.eligible);
 assert.match(freeCollection.text,/Long Stay/);
-assert.match(freeCollection.html,/Follow the instructions for your booked collection option/);
-assert.ok(freeCollection.html.indexOf(BELFAST_CITY_MAP_IMAGE_URL) < freeCollection.html.indexOf("WHEN YOU ARE READY"));
+// The City map shows the paid Express area, so free Long Stay collections get directions only.
+assert.ok(!freeCollection.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
+assert.ok(!freeCollection.text.includes('BELFAST CITY AIRPORT MAP'));
 assert.ok(!returnReminder.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
 const cityReturnCollection=evaluateAirportPickupReminder({...base,pickupLabel:base.dropoffLabel,dropoffLabel:base.pickupLabel,isFromAirport:true,journeyLeg:'return',returnAirportAccessOption:'express'},due);
 assert.ok(cityReturnCollection.eligible);assert.ok(cityReturnCollection.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
@@ -149,10 +150,11 @@ for(const email of [internationalCollection]) {
  assert.equal(email.html.split(internationalMap).length-1,1);
 }
 assert.match(internationalCollection.text,/maximum stay of 10 minutes/);
+// The map marks the paid Express zone; other options meet elsewhere, so they get directions only.
 for(const option of ['free','meet-greet'] as const) {
  const email=evaluateAirportPickupReminder({...internationalInput,outboundAirportAccessOption:option},due);
- assert.ok(email.eligible);assert.ok(email.html.includes(internationalMap));
- assert.ok(email.html.indexOf(internationalMap) < email.html.indexOf('WHEN YOU ARE READY'));
+ assert.ok(email.eligible);assert.ok(!email.html.includes(internationalMap));
+ assert.ok(!email.text.includes('BELFAST INTERNATIONAL AIRPORT MAP'));
  if(option==='free') assert.match(email.text,/Long Stay/);
 }
 const internationalReturn=evaluateJourneyReminder({...internationalInput,journeyLeg:'return',returnAirportAccessOption:'express'},due);

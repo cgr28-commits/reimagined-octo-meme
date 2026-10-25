@@ -67,20 +67,22 @@ function baseJob(overrides: Partial<TrackingJobRecord> = {}): TrackingJobRecord 
   };
 }
 
-console.log("=== Initial confirmation includes waiting-state tracking link ===");
+console.log("=== Confirmation no longer includes a website tracking link ===");
 {
   const token = generateTrackingToken();
   const trackUrl = buildPublicTrackUrl(token);
   const email = buildCustomerConfirmationEmail(sampleReceipt, "My Airport Taxi NI", {
     trackUrl,
   });
-  assert.match(email.html, /Track Your Driver/);
-  assert.match(email.text, /only becomes live when your driver is on the way/);
+  // Website tracking is retired; drivers share their location on WhatsApp.
+  assert.doesNotMatch(email.html, /Track Your Driver/);
+  assert.ok(!email.text.includes(trackUrl));
+  assert.ok(!email.html.includes(trackUrl));
   assert.doesNotMatch(email.html, /LIVE DRIVER TRACKING/i);
   assert.doesNotMatch(email.text, /LIVE DRIVER TRACKING/);
   assert.doesNotMatch(email.html, /OWNER_ACCESS_KEY|DRIVER_ACCESS_KEY/);
   assert.doesNotMatch(email.text, /OWNER_ACCESS_KEY|DRIVER_ACCESS_KEY/);
-  console.log("OK  confirmation includes trackUrl and activation wording");
+  console.log("OK  confirmation omits the retired tracking link");
 }
 
 console.log("\n=== Resend path still uses confirmation builders ===");

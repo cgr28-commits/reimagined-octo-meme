@@ -1,4 +1,3 @@
-import { customerTrackingHtml, customerTrackingText } from "./customer-tracking-email";
 import { airportDisplayLabel } from "./airport-display-label";
 import { formatMarketingOptInLine } from "./marketing";
 import {
@@ -198,6 +197,11 @@ function depositCashReceiptDetails(details: PaidBookingReceipt): {
   };
 }
 
+/** Fare shown in the "Fixed fare" box: the booking total, not just a deposit paid online. */
+function fixedFareLabel(details: PaidBookingReceipt): string {
+  return depositCashReceiptDetails(details)?.totalFareLabel ?? details.amountPaid;
+}
+
 const BUSINESS_WEBSITE = CANONICAL_BUSINESS_WEBSITE;
 const BUSINESS_EMAIL = BUSINESS_MAILBOX;
 const ACCENT = BRAND_EMERALD;
@@ -388,11 +392,14 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
   }
 
   if (details.isAirportTrip && details.flightNumber) {
-    rows.push({ label: "Flight for going", value: details.flightNumber });
+    rows.push({
+      label: details.returnJourney ? "Outbound flight" : "Flight number",
+      value: details.flightNumber,
+    });
   }
 
   if (details.isAirportTrip && details.returnFlightNumber) {
-    rows.push({ label: "Flight for collection", value: details.returnFlightNumber });
+    rows.push({ label: "Return flight", value: details.returnFlightNumber });
   }
 
   const accessLines = formatAirportAccessOptionCustomerLines({
@@ -418,7 +425,7 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
   for (const accessOption of accessLines) {
     const isLeg = /^(Outbound|Return) airport access:/i.test(accessOption);
     const value = accessOption.replace(
-      isLeg ? /^(Outbound|Return) airport access:\s*/i : /^Airport access option:\s*/i,
+      isLeg ? /^(Outbound|Return) airport access:\s*/i : /^Airport access(?: option)?:\s*/i,
       "",
     );
     const label = accessOption.startsWith("Outbound")
@@ -486,7 +493,6 @@ function brandFooterHtml(businessName: string): string {
 function buildInvoiceHtml(
   details: PaidBookingReceipt,
   businessName: string,
-  trackUrl?: string,
   manageUrl?: string,
 ): string {
   const customerRef =
@@ -615,7 +621,7 @@ ${businessEmailClientMeta()}
                         airportCode: details.airportCode,
                         addressToAddress: !details.isAirportTrip,
                       }),
-                      details.amountPaid,
+                      fixedFareLabel(details),
                     )}
                   </td>
                 </tr>
@@ -673,7 +679,6 @@ ${businessEmailClientMeta()}
               <p style="margin:0;">Questions? Reply to this email, call <a href="tel:${BUSINESS_PHONE_TEL}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>, or email <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>.</p>
             </td>
           </tr>
-          ${trackUrl ? `<tr><td style="padding:8px 32px;">${customerTrackingHtml(trackUrl)}</td></tr>` : ""}
           ${brandFooterHtml(businessName)}
         </table>
       </td>
@@ -701,7 +706,8 @@ export function buildCustomerConfirmationEmail(
   options?: { trackUrl?: string; manageUrl?: string },
 ): CustomerPaidBookingEmail {
   details = withAirportDisplayLabels(details);
-  const trackUrl = options?.trackUrl?.trim();
+  // Website driver tracking is retired: drivers share their location on WhatsApp.
+  void options?.trackUrl;
   const manageUrl = options?.manageUrl?.trim();
   const customerRef =
     details.customerReference?.trim().toUpperCase() ||
@@ -739,7 +745,7 @@ export function buildCustomerConfirmationEmail(
         airportCode: details.airportCode,
         addressToAddress: !details.isAirportTrip,
       }),
-      details.amountPaid,
+      fixedFareLabel(details),
     )}\n` +
     (() => {
       const accessLines = formatAirportAccessOptionCustomerLines({
@@ -815,7 +821,6 @@ export function buildCustomerConfirmationEmail(
         `Need to change pickup, destination, date, time, or passenger details?\n` +
         `Manage Your Booking:\n${manageUrl}\n`
       : "") +
-    customerTrackingText(trackUrl) +
     `\nSAVE US FOR YOUR NEXT JOURNEY\n${"=".repeat(40)}\n` +
     `Keep ${businessName} in your contacts so we're easy to find whenever you need another airport transfer.\n` +
     `Save My Airport Taxi NI to Contacts:\n${contactVCardPublicUrl()}\n` +
@@ -824,7 +829,7 @@ export function buildCustomerConfirmationEmail(
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 
-  const html = customerEmailHeaderHtml(buildInvoiceHtml(details, businessName, trackUrl, manageUrl));
+  const html = customerEmailHeaderHtml(buildInvoiceHtml(details, businessName, manageUrl));
 
   return { subject, text, html };
 }
@@ -1256,6 +1261,8 @@ export function buildOwnerRefundConfirmationEmail(
 }
 
 export type CancellationEmailDetails = RefundConfirmationDetails & {
+  /** Customer-facing MAT-#### reference; customer copy falls back to the payment reference. */
+  customerReference?: string;
   refundAmountValue: number;
   originalAmount: string;
   originalAmountValue: number;
@@ -1463,6 +1470,10 @@ function buildCustomerRefundIntentCopy(details: CancellationEmailDetails): {
   return { fullyRefunded, refundType, intentText, intentHtml, bookingStatus };
 }
 
+function customerFacingCancellationRef(details: CancellationEmailDetails): string {
+  return details.customerReference?.trim().toUpperCase() || details.paymentReference;
+}
+
 function buildCustomerRefundDetailsBlock(details: CancellationEmailDetails): {
   text: string;
   html: string;
@@ -1475,9 +1486,9 @@ function buildCustomerRefundDetailsBlock(details: CancellationEmailDetails): {
 
   const text =
     `Customer: ${details.customerName}\n` +
-    `Booking reference: ${details.paymentReference}\n` +
+    `Booking reference: ${customerFacingCancellationRef(details)}\n` +
     `Refund type: ${refundType}\n` +
-    `Amount refunded (this operation): ${details.refundAmount}\n` +
+    `Amount refunded: ${details.refundAmount}\n` +
     (showCumulative ? `Total refunded to date: ${details.cumulativeRefunded}\n` : "") +
     `Original payment amount: ${details.originalAmount}\n` +
     `Booking status: ${bookingStatus}\n` +
@@ -1491,9 +1502,9 @@ function buildCustomerRefundDetailsBlock(details: CancellationEmailDetails): {
   const html =
     `<p>` +
     `<strong>Customer:</strong> ${escapeHtml(details.customerName)}<br/>` +
-    `<strong>Booking reference:</strong> ${escapeHtml(details.paymentReference)}<br/>` +
+    `<strong>Booking reference:</strong> ${escapeHtml(customerFacingCancellationRef(details))}<br/>` +
     `<strong>Refund type:</strong> ${escapeHtml(refundType)}<br/>` +
-    `<strong>Amount refunded (this operation):</strong> ${escapeHtml(details.refundAmount)}<br/>` +
+    `<strong>Amount refunded:</strong> ${escapeHtml(details.refundAmount)}<br/>` +
     (showCumulative
       ? `<strong>Total refunded to date:</strong> ${escapeHtml(details.cumulativeRefunded)}<br/>`
       : "") +
@@ -1549,12 +1560,12 @@ function buildCustomerCancellationConfirmation(input: {
 }): { text: string; html: string } {
   const { details, businessName } = input;
   const when = formatCustomerFacingCancellationWhen(details.tripDate, details.tripTime);
-  const ref = details.paymentReference;
+  const ref = customerFacingCancellationRef(details);
   const closing = customerCancellationClosing(businessName);
   const route = [details.pickupLabel, details.dropoffLabel].filter(Boolean).join(" → ");
   const paymentText = input.paymentParagraphs.join("\n\n");
   const text =
-    `Hi ${details.customerName},\n\n` +
+    `Hi ${customerFirstName(details.customerName)},\n\n` +
     `${CUSTOMER_CANCELLATION_OPENING}\n\n` +
     `${details.tripLabel}\n` +
     (when ? `${when}\n` : "") +
@@ -1594,7 +1605,7 @@ ${businessEmailLogoHtml()}
 <div style="margin-top:10px;font-size:13px;line-height:1.4;color:#c9d4e0;">Booking reference: ${escapeHtml(ref)}</div>
 </td></tr>
 <tr><td style="padding:28px 22px 8px;font-size:16px;line-height:1.5;color:#334155;">
-<p style="margin:0 0 18px;">Hi ${escapeHtml(details.customerName)},</p>
+<p style="margin:0 0 18px;">Hi ${escapeHtml(customerFirstName(details.customerName))},</p>
 <p style="margin:0 0 18px;">${escapeHtml(CUSTOMER_CANCELLATION_OPENING)}</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
 <tr><td style="padding:18px 18px 16px;">
@@ -1642,7 +1653,7 @@ export function buildCustomerCancellationEmails(
   owner: { subject: string; body: string } | null;
 } {
   const when = formatTripDateTime(details.tripDate, details.tripTime);
-  const ref = details.paymentReference;
+  const ref = customerFacingCancellationRef(details);
   const isBusiness = details.reasonCategory === "business_cancelled";
 
   // Business cancels → apology + refund/cancellation confirmation (when money returned).
@@ -1652,7 +1663,7 @@ export function buildCustomerCancellationEmails(
       const detailsBlock = buildCustomerRefundDetailsBlock(details);
       const subject = `Cancellation & Refund – ${ref}`;
       const text =
-        `Hi ${details.customerName},\n\n` +
+        `Hi ${customerFirstName(details.customerName)},\n\n` +
         `We're sorry — ${businessName} has had to cancel your booking.\n\n` +
         `${intentText}\n\n` +
         `${detailsBlock.text}\n` +
@@ -1680,7 +1691,7 @@ export function buildCustomerCancellationEmails(
 
     const subject = `Booking Cancellation Confirmed – ${ref}`;
     const text =
-      `Hi ${details.customerName},\n\n` +
+      `Hi ${customerFirstName(details.customerName)},\n\n` +
       `We're sorry — ${businessName} has had to cancel your booking ${ref}.\n\n` +
       `Trip: ${details.tripLabel}\n` +
       (when ? `When: ${when}\n` : "") +
@@ -1773,7 +1784,7 @@ export function buildCustomerCancellationEmails(
             : `Partial Refund Issued – ${ref}`;
 
     const text =
-      `Hi ${details.customerName},\n\n` +
+      `Hi ${customerFirstName(details.customerName)},\n\n` +
       `${intentText}\n\n` +
       `${detailsBlock.text}\n` +
       `${businessName}\n${BUSINESS_WEBSITE}`;
@@ -1799,7 +1810,7 @@ export function buildCustomerCancellationEmails(
   if (details.cancelBooking) {
     const subject = `Booking Cancellation Confirmed – ${ref}`;
     const text =
-      `Hi ${details.customerName},\n\n` +
+      `Hi ${customerFirstName(details.customerName)},\n\n` +
       `Your booking ${ref} has been cancelled.\n\n` +
       `Customer: ${details.customerName}\n` +
       `Booking reference: ${ref}\n` +
@@ -2082,6 +2093,8 @@ export function buildDriverOnTheWayEmail(
   void details.driverFirstName;
   void details.vehicleColour;
   void details.partialRegistration;
+  // Website driver tracking is retired: drivers share their location on WhatsApp.
+  void details.trackUrl;
   const subject = `Your driver is on the way — ${businessName}`;
   const statusHeading = "Your driver is on the way";
   const bodyLine = buildOnTheWayCompanyVoiceMessage({
@@ -2089,7 +2102,7 @@ export function buildDriverOnTheWayEmail(
     bookedPickupTime: details.bookedPickupTime,
   }).replace(" We may also share a live location with you here on WhatsApp.", "");
 
-  const text = `${bodyLine}${customerTrackingText(details.trackUrl)}\n\n${journeyStatusContactText(businessName)}`;
+  const text = `${bodyLine}\n\n${journeyStatusContactText(businessName)}`;
 
   const html = lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en">
@@ -2114,7 +2127,6 @@ ${businessEmailClientMeta()}
           <tr>
             <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0;">${escapeHtml(bodyLine)}</p>
-              ${customerTrackingHtml(details.trackUrl)}
             </td>
           </tr>
           ${journeyStatusContactHtml(businessName)}
