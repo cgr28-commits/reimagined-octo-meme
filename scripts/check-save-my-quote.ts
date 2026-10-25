@@ -50,7 +50,9 @@ async function main() {
   assert.equal(saved.quote.journey.outboundAirportAccessChoice,'free','missing access choice stays free after saving');
   assert.equal(saved.quote.journey.returnAirportAccessChoice,'free');
   assert.equal(mail.subject,'Your Airport Transfer Quote — My Airport Taxi NI');
-  for(const value of ['7 days','recalculated','Vehicle:','Passengers:','Suitcases:','Airport charges included:','Return saving included:','Return to My Quote']) assert.ok(String(mail.text).includes(value),value);
+  for(const value of ['7 days','recalculated','Vehicle:','Passengers:','Suitcases:','Return to My Quote']) assert.ok(String(mail.text).includes(value),value);
+  // Charge / saving lines appear only when they apply (no "£0.00" lines).
+  assert.doesNotMatch(String(mail.text),/(Airport charges|Return saving) included: £0\.00/);
   assert.equal((Date.parse(saved.expiresAt)-Date.parse(saved.quote.createdAt))/86400000,7);
   assert.ok(ttls.get(savedQuoteTokenKey(saved.token))! <= 604800);
   assert.match(saved.quoteUrl, /\/quote\/#t=[a-f0-9]{48}$/);
