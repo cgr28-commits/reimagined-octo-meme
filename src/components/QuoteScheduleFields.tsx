@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Clock } from "lucide-react";
-import type { RefObject } from "react";
+import type { MouseEvent, RefObject } from "react";
 import {
   quoteDateTimeFieldShellClass,
   quoteDateTimeInputClass,
@@ -26,6 +26,19 @@ function mobileDateText(value: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Select date";
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year.slice(-2)}`;
+}
+
+// The homepage hides the native control (opacity 0) under formatted text. Desktop
+// browsers only open the calendar/clock from their own icon, which is invisible
+// there, so open the picker on any click. Phones already open it on tap.
+function openNativePicker(event: MouseEvent<HTMLInputElement>) {
+  const input = event.currentTarget as HTMLInputElement & { showPicker?: () => void };
+  if (typeof input.showPicker !== "function") return;
+  try {
+    input.showPicker();
+  } catch {
+    // Already open, or not allowed in this context: the native control still works.
+  }
 }
 
 export type QuoteScheduleFieldsProps = {
@@ -141,6 +154,7 @@ export default function QuoteScheduleFields({
               aria-invalid={Boolean(tripDateError)}
               aria-describedby={tripDateError ? "trip-date-error" : undefined}
               required
+              onClick={homepageInline ? openNativePicker : undefined}
               onChange={(e) => onTripDateChange(e.target.value)}
               onInput={(e) => onTripDateChange((e.target as HTMLInputElement).value)}
               className={quoteDateTimeInputClass()}
@@ -174,6 +188,7 @@ export default function QuoteScheduleFields({
               aria-invalid={Boolean(tripDateError)}
               aria-describedby={tripDateError ? "trip-date-error" : undefined}
               required
+              onClick={homepageInline ? openNativePicker : undefined}
               onChange={(e) => onTripTimeChange(e.target.value)}
               onInput={(e) => onTripTimeChange((e.target as HTMLInputElement).value)}
               onBlur={onTimeBlur}
@@ -217,6 +232,7 @@ export default function QuoteScheduleFields({
                 min={minReturnDate}
                 value={returnDate}
                 required
+                onClick={homepageInline ? openNativePicker : undefined}
                 onChange={(e) => onReturnDateChange(e.target.value)}
                 onInput={(e) => onReturnDateChange((e.target as HTMLInputElement).value)}
                 className={quoteDateTimeInputClass()}
@@ -248,6 +264,7 @@ export default function QuoteScheduleFields({
                 min={minReturnTime}
                 value={returnTime}
                 required
+                onClick={homepageInline ? openNativePicker : undefined}
                 onChange={(e) => onReturnTimeChange(e.target.value)}
                 onInput={(e) => onReturnTimeChange((e.target as HTMLInputElement).value)}
                 onBlur={onTimeBlur}

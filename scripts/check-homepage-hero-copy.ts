@@ -44,9 +44,7 @@ assert.doesNotMatch(
   /<h1[\s\S]*?>[\s\S]*My Airport Taxi NI/,
   "homepage H1 should no longer be the brand name",
 );
-assert.match(hero, /Private airport transfers • Belfast &amp; Northern Ireland/);
-assert.match(hero, /md:hidden">Private airport transfers • Northern Ireland/);
-assert.match(hero, /hidden md:inline/);
+assert.doesNotMatch(hero, /Private airport transfers/, "hero has no eyebrow line above the H1");
 assert.doesNotMatch(
   hero,
   /section-eyebrow[\s\S]{0,240}taxi/i,
@@ -101,7 +99,7 @@ assert.match(hero, /min-w-0/);
 assert.match(hero, /overflow-x-clip/);
 
 console.log("OK  homepage H1 includes pre-booked airport taxi transfers");
-console.log("OK  eyebrow is private airport transfers; description names the three airports");
+console.log("OK  no hero eyebrow; description names the three airports");
 console.log("OK  compact benefits sit by the quote panel");
 console.log("OK  Why Choose Us reserved-driver card retains travel-day updates");
 console.log("OK  header 24/7 refers to online booking only");

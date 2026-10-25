@@ -26,8 +26,7 @@ assert.match(hero, /<HeroBenefitsRow/);
 assert.match(hero, /id="quote"/);
 assert.match(hero, /<QuoteCard/);
 assert.match(hero, /Belfast &amp; Dublin Airport Transfers/);
-assert.match(hero, /Private airport transfers • Belfast &amp; Northern Ireland/);
-assert.match(hero, /md:hidden">Private airport transfers • Northern Ireland/);
+assert.doesNotMatch(hero, /Private airport transfers/, "hero has no eyebrow line above the H1");
 assert.match(
   hero,
   /Premium, fixed-price private transfers to and from Belfast International, Belfast City and Dublin Airport\./,
