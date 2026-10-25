@@ -30,7 +30,7 @@ console.log("=== Mobile WhatsApp in shortcut row (no floating FAB) ===");
   assert.match(header, /Get a Quote/);
   assert.match(header, /h-7 w-7/);
   assert.match(header, /#25D366/);
-  assert.match(header, /Hi, I need some help with an airport transfer/);
+  assert.match(header, /whatsAppAssistantChatUrl\(\)/);
   assert.match(header, /items-center/);
   assert.doesNotMatch(header, /data-matni-whatsapp-fab/);
   // Icon-only — no WhatsApp text on the quick-row control.

@@ -6,8 +6,8 @@ import { createPortal } from "react-dom";
 import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
 import SiteNavLink from "./SiteNavLink";
-import { MOBILE_QUICK_LINKS, NAV_LINKS, SITE } from "@/lib/data";
-import { whatsAppChatUrl } from "@/lib/contact-card";
+import { NAV_LINKS, SITE } from "@/lib/data";
+import { whatsAppAssistantChatUrl, whatsAppChatUrl } from "@/lib/contact-card";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -221,27 +221,14 @@ export default function Header() {
             </QuoteNavLink>
           </div>
 
-          {/* Mobile only (< md): logo + Quote + WhatsApp + Menu. Slimmer chrome so the logo leads. */}
+          {/* Mobile only (< md): logo + WhatsApp (quote assistant) + Menu. Slimmer chrome so the logo leads. */}
           <div data-mobile-header-actions className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:hidden">
-            {MOBILE_QUICK_LINKS.map((link) => (
-              <QuoteNavLink
-                key={link.href}
-                href={link.href}
-                onNavigate={closeMenu}
-                className="inline-flex min-h-11 min-w-[3rem] max-w-[38vw] shrink-0 items-center justify-center rounded-md bg-emerald px-2 text-[0.7rem] font-semibold tracking-tight text-navy transition-colors hover:bg-emerald-light sm:max-w-none sm:min-w-0 sm:px-3.5 sm:text-sm"
-              >
-                <span className="sm:hidden">Quote</span>
-                <span className="hidden sm:inline">{link.label}</span>
-              </QuoteNavLink>
-            ))}
             <a
-              href={whatsAppChatUrl(
-                "Hi, I need some help with an airport transfer.",
-              )}
+              href={whatsAppAssistantChatUrl()}
               target="_blank"
               rel="noopener noreferrer"
               data-matni-whatsapp-quick="true"
-              aria-label="WhatsApp us for help with an airport transfer"
+              aria-label="WhatsApp us for an instant airport transfer quote"
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#25D366] text-white transition-colors hover:brightness-105 active:brightness-95"
             >
               <svg className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

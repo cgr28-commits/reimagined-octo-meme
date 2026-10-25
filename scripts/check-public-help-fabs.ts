@@ -45,7 +45,7 @@ console.log("\n=== 2. Mobile WhatsApp in Header quick row ===");
   assert.match(header, /h-11 w-11|min-h-11/);
   assert.match(header, /#25D366/);
   assert.match(header, /whatsAppChatUrl/);
-  assert.match(header, /Hi, I need some help with an airport transfer/);
+  assert.match(header, /whatsAppAssistantChatUrl\(\)/);
   assert.match(wa, /return null/);
   assert.doesNotMatch(layout, /<WhatsAppButton/);
   assert.doesNotMatch(hero, /data-matni-whatsapp/);

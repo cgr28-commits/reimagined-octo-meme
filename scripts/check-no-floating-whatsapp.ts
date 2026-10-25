@@ -37,7 +37,7 @@ assert.doesNotMatch(hero, /data-matni-whatsapp/);
 const quoteHelp = read("src/components/QuoteHelpContact.tsx");
 assert.match(quoteHelp, /Need help\?/);
 assert.match(quoteHelp, /WhatsApp us/);
-assert.match(quoteHelp, /whatsAppChatUrl\(\)/);
+assert.match(quoteHelp, /whatsAppAssistantChatUrl\(\)/);
 assert.doesNotMatch(quoteHelp, /Call \{SITE\.landlineDisplay\}/);
 assert.doesNotMatch(quoteHelp, /tel:\$\{SITE\.landline\}/);
 assert.doesNotMatch(quoteHelp, /028 9602 2952|landlineDisplay/);

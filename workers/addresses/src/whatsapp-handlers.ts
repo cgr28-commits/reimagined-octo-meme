@@ -12,7 +12,8 @@
  *
  * Coexistence-friendly: when the owner replies from the WhatsApp Business app
  * (smb_message_echoes), the assistant pauses for that customer so it never talks
- * over a human. Customers can also reply AGENT to pause it themselves.
+ * over a human. Typing AGENT still hands off (not advertised: the owner wants the
+ * assistant to handle quotes itself).
  *
  * Separate-number mode (WHATSAPP_TEAM_NUMBER set, e.g. a 360dialog virtual number):
  * handoffs send the customer a link to chat with the team's own WhatsApp instead,
@@ -23,7 +24,10 @@ import {
   D360_WEBHOOK_SECRET_HEADER,
   parseWhatsAppWebhook,
   register360dialogWebhook,
+  sendWhatsAppButtons,
   sendWhatsAppText,
+  update360dialogBusinessProfile,
+  upload360dialogProfilePicture,
   verify360dialogWebhookSecret,
   verifyWhatsAppSignature,
   whatsAppCloudConfigured,
@@ -31,15 +35,25 @@ import {
   whatsAppVerifyChallenge,
   type WhatsAppCloudEnv,
   type WhatsAppInboundMessage,
+  type WhatsAppReplyButton,
 } from "../shared/whatsapp-cloud";
 import {
+  buildWhatsAppAlternativeTimeButtons,
+  buildWhatsAppUnavailableReply,
   buildWhatsAppQuoteFailedReply,
   buildWhatsAppQuoteReply,
   buildWhatsAppTeamHandoffReply,
   decideWhatsAppReply,
+  WHATSAPP_QUOTED_BUTTONS,
   whatsAppDraftToQuoteBody,
   type WhatsAppConversation,
+  type WhatsAppJourneyLeg,
+  type WhatsAppQuoteDraft,
 } from "../shared/whatsapp-quote-bot";
+import { isWithinMinimumBookingNotice } from "../shared/booking-notice";
+import { getBookingSettings } from "./booking-settings-store";
+import { evaluateOwnerNoAvailabilityFromStore } from "./short-notice-handlers";
+import { enforceCustomerSmartAvailabilityGate } from "./smart-ops-handlers";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
 import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
@@ -95,6 +109,50 @@ function plain(text: string, status: number): Response {
   });
 }
 
+/** WhatsApp business profile applied by /whatsapp/connect (360dialog). */
+const BUSINESS_PROFILE = {
+  about: "Fixed-price airport taxis across Northern Ireland. Instant quotes here.",
+  description:
+    "Airport taxi transfers across Northern Ireland to Belfast International, George Best Belfast City " +
+    "and Dublin Airport. Fixed prices agreed upfront, with no surge pricing or hidden extras. Message us " +
+    "for an instant quote and book in minutes.",
+  email: "bookings@myairporttaxini.co.uk",
+  websites: ["https://www.myairporttaxini.co.uk"],
+  vertical: "TRAVEL",
+};
+const PROFILE_LOGO_PATH = "/facebook-profile-logo-navy.png";
+
+async function applyBusinessProfile(apiKey: string, siteOrigin: string): Promise<string[]> {
+  const lines: string[] = [];
+  let pictureHandle: string | undefined;
+  try {
+    const logo = await fetch(`${siteOrigin}${PROFILE_LOGO_PATH}`);
+    if (logo.ok) {
+      const uploaded = await upload360dialogProfilePicture(
+        apiKey,
+        await logo.arrayBuffer(),
+        logo.headers.get("Content-Type")?.split(";")[0] || "image/png",
+      );
+      if (uploaded.ok) pictureHandle = uploaded.handle;
+      else lines.push(`Logo not uploaded: ${uploaded.error}. You can add it in 360dialog → Profile.`);
+    } else {
+      lines.push(`Logo not found (HTTP ${logo.status}). You can add it in 360dialog → Profile.`);
+    }
+  } catch {
+    lines.push("Logo could not be downloaded. You can add it in 360dialog → Profile.");
+  }
+  const updated = await update360dialogBusinessProfile(apiKey, {
+    ...BUSINESS_PROFILE,
+    ...(pictureHandle ? { profile_picture_handle: pictureHandle } : {}),
+  });
+  if (updated.ok) {
+    lines.unshift(`Business profile updated ✅${pictureHandle ? " (with logo)" : ""}`);
+  } else {
+    lines.unshift(`Business profile not updated: ${updated.error ?? "unknown error"}`);
+  }
+  return lines;
+}
+
 const CONNECT_COOLDOWN_KEY = "whatsapp:connect:last";
 const CONNECT_COOLDOWN_SECONDS = 60;
 
@@ -119,8 +177,11 @@ export async function handleWhatsAppConnect(request: Request, env: WhatsAppEnv):
       502,
     );
   }
+  const siteOrigin = (env.SITE_ORIGIN?.trim() || "https://www.myairporttaxini.co.uk").replace(/\/+$/, "");
+  const profileLines = await applyBusinessProfile(apiKey, siteOrigin);
   return plain(
     `Connected ✅\n\nWhatsApp messages to your 360dialog number now go to:\n${webhookUrl}\n\n` +
+      `${profileLines.join("\n")}\n\n` +
       "Send the number a test message (e.g. \"Hi\") from another phone.",
     200,
   );
@@ -216,7 +277,7 @@ async function handleInboundMessage(
     await reply(
       env,
       phone,
-      "Sorry, I can only read text messages. Please type your journey details, or reply *AGENT* to speak to our team.",
+      "Sorry, I can only read text messages. Please type your journey details, e.g. pickup postcode, destination, date and time.",
     );
     return;
   }
@@ -225,12 +286,14 @@ async function handleInboundMessage(
   const decision = decideWhatsAppReply(existing, message.text, { profileName: message.profileName });
   const conversation = decision.conversation;
   let text = decision.reply;
+  let buttons: WhatsAppReplyButton[] | undefined = decision.buttons;
 
   if (decision.action === "handoff") {
     const teamNumber = env.WHATSAPP_TEAM_NUMBER?.replace(/\D/g, "");
     if (teamNumber && teamNumber !== phone) {
       // The team answers from another number, so keep the assistant available here.
       text = buildWhatsAppTeamHandoffReply(teamNumber, conversation.draft);
+      buttons = undefined;
     } else {
       await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
     }
@@ -239,13 +302,25 @@ async function handleInboundMessage(
   }
 
   if (decision.action === "quote") {
+    const availability = await checkWhatsAppAvailability(conversation.draft, store);
+    if (!availability.ok) {
+      conversation.stage = "collecting";
+      conversation.awaiting = availability.leg === "return" ? "returnTime" : "outboundTime";
+      await store.put(conversationKey(phone), JSON.stringify(conversation), {
+        expirationTtl: CONVERSATION_TTL_SECONDS,
+      });
+      logEvent("whatsapp_quote_unavailable", phone, { reason: availability.reason, leg: availability.leg });
+      await reply(env, phone, availability.text, availability.buttons);
+      return;
+    }
     const quota = await consumeQuickQuoteCreateQuota(
       store,
       `whatsapp:${phone}`,
       QUOTES_PER_CUSTOMER_PER_HOUR,
     );
     if (quota === "limited") {
-      text = "You've requested a lot of quotes in the last hour. Please try again later, or reply *AGENT* to speak to our team.";
+      text = "You've requested a lot of quotes in the last hour. Please try again a little later.";
+      buttons = undefined;
     } else {
       const priced = await createPricedQuickQuote(
         whatsAppDraftToQuoteBody(conversation.draft),
@@ -260,6 +335,7 @@ async function handleInboundMessage(
           amountLabel: priced.record.quotedAmountLabel,
           bookingUrl: priced.bookingUrl,
         });
+        buttons = WHATSAPP_QUOTED_BUTTONS;
         logEvent("whatsapp_quote_sent", phone, {
           idSuffix: priced.record.id.slice(-6),
           quotedAmount: priced.record.quotedAmount,
@@ -269,6 +345,7 @@ async function handleInboundMessage(
       } else {
         conversation.stage = "collecting";
         text = buildWhatsAppQuoteFailedReply(priced.status === 422 ? undefined : priced.error);
+        buttons = undefined;
         logEvent("whatsapp_quote_failed", phone, { status: priced.status, reason: priced.reason });
       }
     }
@@ -277,7 +354,110 @@ async function handleInboundMessage(
   await store.put(conversationKey(phone), JSON.stringify(conversation), {
     expirationTtl: CONVERSATION_TTL_SECONDS,
   });
-  if (text) await reply(env, phone, text);
+  if (text) await reply(env, phone, text, buttons);
+}
+
+type AvailabilityResult =
+  | { ok: true }
+  | {
+      ok: false;
+      leg: WhatsAppJourneyLeg;
+      reason: "booked" | "closed" | "notice";
+      text: string;
+      buttons?: WhatsAppReplyButton[];
+    };
+
+/**
+ * Same rules as the website before payment: minimum notice, owner "no availability"
+ * periods, then Smart Availability against existing bookings (when switched on in the
+ * owner dashboard). Each leg is checked on its own so alternative times are for that leg.
+ * Fails open on errors so a storage hiccup never blocks quoting.
+ */
+export async function checkWhatsAppAvailability(
+  draft: WhatsAppQuoteDraft,
+  store: KVNamespace,
+  now = new Date(),
+): Promise<AvailabilityResult> {
+  try {
+    const settings = await getBookingSettings(store);
+    const legs: Array<{ leg: WhatsAppJourneyLeg; date?: string; time?: string }> = [
+      { leg: "outbound", date: draft.outboundDate, time: draft.outboundTime },
+      ...(draft.returnJourney
+        ? [{ leg: "return" as const, date: draft.returnDate, time: draft.returnTime }]
+        : []),
+    ];
+    for (const { leg, date, time } of legs) {
+      if (!date || !time) continue;
+      if (isWithinMinimumBookingNotice(date, time, now, settings.minimumBookingNoticeHours)) {
+        return {
+          ok: false,
+          leg,
+          reason: "notice",
+          text: buildWhatsAppUnavailableReply({
+            leg,
+            draft,
+            reason: "notice",
+            noticeHours: settings.minimumBookingNoticeHours,
+            hasAlternatives: false,
+          }),
+        };
+      }
+      const closed = await evaluateOwnerNoAvailabilityFromStore(
+        store,
+        { tripDate: date, tripTime: time, returnJourney: false, vehicle: "Saloon" },
+        now,
+      );
+      if (closed.blocked) {
+        return {
+          ok: false,
+          leg,
+          reason: "closed",
+          text: buildWhatsAppUnavailableReply({
+            leg,
+            draft,
+            reason: "closed",
+            message: closed.customerMessage,
+            hasAlternatives: false,
+          }),
+        };
+      }
+      const outbound = leg === "outbound";
+      const gate = await enforceCustomerSmartAvailabilityGate({
+        store,
+        origin: null,
+        now,
+        booking: {
+          pickupLabel: outbound ? draft.pickupAddress : draft.dropoffAddress,
+          dropoffLabel: outbound ? draft.dropoffAddress : draft.pickupAddress,
+          tripDate: date,
+          tripTime: time,
+          returnJourney: false,
+          vehicle: "Saloon",
+          airportCode: draft.airportCode ?? null,
+          isFromAirport: draft.fromAirport == null ? null : outbound ? draft.fromAirport : !draft.fromAirport,
+        },
+      });
+      if (gate.blocked) {
+        const buttons = buildWhatsAppAlternativeTimeButtons(leg, gate.alternativeTimes);
+        return {
+          ok: false,
+          leg,
+          reason: "booked",
+          text: buildWhatsAppUnavailableReply({ leg, draft, reason: "booked", hasAlternatives: buttons.length > 0 }),
+          buttons,
+        };
+      }
+    }
+    return { ok: true };
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "whatsapp_availability_check_failed",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return { ok: true };
+  }
 }
 
 async function notifyOwnerOfHandoff(
@@ -315,7 +495,17 @@ async function notifyOwnerOfHandoff(
   }
 }
 
-async function reply(env: WhatsAppEnv, phone: string, text: string): Promise<void> {
+async function reply(
+  env: WhatsAppEnv,
+  phone: string,
+  text: string,
+  buttons?: WhatsAppReplyButton[],
+): Promise<void> {
+  if (buttons?.length) {
+    const withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
+    if (withButtons.sent) return;
+    logEvent("whatsapp_buttons_failed", phone, { error: withButtons.error });
+  }
   const result = await sendWhatsAppText(env, phone, text);
   if (!result.sent) logEvent("whatsapp_send_failed", phone, { error: result.error });
 }

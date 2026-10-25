@@ -58,11 +58,26 @@ export type WhatsAppConversation = {
 
 export type WhatsAppBotAction = "none" | "quote" | "handoff";
 
+/** Tap-to-reply button; ids starting "txt:" are read back as if the customer typed them. */
+export type WhatsAppBotButton = { id: string; title: string };
+
+export const WHATSAPP_BUTTONS = {
+  yes: { id: "txt:yes", title: "✅ Yes, get price" },
+  newQuote: { id: "txt:new", title: "🆕 New quote" },
+  oneWay: { id: "txt:one way", title: "➡️ One way" },
+  return: { id: "txt:return", title: "🔁 Return" },
+} as const satisfies Record<string, WhatsAppBotButton>;
+
 export type WhatsAppBotDecision = {
   conversation: WhatsAppConversation;
   reply: string;
   action: WhatsAppBotAction;
+  /** Optional reply buttons (max 3); the reply text still works without them. */
+  buttons?: WhatsAppBotButton[];
 };
+
+const CONFIRM_BUTTONS = [WHATSAPP_BUTTONS.yes, WHATSAPP_BUTTONS.newQuote];
+export const WHATSAPP_QUOTED_BUTTONS = [WHATSAPP_BUTTONS.newQuote];
 
 const BUSINESS_NAME = "My Airport Taxi NI";
 
@@ -305,13 +320,24 @@ export function buildWhatsAppQuestion(field: WhatsAppQuoteField): string {
   return QUESTIONS[field];
 }
 
+/** First name for the greeting, skipping business-style profile names ("My Airport Taxi NI"). */
+function greetingName(name?: string): string | null {
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+  if (/\b(taxis?|cabs?|ltd|limited|services?|airport|transfers?|travel|tours?|company|co)\b/i.test(trimmed)) {
+    return null;
+  }
+  const first = trimmed.split(/\s+/)[0];
+  return /^\p{L}[\p{L}'-]{1,}$/u.test(first) ? first : null;
+}
+
 export function buildWhatsAppWelcome(name?: string): string {
-  const greeting = name ? `Hi ${name.split(/\s+/)[0]}` : "Hi";
+  const first = greetingName(name);
+  const greeting = first ? `Hi ${first}` : "Hi";
   return (
     `${greeting}, thanks for messaging ${BUSINESS_NAME} 🚕\n\n` +
     `I can give you a fixed price and a secure booking link right here. Just tell me about your journey, for example:\n\n` +
-    `_From BT9 6AA to Belfast International, 14/11 at 5am, 2 passengers, 2 suitcases, one way_\n\n` +
-    `Reply *AGENT* at any time to speak to our team.`
+    `_From BT9 6AA to Belfast International, 14/11 at 5am, 2 passengers, 2 suitcases, one way_`
   );
 }
 
@@ -397,15 +423,66 @@ export function buildWhatsAppQuoteReply(input: { amountLabel: string; bookingUrl
   return (
     `Your fixed price is *${input.amountLabel}* ✅\n\n` +
     `To book, check your details and pay securely here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
-    `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote or *AGENT* to speak to our team.`
+    `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote.`
   );
 }
 
 export function buildWhatsAppQuoteFailedReply(reason?: string): string {
   return (
     `Sorry, I couldn't price that journey automatically${reason ? ` (${reason.replace(/\.$/, "")})` : ""}.\n\n` +
-    `Please check both addresses include a town or postcode and send any corrections, or reply *AGENT* and our team will help.`
+    `Please check both addresses include a town or postcode and send me the corrected address.`
   );
+}
+
+export type WhatsAppJourneyLeg = "outbound" | "return";
+
+const ALT_CHOICE = /^alt (out|ret) (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/;
+
+function parseAlternativeTimeChoice(
+  text: string,
+): { leg: WhatsAppJourneyLeg; tripDate: string; tripTime: string } | null {
+  const m = text.trim().toLowerCase().match(ALT_CHOICE);
+  if (!m) return null;
+  return { leg: m[1] === "ret" ? "return" : "outbound", tripDate: m[2], tripTime: m[3] };
+}
+
+/** "Fri 05:45" buttons for the nearest free times (max 3). */
+export function buildWhatsAppAlternativeTimeButtons(
+  leg: WhatsAppJourneyLeg,
+  times: Array<{ tripDate: string; tripTime: string }>,
+): WhatsAppBotButton[] {
+  return times.slice(0, 3).map(({ tripDate, tripTime }) => ({
+    id: `txt:alt ${leg === "return" ? "ret" : "out"} ${tripDate} ${tripTime}`,
+    title: `🕐 ${displayDate(tripDate).split(" ").slice(0, 3).join(" ")} ${tripTime}`.slice(0, 20),
+  }));
+}
+
+/** Reply when the requested time can't be booked. */
+export function buildWhatsAppUnavailableReply(input: {
+  leg: WhatsAppJourneyLeg;
+  draft: WhatsAppQuoteDraft;
+  reason: "booked" | "closed" | "notice";
+  message?: string | null;
+  noticeHours?: number;
+  hasAlternatives: boolean;
+}): string {
+  const date = input.leg === "return" ? input.draft.returnDate : input.draft.outboundDate;
+  const time = input.leg === "return" ? input.draft.returnTime : input.draft.outboundTime;
+  const when = `${time ?? ""}${date ? ` on ${displayDate(date)}` : ""}`.trim();
+  const legLabel = input.leg === "return" ? "return pickup" : "pickup";
+  if (input.reason === "notice") {
+    return (
+      `Sorry, we need at least ${input.noticeHours ?? 24} hours' notice to book online, so we can't confirm a ${legLabel} at ${when}.\n\n` +
+      `Please send me a later date or time.`
+    );
+  }
+  const opener =
+    input.reason === "closed"
+      ? input.message?.trim() || `Sorry, we're not available for a ${legLabel} at ${when}.`
+      : `Sorry, we're already booked for a ${legLabel} at ${when}.`;
+  return input.hasAlternatives
+    ? `${opener}\n\nThe nearest times we can do are below. Tap one to get your price, or send me another time.`
+    : `${opener}\n\nPlease send me another date or time and I'll check it for you.`;
 }
 
 const HANDOFF_REPLY = `No problem, a member of our team will reply here shortly. 👍`;
@@ -466,6 +543,23 @@ export function decideWhatsAppReply(
     return { conversation, reply: "", action: "quote" };
   }
 
+  // Tapped one of the "nearest free times" buttons: move that leg and price straight away.
+  const alt = parseAlternativeTimeChoice(text);
+  if (alt) {
+    if (alt.leg === "return") {
+      conversation.draft.returnDate = alt.tripDate;
+      conversation.draft.returnTime = alt.tripTime;
+    } else {
+      conversation.draft.outboundDate = alt.tripDate;
+      conversation.draft.outboundTime = alt.tripTime;
+    }
+    if (!nextMissingField(conversation.draft)) {
+      conversation.stage = "confirming";
+      delete conversation.awaiting;
+      return { conversation, reply: "", action: "quote" };
+    }
+  }
+
   const isNew = !existing || Object.keys(existing.draft).length === 0;
   const changed = applyCustomerMessage(conversation, text, now);
 
@@ -478,8 +572,9 @@ export function decideWhatsAppReply(
         conversation,
         reply:
           `Thanks! Your booking link is above${conversation.lastQuoteUrl ? `:\n${conversation.lastQuoteUrl}` : ""}.\n\n` +
-          `Tell me anything you'd like to change, reply *NEW* for a new quote, or *AGENT* to speak to our team.`,
+          `Tell me anything you'd like to change, or reply *NEW* for a new quote.`,
         action: "none",
+        buttons: WHATSAPP_QUOTED_BUTTONS,
       };
     }
     if (conversation.stage === "confirming") {
@@ -487,6 +582,7 @@ export function decideWhatsAppReply(
         conversation,
         reply: `Reply *YES* if these details are right, or tell me what to change.\n\n${buildWhatsAppSummary(conversation.draft)}`,
         action: "none",
+        buttons: CONFIRM_BUTTONS,
       };
     }
   }
@@ -512,6 +608,7 @@ export function decideWhatsAppReply(
       conversation,
       reply: repeat ? `Sorry, I didn't catch that. ${question}` : question,
       action: "none",
+      ...(missing === "returnJourney" ? { buttons: [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return] } : {}),
     };
   }
 
@@ -523,5 +620,6 @@ export function decideWhatsAppReply(
       `Thanks! Here's your journey:\n\n${buildWhatsAppSummary(conversation.draft)}\n\n` +
       `Reply *YES* to get your fixed price, or tell me what to change.`,
     action: "none",
+    buttons: CONFIRM_BUTTONS,
   };
 }

@@ -11,14 +11,20 @@ import {
   normalizeWhatsAppNumber,
   parseWhatsAppWebhook,
   register360dialogWebhook,
+  sendWhatsAppButtons,
   sendWhatsAppText,
+  upload360dialogProfilePicture,
   verify360dialogWebhookSecret,
   verifyWhatsAppSignature,
   whatsAppCloudConfigured,
   whatsAppVerifyChallenge,
 } from "../shared/whatsapp-cloud";
 import {
+  buildWhatsAppAlternativeTimeButtons,
+  buildWhatsAppUnavailableReply,
   buildWhatsAppTeamHandoffReply,
+  buildWhatsAppWelcome,
+  WHATSAPP_BUTTONS,
   decideWhatsAppReply,
   detectWhatsAppIntent,
   extractClockTimes,
@@ -28,7 +34,7 @@ import {
 } from "../shared/whatsapp-quote-bot";
 import { addCalendarDays } from "../shared/quick-quote-parse";
 import { todayLondonDate } from "../shared/uk-time";
-import { processWhatsAppWebhook } from "../workers/addresses/src/whatsapp-handlers";
+import { checkWhatsAppAvailability, processWhatsAppWebhook } from "../workers/addresses/src/whatsapp-handlers";
 
 async function main() {
   // Wednesday 2026-10-28 09:00 London (GMT).
@@ -91,6 +97,118 @@ async function main() {
       headers: { "X-Webhook-Secret": d360Secret },
     });
   }
+
+  console.log("=== Buttons ===");
+  {
+    // Button taps carry the command in the id.
+    const tapped = parseWhatsAppWebhook({
+      object: "whatsapp_business_account",
+      entry: [{ changes: [{ field: "messages", value: { messages: [
+        { id: "b1", from: "447700900123", timestamp: "1", type: "interactive",
+          interactive: { type: "button_reply", button_reply: { id: "txt:yes", title: "✅ Yes, get price" } } },
+        { id: "b2", from: "447700900123", timestamp: "1", type: "interactive",
+          interactive: { type: "button_reply", button_reply: { id: "other", title: "Plain title" } } },
+      ] } }] }],
+    });
+    assert.equal(tapped.messages[0].text, "yes");
+    assert.equal(tapped.messages[1].text, "Plain title");
+    for (const b of Object.values(WHATSAPP_BUTTONS)) assert.ok(b.title.length <= 20, b.title);
+
+    let payload: Record<string, any> | undefined;
+    const stub = (async (_url: string, init?: RequestInit) => {
+      payload = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ messages: [{ id: "x" }] }), { status: 200 });
+    }) as typeof fetch;
+    await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "Pick one", [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return], stub);
+    assert.equal(payload!.type, "interactive");
+    assert.equal(payload!.interactive.action.buttons[1].reply.id, "txt:return");
+    await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "x".repeat(1100), [WHATSAPP_BUTTONS.newQuote], stub);
+    assert.equal(payload!.type, "text", "long bodies fall back to plain text");
+
+    // Profile picture: session then upload.
+    const calls: string[] = [];
+    const up = await upload360dialogProfilePicture("k", new ArrayBuffer(4), "image/png", (async (url: string) => {
+      calls.push(String(url));
+      return calls.length === 1
+        ? new Response(JSON.stringify({ id: "upload:abc" }), { status: 200 })
+        : new Response(JSON.stringify({ h: "handle-1" }), { status: 200 });
+    }) as typeof fetch);
+    assert.deepEqual(up, { ok: true, handle: "handle-1" });
+    assert.equal(calls[0], "https://waba-v2.360dialog.io/uploads?file_length=4&file_type=image%2Fpng");
+    assert.equal(calls[1], "https://waba-v2.360dialog.io/upload:abc");
+  }
+
+  console.log("=== Availability: alternative times ===");
+  {
+    const altButtons = buildWhatsAppAlternativeTimeButtons("outbound", [
+      { tripDate: "2026-10-30", tripTime: "04:15" },
+      { tripDate: "2026-10-30", tripTime: "05:45" },
+      { tripDate: "2026-10-30", tripTime: "06:15" },
+      { tripDate: "2026-10-30", tripTime: "06:45" },
+    ]);
+    assert.equal(altButtons.length, 3);
+    assert.equal(altButtons[1].id, "txt:alt out 2026-10-30 05:45");
+    assert.equal(altButtons[1].title, "🕐 Fri 30 Oct 05:45");
+    for (const b of altButtons) assert.ok(b.title.length <= 20, b.title);
+    assert.equal(buildWhatsAppAlternativeTimeButtons("return", [{ tripDate: "2026-11-02", tripTime: "21:00" }])[0].id, "txt:alt ret 2026-11-02 21:00");
+
+    // Tapping an alternative moves that leg and prices straight away.
+    const ready: WhatsAppConversation = {
+      stage: "collecting",
+      awaiting: "outboundTime",
+      updatedAt: now.toISOString(),
+      draft: {
+        pickupAddress: "BT9 6AA", dropoffAddress: "Belfast International Airport", airportCode: "BFS",
+        fromAirport: false, returnJourney: false, outboundDate: "2026-10-30", outboundTime: "05:00",
+        passengers: 2, suitcases: 2,
+      },
+    };
+    const tapped = decideWhatsAppReply(ready, "alt out 2026-10-30 05:45", { now });
+    assert.equal(tapped.action, "quote");
+    assert.equal(tapped.conversation.draft.outboundTime, "05:45");
+    assert.equal(tapped.conversation.stage, "confirming");
+    const tappedReturn = decideWhatsAppReply(
+      { ...ready, draft: { ...ready.draft, returnJourney: true, returnDate: "2026-11-02", returnTime: "20:00" } },
+      "alt ret 2026-11-02 21:00",
+      { now },
+    );
+    assert.equal(tappedReturn.action, "quote");
+    assert.equal(tappedReturn.conversation.draft.returnTime, "21:00");
+    assert.equal(tappedReturn.conversation.draft.outboundTime, "05:00");
+
+    assert.match(
+      buildWhatsAppUnavailableReply({ leg: "outbound", draft: ready.draft, reason: "booked", hasAlternatives: true }),
+      /already booked for a pickup at 05:00 on Fri 30 Oct 2026[\s\S]*Tap one/,
+    );
+    assert.match(
+      buildWhatsAppUnavailableReply({ leg: "return", draft: { ...ready.draft, returnDate: "2026-11-02", returnTime: "20:00" }, reason: "notice", noticeHours: 12, hasAlternatives: false }),
+      /at least 12 hours' notice[\s\S]*return pickup at 20:00/,
+    );
+
+    // Worker check: minimum notice, then an open diary.
+    const emptyKv = {
+      async get() { return null; },
+      async put() {},
+      async list() { return { keys: [], list_complete: true, cursor: "" }; },
+    } as unknown as KVNamespace;
+    const soon = await checkWhatsAppAvailability(
+      { ...ready.draft, outboundDate: "2026-10-28", outboundTime: "11:00" },
+      emptyKv,
+      now,
+    );
+    assert.equal(soon.ok, false);
+    assert.equal(!soon.ok && soon.reason, "notice");
+    const fine = await checkWhatsAppAvailability(ready.draft, emptyKv, now);
+    assert.deepEqual(fine, { ok: true });
+    const failing = { async get() { throw new Error("kv down"); } } as unknown as KVNamespace;
+    assert.deepEqual(await checkWhatsAppAvailability(ready.draft, failing, now), { ok: true }, "fails open");
+  }
+
+  console.log("=== Greeting name ===");
+  assert.match(buildWhatsAppWelcome("Sarah Jones"), /^Hi Sarah,/);
+  assert.match(buildWhatsAppWelcome("My Airport Taxi NI"), /^Hi, thanks/);
+  assert.match(buildWhatsAppWelcome("~ 🙂"), /^Hi, thanks/);
+  assert.match(buildWhatsAppWelcome(undefined), /^Hi, thanks/);
 
   console.log("=== Team handoff link ===");
   {
@@ -267,7 +385,7 @@ async function main() {
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
     if (String(url).startsWith("https://graph.facebook.com/")) {
       const msg = JSON.parse(String(init?.body));
-      sent.push({ to: msg.to, body: msg.text.body });
+      sent.push({ to: msg.to, body: msg.text?.body ?? msg.interactive.body.text });
       return new Response(JSON.stringify({ messages: [{ id: "wamid.out" }] }), { status: 200 });
     }
     throw new Error(`unexpected fetch ${url}`);
@@ -324,7 +442,7 @@ async function main() {
       const msg = JSON.parse(String(init?.body));
       d360Sent.push({
         to: msg.to,
-        body: msg.text.body,
+        body: msg.text?.body ?? msg.interactive.body.text,
         key: (init?.headers as Record<string, string>)["D360-API-KEY"] ?? null,
       });
       return new Response(JSON.stringify({ messages: [{ id: "wamid.360" }] }), { status: 200 });

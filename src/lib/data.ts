@@ -14,6 +14,8 @@ export const SITE = {
   whatsapp: "447549815538",
   whatsappUsername: "belfasttaxi",
   whatsappDefaultMessage: "Hi, I'd like some help.",
+  /** WhatsApp quote assistant (360dialog virtual number) — used by the mobile floating button. */
+  whatsappAssistant: "17117862236",
   email: "bookings@myairporttaxini.co.uk",
   url: "https://www.myairporttaxini.co.uk",
 } as const;
