@@ -29,6 +29,10 @@ export type WhatsAppCloudEnv = {
   D360_API_KEY?: string;
 };
 
+/** Reply button: tapping it sends `id` back; ids starting "txt:" act as typed text. */
+export type WhatsAppReplyButton = { id: string; title: string };
+export const WHATSAPP_BUTTON_TEXT_PREFIX = "txt:";
+
 export type WhatsAppInboundMessage = {
   id: string;
   /** Customer number, digits only in international format (e.g. 447700900123). */
@@ -161,8 +165,8 @@ type RawMessage = {
   text?: { body?: string };
   button?: { text?: string };
   interactive?: {
-    button_reply?: { title?: string };
-    list_reply?: { title?: string };
+    button_reply?: { id?: string; title?: string };
+    list_reply?: { id?: string; title?: string };
   };
 };
 
@@ -170,6 +174,9 @@ function messageText(message: RawMessage): string {
   if (message.type === "text") return message.text?.body ?? "";
   if (message.type === "button") return message.button?.text ?? "";
   if (message.type === "interactive") {
+    // Our reply buttons carry the command in the id ("txt:yes"), so the title can be friendly.
+    const id = message.interactive?.button_reply?.id ?? message.interactive?.list_reply?.id ?? "";
+    if (id.startsWith(WHATSAPP_BUTTON_TEXT_PREFIX)) return id.slice(WHATSAPP_BUTTON_TEXT_PREFIX.length);
     return (
       message.interactive?.button_reply?.title ?? message.interactive?.list_reply?.title ?? ""
     );
@@ -234,50 +241,40 @@ export function parseWhatsAppWebhook(payload: unknown): ParsedWhatsAppWebhook {
 
 export type WhatsAppSendResult = { sent: boolean; messageId?: string; error?: string };
 
-/**
- * Send a free-form text reply. Only valid inside the 24-hour customer service
- * window (i.e. replying to a customer who messaged first) — which is how the
- * quote assistant uses it.
- */
-export async function sendWhatsAppText(
+function whatsAppSendTarget(
+  env: WhatsAppCloudEnv,
+): { endpoint: string; auth: Record<string, string> } | null {
+  const d360Key = env.D360_API_KEY?.trim();
+  if (d360Key) return { endpoint: `${D360_API_BASE}/messages`, auth: { "D360-API-KEY": d360Key } };
+  const token = env.WHATSAPP_ACCESS_TOKEN?.trim();
+  const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+  if (!token || !phoneNumberId) return null;
+  const version = env.WHATSAPP_GRAPH_VERSION?.trim() || WHATSAPP_DEFAULT_GRAPH_VERSION;
+  return {
+    endpoint: `https://graph.facebook.com/${version}/${encodeURIComponent(phoneNumberId)}/messages`,
+    auth: { Authorization: `Bearer ${token}` },
+  };
+}
+
+async function postWhatsAppMessage(
   env: WhatsAppCloudEnv,
   to: string,
-  body: string,
-  fetchImpl: typeof fetch = fetch,
+  message: Record<string, unknown>,
+  fetchImpl: typeof fetch,
 ): Promise<WhatsAppSendResult> {
-  let endpoint: string;
-  let auth: Record<string, string>;
-  const d360Key = env.D360_API_KEY?.trim();
-  if (d360Key) {
-    endpoint = `${D360_API_BASE}/messages`;
-    auth = { "D360-API-KEY": d360Key };
-  } else {
-    const token = env.WHATSAPP_ACCESS_TOKEN?.trim();
-    const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID?.trim();
-    if (!token || !phoneNumberId) return { sent: false, error: "WhatsApp Cloud API not configured" };
-    const version = env.WHATSAPP_GRAPH_VERSION?.trim() || WHATSAPP_DEFAULT_GRAPH_VERSION;
-    endpoint = `https://graph.facebook.com/${version}/${encodeURIComponent(phoneNumberId)}/messages`;
-    auth = { Authorization: `Bearer ${token}` };
-  }
-
+  const target = whatsAppSendTarget(env);
+  if (!target) return { sent: false, error: "WhatsApp Cloud API not configured" };
   try {
-    const res = await fetchImpl(
-      endpoint,
-      {
-        method: "POST",
-        headers: {
-          ...auth,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: normalizeWhatsAppNumber(to),
-          type: "text",
-          text: { preview_url: true, body: body.slice(0, 4096) },
-        }),
-      },
-    );
+    const res = await fetchImpl(target.endpoint, {
+      method: "POST",
+      headers: { ...target.auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: normalizeWhatsAppNumber(to),
+        ...message,
+      }),
+    });
     const data = (await res.json().catch(() => null)) as {
       messages?: Array<{ id?: string }>;
       error?: { message?: string; code?: number };
@@ -293,5 +290,111 @@ export async function sendWhatsAppText(
     return { sent: true, messageId: data?.messages?.[0]?.id };
   } catch (err) {
     return { sent: false, error: err instanceof Error ? err.message : "WhatsApp send failed" };
+  }
+}
+
+/**
+ * Send a free-form text reply. Only valid inside the 24-hour customer service
+ * window (i.e. replying to a customer who messaged first) — which is how the
+ * quote assistant uses it.
+ */
+export function sendWhatsAppText(
+  env: WhatsAppCloudEnv,
+  to: string,
+  body: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<WhatsAppSendResult> {
+  return postWhatsAppMessage(
+    env,
+    to,
+    { type: "text", text: { preview_url: true, body: body.slice(0, 4096) } },
+    fetchImpl,
+  );
+}
+
+/** Text with up to 3 tap-to-reply buttons. Falls back to plain text if the body is too long. */
+export function sendWhatsAppButtons(
+  env: WhatsAppCloudEnv,
+  to: string,
+  body: string,
+  buttons: WhatsAppReplyButton[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<WhatsAppSendResult> {
+  if (buttons.length === 0 || body.length > 1024) return sendWhatsAppText(env, to, body, fetchImpl);
+  return postWhatsAppMessage(
+    env,
+    to,
+    {
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: body },
+        action: {
+          buttons: buttons.slice(0, 3).map((b) => ({
+            type: "reply",
+            reply: { id: b.id.slice(0, 256), title: b.title.slice(0, 20) },
+          })),
+        },
+      },
+    },
+    fetchImpl,
+  );
+}
+
+export type WhatsAppBusinessProfile = {
+  about?: string;
+  description?: string;
+  email?: string;
+  websites?: string[];
+  vertical?: string;
+  address?: string;
+};
+
+/** 360dialog: update the number's WhatsApp business profile (only fields given). */
+export async function update360dialogBusinessProfile(
+  apiKey: string,
+  profile: WhatsAppBusinessProfile & { profile_picture_handle?: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetchImpl(`${D360_API_BASE}/whatsapp_business_profile`, {
+      method: "POST",
+      headers: { "D360-API-KEY": apiKey.trim(), "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", ...profile }),
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: (await res.text().catch(() => "")).slice(0, 300) || `HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Request failed" };
+  }
+}
+
+/** 360dialog resumable upload → handle for `profile_picture_handle`. */
+export async function upload360dialogProfilePicture(
+  apiKey: string,
+  bytes: ArrayBuffer,
+  mimeType: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ ok: true; handle: string } | { ok: false; error: string }> {
+  const key = apiKey.trim();
+  try {
+    const session = await fetchImpl(
+      `${D360_API_BASE}/uploads?file_length=${bytes.byteLength}&file_type=${encodeURIComponent(mimeType)}`,
+      { method: "POST", headers: { "D360-API-KEY": key } },
+    );
+    const sessionData = (await session.json().catch(() => null)) as { id?: string } | null;
+    if (!session.ok || !sessionData?.id) {
+      return { ok: false, error: `upload session failed (HTTP ${session.status})` };
+    }
+    const upload = await fetchImpl(`${D360_API_BASE}/${sessionData.id}`, {
+      method: "POST",
+      headers: { "D360-API-KEY": key, file_offset: "0", "Content-Type": mimeType },
+      body: bytes,
+    });
+    const uploadData = (await upload.json().catch(() => null)) as { h?: string } | null;
+    if (!upload.ok || !uploadData?.h) return { ok: false, error: `upload failed (HTTP ${upload.status})` };
+    return { ok: true, handle: uploadData.h };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "upload failed" };
   }
 }

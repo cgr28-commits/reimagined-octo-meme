@@ -23,7 +23,10 @@ import {
   D360_WEBHOOK_SECRET_HEADER,
   parseWhatsAppWebhook,
   register360dialogWebhook,
+  sendWhatsAppButtons,
   sendWhatsAppText,
+  update360dialogBusinessProfile,
+  upload360dialogProfilePicture,
   verify360dialogWebhookSecret,
   verifyWhatsAppSignature,
   whatsAppCloudConfigured,
@@ -31,12 +34,15 @@ import {
   whatsAppVerifyChallenge,
   type WhatsAppCloudEnv,
   type WhatsAppInboundMessage,
+  type WhatsAppReplyButton,
 } from "../shared/whatsapp-cloud";
 import {
   buildWhatsAppQuoteFailedReply,
   buildWhatsAppQuoteReply,
   buildWhatsAppTeamHandoffReply,
   decideWhatsAppReply,
+  WHATSAPP_BUTTONS,
+  WHATSAPP_QUOTED_BUTTONS,
   whatsAppDraftToQuoteBody,
   type WhatsAppConversation,
 } from "../shared/whatsapp-quote-bot";
@@ -95,6 +101,50 @@ function plain(text: string, status: number): Response {
   });
 }
 
+/** WhatsApp business profile applied by /whatsapp/connect (360dialog). */
+const BUSINESS_PROFILE = {
+  about: "Fixed-price airport taxis across Northern Ireland. Instant quotes here.",
+  description:
+    "Airport taxi transfers across Northern Ireland to Belfast International, George Best Belfast City " +
+    "and Dublin Airport. Fixed prices agreed upfront, with no surge pricing or hidden extras. Message us " +
+    "for an instant quote and book in minutes.",
+  email: "bookings@myairporttaxini.co.uk",
+  websites: ["https://www.myairporttaxini.co.uk"],
+  vertical: "TRAVEL",
+};
+const PROFILE_LOGO_PATH = "/facebook-profile-logo-navy.png";
+
+async function applyBusinessProfile(apiKey: string, siteOrigin: string): Promise<string[]> {
+  const lines: string[] = [];
+  let pictureHandle: string | undefined;
+  try {
+    const logo = await fetch(`${siteOrigin}${PROFILE_LOGO_PATH}`);
+    if (logo.ok) {
+      const uploaded = await upload360dialogProfilePicture(
+        apiKey,
+        await logo.arrayBuffer(),
+        logo.headers.get("Content-Type")?.split(";")[0] || "image/png",
+      );
+      if (uploaded.ok) pictureHandle = uploaded.handle;
+      else lines.push(`Logo not uploaded: ${uploaded.error}. You can add it in 360dialog → Profile.`);
+    } else {
+      lines.push(`Logo not found (HTTP ${logo.status}). You can add it in 360dialog → Profile.`);
+    }
+  } catch {
+    lines.push("Logo could not be downloaded. You can add it in 360dialog → Profile.");
+  }
+  const updated = await update360dialogBusinessProfile(apiKey, {
+    ...BUSINESS_PROFILE,
+    ...(pictureHandle ? { profile_picture_handle: pictureHandle } : {}),
+  });
+  if (updated.ok) {
+    lines.unshift(`Business profile updated ✅${pictureHandle ? " (with logo)" : ""}`);
+  } else {
+    lines.unshift(`Business profile not updated: ${updated.error ?? "unknown error"}`);
+  }
+  return lines;
+}
+
 const CONNECT_COOLDOWN_KEY = "whatsapp:connect:last";
 const CONNECT_COOLDOWN_SECONDS = 60;
 
@@ -119,8 +169,11 @@ export async function handleWhatsAppConnect(request: Request, env: WhatsAppEnv):
       502,
     );
   }
+  const siteOrigin = (env.SITE_ORIGIN?.trim() || "https://www.myairporttaxini.co.uk").replace(/\/+$/, "");
+  const profileLines = await applyBusinessProfile(apiKey, siteOrigin);
   return plain(
     `Connected ✅\n\nWhatsApp messages to your 360dialog number now go to:\n${webhookUrl}\n\n` +
+      `${profileLines.join("\n")}\n\n` +
       "Send the number a test message (e.g. \"Hi\") from another phone.",
     200,
   );
@@ -225,12 +278,14 @@ async function handleInboundMessage(
   const decision = decideWhatsAppReply(existing, message.text, { profileName: message.profileName });
   const conversation = decision.conversation;
   let text = decision.reply;
+  let buttons: WhatsAppReplyButton[] | undefined = decision.buttons;
 
   if (decision.action === "handoff") {
     const teamNumber = env.WHATSAPP_TEAM_NUMBER?.replace(/\D/g, "");
     if (teamNumber && teamNumber !== phone) {
       // The team answers from another number, so keep the assistant available here.
       text = buildWhatsAppTeamHandoffReply(teamNumber, conversation.draft);
+      buttons = undefined;
     } else {
       await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
     }
@@ -246,6 +301,7 @@ async function handleInboundMessage(
     );
     if (quota === "limited") {
       text = "You've requested a lot of quotes in the last hour. Please try again later, or reply *AGENT* to speak to our team.";
+      buttons = [WHATSAPP_BUTTONS.agent];
     } else {
       const priced = await createPricedQuickQuote(
         whatsAppDraftToQuoteBody(conversation.draft),
@@ -260,6 +316,7 @@ async function handleInboundMessage(
           amountLabel: priced.record.quotedAmountLabel,
           bookingUrl: priced.bookingUrl,
         });
+        buttons = WHATSAPP_QUOTED_BUTTONS;
         logEvent("whatsapp_quote_sent", phone, {
           idSuffix: priced.record.id.slice(-6),
           quotedAmount: priced.record.quotedAmount,
@@ -269,6 +326,7 @@ async function handleInboundMessage(
       } else {
         conversation.stage = "collecting";
         text = buildWhatsAppQuoteFailedReply(priced.status === 422 ? undefined : priced.error);
+        buttons = [WHATSAPP_BUTTONS.agent];
         logEvent("whatsapp_quote_failed", phone, { status: priced.status, reason: priced.reason });
       }
     }
@@ -277,7 +335,7 @@ async function handleInboundMessage(
   await store.put(conversationKey(phone), JSON.stringify(conversation), {
     expirationTtl: CONVERSATION_TTL_SECONDS,
   });
-  if (text) await reply(env, phone, text);
+  if (text) await reply(env, phone, text, buttons);
 }
 
 async function notifyOwnerOfHandoff(
@@ -315,7 +373,17 @@ async function notifyOwnerOfHandoff(
   }
 }
 
-async function reply(env: WhatsAppEnv, phone: string, text: string): Promise<void> {
+async function reply(
+  env: WhatsAppEnv,
+  phone: string,
+  text: string,
+  buttons?: WhatsAppReplyButton[],
+): Promise<void> {
+  if (buttons?.length) {
+    const withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
+    if (withButtons.sent) return;
+    logEvent("whatsapp_buttons_failed", phone, { error: withButtons.error });
+  }
   const result = await sendWhatsAppText(env, phone, text);
   if (!result.sent) logEvent("whatsapp_send_failed", phone, { error: result.error });
 }

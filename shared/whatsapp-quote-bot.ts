@@ -58,11 +58,27 @@ export type WhatsAppConversation = {
 
 export type WhatsAppBotAction = "none" | "quote" | "handoff";
 
+/** Tap-to-reply button; ids starting "txt:" are read back as if the customer typed them. */
+export type WhatsAppBotButton = { id: string; title: string };
+
+export const WHATSAPP_BUTTONS = {
+  yes: { id: "txt:yes", title: "✅ Yes, get price" },
+  newQuote: { id: "txt:new", title: "🆕 New quote" },
+  agent: { id: "txt:agent", title: "👤 Speak to team" },
+  oneWay: { id: "txt:one way", title: "➡️ One way" },
+  return: { id: "txt:return", title: "🔁 Return" },
+} as const satisfies Record<string, WhatsAppBotButton>;
+
 export type WhatsAppBotDecision = {
   conversation: WhatsAppConversation;
   reply: string;
   action: WhatsAppBotAction;
+  /** Optional reply buttons (max 3); the reply text still works without them. */
+  buttons?: WhatsAppBotButton[];
 };
+
+const CONFIRM_BUTTONS = [WHATSAPP_BUTTONS.yes, WHATSAPP_BUTTONS.newQuote, WHATSAPP_BUTTONS.agent];
+export const WHATSAPP_QUOTED_BUTTONS = [WHATSAPP_BUTTONS.newQuote, WHATSAPP_BUTTONS.agent];
 
 const BUSINESS_NAME = "My Airport Taxi NI";
 
@@ -305,8 +321,20 @@ export function buildWhatsAppQuestion(field: WhatsAppQuoteField): string {
   return QUESTIONS[field];
 }
 
+/** First name for the greeting, skipping business-style profile names ("My Airport Taxi NI"). */
+function greetingName(name?: string): string | null {
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+  if (/\b(taxis?|cabs?|ltd|limited|services?|airport|transfers?|travel|tours?|company|co)\b/i.test(trimmed)) {
+    return null;
+  }
+  const first = trimmed.split(/\s+/)[0];
+  return /^\p{L}[\p{L}'-]{1,}$/u.test(first) ? first : null;
+}
+
 export function buildWhatsAppWelcome(name?: string): string {
-  const greeting = name ? `Hi ${name.split(/\s+/)[0]}` : "Hi";
+  const first = greetingName(name);
+  const greeting = first ? `Hi ${first}` : "Hi";
   return (
     `${greeting}, thanks for messaging ${BUSINESS_NAME} 🚕\n\n` +
     `I can give you a fixed price and a secure booking link right here. Just tell me about your journey, for example:\n\n` +
@@ -480,6 +508,7 @@ export function decideWhatsAppReply(
           `Thanks! Your booking link is above${conversation.lastQuoteUrl ? `:\n${conversation.lastQuoteUrl}` : ""}.\n\n` +
           `Tell me anything you'd like to change, reply *NEW* for a new quote, or *AGENT* to speak to our team.`,
         action: "none",
+        buttons: WHATSAPP_QUOTED_BUTTONS,
       };
     }
     if (conversation.stage === "confirming") {
@@ -487,6 +516,7 @@ export function decideWhatsAppReply(
         conversation,
         reply: `Reply *YES* if these details are right, or tell me what to change.\n\n${buildWhatsAppSummary(conversation.draft)}`,
         action: "none",
+        buttons: CONFIRM_BUTTONS,
       };
     }
   }
@@ -512,6 +542,7 @@ export function decideWhatsAppReply(
       conversation,
       reply: repeat ? `Sorry, I didn't catch that. ${question}` : question,
       action: "none",
+      ...(missing === "returnJourney" ? { buttons: [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return] } : {}),
     };
   }
 
@@ -523,5 +554,6 @@ export function decideWhatsAppReply(
       `Thanks! Here's your journey:\n\n${buildWhatsAppSummary(conversation.draft)}\n\n` +
       `Reply *YES* to get your fixed price, or tell me what to change.`,
     action: "none",
+    buttons: CONFIRM_BUTTONS,
   };
 }

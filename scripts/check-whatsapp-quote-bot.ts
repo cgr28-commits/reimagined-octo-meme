@@ -11,7 +11,9 @@ import {
   normalizeWhatsAppNumber,
   parseWhatsAppWebhook,
   register360dialogWebhook,
+  sendWhatsAppButtons,
   sendWhatsAppText,
+  upload360dialogProfilePicture,
   verify360dialogWebhookSecret,
   verifyWhatsAppSignature,
   whatsAppCloudConfigured,
@@ -19,6 +21,8 @@ import {
 } from "../shared/whatsapp-cloud";
 import {
   buildWhatsAppTeamHandoffReply,
+  buildWhatsAppWelcome,
+  WHATSAPP_BUTTONS,
   decideWhatsAppReply,
   detectWhatsAppIntent,
   extractClockTimes,
@@ -91,6 +95,52 @@ async function main() {
       headers: { "X-Webhook-Secret": d360Secret },
     });
   }
+
+  console.log("=== Buttons ===");
+  {
+    // Button taps carry the command in the id.
+    const tapped = parseWhatsAppWebhook({
+      object: "whatsapp_business_account",
+      entry: [{ changes: [{ field: "messages", value: { messages: [
+        { id: "b1", from: "447700900123", timestamp: "1", type: "interactive",
+          interactive: { type: "button_reply", button_reply: { id: "txt:yes", title: "✅ Yes, get price" } } },
+        { id: "b2", from: "447700900123", timestamp: "1", type: "interactive",
+          interactive: { type: "button_reply", button_reply: { id: "other", title: "Plain title" } } },
+      ] } }] }],
+    });
+    assert.equal(tapped.messages[0].text, "yes");
+    assert.equal(tapped.messages[1].text, "Plain title");
+    for (const b of Object.values(WHATSAPP_BUTTONS)) assert.ok(b.title.length <= 20, b.title);
+
+    let payload: Record<string, any> | undefined;
+    const stub = (async (_url: string, init?: RequestInit) => {
+      payload = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ messages: [{ id: "x" }] }), { status: 200 });
+    }) as typeof fetch;
+    await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "Pick one", [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return], stub);
+    assert.equal(payload!.type, "interactive");
+    assert.equal(payload!.interactive.action.buttons[1].reply.id, "txt:return");
+    await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "x".repeat(1100), [WHATSAPP_BUTTONS.agent], stub);
+    assert.equal(payload!.type, "text", "long bodies fall back to plain text");
+
+    // Profile picture: session then upload.
+    const calls: string[] = [];
+    const up = await upload360dialogProfilePicture("k", new ArrayBuffer(4), "image/png", (async (url: string) => {
+      calls.push(String(url));
+      return calls.length === 1
+        ? new Response(JSON.stringify({ id: "upload:abc" }), { status: 200 })
+        : new Response(JSON.stringify({ h: "handle-1" }), { status: 200 });
+    }) as typeof fetch);
+    assert.deepEqual(up, { ok: true, handle: "handle-1" });
+    assert.equal(calls[0], "https://waba-v2.360dialog.io/uploads?file_length=4&file_type=image%2Fpng");
+    assert.equal(calls[1], "https://waba-v2.360dialog.io/upload:abc");
+  }
+
+  console.log("=== Greeting name ===");
+  assert.match(buildWhatsAppWelcome("Sarah Jones"), /^Hi Sarah,/);
+  assert.match(buildWhatsAppWelcome("My Airport Taxi NI"), /^Hi, thanks/);
+  assert.match(buildWhatsAppWelcome("~ 🙂"), /^Hi, thanks/);
+  assert.match(buildWhatsAppWelcome(undefined), /^Hi, thanks/);
 
   console.log("=== Team handoff link ===");
   {
@@ -267,7 +317,7 @@ async function main() {
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
     if (String(url).startsWith("https://graph.facebook.com/")) {
       const msg = JSON.parse(String(init?.body));
-      sent.push({ to: msg.to, body: msg.text.body });
+      sent.push({ to: msg.to, body: msg.text?.body ?? msg.interactive.body.text });
       return new Response(JSON.stringify({ messages: [{ id: "wamid.out" }] }), { status: 200 });
     }
     throw new Error(`unexpected fetch ${url}`);
@@ -324,7 +374,7 @@ async function main() {
       const msg = JSON.parse(String(init?.body));
       d360Sent.push({
         to: msg.to,
-        body: msg.text.body,
+        body: msg.text?.body ?? msg.interactive.body.text,
         key: (init?.headers as Record<string, string>)["D360-API-KEY"] ?? null,
       });
       return new Response(JSON.stringify({ messages: [{ id: "wamid.360" }] }), { status: 200 });

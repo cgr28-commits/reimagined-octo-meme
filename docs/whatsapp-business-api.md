@@ -18,6 +18,9 @@ Customer:  yes
 Assistant: Your fixed price is £45 ✅  To book, check your details and pay securely here: https://www.myairporttaxini.co.uk/book-quote/?id=…
 ```
 
+- Tap buttons: **✅ Yes, get price / 🆕 New quote / 👤 Speak to team** on the summary,
+  **➡️ One way / 🔁 Return** when asking about the journey type, and **New quote / Speak
+  to team** after a price. Typing still works everywhere.
 - Missing details are asked for one at a time (pickup, destination, date, time, passengers,
   suitcases, one way/return, return date/time).
 - Customers can correct anything ("3 passengers", "make it a return on 20/11 at 9pm").
@@ -44,7 +47,10 @@ number from Meta via 360dialog). Your existing number stays on your phone, untou
      a link to chat with this number, with their journey details pre-filled.
 4. Open this address once in your browser:
    `https://reimagined-octo-meme.cgr28.workers.dev/whatsapp/connect`
-   It tells 360dialog to send messages to the Worker. You should see **Connected ✅**.
+   It tells 360dialog to send messages to the Worker and sets the WhatsApp business
+   profile (about, description, email, website, and the navy logo
+   `public/facebook-profile-logo-navy.png`). You should see **Connected ✅**.
+   Open it again any time to re-apply the profile (60-second cooldown).
 5. Message the new number from another phone to test.
 6. Point the website's WhatsApp buttons at the new number (`SITE.whatsapp` in
    `src/lib/data.ts`).
