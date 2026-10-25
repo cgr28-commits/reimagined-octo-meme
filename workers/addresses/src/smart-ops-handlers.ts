@@ -4,7 +4,7 @@
  */
 
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
-import { listPaidBookingsForTripRange, listUpcomingPaidBookings } from "./paid-booking-store";
+import { listPaidBookingsForTripRange } from "./paid-booking-store";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { addDaysYmd, londonYmd } from "../shared/upcoming-jobs";
 import {
@@ -84,12 +84,12 @@ async function loadOccupied(
 }> {
   const from = range?.fromYmd || addDaysYmd(londonYmd(), -2);
   const to = range?.toYmd || addDaysYmd(londonYmd(), 180);
-  const [ranged, upcoming] = await Promise.all([
-    listPaidBookingsForTripRange(store, from, to, { limit: 400 }),
-    listUpcomingPaidBookings(store, { pastDays: 7, futureDays: 180, limit: 250 }),
-  ]);
+  // Trip-day indexes only: every saved booking indexes its trip and return days.
+  // (Scanning all booking:ref:* here read every booking ever stored on each
+  // availability check — seconds per check, and unbounded KV reads.)
+  const ranged = await listPaidBookingsForTripRange(store, from, to, { limit: 400 });
   const bookings = new Map<string, PaidBookingRecord>();
-  for (const booking of [...ranged, ...upcoming]) {
+  for (const booking of ranged) {
     bookings.set(booking.paymentReference, booking);
   }
   const occupied: SmartOccupiedJob[] = [];
