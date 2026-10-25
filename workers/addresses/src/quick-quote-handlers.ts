@@ -26,6 +26,7 @@ import {
   type QuickQuoteDiscountType,
   type QuickQuoteJourney,
   type QuickQuotePriceSource,
+  type QuickQuoteRecord,
   type QuickQuoteVehicleChoice,
 } from "../shared/quick-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
@@ -233,58 +234,34 @@ async function authoritativeAmount(
   });
 }
 
-/** POST /owner/quick-quotes — create opaque booking link (owner auth). */
-export async function handleOwnerCreateQuickQuote(
-  request: Request,
+export type PricedQuickQuoteResult =
+  | {
+      ok: true;
+      record: QuickQuoteRecord;
+      bookingUrl: string;
+      whatsappReply: string;
+      vehicleChoice: QuickQuoteVehicleChoice;
+      expressFields: ReturnType<typeof toExpressDropOffPersistedFields>;
+    }
+  | { ok: false; status: number; error: string; reason?: string };
+
+/**
+ * Price a journey and store it as an opaque Quick Quote booking link.
+ * Shared by the owner Quick Quote tool and the WhatsApp quote assistant.
+ * Callers handle auth and rate limits.
+ */
+export async function createPricedQuickQuote(
+  body: Record<string, unknown>,
   env: {
-    TRACKING_STORE?: KVNamespace;
-    OWNER_ACCESS_KEY?: string;
-    DRIVER_ACCESS_KEY?: string;
+    TRACKING_STORE: KVNamespace;
     SITE_ORIGIN?: string;
     GOOGLE_PLACES_API_KEY?: string;
   },
-  origin: string | null,
-): Promise<Response> {
-  if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders(origin) });
-  }
-  if (request.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405, origin);
-  }
-  if (!ownerAuthorized(request, env)) {
-    return json({ error: "Unauthorized" }, 401, origin);
-  }
-  if (!env.TRACKING_STORE) {
-    return json({ error: "Quote store is not configured" }, 503, origin);
-  }
-
-  let body: Record<string, unknown>;
-  try {
-    body = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return json({ error: "Invalid JSON" }, 400, origin);
-  }
-
+  meta: { createdByOwner: boolean },
+): Promise<PricedQuickQuoteResult> {
   const journey = parseJourney(body);
   if ("error" in journey) {
-    return json({ error: journey.error }, 400, origin);
-  }
-
-  const ownerMaterial =
-    request.headers.get("X-Owner-Key")?.trim() ||
-    new URL(request.url).searchParams.get("key")?.trim() ||
-    "owner";
-  const quota = await consumeQuickQuoteCreateQuota(
-    env.TRACKING_STORE,
-    ownerMaterial,
-    QUICK_QUOTE_CREATE_RATE_LIMIT,
-  );
-  if (quota === "limited") {
-    return json(
-      { error: "Quick Quote rate limit reached. Try again in an hour." },
-      429,
-      origin,
-    );
+    return { ok: false, status: 400, error: journey.error };
   }
 
   const pricingSource: QuickQuotePriceSource = parseQuickQuotePriceSource(
@@ -301,7 +278,7 @@ export async function handleOwnerCreateQuickQuote(
       body.manualTransferFare ?? body.manualAmount ?? body.transferFareGbp,
     );
     if (!manual.ok) {
-      return json({ error: manual.message }, 400, origin);
+      return { ok: false, status: 400, error: manual.message };
     }
     transferFareBeforeDiscount = manual.amount;
     vehicleTypeLabel =
@@ -312,7 +289,7 @@ export async function handleOwnerCreateQuickQuote(
     const ownerPricing = await loadOwnerPricingOrDefault(env);
     const quote = await authoritativeAmount(journey, body, env, ownerPricing);
     if (!quote.ok) {
-      return json({ error: quote.message, reason: quote.reason }, 422, origin);
+      return { ok: false, status: 422, error: quote.message, reason: quote.reason };
     }
     transferFareBeforeDiscount = quote.amount;
     vehicleTypeLabel = quote.vehicleType;
@@ -358,7 +335,7 @@ export async function handleOwnerCreateQuickQuote(
   );
   const floor = assertQuickQuoteTransferFareFloor(discounted.customerFare);
   if (!floor.ok) {
-    return json({ error: floor.message }, 400, origin);
+    return { ok: false, status: 400, error: floor.message };
   }
 
   let ttlSeconds: number | null;
@@ -369,11 +346,11 @@ export async function handleOwnerCreateQuickQuote(
       ttlSeconds: body.ttlSeconds,
     });
   } catch (err) {
-    return json(
-      { error: err instanceof Error ? err.message : "Invalid quote validity." },
-      400,
-      origin,
-    );
+    return {
+      ok: false,
+      status: 400,
+      error: err instanceof Error ? err.message : "Invalid quote validity.",
+    };
   }
 
   const expressSelection = resolveExpressDropOff({
@@ -405,7 +382,7 @@ export async function handleOwnerCreateQuickQuote(
     discountValue: discounted.discountValue,
     discountAmount: discounted.discountAmount,
     pricingSource,
-    createdByOwner: true,
+    createdByOwner: meta.createdByOwner,
     ttlSeconds,
   });
 
@@ -414,6 +391,85 @@ export async function handleOwnerCreateQuickQuote(
     amountLabel: record.quotedAmountLabel,
     bookingUrl,
   });
+
+
+  return {
+    ok: true,
+    record,
+    bookingUrl,
+    whatsappReply,
+    vehicleChoice: journey.vehicleChoice,
+    expressFields,
+  };
+}
+
+/** POST /owner/quick-quotes — create opaque booking link (owner auth). */
+export async function handleOwnerCreateQuickQuote(
+  request: Request,
+  env: {
+    TRACKING_STORE?: KVNamespace;
+    OWNER_ACCESS_KEY?: string;
+    DRIVER_ACCESS_KEY?: string;
+    SITE_ORIGIN?: string;
+    GOOGLE_PLACES_API_KEY?: string;
+  },
+  origin: string | null,
+): Promise<Response> {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405, origin);
+  }
+  if (!ownerAuthorized(request, env)) {
+    return json({ error: "Unauthorized" }, 401, origin);
+  }
+  if (!env.TRACKING_STORE) {
+    return json({ error: "Quote store is not configured" }, 503, origin);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, origin);
+  }
+
+  const parsedJourney = parseJourney(body);
+  if ("error" in parsedJourney) {
+    return json({ error: parsedJourney.error }, 400, origin);
+  }
+
+  const ownerMaterial =
+    request.headers.get("X-Owner-Key")?.trim() ||
+    new URL(request.url).searchParams.get("key")?.trim() ||
+    "owner";
+  const quota = await consumeQuickQuoteCreateQuota(
+    env.TRACKING_STORE,
+    ownerMaterial,
+    QUICK_QUOTE_CREATE_RATE_LIMIT,
+  );
+  if (quota === "limited") {
+    return json(
+      { error: "Quick Quote rate limit reached. Try again in an hour." },
+      429,
+      origin,
+    );
+  }
+
+  const priced = await createPricedQuickQuote(
+    body,
+    { ...env, TRACKING_STORE: env.TRACKING_STORE },
+    { createdByOwner: true },
+  );
+  if (!priced.ok) {
+    return json(
+      priced.reason ? { error: priced.error, reason: priced.reason } : { error: priced.error },
+      priced.status,
+      origin,
+    );
+  }
+  const { record, bookingUrl, whatsappReply, vehicleChoice, expressFields } = priced;
 
   console.log(
     JSON.stringify({
@@ -425,9 +481,9 @@ export async function handleOwnerCreateQuickQuote(
       discountType: record.discountType,
       discountAmount: record.discountAmount,
       expiresAt: record.expiresAt,
-      vehicleChoice: journey.vehicleChoice,
-      returnJourney: journey.returnJourney,
-      airportCode: journey.airportCode ?? null,
+      vehicleChoice,
+      returnJourney: record.journey.returnJourney,
+      airportCode: record.journey.airportCode ?? null,
       expressDropOffSelected: expressFields.expressDropOffSelected,
       expressDropOffFee: expressFields.expressDropOffFee,
       expressDropOffAirport: expressFields.expressDropOffAirport,

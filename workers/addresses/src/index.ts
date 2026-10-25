@@ -409,6 +409,7 @@ import {
   handleOwnerCreateQuickQuote,
   handlePublicQuickQuoteLookup,
 } from "./quick-quote-handlers";
+import { handleWhatsAppWebhook, isWhatsAppWebhookPath } from "./whatsapp-handlers";
 import {
   getQuickQuote,
   markQuickQuoteCheckout,
@@ -578,6 +579,14 @@ type Env = {
   CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
   /** London hour (0–23) to send the current day's quote report. Default 19. */
   DAILY_QUOTE_REPORT_LONDON_HOUR?: string;
+  /** WhatsApp Business Platform (Cloud API) — quote assistant. See docs/whatsapp-business-api.md. */
+  WHATSAPP_ACCESS_TOKEN?: string;
+  WHATSAPP_PHONE_NUMBER_ID?: string;
+  WHATSAPP_APP_SECRET?: string;
+  WHATSAPP_VERIFY_TOKEN?: string;
+  WHATSAPP_GRAPH_VERSION?: string;
+  WHATSAPP_BOT_ENABLED?: string;
+  WHATSAPP_HANDOFF_HOURS?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -4034,6 +4043,11 @@ export default {
     const origin = request.headers.get("Origin");
     const url = new URL(request.url);
     const route = routePath(url.pathname);
+
+    // Server-to-server from Meta — no CORS, signature-verified inside.
+    if (isWhatsAppWebhookPath(url.pathname)) {
+      return handleWhatsAppWebhook(request, env, ctx);
+    }
 
     if (request.method === "OPTIONS") {
       return new Response(null, {
