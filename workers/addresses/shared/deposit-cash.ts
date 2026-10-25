@@ -275,6 +275,26 @@ export function remainingCashDueGbp(record: {
   return Number.isFinite(due) && due > 0 ? roundGbp(due) : 0;
 }
 
+/**
+ * Cash the driver collects on one leg. Return bookings split the balance
+ * half each in whole pounds; an odd pound goes on the outbound leg.
+ */
+export function cashDueForLegGbp(
+  cashDueGbp: number,
+  returnJourney: boolean,
+  leg: "outbound" | "return",
+): number {
+  const totalPence = gbpToPence(cashDueGbp);
+  if (!Number.isFinite(totalPence) || totalPence <= 0) return 0;
+  if (!returnJourney) return penceToGbp(totalPence);
+  const returnPence = Math.floor(totalPence / 200) * 100;
+  return penceToGbp(leg === "return" ? returnPence : totalPence - returnPence);
+}
+
+export function journeyReminderCashLine(cashDueGbp: number): string {
+  return `Please have ${formatDepositCashGbp(cashDueGbp)} in cash ready for your driver. Card payment is not available for the remaining balance.`;
+}
+
 export function cashDueOnTheDayCopy(cashDueGbp: number): string {
   return `Please have ${formatDepositCashGbp(cashDueGbp)} in cash available for your driver on the day.`;
 }

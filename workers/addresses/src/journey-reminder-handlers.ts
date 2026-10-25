@@ -1,10 +1,27 @@
+import { cashDueForLegGbp, remainingCashDueGbp } from "../shared/deposit-cash";
 import { evaluateJourneyReminder, resolveJourneyReminderCustomerName } from "../shared/journey-reminder";
 import { airportPickupReminderInput } from "./airport-pickup-reminder-handlers";
+import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { getPaidBookingRecord } from "./paid-booking-store";
 import { listUpcomingTrackingJobs, saveTrackingJob } from "./tracking-store";
 import { trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 type Env = WorkerEmailEnv & { TRACKING_STORE?: KVNamespace };
+
+/**
+ * This leg's half of an uncollected Deposit + Cash balance. When the other
+ * leg of a return is cancelled the balance is unsettled, so state no amount.
+ */
+function journeyReminderCashDue(paid: PaidBookingRecord, leg: "outbound" | "return"): number {
+  const cashDue = remainingCashDueGbp(paid);
+  if (!cashDue) return 0;
+  if (paid.returnJourney) {
+    const other = leg === "return" ? "outbound" : "return";
+    const otherCancelledAt = other === "return" ? paid.returnCancelledAt : paid.outboundCancelledAt;
+    if (paid.cancelledLegs?.includes(other) || otherCancelledAt?.trim()) return 0;
+  }
+  return cashDueForLegGbp(cashDue, paid.returnJourney === true, leg);
+}
 
 /** Each leg is evaluated separately using current booking details, not the quote snapshot. */
 export async function processDueJourneyReminders(env: Env, now = new Date()) {
@@ -33,6 +50,7 @@ export async function processDueJourneyReminders(env: Env, now = new Date()) {
       // Older paid records have no exact-quantity flag; preserve 5+ as a lower bound.
       suitcasesExact: (paid as typeof paid & { suitcasesExact?: boolean }).suitcasesExact ?? ((paid.suitcases ?? 0) < 5),
       vehicle: paid.vehicle,
+      cashDueGbp: journeyReminderCashDue(paid, job.journeyLeg === "return" ? "return" : "outbound"),
     }, now);
     if (!decision.eligible) continue;
     result.eligible++;
