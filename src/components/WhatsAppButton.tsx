@@ -1,13 +1,13 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { whatsAppChatUrl } from "@/lib/contact-card";
+import { whatsAppAssistantChatUrl } from "@/lib/contact-card";
 import { useIsMobileDevice } from "@/lib/device";
 import { shouldHidePublicSalesWidgets } from "@/lib/owner-portal";
 
 /**
- * Mobile floating WhatsApp button (bottom-right). Desktop keeps the round “?”
- * help button (QuoteAssistant), so the two never show together.
+ * Mobile floating WhatsApp button (bottom-right) → the WhatsApp quote assistant
+ * (virtual number), which replies with instant prices. Desktop keeps the chat widget.
  */
 export default function WhatsAppButton() {
   const isMobile = useIsMobileDevice();
@@ -16,12 +16,12 @@ export default function WhatsAppButton() {
 
   return (
     <a
-      href={whatsAppChatUrl("Hi, I need some help with an airport transfer.")}
+      href={whatsAppAssistantChatUrl()}
       target="_blank"
       rel="noopener noreferrer"
       data-matni-whatsapp-fab="true"
       data-matni-whatsapp-quick="true"
-      aria-label="WhatsApp us for help with an airport transfer"
+      aria-label="WhatsApp us for an instant airport transfer quote"
       className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-black/30 transition-transform hover:brightness-105 active:scale-95 md:hidden"
     >
       <svg className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

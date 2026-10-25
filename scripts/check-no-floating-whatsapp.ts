@@ -26,6 +26,9 @@ const assistant = read("src/components/QuoteAssistant.tsx");
 
 assert.match(wa, /data-matni-whatsapp-fab/);
 assert.match(wa, /md:hidden/);
+assert.match(wa, /whatsAppAssistantChatUrl\(\)/);
+assert.match(data, /whatsappAssistant:\s*"17117862236"/);
+assert.match(contact, /export function whatsAppAssistantChatUrl/);
 assert.match(layout, /<WhatsAppButton \/>/);
 
 assert.doesNotMatch(header, /data-matni-whatsapp-quick/);

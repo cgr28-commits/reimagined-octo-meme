@@ -33,7 +33,7 @@ console.log("=== Mobile WhatsApp floating button (not in header row) ===");
   assert.match(layout, /<WhatsAppButton \/>/);
   assert.match(wa, /data-matni-whatsapp-fab/);
   assert.match(wa, /#25D366/);
-  assert.match(wa, /Hi, I need some help with an airport transfer/);
+  assert.match(wa, /whatsAppAssistantChatUrl\(\)/);
   assert.match(wa, /md:hidden/);
   assert.match(wa, /isMobile !== true/);
   assert.match(wa, /shouldHidePublicSalesWidgets/);
