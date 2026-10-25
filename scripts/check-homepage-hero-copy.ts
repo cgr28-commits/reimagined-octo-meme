@@ -26,17 +26,17 @@ assert.doesNotMatch(
   /<h1[\s\S]*?>[\s\S]*24\/7/,
   "H1 must not include 24/7",
 );
-// Owner request: on mobile the green line stays on one line, scaled to the viewport
-// so it never overflows. Larger screens still wrap naturally.
+// Owner request: on desktop the green line stays on one line (sized to fit the
+// hero column at each breakpoint). Mobile still wraps naturally.
 assert.doesNotMatch(
   hero,
-  /(?<!max-md:)whitespace-nowrap/,
-  "H1 should wrap naturally above mobile",
+  /(?<!md:)whitespace-nowrap/,
+  "H1 should wrap naturally on mobile",
 );
 assert.match(
   hero,
-  /text-emerald max-md:whitespace-nowrap max-md:text-\[min\([\d.]+vw,[\d.]+rem\)\]">Pre-Booked Airport Taxi Transfers/,
-  "mobile one-line green heading must scale with the viewport",
+  /text-emerald md:whitespace-nowrap lg:text-\[[\d.]+rem\] xl:text-\[[\d.]+rem\] 2xl:text-\[[\d.]+rem\]">Pre-Booked Airport Taxi Transfers/,
+  "desktop one-line green heading must be sized per breakpoint",
 );
 assert.match(hero, /text-balance/, "H1 should use text-balance for clean wraps");
 assert.doesNotMatch(
