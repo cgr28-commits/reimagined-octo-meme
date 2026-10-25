@@ -19,6 +19,7 @@ import {
   bookingTotalLabel,
   calculateDepositCashQuote,
   cashAgreementLabel,
+  cashDueForLegGbp,
   cashDueOnTheDayCopy,
   cashOnTheDayCardLabel,
   cashSelectedBody,
@@ -643,6 +644,18 @@ check("owner can toggle Deposit + Cash and mark cash collected", () => {
   assert.match(read("src/app/driver/DriverPageClient.tsx"), /CASH TO COLLECT/);
   assert.match(read("workers/addresses/src/paid-booking-handlers.ts"), /handlePaidBookingCashCollectedRequest/);
   assert.match(read("shared/driver-job-sanitize.ts"), /cashBalanceDue/);
+});
+
+console.log("\n=== Journey reminder cash per leg ===");
+check("return bookings split cash half each, odd pound on outbound", () => {
+  assert.equal(cashDueForLegGbp(70, true, "outbound"), 35);
+  assert.equal(cashDueForLegGbp(70, true, "return"), 35);
+  assert.equal(cashDueForLegGbp(71, true, "outbound"), 36);
+  assert.equal(cashDueForLegGbp(71, true, "return"), 35);
+  assert.equal(cashDueForLegGbp(1, true, "outbound"), 1);
+  assert.equal(cashDueForLegGbp(1, true, "return"), 0);
+  assert.equal(cashDueForLegGbp(71, false, "outbound"), 71);
+  assert.equal(cashDueForLegGbp(0, true, "outbound"), 0);
 });
 
 console.log("\nAll Deposit + Cash checks passed.");

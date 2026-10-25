@@ -215,8 +215,34 @@ try {
  items.set('track:day:'+day,JSON.stringify([unneededReturn.token]));
  items.set(paidBookingRefKey('TEST-PAYMENT'),JSON.stringify({...receipt,tripDate:day,returnDate:day,status:'confirmed',returnJourney:false}));
  result=await processDueJourneyReminders(env,now);assert.equal(result.sent,0);
+ // Deposit + Cash: each leg's reminder states its half of the cash balance (odd pound on outbound).
+ const cashPaid={...receipt,tripDate:day,returnDate:day,returnTime:'12:00',status:'confirmed',returnJourney:true,
+  paymentMethod:'DEPOSIT_CASH',totalFare:90,onlineAmountPaid:19,cashBalanceDue:71,cashCollected:false};
+ for(const [leg,amount] of [['outbound','£36.00'],['return','£35.00']] as const) {
+  const cashJob={...job,token:'cash-'+leg,...(leg==='return'?{journeyLeg:'return'}:{})};
+  items.set('track:job:'+cashJob.token,JSON.stringify(cashJob));items.set('track:day:'+day,JSON.stringify([cashJob.token]));
+  items.set(paidBookingRefKey('TEST-PAYMENT'),JSON.stringify(cashPaid));
+  result=await processDueJourneyReminders(env,now);assert.equal(result.sent,1);
+  assert.ok(requests.at(-1).text.includes(`Cash to pay driver: ${amount}`));
+  assert.ok(requests.at(-1).text.includes(`Please have ${amount} in cash ready for your driver. Card payment is not available`));
+  assert.ok(requests.at(-1).html.includes(`Please have ${amount} in cash ready for your driver.`));
+ }
+ // No cash line once collected, when fully paid online, or when the other leg is cancelled.
+ for(const patch of [{cashCollected:true},{paymentMethod:'FULL_ONLINE',cashBalanceDue:0},{cancelledLegs:['return']},{returnCancelledAt:now.toISOString()}]) {
+  const cashJob={...job,token:'no-cash-'+requests.length};
+  items.set('track:job:'+cashJob.token,JSON.stringify(cashJob));items.set('track:day:'+day,JSON.stringify([cashJob.token]));
+  items.set(paidBookingRefKey('TEST-PAYMENT'),JSON.stringify({...cashPaid,...patch}));
+  result=await processDueJourneyReminders(env,now);assert.equal(result.sent,1);
+  assert.doesNotMatch(requests.at(-1).text,/cash/i);assert.doesNotMatch(requests.at(-1).html,/Cash to pay driver/);
+ }
+ // One-way bookings state the whole balance.
+ const oneWayJob={...job,token:'cash-one-way'};
+ items.set('track:job:'+oneWayJob.token,JSON.stringify(oneWayJob));items.set('track:day:'+day,JSON.stringify([oneWayJob.token]));
+ items.set(paidBookingRefKey('TEST-PAYMENT'),JSON.stringify({...cashPaid,returnJourney:false}));
+ result=await processDueJourneyReminders(env,now);assert.equal(result.sent,1);
+ assert.ok(requests.at(-1).text.includes('Cash to pay driver: £71.00'));
 } finally {globalThis.fetch=originalFetch;}
-console.log('PASS real delivery handler: updated recipient/details, failure retry, persistent dedupe, independent return leg');
+console.log('PASS real delivery handler: updated recipient/details, failure retry, persistent dedupe, independent return leg, Deposit + Cash half per leg');
 }
 deliveryChecks().catch(error => {console.error(error);process.exitCode=1;});
 const cron=readFileSync('workers/addresses/src/index.ts','utf8');
