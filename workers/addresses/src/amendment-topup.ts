@@ -5,6 +5,7 @@
 
 import {
   buildHigherFarePendingAmendment,
+  summarizeAmendmentChanges,
   validatePendingAmendmentForPayment,
   type DateTimeAmendmentAuditEntry,
 } from "../shared/booking-amendment";
@@ -585,7 +586,10 @@ export async function finalizeAmendmentTopUpCheckout(input: {
   const emailResult = await sendUpdatedConfirmationForPaymentReference({
     env: input.env,
     paymentReference: bookingRef,
-    whatChanged: ["Pickup date changed", "Pickup time changed"],
+    whatChanged: summarizeAmendmentChanges(
+      booking as unknown as Record<string, unknown>,
+      updated as unknown as Record<string, unknown>,
+    ),
     fareNote: `Additional payment received: £${topUpAmount.toFixed(2)}`,
     amendmentId: pending.amendmentId,
   });

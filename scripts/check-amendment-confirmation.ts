@@ -186,6 +186,14 @@ function run() {
   );
   assert.ok(what.some((line) => /Pickup address/i.test(line)));
   assert.ok(what.some((line) => /Pickup time/i.test(line)));
+  // Old → new values, and a booking saved without child seats is not a child seat change.
+  assert.deepEqual(
+    summarizeAmendmentChanges(
+      { tripTime: "05:30", childSeats: undefined, returnJourney: undefined },
+      { tripTime: "06:00", childSeats: 0, returnJourney: false },
+    ),
+    ["Pickup time: 05:30 → 06:00"],
+  );
 
   assert.doesNotMatch(saveQuotePayloadBlockMessage("missing_route"), /no longer available/i);
   const modal = fs.readFileSync(path.join(root, "src/components/SaveQuoteModal.tsx"), "utf8");
