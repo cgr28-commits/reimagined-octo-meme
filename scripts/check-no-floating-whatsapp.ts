@@ -51,6 +51,9 @@ assert.match(footer, /WhatsApp @\{SITE\.whatsappUsername\}/);
 assert.match(footer, /whatsAppChatUrl\(\)/);
 
 assert.match(contact, /export function whatsAppChatUrl/);
+// Assistant buttons fall back to the business number while the assistant is switched off.
+assert.match(data, /whatsappAssistantLive:\s*(true|false)/);
+assert.match(contact, /SITE\.whatsappAssistantLive \? SITE\.whatsappAssistant : SITE\.whatsapp/);
 assert.match(data, /whatsapp:\s*"447549815538"/);
 assert.match(data, /whatsappUsername:\s*"belfasttaxi"/);
 assert.match(data, /whatsappDefaultMessage/);
