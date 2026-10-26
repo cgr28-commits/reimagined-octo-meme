@@ -44,6 +44,7 @@ import {
   buildWhatsAppQuoteReply,
   buildWhatsAppTeamHandoffReply,
   decideWhatsAppReply,
+  detectWhatsAppIntent,
   WHATSAPP_QUOTED_BUTTONS,
   whatsAppDraftToQuoteBody,
   type WhatsAppConversation,
@@ -84,6 +85,54 @@ const QUOTES_PER_CUSTOMER_PER_HOUR = 10;
 const conversationKey = (phone: string) => `whatsapp:convo:${phone}`;
 const pausedKey = (phone: string) => `whatsapp:paused:${phone}`;
 const messageKey = (id: string) => `whatsapp:msg:${id}`;
+const DIAG_KEY = "whatsapp:diag";
+const DIAG_TTL_SECONDS = 60 * 60 * 24 * 14;
+
+/** Last-seen timestamps and errors for GET /whatsapp/status (no message text or numbers). */
+type WhatsAppDiag = {
+  lastWebhookAt?: string;
+  lastBadSignatureAt?: string;
+  lastMessageAt?: string;
+  lastSkip?: { at: string; reason: string };
+  lastReplyOkAt?: string;
+  lastReplyError?: { at: string; error: string };
+  lastProcessingError?: { at: string; error: string };
+};
+
+async function recordDiag(store: KVNamespace | undefined, patch: Partial<WhatsAppDiag>): Promise<void> {
+  if (!store) return;
+  try {
+    const current = (await store.get<WhatsAppDiag>(DIAG_KEY, "json")) ?? {};
+    await store.put(DIAG_KEY, JSON.stringify({ ...current, ...patch }), { expirationTtl: DIAG_TTL_SECONDS });
+  } catch {
+    // Diagnostics must never affect replies.
+  }
+}
+
+const nowIso = () => new Date().toISOString();
+
+export function isWhatsAppStatusPath(pathname: string): boolean {
+  return pathname === "/whatsapp/status";
+}
+
+/** Owner troubleshooting: is the webhook arriving, and are replies being accepted? */
+export async function handleWhatsAppStatus(env: WhatsAppEnv): Promise<Response> {
+  const diag = env.TRACKING_STORE ? await env.TRACKING_STORE.get<WhatsAppDiag>(DIAG_KEY, "json") : null;
+  return new Response(
+    JSON.stringify(
+      {
+        configured: whatsAppCloudConfigured(env),
+        provider: whatsAppUses360dialog(env) ? "360dialog" : "meta",
+        botEnabled: env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() !== "false",
+        teamNumberSet: Boolean(env.WHATSAPP_TEAM_NUMBER?.trim()),
+        ...(diag ?? {}),
+      },
+      null,
+      2,
+    ),
+    { status: 200, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } },
+  );
+}
 
 function handoffTtlSeconds(env: WhatsAppEnv): number {
   const hours = Number(env.WHATSAPP_HANDOFF_HOURS);
@@ -220,8 +269,12 @@ export async function handleWhatsAppWebhook(
       );
   if (!validSignature) {
     console.warn(JSON.stringify({ event: "whatsapp_webhook_bad_signature" }));
+    if (request.headers.get(D360_WEBHOOK_SECRET_HEADER) || request.headers.get("X-Hub-Signature-256")) {
+      await recordDiag(env.TRACKING_STORE, { lastBadSignatureAt: nowIso() });
+    }
     return new Response("Invalid signature", { status: 401 });
   }
+  await recordDiag(env.TRACKING_STORE, { lastWebhookAt: nowIso() });
 
   let payload: unknown;
   try {
@@ -230,13 +283,10 @@ export async function handleWhatsAppWebhook(
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  const work = processWhatsAppWebhook(payload, env).catch((err) => {
-    console.error(
-      JSON.stringify({
-        event: "whatsapp_webhook_error",
-        error: err instanceof Error ? err.message : String(err),
-      }),
-    );
+  const work = processWhatsAppWebhook(payload, env).catch(async (err) => {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error(JSON.stringify({ event: "whatsapp_webhook_error", error }));
+    await recordDiag(env.TRACKING_STORE, { lastProcessingError: { at: nowIso(), error: error.slice(0, 300) } });
   });
   // Acknowledge quickly so Meta does not retry; pricing can take a few seconds.
   if (ctx) ctx.waitUntil(work);
@@ -268,11 +318,24 @@ async function handleInboundMessage(
   if (await store.get(messageKey(message.id))) return;
   await store.put(messageKey(message.id), "1", { expirationTtl: DEDUPE_TTL_SECONDS });
 
-  if (env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() === "false") return;
-  if (message.timestamp && Date.now() / 1000 - message.timestamp > MAX_MESSAGE_AGE_SECONDS) return;
-  if (await store.get(pausedKey(message.from))) return;
+  await recordDiag(store, { lastMessageAt: nowIso() });
+  const skip = (reason: string) => recordDiag(store, { lastSkip: { at: nowIso(), reason } });
+  if (env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() === "false") return skip("bot disabled");
+  if (message.timestamp && Date.now() / 1000 - message.timestamp > MAX_MESSAGE_AGE_SECONDS) {
+    return skip("message too old");
+  }
 
   const phone = message.from;
+  const teamNumber = env.WHATSAPP_TEAM_NUMBER?.replace(/\D/g, "");
+  const isTeamPhone = Boolean(teamNumber) && teamNumber === phone;
+  if (await store.get(pausedKey(phone))) {
+    // NEW always wakes the assistant; the team's own phone is never left paused (testing).
+    if (isTeamPhone || detectWhatsAppIntent(message.text) === "reset") {
+      await store.delete(pausedKey(phone));
+    } else {
+      return skip("paused for this customer (handoff or owner reply)");
+    }
+  }
   if (!message.text) {
     await reply(
       env,
@@ -289,8 +352,11 @@ async function handleInboundMessage(
   let buttons: WhatsAppReplyButton[] | undefined = decision.buttons;
 
   if (decision.action === "handoff") {
-    const teamNumber = env.WHATSAPP_TEAM_NUMBER?.replace(/\D/g, "");
-    if (teamNumber && teamNumber !== phone) {
+    if (isTeamPhone) {
+      // The owner testing from the team phone: never pause, just explain.
+      text = "This is the team's own number, so the assistant stays on. (Customers who ask for a person get a link to chat with you.)";
+      buttons = undefined;
+    } else if (teamNumber) {
       // The team answers from another number, so keep the assistant available here.
       text = buildWhatsAppTeamHandoffReply(teamNumber, conversation.draft);
       buttons = undefined;
@@ -298,7 +364,7 @@ async function handleInboundMessage(
       await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
     }
     logEvent("whatsapp_bot_handoff", phone);
-    await notifyOwnerOfHandoff(env, phone, message.profileName, conversation);
+    if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation);
   }
 
   if (decision.action === "quote") {
@@ -501,11 +567,20 @@ async function reply(
   text: string,
   buttons?: WhatsAppReplyButton[],
 ): Promise<void> {
+  const store = env.TRACKING_STORE;
   if (buttons?.length) {
     const withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
-    if (withButtons.sent) return;
+    if (withButtons.sent) {
+      await recordDiag(store, { lastReplyOkAt: nowIso() });
+      return;
+    }
     logEvent("whatsapp_buttons_failed", phone, { error: withButtons.error });
   }
   const result = await sendWhatsAppText(env, phone, text);
-  if (!result.sent) logEvent("whatsapp_send_failed", phone, { error: result.error });
+  if (result.sent) {
+    await recordDiag(store, { lastReplyOkAt: nowIso() });
+  } else {
+    logEvent("whatsapp_send_failed", phone, { error: result.error });
+    await recordDiag(store, { lastReplyError: { at: nowIso(), error: String(result.error ?? "unknown").slice(0, 300) } });
+  }
 }
