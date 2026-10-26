@@ -601,6 +601,8 @@ type Env = {
   D360_API_KEY?: string;
   /** Team WhatsApp number for handoffs when the assistant runs on a separate number. */
   WHATSAPP_TEAM_NUMBER?: string;
+  /** Anthropic API key (Worker secret) — WhatsApp assistant answers customer questions. */
+  ANTHROPIC_API_KEY?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {

@@ -56,7 +56,8 @@ export type WhatsAppConversation = {
   updatedAt: string;
 };
 
-export type WhatsAppBotAction = "none" | "quote" | "handoff";
+/** answer: a question the journey flow can't use — the Worker answers it with AI (reply is the fallback). */
+export type WhatsAppBotAction = "none" | "quote" | "handoff" | "answer";
 
 /** Tap-to-reply button; ids starting "txt:" are read back as if the customer typed them. */
 export type WhatsAppBotButton = { id: string; title: string };
@@ -544,7 +545,34 @@ export function buildWhatsAppTeamHandoffReply(teamNumber: string, draft: WhatsAp
  * Decide the reply to one inbound customer message.
  * `action: "quote"` means the Worker should now price `conversation.draft`.
  */
+const QUESTION_START =
+  /^(what|whats|what's|how|do|does|did|can|could|is|are|was|will|would|where|when|why|which|who|should|any|have you|are there|is there)\b/i;
+
+/** A question rather than journey details (journey changes are handled first). */
+export function isWhatsAppQuestion(text: string): boolean {
+  const t = stripWhatsAppMarkdown(text).trim();
+  return t.includes("?") || QUESTION_START.test(t);
+}
+
 export function decideWhatsAppReply(
+  existing: WhatsAppConversation | null,
+  text: string,
+  options: { now?: Date; profileName?: string } = {},
+): WhatsAppBotDecision {
+  const decision = decideJourneyReply(existing, text, options);
+  // A question that changed nothing in the journey: answer it instead of repeating the
+  // last prompt (e.g. "Do you have child seats?" after a quote). decision.reply stays
+  // as the fallback when AI answers are unavailable.
+  const draftUnchanged = JSON.stringify(existing?.draft ?? {}) === JSON.stringify(decision.conversation.draft);
+  if (decision.action !== "none" || !isWhatsAppQuestion(text)) return decision;
+  // "Do you go to Dublin airport?" also fills in part of the journey: answer it and keep
+  // the details (the Worker re-asks the next journey question after the answer). A full
+  // journey phrased as a question still goes to the summary.
+  const partlyFilled = text.includes("?") && decision.conversation.stage === "collecting";
+  return draftUnchanged || partlyFilled ? { ...decision, action: "answer" } : decision;
+}
+
+function decideJourneyReply(
   existing: WhatsAppConversation | null,
   text: string,
   options: { now?: Date; profileName?: string } = {},

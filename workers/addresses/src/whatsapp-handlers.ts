@@ -43,7 +43,9 @@ import {
   buildWhatsAppAlternativeTimeButtons,
   buildWhatsAppUnavailableReply,
   buildWhatsAppQuoteFailedReply,
+  buildWhatsAppQuestion,
   buildWhatsAppQuoteReply,
+  buildWhatsAppSummary,
   buildWhatsAppTeamHandoffReply,
   decideWhatsAppReply,
   detectWhatsAppIntent,
@@ -60,6 +62,7 @@ import { getBookingSettings } from "./booking-settings-store";
 import { evaluateOwnerNoAvailabilityFromStore, shouldForceShortNotice } from "./short-notice-handlers";
 import { enforceCustomerSmartAvailabilityGate } from "./smart-ops-handlers";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
+import { answerWhatsAppQuestion } from "./whatsapp-ai";
 import {
   appendWhatsAppChat,
   formatWhatsAppChatTranscript,
@@ -95,6 +98,8 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
    */
   WHATSAPP_TEAM_NUMBER?: string;
   BOOKING_TO_EMAIL?: string;
+  /** Worker secret: lets the assistant answer customer questions with Claude. */
+  ANTHROPIC_API_KEY?: string;
 };
 
 /** Matches the WhatsApp customer service window — free-form replies are allowed inside it. */
@@ -402,6 +407,16 @@ async function handleInboundMessage(
     if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation);
   }
 
+  if (decision.action === "answer") {
+    const answered = await answerCustomerQuestion(env, store, phone, message.text, conversation, teamNumber);
+    if (answered) {
+      text = answered.text;
+      if (answered.handoff && !isTeamPhone) {
+        await notifyOwnerOfHandoff(env, phone, message.profileName, conversation);
+      }
+    }
+  }
+
   if (decision.action === "quote") {
     const availability = await checkWhatsAppAvailability(conversation.draft, store);
     if (!availability.ok) {
@@ -627,6 +642,48 @@ async function notifyOwnerOfHandoff(
     if (!sent.sent) logEvent("whatsapp_handoff_email_failed", phone);
   } catch {
     logEvent("whatsapp_handoff_email_failed", phone);
+  }
+}
+
+/**
+ * AI answer to a customer's question (website FAQs/terms only). Re-asks the pending
+ * journey question afterwards so the quote keeps moving. Null keeps the fallback reply.
+ */
+async function answerCustomerQuestion(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  question: string,
+  conversation: WhatsAppConversation,
+  teamNumber: string | undefined,
+): Promise<{ text: string; handoff: boolean } | null> {
+  try {
+    const chat = await getWhatsAppChat(store, phone);
+    // The question itself was just logged; send the turns before it for context.
+    const recentChat = (chat?.messages ?? [])
+      .slice(-9, -1)
+      .map((m) => `${m.from === "customer" ? "Customer" : "Assistant"}: ${m.text.slice(0, 500)}`)
+      .join("\n");
+    const draft = conversation.draft;
+    const journeySummary = Object.keys(draft).length
+      ? buildWhatsAppSummary(draft) +
+        (conversation.lastQuoteAmountLabel ? `\nQuoted price: ${conversation.lastQuoteAmountLabel}` : "")
+      : undefined;
+    const answer = await answerWhatsAppQuestion(env, question, { journeySummary, recentChat });
+    if (!answer) return null;
+    logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff });
+
+    let text = answer.text;
+    if (answer.handoff && teamNumber) {
+      text += `\n\nYou can message our team directly here: https://wa.me/${teamNumber}`;
+    }
+    if (conversation.stage === "collecting" && conversation.awaiting) {
+      text += `\n\n${buildWhatsAppQuestion(conversation.awaiting)}`;
+    }
+    return { text, handoff: answer.handoff };
+  } catch (err) {
+    logEvent("whatsapp_ai_answer_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    return null;
   }
 }
 
