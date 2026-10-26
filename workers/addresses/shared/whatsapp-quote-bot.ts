@@ -414,14 +414,26 @@ export function whatsAppDraftToQuoteBody(draft: WhatsAppQuoteDraft): Record<stri
     suitcases: draft.suitcases,
     flightNumber: draft.flightNumber ?? "",
     vehicleChoice: "Saloon",
+    // Quote the fare without the optional Express terminal (barrier) fee; the
+    // customer can add it on the booking page.
+    expressDropOffSelected: false,
     priceSource: "website-pricing-engine",
     validityMode: "24h",
   };
 }
 
-export function buildWhatsAppQuoteReply(input: { amountLabel: string; bookingUrl: string }): string {
+export function buildWhatsAppQuoteReply(input: {
+  amountLabel: string;
+  bookingUrl: string;
+  /** e.g. "£5" — optional Express terminal fee not included in amountLabel. */
+  optionalExpressFeeLabel?: string | null;
+}): string {
+  const expressNote = input.optionalExpressFeeLabel
+    ? `This price doesn't include Express terminal access at the airport. You can add it for ${input.optionalExpressFeeLabel} when you book.\n\n`
+    : "";
   return (
     `Your fixed price is *${input.amountLabel}* ✅\n\n` +
+    expressNote +
     `To book, check your details and pay securely here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
     `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote.`
   );

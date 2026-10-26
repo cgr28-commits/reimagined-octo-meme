@@ -52,6 +52,7 @@ import {
   type WhatsAppQuoteDraft,
 } from "../shared/whatsapp-quote-bot";
 import { isWithinMinimumBookingNotice } from "../shared/booking-notice";
+import { formatExpressDropOffGbp, resolveExpressDropOff } from "../shared/express-drop-off";
 import { getBookingSettings } from "./booking-settings-store";
 import { evaluateOwnerNoAvailabilityFromStore } from "./short-notice-handlers";
 import { enforceCustomerSmartAvailabilityGate } from "./smart-ops-handlers";
@@ -397,9 +398,21 @@ async function handleInboundMessage(
         conversation.stage = "quoted";
         conversation.lastQuoteUrl = priced.bookingUrl;
         conversation.lastQuoteAmountLabel = priced.record.quotedAmountLabel;
+        const pricedJourney = priced.record.journey;
+        const express = resolveExpressDropOff({
+          airportCode: pricedJourney.airportCode,
+          fromAirport: pricedJourney.fromAirport,
+          returnJourney: pricedJourney.returnJourney,
+          selected: false,
+        });
+        const optionalExpressFeeGbp = express.legs
+          .filter((leg) => !leg.selected)
+          .reduce((sum, leg) => sum + leg.feeIfSelectedGbp, 0);
         text = buildWhatsAppQuoteReply({
           amountLabel: priced.record.quotedAmountLabel,
           bookingUrl: priced.bookingUrl,
+          optionalExpressFeeLabel:
+            optionalExpressFeeGbp > 0 ? formatExpressDropOffGbp(optionalExpressFeeGbp) : null,
         });
         buttons = WHATSAPP_QUOTED_BUTTONS;
         logEvent("whatsapp_quote_sent", phone, {

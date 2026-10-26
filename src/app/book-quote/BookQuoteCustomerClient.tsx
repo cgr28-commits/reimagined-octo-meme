@@ -128,7 +128,8 @@ function BookQuoteInner() {
         setTripTime(loaded.journey.outboundTime?.trim() || "");
         setReturnDate(loaded.journey.returnDate?.trim() || "");
         setReturnTime(loaded.journey.returnTime?.trim() || "");
-        setExpressDropOffSelected(true);
+        // WhatsApp quotes are priced without Express; the customer can add it here.
+        setExpressDropOffSelected(loaded.journey.expressDropOffSelected !== false);
         setExpressRemovalAck(false);
         setExpressAckRequired(false);
         setExpressEditing(false);
@@ -196,9 +197,13 @@ function BookQuoteInner() {
       airportCode: journey.airportCode,
       fromAirport: journey.fromAirport,
       returnJourney: journey.returnJourney,
-      selected: true,
+      selected: expressDropOffSelected,
     });
   }, [journey, expressDropOffSelected]);
+
+  /** Quote was created without Express (e.g. WhatsApp) — offer it as an optional add-on. */
+  const expressOptional =
+    journey?.expressDropOffSelected === false && expressSelection.freeAlternativeAvailable;
 
   const displayPricing = useMemo(() => {
     if (!quote || !journey) return null;
@@ -469,14 +474,14 @@ function BookQuoteInner() {
 
       {expressSelection.eligible && expressSelection.airportCode ? (
         <ExpressDropOffChoice
-          mode="summary"
-          terminalAccessIncluded
+          mode={expressOptional ? "full" : "summary"}
+          terminalAccessIncluded={!expressOptional}
           editing={expressEditing}
           onEditingChange={setExpressEditing}
           airportCode={expressSelection.airportCode}
           service={expressSelection.service ?? "drop-off"}
-          allowFreeAlternative={false}
-          selected
+          allowFreeAlternative={expressOptional}
+          selected={expressDropOffSelected}
           removalAcknowledged={expressRemovalAck}
           requireAcknowledgement={expressAckRequired}
           onSelectedChange={(selected) => {
