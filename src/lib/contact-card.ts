@@ -122,7 +122,8 @@ export function whatsAppChatUrl(message: string = SITE.whatsappDefaultMessage): 
 
 /** Chat with the WhatsApp quote assistant (instant prices and booking links). */
 export function whatsAppAssistantChatUrl(message = "Hi, I'd like a quote for an airport transfer."): string {
-  return `https://wa.me/${SITE.whatsappAssistant}?text=${encodeURIComponent(message)}`;
+  const number = SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp;
+  return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 }
 
 export function isAppleMobile(): boolean {
