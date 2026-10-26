@@ -1,6 +1,10 @@
 "use client";
 
-import { DEFAULT_EVENING_PRICING } from "../../shared/owner-pricing-config";
+import {
+  DEFAULT_CHRISTMAS_PRICING,
+  DEFAULT_EVENING_PRICING,
+  parseMonthDayInput,
+} from "../../shared/owner-pricing-config";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -550,6 +554,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
     [editingDraft],
   );
   const evening = draft.evening ?? DEFAULT_EVENING_PRICING;
+  const christmas = draft.christmas ?? DEFAULT_CHRISTMAS_PRICING;
+  /** Stored as MM-DD; shown and typed as DD/MM. */
+  const dayMonth = (monthDay: string) => /^\d{2}-\d{2}$/.test(monthDay) ? `${monthDay.slice(3)}/${monthDay.slice(0, 2)}` : monthDay;
   const nightOnHundred = previewSurchargeOnBase(100, draft.night.surchargeRate);
   const nightOnMinibus = previewSurchargeOnBase(preview.minibusQuotedGbp, draft.night.surchargeRate);
   const weekendDays = draft.weekend.days.includes(6) && draft.weekend.days.includes(0)
@@ -1049,7 +1056,27 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
           Evening / Night / Weekend / Bank Holiday
         </h3>
-        <div className="mt-3" data-evening-pricing>
+        <div className="mt-3" data-christmas-pricing>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-white/70">Christmas pricing enabled</p>
+            <Toggle id="christmas-enabled" label="Christmas pricing enabled" checked={christmas.enabled}
+              onChange={(enabled) => update("christmas", { ...christmas, enabled })} />
+          </div>
+          <PercentField label="Christmas surcharge" value={Math.round(christmas.surchargeRate * 1000) / 10}
+            onChange={(value) => update("christmas", { ...christmas, surchargeRate: value / 100 })} />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(["startMonthDay", "endMonthDay"] as const).map((field) => (
+              <label key={field} className={labelClass}>
+                {field === "startMonthDay" ? "Christmas starts (day/month)" : "Christmas ends (day/month)"}
+                <input className={fieldClass} type="text" inputMode="numeric" placeholder={field === "startMonthDay" ? "14/12" : "31/12"}
+                  value={dayMonth(christmas[field])}
+                  onChange={(event) => update("christmas", { ...christmas, [field]: parseMonthDayInput(event.target.value) ?? event.target.value })} />
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-white/55">Applies every year to pickups between these dates (inclusive, Europe/London). The highest applicable Christmas, Evening, Night or Weekend percentage applies once per leg.</p>
+        </div>
+        <div className="mt-4" data-evening-pricing>
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-white/70">Evening pricing enabled</p>
             <Toggle id="evening-enabled" label="Evening pricing enabled" checked={evening.enabled}

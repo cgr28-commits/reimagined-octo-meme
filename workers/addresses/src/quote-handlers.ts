@@ -745,7 +745,7 @@ export async function handleQuoteCalculateRequest(
 
   const quoteBody: Record<string, unknown> = {
     ...result,
-    nightWeekendSurchargeLabel: nightWeekendSurchargeLabel(pricing),
+    nightWeekendSurchargeLabel: nightWeekendSurchargeLabel(pricing, [schedule.outboundDate, schedule.returnDate]),
     nightWeekendSurchargeExplanation: nightWeekendSurchargeExplanation(pricing),
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,

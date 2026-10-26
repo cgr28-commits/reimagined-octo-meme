@@ -1,0 +1,32 @@
+name: WhatsApp assistant review
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'shared/**'
+      - 'src/**'
+      - 'workers/addresses/**'
+      - 'scripts/check-whatsapp-*.ts'
+      - 'scripts/generate-whatsapp-knowledge.ts'
+      - '.github/workflows/whatsapp-assistant-review.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: node scripts/sync-worker-shared.mjs
+      # The assistant answers from the website's FAQs/terms; regenerate after editing them.
+      - run: node --import tsx scripts/generate-whatsapp-knowledge.ts --check
+      - run: node --import tsx scripts/check-whatsapp-quote-bot.ts
+      - run: node --import tsx scripts/check-whatsapp-pickup-info.ts
+      - run: node --import tsx scripts/check-whatsapp-chat-log.ts
+      - run: npm --prefix workers/addresses run typecheck

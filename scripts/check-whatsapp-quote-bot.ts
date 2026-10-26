@@ -30,6 +30,7 @@ import {
   extractClockTimes,
   parseWeekdayDate,
   whatsAppDraftToQuoteBody,
+  isWhatsAppQuestion,
   buildWhatsAppQuoteReply,
   type WhatsAppConversation,
 } from "../shared/whatsapp-quote-bot";
@@ -531,3 +532,27 @@ assert.equal(
   "agent",
 );
 assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am"), null);
+
+// Questions that don't change the journey are answered (AI in the Worker), not met
+// with the quote link again. Journey details still go through the quote flow.
+{
+  const now = new Date("2026-10-28T09:00:00Z");
+  const quoted: WhatsAppConversation = {
+    stage: "quoted",
+    updatedAt: now.toISOString(),
+    lastQuoteUrl: "https://example.test/q",
+    draft: {
+      pickupAddress: "BT9 6AA", dropoffAddress: "Belfast International Airport", airportCode: "BFS",
+      fromAirport: false, returnJourney: false, outboundDate: "2026-10-30", outboundTime: "05:00",
+      passengers: 2, suitcases: 2,
+    },
+  };
+  const q = decideWhatsAppReply(quoted, "Do you have child seats?", { now });
+  assert.equal(q.action, "answer");
+  assert.match(q.reply, /booking link is above/, "fallback kept when AI is unavailable");
+  assert.equal(decideWhatsAppReply(quoted, "How long will the driver wait if my flight is late", { now }).action, "answer");
+  assert.equal(decideWhatsAppReply(null, "Do you go to Dublin airport?", { now }).action, "answer");
+  assert.notEqual(decideWhatsAppReply(quoted, "make it 3 passengers", { now }).action, "answer");
+  assert.equal(isWhatsAppQuestion("BT9 6AA to BFS Friday 5am"), false);
+  assert.equal(isWhatsAppQuestion("can I pay cash"), true);
+}

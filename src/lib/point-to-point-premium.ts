@@ -71,6 +71,9 @@ export function isTripPremiumDateTime(
   const options = pricing ? ownerPricingEngineOptions(pricing) : null;
   const rules = options
     ? {
+        christmasEnabled: options.christmasEnabled,
+        christmasStartMonthDay: options.christmasStartMonthDay,
+        christmasEndMonthDay: options.christmasEndMonthDay,
         eveningEnabled: options.eveningEnabled,
         eveningStartMinutes: options.eveningStartMinutes,
         eveningEndMinutes: options.eveningEndMinutes,
@@ -86,6 +89,8 @@ export function isTripPremiumDateTime(
     surchargeRateForDateTime({
       day: parsed.day,
       minutes: parsed.minutes,
+      date,
+      christmasRate: options?.christmasRate ?? 0,
       eveningRate: options?.eveningRate ?? 0,
       nightRate: options?.nightRate ?? TRIP_PREMIUM_RATE,
       weekendRate: options?.weekendRate ?? TRIP_PREMIUM_RATE,
@@ -151,6 +156,9 @@ export function applyTripPremium(
   const weekendRate = pricingOptions?.weekendRate ?? premiumRate;
   const rules = pricingOptions
     ? {
+        christmasEnabled: pricingOptions.christmasEnabled,
+        christmasStartMonthDay: pricingOptions.christmasStartMonthDay,
+        christmasEndMonthDay: pricingOptions.christmasEndMonthDay,
         eveningEnabled: pricingOptions.eveningEnabled,
         eveningStartMinutes: pricingOptions.eveningStartMinutes,
         eveningEndMinutes: pricingOptions.eveningEndMinutes,
@@ -169,6 +177,8 @@ export function applyTripPremium(
     return surchargeRateForDateTime({
       day: parsed.day,
       minutes: parsed.minutes,
+      date,
+      christmasRate: pricingOptions?.christmasRate ?? 0,
       eveningRate: pricingOptions?.eveningRate ?? 0,
       nightRate,
       weekendRate,
