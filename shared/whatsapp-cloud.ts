@@ -312,6 +312,32 @@ export function sendWhatsAppText(
   );
 }
 
+/** Image by public URL, with an optional caption (max 1024 chars). */
+export function sendWhatsAppImage(
+  env: WhatsAppCloudEnv,
+  to: string,
+  imageUrl: string,
+  caption?: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<WhatsAppSendResult> {
+  return postWhatsAppMessage(
+    env,
+    to,
+    { type: "image", image: { link: imageUrl, ...(caption ? { caption: caption.slice(0, 1024) } : {}) } },
+    fetchImpl,
+  );
+}
+
+/** Tappable map pin. */
+export function sendWhatsAppLocation(
+  env: WhatsAppCloudEnv,
+  to: string,
+  pin: { latitude: number; longitude: number; name?: string; address?: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<WhatsAppSendResult> {
+  return postWhatsAppMessage(env, to, { type: "location", location: pin }, fetchImpl);
+}
+
 /** Text with up to 3 tap-to-reply buttons. Falls back to plain text if the body is too long. */
 export function sendWhatsAppButtons(
   env: WhatsAppCloudEnv,

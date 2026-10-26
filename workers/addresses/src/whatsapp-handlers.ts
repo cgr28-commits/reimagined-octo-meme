@@ -25,6 +25,8 @@ import {
   parseWhatsAppWebhook,
   register360dialogWebhook,
   sendWhatsAppButtons,
+  sendWhatsAppImage,
+  sendWhatsAppLocation,
   sendWhatsAppText,
   update360dialogBusinessProfile,
   upload360dialogProfilePicture,
@@ -57,6 +59,16 @@ import { getBookingSettings } from "./booking-settings-store";
 import { evaluateOwnerNoAvailabilityFromStore } from "./short-notice-handlers";
 import { enforceCustomerSmartAvailabilityGate } from "./smart-ops-handlers";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
+import type { PaidBookingRecord } from "../shared/paid-booking-record";
+import { getPaidBookingRecordByCustomerReference, listUpcomingPaidBookings } from "./paid-booking-store";
+import {
+  WHATSAPP_PICKUP_NOT_FOUND_REPLY,
+  buildWhatsAppPickupInfo,
+  extractCustomerBookingReference,
+  isWhatsAppPickupLocationQuestion,
+  sameCustomerPhone,
+  upcomingAirportCollections,
+} from "../shared/whatsapp-pickup-info";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
 import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
 
@@ -346,6 +358,13 @@ async function handleInboundMessage(
     return;
   }
 
+  // "Where do I get picked up?" or a booking reference: answer from the paid booking.
+  const bookingRef = extractCustomerBookingReference(message.text);
+  if (bookingRef || isWhatsAppPickupLocationQuestion(message.text)) {
+    await replyWithPickupInfo(env, store, phone, bookingRef);
+    return;
+  }
+
   const existing = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
   const decision = decideWhatsAppReply(existing, message.text, { profileName: message.profileName });
   const conversation = decision.conversation;
@@ -571,6 +590,49 @@ async function notifyOwnerOfHandoff(
     if (!sent.sent) logEvent("whatsapp_handoff_email_failed", phone);
   } catch {
     logEvent("whatsapp_handoff_email_failed", phone);
+  }
+}
+
+async function replyWithPickupInfo(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  bookingRef: string | null,
+): Promise<void> {
+  let bookings: PaidBookingRecord[] = [];
+  try {
+    if (bookingRef) {
+      const paid = await getPaidBookingRecordByCustomerReference(store, bookingRef);
+      if (paid) bookings = [paid];
+    } else {
+      const upcoming = await listUpcomingPaidBookings(store, { pastDays: 1, futureDays: 120, limit: 250 });
+      bookings = upcoming.filter((b) => sameCustomerPhone(b.mobileNumber, phone));
+    }
+  } catch (err) {
+    logEvent("whatsapp_pickup_lookup_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+  }
+
+  const next = upcomingAirportCollections(bookings)[0];
+  const info = next ? buildWhatsAppPickupInfo(next) : null;
+  logEvent("whatsapp_pickup_info", phone, { byRef: Boolean(bookingRef), found: Boolean(info) });
+  if (!info) {
+    await reply(
+      env,
+      phone,
+      bookingRef
+        ? `I couldn't find an upcoming airport pickup for ${bookingRef}. Please check the reference in your confirmation email, or reply *NEW* for a quote.`
+        : WHATSAPP_PICKUP_NOT_FOUND_REPLY,
+    );
+    return;
+  }
+  await reply(env, phone, info.text);
+  if (info.mapImageUrl) {
+    const sent = await sendWhatsAppImage(env, phone, info.mapImageUrl);
+    if (!sent.sent) logEvent("whatsapp_pickup_map_failed", phone, { error: sent.error });
+  }
+  if (info.pin) {
+    const sent = await sendWhatsAppLocation(env, phone, info.pin);
+    if (!sent.sent) logEvent("whatsapp_pickup_pin_failed", phone, { error: sent.error });
   }
 }
 
