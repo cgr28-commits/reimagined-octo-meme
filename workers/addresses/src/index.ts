@@ -411,8 +411,10 @@ import {
 } from "./quick-quote-handlers";
 import {
   handleWhatsAppConnect,
+  handleWhatsAppStatus,
   handleWhatsAppWebhook,
   isWhatsAppConnectPath,
+  isWhatsAppStatusPath,
   isWhatsAppWebhookPath,
 } from "./whatsapp-handlers";
 import {
@@ -4059,6 +4061,9 @@ export default {
     }
     if (isWhatsAppConnectPath(url.pathname)) {
       return handleWhatsAppConnect(request, env);
+    }
+    if (isWhatsAppStatusPath(url.pathname)) {
+      return handleWhatsAppStatus(env);
     }
 
     if (request.method === "OPTIONS") {

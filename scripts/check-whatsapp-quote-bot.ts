@@ -379,6 +379,9 @@ async function main() {
     async put(key: string, value: string) {
       kv.set(key, value);
     },
+    async delete(key: string) {
+      kv.delete(key);
+    },
   } as unknown as KVNamespace;
   const sent: Array<{ to: string; body: string }> = [];
   const realFetch = globalThis.fetch;
@@ -463,6 +466,25 @@ async function main() {
 
     await processWhatsAppWebhook(inbound("d3", "hi", "447700900888"), d360Env);
     assert.equal(d360Sent.length, 3, "customer can carry on with the assistant after a handoff");
+
+    // The owner testing from the team phone is never paused, even if an old pause exists.
+    kv.set("whatsapp:paused:447549815538", "customer");
+    await processWhatsAppWebhook(inbound("d4", "hi", "447549815538"), d360Env);
+    assert.equal(d360Sent.length, 4, "team phone always gets a reply");
+    assert.ok(!kv.has("whatsapp:paused:447549815538"));
+    await processWhatsAppWebhook(inbound("d5", "agent", "447549815538"), d360Env);
+    assert.match(d360Sent.at(-1)!.body, /team's own number/);
+    assert.ok(!kv.has("whatsapp:paused:447549815538"));
+
+    // NEW wakes a paused customer.
+    kv.set("whatsapp:paused:447700900999", "customer");
+    await processWhatsAppWebhook(inbound("d6", "hello", "447700900999"), d360Env);
+    assert.equal(d360Sent.length, 5, "paused customer gets no reply");
+    await processWhatsAppWebhook(inbound("d7", "new", "447700900999"), d360Env);
+    assert.equal(d360Sent.length, 6, "NEW wakes the assistant");
+    assert.ok(!kv.has("whatsapp:paused:447700900999"));
+    const diag = JSON.parse(kv.get("whatsapp:diag")!);
+    assert.ok(diag.lastMessageAt && diag.lastReplyOkAt);
   } finally {
     globalThis.fetch = realFetch;
   }
