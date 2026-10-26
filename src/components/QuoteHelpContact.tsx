@@ -1,6 +1,6 @@
 "use client";
 
-import { whatsAppAssistantChatUrl } from "@/lib/contact-card";
+import { useWhatsAppAssistantHref } from "@/lib/whatsapp-journey-context";
 import {
   QUOTE_RESULT_ACTION_CLASS,
   QuoteResultActionIcon,
@@ -17,10 +17,12 @@ export default function QuoteHelpContact({
   className?: string;
   variant?: "inline" | "card";
 }) {
+  // Assistant chat, pre-filled with the journey being quoted when there is one.
+  const whatsAppHref = useWhatsAppAssistantHref();
   if (variant === "card") {
     return (
       <a
-        href={whatsAppAssistantChatUrl()}
+        href={whatsAppHref}
         target="_blank"
         rel="noopener noreferrer"
         data-quote-help-card
@@ -40,7 +42,7 @@ export default function QuoteHelpContact({
       <span>Need help?</span>
       {" "}
       <a
-        href={whatsAppAssistantChatUrl()}
+        href={whatsAppHref}
         target="_blank"
         rel="noopener noreferrer"
         className="font-medium text-emerald underline-offset-2 transition-colors hover:text-emerald-light hover:underline"

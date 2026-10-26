@@ -369,6 +369,7 @@ import {
   type QuickSelectAirportCode,
   type SelectedPlace,
 } from "@/lib/selected-place";
+import { setWhatsAppJourney } from "@/lib/whatsapp-journey-context";
 
 const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
 
@@ -967,6 +968,22 @@ function QuoteCard({
   const [trackedPartyKey, setTrackedPartyKey] = useState("");
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
+
+  // Let WhatsApp links (floating QR, header icon, Need help?) pre-fill this journey.
+  useEffect(() => {
+    setWhatsAppJourney({
+      pickup: pickupAddress,
+      dropoff: dropoffAddress,
+      tripDate,
+      tripTime,
+      returnJourney: journeyMode == null ? null : journeyMode === "return",
+      returnDate,
+      returnTime,
+      passengers,
+      suitcases,
+    });
+  }, [pickupAddress, dropoffAddress, tripDate, tripTime, journeyMode, returnDate, returnTime, passengers, suitcases]);
+  useEffect(() => () => setWhatsAppJourney(null), []);
   const [homepageCapacityConfirmed, setHomepageCapacityConfirmed] = useState(false);
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
   const [childSeats, setChildSeats] = useState(0);

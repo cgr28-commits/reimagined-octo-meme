@@ -16,10 +16,10 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       await page.locator('#date').waitFor();
       const cookie = page.getByRole('button', {name:'Reject optional',exact:true});
       if (await cookie.isVisible()) await cookie.click();
-      assert.equal((await page.locator('h1').innerText()).replace(/\s+/g,' ').trim(),'Belfast & Dublin Pre-Booked Airport Taxi Transfers');
+      assert.equal((await page.locator('h1').innerText()).replace(/\s+/g,' ').trim(),'Belfast & Dublin Airport Transfers');
       // The "Private airport transfers" eyebrow was removed from the hero (PR #699).
       assert.equal(await page.locator('.homepage-hero .section-eyebrow').count(), 0, 'hero has no eyebrow line');
-      assert.equal(await page.locator('h1 + p').innerText(),'Fixed fares to Belfast International, Belfast City & Dublin Airport.');
+      assert.equal(await page.locator('h1 + p').innerText(),'Pre-booked transfers to and from Belfast International, Belfast City and Dublin Airport at a fixed price.');
       assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontWeight),'600');
       assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).textAlign),'center');
       assert.equal(await page.locator('[data-swap-locations]').count(),0);

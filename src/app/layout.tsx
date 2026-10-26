@@ -8,6 +8,7 @@ import GoogleAdsTag from "@/components/GoogleAdsTag";
 import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import AdFraudMonitor from "@/components/AdFraudMonitor";
 import SiteHashScroll from "@/components/SiteHashScroll";
+import WhatsAppQrFloating from "@/components/WhatsAppQrLauncher";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
 import { SITE, SITE_OFFLINE, SITE_PUBLIC_SEO_DESCRIPTION } from "@/lib/data";
 import {
@@ -171,6 +172,7 @@ export default function RootLayout({
           <AdsAttributionCapture />
           <AdFraudMonitor />
           <SiteHashScroll />
+          <WhatsAppQrFloating />
           <CookieConsent />
         </SiteOfflineGate>
         <PreventHorizontalScroll />

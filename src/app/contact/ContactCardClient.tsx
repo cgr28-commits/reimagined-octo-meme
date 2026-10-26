@@ -179,6 +179,7 @@ export default function ContactCardClient() {
                   WhatsApp
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">@{SITE.whatsappUsername}</span>
+                <span className="block text-xs text-white/60">Instant quotes 24/7 · {SITE.whatsappAssistantDisplay}</span>
               </span>
             </a>
 

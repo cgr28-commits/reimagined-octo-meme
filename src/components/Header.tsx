@@ -7,10 +7,12 @@ import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
 import SiteNavLink from "./SiteNavLink";
 import { NAV_LINKS, SITE } from "@/lib/data";
-import { whatsAppAssistantChatUrl, whatsAppChatUrl } from "@/lib/contact-card";
+import { whatsAppChatUrl } from "@/lib/contact-card";
+import { useWhatsAppAssistantHref } from "@/lib/whatsapp-journey-context";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const assistantWhatsAppHref = useWhatsAppAssistantHref();
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const menuId = useId();
@@ -224,7 +226,7 @@ export default function Header() {
           {/* Mobile only (< md): logo + WhatsApp (quote assistant) + Menu. Slimmer chrome so the logo leads. */}
           <div data-mobile-header-actions className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:hidden">
             <a
-              href={whatsAppAssistantChatUrl()}
+              href={assistantWhatsAppHref}
               target="_blank"
               rel="noopener noreferrer"
               data-matni-whatsapp-quick="true"
