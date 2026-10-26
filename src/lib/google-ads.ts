@@ -20,8 +20,8 @@ export const DEFAULT_PURCHASE_CONVERSION_LABEL = "GoTQCPuJ3eccEK7_7JdE";
  * Ads actions "WhatsApp click" (7873440204) and "Phone number click (website)" (7873367177).
  * Empty label = named dataLayer event only, no direct Ads conversion.
  */
-export const DEFAULT_WHATSAPP_CLICK_CONVERSION_LABEL = "";
-export const DEFAULT_PHONE_CLICK_CONVERSION_LABEL = "";
+export const DEFAULT_WHATSAPP_CLICK_CONVERSION_LABEL = "pJ90CMzTrKodEK7_7JdE";
+export const DEFAULT_PHONE_CLICK_CONVERSION_LABEL = "U8NCCImZqKodEK7_7JdE";
 
 /** Known incorrect historical values — never use even if present in env/secrets. */
 const KNOWN_BAD_ADS_IDS = new Set(["AW-10303631278"]);
