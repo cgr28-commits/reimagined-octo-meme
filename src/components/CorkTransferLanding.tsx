@@ -47,7 +47,7 @@ export default function CorkTransferLanding({ direction }: { direction: CorkTran
             <p className="mt-5 max-w-3xl text-base leading-relaxed text-white/80 sm:text-lg">{page.intro}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <LandingPageQuoteCta label="Get a Fixed Quote" />
-              <a className="inline-flex min-h-11 items-center rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white" href={`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent("Hello, I would like a quote for a " + direction.replaceAll("-", " ") + " transfer.")}`} target="_blank" rel="noopener noreferrer">Message us on WhatsApp</a>
+              <a className="inline-flex min-h-11 items-center rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white" href={`https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent("Hello, I would like a quote for a " + direction.replaceAll("-", " ") + " transfer.")}`} target="_blank" rel="noopener noreferrer">Message us on WhatsApp</a>
             </div>
             <ul className="mt-7 grid gap-3 text-sm text-white/80 sm:grid-cols-3">
               {["Private, door-to-door travel", "Price agreed before payment", "Cars and 7-seaters when available"].map(item => <li key={item} className="rounded-xl border border-emerald/20 bg-emerald/5 px-4 py-3">{item}</li>)}

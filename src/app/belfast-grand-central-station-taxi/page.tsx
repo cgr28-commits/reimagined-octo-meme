@@ -14,7 +14,7 @@ const path = "/belfast-grand-central-station-taxi/";
 const title = "Belfast Grand Central Station Taxi | Book Transfers Online";
 const description = "Book a taxi to or from Belfast Grand Central Station. Fixed-price private transfers across Greater Belfast, online booking and secure payments.";
 const stationGuide = "https://www.translink.co.uk/using-translink/station-finder/belfast-grand-central-station";
-const whatsapp = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent("Hello, I would like help arranging a Belfast Grand Central Station transfer.")}`;
+const whatsapp = `https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent("Hello, I would like help arranging a Belfast Grand Central Station transfer.")}`;
 
 export const metadata: Metadata = {
   title: { absolute: title }, description,

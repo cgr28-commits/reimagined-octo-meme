@@ -7,7 +7,6 @@ import CookieConsent from "@/components/CookieConsent";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
 import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import AdFraudMonitor from "@/components/AdFraudMonitor";
-import TawkChat from "@/components/TawkChat";
 import SiteHashScroll from "@/components/SiteHashScroll";
 import SiteOfflineGate from "@/components/SiteOfflineGate";
 import { SITE, SITE_OFFLINE, SITE_PUBLIC_SEO_DESCRIPTION } from "@/lib/data";
@@ -172,7 +171,6 @@ export default function RootLayout({
           <AdsAttributionCapture />
           <AdFraudMonitor />
           <SiteHashScroll />
-          <TawkChat />
           <CookieConsent />
         </SiteOfflineGate>
         <PreventHorizontalScroll />
