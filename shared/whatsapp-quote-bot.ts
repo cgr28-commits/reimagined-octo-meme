@@ -107,6 +107,8 @@ export function detectWhatsAppIntent(text: string): "reset" | "agent" | "confirm
   if (/\b(speak|talk|chat)\s+(to|with)\s+(a\s+)?(human|person|someone|agent|staff)\b/.test(k)) {
     return "agent";
   }
+  // The website's "Need help completing your booking?" button: a person should help.
+  if (/\btrouble completing my (online )?booking\b/.test(k)) return "agent";
   if ((WHATSAPP_BOT_KEYWORDS.confirm as readonly string[]).includes(k)) return "confirm";
   return null;
 }
