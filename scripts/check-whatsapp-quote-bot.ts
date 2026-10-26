@@ -524,3 +524,10 @@ assert.doesNotMatch(
   buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x" }),
   /Express/,
 );
+
+// The website's booking-help button hands straight to the team.
+assert.equal(
+  detectWhatsAppIntent("Hi, I'm having trouble completing my online booking on the My Airport Taxi NI website. Can you help?"),
+  "agent",
+);
+assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am"), null);

@@ -11,5 +11,6 @@ export const BOOKING_HELP_WHATSAPP_MESSAGE =
 export function bookingHelpWhatsAppUrl(
   message: string = BOOKING_HELP_WHATSAPP_MESSAGE,
 ): string {
-  return `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message)}`;
+  const number = SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp;
+  return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 }

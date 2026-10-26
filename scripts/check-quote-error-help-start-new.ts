@@ -30,13 +30,14 @@ function check(label: string, fn: () => void) {
   }
 }
 
-check("WhatsApp help URL uses business number and fixed support message (no PII)", () => {
+check("WhatsApp help URL uses the assistant number (which hands off to the team) and a fixed support message (no PII)", () => {
   assert.equal(
     BOOKING_HELP_WHATSAPP_MESSAGE,
     "Hi, I'm having trouble completing my online booking on the My Airport Taxi NI website. Can you help?",
   );
   const href = bookingHelpWhatsAppUrl();
-  assert.match(href, new RegExp(`^https://wa\\.me/${SITE.whatsapp}\\?text=`));
+  const number = SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp;
+  assert.match(href, new RegExp(`^https://wa\\.me/${number}\\?text=`));
   assert.match(href, /text=/);
   assert.doesNotMatch(BOOKING_HELP_WHATSAPP_MESSAGE, /@|BT\d|£|\d{10,}/);
   assert.doesNotMatch(href, /customerEmail|pickupAddress|mobileNumber/i);
