@@ -20,7 +20,7 @@ export const SITE = {
    * false = those buttons open the business number instead (e.g. while Meta is still
    * approving the assistant's display name). Set back to true once replies work.
    */
-  whatsappAssistantLive: false,
+  whatsappAssistantLive: true,
   email: "bookings@myairporttaxini.co.uk",
   url: "https://www.myairporttaxini.co.uk",
 } as const;

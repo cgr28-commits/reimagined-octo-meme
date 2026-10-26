@@ -30,6 +30,7 @@ import {
   extractClockTimes,
   parseWeekdayDate,
   whatsAppDraftToQuoteBody,
+  buildWhatsAppQuoteReply,
   type WhatsAppConversation,
 } from "../shared/whatsapp-quote-bot";
 import { addCalendarDays } from "../shared/quick-quote-parse";
@@ -496,3 +497,14 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+// Quotes are priced without the optional Express (barrier) fee; the reply says it can be added.
+assert.equal(whatsAppDraftToQuoteBody({} as never).expressDropOffSelected, false);
+assert.match(
+  buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x", optionalExpressFeeLabel: "£5" }),
+  /add it for £5 when you book/,
+);
+assert.doesNotMatch(
+  buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x" }),
+  /Express/,
+);
