@@ -21,7 +21,7 @@ try {
         return route.continue();
       });
       await page.goto(`http://127.0.0.1:3000/transfers/${direction}/`, { waitUntil: "networkidle" });
-      await page.getByRole("button", { name: "Essential only", exact: true }).click();
+      await page.getByRole("button", { name: "Reject optional", exact: true }).click();
       assert.equal(await page.locator("h1").count(), 1);
       assert.equal(await page.locator("h1").innerText(), CORK_TRANSFER_PAGES[direction].title);
       assert.ok((await page.title()).includes(CORK_TRANSFER_PAGES[direction].title));

@@ -29,7 +29,7 @@ export default function DeviceBookingCta({
   if (isMobile === true) {
     return (
       <a
-        href={`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(whatsappMessage)}`}
+        href={`https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent(whatsappMessage)}`}
         target="_blank"
         rel="noopener noreferrer"
         className={className}

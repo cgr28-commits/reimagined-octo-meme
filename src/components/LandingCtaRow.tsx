@@ -10,7 +10,7 @@ export default function LandingCtaRow({
   quoteLabel = "Get Your Fixed Quote",
   whatsappMessage,
 }: Props) {
-  const whatsappHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappHref = `https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent(whatsappMessage)}`;
   return (
     <div className="mt-6 flex flex-wrap items-center gap-3">
       <LandingPageQuoteCta label={quoteLabel} />

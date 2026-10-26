@@ -186,23 +186,39 @@ async function main() {
       /at least 12 hours' notice[\s\S]*return pickup at 20:00/,
     );
 
-    // Worker check: minimum notice, then an open diary.
+    // Worker check: under the short-notice lead time is refused; inside the
+    // short-notice period it is a request (as on the website); later is normal.
     const emptyKv = {
       async get() { return null; },
       async put() {},
       async list() { return { keys: [], list_complete: true, cursor: "" }; },
     } as unknown as KVNamespace;
-    const soon = await checkWhatsAppAvailability(
+    const tooSoon = await checkWhatsAppAvailability(
+      { ...ready.draft, outboundDate: "2026-10-28", outboundTime: "10:30" },
+      emptyKv,
+      now,
+    );
+    assert.equal(tooSoon.ok, false);
+    assert.equal(!tooSoon.ok && tooSoon.reason, "notice");
+    const shortNotice = await checkWhatsAppAvailability(
       { ...ready.draft, outboundDate: "2026-10-28", outboundTime: "11:00" },
       emptyKv,
       now,
     );
-    assert.equal(soon.ok, false);
-    assert.equal(!soon.ok && soon.reason, "notice");
+    assert.deepEqual(shortNotice, { ok: true, requestOnly: true });
     const fine = await checkWhatsAppAvailability(ready.draft, emptyKv, now);
-    assert.deepEqual(fine, { ok: true });
+    assert.deepEqual(fine, { ok: true, requestOnly: false });
     const failing = { async get() { throw new Error("kv down"); } } as unknown as KVNamespace;
-    assert.deepEqual(await checkWhatsAppAvailability(ready.draft, failing, now), { ok: true }, "fails open");
+    assert.deepEqual(
+      await checkWhatsAppAvailability(ready.draft, failing, now),
+      { ok: true, requestOnly: false },
+      "fails open",
+    );
+
+    const requestReply = buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x", requestOnly: true });
+    assert.match(requestReply, /request only/);
+    assert.match(requestReply, /confirm we can do it before you pay/);
+    assert.doesNotMatch(buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x" }), /request only/);
   }
 
   console.log("=== Greeting name ===");

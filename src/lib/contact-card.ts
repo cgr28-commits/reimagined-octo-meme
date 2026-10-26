@@ -116,7 +116,13 @@ export function androidAddContactIntentUrl(): string {
   );
 }
 
+/** General "WhatsApp us" links go to the quote assistant (it hands people to the team when needed). */
 export function whatsAppChatUrl(message: string = SITE.whatsappDefaultMessage): string {
+  return whatsAppAssistantChatUrl(message);
+}
+
+/** Customers who have already booked: the team's own number, where messages are read. */
+export function teamWhatsAppChatUrl(message: string = SITE.whatsappDefaultMessage): string {
   return businessWhatsAppChatUrl(message);
 }
 

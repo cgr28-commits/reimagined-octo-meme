@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SITE } from "@/lib/data";
-import { whatsAppChatUrl } from "@/lib/contact-card";
+import { teamWhatsAppChatUrl } from "@/lib/contact-card";
 import { PLACES_LOOKUP_A2A } from "@/lib/selected-place";
 import AddressInput from "@/components/AddressInput";
 import QuoteNavLink from "@/components/QuoteNavLink";
@@ -86,7 +86,7 @@ export default function ManageBookingClient() {
 
   const displayRef =
     booking?.customerReference || paymentReference || booking?.paymentReference || "(reference)";
-  const whatsappUrl = whatsAppChatUrl(`Hi, I need to change booking ${displayRef}.`);
+  const whatsappUrl = teamWhatsAppChatUrl(`Hi, I need to change booking ${displayRef}.`);
 
   const maxPassengers = booking?.maxOnlinePassengers || INSTANT_QUOTE_MAX_PASSENGERS;
   const showFlight =
