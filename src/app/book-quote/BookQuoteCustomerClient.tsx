@@ -474,7 +474,7 @@ function BookQuoteInner() {
 
       {expressSelection.eligible && expressSelection.airportCode ? (
         <ExpressDropOffChoice
-          mode={expressOptional ? "full" : "summary"}
+          mode="summary"
           terminalAccessIncluded={!expressOptional}
           editing={expressEditing}
           onEditingChange={setExpressEditing}
