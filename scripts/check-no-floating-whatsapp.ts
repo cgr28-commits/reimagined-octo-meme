@@ -1,6 +1,7 @@
 /**
- * Floating WhatsApp FAB removed — mobile uses Header quick-row icon.
- * Desktop uses the round “?” help button.
+ * No floating WhatsApp on mobile — mobile uses the Header quick-row icon.
+ * Desktop: floating WhatsApp button (bottom-right) with a QR code panel.
+ * WhatsApp assistant links pre-fill the journey being quoted.
  * Run: npx tsx scripts/check-no-floating-whatsapp.ts
  */
 
@@ -37,7 +38,7 @@ assert.doesNotMatch(hero, /data-matni-whatsapp/);
 const quoteHelp = read("src/components/QuoteHelpContact.tsx");
 assert.match(quoteHelp, /Need help\?/);
 assert.match(quoteHelp, /WhatsApp us/);
-assert.match(quoteHelp, /whatsAppAssistantChatUrl\(\)/);
+assert.match(quoteHelp, /useWhatsAppAssistantHref\(\)/);
 assert.doesNotMatch(quoteHelp, /Call \{SITE\.landlineDisplay\}/);
 assert.doesNotMatch(quoteHelp, /tel:\$\{SITE\.landline\}/);
 assert.doesNotMatch(quoteHelp, /028 9602 2952|landlineDisplay/);
@@ -58,7 +59,26 @@ assert.match(data, /whatsapp:\s*"447549815538"/);
 assert.match(data, /whatsappUsername:\s*"belfasttaxi"/);
 assert.match(data, /whatsappDefaultMessage/);
 
-console.log("OK  no floating WhatsApp FAB");
+// Desktop-only floating WhatsApp (QR + open link), rendered from the root layout.
+const qr = read("src/components/WhatsAppQrLauncher.tsx");
+assert.match(layout, /<WhatsAppQrFloating \/>/);
+assert.match(qr, /isMobile !== false/);
+assert.match(qr, /shouldHidePublicSalesWidgets\(pathname\)/);
+assert.match(qr, /--matni-cookie-banner-offset/);
+assert.match(qr, /data-matni-whatsapp-qr-launcher/);
+assert.match(qr, /QRCode\.toString\(href/);
+assert.match(qr, /useWhatsAppAssistantHref\(\)/);
+assert.match(qr, /SITE\.whatsappAssistantDisplay/);
+
+// Journey pre-fill: QuoteCard publishes, header / Need help? / QR read it.
+const journeyCtx = read("src/lib/whatsapp-journey-context.ts");
+const quoteCard = read("src/components/QuoteCard.tsx");
+assert.match(quoteCard, /setWhatsAppJourney\(\{/);
+assert.match(quoteCard, /setWhatsAppJourney\(null\)/);
+assert.match(header, /useWhatsAppAssistantHref\(\)/);
+assert.match(journeyCtx, /From: \$\{journey\.pickup/);
+
+console.log("OK  no floating WhatsApp on mobile; desktop floating WhatsApp with QR");
 console.log("OK  mobile WhatsApp in Header quick row");
 console.log("OK  desktop uses exclusive ? help (QuoteAssistant)");
 console.log("OK  secondary WhatsApp: menu, footer, Need help under quote");
