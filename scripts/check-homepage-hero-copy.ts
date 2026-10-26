@@ -15,7 +15,7 @@ const header = fs.readFileSync(path.join(root, "src/components/Header.tsx"), "ut
 const logo = fs.readFileSync(path.join(root, "src/components/Logo.tsx"), "utf8");
 const why = fs.readFileSync(path.join(root, "src/lib/data.ts"), "utf8");
 
-assert.match(hero, /Belfast &amp; Dublin<\/span>\{\" \"\}[\s\S]*?Pre-Booked Airport Taxi Transfers/);
+assert.match(hero, /Belfast &amp; Dublin<\/span>\{\" \"\}[\s\S]*?Airport Transfers/);
 assert.doesNotMatch(
   hero,
   /Pre-Booked 24\/7/,
@@ -26,8 +26,7 @@ assert.doesNotMatch(
   /<h1[\s\S]*?>[\s\S]*24\/7/,
   "H1 must not include 24/7",
 );
-// Owner request: on desktop the green line stays on one line (sized to fit the
-// hero column at each breakpoint). Mobile still wraps naturally.
+// Owner request: on desktop the green line stays on one line. Mobile still wraps naturally.
 assert.doesNotMatch(
   hero,
   /(?<!md:)whitespace-nowrap/,
@@ -35,8 +34,8 @@ assert.doesNotMatch(
 );
 assert.match(
   hero,
-  /text-emerald md:whitespace-nowrap lg:text-\[[\d.]+rem\] xl:text-\[[\d.]+rem\] 2xl:text-\[[\d.]+rem\]">Pre-Booked Airport Taxi Transfers/,
-  "desktop one-line green heading must be sized per breakpoint",
+  /text-emerald md:whitespace-nowrap">Airport Transfers<\/span>/,
+  "desktop green heading stays on one line",
 );
 assert.match(hero, /text-balance/, "H1 should use text-balance for clean wraps");
 assert.doesNotMatch(
@@ -52,7 +51,7 @@ assert.doesNotMatch(
 );
 assert.match(
   hero,
-  /Fixed fares to Belfast International, Belfast City &amp; Dublin Airport\./,
+  /Pre-booked transfers to and from Belfast International, Belfast City and Dublin Airport at a fixed price\./,
   "hero supporting copy must name Belfast International, Belfast City and Dublin Airport",
 );
 assert.match(hero, /baseName="belfast-international-homepage"/);
@@ -61,8 +60,8 @@ assert.doesNotMatch(hero, /baseName="belfast-international"(?!-homepage)/);
 assert.doesNotMatch(hero, /belfast-international-arrivals-2025/);
 assert.match(
   hero,
-  /<h1[\s\S]*?>[\s\S]*Belfast &amp; Dublin[\s\S]*?Pre-Booked Airport Taxi Transfers<\/span>\s*<\/h1>/,
-  "homepage H1 must include pre-booked airport taxi transfers",
+  /<h1[\s\S]*?>[\s\S]*Belfast &amp; Dublin[\s\S]*?Airport Transfers<\/span>\s*<\/h1>/,
+  "homepage H1 must read Belfast & Dublin Airport Transfers",
 );
 assert.match(hero, /HeroBenefitsRow/, "compact benefits row must sit by the quote panel");
 assert.match(benefits, /Pre-booked driver/);
