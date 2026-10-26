@@ -28,7 +28,7 @@ export type WhatsAppPickupPin = { latitude: number; longitude: number; name: str
 export const WHATSAPP_PICKUP_PINS: Record<string, WhatsAppPickupPin> = {};
 
 const PICKUP_QUESTION =
-  /\b(where|which)\b[^?]{0,40}\b(pick(ed|ing)?\s*(me\s*)?up|pickup|collect(ed|ion)?|meet(ing)?|wait|find (you|the driver|my driver))\b|\b(pick\s*-?\s*up|collection|meeting)\s+(point|location|place|spot|area)\b/i;
+  /\bwhere\b[^?]{0,40}\b(pick(ed|ing)?\s*(me\s*)?up|pickup|collect(ed|ion)?|meet(ing)?|wait|find (you|the driver|my driver))\b|\b(pick\s*-?\s*up|collection|meeting)\s+(point|location|place|spot|area)\b/i;
 
 export function isWhatsAppPickupLocationQuestion(text: string): boolean {
   return PICKUP_QUESTION.test(text);

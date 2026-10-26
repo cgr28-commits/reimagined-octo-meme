@@ -53,10 +53,11 @@ import {
   type WhatsAppJourneyLeg,
   type WhatsAppQuoteDraft,
 } from "../shared/whatsapp-quote-bot";
-import { isWithinMinimumBookingNotice } from "../shared/booking-notice";
+import { isBelowMinimumShortNoticeLead } from "../shared/booking-notice";
+import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { formatExpressDropOffGbp, resolveExpressDropOff } from "../shared/express-drop-off";
 import { getBookingSettings } from "./booking-settings-store";
-import { evaluateOwnerNoAvailabilityFromStore } from "./short-notice-handlers";
+import { evaluateOwnerNoAvailabilityFromStore, shouldForceShortNotice } from "./short-notice-handlers";
 import { enforceCustomerSmartAvailabilityGate } from "./smart-ops-handlers";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
@@ -432,6 +433,7 @@ async function handleInboundMessage(
           bookingUrl: priced.bookingUrl,
           optionalExpressFeeLabel:
             optionalExpressFeeGbp > 0 ? formatExpressDropOffGbp(optionalExpressFeeGbp) : null,
+          requestOnly: availability.requestOnly,
         });
         buttons = WHATSAPP_QUOTED_BUTTONS;
         logEvent("whatsapp_quote_sent", phone, {
@@ -439,6 +441,7 @@ async function handleInboundMessage(
           quotedAmount: priced.record.quotedAmount,
           returnJourney: priced.record.journey.returnJourney,
           airportCode: priced.record.journey.airportCode ?? null,
+          requestOnly: availability.requestOnly,
         });
       } else {
         conversation.stage = "collecting";
@@ -456,7 +459,8 @@ async function handleInboundMessage(
 }
 
 type AvailabilityResult =
-  | { ok: true }
+  /** requestOnly: bookable as a request the owner approves (short notice / request-only period). */
+  | { ok: true; requestOnly: boolean }
   | {
       ok: false;
       leg: WhatsAppJourneyLeg;
@@ -486,7 +490,8 @@ export async function checkWhatsAppAvailability(
     ];
     for (const { leg, date, time } of legs) {
       if (!date || !time) continue;
-      if (isWithinMinimumBookingNotice(date, time, now, settings.minimumBookingNoticeHours)) {
+      // Under the short-notice lead time the website refuses even a request.
+      if (isBelowMinimumShortNoticeLead(date, time, now, settings.minimumShortNoticeLeadHours)) {
         return {
           ok: false,
           leg,
@@ -495,7 +500,7 @@ export async function checkWhatsAppAvailability(
             leg,
             draft,
             reason: "notice",
-            noticeHours: settings.minimumBookingNoticeHours,
+            noticeHours: settings.minimumShortNoticeLeadHours,
             hasAlternatives: false,
           }),
         };
@@ -546,7 +551,25 @@ export async function checkWhatsAppAvailability(
         };
       }
     }
-    return { ok: true };
+    // Same rule as checkout: short notice or a request-only period on the outbound pickup.
+    const forced =
+      draft.outboundDate && draft.outboundTime
+        ? await shouldForceShortNotice(
+            store,
+            {
+              tripDate: draft.outboundDate,
+              tripTime: draft.outboundTime,
+              returnJourney: Boolean(draft.returnJourney),
+              returnDate: draft.returnDate ?? "",
+              returnTime: draft.returnTime ?? "",
+              passengers: draft.passengers,
+              suitcases: draft.suitcases,
+              vehicle: "Saloon",
+            } as unknown as PaidBookingDetails,
+            now,
+          )
+        : null;
+    return { ok: true, requestOnly: Boolean(forced?.shortNotice) };
   } catch (err) {
     console.warn(
       JSON.stringify({
@@ -554,7 +577,7 @@ export async function checkWhatsAppAvailability(
         error: err instanceof Error ? err.message : String(err),
       }),
     );
-    return { ok: true };
+    return { ok: true, requestOnly: false };
   }
 }
 

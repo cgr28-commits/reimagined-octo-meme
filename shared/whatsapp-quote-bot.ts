@@ -427,7 +427,17 @@ export function buildWhatsAppQuoteReply(input: {
   bookingUrl: string;
   /** e.g. "£5" — optional Express terminal fee not included in amountLabel. */
   optionalExpressFeeLabel?: string | null;
+  /** Short notice or a request-only period: the link sends a request we confirm first. */
+  requestOnly?: boolean;
 }): string {
+  if (input.requestOnly) {
+    return (
+      `Your fixed price is *${input.amountLabel}*\n\n` +
+      `⚠️ This date and time is *request only*, so we need to confirm we can do it before you pay.\n\n` +
+      `Send your booking request here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
+      `We'll get back to you as soon as possible. Reply *NEW* for a new quote.`
+    );
+  }
   const expressNote = input.optionalExpressFeeLabel
     ? `This price doesn't include Express terminal access at the airport. You can add it for ${input.optionalExpressFeeLabel} when you book.\n\n`
     : "";
