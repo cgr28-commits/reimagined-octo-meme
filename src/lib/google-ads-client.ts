@@ -5,7 +5,9 @@
 
 import {
   ADS_EVENT_BOOKING_REQUEST_SUBMITTED,
+  ADS_EVENT_PHONE_CLICK,
   ADS_EVENT_PURCHASE,
+  ADS_EVENT_WHATSAPP_CLICK,
   ADS_EVENT_QUOTE_GENERATED,
   getGoogleAdsConfig,
   type AdsQuotePageType,
@@ -22,6 +24,7 @@ declare global {
 const FIRED_QUOTE_PREFIX = "matni-ads-fired-quote:";
 const FIRED_BOOKING_REQUEST_PREFIX = "matni-ads-fired-booking-request:";
 const FIRED_PURCHASE_PREFIX = "matni-ads-fired-purchase:";
+const FIRED_CONTACT_CLICK_PREFIX = "matni-ads-fired-contact-click:";
 
 export type AdsUserData = {
   email?: string;
@@ -382,6 +385,42 @@ export function trackPurchase(options: AdsConversionPayload): boolean {
     params,
     dedupeKey: `${FIRED_PURCHASE_PREFIX}${transactionId}`,
     dedupeStorage: "local",
+  });
+}
+
+export type ContactClickKind = "whatsapp" | "phone";
+
+/** Classify an anchor href as a WhatsApp or phone contact link. */
+export function contactClickKind(href: string | null | undefined): ContactClickKind | null {
+  const value = href?.trim().toLowerCase() ?? "";
+  if (!value) return null;
+  if (value.startsWith("tel:")) return "phone";
+  if (
+    value.startsWith("https://wa.me/") ||
+    value.startsWith("http://wa.me/") ||
+    value.startsWith("https://api.whatsapp.com/") ||
+    value.startsWith("whatsapp:")
+  ) {
+    return "whatsapp";
+  }
+  return null;
+}
+
+/**
+ * WhatsApp / phone tap — secondary Ads conversion, counted once per kind per
+ * browser session so repeat taps don't inflate contact numbers.
+ */
+export function trackContactClick(kind: ContactClickKind, pagePath?: string): boolean {
+  const config = getGoogleAdsConfig();
+  const sendTo = kind === "whatsapp" ? config.whatsappClickSendTo : config.phoneClickSendTo;
+  const params: Record<string, unknown> = { contact_method: kind };
+  if (pagePath) params.page_path = pagePath;
+  return fireTrackedEvent({
+    sendTo,
+    eventName: kind === "whatsapp" ? ADS_EVENT_WHATSAPP_CLICK : ADS_EVENT_PHONE_CLICK,
+    params,
+    dedupeKey: `${FIRED_CONTACT_CLICK_PREFIX}${kind}`,
+    dedupeStorage: "session",
   });
 }
 

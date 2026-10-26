@@ -10,6 +10,8 @@ import {
 import { getGoogleAdsConfig } from "@/lib/google-ads";
 import {
   applyConsentDefault,
+  contactClickKind,
+  trackContactClick,
   updateGoogleConsent,
 } from "@/lib/google-ads-client";
 
@@ -40,6 +42,26 @@ export default function GoogleAdsTag() {
     };
     window.addEventListener(COOKIE_CONSENT_EVENT, onChange);
     return () => window.removeEventListener(COOKIE_CONSENT_EVENT, onChange);
+  }, [config.tagEnabled]);
+
+  // Sitewide WhatsApp / phone tap tracking. Capture phase so it runs before
+  // navigation to wa.me or the dialler, whichever component renders the link.
+  useEffect(() => {
+    if (!config.tagEnabled) return;
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const kind = contactClickKind(anchor.getAttribute("href"));
+      if (!kind) return;
+      try {
+        trackContactClick(kind, window.location.pathname);
+      } catch {
+        // Tracking must never block a customer from contacting us.
+      }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
   }, [config.tagEnabled]);
 
   if (!config.tagEnabled || !ready) {

@@ -15,6 +15,14 @@ export const DEFAULT_QUOTE_CONVERSION_LABEL = "_hcXCPSz7cscEK7_7JdE";
 /** Paid Booking website conversion — fired only after SumUp PAID is verified. */
 export const DEFAULT_PURCHASE_CONVERSION_LABEL = "GoTQCPuJ3eccEK7_7JdE";
 
+/**
+ * Contact-click conversions (secondary in Google Ads): WhatsApp and phone taps.
+ * Ads actions "WhatsApp click" (7873440204) and "Phone number click (website)" (7873367177).
+ * Empty label = named dataLayer event only, no direct Ads conversion.
+ */
+export const DEFAULT_WHATSAPP_CLICK_CONVERSION_LABEL = "";
+export const DEFAULT_PHONE_CLICK_CONVERSION_LABEL = "";
+
 /** Known incorrect historical values — never use even if present in env/secrets. */
 const KNOWN_BAD_ADS_IDS = new Set(["AW-10303631278"]);
 const KNOWN_BAD_QUOTE_LABELS = new Set(["_hcXCP5z7cscEK7_73dE"]);
@@ -30,6 +38,10 @@ export type GoogleAdsConfig = {
   quoteSendTo: string;
   bookingRequestSendTo: string;
   purchaseSendTo: string;
+  whatsappClickConversionLabel: string;
+  phoneClickConversionLabel: string;
+  whatsappClickSendTo: string;
+  phoneClickSendTo: string;
   /** True when the Google tag ID is configured (sitewide tag can load). */
   tagEnabled: boolean;
   quoteEnabled: boolean;
@@ -42,7 +54,9 @@ type PublicGoogleAdsEnvName =
   | "NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL"
   | "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL"
   | "NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL"
-  | "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL";
+  | "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL"
+  | "NEXT_PUBLIC_GOOGLE_ADS_WHATSAPP_CLICK_CONVERSION_LABEL"
+  | "NEXT_PUBLIC_GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL";
 
 /** Direct property reads are required so Next.js inlines NEXT_PUBLIC values in browser bundles. */
 function env(name: PublicGoogleAdsEnvName): string {
@@ -57,6 +71,10 @@ function env(name: PublicGoogleAdsEnvName): string {
       return process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL?.trim() ?? "";
     case "NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL":
       return process.env.NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL?.trim() ?? "";
+    case "NEXT_PUBLIC_GOOGLE_ADS_WHATSAPP_CLICK_CONVERSION_LABEL":
+      return process.env.NEXT_PUBLIC_GOOGLE_ADS_WHATSAPP_CLICK_CONVERSION_LABEL?.trim() ?? "";
+    case "NEXT_PUBLIC_GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL":
+      return process.env.NEXT_PUBLIC_GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL?.trim() ?? "";
   }
 }
 
@@ -101,6 +119,17 @@ export function getGoogleAdsConfig(): GoogleAdsConfig {
     bookingRequestConversionLabel = "";
   }
 
+  const whatsappClickConversionLabel =
+    env("NEXT_PUBLIC_GOOGLE_ADS_WHATSAPP_CLICK_CONVERSION_LABEL") ||
+    DEFAULT_WHATSAPP_CLICK_CONVERSION_LABEL;
+  const phoneClickConversionLabel =
+    env("NEXT_PUBLIC_GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL") ||
+    DEFAULT_PHONE_CLICK_CONVERSION_LABEL;
+  const whatsappClickSendTo =
+    adsId && whatsappClickConversionLabel ? `${adsId}/${whatsappClickConversionLabel}` : "";
+  const phoneClickSendTo =
+    adsId && phoneClickConversionLabel ? `${adsId}/${phoneClickConversionLabel}` : "";
+
   const quoteSendTo =
     adsId && quoteConversionLabel ? `${adsId}/${quoteConversionLabel}` : "";
   const bookingRequestSendTo =
@@ -118,6 +147,10 @@ export function getGoogleAdsConfig(): GoogleAdsConfig {
     quoteSendTo,
     bookingRequestSendTo,
     purchaseSendTo,
+    whatsappClickConversionLabel,
+    phoneClickConversionLabel,
+    whatsappClickSendTo,
+    phoneClickSendTo,
     tagEnabled: Boolean(adsId),
     quoteEnabled: Boolean(quoteSendTo),
     // Requires its own label — tag ID alone is not enough.
@@ -134,6 +167,8 @@ export const ADS_EVENT_REQUEST_QUOTE = "request_quote";
 export const ADS_EVENT_QUOTE_GENERATED = "quote_generated";
 export const ADS_EVENT_BOOKING_REQUEST_SUBMITTED = "booking_request_submitted";
 export const ADS_EVENT_PURCHASE = "purchase";
+export const ADS_EVENT_WHATSAPP_CLICK = "whatsapp_click";
+export const ADS_EVENT_PHONE_CLICK = "phone_click";
 /** @deprecated Purchase now uses the GA4-standard event name. */
 export const ADS_EVENT_BOOKING_COMPLETE = ADS_EVENT_PURCHASE;
 
