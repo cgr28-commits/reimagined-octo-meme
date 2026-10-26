@@ -49,6 +49,18 @@ export const DEFAULT_NIGHT_START_MINUTES = 22 * 60;
 export const DEFAULT_NIGHT_END_MINUTES = 6 * 60;
 /** Opt-in only: adding controls must not change existing fares. */
 export const DEFAULT_EVENING_PRICING = { enabled: false, surchargeRate: 0, startMinutes: 18 * 60, endMinutes: 22 * 60 };
+/**
+ * Christmas period surcharge on the journey fare (owner request: 20%, 14–31 December).
+ * Dates are month-day ("MM-DD"), every year, Europe/London pickup date; a range may
+ * cross New Year (e.g. 12-20 to 01-02). Uses the same highest-applicable rule as
+ * Evening / Night / Weekend.
+ */
+export const DEFAULT_CHRISTMAS_PRICING = {
+  enabled: true,
+  surchargeRate: 0.2,
+  startMonthDay: "12-14",
+  endMonthDay: "12-31",
+};
 /** Current approved Weekend: all day Saturday and Sunday (Europe/London). */
 export const DEFAULT_WEEKEND_DAYS = [0, 6] as const;
 export const DEFAULT_PUBLIC_MINIBUS_ENABLED = false;
@@ -62,7 +74,7 @@ export const PRICE_CHANGED_MESSAGE = "The price for this journey has been update
 
 export const SURCHARGE_STACKING_RULE = "highest_applicable" as const;
 export const SURCHARGE_STACKING_EXPLANATION =
-  "When more than one premium period applies, the highest applicable surcharge is used. Evening, Night and Weekend are not added together.";
+  "When more than one premium period applies, the highest applicable surcharge is used. Christmas, Evening, Night and Weekend are not added together.";
 
 export const BANK_HOLIDAY_BEHAVIOUR_NOTE =
   "Daytime bank holidays are not an extra surcharge. There is no separate Bank Holiday calendar. Saturday and Sunday already qualify as Weekend. A weekday bank-holiday daytime journey is charged at the standard weekday rate unless it also falls inside enabled Evening or Night hours.";
@@ -126,6 +138,7 @@ export type OwnerPricingSettings = {
     rate: number;
   };
   evening?: { enabled: boolean; surchargeRate: number; startMinutes: number; endMinutes: number };
+  christmas?: { enabled: boolean; surchargeRate: number; startMonthDay: string; endMonthDay: string };
   night: {
     enabled: boolean;
     surchargeRate: number;
@@ -196,6 +209,7 @@ export type PublicOwnerPricingConfig = {
   returnDiscount: OwnerPricingSettings["returnDiscount"];
   dublinAirportFareAdjustment: OwnerPricingSettings["dublinAirportFareAdjustment"];
   evening?: OwnerPricingSettings["evening"];
+  christmas?: OwnerPricingSettings["christmas"];
   night: OwnerPricingSettings["night"];
   weekend: OwnerPricingSettings["weekend"];
   terminalAccess: OwnerPricingSettings["terminalAccess"];
@@ -281,6 +295,7 @@ export function defaultOwnerPricingSettings(
       rate: DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
     },
     evening: { ...DEFAULT_EVENING_PRICING },
+    christmas: { ...DEFAULT_CHRISTMAS_PRICING },
     night: {
       enabled: true,
       surchargeRate: DEFAULT_NIGHT_SURCHARGE_RATE,
@@ -372,6 +387,7 @@ export function validateOwnerPricingInput(
     typeof input.dublinAirportFareAdjustment === "object";
   const dublinRaw = (dublinExplicit ? input.dublinAirportFareAdjustment : {}) as Record<string, unknown>;
   const eveningRaw = (input.evening ?? DEFAULT_EVENING_PRICING) as Record<string, unknown>;
+  const christmasRaw = (input.christmas ?? DEFAULT_CHRISTMAS_PRICING) as Record<string, unknown>;
   const nightRaw = (input.night ?? {}) as Record<string, unknown>;
   const weekendRaw = (input.weekend ?? {}) as Record<string, unknown>;
   const meetGreetExplicit = input.meetGreet != null && typeof input.meetGreet === "object";
@@ -541,6 +557,21 @@ export function validateOwnerPricingInput(
     reject(errors, "evening.endMinutes", "Enter a valid Evening end time different from the start.");
   }
 
+  if (input.christmas != null && (typeof input.christmas !== "object" || Array.isArray(input.christmas))) {
+    reject(errors, "christmas", "Enter valid Christmas pricing settings.");
+  }
+  if (typeof christmasRaw.enabled !== "boolean") {
+    reject(errors, "christmas.enabled", "Christmas pricing enabled must be on or off.");
+  }
+  const christmasRate = readRate(christmasRaw.surchargeRate, "christmas.surchargeRate", errors);
+  if (christmasRate != null && (christmasRate < 0 || christmasRate > 1)) {
+    reject(errors, "christmas.surchargeRate", "Christmas surcharge must be between 0% and 100%.");
+  }
+  const christmasStart = parseMonthDayInput(christmasRaw.startMonthDay);
+  const christmasEnd = parseMonthDayInput(christmasRaw.endMonthDay);
+  if (christmasStart == null) reject(errors, "christmas.startMonthDay", "Enter a valid Christmas start date (day/month).");
+  if (christmasEnd == null) reject(errors, "christmas.endMonthDay", "Enter a valid Christmas end date (day/month).");
+
   if (nightRaw.enabled != null && typeof nightRaw.enabled !== "boolean") {
     reject(errors, "night.enabled", "Night pricing enabled must be on or off.");
   }
@@ -660,6 +691,12 @@ export function validateOwnerPricingInput(
         startMinutes: eveningStart ?? DEFAULT_EVENING_PRICING.startMinutes,
         endMinutes: eveningEnd ?? DEFAULT_EVENING_PRICING.endMinutes,
       },
+      christmas: {
+        enabled: christmasRaw.enabled === true,
+        surchargeRate: christmasRate ?? DEFAULT_CHRISTMAS_PRICING.surchargeRate,
+        startMonthDay: christmasStart ?? DEFAULT_CHRISTMAS_PRICING.startMonthDay,
+        endMonthDay: christmasEnd ?? DEFAULT_CHRISTMAS_PRICING.endMonthDay,
+      },
       night: {
         enabled: nightRaw.enabled !== false,
         surchargeRate: nightRate ?? defaults.night.surchargeRate,
@@ -746,6 +783,7 @@ export function toPublicOwnerPricingConfig(
         DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
     },
     evening: settings.evening ?? { ...DEFAULT_EVENING_PRICING },
+    christmas: settings.christmas ?? { ...DEFAULT_CHRISTMAS_PRICING },
     night: settings.night,
     weekend: settings.weekend,
     terminalAccess: settings.terminalAccess,
@@ -775,6 +813,10 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
     eveningRate: resolved.evening?.surchargeRate ?? 0,
     eveningStartMinutes: resolved.evening?.startMinutes ?? DEFAULT_EVENING_PRICING.startMinutes,
     eveningEndMinutes: resolved.evening?.endMinutes ?? DEFAULT_EVENING_PRICING.endMinutes,
+    christmasEnabled: resolved.christmas?.enabled === true,
+    christmasRate: resolved.christmas?.surchargeRate ?? 0,
+    christmasStartMonthDay: resolved.christmas?.startMonthDay ?? DEFAULT_CHRISTMAS_PRICING.startMonthDay,
+    christmasEndMonthDay: resolved.christmas?.endMonthDay ?? DEFAULT_CHRISTMAS_PRICING.endMonthDay,
     nightEnabled: resolved.night.enabled,
     nightRate: resolved.night.surchargeRate,
     nightStartMinutes: resolved.night.startMinutes,
@@ -860,6 +902,14 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return formatMinutesAsTime(settings.evening?.startMinutes ?? DEFAULT_EVENING_PRICING.startMinutes);
     case "evening.endMinutes":
       return formatMinutesAsTime(settings.evening?.endMinutes ?? DEFAULT_EVENING_PRICING.endMinutes);
+    case "christmas.enabled":
+      return settings.christmas?.enabled ? "ON" : "OFF";
+    case "christmas.surchargeRate":
+      return formatPercentFromRate(settings.christmas?.surchargeRate ?? 0);
+    case "christmas.startMonthDay":
+      return formatMonthDay(settings.christmas?.startMonthDay ?? DEFAULT_CHRISTMAS_PRICING.startMonthDay);
+    case "christmas.endMonthDay":
+      return formatMonthDay(settings.christmas?.endMonthDay ?? DEFAULT_CHRISTMAS_PRICING.endMonthDay);
     case "night.enabled":
       return settings.night.enabled ? "ON" : "OFF";
     case "night.surchargeRate":
@@ -911,6 +961,10 @@ const DIFF_PATHS = [
   "evening.surchargeRate",
   "evening.startMinutes",
   "evening.endMinutes",
+  "christmas.enabled",
+  "christmas.surchargeRate",
+  "christmas.startMonthDay",
+  "christmas.endMonthDay",
   "night.enabled",
   "night.surchargeRate",
   "night.startMinutes",
@@ -950,6 +1004,10 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "evening.surchargeRate": "Evening surcharge",
   "evening.startMinutes": "Evening starts",
   "evening.endMinutes": "Evening ends",
+  "christmas.enabled": "Christmas pricing",
+  "christmas.surchargeRate": "Christmas surcharge",
+  "christmas.startMonthDay": "Christmas starts",
+  "christmas.endMonthDay": "Christmas ends",
   "night.enabled": "Night pricing",
   "night.surchargeRate": "Night surcharge",
   "night.startMinutes": "Night starts",
@@ -1052,6 +1110,9 @@ export function publicMinibusAllowed(
 }
 
 export type PremiumWindowRules = {
+  christmasEnabled?: boolean;
+  christmasStartMonthDay?: string;
+  christmasEndMonthDay?: string;
   eveningEnabled?: boolean;
   eveningStartMinutes?: number;
   eveningEndMinutes?: number;
@@ -1090,9 +1151,45 @@ export function isNightMinutes(
   return minutes >= start && minutes < end;
 }
 
+/** "MM-DD" inclusive range; start after end means it crosses New Year. */
+export function isMonthDayInRange(monthDay: string, start: string, end: string): boolean {
+  if (!/^\d{2}-\d{2}$/.test(monthDay)) return false;
+  return start <= end ? monthDay >= start && monthDay <= end : monthDay >= start || monthDay <= end;
+}
+
+/** Accepts "MM-DD", "DD/MM" or "DD/MM/YYYY"; returns "MM-DD" or null. */
+export function parseMonthDayInput(value: unknown): string | null {
+  const raw = String(value ?? "").trim();
+  let month: number;
+  let day: number;
+  let m = raw.match(/^(\d{1,2})-(\d{1,2})$/);
+  if (m) {
+    month = Number(m[1]);
+    day = Number(m[2]);
+  } else if ((m = raw.match(/^(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?$/))) {
+    day = Number(m[1]);
+    month = Number(m[2]);
+  } else {
+    return null;
+  }
+  const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) return null;
+  return `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** "12-14" -> "14 December". */
+export function formatMonthDay(monthDay: string): string {
+  const [month, day] = monthDay.split("-").map(Number);
+  const names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  return month >= 1 && month <= 12 ? `${day} ${names[month - 1]}` : monthDay;
+}
+
 export function surchargeRateForDateTime(input: {
   day: number;
   minutes: number;
+  /** Pickup date (YYYY-MM-DD, Europe/London) — needed for the Christmas period. */
+  date?: string;
+  christmasRate?: number;
   nightRate: number;
   eveningRate?: number;
   weekendRate: number;
@@ -1109,6 +1206,17 @@ export function surchargeRateForDateTime(input: {
     nightStartMinutes: rules.eveningStartMinutes ?? DEFAULT_EVENING_PRICING.startMinutes,
     nightEndMinutes: rules.eveningEndMinutes ?? DEFAULT_EVENING_PRICING.endMinutes,
   })) rates.push(input.eveningRate ?? 0);
+  if (
+    rules.christmasEnabled &&
+    input.date &&
+    isMonthDayInRange(
+      input.date.slice(5, 10),
+      rules.christmasStartMonthDay ?? DEFAULT_CHRISTMAS_PRICING.startMonthDay,
+      rules.christmasEndMonthDay ?? DEFAULT_CHRISTMAS_PRICING.endMonthDay,
+    )
+  ) {
+    rates.push(input.christmasRate ?? 0);
+  }
   if (night && rules.nightEnabled) rates.push(input.nightRate);
   if (weekend && rules.weekendEnabled) rates.push(input.weekendRate);
   if (weekendAlsoNight && rules.nightEnabled) rates.push(input.nightRate);
@@ -1116,8 +1224,30 @@ export function surchargeRateForDateTime(input: {
   return Math.max(...rates);
 }
 
-export function nightWeekendSurchargeLabel(settings?: OwnerPricingSettings | PublicOwnerPricingConfig | null): string {
+export function isChristmasTrip(
+  options: { christmasEnabled: boolean; christmasStartMonthDay: string; christmasEndMonthDay: string },
+  tripDates: Array<string | null | undefined>,
+): boolean {
+  return (
+    options.christmasEnabled &&
+    tripDates.some(
+      (date) =>
+        typeof date === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+        isMonthDayInRange(date.slice(5, 10), options.christmasStartMonthDay, options.christmasEndMonthDay),
+    )
+  );
+}
+
+export function nightWeekendSurchargeLabel(
+  settings?: OwnerPricingSettings | PublicOwnerPricingConfig | null,
+  /** Pickup dates (YYYY-MM-DD); a trip in the Christmas period is labelled as such. */
+  tripDates: Array<string | null | undefined> = [],
+): string {
   const options = ownerPricingEngineOptions(settings);
+  if (options.christmasEnabled && isChristmasTrip(options, tripDates)) {
+    return `Christmas ${formatPercentFromRate(options.christmasRate)} surcharge`;
+  }
   const nightPct = formatPercentFromRate(options.nightRate);
   const weekendPct = formatPercentFromRate(options.weekendRate);
   if (options.eveningEnabled) {
@@ -1146,6 +1276,7 @@ export function nightWeekendSurchargeExplanation(
     .map((day) => ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day])
     .join(" and ");
   const periods: string[] = [];
+  if (options.christmasEnabled) periods.push(`A ${formatPercentFromRate(options.christmasRate)} Christmas surcharge applies to pickups from ${formatMonthDay(options.christmasStartMonthDay)} to ${formatMonthDay(options.christmasEndMonthDay)}.`);
   if (options.eveningEnabled) periods.push(`A ${formatPercentFromRate(options.eveningRate)} Evening surcharge applies between ${formatMinutesAsTime(options.eveningStartMinutes)} and ${formatMinutesAsTime(options.eveningEndMinutes)}.`);
   if (options.nightEnabled) periods.push(`A ${nightPct} Night surcharge applies between ${start} and ${end}.`);
   if (options.weekendEnabled) periods.push(`A ${weekendPct} Weekend surcharge applies all day ${weekendDays}.`);

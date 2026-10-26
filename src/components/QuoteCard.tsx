@@ -2917,7 +2917,7 @@ function QuoteCard({
     };
   }, [liveQuote, airportFeeResolution, currentServerFareParts, mayPaintNumericFare]);
 
-  const configuredSurchargeLabel = currentServerFareParts?.nightWeekendSurchargeLabel ?? nightWeekendSurchargeLabel(publicPricing);
+  const configuredSurchargeLabel = currentServerFareParts?.nightWeekendSurchargeLabel ?? nightWeekendSurchargeLabel(publicPricing, [tripDate, journeyMode === "return" ? returnDate : undefined]);
   const configuredSurchargeExplanation = currentServerFareParts?.nightWeekendSurchargeExplanation ?? nightWeekendSurchargeExplanation(publicPricing);
 
   const openWebsiteFareBreakdown = useMemo(() => {

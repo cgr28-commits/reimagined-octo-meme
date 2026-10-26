@@ -151,7 +151,8 @@
     "check:quote-reveal-scroll": "npx tsx scripts/check-quote-reveal-scroll.ts",
     "check:business-class-minimum": "npx tsx scripts/check-business-class-minimum.ts",
     "check:quote-request-recovery": "node --import tsx scripts/check-quote-request-deadline.ts",
-    "check:evening-night-pricing": "node --import tsx scripts/check-evening-night-pricing.ts"
+    "check:evening-night-pricing": "node --import tsx scripts/check-evening-night-pricing.ts",
+    "check:christmas-pricing": "node --import tsx scripts/check-christmas-pricing.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

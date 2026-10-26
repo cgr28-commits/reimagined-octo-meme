@@ -29,6 +29,7 @@ jobs:
           node --import tsx scripts/check-airport-airport-access-fees.ts
           node --import tsx scripts/check-express-drop-off.ts
           node --import tsx scripts/check-night-weekend-surcharge.ts
+          node --import tsx scripts/check-christmas-pricing.ts
           node --import tsx scripts/check-quote-authoritative-fare.ts
           node --import tsx scripts/check-payment-placeid-route-resolve.ts
           node --import tsx scripts/check-quote-schedule-price-gate.ts
