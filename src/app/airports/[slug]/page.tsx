@@ -116,9 +116,17 @@ export default async function AirportTransferPage({ params }: Props) {
           </header>
         </div>
 
-        {page.code === "DUB" ? (
-          <LocationQuoteSection airportCode={page.code} direction="to-airport" heading="Your Dublin Airport transfer quote" />
-        ) : null}
+        {/* Quote form directly under the hero on every airport page (ad and organic
+            landings) so visitors can price and book without scrolling past guides. */}
+        <LocationQuoteSection
+          airportCode={page.code}
+          direction="to-airport"
+          heading={
+            page.code === "DUB"
+              ? "Your Dublin Airport transfer quote"
+              : `Quote a ${page.shortName} transfer`
+          }
+        />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           {page.code === "DUB" ? (
@@ -329,11 +337,6 @@ export default async function AirportTransferPage({ params }: Props) {
           ) : null}
         </div>
 
-        {page.code !== "DUB" ? <LocationQuoteSection
-          airportCode={page.code}
-          direction="to-airport"
-          heading={`Quote a ${page.shortName} transfer`}
-        /> : null}
       </main>
       <Footer />
     </>
