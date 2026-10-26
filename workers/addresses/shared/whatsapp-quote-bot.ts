@@ -427,6 +427,7 @@ export function buildWhatsAppQuoteReply(input: {
   bookingUrl: string;
   /** e.g. "£5" — optional Express terminal fee not included in amountLabel. */
   optionalExpressFeeLabel?: string | null;
+<<<<<<< HEAD
   /** Short notice or a request-only period: the link sends a request we confirm first. */
   requestOnly?: boolean;
 }): string {
@@ -438,6 +439,9 @@ export function buildWhatsAppQuoteReply(input: {
       `We'll get back to you as soon as possible. Reply *NEW* for a new quote.`
     );
   }
+=======
+}): string {
+>>>>>>> origin/claude/whatsapp-business-website-ek6imp
   const expressNote = input.optionalExpressFeeLabel
     ? `This price doesn't include Express terminal access at the airport. You can add it for ${input.optionalExpressFeeLabel} when you book.\n\n`
     : "";
