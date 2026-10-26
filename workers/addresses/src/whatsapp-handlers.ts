@@ -60,6 +60,14 @@ import { getBookingSettings } from "./booking-settings-store";
 import { evaluateOwnerNoAvailabilityFromStore, shouldForceShortNotice } from "./short-notice-handlers";
 import { enforceCustomerSmartAvailabilityGate } from "./smart-ops-handlers";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
+import {
+  appendWhatsAppChat,
+  formatWhatsAppChatTranscript,
+  getWhatsAppChat,
+  isWhatsAppChatDueForEmail,
+  listWhatsAppChats,
+  markWhatsAppChatEmailed,
+} from "./whatsapp-chat-log";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { getPaidBookingRecordByCustomerReference, listUpcomingPaidBookings } from "./paid-booking-store";
 import {
@@ -333,6 +341,12 @@ async function handleInboundMessage(
   await store.put(messageKey(message.id), "1", { expirationTtl: DEDUPE_TTL_SECONDS });
 
   await recordDiag(store, { lastMessageAt: nowIso() });
+  await appendWhatsAppChat(
+    store,
+    message.from,
+    { from: "customer", text: message.text || "[photo, voice note or other non-text message]" },
+    message.profileName,
+  );
   const skip = (reason: string) => recordDiag(store, { lastSkip: { at: nowIso(), reason } });
   if (env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() === "false") return skip("bot disabled");
   if (message.timestamp && Date.now() / 1000 - message.timestamp > MAX_MESSAGE_AGE_SECONDS) {
@@ -651,10 +665,12 @@ async function replyWithPickupInfo(
   await reply(env, phone, info.text);
   if (info.mapImageUrl) {
     const sent = await sendWhatsAppImage(env, phone, info.mapImageUrl);
+    await appendWhatsAppChat(store, phone, { from: "assistant", text: `[Map image: ${info.mapImageUrl}]`, failed: !sent.sent });
     if (!sent.sent) logEvent("whatsapp_pickup_map_failed", phone, { error: sent.error });
   }
   if (info.pin) {
     const sent = await sendWhatsAppLocation(env, phone, info.pin);
+    await appendWhatsAppChat(store, phone, { from: "assistant", text: `[Location pin: ${info.pin.name}]`, failed: !sent.sent });
     if (!sent.sent) logEvent("whatsapp_pickup_pin_failed", phone, { error: sent.error });
   }
 }
@@ -670,15 +686,64 @@ async function reply(
     const withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
     if (withButtons.sent) {
       await recordDiag(store, { lastReplyOkAt: nowIso() });
+      await appendWhatsAppChat(store, phone, {
+        from: "assistant",
+        text: `${text}\n[Buttons: ${buttons.map((b) => b.title).join(" | ")}]`,
+      });
       return;
     }
     logEvent("whatsapp_buttons_failed", phone, { error: withButtons.error });
   }
   const result = await sendWhatsAppText(env, phone, text);
+  await appendWhatsAppChat(store, phone, { from: "assistant", text, failed: !result.sent });
   if (result.sent) {
     await recordDiag(store, { lastReplyOkAt: nowIso() });
   } else {
     logEvent("whatsapp_send_failed", phone, { error: result.error });
     await recordDiag(store, { lastReplyError: { at: nowIso(), error: String(result.error ?? "unknown").slice(0, 300) } });
   }
+}
+
+/**
+ * Cron: email the owner each WhatsApp chat once it has gone quiet (30 minutes),
+ * with the messages since the last email, so the assistant's answers can be checked.
+ */
+export async function processWhatsAppChatEmails(
+  env: WhatsAppEnv,
+  now: Date = new Date(),
+): Promise<{ sent: number; errors: number }> {
+  const result = { sent: 0, errors: 0 };
+  const store = env.TRACKING_STORE;
+  if (!store || !whatsAppCloudConfigured(env)) return result;
+  const due = (await listWhatsAppChats(store, 500)).filter((c) => isWhatsAppChatDueForEmail(c, now)).slice(0, 20);
+  for (const summary of due) {
+    try {
+      const chat = await getWhatsAppChat(store, summary.phone);
+      if (!chat) continue;
+      const transcript = formatWhatsAppChatTranscript(chat, chat.emailedAt);
+      if (!transcript) {
+        await markWhatsAppChatEmailed(store, chat, now.toISOString());
+        continue;
+      }
+      const who = chat.name ? `${chat.name} (+${chat.phone})` : `+${chat.phone}`;
+      const sent = await trySendOwnerOperationalEmail(env, {
+        to: env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk",
+        subject: `WhatsApp chat: ${who}`,
+        body:
+          `WhatsApp assistant chat with ${who}.\n` +
+          `Reply to them: https://wa.me/${chat.phone}\n\n` +
+          `${transcript}\n\n` +
+          `Full history: Owner dashboard → More → WhatsApp chats.`,
+      });
+      if (sent.sent) {
+        await markWhatsAppChatEmailed(store, chat, now.toISOString());
+        result.sent += 1;
+      } else {
+        result.errors += 1;
+      }
+    } catch {
+      result.errors += 1;
+    }
+  }
+  return result;
 }

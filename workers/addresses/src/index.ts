@@ -412,6 +412,7 @@ import {
 import {
   handleWhatsAppConnect,
   handleWhatsAppStatus,
+  processWhatsAppChatEmails,
   handleWhatsAppWebhook,
   isWhatsAppConnectPath,
   isWhatsAppStatusPath,
@@ -524,6 +525,8 @@ import {
   selectVehicleForParty,
 } from "../../../src/lib/vehicle-selection";
 import type { VehicleType } from "../../../src/lib/data";
+import { getWhatsAppChat, listWhatsAppChats } from "./whatsapp-chat-log";
+import { ownerAuthorized } from "./driver-auth";
 
 type EmailBinding = {
   send(message: {
@@ -4511,6 +4514,26 @@ export default {
       return json(result, 200, origin);
     }
 
+    // Owner dashboard: WhatsApp assistant transcripts (list, or one chat with ?phone=).
+    if (
+      (url.pathname === "/owner/whatsapp-chats" || url.pathname === "/api/owner/whatsapp-chats") &&
+      request.method === "GET"
+    ) {
+      if (!ownerAuthorized(request, env)) {
+        return json({ error: "Unauthorized — owner access required." }, 401, origin);
+      }
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const phone = url.searchParams.get("phone")?.trim();
+      if (phone) {
+        const chat = await getWhatsAppChat(env.TRACKING_STORE, phone);
+        if (!chat) return json({ error: "Chat not found" }, 404, origin);
+        return json({ ok: true, chat }, 200, origin);
+      }
+      return json({ ok: true, chats: await listWhatsAppChats(env.TRACKING_STORE) }, 200, origin);
+    }
+
     if (
       (url.pathname === "/owner/a2a-quotes" || url.pathname === "/api/owner/a2a-quotes") &&
       request.method === "GET"
@@ -5630,6 +5653,9 @@ export default {
       ctx.waitUntil(processDueJourneyReminders(env, new Date(event.scheduledTime)).then(result => {
         if (result.sent || result.errors) console.log("Journey reminder cron", JSON.stringify(result));
       }).catch(error => console.error("Journey reminder cron failed", error)));
+      ctx.waitUntil(processWhatsAppChatEmails(env, new Date(event.scheduledTime)).then(result => {
+        if (result.sent || result.errors) console.log("WhatsApp chat email cron", JSON.stringify(result));
+      }).catch(error => console.error("WhatsApp chat email cron failed", error)));
     }
 
     if (!shouldRunHourlyScheduledJobs(cron)) return;

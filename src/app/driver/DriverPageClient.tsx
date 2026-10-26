@@ -10,6 +10,7 @@ import OwnerAmendmentTestPanel from "@/components/OwnerAmendmentTestPanel";
 import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
 import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
+import OwnerWhatsAppChatsPanel from "@/components/OwnerWhatsAppChatsPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
@@ -3373,6 +3374,12 @@ export default function DriverPageClient({
               {isOwnerView && savedKey && ownerToolTab === "postcode-pricing" ? (
                 <div id="owner-tool-panel-postcode-pricing" role="tabpanel" aria-label="Postcode Pricing">
                   <OwnerPostcodePricingPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "whatsapp" ? (
+                <div id="owner-tool-panel-whatsapp" role="tabpanel" aria-label="WhatsApp chats">
+                  <OwnerWhatsAppChatsPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 
