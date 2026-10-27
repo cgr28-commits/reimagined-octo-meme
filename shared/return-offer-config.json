@@ -1,4 +1,5 @@
 {
+  "automaticEmailsPaused": true,
   "discountRate": 0.05,
   "localToAirportOfferDelayHours": 48,
   "lastMinuteLocalOfferDelayHours": 12,

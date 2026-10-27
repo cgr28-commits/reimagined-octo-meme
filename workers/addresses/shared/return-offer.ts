@@ -22,6 +22,13 @@ export type ReturnOfferStatus =
 export type ReturnOfferDirection = "local_to_airport" | "airport_to_local";
 
 export type ReturnOfferConfig = {
+  /**
+   * Owner pause (Oct 2026): when true the hourly job sends no automatic
+   * Return Journey Offer emails and schedules nothing new. Offers already
+   * sent stay valid. Before un-pausing, check how many recent bookings would
+   * become due at once (the job looks back 90 days).
+   */
+  automaticEmailsPaused: boolean;
   discountRate: number;
   localToAirportOfferDelayHours: number;
   lastMinuteLocalOfferDelayHours: number;
@@ -39,6 +46,7 @@ function asPositiveNumber(value: unknown, fallback: number): number {
 const raw = rawConfig as Record<string, unknown>;
 
 export const RETURN_OFFER_CONFIG: ReturnOfferConfig = {
+  automaticEmailsPaused: raw.automaticEmailsPaused === true,
   discountRate: asPositiveNumber(raw.discountRate, 0.05),
   localToAirportOfferDelayHours: asPositiveNumber(raw.localToAirportOfferDelayHours, 48),
   lastMinuteLocalOfferDelayHours: asPositiveNumber(raw.lastMinuteLocalOfferDelayHours, 12),
