@@ -5,11 +5,16 @@
 import assert from "node:assert/strict";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
+  WHATSAPP_TEAM_NUMBER_DEFAULT,
+  buildWhatsAppBookingDetails,
   buildWhatsAppPickupInfo,
   extractCustomerBookingReference,
+  isWhatsAppBookingCheckQuestion,
   isWhatsAppPickupLocationQuestion,
+  resolveWhatsAppTeamNumber,
   sameCustomerPhone,
   upcomingAirportCollections,
+  upcomingCustomerBookings,
 } from "../shared/whatsapp-pickup-info";
 import { BELFAST_INTERNATIONAL_MAP_IMAGE_URL } from "../shared/belfast-international-airport-map";
 
@@ -91,5 +96,51 @@ assert.equal(
   upcomingAirportCollections([bfsReturn], new Date("2026-11-03T12:00:00Z")).length,
   0,
 );
+
+// "Can you check my booking?" goes to the booking look-up, not a quote.
+for (const q of [
+  "Can you check a booking",
+  "can you check my booking please",
+  "I want to change my booking",
+  "Is my taxi confirmed?",
+  "booking details",
+  "what time is my booking",
+]) {
+  assert.ok(isWhatsAppBookingCheckQuestion(q), q);
+}
+for (const q of ["I'd like to make a booking", "BT1 1AA to Belfast International", "Do you have child seats?"]) {
+  assert.ok(!isWhatsAppBookingCheckQuestion(q), q);
+}
+
+const upcoming = upcomingCustomerBookings(
+  [
+    { ...bfsReturn, customerReference: "MAT-2000", tripDate: "2026-11-10", returnJourney: false } as PaidBookingRecord,
+    bfsReturn,
+    { ...bfsReturn, customerReference: "MAT-0001", status: "cancelled" } as PaidBookingRecord,
+    { ...bfsReturn, customerReference: "MAT-0002", tripDate: "2026-10-01", returnJourney: false } as PaidBookingRecord,
+  ],
+  now,
+);
+assert.deepEqual(
+  upcoming.map((b) => b.customerReference),
+  ["MAT-1234", "MAT-2000"],
+  "soonest first; cancelled and past skipped",
+);
+const details = buildWhatsAppBookingDetails(
+  { ...bfsReturn, passengers: 2 } as PaidBookingRecord,
+  { manageUrl: "https://www.myairporttaxini.co.uk/manage-booking/?token=abc", teamNumber: "447549815538" },
+);
+assert.match(details, /Your booking MAT-1234/);
+assert.match(details, /\*Outbound:\*/);
+assert.match(details, /\*Return:\* 02-11-2026/);
+assert.match(details, /Passengers: 2/);
+assert.match(details, /manage-booking\/\?token=abc/);
+assert.match(details, /https:\/\/wa\.me\/447549815538/);
+
+// A misconfigured team number never produces a dead wa.me link.
+assert.equal(resolveWhatsAppTeamNumber("2360"), WHATSAPP_TEAM_NUMBER_DEFAULT);
+assert.equal(resolveWhatsAppTeamNumber(""), WHATSAPP_TEAM_NUMBER_DEFAULT);
+assert.equal(resolveWhatsAppTeamNumber("+44 7549 815538"), "447549815538");
+assert.equal(WHATSAPP_TEAM_NUMBER_DEFAULT, "447549815538");
 
 console.log("All WhatsApp pickup info checks passed.");
