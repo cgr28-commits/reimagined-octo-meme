@@ -1016,7 +1016,7 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
-  const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | null>(null);
+  const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | "help" | null>(null);
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
   const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
@@ -7416,6 +7416,42 @@ function QuoteCard({
     effectivePassengers != null &&
     suitcases != null;
 
+  // "Any questions before you book?" — once per visit, when someone has a payable price
+  // but hasn't pressed Book: leaving the page on desktop, or lingering on the price on mobile.
+  const helpNudgeArmed =
+    showInstantQuoteResultCard && Boolean(liveQuote) && canPayNowOnline && !submitted && !isVehiclePersonalQuote;
+  const helpNudgeBlocked = quoteActionOpen !== null || saveQuoteOpen;
+  useEffect(() => {
+    if (!helpNudgeArmed || helpNudgeBlocked) return;
+    const key = "matni-quote-help-nudge";
+    try {
+      if (window.sessionStorage.getItem(key)) return;
+    } catch {
+      // Storage blocked: still show it at most once for this page.
+    }
+    let shown = false;
+    const show = () => {
+      if (shown) return;
+      shown = true;
+      try {
+        window.sessionStorage.setItem(key, "1");
+      } catch {
+        // ignore
+      }
+      setQuoteActionOpen("help");
+    };
+    const onMouseOut = (event: MouseEvent) => {
+      if (!event.relatedTarget && event.clientY <= 0) show();
+    };
+    const desktop = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    document.addEventListener("mouseout", onMouseOut);
+    const timer = desktop ? null : window.setTimeout(show, 40_000);
+    return () => {
+      document.removeEventListener("mouseout", onMouseOut);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [helpNudgeArmed, helpNudgeBlocked]);
+
   function handleQuoteVehicleChoice(next: string) {
     const pax =
       effectivePartyPassengers(passengers, passengerLimit) ??
@@ -7567,7 +7603,7 @@ function QuoteCard({
     const restarting = quoteActionOpen === "restart";
     return (
       <QuoteActionDialog
-        title={quoteActionOpen === "route" ? "View route" : restarting ? "Need a quote for a different journey?" : "WhatsApp"}
+        title={quoteActionOpen === "route" ? "View route" : restarting ? "Need a quote for a different journey?" : quoteActionOpen === "help" ? "Any questions before you book?" : "WhatsApp"}
         role={restarting ? "alertdialog" : "dialog"}
         wide={quoteActionOpen === "route"}
         onClose={() => setQuoteActionOpen(null)}>
@@ -7581,6 +7617,42 @@ function QuoteCard({
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <button type="button" onClick={() => setQuoteActionOpen(null)} className="rounded-xl border border-white/25 px-4 py-3 text-sm font-semibold text-white">Keep Current Quote</button>
               <button type="button" onClick={performStartNewQuote} className="rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy">Start New Quote</button>
+            </div>
+          </div>
+        ) : quoteActionOpen === "help" ? (
+          <div data-quote-help-nudge>
+            <p className="quote-secondary text-sm leading-relaxed">
+              Luggage, child seats, flight delays or where to meet your driver — we&apos;re happy to help.
+              Message us on WhatsApp and we&apos;ll reply straight away with your price and booking link.
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <a
+                href={whatsAppSendQuoteHref({
+                  pickup: pickupAddress,
+                  dropoff: dropoffAddress,
+                  tripDate,
+                  tripTime,
+                  returnJourney: journeyMode == null ? null : journeyMode === "return",
+                  returnDate,
+                  returnTime,
+                  passengers: effectivePassengers ?? passengers,
+                  suitcases,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setQuoteActionOpen(null)}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold text-navy"
+              >
+                <QuoteResultActionIcon name="whatsapp" className="h-5 w-5 text-navy" />
+                Chat to us on WhatsApp
+              </a>
+              <button
+                type="button"
+                onClick={() => setQuoteActionOpen(null)}
+                className="rounded-xl border border-white/25 px-4 py-3 text-sm font-semibold text-white"
+              >
+                No thanks, back to my quote
+              </button>
             </div>
           </div>
         ) : <QuoteHelpContact variant="card" />}
