@@ -46,7 +46,6 @@ import {
   buildWhatsAppQuestion,
   buildWhatsAppQuoteReply,
   buildWhatsAppSummary,
-  buildWhatsAppTeamHandoffReply,
   decideWhatsAppReply,
   detectWhatsAppIntent,
   WHATSAPP_QUOTED_BUTTONS,
@@ -426,26 +425,23 @@ async function handleInboundMessage(
   if (decision.action === "handoff") {
     if (isTeamPhone) {
       // The owner testing from the team phone: never pause, just explain.
-      text = "This is the team's own number, so the assistant stays on. (Customers who ask for a person get a link to chat with you.)";
-      buttons = undefined;
-    } else if (teamNumber) {
-      // The team answers from another number, so keep the assistant available here.
-      text = buildWhatsAppTeamHandoffReply(teamNumber, conversation.draft);
+      text = "This is the team's own number, so the assistant stays on. (Customers who ask for a person are handed to you on the dashboard.)";
       buttons = undefined;
     } else {
+      // The team replies here, from the dashboard (WhatsApp chats), so the assistant steps back.
       await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
     }
     logEvent("whatsapp_bot_handoff", phone);
     await cancelWhatsAppFollowUp(store, phone);
-    if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation);
+    if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
   }
 
   if (decision.action === "answer") {
-    const answered = await answerCustomerQuestion(env, store, phone, message.text, conversation, teamNumber);
+    const answered = await answerCustomerQuestion(env, store, phone, message.text, conversation);
     if (answered) {
       text = answered.text;
       if (answered.handoff && !isTeamPhone) {
-        await notifyOwnerOfHandoff(env, phone, message.profileName, conversation);
+        await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, false);
       }
     }
   }
@@ -666,6 +662,7 @@ async function notifyOwnerOfHandoff(
   phone: string,
   profileName: string | undefined,
   conversation: WhatsAppConversation,
+  assistantPaused: boolean,
 ): Promise<void> {
   const d = conversation.draft;
   const lines = [
@@ -673,7 +670,7 @@ async function notifyOwnerOfHandoff(
     ``,
     `Name: ${profileName || "—"}`,
     `WhatsApp: +${phone}`,
-    `Chat: https://wa.me/${phone}`,
+    `Reply from the business number: Owner dashboard → More → WhatsApp chats.`,
     ``,
     d.pickupAddress ? `From: ${d.pickupAddress}` : "",
     d.dropoffAddress ? `To: ${d.dropoffAddress}` : "",
@@ -691,7 +688,12 @@ async function notifyOwnerOfHandoff(
   if (transcript) {
     lines.push("", "Conversation so far:", "", transcript);
   }
-  lines.push("", "Full history: Owner dashboard → More → WhatsApp chats.");
+  lines.push(
+    "",
+    assistantPaused
+      ? "The assistant is paused for this customer until you hand it back on the dashboard (or 12 hours)."
+      : "The assistant couldn't answer this and told the customer the team will reply. It is still answering them.",
+  );
   try {
     const sent = await trySendOwnerOperationalEmail(env, {
       to: env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk",
@@ -716,7 +718,6 @@ async function answerCustomerQuestion(
   phone: string,
   question: string,
   conversation: WhatsAppConversation,
-  teamNumber: string | undefined,
 ): Promise<{ text: string; handoff: boolean } | null> {
   try {
     const chat = await getWhatsAppChat(store, phone);
@@ -735,8 +736,8 @@ async function answerCustomerQuestion(
     logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff });
 
     let text = answer.text;
-    if (answer.handoff && teamNumber) {
-      text += `\n\nYou can message our team directly here: https://wa.me/${teamNumber}`;
+    if (answer.handoff) {
+      text += `\n\nI've passed this to our team and they'll reply to you here shortly.`;
     }
     if (conversation.stage === "collecting" && conversation.awaiting) {
       text += `\n\n${buildWhatsAppQuestion(conversation.awaiting)}`;
@@ -758,7 +759,6 @@ async function replyWithBookingDetails(
   phone: string,
   bookingRef: string | null,
 ): Promise<void> {
-  const teamNumber = resolveWhatsAppTeamNumber(env.WHATSAPP_TEAM_NUMBER);
   let bookings: PaidBookingRecord[] = [];
   try {
     if (bookingRef) {
@@ -775,15 +775,13 @@ async function replyWithBookingDetails(
   const found = upcomingCustomerBookings(bookings).slice(0, 3);
   logEvent("whatsapp_booking_details", phone, { byRef: Boolean(bookingRef), found: found.length });
   if (!found.length) {
-    await reply(env, phone, `${WHATSAPP_BOOKING_NOT_FOUND_REPLY}
-
-Our team: https://wa.me/${teamNumber}`);
+    await reply(env, phone, WHATSAPP_BOOKING_NOT_FOUND_REPLY);
     return;
   }
   const origin = (env.SITE_ORIGIN?.trim() || "https://www.myairporttaxini.co.uk").replace(/\/$/, "");
   for (const paid of found) {
     const manageUrl = paid.manageBookingToken ? buildManageBookingUrl(origin, paid.manageBookingToken) : null;
-    await reply(env, phone, buildWhatsAppBookingDetails(paid, { manageUrl, teamNumber }));
+    await reply(env, phone, buildWhatsAppBookingDetails(paid, { manageUrl }));
   }
 }
 
@@ -861,6 +859,64 @@ async function reply(
   }
 }
 
+/** WhatsApp only allows free-form replies within 24h of the customer's last message. */
+const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export type OwnerWhatsAppReplyResult =
+  | { ok: true; assistantPaused: boolean }
+  | { error: string; status: number };
+
+/**
+ * Owner dashboard: reply to a customer from the assistant's own number, in the same chat.
+ * The assistant then stays quiet for that customer (handoff hours) so it never talks over you.
+ */
+export async function ownerReplyToWhatsAppChat(
+  env: WhatsAppEnv,
+  rawPhone: string,
+  rawText: string,
+  now: Date = new Date(),
+): Promise<OwnerWhatsAppReplyResult> {
+  const store = env.TRACKING_STORE;
+  if (!store || !whatsAppCloudConfigured(env)) return { error: "WhatsApp is not configured", status: 503 };
+  const phone = rawPhone.replace(/\D/g, "");
+  const text = rawText.trim();
+  if (!phone) return { error: "Missing phone", status: 400 };
+  if (!text) return { error: "Type a message first", status: 400 };
+  if (text.length > 4000) return { error: "Message is too long", status: 400 };
+  const chat = await getWhatsAppChat(store, phone);
+  if (!chat) return { error: "Chat not found", status: 404 };
+  const lastCustomer = [...chat.messages].reverse().find((m) => m.from === "customer");
+  const lastAt = lastCustomer ? Date.parse(lastCustomer.at) : NaN;
+  if (!Number.isFinite(lastAt) || now.getTime() - lastAt >= SERVICE_WINDOW_MS) {
+    return {
+      error:
+        "It's more than 24 hours since this customer last messaged, so WhatsApp won't deliver a normal reply from the business number. Message them from your own WhatsApp instead.",
+      status: 409,
+    };
+  }
+  const sent = await sendWhatsAppText(env, phone, text);
+  await appendWhatsAppChat(store, phone, { from: "team", text, failed: !sent.sent });
+  if (!sent.sent) {
+    logEvent("whatsapp_owner_reply_failed", phone, { error: sent.error });
+    return { error: `WhatsApp didn't accept the message: ${String(sent.error ?? "unknown error")}`, status: 502 };
+  }
+  await store.put(pausedKey(phone), "owner", { expirationTtl: handoffTtlSeconds(env) });
+  await cancelWhatsAppFollowUp(store, phone);
+  logEvent("whatsapp_owner_reply_sent", phone);
+  return { ok: true, assistantPaused: true };
+}
+
+/** Owner dashboard: let the assistant answer this customer again. */
+export async function resumeWhatsAppAssistant(env: WhatsAppEnv, rawPhone: string): Promise<void> {
+  const phone = rawPhone.replace(/\D/g, "");
+  if (env.TRACKING_STORE && phone) await env.TRACKING_STORE.delete(pausedKey(phone));
+}
+
+export async function isWhatsAppAssistantPaused(store: KVNamespace, rawPhone: string): Promise<boolean> {
+  const phone = rawPhone.replace(/\D/g, "");
+  return Boolean(phone) && Boolean(await store.get(pausedKey(phone)));
+}
+
 /**
  * Cron: one reminder to customers who got a WhatsApp quote but haven't booked,
  * 5 minutes after their last message and inside the 24h service window.
@@ -920,9 +976,8 @@ export async function processWhatsAppChatEmails(
         subject: `WhatsApp chat: ${who}`,
         body:
           `WhatsApp assistant chat with ${who}.\n` +
-          `Reply to them: https://wa.me/${chat.phone}\n\n` +
-          `${transcript}\n\n` +
-          `Full history: Owner dashboard → More → WhatsApp chats.`,
+          `Reply from the business number: Owner dashboard → More → WhatsApp chats.\n\n` +
+          `${transcript}`,
       });
       if (sent.sent) {
         await markWhatsAppChatEmailed(store, chat, now.toISOString());

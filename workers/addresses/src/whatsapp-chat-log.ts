@@ -1,12 +1,13 @@
 /**
  * WhatsApp assistant transcript for the owner dashboard: what customers sent and
- * what the assistant replied. Kept 30 days, last 60 messages per customer.
+ * what the assistant (or the team, from the dashboard) replied. Kept 30 days, last 60 messages per customer.
  * Never affects replies — every write is best-effort.
  */
 
 export type WhatsAppChatEntry = {
   at: string;
-  from: "customer" | "assistant";
+  /** team: the owner replying from the dashboard, sent from the assistant's number. */
+  from: "customer" | "assistant" | "team";
   text: string;
   /** Reply was not delivered (e.g. Meta rejected it). */
   failed?: boolean;
@@ -94,7 +95,7 @@ export function formatWhatsAppChatTranscript(record: WhatsAppChatRecord, sinceIs
   return record.messages
     .filter((m) => !sinceIso || m.at > sinceIso)
     .map((m) => {
-      const who = m.from === "customer" ? record.name || "Customer" : "Assistant";
+      const who = m.from === "customer" ? record.name || "Customer" : m.from === "team" ? "You (team)" : "Assistant";
       return `[${london(m.at)}] ${who}${m.failed ? " (NOT DELIVERED)" : ""}:\n${m.text}`;
     })
     .join("\n\n");

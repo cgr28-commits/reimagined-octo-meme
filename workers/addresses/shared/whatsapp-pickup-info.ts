@@ -184,7 +184,7 @@ export function upcomingCustomerBookings(bookings: PaidBookingRecord[], now: Dat
 
 export function buildWhatsAppBookingDetails(
   paid: PaidBookingRecord,
-  options: { manageUrl?: string | null; teamNumber: string },
+  options: { manageUrl?: string | null },
 ): string {
   const when = (date?: string, time?: string) =>
     [formatUkDate(date ?? ""), formatUkTime(time ?? "")].filter(Boolean).join(" at ");
@@ -214,7 +214,7 @@ export function buildWhatsAppBookingDetails(
     `Status: Confirmed ✅`,
     ``,
     options.manageUrl ? `To change or manage it: ${options.manageUrl}` : "",
-    `For anything else, message our team: https://wa.me/${options.teamNumber}`,
+    `Anything else? Just reply here and our team will help.`,
   );
   return lines.filter((line, i, all) => line !== "" || (i > 0 && all[i - 1] !== "")).join("\n").trim();
 }
@@ -222,4 +222,4 @@ export function buildWhatsAppBookingDetails(
 export const WHATSAPP_BOOKING_NOT_FOUND_REPLY =
   "I couldn't find an upcoming booking made with this WhatsApp number.\n\n" +
   "If you booked with a different mobile, please send your booking reference (it starts with *MAT-*, e.g. MAT-1234) " +
-  "from that phone, or message our team and they'll check it for you.";
+  "from that phone, or just reply here and our team will check it for you.";

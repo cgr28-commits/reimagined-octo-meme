@@ -414,6 +414,9 @@ import {
   handleWhatsAppStatus,
   processWhatsAppChatEmails,
   processWhatsAppFollowUps,
+  ownerReplyToWhatsAppChat,
+  resumeWhatsAppAssistant,
+  isWhatsAppAssistantPaused,
   handleWhatsAppWebhook,
   isWhatsAppConnectPath,
   isWhatsAppStatusPath,
@@ -4533,9 +4536,29 @@ export default {
       if (phone) {
         const chat = await getWhatsAppChat(env.TRACKING_STORE, phone);
         if (!chat) return json({ error: "Chat not found" }, 404, origin);
-        return json({ ok: true, chat }, 200, origin);
+        const assistantPaused = await isWhatsAppAssistantPaused(env.TRACKING_STORE, phone);
+        return json({ ok: true, chat, assistantPaused }, 200, origin);
       }
       return json({ ok: true, chats: await listWhatsAppChats(env.TRACKING_STORE) }, 200, origin);
+    }
+
+    // Owner dashboard: reply from the assistant's number, or hand the chat back to the assistant.
+    if (
+      (url.pathname === "/owner/whatsapp-chats/reply" || url.pathname === "/api/owner/whatsapp-chats/reply") &&
+      request.method === "POST"
+    ) {
+      if (!ownerAuthorized(request, env)) {
+        return json({ error: "Unauthorized — owner access required." }, 401, origin);
+      }
+      const body = (await request.json().catch(() => ({}))) as { phone?: unknown; text?: unknown; action?: unknown };
+      const phone = String(body.phone ?? "");
+      if (body.action === "resume") {
+        await resumeWhatsAppAssistant(env, phone);
+        return json({ ok: true, assistantPaused: false }, 200, origin);
+      }
+      const result = await ownerReplyToWhatsAppChat(env, phone, String(body.text ?? ""));
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
     }
 
     if (

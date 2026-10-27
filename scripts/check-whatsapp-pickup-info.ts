@@ -128,14 +128,15 @@ assert.deepEqual(
 );
 const details = buildWhatsAppBookingDetails(
   { ...bfsReturn, passengers: 2 } as PaidBookingRecord,
-  { manageUrl: "https://www.myairporttaxini.co.uk/manage-booking/?token=abc", teamNumber: "447549815538" },
+  { manageUrl: "https://www.myairporttaxini.co.uk/manage-booking/?token=abc" },
 );
 assert.match(details, /Your booking MAT-1234/);
 assert.match(details, /\*Outbound:\*/);
 assert.match(details, /\*Return:\* 02-11-2026/);
 assert.match(details, /Passengers: 2/);
 assert.match(details, /manage-booking\/\?token=abc/);
-assert.match(details, /https:\/\/wa\.me\/447549815538/);
+assert.match(details, /Just reply here and our team will help/, "the team replies in the same chat");
+assert.doesNotMatch(details, /wa\.me/);
 
 // A misconfigured team number never produces a dead wa.me link.
 assert.equal(resolveWhatsAppTeamNumber("2360"), WHATSAPP_TEAM_NUMBER_DEFAULT);
