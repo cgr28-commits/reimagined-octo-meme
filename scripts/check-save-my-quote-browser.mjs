@@ -47,31 +47,15 @@ try {
   assert.equal(await page.locator('#time').inputValue(),journey.tripTime);
   await page.getByText(/Your current fare has changed/).waitFor();
   await page.clock.install();
-  await page.locator('#time').focus();
-  await page.clock.fastForward(19000);
-  assert.equal(await page.locator('[data-save-quote-reminder]').count(),0);
-  await page.locator('#time').dispatchEvent('input');
-  await page.clock.fastForward(19000);
-  assert.equal(await page.locator('[data-save-quote-reminder]').count(),0,'interaction resets timer');
-  await page.clock.fastForward(1500);
-  const reminder=page.locator('[data-save-quote-reminder]');await reminder.waitFor();
-  await reminder.scrollIntoViewIfNeeded();
+  // The timed "Not Ready to Book Yet?" pop-up was retired (the quote card's "Any questions?" pop-up replaces it).
+  await page.clock.fastForward(25000);
+  const reminder=page.locator('[data-save-quote-reminder]');
+  assert.equal(await reminder.count(),0,'no timed save-quote pop-up');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no horizontal overflow');
-  const overlaps=await page.evaluate(()=>{const p=document.querySelector('[data-save-quote-reminder]').getBoundingClientRect();return [...document.querySelectorAll('#quoteForm [data-quote-result-price], #quoteForm button')].some(el=>{const r=el.getBoundingClientRect();return r.width&&r.height&&p.left<r.right&&p.right>r.left&&p.top<r.bottom&&p.bottom>r.top;});});
-  assert.equal(overlaps,false,'reminder does not cover fare or controls');
-  await page.screenshot({path:`test-results/save-my-quote/${width}-reminder.png`});
-  if(width===360) {
-    await reminder.getByRole('button',{name:'Close save quote reminder'}).click();
-    await page.clock.fastForward(30000);assert.equal(await reminder.count(),0,'dismissed reminder stays closed');
-    await page.locator('[data-quote-save]').click();
-  } else {
-    const options = reminder.getByRole('button').filter({hasText:/Email My Quote|Save via WhatsApp/});
-    assert.equal(await options.first().innerText(),width<768?'Save via WhatsApp':'Email My Quote');
-    await reminder.getByRole('button',{name:width<768?'Save via WhatsApp':'Email My Quote',exact:true}).click();
-  }
+  await page.locator('[data-quote-save]').click();
   const dialog=page.getByRole('dialog',{name:'Save My Quote',exact:true});await dialog.waitFor();
   await page.screenshot({path:`test-results/save-my-quote/${width}-save-options.png`});
-  if(width===360 || width>=768) await dialog.getByRole('button',{name:'Save via WhatsApp',exact:true}).click();
+  await dialog.getByRole('button',{name:'Save via WhatsApp',exact:true}).click();
   const share=dialog.getByRole('link',{name:'Open WhatsApp to Share'});await share.waitFor();
   assert.equal(new URL(await share.getAttribute('href')).hostname,width<768?'wa.me':'web.whatsapp.com');
   assert.equal(channel,'whatsapp');
@@ -88,9 +72,9 @@ try {
   await page.clock.fastForward(30000);assert.equal(await reminder.count(),0,'booking not interrupted');
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('[data-quote-fare-status="ready"]').first().waitFor();
-  await page.clock.fastForward(30000);assert.equal(await reminder.count(),0,'once per session survives reload');
+  await page.clock.fastForward(30000);assert.equal(await reminder.count(),0,'still no timed pop-up after reload');
   assert.deepEqual(errors,[]);assert.deepEqual(mutations,[]);
-  console.log(`PASS ${width}px: restoration, changed fare, inactivity reset, save options, share URL, email, no overlap, session suppression`);
+  console.log(`PASS ${width}px: restoration, changed fare, no timed pop-up, save options, share URL, email`);
   } catch (error) {
     await page.screenshot({path:`test-results/save-my-quote/${width}-failure.png`,fullPage:true});
     await fs.writeFile(`test-results/save-my-quote/${width}-failure.txt`,String(error)+'\n'+await page.locator('body').innerText());

@@ -425,6 +425,11 @@ export function whatsAppDraftToQuoteBody(draft: WhatsAppQuoteDraft): Record<stri
   };
 }
 
+/** Matches whatsAppSendQuoteHref's first line (src/lib/whatsapp-journey-context.ts). */
+export function isWhatsAppSendQuoteMessage(text: string): boolean {
+  return /^\s*hi,?\s+please send me this quote\b/i.test(text);
+}
+
 export function buildWhatsAppQuoteReply(input: {
   amountLabel: string;
   bookingUrl: string;
@@ -666,6 +671,10 @@ function decideJourneyReply(
 
   conversation.stage = "confirming";
   delete conversation.awaiting;
+  // Sent from the website quote card: the customer already saw the price, so skip the YES step.
+  if (isWhatsAppSendQuoteMessage(text)) {
+    return { conversation, reply: "", action: "quote" };
+  }
   return {
     conversation,
     reply:

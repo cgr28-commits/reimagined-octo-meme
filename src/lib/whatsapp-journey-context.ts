@@ -43,9 +43,15 @@ function when(date?: string, time?: string): string {
   return [date?.trim(), time?.trim()].filter(Boolean).join(" at ");
 }
 
-export function buildWhatsAppJourneyMessage(journey: WhatsAppJourney): string {
+/** First line of the quote card's "Send this quote to my WhatsApp" message: the assistant prices it straight away. */
+export const WHATSAPP_SEND_QUOTE_HEADER = "Hi, please send me this quote:";
+
+export function buildWhatsAppJourneyMessage(
+  journey: WhatsAppJourney,
+  header = "Hi, I'd like a price for this journey:",
+): string {
   const lines = [
-    "Hi, I'd like a price for this journey:",
+    header,
     `From: ${journey.pickup.trim()}`,
     `To: ${journey.dropoff.trim()}`,
   ];
@@ -60,6 +66,11 @@ export function buildWhatsAppJourneyMessage(journey: WhatsAppJourney): string {
   if (journey.passengers) lines.push(`Passengers: ${journey.passengers}`);
   if (journey.suitcases != null) lines.push(`Suitcases: ${journey.suitcases}`);
   return lines.join("\n");
+}
+
+/** Quote card: send the priced journey to the assistant, which replies with the booking link. */
+export function whatsAppSendQuoteHref(journey: WhatsAppJourney): string {
+  return whatsAppAssistantChatUrl(buildWhatsAppJourneyMessage(journey, WHATSAPP_SEND_QUOTE_HEADER));
 }
 
 /** Assistant chat link, pre-filled with the journey being quoted when there is one. */

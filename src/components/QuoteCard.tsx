@@ -227,7 +227,6 @@ import {
   validatePersonalQuoteCode,
   type PersonalQuotePublicSummary,
 } from "@/lib/personal-quote-api";
-import SaveQuoteReminder from "@/components/SaveQuoteReminder";
 import { DEFAULT_SAVE_QUOTE_SETTINGS, normalizeSaveQuoteSettings } from "../../shared/save-quote-settings";
 import type { SavedQuotePublicSummary } from "../../shared/saved-quote";
 import { resolveWorkerBaseUrl as savedQuoteWorkerBaseUrl } from "@/lib/worker-api";
@@ -369,7 +368,7 @@ import {
   type QuickSelectAirportCode,
   type SelectedPlace,
 } from "@/lib/selected-place";
-import { setWhatsAppJourney } from "@/lib/whatsapp-journey-context";
+import { setWhatsAppJourney, whatsAppSendQuoteHref } from "@/lib/whatsapp-journey-context";
 
 const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
 
@@ -1016,7 +1015,7 @@ function QuoteCard({
     return "";
   });
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
-  const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | null>(null);
+  const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | "help" | null>(null);
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
   const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
@@ -7416,6 +7415,42 @@ function QuoteCard({
     effectivePassengers != null &&
     suitcases != null;
 
+  // "Any questions before you book?" — once per visit, when someone has a price
+  // but hasn't pressed Book: leaving the page on desktop, or lingering on the price on mobile.
+  const helpNudgeArmed =
+    showInstantQuoteResultCard && Boolean(liveQuote) && !submitted && !isVehiclePersonalQuote;
+  const helpNudgeBlocked = quoteActionOpen !== null || saveQuoteOpen;
+  useEffect(() => {
+    if (!helpNudgeArmed || helpNudgeBlocked) return;
+    const key = "matni-quote-help-nudge";
+    try {
+      if (window.sessionStorage.getItem(key)) return;
+    } catch {
+      // Storage blocked: still show it at most once for this page.
+    }
+    let shown = false;
+    const show = () => {
+      if (shown) return;
+      shown = true;
+      try {
+        window.sessionStorage.setItem(key, "1");
+      } catch {
+        // ignore
+      }
+      setQuoteActionOpen("help");
+    };
+    const onMouseOut = (event: MouseEvent) => {
+      if (!event.relatedTarget && event.clientY <= 0) show();
+    };
+    const desktop = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    document.addEventListener("mouseout", onMouseOut);
+    const timer = desktop ? null : window.setTimeout(show, 40_000);
+    return () => {
+      document.removeEventListener("mouseout", onMouseOut);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [helpNudgeArmed, helpNudgeBlocked]);
+
   function handleQuoteVehicleChoice(next: string) {
     const pax =
       effectivePartyPassengers(passengers, passengerLimit) ??
@@ -7567,7 +7602,7 @@ function QuoteCard({
     const restarting = quoteActionOpen === "restart";
     return (
       <QuoteActionDialog
-        title={quoteActionOpen === "route" ? "View route" : restarting ? "Need a quote for a different journey?" : "WhatsApp"}
+        title={quoteActionOpen === "route" ? "View route" : restarting ? "Need a quote for a different journey?" : quoteActionOpen === "help" ? "Any questions before you book?" : "WhatsApp"}
         role={restarting ? "alertdialog" : "dialog"}
         wide={quoteActionOpen === "route"}
         onClose={() => setQuoteActionOpen(null)}>
@@ -7581,6 +7616,42 @@ function QuoteCard({
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <button type="button" onClick={() => setQuoteActionOpen(null)} className="rounded-xl border border-white/25 px-4 py-3 text-sm font-semibold text-white">Keep Current Quote</button>
               <button type="button" onClick={performStartNewQuote} className="rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy">Start New Quote</button>
+            </div>
+          </div>
+        ) : quoteActionOpen === "help" ? (
+          <div data-quote-help-nudge>
+            <p className="quote-secondary text-sm leading-relaxed">
+              Luggage, child seats, flight delays or where to meet your driver — we&apos;re happy to help.
+              Message us on WhatsApp and we&apos;ll reply straight away with your price and booking link.
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <a
+                href={whatsAppSendQuoteHref({
+                  pickup: pickupAddress,
+                  dropoff: dropoffAddress,
+                  tripDate,
+                  tripTime,
+                  returnJourney: journeyMode == null ? null : journeyMode === "return",
+                  returnDate,
+                  returnTime,
+                  passengers: effectivePassengers ?? passengers,
+                  suitcases,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setQuoteActionOpen(null)}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold text-navy"
+              >
+                <QuoteResultActionIcon name="whatsapp" className="h-5 w-5 text-navy" />
+                Chat to us on WhatsApp
+              </a>
+              <button
+                type="button"
+                onClick={() => setQuoteActionOpen(null)}
+                className="rounded-xl border border-white/25 px-4 py-3 text-sm font-semibold text-white"
+              >
+                No thanks, back to my quote
+              </button>
             </div>
           </div>
         ) : <QuoteHelpContact variant="card" />}
@@ -7603,6 +7674,28 @@ function QuoteCard({
           className="scroll-mt-24 space-y-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
           data-quote-result-actions
         >
+          {liveQuote && !isVehiclePersonalQuote && !isEnquiryOnly && !showsRequestQuoteFlow ? (
+            <a
+              href={whatsAppSendQuoteHref({
+                pickup: pickupAddress,
+                dropoff: dropoffAddress,
+                tripDate,
+                tripTime,
+                returnJourney: journeyMode == null ? null : journeyMode === "return",
+                returnDate,
+                returnTime,
+                passengers: effectivePassengers ?? passengers,
+                suitcases,
+              })}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-quote-send-whatsapp
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#25D366]/60 bg-[#25D366]/10 px-3 py-2 text-center text-sm font-semibold leading-tight text-white"
+            >
+              <QuoteResultActionIcon name="whatsapp" className="h-5 w-5 shrink-0 text-[#25D366]" />
+              <span>Not ready to book? Send this quote to my WhatsApp</span>
+            </a>
+          ) : null}
           <div className="grid grid-cols-4 gap-1.5 max-[340px]:grid-cols-2">
             {mapsHref ? (
               <button
@@ -8849,13 +8942,6 @@ function QuoteCard({
         Original quote: {restoredQuote.amountLabel}. {authoritativeFareReady && pricedFare ?
           Math.abs(pricedFare.totalGbp + (bookingMeetGreetSelected ? bookingMeetGreetPrice : 0) - restoredQuote.amount) >= 0.01 ? `Your current fare has changed to ${formatQuote(pricedFare.totalGbp + (bookingMeetGreetSelected ? bookingMeetGreetPrice : 0))}.` : "Your recalculated fare is unchanged." : !tripDate || !tripTime ? "Choose your pickup date and time to recalculate." : "Recalculating your fare…"}
       </p>}
-      <SaveQuoteReminder
-        eligible={quoteResultsReady && authoritativeFareReady && canPayNowOnline && quoteStep === 1 && !saveQuoteOpen && !submitted && !appliedPersonalQuote}
-        settings={saveQuoteSettings}
-        quoteKey={`${pickupAddress}|${dropoffAddress}|${quoteVehicle}|${pricedFare?.totalGbp}|${tripDate}|${tripTime}|${returnDate}|${returnTime}`}
-        onSave={handleSaveQuoteClick}
-        onBook={() => (document.getElementById("quoteForm") as HTMLFormElement | null)?.requestSubmit()}
-      />
       <SaveQuoteModal
         initialWhatsAppRequest={initialWhatsAppRequest}
         settings={saveQuoteSettings}
