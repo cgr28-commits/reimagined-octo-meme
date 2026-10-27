@@ -79,7 +79,7 @@ async function saveChat(store: KVNamespace, record: WhatsAppChatRecord): Promise
 }
 
 /** A chat counts as finished after this long with no new messages. */
-export const WHATSAPP_CHAT_IDLE_MS = 30 * 60 * 1000;
+export const WHATSAPP_CHAT_IDLE_MS = 5 * 60 * 1000;
 
 /** Finished chats with messages the owner has not been emailed yet. */
 export function isWhatsAppChatDueForEmail(summary: WhatsAppChatSummary, now: Date): boolean {

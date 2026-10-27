@@ -684,6 +684,14 @@ async function notifyOwnerOfHandoff(
     d.flightNumber ? `Flight: ${d.flightNumber}` : "",
     conversation.lastQuoteAmountLabel ? `Last quote: ${conversation.lastQuoteAmountLabel}` : "",
   ].filter((line, i, all) => line !== "" || (i > 0 && all[i - 1] !== ""));
+  // The whole conversation so far, so the owner can pick it up without asking again.
+  const store = env.TRACKING_STORE;
+  const chat = store ? await getWhatsAppChat(store, phone).catch(() => null) : null;
+  const transcript = chat ? formatWhatsAppChatTranscript(chat) : "";
+  if (transcript) {
+    lines.push("", "Conversation so far:", "", transcript);
+  }
+  lines.push("", "Full history: Owner dashboard → More → WhatsApp chats.");
   try {
     const sent = await trySendOwnerOperationalEmail(env, {
       to: env.BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk",
@@ -691,6 +699,8 @@ async function notifyOwnerOfHandoff(
       body: lines.join("\n"),
     });
     if (!sent.sent) logEvent("whatsapp_handoff_email_failed", phone);
+    // Already sent in full: the "chat finished" email then only adds what follows.
+    if (sent.sent && store && chat && transcript) await markWhatsAppChatEmailed(store, chat, nowIso());
   } catch {
     logEvent("whatsapp_handoff_email_failed", phone);
   }
@@ -884,7 +894,7 @@ export async function processWhatsAppFollowUps(
 }
 
 /**
- * Cron: email the owner each WhatsApp chat once it has gone quiet (30 minutes),
+ * Cron: email the owner each WhatsApp chat once it has gone quiet (5 minutes),
  * with the messages since the last email, so the assistant's answers can be checked.
  */
 export async function processWhatsAppChatEmails(

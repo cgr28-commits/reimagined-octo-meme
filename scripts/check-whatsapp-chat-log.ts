@@ -54,11 +54,11 @@ async function main() {
   const other = (await getWhatsAppChat(store, "447700900999"))!;
   assert.match(formatWhatsAppChatTranscript(other), /Assistant \(NOT DELIVERED\)/);
 
-  // Emailed only once the chat has been quiet for 30 minutes, and only new messages after that.
+  // Emailed only once the chat has been quiet for 5 minutes, and only new messages after that.
   const updated = Date.parse(sam.updatedAt);
-  assert.equal(isWhatsAppChatDueForEmail(sam, new Date(updated + 10 * 60 * 1000)), false);
-  assert.equal(isWhatsAppChatDueForEmail(sam, new Date(updated + 31 * 60 * 1000)), true);
-  const emailedAt = new Date(updated + 31 * 60 * 1000).toISOString();
+  assert.equal(isWhatsAppChatDueForEmail(sam, new Date(updated + 4 * 60 * 1000)), false);
+  assert.equal(isWhatsAppChatDueForEmail(sam, new Date(updated + 5 * 60 * 1000)), true);
+  const emailedAt = new Date(updated + 5 * 60 * 1000).toISOString();
   await markWhatsAppChatEmailed(store, record, emailedAt);
   const afterEmail = (await listWhatsAppChats(store)).find((c) => c.phone === sam.phone)!;
   assert.equal(isWhatsAppChatDueForEmail(afterEmail, new Date(updated + 120 * 60 * 1000)), false);

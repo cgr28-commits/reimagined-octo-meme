@@ -458,6 +458,7 @@ async function main() {
 
   console.log("=== Worker processing via 360dialog with a team number ===");
   const d360Sent: Array<{ to: string; body: string; key: string | null }> = [];
+  const ownerEmails: string[] = [];
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
     if (String(url) === "https://waba-v2.360dialog.io/messages") {
       const msg = JSON.parse(String(init?.body));
@@ -468,7 +469,8 @@ async function main() {
       });
       return new Response(JSON.stringify({ messages: [{ id: "wamid.360" }] }), { status: 200 });
     }
-    // Owner handoff email providers are not configured here.
+    // Owner handoff email providers are not configured here; keep what would be sent.
+    if (init?.body) ownerEmails.push(String(init.body));
     return new Response("{}", { status: 500 });
   }) as typeof fetch;
   const d360Env = { TRACKING_STORE: store, D360_API_KEY: "d360-key", WHATSAPP_TEAM_NUMBER: "447549815538" };
@@ -480,6 +482,11 @@ async function main() {
 
     await processWhatsAppWebhook(inbound("d2", "agent", "447700900888"), d360Env);
     assert.match(d360Sent.at(-1)!.body, /wa\.me\/447549815538/);
+    // The owner's handover email carries the whole conversation so far.
+    const handoffEmail = ownerEmails.find((body) => body.includes("wants to speak to you")) ?? "";
+    assert.match(handoffEmail, /Conversation so far/);
+    assert.match(handoffEmail, /fixed price/, "includes the assistant's earlier reply");
+    assert.match(handoffEmail, /agent/, "includes the customer's request");
     assert.ok(!kv.has("whatsapp:paused:447700900888"), "assistant stays available on its own number");
 
     await processWhatsAppWebhook(inbound("d3", "hi", "447700900888"), d360Env);
