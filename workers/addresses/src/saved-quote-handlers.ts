@@ -31,7 +31,12 @@ import {
   type QuoteServiceAirportCode,
   type QuoteServiceResult,
 } from "../../../src/lib/quote-service";
-import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
+import {
+  resolveWorkerTripRouteMetrics,
+  resolveWorkerTripRouteMetricsForPayment,
+} from "./resolve-route-metrics";
+import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
+import type { ProfitabilitySettings } from "../../../src/lib/owner-profitability-settings";
 import {
   clearSavedQuoteReminderClaim,
   createSavedQuote,
@@ -200,21 +205,49 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   const airportCode = parseAirportCode(journey.airportCode);
   const isAirportTrip = Boolean(airportCode || journey.isAirportTrip);
 
-  const routeMetrics = await resolveWorkerTripRouteMetrics({
-    pickupAddress: journey.pickupLabel,
-    dropoffAddress: journey.dropoffLabel,
-    pickupPlaceId: journey.pickupPlaceId,
-    dropoffPlaceId: journey.dropoffPlaceId,
-    trustClientCoordinates: false,
-    getAddressApiKey: input.getAddressApiKey,
-    pickupLat: journey.pickupLat,
-    pickupLng: journey.pickupLng,
-    dropoffLat: journey.dropoffLat,
-    dropoffLng: journey.dropoffLng,
-    googlePlacesApiKey: input.googlePlacesApiKey,
+  const ownerProfitability =
+    input.pricing && "profitability" in input.pricing
+      ? (input.pricing as { profitability?: ProfitabilitySettings | null }).profitability
+      : null;
+  // The drive-to-pickup charge needs server-resolved coordinates, so use the
+  // payment resolver (the same one checkout re-quotes with) while it is ON.
+  const paymentRoute = isPositioningChargeActive(ownerProfitability)
+    ? await resolveWorkerTripRouteMetricsForPayment({
+        pickupAddress: journey.pickupLabel,
+        dropoffAddress: journey.dropoffLabel,
+        pickupPlaceId: journey.pickupPlaceId,
+        dropoffPlaceId: journey.dropoffPlaceId,
+        googlePlacesApiKey: input.googlePlacesApiKey,
+        getAddressApiKey: input.getAddressApiKey,
+      })
+    : null;
+  const routeMetrics = paymentRoute
+    ? paymentRoute.ok
+      ? paymentRoute.metrics
+      : null
+    : await resolveWorkerTripRouteMetrics({
+        pickupAddress: journey.pickupLabel,
+        dropoffAddress: journey.dropoffLabel,
+        pickupPlaceId: journey.pickupPlaceId,
+        dropoffPlaceId: journey.dropoffPlaceId,
+        trustClientCoordinates: false,
+        getAddressApiKey: input.getAddressApiKey,
+        pickupLat: journey.pickupLat,
+        pickupLng: journey.pickupLng,
+        dropoffLat: journey.dropoffLat,
+        dropoffLng: journey.dropoffLng,
+        googlePlacesApiKey: input.googlePlacesApiKey,
+      });
+  const positioning = await resolvePositioningChargeGbp({
+    settings: ownerProfitability,
+    airportTransfer: isAirportTrip && Boolean(airportCode),
+    fromAirport: Boolean(journey.isFromAirport),
+    pickup: paymentRoute?.ok ? paymentRoute.pickup : null,
+    dropoff: paymentRoute?.ok ? paymentRoute.dropoff : null,
   });
 
   const quote = calculateAuthoritativeWebsiteQuote({
+    positioningChargeGbp: positioning.chargeGbp,
     airportCode: isAirportTrip ? airportCode : null,
     fromAirport: Boolean(journey.isFromAirport),
     pickupAddress: journey.pickupLabel,

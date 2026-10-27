@@ -728,6 +728,14 @@ export function calculateQuote(
   fromAirport = false,
   pricing?: QuotePricingConfig,
   minimumAirportCodes: readonly string[] = [airportCode],
+  options: {
+    /**
+     * Worker-only drive-to-pickup charge (whole £) added to each leg's vehicle
+     * fare before surcharges and the return discount. Not applied to fixed
+     * postcode fares. Browser callers never pass this.
+     */
+    positioningChargeGbp?: number;
+  } = {},
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
   if (!trimmedAddress || !airportCode) {
@@ -790,8 +798,17 @@ export function calculateQuote(
     vehicle: vehicleType, estateSupplement: engine.estatePremiumGbp,
     returnJourney, outboundFixed, returnFixed,
   });
-  const outboundFare = applyBfsMinimumFare(postcode.outbound ?? oneWayFare, vehicleType, minimumAirportCodes, pricing);
-  const inboundFare = applyBfsMinimumFare(postcode.inbound ?? oneWayFare, vehicleType, minimumAirportCodes, pricing);
+  const positioningCharge =
+    Number.isFinite(options.positioningChargeGbp) && (options.positioningChargeGbp ?? 0) > 0
+      ? Math.round(options.positioningChargeGbp as number)
+      : 0;
+  // Whole-pound addition only: with the charge OFF (0) fares are byte-identical.
+  const outboundFare =
+    applyBfsMinimumFare(postcode.outbound ?? oneWayFare, vehicleType, minimumAirportCodes, pricing) +
+    (postcode.outbound == null ? positioningCharge : 0);
+  const inboundFare =
+    applyBfsMinimumFare(postcode.inbound ?? oneWayFare, vehicleType, minimumAirportCodes, pricing) +
+    (postcode.inbound == null ? positioningCharge : 0);
   const pricedSchedule = {
     ...schedule,
     ...(postcode.outbound != null ? { outboundDate: undefined, outboundTime: undefined } : {}),

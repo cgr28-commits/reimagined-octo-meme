@@ -119,11 +119,11 @@ export async function previewOwnerProfitability(
     vehicleType: string;
     expressSelected: boolean;
   },
-): Promise<{ report: OwnerProfitabilityReport }> {
+): Promise<{ report: OwnerProfitabilityReport; positioningChargeGbp?: number }> {
   return ownerFetch("/owner/profitability-test", ownerKey, {
     method: "POST",
     body: JSON.stringify(input),
-  }) as Promise<{ report: OwnerProfitabilityReport }>;
+  }) as Promise<{ report: OwnerProfitabilityReport; positioningChargeGbp?: number }>;
 }
 
 export async function fetchPublicPricingConfig(

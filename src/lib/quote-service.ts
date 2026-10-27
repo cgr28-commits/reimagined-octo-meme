@@ -75,6 +75,12 @@ export type QuoteServiceInput = {
   pricing?: OwnerPricingSettings | PublicOwnerPricingConfig | null;
   /** Owner/Driver Quick Quote — public Minibus OFF must not block this path. */
   ownerMode?: boolean;
+  /**
+   * Worker-computed drive-to-pickup charge (whole £) added to each address ↔
+   * airport leg's vehicle fare. Only the Worker sets this, from server-resolved
+   * coordinates. Omitted / 0 everywhere else.
+   */
+  positioningChargeGbp?: number;
 };
 
 export type QuoteServiceSuccess = {
@@ -344,6 +350,8 @@ export function calculateAuthoritativeWebsiteQuote(
       input.routeMetrics,
       Boolean(input.fromAirport),
       input.pricing,
+      undefined,
+      { positioningChargeGbp: input.positioningChargeGbp },
     );
   } else {
     const dropoff = (input.dropoffAddress ?? "").trim();

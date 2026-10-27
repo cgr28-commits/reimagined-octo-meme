@@ -159,10 +159,16 @@ export async function saveOwnerPricingSettings(
       input && typeof input === "object"
         ? (input as { profitability?: unknown }).profitability
         : undefined;
+    // Fields an older dashboard does not send (e.g. the drive-to-pickup charge)
+    // keep their saved values instead of silently resetting to defaults.
     const profitability =
       rawProfitability == null
         ? { ok: true as const, settings: current.profitability }
-        : validateProfitabilitySettings(rawProfitability);
+        : validateProfitabilitySettings(
+            rawProfitability && typeof rawProfitability === "object"
+              ? { ...current.profitability, ...(rawProfitability as Record<string, unknown>) }
+              : rawProfitability,
+          );
     if (!profitability.ok) {
       throw new OwnerPricingValidationError(profitability.errors);
     }
