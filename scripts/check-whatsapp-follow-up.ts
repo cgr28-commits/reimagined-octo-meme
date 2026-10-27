@@ -45,7 +45,8 @@ function memoryKv(): KVNamespace {
   } as unknown as KVNamespace;
 }
 
-const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
 
 async function main() {
   // Quote card message: the assistant prices it straight away (no YES step).
@@ -71,8 +72,8 @@ async function main() {
   assert.match(whatsAppSendQuoteHref(journey), /^https:\/\/wa\.me\/\d+\?text=Hi%2C%20please%20send%20me%20this%20quote/);
 
   // Delay setting.
-  assert.equal(whatsAppFollowUpDelayMs(undefined), 2 * HOUR);
-  assert.equal(whatsAppFollowUpDelayMs("3"), 3 * HOUR);
+  assert.equal(whatsAppFollowUpDelayMs(undefined), 5 * MINUTE, "default: 5 minutes after the last message");
+  assert.equal(whatsAppFollowUpDelayMs("30"), 30 * MINUTE);
   assert.equal(whatsAppFollowUpDelayMs("0"), null);
   assert.equal(whatsAppFollowUpDelayMs("off"), null);
 
@@ -89,15 +90,16 @@ async function main() {
       bookingUrl: "https://www.myairporttaxini.co.uk/book-quote/?id=abc",
       journeyLabel: "Europa Hotel → Belfast International Airport on 12-11-2026",
     },
-    2 * HOUR,
+    5 * MINUTE,
     t0,
   );
-  assert.deepEqual(await listDueWhatsAppFollowUps(store, new Date(t0.getTime() + HOUR)), []);
-  assert.deepEqual(await listDueWhatsAppFollowUps(store, new Date(t0.getTime() + 2 * HOUR)), ["447700900123"]);
-  await deferWhatsAppFollowUp(store, "447700900123", 2 * HOUR, new Date(t0.getTime() + 90 * 60 * 1000));
-  assert.deepEqual(await listDueWhatsAppFollowUps(store, new Date(t0.getTime() + 2 * HOUR)), [], "pushed back");
-  assert.deepEqual(await listDueWhatsAppFollowUps(store, new Date(t0.getTime() + 3.5 * HOUR)), ["447700900123"]);
-  await deferWhatsAppFollowUp(store, "447700900999", 2 * HOUR, t0); // no quote: nothing created
+  assert.deepEqual(await listDueWhatsAppFollowUps(store, new Date(t0.getTime() + 4 * MINUTE)), []);
+  assert.deepEqual(await listDueWhatsAppFollowUps(store, new Date(t0.getTime() + 5 * MINUTE)), ["447700900123"]);
+  // A reply 3 minutes in pushes it to 5 minutes after that message.
+  await deferWhatsAppFollowUp(store, "447700900123", 5 * MINUTE, new Date(t0.getTime() + 3 * MINUTE));
+  assert.deepEqual(await listDueWhatsAppFollowUps(store, new Date(t0.getTime() + 5 * MINUTE)), [], "pushed back");
+  assert.deepEqual(await listDueWhatsAppFollowUps(store, new Date(t0.getTime() + 8 * MINUTE)), ["447700900123"]);
+  await deferWhatsAppFollowUp(store, "447700900999", 5 * MINUTE, t0); // no quote: nothing created
   assert.equal(await getWhatsAppFollowUp(store, "447700900999"), null);
 
   const record = (await getWhatsAppFollowUp(store, "447700900123"))!;

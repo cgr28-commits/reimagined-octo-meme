@@ -115,8 +115,8 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
    * separate number. Handoffs then link the customer to this number.
    */
   WHATSAPP_TEAM_NUMBER?: string;
-  /** Hours after a quote (and the customer's last message) to send one reminder; "0" turns it off. Default 2. */
-  WHATSAPP_FOLLOW_UP_HOURS?: string;
+  /** Minutes after the customer's last message to send one quote reminder; "0" turns it off. Default 5. */
+  WHATSAPP_FOLLOW_UP_MINUTES?: string;
   BOOKING_TO_EMAIL?: string;
   /** Worker secret: lets the assistant answer customer questions with Claude. */
   ANTHROPIC_API_KEY?: string;
@@ -382,7 +382,7 @@ async function handleInboundMessage(
   const teamNumber = env.WHATSAPP_TEAM_NUMBER?.trim() ? resolveWhatsAppTeamNumber(env.WHATSAPP_TEAM_NUMBER) : undefined;
   const isTeamPhone = Boolean(teamNumber) && teamNumber === phone;
   // Quote reminder: never while they are still chatting, never after "stop" / NEW.
-  const followUpDelay = whatsAppFollowUpDelayMs(env.WHATSAPP_FOLLOW_UP_HOURS);
+  const followUpDelay = whatsAppFollowUpDelayMs(env.WHATSAPP_FOLLOW_UP_MINUTES);
   if (message.text && (isWhatsAppFollowUpOptOut(message.text) || detectWhatsAppIntent(message.text) === "reset")) {
     await cancelWhatsAppFollowUp(store, phone);
   } else if (followUpDelay) {
@@ -853,7 +853,7 @@ async function reply(
 
 /**
  * Cron: one reminder to customers who got a WhatsApp quote but haven't booked,
- * a couple of hours after their last message and inside the 24h service window.
+ * 5 minutes after their last message and inside the 24h service window.
  */
 export async function processWhatsAppFollowUps(
   env: WhatsAppEnv,
@@ -861,7 +861,7 @@ export async function processWhatsAppFollowUps(
 ): Promise<{ sent: number; skipped: number }> {
   const result = { sent: 0, skipped: 0 };
   const store = env.TRACKING_STORE;
-  if (!store || !whatsAppCloudConfigured(env) || !whatsAppFollowUpDelayMs(env.WHATSAPP_FOLLOW_UP_HOURS)) return result;
+  if (!store || !whatsAppCloudConfigured(env) || !whatsAppFollowUpDelayMs(env.WHATSAPP_FOLLOW_UP_MINUTES)) return result;
   if (env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() === "false") return result;
   for (const phone of await listDueWhatsAppFollowUps(store, now)) {
     const record = await getWhatsAppFollowUp(store, phone);
