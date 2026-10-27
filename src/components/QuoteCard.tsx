@@ -7415,10 +7415,10 @@ function QuoteCard({
     effectivePassengers != null &&
     suitcases != null;
 
-  // "Any questions before you book?" — once per visit, when someone has a payable price
+  // "Any questions before you book?" — once per visit, when someone has a price
   // but hasn't pressed Book: leaving the page on desktop, or lingering on the price on mobile.
   const helpNudgeArmed =
-    showInstantQuoteResultCard && Boolean(liveQuote) && canPayNowOnline && !submitted && !isVehiclePersonalQuote;
+    showInstantQuoteResultCard && Boolean(liveQuote) && !submitted && !isVehiclePersonalQuote;
   const helpNudgeBlocked = quoteActionOpen !== null || saveQuoteOpen;
   useEffect(() => {
     if (!helpNudgeArmed || helpNudgeBlocked) return;
@@ -7674,7 +7674,7 @@ function QuoteCard({
           className="scroll-mt-24 space-y-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
           data-quote-result-actions
         >
-          {liveQuote && canPayNowOnline && !isVehiclePersonalQuote && !isEnquiryOnly && !showsRequestQuoteFlow ? (
+          {liveQuote && !isVehiclePersonalQuote && !isEnquiryOnly && !showsRequestQuoteFlow ? (
             <a
               href={whatsAppSendQuoteHref({
                 pickup: pickupAddress,
