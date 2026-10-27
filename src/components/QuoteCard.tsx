@@ -227,7 +227,6 @@ import {
   validatePersonalQuoteCode,
   type PersonalQuotePublicSummary,
 } from "@/lib/personal-quote-api";
-import SaveQuoteReminder from "@/components/SaveQuoteReminder";
 import { DEFAULT_SAVE_QUOTE_SETTINGS, normalizeSaveQuoteSettings } from "../../shared/save-quote-settings";
 import type { SavedQuotePublicSummary } from "../../shared/saved-quote";
 import { resolveWorkerBaseUrl as savedQuoteWorkerBaseUrl } from "@/lib/worker-api";
@@ -8943,13 +8942,6 @@ function QuoteCard({
         Original quote: {restoredQuote.amountLabel}. {authoritativeFareReady && pricedFare ?
           Math.abs(pricedFare.totalGbp + (bookingMeetGreetSelected ? bookingMeetGreetPrice : 0) - restoredQuote.amount) >= 0.01 ? `Your current fare has changed to ${formatQuote(pricedFare.totalGbp + (bookingMeetGreetSelected ? bookingMeetGreetPrice : 0))}.` : "Your recalculated fare is unchanged." : !tripDate || !tripTime ? "Choose your pickup date and time to recalculate." : "Recalculating your fare…"}
       </p>}
-      <SaveQuoteReminder
-        eligible={quoteResultsReady && authoritativeFareReady && canPayNowOnline && quoteStep === 1 && !saveQuoteOpen && !submitted && !appliedPersonalQuote}
-        settings={saveQuoteSettings}
-        quoteKey={`${pickupAddress}|${dropoffAddress}|${quoteVehicle}|${pricedFare?.totalGbp}|${tripDate}|${tripTime}|${returnDate}|${returnTime}`}
-        onSave={handleSaveQuoteClick}
-        onBook={() => (document.getElementById("quoteForm") as HTMLFormElement | null)?.requestSubmit()}
-      />
       <SaveQuoteModal
         initialWhatsAppRequest={initialWhatsAppRequest}
         settings={saveQuoteSettings}
