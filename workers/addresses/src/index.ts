@@ -2219,13 +2219,48 @@ async function handlePaymentRequest(
       {
         returnJourney: Boolean(booking?.returnJourney),
         expressDropOffSelected: customerExpressSelected,
+        // Live-priced quotes re-price the customer's final choices with the
+        // public quote tool (server-resolved route), then apply the discount.
+        ...(booking
+          ? {
+              liveBooking: {
+                pickupLabel: booking.pickupLabel,
+                dropoffLabel: booking.dropoffLabel,
+                pickupPlaceId: String(body.pickupPlaceId ?? "").trim() || null,
+                dropoffPlaceId: String(body.dropoffPlaceId ?? "").trim() || null,
+                passengers: Number(booking.passengers),
+                suitcases: Number(booking.suitcases),
+                vehicle: String(booking.vehicle ?? ""),
+                tripDate: booking.tripDate,
+                tripTime: booking.tripTime,
+                returnDate: booking.returnDate,
+                returnTime: booking.returnTime,
+              },
+            }
+          : {}),
+        pricingEnv: env,
       },
     );
     if (!resolved.ok) {
       return json({ error: resolved.error }, resolved.status, origin);
     }
+    // Live-priced quotes: never charge a different amount from the one the
+    // customer accepted on their link. A changed price asks them to refresh.
+    if (typeof resolved.websiteTransferGbp === "number") {
+      const accepted = Number(body.amount);
+      if (!Number.isFinite(accepted) || Math.abs(accepted - resolved.amount) > 0.5) {
+        return json(
+          { error: "Your price has been updated. Please refresh the page to see the latest price.", code: "quote_refresh_required" },
+          409,
+          origin,
+        );
+      }
+      standardWebsiteAmount = resolved.websiteTransferGbp;
+    }
     // Audit only — never use client standardWebsiteAmount for SumUp amount.
-    if (typeof resolved.record.standardWebsiteAmount === "number") {
+    if (typeof resolved.websiteTransferGbp === "number") {
+      // Set above from the live re-price.
+    } else if (typeof resolved.record.standardWebsiteAmount === "number") {
       standardWebsiteAmount = resolved.record.standardWebsiteAmount;
     } else if (
       Number.isFinite(clientStandardWebsiteAmount) &&

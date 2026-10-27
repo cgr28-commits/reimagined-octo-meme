@@ -692,8 +692,11 @@ check("R14. Owner calculator reuses public website pricing engine", () => {
   assert.match(fareMod, /calculateDublinCityBeyondAirportQuote/);
   assert.match(fareMod, /returnJourney = false/);
   assert.match(fareMod, /schedule/);
+  // The owner calculator now asks the Worker's public /quote/calculate (the
+  // exact price the public quote card shows, with live owner settings).
   const panel = read("src/components/OwnerPersonalQuotesPanel.tsx");
-  assert.match(panel, /calculateWebsiteOneWayFare/);
+  assert.match(panel, /calculateServerQuote/);
+  assert.doesNotMatch(panel, /calculateWebsiteOneWayFare/);
   assert.match(panel, /Calculate website price/);
   assert.match(panel, /AddressInput/);
   assert.match(panel, /Current website price/);

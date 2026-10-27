@@ -114,6 +114,8 @@ type OwnerPaidBookingsPanelProps = {
   /** London calendar day (YYYY-MM-DD). Day mode defaults to today. */
   selectedDate?: string;
   onSelectedDateChange?: (date: string) => void;
+  /** "Quote again": open Personal Quotes with this customer's details filled in. */
+  onQuoteAgain?: (booking: OwnerPaidBookingSummary) => void;
 };
 
 function ymdDayDelta(from: string, to: string): number {
@@ -503,6 +505,7 @@ export default function OwnerPaidBookingsPanel({
   mode = "day",
   selectedDate,
   onSelectedDateChange,
+  onQuoteAgain,
 }: OwnerPaidBookingsPanelProps) {
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
   const [gpsJob, setGpsJob] = useState<{ token: string; sessionToken?: string } | null>(null);
@@ -1807,6 +1810,15 @@ export default function OwnerPaidBookingsPanel({
             >
               {busyRef === booking.paymentReference ? "Sending…" : "Resend Confirmation"}
             </button>
+            {onQuoteAgain ? (
+              <button
+                type="button"
+                onClick={() => onQuoteAgain(booking)}
+                className="min-h-11 w-full rounded-xl border border-emerald/40 px-4 py-2.5 text-sm font-semibold text-emerald"
+              >
+                Quote this customer again
+              </button>
+            ) : null}
             {isCompleted || booking.reviewRequest
               ? googleReviewRequestChannels({
                   hasUsableEmail: isUsableMailbox(booking.customerEmail),

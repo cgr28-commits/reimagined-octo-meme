@@ -202,9 +202,11 @@ function compareThree(options: {
 check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
   assert.match(read("shared/route-metrics-resolver.ts"), /resolveTripRouteMetricsForAddresses/);
   assert.match(read("src/lib/route-point-resolver.ts"), /geocodePickupAddress/);
+  // Quick Quotes price through the public quote handler itself (same route
+  // resolution and live settings as the quote card).
   assert.match(
     read("workers/addresses/src/quick-quote-handlers.ts"),
-    /parseClientRouteMetrics/,
+    /priceWithMainQuoteTool/,
   );
   assert.match(
     read("workers/addresses/src/quote-handlers.ts"),
@@ -231,9 +233,10 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
     read("src/app/quick-quote/QuickQuoteOwnerClient.tsx"),
     /resolveAirportTransferIntent/,
   );
+  // Personal Quotes ask the Worker's public quote calculation (server routes).
   assert.match(
     read("src/components/OwnerPersonalQuotesPanel.tsx"),
-    /resolveTripRouteMetricsForAddresses/,
+    /calculateServerQuote/,
   );
   assert.match(read("src/components/TripMap.tsx"), /resolveRoutePoint/);
   assert.match(read("src/components/AddressInput.tsx"), /geocodePickupAddress/);
@@ -241,9 +244,10 @@ check("Wiring: shared resolver + Quick Quote / Personal / TripMap", () => {
     read("src/components/OwnerPersonalQuotesPanel.tsx"),
     /typeof pickupPlace\.lat === "number" &&\s*typeof pickupPlace\.lng === "number"/,
   );
+  // Routing failures surface from the public quote handler's own message.
   assert.match(
-    read("workers/addresses/src/quick-quote-handlers.ts"),
-    /could not measure that route/i,
+    read("workers/addresses/src/quote-handlers.ts"),
+    /could not measure that road route/i,
   );
 });
 

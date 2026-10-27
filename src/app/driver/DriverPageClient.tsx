@@ -9,6 +9,10 @@ import OwnerPaidBookingsPanel from "@/components/OwnerPaidBookingsPanel";
 import OwnerAmendmentTestPanel from "@/components/OwnerAmendmentTestPanel";
 import OwnerShortNoticePanel from "@/components/OwnerShortNoticePanel";
 import OwnerPersonalQuotesPanel from "@/components/OwnerPersonalQuotesPanel";
+import {
+  personalQuotePrefillFromBooking,
+  savePersonalQuotePrefill,
+} from "@/lib/personal-quote-prefill";
 import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
 import OwnerWhatsAppChatsPanel from "@/components/OwnerWhatsAppChatsPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
@@ -2531,6 +2535,12 @@ export default function DriverPageClient({
   const [rememberOwnerDevice, setRememberOwnerDevice] = useState(true);
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
+  /** "Quote this customer again": carry the booking's details into Personal Quotes. */
+  const quoteCustomerAgain = useCallback((booking: Parameters<typeof personalQuotePrefillFromBooking>[0]) => {
+    savePersonalQuotePrefill(personalQuotePrefillFromBooking(booking));
+    setOwnerToolTab("personal-quotes");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
   const [jobsDay, setJobsDay] = useState(() => todayLondonDate());
   const [isOwnerPreviewHost, setIsOwnerPreviewHost] = useState(false);
   const [sessionRole, setSessionRole] = useState<"owner" | "driver" | null>(
@@ -3429,6 +3439,7 @@ export default function DriverPageClient({
                 mode="day"
                 selectedDate={jobsDay}
                 onSelectedDateChange={setJobsDay}
+                onQuoteAgain={quoteCustomerAgain}
               />
 
               <OwnerBookingCalendar
@@ -3551,7 +3562,7 @@ export default function DriverPageClient({
 
               {isOwnerView && savedKey && ownerToolTab === "past" ? (
                 <div id="owner-tool-panel-past" role="tabpanel" aria-labelledby="owner-tool-tab-past">
-                  <OwnerPaidBookingsPanel ownerKey={savedKey} mode="past" />
+                  <OwnerPaidBookingsPanel ownerKey={savedKey} mode="past" onQuoteAgain={quoteCustomerAgain} />
                 </div>
               ) : null}
 

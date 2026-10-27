@@ -3,6 +3,10 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
+import FiniteOptionSelect, {
+  ONLINE_PASSENGER_OPTIONS,
+  PERSONAL_QUOTE_SUITCASE_OPTIONS,
+} from "@/components/FiniteOptionSelect";
 import { CustomerSmartAvailabilityBlocked } from "@/components/CustomerSmartAvailabilityBlocked";
 import { OwnerNoAvailabilityBlocked } from "@/components/OwnerNoAvailabilityBlocked";
 import { isCustomerSmartAvailabilityBlockMessage } from "@/lib/customer-smart-availability-client";
@@ -24,14 +28,26 @@ import {
   PERSONAL_QUOTE_MAX_PASSENGERS,
   PERSONAL_QUOTE_MIN_PASSENGERS,
   PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR,
+  applyPersonalQuoteDiscount,
+  describePersonalQuoteDiscount,
   describePersonalQuotePayment,
+  formatPersonalQuoteAmount,
+  isLiveDiscountPersonalQuote,
   isValidPersonalQuotePassengerCount,
 } from "../../../shared/personal-quote";
+import { calculateServerQuote } from "@/lib/quick-quote-api";
+
+/** Same passenger choices as the main quote tool, within the personal quote limit (1–4). */
+const PERSONAL_PASSENGER_OPTIONS = ONLINE_PASSENGER_OPTIONS.filter(
+  (count) => count >= PERSONAL_QUOTE_MIN_PASSENGERS && count <= PERSONAL_QUOTE_MAX_PASSENGERS,
+);
+
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import { formatReturnJourneyDiscountPercent } from "../../../shared/return-journey-discount";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import {
   canProceedWithoutExpressDropOff,
+  composeFareWithExpressDropOff,
   expressDropOffBreakdownLabel,
   resolveExpressDropOff,
   shouldDefaultExpressSelectedOnNewEligibility,
@@ -131,6 +147,21 @@ function PersonalQuoteInner() {
         if (cancelled) return;
         setQuote(loaded);
         setCustomerName(loaded.customerName || "");
+        // Live-priced quotes open with the journey the owner quoted; the customer can change it.
+        const journey = loaded.journey;
+        if (isLiveDiscountPersonalQuote(loaded) && journey) {
+          if (isValidPersonalQuotePassengerCount(journey.passengers)) setPassengers(journey.passengers);
+          if (Number.isInteger(journey.suitcases) && journey.suitcases >= 0) {
+            setSuitcases(Math.min(PERSONAL_QUOTE_SUITCASE_OPTIONS[PERSONAL_QUOTE_SUITCASE_OPTIONS.length - 1], journey.suitcases));
+          }
+          const savedVehicle = PERSONAL_QUOTE_VEHICLE_TYPES.find((v) => v === journey.vehicle);
+          if (savedVehicle) setVehicle(savedVehicle);
+          setReturnJourney(Boolean(journey.returnJourney));
+          if (journey.tripDate) setTripDate(journey.tripDate);
+          if (journey.tripTime) setTripTime(journey.tripTime);
+          if (journey.returnDate) setReturnDate(journey.returnDate);
+          if (journey.returnTime) setReturnTime(journey.returnTime);
+        }
         setExpressDropOffSelected(loaded.expressDropOffSelected !== false);
         setExpressRemovalAck(false);
         setExpressAckRequired(false);
@@ -223,6 +254,95 @@ function PersonalQuoteInner() {
     });
   }, [quote, returnJourney, expressSelection, expressDropOffSelected]);
 
+  const isLive = isLiveDiscountPersonalQuote(quote);
+  /** Live-priced quotes: the public quote tool's price for the current choices, less the discount. */
+  const [livePrice, setLivePrice] = useState<{
+    key: string;
+    websiteTransferGbp: number;
+    discountGbp: number;
+    transferGbp: number;
+  } | null>(null);
+  const [livePriceError, setLivePriceError] = useState("");
+  const [livePriceLoading, setLivePriceLoading] = useState(false);
+  const livePriceKey = JSON.stringify([
+    passengers,
+    suitcases,
+    vehicle,
+    tripDate,
+    tripTime,
+    returnJourney,
+    returnJourney ? returnDate : "",
+    returnJourney ? returnTime : "",
+  ]);
+  const livePriceReady =
+    isLive && Boolean(tripDate && tripTime) && (!returnJourney || Boolean(returnDate && returnTime));
+
+  useEffect(() => {
+    if (!quote || !isLive || !livePriceReady) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLivePriceLoading(true);
+      setLivePriceError("");
+      void calculateServerQuote(
+        {
+          pickupAddress: quote.pickupLabel ?? "",
+          dropoffAddress: quote.dropoffLabel ?? "",
+          ...(quote.journey?.pickupPlaceId ? { pickupPlaceId: quote.journey.pickupPlaceId } : {}),
+          ...(quote.journey?.dropoffPlaceId ? { dropoffPlaceId: quote.journey.dropoffPlaceId } : {}),
+          airportCode:
+            quote.airportCode === "BFS" || quote.airportCode === "BHD" || quote.airportCode === "DUB"
+              ? quote.airportCode
+              : null,
+          ...(typeof quote.fromAirport === "boolean" ? { fromAirport: quote.fromAirport } : {}),
+          returnJourney,
+          outboundDate: tripDate,
+          outboundTime: tripTime,
+          returnDate: returnJourney ? returnDate : "",
+          returnTime: returnJourney ? returnTime : "",
+          passengers,
+          suitcases,
+          vehicleType: vehicle,
+        },
+        undefined,
+        controller.signal,
+      )
+        .then((result) => {
+          if (controller.signal.aborted) return;
+          if (!result.ok) {
+            setLivePrice(null);
+            setLivePriceError(result.message || "We couldn’t load your price. Please try again.");
+            return;
+          }
+          const applied = applyPersonalQuoteDiscount(result.amount, {
+            discountType: quote.discountType,
+            discountValue: quote.discountValue,
+          });
+          setLivePrice({ key: livePriceKey, ...applied });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setLivePriceError("We couldn’t load your price. Please try again.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLivePriceLoading(false);
+        });
+    }, 350);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote, isLive, livePriceReady, livePriceKey]);
+
+  const currentLivePrice = livePrice && livePrice.key === livePriceKey ? livePrice : null;
+  const livePayment = useMemo(() => {
+    if (!currentLivePrice) return null;
+    const total = composeFareWithExpressDropOff({
+      transferFareGbp: currentLivePrice.transferGbp,
+      expressDropOffFeeGbp: expressSelection.eligible && expressDropOffSelected ? expressSelection.feeGbp : 0,
+    }).totalGbp;
+    return { amount: total, label: formatPersonalQuoteAmount(total) };
+  }, [currentLivePrice, expressSelection, expressDropOffSelected]);
+
   const handleAvailabilityBlocked = useCallback(
     (message: string, alternativeTimes: CustomerPublicAlternativeTime[]) => {
       setError(message);
@@ -287,7 +407,7 @@ function PersonalQuoteInner() {
       passengers,
       suitcases,
       vehicle,
-      estimatedPrice: paymentDisplay.paymentAmountLabel,
+      estimatedPrice: isLive && livePayment ? livePayment.label : paymentDisplay.paymentAmountLabel,
       isAirportTrip: airportMeta.isAirportTrip,
       ...(airportMeta.airportCode ? { airportCode: airportMeta.airportCode } : {}),
       ...(typeof airportMeta.isFromAirport === "boolean"
@@ -326,6 +446,13 @@ function PersonalQuoteInner() {
       if (!paymentDisplay) {
         throw new Error("Could not calculate payment amount.");
       }
+      if (isLive && !livePayment) {
+        throw new Error(
+          livePriceReady
+            ? "Your price is still loading — please wait a moment and try again."
+            : "Choose your pickup date and time to see your price.",
+        );
+      }
       if (
         !canProceedWithoutExpressDropOff({
           eligible: expressSelection.eligible,
@@ -353,7 +480,7 @@ function PersonalQuoteInner() {
       // Amount here is display-only — Worker recalculates from KV + returnJourney + Express choice.
       const returnToken = createPaymentReturnToken();
       const checkout = await createPaymentCheckout({
-        amount: paymentDisplay!.paymentAmount,
+        amount: isLive && livePayment ? livePayment.amount : paymentDisplay!.paymentAmount,
         description: `Personal quote ${quote.code}`,
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking,
@@ -373,7 +500,7 @@ function PersonalQuoteInner() {
           checkoutId: checkout.checkoutId,
           paymentUrl: checkout.paymentUrl,
           checkoutReference: checkout.checkoutReference,
-          amountLabel: paymentDisplay!.paymentAmountLabel,
+          amountLabel: isLive && livePayment ? livePayment.label : paymentDisplay!.paymentAmountLabel,
           booking,
         },
         returnToken,
@@ -449,6 +576,54 @@ function PersonalQuoteInner() {
         </div>
       </dl>
 
+      {isLive ? (
+        <div className="mt-5 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4" aria-live="polite">
+          {currentLivePrice ? (
+            <div className="space-y-1 text-sm">
+              {currentLivePrice.discountGbp > 0 ? (
+                <>
+                  <p className="text-white/70">
+                    Standard price:{" "}
+                    <span className="line-through">
+                      {formatPersonalQuoteAmount(currentLivePrice.websiteTransferGbp)}
+                    </span>
+                  </p>
+                  <p className="font-medium text-emerald">
+                    Your discount ({describePersonalQuoteDiscount({ discountType: quote.discountType, discountValue: quote.discountValue })}):
+                    {" "}−{formatPersonalQuoteAmount(currentLivePrice.discountGbp)}
+                  </p>
+                </>
+              ) : null}
+              <p className="text-lg font-bold text-white">
+                Total to pay: {livePayment?.label}
+                {returnJourney ? " (return)" : ""}
+              </p>
+            </div>
+          ) : livePriceLoading ? (
+            <p className="text-sm text-white/75">Working out your price…</p>
+          ) : livePriceError ? (
+            <p className="text-sm text-amber-100">{livePriceError}</p>
+          ) : (
+            <p className="text-sm text-white/75">
+              Choose your pickup date and time below to see your price
+              {quote.discountValue ? ` with your ${describePersonalQuoteDiscount({ discountType: quote.discountType, discountValue: quote.discountValue })}` : ""}.
+            </p>
+          )}
+          {expressSelection.eligible && expressSelection.airportCode ? (
+            <p className="mt-3 border-t border-white/10 pt-3 text-sm text-white/75">
+              {expressDropOffBreakdownLabel(
+                expressSelection.airportCode,
+                expressDropOffSelected,
+                expressSelection.service ?? "drop-off",
+              )}
+            </p>
+          ) : null}
+          <p className="mt-2 text-xs text-white/55">
+            Same price as our website for your journey, with your personal discount applied. If you
+            change the date, time, passengers or luggage, the price updates automatically.
+          </p>
+        </div>
+      ) : (
       <div className="mt-5 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-4">
         {showSaving ? (
           <div className="space-y-1 text-sm">
@@ -515,6 +690,7 @@ function PersonalQuoteInner() {
           link.
         </p>
       </div>
+      )}
 
       {expressSelection.eligible && expressSelection.airportCode ? (
         <div className="mt-5">
@@ -610,34 +786,24 @@ function PersonalQuoteInner() {
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm text-white/80">
             Passengers
-            <input
-              required
-              type="number"
-              min={PERSONAL_QUOTE_MIN_PASSENGERS}
-              max={PERSONAL_QUOTE_MAX_PASSENGERS}
+            <FiniteOptionSelect
+              label=""
+              aria-label="Passengers"
               value={passengers}
-              onChange={(e) => {
-                const next = Number(e.target.value) || PERSONAL_QUOTE_MIN_PASSENGERS;
-                setPassengers(
-                  Math.min(
-                    PERSONAL_QUOTE_MAX_PASSENGERS,
-                    Math.max(PERSONAL_QUOTE_MIN_PASSENGERS, next),
-                  ),
-                );
-              }}
-              className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white"
+              options={PERSONAL_PASSENGER_OPTIONS}
+              required
+              onChange={setPassengers}
             />
           </label>
           <label className="block text-sm text-white/80">
             Suitcases
-            <input
-              required
-              type="number"
-              min={0}
-              max={12}
+            <FiniteOptionSelect
+              label=""
+              aria-label="Suitcases"
               value={suitcases}
-              onChange={(e) => setSuitcases(Number(e.target.value) || 0)}
-              className="mt-1 w-full rounded-lg border border-white/15 bg-navy/60 px-3 py-2.5 text-base text-white"
+              options={[...PERSONAL_QUOTE_SUITCASE_OPTIONS]}
+              required
+              onChange={setSuitcases}
             />
           </label>
         </div>

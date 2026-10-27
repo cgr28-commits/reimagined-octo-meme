@@ -6,6 +6,28 @@
 import { composeFareWithExpressDropOff } from "./express-drop-off";
 import { getWebsiteReturnJourneyFare } from "./return-journey-discount";
 
+/** How the owner's discount is expressed on a live-priced personal quote. */
+export type PersonalQuoteDiscountType = "amount" | "percent";
+
+/**
+ * Journey saved with a live-priced personal quote. The customer's link opens
+ * with these values and the customer can change them; the price is always
+ * recalculated by the public quote tool, then the owner's discount is applied.
+ */
+export type PersonalQuoteJourney = {
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
+  passengers: number;
+  suitcases: number;
+  /** Vehicle label, e.g. "Standard Saloon (1–4 passengers)". */
+  vehicle: string;
+  returnJourney: boolean;
+  tripDate?: string;
+  tripTime?: string;
+  returnDate?: string;
+  returnTime?: string;
+};
+
 export type PersonalQuoteRecord = {
   /** Public code, e.g. MQ-7K4P9X */
   code: string;
@@ -43,6 +65,16 @@ export type PersonalQuoteRecord = {
   /** Journey direction hints for Express Drop-Off eligibility. */
   airportCode?: "BFS" | "BHD" | "DUB" | "LDY" | null;
   fromAirport?: boolean;
+  /**
+   * "live-discount": the price is recalculated by the public quote tool for
+   * the customer's choices, then `discountType`/`discountValue` is applied.
+   * Absent on older records, which keep their fixed agreed amount.
+   */
+  pricingMode?: "live-discount";
+  discountType?: PersonalQuoteDiscountType;
+  /** £ off the whole booking, or % off (0–90). */
+  discountValue?: number;
+  journey?: PersonalQuoteJourney;
 };
 
 /**
@@ -66,6 +98,12 @@ export type PersonalQuotePublicSummary = {
   expressDropOffSelected?: boolean;
   expressDropOffFee?: number;
   expressDropOffAirport?: "BFS" | "BHD" | null;
+  pricingMode?: "live-discount";
+  discountType?: PersonalQuoteDiscountType;
+  discountValue?: number;
+  journey?: PersonalQuoteJourney;
+  airportCode?: "BFS" | "BHD" | "DUB" | "LDY" | null;
+  fromAirport?: boolean;
 };
 
 /** Personal-quote payment links are limited to saloon/estate capacity (not minibus). */
@@ -74,6 +112,66 @@ export const PERSONAL_QUOTE_MAX_PASSENGERS = 4;
 
 export const PERSONAL_QUOTE_PASSENGER_LIMIT_ERROR =
   "This personal quote is for up to 4 passengers. Please select 1–4 passengers, or contact My Airport Taxi NI for a larger vehicle.";
+
+/** Highest % discount the owner can set on a live-priced personal quote. */
+export const PERSONAL_QUOTE_MAX_DISCOUNT_PERCENT = 90;
+
+export function isLiveDiscountPersonalQuote(
+  record: Pick<PersonalQuoteRecord, "pricingMode"> | null | undefined,
+): boolean {
+  return record?.pricingMode === "live-discount";
+}
+
+/** Validate an owner discount. Returns the normalised value or an error. */
+export function parsePersonalQuoteDiscount(input: {
+  discountType?: unknown;
+  discountValue?: unknown;
+}):
+  | { ok: true; discountType: PersonalQuoteDiscountType; discountValue: number }
+  | { ok: false; error: string } {
+  const discountType = input.discountType === "percent" ? "percent" : "amount";
+  const raw = input.discountValue == null || input.discountValue === "" ? 0 : Number(input.discountValue);
+  if (!Number.isFinite(raw) || raw < 0) {
+    return { ok: false, error: "Discount must be zero or more" };
+  }
+  if (discountType === "percent" && raw > PERSONAL_QUOTE_MAX_DISCOUNT_PERCENT) {
+    return { ok: false, error: `Discount cannot be more than ${PERSONAL_QUOTE_MAX_DISCOUNT_PERCENT}%` };
+  }
+  if (discountType === "amount" && raw > 5000) {
+    return { ok: false, error: "Discount is too large" };
+  }
+  return { ok: true, discountType, discountValue: Math.round(raw * 100) / 100 };
+}
+
+/**
+ * Apply the owner's discount to the public quote tool's transfer price for
+ * the whole booking (one way or return). The customer always pays at least £1.
+ * Express / terminal access fees are added afterwards and are never discounted.
+ */
+export function applyPersonalQuoteDiscount(
+  websiteTransferGbp: number,
+  discount: { discountType?: PersonalQuoteDiscountType; discountValue?: number },
+): { websiteTransferGbp: number; discountGbp: number; transferGbp: number } {
+  const website = roundGbp(Math.max(0, Number(websiteTransferGbp) || 0));
+  const value = Math.max(0, Number(discount.discountValue) || 0);
+  const requested =
+    discount.discountType === "percent"
+      ? roundGbp((website * Math.min(value, PERSONAL_QUOTE_MAX_DISCOUNT_PERCENT)) / 100)
+      : roundGbp(value);
+  const discountGbp = roundGbp(Math.max(0, Math.min(requested, website - 1)));
+  return { websiteTransferGbp: website, discountGbp, transferGbp: roundGbp(website - discountGbp) };
+}
+
+export function describePersonalQuoteDiscount(discount: {
+  discountType?: PersonalQuoteDiscountType;
+  discountValue?: number;
+}): string {
+  const value = Number(discount.discountValue) || 0;
+  if (value <= 0) return "No discount";
+  return discount.discountType === "percent"
+    ? `${Math.round(value * 100) / 100}% off`
+    : `${formatPersonalQuoteAmount(value)} off`;
+}
 
 export function isValidPersonalQuotePassengerCount(value: unknown): value is number {
   const n = typeof value === "number" ? value : Number(value);
@@ -586,6 +684,16 @@ export function toPersonalQuotePublicSummary(
       : {}),
     ...(record.expressDropOffAirport !== undefined
       ? { expressDropOffAirport: record.expressDropOffAirport }
+      : {}),
+    ...(isLiveDiscountPersonalQuote(record)
+      ? {
+          pricingMode: "live-discount" as const,
+          discountType: record.discountType ?? "amount",
+          discountValue: Number(record.discountValue) || 0,
+          ...(record.journey ? { journey: record.journey } : {}),
+          ...(record.airportCode !== undefined ? { airportCode: record.airportCode } : {}),
+          ...(typeof record.fromAirport === "boolean" ? { fromAirport: record.fromAirport } : {}),
+        }
       : {}),
   };
 }
