@@ -49,6 +49,7 @@ import {
   diffProfitabilitySettings,
   fuelCostPerMileGbp,
   positioningChargeFromMilesGbp,
+  positioningA2aChargeFromMilesGbp,
   isProfitabilityProtectionActive,
   normalizeProfitabilitySettings,
   validateProfitabilitySettings,
@@ -900,6 +901,56 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
               miles from base adds £
               {positioningChargeFromMilesGbp(10, { ...draft.profitability, positioningChargeEnabled: true })}
               {" "}per leg. Rounded to whole pounds. Use the Profitability tester to check a real address.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-lg font-semibold text-white">Address-to-address drive charge</p>
+            <p className="mt-1 text-sm text-white/70">
+              For journeys with no airport (e.g. Belfast to Glenarm). Charges for the road miles from
+              your base to whichever end of the journey is further away, beyond the free miles, so the
+              price is the same whichever way round it is booked. Included in the journey fare and never
+              shown as a separate line. Separate from the airport setting above.
+            </p>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-sm text-white/80">Charge on address-to-address jobs</p>
+              <Toggle
+                id="positioning-a2a-enabled"
+                label="Charge on address-to-address jobs"
+                checked={draft.profitability.positioningA2aEnabled}
+                onChange={(positioningA2aEnabled) =>
+                  update("profitability", { ...draft.profitability, positioningA2aEnabled })
+                }
+              />
+            </div>
+            <label className={`${labelClass} mt-3`}>
+              Free miles from your base
+              <input
+                className={fieldClass}
+                inputMode="decimal"
+                value={draft.profitability.positioningA2aFreeMiles}
+                onChange={(event) => {
+                  const raw = event.target.value.trim();
+                  update("profitability", {
+                    ...draft.profitability,
+                    positioningA2aFreeMiles: raw === "" ? 0 : Number(raw),
+                  });
+                }}
+              />
+            </label>
+            <MoneyField
+              label="Charge per mile beyond the free miles (£/mile)"
+              value={draft.profitability.positioningA2aRatePerMileGbp}
+              onChange={(positioningA2aRatePerMileGbp) =>
+                update("profitability", { ...draft.profitability, positioningA2aRatePerMileGbp })
+              }
+            />
+            <p className="mt-2 text-xs text-white/55">
+              Example: {draft.profitability.positioningA2aFreeMiles} free miles at £
+              {draft.profitability.positioningA2aRatePerMileGbp.toFixed(2)}/mile — a journey whose far
+              end is 29 road miles from base (e.g. Glenarm) adds £
+              {positioningA2aChargeFromMilesGbp(29, { ...draft.profitability, positioningA2aEnabled: true })}
+              {" "}per leg. Rounded to whole pounds.
             </p>
           </div>
 

@@ -229,7 +229,7 @@ async function authoritativeAmount(
       ? (pricing as { profitability?: ProfitabilitySettings | null }).profitability
       : null;
   const positioningRoute =
-    isPositioningChargeActive(positioningSettings) && journey.airportCode
+    isPositioningChargeActive(positioningSettings)
       ? await resolveWorkerTripRouteMetricsForPayment({
           pickupAddress: journey.pickupAddress,
           dropoffAddress: journey.dropoffAddress,
@@ -242,6 +242,7 @@ async function authoritativeAmount(
   const positioning = await resolvePositioningChargeGbp({
     settings: positioningSettings,
     airportTransfer: Boolean(journey.airportCode),
+    addressToAddress: !journey.airportCode,
     fromAirport: Boolean(journey.fromAirport),
     pickup: positioningRoute?.ok ? positioningRoute.pickup : null,
     dropoff: positioningRoute?.ok ? positioningRoute.dropoff : null,

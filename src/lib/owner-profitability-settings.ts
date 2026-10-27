@@ -28,6 +28,14 @@ export const DEFAULT_POSITIONING_FREE_MILES = 4;
 export const DEFAULT_POSITIONING_RATE_PER_MILE_GBP = 1;
 export const POSITIONING_FREE_MILES_MAX = 30;
 export const POSITIONING_RATE_PER_MILE_MAX_GBP = 5;
+/**
+ * Address-to-address drive-to-pickup charge (separate switch, OFF by default).
+ * Uses whichever end of the journey is further from the base, so a trip
+ * prices the same whichever way round it is booked.
+ */
+export const DEFAULT_POSITIONING_A2A_ENABLED = false;
+export const DEFAULT_POSITIONING_A2A_FREE_MILES = 4;
+export const DEFAULT_POSITIONING_A2A_RATE_PER_MILE_GBP = 0.5;
 
 /** UK gallon → litres. Fuel per mile = (diesel £/L × this) / MPG. */
 export const UK_GALLON_LITRES = 4.54609;
@@ -45,6 +53,10 @@ export type ProfitabilitySettings = {
   positioningFreeMiles: number;
   /** £ per road mile beyond the free miles, rounded to whole pounds per leg. */
   positioningRatePerMileGbp: number;
+  /** Address-to-address jobs: charge for the far end's distance from the base. */
+  positioningA2aEnabled: boolean;
+  positioningA2aFreeMiles: number;
+  positioningA2aRatePerMileGbp: number;
 };
 
 export type ProfitabilityValidationError = {
@@ -62,6 +74,9 @@ export function defaultProfitabilitySettings(): ProfitabilitySettings {
     positioningChargeEnabled: DEFAULT_POSITIONING_CHARGE_ENABLED,
     positioningFreeMiles: DEFAULT_POSITIONING_FREE_MILES,
     positioningRatePerMileGbp: DEFAULT_POSITIONING_RATE_PER_MILE_GBP,
+    positioningA2aEnabled: DEFAULT_POSITIONING_A2A_ENABLED,
+    positioningA2aFreeMiles: DEFAULT_POSITIONING_A2A_FREE_MILES,
+    positioningA2aRatePerMileGbp: DEFAULT_POSITIONING_A2A_RATE_PER_MILE_GBP,
   };
 }
 
@@ -80,7 +95,8 @@ export function isProfitabilityProtectionActive(
   return typeof mpg === "number" && Number.isFinite(mpg) && mpg > 0;
 }
 
-export function isPositioningChargeActive(
+/** Airport transfers: drive-to-pickup charge ON with a positive rate. */
+export function isAirportPositioningChargeActive(
   settings:
     | Pick<ProfitabilitySettings, "positioningChargeEnabled" | "positioningRatePerMileGbp">
     | null
@@ -92,6 +108,35 @@ export function isPositioningChargeActive(
     Number.isFinite(settings.positioningRatePerMileGbp) &&
     settings.positioningRatePerMileGbp > 0
   );
+}
+
+/** Address-to-address jobs: drive-to-pickup charge ON with a positive rate. */
+export function isA2aPositioningChargeActive(
+  settings:
+    | Partial<Pick<ProfitabilitySettings, "positioningA2aEnabled" | "positioningA2aRatePerMileGbp">>
+    | null
+    | undefined,
+): boolean {
+  return (
+    settings?.positioningA2aEnabled === true &&
+    typeof settings.positioningA2aRatePerMileGbp === "number" &&
+    Number.isFinite(settings.positioningA2aRatePerMileGbp) &&
+    settings.positioningA2aRatePerMileGbp > 0
+  );
+}
+
+/**
+ * Either drive-to-pickup charge is ON. Callers use this to require
+ * server-resolved coordinates (and signed receipts) for every quote.
+ */
+export function isPositioningChargeActive(
+  settings:
+    | (Pick<ProfitabilitySettings, "positioningChargeEnabled" | "positioningRatePerMileGbp"> &
+        Partial<Pick<ProfitabilitySettings, "positioningA2aEnabled" | "positioningA2aRatePerMileGbp">>)
+    | null
+    | undefined,
+): boolean {
+  return isAirportPositioningChargeActive(settings) || isA2aPositioningChargeActive(settings);
 }
 
 /**
@@ -109,11 +154,35 @@ export function positioningChargeFromMilesGbp(
     | null
     | undefined,
 ): number {
-  if (!isPositioningChargeActive(settings) || !settings) return 0;
+  if (!isAirportPositioningChargeActive(settings) || !settings) return 0;
   if (!Number.isFinite(milesFromBase) || milesFromBase <= 0) return 0;
   const chargeable = milesFromBase - Math.max(0, settings.positioningFreeMiles);
   if (chargeable <= 0) return 0;
   return Math.round(chargeable * settings.positioningRatePerMileGbp);
+}
+
+/**
+ * Whole-pound charge for one leg of an address-to-address job.
+ * `farEndMilesFromBase` is the larger of the base's road distance to the
+ * pickup and to the drop-off. Zero when OFF or inside the free radius.
+ */
+export function positioningA2aChargeFromMilesGbp(
+  farEndMilesFromBase: number,
+  settings:
+    | Partial<
+        Pick<
+          ProfitabilitySettings,
+          "positioningA2aEnabled" | "positioningA2aFreeMiles" | "positioningA2aRatePerMileGbp"
+        >
+      >
+    | null
+    | undefined,
+): number {
+  if (!isA2aPositioningChargeActive(settings) || !settings) return 0;
+  if (!Number.isFinite(farEndMilesFromBase) || farEndMilesFromBase <= 0) return 0;
+  const chargeable = farEndMilesFromBase - Math.max(0, settings.positioningA2aFreeMiles ?? 0);
+  if (chargeable <= 0) return 0;
+  return Math.round(chargeable * (settings.positioningA2aRatePerMileGbp as number));
 }
 
 /** Read-only fuel cost. Null until a valid MPG is set. */
@@ -170,7 +239,12 @@ function readPositioning(
   defaults: ProfitabilitySettings,
 ): Pick<
   ProfitabilitySettings,
-  "positioningChargeEnabled" | "positioningFreeMiles" | "positioningRatePerMileGbp"
+  | "positioningChargeEnabled"
+  | "positioningFreeMiles"
+  | "positioningRatePerMileGbp"
+  | "positioningA2aEnabled"
+  | "positioningA2aFreeMiles"
+  | "positioningA2aRatePerMileGbp"
 > {
   return {
     positioningChargeEnabled: readBoolean(
@@ -193,6 +267,28 @@ function readPositioning(
         min: 0,
         max: POSITIONING_RATE_PER_MILE_MAX_GBP,
         fallback: defaults.positioningRatePerMileGbp,
+      },
+    ),
+    positioningA2aEnabled: readBoolean(
+      input.positioningA2aEnabled,
+      "profitability.positioningA2aEnabled",
+      errors,
+      defaults.positioningA2aEnabled,
+    ),
+    positioningA2aFreeMiles: readBounded(
+      input.positioningA2aFreeMiles,
+      "profitability.positioningA2aFreeMiles",
+      errors,
+      { min: 0, max: POSITIONING_FREE_MILES_MAX, fallback: defaults.positioningA2aFreeMiles },
+    ),
+    positioningA2aRatePerMileGbp: readBounded(
+      input.positioningA2aRatePerMileGbp,
+      "profitability.positioningA2aRatePerMileGbp",
+      errors,
+      {
+        min: 0,
+        max: POSITIONING_RATE_PER_MILE_MAX_GBP,
+        fallback: defaults.positioningA2aRatePerMileGbp,
       },
     ),
   };
@@ -326,6 +422,12 @@ export function describeProfitabilityValue(
       return `${settings.positioningFreeMiles} miles`;
     case "positioningRatePerMileGbp":
       return `£${settings.positioningRatePerMileGbp.toFixed(2)}/mile`;
+    case "positioningA2aEnabled":
+      return settings.positioningA2aEnabled ? "ON" : "OFF";
+    case "positioningA2aFreeMiles":
+      return `${settings.positioningA2aFreeMiles} miles`;
+    case "positioningA2aRatePerMileGbp":
+      return `£${settings.positioningA2aRatePerMileGbp.toFixed(2)}/mile`;
     default:
       return "";
   }
@@ -340,6 +442,9 @@ const PROFITABILITY_DIFFS: Array<{ path: keyof ProfitabilitySettings; label: str
   { path: "positioningChargeEnabled", label: "Drive-to-pickup charge" },
   { path: "positioningFreeMiles", label: "Drive-to-pickup free miles" },
   { path: "positioningRatePerMileGbp", label: "Drive-to-pickup rate" },
+  { path: "positioningA2aEnabled", label: "Address-to-address drive charge" },
+  { path: "positioningA2aFreeMiles", label: "Address-to-address free miles" },
+  { path: "positioningA2aRatePerMileGbp", label: "Address-to-address drive rate" },
 ];
 
 export function diffProfitabilitySettings(

@@ -2660,6 +2660,7 @@ async function handlePaymentRequest(
       airportTransfer:
         Boolean(airportContext.airportCode) &&
         !(airportContext.pickupAirportCode && airportContext.dropoffAirportCode),
+      addressToAddress: !airportContext.isAirportTrip,
       fromAirport: Boolean(airportContext.fromAirport),
       pickup: routeOutcome.pickup ?? null,
       dropoff: routeOutcome.dropoff ?? null,

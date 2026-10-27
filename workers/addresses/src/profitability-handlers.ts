@@ -156,6 +156,7 @@ export async function handleOwnerProfitabilityTestRequest(
     const positioning = await resolvePositioningChargeGbp({
       settings: pricing.profitability,
       airportTransfer: addressAirport.ok && Boolean(addressAirport.context.airportCode),
+      addressToAddress: !(addressAirport.ok && addressAirport.context.airportCode),
       fromAirport: addressAirport.ok ? addressAirport.context.fromAirport : false,
       pickup: Number.isFinite(pickupLat) && Number.isFinite(pickupLng)
         ? { lat: pickupLat, lng: pickupLng }
