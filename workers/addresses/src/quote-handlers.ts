@@ -23,6 +23,7 @@ import type { VehicleType } from "../../../src/lib/data";
 import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { applyProfitabilityProtection } from "./profitability";
+import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
 import { resolveJourneyAirportFees } from "../shared/airport-fixed-costs";
 import { signQuoteReceipt, LEGACY_QUOTE_RECEIPT_FORMAT, QUOTE_RECEIPT_FORMAT } from "./quote-receipt";
 import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
@@ -330,12 +331,16 @@ export async function handleQuoteCalculateRequest(
     : Promise.resolve(null);
   const pricingForRoute = await pricingPromise;
   const protectionActive = isProfitabilityProtectionActive(pricingForRoute.profitability);
+  // The drive-to-pickup charge prices from coordinates, so it needs the same
+  // server-resolved route (and signed receipt) as profitability protection.
+  const serverRouting =
+    protectionActive || isPositioningChargeActive(pricingForRoute.profitability);
   let routeMetricsSource: "worker" | "client" | "none" = "none";
-  let routeMetrics = protectionActive ? null : clientMetrics;
+  let routeMetrics = serverRouting ? null : clientMetrics;
   let serverPickup: { lat: number; lng: number } | null = null;
   let serverDropoff: { lat: number; lng: number } | null = null;
   let routeReused = false;
-  if (protectionActive) {
+  if (serverRouting) {
     const routeKey = quoteRouteReuseKey({
       pickupAddress,
       dropoffAddress,
@@ -608,7 +613,16 @@ export async function handleQuoteCalculateRequest(
       };
     }
   } else {
+    // Server-resolved coordinates only; browser lat/lng never set a price.
+    const positioning = await resolvePositioningChargeGbp({
+      settings: pricing.profitability,
+      airportTransfer: Boolean(airportCode),
+      fromAirport: Boolean(fromAirport),
+      pickup: serverPickup,
+      dropoff: serverDropoff,
+    });
     result = calculateAuthoritativeWebsiteQuote({
+      positioningChargeGbp: positioning.chargeGbp,
       airportCode,
       fromAirport,
       pickupAddress,
@@ -639,12 +653,12 @@ export async function handleQuoteCalculateRequest(
       pricing,
       vehicleType: result.vehicleType,
       routeMetrics,
-      pickup: protectionActive
+      pickup: serverRouting
         ? serverPickup
         : Number.isFinite(pickupLat) && Number.isFinite(pickupLng)
           ? { lat: pickupLat, lng: pickupLng }
           : null,
-      dropoff: protectionActive
+      dropoff: serverRouting
         ? serverDropoff
         : Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng)
           ? { lat: dropoffLat, lng: dropoffLng }
@@ -751,7 +765,7 @@ export async function handleQuoteCalculateRequest(
     diagnostics,
   };
 
-  if (protectionActive && result.ok) {
+  if (serverRouting && result.ok) {
     const secret = env?.QUOTE_RECEIPT_SECRET?.trim() ?? "";
     if (!secret) {
       // The fare is already calculated. A missing HMAC key must not hide it.

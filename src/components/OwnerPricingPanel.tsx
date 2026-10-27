@@ -48,6 +48,7 @@ import {
 import {
   diffProfitabilitySettings,
   fuelCostPerMileGbp,
+  positioningChargeFromMilesGbp,
   isProfitabilityProtectionActive,
   normalizeProfitabilitySettings,
   validateProfitabilitySettings,
@@ -848,6 +849,57 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
                   return fuel == null ? "Set vehicle MPG to calculate" : `£${fuel.toFixed(4)}`;
                 })()}
               </span>
+            </p>
+          </div>
+
+          <div>
+            <p className="text-lg font-semibold text-white">Drive-to-pickup charge</p>
+            <p className="mt-1 text-sm text-white/70">
+              Adds a charge for the road miles between your base and the customer&apos;s address,
+              beyond the free miles, to each leg of an airport transfer. It is included in the
+              journey fare (Night &amp; Weekend surcharge and the return discount apply as normal)
+              and is never shown as a separate line. Address-to-address and airport-to-airport
+              journeys are not affected. Works whether or not vehicle MPG is set.
+            </p>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-sm text-white/80">Charge for the drive to the pickup</p>
+              <Toggle
+                id="positioning-charge-enabled"
+                label="Charge for the drive to the pickup"
+                checked={draft.profitability.positioningChargeEnabled}
+                onChange={(positioningChargeEnabled) =>
+                  update("profitability", { ...draft.profitability, positioningChargeEnabled })
+                }
+              />
+            </div>
+            <label className={`${labelClass} mt-3`}>
+              Free miles from your base
+              <input
+                className={fieldClass}
+                inputMode="decimal"
+                value={draft.profitability.positioningFreeMiles}
+                onChange={(event) => {
+                  const raw = event.target.value.trim();
+                  update("profitability", {
+                    ...draft.profitability,
+                    positioningFreeMiles: raw === "" ? 0 : Number(raw),
+                  });
+                }}
+              />
+            </label>
+            <MoneyField
+              label="Charge per mile beyond the free miles (£/mile)"
+              value={draft.profitability.positioningRatePerMileGbp}
+              onChange={(positioningRatePerMileGbp) =>
+                update("profitability", { ...draft.profitability, positioningRatePerMileGbp })
+              }
+            />
+            <p className="mt-2 text-xs text-white/55">
+              Example: {draft.profitability.positioningFreeMiles} free miles at £
+              {draft.profitability.positioningRatePerMileGbp.toFixed(2)}/mile — an address 10 road
+              miles from base adds £
+              {positioningChargeFromMilesGbp(10, { ...draft.profitability, positioningChargeEnabled: true })}
+              {" "}per leg. Rounded to whole pounds. Use the Profitability tester to check a real address.
             </p>
           </div>
 

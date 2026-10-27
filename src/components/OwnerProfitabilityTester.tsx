@@ -47,6 +47,7 @@ export default function OwnerProfitabilityTester({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<OwnerProfitabilityReport | null>(null);
+  const [positioningChargeGbp, setPositioningChargeGbp] = useState(0);
 
   const run = async () => {
     if (isolated) return;
@@ -73,6 +74,9 @@ export default function OwnerProfitabilityTester({
         expressSelected,
       });
       setReport(result.report);
+      setPositioningChargeGbp(
+        typeof result.positioningChargeGbp === "number" ? result.positioningChargeGbp : 0,
+      );
     } catch (err) {
       setReport(null);
       setError(err instanceof Error ? err.message : "The profitability test could not be run.");
@@ -200,12 +204,18 @@ export default function OwnerProfitabilityTester({
           {error}
         </p>
       ) : null}
-      {report ? <ReportView report={report} /> : null}
+      {report ? <ReportView report={report} positioningChargeGbp={positioningChargeGbp} /> : null}
     </section>
   );
 }
 
-function ReportView({ report }: { report: OwnerProfitabilityReport }) {
+function ReportView({
+  report,
+  positioningChargeGbp,
+}: {
+  report: OwnerProfitabilityReport;
+  positioningChargeGbp: number;
+}) {
   const outbound = report.outbound;
   return (
     <dl className="mt-4 space-y-2 text-sm">
@@ -233,6 +243,7 @@ function ReportView({ report }: { report: OwnerProfitabilityReport }) {
       {line("Profitability floor", money(outbound.profitabilityFloorGbp))}
       {line("Protected Saloon fare", money(outbound.protectedSaloonFareGbp))}
       {line("Rule", outbound.rule)}
+      {line("Drive-to-pickup charge (per leg, in fare)", money(positioningChargeGbp))}
       {line("Night / weekend surcharge", money(report.outbound.nightWeekendSurchargeGbp))}
       {line("Airport fixed costs", money(report.airportFixedCostsGbp))}
       {line("Express fee", money(report.expressFeeGbp))}

@@ -13,6 +13,7 @@ import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { buildOwnerProfitabilityReport } from "./profitability";
+import { resolvePositioningChargeGbp } from "./positioning-charge";
 
 export function isOwnerProfitabilityTestPath(pathname: string): boolean {
   return pathname === "/owner/profitability-test" || pathname === "/api/owner/profitability-test";
@@ -124,6 +125,7 @@ export async function handleOwnerProfitabilityTestRequest(
   let journeyFareGbp = 0;
   let airportFixedCostsGbp = 0;
   let nightWeekendSurchargeGbp = 0;
+  let positioningChargeGbp = 0;
 
   if (
     addressAirport.ok &&
@@ -150,7 +152,21 @@ export async function handleOwnerProfitabilityTestRequest(
     airportFixedCostsGbp = a2a.airportFixedCostsGbp ?? 0;
     nightWeekendSurchargeGbp = a2a.nightWeekendSurchargeGbp ?? 0;
   } else {
+    // Owner-only tester (authenticated): the owner's own map pins are trusted.
+    const positioning = await resolvePositioningChargeGbp({
+      settings: pricing.profitability,
+      airportTransfer: addressAirport.ok && Boolean(addressAirport.context.airportCode),
+      fromAirport: addressAirport.ok ? addressAirport.context.fromAirport : false,
+      pickup: Number.isFinite(pickupLat) && Number.isFinite(pickupLng)
+        ? { lat: pickupLat, lng: pickupLng }
+        : null,
+      dropoff: Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng)
+        ? { lat: dropoffLat, lng: dropoffLng }
+        : null,
+    });
+    positioningChargeGbp = positioning.chargeGbp;
     const quote = calculateAuthoritativeWebsiteQuote({
+      positioningChargeGbp: positioning.chargeGbp,
       airportCode: addressAirport.ok ? addressAirport.context.airportCode : null,
       fromAirport: addressAirport.ok ? addressAirport.context.fromAirport : false,
       pickupAddress,
@@ -211,6 +227,8 @@ export async function handleOwnerProfitabilityTestRequest(
       currency: "GBP",
       existingAmountLabel: formatQuote(report.existingCustomerFareGbp),
       finalAmountLabel: formatQuote(report.finalCustomerPriceGbp),
+      // Owner-only: per-leg drive-to-pickup charge already inside the fare.
+      positioningChargeGbp,
       report,
     },
     200,

@@ -503,6 +503,7 @@ import {
   isOwnerProfitabilityTestPath,
 } from "./profitability-handlers";
 import { applyProfitabilityProtection } from "./profitability";
+import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
 import {
   QUOTE_RECEIPT_REFRESH_MESSAGE,
   decideQuoteReceiptPayment,
@@ -2517,7 +2518,11 @@ async function handlePaymentRequest(
     let legacyAccess = !(body.quoteProtocol === "optional-terminal-access-v4" ||
       body.terminalAccessChoices != null || rawBooking?.terminalAccessChoices != null ||
       String(body.quoteReceipt ?? "").startsWith("v4-optional-terminal-access."));
-    if (isProfitabilityProtectionActive(receiptPricing.profitability) || body.quoteReceipt != null) {
+    if (
+      isProfitabilityProtectionActive(receiptPricing.profitability) ||
+      isPositioningChargeActive(receiptPricing.profitability) ||
+      body.quoteReceipt != null
+    ) {
       const receiptSecret = env.QUOTE_RECEIPT_SECRET?.trim() ?? "";
       if (!receiptSecret && body.quoteReceipt != null) {
         return json({error: QUOTE_RECEIPT_REFRESH_MESSAGE, code: "quote_refresh_required"}, 409, origin);
@@ -2569,6 +2574,24 @@ async function handlePaymentRequest(
         }
       }
     }
+    const resolvePaymentRoute = () =>
+      resolveRouteOutcomeWithRetry(() =>
+        resolveWorkerTripRouteMetricsForPayment({
+          pickupAddress: paymentPickupLabel,
+          dropoffAddress: paymentDropoffLabel,
+          pickupPlaceId: paymentPickupPlaceId || null,
+          dropoffPlaceId: paymentDropoffPlaceId || null,
+          googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+          getAddressApiKey: env.GETADDRESS_API_KEY,
+        }),
+      );
+    // A signed receipt carries the fare and the passenger route, but never the
+    // address coordinates. The drive-to-pickup charge needs them for the
+    // per-leg split, so resolve them (same resolver as the quote) when ON.
+    const receiptCoordinates =
+      receiptClaims && isPositioningChargeActive(receiptPricing.profitability)
+        ? await resolvePaymentRoute()
+        : null;
     const routeOutcome = receiptClaims
       ? {
           ok: true as const,
@@ -2576,19 +2599,10 @@ async function handlePaymentRequest(
             distanceKm: receiptClaims.distanceKm,
             durationMinutes: receiptClaims.durationMinutes,
           },
-          pickup: undefined,
-          dropoff: undefined,
+          pickup: receiptCoordinates?.ok ? receiptCoordinates.pickup : undefined,
+          dropoff: receiptCoordinates?.ok ? receiptCoordinates.dropoff : undefined,
         }
-      : await resolveRouteOutcomeWithRetry(() =>
-      resolveWorkerTripRouteMetricsForPayment({
-        pickupAddress: paymentPickupLabel,
-        dropoffAddress: paymentDropoffLabel,
-        pickupPlaceId: paymentPickupPlaceId || null,
-        dropoffPlaceId: paymentDropoffPlaceId || null,
-        googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-        getAddressApiKey: env.GETADDRESS_API_KEY,
-      }),
-    );
+      : await resolvePaymentRoute();
     if (!routeOutcome.ok) {
       const errBody = paymentErrorForRouteFailure(
         routeOutcome.reason,
@@ -2640,6 +2654,16 @@ async function handlePaymentRequest(
       returnFixedGbp?: number;
     } | null = null;
     const pricing = await loadOwnerPricingOrDefault(env);
+    // Server-resolved coordinates only (never the browser's lat/lng).
+    const positioning = await resolvePositioningChargeGbp({
+      settings: pricing.profitability,
+      airportTransfer:
+        Boolean(airportContext.airportCode) &&
+        !(airportContext.pickupAirportCode && airportContext.dropoffAirportCode),
+      fromAirport: Boolean(airportContext.fromAirport),
+      pickup: routeOutcome.pickup ?? null,
+      dropoff: routeOutcome.dropoff ?? null,
+    });
     if (publicVehicleRequiresPersonalQuote(booking.vehicle, pricing)) {
       return json({ error: vehiclePersonalQuoteMessage(booking.vehicle), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
     }
@@ -2741,6 +2765,7 @@ async function handlePaymentRequest(
       }
     } else {
       const requote = calculateAuthoritativeWebsiteQuote({
+        positioningChargeGbp: positioning.chargeGbp,
         airportCode: airportContext.airportCode,
         fromAirport: airportContext.fromAirport,
         pickupAddress: booking.pickupLabel,
@@ -2950,6 +2975,7 @@ async function handlePaymentRequest(
         }
       } else {
         const legQuote = calculateAuthoritativeWebsiteQuote({
+          positioningChargeGbp: positioning.chargeGbp,
           airportCode: airportContext.airportCode,
           fromAirport: airportContext.fromAirport,
           pickupAddress: booking.pickupLabel,

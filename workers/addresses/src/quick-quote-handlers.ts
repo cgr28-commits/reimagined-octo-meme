@@ -6,6 +6,8 @@
  */
 
 import { corsHeaders } from "../shared/google-places";
+import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
+import type { ProfitabilitySettings } from "../../../src/lib/owner-profitability-settings";
 import {
   QUICK_QUOTE_CREATE_RATE_LIMIT,
   applyQuickQuoteManualDiscount,
@@ -42,7 +44,10 @@ import {
   createQuickQuoteRecord,
   getQuickQuote,
 } from "./quick-quote-store";
-import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
+import {
+  resolveWorkerTripRouteMetrics,
+  resolveWorkerTripRouteMetricsForPayment,
+} from "./resolve-route-metrics";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 import {
@@ -180,7 +185,7 @@ function parseDiscount(body: Record<string, unknown>): {
 async function authoritativeAmount(
   journey: QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice },
   body: Record<string, unknown>,
-  env: { GOOGLE_PLACES_API_KEY?: string },
+  env: { GOOGLE_PLACES_API_KEY?: string; GETADDRESS_API_KEY?: string },
   pricing?: OwnerPricingSettings | null,
 ) {
   const pickupLat = Number(body.pickupLat);
@@ -216,7 +221,34 @@ async function authoritativeAmount(
     journey.suitcases,
   );
 
+  // Quick quotes are created by the owner AND by the WhatsApp bot (customer
+  // text, no map pins), so coordinates for the drive-to-pickup charge are
+  // always resolved server-side from the addresses — never from body lat/lng.
+  const positioningSettings =
+    pricing && "profitability" in pricing
+      ? (pricing as { profitability?: ProfitabilitySettings | null }).profitability
+      : null;
+  const positioningRoute =
+    isPositioningChargeActive(positioningSettings) && journey.airportCode
+      ? await resolveWorkerTripRouteMetricsForPayment({
+          pickupAddress: journey.pickupAddress,
+          dropoffAddress: journey.dropoffAddress,
+          pickupPlaceId: typeof body.pickupPlaceId === "string" ? body.pickupPlaceId : null,
+          dropoffPlaceId: typeof body.dropoffPlaceId === "string" ? body.dropoffPlaceId : null,
+          googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+          getAddressApiKey: env.GETADDRESS_API_KEY,
+        })
+      : null;
+  const positioning = await resolvePositioningChargeGbp({
+    settings: positioningSettings,
+    airportTransfer: Boolean(journey.airportCode),
+    fromAirport: Boolean(journey.fromAirport),
+    pickup: positioningRoute?.ok ? positioningRoute.pickup : null,
+    dropoff: positioningRoute?.ok ? positioningRoute.dropoff : null,
+  });
+
   return calculateAuthoritativeWebsiteQuote({
+    positioningChargeGbp: positioning.chargeGbp,
     airportCode: journey.airportCode ?? null,
     fromAirport: Boolean(journey.fromAirport),
     pickupAddress: journey.pickupAddress,
