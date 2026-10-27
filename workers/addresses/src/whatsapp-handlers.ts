@@ -87,7 +87,19 @@ import {
   upcomingCustomerBookings,
 } from "../shared/whatsapp-pickup-info";
 import { buildManageBookingUrl } from "../shared/manage-booking-token";
-import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
+import { consumeQuickQuoteCreateQuota, getQuickQuote } from "./quick-quote-store";
+import {
+  buildWhatsAppFollowUpText,
+  cancelWhatsAppFollowUp,
+  deferWhatsAppFollowUp,
+  getWhatsAppFollowUp,
+  isInsideWhatsAppServiceWindow,
+  isWhatsAppFollowUpOptOut,
+  listDueWhatsAppFollowUps,
+  scheduleWhatsAppFollowUp,
+  whatsAppFollowUpDelayMs,
+} from "./whatsapp-follow-up";
+import { formatUkDate } from "../shared/uk-time";
 import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
 
 export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
@@ -103,6 +115,8 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
    * separate number. Handoffs then link the customer to this number.
    */
   WHATSAPP_TEAM_NUMBER?: string;
+  /** Hours after a quote (and the customer's last message) to send one reminder; "0" turns it off. Default 2. */
+  WHATSAPP_FOLLOW_UP_HOURS?: string;
   BOOKING_TO_EMAIL?: string;
   /** Worker secret: lets the assistant answer customer questions with Claude. */
   ANTHROPIC_API_KEY?: string;
@@ -367,6 +381,13 @@ async function handleInboundMessage(
   const phone = message.from;
   const teamNumber = env.WHATSAPP_TEAM_NUMBER?.trim() ? resolveWhatsAppTeamNumber(env.WHATSAPP_TEAM_NUMBER) : undefined;
   const isTeamPhone = Boolean(teamNumber) && teamNumber === phone;
+  // Quote reminder: never while they are still chatting, never after "stop" / NEW.
+  const followUpDelay = whatsAppFollowUpDelayMs(env.WHATSAPP_FOLLOW_UP_HOURS);
+  if (message.text && (isWhatsAppFollowUpOptOut(message.text) || detectWhatsAppIntent(message.text) === "reset")) {
+    await cancelWhatsAppFollowUp(store, phone);
+  } else if (followUpDelay) {
+    await deferWhatsAppFollowUp(store, phone, followUpDelay);
+  }
   if (await store.get(pausedKey(phone))) {
     // NEW always wakes the assistant; the team's own phone is never left paused (testing).
     if (isTeamPhone || detectWhatsAppIntent(message.text) === "reset") {
@@ -415,6 +436,7 @@ async function handleInboundMessage(
       await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
     }
     logEvent("whatsapp_bot_handoff", phone);
+    await cancelWhatsAppFollowUp(store, phone);
     if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation);
   }
 
@@ -483,6 +505,24 @@ async function handleInboundMessage(
           airportCode: priced.record.journey.airportCode ?? null,
           requestOnly: availability.requestOnly,
         });
+        if (followUpDelay && !availability.requestOnly) {
+          const draft = conversation.draft;
+          const place = (label?: string) => (label ?? "").split(",")[0]!.trim();
+          await scheduleWhatsAppFollowUp(
+            store,
+            {
+              phone,
+              name: message.profileName,
+              quoteId: priced.record.id,
+              amountLabel: priced.record.quotedAmountLabel,
+              bookingUrl: priced.bookingUrl,
+              journeyLabel:
+                `${place(draft.pickupAddress)} → ${place(draft.dropoffAddress)}` +
+                (draft.outboundDate ? ` on ${formatUkDate(draft.outboundDate)}` : ""),
+            },
+            followUpDelay,
+          );
+        }
       } else {
         conversation.stage = "collecting";
         text = buildWhatsAppQuoteFailedReply(priced.status === 422 ? undefined : priced.error);
@@ -809,6 +849,38 @@ async function reply(
     logEvent("whatsapp_send_failed", phone, { error: result.error });
     await recordDiag(store, { lastReplyError: { at: nowIso(), error: String(result.error ?? "unknown").slice(0, 300) } });
   }
+}
+
+/**
+ * Cron: one reminder to customers who got a WhatsApp quote but haven't booked,
+ * a couple of hours after their last message and inside the 24h service window.
+ */
+export async function processWhatsAppFollowUps(
+  env: WhatsAppEnv,
+  now: Date = new Date(),
+): Promise<{ sent: number; skipped: number }> {
+  const result = { sent: 0, skipped: 0 };
+  const store = env.TRACKING_STORE;
+  if (!store || !whatsAppCloudConfigured(env) || !whatsAppFollowUpDelayMs(env.WHATSAPP_FOLLOW_UP_HOURS)) return result;
+  if (env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() === "false") return result;
+  for (const phone of await listDueWhatsAppFollowUps(store, now)) {
+    const record = await getWhatsAppFollowUp(store, phone);
+    // Claim first: a reminder is sent at most once, even if the send below fails.
+    await cancelWhatsAppFollowUp(store, phone);
+    if (!record || !isInsideWhatsAppServiceWindow(record, now) || (await store.get(pausedKey(phone)))) {
+      result.skipped += 1;
+      continue;
+    }
+    const quote = await getQuickQuote(store, record.quoteId).catch(() => null);
+    if (!quote || quote.status === "paid" || quote.status === "cancelled" || quote.status === "expired" || Date.parse(quote.expiresAt ?? "") <= now.getTime()) {
+      result.skipped += 1;
+      continue;
+    }
+    await reply(env, phone, buildWhatsAppFollowUpText(record));
+    logEvent("whatsapp_follow_up_sent", phone, { idSuffix: record.quoteId.slice(-6) });
+    result.sent += 1;
+  }
+  return result;
 }
 
 /**

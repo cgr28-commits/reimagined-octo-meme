@@ -413,6 +413,7 @@ import {
   handleWhatsAppConnect,
   handleWhatsAppStatus,
   processWhatsAppChatEmails,
+  processWhatsAppFollowUps,
   handleWhatsAppWebhook,
   isWhatsAppConnectPath,
   isWhatsAppStatusPath,
@@ -601,6 +602,7 @@ type Env = {
   D360_API_KEY?: string;
   /** Team WhatsApp number for handoffs when the assistant runs on a separate number. */
   WHATSAPP_TEAM_NUMBER?: string;
+  WHATSAPP_FOLLOW_UP_HOURS?: string;
   /** Anthropic API key (Worker secret) — WhatsApp assistant answers customer questions. */
   ANTHROPIC_API_KEY?: string;
 };
@@ -5658,6 +5660,9 @@ export default {
       ctx.waitUntil(processWhatsAppChatEmails(env, new Date(event.scheduledTime)).then(result => {
         if (result.sent || result.errors) console.log("WhatsApp chat email cron", JSON.stringify(result));
       }).catch(error => console.error("WhatsApp chat email cron failed", error)));
+      ctx.waitUntil(processWhatsAppFollowUps(env, new Date(event.scheduledTime)).then(result => {
+        if (result.sent) console.log("WhatsApp follow-up cron", JSON.stringify(result));
+      }).catch(error => console.error("WhatsApp follow-up cron failed", error)));
     }
 
     if (!shouldRunHourlyScheduledJobs(cron)) return;
