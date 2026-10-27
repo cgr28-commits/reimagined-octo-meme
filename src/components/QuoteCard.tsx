@@ -1278,7 +1278,9 @@ function QuoteCard({
     (isA2AFlow &&
       isPlaceSelected(pickupPlace) &&
       isPlaceSelected(dropoffPlace) &&
-      needsManualQuoteApproval(pickupPlace, dropoffPlace)) ||
+      needsManualQuoteApproval(pickupPlace, dropoffPlace, {
+        irelandPickupsIntoBelfastInstant: publicPricing.irelandPickupsIntoBelfastInstant === true,
+      })) ||
     (isAirportTrip &&
       tripDirection === "from-airport" &&
       dropoffAddress.trim().length > 0 &&
