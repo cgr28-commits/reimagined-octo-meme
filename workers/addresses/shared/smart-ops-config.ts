@@ -36,6 +36,19 @@ export type SmartOpsReasonCode = (typeof SMART_OPS_REASON)[keyof typeof SMART_OP
 
 export type DriverCapacityMode = "owner_only" | "owner_plus_backup";
 
+/** What happens when a customer's time clashes with bookings already taken. */
+export type BookingClashSettings = {
+  /** Bookings that can run at the same time (1 = only you). */
+  maxAtSameTime: 1 | 2 | 3;
+  /** Once that many are booked: send it as a request you confirm, or block the time. */
+  whenFull: "request_only" | "block";
+};
+
+export const DEFAULT_BOOKING_CLASH_SETTINGS: BookingClashSettings = {
+  maxAtSameTime: 1,
+  whenFull: "request_only",
+};
+
 export type SmartReturnReleaseMode =
   | "immediately"
   | "inside_free_cancel_cutoff"
@@ -86,6 +99,7 @@ export type SmartOpsConfig = {
   alternatives: SmartAlternativeSettings;
   smartReturn: SmartReturnSettings;
   driverCapacity: DriverCapacityMode;
+  bookingClash: BookingClashSettings;
   updatedAt: string;
 };
 
@@ -141,6 +155,7 @@ export const DEFAULT_SMART_OPS_CONFIG: SmartOpsConfig = {
     freeCancelCutoffHours: 24,
   },
   driverCapacity: "owner_only",
+  bookingClash: { ...DEFAULT_BOOKING_CLASH_SETTINGS },
   updatedAt: new Date(0).toISOString(),
 };
 
@@ -218,7 +233,17 @@ export function normalizeSmartOpsConfig(raw: unknown): SmartOpsConfig {
     },
     driverCapacity:
       input.driverCapacity === "owner_plus_backup" ? "owner_plus_backup" : "owner_only",
+    bookingClash: normalizeBookingClashSettings(input.bookingClash),
     updatedAt: String(input.updatedAt || new Date().toISOString()),
+  };
+}
+
+export function normalizeBookingClashSettings(raw: unknown): BookingClashSettings {
+  const input = (raw && typeof raw === "object" ? raw : {}) as Partial<Record<keyof BookingClashSettings, unknown>>;
+  const max = Number(input.maxAtSameTime);
+  return {
+    maxAtSameTime: max === 2 || max === 3 ? max : 1,
+    whenFull: input.whenFull === "block" ? "block" : "request_only",
   };
 }
 

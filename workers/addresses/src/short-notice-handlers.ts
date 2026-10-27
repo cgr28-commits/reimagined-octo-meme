@@ -67,6 +67,10 @@ import {
 } from "../shared/availability-resource";
 import { findRequestOnlySmartBlock } from "../shared/smart-availability";
 import { getSmartOpsState } from "./smart-ops-store";
+import { bookingClashNeedsRequest } from "./smart-ops-handlers";
+
+/** blockingPeriodId used when a booking is held because it clashes with bookings already taken. */
+export const BOOKING_CLASH_HOLD_ID = "booking-clash";
 import {
   addUnavailablePeriod,
   bookingSettingsPublicView,
@@ -878,6 +882,10 @@ export async function createShortNoticeRequest(options: {
         options.booking.tripDate,
         options.booking.tripTime,
       );
+  const clashHold =
+    !blocking && !smartBlock && (await bookingClashNeedsRequest(options.store, options.booking, now))
+      ? BOOKING_CLASH_HOLD_ID
+      : null;
 
   const noticeHours = settings.minimumBookingNoticeHours;
   const underMinimumNotice = isWithinMinimumBookingNotice(
@@ -888,7 +896,7 @@ export async function createShortNoticeRequest(options: {
   );
   const holdReasons = combinePaymentHoldReasons({
     underMinimumNotice,
-    blockingPeriodId: blocking?.id ?? smartBlock?.ruleId ?? null,
+    blockingPeriodId: blocking?.id ?? smartBlock?.ruleId ?? clashHold,
     passengers: options.booking.passengers,
     suitcases: options.booking.suitcases,
     suitcasesExact: options.booking.suitcasesExact,
@@ -919,7 +927,7 @@ export async function createShortNoticeRequest(options: {
     amountLabel: formatAmountLabel(amount),
     booking: options.booking,
     materialFingerprint: fingerprint,
-    unavailablePeriodIdApplied: blocking?.id ?? smartBlock?.ruleId ?? null,
+    unavailablePeriodIdApplied: blocking?.id ?? smartBlock?.ruleId ?? clashHold,
     underMinimumNotice,
     holdReasons,
     ...(underMinimumNotice
@@ -1123,6 +1131,8 @@ export async function shouldForceShortNotice(
   const smartBlock = blocking
     ? null
     : await requestOnlySmartBlockForPickup(store, booking.tripDate, booking.tripTime);
+  // Clashes with bookings already taken: a request the owner confirms (dashboard setting).
+  const clashHold = !blocking && !smartBlock ? await bookingClashNeedsRequest(store, booking, now) : false;
   const noticeHours = settings.minimumBookingNoticeHours;
   const underMinimumNotice = isWithinMinimumBookingNotice(
     booking.tripDate,
@@ -1132,15 +1142,17 @@ export async function shouldForceShortNotice(
   );
   const activePeriods = listActiveUnavailablePeriods(periods, now);
   return {
-    shortNotice: Boolean(blocking) || Boolean(smartBlock) || underMinimumNotice,
+    shortNotice: Boolean(blocking) || Boolean(smartBlock) || clashHold || underMinimumNotice,
     noAvailability: false,
-    gateActive: activePeriods.length > 0 || Boolean(smartBlock) || underMinimumNotice,
-    blockingPeriodId: blocking?.id ?? smartBlock?.ruleId ?? null,
+    gateActive: activePeriods.length > 0 || Boolean(smartBlock) || clashHold || underMinimumNotice,
+    blockingPeriodId: blocking?.id ?? smartBlock?.ruleId ?? (clashHold ? BOOKING_CLASH_HOLD_ID : null),
     blockingPeriodLabel: blocking
       ? formatUnavailablePeriodRangeLabel(blocking)
       : smartBlock
         ? `${smartBlock.startLocal.replace("T", " ")} – ${smartBlock.endLocal.replace("T", " ")}`
-        : null,
+        : clashHold
+          ? "Clashes with another booking"
+          : null,
     underMinimumNotice,
     minimumNoticeHours: noticeHours,
     minimumShortNoticeLeadHours: leadHours,

@@ -162,6 +162,43 @@ export async function enforceCustomerSmartAvailabilityGate(input: {
   }
 }
 
+/**
+ * True when the time clashes with bookings already taken and the owner's booking-clash
+ * setting takes it as a request to confirm (instead of blocking it). Fails closed to false.
+ */
+export async function bookingClashNeedsRequest(
+  store: KVNamespace,
+  booking: CustomerBookingAvailabilityInput,
+  now = new Date(),
+): Promise<boolean> {
+  try {
+    const state = await getSmartOpsState(store);
+    if (state.config.flags.smartAvailability !== true) return false;
+    const tripDate = String(booking.tripDate || "");
+    if (!tripDate) return false;
+    const settings = await getBookingSettings(store);
+    const { occupied } = await loadOccupied(store, {
+      fromYmd: addDaysYmd(tripDate, -3),
+      toYmd: addDaysYmd(tripDate, 3),
+    });
+    const gate = decideCustomerSmartAvailabilityGate({
+      enforce: true,
+      booking,
+      occupied,
+      rules: state.rules,
+      exceptions: state.exceptions,
+      legacyPeriods: settings.unavailablePeriods,
+      noticeHours: settings.minimumBookingNoticeHours,
+      config: state.config,
+      offerAlternatives: false,
+      now,
+    });
+    return gate.requestOnly === true;
+  } catch {
+    return false;
+  }
+}
+
 export function customerSmartAvailabilityPreviewRequested(request: Request): boolean {
   return previewRequestedFromRequest({
     headers: request.headers,

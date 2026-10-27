@@ -73,6 +73,8 @@ const config = normalizeSmartOpsConfig({
     backupDriverCapacity: false,
     shadowMode: true,
   },
+  // These checks cover the "Block the time" setting; request-only is in check-booking-clash.ts.
+  bookingClash: { maxAtSameTime: 1, whenFull: "block" },
 });
 
 const larneAt0700: SmartOccupiedJob = {

@@ -110,6 +110,7 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
   const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
 
   const config = state?.config || DEFAULT_SMART_OPS_CONFIG;
+  const bookingClash = config.bookingClash ?? DEFAULT_SMART_OPS_CONFIG.bookingClash;
   const rules = state?.rules || [];
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -634,6 +635,56 @@ export default function OwnerSmartAvailabilityPanel({ ownerKey }: OwnerSmartAvai
           </div>
         </div>
         ) : null}
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-navy/70 p-4" data-owner-booking-clash>
+        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Bookings at the same time</h3>
+        <p className="mt-1 text-sm text-white/60">
+          When a customer picks a time that clashes with bookings you already have.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className={labelClass}>
+            Bookings that can run at the same time
+            <select
+              className={fieldClass}
+              value={bookingClash.maxAtSameTime}
+              disabled={busy}
+              onChange={(event) =>
+                void saveSettings({
+                  bookingClash: { ...bookingClash, maxAtSameTime: Number(event.target.value) as 1 | 2 | 3 },
+                })
+              }
+            >
+              <option value={1}>1 (just me)</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+            </select>
+          </label>
+          <label className={labelClass}>
+            When that&apos;s full
+            <select
+              className={fieldClass}
+              value={bookingClash.whenFull}
+              disabled={busy}
+              onChange={(event) =>
+                void saveSettings({
+                  bookingClash: {
+                    ...bookingClash,
+                    whenFull: event.target.value === "block" ? "block" : "request_only",
+                  },
+                })
+              }
+            >
+              <option value="request_only">Request only — I confirm it</option>
+              <option value="block">Block the time</option>
+            </select>
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-white/50">
+          {bookingClash.whenFull === "request_only"
+            ? "Customers can still send a clashing booking; it comes to you as a request to confirm before they pay."
+            : "Customers can't book a clashing time and are offered other times instead."}
+        </p>
       </div>
 
       <div className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-navy/70 p-4">
