@@ -141,3 +141,85 @@ export function buildWhatsAppPickupInfo(input: AirportPickupReminderInput): What
 export const WHATSAPP_PICKUP_NOT_FOUND_REPLY =
   "I couldn't find an upcoming airport pickup booked with this WhatsApp number.\n\n" +
   "Please send your booking reference (it starts with *MAT-*, e.g. MAT-1234) and I'll send your pickup point.";
+
+/** The team's own WhatsApp (07549 815538): handoff links fall back to it. */
+export const WHATSAPP_TEAM_NUMBER_DEFAULT = "447549815538";
+
+/**
+ * Digits for a wa.me team link. A misconfigured value (too short / too long to be a
+ * full international number) falls back to the default so customers never get a dead link.
+ */
+export function resolveWhatsAppTeamNumber(raw: string | null | undefined): string {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15 ? digits : WHATSAPP_TEAM_NUMBER_DEFAULT;
+}
+
+const BOOKING_CHECK_QUESTION =
+  /\b(check|look\s*up|find|see|view|confirm|status|details?|change|amend|cancel)\b[^?]{0,30}\bbooking\b|\bmy\s+booking\b|\bbooking\s+(status|details?|confirmed|ref(erence)?)\b|\bis\s+(my|the)\s+(taxi|booking|transfer|car)\s+(confirmed|booked)\b/i;
+
+export function isWhatsAppBookingCheckQuestion(text: string): boolean {
+  return BOOKING_CHECK_QUESTION.test(text);
+}
+
+/** The customer's bookings with a journey still ahead (or up to 3h ago), soonest first. */
+export function upcomingCustomerBookings(bookings: PaidBookingRecord[], now: Date = new Date()): PaidBookingRecord[] {
+  const cutoff = now.getTime() - 3 * 60 * 60 * 1000;
+  const nextAt = (paid: PaidBookingRecord): number | null => {
+    const legs = paid.returnJourney ? (["outbound", "return"] as const) : (["outbound"] as const);
+    const times = legs
+      .filter((leg) => !isCancelledBooking(paidBookingPickupLeg(paid, leg)))
+      .map((leg) => {
+        const input = paidBookingPickupLeg(paid, leg);
+        return parseLondonLocalDateTime(input.tripDate ?? "", input.tripTime ?? "")?.getTime() ?? null;
+      })
+      .filter((t): t is number => t != null && t >= cutoff);
+    return times.length ? Math.min(...times) : null;
+  };
+  return bookings
+    .map((paid) => ({ paid, at: nextAt(paid) }))
+    .filter((b): b is { paid: PaidBookingRecord; at: number } => b.at != null)
+    .sort((a, b) => a.at - b.at)
+    .map((b) => b.paid);
+}
+
+export function buildWhatsAppBookingDetails(
+  paid: PaidBookingRecord,
+  options: { manageUrl?: string | null; teamNumber: string },
+): string {
+  const when = (date?: string, time?: string) =>
+    [formatUkDate(date ?? ""), formatUkTime(time ?? "")].filter(Boolean).join(" at ");
+  const legCancelled = (leg: "outbound" | "return") => isCancelledBooking(paidBookingPickupLeg(paid, leg));
+  const lines = [
+    `📋 *Your booking${paid.customerReference ? ` ${paid.customerReference}` : ""}*`,
+    `Name: ${paid.customerName}`,
+    ``,
+    `*${paid.returnJourney ? "Outbound" : "Journey"}:* ${when(paid.tripDate, paid.tripTime)}${legCancelled("outbound") ? " (cancelled)" : ""}`,
+    `From: ${paid.pickupLabel}`,
+    `To: ${paid.dropoffLabel}`,
+    paid.flightNumber ? `Flight: ${paid.flightNumber}` : "",
+  ];
+  if (paid.returnJourney) {
+    lines.push(
+      ``,
+      `*Return:* ${when(paid.returnDate, paid.returnTime)}${legCancelled("return") ? " (cancelled)" : ""}`,
+      `From: ${paid.dropoffLabel}`,
+      `To: ${paid.pickupLabel}`,
+      paid.returnFlightNumber ? `Flight: ${paid.returnFlightNumber}` : "",
+    );
+  }
+  lines.push(
+    ``,
+    paid.passengers != null ? `Passengers: ${paid.passengers}` : "",
+    paid.suitcases != null ? `Suitcases: ${paid.suitcases}` : "",
+    `Status: Confirmed ✅`,
+    ``,
+    options.manageUrl ? `To change or manage it: ${options.manageUrl}` : "",
+    `For anything else, message our team: https://wa.me/${options.teamNumber}`,
+  );
+  return lines.filter((line, i, all) => line !== "" || (i > 0 && all[i - 1] !== "")).join("\n").trim();
+}
+
+export const WHATSAPP_BOOKING_NOT_FOUND_REPLY =
+  "I couldn't find an upcoming booking made with this WhatsApp number.\n\n" +
+  "If you booked with a different mobile, please send your booking reference (it starts with *MAT-*, e.g. MAT-1234) " +
+  "from that phone, or message our team and they'll check it for you.";

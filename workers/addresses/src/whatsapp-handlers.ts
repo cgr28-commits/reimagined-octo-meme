@@ -74,13 +74,19 @@ import {
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { getPaidBookingRecordByCustomerReference, listUpcomingPaidBookings } from "./paid-booking-store";
 import {
+  WHATSAPP_BOOKING_NOT_FOUND_REPLY,
   WHATSAPP_PICKUP_NOT_FOUND_REPLY,
+  buildWhatsAppBookingDetails,
   buildWhatsAppPickupInfo,
   extractCustomerBookingReference,
+  isWhatsAppBookingCheckQuestion,
   isWhatsAppPickupLocationQuestion,
+  resolveWhatsAppTeamNumber,
   sameCustomerPhone,
   upcomingAirportCollections,
+  upcomingCustomerBookings,
 } from "../shared/whatsapp-pickup-info";
+import { buildManageBookingUrl } from "../shared/manage-booking-token";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
 import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
 
@@ -359,7 +365,7 @@ async function handleInboundMessage(
   }
 
   const phone = message.from;
-  const teamNumber = env.WHATSAPP_TEAM_NUMBER?.replace(/\D/g, "");
+  const teamNumber = env.WHATSAPP_TEAM_NUMBER?.trim() ? resolveWhatsAppTeamNumber(env.WHATSAPP_TEAM_NUMBER) : undefined;
   const isTeamPhone = Boolean(teamNumber) && teamNumber === phone;
   if (await store.get(pausedKey(phone))) {
     // NEW always wakes the assistant; the team's own phone is never left paused (testing).
@@ -378,10 +384,15 @@ async function handleInboundMessage(
     return;
   }
 
-  // "Where do I get picked up?" or a booking reference: answer from the paid booking.
+  // "Where do I get picked up?": answer from the paid booking.
   const bookingRef = extractCustomerBookingReference(message.text);
-  if (bookingRef || isWhatsAppPickupLocationQuestion(message.text)) {
+  if (isWhatsAppPickupLocationQuestion(message.text)) {
     await replyWithPickupInfo(env, store, phone, bookingRef);
+    return;
+  }
+  // "Can you check my booking?" or a booking reference: the booking's details.
+  if (bookingRef || isWhatsAppBookingCheckQuestion(message.text)) {
+    await replyWithBookingDetails(env, store, phone, bookingRef);
     return;
   }
 
@@ -684,6 +695,45 @@ async function answerCustomerQuestion(
   } catch (err) {
     logEvent("whatsapp_ai_answer_failed", phone, { error: err instanceof Error ? err.message : String(err) });
     return null;
+  }
+}
+
+/**
+ * Booking details for the customer's own bookings only: matched on the WhatsApp
+ * number they booked with (a reference from another phone is not disclosed).
+ */
+async function replyWithBookingDetails(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  bookingRef: string | null,
+): Promise<void> {
+  const teamNumber = resolveWhatsAppTeamNumber(env.WHATSAPP_TEAM_NUMBER);
+  let bookings: PaidBookingRecord[] = [];
+  try {
+    if (bookingRef) {
+      const paid = await getPaidBookingRecordByCustomerReference(store, bookingRef);
+      if (paid && sameCustomerPhone(paid.mobileNumber, phone)) bookings = [paid];
+    } else {
+      const upcoming = await listUpcomingPaidBookings(store, { pastDays: 1, futureDays: 180, limit: 250 });
+      bookings = upcoming.filter((b) => sameCustomerPhone(b.mobileNumber, phone));
+    }
+  } catch (err) {
+    logEvent("whatsapp_booking_lookup_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+  }
+
+  const found = upcomingCustomerBookings(bookings).slice(0, 3);
+  logEvent("whatsapp_booking_details", phone, { byRef: Boolean(bookingRef), found: found.length });
+  if (!found.length) {
+    await reply(env, phone, `${WHATSAPP_BOOKING_NOT_FOUND_REPLY}
+
+Our team: https://wa.me/${teamNumber}`);
+    return;
+  }
+  const origin = (env.SITE_ORIGIN?.trim() || "https://www.myairporttaxini.co.uk").replace(/\/$/, "");
+  for (const paid of found) {
+    const manageUrl = paid.manageBookingToken ? buildManageBookingUrl(origin, paid.manageBookingToken) : null;
+    await reply(env, phone, buildWhatsAppBookingDetails(paid, { manageUrl, teamNumber }));
   }
 }
 
