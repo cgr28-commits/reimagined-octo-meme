@@ -1,6 +1,6 @@
 /**
  * WhatsApp quote follow-up: one friendly nudge when a customer got a price but
- * hasn't booked. Sent once, a couple of hours after their last message, and only
+ * hasn't booked. Sent once, 5 minutes after their last message, and only
  * inside WhatsApp's 24-hour customer service window (so it is a free reply).
  */
 
@@ -20,18 +20,21 @@ const FOLLOW_UP_PREFIX = "whatsapp:followup:";
 const FOLLOW_UP_TTL_SECONDS = 60 * 60 * 24;
 /** Stay well inside the 24h window measured from the customer's last message. */
 export const WHATSAPP_FOLLOW_UP_WINDOW_MS = 23 * 60 * 60 * 1000;
-export const WHATSAPP_FOLLOW_UP_DEFAULT_HOURS = 2;
+export const WHATSAPP_FOLLOW_UP_DEFAULT_MINUTES = 5;
 
 const followUpKey = (phone: string) => `${FOLLOW_UP_PREFIX}${phone}`;
 
-/** Hours to wait (env WHATSAPP_FOLLOW_UP_HOURS); 0 or "off" turns follow-ups off. */
+/**
+ * Minutes to wait after the customer's last message (env WHATSAPP_FOLLOW_UP_MINUTES);
+ * 0 or "off" turns follow-ups off. Sent by the 5-minute cron, so up to 5 minutes later.
+ */
 export function whatsAppFollowUpDelayMs(raw: string | undefined): number | null {
   const value = raw?.trim().toLowerCase();
-  if (!value) return WHATSAPP_FOLLOW_UP_DEFAULT_HOURS * 60 * 60 * 1000;
+  if (!value) return WHATSAPP_FOLLOW_UP_DEFAULT_MINUTES * 60 * 1000;
   if (value === "off" || value === "false") return null;
-  const hours = Number(value);
-  if (!Number.isFinite(hours) || hours <= 0) return null;
-  return Math.min(hours, 20) * 60 * 60 * 1000;
+  const minutes = Number(value);
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  return Math.min(minutes, 20 * 60) * 60 * 1000;
 }
 
 async function save(store: KVNamespace, record: WhatsAppFollowUp): Promise<void> {

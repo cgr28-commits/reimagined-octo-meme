@@ -4,7 +4,7 @@
  * Does not change pricing. Alternative times, when offered, come from that engine.
  */
 
-import type { SmartOpsConfig } from "./smart-ops-config";
+import { DEFAULT_BOOKING_CLASH_SETTINGS, type SmartOpsConfig } from "./smart-ops-config";
 import {
   evaluateSmartAvailability,
   parseJourneyDurationMinutes,
@@ -391,7 +391,18 @@ export type CustomerSmartAvailabilityGate = {
   reason: string | null;
   decision: SmartAvailabilityDecision | null;
   alternativeTimes: CustomerPublicAlternativeTime[];
+  /** The time clashes with bookings already taken: take it as a request the owner confirms. */
+  requestOnly?: boolean;
 };
+
+/** Reason code when a clash with existing bookings is taken as a request. */
+export const BOOKING_CLASH_REQUEST_ONLY_REASON = "booking_clash_request_only";
+
+/** Unavailable only because of another booking (not a personal block / closed time). */
+export function isBookingClashDecision(decision: SmartAvailabilityDecision): boolean {
+  const kind = decision.diagnostics.conflictKind;
+  return !decision.available && Boolean(decision.diagnostics.conflictBookingId) && kind != null && kind !== "block";
+}
 
 /** Customer-visible payload only — never includes owner reason codes or diagnostics. */
 export type PublicCustomerSmartAvailability = {
@@ -499,8 +510,11 @@ export function decideCustomerSmartAvailabilityGate(input: {
     });
   }
   let last: SmartAvailabilityDecision | null = null;
+  let requestOnly = false;
+  const clash = input.config.bookingClash ?? DEFAULT_BOOKING_CLASH_SETTINGS;
+  const standardResource = resource !== "minibus" && resource !== "executive";
   for (const requested of journeys) {
-    const decision = evaluateCustomerSmartAvailability({
+    let decision = evaluateCustomerSmartAvailability({
       requested,
       occupied: input.occupied,
       rules: input.rules,
@@ -510,6 +524,29 @@ export function decideCustomerSmartAvailabilityGate(input: {
       searchAlternatives: false,
       now: input.now,
     });
+    if (standardResource && isBookingClashDecision(decision)) {
+      // Each extra booking allowed at the same time lets one clashing job be set aside.
+      let occupied = input.occupied;
+      for (let spare = clash.maxAtSameTime - 1; spare > 0 && isBookingClashDecision(decision); spare -= 1) {
+        const clashingId = decision.diagnostics.conflictBookingId;
+        occupied = occupied.filter((job) => job.id !== clashingId);
+        decision = evaluateCustomerSmartAvailability({
+          requested,
+          occupied,
+          rules: input.rules,
+          exceptions: input.exceptions,
+          legacyPeriods: input.legacyPeriods,
+          config: input.config,
+          searchAlternatives: false,
+          now: input.now,
+        });
+      }
+      if (isBookingClashDecision(decision) && clash.whenFull === "request_only") {
+        requestOnly = true;
+        last = decision;
+        continue;
+      }
+    }
     last = decision;
     if (!decision.available) {
       let alternativeTimes: CustomerPublicAlternativeTime[] = [];
@@ -563,7 +600,8 @@ export function decideCustomerSmartAvailabilityGate(input: {
     available: true,
     blocked: false,
     customerMessage: null,
-    reason: last?.reason || null,
+    reason: requestOnly ? BOOKING_CLASH_REQUEST_ONLY_REASON : last?.reason || null,
     decision: last,
+    ...(requestOnly ? { requestOnly: true } : {}),
   });
 }

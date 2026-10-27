@@ -36,7 +36,14 @@ import {
 } from "../shared/whatsapp-quote-bot";
 import { addCalendarDays } from "../shared/quick-quote-parse";
 import { todayLondonDate } from "../shared/uk-time";
-import { checkWhatsAppAvailability, processWhatsAppWebhook } from "../workers/addresses/src/whatsapp-handlers";
+import {
+  checkWhatsAppAvailability,
+  isWhatsAppAssistantPaused,
+  ownerReplyToWhatsAppChat,
+  processWhatsAppWebhook,
+  resumeWhatsAppAssistant,
+} from "../workers/addresses/src/whatsapp-handlers";
+import { getWhatsAppChat } from "../workers/addresses/src/whatsapp-chat-log";
 
 async function main() {
   // Wednesday 2026-10-28 09:00 London (GMT).
@@ -458,6 +465,7 @@ async function main() {
 
   console.log("=== Worker processing via 360dialog with a team number ===");
   const d360Sent: Array<{ to: string; body: string; key: string | null }> = [];
+  const ownerEmails: string[] = [];
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
     if (String(url) === "https://waba-v2.360dialog.io/messages") {
       const msg = JSON.parse(String(init?.body));
@@ -468,7 +476,8 @@ async function main() {
       });
       return new Response(JSON.stringify({ messages: [{ id: "wamid.360" }] }), { status: 200 });
     }
-    // Owner handoff email providers are not configured here.
+    // Owner handoff email providers are not configured here; keep what would be sent.
+    if (init?.body) ownerEmails.push(String(init.body));
     return new Response("{}", { status: 500 });
   }) as typeof fetch;
   const d360Env = { TRACKING_STORE: store, D360_API_KEY: "d360-key", WHATSAPP_TEAM_NUMBER: "447549815538" };
@@ -479,16 +488,44 @@ async function main() {
     assert.match(d360Sent[0].body, /fixed price/);
 
     await processWhatsAppWebhook(inbound("d2", "agent", "447700900888"), d360Env);
-    assert.match(d360Sent.at(-1)!.body, /wa\.me\/447549815538/);
-    assert.ok(!kv.has("whatsapp:paused:447700900888"), "assistant stays available on its own number");
+    assert.match(d360Sent.at(-1)!.body, /member of our team will reply here/, "the team replies from this number");
+    assert.doesNotMatch(d360Sent.at(-1)!.body, /wa\.me/);
+    // The owner's handover email carries the whole conversation so far.
+    const handoffEmail = ownerEmails.find((body) => body.includes("wants to speak to you")) ?? "";
+    assert.match(handoffEmail, /Conversation so far/);
+    assert.match(handoffEmail, /fixed price/, "includes the assistant's earlier reply");
+    assert.match(handoffEmail, /agent/, "includes the customer's request");
+    assert.ok(kv.has("whatsapp:paused:447700900888"), "assistant steps back while the team replies");
 
     await processWhatsAppWebhook(inbound("d3", "hi", "447700900888"), d360Env);
-    assert.equal(d360Sent.length, 3, "customer can carry on with the assistant after a handoff");
+    assert.equal(d360Sent.length, 2, "no assistant reply while the team has the chat");
+    await processWhatsAppWebhook(inbound("d3b", "NEW", "447700900888"), d360Env);
+    assert.equal(d360Sent.length, 3, "NEW wakes the assistant again");
+
+    // The owner replies from the dashboard: sent from the assistant's number, logged, assistant pauses.
+    const ownerReply = await ownerReplyToWhatsAppChat(d360Env, "+44 7700 900888", "Hi, Colin here — happy to help.");
+    assert.deepEqual(ownerReply, { ok: true, assistantPaused: true });
+    assert.equal(d360Sent.length, 4);
+    assert.equal(d360Sent.at(-1)!.to, "447700900888");
+    assert.equal(d360Sent.at(-1)!.body, "Hi, Colin here — happy to help.");
+    assert.ok(kv.has("whatsapp:paused:447700900888"));
+    const logged = await getWhatsAppChat(store, "447700900888");
+    assert.equal(logged?.messages.at(-1)?.from, "team");
+    assert.ok(await isWhatsAppAssistantPaused(store, "447700900888"));
+    await resumeWhatsAppAssistant(d360Env, "447700900888");
+    assert.equal(await isWhatsAppAssistantPaused(store, "447700900888"), false, "handed back to the assistant");
+    assert.deepEqual(await ownerReplyToWhatsAppChat(d360Env, "447700900888", "  "), { error: "Type a message first", status: 400 });
+    assert.ok("error" in (await ownerReplyToWhatsAppChat(d360Env, "447700900000", "hi")), "unknown chat");
+    // Outside WhatsApp's 24h window a normal reply can't be delivered.
+    const later = new Date(Date.now() + 25 * 60 * 60 * 1000);
+    const closed = await ownerReplyToWhatsAppChat(d360Env, "447700900888", "Still there?", later);
+    assert.ok("error" in closed && closed.status === 409);
+    assert.equal(d360Sent.length, 4, "nothing sent outside the window");
 
     // The owner testing from the team phone is never paused, even if an old pause exists.
     kv.set("whatsapp:paused:447549815538", "customer");
     await processWhatsAppWebhook(inbound("d4", "hi", "447549815538"), d360Env);
-    assert.equal(d360Sent.length, 4, "team phone always gets a reply");
+    assert.equal(d360Sent.length, 5, "team phone always gets a reply");
     assert.ok(!kv.has("whatsapp:paused:447549815538"));
     await processWhatsAppWebhook(inbound("d5", "agent", "447549815538"), d360Env);
     assert.match(d360Sent.at(-1)!.body, /team's own number/);
@@ -497,9 +534,9 @@ async function main() {
     // NEW wakes a paused customer.
     kv.set("whatsapp:paused:447700900999", "customer");
     await processWhatsAppWebhook(inbound("d6", "hello", "447700900999"), d360Env);
-    assert.equal(d360Sent.length, 5, "paused customer gets no reply");
+    assert.equal(d360Sent.length, 6, "paused customer gets no reply");
     await processWhatsAppWebhook(inbound("d7", "new", "447700900999"), d360Env);
-    assert.equal(d360Sent.length, 6, "NEW wakes the assistant");
+    assert.equal(d360Sent.length, 7, "NEW wakes the assistant");
     assert.ok(!kv.has("whatsapp:paused:447700900999"));
     const diag = JSON.parse(kv.get("whatsapp:diag")!);
     assert.ok(diag.lastMessageAt && diag.lastReplyOkAt);
