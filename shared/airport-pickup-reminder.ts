@@ -351,12 +351,23 @@ function directionsStateVerifiedTenMinuteStay(directions: string): boolean {
   return /maximum stay of 10 minutes/i.test(directions);
 }
 
+/** Dublin customer who bought the optional Meet & Greet (name board + luggage help). */
+function dublinPaidMeetGreet(input: AirportPickupReminderInput): boolean {
+  const leg = reminderLeg(input);
+  const legOption =
+    input.terminalAccessVisits?.find(
+      (visit) => visit.leg === leg && visit.airportCode === "DUB" && visit.service === "pick-up",
+    )?.option ?? (leg === "return" ? input.returnAirportAccessOption : input.outboundAirportAccessOption);
+  if (legOption === "meet-greet") return true;
+  return leg === "outbound" && !legOption && input.airportAccessOption === "meet-greet";
+}
+
 function collectionOptionLabel(
   airport: ReminderAirportCode,
   input: AirportPickupReminderInput,
 ): string | null {
   const access = resolveReminderAirportAccess(input, airport);
-  if (airport === "DUB") return "Meet in Arrivals";
+  if (airport === "DUB") return dublinPaidMeetGreet(input) ? "Meet & Greet" : "Meet in Arrivals";
   if (access === "meet-greet") return "Meet & Greet";
   if (access === "express") return "Express Pickup Included";
   if (access === "free") return "Free Pickup";

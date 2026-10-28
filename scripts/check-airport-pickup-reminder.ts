@@ -273,6 +273,11 @@ console.log("=== Dublin terminals ===");
   assert.doesNotMatch(unknown, /10 minutes|maximum stay|limited waiting/i);
   assert.doesNotMatch(unknown, /Terminal 1|Terminal 2/);
   assert.doesNotMatch(unknown, /Long Stay|Free Pick-Up/i);
+  const paidMeet = messageOf(
+    dueCollection({ pickupLabel: "Dublin Airport", airportCode: "DUB", outboundAirportAccessOption: "meet-greet" }),
+  );
+  assert.match(paidMeet, /Collection option: Meet & Greet/);
+  assert.match(terminal2, /Collection option: Meet in Arrivals/);
   console.log("OK  Dublin passengers wait in Arrivals for their driver");
 }
 
