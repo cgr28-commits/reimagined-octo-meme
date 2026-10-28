@@ -243,8 +243,10 @@ check("Legacy configured driver still matches by name when no profile key is sto
 
 check("Driver journey actions stay sequential", () => {
   assert.deepEqual(sequentialDriverJourneyActions("idle"), ["start_tracking", "arrived_pickup"]);
-  assert.deepEqual(sequentialDriverJourneyActions("arrived_pickup"), ["start_journey"]);
-  assert.deepEqual(sequentialDriverJourneyActions("en_route"), ["arrived_destination"]);
+  // Assigned drivers: On the way → Arrived → Complete job.
+  assert.deepEqual(sequentialDriverJourneyActions("tracking"), ["arrived_pickup"]);
+  assert.deepEqual(sequentialDriverJourneyActions("arrived_pickup"), ["complete_journey"]);
+  assert.deepEqual(sequentialDriverJourneyActions("en_route"), ["complete_journey"]);
   assert.deepEqual(sequentialDriverJourneyActions("arrived_destination"), ["complete_journey"]);
   assert.deepEqual(sequentialDriverJourneyActions("completed"), []);
   assert.equal(sequentialDriverJourneyActions("idle").includes("complete_journey"), false);

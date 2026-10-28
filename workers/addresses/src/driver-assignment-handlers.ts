@@ -50,6 +50,7 @@ import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import { remainingCashDueGbp } from "../shared/deposit-cash";
+import { sendCustomerDriverDetailsOnAccept } from "./customer-driver-details";
 
 type Env = DriverAuthEnv &
   WorkerEmailEnv & {
@@ -629,6 +630,34 @@ export async function handleDriverAssignmentResponseRequest(
   }
 
   await saveTrackingJob(env.TRACKING_STORE, record);
+
+  if (action === "accept") {
+    // Email the customer their driver's first name, mobile and partial reg.
+    // Never blocks the driver's accept: failures are logged only.
+    const paid =
+      !record.customerEmail?.trim() && record.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)
+        ? await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference).catch(() => null)
+        : null;
+    const sent = await sendCustomerDriverDetailsOnAccept(env, {
+      jobKey: record.paymentReference || record.token,
+      customerName: record.customerName,
+      customerEmail: record.customerEmail?.trim() || paid?.customerEmail,
+      tripDate: record.tripDate,
+      tripTime: record.tripTime,
+      pickupLabel: record.pickupLabel,
+      dropoffLabel: record.dropoffLabel,
+      driverName: record.assignedDriverName,
+      driverEmail: record.assignedDriverEmail,
+      driverMobile: record.assignedDriverMobile,
+      carMake: record.assignedDriverCarMake,
+      carModel: record.assignedDriverCarModel,
+      carColour: record.assignedDriverCarColour,
+      registration: record.assignedDriverReg,
+    }).catch((error: unknown) => ({ sent: false as const, reason: "send_failed" as const, error: String(error) }));
+    if (!sent.sent && sent.reason === "send_failed") {
+      console.warn("Customer driver-details email failed", sent.error);
+    }
+  }
 
   const job = await enrichDriverJob(record, env, origin, "driver");
 

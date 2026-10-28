@@ -160,10 +160,10 @@ export function sequentialDriverJourneyActions(status: JourneyStatus | string | 
       return ["start_tracking", "arrived_pickup"];
     case "tracking":
       return ["arrived_pickup"];
+    // Assigned drivers have three steps: On the way → Arrived → Complete job.
+    // (en_route / arrived_destination only exist on jobs the owner advanced.)
     case "arrived_pickup":
-      return ["start_journey"];
     case "en_route":
-      return ["arrived_destination"];
     case "arrived_destination":
       return ["complete_journey"];
     default:

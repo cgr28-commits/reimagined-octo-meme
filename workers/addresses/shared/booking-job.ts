@@ -1,5 +1,6 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
+import { formatPartialRegistration } from "./partial-registration";
 import { MEET_GREET_DRIVER_NOTE } from "./meet-greet";
 import { formatUkDateTime } from "./uk-time";
 import type { AdsAttribution } from "./ads-attribution";
@@ -228,7 +229,11 @@ export function buildDriverAssignmentEmail(options: {
   return { subject, text, html };
 }
 
-/** Customer-facing driver details — first name only, never surname or driver email. */
+/**
+ * Customer-facing driver details, sent when an assigned driver accepts the job:
+ * first name, mobile and partial registration (e.g. "CR66 ***"). Never the
+ * surname, driver email, full registration or driver pay.
+ */
 export function buildCustomerDriverDetailsEmail(options: {
   job: BookingJobRecord;
   businessName?: string;
@@ -244,6 +249,8 @@ export function buildCustomerDriverDetailsEmail(options: {
     formatUkDateTime(job.tripDate ?? "", job.tripTime ?? "", { withZoneLabel: false }) ||
     [job.tripDate, job.tripTime].filter(Boolean).join(" ");
   const customerName = job.customerName?.trim().split(/\s+/)[0] || "there";
+  const driverMobile = job.driverMobile?.trim() || "";
+  const partialReg = formatPartialRegistration(job.driverReg);
 
   const subject = when
     ? `Your driver details — ${when} — ${businessName}`
@@ -257,8 +264,9 @@ export function buildCustomerDriverDetailsEmail(options: {
       : "Here are your driver details for your airport transfer:",
     "",
     `Driver: ${driverFirst}`,
+    driverMobile ? `Driver mobile: ${driverMobile}` : null,
     vehicle ? `Vehicle: ${vehicle}` : null,
-    job.driverReg?.trim() ? `Registration: ${job.driverReg.trim().toUpperCase()}` : null,
+    partialReg ? `Registration: ${partialReg}` : null,
     "",
     `Pickup: ${job.pickupLabel}`,
     `Drop-off: ${job.dropoffLabel}`,
@@ -293,12 +301,13 @@ export function buildCustomerDriverDetailsEmail(options: {
     }</p>
     <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px;margin:20px 0;">
       <p style="margin:0 0 8px;"><strong>Driver:</strong> ${escapeHtml(driverFirst)}</p>
-      ${vehicle ? `<p style="margin:0 0 8px;"><strong>Vehicle:</strong> ${escapeHtml(vehicle)}</p>` : ""}
       ${
-        job.driverReg?.trim()
-          ? `<p style="margin:0 0 8px;"><strong>Registration:</strong> ${escapeHtml(job.driverReg.trim().toUpperCase())}</p>`
+        driverMobile
+          ? `<p style="margin:0 0 8px;"><strong>Driver mobile:</strong> <a href="tel:${escapeHtml(driverMobile.replace(/[^\d+]/g, ""))}" style="color:#2fbf4a;">${escapeHtml(driverMobile)}</a></p>`
           : ""
       }
+      ${vehicle ? `<p style="margin:0 0 8px;"><strong>Vehicle:</strong> ${escapeHtml(vehicle)}</p>` : ""}
+      ${partialReg ? `<p style="margin:0 0 8px;"><strong>Registration:</strong> ${escapeHtml(partialReg)}</p>` : ""}
       <p style="margin:0 0 8px;"><strong>Pickup:</strong> ${escapeHtml(job.pickupLabel)}</p>
       <p style="margin:0;"><strong>Drop-off:</strong> ${escapeHtml(job.dropoffLabel)}</p>
     </div>
