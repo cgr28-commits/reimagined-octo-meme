@@ -1988,3 +1988,116 @@ html:has(.cookie-consent-banner) {
 .homepage-hero #quoteForm [data-homepage-quote-fields] div:has(> div > .address-input[aria-invalid="true"]):not(:focus-within) {
   border-color: #f87171;
 }
+
+/* Desktop layout corrections. Keep every approved rule below 1024px unchanged. */
+@media (min-width: 1024px) {
+  .homepage-hero-layout {
+    grid-template-columns: minmax(0, min(100%, 60rem));
+    row-gap: 0.75rem;
+    padding-top: 1rem;
+  }
+  .homepage-hero-copy h1 {
+    max-width: 60rem;
+    margin-inline: auto;
+    font-size: 3rem;
+    line-height: 1.08;
+  }
+  .homepage-hero-copy .section-eyebrow { margin-bottom: 0.5rem; }
+  .homepage-hero-copy > h1 + p { margin-top: 0.75rem; }
+  .homepage-hero .hero-benefits-row {
+    max-width: 52rem;
+    margin: 0 auto 0.75rem;
+  }
+  .homepage-hero .hero-benefits-row > li {
+    flex-direction: row;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .homepage-hero .hero-benefit-icon { width: 2rem; height: 2rem; flex-shrink: 0; }
+  .homepage-hero .hero-benefit-label { margin-top: 0; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation="homepage"] {
+    max-width: 52rem;
+  }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation="homepage"]:has(#quote-results-summary) {
+    max-width: 60rem;
+  }
+  .homepage-hero #quote-results-summary:has([data-homepage-journey-summary]) {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: start;
+    gap: 0.75rem;
+  }
+  .homepage-hero #quote-results-summary:has([data-homepage-journey-summary]) > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+    margin-block: 0;
+  }
+  .homepage-hero #quote-results-summary:has([data-homepage-journey-summary]) > [data-quote-vehicle-categories] {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .homepage-hero #quote-results-summary:has([data-homepage-journey-summary]) > [data-quote-result-card] {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .homepage-hero .quote-flow [data-vehicle-option-layout] {
+    grid-template-columns: 6.5rem minmax(0, 1fr) 1.25rem;
+    gap: 0.5rem;
+  }
+  .homepage-hero .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] {
+    max-width: 6.5rem;
+    height: 4rem;
+  }
+  .homepage-hero .quote-flow [data-vehicle-option-copy] [data-vehicle-name] { font-size: 1.125rem; }
+  .homepage-hero .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
+    height: 10.5rem;
+    max-width: 25rem;
+    width: 100%;
+  }
+  .homepage-hero .quote-flow [data-quote-result-art] { margin: 0.25rem auto; }
+  .homepage-hero .quote-flow [data-quote-result-card] { padding: 0.75rem; }
+  .homepage-hero .quote-flow [data-quote-result-main-action] .btn-primary { min-height: 3rem; }
+
+  /* Native picker popovers remain OS-owned; brand the editable field states only. */
+  .homepage-hero [data-homepage-inline-schedule] input.quote-datetime-input {
+    color-scheme: dark;
+    accent-color: #2FBF4A;
+  }
+  .homepage-hero [data-homepage-inline-schedule] input.quote-datetime-input::selection {
+    background: #2FBF4A;
+    color: #071C38;
+  }
+  .homepage-hero [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-datetime-edit-fields-wrapper {
+    background: transparent;
+  }
+}
+
+/* Give all links their own row before the full desktop navigation comfortably fits. */
+@media (min-width: 1024px) and (max-width: 1599px) {
+  [data-site-header] > .desktop-shell {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 1.5rem;
+    row-gap: 0;
+    padding-block: 0.25rem;
+  }
+  [data-site-header] > .desktop-shell > nav[aria-label="Main navigation"] {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-wrap: wrap;
+    justify-content: center;
+    column-gap: clamp(0.5rem, 1.2vw, 1.25rem);
+    row-gap: 0;
+  }
+  [data-site-header] > .desktop-shell > nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    font-size: 0.8125rem;
+  }
+  [data-site-header] > .desktop-shell > div:not([data-mobile-header-actions]) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  [data-site-header] .quote-header-logo { height: 4rem; }
+  .homepage-hero { padding-top: 9.5rem; }
+}
