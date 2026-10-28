@@ -291,7 +291,11 @@ export function parseAirportCode(text: string): QuickQuoteAirportCode | null {
   if (/\bbelfast international\b/.test(n) || /\baldergrove\b/.test(n) || /\bbfs\b/.test(n)) {
     return "BFS";
   }
-  if (/\bbelfast city\b/.test(n) || /\bgeorge best\b/.test(n) || /\bbhd\b/.test(n)) {
+  if (
+    /\bbelfast city\b(?!\s+(?:hospital|centre|center|hall|council|cemetery|library))/.test(n) ||
+    /\bgeorge best\b/.test(n) ||
+    /\bbhd\b/.test(n)
+  ) {
     return "BHD";
   }
   if (/\bdublin(?:\s+airport)?\b/.test(n) || /\bdub\b/.test(n)) {
@@ -307,7 +311,7 @@ export function airportLabel(code: QuickQuoteAirportCode): string {
 }
 
 const AIRPORT_NAME_PATTERN =
-  "(?:belfast\\s+international(?:\\s+airport)?|aldergrove(?:\\s+airport)?|belfast\\s+city(?:\\s+airport)?|george\\s+best(?:\\s+belfast\\s+city)?(?:\\s+airport)?|dublin(?:\\s+airport)?|(?:the\\s+)?airport)";
+  "(?:belfast\\s+international(?:\\s+airport)?|aldergrove(?:\\s+airport)?|belfast\\s+city(?!\\s+(?:hospital|centre|center|hall|council|cemetery|library))(?:\\s+airport)?|george\\s+best(?:\\s+belfast\\s+city)?(?:\\s+airport)?|dublin(?:\\s+airport)?|(?:the\\s+)?airport)";
 
 function extractAirport(text: string): {
   code: QuickQuoteAirportCode | null;
