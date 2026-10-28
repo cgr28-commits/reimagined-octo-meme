@@ -2,24 +2,32 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
+import FiniteOptionSelect, {
+  ONLINE_PASSENGER_OPTIONS,
+  PERSONAL_QUOTE_SUITCASE_OPTIONS,
+} from "@/components/FiniteOptionSelect";
 import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
 import { VEHICLE_TYPES, type VehicleType } from "@/lib/data";
 import { formatQuote } from "@/lib/quote";
 import {
   createOwnerPersonalQuote,
   deactivateOwnerPersonalQuote,
-  fetchOwnerPersonalQuotes,
+  fetchOwnerPersonalQuotesAndCustomers,
   type PersonalQuoteOwnerView,
+  type PersonalQuoteRecentCustomer,
 } from "@/lib/personal-quote-api";
+import {
+  consumePersonalQuotePrefill,
+  type PersonalQuotePrefill,
+} from "@/lib/personal-quote-prefill";
 import {
   emptySelectedPlace,
   isPlaceSelected,
   placeDisplayText,
   type SelectedPlace,
 } from "@/lib/selected-place";
-import { resolveTripRouteMetricsForAddresses } from "@/lib/route-point-resolver";
 import { selectVehicleForParty } from "@/lib/vehicle-selection";
-import { calculateWebsiteOneWayFare } from "@/lib/website-fare";
+import { calculateServerQuote } from "@/lib/quick-quote-api";
 import { resolveAirportTransferIntent } from "../../shared/airport-transfer-intent";
 import {
   composeFareWithExpressDropOff,
@@ -28,12 +36,15 @@ import {
   toExpressDropOffPersistedFields,
 } from "../../shared/express-drop-off";
 import {
+  applyPersonalQuoteDiscount,
   buildPersonalQuoteWhatsAppMessage,
-  computeLinkedPersonalQuoteFares,
   formatPersonalQuoteAmount,
+  PERSONAL_QUOTE_MAX_DISCOUNT_PERCENT,
   PERSONAL_QUOTE_MAX_PASSENGERS,
   PERSONAL_QUOTE_MIN_PASSENGERS,
+  type PersonalQuoteDiscountType,
 } from "../../shared/personal-quote";
+
 
 type OwnerPersonalQuotesPanelProps = {
   ownerKey: string;
@@ -59,6 +70,8 @@ function parseMoney(value: string): number | null {
 
 export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuotesPanelProps) {
   const [quotes, setQuotes] = useState<PersonalQuoteOwnerView[]>([]);
+  const [recentCustomers, setRecentCustomers] = useState<PersonalQuoteRecentCustomer[]>([]);
+  const [customerSearch, setCustomerSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [calculatingFare, setCalculatingFare] = useState(false);
@@ -70,9 +83,13 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
-  const [agreedAmount, setAgreedAmount] = useState("");
+  /** Public quote tool price for the journey below (whole booking, before discount). */
   const [standardWebsiteAmount, setStandardWebsiteAmount] = useState("");
-  const [discountAmount, setDiscountAmount] = useState("");
+  const [discountType, setDiscountType] = useState<PersonalQuoteDiscountType>("amount");
+  const [discountValue, setDiscountValue] = useState("");
+  const [returnJourney, setReturnJourney] = useState(false);
+  const [returnDate, setReturnDate] = useState("");
+  const [returnTime, setReturnTime] = useState("");
   const [expiresOn, setExpiresOn] = useState(defaultExpiry);
   const [singleUse, setSingleUse] = useState(true);
   const [notes, setNotes] = useState("");
@@ -116,23 +133,41 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
     [expressSelection],
   );
 
-  const savingsPreview = useMemo(() => {
+  // The website price only belongs to the journey it was calculated for.
+  const journeyKey = JSON.stringify([
+    pickupLabel.trim() || placeDisplayText(pickupPlace),
+    dropoffLabel.trim() || placeDisplayText(dropoffPlace),
+    passengers,
+    suitcases,
+    vehicle,
+    journeyDate,
+    journeyTime,
+    returnJourney,
+    returnJourney ? returnDate : "",
+    returnJourney ? returnTime : "",
+  ]);
+  const [pricedJourneyKey, setPricedJourneyKey] = useState("");
+  const priceIsCurrent = pricedJourneyKey === journeyKey && standardWebsiteAmount.trim() !== "";
+
+  /** Website price → discount → what the customer pays (same maths as checkout). */
+  const pricePreview = useMemo(() => {
+    if (!priceIsCurrent) return null;
     const standard = parseMoney(standardWebsiteAmount);
-    const agreed = parseMoney(agreedAmount);
-    if (standard == null || agreed == null) return null;
-    const save = Math.round((standard - agreed) * 100) / 100;
-    if (save <= 0) return null;
-    return save;
-  }, [standardWebsiteAmount, agreedAmount]);
+    if (standard == null || standard < 1) return null;
+    return applyPersonalQuoteDiscount(standard, {
+      discountType,
+      discountValue: parseMoney(discountValue) ?? 0,
+    });
+  }, [priceIsCurrent, standardWebsiteAmount, discountType, discountValue]);
 
   const customerTotalPreview = useMemo(() => {
-    const agreed = parseMoney(agreedAmount);
-    if (agreed == null) return null;
+    if (!pricePreview) return null;
     return composeFareWithExpressDropOff({
-      transferFareGbp: agreed,
+      transferFareGbp: pricePreview.transferGbp,
       expressDropOffFeeGbp: expressPersisted.expressDropOffFee,
     });
-  }, [agreedAmount, expressPersisted.expressDropOffFee]);
+  }, [pricePreview, expressPersisted.expressDropOffFee]);
+
 
   useEffect(() => {
     setExpressDropOffSelected(true);
@@ -144,8 +179,9 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
     setLoading(true);
     setError("");
     try {
-      const list = await fetchOwnerPersonalQuotes(ownerKey);
-      setQuotes(list);
+      const list = await fetchOwnerPersonalQuotesAndCustomers(ownerKey);
+      setQuotes(list.quotes);
+      setRecentCustomers(list.recentCustomers);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load personal quotes");
     } finally {
@@ -166,22 +202,11 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
     }
   }, [passengers, suitcases]);
 
-  function applyLinkedFares(edited: "discount" | "agreed" | "standard") {
-    const standard = parseMoney(standardWebsiteAmount);
-    if (standard == null) return;
-    const linked = computeLinkedPersonalQuoteFares({
-      standardWebsiteAmount: standard,
-      discountAmount: parseMoney(discountAmount),
-      agreedAmount: parseMoney(agreedAmount),
-      edited,
-    });
-    if (!linked) return;
-    if (linked.discountAmount != null) {
-      setDiscountAmount(String(linked.discountAmount));
-    }
-    if (linked.agreedAmount != null) {
-      setAgreedAmount(String(linked.agreedAmount));
-    }
+  function currentAirport() {
+    const airportCodeRaw = String(journeyIntent?.airportCode ?? "").trim().toUpperCase();
+    return airportCodeRaw === "BFS" || airportCodeRaw === "BHD" || airportCodeRaw === "DUB" || airportCodeRaw === "LDY"
+      ? airportCodeRaw
+      : null;
   }
 
   async function handleCalculateWebsiteFare() {
@@ -194,58 +219,40 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
       if (!pickup || !dropoff) {
         throw new Error("Enter pickup and destination, then calculate the website price.");
       }
-
-      // Resolve route metrics the SAME way the public site does (TripMap), even
-      // when a selected address has no lat/lng yet (e.g. a GetAddress.io /
-      // Ideal Postcodes premises pick). Without this, journeys that rely on
-      // `applyBelfastAirportDistanceFloor` (BFS/BHD long-distance floor) or the
-      // >100km distance-protection override would silently price lower than
-      // the public Live Quote for the identical journey.
-      const routeMetrics = await resolveTripRouteMetricsForAddresses(
-        { address: pickup, lat: pickupPlace.lat, lng: pickupPlace.lng },
-        { address: dropoff, lat: dropoffPlace.lat, lng: dropoffPlace.lng },
-      );
-
-      if (!routeMetrics) {
-        throw new Error(
-          "Could not measure that route. Choose both addresses from suggestions (so we can calculate distance) and try again.",
-        );
+      if (returnJourney && (!returnDate || !returnTime)) {
+        throw new Error("Enter the return date and time, or switch to one way.");
       }
-
-      const quote = calculateWebsiteOneWayFare({
-        pickupAddress: pickup,
-        dropoffAddress: dropoff,
-        pickupPlace: isPlaceSelected(pickupPlace) ? pickupPlace : null,
-        dropoffPlace: isPlaceSelected(dropoffPlace) ? dropoffPlace : null,
-        vehicleType: vehicle,
-        routeMetrics,
-        schedule: {
-          outboundDate: journeyDate.trim() || undefined,
-          outboundTime: journeyTime.trim() || undefined,
-          returnJourney: false,
+      const airportCode = currentAirport();
+      // Exactly what the public quote card sends — addresses and place IDs only,
+      // so the server measures the route and applies the live pricing settings.
+      const result = await calculateServerQuote(
+        {
+          pickupAddress: pickup,
+          dropoffAddress: dropoff,
+          ...(pickupPlace.placeId ? { pickupPlaceId: pickupPlace.placeId } : {}),
+          ...(dropoffPlace.placeId ? { dropoffPlaceId: dropoffPlace.placeId } : {}),
+          airportCode: airportCode === "LDY" ? null : airportCode,
+          fromAirport: Boolean(journeyIntent?.fromAirport),
+          returnJourney,
+          outboundDate: journeyDate.trim(),
+          outboundTime: journeyTime.trim(),
+          returnDate: returnJourney ? returnDate : "",
+          returnTime: returnJourney ? returnTime : "",
+          passengers,
+          suitcases,
+          vehicleType: vehicle,
         },
-      });
-
-      if (!quote || !Number.isFinite(quote.amount)) {
-        throw new Error(
-          "Could not calculate a live website fare for that journey. Choose addresses from suggestions (for route distance) or enter the website fare manually.",
-        );
+        ownerKey,
+      );
+      if (!result.ok) {
+        throw new Error(result.message || "Could not calculate the website price for that journey.");
       }
-
-      const oneWay = Math.round(quote.amount * 100) / 100;
-      setStandardWebsiteAmount(String(oneWay));
-      setPickupLabel(pickup);
-      setDropoffLabel(dropoff);
-      // Default agreed = website fare (no discount) unless a discount was already set.
-      const existingDiscount = parseMoney(discountAmount);
-      if (existingDiscount != null && existingDiscount > 0 && existingDiscount < oneWay) {
-        setAgreedAmount(String(Math.round((oneWay - existingDiscount) * 100) / 100));
-        setDiscountAmount(String(existingDiscount));
-      } else {
-        setAgreedAmount(String(oneWay));
-        setDiscountAmount("0");
-      }
-      setFareHint(`Current website price: ${formatQuote(oneWay)} (one-way, same engine as the public quote calculator)`);
+      const websitePrice = Math.round(result.amount * 100) / 100;
+      setStandardWebsiteAmount(String(websitePrice));
+      setPricedJourneyKey(journeyKey);
+      setFareHint(
+        `Website price ${formatQuote(websitePrice)} (${returnJourney ? "return" : "one way"}) — exactly what the public quote tool shows for this journey.`,
+      );
     } catch (err) {
       setFareHint("");
       setError(err instanceof Error ? err.message : "Could not calculate website fare");
@@ -271,25 +278,32 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           "Please confirm you understand the free drop-off area before continuing without Express Drop-Off.",
         );
       }
-      const airportCodeRaw = String(journeyIntent?.airportCode ?? "")
-        .trim()
-        .toUpperCase();
-      const airportCode =
-        airportCodeRaw === "BFS" ||
-        airportCodeRaw === "BHD" ||
-        airportCodeRaw === "DUB" ||
-        airportCodeRaw === "LDY"
-          ? airportCodeRaw
-          : null;
+      if (!pricePreview) {
+        throw new Error("Calculate the website price first.");
+      }
+      const airportCode = currentAirport();
       const quote = await createOwnerPersonalQuote(ownerKey, {
         customerName,
         customerEmail: customerEmail.trim() || undefined,
         customerMobile: customerMobile.trim() || undefined,
-        agreedAmount: Number(agreedAmount),
-        standardWebsiteAmount: standardWebsiteAmount.trim()
-          ? Number(standardWebsiteAmount)
-          : undefined,
-        discountAmount: discountAmount.trim() ? Number(discountAmount) : undefined,
+        // The server re-prices the journey itself; these are only a fallback.
+        agreedAmount: pricePreview.transferGbp,
+        standardWebsiteAmount: pricePreview.websiteTransferGbp,
+        pricingMode: "live-discount",
+        discountType,
+        discountValue: parseMoney(discountValue) ?? 0,
+        journey: {
+          ...(pickupPlace.placeId ? { pickupPlaceId: pickupPlace.placeId } : {}),
+          ...(dropoffPlace.placeId ? { dropoffPlaceId: dropoffPlace.placeId } : {}),
+          passengers,
+          suitcases,
+          vehicle,
+          returnJourney,
+          ...(journeyDate.trim() ? { tripDate: journeyDate.trim() } : {}),
+          ...(journeyTime.trim() ? { tripTime: journeyTime.trim() } : {}),
+          ...(returnJourney && returnDate ? { returnDate } : {}),
+          ...(returnJourney && returnTime ? { returnTime } : {}),
+        },
         expiresOn,
         singleUse,
         notes: notes.trim() || undefined,
@@ -306,9 +320,12 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
       setCustomerName("");
       setCustomerEmail("");
       setCustomerMobile("");
-      setAgreedAmount("");
       setStandardWebsiteAmount("");
-      setDiscountAmount("");
+      setDiscountType("amount");
+      setDiscountValue("");
+      setReturnJourney(false);
+      setReturnDate("");
+      setReturnTime("");
       setNotes("");
       setPickupLabel("");
       setDropoffLabel("");
@@ -331,6 +348,64 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
       setSaving(false);
     }
   }
+
+  /** "Quote again": fill the form from a past quote or booking; owner recalculates. */
+  function applyPrefill(prefill: PersonalQuotePrefill) {
+    setCustomerName(prefill.customerName ?? "");
+    setCustomerEmail(prefill.customerEmail ?? "");
+    setCustomerMobile(prefill.customerMobile ?? "");
+    setPickupLabel(prefill.pickupLabel ?? "");
+    setDropoffLabel(prefill.dropoffLabel ?? "");
+    setPickupPlace(
+      prefill.journey?.pickupPlaceId
+        ? { ...emptySelectedPlace(), placeId: prefill.journey.pickupPlaceId, formattedAddress: prefill.pickupLabel ?? "" }
+        : emptySelectedPlace(),
+    );
+    setDropoffPlace(
+      prefill.journey?.dropoffPlaceId
+        ? { ...emptySelectedPlace(), placeId: prefill.journey.dropoffPlaceId, formattedAddress: prefill.dropoffLabel ?? "" }
+        : emptySelectedPlace(),
+    );
+    const journey = prefill.journey;
+    if (journey) {
+      setPassengers(
+        Math.min(PERSONAL_QUOTE_MAX_PASSENGERS, Math.max(PERSONAL_QUOTE_MIN_PASSENGERS, Number(journey.passengers) || 1)),
+      );
+      setSuitcases(Math.min(PERSONAL_QUOTE_SUITCASE_OPTIONS[PERSONAL_QUOTE_SUITCASE_OPTIONS.length - 1], Math.max(0, Number(journey.suitcases) || 0)));
+      if (OWNER_PQ_VEHICLES.includes(journey.vehicle as VehicleType)) setVehicle(journey.vehicle as VehicleType);
+      setReturnJourney(Boolean(journey.returnJourney));
+    }
+    // Dates are left for the new trip; the owner sets them before calculating.
+    setJourneyDate("");
+    setReturnDate("");
+    setReturnTime("");
+    setStandardWebsiteAmount("");
+    setDiscountValue("");
+    setError("");
+    setMessage(`Details filled in for ${prefill.customerName || "this customer"} — set the new date and time, then calculate.`);
+    if (typeof window !== "undefined") {
+      document.getElementById("owner-pq-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  // Arriving from "Quote again" on a booking: fill the form once.
+  useEffect(() => {
+    const prefill = consumePersonalQuotePrefill();
+    if (prefill) applyPrefill(prefill);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredRecentCustomers = useMemo(() => {
+    const term = customerSearch.trim().toLowerCase();
+    const list = term
+      ? recentCustomers.filter((c) =>
+          [c.customerName, c.customerEmail, c.customerMobile, c.pickupLabel, c.dropoffLabel]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(term)),
+        )
+      : recentCustomers;
+    return list.slice(0, 8);
+  }, [recentCustomers, customerSearch]);
 
   async function handleDeactivate(code: string) {
     setError("");
@@ -385,7 +460,42 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
         </button>
       </div>
 
+      {recentCustomers.length > 0 ? (
+        <div className="mt-4 w-full min-w-0 max-w-full rounded-xl border border-white/10 bg-black/20 p-3">
+          <p className="text-sm font-semibold text-white">Quote a previous customer again</p>
+          <input
+            value={customerSearch}
+            onChange={(e) => setCustomerSearch(e.target.value)}
+            className={fieldClass}
+            placeholder="Search name, email, mobile or address"
+            aria-label="Search previous customers"
+          />
+          <ul className="mt-2 space-y-1">
+            {filteredRecentCustomers.map((customer) => (
+              <li key={`${customer.customerName}-${customer.lastQuotedAt}`}>
+                <button
+                  type="button"
+                  onClick={() => applyPrefill(customer)}
+                  className="w-full min-w-0 rounded-lg border border-white/10 px-3 py-2 text-left text-sm text-white/85 hover:bg-white/5"
+                >
+                  <span className="font-semibold text-white">{customer.customerName}</span>
+                  {customer.customerMobile || customer.customerEmail ? (
+                    <span className="text-white/55"> · {customer.customerMobile || customer.customerEmail}</span>
+                  ) : null}
+                  {customer.pickupLabel || customer.dropoffLabel ? (
+                    <span className="block break-words text-xs text-white/45">
+                      {[customer.pickupLabel, customer.dropoffLabel].filter(Boolean).join(" → ")}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <form
+        id="owner-pq-form"
         onSubmit={(e) => void handleCreate(e)}
         className="mt-4 grid w-full min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2"
       >
@@ -465,34 +575,25 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           />
         </div>
         <label className="block min-w-0 text-sm text-white/80">
-          Passengers (max {PERSONAL_QUOTE_MAX_PASSENGERS})
-          <input
-            type="number"
-            min={PERSONAL_QUOTE_MIN_PASSENGERS}
-            max={PERSONAL_QUOTE_MAX_PASSENGERS}
+          Passengers
+          <FiniteOptionSelect
+            label=""
+            aria-label="Passengers"
             value={passengers}
-            onChange={(e) =>
-              setPassengers(
-                Math.min(
-                  PERSONAL_QUOTE_MAX_PASSENGERS,
-                  Math.max(PERSONAL_QUOTE_MIN_PASSENGERS, Number(e.target.value) || 1),
-                ),
-              )
-            }
-            className={fieldClass}
+            options={[...ONLINE_PASSENGER_OPTIONS]}
+            required
+            onChange={setPassengers}
           />
         </label>
         <label className="block min-w-0 text-sm text-white/80">
           Suitcases
-          <input
-            type="number"
-            min={0}
-            max={4}
+          <FiniteOptionSelect
+            label=""
+            aria-label="Suitcases"
             value={suitcases}
-            onChange={(e) =>
-              setSuitcases(Math.min(4, Math.max(0, Number(e.target.value) || 0)))
-            }
-            className={fieldClass}
+            options={[...PERSONAL_QUOTE_SUITCASE_OPTIONS]}
+            required
+            onChange={setSuitcases}
           />
         </label>
         <label className="block min-w-0 text-sm text-white/80 sm:col-span-2">
@@ -509,8 +610,32 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             ))}
           </select>
         </label>
+        <div className="min-w-0 sm:col-span-2">
+          <p className="text-sm text-white/80">Journey type</p>
+          <div className="mt-1 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Journey type">
+            {[
+              { value: false, label: "One way" },
+              { value: true, label: "Return" },
+            ].map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                role="radio"
+                aria-checked={returnJourney === option.value}
+                onClick={() => setReturnJourney(option.value)}
+                className={`min-h-11 rounded-lg border px-3 text-sm font-semibold ${
+                  returnJourney === option.value
+                    ? "border-emerald bg-emerald/15 text-emerald"
+                    : "border-white/15 text-white/75"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <label className="block min-w-0 text-sm text-white/80">
-          Journey date (for website pricing)
+          Pickup date
           <input
             type="date"
             value={journeyDate}
@@ -522,7 +647,7 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           />
         </label>
         <label className="block min-w-0 text-sm text-white/80">
-          Journey time (for website pricing)
+          Pickup time
           <input
             type="time"
             value={journeyTime}
@@ -534,6 +659,29 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           />
         </label>
 
+        {returnJourney ? (
+          <>
+            <label className="block min-w-0 text-sm text-white/80">
+              Return date
+              <input
+                type="date"
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
+                className={fieldClass}
+              />
+            </label>
+            <label className="block min-w-0 text-sm text-white/80">
+              Return time
+              <input
+                type="time"
+                value={returnTime}
+                onChange={(e) => setReturnTime(e.target.value)}
+                className={fieldClass}
+              />
+            </label>
+          </>
+        ) : null}
+
         <div className="min-w-0 space-y-2 sm:col-span-2">
           <button
             type="button"
@@ -544,10 +692,11 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
             {calculatingFare ? "Calculating…" : "Calculate website price"}
           </button>
           <p className="text-xs text-white/45">
-            Uses the same pricing engine as the public quote calculator. Stores the one-way website
-            fare (weekday and weekend use the same base fare; return bookings keep the 5% discount).
+            Same price as the public quote tool for this exact journey (your live pricing settings).
+            The customer can change the date, time, passengers, cases, vehicle or one way/return on
+            their link — it re-prices the same way, then your discount comes off.
           </p>
-          {standardWebsiteAmount.trim() ? (
+          {priceIsCurrent ? (
             <p className="text-lg font-bold text-white">
               Current website price:{" "}
               {formatPersonalQuoteAmount(Number(standardWebsiteAmount) || 0)}
@@ -556,48 +705,50 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
           {fareHint ? <p className="break-words text-xs text-white/55">{fareHint}</p> : null}
         </div>
 
-        <label className="block min-w-0 text-sm text-white/80">
-          Website fare (£)
-          <input
-            inputMode="decimal"
-            value={standardWebsiteAmount}
-            onChange={(e) => setStandardWebsiteAmount(e.target.value)}
-            onBlur={() => applyLinkedFares("standard")}
-            className={fieldClass}
-            placeholder="75"
-          />
-        </label>
-        <label className="block min-w-0 text-sm text-white/80">
-          Discount (£)
-          <input
-            inputMode="decimal"
-            value={discountAmount}
-            onChange={(e) => setDiscountAmount(e.target.value)}
-            onBlur={() => applyLinkedFares("discount")}
-            className={fieldClass}
-            placeholder="10"
-            disabled={!standardWebsiteAmount.trim()}
-          />
-        </label>
-        <label className="block min-w-0 text-sm text-white/80">
-          Final personal fare (£)
-          <input
-            required
-            inputMode="decimal"
-            value={agreedAmount}
-            onChange={(e) => setAgreedAmount(e.target.value)}
-            onBlur={() => {
-              if (standardWebsiteAmount.trim()) applyLinkedFares("agreed");
-            }}
-            className={fieldClass}
-            placeholder="65"
-          />
-        </label>
-        <div className="flex min-w-0 items-end pb-2 text-sm text-emerald">
-          {savingsPreview != null ? (
-            <p className="break-words">Customer saves {formatPersonalQuoteAmount(savingsPreview)}</p>
+        <div className="min-w-0 sm:col-span-2">
+          <p className="text-sm text-white/80">Your discount</p>
+          <div className="mt-1 grid grid-cols-[auto_1fr] gap-2">
+            <select
+              aria-label="Discount type"
+              value={discountType}
+              onChange={(e) => setDiscountType(e.target.value === "percent" ? "percent" : "amount")}
+              className={fieldClass}
+            >
+              <option value="amount">£ off</option>
+              <option value="percent">% off</option>
+            </select>
+            <input
+              aria-label={discountType === "percent" ? "Discount percent" : "Discount in pounds"}
+              inputMode="decimal"
+              value={discountValue}
+              onChange={(e) => {
+                if (/^\d*\.?\d{0,2}$/.test(e.target.value)) setDiscountValue(e.target.value);
+              }}
+              className={fieldClass}
+              placeholder={discountType === "percent" ? `e.g. 10 (max ${PERSONAL_QUOTE_MAX_DISCOUNT_PERCENT})` : "e.g. 10"}
+            />
+          </div>
+          {pricePreview ? (
+            <div className="mt-2 space-y-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm">
+              <p className="flex justify-between gap-3 text-white/75">
+                <span>Website price</span>
+                <span>{formatPersonalQuoteAmount(pricePreview.websiteTransferGbp)}</span>
+              </p>
+              <p className="flex justify-between gap-3 text-emerald">
+                <span>Your discount</span>
+                <span>−{formatPersonalQuoteAmount(pricePreview.discountGbp)}</span>
+              </p>
+              <p className="flex justify-between gap-3 font-semibold text-white">
+                <span>Customer pays</span>
+                <span>{formatPersonalQuoteAmount(pricePreview.transferGbp)}</span>
+              </p>
+              <p className="pt-1 text-xs text-white/50">
+                If the customer changes their journey, the website price is recalculated and the same
+                {discountType === "percent" ? " percentage" : " £"} discount applies.
+              </p>
+            </div>
           ) : (
-            <p className="text-white/40">No personal discount</p>
+            <p className="mt-2 text-xs text-white/45">Calculate the website price to see what the customer pays.</p>
           )}
         </div>
 
@@ -629,12 +780,12 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
                   )}
                 </p>
                 <p className="font-semibold text-white">
-                  One-way total with Express:{" "}
+                  Total with Express:{" "}
                   {formatPersonalQuoteAmount(customerTotalPreview.totalGbp)}
                 </p>
                 <p className="text-xs text-white/50">
-                  Personal fare stays {formatPersonalQuoteAmount(customerTotalPreview.transferFareGbp)};
-                  Express Drop-Off is added at payment (not a taxi-fare discount).
+                  Discounted fare {formatPersonalQuoteAmount(customerTotalPreview.transferFareGbp)};
+                  Express Drop-Off is added at payment and is not discounted.
                 </p>
               </div>
             ) : null}
@@ -826,6 +977,22 @@ export default function OwnerPersonalQuotesPanel({ ownerKey }: OwnerPersonalQuot
                         </a>
                       </>
                     ) : null}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        applyPrefill({
+                          customerName: quote.customerName,
+                          customerEmail: quote.customerEmail,
+                          customerMobile: quote.customerMobile,
+                          pickupLabel: quote.pickupLabel,
+                          dropoffLabel: quote.dropoffLabel,
+                          journey: quote.journey,
+                        })
+                      }
+                      className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/80 hover:bg-white/5"
+                    >
+                      Quote again
+                    </button>
                     <button
                       type="button"
                       onClick={() => void handleDeactivate(quote.code)}

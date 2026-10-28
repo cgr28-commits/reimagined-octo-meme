@@ -18,11 +18,68 @@ import {
   personalQuoteTokenKey,
   resolvePersonalQuotePricing,
   PERSONAL_QUOTE_RESERVATION_TTL_SECONDS,
+  type PersonalQuoteDiscountType,
+  type PersonalQuoteJourney,
   type PersonalQuoteRecord,
   type PersonalQuoteReservation,
 } from "../shared/personal-quote";
 
 const TTL_SECONDS = 60 * 60 * 24 * 120;
+
+/** Owner-only "Quote again" list: last customers and their last journey. */
+const RECENT_CUSTOMERS_KEY = "personal-quote:recent-customers";
+const RECENT_CUSTOMERS_MAX = 50;
+
+export type PersonalQuoteRecentCustomer = {
+  customerName: string;
+  customerEmail?: string;
+  customerMobile?: string;
+  pickupLabel?: string;
+  dropoffLabel?: string;
+  journey?: PersonalQuoteJourney;
+  lastQuotedAt: string;
+};
+
+function recentCustomerKey(c: Pick<PersonalQuoteRecentCustomer, "customerName" | "customerEmail" | "customerMobile">): string {
+  const email = c.customerEmail?.trim().toLowerCase();
+  if (email) return `e:${email}`;
+  const mobile = c.customerMobile?.replace(/\D/g, "");
+  if (mobile) return `m:${mobile}`;
+  return `n:${c.customerName.trim().toLowerCase()}`;
+}
+
+export async function listRecentPersonalQuoteCustomers(
+  store: KVNamespace,
+): Promise<PersonalQuoteRecentCustomer[]> {
+  const raw = await store.get<PersonalQuoteRecentCustomer[]>(RECENT_CUSTOMERS_KEY, "json").catch(() => null);
+  return Array.isArray(raw) ? raw.filter((c) => c && typeof c.customerName === "string") : [];
+}
+
+async function rememberPersonalQuoteCustomer(
+  store: KVNamespace,
+  record: PersonalQuoteRecord,
+): Promise<void> {
+  try {
+    const entry: PersonalQuoteRecentCustomer = {
+      customerName: record.customerName,
+      ...(record.customerEmail ? { customerEmail: record.customerEmail } : {}),
+      ...(record.customerMobile ? { customerMobile: record.customerMobile } : {}),
+      ...(record.pickupLabel ? { pickupLabel: record.pickupLabel } : {}),
+      ...(record.dropoffLabel ? { dropoffLabel: record.dropoffLabel } : {}),
+      ...(record.journey ? { journey: record.journey } : {}),
+      lastQuotedAt: record.createdAt,
+    };
+    const key = recentCustomerKey(entry);
+    const existing = await listRecentPersonalQuoteCustomers(store);
+    const next = [entry, ...existing.filter((c) => recentCustomerKey(c) !== key)].slice(
+      0,
+      RECENT_CUSTOMERS_MAX,
+    );
+    await store.put(RECENT_CUSTOMERS_KEY, JSON.stringify(next), { expirationTtl: 60 * 60 * 24 * 365 });
+  } catch {
+    // "Quote again" is a convenience; never block creating a quote.
+  }
+}
 
 type OpenIndex = { codes: string[]; updatedAt: string };
 
@@ -153,6 +210,11 @@ export async function createPersonalQuote(
     expressDropOffAirport?: "BFS" | "BHD" | null;
     airportCode?: "BFS" | "BHD" | "DUB" | "LDY" | null;
     fromAirport?: boolean;
+    /** Live-priced quotes: discount applied to the public quote tool's price. */
+    pricingMode?: "live-discount";
+    discountType?: PersonalQuoteDiscountType;
+    discountValue?: number;
+    journey?: PersonalQuoteJourney;
   },
 ): Promise<PersonalQuoteRecord> {
   const pricing = resolvePersonalQuotePricing({
@@ -210,6 +272,14 @@ export async function createPersonalQuote(
     ...(input.expressDropOffAirport !== undefined
       ? { expressDropOffAirport: input.expressDropOffAirport }
       : {}),
+    ...(input.pricingMode === "live-discount"
+      ? {
+          pricingMode: "live-discount" as const,
+          discountType: input.discountType ?? "amount",
+          discountValue: Math.max(0, Number(input.discountValue) || 0),
+          ...(input.journey ? { journey: input.journey } : {}),
+        }
+      : {}),
     ...(input.airportCode !== undefined ? { airportCode: input.airportCode } : {}),
     ...(typeof input.fromAirport === "boolean" ? { fromAirport: input.fromAirport } : {}),
     singleUse: Boolean(input.singleUse),
@@ -219,6 +289,7 @@ export async function createPersonalQuote(
   };
 
   await savePersonalQuote(store, record);
+  await rememberPersonalQuoteCustomer(store, record);
   return record;
 }
 

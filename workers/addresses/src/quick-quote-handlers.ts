@@ -1,13 +1,12 @@
 /**
  * Quick Quote Worker APIs — owner create + public lookup.
- * Website fares always from calculateAuthoritativeWebsiteQuote (never from client amount).
+ * Website fares always from the public quote tool's own calculation (never from client amount).
  * Owner-manual fares use an authenticated transfer amount stored in KV; browsers never alter it.
  * Discretionary discounts are applied AFTER the transfer fare and stored separately.
  */
 
 import { corsHeaders } from "../shared/google-places";
-import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
-import type { ProfitabilitySettings } from "../../../src/lib/owner-profitability-settings";
+import { mainQuoteRequestBody, priceWithMainQuoteTool, type MainQuoteEnv } from "./main-quote-pricing";
 import {
   QUICK_QUOTE_CREATE_RATE_LIMIT,
   applyQuickQuoteManualDiscount,
@@ -31,7 +30,6 @@ import {
   type QuickQuoteRecord,
   type QuickQuoteVehicleChoice,
 } from "../shared/quick-quote";
-import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
   ESTATE_VEHICLE,
   MINIBUS_VEHICLE,
@@ -44,11 +42,6 @@ import {
   createQuickQuoteRecord,
   getQuickQuote,
 } from "./quick-quote-store";
-import {
-  resolveWorkerTripRouteMetrics,
-  resolveWorkerTripRouteMetricsForPayment,
-} from "./resolve-route-metrics";
-import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 import {
   composeFareWithExpressDropOff,
@@ -182,93 +175,6 @@ function parseDiscount(body: Record<string, unknown>): {
   };
 }
 
-async function authoritativeAmount(
-  journey: QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice },
-  body: Record<string, unknown>,
-  env: { GOOGLE_PLACES_API_KEY?: string; GETADDRESS_API_KEY?: string },
-  pricing?: OwnerPricingSettings | null,
-) {
-  const pickupLat = Number(body.pickupLat);
-  const pickupLng = Number(body.pickupLng);
-  const dropoffLat = Number(body.dropoffLat);
-  const dropoffLng = Number(body.dropoffLng);
-
-  let routeMetrics = await resolveWorkerTripRouteMetrics({
-    pickupAddress: journey.pickupAddress,
-    dropoffAddress: journey.dropoffAddress,
-    pickupLat: Number.isFinite(pickupLat) ? pickupLat : null,
-    pickupLng: Number.isFinite(pickupLng) ? pickupLng : null,
-    dropoffLat: Number.isFinite(dropoffLat) ? dropoffLat : null,
-    dropoffLng: Number.isFinite(dropoffLng) ? dropoffLng : null,
-    googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-  });
-  if (!routeMetrics) {
-    routeMetrics = parseClientRouteMetrics(body.routeMetrics);
-  }
-
-  if (!routeMetrics) {
-    return {
-      ok: false as const,
-      reason: "no_fare" as const,
-      message:
-        "We could not measure that route confidently. Confirm both addresses from suggestions (or ensure map coordinates are available) and try again.",
-    };
-  }
-
-  const vehicleType = resolveVehicle(
-    journey.vehicleChoice,
-    journey.passengers,
-    journey.suitcases,
-  );
-
-  // Quick quotes are created by the owner AND by the WhatsApp bot (customer
-  // text, no map pins), so coordinates for the drive-to-pickup charge are
-  // always resolved server-side from the addresses — never from body lat/lng.
-  const positioningSettings =
-    pricing && "profitability" in pricing
-      ? (pricing as { profitability?: ProfitabilitySettings | null }).profitability
-      : null;
-  const positioningRoute =
-    isPositioningChargeActive(positioningSettings)
-      ? await resolveWorkerTripRouteMetricsForPayment({
-          pickupAddress: journey.pickupAddress,
-          dropoffAddress: journey.dropoffAddress,
-          pickupPlaceId: typeof body.pickupPlaceId === "string" ? body.pickupPlaceId : null,
-          dropoffPlaceId: typeof body.dropoffPlaceId === "string" ? body.dropoffPlaceId : null,
-          googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-          getAddressApiKey: env.GETADDRESS_API_KEY,
-        })
-      : null;
-  const positioning = await resolvePositioningChargeGbp({
-    settings: positioningSettings,
-    airportTransfer: Boolean(journey.airportCode),
-    addressToAddress: !journey.airportCode,
-    fromAirport: Boolean(journey.fromAirport),
-    pickup: positioningRoute?.ok ? positioningRoute.pickup : null,
-    dropoff: positioningRoute?.ok ? positioningRoute.dropoff : null,
-  });
-
-  return calculateAuthoritativeWebsiteQuote({
-    positioningChargeGbp: positioning.chargeGbp,
-    airportCode: journey.airportCode ?? null,
-    fromAirport: Boolean(journey.fromAirport),
-    pickupAddress: journey.pickupAddress,
-    dropoffAddress: journey.dropoffAddress,
-    returnJourney: journey.returnJourney,
-    outboundDate: journey.outboundDate,
-    outboundTime: journey.outboundTime,
-    returnDate: journey.returnDate,
-    returnTime: journey.returnTime,
-    passengers: journey.passengers,
-    suitcases: journey.suitcases,
-    routeMetrics,
-    enforceAirportPickupServiceArea: false,
-    vehicleType,
-    maxPassengers: quickQuoteMaxPassengersForVehicle(journey.vehicleChoice),
-    pricing,
-  });
-}
-
 export type PricedQuickQuoteResult =
   | {
       ok: true;
@@ -291,8 +197,12 @@ export async function createPricedQuickQuote(
     TRACKING_STORE: KVNamespace;
     SITE_ORIGIN?: string;
     GOOGLE_PLACES_API_KEY?: string;
+  } & NonNullable<MainQuoteEnv>,
+  meta: {
+    createdByOwner: boolean;
+    /** Owner's own request: its credentials are forwarded so owner-only vehicles price as in the owner tools. */
+    request?: Request;
   },
-  meta: { createdByOwner: boolean },
 ): Promise<PricedQuickQuoteResult> {
   const journey = parseJourney(body);
   if ("error" in journey) {
@@ -322,7 +232,32 @@ export async function createPricedQuickQuote(
         : resolveVehicle(journey.vehicleChoice, journey.passengers, journey.suitcases);
   } else {
     const ownerPricing = await loadOwnerPricingOrDefault(env);
-    const quote = await authoritativeAmount(journey, body, env, ownerPricing);
+    // Same calculation as the public quote tool (live owner settings, route,
+    // surcharges, drive-to-pickup charge). Only addresses/place IDs are sent.
+    const quote = await priceWithMainQuoteTool(
+      mainQuoteRequestBody({
+        pickupAddress: journey.pickupAddress,
+        dropoffAddress: journey.dropoffAddress,
+        pickupPlaceId: typeof body.pickupPlaceId === "string" ? body.pickupPlaceId : null,
+        dropoffPlaceId: typeof body.dropoffPlaceId === "string" ? body.dropoffPlaceId : null,
+        airportCode: journey.airportCode ?? null,
+        fromAirport: journey.fromAirport,
+        returnJourney: journey.returnJourney,
+        outboundDate: journey.outboundDate,
+        outboundTime: journey.outboundTime,
+        returnDate: journey.returnDate,
+        returnTime: journey.returnTime,
+        passengers: journey.passengers,
+        suitcases: journey.suitcases,
+        // Same vehicle the Quick Quote tool always chose (Saloon → best-fit car,
+        // e.g. Estate for 3 passengers with 3 cases; Minibus stays owner-only).
+        ...(journey.vehicleChoice === "Minibus"
+          ? { vehicleChoice: "Minibus" }
+          : { vehicleType: resolveVehicle(journey.vehicleChoice, journey.passengers, journey.suitcases) }),
+      }),
+      env,
+      meta.request ? { forwardAuthFrom: meta.request } : {},
+    );
     if (!quote.ok) {
       return { ok: false, status: 422, error: quote.message, reason: quote.reason };
     }
@@ -495,7 +430,7 @@ export async function handleOwnerCreateQuickQuote(
   const priced = await createPricedQuickQuote(
     body,
     { ...env, TRACKING_STORE: env.TRACKING_STORE },
-    { createdByOwner: true },
+    { createdByOwner: true, request },
   );
   if (!priced.ok) {
     return json(

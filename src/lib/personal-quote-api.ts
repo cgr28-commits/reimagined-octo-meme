@@ -1,5 +1,9 @@
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
-import type { PersonalQuotePublicSummary } from "../../shared/personal-quote";
+import type {
+  PersonalQuoteDiscountType,
+  PersonalQuoteJourney,
+  PersonalQuotePublicSummary,
+} from "../../shared/personal-quote";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -114,6 +118,40 @@ export async function fetchOwnerPersonalQuotes(
   return Array.isArray(payload.quotes) ? (payload.quotes as PersonalQuoteOwnerView[]) : [];
 }
 
+/** Owner "Quote again": a recent customer and their last journey. */
+export type PersonalQuoteRecentCustomer = {
+  customerName: string;
+  customerEmail?: string;
+  customerMobile?: string;
+  pickupLabel?: string;
+  dropoffLabel?: string;
+  journey?: PersonalQuoteJourney;
+  lastQuotedAt: string;
+};
+
+/** Open quotes plus recent customers (for "Quote again"). */
+export async function fetchOwnerPersonalQuotesAndCustomers(
+  ownerKey: string,
+): Promise<{ quotes: PersonalQuoteOwnerView[]; recentCustomers: PersonalQuoteRecentCustomer[] }> {
+  const response = await fetch(`${WORKER_BASE}/owner/personal-quotes`, {
+    headers: {
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not load personal quotes"));
+  }
+  return {
+    quotes: Array.isArray(payload.quotes) ? (payload.quotes as PersonalQuoteOwnerView[]) : [],
+    recentCustomers: Array.isArray(payload.recentCustomers)
+      ? (payload.recentCustomers as PersonalQuoteRecentCustomer[])
+      : [],
+  };
+}
+
 export type CreatePersonalQuoteInput = {
   customerName: string;
   customerEmail?: string;
@@ -131,6 +169,11 @@ export type CreatePersonalQuoteInput = {
   expressDropOffAirport?: "BFS" | "BHD" | null;
   airportCode?: "BFS" | "BHD" | "DUB" | "LDY" | null;
   fromAirport?: boolean;
+  /** Live-priced: the server prices the journey with the public quote tool, then applies the discount. */
+  pricingMode?: "live-discount";
+  discountType?: PersonalQuoteDiscountType;
+  discountValue?: number;
+  journey?: PersonalQuoteJourney;
 };
 
 export async function createOwnerPersonalQuote(
