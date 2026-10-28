@@ -39,10 +39,10 @@ console.log("=== Homepage title, description, H1 ===");
 {
   assert.match(home, /HOMEPAGE_SEO_TITLE/);
   assert.match(home, /HOMEPAGE_SEO_DESCRIPTION/);
-  assert.equal(HOMEPAGE_SEO_TITLE, "Belfast Airport Transfers | My Airport Taxi NI");
+  assert.equal(HOMEPAGE_SEO_TITLE, "Airport Taxi Belfast, NI & Ireland | My Airport Taxi NI");
   assert.equal(
     HOMEPAGE_SEO_DESCRIPTION,
-    "Belfast and Northern Ireland airport transfers at a fixed price, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.",
+    "Fixed-price airport taxis across Belfast, Northern Ireland and Ireland, with up to 60 minutes’ complimentary waiting on airport pickups. Book online 24/7.",
   );
   assert.ok(
     HOMEPAGE_SEO_DESCRIPTION.length >= 150 && HOMEPAGE_SEO_DESCRIPTION.length <= 160,
