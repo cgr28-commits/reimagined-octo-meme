@@ -13,6 +13,15 @@ export type VerifiedFlight = {
   status?: string;
   /** Raw arrival terminal from AeroDataBox when provided (e.g. "1", "2", "T1"). */
   arrivalTerminal?: string | null;
+  /** Scheduled time for this leg in UTC (ISO), when the provider gives it. */
+  scheduledUtc?: string | null;
+  /** Latest expected / actual time for this leg, local "HH:MM" (runway > revised > predicted). */
+  expectedTime?: string | null;
+  expectedUtc?: string | null;
+  /** Expected minus scheduled, in minutes (positive = late). Null when unknown. */
+  delayMinutes?: number | null;
+  /** True once the provider reports a runway (actual) time for this leg. */
+  actualReported?: boolean;
 };
 
 export type FlightLookupResult =
@@ -152,11 +161,17 @@ type AeroFlight = {
   departure?: {
     airport?: { iata?: string; name?: string; icao?: string };
     scheduledTime?: { local?: string; utc?: string };
+    revisedTime?: { local?: string; utc?: string };
+    predictedTime?: { local?: string; utc?: string };
+    runwayTime?: { local?: string; utc?: string };
     terminal?: string | null;
   };
   arrival?: {
     airport?: { iata?: string; name?: string; icao?: string };
     scheduledTime?: { local?: string; utc?: string };
+    revisedTime?: { local?: string; utc?: string };
+    predictedTime?: { local?: string; utc?: string };
+    runwayTime?: { local?: string; utc?: string };
     terminal?: string | null;
   };
 };
@@ -290,6 +305,34 @@ function mapAeroFlight(
       [arrAirport?.iata, arrAirport?.name].filter(Boolean).join(" · ") || "—",
     status: flight.status,
     arrivalTerminal: flight.arrival?.terminal?.trim() || null,
+    ...flightTiming(params.direction === "from-airport" ? flight.arrival : flight.departure),
+  };
+}
+
+/** AeroDataBox UTC strings look like "2026-10-31 14:30Z"; make them Date-parseable. */
+function parseAeroUtc(value: string | undefined | null): number | null {
+  if (!value) return null;
+  const iso = value.trim().replace(" ", "T").replace(/Z$/i, "") + "Z";
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? null : t;
+}
+
+/** Expected / actual timing for one leg: runway (actual) > revised > predicted. */
+export function flightTiming(leg: AeroFlight["arrival"]): Pick<
+  VerifiedFlight,
+  "scheduledUtc" | "expectedTime" | "expectedUtc" | "delayMinutes" | "actualReported"
+> {
+  const best = leg?.runwayTime ?? leg?.revisedTime ?? leg?.predictedTime;
+  const scheduledMs = parseAeroUtc(leg?.scheduledTime?.utc);
+  const expectedMs = parseAeroUtc(best?.utc);
+  const expectedLocal = readScheduledLocal(best);
+  return {
+    scheduledUtc: scheduledMs != null ? new Date(scheduledMs).toISOString() : null,
+    expectedTime: expectedLocal ? formatLocalTime(expectedLocal) : null,
+    expectedUtc: expectedMs != null ? new Date(expectedMs).toISOString() : null,
+    delayMinutes:
+      scheduledMs != null && expectedMs != null ? Math.round((expectedMs - scheduledMs) / 60000) : null,
+    actualReported: Boolean(leg?.runwayTime?.utc || leg?.runwayTime?.local),
   };
 }
 

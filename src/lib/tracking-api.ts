@@ -265,6 +265,12 @@ export type DriverFlight = {
   departureAirport: string;
   arrivalAirport: string;
   status?: string;
+  /** Latest expected / actual landing, local "HH:MM". */
+  expectedTime?: string | null;
+  /** Expected minus scheduled, minutes (positive = late). */
+  delayMinutes?: number | null;
+  /** True once an actual (runway) landing time is reported. */
+  actualReported?: boolean;
 };
 
 export type JobAssignmentStatus = "unassigned" | "pending" | "accepted" | "declined";

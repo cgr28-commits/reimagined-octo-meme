@@ -352,10 +352,18 @@ function DriverFlightPanel({
       </div>
       <p className="mt-3 text-sm text-white/80">
         Scheduled arrival:{" "}
-        <span className="font-semibold text-white">{flight.scheduledTimeLabel}</span>
+        <span className="font-semibold text-white">{flight.scheduledTime}</span>
         {" · "}
         {flight.airportName} ({flight.airportCode})
       </p>
+      {flight.expectedTime && flight.delayMinutes != null && flight.delayMinutes !== 0 ? (
+        <p className={`mt-1 text-sm font-semibold ${flight.delayMinutes > 0 ? "text-amber-300" : "text-emerald"}`}>
+          {flight.actualReported ? "Landed" : "Expected"}: {flight.expectedTime} (
+          {flight.delayMinutes > 0 ? `${flight.delayMinutes} min late` : `${Math.abs(flight.delayMinutes)} min early`})
+        </p>
+      ) : flight.expectedTime && flight.actualReported ? (
+        <p className="mt-1 text-sm font-semibold text-emerald">Landed: {flight.expectedTime}</p>
+      ) : null}
       <p className="mt-2 text-xs text-white/50">
         60 minutes complimentary waiting applies from actual landing time.
       </p>
