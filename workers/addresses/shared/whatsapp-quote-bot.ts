@@ -57,7 +57,11 @@ export type WhatsAppConversation = {
   updatedAt: string;
 };
 
-/** answer: a question the journey flow can't use — the Worker answers it with AI (reply is the fallback). */
+/**
+ * answer: the Worker writes the reply with AI (Claude-led chat); `reply` is the fallback
+ * when AI is unavailable. Journey details are still parsed here and prices only ever
+ * come from the quote engine.
+ */
 export type WhatsAppBotAction = "none" | "quote" | "handoff" | "answer";
 
 /** Tap-to-reply button; ids starting "txt:" are read back as if the customer typed them. */
@@ -68,6 +72,9 @@ export const WHATSAPP_BUTTONS = {
   newQuote: { id: "txt:new", title: "🆕 New quote" },
   oneWay: { id: "txt:one way", title: "➡️ One way" },
   return: { id: "txt:return", title: "🔁 Return" },
+  menuQuote: { id: "txt:menu quote", title: "🚕 Get a quote" },
+  menuQuestion: { id: "txt:menu question", title: "💬 Ask a question" },
+  menuBooking: { id: "txt:menu booking", title: "📋 My booking" },
 } as const satisfies Record<string, WhatsAppBotButton>;
 
 export type WhatsAppBotDecision = {
@@ -76,7 +83,40 @@ export type WhatsAppBotDecision = {
   action: WhatsAppBotAction;
   /** Optional reply buttons (max 3); the reply text still works without them. */
   buttons?: WhatsAppBotButton[];
+  /** With action "answer": what the AI reply should do besides responding naturally. */
+  ai?: WhatsAppAiTask;
 };
+
+export type WhatsAppAiTask = {
+  /** The one journey detail to ask for next (bare replies fill it). */
+  askFor?: WhatsAppQuoteField;
+  /** The customer's message just added journey details (acknowledge, then ask). */
+  justUpdated?: boolean;
+};
+
+/** First-message menu: quote, question, or an existing booking. */
+export const WHATSAPP_MENU_BUTTONS = [
+  WHATSAPP_BUTTONS.menuQuote,
+  WHATSAPP_BUTTONS.menuQuestion,
+  WHATSAPP_BUTTONS.menuBooking,
+];
+
+export type WhatsAppMenuChoice = "quote" | "question" | "booking";
+
+/** A tapped menu button (also typed "menu quote" etc.). */
+export function parseWhatsAppMenuChoice(text: string): WhatsAppMenuChoice | null {
+  const m = stripWhatsAppMarkdown(text).trim().toLowerCase().match(/^menu (quote|question|booking)$/);
+  return m ? (m[1] as WhatsAppMenuChoice) : null;
+}
+
+const GREETING =
+  /^(hi+|hello+|hey+|hiya|howdy|yo|hallo|helo|morning|afternoon|evening|good (morning|afternoon|evening|day)|hi there|hello there|hey there|start|menu)$/;
+
+/** Just a hello — answered with the welcome menu rather than AI. */
+export function isWhatsAppGreeting(text: string): boolean {
+  const t = keywordText(text).replace(/[\p{Extended_Pictographic}\u{FE0F}]/gu, "").trim();
+  return t === "" || GREETING.test(t);
+}
 
 const CONFIRM_BUTTONS = [WHATSAPP_BUTTONS.yes, WHATSAPP_BUTTONS.newQuote];
 export const WHATSAPP_QUOTED_BUTTONS = [WHATSAPP_BUTTONS.newQuote];
@@ -367,6 +407,17 @@ export function applyCustomerMessage(
 
   // Well-known places ("Grand Central", "the Europa") and "X to Y" without "from".
   applyKnownPlaceRoute(draft, text, awaiting);
+  // "BT9 6AA to Belfast City Airport", "12 Main Street Lisburn to BFS": the part before
+  // "to" is the pickup when it is clearly an address (a postcode or a house number).
+  const routeStart = text.match(/^(?:from\s+)?(.+?)\s+(?:to|->|→)\s+\S/i);
+  if (routeStart && draft.dropoffAddress) {
+    const left = routeStart[1].replace(/[,\s]+$/, "").trim();
+    const addressLike = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i.test(left) || /^\d+[a-z]?,?\s+\p{L}/iu.test(left);
+    const extendsPickup = !draft.pickupAddress || left.toLowerCase().startsWith(draft.pickupAddress.toLowerCase());
+    if (addressLike && extendsPickup && !parseAirportCode(left) && left !== draft.dropoffAddress) {
+      draft.pickupAddress = left;
+    }
+  }
   for (const field of ["pickupAddress", "dropoffAddress"] as const) {
     // A typed reply that names a known place ("belfast grand central") uses its full address.
     const value = draft[field];
@@ -465,6 +516,40 @@ export function buildWhatsAppQuestion(field: WhatsAppQuoteField): string {
   return QUESTIONS[field];
 }
 
+const FIELD_LABELS: Record<WhatsAppQuoteField, string> = {
+  pickupAddress: "the pickup address or postcode",
+  dropoffAddress: "where they are going (address, postcode or airport)",
+  outboundDate: "the date of the journey",
+  outboundTime: "the pickup time",
+  passengers: "how many passengers",
+  suitcases: "how many suitcases (0 is fine)",
+  returnJourney: "whether it is one way or a return",
+  returnDate: "the date of the return journey",
+  returnTime: "the pickup time for the return journey",
+};
+
+/** Plain description of a journey detail, for the AI prompt. */
+export function describeWhatsAppField(field: WhatsAppQuoteField): string {
+  return FIELD_LABELS[field];
+}
+
+/** Only the details collected so far (no placeholders), for the AI prompt. */
+export function describeWhatsAppDraft(draft: WhatsAppQuoteDraft): string {
+  const lines = [
+    draft.pickupAddress && `From: ${draft.pickupAddress}`,
+    draft.dropoffAddress && `To: ${draft.dropoffAddress}`,
+    draft.outboundDate && `Date: ${displayDate(draft.outboundDate)}`,
+    draft.outboundTime && `Pickup time: ${draft.outboundTime}`,
+    draft.passengers != null && `Passengers: ${draft.passengers}`,
+    draft.suitcases != null && `Suitcases: ${draft.suitcases}`,
+    draft.returnJourney === false && "One way",
+    draft.returnJourney === true &&
+      `Return: ${draft.returnDate ? displayDate(draft.returnDate) : "date to confirm"}${draft.returnTime ? ` at ${draft.returnTime}` : ""}`,
+    draft.flightNumber && `Flight: ${draft.flightNumber}`,
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
 /** First name for the greeting, skipping business-style profile names ("My Airport Taxi NI"). */
 function greetingName(name?: string): string | null {
   const trimmed = name?.trim();
@@ -481,8 +566,8 @@ export function buildWhatsAppWelcome(name?: string): string {
   const greeting = first ? `Hi ${first}` : "Hi";
   return (
     `${greeting}, thanks for messaging ${BUSINESS_NAME} 🚕\n\n` +
-    `I can give you a fixed price and a secure booking link right here. Just tell me about your journey, for example:\n\n` +
-    `_From BT9 6AA to Belfast International, 14/11 at 5am, 2 passengers, 2 suitcases, one way_`
+    `How can I help today? Tap an option below, or just type your message — ask me anything, ` +
+    `tell me about a journey for a fixed price, or send your booking reference.`
   );
 }
 
@@ -707,23 +792,38 @@ export function decideWhatsAppReply(
   options: { now?: Date; profileName?: string } = {},
 ): WhatsAppBotDecision {
   const decision = decideJourneyReply(existing, text, options);
-  // A question that changed nothing in the journey: answer it instead of repeating the
-  // last prompt (e.g. "Do you have child seats?" after a quote). decision.reply stays
-  // as the fallback when AI answers are unavailable.
-  const draftUnchanged = JSON.stringify(existing?.draft ?? {}) === JSON.stringify(decision.conversation.draft);
-  if (decision.action !== "none" || !isWhatsAppQuestion(text)) return decision;
-  // "Do you go to Dublin airport?" also fills in part of the journey: answer it and keep
-  // the details (the Worker re-asks the next journey question after the answer). A full
-  // journey phrased as a question still goes to the summary.
-  const partlyFilled = text.includes("?") && decision.conversation.stage === "collecting";
-  return draftUnchanged || partlyFilled ? { ...decision, action: "answer" } : decision;
+  if (decision.action !== "none" || !decision.kind) return stripKind(decision);
+  // Claude-led chat: the AI writes every conversational reply. Fixed replies stay for
+  // a plain hello (menu), resets, validation problems and the confirm summary, so
+  // prices and booking steps never depend on the model.
+  switch (decision.kind) {
+    case "welcome":
+      return isWhatsAppGreeting(text) ? stripKind(decision) : { ...stripKind(decision), action: "answer", buttons: undefined, ai: {} };
+    case "ask":
+      return { ...stripKind(decision), action: "answer", ai: { askFor: decision.conversation.awaiting, justUpdated: true } };
+    case "askRepeat":
+      return { ...stripKind(decision), action: "answer", ai: { askFor: decision.conversation.awaiting, justUpdated: false } };
+    case "quotedNoChange":
+    case "confirmNoChange":
+      return { ...stripKind(decision), action: "answer", ai: {} };
+    default:
+      return stripKind(decision);
+  }
+}
+
+type ReplyKind = "welcome" | "ask" | "askRepeat" | "quotedNoChange" | "confirmNoChange";
+type KindedDecision = WhatsAppBotDecision & { kind?: ReplyKind };
+
+function stripKind(decision: KindedDecision): WhatsAppBotDecision {
+  const { kind: _kind, ...rest } = decision;
+  return rest;
 }
 
 function decideJourneyReply(
   existing: WhatsAppConversation | null,
   text: string,
   options: { now?: Date; profileName?: string } = {},
-): WhatsAppBotDecision {
+): KindedDecision {
   const now = options.now ?? new Date();
   const conversation: WhatsAppConversation = existing
     ? { ...existing, draft: { ...existing.draft } }
@@ -736,7 +836,35 @@ function decideJourneyReply(
   }
   if (intent === "reset") {
     const fresh = newWhatsAppConversation(now);
-    return { conversation: fresh, reply: buildWhatsAppWelcome(options.profileName), action: "none" };
+    return {
+      conversation: fresh,
+      reply: buildWhatsAppWelcome(options.profileName),
+      action: "none",
+      buttons: WHATSAPP_MENU_BUTTONS,
+    };
+  }
+
+  const menu = parseWhatsAppMenuChoice(text);
+  if (menu === "quote") {
+    const fresh = newWhatsAppConversation(now);
+    fresh.awaiting = "pickupAddress";
+    return {
+      conversation: fresh,
+      reply:
+        "Lovely 🙂 Where would you like picking up from, and where are you heading? " +
+        "A postcode or full address is perfect — you can send the date, time and number of passengers too if you have them.",
+      action: "none",
+    };
+  }
+  if (menu === "question") {
+    return { conversation, reply: "Of course — what would you like to know?", action: "none" };
+  }
+  if (menu === "booking") {
+    return {
+      conversation,
+      reply: "Please send your booking reference (it starts with MAT-, e.g. MAT-1234) and I'll look it up for you.",
+      action: "none",
+    };
   }
   if (intent === "confirm" && conversation.stage === "confirming") {
     return { conversation, reply: "", action: "quote" };
@@ -764,7 +892,13 @@ function decideJourneyReply(
 
   if (!changed) {
     if (isNew) {
-      return { conversation, reply: buildWhatsAppWelcome(options.profileName), action: "none" };
+      return {
+        conversation,
+        reply: buildWhatsAppWelcome(options.profileName),
+        action: "none",
+        buttons: WHATSAPP_MENU_BUTTONS,
+        kind: "welcome",
+      };
     }
     if (conversation.stage === "quoted") {
       return {
@@ -774,6 +908,7 @@ function decideJourneyReply(
           `Tell me anything you'd like to change, or reply *NEW* for a new quote.`,
         action: "none",
         buttons: WHATSAPP_QUOTED_BUTTONS,
+        kind: "quotedNoChange",
       };
     }
     if (conversation.stage === "confirming") {
@@ -782,6 +917,7 @@ function decideJourneyReply(
         reply: `Reply *YES* if these details are right, or tell me what to change.\n\n${buildWhatsAppSummary(conversation.draft)}`,
         action: "none",
         buttons: CONFIRM_BUTTONS,
+        kind: "confirmNoChange",
       };
     }
   }
@@ -807,6 +943,7 @@ function decideJourneyReply(
       conversation,
       reply: repeat ? `Sorry, I didn't catch that. ${question}` : question,
       action: "none",
+      kind: changed ? "ask" : "askRepeat",
       ...(missing === "returnJourney" ? { buttons: [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return] } : {}),
     };
   }
