@@ -726,6 +726,7 @@ export async function handleDriverAcceptConfirmRequest(
       jobKey: accepted.paymentReference || accepted.id,
       customerName: accepted.customerName,
       customerEmail: accepted.customerEmail,
+      customerMobile: accepted.customerMobile,
       tripDate: accepted.tripDate,
       tripTime: accepted.tripTime,
       pickupLabel: accepted.pickupLabel,

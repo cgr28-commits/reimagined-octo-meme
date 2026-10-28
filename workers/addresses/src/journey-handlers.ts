@@ -3,6 +3,7 @@
  * Reuses TRACKING_STORE jobs — no separate booking database.
  */
 
+import { sendDriverOnTheWayWhatsApp } from "./whatsapp-templates";
 import { parseCustomerTipped, type TipCompletionPayload } from "../shared/journey-tip";
 import {
   applyJourneyAction,
@@ -201,6 +202,15 @@ export async function sendOnTheWayNotificationIfNeeded(
 
   const channels = arrivalChannelReport(env);
   const next: TrackingJobRecord = { ...job };
+
+  // WhatsApp "driver on the way" (approved template only; independent of the email below).
+  await sendDriverOnTheWayWhatsApp(env, {
+    jobKey: job.token,
+    customerName: job.customerName,
+    mobile: job.customerMobile,
+    pickupLabel: job.pickupLabel,
+    tripTime: job.tripTime,
+  });
 
   if (channels.emailFallback !== "AVAILABLE") {
     next.onTheWayNotificationStatus = "not_configured";

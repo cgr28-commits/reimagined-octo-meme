@@ -1,3 +1,4 @@
+import { sendReviewRequestWhatsApp } from "./whatsapp-templates";
 import { buildGoogleReviewRequestEmail } from "../shared/booking-notifications";
 import { resolveGoogleReviewUrl } from "../shared/business-links";
 import { corsHeaders } from "../shared/google-places";
@@ -298,6 +299,14 @@ async function maybeProcessReviewRequest(
   if (!isReviewRequestDue(current, delayMs)) {
     return beforeScheduled ? "not_eligible" : "scheduled";
   }
+
+  // WhatsApp review request (approved template only; once per job, even if the email retries).
+  await sendReviewRequestWhatsApp(env, {
+    jobKey: current.token,
+    customerName: current.customerName,
+    mobile: current.customerMobile,
+    tripDate: current.tripDate,
+  });
 
   const recipient = await resolveReviewRequestRecipient(env.TRACKING_STORE!, current);
   if (!recipient) {

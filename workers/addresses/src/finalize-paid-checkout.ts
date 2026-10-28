@@ -1,3 +1,4 @@
+import { sendBookingConfirmedWhatsApp } from "./whatsapp-templates";
 import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
 import { recordBookingFunnelEvent } from "./booking-funnel";
 import { queueMeetGreetEmail } from "./meet-greet-upgrade-handlers";
@@ -599,11 +600,13 @@ async function finalizePaidCheckoutOnce(input: {
   };
 
   let manageUrl: string | undefined;
+  let manageToken: string | undefined;
   if (paidBookingStoreConfigured(env.TRACKING_STORE) && paymentReference) {
     const saved = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
     if (saved) {
       const withToken = await ensureManageBookingToken(env.TRACKING_STORE, saved);
       if (withToken.manageBookingToken) {
+        manageToken = withToken.manageBookingToken;
         manageUrl = buildManageBookingUrl(
           "https://www.myairporttaxini.co.uk",
           withToken.manageBookingToken,
@@ -627,6 +630,21 @@ async function finalizePaidCheckoutOnce(input: {
     body: customerEmail.text,
     htmlBody: customerEmail.html,
   });
+
+  // WhatsApp copy of the confirmation (only once Meta has approved the template).
+  if (paymentReference) {
+    await sendBookingConfirmedWhatsApp(env, {
+      paymentReference,
+      customerReference,
+      customerName: booking.customerName,
+      mobile: booking.mobileNumber,
+      tripDate: booking.tripDate,
+      tripTime: booking.tripTime,
+      pickupLabel: booking.pickupLabel,
+      dropoffLabel: booking.dropoffLabel,
+      manageToken,
+    });
+  }
 
   // Hidden BCC of this same customer email is applied inside the customer send.
   // This separate message is the short operational alert, not a second invoice.

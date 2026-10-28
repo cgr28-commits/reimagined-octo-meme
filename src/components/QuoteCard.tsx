@@ -6704,7 +6704,7 @@ function QuoteCard({
                   autoComplete="tel"
                   value={customerMobile}
                   aria-invalid={Boolean(mobileNumberError)}
-                  aria-describedby={mobileNumberError ? "customer-mobile-error" : undefined}
+                  aria-describedby={mobileNumberError ? "customer-mobile-error customer-mobile-whatsapp" : "customer-mobile-whatsapp"}
                   onChange={(e) => {
                     const value = e.target.value;
                     setCustomerMobile(value);
@@ -6732,6 +6732,9 @@ function QuoteCard({
                     {mobileNumberError}
                   </p>
                 ) : null}
+                <p id="customer-mobile-whatsapp" className="mt-1.5 text-xs text-white/55">
+                  We&apos;ll send your booking confirmation, driver updates and a follow-up after your trip to this number on WhatsApp.
+                </p>
               </div>
               <div>
                 <label htmlFor="email" className="form-label">
