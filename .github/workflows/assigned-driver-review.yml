@@ -1,0 +1,37 @@
+name: Assigned driver review
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'shared/driver-*.ts'
+      - 'shared/booking-job.ts'
+      - 'shared/partial-registration.ts'
+      - 'shared/tracking.ts'
+      - 'src/app/driver/**'
+      - 'src/app/driver-accept/**'
+      - 'workers/addresses/src/journey-handlers.ts'
+      - 'workers/addresses/src/booking-job-handlers.ts'
+      - 'workers/addresses/src/driver-assignment-handlers.ts'
+      - 'workers/addresses/src/customer-driver-details.ts'
+      - 'scripts/check-assigned-driver-jobs.ts'
+      - 'scripts/check-driver-portal-*.ts'
+      - '.github/workflows/assigned-driver-review.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix workers/addresses
+      - run: node scripts/sync-worker-shared.mjs
+      - run: node --import tsx scripts/check-assigned-driver-jobs.ts
+      - run: node --import tsx scripts/check-driver-portal-access.ts
+      - run: node --import tsx scripts/check-driver-portal-permissions.ts
+      - run: npm --prefix workers/addresses run build

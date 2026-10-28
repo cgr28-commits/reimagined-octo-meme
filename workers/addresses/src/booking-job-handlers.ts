@@ -50,6 +50,7 @@ import {
 } from "./tracking-store";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { sendCustomerDriverDetailsOnAccept } from "./customer-driver-details";
 
 async function trackingJobsForBooking(
   store: KVNamespace,
@@ -681,6 +682,7 @@ export async function handleDriverAcceptConfirmRequest(
 
   const token = String(body.token ?? "").trim();
   const action = String(body.action ?? "").trim().toLowerCase();
+  let acceptedJob: BookingJobRecord | null = null;
   const result = await completeDriverAcceptConfirmation({
     action,
     token,
@@ -688,6 +690,7 @@ export async function handleDriverAcceptConfirmRequest(
     saveJob: async (job) => {
       await saveBookingJob(store, job);
       await syncTrackingAssignmentFromBooking(store, job);
+      if (job.driverAssignmentStatus === "accepted") acceptedJob = job;
     },
     deleteAcceptToken: (acceptToken) => deleteDriverAcceptToken(store, acceptToken),
     issuePortalAccess: async (job) => {
@@ -713,6 +716,31 @@ export async function handleDriverAcceptConfirmRequest(
 
   if (!result.ok) {
     return jsonResponse({ error: result.error }, result.status, origin);
+  }
+
+  const accepted = acceptedJob as BookingJobRecord | null;
+  if (action === "accept" && accepted) {
+    // Email the customer their driver's first name, mobile and partial reg.
+    // Never blocks the driver's accept: failures are logged only.
+    const sent = await sendCustomerDriverDetailsOnAccept(env, {
+      jobKey: accepted.paymentReference || accepted.id,
+      customerName: accepted.customerName,
+      customerEmail: accepted.customerEmail,
+      tripDate: accepted.tripDate,
+      tripTime: accepted.tripTime,
+      pickupLabel: accepted.pickupLabel,
+      dropoffLabel: accepted.dropoffLabel,
+      driverName: accepted.driverFirstName,
+      driverEmail: accepted.driverEmail,
+      driverMobile: accepted.driverMobile,
+      carMake: accepted.driverCarMake,
+      carModel: accepted.driverCarModel,
+      carColour: accepted.driverCarColour,
+      registration: accepted.driverReg,
+    }).catch((error: unknown) => ({ sent: false as const, reason: "send_failed" as const, error: String(error) }));
+    if (!sent.sent && sent.reason === "send_failed") {
+      console.warn("Customer driver-details email failed", sent.error);
+    }
   }
   return jsonResponse(result.body, result.status, origin);
 }

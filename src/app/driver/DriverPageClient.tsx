@@ -32,7 +32,6 @@ import OwnerPostcodePricingPanel from "@/components/OwnerPostcodePricingPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   customerTelHref,
-  customerWhatsAppHref,
   DRIVER_PORTAL_SESSION_STORAGE_KEY,
   googleMapsNavigateUrl,
   sequentialDriverJourneyActions,
@@ -134,7 +133,8 @@ function portalKeyStorage(portal: "owner" | "driver"): string {
   return portal === "owner" ? OWNER_KEY_STORAGE : DRIVER_KEY_STORAGE;
 }
 
-type DashboardView = "today" | "upcoming" | "date";
+/** "past" is the assigned driver's own job history (last 120 days). */
+type DashboardView = "today" | "upcoming" | "date" | "past";
 
 function todayLondonDate(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -1388,7 +1388,8 @@ function DriverJobCard({
       // WhatsApp click-to-chat after recording arrival (manual Send). Keep Resend/email as-is.
       // Voice follows the authenticated session: portal drivers use first person; the owner stays company voice.
       const whatsappRole = isDriverPortalSessionToken(driverKey) ? "driver" : "owner";
-      if (action === "arrived_pickup" && !SERVICE_FLAGS.liveDriverTracking) {
+      // Assigned drivers never open WhatsApp: the customer is emailed instead.
+      if (isOwner && action === "arrived_pickup" && !SERVICE_FLAGS.liveDriverTracking) {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
           // Return-leg jobs already store the leg's pickup on pickupLabel.
@@ -1413,7 +1414,7 @@ function DriverJobCard({
       }
 
       // Optional WhatsApp for Driver on the way (manual Send / Live Location).
-      if (action === "start_tracking" && !SERVICE_FLAGS.liveDriverTracking) {
+      if (isOwner && action === "start_tracking" && !SERVICE_FLAGS.liveDriverTracking) {
         const mobile = job.customerMobile?.trim() || "";
         if (mobile) {
           const href = result.customerWhatsAppMessage?.trim()
@@ -2077,14 +2078,6 @@ function DriverJobCard({
             >
               Call customer
             </a>
-            <a
-              href={customerWhatsAppHref(job.customerMobile)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
-            >
-              WhatsApp customer
-            </a>
           </>
         ) : null}
 
@@ -2115,7 +2108,7 @@ function DriverJobCard({
                           : "min-h-11 text-sm border border-white/15 text-white hover:border-white/30"
                   }`}
                 >
-                  {busy ? "Updating…" : JOURNEY_ACTION_LABELS[action]}
+                  {busy ? "Updating…" : !isOwner && action === "complete_journey" ? "Complete job" : JOURNEY_ACTION_LABELS[action]}
                 </button>
               );
             })}
@@ -2614,10 +2607,11 @@ export default function DriverPageClient({
     return visibleJobs.filter((job) => isOwnerCompletedDriverJob(job));
   }, [isOwnerView, visibleJobs]);
 
-  const groupedVisibleUpcoming = useMemo(
-    () => groupJobsByDate(activeVisibleJobs),
-    [activeVisibleJobs],
-  );
+  const groupedVisibleUpcoming = useMemo(() => {
+    const groups = groupJobsByDate(activeVisibleJobs);
+    // Past jobs: most recent day first.
+    return view === "past" ? [...groups].reverse() : groups;
+  }, [activeVisibleJobs, view]);
 
   const groupedOwnerSchedule = useMemo(
     () => (isOwnerView ? groupOwnerJobsByDateWithCompleted(visibleJobs) : []),
@@ -2642,7 +2636,13 @@ export default function DriverPageClient({
         const [mainResponse, pendingResponse] = await Promise.all([
           view === "upcoming"
             ? fetchDriverJobs(key, { scope: "upcoming", days: 60 })
-            : fetchDriverJobs(key, {
+            : view === "past"
+              ? fetchDriverJobs(key, {
+                  scope: "range",
+                  from: shiftLondonDate(today, -120),
+                  to: shiftLondonDate(today, -1),
+                })
+              : fetchDriverJobs(key, {
                 date: view === "today" ? today : selectedDate,
               }),
           fetchDriverJobs(key, { scope: "pending", days: 60 }),
@@ -3630,8 +3630,9 @@ export default function DriverPageClient({
                 {([
                   ["today", "Today"],
                   ["upcoming", "Upcoming"],
+                  ...(viewRole === "driver" ? ([["past", "Past jobs"]] as const) : []),
                   ["date", "Pick date"],
-                ] as const).map(([value, label]) => (
+                ] as ReadonlyArray<readonly [DashboardView, string]>).map(([value, label]) => (
                   <button
                     key={value}
                     type="button"
@@ -3677,7 +3678,13 @@ export default function DriverPageClient({
                 </div>
               )}
 
-              {view !== "upcoming" && (
+              {view === "past" && (
+                <p className="mb-4 text-sm text-white/60">
+                  Your jobs from the last 120 days, most recent first.
+                </p>
+              )}
+
+              {view !== "upcoming" && view !== "past" && (
                 <p className="mb-4 text-sm text-white/60">
                   Showing bookings for {formatDateHeading(view === "today" ? today : selectedDate)}
                 </p>
@@ -3700,7 +3707,9 @@ export default function DriverPageClient({
                   {viewRole === "driver"
                     ? view === "upcoming"
                       ? "No jobs assigned to you in the next 60 days. When the owner assigns a job, it will appear at the top for you to accept."
-                      : "No jobs assigned to you for this date yet."
+                      : view === "past"
+                        ? "No past jobs in the last 120 days."
+                        : "No jobs assigned to you for this date yet."
                     : view === "upcoming"
                       ? "No unfinished paid bookings with tracking in the next 60 days."
                       : "No unfinished paid bookings with tracking for this date."}
@@ -3714,7 +3723,7 @@ export default function DriverPageClient({
                   </h2>
                   <p className="mb-4 text-sm text-white/60">
                     {viewRole === "driver"
-                      ? "Accept or decline at any time — live tracking opens on the day of travel."
+                      ? "Accept or decline at any time. The customer is emailed your first name, mobile and partial reg when you accept."
                       : "These jobs are assigned but not yet accepted by the driver."}
                   </p>
                   <div className="space-y-4">
@@ -3765,7 +3774,7 @@ export default function DriverPageClient({
                 <h2 className="mb-4 text-lg font-semibold text-white">Today&apos;s bookings</h2>
               )}
 
-              {view === "upcoming" ? (
+              {view === "upcoming" || view === "past" ? (
                 <div className="space-y-8">
                   {isOwnerView
                     ? groupedOwnerSchedule.map((group) => (

@@ -265,6 +265,9 @@ async function manualCustomerWhatsAppMessage(
   session: DriverSession,
 ): Promise<string | undefined> {
   if (!session.authorized) return undefined;
+  // Assigned drivers never get a WhatsApp message to send: the customer is
+  // emailed instead (on the way / arrived), so nothing opens WhatsApp for them.
+  if (session.role !== "owner") return undefined;
   if (action !== "start_tracking" && action !== "arrived_pickup") return undefined;
 
   const paidBooking =
@@ -532,6 +535,10 @@ export async function handleJourneyTransitionRequest(
   }
 
   let next = applied.job;
+  if (session.authorized && session.role === "driver") {
+    // No live location tracking for assigned drivers: status updates only.
+    next.sharingActive = false;
+  }
   if (session.authorized && session.role === "driver" && session.driverName && next.sharingActive) {
     next.activeDriverName = session.driverName;
   } else if (session.authorized && session.role === "owner" && next.sharingActive) {

@@ -75,9 +75,10 @@ const sampleOwnerJob = {
 };
 
 check("Partial registration helper", () => {
-  assert.equal(formatPartialRegistration("AB12 CDE"), "AB12…");
-  assert.equal(formatPartialRegistration("ABC 1234"), "ABC…");
-  assert.equal(formatPartialRegistration("AB12CDE"), "AB12…");
+  assert.equal(formatPartialRegistration("AB12 CDE"), "AB12 ***");
+  assert.equal(formatPartialRegistration("CR66 ARA"), "CR66 ***");
+  assert.equal(formatPartialRegistration("ABC 1234"), "ABC ***");
+  assert.equal(formatPartialRegistration("AB12CDE"), "AB12 ***");
 });
 
 check("Accepted driver sees customer mobile; pending does not", () => {
@@ -109,7 +110,7 @@ check("Customer-facing vehicle details use partial reg and no driver mobile", ()
     registration: "AB12 CDE",
     updatedAt: new Date().toISOString(),
   });
-  assert.equal(vehicle.registration, "AB12…");
+  assert.equal(vehicle.registration, "AB12 ***");
   assert.equal(vehicle.colour, "Silver");
   assert.equal(vehicle.driverName, "John");
   assert.equal("mobile" in vehicle, false);
@@ -122,7 +123,7 @@ check("Driver on the way email — company voice; no operator or vehicle details
     driverFirstName: "John",
     driverMobile: "07700 900123",
     vehicleColour: "Silver",
-    partialRegistration: "AB12…",
+    partialRegistration: "AB12 ***",
     trackUrl: "https://www.myairporttaxini.co.uk/track/?id=tok-1",
   });
   assert.match(
@@ -157,7 +158,7 @@ check("Driver on the way WhatsApp — company voice, no mobile, no website track
     driverFirstName: "John",
     driverMobile: "07700 900123",
     vehicleColour: "Silver",
-    partialRegistration: "AB12…",
+    partialRegistration: "AB12 ***",
     trackUrl: "https://www.myairporttaxini.co.uk/track/?id=tok-1",
   });
   assert.equal(
@@ -174,13 +175,13 @@ check("Driver on the way WhatsApp — company voice, no mobile, no website track
   const noName = buildDriverOnTheWayWhatsAppMessage({
     bookedPickupTime: "10:30",
     vehicleColour: "Silver",
-    partialRegistration: "AB12…",
+    partialRegistration: "AB12 ***",
   });
   assert.match(noName, /^Hi there, your driver is now on the way/);
   assert.doesNotMatch(noName, /I['’]m your driver/);
 });
 
-check("Customer driver-details email/WhatsApp never include driver mobile", () => {
+check("Customer driver-details email: first name, mobile, partial reg; never pay, fare or full reg", () => {
   const job: BookingJobRecord = {
     id: "job-1",
     createdAt: new Date().toISOString(),
@@ -207,8 +208,15 @@ check("Customer driver-details email/WhatsApp never include driver mobile", () =
     amountPaidLabel: "£120.00",
   };
   const email = buildCustomerDriverDetailsEmail({ job });
-  assert.doesNotMatch(email.text, /07700900999|Mobile:/);
-  assert.doesNotMatch(email.html, /07700900999/);
+  assert.match(email.text, /Driver: John/);
+  assert.match(email.text, /Driver mobile: 07700900999/);
+  assert.match(email.html, /07700900999/);
+  assert.match(email.text, /Registration: AB12 \*\*\*/);
+  assert.doesNotMatch(email.text, /AB12 CDE|CDE/);
+  assert.doesNotMatch(email.html, /AB12 CDE|CDE/);
+  assert.doesNotMatch(email.text, /£80|£120|driver pay/i);
+  assert.doesNotMatch(email.html, /£80|£120/);
+  assert.doesNotMatch(email.text, /wa\.me/);
 
   const wa = buildWhatsAppDriverDetailsLink({
     customerName: "Alex",
@@ -338,7 +346,7 @@ check("Assigned-driver detail resolver still keeps internal mobile for owner/ops
     },
   });
   assert.equal(resolved.driverMobile, "07111111111");
-  assert.equal(resolved.registrationPartial, "XY99…");
+  assert.equal(resolved.registrationPartial, "XY99 ***");
 });
 
 console.log("\nAll driver portal permission / notification checks passed.");

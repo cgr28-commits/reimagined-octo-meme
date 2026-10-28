@@ -148,7 +148,7 @@ const wa = buildDriverOnTheWayWhatsAppMessage({
   driverFirstName: "John",
   driverMobile: "07700 900123",
   vehicleColour: "Silver",
-  partialRegistration: "AB12…",
+  partialRegistration: "AB12 ***",
   trackUrl: "https://www.myairporttaxini.co.uk/track/?id=demo",
 });
 assert.equal(
