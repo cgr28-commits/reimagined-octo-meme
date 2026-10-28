@@ -24,6 +24,10 @@ import {
   buildWhatsAppUnavailableReply,
   buildWhatsAppTeamHandoffReply,
   buildWhatsAppWelcome,
+  describeWhatsAppDraft,
+  describeWhatsAppField,
+  isWhatsAppGreeting,
+  parseWhatsAppMenuChoice,
   WHATSAPP_BUTTONS,
   decideWhatsAppReply,
   detectWhatsAppIntent,
@@ -592,6 +596,42 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   assert.notEqual(decideWhatsAppReply(quoted, "make it 3 passengers", { now }).action, "answer");
   assert.equal(isWhatsAppQuestion("BT9 6AA to BFS Friday 5am"), false);
   assert.equal(isWhatsAppQuestion("can I pay cash"), true);
+}
+
+// Claude-led chat: a hello gets the menu; anything conversational is written by the AI,
+// with the next journey detail passed along; fixed replies stay as the fallback.
+{
+  const now = new Date("2026-10-28T09:00:00Z");
+  const hi = decideWhatsAppReply(null, "Hello 👋", { now, profileName: "Sam Taylor" });
+  assert.equal(hi.action, "none");
+  assert.deepEqual(hi.buttons?.map((b) => b.id), ["txt:menu quote", "txt:menu question", "txt:menu booking"]);
+  assert.match(hi.reply, /^Hi Sam/);
+  assert.equal(isWhatsAppGreeting("good morning!"), true);
+  assert.equal(isWhatsAppGreeting("thanks for the help"), false);
+
+  const chatty = decideWhatsAppReply(null, "thanks, you were great last time", { now });
+  assert.equal(chatty.action, "answer", "non-greeting first message goes to the AI");
+  assert.equal(chatty.buttons, undefined);
+
+  const menuQuote = decideWhatsAppReply(null, "menu quote", { now });
+  assert.equal(menuQuote.action, "none");
+  assert.equal(menuQuote.conversation.awaiting, "pickupAddress");
+  assert.match(menuQuote.reply, /picking up from/);
+  assert.equal(parseWhatsAppMenuChoice("Menu Booking"), "booking");
+  assert.match(decideWhatsAppReply(null, "menu question", { now }).reply, /what would you like to know/);
+
+  const step = decideWhatsAppReply(menuQuote.conversation, "BT9 6AA to Belfast City Airport", { now });
+  assert.equal(step.action, "answer");
+  assert.deepEqual(step.ai, { askFor: "outboundDate", justUpdated: true });
+  assert.match(step.reply, /What date/, "fixed question is the fallback");
+
+  const aside = decideWhatsAppReply(step.conversation, "brilliant, my wife will be travelling too", { now });
+  assert.equal(aside.action, "answer");
+  assert.equal(aside.ai?.askFor, "outboundDate");
+
+  assert.equal(describeWhatsAppField("suitcases"), "how many suitcases (0 is fine)");
+  assert.equal(describeWhatsAppDraft({ pickupAddress: "BT9 6AA", passengers: 2 }), "From: BT9 6AA\nPassengers: 2");
+  console.log("OK  Claude-led chat routing and quick menu");
 }
 
 // Delivery failures reported later by status webhooks are surfaced on /whatsapp/status.

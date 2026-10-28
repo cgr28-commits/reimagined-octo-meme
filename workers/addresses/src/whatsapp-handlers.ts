@@ -45,11 +45,15 @@ import {
   buildWhatsAppQuoteFailedReply,
   buildWhatsAppQuestion,
   buildWhatsAppQuoteReply,
-  buildWhatsAppSummary,
   decideWhatsAppReply,
+  describeWhatsAppDraft,
+  describeWhatsAppField,
   detectWhatsAppIntent,
+  nextMissingField,
+  parseWhatsAppMenuChoice,
   WHATSAPP_QUOTED_BUTTONS,
   whatsAppDraftToQuoteBody,
+  type WhatsAppAiTask,
   type WhatsAppConversation,
   type WhatsAppJourneyLeg,
   type WhatsAppQuoteDraft,
@@ -416,6 +420,12 @@ async function handleInboundMessage(
     return;
   }
 
+  // "My booking" menu button: the bookings made with this WhatsApp number.
+  if (parseWhatsAppMenuChoice(message.text) === "booking") {
+    await replyWithBookingDetails(env, store, phone, null);
+    return;
+  }
+
   // "Where do I get picked up?": answer from the paid booking.
   const bookingRef = extractCustomerBookingReference(message.text);
   if (isWhatsAppPickupLocationQuestion(message.text)) {
@@ -449,9 +459,13 @@ async function handleInboundMessage(
   }
 
   if (decision.action === "answer") {
-    const answered = await answerCustomerQuestion(env, store, phone, message.text, conversation);
+    const answered = await answerCustomerQuestion(env, store, phone, message.text, conversation, decision.ai ?? {});
     if (answered) {
       text = answered.text;
+      // The AI asked for journey details to start a quote: bare replies now fill them.
+      if (answered.startQuote && conversation.stage === "collecting" && !conversation.awaiting) {
+        conversation.awaiting = nextMissingField(conversation.draft) ?? undefined;
+      }
       if (answered.handoff && !isTeamPhone) {
         await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, false);
       }
@@ -721,40 +735,56 @@ async function notifyOwnerOfHandoff(
 }
 
 /**
- * AI answer to a customer's question (website FAQs/terms only). Re-asks the pending
- * journey question afterwards so the quote keeps moving. Null keeps the fallback reply.
+ * Claude-led reply (website FAQs/terms only): responds to whatever the customer said
+ * and, mid-quote, asks for the next journey detail in its own words. Null keeps the
+ * fixed fallback reply.
  */
 async function answerCustomerQuestion(
   env: WhatsAppEnv,
   store: KVNamespace,
   phone: string,
-  question: string,
+  message: string,
   conversation: WhatsAppConversation,
-): Promise<{ text: string; handoff: boolean } | null> {
+  task: WhatsAppAiTask,
+): Promise<{ text: string; handoff: boolean; startQuote: boolean } | null> {
   try {
     const chat = await getWhatsAppChat(store, phone);
-    // The question itself was just logged; send the turns before it for context.
+    // The message itself was just logged; send the turns before it for context.
     const recentChat = (chat?.messages ?? [])
-      .slice(-9, -1)
+      .slice(-11, -1)
       .map((m) => `${m.from === "customer" ? "Customer" : "Assistant"}: ${m.text.slice(0, 500)}`)
       .join("\n");
     const draft = conversation.draft;
-    const journeySummary = Object.keys(draft).length
-      ? buildWhatsAppSummary(draft) +
-        (conversation.lastQuoteAmountLabel ? `\nQuoted price: ${conversation.lastQuoteAmountLabel}` : "")
-      : undefined;
-    const answer = await answerWhatsAppQuestion(env, question, { journeySummary, recentChat });
+    const collected = describeWhatsAppDraft(draft);
+    const answer = await answerWhatsAppQuestion(env, message, {
+      recentChat,
+      journey: collected
+        ? {
+            collected,
+            stage: conversation.stage,
+            quotedPrice: conversation.lastQuoteAmountLabel,
+          }
+        : undefined,
+      askFor:
+        task.askFor && conversation.stage === "collecting"
+          ? {
+              detail: describeWhatsAppField(task.askFor),
+              example: buildWhatsAppQuestion(task.askFor),
+              justUpdated: Boolean(task.justUpdated),
+            }
+          : undefined,
+    });
     if (!answer) return null;
-    logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff });
+    logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff, askFor: task.askFor ?? null });
 
     let text = answer.text;
     if (answer.handoff) {
       text += `\n\nI've passed this to our team and they'll reply to you here shortly.`;
+    } else if (task.askFor && task.justUpdated && conversation.stage === "collecting" && !text.includes("?")) {
+      // Safety net: the quote must keep moving when the customer is giving details.
+      text += `\n\n${buildWhatsAppQuestion(task.askFor)}`;
     }
-    if (conversation.stage === "collecting" && conversation.awaiting) {
-      text += `\n\n${buildWhatsAppQuestion(conversation.awaiting)}`;
-    }
-    return { text, handoff: answer.handoff };
+    return { text, handoff: answer.handoff, startQuote: answer.startQuote };
   } catch (err) {
     logEvent("whatsapp_ai_answer_failed", phone, { error: err instanceof Error ? err.message : String(err) });
     return null;
