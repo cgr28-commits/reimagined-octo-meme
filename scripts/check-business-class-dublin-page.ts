@@ -41,14 +41,13 @@ console.log("=== Metadata ===");
 {
   assert.equal(BUSINESS_CLASS_DUBLIN_PATH, "/transfers/business-class-dublin-airport/");
   assert.equal(BUSINESS_CLASS_DUBLIN_H1, "Business Class Dublin Airport Transfers");
-  // Search headline targets Belfast ↔ Dublin executive searches (owner, Oct 2026); H1 unchanged.
-  assert.equal(BUSINESS_CLASS_DUBLIN_SEO_TITLE, "Business Class Belfast–Dublin Airport Taxi | Executive Car");
-  assert.ok(BUSINESS_CLASS_DUBLIN_SEO_TITLE.length <= 60);
-  assert.match(BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION, /Belfast and Dublin Airport/);
-  assert.ok(BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION.length <= 160);
-  assert.doesNotMatch(BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION, /chauffeur/i);
+  assert.equal(BUSINESS_CLASS_DUBLIN_SEO_TITLE, BUSINESS_CLASS_DUBLIN_H1);
+  assert.equal(
+    BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION,
+    "Upgrade your Dublin Airport transfer with Business Class. Enjoy extra comfort, luggage assistance, bottled water and fixed fares. Book online.",
+  );
   assert.equal(page.match(/<h1\b/g)?.length, 1);
-  assert.match(page, /title: \{ absolute: BUSINESS_CLASS_DUBLIN_SEO_TITLE \}/);
+  assert.match(page, /title: `\$\{BUSINESS_CLASS_DUBLIN_SEO_TITLE\} \| \$\{SITE\.name\}`/);
   assert.equal(SITE.name, "My Airport Taxi NI");
   assert.match(page, /canonical: BUSINESS_CLASS_DUBLIN_PATH/);
   assert.doesNotMatch(page, /noindex|index:\s*false/);
@@ -113,7 +112,7 @@ console.log("\n=== Internal links ===");
   assert.match(transferPage, /page\.slug === "dublin-airport-to-belfast"/);
   assert.equal(
     transferPage.match(/href="\/transfers\/business-class-dublin-airport\/"/g)?.length,
-    3,
+    2,
   );
   assert.match(vehicles, /href="\/transfers\/business-class-dublin-airport\/"/);
   assert.match(page, /href="\/transfers\/belfast-to-dublin-airport\/"/);

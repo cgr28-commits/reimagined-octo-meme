@@ -196,18 +196,6 @@ export default async function TransferRoutePage({ params }: Props) {
                 <Link href="/airports/dublin/" className="text-emerald underline underline-offset-4">Dublin Airport transfer guide</Link>.
               </p>
             ) : null}
-            {page.slug === "belfast-to-dublin-airport" || page.slug === "dublin-airport-to-belfast" ? (
-              <div className="mt-5 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-4">
-                <p className="text-sm font-semibold text-white">Travelling for business?</p>
-                <p className="mt-1 text-sm leading-relaxed text-white/75">
-                  Upgrade to{" "}
-                  <Link href="/transfers/business-class-dublin-airport/" className="font-semibold text-emerald underline underline-offset-4">
-                    Business Class between Belfast and Dublin Airport
-                  </Link>
-                  : a premium executive vehicle, luggage assistance, bottled water and phone charging, with Meet &amp; Greet and a name board when we collect you from Dublin Airport.
-                </p>
-              </div>
-            ) : null}
             {page.airport.code === "BFS" ? (
               <p className="mt-4 text-sm leading-relaxed text-white/70">
                 Planning your {page.town.name} journey? Our{" "}
@@ -455,7 +443,7 @@ export default async function TransferRoutePage({ params }: Props) {
                   href="/transfers/business-class-dublin-airport/"
                   className="text-emerald hover:text-emerald-light"
                 >
-                  Business Class Belfast–Dublin executive transfers
+                  Business Class Dublin Airport transfers
                 </Link>{" "}
                 sets out what is included on a pickup and on a drop-off.
               </p>
@@ -481,7 +469,7 @@ export default async function TransferRoutePage({ params }: Props) {
                   href="/transfers/business-class-dublin-airport/"
                   className="text-emerald hover:text-emerald-light"
                 >
-                  Business Class Belfast–Dublin executive transfers
+                  Business Class Dublin Airport transfers
                 </Link>{" "}
                 sets out what is included on a pickup and on a drop-off.
               </p>

@@ -7,11 +7,10 @@ export const BUSINESS_CLASS_DUBLIN_PATH = "/transfers/business-class-dublin-airp
 
 export const BUSINESS_CLASS_DUBLIN_H1 = "Business Class Dublin Airport Transfers";
 
-/** Search headline (full <title>, no brand suffix): Belfast ↔ Dublin executive searches. */
-export const BUSINESS_CLASS_DUBLIN_SEO_TITLE = "Business Class Belfast–Dublin Airport Taxi | Executive Car";
+export const BUSINESS_CLASS_DUBLIN_SEO_TITLE = "Business Class Dublin Airport Transfers";
 
 export const BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION =
-  "Executive Business Class car between Belfast and Dublin Airport, either way. Meet & Greet with a name board on arrival, luggage help, fixed fare. Book online.";
+  "Upgrade your Dublin Airport transfer with Business Class. Enjoy extra comfort, luggage assistance, bottled water and fixed fares. Book online.";
 
 export const BUSINESS_CLASS_DUBLIN_WHATSAPP =
   "Hi, I'd like a quote for a Business Class Dublin Airport transfer.";
