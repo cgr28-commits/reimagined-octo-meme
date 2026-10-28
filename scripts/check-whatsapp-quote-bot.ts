@@ -289,7 +289,7 @@ async function main() {
   );
   assert.equal(parsed.messages[1].text, "");
   assert.deepEqual(parsed.echoes, [{ id: "wamid.3", to: "447700900999", timestamp: 3 }]);
-  assert.deepEqual(parseWhatsAppWebhook({ object: "page" }), { messages: [], echoes: [] });
+  assert.deepEqual(parseWhatsAppWebhook({ object: "page" }), { messages: [], echoes: [], failures: [] });
 
   console.log("=== Date / time helpers ===");
   assert.deepEqual(extractClockTimes("Friday at 5am"), ["05:00"]);
@@ -592,4 +592,19 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   assert.notEqual(decideWhatsAppReply(quoted, "make it 3 passengers", { now }).action, "answer");
   assert.equal(isWhatsAppQuestion("BT9 6AA to BFS Friday 5am"), false);
   assert.equal(isWhatsAppQuestion("can I pay cash"), true);
+}
+
+// Delivery failures reported later by status webhooks are surfaced on /whatsapp/status.
+{
+  const parsed = parseWhatsAppWebhook({
+    object: "whatsapp_business_account",
+    entry: [{ changes: [{ field: "messages", value: { statuses: [
+      { id: "wamid.ok", status: "delivered", recipient_id: "447700900123" },
+      { id: "wamid.bad", status: "failed", recipient_id: "447700900123", timestamp: "1", errors: [{ code: 131037, title: "Display name approval", error_data: { details: "needs display name approval" } }] },
+    ] } }] }],
+  });
+  if (parsed.failures.length !== 1 || parsed.failures[0].code !== 131037 || !parsed.failures[0].error.includes("131037")) {
+    throw new Error("status webhook failure not parsed");
+  }
+  console.log("OK  failed delivery statuses are parsed for diagnostics");
 }
