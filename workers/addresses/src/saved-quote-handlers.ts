@@ -241,6 +241,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   const positioning = await resolvePositioningChargeGbp({
     settings: ownerProfitability,
     airportTransfer: isAirportTrip && Boolean(airportCode),
+    addressToAddress: !isAirportTrip,
     fromAirport: Boolean(journey.isFromAirport),
     pickup: paymentRoute?.ok ? paymentRoute.pickup : null,
     dropoff: paymentRoute?.ok ? paymentRoute.dropoff : null,

@@ -76,9 +76,9 @@ export type QuoteServiceInput = {
   /** Owner/Driver Quick Quote — public Minibus OFF must not block this path. */
   ownerMode?: boolean;
   /**
-   * Worker-computed drive-to-pickup charge (whole £) added to each address ↔
-   * airport leg's vehicle fare. Only the Worker sets this, from server-resolved
-   * coordinates. Omitted / 0 everywhere else.
+   * Worker-computed drive-to-pickup charge (whole £) added to each leg's
+   * vehicle fare (address ↔ airport, or address-to-address). Only the Worker
+   * sets this, from server-resolved coordinates. Omitted / 0 everywhere else.
    */
   positioningChargeGbp?: number;
 };
@@ -380,6 +380,7 @@ export function calculateAuthoritativeWebsiteQuote(
       null,
       undefined,
       input.pricing,
+      { positioningChargeGbp: input.positioningChargeGbp },
     );
   }
 

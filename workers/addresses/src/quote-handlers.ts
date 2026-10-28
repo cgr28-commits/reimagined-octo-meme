@@ -617,6 +617,7 @@ export async function handleQuoteCalculateRequest(
     const positioning = await resolvePositioningChargeGbp({
       settings: pricing.profitability,
       airportTransfer: Boolean(airportCode),
+      addressToAddress: !airportCode,
       fromAirport: Boolean(fromAirport),
       pickup: serverPickup,
       dropoff: serverDropoff,

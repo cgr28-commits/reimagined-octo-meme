@@ -228,6 +228,11 @@ export async function processDueReturnOffers(
   const config = resolveReturnOfferConfig(env);
   const now = new Date();
 
+  // Owner pause: no automatic offer emails and nothing newly scheduled.
+  if (config.automaticEmailsPaused) {
+    return result;
+  }
+
   const recent = await listRecentPaidBookings(store, { days: 90, limit: 200 });
   const snapshots = recent.map(paidBookingToReturnOfferSnapshot);
   const byRef = new Map(snapshots.map((row) => [row.paymentReference, row]));

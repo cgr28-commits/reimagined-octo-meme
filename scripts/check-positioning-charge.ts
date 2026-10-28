@@ -11,8 +11,11 @@ import path from "node:path";
 import {
   defaultProfitabilitySettings,
   diffProfitabilitySettings,
+  isA2aPositioningChargeActive,
+  isAirportPositioningChargeActive,
   isPositioningChargeActive,
   normalizeProfitabilitySettings,
+  positioningA2aChargeFromMilesGbp,
   positioningChargeFromMilesGbp,
   validateProfitabilitySettings,
   type ProfitabilitySettings,
@@ -36,6 +39,13 @@ const ON: ProfitabilitySettings = {
   positioningChargeEnabled: true,
   positioningFreeMiles: 4,
   positioningRatePerMileGbp: 1,
+};
+
+const A2A_ON: ProfitabilitySettings = {
+  ...defaultProfitabilitySettings(),
+  positioningA2aEnabled: true,
+  positioningA2aFreeMiles: 4,
+  positioningA2aRatePerMileGbp: 0.5,
 };
 
 async function main() {
@@ -79,6 +89,31 @@ async function main() {
   const audit = diffProfitabilitySettings(defaults, ON).map((change) => change.setting);
   assert.deepEqual(audit, ["Drive-to-pickup charge"]);
 
+  // Address-to-address: separate switch, OFF by default, own free miles/rate.
+  assert.equal(defaults.positioningA2aEnabled, false);
+  assert.equal(defaults.positioningA2aFreeMiles, 4);
+  assert.equal(defaults.positioningA2aRatePerMileGbp, 0.5);
+  assert.equal(isA2aPositioningChargeActive(defaults), false);
+  assert.equal(isA2aPositioningChargeActive(A2A_ON), true);
+  assert.equal(isAirportPositioningChargeActive(A2A_ON), false, "A2A switch leaves airport OFF");
+  assert.equal(isA2aPositioningChargeActive(ON), false, "airport switch leaves A2A OFF");
+  assert.equal(isPositioningChargeActive(A2A_ON), true, "either switch needs server routing");
+  assert.equal(legacy.positioningA2aEnabled, false, "settings saved before A2A read back OFF");
+  const a2aValid = validateProfitabilitySettings({ ...A2A_ON, positioningA2aFreeMiles: 8, positioningA2aRatePerMileGbp: 0.75 });
+  assert.ok(a2aValid.ok && a2aValid.settings.positioningA2aRatePerMileGbp === 0.75);
+  for (const bad of [
+    { positioningA2aFreeMiles: -1 },
+    { positioningA2aFreeMiles: 31 },
+    { positioningA2aRatePerMileGbp: 5.01 },
+    { positioningA2aEnabled: "on" },
+  ]) {
+    assert.equal(validateProfitabilitySettings({ ...A2A_ON, ...bad }).ok, false, `should reject ${JSON.stringify(bad)}`);
+  }
+  assert.deepEqual(
+    diffProfitabilitySettings(defaults, A2A_ON).map((change) => change.setting),
+    ["Address-to-address drive charge"],
+  );
+
   console.log("=== Charge maths: free radius, whole pounds ===");
   assert.equal(positioningChargeFromMilesGbp(3.9, ON), 0);
   assert.equal(positioningChargeFromMilesGbp(4, ON), 0);
@@ -88,6 +123,12 @@ async function main() {
   assert.equal(positioningChargeFromMilesGbp(10, { ...ON, positioningRatePerMileGbp: 1.25 }), 8);
   assert.equal(positioningChargeFromMilesGbp(10, defaults), 0, "OFF never charges");
   assert.equal(positioningChargeFromMilesGbp(Number.NaN, ON), 0);
+  assert.equal(positioningChargeFromMilesGbp(10, A2A_ON), 0, "airport maths ignores the A2A switch");
+  // Glenarm is ~29 road miles from base: (29 − 4) × £0.50 = £12.50 → £13.
+  assert.equal(positioningA2aChargeFromMilesGbp(29, A2A_ON), 13);
+  assert.equal(positioningA2aChargeFromMilesGbp(4, A2A_ON), 0);
+  assert.equal(positioningA2aChargeFromMilesGbp(29, ON), 0, "A2A maths ignores the airport switch");
+  assert.equal(positioningA2aChargeFromMilesGbp(29, defaults), 0);
 
   console.log("=== Fare engine: OFF / 0 is byte-identical ===");
   const pricing = defaultOwnerPricingSettings();
@@ -130,6 +171,25 @@ async function main() {
             });
           }
         }
+      }
+    }
+  }
+  // Address-to-address scenarios: one-way / return, day / night, every vehicle.
+  for (const returnJourney of [false, true]) {
+    for (const outboundTime of ["10:00", "23:30"]) {
+      for (const vehicleType of vehicles) {
+        scenarios.push({
+          airportCode: null,
+          fromAirport: false,
+          returnJourney,
+          outboundTime,
+          returnDate: returnJourney ? "2026-11-18" : undefined,
+          returnTime: returnJourney ? "14:00" : undefined,
+          vehicleType,
+          pickupAddress: "Belfast Grand Central Station, Belfast",
+          dropoffAddress: "Channel Vista, Glenarm, UK",
+          routeMetrics: { distanceKm: 52, durationMinutes: 50 },
+        });
       }
     }
   }
@@ -222,19 +282,47 @@ async function main() {
     assert.equal(fixedCharged.amount, fixed.amount, "postcode fixed fare unchanged");
   }
 
-  // Address-to-address has no airport leg and ignores the field.
-  const a2a = calculateAuthoritativeWebsiteQuote({
+  // Address-to-address: the charge composes into the point-to-point fare.
+  const a2aInput: QuoteServiceInput = {
     ...base,
     airportCode: null,
-    dropoffAddress: "Holywood Library, 86-88 High St, Holywood BT18 9AE, UK",
-  });
-  const a2aCharged = calculateAuthoritativeWebsiteQuote({
-    ...base,
-    airportCode: null,
-    dropoffAddress: "Holywood Library, 86-88 High St, Holywood BT18 9AE, UK",
-    positioningChargeGbp: 6,
-  });
-  assert.deepEqual(a2aCharged, a2a);
+    pickupAddress: "Belfast Grand Central Station, Belfast",
+    dropoffAddress: "Channel Vista, Glenarm, UK",
+    routeMetrics: { distanceKm: 52, durationMinutes: 50 },
+  };
+  const a2a = calculateAuthoritativeWebsiteQuote(a2aInput);
+  const a2aCharged = calculateAuthoritativeWebsiteQuote({ ...a2aInput, positioningChargeGbp: 13 });
+  assert.ok(a2a.ok && a2aCharged.ok);
+  if (a2a.ok && a2aCharged.ok) {
+    assert.equal(a2aCharged.amount, a2a.amount + 13, "A2A weekday one-way adds exactly £13");
+    assert.equal(a2aCharged.airportFixedCostsGbp ?? 0, a2a.airportFixedCostsGbp ?? 0);
+    console.log(`  Grand Central ↔ Glenarm weekday Saloon: £${a2a.amount} → £${a2aCharged.amount}`);
+  }
+  const a2aReturnInput: QuoteServiceInput = {
+    ...a2aInput,
+    returnJourney: true,
+    returnDate: "2026-11-18",
+    returnTime: "14:00",
+  };
+  const a2aRet = calculateAuthoritativeWebsiteQuote(a2aReturnInput);
+  const a2aRetCharged = calculateAuthoritativeWebsiteQuote({ ...a2aReturnInput, positioningChargeGbp: 13 });
+  assert.ok(a2aRet.ok && a2aRetCharged.ok);
+  if (a2aRet.ok && a2aRetCharged.ok) {
+    const added = Math.round((a2aRetCharged.amount - a2aRet.amount) * 100) / 100;
+    assert.ok(added > 24 && added <= 26, `A2A return adds ~£26 less 5% (got £${added})`);
+  }
+  // Airport-to-airport never takes the charge (the field is ignored there).
+  const a2aBreakdown = a2aCharged.ok
+    ? composeWebsiteFareBreakdown({
+        journeyFareBeforeAirportAccessGbp: a2aCharged.journeyFareGbp ?? a2aCharged.amount,
+        nightWeekendSurchargeGbp: a2aCharged.nightWeekendSurchargeGbp ?? 0,
+        airportFixedCostsGbp: a2aCharged.airportFixedCostsGbp ?? 0,
+        returnJourney: false,
+      })
+    : null;
+  if (a2aBreakdown && a2aCharged.ok) {
+    assert.equal(a2aBreakdown.finalAmountPayableGbp, a2aCharged.amount, "A2A breakdown adds up");
+  }
 
   console.log("=== Worker helper: server points, address end, fail open ===");
   const realFetch = globalThis.fetch;
@@ -256,7 +344,12 @@ async function main() {
     );
     assert.deepEqual(
       await resolvePositioningChargeGbp({ settings: ON, airportTransfer: false, fromAirport: false, pickup: point, dropoff: point }),
-      { chargeGbp: 0, reason: "not_airport_transfer" },
+      { chargeGbp: 0, reason: "not_eligible" },
+    );
+    assert.deepEqual(
+      await resolvePositioningChargeGbp({ settings: ON, airportTransfer: false, addressToAddress: true, fromAirport: false, pickup: point, dropoff: point }),
+      { chargeGbp: 0, reason: "off" },
+      "airport switch alone never charges address-to-address",
     );
     assert.deepEqual(
       await resolvePositioningChargeGbp({ settings: ON, airportTransfer: true, fromAirport: false, pickup: null, dropoff: airport }),
@@ -272,7 +365,34 @@ async function main() {
     assert.deepEqual(fromAirport, { chargeGbp: 8, reason: null });
     assert.ok(lastUrl.includes(`${fromAirportPoint.lng},${fromAirportPoint.lat}`), "routes to the drop-off when coming from the airport");
 
+    // Address-to-address: charge the end further from base, same both ways.
+    const grandCentral = { lat: 54.5951, lng: -5.9381 };
+    const glenarm = { lat: 54.9661, lng: -5.9558 };
+    globalThis.fetch = (async (url: string | URL) => {
+      const text = String(url);
+      const miles = text.includes(`${glenarm.lng},${glenarm.lat}`) ? 29 : 7;
+      return new Response(
+        JSON.stringify({ routes: [{ distance: (miles / 0.621371) * 1000, duration: 1800 }] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+    const outbound = await resolvePositioningChargeGbp({ settings: A2A_ON, airportTransfer: false, addressToAddress: true, fromAirport: false, pickup: grandCentral, dropoff: glenarm });
+    const inbound = await resolvePositioningChargeGbp({ settings: A2A_ON, airportTransfer: false, addressToAddress: true, fromAirport: false, pickup: glenarm, dropoff: grandCentral });
+    assert.deepEqual(outbound, { chargeGbp: 13, reason: null }, "far end (Glenarm, 29 mi) sets the charge");
+    assert.deepEqual(inbound, outbound, "same price whichever way round it is booked");
+    assert.deepEqual(
+      await resolvePositioningChargeGbp({ settings: A2A_ON, airportTransfer: true, fromAirport: false, pickup: grandCentral, dropoff: airport }),
+      { chargeGbp: 0, reason: "off" },
+      "A2A switch alone never charges airport transfers",
+    );
+    assert.deepEqual(
+      await resolvePositioningChargeGbp({ settings: A2A_ON, airportTransfer: false, addressToAddress: true, fromAirport: false, pickup: null, dropoff: glenarm }),
+      { chargeGbp: 0, reason: "missing_point" },
+    );
+
     globalThis.fetch = (async () => new Response("down", { status: 503 })) as typeof fetch;
+    const a2aOutage = await resolvePositioningChargeGbp({ settings: A2A_ON, airportTransfer: false, addressToAddress: true, fromAirport: false, pickup: { lat: 54.61, lng: -5.91 }, dropoff: { lat: 54.9, lng: -5.95 } });
+    assert.deepEqual(a2aOutage, { chargeGbp: 0, reason: "routing_failed" }, "A2A routing outage never blocks a booking");
     const outage = await resolvePositioningChargeGbp({ settings: ON, airportTransfer: true, fromAirport: false, pickup: { lat: 54.6, lng: -5.9 }, dropoff: airport });
     assert.deepEqual(outage, { chargeGbp: 0, reason: "routing_failed" }, "routing outage never blocks a booking");
   } finally {
@@ -302,6 +422,15 @@ async function main() {
       /pickup: positioningRoute\?\.ok \? positioningRoute\.pickup : null/.test(quickQuote),
     "quick quotes (owner + WhatsApp) price the charge from server-resolved coordinates",
   );
+
+  for (const file of [
+    "workers/addresses/src/quote-handlers.ts",
+    "workers/addresses/src/index.ts",
+    "workers/addresses/src/saved-quote-handlers.ts",
+    "workers/addresses/src/quick-quote-handlers.ts",
+  ]) {
+    assert.ok(read(file).includes("addressToAddress:"), `${file} passes the address-to-address flag`);
+  }
 
   console.log("PASS");
 }

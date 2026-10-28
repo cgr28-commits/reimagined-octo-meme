@@ -635,6 +635,14 @@ export function calculatePointToPointQuote(
     dropoff?: { address?: string | null; placeName?: string | null; lat?: number | null; lng?: number | null; postalCode?: string | null };
   },
   pricing?: QuotePricingConfig,
+  options: {
+    /**
+     * Worker-only drive-to-pickup charge (whole £) for address-to-address jobs,
+     * added to each leg's fare before surcharges and the return discount.
+     * Browser callers never pass this.
+     */
+    positioningChargeGbp?: number;
+  } = {},
 ): QuoteResult | null {
   const pickup = pickupAddress.trim();
   const dropoff = dropoffAddress.trim();
@@ -662,7 +670,12 @@ export function calculatePointToPointQuote(
     saloonFloorMiles: engine.saloonFloorMiles,
     saloonKnots: engine.saloonKnots,
   });
-  const oneWay = universal.journeyFareGbp;
+  const positioningCharge =
+    Number.isFinite(options.positioningChargeGbp) && (options.positioningChargeGbp ?? 0) > 0
+      ? Math.round(options.positioningChargeGbp as number)
+      : 0;
+  // Whole-pound addition only: with the charge OFF (0) fares are byte-identical.
+  const oneWay = universal.journeyFareGbp + positioningCharge;
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
   const vehicleAdjustment = universal.vehicleAdjustmentGbp;
 
