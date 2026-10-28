@@ -37,11 +37,11 @@ export const SITE_PUBLIC_SEO_BLURB =
 export const SITE_PUBLIC_SEO_DESCRIPTION = `${SITE_PUBLIC_SEO_BLURB} Airport pickup and drop-off, flight monitoring, and secure online booking across Northern Ireland and beyond.`;
 
 /** Homepage `<title>` — keep exact; other pages must stay unique. */
-export const HOMEPAGE_SEO_TITLE = "Belfast Airport Transfers | My Airport Taxi NI";
+export const HOMEPAGE_SEO_TITLE = "Airport Taxi Belfast, NI & Ireland | My Airport Taxi NI";
 
 /** Homepage meta description — waiting applies to airport pickups only. */
 export const HOMEPAGE_SEO_DESCRIPTION =
-  "Belfast and Northern Ireland airport transfers at a fixed price, with flight monitoring and up to 60 minutes’ complimentary waiting on airport pickups.";
+  "Fixed-price airport, rail and cruise taxis across Belfast, Northern Ireland and Ireland, with up to 60 minutes’ complimentary waiting on airport pickups.";
 
 /**
  * Temporary public holding page. When enabled and before `until`, the site shows
