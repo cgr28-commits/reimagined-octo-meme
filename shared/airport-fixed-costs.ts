@@ -343,7 +343,7 @@ export function requiredAirportAccessNotice(input: {
     if (charges.length === 0) return null;
     const meeting =
       costs.airportCode === "DUB"
-        ? " You'll meet your driver at the airport's paid pick-up location."
+        ? " Your driver will meet you in Arrivals."
         : "";
     return {
       heading: "Airport pickup",

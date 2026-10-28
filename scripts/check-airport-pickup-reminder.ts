@@ -220,9 +220,9 @@ console.log("=== Dublin terminals ===");
       flightNumber: "EI164",
     }),
   );
-  assert.match(terminal1, /After collecting your baggage, please contact your driver/);
+  assert.match(terminal1, /After collecting your baggage, please wait in Arrivals for your driver/);
   assert.match(terminal1, /Dublin Airport/);
-  assert.match(terminal1, /Collection option: Paid pickup/);
+  assert.match(terminal1, /Collection option: Meet in Arrivals/);
   assert.doesNotMatch(terminal1, /Flight:/);
   assert.doesNotMatch(terminal1, /Long Stay|Free Pick-Up|Free Pickup/i);
   assertCompanyReminder(terminal1);
@@ -245,8 +245,9 @@ console.log("=== Dublin terminals ===");
       outboundAirportAccessOption: null,
     }),
   );
-  assert.match(terminal2, /message on WhatsApp advising which car park to proceed to/);
-  assert.match(terminal2, /Collection option: Paid pickup/);
+  assert.match(terminal2, /wait in Arrivals for your driver/);
+  assert.doesNotMatch(terminal2, /car park/i);
+  assert.match(terminal2, /Collection option: Meet in Arrivals/);
   assert.doesNotMatch(terminal2, /Terminal 1/);
   assert.doesNotMatch(terminal2, /Long Stay|Free Pick-Up/i);
   assertCompanyReminder(terminal2);
@@ -268,11 +269,11 @@ console.log("=== Dublin terminals ===");
     }),
   );
   assert.ok(unknown);
-  assert.match(unknown, /After collecting your baggage, please contact your driver/);
+  assert.match(unknown, /After collecting your baggage, please wait in Arrivals for your driver/);
   assert.doesNotMatch(unknown, /10 minutes|maximum stay|limited waiting/i);
   assert.doesNotMatch(unknown, /Terminal 1|Terminal 2/);
   assert.doesNotMatch(unknown, /Long Stay|Free Pick-Up/i);
-  console.log("OK  Dublin asks passengers to contact their driver after baggage and await WhatsApp car-park instructions");
+  console.log("OK  Dublin passengers wait in Arrivals for their driver");
 }
 
 console.log("=== Eligibility ===");

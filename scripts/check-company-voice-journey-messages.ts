@@ -291,21 +291,12 @@ check("Airport pickup rules: BFS/BHD Express, Long Stay free, Dublin T1/T2/unkno
     "Please make your way to the Long Stay Car Park Free Pick-Up Location. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Free Pick-Up Location.",
   );
   assert.equal(bhdFree, bfsFree);
-  assert.equal(
-    dubT1,
-    "Please make your way to the paid Pick-Up Location at Terminal 1. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
-  );
-  assert.equal(
-    dubT2,
-    "Please make your way to the paid Pick-Up Location at Terminal 2. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
-  );
-  assert.equal(
-    dubUnknown,
-    "Please make your way to the agreed paid Pick-Up Location at Dublin Airport. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location. Your arrival terminal still needs confirmation.",
-  );
+  // Every Dublin customer is met in Arrivals, whatever the terminal.
+  assert.equal(dubT1, AIRPORT_PICKUP_COPY.dubArrivals);
+  assert.equal(dubT2, AIRPORT_PICKUP_COPY.dubArrivals);
+  assert.equal(dubUnknown, AIRPORT_PICKUP_COPY.dubArrivals);
   assert.match(String(bfsFree), /maximum stay of 10 minutes/);
-  assert.match(String(dubT1), /maximum stay of 10 minutes/);
-  assert.match(String(dubUnknown), /needs confirmation/);
+  assert.match(String(dubT1), /wait in Arrivals/);
   assert.equal(street, null);
 
   const airportWhatsApps = [
@@ -327,15 +318,15 @@ check("Airport pickup rules: BFS/BHD Express, Long Stay free, Dublin T1/T2/unkno
   );
   assert.equal(
     airportWhatsApps[4],
-    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.dubT1}`,
+    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.dubArrivals}`,
   );
   assert.equal(
     airportWhatsApps[5],
-    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.dubT2}`,
+    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.dubArrivals}`,
   );
   assert.equal(
     airportWhatsApps[6],
-    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.dubUnknown}`,
+    `${AIRPORT_PICKUP_HEADING}\n\n${AIRPORT_PICKUP_COPY.dubArrivals}`,
   );
 
   for (const message of airportWhatsApps) {
