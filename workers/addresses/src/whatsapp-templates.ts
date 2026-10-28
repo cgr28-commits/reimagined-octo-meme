@@ -180,7 +180,7 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
             body_text: [[
               "Sarah",
               "Belfast International Airport",
-              "Please make your way to the Long Stay Car Park Free Pick-Up Location. Please let us know when you're there so your driver can head over to meet you.",
+              "After collecting your baggage, please make your way to the airport's Drop-Off Zone, which is signposted outside the terminal. Once you are there, contact your driver.",
             ]],
           },
         },
@@ -191,7 +191,7 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
               type: "URL",
               text: "Where to go",
               url: `${SITE}/{{1}}`,
-              example: [`${SITE}/pickup/belfast-international-long-stay/`],
+              example: [`${SITE}/maps/belfast-international-pick-up-drop-off.jpg`],
             },
           ],
         },
@@ -543,7 +543,7 @@ export function sendAirportPickupWhatsApp(
 
 /**
  * Driver tapped Arrived. Airport pickups get the directions and the map of where to go
- * (free Long Stay page, Express map, Dublin car parks); other pickups a short notice.
+ * (Express map, else the airport guide); other pickups a short notice.
  */
 export function sendDriverArrivedWhatsApp(
   env: WhatsAppTemplateEnv,
@@ -593,22 +593,13 @@ const AIRPORT_GUIDE_PATHS: Record<string, string> = {
   LDY: "airports/city-of-derry/",
 };
 
-const FREE_PICKUP_PATHS: Record<string, string> = {
-  BFS: "pickup/belfast-international-long-stay/",
-  BHD: "pickup/belfast-city-long-stay/",
-};
-
-/**
- * Path after the site origin for the map button: the free Long Stay page for free
- * pickups at BFS/BHD, else the map image (Express / Dublin), else the airport guide.
- */
+/** Path after the site origin for the map button: the Express map image, else the airport guide. */
 export function airportPickupLinkPath(input: {
   airportCode: string | null | undefined;
   access?: string | null;
   mapImageUrl?: string | null;
 }): string {
   const code = String(input.airportCode ?? "").toUpperCase();
-  if (input.access === "free" && FREE_PICKUP_PATHS[code]) return FREE_PICKUP_PATHS[code];
   const map = String(input.mapImageUrl ?? "").trim();
   if (map.startsWith(`${SITE}/`)) return map.slice(SITE.length + 1);
   return AIRPORT_GUIDE_PATHS[code] ?? "airports/";

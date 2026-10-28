@@ -130,7 +130,8 @@ export async function sendArrivalNotificationIfNeeded(
         ? await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference)
         : null;
     const pickup = airportPickupContext(airportPickupReminderInput(job, paid));
-    await sendDriverArrivedWhatsApp(env, {
+    // Free Long Stay pick-ups: on hold (owner, Oct 2026) until the free pick-up maps are agreed.
+    if (pickup?.access !== "free") await sendDriverArrivedWhatsApp(env, {
       jobKey: job.token,
       customerName: job.customerName || paid?.customerName,
       mobile: job.customerMobile || paid?.mobileNumber,

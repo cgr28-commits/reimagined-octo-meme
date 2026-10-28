@@ -196,10 +196,9 @@ async function main() {
   }
   console.log("OK  bookings without a usable mobile are skipped");
 
-  // Airport pickup: directions + map button (free Long Stay page, Express map, else airport guide).
+  // Airport pickup: directions + map button (Express map, else airport guide).
   {
-    assert.equal(airportPickupLinkPath({ airportCode: "BFS", access: "free" }), "pickup/belfast-international-long-stay/");
-    assert.equal(airportPickupLinkPath({ airportCode: "BHD", access: "free" }), "pickup/belfast-city-long-stay/");
+    assert.equal(airportPickupLinkPath({ airportCode: "DUB", access: "meet-greet" }), "airports/dublin/");
     assert.equal(
       airportPickupLinkPath({ airportCode: "BFS", access: "express", mapImageUrl: "https://www.myairporttaxini.co.uk/maps/belfast-international-pick-up-drop-off.jpg" }),
       "maps/belfast-international-pick-up-drop-off.jpg",
@@ -214,8 +213,8 @@ async function main() {
       tripDate: "2026-10-31",
       tripTime: "14:30",
       airportName: "Belfast International Airport",
-      directions: "Please make your way to the Long Stay Car Park\nFree Pick-Up Location.",
-      linkPath: "pickup/belfast-international-long-stay/",
+      directions: "Please make your way to the Drop-Off Zone,\nsignposted outside the terminal.",
+      linkPath: "maps/belfast-international-pick-up-drop-off.jpg",
     }, fake360({ mat_airport_pickup: "approved" }, calls));
     assert.equal(r.sent, true);
     const body = calls.find((c) => c.url.endsWith("/messages"))?.body as {
@@ -223,7 +222,7 @@ async function main() {
     };
     assert.equal(body.template.components[0].parameters[1].text, "Sat 31 Oct at 14:30");
     assert.doesNotMatch(body.template.components[0].parameters[3].text, /\n/);
-    assert.equal(body.template.components[1].parameters[0].text, "pickup/belfast-international-long-stay/");
+    assert.equal(body.template.components[1].parameters[0].text, "maps/belfast-international-pick-up-drop-off.jpg");
   }
   console.log("OK  airport pickup message carries directions and the map link");
 
@@ -237,12 +236,12 @@ async function main() {
       customerName: "Sarah",
       mobile: "07377515059",
       pickupLabel: "Belfast City Airport",
-      airport: { airportName: "George Best Belfast City Airport", directions: "Please make your way to the Long Stay Car Park Free Pick-Up Location.", linkPath: "pickup/belfast-city-long-stay/" },
+      airport: { airportName: "George Best Belfast City Airport", directions: "Please make your way to the Express Pick-Up & Drop-Off area.", linkPath: "maps/belfast-city-express-pick-up-drop-off.jpg" },
     }, f);
     await sendDriverArrivedWhatsApp(env, { jobKey: "a2", customerName: "Sam", mobile: "07377515059", pickupLabel: "12 Main Street, Lisburn" }, f);
     const sends = calls.filter((c) => c.url.endsWith("/messages")).map((c) => c.body as { template: { name: string; components: Array<{ parameters: Array<{ text: string }> }> } });
     assert.equal(sends[0].template.name, "mat_driver_arrived_airport");
-    assert.equal(sends[0].template.components[1].parameters[0].text, "pickup/belfast-city-long-stay/");
+    assert.equal(sends[0].template.components[1].parameters[0].text, "maps/belfast-city-express-pick-up-drop-off.jpg");
     assert.equal(sends[1].template.name, "mat_driver_arrived");
     assert.equal(sends[1].template.components.length, 1, "home arrival has no button");
   }
@@ -257,6 +256,8 @@ async function main() {
   assert.match(read("index.ts"), /isWhatsAppTemplatesPath\(url\.pathname\)/);
   assert.match(read("airport-pickup-reminder-handlers.ts"), /sendAirportPickupWhatsApp\(/);
   assert.match(read("journey-handlers.ts"), /sendDriverArrivedWhatsApp\(/);
+  assert.match(read("journey-handlers.ts"), /pickup\?\.access !== "free"/, "free pick-ups on hold");
+  assert.match(read("airport-pickup-reminder-handlers.ts"), /pickup\.access !== "free"/, "free pick-ups on hold");
   assert.match(read("booking-job-handlers.ts"), /customerMobile: accepted\.customerMobile/);
   assert.match(read("driver-assignment-handlers.ts"), /customerMobile: record\.customerMobile/);
   console.log("OK  template sends are wired into all four customer messages");

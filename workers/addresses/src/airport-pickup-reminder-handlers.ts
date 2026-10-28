@@ -183,7 +183,8 @@ async function maybeSendAirportPickupReminder(
 
   // WhatsApp copy: where to meet the driver + map button (approved template only; once per job).
   const pickup = airportPickupContext(reminderInput);
-  if (pickup) {
+  // Free Long Stay pick-ups: on hold (owner, Oct 2026) until the free pick-up maps are agreed.
+  if (pickup && pickup.access !== "free") {
     await sendAirportPickupWhatsApp(env, {
       jobKey: job.token,
       customerName: job.customerName || paid?.customerName,
