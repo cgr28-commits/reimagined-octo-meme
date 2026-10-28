@@ -109,6 +109,8 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
   WHATSAPP_BOT_ENABLED?: string;
   /** Hours the assistant stays quiet after a handoff or an owner reply (default 0.5 = 30 minutes). */
   WHATSAPP_HANDOFF_HOURS?: string;
+  /** "true" emails the owner a copy of every finished chat. Default off: handoff emails only. */
+  WHATSAPP_CHAT_EMAILS?: string;
   /**
    * The team's own WhatsApp number (e.g. 447549815538) when the assistant runs on a
    * separate number. Handoffs then link the customer to this number.
@@ -968,6 +970,9 @@ export async function processWhatsAppChatEmails(
   now: Date = new Date(),
 ): Promise<{ sent: number; errors: number }> {
   const result = { sent: 0, errors: 0 };
+  // Off by default (owner, Oct 2026): only email when a customer needs to speak to the owner
+  // (notifyOwnerOfHandoff). Set WHATSAPP_CHAT_EMAILS="true" to get every chat again.
+  if (env.WHATSAPP_CHAT_EMAILS?.trim().toLowerCase() !== "true") return result;
   const store = env.TRACKING_STORE;
   if (!store || !whatsAppCloudConfigured(env)) return result;
   const due = (await listWhatsAppChats(store, 500)).filter((c) => isWhatsAppChatDueForEmail(c, now)).slice(0, 20);
