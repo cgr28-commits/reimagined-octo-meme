@@ -14,6 +14,7 @@ import {
   getAirportPage,
   TOWN_HUB_PAGES,
   TRANSFER_ROUTE_PAGES,
+  airportTaxiAnchor,
 } from "@/lib/location-pages";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 import { withBasePath } from "@/lib/paths";
@@ -298,7 +299,7 @@ export default async function AirportTransferPage({ params }: Props) {
 
           {page.faqs?.length ? (
             <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-              <h2 className="text-lg font-bold text-white">{page.shortName} taxi FAQs</h2>
+              <h2 className="text-lg font-bold text-white">{airportTaxiAnchor(page)} FAQs</h2>
               <dl className="mt-4 space-y-5">
                 {page.faqs.map((faq) => (
                   <div key={faq.question}>
