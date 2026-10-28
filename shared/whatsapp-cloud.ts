@@ -52,9 +52,19 @@ export type WhatsAppOwnerEcho = {
   timestamp: number;
 };
 
+/** A sent message WhatsApp later reported as undelivered (statuses[].status === "failed"). */
+export type WhatsAppDeliveryFailure = {
+  id: string;
+  to: string;
+  timestamp: number;
+  code?: number;
+  error: string;
+};
+
 export type ParsedWhatsAppWebhook = {
   messages: WhatsAppInboundMessage[];
   echoes: WhatsAppOwnerEcho[];
+  failures: WhatsAppDeliveryFailure[];
 };
 
 export function whatsAppUses360dialog(env: WhatsAppCloudEnv): boolean {
@@ -186,7 +196,7 @@ function messageText(message: RawMessage): string {
 
 /** Extract inbound customer messages and owner app echoes from a webhook payload. */
 export function parseWhatsAppWebhook(payload: unknown): ParsedWhatsAppWebhook {
-  const out: ParsedWhatsAppWebhook = { messages: [], echoes: [] };
+  const out: ParsedWhatsAppWebhook = { messages: [], echoes: [], failures: [] };
   const body = payload as {
     object?: string;
     entry?: Array<{
@@ -196,6 +206,13 @@ export function parseWhatsAppWebhook(payload: unknown): ParsedWhatsAppWebhook {
           contacts?: Array<{ wa_id?: string; profile?: { name?: string } }>;
           messages?: RawMessage[];
           message_echoes?: RawMessage[];
+          statuses?: Array<{
+            id?: string;
+            status?: string;
+            recipient_id?: string;
+            timestamp?: string;
+            errors?: Array<{ code?: number; title?: string; message?: string; error_data?: { details?: string } }>;
+          }>;
         };
       }>;
     }>;
@@ -223,6 +240,18 @@ export function parseWhatsAppWebhook(payload: unknown): ParsedWhatsAppWebhook {
             timestamp: Number(message.timestamp) || 0,
             type: message.type ?? "unknown",
             text: messageText(message).trim(),
+          });
+        }
+        for (const status of value.statuses ?? []) {
+          if (status.status !== "failed" || !status.id) continue;
+          const err = status.errors?.[0];
+          const detail = err?.error_data?.details || err?.message || err?.title || "Delivery failed";
+          out.failures.push({
+            id: status.id,
+            to: normalizeWhatsAppNumber(status.recipient_id ?? ""),
+            timestamp: Number(status.timestamp) || 0,
+            code: err?.code,
+            error: err?.code ? `(#${err.code}) ${detail}` : detail,
           });
         }
       }

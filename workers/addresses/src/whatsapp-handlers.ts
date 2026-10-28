@@ -142,6 +142,8 @@ type WhatsAppDiag = {
   lastSkip?: { at: string; reason: string };
   lastReplyOkAt?: string;
   lastReplyError?: { at: string; error: string };
+  /** WhatsApp accepted a reply but later reported it undelivered (status webhook). */
+  lastDeliveryFailure?: { at: string; error: string; phoneSuffix: string };
   lastProcessingError?: { at: string; error: string };
 };
 
@@ -343,7 +345,14 @@ export async function handleWhatsAppWebhook(
 export async function processWhatsAppWebhook(payload: unknown, env: WhatsAppEnv): Promise<void> {
   const store = env.TRACKING_STORE;
   if (!store) return;
-  const { messages, echoes } = parseWhatsAppWebhook(payload);
+  const { messages, echoes, failures } = parseWhatsAppWebhook(payload);
+
+  for (const failure of failures) {
+    logEvent("whatsapp_delivery_failed", failure.to, { code: failure.code, error: failure.error });
+    await recordDiag(store, {
+      lastDeliveryFailure: { at: nowIso(), error: failure.error, phoneSuffix: failure.to.slice(-4) },
+    });
+  }
 
   // Owner replied from the WhatsApp Business app — step back for this customer.
   for (const echo of echoes) {
