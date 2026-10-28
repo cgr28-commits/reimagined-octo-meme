@@ -319,7 +319,7 @@ console.log("\n=== Architecture wiring ===");
   assert.match(wrangler, /REVIEW_REQUEST_DELAY_MINUTES\s*=\s*"120"/);
   assert.match(wrangler, /GOOGLE_REVIEW_URL/);
 
-  const links = read("shared/business-links.ts");
+  const links = read("shared/google-business-profile.ts");
   assert.match(links, /g\.page\/r\/CbzkRdTv-0hNEBM\/review/);
   assert.doesNotMatch(read("src/components/OwnerPaidBookingsPanel.tsx"), /g\.page\/r\/CbzkRdTv/);
   console.log("OK  cron + complete trigger + central URL config");

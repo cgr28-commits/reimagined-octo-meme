@@ -1,10 +1,11 @@
 import { BUSINESS_WEBSITE } from "./business-email";
+import { DEFAULT_GOOGLE_REVIEW_URL } from "./google-business-profile";
 
 /**
  * Google Business Profile "Write a review" link.
  * Prefer GOOGLE_REVIEW_URL worker secret in production; this is the fallback default.
  */
-export const DEFAULT_GOOGLE_REVIEW_URL = "https://g.page/r/CbzkRdTv-0hNEBM/review";
+export { DEFAULT_GOOGLE_REVIEW_URL, GOOGLE_BUSINESS_PROFILE_URL } from "./google-business-profile";
 
 export function resolveGoogleReviewUrl(configuredUrl?: string): string | null {
   const url = (configuredUrl?.trim() || DEFAULT_GOOGLE_REVIEW_URL).trim();

@@ -1,3 +1,4 @@
+import { GOOGLE_BUSINESS_PROFILE_URL } from "../../shared/google-business-profile";
 import { getVisibleFaqs, SITE, SITE_PUBLIC_SEO_DESCRIPTION } from "./data";
 import { TOURS } from "./tours";
 
@@ -57,6 +58,8 @@ export function getLocalBusinessJsonLd() {
     name: SITE.name,
     description: DESCRIPTION,
     url: SITE.url,
+    // Ties the website to the Google Business Profile (reviews, Maps listing).
+    sameAs: [GOOGLE_BUSINESS_PROFILE_URL],
     logo: `${SITE.url}/logo.png`,
     image: `${SITE.url}/og-image-square.png`,
     email: SITE.email,

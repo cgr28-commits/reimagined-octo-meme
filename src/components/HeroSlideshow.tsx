@@ -1,3 +1,4 @@
+import GoogleReviewsBadge from "./GoogleReviewsBadge";
 import HeroBenefitsRow from "./HeroBenefitsRow";
 import OptimizedHeroPicture from "./OptimizedHeroPicture";
 import QuoteCard from "./QuoteCard";
@@ -47,6 +48,9 @@ export default function HeroSlideshow() {
           <HeroBenefitsRow />
           <QuoteCard presentation="homepage" homepagePolish />
           <QuoteHelpContact />
+          <div className="mt-4 flex justify-center">
+            <GoogleReviewsBadge />
+          </div>
         </div>
       </div>
     </section>

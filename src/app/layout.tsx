@@ -92,10 +92,10 @@ export const metadata: Metadata = {
     siteName: SITE.name,
     images: [ogImage],
   },
+  // No site-wide twitter:title/description: X falls back to each page's own
+  // og:title/og:description, so shared links preview the actual page.
   twitter: {
     card: "summary_large_image",
-    title: SITE.name,
-    description,
     images: [ogImage.url],
   },
   // Navy circle brand mark (white car + green plane). ?v= busts sticky crawler/browser caches.

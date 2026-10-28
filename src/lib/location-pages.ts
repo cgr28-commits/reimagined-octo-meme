@@ -179,9 +179,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "Dublin Airport",
     shortName: "Dublin Airport",
     title: "Dublin Airport Transfers to & from Northern Ireland",
-    seoTitle: "Dublin Airport Transfers | Belfast & Northern Ireland",
+    seoTitle: "Dublin Airport Taxi to & from Northern Ireland | Fixed Price",
     metaDescription:
-      "Book private Dublin Airport transfers to or from Belfast and Northern Ireland. Get a fixed-price taxi quote with applicable tolls included. Book online.",
+      "Dublin Airport taxi to or from Northern Ireland: private, door-to-door transfers from Belfast, Bangor, Lisburn and NI towns. Fixed price, tolls included.",
     intro:
       `Pre-book a private transfer to or from Dublin Airport (DUB), with Belfast, Bangor, Lisburn and surrounding towns in our Northern Ireland service area. Choose a departure transfer from your home or hotel to the airport, or an arrival collection from Dublin Airport to your Northern Ireland address. Tell us whether you need Terminal 1 or Terminal 2 when known. Enter your journey details for a fixed-price quote with applicable tolls included. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
