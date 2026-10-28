@@ -65,6 +65,7 @@ function asDraft(
   return {
     ...settings,
     bfsMinimumSaloonFareGbp: settings.bfsMinimumSaloonFareGbp ?? defaultOwnerPricingSettings().bfsMinimumSaloonFareGbp,
+    bhdMinimumSaloonFareGbp: settings.bhdMinimumSaloonFareGbp ?? defaultOwnerPricingSettings().bhdMinimumSaloonFareGbp,
     saloonFormula: settings.saloonFormula ?? defaultOwnerPricingSettings().saloonFormula,
     profitability: normalizeProfitabilitySettings(settings.profitability),
     dublinAirportFareAdjustment: {
@@ -170,12 +171,22 @@ function MoneyField({
   );
 }
 
-function BfsMinimumField({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+function BfsMinimumField({
+  value,
+  onChange,
+  label = "Belfast International Airport — Minimum Saloon Fare",
+  help = "Per leg, to or from Belfast International. Before Estate supplement, discounts and airport access charges.",
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  label?: string;
+  help?: string;
+}) {
   const [text, setText] = useState(value.toFixed(2));
   const [focused, setFocused] = useState(false);
   useEffect(() => { if (!focused && Number.isFinite(value)) setText(value.toFixed(2)); }, [value, focused]);
   return <label className={`${labelClass} mt-3`}>
-    Belfast International Airport — Minimum Saloon Fare
+    {label}
     <span className="relative mt-1 block">
       <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/55" aria-hidden>£</span>
       <input className={prefixedFieldClass} type="text" inputMode="decimal" autoComplete="off"
@@ -188,7 +199,7 @@ function BfsMinimumField({ value, onChange }: { value: number; onChange: (value:
           onChange(next.trim() && next !== "." ? Number(next) : Number.NaN);
         }} />
     </span>
-    <span className="mt-2 block text-xs text-white/60">Per leg, to or from Belfast International. Before Estate supplement, discounts and airport access charges.</span>
+    <span className="mt-2 block text-xs text-white/60">{help}</span>
   </label>;
 }
 
@@ -731,6 +742,12 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
               {!formulaSupported && <p className="text-sm text-white/60">The Worker must support formula settings before they can be edited.</p>}
             </fieldset>
             <BfsMinimumField value={draft.bfsMinimumSaloonFareGbp!} onChange={(value) => update("bfsMinimumSaloonFareGbp", value)} />
+            <BfsMinimumField
+              value={draft.bhdMinimumSaloonFareGbp ?? 0}
+              onChange={(value) => update("bhdMinimumSaloonFareGbp", value)}
+              label="Belfast City Airport — Minimum Saloon Fare"
+              help="Per leg, to or from Belfast City Airport. £0 means no minimum. Before Estate supplement, discounts and airport access charges."
+            />
             <MoneyField
               label="Tier minimum fare (formula OFF)"
               value={draft.saloon.minimumFareGbp}

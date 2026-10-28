@@ -29,6 +29,7 @@ jobs:
       - run: node scripts/sync-worker-shared.mjs
       - run: node --import tsx scripts/check-bfs-minimum-only.ts
       - run: node --import tsx scripts/check-bfs-minimum-payment.ts
+      - run: node --import tsx scripts/check-bhd-minimum.ts
       - name: Pricing and payment regressions
         run: |
           set -e
