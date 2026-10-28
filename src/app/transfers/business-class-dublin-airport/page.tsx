@@ -51,11 +51,11 @@ function InclusionList({ items }: { items: readonly string[] }) {
 }
 
 export const metadata: Metadata = {
-  title: `${BUSINESS_CLASS_DUBLIN_SEO_TITLE} | ${SITE.name}`,
+  title: { absolute: BUSINESS_CLASS_DUBLIN_SEO_TITLE },
   description: BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION,
   alternates: { canonical: BUSINESS_CLASS_DUBLIN_PATH },
   openGraph: {
-    title: `${BUSINESS_CLASS_DUBLIN_SEO_TITLE} | ${SITE.name}`,
+    title: BUSINESS_CLASS_DUBLIN_SEO_TITLE,
     description: BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION,
     url: BUSINESS_CLASS_DUBLIN_PATH,
     images: [{ url: "/og-image-square.png", alt: SITE.name }],
