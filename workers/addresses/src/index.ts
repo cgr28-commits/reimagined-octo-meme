@@ -1,3 +1,4 @@
+import { handleWhatsAppTemplates, isWhatsAppTemplatesPath } from "./whatsapp-templates";
 import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
 import { isBookingFunnelEvent } from "../shared/booking-funnel";
 import { recordBookingFunnelEvent, sendBookingStartedAlert } from "./booking-funnel";
@@ -606,6 +607,8 @@ type Env = {
   D360_API_KEY?: string;
   /** Team WhatsApp number for handoffs when the assistant runs on a separate number. */
   WHATSAPP_TEAM_NUMBER?: string;
+  /** "false" stops WhatsApp template messages (booking confirmed, on the way, driver details, review). */
+  WHATSAPP_TEMPLATES_ENABLED?: string;
   WHATSAPP_FOLLOW_UP_MINUTES?: string;
   /** Anthropic API key (Worker secret) — WhatsApp assistant answers customer questions. */
   ANTHROPIC_API_KEY?: string;
@@ -4133,6 +4136,9 @@ export default {
     }
     if (isWhatsAppConnectPath(url.pathname)) {
       return handleWhatsAppConnect(request, env);
+    }
+    if (isWhatsAppTemplatesPath(url.pathname) && request.method === "GET") {
+      return handleWhatsAppTemplates(request, env);
     }
     if (isWhatsAppStatusPath(url.pathname)) {
       return handleWhatsAppStatus(env);

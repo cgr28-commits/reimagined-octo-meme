@@ -14,6 +14,7 @@
 
 import { buildCustomerDriverDetailsEmail, type BookingJobRecord } from "../shared/booking-job";
 import { getOwnerAccountProfile } from "./owner-profile-store";
+import { sendDriverDetailsWhatsApp, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { BUSINESS_NAME, trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
 export type CustomerDriverDetailsInput = {
@@ -21,6 +22,8 @@ export type CustomerDriverDetailsInput = {
   jobKey: string;
   customerName?: string | null;
   customerEmail?: string | null;
+  /** Customer mobile, for the WhatsApp copy of these details (approved template only). */
+  customerMobile?: string | null;
   tripDate?: string | null;
   tripTime?: string | null;
   pickupLabel?: string | null;
@@ -38,7 +41,7 @@ export type CustomerDriverDetailsResult =
   | { sent: true }
   | { sent: false; reason: "owner" | "already_sent" | "no_customer_email" | "no_driver" | "no_store" | "send_failed"; error?: string };
 
-type Env = WorkerEmailEnv & { TRACKING_STORE?: KVNamespace };
+type Env = WorkerEmailEnv & WhatsAppTemplateEnv & { TRACKING_STORE?: KVNamespace };
 
 const MARKER_TTL_SECONDS = 60 * 60 * 24 * 400;
 
@@ -86,6 +89,25 @@ export async function sendCustomerDriverDetailsOnAccept(
   if (assignedDriverIsOwner({ email: input.driverEmail, mobile: input.driverMobile }, owner)) {
     return { sent: false, reason: "owner" };
   }
+
+  // WhatsApp copy (independent of email; idempotent per job + driver).
+  await sendDriverDetailsWhatsApp(env, {
+    jobKey: customerDriverDetailsMarkerKey(input.jobKey, {
+      email: input.driverEmail,
+      mobile: input.driverMobile,
+      name: input.driverName,
+    }).replace(/^customer-driver-details:/, ""),
+    customerName: input.customerName,
+    mobile: input.customerMobile,
+    tripDate: input.tripDate,
+    tripTime: input.tripTime,
+    driverName: input.driverName,
+    driverMobile: input.driverMobile,
+    carColour: input.carColour,
+    carMake: input.carMake,
+    carModel: input.carModel,
+    registration: input.registration,
+  });
 
   const to = input.customerEmail?.trim();
   if (!to) return { sent: false, reason: "no_customer_email" };

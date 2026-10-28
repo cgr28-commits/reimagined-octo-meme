@@ -642,6 +642,7 @@ export async function handleDriverAssignmentResponseRequest(
       jobKey: record.paymentReference || record.token,
       customerName: record.customerName,
       customerEmail: record.customerEmail?.trim() || paid?.customerEmail,
+      customerMobile: record.customerMobile?.trim() || paid?.mobileNumber,
       tripDate: record.tripDate,
       tripTime: record.tripTime,
       pickupLabel: record.pickupLabel,
