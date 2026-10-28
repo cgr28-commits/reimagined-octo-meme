@@ -1,7 +1,7 @@
 /**
  * Pickups anywhere in Ireland that FINISH in Greater Belfast get an instant
- * quote — but only while the owner's address-to-address drive charge is ON
- * (public flag `irelandPickupsIntoBelfastInstant`).
+ * quote (public flag `irelandPickupsIntoBelfastInstant`, always on — the
+ * mileage tiers price these journeys without the address-to-address drive charge).
  *
  * Run: tsx scripts/check-ireland-pickups-into-belfast.ts
  */
@@ -87,29 +87,18 @@ assert.equal(isIrelandPickupIntoGreaterBelfastJourney(paris, belfast), false);
 console.log("=== Incomplete addresses are not unlocked ===");
 assert.equal(isIrelandPickupIntoGreaterBelfastJourney({ ...glenarm, placeId: "" }, belfast), false);
 
-console.log("=== Public flag follows the owner's A2A drive charge ===");
+console.log("=== Public flag is always on (no drive charge needed) ===");
 const base = defaultOwnerPricingSettings();
 const withProfitability = (profitability: ReturnType<typeof defaultProfitabilitySettings>) =>
   ({ ...base, profitability }) as OwnerPricingSettings;
-assert.equal(toPublicOwnerPricingConfig(base).irelandPickupsIntoBelfastInstant, false, "no settings → OFF");
+assert.equal(toPublicOwnerPricingConfig(base).irelandPickupsIntoBelfastInstant, true, "no settings → instant");
 assert.equal(
   toPublicOwnerPricingConfig(withProfitability(defaultProfitabilitySettings())).irelandPickupsIntoBelfastInstant,
-  false,
-  "default A2A charge OFF → manual",
+  true,
+  "A2A drive charge OFF → still instant",
 );
 const a2aOn = { ...defaultProfitabilitySettings(), positioningA2aEnabled: true, positioningA2aRatePerMileGbp: 0.5 };
-assert.equal(toPublicOwnerPricingConfig(withProfitability(a2aOn)).irelandPickupsIntoBelfastInstant, true);
-assert.equal(
-  toPublicOwnerPricingConfig(withProfitability({ ...a2aOn, positioningA2aRatePerMileGbp: 0 })).irelandPickupsIntoBelfastInstant,
-  false,
-  "£0/mile counts as OFF",
-);
-const airportOnly = { ...defaultProfitabilitySettings(), positioningChargeEnabled: true };
-assert.equal(
-  toPublicOwnerPricingConfig(withProfitability(airportOnly)).irelandPickupsIntoBelfastInstant,
-  false,
-  "airport drive charge alone does not unlock remote pickups",
-);
+assert.equal(toPublicOwnerPricingConfig(withProfitability(a2aOn)).irelandPickupsIntoBelfastInstant, true, "A2A drive charge ON → instant");
 const publicJson = JSON.stringify(toPublicOwnerPricingConfig(withProfitability(a2aOn)));
 assert.ok(!/positioning|freeMiles|ratePerMile.*0\.5/i.test(publicJson), "no drive-charge details leak");
 

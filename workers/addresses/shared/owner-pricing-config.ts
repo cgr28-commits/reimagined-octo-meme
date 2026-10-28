@@ -216,26 +216,13 @@ export type PublicOwnerPricingConfig = {
   meetGreet: OwnerPricingSettings["meetGreet"];
   surchargeStacking: typeof SURCHARGE_STACKING_RULE;
   /**
-   * True while the owner's address-to-address drive charge is ON. Lets the
-   * quote form give instant prices for pickups anywhere in Ireland that finish
-   * in Greater Belfast. A boolean only — never the base, rate or free miles.
+   * Lets the quote form give instant prices for pickups anywhere in Ireland
+   * that finish in Greater Belfast. Always on: the mileage tiers price these
+   * long journeys without needing the address-to-address drive charge.
    */
   irelandPickupsIntoBelfastInstant?: boolean;
 };
 
-/** Owner profitability block as stored alongside pricing (Worker-merged). */
-function a2aDriveChargeOn(settings: OwnerPricingSettings): boolean {
-  const profitability = (settings as {
-    profitability?: { positioningA2aEnabled?: unknown; positioningA2aRatePerMileGbp?: unknown } | null;
-  }).profitability;
-  const rate = profitability?.positioningA2aRatePerMileGbp;
-  return (
-    profitability?.positioningA2aEnabled === true &&
-    typeof rate === "number" &&
-    Number.isFinite(rate) &&
-    rate > 0
-  );
-}
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -809,7 +796,7 @@ export function toPublicOwnerPricingConfig(
     terminalAccess: settings.terminalAccess,
     meetGreet: settings.meetGreet,
     surchargeStacking: SURCHARGE_STACKING_RULE,
-    irelandPickupsIntoBelfastInstant: a2aDriveChargeOn(settings),
+    irelandPickupsIntoBelfastInstant: true,
   };
 }
 
