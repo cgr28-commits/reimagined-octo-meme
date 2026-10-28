@@ -38,11 +38,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: `Airport Taxi | ${SITE.name}` };
   }
   return {
-    title: `${page.title} | ${SITE.name}`,
+    title: page.seoTitle ?? `${page.title} | ${SITE.name}`,
     description: page.metaDescription,
     alternates: { canonical: `/locations/${page.slug}/` },
     openGraph: {
-      title: `${page.title} | ${SITE.name}`,
+      title: page.seoTitle ?? `${page.title} | ${SITE.name}`,
       description: page.metaDescription,
       url: `/locations/${page.slug}/`,
       images: page.heroBase

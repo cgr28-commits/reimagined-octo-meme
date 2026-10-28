@@ -11,6 +11,8 @@ export type TownHubContent = {
   addressHint: string;
   hubSlug: string;
   title: string;
+  /** Optional <title> tag (search result headline). Defaults to "{title} | {brand}". */
+  seoTitle?: string;
   h1: string;
   metaDescription: string;
   intro: string;
