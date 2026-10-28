@@ -41,7 +41,7 @@ export const HOMEPAGE_SEO_TITLE = "Airport Taxi Belfast, NI & Ireland | My Airpo
 
 /** Homepage meta description — waiting applies to airport pickups only. */
 export const HOMEPAGE_SEO_DESCRIPTION =
-  "Fixed-price airport, rail and cruise taxis across Belfast, Northern Ireland and Ireland, with up to 60 minutes’ complimentary waiting on airport pickups.";
+  "Fixed-price airport taxis across Belfast, Northern Ireland and Ireland, with up to 60 minutes’ complimentary waiting on airport pickups. Book online 24/7.";
 
 /**
  * Temporary public holding page. When enabled and before `until`, the site shows
