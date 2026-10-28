@@ -95,6 +95,55 @@ const percentFieldClass =
   "box-border mt-1 min-h-12 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-navy pl-3 pr-8 text-base text-white [color-scheme:dark]";
 const labelClass = "block min-w-0 text-sm font-medium text-white/70";
 
+function formatDecimalText(value: number | null | undefined): string {
+  return value == null || !Number.isFinite(value) ? "" : String(value);
+}
+
+/**
+ * Number box that keeps exactly what the owner is typing ("1.", "0.0", "")
+ * until they leave the box. Converting to a number on every keystroke turned
+ * "1." into "1", so a decimal point could never be typed.
+ */
+function DecimalInput({
+  value,
+  onValue,
+  className,
+  placeholder,
+}: {
+  value: number | null | undefined;
+  /** null when the box is empty. */
+  onValue: (next: number | null) => void;
+  className: string;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState(() => formatDecimalText(value));
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setText(formatDecimalText(value));
+  }, [value, focused]);
+  return (
+    <input
+      className={className}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      placeholder={placeholder}
+      value={text}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        setText(formatDecimalText(value));
+      }}
+      onChange={(event) => {
+        const next = event.target.value.trim();
+        if (!/^\d*\.?\d*$/.test(next)) return;
+        setText(next);
+        onValue(next === "" || next === "." ? null : Number(next));
+      }}
+    />
+  );
+}
+
 function MoneyField({
   label,
   value,
@@ -111,11 +160,10 @@ function MoneyField({
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/55" aria-hidden>
           £
         </span>
-        <input
+        <DecimalInput
           className={prefixedFieldClass}
-          inputMode="decimal"
           value={value}
-          onChange={(event) => onChange(Number(event.target.value))}
+          onValue={(next) => onChange(next ?? 0)}
         />
       </span>
     </label>
@@ -157,11 +205,10 @@ function PercentField({
     <label className={`${labelClass} mt-3`}>
       {label}
       <span className="relative mt-1 block">
-        <input
+        <DecimalInput
           className={percentFieldClass}
-          inputMode="decimal"
           value={value}
-          onChange={(event) => onChange(Number(event.target.value))}
+          onValue={(next) => onChange(next ?? 0)}
         />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/55" aria-hidden>
           %
@@ -691,13 +738,10 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             />
             <label className={`${labelClass} mt-3`}>
               Floor distance (miles)
-              <input
+              <DecimalInput
                 className={fieldClass}
-                inputMode="numeric"
                 value={draft.saloon.floorMiles}
-                onChange={(event) =>
-                  update("saloon", { ...draft.saloon, floorMiles: Number(event.target.value) })
-                }
+                onValue={(next) => update("saloon", { ...draft.saloon, floorMiles: next ?? 0 })}
               />
             </label>
             <div className="mt-4 rounded-xl border border-emerald/30 bg-emerald/5 p-3">
@@ -737,13 +781,12 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
                   <div className="grid grid-cols-2 gap-2">
                     <label className={labelClass}>
                       Miles
-                      <input
+                      <DecimalInput
                         className={fieldClass}
-                        inputMode="decimal"
                         value={knot.miles}
-                        onChange={(event) => {
+                        onValue={(next) => {
                           const knots = draft.saloon.knots.map((row, rowIndex) =>
-                            rowIndex === index ? { ...row, miles: Number(event.target.value) } : row,
+                            rowIndex === index ? { ...row, miles: next ?? 0 } : row,
                           );
                           update("saloon", { ...draft.saloon, knots });
                         }}
@@ -818,18 +861,13 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             />
             <label className={`${labelClass} mt-3`}>
               Vehicle MPG
-              <input
+              <DecimalInput
                 className={fieldClass}
-                inputMode="decimal"
                 placeholder="Not set"
-                value={draft.profitability.vehicleMpg ?? ""}
-                onChange={(event) => {
-                  const raw = event.target.value.trim();
-                  update("profitability", {
-                    ...draft.profitability,
-                    vehicleMpg: raw === "" ? null : Number(raw),
-                  });
-                }}
+                value={draft.profitability.vehicleMpg}
+                onValue={(next) =>
+                  update("profitability", { ...draft.profitability, vehicleMpg: next })
+                }
               />
             </label>
             <MoneyField
@@ -875,17 +913,12 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             </div>
             <label className={`${labelClass} mt-3`}>
               Free miles from your base
-              <input
+              <DecimalInput
                 className={fieldClass}
-                inputMode="decimal"
                 value={draft.profitability.positioningFreeMiles}
-                onChange={(event) => {
-                  const raw = event.target.value.trim();
-                  update("profitability", {
-                    ...draft.profitability,
-                    positioningFreeMiles: raw === "" ? 0 : Number(raw),
-                  });
-                }}
+                onValue={(next) =>
+                  update("profitability", { ...draft.profitability, positioningFreeMiles: next ?? 0 })
+                }
               />
             </label>
             <MoneyField
@@ -925,17 +958,12 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
             </div>
             <label className={`${labelClass} mt-3`}>
               Free miles from your base
-              <input
+              <DecimalInput
                 className={fieldClass}
-                inputMode="decimal"
                 value={draft.profitability.positioningA2aFreeMiles}
-                onChange={(event) => {
-                  const raw = event.target.value.trim();
-                  update("profitability", {
-                    ...draft.profitability,
-                    positioningA2aFreeMiles: raw === "" ? 0 : Number(raw),
-                  });
-                }}
+                onValue={(next) =>
+                  update("profitability", { ...draft.profitability, positioningA2aFreeMiles: next ?? 0 })
+                }
               />
             </label>
             <MoneyField
