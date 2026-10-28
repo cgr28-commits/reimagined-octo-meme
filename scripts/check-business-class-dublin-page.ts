@@ -41,13 +41,14 @@ console.log("=== Metadata ===");
 {
   assert.equal(BUSINESS_CLASS_DUBLIN_PATH, "/transfers/business-class-dublin-airport/");
   assert.equal(BUSINESS_CLASS_DUBLIN_H1, "Business Class Dublin Airport Transfers");
-  assert.equal(BUSINESS_CLASS_DUBLIN_SEO_TITLE, BUSINESS_CLASS_DUBLIN_H1);
-  assert.equal(
-    BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION,
-    "Upgrade your Dublin Airport transfer with Business Class. Enjoy extra comfort, luggage assistance, bottled water and fixed fares. Book online.",
-  );
+  // Search headline targets Belfast ↔ Dublin executive searches (owner, Oct 2026); H1 unchanged.
+  assert.equal(BUSINESS_CLASS_DUBLIN_SEO_TITLE, "Business Class Belfast–Dublin Airport Taxi | Executive Car");
+  assert.ok(BUSINESS_CLASS_DUBLIN_SEO_TITLE.length <= 60);
+  assert.match(BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION, /Belfast and Dublin Airport/);
+  assert.ok(BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION.length <= 160);
+  assert.doesNotMatch(BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION, /chauffeur/i);
   assert.equal(page.match(/<h1\b/g)?.length, 1);
-  assert.match(page, /title: `\$\{BUSINESS_CLASS_DUBLIN_SEO_TITLE\} \| \$\{SITE\.name\}`/);
+  assert.match(page, /title: \{ absolute: BUSINESS_CLASS_DUBLIN_SEO_TITLE \}/);
   assert.equal(SITE.name, "My Airport Taxi NI");
   assert.match(page, /canonical: BUSINESS_CLASS_DUBLIN_PATH/);
   assert.doesNotMatch(page, /noindex|index:\s*false/);
@@ -62,6 +63,7 @@ console.log("=== Metadata ===");
 console.log("\n=== Quote inclusions and booking limits ===");
 {
   assert.deepEqual(BUSINESS_CLASS_DUBLIN_PICKUP_INCLUSIONS, [
+    "Premium executive car — Mercedes, BMW, Lexus or similar",
     "Meet & Greet inside arrivals",
     "Personalised name board",
     "Luggage assistance",
@@ -70,6 +72,7 @@ console.log("\n=== Quote inclusions and booking limits ===");
     "Terminal access included in the fixed fare",
   ]);
   assert.deepEqual(BUSINESS_CLASS_DUBLIN_DROPOFF_INCLUSIONS, [
+    "Premium executive car — Mercedes, BMW, Lexus or similar",
     "Luggage assistance",
     "Complimentary bottled water",
     "Phone charging",
@@ -87,18 +90,24 @@ console.log("\n=== Quote inclusions and booking limits ===");
   assert.match(combined, /select Estate instead/);
   assert.match(combined, /not a separate\s+chauffeur service/i);
   assert.match(page, /Business Class is not selected for you/);
-  assert.match(page, /baseName="business-class-dublin"/);
+  assert.match(page, /baseName="business-class-executive-dublin"/);
+  assert.match(page, /alt="Representative image:/);
   assert.doesNotMatch(page, /baseName="dublin-airport"/);
   assert.match(page, /height: 8rem/);
   assert.match(page, /Extra comfort for your journey/);
-  assert.match(page, /Enjoy a more comfortable Dublin Airport transfer/);
+  assert.match(page, /Travel in a premium executive car \(a Mercedes, BMW, Lexus or similar\)/);
   assert.match(page, /How to book Business Class/);
   assert.match(page, /airportCode="DUB"/);
   assert.match(page, /direction="to-airport"/);
   assert.match(page, /<LocationQuoteSection/);
   assert.match(page, /showStickyQuote=\{false\}/);
   assert.doesNotMatch(page, /chooseExecutive|EXECUTIVE_VEHICLE|initialVehicle|publicExecutiveEnabled=\{false\}/);
-  assert.doesNotMatch(combined, /Mercedes|BMW|Audi|Wi-Fi|wifi|limousine|hourly chauffeur/i);
+  // Owner (Oct 2026): name the class of car, always with "or similar" — never promise one make.
+  assert.doesNotMatch(combined, /Audi|Wi-Fi|wifi|limousine|hourly chauffeur/i);
+  for (const m of combined.matchAll(/Mercedes, BMW, Lexus[^\n]{0,12}/g)) {
+    assert.match(m[0], /or similar/, "brands only as 'Mercedes, BMW, Lexus or similar'");
+  }
+  assert.match(combined, /Mercedes, BMW, Lexus or similar/);
   assert.equal(BUSINESS_CLASS_DUBLIN_FAQS.length >= 4, true);
   console.log("OK  inclusions, luggage rule, quote is not preselected");
 }
@@ -112,7 +121,7 @@ console.log("\n=== Internal links ===");
   assert.match(transferPage, /page\.slug === "dublin-airport-to-belfast"/);
   assert.equal(
     transferPage.match(/href="\/transfers\/business-class-dublin-airport\/"/g)?.length,
-    2,
+    3,
   );
   assert.match(vehicles, /href="\/transfers\/business-class-dublin-airport\/"/);
   assert.match(page, /href="\/transfers\/belfast-to-dublin-airport\/"/);

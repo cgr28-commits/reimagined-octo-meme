@@ -44,7 +44,7 @@ const FLEET = [
   {
     id: "executive",
     title: "Business Class",
-    detail: "Premium executive vehicle",
+    detail: "Mercedes, BMW, Lexus or similar",
     image: BUSINESS_CLASS_IMAGE,
     imageScale: 1,
   },
