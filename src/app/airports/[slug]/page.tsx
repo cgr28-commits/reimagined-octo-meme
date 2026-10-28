@@ -17,6 +17,7 @@ import {
 } from "@/lib/location-pages";
 import { getBreadcrumbJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 import { withBasePath } from "@/lib/paths";
+import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -112,6 +113,9 @@ export default async function AirportTransferPage({ params }: Props) {
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
             <div className="mt-6">
               <LandingPageQuoteCta />
+            </div>
+            <div className="mt-5">
+              <GoogleReviewsBadge />
             </div>
           </header>
         </div>

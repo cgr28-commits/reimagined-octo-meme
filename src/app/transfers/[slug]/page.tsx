@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
+import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
@@ -219,6 +220,9 @@ export default async function TransferRoutePage({ params }: Props) {
                 <LandingPageQuoteCta />
               </div>
             )}
+            <div className="mt-5">
+              <GoogleReviewsBadge />
+            </div>
           </header>
         </div>
 
