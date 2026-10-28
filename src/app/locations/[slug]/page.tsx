@@ -11,6 +11,7 @@ import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import {
   AIRPORT_PAGES,
+  airportTaxiAnchor,
   getRoutesForTown,
   getTownHubPage,
   TOWN_HUB_PAGES,
@@ -165,7 +166,7 @@ export default async function TownHubPage({ params }: Props) {
                       href={`/airports/${airport.slug}/`}
                       className="text-emerald hover:text-emerald-light"
                     >
-                      {airport.shortName}
+                      {airportTaxiAnchor(airport)}
                     </Link>
                   </span>
                 ),

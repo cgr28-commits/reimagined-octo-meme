@@ -2,7 +2,7 @@ import Link from "next/link";
 import Logo from "./Logo";
 import FooterContact from "./FooterContact";
 import { NAV_LINKS, SERVICE_FLAGS, SITE, SITE_PUBLIC_SEO_BLURB } from "@/lib/data";
-import { AIRPORT_PAGES, TOWN_HUB_PAGES } from "@/lib/location-pages";
+import { AIRPORT_PAGES, airportTaxiAnchor, TOWN_HUB_PAGES } from "@/lib/location-pages";
 import { TOURS } from "@/lib/tours";
 
 export default function Footer() {
@@ -70,7 +70,7 @@ export default function Footer() {
                     href={`/airports/${page.slug}/`}
                     className="text-sm text-white/50 transition-colors hover:text-emerald"
                   >
-                    {page.shortName}
+                    {airportTaxiAnchor(page)}
                   </Link>
                 </li>
               ))}

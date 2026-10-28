@@ -15,7 +15,7 @@ import {
   TOWN_HUB_PAGES,
   TRANSFER_ROUTE_PAGES,
 } from "@/lib/location-pages";
-import { getBreadcrumbJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
+import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 import { withBasePath } from "@/lib/paths";
 import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 
@@ -73,6 +73,7 @@ export default async function AirportTransferPage({ params }: Props) {
     path: `/airports/${page.slug}/`,
     areaServed: page.areaServed,
   });
+  const faqLd = page.faqs?.length ? getFaqPageJsonLd(page.faqs) : null;
 
   return (
     <>
@@ -84,6 +85,12 @@ export default async function AirportTransferPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }}
       />
+      {faqLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+        />
+      ) : null}
       <Header />
       <main className={LANDING_PAGE_MAIN_CLASS}>
         <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />
@@ -288,6 +295,32 @@ export default async function AirportTransferPage({ params }: Props) {
               ))}
             </ul>
           </section>
+
+          {page.faqs?.length ? (
+            <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <h2 className="text-lg font-bold text-white">{page.shortName} taxi FAQs</h2>
+              <dl className="mt-4 space-y-5">
+                {page.faqs.map((faq) => (
+                  <div key={faq.question}>
+                    <dt className="text-sm font-semibold text-white">{faq.question}</dt>
+                    <dd className="mt-1.5 text-sm leading-relaxed text-white/65">{faq.answer}</dd>
+                  </div>
+                ))}
+              </dl>
+              {page.code === "BFS" || page.code === "BHD" ? (
+                <p className="mt-5 text-sm text-white/55">
+                  Flying from the other Belfast airport? See our{" "}
+                  <Link
+                    href={page.code === "BFS" ? "/airports/belfast-city/" : "/airports/belfast-international/"}
+                    className="text-emerald underline underline-offset-4"
+                  >
+                    {page.code === "BFS" ? "Belfast City Airport taxi" : "Belfast International Airport taxi"}
+                  </Link>{" "}
+                  guide.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           {["belfast-international", "belfast-city", "dublin"].includes(page.slug) && (
             <section className="mt-8 rounded-2xl border border-white/10 p-6">
