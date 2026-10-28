@@ -80,6 +80,8 @@ export type TrackingJobRecord = {
   isFromAirport?: boolean;
   airportCode?: string;
   flightNumber?: string;
+  /** Automatic inbound-flight checks (delays, landing) — see shared/flight-watch.ts. */
+  flightWatch?: import("./flight-watch").FlightWatchState;
   termsAcceptedAt?: string;
   termsVersion?: string;
   marketingOptIn?: boolean;

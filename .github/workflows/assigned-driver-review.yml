@@ -7,6 +7,11 @@ on:
       - 'shared/booking-job.ts'
       - 'shared/partial-registration.ts'
       - 'shared/tracking.ts'
+      - 'shared/flight-*.ts'
+      - 'workers/addresses/src/flight-watch-handlers.ts'
+      - 'workers/addresses/src/index.ts'
+      - 'src/lib/tracking-api.ts'
+      - 'scripts/check-flight-watch.ts'
       - 'src/app/driver/**'
       - 'src/app/driver-accept/**'
       - 'workers/addresses/src/journey-handlers.ts'
@@ -34,4 +39,5 @@ jobs:
       - run: node --import tsx scripts/check-assigned-driver-jobs.ts
       - run: node --import tsx scripts/check-driver-portal-access.ts
       - run: node --import tsx scripts/check-driver-portal-permissions.ts
+      - run: node --import tsx scripts/check-flight-watch.ts
       - run: npm --prefix workers/addresses run build

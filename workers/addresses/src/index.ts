@@ -1,3 +1,4 @@
+import { processFlightWatch } from "./flight-watch-handlers";
 import { handleWhatsAppTemplates, isWhatsAppTemplatesPath } from "./whatsapp-templates";
 import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
 import { isBookingFunnelEvent } from "../shared/booking-funnel";
@@ -560,6 +561,8 @@ type Env = {
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  /** "false" stops automatic flight delay checks for airport collections. */
+  FLIGHT_WATCH_ENABLED?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
   TRACKING_STORE?: KVNamespace;
@@ -5754,6 +5757,9 @@ export default {
       ctx.waitUntil(processWhatsAppFollowUps(env, new Date(event.scheduledTime)).then(result => {
         if (result.sent) console.log("WhatsApp follow-up cron", JSON.stringify(result));
       }).catch(error => console.error("WhatsApp follow-up cron failed", error)));
+      ctx.waitUntil(processFlightWatch(env, new Date(event.scheduledTime)).then(result => {
+        if (result.checked || result.errors) console.log("Flight watch cron", JSON.stringify(result));
+      }).catch(error => console.error("Flight watch cron failed", error)));
     }
 
     if (!shouldRunHourlyScheduledJobs(cron)) return;
