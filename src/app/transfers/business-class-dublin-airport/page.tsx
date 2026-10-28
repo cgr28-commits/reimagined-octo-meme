@@ -93,13 +93,17 @@ export default function BusinessClassDublinAirportPage() {
       />
       <Header />
       <style>{`
+        .business-class-dublin [data-landing-hero] img { object-position: 62% 62%; }
         @media (max-width: 767px) {
           .business-class-dublin [data-landing-hero] { height: 8rem; }
-          .business-class-dublin [data-landing-hero] img { object-position: center 42%; }
+          .business-class-dublin [data-landing-hero] img { object-position: 68% 66%; }
         }
       `}</style>
       <main className={`${LANDING_PAGE_MAIN_CLASS} business-class-dublin`}>
-        <LandingHeroMedia baseName="business-class-dublin" alt="Dublin Airport terminal at dusk" />
+        <LandingHeroMedia
+          baseName="business-class-executive-dublin"
+          alt="Representative image: black executive saloon with driver collecting passengers at Dublin Airport Terminal 2"
+        />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
