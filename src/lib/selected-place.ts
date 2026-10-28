@@ -718,10 +718,9 @@ export function isGreaterBelfastIrelandInstantJourney(
 
 /**
  * Address pickups anywhere on the island of Ireland (Northern Ireland or the
- * Republic) whose journey FINISHES at a Greater Belfast address. Only unlocks
- * instant quotes while the owner's address-to-address drive charge is ON
- * (public flag `irelandPickupsIntoBelfastInstant`), because the remote
- * pickup's drive out is then priced into the fare by the Worker.
+ * Republic) whose journey FINISHES at a Greater Belfast address. Unlocks
+ * instant quotes when the public flag `irelandPickupsIntoBelfastInstant` is
+ * set (always on; the Worker's mileage tiers price these journeys).
  * Airport ends are excluded: those journeys follow the airport rules.
  */
 export function isIrelandPickupIntoGreaterBelfastJourney(
@@ -752,7 +751,7 @@ export function needsManualQuoteApproval(
   pickup: SelectedPlace,
   dropoff: SelectedPlace,
   options: {
-    /** Public owner flag: address-to-address drive charge is ON. */
+    /** Public owner flag: Ireland pickups into Greater Belfast are instant. */
     irelandPickupsIntoBelfastInstant?: boolean;
   } = {},
 ): boolean {
