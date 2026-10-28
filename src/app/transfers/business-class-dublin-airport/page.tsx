@@ -120,9 +120,9 @@ export default function BusinessClassDublinAirportPage() {
               {BUSINESS_CLASS_DUBLIN_H1}
             </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
-              Enjoy a more comfortable Dublin Airport transfer with luggage assistance, complimentary
-              bottled water and a fixed fare confirmed before booking. Dublin Airport pickups also
-              include Meet &amp; Greet inside arrivals.
+              Travel in a premium executive car (a Mercedes, BMW, Lexus or similar) with luggage
+              assistance, complimentary bottled water and a fixed fare confirmed before booking. Dublin
+              Airport pickups also include Meet &amp; Greet inside arrivals.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-6 sm:gap-3">
               <LandingPageQuoteCta className="inline-flex min-h-11 items-center rounded-full bg-emerald px-4 py-2.5 text-sm font-bold text-navy shadow-lg shadow-emerald/25 sm:px-6 sm:py-3" />
