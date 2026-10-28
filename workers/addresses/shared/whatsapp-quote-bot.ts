@@ -18,6 +18,7 @@ import {
   type QuickQuoteAirportCode,
 } from "./quick-quote-parse";
 import { QUICK_QUOTE_SALOON_MAX_PASSENGERS } from "./quick-quote";
+import { findKnownPlaces, normaliseForKnownPlaces } from "./belfast-landmarks";
 import { todayLondonDate } from "./uk-time";
 
 export type WhatsAppQuoteDraft = {
@@ -195,6 +196,130 @@ function setAirportSide(draft: WhatsAppQuoteDraft, field: "pickupAddress" | "dro
   }
 }
 
+type RoutePlace = { index: number; length: number; label?: string; airportCode?: QuickQuoteAirportCode };
+
+const AIRPORT_MENTIONS: Array<{ code: QuickQuoteAirportCode; pattern: RegExp }> = [
+  { code: "BFS", pattern: /\b(?:belfast international(?: airport)?|aldergrove(?: airport)?|bfs)\b/g },
+  {
+    code: "BHD",
+    pattern:
+      /\b(?:george best(?: belfast city)?(?: airport)?|belfast city airport|belfast city(?! (?:hospital|centre|center|hall|council|cemetery|library))|city airport|bhd)\b/g,
+  },
+  { code: "DUB", pattern: /\b(?:dublin airport|dub)\b/g },
+];
+
+/** Known places and airports named in the text, in order (no overlaps). */
+function findRoutePlaces(text: string): RoutePlace[] {
+  const normalised = normaliseForKnownPlaces(text);
+  const places: RoutePlace[] = findKnownPlaces(text).map((p) => ({ ...p }));
+  for (const { code, pattern } of AIRPORT_MENTIONS) {
+    for (const m of normalised.matchAll(pattern)) {
+      const index = m.index ?? 0;
+      const clash = places.some((p) => index < p.index + p.length && p.index < index + m[0].length);
+      if (!clash) places.push({ index, length: m[0].length, airportCode: code });
+    }
+  }
+  return places.sort((a, b) => a.index - b.index);
+}
+
+function applyRoutePlace(
+  draft: WhatsAppQuoteDraft,
+  field: "pickupAddress" | "dropoffAddress",
+  place: RoutePlace,
+) {
+  if (place.airportCode) {
+    draft.airportCode = place.airportCode;
+    draft.fromAirport = field === "pickupAddress";
+    draft[field] = airportLabel(place.airportCode);
+  } else if (place.label) {
+    draft[field] = place.label;
+  }
+}
+
+/**
+ * "Grand Central to Belfast City airport", "from the Europa to BFS",
+ * "Belfast Grand Central Station transfer to the City Airport": work out the
+ * pickup and drop-off from well-known places and airports, with or without
+ * "from". Returns which fields it filled.
+ */
+function applyKnownPlaceRoute(
+  draft: WhatsAppQuoteDraft,
+  text: string,
+  awaiting: WhatsAppQuoteField | undefined,
+): { pickup: boolean; dropoff: boolean } {
+  const places = findRoutePlaces(text);
+  const result = { pickup: false, dropoff: false };
+  if (places.length === 0) return result;
+  const normalised = normaliseForKnownPlaces(text);
+  const before = (place: RoutePlace) => normalised.slice(Math.max(0, place.index - 14), place.index);
+  const saysTo = (place: RoutePlace) => /\b(?:to|into|towards|for|drop(?: off)? at|going to)\s+(?:the\s+)?$/.test(before(place));
+  const saysFrom = (place: RoutePlace) => /\b(?:from|pick(?: me)?(?: up)? (?:at|from)|collect(?: me)? (?:at|from))\s+(?:the\s+)?$/.test(before(place));
+
+  if (places.length >= 2) {
+    const [first, second] = places;
+    // "to X from Y" reverses the order; otherwise the first named place is the pickup.
+    const reversed = saysTo(first) && saysFrom(second);
+    const pickup = reversed ? second : first;
+    const dropoff = reversed ? first : second;
+    applyRoutePlace(draft, "pickupAddress", pickup);
+    applyRoutePlace(draft, "dropoffAddress", dropoff);
+    return { pickup: true, dropoff: true };
+  }
+
+  const [only] = places;
+  // "change the pickup to the Europa" / "destination is Grand Central": the field named wins.
+  const lead = normalised.slice(0, only.index);
+  const namesPickup = /\b(?:pick\s*-?up|pickup|collect(?:ion)?)\b(?!.*\b(?:drop\s*-?off|dropoff|destination)\b)/.test(lead);
+  const namesDropoff = /\b(?:drop\s*-?off|dropoff|destination)\b(?!.*\b(?:pick\s*-?up|pickup|collect(?:ion)?)\b)/.test(lead);
+  const field: "pickupAddress" | "dropoffAddress" | null = namesPickup && !namesDropoff
+    ? "pickupAddress"
+    : namesDropoff && !namesPickup
+      ? "dropoffAddress"
+      : saysTo(only)
+    ? "dropoffAddress"
+    : saysFrom(only)
+      ? "pickupAddress"
+      : awaiting === "pickupAddress" || awaiting === "dropoffAddress"
+        ? awaiting
+        : only.label
+          ? // A landmark alone with no direction: fill whichever end is still missing.
+            !draft.pickupAddress
+            ? "pickupAddress"
+            : !draft.dropoffAddress
+              ? "dropoffAddress"
+              : null
+          : null;
+  if (!field) return result;
+  applyRoutePlace(draft, field, only);
+  if (field === "pickupAddress") result.pickup = true;
+  else result.dropoff = true;
+  return result;
+}
+
+/**
+ * Reply to "where should we pick you up?" that also carries other details
+ * ("12 Main St, Lisburn at 15:25 tomorrow"): drop the time/date words and keep
+ * the address part. Returns null when nothing address-like is left.
+ */
+function addressPartOf(text: string, now: Date): string | null {
+  let rest = text
+    .replace(/\b(?:at|for|around|about|approx\.?|@)?\s*\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)/gi, " ")
+    .replace(/\b(?:at|for|around|about|@)?\s*(?:[01]?\d|2[0-3])[:.][0-5]\d\b/gi, " ")
+    .replace(/\b(?:on\s+)?(?:today|tomorrow|tmrw|tonight|this (?:morning|afternoon|evening))\b/gi, " ")
+    .replace(/\b(?:on\s+)?(?:next\s+)?(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/gi, " ")
+    .replace(/\b(?:on\s+)?\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b/gi, " ")
+    .replace(/\b(?:on\s+)?\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?\b/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s,.;:-]+|[\s,.;:-]+$/g, "")
+    .replace(/\s+(?:at|on|for|please)$/i, "")
+    .trim();
+  if (!rest || rest === text.trim()) return null;
+  if (bareCount(rest) != null || parseJourneyType(rest) != null) return null;
+  if (parseNaturalDate(rest, now) || parseRelativeDateWord(rest, now).value) return null;
+  rest = rest.replace(/^(?:from|pick(?:\s*-?up)?(?:\s+(?:at|from))?)\s+/i, "");
+  return looksLikeAddress(rest) && rest.length >= 4 ? rest : null;
+}
+
 /** Fill airport-side address when only the airport (and direction) is known. */
 function completeAirportLegs(draft: WhatsAppQuoteDraft) {
   if (!draft.airportCode || typeof draft.fromAirport !== "boolean") return;
@@ -226,12 +351,29 @@ export function applyCustomerMessage(
       extractClockTimes(text).length > 0 ||
       parseJourneyType(text) != null ||
       Boolean(parsed.outboundDate.value || parseRelativeDateWord(text, now).value || parseWeekdayDate(text, now));
-    if (looksLikeAddress(text) && !otherDetail) setAirportSide(draft, awaiting, text);
+    if (looksLikeAddress(text) && !otherDetail) {
+      setAirportSide(draft, awaiting, text);
+    } else if (otherDetail) {
+      // "Belfast grand central at 15:25": keep the address, the time is read below.
+      const address = addressPartOf(text, now);
+      if (address) setAirportSide(draft, awaiting, address);
+    }
   } else {
     if (parsed.pickupAddress.value) draft.pickupAddress = parsed.pickupAddress.value;
     if (parsed.dropoffAddress.value) draft.dropoffAddress = parsed.dropoffAddress.value;
     if (parsed.airportCode.value) draft.airportCode = parsed.airportCode.value;
     if (typeof parsed.fromAirport.value === "boolean") draft.fromAirport = parsed.fromAirport.value;
+  }
+
+  // Well-known places ("Grand Central", "the Europa") and "X to Y" without "from".
+  applyKnownPlaceRoute(draft, text, awaiting);
+  for (const field of ["pickupAddress", "dropoffAddress"] as const) {
+    // A typed reply that names a known place ("belfast grand central") uses its full address.
+    const value = draft[field];
+    if (value && value !== conversation.draft[field]) {
+      const places = findKnownPlaces(value);
+      if (places.length === 1 && !parseAirportCode(value)) draft[field] = places[0].label;
+    }
   }
 
   // Journey type — the parser defaults to one-way; only take what the customer said.
