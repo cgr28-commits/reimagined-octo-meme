@@ -717,6 +717,27 @@ export function isGreaterBelfastIrelandInstantJourney(
 }
 
 /**
+ * Address pickups anywhere on the island of Ireland (Northern Ireland or the
+ * Republic) whose journey FINISHES at a Greater Belfast address. Only unlocks
+ * instant quotes while the owner's address-to-address drive charge is ON
+ * (public flag `irelandPickupsIntoBelfastInstant`), because the remote
+ * pickup's drive out is then priced into the fare by the Worker.
+ * Airport ends are excluded: those journeys follow the airport rules.
+ */
+export function isIrelandPickupIntoGreaterBelfastJourney(
+  pickup: SelectedPlace,
+  dropoff: SelectedPlace,
+): boolean {
+  if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) return false;
+  if (isIncompleteAddressPlace(pickup) || isIncompleteAddressPlace(dropoff)) return false;
+  if (detectAirportCodeFromPlace(pickup) || detectAirportCodeFromPlace(dropoff)) return false;
+  if (!isGreaterBelfastDestination(dropoff)) return false;
+  const pickupCountry = normaliseCountryCode(pickup.countryCode);
+  if (pickupCountry && pickupCountry !== "GB" && pickupCountry !== "IE") return false;
+  return isNorthernIrelandPlace(pickup) || isRoiNonAirportLeg(pickup);
+}
+
+/**
  * Journeys that must not show an automatic fare or immediate payment:
  * - Address-to-address outside the Greater Belfast outbound or Dublin corridor exceptions
  * - ROI city destinations (not DUB airport), or pickups outside NI / not into Greater Belfast
@@ -730,6 +751,10 @@ export function isGreaterBelfastIrelandInstantJourney(
 export function needsManualQuoteApproval(
   pickup: SelectedPlace,
   dropoff: SelectedPlace,
+  options: {
+    /** Public owner flag: address-to-address drive charge is ON. */
+    irelandPickupsIntoBelfastInstant?: boolean;
+  } = {},
 ): boolean {
   if (!isPlaceSelected(pickup) || !isPlaceSelected(dropoff)) {
     return false;
@@ -740,6 +765,13 @@ export function needsManualQuoteApproval(
   }
 
   if (isGreaterBelfastIrelandInstantJourney(pickup, dropoff)) {
+    return false;
+  }
+
+  if (
+    options.irelandPickupsIntoBelfastInstant === true &&
+    isIrelandPickupIntoGreaterBelfastJourney(pickup, dropoff)
+  ) {
     return false;
   }
 
