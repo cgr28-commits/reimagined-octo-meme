@@ -56,5 +56,5 @@ export function googleMapsUrl(point: Pick<PickupPoint, "latitude" | "longitude">
 
 /** Keyless Google Maps embed centred on the point. */
 export function googleMapsEmbedUrl(point: Pick<PickupPoint, "latitude" | "longitude">): string {
-  return `https://maps.google.com/maps?q=${point.latitude},${point.longitude}&z=17&output=embed`;
+  return `https://maps.google.com/maps?q=loc:${point.latitude},${point.longitude}&z=17&output=embed`;
 }
