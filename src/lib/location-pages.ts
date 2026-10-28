@@ -59,6 +59,7 @@ export type TownHubPage = {
   slug: string;
   town: TownArea;
   title: string;
+  seoTitle?: string;
   h1: string;
   metaDescription: string;
   intro: string;
@@ -404,6 +405,7 @@ export function getTownHubPages(): TownHubPage[] {
       blurb: hub.blurb,
     },
     title: hub.title,
+    seoTitle: hub.seoTitle,
     h1: hub.h1,
     metaDescription: hub.metaDescription,
     intro: hub.intro,
