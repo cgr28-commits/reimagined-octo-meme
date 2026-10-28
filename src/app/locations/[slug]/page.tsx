@@ -173,6 +173,13 @@ export default async function TownHubPage({ params }: Props) {
               )}
               .
             </p>
+            <p className="mt-3 text-sm text-white/50">
+              Catching a train or coach? Book a{" "}
+              <Link href="/belfast-grand-central-station-taxi/" className="text-emerald hover:text-emerald-light">
+                Belfast Grand Central Station taxi
+              </Link>{" "}
+              to or from {page.town.name}.
+            </p>
           </section>
         </div>
 

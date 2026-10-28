@@ -35,6 +35,7 @@ const HUB_TOWNS = [
   "moira",
   "glengormley",
   "whiteabbey",
+  "craigavon",
 ] as const;
 const LANDING_AIRPORTS = ["BFS", "BHD", "DUB"] as const;
 
@@ -59,12 +60,12 @@ const landingRoutes = TRANSFER_ROUTE_PAGES.filter(
 
 console.log("=== Town hubs and landing routes exist ===");
 {
-  assert.equal(TOWN_HUB_PAGES.length, 18);
+  assert.equal(TOWN_HUB_PAGES.length, 19);
   assert.deepEqual(
     TOWN_HUB_PAGES.map((hub) => hub.town.slug).sort(),
     [...HUB_TOWNS].sort(),
   );
-  assert.equal(landingRoutes.length, 59);
+  assert.equal(landingRoutes.length, 62);
   for (const town of HUB_TOWNS) {
     const hub = TOWN_HUB_PAGES.find((item) => item.town.slug === town);
     assert.ok(hub, `missing hub for ${town}`);
@@ -77,7 +78,7 @@ console.log("=== Town hubs and landing routes exist ===");
     );
     assert.ok(routes.every((route) => route.slug && route.hubSlug === hub.slug));
   }
-  console.log("OK  18 town hubs and 59 landing routes");
+  console.log("OK  19 town hubs and 62 landing routes");
 }
 
 console.log("\n=== /locations/ links to every town hub ===");
@@ -173,16 +174,16 @@ console.log("\n=== Canonicals ===");
   assert.match(routePage, /canonical: `\/transfers\/\$\{page\.slug\}\/`/);
   assert.equal(SITE.url, SITE_HOST);
   for (const hub of TOWN_HUB_PAGES) {
-    assert.equal(new Set(TOWN_HUB_PAGES.map((item) => item.title)).size, 18);
+    assert.equal(new Set(TOWN_HUB_PAGES.map((item) => item.title)).size, 19);
     assert.ok(hub.metaDescription.length > 40);
     assert.equal(hub.h1, hub.title);
   }
   const titles = landingRoutes.map((route) => route.title);
   const descriptions = landingRoutes.map((route) => route.metaDescription);
   const h1s = landingRoutes.map((route) => route.h1);
-  assert.equal(new Set(titles).size, 59);
-  assert.equal(new Set(descriptions).size, 59);
-  assert.equal(new Set(h1s).size, 59);
+  assert.equal(new Set(titles).size, 62);
+  assert.equal(new Set(descriptions).size, 62);
+  assert.equal(new Set(h1s).size, 62);
   console.log("OK  self-referencing HTTPS www canonicals and unique titles/descriptions");
 }
 

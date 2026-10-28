@@ -23,7 +23,7 @@ for (const file of pages) {
     assert.ok(html.includes(stationIntro), "Station form must show the station introduction");
     assert.ok(html.includes(pickupNotice), "Station form must show the pickup notice");
     assert.ok(!html.includes(airportIntro), "Airport-only introduction must not appear on station page");
-    assert.equal((html.match(/<details\b/g) ?? []).length, 11, "Keep all station FAQs");
+    assert.equal((html.match(/<details\b/g) ?? []).length, 14, "Keep all station FAQs");
   } else {
     assert.ok(!html.includes(stationIntro), `Station introduction leaked into ${file}`);
     assert.ok(!html.includes(pickupNotice), `Station pickup notice leaked into ${file}`);
@@ -33,4 +33,4 @@ for (const route of ["index.html", "airports/belfast-city/index.html", "airports
   const html = readFileSync(join(output, route), "utf8").replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, "");
   assert.ok(html.includes(airportIntro), `Shared quote introduction changed on ${route}`);
 }
-console.log(`PASS: station-only introduction and pickup notice isolated across ${pages.length} exported HTML pages; shared airport, homepage, town and transfer copy retained; all 11 FAQs retained.`);
+console.log(`PASS: station-only introduction and pickup notice isolated across ${pages.length} exported HTML pages; shared airport, homepage, town and transfer copy retained; all 14 FAQs retained.`);

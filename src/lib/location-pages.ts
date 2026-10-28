@@ -623,7 +623,11 @@ export function getTownHubByTownSlug(townSlug: string): TownHubPage | undefined 
 }
 
 export function getTownHubByAreaName(name: string): TownHubPage | undefined {
-  return TOWN_HUB_PAGES.find((page) => page.town.name === name);
+  return (
+    TOWN_HUB_PAGES.find((page) => page.town.name === name) ??
+    // Towns covered by a combined hub, e.g. Portadown and Lurgan → Craigavon.
+    TOWN_HUB_PAGES.find((page) => page.slug === "craigavon-airport-taxis" && page.areas.includes(name))
+  );
 }
 
 export function getTransferRoutePage(slug: string): TransferRoutePage | undefined {
