@@ -3,7 +3,8 @@
  * Reuses TRACKING_STORE jobs — no separate booking database.
  */
 
-import { sendDriverOnTheWayWhatsApp } from "./whatsapp-templates";
+import { sendDriverArrivedWhatsApp, sendDriverOnTheWayWhatsApp } from "./whatsapp-templates";
+import { airportPickupContext, airportPickupReminderInput } from "./airport-pickup-reminder-handlers";
 import { parseCustomerTipped, type TipCompletionPayload } from "../shared/journey-tip";
 import {
   applyJourneyAction,
@@ -121,6 +122,25 @@ export async function sendArrivalNotificationIfNeeded(
 
   const channels = arrivalChannelReport(env);
   const next: TrackingJobRecord = { ...job };
+
+  // WhatsApp "driver has arrived" — at airports with where to go + map (approved template only).
+  {
+    const paid =
+      job.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)
+        ? await getPaidBookingRecord(env.TRACKING_STORE, job.paymentReference)
+        : null;
+    const pickup = airportPickupContext(airportPickupReminderInput(job, paid));
+    // Free Long Stay pick-ups: on hold (owner, Oct 2026) until the free pick-up maps are agreed.
+    if (pickup?.access !== "free") await sendDriverArrivedWhatsApp(env, {
+      jobKey: job.token,
+      customerName: job.customerName || paid?.customerName,
+      mobile: job.customerMobile || paid?.mobileNumber,
+      pickupLabel: job.pickupLabel,
+      airport: pickup
+        ? { airportName: pickup.airportName, directions: pickup.directions, linkPath: pickup.linkPath }
+        : null,
+    });
+  }
 
   // No fake WhatsApp/SMS automation — only real configured providers.
   if (channels.whatsappAutomatic === "AVAILABLE") {

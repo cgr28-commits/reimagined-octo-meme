@@ -1,4 +1,4 @@
-import { DUBLIN_AIRPORT_MAP_IMAGE_URL, dublinAirportMapHtml } from '../shared/dublin-airport-map';
+const DUBLIN_MAP_FILE = 'dublin-airport-car-parks';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { evaluateJourneyReminder, resolveJourneyReminderCustomerName } from '../shared/journey-reminder';
@@ -98,42 +98,24 @@ assert.ok(!booking.text.includes('BELFAST CITY AIRPORT MAP'));
 console.log('PASS City map only in outbound/return collection emails; confirmations/general journey reminders excluded');
 
 const dublinCollections: Record<string, {html:string;text:string}> = {};
+// Every Dublin customer is met in Arrivals: written directions only, never a map.
 for (const terminal of ['T1','T2']) {
  for (const leg of ['outbound','return'] as const) {
   const input={...base,pickupLabel:`Dublin Airport ${terminal}`,dropoffLabel:base.pickupLabel,
    isFromAirport:true,airportCode:'DUB',journeyLeg:leg,dublinArrivalTerminal:terminal,returnDublinArrivalTerminal:terminal};
   const email=evaluateAirportPickupReminder(input,due);
   assert.ok(email.eligible);
-  assert.equal(email.html.split(DUBLIN_AIRPORT_MAP_IMAGE_URL).length-1,1);
-  assert.ok(email.html.indexOf('WHERE TO GO')<email.html.indexOf(DUBLIN_AIRPORT_MAP_IMAGE_URL));
-  assert.ok(email.html.indexOf(DUBLIN_AIRPORT_MAP_IMAGE_URL)<email.html.indexOf('WHEN YOU ARE READY'));
-  assert.match(email.html,/meeting point confirmed by your driver/);
-  assert.match(email.text,/After collecting your baggage, please contact your driver/);
-  assert.match(email.html,/message on WhatsApp advising which car park to proceed to/);
-  assert.doesNotMatch(email.text,/10 minutes|maximum stay|limited waiting/);
-  assert.doesNotMatch(email.html,/\.pdf/);
+  assert.ok(!email.html.includes(DUBLIN_MAP_FILE));
+  assert.match(email.text,/After collecting your baggage, please wait in Arrivals for your driver/);
+  assert.match(email.text,/Your driver will meet you in Arrivals/);
+  assert.doesNotMatch(email.text,/car park|10 minutes|maximum stay|limited waiting/i);
   dublinCollections[`dublin-${terminal.toLowerCase()}-${leg}-collection`]=email;
-  const general=evaluateJourneyReminder(input,due);assert.ok(general.eligible);
-  assert.ok(!general.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
  }
 }
-const dublinMeet=evaluateAirportPickupReminder({...base,pickupLabel:'Dublin Airport',isFromAirport:true,airportCode:'DUB',outboundAirportAccessOption:'meet-greet'},due);
-assert.ok(dublinMeet.eligible);assert.ok(dublinMeet.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
-assert.match(dublinMeet.html,/After collecting your baggage, please wait in Arrivals for your driver/);
-assert.doesNotMatch(dublinMeet.text,/which car park to proceed to|confirming the car park/);
-for (const patch of [{journeyLeg:"return",returnAirportAccessOption:"meet-greet"},{outboundAirportAccessOption:null,airportAccessOption:"meet-greet"}]) {
- const email=evaluateAirportPickupReminder({...base,pickupLabel:"Dublin Airport",isFromAirport:true,airportCode:"DUB",...patch} as any,due);
- assert.ok(email.eligible);assert.match(email.text,/please wait in Arrivals for your driver/);
-}
-dublinCollections["dublin-meet-greet-collection"]=dublinMeet;
-assert.doesNotMatch(dublinMeet.html,/10 minutes|maximum stay|limited waiting/);
-assert.equal(dublinAirportMapHtml({pickupLabel:base.pickupLabel,isFromAirport:false}),'');
-assert.equal(dublinAirportMapHtml({pickupLabel:'Belfast City Airport'}),'');
 assert.equal(evaluateAirportPickupReminder({...base,dropoffLabel:'Dublin Airport',isFromAirport:false},due).eligible,false);
-for(const email of [collection,booking,updated]) assert.ok(!email.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
 const dublinBooking=buildCustomerConfirmationEmail({...receipt,airportCode:'DUB',isFromAirport:true,pickupLabel:'Dublin Airport'});
-assert.ok(!dublinBooking.html.includes(DUBLIN_AIRPORT_MAP_IMAGE_URL));
-console.log('PASS Dublin T1/T2 outbound/return: one inline map under directions; dropoffs, other airports, general reminders and invoices excluded');
+assert.ok(!dublinBooking.html.includes(DUBLIN_MAP_FILE));
+console.log('PASS Dublin collections: meet in Arrivals, no map');
 
 const internationalInput = {...base,pickupLabel:'Belfast International Airport',dropoffLabel:base.pickupLabel,isFromAirport:true,outboundAirportAccessOption:'express' as const};
 const internationalCollection=evaluateAirportPickupReminder(internationalInput,due);

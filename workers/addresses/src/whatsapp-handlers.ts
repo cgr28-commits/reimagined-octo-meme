@@ -107,8 +107,10 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
   GOOGLE_PLACES_API_KEY?: string;
   /** Set to "false" to stop automatic replies (webhook still verifies and dedupes). */
   WHATSAPP_BOT_ENABLED?: string;
-  /** Hours the assistant stays quiet after a handoff or an owner reply (default 12). */
+  /** Hours the assistant stays quiet after a handoff or an owner reply (default 0.5 = 30 minutes). */
   WHATSAPP_HANDOFF_HOURS?: string;
+  /** "true" emails the owner a copy of every finished chat. Default off: handoff emails only. */
+  WHATSAPP_CHAT_EMAILS?: string;
   /**
    * The team's own WhatsApp number (e.g. 447549815538) when the assistant runs on a
    * separate number. Handoffs then link the customer to this number.
@@ -184,7 +186,8 @@ export async function handleWhatsAppStatus(env: WhatsAppEnv): Promise<Response> 
 
 function handoffTtlSeconds(env: WhatsAppEnv): number {
   const hours = Number(env.WHATSAPP_HANDOFF_HOURS);
-  return Math.round((Number.isFinite(hours) && hours > 0 ? Math.min(hours, 24 * 7) : 12) * 3600);
+  // Default 30 minutes (owner, Oct 2026): each owner reply restarts it, so a live chat stays human.
+  return Math.round((Number.isFinite(hours) && hours > 0 ? Math.min(hours, 24 * 7) : 0.5) * 3600);
 }
 
 function logEvent(event: string, phone: string, extra: Record<string, unknown> = {}) {
@@ -700,7 +703,7 @@ async function notifyOwnerOfHandoff(
   lines.push(
     "",
     assistantPaused
-      ? "The assistant is paused for this customer until you hand it back on the dashboard (or 12 hours)."
+      ? "The assistant is paused for this customer until you hand it back on the dashboard (or 30 minutes after the last reply)."
       : "The assistant couldn't answer this and told the customer the team will reply. It is still answering them.",
   );
   try {
@@ -967,6 +970,9 @@ export async function processWhatsAppChatEmails(
   now: Date = new Date(),
 ): Promise<{ sent: number; errors: number }> {
   const result = { sent: 0, errors: 0 };
+  // Off by default (owner, Oct 2026): only email when a customer needs to speak to the owner
+  // (notifyOwnerOfHandoff). Set WHATSAPP_CHAT_EMAILS="true" to get every chat again.
+  if (env.WHATSAPP_CHAT_EMAILS?.trim().toLowerCase() !== "true") return result;
   const store = env.TRACKING_STORE;
   if (!store || !whatsAppCloudConfigured(env)) return result;
   const due = (await listWhatsAppChats(store, 500)).filter((c) => isWhatsAppChatDueForEmail(c, now)).slice(0, 20);

@@ -14,7 +14,6 @@ import {
 import { BELFAST_CITY_MAP_IMAGE_URL } from "./belfast-city-airport-map";
 import { BELFAST_INTERNATIONAL_MAP_IMAGE_URL } from "./belfast-international-airport-map";
 import { normalizeCustomerBookingReference } from "./customer-booking-reference";
-import { DUBLIN_AIRPORT_MAP_IMAGE_URL } from "./dublin-airport-map";
 import type { PaidBookingRecord } from "./paid-booking-record";
 import { matchServedAirportCode } from "./served-airports";
 import { formatUkDate, formatUkTime, parseLondonLocalDateTime } from "./uk-time";
@@ -117,15 +116,14 @@ export function buildWhatsAppPickupInfo(input: AirportPickupReminderInput): What
   if (!directions || (airport !== "BFS" && airport !== "BHD" && airport !== "DUB")) return null;
   const access = resolveReminderAirportAccess(input, airport);
 
-  // Same rule as the collection email: the Belfast maps mark the Express area only.
+  // Same rule as the collection email: the Belfast maps mark the paid Express area only;
+  // Dublin customers are met in Arrivals, so no map.
   const mapImageUrl =
-    airport === "DUB"
-      ? DUBLIN_AIRPORT_MAP_IMAGE_URL
-      : access === "express"
-        ? airport === "BFS"
-          ? BELFAST_INTERNATIONAL_MAP_IMAGE_URL
-          : BELFAST_CITY_MAP_IMAGE_URL
-        : null;
+    airport !== "DUB" && access === "express"
+      ? airport === "BFS"
+        ? BELFAST_INTERNATIONAL_MAP_IMAGE_URL
+        : BELFAST_CITY_MAP_IMAGE_URL
+      : null;
   const pin = WHATSAPP_PICKUP_PINS[airport === "DUB" ? "DUB" : `${airport}:${access}`] ?? null;
 
   const when = [formatUkDate(input.tripDate ?? ""), formatUkTime(input.tripTime ?? "")].filter(Boolean).join(" at ");

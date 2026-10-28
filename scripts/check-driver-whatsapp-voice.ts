@@ -171,7 +171,7 @@ console.log("\n=== Airport arrival keeps the selected instructions in first pers
   });
   assert.equal(
     t1,
-    "Hi Alex, I've arrived. Please make your way to the paid Pick-Up Location at Terminal 1. Let me know when you're there and I'll head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
+    "Hi Alex, I've arrived. After collecting your baggage, please wait in Arrivals and I'll meet you there.",
   );
   const t2 = buildArrivedPickupWhatsAppMessage({
     customerName: "Alex Customer",
@@ -180,14 +180,13 @@ console.log("\n=== Airport arrival keeps the selected instructions in first pers
     dublinArrivalTerminal: "T2",
     authenticatedRole: "driver",
   });
-  assert.match(t2, /Terminal 2/);
-  assert.match(t2, /I'll head over to meet you/);
+  assert.equal(t2, t1, "Dublin is Arrivals for every terminal");
   assert.doesNotMatch(t2, /Terminal 1/);
   assert.doesNotMatch(t1, /your driver can head over/);
   assertNoSecrets(express, "express");
   assertNoSecrets(free, "free");
   assertNoSecrets(t1, "t1");
-  console.log("OK  Express, Free, Dublin T1 and T2 stay on the right instructions");
+  console.log("OK  Express, Free, Dublin (met in Arrivals) stay on the right instructions");
 }
 
 console.log("\n=== A request cannot choose the voice ===");

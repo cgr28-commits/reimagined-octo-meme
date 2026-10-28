@@ -7,7 +7,6 @@
  */
 
 import {
-  parseDublinArrivalTerminal,
   type DublinArrivalTerminal,
 } from "./dublin-arrival-terminal";
 import {
@@ -29,12 +28,7 @@ export const AIRPORT_PICKUP_COPY = {
   express: "Please make your way to Express Pick-Up.",
   bfsBhdFree:
     "Please make your way to the Long Stay Car Park Free Pick-Up Location. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Free Pick-Up Location.",
-  dubT1:
-    "Please make your way to the paid Pick-Up Location at Terminal 1. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
-  dubT2:
-    "Please make your way to the paid Pick-Up Location at Terminal 2. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location.",
-  dubUnknown:
-    "Please make your way to the agreed paid Pick-Up Location at Dublin Airport. Please let us know when you're there so your driver can head over to meet you. Please note there is a maximum stay of 10 minutes at the Pick-Up Location. Your arrival terminal still needs confirmation.",
+  dubArrivals: "After collecting your baggage, please wait in Arrivals for your driver.",
   generic: "Please make your way to the agreed airport pickup point.",
   street: "Your driver is now at your pickup location and ready when you are.",
 } as const;
@@ -119,12 +113,8 @@ export function buildAirportPickupInstruction(
     return AIRPORT_PICKUP_COPY.express;
   }
 
-  if (airportCode === "DUB") {
-    const terminal = parseDublinArrivalTerminal(booking.dublinArrivalTerminal);
-    if (terminal === "T1") return AIRPORT_PICKUP_COPY.dubT1;
-    if (terminal === "T2") return AIRPORT_PICKUP_COPY.dubT2;
-    return AIRPORT_PICKUP_COPY.dubUnknown;
-  }
+  // Every Dublin customer is met in Arrivals (owner decision, Oct 2026).
+  if (airportCode === "DUB") return AIRPORT_PICKUP_COPY.dubArrivals;
 
   return AIRPORT_PICKUP_COPY.generic;
 }
@@ -194,6 +184,9 @@ export function buildOnTheWayDriverVoiceMessage(
 function toDriverVoiceAirportInstruction(instruction: string): string {
   if (instruction === AIRPORT_PICKUP_COPY.express) {
     return "Please make your way to Express Pick-Up and I'll meet you there.";
+  }
+  if (instruction === AIRPORT_PICKUP_COPY.dubArrivals) {
+    return "After collecting your baggage, please wait in Arrivals and I'll meet you there.";
   }
   return instruction.replace(
     "Please let us know when you're there so your driver can head over to meet you.",

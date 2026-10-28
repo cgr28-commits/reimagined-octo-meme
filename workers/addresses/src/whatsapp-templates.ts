@@ -6,6 +6,10 @@
  *   mat_driver_on_the_way  — when the driver starts the journey (start_tracking)
  *   mat_driver_details     — when an assigned (non-owner) driver accepts
  *   mat_review_request     — with the delayed Google review request
+ *   mat_airport_pickup     — with the journey-day airport collection email (~4h before):
+ *                            where to meet the driver, plus a "View pickup map" button
+ *   mat_driver_arrived     — driver taps Arrived at a home / hotel / station pickup
+ *   mat_driver_arrived_airport — driver taps Arrived at an airport: where to go + map button
  *
  * Nothing is sent until Meta has APPROVED the template: the approved list is read
  * from 360dialog (cached). WHATSAPP_TEMPLATES_ENABLED="false" switches all of them
@@ -32,7 +36,10 @@ export type WhatsAppTemplateName =
   | "mat_booking_confirmed"
   | "mat_driver_on_the_way"
   | "mat_driver_details"
-  | "mat_review_request";
+  | "mat_review_request"
+  | "mat_airport_pickup"
+  | "mat_driver_arrived"
+  | "mat_driver_arrived_airport";
 
 export const WHATSAPP_TEMPLATE_LANGUAGE = "en_GB";
 const SITE = "https://www.myairporttaxini.co.uk";
@@ -117,6 +124,79 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
         },
       ],
     },
+    {
+      name: "mat_airport_pickup",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, your airport collection with My Airport Taxi NI is on {{2}}.\n\n" +
+            "Where to meet your driver at {{3}}:\n{{4}}\n\n" +
+            "Tap the button below for the pickup map. Reply here if you need us.",
+          example: {
+            body_text: [[
+              "Sarah",
+              "Sat 31 Oct at 14:30",
+              "Belfast International Airport",
+              "After collecting your baggage, please make your way to the airport's Drop-Off Zone, which is signposted outside the terminal. Once you are there, contact your driver.",
+            ]],
+          },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "View pickup map",
+              url: `${SITE}/{{1}}`,
+              example: [`${SITE}/maps/belfast-international-pick-up-drop-off.jpg`],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "mat_driver_arrived",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text: "Hi {{1}}, your My Airport Taxi NI driver has arrived at {{2}}. Reply here if you need us.",
+          example: { body_text: [["Sarah", "12 Main Street, Lisburn"]] },
+        },
+      ],
+    },
+    {
+      name: "mat_driver_arrived_airport",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, your My Airport Taxi NI driver has arrived at {{2}} and is ready to collect you.\n\n" +
+            "{{3}}\n\nTap the button below for the map of where to go.",
+          example: {
+            body_text: [[
+              "Sarah",
+              "Belfast International Airport",
+              "After collecting your baggage, please make your way to the airport's Drop-Off Zone, which is signposted outside the terminal. Once you are there, contact your driver.",
+            ]],
+          },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Where to go",
+              url: `${SITE}/{{1}}`,
+              example: [`${SITE}/maps/belfast-international-pick-up-drop-off.jpg`],
+            },
+          ],
+        },
+      ],
+    },
   ];
 }
 
@@ -124,7 +204,7 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
 // Formatting helpers (template parameters may not contain newlines or be empty)
 // ---------------------------------------------------------------------------
 
-export function templateParam(value: string | null | undefined, max = 200): string {
+export function templateParam(value: string | null | undefined, max = 700): string {
   const cleaned = String(value ?? "").replace(/\s+/g, " ").trim();
   if (!cleaned) return "-";
   return cleaned.length > max ? `${cleaned.slice(0, max - 1)}…` : cleaned;
@@ -429,6 +509,100 @@ export function sendReviewRequestWhatsApp(
       fetchImpl,
     ),
   );
+}
+
+/** Airport collection directions + map button (link from airportPickupLinkPath). */
+export function sendAirportPickupWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: {
+    jobKey: string;
+    customerName?: string | null;
+    mobile?: string | null;
+    tripDate?: string | null;
+    tripTime?: string | null;
+    airportName?: string | null;
+    directions: string;
+    linkPath: string;
+  },
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_airport_pickup",
+        jobKey: input.jobKey,
+        mobile: input.mobile,
+        bodyParams: [firstNameOf(input.customerName), tripWhen(input.tripDate, input.tripTime), input.airportName ?? "the airport", input.directions],
+        urlButtonParam: input.linkPath,
+      },
+      fetchImpl,
+    ),
+  );
+}
+
+/**
+ * Driver tapped Arrived. Airport pickups get the directions and the map of where to go
+ * (Express map, else the airport guide); other pickups a short notice.
+ */
+export function sendDriverArrivedWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: {
+    jobKey: string;
+    customerName?: string | null;
+    mobile?: string | null;
+    pickupLabel?: string | null;
+    airport?: { airportName: string; directions: string; linkPath: string } | null;
+  },
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  if (input.airport) {
+    const airport = input.airport;
+    return safely(() =>
+      sendTemplate(
+        env,
+        {
+          name: "mat_driver_arrived_airport",
+          jobKey: input.jobKey,
+          mobile: input.mobile,
+          bodyParams: [firstNameOf(input.customerName), airport.airportName, airport.directions],
+          urlButtonParam: airport.linkPath,
+        },
+        fetchImpl,
+      ),
+    );
+  }
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_driver_arrived",
+        jobKey: input.jobKey,
+        mobile: input.mobile,
+        bodyParams: [firstNameOf(input.customerName), input.pickupLabel ?? "your pickup address"],
+      },
+      fetchImpl,
+    ),
+  );
+}
+
+const AIRPORT_GUIDE_PATHS: Record<string, string> = {
+  BFS: "airports/belfast-international/",
+  BHD: "airports/belfast-city/",
+  DUB: "airports/dublin/",
+  LDY: "airports/city-of-derry/",
+};
+
+/** Path after the site origin for the map button: the Express map image, else the airport guide. */
+export function airportPickupLinkPath(input: {
+  airportCode: string | null | undefined;
+  access?: string | null;
+  mapImageUrl?: string | null;
+}): string {
+  const code = String(input.airportCode ?? "").toUpperCase();
+  const map = String(input.mapImageUrl ?? "").trim();
+  if (map.startsWith(`${SITE}/`)) return map.slice(SITE.length + 1);
+  return AIRPORT_GUIDE_PATHS[code] ?? "airports/";
 }
 
 // ---------------------------------------------------------------------------
