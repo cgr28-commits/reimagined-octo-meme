@@ -289,7 +289,7 @@ async function main() {
   );
   assert.equal(parsed.messages[1].text, "");
   assert.deepEqual(parsed.echoes, [{ id: "wamid.3", to: "447700900999", timestamp: 3 }]);
-  assert.deepEqual(parseWhatsAppWebhook({ object: "page" }), { messages: [], echoes: [] });
+  assert.deepEqual(parseWhatsAppWebhook({ object: "page" }), { messages: [], echoes: [], failures: [] });
 
   console.log("=== Date / time helpers ===");
   assert.deepEqual(extractClockTimes("Friday at 5am"), ["05:00"]);
