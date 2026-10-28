@@ -8,6 +8,8 @@
  *   mat_review_request     — with the delayed Google review request
  *   mat_airport_pickup     — with the journey-day airport collection email (~4h before):
  *                            where to meet the driver, plus a "View pickup map" button
+ *   mat_driver_arrived     — driver taps Arrived at a home / hotel / station pickup
+ *   mat_driver_arrived_airport — driver taps Arrived at an airport: where to go + map button
  *
  * Nothing is sent until Meta has APPROVED the template: the approved list is read
  * from 360dialog (cached). WHATSAPP_TEMPLATES_ENABLED="false" switches all of them
@@ -35,7 +37,9 @@ export type WhatsAppTemplateName =
   | "mat_driver_on_the_way"
   | "mat_driver_details"
   | "mat_review_request"
-  | "mat_airport_pickup";
+  | "mat_airport_pickup"
+  | "mat_driver_arrived"
+  | "mat_driver_arrived_airport";
 
 export const WHATSAPP_TEMPLATE_LANGUAGE = "en_GB";
 const SITE = "https://www.myairporttaxini.co.uk";
@@ -147,6 +151,47 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
               text: "View pickup map",
               url: `${SITE}/{{1}}`,
               example: [`${SITE}/maps/belfast-international-pick-up-drop-off.jpg`],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "mat_driver_arrived",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text: "Hi {{1}}, your My Airport Taxi NI driver has arrived at {{2}}. Reply here if you need us.",
+          example: { body_text: [["Sarah", "12 Main Street, Lisburn"]] },
+        },
+      ],
+    },
+    {
+      name: "mat_driver_arrived_airport",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, your My Airport Taxi NI driver has arrived at {{2}} and is ready to collect you.\n\n" +
+            "{{3}}\n\nTap the button below for the map of where to go.",
+          example: {
+            body_text: [[
+              "Sarah",
+              "Belfast International Airport",
+              "Please make your way to the Long Stay Car Park Free Pick-Up Location. Please let us know when you're there so your driver can head over to meet you.",
+            ]],
+          },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Where to go",
+              url: `${SITE}/{{1}}`,
+              example: [`${SITE}/pickup/belfast-international-long-stay/`],
             },
           ],
         },
@@ -466,10 +511,7 @@ export function sendReviewRequestWhatsApp(
   );
 }
 
-/**
- * Airport collection directions + map button. `mapImageUrl` (from buildWhatsAppPickupInfo)
- * is used when there is a map for that pickup area; otherwise the airport guide page.
- */
+/** Airport collection directions + map button (link from airportPickupLinkPath). */
 export function sendAirportPickupWhatsApp(
   env: WhatsAppTemplateEnv,
   input: {
@@ -480,8 +522,7 @@ export function sendAirportPickupWhatsApp(
     tripTime?: string | null;
     airportName?: string | null;
     directions: string;
-    mapImageUrl?: string | null;
-    airportCode?: string | null;
+    linkPath: string;
   },
   fetchImpl?: typeof fetch,
 ): Promise<TemplateSendResult> {
@@ -493,7 +534,52 @@ export function sendAirportPickupWhatsApp(
         jobKey: input.jobKey,
         mobile: input.mobile,
         bodyParams: [firstNameOf(input.customerName), tripWhen(input.tripDate, input.tripTime), input.airportName ?? "the airport", input.directions],
-        urlButtonParam: airportPickupLinkPath(input.mapImageUrl, input.airportCode),
+        urlButtonParam: input.linkPath,
+      },
+      fetchImpl,
+    ),
+  );
+}
+
+/**
+ * Driver tapped Arrived. Airport pickups get the directions and the map of where to go
+ * (free Long Stay page, Express map, Dublin car parks); other pickups a short notice.
+ */
+export function sendDriverArrivedWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: {
+    jobKey: string;
+    customerName?: string | null;
+    mobile?: string | null;
+    pickupLabel?: string | null;
+    airport?: { airportName: string; directions: string; linkPath: string } | null;
+  },
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  if (input.airport) {
+    const airport = input.airport;
+    return safely(() =>
+      sendTemplate(
+        env,
+        {
+          name: "mat_driver_arrived_airport",
+          jobKey: input.jobKey,
+          mobile: input.mobile,
+          bodyParams: [firstNameOf(input.customerName), airport.airportName, airport.directions],
+          urlButtonParam: airport.linkPath,
+        },
+        fetchImpl,
+      ),
+    );
+  }
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_driver_arrived",
+        jobKey: input.jobKey,
+        mobile: input.mobile,
+        bodyParams: [firstNameOf(input.customerName), input.pickupLabel ?? "your pickup address"],
       },
       fetchImpl,
     ),
@@ -507,11 +593,25 @@ const AIRPORT_GUIDE_PATHS: Record<string, string> = {
   LDY: "airports/city-of-derry/",
 };
 
-/** Path after the site origin for the map button: the map image, else the airport guide. */
-export function airportPickupLinkPath(mapImageUrl: string | null | undefined, airportCode: string | null | undefined): string {
-  const map = String(mapImageUrl ?? "").trim();
+const FREE_PICKUP_PATHS: Record<string, string> = {
+  BFS: "pickup/belfast-international-long-stay/",
+  BHD: "pickup/belfast-city-long-stay/",
+};
+
+/**
+ * Path after the site origin for the map button: the free Long Stay page for free
+ * pickups at BFS/BHD, else the map image (Express / Dublin), else the airport guide.
+ */
+export function airportPickupLinkPath(input: {
+  airportCode: string | null | undefined;
+  access?: string | null;
+  mapImageUrl?: string | null;
+}): string {
+  const code = String(input.airportCode ?? "").toUpperCase();
+  if (input.access === "free" && FREE_PICKUP_PATHS[code]) return FREE_PICKUP_PATHS[code];
+  const map = String(input.mapImageUrl ?? "").trim();
   if (map.startsWith(`${SITE}/`)) return map.slice(SITE.length + 1);
-  return AIRPORT_GUIDE_PATHS[String(airportCode ?? "").toUpperCase()] ?? "airports/";
+  return AIRPORT_GUIDE_PATHS[code] ?? "airports/";
 }
 
 // ---------------------------------------------------------------------------

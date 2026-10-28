@@ -7,11 +7,12 @@
 import {
   buildAirportPickupReminderDirections,
   evaluateAirportPickupReminder,
+  resolveReminderAirportAccess,
   type AirportPickupReminderInput,
 } from "../shared/airport-pickup-reminder";
 import { getServedAirport, matchServedAirportCode } from "../shared/served-airports";
 import { buildWhatsAppPickupInfo } from "../shared/whatsapp-pickup-info";
-import { sendAirportPickupWhatsApp, type WhatsAppTemplateEnv } from "./whatsapp-templates";
+import { airportPickupLinkPath, sendAirportPickupWhatsApp, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import type { TrackingJobRecord } from "../shared/tracking";
 import { getPaidBookingRecord } from "./paid-booking-store";
@@ -29,6 +30,35 @@ export type AirportPickupReminderRunResult = {
   skipped: number;
   errors: number;
 };
+
+export type AirportPickupContext = {
+  airportCode: "BFS" | "BHD" | "DUB";
+  airportName: string;
+  access: "express" | "free" | "meet-greet" | null;
+  directions: string;
+  /** Path after the site origin for the WhatsApp map button. */
+  linkPath: string;
+};
+
+/**
+ * Where an airport collection customer should go, for WhatsApp: same directions as the
+ * collection email, plus the map link (Express map, free Long Stay page, Dublin car parks,
+ * or the airport guide). Null when the pickup is not at BFS/BHD/DUB or has no directions.
+ */
+export function airportPickupContext(input: AirportPickupReminderInput): AirportPickupContext | null {
+  const directions = buildAirportPickupReminderDirections(input);
+  const code = matchServedAirportCode(input.pickupLabel ?? "");
+  if (!directions || (code !== "BFS" && code !== "BHD" && code !== "DUB")) return null;
+  const access = resolveReminderAirportAccess(input, code);
+  const mapImageUrl = buildWhatsAppPickupInfo(input)?.mapImageUrl ?? null;
+  return {
+    airportCode: code,
+    airportName: getServedAirport(code)?.name || input.pickupLabel || "the airport",
+    access,
+    directions,
+    linkPath: airportPickupLinkPath({ airportCode: code, access, mapImageUrl }),
+  };
+}
 
 export function airportPickupReminderInput(
   job: TrackingJobRecord,
@@ -152,20 +182,17 @@ async function maybeSendAirportPickupReminder(
   }
 
   // WhatsApp copy: where to meet the driver + map button (approved template only; once per job).
-  const pickupInfo = buildWhatsAppPickupInfo(reminderInput);
-  const directions = buildAirportPickupReminderDirections(reminderInput);
-  if (directions) {
-    const airportCode = matchServedAirportCode(reminderInput.pickupLabel ?? "");
+  const pickup = airportPickupContext(reminderInput);
+  if (pickup) {
     await sendAirportPickupWhatsApp(env, {
       jobKey: job.token,
       customerName: job.customerName || paid?.customerName,
       mobile: job.customerMobile || paid?.mobileNumber,
       tripDate: reminderInput.tripDate,
       tripTime: reminderInput.tripTime,
-      airportName: (airportCode && getServedAirport(airportCode)?.name) || reminderInput.pickupLabel,
-      directions,
-      mapImageUrl: pickupInfo?.mapImageUrl,
-      airportCode,
+      airportName: pickup.airportName,
+      directions: pickup.directions,
+      linkPath: pickup.linkPath,
     });
   }
 
