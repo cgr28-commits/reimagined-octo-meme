@@ -13,6 +13,8 @@ import {
   sendDriverDetailsWhatsApp,
   sendDriverOnTheWayWhatsApp,
   sendReviewRequestWhatsApp,
+  sendAirportPickupWhatsApp,
+  airportPickupLinkPath,
   shortTripDate,
   templateParam,
   tripWhen,
@@ -91,6 +93,7 @@ assert.equal(varCount("mat_booking_confirmed"), 5);
 assert.equal(varCount("mat_driver_on_the_way"), 3);
 assert.equal(varCount("mat_driver_details"), 5);
 assert.equal(varCount("mat_review_request"), 2);
+assert.equal(varCount("mat_airport_pickup"), 4);
 for (const def of defs.filter((d) => d.category === "UTILITY")) {
   const text = JSON.stringify(def.components);
   assert.doesNotMatch(text, /review|discount|offer|% off|promo/i, `${def.name} must stay non-promotional`);
@@ -190,6 +193,36 @@ async function main() {
   }
   console.log("OK  bookings without a usable mobile are skipped");
 
+  // Airport pickup: directions + map button (map image when there is one, else the airport guide).
+  {
+    assert.equal(
+      airportPickupLinkPath("https://www.myairporttaxini.co.uk/maps/belfast-international-pick-up-drop-off.jpg", "BFS"),
+      "maps/belfast-international-pick-up-drop-off.jpg",
+    );
+    assert.equal(airportPickupLinkPath(null, "BHD"), "airports/belfast-city/");
+    const calls: Call[] = [];
+    const env = { D360_API_KEY: "k", TRACKING_STORE: memoryKv() };
+    const r = await sendAirportPickupWhatsApp(env, {
+      jobKey: "t5",
+      customerName: "Sarah Jones",
+      mobile: "07377515059",
+      tripDate: "2026-10-31",
+      tripTime: "14:30",
+      airportName: "Belfast International Airport",
+      directions: "After collecting your baggage,\nplease make your way to the Drop-Off Zone.",
+      mapImageUrl: "https://www.myairporttaxini.co.uk/maps/belfast-international-pick-up-drop-off.jpg",
+      airportCode: "BFS",
+    }, fake360({ mat_airport_pickup: "approved" }, calls));
+    assert.equal(r.sent, true);
+    const body = calls.find((c) => c.url.endsWith("/messages"))?.body as {
+      template: { components: Array<{ parameters: Array<{ text: string }> }> };
+    };
+    assert.equal(body.template.components[0].parameters[1].text, "Sat 31 Oct at 14:30");
+    assert.doesNotMatch(body.template.components[0].parameters[3].text, /\n/);
+    assert.equal(body.template.components[1].parameters[0].text, "maps/belfast-international-pick-up-drop-off.jpg");
+  }
+  console.log("OK  airport pickup message carries directions and the map link");
+
   // Wiring: every send sits next to its email and never blocks it.
   const read = (p: string) => fs.readFileSync(path.join(root, "workers/addresses/src", p), "utf8");
   assert.match(read("finalize-paid-checkout.ts"), /sendBookingConfirmedWhatsApp\(/);
@@ -197,6 +230,7 @@ async function main() {
   assert.match(read("customer-driver-details.ts"), /sendDriverDetailsWhatsApp\(/);
   assert.match(read("review-request-handlers.ts"), /sendReviewRequestWhatsApp\(/);
   assert.match(read("index.ts"), /isWhatsAppTemplatesPath\(url\.pathname\)/);
+  assert.match(read("airport-pickup-reminder-handlers.ts"), /sendAirportPickupWhatsApp\(/);
   assert.match(read("booking-job-handlers.ts"), /customerMobile: accepted\.customerMobile/);
   assert.match(read("driver-assignment-handlers.ts"), /customerMobile: record\.customerMobile/);
   console.log("OK  template sends are wired into all four customer messages");

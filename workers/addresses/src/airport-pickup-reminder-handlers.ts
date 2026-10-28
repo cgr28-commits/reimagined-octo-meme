@@ -5,16 +5,20 @@
  */
 
 import {
+  buildAirportPickupReminderDirections,
   evaluateAirportPickupReminder,
   type AirportPickupReminderInput,
 } from "../shared/airport-pickup-reminder";
+import { getServedAirport, matchServedAirportCode } from "../shared/served-airports";
+import { buildWhatsAppPickupInfo } from "../shared/whatsapp-pickup-info";
+import { sendAirportPickupWhatsApp, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import type { TrackingJobRecord } from "../shared/tracking";
 import { getPaidBookingRecord } from "./paid-booking-store";
 import { listUpcomingTrackingJobs, saveTrackingJob, trackingStoreConfigured } from "./tracking-store";
 import { trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
-type Env = WorkerEmailEnv & {
+type Env = WorkerEmailEnv & WhatsAppTemplateEnv & {
   TRACKING_STORE?: KVNamespace;
 };
 
@@ -141,9 +145,28 @@ async function maybeSendAirportPickupReminder(
   const paid = paymentReference
     ? await getPaidBookingRecord(env.TRACKING_STORE!, paymentReference)
     : null;
-  const decision = evaluateAirportPickupReminder(airportPickupReminderInput(job, paid), now);
+  const reminderInput = airportPickupReminderInput(job, paid);
+  const decision = evaluateAirportPickupReminder(reminderInput, now);
   if (!decision.eligible) {
     return "not_eligible";
+  }
+
+  // WhatsApp copy: where to meet the driver + map button (approved template only; once per job).
+  const pickupInfo = buildWhatsAppPickupInfo(reminderInput);
+  const directions = buildAirportPickupReminderDirections(reminderInput);
+  if (directions) {
+    const airportCode = matchServedAirportCode(reminderInput.pickupLabel ?? "");
+    await sendAirportPickupWhatsApp(env, {
+      jobKey: job.token,
+      customerName: job.customerName || paid?.customerName,
+      mobile: job.customerMobile || paid?.mobileNumber,
+      tripDate: reminderInput.tripDate,
+      tripTime: reminderInput.tripTime,
+      airportName: (airportCode && getServedAirport(airportCode)?.name) || reminderInput.pickupLabel,
+      directions,
+      mapImageUrl: pickupInfo?.mapImageUrl,
+      airportCode,
+    });
   }
 
   const email = (job.customerEmail || paid?.customerEmail || "").trim();
