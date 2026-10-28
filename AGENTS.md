@@ -1,5 +1,18 @@
 # AGENTS.md
 
+## Hosting guardrails (read first — applies to every agent)
+The live site is served by **GitHub Pages from this repo on a free GitHub plan**. On 28 Oct 2026
+the site went down twice because of hosting changes. Never do, suggest or instruct any of these:
+
+- **Do not make this repository private.** Free-plan GitHub Pages only works on public repos;
+  going private unpublishes the site immediately. Keep secrets out of the repo instead (Cloudflare
+  Worker secrets / GitHub Actions secrets) and rotate anything that was ever committed.
+- **Do not change Settings → Pages → Source.** It must stay **GitHub Actions**
+  (`deploy-pages.yml`). "Deploy from a branch" publishes the raw repo (README) as the homepage.
+- **Do not delete or rename `CNAME` / `public/CNAME`** (`www.myairporttaxini.co.uk`).
+- `site-watchdog.yml` checks the live site every 15 minutes, redeploys if it is broken and emails
+  the owner. Do not disable it.
+
 ## Cursor Cloud specific instructions
 
 ### What this repo is

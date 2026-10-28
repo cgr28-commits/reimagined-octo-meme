@@ -1,0 +1,133 @@
+# Every 15 minutes: make sure www.myairporttaxini.co.uk is serving the real
+# website. If it is down, or GitHub is serving the raw repo (README) instead of
+# the built site, redeploy automatically and email the owner.
+#
+# Background (28 Oct 2026): making the repo private switched GitHub Pages off.
+# Re-enabling it reset the Pages source to "Deploy from a branch", so the next
+# bot commit published the README as the homepage. This catches that class of
+# problem within ~15 minutes instead of the next morning.
+
+name: Live site watchdog
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  pages: read
+  issues: write
+
+concurrency:
+  group: site-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SITE_URL: https://www.myairporttaxini.co.uk/
+      GH_TOKEN: ${{ github.token }}
+      WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+      NOTIFY_EMAIL: ${{ secrets.HEALTH_CHECK_NOTIFY_EMAIL || 'bookings@myairporttaxini.co.uk' }}
+    steps:
+      - name: Check site and Pages settings
+        id: check
+        run: |
+          set -u
+          site_problem() {
+            local out code body title
+            out=$(curl -sS -L --max-time 30 -H 'Cache-Control: no-cache' \
+              -w '\n%{http_code}' "${SITE_URL}?watchdog=$(date +%s)" 2>&1) || { echo "request failed"; return 0; }
+            code=$(printf '%s' "$out" | tail -n1)
+            body=$(printf '%s' "$out" | sed '$d')
+            title=$(printf '%s' "$body" | grep -o '<title>[^<]*' | head -1 | sed 's/<title>//')
+            if [ "$code" != "200" ]; then echo "HTTP $code"; return 0; fi
+            if printf '%s' "$title" | grep -qi 'reimagined-octo-meme'; then echo "README page is live (title: $title)"; return 0; fi
+            if printf '%s' "$body" | grep -q 'npm run dev'; then echo "README page is live"; return 0; fi
+            if ! printf '%s' "$body" | grep -q '/_next/'; then echo "Built site markers missing (title: $title)"; return 0; fi
+            return 1
+          }
+
+          problem=""
+          if p=$(site_problem); then
+            echo "First check failed: $p — rechecking in 60s"
+            sleep 60
+            if p=$(site_problem); then problem="$p"; fi
+          fi
+
+          build_type=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.build_type' 2>/dev/null || echo "unknown")
+          echo "Pages build_type: $build_type"
+          if [ "$build_type" = "workflow" ]; then
+            echo "::notice title=Pages source::GitHub Actions (correct)"
+          else
+            echo "::warning title=Pages source::Pages source is '$build_type', expected 'workflow' (GitHub Actions)"
+          fi
+
+          echo "problem=$problem" >> "$GITHUB_OUTPUT"
+          echo "build_type=$build_type" >> "$GITHUB_OUTPUT"
+          if [ -z "$problem" ]; then echo "::notice title=Site::Live site OK"; fi
+
+      - name: Redeploy the site
+        id: repair
+        if: steps.check.outputs.problem != ''
+        run: |
+          echo "::error title=Site problem::${{ steps.check.outputs.problem }}"
+          gh workflow run deploy-pages.yml --repo "$GITHUB_REPOSITORY" --ref main
+          sleep 15
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy-pages.yml --event workflow_dispatch -L 1 --json databaseId --jq '.[0].databaseId')
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --interval 20 > /dev/null || true
+          sleep 60
+          out=$(curl -sS -L --max-time 30 -H 'Cache-Control: no-cache' "${SITE_URL}?watchdog=$(date +%s)" || true)
+          if printf '%s' "$out" | grep -q '/_next/' && ! printf '%s' "$out" | grep -q 'npm run dev'; then
+            echo "fixed=yes" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Site::Redeploy fixed the site"
+          else
+            echo "fixed=no" >> "$GITHUB_OUTPUT"
+            echo "::error title=Site::Site still broken after redeploy"
+          fi
+
+      - name: Email the owner
+        if: steps.check.outputs.problem != '' || steps.check.outputs.build_type == 'legacy'
+        env:
+          PROBLEM: ${{ steps.check.outputs.problem }}
+          BUILD_TYPE: ${{ steps.check.outputs.build_type }}
+          FIXED: ${{ steps.repair.outputs.fixed }}
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "Site watchdog in:title" --json number --jq '.[0].number // empty')
+          # A settings-only warning is sent once; it stays quiet while that issue is open.
+          if [ -z "$PROBLEM" ] && [ -n "$existing" ]; then
+            echo "Settings warning already reported in issue #$existing"
+            exit 0
+          fi
+          if [ -n "$PROBLEM" ] && [ "$FIXED" = "yes" ]; then
+            subject="Website was broken and has been fixed automatically"
+          elif [ -n "$PROBLEM" ]; then
+            subject="URGENT: website is down and the automatic fix did not work"
+          else
+            subject="Website setting needs attention"
+          fi
+          msg="My Airport Taxi NI — live site watchdog\n\n"
+          if [ -n "$PROBLEM" ]; then msg+="Problem found: $PROBLEM\nAutomatic redeploy fixed it: ${FIXED:-no}\n\n"; fi
+          if [ "$BUILD_TYPE" != "workflow" ]; then
+            msg+="GitHub Pages source is set to '$BUILD_TYPE'. It must be 'GitHub Actions', or the site can break again.\nFix: github.com/${GITHUB_REPOSITORY}/settings/pages → Build and deployment → Source → GitHub Actions.\n\n"
+          fi
+          msg+="Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ -n "${WEB3FORMS_ACCESS_KEY:-}" ]; then
+            jq -n --arg k "$WEB3FORMS_ACCESS_KEY" --arg s "$subject" --arg e "$NOTIFY_EMAIL" --arg m "$(printf '%b' "$msg")" \
+              '{access_key:$k, subject:$s, email:$e, replyto:$e, name:"My Airport Taxi NI", from_name:"Site watchdog", message:$m}' \
+              | curl -sS -X POST https://api.web3forms.com/submit -H 'Content-Type: application/json' -H 'Accept: application/json' -d @- || true
+          fi
+          # Also open (or comment on) one GitHub issue so there is a record.
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$(printf '%b' "**$subject**\n\n$msg")"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "Site watchdog: $subject" --body "$(printf '%b' "$msg")"
+          fi
+
+      - name: Fail the run if the site is still broken
+        if: steps.check.outputs.problem != '' && steps.repair.outputs.fixed != 'yes'
+        run: exit 1
