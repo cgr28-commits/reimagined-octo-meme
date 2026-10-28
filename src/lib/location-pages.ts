@@ -23,6 +23,8 @@ export type AirportPage = {
   heroBase: string;
   heroAlt: string;
   areaServed: string[];
+  /** Visible FAQ section + FAQPage JSON-LD on the airport page. */
+  faqs?: Array<{ question: string; answer: string }>;
 };
 
 export type TownArea = {
@@ -120,6 +122,43 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Whiteabbey",
       "Northern Ireland",
     ],
+    faqs: [
+      {
+        question: "How much is a taxi to Belfast International Airport?",
+        answer:
+          "Every Belfast International Airport taxi is priced from the exact pickup address, so enter your street, passengers and suitcases in the quote box for your fixed fare. The price you are shown is the price you pay — it does not change with traffic, delays or the time of day.",
+      },
+      {
+        question: "Is the airport drop-off or pick-up charge included?",
+        answer:
+          "Yes. Your fixed quote includes the applicable Express Drop-Off or Express Pick-Up charge at Belfast International. Where the airport offers a designated free drop-off or pick-up area, the quote lets you choose that instead and the Express charge is removed from your total.",
+      },
+      {
+        question: "Where will my driver meet me at Belfast International Airport?",
+        answer:
+          "Your booking confirmation gives the agreed collection point, and your driver contacts you on the day. Business Class pickups include Meet & Greet with a name board in arrivals. Please follow the instructions for your booking rather than heading to the public taxi rank or a different car park.",
+      },
+      {
+        question: "What happens if my flight into Aldergrove is delayed?",
+        answer:
+          "Add your flight number when you book. We monitor inbound flights where possible and adjust the collection time, and airport pickups include up to 60 minutes complimentary waiting time.",
+      },
+      {
+        question: "Can you take a family or group with lots of luggage?",
+        answer:
+          "Yes. Choose an Estate for extra suitcases or a 7 Seater Minibus when available for larger groups. Enter your passengers and suitcases in the quote so we send the right vehicle.",
+      },
+      {
+        question: "Do you cover early-morning flights from Belfast International?",
+        answer:
+          "Yes. Booking is online 24/7 and we run early-morning and late-night airport transfers. We will suggest a pickup time that leaves enough margin for the M2/M22 corridor and your airline's check-in.",
+      },
+      {
+        question: "Belfast International or Belfast City Airport — which is which?",
+        answer:
+          "Belfast International (BFS, Aldergrove) is in County Antrim, north-west of the city, and handles most holiday flights. George Best Belfast City Airport (BHD) is beside the harbour, close to the city centre. Check your ticket for the airport code — we run fixed-price taxis to both.",
+      },
+    ],
   },
   {
     slug: "belfast-city",
@@ -171,6 +210,43 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Glengormley",
       "Whiteabbey",
       "Northern Ireland",
+    ],
+    faqs: [
+      {
+        question: "How much is a taxi to Belfast City Airport?",
+        answer:
+          "Each Belfast City Airport taxi is priced from your exact pickup address, so enter your street, passengers and suitcases in the quote box for your fixed fare. The price shown is the price you pay, with no meter running in traffic on the Sydenham Bypass.",
+      },
+      {
+        question: "Is the Express Drop-Off or Pick-Up charge included?",
+        answer:
+          "Yes. Your fixed quote includes the applicable Express Drop-Off or Express Pick-Up charge at George Best Belfast City Airport. Where the airport offers a designated free drop-off or pick-up area, the quote lets you choose that instead and the Express charge is removed from your total.",
+      },
+      {
+        question: "Where will my driver meet me at Belfast City Airport?",
+        answer:
+          "Your booking confirmation gives the agreed collection point, and your driver contacts you on the day. Business Class pickups include Meet & Greet with a name board. Follow the instructions for your booked option rather than heading to a different car park.",
+      },
+      {
+        question: "What if my flight into Belfast City is delayed?",
+        answer:
+          "Add your flight number when you book. We monitor inbound flights where possible and adjust the collection time, and airport pickups include up to 60 minutes complimentary waiting time.",
+      },
+      {
+        question: "Can you collect from a Belfast hotel for a City Airport flight?",
+        answer:
+          "Yes. Hotel pickups in the city centre, Titanic Quarter and Cathedral Quarter are a regular City Airport route for us. Enter the hotel name or address in the quote box and choose the matching suggestion.",
+      },
+      {
+        question: "Do you go between Belfast City Airport and Belfast International?",
+        answer:
+          "Yes. Airport-to-airport transfers between BHD and BFS can be quoted and booked online like any other journey — enter one airport as the pickup and the other as the drop-off.",
+      },
+      {
+        question: "Belfast City or Belfast International Airport — which is which?",
+        answer:
+          "George Best Belfast City Airport (BHD) is beside the harbour, close to the city centre and Titanic Quarter. Belfast International (BFS, Aldergrove) is in County Antrim, north-west of the city. Check your ticket for the airport code — we run fixed-price taxis to both.",
+      },
     ],
   },
   {
@@ -521,6 +597,16 @@ export function getTransferRoutePages(): TransferRoutePage[] {
 }
 
 export const TRANSFER_ROUTE_PAGES = getTransferRoutePages();
+
+/**
+ * Descriptive internal-link anchor for an airport page, e.g.
+ * "Belfast International Airport taxi" / "Belfast City Airport taxi".
+ * Matches the searches we want the airport pages to rank for.
+ */
+export function airportTaxiAnchor(page: Pick<AirportPage, "shortName">): string {
+  const name = page.shortName.trim();
+  return /airport$/i.test(name) ? `${name} taxi` : `${name} Airport taxi`;
+}
 
 export function getAirportPage(slug: string): AirportPage | undefined {
   return AIRPORT_PAGES.find((page) => page.slug === slug);

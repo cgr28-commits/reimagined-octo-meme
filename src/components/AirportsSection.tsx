@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { AIRPORTS } from "@/lib/data";
-import { AIRPORT_PAGES, TRANSFER_ROUTE_PAGES } from "@/lib/location-pages";
+import { AIRPORT_PAGES, TRANSFER_ROUTE_PAGES, airportTaxiAnchor } from "@/lib/location-pages";
 import AirportBookNowLink from "./AirportBookNowLink";
 import SectionHeading from "./SectionHeading";
 
 function airportPageHref(code: string): string | null {
   const page = AIRPORT_PAGES.find((item) => item.code === code);
   return page ? `/airports/${page.slug}/` : null;
+}
+
+function airportGuideLabel(code: string): string {
+  const page = AIRPORT_PAGES.find((item) => item.code === code);
+  return page ? `${airportTaxiAnchor(page)} guide →` : "Transfer guide →";
 }
 
 function belfastRouteLink(code: string): { href: string; label: string } | null {
@@ -83,7 +88,7 @@ export default function AirportsSection() {
                       href={href}
                       className="text-sm font-semibold text-white/55 transition-colors hover:text-emerald"
                     >
-                      Transfer guide →
+                      {airportGuideLabel(airport.code)}
                     </Link>
                   ) : null}
                 </div>
