@@ -31,7 +31,7 @@ export default function HeroSlideshow() {
           Desktop (lg+): heading, then benefits above a centred quote form. */}
       <div className="homepage-hero-layout desktop-shell relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-1.5 px-4 py-1.5 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
         <div id="homepage-booking-intro" className="homepage-hero-copy order-1 min-w-0 text-center md:order-2 lg:order-1 lg:pt-2">
-          <h1 className="font-sans text-balance text-[1.5625rem] font-semibold leading-[1.15] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[3.35rem] xl:text-[3.7rem] xl:leading-[1.06]">
+          <h1 className="font-sans text-balance text-[1.5625rem] font-semibold leading-[1.15] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[2.9rem] xl:text-[3.15rem] xl:leading-[1.06]">
             <span className="text-white">Belfast &amp; Dublin</span>{" "}
             <span className="text-emerald md:whitespace-nowrap">Airport Transfers</span>
           </h1>
