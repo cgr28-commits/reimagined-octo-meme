@@ -1,5 +1,6 @@
 import type { TownHubContent } from "@/lib/town-transfer-types";
 import { TOWN_HUB_BATCH_3 } from "@/lib/town-hubs-batch-3";
+import { TOWN_HUB_BATCH_4 } from "@/lib/town-hubs-batch-4";
 
 /** Town hub landing pages — chooser pages, not copies of the three child routes. */
 export const TOWN_HUB_CONTENT: TownHubContent[] = [
@@ -398,4 +399,5 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     ],
   },
   ...TOWN_HUB_BATCH_3,
+  ...TOWN_HUB_BATCH_4,
 ];

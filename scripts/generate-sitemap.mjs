@@ -95,6 +95,7 @@ const townHubSlugs = [
   "moira-airport-taxis",
   "glengormley-airport-taxis",
   "whiteabbey-airport-taxis",
+  "craigavon-airport-taxis",
 ];
 
 const transferSlugs = [
@@ -160,6 +161,9 @@ const transferSlugs = [
   "whiteabbey-to-belfast-international",
   "whiteabbey-to-belfast-city-airport",
   "whiteabbey-to-dublin-airport",
+  "craigavon-to-belfast-international",
+  "craigavon-to-belfast-city-airport",
+  "craigavon-to-dublin-airport",
 ];
 
 const pages = [

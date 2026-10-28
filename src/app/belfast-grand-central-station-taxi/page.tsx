@@ -7,12 +7,12 @@ import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
-import { getBreadcrumbJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
+import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 import styles from "./station.module.css";
 
 const path = "/belfast-grand-central-station-taxi/";
-const title = "Belfast Grand Central Station Taxi | Book Transfers Online";
-const description = "Book a taxi to or from Belfast Grand Central Station. Fixed-price private transfers across Greater Belfast, online booking and secure payments.";
+const title = "Belfast Grand Central Station Taxi to Anywhere in NI";
+const description = "Arrived at Belfast Grand Central by train or coach? Pre-book a fixed-price taxi onward to anywhere in Northern Ireland or to the airports. 5★ on Google.";
 const stationGuide = "https://www.translink.co.uk/using-translink/station-finder/belfast-grand-central-station";
 const whatsapp = `https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent("Hello, I would like help arranging a Belfast Grand Central Station transfer.")}`;
 
@@ -30,6 +30,12 @@ export const metadata: Metadata = {
 };
 
 const routes = [
+  { name: "Causeway Coast & Portrush", text: "Arrived from Dublin and heading north? Book a direct car from Grand Central to Portrush, Portstewart, Ballycastle or a Causeway Coast hotel, with your luggage in the boot and no change of train. Enter the exact address for a fixed quote." },
+  { name: "Derry~Londonderry", text: "Travel from the station to Derry~Londonderry door to door. Useful when you are carrying luggage or arriving late. Enter your full destination address for a journey-specific fixed price." },
+  { name: "Newcastle & the Mournes", text: "Book a transfer from Grand Central to Newcastle, Dundrum or a Mourne Mountains address. Include every passenger and suitcase so the calculator suggests the right vehicle." },
+  { name: "Armagh & Craigavon", text: "Head from the station to Armagh, Portadown, Lurgan or the villages around them. Choose Return if you need collecting again for your train home." },
+  { name: "Ballymena & Antrim", text: "Arrange the onward journey from Grand Central to Ballymena, Antrim, Larne or a rural address in County Antrim. Use the precise address, especially outside the towns." },
+  { name: "Enniskillen & Fermanagh", text: "Go straight from the station to Enniskillen, a lakeside lodge or anywhere in Fermanagh in one pre-booked car. Long-distance journeys are quoted from your exact address." },
   { name: "Belfast International Airport", text: "Connect your train or coach journey with a flight from Belfast International. Choose the airport as your destination for an outbound connection, or the station after an airport arrival. Leave time for baggage collection and your onward check-in.", href: "/airports/belfast-international/" },
   { name: "George Best Belfast City Airport", text: "Arrange the road connection between Grand Central and Belfast City Airport in either direction. Check that you have selected Belfast City, rather than Belfast International, before requesting your quote.", href: "/airports/belfast-city/" },
   { name: "Dublin Airport", text: "Book a private cross-border connection between the station and Dublin Airport. Enter your terminal where known and plan your collection around the airline’s check-in advice. Your quote uses the existing airport and applicable toll rules.", href: "/airports/dublin/" },
@@ -48,6 +54,9 @@ const routes = [
 const faqs = [
   ["Can I pre-book a taxi from Belfast Grand Central Station?", "Yes. Enter the station as your pickup, choose your destination and confirm the passenger and suitcase counts to view a quote. You select the pickup date and time when you continue to book. Short-notice journeys may need availability approval before payment."],
   ["Where will my driver collect me?", "Follow the collection point agreed for your booking. The public-hire taxi rank is separate from a pre-booked private transfer; do not assume your driver will be waiting there. If you do not have a confirmed meeting point, contact us on WhatsApp before making your way outside."],
+  ["I'm arriving at Grand Central from Dublin — can you take me anywhere in Northern Ireland?", "Yes. Enter Belfast Grand Central Station as the pickup and your destination anywhere in Northern Ireland, from the Causeway Coast to Fermanagh, for a fixed price before you book. Book for a realistic time after your Enterprise train or coach is due, allowing for baggage and the walk to the agreed collection point."],
+  ["Can I get a taxi from Belfast City Airport to Grand Central Station?", "Yes. Select George Best Belfast City Airport as the pickup and Belfast Grand Central Station as the destination for a fixed quote, then add your flight number when you book so we can monitor your landing. Airport pickups include up to 60 minutes complimentary waiting. The same journey can be booked the other way for a flight."],
+  ["Can I get a taxi from Belfast International Airport to Grand Central Station?", "Yes. Choose Belfast International Airport as the pickup and Belfast Grand Central Station as the destination to see your fixed price. Add your flight number when booking; we monitor inbound flights where possible and airport pickups include up to 60 minutes complimentary waiting."],
   ["Can I book a taxi to Belfast International Airport?", "Yes. Select Belfast Grand Central Station as the pickup and Belfast International Airport as the destination. You can also book the reverse journey. Applicable airport access charges are shown through the existing quote system."],
   ["Can I travel to Dublin Airport?", "Yes. Private transfers are available between Grand Central and Dublin Airport in either direction, subject to availability. Your fixed quote accounts for the applicable airport charges and tolls; this page does not publish an estimated fare."],
   ["Can I book a taxi to the station from Newtownabbey?", "Yes. Enter your full Newtownabbey pickup address and select Belfast Grand Central Station as your destination. Choose your collection time later in the booking process, allowing time to reach your train or coach."],
@@ -62,6 +71,7 @@ const faqs = [
 export default function GrandCentralStationPage() {
   const schema = [
     getBreadcrumbJsonLd([{ name: "Home", path: "/" }, { name: "Belfast Grand Central Station Taxi", path }]),
+    getFaqPageJsonLd(faqs.map(([question, answer]) => ({ question, answer }))),
     getServiceAreaJsonLd({ name: "Belfast Grand Central Station Taxi Transfers", description, path, serviceType: "Pre-booked station taxi transfer", areaServed: ["Belfast Grand Central Station", "Greater Belfast", ...routes.map((route) => route.name)] }),
   ];
   return <>
@@ -76,7 +86,7 @@ export default function GrandCentralStationPage() {
               <p className={styles.eyebrow}>By train. By coach. Onward with us.</p>
               <h1>Belfast Grand Central Station Taxi Transfers</h1>
               <p className={styles.lead}>Your next connection, arranged before you arrive.</p>
-              <p>Pre-book a private taxi to or from Belfast Grand Central Station, with a fixed-price quote and straightforward online booking. From an airport connection to the last leg home, plan your journey across Greater Belfast with My Airport Taxi NI.</p>
+              <p>Arriving on the Enterprise from Dublin, a cross-border coach or a local train? Pre-book a private taxi from Belfast Grand Central Station to anywhere in Northern Ireland — home, a hotel, the coast or the airports — with a fixed-price quote and straightforward online booking. Heading the other way, we&apos;ll get you to the station on time too.</p>
               <div className={styles.actions}><LandingPageQuoteCta label="Get Instant Quote" /><a href={whatsapp} target="_blank" rel="noopener noreferrer">Ask us on WhatsApp ↗</a></div>
               <ul className={styles.benefits}><li>Fixed-price quotes</li><li>Cars &amp; up to 7 passengers</li><li>Save 5% on returns</li></ul>
               <figure className={styles.stationPhoto}>
@@ -106,14 +116,14 @@ export default function GrandCentralStationPage() {
         </section>
         <section className={styles.section} id="routes">
           <p className={styles.eyebrow}>One station. Many onward journeys.</p>
-          <h2>Popular Grand Central Station taxi routes</h2>
-          <p>Every route below can be booked in either direction. Your fare comes from the existing calculator using your selected addresses, vehicle and journey details.</p>
+          <h2>From Grand Central to anywhere in Northern Ireland</h2>
+          <p>Every route below can be booked in either direction, and you can go anywhere else in Northern Ireland too. Your fare comes from the existing calculator using your selected addresses, vehicle and journey details.</p>
           <nav className={styles.destinationLinks} aria-label="Choose a popular destination">{routes.map((route, index) => <a key={route.name} href={`#station-route-${index}`}>{route.name}</a>)}</nav>
           <div className={styles.routes}>{routes.map((route, index) => <article id={`station-route-${index}`} key={route.name} className={styles.route}>
             <p className={styles.routeLabel}>Grand Central Station ↔</p><h3>{route.name}</h3><p>{route.text}</p>
             <div className={styles.routeActions}><LandingPageQuoteCta label={`Quote ${route.name} transfer`} className={styles.textCta} />{route.href && <Link href={route.href}>Airport guide →</Link>}</div>
           </article>)}</div>
-          <p className={styles.small}>Travelling to Dundonald, Carryduff or another Greater Belfast address? Enter the precise location for a quote, or ask us on WhatsApp if you need help.</p>
+          <p className={styles.small}>Going somewhere not listed, from Dundonald to Coleraine? Enter the precise address for a quote, or ask us on WhatsApp if you need help.</p>
         </section>
         <section className={`${styles.section} ${styles.travelGrid}`}>
           <article id="meeting-point" className={styles.travelCard}><p className={styles.eyebrow}>Arriving in Belfast</p><h2>Where to meet your driver</h2>
