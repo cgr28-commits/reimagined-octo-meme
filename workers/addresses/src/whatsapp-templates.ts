@@ -134,13 +134,15 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
       name: "mat_tip_request",
       category: "UTILITY",
       components: [
+        // Laid out like the owner's design: heading, the line, the softer line, the thank-you.
+        { type: "HEADER", format: "TEXT", text: "Enjoyed your journey?" },
         {
           type: "BODY",
           text:
-            "Hi {{1}}, thank you for travelling with My Airport Taxi NI.\n\n" +
-            "Enjoyed your journey? Tips are never expected, but always greatly appreciated. " +
-            "If you'd like to leave a little extra for your driver, it's a lovely way to say thank you.\n\n" +
-            "Thank you for supporting My Airport Taxi NI.",
+            "Hi {{1}} 💚\n\n" +
+            "*Tips are never expected, but always greatly appreciated.*\n\n" +
+            "_If you'd like to leave a little extra for your driver, it's a lovely way to say thank you._\n\n" +
+            "*Thank you for supporting My Airport Taxi NI.*",
           example: { body_text: [["Sarah"]] },
         },
         {
