@@ -133,8 +133,17 @@ export default async function TownHubPage({ params }: Props) {
               whatsappMessage={`Hi, I'd like an airport taxi from ${page.town.name}.`}
             />
           </header>
+        </div>
 
-          <section className="mt-10">
+        {/* Quote form directly under the town heading so visitors can price a
+            journey without scrolling past the route links. */}
+        <LocationQuoteSection
+          addressHint={page.town.addressHint}
+          heading={`Quote an airport taxi from ${page.town.name}`}
+        />
+
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <section>
             <h2 className="text-lg font-bold text-white">Airport transfers from {page.town.name}</h2>
             <ul className="mt-4 grid gap-3">
               {routes.map((route) => (
@@ -181,15 +190,8 @@ export default async function TownHubPage({ params }: Props) {
               to or from {page.town.name}.
             </p>
           </section>
-        </div>
 
-        <LocationQuoteSection
-          addressHint={page.town.addressHint}
-          heading={`Quote an airport taxi from ${page.town.name}`}
-        />
-
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+          <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <h2 className="text-lg font-bold text-white">Areas around {page.town.name} we cover</h2>
             <ul className="mt-4 flex flex-wrap gap-2">
               {page.areas.map((area) => {

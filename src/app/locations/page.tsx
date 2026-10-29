@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import QuoteNavLink from "@/components/QuoteNavLink";
+import LocationQuoteSection from "@/components/LocationQuoteSection";
 import SectionHeading from "@/components/SectionHeading";
 import { AREAS, SERVICE_FLAGS, SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
@@ -23,7 +24,9 @@ import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: `${LOCATIONS_HUB_H1} | ${SITE.name}`,
+  // Short title so Google's sitelink under the homepage shows in full; the
+  // page's H1 keeps the full keyword phrase.
+  title: `Airport Taxi Areas | ${SITE.name}`,
   description:
     "Find private airport taxi and transfer pages for towns across Northern Ireland. Routes include Belfast International, Belfast City and Dublin Airport.",
   alternates: {
@@ -50,7 +53,7 @@ export default function LocationsPage() {
       <Header />
       <main className={LANDING_PAGE_MAIN_CLASS}>
         <div className="relative overflow-hidden">
-          <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <LandingBreadcrumbs
               items={[
                 { name: "Home", href: "/" },
@@ -68,8 +71,16 @@ export default function LocationsPage() {
                 description={LOCATIONS_HUB_INTRO}
               />
             </div>
+          </div>
+        </div>
 
-            <section className="mt-8">
+        {/* Quote form straight under the heading so hub visitors can price a
+            journey without scrolling past the town lists. */}
+        <LocationQuoteSection showStickyQuote={false} />
+
+        <div className="relative overflow-hidden">
+          <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+            <section>
               <h2 className="text-xl font-bold text-white">Airport taxi towns</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">
                 Dedicated airport taxi pages for towns we quote most often. Each town links through
@@ -202,11 +213,11 @@ export default function LocationsPage() {
             <div className="mt-14 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
               <p className="text-sm font-medium uppercase tracking-wider text-emerald">Your journey</p>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/75">
-                Enter your pickup and destination on the homepage quote form for an instant NI price
+                Enter your pickup and destination in the quote form above for an instant NI price
                 or to request a fixed cross-border quote.
               </p>
               <QuoteNavLink
-                href="/#quote"
+                href="#quote"
                 className="mt-6 inline-flex min-h-11 items-center rounded-full bg-emerald px-8 py-3.5 text-sm font-bold text-navy shadow-lg shadow-emerald/25 transition-all hover:bg-emerald-light"
               >
                 Get Your Fixed Quote

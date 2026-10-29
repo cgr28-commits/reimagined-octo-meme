@@ -4,6 +4,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import SectionHeading from "@/components/SectionHeading";
+import LocationQuoteSection from "@/components/LocationQuoteSection";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import {
@@ -35,7 +36,7 @@ export default function LongDistanceTransfersPage() {
       <Header />
       <main className={LANDING_PAGE_MAIN_CLASS}>
         <div className="relative overflow-hidden">
-          <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <Link
               href="/"
               className="inline-flex min-h-11 items-center gap-2 text-sm text-white/50 transition-colors hover:text-emerald"
@@ -56,8 +57,19 @@ export default function LongDistanceTransfersPage() {
                 description={LONG_DISTANCE_INTRO}
               />
             </div>
+          </div>
+        </div>
 
-            <div className="mt-14 grid gap-6 sm:grid-cols-2">
+        {/* Quote form straight under the heading so visitors can price a
+            long-distance journey without scrolling. */}
+        <LocationQuoteSection
+          showStickyQuote={false}
+          description="Fixed prices. Enter your exact pickup and destination for an instant price, or request a fixed quote for cross-border journeys."
+        />
+
+        <div className="relative overflow-hidden">
+          <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+            <div className="grid gap-6 sm:grid-cols-2">
               {LONG_DISTANCE_HIGHLIGHTS.map((item) => (
                 <div
                   key={item.title}
