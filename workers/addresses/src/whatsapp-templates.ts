@@ -289,11 +289,18 @@ export function tripWhen(date: string | null | undefined, time: string | null | 
  * 00-prefixed international kept. Returns "" when it can't be sure.
  */
 export function whatsAppRecipient(mobile: string | null | undefined): string {
-  let digits = String(mobile ?? "").replace(/\D/g, "");
+  const raw = String(mobile ?? "").trim();
+  let digits = raw.replace(/\D/g, "");
+  const international = raw.startsWith("+") || digits.startsWith("00");
   if (digits.startsWith("00")) digits = digits.slice(2);
+  // "+44 (0)7700 900123" → drop the trunk 0.
+  if (/^440\d{10}$/.test(digits)) digits = `44${digits.slice(3)}`;
+  if (/^3530\d{8,10}$/.test(digits)) digits = `353${digits.slice(4)}`;
   if (/^44\d{10}$/.test(digits) || /^353\d{8,10}$/.test(digits)) return digits;
   if (/^07\d{9}$/.test(digits)) return `44${digits.slice(1)}`;
   if (/^08[3-9]\d{7}$/.test(digits)) return `353${digits.slice(1)}`;
+  // Any other country when written with its international code (+1…, +49…, 0033…).
+  if (international && /^[1-9]\d{7,14}$/.test(digits)) return digits;
   return "";
 }
 
