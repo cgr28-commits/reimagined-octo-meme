@@ -191,7 +191,7 @@ export type PricedQuickQuoteResult =
   | { ok: false; status: number; error: string; reason?: string };
 
 type QuickQuotePricing = {
-  journey: QuickQuoteJourney;
+  journey: QuickQuoteJourney & { vehicleChoice: QuickQuoteVehicleChoice };
   vehicleTypeLabel: string | undefined;
   pricingSource: QuickQuotePriceSource;
   discounted: ReturnType<typeof applyQuickQuoteManualDiscount>;
