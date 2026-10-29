@@ -28,6 +28,7 @@ import {
   describeWhatsAppField,
   isWhatsAppGreeting,
   parseWhatsAppMenuChoice,
+  parseShortDayMonth,
   WHATSAPP_BUTTONS,
   decideWhatsAppReply,
   detectWhatsAppIntent,
@@ -632,6 +633,34 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   assert.equal(describeWhatsAppField("suitcases"), "how many suitcases (0 is fine)");
   assert.equal(describeWhatsAppDraft({ pickupAddress: "BT9 6AA", passengers: 2 }), "From: BT9 6AA\nPassengers: 2");
   console.log("OK  Claude-led chat routing and quick menu");
+}
+
+// Airports and Grand Central on either side of "X to Y" pick the right place and direction.
+{
+  const now = new Date("2026-10-29T09:00:00Z");
+  const GC = "Grand Central Station, Belfast BT12 5DR";
+  const route = (text: string) => decideWhatsAppReply(null, text, { now }).conversation.draft;
+  const cases: Array<[string, string | undefined, string | undefined, boolean | undefined]> = [
+    ["Dublin airport to Belfast", "Dublin Airport", "Belfast", true],
+    ["Dublin to Grand Central", "Dublin Airport", GC, true],
+    ["Dublin airport T2 to Lisburn", "Dublin Airport", "Lisburn", true],
+    ["Dublin airport terminal 1 to Belfast city centre", "Dublin Airport", "Belfast city centre", true],
+    ["pick up at grand central station going to BT36 7FU", GC, "BT36 7FU", undefined],
+    ["grand central to dublin airport", GC, "Dublin Airport", false],
+    ["Hi, how much from Dublin airport to Banbridge tomorrow at 6pm?", "Dublin Airport", "Banbridge", true],
+    ["I need a taxi to Belfast City Airport", undefined, "Belfast City Airport", false],
+    ["BT9 6AA to Belfast City Airport", "BT9 6AA", "Belfast City Airport", false],
+  ];
+  for (const [text, from, to, fromAirport] of cases) {
+    const d = route(text);
+    assert.equal(d.pickupAddress, from, `${text}: pickup`);
+    assert.equal(d.dropoffAddress, to, `${text}: drop-off`);
+    assert.equal(d.fromAirport, fromAirport, `${text}: direction`);
+  }
+  assert.equal(route("BT9 6AA to BFS on 14/11 at 5am").outboundDate, "2026-11-14", "day/month without a year");
+  assert.equal(parseShortDayMonth("5/1", now), "2027-01-05", "a passed date is next year");
+  assert.equal(parseShortDayMonth("4.30pm", now), null);
+  console.log("OK  airports and Grand Central routes, short dates");
 }
 
 // Delivery failures reported later by status webhooks are surfaced on /whatsapp/status.
