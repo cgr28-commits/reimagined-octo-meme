@@ -748,6 +748,14 @@ export function isWhatsAppSendQuoteMessage(text: string): boolean {
   return /^\s*hi,?\s+please send me this quote\b/i.test(text);
 }
 
+/** What every booking includes — shown with the price and when a customer says it's too much. */
+export const WHATSAPP_BOOKING_BENEFITS =
+  `*What's included:*\n` +
+  `✅ Fixed price — it won't change with traffic or delays\n` +
+  `🚘 Pre-booked driver in a modern, high-spec vehicle\n` +
+  `✈️ We monitor your flight, with up to 60 minutes' waiting included on airport pickups\n` +
+  `↩️ Cancel up to 24 hours before pickup for a full refund`;
+
 export function buildWhatsAppQuoteReply(input: {
   amountLabel: string;
   bookingUrl: string;
@@ -759,6 +767,7 @@ export function buildWhatsAppQuoteReply(input: {
   if (input.requestOnly) {
     return (
       `Your fixed price is *${input.amountLabel}*\n\n` +
+      `${WHATSAPP_BOOKING_BENEFITS}\n\n` +
       `⚠️ This date and time is *request only*, so we need to confirm we can do it before you pay.\n\n` +
       `Send your booking request here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
       `We'll get back to you as soon as possible. Reply *NEW* for a new quote.`
@@ -769,6 +778,7 @@ export function buildWhatsAppQuoteReply(input: {
     : "";
   return (
     `Your fixed price is *${input.amountLabel}* ✅\n\n` +
+    `${WHATSAPP_BOOKING_BENEFITS}\n\n` +
     expressNote +
     `To book, check your details and pay securely here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
     `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote.`
@@ -885,7 +895,8 @@ export function buildWhatsAppPriceValueReply(draft: WhatsAppQuoteDraft): string 
     (airportPickup
       ? `We monitor your flight, and up to *60 minutes' waiting time* from landing is included. `
       : `On airport pickups we monitor your flight, and up to *60 minutes' waiting time* is included. `) +
-    `Our vehicles are modern and high spec.\n\nIf you'd like to go ahead, your booking link is above.`
+    `Our vehicles are modern and high spec, and you can cancel up to 24 hours before pickup for a full refund, so you can book with confidence.\n\n` +
+    `If you'd like to go ahead, your booking link is above.`
   );
 }
 
