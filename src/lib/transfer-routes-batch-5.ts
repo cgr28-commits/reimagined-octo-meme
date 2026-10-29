@@ -79,6 +79,11 @@ export const TRANSFER_ROUTE_BATCH_5: TransferRouteContent[] = [
           "Enter your Coleraine, Portrush or Portstewart address in the quote box and you get the fixed price for that street before you book, with applicable airport access charges included.",
       },
       {
+        question: "How long does Coleraine to Belfast City Airport take?",
+        answer:
+          "The usual line is the A26 south to the M2, then through Belfast to Sydenham; the quote shows the mapped time from your Causeway Coast street. Journey times are approximate and can vary depending on traffic and time of day.",
+      },
+      {
         question: "Is Belfast City Airport or Belfast International better from Coleraine?",
         answer:
           "Belfast International is reached first on the A26, so it is usually the shorter run. Belfast City Airport means continuing into Belfast on the M2. Book whichever airport your flight uses — both are quoted from your door.",
@@ -118,6 +123,11 @@ export const TRANSFER_ROUTE_BATCH_5: TransferRouteContent[] = [
         question: "How much is a taxi from Coleraine to Dublin Airport?",
         answer:
           "Enter your Coleraine, Portrush or Portstewart address in the quote box for the fixed price from your street. Applicable M1 tolls are included. If an instant price is not shown for your address, request a fixed quote and we confirm it before you pay.",
+      },
+      {
+        question: "How long does Coleraine to Dublin Airport take?",
+        answer:
+          "It is the longest booking from the north coast — the A26 and M2 to Belfast, then the M1 and A1 south — so the quote shows the mapped time from your exact street. Journey times are approximate and can vary depending on traffic and time of day.",
       },
       {
         question: "What if my flight into Dublin Airport is delayed?",

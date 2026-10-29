@@ -147,6 +147,14 @@ export default function Footer() {
                   All locations
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/airport-transfers-northern-ireland/"
+                  className="text-sm text-white/50 transition-colors hover:text-emerald"
+                >
+                  Airport transfers Northern Ireland
+                </Link>
+              </li>
             </ul>
           </div>
         ) : null}
