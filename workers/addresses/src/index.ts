@@ -394,6 +394,8 @@ import {
 import {
   handleMarketingOptInRequest,
   handleMarketingUnsubscribeRequest,
+  handleOwnerMarketingSend,
+  handleOwnerMarketingSubscribers,
   maybeRecordMarketingFromPayload,
 } from "./marketing-handlers";
 import {
@@ -4627,6 +4629,20 @@ export default {
     }
 
     // Owner dashboard: WhatsApp assistant transcripts (list, or one chat with ?phone=).
+    if (
+      (url.pathname === "/owner/marketing/subscribers" || url.pathname === "/api/owner/marketing/subscribers") &&
+      request.method === "GET"
+    ) {
+      return handleOwnerMarketingSubscribers(request, env, origin);
+    }
+
+    if (
+      (url.pathname === "/owner/marketing/send" || url.pathname === "/api/owner/marketing/send") &&
+      request.method === "POST"
+    ) {
+      return handleOwnerMarketingSend(request, env, origin);
+    }
+
     if (
       (url.pathname === "/owner/whatsapp-chats" || url.pathname === "/api/owner/whatsapp-chats") &&
       request.method === "GET"

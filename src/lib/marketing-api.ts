@@ -84,3 +84,13 @@ export async function unsubscribeMarketingEmail(email: string): Promise<boolean>
 
   return response.ok;
 }
+
+/** One-click unsubscribe from the link in a marketing email. */
+export async function unsubscribeMarketingToken(token: string): Promise<boolean> {
+  const response = await fetch(`${WORKER_BASE}/marketing/unsubscribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ token: token.trim() }),
+  });
+  return response.ok;
+}

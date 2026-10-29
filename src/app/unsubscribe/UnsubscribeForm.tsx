@@ -1,15 +1,33 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { unsubscribeMarketingEmail } from "@/lib/marketing-api";
+import { unsubscribeMarketingEmail, unsubscribeMarketingToken } from "@/lib/marketing-api";
 import { SITE } from "@/lib/data";
 
 export default function UnsubscribeForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(() => searchParams.get("email")?.trim() ?? "");
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
+  const token = searchParams.get("t")?.trim() ?? "";
+
+  // One-click link from a marketing email: unsubscribe straight away.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    setStatus("submitting");
+    unsubscribeMarketingToken(token)
+      .then((ok) => {
+        if (!cancelled) setStatus(ok ? "done" : "error");
+      })
+      .catch(() => {
+        if (!cancelled) setStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,7 +49,7 @@ export default function UnsubscribeForm() {
       <div className="rounded-2xl border border-emerald/30 bg-emerald/10 p-6 text-sm leading-relaxed text-white/80">
         <p className="font-semibold text-white">You&apos;re unsubscribed.</p>
         <p className="mt-2">
-          If {email.trim()} was on our marketing list, it has been removed. You may still receive
+          {email.trim() ? `If ${email.trim()} was on our marketing list, it has been removed.` : "You've been removed from our marketing list."} You may still receive
           booking confirmations and messages about journeys you have booked with us.
         </p>
         <Link href="/" className="mt-4 inline-block text-emerald underline underline-offset-2">
