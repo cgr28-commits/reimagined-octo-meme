@@ -293,6 +293,24 @@ export async function fetchQuickQuoteById(id: string): Promise<QuickQuotePublicS
   return quote as QuickQuotePublicSummary;
 }
 
+/** Customer changed the pickup date/time on a quote link: the Worker re-prices it (surcharges). */
+export async function rescheduleQuickQuote(
+  id: string,
+  schedule: { outboundDate: string; outboundTime: string; returnDate?: string; returnTime?: string },
+): Promise<QuickQuotePublicSummary> {
+  const response = await fetch(`${WORKER_BASE}/quick-quotes/reschedule`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ id: id.trim(), ...schedule }),
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  if (!response.ok || !payload.quote || typeof payload.quote !== "object") {
+    throw new Error(String(payload.error || "We couldn't update the price for that time. Please try again."));
+  }
+  return payload.quote as QuickQuotePublicSummary;
+}
+
 /** A transient route/provider error retries once without changing fare or journey inputs. */
 export async function calculateServerQuote(
   journey: QuickQuoteJourney & QuickQuoteRoutePayload & { vehicleChoice?: QuickQuoteVehicleChoice },

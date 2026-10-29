@@ -20,7 +20,9 @@ import {
   parseQuickQuoteManualTransferFare,
   parseQuickQuotePriceSource,
   parseQuickQuoteVehicleChoice,
+  quickQuoteCalculatedAmount,
   quickQuoteMaxPassengersForVehicle,
+  quickQuoteTransferFareGbp,
   resolveQuickQuoteTtlSeconds,
   toQuickQuotePublicSummary,
   type QuickQuoteAirportCode,
@@ -41,7 +43,9 @@ import {
   consumeQuickQuoteCreateQuota,
   createQuickQuoteRecord,
   getQuickQuote,
+  saveQuickQuote,
 } from "./quick-quote-store";
+import { tripSurchargeRate } from "../../../src/lib/point-to-point-premium";
 import { resolveAirportTransferIntent } from "../shared/airport-transfer-intent";
 import {
   composeFareWithExpressDropOff,
@@ -186,6 +190,16 @@ export type PricedQuickQuoteResult =
     }
   | { ok: false; status: number; error: string; reason?: string };
 
+type QuickQuotePricing = {
+  journey: QuickQuoteJourney;
+  vehicleTypeLabel: string | undefined;
+  pricingSource: QuickQuotePriceSource;
+  discounted: ReturnType<typeof applyQuickQuoteManualDiscount>;
+  expressFields: ReturnType<typeof toExpressDropOffPersistedFields>;
+  composed: ReturnType<typeof composeFareWithExpressDropOff>;
+  ttlSeconds: number | null;
+};
+
 /**
  * Price a journey and store it as an opaque Quick Quote booking link.
  * Shared by the owner Quick Quote tool and the WhatsApp quote assistant.
@@ -204,6 +218,61 @@ export async function createPricedQuickQuote(
     request?: Request;
   },
 ): Promise<PricedQuickQuoteResult> {
+  const priced = await priceQuickQuoteBody(body, env, meta);
+  if (!priced.ok) return priced;
+  const { journey, vehicleTypeLabel, pricingSource, discounted, expressFields, composed, ttlSeconds } = priced.pricing;
+
+  const record = await createQuickQuoteRecord(env.TRACKING_STORE, {
+    journey: {
+      ...journey,
+      vehicleType: vehicleTypeLabel,
+      vehicleChoice: journey.vehicleChoice,
+      expressDropOffSelected: expressFields.expressDropOffSelected,
+      expressDropOffFee: expressFields.expressDropOffFee,
+      expressDropOffAirport: expressFields.expressDropOffAirport,
+    },
+    quotedAmount: composed.totalGbp,
+    quotedAmountLabel: formatQuickQuoteAmount(composed.totalGbp),
+    calculatedAmount: discounted.calculatedFare,
+    calculatedAmountLabel: formatQuickQuoteAmount(discounted.calculatedFare),
+    discountType: discounted.discountType,
+    discountValue: discounted.discountValue,
+    discountAmount: discounted.discountAmount,
+    pricingSource,
+    createdByOwner: meta.createdByOwner,
+    ttlSeconds,
+  });
+
+  const bookingUrl = buildQuickQuoteCustomerUrl(record.id, siteOrigin(env));
+  const whatsappReply = buildQuickQuoteWhatsAppReply({
+    amountLabel: record.quotedAmountLabel,
+    bookingUrl,
+  });
+
+  return {
+    ok: true,
+    record,
+    bookingUrl,
+    whatsappReply,
+    vehicleChoice: journey.vehicleChoice,
+    expressFields,
+  };
+}
+
+/** Pricing only (no storage) — the same calculation createPricedQuickQuote stores. */
+async function priceQuickQuoteBody(
+  body: Record<string, unknown>,
+  env: {
+    TRACKING_STORE: KVNamespace;
+    SITE_ORIGIN?: string;
+    GOOGLE_PLACES_API_KEY?: string;
+  } & NonNullable<MainQuoteEnv>,
+  meta: {
+    createdByOwner: boolean;
+    /** Owner's own request: its credentials are forwarded so owner-only vehicles price as in the owner tools. */
+    request?: Request;
+  },
+): Promise<{ ok: true; pricing: QuickQuotePricing } | { ok: false; status: number; error: string; reason?: string }> {
   const journey = parseJourney(body);
   if ("error" in journey) {
     return { ok: false, status: 400, error: journey.error };
@@ -335,41 +404,9 @@ export async function createPricedQuickQuote(
     expressDropOffFeeGbp: executivePayableIncludesAccess ? 0 : expressFields.expressDropOffFee,
   });
 
-  const record = await createQuickQuoteRecord(env.TRACKING_STORE, {
-    journey: {
-      ...journey,
-      vehicleType: vehicleTypeLabel,
-      vehicleChoice: journey.vehicleChoice,
-      expressDropOffSelected: expressFields.expressDropOffSelected,
-      expressDropOffFee: expressFields.expressDropOffFee,
-      expressDropOffAirport: expressFields.expressDropOffAirport,
-    },
-    quotedAmount: composed.totalGbp,
-    quotedAmountLabel: formatQuickQuoteAmount(composed.totalGbp),
-    calculatedAmount: discounted.calculatedFare,
-    calculatedAmountLabel: formatQuickQuoteAmount(discounted.calculatedFare),
-    discountType: discounted.discountType,
-    discountValue: discounted.discountValue,
-    discountAmount: discounted.discountAmount,
-    pricingSource,
-    createdByOwner: meta.createdByOwner,
-    ttlSeconds,
-  });
-
-  const bookingUrl = buildQuickQuoteCustomerUrl(record.id, siteOrigin(env));
-  const whatsappReply = buildQuickQuoteWhatsAppReply({
-    amountLabel: record.quotedAmountLabel,
-    bookingUrl,
-  });
-
-
   return {
     ok: true,
-    record,
-    bookingUrl,
-    whatsappReply,
-    vehicleChoice: journey.vehicleChoice,
-    expressFields,
+    pricing: { journey, vehicleTypeLabel, pricingSource, discounted, expressFields, composed, ttlSeconds },
   };
 }
 
@@ -534,8 +571,180 @@ export async function handlePublicQuickQuoteLookup(
   return json({ ok: true, quote: toQuickQuotePublicSummary(record) }, 200, origin);
 }
 
+export type QuickQuoteSchedule = {
+  outboundDate: string;
+  outboundTime: string;
+  returnDate?: string;
+  returnTime?: string;
+};
+
+const SCHEDULE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const SCHEDULE_TIME = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+
+/** Validated new pickup date/time(s) for a quote, or an error. */
+export function parseQuickQuoteSchedule(
+  body: Record<string, unknown>,
+  returnJourney: boolean,
+): QuickQuoteSchedule | { error: string } {
+  const outboundDate = String(body.outboundDate ?? body.tripDate ?? "").trim();
+  const outboundTime = String(body.outboundTime ?? body.tripTime ?? "").trim();
+  if (!SCHEDULE_DATE.test(outboundDate) || !SCHEDULE_TIME.test(outboundTime)) {
+    return { error: "Please enter a valid pickup date and time." };
+  }
+  if (!returnJourney) return { outboundDate, outboundTime };
+  const returnDate = String(body.returnDate ?? "").trim();
+  const returnTime = String(body.returnTime ?? "").trim();
+  if (!returnDate && !returnTime) return { outboundDate, outboundTime };
+  if (!SCHEDULE_DATE.test(returnDate) || !SCHEDULE_TIME.test(returnTime)) {
+    return { error: "Please enter a valid return date and time." };
+  }
+  return { outboundDate, outboundTime, returnDate, returnTime };
+}
+
+export function quickQuoteScheduleChanged(journey: QuickQuoteJourney, next: QuickQuoteSchedule): boolean {
+  return (
+    journey.outboundDate !== next.outboundDate ||
+    journey.outboundTime !== next.outboundTime ||
+    (journey.returnJourney &&
+      ((journey.returnDate ?? "") !== (next.returnDate ?? "") || (journey.returnTime ?? "") !== (next.returnTime ?? "")))
+  );
+}
+
+/**
+ * Owner-set (manual) fares, or when the route can't be re-run: scale the fare by the
+ * change in time surcharges (night, evening, weekend, Christmas), leg by leg.
+ * e.g. £100 quoted at 14:00 with a 10% night rate → £110 at 23:00, and back again.
+ */
+export function rescaleFareForSchedule(
+  fare: number,
+  journey: Pick<QuickQuoteJourney, "outboundDate" | "outboundTime" | "returnJourney" | "returnDate" | "returnTime">,
+  next: QuickQuoteSchedule,
+  rateFor: (date: string, time: string) => number,
+): number {
+  const legs = (s: { outboundDate: string; outboundTime: string; returnDate?: string; returnTime?: string }) => {
+    const out = 1 + rateFor(s.outboundDate, s.outboundTime);
+    if (!journey.returnJourney) return out;
+    const ret = s.returnDate && s.returnTime ? 1 + rateFor(s.returnDate, s.returnTime) : 1;
+    return out + ret;
+  };
+  const before = legs(journey);
+  const after = legs(next);
+  if (!(before > 0) || before === after) return Math.round(fare * 100) / 100;
+  return Math.round(((fare * after) / before) * 100) / 100;
+}
+
+/**
+ * Re-price a quote for a new pickup date/time: website-engine quotes re-run the engine
+ * (live surcharges, route); owner-set fares are scaled by the surcharge change. Any
+ * discount on the quote is kept. Returns the updated record (not yet saved).
+ */
+export async function rescheduleQuickQuote(
+  record: QuickQuoteRecord,
+  next: QuickQuoteSchedule,
+  env: { TRACKING_STORE: KVNamespace; SITE_ORIGIN?: string; GOOGLE_PLACES_API_KEY?: string } & NonNullable<MainQuoteEnv>,
+): Promise<{ ok: true; record: QuickQuoteRecord } | { ok: false; status: number; error: string }> {
+  const j = record.journey;
+  const nextJourney: QuickQuoteJourney = {
+    ...j,
+    outboundDate: next.outboundDate,
+    outboundTime: next.outboundTime,
+    ...(j.returnJourney ? { returnDate: next.returnDate, returnTime: next.returnTime } : {}),
+  };
+  let calculated: number | null = null;
+  if (record.pricingSource === "website-pricing-engine") {
+    const priced = await priceQuickQuoteBody(
+      {
+        ...nextJourney,
+        journeyMode: j.returnJourney ? "return" : "one-way",
+        priceSource: "website-pricing-engine",
+        vehicleChoice: j.vehicleChoice ?? j.vehicleType,
+      },
+      env,
+      { createdByOwner: false },
+    );
+    if (priced.ok) calculated = priced.pricing.discounted.calculatedFare;
+  }
+  if (calculated == null) {
+    const pricing = await loadOwnerPricingOrDefault(env);
+    const base =
+      typeof record.calculatedAmount === "number" && Number.isFinite(record.calculatedAmount)
+        ? quickQuoteCalculatedAmount(record)
+        : quickQuoteTransferFareGbp(record);
+    calculated = rescaleFareForSchedule(base, j, next, (date, time) =>
+      tripSurchargeRate(date, time, pricing),
+    );
+  }
+  const discounted = applyQuickQuoteManualDiscount(calculated, record.discountType ?? "none", record.discountValue ?? 0);
+  const floor = assertQuickQuoteTransferFareFloor(discounted.customerFare);
+  if (!floor.ok) return { ok: false, status: 422, error: floor.message };
+  const expressFee =
+    typeof j.expressDropOffFee === "number" && Number.isFinite(j.expressDropOffFee) ? Math.max(0, j.expressDropOffFee) : 0;
+  const total = Math.round((discounted.customerFare + expressFee) * 100) / 100;
+  return {
+    ok: true,
+    record: {
+      ...record,
+      journey: nextJourney,
+      quotedAmount: total,
+      quotedAmountLabel: formatQuickQuoteAmount(total),
+      calculatedAmount: discounted.calculatedFare,
+      calculatedAmountLabel: formatQuickQuoteAmount(discounted.calculatedFare),
+      discountType: discounted.discountType,
+      discountValue: discounted.discountValue,
+      discountAmount: discounted.discountAmount,
+      // Any unpaid SumUp session was for the old price.
+      status: "open",
+      checkoutId: undefined,
+      checkoutReference: undefined,
+      paymentUrl: undefined,
+    },
+  };
+}
+
+/** POST /quick-quotes/reschedule — the customer changed the date/time on a quote link. */
+export async function handlePublicQuickQuoteReschedule(
+  request: Request,
+  env: { TRACKING_STORE?: KVNamespace; SITE_ORIGIN?: string; GOOGLE_PLACES_API_KEY?: string } & NonNullable<MainQuoteEnv>,
+  origin: string | null,
+): Promise<Response> {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, origin);
+  const store = env.TRACKING_STORE;
+  if (!store) return json({ error: "Quote store is not configured" }, 503, origin);
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: "Invalid request." }, 400, origin);
+  }
+  const id = normalizeQuickQuoteId(String(body.id ?? ""));
+  if (!id) return json({ error: "Missing quote id." }, 400, origin);
+  const record = await getQuickQuote(store, id);
+  if (!record) return json({ error: "This quote link is invalid or no longer available." }, 404, origin);
+  if (record.status === "paid") return json({ error: "This quote has already been paid." }, 409, origin);
+  if (isQuickQuoteExpired(record) || record.status === "expired" || record.status === "cancelled") {
+    return json({ error: "This quote link has expired. Please contact My Airport Taxi NI for a new quote." }, 410, origin);
+  }
+  const next = parseQuickQuoteSchedule(body, Boolean(record.journey.returnJourney));
+  if ("error" in next) return json({ error: next.error }, 400, origin);
+  if (!quickQuoteScheduleChanged(record.journey, next)) {
+    return json({ ok: true, quote: toQuickQuotePublicSummary(record) }, 200, origin);
+  }
+  if ((await consumeQuickQuoteCreateQuota(store, `reschedule:${id}`, 30)) === "limited") {
+    return json({ error: "Too many changes to this quote. Please try again later." }, 429, origin);
+  }
+  const result = await rescheduleQuickQuote(record, next, { ...env, TRACKING_STORE: store });
+  if (!result.ok) return json({ error: result.error }, result.status, origin);
+  await saveQuickQuote(store, result.record);
+  return json({ ok: true, quote: toQuickQuotePublicSummary(result.record) }, 200, origin);
+}
+
 export function isQuickQuotePath(pathname: string): boolean {
   return (
+    pathname === "/quick-quotes/reschedule" ||
+    pathname === "/api/quick-quotes/reschedule" ||
     pathname === "/owner/quick-quotes" ||
     pathname === "/api/owner/quick-quotes" ||
     pathname === "/quick-quotes/by-id" ||

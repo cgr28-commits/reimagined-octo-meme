@@ -19,7 +19,11 @@ import {
   type BookingDetails,
 } from "@/lib/booking-message";
 import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-payment";
-import { fetchQuickQuoteById, type QuickQuotePublicSummary } from "@/lib/quick-quote-api";
+import {
+  fetchQuickQuoteById,
+  rescheduleQuickQuote,
+  type QuickQuotePublicSummary,
+} from "@/lib/quick-quote-api";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
@@ -151,6 +155,53 @@ function BookQuoteInner() {
   }, [id]);
 
   const journey = quote?.journey;
+
+  // Changing the pickup date/time re-prices the quote (night, evening, weekend and
+  // Christmas surcharges) before payment.
+  const [repricing, setRepricing] = useState(false);
+  const [priceUpdatedFrom, setPriceUpdatedFrom] = useState<string | null>(null);
+  const scheduleTimeOk = (date: string, time: string) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(date.trim()) && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time.trim());
+  const scheduleDiffers =
+    Boolean(journey) &&
+    (tripDate.trim() !== (journey?.outboundDate ?? "") ||
+      tripTime.trim() !== (journey?.outboundTime ?? "") ||
+      (Boolean(journey?.returnJourney) &&
+        (returnDate.trim() !== (journey?.returnDate ?? "") || returnTime.trim() !== (journey?.returnTime ?? ""))));
+  const scheduleReady =
+    scheduleTimeOk(tripDate, tripTime) &&
+    (!journey?.returnJourney || (!returnDate.trim() && !returnTime.trim()) || scheduleTimeOk(returnDate, returnTime));
+
+  const repriceForSchedule = useCallback(async (): Promise<boolean> => {
+    if (!quote) return false;
+    setRepricing(true);
+    try {
+      const before = quote.quotedAmountLabel;
+      const updated = await rescheduleQuickQuote(quote.id, {
+        outboundDate: tripDate.trim(),
+        outboundTime: tripTime.trim(),
+        ...(quote.journey.returnJourney && returnDate.trim() && returnTime.trim()
+          ? { returnDate: returnDate.trim(), returnTime: returnTime.trim() }
+          : {}),
+      });
+      setQuote(updated);
+      setPriceUpdatedFrom(updated.quotedAmountLabel !== before ? before : null);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "We couldn't update the price for that time. Please try again.");
+      return false;
+    } finally {
+      setRepricing(false);
+    }
+  }, [quote, tripDate, tripTime, returnDate, returnTime]);
+
+  useEffect(() => {
+    if (!scheduleDiffers || !scheduleReady || repricing) return;
+    const timer = setTimeout(() => {
+      void repriceForSchedule();
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [scheduleDiffers, scheduleReady, repricing, repriceForSchedule]);
 
   const handleAvailabilityBlocked = useCallback(
     (message: string, alternativeTimes: CustomerPublicAlternativeTime[]) => {
@@ -304,6 +355,17 @@ function BookQuoteInner() {
       return;
     }
     if (!quote || !booking || !displayPricing) return;
+    if (repricing) {
+      setError("Updating your price for the new pickup time…");
+      return;
+    }
+    if (scheduleDiffers) {
+      // Re-price first so the customer sees the price they will pay.
+      if (await repriceForSchedule()) {
+        setError("Your price has been updated for the new pickup time. Please check it and tap pay again.");
+      }
+      return;
+    }
     if (!isSumUpPaymentEnabled()) {
       setError("Secure payment is not available right now. Please contact My Airport Taxi NI.");
       return;
@@ -452,6 +514,13 @@ function BookQuoteInner() {
             ? formatQuickQuoteAmount(displayPricing.totalGbp)
             : quote.quotedAmountLabel}
         </p>
+        {repricing ? (
+          <p className="mt-2 text-sm text-white/70" role="status">Updating the price for your new pickup time…</p>
+        ) : priceUpdatedFrom ? (
+          <p className="mt-2 text-sm text-white/70" role="status">
+            Price updated for your new pickup time (was {priceUpdatedFrom}). Night, weekend and holiday times can change the fare.
+          </p>
+        ) : null}
         {expressSelection.eligible && expressSelection.airportCode ? (
           <div className="mt-3 space-y-1 text-left text-sm text-white/80">
             <p>
@@ -722,7 +791,7 @@ function BookQuoteInner() {
           )}
           <button
             type="button"
-            disabled={paying}
+            disabled={paying || repricing}
             onClick={() => void pay()}
             className="min-h-12 w-full max-w-full break-words rounded-xl bg-emerald px-4 py-3 text-base font-semibold leading-snug text-navy disabled:opacity-50"
           >
