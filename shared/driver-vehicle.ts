@@ -4,7 +4,7 @@ export type DriverVehicleProfile = {
   profileKey: string;
   displayName: string;
   email: string;
-  /** Driver mobile for assignment/ops — never included in customer email or WhatsApp copy. */
+  /** Driver mobile for assignment/ops. Given to a customer only when they ask on WhatsApp where their driver is (owner's request, Oct 2026). */
   mobile?: string;
   make: string;
   model: string;

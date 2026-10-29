@@ -49,6 +49,7 @@ import {
   describeWhatsAppDraft,
   describeWhatsAppField,
   detectWhatsAppIntent,
+  newWhatsAppConversation,
   nextMissingField,
   parseWhatsAppMenuChoice,
   WHATSAPP_QUOTED_BUTTONS,
@@ -102,7 +103,19 @@ import {
   scheduleWhatsAppFollowUp,
   whatsAppFollowUpDelayMs,
 } from "./whatsapp-follow-up";
-import { formatUkDate } from "../shared/uk-time";
+import { formatUkDate, todayLondonDate } from "../shared/uk-time";
+import { addCalendarDays } from "../shared/quick-quote-parse";
+import {
+  buildWhatsAppDriverContactReply,
+  isWhatsAppDriverContactQuestion,
+  pickDriverContactJob,
+  resolveWhatsAppDriverContact,
+  WHATSAPP_DRIVER_NO_NUMBER_REPLY,
+  WHATSAPP_DRIVER_NOT_FOUND_REPLY,
+} from "../shared/whatsapp-driver-contact";
+import { OWNER_VEHICLE_PROFILE_KEY } from "../shared/driver-vehicle";
+import { getDriverVehicleProfile } from "./driver-vehicle-store";
+import { listTrackingJobsForDateRange } from "./tracking-store";
 import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
 
 export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
@@ -417,6 +430,12 @@ async function handleInboundMessage(
       phone,
       "Sorry, I can only read text messages. Please type your journey details, e.g. pickup postcode, destination, date and time.",
     );
+    return;
+  }
+
+  // "Where's my driver?": the driver's name and mobile for today's journey.
+  if (isWhatsAppDriverContactQuestion(message.text)) {
+    await replyWithDriverContact(env, store, phone, message.profileName, isTeamPhone);
     return;
   }
 
@@ -788,6 +807,46 @@ async function answerCustomerQuestion(
   } catch (err) {
     logEvent("whatsapp_ai_answer_failed", phone, { error: err instanceof Error ? err.message : String(err) });
     return null;
+  }
+}
+
+/**
+ * Driver contact for the customer's own journey (matched on the WhatsApp number they
+ * booked with). No journey, or no number on file: say so and email the owner.
+ */
+async function replyWithDriverContact(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  profileName: string | undefined,
+  isTeamPhone: boolean,
+): Promise<void> {
+  let text: string | null = null;
+  let foundJob = false;
+  try {
+    const today = todayLondonDate();
+    const jobs = await listTrackingJobsForDateRange(store, addCalendarDays(today, -1), addCalendarDays(today, 1));
+    const job = pickDriverContactJob(jobs, phone);
+    if (job) {
+      foundJob = true;
+      const owner = await getDriverVehicleProfile(store, OWNER_VEHICLE_PROFILE_KEY);
+      const driver = resolveWhatsAppDriverContact(job, owner);
+      logEvent("whatsapp_driver_contact", phone, { found: true, hasMobile: Boolean(driver.mobile) });
+      if (driver.mobile) text = buildWhatsAppDriverContactReply(job, driver);
+    } else {
+      logEvent("whatsapp_driver_contact", phone, { found: false });
+    }
+  } catch (err) {
+    logEvent("whatsapp_driver_contact_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+  }
+  if (text) {
+    await reply(env, phone, text);
+    return;
+  }
+  await reply(env, phone, foundJob ? WHATSAPP_DRIVER_NO_NUMBER_REPLY : WHATSAPP_DRIVER_NOT_FOUND_REPLY);
+  if (!isTeamPhone) {
+    const existing = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
+    await notifyOwnerOfHandoff(env, phone, profileName, existing ?? newWhatsAppConversation(), false);
   }
 }
 

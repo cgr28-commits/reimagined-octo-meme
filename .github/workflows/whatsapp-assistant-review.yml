@@ -29,6 +29,7 @@ jobs:
       - run: node --import tsx scripts/check-whatsapp-quote-bot.ts
       - run: node --import tsx scripts/check-whatsapp-templates.ts
       - run: node --import tsx scripts/check-whatsapp-pickup-info.ts
+      - run: node --import tsx scripts/check-whatsapp-driver-contact.ts
       - run: node --import tsx scripts/check-whatsapp-chat-log.ts
       - run: node --import tsx scripts/check-whatsapp-follow-up.ts
       - run: npm --prefix workers/addresses run typecheck
