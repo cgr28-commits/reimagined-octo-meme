@@ -269,8 +269,7 @@ async function main() {
     assert.equal(whatsAppRecipient("07700 900123"), "447700900123");
     assert.equal(whatsAppRecipient("+44 (0)7700 900123"), "447700900123");
     assert.equal(whatsAppRecipient("087 123 4567"), "353871234567");
-    assert.equal(whatsAppRecipient("+1 (415) 555-0123"), "14155550123", "US numbers in international format");
-    assert.equal(whatsAppRecipient("0049 151 23456789"), "4915123456789");
+    assert.equal(whatsAppRecipient("+1 (415) 555-0123"), "", "other countries on hold (costs)");
     assert.equal(whatsAppRecipient("4155550123"), "", "no country code: not guessed");
     console.log("OK  international WhatsApp numbers");
   }
