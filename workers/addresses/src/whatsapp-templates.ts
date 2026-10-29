@@ -299,8 +299,8 @@ export function whatsAppRecipient(mobile: string | null | undefined): string {
   if (/^44\d{10}$/.test(digits) || /^353\d{8,10}$/.test(digits)) return digits;
   if (/^07\d{9}$/.test(digits)) return `44${digits.slice(1)}`;
   if (/^08[3-9]\d{7}$/.test(digits)) return `353${digits.slice(1)}`;
-  // Other countries (+1…, +49…) are on hold until the owner has agreed the message costs.
-  void international;
+  // Any other country when written with its international code (+1…, +49…, 0033…).
+  if (international && /^[1-9]\d{7,14}$/.test(digits)) return digits;
   return "";
 }
 
