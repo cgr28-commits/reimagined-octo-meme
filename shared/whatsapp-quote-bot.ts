@@ -756,6 +756,7 @@ export const WHATSAPP_BOOKING_BENEFITS =
   `✅ Fixed price — it won't change with traffic or delays\n` +
   `🚘 Pre-booked driver in a modern, high-spec vehicle\n` +
   `✈️ We monitor your flight, with up to 60 minutes' waiting included on airport pickups\n` +
+  `⏱️ 10 minutes' complimentary waiting on non-airport pickups\n` +
   `↩️ Cancel up to 24 hours before pickup for a full refund`;
 
 export function buildWhatsAppQuoteReply(input: {
@@ -916,6 +917,7 @@ export function buildWhatsAppDiscountOfferReply(input: {
     `✅ A fixed price — it won't change with traffic or delays\n` +
     `🚘 A pre-booked driver in a modern, high-spec vehicle\n` +
     `✈️ Flight monitoring, with up to 60 minutes' waiting included on airport pickups\n` +
+    `⏱️ 10 minutes' complimentary waiting on non-airport pickups\n` +
     `↩️ Free cancellation up to 24 hours before pickup for a full refund\n\n` +
     `If you book now, I can give you *${WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT}% off* — your new price is *${input.amountLabel}*${was} 🎉\n\n` +
     expressNote +
@@ -931,7 +933,7 @@ export function buildWhatsAppPriceValueReply(draft: WhatsAppQuoteDraft): string 
     `and you have a *pre-booked driver* waiting for you. ` +
     (airportPickup
       ? `We monitor your flight, and up to *60 minutes' waiting time* from landing is included. `
-      : `On airport pickups we monitor your flight, and up to *60 minutes' waiting time* is included. `) +
+      : `On airport pickups we monitor your flight with up to *60 minutes' waiting time* included, and other pickups include *10 minutes'* complimentary waiting. `) +
     `Our vehicles are modern and high spec, and you can cancel up to 24 hours before pickup for a full refund, so you can book with confidence.\n\n` +
     `If you'd like to go ahead, your booking link is above.`
   );

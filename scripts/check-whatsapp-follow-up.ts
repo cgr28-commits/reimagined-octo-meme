@@ -10,6 +10,7 @@ import {
   whatsAppSendQuoteHref,
 } from "../src/lib/whatsapp-journey-context";
 import {
+  buildWhatsAppFollowUpDiscountText,
   buildWhatsAppFollowUpText,
   cancelWhatsAppFollowUp,
   deferWhatsAppFollowUp,
@@ -72,7 +73,7 @@ async function main() {
   assert.match(whatsAppSendQuoteHref(journey), /^https:\/\/wa\.me\/\d+\?text=Hi%2C%20please%20send%20me%20this%20quote/);
 
   // Delay setting.
-  assert.equal(whatsAppFollowUpDelayMs(undefined), 5 * MINUTE, "default: 5 minutes after the last message");
+  assert.equal(whatsAppFollowUpDelayMs(undefined), 60 * MINUTE, "default: an hour after the last message");
   assert.equal(whatsAppFollowUpDelayMs("30"), 30 * MINUTE);
   assert.equal(whatsAppFollowUpDelayMs("0"), null);
   assert.equal(whatsAppFollowUpDelayMs("off"), null);
@@ -109,6 +110,16 @@ async function main() {
   assert.match(text, /^Hi Sam, just checking in on your quote for Europa Hotel → Belfast International Airport/);
   assert.match(text, /\*£51\*/);
   assert.match(text, /book-quote\/\?id=abc/);
+  const offer = buildWhatsAppFollowUpDiscountText(record, {
+    amountLabel: "£48.45",
+    previousAmountLabel: "£51",
+    bookingUrl: "https://www.myairporttaxini.co.uk/book-quote/?id=disc",
+  });
+  assert.match(offer, /^Hi Sam, just checking in on your quote for Europa Hotel/);
+  assert.match(offer, /happy to book now.*\*5% off\*.*\*£48\.45\* \(was £51\)/s);
+  assert.match(offer, /10 minutes on other pickups/);
+  assert.match(offer, /cancellation up to 24 hours/);
+  assert.match(offer, /id=disc/);
 
   await cancelWhatsAppFollowUp(store, "447700900123");
   assert.equal(await getWhatsAppFollowUp(store, "447700900123"), null);
