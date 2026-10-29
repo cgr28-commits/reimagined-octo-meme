@@ -133,10 +133,10 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     addressHint: "Lisburn",
     hubSlug: "lisburn-airport-taxis",
     title: "Lisburn Airport Taxi & Airport Transfers",
-    seoTitle: "Lisburn Airport Taxi | Fixed Price to Belfast & Dublin",
+    seoTitle: "Lisburn Taxi to Belfast & Dublin Airports | Pre-Book, 5★",
     h1: "Lisburn Airport Taxi & Airport Transfers",
     metaDescription:
-      "Pre-book a Lisburn taxi to Belfast International, Belfast City or Dublin Airport. Fixed door-to-door price, flight monitoring on pickups. Rated 5★ on Google.",
+      "Pre-book your Lisburn airport taxi to Belfast International, Belfast City or Dublin. Fixed price, flight monitoring on pickups. Rated 5★ on Google.",
     intro:
       "Pre-book an airport taxi from your home or hotel in Lisburn to Belfast International, Belfast City or Dublin Airport. We also collect from Hillsborough, Sprucefield, Lambeg, Hilden and Dunmurry. Enter your exact pickup address, airport, date, passengers and suitcases in the quote form for a fixed price, or choose an airport route below for more journey information. For a hotel collection, enter the property address rather than only the town name so the quote uses your actual pickup point. Returning by air? Select From an Airport to quote your airport collection back to Lisburn. Allow extra time for Westlink traffic on Belfast City Airport journeys and busy shopping periods around Sprucefield. Dublin Airport journeys use the A1/M1 corridor, with applicable M1 tolls included in the fare.",
     blurb:
@@ -365,10 +365,10 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     addressHint: "Newry",
     hubSlug: "newry-airport-taxis",
     title: "Newry Airport Taxi & Airport Transfers",
-    seoTitle: "Newry Airport Taxi to Dublin & Belfast | Fixed Price",
+    seoTitle: "Newry Taxi to Dublin & Belfast Airports | Fixed Price, 5★",
     h1: "Newry Airport Taxi & Airport Transfers",
     metaDescription:
-      "Pre-book a Newry taxi to Dublin, Belfast International or Belfast City Airport. Fixed price with M1 tolls included, flight monitoring on pickups. 5★ on Google.",
+      "Pre-book your Newry airport taxi to Dublin or Belfast airports. Fixed price with M1 tolls included, flight monitoring on pickups. Rated 5★ on Google.",
     intro:
       "Newry sits on the A1 between Belfast and Dublin. Start here to choose the terminal, then open that route. Dublin Airport is often the first airport people here ask about — you are already on the A1, the border is minutes away, and the M1 carries you south, with applicable tolls included. Belfast International is the northbound A1 job that then swings west onto the M1/M2 for Aldergrove — the long-haul alternative when the ticket is out of Aldergrove rather than Dublin. Belfast City Airport stays on the A1 into Belfast and takes the Harbour Estate roads to Sydenham instead of peeling west. We collect from Newry, Warrenpoint, Rostrevor, Bessbrook, Camlough and Hilltown. Warrenpoint and Rostrevor are lough-shore collections — include the townland or hotel name, not only “Newry”. Bessbrook and Camlough sit off the A25; they are not the same timing as a Buttercrane pickup. Hilltown is the Mournes approach.",
     blurb:

@@ -79,9 +79,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "Belfast International Airport",
     shortName: "Belfast International",
     title: "Belfast International Airport Taxi & Transfers",
-    seoTitle: "Belfast International Airport Taxi | Fixed-Price Quotes",
+    seoTitle: "Belfast International Airport Taxi | Fixed Price, 5★ Rated",
     metaDescription:
-      "Pre-book a Belfast International Airport taxi to or from Aldergrove (BFS). Get a fixed-price online quote with applicable airport access charges included.",
+      "Pre-book your Belfast International (Aldergrove) taxi. Fixed price incl. airport charges, flight monitoring, 60 min free waiting. Rated 5★ on Google.",
     intro:
       `Book a taxi to or from Belfast International Airport (BFS), also known as Aldergrove. We collect from homes and hotels in Belfast, Newtownabbey, Antrim, Lisburn and the surrounding towns, and provide airport pickups for the journey home. Enter your addresses, passengers and suitcases for a fixed-price online quote, then add your travel date and time when booking. Applicable airport access charges are included in the quoted total. Choose a car or 7 Seater Minibus when available. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
@@ -167,9 +167,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "George Best Belfast City Airport",
     shortName: "Belfast City Airport",
     title: "Belfast City Airport Taxi & Transfers",
-    seoTitle: "Belfast City Airport Taxi | Fixed-Price Bookings",
+    seoTitle: "Belfast City Airport Taxi | George Best (BHD) | 5★ Rated",
     metaDescription:
-      "Pre-book a fixed-price Belfast City Airport taxi to or from Belfast, Holywood or Bangor. Get an online quote with applicable airport access charges included.",
+      "Pre-book your George Best Belfast City Airport taxi. Fixed price incl. airport charges, flight monitoring, 60 min free waiting. Rated 5★ on Google.",
     intro:
       `Book a taxi to or from George Best Belfast City Airport (BHD), close to Belfast city centre and the Titanic Quarter. We collect from homes and hotels in Belfast, Holywood, Bangor, Lisburn and the surrounding towns, with airport pickups for returning travellers. Enter your journey details for a fixed-price online quote with applicable airport access charges included. The Sydenham Bypass is the usual airport approach, so allow extra time during peak traffic. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
