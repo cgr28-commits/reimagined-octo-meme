@@ -482,6 +482,25 @@ function applySimpleRoute(draft: WhatsAppQuoteDraft, text: string) {
   apply("dropoffAddress", to);
 }
 
+const STREET_WORDS =
+  /\b(?:road|rd|street|st|avenue|ave|lane|ln|drive|dr|way|crescent|cres|close|gardens|gdns|grove|hill|place|pl|terrace|court|ct|view|square|sq|manor|park|row|walk|mews|green|brae|heights|meadows|rise|vale|glen|wood|lodge|parade|boulevard|quay|wharf|estate|cottages|farm|town ?land)\b/i;
+const BUSINESS_WORDS =
+  /\b(?:hotel|inn|lodge|hospital|clinic|station|airport|port|terminal|harbour|ferry|university|college|school|campus|centre|center|arena|stadium|golf|club|church|chapel|bar|pub|restaurant|cafe|shop|store|tesco|asda|sainsbury'?s?|lidl|aldi|ltd|limited|house|hall|castle|museum|zoo|theatre|cinema|office|offices|depot|works|factory|marina|cathedral|abbey|leisure|spa|resort|retail|outlet|mall|plaza|exchange|barracks|prison|council|court ?house)\b/i;
+const POSTCODE = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b|\b[AC-FHKNPRTV-Y]\d{2}\s?[0-9AC-FHKNPRTV-Y]{4}\b/i;
+
+/**
+ * Just a town or city ("Lisburn", "Belfast", "Newry") — not precise enough to price a
+ * pickup. Postcodes, house numbers, streets, airports, well-known places and businesses
+ * (hotel, hospital, station…) are fine.
+ */
+export function isWhatsAppTownOnlyAddress(value: string | undefined): boolean {
+  const v = (value ?? "").trim();
+  if (!v || parseAirportCode(v) || findKnownPlaces(v).length) return false;
+  if (/\d/.test(v) || POSTCODE.test(v) || STREET_WORDS.test(v) || BUSINESS_WORDS.test(v)) return false;
+  const words = v.replace(/[,.]/g, " ").split(/\s+/).filter(Boolean);
+  return words.length <= 3;
+}
+
 /**
  * Merge one customer message into the draft. Returns true when anything changed.
  */
@@ -517,6 +536,17 @@ export function applyCustomerMessage(
     if (parsed.dropoffAddress.value) draft.dropoffAddress = parsed.dropoffAddress.value;
     if (parsed.airportCode.value) draft.airportCode = parsed.airportCode.value;
     if (typeof parsed.fromAirport.value === "boolean") draft.fromAirport = parsed.fromAirport.value;
+  }
+
+  // We asked for the full address after just a town: keep the town with the street.
+  if (awaiting === "pickupAddress" || awaiting === "dropoffAddress") {
+    const before = conversation.draft[awaiting];
+    const after = draft[awaiting];
+    if (before && after && after !== before && isWhatsAppTownOnlyAddress(before) &&
+        !after.toLowerCase().includes(before.toLowerCase()) && !parseAirportCode(after) && !findKnownPlaces(after).length &&
+        !POSTCODE.test(after)) {
+      draft[awaiting] = `${after.replace(/[\s,]+$/, "")}, ${before}`;
+    }
   }
 
   // Well-known places ("Grand Central", "the Europa") and "X to Y" without "from".
@@ -577,6 +607,7 @@ export function applyCustomerMessage(
   // Counts.
   if (parsed.passengers.value != null) draft.passengers = parsed.passengers.value;
   if (parsed.suitcases.value != null) draft.suitcases = parsed.suitcases.value;
+  else if (/\b(?:no|zero|0)\s+(?:luggage|bags?|suitcases?|cases)\b|\bhand luggage only\b/i.test(text)) draft.suitcases = 0;
   if (awaiting === "passengers" && parsed.passengers.value == null) {
     const n = bareCount(text);
     if (n != null && n > 0) draft.passengers = n;
@@ -709,7 +740,7 @@ export function buildWhatsAppSummary(draft: WhatsAppQuoteDraft): string {
 export function validateWhatsAppDraft(
   draft: WhatsAppQuoteDraft,
   now = new Date(),
-): { message: string; handoff?: boolean; clear?: WhatsAppQuoteField[] } | null {
+): { message: string; handoff?: boolean; clear?: WhatsAppQuoteField[]; keep?: boolean; ask?: WhatsAppQuoteField } | null {
   const today = todayLondonDate(now);
   // "From Belfast International to Belfast International": ask for the other address.
   const samePlace =
@@ -726,6 +757,19 @@ export function validateWhatsAppDraft(
         `If you're going there, where should we pick you up? A postcode or full address is perfect.`,
       clear: draft.fromAirport === false ? ["pickupAddress"] : ["dropoffAddress"],
     };
+  }
+  for (const field of ["pickupAddress", "dropoffAddress"] as const) {
+    const town = draft[field];
+    if (town && isWhatsAppTownOnlyAddress(town)) {
+      return {
+        message:
+          field === "pickupAddress"
+            ? `Thanks! What's the full pickup address in ${town}? A house number and street, or a postcode, is perfect.`
+            : `Thanks! What's the full address you're going to in ${town}? A house number and street, or a postcode — or the name of the hotel or business.`,
+        keep: true,
+        ask: field,
+      };
+    }
   }
   if (draft.outboundDate && draft.outboundDate < today) {
     return {
@@ -1126,7 +1170,7 @@ function decideJourneyReply(
   if (problem) {
     for (const field of problem.clear ?? []) delete conversation.draft[field as keyof WhatsAppQuoteDraft];
     conversation.stage = "collecting";
-    conversation.awaiting = problem.clear?.[0];
+    conversation.awaiting = problem.ask ?? problem.clear?.[0];
     return { conversation, reply: problem.message, action: "none" };
   }
 
