@@ -96,6 +96,7 @@ import {
 import { buildManageBookingUrl } from "../shared/manage-booking-token";
 import { consumeQuickQuoteCreateQuota, getQuickQuote } from "./quick-quote-store";
 import {
+  buildWhatsAppFollowUpDiscountText,
   buildWhatsAppFollowUpText,
   cancelWhatsAppFollowUp,
   deferWhatsAppFollowUp,
@@ -498,10 +499,11 @@ async function handleInboundMessage(
     // "Too expensive" after a price: one-time 5% "book now" link, priced by the engine.
     const offer = await createWhatsAppDiscountOffer(env, store, phone, conversation);
     if (offer) {
+      const previousAmountLabel = conversation.lastQuoteAmountLabel;
       conversation.discountOffered = true;
       conversation.lastQuoteUrl = offer.bookingUrl;
       conversation.lastQuoteAmountLabel = offer.amountLabel;
-      text = offer.text;
+      text = buildWhatsAppDiscountOfferReply({ ...offer, previousAmountLabel });
       buttons = WHATSAPP_QUOTED_BUTTONS;
       if (followUpDelay) {
         const draft = conversation.draft;
@@ -624,7 +626,7 @@ async function createWhatsAppDiscountOffer(
   store: KVNamespace,
   phone: string,
   conversation: WhatsAppConversation,
-): Promise<{ text: string; bookingUrl: string; amountLabel: string; quoteId: string } | null> {
+): Promise<{ bookingUrl: string; amountLabel: string; quoteId: string; optionalExpressFeeLabel: string | null } | null> {
   try {
     const quota = await consumeQuickQuoteCreateQuota(store, `whatsapp:${phone}`, QUOTES_PER_CUSTOMER_PER_HOUR);
     if (quota === "limited") return null;
@@ -655,12 +657,7 @@ async function createWhatsAppDiscountOffer(
       quotedAmount: priced.record.quotedAmount,
     });
     return {
-      text: buildWhatsAppDiscountOfferReply({
-        previousAmountLabel: conversation.lastQuoteAmountLabel,
-        amountLabel: priced.record.quotedAmountLabel,
-        bookingUrl: priced.bookingUrl,
-        optionalExpressFeeLabel: optionalExpressFeeLabel,
-      }),
+      optionalExpressFeeLabel,
       bookingUrl: priced.bookingUrl,
       amountLabel: priced.record.quotedAmountLabel,
       quoteId: priced.record.id,
@@ -1137,8 +1134,24 @@ export async function processWhatsAppFollowUps(
       result.skipped += 1;
       continue;
     }
-    await reply(env, phone, buildWhatsAppFollowUpText(record));
-    logEvent("whatsapp_follow_up_sent", phone, { idSuffix: record.quoteId.slice(-6) });
+    // Still not booked after the wait: one-time 5% "book now" offer, unless they've had it.
+    const conversation = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
+    const offer =
+      conversation && conversation.stage === "quoted" && !conversation.discountOffered
+        ? await createWhatsAppDiscountOffer(env, store, phone, conversation)
+        : null;
+    if (conversation && offer) {
+      const previousAmountLabel = conversation.lastQuoteAmountLabel ?? record.amountLabel;
+      conversation.discountOffered = true;
+      conversation.lastQuoteUrl = offer.bookingUrl;
+      conversation.lastQuoteAmountLabel = offer.amountLabel;
+      await store.put(conversationKey(phone), JSON.stringify(conversation), { expirationTtl: CONVERSATION_TTL_SECONDS });
+      await reply(env, phone, buildWhatsAppFollowUpDiscountText(record, { ...offer, previousAmountLabel }), WHATSAPP_QUOTED_BUTTONS);
+      logEvent("whatsapp_follow_up_sent", phone, { idSuffix: offer.quoteId.slice(-6), discount: true });
+    } else {
+      await reply(env, phone, buildWhatsAppFollowUpText(record));
+      logEvent("whatsapp_follow_up_sent", phone, { idSuffix: record.quoteId.slice(-6), discount: false });
+    }
     result.sent += 1;
   }
   return result;

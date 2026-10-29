@@ -701,7 +701,7 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   }
   assert.doesNotMatch(d.reply, /discount|£/);
   const priced = buildWhatsAppQuoteReply({ amountLabel: "£250", bookingUrl: "https://example.test/q" });
-  for (const re of [/Fixed price/, /Pre-booked driver/, /monitor your flight/, /60 minutes/, /high-spec/, /24 hours before pickup for a full refund/]) {
+  for (const re of [/Fixed price/, /Pre-booked driver/, /monitor your flight/, /60 minutes/, /10 minutes' complimentary waiting on non-airport pickups/, /high-spec/, /24 hours before pickup for a full refund/]) {
     assert.match(priced, re, "benefits shown with the price");
   }
   console.log("OK  price objection explains what is included");

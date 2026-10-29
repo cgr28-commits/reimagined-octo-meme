@@ -1,7 +1,8 @@
 /**
- * WhatsApp quote follow-up: one friendly nudge when a customer got a price but
- * hasn't booked. Sent once, 5 minutes after their last message, and only
- * inside WhatsApp's 24-hour customer service window (so it is a free reply).
+ * WhatsApp quote follow-up: one message when a customer got a price but hasn't
+ * booked — a one-time 5% "book now" offer (or a plain reminder if they've already
+ * had it). Sent once, an hour after their last message, and only inside
+ * WhatsApp's 24-hour customer service window (so it is a free reply).
  */
 
 export type WhatsAppFollowUp = {
@@ -20,7 +21,7 @@ const FOLLOW_UP_PREFIX = "whatsapp:followup:";
 const FOLLOW_UP_TTL_SECONDS = 60 * 60 * 24;
 /** Stay well inside the 24h window measured from the customer's last message. */
 export const WHATSAPP_FOLLOW_UP_WINDOW_MS = 23 * 60 * 60 * 1000;
-export const WHATSAPP_FOLLOW_UP_DEFAULT_MINUTES = 5;
+export const WHATSAPP_FOLLOW_UP_DEFAULT_MINUTES = 60;
 
 const followUpKey = (phone: string) => `${FOLLOW_UP_PREFIX}${phone}`;
 
@@ -115,5 +116,26 @@ export function buildWhatsAppFollowUpText(record: WhatsAppFollowUp): string {
     `${hi}, just checking in on your quote${journey}: *${record.amountLabel}* fixed price.\n\n` +
     `It only takes a couple of minutes to book and pay securely here:\n${record.bookingUrl}\n\n` +
     `Any questions (luggage, child seats, flight delays), just reply here and I'll help.`
+  );
+}
+
+/** Follow-up with the one-time 5% offer (a new booking link priced by the website engine). */
+export function buildWhatsAppFollowUpDiscountText(
+  record: WhatsAppFollowUp,
+  offer: { amountLabel: string; bookingUrl: string; previousAmountLabel?: string; optionalExpressFeeLabel?: string | null },
+): string {
+  const hi = record.name?.trim() ? `Hi ${record.name.trim().split(/\s+/)[0]}` : "Hi";
+  const journey = record.journeyLabel ? ` for ${record.journeyLabel}` : "";
+  const was = offer.previousAmountLabel ? ` (was ${offer.previousAmountLabel})` : "";
+  const expressNote = offer.optionalExpressFeeLabel
+    ? `This price doesn't include Express terminal access at the airport. You can add it for ${offer.optionalExpressFeeLabel} when you book.\n\n`
+    : "";
+  return (
+    `${hi}, just checking in on your quote${journey}.\n\n` +
+    `If you're happy to book now, I can give you *5% off* — your new price is *${offer.amountLabel}*${was} 🎉\n\n` +
+    `That includes a fixed price, a pre-booked driver in a modern, high-spec vehicle, flight monitoring with up to 60 minutes' waiting on airport pickups (10 minutes on other pickups), ` +
+    `and free cancellation up to 24 hours before pickup.\n\n` +
+    expressNote +
+    `Book here (link valid for 24 hours):\n${offer.bookingUrl}`
   );
 }
