@@ -707,6 +707,24 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   console.log("OK  price objection explains what is included");
 }
 
+// Same place for pickup and drop-off is never quoted; dates/times aren't read as places.
+{
+  const now = new Date("2026-10-29T08:50:00Z");
+  let c: WhatsAppConversation | null = null;
+  const say = (t: string) => { const d = decideWhatsAppReply(c, t, { now }); c = d.conversation; return d; };
+  say("menu quote");
+  say("Belfast International Airport");
+  const same = say("Belfast International Airport");
+  assert.match(same.reply, /both Belfast International Airport/);
+  assert.notEqual(c!.draft.pickupAddress, c!.draft.dropoffAddress);
+  const route = (t: string) => decideWhatsAppReply(null, t, { now }).conversation.draft;
+  assert.equal(route("Belfast International Airport to Glengormley 8th November 5am 2 passengers").dropoffAddress, "Glengormley");
+  assert.equal(route("Pick up at 5am on 8th November going to Belfast international airport").pickupAddress, undefined);
+  assert.equal(route("Going to Belfast international airport").pickupAddress, undefined);
+  assert.equal(route("picked up at 5am on the 8th of November to Belfast international airport").outboundDate, "2026-11-08");
+  console.log("OK  same pickup/drop-off rejected; dates and times aren't places");
+}
+
 // Delivery failures reported later by status webhooks are surfaced on /whatsapp/status.
 {
   const parsed = parseWhatsAppWebhook({
