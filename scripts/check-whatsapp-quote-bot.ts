@@ -30,6 +30,8 @@ import {
   parseWhatsAppMenuChoice,
   parseShortDayMonth,
   isWhatsAppPriceObjection,
+  isWhatsAppTooExpensive,
+  buildWhatsAppDiscountOfferReply,
   WHATSAPP_BUTTONS,
   decideWhatsAppReply,
   detectWhatsAppIntent,
@@ -681,7 +683,17 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
     assert.equal(isWhatsAppPriceObjection(t), true, t);
   }
   assert.equal(isWhatsAppPriceObjection("How long will the driver wait"), false);
-  const d = decideWhatsAppReply(quoted, "that's too expensive", { now });
+  // "Too expensive" (and only that) gets the one-time 5% book-now offer, priced by the Worker.
+  assert.equal(decideWhatsAppReply(quoted, "that's too expensive", { now }).action, "discount");
+  assert.equal(decideWhatsAppReply(quoted, "£250 is a bit steep", { now }).action, "discount");
+  assert.equal(decideWhatsAppReply(quoted, "any discount?", { now }).action, "answer", "asking for a discount is not 'too expensive'");
+  assert.equal(isWhatsAppTooExpensive("that's not too expensive actually"), false);
+  const offer = buildWhatsAppDiscountOfferReply({ previousAmountLabel: "£250", amountLabel: "£237.50", bookingUrl: "https://example.test/d" });
+  for (const re of [/fixed price/, /pre-booked driver/, /60 minutes/, /24 hours before pickup/, /\*5% off\*/, /\*£237\.50\* \(was £250\)/, /example\.test\/d/]) {
+    assert.match(offer, re);
+  }
+  // Second time: no second discount — explain what's included instead.
+  const d = decideWhatsAppReply({ ...quoted, discountOffered: true }, "that's too expensive", { now });
   assert.equal(d.action, "answer");
   assert.equal(d.ai?.priceObjection, true);
   for (const re of [/fixed price/, /pre-booked driver/, /monitor your flight/, /60 minutes/, /modern and high spec/, /24 hours before pickup for a full refund/]) {

@@ -36,7 +36,7 @@ Quotes (the booking system does the pricing; you only gather details in conversa
 - If the customer has just given journey details, acknowledge them in a few words (no full read-back) and ask for the next detail naturally, in your own words. Ask for that one detail only, so their reply is easy to understand.
 - If a next detail is needed but the customer said something else, reply to that first, then ask for the next detail in a short, relaxed final sentence.
 - If the journey is complete and waiting for the customer to confirm, they can tap *Yes* to get the price or tell you what to change; do not restate the details.
-- If the customer says the price is too expensive or asks for it cheaper, stay friendly and do not offer a discount or a different price. Explain what they get: it is a fixed price (it will not change with traffic or delays), a pre-booked driver, we monitor their flight, up to 60 minutes' waiting time is included on airport pickups, our vehicles are modern and high spec, and they can cancel up to 24 hours before pickup for a full refund, so they can book with confidence. Keep it to 2 or 3 sentences and leave the decision with them.
+- Never offer, promise or hint at a discount yourself. If the customer asks for it cheaper or about discounts, stay friendly and do not offer a discount or a different price; if they have already been sent a 5% "book now" offer, point them to that link above instead. Explain what they get: it is a fixed price (it will not change with traffic or delays), a pre-booked driver, we monitor their flight, up to 60 minutes' waiting time is included on airport pickups, our vehicles are modern and high spec, and they can cancel up to 24 hours before pickup for a full refund, so they can book with confidence. Keep it to 2 or 3 sentences and leave the decision with them.
 - If a price has already been sent, the booking link is in the chat above. Help with whatever they ask; only mention the link if it is relevant.
 - If no journey has been started and the customer wants a price or to book, ask where they need picking up from and where they are going, and end your reply with ${START_QUOTE_MARKER} on its own line.
 
@@ -52,6 +52,7 @@ export type WhatsAppAiContext = {
   journey?: { collected: string; stage: "collecting" | "confirming" | "quoted"; quotedPrice?: string };
   askFor?: { detail: string; example: string; justUpdated: boolean };
   priceObjection?: boolean;
+  discountOffered?: boolean;
 };
 
 const STAGE_LABEL = {
@@ -83,6 +84,7 @@ export async function answerWhatsAppQuestion(
           : "The customer's message did not add journey details.")
       : "",
     context.priceObjection ? "The customer is pushing back on the price they were quoted." : "",
+    context.discountOffered ? "They have already been sent a one-time 5% book-now offer with a new link (shown in the chat above); no further discount is available." : "",
     `Customer's message:\n${message}`,
   ].filter(Boolean);
 

@@ -44,7 +44,10 @@ import {
   buildWhatsAppUnavailableReply,
   buildWhatsAppQuoteFailedReply,
   buildWhatsAppQuestion,
+  buildWhatsAppDiscountOfferReply,
+  buildWhatsAppPriceValueReply,
   buildWhatsAppQuoteReply,
+  WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT,
   decideWhatsAppReply,
   describeWhatsAppDraft,
   describeWhatsAppField,
@@ -491,6 +494,39 @@ async function handleInboundMessage(
     }
   }
 
+  if (decision.action === "discount") {
+    // "Too expensive" after a price: one-time 5% "book now" link, priced by the engine.
+    const offer = await createWhatsAppDiscountOffer(env, store, phone, conversation);
+    if (offer) {
+      conversation.discountOffered = true;
+      conversation.lastQuoteUrl = offer.bookingUrl;
+      conversation.lastQuoteAmountLabel = offer.amountLabel;
+      text = offer.text;
+      buttons = WHATSAPP_QUOTED_BUTTONS;
+      if (followUpDelay) {
+        const draft = conversation.draft;
+        const place = (label?: string) => (label ?? "").split(",")[0]!.trim();
+        await scheduleWhatsAppFollowUp(
+          store,
+          {
+            phone,
+            name: message.profileName,
+            quoteId: offer.quoteId,
+            amountLabel: offer.amountLabel,
+            bookingUrl: offer.bookingUrl,
+            journeyLabel:
+              `${place(draft.pickupAddress)} → ${place(draft.dropoffAddress)}` +
+              (draft.outboundDate ? ` on ${formatUkDate(draft.outboundDate)}` : ""),
+          },
+          followUpDelay,
+        );
+      }
+    } else {
+      text = buildWhatsAppPriceValueReply(conversation.draft);
+      buttons = WHATSAPP_QUOTED_BUTTONS;
+    }
+  }
+
   if (decision.action === "quote") {
     const availability = await checkWhatsAppAvailability(conversation.draft, store);
     if (!availability.ok) {
@@ -577,6 +613,62 @@ async function handleInboundMessage(
     expirationTtl: CONVERSATION_TTL_SECONDS,
   });
   if (text) await reply(env, phone, text, buttons);
+}
+
+/**
+ * Re-price the quoted journey with the website engine and a 5% discount, as a new
+ * booking link. Null (no offer made) when the quote can't be created.
+ */
+async function createWhatsAppDiscountOffer(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  conversation: WhatsAppConversation,
+): Promise<{ text: string; bookingUrl: string; amountLabel: string; quoteId: string } | null> {
+  try {
+    const quota = await consumeQuickQuoteCreateQuota(store, `whatsapp:${phone}`, QUOTES_PER_CUSTOMER_PER_HOUR);
+    if (quota === "limited") return null;
+    const priced = await createPricedQuickQuote(
+      {
+        ...whatsAppDraftToQuoteBody(conversation.draft),
+        discountType: "percent",
+        discountValue: WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT,
+      },
+      { ...env, TRACKING_STORE: store },
+      { createdByOwner: false },
+    );
+    if (!priced.ok || priced.record.discountType !== "percent") {
+      logEvent("whatsapp_discount_failed", phone, priced.ok ? { reason: "not_applied" } : { status: priced.status, reason: priced.reason });
+      return null;
+    }
+    const pricedJourney = priced.record.journey;
+    const express = resolveExpressDropOff({
+      airportCode: pricedJourney.airportCode,
+      fromAirport: pricedJourney.fromAirport,
+      returnJourney: pricedJourney.returnJourney,
+      selected: false,
+    });
+    const expressFee = express.legs.filter((leg) => !leg.selected).reduce((sum, leg) => sum + leg.feeIfSelectedGbp, 0);
+    const optionalExpressFeeLabel = expressFee > 0 ? formatExpressDropOffGbp(expressFee) : null;
+    logEvent("whatsapp_discount_offered", phone, {
+      idSuffix: priced.record.id.slice(-6),
+      quotedAmount: priced.record.quotedAmount,
+    });
+    return {
+      text: buildWhatsAppDiscountOfferReply({
+        previousAmountLabel: conversation.lastQuoteAmountLabel,
+        amountLabel: priced.record.quotedAmountLabel,
+        bookingUrl: priced.bookingUrl,
+        optionalExpressFeeLabel: optionalExpressFeeLabel,
+      }),
+      bookingUrl: priced.bookingUrl,
+      amountLabel: priced.record.quotedAmountLabel,
+      quoteId: priced.record.id,
+    };
+  } catch (err) {
+    logEvent("whatsapp_discount_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    return null;
+  }
 }
 
 type AvailabilityResult =
@@ -793,6 +885,7 @@ async function answerCustomerQuestion(
             }
           : undefined,
       priceObjection: Boolean(task.priceObjection),
+      discountOffered: Boolean(conversation.discountOffered),
     });
     if (!answer) return null;
     logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff, askFor: task.askFor ?? null });
