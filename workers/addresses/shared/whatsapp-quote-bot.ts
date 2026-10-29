@@ -400,9 +400,17 @@ type RouteSide = { airportCode?: QuickQuoteAirportCode; label?: string; address?
 const ROUTE_SEPARATOR = /\s+(?:going\s+to|heading\s+to|over\s+to|to|->|→|–|—|-)\s+/i;
 const ROUTE_LEAD =
   /^(?:.*?\b)?(?:from|pick(?:ed|ing)?\s*-?\s*up(?:\s+(?:at|from))?|collect(?:ed|ion)?(?:\s+(?:at|from))?)\s+(?:the\s+)?/i;
-const NOT_AN_ADDRESS = /\b(?:need|want|looking|taxi|cab|quote|price|book(?:ing)?|lift|transfer|hi|hello|how much|can i|could i|please)\b/i;
-const ADDRESS_TAIL =
-  /\s*(?:,\s*)?\b(?:on|at|for|by|around|about|tomorrow|today|tonight|this|next)\b.*$|\s+\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)\b.*$|\s+\d{1,2}[/.-]\d{1,2}\b.*$|[\s,.!]+$/i;
+const NOT_AN_ADDRESS =
+  /\b(?:need|want|looking|taxi|cab|quote|price|book(?:ing)?|lift|transfer|hi|hello|how much|can i|could i|please|going|heading|travelling|traveling|getting|get|go|taken|picked)\b/i;
+const MONTH = "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*";
+const ADDRESS_TAIL = new RegExp(
+  String.raw`\s*(?:,\s*)?\b(?:on|at|for|by|around|about|tomorrow|today|tonight|this|next|mon|tue|wed|thu|fri|sat|sun)[a-z]*\b.*$` +
+    String.raw`|\s+\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)\b.*$` +
+    String.raw`|\s+\d{1,2}[/.-]\d{1,2}\b.*$` +
+    String.raw`|\s+\d{1,2}(?:st|nd|rd|th)?(?:\s+of)?\s+${MONTH}\b.*$` +
+    String.raw`|[\s,.!]+$`,
+  "i",
+);
 
 /** An airport, a well-known place, or a plain address on one side of "X to Y". */
 function readRouteSide(raw: string, isPickupSide: boolean): RouteSide | null {
@@ -417,6 +425,10 @@ function readRouteSide(raw: string, isPickupSide: boolean): RouteSide | null {
   if (code) return { airportCode: code };
   const address = side.replace(ADDRESS_TAIL, "").replace(/^(?:the\s+)/i, "").trim();
   if (!looksLikeAddress(address) || address.length < 3 || NOT_AN_ADDRESS.test(address)) return null;
+  // A time or date on its own ("5am", "8th November") is not a place.
+  if (/^\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)?$/i.test(address) || new RegExp(String.raw`^\d{1,2}(?:st|nd|rd|th)?(?:\s+of)?\s+${MONTH}$`, "i").test(address)) {
+    return null;
+  }
   if (bareCount(address) != null || parseJourneyType(address) != null) return null;
   return { address };
 }
@@ -538,6 +550,7 @@ export function applyCustomerMessage(
   const explicitDate =
     parsed.outboundDate.value ??
     parseNaturalDate(text, now) ??
+    parseQuickQuoteMessage(text.replace(/(\d)(st|nd|rd|th)?\s+of\s+/gi, "$1$2 "), now).outboundDate.value ??
     parseRelativeDateWord(text, now).value ??
     parseWeekdayDate(text, now) ??
     parseShortDayMonth(text, now);
@@ -698,6 +711,22 @@ export function validateWhatsAppDraft(
   now = new Date(),
 ): { message: string; handoff?: boolean; clear?: WhatsAppQuoteField[] } | null {
   const today = todayLondonDate(now);
+  // "From Belfast International to Belfast International": ask for the other address.
+  const samePlace =
+    draft.pickupAddress &&
+    draft.dropoffAddress &&
+    (draft.pickupAddress.trim().toLowerCase() === draft.dropoffAddress.trim().toLowerCase() ||
+      (parseAirportCode(draft.pickupAddress) != null &&
+        parseAirportCode(draft.pickupAddress) === parseAirportCode(draft.dropoffAddress)));
+  if (samePlace) {
+    const place = draft.pickupAddress!;
+    return {
+      message:
+        `Your pickup and drop-off are both ${place}. If we're collecting you there, where are you going? ` +
+        `If you're going there, where should we pick you up? A postcode or full address is perfect.`,
+      clear: draft.fromAirport === false ? ["pickupAddress"] : ["dropoffAddress"],
+    };
+  }
   if (draft.outboundDate && draft.outboundDate < today) {
     return {
       message: "That date looks like it's in the past. What date do you need the taxi?",
