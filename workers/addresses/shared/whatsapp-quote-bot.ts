@@ -199,6 +199,29 @@ export function extractClockTimes(text: string): string[] {
   return found.sort((a, b) => a.index - b.index).map((f) => f.value);
 }
 
+/**
+ * "14/11" or "5-11" with no year (UK day/month): this year, or next year once the
+ * date has passed. Dotted forms are skipped because "4.30" is usually a time.
+ */
+export function parseShortDayMonth(text: string, now = new Date()): string | null {
+  const m = text.match(/(?<![\d/-])(\d{1,2})[/-](\d{1,2})(?![\d/-])(?!\s*(?:am|pm)\b)/i);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const today = todayLondonDate(now);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const build = (year: number) => {
+    const iso = `${year}-${pad(month)}-${pad(day)}`;
+    const d = new Date(`${iso}T12:00:00Z`);
+    return d.getUTCMonth() + 1 === month && d.getUTCDate() === day ? iso : null;
+  };
+  const year = Number(today.slice(0, 4));
+  const thisYear = build(year);
+  if (!thisYear) return null;
+  return thisYear >= today ? thisYear : build(year + 1);
+}
+
 function bareCount(text: string): number | null {
   const k = keywordText(text);
   if (/^(none|no|zero|nothing|no bags|no luggage|no suitcases|hand luggage only)$/.test(k)) return 0;
@@ -368,6 +391,81 @@ function completeAirportLegs(draft: WhatsAppQuoteDraft) {
   if (!draft.fromAirport && !draft.dropoffAddress) draft.dropoffAddress = label;
 }
 
+type RouteSide = { airportCode?: QuickQuoteAirportCode; label?: string; address?: string };
+
+const ROUTE_SEPARATOR = /\s+(?:going\s+to|heading\s+to|over\s+to|to|->|→|–|—|-)\s+/i;
+const ROUTE_LEAD =
+  /^(?:.*?\b)?(?:from|pick(?:ed|ing)?\s*-?\s*up(?:\s+(?:at|from))?|collect(?:ed|ion)?(?:\s+(?:at|from))?)\s+(?:the\s+)?/i;
+const NOT_AN_ADDRESS = /\b(?:need|want|looking|taxi|cab|quote|price|book(?:ing)?|lift|transfer|hi|hello|how much|can i|could i|please)\b/i;
+const ADDRESS_TAIL =
+  /\s*(?:,\s*)?\b(?:on|at|for|by|around|about|tomorrow|today|tonight|this|next)\b.*$|\s+\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)\b.*$|\s+\d{1,2}[/.-]\d{1,2}\b.*$|[\s,.!]+$/i;
+
+/** An airport, a well-known place, or a plain address on one side of "X to Y". */
+function readRouteSide(raw: string, isPickupSide: boolean): RouteSide | null {
+  const side = isPickupSide ? raw.replace(ROUTE_LEAD, "") : raw;
+  const places = findRoutePlaces(side);
+  if (places.length === 1) {
+    const p = places[0];
+    return p.airportCode ? { airportCode: p.airportCode } : { label: p.label };
+  }
+  if (places.length > 1) return null;
+  const code = parseAirportCode(side);
+  if (code) return { airportCode: code };
+  const address = side.replace(ADDRESS_TAIL, "").replace(/^(?:the\s+)/i, "").trim();
+  if (!looksLikeAddress(address) || address.length < 3 || NOT_AN_ADDRESS.test(address)) return null;
+  if (bareCount(address) != null || parseJourneyType(address) != null) return null;
+  return { address };
+}
+
+/**
+ * "Dublin airport to Belfast", "Dublin to Grand Central", "Grand Central going to BT36 7FU",
+ * "Dublin airport T2 to Lisburn": when one side of "X to Y" is an airport or a well-known
+ * place, the first side is the pickup and the second the drop-off.
+ */
+function applySimpleRoute(draft: WhatsAppQuoteDraft, text: string) {
+  const sep = text.match(ROUTE_SEPARATOR);
+  if (!sep || sep.index == null) return;
+  const left = text.slice(0, sep.index);
+  const right = text.slice(sep.index + sep[0].length);
+  if (/\bfrom\b/i.test(right) && !/\bfrom\b/i.test(left)) return; // "to X from Y" is handled elsewhere
+  // "Change the pickup to the Europa": a correction, handled by the field-change logic.
+  if (/\b(?:change|changing|instead|actually|switch|swap|make it|move)\b/i.test(left)) return;
+  if (/\b(?:pick\s*-?\s*up|pickup|drop\s*-?\s*off|dropoff|destination|address)[\s,.]*$/i.test(left)) return;
+  const from = readRouteSide(left, true);
+  const to = readRouteSide(right, false);
+  if (!from && !to) return;
+  if (!(from?.airportCode || from?.label || to?.airportCode || to?.label)) {
+    // Two plain addresses: only a clear postcode/house-number pickup, as before.
+    if (from?.address && /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b|^\d+[a-z]?,?\s+\p{L}/iu.test(from.address)) {
+      if (!draft.pickupAddress || from.address.toLowerCase().startsWith(draft.pickupAddress.toLowerCase())) {
+        draft.pickupAddress = from.address;
+      }
+    }
+    return;
+  }
+  const apply = (field: "pickupAddress" | "dropoffAddress", side: RouteSide | null) => {
+    if (!side) return;
+    if (side.airportCode) {
+      draft.airportCode = side.airportCode;
+      draft.fromAirport = field === "pickupAddress";
+      draft[field] = airportLabel(side.airportCode);
+    } else if (side.label) {
+      draft[field] = side.label;
+    } else if (side.address) {
+      draft[field] = side.address;
+    }
+  };
+  // The other field may hold an airport set the wrong way round by the general parser.
+  if (from && !to && draft.dropoffAddress && draft.dropoffAddress === airportLabel(from.airportCode ?? "BFS") && from.airportCode) {
+    delete draft.dropoffAddress;
+  }
+  if (to && !from && draft.pickupAddress && to.airportCode && draft.pickupAddress === airportLabel(to.airportCode)) {
+    delete draft.pickupAddress;
+  }
+  apply("pickupAddress", from);
+  apply("dropoffAddress", to);
+}
+
 /**
  * Merge one customer message into the draft. Returns true when anything changed.
  */
@@ -407,17 +505,7 @@ export function applyCustomerMessage(
 
   // Well-known places ("Grand Central", "the Europa") and "X to Y" without "from".
   applyKnownPlaceRoute(draft, text, awaiting);
-  // "BT9 6AA to Belfast City Airport", "12 Main Street Lisburn to BFS": the part before
-  // "to" is the pickup when it is clearly an address (a postcode or a house number).
-  const routeStart = text.match(/^(?:from\s+)?(.+?)\s+(?:to|->|→)\s+\S/i);
-  if (routeStart && draft.dropoffAddress) {
-    const left = routeStart[1].replace(/[,\s]+$/, "").trim();
-    const addressLike = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i.test(left) || /^\d+[a-z]?,?\s+\p{L}/iu.test(left);
-    const extendsPickup = !draft.pickupAddress || left.toLowerCase().startsWith(draft.pickupAddress.toLowerCase());
-    if (addressLike && extendsPickup && !parseAirportCode(left) && left !== draft.dropoffAddress) {
-      draft.pickupAddress = left;
-    }
-  }
+  applySimpleRoute(draft, text);
   for (const field of ["pickupAddress", "dropoffAddress"] as const) {
     // A typed reply that names a known place ("belfast grand central") uses its full address.
     const value = draft[field];
@@ -447,7 +535,8 @@ export function applyCustomerMessage(
     parsed.outboundDate.value ??
     parseNaturalDate(text, now) ??
     parseRelativeDateWord(text, now).value ??
-    parseWeekdayDate(text, now);
+    parseWeekdayDate(text, now) ??
+    parseShortDayMonth(text, now);
   if (returnLegOnly) {
     if (explicitDate) draft.returnDate = explicitDate;
   } else {
