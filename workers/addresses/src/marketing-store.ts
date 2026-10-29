@@ -6,6 +6,7 @@ import {
 
 const SUBSCRIBER_PREFIX = "marketing:sub:";
 const INDEX_KEY = "marketing:index";
+const UNSUB_TOKEN_PREFIX = "marketing:unsub:";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -50,6 +51,7 @@ export async function recordMarketingOptIn(
     source: input.source,
     consentVersion,
     unsubscribedAt: undefined,
+    unsubscribeToken: existing?.unsubscribeToken,
   };
 
   await store.put(key, JSON.stringify(record));
@@ -86,4 +88,47 @@ export async function unsubscribeMarketingEmail(
 
   await store.put(key, JSON.stringify(record));
   return { ok: true };
+}
+
+/** Everyone on the list (subscribed and unsubscribed), newest opt-in first. */
+export async function listMarketingSubscribers(store: KVNamespace): Promise<MarketingSubscriber[]> {
+  const index = await store.get<string[]>(INDEX_KEY, "json");
+  const emails = Array.isArray(index) ? index : [];
+  const out: MarketingSubscriber[] = [];
+  for (let i = 0; i < emails.length; i += 25) {
+    const batch = await Promise.all(
+      emails.slice(i, i + 25).map((email) => store.get<MarketingSubscriber>(subscriberKey(email), "json")),
+    );
+    for (const record of batch) if (record?.email) out.push(record);
+  }
+  return out.sort((a, b) => (b.optedInAt || "").localeCompare(a.optedInAt || ""));
+}
+
+function randomToken(): string {
+  const bytes = new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** The subscriber's one-click unsubscribe token (created on first use). */
+export async function ensureMarketingUnsubscribeToken(
+  store: KVNamespace,
+  subscriber: MarketingSubscriber,
+): Promise<string> {
+  if (subscriber.unsubscribeToken) return subscriber.unsubscribeToken;
+  const token = randomToken();
+  const record: MarketingSubscriber = { ...subscriber, unsubscribeToken: token };
+  await store.put(subscriberKey(subscriber.email), JSON.stringify(record));
+  await store.put(`${UNSUB_TOKEN_PREFIX}${token}`, subscriber.email);
+  return token;
+}
+
+/** One-click unsubscribe from an email link. */
+export async function unsubscribeMarketingToken(store: KVNamespace, tokenInput: string): Promise<boolean> {
+  const token = tokenInput.trim().toLowerCase().replace(/[^a-f0-9]/g, "");
+  if (token.length < 20) return false;
+  const email = await store.get(`${UNSUB_TOKEN_PREFIX}${token}`);
+  if (!email) return false;
+  await unsubscribeMarketingEmail(store, email);
+  return true;
 }

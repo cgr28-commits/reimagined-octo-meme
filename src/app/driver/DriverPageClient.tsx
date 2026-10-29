@@ -15,6 +15,7 @@ import {
 } from "@/lib/personal-quote-prefill";
 import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
 import OwnerWhatsAppChatsPanel from "@/components/OwnerWhatsAppChatsPanel";
+import OwnerMarketingPanel from "@/components/OwnerMarketingPanel";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
@@ -3392,6 +3393,12 @@ export default function DriverPageClient({
               {isOwnerView && savedKey && ownerToolTab === "postcode-pricing" ? (
                 <div id="owner-tool-panel-postcode-pricing" role="tabpanel" aria-label="Postcode Pricing">
                   <OwnerPostcodePricingPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "marketing" ? (
+                <div id="owner-tool-panel-marketing" role="tabpanel" aria-label="Marketing">
+                  <OwnerMarketingPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 

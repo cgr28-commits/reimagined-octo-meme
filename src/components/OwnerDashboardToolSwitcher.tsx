@@ -15,7 +15,8 @@ export type OwnerDashboardToolTab =
   | "requests"
   | "enquiries"
   | "tracking"
-  | "whatsapp";
+  | "whatsapp"
+  | "marketing";
 
 type OwnerDashboardToolSwitcherProps = {
   value: OwnerDashboardToolTab;
@@ -39,6 +40,7 @@ export const OWNER_MORE_DESTINATIONS: {
   { id: "requests", label: "Requests", hint: "Approvals that need a decision, and deposit cash" },
   { id: "enquiries", label: "Enquiries", hint: "Quotes and enquiry jobs" },
   { id: "whatsapp", label: "WhatsApp chats", hint: "What customers asked the WhatsApp assistant and its replies" },
+  { id: "marketing", label: "Marketing", hint: "Customers who opted in to marketing — download the list or email them" },
   { id: "tracking", label: "Tracking", hint: "Driver tracking jobs and acceptance" },
   { id: "pricing", label: "Pricing", hint: "Fares and vehicle pricing" },
   { id: "postcode-pricing", label: "Postcode Pricing", hint: "Fixed district-to-airport Saloon fares and the configured Estate supplement" },
