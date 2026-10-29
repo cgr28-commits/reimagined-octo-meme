@@ -54,6 +54,8 @@ export type WhatsAppConversation = {
   awaiting?: WhatsAppQuoteField;
   lastQuoteUrl?: string;
   lastQuoteAmountLabel?: string;
+  /** The one-time 5% "book now" offer was made for this journey (only after "too expensive"). */
+  discountOffered?: boolean;
   updatedAt: string;
 };
 
@@ -62,7 +64,7 @@ export type WhatsAppConversation = {
  * when AI is unavailable. Journey details are still parsed here and prices only ever
  * come from the quote engine.
  */
-export type WhatsAppBotAction = "none" | "quote" | "handoff" | "answer";
+export type WhatsAppBotAction = "none" | "quote" | "handoff" | "answer" | "discount";
 
 /** Tap-to-reply button; ids starting "txt:" are read back as if the customer typed them. */
 export type WhatsAppBotButton = { id: string; title: string };
@@ -92,6 +94,8 @@ export type WhatsAppAiTask = {
   askFor?: WhatsAppQuoteField;
   /** The customer's message just added journey details (acknowledge, then ask). */
   justUpdated?: boolean;
+  /** The customer said the quoted price is too high. */
+  priceObjection?: boolean;
 };
 
 /** First-message menu: quote, question, or an existing booking. */
@@ -746,6 +750,14 @@ export function isWhatsAppSendQuoteMessage(text: string): boolean {
   return /^\s*hi,?\s+please send me this quote\b/i.test(text);
 }
 
+/** What every booking includes — shown with the price and when a customer says it's too much. */
+export const WHATSAPP_BOOKING_BENEFITS =
+  `*What's included:*\n` +
+  `✅ Fixed price — it won't change with traffic or delays\n` +
+  `🚘 Pre-booked driver in a modern, high-spec vehicle\n` +
+  `✈️ We monitor your flight, with up to 60 minutes' waiting included on airport pickups\n` +
+  `↩️ Cancel up to 24 hours before pickup for a full refund`;
+
 export function buildWhatsAppQuoteReply(input: {
   amountLabel: string;
   bookingUrl: string;
@@ -757,6 +769,7 @@ export function buildWhatsAppQuoteReply(input: {
   if (input.requestOnly) {
     return (
       `Your fixed price is *${input.amountLabel}*\n\n` +
+      `${WHATSAPP_BOOKING_BENEFITS}\n\n` +
       `⚠️ This date and time is *request only*, so we need to confirm we can do it before you pay.\n\n` +
       `Send your booking request here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
       `We'll get back to you as soon as possible. Reply *NEW* for a new quote.`
@@ -767,6 +780,7 @@ export function buildWhatsAppQuoteReply(input: {
     : "";
   return (
     `Your fixed price is *${input.amountLabel}* ✅\n\n` +
+    `${WHATSAPP_BOOKING_BENEFITS}\n\n` +
     expressNote +
     `To book, check your details and pay securely here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
     `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote.`
@@ -866,6 +880,63 @@ export function buildWhatsAppTeamHandoffReply(teamNumber: string, draft: WhatsAp
  * Decide the reply to one inbound customer message.
  * `action: "quote"` means the Worker should now price `conversation.draft`.
  */
+const PRICE_OBJECTION =
+  /\b(?:too\s+(?:expensive|dear|much|pricey|high)|(?:very|bit|quite|really|so)\s+(?:expensive|dear|pricey)|expensive|pricey|overpriced|rip\s*-?\s*off|cheaper|(?:can|could)\s+you\s+do\s+(?:it\s+)?(?:for\s+)?less|any\s+discount|best\s+price|lower\s+(?:the\s+)?price|(?:got|get|found)\s+(?:it\s+)?(?:for\s+)?less)\b/i;
+
+/** "That's too expensive", "can you do it cheaper?" */
+export function isWhatsAppPriceObjection(text: string): boolean {
+  return PRICE_OBJECTION.test(stripWhatsAppMarkdown(text));
+}
+
+const TOO_EXPENSIVE =
+  /\b(?:too\s+(?:expensive|dear|much|pricey|high|steep)|(?:very|bit|quite|really|so|abit)\s+(?:expensive|dear|pricey|steep)|expensive|pricey|overpriced|rip\s*-?\s*off|daylight\s+robbery)\b/i;
+
+/** Says the price is too expensive — the only trigger for the 5% offer (not "any discount?"). */
+export function isWhatsAppTooExpensive(text: string): boolean {
+  const t = stripWhatsAppMarkdown(text);
+  return TOO_EXPENSIVE.test(t) && !/\bnot\s+(?:too\s+)?(?:expensive|dear|pricey)\b/i.test(t);
+}
+
+/** Percent off the 5% "book now" offer. */
+export const WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT = 5;
+
+/** Reply with the discounted booking link after "too expensive". */
+export function buildWhatsAppDiscountOfferReply(input: {
+  previousAmountLabel?: string;
+  amountLabel: string;
+  bookingUrl: string;
+  optionalExpressFeeLabel?: string | null;
+}): string {
+  const was = input.previousAmountLabel ? ` (was ${input.previousAmountLabel})` : "";
+  const expressNote = input.optionalExpressFeeLabel
+    ? `This price doesn't include Express terminal access at the airport. You can add it for ${input.optionalExpressFeeLabel} when you book.\n\n`
+    : "";
+  return (
+    `I understand. Just so you know, your price includes:\n` +
+    `✅ A fixed price — it won't change with traffic or delays\n` +
+    `🚘 A pre-booked driver in a modern, high-spec vehicle\n` +
+    `✈️ Flight monitoring, with up to 60 minutes' waiting included on airport pickups\n` +
+    `↩️ Free cancellation up to 24 hours before pickup for a full refund\n\n` +
+    `If you book now, I can give you *${WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT}% off* — your new price is *${input.amountLabel}*${was} 🎉\n\n` +
+    expressNote +
+    `Book here (link valid for 24 hours):\n${input.bookingUrl}`
+  );
+}
+
+/** Fixed reply to a price objection (the AI writes its own version when available). */
+export function buildWhatsAppPriceValueReply(draft: WhatsAppQuoteDraft): string {
+  const airportPickup = Boolean(draft.airportCode && draft.fromAirport);
+  return (
+    `I understand. Just so you know what's included: it's a *fixed price*, so it won't change with traffic or delays, ` +
+    `and you have a *pre-booked driver* waiting for you. ` +
+    (airportPickup
+      ? `We monitor your flight, and up to *60 minutes' waiting time* from landing is included. `
+      : `On airport pickups we monitor your flight, and up to *60 minutes' waiting time* is included. `) +
+    `Our vehicles are modern and high spec, and you can cancel up to 24 hours before pickup for a full refund, so you can book with confidence.\n\n` +
+    `If you'd like to go ahead, your booking link is above.`
+  );
+}
+
 const QUESTION_START =
   /^(what|whats|what's|how|do|does|did|can|could|is|are|was|will|would|where|when|why|which|who|should|any|have you|are there|is there)\b/i;
 
@@ -893,6 +964,12 @@ export function decideWhatsAppReply(
     case "askRepeat":
       return { ...stripKind(decision), action: "answer", ai: { askFor: decision.conversation.awaiting, justUpdated: false } };
     case "quotedNoChange":
+      if (isWhatsAppTooExpensive(text) && !decision.conversation.discountOffered) {
+        return { ...stripKind(decision), action: "discount", buttons: undefined };
+      }
+      return isWhatsAppPriceObjection(text)
+        ? { ...stripKind(decision), action: "answer", reply: buildWhatsAppPriceValueReply(decision.conversation.draft), ai: { priceObjection: true } }
+        : { ...stripKind(decision), action: "answer", ai: {} };
     case "confirmNoChange":
       return { ...stripKind(decision), action: "answer", ai: {} };
     default:
