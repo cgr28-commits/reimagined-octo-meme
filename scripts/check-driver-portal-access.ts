@@ -689,6 +689,23 @@ void (async () => {
     assert.equal(invalid.portalMints, 0);
     assert.equal((await invalid.loadByToken("bad-token"))?.driverAssignmentStatus, "pending");
     console.log(`OK  ${label}`);
+    {
+      // The My Jobs email link keeps working when opened again (other browser / new phone).
+      const kv = new Map<string, string>();
+      const store = {
+        async get(key: string, type?: string) { const v = kv.get(key); return v == null ? null : type === "json" ? JSON.parse(v) : v; },
+        async put(key: string, value: string) { kv.set(key, value); },
+        async delete(key: string) { kv.delete(key); },
+      } as unknown as KVNamespace;
+      const { createDriverPortalLink, exchangeDriverPortalLink } = await import("../workers/addresses/src/driver-portal-session");
+      const link = await createDriverPortalLink(store, { profileKey: "dave", driverName: "Dave" });
+      const first = await exchangeDriverPortalLink(store, link);
+      const again = await exchangeDriverPortalLink(store, link);
+      assert.ok(first && again, "the link can be opened more than once");
+      assert.notEqual(first!.sessionToken, again!.sessionToken);
+      assert.equal(await exchangeDriverPortalLink(store, "dpl_not-a-real-link"), null);
+      console.log("OK  My Jobs link can be reopened until it expires");
+    }
     console.log("\nAll assigned-driver portal access checks passed.");
   } catch (error) {
     console.error(`FAIL  ${label}`);

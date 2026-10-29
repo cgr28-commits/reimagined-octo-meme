@@ -2947,7 +2947,13 @@ export default function DriverPageClient({
           setSavedKey(session.sessionToken);
         })
         .catch((err) => {
-          window.localStorage.removeItem(DRIVER_PORTAL_SESSION_STORAGE_KEY);
+          // An old or expired link must not sign out a driver who is already signed in here.
+          const existing = window.localStorage.getItem(DRIVER_PORTAL_SESSION_STORAGE_KEY)?.trim() ?? "";
+          if (isDriverPortalSessionToken(existing)) {
+            setSessionRole("driver");
+            setSavedKey(existing);
+            return;
+          }
           setError(err instanceof Error ? err.message : "This My Jobs link could not be opened");
           setLoading(false);
         });

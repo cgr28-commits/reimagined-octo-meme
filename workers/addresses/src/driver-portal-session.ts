@@ -54,8 +54,9 @@ export async function createDriverPortalLink(
 }
 
 /**
- * Single-use exchange. The magic link is deleted before the session is returned.
- * A second use of the same link fails.
+ * Exchange the My Jobs email link for a driver session. The link keeps working until
+ * it expires (14 days), so a driver who opens it again — another browser, the mail
+ * app's own browser, a new phone — is not locked out of their jobs.
  */
 export async function exchangeDriverPortalLink(
   store: KVNamespace,
@@ -66,7 +67,6 @@ export async function exchangeDriverPortalLink(
     return null;
   }
   const record = await store.get<PortalLinkRecord>(linkKey(token), "json");
-  await store.delete(linkKey(token));
   if (!record || !stillValid(record.expiresAt) || !record.profileKey?.trim()) {
     return null;
   }
