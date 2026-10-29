@@ -99,6 +99,42 @@ export function isTripPremiumDateTime(
   );
 }
 
+/** Surcharge rate (e.g. 0.1) for a pickup date/time under the owner's settings; 0 outside every window. */
+export function tripSurchargeRate(
+  date: string,
+  time: string,
+  pricing?: OwnerPricingEngineInput | null,
+): number {
+  const parsed = parseLocalDateTime(date, time);
+  if (!parsed) return 0;
+  const options = pricing ? ownerPricingEngineOptions(pricing) : null;
+  const rules = options
+    ? {
+        christmasEnabled: options.christmasEnabled,
+        christmasStartMonthDay: options.christmasStartMonthDay,
+        christmasEndMonthDay: options.christmasEndMonthDay,
+        eveningEnabled: options.eveningEnabled,
+        eveningStartMinutes: options.eveningStartMinutes,
+        eveningEndMinutes: options.eveningEndMinutes,
+        nightEnabled: options.nightEnabled,
+        nightStartMinutes: options.nightStartMinutes,
+        nightEndMinutes: options.nightEndMinutes,
+        weekendEnabled: options.weekendEnabled,
+        weekendDays: options.weekendDays,
+      }
+    : defaultPremiumWindowRules();
+  return surchargeRateForDateTime({
+    day: parsed.day,
+    minutes: parsed.minutes,
+    date,
+    christmasRate: options?.christmasRate ?? 0,
+    eveningRate: options?.eveningRate ?? 0,
+    nightRate: options?.nightRate ?? TRIP_PREMIUM_RATE,
+    weekendRate: options?.weekendRate ?? TRIP_PREMIUM_RATE,
+    rules,
+  });
+}
+
 /** @deprecated Use isTripPremiumDateTime */
 export function isPointToPointPremiumDateTime(date: string, time: string): boolean {
   return isTripPremiumDateTime(date, time);

@@ -410,6 +410,9 @@ import { handleQuoteAvailabilityRequest, handleQuoteCalculateRequest } from "./q
 import {
   handleOwnerCreateQuickQuote,
   handlePublicQuickQuoteLookup,
+  handlePublicQuickQuoteReschedule,
+  parseQuickQuoteSchedule,
+  quickQuoteScheduleChanged,
 } from "./quick-quote-handlers";
 import {
   handleWhatsAppConnect,
@@ -2335,6 +2338,30 @@ async function handlePaymentRequest(
       );
     }
 
+    // A changed date/time must be re-priced first (POST /quick-quotes/reschedule): the
+    // stored fare is only valid for the stored pickup time (night/weekend surcharges).
+    {
+      const requested = parseQuickQuoteSchedule(
+        {
+          outboundDate: booking.tripDate || record.journey.outboundDate,
+          outboundTime: booking.tripTime || record.journey.outboundTime,
+          returnDate: booking.returnDate || record.journey.returnDate,
+          returnTime: booking.returnTime || record.journey.returnTime,
+        },
+        Boolean(record.journey.returnJourney),
+      );
+      if (!("error" in requested) && quickQuoteScheduleChanged(record.journey, requested)) {
+        return json(
+          {
+            error: "The price needs updating for your new pickup time. Please check the updated price and try again.",
+            code: "quick_quote_reschedule_required",
+          },
+          409,
+          origin,
+        );
+      }
+    }
+
     // Prefer locked journey from KV for fare; customer contact comes from booking.
     const j = record.journey;
 
@@ -4196,6 +4223,13 @@ export default {
       (request.method === "POST" || request.method === "OPTIONS")
     ) {
       return handleOwnerCreateQuickQuote(request, env, origin);
+    }
+
+    if (
+      (url.pathname === "/quick-quotes/reschedule" || url.pathname === "/api/quick-quotes/reschedule") &&
+      (request.method === "POST" || request.method === "OPTIONS")
+    ) {
+      return handlePublicQuickQuoteReschedule(request, env, origin);
     }
 
     if (
