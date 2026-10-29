@@ -3,7 +3,7 @@
  * Reuses TRACKING_STORE jobs — no separate booking database.
  */
 
-import { sendDriverArrivedWhatsApp, sendDriverOnTheWayWhatsApp } from "./whatsapp-templates";
+import { sendDriverArrivedWhatsApp, sendDriverOnTheWayWhatsApp, sendTipRequestWhatsApp } from "./whatsapp-templates";
 import { airportPickupContext, airportPickupReminderInput } from "./airport-pickup-reminder-handlers";
 import { parseCustomerTipped, type TipCompletionPayload } from "../shared/journey-tip";
 import {
@@ -585,6 +585,17 @@ export async function handleJourneyTransitionRequest(
       }
       next = attached.job;
       tipPayload = attached.tip;
+      // Not tipped in person: send the optional tip link from the business WhatsApp
+      // (approved template only). When it goes, the driver's phone needn't send it too.
+      if (attached.tip.openWhatsApp && next.tipDecision === "no" && next.tipToken) {
+        const sent = await sendTipRequestWhatsApp(env, {
+          jobKey: next.token,
+          customerName: next.customerName,
+          mobile: next.customerMobile,
+          tipToken: next.tipToken,
+        });
+        if (sent.sent) tipPayload = { ...attached.tip, openWhatsApp: false };
+      }
     }
     next = ensureReviewRequestScheduled(
       next,

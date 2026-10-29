@@ -10,6 +10,8 @@
  *                            where to meet the driver, plus a "View pickup map" button
  *   mat_journey_reminder   — with the journey reminder email (~4h before) for pickups that
  *                            aren't at an airport (airport collections get mat_airport_pickup)
+ *   mat_tip_request        — journey completed and the customer didn't tip in person:
+ *                            optional tip with a "Leave a tip" button (secure tip page)
  *   mat_driver_arrived     — driver taps Arrived at a home / hotel / station pickup
  *   mat_driver_arrived_airport — driver taps Arrived at an airport: where to go + map button
  *
@@ -41,6 +43,7 @@ export type WhatsAppTemplateName =
   | "mat_review_request"
   | "mat_airport_pickup"
   | "mat_journey_reminder"
+  | "mat_tip_request"
   | "mat_driver_arrived"
   | "mat_driver_arrived_airport";
 
@@ -124,6 +127,32 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
         {
           type: "BUTTONS",
           buttons: [{ type: "URL", text: "Leave a review", url: reviewUrl }],
+        },
+      ],
+    },
+    {
+      name: "mat_tip_request",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, thank you for travelling with My Airport Taxi NI.\n\n" +
+            "Enjoyed your journey? Tips are never expected, but always greatly appreciated. " +
+            "If you'd like to leave a little extra for your driver, it's a lovely way to say thank you.\n\n" +
+            "Thank you for supporting My Airport Taxi NI.",
+          example: { body_text: [["Sarah"]] },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Leave a tip",
+              url: `${SITE}/tip/?t={{1}}`,
+              example: [`${SITE}/tip/?t=0123456789abcdef0123456789abcdef`],
+            },
+          ],
         },
       ],
     },
@@ -524,6 +553,27 @@ export function sendReviewRequestWhatsApp(
         jobKey: input.jobKey,
         mobile: input.mobile,
         bodyParams: [firstNameOf(input.customerName), shortTripDate(input.tripDate) || "your recent trip"],
+      },
+      fetchImpl,
+    ),
+  );
+}
+
+/** Journey completed without an in-person tip: optional tip link (tip page token). */
+export function sendTipRequestWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: { jobKey: string; customerName?: string | null; mobile?: string | null; tipToken: string },
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_tip_request",
+        jobKey: input.jobKey,
+        mobile: input.mobile,
+        bodyParams: [firstNameOf(input.customerName)],
+        urlButtonParam: input.tipToken,
       },
       fetchImpl,
     ),

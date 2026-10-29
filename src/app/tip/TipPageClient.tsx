@@ -176,14 +176,15 @@ export default function TipPageClient() {
             <div className="space-y-5">
               <div className="space-y-2 text-center">
                 <h1 className="font-display text-3xl font-semibold leading-tight text-white">
-                  Thank you for travelling with us
+                  <span aria-hidden="true" className="text-emerald">♡ </span>Enjoyed your journey?
                 </h1>
                 <p className="text-base font-medium text-white/90">
-                  Would you like to leave your driver a tip?
+                  Tips are never expected, but always greatly appreciated.
                 </p>
                 <p className="text-sm leading-relaxed text-white/65">
-                  Tips are completely optional and greatly appreciated.
+                  If you&apos;d like to leave a little extra for your driver, it&apos;s a lovely way to say thank you.
                 </p>
+                <p className="text-sm font-semibold text-white/85">Would you like to leave your driver a tip?</p>
               </div>
 
               {view.paymentNotCompleted ? (
@@ -268,6 +269,7 @@ export default function TipPageClient() {
                   <p className="text-center text-xs text-white/55">Secure payment powered by SumUp</p>
                 </div>
               ) : null}
+              <p className="text-center text-sm font-semibold text-white/80">Thank you for supporting My Airport Taxi NI.</p>
             </div>
           ) : null}
         </div>
