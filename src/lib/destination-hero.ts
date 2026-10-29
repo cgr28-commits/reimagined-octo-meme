@@ -93,6 +93,16 @@ export const MISSING_DESTINATION_HEROES = [
   { slug: "glengormley", needed: "A recognisable Glengormley photograph, such as Sandyknowes" },
   { slug: "whiteabbey", needed: "A recognisable Whiteabbey photograph, such as the Shore Road at Hazelbank" },
   { slug: "coleraine", needed: "A recognisable Coleraine / Portrush photograph, such as the Bann bridge or Portrush harbour" },
+  { slug: "banbridge", needed: "A recognisable Banbridge town centre or the Bann photograph" },
+  { slug: "downpatrick", needed: "A recognisable Downpatrick, Down Cathedral photograph" },
+  { slug: "newcastle", needed: "A recognisable Newcastle promenade and the Mournes photograph" },
+  { slug: "armagh", needed: "A recognisable Armagh's cathedrals or the Mall photograph" },
+  { slug: "dungannon", needed: "A recognisable Dungannon town centre photograph" },
+  { slug: "cookstown", needed: "A recognisable Cookstown's main street photograph" },
+  { slug: "omagh", needed: "A recognisable Omagh town centre or the Strule photograph" },
+  { slug: "enniskillen", needed: "A recognisable Enniskillen Castle or Lough Erne photograph" },
+  { slug: "derry", needed: "A recognisable Derry's walls or the Peace Bridge photograph" },
+  { slug: "ballycastle", needed: "A recognisable Ballycastle seafront or Fair Head photograph" },
   { slug: "craigavon", needed: "A recognisable Craigavon / Portadown / Lurgan photograph, such as Craigavon Lakes or Portadown town centre" },
 ] as const;
 

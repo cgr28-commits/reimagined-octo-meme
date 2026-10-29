@@ -2,6 +2,9 @@ import type { TransferRouteContent } from "@/lib/town-transfer-types";
 import { TRANSFER_ROUTE_BATCH_3 } from "@/lib/transfer-routes-batch-3";
 import { TRANSFER_ROUTE_BATCH_4 } from "@/lib/transfer-routes-batch-4";
 import { TRANSFER_ROUTE_BATCH_5 } from "@/lib/transfer-routes-batch-5";
+import { TRANSFER_ROUTE_BATCH_6A } from "@/lib/transfer-routes-batch-6a";
+import { TRANSFER_ROUTE_BATCH_6B } from "@/lib/transfer-routes-batch-6b";
+import { TRANSFER_ROUTE_BATCH_6C } from "@/lib/transfer-routes-batch-6c";
 import { TRANSFER_ROUTE_BELFAST } from "@/lib/transfer-routes-belfast";
 
 const TRAFFIC =
@@ -1581,4 +1584,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
   ...TRANSFER_ROUTE_BATCH_3,
   ...TRANSFER_ROUTE_BATCH_4,
   ...TRANSFER_ROUTE_BATCH_5,
+  ...TRANSFER_ROUTE_BATCH_6A,
+  ...TRANSFER_ROUTE_BATCH_6B,
+  ...TRANSFER_ROUTE_BATCH_6C,
 ];

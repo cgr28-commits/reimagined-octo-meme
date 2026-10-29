@@ -2,6 +2,9 @@ import type { TownHubContent } from "@/lib/town-transfer-types";
 import { TOWN_HUB_BATCH_3 } from "@/lib/town-hubs-batch-3";
 import { TOWN_HUB_BATCH_4 } from "@/lib/town-hubs-batch-4";
 import { TOWN_HUB_BATCH_5 } from "@/lib/town-hubs-batch-5";
+import { TOWN_HUB_BATCH_6A } from "@/lib/town-hubs-batch-6a";
+import { TOWN_HUB_BATCH_6B } from "@/lib/town-hubs-batch-6b";
+import { TOWN_HUB_BATCH_6C } from "@/lib/town-hubs-batch-6c";
 
 /** Town hub landing pages — chooser pages, not copies of the three child routes. */
 export const TOWN_HUB_CONTENT: TownHubContent[] = [
@@ -370,7 +373,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     seoTitle: "Newry Taxi to Dublin & Belfast Airports | Fixed Price, 5★",
     h1: "Newry Airport Taxi & Airport Transfers",
     metaDescription:
-      "Pre-book your Newry airport taxi to Dublin or Belfast airports. Fixed price with M1 tolls included, flight monitoring on pickups. Rated 5★ on Google.",
+      "Pre-book your Newry airport taxi to Dublin Airport or the Belfast airports. Fixed price with M1 tolls included, flight monitoring on pickups. Rated 5★ on Google.",
     intro:
       "Newry sits on the A1 between Belfast and Dublin. Start here to choose the terminal, then open that route. Dublin Airport is often the first airport people here ask about — you are already on the A1, the border is minutes away, and the M1 carries you south, with applicable tolls included. Belfast International is the northbound A1 job that then swings west onto the M1/M2 for Aldergrove — the long-haul alternative when the ticket is out of Aldergrove rather than Dublin. Belfast City Airport stays on the A1 into Belfast and takes the Harbour Estate roads to Sydenham instead of peeling west. We collect from Newry, Warrenpoint, Rostrevor, Bessbrook, Camlough and Hilltown. Warrenpoint and Rostrevor are lough-shore collections — include the townland or hotel name, not only “Newry”. Bessbrook and Camlough sit off the A25; they are not the same timing as a Buttercrane pickup. Hilltown is the Mournes approach.",
     blurb:
@@ -404,4 +407,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
   ...TOWN_HUB_BATCH_3,
   ...TOWN_HUB_BATCH_4,
   ...TOWN_HUB_BATCH_5,
+  ...TOWN_HUB_BATCH_6A,
+  ...TOWN_HUB_BATCH_6B,
+  ...TOWN_HUB_BATCH_6C,
 ];

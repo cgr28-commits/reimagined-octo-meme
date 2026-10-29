@@ -34,7 +34,8 @@ const THIRD_TOWNS = [
   "whiteabbey",
 ] as const;
 const FOURTH_TOWNS = ["craigavon", "coleraine"] as const;
-const ALL_HUB_TOWNS = [...FIRST_TOWNS, ...SECOND_TOWNS, ...THIRD_TOWNS, ...FOURTH_TOWNS] as const;
+const FIFTH_TOWNS = ["banbridge", "downpatrick", "newcastle", "armagh", "dungannon", "cookstown", "omagh", "enniskillen", "derry", "ballycastle"] as const;
+const ALL_HUB_TOWNS = [...FIRST_TOWNS, ...SECOND_TOWNS, ...THIRD_TOWNS, ...FOURTH_TOWNS, ...FIFTH_TOWNS] as const;
 
 function assertLandingHub(hub: (typeof TOWN_HUB_PAGES)[number]) {
   assert.equal(hub.h1, `${hub.town.name} Airport Taxi & Airport Transfers`);
@@ -67,8 +68,8 @@ function assertLandingRoute(route: (typeof TRANSFER_ROUTE_PAGES)[number]) {
 
 console.log("=== Combined hubs (Batch 1 + Batch 2) ===");
 {
-  assert.equal(TOWN_HUB_PAGES.length, 20);
-  assert.equal(TOWN_HUB_CONTENT.length, 20);
+  assert.equal(TOWN_HUB_PAGES.length, 30);
+  assert.equal(TOWN_HUB_CONTENT.length, 30);
   assert.deepEqual(
     TOWN_HUB_PAGES.map((hub) => hub.town.slug),
     [...ALL_HUB_TOWNS],
@@ -89,7 +90,7 @@ console.log("=== Combined hubs (Batch 1 + Batch 2) ===");
   assert.doesNotMatch(hubPage, /LANDING_WHY_BOOK/);
   const whyBook = read("src/lib/landing-why-book.ts");
   assert.match(whyBook, /route pages only/);
-  console.log("OK  19 unique town hubs with airport chooser");
+  console.log("OK  30 unique town hubs with airport chooser");
 }
 
 console.log("\n=== Batch 1 hubs still resolve ===");
@@ -113,8 +114,8 @@ console.log("\n=== Batch 2 hubs resolve ===");
 console.log("\n=== Combined landing routes ===");
 {
   const landing = TRANSFER_ROUTE_PAGES.filter((route) => route.faqs?.length && route.journeyInfo);
-  assert.equal(landing.length, 65);
-  assert.equal(TRANSFER_ROUTE_CONTENT.length, 65);
+  assert.equal(landing.length, 95);
+  assert.equal(TRANSFER_ROUTE_CONTENT.length, 95);
   for (const town of ALL_HUB_TOWNS) {
     const bfs = getTransferRoutePage(`${town}-to-belfast-international`);
     const bhd = getTransferRoutePage(`${town}-to-belfast-city-airport`);
@@ -156,7 +157,7 @@ console.log("\n=== Combined landing routes ===");
   assert.equal(inbound.airport.code, "DUB");
   assert.equal(inbound.town.slug, "belfast");
   assert.match(inbound.h1, /Dublin Airport to Belfast Taxi/);
-  console.log("OK  62 unique route pages, unique FAQs, no invented fares or mileages");
+  console.log("OK  95 unique route pages, unique FAQs, no invented fares or mileages");
 }
 
 console.log("\n=== Batch 1 legacy lookups still resolve ===");
