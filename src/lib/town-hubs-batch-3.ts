@@ -182,7 +182,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
       "Moira is the next village west on the M1 and is booked on its own airport pages when that is the pickup.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    relatedTownSlugs: ["lisburn", "moira"],
+    relatedTownSlugs: ["lisburn", "moira", "craigavon"],
     whichAirport: [
       {
         code: "BFS",
@@ -221,7 +221,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
       "Hillsborough has its own airport pages. Use those if the pickup is in that village rather than Moira.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    relatedTownSlugs: ["hillsborough", "lisburn"],
+    relatedTownSlugs: ["hillsborough", "lisburn", "craigavon"],
     whichAirport: [
       {
         code: "BFS",

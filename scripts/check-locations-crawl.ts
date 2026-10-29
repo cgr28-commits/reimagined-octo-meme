@@ -36,6 +36,7 @@ const HUB_TOWNS = [
   "glengormley",
   "whiteabbey",
   "craigavon",
+  "coleraine",
 ] as const;
 const LANDING_AIRPORTS = ["BFS", "BHD", "DUB"] as const;
 
@@ -60,12 +61,12 @@ const landingRoutes = TRANSFER_ROUTE_PAGES.filter(
 
 console.log("=== Town hubs and landing routes exist ===");
 {
-  assert.equal(TOWN_HUB_PAGES.length, 19);
+  assert.equal(TOWN_HUB_PAGES.length, 20);
   assert.deepEqual(
     TOWN_HUB_PAGES.map((hub) => hub.town.slug).sort(),
     [...HUB_TOWNS].sort(),
   );
-  assert.equal(landingRoutes.length, 62);
+  assert.equal(landingRoutes.length, 65);
   for (const town of HUB_TOWNS) {
     const hub = TOWN_HUB_PAGES.find((item) => item.town.slug === town);
     assert.ok(hub, `missing hub for ${town}`);
