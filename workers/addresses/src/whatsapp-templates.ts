@@ -8,6 +8,8 @@
  *   mat_review_request     — with the delayed Google review request
  *   mat_airport_pickup     — with the journey-day airport collection email (~4h before):
  *                            where to meet the driver, plus a "View pickup map" button
+ *   mat_journey_reminder   — with the journey reminder email (~4h before) for pickups that
+ *                            aren't at an airport (airport collections get mat_airport_pickup)
  *   mat_driver_arrived     — driver taps Arrived at a home / hotel / station pickup
  *   mat_driver_arrived_airport — driver taps Arrived at an airport: where to go + map button
  *
@@ -38,6 +40,7 @@ export type WhatsAppTemplateName =
   | "mat_driver_details"
   | "mat_review_request"
   | "mat_airport_pickup"
+  | "mat_journey_reminder"
   | "mat_driver_arrived"
   | "mat_driver_arrived_airport";
 
@@ -121,6 +124,22 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
         {
           type: "BUTTONS",
           buttons: [{ type: "URL", text: "Leave a review", url: reviewUrl }],
+        },
+      ],
+    },
+    {
+      name: "mat_journey_reminder",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, just a reminder of your journey with My Airport Taxi NI on {{2}}.\n\n" +
+            "Pickup: {{3}}\nDrop-off: {{4}}\n\n" +
+            "Your driver will be with you at the pickup time. Reply here if anything has changed.",
+          example: {
+            body_text: [["Sarah", "Sat 31 Oct at 05:30", "12 Main Street, Lisburn", "Belfast International Airport"]],
+          },
         },
       ],
     },
@@ -505,6 +524,39 @@ export function sendReviewRequestWhatsApp(
         jobKey: input.jobKey,
         mobile: input.mobile,
         bodyParams: [firstNameOf(input.customerName), shortTripDate(input.tripDate) || "your recent trip"],
+      },
+      fetchImpl,
+    ),
+  );
+}
+
+/** Journey reminder (~4h before) for a pickup that isn't at an airport. */
+export function sendJourneyReminderWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: {
+    jobKey: string;
+    customerName?: string | null;
+    mobile?: string | null;
+    tripDate?: string | null;
+    tripTime?: string | null;
+    pickupLabel?: string | null;
+    dropoffLabel?: string | null;
+  },
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_journey_reminder",
+        jobKey: input.jobKey,
+        mobile: input.mobile,
+        bodyParams: [
+          firstNameOf(input.customerName),
+          tripWhen(input.tripDate, input.tripTime),
+          input.pickupLabel?.trim() || "your pickup address",
+          input.dropoffLabel?.trim() || "your destination",
+        ],
       },
       fetchImpl,
     ),

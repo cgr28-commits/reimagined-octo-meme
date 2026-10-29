@@ -5,8 +5,10 @@ import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { getPaidBookingRecord } from "./paid-booking-store";
 import { listUpcomingTrackingJobs, saveTrackingJob } from "./tracking-store";
 import { trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import { sendJourneyReminderWhatsApp, type WhatsAppTemplateEnv } from "./whatsapp-templates";
+import { matchServedAirportCode } from "../shared/served-airports";
 
-type Env = WorkerEmailEnv & { TRACKING_STORE?: KVNamespace };
+type Env = WorkerEmailEnv & WhatsAppTemplateEnv & { TRACKING_STORE?: KVNamespace };
 
 /**
  * This leg's half of an uncollected Deposit + Cash balance. When the other
@@ -63,6 +65,19 @@ export async function processDueJourneyReminders(env: Env, now = new Date()) {
       to: current.customerEmail!.trim(), toName: current.customerName || "Customer",
       subject: decision.subject, body: decision.text, htmlBody: decision.html,
     });
+    // WhatsApp copy for pickups that aren't at an airport (airport collections get the
+    // airport pickup message with directions instead). Approved template only; never blocks.
+    if (send.sent && !matchServedAirportCode(current.pickupLabel ?? "")) {
+      await sendJourneyReminderWhatsApp(env, {
+        jobKey: job.token,
+        customerName: current.customerName,
+        mobile: job.customerMobile || paid.mobileNumber,
+        tripDate: current.tripDate,
+        tripTime: current.tripTime,
+        pickupLabel: current.pickupLabel,
+        dropoffLabel: current.dropoffLabel,
+      });
+    }
     if (send.sent) {
       job.journeyReminderSentAt = now.toISOString();
       delete job.journeyReminderFailedAt;
