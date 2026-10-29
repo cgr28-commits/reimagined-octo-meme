@@ -51,7 +51,7 @@ export async function handleDriverPortalExchangeRequest(
 
   const exchanged = await exchangeDriverPortalLink(env.TRACKING_STORE, access);
   if (!exchanged) {
-    return jsonResponse({ error: "This My Jobs link is invalid or has already been used" }, 401, origin);
+    return jsonResponse({ error: "This My Jobs link is invalid or has expired. Ask the office to resend it." }, 401, origin);
   }
 
   return jsonResponse(
