@@ -1128,6 +1128,8 @@ function DriverJobCard({
   lastGpsAt?: number | null;
 }) {
   const [busy, setBusy] = useState(false);
+  /** Assigned driver tapped Complete job: ask whether the customer tipped in person. */
+  const [askTip, setAskTip] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refundConfirmOpen, setRefundConfirmOpen] = useState(false);
   const [refundBusy, setRefundBusy] = useState(false);
@@ -1364,7 +1366,14 @@ function DriverJobCard({
     }
   };
 
-  const runJourneyAction = async (action: JourneyAction) => {
+  const runJourneyAction = async (action: JourneyAction, options?: { customerTipped?: boolean }) => {
+    // Assigned drivers: Complete job first asks about a tip, so customers who didn't
+    // tip in person get the optional tip link on WhatsApp (sent from the business number).
+    if (!isOwner && action === "complete_journey" && options?.customerTipped === undefined) {
+      setAskTip(true);
+      return;
+    }
+    setAskTip(false);
     setBusy(true);
     setError(null);
     try {
@@ -1377,7 +1386,12 @@ function DriverJobCard({
         onSessionChange(activeToken, null);
       }
 
-      const result = await postJourneyAction(driverKey, job.token, action);
+      const result = await postJourneyAction(
+        driverKey,
+        job.token,
+        action,
+        options?.customerTipped === undefined ? undefined : { customerTipped: options.customerTipped },
+      );
       const nextJob: DriverJob = {
         ...job,
         journeyStatus: result.journeyStatus,
@@ -2121,6 +2135,37 @@ function DriverJobCard({
                 </button>
               );
             })}
+            {askTip ? (
+              <div className="w-full rounded-xl border border-white/15 bg-white/5 p-3" role="group" aria-label="Did the customer tip?">
+                <p className="text-sm font-semibold text-white">Did the customer give you a tip?</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void runJourneyAction("complete_journey", { customerTipped: true })}
+                    className="min-h-11 flex-1 rounded-xl bg-emerald px-4 text-sm font-semibold text-navy disabled:opacity-60"
+                  >
+                    Yes, tipped
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void runJourneyAction("complete_journey", { customerTipped: false })}
+                    className="min-h-11 flex-1 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    No tip
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setAskTip(false)}
+                    className="min-h-11 rounded-xl px-3 text-sm text-white/70"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 
