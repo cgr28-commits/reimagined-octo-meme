@@ -33,7 +33,7 @@ const THIRD_TOWNS = [
   "glengormley",
   "whiteabbey",
 ] as const;
-const FOURTH_TOWNS = ["craigavon"] as const;
+const FOURTH_TOWNS = ["craigavon", "coleraine"] as const;
 const ALL_HUB_TOWNS = [...FIRST_TOWNS, ...SECOND_TOWNS, ...THIRD_TOWNS, ...FOURTH_TOWNS] as const;
 
 function assertLandingHub(hub: (typeof TOWN_HUB_PAGES)[number]) {
@@ -67,8 +67,8 @@ function assertLandingRoute(route: (typeof TRANSFER_ROUTE_PAGES)[number]) {
 
 console.log("=== Combined hubs (Batch 1 + Batch 2) ===");
 {
-  assert.equal(TOWN_HUB_PAGES.length, 19);
-  assert.equal(TOWN_HUB_CONTENT.length, 19);
+  assert.equal(TOWN_HUB_PAGES.length, 20);
+  assert.equal(TOWN_HUB_CONTENT.length, 20);
   assert.deepEqual(
     TOWN_HUB_PAGES.map((hub) => hub.town.slug),
     [...ALL_HUB_TOWNS],
@@ -113,8 +113,8 @@ console.log("\n=== Batch 2 hubs resolve ===");
 console.log("\n=== Combined landing routes ===");
 {
   const landing = TRANSFER_ROUTE_PAGES.filter((route) => route.faqs?.length && route.journeyInfo);
-  assert.equal(landing.length, 62);
-  assert.equal(TRANSFER_ROUTE_CONTENT.length, 62);
+  assert.equal(landing.length, 65);
+  assert.equal(TRANSFER_ROUTE_CONTENT.length, 65);
   for (const town of ALL_HUB_TOWNS) {
     const bfs = getTransferRoutePage(`${town}-to-belfast-international`);
     const bhd = getTransferRoutePage(`${town}-to-belfast-city-airport`);

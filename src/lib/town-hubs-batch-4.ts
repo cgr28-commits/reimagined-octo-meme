@@ -12,7 +12,7 @@ export const TOWN_HUB_BATCH_4: TownHubContent[] = [
     addressHint: "Craigavon",
     hubSlug: "craigavon-airport-taxis",
     title: "Craigavon Airport Taxi & Airport Transfers",
-    seoTitle: "Craigavon, Portadown & Lurgan Airport Taxi | Fixed Price",
+    seoTitle: "Craigavon Airport Transfers & Taxi | Portadown, Lurgan | 5★",
     h1: "Craigavon Airport Taxi & Airport Transfers",
     metaDescription:
       "Pre-book an airport taxi from Craigavon, Portadown or Lurgan to Belfast International, Belfast City or Dublin Airport. Fixed price from your door. 5★ on Google.",

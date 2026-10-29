@@ -1,6 +1,7 @@
 import type { TownHubContent } from "@/lib/town-transfer-types";
 import { TOWN_HUB_BATCH_3 } from "@/lib/town-hubs-batch-3";
 import { TOWN_HUB_BATCH_4 } from "@/lib/town-hubs-batch-4";
+import { TOWN_HUB_BATCH_5 } from "@/lib/town-hubs-batch-5";
 
 /** Town hub landing pages — chooser pages, not copies of the three child routes. */
 export const TOWN_HUB_CONTENT: TownHubContent[] = [
@@ -148,7 +149,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "City Airport from Lisburn is timed around the Westlink peak rather than treated as a short local run.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
-    relatedTownSlugs: ["hillsborough", "moira", "carryduff"],
+    relatedTownSlugs: ["hillsborough", "moira", "carryduff", "craigavon"],
     whichAirport: [
       {
         code: "BFS",
@@ -303,6 +304,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Broughshane collections come in from the A42, not down the A26 from the town centre.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
+    relatedTownSlugs: ["antrim", "coleraine"],
     whichAirport: [
       {
         code: "BFS",
@@ -380,6 +382,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Hilltown is the Mournes approach; the quote map will show the extra lanes from the city.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
+    relatedTownSlugs: ["craigavon", "lisburn"],
     whichAirport: [
       {
         code: "BFS",
@@ -400,4 +403,5 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
   },
   ...TOWN_HUB_BATCH_3,
   ...TOWN_HUB_BATCH_4,
+  ...TOWN_HUB_BATCH_5,
 ];

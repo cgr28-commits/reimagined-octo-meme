@@ -141,6 +141,21 @@ export default async function AirportTransferPage({ params }: Props) {
         />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          {page.code === "BFS" || page.code === "BHD" ? (
+            <p className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm leading-relaxed text-white/70">
+              {page.code === "BFS"
+                ? "Flying from George Best Belfast City Airport (BHD) instead? See our "
+                : "Flying from Belfast International Airport (Aldergrove, BFS) instead? See our "}
+              <Link
+                href={page.code === "BFS" ? "/airports/belfast-city/" : "/airports/belfast-international/"}
+                className="font-semibold text-emerald underline underline-offset-4"
+              >
+                {page.code === "BFS" ? "Belfast City Airport taxi" : "Belfast International Airport taxi"}
+              </Link>{" "}
+              page. Belfast International is at Aldergrove, north-west of the city; Belfast City Airport
+              is beside the harbour in east Belfast.
+            </p>
+          ) : null}
           {page.code === "DUB" ? (
             <section className="mt-8 space-y-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
               <div>

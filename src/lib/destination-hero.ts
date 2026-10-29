@@ -92,6 +92,7 @@ export const MISSING_DESTINATION_HEROES = [
   { slug: "moira", needed: "A recognisable Moira photograph, such as Main Street" },
   { slug: "glengormley", needed: "A recognisable Glengormley photograph, such as Sandyknowes" },
   { slug: "whiteabbey", needed: "A recognisable Whiteabbey photograph, such as the Shore Road at Hazelbank" },
+  { slug: "coleraine", needed: "A recognisable Coleraine / Portrush photograph, such as the Bann bridge or Portrush harbour" },
   { slug: "craigavon", needed: "A recognisable Craigavon / Portadown / Lurgan photograph, such as Craigavon Lakes or Portadown town centre" },
 ] as const;
 
