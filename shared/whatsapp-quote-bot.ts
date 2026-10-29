@@ -92,6 +92,8 @@ export type WhatsAppAiTask = {
   askFor?: WhatsAppQuoteField;
   /** The customer's message just added journey details (acknowledge, then ask). */
   justUpdated?: boolean;
+  /** The customer said the quoted price is too high. */
+  priceObjection?: boolean;
 };
 
 /** First-message menu: quote, question, or an existing booking. */
@@ -866,6 +868,27 @@ export function buildWhatsAppTeamHandoffReply(teamNumber: string, draft: WhatsAp
  * Decide the reply to one inbound customer message.
  * `action: "quote"` means the Worker should now price `conversation.draft`.
  */
+const PRICE_OBJECTION =
+  /\b(?:too\s+(?:expensive|dear|much|pricey|high)|(?:very|bit|quite|really|so)\s+(?:expensive|dear|pricey)|expensive|pricey|overpriced|rip\s*-?\s*off|cheaper|(?:can|could)\s+you\s+do\s+(?:it\s+)?(?:for\s+)?less|any\s+discount|best\s+price|lower\s+(?:the\s+)?price|(?:got|get|found)\s+(?:it\s+)?(?:for\s+)?less)\b/i;
+
+/** "That's too expensive", "can you do it cheaper?" */
+export function isWhatsAppPriceObjection(text: string): boolean {
+  return PRICE_OBJECTION.test(stripWhatsAppMarkdown(text));
+}
+
+/** Fixed reply to a price objection (the AI writes its own version when available). */
+export function buildWhatsAppPriceValueReply(draft: WhatsAppQuoteDraft): string {
+  const airportPickup = Boolean(draft.airportCode && draft.fromAirport);
+  return (
+    `I understand. Just so you know what's included: it's a *fixed price*, so it won't change with traffic or delays, ` +
+    `and you have a *pre-booked driver* waiting for you. ` +
+    (airportPickup
+      ? `We monitor your flight, and up to *60 minutes' waiting time* from landing is included. `
+      : `On airport pickups we monitor your flight, and up to *60 minutes' waiting time* is included. `) +
+    `Our vehicles are modern and high spec.\n\nIf you'd like to go ahead, your booking link is above.`
+  );
+}
+
 const QUESTION_START =
   /^(what|whats|what's|how|do|does|did|can|could|is|are|was|will|would|where|when|why|which|who|should|any|have you|are there|is there)\b/i;
 
@@ -893,6 +916,9 @@ export function decideWhatsAppReply(
     case "askRepeat":
       return { ...stripKind(decision), action: "answer", ai: { askFor: decision.conversation.awaiting, justUpdated: false } };
     case "quotedNoChange":
+      return isWhatsAppPriceObjection(text)
+        ? { ...stripKind(decision), action: "answer", reply: buildWhatsAppPriceValueReply(decision.conversation.draft), ai: { priceObjection: true } }
+        : { ...stripKind(decision), action: "answer", ai: {} };
     case "confirmNoChange":
       return { ...stripKind(decision), action: "answer", ai: {} };
     default:

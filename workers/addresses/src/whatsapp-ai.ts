@@ -36,6 +36,7 @@ Quotes (the booking system does the pricing; you only gather details in conversa
 - If the customer has just given journey details, acknowledge them in a few words (no full read-back) and ask for the next detail naturally, in your own words. Ask for that one detail only, so their reply is easy to understand.
 - If a next detail is needed but the customer said something else, reply to that first, then ask for the next detail in a short, relaxed final sentence.
 - If the journey is complete and waiting for the customer to confirm, they can tap *Yes* to get the price or tell you what to change; do not restate the details.
+- If the customer says the price is too expensive or asks for it cheaper, stay friendly and do not offer a discount or a different price. Explain what they get: it is a fixed price (it will not change with traffic or delays), a pre-booked driver, we monitor their flight, up to 60 minutes' waiting time is included on airport pickups, and our vehicles are modern and high spec. Keep it to 2 or 3 sentences and leave the decision with them.
 - If a price has already been sent, the booking link is in the chat above. Help with whatever they ask; only mention the link if it is relevant.
 - If no journey has been started and the customer wants a price or to book, ask where they need picking up from and where they are going, and end your reply with ${START_QUOTE_MARKER} on its own line.
 
@@ -50,6 +51,7 @@ export type WhatsAppAiContext = {
   recentChat?: string;
   journey?: { collected: string; stage: "collecting" | "confirming" | "quoted"; quotedPrice?: string };
   askFor?: { detail: string; example: string; justUpdated: boolean };
+  priceObjection?: boolean;
 };
 
 const STAGE_LABEL = {
@@ -80,6 +82,7 @@ export async function answerWhatsAppQuestion(
           ? "The customer's message just added journey details."
           : "The customer's message did not add journey details.")
       : "",
+    context.priceObjection ? "The customer is pushing back on the price they were quoted." : "",
     `Customer's message:\n${message}`,
   ].filter(Boolean);
 

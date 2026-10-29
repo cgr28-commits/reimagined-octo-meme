@@ -792,6 +792,7 @@ async function answerCustomerQuestion(
               justUpdated: Boolean(task.justUpdated),
             }
           : undefined,
+      priceObjection: Boolean(task.priceObjection),
     });
     if (!answer) return null;
     logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff, askFor: task.askFor ?? null });

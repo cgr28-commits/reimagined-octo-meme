@@ -29,6 +29,7 @@ import {
   isWhatsAppGreeting,
   parseWhatsAppMenuChoice,
   parseShortDayMonth,
+  isWhatsAppPriceObjection,
   WHATSAPP_BUTTONS,
   decideWhatsAppReply,
   detectWhatsAppIntent,
@@ -661,6 +662,33 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   assert.equal(parseShortDayMonth("5/1", now), "2027-01-05", "a passed date is next year");
   assert.equal(parseShortDayMonth("4.30pm", now), null);
   console.log("OK  airports and Grand Central routes, short dates");
+}
+
+// "Too expensive" after a price: explain the value (fixed price, pre-booked driver,
+// flight monitoring, 60 minutes' airport waiting, modern vehicles) — never a discount.
+{
+  const now = new Date("2026-10-29T09:00:00Z");
+  const quoted: WhatsAppConversation = {
+    stage: "quoted",
+    updatedAt: now.toISOString(),
+    lastQuoteUrl: "https://example.test/q",
+    draft: {
+      pickupAddress: "Dublin Airport", dropoffAddress: "Lisburn", airportCode: "DUB", fromAirport: true,
+      returnJourney: false, outboundDate: "2026-11-05", outboundTime: "14:00", passengers: 2, suitcases: 2,
+    },
+  };
+  for (const t of ["That's too expensive", "bit pricey", "can you do it cheaper?", "any discount?"]) {
+    assert.equal(isWhatsAppPriceObjection(t), true, t);
+  }
+  assert.equal(isWhatsAppPriceObjection("How long will the driver wait"), false);
+  const d = decideWhatsAppReply(quoted, "that's too expensive", { now });
+  assert.equal(d.action, "answer");
+  assert.equal(d.ai?.priceObjection, true);
+  for (const re of [/fixed price/, /pre-booked driver/, /monitor your flight/, /60 minutes/, /modern and high spec/]) {
+    assert.match(d.reply, re);
+  }
+  assert.doesNotMatch(d.reply, /discount|£/);
+  console.log("OK  price objection explains what is included");
 }
 
 // Delivery failures reported later by status webhooks are surfaced on /whatsapp/status.
