@@ -29,6 +29,7 @@ import {
   isWhatsAppGreeting,
   parseWhatsAppMenuChoice,
   parseShortDayMonth,
+  isWhatsAppTownOnlyAddress,
   isWhatsAppPriceObjection,
   isWhatsAppTooExpensive,
   buildWhatsAppDiscountOfferReply,
@@ -723,6 +724,24 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   assert.equal(route("Going to Belfast international airport").pickupAddress, undefined);
   assert.equal(route("picked up at 5am on the 8th of November to Belfast international airport").outboundDate, "2026-11-08");
   console.log("OK  same pickup/drop-off rejected; dates and times aren't places");
+}
+
+// Just a town: ask for the full address (landmarks, businesses, postcodes are fine).
+{
+  const now = new Date("2026-10-29T08:50:00Z");
+  for (const t of ["Lisburn", "Belfast", "Newtownabbey"]) assert.equal(isWhatsAppTownOnlyAddress(t), true, t);
+  for (const t of ["12 Main Street, Lisburn", "BT36 7FU", "Glen Manor Road Glengormley", "Europa Hotel", "Royal Victoria Hospital", "Belfast city centre", "Belfast International Airport", "Grand Central Station, Belfast BT12 5DR"]) {
+    assert.equal(isWhatsAppTownOnlyAddress(t), false, t);
+  }
+  let c: WhatsAppConversation | null = null;
+  const say = (t: string) => { const d = decideWhatsAppReply(c, t, { now }); c = d.conversation; return d; };
+  const ask = say("Glengormley to Belfast International Airport on 8/11 at 5am, 2 passengers, no luggage, one way");
+  assert.match(ask.reply, /full pickup address in Glengormley/);
+  assert.equal(c!.awaiting, "pickupAddress");
+  say("7 Glen Manor Road");
+  assert.equal(c!.draft.pickupAddress, "7 Glen Manor Road, Glengormley", "town kept with the street");
+  assert.equal(c!.stage, "confirming");
+  console.log("OK  a town on its own asks for the full address");
 }
 
 // Delivery failures reported later by status webhooks are surfaced on /whatsapp/status.
