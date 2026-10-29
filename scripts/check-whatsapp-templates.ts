@@ -96,6 +96,7 @@ assert.equal(varCount("mat_driver_details"), 5);
 assert.equal(varCount("mat_review_request"), 2);
 assert.equal(varCount("mat_airport_pickup"), 4);
 assert.equal(varCount("mat_journey_reminder"), 4);
+assert.equal(varCount("mat_tip_request"), 1);
 assert.equal(varCount("mat_driver_arrived"), 2);
 assert.equal(varCount("mat_driver_arrived_airport"), 3);
 for (const def of defs.filter((d) => d.category === "UTILITY")) {
