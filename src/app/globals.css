@@ -1756,6 +1756,18 @@ main {
   }
 }
 
+/* Landing/location quote cards draw a calendar or clock icon at the left of each schedule field
+   (QuoteScheduleFields, homepageInline). Keep the date/time text clear of that icon at every width.
+   The homepage hero has its own, more specific rules further down. */
+#quoteForm [data-homepage-inline-schedule] input.quote-datetime-input[type] {
+  padding-left: 2.625rem;
+}
+
+[data-homepage-inline-schedule] [data-schedule-control] .homepage-schedule-prompt,
+[data-homepage-inline-schedule] [data-schedule-empty] .homepage-schedule-prompt {
+  inset-inline-start: 2.625rem;
+}
+
 /* Separate polished desktop sources; mobile retains its exact source, frame and transforms. */
 @media (min-width: 1024px) {
   [data-vehicle-art] img { transform: none; filter: drop-shadow(0 10px 12px rgba(0,0,0,.22)); }
