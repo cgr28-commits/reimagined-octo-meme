@@ -20,6 +20,12 @@ import {
 import { ownerInboxFetch } from "@/lib/owner-inbox-api";
 import type { AdsSpendPeriods } from "../../shared/google-ads-spend";
 
+function daysSinceJanuaryFirst(now = new Date()): number {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(now);
+  const start = Date.parse(`${today.slice(0, 4)}-01-01T12:00:00Z`);
+  return Math.max(0, Math.round((Date.parse(`${today}T12:00:00Z`) - start) / 86_400_000));
+}
+
 type OwnerAdsSpendResponse = { connected: boolean; lastReportAt: string | null; periods: AdsSpendPeriods };
 
 type OwnerFinancialSummaryPanelProps = {
@@ -71,7 +77,8 @@ export default function OwnerFinancialSummaryPanel({
         fetchOwnerFinancialSummary(ownerKey),
         fetchOwnerPaidBookings(ownerKey, {
           mode: "upcoming",
-          pastDays: 120,
+          // Back to 1 January so "This year" earned revenue is complete.
+          pastDays: Math.max(120, daysSinceJanuaryFirst() + 1),
           futureDays: 120,
           limit: 400,
         }).catch(() => [] as OwnerPaidBookingSummary[]),
@@ -145,6 +152,16 @@ export default function OwnerFinancialSummaryPanel({
       received: summary?.cashReceived?.month ?? ops.month.paymentsReceivedGbp,
       adSpend: adsSpend?.connected ? adsSpend.periods.month : null,
     },
+    {
+      key: "year" as const,
+      title: "This year",
+      scheduledLabel: null,
+      scheduled: ops.year.journeysScheduled,
+      completed: ops.year.journeysCompleted,
+      earned: ops.year.earnedRevenueGbp,
+      received: summary?.cashReceived?.year ?? ops.year.paymentsReceivedGbp,
+      adSpend: adsSpend?.connected ? adsSpend.periods.year ?? null : null,
+    },
   ];
 
   return (
@@ -171,7 +188,7 @@ export default function OwnerFinancialSummaryPanel({
         </p>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {periods.map((period) => (
           <article
             key={period.key}
@@ -213,6 +230,21 @@ export default function OwnerFinancialSummaryPanel({
                   {period.adSpend ? formatOwnerOpsMoney(period.adSpend.cost) : "—"}
                 </dd>
               </div>
+              {period.adSpend && !(loading && !summary) ? (
+                <div
+                  className="flex items-baseline justify-between gap-2 border-t border-white/10 pt-1.5"
+                  data-owner-after-ads={period.key}
+                >
+                  <dt className="text-white/70">Earned after ad spend</dt>
+                  <dd
+                    className={`tabular-nums font-semibold ${
+                      period.earned - period.adSpend.cost < 0 ? "text-red-300" : "text-white"
+                    }`}
+                  >
+                    {formatOwnerOpsMoney(Math.round((period.earned - period.adSpend.cost) * 100) / 100)}
+                  </dd>
+                </div>
+              ) : null}
               {period.adSpend && period.adSpend.clicks > 0 ? (
                 <div className="flex items-baseline justify-between gap-2">
                   <dt className="text-white/40 text-xs">Ad clicks</dt>
