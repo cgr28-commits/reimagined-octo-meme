@@ -73,4 +73,6 @@ assert.match(worker, /handleOwnerAdsFeed\(request, env, request\.headers\.get\("
 const handler = readFileSync(new URL("../workers/addresses/src/google-ads-offline-feed.ts", import.meta.url), "utf8");
 assert.match(handler, /ownerAuthorized\(request, env\)/);
 assert.match(handler, /WWW-Authenticate/);
+assert.match(handler, /bookings,\n/);
+assert.doesNotMatch(handler.slice(handler.indexOf("const bookings")), /gclid/, "Owner list never includes click IDs");
 console.log("OK  routes wired; owner-only credentials; Basic auth on the file");

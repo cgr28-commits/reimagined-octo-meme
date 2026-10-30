@@ -14,8 +14,16 @@ type FeedInfo = {
   conversionName: string;
   lookbackDays: number;
   rows: number;
+  bookings?: { paymentReference: string; paidAt: string; value: number; currency: string }[];
   lastFetchedAt: string | null;
 };
+
+function paidAtLabel(value: string): string {
+  const time = new Date(value.replace(" ", "T").replace("+0000", "Z"));
+  return Number.isNaN(time.getTime())
+    ? value
+    : time.toLocaleString("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" });
+}
 
 function CopyRow({ label, value, secret }: { label: string; value: string; secret?: boolean }) {
   const [shown, setShown] = useState(!secret);
@@ -106,6 +114,29 @@ export default function OwnerGoogleAdsFeedPanel({ ownerKey }: { ownerKey: string
                 })}.`
               : "Google Ads has not collected it yet."}
           </p>
+          {info.bookings && info.bookings.length > 0 ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/55">Bookings sent to Google Ads</p>
+              <ul className="mt-2 divide-y divide-white/10 text-sm">
+                {info.bookings.map((booking) => (
+                  <li key={booking.paymentReference} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                    <span>
+                      <span className="font-semibold text-white">{booking.paymentReference}</span>
+                      <span className="block text-xs text-white/60">Paid {paidAtLabel(booking.paidAt)}</span>
+                    </span>
+                    <span className="font-semibold text-emerald">
+                      {booking.currency === "GBP" ? "£" : `${booking.currency} `}
+                      {booking.value.toFixed(2)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-white/55">
+                Google records each one against the day the customer clicked the ad. Search the reference in Job admin
+                to see the full booking.
+              </p>
+            </div>
+          ) : null}
           <details className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/80">
             <summary className="cursor-pointer font-semibold text-white">How to set it up in Google Ads</summary>
             <ol className="mt-2 list-decimal space-y-1 pl-5">

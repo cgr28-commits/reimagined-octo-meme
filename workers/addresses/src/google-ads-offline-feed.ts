@@ -12,6 +12,7 @@ import {
   OFFLINE_FEED_CONVERSION_NAME,
   OFFLINE_FEED_LOOKBACK_DAYS,
   buildOfflineFeedCsv,
+  offlineFeedRows,
   parseBasicAuth,
   safeEqual,
 } from "../shared/google-ads-offline-feed";
@@ -100,7 +101,12 @@ export async function handleOwnerAdsFeed(
   if (!env.TRACKING_STORE) return json({ error: "Booking store unavailable" }, 503, origin);
   const store = env.TRACKING_STORE;
   const credentials = rotate ? await createCredentials(store) : (await readCredentials(store)) ?? (await createCredentials(store));
-  const { rows } = await buildFeed(store);
+  const records = await listRecentPaidBookings(store, { days: OFFLINE_FEED_LOOKBACK_DAYS, limit: 200 });
+  // Owner list: booking reference, time and fare only — click IDs never leave the file.
+  const bookings = offlineFeedRows(records)
+    .map((row) => ({ paymentReference: row.orderId, paidAt: row.conversionTime, value: row.value, currency: row.currency }))
+    .reverse();
+  const rows = bookings.length;
   const lastFetchedAt = await store.get("ads-feed:last-fetched");
   return json(
     {
@@ -110,6 +116,7 @@ export async function handleOwnerAdsFeed(
       conversionName: OFFLINE_FEED_CONVERSION_NAME,
       lookbackDays: OFFLINE_FEED_LOOKBACK_DAYS,
       rows,
+      bookings,
       lastFetchedAt: lastFetchedAt || null,
     },
     200,
