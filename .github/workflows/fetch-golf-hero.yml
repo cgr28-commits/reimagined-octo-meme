@@ -3,6 +3,11 @@ name: Fetch golf hero image
 # builds AVIF/WebP/JPEG variants and commits them to the branch it runs on.
 on:
   workflow_dispatch:
+  push:
+    branches: [golf-transfers]
+    paths:
+      - 'scripts/fetch-golf-hero.mjs'
+      - '.github/workflows/fetch-golf-hero.yml'
 permissions:
   contents: write
 jobs:
