@@ -98,7 +98,8 @@ function csvField(value: string): string {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-export function buildOfflineFeedCsv(records: FeedRecord[], nowMs = Date.now()): { csv: string; rows: number } {
+/** Unique, time-ordered rows for the file (and the owner's list). */
+export function offlineFeedRows(records: FeedRecord[], nowMs = Date.now()): OfflineFeedRow[] {
   const seen = new Set<string>();
   const rows: OfflineFeedRow[] = [];
   for (const record of records) {
@@ -107,7 +108,11 @@ export function buildOfflineFeedCsv(records: FeedRecord[], nowMs = Date.now()): 
     seen.add(row.orderId);
     rows.push(row);
   }
-  rows.sort((a, b) => a.conversionTime.localeCompare(b.conversionTime));
+  return rows.sort((a, b) => a.conversionTime.localeCompare(b.conversionTime));
+}
+
+export function buildOfflineFeedCsv(records: FeedRecord[], nowMs = Date.now()): { csv: string; rows: number } {
+  const rows = offlineFeedRows(records, nowMs);
 
   const lines = [
     OFFLINE_FEED_HEADERS.join(","),
