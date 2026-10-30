@@ -15,8 +15,8 @@ const WORKER_BASE = resolveWorkerBaseUrl();
  * Renders the saved fallback first, then the live rating and count from Google.
  */
 export default function GoogleReviewsBadge({ className = "" }: { className?: string }) {
-  const [rating, setRating] = useState(GOOGLE_REVIEW_RATING);
-  const [count, setCount] = useState(GOOGLE_REVIEW_COUNT);
+  const [rating, setRating] = useState<string>(GOOGLE_REVIEW_RATING);
+  const [count, setCount] = useState<number>(GOOGLE_REVIEW_COUNT);
 
   useEffect(() => {
     let cancelled = false;
