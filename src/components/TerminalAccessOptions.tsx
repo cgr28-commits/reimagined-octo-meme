@@ -59,7 +59,7 @@ export default function TerminalAccessOptions(props: Props) {
           <span className="whitespace-nowrap font-semibold text-emerald">{price(terminalFee)}</span>
           <span className="col-start-2 col-end-4 text-xs leading-relaxed text-white/70">{pickup ? "Meet your driver at the designated paid pickup area, closer to the terminal." : "Your driver uses the designated paid drop-off area, closer to the terminal."}</span>
         </label>
-        {choice === "free" && <p className="px-1 text-[11px] leading-snug text-white/60">{airportCode === "BFS" ? "Long Stay: 15-minute vehicle limit for free access." : "Long Stay: exit within 10 minutes for free access. Re-entry within 15 minutes is chargeable."}</p>}
+        {choice === "free" && airportCode === "BFS" && <p className="px-1 text-[11px] leading-snug text-white/60">Long Stay: 15-minute vehicle limit for free access.</p>}
       </>}
     </fieldset>
   </div>;
