@@ -18,7 +18,6 @@ import {
 
 export const INBOX_MESSAGE_MAX = 10_000;
 export const INBOX_SUBJECT_MAX = 200;
-export const INBOX_SIGNATURE_NAME = "Brian Rice";
 
 export type InboxDirection = "in" | "out";
 
@@ -203,7 +202,6 @@ function bookingDetailLines(booking: InboxBookingDetails): Array<[string, string
 
 export function signatureText(): string {
   return [
-    INBOX_SIGNATURE_NAME,
     BUSINESS_NAME,
     `Tel: ${BUSINESS_PHONE_DISPLAY}`,
     `Email: ${BUSINESS_MAILBOX}`,
@@ -223,8 +221,7 @@ export function signatureHtml(): string {
     `<img src="${BUSINESS_EMAIL_LOGO_URL}" alt="${escapeInboxHtml(BUSINESS_EMAIL_LOGO_ALT)}" width="84" height="65" border="0" style="display:block;width:84px;height:auto;border:0;background:${BRAND_NAVY};" />` +
     `</a></td>` +
     `<td valign="middle" style="padding:16px 0 0 0;font-size:13px;line-height:1.55;color:#1d2433;">` +
-    `<div style="font-size:15px;font-weight:bold;color:${BRAND_NAVY};">${escapeInboxHtml(INBOX_SIGNATURE_NAME)}</div>` +
-    `<div style="font-weight:bold;color:${BRAND_EMERALD};">${escapeInboxHtml(BUSINESS_NAME)}</div>` +
+    `<div style="font-size:15px;font-weight:bold;color:${BRAND_NAVY};">${escapeInboxHtml(BUSINESS_NAME)}</div>` +
     `<div>Tel: <a href="tel:${BUSINESS_PHONE_TEL}" style="${link}">${BUSINESS_PHONE_DISPLAY}</a></div>` +
     `<div>Email: <a href="mailto:${BUSINESS_MAILBOX}" style="${link}">${BUSINESS_MAILBOX}</a></div>` +
     `<div><a href="${site}/" style="${link}">${site.replace(/^https?:\/\//, "")}</a> · ` +

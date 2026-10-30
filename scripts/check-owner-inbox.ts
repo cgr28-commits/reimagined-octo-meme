@@ -90,7 +90,8 @@ async function main() {
   assert.equal(subject, "MAT-1563 · Fri 20 Nov 2026, 05:30 · 12 Main Street → Belfast International Airport (BFS)");
   const sig = signatureHtml();
   assert.match(sig, /https:\/\/www\.myairporttaxini\.co\.uk\/logo\.png/, "signature has the real logo");
-  assert.match(sig, /Brian Rice/);
+  assert.doesNotMatch(sig, /Brian/, "no personal name in the signature");
+  assert.match(sig, /My Airport Taxi NI/);
   assert.match(sig, /028 9602 2952/);
   assert.match(sig, /bookings@myairporttaxini\.co\.uk/);
   assert.doesNotMatch(sig.replace(/href="[^"]*"/g, ""), /07549|447549/, "WhatsApp number only in the link, never shown");
