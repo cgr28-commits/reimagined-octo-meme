@@ -7,6 +7,7 @@ import { allowSavedQuoteRequest } from "./saved-quote-handlers";
 import { quoteOptionalMeetGreet } from "../shared/meet-greet";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
+import { handleAdsOfflineFeed, handleOwnerAdsFeed } from "./google-ads-offline-feed";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
@@ -4184,6 +4185,16 @@ export default {
     // Resend "email.received" webhook for the owner inbox (server-to-server, signature checked).
     if (url.pathname === "/inbound/resend" && request.method === "POST") {
       return handleResendInboundWebhook(request, env);
+    }
+    // Google Ads scheduled conversion upload (server-to-server, HTTP Basic auth).
+    if (url.pathname === "/ads/paid-bookings.csv" && (request.method === "GET" || request.method === "HEAD")) {
+      return handleAdsOfflineFeed(request, env);
+    }
+    if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/ads-feed" && request.method === "GET") {
+      return handleOwnerAdsFeed(request, env, request.headers.get("Origin"), false);
+    }
+    if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/ads-feed/rotate" && request.method === "POST") {
+      return handleOwnerAdsFeed(request, env, request.headers.get("Origin"), true);
     }
     if (isWhatsAppWebhookPath(url.pathname)) {
       return handleWhatsAppWebhook(request, env, ctx);
