@@ -250,6 +250,10 @@ const pages = [
   { path: "/privacy/", source: "src/lib/privacy.ts" },
   { path: "/contact/", source: "src/app/contact/page.tsx" },
   {
+    path: "/golf-transfers-northern-ireland/",
+    source: "src/lib/golf-transfers-content.ts",
+  },
+  {
     path: "/belfast-cruise-terminal-transfers/",
     source: "src/lib/cruise-terminal-content.ts",
   },
