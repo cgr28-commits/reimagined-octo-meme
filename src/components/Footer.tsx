@@ -164,6 +164,14 @@ export default function Footer() {
                   Airport transfers Northern Ireland
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/golf-transfers-northern-ireland/"
+                  className="text-sm text-white/50 transition-colors hover:text-emerald"
+                >
+                  Golf transfers
+                </Link>
+              </li>
             </ul>
           </div>
         ) : null}
