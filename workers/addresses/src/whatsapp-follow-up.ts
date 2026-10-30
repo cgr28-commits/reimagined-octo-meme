@@ -5,6 +5,8 @@
  * WhatsApp's 24-hour customer service window (so it is a free reply).
  */
 
+import { whatsAppPickupWaiting, type WhatsAppQuoteDraft } from "../shared/whatsapp-quote-bot";
+
 export type WhatsAppFollowUp = {
   phone: string;
   name?: string;
@@ -122,16 +124,33 @@ export function buildWhatsAppFollowUpText(record: WhatsAppFollowUp): string {
 /** Follow-up with the one-time 5% offer (a new booking link priced by the website engine). */
 export function buildWhatsAppFollowUpDiscountText(
   record: WhatsAppFollowUp,
-  offer: { amountLabel: string; bookingUrl: string; previousAmountLabel?: string; optionalExpressFeeLabel?: string | null },
+  offer: {
+    amountLabel: string;
+    bookingUrl: string;
+    previousAmountLabel?: string;
+    optionalExpressFeeLabel?: string | null;
+    /** The quoted journey: decides which waiting time is mentioned. */
+    journey?: Pick<WhatsAppQuoteDraft, "airportCode" | "fromAirport" | "returnJourney">;
+    /** How long the new link lasts (24, or 2 for pickups under 24 hours away). */
+    linkHours?: number;
+  },
 ): string {
   const hi = record.name?.trim() ? `Hi ${record.name.trim().split(/\s+/)[0]}` : "Hi";
   const journey = record.journeyLabel ? ` for ${record.journeyLabel}` : "";
   const was = offer.previousAmountLabel ? ` (was ${offer.previousAmountLabel})` : "";
+  const waiting = whatsAppPickupWaiting(offer.journey ?? {});
+  const waitingText =
+    waiting === "airport"
+      ? "flight monitoring with up to 60 minutes' waiting at the airport"
+      : waiting === "address"
+        ? "10 minutes' complimentary waiting at pickup"
+        : "flight monitoring with up to 60 minutes' waiting at the airport, 10 minutes' waiting at your address pickup";
+  const hours = offer.linkHours ?? 24;
   return (
     `${hi}, just checking in on your quote${journey}.\n\n` +
     `If you're happy to book now, I can give you *5% off* — your new price is *${offer.amountLabel}*${was} 🎉\n\n` +
-    `That includes a fixed price, a pre-booked driver, flight monitoring with up to 60 minutes' waiting on airport pickups (10 minutes on other pickups), ` +
+    `That includes a fixed price, a pre-booked driver, ${waitingText} ` +
     `and free cancellation up to 24 hours before pickup.\n\n` +
-    `Book here (link valid for 24 hours):\n${offer.bookingUrl}`
+    `Book here (link valid for ${hours} hour${hours === 1 ? "" : "s"}):\n${offer.bookingUrl}`
   );
 }
