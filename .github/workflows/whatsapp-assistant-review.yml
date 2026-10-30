@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'workers/addresses/**'
       - 'scripts/check-whatsapp-*.ts'
+      - 'scripts/check-customer-account.ts'
       - 'scripts/generate-whatsapp-knowledge.ts'
       - '.github/workflows/whatsapp-assistant-review.yml'
 permissions:
@@ -32,6 +33,7 @@ jobs:
       - run: node --import tsx scripts/check-whatsapp-driver-contact.ts
       - run: node --import tsx scripts/check-quick-quote-reschedule.ts
       - run: node --import tsx scripts/check-marketing-campaign.ts
+      - run: node --import tsx scripts/check-customer-account.ts
       - run: node --import tsx scripts/check-whatsapp-chat-log.ts
       - run: node --import tsx scripts/check-whatsapp-follow-up.ts
       - run: npm --prefix workers/addresses run typecheck

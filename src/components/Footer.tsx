@@ -47,6 +47,15 @@ export default function Footer() {
                   Manage Your Booking
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/my-bookings/"
+                  prefetch={false}
+                  className="text-sm text-white/50 transition-colors hover:text-emerald"
+                >
+                  My Bookings
+                </Link>
+              </li>
               <li><Link href="/belfast-grand-central-station-taxi/" className="inline-flex min-h-11 items-center text-sm text-white/70 hover:text-emerald">Grand Central Station taxis</Link></li>
               <li>
                 <Link

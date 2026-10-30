@@ -1,5 +1,6 @@
 "use client";
 
+import { readCachedCustomerProfile, requestCustomerLoginCode } from "@/lib/customer-account-api";
 import Link from "next/link";
 import { CHECKOUT_CANCELLATION_SUMMARY, CANCELLATION_POLICY_PATH } from "../../../shared/cancellation-policy";
 import { useEffect, useState } from "react";
@@ -317,7 +318,64 @@ export default function BookingConfirmedClient() {
             </a>
           </div>
         ) : null}
+
+        {status === "confirmed" && customerEmail ? <SaveMyDetailsCard email={customerEmail} /> : null}
       </div>
     </>
+  );
+}
+
+/** "Save my details for next time" — emails a sign-in code for My bookings. Optional; guests can ignore it. */
+function SaveMyDetailsCard({ email }: { email: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    const profile = readCachedCustomerProfile();
+    setSignedIn(Boolean(profile && profile.email.toLowerCase() === email.trim().toLowerCase()));
+  }, [email]);
+
+  if (signedIn) {
+    return (
+      <div className="mt-6 rounded-xl border border-emerald/30 bg-emerald/10 p-4 text-sm text-white/80">
+        This booking is in{" "}
+        <a href="/my-bookings/" className="font-semibold text-emerald underline-offset-2 hover:underline">
+          My bookings
+        </a>
+        , and your details will be filled in next time.
+      </div>
+    );
+  }
+
+  async function save() {
+    setBusy(true);
+    setError("");
+    try {
+      await requestCustomerLoginCode(email);
+      window.location.assign(`/my-bookings/?email=${encodeURIComponent(email.trim())}&sent=1`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send the code.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-white/15 bg-white/[0.04] p-4">
+      <p className="text-sm font-semibold text-white">Save my details for next time</p>
+      <p className="mt-1 text-sm leading-relaxed text-white/65">
+        See all your bookings in one place and rebook in one tap. No password — we&apos;ll email a 6-digit code to{" "}
+        <span className="break-all text-white/85">{email}</span>.
+      </p>
+      <button
+        type="button"
+        onClick={() => void save()}
+        disabled={busy}
+        className="mt-3 min-h-11 rounded-xl bg-emerald px-4 text-sm font-semibold text-navy disabled:opacity-60"
+      >
+        {busy ? "Sending code…" : "Save my details"}
+      </button>
+      {error ? <p className="mt-2 text-sm text-red-300">{error}</p> : null}
+    </div>
   );
 }

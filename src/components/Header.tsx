@@ -123,6 +123,14 @@ export default function Header() {
                   ))}
                   <hr className="my-3 border-white/10" />
                   <SiteNavLink
+                    href="/my-bookings/"
+                    prefetch={false}
+                    onNavigate={closeMenu}
+                    className="min-h-11 rounded-lg px-3 py-3 text-base font-medium text-white/90 transition-colors hover:bg-white/5 hover:text-emerald"
+                  >
+                    My Bookings
+                  </SiteNavLink>
+                  <SiteNavLink
                     href="/manage-booking/"
                     prefetch={false}
                     onNavigate={closeMenu}
