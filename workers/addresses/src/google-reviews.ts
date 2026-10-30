@@ -19,8 +19,28 @@ async function googleError(res: Response): Promise<string> {
   return `HTTP ${res.status} ${body?.error?.status ?? ""} ${body?.error?.message ?? ""}`.trim();
 }
 const REFRESH_AFTER_MS = 20 * 60 * 60 * 1000;
-const BUSINESS_QUERY = "My Airport Taxi NI";
+const BUSINESS_QUERIES = ["My Airport Taxi NI", "My Airport Taxi NI Newtownabbey", "myairporttaxini.co.uk"];
 const NAME_MATCH = /my\s*airport\s*taxi/i;
+const WEBSITE_MATCH = /myairporttaxini\.co\.uk/i;
+/** Business landline and WhatsApp mobile, digits only, national format. */
+const PHONE_DIGITS = ["02896022952", "07549815538"];
+
+type PlaceHit = {
+  id?: string;
+  displayName?: { text?: string };
+  rating?: number;
+  userRatingCount?: number;
+  websiteUri?: string;
+  nationalPhoneNumber?: string;
+};
+
+/** Ours if the website or phone number matches (names on Google can differ from the trading name). */
+export function isOurPlace(p: PlaceHit): boolean {
+  if (WEBSITE_MATCH.test(p.websiteUri ?? "")) return true;
+  const phone = (p.nationalPhoneNumber ?? "").replace(/\D/g, "");
+  if (phone && PHONE_DIGITS.includes(phone)) return true;
+  return NAME_MATCH.test(p.displayName?.text ?? "");
+}
 
 export type GoogleReviewSummary = {
   placeId: string;
@@ -67,25 +87,30 @@ export async function refreshGoogleReviewSummary(
     }
   }
   if (!valid(rating, count)) {
-    const res = await fetchImpl("https://places.googleapis.com/v1/places:searchText", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.rating,places.userRatingCount",
-      },
-      body: JSON.stringify({ textQuery: BUSINESS_QUERY, regionCode: "GB" }),
-    });
-    if (!res.ok) {
-      await noteError(store, `searchText: ${await googleError(res)}`);
-      return existing;
+    let match: PlaceHit | undefined;
+    const seen: string[] = [];
+    for (const query of BUSINESS_QUERIES) {
+      const res = await fetchImpl("https://places.googleapis.com/v1/places:searchText", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": key,
+          "X-Goog-FieldMask":
+            "places.id,places.displayName,places.rating,places.userRatingCount,places.websiteUri,places.nationalPhoneNumber",
+        },
+        body: JSON.stringify({ textQuery: query, regionCode: "GB" }),
+      });
+      if (!res.ok) {
+        await noteError(store, `searchText: ${await googleError(res)}`);
+        return existing;
+      }
+      const data = (await res.json()) as { places?: PlaceHit[] };
+      for (const p of data.places ?? []) seen.push(`${p.displayName?.text ?? "?"} (${p.websiteUri ?? "no site"})`);
+      match = (data.places ?? []).find(isOurPlace);
+      if (match) break;
     }
-    const data = (await res.json()) as {
-      places?: Array<{ id?: string; displayName?: { text?: string }; rating?: number; userRatingCount?: number }>;
-    };
-    const match = (data.places ?? []).find((p) => NAME_MATCH.test(p.displayName?.text ?? ""));
     if (!match?.id) {
-      await noteError(store, `no match among: ${(data.places ?? []).map((p) => p.displayName?.text).join(", ") || "(none)"}`);
+      await noteError(store, `no match among: ${seen.slice(0, 6).join("; ") || "(none)"}`);
       return existing;
     }
     placeId = match.id;
