@@ -78,6 +78,8 @@ export default function GoogleAdsTag() {
         {`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
+          // Consent Mode: when ad cookies are declined, carry the ad click in internal links instead.
+          gtag('set', 'url_passthrough', true);
           gtag('js', new Date());
           gtag('config', ${JSON.stringify(config.adsId)}, { allow_enhanced_conversions: true });
         `}

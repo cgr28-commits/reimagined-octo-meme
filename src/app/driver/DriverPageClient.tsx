@@ -17,6 +17,7 @@ import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
 import OwnerWhatsAppChatsPanel from "@/components/OwnerWhatsAppChatsPanel";
 import OwnerMarketingPanel from "@/components/OwnerMarketingPanel";
 import OwnerInboxPanel from "@/components/OwnerInboxPanel";
+import OwnerGoogleAdsFeedPanel from "@/components/OwnerGoogleAdsFeedPanel";
 import OwnerEmailCustomerModal from "@/components/OwnerEmailCustomerModal";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
@@ -2764,6 +2765,7 @@ export default function DriverPageClient({
     if (tab === "availability") setOwnerToolTab("availability");
     if (tab === "pricing") setOwnerToolTab("pricing");
     if (tab === "postcode-pricing") setOwnerToolTab("postcode-pricing");
+    if (tab === "google-ads") setOwnerToolTab("google-ads");
     if (tab === "past" || tab === "jobs" || tab === "more") setOwnerToolTab(tab);
   }, [isOwnerPortal]);
 
@@ -3463,6 +3465,12 @@ export default function DriverPageClient({
               {isOwnerView && savedKey && ownerToolTab === "postcode-pricing" ? (
                 <div id="owner-tool-panel-postcode-pricing" role="tabpanel" aria-label="Postcode Pricing">
                   <OwnerPostcodePricingPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "google-ads" ? (
+                <div id="owner-tool-panel-google-ads" role="tabpanel" aria-label="Google Ads upload">
+                  <OwnerGoogleAdsFeedPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 

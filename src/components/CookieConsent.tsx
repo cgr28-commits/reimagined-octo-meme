@@ -65,7 +65,10 @@ export default function CookieConsent() {
       <div className="cookie-consent-inner flex flex-col">
         <div className="min-w-0 flex-1">
           <p className="cookie-consent-copy text-white/70">
-            Essential booking cookies; optional Google Ads measurement cookies.{" "}
+            <strong className="font-semibold text-white">
+              Can we use cookies to measure our Google ads?
+            </strong>{" "}
+            Booking cookies always stay on.{" "}
             <Link href="/privacy/" className="font-medium text-emerald underline-offset-2 hover:underline">
               Privacy Policy
             </Link>
