@@ -66,7 +66,7 @@ export default function CookieConsent() {
         <div className="min-w-0 flex-1">
           <p className="cookie-consent-copy text-white/70">
             <strong className="font-semibold text-white">
-              Can we use cookies to see which Google ads bring bookings?
+              Can we use cookies to measure our Google ads?
             </strong>{" "}
             Booking cookies always stay on.{" "}
             <Link href="/privacy/" className="font-medium text-emerald underline-offset-2 hover:underline">
