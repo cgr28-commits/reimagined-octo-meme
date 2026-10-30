@@ -16,6 +16,8 @@ import {
 import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
 import OwnerWhatsAppChatsPanel from "@/components/OwnerWhatsAppChatsPanel";
 import OwnerMarketingPanel from "@/components/OwnerMarketingPanel";
+import OwnerInboxPanel from "@/components/OwnerInboxPanel";
+import OwnerEmailCustomerModal from "@/components/OwnerEmailCustomerModal";
 import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
@@ -1127,6 +1129,7 @@ function DriverJobCard({
   gpsStale?: boolean;
   lastGpsAt?: number | null;
 }) {
+  const [emailCustomerOpen, setEmailCustomerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   /** Assigned driver tapped Complete job: ask whether the customer tipped in person. */
   const [askTip, setAskTip] = useState(false);
@@ -2080,6 +2083,22 @@ function DriverJobCard({
                 ? "Reassign job"
                 : "Assign job"}
             </button>
+            {job.paymentReference?.trim() ? (
+              <button
+                type="button"
+                onClick={() => setEmailCustomerOpen(true)}
+                className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30"
+              >
+                Email customer
+              </button>
+            ) : null}
+            {emailCustomerOpen && job.paymentReference?.trim() ? (
+              <OwnerEmailCustomerModal
+                ownerKey={driverKey}
+                paymentReference={job.paymentReference.trim()}
+                onClose={() => setEmailCustomerOpen(false)}
+              />
+            ) : null}
             {isAssigned && (
               <button
                 type="button"
@@ -3444,6 +3463,12 @@ export default function DriverPageClient({
               {isOwnerView && savedKey && ownerToolTab === "postcode-pricing" ? (
                 <div id="owner-tool-panel-postcode-pricing" role="tabpanel" aria-label="Postcode Pricing">
                   <OwnerPostcodePricingPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "inbox" ? (
+                <div id="owner-tool-panel-inbox" role="tabpanel" aria-label="Inbox">
+                  <OwnerInboxPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 

@@ -406,6 +406,16 @@ import {
 } from "./customer-account-handlers";
 import { backfillCustomerBookingIndex } from "./customer-account-backfill";
 import {
+  handleOwnerEmailCustomer,
+  handleOwnerEmailCustomerDraft,
+  handleOwnerInboxArchive,
+  handleOwnerInboxList,
+  handleOwnerInboxReply,
+  handleOwnerInboxSetup,
+  handleOwnerInboxThread,
+  handleResendInboundWebhook,
+} from "./owner-inbox-handlers";
+import {
   handleTestDriverDetailEmails,
   isTestDriverDetailEmailsPath,
 } from "./test-email-handlers";
@@ -4170,6 +4180,10 @@ export default {
     const route = routePath(url.pathname);
 
     // Server-to-server from Meta — no CORS, signature-verified inside.
+    // Resend "email.received" webhook for the owner inbox (server-to-server, signature checked).
+    if (url.pathname === "/inbound/resend" && request.method === "POST") {
+      return handleResendInboundWebhook(request, env);
+    }
     if (isWhatsAppWebhookPath(url.pathname)) {
       return handleWhatsAppWebhook(request, env, ctx);
     }
@@ -4633,6 +4647,23 @@ export default {
       );
       if ("error" in result) return json({ error: result.error }, result.status, origin);
       return json(result, 200, origin);
+    }
+
+    // Owner inbox: emails copied in from bookings@ via Resend receiving, replies, email-a-customer.
+    {
+      const inboxRoutes: Record<string, { method: string; run: () => Promise<Response> }> = {
+        "/owner/inbox": { method: "GET", run: () => handleOwnerInboxList(request, env, origin) },
+        "/owner/inbox/thread": { method: "GET", run: () => handleOwnerInboxThread(request, env, origin) },
+        "/owner/inbox/reply": { method: "POST", run: () => handleOwnerInboxReply(request, env, origin) },
+        "/owner/inbox/archive": { method: "POST", run: () => handleOwnerInboxArchive(request, env, origin) },
+        "/owner/inbox/setup": { method: "POST", run: () => handleOwnerInboxSetup(request, env, origin) },
+        "/owner/email-customer/draft": { method: "GET", run: () => handleOwnerEmailCustomerDraft(request, env, origin) },
+        "/owner/email-customer": { method: "POST", run: () => handleOwnerEmailCustomer(request, env, origin) },
+      };
+      const inboxRoute = inboxRoutes[url.pathname.replace(/^\/api(?=\/owner\/)/, "")];
+      if (inboxRoute && request.method === inboxRoute.method) {
+        return inboxRoute.run();
+      }
     }
 
     // Customer "My bookings" (passwordless email-code sign-in).
