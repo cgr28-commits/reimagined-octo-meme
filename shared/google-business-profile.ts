@@ -7,9 +7,10 @@ export const DEFAULT_GOOGLE_REVIEW_URL = "https://g.page/r/CbzkRdTv-0hNEBM/revie
 export const GOOGLE_BUSINESS_PROFILE_URL = "https://g.page/r/CbzkRdTv-0hNEBM";
 
 /**
- * Shown on the site as "5.0 from N Google reviews". Update when the profile changes.
+ * Fallback for "5.0 from N Google reviews". The badge replaces it with the live
+ * numbers from the Worker (GET /google-reviews/summary, refreshed daily from Google).
  * Visible text only: not marked up as aggregateRating (Google ignores self-served
  * LocalBusiness ratings and disallows re-marking reviews collected elsewhere).
  */
 export const GOOGLE_REVIEW_RATING = "5.0";
-export const GOOGLE_REVIEW_COUNT = 15;
+export const GOOGLE_REVIEW_COUNT = 16;
