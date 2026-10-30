@@ -127,15 +127,11 @@ export function buildWhatsAppFollowUpDiscountText(
   const hi = record.name?.trim() ? `Hi ${record.name.trim().split(/\s+/)[0]}` : "Hi";
   const journey = record.journeyLabel ? ` for ${record.journeyLabel}` : "";
   const was = offer.previousAmountLabel ? ` (was ${offer.previousAmountLabel})` : "";
-  const expressNote = offer.optionalExpressFeeLabel
-    ? `This price doesn't include Express terminal access at the airport. You can add it for ${offer.optionalExpressFeeLabel} when you book.\n\n`
-    : "";
   return (
     `${hi}, just checking in on your quote${journey}.\n\n` +
     `If you're happy to book now, I can give you *5% off* — your new price is *${offer.amountLabel}*${was} 🎉\n\n` +
-    `That includes a fixed price, a pre-booked driver in a modern, high-spec vehicle, flight monitoring with up to 60 minutes' waiting on airport pickups (10 minutes on other pickups), ` +
+    `That includes a fixed price, a pre-booked driver, flight monitoring with up to 60 minutes' waiting on airport pickups (10 minutes on other pickups), ` +
     `and free cancellation up to 24 hours before pickup.\n\n` +
-    expressNote +
     `Book here (link valid for 24 hours):\n${offer.bookingUrl}`
   );
 }

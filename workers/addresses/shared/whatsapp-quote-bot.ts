@@ -827,7 +827,7 @@ export function isWhatsAppSendQuoteMessage(text: string): boolean {
 export const WHATSAPP_BOOKING_BENEFITS =
   `*What's included:*\n` +
   `✅ Fixed price — it won't change with traffic or delays\n` +
-  `🚘 Pre-booked driver in a modern, high-spec vehicle\n` +
+  `🚘 Pre-booked driver\n` +
   `✈️ We monitor your flight, with up to 60 minutes' waiting included on airport pickups\n` +
   `⏱️ 10 minutes' complimentary waiting on non-airport pickups\n` +
   `↩️ Cancel up to 24 hours before pickup for a full refund`;
@@ -835,7 +835,7 @@ export const WHATSAPP_BOOKING_BENEFITS =
 export function buildWhatsAppQuoteReply(input: {
   amountLabel: string;
   bookingUrl: string;
-  /** e.g. "£5" — optional Express terminal fee not included in amountLabel. */
+  /** Kept for callers; the optional Express fee is shown on the booking page, not in the chat. */
   optionalExpressFeeLabel?: string | null;
   /** Short notice or a request-only period: the link sends a request we confirm first. */
   requestOnly?: boolean;
@@ -849,13 +849,9 @@ export function buildWhatsAppQuoteReply(input: {
       `We'll get back to you as soon as possible. Reply *NEW* for a new quote.`
     );
   }
-  const expressNote = input.optionalExpressFeeLabel
-    ? `This price doesn't include Express terminal access at the airport. You can add it for ${input.optionalExpressFeeLabel} when you book.\n\n`
-    : "";
   return (
     `Your fixed price is *${input.amountLabel}* ✅\n\n` +
     `${WHATSAPP_BOOKING_BENEFITS}\n\n` +
-    expressNote +
     `To book, check your details and pay securely here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
     `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote.`
   );
@@ -982,18 +978,14 @@ export function buildWhatsAppDiscountOfferReply(input: {
   optionalExpressFeeLabel?: string | null;
 }): string {
   const was = input.previousAmountLabel ? ` (was ${input.previousAmountLabel})` : "";
-  const expressNote = input.optionalExpressFeeLabel
-    ? `This price doesn't include Express terminal access at the airport. You can add it for ${input.optionalExpressFeeLabel} when you book.\n\n`
-    : "";
   return (
     `I understand. Just so you know, your price includes:\n` +
     `✅ A fixed price — it won't change with traffic or delays\n` +
-    `🚘 A pre-booked driver in a modern, high-spec vehicle\n` +
+    `🚘 A pre-booked driver\n` +
     `✈️ Flight monitoring, with up to 60 minutes' waiting included on airport pickups\n` +
     `⏱️ 10 minutes' complimentary waiting on non-airport pickups\n` +
     `↩️ Free cancellation up to 24 hours before pickup for a full refund\n\n` +
     `If you book now, I can give you *${WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT}% off* — your new price is *${input.amountLabel}*${was} 🎉\n\n` +
-    expressNote +
     `Book here (link valid for 24 hours):\n${input.bookingUrl}`
   );
 }
@@ -1007,7 +999,7 @@ export function buildWhatsAppPriceValueReply(draft: WhatsAppQuoteDraft): string 
     (airportPickup
       ? `We monitor your flight, and up to *60 minutes' waiting time* from landing is included. `
       : `On airport pickups we monitor your flight with up to *60 minutes' waiting time* included, and other pickups include *10 minutes'* complimentary waiting. `) +
-    `Our vehicles are modern and high spec, and you can cancel up to 24 hours before pickup for a full refund, so you can book with confidence.\n\n` +
+    `You can cancel up to 24 hours before pickup for a full refund, so you can book with confidence.\n\n` +
     `If you'd like to go ahead, your booking link is above.`
   );
 }
