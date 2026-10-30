@@ -6,6 +6,9 @@ const WORKER_BASE = resolveWorkerBaseUrl();
 
 export type InboxListResponse = {
   connected: boolean;
+  /** A full-access Resend key is saved (needed to read email bodies). */
+  readKey: boolean;
+  receivingAddress: string | null;
   connection: { source: "api" | "manual"; createdAt: string } | null;
   lastReceivedAt: string | null;
   threads: InboxThreadSummary[];

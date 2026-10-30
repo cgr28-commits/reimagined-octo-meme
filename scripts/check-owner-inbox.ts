@@ -141,8 +141,37 @@ async function main() {
   };
   const env = { TRACKING_STORE: store, OWNER_ACCESS_KEY: OWNER, RESEND_API_KEY: "re_test" };
 
+  // A send-only key is rejected with a clear message; a full-access key is saved and used.
+  const keyStore = memoryStore();
+  const keyCalls: string[] = [];
+  const keyFetch = async (url: string, init?: RequestInit) => {
+    const auth = String((init?.headers as Record<string, string>)?.Authorization ?? "");
+    keyCalls.push(`${init?.method ?? "GET"} ${url} ${auth}`);
+    if (auth.includes("re_sendonly")) {
+      return new Response(JSON.stringify({ message: "This API key is restricted to only send emails" }), { status: 401 });
+    }
+    if (url === "https://api.resend.com/webhooks" && (init?.method ?? "GET") === "GET") return new Response("{\"data\":[]}", { status: 200 });
+    if (url === "https://api.resend.com/webhooks") return new Response(JSON.stringify({ id: "wh-2", signing_secret: SECRET }), { status: 200 });
+    return new Response("{}", { status: 404 });
+  };
+  const keyEnv = { TRACKING_STORE: keyStore, OWNER_ACCESS_KEY: OWNER, RESEND_API_KEY: "re_sendonly_site_key" };
+  let res = await handleOwnerInboxSetup(new Request("https://w/owner/inbox/setup", { method: "POST", headers: ownerHeaders, body: "{}" }), keyEnv, null, keyFetch);
+  assert.equal(res.status, 502, "send-only site key can't create the webhook");
+  res = await handleOwnerInboxSetup(new Request("https://w/owner/inbox/setup", { method: "POST", headers: ownerHeaders, body: JSON.stringify({ apiKey: "re_sendonly_other_123" }) }), keyEnv, null, keyFetch);
+  assert.equal(res.status, 400);
+  assert.match(((await res.json()) as { error: string }).error, /Full access/);
+  res = await handleOwnerInboxSetup(new Request("https://w/owner/inbox/setup", { method: "POST", headers: ownerHeaders, body: JSON.stringify({ apiKey: "re_fullaccess_1234567", receivingAddress: "Inbox@Abc123.resend.app" }) }), keyEnv, null, keyFetch);
+  assert.equal(res.status, 200);
+  assert.ok(keyCalls.some((c) => c.startsWith("POST https://api.resend.com/webhooks Bearer re_fullaccess_1234567")), "webhook created with the full-access key");
+  res = await handleOwnerInboxList(new Request("https://w/owner/inbox", { headers: ownerHeaders }), keyEnv, null);
+  const keyList = (await res.json()) as { connected: boolean; readKey: boolean; receivingAddress: string };
+  assert.equal(keyList.connected, true);
+  assert.equal(keyList.readKey, true);
+  assert.equal(keyList.receivingAddress, "inbox@abc123.resend.app");
+  assert.ok(!JSON.stringify(keyList).includes("re_fullaccess"), "key never sent back to the browser");
+
   // Setup: owner only; creates webhook via API and stores the secret.
-  let res = await handleOwnerInboxSetup(new Request("https://w/owner/inbox/setup", { method: "POST", body: "{}" }), env, null, fakeFetch);
+  res = await handleOwnerInboxSetup(new Request("https://w/owner/inbox/setup", { method: "POST", body: "{}" }), env, null, fakeFetch);
   assert.equal(res.status, 401);
   res = await handleOwnerInboxSetup(new Request("https://w/owner/inbox/setup", { method: "POST", headers: ownerHeaders, body: "{}" }), env, null, fakeFetch);
   assert.equal(res.status, 200);

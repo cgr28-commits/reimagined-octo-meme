@@ -125,3 +125,24 @@ export async function signResendWebhookForTest(secret: string, id: string, times
   );
   return `v1,${bytesToBase64(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${id}.${timestamp}.${body}`)))}`;
 }
+
+/** Full-access Resend key used only for the inbox (reading received emails, creating the webhook). */
+const INBOX_API_KEY = "inbox:api-key";
+const INBOX_RECEIVING_ADDRESS = "inbox:receiving-address";
+
+export async function getInboxApiKey(store: KVNamespace): Promise<string> {
+  return ((await store.get(INBOX_API_KEY)) ?? "").trim();
+}
+
+export async function saveInboxApiKey(store: KVNamespace, key: string): Promise<void> {
+  await store.put(INBOX_API_KEY, key.trim());
+}
+
+export async function getInboxReceivingAddress(store: KVNamespace): Promise<string> {
+  return ((await store.get(INBOX_RECEIVING_ADDRESS)) ?? "").trim();
+}
+
+export async function saveInboxReceivingAddress(store: KVNamespace, address: string): Promise<void> {
+  await store.put(INBOX_RECEIVING_ADDRESS, address.trim().toLowerCase());
+}
+

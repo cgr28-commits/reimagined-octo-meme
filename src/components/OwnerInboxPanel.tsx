@@ -29,26 +29,33 @@ function fullWhen(iso: string): string {
     : d.toLocaleString("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" });
 }
 
-function SetupCard({ ownerKey, onDone }: { ownerKey: string; onDone: () => void }) {
+function SetupCard({
+  ownerKey,
+  data,
+  onDone,
+}: {
+  ownerKey: string;
+  data: InboxListResponse;
+  onDone: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [manual, setManual] = useState(false);
-  const [secret, setSecret] = useState("");
-  const [endpoint, setEndpoint] = useState("");
+  const [notice, setNotice] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [receiving, setReceiving] = useState("");
+  const needsKey = !data.connected || !data.readKey;
 
-  async function connect(body: Record<string, unknown>) {
+  async function save(body: Record<string, unknown>, done: string) {
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       await ownerInboxFetch(ownerKey, "/owner/inbox/setup", body);
+      setApiKey("");
+      setNotice(done);
       onDone();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not connect";
-      setError(message);
-      if (/paste its signing secret/i.test(message)) {
-        setManual(true);
-        setEndpoint("https://reimagined-octo-meme.cgr28.workers.dev/inbound/resend");
-      }
+      setError(err instanceof Error ? err.message : "Could not save");
     } finally {
       setBusy(false);
     }
@@ -57,41 +64,66 @@ function SetupCard({ ownerKey, onDone }: { ownerKey: string; onDone: () => void 
   return (
     <section className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 sm:p-5">
       <h2 className="text-lg font-semibold text-white">Connect your inbox</h2>
-      <p className="mt-1 text-sm text-white/70">
-        Step 1: connect Resend so emails can arrive here. Step 2: in GoDaddy email, forward a copy of all
-        bookings@ mail to your Resend receiving address. Your GoDaddy mailbox keeps everything as normal.
-      </p>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void connect({})}
-        className="mt-3 min-h-11 rounded-xl bg-emerald px-4 text-sm font-semibold text-navy disabled:opacity-60"
-      >
-        {busy ? "Connecting…" : "Connect automatically"}
-      </button>
-      {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
-      {manual ? (
-        <div className="mt-4 space-y-2 text-sm text-white/75">
+      {needsKey ? (
+        <div className="mt-2 space-y-2 text-sm text-white/75">
           <p>
-            In Resend → Webhooks, add <span className="break-all font-mono text-white">{endpoint}</span> with the
-            event <span className="font-mono text-white">email.received</span>, then paste the signing secret:
+            <span className="font-semibold text-white">Step 1.</span> In Resend, go to API Keys → Create API key, choose{" "}
+            <span className="font-semibold text-white">Full access</span>, and paste it here. It&apos;s only used for this inbox.
           </p>
           <input
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            placeholder="whsec_…"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="re_…"
+            autoComplete="off"
             className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 font-mono text-sm text-white"
           />
           <button
             type="button"
-            disabled={busy || !secret.trim()}
-            onClick={() => void connect({ secret: secret.trim() })}
-            className="min-h-11 rounded-xl border border-white/20 px-4 text-sm font-semibold text-white disabled:opacity-50"
+            disabled={busy || !apiKey.trim()}
+            onClick={() => void save({ apiKey: apiKey.trim() }, "Connected. Emails forwarded to Resend will now appear here.")}
+            className="min-h-11 rounded-xl bg-emerald px-4 text-sm font-semibold text-navy disabled:opacity-50"
           >
-            Save secret
+            {busy ? "Connecting…" : "Connect"}
           </button>
         </div>
-      ) : null}
+      ) : (
+        <p className="mt-2 text-sm text-emerald">✓ Resend is connected.</p>
+      )}
+      <div className="mt-4 space-y-2 border-t border-white/10 pt-4 text-sm text-white/75">
+        <p>
+          <span className="font-semibold text-white">Step 2.</span> In Resend, go to Emails → Receiving and copy your
+          receiving address (it ends in <span className="font-mono">.resend.app</span>). Save it here, then in GoDaddy email
+          forward a copy of bookings@ mail to it.
+        </p>
+        {data.receivingAddress ? (
+          <p className="break-all">
+            Forward to: <span className="font-mono text-white">{data.receivingAddress}</span>
+          </p>
+        ) : null}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            value={receiving}
+            onChange={(e) => setReceiving(e.target.value)}
+            placeholder="something@xxxx.resend.app"
+            inputMode="email"
+            className="min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 font-mono text-sm text-white"
+          />
+          <button
+            type="button"
+            disabled={busy || !receiving.trim()}
+            onClick={() => void save({ receivingAddress: receiving.trim() }, "Saved.")}
+            className="min-h-11 shrink-0 rounded-xl border border-white/20 px-4 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Save address
+          </button>
+        </div>
+        <p className="text-xs text-white/55">
+          Tip: in the GoDaddy rule, skip mail from bookings@myairporttaxini.co.uk so copies of your own emails don&apos;t use up
+          your Resend allowance.
+        </p>
+      </div>
+      {notice ? <p className="mt-3 text-sm text-emerald">{notice}</p> : null}
+      {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
     </section>
   );
 }
@@ -298,7 +330,9 @@ export default function OwnerInboxPanel({ ownerKey }: { ownerKey: string }) {
 
   return (
     <div className="space-y-4">
-      {data && !data.connected ? <SetupCard ownerKey={ownerKey} onDone={() => void load()} /> : null}
+      {data && (!data.connected || !data.readKey || !data.receivingAddress) ? (
+        <SetupCard ownerKey={ownerKey} data={data} onDone={() => void load()} />
+      ) : null}
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

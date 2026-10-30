@@ -33,7 +33,11 @@ import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { listCustomerBookingRefs } from "./customer-account-store";
 import { ensureManageBookingToken, getPaidBookingRecord } from "./paid-booking-store";
 import {
+  getInboxApiKey,
+  getInboxReceivingAddress,
   getInboxWebhookConfig,
+  saveInboxApiKey,
+  saveInboxReceivingAddress,
   listInboxMessages,
   markWebhookEventSeen,
   saveInboxMessage,
@@ -48,6 +52,8 @@ export const INBOX_WEBHOOK_ENDPOINT = "https://reimagined-octo-meme.cgr28.worker
 export type OwnerInboxEnv = DriverAuthEnv & {
   TRACKING_STORE?: KVNamespace;
   RESEND_API_KEY?: string;
+  /** Optional full-access key for the inbox; the dashboard can also store one in KV. */
+  RESEND_INBOX_API_KEY?: string;
   RESEND_WEBHOOK_SECRET?: string;
   BOOKING_FROM_EMAIL?: string;
 };
@@ -68,6 +74,11 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
   } catch {
     return {};
   }
+}
+
+/** Key for reading received mail / managing webhooks. The site's sending key is usually send-only. */
+async function inboxReadKey(env: OwnerInboxEnv, store: KVNamespace): Promise<string> {
+  return (await getInboxApiKey(store)) || env.RESEND_INBOX_API_KEY?.trim() || env.RESEND_API_KEY?.trim() || "";
 }
 
 function mailbox(env: OwnerInboxEnv): string {
@@ -124,7 +135,7 @@ export async function handleResendInboundWebhook(
 
   // The webhook only carries metadata — fetch the body from Resend.
   let full: Record<string, unknown> = event.data;
-  const apiKey = env.RESEND_API_KEY?.trim();
+  const apiKey = await inboxReadKey(env, store);
   if (apiKey) {
     const res = await fetchImpl(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, {
       headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
@@ -299,6 +310,8 @@ export async function handleOwnerInboxList(request: Request, env: OwnerInboxEnv,
   return json(
     {
       connected: Boolean(config?.secret || env.RESEND_WEBHOOK_SECRET?.trim()),
+      readKey: Boolean((await getInboxApiKey(store)) || env.RESEND_INBOX_API_KEY?.trim()),
+      receivingAddress: (await getInboxReceivingAddress(store)) || null,
       connection: config ? { source: config.source, createdAt: config.createdAt } : null,
       lastReceivedAt: messages.find((m) => m.direction === "in")?.at ?? null,
       threads: summarizeInboxThreads(messages),
@@ -419,6 +432,33 @@ export async function handleOwnerInboxSetup(
   const store = env.TRACKING_STORE;
   if (!store) return json({ error: "Storage not configured" }, 503, origin);
   const body = await readBody(request);
+  const receiving = String(body.receivingAddress ?? "").trim();
+  if (receiving) {
+    if (!normalizeInboxEmail(receiving)) return json({ error: "That isn't a valid email address." }, 400, origin);
+    await saveInboxReceivingAddress(store, normalizeInboxEmail(receiving));
+    if (!body.apiKey && !body.secret) return json({ ok: true, receivingAddress: normalizeInboxEmail(receiving) }, 200, origin);
+  }
+  const pastedKey = String(body.apiKey ?? "").trim();
+  if (pastedKey) {
+    if (!/^re_[A-Za-z0-9_]{10,}$/.test(pastedKey)) return json({ error: "That doesn't look like a Resend API key (re_…)." }, 400, origin);
+    // Full-access check: only full-access keys can list webhooks.
+    const check = await fetchImpl("https://api.resend.com/webhooks", {
+      headers: { Authorization: `Bearer ${pastedKey}`, Accept: "application/json" },
+    });
+    if (!check.ok) {
+      const info = (await check.json().catch(() => null)) as { message?: string } | null;
+      return json(
+        {
+          error: /restricted|send/i.test(info?.message ?? "")
+            ? "That key can only send emails. In Resend, create a key with Full access and paste that one."
+            : `Resend didn't accept that key${info?.message ? `: ${info.message}` : ""}.`,
+        },
+        400,
+        origin,
+      );
+    }
+    await saveInboxApiKey(store, pastedKey);
+  }
   const pasted = String(body.secret ?? "").trim();
   if (pasted) {
     if (!/^whsec_[A-Za-z0-9+/=]{16,}$/.test(pasted)) return json({ error: "That doesn't look like a Resend signing secret (whsec_…)." }, 400, origin);
@@ -429,7 +469,7 @@ export async function handleOwnerInboxSetup(
   if (existing?.secret && body.force !== true) {
     return json({ ok: true, source: existing.source, already: true, endpoint: INBOX_WEBHOOK_ENDPOINT }, 200, origin);
   }
-  const apiKey = env.RESEND_API_KEY?.trim();
+  const apiKey = await inboxReadKey(env, store);
   if (!apiKey) return json({ error: "Resend key is not set on the Worker." }, 503, origin);
   const res = await fetchImpl("https://api.resend.com/webhooks", {
     method: "POST",
@@ -442,7 +482,7 @@ export async function handleOwnerInboxSetup(
       {
         error:
           (payload?.message ? `Resend said: ${payload.message}. ` : "") +
-          "Automatic setup didn't work — add the webhook in Resend and paste its signing secret instead.",
+          "Paste a Resend API key with Full access below and it will connect automatically.",
         endpoint: INBOX_WEBHOOK_ENDPOINT,
         manual: true,
       },
