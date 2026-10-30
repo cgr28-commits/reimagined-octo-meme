@@ -561,11 +561,12 @@ main().catch((err) => {
   process.exit(1);
 });
 
-// Quotes are priced without the optional Express (barrier) fee; the reply says it can be added.
+// Quotes are priced without the optional Express (barrier) fee; the chat doesn't mention it
+// (owner, 30 Oct 2026) — customers see the option on the booking page.
 assert.equal(whatsAppDraftToQuoteBody({} as never).expressDropOffSelected, false);
-assert.match(
+assert.doesNotMatch(
   buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x", optionalExpressFeeLabel: "£5" }),
-  /add it for £5 when you book/,
+  /Express|£5|terminal access/,
 );
 assert.doesNotMatch(
   buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x" }),
@@ -689,22 +690,36 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   assert.equal(decideWhatsAppReply(quoted, "£250 is a bit steep", { now }).action, "discount");
   assert.equal(decideWhatsAppReply(quoted, "any discount?", { now }).action, "answer", "asking for a discount is not 'too expensive'");
   assert.equal(isWhatsAppTooExpensive("that's not too expensive actually"), false);
-  const offer = buildWhatsAppDiscountOfferReply({ previousAmountLabel: "£250", amountLabel: "£237.50", bookingUrl: "https://example.test/d" });
-  for (const re of [/fixed price/, /pre-booked driver/, /60 minutes/, /24 hours before pickup/, /\*5% off\*/, /\*£237\.50\* \(was £250\)/, /example\.test\/d/]) {
+  // Waiting time shown is only the one for this journey's pickup (owner, 30 Oct 2026).
+  const offer = buildWhatsAppDiscountOfferReply({
+    previousAmountLabel: "£250",
+    amountLabel: "£237.50",
+    bookingUrl: "https://example.test/d",
+    journey: { airportCode: "DUB", fromAirport: true, returnJourney: false },
+  });
+  for (const re of [/Fixed price/i, /Pre-booked driver/i, /60 minutes/, /24 hours before pickup/, /\*5% off\*/, /\*£237\.50\* \(was £250\)/, /example\.test\/d/]) {
     assert.match(offer, re);
   }
   // Second time: no second discount — explain what's included instead.
   const d = decideWhatsAppReply({ ...quoted, discountOffered: true }, "that's too expensive", { now });
   assert.equal(d.action, "answer");
   assert.equal(d.ai?.priceObjection, true);
-  for (const re of [/fixed price/, /pre-booked driver/, /monitor your flight/, /60 minutes/, /modern and high spec/, /24 hours before pickup for a full refund/]) {
+  for (const re of [/fixed price/, /pre-booked driver/, /monitor your flight/, /60 minutes/, /24 hours before pickup for a full refund/]) {
     assert.match(d.reply, re);
   }
+  assert.doesNotMatch(d.reply, /high.spec/i);
   assert.doesNotMatch(d.reply, /discount|£/);
-  const priced = buildWhatsAppQuoteReply({ amountLabel: "£250", bookingUrl: "https://example.test/q" });
-  for (const re of [/Fixed price/, /Pre-booked driver/, /monitor your flight/, /60 minutes/, /10 minutes' complimentary waiting on non-airport pickups/, /high-spec/, /24 hours before pickup for a full refund/]) {
+  // Benefits shown with the price; waiting time only for this journey's pickup.
+  const priced = buildWhatsAppQuoteReply({
+    amountLabel: "£250",
+    bookingUrl: "https://example.test/q",
+    journey: quoted.draft,
+  });
+  for (const re of [/Fixed price/, /Pre-booked driver/, /monitor your flight/, /60 minutes/, /24 hours before pickup for a full refund/]) {
     assert.match(priced, re, "benefits shown with the price");
   }
+  assert.doesNotMatch(priced, /10 minutes/, "airport pickup: no 10-minute line");
+  assert.doesNotMatch(priced, /high.spec/i, "no 'high-spec' wording (owner, 30 Oct 2026)");
   console.log("OK  price objection explains what is included");
 }
 

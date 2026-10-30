@@ -117,7 +117,9 @@ async function main() {
   });
   assert.match(offer, /^Hi Sam, just checking in on your quote for Europa Hotel/);
   assert.match(offer, /happy to book now.*\*5% off\*.*\*£48\.45\* \(was £51\)/s);
-  assert.match(offer, /10 minutes on other pickups/);
+  // No journey details passed: the generic (address pickup) waiting line.
+  assert.match(offer, /10 minutes' complimentary waiting at pickup/);
+  assert.doesNotMatch(offer, /60 minutes/);
   assert.match(offer, /cancellation up to 24 hours/);
   assert.match(offer, /id=disc/);
 

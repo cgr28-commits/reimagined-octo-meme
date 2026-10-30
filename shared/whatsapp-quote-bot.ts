@@ -19,7 +19,7 @@ import {
 } from "./quick-quote-parse";
 import { QUICK_QUOTE_SALOON_MAX_PASSENGERS } from "./quick-quote";
 import { findKnownPlaces, normaliseForKnownPlaces } from "./belfast-landmarks";
-import { todayLondonDate } from "./uk-time";
+import { parseLondonLocalDateTime, todayLondonDate } from "./uk-time";
 
 export type WhatsAppQuoteDraft = {
   pickupAddress?: string;
@@ -794,8 +794,65 @@ export function validateWhatsAppDraft(
   return null;
 }
 
+/** Booking links normally last 24 hours. */
+export const WHATSAPP_QUOTE_LINK_HOURS = 24;
+/** Pickups less than 24 hours away: the link lasts 2 hours, because availability changes fast. */
+export const WHATSAPP_SHORT_NOTICE_LINK_HOURS = 2;
+
+/** Hours the booking link stays valid: 2 when the pickup is under 24 hours away, otherwise 24. */
+export function whatsAppQuoteLinkHours(draft: WhatsAppQuoteDraft, now = new Date()): number {
+  if (!draft.outboundDate || !draft.outboundTime) return WHATSAPP_QUOTE_LINK_HOURS;
+  const pickup = parseLondonLocalDateTime(draft.outboundDate, draft.outboundTime);
+  if (!pickup) return WHATSAPP_QUOTE_LINK_HOURS;
+  const hoursAway = (pickup.getTime() - now.getTime()) / 3_600_000;
+  return hoursAway < 24 ? WHATSAPP_SHORT_NOTICE_LINK_HOURS : WHATSAPP_QUOTE_LINK_HOURS;
+}
+
+function linkValidityLabel(hours: number): string {
+  return `${hours} hour${hours === 1 ? "" : "s"}`;
+}
+
+/** Which pickups the booking has: at an airport, at an address, or one of each (returns). */
+export type WhatsAppPickupWaiting = "airport" | "address" | "both";
+
+export function whatsAppPickupWaiting(
+  draft: Pick<WhatsAppQuoteDraft, "airportCode" | "fromAirport" | "returnJourney">,
+): WhatsAppPickupWaiting {
+  if (!draft.airportCode) return "address";
+  if (draft.returnJourney) return "both";
+  return draft.fromAirport ? "airport" : "address";
+}
+
+/** Waiting-time lines for this booking only: 60 minutes at airports, 10 minutes elsewhere. */
+function waitingLines(waiting: WhatsAppPickupWaiting): string[] {
+  if (waiting === "airport") {
+    return [`✈️ We monitor your flight, with up to 60 minutes' waiting included`];
+  }
+  if (waiting === "address") {
+    return [`⏱️ 10 minutes' complimentary waiting at pickup`];
+  }
+  return [
+    `✈️ Airport pickup: we monitor your flight, with up to 60 minutes' waiting included`,
+    `⏱️ Address pickup: 10 minutes' complimentary waiting`,
+  ];
+}
+
+/** What this booking includes — shown with the price and when a customer says it's too much. */
+export function buildWhatsAppBookingBenefits(
+  draft: Pick<WhatsAppQuoteDraft, "airportCode" | "fromAirport" | "returnJourney">,
+): string {
+  return [
+    `*What's included:*`,
+    `✅ Fixed price — it won't change with traffic or delays`,
+    `🚘 Pre-booked driver`,
+    ...waitingLines(whatsAppPickupWaiting(draft)),
+    `↩️ Cancel up to 24 hours before pickup for a full refund`,
+  ].join("\n");
+}
+
 /** Body for createPricedQuickQuote — website pricing engine, no discount. */
-export function whatsAppDraftToQuoteBody(draft: WhatsAppQuoteDraft): Record<string, unknown> {
+export function whatsAppDraftToQuoteBody(draft: WhatsAppQuoteDraft, now = new Date()): Record<string, unknown> {
+  const linkHours = whatsAppQuoteLinkHours(draft, now);
   return {
     pickupAddress: draft.pickupAddress,
     dropoffAddress: draft.dropoffAddress,
@@ -814,7 +871,10 @@ export function whatsAppDraftToQuoteBody(draft: WhatsAppQuoteDraft): Record<stri
     // customer can add it on the booking page.
     expressDropOffSelected: false,
     priceSource: "website-pricing-engine",
-    validityMode: "24h",
+    // Short-notice pickups: a 2-hour link (ttlSeconds is used when validityMode is omitted).
+    ...(linkHours === WHATSAPP_QUOTE_LINK_HOURS
+      ? { validityMode: "24h" }
+      : { ttlSeconds: linkHours * 60 * 60 }),
   };
 }
 
@@ -823,19 +883,20 @@ export function isWhatsAppSendQuoteMessage(text: string): boolean {
   return /^\s*hi,?\s+please send me this quote\b/i.test(text);
 }
 
-/** What every booking includes — shown with the price and when a customer says it's too much. */
-export const WHATSAPP_BOOKING_BENEFITS =
-  `*What's included:*\n` +
-  `✅ Fixed price — it won't change with traffic or delays\n` +
-  `🚘 Pre-booked driver in a modern, high-spec vehicle\n` +
-  `✈️ We monitor your flight, with up to 60 minutes' waiting included on airport pickups\n` +
-  `⏱️ 10 minutes' complimentary waiting on non-airport pickups\n` +
-  `↩️ Cancel up to 24 hours before pickup for a full refund`;
+function shortNoticeNote(linkHours?: number): string {
+  return linkHours === WHATSAPP_SHORT_NOTICE_LINK_HOURS
+    ? `⏳ Your pickup is less than 24 hours away and availability changes quickly, so this price is held for ${linkValidityLabel(linkHours)}.\n\n`
+    : "";
+}
 
 export function buildWhatsAppQuoteReply(input: {
   amountLabel: string;
   bookingUrl: string;
-  /** e.g. "£5" — optional Express terminal fee not included in amountLabel. */
+  /** The quoted journey: decides which waiting time is shown. */
+  journey?: Pick<WhatsAppQuoteDraft, "airportCode" | "fromAirport" | "returnJourney">;
+  /** How long the booking link lasts (24, or 2 for pickups under 24 hours away). */
+  linkHours?: number;
+  /** Kept for callers; the optional Express fee is shown on the booking page, not in the chat. */
   optionalExpressFeeLabel?: string | null;
   /** Short notice or a request-only period: the link sends a request we confirm first. */
   requestOnly?: boolean;
@@ -843,20 +904,17 @@ export function buildWhatsAppQuoteReply(input: {
   if (input.requestOnly) {
     return (
       `Your fixed price is *${input.amountLabel}*\n\n` +
-      `${WHATSAPP_BOOKING_BENEFITS}\n\n` +
+      `${buildWhatsAppBookingBenefits(input.journey ?? {})}\n\n` +
       `⚠️ This date and time is *request only*, so we need to confirm we can do it before you pay.\n\n` +
-      `Send your booking request here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
+      `Send your booking request here (link valid for ${linkValidityLabel(input.linkHours ?? WHATSAPP_QUOTE_LINK_HOURS)}):\n${input.bookingUrl}\n\n` +
       `We'll get back to you as soon as possible. Reply *NEW* for a new quote.`
     );
   }
-  const expressNote = input.optionalExpressFeeLabel
-    ? `This price doesn't include Express terminal access at the airport. You can add it for ${input.optionalExpressFeeLabel} when you book.\n\n`
-    : "";
   return (
     `Your fixed price is *${input.amountLabel}* ✅\n\n` +
-    `${WHATSAPP_BOOKING_BENEFITS}\n\n` +
-    expressNote +
-    `To book, check your details and pay securely here (link valid for 24 hours):\n${input.bookingUrl}\n\n` +
+    `${buildWhatsAppBookingBenefits(input.journey ?? {})}\n\n` +
+    shortNoticeNote(input.linkHours) +
+    `To book, check your details and pay securely here (link valid for ${linkValidityLabel(input.linkHours ?? WHATSAPP_QUOTE_LINK_HOURS)}):\n${input.bookingUrl}\n\n` +
     `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote.`
   );
 }
@@ -980,34 +1038,34 @@ export function buildWhatsAppDiscountOfferReply(input: {
   amountLabel: string;
   bookingUrl: string;
   optionalExpressFeeLabel?: string | null;
+  journey?: Pick<WhatsAppQuoteDraft, "airportCode" | "fromAirport" | "returnJourney">;
+  linkHours?: number;
 }): string {
   const was = input.previousAmountLabel ? ` (was ${input.previousAmountLabel})` : "";
-  const expressNote = input.optionalExpressFeeLabel
-    ? `This price doesn't include Express terminal access at the airport. You can add it for ${input.optionalExpressFeeLabel} when you book.\n\n`
-    : "";
+  const included = buildWhatsAppBookingBenefits(input.journey ?? {})
+    .split("\n")
+    .slice(1)
+    .join("\n");
   return (
     `I understand. Just so you know, your price includes:\n` +
-    `✅ A fixed price — it won't change with traffic or delays\n` +
-    `🚘 A pre-booked driver in a modern, high-spec vehicle\n` +
-    `✈️ Flight monitoring, with up to 60 minutes' waiting included on airport pickups\n` +
-    `⏱️ 10 minutes' complimentary waiting on non-airport pickups\n` +
-    `↩️ Free cancellation up to 24 hours before pickup for a full refund\n\n` +
+    `${included}\n\n` +
     `If you book now, I can give you *${WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT}% off* — your new price is *${input.amountLabel}*${was} 🎉\n\n` +
-    expressNote +
-    `Book here (link valid for 24 hours):\n${input.bookingUrl}`
+    `Book here (link valid for ${linkValidityLabel(input.linkHours ?? WHATSAPP_QUOTE_LINK_HOURS)}):\n${input.bookingUrl}`
   );
 }
 
 /** Fixed reply to a price objection (the AI writes its own version when available). */
 export function buildWhatsAppPriceValueReply(draft: WhatsAppQuoteDraft): string {
-  const airportPickup = Boolean(draft.airportCode && draft.fromAirport);
+  const waiting = whatsAppPickupWaiting(draft);
   return (
     `I understand. Just so you know what's included: it's a *fixed price*, so it won't change with traffic or delays, ` +
     `and you have a *pre-booked driver* waiting for you. ` +
-    (airportPickup
+    (waiting === "airport"
       ? `We monitor your flight, and up to *60 minutes' waiting time* from landing is included. `
-      : `On airport pickups we monitor your flight with up to *60 minutes' waiting time* included, and other pickups include *10 minutes'* complimentary waiting. `) +
-    `Our vehicles are modern and high spec, and you can cancel up to 24 hours before pickup for a full refund, so you can book with confidence.\n\n` +
+      : waiting === "address"
+        ? `*10 minutes'* complimentary waiting is included at your pickup. `
+        : `At the airport we monitor your flight with up to *60 minutes' waiting time* included, and your address pickup includes *10 minutes'* complimentary waiting. `) +
+    `You can cancel up to 24 hours before pickup for a full refund, so you can book with confidence.\n\n` +
     `If you'd like to go ahead, your booking link is above.`
   );
 }
