@@ -1,6 +1,7 @@
 /** Live Google review count: refresh from Places API (New), cache daily, never show junk. */
 import assert from "node:assert/strict";
 import {
+  isOurPlace,
   getGoogleReviewSummary,
   handleGoogleReviewSummary,
   refreshGoogleReviewSummary,
@@ -69,6 +70,11 @@ async function main() {
   const res = await handleGoogleReviewSummary(env, null, fakeFetch);
   assert.equal(res.status, 200);
   assert.deepEqual(Object.keys(await res.json()).sort(), ["count", "rating", "updatedAt"]);
+
+  // Our listing is recognised by website or phone even if Google shows another name.
+  assert.equal(isOurPlace({ displayName: { text: "Airport Taxi Belfast" }, websiteUri: "https://www.myairporttaxini.co.uk/" }), true);
+  assert.equal(isOurPlace({ displayName: { text: "Airport Taxi Belfast" }, nationalPhoneNumber: "028 9602 2952" }), true);
+  assert.equal(isOurPlace({ displayName: { text: "Airport Taxi Belfast" }, websiteUri: "https://someone-else.com" }), false);
 
   // No key, no store: nothing breaks.
   assert.equal(await refreshGoogleReviewSummary({}, fakeFetch), null);
