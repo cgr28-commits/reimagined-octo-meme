@@ -8,6 +8,7 @@ import { quoteOptionalMeetGreet } from "../shared/meet-greet";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 import { handleAdsOfflineFeed, handleOwnerAdsFeed } from "./google-ads-offline-feed";
+import { handleAdsSpendReport, handleOwnerAdsSpend } from "./google-ads-spend";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
@@ -4195,6 +4196,12 @@ export default {
     }
     if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/ads-feed/rotate" && request.method === "POST") {
       return handleOwnerAdsFeed(request, env, request.headers.get("Origin"), true);
+    }
+    if (url.pathname === "/ads/spend-report" && request.method === "POST") {
+      return handleAdsSpendReport(request, env);
+    }
+    if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/ads-spend" && request.method === "GET") {
+      return handleOwnerAdsSpend(request, env, request.headers.get("Origin"));
     }
     if (isWhatsAppWebhookPath(url.pathname)) {
       return handleWhatsAppWebhook(request, env, ctx);

@@ -59,7 +59,68 @@ function CopyRow({ label, value, secret }: { label: string; value: string; secre
   );
 }
 
-export default function OwnerGoogleAdsFeedPanel({ ownerKey }: { ownerKey: string }) {
+type SpendInfo = { connected: boolean; lastReportAt: string | null; script: string };
+
+function AdSpendSetup({ ownerKey }: { ownerKey: string }) {
+  const [spend, setSpend] = useState<SpendInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    ownerInboxFetch<SpendInfo>(ownerKey, "/owner/ads-spend")
+      .then(setSpend)
+      .catch((err) => setError(err instanceof Error ? err.message : "Could not load ad spend setup"));
+  }, [ownerKey]);
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-white/10 bg-navy-light/40 p-4 text-white sm:p-5">
+      <div>
+        <h2 className="text-lg font-bold">Google Ads spend on Money</h2>
+        <p className="mt-1 text-sm leading-relaxed text-white/75">
+          Shows what you spend on Google Ads today, this week and this month next to your earnings. A small script in
+          your Google Ads account sends the totals here every hour.
+        </p>
+      </div>
+      {error ? <p className="rounded-xl bg-red-500/15 p-3 text-sm text-red-200">{error}</p> : null}
+      {spend ? (
+        <>
+          <p className="text-sm text-white/80">
+            {spend.connected && spend.lastReportAt
+              ? `Connected — last update ${new Date(spend.lastReportAt).toLocaleString("en-GB", {
+                  timeZone: "Europe/London",
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}.`
+              : "Not connected yet."}
+          </p>
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-white/80">
+            <li>On a computer, open Google Ads → Tools → Bulk actions → Scripts.</li>
+            <li>Click +, then New script. Delete what is in the box.</li>
+            <li>Click Copy script below and paste it in. Name it “Dashboard spend”.</li>
+            <li>Click Authorise and allow it, then Preview — it should say “Sent … days: HTTP 200”.</li>
+            <li>Save, then set Frequency to Hourly.</li>
+          </ol>
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard?.writeText(spend.script).then(() => {
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1500);
+              });
+            }}
+            className="rounded-lg bg-emerald px-4 py-2 text-sm font-bold text-navy"
+          >
+            {copied ? "Copied" : "Copy script"}
+          </button>
+        </>
+      ) : !error ? (
+        <p className="text-sm text-white/70">Loading…</p>
+      ) : null}
+    </section>
+  );
+}
+
+function OwnerGoogleAdsUploadSection({ ownerKey }: { ownerKey: string }) {
   const [info, setInfo] = useState<FeedInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -163,5 +224,14 @@ export default function OwnerGoogleAdsFeedPanel({ ownerKey }: { ownerKey: string
         <p className="text-sm text-white/70">Loading…</p>
       ) : null}
     </section>
+  );
+}
+
+export default function OwnerGoogleAdsFeedPanel({ ownerKey }: { ownerKey: string }) {
+  return (
+    <div className="space-y-4">
+      <AdSpendSetup ownerKey={ownerKey} />
+      <OwnerGoogleAdsUploadSection ownerKey={ownerKey} />
+    </div>
   );
 }
