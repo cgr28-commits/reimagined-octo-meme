@@ -76,19 +76,15 @@ export default function GolfTransfersPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <Header />
       <style>{`
-        .golf-transfers [data-landing-hero] img { object-position: 50% 55%; }
+        .golf-transfers [data-landing-hero] img { object-position: 30% 62%; }
       `}</style>
       <main className={`${LANDING_PAGE_MAIN_CLASS} golf-transfers`}>
-        <LandingHeroMedia baseName="royal-portrush" alt="The 5th hole at Royal Portrush Golf Club beside the sea" />
+        <LandingHeroMedia baseName="royal-portrush" alt="Aerial view of the Royal Portrush links beside Whiterocks beach on the Causeway Coast" />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <p className="mt-2 text-right text-[11px] text-white/45">
             <a href={GOLF_HERO_CREDIT.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
               {GOLF_HERO_CREDIT.text}
-            </a>
-            {", "}
-            <a href={GOLF_HERO_CREDIT.licenceUrl} target="_blank" rel="noopener noreferrer license" className="underline-offset-2 hover:underline">
-              {GOLF_HERO_CREDIT.licence}
             </a>
           </p>
 

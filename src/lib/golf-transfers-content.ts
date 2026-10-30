@@ -18,10 +18,8 @@ export const GOLF_TRANSFERS_WHATSAPP =
   "Hi, I'd like a quote for a golf transfer. Course: , dates: , number of golfers and golf bags: ";
 
 export const GOLF_HERO_CREDIT = {
-  text: "Royal Portrush, 5th hole — photo by The Average Golfer",
-  licence: "CC BY 3.0",
-  licenceUrl: "https://creativecommons.org/licenses/by/3.0/",
-  sourceUrl: "https://commons.wikimedia.org/wiki/File:Royal_Portrush_Golf_Club_5th_hole.png",
+  text: "Royal Portrush and Whiterocks beach — photo by Adam Montgomery on Unsplash",
+  sourceUrl: "https://unsplash.com/photos/VkUgPt4AVWs",
 } as const;
 
 export const GOLF_COURSES = [
