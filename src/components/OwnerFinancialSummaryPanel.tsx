@@ -17,6 +17,10 @@ import {
   type OwnerFinancialSummaryResponse,
   type OwnerPaidBookingSummary,
 } from "@/lib/paid-bookings-api";
+import { ownerInboxFetch } from "@/lib/owner-inbox-api";
+import type { AdsSpendPeriods } from "../../shared/google-ads-spend";
+
+type OwnerAdsSpendResponse = { connected: boolean; lastReportAt: string | null; periods: AdsSpendPeriods };
 
 type OwnerFinancialSummaryPanelProps = {
   ownerKey: string;
@@ -57,6 +61,7 @@ export default function OwnerFinancialSummaryPanel({
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<OwnerFinancialPeriodKey | null>(null);
   const [cashBookOpen, setCashBookOpen] = useState(false);
+  const [adsSpend, setAdsSpend] = useState<OwnerAdsSpendResponse | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,6 +78,10 @@ export default function OwnerFinancialSummaryPanel({
       ]);
       setSummary(nextSummary);
       setPaidBookings(nextBookings);
+      // Google Ads spend is optional — never block the money totals on it.
+      void ownerInboxFetch<OwnerAdsSpendResponse>(ownerKey, "/owner/ads-spend")
+        .then(setAdsSpend)
+        .catch(() => setAdsSpend(null));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load financial totals");
       setSummary(null);
@@ -114,6 +123,7 @@ export default function OwnerFinancialSummaryPanel({
       completed: ops.today.journeysCompleted,
       earned: ops.today.earnedRevenueGbp,
       received: summary?.cashReceived?.today ?? ops.today.paymentsReceivedGbp,
+      adSpend: adsSpend?.connected ? adsSpend.periods.today : null,
     },
     {
       key: "week" as const,
@@ -123,6 +133,7 @@ export default function OwnerFinancialSummaryPanel({
       completed: ops.week.journeysCompleted,
       earned: ops.week.earnedRevenueGbp,
       received: summary?.cashReceived?.week ?? ops.week.paymentsReceivedGbp,
+      adSpend: adsSpend?.connected ? adsSpend.periods.week : null,
     },
     {
       key: "month" as const,
@@ -132,6 +143,7 @@ export default function OwnerFinancialSummaryPanel({
       completed: ops.month.journeysCompleted,
       earned: ops.month.earnedRevenueGbp,
       received: summary?.cashReceived?.month ?? ops.month.paymentsReceivedGbp,
+      adSpend: adsSpend?.connected ? adsSpend.periods.month : null,
     },
   ];
 
@@ -195,6 +207,18 @@ export default function OwnerFinancialSummaryPanel({
                   {loading && !summary ? "—" : formatOwnerOpsMoney(period.received)}
                 </dd>
               </div>
+              <div className="flex items-baseline justify-between gap-2" data-owner-ads-spend={period.key}>
+                <dt className="text-white/50">Google Ads spend</dt>
+                <dd className="tabular-nums font-semibold text-amber-100">
+                  {period.adSpend ? formatOwnerOpsMoney(period.adSpend.cost) : "—"}
+                </dd>
+              </div>
+              {period.adSpend && period.adSpend.clicks > 0 ? (
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt className="text-white/40 text-xs">Ad clicks</dt>
+                  <dd className="tabular-nums text-xs text-white/60">{period.adSpend.clicks}</dd>
+                </div>
+              ) : null}
             </dl>
           </article>
         ))}
@@ -204,7 +228,18 @@ export default function OwnerFinancialSummaryPanel({
         (Europe/London, Monday–Sunday week), excluding airport pass-through charges.
         A completed return-booking leg counts that day — you do not wait for the other
         leg. Payments received is money collected in the period — a payment today for a
-        future trip is not this week’s earned income.
+        future trip is not this week’s earned income.{" "}
+        {adsSpend?.connected
+          ? `Google Ads spend comes from your Google Ads account and updates hourly${
+              adsSpend.lastReportAt
+                ? ` (last update ${new Date(adsSpend.lastReportAt).toLocaleString("en-GB", {
+                    timeZone: "Europe/London",
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })})`
+                : ""
+            }.`
+          : "To show Google Ads spend, set it up under More → Google Ads upload."}
       </p>
       {ops.allocationTraces.length > 0 ? (
         <pre className="sr-only" data-owner-earned-allocation>
