@@ -399,6 +399,13 @@ import {
   maybeRecordMarketingFromPayload,
 } from "./marketing-handlers";
 import {
+  handleCustomerBookings,
+  handleCustomerLoginRequest,
+  handleCustomerLoginVerify,
+  handleCustomerLogout,
+} from "./customer-account-handlers";
+import { backfillCustomerBookingIndex } from "./customer-account-backfill";
+import {
   handleTestDriverDetailEmails,
   isTestDriverDetailEmailsPath,
 } from "./test-email-handlers";
@@ -4628,6 +4635,32 @@ export default {
       return json(result, 200, origin);
     }
 
+    // Customer "My bookings" (passwordless email-code sign-in).
+    if (
+      (url.pathname === "/customer/login/request" || url.pathname === "/api/customer/login/request") &&
+      request.method === "POST"
+    ) {
+      return handleCustomerLoginRequest(request, env, origin);
+    }
+    if (
+      (url.pathname === "/customer/login/verify" || url.pathname === "/api/customer/login/verify") &&
+      request.method === "POST"
+    ) {
+      return handleCustomerLoginVerify(request, env, origin);
+    }
+    if (
+      (url.pathname === "/customer/bookings" || url.pathname === "/api/customer/bookings") &&
+      request.method === "GET"
+    ) {
+      return handleCustomerBookings(request, env, origin);
+    }
+    if (
+      (url.pathname === "/customer/logout" || url.pathname === "/api/customer/logout") &&
+      request.method === "POST"
+    ) {
+      return handleCustomerLogout(request, env, origin);
+    }
+
     // Owner dashboard: WhatsApp assistant transcripts (list, or one chat with ?phone=).
     if (
       (url.pathname === "/owner/marketing/subscribers" || url.pathname === "/api/owner/marketing/subscribers") &&
@@ -5813,6 +5846,17 @@ export default {
     }
 
     if (!shouldRunHourlyScheduledJobs(cron)) return;
+
+    // One-off: index bookings made before My bookings existed (no-op once done).
+    if (env.TRACKING_STORE) {
+      ctx.waitUntil(
+        backfillCustomerBookingIndex(env.TRACKING_STORE)
+          .then((result) => {
+            if (result.ran) console.log("My bookings index backfill", JSON.stringify(result));
+          })
+          .catch((error) => console.error("My bookings index backfill failed", error)),
+      );
+    }
 
     ctx.waitUntil(
       processDueReviewRequests(env).then((result) => {

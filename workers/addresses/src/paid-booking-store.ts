@@ -19,6 +19,7 @@ import {
   normalizeManageBookingToken,
 } from "../shared/manage-booking-token";
 import { bookingInUpcomingHorizon, isOwnerOperationalTestBooking } from "../shared/upcoming-jobs";
+import { indexPaidBookingForCustomer } from "./customer-account-store";
 
 const RECORD_TTL = 60 * 60 * 24 * 400;
 const DAY_INDEX_TTL = 60 * 60 * 24 * 400;
@@ -146,6 +147,11 @@ export async function savePaidBookingRecord(
         record.paymentReference,
       );
     }
+  }
+
+  if (!isOwnerOperationalTestBooking(record)) {
+    // My bookings email index — never let it block saving the booking itself.
+    await indexPaidBookingForCustomer(store, record).catch(() => undefined);
   }
 
   if (record.isRefundTest) {

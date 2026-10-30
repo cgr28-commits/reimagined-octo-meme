@@ -130,6 +130,7 @@ import {
   readPrefillAirport,
   readPrefillQuoteDraft,
   type QuoteDraftPrefill,
+  type RebookPlace,
 } from "@/lib/quote-prefill";
 import { readTestBookingPrefill } from "@/lib/test-booking";
 import {
@@ -364,10 +365,13 @@ import {
   needsManualQuoteApproval,
   PLACES_LOOKUP_A2A,
   quickSelectToPlace,
+  selectedPlaceFromParts,
   type JourneyKind,
   type QuickSelectAirportCode,
   type SelectedPlace,
 } from "@/lib/selected-place";
+import { fetchSelectedPlaceDetails } from "@/lib/google-maps";
+import { readCachedCustomerProfile } from "@/lib/customer-account-api";
 import { setWhatsAppJourney, whatsAppSendQuoteHref } from "@/lib/whatsapp-journey-context";
 
 const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
@@ -927,6 +931,14 @@ function QuoteCard({
   const [tripDateError, setTripDateError] = useState("");
   const [returnDateError, setReturnDateError] = useState("");
   const [customerNameError, setCustomerNameError] = useState("");
+  // Signed in to My bookings: fill in the details they last booked with (never overwrite typing).
+  useEffect(() => {
+    const profile = readCachedCustomerProfile();
+    if (!profile) return;
+    if (profile.name) setCustomerName((prev) => prev || profile.name);
+    if (profile.email) setCustomerEmail((prev) => prev || profile.email);
+    if (profile.mobile) setCustomerMobile((prev) => prev || profile.mobile);
+  }, []);
   const [goingFlightNumber, setGoingFlightNumber] = useState("");
   const [collectionFlightNumber, setCollectionFlightNumber] = useState("");
   const [goingFlightError, setGoingFlightError] = useState("");
@@ -1601,7 +1613,56 @@ function QuoteCard({
       setTripDirection("to-airport");
     }
 
+    async function resolveRebookPlace(place: RebookPlace): Promise<SelectedPlace | null> {
+      const placeId = place.placeId?.trim();
+      if (!placeId) return null;
+      const fetched = await fetchSelectedPlaceDetails(placeId, "BFS", place.label).catch(() => null);
+      if (fetched?.placeId) return fetched;
+      if (typeof place.lat === "number" && typeof place.lng === "number") {
+        return selectedPlaceFromParts({
+          placeId,
+          formattedAddress: place.label,
+          displayAddress: place.label,
+          lat: place.lat,
+          lng: place.lng,
+        });
+      }
+      return null;
+    }
+
+    async function applyRebookPrefill(draft: QuoteDraftPrefill) {
+      const rebook = draft.rebook;
+      if (!rebook) return;
+      const [pickup, dropoff] = await Promise.all([
+        resolveRebookPlace(rebook.pickup),
+        resolveRebookPlace(rebook.dropoff),
+      ]);
+      if (pickup) handlePickupPlaceSelect(pickup);
+      else if (rebook.pickup.label.trim()) setPickupAddress(rebook.pickup.label.trim());
+      if (dropoff) handleDropoffPlaceSelect(dropoff);
+      else if (rebook.dropoff.label.trim()) setDropoffAddress(rebook.dropoff.label.trim());
+      setJourneyMode(draft.returnJourney ? "return" : "one-way");
+      if (typeof draft.passengers === "number" && draft.passengers > 0) {
+        const storedPassengers = readStoredPassengerCount(draft.passengers);
+        if (storedPassengers != null) setPassengers(storedPassengers);
+      }
+      if (typeof draft.suitcases === "number" && draft.suitcases >= 0) {
+        const storedSuitcases = readStoredSuitcaseCount(draft.suitcases);
+        if (storedSuitcases != null) setSuitcases(storedSuitcases);
+      }
+      setExactPassengers(null);
+      if (draft.vehicle && (VEHICLE_TYPES as readonly string[]).includes(draft.vehicle)) {
+        setVehicle(draft.vehicle as VehicleType);
+      }
+      setBookingSent(false);
+      setQuoteStep(1);
+    }
+
     function applyDraftPrefill(draft: QuoteDraftPrefill) {
+      if (draft.rebook && IS_A2A_PRIMARY) {
+        void applyRebookPrefill(draft);
+        return;
+      }
       setTripMode("airport");
       if (draft.direction === "from-airport" || draft.direction === "to-airport") {
         setTripDirection(draft.direction);

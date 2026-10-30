@@ -43,6 +43,12 @@ export default function ManageBookingPage() {
           >
             Manage Your Booking
           </h1>
+          <p className="mt-2 text-sm text-white/60">
+            Booked with us before?{" "}
+            <Link href="/my-bookings/" prefetch={false} className="font-semibold text-emerald underline-offset-2 hover:underline">
+              See all your bookings
+            </Link>
+          </p>
         </div>
       </div>
       <ManageBookingClient />

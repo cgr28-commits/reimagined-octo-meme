@@ -8,8 +8,18 @@ export const QUOTE_DIRECTION_PREFILL_KEY = "my-airport-taxi-ni-prefill-direction
 /** Approximate sticky header height; `#quote` also uses measured offset via site-nav. */
 export const HEADER_SCROLL_OFFSET = 112;
 
+/** A pickup / drop-off from a past booking (My bookings "Book again"). */
+export type RebookPlace = {
+  placeId?: string;
+  label: string;
+  lat?: number;
+  lng?: number;
+};
+
 export type QuoteDraftPrefill = {
-  source?: "assistant";
+  source?: "assistant" | "my-bookings";
+  /** My bookings: reuse exact pickup and drop-off from a past booking. */
+  rebook?: { pickup: RebookPlace; dropoff: RebookPlace };
   airportCode?: string;
   direction?: "to-airport" | "from-airport";
   address?: string;
@@ -77,6 +87,20 @@ export function prefillQuoteFromAssistant(draft: QuoteDraftPrefill) {
     new CustomEvent("quote-prefill-draft", { detail: payload }),
   );
   scrollToQuoteForm();
+}
+
+/**
+ * My bookings "Book again": store the journey for the quote form, then open it.
+ * Dates are left for the customer to choose; price is always recalculated live.
+ */
+export function prefillQuoteFromMyBookings(draft: QuoteDraftPrefill) {
+  const payload: QuoteDraftPrefill = { ...draft, source: "my-bookings" };
+  try {
+    sessionStorage.setItem(QUOTE_DRAFT_PREFILL_KEY, JSON.stringify(payload));
+  } catch {
+    // Private mode: fall through — the form still opens, customer types addresses.
+  }
+  window.location.assign(`/${adsClickIdSearchForNavigation(window.location.search)}#quote`);
 }
 
 export function scrollToQuoteForm() {
