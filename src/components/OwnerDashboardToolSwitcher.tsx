@@ -16,6 +16,7 @@ export type OwnerDashboardToolTab =
   | "enquiries"
   | "tracking"
   | "whatsapp"
+  | "inbox"
   | "marketing";
 
 type OwnerDashboardToolSwitcherProps = {
@@ -35,6 +36,7 @@ export const OWNER_MORE_DESTINATIONS: {
   label: string;
   hint: string;
 }[] = [
+  { id: "inbox", label: "Inbox", hint: "Emails to bookings@ — read and reply with your logo signature" },
   { id: "admin", label: "Job admin", hint: "Awaiting payment, future jobs, refunds, and checkout recovery" },
   { id: "money", label: "Money", hint: "Earned revenue and payments received" },
   { id: "requests", label: "Requests", hint: "Approvals that need a decision, and deposit cash" },
