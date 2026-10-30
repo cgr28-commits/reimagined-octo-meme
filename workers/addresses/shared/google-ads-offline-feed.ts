@@ -24,6 +24,7 @@ export const OFFLINE_FEED_HEADERS = [
   "Order ID",
   "Ad User Data",
   "Ad Personalization",
+  "Event Source",
 ] as const;
 
 export type OfflineFeedRow = {
@@ -53,11 +54,14 @@ type FeedRecord = Pick<
 const ACTIVE_STATUSES = new Set(["confirmed", "partially_refunded"]);
 const GCLID_PATTERN = /^[A-Za-z0-9_-]{10,300}$/;
 
-/** "2026-10-20 12:00:35" in UTC — paired with Parameters:TimeZone=+0000. */
+/**
+ * "2026-10-20 12:00:35+0000" — the zone sits in each value because Data Manager reads the
+ * first line as the column headers (a "Parameters:TimeZone" line would hide every column).
+ */
 export function formatFeedTimeUtc(iso: string): string | null {
   const time = new Date(iso);
   if (Number.isNaN(time.getTime())) return null;
-  return time.toISOString().slice(0, 19).replace("T", " ");
+  return `${time.toISOString().slice(0, 19).replace("T", " ")}+0000`;
 }
 
 export function offlineFeedRowFor(record: FeedRecord, nowMs = Date.now()): OfflineFeedRow | null {
@@ -106,7 +110,6 @@ export function buildOfflineFeedCsv(records: FeedRecord[], nowMs = Date.now()): 
   rows.sort((a, b) => a.conversionTime.localeCompare(b.conversionTime));
 
   const lines = [
-    "Parameters:TimeZone=+0000",
     OFFLINE_FEED_HEADERS.join(","),
     ...rows.map((row) =>
       [
@@ -119,6 +122,8 @@ export function buildOfflineFeedCsv(records: FeedRecord[], nowMs = Date.now()): 
         // The click ID is only stored after the visitor accepted cookies, which grants both.
         "Granted",
         "Granted",
+        // Bookings are made and paid for on the website.
+        "WEB",
       ]
         .map(csvField)
         .join(","),

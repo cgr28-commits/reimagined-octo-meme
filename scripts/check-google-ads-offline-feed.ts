@@ -21,7 +21,7 @@ const base = {
 
 const row = offlineFeedRowFor(base, now);
 assert.ok(row);
-assert.equal(row.conversionTime, "2026-10-20 12:00:35");
+assert.equal(row.conversionTime, "2026-10-20 12:00:35+0000");
 assert.equal(row.value, 70);
 assert.equal(row.orderId, "TAAA6Z7Q2C3");
 
@@ -48,17 +48,17 @@ const { csv, rows } = buildOfflineFeedCsv(
 );
 assert.equal(rows, 1, "Duplicates and bookings without a click are left out");
 const lines = csv.trim().split("\r\n");
-assert.equal(lines[0], "Parameters:TimeZone=+0000");
+assert.equal(
+  lines[0],
+  "Google Click ID,Conversion Name,Conversion Time,Conversion Value,Conversion Currency,Order ID,Ad User Data,Ad Personalization,Event Source",
+  "Data Manager reads the first line as headers, so no Parameters line",
+);
 assert.equal(
   lines[1],
-  "Google Click ID,Conversion Name,Conversion Time,Conversion Value,Conversion Currency,Order ID,Ad User Data,Ad Personalization",
-);
-assert.equal(
-  lines[2],
-  `Cj0KCQjwexampleGCLID_abc-123,${OFFLINE_FEED_CONVERSION_NAME},2026-10-20 12:00:35,70.00,GBP,TAAA6Z7Q2C3,Granted,Granted`,
+  `Cj0KCQjwexampleGCLID_abc-123,${OFFLINE_FEED_CONVERSION_NAME},2026-10-20 12:00:35+0000,70.00,GBP,TAAA6Z7Q2C3,Granted,Granted,WEB`,
 );
 assert.equal(buildOfflineFeedCsv([], now).rows, 0);
-console.log("OK  CSV matches the Google Ads click-import template");
+console.log("OK  CSV headers on the first line for Data Manager; zone inside each time");
 
 const auth = parseBasicAuth(`Basic ${btoa("googleads:pa:ss")}`);
 assert.deepEqual(auth, { username: "googleads", password: "pa:ss" });
