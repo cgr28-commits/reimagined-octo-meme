@@ -11,7 +11,9 @@ import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import { withBasePath } from "@/lib/paths";
 import {
   GOLF_BUSINESS_CLASS_POINTS,
-  GOLF_COURSES,
+  GOLF_COURSES_NI,
+  GOLF_COURSES_ROI,
+  type GolfCourse,
   GOLF_FAQS,
   GOLF_GROUP_POINTS,
   GOLF_HERO_CREDIT,
@@ -22,6 +24,20 @@ import {
   GOLF_TRANSFERS_WHATSAPP,
 } from "@/lib/golf-transfers-content";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
+
+function CourseGrid({ courses }: { courses: readonly GolfCourse[] }) {
+  return (
+    <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+      {courses.map((course) => (
+        <li key={course.name} className="rounded-xl border border-[#e3e9f1] bg-[#f7f9fb] p-3">
+          <p className="text-sm font-bold text-navy">{course.name}</p>
+          <p className="text-xs font-semibold text-emerald-dark">{course.area}</p>
+          <p className="mt-1 text-sm leading-snug text-[#1a2a3d]">{course.note}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 const lightCardClass =
   "rounded-2xl border border-[#d7e0ec] bg-white px-4 py-4 text-navy shadow-[0_12px_32px_rgba(2,10,24,0.16)] sm:px-5 sm:py-5";
@@ -63,7 +79,7 @@ export default function GolfTransfersPage() {
     name: `${SITE.name} — ${GOLF_TRANSFERS_H1}`,
     description: GOLF_TRANSFERS_SEO_DESCRIPTION,
     path: GOLF_TRANSFERS_PATH,
-    areaServed: ["Portrush", "Portstewart", "Castlerock", "Newcastle, County Down", "Northern Ireland"],
+    areaServed: ["Northern Ireland", "Ireland", "Portrush", "Newcastle, County Down", "Dublin", "Donegal"],
     serviceType: "Golf Transfer",
   });
   const faqLd = getFaqPageJsonLd(GOLF_FAQS);
@@ -159,19 +175,20 @@ export default function GolfTransfersPage() {
             </section>
 
             <section className={lightCardClass}>
-              <h2 className="text-lg font-bold text-navy">Courses we drive to</h2>
-              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-                {GOLF_COURSES.map((course) => (
-                  <li key={course.name} className="rounded-xl border border-[#e3e9f1] bg-[#f7f9fb] p-3">
-                    <p className="text-sm font-bold text-navy">{course.name}</p>
-                    <p className="text-xs font-semibold text-emerald-dark">{course.area}</p>
-                    <p className="mt-1 text-sm leading-snug text-[#1a2a3d]">{course.note}</p>
-                  </li>
-                ))}
-              </ul>
+              <h2 className="text-lg font-bold text-navy">Top golf courses in Northern Ireland</h2>
+              <CourseGrid courses={GOLF_COURSES_NI} />
+            </section>
+
+            <section className={lightCardClass}>
+              <h2 className="text-lg font-bold text-navy">Top golf courses in the Republic of Ireland</h2>
+              <p className="mt-1 text-sm leading-relaxed text-[#1a2a3d]">
+                We cover the whole island. Combine Royal Portrush and Royal County Down with Dublin, Donegal or the
+                west coast, and we will give you one fixed price for the trip.
+              </p>
+              <CourseGrid courses={GOLF_COURSES_ROI} />
               <p className="mt-3 text-sm leading-relaxed text-[#1a2a3d]">
-                Playing somewhere else in Northern Ireland? We cover the whole country — get a quote with your course
-                as the destination.
+                Playing somewhere else? Get a quote with your course as the destination, or message us your itinerary
+                on WhatsApp.
               </p>
             </section>
 
