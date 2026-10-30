@@ -12,6 +12,7 @@ import {
   londonMonthRangeContaining,
   londonPaymentDay,
   londonWeekRangeContaining,
+  londonYearRangeContaining,
 } from "./owner-financial-summary";
 import { addDaysYmd, londonYmd } from "./upcoming-jobs";
 
@@ -124,6 +125,7 @@ export type OwnerOperationalMetrics = {
   today: OwnerOperationalPeriodMetrics;
   week: OwnerOperationalPeriodMetrics;
   month: OwnerOperationalPeriodMetrics;
+  year: OwnerOperationalPeriodMetrics;
   unsplitReturnBookingIds: string[];
   allocationTraces: Array<OwnerLegFareAllocationExplain & { bookingId: string }>;
 };
@@ -851,6 +853,7 @@ export function buildOwnerOperationalMetrics(input: {
   const today = londonYmd(now);
   const weekRange = londonWeekRangeContaining(today);
   const monthRange = londonMonthRangeContaining(today);
+  const yearRange = londonYearRangeContaining(today);
   const paidLegs = input.paidBookings.flatMap(expandOwnerPaidBookingLegs);
   const unsplitReturnBookingIds: string[] = [];
   const allocationTraces = input.paidBookings
@@ -884,6 +887,8 @@ export function buildOwnerOperationalMetrics(input: {
     today: period(today, today),
     week: period(weekRange.fromDay, weekRange.toDay),
     month: period(monthRange.fromDay, monthRange.toDay),
+    // Year to date: days after today have no completed legs or payments yet.
+    year: period(yearRange.fromDay, today),
     unsplitReturnBookingIds,
     allocationTraces,
   };

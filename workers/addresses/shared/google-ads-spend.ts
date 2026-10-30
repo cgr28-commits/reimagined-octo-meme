@@ -11,7 +11,12 @@ import { addDaysYmd, londonYmd } from "./upcoming-jobs";
 export type AdsSpendDay = { cost: number; clicks: number; impressions: number; conversions: number };
 export type AdsSpendDaily = Record<string, AdsSpendDay>;
 export type AdsSpendPeriod = { cost: number; clicks: number };
-export type AdsSpendPeriods = { today: AdsSpendPeriod; week: AdsSpendPeriod; month: AdsSpendPeriod };
+export type AdsSpendPeriods = {
+  today: AdsSpendPeriod;
+  week: AdsSpendPeriod;
+  month: AdsSpendPeriod;
+  year: AdsSpendPeriod;
+};
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const KEEP_DAYS = 400;
@@ -71,6 +76,7 @@ export function adsSpendPeriods(daily: AdsSpendDaily, today = londonYmd()): AdsS
     today: sumBetween(daily, today, today),
     week: sumBetween(daily, mondayOf(today), today),
     month: sumBetween(daily, `${today.slice(0, 8)}01`, today),
+    year: sumBetween(daily, `${today.slice(0, 4)}-01-01`, today),
   };
 }
 
@@ -78,7 +84,7 @@ export function adsSpendPeriods(daily: AdsSpendDaily, today = londonYmd()): AdsS
 export function buildAdsSpendScript(reportUrl: string, token: string): string {
   return `/**
  * My Airport Taxi NI — sends Google Ads spend to the owner dashboard.
- * Schedule: Hourly. Reads this account's daily cost for the last 45 days.
+ * Schedule: Hourly. Reads this account's daily cost from 1 January (or the last 45 days in early January).
  */
 var REPORT_URL = ${JSON.stringify(reportUrl)};
 var TOKEN = ${JSON.stringify(token)};
@@ -87,8 +93,9 @@ function main() {
   var account = AdsApp.currentAccount();
   var tz = account.getTimeZone();
   var end = new Date();
-  var start = new Date(end.getTime() - 45 * 24 * 60 * 60 * 1000);
-  var from = Utilities.formatDate(start, tz, "yyyy-MM-dd");
+  var recent = Utilities.formatDate(new Date(end.getTime() - 45 * 24 * 60 * 60 * 1000), tz, "yyyy-MM-dd");
+  var yearStart = Utilities.formatDate(end, tz, "yyyy") + "-01-01";
+  var from = yearStart < recent ? yearStart : recent;
   var to = Utilities.formatDate(end, tz, "yyyy-MM-dd");
   var rows = AdsApp.search(
     "SELECT segments.date, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions " +

@@ -363,6 +363,7 @@ export type OwnerCashReceivedPeriods = {
   today: number;
   week: number;
   month: number;
+  year?: number;
 };
 
 /**
@@ -376,9 +377,11 @@ export function buildOwnerCashReceived(
   const asOfDay = londonYmd(now);
   const weekRange = londonWeekRangeContaining(asOfDay);
   const monthRange = londonMonthRangeContaining(asOfDay);
+  const yearRange = londonYearRangeContaining(asOfDay);
   let today = 0;
   let week = 0;
   let month = 0;
+  let year = 0;
 
   const byRef = new Map<string, OwnerFinancialBookingInput>();
   for (const booking of bookings) {
@@ -402,6 +405,9 @@ export function buildOwnerCashReceived(
       if (dayInInclusiveRange(day, monthRange.fromDay, monthRange.toDay)) {
         month = roundGbp(month + amount);
       }
+      if (dayInInclusiveRange(day, yearRange.fromDay, yearRange.toDay)) {
+        year = roundGbp(year + amount);
+      }
     };
     credit(londonPaymentDay(booking.createdAt), firstPayment);
     for (const extra of extras) {
@@ -409,7 +415,7 @@ export function buildOwnerCashReceived(
     }
   }
 
-  return { today, week, month };
+  return { today, week, month, year };
 }
 
 /** Inclusive day count from fromDay to today (capped) for KV created-day scans. */
