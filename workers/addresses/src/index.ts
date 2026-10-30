@@ -405,6 +405,7 @@ import {
   handleCustomerLogout,
 } from "./customer-account-handlers";
 import { backfillCustomerBookingIndex } from "./customer-account-backfill";
+import { handleGoogleReviewSummary, refreshGoogleReviewSummary } from "./google-reviews";
 import {
   handleOwnerEmailCustomer,
   handleOwnerEmailCustomerDraft,
@@ -4666,6 +4667,13 @@ export default {
       }
     }
 
+    if (
+      (url.pathname === "/google-reviews/summary" || url.pathname === "/api/google-reviews/summary") &&
+      request.method === "GET"
+    ) {
+      return handleGoogleReviewSummary(env, origin);
+    }
+
     // Customer "My bookings" (passwordless email-code sign-in).
     if (
       (url.pathname === "/customer/login/request" || url.pathname === "/api/customer/login/request") &&
@@ -5877,6 +5885,11 @@ export default {
     }
 
     if (!shouldRunHourlyScheduledJobs(cron)) return;
+
+    // Google rating + review count for the website badge (refreshes about once a day).
+    ctx.waitUntil(
+      refreshGoogleReviewSummary(env).catch((error) => console.error("Google review refresh failed", error)),
+    );
 
     // One-off: index bookings made before My bookings existed (no-op once done).
     if (env.TRACKING_STORE) {

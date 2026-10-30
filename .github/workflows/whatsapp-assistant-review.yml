@@ -9,6 +9,7 @@ on:
       - 'scripts/check-whatsapp-*.ts'
       - 'scripts/check-customer-account.ts'
       - 'scripts/check-owner-inbox.ts'
+      - 'scripts/check-google-review-count.ts'
       - 'scripts/generate-whatsapp-knowledge.ts'
       - '.github/workflows/whatsapp-assistant-review.yml'
 permissions:
@@ -36,6 +37,7 @@ jobs:
       - run: node --import tsx scripts/check-marketing-campaign.ts
       - run: node --import tsx scripts/check-customer-account.ts
       - run: node --import tsx scripts/check-owner-inbox.ts
+      - run: node --import tsx scripts/check-google-review-count.ts
       - run: node --import tsx scripts/check-whatsapp-chat-log.ts
       - run: node --import tsx scripts/check-whatsapp-follow-up.ts
       - run: npm --prefix workers/addresses run typecheck
