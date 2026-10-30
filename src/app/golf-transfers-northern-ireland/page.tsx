@@ -76,8 +76,7 @@ export default function GolfTransfersPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <Header />
       <style>{`
-        .golf-transfers [data-landing-hero] img { object-position: 30% 62%; }
-        @media (max-width: 767px) { .golf-transfers [data-landing-hero] img { object-position: 8% 55%; } }
+        .golf-transfers [data-landing-hero] img { object-position: 30% 42%; }
       `}</style>
       <main className={`${LANDING_PAGE_MAIN_CLASS} golf-transfers`}>
         <LandingHeroMedia baseName="royal-portrush" alt="Aerial view of the Royal Portrush links beside Whiterocks beach on the Causeway Coast" />
