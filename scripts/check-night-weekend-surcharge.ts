@@ -2,6 +2,7 @@
  * Night & Weekend Surcharge (10%) — journey fare only, per-leg on returns.
  * Run: npx tsx scripts/check-night-weekend-surcharge.ts
  */
+import { defaultPremiumWindowRules as defaultPremiumWindowRulesForStackCheck, surchargeRateForDateTime as surchargeRateForStackCheck } from "../shared/owner-pricing-config";
 import { composeWebsiteFareBreakdown as composeForCustomerCheck, customerFacingFareBreakdown } from "../shared/website-fare-breakdown";
 
 import assert from "node:assert/strict";
@@ -574,4 +575,16 @@ console.log("\n=== Customer breakdown folds surcharge into the journey fare ==="
     assert.equal(shown.finalAmountPayableGbp, raw.finalAmountPayableGbp, "Price unchanged");
   }
   console.log("OK  surcharge hidden; rows add up; price unchanged");
+}
+
+console.log("\n=== Overlapping periods never stack — the highest single rate applies ===");
+{
+  const rules = { ...defaultPremiumWindowRulesForStackCheck(), eveningEnabled: true, nightEnabled: true, weekendEnabled: true };
+  const rate = (day: number, minutes: number, weekendRate: number) =>
+    surchargeRateForStackCheck({ day, minutes, nightRate: 0.15, weekendRate, eveningRate: 0.05, rules });
+  assert.equal(rate(6, 2 * 60, 0.1), 0.15, "Saturday 2am: Night 15% only, not 15% + 10%");
+  assert.equal(rate(0, 2 * 60, 0.2), 0.2, "Sunday 2am with Weekend 20%: Weekend only");
+  assert.equal(rate(6, 19 * 60, 0.1), 0.1, "Saturday evening: Weekend 10%, not 10% + 5%");
+  assert.equal(rate(3, 19 * 60, 0.1), 0.05, "Weekday evening: Evening only");
+  console.log("OK  Weekend + Night (or Evening) charges the higher rate once");
 }
