@@ -236,12 +236,11 @@ check("completed return + one qualifying leg only surcharges that leg", () => {
   assert.equal(sundayReturn.nightWeekendSurchargeGbp, 4.5);
 });
 
-check("first displayed price already includes surcharge copy", () => {
+check("surcharges are never named to customers on the quote", () => {
   assert.equal(QUOTE_INCLUDES_NIGHT_WEEKEND_SURCHARGE, "Includes 10% Night & Weekend Surcharge");
-  assert.match(card, /Includes \$\{configuredSurchargeLabel\}/);
-  assert.match(card, /data-night-weekend-surcharge-badge/);
-  assert.match(showcase, /surchargeNote/);
-  assert.match(showcase, /data-night-weekend-surcharge-badge/);
+  assert.doesNotMatch(card, /Includes \$\{configuredSurchargeLabel\}/);
+  assert.doesNotMatch(card, /data-night-weekend-surcharge-badge/);
+  assert.match(card, /surchargeNote=\{null\}/);
 });
 
 check("changing schedule invalidates stale Worker fare before the new quote paints", () => {

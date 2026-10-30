@@ -284,3 +284,20 @@ import { formatGbpAmount, roundCustomerPayableGbp } from "./gbp";
 export function formatGbpFare(amount: number): string {
   return formatGbpAmount(amount);
 }
+
+/**
+ * Customers never see Evening / Night / Weekend / Christmas surcharges as a separate line or
+ * note. The surcharge is folded into the journey fare shown, so the rows still add up to the
+ * same amount payable.
+ */
+export function customerFacingFareBreakdown(breakdown: WebsiteFareBreakdown): WebsiteFareBreakdown {
+  const surcharge = breakdown.nightWeekendSurchargeGbp;
+  if (!(surcharge > 0)) return breakdown;
+  const add = (value: number) => Math.round((value + surcharge) * 100) / 100;
+  return {
+    ...breakdown,
+    journeyFareBeforePromotionsGbp: add(breakdown.journeyFareBeforePromotionsGbp),
+    originalEligibleJourneyPriceGbp: add(breakdown.originalEligibleJourneyPriceGbp),
+    nightWeekendSurchargeGbp: 0,
+  };
+}

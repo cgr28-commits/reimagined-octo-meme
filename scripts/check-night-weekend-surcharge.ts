@@ -2,6 +2,8 @@
  * Night & Weekend Surcharge (10%) — journey fare only, per-leg on returns.
  * Run: npx tsx scripts/check-night-weekend-surcharge.ts
  */
+import { defaultPremiumWindowRules as defaultPremiumWindowRulesForStackCheck, surchargeRateForDateTime as surchargeRateForStackCheck } from "../shared/owner-pricing-config";
+import { composeWebsiteFareBreakdown as composeForCustomerCheck, customerFacingFareBreakdown } from "../shared/website-fare-breakdown";
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -523,13 +525,14 @@ assert.match(
   /10% surcharge applies to journeys booked for pickup between 10pm and 6am Monday–Friday, and all day Saturday and Sunday/,
 );
 const fareTrust = fs.readFileSync(path.join(root, "src/components/QuoteFareTrust.tsx"), "utf8");
-assert.match(fareTrust, /breakdown\.nightWeekendSurchargeExplanation/);
-assert.match(fareTrust, /nightWeekendSurchargeLabel/);
+// Customers never see the surcharge as its own line: it is folded into the journey fare.
+assert.match(fareTrust, /customerFacingFareBreakdown,/);
+assert.match(fareTrust, /const breakdown = customerFacingFareBreakdown\(rawBreakdown\);[\s\S]*const breakdown = customerFacingFareBreakdown\(rawBreakdown\);/);
 const promo = fs.readFileSync(path.join(root, "shared/website-promo-pricing.ts"), "utf8");
 assert.match(promo, /Evening \/ Night \/ Weekend surcharge/);
 assert.match(promo, /5% Return Booking Discount/);
 const bookingMsg = fs.readFileSync(path.join(root, "src/lib/booking-message.ts"), "utf8");
-assert.match(bookingMsg, /Evening \/ Night \/ Weekend surcharge applied/);
+assert.doesNotMatch(bookingMsg, /surcharge applied/i, "Customer WhatsApp message never names the surcharge");
 assert.match(bookingMsg, /5% Return Booking Discount applied/);
 const fareTrustSrc = fareTrust;
 assert.match(fareTrustSrc, /5% Return Booking Discount/);
@@ -553,3 +556,35 @@ function cardQuoteResultsReady(): string {
 }
 
 console.log("\nAll Night & Weekend Surcharge checks passed.");
+
+console.log("\n=== Customer breakdown folds surcharge into the journey fare ===");
+{
+  for (const returnJourney of [false, true]) {
+    const raw = composeForCustomerCheck({
+      journeyFareBeforeAirportAccessGbp: 144,
+      nightWeekendSurchargeGbp: 14,
+      airportFixedCostsGbp: 0,
+      airportAccessChargeGbp: 0,
+      returnJourney,
+    });
+    const shown = customerFacingFareBreakdown(raw);
+    assert.equal(shown.nightWeekendSurchargeGbp, 0, "No surcharge line for customers");
+    const journey = returnJourney ? shown.originalEligibleJourneyPriceGbp : shown.journeyFareBeforePromotionsGbp;
+    const rowsTotal = Math.round((journey - shown.returnJourneySavingGbp + shown.airportFixedCostsGbp) * 100) / 100;
+    assert.equal(rowsTotal, raw.transferFareAfterPromotionsGbp, `Rows still add up (${returnJourney ? "return" : "one way"})`);
+    assert.equal(shown.finalAmountPayableGbp, raw.finalAmountPayableGbp, "Price unchanged");
+  }
+  console.log("OK  surcharge hidden; rows add up; price unchanged");
+}
+
+console.log("\n=== Overlapping periods never stack — the highest single rate applies ===");
+{
+  const rules = { ...defaultPremiumWindowRulesForStackCheck(), eveningEnabled: true, nightEnabled: true, weekendEnabled: true };
+  const rate = (day: number, minutes: number, weekendRate: number) =>
+    surchargeRateForStackCheck({ day, minutes, nightRate: 0.15, weekendRate, eveningRate: 0.05, rules });
+  assert.equal(rate(6, 2 * 60, 0.1), 0.15, "Saturday 2am: Night 15% only, not 15% + 10%");
+  assert.equal(rate(0, 2 * 60, 0.2), 0.2, "Sunday 2am with Weekend 20%: Weekend only");
+  assert.equal(rate(6, 19 * 60, 0.1), 0.1, "Saturday evening: Weekend 10%, not 10% + 5%");
+  assert.equal(rate(3, 19 * 60, 0.1), 0.05, "Weekday evening: Evening only");
+  console.log("OK  Weekend + Night (or Evening) charges the higher rate once");
+}
