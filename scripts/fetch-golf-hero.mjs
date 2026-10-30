@@ -2,9 +2,8 @@
  * Fetch the Royal Portrush hero photo from Wikimedia Commons and build the
  * responsive variants used by the golf transfers page.
  *
- * Photo: "Royal Portrush Golf Club 5th hole" by The Average Golfer, CC BY 3.0
- * https://commons.wikimedia.org/wiki/File:Royal_Portrush_Golf_Club_5th_hole.png
- * The page credits the author and licence under the hero.
+ * Photo: Adam Montgomery on Unsplash (https://unsplash.com/photos/VkUgPt4AVWs),
+ * Unsplash licence — free for commercial use.
  *
  * Run (CI): node scripts/fetch-golf-hero.mjs
  */
@@ -14,8 +13,15 @@ import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+// Unsplash licence: free for commercial use, no permission needed (credit given anyway).
+// Whiterocks beach and the Royal Portrush links — photo by Adam Montgomery on Unsplash.
 const SOURCE_URL =
-  "https://upload.wikimedia.org/wikipedia/commons/9/9a/Royal_Portrush_Golf_Club_5th_hole.png";
+  "https://images.unsplash.com/photo-1642517482110-555ba0f10e0a?w=3997&q=90&fm=jpg";
+// Extra candidates saved small for review only.
+const CANDIDATES = {
+  "east-strand-royal-portrush": "https://images.unsplash.com/photo-1621362802997-0fd375c0d106?w=1600&q=80&fm=jpg",
+  "royal-portrush-links": "https://images.unsplash.com/photo-1621362786055-b86ba07ff230?w=1600&q=80&fm=jpg",
+};
 const output = "royal-portrush";
 const heroDir = join(root, "public/images/hero");
 const outDir = join(heroDir, "optimized");
@@ -33,5 +39,11 @@ for (const width of [960, 1920]) {
   await pipeline.clone().avif({ quality: 55, effort: 4 }).toFile(join(outDir, `${output}-${width}.avif`));
   await pipeline.clone().webp({ quality: 72 }).toFile(join(outDir, `${output}-${width}.webp`));
   await pipeline.clone().jpeg({ quality: 78, mozjpeg: true }).toFile(join(outDir, `${output}-${width}.jpg`));
+}
+const candDir = join(root, "tmp-golf-candidates");
+mkdirSync(candDir, { recursive: true });
+for (const [name, url] of Object.entries(CANDIDATES)) {
+  const r = await fetch(url);
+  if (r.ok) writeFileSync(join(candDir, `${name}.jpg`), Buffer.from(await r.arrayBuffer()));
 }
 console.log("Royal Portrush hero images written");
