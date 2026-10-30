@@ -6,6 +6,18 @@
 import { corsHeaders } from "../shared/google-places";
 
 const SUMMARY_KEY = "google-reviews:summary";
+const ERROR_KEY = "google-reviews:last-error";
+
+async function noteError(store: KVNamespace, reason: string): Promise<void> {
+  await store.put(ERROR_KEY, JSON.stringify({ reason: reason.slice(0, 300), at: new Date().toISOString() }), {
+    expirationTtl: 60 * 60 * 24 * 7,
+  });
+}
+
+async function googleError(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => null)) as { error?: { status?: string; message?: string } } | null;
+  return `HTTP ${res.status} ${body?.error?.status ?? ""} ${body?.error?.message ?? ""}`.trim();
+}
 const REFRESH_AFTER_MS = 20 * 60 * 60 * 1000;
 const BUSINESS_QUERY = "My Airport Taxi NI";
 const NAME_MATCH = /my\s*airport\s*taxi/i;
@@ -64,17 +76,26 @@ export async function refreshGoogleReviewSummary(
       },
       body: JSON.stringify({ textQuery: BUSINESS_QUERY, regionCode: "GB" }),
     });
-    if (!res.ok) return existing;
+    if (!res.ok) {
+      await noteError(store, `searchText: ${await googleError(res)}`);
+      return existing;
+    }
     const data = (await res.json()) as {
       places?: Array<{ id?: string; displayName?: { text?: string }; rating?: number; userRatingCount?: number }>;
     };
     const match = (data.places ?? []).find((p) => NAME_MATCH.test(p.displayName?.text ?? ""));
-    if (!match?.id) return existing;
+    if (!match?.id) {
+      await noteError(store, `no match among: ${(data.places ?? []).map((p) => p.displayName?.text).join(", ") || "(none)"}`);
+      return existing;
+    }
     placeId = match.id;
     rating = match.rating;
     count = match.userRatingCount;
   }
-  if (!valid(rating, count)) return existing;
+  if (!valid(rating, count)) {
+    await noteError(store, `invalid numbers: rating=${String(rating)} count=${String(count)}`);
+    return existing;
+  }
   const summary: GoogleReviewSummary = {
     placeId,
     rating: Math.round((rating as number) * 10) / 10,
@@ -93,12 +114,15 @@ export async function handleGoogleReviewSummary(
   const store = env.TRACKING_STORE;
   let summary = store ? await getGoogleReviewSummary(store) : null;
   if (!summary) summary = await refreshGoogleReviewSummary(env, fetchImpl).catch(() => null);
-  const body = summary ? { rating: summary.rating, count: summary.count, updatedAt: summary.updatedAt } : { error: "unavailable" };
+  const lastError = !summary && store ? await store.get<{ reason: string }>(ERROR_KEY, "json") : null;
+  const body = summary
+    ? { rating: summary.rating, count: summary.count, updatedAt: summary.updatedAt }
+    : { error: "unavailable", reason: lastError?.reason ?? (env.GOOGLE_PLACES_API_KEY ? "no data yet" : "no Places key") };
   return new Response(JSON.stringify(body), {
     status: summary ? 200 : 503,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": summary ? "public, max-age=3600" : "no-store",
       ...corsHeaders(origin),
     },
   });
