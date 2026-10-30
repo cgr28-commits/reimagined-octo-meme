@@ -6500,14 +6500,7 @@ function QuoteCard({
             </p>
             )}
             {authoritativeQuoteFailed ? renderAuthoritativeQuoteRetry() : null}
-            {mayPaintNumericFare && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ? (
-              <p
-                className="mt-1.5 text-xs font-semibold text-emerald"
-                data-night-weekend-surcharge-badge
-              >
-                {`Includes ${configuredSurchargeLabel}`}
-              </p>
-            ) : null}
+            {/* Surcharges are included in the fixed price and never named to customers. */}
             {testChargeAmount === null && !appliedPersonalQuote ? (
               <FixedPriceAssurance
                 includesSelectedAirportAccess={expressSelection.eligible}
@@ -7610,7 +7603,7 @@ function QuoteCard({
         priceLabel={effectiveAirportCode ? "Your fixed airport transfer price" : "Your fixed transfer price"}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
-        surchargeNote={mayPaintNumericFare && (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ? `Includes ${configuredSurchargeLabel}` : null}
+        surchargeNote={null}
         businessClassInclusions={renderBusinessClassInclusions()}
         priceUnavailable={authoritativeQuoteFailed}
         onRetryPrice={retryAuthoritativeQuote}

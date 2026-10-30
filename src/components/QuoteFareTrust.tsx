@@ -5,6 +5,7 @@
 
 import {
   composeWebsiteFareBreakdown,
+  customerFacingFareBreakdown,
   formatGbpFare,
   type WebsiteFareBreakdown,
 } from "../../shared/website-fare-breakdown";
@@ -143,7 +144,7 @@ export function PromotionalSavingsSummary({
 
 /** Compact journey fare → Express → payable (Express never folded into journey). */
 export function PromotionalPriceBreakdown({
-  breakdown,
+  breakdown: rawBreakdown,
   freeAirportAccessSelected = false,
   service = "drop-off",
   className = "",
@@ -160,6 +161,7 @@ export function PromotionalPriceBreakdown({
   /** Show the journey / payable rows even when there is no Express or promo line. */
   alwaysShow?: boolean;
 }) {
+  const breakdown = customerFacingFareBreakdown(rawBreakdown);
   const accessLabel = "Airport services";
   const hasPromo = breakdown.totalPromotionalSavingGbp > 0;
   const accessGbp = breakdown.airportAccessChargeGbp;
@@ -311,7 +313,7 @@ export function PromotionalPriceBreakdown({
 
 /** Step 3 / Pay & Confirm — full payable breakdown before SumUp. */
 export function FinalPayableBreakdown({
-  breakdown,
+  breakdown: rawBreakdown,
   freeAirportAccessSelected = false,
   service = "drop-off",
   className = "",
@@ -321,6 +323,7 @@ export function FinalPayableBreakdown({
   service?: ExpressAirportService;
   className?: string;
 }) {
+  const breakdown = customerFacingFareBreakdown(rawBreakdown);
   const accessLabel = "Airport services";
   return (
     <div

@@ -101,7 +101,7 @@ for(const scenario of scenarios){
     recover=true;await result.locator('[data-quote-price-retry]').click();
    }
    const ready=result.locator('[data-quote-fare-status="ready"]');await ready.waitFor();assert.match(await ready.innerText(),scenario==='success'?/£65/:/£60/);
-   if(scenario==='success')assert.match(await result.locator('[data-night-weekend-surcharge-badge]').innerText(),/Night 20% \/ Weekend 10%/);
+   assert.equal(await result.locator('[data-night-weekend-surcharge-badge]').count(),0,'Surcharge is never named to customers');
    assert.equal(await result.locator('[data-quote-price-retry]').count(),0);
    assert.deepEqual(errors,[]);assert.deepEqual(mutations,[]);
    if(scenario==='config-timeout')assert.ok(configCalls>=2);
