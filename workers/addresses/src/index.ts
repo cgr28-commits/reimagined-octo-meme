@@ -9,6 +9,7 @@ import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 import { handleAdsOfflineFeed, handleOwnerAdsFeed } from "./google-ads-offline-feed";
 import { handleAdsSpendReport, handleOwnerAdsSpend } from "./google-ads-spend";
+import { handleVoiceQuote } from "./voice-quote";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
@@ -4196,6 +4197,10 @@ export default {
     }
     if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/ads-feed/rotate" && request.method === "POST") {
       return handleOwnerAdsFeed(request, env, request.headers.get("Origin"), true);
+    }
+    // Phone assistant (fonio) live quote — same pricing engine as the website and WhatsApp.
+    if ((url.pathname === "/voice/quote" || url.pathname === "/api/voice/quote") && request.method === "POST") {
+      return handleVoiceQuote(request, env);
     }
     if (url.pathname === "/ads/spend-report" && request.method === "POST") {
       return handleAdsSpendReport(request, env);
