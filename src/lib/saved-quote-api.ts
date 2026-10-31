@@ -1,5 +1,6 @@
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import type {
+  SavedQuoteHeldPricePublic,
   SavedQuoteJourneySnapshot,
   SavedQuotePricingSnapshot,
   SavedQuotePublicSummary,
@@ -30,6 +31,9 @@ export type SaveQuoteResult = {
   emailSent: boolean;
   emailError?: string;
   quoteUrl: string;
+  /** True when a fixed-price booking link is held (journey had a pickup date and time). */
+  priceHeld?: boolean;
+  heldPrice?: SavedQuoteHeldPricePublic;
   quote: SavedQuotePublicSummary;
 };
 

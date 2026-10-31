@@ -13,6 +13,7 @@ import {
   computeSavedQuoteExpiresAt,
   formatSavedQuoteAmount,
   isSavedQuoteExpired,
+  type SavedQuoteHeldPrice,
   type SavedQuoteJourneySnapshot,
   type SavedQuotePricingSnapshot,
   type SavedQuoteRecord,
@@ -75,6 +76,7 @@ export async function createSavedQuote(
     customerEmail: string;
     journey: SavedQuoteJourneySnapshot;
     pricing: SavedQuotePricingSnapshot;
+    heldPrice?: SavedQuoteHeldPrice;
   },
 ): Promise<SavedQuoteRecord> {
   const now = new Date();
@@ -100,6 +102,7 @@ export async function createSavedQuote(
     status: "saved",
     createdAt,
     expiresAt: computeSavedQuoteExpiresAt(now, input.validityDays),
+    ...(input.heldPrice ? { heldPrice: input.heldPrice } : {}),
   };
 
   await saveSavedQuoteRecord(store, record);

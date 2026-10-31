@@ -2,7 +2,7 @@
 import { useEffect, useId, useState } from "react";
 import QuoteActionDialog from "@/components/QuoteActionDialog";
 import { saveQuote, type SaveQuoteResult } from "@/lib/saved-quote-api";
-import { savedQuoteWhatsAppUrl } from "@/lib/saved-quote-share";
+import { saveQuoteIntroCopy, savedQuoteWhatsAppUrl } from "@/lib/saved-quote-share";
 import type { BuildSaveQuotePayloadResult } from "@/lib/save-quote-payload";
 import type { SaveQuoteSettings } from "../../shared/save-quote-settings";
 export function saveQuoteSubmitErrorMessage(err: unknown): string {
@@ -51,11 +51,14 @@ export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow,
   }
   return <QuoteActionDialog title="Save My Quote" titleId="save-quote-title" onClose={close} closeDisabled={busy}>
     <div className="space-y-4 text-sm text-white">
-      <p>Retrieve your quote for {settings.validityDays} days. Your fare will be recalculated before booking. No obligation to book.</p>
+      <p>{saveQuoteIntroCopy(result, settings.validityDays)}</p>
       {result ? <>
         <p role="status">{result.emailSent ? `Your quote has been emailed to ${result.email}.` : shareUrl ? "Your quote is saved. Open WhatsApp, choose a recipient and send it yourself." : "Your quote is saved, but the email could not be sent. Keep your secure link below."}</p>
-        <p className="break-words">Reference: {result.reference}<br/>Original fare: {result.amountLabel}<br/>Retrieve until: {result.expiresAtLabel}</p>
+        {result.heldPrice
+          ? <p className="break-words">Reference: {result.reference}<br/>Fixed price: {result.heldPrice.amountLabel}<br/>Price held until: {result.heldPrice.heldUntilLabel}</p>
+          : <p className="break-words">Reference: {result.reference}<br/>Original fare: {result.amountLabel}<br/>Retrieve until: {result.expiresAtLabel}</p>}
         {shareUrl && <a className="btn-primary block w-full text-center" href={shareUrl} target="_blank" rel="noopener noreferrer">Open WhatsApp to Share</a>}
+        {result.heldPrice && <a className={`${shareUrl ? "btn-secondary" : "btn-primary"} block w-full text-center`} href={result.heldPrice.bookingUrl} referrerPolicy="no-referrer">Book now at {result.heldPrice.amountLabel}</a>}
         <a className="btn-secondary block w-full text-center" href={result.quoteUrl} referrerPolicy="no-referrer">Return to My Quote</a>
         {settings.emailEnabled && shareUrl && <button type="button" className="btn-secondary w-full" onClick={() => { setResult(null); setShareUrl(""); }}>Email My Quote instead</button>}
         <button type="button" className="btn-secondary w-full" onClick={() => { close(); onBookNow(); }}>Continue to Booking</button>

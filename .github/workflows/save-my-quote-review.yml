@@ -26,6 +26,7 @@ jobs:
       - run: node --import tsx scripts/check-save-my-quote.ts
       - run: node --import tsx scripts/check-saved-quote.ts
       - run: node --import tsx scripts/check-saved-quote-booking-suppression.ts
+      - run: node --import tsx scripts/check-saved-quote-held-price.ts
       - run: npm ci --prefix workers/addresses
       - run: npm --prefix workers/addresses run build
       - run: npm run lint
