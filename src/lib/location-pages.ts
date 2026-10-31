@@ -79,9 +79,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "Belfast International Airport",
     shortName: "Belfast International",
     title: "Belfast International Airport Taxi & Transfers",
-    seoTitle: "Belfast International Airport Taxi | Fixed Price, 5★ Rated",
+    seoTitle: "Belfast International Airport Taxi (Aldergrove) | Fixed Price, 5★",
     metaDescription:
-      "Pre-book your Belfast International (Aldergrove) taxi. Fixed price incl. airport charges, flight monitoring, 60 min free waiting. Rated 5★ on Google.",
+      "Taxi to or from Belfast International Airport (Aldergrove), pre-booked at a fixed price. Airport charges included, flight tracking, 60 mins free waiting. 5★.",
     intro:
       `Book a taxi to or from Belfast International Airport (BFS), also known as Aldergrove. We collect from homes and hotels in Belfast, Newtownabbey, Antrim, Lisburn and the surrounding towns, and provide airport pickups for the journey home. Enter your addresses, passengers and suitcases for a fixed-price online quote, then add your travel date and time when booking. Applicable airport access charges are included in the quoted total. Choose a car or 7 Seater Minibus when available. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
@@ -155,6 +155,21 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
           "Yes. Booking is online 24/7 and we run early-morning and late-night airport transfers. We will suggest a pickup time that leaves enough margin for the M2/M22 corridor and your airline's check-in.",
       },
       {
+        question: "How long is a taxi from Belfast International Airport to Belfast city centre?",
+        answer:
+          "Around 30 minutes in normal traffic, via the A57 and M2. Allow longer at morning and evening peak times. Your fixed price does not change if the journey takes longer.",
+      },
+      {
+        question: "Do I need to queue at the taxi rank?",
+        answer:
+          "No. Ours is a pre-booked private transfer, not the airport taxi rank. Your driver is booked for your flight and meets you at the collection point in your booking confirmation, so there is no queue and no meter.",
+      },
+      {
+        question: "Can I get a taxi from Belfast International to Dublin Airport or Derry?",
+        answer:
+          "Yes. We run long-distance transfers across Northern Ireland and the whole of Ireland, including Belfast International to Dublin Airport, City of Derry Airport and the North Coast. Enter both places in the quote box for a fixed price.",
+      },
+      {
         question: "Belfast International or Belfast City Airport — which is which?",
         answer:
           "Belfast International (BFS, Aldergrove) is in County Antrim, north-west of the city, and handles most holiday flights. George Best Belfast City Airport (BHD) is beside the harbour, close to the city centre. Check your ticket for the airport code — we run fixed-price taxis to both.",
@@ -167,9 +182,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "George Best Belfast City Airport",
     shortName: "Belfast City Airport",
     title: "Belfast City Airport Taxi & Transfers",
-    seoTitle: "Belfast City Airport Taxi | George Best (BHD) | 5★ Rated",
+    seoTitle: "City Airport Taxi Belfast (George Best BHD) | Fixed Price, 5★",
     metaDescription:
-      "Pre-book your George Best Belfast City Airport taxi. Fixed price incl. airport charges, flight monitoring, 60 min free waiting. Rated 5★ on Google.",
+      "Belfast City Airport taxi (George Best, BHD), pre-booked at a fixed price. Airport charges included, flight tracking, 60 mins free waiting. Rated 5★ on Google.",
     intro:
       `Book a taxi to or from George Best Belfast City Airport (BHD), close to Belfast city centre and the Titanic Quarter. We collect from homes and hotels in Belfast, Holywood, Bangor, Lisburn and the surrounding towns, with airport pickups for returning travellers. Enter your journey details for a fixed-price online quote with applicable airport access charges included. The Sydenham Bypass is the usual airport approach, so allow extra time during peak traffic. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
@@ -244,6 +259,16 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
           "Yes. Airport-to-airport transfers between BHD and BFS can be quoted and booked online like any other journey — enter one airport as the pickup and the other as the drop-off.",
       },
       {
+        question: "How long is a taxi from Belfast City Airport to the city centre?",
+        answer:
+          "Around 15 minutes to most city-centre and Titanic Quarter hotels in normal traffic, via the Sydenham Bypass. Allow longer at peak times — your fixed price stays the same.",
+      },
+      {
+        question: "Do you do City Airport taxis from further away, like Coleraine or the North Coast?",
+        answer:
+          "Yes. We cover the whole of Northern Ireland, including Coleraine, Portrush, Ballymena and Newry to and from Belfast City Airport. Longer journeys are priced the same way — enter your address for a fixed fare.",
+      },
+      {
         question: "Belfast City or Belfast International Airport — which is which?",
         answer:
           "George Best Belfast City Airport (BHD) is beside the harbour, close to the city centre and Titanic Quarter. Belfast International (BFS, Aldergrove) is in County Antrim, north-west of the city. Check your ticket for the airport code — we run fixed-price taxis to both.",
@@ -256,9 +281,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "Dublin Airport",
     shortName: "Dublin Airport",
     title: "Dublin Airport Transfers to & from Northern Ireland",
-    seoTitle: "Dublin Airport Taxi to & from Northern Ireland | Fixed Price",
+    seoTitle: "Taxi to Dublin Airport from Belfast & NI | Fixed Price, Tolls Incl.",
     metaDescription:
-      "Dublin Airport taxi to or from Northern Ireland: private, door-to-door transfers from Belfast, Bangor, Lisburn and NI towns. Fixed price, tolls included.",
+      "Private taxi between Dublin Airport and Belfast or anywhere in Northern Ireland. Door-to-door, fixed price, tolls included, flight tracking. Rated 5★ on Google.",
     intro:
       `Pre-book a private transfer to or from Dublin Airport (DUB), with Belfast, Bangor, Lisburn and surrounding towns in our Northern Ireland service area. Choose a departure transfer from your home or hotel to the airport, or an arrival collection from Dublin Airport to your Northern Ireland address. Tell us whether you need Terminal 1 or Terminal 2 when known. Enter your journey details for a fixed-price quote with applicable tolls included. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
@@ -300,6 +325,38 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Whiteabbey",
       "Northern Ireland",
       "Dublin Airport",
+    ],
+    faqs: [
+      {
+        question: "Can I get a taxi from Dublin Airport to Belfast?",
+        answer:
+          "Yes. We collect from Dublin Airport Terminal 1 or Terminal 2 and drive you door to door to Belfast or anywhere in Northern Ireland. Book online at a fixed price and add your flight number so we can track your arrival.",
+      },
+      {
+        question: "How much is a taxi from Belfast to Dublin Airport?",
+        answer:
+          "Every Dublin Airport transfer is priced from your exact address, so enter your pickup, passengers and suitcases in the quote box for a fixed fare. M1 tolls and the applicable Dublin Airport charges are already included, and the price does not change with traffic.",
+      },
+      {
+        question: "How long does the journey take?",
+        answer:
+          "Around two hours between Belfast and Dublin Airport in normal traffic, via the A1 and M1. For a departure, we will suggest a pickup time that leaves enough margin for check-in and security.",
+      },
+      {
+        question: "What if my flight into Dublin is delayed?",
+        answer:
+          "Add your flight number when you book. We track your flight and adjust the collection time, and airport pickups include up to 60 minutes' complimentary waiting.",
+      },
+      {
+        question: "Do you go to Dublin Airport from towns outside Belfast?",
+        answer:
+          "Yes — including Lisburn, Bangor, Newry, Newtownabbey, Antrim, Ballymena and the rest of Northern Ireland. Enter your town and street in the quote box for your fixed price.",
+      },
+      {
+        question: "Is there a discount for a return trip?",
+        answer:
+          "Yes. Book your outward and return journeys together and get 5% off the combined journey fare (fixed charges excluded).",
+      },
     ],
   },
   {
