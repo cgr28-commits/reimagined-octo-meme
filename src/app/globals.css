@@ -2098,30 +2098,25 @@ html:has(.cookie-consent-banner) {
   .quote-flow [data-quote-result-card] [data-quote-changing-info] { animation: none; }
 }
 
-/* Desktop: the Complete your booking screen fits a laptop screen without scrolling —
-   journey/contact details on the left, summary and payment on the right.
-   Mobile and tablet are untouched. */
+/* Desktop: on Complete your booking the boxes to fill in fit a laptop screen (same width
+   as the quote tool); the summary and payment follow below and the page scrolls to them
+   once the boxes are filled. Mobile and tablet are untouched. */
 @media (min-width: 1024px) {
-  .homepage-hero-layout:has(#step2-travel-details) { grid-template-columns: minmax(0, 1fr); }
-  .homepage-hero-quote:has(#step2-travel-details) { max-width: 64rem; width: 100%; margin-inline: auto; }
-  .quote-flow:has(#step2-travel-details) { max-width: 62rem; width: 100%; margin-inline: auto; padding: 0.6rem 1.5rem 0.75rem; }
+  .quote-flow:has(#step2-travel-details) { padding: 0.6rem 1.25rem 0.75rem; }
   .quote-flow:has(#step2-travel-details) > div:first-child {
     display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.4rem;
   }
   .quote-flow:has(#step2-travel-details) > div:first-child h2 { font-size: 1rem; }
   .quote-flow:has(#step2-travel-details) > div:first-child [data-back-to-quote] { margin-top: 0; }
 
-  #quoteForm:has(> #step2-travel-details) { columns: 2; column-gap: 1.75rem; }
-  #quoteForm:has(> #step2-travel-details) > * { break-inside: avoid; }
   #quoteForm:has(> #step2-travel-details) > [data-back-to-quote] { display: none; }
   #step2-travel-details { display: contents; }
   #step2-travel-details > * { break-inside: avoid; margin-top: 0 !important; margin-bottom: 0.6rem; }
   #step2-travel-details > h2[data-booking-nav-heading] {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
-  #step2-journey-summary { break-before: column; }
 
-  /* Left column: smaller fields, details two-up. */
+  /* Smaller fields, details two-up. */
   #step2-travel-details [data-quote-schedule] p.min-h-\[1\.1rem\] { min-height: 0; }
   #step2-travel-details input.quote-text-input:not([type="checkbox"]),
   #step2-travel-details .quote-datetime-shell,
@@ -2136,7 +2131,7 @@ html:has(.cookie-consent-banner) {
   #step3-customer-details #child-seat-availability,
   #step3-customer-details p.mt-1\.5 { margin-top: 0.3rem; font-size: 0.68rem; line-height: 1.3; }
 
-  /* Right column: summary and payment, tightened. */
+  /* Summary and payment, tightened. */
   #step2-journey-summary > * { padding-top: 0.6rem; padding-bottom: 0.55rem; }
   #step2-journey-summary > * > p.mt-1 { margin-top: 0.15rem; }
   #step2-journey-summary [data-checkout-summary-controls] { margin-top: 0.15rem; }
@@ -2185,6 +2180,4 @@ html:has(.cookie-consent-banner) {
   #step3-customer-details [data-booking-meet-greet] h3 + p { display: inline; margin-left: 0.5rem; color: rgb(52 211 153); }
   #step3-customer-details [data-booking-meet-greet] h3 + p::before { content: "· "; }
   #step3-customer-details [data-booking-meet-greet] h3 + p + p { margin-top: 0.2rem; }
-  #step3-payment-actions > div:has(> .btn-pay) > p.text-xs.leading-relaxed:first-child { display: none; }
-  #step3-payment-actions > div:has(> .btn-pay) > .btn-pay { margin-top: 0 !important; }
 }

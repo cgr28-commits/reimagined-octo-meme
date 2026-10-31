@@ -9,7 +9,7 @@ import { airportVisitKey, listTerminalAccessVisits, type TerminalAccessChoices }
 import TerminalAccessOptions from "@/components/TerminalAccessOptions";
 
 
-import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type FocusEvent as ReactFocusEvent } from "react";
 import { flushSync } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import HomepageQuoteFields from "@/components/HomepageQuoteFields";
@@ -1353,6 +1353,43 @@ function QuoteCard({
     ((isAirportTrip && !isFromAirport) ||
       (isA2AFlow && Boolean(dropoffAirportCode)) ||
       journeyKind === "address-to-airport");
+  /**
+   * Desktop only: once the customer has filled the last box on Complete your booking
+   * (email, or the flight number when one is needed) and moves on, glide down to the
+   * journey summary and the Pay button. Happens once per visit to the booking step.
+   */
+  const checkoutBoxesComplete =
+    quoteStep >= 2 &&
+    Boolean(customerName.trim()) &&
+    isValidMobileNumber(customerMobile) &&
+    isValidEmailAddress(customerEmail) &&
+    (!needsOutboundFlightNumber || Boolean(goingFlightNumber.trim())) &&
+    (!needsReturnCollectionFlightNumber || Boolean(collectionFlightNumber.trim()));
+  const lastCheckoutBoxId = needsReturnCollectionFlightNumber
+    ? "collectionFlightNumber"
+    : needsOutboundFlightNumber
+      ? "goingFlightNumber"
+      : "email";
+  const checkoutAutoScrolledRef = useRef(false);
+  useEffect(() => {
+    if (quoteStep < 2) checkoutAutoScrolledRef.current = false;
+  }, [quoteStep]);
+  function scrollDesktopCheckoutToSummary() {
+    if (checkoutAutoScrolledRef.current || typeof window === "undefined") return;
+    if (!window.matchMedia("(min-width: 1024px)").matches) return;
+    const target = step2JourneySummaryRef.current;
+    if (!target) return;
+    checkoutAutoScrolledRef.current = true;
+    const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+    const top = target.getBoundingClientRect().top + window.scrollY - Math.max(0, headerBottom) - 12;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top, behavior: reduceMotion ? "auto" : "smooth" });
+  }
+  function handleCheckoutBoxBlur(event: ReactFocusEvent<HTMLElement>) {
+    if (!checkoutBoxesComplete) return;
+    if ((event.target as HTMLElement | null)?.id !== lastCheckoutBoxId) return;
+    window.setTimeout(scrollDesktopCheckoutToSummary, 150);
+  }
   /** Airport fee wording applies to classic airport trips and A2A legs that touch an airport. */
   const isAirportLegForInclusions =
     isAirportTrip ||
@@ -6701,6 +6738,7 @@ function QuoteCard({
         <div
           id="step2-travel-details"
           ref={step2TravelDetailsRef}
+          onBlurCapture={handleCheckoutBoxBlur}
           className="scroll-mt-44 space-y-3 md:scroll-mt-28"
         >
           <h2
