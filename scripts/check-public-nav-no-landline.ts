@@ -46,8 +46,8 @@ assert.match(data, /whatsappUsername:\s*"belfasttaxi"/);
 
 assert.doesNotMatch(mobileNav, /tel:/);
 assert.doesNotMatch(mobileNav, /Call \{SITE\.landlineDisplay\}/);
-assert.doesNotMatch(mobileNav, /028 9602 2952/);
-assert.doesNotMatch(mobileNav, /02896022952/);
+assert.doesNotMatch(mobileNav, /07549 815538/);
+assert.doesNotMatch(mobileNav, /07549 815538/);
 assert.doesNotMatch(header, /href=\{`tel:\$\{SITE\.landline\}`\}/);
 assert.doesNotMatch(header, /Call \{SITE\.landlineDisplay\}/);
 
@@ -62,7 +62,7 @@ console.log("OK  mobile + desktop nav keep Quote / WhatsApp / Contact / Manage B
 
 assert.match(footer, /tel:\$\{SITE\.landline\}/);
 assert.match(footer, /SITE\.landlineDisplay/);
-assert.match(footer, /Business line/);
+assert.match(footer, /Call or WhatsApp/);
 assert.doesNotMatch(footer, /Call us|Call \{SITE\.landlineDisplay\}/);
 assert.match(footer, /WhatsApp @\{SITE\.whatsappUsername\}/);
 assert.match(footer, /SITE\.email/);
@@ -70,7 +70,7 @@ console.log("OK  footer has email, WhatsApp, and a quiet business line");
 
 assert.match(contact, /tel:\$\{SITE\.landline\}/);
 assert.match(contact, /SITE\.landlineDisplay/);
-assert.match(contact, /Business line/);
+assert.match(contact, /Call or WhatsApp/);
 assert.match(contact, /Get a quote/);
 assert.match(contact, /whatsAppChatUrl\(\)/);
 assert.match(contact, /@\{SITE\.whatsappUsername\}/);
@@ -78,7 +78,7 @@ assert.doesNotMatch(contactPage, /Call \$\{SITE\.landlineDisplay\}/);
 console.log("OK  Contact page keeps quote + WhatsApp, and shows the business line");
 
 assert.doesNotMatch(quoteHelp, /tel:/);
-assert.doesNotMatch(quoteHelp, /landlineDisplay|028 9602 2952/);
+assert.doesNotMatch(quoteHelp, /landlineDisplay|07549 815538/);
 assert.match(quoteHelp, /WhatsApp us/);
 assert.doesNotMatch(holding, /tel:/);
 assert.doesNotMatch(holding, /Call \{SITE\.landlineDisplay\}/);
@@ -86,8 +86,8 @@ assert.match(holding, /WhatsApp @\{SITE\.whatsappUsername\}/);
 assert.doesNotMatch(track, /Or call \{SITE\.landlineDisplay\}/);
 console.log("OK  quote help, holding page, and track page have no landline CTA");
 
-assert.match(data, /landline:\s*"\+442896022952"/);
-assert.match(data, /landlineDisplay:\s*"028 9602 2952"/);
+assert.match(data, /landline:\s*"\+447549815538"/);
+assert.match(data, /landlineDisplay:\s*"07549 815538"/);
 assert.match(terms, /BUSINESS_LEGAL\.phoneDisplay/);
 assert.match(emails, /BUSINESS_PHONE_DISPLAY/);
 console.log("OK  landline remains in site data, legal, and booking emails");

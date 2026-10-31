@@ -44,7 +44,7 @@ try {
     assert.ok(await button.isVisible());
     assert.equal(await button.evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(47, 191, 74)');
     assert.ok((await button.getAttribute('href')).startsWith('https://wa.me/447549815538?'));
-    assert.ok(!(await page.textContent('body')).includes('028 9602 2952'));
+    assert.ok(!(await page.textContent('body')).includes('07549 815538'));
    }
    if(html.includes('class="matni-light"')) {
     assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(255, 255, 255)');

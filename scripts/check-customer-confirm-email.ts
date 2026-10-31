@@ -85,7 +85,7 @@ assert.match(email.html, /#2fbf4a/);
 assert.match(email.html, /Paid in full/);
 assert.match(email.html, /alex@example\.com/);
 assert.match(email.html, /07123456789/);
-assert.match(email.html, /028 9602 2952/);
+assert.match(email.html, /07549 815538/);
 assert.match(email.html, /bookings@myairporttaxini\.co\.uk/);
 assert.doesNotMatch(email.html, /#c9a227/);
 assert.match(email.subject, /Invoice & booking confirmed/);

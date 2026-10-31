@@ -58,7 +58,7 @@ function messageOf(input: AirportPickupReminderInput): string {
 }
 
 function assertCompanyReminder(message: string) {
-  assert.match(message, /028 9602 2952/);
+  assert.match(message, /07549 815538/);
   assert.equal(message.includes(BUSINESS_PHONE_DISPLAY), true);
   assert.equal(message.includes(DRIVER_MOBILE), false);
   assert.equal(message.includes("07700 900999"), false);
@@ -79,7 +79,7 @@ function assertWhatsAppEmail(input: AirportPickupReminderInput, airportName: str
   assert.equal(html.includes(`href="${whatsAppHref}"`), true);
   assert.match(html, /If the button does not open, use this link:/);
   assert.match(html, new RegExp(`href="tel:${BUSINESS_PHONE_TEL.replace("+", "\\+")}"`));
-  assert.match(html, /028 9602 2952/);
+  assert.match(html, /07549 815538/);
   assert.equal(html.includes(DRIVER_MOBILE), false);
   assert.equal(whatsAppDraft.includes(DRIVER_MOBILE), false);
   assert.equal(whatsAppDraft.includes("sarah@example.com"), false);

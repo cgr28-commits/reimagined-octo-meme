@@ -25,7 +25,7 @@ export default function FooterContact() {
       <li>
         <a href={`tel:${SITE.landline}`} className="transition-colors hover:text-emerald">
           <span className="block text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-white/55">
-            Business line
+            Call or WhatsApp
           </span>
           {SITE.landlineDisplay}
         </a>

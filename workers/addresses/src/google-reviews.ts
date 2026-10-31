@@ -23,7 +23,7 @@ const BUSINESS_QUERIES = ["My Airport Taxi NI", "My Airport Taxi NI Newtownabbey
 const NAME_MATCH = /my\s*airport\s*taxi/i;
 const WEBSITE_MATCH = /myairporttaxini\.co\.uk/i;
 /** Business landline and WhatsApp mobile, digits only, national format. */
-const PHONE_DIGITS = ["02896022952", "07549815538"];
+const PHONE_DIGITS = ["07549815538", "02896022952"];
 
 type PlaceHit = {
   id?: string;

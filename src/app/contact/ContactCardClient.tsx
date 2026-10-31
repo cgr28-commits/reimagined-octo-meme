@@ -223,7 +223,7 @@ export default function ContactCardClient() {
               </ActionIcon>
               <span className="min-w-0">
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
-                  Business line
+                  Call or WhatsApp
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">{SITE.landlineDisplay}</span>
               </span>

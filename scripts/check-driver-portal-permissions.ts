@@ -146,7 +146,7 @@ check("Driver on the way email — company voice; no operator or vehicle details
     /Questions\? Email us at bookings@myairporttaxini\.co\.uk or chat with us on WhatsApp\./,
   );
   assert.doesNotMatch(email.text, /028\s*9602\s*2952|tel:/);
-  assert.doesNotMatch(email.html, /028\s*9602\s*2952|tel:\+442896022952/);
+  assert.doesNotMatch(email.html, /028\s*9602\s*2952|tel:\+447549815538/);
   assert.match(email.html, /<a href="https:\/\/wa\.me\/447549815538\?text=[^"]*"[^>]*>Chat with us on WhatsApp<\/a>/);
   assert.match(email.html, /bookings@myairporttaxini\.co\.uk/);
 });
