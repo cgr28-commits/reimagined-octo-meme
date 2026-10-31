@@ -257,7 +257,7 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
           type: "BODY",
           text:
             "Hi {{1}}, thanks for calling My Airport Taxi NI. Your fixed price for {{2}} on {{3}} is {{4}}.\n\n" +
-            "Tap the button below to check your details and book. This price is held for {{5}}.",
+            "This price is held for {{5}}. Tap the button below to check your details and book.",
           example: {
             body_text: [["Sarah", "Belfast International Airport to Bangor", "Fri 20 Nov at 14:30", "£87", "24 hours"]],
           },
