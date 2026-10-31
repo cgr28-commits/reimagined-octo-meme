@@ -2014,3 +2014,34 @@ html:has(.cookie-consent-banner) {
 .homepage-hero #quoteForm [data-homepage-quote-fields] div:has(> div > .address-input[aria-invalid="true"]):not(:focus-within) {
   border-color: #f87171;
 }
+
+
+/* Desktop: the whole quote tool (down to Get My Fixed Price) fits on a laptop screen
+   without scrolling — slimmer header, smaller heading/icons, tighter quote fields.
+   Mobile and tablet are untouched. */
+@media (min-width: 1024px) {
+  header .quote-header-logo { height: 3.5rem; }
+  header .desktop-shell.lg\:grid { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  header .hidden.md\:block > div { padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.75rem; }
+  .homepage-hero { padding-top: 5.5rem; }
+  .homepage-hero-layout { padding-top: 0.75rem; padding-bottom: 1.5rem; row-gap: 0.5rem; }
+  .homepage-hero h1 { font-size: 2.1rem; line-height: 1.1; }
+  .homepage-hero-copy > p { margin-top: 0.35rem; font-size: 0.95rem; line-height: 1.35; max-width: 46rem; white-space: nowrap; }
+  .homepage-hero .hero-benefits-row { margin-top: 0; margin-bottom: 0.6rem; }
+  .homepage-hero .hero-benefit-icon { height: 1.6rem; width: 1.6rem; }
+  .homepage-hero .hero-benefits-row svg { height: 1rem; width: 1rem; }
+  .homepage-hero .hero-benefit-label { font-size: 0.75rem; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child { margin-bottom: 0.35rem; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child h2 { font-size: 1.35rem; line-height: 1.2; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child p { display: none; }
+  /* Labels the layout makes obvious stay available to screen readers. */
+  .homepage-hero [data-homepage-quote-fields] p.form-label.mb-1,
+  .homepage-hero [data-homepage-quote-fields] p.form-label.sm\:not-sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .homepage-hero [data-homepage-quote-fields] button.min-h-11 { min-height: 2.375rem; height: 2.375rem; }
+  .homepage-hero [data-homepage-quote-fields] input.address-input,
+  .homepage-hero [data-homepage-quote-fields] input.quote-datetime-input,
+  .homepage-hero [data-homepage-quote-fields] select { height: 2.375rem; min-height: 2.375rem; line-height: 2.375rem; }
+  .homepage-hero [data-homepage-quote-fields] .btn-primary.min-h-12 { min-height: 2.75rem; }
+}
