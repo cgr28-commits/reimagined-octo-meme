@@ -729,6 +729,11 @@ type QuoteCardProps = {
    * suitable vehicle. This does not change the fare calculation.
    */
   preferMinibus?: boolean;
+  /**
+   * Offer Business Class whatever the route (golf transfers). Otherwise it is only
+   * offered on journeys to or from Dublin Airport.
+   */
+  businessClassAnyRoute?: boolean;
 };
 
 function resolveLandingJourneyIntent(params: {
@@ -779,6 +784,7 @@ function QuoteCard({
   initialPickupPlace = null,
   initialDropoffPlace = null,
   preferMinibus = false,
+  businessClassAnyRoute = false,
 }: QuoteCardProps) {
   preloadQuoteResultVehicleImages();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -819,7 +825,7 @@ function QuoteCard({
   const [publicPricingFailed, setPublicPricingFailed] = useState(false);
   const [publicPricingAttempt, setPublicPricingAttempt] = useState(0);
   const publicMinibusEnabled = publicPricing.minibus.publicEnabled === true;
-  const publicExecutiveEnabled = publicPricing.executive?.publicEnabled !== false;
+  const publicExecutiveSettingEnabled = publicPricing.executive?.publicEnabled !== false;
   const passengerLimit = publicMinibusEnabled
     ? publicMaxPassengers(true)
     : Math.min(Math.max(1, maxPassengers), publicMaxPassengers(false));
@@ -1027,6 +1033,12 @@ function QuoteCard({
     }
     return "";
   });
+  /** Business Class is only offered on Dublin Airport journeys (and golf transfers). */
+  const isDublinAirportJourney = IS_A2A_PRIMARY
+    ? detectAirportCodeFromPlace(pickupPlace) === "DUB" || detectAirportCodeFromPlace(dropoffPlace) === "DUB"
+    : airportCode === "DUB" || intentAirportCode === "DUB";
+  const publicExecutiveEnabled =
+    publicExecutiveSettingEnabled && (businessClassAnyRoute || isDublinAirportJourney);
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
   const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | "help" | null>(null);
   const routeMetricsRef = useRef(routeMetrics);

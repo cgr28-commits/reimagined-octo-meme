@@ -214,7 +214,7 @@ export default function GolfTransfersPage() {
           </div>
         </div>
 
-        <LocationQuoteSection heading="Quote your golf transfer" showStickyQuote={false} />
+        <LocationQuoteSection heading="Quote your golf transfer" showStickyQuote={false} businessClassAnyRoute />
       </main>
       <Footer />
     </>

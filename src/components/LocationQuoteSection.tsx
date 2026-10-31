@@ -16,6 +16,8 @@ type Props = {
   showStickyQuote?: boolean;
   /** Prefer the existing 7 Seater Minibus when it is offered and fits the party. */
   preferMinibus?: boolean;
+  /** Offer Business Class on any route (golf transfers). */
+  businessClassAnyRoute?: boolean;
 };
 
 export default function LocationQuoteSection({
@@ -29,6 +31,7 @@ export default function LocationQuoteSection({
   description = "Fixed prices. No surge pricing. Airport pickups include up to 60 minutes complimentary waiting time.",
   showStickyQuote = true,
   preferMinibus = false,
+  businessClassAnyRoute = false,
 }: Props) {
   return (
     <section
@@ -61,6 +64,7 @@ export default function LocationQuoteSection({
           initialDirection={direction}
           initialAddressHint={addressHint}
           preferMinibus={preferMinibus}
+          businessClassAnyRoute={businessClassAnyRoute}
         />
       </div>
       {showStickyQuote ? <LandingPageStickyQuoteCta /> : null}
