@@ -1387,8 +1387,8 @@ function QuoteCard({
       window.scrollTo(0, endY);
       return;
     }
-    // A slow, gentle glide (about 1.6s) rather than the browser's quick jump.
-    const durationMs = 1600;
+    // A slow, gentle glide (about 2.2s) rather than the browser's quick jump.
+    const durationMs = 2200;
     const startTime = performance.now();
     let cancelled = false;
     const cancel = () => {
@@ -1416,10 +1416,15 @@ function QuoteCard({
       : lastCheckoutBoxId === "goingFlightNumber"
         ? goingFlightLookupStatus
         : null;
-  // Flight number boxes: move on once the flight has been confirmed.
+  // Flight number boxes: move on once the flight has been confirmed (or, if the flight
+  // checker is busy, once that message has shown, since the customer can still continue).
   useEffect(() => {
-    if (!checkoutBoxesComplete || lastFlightLookupStatus !== "verified") return;
-    const timer = window.setTimeout(scrollDesktopCheckoutToSummary, 900);
+    if (!checkoutBoxesComplete) return;
+    if (lastFlightLookupStatus !== "verified" && lastFlightLookupStatus !== "unavailable") return;
+    const timer = window.setTimeout(
+      scrollDesktopCheckoutToSummary,
+      lastFlightLookupStatus === "verified" ? 1000 : 1800,
+    );
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkoutBoxesComplete, lastFlightLookupStatus]);
