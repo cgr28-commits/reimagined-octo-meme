@@ -7778,28 +7778,6 @@ function QuoteCard({
           className="scroll-mt-24 space-y-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
           data-quote-result-actions
         >
-          {liveQuote && !isVehiclePersonalQuote && !isEnquiryOnly && !showsRequestQuoteFlow ? (
-            <a
-              href={whatsAppSendQuoteHref({
-                pickup: pickupAddress,
-                dropoff: dropoffAddress,
-                tripDate,
-                tripTime,
-                returnJourney: journeyMode == null ? null : journeyMode === "return",
-                returnDate,
-                returnTime,
-                passengers: effectivePassengers ?? passengers,
-                suitcases,
-              })}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-quote-send-whatsapp
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#25D366]/60 bg-[#25D366]/10 px-3 py-2 text-center text-sm font-semibold leading-tight text-white"
-            >
-              <QuoteResultActionIcon name="whatsapp" className="h-5 w-5 shrink-0 text-[#25D366]" />
-              <span>Not ready to book? Send this quote to my WhatsApp</span>
-            </a>
-          ) : null}
           <div className="grid grid-cols-4 gap-1.5 max-[340px]:grid-cols-2">
             {mapsHref ? (
               <button
