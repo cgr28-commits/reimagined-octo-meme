@@ -2023,11 +2023,12 @@ html:has(.cookie-consent-banner) {
   header .quote-header-logo { height: 3.5rem; }
   header .desktop-shell.lg\:grid { padding-top: 0.25rem; padding-bottom: 0.25rem; }
   header .hidden.md\:block > div { padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.75rem; }
-  section.homepage-hero { padding-top: 5.5rem; }
-  .homepage-hero .homepage-hero-layout { padding-top: 0.75rem; padding-bottom: 1.5rem; row-gap: 0.5rem; }
-  .homepage-hero h1 { font-size: 2.1rem; line-height: 1.1; }
-  .homepage-hero-copy > p { margin-top: 0.35rem; font-size: 0.95rem; line-height: 1.35; max-width: 46rem; white-space: nowrap; }
-  .homepage-hero .hero-benefits-row { margin-top: 0; margin-bottom: 0.6rem; }
+  section.homepage-hero { padding-top: 5.25rem; }
+  .homepage-hero .homepage-hero-layout { padding-top: 0.6rem; padding-bottom: 1.5rem; row-gap: 0.5rem; }
+  .homepage-hero h1 { font-size: 1.95rem; line-height: 1.1; }
+  .homepage-hero-copy > p { margin-top: 0.25rem; font-size: 0.95rem; line-height: 1.35; max-width: 46rem; white-space: nowrap; }
+  .homepage-hero .hero-benefits-row { margin-top: 0; margin-bottom: 0.4rem; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation] { padding: 0.75rem 1rem; }
   .homepage-hero .hero-benefit-icon { height: 1.6rem; width: 1.6rem; }
   .homepage-hero .hero-benefits-row svg { height: 1rem; width: 1rem; }
   .homepage-hero .hero-benefit-label { font-size: 0.75rem; }
