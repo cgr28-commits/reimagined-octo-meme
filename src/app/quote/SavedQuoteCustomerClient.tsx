@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import QuoteCard from "@/components/QuoteCard";
 import { fetchSavedQuoteByToken, type SavedQuotePublicSummary } from "@/lib/saved-quote-api";
 import type { SelectedPlace } from "@/lib/selected-place";
+import { SAVED_QUOTE_ADD_SCHEDULE_COPY, savedQuoteHasSchedule } from "../../../shared/saved-quote";
 export default function SavedQuoteCustomerClient() {
   const [quote,setQuote] = useState<SavedQuotePublicSummary | null>(null);
   const [error,setError] = useState("");
@@ -35,8 +36,17 @@ export default function SavedQuoteCustomerClient() {
   return <div className="mx-auto max-w-3xl">
     <div className="mb-4 rounded-xl border border-white/20 p-4 text-white">
       <h1 className="text-xl font-bold">Your saved quote</h1>
-      <p className="mt-2 break-words">{quote.reference} · Original fare {quote.amountLabel}</p>
-      <p className="mt-2 text-sm">Retrieve until {quote.expiresAtLabel}. Your fare is recalculated using current prices. Your journey is not booked yet.</p>
+      {quote.heldPrice ? <>
+        <p className="mt-2 break-words">{quote.reference} · Fixed price {quote.heldPrice.amountLabel}</p>
+        <p className="mt-2 text-sm">Your price of {quote.heldPrice.amountLabel} is held until {quote.heldPrice.heldUntilLabel}. Your journey is not booked yet.</p>
+        <a className="btn-primary mt-4 block w-full text-center sm:inline-block sm:w-auto" href={quote.heldPrice.bookingUrl} referrerPolicy="no-referrer">Book at {quote.heldPrice.amountLabel}</a>
+        <p className="mt-3 text-xs text-white/70">Need to change the date, time or other details? Edit your journey below. A changed journey is priced again.</p>
+      </> : <>
+        <p className="mt-2 break-words">{quote.reference} · Original fare {quote.amountLabel}</p>
+        <p className="mt-2 text-sm">{savedQuoteHasSchedule(j)
+          ? `Retrieve until ${quote.expiresAtLabel}. Your fare is recalculated using current prices. Your journey is not booked yet.`
+          : `Retrieve until ${quote.expiresAtLabel}. ${SAVED_QUOTE_ADD_SCHEDULE_COPY} Your journey is not booked yet.`}</p>
+      </>}
     </div>
     <QuoteCard restoredQuote={quote} initialAirportCode={j.airportCode || ""}
       initialDirection={j.isFromAirport ? "from-airport" : "to-airport"}

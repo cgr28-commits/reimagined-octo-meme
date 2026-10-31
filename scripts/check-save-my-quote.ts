@@ -5,9 +5,12 @@ import { getBookingSettings, updateSaveQuoteSettings, updateDepositCashSettings 
 import { DEFAULT_SAVE_QUOTE_SETTINGS, parseSaveQuoteSettings } from '../shared/save-quote-settings';
 import { defaultOwnerPricingSettings } from '../shared/owner-pricing-config';
 import { SAVED_QUOTE_TTL_SECONDS, normalizeSavedQuoteToken, savedQuoteTokenKey, isSavedQuoteExpired } from '../shared/saved-quote';
+import { quickQuoteKey } from '../shared/quick-quote';
 import { savedQuoteWhatsAppUrl } from '../src/lib/saved-quote-share';
 import { SALOON_VEHICLE, ESTATE_VEHICLE } from '../src/lib/vehicle-selection';
 import worker from '../workers/addresses/src/index';
+
+const futureDate=(days:number)=>new Date(Date.now()+days*86400000).toISOString().slice(0,10);
 
 async function main() {
  const data = new Map<string,string>(); const ttls = new Map<string,number>();
@@ -21,7 +24,7 @@ async function main() {
  const env={TRACKING_STORE:store, GOOGLE_PLACES_API_KEY:'mock-google',RESEND_API_KEY:'mock-resend', SITE_ORIGIN:origin};
  const pricing=defaultOwnerPricingSettings();
  data.set('owner:pricing-settings',JSON.stringify(pricing));
- const journey={pickupLabel:'Belfast City Hall, Belfast BT1 5GS, UK', dropoffLabel:'Belfast International Airport', pickupPlaceId:'test-city-hall',dropoffPlaceId:'airport-bfs', pickupLat:0,pickupLng:0,dropoffLat:0,dropoffLng:0, airportCode:'BFS',isAirportTrip:true,isFromAirport:false, tripDate:'2026-12-01',tripTime:'12:00',returnJourney:true,returnDate:'2026-12-05',returnTime:'12:00',passengers:2,suitcases:1,vehicle:ESTATE_VEHICLE,tripLabel:'Airport transfer'};
+ const journey={pickupLabel:'Belfast City Hall, Belfast BT1 5GS, UK', dropoffLabel:'Belfast International Airport', pickupPlaceId:'test-city-hall',dropoffPlaceId:'airport-bfs', pickupLat:0,pickupLng:0,dropoffLat:0,dropoffLng:0, airportCode:'BFS',isAirportTrip:true,isFromAirport:false, tripDate:futureDate(30),tripTime:'12:00',returnJourney:true,returnDate:futureDate(34),returnTime:'12:00',passengers:2,suitcases:1,vehicle:ESTATE_VEHICLE,tripLabel:'Airport transfer'};
  let sends=0; let mail:Record<string,unknown>={}; let failEmail=false;
  const originalFetch=globalThis.fetch;
  globalThis.fetch=async (input,init) => {
@@ -50,7 +53,18 @@ async function main() {
   assert.equal(saved.quote.journey.outboundAirportAccessChoice,'free','missing access choice stays free after saving');
   assert.equal(saved.quote.journey.returnAirportAccessChoice,'free');
   assert.equal(mail.subject,'Your Airport Transfer Quote — My Airport Taxi NI');
-  for(const value of ['7 days','recalculated','Vehicle:','Passengers:','Suitcases:','Return to My Quote']) assert.ok(String(mail.text).includes(value),value);
+  // A dated journey gets a held fixed-price Quick Quote: the email books at exactly that price.
+  assert.equal(saved.priceHeld,true,'dated journey holds its price');
+  assert.equal(saved.heldPrice.amount,saved.amount,'held price is the price shown');
+  assert.equal(saved.heldPrice.amountLabel,`£${saved.amount.toFixed(saved.amount%1===0?0:2)}`,'Quick Quote amount label');
+  assert.match(saved.heldPrice.bookingUrl,/\/book-quote\/\?id=/);
+  assert.ok(Math.abs(Date.parse(saved.heldPrice.heldUntil)-Date.parse(saved.expiresAt))<60000,'held until the saved quote expiry (7 days)');
+  const qq=JSON.parse(data.get(quickQuoteKey(saved.heldPrice.quickQuoteId))!);
+  assert.equal(qq.quotedAmount,saved.amount);assert.equal(qq.expiresAt,saved.heldPrice.heldUntil);assert.equal(qq.createdByOwner,false);
+  for(const value of [`Book now at ${saved.heldPrice.amountLabel}`,saved.heldPrice.bookingUrl,`is held until ${saved.heldPrice.heldUntilLabel}`,saved.quoteUrl,'Vehicle:','Passengers:','Suitcases:']) assert.ok(String(mail.text).includes(value),value);
+  assert.ok(String(mail.html).includes(saved.heldPrice.bookingUrl.replace(/&/g,'&amp;')),'HTML Book now button uses the held link');
+  assert.doesNotMatch(String(mail.text),/recalculated/i);
+  assert.doesNotMatch(String(mail.text)+String(mail.html),/surcharge/i);
   // Charge / saving lines appear only when they apply (no "£0.00" lines).
   assert.doesNotMatch(String(mail.text),/(Airport charges|Return saving) included: £0\.00/);
   assert.equal((Date.parse(saved.expiresAt)-Date.parse(saved.quote.createdAt))/86400000,7);
@@ -64,10 +78,14 @@ async function main() {
     assert.equal(link.hostname,mobile?'wa.me':'web.whatsapp.com');
     assert.equal(link.searchParams.has('phone'),false,'customer chooses recipient');
     assert.ok(link.searchParams.get('text')?.includes(saved.reference));
+    assert.ok(link.searchParams.get('text')?.includes(saved.heldPrice.bookingUrl),'WhatsApp share uses the held booking link');
+    assert.doesNotMatch(link.searchParams.get('text')!,/recalculated|surcharge/i);
   }
   const lookup=await handleGetSavedQuote(new Request(origin+'/saved-quotes/by-token?t='+saved.token),env,origin);
   assert.equal(lookup.status,200);assert.equal(lookup.headers.get('Cache-Control'),'no-store');
-  assert.deepEqual((await lookup.json() as any).quote.journey,saved.quote.journey);
+  const looked=(await lookup.json() as any).quote;
+  assert.deepEqual(looked.journey,saved.quote.journey);
+  assert.equal(looked.heldPrice.bookingUrl,saved.heldPrice.bookingUrl,'lookup returns the held link');
   const before=await buildAuthoritativeSavedQuotePricing({journey,googlePlacesApiKey:'mock-google',pricing});assert.ok(before.ok);
   const changed=structuredClone(pricing);changed.estate.upliftGbp+=10;
   const after=await buildAuthoritativeSavedQuotePricing({journey,googlePlacesApiKey:'mock-google',pricing:changed});assert.ok(after.ok);
@@ -78,14 +96,21 @@ async function main() {
   const pickupFare=await buildAuthoritativeSavedQuotePricing({journey:inbound,googlePlacesApiKey:'mock-google',pricing});assert.ok(pickupFare.ok);
   const meetFare=await buildAuthoritativeSavedQuotePricing({journey:{...inbound,optionalMeetGreetSelected:true},googlePlacesApiKey:'mock-google',pricing});assert.ok(meetFare.ok);
   assert.equal(meetFare.pricing.totalAmount-pickupFare.pricing.totalAmount,pricing.meetGreet.bfsGbp,'saved Meet & Greet uses configured charge exactly once');
+  // No date/time: no held price; the email asks for the date and time instead.
+  const undatedRes=await create({channel:'email',customerEmail:'undated@example.invalid',journey:{...journey,tripDate:'',tripTime:'',returnDate:'',returnTime:''}});
+  assert.equal(undatedRes.status,200,await undatedRes.clone().text());
+  const undated=await undatedRes.json() as any;
+  assert.equal(undated.priceHeld,false);assert.equal(undated.heldPrice,undefined);
+  assert.ok(String(mail.text).includes('Add your date and time to see your fixed price.'));
+  assert.doesNotMatch(String(mail.text),/held until|book-quote|surcharge/i);
   data.set('owner:pricing-settings',JSON.stringify(changed));
   const requote=await worker.fetch(new Request(origin+'/saved-quotes/requote',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify({token:saved.token})}),env as never);
   assert.equal(requote.status,200,await requote.clone().text());
   assert.equal((await requote.json() as any).amount,after.pricing.totalAmount);
   assert.equal(JSON.parse(data.get(savedQuoteTokenKey(saved.token))!).pricing.totalAmount,saved.amount,'original snapshot unchanged');
-  const whatsapp=await create({channel:'whatsapp',journey});assert.equal(whatsapp.status,200);assert.equal(sends,1,'WhatsApp does not send email');
+  const whatsapp=await create({channel:'whatsapp',journey});assert.equal(whatsapp.status,200);assert.equal(sends,2,'WhatsApp does not send email');
   assert.equal((await whatsapp.json() as any).quote.customerEmail,'');
-  const cron=await processSavedQuoteReminders(env);assert.equal(cron.firstReminders+cron.finalReminders,0);assert.equal(sends,1);
+  const cron=await processSavedQuoteReminders(env);assert.equal(cron.firstReminders+cron.finalReminders,0);assert.equal(sends,2);
   failEmail=true;
   const failed=await create({channel:'email',customerEmail:'failure@example.invalid',journey});assert.equal(failed.status,200);
   const failure=await failed.json() as any;assert.equal(failure.emailSent,false);assert.ok(failure.quoteUrl);

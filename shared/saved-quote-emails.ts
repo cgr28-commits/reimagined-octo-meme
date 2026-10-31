@@ -13,9 +13,13 @@ import {
   businessEmailLogoHtml,
 } from "./business-email";
 import {
+  SAVED_QUOTE_ADD_SCHEDULE_COPY,
+  activeSavedQuoteHeldPrice,
   buildSavedQuoteCustomerUrl,
   firstNameFromCustomerName,
   formatSavedQuoteExpiryLabel,
+  savedQuoteHasSchedule,
+  type SavedQuoteHeldPrice,
   type SavedQuoteRecord,
 } from "./saved-quote";
 import { formatUkDateTime } from "./uk-time";
@@ -70,6 +74,49 @@ function journeySummaryHtml(record: SavedQuoteRecord): string {
   );
 }
 
+/**
+ * What the email offers: a held fixed price (book straight away at that price),
+ * or the saved journey link (no date/time given, or no hold available).
+ */
+type SavedQuoteOffer =
+  | { kind: "held"; held: SavedQuoteHeldPrice; heldUntilLabel: string; savedUrl: string }
+  | { kind: "add-schedule"; savedUrl: string }
+  | { kind: "recalculated"; savedUrl: string };
+
+function savedQuoteOffer(record: SavedQuoteRecord, origin: string, now: Date): SavedQuoteOffer {
+  const savedUrl = buildSavedQuoteCustomerUrl(record.token, origin);
+  const held = activeSavedQuoteHeldPrice(record, now);
+  if (held) return { kind: "held", held, heldUntilLabel: formatSavedQuoteExpiryLabel(held.heldUntil), savedUrl };
+  if (!savedQuoteHasSchedule(record.journey)) return { kind: "add-schedule", savedUrl };
+  return { kind: "recalculated", savedUrl };
+}
+
+function offerCta(offer: SavedQuoteOffer, fallbackLabel: string): { url: string; label: string } {
+  if (offer.kind === "held") return { url: offer.held.bookingUrl, label: `Book now at ${offer.held.amountLabel}` };
+  if (offer.kind === "add-schedule") return { url: offer.savedUrl, label: "Add Your Date and Time" };
+  return { url: offer.savedUrl, label: fallbackLabel };
+}
+
+function offerPrice(record: SavedQuoteRecord, offer: SavedQuoteOffer): string {
+  return offer.kind === "held" ? offer.held.amountLabel : record.pricing.amountLabel;
+}
+
+function heldLine(offer: Extract<SavedQuoteOffer, { kind: "held" }>): string {
+  return `Your price of ${offer.held.amountLabel} is held until ${offer.heldUntilLabel}.`;
+}
+
+function changeLinkText(offer: SavedQuoteOffer): string {
+  return offer.kind === "held"
+    ? `\n\nTo change the date, time or other details, view your saved quote (a changed journey is priced again):\n${offer.savedUrl}`
+    : "";
+}
+
+function changeLinkHtml(offer: SavedQuoteOffer): string {
+  return offer.kind === "held"
+    ? `<p style="margin:12px 0 0;font-size:13px;text-align:center;"><a href="${escapeHtml(offer.savedUrl)}" style="color:${NAVY};">View or change your quote</a> (a changed journey is priced again)</p>`
+    : "";
+}
+
 function brandedHtml(input: {
   title: string;
   headline: string;
@@ -77,6 +124,7 @@ function brandedHtml(input: {
   ctaUrl: string;
   ctaLabel: string;
   businessName: string;
+  afterCtaHtml?: string;
 }): string {
   return lightCustomerEmailHtml(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -93,7 +141,7 @@ ${businessEmailLogoHtml()}
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${input.bodyHtml}
 <p style="margin:24px 0 8px;text-align:center;">
 <a href="${escapeHtml(input.ctaUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">${escapeHtml(input.ctaLabel)}</a>
-</p>
+</p>${input.afterCtaHtml ?? ""}
 <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;text-align:center;">Secure card payment powered by SumUp.</p>
 </td></tr>
 <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;color:#64748b;">
@@ -107,28 +155,50 @@ ${businessEmailLogoHtml()}
 
 export function buildSavedQuoteInitialEmail(
   record: SavedQuoteRecord,
-  options?: { origin?: string; businessName?: string },
+  options?: { origin?: string; businessName?: string; now?: Date },
 ): SavedQuoteEmail {
   const businessName = options?.businessName ?? "My Airport Taxi NI";
   const origin = options?.origin ?? BUSINESS_WEBSITE;
-  const url = buildSavedQuoteCustomerUrl(record.token, origin);
+  const offer = savedQuoteOffer(record, origin, options?.now ?? new Date());
+  const cta = offerCta(offer, "Return to My Quote");
   const first = firstNameFromCustomerName(record.customerName);
   const expiry = formatSavedQuoteExpiryLabel(record.expiresAt);
-  const price = record.pricing.amountLabel;
+  const price = offerPrice(record, offer);
+  const days = Math.round((Date.parse(record.expiresAt) - Date.parse(record.createdAt)) / 86400000);
   const subject = "Your Airport Transfer Quote — My Airport Taxi NI";
+
+  const priceIntro =
+    offer.kind === "held" ? "Your fixed price for this journey is:" : "Your airport transfer quote is:";
+  const validity =
+    offer.kind === "held"
+      ? `Price held until:\n${offer.heldUntilLabel}`
+      : `Your quote is valid until:\n${expiry}`;
+  const terms =
+    offer.kind === "held"
+      ? `${heldLine(offer)} No obligation to book. No marketing subscription or follow-up messages.`
+      : offer.kind === "add-schedule"
+        ? `${SAVED_QUOTE_ADD_SCHEDULE_COPY} Your quote can be retrieved for ${days} days. No marketing subscription or follow-up messages.`
+        : `Your quote can be retrieved for ${days} days. The fare will be recalculated before booking and may change. No marketing subscription or follow-up messages.`;
+  const ctaIntro =
+    offer.kind === "held"
+      ? "To book at this price and pay securely, use the link below:"
+      : offer.kind === "add-schedule"
+        ? "To add your date and time and book, use the link below:"
+        : "To complete your booking and pay securely, use the link below:";
 
   const text =
     `Your airport transfer quote is saved\n\n` +
     `Hi ${first},\n\n` +
     `Thanks for requesting a quote from ${businessName}.\n\n` +
-    `Your original airport transfer quote is:\n\n` +
+    `${priceIntro}\n\n` +
     `${price}\n\n` +
     `${journeySummary(record)}\n${quoteDetails(record)}\n\n` +
     `Quote reference:\n${record.reference}\n\n` +
-    `Your quote is valid until:\n${expiry}\n\n` +
-    `Your journey has not yet been booked. Your quote can be retrieved for ${Math.round((Date.parse(record.expiresAt) - Date.parse(record.createdAt)) / 86400000)} days. The fare will be recalculated before booking and may change. No marketing subscription or follow-up messages.\n\n` +
-    `To complete your booking and pay securely, use the link below:\n\n` +
-    `Return to My Quote\n${url}\n\n` +
+    `${validity}\n\n` +
+    `Your journey has not yet been booked. ${terms}\n\n` +
+    `${ctaIntro}\n\n` +
+    `${cta.label}\n${cta.url}` +
+    `${changeLinkText(offer)}\n\n` +
     `Secure card payment powered by SumUp.\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
 
@@ -141,11 +211,14 @@ export function buildSavedQuoteInitialEmail(
       `<p>${journeySummaryHtml(record)}</p>` +
       `<p>${escapeHtml(quoteDetails(record)).replace(/\n/g, "<br/>")}</p>` +
       `<p><strong>Quote reference:</strong> ${escapeHtml(record.reference)}<br/>` +
-      `<strong>Valid until:</strong> ${escapeHtml(expiry)}</p>` +
-      `<p><strong>Your journey has not yet been booked.</strong> Your quote can be retrieved for ${Math.round((Date.parse(record.expiresAt) - Date.parse(record.createdAt)) / 86400000)} days. The fare will be recalculated before booking and may change. No marketing subscription or follow-up messages.</p>`,
-    ctaUrl: url,
-    ctaLabel: "Return to My Quote",
+      (offer.kind === "held"
+        ? `<strong>Price held until:</strong> ${escapeHtml(offer.heldUntilLabel)}</p>`
+        : `<strong>Valid until:</strong> ${escapeHtml(expiry)}</p>`) +
+      `<p><strong>Your journey has not yet been booked.</strong> ${escapeHtml(terms)}</p>`,
+    ctaUrl: cta.url,
+    ctaLabel: cta.label,
     businessName,
+    afterCtaHtml: changeLinkHtml(offer),
   });
 
   return { subject, text, html };
@@ -153,24 +226,33 @@ export function buildSavedQuoteInitialEmail(
 
 export function buildSavedQuoteFirstReminderEmail(
   record: SavedQuoteRecord,
-  options?: { origin?: string; businessName?: string },
+  options?: { origin?: string; businessName?: string; now?: Date },
 ): SavedQuoteEmail {
   const businessName = options?.businessName ?? "My Airport Taxi NI";
   const origin = options?.origin ?? BUSINESS_WEBSITE;
-  const url = buildSavedQuoteCustomerUrl(record.token, origin);
+  const offer = savedQuoteOffer(record, origin, options?.now ?? new Date());
+  const cta = offerCta(offer, "Book This Journey");
   const first = firstNameFromCustomerName(record.customerName);
   const expiry = formatSavedQuoteExpiryLabel(record.expiresAt);
-  const price = record.pricing.amountLabel;
+  const price = offerPrice(record, offer);
   const subject = `Your My Airport Taxi NI quote is still available`;
+  const priceLine = offer.kind === "held" ? `Your fixed price: ${price}` : `Your quote: ${price}`;
+  const status =
+    offer.kind === "held"
+      ? heldLine(offer)
+      : offer.kind === "add-schedule"
+        ? `Your quote is saved until ${expiry}. ${SAVED_QUOTE_ADD_SCHEDULE_COPY}`
+        : `Your quote is saved until ${expiry}.`;
 
   const text =
     `Hi ${first},\n\n` +
     `Just a reminder that your airport transfer quote is still available.\n\n` +
-    `Your fixed price: ${price}\n\n` +
+    `${priceLine}\n\n` +
     `${journeySummary(record)}\n\n` +
-    `Your quote is saved until ${expiry}.\n\n` +
+    `${status}\n\n` +
     `If you’d like to secure your journey, you can continue below:\n\n` +
-    `Book This Journey\n${url}\n\n` +
+    `${cta.label}\n${cta.url}` +
+    `${changeLinkText(offer)}\n\n` +
     `Your journey is not booked until payment has been completed.\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
 
@@ -181,11 +263,12 @@ export function buildSavedQuoteFirstReminderEmail(
       `<p>Just a reminder that your airport transfer quote is still available.</p>` +
       `<p style="font-size:24px;font-weight:bold;color:${NAVY};">${escapeHtml(price)}</p>` +
       `<p>${journeySummaryHtml(record)}</p>` +
-      `<p>Your quote is saved until <strong>${escapeHtml(expiry)}</strong>.</p>` +
+      `<p>${escapeHtml(status)}</p>` +
       `<p>Your journey is not booked until payment has been completed.</p>`,
-    ctaUrl: url,
-    ctaLabel: "Book This Journey",
+    ctaUrl: cta.url,
+    ctaLabel: cta.label,
     businessName,
+    afterCtaHtml: changeLinkHtml(offer),
   });
 
   return { subject, text, html };
@@ -193,24 +276,33 @@ export function buildSavedQuoteFirstReminderEmail(
 
 export function buildSavedQuoteFinalReminderEmail(
   record: SavedQuoteRecord,
-  options?: { origin?: string; businessName?: string },
+  options?: { origin?: string; businessName?: string; now?: Date },
 ): SavedQuoteEmail {
   const businessName = options?.businessName ?? "My Airport Taxi NI";
   const origin = options?.origin ?? BUSINESS_WEBSITE;
-  const url = buildSavedQuoteCustomerUrl(record.token, origin);
+  const offer = savedQuoteOffer(record, origin, options?.now ?? new Date());
+  const cta = offerCta(offer, "Book This Journey");
   const first = firstNameFromCustomerName(record.customerName);
   const expiry = formatSavedQuoteExpiryLabel(record.expiresAt);
-  const price = record.pricing.amountLabel;
+  const price = offerPrice(record, offer);
   const subject = `Your airport transfer quote expires soon`;
+  const priceLine = offer.kind === "held" ? `Fixed price: ${price}` : `Quote: ${price}`;
+  const status =
+    offer.kind === "held"
+      ? heldLine(offer)
+      : offer.kind === "add-schedule"
+        ? `Your saved quote expires on ${expiry}. ${SAVED_QUOTE_ADD_SCHEDULE_COPY}`
+        : `Your saved quote expires on ${expiry}.`;
 
   const text =
     `Hi ${first},\n\n` +
     `Your ${businessName} quote will expire soon.\n\n` +
-    `Fixed price: ${price}\n\n` +
+    `${priceLine}\n\n` +
     `${journeySummary(record)}\n\n` +
-    `Your saved quote expires on:\n${expiry}\n\n` +
+    `${status}\n\n` +
     `If you still need the transfer, you can complete your booking below:\n\n` +
-    `Book This Journey\n${url}\n\n` +
+    `${cta.label}\n${cta.url}` +
+    `${changeLinkText(offer)}\n\n` +
     `After the quote expires, a new quote will be required.\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
 
@@ -221,11 +313,12 @@ export function buildSavedQuoteFinalReminderEmail(
       `<p>Your ${escapeHtml(businessName)} quote will expire soon.</p>` +
       `<p style="font-size:24px;font-weight:bold;color:${NAVY};">${escapeHtml(price)}</p>` +
       `<p>${journeySummaryHtml(record)}</p>` +
-      `<p>Your saved quote expires on <strong>${escapeHtml(expiry)}</strong>.</p>` +
+      `<p>${escapeHtml(status)}</p>` +
       `<p>After the quote expires, a new quote will be required.</p>`,
-    ctaUrl: url,
-    ctaLabel: "Book This Journey",
+    ctaUrl: cta.url,
+    ctaLabel: cta.label,
     businessName,
+    afterCtaHtml: changeLinkHtml(offer),
   });
 
   return { subject, text, html };

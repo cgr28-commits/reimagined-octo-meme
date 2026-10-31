@@ -6,14 +6,26 @@
  * never the quote reference alone, never the price in the URL.
  */
 
+import { parseLondonLocalDateTime } from "./uk-time";
+
 export const SAVED_QUOTE_VALIDITY_DAYS = 7;
 export const SAVED_QUOTE_TTL_SECONDS = 60 * 60 * 24 * 7; // maximum retrieval and retention window
 export const SAVED_QUOTE_FIRST_REMINDER_HOURS = 24;
 export const SAVED_QUOTE_FINAL_REMINDER_DAYS = 5;
+/** Journeys less than this many hours away only get a short price hold (owner rule). */
+export const SAVED_QUOTE_SHORT_NOTICE_HOURS = 24;
+export const SAVED_QUOTE_SHORT_NOTICE_HOLD_SECONDS = 2 * 60 * 60;
+/** Holds shorter than this are not worth offering (pickup is imminent). */
+export const SAVED_QUOTE_MIN_HOLD_SECONDS = 15 * 60;
+/** Customer wording when no pickup date/time was given, so no price is held. */
+export const SAVED_QUOTE_ADD_SCHEDULE_COPY = "Add your date and time to see your fixed price.";
 
 export type SavedQuoteStatus = "saved" | "booked" | "expired";
 
-/** Journey details at save time; fares are always recalculated before booking. */
+/**
+ * Journey details at save time. With a pickup date/time a fixed-price Quick Quote
+ * is held (see SavedQuoteHeldPrice); otherwise the fare is recalculated before booking.
+ */
 export type SavedQuoteJourneySnapshot = {
   pickupLabel: string;
   dropoffLabel: string;
@@ -60,7 +72,7 @@ export type SavedQuoteJourneySnapshot = {
 };
 
 export type SavedQuotePricingSnapshot = {
-  /** Original server-calculated total; recalculated before booking. */
+  /** Original server-calculated total (the held price when heldPrice is set). */
   totalAmount: number;
   outboundAmount?: number;
   returnAmount?: number;
@@ -73,6 +85,21 @@ export type SavedQuotePricingSnapshot = {
   airportChargesGbp?: number;
   returnSavingGbp?: number;
 };
+
+/**
+ * Fixed-price booking link created alongside the saved quote: a Quick Quote priced
+ * with the website engine and held until heldUntil (never past pickup).
+ */
+export type SavedQuoteHeldPrice = {
+  quickQuoteId: string;
+  bookingUrl: string;
+  amount: number;
+  amountLabel: string;
+  /** ISO time the held price (Quick Quote) expires. */
+  heldUntil: string;
+};
+
+export type SavedQuoteHeldPricePublic = SavedQuoteHeldPrice & { heldUntilLabel: string };
 
 export type SavedQuoteRecord = {
   id: string;
@@ -100,6 +127,8 @@ export type SavedQuoteRecord = {
   finalReminderClaimedAt?: string;
   /** Last email send error (not marked sent until success). */
   lastEmailError?: string;
+  /** Fixed-price booking link, when the journey had a pickup date and time. */
+  heldPrice?: SavedQuoteHeldPrice;
 };
 
 /** Public customer-safe view (never includes internal error strings). */
@@ -119,6 +148,8 @@ export type SavedQuotePublicSummary = {
   bookedAt?: string;
   paymentReference?: string;
   bookUrl: string;
+  /** Present only while the held price is still valid. */
+  heldPrice?: SavedQuoteHeldPricePublic;
 };
 
 export function savedQuoteTokenKey(token: string): string {
@@ -274,10 +305,73 @@ export function buildSavedQuoteCustomerUrl(
   return `${base}/quote/#t=${encodeURIComponent(normalizeSavedQuoteToken(token))}`;
 }
 
+/** True when the journey has everything a held price depends on (pickup, and return if any). */
+export function savedQuoteHasSchedule(
+  journey: Pick<SavedQuoteJourneySnapshot, "tripDate" | "tripTime" | "returnJourney" | "returnDate" | "returnTime">,
+): boolean {
+  const filled = (v?: string) => String(v ?? "").trim() !== "";
+  if (!filled(journey.tripDate) || !filled(journey.tripTime)) return false;
+  if (journey.returnJourney && (!filled(journey.returnDate) || !filled(journey.returnTime))) return false;
+  return true;
+}
+
+/**
+ * How long to hold a saved quote's price, in seconds, or null for no hold.
+ * - no pickup date/time (or return date/time on a return) → null
+ * - pickup less than 24h away → 2 hours (owner rule), never past pickup
+ * - otherwise → the saved quote's validity (default 7 days), never past pickup
+ */
+export function computeSavedQuoteHoldSeconds(input: {
+  tripDate?: string;
+  tripTime?: string;
+  returnJourney?: boolean;
+  returnDate?: string;
+  returnTime?: string;
+  validityDays?: number;
+  now?: Date;
+}): number | null {
+  const journey = {
+    tripDate: input.tripDate ?? "",
+    tripTime: input.tripTime ?? "",
+    returnJourney: Boolean(input.returnJourney),
+    returnDate: input.returnDate,
+    returnTime: input.returnTime,
+  };
+  if (!savedQuoteHasSchedule(journey)) return null;
+  const pickup = parseLondonLocalDateTime(journey.tripDate.trim(), journey.tripTime.trim());
+  if (!pickup) return null;
+  const now = input.now ?? new Date();
+  const secondsToPickup = Math.floor((pickup.getTime() - now.getTime()) / 1000);
+  if (secondsToPickup <= 0) return null;
+  const validitySeconds = Math.floor(
+    (Date.parse(computeSavedQuoteExpiresAt(now, input.validityDays ?? SAVED_QUOTE_VALIDITY_DAYS)) - now.getTime()) / 1000,
+  );
+  const cap =
+    secondsToPickup < SAVED_QUOTE_SHORT_NOTICE_HOURS * 60 * 60
+      ? SAVED_QUOTE_SHORT_NOTICE_HOLD_SECONDS
+      : validitySeconds;
+  const seconds = Math.min(cap, secondsToPickup);
+  return seconds >= SAVED_QUOTE_MIN_HOLD_SECONDS ? seconds : null;
+}
+
+/** The held price if it is still valid and the quote is still open. */
+export function activeSavedQuoteHeldPrice(
+  record: Pick<SavedQuoteRecord, "heldPrice" | "status">,
+  now = new Date(),
+): SavedQuoteHeldPrice | undefined {
+  const held = record.heldPrice;
+  if (!held || record.status !== "saved" || !held.bookingUrl) return undefined;
+  const until = Date.parse(held.heldUntil);
+  if (!Number.isFinite(until) || until <= now.getTime()) return undefined;
+  return held;
+}
+
 export function toSavedQuotePublicSummary(
   record: SavedQuoteRecord,
   origin = "https://www.myairporttaxini.co.uk",
+  now = new Date(),
 ): SavedQuotePublicSummary {
+  const held = activeSavedQuoteHeldPrice(record, now);
   return {
     reference: record.reference,
     token: record.token,
@@ -294,6 +388,7 @@ export function toSavedQuotePublicSummary(
     bookedAt: record.bookedAt,
     paymentReference: record.paymentReference,
     bookUrl: buildSavedQuoteCustomerUrl(record.token, origin),
+    ...(held ? { heldPrice: { ...held, heldUntilLabel: formatSavedQuoteExpiryLabel(held.heldUntil) } } : {}),
   };
 }
 

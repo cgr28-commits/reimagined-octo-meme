@@ -4,11 +4,15 @@ import { getReturnJourneySavingGbp } from "../shared/website-fare-breakdown";
 /**
  * Saved Quote HTTP handlers + hourly reminder processor.
  * Persistence: Cloudflare KV (TRACKING_STORE). Emails: existing worker-email stack.
- * The original fare is an audit snapshot; the normal booking flow recalculates it.
+ * With a pickup date/time, a fixed-price Quick Quote is created alongside the saved
+ * quote and held (up to the saved quote's validity, 2 hours under 24h notice, never
+ * past pickup) so the customer can book at exactly the price shown. Without one the
+ * saved fare is an audit snapshot and the normal booking flow recalculates it.
  */
 
 import {
   buildSavedQuoteCustomerUrl,
+  computeSavedQuoteHoldSeconds,
   evaluateSavedQuoteAccess,
   formatSavedQuoteAmount,
   lockSavedQuotePricingFromServer,
@@ -16,10 +20,21 @@ import {
   shouldSendFinalReminder,
   shouldSendFirstReminder,
   toSavedQuotePublicSummary,
+  type SavedQuoteHeldPrice,
   type SavedQuoteJourneySnapshot,
   type SavedQuotePricingSnapshot,
   type SavedQuoteRecord,
 } from "../shared/saved-quote";
+import {
+  formatQuickQuoteAmount,
+  isApprovedQuickQuoteStoredFare,
+  parseQuickQuoteVehicleChoice,
+  roundQuickQuoteGbp,
+  type QuickQuoteRecord,
+} from "../shared/quick-quote";
+import { createPricedQuickQuote } from "./quick-quote-handlers";
+import { saveQuickQuote } from "./quick-quote-store";
+import type { MainQuoteEnv } from "./main-quote-pricing";
 import {
   buildSavedQuoteFinalReminderEmail,
   buildSavedQuoteFirstReminderEmail,
@@ -56,7 +71,7 @@ import { parseTerminalAccessChoices, quoteAirportAccessCharges, quoteOptionalMee
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { suppressSavedQuoteReminderForBookedJourney } from "./saved-quote-booking-match";
 
-export type SavedQuoteEnv = WorkerEmailEnv & {
+export type SavedQuoteEnv = WorkerEmailEnv & NonNullable<MainQuoteEnv> & {
   TRACKING_STORE: KVNamespace;
   SITE_ORIGIN?: string;
   GOOGLE_PLACES_API_KEY?: string;
@@ -337,6 +352,133 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   return { ok: true, pricing, quote };
 }
 
+/**
+ * Whether a saved quote can get a held fixed-price link. Business Class / executive,
+ * minibus and Meet & Greet journeys are not offered by Quick Quotes, so they keep
+ * the recalculated saved-quote flow.
+ */
+export function savedQuoteHoldEligible(journey: SavedQuoteJourneySnapshot): boolean {
+  const vehicle = String(journey.vehicle ?? "");
+  if (isExecutiveVehicle(vehicle) || /business|executive|minibus/i.test(vehicle)) return false;
+  if (journey.optionalMeetGreetSelected) return false;
+  if (journey.outboundAirportAccessChoice === "meet-greet") return false;
+  if (journey.returnJourney && journey.returnAirportAccessChoice === "meet-greet") return false;
+  return true;
+}
+
+/** Quick Quote request body for a saved journey (same shape unfinished-payment uses). */
+export function savedQuoteQuickQuoteBody(
+  journey: SavedQuoteJourneySnapshot,
+  ttlSeconds: number,
+): Record<string, unknown> {
+  const express =
+    journey.outboundAirportAccessChoice === "express" ||
+    (journey.returnJourney && journey.returnAirportAccessChoice === "express");
+  return {
+    pickupAddress: journey.pickupLabel,
+    dropoffAddress: journey.dropoffLabel,
+    ...(journey.pickupPlaceId ? { pickupPlaceId: journey.pickupPlaceId } : {}),
+    ...(journey.dropoffPlaceId ? { dropoffPlaceId: journey.dropoffPlaceId } : {}),
+    airportCode: journey.airportCode ?? null,
+    fromAirport: typeof journey.isFromAirport === "boolean" ? journey.isFromAirport : null,
+    journeyMode: journey.returnJourney ? "return" : "one-way",
+    outboundDate: journey.tripDate,
+    outboundTime: journey.tripTime,
+    returnDate: journey.returnJourney ? journey.returnDate ?? "" : "",
+    returnTime: journey.returnJourney ? journey.returnTime ?? "" : "",
+    passengers: journey.passengers,
+    suitcases: journey.suitcases,
+    childSeatRequired: Boolean(journey.childSeats),
+    flightNumber: journey.flightNumber ?? "",
+    returnFlightNumber: journey.returnFlightNumber ?? "",
+    vehicleChoice: parseQuickQuoteVehicleChoice(journey.vehicle),
+    expressDropOffSelected: express,
+    priceSource: "website-pricing-engine",
+    ttlSeconds,
+  };
+}
+
+/** Largest gap allowed when aligning a Quick Quote to the saved price (pound rounding). */
+export const SAVED_QUOTE_HOLD_ALIGN_MAX_GBP = 1;
+
+/**
+ * The quote card shows whole-pound customer fares (composeWebsiteFareBreakdown) while
+ * Quick Quotes keep pence, so the same journey can be £102.60 vs £103. Align the Quick
+ * Quote's stored fare to the price the customer was shown when the gap is only that
+ * rounding; any larger gap means the journeys differ, so return null (no hold).
+ * Express fee (if any) is kept as the Quick Quote stored it; only the base fare moves.
+ */
+export function alignQuickQuoteToSavedPrice(
+  record: QuickQuoteRecord,
+  savedTotalGbp: number,
+): QuickQuoteRecord | null {
+  const target = roundQuickQuoteGbp(savedTotalGbp);
+  const quoted = roundQuickQuoteGbp(record.quotedAmount);
+  const gap = Math.abs(target - quoted);
+  if (!Number.isFinite(gap) || gap >= SAVED_QUOTE_HOLD_ALIGN_MAX_GBP) return null;
+  if (gap < 0.005) return record;
+  if ((record.discountType ?? "none") !== "none") return null;
+  const calculated = typeof record.calculatedAmount === "number" ? record.calculatedAmount : quoted;
+  const extras = roundQuickQuoteGbp(quoted - calculated);
+  const nextCalculated = roundQuickQuoteGbp(target - extras);
+  if (!isApprovedQuickQuoteStoredFare(nextCalculated)) return null;
+  return {
+    ...record,
+    quotedAmount: target,
+    quotedAmountLabel: formatQuickQuoteAmount(target),
+    calculatedAmount: nextCalculated,
+    calculatedAmountLabel: formatQuickQuoteAmount(nextCalculated),
+  };
+}
+
+/**
+ * Create the held fixed-price booking link for a saved quote, or undefined when the
+ * journey has no date/time, isn't eligible, or the Quick Quote price would differ
+ * from the price the customer was shown (never offer a different held price).
+ */
+async function createSavedQuoteHeldPrice(
+  env: SavedQuoteEnv,
+  journey: SavedQuoteJourneySnapshot,
+  pricing: SavedQuotePricingSnapshot,
+  validityDays: number,
+  now = new Date(),
+): Promise<SavedQuoteHeldPrice | undefined> {
+  const ttlSeconds = computeSavedQuoteHoldSeconds({ ...journey, validityDays, now });
+  if (ttlSeconds == null || !savedQuoteHoldEligible(journey)) return undefined;
+  try {
+    const priced = await createPricedQuickQuote(savedQuoteQuickQuoteBody(journey, ttlSeconds), env, {
+      createdByOwner: false,
+    });
+    if (!priced.ok) {
+      console.warn("[saved-quote] held price not created", { status: priced.status, reason: priced.reason ?? null });
+      return undefined;
+    }
+    const aligned = alignQuickQuoteToSavedPrice(priced.record, pricing.totalAmount);
+    if (!aligned || !aligned.expiresAt) {
+      console.warn(
+        JSON.stringify({
+          event: "saved_quote_held_price_mismatch",
+          savedAmount: pricing.totalAmount,
+          quickQuoteAmount: priced.record.quotedAmount,
+          quickQuoteId: priced.record.id,
+        }),
+      );
+      return undefined;
+    }
+    if (aligned !== priced.record) await saveQuickQuote(env.TRACKING_STORE, aligned);
+    return {
+      quickQuoteId: aligned.id,
+      bookingUrl: priced.bookingUrl,
+      amount: aligned.quotedAmount,
+      amountLabel: aligned.quotedAmountLabel,
+      heldUntil: aligned.expiresAt,
+    };
+  } catch (err) {
+    console.error("[saved-quote] held price failed", err instanceof Error ? err.message : err);
+    return undefined;
+  }
+}
+
 function readClientSubmittedAmount(body: Record<string, unknown>): {
   amount?: number;
   meta?: Record<string, unknown>;
@@ -432,6 +574,8 @@ export async function handleCreateSavedQuote(
     ...(priced.quote.vehicleType ? { vehicle: priced.quote.vehicleType } : {}),
   };
 
+  const heldPrice = await createSavedQuoteHeldPrice(env, journey, pricing, settings.validityDays);
+
   let record: SavedQuoteRecord;
   try {
     record = await createSavedQuote(env.TRACKING_STORE, {
@@ -440,6 +584,7 @@ export async function handleCreateSavedQuote(
       validityDays: settings.validityDays,
       journey,
       pricing,
+      ...(heldPrice ? { heldPrice } : {}),
     });
   } catch (err) {
     console.error("[saved-quote] create failed", err);
@@ -451,6 +596,7 @@ export async function handleCreateSavedQuote(
       event: "saved_quote_created",
       reference: record.reference,
       amount: record.pricing.totalAmount,
+      priceHeld: Boolean(record.heldPrice),
       clientSubmittedAmount: record.pricing.clientSubmittedAmount ?? null,
       mismatch: Boolean(
         record.pricing.pricingMeta &&
@@ -519,6 +665,8 @@ export async function handleCreateSavedQuote(
       emailSent,
       emailError: !emailSent && channel === "email" ? "Email could not be sent. Use your secure link below." : undefined,
       quoteUrl: summary.bookUrl,
+      priceHeld: Boolean(summary.heldPrice),
+      ...(summary.heldPrice ? { heldPrice: summary.heldPrice } : {}),
       quote: summary,
     },
     200,

@@ -191,7 +191,7 @@ export const TERMS_SECTIONS = [
       "Changing a booking does not provide a way to avoid the applicable cancellation policy.",
       "Online amendments are always recalculated using current authoritative pricing. Changing the journey details (for example addresses, passengers, luggage, vehicle, or return) may change the fare. If the new fare is higher, the additional amount must be paid before the change is confirmed. If the new fare is lower, any refund due is processed by My Airport Taxi NI.",
       "Where a change materially alters the journey, including pickup, destination, passengers or luggage, the fare is recalculated the same way.",
-      "A saved quote is not a booking. If you change the date or time on a saved quote before paying, the fare is recalculated using current pricing and the original locked quote price no longer applies.",
+      "A saved quote is not a booking. When a saved quote includes a pickup date and time, you can book at the price shown until the hold time stated in the quote: up to seven days, two hours for journeys less than 24 hours away, and never past the pickup time. If you change the date, time or other journey details before paying, the fare is recalculated using current pricing and the held price no longer applies.",
     ],
   },
   {

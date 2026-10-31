@@ -55,7 +55,7 @@ export const PRIVACY_SECTIONS = [
   {
     title: "Saved quotes",
     content: [
-      "If you use Save My Quote, we retain your journey and original price snapshot until its stated expiry, up to seven days. Email saving also requires your email address. The secure link restores your journey; the fare is recalculated before booking and may change. Saving does not create a booking.",
+      "If you use Save My Quote, we retain your journey and original price snapshot until its stated expiry, up to seven days. Email saving also requires your email address. The secure link restores your journey. With a pickup date and time, we also create a fixed-price booking link held until the time stated in the quote; without one, or if you change the journey, the fare is recalculated before booking and may change. Saving does not create a booking.",
       "We send only the email you request. We do not send saved-quote follow-up messages or subscribe you to marketing. For WhatsApp, you choose the recipient and send the message yourself; their access to the secure link allows them to see the journey.",
       "Mobile numbers are not collected when saving. Limited hashed network and email identifiers are retained for up to one hour to restrict abuse. Keep your secure quote link private.",
     ],
