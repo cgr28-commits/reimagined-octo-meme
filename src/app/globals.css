@@ -1785,6 +1785,12 @@ main {
     margin-inline: auto;
     padding: 1rem;
   }
+  /* Desktop: the four benefit icons sit directly above the quote card, same width. */
+  .homepage-hero .hero-benefits-row {
+    width: 100%;
+    max-width: 44rem;
+    margin-inline: auto;
+  }
   .quote-flow.glass-card[data-quote-presentation] > div:first-child { margin-bottom: 0.5rem; }
   .quote-flow.glass-card[data-quote-presentation] > form > * + * { margin-top: 0.5rem; }
   .quote-flow [data-homepage-quote-scroll] > * + * { margin-top: 0.625rem; }
