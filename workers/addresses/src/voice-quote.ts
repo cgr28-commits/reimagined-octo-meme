@@ -15,7 +15,12 @@ import { sendQuoteLinkWhatsApp, tripWhen, type WhatsAppTemplateEnv } from "./wha
 type Env = Omit<Parameters<typeof createPricedQuickQuote>[1], "TRACKING_STORE"> & { TRACKING_STORE?: KVNamespace };
 
 /** What a phone quote priced, so "send me the link" can only send links this endpoint made. */
-type VoiceQuoteMemo = { amountLabel: string; journeyLabel: string; whenLabel: string; heldFor: string };
+type VoiceQuoteMemo = { amountLabel: string; journeyLabel: string; whenLabel: string; heldFor: string; bookingUrl?: string };
+
+/** Ready-to-send text message with the booking link (fonio "Send SMS" backup to WhatsApp). */
+function smsText(memo: VoiceQuoteMemo, bookingUrl: string): string {
+  return `My Airport Taxi NI: your fixed price for ${memo.journeyLabel} on ${memo.whenLabel} is ${memo.amountLabel}, held for ${memo.heldFor}. Check your details and book here: ${bookingUrl}`;
+}
 const MEMO_TTL_SECONDS = 3 * 60 * 60;
 const memoKey = (id: string) => `voice:quote:${id}`;
 
@@ -87,6 +92,7 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     journeyLabel: `${placeName(draft.pickupAddress)} to ${placeName(draft.dropoffAddress)}${draft.returnJourney ? " (return)" : ""}`,
     whenLabel: tripWhen(draft.outboundDate, draft.outboundTime),
     heldFor: `${linkHours} hours`,
+    bookingUrl: priced.bookingUrl,
   };
   await store.put(memoKey(priced.record.id), JSON.stringify(memo), { expirationTtl: MEMO_TTL_SECONDS });
   return reply({
@@ -98,6 +104,7 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     requestOnly: availability.requestOnly,
     priceHeldHours: linkHours,
     bookingLink: priced.bookingUrl,
+    smsText: smsText(memo, priced.bookingUrl),
     vehicle: priced.record.journey.vehicleType ?? null,
     say: voiceQuoteSay({ amount, draft, vehicle: priced.record.journey.vehicleType, requestOnly: availability.requestOnly, shortNotice }),
   });
@@ -138,5 +145,15 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
     return reply({ ok: true, say: "Done – I've sent the booking link to your WhatsApp. Just tap Book now to check the details and pay." });
   }
   console.log(JSON.stringify({ event: "voice_send_link_failed", reason: sent.reason, phoneSuffix: digits.slice(-4) }));
+  // WhatsApp couldn't send (template not approved yet, or not a WhatsApp number): text it instead.
+  if (memo.bookingUrl) {
+    return reply({
+      ok: false,
+      sendBySms: true,
+      mobile: digits,
+      smsText: smsText(memo, memo.bookingUrl),
+      say: "I'll text you the booking link instead.",
+    });
+  }
   return reply({ ok: false, say: fallback });
 }
