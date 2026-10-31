@@ -1381,14 +1381,54 @@ function QuoteCard({
     if (!target) return;
     checkoutAutoScrolledRef.current = true;
     const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
-    const top = target.getBoundingClientRect().top + window.scrollY - Math.max(0, headerBottom) - 12;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top, behavior: reduceMotion ? "auto" : "smooth" });
+    const startY = window.scrollY;
+    const endY = Math.max(0, target.getBoundingClientRect().top + startY - Math.max(0, headerBottom) - 12);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      window.scrollTo(0, endY);
+      return;
+    }
+    // A slow, gentle glide (about 1.6s) rather than the browser's quick jump.
+    const durationMs = 1600;
+    const startTime = performance.now();
+    let cancelled = false;
+    const cancel = () => {
+      cancelled = true;
+    };
+    window.addEventListener("wheel", cancel, { passive: true, once: true });
+    window.addEventListener("touchstart", cancel, { passive: true, once: true });
+    const step = (now: number) => {
+      if (cancelled) return;
+      const t = Math.min(1, (now - startTime) / durationMs);
+      const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      window.scrollTo(0, startY + (endY - startY) * eased);
+      if (t < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        window.removeEventListener("wheel", cancel);
+        window.removeEventListener("touchstart", cancel);
+      }
+    };
+    window.requestAnimationFrame(step);
   }
+  const lastFlightLookupStatus =
+    lastCheckoutBoxId === "collectionFlightNumber"
+      ? collectionFlightLookupStatus
+      : lastCheckoutBoxId === "goingFlightNumber"
+        ? goingFlightLookupStatus
+        : null;
+  // Flight number boxes: move on once the flight has been confirmed.
+  useEffect(() => {
+    if (!checkoutBoxesComplete || lastFlightLookupStatus !== "verified") return;
+    const timer = window.setTimeout(scrollDesktopCheckoutToSummary, 900);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutBoxesComplete, lastFlightLookupStatus]);
   function handleCheckoutBoxBlur(event: ReactFocusEvent<HTMLElement>) {
     if (!checkoutBoxesComplete) return;
     if ((event.target as HTMLElement | null)?.id !== lastCheckoutBoxId) return;
-    window.setTimeout(scrollDesktopCheckoutToSummary, 150);
+    // While a flight is still being checked, wait for the confirmation instead.
+    if (lastFlightLookupStatus === "loading") return;
+    window.setTimeout(scrollDesktopCheckoutToSummary, 300);
   }
   /** Airport fee wording applies to classic airport trips and A2A legs that touch an airport. */
   const isAirportLegForInclusions =
