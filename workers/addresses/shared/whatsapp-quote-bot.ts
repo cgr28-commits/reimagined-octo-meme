@@ -286,7 +286,23 @@ function findRoutePlaces(text: string): RoutePlace[] {
       if (!clash) places.push({ index, length: m[0].length, airportCode: code });
     }
   }
-  return places.sort((a, b) => a.index - b.index);
+  places.sort((a, b) => a.index - b.index);
+  // One address naming the same place twice ("Belfast International Airport, Airport Rd,
+  // Aldergrove BT29 4AB") is one place, not a trip from the airport to itself.
+  const merged: RoutePlace[] = [];
+  for (const place of places) {
+    const prev = merged[merged.length - 1];
+    const samePlace =
+      prev &&
+      ((prev.airportCode && prev.airportCode === place.airportCode) || (prev.label && prev.label === place.label));
+    const between = prev ? normalised.slice(prev.index + prev.length, place.index) : "";
+    if (samePlace && !/\n|\b(?:to|from|into|then|via|and|drop|pick|destination|return|back)\b/.test(between)) {
+      prev.length = place.index + place.length - prev.index;
+      continue;
+    }
+    merged.push(place);
+  }
+  return merged;
 }
 
 function applyRoutePlace(
@@ -319,8 +335,16 @@ function applyKnownPlaceRoute(
   if (places.length === 0) return result;
   const normalised = normaliseForKnownPlaces(text);
   const before = (place: RoutePlace) => normalised.slice(Math.max(0, place.index - 14), place.index);
-  const saysTo = (place: RoutePlace) => /\b(?:to|into|towards|for|drop(?: off)? at|going to)\s+(?:the\s+)?$/.test(before(place));
-  const saysFrom = (place: RoutePlace) => /\b(?:from|pick(?: me)?(?: up)? (?:at|from)|collect(?: me)? (?:at|from))\s+(?:the\s+)?$/.test(before(place));
+  // "Arriving into / landing at Belfast International" is where we collect them.
+  const saysArriving = (place: RoutePlace) =>
+    /\b(?:arriv(?:e|es|ing)|land(?:s|ing)?|fly(?:ing)? (?:back )?(?:in)?to|flight (?:in)?to|coming (?:back )?in(?:to)?)\s+(?:in|into|at|to)?\s*(?:the\s+)?$/.test(
+      normalised.slice(Math.max(0, place.index - 24), place.index),
+    );
+  const saysTo = (place: RoutePlace) =>
+    !saysArriving(place) && /\b(?:to|into|towards|for|drop(?: off)? at|going to)\s+(?:the\s+)?$/.test(before(place));
+  const saysFrom = (place: RoutePlace) =>
+    saysArriving(place) ||
+    /\b(?:from|pick(?: me)?(?: up)? (?:at|from)|collect(?: me)? (?:at|from))\s+(?:the\s+)?$/.test(before(place));
 
   if (places.length >= 2) {
     const [first, second] = places;
@@ -502,6 +526,37 @@ export function isWhatsAppTownOnlyAddress(value: string | undefined): boolean {
 }
 
 /**
+ * "My drop off is 122D Steeple Road, Antrim", "My destination from the airport would be:
+ * <address>", "Pickup address: 12 Main St": the address after a labelled pickup / drop-off.
+ */
+function applyLabelledAddresses(draft: WhatsAppQuoteDraft, text: string) {
+  const labels: Array<["pickupAddress" | "dropoffAddress", RegExp]> = [
+    ["pickupAddress", /\b(?:pick\s*-?\s*up|collection)(?:\s+(?:address|point|location|place))?(?:\s+(?:is|will be|would be|=))?\s*[:\-]?\s*/gi],
+    [
+      "dropoffAddress",
+      /\b(?:drop\s*-?\s*off|destination)(?:\s+(?:address|point|location|place))?(?:\s+from\s+the\s+airport)?(?:\s+(?:is|will be|would be|=))?\s*[:\-]?\s*/gi,
+    ],
+  ];
+  for (const [field, pattern] of labels) {
+    for (const m of text.matchAll(pattern)) {
+      // Label words only: "is/would be" or a colon must follow, so "pick up time" etc. are skipped.
+      if (!/(?:is|be|=|:|-)\s*$/i.test(m[0])) continue;
+      const after = text.slice((m.index ?? 0) + m[0].length).replace(/^\s+/, "");
+      const value = (after.split(/\n/)[0] ?? "").replace(/[\s.,;!]+$/, "").trim();
+      if (value.length < 3 || value.length > 160 || !looksLikeAddress(value) || NOT_AN_ADDRESS.test(value)) continue;
+      if (/^(?:time|date|at)\b/i.test(value)) continue;
+      // The same street again without the postcode: keep the fuller address we already have.
+      const existing = draft[field];
+      const key = (v: string) => v.toLowerCase().replace(/\broad\b/g, "rd").replace(/\bstreet\b/g, "st").replace(/[^a-z0-9]+/g, " ").trim().split(" ").slice(0, 3).join(" ");
+      if (existing && POSTCODE.test(existing) && !POSTCODE.test(value) && key(existing) === key(value)) break;
+      setAirportSide(draft, field, value);
+      if (field === "dropoffAddress" && draft.pickupAddress && draft.pickupAddress === draft.dropoffAddress) delete draft.pickupAddress;
+      break;
+    }
+  }
+}
+
+/**
  * Merge one customer message into the draft. Returns true when anything changed.
  */
 export function applyCustomerMessage(
@@ -552,6 +607,7 @@ export function applyCustomerMessage(
   // Well-known places ("Grand Central", "the Europa") and "X to Y" without "from".
   applyKnownPlaceRoute(draft, text, awaiting);
   applySimpleRoute(draft, text);
+  applyLabelledAddresses(draft, text);
   for (const field of ["pickupAddress", "dropoffAddress"] as const) {
     // A typed reply that names a known place ("belfast grand central") uses its full address.
     const value = draft[field];
@@ -584,11 +640,18 @@ export function applyCustomerMessage(
     parseRelativeDateWord(text, now).value ??
     parseWeekdayDate(text, now) ??
     parseShortDayMonth(text, now);
+  // "Late tonight (1.40am, so technically Sunday 1st November)" on a one-way trip: the
+  // calendar date is what they mean, not a second (return) date.
+  const oneWay = draft.returnJourney !== true && journeyType !== true;
+  const relativeOutbound = /^(?:today|tonight|tomorrow)$/i.test(String(parsed.outboundDate.raw ?? ""));
+  const calendarDate = oneWay && relativeOutbound && parsed.returnDate.value ? parsed.returnDate.value : null;
   if (returnLegOnly) {
     if (explicitDate) draft.returnDate = explicitDate;
+  } else if (calendarDate) {
+    draft.outboundDate = calendarDate;
   } else {
     if (explicitDate) draft.outboundDate = explicitDate;
-    if (parsed.returnDate.value) draft.returnDate = parsed.returnDate.value;
+    if (parsed.returnDate.value && !oneWay) draft.returnDate = parsed.returnDate.value;
   }
 
   // Times — first clock time is the pickup, a second one on a return is the return pickup.
