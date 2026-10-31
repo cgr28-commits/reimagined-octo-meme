@@ -9,7 +9,7 @@ import { airportVisitKey, listTerminalAccessVisits, type TerminalAccessChoices }
 import TerminalAccessOptions from "@/components/TerminalAccessOptions";
 
 
-import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type FocusEvent as ReactFocusEvent } from "react";
 import { flushSync } from "react-dom";
 import AddressInput from "@/components/AddressInput";
 import HomepageQuoteFields from "@/components/HomepageQuoteFields";
@@ -1353,6 +1353,98 @@ function QuoteCard({
     ((isAirportTrip && !isFromAirport) ||
       (isA2AFlow && Boolean(dropoffAirportCode)) ||
       journeyKind === "address-to-airport");
+  /**
+   * Desktop only: once the customer has filled the last box on Complete your booking
+   * (email, or the flight number when one is needed) and moves on, glide down to the
+   * journey summary and the Pay button. Happens once per visit to the booking step.
+   */
+  const checkoutBoxesComplete =
+    quoteStep >= 2 &&
+    Boolean(customerName.trim()) &&
+    isValidMobileNumber(customerMobile) &&
+    isValidEmailAddress(customerEmail) &&
+    (!needsOutboundFlightNumber || Boolean(goingFlightNumber.trim())) &&
+    (!needsReturnCollectionFlightNumber || Boolean(collectionFlightNumber.trim()));
+  const lastCheckoutBoxId = needsReturnCollectionFlightNumber
+    ? "collectionFlightNumber"
+    : needsOutboundFlightNumber
+      ? "goingFlightNumber"
+      : "email";
+  const checkoutAutoScrolledRef = useRef(false);
+  useEffect(() => {
+    if (quoteStep < 2) checkoutAutoScrolledRef.current = false;
+  }, [quoteStep]);
+  function scrollDesktopCheckoutToSummary() {
+    if (checkoutAutoScrolledRef.current || typeof window === "undefined") return;
+    if (!window.matchMedia("(min-width: 1024px)").matches) return;
+    const target = step2JourneySummaryRef.current;
+    if (!target) return;
+    checkoutAutoScrolledRef.current = true;
+    const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+    const startY = window.scrollY;
+    const endY = Math.max(0, target.getBoundingClientRect().top + startY - Math.max(0, headerBottom) - 12);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      window.scrollTo(0, endY);
+      return;
+    }
+    // A slow, gentle glide (about 2.2s) rather than the browser's quick jump.
+    const durationMs = 2200;
+    const startTime = performance.now();
+    // The site uses smooth scrolling for links; switch it off while we drive the glide
+    // frame by frame, or each step starts its own animation and the page lurches.
+    const root = document.documentElement;
+    const previousScrollBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    let cancelled = false;
+    const finish = () => {
+      root.style.scrollBehavior = previousScrollBehavior;
+      window.removeEventListener("wheel", cancel);
+      window.removeEventListener("touchstart", cancel);
+    };
+    const cancel = () => {
+      cancelled = true;
+      finish();
+    };
+    window.addEventListener("wheel", cancel, { passive: true, once: true });
+    window.addEventListener("touchstart", cancel, { passive: true, once: true });
+    const step = (now: number) => {
+      if (cancelled) return;
+      const t = Math.min(1, (now - startTime) / durationMs);
+      const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      window.scrollTo(0, startY + (endY - startY) * eased);
+      if (t < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        finish();
+      }
+    };
+    window.requestAnimationFrame(step);
+  }
+  const lastFlightLookupStatus =
+    lastCheckoutBoxId === "collectionFlightNumber"
+      ? collectionFlightLookupStatus
+      : lastCheckoutBoxId === "goingFlightNumber"
+        ? goingFlightLookupStatus
+        : null;
+  // Flight number boxes: move on once the flight has been confirmed (or, if the flight
+  // checker is busy, once that message has shown, since the customer can still continue).
+  useEffect(() => {
+    if (!checkoutBoxesComplete) return;
+    if (lastFlightLookupStatus !== "verified" && lastFlightLookupStatus !== "unavailable") return;
+    const timer = window.setTimeout(
+      scrollDesktopCheckoutToSummary,
+      lastFlightLookupStatus === "verified" ? 1000 : 1800,
+    );
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutBoxesComplete, lastFlightLookupStatus]);
+  function handleCheckoutBoxBlur(event: ReactFocusEvent<HTMLElement>) {
+    if (!checkoutBoxesComplete) return;
+    if ((event.target as HTMLElement | null)?.id !== lastCheckoutBoxId) return;
+    // While a flight is still being checked, wait for the confirmation instead.
+    if (lastFlightLookupStatus === "loading") return;
+    window.setTimeout(scrollDesktopCheckoutToSummary, 300);
+  }
   /** Airport fee wording applies to classic airport trips and A2A legs that touch an airport. */
   const isAirportLegForInclusions =
     isAirportTrip ||
@@ -6701,6 +6793,7 @@ function QuoteCard({
         <div
           id="step2-travel-details"
           ref={step2TravelDetailsRef}
+          onBlurCapture={handleCheckoutBoxBlur}
           className="scroll-mt-44 space-y-3 md:scroll-mt-28"
         >
           <h2

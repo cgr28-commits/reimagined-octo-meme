@@ -1785,6 +1785,20 @@ main {
     margin-inline: auto;
     padding: 1rem;
   }
+  /* Desktop: keep the car on the price card a sensible size (it filled the card). */
+  .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
+    height: 9.5rem;
+    max-width: 21rem;
+    width: 100%;
+    margin-inline: auto;
+  }
+  .quote-flow [data-quote-result-art] img { object-fit: contain; }
+  /* Desktop: the four benefit icons sit directly above the quote card, same width. */
+  .homepage-hero .hero-benefits-row {
+    width: 100%;
+    max-width: 44rem;
+    margin-inline: auto;
+  }
   .quote-flow.glass-card[data-quote-presentation] > div:first-child { margin-bottom: 0.5rem; }
   .quote-flow.glass-card[data-quote-presentation] > form > * + * { margin-top: 0.5rem; }
   .quote-flow [data-homepage-quote-scroll] > * + * { margin-top: 0.625rem; }
@@ -1999,4 +2013,176 @@ html:has(.cookie-consent-banner) {
 .homepage-hero #quoteForm [data-homepage-quote-fields] #passenger-luggage-section select[aria-invalid="true"]:not(:focus),
 .homepage-hero #quoteForm [data-homepage-quote-fields] div:has(> div > .address-input[aria-invalid="true"]):not(:focus-within) {
   border-color: #f87171;
+}
+
+
+/* Desktop: the whole quote tool (down to Get My Fixed Price) fits on a laptop screen
+   without scrolling — slimmer header, smaller heading/icons, tighter quote fields.
+   Mobile and tablet are untouched. */
+@media (min-width: 1024px) {
+  header .quote-header-logo { height: 3.5rem; }
+  header .desktop-shell.lg\:grid { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  header .hidden.md\:block > div { padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.75rem; }
+  section.homepage-hero { padding-top: 5.25rem; }
+  .homepage-hero .homepage-hero-layout { padding-top: 0.6rem; padding-bottom: 1.5rem; row-gap: 0.5rem; }
+  .homepage-hero h1 { font-size: 1.95rem; line-height: 1.1; }
+  .homepage-hero-copy > p { margin-top: 0.25rem; font-size: 0.95rem; line-height: 1.35; max-width: 46rem; white-space: nowrap; }
+  .homepage-hero .hero-benefits-row { margin-top: 0; margin-bottom: 0.4rem; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation] { padding: 0.75rem 1rem; }
+  .homepage-hero .hero-benefit-icon { height: 1.6rem; width: 1.6rem; }
+  .homepage-hero .hero-benefits-row svg { height: 1rem; width: 1rem; }
+  .homepage-hero .hero-benefit-label { font-size: 0.75rem; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child { margin-bottom: 0.35rem; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child h2 { font-size: 1.35rem; line-height: 1.2; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child p { display: none; }
+  /* Labels the layout makes obvious stay available to screen readers. */
+  .homepage-hero [data-homepage-quote-fields] p.form-label.mb-1,
+  .homepage-hero [data-homepage-quote-fields] p.form-label.sm\:not-sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .homepage-hero [data-homepage-quote-fields] button.min-h-11 { min-height: 2.375rem; height: 2.375rem; }
+  .homepage-hero [data-homepage-quote-fields] input.address-input,
+  .homepage-hero [data-homepage-quote-fields] input.quote-datetime-input,
+  .homepage-hero [data-homepage-quote-fields] select { height: 2.375rem; min-height: 2.375rem; line-height: 2.375rem; }
+  .homepage-hero [data-homepage-quote-fields] .btn-primary.min-h-12 { min-height: 2.75rem; }
+}
+
+
+/* Desktop: after Get My Fixed Price, vehicle options + price card + Book button +
+   upgrade + actions all fit on a laptop screen (they were ~1,100px tall).
+   Vehicle options become one row of tiles; the price card drops the duplicate
+   vehicle heading/photo and tightens its reassurance lines. Mobile untouched. */
+@media (min-width: 1024px) {
+  .quote-flow [data-quote-vehicle-categories] [role="list"] { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  /* Only vehicles that suit the party: the minibus is hidden when a car fits. */
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-not-needed="true"] { display: none; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] { padding: 0.3rem 0.45rem !important; border-radius: 0.9rem; }
+  /* Each tile: car on top, name and capacity centred underneath, tick in the corner. */
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-layout] { display: flex !important; flex-direction: column; align-items: center; position: relative; gap: 0.1rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] { width: 100%; text-align: center; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-selection-indicator] { position: absolute; top: 0; right: 0; height: 1.1rem !important; width: 1.1rem !important; font-size: 0.65rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 2.1rem; width: 4.5rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span { line-height: 1.15; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex { display: none; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 0.85rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.mt-0\.5 { font-size: 0.72rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-quote-vehicle-options-heading] { margin-bottom: 0.15rem; }
+  .quote-flow [data-quote-result-card] { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+  .quote-flow [data-quote-result-card] [data-quote-vehicle-summary] { display: none; }
+  .quote-flow [data-quote-result-card] > div.mt-1.min-w-0.text-center *:not([data-quote-result-price]):not([data-quote-result-price] *):not(button):not(button *):not([data-quote-assurance]) {
+    font-size: 0.72rem; line-height: 1.25; margin-top: 0;
+  }
+  .quote-flow [data-quote-result-card] [data-quote-result-price] span { font-size: 2rem; line-height: 1.1; }
+  .quote-flow [data-quote-result-card] [data-quote-reassurance] { text-align: center; }
+  .quote-flow [data-quote-result-card] [data-quote-reassurance] p.flex { justify-content: center; }
+  .quote-flow [data-business-class-upgrade] { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+  .quote-flow [data-quote-result-actions] button,
+  .quote-flow [data-quote-result-actions] a { min-height: 2.6rem !important; padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+}
+
+
+/* Desktop: a slower, noticeable change when the customer picks another vehicle. */
+@media (min-width: 1024px) {
+  .quote-flow [data-quote-result-card] [data-quote-changing-info] { animation: quote-vehicle-change-desktop 1100ms ease-out both; }
+  @keyframes quote-vehicle-change-desktop {
+    0% { opacity: 0; transform: translateY(8px); }
+    35% { opacity: 0.35; }
+    100% { opacity: 1; transform: none; }
+  }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] {
+    transition: border-color 450ms ease, box-shadow 450ms ease, background-color 450ms ease;
+  }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-selection-indicator] { transition: background-color 450ms ease, border-color 450ms ease; }
+}
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+  .quote-flow [data-quote-result-card] [data-quote-changing-info] { animation: none; }
+}
+
+/* Desktop: on Complete your booking the boxes to fill in fit a laptop screen (same width
+   as the quote tool); the summary and payment follow below and the page scrolls to them
+   once the boxes are filled. Mobile and tablet are untouched. */
+@media (min-width: 1024px) {
+  .quote-flow:has(#step2-travel-details) { padding: 0.6rem 1.25rem 0.75rem; }
+  .quote-flow:has(#step2-travel-details) > div:first-child {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.4rem;
+  }
+  .quote-flow:has(#step2-travel-details) > div:first-child h2 { font-size: 1rem; }
+  .quote-flow:has(#step2-travel-details) > div:first-child [data-back-to-quote] { margin-top: 0; }
+
+  #quoteForm:has(> #step2-travel-details) > [data-back-to-quote] { display: none; }
+  #step2-travel-details { display: contents; }
+  #step2-travel-details > * { break-inside: avoid; margin-top: 0 !important; margin-bottom: 0.6rem; }
+  #step2-travel-details > h2[data-booking-nav-heading] {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+
+  /* Smaller fields, details two-up. */
+  #step2-travel-details [data-quote-schedule] p.min-h-\[1\.1rem\] { min-height: 0; }
+  #step2-travel-details input.quote-text-input:not([type="checkbox"]),
+  #step2-travel-details .quote-datetime-shell,
+  #step2-travel-details .quote-datetime-shell input { height: 2.5rem; min-height: 2.5rem; }
+  #step2-travel-details .form-label { margin-bottom: 0.2rem; }
+  #step3-customer-details > div.space-y-3 {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 0.9rem; row-gap: 0.55rem; align-items: start;
+  }
+  #step3-customer-details > div.space-y-3 > * { margin-top: 0 !important; }
+  #step3-customer-details [data-child-seat-options] { width: 100%; }
+  #step3-customer-details [data-child-seat-options] button { min-height: 2.5rem; height: 2.5rem; }
+  #step3-customer-details #child-seat-availability,
+  #step3-customer-details p.mt-1\.5 { margin-top: 0.3rem; font-size: 0.68rem; line-height: 1.3; }
+
+  /* Summary and payment, tightened. */
+  #step2-journey-summary > * { padding-top: 0.6rem; padding-bottom: 0.55rem; }
+  #step2-journey-summary > * > p.mt-1 { margin-top: 0.15rem; }
+  #step2-journey-summary [data-checkout-summary-controls] { margin-top: 0.15rem; }
+  #step2-journey-summary [data-checkout-summary-controls] summary,
+  #step2-journey-summary [data-checkout-summary-controls] button { min-height: 0; padding-block: 0.1rem; }
+  #step3-payment-actions { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1rem; align-items: center; margin-top: 0.6rem !important; }
+  #step3-payment-actions > * { grid-column: 1 / -1; margin-top: 0.45rem !important; }
+  #step3-payment-actions > *:first-child { margin-top: 0 !important; }
+  #step3-payment-actions > .sr-only { position: absolute; }
+  #step3-payment-actions > div > * { margin-bottom: 0 !important; }
+  #step3-payment-actions > div > * + * { margin-top: 0.4rem !important; }
+  #step3-payment-actions label { font-size: 0.8rem; line-height: 1.35; }
+  #step3-payment-actions label.min-h-11 { min-height: 0; padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  #step3-payment-actions .btn-pay { min-height: 2.6rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  /* "Email my quote" and "Start over" share one line. */
+  #step3-payment-actions > button.w-full.text-xs { grid-column: 1; width: auto; justify-self: end; }
+  #step3-payment-actions > [data-start-new-quote-controls] { grid-column: 2; justify-self: start; margin-top: 0.4rem !important; }
+  #step3-payment-actions > [data-start-new-quote-controls] button { min-height: 0; font-size: 0.75rem; }
+}
+
+/* Desktop booking screen, airport pickups: flight number heads the right-hand column,
+   Meet & Greet offer spans the details area, both tightened. */
+@media (min-width: 1024px) {
+  #step2-travel-details [data-quote-schedule] p.min-h-\[1\.1rem\] { min-height: 0; font-size: 0.7rem; line-height: 1.1; }
+  #step3-customer-details [data-booking-meet-greet] { grid-column: 1 / -1; order: 10; padding: 0.55rem 0.75rem; }
+  #step3-customer-details [data-booking-meet-greet] p.text-xs { font-size: 0.7rem; line-height: 1.3; }
+  #step3-customer-details [data-booking-meet-greet] label.min-h-11 { min-height: 0; padding-top: 0.3rem; }
+  #step2-travel-details #step2-flight-details { padding: 0.55rem 0.75rem; }
+  #step2-travel-details #step2-flight-details .quote-helper-text { font-size: 0.68rem; line-height: 1.3; margin-top: 0.3rem; }
+  #step2-travel-details #step2-flight-details input { height: 2.5rem; min-height: 2.5rem; }
+  /* Date and time were chosen on the first screen and show in the summary (Edit journey
+     changes them), so the boxes only reappear if something needs fixing. */
+  #step2-travel-details [data-quote-schedule]:not([data-schedule-error]):not(:has(input:invalid)) { display: none; }
+}
+
+/* Desktop booking screen: final tightening so airport pickups with a return fit too. */
+@media (min-width: 1024px) {
+  .quote-flow:has(#step2-travel-details) { padding-bottom: 0.5rem; }
+  #step2-travel-details > * { margin-bottom: 0.5rem; }
+  #step3-customer-details > p[data-booking-nav-heading] { margin-bottom: 0.35rem; }
+  #step3-customer-details > * + * { margin-top: 0.35rem !important; }
+  #step2-travel-details #step2-flight-details > div:first-child:not(.quote-field) { display: none; }
+  #step2-travel-details #step2-flight-details > * + * { margin-top: 0 !important; }
+  #step2-travel-details #step2-flight-details label { margin-bottom: 0.25rem; }
+  #step3-customer-details [data-booking-meet-greet] h3 { display: inline; }
+  #step3-customer-details [data-booking-meet-greet] h3 + p { display: inline; margin-left: 0.5rem; color: rgb(52 211 153); }
+  #step3-customer-details [data-booking-meet-greet] h3 + p::before { content: "· "; }
+  #step3-customer-details [data-booking-meet-greet] h3 + p + p { margin-top: 0.2rem; }
+}
+
+/* Desktop booking screen: the offers tick box lines up under the terms tick box. */
+@media (min-width: 1024px) {
+  #step3-payment-actions > label { padding-left: calc(1rem + 0.8px); padding-right: 1rem; }
 }

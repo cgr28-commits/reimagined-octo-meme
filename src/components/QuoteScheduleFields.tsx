@@ -109,6 +109,7 @@ export default function QuoteScheduleFields({
       id="quote-section-schedule"
       className={`scroll-mt-44 md:scroll-mt-28 ${isQuote ? (homepageInline ? "space-y-0 sm:space-y-3" : "space-y-3") : "space-y-2"}`}
       data-quote-schedule
+      data-schedule-error={tripDateError || (returnJourney && returnDateError) ? true : undefined}
       data-homepage-inline-schedule={homepageInline || undefined}
     >
       {isQuote ? (
