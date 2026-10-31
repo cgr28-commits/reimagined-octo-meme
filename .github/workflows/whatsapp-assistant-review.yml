@@ -11,6 +11,7 @@ on:
       - 'scripts/check-owner-inbox.ts'
       - 'scripts/check-google-ads-offline-feed.ts'
       - 'scripts/check-google-ads-spend.ts'
+      - 'scripts/check-voice-quote.ts'
       - 'scripts/check-google-review-count.ts'
       - 'scripts/generate-whatsapp-knowledge.ts'
       - '.github/workflows/whatsapp-assistant-review.yml'
@@ -41,6 +42,7 @@ jobs:
       - run: node --import tsx scripts/check-owner-inbox.ts
       - run: node --import tsx scripts/check-google-ads-offline-feed.ts
       - run: node --import tsx scripts/check-google-ads-spend.ts
+      - run: node --import tsx scripts/check-voice-quote.ts
       - run: node --import tsx scripts/check-google-review-count.ts
       - run: node --import tsx scripts/check-whatsapp-chat-log.ts
       - run: node --import tsx scripts/check-whatsapp-follow-up.ts
