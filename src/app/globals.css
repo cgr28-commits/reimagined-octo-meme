@@ -2053,7 +2053,9 @@ html:has(.cookie-consent-banner) {
    Vehicle options become one row of tiles; the price card drops the duplicate
    vehicle heading/photo and tightens its reassurance lines. Mobile untouched. */
 @media (min-width: 1024px) {
-  .quote-flow [data-quote-vehicle-categories] [role="list"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .quote-flow [data-quote-vehicle-categories] [role="list"] { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  /* Only vehicles that suit the party: the minibus is hidden when a car fits. */
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-not-needed="true"] { display: none; }
   .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] { padding: 0.3rem 0.45rem !important; border-radius: 0.9rem; }
   /* Each tile: car on top, name and capacity centred underneath, tick in the corner. */
   .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-layout] { display: flex !important; flex-direction: column; align-items: center; position: relative; gap: 0.1rem; }

@@ -146,8 +146,18 @@ export default function QuoteVehicleCategories({
         {options.map((option) => {
           const fits = suitable.some((vehicle) => vehicle === option.vehicle);
           const isSelected = fits && selectedVehicle === option.vehicle;
+          // The minibus is only "needed" when no car fits the party; desktop hides it otherwise.
+          const notNeeded =
+            option.vehicle === MINIBUS_VEHICLE &&
+            !isSelected &&
+            suitable.some((vehicle) => vehicle !== MINIBUS_VEHICLE);
           return (
-            <div key={option.id} role="listitem" className="min-w-0">
+            <div
+              key={option.id}
+              role="listitem"
+              className="min-w-0"
+              data-vehicle-not-needed={notNeeded ? "true" : undefined}
+            >
               <button
                 type="button"
                 data-vehicle-category={option.id}
