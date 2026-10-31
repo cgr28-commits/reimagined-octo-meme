@@ -45,7 +45,8 @@ export type WhatsAppTemplateName =
   | "mat_journey_reminder"
   | "mat_tip_request"
   | "mat_driver_arrived"
-  | "mat_driver_arrived_airport";
+  | "mat_driver_arrived_airport"
+  | "mat_quote_link";
 
 export const WHATSAPP_TEMPLATE_LANGUAGE = "en_GB";
 const SITE = "https://www.myairporttaxini.co.uk";
@@ -242,6 +243,33 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
               text: "Where to go",
               url: `${SITE}/{{1}}`,
               example: [`${SITE}/maps/belfast-international-pick-up-drop-off.jpg`],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      // Sent when the phone assistant (fonio) quotes a caller who asks for the booking link.
+      name: "mat_quote_link",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, thanks for calling My Airport Taxi NI. Your fixed price for {{2}} on {{3}} is {{4}}.\n\n" +
+            "Tap the button below to check your details and book. This price is held for {{5}}.",
+          example: {
+            body_text: [["Sarah", "Belfast International Airport to Bangor", "Fri 20 Nov at 14:30", "£87", "24 hours"]],
+          },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Book now",
+              url: `${SITE}/book-quote/?id={{1}}`,
+              example: [`${SITE}/book-quote/?id=abc123`],
             },
           ],
         },
@@ -780,4 +808,38 @@ export async function handleWhatsAppTemplates(
     "",
   );
   return plain(lines.join("\n"), 200);
+}
+
+export function sendQuoteLinkWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: {
+    quoteId: string;
+    customerName?: string | null;
+    mobile?: string | null;
+    journeyLabel: string;
+    whenLabel: string;
+    amountLabel: string;
+    heldFor: string;
+  },
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_quote_link",
+        jobKey: input.quoteId,
+        mobile: input.mobile,
+        bodyParams: [
+          firstNameOf(input.customerName) || "there",
+          input.journeyLabel,
+          input.whenLabel,
+          input.amountLabel,
+          input.heldFor,
+        ],
+        urlButtonParam: input.quoteId,
+      },
+      fetchImpl,
+    ),
+  );
 }

@@ -109,6 +109,13 @@ export function voiceQuoteDraft(input: VoiceQuoteInput, now = new Date()): Voice
   if (returnJourney && returnDate! < outboundDate!) {
     return { ok: false, missing: ["returnDate"], say: "The return date is before the outward date. What date is the return?" };
   }
+  if (suitcases > 4) {
+    return {
+      ok: false,
+      missing: [],
+      say: "With more than four suitcases we arrange a larger vehicle, so the team will confirm that price for you. Can I take your name and number?",
+    };
+  }
   if (passengers! > 4) {
     return {
       ok: false,
@@ -150,9 +157,24 @@ export function spokenGbp(amount: number): string {
   return pence ? `${pounds} pounds ${pence}` : `${pounds} pounds`;
 }
 
+/** Which car the price is for, in caller terms (Estate when the luggage needs the bigger boot). */
+export function voiceVehicleSentence(vehicleLabel: string | undefined, suitcases: number): string {
+  const label = String(vehicleLabel ?? "");
+  if (/business|executive/i.test(label)) return "That's for our Business Class car.";
+  if (/estate/i.test(label)) {
+    return suitcases >= 3
+      ? `With ${suitcases} suitcases that's for an Estate car, so there's room for the extra luggage.`
+      : "That's for an Estate car, with extra room for luggage.";
+  }
+  if (/minibus|7.?seat/i.test(label)) return "That's for our 7-seater.";
+  return "That's for a Saloon car, which takes up to 2 suitcases and 2 small bags.";
+}
+
 export function voiceQuoteSay(input: {
   amount: number;
   draft: WhatsAppQuoteDraft;
+  /** Vehicle the price is for, from the pricing engine. */
+  vehicle?: string;
   requestOnly: boolean;
   shortNotice: boolean;
 }): string {
@@ -166,6 +188,7 @@ export function voiceQuoteSay(input: {
         : "That includes 10 minutes' free waiting at pickup.";
   const parts = [
     `The fixed price is ${spokenGbp(input.amount)} ${trip}, and that's everything included.`,
+    voiceVehicleSentence(input.vehicle, draft.suitcases ?? 0),
     waiting,
     "You can cancel up to 24 hours before for a full refund.",
   ];

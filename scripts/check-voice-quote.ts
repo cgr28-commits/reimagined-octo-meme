@@ -1,7 +1,7 @@
 /** Phone assistant quotes: journey parsing, spoken replies, routing. */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { spokenGbp, voiceDate, voiceQuoteDraft, voiceQuoteSay, voiceTime } from "../shared/voice-quote";
+import { spokenGbp, voiceDate, voiceQuoteDraft, voiceQuoteSay, voiceTime, voiceVehicleSentence } from "../shared/voice-quote";
 
 const now = new Date("2026-10-31T09:00:00Z"); // Saturday
 
@@ -48,7 +48,11 @@ if (ok.ok) {
   assert.doesNotMatch(home, /60 minutes/);
   assert.match(home, /held for 2 hours/);
 }
-console.log("OK  spoken price: right waiting time, no surcharge wording");
+assert.match(voiceVehicleSentence("Estate Car (1–4 passengers)", 3), /Estate.*extra luggage/);
+assert.match(voiceVehicleSentence("Standard Saloon (1–4 passengers)", 2), /Saloon.*2 suitcases/);
+const cases = voiceQuoteDraft({ pickup: "a", dropoff: "b", date: "2026-11-14", time: "10:00", passengers: 2, suitcases: 6 }, now);
+assert.ok(!cases.ok && /more than four suitcases/.test(cases.say));
+console.log("OK  spoken price: right waiting time, vehicle for the luggage, no surcharge wording");
 
 const worker = readFileSync(new URL("../workers/addresses/src/index.ts", import.meta.url), "utf8");
 assert.match(worker, /"\/voice\/quote"/);
@@ -57,3 +61,13 @@ assert.match(handler, /checkWhatsAppAvailability\(draft, store\)/);
 assert.match(handler, /createPricedQuickQuote\(/);
 assert.match(handler, /consumeQuickQuoteCreateQuota\(/);
 console.log("OK  same availability + pricing path as WhatsApp; rate limited");
+
+const templates = readFileSync(new URL("../workers/addresses/src/whatsapp-templates.ts", import.meta.url), "utf8");
+assert.match(templates, /name: "mat_quote_link"/);
+assert.match(templates, /\/book-quote\/\?id=\{\{1\}\}/);
+assert.match(templates, /export function sendQuoteLinkWhatsApp/);
+assert.match(worker, /"\/voice\/send-link"/);
+assert.match(handler, /memoKey\(priced\.record\.id\)/, "Quote is remembered so only phone-made links can be sent");
+assert.match(handler, /const memo = await store\.get<VoiceQuoteMemo>\(memoKey\(quoteId\)/);
+assert.ok(handler.includes("(\\+?44|0)7\\d{9}"), "UK mobiles only");
+console.log("OK  WhatsApp booking link: phone-made quotes only, once each, UK mobiles");
