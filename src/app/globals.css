@@ -2079,3 +2079,21 @@ html:has(.cookie-consent-banner) {
   .quote-flow [data-quote-result-actions] button,
   .quote-flow [data-quote-result-actions] a { min-height: 2.6rem !important; padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
 }
+
+
+/* Desktop: a slower, noticeable change when the customer picks another vehicle. */
+@media (min-width: 1024px) {
+  .quote-flow [data-quote-result-card] [data-quote-changing-info] { animation: quote-vehicle-change-desktop 1100ms ease-out both; }
+  @keyframes quote-vehicle-change-desktop {
+    0% { opacity: 0; transform: translateY(8px); }
+    35% { opacity: 0.35; }
+    100% { opacity: 1; transform: none; }
+  }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] {
+    transition: border-color 450ms ease, box-shadow 450ms ease, background-color 450ms ease;
+  }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-selection-indicator] { transition: background-color 450ms ease, border-color 450ms ease; }
+}
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+  .quote-flow [data-quote-result-card] [data-quote-changing-info] { animation: none; }
+}
