@@ -13,6 +13,7 @@ on:
       - 'scripts/check-google-ads-spend.ts'
       - 'scripts/check-voice-quote.ts'
       - 'scripts/check-voice-booking.ts'
+      - 'scripts/check-unfinished-payment.ts'
       - 'scripts/check-google-review-count.ts'
       - 'scripts/generate-whatsapp-knowledge.ts'
       - '.github/workflows/whatsapp-assistant-review.yml'
@@ -46,6 +47,7 @@ jobs:
       - run: node --import tsx scripts/check-google-ads-spend.ts
       - run: node --import tsx scripts/check-voice-quote.ts
       - run: node --import tsx scripts/check-voice-booking.ts
+      - run: node --import tsx scripts/check-unfinished-payment.ts
       - run: node --import tsx scripts/check-google-review-count.ts
       - run: node --import tsx scripts/check-whatsapp-chat-log.ts
       - run: node --import tsx scripts/check-whatsapp-follow-up.ts

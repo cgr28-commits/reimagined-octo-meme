@@ -18,6 +18,8 @@ export type PendingCheckoutRecord = {
   attemptEmailSentAt?: string;
   /** Owner notified that SumUp did not complete payment. */
   unsuccessfulEmailSentAt?: string;
+  /** Owner alerted + customer sent a "finish your booking" email (unfinished payment, ~10 min). */
+  unfinishedAlertSentAt?: string;
   /** Short-notice payment token — same booking after Owner approval. */
   shortNoticeToken?: string;
   shortNoticeReference?: string;
@@ -121,7 +123,7 @@ export async function patchPendingCheckout(
   store: KVNamespace,
   checkoutId: string,
   patch: Partial<
-    Pick<PendingCheckoutRecord, "attemptEmailSentAt" | "unsuccessfulEmailSentAt" | "finalizedAt" | "paymentReference">
+    Pick<PendingCheckoutRecord, "attemptEmailSentAt" | "unsuccessfulEmailSentAt" | "unfinishedAlertSentAt" | "finalizedAt" | "paymentReference">
   >,
 ): Promise<PendingCheckoutRecord | null> {
   const existing = await getPendingCheckout(store, checkoutId);

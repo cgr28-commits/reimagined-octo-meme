@@ -1,5 +1,6 @@
 "use client";
 
+import { emailAddressProblem } from "../../../shared/email-typo";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
@@ -375,7 +376,7 @@ function BookQuoteInner() {
       return;
     }
     if (!isValidEmailAddress(customerEmail)) {
-      setError("Please enter a valid email address.");
+      setError(emailAddressProblem(customerEmail) ?? "Please enter a valid email address.");
       return;
     }
     if (!isValidMobileNumber(mobileNumber)) {

@@ -6,6 +6,7 @@ import {
   formatEmailFareIncludesBlock,
   resolveJourneyInclusions,
 } from "@/lib/journey-inclusions";
+import { isUsableEmailAddress } from "../../shared/email-typo";
 import { formatMarketingOptInLine } from "../../shared/marketing";
 import type { AdsAttribution } from "../../shared/ads-attribution";
 import {
@@ -104,7 +105,8 @@ export function isValidMobileNumber(value: string): boolean {
 }
 
 export function isValidEmailAddress(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  // Also rejects obvious typos such as "name@gmail.comEZY" (see shared/email-typo).
+  return isUsableEmailAddress(value);
 }
 
 export function normalizeChildSeats(value: unknown): number {

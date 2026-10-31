@@ -3,6 +3,7 @@
  * Used by the website Pay button and the Worker /payments endpoint.
  */
 
+import { emailTypoSuggestion } from "./email-typo";
 import { businessClassPassengerLimitError } from "./business-class-capacity";
 import { QUOTE_REQUIRED_FIELD_MESSAGES } from "./quote-required-field-messages";
 
@@ -100,6 +101,8 @@ export function getPaymentBookingBlockers(input: PaymentBookingGateInput): strin
     blockers.push("Email address is required.");
   } else if (!isValidEmailAddress(email)) {
     blockers.push("Email address is not valid.");
+  } else if (emailTypoSuggestion(email)) {
+    blockers.push(`Please check your email address — did you mean ${emailTypoSuggestion(email)}?`);
   }
   if (!mobile) {
     blockers.push("Mobile number is required.");

@@ -1,5 +1,6 @@
 "use client";
 
+import { emailTypoSuggestion } from "../../shared/email-typo";
 import { hasUncertainPayment, PAYMENT_UNCERTAIN_MESSAGE, PaymentOutcomeUncertainError } from "@/lib/payment-attempt-guard";
 import { saveQuote, type SaveQuoteResult } from "@/lib/saved-quote-api";
 
@@ -4120,7 +4121,7 @@ function QuoteCard({
       setEmailAddressError(QUOTE_REQUIRED_FIELD_MESSAGES.email);
       ok = false;
     } else if (!isValidEmailAddress(customerEmail)) {
-      setEmailAddressError(QUOTE_REQUIRED_FIELD_MESSAGES.emailInvalid);
+      setEmailAddressError(emailTypoSuggestion(customerEmail) ? `Please check your email address — did you mean ${emailTypoSuggestion(customerEmail)}?` : QUOTE_REQUIRED_FIELD_MESSAGES.emailInvalid);
       ok = false;
     } else {
       setEmailAddressError("");

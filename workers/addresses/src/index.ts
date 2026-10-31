@@ -9,6 +9,7 @@ import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 import { handleAdsOfflineFeed, handleOwnerAdsFeed } from "./google-ads-offline-feed";
 import { handleAdsSpendReport, handleOwnerAdsSpend } from "./google-ads-spend";
+import { processUnfinishedPayments } from "./unfinished-payment";
 import { handleVoiceBooking, handleVoiceBookingLink } from "./voice-booking";
 import { handleVoiceQuote, handleVoiceSendLink } from "./voice-quote";
 export { ConsentLedger } from "./consent-ledger";
@@ -1225,6 +1226,11 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
       ? { dropoffAirportCode: details.dropoffAirportCode.trim().toUpperCase() }
       : {}),
     ...(details.isAirportToAirport === true ? { isAirportToAirport: true } : {}),
+    // Website quote session id: lets finalize mark the funnel "paid" and the quote as booked.
+    ...(typeof details.quoteTransactionId === "string" &&
+    isQuoteTransactionId(details.quoteTransactionId.trim().toLowerCase())
+      ? { quoteTransactionId: details.quoteTransactionId.trim().toLowerCase() }
+      : {}),
     ...(typeof details.expressDropOffSelected === "boolean"
       ? { expressDropOffSelected: details.expressDropOffSelected }
       : {}),
@@ -5903,6 +5909,10 @@ export default {
     // Other scheduled work keeps its existing hourly cadence.
     if (!cron || cron === "*/5 * * * *") {
       ctx.waitUntil(recoverMeetGreetEmails(env).catch(error => console.error("Meet & Greet queue recovery failed", error)));
+      // Reached the card page but didn't pay: alert the owner + "finish your booking" email after 10 minutes.
+      ctx.waitUntil(processUnfinishedPayments(env, new Date(event.scheduledTime)).then(result => {
+        if (result.alerted || result.errors) console.log("Unfinished payment cron", JSON.stringify(result));
+      }).catch(error => console.error("Unfinished payment cron failed", error)));
       ctx.waitUntil(processDueJourneyReminders(env, new Date(event.scheduledTime)).then(result => {
         if (result.sent || result.errors) console.log("Journey reminder cron", JSON.stringify(result));
       }).catch(error => console.error("Journey reminder cron failed", error)));

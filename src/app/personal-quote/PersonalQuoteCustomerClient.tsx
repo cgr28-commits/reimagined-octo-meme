@@ -1,5 +1,6 @@
 "use client";
 
+import { emailAddressProblem } from "../../../shared/email-typo";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
@@ -435,7 +436,7 @@ function PersonalQuoteInner() {
         throw new Error("Please accept the Terms & Conditions before paying.");
       }
       if (!isValidEmailAddress(customerEmail)) {
-        throw new Error("Please enter a valid email address.");
+        throw new Error(emailAddressProblem(customerEmail) ?? "Please enter a valid email address.");
       }
       if (!isValidMobileNumber(mobileNumber)) {
         throw new Error("Please enter a valid mobile number.");
