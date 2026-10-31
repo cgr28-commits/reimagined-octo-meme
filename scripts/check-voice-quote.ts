@@ -57,3 +57,13 @@ assert.match(handler, /checkWhatsAppAvailability\(draft, store\)/);
 assert.match(handler, /createPricedQuickQuote\(/);
 assert.match(handler, /consumeQuickQuoteCreateQuota\(/);
 console.log("OK  same availability + pricing path as WhatsApp; rate limited");
+
+const templates = readFileSync(new URL("../workers/addresses/src/whatsapp-templates.ts", import.meta.url), "utf8");
+assert.match(templates, /name: "mat_quote_link"/);
+assert.match(templates, /\/book-quote\/\?id=\{\{1\}\}/);
+assert.match(templates, /export function sendQuoteLinkWhatsApp/);
+assert.match(worker, /"\/voice\/send-link"/);
+assert.match(handler, /memoKey\(priced\.record\.id\)/, "Quote is remembered so only phone-made links can be sent");
+assert.match(handler, /const memo = await store\.get<VoiceQuoteMemo>\(memoKey\(quoteId\)/);
+assert.ok(handler.includes("(\\+?44|0)7\\d{9}"), "UK mobiles only");
+console.log("OK  WhatsApp booking link: phone-made quotes only, once each, UK mobiles");
