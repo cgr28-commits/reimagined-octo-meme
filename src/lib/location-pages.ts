@@ -297,7 +297,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Allow around two hours for the road journey from Belfast in normal traffic, plus the time your airline recommends for check-in and security. Allow extra travel time during busy periods.",
       "For early Dublin departures, overnight or very early pickups from Bangor, Belfast, and Lisburn are common.",
       "For departures, select Dublin Airport as your destination and tell us whether your flight leaves from Terminal 1 or Terminal 2 when known.",
-      "For arrivals, select Dublin Airport as your pickup and provide your flight number when completing the booking. Follow your collection instructions and the meeting point confirmed by your driver for your arrival terminal.",
+      "For arrivals, select Dublin Airport as your pickup and provide your flight number when completing the booking. Your driver meets you in Arrivals at Terminal 1 or Terminal 2 after you collect your bags.",
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",
     durationNote: "Around 2 hours from Belfast in normal traffic",

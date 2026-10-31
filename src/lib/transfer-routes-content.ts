@@ -128,7 +128,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     goingToAirport:
       "We collect at your Newtownabbey door and drive you to Dublin Airport. Book far enough ahead of check-in for a cross-border run; the quote tool shows the mapped time for your street. Drop-off follows the Dublin Airport arrangement already used on our Dublin transfer pages. Applicable tolls are included on Dublin Airport fares.",
     fromAirport:
-      "Dublin Airport → Newtownabbey is booked as a return or a one-way inbound. We monitor the flight where possible and meet you at the confirmed pickup point after landing. Complimentary waiting on airport pickups is up to 60 minutes. Share the terminal when you know it.",
+      "Dublin Airport → Newtownabbey is booked as a return or a one-way inbound. We monitor the flight where possible, and your driver meets you in Arrivals after landing. Complimentary waiting on airport pickups is up to 60 minutes. Share the terminal when you know it.",
     whyBookIntro:
       "A Newtownabbey–Dublin booking is a reserved long transfer with the same fixed-price checkout, flight monitoring and WhatsApp contact as our Belfast airport routes.",
     localAreasText:
@@ -278,7 +278,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     goingToAirport:
       "Door-to-door collection in Carrickfergus, booked with enough time for a cross-border check-in. Drop-off follows our standard Dublin Airport arrangement. Applicable M1 tolls are included on Dublin Airport fares.",
     fromAirport:
-      "Dublin Airport → Carrickfergus is available as a return or a one-way inbound. We monitor the flight where possible, meet you at the confirmed pickup point, and include up to 60 minutes complimentary waiting on the airport collection.",
+      "Dublin Airport → Carrickfergus is available as a return or a one-way inbound. We monitor the flight where possible, meet you in Arrivals, and include up to 60 minutes complimentary waiting on the airport collection.",
     whyBookIntro:
       "This is a pre-booked cross-border private transfer with the same secure checkout and WhatsApp contact as our Belfast airport pages.",
     localAreasText:
@@ -882,7 +882,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     goingToAirport:
       "We collect at your Holywood, Cultra or Seahill door and drive you to Dublin Airport. Book far enough ahead of check-in for a cross-border run; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
     fromAirport:
-      "Travelling from Dublin Airport to Holywood is booked here. Share the flight number so we can monitor the inbound where possible. After you clear arrivals, go to the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+      "Travelling from Dublin Airport to Holywood is booked here. Share the flight number so we can monitor the inbound where possible. After you collect your bags, your driver meets you in Arrivals. Airport pickups include up to 60 minutes complimentary waiting.",
     whyBookIntro:
       "North Down to Dublin is a reserved diary slot — a fixed price with tolls included, not a rank fare assembled on the M1.",
     localAreasText:
@@ -1032,7 +1032,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     goingToAirport:
       "We collect at your Antrim, Templepatrick or Crumlin door and drive you to Dublin Airport. Book far enough ahead for a cross-border run; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
     fromAirport:
-      "Travelling from Dublin Airport to Antrim is booked on this page. Share the flight number so we can monitor the inbound where possible. After arrivals, use the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+      "Travelling from Dublin Airport to Antrim is booked on this page. Share the flight number so we can monitor the inbound where possible. After you collect your bags, your driver meets you in Arrivals. Airport pickups include up to 60 minutes complimentary waiting.",
     whyBookIntro:
       "Antrim to Dublin is a reserved cross-border slot — fixed price, tolls included, and flight monitoring on the way home.",
     localAreasText:
@@ -1182,7 +1182,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     goingToAirport:
       "We collect at your Ballymena, Galgorm or Broughshane door and drive you to Dublin Airport. Book far enough ahead for a cross-border run; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
     fromAirport:
-      "Travelling from Dublin Airport to Ballymena is booked on this page. Share the flight number so we can monitor the inbound where possible. After arrivals, use the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+      "Travelling from Dublin Airport to Ballymena is booked on this page. Share the flight number so we can monitor the inbound where possible. After you collect your bags, your driver meets you in Arrivals. Airport pickups include up to 60 minutes complimentary waiting.",
     whyBookIntro:
       "Mid-Antrim to Dublin is a reserved day on the diary — fixed price, tolls included, and a reserved driver for both directions.",
     localAreasText:
@@ -1332,7 +1332,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     goingToAirport:
       "We collect at your Larne, Islandmagee or Whitehead door and drive you to Dublin Airport. Book far enough ahead for a cross-border run after a ferry night; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
     fromAirport:
-      "Travelling from Dublin Airport to Larne is booked on this page. Share the flight number so we can monitor the inbound where possible. After arrivals, use the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+      "Travelling from Dublin Airport to Larne is booked on this page. Share the flight number so we can monitor the inbound where possible. After you collect your bags, your driver meets you in Arrivals. Airport pickups include up to 60 minutes complimentary waiting.",
     whyBookIntro:
       "Harbour town to Dublin is a reserved day — fixed price, tolls included, and a driver who is not piecing the job together at the port.",
     localAreasText:
@@ -1482,7 +1482,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     goingToAirport:
       "We collect at your Newry, Warrenpoint or Rostrevor door and drive you to Dublin Airport. Book far enough ahead of check-in even on this familiar corridor; the quote tool shows the mapped time for your street. Applicable M1 tolls are included on Dublin Airport fares.",
     fromAirport:
-      "Travelling from Dublin Airport to Newry is booked on this page. Share the flight number so we can monitor the inbound where possible. After arrivals, use the agreed private-hire pickup point. Airport pickups include up to 60 minutes complimentary waiting.",
+      "Travelling from Dublin Airport to Newry is booked on this page. Share the flight number so we can monitor the inbound where possible. After you collect your bags, your driver meets you in Arrivals. Airport pickups include up to 60 minutes complimentary waiting.",
     whyBookIntro:
       "Newry to Dublin is the corridor residents know — still a reserved car, a fixed price with tolls included, and flight monitoring on the way home.",
     localAreasText:
@@ -1523,22 +1523,27 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     townSlug: "belfast",
     airportCode: "DUB",
     direction: "from-airport",
-    title: "Dublin Airport to Belfast Taxi & Private Transfer",
+    title: "Dublin Airport to Belfast Taxi – Fixed Price, Met in Arrivals",
     h1: "Dublin Airport to Belfast Taxi & Private Transfer",
     metaDescription:
-      "Book a private taxi from Dublin Airport to Belfast. Fixed-price airport transfer, flight monitoring on pickups, and secure online booking.",
+      "Pre-book a taxi from Dublin Airport to Belfast. Your driver meets you in Arrivals, tracks your flight and takes you door to door. Fixed price, M1 tolls included.",
     intro:
-      "When you land at Dublin Airport and need to continue north to Belfast, My Airport Taxi NI provides a pre-arranged private transfer from arrivals to your Belfast address. This page is for passengers arriving at Dublin Airport — not the Belfast to Dublin Airport departure. Dublin Airport is already selected as the pickup in the quote box; enter the Belfast hotel, home or workplace and the existing calculator confirms the fixed price before you book. Share your flight number so we can monitor the arrival where possible, and tell us the terminal when you know it so the private-hire meeting point can be confirmed. Airport pickups include up to 60 minutes complimentary waiting from the adjusted collection time, and applicable M1 tolls are included on Dublin Airport fares. The journey from Dublin Airport to Belfast typically takes around two hours in normal traffic. Add a return on the same form if you also need Belfast back to Dublin Airport; where an instant online price is shown, the existing 5% return-journey discount applies to the combined fare. WhatsApp is available if you need to confirm luggage or the drop-off after you land.",
+      "Landed at Dublin Airport and need to get to Belfast? Pre-book a private taxi with My Airport Taxi NI and your driver will meet you in Arrivals at Terminal 1 or Terminal 2, help with your bags and drive you door to door to your Belfast home, hotel or office — no bus connections and no queue at the taxi rank. The journey takes around two hours in normal traffic. Add your flight number when you book and we'll track your flight, so if it lands early or late your driver knows. Airport pickups include up to 60 minutes' free waiting, and M1 tolls are included in the fare. Dublin Airport is already set as the pickup in the quote box: enter your Belfast address to see your fixed price, then book and pay securely online. Need to fly back out of Dublin? Add the return on the same form; where an instant price is shown, you get 5% off the combined fare. WhatsApp us on 07549 815538 if you need to check luggage or anything else before you fly.",
     journeyInfo: `Dublin Airport to Belfast is a reserved cross-border transfer, typically around two hours in normal traffic. ${TRAFFIC}`,
     goingToAirport:
       "If you later need Belfast to Dublin Airport, book it as a return on this form or use the Belfast to Dublin Airport page. We collect door to door from your Belfast address and travel back to Dublin Airport. Book far enough ahead of check-in for a cross-border run. Applicable M1 tolls are included on Dublin Airport fares. Drop-off follows the Dublin Airport arrangement already used on our other Dublin pages.",
     fromAirport:
-      "Dublin Airport to Belfast is booked as a one-way inbound or the arrival leg of a return. After you land, clear arrivals and go to the private-hire pickup point confirmed in the booking. We monitor the flight where possible when you give us the flight number, and we adjust the planned collection. Complimentary waiting on airport pickups is up to 60 minutes. Share the terminal when you know it.",
+      "Travelling from Dublin Airport to Belfast: after you collect your bags, your driver meets you in Arrivals at Terminal 1 or Terminal 2. Give us your flight number when you book and we track the landing time, adjusting your collection if the flight is early or late. Airport pickups include up to 60 minutes' free waiting. If you're held up at baggage reclaim, just WhatsApp us on 07549 815538.",
     whyBookIntro:
-      "This inbound Dublin Airport page uses the same booked service as the rest of the site — a confirmed fare before you pay, a reserved driver, and flight monitoring when we collect you at the airport.",
+      "A fixed price confirmed before you pay, a driver booked for your arrival and waiting in Arrivals, and flight tracking so a delay doesn't leave you stranded at Dublin Airport.",
     localAreasText:
       "We drop across Belfast including the city centre, Titanic Quarter, south Belfast, the university area and city hotels. Enter the full street or hotel name so the quote is calculated for that destination, not a generic city-centre pin.",
     faqs: [
+      {
+        question: "Can I get a taxi from Dublin Airport to Belfast?",
+        answer:
+          "Yes. Pre-book a private taxi on this page and your driver meets you in Arrivals at Dublin Airport and drives you straight to your Belfast address, door to door. It takes around two hours, the price is fixed when you book, and M1 tolls are included.",
+      },
       {
         question: "How much is a taxi from Dublin Airport to Belfast?",
         answer:
@@ -1552,7 +1557,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Where do I meet the driver at Dublin Airport?",
         answer:
-          "After you clear arrivals, go to the private-hire pickup point confirmed in your booking. Tell us the terminal when you know it so that meeting point can be confirmed.",
+          "Your driver meets you in the Arrivals hall at Terminal 1 or Terminal 2 after you collect your bags. Add your flight number when you book so we can track the landing time, and tell us the terminal if you know it.",
       },
       {
         question: "What if my Dublin flight is delayed?",
