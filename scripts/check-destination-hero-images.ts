@@ -102,10 +102,8 @@ console.log("\n=== Tours keep attraction photographs ===");
   const bySlug = Object.fromEntries(TOURS.map((tour) => [tour.slug, tour]));
   assert.match(bySlug["giants-causeway"].image, /giants-causeway/);
   assert.match(bySlug["antrim-coast"].image, /antrim-coast/);
-  assert.match(bySlug["mourne-mountains"].image, /mourne-mountains/);
   assert.match(bySlug["belfast-city"].image, /belfast-city/);
   assert.match(bySlug["game-of-thrones"].image, /game-of-thrones/);
-  assert.match(bySlug["derry-londonderry"].image, /derry-londonderry/);
   for (const tour of TOURS) {
     assert.ok(!/belfast-international|dublin-airport|derry-airport/.test(tour.image));
   }

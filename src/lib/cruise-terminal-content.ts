@@ -106,8 +106,8 @@ export const CRUISE_TERMINAL_FAQS = [
       "Yes. We arrange private transfers from Belfast Cruise Terminal to Belfast International Airport, George Best Belfast City Airport and Dublin Airport. Message us with the ship and flight details so the timing can be planned around disembarkation.",
   },
   {
-    question: "Do you offer shore excursions or sightseeing from the cruise port?",
+    question: "Do you offer private tours from the cruise port?",
     answer:
-      "No. This page is for pre-booked private transfers only — airport, hotel and onward destination journeys. We do not sell shore excursions or sightseeing tours.",
+      "Yes. We run private day tours from Belfast Cruise Terminal in your own car with a local driver — a half-day Belfast city tour or a full day to the Giant's Causeway — timed around your all-aboard time. See our Day Trips page for routes and prices.",
   },
 ] as const;

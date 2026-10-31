@@ -185,6 +185,25 @@ export default function BelfastCruiseTerminalTransfersPage() {
             </dl>
           </section>
 
+          <section className="mt-12 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+            <h2 className="text-lg font-bold text-white">Private tours from the cruise terminal</h2>
+            <p className="mt-3 text-sm leading-relaxed text-white/65">
+              In port for the day? See Belfast or the Giant&apos;s Causeway in your own car with a local driver,
+              timed around your all-aboard time.{" "}
+              <Link href="/tours/belfast-city/" className="text-emerald hover:underline">
+                Belfast city tour
+              </Link>{" "}
+              ·{" "}
+              <Link href="/tours/giants-causeway/" className="text-emerald hover:underline">
+                Giant&apos;s Causeway tour
+              </Link>{" "}
+              ·{" "}
+              <Link href="/tours/" className="text-emerald hover:underline">
+                All day trips
+              </Link>
+            </p>
+          </section>
+
           <section className="mt-12 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
             <h2 className="text-lg font-bold text-white">Book your Belfast cruise transfer</h2>
             <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/75">

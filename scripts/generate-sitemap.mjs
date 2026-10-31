@@ -5,7 +5,7 @@ import { join } from "node:path";
 const SITE_URL = "https://www.myairporttaxini.co.uk";
 
 // Keep in sync with SERVICE_FLAGS in src/lib/data.ts
-const DAY_TRIPS_ENABLED = false;
+const DAY_TRIPS_ENABLED = true;
 const ADDRESS_TO_ADDRESS_ENABLED = true;
 const TRACKING_DEMO_ENABLED = false;
 const BELFAST_CITY_AIRPORT_ENABLED = true;
@@ -65,8 +65,6 @@ const tourSlugs = [
   "belfast-city",
   "game-of-thrones",
   "antrim-coast",
-  "mourne-mountains",
-  "derry-londonderry",
 ];
 
 const airportSlugs = [

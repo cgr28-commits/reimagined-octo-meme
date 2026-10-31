@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import TourCard from "@/components/TourCard";
 import TourBookingForm from "@/components/TourBookingForm";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
-import { getBreadcrumbJsonLd } from "@/lib/structured-data";
+import { getBreadcrumbJsonLd, getFaqPageJsonLd, getTourTripJsonLd } from "@/lib/structured-data";
 import { getTourBySlug, TOURS } from "@/lib/tours";
 
 type TourPageProps = {
@@ -29,13 +29,20 @@ export async function generateMetadata({ params }: TourPageProps): Promise<Metad
   }
 
   return {
-    title: `${tour.title} Private Day Trip | ${SITE.name}`,
-    description: `${tour.shortDescription} ${tour.duration}. ${tour.price}. Book your private chauffeur trip via WhatsApp.`,
+    title: { absolute: tour.seoTitle },
+    description: tour.metaDescription,
+    openGraph: {
+      title: tour.seoTitle,
+      description: tour.metaDescription,
+      url: `/tours/${tour.slug}/`,
+      images: [{ url: tour.image, alt: tour.imageAlt }],
+    },
     alternates: {
       canonical: `/tours/${tour.slug}/`,
     },
     keywords: [
       tour.title,
+      `private ${tour.eyebrow.toLowerCase()} tour from Belfast`,
       "private day trip Northern Ireland",
       tour.eyebrow,
       SITE.name,
@@ -62,6 +69,8 @@ export default async function TourDetailPage({ params }: TourPageProps) {
     { name: "Day Trips", path: "/tours/" },
     { name: tour.title, path: `/tours/${tour.slug}/` },
   ]);
+  const tripLd = getTourTripJsonLd(tour);
+  const faqLd = getFaqPageJsonLd(tour.faqs);
 
   return (
     <>
@@ -69,6 +78,8 @@ export default async function TourDetailPage({ params }: TourPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(tripLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <Header />
       <main className="overflow-x-clip min-h-screen bg-navy pb-16 pt-36 md:pt-28">
         <div className="relative h-64 overflow-hidden sm:h-80 lg:h-96">
@@ -117,18 +128,30 @@ export default async function TourDetailPage({ params }: TourPageProps) {
             <p className="mt-6 text-sm text-white/45">{tour.priceNote}</p>
           </section>
 
+          <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+            <h2 className="text-lg font-bold text-white">{tour.title} — questions</h2>
+            <dl className="mt-6 space-y-5">
+              {tour.faqs.map((faq) => (
+                <div key={faq.question}>
+                  <dt className="text-sm font-semibold text-white">{faq.question}</dt>
+                  <dd className="mt-2 text-sm leading-relaxed text-white/65">{faq.answer}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
           <div className="mt-10">
             <TourBookingForm
               id="book"
               tourTitle={tour.title}
-              description={`Tell us your travel dates, group size, and pickup location for ${tour.title}. We'll confirm availability and send a personalised quote.`}
+              description={`Tell us your date, group size and pickup location for ${tour.title} (${tour.price.toLowerCase()} per car). We'll confirm availability and your exact price.`}
             />
           </div>
         </div>
 
         <section className="mx-auto mt-20 max-w-7xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-white">Other day trips</h2>
-          <p className="mt-2 text-sm text-white/50">Explore more private chauffeur trip options across Northern Ireland.</p>
+          <p className="mt-2 text-sm text-white/50">More private tours from Belfast with your own driver.</p>
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {otherTours.slice(0, 3).map((otherTour) => (
               <TourCard key={otherTour.slug} tour={otherTour} />

@@ -13,7 +13,7 @@ export default function ToursTeaserSection() {
         <SectionHeading
           eyebrow="Private Day Trips"
           title="Explore Northern Ireland"
-          description="Beyond airport transfers, we offer private chauffeur day trips — we take you door-to-door from the Causeway Coast to Belfast, the Mournes, and beyond."
+          description="Beyond airport transfers, we run private day tours from Belfast — the Giant's Causeway, Antrim Coast, Game of Thrones locations and Belfast city. From £195 per car."
         />
 
         <div className="mt-12 grid items-center gap-8 lg:grid-cols-2 lg:gap-12">

@@ -1,6 +1,6 @@
 import { GOOGLE_BUSINESS_PROFILE_URL } from "../../shared/google-business-profile";
 import { getVisibleFaqs, SITE, SITE_PUBLIC_SEO_DESCRIPTION } from "./data";
-import { TOURS } from "./tours";
+import { TOURS, type Tour } from "./tours";
 
 export const BUSINESS_JSON_LD_ID = `${SITE.url}/#business`;
 
@@ -34,6 +34,29 @@ export function getTourItemListJsonLd() {
       name: tour.title,
       url: `${SITE.url}/tours/${tour.slug}/`,
     })),
+  };
+}
+
+/** TouristTrip with a per-car "from" price for a private tour page. */
+export function getTourTripJsonLd(tour: Tour) {
+  const url = `${SITE.url}/tours/${tour.slug}/`;
+  return {
+    "@context": "https://schema.org",
+    "@type": "TouristTrip",
+    name: tour.seoTitle.replace(/ – From £\d+$/, ""),
+    description: tour.metaDescription,
+    url,
+    image: tour.image.startsWith("http") ? tour.image : `${SITE.url}${tour.image}`,
+    touristType: "Private group (up to 4 passengers)",
+    provider: { "@id": BUSINESS_JSON_LD_ID },
+    offers: {
+      "@type": "Offer",
+      url,
+      priceCurrency: "GBP",
+      price: tour.priceFrom,
+      availability: "https://schema.org/InStock",
+      description: "From price per car (not per person), up to 4 passengers, from Belfast.",
+    },
   };
 }
 
