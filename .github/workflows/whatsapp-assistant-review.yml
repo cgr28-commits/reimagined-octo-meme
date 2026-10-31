@@ -34,6 +34,7 @@ jobs:
       # The assistant answers from the website's FAQs/terms; regenerate after editing them.
       - run: node --import tsx scripts/generate-whatsapp-knowledge.ts --check
       - run: node --import tsx scripts/check-whatsapp-quote-bot.ts
+      - run: node --import tsx scripts/check-whatsapp-airport-address.ts
       - run: node --import tsx scripts/check-whatsapp-templates.ts
       - run: node --import tsx scripts/check-whatsapp-pickup-info.ts
       - run: node --import tsx scripts/check-whatsapp-driver-contact.ts
