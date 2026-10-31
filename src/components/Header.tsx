@@ -7,6 +7,11 @@ import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
 import SiteNavLink from "./SiteNavLink";
 import { NAV_LINKS, SITE } from "@/lib/data";
+
+/** Desktop bar keeps the main pages; homepage shortcuts go under "More" so the bar fits laptops. */
+const DESKTOP_MORE_HREFS = new Set(["/#vehicles", "/#flight-status", "/#areas", "/#why-us", "/#faq", "/#chauffeur", "/#driver-tracking"]);
+const DESKTOP_PRIMARY_LINKS = NAV_LINKS.filter((link) => !DESKTOP_MORE_HREFS.has(link.href));
+const DESKTOP_MORE_LINKS = NAV_LINKS.filter((link) => DESKTOP_MORE_HREFS.has(link.href));
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import { useWhatsAppAssistantHref } from "@/lib/whatsapp-journey-context";
 
@@ -206,7 +211,7 @@ export default function Header() {
             className="hidden items-center gap-6 md:flex lg:justify-center lg:gap-5 xl:gap-7"
             aria-label="Main navigation"
           >
-            {NAV_LINKS.map((link) => (
+            {DESKTOP_PRIMARY_LINKS.map((link) => (
               <SiteNavLink
                 key={link.href}
                 href={link.href}
@@ -215,6 +220,32 @@ export default function Header() {
                 {link.label}
               </SiteNavLink>
             ))}
+            {DESKTOP_MORE_LINKS.length > 0 ? (
+              <details className="group relative" data-desktop-nav-more>
+                <summary className="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald [&::-webkit-details-marker]:hidden">
+                  More
+                  <svg className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="absolute right-0 top-full z-50 mt-3 flex min-w-[12rem] flex-col rounded-xl border border-white/10 bg-navy p-2 shadow-2xl">
+                  {DESKTOP_MORE_LINKS.map((link) => (
+                    <SiteNavLink
+                      key={link.href}
+                      href={link.href}
+                      onNavigate={() => {
+                        if (typeof document !== "undefined") {
+                          document.querySelectorAll("details[data-desktop-nav-more][open]").forEach((d) => d.removeAttribute("open"));
+                        }
+                      }}
+                      className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-emerald"
+                    >
+                      {link.label}
+                    </SiteNavLink>
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </nav>
 
           {/* Desktop/laptop CTAs — slim pre-xl styles (not btn-primary / mobile chrome) */}
