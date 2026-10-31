@@ -843,3 +843,35 @@ export function sendQuoteLinkWhatsApp(
     ),
   );
 }
+
+/**
+ * Re-send a customer's booking details with the Manage booking button (phone assistant:
+ * "send me my booking"). Uses the approved confirmation template; at most once an hour
+ * per booking so a repeated request can't flood the customer.
+ */
+export function resendBookingDetailsWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: Parameters<typeof sendBookingConfirmedWhatsApp>[1],
+  now: Date = new Date(),
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_booking_confirmed",
+        jobKey: `${input.paymentReference}:resend:${now.toISOString().slice(0, 13)}`,
+        mobile: input.mobile,
+        bodyParams: [
+          firstNameOf(input.customerName),
+          input.customerReference || input.paymentReference,
+          tripWhen(input.tripDate, input.tripTime),
+          input.pickupLabel ?? "",
+          input.dropoffLabel ?? "",
+        ],
+        urlButtonParam: input.manageToken?.trim() || "lookup",
+      },
+      fetchImpl,
+    ),
+  );
+}

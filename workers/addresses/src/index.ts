@@ -9,6 +9,7 @@ import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 import { handleAdsOfflineFeed, handleOwnerAdsFeed } from "./google-ads-offline-feed";
 import { handleAdsSpendReport, handleOwnerAdsSpend } from "./google-ads-spend";
+import { handleVoiceBooking, handleVoiceBookingLink } from "./voice-booking";
 import { handleVoiceQuote, handleVoiceSendLink } from "./voice-quote";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
@@ -4204,6 +4205,12 @@ export default {
     }
     if ((url.pathname === "/voice/send-link" || url.pathname === "/api/voice/send-link") && request.method === "POST") {
       return handleVoiceSendLink(request, env);
+    }
+    if ((url.pathname === "/voice/booking" || url.pathname === "/api/voice/booking") && request.method === "POST") {
+      return handleVoiceBooking(request, env);
+    }
+    if ((url.pathname === "/voice/booking-link" || url.pathname === "/api/voice/booking-link") && request.method === "POST") {
+      return handleVoiceBookingLink(request, env);
     }
     if (url.pathname === "/ads/spend-report" && request.method === "POST") {
       return handleAdsSpendReport(request, env);
