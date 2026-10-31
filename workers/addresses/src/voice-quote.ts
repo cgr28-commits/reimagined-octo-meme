@@ -98,7 +98,8 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     requestOnly: availability.requestOnly,
     priceHeldHours: linkHours,
     bookingLink: priced.bookingUrl,
-    say: voiceQuoteSay({ amount, draft, requestOnly: availability.requestOnly, shortNotice }),
+    vehicle: priced.record.journey.vehicleType ?? null,
+    say: voiceQuoteSay({ amount, draft, vehicle: priced.record.journey.vehicleType, requestOnly: availability.requestOnly, shortNotice }),
   });
 }
 
