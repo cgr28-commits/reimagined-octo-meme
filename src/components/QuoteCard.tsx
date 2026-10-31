@@ -7504,7 +7504,7 @@ function QuoteCard({
     };
     const desktop = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     document.addEventListener("mouseout", onMouseOut);
-    const timer = desktop ? null : window.setTimeout(show, 20_000);
+    const timer = desktop ? null : window.setTimeout(show, 35_000);
     return () => {
       document.removeEventListener("mouseout", onMouseOut);
       if (timer) window.clearTimeout(timer);
@@ -7595,7 +7595,36 @@ function QuoteCard({
       : liveLabel
         ? liveLabel
         : "Calculating…";
+    // One-tap Business Class upgrade under a Saloon/Estate price (instant-price mode only).
+    const offerBusinessClassUpgrade =
+      publicExecutiveEnabled &&
+      !publicVehicleRequiresPersonalQuote(EXECUTIVE_VEHICLE, publicPricing) &&
+      !isExecutiveVehicle(quoteVehicle) &&
+      !appliedPersonalQuote &&
+      testChargeAmount == null &&
+      !submitted &&
+      effectivePassengers != null &&
+      suitcases != null &&
+      vehicleFitsParty(EXECUTIVE_VEHICLE, effectivePassengers, suitcases);
+    const businessClassUpgrade = offerBusinessClassUpgrade ? (
+      <button
+        type="button"
+        data-business-class-upgrade
+        onClick={() => handleQuoteVehicleChoice(EXECUTIVE_VEHICLE)}
+        className="mt-2 flex w-full items-center gap-3 rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-3 text-left transition-colors hover:bg-amber-300/15"
+      >
+        <span aria-hidden="true" className="text-lg">👑</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-white">Upgrade to Business Class</span>
+          <span className="block text-xs leading-snug text-white/70">
+            Mercedes, BMW or Lexus{isFromAirport ? ", with Meet & Greet in arrivals" : ""}. Tap to see your price.
+          </span>
+        </span>
+        <span aria-hidden="true" className="text-sm font-semibold text-amber-200">View</span>
+      </button>
+    ) : null;
     return (
+      <>
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
         vehicleType={quoteVehicle}
@@ -7612,6 +7641,8 @@ function QuoteCard({
         layoutBusinessClassInclusions={layoutBusinessClassInclusions}
         bookButton={renderStep1BookButton({ instantTransferLabel: true })}
       />
+      {businessClassUpgrade}
+      </>
     );
   }
 
@@ -7747,28 +7778,6 @@ function QuoteCard({
           className="scroll-mt-24 space-y-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
           data-quote-result-actions
         >
-          {liveQuote && !isVehiclePersonalQuote && !isEnquiryOnly && !showsRequestQuoteFlow ? (
-            <a
-              href={whatsAppSendQuoteHref({
-                pickup: pickupAddress,
-                dropoff: dropoffAddress,
-                tripDate,
-                tripTime,
-                returnJourney: journeyMode == null ? null : journeyMode === "return",
-                returnDate,
-                returnTime,
-                passengers: effectivePassengers ?? passengers,
-                suitcases,
-              })}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-quote-send-whatsapp
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#25D366]/60 bg-[#25D366]/10 px-3 py-2 text-center text-sm font-semibold leading-tight text-white"
-            >
-              <QuoteResultActionIcon name="whatsapp" className="h-5 w-5 shrink-0 text-[#25D366]" />
-              <span>Not ready to book? Send this quote to my WhatsApp</span>
-            </a>
-          ) : null}
           <div className="grid grid-cols-4 gap-1.5 max-[340px]:grid-cols-2">
             {mapsHref ? (
               <button
