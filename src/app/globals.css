@@ -1785,6 +1785,14 @@ main {
     margin-inline: auto;
     padding: 1rem;
   }
+  /* Desktop: keep the car on the price card a sensible size (it filled the card). */
+  .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
+    height: 9.5rem;
+    max-width: 21rem;
+    width: 100%;
+    margin-inline: auto;
+  }
+  .quote-flow [data-quote-result-art] img { object-fit: contain; }
   /* Desktop: the four benefit icons sit directly above the quote card, same width. */
   .homepage-hero .hero-benefits-row {
     width: 100%;
