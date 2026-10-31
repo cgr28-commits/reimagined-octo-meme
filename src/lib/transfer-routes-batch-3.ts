@@ -123,7 +123,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     goingToAirport:
       "We collect at your Newtownards door and drive you to Dublin Airport. Book far enough ahead of check-in for a cross-border run. The quote tool shows the mapped time for your street. Applicable tolls are included on Dublin Airport fares.",
     fromAirport:
-      "Dublin Airport → Newtownards is booked as a return or a one-way inbound. We monitor the flight where possible and meet you at the confirmed pickup point after landing. Complimentary waiting on airport pickups is up to 60 minutes.",
+      "Dublin Airport → Newtownards is booked as a return or a one-way inbound. We monitor the flight where possible, and your driver meets you in Arrivals after landing. Complimentary waiting on airport pickups is up to 60 minutes.",
     whyBookIntro:
       "A Newtownards–Dublin booking is a reserved long transfer, with the same checkout, flight monitoring and included Dublin tolls as our other cross-border pages.",
     localAreasText:
@@ -279,7 +279,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
     goingToAirport:
       "We collect at your Dundonald door and drive you to Dublin Airport. Allow a cross-border booking ahead of check-in. Applicable tolls are included on Dublin Airport fares. The quote tool shows the mapped time for your street.",
     fromAirport:
-      "Dublin Airport → Dundonald is a return or a one-way inbound. We monitor the flight where possible and use the pickup point confirmed in the booking. Complimentary waiting on airport pickups is up to 60 minutes.",
+      "Dublin Airport → Dundonald is a return or a one-way inbound. We monitor the flight where possible, and your driver meets you in Arrivals. Complimentary waiting on airport pickups is up to 60 minutes.",
     whyBookIntro:
       "A Dundonald–Dublin transfer is a reserved long journey, with included Dublin tolls and the same online checkout as our Belfast airport routes.",
     localAreasText:
