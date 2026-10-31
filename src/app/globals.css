@@ -2046,3 +2046,29 @@ html:has(.cookie-consent-banner) {
   .homepage-hero [data-homepage-quote-fields] select { height: 2.375rem; min-height: 2.375rem; line-height: 2.375rem; }
   .homepage-hero [data-homepage-quote-fields] .btn-primary.min-h-12 { min-height: 2.75rem; }
 }
+
+
+/* Desktop: after Get My Fixed Price, vehicle options + price card + Book button +
+   upgrade + actions all fit on a laptop screen (they were ~1,100px tall).
+   Vehicle options become one row of tiles; the price card drops the duplicate
+   vehicle heading/photo and tightens its reassurance lines. Mobile untouched. */
+@media (min-width: 1024px) {
+  .quote-flow [data-quote-vehicle-categories] [role="list"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] { padding: 0.3rem 0.45rem; border-radius: 0.9rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-layout] { grid-template-columns: 3.75rem minmax(0, 1fr) 1.25rem; column-gap: 0.4rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 2.4rem; width: 3.75rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span { line-height: 1.15; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex { display: none; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 0.85rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.mt-0\.5 { font-size: 0.72rem; }
+  .quote-flow [data-quote-vehicle-categories] [data-quote-vehicle-options-heading] { margin-bottom: 0.15rem; }
+  .quote-flow [data-quote-result-card] { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+  .quote-flow [data-quote-result-card] [data-quote-vehicle-summary] { display: none; }
+  .quote-flow [data-quote-result-card] > div.mt-1.min-w-0.text-center *:not([data-quote-result-price]):not([data-quote-result-price] *):not(button):not(button *):not([data-quote-assurance]) {
+    font-size: 0.72rem; line-height: 1.25; margin-top: 0;
+  }
+  .quote-flow [data-quote-result-card] [data-quote-result-price] span { font-size: 2rem; line-height: 1.1; }
+  .quote-flow [data-business-class-upgrade] { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+  .quote-flow [data-quote-result-actions] button,
+  .quote-flow [data-quote-result-actions] a { min-height: 2.6rem; padding-top: 0.25rem; padding-bottom: 0.25rem; }
+}
