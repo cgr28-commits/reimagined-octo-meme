@@ -117,7 +117,7 @@ if (emergeConfig.publiclyVisible === false) {
 }
 
 // Keep in sync with SERVICE_FLAGS.dayTrips in src/lib/data.ts
-const DAY_TRIPS_ENABLED = false;
+const DAY_TRIPS_ENABLED = true;
 if (!DAY_TRIPS_ENABLED) {
   removeGeneratedPath("tours");
 }
