@@ -1390,9 +1390,20 @@ function QuoteCard({
     // A slow, gentle glide (about 2.2s) rather than the browser's quick jump.
     const durationMs = 2200;
     const startTime = performance.now();
+    // The site uses smooth scrolling for links; switch it off while we drive the glide
+    // frame by frame, or each step starts its own animation and the page lurches.
+    const root = document.documentElement;
+    const previousScrollBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
     let cancelled = false;
+    const finish = () => {
+      root.style.scrollBehavior = previousScrollBehavior;
+      window.removeEventListener("wheel", cancel);
+      window.removeEventListener("touchstart", cancel);
+    };
     const cancel = () => {
       cancelled = true;
+      finish();
     };
     window.addEventListener("wheel", cancel, { passive: true, once: true });
     window.addEventListener("touchstart", cancel, { passive: true, once: true });
@@ -1404,8 +1415,7 @@ function QuoteCard({
       if (t < 1) {
         window.requestAnimationFrame(step);
       } else {
-        window.removeEventListener("wheel", cancel);
-        window.removeEventListener("touchstart", cancel);
+        finish();
       }
     };
     window.requestAnimationFrame(step);
