@@ -2171,3 +2171,20 @@ html:has(.cookie-consent-banner) {
      changes them), so the boxes only reappear if something needs fixing. */
   #step2-travel-details [data-quote-schedule]:not([data-schedule-error]):not(:has(input:invalid)) { display: none; }
 }
+
+/* Desktop booking screen: final tightening so airport pickups with a return fit too. */
+@media (min-width: 1024px) {
+  .quote-flow:has(#step2-travel-details) { padding-bottom: 0.5rem; }
+  #step2-travel-details > * { margin-bottom: 0.5rem; }
+  #step3-customer-details > p[data-booking-nav-heading] { margin-bottom: 0.35rem; }
+  #step3-customer-details > * + * { margin-top: 0.35rem !important; }
+  #step2-travel-details #step2-flight-details > div:first-child:not(.quote-field) { display: none; }
+  #step2-travel-details #step2-flight-details > * + * { margin-top: 0 !important; }
+  #step2-travel-details #step2-flight-details label { margin-bottom: 0.25rem; }
+  #step3-customer-details [data-booking-meet-greet] h3 { display: inline; }
+  #step3-customer-details [data-booking-meet-greet] h3 + p { display: inline; margin-left: 0.5rem; color: rgb(52 211 153); }
+  #step3-customer-details [data-booking-meet-greet] h3 + p::before { content: "· "; }
+  #step3-customer-details [data-booking-meet-greet] h3 + p + p { margin-top: 0.2rem; }
+  #step3-payment-actions > div:has(> .btn-pay) > p.text-xs.leading-relaxed:first-child { display: none; }
+  #step3-payment-actions > div:has(> .btn-pay) > .btn-pay { margin-top: 0 !important; }
+}
