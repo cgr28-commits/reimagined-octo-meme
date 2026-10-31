@@ -2156,3 +2156,17 @@ html:has(.cookie-consent-banner) {
   #step3-payment-actions > [data-start-new-quote-controls] { grid-column: 2; justify-self: start; margin-top: 0.4rem !important; }
   #step3-payment-actions > [data-start-new-quote-controls] button { min-height: 0; font-size: 0.75rem; }
 }
+
+/* Desktop booking screen, airport pickups: flight number heads the right-hand column,
+   Meet & Greet offer spans the details area, both tightened. */
+@media (min-width: 1024px) {
+  #step2-travel-details [data-quote-schedule] p.min-h-\[1\.1rem\] { min-height: 0; font-size: 0.7rem; line-height: 1.1; }
+  #step3-customer-details [data-booking-meet-greet] { grid-column: 1 / -1; order: 10; padding: 0.55rem 0.75rem; }
+  #step3-customer-details [data-booking-meet-greet] p.text-xs { font-size: 0.7rem; line-height: 1.3; }
+  #step3-customer-details [data-booking-meet-greet] label.min-h-11 { min-height: 0; padding-top: 0.3rem; }
+  #step2-travel-details #step2-flight-details { padding: 0.55rem 0.75rem; }
+  #step2-travel-details #step2-flight-details .quote-helper-text { font-size: 0.68rem; line-height: 1.3; margin-top: 0.3rem; }
+  #step2-travel-details #step2-flight-details input { height: 2.5rem; min-height: 2.5rem; }
+  #quoteForm:has(> #step2-travel-details #step2-flight-details) #step2-flight-details { break-before: column; }
+  #quoteForm:has(> #step2-travel-details #step2-flight-details) #step2-journey-summary { break-before: auto; }
+}
