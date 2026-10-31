@@ -7504,7 +7504,7 @@ function QuoteCard({
     };
     const desktop = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     document.addEventListener("mouseout", onMouseOut);
-    const timer = desktop ? null : window.setTimeout(show, 30_000);
+    const timer = desktop ? null : window.setTimeout(show, 20_000);
     return () => {
       document.removeEventListener("mouseout", onMouseOut);
       if (timer) window.clearTimeout(timer);
