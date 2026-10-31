@@ -10,7 +10,6 @@ import { NAV_LINKS, SITE } from "@/lib/data";
 
 /** Desktop bar keeps the main pages; homepage shortcuts go under "More" so the bar fits laptops. */
 const DESKTOP_MORE_HREFS = new Set(["/#vehicles", "/#flight-status", "/#areas", "/#why-us", "/#faq", "/#chauffeur", "/#driver-tracking"]);
-const DESKTOP_PRIMARY_LINKS = NAV_LINKS.filter((link) => !DESKTOP_MORE_HREFS.has(link.href));
 const DESKTOP_MORE_LINKS = NAV_LINKS.filter((link) => DESKTOP_MORE_HREFS.has(link.href));
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import { useWhatsAppAssistantHref } from "@/lib/whatsapp-journey-context";
@@ -211,17 +210,19 @@ export default function Header() {
             className="hidden items-center gap-6 md:flex lg:justify-center lg:gap-5 xl:gap-7"
             aria-label="Main navigation"
           >
-            {DESKTOP_PRIMARY_LINKS.map((link) => (
+            {NAV_LINKS.map((link) => (
               <SiteNavLink
                 key={link.href}
                 href={link.href}
-                className="whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald"
+                className={`whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald${
+                  DESKTOP_MORE_HREFS.has(link.href) ? " lg:hidden" : ""
+                }`}
               >
                 {link.label}
               </SiteNavLink>
             ))}
             {DESKTOP_MORE_LINKS.length > 0 ? (
-              <details className="group relative" data-desktop-nav-more>
+              <details className="group relative hidden lg:block" data-desktop-nav-more>
                 <summary className="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald [&::-webkit-details-marker]:hidden">
                   More
                   <svg className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
