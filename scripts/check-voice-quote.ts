@@ -70,4 +70,6 @@ assert.match(worker, /"\/voice\/send-link"/);
 assert.match(handler, /memoKey\(priced\.record\.id\)/, "Quote is remembered so only phone-made links can be sent");
 assert.match(handler, /const memo = await store\.get<VoiceQuoteMemo>\(memoKey\(quoteId\)/);
 assert.ok(handler.includes("(\\+?44|0)7\\d{9}"), "UK mobiles only");
-console.log("OK  WhatsApp booking link: phone-made quotes only, once each, UK mobiles");
+assert.match(handler, /sendBySms: true/, "Falls back to a text when WhatsApp can't send");
+assert.match(handler, /smsText: smsText\(memo, priced\.bookingUrl\)/);
+console.log("OK  WhatsApp booking link: phone-made quotes only, once each, UK mobiles; SMS backup");
