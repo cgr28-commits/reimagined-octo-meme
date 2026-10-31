@@ -2167,6 +2167,7 @@ html:has(.cookie-consent-banner) {
   #step2-travel-details #step2-flight-details { padding: 0.55rem 0.75rem; }
   #step2-travel-details #step2-flight-details .quote-helper-text { font-size: 0.68rem; line-height: 1.3; margin-top: 0.3rem; }
   #step2-travel-details #step2-flight-details input { height: 2.5rem; min-height: 2.5rem; }
-  #quoteForm:has(> #step2-travel-details #step2-flight-details) #step2-flight-details { break-before: column; }
-  #quoteForm:has(> #step2-travel-details #step2-flight-details) #step2-journey-summary { break-before: auto; }
+  /* Date and time were chosen on the first screen and show in the summary (Edit journey
+     changes them), so the boxes only reappear if something needs fixing. */
+  #step2-travel-details [data-quote-schedule]:not([data-schedule-error]):not(:has(input:invalid)) { display: none; }
 }
