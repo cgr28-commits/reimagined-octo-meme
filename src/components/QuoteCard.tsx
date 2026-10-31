@@ -7330,7 +7330,7 @@ function QuoteCard({
               style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
               className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
             >
-              Save My Quote
+              Email my quote
             </button>
           ) : null}
 
@@ -7440,7 +7440,7 @@ function QuoteCard({
             : "btn-secondary w-full"
         }
       >
-        Save My Quote
+        Email my quote
       </button>
     );
   }
@@ -7475,7 +7475,7 @@ function QuoteCard({
     effectivePassengers != null &&
     suitcases != null;
 
-  // "Any questions before you book?" — once per visit, when someone has a price
+  // "Not ready to book yet?" (email this quote / WhatsApp) — once per visit, when someone has a price
   // but hasn't pressed Book: leaving the page on desktop, or lingering on the price on mobile.
   const helpNudgeArmed =
     showInstantQuoteResultCard && Boolean(liveQuote) && !submitted && !isVehiclePersonalQuote;
@@ -7504,7 +7504,7 @@ function QuoteCard({
     };
     const desktop = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     document.addEventListener("mouseout", onMouseOut);
-    const timer = desktop ? null : window.setTimeout(show, 40_000);
+    const timer = desktop ? null : window.setTimeout(show, 30_000);
     return () => {
       document.removeEventListener("mouseout", onMouseOut);
       if (timer) window.clearTimeout(timer);
@@ -7662,7 +7662,7 @@ function QuoteCard({
     const restarting = quoteActionOpen === "restart";
     return (
       <QuoteActionDialog
-        title={quoteActionOpen === "route" ? "View route" : restarting ? "Need a quote for a different journey?" : quoteActionOpen === "help" ? "Any questions before you book?" : "WhatsApp"}
+        title={quoteActionOpen === "route" ? "View route" : restarting ? "Need a quote for a different journey?" : quoteActionOpen === "help" ? "Not ready to book yet?" : "WhatsApp"}
         role={restarting ? "alertdialog" : "dialog"}
         wide={quoteActionOpen === "route"}
         onClose={() => setQuoteActionOpen(null)}>
@@ -7681,10 +7681,23 @@ function QuoteCard({
         ) : quoteActionOpen === "help" ? (
           <div data-quote-help-nudge>
             <p className="quote-secondary text-sm leading-relaxed">
-              Luggage, child seats, flight delays or where to meet your driver — we&apos;re happy to help.
-              Message us on WhatsApp and we&apos;ll reply straight away with your price and booking link.
+              Get this price emailed to you so you can book whenever you&apos;re ready. Or if you&apos;ve a question
+              about luggage, child seats, flight delays or where to meet your driver, message us on WhatsApp.
             </p>
             <div className="mt-4 flex flex-col gap-2">
+              {saveQuoteSettings.enabled && saveQuoteSettings.emailEnabled ? (
+                <button
+                  type="button"
+                  data-quote-help-email
+                  onClick={() => {
+                    setQuoteActionOpen(null);
+                    handleSaveQuoteClick("email");
+                  }}
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald px-4 py-3 text-sm font-bold text-navy"
+                >
+                  Email me this quote
+                </button>
+              ) : null}
               <a
                 href={whatsAppSendQuoteHref({
                   pickup: pickupAddress,
@@ -7700,10 +7713,10 @@ function QuoteCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setQuoteActionOpen(null)}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold text-navy"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#25D366]/60 px-4 py-3 text-sm font-semibold text-white"
               >
-                <QuoteResultActionIcon name="whatsapp" className="h-5 w-5 text-navy" />
-                Chat to us on WhatsApp
+                <QuoteResultActionIcon name="whatsapp" className="h-5 w-5 text-[#25D366]" />
+                Ask a question on WhatsApp
               </a>
               <button
                 type="button"
@@ -7780,7 +7793,7 @@ function QuoteCard({
               className={`${QUOTE_RESULT_ACTION_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               <QuoteResultActionIcon name="save" />
-              <span>Save My Quote</span>
+              <span>Email my quote</span>
             </button>
             {startNewQuotePlacement === "results" ? (
               <button type="button" onClick={() => setQuoteActionOpen("restart")}
