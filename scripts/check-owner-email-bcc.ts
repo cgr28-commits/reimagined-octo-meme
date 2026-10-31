@@ -132,7 +132,7 @@ console.log("=== Collection email does not reveal the owner inbox ===");
     assert.equal(decision.text.includes(BUSINESS_MAILBOX), false);
     assert.equal(decision.html.includes(BUSINESS_MAILBOX), false);
     assert.equal(decision.html.includes("Rinkel"), false);
-    assert.match(decision.html, /tel:\+442896022952/);
+    assert.match(decision.html, /tel:\+447549815538/);
     assert.match(decision.html, />MESSAGE US ON WHATSAPP</);
   }
   const message = buildAirportPickupReminderMessage({

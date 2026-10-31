@@ -92,9 +92,9 @@ async function main() {
   assert.match(sig, /https:\/\/www\.myairporttaxini\.co\.uk\/logo\.png/, "signature has the real logo");
   assert.doesNotMatch(sig, /Brian/, "no personal name in the signature");
   assert.match(sig, /My Airport Taxi NI/);
-  assert.match(sig, /028 9602 2952/);
+  assert.match(sig, /07549 815538/);
   assert.match(sig, /bookings@myairporttaxini\.co\.uk/);
-  assert.doesNotMatch(sig.replace(/href="[^"]*"/g, ""), /07549|447549/, "WhatsApp number only in the link, never shown");
+  assert.doesNotMatch(sig, /028\s*9602/, "old landline removed from the signature");
   const out = buildOwnerOutgoingEmail({ message: "Hi <Sarah>\n\nSee you then.", quoted: { from: "Sarah", at: "today", text: "What time?" } });
   assert.match(out.html, /Hi &lt;Sarah&gt;/, "message is escaped");
   assert.match(out.text, /> What time\?/);
