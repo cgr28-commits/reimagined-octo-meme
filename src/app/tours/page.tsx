@@ -11,13 +11,15 @@ import { TOUR_BENEFITS, TOURS } from "@/lib/tours";
 import { getTourItemListJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
-  title: `Private Day Trips Northern Ireland | ${SITE.name}`,
+  title: { absolute: "Private Tours from Belfast | Giant's Causeway from £395" },
   description:
-    "Private chauffeur day trips across Northern Ireland. We take you door-to-door to the Giant's Causeway, Belfast, Game of Thrones locations, Antrim Coast, Mournes, and Derry. Book via WhatsApp.",
+    "Private day tours from Belfast with your own driver: Giant's Causeway, Game of Thrones locations, Antrim Coast and Belfast city. From £195 per car, up to 4 people.",
   alternates: {
     canonical: "/tours/",
   },
   keywords: [
+    "private tours from Belfast",
+    "private Giant's Causeway tour from Belfast",
     "Northern Ireland private day trips",
     "Giant's Causeway chauffeur trip",
     "Belfast private hire day trip",
@@ -59,8 +61,8 @@ export default function ToursPage() {
               <SectionHeading
                 align="left"
                 eyebrow="Private Day Trips"
-                title="Discover Northern Ireland"
-                description="We take you to the best of Northern Ireland in your own private vehicle. Flexible itineraries, door-to-door transport, and a dedicated driver — whether you're visiting for a day or planning a full day trip."
+                title="Private Tours from Belfast"
+                description="See the Giant's Causeway, the Antrim Coast, Game of Thrones locations or Belfast itself in your own car with a local driver. Half days from £195 and full days from £395 — per car, for up to 4 passengers."
               />
             </div>
 

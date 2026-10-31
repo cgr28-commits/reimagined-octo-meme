@@ -81,7 +81,7 @@ export const SITE_OFFLINE_ALLOWLIST = [
  * Set a flag back to true to restore nav, homepage sections, and routes.
  */
 export const SERVICE_FLAGS = {
-  dayTrips: false,
+  dayTrips: true,
   chauffeur: false,
   /** Address-to-address quoting UI — code retained in QuoteCard. */
   addressToAddress: true,

@@ -53,7 +53,7 @@ console.log("\n=== Copy constraints ===");
 {
   const combined = `${page}\n${content}`;
   assert.doesNotMatch(combined, /official (Belfast )?Harbour|official cruise operator/i);
-  assert.match(content, /do not sell shore excursions or sightseeing tours/);
+  assert.match(content, /private day tours from Belfast Cruise Terminal/);
   assert.match(content, /Enquire about 7 Seater Minibus availability/);
   assert.doesNotMatch(combined, /people carrier|coach/i);
   assert.doesNotMatch(combined, /our (people carrier|minibus|coach|fleet)/i);
