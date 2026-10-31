@@ -2181,3 +2181,8 @@ html:has(.cookie-consent-banner) {
   #step3-customer-details [data-booking-meet-greet] h3 + p::before { content: "· "; }
   #step3-customer-details [data-booking-meet-greet] h3 + p + p { margin-top: 0.2rem; }
 }
+
+/* Desktop booking screen: the offers tick box lines up under the terms tick box. */
+@media (min-width: 1024px) {
+  #step3-payment-actions > label { padding-left: calc(1rem + 0.8px); padding-right: 1rem; }
+}
