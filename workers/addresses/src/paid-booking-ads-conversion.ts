@@ -9,6 +9,7 @@ import {
   uploadPaidBookingClickConversion,
   type GoogleAdsClickConversionEnv,
   type PaidBookingAdsConversionStatus,
+  pickAdsClickIdentifier,
 } from "../shared/google-ads-click-conversions";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
@@ -30,7 +31,9 @@ function shouldSkipUpload(record: PaidBookingRecord): boolean {
   return (
     status === "sent" ||
     status === "skipped_duplicate" ||
-    status === "skipped_no_click_id"
+    status === "skipped_no_click_id" ||
+    status === "queued_daily_file" ||
+    status === "skipped_daily_file_unsupported"
   );
 }
 
@@ -64,7 +67,11 @@ async function persistConversionOutcome(
     delete next.googleAdsPaidConversionLastError;
   } else if (outcome.status === "failed") {
     next.googleAdsPaidConversionLastError = outcome.error?.slice(0, 500);
-  } else if (outcome.status === "skipped_no_click_id") {
+  } else if (
+    outcome.status === "skipped_no_click_id" ||
+    outcome.status === "queued_daily_file" ||
+    outcome.status === "skipped_daily_file_unsupported"
+  ) {
     delete next.googleAdsPaidConversionLastError;
   } else if (outcome.status === "skipped_not_configured") {
     // Keep status visible but allow retry once Worker secrets are added.
@@ -102,6 +109,24 @@ export async function maybeUploadPaidBookingAdsConversion(input: {
   const store = input.env.TRACKING_STORE;
   const existing = await getPaidBookingRecord(store, paymentReference);
   if (existing && shouldSkipUpload(existing)) {
+    return;
+  }
+
+  // Direct API upload is off unless explicitly switched on: Google refused API production
+  // access, so record that the booking goes out in the daily HTTPS booking file instead.
+  if (input.env.GOOGLE_ADS_DIRECT_UPLOAD?.trim().toLowerCase() !== "on") {
+    if (existing) {
+      const click = pickAdsClickIdentifier(input.attribution ?? existing.attribution ?? null);
+      await persistConversionOutcome(store, paymentReference, {
+        status: !click
+          ? "skipped_no_click_id"
+          : click.type === "gclid"
+            ? "queued_daily_file"
+            : "skipped_daily_file_unsupported",
+        orderId: paymentReference,
+        ...(click ? { clickIdType: click.type } : {}),
+      });
+    }
     return;
   }
 
