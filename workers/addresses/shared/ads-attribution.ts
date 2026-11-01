@@ -12,7 +12,12 @@ export const ADS_ATTRIBUTION_KEYS = [
 ] as const;
 
 export type AdsAttributionKey = (typeof ADS_ATTRIBUTION_KEYS)[number];
-export type AdsAttribution = Partial<Record<AdsAttributionKey, string>>;
+/**
+ * `ad_click: "google"` is a yes/no marker that the visitor arrived from a Google ad.
+ * It carries no click ID and is never read from or copied onto URLs. It lets the
+ * owner count ad bookings even when the visitor did not accept measurement cookies.
+ */
+export type AdsAttribution = Partial<Record<AdsAttributionKey, string>> & { ad_click?: "google" };
 
 const MAX_ATTRIBUTION_VALUE_LENGTH = 300;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]+/g;
@@ -34,6 +39,7 @@ export function sanitizeAdsAttribution(value: unknown): AdsAttribution | undefin
       .slice(0, MAX_ATTRIBUTION_VALUE_LENGTH);
     if (cleaned) result[key] = cleaned;
   }
+  if (source.ad_click === "google") result.ad_click = "google";
 
   return Object.keys(result).length > 0 ? result : undefined;
 }
@@ -59,5 +65,20 @@ export function formatAdsAttributionForOwner(value: unknown): string[] {
   if (clickIds.length > 0) {
     lines.push(`Google Ads click identifier captured: ${clickIds.join(", ")}`);
   }
+  if (attribution.ad_click === "google" || clickIds.length > 0) {
+    lines.push("Came from a Google ad: yes");
+  }
   return lines;
+}
+
+/** True when the booking's visitor arrived from a Google ad (with or without a click ID). */
+export function cameFromGoogleAd(value: unknown): boolean {
+  const attribution = sanitizeAdsAttribution(value);
+  if (!attribution) return false;
+  return Boolean(
+    attribution.ad_click === "google" ||
+      attribution.gclid ||
+      attribution.gbraid ||
+      attribution.wbraid,
+  );
 }

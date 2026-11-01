@@ -150,6 +150,8 @@ export type OwnerPaidBookingSummary = Pick<
   googleAdsPaidConversionClickIdType?: "gclid" | "gbraid" | "wbraid";
   googleAdsPaidConversionLastError?: string;
   googleAdsClickIdCaptured?: boolean;
+  /** Visitor arrived from a Google ad (recorded even without cookie consent, no click ID). */
+  cameFromGoogleAd?: boolean;
   returnOffer?: {
     eligible: boolean;
     reason?: string;

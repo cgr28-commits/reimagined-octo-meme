@@ -1,6 +1,6 @@
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "25 October 2026";
+export const PRIVACY_LAST_UPDATED = "1 November 2026";
 
 export const PRIVACY_SECTIONS = [
   {
@@ -33,6 +33,7 @@ export const PRIVACY_SECTIONS = [
       "Driver GPS location history may be recorded during booked journeys for operational/dispute evidence",
       "Marketing preferences if you opt in to receive updates (optional)",
       "Limited technical signals for security, fraud prevention and advertising abuse monitoring (such as hashed network identifiers, coarse browser/device category, landing page, referrer host, and advertising campaign parameters when present)",
+      "Whether your visit came from one of our Google ads, kept as a simple yes/no note on your booking so we can tell which advertising brings bookings. Unless you accept measurement cookies, this note holds no Google click identifier, sets no cookie and is not sent to Google",
     ],
   },
   {

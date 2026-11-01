@@ -8,6 +8,7 @@ import {
 import { paidBookingRecordToReceipt } from "../shared/paid-booking-canonical";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { pickAdsClickIdentifier } from "../shared/google-ads-click-conversions";
+import { cameFromGoogleAd } from "../shared/ads-attribution";
 import { corsHeaders } from "../shared/google-places";
 import { ownerAuthorized, resolveDriverSession, type DriverAuthEnv } from "./driver-auth";
 import type { LogPaidBookingCalendarFn } from "./finalize-paid-checkout";
@@ -201,6 +202,7 @@ function googleAdsOwnerStatusFields(booking: PaidBookingRecord) {
     googleAdsPaidConversionSentAt: booking.googleAdsPaidConversionSentAt,
     googleAdsPaidConversionClickIdType: clickIdType,
     googleAdsClickIdCaptured: Boolean(click || booking.googleAdsPaidConversionClickIdType),
+    cameFromGoogleAd: cameFromGoogleAd(booking.attribution) || Boolean(booking.googleAdsPaidConversionClickIdType),
     ...(lastError ? { googleAdsPaidConversionLastError: lastError } : {}),
   };
 }
