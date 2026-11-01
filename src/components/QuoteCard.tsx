@@ -357,6 +357,7 @@ import {
   isDublinCityNotAirportPlace,
   isOutOfAreaPickup,
   isIncompleteAddressPlace,
+  INCOMPLETE_DROPOFF_ADDRESS_MESSAGE,
   INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
   isPlaceSelected,
   isBelfastAirportRoiInstantJourney,
@@ -1298,11 +1299,22 @@ function QuoteCard({
     isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
   const isVehiclePersonalQuote =
     publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
+  /**
+   * Drop-off picked as a whole street / area (no house number or building name).
+   * Ask for the number instead of falling back to a personalised quote, so the
+   * customer can still get an instant price once the address is complete.
+   */
+  const isIncompleteDropoffAddress =
+    isA2AFlow &&
+    isPlaceSelected(dropoffPlace) &&
+    isIncompleteAddressPlace(dropoffPlace) &&
+    !detectAirportCodeFromPlace(dropoffPlace);
   const isManualQuoteJourney =
     isVehiclePersonalQuote ||
     (isA2AFlow &&
       isPlaceSelected(pickupPlace) &&
       isPlaceSelected(dropoffPlace) &&
+      !isIncompleteDropoffAddress &&
       needsManualQuoteApproval(pickupPlace, dropoffPlace, {
         irelandPickupsIntoBelfastInstant: publicPricing.irelandPickupsIntoBelfastInstant === true,
       })) ||
@@ -2064,6 +2076,7 @@ function QuoteCard({
   const scheduleReadyForQuote = isScheduleComplete;
   const canShowPrice =
     hasQuoteRoute &&
+    !isIncompleteDropoffAddress &&
     quoteChoicesReady &&
     scheduleReadyForQuote &&
     !exceedsOnlineCapacity;
@@ -2072,6 +2085,7 @@ function QuoteCard({
   // before the action can request or display a final fare.
   const homepageQuoteReady =
     hasQuoteRoute &&
+    !isIncompleteDropoffAddress &&
     quoteChoicesReady &&
     !exceedsOnlineCapacity &&
     isQuoteReadyPlace(pickupPlace) &&
@@ -8297,6 +8311,7 @@ function QuoteCard({
                 publicMinibusEnabled={publicMinibusEnabled}
                 onRequestPrice={requestHomepagePrice}
                 quoteReady={homepageQuoteReady}
+                dropoffNeedsHouseNumber={isIncompleteDropoffAddress}
                 scheduleFields={renderQuoteScheduleFields("quote", true)}
                 scheduleComplete={isScheduleComplete}
                 capacityConfirmed={homepageCapacityConfirmed}
@@ -8419,10 +8434,10 @@ function QuoteCard({
             ) : null}
 
             {presentation === "homepage" &&
-            !(isIncompletePickupAddress || isOutOfAreaPickupJourney || isRoiJourney) ? null : (
+            !(isIncompletePickupAddress || isIncompleteDropoffAddress || isOutOfAreaPickupJourney || isRoiJourney) ? null : (
             <div
               className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                isIncompletePickupAddress || isOutOfAreaPickupJourney || isRoiJourney
+                isIncompletePickupAddress || isIncompleteDropoffAddress || isOutOfAreaPickupJourney || isRoiJourney
                   ? "grid-rows-[1fr]"
                   : "grid-rows-[0fr]"
               }`}
@@ -8434,6 +8449,14 @@ function QuoteCard({
                     className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
                   >
                     <p className="font-semibold text-red-100">{INCOMPLETE_PICKUP_ADDRESS_MESSAGE}</p>
+                  </div>
+                ) : isIncompleteDropoffAddress ? (
+                  <div
+                    role="alert"
+                    data-incomplete-dropoff-address
+                    className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-white/85"
+                  >
+                    <p className="font-semibold text-amber-200">{INCOMPLETE_DROPOFF_ADDRESS_MESSAGE}</p>
                   </div>
                 ) : isOutOfAreaPickupJourney ? (
                   <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-white/85">
