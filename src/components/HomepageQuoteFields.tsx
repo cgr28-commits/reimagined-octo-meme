@@ -10,6 +10,7 @@ import {
   fetchSelectedPlaceDetails,
 } from "@/lib/google-maps";
 import {
+  INCOMPLETE_DROPOFF_ADDRESS_MESSAGE,
   isIncompleteAddressPlace,
   isQuoteReadyPlace,
   venueNameForPlace,
@@ -50,6 +51,8 @@ type HomepageQuoteFieldsProps = {
   publicMinibusEnabled: boolean;
   onRequestPrice: () => void;
   quoteReady: boolean;
+  /** Drop-off chosen as a street/area with no house number or building name. */
+  dropoffNeedsHouseNumber?: boolean;
   scheduleFields?: ReactNode;
   scheduleComplete?: boolean;
   actionLabel?: string;
@@ -215,6 +218,7 @@ export default function HomepageQuoteFields({
   publicMinibusEnabled,
   onRequestPrice,
   quoteReady,
+  dropoffNeedsHouseNumber = false,
   scheduleFields = null,
   scheduleComplete = false,
   actionLabel = "Get My Fixed Price →",
@@ -447,6 +451,8 @@ export default function HomepageQuoteFields({
           ? "The 7-Seater is unavailable. Online quotes currently support up to 4 passengers and 4 suitcases."
           : !pickupConfirmedPlace || !dropoffConfirmedPlace
             ? "Select and confirm both pickup and drop-off addresses."
+            : dropoffNeedsHouseNumber
+              ? INCOMPLETE_DROPOFF_ADDRESS_MESSAGE
             : passengers == null || suitcases == null
               ? "Select passengers and suitcases to see your fixed price."
               : !scheduleComplete

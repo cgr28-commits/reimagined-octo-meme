@@ -61,6 +61,9 @@ export const PLACES_LOOKUP_A2A = "A2A";
 export const INCOMPLETE_PICKUP_ADDRESS_MESSAGE =
   "Please enter and select your complete pickup address, including the house number or building name.";
 
+export const INCOMPLETE_DROPOFF_ADDRESS_MESSAGE =
+  "Add a house number or building name to your drop-off, then tap your address, to see your instant price.";
+
 /** Quick-select airports shown under the address fields. */
 export const QUICK_SELECT_AIRPORTS = SERVED_AIRPORTS.map((airport) => ({
   code: airport.code,
