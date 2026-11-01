@@ -262,6 +262,7 @@ const pages = [
   ...[
     "/transfers/belfast-to-cork/",
     "/transfers/cork-to-belfast/",
+    "/transfers/belfast-to-dublin-city/",
     "/transfers/7-seater-airport-transfers-belfast/",
     "/transfers/belfast-to-dublin-airport-7-seater/",
     "/transfers/hen-party-transport-belfast/",
@@ -290,6 +291,9 @@ function pageContentSources(page) {
   const sharedContent = ["src/lib/data.ts", "shared/cancellation-policy.ts"];
   if (page.path === "/transfers/belfast-to-cork/" || page.path === "/transfers/cork-to-belfast/") {
     return [page.source, "src/lib/cork-transfer-content.ts", "src/components/CorkTransferLanding.tsx"];
+  }
+  if (page.path === "/transfers/belfast-to-dublin-city/") {
+    return [page.source, "src/lib/dublin-city-transfer-content.ts", "src/components/DublinCityTransferLanding.tsx"];
   }
   if (page.path === "/transfers/business-class-dublin-airport/") {
     return [page.source, "src/lib/business-class-dublin-content.ts"];
