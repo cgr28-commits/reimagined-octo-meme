@@ -227,17 +227,36 @@ export function readConsentedAdsAttribution(): AdsAttributionParams | undefined 
 }
 
 /**
+ * Whether this visit started from a Google ad click. Uses only the in-memory landing
+ * copy (and consented storage), never a cookie written without consent, and is false
+ * once the visitor has rejected measurement cookies.
+ */
+export function landedFromGoogleAd(): boolean {
+  if (typeof window === "undefined" || readCookieConsent() === "rejected") return false;
+  const landing = mergeAttribution(
+    pendingLanding,
+    readSearchParams(landingSearchMarkedOnWindow()),
+    hasMarketingCookieConsent() ? readCookieAttribution() : undefined,
+    hasMarketingCookieConsent() ? readStoredAdsAttribution() : undefined,
+  );
+  return Boolean(landing.gclid || landing.gbraid || landing.wbraid);
+}
+
+/**
  * Attach the consented click ID, or remove one that was captured before a reject.
+ * Without consent, only the yes/no `ad_click` marker is attached (no click ID).
  */
 export function bookingWithConsentedAdsAttribution<T extends { attribution?: AdsAttribution }>(
   booking: T,
 ): T {
   const attribution = readConsentedAdsAttribution();
+  const fromAd = landedFromGoogleAd();
   if (!attribution) {
+    if (fromAd) return { ...booking, attribution: { ad_click: "google" } };
     if (!Object.prototype.hasOwnProperty.call(booking, "attribution")) return booking;
     const next = { ...booking };
     delete next.attribution;
     return next;
   }
-  return { ...booking, attribution };
+  return { ...booking, attribution: fromAd ? { ...attribution, ad_click: "google" } : attribution };
 }

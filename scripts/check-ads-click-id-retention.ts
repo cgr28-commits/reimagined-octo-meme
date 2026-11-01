@@ -145,6 +145,20 @@ clearStoredAdsAttribution();
 assert.equal(adsClickIdSearchForNavigation(landingWindow.location.search), "");
 console.log("OK  links carry the test click ID only while consent is undecided");
 
+console.log("=== Undecided consent: yes/no ad marker only ===");
+reset();
+landingWindow.window.__matniLandingSearch = `?gclid=${GCLID}`;
+rememberLandingAdsAttribution(`?gclid=${GCLID}`);
+const undecidedBooking = bookingWithConsentedAdsAttribution({ customerName: "Undecided Visitor" });
+assert.deepEqual(undecidedBooking.attribution, { ad_click: "google" });
+assert.doesNotMatch(JSON.stringify(undecidedBooking), new RegExp(GCLID));
+assert.equal(session.size, 0);
+assert.equal(cookies.size, 0);
+reset();
+const organicBooking = bookingWithConsentedAdsAttribution({ customerName: "Organic Visitor" });
+assert.equal("attribution" in organicBooking, false);
+console.log("OK  undecided visitors from an ad send only ad_click=google, never the click ID");
+
 console.log("=== Rejected consent ===");
 reset();
 landingWindow.window.__matniLandingSearch = `?gbraid=${GBRAID}`;

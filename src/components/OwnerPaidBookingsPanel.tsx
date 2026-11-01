@@ -1661,6 +1661,12 @@ export default function OwnerPaidBookingsPanel({
               Google Ads
             </p>
             <p className="text-sm text-white/70">
+              Came from a Google ad:{" "}
+              <span className="font-semibold text-white" data-came-from-google-ad>
+                {booking.cameFromGoogleAd ? "Yes" : "No / not known"}
+              </span>
+            </p>
+            <p className="text-sm text-white/70">
               Paid booking conversion:{" "}
               <span className="font-semibold text-white">
                 {ownerGoogleAdsPaidConversionLabel(
