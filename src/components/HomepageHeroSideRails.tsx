@@ -1,75 +1,61 @@
 import Link from "next/link";
-import { BadgeCheck, CalendarX, Clock, MapPin, Plane, PoundSterling, Star } from "lucide-react";
-import { SITE } from "@/lib/data";
+import { withBasePath } from "@/lib/paths";
 
 /**
  * Wide-desktop only (see .homepage-hero-rails in globals.css): fills the empty
  * navy space either side of the centred homepage quote form. Hidden on phones,
  * tablets and laptops, so the quote flow there is unchanged.
+ *
+ * Left: Business Class (offered on Dublin Airport journeys).
+ * Right: private day tours.
  */
-const reasons = [
-  { icon: Star, text: "5-star rated on Google" },
-  { icon: PoundSterling, text: "Fixed price, agreed before you pay" },
-  { icon: Plane, text: "Flight monitoring on airport pickups" },
-  { icon: Clock, text: "Up to 60 minutes' waiting on airport pickups" },
-  { icon: CalendarX, text: "Free cancellation up to 24 hours before pickup" },
-  { icon: BadgeCheck, text: "Pre-booked, licensed local NI driver" },
-];
-
-const journeys = [
-  { href: "/transfers/belfast-to-dublin-airport/", label: "Belfast to Dublin Airport" },
-  { href: "/transfers/dublin-airport-to-belfast/", label: "Dublin Airport to Belfast" },
-  { href: "/transfers/belfast-to-dublin-city/", label: "Belfast to Dublin City" },
-  { href: "/transfers/business-class-dublin-airport/", label: "Business Class to Dublin" },
-  { href: "/belfast-grand-central-station-taxi/", label: "Grand Central Station" },
-  { href: "/belfast-cruise-terminal-transfers/", label: "Belfast Cruise Terminal" },
-  { href: "/tours/", label: "Private day tours" },
-];
+const cards = [
+  {
+    side: "left",
+    label: "Business Class",
+    image: "/images/hero/optimized/business-class-executive-dublin-960.jpg",
+    title: "Travel to Dublin Airport in a Mercedes, BMW or Lexus",
+    text: "Meet & Greet with a name board on Dublin pickups, and help with your luggage.",
+    href: "/transfers/business-class-dublin-airport/",
+    cta: "See Business Class",
+  },
+  {
+    side: "right",
+    label: "Private day tours",
+    image: "/images/hero/optimized/antrim-coast-960.jpg",
+    title: "Giant's Causeway, the Antrim Coast and more",
+    text: "Your own car and driver for the day. Half day from £195, full day from £395, per car for up to 4.",
+    href: "/tours/",
+    cta: "See day tours",
+  },
+] as const;
 
 export default function HomepageHeroSideRails() {
   return (
     <div className="homepage-hero-rails" data-homepage-hero-rails>
-      <aside className="homepage-hero-rail homepage-hero-rail-left" aria-label="Why book with us">
-        <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Why book with us</p>
-        <ul className="mt-4 space-y-3.5">
-          {reasons.map(({ icon: Icon, text }) => (
-            <li key={text} className="flex items-start gap-3 text-sm leading-snug text-white/85">
-              <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald/15 text-emerald">
-                <Icon className="h-4 w-4" aria-hidden />
-              </span>
-              <span>{text}</span>
-            </li>
-          ))}
-        </ul>
-      </aside>
-
-      <aside className="homepage-hero-rail homepage-hero-rail-right" aria-label="Popular journeys">
-        <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Popular journeys</p>
-        <ul className="mt-4 space-y-1">
-          {journeys.map(({ href, label }) => (
-            <li key={href}>
-              <Link
-                href={href}
-                className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-white/85 transition hover:bg-white/5 hover:text-white"
-              >
-                <MapPin className="h-4 w-4 shrink-0 text-emerald" aria-hidden />
-                <span>{label}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-5 border-t border-white/10 pt-4 text-sm text-white/75">
-          <p>Questions before you book?</p>
-          <a
-            href={`https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-1 inline-block font-semibold text-emerald hover:underline"
-          >
-            WhatsApp {SITE.whatsappAssistantDisplay}
-          </a>
-        </div>
-      </aside>
+      {cards.map((card) => (
+        <aside
+          key={card.side}
+          className={`homepage-hero-rail homepage-hero-rail-${card.side}`}
+          aria-label={card.label}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald">{card.label}</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={withBasePath(card.image)}
+            alt=""
+            loading="lazy"
+            width={480}
+            height={270}
+            className="mt-3 h-36 w-full rounded-lg object-cover"
+          />
+          <p className="mt-3 text-[1.05rem] font-semibold leading-snug text-white">{card.title}</p>
+          <p className="mt-2 text-sm leading-relaxed text-white/75">{card.text}</p>
+          <Link href={card.href} className="mt-3 inline-block text-sm font-semibold text-emerald hover:underline">
+            {card.cta} →
+          </Link>
+        </aside>
+      ))}
     </div>
   );
 }
