@@ -305,6 +305,12 @@ async function main() {
   assert.equal(ownerGoogleAdsPaidConversionLabel("sent", true), "Sent");
   assert.equal(ownerGoogleAdsPaidConversionLabel("skipped_duplicate", true), "Sent");
   assert.equal(ownerGoogleAdsPaidConversionLabel("failed", true), "Failed");
+  assert.equal(ownerGoogleAdsPaidConversionLabel("queued_daily_file", true, "gclid"), "In daily Google Ads file");
+  assert.equal(
+    ownerGoogleAdsPaidConversionLabel("failed", true, "gclid", "HTTP 403 — PERMISSION_DENIED — authorizationError:CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION"),
+    "In daily Google Ads file",
+  );
+  assert.equal(ownerGoogleAdsPaidConversionLabel("skipped_daily_file_unsupported", true, "gbraid"), "Not sendable (app click ID)");
   assert.equal(
     ownerGoogleAdsPaidConversionLabel("skipped_not_configured", true),
     "Missing configuration",

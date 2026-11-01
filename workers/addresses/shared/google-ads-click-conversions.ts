@@ -41,6 +41,12 @@ export type GoogleAdsClickConversionEnv = {
    * (default {@link DEFAULT_GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID}).
    */
   GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
+  /**
+   * "on" to try the direct API upload. Off by default: Google refused API production
+   * access for this Cloud project, so paid bookings reach Google Ads through the daily
+   * HTTPS booking file instead (see google-ads-offline-feed.ts).
+   */
+  GOOGLE_ADS_DIRECT_UPLOAD?: string;
 };
 
 export type PaidBookingAdsConversionStatus =
@@ -49,6 +55,10 @@ export type PaidBookingAdsConversionStatus =
   | "skipped_no_click_id"
   | "skipped_not_configured"
   | "skipped_duplicate"
+  /** Not uploaded directly: the booking's gclid is in the daily HTTPS file Google Ads collects. */
+  | "queued_daily_file"
+  /** Not uploaded directly and only an app click ID (gbraid/wbraid), which the daily file can't carry. */
+  | "skipped_daily_file_unsupported"
   | "failed";
 
 export type UploadPaidBookingClickConversionInput = {

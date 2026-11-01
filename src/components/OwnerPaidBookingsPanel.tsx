@@ -77,7 +77,7 @@ import {
   type RefundDiagnosticsReport,
   type TrackingDiagnosticReport,
 } from "@/lib/paid-bookings-api";
-import { ownerGoogleAdsPaidConversionLabel } from "@/lib/google-ads-owner-status";
+import { isApiNotApprovedError, ownerGoogleAdsPaidConversionLabel } from "@/lib/google-ads-owner-status";
 import { fetchOwnerBookingJobs } from "@/lib/booking-jobs-api";
 import type { BookingJobRecord } from "../../shared/booking-job";
 import type { RefundIssueResponse } from "@/lib/refund-api";
@@ -1672,6 +1672,8 @@ export default function OwnerPaidBookingsPanel({
                 {ownerGoogleAdsPaidConversionLabel(
                   booking.googleAdsPaidConversionStatus,
                   booking.googleAdsClickIdCaptured === true,
+                  booking.googleAdsPaidConversionClickIdType,
+                  booking.googleAdsPaidConversionLastError,
                 )}
               </span>
             </p>
@@ -1681,6 +1683,7 @@ export default function OwnerPaidBookingsPanel({
               </p>
             ) : null}
             {booking.googleAdsPaidConversionStatus === "failed" &&
+            !isApiNotApprovedError(booking.googleAdsPaidConversionLastError) &&
             booking.googleAdsPaidConversionLastError ? (
               <p className="mt-1 break-words text-xs text-red-200/80">
                 {booking.googleAdsPaidConversionLastError}
