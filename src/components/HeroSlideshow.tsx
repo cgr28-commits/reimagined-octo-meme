@@ -1,5 +1,6 @@
 import GoogleReviewsBadge from "./GoogleReviewsBadge";
 import HeroBenefitsRow from "./HeroBenefitsRow";
+import HomepageHeroSideRails from "./HomepageHeroSideRails";
 import OptimizedHeroPicture from "./OptimizedHeroPicture";
 import QuoteCard from "./QuoteCard";
 import QuoteHelpContact from "./QuoteHelpContact";
@@ -30,6 +31,7 @@ export default function HeroSlideshow() {
           Tablet (md): quote first, then the heading.
           Desktop (lg+): heading, then benefits above a centred quote form. */}
       <div className="homepage-hero-layout desktop-shell relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-1.5 px-4 py-1.5 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
+        <HomepageHeroSideRails />
         <div id="homepage-booking-intro" className="homepage-hero-copy order-1 min-w-0 text-center md:order-2 lg:order-1 lg:pt-2">
           <h1 className="font-sans text-balance text-[1.5625rem] font-semibold leading-[1.15] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[2.9rem] xl:text-[3.15rem] xl:leading-[1.06]">
             <span className="text-white">Belfast &amp; Dublin</span>{" "}
