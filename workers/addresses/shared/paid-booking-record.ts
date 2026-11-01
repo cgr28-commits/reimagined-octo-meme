@@ -219,6 +219,8 @@ export type PaidBookingRecord = {
     | "skipped_no_click_id"
     | "skipped_not_configured"
     | "skipped_duplicate"
+    | "queued_daily_file"
+    | "skipped_daily_file_unsupported"
     | "failed";
   googleAdsPaidConversionLastError?: string;
   googleAdsPaidConversionClickIdType?: "gclid" | "gbraid" | "wbraid";
