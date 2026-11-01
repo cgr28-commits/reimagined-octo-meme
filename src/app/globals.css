@@ -2186,3 +2186,49 @@ html:has(.cookie-consent-banner) {
 @media (min-width: 1024px) {
   #step3-payment-actions > label { padding-left: calc(1rem + 0.8px); padding-right: 1rem; }
 }
+
+
+/*
+ * Wide desktop only: fill the navy space either side of the centred quote
+ * form with "Why book with us" and "Popular journeys". Hidden below 1360px so
+ * phones, tablets and laptops keep the existing layout.
+ */
+.homepage-hero-rails {
+  display: none;
+}
+
+@media (min-width: 1360px) {
+  .homepage-hero-rails {
+    display: block;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    --hero-quote-width: 50rem;
+    --hero-rail-width: min(17rem, calc((100% - var(--hero-quote-width)) / 2 - 3rem));
+  }
+
+  .homepage-hero-rail {
+    position: absolute;
+    top: 11.5rem;
+    width: var(--hero-rail-width);
+    pointer-events: auto;
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(8, 24, 48, 0.55);
+    padding: 1.25rem;
+  }
+
+  .homepage-hero-rail-left {
+    left: calc((100% - var(--hero-quote-width)) / 4 - var(--hero-rail-width) / 2);
+  }
+
+  .homepage-hero-rail-right {
+    right: calc((100% - var(--hero-quote-width)) / 4 - var(--hero-rail-width) / 2);
+  }
+}
+
+@media (min-width: 1536px) {
+  .homepage-hero-rails {
+    --hero-quote-width: 54rem;
+  }
+}
