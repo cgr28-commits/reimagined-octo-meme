@@ -2076,10 +2076,10 @@ function QuoteCard({
   const scheduleReadyForQuote = isScheduleComplete;
   const canShowPrice =
     hasQuoteRoute &&
-    !isIncompleteDropoffAddress &&
     quoteChoicesReady &&
     scheduleReadyForQuote &&
-    !exceedsOnlineCapacity;
+    !exceedsOnlineCapacity &&
+    !isIncompleteDropoffAddress;
 
   // Homepage action gate for route and party. Schedule validation is enforced
   // before the action can request or display a final fare.
