@@ -2020,7 +2020,7 @@ html:has(.cookie-consent-banner) {
    without scrolling — slimmer header, smaller heading/icons, tighter quote fields.
    Mobile and tablet are untouched. */
 @media (min-width: 1024px) {
-  header .quote-header-logo { height: 3.5rem; }
+  header .quote-header-logo { height: 5rem; }
   header .desktop-shell.lg\:grid { padding-top: 0.25rem; padding-bottom: 0.25rem; }
   header .hidden.md\:block > div { padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.75rem; }
   section.homepage-hero { padding-top: 5.25rem; }
