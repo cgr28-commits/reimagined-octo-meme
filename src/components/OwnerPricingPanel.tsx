@@ -323,6 +323,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"save" | "restore" | null>(null);
+  /** Typed confirmation for the restore-defaults action, so it can't be pressed by mistake. */
+  const [restoreConfirmText, setRestoreConfirmText] = useState("");
+  const restoreConfirmed = restoreConfirmText.trim().toUpperCase() === "RESTORE";
   const [multiplierText, setMultiplierText] = useState(() =>
     String(defaultOwnerPricingSettings().minibus.multiplier),
   );
@@ -1689,15 +1692,29 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         >
           Discard Changes
         </button>
+      </div>
+      <details className="rounded-2xl border border-red-300/20 bg-red-500/5 p-4" data-restore-defaults-section>
+        <summary className="cursor-pointer text-sm font-semibold text-white/70">
+          Advanced: restore factory pricing
+        </summary>
+        <p className="mt-3 text-sm leading-relaxed text-white/70">
+          This replaces <strong className="text-white">all</strong> of your own pricing settings
+          (mileage rate, minimum fares, surcharges, drive-to-pickup charges and more) with the
+          website&apos;s original factory values. It cannot be undone automatically. To undo a recent
+          change, use Change history above and edit that one setting instead.
+        </p>
         <button
           type="button"
           disabled={saving}
-          onClick={() => setConfirm("restore")}
-          className="min-h-12 rounded-xl px-4 text-sm font-semibold text-white/70"
+          onClick={() => {
+            setRestoreConfirmText("");
+            setConfirm("restore");
+          }}
+          className="mt-3 min-h-11 rounded-xl border border-red-300/50 px-4 text-sm font-semibold text-red-200 disabled:opacity-40"
         >
-          Restore default pricing settings
+          Restore default pricing settings…
         </button>
-      </div>
+      </details>
 
       {confirm ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
@@ -1723,23 +1740,42 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
               ) : null}
             </ul>
             {confirm === "restore" ? (
-              <p className="mt-3 text-xs text-white/55">
-                Public 7 Seater availability stays {draft.minibus.publicEnabled ? "ON" : "OFF"}.
-                Restoring defaults does not turn it on.
-              </p>
+              <>
+                <p className="mt-3 text-xs text-white/55">
+                  Public 7 Seater availability stays {draft.minibus.publicEnabled ? "ON" : "OFF"}.
+                  Restoring defaults does not turn it on.
+                </p>
+                <label className="mt-4 block text-sm font-semibold text-red-200" htmlFor="restore-confirm-input">
+                  Type RESTORE to confirm
+                </label>
+                <input
+                  id="restore-confirm-input"
+                  type="text"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  value={restoreConfirmText}
+                  onChange={(event) => setRestoreConfirmText(event.target.value)}
+                  className="mt-1 h-11 w-full rounded-lg border border-white/20 bg-white px-3 text-base font-semibold text-navy outline-none focus:border-red-400"
+                />
+              </>
             ) : null}
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 className="min-h-11 rounded-xl border border-white/20 text-sm font-semibold text-white"
-                onClick={() => setConfirm(null)}
+                onClick={() => {
+                  setConfirm(null);
+                  setRestoreConfirmText("");
+                }}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="min-h-11 rounded-xl bg-emerald text-sm font-semibold text-navy"
-                disabled={saving}
+                className={`min-h-11 rounded-xl text-sm font-semibold disabled:opacity-40 ${
+                  confirm === "restore" ? "bg-red-500 text-white" : "bg-emerald text-navy"
+                }`}
+                disabled={saving || (confirm === "restore" && !restoreConfirmed)}
                 onClick={() => void persist(confirm === "restore" ? "restore" : "save")}
               >
                 {confirm === "restore" ? "Restore" : "Save Pricing"}
