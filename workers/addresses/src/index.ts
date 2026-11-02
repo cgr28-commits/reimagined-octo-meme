@@ -411,6 +411,7 @@ import {
 } from "./customer-account-handlers";
 import { backfillCustomerBookingIndex } from "./customer-account-backfill";
 import { handleGoogleReviewSummary, refreshGoogleReviewSummary } from "./google-reviews";
+import { enqueueQuoteContactFollowUp, processQuoteContactFollowUps } from "./quote-contact-followup";
 import {
   handleOwnerEmailCustomer,
   handleOwnerEmailCustomerDraft,
@@ -1573,6 +1574,12 @@ async function handleQuoteLeadRequest(
     });
     emailed = notify.emailed;
     contactEmailed = notify.contactEmailed;
+    if (kind === "contact" && env.TRACKING_STORE) {
+      // One "your quote is waiting" email about an hour later if they don't book.
+      await enqueueQuoteContactFollowUp(env.TRACKING_STORE, details).catch((error) =>
+        console.error("Quote follow-up enqueue failed", error),
+      );
+    }
     if (!notify.emailed && kind === "quote" && !body.skipEmail && !created) {
       try {
         await recordQuoteLeadDeduped(env);
@@ -5922,6 +5929,9 @@ export default {
       ctx.waitUntil(processWhatsAppFollowUps(env, new Date(event.scheduledTime)).then(result => {
         if (result.sent) console.log("WhatsApp follow-up cron", JSON.stringify(result));
       }).catch(error => console.error("WhatsApp follow-up cron failed", error)));
+      ctx.waitUntil(processQuoteContactFollowUps(env, new Date(event.scheduledTime)).then(result => {
+        if (result.sent || result.errors) console.log("Quote follow-up cron", JSON.stringify(result));
+      }).catch(error => console.error("Quote follow-up cron failed", error)));
       ctx.waitUntil(processFlightWatch(env, new Date(event.scheduledTime)).then(result => {
         if (result.checked || result.errors) console.log("Flight watch cron", JSON.stringify(result));
       }).catch(error => console.error("Flight watch cron failed", error)));
