@@ -342,6 +342,63 @@ export async function getPaidBookingRecordByCheckoutId(
   return getPaidBookingRecord(store, paymentReference.trim());
 }
 
+const CREATED_INDEX_BACKFILLED_KEY = "booking:index:created-day-backfilled:v1";
+let createdIndexBackfilledInIsolate = false;
+
+/**
+ * Older bookings were saved before the created-day index existed, so the list
+ * functions below used to fall back to reading EVERY `booking:ref:*` record on
+ * every call (millions of KV reads a month from the 5-minute and hourly crons).
+ *
+ * This runs that full scan once, adds every record to its created-day index,
+ * and records a permanent marker. After that the fallback is skipped and
+ * listing costs one index read per day in the window.
+ */
+async function createdDayIndexIsComplete(store: KVNamespace): Promise<boolean> {
+  if (createdIndexBackfilledInIsolate) return true;
+  if (await store.get(CREATED_INDEX_BACKFILLED_KEY)) {
+    createdIndexBackfilledInIsolate = true;
+    return true;
+  }
+  try {
+    const refsByDay = new Map<string, string[]>();
+    let cursor: string | undefined;
+    do {
+      const page = await store.list({ prefix: "booking:ref:", cursor, limit: 1000 });
+      for (const key of page.keys) {
+        const ref = key.name.replace(/^booking:ref:/, "").trim();
+        if (!ref) continue;
+        const record = await getPaidBookingRecord(store, ref);
+        if (!record?.createdAt?.trim()) continue;
+        const day = londonDateFromIso(record.createdAt);
+        const refs = refsByDay.get(day) ?? [];
+        refs.push(record.paymentReference);
+        refsByDay.set(day, refs);
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+
+    for (const [day, refs] of refsByDay) {
+      const indexKey = paidBookingCreatedDayIndexKey(day);
+      const existing = await store.get<string[]>(indexKey, "json");
+      const ids = Array.isArray(existing) ? existing : [];
+      const missing = refs.filter((ref) => !ids.includes(ref));
+      if (missing.length === 0) continue;
+      await store.put(indexKey, JSON.stringify([...ids, ...missing]), { expirationTtl: DAY_INDEX_TTL });
+    }
+
+    await store.put(CREATED_INDEX_BACKFILLED_KEY, new Date().toISOString());
+    createdIndexBackfilledInIsolate = true;
+  } catch (error) {
+    // Leave the marker unset so the old fallback keeps working and we retry later.
+    console.error("Created-day index backfill failed", error);
+    return false;
+  }
+  // Skip this call's fallback too, to stay within per-invocation KV limits.
+  // Only this one call may miss a pre-index booking; later calls read the full index.
+  return true;
+}
+
 /**
  * Lists paid bookings. Uses created-day indexes when present, then falls back to
  * scanning `booking:ref:*` so bookings stored before indexing still appear.
@@ -367,8 +424,8 @@ export async function listRecentPaidBookings(
     }
   }
 
-  // Fallback for bookings saved before day indexes existed.
-  if (byRef.size < limit) {
+  // Fallback for bookings saved before day indexes existed (once only).
+  if (byRef.size < limit && !(await createdDayIndexIsComplete(store))) {
     let cursor: string | undefined;
     do {
       const page = await store.list({ prefix: "booking:ref:", cursor, limit: 100 });
@@ -418,8 +475,8 @@ export async function listPaidBookingsCreatedSince(
     guard += 1;
   }
 
-  // Fallback scan for pre-index rows still within the year window.
-  if (byRef.size < limit) {
+  // Fallback scan for pre-index rows still within the year window (once only).
+  if (byRef.size < limit && !(await createdDayIndexIsComplete(store))) {
     let listCursor: string | undefined;
     do {
       const page = await store.list({ prefix: "booking:ref:", cursor: listCursor, limit: 100 });
