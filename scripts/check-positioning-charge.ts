@@ -15,6 +15,7 @@ import {
   isAirportPositioningChargeActive,
   isPositioningChargeActive,
   normalizeProfitabilitySettings,
+  airportPositioningChargeGbp,
   positioningA2aChargeFromMilesGbp,
   positioningChargeFromMilesGbp,
   validateProfitabilitySettings,
@@ -126,6 +127,15 @@ async function main() {
   assert.equal(positioningChargeFromMilesGbp(10, A2A_ON), 0, "airport maths ignores the A2A switch");
   // Glenarm is ~29 road miles from base: (29 − 4) × £0.50 = £12.50 → £13.
   assert.equal(positioningA2aChargeFromMilesGbp(29, A2A_ON), 13);
+  // Long airport jobs taper to the address-to-address rate beyond its free radius.
+  const LIVE = { ...ON, positioningRatePerMileGbp: 0.5, positioningA2aEnabled: true, positioningA2aFreeMiles: 30, positioningA2aRatePerMileGbp: 0.25 };
+  assert.equal(airportPositioningChargeGbp(12, LIVE), 4, "short airport runs unchanged");
+  assert.equal(airportPositioningChargeGbp(30, LIVE), 13, "airport rate up to the A2A radius");
+  assert.equal(airportPositioningChargeGbp(105, LIVE), 32, "Dublin: 13 + 75 × 0.25");
+  assert.ok(airportPositioningChargeGbp(31, LIVE) >= airportPositioningChargeGbp(30, LIVE), "no cliff at the radius");
+  assert.equal(airportPositioningChargeGbp(105, { ...LIVE, positioningA2aEnabled: false }), 51, "A2A OFF keeps the airport rate");
+  assert.equal(airportPositioningChargeGbp(105, { ...LIVE, positioningA2aFreeMiles: 4 }), 51, "no taper when the A2A radius is not wider");
+  assert.equal(airportPositioningChargeGbp(10, defaults), 0, "OFF never charges");
   assert.equal(positioningA2aChargeFromMilesGbp(4, A2A_ON), 0);
   assert.equal(positioningA2aChargeFromMilesGbp(29, ON), 0, "A2A maths ignores the airport switch");
   assert.equal(positioningA2aChargeFromMilesGbp(29, defaults), 0);
