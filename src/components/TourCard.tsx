@@ -12,7 +12,7 @@ export default function TourCard({ tour }: TourCardProps) {
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:border-emerald/30 hover:bg-white/[0.06] hover:shadow-xl hover:shadow-emerald/5">
       <Link href={`/tours/${tour.slug}/`} className="relative block aspect-[16/10] overflow-hidden">
         <Image
-          src={tour.image}
+          src={tour.image.replace(/\.webp$/, "-card.webp")}
           alt={tour.imageAlt}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"

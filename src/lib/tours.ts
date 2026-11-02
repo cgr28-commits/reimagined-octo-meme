@@ -46,7 +46,7 @@ export const TOURS: readonly Tour[] = [
     ],
     whatsappMessage:
       "Hi, I'd like to enquire about a private day trip to the Giant's Causeway and Causeway Coast.",
-    image: withBasePath("/images/tours/giants-causeway.jpg"),
+    image: withBasePath("/images/tours/giants-causeway.webp"),
     imageAlt: "Hexagonal basalt columns at Giant's Causeway on the Causeway Coast",
     faqs: [
       {
@@ -95,7 +95,7 @@ export const TOURS: readonly Tour[] = [
     ],
     whatsappMessage:
       "Hi, I'd like to enquire about a private Belfast city highlights day trip.",
-    image: withBasePath("/images/tours/belfast-city.jpg"),
+    image: withBasePath("/images/tours/belfast-city.webp"),
     imageAlt: "Belfast City Hall and city centre skyline",
     faqs: [
       {
@@ -144,7 +144,7 @@ export const TOURS: readonly Tour[] = [
     ],
     whatsappMessage:
       "Hi, I'd like to enquire about a private Game of Thrones filming locations day trip.",
-    image: withBasePath("/images/tours/game-of-thrones.jpg"),
+    image: withBasePath("/images/tours/game-of-thrones.webp"),
     imageAlt: "Dark Hedges tree-lined avenue in County Antrim",
     faqs: [
       {
@@ -188,7 +188,7 @@ export const TOURS: readonly Tour[] = [
     ],
     whatsappMessage:
       "Hi, I'd like to enquire about a private Antrim Coast scenic drive day trip.",
-    image: withBasePath("/images/tours/antrim-coast.jpg"),
+    image: withBasePath("/images/tours/antrim-coast.webp"),
     imageAlt: "Dramatic Antrim Coast cliffs beside Dunluce Castle",
     faqs: [
       {
