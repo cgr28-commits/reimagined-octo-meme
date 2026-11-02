@@ -328,4 +328,8 @@ assert.doesNotMatch(read("src/components/ExpressDropOffSelector.tsx"), /Add Meet
 assert.doesNotMatch(card, /meetGreetFeeGbp\(/);
 assert.match(read("shared/meet-greet.ts"), /mandatoryTerminalFeeGbp/);
 
+// Business Class is offered on Dublin Airport journeys and on any journey over 40 miles.
+assert.match(card, /universalDrivingMilesFromKm\(routeMetrics\.distanceKm\) > 40/);
+assert.match(card, /businessClassAnyRoute \|\| isDublinAirportJourney \|\| isLongJourneyForBusinessClass/);
+
 console.log("check-business-class-quote-selector: ok");
