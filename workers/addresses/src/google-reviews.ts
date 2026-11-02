@@ -100,7 +100,13 @@ export async function refreshGoogleReviewSummary(
         },
         // Service-area businesses (no public address) are hidden from Text Search
         // unless this is set — My Airport Taxi NI is one.
-        body: JSON.stringify({ textQuery: query, regionCode: "GB", includePureServiceAreaBusinesses: true }),
+        body: JSON.stringify({
+          textQuery: query,
+          regionCode: "GB",
+          includePureServiceAreaBusinesses: true,
+          // Our listing is centred on Belfast; without a bias GB-wide firms rank first.
+          locationBias: { circle: { center: { latitude: 54.6, longitude: -5.93 }, radius: 50000 } },
+        }),
       });
       if (!res.ok) {
         await noteError(store, `searchText: ${await googleError(res)}`);
