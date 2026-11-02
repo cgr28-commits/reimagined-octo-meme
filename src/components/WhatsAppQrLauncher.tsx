@@ -14,6 +14,7 @@ import { SITE } from "@/lib/data";
 import { useIsMobileDevice } from "@/lib/device";
 import { shouldHidePublicSalesWidgets } from "@/lib/owner-portal";
 import { useWhatsAppAssistantHref, useWhatsAppJourney } from "@/lib/whatsapp-journey-context";
+import { trackContactClick } from "@/lib/google-ads-client";
 
 type Props = { style: CSSProperties; corner: "bottom-left" | "bottom-right" };
 
@@ -70,7 +71,21 @@ function WhatsAppQrLauncher({ style, corner }: Props) {
         ref={buttonRef}
         type="button"
         data-matni-whatsapp-qr-launcher="true"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() =>
+          setOpen((v) => {
+            if (!v) {
+              // Opening the QR panel is the desktop WhatsApp tap (customers scan
+              // the code on their phone, which the site can't see). Counted once
+              // per session, same as the wa.me links.
+              try {
+                trackContactClick("whatsapp", window.location.pathname);
+              } catch {
+                // Tracking must never block a customer from contacting us.
+              }
+            }
+            return !v;
+          })
+        }
         style={style}
         className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-black/35 transition-transform hover:scale-105"
         aria-label={open ? "Close WhatsApp" : "Chat on WhatsApp"}
