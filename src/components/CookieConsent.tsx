@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   readCookieConsent,
@@ -14,6 +15,9 @@ const COOKIE_BANNER_OFFSET_VAR = "--matni-cookie-banner-offset";
 export default function CookieConsent() {
   const [choice, setChoice] = useState<CookieConsentChoice | null | "loading">("loading");
   const bannerRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname() ?? "";
+  // Visitors must choose before using the site; the Privacy Policy stays readable.
+  const requireChoice = !/^\/privacy\/?$/.test(pathname);
 
   useEffect(() => {
     setChoice(readCookieConsent());
@@ -56,19 +60,28 @@ export default function CookieConsent() {
   }
 
   return (
+    <>
+    {requireChoice ? (
+      <div
+        className="fixed inset-0 z-[69] bg-navy-dark/75 backdrop-blur-[2px]"
+        aria-hidden="true"
+        data-cookie-consent-overlay
+      />
+    ) : null}
     <div
       ref={bannerRef}
       className="cookie-consent-banner fixed inset-x-0 bottom-0 z-[70] border-t border-white/12 bg-navy-dark/96 shadow-[0_-8px_32px_rgba(2,8,20,0.45)] backdrop-blur-xl"
       role="dialog"
+      aria-modal={requireChoice ? true : undefined}
       aria-label="Cookie consent"
     >
       <div className="cookie-consent-inner flex flex-col">
         <div className="min-w-0 flex-1">
           <p className="cookie-consent-copy text-white/70">
             <strong className="font-semibold text-white">
-              Can we use cookies to measure our Google ads?
+              We&apos;re a small local firm. Can we see which of our Google ads brought you here?
             </strong>{" "}
-            Booking cookies always stay on.{" "}
+            It helps us keep our prices down. Booking works either way.{" "}
             <Link href="/privacy/" className="font-medium text-emerald underline-offset-2 hover:underline">
               Privacy Policy
             </Link>
@@ -93,5 +106,6 @@ export default function CookieConsent() {
         </div>
       </div>
     </div>
+    </>
   );
 }
