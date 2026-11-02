@@ -10,7 +10,7 @@ import { TOURS } from "@/lib/tours";
  * navy space either side of the centred homepage quote form. Hidden on phones,
  * tablets and laptops, so the quote flow there is unchanged.
  *
- * Left: rotates Business Class and the 7-seater.
+ * Left: rotates Business Class, the estate car and the 7-seater.
  * Right: rotates the private day tours.
  * Both boxes change together every few seconds, pause while either is hovered
  * or focused, and stay still for visitors who prefer reduced motion.
@@ -36,6 +36,15 @@ const LEFT_CARDS: readonly RailCard[] = [
     cta: "See Business Class",
   },
   {
+    key: "estate",
+    label: "Estate car",
+    image: withBasePath("/images/hero/optimized/estate-dublin-960.webp"),
+    title: "Plenty of luggage? Book an estate",
+    text: "Up to 4 passengers with room for 4 large suitcases and 2 small bags. Choose Estate on your quote.",
+    href: "/#quote",
+    cta: "Get an estate price",
+  },
+  {
     key: "seven-seater",
     label: "7-seater",
     image: withBasePath("/images/hero/optimized/seven-seater-dublin-960.webp"),
@@ -56,7 +65,7 @@ const RIGHT_CARDS: readonly RailCard[] = TOURS.map((tour) => ({
   cta: "See this tour",
 }));
 
-const ROTATE_MS = 7000;
+const ROTATE_MS = 10000;
 
 function RotatingRail({
   side,
@@ -74,7 +83,7 @@ function RotatingRail({
   return (
     <aside
       className={`homepage-hero-rail homepage-hero-rail-${side}`}
-      aria-label={side === "left" ? "Business Class and 7-seater" : "Private day tours"}
+      aria-label={side === "left" ? "Business Class, estate and 7-seater" : "Private day tours"}
       onMouseEnter={() => onPause(true)}
       onMouseLeave={() => onPause(false)}
       onFocus={() => onPause(true)}
