@@ -98,7 +98,9 @@ export async function refreshGoogleReviewSummary(
           "X-Goog-FieldMask":
             "places.id,places.displayName,places.rating,places.userRatingCount,places.websiteUri,places.nationalPhoneNumber",
         },
-        body: JSON.stringify({ textQuery: query, regionCode: "GB" }),
+        // Service-area businesses (no public address) are hidden from Text Search
+        // unless this is set — My Airport Taxi NI is one.
+        body: JSON.stringify({ textQuery: query, regionCode: "GB", includePureServiceAreaBusinesses: true }),
       });
       if (!res.ok) {
         await noteError(store, `searchText: ${await googleError(res)}`);
@@ -138,8 +140,14 @@ export async function handleGoogleReviewSummary(
 ): Promise<Response> {
   const store = env.TRACKING_STORE;
   let summary = store ? await getGoogleReviewSummary(store) : null;
-  if (!summary) summary = await refreshGoogleReviewSummary(env, fetchImpl).catch(() => null);
-  const lastError = !summary && store ? await store.get<{ reason: string }>(ERROR_KEY, "json") : null;
+  let lastError = !summary && store ? await store.get<{ reason: string; at?: string }>(ERROR_KEY, "json") : null;
+  // Retry Google at most once an hour after a failure, not on every page view
+  // (each retry is up to three paid Places searches).
+  const failedRecently = lastError?.at ? Date.now() - Date.parse(lastError.at) < 60 * 60 * 1000 : false;
+  if (!summary && !failedRecently) {
+    summary = await refreshGoogleReviewSummary(env, fetchImpl).catch(() => null);
+    if (!summary && store) lastError = await store.get<{ reason: string; at?: string }>(ERROR_KEY, "json");
+  }
   const body = summary
     ? { rating: summary.rating, count: summary.count, updatedAt: summary.updatedAt }
     : { error: "unavailable", reason: lastError?.reason ?? (env.GOOGLE_PLACES_API_KEY ? "no data yet" : "no Places key") };
