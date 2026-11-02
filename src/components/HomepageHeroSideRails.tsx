@@ -12,8 +12,8 @@ import { TOURS } from "@/lib/tours";
  *
  * Left: rotates Business Class and the 7-seater.
  * Right: rotates the private day tours.
- * Each box changes every few seconds, pauses while hovered or focused, and
- * stays still for visitors who prefer reduced motion.
+ * Both boxes change together every few seconds, pause while either is hovered
+ * or focused, and stay still for visitors who prefer reduced motion.
  */
 type RailCard = {
   key: string;
@@ -58,35 +58,27 @@ const RIGHT_CARDS: readonly RailCard[] = TOURS.map((tour) => ({
 
 const ROTATE_MS = 7000;
 
-function RotatingRail({ side, cards, offsetMs }: { side: "left" | "right"; cards: readonly RailCard[]; offsetMs: number }) {
-  const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
-
-  useEffect(() => {
-    if (cards.length < 2 || paused) return;
-    const desktop = window.matchMedia("(min-width: 1360px)");
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (!desktop.matches || reducedMotion.matches) return;
-    let interval: number | undefined;
-    // Offset the two sides so they don't change at the same moment.
-    const start = window.setTimeout(() => {
-      setActive((i) => (i + 1) % cards.length);
-      interval = window.setInterval(() => setActive((i) => (i + 1) % cards.length), ROTATE_MS);
-    }, ROTATE_MS + offsetMs);
-    return () => {
-      window.clearTimeout(start);
-      if (interval) window.clearInterval(interval);
-    };
-  }, [cards.length, paused, offsetMs]);
-
+function RotatingRail({
+  side,
+  cards,
+  active,
+  onPick,
+  onPause,
+}: {
+  side: "left" | "right";
+  cards: readonly RailCard[];
+  active: number;
+  onPick: (index: number) => void;
+  onPause: (paused: boolean) => void;
+}) {
   return (
     <aside
       className={`homepage-hero-rail homepage-hero-rail-${side}`}
       aria-label={side === "left" ? "Business Class and 7-seater" : "Private day tours"}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
+      onMouseEnter={() => onPause(true)}
+      onMouseLeave={() => onPause(false)}
+      onFocus={() => onPause(true)}
+      onBlur={() => onPause(false)}
     >
       <div className="homepage-hero-rail-slides">
         {cards.map((card, index) => {
@@ -126,7 +118,7 @@ function RotatingRail({ side, cards, offsetMs }: { side: "left" | "right"; cards
             <button
               key={card.key}
               type="button"
-              onClick={() => setActive(index)}
+              onClick={() => onPick(index)}
               aria-label={`Show ${card.title}`}
               aria-current={index === active}
               className={`h-2 rounded-full transition-all ${
@@ -141,10 +133,41 @@ function RotatingRail({ side, cards, offsetMs }: { side: "left" | "right"; cards
 }
 
 export default function HomepageHeroSideRails() {
+  // One shared timer, so both boxes change at the same moment.
+  const [tick, setTick] = useState(0);
+  const [leftPick, setLeftPick] = useState<number | null>(null);
+  const [rightPick, setRightPick] = useState<number | null>(null);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused) return;
+    const desktop = window.matchMedia("(min-width: 1360px)");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (!desktop.matches || reducedMotion.matches) return;
+    const interval = window.setInterval(() => {
+      setTick((t) => t + 1);
+      setLeftPick(null);
+      setRightPick(null);
+    }, ROTATE_MS);
+    return () => window.clearInterval(interval);
+  }, [paused]);
+
   return (
     <div className="homepage-hero-rails" data-homepage-hero-rails>
-      <RotatingRail side="left" cards={LEFT_CARDS} offsetMs={0} />
-      <RotatingRail side="right" cards={RIGHT_CARDS} offsetMs={3500} />
+      <RotatingRail
+        side="left"
+        cards={LEFT_CARDS}
+        active={leftPick ?? tick % LEFT_CARDS.length}
+        onPick={setLeftPick}
+        onPause={setPaused}
+      />
+      <RotatingRail
+        side="right"
+        cards={RIGHT_CARDS}
+        active={rightPick ?? tick % RIGHT_CARDS.length}
+        onPick={setRightPick}
+        onPause={setPaused}
+      />
     </div>
   );
 }
