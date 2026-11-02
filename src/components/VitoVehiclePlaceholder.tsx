@@ -5,7 +5,7 @@ type Props = {
   compact?: boolean;
 };
 
-/** Representative Vito-style people carrier. A specific vehicle is not guaranteed. */
+/** Representative 7-seater people carrier. A specific vehicle is not guaranteed. */
 export default function VitoVehiclePlaceholder({ compact = false }: Props) {
   return (
     <figure
@@ -17,14 +17,14 @@ export default function VitoVehiclePlaceholder({ compact = false }: Props) {
       <DesktopVehicleSources vehicle="minibus" sizes={compact ? "40vw" : "768px"} />
       <img
         src={withBasePath("/images/vehicles/quote-minibus.webp")}
-        alt="Representative black Mercedes-Benz Vito-style vehicle"
+        alt="Representative black 7-seater people carrier"
         width={1400}
         height={700}
         className={`w-full bg-white object-contain ${compact ? "max-h-40" : "h-auto max-h-72"}`}
       />
       </picture>
       <figcaption className="border-t border-white/10 bg-[#071c38] px-4 py-3 text-sm leading-snug text-white/80">
-        Representative Mercedes-Benz Vito-style vehicle. The people carrier sent for a group
+        Representative 7-seater. The people carrier sent for a group
         transfer can vary.
       </figcaption>
     </figure>
