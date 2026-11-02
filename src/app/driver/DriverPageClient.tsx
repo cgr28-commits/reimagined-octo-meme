@@ -3055,11 +3055,18 @@ export default function DriverPageClient({
       return;
     }
 
-    const interval = window.setInterval(() => {
-      void loadJobs(savedKey);
-    }, 10_000);
+    // Refresh once a minute, and only while the tab is on screen. Each refresh
+    // costs hundreds of Worker storage reads, so a background tab must not poll.
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") void loadJobs(savedKey);
+    };
+    const interval = window.setInterval(refreshIfVisible, 60_000);
+    document.addEventListener("visibilitychange", refreshIfVisible);
 
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
   }, [loadJobs, savedKey, viewRole, view]);
 
   useEffect(() => {

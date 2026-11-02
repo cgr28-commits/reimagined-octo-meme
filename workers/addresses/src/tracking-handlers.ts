@@ -432,6 +432,18 @@ async function paidBookingDetailsForReturnBackfill(
   return null;
 }
 
+const RETURN_BACKFILL_MARKER_KEY = "tracking:return-backfill:last-run";
+const RETURN_BACKFILL_INTERVAL_SECONDS = 15 * 60;
+
+/** True at most once per interval (KV marker with TTL; 1 read per call). */
+async function claimReturnBackfillSlot(store: KVNamespace): Promise<boolean> {
+  if (await store.get(RETURN_BACKFILL_MARKER_KEY)) return false;
+  await store.put(RETURN_BACKFILL_MARKER_KEY, new Date().toISOString(), {
+    expirationTtl: RETURN_BACKFILL_INTERVAL_SECONDS,
+  });
+  return true;
+}
+
 /**
  * Create missing return-leg tracking jobs from SumUp paid bookings and/or
  * enquiry booking-jobs. Idempotent via createTrackingJobFromBooking.
@@ -510,7 +522,9 @@ export async function handleDriverJobsRequest(
 
   // Owner dashboard: create missing return-leg jobs from paid booking records
   // (SumUp) and booking-jobs so Pick date / Upcoming show the return on its own day.
-  if (role === "owner") {
+  // Throttled to once per 15 minutes: the backfill reads every paid booking
+  // and ~100 day indexes, and the owner dashboard refreshes every minute.
+  if (role === "owner" && (await claimReturnBackfillSlot(env.TRACKING_STORE))) {
     const seed = [
       ...(await listUpcomingTrackingJobs(env.TRACKING_STORE, daysAhead)),
       ...(await listTrackingJobsForRecentDays(env.TRACKING_STORE, 45)),

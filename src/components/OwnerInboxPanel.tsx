@@ -317,8 +317,17 @@ export default function OwnerInboxPanel({ ownerKey }: { ownerKey: string }) {
 
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => void load(), 60_000);
-    return () => window.clearInterval(timer);
+    // Each refresh reads every message from Worker storage, so only refresh
+    // every 2 minutes while the tab is on screen (and straight away on return).
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const timer = window.setInterval(refreshIfVisible, 120_000);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
   }, [load]);
 
   if (open) {
