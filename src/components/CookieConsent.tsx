@@ -97,20 +97,41 @@ export default function CookieConsent() {
           </p>
         </div>
         <div className="cookie-consent-actions flex shrink-0 flex-row">
-          <button
-            type="button"
-            onClick={() => choose("rejected")}
-            className="btn-secondary flex-1"
-          >
-            Reject optional
-          </button>
-          <button
-            type="button"
-            onClick={() => choose("accepted")}
-            className="btn-secondary flex-1"
-          >
-            Accept
-          </button>
+          {requireChoice ? (
+            <>
+              <button
+                type="button"
+                onClick={() => choose("accepted")}
+                className="btn-primary flex-1"
+              >
+                Accept all
+              </button>
+              <button
+                type="button"
+                onClick={() => choose("rejected")}
+                className="btn-secondary flex-1"
+              >
+                Reject optional
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => choose("rejected")}
+                className="btn-secondary flex-1"
+              >
+                Reject optional
+              </button>
+              <button
+                type="button"
+                onClick={() => choose("accepted")}
+                className="btn-secondary flex-1"
+              >
+                Accept
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

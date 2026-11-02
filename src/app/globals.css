@@ -2291,9 +2291,34 @@ html:has(.cookie-consent-banner) {
   gap: 0.75rem;
 }
 
+.cookie-consent-banner--modal .cookie-consent-actions .btn-primary,
 .cookie-consent-banner--modal .cookie-consent-actions .btn-secondary {
   min-height: 3rem;
+  min-width: 0;
   font-size: 1rem;
+}
+
+@media (min-width: 768px) {
+  .cookie-consent-banner.cookie-consent-banner--modal {
+    width: min(36rem, calc(100% - 3rem));
+    padding: 2.25rem;
+    border-radius: 1.25rem;
+  }
+
+  .cookie-consent-banner--modal .cookie-consent-copy {
+    font-size: 1.25rem;
+    line-height: 1.55;
+  }
+
+  .cookie-consent-banner--modal .cookie-consent-actions {
+    width: 100%;
+  }
+
+  .cookie-consent-banner--modal .cookie-consent-actions .btn-primary,
+  .cookie-consent-banner--modal .cookie-consent-actions .btn-secondary {
+    min-height: 3.5rem;
+    font-size: 1.125rem;
+  }
 }
 
 body:has(.cookie-consent-banner--modal) {
