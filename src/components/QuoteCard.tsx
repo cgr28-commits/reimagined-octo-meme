@@ -283,6 +283,7 @@ import {
   AIRPORT_ACCESS_INCLUDED_HEADING,
   isExecutiveVehicle,
 } from "../../shared/executive-vehicle";
+import { universalDrivingMilesFromKm } from "../../shared/universal-distance-pricing";
 import { DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP } from "../../shared/business-class-minimum";
 import {
   RETURN_OFFER_CONFIG,
@@ -1034,13 +1035,16 @@ function QuoteCard({
     }
     return "";
   });
-  /** Business Class is only offered on Dublin Airport journeys (and golf transfers). */
+  /** Business Class: Dublin Airport journeys, any journey over 40 miles, and golf transfers. */
   const isDublinAirportJourney = IS_A2A_PRIMARY
     ? detectAirportCodeFromPlace(pickupPlace) === "DUB" || detectAirportCodeFromPlace(dropoffPlace) === "DUB"
     : airportCode === "DUB" || intentAirportCode === "DUB";
-  const publicExecutiveEnabled =
-    publicExecutiveSettingEnabled && (businessClassAnyRoute || isDublinAirportJourney);
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
+  const isLongJourneyForBusinessClass =
+    routeMetrics != null && universalDrivingMilesFromKm(routeMetrics.distanceKm) > 40; // miles
+  const publicExecutiveEnabled =
+    publicExecutiveSettingEnabled &&
+    (businessClassAnyRoute || isDublinAirportJourney || isLongJourneyForBusinessClass);
   const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | "help" | null>(null);
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
