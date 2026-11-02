@@ -13,4 +13,4 @@ export const GOOGLE_BUSINESS_PROFILE_URL = "https://g.page/r/CbzkRdTv-0hNEBM";
  * LocalBusiness ratings and disallows re-marking reviews collected elsewhere).
  */
 export const GOOGLE_REVIEW_RATING = "5.0";
-export const GOOGLE_REVIEW_COUNT = 16;
+export const GOOGLE_REVIEW_COUNT = 17;
