@@ -185,6 +185,46 @@ export function positioningA2aChargeFromMilesGbp(
   return Math.round(chargeable * (settings.positioningA2aRatePerMileGbp as number));
 }
 
+/**
+ * Airport drive charge for one leg, with a long-trip taper.
+ *
+ * Short airport runs use the airport rate (free miles, then rate per mile).
+ * When the address-to-address charge is also ON and its free radius is wider,
+ * miles beyond that radius are charged at the address-to-address rate instead,
+ * so a long airport job (e.g. Belfast International → Dublin) costs the same
+ * per extra mile as an address-to-address one. The charge only ever grows with
+ * distance — no cliff at the radius.
+ */
+export function airportPositioningChargeGbp(
+  milesFromBase: number,
+  settings:
+    | (Pick<
+        ProfitabilitySettings,
+        "positioningChargeEnabled" | "positioningFreeMiles" | "positioningRatePerMileGbp"
+      > &
+        Partial<
+          Pick<
+            ProfitabilitySettings,
+            "positioningA2aEnabled" | "positioningA2aFreeMiles" | "positioningA2aRatePerMileGbp"
+          >
+        >)
+    | null
+    | undefined,
+): number {
+  if (!isAirportPositioningChargeActive(settings) || !settings) return 0;
+  if (!Number.isFinite(milesFromBase) || milesFromBase <= 0) return 0;
+  const airportFree = Math.max(0, settings.positioningFreeMiles);
+  const taperFrom = Math.max(0, settings.positioningA2aFreeMiles ?? 0);
+  if (!isA2aPositioningChargeActive(settings) || taperFrom <= airportFree || milesFromBase <= taperFrom) {
+    return positioningChargeFromMilesGbp(milesFromBase, settings);
+  }
+  const nearMiles = taperFrom - airportFree;
+  const farMiles = milesFromBase - taperFrom;
+  return Math.round(
+    nearMiles * settings.positioningRatePerMileGbp + farMiles * (settings.positioningA2aRatePerMileGbp as number),
+  );
+}
+
 /** Read-only fuel cost. Null until a valid MPG is set. */
 export function fuelCostPerMileGbp(
   dieselPricePerLitreGbp: number,

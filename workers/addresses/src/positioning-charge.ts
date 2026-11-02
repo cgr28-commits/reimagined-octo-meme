@@ -17,11 +17,11 @@
 
 import { universalDrivingMilesFromKm } from "../shared/universal-distance-pricing";
 import {
+  airportPositioningChargeGbp,
   isA2aPositioningChargeActive,
   isAirportPositioningChargeActive,
   isPositioningChargeActive,
   positioningA2aChargeFromMilesGbp,
-  positioningChargeFromMilesGbp,
   type ProfitabilitySettings,
 } from "../../../src/lib/owner-profitability-settings";
 import { OPERATING_BASE } from "./operating-base";
@@ -60,7 +60,8 @@ function finitePoint(point: RoutePoint | null | undefined): RoutePoint | null {
  * Charge for one leg of a job. Both legs of a return share the same ends, so
  * callers apply the same amount to each leg.
  *
- * - Address ↔ airport: road miles from the base to the address end.
+ * - Address ↔ airport: road miles from the base to the address end; miles
+ *   beyond the address-to-address free radius use the address-to-address rate.
  * - Address-to-address: road miles from the base to whichever end is further,
  *   so the same trip prices identically in either direction.
  * - Airport-to-airport: never charged.
@@ -95,7 +96,7 @@ export async function resolvePositioningChargeGbp(input: {
       return { chargeGbp: 0, reason: "routing_failed" };
     }
     const miles = universalDrivingMilesFromKm(leg.distanceKm);
-    return { chargeGbp: positioningChargeFromMilesGbp(miles, input.settings), reason: null };
+    return { chargeGbp: airportPositioningChargeGbp(miles, input.settings), reason: null };
   }
 
   if (input.addressToAddress) {
