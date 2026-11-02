@@ -31,6 +31,10 @@ export default function CookieConsent() {
 
     const el = bannerRef.current;
     if (!el) return;
+    if (requireChoice) {
+      document.documentElement.style.removeProperty(COOKIE_BANNER_OFFSET_VAR);
+      return;
+    }
 
     const syncOffset = () => {
       document.documentElement.style.setProperty(
@@ -47,7 +51,7 @@ export default function CookieConsent() {
       window.removeEventListener("resize", syncOffset);
       document.documentElement.style.removeProperty(COOKIE_BANNER_OFFSET_VAR);
     };
-  }, [choice]);
+  }, [choice, requireChoice]);
 
   if (choice === "loading" || choice !== null) {
     return null;
@@ -70,7 +74,11 @@ export default function CookieConsent() {
     ) : null}
     <div
       ref={bannerRef}
-      className="cookie-consent-banner fixed inset-x-0 bottom-0 z-[70] border-t border-white/12 bg-navy-dark/96 shadow-[0_-8px_32px_rgba(2,8,20,0.45)] backdrop-blur-xl"
+      className={
+        requireChoice
+          ? "cookie-consent-banner cookie-consent-banner--modal fixed z-[70] bg-navy-dark shadow-[0_24px_64px_rgba(2,8,20,0.6)]"
+          : "cookie-consent-banner fixed inset-x-0 bottom-0 z-[70] border-t border-white/12 bg-navy-dark/96 shadow-[0_-8px_32px_rgba(2,8,20,0.45)] backdrop-blur-xl"
+      }
       role="dialog"
       aria-modal={requireChoice ? true : undefined}
       aria-label="Cookie consent"
