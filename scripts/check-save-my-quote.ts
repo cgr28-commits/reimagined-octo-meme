@@ -26,13 +26,14 @@ async function main() {
  data.set('owner:pricing-settings',JSON.stringify(pricing));
  const journey={pickupLabel:'Belfast City Hall, Belfast BT1 5GS, UK', dropoffLabel:'Belfast International Airport', pickupPlaceId:'test-city-hall',dropoffPlaceId:'airport-bfs', pickupLat:0,pickupLng:0,dropoffLat:0,dropoffLng:0, airportCode:'BFS',isAirportTrip:true,isFromAirport:false, tripDate:futureDate(30),tripTime:'12:00',returnJourney:true,returnDate:futureDate(34),returnTime:'12:00',passengers:2,suitcases:1,vehicle:ESTATE_VEHICLE,tripLabel:'Airport transfer'};
  let sends=0; let mail:Record<string,unknown>={}; let failEmail=false;
+ let ownerSends=0; let ownerMail:Record<string,unknown>={};
  const originalFetch=globalThis.fetch;
  globalThis.fetch=async (input,init) => {
   const req=new Request(input,init), u=new URL(req.url);
   if(u.hostname==='places.googleapis.com')return Response.json({id:'test-city-hall',formattedAddress:journey.pickupLabel,location:{latitude:54.5966472,longitude:-5.9300677},addressComponents:[{longText:'United Kingdom',shortText:'GB',types:['country']}]});
   if(u.pathname.includes('/route/v1/driving/')) { assert.ok(!u.pathname.includes('/0,0'),'client coordinates are not trusted'); return Response.json({code:'Ok',routes:[{distance:25830,duration:1506}]}); }
   if(u.hostname==='api.mailchannels.net') return Response.json({message:'mock failure'},{status:500});
-  if(u.hostname==='api.resend.com'){sends++;mail=await req.json() as Record<string,unknown>;return failEmail?Response.json({message:'mock failure'},{status:500}):Response.json({id:'mock-email'});}
+  if(u.hostname==='api.resend.com'){const body=await req.json() as Record<string,unknown>; if(JSON.stringify(body.to).includes('bookings@myairporttaxini.co.uk')){ownerSends++;ownerMail=body;return Response.json({id:'mock-owner-email'});} sends++;mail=body;return failEmail?Response.json({message:'mock failure'},{status:500}):Response.json({id:'mock-email'});}
   throw new Error(`Unexpected network request: ${u.hostname}${u.pathname}`);
  };
  let ip=0;
@@ -50,6 +51,9 @@ async function main() {
   const saved=await res.json() as any;
   assert.ok(saved.amount>1); assert.equal(saved.quote.journey.vehicle,ESTATE_VEHICLE);
   assert.equal(saved.emailSent,true);assert.equal(sends,1);
+  assert.equal(ownerSends,1,'owner is told about the saved quote');
+  assert.match(String(ownerMail.subject),/^Quote saved — £/);
+  assert.ok(String(ownerMail.text).includes('save@example.invalid'),'owner email shows the customer email');
   assert.equal(saved.quote.journey.outboundAirportAccessChoice,'free','missing access choice stays free after saving');
   assert.equal(saved.quote.journey.returnAirportAccessChoice,'free');
   assert.equal(mail.subject,'Your Airport Transfer Quote — My Airport Taxi NI');

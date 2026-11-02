@@ -62,7 +62,7 @@ import {
   patchSavedQuoteEmailTimestamps,
   tryClaimSavedQuoteReminder,
 } from "./saved-quote-store";
-import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
 import { ownerPricingEngineOptions, type OwnerPricingSettings } from "../shared/owner-pricing-config";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
@@ -650,6 +650,23 @@ export async function handleCreateSavedQuote(
     });
   }
 
+  // Let the owner know: a saved quote is a warm lead worth following up.
+  try {
+    const owner = buildOwnerSavedQuoteAlert(
+      record,
+      channel,
+      toSavedQuotePublicSummary(record, siteOrigin(env)).expiresAtLabel,
+    );
+    const sent = await trySendOwnerOperationalEmail(env, {
+      to: (env as { BOOKING_TO_EMAIL?: string }).BOOKING_TO_EMAIL?.trim() || "bookings@myairporttaxini.co.uk",
+      subject: owner.subject,
+      body: owner.body,
+    });
+    if (!sent.sent) console.error("[saved-quote] owner alert failed", sent.error);
+  } catch (err) {
+    console.error("[saved-quote] owner alert exception", err);
+  }
+
   const summary = toSavedQuotePublicSummary(record, siteOrigin(env));
   return jsonResponse(
     {
@@ -965,4 +982,44 @@ export async function allowSavedQuoteRequest(store: KVNamespace, request: Reques
     await store.put(key, String(count + 1), { expirationTtl: 3600 });
   }
   return true;
+}
+
+/** Owner email when a customer saves a quote (email or WhatsApp). */
+export function buildOwnerSavedQuoteAlert(
+  record: SavedQuoteRecord,
+  channel: "email" | "whatsapp",
+  expiresAtLabel?: string,
+): { subject: string; body: string } {
+  const j = record.journey;
+  const amount = formatSavedQuoteAmount(record.pricing.totalAmount);
+  const routeFull = `${j.pickupLabel} → ${j.dropoffLabel}`;
+  const route = routeFull.length > 72 ? `${routeFull.slice(0, 69)}…` : routeFull;
+  const when = (date?: string, time?: string) =>
+    date ? `${date.split("-").reverse().join("-")}${time ? ` at ${time}` : ""}` : "not chosen yet";
+  const lines = [
+    "A customer saved a quote on the My Airport Taxi NI website.",
+    "",
+    "CUSTOMER",
+    `Name: ${record.customerName?.trim() || "not given"}`,
+    channel === "email"
+      ? `Email: ${record.customerEmail || "not given"}`
+      : "Saved via WhatsApp: they were sent to WhatsApp with the quote, so check your WhatsApp chats.",
+    "",
+    "TRIP",
+    `Journey: ${j.tripLabel}`,
+    `Pickup: ${j.pickupLabel}`,
+    `Destination: ${j.dropoffLabel}`,
+    `One-way or return: ${j.returnJourney ? "Return" : "One-way"}`,
+    `${j.returnJourney ? "Outbound" : "Travel"} date & time: ${when(j.tripDate, j.tripTime)}`,
+    ...(j.returnJourney ? [`Return date & time: ${when(j.returnDate, j.returnTime)}`] : []),
+    `Passengers: ${j.passengers}`,
+    `Luggage: ${j.suitcases} large suitcase${j.suitcases === 1 ? "" : "s"}`,
+    `Vehicle: ${j.vehicle}`,
+    `Saved price: ${amount}`,
+    ...(j.journeyDistance ? [`Journey: ${j.journeyDistance}${j.journeyDuration ? ` · ${j.journeyDuration}` : ""}`] : []),
+    "",
+    `Quote reference: ${record.reference}`,
+    `Price valid until: ${expiresAtLabel || record.expiresAt}`,
+  ];
+  return { subject: `Quote saved — ${amount} — ${route}`, body: lines.join("\n") };
 }
