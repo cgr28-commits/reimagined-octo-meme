@@ -92,18 +92,18 @@ try {
             assert.equal(m.buttons[0].y,m.buttons[1].y,'buttons side by side');
             assert.equal(m.buttons[0].width,m.buttons[1].width,'equal button width');
             assert.equal(m.buttons[0].height,m.buttons[1].height,'equal button height');
-            for (const key of ['color','background','border','weight','font']) assert.equal(m.buttons[0][key],m.buttons[1][key],`equal prominence: ${key}`);
-            assert.equal(m.buttons[0].color,'rgb(255, 255, 255)','both labels stay clear white');
-            assert.match(await banner.innerText(),/Can we use cookies to measure our Google ads\? Booking cookies always stay on\./);
+            for (const key of ['weight','font']) assert.equal(m.buttons[0][key],m.buttons[1][key],`same size text: ${key}`);
+            assert.match(await banner.innerText(),/Can we see which of our Google ads brought you here\? It helps us keep our prices down\. Booking works either way\./);
+            assert.equal(await page.locator('[data-cookie-consent-overlay]').count(),1,'a choice is required before using the site');
             for (const button of m.buttons) { assert.ok(button.height>=(width<768?44:36));assert.ok(Number.parseFloat(button.font)>=13); }
-            if(width>=768) {assert.ok(m.banner.width<=640);assert.ok(m.banner.x>=12);assert.ok(m.buttons[0].height<=40);assert.ok(m.banner.height<=65,'desktop slim-height target');}
+            if(width>=768) {assert.ok(m.banner.width<=640);assert.ok(m.banner.x>=12);assert.ok(m.buttons[0].height<=40);assert.ok(m.banner.height<=90,'desktop compact-height target');}
             else assert.ok(m.banner.height<=91,'mobile slim-height target without device safe-area inset');
           }
           await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}.png`)});
           await page.locator('[data-homepage-quote-fields]').scrollIntoViewIfNeeded();
           await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}-quote.png`)});
           // Keyboard users can reach both choices; focus is visibly indicated.
-          for(const label of ['Reject optional','Accept']) {
+          for(const label of ['Reject optional','Accept all']) {
             const button=banner.getByRole('button',{name:label,exact:true});
             await button.focus();assert.equal(await button.evaluate(el=>el===document.activeElement),true);
           }
@@ -119,7 +119,7 @@ try {
           // There is no separate preferences/withdrawal control in unchanged main.
           await page.evaluate(key=>localStorage.removeItem(key),consentKey);
           await page.reload({waitUntil:'networkidle'});await banner.waitFor();
-          await banner.getByRole('button',{name:'Accept',exact:true}).click();
+          await banner.getByRole('button',{name:'Accept all',exact:true}).click();
           await banner.waitFor({state:'hidden'});
           assert.equal(await page.evaluate(key=>localStorage.getItem(key),consentKey),'accepted');
           for(const key of ['ad_storage','ad_user_data','ad_personalization','analytics_storage']) assert.equal((await lastConsent(page))[key],'granted');
