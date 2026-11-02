@@ -19,6 +19,7 @@ import {
   type SavedQuoteRecord,
 } from "../shared/saved-quote";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
+import { buildOwnerSavedQuoteAlert } from "../workers/addresses/src/saved-quote-handlers";
 import {
   buildSaveQuotePayloadFromLiveQuote,
   saveQuotePayloadBlockMessage,
@@ -184,6 +185,36 @@ function run() {
   assert.match(createFn, /buildAuthoritativeSavedQuotePricing/);
   assert.doesNotMatch(createFn, /parsePricing\(/);
   assert.doesNotMatch(createFn, /pricing\.totalAmount\s*=\s*client/);
+  // Owner is emailed whenever a customer saves a quote.
+  assert.match(createFn, /buildOwnerSavedQuoteAlert/);
+  assert.match(createFn, /trySendOwnerOperationalEmail/);
+  const alert = buildOwnerSavedQuoteAlert(
+    {
+      reference: "Q-TEST",
+      customerName: "Sarah",
+      customerEmail: "sarah@example.com",
+      expiresAt: "2026-11-09T12:00:00.000Z",
+      journey: {
+        pickupLabel: "City Hall, Belfast",
+        dropoffLabel: "Dublin Airport",
+        tripLabel: "Airport drop-off",
+        isAirportTrip: true,
+        tripDate: "2026-11-20",
+        tripTime: "06:00",
+        returnJourney: false,
+        passengers: 2,
+        suitcases: 2,
+        vehicle: "Saloon (1–4 passengers)",
+      },
+      pricing: { totalAmount: 236 },
+    } as unknown as Parameters<typeof buildOwnerSavedQuoteAlert>[0],
+    "email",
+    "9 Nov 2026",
+  );
+  assert.match(alert.subject, /^Quote saved — £236/);
+  assert.match(alert.body, /sarah@example\.com/);
+  assert.match(alert.body, /20-11-2026 at 06:00/);
+  assert.match(alert.body, /Price valid until: 9 Nov 2026/);
 
   console.log("=== Live quote → Save Quote payload mapping ===");
   // Bangor ← BFS is the production smoke-test shape (from-airport + named town).
