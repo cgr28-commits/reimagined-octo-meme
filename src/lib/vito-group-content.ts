@@ -1,5 +1,5 @@
 /**
- * Mercedes-Benz Vito group-transfer pages.
+ * 7-seater group-transfer pages.
  * The vehicle in the quote remains the existing 7 Seater Minibus option.
  */
 
@@ -33,7 +33,7 @@ const AVAILABILITY =
   "The 7 Seater Minibus is offered in the quote when it is available for that journey. A booking is confirmed only after the quote is accepted. Some departure times need availability confirmation before any payment is taken.";
 
 const SEATS =
-  "The Mercedes-Benz Vito is arranged for up to seven passengers, with the driver in the eighth seat.";
+  "The 7-seater is arranged for up to seven passengers, with the driver in the eighth seat.";
 
 const PAYMENT =
   "The fare is the same calculator used across the website. Eligible bookings continue to the existing secure card payment. This page does not use a separate booking system.";
@@ -45,10 +45,10 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     h1: "7-Seater Airport Transfers Belfast",
     seoTitle: "7-Seater Airport Transfers Belfast",
     description:
-      "Private 7-seater taxi transfers from Belfast in a Mercedes-Benz Vito. Fixed fares for Belfast International, Belfast City Airport and Dublin Airport. Book online.",
+      "Private 7-seater taxi transfers from Belfast for up to seven passengers. Fixed fares for Belfast International, Belfast City Airport and Dublin Airport. Book online.",
     eyebrow: "Up to seven passengers",
     intro:
-      "Travel together on a private airport transfer from Belfast. The Mercedes-Benz Vito is the 7-seater used for group airport journeys, so your party can leave from one door and arrive at the terminal together.",
+      "Travel together on a private airport transfer from Belfast. The 7-seater carries up to seven passengers, so your party can leave from one door and arrive at the terminal together.",
     sections: [
       {
         heading: "Airports this transfer covers",
@@ -83,9 +83,9 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
           "Up to seven passengers, plus the driver. Enter the full passenger count on the quote, including children.",
       },
       {
-        question: "Is a Mercedes-Benz Vito guaranteed for every booking?",
+        question: "Is a 7-seater guaranteed for every booking?",
         answer:
-          "The 7-seater option is a Mercedes-Benz Vito when that vehicle is offered and the booking is confirmed. If the 7 Seater Minibus is not available for the time you choose, the quote tells you and shows the other vehicles that fit.",
+          "A 7-seater is guaranteed once the booking is confirmed. If the 7 Seater Minibus is not available for the time you choose, the quote tells you and shows the other vehicles that fit.",
       },
       {
         question: "How much luggage can we bring?",
@@ -104,10 +104,10 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     h1: "Belfast to Dublin Airport 7-Seater Transfers",
     seoTitle: "Belfast to Dublin Airport 7-Seater Transfers",
     description:
-      "Book a Belfast to Dublin Airport 7-seater for up to seven passengers in a Mercedes-Benz Vito. The quote shows the fixed fare, including the usual Dublin toll allowance.",
+      "Book a Belfast to Dublin Airport 7-seater for up to seven passengers. The quote shows the fixed fare, including the usual Dublin toll allowance.",
     eyebrow: "Belfast to Dublin Airport",
     intro:
-      "A Belfast to Dublin Airport 7-seater keeps a group in one private vehicle for the cross-border run. The Mercedes-Benz Vito collects from a Belfast address and the quote confirms the fixed fare before anyone pays.",
+      "A Belfast to Dublin Airport 7-seater keeps a group in one private vehicle for the cross-border run. The 7-seater collects from a Belfast address and the quote confirms the fixed fare before anyone pays.",
     sections: [
       {
         heading: "The Dublin Airport journey",
@@ -119,7 +119,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
       {
         heading: "Who it suits",
         paragraphs: [
-          "Families, colleagues and friends who would otherwise split across two cars. The Vito takes up to seven passengers plus the driver. It is a private door-to-door transfer, not a shared shuttle.",
+          "Families, colleagues and friends who would otherwise split across two cars. The 7-seater takes up to seven passengers plus the driver. It is a private door-to-door transfer, not a shared shuttle.",
           LUGGAGE,
         ],
       },
@@ -168,10 +168,10 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     h1: "Hen Party Transport Belfast",
     seoTitle: "Hen Party Transport Belfast",
     description:
-      "Hen party transport in Belfast for up to seven passengers in a private Mercedes-Benz Vito. Airport, hotel and venue transfers with the fare confirmed before you book.",
+      "Hen party transport in Belfast for up to seven passengers in a private 7-seater. Airport, hotel and venue transfers with the fare confirmed before you book.",
     eyebrow: "Hen parties",
     intro:
-      "Keep a hen party in one vehicle instead of splitting taxis across Belfast. Hen party transport in a Mercedes-Benz Vito is a private door-to-door transfer for up to seven passengers, from the airport, a hotel or the venue.",
+      "Keep a hen party in one vehicle instead of splitting taxis across Belfast. Hen party transport in a 7-seater is a private door-to-door transfer for up to seven passengers, from the airport, a hotel or the venue.",
     sections: [
       {
         heading: "Journeys hen parties book",
@@ -184,7 +184,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
         heading: "Passengers and luggage",
         paragraphs: [
           SEATS,
-          "A hen party with more than seven passengers needs more than one vehicle. Book a second transfer rather than overfilling the Vito.",
+          "A hen party with more than seven passengers needs more than one vehicle. Book a second transfer rather than overfilling the 7-seater.",
           LUGGAGE,
         ],
       },
@@ -206,14 +206,14 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
           "Book the airport transfer and the evening journey as the trips you need. A return can cover two times on the same route. A different venue later in the day is a separate quote.",
       },
       {
-        question: "Will the Vito wait outside the venue?",
+        question: "Will the 7-seater wait outside the venue?",
         answer:
           "The booking is for the transfer you quote. Waiting beyond the complimentary time already included on airport pickups is not part of a standard hen party drop-off.",
       },
       {
         question: "Is the vehicle decorated?",
         answer:
-          "No. The transfer is a private Mercedes-Benz Vito for the group. We do not supply decorations, drinks or a host.",
+          "No. The transfer is a private 7-seater for the group. We do not supply decorations, drinks or a host.",
       },
     ],
     quoteHeading: "Quote hen party transport",
@@ -228,10 +228,10 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     h1: "Stag Party Transport Belfast",
     seoTitle: "Stag Party Transport Belfast",
     description:
-      "Stag party transfers in Belfast for up to seven passengers in a private Mercedes-Benz Vito. Airports, hotels and events, with the fixed fare shown before you book.",
+      "Stag party transfers in Belfast for up to seven passengers in a private 7-seater. Airports, hotels and events, with the fixed fare shown before you book.",
     eyebrow: "Stag parties",
     intro:
-      "Stag party transfers in Belfast work best when the group leaves together. A Mercedes-Benz Vito takes up to seven passengers from the airport or hotel to the venue, then back, as a private booking with the fare shown first.",
+      "Stag party transfers in Belfast work best when the group leaves together. A 7-seater takes up to seven passengers from the airport or hotel to the venue, then back, as a private booking with the fare shown first.",
     sections: [
       {
         heading: "Where groups use it",
@@ -244,7 +244,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
         heading: "Group size",
         paragraphs: [
           SEATS,
-          "Eight or more passengers do not fit in one Vito. Arrange a second vehicle through another quote.",
+          "Eight or more passengers do not fit in one 7-seater. Arrange a second vehicle through another quote.",
           LUGGAGE,
         ],
       },
@@ -272,7 +272,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
       {
         question: "Do you provide a party bus?",
         answer:
-          "No. Stag transport on this page is a private Mercedes-Benz Vito for up to seven passengers plus the driver.",
+          "No. Stag transport on this page is a private 7-seater for up to seven passengers plus the driver.",
       },
       {
         question: "What if kick-off or the flight time changes?",
@@ -292,10 +292,10 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     h1: "Private Group Transfers Belfast",
     seoTitle: "Private Group Transfers Belfast",
     description:
-      "Private group transfers in Belfast for up to seven passengers in a Mercedes-Benz Vito. Airports, weddings, concerts and events, with a fixed fare from the online quote.",
+      "Private group transfers in Belfast for up to seven passengers in a private 7-seater. Airports, weddings, concerts and events, with a fixed fare from the online quote.",
     eyebrow: "Private groups",
     intro:
-      "Private group transfers in Belfast suit families, wedding guests, colleagues and friends who want one vehicle. The Mercedes-Benz Vito carries up to seven passengers and the driver, door to door, at the fare the quote confirms.",
+      "Private group transfers in Belfast suit families, wedding guests, colleagues and friends who want one vehicle. The 7-seater carries up to seven passengers and the driver, door to door, at the fare the quote confirms.",
     sections: [
       {
         heading: "Occasions",
@@ -337,7 +337,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
       {
         question: "Can a wedding party book more than one car?",
         answer:
-          "Each Vito quote covers one vehicle of up to seven passengers. Book another transfer for further guests. We do not combine separate groups into one shared vehicle.",
+          "Each 7-seater quote covers one vehicle of up to seven passengers. Book another transfer for further guests. We do not combine separate groups into one shared vehicle.",
       },
       {
         question: "Are the fares different for events?",

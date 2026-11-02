@@ -24,8 +24,8 @@ export default function VitoGroupTransfersSection() {
           <div>
             <SectionHeading
               eyebrow="Group travel"
-              title="Mercedes-Benz Vito 7-Passenger Group Transfers"
-              description="A private Mercedes-Benz Vito for up to seven passengers plus the driver. Door-to-door airport, hen, stag and group journeys, with the fixed fare shown before you book."
+              title="7-Seater Group Transfers"
+              description="A private 7-seater for up to seven passengers plus the driver. Door-to-door airport, hen, stag and group journeys, with the fixed fare shown before you book."
               align="left"
               navId="vito-group-transfers"
             />

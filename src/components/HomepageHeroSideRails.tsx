@@ -39,7 +39,7 @@ const LEFT_CARDS: readonly RailCard[] = [
     key: "seven-seater",
     label: "7-seater",
     image: withBasePath("/images/hero/optimized/seven-seater-dublin-960.webp"),
-    title: "Travelling as a group? One Mercedes for up to 7",
+    title: "Travelling as a group? Up to 7 in one vehicle",
     text: "Families and groups stay together, with room for the luggage. Belfast to Dublin Airport and across Ireland.",
     href: "/transfers/belfast-to-dublin-airport-7-seater/",
     cta: "See the 7-seater",
