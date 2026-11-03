@@ -1,0 +1,37 @@
+name: Deposit + card balance review
+on:
+  pull_request:
+    paths:
+      - 'shared/deposit-card-balance.ts'
+      - 'shared/deposit-cash.ts'
+      - 'shared/booking-notifications.ts'
+      - 'shared/paid-booking-record.ts'
+      - 'workers/addresses/src/card-balance.ts'
+      - 'workers/addresses/src/refund-handlers.ts'
+      - 'workers/addresses/src/finalize-paid-checkout.ts'
+      - 'workers/addresses/src/index.ts'
+      - 'src/components/QuoteCard.tsx'
+      - 'scripts/check-card-balance.ts'
+      - '.github/workflows/card-balance-review.yml'
+permissions:
+  contents: read
+jobs:
+  card-balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-worker-shared.mjs
+      - run: node --import tsx scripts/check-card-balance.ts
+      - run: node --import tsx scripts/check-deposit-cash.ts
+      - run: node --import tsx scripts/check-customer-confirm-email.ts
+      - name: Worker typecheck
+        working-directory: workers/addresses
+        run: |
+          npm ci
+          npx tsc --noEmit

@@ -18,6 +18,7 @@ import {
   parseWebsitePromoPricingFields,
 } from "../../../shared/website-promo-pricing";
 import { formatAirportAccessOptionCustomerLines } from "../../../shared/express-drop-off";
+import { formatGbpAmountExact } from "../../../shared/gbp";
 import {
   PAYMENT_DETAILS_HEADING,
   REMAINING_BALANCE_CASH_ONLY,
@@ -48,6 +49,7 @@ export default function BookingConfirmedClient() {
   const [cashDueGbp, setCashDueGbp] = useState<number | null>(null);
   const [totalFareGbp, setTotalFareGbp] = useState<number | null>(null);
   const [depositPaidGbp, setDepositPaidGbp] = useState<number | null>(null);
+  const [cardBalanceGbp, setCardBalanceGbp] = useState<number | null>(null);
 
   useEffect(() => {
     setContactsHref(saveToContactsHref());
@@ -141,6 +143,19 @@ export default function BookingConfirmedClient() {
       setPurchaseValue(purchase?.value);
       setPurchaseCurrency(purchase?.currency || "GBP");
       setPurchaseBookingReference(purchase?.bookingReference);
+      if (
+        result.result?.paymentMethod === "DEPOSIT_CARD_BALANCE" &&
+        typeof result.result?.totalFare === "number" &&
+        typeof result.result?.onlineAmountPaid === "number"
+      ) {
+        setCardBalanceGbp(
+          Math.max(0, Math.round((result.result.totalFare - result.result.onlineAmountPaid) * 100) / 100),
+        );
+        setTotalFareGbp(result.result.totalFare);
+        setDepositPaidGbp(result.result.onlineAmountPaid);
+      } else {
+        setCardBalanceGbp(null);
+      }
       if (isDepositCashPaymentMethod(result.result?.paymentMethod)) {
         setCashDueGbp(
           typeof result.result?.cashBalanceDue === "number" ? result.result.cashBalanceDue : null,
@@ -153,10 +168,12 @@ export default function BookingConfirmedClient() {
             ? result.result.onlineAmountPaid
             : null,
         );
-      } else {
+      } else if (result.result?.paymentMethod !== "DEPOSIT_CARD_BALANCE") {
         setCashDueGbp(null);
         setTotalFareGbp(null);
         setDepositPaidGbp(null);
+      } else {
+        setCashDueGbp(null);
       }
       setStatus(result.status === "confirmed" ? "confirmed" : result.status);
       if (result.status === "confirmed" && purchase) {
@@ -230,7 +247,24 @@ export default function BookingConfirmedClient() {
         {paymentReference ? (
           <p className="mt-3 break-words text-xs text-white/50">Payment reference: {paymentReference.trim()}</p>
         ) : null}
-        {amountPaid && cashDueGbp == null ? (
+        {status === "confirmed" && cardBalanceGbp != null ? (
+          <div data-card-balance-confirmed className="mt-4 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+              {PAYMENT_DETAILS_HEADING}
+            </p>
+            {totalFareGbp != null ? (
+              <p className="mt-2 text-sm text-white/85">{bookingTotalLabel(totalFareGbp)}</p>
+            ) : null}
+            {depositPaidGbp != null ? (
+              <p className="mt-1 text-sm text-white/85">Deposit paid today: {formatGbpAmountExact(depositPaidGbp)}</p>
+            ) : null}
+            <p className="mt-1 text-sm text-white/85">Balance by card: {formatGbpAmountExact(cardBalanceGbp)}</p>
+            <p className="mt-3 text-sm leading-relaxed text-white">
+              We&apos;ll email you a secure link to pay the balance 7 days before your journey. If it isn&apos;t paid 3 days before pickup, the booking is cancelled and the deposit kept.
+            </p>
+          </div>
+        ) : null}
+        {amountPaid && cashDueGbp == null && cardBalanceGbp == null ? (
           <p className="mt-1 text-sm text-white/50">Amount paid: {amountPaid}</p>
         ) : status === "confirmed" && cashDueGbp == null ? (
           <p className="mt-1 text-sm text-white/50">

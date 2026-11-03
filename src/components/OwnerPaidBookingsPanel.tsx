@@ -2181,6 +2181,20 @@ export default function OwnerPaidBookingsPanel({
                 {` · remaining £${remainingNum.toFixed(2)}`}
               </p>
             )}
+            {booking.paymentMethod === "DEPOSIT_CARD_BALANCE" ? (
+              <div data-owner-card-balance className="mt-2 rounded-xl border border-emerald/30 bg-emerald/10 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
+                  Deposit + card balance
+                </p>
+                <p className="mt-1 text-sm text-white/85">
+                  Total fare {formatGbpAmount(booking.totalFare ?? booking.amount ?? 0)} · paid{" "}
+                  {booking.amountPaid}
+                </p>
+                {booking.cardBalanceStatusLine ? (
+                  <p className="mt-0.5 text-xs text-white/75">{booking.cardBalanceStatusLine}</p>
+                ) : null}
+              </div>
+            ) : null}
             {booking.paymentMethod === "DEPOSIT_CASH" ? (
               <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2">
                 <p className="text-xs font-semibold uppercase tracking-wider text-amber-100">

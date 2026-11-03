@@ -107,9 +107,11 @@ export type PaymentCheckoutRequest = {
    * Personal Quotes, Quick Quotes, saved quotes, short-notice, A2A tokens.
    * Do not send client percent/minimum/deposit — Worker recalculates.
    */
-  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH" | "DEPOSIT_CARD_BALANCE";
   /** Required when paymentMethod is DEPOSIT_CASH. */
   cashAgreementAccepted?: boolean;
+  /** Required when paymentMethod is DEPOSIT_CARD_BALANCE. */
+  cardBalanceAgreementAccepted?: boolean;
 };
 
 export type PaymentCheckoutResult = {
@@ -249,7 +251,7 @@ export type PaymentConfirmationResult = {
     amountPaidLabel: string;
     journeyFare: number;
   };
-  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH" | "DEPOSIT_CARD_BALANCE";
   totalFare?: number;
   onlineAmountPaid?: number;
   cashBalanceDue?: number;
@@ -414,10 +416,13 @@ export async function createPaymentCheckout(
       ...(request.returnOfferToken?.trim()
         ? { returnOfferToken: request.returnOfferToken.trim() }
         : {}),
-      ...(request.paymentMethod === "DEPOSIT_CASH" || request.paymentMethod === "FULL_ONLINE"
+      ...(request.paymentMethod === "DEPOSIT_CASH" ||
+      request.paymentMethod === "FULL_ONLINE" ||
+      request.paymentMethod === "DEPOSIT_CARD_BALANCE"
         ? { paymentMethod: request.paymentMethod }
         : {}),
       ...(request.cashAgreementAccepted === true ? { cashAgreementAccepted: true } : {}),
+      ...(request.cardBalanceAgreementAccepted === true ? { cardBalanceAgreementAccepted: true } : {}),
     }),
   }).catch(() => { throw new PaymentOutcomeUncertainError(); });
 

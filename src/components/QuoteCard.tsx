@@ -209,6 +209,19 @@ import {
   type PaymentMethod,
 } from "../../shared/deposit-cash";
 import {
+  CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE,
+  CARD_BALANCE_BADGE,
+  CARD_BALANCE_OPTION_LABEL,
+  PAYMENT_METHOD_DEPOSIT_CARD_BALANCE,
+  calculateCardBalanceQuote,
+  cardBalanceAgreementLabel,
+  cardBalanceDueDateLabel,
+  cardBalanceExplainer,
+  cardBalanceOptionSubline,
+  cardBalancePayButtonLabel,
+  isCardBalanceDateEligible,
+} from "../../shared/deposit-card-balance";
+import {
   serverFareAppliesToParty,
   type ServerFarePartyParts,
 } from "@/lib/quote-display-fare";
@@ -1116,6 +1129,7 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
+  const [cardBalanceAgreementAccepted, setCardBalanceAgreementAccepted] = useState(false);
   const [bookingMeetGreetSelected, setBookingMeetGreetSelected] = useState(false);
   const [terminalAccessChoices, setTerminalAccessChoices] = useState<TerminalAccessChoices>({});
   const [outboundAccessChoice, setOutboundAccessChoice] = useState<AirportAccessChoice>("free");
@@ -4568,6 +4582,25 @@ function QuoteCard({
     !isAvailabilityRequest;
   const selectedDepositCash =
     showDepositCashChoice && paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH;
+  // Pay a deposit now, balance by card 7 days before (pickup 30+ days away).
+  const cardBalanceOffer =
+    !appliedPersonalQuote &&
+    testChargeAmount == null &&
+    !isAvailabilityRequest &&
+    paymentAmount != null &&
+    Number.isFinite(paymentAmount) &&
+    isCardBalanceDateEligible(tripDate, tripTime)
+      ? calculateCardBalanceQuote(paymentAmount)
+      : null;
+  const showCardBalanceChoice = cardBalanceOffer?.eligible === true;
+  const selectedCardBalance =
+    showCardBalanceChoice && paymentMethod === PAYMENT_METHOD_DEPOSIT_CARD_BALANCE;
+  const showPaymentChoice = showDepositCashChoice || showCardBalanceChoice;
+  const effectivePaymentMethod: PaymentMethod = selectedDepositCash
+    ? PAYMENT_METHOD_DEPOSIT_CASH
+    : selectedCardBalance
+      ? PAYMENT_METHOD_DEPOSIT_CARD_BALANCE
+      : PAYMENT_METHOD_FULL_ONLINE;
 
   async function handlePayNow() {
     if (paymentSubmitLock.current || paymentLoading || submitted || paymentUncertain) return;
@@ -4622,6 +4655,10 @@ function QuoteCard({
       !cashAgreementAccepted
     ) {
       setPaymentError(CASH_AGREEMENT_REQUIRED_MESSAGE);
+      return;
+    }
+    if (selectedCardBalance && !cardBalanceAgreementAccepted) {
+      setPaymentError(CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE);
       return;
     }
     notifyOwnerQuoteContactIfReady();
@@ -4802,11 +4839,14 @@ function QuoteCard({
               standardWebsiteAmount: liveQuote.amount,
             }
           : {}),
-        ...(showDepositCashChoice
+        ...(showPaymentChoice
           ? {
-              paymentMethod,
-              ...(paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH && cashAgreementAccepted
+              paymentMethod: effectivePaymentMethod,
+              ...(selectedDepositCash && cashAgreementAccepted
                 ? { cashAgreementAccepted: true }
+                : {}),
+              ...(selectedCardBalance && cardBalanceAgreementAccepted
+                ? { cardBalanceAgreementAccepted: true }
                 : {}),
             }
           : {}),
@@ -7209,7 +7249,9 @@ function QuoteCard({
                   ? "£1.00"
                   : selectedDepositCash && depositCashOffer
                     ? `${formatDepositCashGbp(depositCashOffer.depositGbp)} deposit`
-                    : amountLabel ?? undefined
+                    : selectedCardBalance && cardBalanceOffer
+                      ? `${formatDepositCashGbp(cardBalanceOffer.depositGbp)} deposit`
+                      : amountLabel ?? undefined
             }
           />
           )}
@@ -7298,15 +7340,55 @@ function QuoteCard({
                 </div>
               ) : (
                 <>
-                {showDepositCashChoice && depositCashOffer ? (
+                {showPaymentChoice && paymentAmount != null ? (
                   <div className="space-y-3" data-booking-payment-options>
                     <p className="text-sm font-semibold text-white">{DEPOSIT_CASH_CHOOSE_HEADING}</p>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className={`grid gap-2 ${showDepositCashChoice && showCardBalanceChoice ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+                      {showCardBalanceChoice && cardBalanceOffer ? (
+                        <button
+                          type="button"
+                          disabled={paymentLoading}
+                          data-card-balance-option
+                          aria-pressed={selectedCardBalance}
+                          onClick={() => {
+                            setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CARD_BALANCE);
+                            setCashAgreementAccepted(false);
+                            setPaymentError((prev) =>
+                              prev === CASH_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
+                            );
+                          }}
+                          className={`min-h-11 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                            selectedCardBalance
+                              ? "border-emerald bg-emerald/15"
+                              : "border-white/20 bg-white/[0.03] hover:border-white/40"
+                          }`}
+                        >
+                          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
+                            {CARD_BALANCE_OPTION_LABEL}
+                            <span className="rounded-full bg-emerald/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald">
+                              {CARD_BALANCE_BADGE}
+                            </span>
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-emerald">
+                            {todayPayLabel(cardBalanceOffer.depositGbp)}
+                          </p>
+                          <p className="mt-0.5 text-xs text-white/70">
+                            {cardBalanceOptionSubline(cardBalanceOffer.balanceGbp)}
+                          </p>
+                        </button>
+                      ) : null}
+                      {showDepositCashChoice && depositCashOffer ? (
                       <button
                         type="button"
                         disabled={paymentLoading}
                         aria-pressed={paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH}
-                        onClick={() => setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH)}
+                        onClick={() => {
+                          setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH);
+                          setCardBalanceAgreementAccepted(false);
+                          setPaymentError((prev) =>
+                            prev === CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
+                          );
+                        }}
                         className={`min-h-11 rounded-xl border px-3 py-2.5 text-left transition-colors ${
                           paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH
                             ? "border-emerald bg-emerald/15"
@@ -7327,31 +7409,38 @@ function QuoteCard({
                           <span className="font-semibold text-white">cash on the day</span>
                         </p>
                       </button>
+                      ) : null}
                       <button
                         type="button"
                         disabled={paymentLoading}
-                        aria-pressed={paymentMethod === PAYMENT_METHOD_FULL_ONLINE}
+                        aria-pressed={effectivePaymentMethod === PAYMENT_METHOD_FULL_ONLINE}
                         onClick={() => {
                           setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE);
                           setCashAgreementAccepted(false);
+                          setCardBalanceAgreementAccepted(false);
                           setPaymentError((prev) =>
-                            prev === CASH_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
+                            prev === CASH_AGREEMENT_REQUIRED_MESSAGE ||
+                            prev === CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE
+                              ? ""
+                              : prev,
                           );
                         }}
                         className={`min-h-11 rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                          paymentMethod === PAYMENT_METHOD_FULL_ONLINE
+                          effectivePaymentMethod === PAYMENT_METHOD_FULL_ONLINE
                             ? "border-emerald bg-emerald/15"
                             : "border-white/20 bg-white/[0.03] hover:border-white/40"
                         }`}
                       >
                         <p className="text-sm font-semibold text-white">{FULL_ONLINE_OPTION_LABEL}</p>
                         <p className="mt-2 text-sm font-semibold text-emerald">
-                          {todayPayLabel(depositCashOffer.totalFare)}
+                          {depositCashOffer
+                            ? todayPayLabel(depositCashOffer.totalFare)
+                            : todayPayLabel(paymentAmount)}
                         </p>
                         <p className="mt-0.5 text-xs text-white/70">{nothingToPayOnTheDayLabel()}</p>
                       </button>
                     </div>
-                    {selectedDepositCash ? (
+                    {selectedDepositCash ? (depositCashOffer ? (
                       <div data-cash-agreement className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-2.5 py-1.5">
                         <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm leading-snug text-white/92">
                           <input
@@ -7371,6 +7460,33 @@ function QuoteCard({
                           <span>{cashAgreementLabel(depositCashOffer.cashDueGbp)}</span>
                         </label>
                       </div>
+                    ) : null) : null}
+                    {selectedCardBalance && cardBalanceOffer ? (
+                      <div data-card-balance-agreement className="space-y-1.5 rounded-xl border border-amber-300/35 bg-amber-500/10 px-2.5 py-2">
+                        <p className="text-xs leading-snug text-white/80">
+                          {cardBalanceExplainer(
+                            cardBalanceOffer.balanceGbp,
+                            cardBalanceDueDateLabel(tripDate, tripTime),
+                          )}
+                        </p>
+                        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm leading-snug text-white/92">
+                          <input
+                            type="checkbox"
+                            checked={cardBalanceAgreementAccepted}
+                            aria-required="true"
+                            onChange={(event) => {
+                              setCardBalanceAgreementAccepted(event.target.checked);
+                              if (event.target.checked) {
+                                setPaymentError((prev) =>
+                                  prev === CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
+                                );
+                              }
+                            }}
+                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
+                          />
+                          <span>{cardBalanceAgreementLabel(cardBalanceOffer.balanceGbp)}</span>
+                        </label>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
@@ -7380,7 +7496,13 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
-                  disabled={paymentLoading || paymentUncertain || submitted || (selectedDepositCash && !cashAgreementAccepted)}
+                  disabled={
+                    paymentLoading ||
+                    paymentUncertain ||
+                    submitted ||
+                    (selectedDepositCash && !cashAgreementAccepted) ||
+                    (selectedCardBalance && !cardBalanceAgreementAccepted)
+                  }
                   aria-busy={paymentLoading}
                   aria-describedby={paymentLoading ? "payment-loading-status" : undefined}
                   className="btn-pay w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-70"
@@ -7396,11 +7518,15 @@ function QuoteCard({
                         ? `${MINIBUS_NOTICE_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : isMinimumNoticeRequest
                           ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
-                          : showDepositCashChoice && depositCashOffer
-                            ? selectedDepositCash
-                              ? depositPayButtonLabel(depositCashOffer.depositGbp)
-                              : fullPayButtonLabel(depositCashOffer.totalFare)
-                            : `Pay ${amountLabel ?? formatQuote(liveQuote.amount)} & Confirm Booking`}
+                          : selectedCardBalance && cardBalanceOffer
+                            ? cardBalancePayButtonLabel(cardBalanceOffer.depositGbp)
+                            : showDepositCashChoice && depositCashOffer
+                              ? selectedDepositCash
+                                ? depositPayButtonLabel(depositCashOffer.depositGbp)
+                                : fullPayButtonLabel(depositCashOffer.totalFare)
+                              : showCardBalanceChoice && cardBalanceOffer
+                                ? fullPayButtonLabel(cardBalanceOffer.totalFare)
+                                : `Pay ${amountLabel ?? formatQuote(liveQuote.amount)} & Confirm Booking`}
                 </button>
                 <p id="payment-loading-status" role="status" aria-live="polite" aria-atomic="true" className="text-center text-sm text-white/85">
                   {paymentLoading && !isAvailabilityRequest

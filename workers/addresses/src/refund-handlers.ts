@@ -7,6 +7,7 @@
  * blockConcurrencyWhile. No KV refund locks.
  */
 
+import { refundPaidCardBalanceBeforeCancel } from "./card-balance";
 import {
   buildOwnerRefundConfirmationEmail,
   buildCustomerCancellationEmails,
@@ -16,6 +17,7 @@ import {
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
   grossAmountCollectedOf,
+  separatelyRefundedExtraPaymentsGbp,
   journeyFareOf,
 } from "../shared/paid-booking-record";
 import { normalizeCustomerBookingReference } from "../shared/customer-booking-reference";
@@ -123,7 +125,11 @@ function calendarConfigured(env: RefundEnv): boolean {
 
 /** Gross money collected — never the current journey fare when they differ. */
 function amountPaidOf(record: PaidBookingRecord): number {
-  return grossAmountCollectedOf(record);
+  // A card balance refunded against its own SumUp transaction is no longer refundable here.
+  return Math.max(
+    0,
+    Math.round((grossAmountCollectedOf(record) - separatelyRefundedExtraPaymentsGbp(record)) * 100) / 100,
+  );
 }
 
 /** After a successful SumUp refund: preserve journey fare; reduce refund-due. */
@@ -714,6 +720,20 @@ export async function processBookingRefundOrCancel(
       initialTripDateRef.value,
     );
     record = reconciled.record;
+  }
+
+  // Deposit bookings: a paid card balance sits on its own SumUp transaction. On a full
+  // cancel + refund, refund it there first; the engine below then refunds the deposit.
+  if (
+    cancelBooking &&
+    (actionKind === "cancel_full_refund" || actionKind === "full_refund_and_cancel") &&
+    (record.additionalPayments ?? []).some((p) => p.kind === "card-balance" && !p.refundedSeparatelyAt)
+  ) {
+    const balanceRefund = await refundPaidCardBalanceBeforeCancel(env, record);
+    if (!balanceRefund.ok) {
+      return { ok: false, paymentReference, error: balanceRefund.error };
+    }
+    record = balanceRefund.record;
   }
 
   const amountPaid = amountPaidOf(record);
@@ -2042,9 +2062,10 @@ export async function savePaidBookingRecordFromConfirm(input: {
   standardWebsiteAmount?: number;
   personalQuotedAmount?: number;
   isRefundTest?: boolean;
-  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH" | "DEPOSIT_CARD_BALANCE";
   totalFare?: number;
   onlineAmountPaid?: number;
+  cardBalanceDue?: number;
   cashBalanceDue?: number;
   depositPercentUsed?: number;
   depositMinimumUsed?: number;
@@ -2220,6 +2241,16 @@ export async function savePaidBookingRecordFromConfirm(input: {
       : {}),
     ...(input.paymentMethod === "DEPOSIT_CASH"
       ? { cashCollected: false }
+      : {}),
+    ...(input.paymentMethod === "DEPOSIT_CARD_BALANCE"
+      ? {
+          cardBalance: existing?.cardBalance ?? {
+            status: "scheduled" as const,
+            depositPercentUsed: input.depositPercentUsed ?? 20,
+            balanceAtBookingGbp:
+              typeof input.cardBalanceDue === "number" ? input.cardBalanceDue : 0,
+          },
+        }
       : {}),
     ...(typeof input.depositPercentUsed === "number"
       ? { depositPercentUsed: input.depositPercentUsed }

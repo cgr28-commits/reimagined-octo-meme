@@ -16,7 +16,13 @@ import {
 export const PAYMENT_METHOD_FULL_ONLINE = "FULL_ONLINE" as const;
 export const PAYMENT_METHOD_DEPOSIT_CASH = "DEPOSIT_CASH" as const;
 
-export type PaymentMethod = typeof PAYMENT_METHOD_FULL_ONLINE | typeof PAYMENT_METHOD_DEPOSIT_CASH;
+/** Deposit by card now, balance by card link before the journey (see deposit-card-balance.ts). */
+export const PAYMENT_METHOD_DEPOSIT_CARD_BALANCE = "DEPOSIT_CARD_BALANCE" as const;
+
+export type PaymentMethod =
+  | typeof PAYMENT_METHOD_FULL_ONLINE
+  | typeof PAYMENT_METHOD_DEPOSIT_CASH
+  | typeof PAYMENT_METHOD_DEPOSIT_CARD_BALANCE;
 
 export const DEFAULT_DEPOSIT_CASH_ENABLED = false;
 export const DEFAULT_DEPOSIT_PERCENT = 20;
@@ -162,13 +168,17 @@ export function parseDepositCashSettingsInput(raw: unknown): DepositCashSettings
 }
 
 export function isPaymentMethod(value: unknown): value is PaymentMethod {
-  return value === PAYMENT_METHOD_FULL_ONLINE || value === PAYMENT_METHOD_DEPOSIT_CASH;
+  return (
+    value === PAYMENT_METHOD_FULL_ONLINE ||
+    value === PAYMENT_METHOD_DEPOSIT_CASH ||
+    value === PAYMENT_METHOD_DEPOSIT_CARD_BALANCE
+  );
 }
 
 export function normalizePaymentMethod(value: unknown): PaymentMethod {
-  return value === PAYMENT_METHOD_DEPOSIT_CASH
-    ? PAYMENT_METHOD_DEPOSIT_CASH
-    : PAYMENT_METHOD_FULL_ONLINE;
+  if (value === PAYMENT_METHOD_DEPOSIT_CASH) return PAYMENT_METHOD_DEPOSIT_CASH;
+  if (value === PAYMENT_METHOD_DEPOSIT_CARD_BALANCE) return PAYMENT_METHOD_DEPOSIT_CARD_BALANCE;
+  return PAYMENT_METHOD_FULL_ONLINE;
 }
 
 export function isDepositCashPaymentMethod(value: unknown): boolean {

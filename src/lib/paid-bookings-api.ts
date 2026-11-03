@@ -133,12 +133,14 @@ export type OwnerPaidBookingSummary = Pick<
   isRefundTest?: boolean;
   /** Same-fare amendment fixture — never show in operational lists. */
   isAmendmentTestFixture?: boolean;
-  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH" | "DEPOSIT_CARD_BALANCE";
   totalFare?: number;
   onlineAmountPaid?: number;
   cashBalanceDue?: number;
   cashCollected?: boolean;
   cashCollectedAt?: string;
+  /** DEPOSIT_CARD_BALANCE: e.g. "Card balance £224.80 — payment link sent". */
+  cardBalanceStatusLine?: string;
   /** Stored server upload outcome. Raw click IDs are never sent to the dashboard. */
   googleAdsPaidConversionStatus?:
     | "sent"
