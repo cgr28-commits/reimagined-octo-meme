@@ -7496,13 +7496,7 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
-                  disabled={
-                    paymentLoading ||
-                    paymentUncertain ||
-                    submitted ||
-                    (selectedDepositCash && !cashAgreementAccepted) ||
-                    (selectedCardBalance && !cardBalanceAgreementAccepted)
-                  }
+                  disabled={paymentLoading || paymentUncertain || submitted || (selectedDepositCash && !cashAgreementAccepted) || (selectedCardBalance && !cardBalanceAgreementAccepted)}
                   aria-busy={paymentLoading}
                   aria-describedby={paymentLoading ? "payment-loading-status" : undefined}
                   className="btn-pay w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-70"
