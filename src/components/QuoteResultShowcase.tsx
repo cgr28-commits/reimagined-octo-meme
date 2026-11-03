@@ -250,7 +250,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         {depositNote ? (
           <p
             data-quote-deposit-note
-            className="mx-auto mt-1.5 inline-flex items-center rounded-full bg-[#147a2a]/10 px-3 py-1 text-xs font-bold leading-tight text-[#147a2a]"
+            className="mx-auto mt-2 inline-flex items-center justify-center rounded-full bg-[#2FBF4A] px-4 py-1.5 text-center text-sm font-extrabold leading-tight text-[#071C38] shadow-sm"
           >
             {depositNote}
           </p>

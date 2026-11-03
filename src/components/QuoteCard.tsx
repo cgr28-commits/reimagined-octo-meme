@@ -8036,23 +8036,6 @@ function QuoteCard({
           className="scroll-mt-24 space-y-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
           data-quote-result-actions
         >
-          {saveQuoteSettings.enabled && saveQuoteSettings.emailEnabled && !isVehiclePersonalQuote ? (
-            <button
-              type="button"
-              data-quote-save-prominent
-              aria-haspopup="dialog"
-              onClick={() => handleSaveQuoteClick("email")}
-              className="mb-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald/50 bg-emerald/10 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald/20"
-            >
-              <QuoteResultActionIcon name="save" className="h-[1.1rem] w-[1.1rem] text-emerald" />
-              <span>
-                Not ready to book? <span className="text-emerald">Email me this price</span>
-                <span className="text-white/60">
-                  {" "}· held for {saveQuoteSettings.validityDays} day{saveQuoteSettings.validityDays === 1 ? "" : "s"}
-                </span>
-              </span>
-            </button>
-          ) : null}
           <div className="grid grid-cols-4 gap-1.5 max-[340px]:grid-cols-2">
             {mapsHref ? (
               <button
