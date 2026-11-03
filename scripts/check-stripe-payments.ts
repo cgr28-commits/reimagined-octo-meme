@@ -49,3 +49,22 @@ const calls:string[]=[];
 const full = await sp.refundStripePayment("pi_h"); assert.ok(calls.at(-1)!.includes("/payment_intents/pi_h/cancel")); assert.equal(full.refundedAmount,50);
 const part = await sp.refundStripePayment("pi_h", 20); assert.ok(calls.at(-1)!.includes("/capture amount_to_capture=3000"), calls.at(-1)); assert.equal(part.refundedAmount,20);
 console.log("stripe-payments unit checks passed", calls.length, "mock calls");
+
+// Provider choice for every flow (bookings, balances, tips, Meet & Greet, top-ups, quotes).
+{
+  const { stripeActiveFor, cardPaymentsConfigured, providerKeyFor } = await import("../workers/addresses/src/payment-provider");
+  const testEnv = { PAYMENT_PROVIDER: "stripe-test", STRIPE_SECRET_KEY: "sk_test_x", STRIPE_TEST_EMAILS: "Owner@Example.com" };
+  assert.equal(stripeActiveFor(testEnv, "owner@example.com"), true);
+  assert.equal(stripeActiveFor(testEnv, "customer@example.com"), false);
+  assert.equal(stripeActiveFor(testEnv, null), false);
+  assert.equal(stripeActiveFor({ PAYMENT_PROVIDER: "stripe", STRIPE_SECRET_KEY: "sk_test_x" }, "a@b.co"), false, "test key never serves everyone");
+  assert.equal(stripeActiveFor({ PAYMENT_PROVIDER: "stripe", STRIPE_SECRET_KEY: "sk_live_x" }, "a@b.co"), true);
+  assert.equal(stripeActiveFor({ STRIPE_SECRET_KEY: "sk_live_x" }, "a@b.co"), false, "unset provider keeps SumUp");
+  assert.equal(cardPaymentsConfigured({ SUMUP_API_KEY: "k", SUMUP_MERCHANT_CODE: "m" }, "a@b.co"), true);
+  assert.equal(cardPaymentsConfigured({}, "a@b.co"), false);
+  assert.equal(providerKeyFor({ STRIPE_SECRET_KEY: "sk_test_x" }, "cs_test_abc"), "stripe");
+  assert.equal(providerKeyFor({ STRIPE_SECRET_KEY: "sk_test_x" }, "pi_abc"), "stripe");
+  assert.equal(providerKeyFor({ STRIPE_SECRET_KEY: "sk_test_x" }, "sumup-uuid"), "");
+  assert.equal(providerKeyFor({ SUMUP_API_KEY: "sup" }, "cs_test_abc"), "sup");
+  console.log("payment provider choice checks passed");
+}

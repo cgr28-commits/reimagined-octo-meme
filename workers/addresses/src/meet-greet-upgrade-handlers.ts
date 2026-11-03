@@ -1,3 +1,5 @@
+import { cardPaymentsConfigured, createHostedCheckout, hostedCheckoutStillOpen, providerKeyFor } from "./payment-provider";
+import { isStripeCheckoutId } from "../shared/stripe-payments";
 import { ownerAuthorized } from "./driver-auth";
 import { airportPickupOffers, buildMeetGreetOfferEmail, meetGreetCheckoutReference, verifyMeetGreetPayment, MEET_GREET_EMAIL_DELAY_MS, type MeetGreetUpgrade } from "../shared/meet-greet-upgrade";
 import { meetGreetFeeGbp } from "../shared/meet-greet";
@@ -9,7 +11,7 @@ import { createSumUpHostedCheckout, getSumUpCheckout, listSumUpCheckoutsByRefere
 import { parseLondonLocalDateTime } from "../shared/uk-time";
 import { corsHeaders } from "../shared/google-places";
 
-export type MeetGreetEnv = WorkerEmailEnv & { TRACKING_STORE?: KVNamespace; MEET_GREET_COORDINATOR?: DurableObjectNamespace; SUMUP_API_KEY?: string; SUMUP_MERCHANT_CODE?: string; OWNER_ACCESS_KEY?: string };
+export type MeetGreetEnv = WorkerEmailEnv & { TRACKING_STORE?: KVNamespace; MEET_GREET_COORDINATOR?: DurableObjectNamespace; SUMUP_API_KEY?: string; SUMUP_MERCHANT_CODE?: string; PAYMENT_PROVIDER?: string; STRIPE_SECRET_KEY?: string; STRIPE_TEST_EMAILS?: string; OWNER_ACCESS_KEY?: string };
 const origin = "https://www.myairporttaxini.co.uk";
 const validToken = (token: string) => /^[a-f0-9]{64}$/.test(token);
 const newToken = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), n => n.toString(16).padStart(2, "0")).join("");
@@ -82,19 +84,24 @@ export class MeetGreetCoordinator {
       item.pickupLabel === (item.leg === "return" ? booking.dropoffLabel : booking.pickupLabel);
     if (!eligible) return json({ error: "This Meet & Greet upgrade is no longer available. Please contact us if you’d like Meet & Greet." }, 410);
     if (body.action === "checkout") {
-      if (!this.env.SUMUP_API_KEY || !this.env.SUMUP_MERCHANT_CODE || !this.env.TRACKING_STORE) return json({ error: "Online payment is unavailable." }, 503);
+      if (!this.env.TRACKING_STORE || !cardPaymentsConfigured(this.env, booking?.customerEmail ?? null)) return json({ error: "Online payment is unavailable." }, 503);
+      // A Stripe payment page expires after 23 hours: start a fresh one if needed.
+      if (item.checkoutId && !item.paidAt && isStripeCheckoutId(item.checkoutId) && !(await hostedCheckoutStillOpen(item.checkoutId))) {
+        item.checkoutId = undefined; item.paymentUrl = undefined;
+        await this.save(item);
+      }
       if (!item.checkoutId) {
         item.checkoutReference = meetGreetCheckoutReference(item);
         await this.save(item); // stable reference saved before network call
         let checkout;
         try {
-          checkout = await createSumUpHostedCheckout(this.env.SUMUP_API_KEY, this.env.SUMUP_MERCHANT_CODE, {
+          checkout = await createHostedCheckout(this.env, {
             amount: item.amount, description: `${item.customerReference} — Meet & Greet ${item.airport} ${item.leg} collection`, checkoutReference: item.checkoutReference,
             redirectUrl: `${origin}/meet-and-greet/?t=${item.token}`, returnUrl: `${body.apiOrigin}/payments/webhook`,
-          });
+          }, { customerEmail: booking?.customerEmail ?? null, siteOrigin: origin });
         } catch (error) {
           if (!isDuplicateSumUpCheckoutError(error)) throw error;
-          const rows = await listSumUpCheckoutsByReference(this.env.SUMUP_API_KEY, item.checkoutReference);
+          const rows = await listSumUpCheckoutsByReference(this.env.SUMUP_API_KEY ?? "", item.checkoutReference);
           const found = rows.find(x => x.checkout_reference === item.checkoutReference && x.amount === item.amount && x.currency === "GBP");
           if (!found) throw error;
           checkout = { checkoutId: found.id, paymentUrl: found.hosted_checkout_url ?? "", checkoutReference: item.checkoutReference };
@@ -140,8 +147,9 @@ export class MeetGreetCoordinator {
     return { sent, alreadySent };
   }
   private async settle(item: MeetGreetUpgrade) {
-    if (!item.checkoutId || !this.env.SUMUP_API_KEY || !this.env.TRACKING_STORE) return;
-    const checkout = await getSumUpCheckout(this.env.SUMUP_API_KEY, item.checkoutId);
+    const providerKey = providerKeyFor(this.env, item.checkoutId);
+    if (!item.checkoutId || !providerKey || !this.env.TRACKING_STORE) return;
+    const checkout = await getSumUpCheckout(providerKey, item.checkoutId);
     if (!verifyMeetGreetPayment(item, checkout)) {
       if (checkout.status === "PAID") throw new Error("Meet & Greet payment proof mismatch");
       const pickupAt = parseLondonLocalDateTime(item.pickupDate, item.pickupTime);
