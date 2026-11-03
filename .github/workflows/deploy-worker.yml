@@ -81,6 +81,11 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           SUMUP_API_KEY: ${{ secrets.SUMUP_API_KEY }}
           SUMUP_MERCHANT_CODE: ${{ secrets.SUMUP_MERCHANT_CODE }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          PAYMENT_PROVIDER: ${{ secrets.PAYMENT_PROVIDER }}
+          STRIPE_TEST_EMAILS: ${{ secrets.STRIPE_TEST_EMAILS }}
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           AD_FRAUD_HASH_SALT: ${{ secrets.AD_FRAUD_HASH_SALT }}
@@ -146,6 +151,14 @@ jobs:
           else
             echo "::notice::SUMUP_API_KEY / SUMUP_MERCHANT_CODE not both set in GitHub Actions — existing Cloudflare Worker SumUp secrets are left unchanged."
           fi
+          # Stripe (optional). Each value is synced only when its GitHub secret is set.
+          for name in STRIPE_SECRET_KEY STRIPE_PUBLISHABLE_KEY STRIPE_WEBHOOK_SECRET PAYMENT_PROVIDER STRIPE_TEST_EMAILS; do
+            value="${!name}"
+            if [ -n "$value" ]; then
+              echo "Syncing $name…"
+              printf '%s' "$value" | npx wrangler secret put "$name"
+            fi
+          done
           if [ -n "$DRIVER_ACCESS_KEY" ]; then
             echo "Syncing DRIVER_ACCESS_KEY secret…"
             printf '%s' "$DRIVER_ACCESS_KEY" | npx wrangler secret put DRIVER_ACCESS_KEY

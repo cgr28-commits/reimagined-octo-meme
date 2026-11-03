@@ -1,4 +1,18 @@
 import { processFlightWatch } from "./flight-watch-handlers";
+import {
+  configureStripe,
+  createStripeCheckoutSession,
+  retrieveStripeCheckoutSession,
+  shouldUseStripeHold,
+  stripeModeFromKey,
+  verifyStripeWebhook,
+  isStripeCheckoutId,
+} from "../shared/stripe-payments";
+import {
+  lastPickupAtForBooking,
+  processDueStripeHolds,
+  recordStripeHoldIfAny,
+} from "./stripe-holds";
 import { handleWhatsAppTemplates, isWhatsAppTemplatesPath } from "./whatsapp-templates";
 import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
 import { isBookingFunnelEvent } from "../shared/booking-funnel";
@@ -600,6 +614,15 @@ type Env = {
   RESEND_API_KEY?: string;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
+  /** "stripe" sends new website bookings to Stripe; anything else keeps SumUp. */
+  PAYMENT_PROVIDER?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_PUBLISHABLE_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  /** "false" turns off card holds (authorise now, charge after the journey). */
+  STRIPE_HOLDS_ENABLED?: string;
+  /** Comma-separated emails that use Stripe when PAYMENT_PROVIDER=stripe-test. */
+  STRIPE_TEST_EMAILS?: string;
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
@@ -2070,7 +2093,7 @@ async function handlePaymentRequest(
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
   const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
 
-  if (!apiKey || !merchantCode) {
+  if (!stripePaymentsActive(env) && (!apiKey || !merchantCode)) {
     return json({ error: "SumUp payment is not configured" }, 503, origin);
   }
 
@@ -3743,14 +3766,41 @@ async function handlePaymentRequest(
     timing.validation = performance.now() - preparationStarted;
     const sumupStarted = performance.now();
     let checkout: Awaited<ReturnType<typeof createSumUpHostedCheckout>>;
+    let stripeHold = false;
     try {
-      checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
-        amount: Math.round(amount * 100) / 100,
-        description: sumUpDescription,
-        checkoutReference,
-        redirectUrl,
-        returnUrl,
-      });
+      if (stripePaymentsActive(env, booking ?? null)) {
+        // Hold only full online payments for journeys inside the card-hold window.
+        stripeHold =
+          !depositSnapshot &&
+          !cardBalanceSnapshot &&
+          shouldUseStripeHold({
+            enabled: env.STRIPE_HOLDS_ENABLED?.trim().toLowerCase() !== "false",
+            lastPickupAt: lastPickupAtForBooking(booking),
+          });
+        const stripeCheckout = await createStripeCheckoutSession({
+          amount: Math.round(amount * 100) / 100,
+          description: sumUpDescription,
+          checkoutReference,
+          returnUrl: redirectUrl,
+          customerEmail: booking?.customerEmail,
+          manualCapture: stripeHold,
+          siteOrigin: new URL(redirectUrl).origin,
+        });
+        checkout = {
+          checkoutId: stripeCheckout.checkoutId,
+          paymentUrl: stripeCheckout.paymentUrl,
+          checkoutReference: stripeCheckout.checkoutReference,
+          createdAt: stripeCheckout.createdAt,
+        };
+      } else {
+        checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
+          amount: Math.round(amount * 100) / 100,
+          description: sumUpDescription,
+          checkoutReference,
+          redirectUrl,
+          returnUrl,
+        });
+      }
     } catch (error) {
       if (personalQuoteCode && personalQuoteReservationAttemptId) {
         await clearPersonalQuoteReservation(env.TRACKING_STORE, personalQuoteCode, {
@@ -3908,14 +3958,20 @@ async function handlePaymentRequest(
         bookingReference: checkout.checkoutReference,
         amount: Math.round(amount * 100) / 100,
         ownerAttemptEmailQueued: Boolean(ctx),
+        ...(stripePaymentsActive(env, booking ?? null)
+          ? { paymentProvider: "stripe", cardHold: stripeHold }
+          : {}),
         ...(shortNoticeReference ? { shortNoticeReference } : {}),
       },
       200,
       origin,
     );
   } catch (error) {
-    console.error("SumUp checkout failed");
-    return json({ error: "Could not create SumUp payment link" }, 502, origin);
+    console.error(
+      stripePaymentsActive(env, booking ?? null) ? "Stripe checkout failed" : "SumUp checkout failed",
+      error instanceof Error ? error.message : "",
+    );
+    return json({ error: "Could not create the card payment" }, 502, origin);
   }
 }
 
@@ -4001,6 +4057,7 @@ async function handlePaymentWebhookRequest(
         });
         if (result.ok) {
           // Paid path handled (or already finalized).
+          await recordStripeHoldSafely(env, checkoutId, booking);
         } else if (result.error?.includes("not been completed")) {
           // Payment still pending or failed — if SumUp shows a terminal failure, email owner.
           const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
@@ -4065,12 +4122,6 @@ async function handlePaymentConfirmRequest(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
-  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
-
-  if (!apiKey) {
-    return json({ error: "SumUp payment is not configured" }, 503, origin);
-  }
-
   let body: Record<string, unknown>;
 
   try {
@@ -4080,6 +4131,11 @@ async function handlePaymentConfirmRequest(
   }
 
   const checkoutId = String(body.checkoutId ?? body.checkout_id ?? "").trim();
+  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
+
+  if (!apiKey && !(isStripeCheckoutId(checkoutId) && env.STRIPE_SECRET_KEY?.trim())) {
+    return json({ error: "Payment is not configured" }, 503, origin);
+  }
   const clientBooking = parsePaidBookingDetails(body);
   const booking = checkoutId
     ? await resolveBookingForCheckout(env, checkoutId, clientBooking)
@@ -4107,6 +4163,10 @@ async function handlePaymentConfirmRequest(
       booking,
       logPaidBookingCalendar,
     });
+
+    if (result.ok) {
+      await recordStripeHoldSafely(env, checkoutId, booking);
+    }
 
     if (!result.ok) {
       const status = result.error?.includes("not been completed") ? 402 : 502;
@@ -4257,11 +4317,194 @@ async function handleFlightLookupRequest(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Stripe (Checkout Sessions + Elements). New website bookings use Stripe only
+// when PAYMENT_PROVIDER=stripe and STRIPE_SECRET_KEY is set; otherwise SumUp.
+// ---------------------------------------------------------------------------
+
+/**
+ * Which bookings go to Stripe:
+ * - PAYMENT_PROVIDER=stripe-test → only bookings whose customer email is in
+ *   STRIPE_TEST_EMAILS (owner testing on the live site; customers keep SumUp).
+ * - PAYMENT_PROVIDER=stripe → every booking, but only with a LIVE key, so a
+ *   test key can never take real customers' bookings.
+ * - anything else → SumUp.
+ * Without a booking (early gate), "could this request use Stripe at all".
+ */
+function stripePaymentsActive(env: Env, booking?: { customerEmail?: string } | null): boolean {
+  const key = env.STRIPE_SECRET_KEY?.trim() ?? "";
+  if (!key) return false;
+  const provider = env.PAYMENT_PROVIDER?.trim().toLowerCase() ?? "";
+  if (provider === "stripe") return stripeModeFromKey(key) === "live";
+  if (provider === "stripe-test") {
+    if (booking === undefined) return true;
+    const email = booking?.customerEmail?.trim().toLowerCase() ?? "";
+    const allowed = (env.STRIPE_TEST_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    return Boolean(email) && allowed.includes(email);
+  }
+  return false;
+}
+
+/** On-site payment page: swap a Checkout Session id for its client secret. */
+async function handleStripeSessionRequest(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (request.method !== "GET") return json({ error: "Method not allowed" }, 405, origin);
+  const publishableKey = env.STRIPE_PUBLISHABLE_KEY?.trim() ?? "";
+  if (!env.STRIPE_SECRET_KEY?.trim() || !publishableKey) {
+    return json({ error: "Card payment is not available right now", code: "not_configured" }, 503, origin);
+  }
+  const checkoutId = new URL(request.url).searchParams.get("checkout")?.trim() ?? "";
+  if (!isStripeCheckoutId(checkoutId)) {
+    return json({ error: "Invalid payment link", code: "invalid" }, 400, origin);
+  }
+  try {
+    const session = await retrieveStripeCheckoutSession(checkoutId);
+    const pi = session.payment_intent && typeof session.payment_intent === "object"
+      ? session.payment_intent
+      : null;
+    const base = {
+      amount: typeof session.amount_total === "number" ? session.amount_total / 100 : null,
+      currency: (session.currency ?? "gbp").toUpperCase(),
+      reference: session.client_reference_id ?? "",
+      cardHold: pi?.capture_method === "manual",
+    };
+    if (session.status === "complete") {
+      return json({ ...base, status: "complete" }, 200, origin);
+    }
+    if (session.status !== "open" || !session.client_secret) {
+      return json({ ...base, status: "expired", code: "expired" }, 410, origin);
+    }
+    return json(
+      { ...base, status: "open", clientSecret: session.client_secret, publishableKey },
+      200,
+      origin,
+    );
+  } catch (error) {
+    console.error("Stripe session lookup failed", error instanceof Error ? error.message : "");
+    return json({ error: "We couldn't open this payment link", code: "lookup_failed" }, 502, origin);
+  }
+}
+
+/**
+ * Stripe webhook. Verifies the signature, then runs the same finalisation as
+ * the SumUp callback (emails, calendar, tracking, holds) for the session id.
+ */
+async function handleStripeWebhookRequest(request: Request, env: Env): Promise<Response> {
+  const secret = env.STRIPE_WEBHOOK_SECRET?.trim() ?? "";
+  if (!secret) return new Response("Stripe webhook secret not configured", { status: 503 });
+  const payload = await request.text();
+  let event;
+  try {
+    event = await verifyStripeWebhook({
+      payload,
+      signatureHeader: request.headers.get("Stripe-Signature"),
+      secret,
+    });
+  } catch {
+    return new Response("Invalid signature", { status: 400 });
+  }
+
+  const keyMode = stripeModeFromKey(env.STRIPE_SECRET_KEY?.trim() ?? "");
+  if ((keyMode === "live") !== event.livemode && keyMode !== "unknown") {
+    // Test events reaching a live Worker (or the reverse) are ignored.
+    return new Response(JSON.stringify({ ok: true, ignored: "mode_mismatch" }), { status: 200 });
+  }
+
+  const handled = new Set([
+    "checkout.session.completed",
+    "checkout.session.async_payment_succeeded",
+    "checkout.session.async_payment_failed",
+    "checkout.session.expired",
+  ]);
+  const sessionId = event.data?.object?.object === "checkout.session" ? event.data.object.id : "";
+  if (!handled.has(event.type) || !isStripeCheckoutId(sessionId)) {
+    return new Response(JSON.stringify({ ok: true, ignored: event.type }), { status: 200 });
+  }
+
+  const forward = new Request(
+    new URL(`/payments/webhook?checkout_id=${encodeURIComponent(sessionId)}`, request.url).toString(),
+    { method: "POST" },
+  );
+  const response = await handlePaymentWebhookRequest(forward, env, null);
+  // 5xx asks Stripe to retry later; anything else is acknowledged.
+  return new Response(await response.text(), {
+    status: response.status >= 500 ? 500 : 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+async function recordStripeHoldSafely(
+  env: Env,
+  checkoutId: string,
+  booking: Parameters<typeof recordStripeHoldIfAny>[2],
+): Promise<void> {
+  if (!isStripeCheckoutId(checkoutId)) return;
+  try {
+    await recordStripeHoldIfAny(env.TRACKING_STORE, checkoutId, booking);
+  } catch (error) {
+    console.error("Stripe hold record failed", checkoutId, error instanceof Error ? error.message : "");
+  }
+}
+
+/** Cron: capture due card holds; email the owner the first time one fails. */
+async function runStripeHoldCaptures(env: Env, now: Date): Promise<void> {
+  try {
+    const result = await processDueStripeHolds(env.TRACKING_STORE, now);
+    if (result.captured.length || result.failed.length || result.closed.length) {
+      console.log(
+        "Stripe hold cron",
+        JSON.stringify({
+          captured: result.captured.length,
+          closed: result.closed.length,
+          failed: result.failed.length,
+        }),
+      );
+    }
+    const firstFailures = result.failed.filter((f) => f.attempts === 1);
+    if (firstFailures.length) {
+      const lines = firstFailures.map(
+        (f) =>
+          `- ${f.customerName || "Customer"} — £${(f.amountGbp ?? 0).toFixed(2)} — ref ${f.checkoutReference || f.checkoutId}\n  Stripe payment ${f.paymentIntentId}: ${f.error}`,
+      );
+      await trySendOwnerOperationalEmail(env, {
+        to: ownerInbox(env),
+        subject: "Card hold could not be charged — please check Stripe",
+        body:
+          `The website tried to charge the following card hold(s) after the journey and Stripe refused:\n\n` +
+          `${lines.join("\n")}\n\n` +
+          `It will keep retrying every 5 minutes. Please check the payment in your Stripe Dashboard ` +
+          `(Payments) and capture it there if needed before the hold expires.`,
+      });
+    }
+  } catch (error) {
+    console.error("Stripe hold cron failed", error instanceof Error ? error.message : error);
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
+    configureStripe(env);
     const origin = request.headers.get("Origin");
     const url = new URL(request.url);
     const route = routePath(url.pathname);
+
+    // Stripe webhook (server-to-server, signature-verified inside).
+    if (
+      (url.pathname === "/payments/stripe-webhook" || url.pathname === "/api/payments/stripe-webhook") &&
+      request.method === "POST"
+    ) {
+      return handleStripeWebhookRequest(request, env);
+    }
+    if (url.pathname === "/payments/stripe-session" || url.pathname === "/api/payments/stripe-session") {
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      return handleStripeSessionRequest(request, env, origin);
+    }
 
     // Server-to-server from Meta — no CORS, signature-verified inside.
     // Resend "email.received" webhook for the owner inbox (server-to-server, signature checked).
@@ -5970,6 +6213,7 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    configureStripe(env);
     const cron = event.cron;
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {
       ctx.waitUntil(
@@ -5988,6 +6232,7 @@ export default {
     // Four-hour customer journey reminders use the existing five-minute trigger.
     // Other scheduled work keeps its existing hourly cadence.
     if (!cron || cron === "*/5 * * * *") {
+      ctx.waitUntil(runStripeHoldCaptures(env, new Date(event.scheduledTime)));
       ctx.waitUntil(recoverMeetGreetEmails(env).catch(error => console.error("Meet & Greet queue recovery failed", error)));
       // Reached the card page but didn't pay: alert the owner + "finish your booking" email after 10 minutes.
       ctx.waitUntil(processUnfinishedPayments(env, new Date(event.scheduledTime)).then(result => {
