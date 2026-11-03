@@ -14,7 +14,7 @@ import {
   BUSINESS_WEBSITE,
   businessEmailClientMeta,
   businessEmailLogoHtml,
-  lightCustomerEmailHtml,
+  lightCustomerEmailHtml, BUSINESS_LANDLINE_DISPLAY
 } from "./business-email";
 import { emailTypoSuggestion, isUsableEmailAddress } from "./email-typo";
 import { formatUkDateTime } from "./uk-time";
@@ -186,7 +186,7 @@ export function buildCustomerFinishBookingEmail(input: {
     "Finish your booking here:",
     input.resumeUrl,
     "",
-    `If the card payment didn't work or you'd rather book another way, just reply to this email or call or WhatsApp us on ${BUSINESS_PHONE_DISPLAY}.`,
+    `If the card payment didn't work or you'd rather book another way, just reply to this email or call or WhatsApp us on ${BUSINESS_PHONE_DISPLAY}, or ring our landline on ${BUSINESS_LANDLINE_DISPLAY}.`,
     "",
     "My Airport Taxi NI",
     BUSINESS_WEBSITE,
@@ -210,7 +210,7 @@ ${businessEmailLogoHtml()}
 <p style="margin:24px 0 8px;text-align:center;">
 <a href="${esc(input.resumeUrl)}" style="display:inline-block;background:${BRAND_NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Finish my booking</a>
 </p>
-<p style="margin:16px 0 0;font-size:14px;color:#64748b;">If the card payment didn't work or you'd rather book another way, just reply to this email or call or WhatsApp us on ${esc(BUSINESS_PHONE_DISPLAY)}.</p>
+<p style="margin:16px 0 0;font-size:14px;color:#64748b;">If the card payment didn't work or you'd rather book another way, just reply to this email or call or WhatsApp us on ${esc(BUSINESS_PHONE_DISPLAY)}, or ring our landline on ${esc(BUSINESS_LANDLINE_DISPLAY)}.</p>
 </td></tr>
 <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;color:#64748b;">
 <strong style="color:${BRAND_NAVY};">My Airport Taxi NI</strong><br />

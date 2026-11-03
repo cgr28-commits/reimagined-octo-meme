@@ -94,7 +94,7 @@ async function main() {
   assert.match(sig, /My Airport Taxi NI/);
   assert.match(sig, /07549 815538/);
   assert.match(sig, /bookings@myairporttaxini\.co\.uk/);
-  assert.doesNotMatch(sig, /028\s*9602/, "old landline removed from the signature");
+  assert.match(sig, /Landline: <a href="tel:\+442896022952"[^>]*>028 9602 2952<\/a>/, "office landline shown in the signature (owner request, Nov 2026)");
   const out = buildOwnerOutgoingEmail({ message: "Hi <Sarah>\n\nSee you then.", quoted: { from: "Sarah", at: "today", text: "What time?" } });
   assert.match(out.html, /Hi &lt;Sarah&gt;/, "message is escaped");
   assert.match(out.text, /> What time\?/);

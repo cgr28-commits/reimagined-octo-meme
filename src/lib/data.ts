@@ -11,6 +11,9 @@ export const SITE = {
   tagline: "Airport and long-distance private transfers across Northern Ireland",
   landline: "+447549815538",
   landlineDisplay: "07549 815538",
+  /** Office landline (028 9602 2952): desktop header number and mobile Call button. */
+  officeLandline: "+442896022952",
+  officeLandlineDisplay: "028 9602 2952",
   whatsapp: "447549815538",
   whatsappUsername: "belfasttaxi",
   whatsappDefaultMessage: "Hi, I'd like some help.",

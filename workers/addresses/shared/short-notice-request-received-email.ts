@@ -11,7 +11,7 @@ import {
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
   lightCustomerEmailHtml,
   businessEmailClientMeta,
-  businessEmailLogoHtml,
+  businessEmailLogoHtml, BUSINESS_LANDLINE_DISPLAY
 } from "./business-email";
 import { MINIMUM_BOOKING_NOTICE_HOURS } from "./booking-notice";
 import { MINIBUS_NOTICE_BODY, MINIBUS_NOTICE_HEADING } from "./availability-resource";
@@ -87,7 +87,7 @@ export function buildShortNoticeRequestReceivedEmail(
     `No payment has been taken.\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}\n` +
-    `Phone: ${BUSINESS_PHONE_DISPLAY}\n` +
+    `Phone: ${BUSINESS_PHONE_DISPLAY} · Landline: ${BUSINESS_LANDLINE_DISPLAY} · Landline: ${BUSINESS_LANDLINE_DISPLAY}\n` +
     `Email: ${BUSINESS_EMAIL}`;
 
   const html = lightCustomerEmailHtml(`<!DOCTYPE html>
@@ -128,7 +128,7 @@ ${businessEmailClientMeta()}
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
               <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
               <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a> ·
-              Phone: ${BUSINESS_PHONE_DISPLAY} ·
+              Phone: ${BUSINESS_PHONE_DISPLAY} · Landline: ${BUSINESS_LANDLINE_DISPLAY} ·
               <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>
             </td>
           </tr>
