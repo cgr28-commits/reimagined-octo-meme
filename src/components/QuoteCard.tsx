@@ -4922,9 +4922,15 @@ function QuoteCard({
       }
 
       const isMobile = isMobileDevice ?? detectMobileDevice();
+      // Our own Stripe payment page (on this site) always opens in the same tab.
+      if (isOnSitePaymentUrl(checkout.paymentUrl)) {
+        notifyOwnerQuoteContactIfReady("payment_opened");
+        paymentNavigating.current = true;
+        window.location.assign(checkout.paymentUrl);
+        return;
+      }
       // Same-tab redirect — reliable on iPhone Safari / Android (no popup).
-      // Our own Stripe payment page also opens in the same tab on desktop.
-      if (isMobile || isOnSitePaymentUrl(checkout.paymentUrl)) {
+      if (isMobile) {
         notifyOwnerQuoteContactIfReady("payment_opened");
         paymentNavigating.current = true;
         window.location.assign(checkout.paymentUrl);
@@ -5012,7 +5018,11 @@ function QuoteCard({
   function openSumUpPayment(paymentUrl: string) {
     notifyOwnerQuoteContactIfReady("payment_opened");
     const isMobile = isMobileDevice ?? detectMobileDevice();
-    if (isMobile || isOnSitePaymentUrl(paymentUrl)) {
+    if (isOnSitePaymentUrl(paymentUrl)) {
+      window.location.assign(paymentUrl);
+      return;
+    }
+    if (isMobile) {
       window.location.assign(paymentUrl);
       return;
     }
