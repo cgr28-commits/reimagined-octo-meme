@@ -1024,6 +1024,7 @@ function QuoteCard({
     paymentUrl: string;
     amountLabel: string;
     returnToken?: string;
+    summary: import("@/components/SumUpEmbeddedPayment").EmbeddedPaymentSummary;
   } | null>(null);
   const [initialWhatsAppRequest, setInitialWhatsAppRequest] = useState<Promise<SaveQuoteResult> | null>(null);
   const [saveQuotePrompt, setSaveQuotePrompt] = useState("");
@@ -4894,6 +4895,18 @@ function QuoteCard({
           paymentUrl: checkout.paymentUrl,
           amountLabel,
           returnToken,
+          summary: {
+            pickupLabel: bookingDetails.pickupLabel,
+            dropoffLabel: bookingDetails.dropoffLabel,
+            tripDate: bookingDetails.tripDate,
+            tripTime: bookingDetails.tripTime,
+            returnJourney: bookingDetails.returnJourney,
+            returnDate: bookingDetails.returnDate,
+            returnTime: bookingDetails.returnTime,
+            passengers: bookingDetails.passengers,
+            suitcases: bookingDetails.suitcases,
+            vehicle: bookingDetails.vehicle,
+          },
         });
         setPaymentLoading(false);
         return;
@@ -9198,6 +9211,7 @@ function QuoteCard({
           checkoutId={embeddedCheckout.checkoutId}
           amountLabel={embeddedCheckout.amountLabel}
           hostedPaymentUrl={embeddedCheckout.paymentUrl}
+          summary={embeddedCheckout.summary}
           onPaid={() => {
             const url = new URL(buildPaymentRedirectUrl(embeddedCheckout.returnToken));
             url.searchParams.set("checkout_id", embeddedCheckout.checkoutId);
