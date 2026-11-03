@@ -7608,6 +7608,10 @@ function QuoteCard({
       <button
         type="submit"
         id="quote-book-now-button"
+        onClick={() => {
+          // Plain "Book" goes back to the normal payment default if the deposit pill was tapped earlier.
+          if (paymentMethod === PAYMENT_METHOD_DEPOSIT_CARD_BALANCE) setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH);
+        }}
         disabled={
           submitted ||
           !quoteChoicesReady ||
@@ -7892,6 +7896,10 @@ function QuoteCard({
         priceUpdating={priceUpdating}
         surchargeNote={null}
         depositNote={quoteDepositNote}
+        onDepositSelect={() => {
+          setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CARD_BALANCE);
+          setCashAgreementAccepted(false);
+        }}
         businessClassInclusions={renderBusinessClassInclusions()}
         priceUnavailable={authoritativeQuoteFailed}
         onRetryPrice={retryAuthoritativeQuote}

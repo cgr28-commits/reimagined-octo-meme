@@ -36,6 +36,8 @@ type QuoteResultShowcaseProps = {
   surchargeNote?: string | null;
   /** Pickup 30+ days away: "Secure it today for £56 (20% deposit)". */
   depositNote?: string | null;
+  /** Tapping the deposit pill: preselect "Pay a deposit" and continue like Book. */
+  onDepositSelect?: () => void;
   /** Worker quote failed. Do not show a fallback fare in the price slot. */
   priceUnavailable?: boolean;
   onRetryPrice?: () => void;
@@ -84,6 +86,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       priceUpdating = false,
       surchargeNote = null,
       depositNote = null,
+      onDepositSelect,
       priceUnavailable = false,
       onRetryPrice,
       requestQuote,
@@ -248,9 +251,12 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           )}
         </div>
         {depositNote ? (
-          <p
+          <button
+            type="submit"
             data-quote-deposit-note
-            className="mx-auto mt-2 block w-full rounded-full bg-[#2FBF4A] px-4 py-1.5 text-center text-sm font-extrabold leading-tight text-[#071C38] shadow-sm"
+            onClick={onDepositSelect}
+            aria-label={`${depositNote} — book with a deposit`}
+            className="mx-auto mt-2 block w-full rounded-full bg-[#2FBF4A] px-4 py-1.5 text-center text-sm font-extrabold leading-tight text-[#071C38] shadow-sm transition hover:brightness-105 active:brightness-95"
           >
             {(() => {
               // Two lines: "Secure your booking today for just £48" / "(20% deposit)".
@@ -263,7 +269,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
                 </>
               );
             })()}
-          </p>
+          </button>
         ) : null}
         {surchargeNote ? (
           <p className="mt-0.5 text-xs font-semibold text-navy" data-night-weekend-surcharge-badge>

@@ -313,7 +313,8 @@ async function main() {
   const card = readFileSync("src/components/QuoteCard.tsx", "utf8");
   assert.match(card, /data-card-balance-option/);
   assert.match(card, /depositNote=\{quoteDepositNote\}/, "deposit shown under the price on the quote screen");
-  assert.match(readFileSync("src/components/QuoteResultShowcase.tsx", "utf8"), /data-quote-deposit-note/);
+  assert.match(readFileSync("src/components/QuoteResultShowcase.tsx", "utf8"), /type="submit"\s+data-quote-deposit-note\s+onClick=\{onDepositSelect\}/);
+  assert.match(card, /onDepositSelect=\{\(\) => \{\s+setPaymentMethod\(PAYMENT_METHOD_DEPOSIT_CARD_BALANCE\)/, "tapping the pill preselects the deposit");
   assert.equal(cardBalanceQuoteScreenNote(56), "Secure your booking today for just £56 (20% deposit)");
   assert.match(card, /isCardBalanceDateEligible\(tripDate, tripTime\)/);
 
