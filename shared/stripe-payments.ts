@@ -213,6 +213,11 @@ export function withStripeSessionPlaceholder(url: string): string {
   }
 }
 
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function createStripeCheckoutSession(
   request: StripeCheckoutRequest,
 ): Promise<StripeCheckoutResult> {
@@ -224,10 +229,9 @@ export async function createStripeCheckoutSession(
   const manualCapture = Boolean(request.manualCapture);
   const email = request.customerEmail?.trim();
 
-  const session = await stripeRequest<StripeCheckoutSession>(
-    "POST",
-    "/checkout/sessions",
-    {
+  // Deterministic within the hour so an identical double-click sends identical params.
+  const hourBucket = Math.floor(Date.now() / 3_600_000);
+  const sessionParams: FormObject = {
       mode: "payment",
       ui_mode: "elements",
       // Owner choice: never offer these, whatever the Dashboard has switched on.
@@ -236,7 +240,7 @@ export async function createStripeCheckoutSession(
       client_reference_id: request.checkoutReference,
       ...(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? { customer_email: email } : {}),
       // Sessions can live at most 24h; quotes are re-created on demand after that.
-      expires_at: Math.floor(Date.now() / 1000) + 23 * 60 * 60,
+      expires_at: hourBucket * 3600 + 23 * 60 * 60,
       line_items: [
         {
           quantity: 1,
@@ -257,12 +261,16 @@ export async function createStripeCheckoutSession(
         metadata: { checkout_reference: request.checkoutReference },
         ...(manualCapture ? { capture_method: "manual" } : {}),
       },
-    },
-    {
-      // Guards double-clicks. Hour bucket: Stripe keeps idempotency keys for 24h but
-      // sessions expire after 23h, so a later retry must be able to get a fresh session.
-      idempotencyKey: `checkout:${request.checkoutReference}:${unitAmount}:${manualCapture ? "hold" : "pay"}:${Math.floor(Date.now() / 3_600_000)}`,
-    },
+    };
+  // Guards double-clicks only. The key includes a hash of every parameter, so a retry
+  // after "Back to your quote" (new return token, changed extras) gets a fresh session
+  // instead of Stripe rejecting a reused key with different parameters.
+  const paramsHash = await sha256Hex(JSON.stringify(sessionParams));
+  const session = await stripeRequest<StripeCheckoutSession>(
+    "POST",
+    "/checkout/sessions",
+    sessionParams,
+    { idempotencyKey: `checkout:${request.checkoutReference}:${hourBucket}:${paramsHash.slice(0, 32)}` },
   );
 
   return {
