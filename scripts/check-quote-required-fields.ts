@@ -46,7 +46,8 @@ console.log("\n=== QuoteCard uses shared messages + red field UX ===");
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.pickup/);
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.destination/);
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.dateTime/);
-  assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.flightNumber/);
+  // Flight number is optional at booking (owner, Nov 2026): no required-field message.
+  assert.doesNotMatch(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.flightNumber/);
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.terms/);
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.passengers/);
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.suitcases/);

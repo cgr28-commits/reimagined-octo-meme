@@ -158,6 +158,7 @@ function validateStructuredBookingRequest(
     returnJourney: booking.returnJourney === true,
     flightNumber: stringField(booking.flightNumber),
     returnFlightNumber: stringField(booking.returnFlightNumber),
+    allowMissing: true,
   });
   if (flightBlockers.length > 0) {
     return { ok: false, error: flightBlockers[0] };

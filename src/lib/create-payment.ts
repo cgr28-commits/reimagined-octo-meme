@@ -307,6 +307,7 @@ export async function createPaymentCheckout(
         returnJourney: Boolean(request.booking.returnJourney),
         flightNumber: request.booking.flightNumber,
         returnFlightNumber: request.booking.returnFlightNumber,
+        allowMissing: true,
       });
       if (flightBlockers.length > 0) {
         throw new Error(flightBlockers[0]);

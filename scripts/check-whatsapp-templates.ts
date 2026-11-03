@@ -98,6 +98,7 @@ assert.equal(varCount("mat_airport_pickup"), 4);
 assert.equal(varCount("mat_journey_reminder"), 4);
 assert.equal(varCount("mat_tip_request"), 1);
 assert.equal(varCount("mat_driver_arrived"), 2);
+assert.equal(varCount("mat_add_flight_number"), 3);
 assert.equal(varCount("mat_driver_arrived_airport"), 3);
 for (const def of defs.filter((d) => d.category === "UTILITY")) {
   const text = JSON.stringify(def.components);

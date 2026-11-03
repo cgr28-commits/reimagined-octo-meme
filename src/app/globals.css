@@ -303,6 +303,27 @@ main {
   }
 }
 
+/* Desktop / laptop (owner, Nov 2026): a smaller price and Book button so the
+   vehicle choice stays on screen next to them without scrolling. */
+@media (min-width: 768px) {
+  .quote-price-figure {
+    font-size: clamp(1.6rem, 2.2vw, 2rem);
+  }
+  .quote-price-panel {
+    padding: 0.75rem 1rem;
+  }
+  .quote-price-panel .mt-3 {
+    margin-top: 0.5rem;
+  }
+  .quote-price-panel .mt-4 {
+    margin-top: 0.625rem;
+  }
+  #quote-book-now-button {
+    min-height: 2.5rem;
+    font-size: 0.875rem;
+  }
+}
+
 .quote-price-label {
   font-size: 0.6875rem;
   font-weight: 650;

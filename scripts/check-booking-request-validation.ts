@@ -251,7 +251,15 @@ console.log("\n=== Reject incomplete structured requests ===");
     booking: structuredBooking({ flightNumber: "" }),
     now,
   });
-  assert.equal(missingFlight.ok, false);
+  // Owner (Nov 2026): flight number is optional at booking (added later in Manage Booking).
+  assert.equal(missingFlight.ok, true);
+  const badFlight = validateUnpaidBookingRequest({
+    customerName: "Alex Customer",
+    message: "Request",
+    booking: structuredBooking({ flightNumber: "12" }),
+    now,
+  });
+  assert.equal(badFlight.ok, false);
 
   const badVehicle = validateUnpaidBookingRequest({
     customerName: "Alex Customer",

@@ -1,5 +1,6 @@
 import { enqueueCardBalanceBooking } from "./card-balance";
-import { sendBookingConfirmedWhatsApp } from "./whatsapp-templates";
+import { sendAddFlightNumberWhatsApp, sendBookingConfirmedWhatsApp } from "./whatsapp-templates";
+import { missingAirportCollectionFlight } from "../shared/flight-lookup";
 import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
 import { recordBookingFunnelEvent } from "./booking-funnel";
 import { queueMeetGreetEmail } from "./meet-greet-upgrade-handlers";
@@ -683,6 +684,19 @@ async function finalizePaidCheckoutOnce(input: {
       dropoffLabel: booking.dropoffLabel,
       manageToken,
     });
+    // Flight number left blank at booking: ask for it with the Manage booking button.
+    const missingFlight = missingAirportCollectionFlight(booking);
+    if (missingFlight) {
+      await sendAddFlightNumberWhatsApp(env, {
+        paymentReference,
+        customerReference,
+        customerName: booking.customerName,
+        mobile: booking.mobileNumber,
+        collectionDate: missingFlight.date,
+        collectionTime: missingFlight.time,
+        manageToken,
+      });
+    }
   }
 
   // Hidden BCC of this same customer email is applied inside the customer send.

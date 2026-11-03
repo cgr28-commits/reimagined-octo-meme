@@ -224,3 +224,19 @@ check("12. Valid flight number does not change the fare", () => {
 });
 
 console.log("\nAll airport-pickup flight requirement checks passed.");
+
+// Owner (Nov 2026): flight numbers are optional at booking; a typed one must be valid,
+// and the missing collection leg is reported so we can ask for it afterwards.
+{
+  const { getAirportPickupFlightNumberBlockers: blockers, missingAirportCollectionFlight } = await import("../shared/flight-lookup");
+  const fromAirport = { fromAirport: true, isAirportTrip: true, isAirportToAirport: false };
+  if (blockers({ airportContext: fromAirport, flightNumber: "", allowMissing: true }).length !== 0) throw new Error("blank flight must not block when allowMissing");
+  if (blockers({ airportContext: fromAirport, flightNumber: "12", allowMissing: true }).length === 0) throw new Error("invalid flight must still block");
+  if (blockers({ airportContext: fromAirport, flightNumber: "" }).length === 0) throw new Error("default stays strict");
+  const missing = missingAirportCollectionFlight({ isFromAirport: true, isAirportTrip: true, flightNumber: "", tripDate: "2026-11-20", tripTime: "10:00" });
+  if (missing?.leg !== "outbound") throw new Error("outbound collection without flight is reported");
+  const ret = missingAirportCollectionFlight({ isFromAirport: false, isAirportTrip: true, returnJourney: true, returnFlightNumber: "", returnDate: "2026-11-25", returnTime: "18:00" });
+  if (ret?.leg !== "return") throw new Error("return collection without flight is reported");
+  if (missingAirportCollectionFlight({ isFromAirport: true, isAirportTrip: true, flightNumber: "BA1234" }) !== null) throw new Error("no ask when present");
+  console.log("OK  flight number optional at booking; missing collection leg detected");
+}
