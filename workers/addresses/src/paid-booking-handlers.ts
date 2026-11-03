@@ -1,3 +1,4 @@
+import { cardBalanceOwnerStatusLine } from "../shared/deposit-card-balance";
 import {
   buildCustomerConfirmationEmail,
   buildOwnerPaidBookingEmail,
@@ -469,6 +470,9 @@ export async function handlePaidBookingsListRequest(
         cashBalanceDue: booking.cashBalanceDue,
         cashCollected: booking.cashCollected === true,
         cashCollectedAt: booking.cashCollectedAt,
+        ...(booking.paymentMethod === "DEPOSIT_CARD_BALANCE"
+          ? { cardBalanceStatusLine: cardBalanceOwnerStatusLine(booking) ?? undefined }
+          : {}),
         amountRefunded: booking.amountRefunded ?? 0,
         refundDueAmount: booking.refundDueAmount ?? 0,
         refundDueReason: booking.refundDueReason,

@@ -1,3 +1,4 @@
+import type { CardBalanceState } from "./deposit-card-balance";
 import type { MeetGreetUpgrade } from "./meet-greet-upgrade";
 import type { RefundAuditEntry, PaidBookingMoneyStatus } from "./refund-ops";
 import type { DateTimeAmendmentAuditEntry } from "./booking-amendment";
@@ -72,7 +73,27 @@ export type PaidBookingAdditionalPayment = {
   paidAt: string;
   transactionId?: string;
   transactionCode?: string;
+  /** "card-balance" = the balance on a deposit booking, paid by card link before the journey. */
+  kind?: "card-balance";
+  /**
+   * Set when this payment was refunded against its own SumUp transaction (card balance),
+   * outside the main refund engine, which only refunds the booking's first transaction.
+   */
+  refundedSeparatelyAt?: string;
+  refundedSeparatelyGbp?: number;
 };
+
+/** Money refunded against extra payments' own transactions (not in amountRefunded). */
+export function separatelyRefundedExtraPaymentsGbp(
+  record: Pick<PaidBookingRecord, "additionalPayments">,
+): number {
+  return roundMoneyGbp(
+    (record.additionalPayments ?? []).reduce(
+      (sum, entry) => sum + (entry.refundedSeparatelyAt ? Number(entry.refundedSeparatelyGbp ?? entry.amount) || 0 : 0),
+      0,
+    ),
+  );
+}
 
 export type PaidBookingRecord = {
   pickupPlaceId?: string;
@@ -164,7 +185,7 @@ export type PaidBookingRecord = {
    * How the customer paid. Missing = historic full online (treat as FULL_ONLINE).
    * DEPOSIT_CASH bookings keep these figures even if admin later disables the option.
    */
-  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH" | "DEPOSIT_CARD_BALANCE";
   /** Final agreed fare after discounts and airport charges. */
   totalFare?: number;
   /** Card amount collected through SumUp (deposit or full fare). */
@@ -174,6 +195,8 @@ export type PaidBookingRecord = {
   cashCollected?: boolean;
   cashCollectedAt?: string;
   cashCollectedBy?: string;
+  /** DEPOSIT_CARD_BALANCE: card balance link / reminder / payment state. */
+  cardBalance?: CardBalanceState;
   /** Snapshot of admin settings used at checkout — never recalculated later. */
   depositPercentUsed?: number;
   depositMinimumUsed?: number;
@@ -432,7 +455,12 @@ export function netAmountRetainedOf(
   >,
 ): number {
   return roundMoneyGbp(
-    Math.max(0, grossAmountCollectedOf(record) - amountActuallyRefundedOf(record)),
+    Math.max(
+      0,
+      grossAmountCollectedOf(record) -
+        amountActuallyRefundedOf(record) -
+        separatelyRefundedExtraPaymentsGbp(record),
+    ),
   );
 }
 

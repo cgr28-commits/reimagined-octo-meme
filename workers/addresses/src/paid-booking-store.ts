@@ -808,6 +808,7 @@ export type PaidBookingUpdateFields = Partial<
     | "cashCollected"
     | "cashCollectedAt"
     | "cashCollectedBy"
+    | "cardBalance"
   >
 >;
 
@@ -848,7 +849,8 @@ export async function updatePaidBookingFields(
         field === "dateTimeAmendmentCount" ||
         field === "amendmentHistory" ||
         field === "pendingAmendment" ||
-        field === "additionalPayments"
+        field === "additionalPayments" ||
+        field === "cardBalance"
       ) {
         continue;
       }

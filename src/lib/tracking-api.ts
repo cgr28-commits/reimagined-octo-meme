@@ -334,7 +334,7 @@ export type DriverJob = PublicTrackResponse & {
   dublinArrivalTerminal?: "T1" | "T2" | null;
   journeyLeg?: "outbound" | "return" | null;
   flight?: DriverFlight | null;
-  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH" | "DEPOSIT_CARD_BALANCE";
   cashBalanceDue?: number;
   cashCollected?: boolean;
   cashCollectedAt?: string;

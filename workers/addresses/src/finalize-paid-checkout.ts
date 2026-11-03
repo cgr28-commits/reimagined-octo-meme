@@ -1,3 +1,4 @@
+import { enqueueCardBalanceBooking } from "./card-balance";
 import { sendBookingConfirmedWhatsApp } from "./whatsapp-templates";
 import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
 import { recordBookingFunnelEvent } from "./booking-funnel";
@@ -145,10 +146,11 @@ function depositSnapshotFromPending(pending: {
   depositMinimumUsed?: number;
   amount?: number;
 } | null): {
-  paymentMethod: "FULL_ONLINE" | "DEPOSIT_CASH";
+  paymentMethod: "FULL_ONLINE" | "DEPOSIT_CASH" | "DEPOSIT_CARD_BALANCE";
   totalFare: number;
   onlineAmountPaid: number;
   cashBalanceDue: number;
+  cardBalanceDue?: number;
   depositPercentUsed?: number;
   depositMinimumUsed?: number;
 } | null {
@@ -168,6 +170,20 @@ function depositSnapshotFromPending(pending: {
         : {}),
       ...(typeof pending.depositMinimumUsed === "number"
         ? { depositMinimumUsed: pending.depositMinimumUsed }
+        : {}),
+    };
+  }
+  if (pending.paymentMethod === "DEPOSIT_CARD_BALANCE") {
+    const totalFare = Number(pending.totalFare);
+    if (!(totalFare > 0) || !(charged > 0)) return null;
+    return {
+      paymentMethod: "DEPOSIT_CARD_BALANCE",
+      totalFare,
+      onlineAmountPaid: charged,
+      cashBalanceDue: 0,
+      cardBalanceDue: Math.max(0, Math.round((totalFare - charged) * 100) / 100),
+      ...(typeof pending.depositPercentUsed === "number"
+        ? { depositPercentUsed: pending.depositPercentUsed }
         : {}),
     };
   }
@@ -502,6 +518,9 @@ async function finalizePaidCheckoutOnce(input: {
           totalFare: depositSnapshot.totalFare,
           onlineAmountPaid: depositSnapshot.onlineAmountPaid,
           cashBalanceDue: depositSnapshot.cashBalanceDue,
+          ...(typeof depositSnapshot.cardBalanceDue === "number"
+            ? { cardBalanceDue: depositSnapshot.cardBalanceDue }
+            : {}),
         }
       : {}),
   };
@@ -557,6 +576,9 @@ async function finalizePaidCheckoutOnce(input: {
               cashBalanceDue: depositSnapshot.cashBalanceDue,
               depositPercentUsed: depositSnapshot.depositPercentUsed,
               depositMinimumUsed: depositSnapshot.depositMinimumUsed,
+              ...(typeof depositSnapshot.cardBalanceDue === "number"
+                ? { cardBalanceDue: depositSnapshot.cardBalanceDue }
+                : {}),
             }
           : {}),
         trackingToken: tracking.token,
@@ -573,6 +595,18 @@ async function finalizePaidCheckoutOnce(input: {
           : {}),
       })
     : undefined;
+
+  if (
+    depositSnapshot?.paymentMethod === "DEPOSIT_CARD_BALANCE" &&
+    paidBookingStoreConfigured(env.TRACKING_STORE) &&
+    paymentReference
+  ) {
+    try {
+      await enqueueCardBalanceBooking(env.TRACKING_STORE, paymentReference);
+    } catch (error) {
+      console.error("Card balance enqueue failed", error instanceof Error ? error.message : error);
+    }
+  }
 
   if (
     paidBookingStoreConfigured(env.TRACKING_STORE) &&

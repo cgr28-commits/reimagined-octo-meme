@@ -51,6 +51,8 @@ export type PendingCheckoutRecord = {
    * Finalize must amend the existing booking — never create a new journey.
    */
   checkoutKind?: "booking" | "amendment-topup" | "refund-test";
+  /** DEPOSIT_CARD_BALANCE: balance due by card later (snapshot at booking). */
+  cardBalanceDue?: number;
   /** Existing paid booking payment reference being amended. */
   amendmentBookingPaymentReference?: string;
   amendmentId?: string;
@@ -61,7 +63,7 @@ export type PendingCheckoutRecord = {
    * Deposit + Cash snapshot. amount = SumUp charge (deposit or full).
    * totalFare is the agreed booking fare. Never rewrite from later admin settings.
    */
-  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH";
+  paymentMethod?: "FULL_ONLINE" | "DEPOSIT_CASH" | "DEPOSIT_CARD_BALANCE";
   totalFare?: number;
   onlineAmountPaid?: number;
   cashBalanceDue?: number;

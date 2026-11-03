@@ -37,6 +37,14 @@ import {
   resolveExpressDropOff,
 } from "../../../shared/express-drop-off";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
+import CardBalancePaymentChoice from "@/components/CardBalancePaymentChoice";
+import {
+  CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE,
+  calculateCardBalanceQuote,
+  cardBalanceDueDateLabel,
+  cardBalancePayButtonLabel,
+  isCardBalanceDateEligible,
+} from "../../../shared/deposit-card-balance";
 import ShortNoticeCheckoutNotice, {
   MinibusNoticeCheckoutNotice,
   ShortNoticePaymentFollowUp,
@@ -93,6 +101,8 @@ function BookQuoteInner() {
   const [flightNumber, setFlightNumber] = useState("");
   const [returnFlightNumber, setReturnFlightNumber] = useState("");
   const [tripDate, setTripDate] = useState("");
+  const [payDeposit, setPayDeposit] = useState(false);
+  const [cardBalanceAgreed, setCardBalanceAgreed] = useState(false);
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [returnTime, setReturnTime] = useState("");
@@ -294,6 +304,12 @@ function BookQuoteInner() {
     !isCustomerSmartAvailabilityBlockMessage(error) &&
     !isOwnerNoAvailabilityMessage(error);
   const isAvailabilityRequest = isMinimumNoticeRequest || isMinibusNoticeRequest;
+  // Pay a deposit now, balance by card 7 days before (pickup 30+ days away).
+  const cardBalanceOffer =
+    displayPricing && !isAvailabilityRequest && isCardBalanceDateEligible(tripDate, tripTime)
+      ? calculateCardBalanceQuote(displayPricing.totalGbp)
+      : null;
+  const depositChosen = Boolean(cardBalanceOffer?.eligible && payDeposit);
   const booking = useMemo((): BookingDetails | null => {
     if (!quote || !journey || !displayPricing) return null;
     return {
@@ -410,6 +426,11 @@ function BookQuoteInner() {
       return;
     }
 
+    if (depositChosen && !cardBalanceAgreed) {
+      setError(CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE);
+      return;
+    }
+
     setPaying(true);
     try {
       const returnToken = createPaymentReturnToken();
@@ -423,6 +444,9 @@ function BookQuoteInner() {
         expressDropOffSelected: expressSelection.eligible
           ? expressDropOffSelected
           : false,
+        ...(depositChosen
+          ? { paymentMethod: "DEPOSIT_CARD_BALANCE" as const, cardBalanceAgreementAccepted: true }
+          : {}),
       });
       if (checkout.shortNotice && checkout.reference && checkout.whatsappUrl) {
         setShortNoticeResult({
@@ -790,9 +814,27 @@ function BookQuoteInner() {
               Your transfer is reserved for your selected pickup time.
             </p>
           )}
+          {cardBalanceOffer?.eligible ? (
+            <CardBalancePaymentChoice
+              offer={cardBalanceOffer}
+              dueDateLabel={cardBalanceDueDateLabel(tripDate, tripTime)}
+              depositSelected={payDeposit}
+              agreementAccepted={cardBalanceAgreed}
+              disabled={paying}
+              onSelectDeposit={(deposit) => {
+                setPayDeposit(deposit);
+                if (!deposit) setCardBalanceAgreed(false);
+                setError((prev) => (prev === CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE ? "" : prev));
+              }}
+              onAgreementChange={(accepted) => {
+                setCardBalanceAgreed(accepted);
+                if (accepted) setError((prev) => (prev === CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE ? "" : prev));
+              }}
+            />
+          ) : null}
           <button
             type="button"
-            disabled={paying || repricing}
+            disabled={paying || repricing || (depositChosen && !cardBalanceAgreed)}
             onClick={() => void pay()}
             className="min-h-12 w-full max-w-full break-words rounded-xl bg-emerald px-4 py-3 text-base font-semibold leading-snug text-navy disabled:opacity-50"
           >
@@ -812,7 +854,9 @@ function BookQuoteInner() {
                       ? formatQuickQuoteAmount(displayPricing.totalGbp)
                       : quote.quotedAmountLabel
                   }`
-                : `Confirm Booking & Pay ${
+                : depositChosen && cardBalanceOffer
+                  ? cardBalancePayButtonLabel(cardBalanceOffer.depositGbp)
+                  : `Confirm Booking & Pay ${
                     displayPricing
                       ? formatQuickQuoteAmount(displayPricing.totalGbp)
                       : quote.quotedAmountLabel

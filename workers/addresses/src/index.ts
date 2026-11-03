@@ -93,6 +93,12 @@ import {
   type DepositCashSnapshot,
 } from "../shared/deposit-cash";
 import {
+  CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE,
+  PAYMENT_METHOD_DEPOSIT_CARD_BALANCE,
+  calculateCardBalanceQuote,
+  isCardBalanceDateEligible,
+} from "../shared/deposit-card-balance";
+import {
   getAirportPickupFlightNumberBlockers,
   lookupFlight,
   type TripDirection,
@@ -320,6 +326,7 @@ import {
   handleRefundDiagnosticsRequest,
   handleRefundRequest,
   isRefundDiagnosticsPath,
+  processBookingRefundOrCancel,
 } from "./refund-handlers";
 import {
   handleAdFraudAdminSummaryRequest,
@@ -412,6 +419,12 @@ import {
 import { backfillCustomerBookingIndex } from "./customer-account-backfill";
 import { handleGoogleReviewSummary, refreshGoogleReviewSummary } from "./google-reviews";
 import { enqueueQuoteContactFollowUp, processQuoteContactFollowUps } from "./quote-contact-followup";
+import {
+  confirmCardBalanceWebhook,
+  handleCardBalancePay,
+  handleCardBalanceReturn,
+  processCardBalanceQueue,
+} from "./card-balance";
 import {
   handleOwnerEmailCustomer,
   handleOwnerEmailCustomerDraft,
@@ -2115,6 +2128,9 @@ async function handlePaymentRequest(
   const returnOfferToken = String(body.returnOfferToken ?? "").trim() || undefined;
   let returnOfferOriginalPaymentReference: string | undefined;
   let depositSnapshot: DepositCashSnapshot | undefined;
+  let cardBalanceSnapshot:
+    | { totalFare: number; depositGbp: number; balanceGbp: number; percentUsed: number }
+    | undefined;
 
   // Approved short-notice pay: amount + journey locked server-side (ignore client fare).
   if (shortNoticeToken) {
@@ -3282,6 +3298,42 @@ async function handlePaymentRequest(
         }
       }
     }
+
+    // Deposit now, balance by card link 7 days before (journeys 30+ days ahead).
+    if (
+      !depositSnapshot &&
+      !shortNoticeToken &&
+      !a2aQuoteToken &&
+      !personalQuoteCode &&
+      String(body.paymentMethod ?? "").trim() === PAYMENT_METHOD_DEPOSIT_CARD_BALANCE
+    ) {
+      if (body.cardBalanceAgreementAccepted !== true) {
+        return json(
+          { error: CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE, code: "card_balance_agreement_required" },
+          400,
+          origin,
+        );
+      }
+      const quote = calculateCardBalanceQuote(amount);
+      if (!booking || !quote.eligible || !isCardBalanceDateEligible(booking.tripDate, booking.tripTime)) {
+        return json(
+          {
+            error:
+              "A deposit isn't available for this booking. Please choose Pay in Full, or contact us for help.",
+            code: "card_balance_unavailable",
+          },
+          409,
+          origin,
+        );
+      }
+      cardBalanceSnapshot = {
+        totalFare: quote.totalFare,
+        depositGbp: quote.depositGbp,
+        balanceGbp: quote.balanceGbp,
+        percentUsed: quote.percentUsed,
+      };
+      amount = quote.depositGbp;
+    }
   }
 
   if (!Number.isFinite(amount) || amount < 1 || amount > 5000) {
@@ -3582,7 +3634,9 @@ async function handlePaymentRequest(
         : "Airport taxi booking");
     const depositPayDescription = depositSnapshot
       ? `Deposit ${formatPaidAmount(depositSnapshot.onlineAmountPaid)} of ${formatPaidAmount(depositSnapshot.totalFare)} — ${payDescription}`
-      : payDescription;
+      : cardBalanceSnapshot
+        ? `Deposit ${formatPaidAmount(cardBalanceSnapshot.depositGbp)} of ${formatPaidAmount(cardBalanceSnapshot.totalFare)} — ${payDescription}`
+        : payDescription;
     const sumUpDescription = buildSumUpCheckoutDescription(
       depositPayDescription,
       booking,
@@ -3756,12 +3810,21 @@ async function handlePaymentRequest(
             depositPercentUsed: depositSnapshot.depositPercentUsed,
             depositMinimumUsed: depositSnapshot.depositMinimumUsed,
           }
-        : {
-            paymentMethod: PAYMENT_METHOD_FULL_ONLINE,
-            totalFare: Math.round(amount * 100) / 100,
-            onlineAmountPaid: Math.round(amount * 100) / 100,
-            cashBalanceDue: 0,
-          }),
+        : cardBalanceSnapshot
+          ? {
+              paymentMethod: PAYMENT_METHOD_DEPOSIT_CARD_BALANCE,
+              totalFare: cardBalanceSnapshot.totalFare,
+              onlineAmountPaid: cardBalanceSnapshot.depositGbp,
+              cashBalanceDue: 0,
+              cardBalanceDue: cardBalanceSnapshot.balanceGbp,
+              depositPercentUsed: cardBalanceSnapshot.percentUsed,
+            }
+          : {
+              paymentMethod: PAYMENT_METHOD_FULL_ONLINE,
+              totalFare: Math.round(amount * 100) / 100,
+              onlineAmountPaid: Math.round(amount * 100) / 100,
+              cashBalanceDue: 0,
+            }),
     });
 
     if (quickQuoteId) {
@@ -3915,6 +3978,9 @@ async function handlePaymentWebhookRequest(
     const meetGreetWebhook = await confirmMeetGreetWebhook(env, checkoutId);
     if (meetGreetWebhook === "retry") return json({ ok: false }, 503, origin);
     if (meetGreetWebhook === "done") return json({ ok: true }, 200, origin);
+    const balanceWebhook = await confirmCardBalanceWebhook(env, checkoutId);
+    if (balanceWebhook === "retry") return json({ ok: false }, 503, origin);
+    if (balanceWebhook === "done") return json({ ok: true }, 200, origin);
     const tipWebhook = await confirmJourneyTipWebhook(env, checkoutId);
     if (tipWebhook === "retry") {
       return json({ ok: false }, 503, origin);
@@ -4201,6 +4267,13 @@ export default {
     // Resend "email.received" webhook for the owner inbox (server-to-server, signature checked).
     if (url.pathname === "/inbound/resend" && request.method === "POST") {
       return handleResendInboundWebhook(request, env);
+    }
+    // Deposit bookings: customer pay link for the card balance + SumUp return.
+    if (url.pathname === "/card-balance/pay" && request.method === "GET") {
+      return handleCardBalancePay(request, env);
+    }
+    if (url.pathname === "/card-balance/return" && request.method === "GET") {
+      return handleCardBalanceReturn(request, env);
     }
     // Google Ads scheduled conversion upload (server-to-server, HTTP Basic auth).
     if (url.pathname === "/ads/paid-bookings.csv" && (request.method === "GET" || request.method === "HEAD")) {
@@ -5938,6 +6011,35 @@ export default {
     }
 
     if (!shouldRunHourlyScheduledJobs(cron)) return;
+
+    // Deposit bookings: balance links, reminders, payments and automatic cancellation.
+    if (env.TRACKING_STORE) {
+      ctx.waitUntil(
+        processCardBalanceQueue(env, async ({ paymentReference, customerFacingReason, ownerNotes }) => {
+          const ownerKey = env.OWNER_ACCESS_KEY?.trim() || env.DRIVER_ACCESS_KEY?.trim() || "";
+          const result = await processBookingRefundOrCancel(env, {
+            paymentReference,
+            cancelBooking: true,
+            refundFullRemaining: false,
+            amount: 0,
+            actionKind: "cancel_no_refund",
+            reasonCategory: "other",
+            ownerNotes,
+            customerFacingReason,
+            idempotencyKey: `card-balance-unpaid-${paymentReference}`,
+            confirmOwnerKey: ownerKey,
+            initiatedBy: "owner",
+          });
+          return { ok: result.ok, error: result.error };
+        }, new Date(event.scheduledTime))
+          .then((result) => {
+            if (result.linksSent || result.reminders || result.paid || result.cancelled || result.errors) {
+              console.log("Card balance cron", JSON.stringify(result));
+            }
+          })
+          .catch((error) => console.error("Card balance cron failed", error)),
+      );
+    }
 
     // Google rating + review count for the website badge (refreshes about once a day).
     ctx.waitUntil(

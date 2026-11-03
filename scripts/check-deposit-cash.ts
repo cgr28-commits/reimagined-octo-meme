@@ -272,7 +272,7 @@ check("disabled or ineligible Deposit + Cash keeps existing full-online pay beha
   );
   assert.match(
     card,
-    /\.\.\.\(showDepositCashChoice\s*\n\s+\? \{\s*\n\s+paymentMethod,/,
+    /\.\.\.\(showPaymentChoice\s*\n\s+\? \{\s*\n\s+paymentMethod: effectivePaymentMethod,/,
   );
   const payments = read("workers/addresses/src/index.ts");
   assert.match(payments, /settings\.depositCash\.enabled === true/);
