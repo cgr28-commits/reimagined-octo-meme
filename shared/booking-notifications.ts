@@ -984,7 +984,7 @@ export function buildOwnerPaidBookingEmail(
         ? `Payment method: DEPOSIT + CARD BALANCE\n` +
           `Booking total: ${cardBalanceReceiptDetails(details)!.totalFareLabel}\n` +
           `Deposit paid: ${cardBalanceReceiptDetails(details)!.depositPaidLabel}\n` +
-          `Card balance due: ${cardBalanceReceiptDetails(details)!.balanceLabel} — link emailed to customer ${cardBalanceReceiptDetails(details)!.dueDateLabel}; auto-cancels (deposit kept) 3 days before pickup if unpaid\n`
+          `Card balance due: ${cardBalanceReceiptDetails(details)!.balanceLabel} — link emailed to customer ${cardBalanceReceiptDetails(details)!.dueDateLabel}; auto-cancels (deposit refunded) 3 days before pickup if unpaid\n`
         : `Amount paid: ${details.amountPaid}\n`) +
     (details.customerReference
       ? `Customer booking reference: ${details.customerReference.trim().toUpperCase()}\n`

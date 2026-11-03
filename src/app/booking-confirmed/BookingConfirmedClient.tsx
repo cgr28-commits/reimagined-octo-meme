@@ -260,7 +260,7 @@ export default function BookingConfirmedClient() {
             ) : null}
             <p className="mt-1 text-sm text-white/85">Balance by card: {formatGbpAmountExact(cardBalanceGbp)}</p>
             <p className="mt-3 text-sm leading-relaxed text-white">
-              We&apos;ll email you a secure link to pay the balance 7 days before your journey. If it isn&apos;t paid 3 days before pickup, the booking is cancelled and the deposit kept.
+              We&apos;ll email you a secure link to pay the balance 7 days before your journey. If it isn&apos;t paid 3 days before pickup, the booking is cancelled and your deposit refunded in full.
             </p>
           </div>
         ) : null}
