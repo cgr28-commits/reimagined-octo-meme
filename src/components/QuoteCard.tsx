@@ -233,6 +233,7 @@ import { DEFAULT_SAVE_QUOTE_SETTINGS, normalizeSaveQuoteSettings } from "../../s
 import type { SavedQuotePublicSummary } from "../../shared/saved-quote";
 import { resolveWorkerBaseUrl as savedQuoteWorkerBaseUrl } from "@/lib/worker-api";
 import SaveQuoteModal from "@/components/SaveQuoteModal";
+import SumUpEmbeddedPayment, { embeddedPaymentPreviewEnabled } from "@/components/SumUpEmbeddedPayment";
 
 import QuoteAirportBenefits from "@/components/QuoteAirportBenefits";
 import QuoteResultShowcase, {
@@ -1018,6 +1019,12 @@ function QuoteCard({
     return () => controller.abort();
   }, []);
   const [saveQuoteOpen, setSaveQuoteOpen] = useState(false);
+  const [embeddedCheckout, setEmbeddedCheckout] = useState<{
+    checkoutId: string;
+    paymentUrl: string;
+    amountLabel: string;
+    returnToken?: string;
+  } | null>(null);
   const [initialWhatsAppRequest, setInitialWhatsAppRequest] = useState<Promise<SaveQuoteResult> | null>(null);
   const [saveQuotePrompt, setSaveQuotePrompt] = useState("");
   const [journeyIntent, setJourneyIntent] = useState<QuoteJourneyIntent | null>(() =>
@@ -4877,6 +4884,19 @@ function QuoteCard({
               : paymentAmount ?? liveQuote.amount,
           currency: "GBP",
         }).catch(() => false);
+      }
+
+      // Preview: card form inside the site (SumUp Payment Widget) instead of SumUp's page.
+      if (embeddedPaymentPreviewEnabled()) {
+        notifyOwnerQuoteContactIfReady("payment_opened");
+        setEmbeddedCheckout({
+          checkoutId: checkout.checkoutId,
+          paymentUrl: checkout.paymentUrl,
+          amountLabel,
+          returnToken,
+        });
+        setPaymentLoading(false);
+        return;
       }
 
       const isMobile = isMobileDevice ?? detectMobileDevice();
@@ -9173,6 +9193,20 @@ function QuoteCard({
         Original quote: {restoredQuote.amountLabel}. {authoritativeFareReady && pricedFare ?
           Math.abs(pricedFare.totalGbp + (bookingMeetGreetSelected ? bookingMeetGreetPrice : 0) - restoredQuote.amount) >= 0.01 ? `Your current fare has changed to ${formatQuote(pricedFare.totalGbp + (bookingMeetGreetSelected ? bookingMeetGreetPrice : 0))}.` : "Your recalculated fare is unchanged." : !tripDate || !tripTime ? "Choose your pickup date and time to recalculate." : "Recalculating your fare…"}
       </p>}
+      {embeddedCheckout ? (
+        <SumUpEmbeddedPayment
+          checkoutId={embeddedCheckout.checkoutId}
+          amountLabel={embeddedCheckout.amountLabel}
+          hostedPaymentUrl={embeddedCheckout.paymentUrl}
+          onPaid={() => {
+            const url = new URL(buildPaymentRedirectUrl(embeddedCheckout.returnToken));
+            url.searchParams.set("checkout_id", embeddedCheckout.checkoutId);
+            paymentNavigating.current = true;
+            window.location.assign(url.toString());
+          }}
+          onClose={() => setEmbeddedCheckout(null)}
+        />
+      ) : null}
       <SaveQuoteModal
         initialWhatsAppRequest={initialWhatsAppRequest}
         settings={saveQuoteSettings}
