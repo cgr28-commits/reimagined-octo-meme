@@ -87,7 +87,7 @@ try {
   const q=await quote(base,width),{page,card}=q;
   assert.match(await card.innerText(),/£68/);
   const visible=card.locator('[data-quote-changing-info]');
-  assert.match(await visible.innerText(),/Cancel 24\+ hours before pickup for a 100% refund\./);
+  assert.doesNotMatch(await visible.innerText(),/Cancel 24\+ hours before pickup for a 100% refund/);
   assert.match(await visible.innerText(),/Fixed Fares · Secure Booking/);
   assert.doesNotMatch(await visible.innerText(),/Complimentary Waiting Time/);
   assert.doesNotMatch(await visible.innerText(),/Terminal pick-up included|60 Minutes Airport Waiting|Your own pre-booked transfer/);

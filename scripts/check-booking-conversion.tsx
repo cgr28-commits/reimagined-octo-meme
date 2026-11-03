@@ -26,7 +26,8 @@ assert.equal(publicDepositCashOffer(68, {...settings, enabled:false}).eligible, 
 assert.equal(calculateDepositCashQuote(100,{...settings,percent:30}).depositGbp,30);
 assert.equal(calculateDepositCashQuote(68,{...settings,minimumGbp:25}).depositGbp,25);
 const reassurance = renderToStaticMarkup(<QuoteReassurance hasAirportCollection />);
-assert.match(reassurance, /Cancel 24\+ hours before pickup for a 100% refund\./);
+assert.doesNotMatch(reassurance, /Cancel 24\+ hours before pickup for a 100% refund/);
+assert.match(reassurance, /Free Cancellation — 24\+ Hours Notice/);
 assert.match(reassurance, /60 Minutes Complimentary Waiting Time/);
 assert.doesNotMatch(renderToStaticMarkup(<QuoteReassurance />), /Complimentary Waiting Time/);
 for (const paid of [15,68]) assert.equal(remainingRefundableBalance(paid,0),paid);

@@ -249,6 +249,7 @@ import { resolveWorkerBaseUrl as savedQuoteWorkerBaseUrl } from "@/lib/worker-ap
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 
 import QuoteAirportBenefits from "@/components/QuoteAirportBenefits";
+import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import QuoteResultShowcase, {
   preloadQuoteResultVehicleImages,
 } from "@/components/QuoteResultShowcase";
@@ -440,16 +441,16 @@ const BUSINESS_CLASS_PICKUP_INCLUSIONS = [
   "Meet & Greet inside arrivals",
   "Personalised name board",
   "Luggage assistance",
-  "Complimentary bottled water",
+  "Bottled water",
   "Phone charging",
-  "Airport terminal access included",
+  "Terminal access included",
 ] as const;
 
 const BUSINESS_CLASS_DROPOFF_INCLUSIONS = [
   "Luggage assistance",
-  "Complimentary bottled water",
+  "Bottled water",
   "Phone charging",
-  "Airport terminal access included",
+  "Terminal access included",
 ] as const;
 
 const SELECTOR_MAX_SUITCASES = MAX_PUBLIC_SUITCASES;
@@ -6418,14 +6419,14 @@ function QuoteCard({
         data-business-class-inclusions={forLayout ? undefined : true}
         data-business-class-pickup={forLayout ? undefined : hasPickup ? "true" : "false"}
       >
-        <p className="text-sm font-bold text-navy">Included with Business Class</p>
-        <ul className="mt-1.5 grid grid-cols-1 gap-y-1 min-[390px]:grid-cols-2 min-[390px]:gap-x-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-navy">Included with Business Class</p>
+        <ul className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1.5">
           {items.map((item) => (
-            <li key={item} className="text-xs font-medium leading-snug text-navy">
-              <span className="text-[#147a2a]" aria-hidden>
-                ✓{" "}
+            <li key={item} className="flex items-start gap-1.5 text-xs font-medium leading-tight text-navy">
+              <span className="mt-px shrink-0 font-bold text-[#147a2a]" aria-hidden>
+                ✓
               </span>
-              {item}
+              <span className="min-w-0">{item}</span>
             </li>
           ))}
         </ul>
@@ -7896,6 +7897,7 @@ function QuoteCard({
         priceUpdating={priceUpdating}
         surchargeNote={null}
         depositNote={quoteDepositNote}
+        trustBadge={<GoogleReviewsBadge className="!px-2.5 !py-1 !text-xs" />}
         onDepositSelect={() => {
           setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CARD_BALANCE);
           setCashAgreementAccepted(false);
