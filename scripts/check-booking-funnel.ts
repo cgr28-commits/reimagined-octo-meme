@@ -61,7 +61,7 @@ async function main() {
  assert.equal(summary.paid,0,'Booking requests are not paid bookings');
  // Walk every stage using a fixed clock; a later-arriving earlier stage cannot undo payment.
  const stages = ['booking_started', 'details_opened', 'details_submitted', 'payment_opened', 'paid'] as const;
- const labels = ['Booking started', 'Contact stage opened', 'Details submitted', 'SumUp opened', 'Payment confirmed'];
+ const labels = ['Booking started', 'Contact stage opened', 'Details submitted', 'Payment page opened', 'Payment confirmed'];
  const eventTimes: Partial<Record<typeof stages[number], string>> = {};
  for (const [index, stage] of stages.entries()) {
    eventTimes[stage] = now.toISOString();
