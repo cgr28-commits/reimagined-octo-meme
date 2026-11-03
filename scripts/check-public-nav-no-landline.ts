@@ -50,14 +50,17 @@ assert.doesNotMatch(mobileNav, /07549 815538/);
 assert.doesNotMatch(mobileNav, /07549 815538/);
 assert.doesNotMatch(header, /href=\{`tel:\$\{SITE\.landline\}`\}/);
 assert.doesNotMatch(header, /Call \{SITE\.landlineDisplay\}/);
+// Owner request (Nov 2026): office landline in the desktop header and a mobile Call button.
+assert.match(header, /data-header-call[\s\S]*SITE\.officeLandlineDisplay/);
+assert.match(header, /data-mobile-header-call/);
+assert.match(data, /officeLandline:\s*"\+442896022952"/);
 
 const desktopCtasStart = header.indexOf("Desktop/laptop CTAs");
 assert.ok(desktopCtasStart > 0);
 const desktopCtas = header.slice(desktopCtasStart, header.indexOf("Mobile only", desktopCtasStart));
 assert.match(desktopCtas, /Get a Quote/);
 assert.match(desktopCtas, /Manage Your Booking/);
-assert.doesNotMatch(desktopCtas, /tel:/);
-assert.doesNotMatch(desktopCtas, /Call /);
+assert.match(desktopCtas, /tel:\$\{SITE\.officeLandline\}/);
 console.log("OK  mobile + desktop nav keep Quote / WhatsApp / Contact / Manage Booking; no Call CTA");
 
 assert.match(footer, /tel:\$\{SITE\.landline\}/);
