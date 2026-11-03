@@ -102,7 +102,8 @@ for (const price of ["£41", "£65", "£123.45"]) {
 }
 const html = visibleCardMarkup(renderCard());
 assert.doesNotMatch(html, /Your own pre-booked transfer|60 Minutes Airport Waiting|Terminal pick-up included/);
-assert.match(html, /100% refund/);
+assert.doesNotMatch(html, /Cancel 24\+ hours before pickup for a 100% refund/);
+assert.match(html, /Free Cancellation — 24\+ Hours Notice/);
 assert.match(html, /60 Minutes Complimentary Waiting Time/);
 assert.doesNotMatch(html, /Convenient collection|Convenient drop-off/);
 assert.ok(html.indexOf("60 Minutes Complimentary Waiting Time") < html.indexOf("£54"));
